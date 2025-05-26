@@ -8,3 +8,7 @@ Picoware leverages the [PicoGUI](https://github.com/jblanked/PicoGUI), [pico-gam
 
 * [Flipper Zero Video Game Module](https://shop.flipperzero.one/products/video-game-module-for-flipper-zero)
 * [PicoCalc Kit](https://www.clockworkpi.com/product-page/picocalc)
+
+### Related Videos
+
+* JBlanked: [https://www.youtube.com/watch?v=VUIrCP-wDYw](https://www.youtube.com/watch?v=VUIrCP-wDYw)

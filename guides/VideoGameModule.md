@@ -3,4 +3,4 @@ The Video Game Module is a device by Flipper Devices, released in 2024. Initiall
 
 
 ### Flipper Zero App
-The Flipper Zero app lets you use the D-pad as input for games built with the engine. Install it directly on your Flipper Zero from https://lab.flipper.net/apps/vgm_game_remote
+The Flipper Zero app lets you use the D-pad as input. Install it directly on your Flipper Zero from https://lab.flipper.net/apps/vgm_game_remote

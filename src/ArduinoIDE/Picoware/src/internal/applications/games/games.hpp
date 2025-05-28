@@ -9,6 +9,7 @@
 #include "../../../internal/applications/games/flightassault/flightassault.hpp"
 #include "../../../internal/applications/games/flipworld/flipworld.hpp"
 #include "../../../internal/applications/games/furiousbirds/furiousbirds.hpp"
+#include "../../../internal/applications/games/labyrinth/labyrinth.hpp"
 #include "../../../internal/applications/games/pong/pong.hpp"
 #include "../../../internal/applications/games/tetris/tetris.hpp"
 #include "../../../internal/applications/games/trexrunner/trexrunner.hpp"
@@ -41,6 +42,7 @@ static void gamesStart(ViewManager *viewManager)
     games->addItem("Flight Assault");
     games->addItem("FlipWorld");
     games->addItem("Furious Birds");
+    games->addItem("Labyrinth");
     games->addItem("Pong");
     games->addItem("Tetris");
     games->addItem("T-Rex Runner");
@@ -136,7 +138,16 @@ static void gamesRun(ViewManager *viewManager)
             viewManager->switchTo("Furious Birds");
             break;
         }
-        case 6: // if index is 6, show pong
+        case 6: // if index is 6, show labyrinth
+        {
+            if (viewManager->getView("Labyrinth") == nullptr)
+            {
+                viewManager->add(&labyrinthView);
+            }
+            viewManager->switchTo("Labyrinth");
+            break;
+        }
+        case 7: // if index is 7, show pong
         {
             if (viewManager->getView("Pong") == nullptr)
             {
@@ -145,7 +156,7 @@ static void gamesRun(ViewManager *viewManager)
             viewManager->switchTo("Pong");
             break;
         }
-        case 7: // if index is 7, show tetris
+        case 8: // if index is 8, show tetris
         {
             if (viewManager->getView("Tetris") == nullptr)
             {
@@ -154,7 +165,7 @@ static void gamesRun(ViewManager *viewManager)
             viewManager->switchTo("Tetris");
             break;
         }
-        case 8: // if index is 8, show t-rex runner
+        case 9: // if index is 9, show t-rex runner
         {
             if (viewManager->getView("T-Rex Runner") == nullptr)
             {

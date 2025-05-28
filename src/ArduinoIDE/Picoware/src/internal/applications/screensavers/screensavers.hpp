@@ -2,6 +2,7 @@
 #include "../../../internal/gui/menu.hpp"
 #include "../../../internal/system/view.hpp"
 #include "../../../internal/system/view_manager.hpp"
+#include "../../../internal/applications/screensavers/cube/cube.hpp"
 #include "../../../internal/applications/screensavers/spiro/spiro.hpp"
 #include "../../../internal/applications/screensavers/starfield/starfield.hpp"
 using namespace Picoware;
@@ -27,8 +28,10 @@ static void screensaversStart(ViewManager *viewManager)
         2                                  // border/separator width
     );
 
+    screensavers->addItem("Cube");
     screensavers->addItem("Spiro");
 
+    // put at the bottom of the list for correct indexing
     if (viewManager->getBoard().boardType != BOARD_TYPE_VGM)
         screensavers->addItem("Starfield");
 
@@ -58,7 +61,16 @@ static void screensaversRun(ViewManager *viewManager)
     case BUTTON_CENTER:
         switch (screensavers->getSelectedIndex())
         {
-        case 0: // if index is 0, show spiro
+        case 0: // if index is 0, show cube
+        {
+            if (viewManager->getView("Cube") == nullptr)
+            {
+                viewManager->add(&cubeView);
+            }
+            viewManager->switchTo("Cube");
+            break;
+        }
+        case 1: // if index is 1, show spiro
         {
             if (viewManager->getView("Spiro") == nullptr)
             {
@@ -67,7 +79,7 @@ static void screensaversRun(ViewManager *viewManager)
             viewManager->switchTo("Spiro");
             break;
         }
-        case 1: // if index is 0, show starfield
+        case 2: // if index is 2, show starfield
         {
             if (viewManager->getView("Starfield") == nullptr)
             {

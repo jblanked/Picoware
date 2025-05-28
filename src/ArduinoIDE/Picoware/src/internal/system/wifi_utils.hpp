@@ -43,11 +43,12 @@ namespace Picoware
         String getConnectedPassword() const noexcept { return connectedPassword; } // Get the password of the connected network
         WiFiConnectionState getConnectionState();                                  // Get current connection state for async operations
         bool updateConnection();                                                   // Update async connection - call this in your main loop
-        bool setTime();                                                            // Configure time using NTP
+        bool configureTime();                                                      // Configure time using NTP
         String connectAP(const char *ssid);                                        // Connect to WiFi in AP mode and return the IP address
         String deviceIP();                                                         // Get IP address of the device
         void disconnect();                                                         // Disconnect from WiFi
         bool isConnected();                                                        // Check if connected to WiFi
+        bool setTime(tm &timeinfo, int timeoutMs = 5000);                          // Set time to a tm structure
         String scan();                                                             // Scan for available WiFi networks
         void resetConnection();                                                    // Reset connection state
 

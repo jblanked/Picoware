@@ -124,7 +124,7 @@ namespace FuriousBirds
         Vector red_pos_prev;
     } AppModel;
 
-    AppModel *amodel = new AppModel();
+    AppModel *amodel = nullptr;
 
     static void draw_red(Canvas *canvas)
     {
@@ -511,6 +511,7 @@ namespace FuriousBirds
                                     true // is 8-bit?
         );
         level->entity_add(player);
+        amodel = new AppModel();
         reset_game(game);
     }
     void game_stop()

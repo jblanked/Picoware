@@ -88,7 +88,7 @@ namespace Picoware
         wifiScanInProgress = false;
         if (this->connectHelper(ssid, password, false, false))
         {
-            return this->setTime();
+            return this->configureTime();
         }
         return false;
     }
@@ -151,7 +151,7 @@ namespace Picoware
                 wifiTries = 0;
                 connectedSSID = pendingSSID;
                 connectedPassword = pendingPassword;
-                this->setTime(); // Configure time when connected
+                this->configureTime(); // Configure time when connected
                 return true;
             }
             // Still connecting
@@ -186,9 +186,9 @@ namespace Picoware
         return WiFi.softAPIP().toString();
     }
 
-    bool WiFiUtils::setTime()
+    bool WiFiUtils::configureTime()
     {
-        if (!WiFi.status() == WL_CONNECTED)
+        if (WiFi.status() != WL_CONNECTED)
         {
             return false;
         }
@@ -257,5 +257,19 @@ namespace Picoware
         }
         json += "]}";
         return json;
+    }
+
+    // may take seconds to minutes for the system time to be updated by NTP, depending on the server
+    bool WiFiUtils::setTime(tm &timeinfo, int timeoutMs)
+    {
+        if (WiFi.status() != WL_CONNECTED)
+        {
+            return false;
+        }
+        NTP.begin("pool.ntp.org", "time.nist.gov");
+        NTP.waitSet(timeoutMs);
+        time_t now = time(nullptr);
+        gmtime_r(&now, &timeinfo);
+        return true; // Current Time: asctime(&timeinfo) or sprintf(buffer,"%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
     }
 }

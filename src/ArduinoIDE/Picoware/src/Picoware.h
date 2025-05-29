@@ -4,7 +4,7 @@ Author: JBlanked
 Github: https://github.com/jblanked/Picoware
 Info: A custom firmware for the PicoCalc, Video Game Module, and other Raspberry Pi Pico devices.
 Created: 2025-05-13
-Updated: 2025-05-27
+Updated: 2025-05-29
 */
 
 #pragma once
@@ -26,6 +26,7 @@ Updated: 2025-05-27
 #include "internal/gui/textbox.hpp"
 #include "internal/gui/vector.hpp"
 // System
+#include "internal/system/bluetooth.hpp"
 #include "internal/system/buttons.hpp"
 #include "internal/system/colors.hpp"
 #include "internal/system/http.hpp"

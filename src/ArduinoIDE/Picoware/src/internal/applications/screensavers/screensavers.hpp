@@ -30,11 +30,8 @@ static void screensaversStart(ViewManager *viewManager)
 
     screensavers->addItem("Cube");
     screensavers->addItem("Spiro");
-
-    // put at the bottom of the list for correct indexing
     if (viewManager->getBoard().boardType != BOARD_TYPE_VGM)
         screensavers->addItem("Starfield");
-
     screensavers->setSelected(0);
     screensavers->draw();
 }
@@ -59,39 +56,38 @@ static void screensaversRun(ViewManager *viewManager)
         break;
     case BUTTON_RIGHT:
     case BUTTON_CENTER:
-        switch (screensavers->getSelectedIndex())
-        {
-        case 0: // if index is 0, show cube
+    {
+        inputManager->reset(true);
+        auto currentItem = screensavers->getCurrentItem();
+        if (strcmp(currentItem, "Cube") == 0)
         {
             if (viewManager->getView("Cube") == nullptr)
             {
                 viewManager->add(&cubeView);
             }
             viewManager->switchTo("Cube");
-            break;
+            return;
         }
-        case 1: // if index is 1, show spiro
+        if (strcmp(currentItem, "Spiro") == 0)
         {
             if (viewManager->getView("Spiro") == nullptr)
             {
                 viewManager->add(&spiroView);
             }
             viewManager->switchTo("Spiro");
-            break;
+            return;
         }
-        case 2: // if index is 2, show starfield
+        if (strcmp(currentItem, "Starfield") == 0)
         {
             if (viewManager->getView("Starfield") == nullptr)
             {
                 viewManager->add(&starfieldView);
             }
             viewManager->switchTo("Starfield");
-            break;
+            return;
         }
-        default:
-            break;
-        };
-        inputManager->reset(true);
+        break;
+    }
     default:
         break;
     }

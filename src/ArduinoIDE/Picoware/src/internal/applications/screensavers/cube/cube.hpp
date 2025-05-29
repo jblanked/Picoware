@@ -131,12 +131,12 @@ namespace Cube
                 ret->p0.y = ry1;
                 ret->p1.x = rx2;
                 ret->p1.y = ry2;
-
-                uint16_t color = TFT_BLUE;
+                auto boardType = tft->getBoard().boardType;
+                uint16_t color = TFT_BLUE; // shows up as teal on VGM
                 if (i < 4)
-                    color = TFT_RED;
+                    color = boardType != BOARD_TYPE_VGM ? TFT_RED : TFT_CYAN; // cyan (shows up as white on VGM)
                 if (i > 7)
-                    color = TFT_GREEN;
+                    color = TFT_DARKGREEN; // shows up as red on VGM
                 tft->drawLine(Vector(ret->p0.x, ret->p0.y), Vector(ret->p1.x, ret->p1.y), color);
             }
         }

@@ -280,16 +280,6 @@ namespace Picoware
             processKeyPress();
             lastInputTime = millis();
             break;
-
-        case BUTTON_BACK:
-            // Backspace functionality
-            if (response.length() > 0)
-            {
-                response.remove(response.length() - 1);
-            }
-            lastInputTime = millis();
-            break;
-
         default:
             // No input or unhandled input
             break;

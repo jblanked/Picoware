@@ -71,6 +71,7 @@ namespace Picoware
         uint8_t rotation;
         const char *name;
         bool hasWiFi;
+        bool hasBluetooth;
     } Board;
 
     static const PROGMEM Board VGMConfig = {
@@ -88,7 +89,8 @@ namespace Picoware
         .height = 240,
         .rotation = 0,
         .name = "Video Game Module",
-        .hasWiFi = false};
+        .hasWiFi = false,
+        .hasBluetooth = false};
 
     static const PROGMEM Board PicoCalcConfigPico = {
         .boardType = BOARD_TYPE_PICO_CALC,
@@ -105,7 +107,8 @@ namespace Picoware
         .height = 320,
         .rotation = 0,
         .name = "PicoCalc - Pico",
-        .hasWiFi = false};
+        .hasWiFi = false,
+        .hasBluetooth = false};
 
     static const PROGMEM Board PicoCalcConfigPicoW = {
         .boardType = BOARD_TYPE_PICO_CALC,
@@ -122,7 +125,8 @@ namespace Picoware
         .height = 320,
         .rotation = 0,
         .name = "PicoCalc - Pico W",
-        .hasWiFi = true};
+        .hasWiFi = true,
+        .hasBluetooth = true};
 
     static const PROGMEM Board PicoCalcConfigPico2 = {
         .boardType = BOARD_TYPE_PICO_CALC,
@@ -139,7 +143,8 @@ namespace Picoware
         .height = 320,
         .rotation = 0,
         .name = "PicoCalc - Pico 2",
-        .hasWiFi = false};
+        .hasWiFi = false,
+        .hasBluetooth = false};
 
     static const PROGMEM Board PicoCalcConfigPico2W = {
         .boardType = BOARD_TYPE_PICO_CALC,
@@ -156,7 +161,8 @@ namespace Picoware
         .height = 320,
         .rotation = 0,
         .name = "PicoCalc - Pico 2 W",
-        .hasWiFi = true};
+        .hasWiFi = true,
+        .hasBluetooth = true};
 
     static const PROGMEM Board JBlankedPicoConfig = {
         .boardType = BOARD_TYPE_JBLANKED,
@@ -173,5 +179,7 @@ namespace Picoware
         .height = 240,
         .rotation = 3,
         .name = "JBlanked Pico",
-        .hasWiFi = true};
-}
+        .hasWiFi = true,
+        .hasBluetooth = true};
+
+} // namespace Picoware

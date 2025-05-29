@@ -48,6 +48,7 @@ namespace Picoware
     {
         // Destructor to clean up resources
         delete scrollBar;
+        items.clear();
     }
 
     void List::clear()

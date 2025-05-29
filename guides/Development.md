@@ -1,4 +1,4 @@
-# Installation
+# Development
 
 The firmware is available for the Arduino IDE (C++), CircuitPython, and C/C++ (using the official SDK). Each environment offers similar configurations, methods, and functionalities to ensure a smooth development experience.
 
@@ -16,7 +16,8 @@ To use the Arduino IDE library:
 9. Hold the `BOOT` button while connecting your USB data cable.
 10. Select the serial port to which your Pico is connected and choose your specific Pico type (e.g., `Raspberry Pi Pico`) as your board.
 11. In line 13, change the board configuration (e.g., `VGMConfig`, `PicoCalcConfigPico`, etc.) to your specific configuration.
-12. Finally, click `Sketch` in the menu, then select `Upload`.
+12. In `Tools` menu, change the `Flash Size` to `2MB (Sketch: 1984KB, FS: 64KB)` and `CPU Speed` to `200MHz`. Then change `IP/Bluetooth Stack` to `IPv4 + Bluetooth` if you are not compiling for a non-Pico-W device, otherwise leave it on the default, `IPv4`.
+13. Finally, click `Sketch` in the menu, then select `Upload`.
 
 ### CircuitPython
 

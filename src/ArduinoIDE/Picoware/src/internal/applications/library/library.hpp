@@ -2,6 +2,7 @@
 #include "../../../internal/gui/menu.hpp"
 #include "../../../internal/system/view.hpp"
 #include "../../../internal/system/view_manager.hpp"
+#include "../../../internal/applications/bluetooth/bluetooth.hpp"
 #include "../../../internal/applications/games/games.hpp"
 #include "../../../internal/applications/screensavers/screensavers.hpp"
 #include "../../../internal/applications/system/system.hpp"
@@ -30,7 +31,14 @@ static void libraryStart(ViewManager *viewManager)
     );
 
     library->addItem("System");
-    library->addItem("WiFi");
+    if (viewManager->getBoard().hasWiFi)
+    {
+        library->addItem("WiFi");
+    }
+    if (viewManager->getBoard().hasBluetooth)
+    {
+        library->addItem("Bluetooth");
+    }
     library->addItem("Games");
     library->addItem("Screensavers");
     library->setSelected(0);
@@ -57,48 +65,56 @@ static void libraryRun(ViewManager *viewManager)
         break;
     case BUTTON_RIGHT:
     case BUTTON_CENTER:
-        switch (library->getSelectedIndex())
-        {
-        case 0: // if index is 0, show system
+    {
+        inputManager->reset(true);
+        auto currentItem = library->getCurrentItem();
+        if (strcmp(currentItem, "System") == 0)
         {
             if (viewManager->getView("System") == nullptr)
             {
                 viewManager->add(&systemView);
             }
             viewManager->switchTo("System");
-            break;
+            return;
         }
-        case 1: // if index is 1, show wifi
+        if (strcmp(currentItem, "WiFi") == 0)
         {
             if (viewManager->getView("WiFi") == nullptr)
             {
                 viewManager->add(&wifiView);
             }
             viewManager->switchTo("WiFi");
-            break;
+            return;
         }
-        case 2: // if index is 2, show games
+        if (strcmp(currentItem, "Bluetooth") == 0)
+        {
+            if (viewManager->getView("Bluetooth") == nullptr)
+            {
+                viewManager->add(&bluetoothView);
+            }
+            viewManager->switchTo("Bluetooth");
+            return;
+        }
+        if (strcmp(currentItem, "Games") == 0)
         {
             if (viewManager->getView("Games") == nullptr)
             {
                 viewManager->add(&gamesView);
             }
             viewManager->switchTo("Games");
-            break;
+            return;
         }
-        case 3: // if index is 3, show screensavers
+        if (strcmp(currentItem, "Screensavers") == 0)
         {
             if (viewManager->getView("Screensavers") == nullptr)
             {
                 viewManager->add(&screensaversView);
             }
             viewManager->switchTo("Screensavers");
-            break;
+            return;
         }
-        default:
-            break;
-        };
-        inputManager->reset(true);
+        break;
+    }
     default:
         break;
     }

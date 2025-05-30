@@ -266,8 +266,13 @@ namespace Picoware
         {
             return false;
         }
-        NTP.begin("pool.ntp.org", "time.nist.gov");
-        NTP.waitSet(timeoutMs);
+        static bool ntpInitialized = false;
+        if (!ntpInitialized)
+        {
+            NTP.begin("pool.ntp.org", "time.nist.gov");
+            NTP.waitSet(timeoutMs);
+            ntpInitialized = true;
+        }
         time_t now = time(nullptr);
         gmtime_r(&now, &timeinfo);
         return true; // Current Time: asctime(&timeinfo) or sprintf(buffer,"%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);

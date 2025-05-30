@@ -40,6 +40,20 @@ namespace Picoware
         Storage getStorage() const noexcept { return storage; }
         const View *getView(const char *viewName) const noexcept;
         WiFiUtils getWiFi() const noexcept { return wifi; }
+        const char *getTime()
+        {
+            if (wifi.isConnected())
+            {
+                struct tm timeinfo;
+                if (wifi.setTime(timeinfo, 5000))
+                {
+                    static char timeBuffer[9]; // Buffer for formatted time string (HH:MM:SS)
+                    sprintf(timeBuffer, "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+                    return timeBuffer;
+                }
+            }
+            return nullptr;
+        }
 
     private:
         void clear();

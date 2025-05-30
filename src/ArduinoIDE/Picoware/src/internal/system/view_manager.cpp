@@ -23,6 +23,7 @@ namespace Picoware
         {
             this->viewStack[i] = nullptr;
         }
+
         this->clear();
     }
 

@@ -8,6 +8,7 @@
 #include "../../../internal/applications/desktop/frames.hpp"
 #include "../../../internal/applications/library/library.hpp"
 #include "../../../internal/applications/system/system_info.hpp"
+#include "../../../internal/applications/wifi/utils.hpp"
 using namespace Picoware;
 static Desktop *desktop = nullptr;
 static bool isVGM = false;
@@ -28,7 +29,23 @@ static void desktopStart(ViewManager *viewManager)
     }
 
     desktop = new Desktop(viewManager->getDraw());
-    isVGM = viewManager->getBoard().boardType == BOARD_TYPE_VGM;
+    auto board = viewManager->getBoard();
+    isVGM = board.boardType == BOARD_TYPE_VGM;
+
+    auto wifi = viewManager->getWiFi();
+    if (board.hasWiFi && !wifi.isConnected())
+    {
+        // start WiFi connection
+        String ssid = loadWiFiSSIDFromFlash(viewManager);
+        String password = loadWiFiPasswordFromFlash(viewManager);
+        if (ssid.length() > 0 && password.length() > 0)
+        {
+            if (!wifi.connectAsync(ssid.c_str(), password.c_str()))
+            {
+                // nothing for now
+            }
+        }
+    }
 }
 
 static void desktopRun(ViewManager *viewManager)
@@ -73,6 +90,7 @@ static void desktopRun(ViewManager *viewManager)
         systemInfoLoading = false;
         elapsed = 0;
 
+        desktop->setTime(viewManager->getTime());
         desktop->draw(frame_data(next_frame), Vector(320, 240));
 
         // Update frame counter

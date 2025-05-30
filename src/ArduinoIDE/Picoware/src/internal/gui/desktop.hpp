@@ -14,6 +14,8 @@ namespace Picoware
         //
         uint16_t getTextColor() const { return textColor; }
         uint16_t getBackgroundColor() const { return backgroundColor; }
+        //
+        void setTime(const char *time) { rtcTime = time; }
 
     private:
         void drawHeader();
@@ -22,5 +24,6 @@ namespace Picoware
         uint16_t backgroundColor;
         bool hasWiFi;
         const char *boardName;
+        const char *rtcTime;
     };
 }

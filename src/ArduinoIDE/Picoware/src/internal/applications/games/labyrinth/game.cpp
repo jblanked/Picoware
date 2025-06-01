@@ -121,7 +121,7 @@ namespace Labyrinth
     void player_spawn(Level *level)
     {
         // Create the player entity
-        Entity *player = new Entity("Player", ENTITY_PLAYER, Vector(160, 130), Vector(10, 10), player_10x10, NULL, NULL, NULL, NULL, player_update, player_render, NULL, true);
+        Entity *player = new Entity(level->getBoard(), "Player", ENTITY_PLAYER, Vector(160, 130), Vector(10, 10), player_10x10, NULL, NULL, NULL, NULL, player_update, player_render, NULL, true, true);
         level->entity_add(player);
     }
 
@@ -148,7 +148,7 @@ namespace Labyrinth
         // Create the wall entity
         // the real position is Vector(position.x + size.x / 2, position.y + size.y / 2)
         Vector real_position = Vector(position.x - size.x / 2, position.y - size.y / 2);
-        Entity *wall = new Entity("Wall", ENTITY_ICON, real_position, size, NULL, NULL, NULL, NULL, NULL, NULL, wall_render, wall_collision, true);
+        Entity *wall = new Entity(level->getBoard(), "Wall", ENTITY_ICON, real_position, size, NULL, NULL, NULL, NULL, NULL, NULL, wall_render, wall_collision, true);
         level->entity_add(wall);
     }
 

@@ -49,6 +49,6 @@ namespace Picoware
         }
 
         // draw WiFi icon
-        display->image(Vector(display->getSize().x - 21, 2), hasWiFi ? WIFI_ON : WIFI_OFF, Vector(19, 16));
+        display->imagePGM(Vector(display->getSize().x - 21, 2), hasWiFi ? WIFI_ON : WIFI_OFF, Vector(19, 16));
     }
 }

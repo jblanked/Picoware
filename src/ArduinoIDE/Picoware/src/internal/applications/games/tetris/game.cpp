@@ -519,19 +519,6 @@ namespace Tetris
 
     static void player_update(Entity *self, Game *game)
     {
-        if (downRepeatCounter > 4)
-        {
-            for (int i = 0; i < 4; i++)
-            {
-                newPiece->p[i].y += 1;
-            }
-            downRepeatCounter = 0;
-            wasDownMove = true;
-        }
-        else
-        {
-            downRepeatCounter++;
-        }
         switch (game->input)
         {
         case InputKeyRight:
@@ -599,6 +586,34 @@ namespace Tetris
             break;
         }
 
+        static int tick = 0;
+        if (game->draw->getBoard().boardType == BOARD_TYPE_VGM)
+        {
+            tick++;
+            if (tick >= 5)
+            {
+                tick = 0;
+            }
+            else
+            {
+                return; // Skip rendering for VGM board
+            }
+        }
+
+        if (downRepeatCounter > 4)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                newPiece->p[i].y += 1;
+            }
+            downRepeatCounter = 0;
+            wasDownMove = true;
+        }
+        else
+        {
+            downRepeatCounter++;
+        }
+
         tetris_game_process_step(game, newPiece, wasDownMove);
     }
 
@@ -610,7 +625,8 @@ namespace Tetris
     void player_spawn(Level *level, Game *game)
     {
         // Create a blank entity
-        Entity *player = new Entity("Player",
+        Entity *player = new Entity(level->getBoard(),
+                                    "Player",
                                     ENTITY_PLAYER,
                                     Vector(-100, -100),
                                     Vector(10, 10),

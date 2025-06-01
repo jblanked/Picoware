@@ -53,7 +53,8 @@ namespace Picoware
             delete[] buffer;
             buffer = nullptr;
         }
-        if (data)
+        // Only delete data if we own it
+        if (data && owns_data)
         {
             delete[] data;
             data = nullptr;
@@ -75,7 +76,7 @@ namespace Picoware
     }
 
     // from_byte_array: create image buffer from an external byte array.
-    bool Image::from_byte_array(uint8_t *srcData, Vector newSize)
+    bool Image::from_byte_array(uint8_t *srcData, Vector newSize, bool copy_data)
     {
         if (srcData == nullptr)
             return false;
@@ -83,12 +84,12 @@ namespace Picoware
 
         if (!this->is_8bit)
         {
+            // 16-bit processing
             uint32_t numPixels = size.x * size.y;
             buffer = new uint16_t[numPixels];
             if (!buffer)
                 return false;
 
-            // Convert uint8_t array to uint16_t array (little endian)
             for (uint32_t i = 0; i < numPixels; i++)
             {
                 buffer[i] = ((uint16_t)srcData[2 * i + 1] << 8) | srcData[2 * i];
@@ -96,7 +97,6 @@ namespace Picoware
 
             if (board.libraryType == LIBRARY_TYPE_PICO_DVI)
             {
-                // write in big-endian
                 for (uint32_t i = 0; i < numPixels; i++)
                 {
                     uint16_t pixel = buffer[i];
@@ -106,21 +106,30 @@ namespace Picoware
         }
         else
         {
-            // 8-bit image: just copy the data directly into the data buffer.
-            // then we'll use the data to draw bitmaps in level.cpp
-            uint32_t numPixels = size.x * size.y;
-            data = new uint8_t[numPixels];
-            if (!data)
-                return false;
-            // Copy the data from the source to the new buffer.
-            memcpy(data, srcData, numPixels);
+            // 8-bit image handling
+            if (copy_data)
+            {
+                // Copy data (for dynamic data)
+                uint32_t numPixels = size.x * size.y;
+                data = new uint8_t[numPixels];
+                if (!data)
+                    return false;
+                memcpy(data, srcData, numPixels);
+                owns_data = true;
+            }
+            else
+            {
+                // Just reference the data (for PROGMEM)
+                progmem_data = srcData;
+                owns_data = false;
+            }
         }
 
         return true;
     }
 
     // from_byte_array: create image buffer from an external byte array.
-    bool Image::from_byte_array(const uint8_t *srcData, Vector newSize)
+    bool Image::from_byte_array(const uint8_t *srcData, Vector newSize, bool copy_data)
     {
         if (srcData == nullptr)
             return false;
@@ -128,12 +137,12 @@ namespace Picoware
 
         if (!this->is_8bit)
         {
+            // 16-bit processing
             uint32_t numPixels = size.x * size.y;
             buffer = new uint16_t[numPixels];
             if (!buffer)
                 return false;
 
-            // Convert uint8_t array to uint16_t array (little endian)
             for (uint32_t i = 0; i < numPixels; i++)
             {
                 buffer[i] = ((uint16_t)srcData[2 * i + 1] << 8) | srcData[2 * i];
@@ -141,7 +150,6 @@ namespace Picoware
 
             if (board.libraryType == LIBRARY_TYPE_PICO_DVI)
             {
-                // write in big-endian
                 for (uint32_t i = 0; i < numPixels; i++)
                 {
                     uint16_t pixel = buffer[i];
@@ -151,14 +159,23 @@ namespace Picoware
         }
         else
         {
-            // 8-bit image: just copy the data directly into the data buffer.
-            // then we'll use the data to draw bitmaps in level.cpp
-            uint32_t numPixels = size.x * size.y;
-            data = new uint8_t[numPixels];
-            if (!data)
-                return false;
-            // Copy the data from the source to the new buffer.
-            memcpy(data, srcData, numPixels);
+            // 8-bit image handling
+            if (copy_data)
+            {
+                // Copy data (for dynamic data)
+                uint32_t numPixels = size.x * size.y;
+                data = new uint8_t[numPixels];
+                if (!data)
+                    return false;
+                memcpy(data, srcData, numPixels);
+                owns_data = true;
+            }
+            else
+            {
+                // Just reference the data (for PROGMEM)
+                progmem_data = srcData;
+                owns_data = false;
+            }
         }
 
         return true;
@@ -405,6 +422,30 @@ namespace Picoware
         }
 
         return true;
+    }
+
+    bool Image::from_progmem(const uint8_t *progmem_ptr, Vector newSize)
+    {
+        if (progmem_ptr == nullptr)
+            return false;
+
+        this->size = newSize;
+        this->progmem_data = progmem_ptr; // Just store the pointer
+        this->owns_data = false;          // We don't own this memory
+
+        return true;
+    }
+
+    // Get data pointer
+    const uint8_t *Image::getData() const
+    {
+        return progmem_data ? progmem_data : data;
+    }
+
+    // Check if data is in PROGMEM
+    bool Image::isProgmemData() const
+    {
+        return progmem_data != nullptr;
     }
 
 }

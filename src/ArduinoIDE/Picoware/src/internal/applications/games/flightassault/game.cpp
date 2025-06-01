@@ -299,7 +299,8 @@ namespace FlightAssault
     void player_spawn(Level *level, Game *game)
     {
         // Create a blank entity
-        Entity *player = new Entity("Player",
+        Entity *player = new Entity(level->getBoard(),
+                                    "Player",
                                     ENTITY_PLAYER,
                                     Vector(-100, -100),
                                     Vector(PLAYER_WIDTH, PLAYER_HEIGHT),

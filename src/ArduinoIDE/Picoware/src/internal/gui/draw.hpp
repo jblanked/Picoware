@@ -59,30 +59,31 @@ namespace Picoware
         public:
                 Draw(const Board board, bool use_8bit = false, bool tftDoubleBuffer = false);
                 ~Draw();
-                void background(uint16_t color);                                                                                            // Sets the background color of the display.
-                void clear(Vector position, Vector size, uint16_t color);                                                                   // Clears the display at the specified position and size with the specified color.
-                void color(uint16_t color);                                                                                                 // Sets the color for drawing.
-                uint16_t color565(uint8_t r, uint8_t g, uint8_t b);                                                                         // Converts RGB values to 16-bit color format.
-                void drawLine(Vector position, Vector size, uint16_t color);                                                                // Draws a line on the display at the specified position and size with the specified color.
-                void drawPixel(Vector position, uint16_t color);                                                                            // Draws a pixel on the display at the specified position with the specified color.
-                void drawRect(Vector position, Vector size, uint16_t color);                                                                // Draws a rectangle on the display at the specified position and size with the specified color.
-                void fillRect(Vector position, Vector size, uint16_t color);                                                                // Fills a rectangle on the display at the specified position and size with the specified color.
-                void fillScreen(uint16_t color);                                                                                            // Fills the entire screen with the specified color.
-                Board getBoard() const noexcept { return picoBoard; }                                                                       // Returns the board configuration.
-                Vector getCursor();                                                                                                         // Returns the current cursor position.
-                uint16_t *getPalette();                                                                                                     // Returns the color palette.
-                Vector getSize() const noexcept { return size; }                                                                            // Returns the size of the display.
-                bool is8bit() const noexcept { return is_8bit; }                                                                            // Returns true if the display is 8-bit, false otherwise.
-                bool isDoubleBuffered() const noexcept { return is_DoubleBuffered; }                                                        // Returns true if double buffering is used, false otherwise.
-                void image(Vector position, Image *image, bool imageCheck = true);                                                          // Draws an image on the display at the specified position.
-                void image(Vector position, const uint8_t *bitmap, Vector size, const uint16_t *palette = nullptr, bool imageCheck = true); // Draws a bitmap on the display at the specified position.
-                void setFont(int font = 2);                                                                                                 // Sets the font for text rendering.
-                void swap(bool copyFrameBuffer = false, bool copyPalette = false);                                                          // Swaps the display buffer (for double buffering).
-                void text(Vector position, const char text);                                                                                // Draws one character on the display at the specified position.
-                void text(Vector position, const char text, uint16_t color);                                                                // Draws one character on the display at the specified position with the specified color.
-                void text(Vector position, const char *text);                                                                               // Draws text on the display at the specified position.
-                void text(Vector position, const char *text, uint16_t color, int font = 2);                                                 // Draws text on the display at the specified position with the specified font and color.
-                DisplayAdapter *display;                                                                                                    // Invoke custom library
+                void background(uint16_t color);                                                                                                  // Sets the background color of the display.
+                void clear(Vector position, Vector size, uint16_t color);                                                                         // Clears the display at the specified position and size with the specified color.
+                void color(uint16_t color);                                                                                                       // Sets the color for drawing.
+                uint16_t color565(uint8_t r, uint8_t g, uint8_t b);                                                                               // Converts RGB values to 16-bit color format.
+                void drawLine(Vector position, Vector size, uint16_t color);                                                                      // Draws a line on the display at the specified position and size with the specified color.
+                void drawPixel(Vector position, uint16_t color);                                                                                  // Draws a pixel on the display at the specified position with the specified color.
+                void drawRect(Vector position, Vector size, uint16_t color);                                                                      // Draws a rectangle on the display at the specified position and size with the specified color.
+                void fillRect(Vector position, Vector size, uint16_t color);                                                                      // Fills a rectangle on the display at the specified position and size with the specified color.
+                void fillScreen(uint16_t color);                                                                                                  // Fills the entire screen with the specified color.
+                Board getBoard() const noexcept { return picoBoard; }                                                                             // Returns the board configuration.
+                Vector getCursor();                                                                                                               // Returns the current cursor position.
+                uint16_t *getPalette();                                                                                                           // Returns the color palette.
+                Vector getSize() const noexcept { return size; }                                                                                  // Returns the size of the display.
+                bool is8bit() const noexcept { return is_8bit; }                                                                                  // Returns true if the display is 8-bit, false otherwise.
+                bool isDoubleBuffered() const noexcept { return is_DoubleBuffered; }                                                              // Returns true if double buffering is used, false otherwise.
+                void image(Vector position, Image *image, bool imageCheck = true);                                                                // Draws an image on the display at the specified position.
+                void image(Vector position, const uint8_t *bitmap, Vector size, const uint16_t *palette = nullptr, bool imageCheck = true);       // Draws a bitmap on the display at the specified position.
+                void imagePGM(Vector position, const uint8_t *bitmapPGM, Vector size, const uint16_t *palette = nullptr, bool imageCheck = true); // Draws a bitmap stored in program memory on the display at the specified position.
+                void setFont(int font = 2);                                                                                                       // Sets the font for text rendering.
+                void swap(bool copyFrameBuffer = false, bool copyPalette = false);                                                                // Swaps the display buffer (for double buffering).
+                void text(Vector position, const char text);                                                                                      // Draws one character on the display at the specified position.
+                void text(Vector position, const char text, uint16_t color);                                                                      // Draws one character on the display at the specified position with the specified color.
+                void text(Vector position, const char *text);                                                                                     // Draws text on the display at the specified position.
+                void text(Vector position, const char *text, uint16_t color, int font = 2);                                                       // Draws text on the display at the specified position with the specified font and color.
+                DisplayAdapter *display;                                                                                                          // Invoke custom library
         private:
                 Vector size;            // The size of the display.
                 bool is_8bit;           // Flag to indicate if the display is 8-bit or not

@@ -5,7 +5,7 @@ namespace Pong
 #define SCREEN_SIZE_Y 240
 
 #define PAD_SIZE_X 8
-#define PAD_SIZE_Y 40
+#define PAD_SIZE_Y 60
 #define PLAYER1_PAD_SPEED 10
 
 #define PLAYER2_PAD_SPEED 5
@@ -262,7 +262,8 @@ namespace Pong
     void player_spawn(Level *level, Game *game)
     {
         // Create a blank entity
-        Entity *player = new Entity("Player",
+        Entity *player = new Entity(level->getBoard(),
+                                    "Player",
                                     ENTITY_PLAYER,
                                     Vector(-100, -100),
                                     Vector(10, 10),

@@ -73,7 +73,8 @@ namespace Picoware
         float health_regen;         // player health regeneration rate per second/frame
         float elapsed_health_regen; // time elapsed since last health regeneration
         //
-        bool is_8bit = false; // Flag to indicate if the entity uses 8-bit graphics
+        bool is_8bit = false;    // Flag to indicate if the entity uses 8-bit graphics
+        bool is_progmem = false; // Flag to indicate if the sprite data is in PROGMEM
 
         Entity(
             const char *name,                                      // The name of the entity.
@@ -89,6 +90,7 @@ namespace Picoware
             void (*collision)(Entity *, Entity *, Game *) = NULL); // The collision function of the entity.
 
         Entity(
+            Board board,                                          // The board configuration.
             const char *name,                                     // The name of the entity.
             EntityType type,                                      // The type of the entity.
             Vector position,                                      // The position of the entity.
@@ -101,7 +103,8 @@ namespace Picoware
             void (*update)(Entity *, Game *) = NULL,              // The update function of the entity.
             void (*render)(Entity *, Draw *, Game *) = NULL,      // The render function of the entity.
             void (*collision)(Entity *, Entity *, Game *) = NULL, // The collision function of the entity.
-            bool is_8bit_sprite = false                           // Flag to indicate if the entity uses 8-bit graphics
+            bool is_8bit_sprite = false,                          // Flag to indicate if the entity uses 8-bit graphics
+            bool is_progmem_sprite = false                        // Flag to indicate if the sprite data is in PROGMEM
         );
 
         ~Entity(); // Destructor

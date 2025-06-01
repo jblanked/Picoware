@@ -69,6 +69,8 @@ namespace Picoware
         uint16_t backgroundColor;
         uint16_t foregroundColor;
         uint16_t selectedColor;
+        int delayTicks;
+        int delayElapsed;
         LED led;
         WiFiUtils wifi;
 

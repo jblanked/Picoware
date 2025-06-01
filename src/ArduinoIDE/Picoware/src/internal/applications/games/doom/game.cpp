@@ -1060,7 +1060,8 @@ namespace Doom
 
     void player_spawn(Level *level, Game *game)
     {
-        Entity *player = new Entity("Player",
+        Entity *player = new Entity(level->getBoard(),
+                                    "Player",
                                     ENTITY_PLAYER,
                                     Vector(-100, -100),
                                     Vector(10, 10),

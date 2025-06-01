@@ -227,8 +227,8 @@ namespace TrexRunner
                 // Only draw segments that might be visible on screen
                 if (segment_pos > -BACKGROUND_W && segment_pos < SCREEN_W)
                 {
-                    draw->image(Vector(segment_pos, HORIZON_Y), horizon_line_0_128x12,
-                                Vector(BACKGROUND_W, BACKGROUND_H), nullptr, false);
+                    draw->imagePGM(Vector(segment_pos, HORIZON_Y), horizon_line_0_128x12,
+                                   Vector(BACKGROUND_W, BACKGROUND_H), nullptr, false);
                 }
             }
 
@@ -238,9 +238,9 @@ namespace TrexRunner
             // Cactus
             if (game_state->has_cactus)
             {
-                draw->image(Vector(game_state->cactus_position,
-                                   CACTUS_BASE_Y),
-                            cactus_10x10, Vector(CACTUS_W, CACTUS_H));
+                draw->imagePGM(Vector(game_state->cactus_position,
+                                      CACTUS_BASE_Y),
+                               cactus_10x10, Vector(CACTUS_W, CACTUS_H));
                 game_state->had_cactus = true;
             }
             else if (game_state->had_cactus)
@@ -265,7 +265,8 @@ namespace TrexRunner
     void player_spawn(Level *level, Game *game)
     {
         // Create a blank entity
-        Entity *player = new Entity("Player",
+        Entity *player = new Entity(level->getBoard(),
+                                    "Player",
                                     ENTITY_PLAYER,
                                     Vector(-100, -100),
                                     Vector(DINO_W, DINO_H),

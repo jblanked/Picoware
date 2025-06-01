@@ -12,7 +12,8 @@ namespace Picoware
           _start(nullptr),
           _stop(nullptr),
           entity_count(0),
-          entities(nullptr)
+          entities(nullptr),
+          board(VGMConfig)
     {
     }
 
@@ -24,7 +25,8 @@ namespace Picoware
           _start(start),
           _stop(stop),
           entity_count(0),
-          entities(nullptr)
+          entities(nullptr),
+          board(game->draw->getBoard())
     {
     }
 
@@ -196,7 +198,14 @@ namespace Picoware
                 else
                 {
                     // draw 8bit sprite
-                    game->draw->image(Vector(ent->position.x - game->pos.x, ent->position.y - game->pos.y), ent->sprite->data, ent->sprite->size);
+                    if (ent->is_progmem)
+                    {
+                        game->draw->imagePGM(Vector(ent->position.x - game->pos.x, ent->position.y - game->pos.y), ent->sprite->getData(), ent->sprite->size);
+                    }
+                    else
+                    {
+                        game->draw->image(Vector(ent->position.x - game->pos.x, ent->position.y - game->pos.y), ent->sprite->getData(), ent->sprite->size);
+                    }
                 }
             }
         }

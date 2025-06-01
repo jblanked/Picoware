@@ -1,5 +1,6 @@
 #pragma once
 #include "Arduino.h"
+#include "../../internal/boards.hpp"
 #include "../../internal/gui/vector.hpp"
 
 namespace Picoware
@@ -25,6 +26,7 @@ namespace Picoware
         Entity **collision_list(Entity *entity, int &count) const;
         void entity_add(Entity *entity);
         void entity_remove(Entity *entity);
+        Board getBoard() const { return board; }
         bool has_collided(Entity *entity) const;
         bool is_collision(const Entity *a, const Entity *b) const;
         void render(Game *game);
@@ -39,6 +41,7 @@ namespace Picoware
         Entity **entities;
 
     private:
+        Board board;
         // Callback Functions
         void (*_start)(Level &);
         void (*_stop)(Level &);

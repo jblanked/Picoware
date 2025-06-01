@@ -104,7 +104,7 @@ namespace FlipWorld
         }
 
         // Retrieve shared Image instance
-        Image *sharedImage = ImageManager::getInstance().getImage(name, icon.data, icon.size, true);
+        Image *sharedImage = ImageManager::getInstance().getImage(name, icon.data, icon.size, true, true, level->getBoard());
         if (sharedImage == nullptr)
         {
             return;
@@ -112,6 +112,7 @@ namespace FlipWorld
 
         // Add the icon to the level
         Entity *newEntity = new Entity(
+            level->getBoard(),
             "icon",
             ENTITY_ICON,
             pos,
@@ -124,7 +125,8 @@ namespace FlipWorld
             NULL,           // update
             NULL,           // render
             icon_collision, // collision
-            true            // is 8-bit
+            true,           // is 8-bit
+            true            // is progmem
         );
         // Assign the shared Image to the entity
         newEntity->sprite = sharedImage;
@@ -151,7 +153,7 @@ namespace FlipWorld
     {
         // Check heap
         size_t freeHeap = rp2040.getFreeHeap();
-        if (freeHeap < 4096)
+        if (freeHeap < 1024)
         {
             return;
         }
@@ -162,7 +164,7 @@ namespace FlipWorld
 
         // Check heap
         freeHeap = rp2040.getFreeHeap();
-        if (freeHeap < 4096)
+        if (freeHeap < 1024)
         {
             return;
         }

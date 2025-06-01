@@ -29,6 +29,7 @@ namespace Picoware
         this->_render = render;
         this->_collision = collision;
         this->is_active = false;
+        this->is_8bit = sprite->is_8bit;
 
         if (this->sprite->size.x > 0 && this->sprite->size.y > 0)
         {
@@ -60,6 +61,7 @@ namespace Picoware
     }
 
     Entity::Entity(
+        Board board,
         const char *name,
         EntityType type,
         Vector position,
@@ -72,20 +74,22 @@ namespace Picoware
         void (*update)(Entity *, Game *),
         void (*render)(Entity *, Draw *, Game *),
         void (*collision)(Entity *, Entity *, Game *),
-        bool is_8bit_sprite)
+        bool is_8bit_sprite,
+        bool is_progmem_sprite)
     {
         this->is_8bit = is_8bit_sprite;
+        this->is_progmem = is_progmem_sprite;
         this->name = name;
         this->type = type;
         this->position = position;
         this->old_position = position;
         this->size = size;
-        this->sprite = new Image(this->is_8bit);
-        this->sprite->from_byte_array(sprite_data, size);
+        this->sprite = new Image(this->is_8bit, board);
+        this->sprite->from_byte_array(sprite_data, size, !is_progmem_sprite);
         if (sprite_left_data != NULL)
         {
-            this->sprite_left = new Image(this->is_8bit);
-            this->sprite_left->from_byte_array(sprite_left_data, size);
+            this->sprite_left = new Image(this->is_8bit, board);
+            this->sprite_left->from_byte_array(sprite_left_data, size, !is_progmem_sprite);
         }
         else
         {
@@ -93,8 +97,8 @@ namespace Picoware
         }
         if (sprite_right_data != NULL)
         {
-            this->sprite_right = new Image(this->is_8bit);
-            this->sprite_right->from_byte_array(sprite_right_data, size);
+            this->sprite_right = new Image(this->is_8bit, board);
+            this->sprite_right->from_byte_array(sprite_right_data, size, !is_progmem_sprite);
         }
         else
         {

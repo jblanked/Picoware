@@ -328,7 +328,7 @@ namespace FlipWorld
         if (enemy_left.data != NULL && enemy_right.data != NULL)
         {
             // Create the enemy entity
-            Entity *entity = new Entity(name, ENTITY_ENEMY, start_position, enemy_left.size, enemy_left.data, enemy_left.data, enemy_right.data, NULL, NULL, enemy_update, enemy_render, enemy_collision, true);
+            Entity *entity = new Entity(level->getBoard(), name, ENTITY_ENEMY, start_position, enemy_left.size, enemy_left.data, enemy_left.data, enemy_right.data, NULL, NULL, enemy_update, enemy_render, enemy_collision, true, true);
             entity->direction = direction;
             entity->start_position = start_position;
             entity->end_position = end_position;
@@ -537,7 +537,7 @@ namespace FlipWorld
         if (player_left.data != NULL && player_right.data != NULL)
         {
             // Create the player entity
-            Entity *player = new Entity("Player", ENTITY_PLAYER, position, player_left.size, player_left.data, player_left.data, player_right.data, NULL, NULL, player_update, player_render, NULL, true);
+            Entity *player = new Entity(level->getBoard(), "Player", ENTITY_PLAYER, position, player_left.size, player_left.data, player_left.data, player_right.data, NULL, NULL, player_update, player_render, NULL, true, true);
             player->level = 1;
             player->health = 100;
             player->max_health = 100;

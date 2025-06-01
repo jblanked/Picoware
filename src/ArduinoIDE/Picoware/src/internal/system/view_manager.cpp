@@ -6,7 +6,8 @@ namespace Picoware
         : picoBoard(board), currentView(nullptr), viewCount(0),
           foregroundColor(foregroundColor), backgroundColor(backgroundColor), selectedColor(TFT_BLUE),
           stackDepth(0),
-          led(), storage(), wifi()
+          led(), storage(), wifi(),
+          delayTicks(0), delayElapsed(0)
 
     {
         this->storage.begin(); // for LittleFS
@@ -23,7 +24,8 @@ namespace Picoware
         {
             this->viewStack[i] = nullptr;
         }
-
+        // slow down the VGM board by 20 ticks
+        this->delayTicks = board.boardType == BOARD_TYPE_VGM ? 20 : 0;
         this->clear();
     }
 
@@ -145,6 +147,15 @@ namespace Picoware
                 this->back();
             }
             this->inputManager->run();
+        }
+        if (delayTicks > 0)
+        {
+            if (this->delayElapsed < delayTicks)
+            {
+                this->delayElapsed += delayTicks;
+                return; // Skip this run cycle if delay not met
+            }
+            this->delayElapsed = 0; // Reset delay elapsed after running
         }
         if (this->currentView != nullptr)
         {

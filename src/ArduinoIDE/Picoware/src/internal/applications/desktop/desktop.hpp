@@ -32,20 +32,7 @@ static void desktopStart(ViewManager *viewManager)
     auto board = viewManager->getBoard();
     isVGM = board.boardType == BOARD_TYPE_VGM;
 
-    auto wifi = viewManager->getWiFi();
-    if (board.hasWiFi && !wifi.isConnected())
-    {
-        // start WiFi connection
-        String ssid = loadWiFiSSIDFromFlash(viewManager);
-        String password = loadWiFiPasswordFromFlash(viewManager);
-        if (ssid.length() > 0 && password.length() > 0)
-        {
-            if (!wifi.connectAsync(ssid.c_str(), password.c_str()))
-            {
-                // nothing for now
-            }
-        }
-    }
+    wifiUtilsConnectToSavedWiFi(viewManager);
 }
 
 static void desktopRun(ViewManager *viewManager)

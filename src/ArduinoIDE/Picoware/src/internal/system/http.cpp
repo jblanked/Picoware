@@ -6,9 +6,7 @@ namespace Picoware
     {
         HTTPClient http;
         String response = "";
-
         http.collectHeaders(headerKeys, headerSize);
-
         if (http.begin(this->client, url))
         {
             for (int i = 0; i < headerSize; i++)
@@ -20,7 +18,6 @@ namespace Picoware
             {
                 payload = "{}";
             }
-
             int statusCode = http.sendRequest(method, payload);
             char headerResponse[512];
 

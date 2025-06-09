@@ -23,7 +23,7 @@ static void wifiPasswordStart(ViewManager *viewManager)
                                                 { passwordSaveRequested = true; });
 
     // load the password from flash
-    viewManager->getKeyboard()->setResponse(loadWiFiPasswordFromFlash(viewManager));
+    viewManager->getKeyboard()->setResponse(wifiUtilsLoadWiFiPasswordFromFlash(viewManager));
 }
 
 static void wifiPasswordRun(ViewManager *viewManager)
@@ -58,7 +58,7 @@ static void wifiPasswordStop(ViewManager *viewManager)
     if (viewManager->getKeyboard() != nullptr)
     {
         // save the password to flash
-        saveWiFiPasswordToFlash(viewManager->getStorage(), viewManager->getKeyboard()->getResponse());
+        wifiUtilsSaveWiFiPasswordToFlash(viewManager->getStorage(), viewManager->getKeyboard()->getResponse());
         viewManager->getKeyboard()->reset();
     }
 }

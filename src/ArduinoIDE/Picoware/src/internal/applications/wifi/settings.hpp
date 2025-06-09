@@ -80,8 +80,8 @@ static void wifiSettingsRun(ViewManager *viewManager)
         {
         case 0: // Network Info
         {
-            String ssid = loadWiFiSSIDFromFlash(viewManager);
-            String password = loadWiFiPasswordFromFlash(viewManager);
+            String ssid = wifiUtilsLoadWiFiSSIDFromFlash(viewManager);
+            String password = wifiUtilsLoadWiFiPasswordFromFlash(viewManager);
             char buffer[128];
             snprintf(buffer, sizeof(buffer), "Network Info\n\nSSID: %s\nPassword: %s", ssid.c_str(), password.c_str());
             displayBox->setText(buffer);

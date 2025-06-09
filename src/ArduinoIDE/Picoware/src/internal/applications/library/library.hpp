@@ -2,6 +2,7 @@
 #include "../../../internal/gui/menu.hpp"
 #include "../../../internal/system/view.hpp"
 #include "../../../internal/system/view_manager.hpp"
+#include "../../../internal/applications/applications/applications.hpp"
 #include "../../../internal/applications/bluetooth/bluetooth.hpp"
 #include "../../../internal/applications/games/games.hpp"
 #include "../../../internal/applications/screensavers/screensavers.hpp"
@@ -30,6 +31,7 @@ static void libraryStart(ViewManager *viewManager)
         2                                  // border/separator width
     );
 
+    library->addItem("Applications");
     library->addItem("System");
     if (viewManager->getBoard().hasWiFi)
     {
@@ -68,6 +70,15 @@ static void libraryRun(ViewManager *viewManager)
     {
         inputManager->reset(true);
         auto currentItem = library->getCurrentItem();
+        if (strcmp(currentItem, "Applications") == 0)
+        {
+            if (viewManager->getView("Applications") == nullptr)
+            {
+                viewManager->add(&applicationsView);
+            }
+            viewManager->switchTo("Applications");
+            return;
+        }
         if (strcmp(currentItem, "System") == 0)
         {
             if (viewManager->getView("System") == nullptr)

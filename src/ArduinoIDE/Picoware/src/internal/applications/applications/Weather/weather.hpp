@@ -1,0 +1,159 @@
+#pragma once
+#include "../../../../internal/boards.hpp"
+#include "../../../../internal/gui/draw.hpp"
+#include "../../../../internal/gui/menu.hpp"
+#include "../../../../internal/system/http.hpp"
+#include "../../../../internal/system/view.hpp"
+#include "../../../../internal/system/view_manager.hpp"
+using namespace Picoware;
+static Alert *weatherAlert = nullptr;
+static HTTP *weatherHttp = nullptr;
+static void weatherStart(ViewManager *viewManager)
+{
+    if (weatherAlert)
+    {
+        delete weatherAlert;
+        weatherAlert = nullptr;
+    }
+    if (weatherHttp)
+    {
+        delete weatherHttp;
+        weatherHttp = nullptr;
+    }
+
+    auto draw = viewManager->getDraw();
+
+    // if wifi isn't available, return
+    if (!viewManager->getBoard().hasWiFi)
+    {
+        weatherAlert = new Alert(draw, "WiFi not available on your board.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
+        weatherAlert->draw();
+        delay(2000);
+        viewManager->back();
+        return;
+    }
+
+    // if wifi isn't connected, return
+    if (!viewManager->getWiFi().isConnected())
+    {
+        weatherAlert = new Alert(draw, "WiFi not connected yet.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
+        weatherAlert->draw();
+        delay(2000);
+        viewManager->back();
+        return;
+    }
+
+    draw->text(Vector(5, 5), "Fetching location data...");
+    draw->swap();
+    weatherHttp = new HTTP();
+}
+static void weatherRun(ViewManager *viewManager)
+{
+    static bool sendWeatherRequest = false;
+    auto inputManager = viewManager->getInputManager();
+    auto input = inputManager->getInput();
+    switch (input)
+    {
+    case BUTTON_LEFT:
+        viewManager->back();
+        return;
+    case BUTTON_RIGHT:
+    case BUTTON_CENTER:
+        sendWeatherRequest = false;
+        break;
+    default:
+        break;
+    }
+
+    if (!sendWeatherRequest)
+    {
+        sendWeatherRequest = true;
+        auto draw = viewManager->getDraw();
+        String locationResponse = weatherHttp->request("GET", "https://ipwhois.app/json/");
+        if (locationResponse.length() != 0)
+        {
+            draw->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());
+            JsonDocument doc;
+            DeserializationError error = deserializeJson(doc, locationResponse);
+            if (error)
+            {
+                weatherAlert = new Alert(draw, "Failed to parse GPS data.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
+                weatherAlert->draw();
+                delay(2000);
+                viewManager->back();
+                return;
+            }
+            String latitude = String(doc["latitude"].as<double>(), 6);
+            String longitude = String(doc["longitude"].as<double>(), 6);
+
+            draw->text(Vector(5, 5), "Fetching Weather data...");
+            draw->swap();
+
+            String url = "https://api.open-meteo.com/v1/forecast?latitude=" + latitude + "&longitude=" + longitude +
+                         "&current=temperature_2m,precipitation,rain,showers,snowfall&temperature_unit=celsius&wind_speed_unit=mph&precipitation_unit=inch&forecast_days=1";
+            String weatherResponse = weatherHttp->request("GET", url);
+            if (weatherResponse.length() == 0)
+            {
+                weatherAlert = new Alert(draw, "Failed to fetch Weather data.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
+                weatherAlert->draw();
+                delay(2000);
+                viewManager->back();
+                return;
+            }
+            JsonDocument weatherDoc;
+            error = deserializeJson(weatherDoc, weatherResponse);
+            if (error)
+            {
+                weatherAlert = new Alert(draw, "Failed to parse Weather data.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
+                weatherAlert->draw();
+                delay(2000);
+                viewManager->back();
+                return;
+            }
+
+            draw->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());
+            String temperature = String(weatherDoc["current"]["temperature_2m"].as<double>(), 1);
+            String precipitation = String(weatherDoc["current"]["precipitation"].as<double>(), 1);
+            String rain = String(weatherDoc["current"]["rain"].as<double>(), 1);
+            String showers = String(weatherDoc["current"]["showers"].as<double>(), 1);
+            String snowfall = String(weatherDoc["current"]["snowfall"].as<double>(), 1);
+            String time_str = weatherDoc["current"]["time"].as<String>();
+            time_str.replace("T", " ");
+            String total_data = String("Current Weather:\n") +
+                                "Temperature: " + temperature + " C\n" +
+                                "Precipitation: " + precipitation + "mm\n" +
+                                "Rain: " + rain + "mm\n" +
+                                "Showers: " + showers + "mm\n" +
+                                "Snowfall: " + snowfall + "mm\n" +
+                                "Time: " + time_str;
+            draw->text(Vector(0, 5), total_data.c_str(), viewManager->getForegroundColor());
+            draw->swap();
+            return;
+        }
+        else
+        {
+            draw->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());
+            weatherAlert = new Alert(draw, "Failed to fetch Weather data.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
+            weatherAlert->draw();
+            delay(2000);
+            viewManager->back();
+            return;
+        }
+    }
+}
+static void weatherStop(ViewManager *viewManager)
+{
+    if (weatherAlert)
+    {
+        if (viewManager->getBoard().boardType == BOARD_TYPE_VGM)
+            weatherAlert->clear();
+        delete weatherAlert;
+        weatherAlert = nullptr;
+    }
+    if (weatherHttp)
+    {
+        delete weatherHttp;
+        weatherHttp = nullptr;
+    }
+}
+const PROGMEM View weatherView = View("Weather", weatherRun, weatherStart, weatherStop);

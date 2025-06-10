@@ -4,6 +4,7 @@
 #include "../../../internal/system/view.hpp"
 #include "../../../internal/system/view_manager.hpp"
 #include "../../../internal/applications/applications/GPS/GPS.hpp"
+#include "../../../internal/applications/applications/Weather/weather.hpp"
 using namespace Picoware;
 static Menu *applications = nullptr;
 
@@ -28,6 +29,7 @@ static void applicationsStart(ViewManager *viewManager)
     );
 
     applications->addItem("GPS");
+    applications->addItem("Weather");
     applications->setSelected(0);
     applications->draw();
 }
@@ -61,6 +63,15 @@ static void applicationsRun(ViewManager *viewManager)
                 viewManager->add(&gpsView);
             }
             viewManager->switchTo("GPS");
+            return;
+        }
+        if (strcmp(currentItem, "Weather") == 0)
+        {
+            if (viewManager->getView("Weather") == nullptr)
+            {
+                viewManager->add(&weatherView);
+            }
+            viewManager->switchTo("Weather");
             return;
         }
         inputManager->reset(true);

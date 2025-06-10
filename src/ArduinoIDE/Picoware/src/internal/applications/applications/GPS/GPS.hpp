@@ -8,7 +8,6 @@
 using namespace Picoware;
 static Alert *gpsAlert = nullptr;
 static HTTP *gpsHttp = nullptr;
-static String gpsResponse = "";
 static void gpsStart(ViewManager *viewManager)
 {
     if (gpsAlert)
@@ -33,6 +32,7 @@ static void gpsStart(ViewManager *viewManager)
         viewManager->back();
         return;
     }
+
     // if wifi isn't connected, return
     if (!viewManager->getWiFi().isConnected())
     {
@@ -45,13 +45,11 @@ static void gpsStart(ViewManager *viewManager)
 
     draw->text(Vector(5, 5), "Fetching GPS...");
     draw->swap();
-
-    // send the request
     gpsHttp = new HTTP();
-    gpsResponse = gpsHttp->request("GET", "https://ipwhois.app/json/");
 }
 static void gpsRun(ViewManager *viewManager)
 {
+    static bool sendRequest = false;
     auto inputManager = viewManager->getInputManager();
     auto input = inputManager->getInput();
     switch (input)
@@ -61,45 +59,48 @@ static void gpsRun(ViewManager *viewManager)
         return;
     case BUTTON_RIGHT:
     case BUTTON_CENTER:
-        // maybe refresh the request?
+        sendRequest = false;
         break;
     default:
         break;
     }
 
-    auto draw = viewManager->getDraw();
-    if (gpsResponse.length() != 0)
+    if (!sendRequest)
     {
-        draw->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());
-        JsonDocument doc;
-        DeserializationError error = deserializeJson(doc, gpsResponse);
-        if (error)
+        sendRequest = true;
+        auto draw = viewManager->getDraw();
+        String gpsResponse = gpsHttp->request("GET", "https://ipwhois.app/json/");
+        if (gpsResponse.length() != 0)
         {
-            Serial.print("deserializeJson() failed: ");
-            Serial.println(error.c_str());
-            gpsAlert = new Alert(draw, "Failed to parse GPS data.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
+            draw->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());
+            JsonDocument doc;
+            DeserializationError error = deserializeJson(doc, gpsResponse);
+            if (error)
+            {
+                gpsAlert = new Alert(draw, "Failed to parse GPS data.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
+                gpsAlert->draw();
+                delay(2000);
+                viewManager->back();
+                return;
+            }
+            String city = doc["city"] | "Unknown";
+            String region = doc["region"] | "Unknown";
+            String country = doc["country"] | "Unknown";
+            String latitude = String(doc["latitude"].as<double>(), 6);
+            String longitude = String(doc["longitude"].as<double>(), 6);
+            String total_data = "You are in:\n" + city + ", " + region + ", " + country + ".\nLatitude: " + latitude + ", Longitude: " + longitude;
+            draw->text(Vector(0, 5), total_data.c_str(), viewManager->getForegroundColor());
+            draw->swap();
+        }
+        else
+        {
+            draw->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());
+            gpsAlert = new Alert(draw, "Failed to fetch GPS data.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
             gpsAlert->draw();
             delay(2000);
             viewManager->back();
             return;
         }
-        String city = doc["city"] | "Unknown";
-        String region = doc["region"] | "Unknown";
-        String country = doc["country"] | "Unknown";
-        String latitude = doc["latitude"] | "Unknown";
-        String longitude = doc["longitude"] | "Unknown";
-        String total_data = "You are in:\n" + city + ", " + region + ", " + country + ".\nLatitude: " + latitude + ", Longitude: " + longitude;
-        draw->text(Vector(0, 5), total_data.c_str(), viewManager->getForegroundColor());
-        draw->swap();
-    }
-    else
-    {
-        draw->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());
-        gpsAlert = new Alert(draw, "Failed to fetch GPS data.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
-        gpsAlert->draw();
-        delay(2000);
-        viewManager->back();
-        return;
     }
 }
 static void gpsStop(ViewManager *viewManager)
@@ -116,8 +117,6 @@ static void gpsStop(ViewManager *viewManager)
         delete gpsHttp;
         gpsHttp = nullptr;
     }
-
-    gpsResponse = "";
 }
 
 const PROGMEM View gpsView = View("GPS", gpsRun, gpsStart, gpsStop);

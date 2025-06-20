@@ -8,6 +8,18 @@
 using namespace Picoware;
 static Alert *weatherAlert = nullptr;
 static HTTP *weatherHttp = nullptr;
+static void weatherAlertAndReturn(ViewManager *viewManager, const char *message)
+{
+    if (weatherAlert)
+    {
+        delete weatherAlert;
+        weatherAlert = nullptr;
+    }
+    weatherAlert = new Alert(viewManager->getDraw(), message, viewManager->getForegroundColor(), viewManager->getBackgroundColor());
+    weatherAlert->draw();
+    delay(2000);
+    viewManager->back();
+}
 static void weatherStart(ViewManager *viewManager)
 {
     if (weatherAlert)
@@ -26,20 +38,14 @@ static void weatherStart(ViewManager *viewManager)
     // if wifi isn't available, return
     if (!viewManager->getBoard().hasWiFi)
     {
-        weatherAlert = new Alert(draw, "WiFi not available on your board.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
-        weatherAlert->draw();
-        delay(2000);
-        viewManager->back();
+        weatherAlertAndReturn(viewManager, "WiFi not available on your board.");
         return;
     }
 
     // if wifi isn't connected, return
     if (!viewManager->getWiFi().isConnected())
     {
-        weatherAlert = new Alert(draw, "WiFi not connected yet.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
-        weatherAlert->draw();
-        delay(2000);
-        viewManager->back();
+        weatherAlertAndReturn(viewManager, "WiFi not connected yet.");
         return;
     }
 
@@ -95,19 +101,14 @@ static void weatherRun(ViewManager *viewManager)
             if (weatherResponse.length() == 0)
             {
                 weatherAlert = new Alert(draw, "Failed to fetch Weather data.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
-                weatherAlert->draw();
-                delay(2000);
-                viewManager->back();
+                weatherAlertAndReturn(viewManager, "Failed to fetch Weather data.");
                 return;
             }
             JsonDocument weatherDoc;
             error = deserializeJson(weatherDoc, weatherResponse);
             if (error)
             {
-                weatherAlert = new Alert(draw, "Failed to parse Weather data.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
-                weatherAlert->draw();
-                delay(2000);
-                viewManager->back();
+                weatherAlertAndReturn(viewManager, "Failed to parse Weather data.");
                 return;
             }
 
@@ -133,10 +134,7 @@ static void weatherRun(ViewManager *viewManager)
         else
         {
             draw->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());
-            weatherAlert = new Alert(draw, "Failed to fetch Weather data.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
-            weatherAlert->draw();
-            delay(2000);
-            viewManager->back();
+            weatherAlertAndReturn(viewManager, "Failed to fetch Weather data.");
             return;
         }
     }

@@ -4,7 +4,7 @@
 #include "../../../internal/system/view.hpp"
 #include "../../../internal/system/view_manager.hpp"
 #include "../../../internal/applications/applications/GPS/GPS.hpp"
-#include "../../../internal/applications/applications/Weather/weather.hpp"
+#include "../../../internal/applications/applications/weather/weather.hpp"
 using namespace Picoware;
 static Menu *applications = nullptr;
 

@@ -3,6 +3,7 @@
 #include "../../../internal/gui/menu.hpp"
 #include "../../../internal/system/view.hpp"
 #include "../../../internal/system/view_manager.hpp"
+#include "../../../internal/applications/applications/flip_social/flip_social.hpp"
 #include "../../../internal/applications/applications/GPS/GPS.hpp"
 #include "../../../internal/applications/applications/weather/weather.hpp"
 using namespace Picoware;
@@ -28,6 +29,7 @@ static void applicationsStart(ViewManager *viewManager)
         2                                  // border/separator width
     );
 
+    applications->addItem("FlipSocial");
     applications->addItem("GPS");
     applications->addItem("Weather");
     applications->setSelected(0);
@@ -56,6 +58,15 @@ static void applicationsRun(ViewManager *viewManager)
     case BUTTON_CENTER:
     {
         const char *currentItem = applications->getCurrentItem();
+        if (strcmp(currentItem, "FlipSocial") == 0)
+        {
+            if (viewManager->getView("FlipSocial") == nullptr)
+            {
+                viewManager->add(&flipSocialView);
+            }
+            viewManager->switchTo("FlipSocial");
+            return;
+        }
         if (strcmp(currentItem, "GPS") == 0)
         {
             if (viewManager->getView("GPS") == nullptr)

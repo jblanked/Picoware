@@ -2,11 +2,11 @@
 
 namespace Picoware
 {
-    TextBox::TextBox(Draw *draw, uint16_t y, uint16_t height, uint16_t foregroundColor, uint16_t backgroundColor)
+    TextBox::TextBox(Draw *draw, uint16_t y, uint16_t height, uint16_t foregroundColor, uint16_t backgroundColor, bool showScrollBar)
         : display(draw), foregroundColor(foregroundColor), backgroundColor(backgroundColor),
-          charactersPerLine(0), linesPerScreen(0), totalLines(0), currentLine(-1)
+          charactersPerLine(0), linesPerScreen(0), totalLines(0), currentLine(-1), currentText(""),
+          showScrollBar(showScrollBar)
     {
-        currentText = "";
         position = Vector(0, y);
         size = Vector(draw->getSize().x, height);
         display->clear(position, size, backgroundColor);
@@ -43,7 +43,13 @@ namespace Picoware
 
     void TextBox::setCurrentLine(uint32_t line)
     {
-        if (line > (totalLines - 1))
+        if (totalLines == 0)
+        {
+            currentLine = 0;
+            return;
+        }
+
+        if (line >= totalLines)
             return;
 
         currentLine = line;
@@ -143,8 +149,14 @@ namespace Picoware
 
         if (currentLine == -1)
         {
-            // initialize currentLine to the total number of lines
-            currentLine = totalLines;
+            // initialize currentLine to show from the beginning
+            currentLine = 0;
+        }
+
+        // Ensure currentLine is within valid bounds
+        if (totalLines > 0 && currentLine >= totalLines)
+        {
+            currentLine = totalLines - 1;
         }
 
         // Calculate the first visible line - implement proper scrolling behavior
@@ -256,10 +268,14 @@ namespace Picoware
                 break;
         }
 
-        // Update scrollbar
-        setScrollBarSize();
-        setScrollBarPosition();
-        scrollBar->draw();
+        if (showScrollBar)
+        {
+            // Update scrollbar
+            setScrollBarSize();
+            setScrollBarPosition();
+            scrollBar->draw();
+        }
+
         this->display->swap();
     }
 

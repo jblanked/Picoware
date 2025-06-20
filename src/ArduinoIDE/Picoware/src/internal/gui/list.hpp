@@ -15,7 +15,8 @@ namespace Picoware
             uint16_t backgroundColor = TFT_WHITE,
             uint16_t selectedColor = TFT_BLUE,
             uint16_t borderColor = TFT_BLACK,
-            uint16_t borderWidth = 2);
+            uint16_t borderWidth = 2,
+            bool showScrollBar = true);
         ~List();
         //
         void clear();
@@ -66,6 +67,7 @@ namespace Picoware
         uint16_t firstVisibleIndex;      // Index of the first visible item
         uint16_t visibleItemCount;       // Number of items visible at once
         uint16_t linesPerScreen;         // Number of lines that fit in the list
+        bool showScrollBar;              // Whether to show the scrollbar
         std::vector<const char *> items; // List of items in the list
     };
 }

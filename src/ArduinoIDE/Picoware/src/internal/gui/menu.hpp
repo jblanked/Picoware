@@ -16,7 +16,8 @@ namespace Picoware
             uint16_t backgroundColor = TFT_WHITE,
             uint16_t selectedColor = TFT_BLUE,
             uint16_t borderColor = TFT_BLACK,
-            uint16_t borderWidth = 2);
+            uint16_t borderWidth = 2,
+            bool showScrollBar = true);
         ~Menu();
         //
         void clear();

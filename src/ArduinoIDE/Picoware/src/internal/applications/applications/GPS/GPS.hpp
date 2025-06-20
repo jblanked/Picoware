@@ -69,7 +69,10 @@ static void gpsRun(ViewManager *viewManager)
     {
         sendRequest = true;
         auto draw = viewManager->getDraw();
+        auto LED = viewManager->getLED();
+        LED.on();
         String gpsResponse = gpsHttp->request("GET", "https://ipwhois.app/json/");
+        LED.off();
         if (gpsResponse.length() != 0)
         {
             draw->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());

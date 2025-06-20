@@ -75,7 +75,10 @@ static void weatherRun(ViewManager *viewManager)
     {
         sendWeatherRequest = true;
         auto draw = viewManager->getDraw();
+        auto LED = viewManager->getLED();
+        LED.on();
         String locationResponse = weatherHttp->request("GET", "https://ipwhois.app/json/");
+        LED.off();
         if (locationResponse.length() != 0)
         {
             draw->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());

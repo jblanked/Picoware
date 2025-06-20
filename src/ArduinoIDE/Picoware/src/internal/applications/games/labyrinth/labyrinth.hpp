@@ -20,6 +20,7 @@ static void labyrinthStart(ViewManager *viewManager)
         viewManager->getInputManager(),    // Input manager
         viewManager->getForegroundColor(), // Foreground color
         viewManager->getBackgroundColor(), // Background color
+        CAMERA_FIRST_PERSON,               // Camera perspective
         nullptr,                           // Game start callback
         Labyrinth::game_stop               // Game stop callback
     );

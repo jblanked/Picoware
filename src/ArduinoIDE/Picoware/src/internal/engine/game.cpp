@@ -11,10 +11,12 @@ namespace Picoware
         InputManager *input_manager,
         uint16_t fg_color,
         uint16_t bg_color,
+        CameraPerspective perspective,
         void (*start)(),
         void (*stop)())
         : name(name), size(size), _start(start), _stop(stop),
           fg_color(fg_color), bg_color(bg_color),
+          camera_perspective(perspective),
           current_level(nullptr),
           camera(0, 0), pos(0, 0), old_pos(0, 0),
           is_active(false), input(-1)
@@ -91,6 +93,12 @@ namespace Picoware
         {
             if (this->levels[i] && strcmp(this->levels[i]->name, name) == 0)
             {
+                // Stop the current level before switching
+                if (this->current_level != nullptr)
+                {
+                    this->current_level->stop();
+                }
+
                 this->current_level = this->levels[i];
                 this->current_level->start();
                 return;
@@ -102,6 +110,12 @@ namespace Picoware
     {
         if (index < MAX_LEVELS && this->levels[index] != nullptr)
         {
+            // Stop the current level before switching
+            if (this->current_level != nullptr)
+            {
+                this->current_level->stop();
+            }
+
             this->current_level = this->levels[index];
             this->current_level->start();
         }
@@ -114,8 +128,8 @@ namespace Picoware
             return;
         }
 
-        // render the level
-        this->current_level->render(this);
+        // render the level with the configured perspective
+        this->current_level->render(this, camera_perspective);
     }
 
     void Game::start()
@@ -173,6 +187,16 @@ namespace Picoware
 
         // Update the level
         this->current_level->update(this);
+    }
+
+    void Game::setPerspective(CameraPerspective perspective)
+    {
+        camera_perspective = perspective;
+    }
+
+    CameraPerspective Game::getPerspective() const
+    {
+        return camera_perspective;
     }
 
 }

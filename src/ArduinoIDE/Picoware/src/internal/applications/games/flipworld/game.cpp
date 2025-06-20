@@ -3,6 +3,14 @@
 #include "../../../applications/games/flipworld/sprites.hpp"
 namespace FlipWorld
 {
+#undef ENTITY_UP
+#undef ENTITY_DOWN
+#undef ENTITY_LEFT
+#undef ENTITY_RIGHT
+#define ENTITY_UP Vector(0, -1)
+#define ENTITY_DOWN Vector(0, 1)
+#define ENTITY_LEFT Vector(-1, 0)
+#define ENTITY_RIGHT Vector(1, 0)
     typedef struct
     {
         const char *name;
@@ -309,7 +317,7 @@ namespace FlipWorld
     static void enemy_spawn(
         Level *level,
         const char *name,
-        EntityDirection direction,
+        Vector direction,
         Vector start_position,
         Vector end_position,
         float move_timer,

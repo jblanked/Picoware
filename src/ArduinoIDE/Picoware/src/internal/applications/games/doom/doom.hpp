@@ -25,6 +25,7 @@ static void doomStart(ViewManager *viewManager)
         viewManager->getInputManager(),    // Input manager
         viewManager->getBackgroundColor(), // Foreground color (switched on purpose)
         viewManager->getForegroundColor(), // Background color
+        CAMERA_FIRST_PERSON,               // Camera perspective
         nullptr,                           // Game start callback
         Doom::game_stop                    // Game stop callback
     );

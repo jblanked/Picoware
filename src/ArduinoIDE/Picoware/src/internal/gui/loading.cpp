@@ -74,6 +74,27 @@ namespace Picoware
             // draw just the edge segment
             display->drawLine(Vector(x1, y1), Vector(x2, y2), color);
         }
+
+        // draw time elapsed in milliseconds
+        display->text(Vector(5, board.height - 20), "Time Elapsed:");
+        char timeStr[16];
+        int seconds = timeElapsed / 10000;
+        if (seconds < 60)
+        {
+            if (seconds <= 1)
+            {
+                snprintf(timeStr, sizeof(timeStr), "%u second", seconds);
+            }
+            else
+            {
+                snprintf(timeStr, sizeof(timeStr), "%u seconds", seconds);
+            }
+        }
+        else
+        {
+            snprintf(timeStr, sizeof(timeStr), "%u minutes", seconds / 60);
+        }
+        display->text(Vector(230, board.height - 20), timeStr, spinnerColor);
     }
 
     // Helper function to adjust color opacity

@@ -8,7 +8,7 @@
 using namespace Picoware;
 static Menu *screensavers = nullptr;
 
-static void screensaversStart(ViewManager *viewManager)
+static bool screensaversStart(ViewManager *viewManager)
 {
     if (screensavers != nullptr)
     {
@@ -34,6 +34,8 @@ static void screensaversStart(ViewManager *viewManager)
         screensavers->addItem("Starfield");
     screensavers->setSelected(0);
     screensavers->draw();
+
+    return true;
 }
 
 static void screensaversRun(ViewManager *viewManager)

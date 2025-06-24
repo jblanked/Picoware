@@ -20,7 +20,7 @@ static void weatherAlertAndReturn(ViewManager *viewManager, const char *message)
     delay(2000);
     viewManager->back();
 }
-static void weatherStart(ViewManager *viewManager)
+static bool weatherStart(ViewManager *viewManager)
 {
     if (weatherAlert)
     {
@@ -39,19 +39,20 @@ static void weatherStart(ViewManager *viewManager)
     if (!viewManager->getBoard().hasWiFi)
     {
         weatherAlertAndReturn(viewManager, "WiFi not available on your board.");
-        return;
+        return false;
     }
 
     // if wifi isn't connected, return
     if (!viewManager->getWiFi().isConnected())
     {
         weatherAlertAndReturn(viewManager, "WiFi not connected yet.");
-        return;
+        return false;
     }
 
     draw->text(Vector(5, 5), "Fetching location data...");
     draw->swap();
     weatherHttp = new HTTP();
+    return true;
 }
 static void weatherRun(ViewManager *viewManager)
 {

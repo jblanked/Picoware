@@ -47,10 +47,11 @@ static unsigned int rainbow(int value)
   return (red << 11) + (green << 5) + blue;
 }
 
-void spiroStart(ViewManager *viewManager)
+bool spiroStart(ViewManager *viewManager)
 {
   viewManager->getDraw()->fillScreen(TFT_BLACK);
   viewManager->getDraw()->swap();
+  return true;
 }
 
 void spiroRun(ViewManager *viewManager)

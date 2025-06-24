@@ -16,7 +16,7 @@ static const String aboutText()
     text += "Instagram: @jblanked";
     return text;
 }
-static void aboutStart(ViewManager *viewManager)
+static bool aboutStart(ViewManager *viewManager)
 {
     if (aboutBox != nullptr)
     {
@@ -25,6 +25,7 @@ static void aboutStart(ViewManager *viewManager)
     }
     aboutBox = new TextBox(viewManager->getDraw(), 0, viewManager->getBoard().height, viewManager->getForegroundColor(), viewManager->getBackgroundColor());
     aboutBox->setText(aboutText().c_str());
+    return true;
 }
 static void aboutRun(ViewManager *viewManager)
 {

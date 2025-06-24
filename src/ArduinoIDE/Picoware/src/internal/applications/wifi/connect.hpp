@@ -65,7 +65,7 @@ static String getWiFiStatusText(ViewManager *viewManager)
     return text;
 }
 
-static void wifiConnectStart(ViewManager *viewManager)
+static bool wifiConnectStart(ViewManager *viewManager)
 {
     if (wifiConnectAlert != nullptr)
     {
@@ -79,8 +79,7 @@ static void wifiConnectStart(ViewManager *viewManager)
         wifiConnectAlert = new Alert(viewManager->getDraw(), "WiFi not available on your board.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
         wifiConnectAlert->draw();
         delay(2000);
-        viewManager->back();
-        return;
+        return false;
     }
     // if wifi credentials are not set, return
     if (wifiUtilsLoadWiFiSSIDFromFlash(viewManager) == "" || wifiUtilsLoadWiFiPasswordFromFlash(viewManager) == "")
@@ -88,8 +87,7 @@ static void wifiConnectStart(ViewManager *viewManager)
         wifiConnectAlert = new Alert(viewManager->getDraw(), "WiFi credentials not saved yet.\nAdd them in the WiFi settings.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
         wifiConnectAlert->draw();
         delay(2000);
-        viewManager->back();
-        return;
+        return false;
     }
     // Clean up existing objects
     if (statusBox != nullptr)
@@ -114,6 +112,7 @@ static void wifiConnectStart(ViewManager *viewManager)
 
     // Set initial text
     statusBox->setText(getWiFiStatusText(viewManager).c_str());
+    return true;
 }
 
 static void wifiConnectRun(ViewManager *viewManager)

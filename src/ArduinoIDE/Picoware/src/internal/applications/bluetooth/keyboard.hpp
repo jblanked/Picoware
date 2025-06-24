@@ -5,12 +5,11 @@
 #if ENABLE_CLASSIC != 0
 using namespace Picoware;
 static Bluetooth *bluetoothKeyboard = nullptr;
-static void keyboardStart(ViewManager *viewManager)
+static bool keyboardStart(ViewManager *viewManager)
 {
     if (viewManager->getKeyboard() == nullptr)
     {
-        viewManager->back();
-        return;
+        return false;
     }
     if (bluetoothKeyboard != nullptr)
     {
@@ -28,6 +27,7 @@ static void keyboardStart(ViewManager *viewManager)
     // Set up save callback to send the response to the keyboard
     viewManager->getKeyboard()->setSaveCallback([](const String &response)
                                                 { bluetoothKeyboard->keyboardPrint(response.c_str()); });
+    return true; // return true to indicate the start was successful.
 }
 
 static void keyboardRun(ViewManager *viewManager)

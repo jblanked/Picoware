@@ -17,7 +17,7 @@ static void scan_restart()
     System systemInfo = System();
     systemInfo.reboot();
 }
-static void bluetoothScanStart(ViewManager *viewManager)
+static bool bluetoothScanStart(ViewManager *viewManager)
 {
     if (bluetoothScan != nullptr)
     {
@@ -43,8 +43,7 @@ static void bluetoothScanStart(ViewManager *viewManager)
         bluetoothScanAlert = new Alert(draw, "Bluetooth not available on your board.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
         bluetoothScanAlert->draw();
         delay(2000);
-        viewManager->back();
-        return;
+        return false;
     }
 
     auto LED = viewManager->getLED();
@@ -79,7 +78,7 @@ static void bluetoothScanStart(ViewManager *viewManager)
         delay(3000);
         // viewManager->back();
         scan_restart();
-        return;
+        return false;
     }
     auto bluetoothScanResults = doc["devices"].as<JsonArray>();
     int bluetoothScanCount = bluetoothScanResults.size();
@@ -90,7 +89,7 @@ static void bluetoothScanStart(ViewManager *viewManager)
         delay(3000);
         // viewManager->back();
         scan_restart();
-        return;
+        return false;
     }
     for (int i = 0; i < bluetoothScanCount; i++)
     {
@@ -106,6 +105,8 @@ static void bluetoothScanStart(ViewManager *viewManager)
     }
     bluetoothScan->setSelected(0);
     bluetoothScan->draw();
+
+    return true;
 }
 
 static void bluetoothScanRun(ViewManager *viewManager)

@@ -6,12 +6,11 @@ using namespace Picoware;
 static bool passwordIsRunning = false;
 static bool passwordSaveRequested = false;
 
-static void wifiPasswordStart(ViewManager *viewManager)
+static bool wifiPasswordStart(ViewManager *viewManager)
 {
     if (viewManager->getKeyboard() == nullptr)
     {
-        viewManager->back();
-        return;
+        return false;
     }
 
     // Reset flags
@@ -24,6 +23,7 @@ static void wifiPasswordStart(ViewManager *viewManager)
 
     // load the password from flash
     viewManager->getKeyboard()->setResponse(wifiUtilsLoadWiFiPasswordFromFlash(viewManager));
+    return true;
 }
 
 static void wifiPasswordRun(ViewManager *viewManager)

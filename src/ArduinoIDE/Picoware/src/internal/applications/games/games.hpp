@@ -16,7 +16,7 @@
 using namespace Picoware;
 static Menu *games = nullptr;
 static Alert *gameMemoryAlert = nullptr;
-static void gamesStart(ViewManager *viewManager)
+static bool gamesStart(ViewManager *viewManager)
 {
     if (games != nullptr)
     {
@@ -48,6 +48,7 @@ static void gamesStart(ViewManager *viewManager)
     games->addItem("T-Rex Runner");
     games->setSelected(0);
     games->draw();
+    return true;
 }
 
 static void gamesRun(ViewManager *viewManager)

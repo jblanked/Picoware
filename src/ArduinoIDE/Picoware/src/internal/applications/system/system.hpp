@@ -9,7 +9,7 @@
 using namespace Picoware;
 static Menu *systemApp = nullptr;
 
-static void systemStart(ViewManager *viewManager)
+static bool systemStart(ViewManager *viewManager)
 {
     if (systemApp != nullptr)
     {
@@ -34,6 +34,7 @@ static void systemStart(ViewManager *viewManager)
     systemApp->addItem("Restart Device");
     systemApp->setSelected(0);
     systemApp->draw();
+    return true;
 }
 
 static void systemRun(ViewManager *viewManager)

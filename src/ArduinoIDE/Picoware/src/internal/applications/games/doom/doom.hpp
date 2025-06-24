@@ -13,7 +13,7 @@
 
 static GameEngine *doomEngine = nullptr;
 
-static void doomStart(ViewManager *viewManager)
+static bool doomStart(ViewManager *viewManager)
 {
     auto board = viewManager->getBoard();
 
@@ -39,6 +39,8 @@ static void doomStart(ViewManager *viewManager)
 
     // Create the game engine (with 120 frames per second target).
     doomEngine = new GameEngine(game, 120);
+
+    return true;
 }
 
 static void doomRun(ViewManager *viewManager)

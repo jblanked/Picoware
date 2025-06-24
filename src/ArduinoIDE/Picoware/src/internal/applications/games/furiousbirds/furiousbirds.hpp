@@ -12,7 +12,7 @@
 
 static GameEngine *furiousBirdsEngine = nullptr;
 
-static void furiousBirdsStart(ViewManager *viewManager)
+static bool furiousBirdsStart(ViewManager *viewManager)
 {
     auto board = viewManager->getBoard();
 
@@ -38,6 +38,8 @@ static void furiousBirdsStart(ViewManager *viewManager)
 
     // Create the game engine (with 240 frames per second target).
     furiousBirdsEngine = new GameEngine(game, 240);
+
+    return true;
 }
 
 static void furiousBirdsRun(ViewManager *viewManager)

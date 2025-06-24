@@ -7,17 +7,18 @@ namespace Picoware
     class View
     {
     public:
-        explicit View(const char *name, void (*run)(ViewManager *), void (*start)(ViewManager *) = nullptr, void (*stop)(ViewManager *) = nullptr) noexcept
+        explicit View(const char *name, void (*run)(ViewManager *), bool (*start)(ViewManager *) = nullptr, void (*stop)(ViewManager *) = nullptr) noexcept
             : name(name), _run(run), _start(start), _stop(stop)
         {
         }
 
-        void start(ViewManager *viewManager) const noexcept
+        bool start(ViewManager *viewManager) const noexcept
         {
             if (_start != nullptr)
             {
-                _start(viewManager);
+                return _start(viewManager);
             }
+            return false;
         }
 
         void stop(ViewManager *viewManager) const noexcept
@@ -40,7 +41,7 @@ namespace Picoware
 
     private:
         void (*_run)(ViewManager *);
-        void (*_start)(ViewManager *);
+        bool (*_start)(ViewManager *);
         void (*_stop)(ViewManager *);
     };
 }

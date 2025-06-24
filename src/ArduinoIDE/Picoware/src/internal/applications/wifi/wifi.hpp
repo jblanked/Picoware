@@ -11,7 +11,7 @@
 using namespace Picoware;
 static Menu *wifi = nullptr;
 
-static void wifiStart(ViewManager *viewManager)
+static bool wifiStart(ViewManager *viewManager)
 {
     if (wifi != nullptr)
     {
@@ -37,6 +37,8 @@ static void wifiStart(ViewManager *viewManager)
     wifi->addItem("Settings");
     wifi->setSelected(0);
     wifi->draw();
+
+    return true;
 }
 
 static void wifiRun(ViewManager *viewManager)

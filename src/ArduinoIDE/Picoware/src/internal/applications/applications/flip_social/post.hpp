@@ -23,12 +23,11 @@ static void flipSocialPostAlertAndReturn(ViewManager *viewManager, const char *m
     System systemInfo = System();
     systemInfo.reboot();
 }
-static void flipSocialPostStart(ViewManager *viewManager)
+static bool flipSocialPostStart(ViewManager *viewManager)
 {
     if (viewManager->getKeyboard() == nullptr)
     {
-        viewManager->back();
-        return;
+        return false; // if keyboard is not available, return false
     }
 
     // Reset flags
@@ -36,6 +35,7 @@ static void flipSocialPostStart(ViewManager *viewManager)
     flipSocialPostSaveRequested = false;
     viewManager->getKeyboard()->setSaveCallback([](const String &response)
                                                 { flipSocialPostSaveRequested = true; });
+    return true;
 }
 
 static void flipSocialPostRun(ViewManager *viewManager)

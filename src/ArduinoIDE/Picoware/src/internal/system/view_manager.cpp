@@ -73,7 +73,13 @@ namespace Picoware
             // Start the previous view
             if (this->currentView != nullptr)
             {
-                this->currentView->start(this);
+                if (!this->currentView->start(this))
+                {
+                    // umm this is recursive but it should keep bringing
+                    // the user back until it finds a view that starts successfully
+                    // which by default is the Desktop view
+                    this->back();
+                }
             }
         }
     }
@@ -173,7 +179,10 @@ namespace Picoware
         this->currentView = getView(viewName);
         if (this->currentView != nullptr)
         {
-            this->currentView->start(this);
+            if (!this->currentView->start(this))
+            {
+                this->back();
+            }
         }
         // Clear the stack when explicitly setting a view
         this->clearStack();
@@ -203,7 +212,10 @@ namespace Picoware
         }
 
         this->currentView = view;
-        this->currentView->start(this);
+        if (!this->currentView->start(this))
+        {
+            this->back();
+        }
     }
 
     void ViewManager::_pushView(const View *view)

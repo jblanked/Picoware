@@ -11,7 +11,7 @@
 using namespace Picoware;
 static Menu *library = nullptr;
 
-static void libraryStart(ViewManager *viewManager)
+static bool libraryStart(ViewManager *viewManager)
 {
     if (library != nullptr)
     {
@@ -45,6 +45,8 @@ static void libraryStart(ViewManager *viewManager)
     library->addItem("Screensavers");
     library->setSelected(0);
     library->draw();
+
+    return true;
 }
 
 static void libraryRun(ViewManager *viewManager)

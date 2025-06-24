@@ -8,7 +8,7 @@
 
 static GameEngine *flightAssaultEngine = nullptr;
 
-static void flightAssaultStart(ViewManager *viewManager)
+static bool flightAssaultStart(ViewManager *viewManager)
 {
     auto board = viewManager->getBoard();
 
@@ -34,6 +34,8 @@ static void flightAssaultStart(ViewManager *viewManager)
 
     // Create the game engine (with 60 frames per second target).
     flightAssaultEngine = new GameEngine(game, 60);
+
+    return true;
 }
 
 static void flightAssaultRun(ViewManager *viewManager)

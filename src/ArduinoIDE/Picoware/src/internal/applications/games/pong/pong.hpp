@@ -8,7 +8,7 @@
 
 static GameEngine *pongEngine = nullptr;
 
-static void pongStart(ViewManager *viewManager)
+static bool pongStart(ViewManager *viewManager)
 {
     auto board = viewManager->getBoard();
 
@@ -34,6 +34,8 @@ static void pongStart(ViewManager *viewManager)
 
     // Create the game engine (with 60 frames per second target).
     pongEngine = new GameEngine(game, 60);
+
+    return true;
 }
 
 static void pongRun(ViewManager *viewManager)

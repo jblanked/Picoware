@@ -11,7 +11,7 @@
 using namespace Picoware;
 static Menu *bluetooth = nullptr;
 
-static void bluetoothStart(ViewManager *viewManager)
+static bool bluetoothStart(ViewManager *viewManager)
 {
     if (bluetooth != nullptr)
     {
@@ -37,6 +37,7 @@ static void bluetoothStart(ViewManager *viewManager)
     bluetooth->addItem("BLE Mouse");
     bluetooth->setSelected(0);
     bluetooth->draw();
+    return true;
 }
 
 static void bluetoothRun(ViewManager *viewManager)

@@ -11,7 +11,7 @@ using namespace Picoware;
 static Menu *wifiSettings = nullptr;
 static TextBox *displayBox = nullptr;
 
-static void wifiSettingsStart(ViewManager *viewManager)
+static bool wifiSettingsStart(ViewManager *viewManager)
 {
     if (wifiSettings != nullptr)
     {
@@ -43,6 +43,8 @@ static void wifiSettingsStart(ViewManager *viewManager)
     wifiSettings->addItem("Change Password");
     wifiSettings->setSelected(0);
     wifiSettings->draw();
+
+    return true;
 }
 
 static void wifiSettingsRun(ViewManager *viewManager)

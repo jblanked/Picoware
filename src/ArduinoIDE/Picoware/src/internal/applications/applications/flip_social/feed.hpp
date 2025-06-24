@@ -25,7 +25,7 @@ static void flipSocialAppendFeedItem(TextBox *textbox, const char *username, con
     textbox->setCurrentText(flipSocialFeedText.c_str());
 }
 
-static void flipSocialFeedStart(ViewManager *viewManager)
+static bool flipSocialFeedStart(ViewManager *viewManager)
 {
     if (flipSocialFeedTextBox)
     {
@@ -47,6 +47,7 @@ static void flipSocialFeedStart(ViewManager *viewManager)
     );
     draw->text(Vector(5, 5), "Fetching Feed...");
     draw->swap();
+    return true; // return true to indicate the start was successful.
 }
 
 static void flipSocialFeedRun(ViewManager *viewManager)

@@ -9,7 +9,7 @@
 using namespace Picoware;
 static Menu *applications = nullptr;
 
-static void applicationsStart(ViewManager *viewManager)
+static bool applicationsStart(ViewManager *viewManager)
 {
     if (applications != nullptr)
     {
@@ -34,6 +34,7 @@ static void applicationsStart(ViewManager *viewManager)
     applications->addItem("Weather");
     applications->setSelected(0);
     applications->draw();
+    return true;
 }
 
 static void applicationsRun(ViewManager *viewManager)

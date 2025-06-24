@@ -6,12 +6,11 @@ using namespace Picoware;
 static bool flipSocialUserIsRunning = false;
 static bool flipSocialUserSaveRequested = false;
 
-static void flipSocialUserStart(ViewManager *viewManager)
+static bool flipSocialUserStart(ViewManager *viewManager)
 {
     if (viewManager->getKeyboard() == nullptr)
     {
-        viewManager->back();
-        return;
+        return false; // if keyboard is not available, return false
     }
 
     // Reset flags
@@ -24,6 +23,7 @@ static void flipSocialUserStart(ViewManager *viewManager)
 
     // load the ssid from flash
     viewManager->getKeyboard()->setResponse(flipSocialUtilsLoadUserFromFlash(viewManager));
+    return true; // return true to indicate the start was successful.
 }
 
 static void flipSocialUserRun(ViewManager *viewManager)

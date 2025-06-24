@@ -23,7 +23,7 @@ inline uint8_t __attribute__((always_inline)) rng()
     return zc;
 }
 
-void starfieldStart(ViewManager *viewManager)
+bool starfieldStart(ViewManager *viewManager)
 {
     za = random(256);
     zb = random(256);
@@ -31,6 +31,7 @@ void starfieldStart(ViewManager *viewManager)
     zx = random(256);
     viewManager->getDraw()->fillScreen(TFT_BLACK);
     viewManager->getDraw()->swap();
+    return true;
 }
 
 void starfieldRun(ViewManager *viewManager)

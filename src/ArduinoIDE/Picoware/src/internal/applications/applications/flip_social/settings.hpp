@@ -7,7 +7,7 @@ using namespace Picoware;
 static Menu *flipSocialSettings = nullptr;
 static TextBox *flipSocialSettingsTextBox = nullptr;
 
-static void flipSocialSettingsStart(ViewManager *viewManager)
+static bool flipSocialSettingsStart(ViewManager *viewManager)
 {
     if (flipSocialSettings != nullptr)
     {
@@ -38,6 +38,7 @@ static void flipSocialSettingsStart(ViewManager *viewManager)
     flipSocialSettings->addItem("Change Password");
     flipSocialSettings->setSelected(0);
     flipSocialSettings->draw();
+    return true;
 }
 static void flipSocialSettingsRun(ViewManager *viewManager)
 {

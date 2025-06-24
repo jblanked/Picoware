@@ -8,7 +8,7 @@
 using namespace Picoware;
 static Alert *gpsAlert = nullptr;
 static HTTP *gpsHttp = nullptr;
-static void gpsStart(ViewManager *viewManager)
+static bool gpsStart(ViewManager *viewManager)
 {
     if (gpsAlert)
     {
@@ -29,8 +29,7 @@ static void gpsStart(ViewManager *viewManager)
         gpsAlert = new Alert(draw, "WiFi not available on your board.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
         gpsAlert->draw();
         delay(2000);
-        viewManager->back();
-        return;
+        return false;
     }
 
     // if wifi isn't connected, return
@@ -39,13 +38,13 @@ static void gpsStart(ViewManager *viewManager)
         gpsAlert = new Alert(draw, "WiFi not connected yet.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
         gpsAlert->draw();
         delay(2000);
-        viewManager->back();
-        return;
+        return false;
     }
 
     draw->text(Vector(5, 5), "Fetching GPS...");
     draw->swap();
     gpsHttp = new HTTP();
+    return true;
 }
 static void gpsRun(ViewManager *viewManager)
 {

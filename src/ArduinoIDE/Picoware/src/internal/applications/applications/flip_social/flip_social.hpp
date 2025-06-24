@@ -24,7 +24,7 @@ static void flipSocialAlertAndReturn(ViewManager *viewManager, const char *messa
     delay(2000);
     viewManager->back();
 }
-static void flipSocialStart(ViewManager *viewManager)
+static bool flipSocialStart(ViewManager *viewManager)
 {
     if (flipSocialMenu)
     {
@@ -38,14 +38,14 @@ static void flipSocialStart(ViewManager *viewManager)
     if (!viewManager->getBoard().hasWiFi)
     {
         flipSocialAlertAndReturn(viewManager, "WiFi not available on your board.");
-        return;
+        return false;
     }
 
     // if wifi isn't connected, return
     if (!viewManager->getWiFi().isConnected())
     {
         flipSocialAlertAndReturn(viewManager, "WiFi not connected yet.");
-        return;
+        return false;
     }
 
     flipSocialMenu = new Menu(
@@ -65,6 +65,7 @@ static void flipSocialStart(ViewManager *viewManager)
     flipSocialMenu->addItem("Settings");
     flipSocialMenu->setSelected(0);
     flipSocialMenu->draw();
+    return true;
 }
 static void flipSocialRun(ViewManager *viewManager)
 {

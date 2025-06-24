@@ -6,12 +6,11 @@ using namespace Picoware;
 static bool flipSocialPassIsRunning = false;
 static bool flipSocialPassSaveRequested = false;
 
-static void flipSocialPassStart(ViewManager *viewManager)
+static bool flipSocialPassStart(ViewManager *viewManager)
 {
     if (viewManager->getKeyboard() == nullptr)
     {
-        viewManager->back();
-        return;
+        return false;
     }
 
     // Reset flags
@@ -24,6 +23,7 @@ static void flipSocialPassStart(ViewManager *viewManager)
 
     // load the ssid from flash
     viewManager->getKeyboard()->setResponse(flipSocialUtilsLoadPasswordFromFlash(viewManager));
+    return true;
 }
 
 static void flipSocialPassRun(ViewManager *viewManager)

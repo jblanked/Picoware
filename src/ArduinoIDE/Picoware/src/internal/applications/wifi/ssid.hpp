@@ -6,12 +6,11 @@ using namespace Picoware;
 static bool ssidIsRunning = false;
 static bool ssidSaveRequested = false;
 
-static void wifiSSIDStart(ViewManager *viewManager)
+static bool wifiSSIDStart(ViewManager *viewManager)
 {
     if (viewManager->getKeyboard() == nullptr)
     {
-        viewManager->back();
-        return;
+        return false;
     }
 
     // Reset flags
@@ -24,6 +23,8 @@ static void wifiSSIDStart(ViewManager *viewManager)
 
     // load the ssid from flash
     viewManager->getKeyboard()->setResponse(wifiUtilsLoadWiFiSSIDFromFlash(viewManager));
+
+    return true;
 }
 
 static void wifiSSIDRun(ViewManager *viewManager)

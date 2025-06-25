@@ -1,7 +1,21 @@
 #include "../../internal/system/http.hpp"
 #include <ArduinoHttpClient.h>
+#include <AsyncHTTPRequest_RP2040W.h>
+
+// AsyncHTTPRequest ready states
+#define readyStateUnsent 0
+#define readyStateOpened 1
+#define readyStateHdrsRecvd 2
+#define readyStateLoading 3
+#define readyStateDone 4
+
 namespace Picoware
 {
+    HTTP::~HTTP()
+    {
+        // nothing to do
+    }
+
     String HTTP::request(const char *method, String url, String payload, const char *headerKeys[], const char *headerValues[], int headerSize)
     {
         HTTPClient http;
@@ -119,5 +133,163 @@ namespace Picoware
 
         // Close the WebSocket connection
         ws.stop();
+    }
+    bool HTTP::requestAsync(const char *method, String url, String payload, const char *headerKeys[], const char *headerValues[], int headerSize)
+    {
+        // Reset async state
+        asyncResponse = "";
+        asyncRequestComplete = false;
+
+        if (asyncRequestInProgress)
+        {
+            return false; // Another async request is already in progress
+        }
+
+        // Check if we can send a request
+        if (asyncRequest.readyState() == readyStateUnsent || asyncRequest.readyState() == readyStateDone)
+        {
+            // Set up the callback
+            asyncRequest.onReadyStateChange(onAsyncRequestComplete, this);
+
+            // Try to open the request
+            bool openSuccess = asyncRequest.open(method, url.c_str());
+            if (!openSuccess)
+            {
+                // Failed to open request
+                state = ISSUE;
+                asyncRequestInProgress = false;
+                return false;
+            }
+
+            // Add headers if provided
+            for (int i = 0; i < headerSize; i++)
+            {
+                if (headerKeys[i] && headerValues[i])
+                {
+                    asyncRequest.setReqHeader(headerKeys[i], headerValues[i]);
+                }
+            }
+
+            // Set common headers for JSON APIs
+            asyncRequest.setReqHeader("Accept", "application/json");
+
+            asyncRequestInProgress = true;
+            state = SENDING;
+
+            // Send the request
+            if (payload.length() > 0 && payload != "{}")
+            {
+                asyncRequest.setReqHeader("Content-Type", "application/json");
+                asyncRequest.send(payload);
+            }
+            else
+            {
+                asyncRequest.send();
+            }
+
+            state = RECEIVING;
+            return true;
+        }
+        else
+        {
+            // Can't send request - not in proper state
+            return false;
+        }
+    }
+
+    void HTTP::onAsyncRequestComplete(void *optParm, AsyncHTTPRequest *request, int readyState)
+    {
+        HTTP *httpInstance = static_cast<HTTP *>(optParm);
+
+        // Check the ready state
+        switch (readyState)
+        {
+        case readyStateUnsent:
+            // Request not yet sent
+            break;
+        case readyStateOpened:
+            // Request opened
+            break;
+        case readyStateHdrsRecvd:
+            // Headers received
+            break;
+        case readyStateLoading:
+            // Loading response
+            httpInstance->state = RECEIVING;
+            break;
+        case readyStateDone:
+        {
+            // Request complete
+            httpInstance->asyncRequestInProgress = false;
+
+            // Check if we got a successful response
+            int httpCode = request->responseHTTPcode();
+            if (httpCode >= 200 && httpCode < 300)
+            {
+                // Success - get the response text
+                httpInstance->asyncResponse = request->responseText();
+                httpInstance->state = IDLE;
+            }
+            else
+            {
+                // HTTP error
+                httpInstance->asyncResponse = "";
+                httpInstance->state = ISSUE;
+            }
+
+            httpInstance->asyncRequestComplete = true;
+            break;
+        }
+        default:
+            // Unknown state
+            break;
+        }
+    }
+
+    String HTTP::getAsyncResponse()
+    {
+        if (asyncRequestComplete)
+        {
+            String response = asyncResponse;
+            asyncResponse = "";
+            asyncRequestComplete = false;
+            return response;
+        }
+        return "";
+    }
+
+    bool HTTP::isAsyncComplete()
+    {
+        return asyncRequestComplete;
+    }
+
+    void HTTP::processAsync()
+    {
+        static unsigned long requestStartTime = 0;
+
+        if (asyncRequestInProgress)
+        {
+            // Initialize start time on first call
+            if (requestStartTime == 0)
+            {
+                requestStartTime = millis();
+            }
+
+            // 15 second timeout as fallback safety
+            if (millis() - requestStartTime > 15000)
+            {
+                // Timeout - mark as failed
+                asyncRequestInProgress = false;
+                asyncRequestComplete = true;
+                asyncResponse = "";
+                state = ISSUE;
+                requestStartTime = 0;
+            }
+        }
+        else if (!asyncRequestInProgress)
+        {
+            // Reset timeout counter when not in progress
+            requestStartTime = 0;
+        }
     }
 }

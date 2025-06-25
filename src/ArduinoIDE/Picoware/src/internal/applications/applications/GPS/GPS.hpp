@@ -48,9 +48,13 @@ static bool gpsStart(ViewManager *viewManager)
 }
 static void gpsRun(ViewManager *viewManager)
 {
-    static bool sendRequest = false;
+    static bool requestSent = false;
+    static bool requestInProgress = false;
     auto inputManager = viewManager->getInputManager();
     auto input = inputManager->getInput();
+    auto draw = viewManager->getDraw();
+    auto LED = viewManager->getLED();
+
     switch (input)
     {
     case BUTTON_LEFT:
@@ -58,50 +62,116 @@ static void gpsRun(ViewManager *viewManager)
         return;
     case BUTTON_RIGHT:
     case BUTTON_CENTER:
-        sendRequest = false;
+        // Reset for new request
+        requestSent = false;
+        requestInProgress = false;
+        draw->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());
+        draw->text(Vector(5, 5), "Fetching GPS...");
+        draw->swap();
         break;
     default:
         break;
     }
 
-    if (!sendRequest)
+    // Start async request if not already sent
+    if (!requestSent && !requestInProgress)
     {
-        sendRequest = true;
-        auto draw = viewManager->getDraw();
-        auto LED = viewManager->getLED();
+        requestSent = true;
+        requestInProgress = true;
         LED.on();
-        String gpsResponse = gpsHttp->request("GET", "https://ipwhois.app/json/");
-        LED.off();
-        if (gpsResponse.length() != 0)
+
+        // Start async request - AsyncHTTPRequest_RP2040W doesn't support HTTPS
+        bool success = gpsHttp->requestAsync("GET", "http://ipwhois.app/json/");
+        if (!success)
         {
-            draw->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());
-            JsonDocument doc;
-            DeserializationError error = deserializeJson(doc, gpsResponse);
-            if (error)
+            LED.off();
+            // Check if it's an async library issue or network issue
+            String errorMsg = "Failed to start GPS request.";
+            gpsAlert = new Alert(draw, errorMsg.c_str(), viewManager->getForegroundColor(), viewManager->getBackgroundColor());
+            gpsAlert->draw();
+            delay(2000);
+            viewManager->back();
+            return;
+        }
+
+        draw->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());
+        draw->text(Vector(5, 5), "Requesting GPS data...");
+        draw->swap();
+    }
+
+    // Check if async request is complete
+    if (requestInProgress)
+    {
+        // Process async requests
+        gpsHttp->processAsync();
+
+        // Check if request completed (either success or failure)
+        if (gpsHttp->isAsyncComplete())
+        {
+            requestInProgress = false;
+            LED.off();
+
+            String gpsResponse = gpsHttp->getAsyncResponse();
+
+            if (gpsResponse.length() != 0)
             {
-                gpsAlert = new Alert(draw, "Failed to parse GPS data.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
+                draw->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());
+                JsonDocument doc;
+                DeserializationError error = deserializeJson(doc, gpsResponse);
+                if (error)
+                {
+                    gpsAlert = new Alert(draw, "Failed to parse GPS data.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
+                    gpsAlert->draw();
+                    delay(2000);
+                    viewManager->back();
+                    return;
+                }
+                String city = doc["city"] | "Unknown";
+                String region = doc["region"] | "Unknown";
+                String country = doc["country"] | "Unknown";
+                String latitude = String(doc["latitude"].as<double>(), 6);
+                String longitude = String(doc["longitude"].as<double>(), 6);
+                String total_data = "You are in:\n" + city + ", " + region + ", " + country + ".\nLatitude: " + latitude + ", Longitude: " + longitude + "\n\nPress CENTER to refresh\nPress LEFT to go back";
+                draw->text(Vector(0, 5), total_data.c_str(), viewManager->getForegroundColor());
+                draw->swap();
+            }
+            else
+            {
+                draw->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());
+                String errorMsg = "Failed to fetch GPS data.";
+                if (gpsHttp->getState() == ISSUE)
+                {
+                    errorMsg = "Network error or timeout.";
+                }
+                gpsAlert = new Alert(draw, errorMsg.c_str(), viewManager->getForegroundColor(), viewManager->getBackgroundColor());
                 gpsAlert->draw();
                 delay(2000);
                 viewManager->back();
                 return;
             }
-            String city = doc["city"] | "Unknown";
-            String region = doc["region"] | "Unknown";
-            String country = doc["country"] | "Unknown";
-            String latitude = String(doc["latitude"].as<double>(), 6);
-            String longitude = String(doc["longitude"].as<double>(), 6);
-            String total_data = "You are in:\n" + city + ", " + region + ", " + country + ".\nLatitude: " + latitude + ", Longitude: " + longitude;
-            draw->text(Vector(0, 5), total_data.c_str(), viewManager->getForegroundColor());
-            draw->swap();
         }
-        else
+    }
+
+    // Show loading indicator while request is in progress
+    if (requestInProgress)
+    {
+        static unsigned long lastUpdate = 0;
+        static int dotCount = 0;
+
+        if (millis() - lastUpdate > 500) // Update every 500ms
         {
+            lastUpdate = millis();
+            dotCount = (dotCount + 1) % 4;
+
+            String loadingText = "Requesting GPS data";
+            for (int i = 0; i < dotCount; i++)
+            {
+                loadingText += ".";
+            }
+
             draw->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());
-            gpsAlert = new Alert(draw, "Failed to fetch GPS data.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
-            gpsAlert->draw();
-            delay(2000);
-            viewManager->back();
-            return;
+            draw->text(Vector(5, 5), loadingText.c_str(), viewManager->getForegroundColor());
+            draw->swap();
         }
     }
 }

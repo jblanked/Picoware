@@ -330,7 +330,7 @@ namespace Picoware
         return sprite_3d != nullptr && sprite_3d_type != SPRITE_3D_NONE;
     }
 
-    void Entity::render3DSprite(Draw *draw, Vector player_pos, Vector player_dir, Vector player_plane, float view_height) const
+    void Entity::render3DSprite(Draw *draw, Vector player_pos, Vector player_dir, Vector player_plane, float view_height, Vector screen_size) const
     {
         if (!has3DSprite())
             return;
@@ -352,10 +352,10 @@ namespace Picoware
 
                 for (uint8_t j = 0; j < 3; j++)
                 {
-                    Vector screen_point = project3DTo2D(triangles[i].vertices[j], player_pos, player_dir, player_plane, view_height);
+                    Vector screen_point = project3DTo2D(triangles[i].vertices[j], player_pos, player_dir, player_plane, view_height, screen_size);
 
                     // Check if point is on screen
-                    if (screen_point.x < 0 || screen_point.x >= 128 || screen_point.y < 0 || screen_point.y >= 64)
+                    if (screen_point.x < 0 || screen_point.x >= screen_size.x || screen_point.y < 0 || screen_point.y >= screen_size.y)
                     {
                         all_visible = false;
                         break;
@@ -367,13 +367,13 @@ namespace Picoware
                 if (all_visible)
                 {
                     // Fill the triangle
-                    fillTriangle(draw, screen_points[0], screen_points[1], screen_points[2]);
+                    fillTriangle(draw, screen_points[0], screen_points[1], screen_points[2], screen_size);
                 }
             }
         }
     }
 
-    Vector Entity::project3DTo2D(const Vertex3D &vertex, Vector player_pos, Vector player_dir, Vector /*player_plane*/, float view_height) const
+    Vector Entity::project3DTo2D(const Vertex3D &vertex, Vector player_pos, Vector player_dir, Vector /*player_plane*/, float view_height, Vector screen_size) const
     {
         // Transform world coordinates to camera coordinates
         float world_dx = vertex.x - player_pos.x;
@@ -397,15 +397,15 @@ namespace Picoware
             return Vector(-1, -1); // Invalid point (behind camera)
         }
 
-        // Project to screen coordinates
-        float fov_scale = 64.0f;                               // Match the scale used in raycasting
-        float screen_x = (cam_x / cam_z) * fov_scale + 64.0f;  // Center at 64 (128/2)
-        float screen_y = (-cam_y / cam_z) * fov_scale + 32.0f; // Center at 32 (64/2)
+        // Project to screen coordinates - scale based on screen size
+        float fov_scale = screen_size.y;                                      // Use screen height
+        float screen_x = (cam_x / cam_z) * fov_scale + screen_size.x / 2.0f;  // Center at screen width/2
+        float screen_y = (-cam_y / cam_z) * fov_scale + screen_size.y / 2.0f; // Center at screen height/2
 
         return Vector(screen_x, screen_y);
     }
 
-    void Entity::fillTriangle(Draw *const draw, Vector p1, Vector p2, Vector p3) const
+    void Entity::fillTriangle(Draw *const draw, Vector p1, Vector p2, Vector p3, Vector screen_size) const
     {
         // Sort vertices by Y coordinate (p1.y <= p2.y <= p3.y)
         if (p1.y > p2.y)
@@ -436,7 +436,7 @@ namespace Picoware
         // Fill the triangle using horizontal scanlines
         for (int y = y1; y <= y3; y++)
         {
-            if (y < 0 || y >= 64)
+            if (y < 0 || y >= screen_size.y)
                 continue; // Skip lines outside screen bounds
 
             float x_left = 0, x_right = 0;
@@ -512,8 +512,8 @@ namespace Picoware
                 // Clamp to screen bounds
                 if (start_x < 0)
                     start_x = 0;
-                if (end_x >= 128)
-                    end_x = 127;
+                if (end_x >= screen_size.x)
+                    end_x = screen_size.x - 1;
 
                 for (int x = start_x; x <= end_x; x++)
                 {

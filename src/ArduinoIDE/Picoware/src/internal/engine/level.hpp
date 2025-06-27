@@ -46,10 +46,12 @@ namespace Picoware
         Entity **collision_list(Entity *entity, int &count) const;
         void entity_add(Entity *entity);
         void entity_remove(Entity *entity);
-        Board getBoard() const { return board; }
+        Board getBoard() const noexcept { return board; }
         bool has_collided(Entity *entity) const;
+        bool isClearAllowed() const noexcept { return clearAllowed; }
         bool is_collision(const Entity *a, const Entity *b) const;
         void render(Game *game, CameraPerspective perspective = CAMERA_FIRST_PERSON, const CameraParams *camera_params = nullptr);
+        void setClearAllowed(bool status) { clearAllowed = status; }
         void start();
         void stop();
         void update(Game *game);
@@ -63,6 +65,7 @@ namespace Picoware
 
     private:
         Board board;
+        bool clearAllowed;
         //
         Game *gameRef;
         int entity_count;

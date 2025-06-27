@@ -138,7 +138,7 @@ namespace Picoware
         bool has3DSprite() const;
         void set3DSpriteRotation(float rotation);
         void set3DSpriteScale(float scale);
-        void render3DSprite(Draw *draw, Vector player_pos, Vector player_dir, Vector player_plane, float view_height) const;
+        void render3DSprite(Draw *draw, Vector player_pos, Vector player_dir, Vector player_plane, float view_height, Vector screen_size) const;
         void update3DSpritePosition();
 
     private:
@@ -147,8 +147,8 @@ namespace Picoware
         void destroy3DSprite();
 
         // Helper methods for 3D sprite rendering
-        Vector project3DTo2D(const Vertex3D &vertex, Vector player_pos, Vector player_dir, Vector player_plane, float view_height) const;
-        void fillTriangle(Draw *const draw, Vector p1, Vector p2, Vector p3) const;
+        Vector project3DTo2D(const Vertex3D &vertex, Vector player_pos, Vector player_dir, Vector player_plane, float view_height, Vector screen_size) const;
+        void fillTriangle(Draw *const draw, Vector p1, Vector p2, Vector p3, Vector screen_size = Vector(128, 64)) const;
 
         void (*_start)(Entity *, Game *);
         void (*_stop)(Entity *, Game *);

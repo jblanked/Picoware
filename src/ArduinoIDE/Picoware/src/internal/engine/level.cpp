@@ -13,7 +13,8 @@ namespace Picoware
           _stop(nullptr),
           entity_count(0),
           entities(nullptr),
-          board(VGMConfig)
+          board(VGMConfig),
+          clearAllowed(true)
     {
     }
 
@@ -26,7 +27,8 @@ namespace Picoware
           _stop(stop),
           entity_count(0),
           entities(nullptr),
-          board(game->draw->getBoard())
+          board(game->draw->getBoard()),
+          clearAllowed(true)
     {
     }
 
@@ -180,7 +182,7 @@ namespace Picoware
     // Render all active entities
     void Level::render(Game *game, CameraPerspective perspective, const CameraParams *camera_params)
     {
-        if (game->draw->is8bit())
+        if (game->draw->is8bit() && clearAllowed)
         {
             // clear screen
             game->draw->clear(Vector(0, 0), game->size, game->bg_color);
@@ -240,7 +242,7 @@ namespace Picoware
                     if (!(old_screen_x + ent->size.x < 0 || old_screen_x > game->size.x ||
                           old_screen_y + ent->size.y < 0 || old_screen_y > game->size.y))
                     {
-                        game->draw->clear(Vector(old_screen_x, old_screen_y), Vector(ent->size.x, ent->size.y), game->bg_color);
+                        game->draw->clear(Vector(old_screen_x, old_screen_y), ent->size, game->bg_color);
                     }
                 }
 
@@ -278,13 +280,16 @@ namespace Picoware
                 // Render 3D sprite if it exists
                 if (ent->has3DSprite())
                 {
+                    //  screen size from the game draw object
+                    auto screen_size = game->draw->getSize();
+
                     if (perspective == CAMERA_FIRST_PERSON)
                     {
                         // First person: render from player's own perspective (original behavior)
                         if (ent->is_player)
                         {
                             // Use entity's own direction and plane for rendering
-                            ent->render3DSprite(game->draw, ent->position, ent->direction, ent->plane, 1.5f);
+                            ent->render3DSprite(game->draw, ent->position, ent->direction, ent->plane, 1.5f, screen_size);
                         }
                         else
                         {
@@ -302,20 +307,20 @@ namespace Picoware
 
                             if (player != nullptr)
                             {
-                                ent->render3DSprite(game->draw, player->position, player->direction, player->plane, 1.5f);
+                                ent->render3DSprite(game->draw, player->position, player->direction, player->plane, 1.5f, screen_size);
                             }
                         }
                     }
                     else if (perspective == CAMERA_THIRD_PERSON && camera_params != nullptr)
                     {
                         // Third person: render ALL entities (including player) from the external camera perspective
-                        ent->render3DSprite(game->draw, camera_params->position, camera_params->direction, camera_params->plane, camera_params->height);
+                        ent->render3DSprite(game->draw, camera_params->position, camera_params->direction, camera_params->plane, camera_params->height, screen_size);
                     }
                 }
             }
         }
 
-        if (game->draw->is8bit())
+        if (game->draw->is8bit() && clearAllowed)
         {
             // send newly drawn pixels to the display
             game->draw->swap();

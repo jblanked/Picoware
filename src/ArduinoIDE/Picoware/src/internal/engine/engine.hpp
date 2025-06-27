@@ -71,6 +71,14 @@ namespace Picoware
             game = nullptr;
         }
 
+        inline void updateGameInput(uint8_t input)
+        {
+            if (game && game->is_active)
+            {
+                game->input = input;
+            }
+        }
+
         inline Game *getGame() const { return game; }
     };
 

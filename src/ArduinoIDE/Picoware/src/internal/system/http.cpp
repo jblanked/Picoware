@@ -1,6 +1,8 @@
 #include "../../internal/system/http.hpp"
 #include <ArduinoHttpClient.h>
+#if defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_RASPBERRY_PI_PICO_2_W)
 #include <AsyncHTTPRequest_RP2040W.h>
+#endif
 
 // AsyncHTTPRequest ready states
 #define readyStateUnsent 0
@@ -136,6 +138,7 @@ namespace Picoware
     }
     bool HTTP::requestAsync(const char *method, String url, String payload, const char *headerKeys[], const char *headerValues[], int headerSize)
     {
+#if defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_RASPBERRY_PI_PICO_2_W)
         // Reset async state
         asyncResponse = "";
         asyncRequestComplete = false;
@@ -195,8 +198,12 @@ namespace Picoware
             // Can't send request - not in proper state
             return false;
         }
+#else
+        return false;
+#endif
     }
 
+#if defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_RASPBERRY_PI_PICO_2_W)
     void HTTP::onAsyncRequestComplete(void *optParm, AsyncHTTPRequest *request, int readyState)
     {
         HTTP *httpInstance = static_cast<HTTP *>(optParm);
@@ -245,7 +252,7 @@ namespace Picoware
             break;
         }
     }
-
+#endif
     String HTTP::getAsyncResponse()
     {
         if (asyncRequestComplete)
@@ -257,7 +264,6 @@ namespace Picoware
         }
         return "";
     }
-
     bool HTTP::isAsyncComplete()
     {
         return asyncRequestComplete;

@@ -1,7 +1,9 @@
 #pragma once
 #include <Arduino.h>
 #include "../../internal/system/wifi_utils.hpp"
+#if defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_RASPBERRY_PI_PICO_2_W)
 #include <AsyncHTTPRequest_RP2040W.hpp>
+#endif
 namespace Picoware
 {
     typedef enum
@@ -45,12 +47,14 @@ namespace Picoware
     private:
         HTTPState state = INACTIVE;          // Current HTTP state
         WiFiClientSecure client;             // WiFiClientSecure object for secure connections
-        AsyncHTTPRequest asyncRequest;       // AsyncHTTPRequest object for non-blocking requests (pointer to avoid header inclusion)
+        bool asyncRequestComplete = false;   // Track if async request is complete
         String asyncResponse = "";           // Store async response
         bool asyncRequestInProgress = false; // Track if async request is in progress
-        bool asyncRequestComplete = false;   // Track if async request is complete
+#if defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_RASPBERRY_PI_PICO_2_W)
+        AsyncHTTPRequest asyncRequest; // AsyncHTTPRequest object for non-blocking requests (pointer to avoid header inclusion)
 
         // Static callback function for async request completion
         static void onAsyncRequestComplete(void *optParm, AsyncHTTPRequest *request, int readyState);
+#endif
     };
 }

@@ -12,6 +12,7 @@
 using namespace Picoware;
 static Alert *flipSocialAlert = nullptr;
 static Menu *flipSocialMenu = nullptr;
+static uint8_t flipSocialIndex = 0; // Index for the FlipSocial menu
 static void flipSocialAlertAndReturn(ViewManager *viewManager, const char *message)
 {
     if (flipSocialAlert)
@@ -22,7 +23,6 @@ static void flipSocialAlertAndReturn(ViewManager *viewManager, const char *messa
     flipSocialAlert = new Alert(viewManager->getDraw(), message, viewManager->getForegroundColor(), viewManager->getBackgroundColor());
     flipSocialAlert->draw();
     delay(2000);
-    viewManager->back();
 }
 static bool flipSocialStart(ViewManager *viewManager)
 {
@@ -63,7 +63,7 @@ static bool flipSocialStart(ViewManager *viewManager)
     flipSocialMenu->addItem("Feed");
     flipSocialMenu->addItem("Post");
     flipSocialMenu->addItem("Settings");
-    flipSocialMenu->setSelected(0);
+    flipSocialMenu->setSelected(flipSocialIndex);
     flipSocialMenu->draw();
     return true;
 }
@@ -82,6 +82,8 @@ static void flipSocialRun(ViewManager *viewManager)
         inputManager->reset(true);
         break;
     case BUTTON_LEFT:
+    case BUTTON_BACK:
+        flipSocialIndex = 0;
         viewManager->back();
         inputManager->reset(true);
         break;
@@ -90,6 +92,7 @@ static void flipSocialRun(ViewManager *viewManager)
     {
         inputManager->reset(true);
         auto currentItem = flipSocialMenu->getCurrentItem();
+        flipSocialIndex = flipSocialMenu->getSelectedIndex();
         if (strcmp(currentItem, "Feed") == 0)
         {
             if (viewManager->getView("FlipSocialFeed") == nullptr)

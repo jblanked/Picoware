@@ -10,7 +10,7 @@
 #include "../../../internal/applications/wifi/wifi.hpp"
 using namespace Picoware;
 static Menu *library = nullptr;
-
+static uint8_t libraryIndex = 0; // Index for the library menu
 static bool libraryStart(ViewManager *viewManager)
 {
     if (library != nullptr)
@@ -43,7 +43,7 @@ static bool libraryStart(ViewManager *viewManager)
     }
     library->addItem("Games");
     library->addItem("Screensavers");
-    library->setSelected(0);
+    library->setSelected(libraryIndex);
     library->draw();
 
     return true;
@@ -64,6 +64,8 @@ static void libraryRun(ViewManager *viewManager)
         inputManager->reset(true);
         break;
     case BUTTON_LEFT:
+    case BUTTON_BACK:
+        libraryIndex = 0;
         viewManager->back();
         inputManager->reset(true);
         break;
@@ -72,6 +74,7 @@ static void libraryRun(ViewManager *viewManager)
     {
         inputManager->reset(true);
         auto currentItem = library->getCurrentItem();
+        libraryIndex = library->getSelectedIndex();
         if (strcmp(currentItem, "Applications") == 0)
         {
             if (viewManager->getView("Applications") == nullptr)

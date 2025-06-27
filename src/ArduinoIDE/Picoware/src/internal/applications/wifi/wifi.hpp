@@ -10,7 +10,7 @@
 #include "../../../internal/applications/wifi/settings.hpp"
 using namespace Picoware;
 static Menu *wifi = nullptr;
-
+static uint8_t wifiIndex = 0; // Index for the WiFi menu
 static bool wifiStart(ViewManager *viewManager)
 {
     if (wifi != nullptr)
@@ -35,7 +35,7 @@ static bool wifiStart(ViewManager *viewManager)
     wifi->addItem("Scan");
     wifi->addItem("Captive Portal");
     wifi->addItem("Settings");
-    wifi->setSelected(0);
+    wifi->setSelected(wifiIndex);
     wifi->draw();
 
     return true;
@@ -57,11 +57,14 @@ static void wifiRun(ViewManager *viewManager)
         break;
     case BUTTON_LEFT:
         viewManager->back();
+        wifiIndex = 0;
         inputManager->reset(true);
         break;
     case BUTTON_RIGHT:
     case BUTTON_CENTER:
-        switch (wifi->getSelectedIndex())
+    {
+        wifiIndex = wifi->getSelectedIndex();
+        switch (wifiIndex)
         {
         case 0: // if index is 0, show connect
         {
@@ -103,6 +106,8 @@ static void wifiRun(ViewManager *viewManager)
             break;
         }
         inputManager->reset(true);
+    }
+    break;
     default:
         break;
     }

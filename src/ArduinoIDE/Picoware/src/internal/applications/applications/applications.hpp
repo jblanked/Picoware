@@ -8,7 +8,7 @@
 #include "../../../internal/applications/applications/weather/weather.hpp"
 using namespace Picoware;
 static Menu *applications = nullptr;
-
+static uint8_t applicationsIndex = 0; // Index for the applications menu
 static bool applicationsStart(ViewManager *viewManager)
 {
     if (applications != nullptr)
@@ -32,7 +32,7 @@ static bool applicationsStart(ViewManager *viewManager)
     applications->addItem("FlipSocial");
     applications->addItem("GPS");
     applications->addItem("Weather");
-    applications->setSelected(0);
+    applications->setSelected(applicationsIndex);
     applications->draw();
     return true;
 }
@@ -52,6 +52,8 @@ static void applicationsRun(ViewManager *viewManager)
         inputManager->reset(true);
         break;
     case BUTTON_LEFT:
+    case BUTTON_BACK:
+        applicationsIndex = 0;
         viewManager->back();
         inputManager->reset(true);
         break;
@@ -59,6 +61,7 @@ static void applicationsRun(ViewManager *viewManager)
     case BUTTON_CENTER:
     {
         const char *currentItem = applications->getCurrentItem();
+        applicationsIndex = applications->getSelectedIndex();
         if (strcmp(currentItem, "FlipSocial") == 0)
         {
             if (viewManager->getView("FlipSocial") == nullptr)

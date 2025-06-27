@@ -7,7 +7,7 @@
 #include "../../../internal/applications/screensavers/starfield/starfield.hpp"
 using namespace Picoware;
 static Menu *screensavers = nullptr;
-
+static uint8_t screensaversIndex = 0; // Index for the screensavers menu
 static bool screensaversStart(ViewManager *viewManager)
 {
     if (screensavers != nullptr)
@@ -32,7 +32,7 @@ static bool screensaversStart(ViewManager *viewManager)
     screensavers->addItem("Spiro");
     if (viewManager->getBoard().boardType != BOARD_TYPE_VGM)
         screensavers->addItem("Starfield");
-    screensavers->setSelected(0);
+    screensavers->setSelected(screensaversIndex);
     screensavers->draw();
 
     return true;
@@ -53,6 +53,8 @@ static void screensaversRun(ViewManager *viewManager)
         inputManager->reset(true);
         break;
     case BUTTON_LEFT:
+    case BUTTON_BACK:
+        screensaversIndex = 0;
         viewManager->back();
         inputManager->reset(true);
         break;
@@ -61,6 +63,7 @@ static void screensaversRun(ViewManager *viewManager)
     {
         inputManager->reset(true);
         auto currentItem = screensavers->getCurrentItem();
+        screensaversIndex = screensavers->getSelectedIndex();
         if (strcmp(currentItem, "Cube") == 0)
         {
             if (viewManager->getView("Cube") == nullptr)

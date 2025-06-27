@@ -10,7 +10,7 @@
 #include "../../../internal/applications/bluetooth/scanble.hpp"
 using namespace Picoware;
 static Menu *bluetooth = nullptr;
-
+static uint8_t bluetoothIndex = 0; // Index for the Bluetooth menu
 static bool bluetoothStart(ViewManager *viewManager)
 {
     if (bluetooth != nullptr)
@@ -35,7 +35,7 @@ static bool bluetoothStart(ViewManager *viewManager)
     bluetooth->addItem("BLE Scan");
     bluetooth->addItem("BLE Keyboard");
     bluetooth->addItem("BLE Mouse");
-    bluetooth->setSelected(0);
+    bluetooth->setSelected(bluetoothIndex);
     bluetooth->draw();
     return true;
 }
@@ -56,12 +56,16 @@ static void bluetoothRun(ViewManager *viewManager)
         inputManager->reset(true);
         break;
     case BUTTON_LEFT:
+    case BUTTON_BACK:
+        bluetoothIndex = 0;
         viewManager->back();
         inputManager->reset(true);
         break;
     case BUTTON_RIGHT:
     case BUTTON_CENTER:
-        switch (bluetooth->getSelectedIndex())
+    {
+        bluetoothIndex = bluetooth->getSelectedIndex();
+        switch (bluetoothIndex)
         {
         case 0: // if index is 0, show classic scan
         {
@@ -101,8 +105,10 @@ static void bluetoothRun(ViewManager *viewManager)
         }
         default:
             break;
-        }
+        };
         inputManager->reset(true);
+    }
+    break;
     default:
         break;
     }

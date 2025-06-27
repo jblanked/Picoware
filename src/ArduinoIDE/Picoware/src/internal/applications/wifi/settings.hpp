@@ -11,7 +11,7 @@ using namespace Picoware;
 static Menu *wifiSettings = nullptr;
 static TextBox *displayBox = nullptr;
 
-static void wifiSettingsStart(ViewManager *viewManager)
+static bool wifiSettingsStart(ViewManager *viewManager)
 {
     if (wifiSettings != nullptr)
     {
@@ -43,6 +43,8 @@ static void wifiSettingsStart(ViewManager *viewManager)
     wifiSettings->addItem("Change Password");
     wifiSettings->setSelected(0);
     wifiSettings->draw();
+
+    return true;
 }
 
 static void wifiSettingsRun(ViewManager *viewManager)
@@ -80,8 +82,8 @@ static void wifiSettingsRun(ViewManager *viewManager)
         {
         case 0: // Network Info
         {
-            String ssid = loadWiFiSSIDFromFlash(viewManager);
-            String password = loadWiFiPasswordFromFlash(viewManager);
+            String ssid = wifiUtilsLoadWiFiSSIDFromFlash(viewManager);
+            String password = wifiUtilsLoadWiFiPasswordFromFlash(viewManager);
             char buffer[128];
             snprintf(buffer, sizeof(buffer), "Network Info\n\nSSID: %s\nPassword: %s", ssid.c_str(), password.c_str());
             displayBox->setText(buffer);

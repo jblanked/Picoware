@@ -6,10 +6,11 @@
 using namespace Picoware;
 static Loading *loading = nullptr;
 
-static void loadingStart(ViewManager *viewManager)
+static bool loadingStart(ViewManager *viewManager)
 {
     loading = new Loading(viewManager->getDraw(), viewManager->getForegroundColor(), viewManager->getBackgroundColor());
     loading->setText("Loading...");
+    return true;
 }
 
 static void loadingRun(ViewManager *viewManager)

@@ -8,12 +8,13 @@ namespace Picoware
     Level::Level()
         : name(""),
           size(Vector(0, 0)),
-          game(nullptr),
+          gameRef(nullptr),
           _start(nullptr),
           _stop(nullptr),
           entity_count(0),
           entities(nullptr),
-          board(VGMConfig)
+          board(VGMConfig),
+          clearAllowed(true)
     {
     }
 
@@ -21,12 +22,13 @@ namespace Picoware
     Level::Level(const char *name, const Vector &size, Game *game, void (*start)(Level &), void (*stop)(Level &))
         : name(name),
           size(size),
-          game(game),
+          gameRef(game),
           _start(start),
           _stop(stop),
           entity_count(0),
           entities(nullptr),
-          board(game->draw->getBoard())
+          board(game->draw->getBoard()),
+          clearAllowed(true)
     {
     }
 
@@ -43,8 +45,12 @@ namespace Picoware
         {
             if (entities[i] != nullptr)
             {
-                entities[i]->stop(this->game);
-                delete entities[i];
+                entities[i]->stop(this->gameRef);
+                // Only delete entities that are not players (players are managed externally)
+                if (!entities[i]->is_player)
+                {
+                    delete entities[i];
+                }
                 entities[i] = nullptr;
             }
         }
@@ -79,8 +85,18 @@ namespace Picoware
     // Add an entity to the level
     void Level::entity_add(Entity *entity)
     {
+        if (!entity || !this->gameRef)
+        {
+            return;
+        }
+
         // Allocate a new array with size one greater than the current count
         Entity **newEntities = new Entity *[entity_count + 1];
+        if (!newEntities)
+        {
+            return;
+        }
+
         // Copy the existing entity pointers (if any)
         for (int i = 0; i < entity_count; i++)
         {
@@ -94,7 +110,7 @@ namespace Picoware
         entity_count++;
 
         // Start the new entity
-        entity->start(this->game);
+        entity->start(this->gameRef);
         entity->is_active = true;
     }
 
@@ -116,9 +132,12 @@ namespace Picoware
         if (remove_index == -1)
             return;
 
-        // Stop and delete the entity
-        entities[remove_index]->stop(this->game);
-        delete entities[remove_index];
+        // Stop and delete the entity (only if it's not a player - players are managed externally)
+        entities[remove_index]->stop(this->gameRef);
+        if (!entities[remove_index]->is_player)
+        {
+            delete entities[remove_index];
+        }
 
         // Allocate a new array with one fewer slot (if any remain)
         Entity **newEntities = (entity_count - 1 > 0) ? new Entity *[entity_count - 1] : nullptr;
@@ -161,12 +180,53 @@ namespace Picoware
     }
 
     // Render all active entities
-    void Level::render(Game *game)
+    void Level::render(Game *game, CameraPerspective perspective, const CameraParams *camera_params)
     {
-        if (game->draw->is8bit())
+        if (game->draw->is8bit() && clearAllowed)
         {
             // clear screen
             game->draw->clear(Vector(0, 0), game->size, game->bg_color);
+        }
+
+        // If using third person perspective but no camera params provided, calculate them from player
+        CameraParams calculated_camera_params;
+        if (perspective == CAMERA_THIRD_PERSON && camera_params == nullptr)
+        {
+            // Find the player entity to calculate 3rd person camera
+            Entity *player = nullptr;
+            for (int i = 0; i < entity_count; i++)
+            {
+                if (entities[i] != nullptr && entities[i]->is_player)
+                {
+                    player = entities[i];
+                    break;
+                }
+            }
+
+            if (player != nullptr)
+            {
+                // Calculate 3rd person camera position behind the player
+                // Use same parameters as Player class for consistency
+                float camera_distance = 2.0f; // Closer distance for better visibility
+
+                // Normalize direction vector to ensure consistent behavior
+                float dir_length = sqrtf(player->direction.x * player->direction.x + player->direction.y * player->direction.y);
+                if (dir_length < 0.001f)
+                {
+                    // Fallback if direction is zero
+                    dir_length = 1.0f;
+                    player->direction = Vector(1, 0); // Default forward direction
+                }
+                Vector normalized_dir = Vector(player->direction.x / dir_length, player->direction.y / dir_length);
+
+                calculated_camera_params.position = Vector(
+                    player->position.x - normalized_dir.x * camera_distance,
+                    player->position.y - normalized_dir.y * camera_distance);
+                calculated_camera_params.direction = normalized_dir;
+                calculated_camera_params.plane = player->plane;
+                calculated_camera_params.height = 1.6f;
+                camera_params = &calculated_camera_params;
+            }
         }
 
         for (int i = 0; i < entity_count; i++)
@@ -182,35 +242,85 @@ namespace Picoware
                     if (!(old_screen_x + ent->size.x < 0 || old_screen_x > game->size.x ||
                           old_screen_y + ent->size.y < 0 || old_screen_y > game->size.y))
                     {
-                        game->draw->clear(Vector(old_screen_x, old_screen_y), Vector(ent->size.x, ent->size.y), game->bg_color);
+                        game->draw->clear(Vector(old_screen_x, old_screen_y), ent->size, game->bg_color);
                     }
                 }
 
                 ent->render(game->draw, game);
 
-                if (!game->draw->is8bit())
+                if (!ent->is_visible)
                 {
-                    if (ent->sprite != nullptr)
-                    {
-                        game->draw->image(Vector(ent->position.x - game->pos.x, ent->position.y - game->pos.y), ent->sprite);
-                    }
+                    continue; // Skip rendering if entity is not visible
                 }
-                else
+
+                // Only draw the 2D sprite if it exists
+                if (ent->sprite != nullptr)
                 {
-                    // draw 8bit sprite
-                    if (ent->is_progmem)
+                    if (!game->draw->is8bit())
                     {
-                        game->draw->imagePGM(Vector(ent->position.x - game->pos.x, ent->position.y - game->pos.y), ent->sprite->getData(), ent->sprite->size);
+                        if (ent->sprite != nullptr)
+                        {
+                            game->draw->image(Vector(ent->position.x - game->pos.x, ent->position.y - game->pos.y), ent->sprite);
+                        }
                     }
                     else
                     {
-                        game->draw->image(Vector(ent->position.x - game->pos.x, ent->position.y - game->pos.y), ent->sprite->getData(), ent->sprite->size);
+                        // draw 8bit sprite
+                        if (ent->is_progmem)
+                        {
+                            game->draw->imagePGM(Vector(ent->position.x - game->pos.x, ent->position.y - game->pos.y), ent->sprite->getData(), ent->sprite->size);
+                        }
+                        else
+                        {
+                            game->draw->image(Vector(ent->position.x - game->pos.x, ent->position.y - game->pos.y), ent->sprite->getData(), ent->sprite->size);
+                        }
+                    }
+                }
+
+                // Render 3D sprite if it exists
+                if (ent->has3DSprite())
+                {
+                    //  screen size from the game draw object
+                    auto screen_size = game->draw->getSize();
+
+                    if (perspective == CAMERA_FIRST_PERSON)
+                    {
+                        // First person: render from player's own perspective (original behavior)
+                        if (ent->is_player)
+                        {
+                            // Use entity's own direction and plane for rendering
+                            ent->render3DSprite(game->draw, ent->position, ent->direction, ent->plane, 1.5f, screen_size);
+                        }
+                        else
+                        {
+                            // For non-player entities, render from the player's perspective
+                            // We need to find the player entity to get the view parameters
+                            Entity *player = nullptr;
+                            for (int j = 0; j < entity_count; j++)
+                            {
+                                if (entities[j] != nullptr && entities[j]->is_player)
+                                {
+                                    player = entities[j];
+                                    break;
+                                }
+                            }
+
+                            if (player != nullptr)
+                            {
+                                ent->render3DSprite(game->draw, player->position, player->direction, player->plane, 1.5f, screen_size);
+                            }
+                        }
+                    }
+                    else if (perspective == CAMERA_THIRD_PERSON && camera_params != nullptr)
+                    {
+                        // Third person: render ALL entities (including player) from the external camera perspective
+                        ent->render3DSprite(game->draw, camera_params->position, camera_params->direction, camera_params->plane, camera_params->height, screen_size);
                     }
                 }
             }
         }
 
-        if (game->draw->is8bit())
+        if (game->draw->is8bit() && clearAllowed)
         {
             // send newly drawn pixels to the display
             game->draw->swap();
@@ -243,12 +353,12 @@ namespace Picoware
             Entity *ent = entities[i];
             if (ent != nullptr && ent->is_active)
             {
-                ent->update(this->game);
+                ent->update(game);
                 int count = 0;
                 Entity **collisions = collision_list(ent, count);
                 for (int j = 0; j < count; j++)
                 {
-                    ent->collision(collisions[j], this->game);
+                    ent->collision(collisions[j], game);
                 }
                 delete[] collisions;
             }

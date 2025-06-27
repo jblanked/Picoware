@@ -8,7 +8,7 @@
 
 static GameEngine *flappyBirdEngine = nullptr;
 
-static void flappyBirdStart(ViewManager *viewManager)
+static bool flappyBirdStart(ViewManager *viewManager)
 {
     auto board = viewManager->getBoard();
 
@@ -20,6 +20,7 @@ static void flappyBirdStart(ViewManager *viewManager)
         viewManager->getInputManager(),    // Input manager
         viewManager->getForegroundColor(), // Foreground color
         viewManager->getBackgroundColor(), // Background color
+        CAMERA_FIRST_PERSON,               // Camera perspective
         nullptr,                           // Game start callback
         FlappyBird::game_stop              // Game stop callback
     );
@@ -33,6 +34,8 @@ static void flappyBirdStart(ViewManager *viewManager)
 
     // Create the game engine (with 60 frames per second target).
     flappyBirdEngine = new GameEngine(game, 60);
+
+    return true;
 }
 
 static void flappyBirdRun(ViewManager *viewManager)

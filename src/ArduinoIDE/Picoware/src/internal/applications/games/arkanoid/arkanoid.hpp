@@ -12,7 +12,7 @@
 
 static GameEngine *arkanoidEngine = nullptr;
 
-static void arkanoidStart(ViewManager *viewManager)
+static bool arkanoidStart(ViewManager *viewManager)
 {
     auto board = viewManager->getBoard();
 
@@ -35,6 +35,8 @@ static void arkanoidStart(ViewManager *viewManager)
 
     // Create the game engine (with 240 frames per second target).
     arkanoidEngine = new GameEngine(game, 240);
+
+    return true;
 }
 
 static void arkanoidRun(ViewManager *viewManager)

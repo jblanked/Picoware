@@ -11,12 +11,13 @@ namespace Picoware
         uint16_t backgroundColor,
         uint16_t selectedColor,
         uint16_t borderColor,
-        uint16_t borderWidth) : title(title)
+        uint16_t borderWidth,
+        bool showScrollBar) : title(title)
     {
         this->display = draw;
         this->textColor = textColor;
         this->backgroundColor = backgroundColor;
-        list = new List(draw, y + 20, height - 20, textColor, backgroundColor, selectedColor, borderColor, borderWidth);
+        list = new List(draw, y + 20, height - 20, textColor, backgroundColor, selectedColor, borderColor, borderWidth, showScrollBar);
         this->position = Vector(0, y);
         this->size = Vector(draw->getSize().x, height);
         this->display->clear(position, size, backgroundColor);

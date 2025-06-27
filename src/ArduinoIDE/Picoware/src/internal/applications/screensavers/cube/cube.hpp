@@ -176,7 +176,7 @@ namespace Cube
         zz = (c1 * c2);
     }
 
-    void cubeStart(ViewManager *viewManager)
+    bool cubeStart(ViewManager *viewManager)
     {
         auto draw = viewManager->getDraw();
 
@@ -187,7 +187,8 @@ namespace Cube
 
         Xoff = 240; // Position the centre of the 3d conversion space into the centre of the TFT screen.
         Yoff = 160;
-        Zoff = 550; // Z offset in 3D space (smaller = closer and bigger rendering)
+        Zoff = 550;  // Z offset in 3D space (smaller = closer and bigger rendering)
+        return true; // return true to indicate the start was successful.
     }
 
     void cubeRun(ViewManager *viewManager)

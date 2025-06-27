@@ -19,7 +19,7 @@ static const PROGMEM uint8_t *frame_data(uint8_t index)
                                              : frame_4;
 }
 
-static void desktopStart(ViewManager *viewManager)
+static bool desktopStart(ViewManager *viewManager)
 {
     // Clean up any existing desktop instance
     if (desktop != nullptr)
@@ -32,20 +32,9 @@ static void desktopStart(ViewManager *viewManager)
     auto board = viewManager->getBoard();
     isVGM = board.boardType == BOARD_TYPE_VGM;
 
-    auto wifi = viewManager->getWiFi();
-    if (board.hasWiFi && !wifi.isConnected())
-    {
-        // start WiFi connection
-        String ssid = loadWiFiSSIDFromFlash(viewManager);
-        String password = loadWiFiPasswordFromFlash(viewManager);
-        if (ssid.length() > 0 && password.length() > 0)
-        {
-            if (!wifi.connectAsync(ssid.c_str(), password.c_str()))
-            {
-                // nothing for now
-            }
-        }
-    }
+    wifiUtilsConnectToSavedWiFi(viewManager);
+
+    return true;
 }
 
 static void desktopRun(ViewManager *viewManager)

@@ -8,7 +8,7 @@
 
 static GameEngine *pongEngine = nullptr;
 
-static void pongStart(ViewManager *viewManager)
+static bool pongStart(ViewManager *viewManager)
 {
     auto board = viewManager->getBoard();
 
@@ -20,6 +20,7 @@ static void pongStart(ViewManager *viewManager)
         viewManager->getInputManager(),    // Input manager
         viewManager->getForegroundColor(), // Foreground color
         viewManager->getBackgroundColor(), // Background color
+        CAMERA_FIRST_PERSON,               // Camera perspective
         nullptr,                           // Game start callback
         Pong::game_stop                    // Game stop callback
     );
@@ -33,6 +34,8 @@ static void pongStart(ViewManager *viewManager)
 
     // Create the game engine (with 60 frames per second target).
     pongEngine = new GameEngine(game, 60);
+
+    return true;
 }
 
 static void pongRun(ViewManager *viewManager)

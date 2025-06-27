@@ -7,6 +7,9 @@ namespace Picoware
 {
     // Forward declaration to break circular dependency.
     class Game;
+    class Sprite3D;
+    struct Vertex3D;
+    struct Triangle3D;
 
     typedef enum
     {
@@ -21,19 +24,22 @@ namespace Picoware
 
     typedef enum
     {
-        ENTITY_UP,
-        ENTITY_DOWN,
-        ENTITY_LEFT,
-        ENTITY_RIGHT
-    } EntityDirection;
-
-    typedef enum
-    {
         ENTITY_PLAYER,
         ENTITY_ENEMY,
         ENTITY_ICON,
-        ENTITY_NPC
+        ENTITY_NPC,
+        ENTITY_3D_SPRITE
     } EntityType;
+
+    typedef enum
+    {
+        SPRITE_3D_NONE,
+        SPRITE_3D_HUMANOID,
+        SPRITE_3D_TREE,
+        SPRITE_3D_HOUSE,
+        SPRITE_3D_PILLAR,
+        SPRITE_3D_CUSTOM
+    } Sprite3DType;
 
     // Represents a game entity.
     class Entity
@@ -42,6 +48,8 @@ namespace Picoware
         const char *name;              // The name of the entity.
         Vector position;               // The position of the entity.
         Vector old_position;           // The old position of the entity.
+        Vector direction;              // The direction the entity is facing.
+        Vector plane;                  // The camera plane perpendicular to the direction.
         bool is_player;                // Indicates if the entity is the player.
         bool position_changed = false; // Indicates if the position of the entity has changed.
         Vector size;                   // The size of the entity.
@@ -49,13 +57,19 @@ namespace Picoware
         Image *sprite_left;            // The sprite to switch to when facing left.
         Image *sprite_right;           // The sprite to switch to when facing right.
         bool is_active;                // Indicates if the entity is active.
+        bool is_visible;               // Indicates if the entity is visible (for rendering)
         EntityType type;               // Type of the entity
+
+        // 3D Sprite properties
+        Sprite3D *sprite_3d;         // 3D sprite representation (can be null for 2D entities)
+        Sprite3DType sprite_3d_type; // Type of 3D sprite
+        float sprite_rotation;       // Rotation of the 3D sprite
+        float sprite_scale;          // Scale factor for the 3D sprite
 
         /*
             Additional properties an entity may have.
             These are not controlled by the engine.
         */
-        EntityDirection direction;  // Direction the entity is facing
         EntityState state;          // Current state of the entity
         Vector start_position;      // Start position of the entity
         Vector end_position;        // End position of the entity
@@ -77,17 +91,19 @@ namespace Picoware
         bool is_progmem = false; // Flag to indicate if the sprite data is in PROGMEM
 
         Entity(
-            const char *name,                                      // The name of the entity.
-            EntityType type,                                       // The type of the entity.
-            Vector position,                                       // The position of the entity.
-            Image *sprite,                                         // The sprite of the entity.
-            Image *sprite_left = NULL,                             // The sprite to switch to when facing left.
-            Image *sprite_right = NULL,                            // The sprite to switch to when facing right.
-            void (*start)(Entity *, Game *) = NULL,                // The start function of the entity.
-            void (*stop)(Entity *, Game *) = NULL,                 // The stop function of the entity.
-            void (*update)(Entity *, Game *) = NULL,               // The update function of the entity.
-            void (*render)(Entity *, Draw *, Game *) = NULL,       // The render function of the entity.
-            void (*collision)(Entity *, Entity *, Game *) = NULL); // The collision function of the entity.
+            const char *name,                                     // The name of the entity.
+            EntityType type,                                      // The type of the entity.
+            Vector position,                                      // The position of the entity.
+            Image *sprite,                                        // The sprite of the entity.
+            Image *sprite_left = NULL,                            // The sprite to switch to when facing left.
+            Image *sprite_right = NULL,                           // The sprite to switch to when facing right.
+            void (*start)(Entity *, Game *) = NULL,               // The start function of the entity.
+            void (*stop)(Entity *, Game *) = NULL,                // The stop function of the entity.
+            void (*update)(Entity *, Game *) = NULL,              // The update function of the entity.
+            void (*render)(Entity *, Draw *, Game *) = NULL,      // The render function of the entity.
+            void (*collision)(Entity *, Entity *, Game *) = NULL, // The collision function of the entity.
+            Sprite3DType sprite_3d_type = SPRITE_3D_NONE          // 3D sprite type (optional)
+        );
 
         Entity(
             Board board,                                          // The board configuration.
@@ -104,20 +120,36 @@ namespace Picoware
             void (*render)(Entity *, Draw *, Game *) = NULL,      // The render function of the entity.
             void (*collision)(Entity *, Entity *, Game *) = NULL, // The collision function of the entity.
             bool is_8bit_sprite = false,                          // Flag to indicate if the entity uses 8-bit graphics
-            bool is_progmem_sprite = false                        // Flag to indicate if the sprite data is in PROGMEM
+            bool is_progmem_sprite = false,                       // Flag to indicate if the sprite data is in PROGMEM
+            Sprite3DType sprite_3d_type = SPRITE_3D_NONE          // 3D sprite type (optional)
         );
 
-        ~Entity(); // Destructor
+        virtual ~Entity(); // Virtual destructor for proper inheritance
 
-        void collision(Entity *other, Game *game); // Handles the collision with another entity.
-        Vector position_get();                     // Gets the position of the entity.
-        void position_set(Vector value);           // Sets the position of the entity.
-        void render(Draw *draw, Game *game);       // called every frame to render the entity.
-        void start(Game *game);                    // called when the entity is created.
-        void stop(Game *game);                     // called when the entity is destroyed.
-        void update(Game *game);                   // called every frame to update the entity.
+        virtual void collision(Entity *other, Game *game); // Handles the collision with another entity.
+        Vector position_get();                             // Gets the position of the entity.
+        void position_set(Vector value);                   // Sets the position of the entity.
+        virtual void render(Draw *draw, Game *game);       // called every frame to render the entity.
+        virtual void start(Game *game);                    // called when the entity is created.
+        virtual void stop(Game *game);                     // called when the entity is destroyed.
+        virtual void update(Game *game);                   // called every frame to update the entity.
+
+        // 3D Sprite query and control methods
+        bool has3DSprite() const;
+        void set3DSpriteRotation(float rotation);
+        void set3DSpriteScale(float scale);
+        void render3DSprite(Draw *draw, Vector player_pos, Vector player_dir, Vector player_plane, float view_height, Vector screen_size) const;
+        void update3DSpritePosition();
 
     private:
+        // Internal 3D sprite management
+        void create3DSprite(Sprite3DType type, float height = 2.0f, float width = 1.0f, float rotation = 0.0f);
+        void destroy3DSprite();
+
+        // Helper methods for 3D sprite rendering
+        Vector project3DTo2D(const Vertex3D &vertex, Vector player_pos, Vector player_dir, Vector player_plane, float view_height, Vector screen_size) const;
+        void fillTriangle(Draw *const draw, Vector p1, Vector p2, Vector p3, Vector screen_size = Vector(128, 64)) const;
+
         void (*_start)(Entity *, Game *);
         void (*_stop)(Entity *, Game *);
         void (*_update)(Entity *, Game *);

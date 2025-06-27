@@ -8,6 +8,7 @@
 #include "../../../internal/applications/games/flappybird/flappybird.hpp"
 #include "../../../internal/applications/games/flightassault/flightassault.hpp"
 #include "../../../internal/applications/games/flipworld/flipworld.hpp"
+#include "../../../internal/applications/games/freeroam/freeroam.hpp"
 #include "../../../internal/applications/games/furiousbirds/furiousbirds.hpp"
 #include "../../../internal/applications/games/labyrinth/labyrinth.hpp"
 #include "../../../internal/applications/games/pong/pong.hpp"
@@ -15,8 +16,60 @@
 #include "../../../internal/applications/games/trexrunner/trexrunner.hpp"
 using namespace Picoware;
 static Menu *games = nullptr;
-static Alert *gameMemoryAlert = nullptr;
-static void gamesStart(ViewManager *viewManager)
+static uint8_t gamesIndex = 0; // Index for the games menu
+static void gamesSwitchToView(ViewManager *viewManager)
+{
+    const char *currentItem = games->getCurrentItem();
+    if (viewManager->getView(currentItem) == nullptr)
+    {
+        if (strcmp(currentItem, "Arkanoid") == 0)
+        {
+            viewManager->add(&arkanoidView);
+        }
+        else if (strcmp(currentItem, "Doom") == 0)
+        {
+            viewManager->add(&doomView);
+        }
+        else if (strcmp(currentItem, "Flappy Bird") == 0)
+        {
+            viewManager->add(&flappyBirdView);
+        }
+        else if (strcmp(currentItem, "Flight Assault") == 0)
+        {
+            viewManager->add(&flightAssaultView);
+        }
+        else if (strcmp(currentItem, "FlipWorld") == 0)
+        {
+            viewManager->add(&flipWorldView);
+        }
+        else if (strcmp(currentItem, "Free Roam") == 0)
+        {
+            viewManager->add(&freeRoamView);
+        }
+        else if (strcmp(currentItem, "Furious Birds") == 0)
+        {
+            viewManager->add(&furiousBirdsView);
+        }
+        else if (strcmp(currentItem, "Labyrinth") == 0)
+        {
+            viewManager->add(&labyrinthView);
+        }
+        else if (strcmp(currentItem, "Pong") == 0)
+        {
+            viewManager->add(&pongView);
+        }
+        else if (strcmp(currentItem, "Tetris") == 0)
+        {
+            viewManager->add(&tetrisView);
+        }
+        else if (strcmp(currentItem, "T-Rex Runner") == 0)
+        {
+            viewManager->add(&trexRunnerView);
+        }
+    }
+    viewManager->switchTo(currentItem);
+}
+static bool gamesStart(ViewManager *viewManager)
 {
     if (games != nullptr)
     {
@@ -41,13 +94,15 @@ static void gamesStart(ViewManager *viewManager)
     games->addItem("Flappy Bird");
     games->addItem("Flight Assault");
     games->addItem("FlipWorld");
+    games->addItem("Free Roam");
     games->addItem("Furious Birds");
     games->addItem("Labyrinth");
     games->addItem("Pong");
     games->addItem("Tetris");
     games->addItem("T-Rex Runner");
-    games->setSelected(0);
+    games->setSelected(gamesIndex);
     games->draw();
+    return true;
 }
 
 static void gamesRun(ViewManager *viewManager)
@@ -65,119 +120,19 @@ static void gamesRun(ViewManager *viewManager)
         inputManager->reset(true);
         break;
     case BUTTON_LEFT:
+    case BUTTON_BACK:
+        gamesIndex = 0;
         viewManager->back();
         inputManager->reset(true);
         break;
     case BUTTON_RIGHT:
     case BUTTON_CENTER:
-        switch (games->getSelectedIndex())
-        {
-        case 0: // if index is 0, show arkanoid
-        {
-            if (viewManager->getView("Arkanoid") == nullptr)
-            {
-                viewManager->add(&arkanoidView);
-            }
-            viewManager->switchTo("Arkanoid");
-            break;
-        }
-        case 1: // if index is 1, show doom
-        {
-            if (viewManager->getView("Doom") == nullptr)
-            {
-                viewManager->add(&doomView);
-            }
-            viewManager->switchTo("Doom");
-            break;
-        }
-        case 2: // if index is 2, show flappy bird
-        {
-            if (viewManager->getView("Flappy Bird") == nullptr)
-            {
-                viewManager->add(&flappyBirdView);
-            }
-            viewManager->switchTo("Flappy Bird");
-            break;
-        }
-        case 3: // if index is 3, show flight assault
-        {
-            if (viewManager->getView("Flight Assault") == nullptr)
-            {
-                viewManager->add(&flightAssaultView);
-            }
-            viewManager->switchTo("Flight Assault");
-            break;
-        }
-        case 4: // if index is 4, show flip world
-        {
-            if (viewManager->getBoard().boardType != BOARD_TYPE_VGM)
-            {
-                if (viewManager->getView("FlipWorld") == nullptr)
-                {
-                    viewManager->add(&flipWorldView);
-                }
-                viewManager->switchTo("FlipWorld");
-            }
-            else
-            {
-                auto draw = viewManager->getDraw();
-                draw->clear(Vector(0, 0), draw->getSize(), viewManager->getBackgroundColor());
-                gameMemoryAlert = new Alert(draw, "Not enough memory for FlipWorld yet..", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
-                gameMemoryAlert->draw();
-                delay(2000);
-                viewManager->back();
-            }
-            return;
-        }
-        case 5: // if index is 5, show furious birds
-        {
-            if (viewManager->getView("Furious Birds") == nullptr)
-            {
-                viewManager->add(&furiousBirdsView);
-            }
-            viewManager->switchTo("Furious Birds");
-            break;
-        }
-        case 6: // if index is 6, show labyrinth
-        {
-            if (viewManager->getView("Labyrinth") == nullptr)
-            {
-                viewManager->add(&labyrinthView);
-            }
-            viewManager->switchTo("Labyrinth");
-            break;
-        }
-        case 7: // if index is 7, show pong
-        {
-            if (viewManager->getView("Pong") == nullptr)
-            {
-                viewManager->add(&pongView);
-            }
-            viewManager->switchTo("Pong");
-            break;
-        }
-        case 8: // if index is 8, show tetris
-        {
-            if (viewManager->getView("Tetris") == nullptr)
-            {
-                viewManager->add(&tetrisView);
-            }
-            viewManager->switchTo("Tetris");
-            break;
-        }
-        case 9: // if index is 9, show t-rex runner
-        {
-            if (viewManager->getView("T-Rex Runner") == nullptr)
-            {
-                viewManager->add(&trexRunnerView);
-            }
-            viewManager->switchTo("T-Rex Runner");
-            break;
-        }
-        default: // none for now
-            break;
-        };
+    {
+        gamesIndex = games->getSelectedIndex();
+        gamesSwitchToView(viewManager);
         inputManager->reset(true);
+    }
+    break;
     default:
         break;
     }
@@ -185,14 +140,6 @@ static void gamesRun(ViewManager *viewManager)
 
 static void gamesStop(ViewManager *viewManager)
 {
-
-    if (gameMemoryAlert != nullptr)
-    {
-        if (viewManager->getBoard().boardType == BOARD_TYPE_VGM)
-            gameMemoryAlert->clear();
-        delete gameMemoryAlert;
-        gameMemoryAlert = nullptr;
-    }
     if (games != nullptr)
     {
         if (viewManager->getBoard().boardType == BOARD_TYPE_VGM)

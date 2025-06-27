@@ -8,7 +8,7 @@
 
 static GameEngine *tetrisEngine = nullptr;
 
-static void tetrisStart(ViewManager *viewManager)
+static bool tetrisStart(ViewManager *viewManager)
 {
     auto board = viewManager->getBoard();
 
@@ -20,6 +20,7 @@ static void tetrisStart(ViewManager *viewManager)
         viewManager->getInputManager(),    // Input manager
         viewManager->getForegroundColor(), // Foreground color
         viewManager->getBackgroundColor(), // Background color
+        CAMERA_FIRST_PERSON,               // Camera perspective
         nullptr,                           // Game start callback
         Tetris::game_stop                  // Game stop callback
     );
@@ -33,6 +34,8 @@ static void tetrisStart(ViewManager *viewManager)
 
     // Create the game engine (with 15 frames per second target).
     tetrisEngine = new GameEngine(game, 15);
+
+    return true;
 }
 
 static void tetrisRun(ViewManager *viewManager)

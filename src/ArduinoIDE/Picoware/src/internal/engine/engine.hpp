@@ -5,6 +5,9 @@ namespace Picoware
 {
     class GameEngine
     {
+    private:
+        float fps;  // The frames per second of the game engine.
+        Game *game; // The game to run.
     public:
         GameEngine(Game *game, float fps)
             : fps(fps), game(game)
@@ -68,9 +71,15 @@ namespace Picoware
             game = nullptr;
         }
 
-    private:
-        float fps;  // The frames per second of the game engine.
-        Game *game; // The game to run.
+        inline void updateGameInput(uint8_t input)
+        {
+            if (game && game->is_active)
+            {
+                game->input = input;
+            }
+        }
+
+        inline Game *getGame() const { return game; }
     };
 
 }

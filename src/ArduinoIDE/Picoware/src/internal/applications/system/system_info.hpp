@@ -20,7 +20,7 @@ static String systemText(Board board)
     text += "Core temperature: " + String(analogReadTemp()) + "C\n";
     return text;
 }
-static void systemInfoStart(ViewManager *viewManager)
+static bool systemInfoStart(ViewManager *viewManager)
 {
     if (systemBox != nullptr)
     {
@@ -29,6 +29,7 @@ static void systemInfoStart(ViewManager *viewManager)
     }
     systemBox = new TextBox(viewManager->getDraw(), 0, viewManager->getBoard().height, viewManager->getForegroundColor(), viewManager->getBackgroundColor());
     systemBox->setText(systemText(viewManager->getBoard()).c_str());
+    return true;
 }
 static void systemInfoRun(ViewManager *viewManager)
 {

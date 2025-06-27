@@ -18,7 +18,7 @@ static String statusMessage = "";
 static String getWiFiStatusText(ViewManager *viewManager)
 {
     auto wifiUtil = viewManager->getWiFi();
-    String ssid = loadWiFiSSIDFromFlash(viewManager);
+    String ssid = wifiUtilsLoadWiFiSSIDFromFlash(viewManager);
     String text = "WiFi Setup\n\n";
     text += "Network: " + ssid + "\n";
     text += "Status: " + statusMessage + "\n\n";
@@ -29,7 +29,7 @@ static String getWiFiStatusText(ViewManager *viewManager)
         text += "Connected!\n\n";
         if (!wifiSaved)
         {
-            wifiSaved = saveWiFiToFlash(viewManager->getStorage(), wifiUtil.getConnectedSSID(), wifiUtil.getConnectedPassword());
+            wifiSaved = wifiUtilsSaveWiFiToFlash(viewManager->getStorage(), wifiUtil.getConnectedSSID(), wifiUtil.getConnectedPassword());
         }
     }
     else
@@ -65,7 +65,7 @@ static String getWiFiStatusText(ViewManager *viewManager)
     return text;
 }
 
-static void wifiConnectStart(ViewManager *viewManager)
+static bool wifiConnectStart(ViewManager *viewManager)
 {
     if (wifiConnectAlert != nullptr)
     {
@@ -79,17 +79,15 @@ static void wifiConnectStart(ViewManager *viewManager)
         wifiConnectAlert = new Alert(viewManager->getDraw(), "WiFi not available on your board.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
         wifiConnectAlert->draw();
         delay(2000);
-        viewManager->back();
-        return;
+        return false;
     }
     // if wifi credentials are not set, return
-    if (loadWiFiSSIDFromFlash(viewManager) == "" || loadWiFiPasswordFromFlash(viewManager) == "")
+    if (wifiUtilsLoadWiFiSSIDFromFlash(viewManager) == "" || wifiUtilsLoadWiFiPasswordFromFlash(viewManager) == "")
     {
         wifiConnectAlert = new Alert(viewManager->getDraw(), "WiFi credentials not saved yet.\nAdd them in the WiFi settings.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
         wifiConnectAlert->draw();
         delay(2000);
-        viewManager->back();
-        return;
+        return false;
     }
     // Clean up existing objects
     if (statusBox != nullptr)
@@ -114,6 +112,7 @@ static void wifiConnectStart(ViewManager *viewManager)
 
     // Set initial text
     statusBox->setText(getWiFiStatusText(viewManager).c_str());
+    return true;
 }
 
 static void wifiConnectRun(ViewManager *viewManager)
@@ -121,8 +120,8 @@ static void wifiConnectRun(ViewManager *viewManager)
     auto inputManager = viewManager->getInputManager();
     auto input = inputManager->getInput();
     auto wifiUtil = viewManager->getWiFi();
-    auto ssid = loadWiFiSSIDFromFlash(viewManager);
-    auto password = loadWiFiPasswordFromFlash(viewManager);
+    auto ssid = wifiUtilsLoadWiFiSSIDFromFlash(viewManager);
+    auto password = wifiUtilsLoadWiFiPasswordFromFlash(viewManager);
 
     // Handle input
     switch (input)

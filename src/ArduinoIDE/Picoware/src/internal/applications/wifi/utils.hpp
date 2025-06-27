@@ -7,7 +7,7 @@
 #define WIFI_SSID_PATH "/ssid.json"
 #define WIFI_PASSWORD_PATH "/password.json"
 using namespace Picoware;
-String loadWiFiSSIDFromFlash(ViewManager *viewManager)
+String wifiUtilsLoadWiFiSSIDFromFlash(ViewManager *viewManager)
 {
     JsonDocument doc;
     auto storage = viewManager->getStorage();
@@ -21,7 +21,7 @@ String loadWiFiSSIDFromFlash(ViewManager *viewManager)
     }
     return doc["ssid"].as<String>();
 }
-String loadWiFiPasswordFromFlash(ViewManager *viewManager)
+String wifiUtilsLoadWiFiPasswordFromFlash(ViewManager *viewManager)
 {
     JsonDocument doc;
     auto storage = viewManager->getStorage();
@@ -35,7 +35,23 @@ String loadWiFiPasswordFromFlash(ViewManager *viewManager)
     }
     return doc["password"].as<String>();
 }
-String loadWiFiFromFlash(ViewManager *viewManager)
+bool wifiUtilsConnectToSavedWiFi(ViewManager *viewManager)
+{
+    auto wifi = viewManager->getWiFi();
+    auto board = viewManager->getBoard();
+    if (board.hasWiFi && !wifi.isConnected())
+    {
+        // start WiFi connection
+        String ssid = wifiUtilsLoadWiFiSSIDFromFlash(viewManager);
+        String password = wifiUtilsLoadWiFiPasswordFromFlash(viewManager);
+        if (ssid.length() > 0 && password.length() > 0)
+        {
+            return wifi.connectAsync(ssid.c_str(), password.c_str());
+        }
+    }
+    return false;
+}
+String wifiUtilsLoadWiFiFromFlash(ViewManager *viewManager)
 {
     JsonDocument doc;
     auto storage = viewManager->getStorage();
@@ -51,19 +67,19 @@ String loadWiFiFromFlash(ViewManager *viewManager)
     String password = doc["password"].as<String>();
     return "{\"ssid\":\"" + ssid + "\",\"password\":\"" + password + "\"}";
 }
-bool saveWiFiSSIDToFlash(Storage storage, const String ssid)
+bool wifiUtilsSaveWiFiSSIDToFlash(Storage storage, const String ssid)
 {
     JsonDocument doc;
     doc["ssid"] = ssid;
     return storage.serialize(doc, WIFI_SSID_PATH);
 }
-bool saveWiFiPasswordToFlash(Storage storage, const String password)
+bool wifiUtilsSaveWiFiPasswordToFlash(Storage storage, const String password)
 {
     JsonDocument doc;
     doc["password"] = password;
     return storage.serialize(doc, WIFI_PASSWORD_PATH);
 }
-bool saveWiFiToFlash(Storage storage, const String ssid, const String password)
+bool wifiUtilsSaveWiFiToFlash(Storage storage, const String ssid, const String password)
 {
     JsonDocument settingsDoc;
     if (storage.deserialize(settingsDoc, WIFI_SETTINGS_PATH))

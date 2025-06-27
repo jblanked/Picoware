@@ -65,22 +65,18 @@ namespace Labyrinth
         if (game->input == BUTTON_UP)
         {
             newPos.y -= 5;
-            self->direction = ENTITY_UP;
         }
         else if (game->input == BUTTON_DOWN)
         {
             newPos.y += 5;
-            self->direction = ENTITY_DOWN;
         }
         else if (game->input == BUTTON_LEFT)
         {
             newPos.x -= 5;
-            self->direction = ENTITY_LEFT;
         }
         else if (game->input == BUTTON_RIGHT)
         {
             newPos.x += 5;
-            self->direction = ENTITY_RIGHT;
         }
 
         // reset input

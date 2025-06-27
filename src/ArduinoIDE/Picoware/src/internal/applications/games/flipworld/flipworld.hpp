@@ -10,7 +10,7 @@
 
 static GameEngine *flipWorldEngine = nullptr;
 
-static void flipWorldStart(ViewManager *viewManager)
+static bool flipWorldStart(ViewManager *viewManager)
 {
     auto board = viewManager->getBoard();
 
@@ -22,6 +22,7 @@ static void flipWorldStart(ViewManager *viewManager)
         viewManager->getInputManager(),    // Input manager
         viewManager->getForegroundColor(), // Foreground color
         viewManager->getBackgroundColor(), // Background color
+        CAMERA_FIRST_PERSON,               // Camera perspective
         nullptr,                           // Game start callback
         FlipWorld::game_stop               // Game stop callback
     );
@@ -45,6 +46,8 @@ static void flipWorldStart(ViewManager *viewManager)
 
     // Create the game engine (with 60 frames per second target).
     flipWorldEngine = new GameEngine(game, 60);
+
+    return true;
 }
 
 static void flipWorldRun(ViewManager *viewManager)

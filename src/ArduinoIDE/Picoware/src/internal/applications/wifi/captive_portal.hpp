@@ -5,7 +5,7 @@
 using namespace Picoware;
 static Alert *wifiAPAlert = nullptr;
 static WiFiAP *wifiAP = nullptr;
-static void captivePortalStart(ViewManager *viewManager)
+static bool captivePortalStart(ViewManager *viewManager)
 {
     if (wifiAP)
     {
@@ -26,8 +26,7 @@ static void captivePortalStart(ViewManager *viewManager)
         wifiAPAlert = new Alert(draw, "WiFi not available on your board.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
         wifiAPAlert->draw();
         delay(2000);
-        viewManager->back();
-        return;
+        return false;
     }
 
     draw->text(Vector(5, 5), "Starting Captive Portal...");
@@ -39,14 +38,14 @@ static void captivePortalStart(ViewManager *viewManager)
         wifiAPAlert = new Alert(draw, "Failed to start AP mode.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
         wifiAPAlert->draw();
         delay(2000);
-        viewManager->back();
-        return;
+        return false;
     }
     viewManager->getLED().on();
     auto size = viewManager->getSize();
     draw->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());
     draw->text(Vector(5, 5), "Captive Portal running... Press BACK to stop.");
     draw->swap();
+    return true;
 }
 
 static void captivePortalRun(ViewManager *viewManager)

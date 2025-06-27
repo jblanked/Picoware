@@ -752,6 +752,11 @@ namespace Picoware
         this->display->setTextColor(color);
     }
 
+    void Draw::drawCircle(Vector position, int16_t r, uint16_t color)
+    {
+        this->display->drawCircle(position.x, position.y, r, color);
+    }
+
     void Draw::drawLine(Vector position, Vector size, uint16_t color)
     {
         this->display->drawLine(position.x, position.y, size.x, size.y, color);
@@ -765,6 +770,11 @@ namespace Picoware
     void Draw::drawRect(Vector position, Vector size, uint16_t color)
     {
         this->display->drawRect(position.x, position.y, size.x, size.y, color);
+    }
+
+    void Draw::fillCircle(Vector position, int16_t r, uint16_t color)
+    {
+        this->display->fillCircle(position.x, position.y, r, color);
     }
 
     void Draw::fillRect(Vector position, Vector size, uint16_t color)

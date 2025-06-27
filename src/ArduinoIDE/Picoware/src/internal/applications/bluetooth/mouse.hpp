@@ -5,7 +5,7 @@
 #if ENABLE_CLASSIC != 0
 using namespace Picoware;
 static Bluetooth *bluetoothMouse = nullptr;
-static void mouseStart(ViewManager *viewManager)
+static bool mouseStart(ViewManager *viewManager)
 {
     if (bluetoothMouse != nullptr)
     {
@@ -20,6 +20,7 @@ static void mouseStart(ViewManager *viewManager)
     draw->swap();
     bluetoothMouse = new Bluetooth();
     bluetoothMouse->beginMouseBLE("Picoware Mouse");
+    return true; // return true to indicate the start was successful.
 }
 
 static void mouseRun(ViewManager *viewManager)

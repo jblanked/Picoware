@@ -10,7 +10,8 @@ namespace Picoware
         uint16_t backgroundColor,
         uint16_t selectedColor,
         uint16_t borderColor,
-        uint16_t borderWidth)
+        uint16_t borderWidth,
+        bool showScrollBar)
         : display(draw),
           textColor(textColor),
           backgroundColor(backgroundColor),
@@ -20,7 +21,8 @@ namespace Picoware
           selectedIndex(0),
           firstVisibleIndex(0),
           linesPerScreen(0),
-          visibleItemCount(0)
+          visibleItemCount(0),
+          showScrollBar(showScrollBar)
     {
         position = Vector(0, y);
         size = Vector(draw->getSize().x, height);
@@ -80,10 +82,13 @@ namespace Picoware
             displayed++;
         }
 
-        // Draw the scrollbar
-        setScrollBarSize();
-        setScrollBarPosition();
-        scrollBar->draw();
+        if (showScrollBar)
+        {
+            // Draw the scrollbar
+            setScrollBarSize();
+            setScrollBarPosition();
+            scrollBar->draw();
+        }
 
         // swap the display buffer
         if (swap)

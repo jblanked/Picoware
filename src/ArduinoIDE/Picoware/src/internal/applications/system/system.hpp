@@ -8,8 +8,8 @@
 #include "../../../internal/applications/system/system_info.hpp"
 using namespace Picoware;
 static Menu *systemApp = nullptr;
-
-static void systemStart(ViewManager *viewManager)
+static uint8_t systemIndex = 0; // Index for the system menu
+static bool systemStart(ViewManager *viewManager)
 {
     if (systemApp != nullptr)
     {
@@ -32,8 +32,9 @@ static void systemStart(ViewManager *viewManager)
     systemApp->addItem("System Info");
     systemApp->addItem("Bootloader Mode");
     systemApp->addItem("Restart Device");
-    systemApp->setSelected(0);
+    systemApp->setSelected(systemIndex);
     systemApp->draw();
+    return true;
 }
 
 static void systemRun(ViewManager *viewManager)
@@ -51,12 +52,15 @@ static void systemRun(ViewManager *viewManager)
         inputManager->reset(true);
         break;
     case BUTTON_LEFT:
+        systemIndex = 0;
         viewManager->back();
         inputManager->reset(true);
         break;
     case BUTTON_RIGHT:
     case BUTTON_CENTER:
-        switch (systemApp->getSelectedIndex())
+    {
+        systemIndex = systemApp->getSelectedIndex();
+        switch (systemIndex)
         {
         case 0: // if index is 0, show about
         {
@@ -90,7 +94,8 @@ static void systemRun(ViewManager *viewManager)
         }
         };
         inputManager->reset(true);
-        break;
+    }
+    break;
     default:
         break;
     }

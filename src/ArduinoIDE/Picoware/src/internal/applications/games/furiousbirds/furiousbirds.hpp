@@ -12,7 +12,7 @@
 
 static GameEngine *furiousBirdsEngine = nullptr;
 
-static void furiousBirdsStart(ViewManager *viewManager)
+static bool furiousBirdsStart(ViewManager *viewManager)
 {
     auto board = viewManager->getBoard();
 
@@ -24,6 +24,7 @@ static void furiousBirdsStart(ViewManager *viewManager)
         viewManager->getInputManager(),    // Input manager
         viewManager->getForegroundColor(), // Foreground color
         viewManager->getBackgroundColor(), // Background color
+        CAMERA_FIRST_PERSON,               // Camera perspective
         nullptr,                           // Game start callback
         FuriousBirds::game_stop            // Game stop callback
     );
@@ -37,6 +38,8 @@ static void furiousBirdsStart(ViewManager *viewManager)
 
     // Create the game engine (with 240 frames per second target).
     furiousBirdsEngine = new GameEngine(game, 240);
+
+    return true;
 }
 
 static void furiousBirdsRun(ViewManager *viewManager)

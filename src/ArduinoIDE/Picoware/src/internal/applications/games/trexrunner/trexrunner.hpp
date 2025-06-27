@@ -8,7 +8,7 @@
 
 static GameEngine *trexRunnerEngine = nullptr;
 
-static void trexRunnerStart(ViewManager *viewManager)
+static bool trexRunnerStart(ViewManager *viewManager)
 {
     auto board = viewManager->getBoard();
 
@@ -20,6 +20,7 @@ static void trexRunnerStart(ViewManager *viewManager)
         viewManager->getInputManager(),    // Input manager
         viewManager->getForegroundColor(), // Foreground color
         viewManager->getBackgroundColor(), // Background color
+        CAMERA_FIRST_PERSON,               // Camera perspective
         nullptr,                           // Game start callback
         TrexRunner::game_stop              // Game stop callback
     );
@@ -33,6 +34,8 @@ static void trexRunnerStart(ViewManager *viewManager)
 
     // Create the game engine (with 30 frames per second target).
     trexRunnerEngine = new GameEngine(game, 30);
+
+    return true;
 }
 
 static void trexRunnerRun(ViewManager *viewManager)

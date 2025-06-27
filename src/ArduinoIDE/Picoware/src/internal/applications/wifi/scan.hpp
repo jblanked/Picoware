@@ -8,7 +8,7 @@ using namespace Picoware;
 static Menu *wifiScan = nullptr;
 static Alert *wifiScanAlert = nullptr;
 
-static void wifiScanStart(ViewManager *viewManager)
+static bool wifiScanStart(ViewManager *viewManager)
 {
     if (wifiScan != nullptr)
     {
@@ -29,8 +29,7 @@ static void wifiScanStart(ViewManager *viewManager)
         wifiScanAlert = new Alert(draw, "WiFi not available on your board.", viewManager->getForegroundColor(), viewManager->getBackgroundColor());
         wifiScanAlert->draw();
         delay(2000);
-        viewManager->back();
-        return;
+        return false;
     }
 
     auto LED = viewManager->getLED();
@@ -48,8 +47,7 @@ static void wifiScanStart(ViewManager *viewManager)
         wifiScanAlert->draw();
         draw->swap();
         delay(2000);
-        viewManager->back();
-        return;
+        return false;
     }
 
     wifiScan = new Menu(
@@ -73,6 +71,8 @@ static void wifiScanStart(ViewManager *viewManager)
     }
     wifiScan->setSelected(0);
     wifiScan->draw();
+
+    return true;
 }
 
 static void wifiScanRun(ViewManager *viewManager)

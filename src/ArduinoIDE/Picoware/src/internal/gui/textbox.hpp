@@ -7,7 +7,13 @@ namespace Picoware
     class TextBox
     {
     public:
-        TextBox(Draw *draw, uint16_t y, uint16_t height, uint16_t foregroundColor = TFT_BLACK, uint16_t backgroundColor = TFT_WHITE);
+        TextBox(
+            Draw *draw,
+            uint16_t y,
+            uint16_t height,
+            uint16_t foregroundColor = TFT_BLACK,
+            uint16_t backgroundColor = TFT_WHITE,
+            bool showScrollBar = true);
         ~TextBox();
         //
         void clear();
@@ -17,9 +23,11 @@ namespace Picoware
         void setBackgroundColor(uint16_t color);
         void setCurrentLine(uint32_t line);
         void setForegroundColor(uint16_t color);
+        void setCurrentText(const char *text) { currentText = text; }
         void setText(const char *text);
         //
         uint32_t getCurrentLine() const noexcept { return currentLine; }
+        const char *getCurrentText() const noexcept { return currentText; }
         uint16_t getLinesPerScreen() const noexcept { return linesPerScreen; }
         Vector getTextPositionStart() const noexcept { return position; }
         Vector getTextPositionEnd() const noexcept { return this->display->getCursor(); }
@@ -44,5 +52,6 @@ namespace Picoware
         uint16_t charactersPerLine; // Number of characters that fit in one line
         uint16_t linesPerScreen;    // Number of lines that fit in the text box
         uint32_t totalLines;        // Total number of lines in the text box
+        bool showScrollBar;         // Whether to show the scrollbar
     };
 }

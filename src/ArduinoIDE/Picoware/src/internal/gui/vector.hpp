@@ -29,6 +29,10 @@ namespace Picoware
         {
             return (x != other.x) || (y != other.y);
         }
+        bool operator==(const Vector &other) const
+        {
+            return (x == other.x) && (y == other.y);
+        }
     };
 
 }

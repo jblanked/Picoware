@@ -5,7 +5,7 @@
 #include "../../../internal/system/view_manager.hpp"
 #include "../../../internal/applications/applications/flip_social/flip_social.hpp"
 #include "../../../internal/applications/applications/GPS/GPS.hpp"
-#include "../../../internal/applications/applications/weather/weather.hpp"
+#include "../../../internal/applications/applications/Weather/weather.hpp"
 using namespace Picoware;
 static Menu *applications = nullptr;
 static uint8_t applicationsIndex = 0; // Index for the applications menu

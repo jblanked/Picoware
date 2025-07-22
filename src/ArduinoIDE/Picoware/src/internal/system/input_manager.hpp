@@ -20,7 +20,6 @@ namespace Picoware
             }
             else if (board.boardType == BOARD_TYPE_JBLANKED)
             {
-                isUARTInput = false;
                 float debounce = 0.05f;
                 inputs[0] = new Input(16, BUTTON_UP, debounce);
                 inputs[1] = new Input(17, BUTTON_RIGHT, debounce);
@@ -30,14 +29,8 @@ namespace Picoware
             }
             else if (board.boardType == BOARD_TYPE_PICO_CALC)
             {
-                isUARTInput = false;
                 isKeyboardInput = true;
                 inputs[0] = new Input(new PicoCalcKeyboard());
-            }
-            else
-            {
-                // pass for now
-                isUARTInput = false;
             }
         }
 

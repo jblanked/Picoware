@@ -5,6 +5,19 @@
 #include "../../internal/system/buttons.hpp"
 namespace Picoware
 {
+    class PicoCalcKeyboard
+    {
+    private:
+        static void onKeyAvailableCallback(); // Static callback function for C interface
+    public:
+        PicoCalcKeyboard();
+        bool available();           // Check if a key is available (non-blocking)
+        int charToButton(char key); // Convert a character to a button assignment
+        char read();                // Read a key (blocking - waits for key if none available)
+        char readNonBlocking();     // Read a key (non-blocking - returns 0 if no key available)
+        int readToButton();         // Read a key and convert it to a button assignment
+    };
+
     class HW504
     {
     public:
@@ -43,12 +56,14 @@ namespace Picoware
         Input(uint8_t pin, uint8_t button, float debounce = 0.05f);
         Input(HW504 *hw, uint8_t button);
         Input(ButtonUART *bt);
+        Input(PicoCalcKeyboard *keyboard);
         //
         ButtonUART *getButtonUART() const noexcept { return this->bt; }
         uint8_t getButtonAssignment() const noexcept { return this->buttonAssignment; }
         int getLastButton() const noexcept { return this->lastButton; }
         uint8_t getPin() const noexcept { return this->pin; }
         HW504 *getJoystick() const noexcept { return this->hw; }
+        PicoCalcKeyboard *getKeyboard() const noexcept { return this->keyboard; }
         //
         bool isPressed();
         bool isHeld(uint8_t duration = 3);
@@ -67,6 +82,7 @@ namespace Picoware
         bool wasPressed;
         HW504 *hw;
         ButtonUART *bt;
+        PicoCalcKeyboard *keyboard;
     };
 
 }

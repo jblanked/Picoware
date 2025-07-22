@@ -7,7 +7,7 @@ namespace Picoware
     class InputManager
     {
     public:
-        InputManager(const Board board) : input(-1)
+        InputManager(const Board board) : input(-1), isUARTInput(false), isKeyboardInput(false)
         {
             for (int i = 0; i < 5; i++)
             {
@@ -27,6 +27,12 @@ namespace Picoware
                 inputs[2] = new Input(18, BUTTON_DOWN, debounce);
                 inputs[3] = new Input(19, BUTTON_LEFT, debounce);
                 inputs[4] = new Input(20, BUTTON_CENTER, debounce);
+            }
+            else if (board.boardType == BOARD_TYPE_PICO_CALC)
+            {
+                isUARTInput = false;
+                isKeyboardInput = true;
+                inputs[0] = new Input(new PicoCalcKeyboard());
             }
             else
             {
@@ -67,7 +73,7 @@ namespace Picoware
         // Run the input manager and check for input events.
         inline void run()
         {
-            if (isUARTInput)
+            if (isUARTInput || isKeyboardInput)
             {
                 inputs[0]->run();
                 input = inputs[0]->getLastButton();
@@ -100,6 +106,7 @@ namespace Picoware
     private:
         int input;
         bool isUARTInput;
+        bool isKeyboardInput;
         Input *inputs[5]; // 5 for now until we add the Picocalc buttons
     };
 }

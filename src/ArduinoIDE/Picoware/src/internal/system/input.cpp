@@ -1,7 +1,76 @@
 #include "../../internal/system/input.hpp"
+#include "../../internal/system/pico-calc/keyboard.h"
 #include <string.h>
 namespace Picoware
 {
+    // Constructor
+    PicoCalcKeyboard::PicoCalcKeyboard()
+    {
+        keyboard_init(onKeyAvailableCallback);
+    }
+
+    // Static callback function for C interface
+    void PicoCalcKeyboard::onKeyAvailableCallback()
+    {
+        // This callback is called when a key becomes available
+        // You can add custom handling here if needed
+    }
+
+    // Check if a key is available (non-blocking)
+    bool PicoCalcKeyboard::available()
+    {
+        return keyboard_key_available();
+    }
+
+    int PicoCalcKeyboard::charToButton(char key)
+    {
+        /* later I'll add more, but currently
+        Picoware only uses these */
+        switch (key)
+        {
+        case '\n':
+        case '\r':
+            return BUTTON_CENTER;
+        case KEY_LEFT:
+            return BUTTON_LEFT;
+        case KEY_RIGHT:
+            return BUTTON_RIGHT;
+        case KEY_UP:
+            return BUTTON_UP;
+        case KEY_DOWN:
+            return BUTTON_DOWN;
+        default:
+            return BUTTON_NONE;
+        };
+    }
+
+    // Read a key (blocking - waits for key if none available)
+    char PicoCalcKeyboard::read()
+    {
+        return keyboard_get_key();
+    }
+
+    // Read a key (non-blocking - returns 0 if no key available)
+    char PicoCalcKeyboard::readNonBlocking()
+    {
+        if (keyboard_key_available())
+        {
+            return keyboard_get_key();
+        }
+        return 0; // No key available
+    }
+
+    // Read a key and convert it to a button assignment
+    int PicoCalcKeyboard::readToButton()
+    {
+        char key = readNonBlocking();
+        if (key == 0)
+        {
+            return BUTTON_NONE; // No key available
+        }
+        return charToButton(key);
+    }
+
     HW504::HW504(int x_pin, int y_pin, int button_pin, int orientation)
     {
         this->x_axis = x_pin;
@@ -128,7 +197,7 @@ namespace Picoware
     Input::Input()
         : pin(-1), lastButton(-1), buttonAssignment(-1),
           elapsedTime(0), debounce(0.05f),
-          wasPressed(false), hw(nullptr), bt(nullptr)
+          wasPressed(false), hw(nullptr), bt(nullptr), keyboard(nullptr)
     {
     }
 
@@ -142,6 +211,7 @@ namespace Picoware
         this->wasPressed = false;
         this->hw = nullptr;
         this->bt = nullptr;
+        this->keyboard = nullptr;
         pinMode(this->pin, INPUT_PULLUP);
     }
 
@@ -155,6 +225,7 @@ namespace Picoware
         this->wasPressed = false;
         this->hw = hw;
         this->bt = nullptr;
+        this->keyboard = nullptr;
     }
 
     Input::Input(ButtonUART *bt)
@@ -165,18 +236,34 @@ namespace Picoware
         this->lastButton = -1;
         this->elapsedTime = 0;
         this->wasPressed = false;
-        this->hw = nullptr;
         this->bt = bt;
+        this->hw = nullptr;
+        this->keyboard = nullptr;
+    }
+
+    Input::Input(PicoCalcKeyboard *keyboard)
+    {
+        this->pin = -1;
+        this->buttonAssignment = BUTTON_PICO_CALC;
+        this->debounce = 0.05f;
+        this->lastButton = -1;
+        this->elapsedTime = 0;
+        this->wasPressed = false;
+        this->keyboard = keyboard;
+        this->hw = nullptr;
+        this->bt = nullptr;
     }
 
     bool Input::isPressed()
     {
         if (this->hw)
             return this->hw->value(this->buttonAssignment);
-        else if (this->bt)
+        if (this->bt)
             return this->bt->lastButton != -1; // Check if UART has valid button
-        else if (this->pin != -1)
+        if (this->pin != -1)
             return digitalRead(this->pin) == LOW;
+        if (this->keyboard)
+            return this->keyboard->available(); // Check if a key is available
         return false;
     }
 
@@ -195,8 +282,10 @@ namespace Picoware
             this->bt->lastButton = -1;
             this->bt->startTime = millis();
         }
-        else if (!this->hw)
+        else if (!this->hw || this->keyboard)
+        {
             this->startTime = millis();
+        }
     }
 
     void Input::run()
@@ -236,6 +325,21 @@ namespace Picoware
                 this->elapsedTime = 0;
             }
         }
+        else if (this->keyboard)
+        {
+            if (this->keyboard->available())
+            {
+                this->lastButton = this->keyboard->readToButton();
+                this->elapsedTime++;
+                this->wasPressed = true;
+            }
+            else
+            {
+                this->lastButton = -1;
+                this->wasPressed = false;
+                this->elapsedTime = 0;
+            }
+        }
         else if (this->pin != -1 && millis() - this->startTime > this->debounce)
         {
             this->startTime = millis();
@@ -257,7 +361,12 @@ namespace Picoware
 
     Input::operator bool() const
     {
-        return this->hw ? this->hw != nullptr : this->bt ? this->bt != nullptr
-                                                         : this->pin != -1;
+        if (this->hw)
+            return this->hw != nullptr;
+        if (this->bt)
+            return this->bt != nullptr;
+        if (this->keyboard)
+            return this->keyboard != nullptr;
+        return this->pin != -1;
     }
 }

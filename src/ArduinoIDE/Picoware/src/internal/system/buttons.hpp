@@ -2,7 +2,8 @@
 namespace Picoware
 {
 #define BUTTON_NONE -1
-#define BUTTON_UART -1
+#define BUTTON_UART -2
+#define BUTTON_PICO_CALC -3
 // Directional buttons
 #define BUTTON_UP 0
 #define BUTTON_DOWN 1

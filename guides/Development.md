@@ -33,17 +33,18 @@ To use the Arduino IDE library:
 Replace it with the following code snippet if you're using the Pico Calc:
 ```cpp
 #define USER_SETUP_ID 60
-#define ILI9488_DRIVER 
-#define TFT_RGB_ORDER TFT_BGR 
+#define ILI9488_DRIVER
+#define TFT_RGB_ORDER TFT_BGR
 #define TFT_MISO 12
 #define TFT_MOSI 11
 #define TFT_SCLK 10
-#define TFT_CS 13 
+#define TFT_CS 13
 #define TFT_DC 14
 #define TFT_RST 15
 #define TFT_SPI_PORT 1
-#define SPI_FREQUENCY  25000000
-#define SPI_TOUCH_FREQUENCY  2500000
+#define SPI_FREQUENCY 25000000
+#define SPI_TOUCH_FREQUENCY 2500000
+#define TFT_INVERSION_ON
 ```
 
 Replace it with the following code snippet if you're using JBlanked's Custom Pico Setup:

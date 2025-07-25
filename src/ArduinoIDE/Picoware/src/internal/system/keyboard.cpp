@@ -219,6 +219,13 @@ namespace Picoware
 
     void Keyboard::handleInput()
     {
+        /* Keyboard layout
+         * 1 2 3 4 5 6 7 8 9 0 - = BCK
+         * Q W E R T Y U I O P [ ] \ CLR
+         * Caps A S D F G H J K L ; ' Enter
+         * Shift Z X C V B N M , . / Shift
+         *        Space              Save
+         */
         if (millis() - lastInputTime < inputDelay)
             return;
 
@@ -280,6 +287,186 @@ namespace Picoware
             processKeyPress();
             lastInputTime = millis();
             break;
+        case BUTTON_1:
+            setCursorPosition(0, 0);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_2:
+            setCursorPosition(0, 1);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_3:
+            setCursorPosition(0, 2);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_4:
+            setCursorPosition(0, 3);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_5:
+            setCursorPosition(0, 4);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_6:
+            setCursorPosition(0, 5);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_7:
+            setCursorPosition(0, 6);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_8:
+            setCursorPosition(0, 7);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_9:
+            setCursorPosition(0, 8);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_0:
+            setCursorPosition(0, 9);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_A:
+            setCursorPosition(2, 1);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_B:
+            setCursorPosition(3, 5);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_C:
+            setCursorPosition(3, 3);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_D:
+            setCursorPosition(2, 3);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_E:
+            setCursorPosition(1, 2);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_F:
+            setCursorPosition(2, 4);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_G:
+            setCursorPosition(2, 5);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_H:
+            setCursorPosition(2, 6);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_I:
+            setCursorPosition(1, 7);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_J:
+            setCursorPosition(2, 7);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_K:
+            setCursorPosition(2, 8);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_L:
+            setCursorPosition(2, 9);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_M:
+            setCursorPosition(3, 7);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_N:
+            setCursorPosition(3, 6);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_O:
+            setCursorPosition(1, 8);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_P:
+            setCursorPosition(1, 9);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_Q:
+            setCursorPosition(1, 0);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_R:
+            setCursorPosition(1, 3);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_S:
+            setCursorPosition(2, 2);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_T:
+            setCursorPosition(1, 4);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_U:
+            setCursorPosition(1, 6);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_V:
+            setCursorPosition(3, 4);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_W:
+            setCursorPosition(1, 1);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_X:
+            setCursorPosition(3, 2);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_Y:
+            setCursorPosition(1, 5);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_Z:
+            setCursorPosition(3, 1);
+            processKeyPress();
+            lastInputTime = millis();
+            break;
         default:
             // No input or unhandled input
             break;
@@ -292,9 +479,8 @@ namespace Picoware
             return;
 
         const KeyLayout &key = rows[cursorRow][cursorCol];
-        char keyChar = key.normal;
-
-        switch (keyChar)
+        currentKey = key.normal;
+        switch (currentKey)
         {
         case '\b': // Backspace
             if (response.length() > 0)
@@ -336,7 +522,7 @@ namespace Picoware
 
         default:
             // Regular character
-            if (keyChar >= 'a' && keyChar <= 'z')
+            if (currentKey >= 'a' && currentKey <= 'z')
             {
                 // Handle letter case
                 bool shouldCapitalize = (isShiftPressed && !isCapsLockOn) ||
@@ -390,5 +576,14 @@ namespace Picoware
         drawKeyboard();
 
         display->swap();
+    }
+
+    void Keyboard::setCursorPosition(uint8_t row, uint8_t col)
+    {
+        if (row < numRows && col < rowSizes[row])
+        {
+            cursorRow = row;
+            cursorCol = col;
+        }
     }
 }

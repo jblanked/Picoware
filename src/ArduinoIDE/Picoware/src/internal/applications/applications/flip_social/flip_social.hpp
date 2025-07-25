@@ -95,6 +95,12 @@ static void flipSocialRun(ViewManager *viewManager)
         flipSocialIndex = flipSocialMenu->getSelectedIndex();
         if (strcmp(currentItem, "Feed") == 0)
         {
+            if (flipSocialUtilsLoadUserFromFlash(viewManager) == "" || flipSocialUtilsLoadPasswordFromFlash(viewManager) == "")
+            {
+                viewManager->getDraw()->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());
+                flipSocialAlertAndReturn(viewManager, "Please set your username and password in\nFlipSocial settings first.");
+                return;
+            }
             if (viewManager->getView("FlipSocialFeed") == nullptr)
             {
                 viewManager->add(&flipSocialFeedView);

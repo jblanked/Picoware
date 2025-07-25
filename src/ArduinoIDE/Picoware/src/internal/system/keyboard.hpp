@@ -26,7 +26,7 @@ namespace Picoware
 
         // Getters
         uint16_t getBackgroundColor() const noexcept { return backgroundColor; }   // Returns the background color
-        uint8_t getCurrentKey() const noexcept { return currentKey; }              // Returns the currently pressed key
+        char getCurrentKey() const noexcept { return currentKey; }                 // Returns the currently pressed key
         uint16_t getSelectedColor() const noexcept { return selectedColor; }       // Returns the selected color
         uint16_t getTextColor() const noexcept { return textColor; }               // Returns the text color
         String getResponse() const noexcept { return response; }                   // Returns the response string
@@ -49,6 +49,7 @@ namespace Picoware
         void drawTextbox();                                      // Draws the text box that displays the current saved response
         void handleInput();                                      // Handles directional input and key selection
         void processKeyPress();                                  // Processes the currently selected key press
+        void setCursorPosition(uint8_t row, uint8_t col);        // Sets the cursor position on the keyboard
         std::function<void(const String &)> onSaveCallback;      // Callback function for saving the response
         bool justStopped;                                        // Flag to indicate if the keyboard was just stopped
 
@@ -57,8 +58,8 @@ namespace Picoware
         InputManager *inputManager; // Pointer to the InputManager class for handling input events
 
         // Input state
-        int dpadInput;      // Input from the directional pad
-        uint8_t currentKey; // Currently pressed key (BUTTON_A, BUTTON_B, etc.)
+        int dpadInput;   // Input from the directional pad
+        char currentKey; // Currently pressed key (e.g., 'A', 'B', etc.)
 
         // Keyboard state
         bool isShiftPressed; // Flag to indicate if the Shift key is pressed

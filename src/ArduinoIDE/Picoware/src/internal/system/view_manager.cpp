@@ -193,6 +193,7 @@ namespace Picoware
         auto view = getView(viewName);
         if (view == nullptr)
         {
+            Serial.printf("ViewManager: View '%s' not found or is NULL.\n", viewName);
             return;
         }
 

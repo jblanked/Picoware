@@ -1,32 +1,6 @@
 #pragma once
 #include <Arduino.h>
 
-/* Pico Calc
-#define PicoGUI_SCK 10  //
-#define PicoGUI_MOSI 11 // TX
-#define PicoGUI_MISO 12 // RX
-#define PicoGUI_CS 13   //
-#define PicoGUI_DC 14
-#define PicoGUI_RST 15
-*/
-
-/* VGM
-#define PicoGUI_SCK 8
-#define PicoGUI_MOSI 11
-#define PicoGUI_MISO 12
-#define PicoGUI_CS 13
-#define PicoGUI_DC 14
-#define PicoGUI_RST 15
-
-static const struct dvi_serialiser_cfg picodvi_dvi_cfg = {
-    .pio = DVI_DEFAULT_PIO_INST,
-    .sm_tmds = {0, 1, 2},
-    .pins_tmds = {10, 12, 14},
-    .pins_clk = 8,
-    .invert_diffpairs = true
-};
-
-*/
 namespace Picoware
 {
     typedef enum
@@ -72,6 +46,7 @@ namespace Picoware
         const char *name;
         bool hasWiFi;
         bool hasBluetooth;
+        bool hasSDCard;
     } Board;
 
     static const PROGMEM Board VGMConfig = {
@@ -90,7 +65,8 @@ namespace Picoware
         .rotation = 0,
         .name = "Video Game Module",
         .hasWiFi = false,
-        .hasBluetooth = false};
+        .hasBluetooth = false,
+        .hasSDCard = false};
 
     static const PROGMEM Board PicoCalcConfigPico = {
         .boardType = BOARD_TYPE_PICO_CALC,
@@ -108,7 +84,8 @@ namespace Picoware
         .rotation = 0,
         .name = "PicoCalc - Pico",
         .hasWiFi = false,
-        .hasBluetooth = false};
+        .hasBluetooth = false,
+        .hasSDCard = true};
 
     static const PROGMEM Board PicoCalcConfigPicoW = {
         .boardType = BOARD_TYPE_PICO_CALC,
@@ -126,7 +103,8 @@ namespace Picoware
         .rotation = 0,
         .name = "PicoCalc - Pico W",
         .hasWiFi = true,
-        .hasBluetooth = true};
+        .hasBluetooth = true,
+        .hasSDCard = true};
 
     static const PROGMEM Board PicoCalcConfigPico2 = {
         .boardType = BOARD_TYPE_PICO_CALC,
@@ -144,7 +122,8 @@ namespace Picoware
         .rotation = 0,
         .name = "PicoCalc - Pico 2",
         .hasWiFi = false,
-        .hasBluetooth = false};
+        .hasBluetooth = false,
+        .hasSDCard = true};
 
     static const PROGMEM Board PicoCalcConfigPico2W = {
         .boardType = BOARD_TYPE_PICO_CALC,
@@ -162,7 +141,8 @@ namespace Picoware
         .rotation = 0,
         .name = "PicoCalc - Pico 2 W",
         .hasWiFi = true,
-        .hasBluetooth = true};
+        .hasBluetooth = true,
+        .hasSDCard = true};
 
     static const PROGMEM Board JBlankedPicoConfig = {
         .boardType = BOARD_TYPE_JBLANKED,
@@ -180,6 +160,7 @@ namespace Picoware
         .rotation = 3,
         .name = "JBlanked Pico",
         .hasWiFi = true,
-        .hasBluetooth = true};
+        .hasBluetooth = true,
+        .hasSDCard = false};
 
 } // namespace Picoware

@@ -47,6 +47,7 @@ namespace Picoware
         bool hasWiFi;
         bool hasBluetooth;
         bool hasSDCard;
+        bool hasBattery;
     } Board;
 
     static const PROGMEM Board VGMConfig = {
@@ -66,7 +67,8 @@ namespace Picoware
         .name = "Video Game Module",
         .hasWiFi = false,
         .hasBluetooth = false,
-        .hasSDCard = false};
+        .hasSDCard = false,
+        .hasBattery = false};
 
     static const PROGMEM Board PicoCalcConfigPico = {
         .boardType = BOARD_TYPE_PICO_CALC,
@@ -85,7 +87,8 @@ namespace Picoware
         .name = "PicoCalc - Pico",
         .hasWiFi = false,
         .hasBluetooth = false,
-        .hasSDCard = true};
+        .hasSDCard = true,
+        .hasBattery = true};
 
     static const PROGMEM Board PicoCalcConfigPicoW = {
         .boardType = BOARD_TYPE_PICO_CALC,
@@ -104,7 +107,8 @@ namespace Picoware
         .name = "PicoCalc - Pico W",
         .hasWiFi = true,
         .hasBluetooth = true,
-        .hasSDCard = true};
+        .hasSDCard = true,
+        .hasBattery = true};
 
     static const PROGMEM Board PicoCalcConfigPico2 = {
         .boardType = BOARD_TYPE_PICO_CALC,
@@ -123,7 +127,8 @@ namespace Picoware
         .name = "PicoCalc - Pico 2",
         .hasWiFi = false,
         .hasBluetooth = false,
-        .hasSDCard = true};
+        .hasSDCard = true,
+        .hasBattery = true};
 
     static const PROGMEM Board PicoCalcConfigPico2W = {
         .boardType = BOARD_TYPE_PICO_CALC,
@@ -142,7 +147,8 @@ namespace Picoware
         .name = "PicoCalc - Pico 2 W",
         .hasWiFi = true,
         .hasBluetooth = true,
-        .hasSDCard = true};
+        .hasSDCard = true,
+        .hasBattery = true};
 
     static const PROGMEM Board JBlankedPicoConfig = {
         .boardType = BOARD_TYPE_JBLANKED,
@@ -161,6 +167,7 @@ namespace Picoware
         .name = "JBlanked Pico",
         .hasWiFi = true,
         .hasBluetooth = true,
-        .hasSDCard = false};
+        .hasSDCard = false,
+        .hasBattery = false};
 
 } // namespace Picoware

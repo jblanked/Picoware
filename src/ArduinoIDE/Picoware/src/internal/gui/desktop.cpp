@@ -1,4 +1,5 @@
 #include "desktop.hpp"
+#include "../../internal/system/pico-calc/southbridge.h"
 
 namespace Picoware
 {
@@ -16,7 +17,8 @@ namespace Picoware
 
     Desktop::Desktop(Draw *draw, uint16_t textColor, uint16_t backgroundColor)
         : display(draw), textColor(textColor), backgroundColor(backgroundColor),
-          hasBluetooth(false), hasWiFi(false), boardName(nullptr), rtcTime(nullptr)
+          hasBattery(false), hasBluetooth(false), hasWiFi(false),
+          boardName(nullptr), rtcTime(nullptr)
     {
         this->display->clear(Vector(0, 0), display->getSize(), backgroundColor);
         this->display->swap();
@@ -24,6 +26,7 @@ namespace Picoware
         this->boardName = currentBoard.name;
         this->hasWiFi = currentBoard.hasWiFi;
         this->hasBluetooth = currentBoard.hasBluetooth;
+        this->hasBattery = currentBoard.hasBattery;
     }
 
     Desktop::~Desktop()
@@ -52,7 +55,7 @@ namespace Picoware
         // draw time if set
         if (rtcTime != nullptr && strlen(rtcTime) > 0)
         {
-            display->text(Vector(display->getSize().x - 100, 2), rtcTime, textColor);
+            display->text(Vector(display->getSize().x - 160, 2), rtcTime, textColor);
         }
 
         // draw WiFi icon
@@ -60,5 +63,20 @@ namespace Picoware
 
         // draw Bluetooth icon
         display->imagePGM(Vector(display->getSize().x - 40, 2), hasBluetooth ? BLUETOOTH_ON : BLUETOOTH_OFF, Vector(14, 16));
+
+        // draw battery percentage
+        char batteryText[10];
+        if (hasBattery)
+        {
+            int raw_level = sb_read_battery();
+            int battery_level = raw_level & 0x7F; // Mask out the charging bit
+            // bool charging = (raw_level & 0x80) != 0; // Check if charging
+            snprintf(batteryText, sizeof(batteryText), "%d%%", battery_level);
+            display->text(Vector(display->getSize().x - 80, 2), batteryText, textColor);
+        }
+        else
+        {
+            display->text(Vector(display->getSize().x - 80, 2), "100%", textColor);
+        }
     }
 }

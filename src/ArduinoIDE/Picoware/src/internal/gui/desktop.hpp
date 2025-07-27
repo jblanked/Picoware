@@ -22,6 +22,7 @@ namespace Picoware
         Draw *display;
         uint16_t textColor;
         uint16_t backgroundColor;
+        bool hasBattery;
         bool hasBluetooth;
         bool hasWiFi;
         const char *boardName;

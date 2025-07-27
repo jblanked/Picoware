@@ -18,7 +18,7 @@ namespace Picoware
         ~ViewManager();
         //
         bool add(const View *view);
-        void back();
+        void back(bool removeCurrentView = true);
         void clearStack();
         void pushView(const char *viewName);
         void remove(const char *viewName);

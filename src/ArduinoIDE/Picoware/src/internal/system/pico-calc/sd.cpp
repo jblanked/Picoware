@@ -1,4 +1,4 @@
-#include "PicoCalcSD.hpp"
+#include "sd.hpp"
 
 PicoCalcSD::PicoCalcSD(uint8_t miso, uint8_t cs, uint8_t sck, uint8_t mosi) : isInitialized(false)
 {

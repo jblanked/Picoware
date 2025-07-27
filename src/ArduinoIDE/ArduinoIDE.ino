@@ -10,7 +10,7 @@ ViewManager *vm;
 
 void setup()
 {
-  vm = new ViewManager(VGMConfig);
+  vm = new ViewManager(PicoCalcConfigPico2W);
   vm->add(&desktopView);
   vm->switchTo("Desktop");
 }

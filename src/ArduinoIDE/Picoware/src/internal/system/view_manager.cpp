@@ -54,10 +54,18 @@ namespace Picoware
         return true;
     }
 
-    void ViewManager::back()
+    void ViewManager::back(bool removeCurrentView)
     {
         if (this->stackDepth > 0)
         {
+            const View *viewToRemove = nullptr;
+
+            // Mark current view for removal if requested
+            if (this->currentView != nullptr && removeCurrentView)
+            {
+                viewToRemove = this->currentView;
+            }
+
             // Stop current view
             if (this->currentView != nullptr)
             {
@@ -75,10 +83,46 @@ namespace Picoware
             {
                 if (!this->currentView->start(this))
                 {
-                    // umm this is recursive but it should keep bringing
-                    // the user back until it finds a view that starts successfully
-                    // which by default is the Desktop view
-                    this->back();
+                    // If the previous view fails to start, try going back again
+                    // Don't remove views in recursive calls to avoid complications
+                    this->back(false);
+                    return;
+                }
+            }
+
+            // remove the view if requested
+            if (viewToRemove != nullptr)
+            {
+                // Find and remove the view from the views array
+                for (uint8_t i = 0; i < this->viewCount; i++)
+                {
+                    if (this->views[i] == viewToRemove)
+                    {
+                        // Remove any remaining instances from the stack
+                        for (uint8_t j = 0; j < this->stackDepth; j++)
+                        {
+                            if (this->viewStack[j] == viewToRemove)
+                            {
+                                // Shift remaining stack elements down
+                                for (uint8_t k = j; k < this->stackDepth - 1; k++)
+                                {
+                                    this->viewStack[k] = this->viewStack[k + 1];
+                                }
+                                this->stackDepth--;
+                                this->viewStack[this->stackDepth] = nullptr;
+                                j--; // Check this index again after shifting
+                            }
+                        }
+
+                        // Remove from views array (but don't delete the view object)
+                        for (uint8_t j = i; j < this->viewCount - 1; j++)
+                        {
+                            this->views[j] = this->views[j + 1];
+                        }
+                        this->views[this->viewCount - 1] = nullptr;
+                        this->viewCount--;
+                        break;
+                    }
                 }
             }
         }
@@ -92,11 +136,22 @@ namespace Picoware
 
     const View *ViewManager::getView(const char *viewName) const noexcept
     {
+
         for (uint8_t i = 0; i < this->viewCount; i++)
         {
-            if (strcmp(this->views[i]->name, viewName) == 0)
+
+            if (this->views[i] != nullptr)
             {
-                return this->views[i];
+                if (strcmp(this->views[i]->name, viewName) == 0)
+                {
+                    return this->views[i];
+                }
+            }
+            else
+            {
+                Serial.print("ViewManager: View '");
+                Serial.print(viewName);
+                Serial.print("' found in views array but is NULL. ");
             }
         }
         return nullptr;

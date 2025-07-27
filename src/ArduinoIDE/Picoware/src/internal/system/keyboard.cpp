@@ -467,6 +467,11 @@ namespace Picoware
             processKeyPress();
             lastInputTime = millis();
             break;
+        case BUTTON_BACKSPACE:
+            setCursorPosition(0, 12); // Backspace key
+            processKeyPress();
+            lastInputTime = millis();
+            break;
         default:
             // No input or unhandled input
             break;

@@ -39,8 +39,9 @@ namespace Picoware
             return BUTTON_UP;
         case KEY_DOWN:
             return BUTTON_DOWN;
-        case KEY_ESC:
         case KEY_DEL:
+            return BUTTON_BACKSPACE;
+        case KEY_ESC:
         case 0x08:
         case 0x7F:
             return BUTTON_BACK;

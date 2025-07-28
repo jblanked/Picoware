@@ -5,6 +5,7 @@
 #include "../../../internal/system/view.hpp"
 #include "../../../internal/system/view_manager.hpp"
 #include "../../../internal/applications/system/about.hpp"
+#include "../../../internal/applications/system/settings.hpp"
 #include "../../../internal/applications/system/system_info.hpp"
 using namespace Picoware;
 static Menu *systemApp = nullptr;
@@ -28,6 +29,7 @@ static bool systemStart(ViewManager *viewManager)
         viewManager->getForegroundColor(), // border/separator color
         2                                  // border/separator width
     );
+    systemApp->addItem("Settings");
     systemApp->addItem("About Picoware");
     systemApp->addItem("System Info");
     systemApp->addItem("Bootloader Mode");
@@ -52,6 +54,7 @@ static void systemRun(ViewManager *viewManager)
         inputManager->reset(true);
         break;
     case BUTTON_LEFT:
+    case BUTTON_BACK:
         systemIndex = 0;
         viewManager->back();
         inputManager->reset(true);
@@ -59,46 +62,47 @@ static void systemRun(ViewManager *viewManager)
     case BUTTON_RIGHT:
     case BUTTON_CENTER:
     {
-        systemIndex = systemApp->getSelectedIndex();
-        switch (systemIndex)
+        const char *currentItem = systemApp->getCurrentItem();
+        if (strcmp(currentItem, "Settings") == 0)
         {
-        case 0: // if index is 0, show about
+            if (viewManager->getView("Settings") == nullptr)
+            {
+                viewManager->add(&settingsView);
+            }
+            viewManager->switchTo("Settings");
+        }
+        else if (strcmp(currentItem, "About") == 0)
         {
             if (viewManager->getView("About") == nullptr)
             {
                 viewManager->add(&aboutView);
             }
             viewManager->switchTo("About");
-            return;
         }
-        case 1: // if index is 1, show system info
+        else if (strcmp(currentItem, "System Info") == 0)
         {
             if (viewManager->getView("System Info") == nullptr)
             {
                 viewManager->add(&systemInfoView);
             }
             viewManager->switchTo("System Info");
-            return;
         }
-        case 2: // if index is 2, reboot into bootloader
+        else if (strcmp(currentItem, "Bootloader Mode") == 0)
         {
             System systemInfo = System();
             systemInfo.bootloaderMode();
-            break;
         }
-        case 3: // if index is 3, restart device
+        else if (strcmp(currentItem, "Restart Device") == 0)
         {
             System systemInfo = System();
             systemInfo.reboot();
-            break;
         }
-        };
         inputManager->reset(true);
-    }
-    break;
-    default:
         break;
     }
+    default:
+        break;
+    };
 }
 
 static void systemStop(ViewManager *viewManager)

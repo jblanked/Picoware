@@ -2,15 +2,31 @@
 #include "../../internal/system/view_manager.hpp"
 namespace Picoware
 {
-    ViewManager::ViewManager(const Board board, uint16_t foregroundColor, uint16_t backgroundColor)
-        : picoBoard(board), currentView(nullptr), viewCount(0),
-          foregroundColor(foregroundColor), backgroundColor(backgroundColor), selectedColor(TFT_BLUE),
-          stackDepth(0),
-          led(), storage(), wifi(),
+    ViewManager::ViewManager(const Board board)
+        : picoBoard(board), currentView(nullptr), viewCount(0), selectedColor(TFT_BLUE),
+          stackDepth(0), led(), storage(), wifi(),
           delayTicks(0), delayElapsed(0)
 
     {
         this->storage.begin(); // for LittleFS
+
+        // Load dark mode settings from storage
+        JsonDocument doc;
+        if (this->storage.deserialize(doc, DARK_MODE_LOCATION))
+        {
+            auto state = (doc["dark_mode"]);
+            if (state)
+            {
+                this->setBackgroundColor(TFT_BLACK);
+                this->setForegroundColor(TFT_WHITE);
+            }
+            else
+            {
+                this->setBackgroundColor(TFT_WHITE);
+                this->setForegroundColor(TFT_BLACK);
+            }
+        }
+
         this->draw = new Draw(board, true, true);
         this->inputManager = new InputManager(board);
         this->keyboard = new Keyboard(this->draw, this->inputManager, foregroundColor, backgroundColor, TFT_BLUE);

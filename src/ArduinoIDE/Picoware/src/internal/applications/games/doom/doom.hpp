@@ -23,8 +23,8 @@ static bool doomStart(ViewManager *viewManager)
         Vector(board.width, board.height), // Game size
         viewManager->getDraw(),            // Draw object
         viewManager->getInputManager(),    // Input manager
-        viewManager->getBackgroundColor(), // Foreground color (switched on purpose)
-        viewManager->getForegroundColor(), // Background color
+        TFT_WHITE,                         // Foreground color
+        TFT_BLACK,                         // Background color
         CAMERA_FIRST_PERSON,               // Camera perspective
         nullptr,                           // Game start callback
         Doom::game_stop                    // Game stop callback

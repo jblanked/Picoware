@@ -45,7 +45,7 @@ void drawGun(
     uint16_t color,
     Picoware::Draw *const canvas);
 void drawRect(int16_t x, int16_t y, int16_t w, int16_t h, Picoware::Draw *const canvas);
-void drawText(int16_t x, int16_t y, uint16_t num, Picoware::Draw *const canvas);
+void drawText(int16_t x, int16_t y, uint16_t num, Picoware::Draw *const canvas, uint16_t color = TFT_BLACK);
 void fadeScreen(uint16_t intensity, uint16_t color, Picoware::Draw *const canvas);
 bool getGradientPixel(int16_t x, int16_t y, uint8_t i);
 double getActualFps();

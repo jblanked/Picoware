@@ -119,14 +119,14 @@ namespace Doom
     }
 
     // Render values for the HUD
-    static void updateHud(Draw *const canvas)
+    static void updateHud(Draw *const canvas, Game *game)
     {
         // clear the previous HUD
-        canvas->clear(Vector(20, 220), Vector(30, 20), TFT_BLACK);
-        canvas->clear(Vector(100, 220), Vector(30, 20), TFT_BLACK);
+        canvas->clear(Vector(20, 220), Vector(30, 20), game->bg_color);
+        canvas->clear(Vector(100, 220), Vector(30, 20), game->bg_color);
         //
-        drawText(20, 220, plugin_state->player.health, canvas);
-        drawText(100, 220, plugin_state->player.keys, canvas);
+        drawText(20, 220, plugin_state->player.health, canvas, game->fg_color);
+        drawText(100, 220, plugin_state->player.keys, canvas, game->fg_color);
     }
 
     // Finds the player in the map
@@ -405,7 +405,7 @@ namespace Doom
                         {
                             plugin_state->player.health = fmax(0, plugin_state->player.health - ENEMY_MELEE_DAMAGE);
                             plugin_state->entity[i].timer = 14;
-                            updateHud(canvas);
+                            updateHud(canvas, game);
                         }
                     }
                     else
@@ -420,7 +420,7 @@ namespace Doom
                 if (plugin_state->entity[i].distance < FIREBALL_COLLIDER_DIST)
                 {
                     plugin_state->player.health = fmax(0, plugin_state->player.health - ENEMY_FIREBALL_DAMAGE);
-                    updateHud(canvas);
+                    updateHud(canvas, game);
                     removeEntity(plugin_state->entity[i].uid, game);
                     continue;
                 }
@@ -446,7 +446,7 @@ namespace Doom
                 {
                     plugin_state->entity[i].state = S_HIDDEN;
                     plugin_state->player.health = fmin(100, plugin_state->player.health + 50);
-                    updateHud(canvas);
+                    updateHud(canvas, game);
                 }
                 break;
             }
@@ -456,7 +456,7 @@ namespace Doom
                 {
                     plugin_state->entity[i].state = S_HIDDEN;
                     plugin_state->player.keys++;
-                    updateHud(canvas);
+                    updateHud(canvas, game);
                 }
                 break;
             }
@@ -897,14 +897,14 @@ namespace Doom
         drawBitmap(x, y, gun, BMP_GUN_WIDTH, clip_height, TFT_DARKCYAN, canvas);
     }
 
-    static void renderStats(Draw *const canvas)
+    static void renderStats(Draw *const canvas, Game *game)
     {
         // clear previous stats
         // canvas->clear(Vector(290, 220), Vector(30, 20), TFT_BLACK);
         // canvas->clear(Vector(200, 220), Vector(30, 20), TFT_BLACK);
         //
-        drawText(295, 220, (int)getActualFps(), canvas);
-        drawText(205, 220, plugin_state->num_entities, canvas);
+        drawText(295, 220, (int)getActualFps(), canvas, game->fg_color);
+        drawText(205, 220, plugin_state->num_entities, canvas, game->fg_color);
     }
 
     static void doom_state_init(Game *game)
@@ -1054,8 +1054,8 @@ namespace Doom
         updateEntities(sto_level_1, canvas, game);
         renderGun(plugin_state->gun_pos, plugin_state->jogging, canvas);
         renderEntities(plugin_state->view_height, canvas, game);
-        updateHud(canvas);
-        renderStats(canvas);
+        updateHud(canvas, game);
+        renderStats(canvas, game);
     }
 
     void player_spawn(Level *level, Game *game)

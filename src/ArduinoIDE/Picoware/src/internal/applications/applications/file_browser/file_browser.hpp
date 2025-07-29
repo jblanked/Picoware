@@ -6,10 +6,13 @@
 using namespace Picoware;
 
 static std::unique_ptr<Menu> fileBrowserMenu = nullptr;
+static std::unique_ptr<TextBox> fileBrowserReaderBox = nullptr;
 static std::unique_ptr<PicoCalcSD> sdCard = nullptr;
 static std::vector<String> directoryStack;
 static std::vector<String> directoryContents;
 static String currentDirectory = "/";
+static bool isViewingFile = false;
+static String currentFilePath = "";
 
 static void loadDirectoryContents(ViewManager *viewManager)
 {
@@ -51,6 +54,34 @@ static void loadDirectoryContents(ViewManager *viewManager)
     fileBrowserMenu->draw();
 }
 
+static void showFileContents(ViewManager *viewManager, const String &filePath)
+{
+    fileBrowserReaderBox->setText("Loading file... hit BACK if this takes too long");
+    String fileContent = sdCard->read(filePath.c_str());
+
+    if (fileContent.length() == 0)
+    {
+        fileContent = "Error: Could not read file or file is empty.";
+    }
+
+    // Update text box with file contents and show file
+    fileBrowserReaderBox->setText(fileContent.c_str());
+    auto lines = fileBrowserReaderBox->getLinesPerScreen() - 1;
+    auto index = lines > fileBrowserReaderBox->getTotalLines() ? 0 : lines;
+    fileBrowserReaderBox->setCurrentLine(index);
+    isViewingFile = true;
+    currentFilePath = filePath;
+}
+
+static void hideFileContents(ViewManager *viewManager)
+{
+    // Clear the text box and show the menu again
+    fileBrowserReaderBox->clear();
+    fileBrowserMenu->draw();
+    isViewingFile = false;
+    currentFilePath = "";
+}
+
 static bool fileBrowserStart(ViewManager *viewManager)
 {
     fileBrowserMenu = std::make_unique<Menu>(
@@ -65,12 +96,21 @@ static bool fileBrowserStart(ViewManager *viewManager)
         2                                  // border/separator width
     );
 
+    fileBrowserReaderBox = std::make_unique<TextBox>(
+        viewManager->getDraw(),
+        0,
+        viewManager->getBoard().height,
+        viewManager->getForegroundColor(),
+        viewManager->getBackgroundColor());
+
     sdCard = std::make_unique<PicoCalcSD>();
 
     // Initialize directory stack and current directory
     directoryStack.clear();
     directoryContents.clear();
     currentDirectory = "/";
+    isViewingFile = false;
+    currentFilePath = "";
 
     // Load root directory contents
     loadDirectoryContents(viewManager);
@@ -83,94 +123,130 @@ static void fileBrowserRun(ViewManager *viewManager)
     auto inputManager = viewManager->getInputManager();
     auto input = inputManager->getInput();
 
-    switch (input)
+    if (isViewingFile)
     {
-    case BUTTON_UP:
-        fileBrowserMenu->scrollUp();
-        fileBrowserMenu->draw();
-        inputManager->reset(true);
-        break;
-
-    case BUTTON_DOWN:
-        fileBrowserMenu->scrollDown();
-        fileBrowserMenu->draw();
-        inputManager->reset(true);
-        break;
-
-    case BUTTON_LEFT:
-    case BUTTON_BACK:
-        // Navigate back to previous directory or exit
-        if (!directoryStack.empty())
+        switch (input)
         {
-            // Pop the last directory from stack
-            currentDirectory = directoryStack.back();
-            directoryStack.pop_back();
+        case BUTTON_UP:
+            fileBrowserReaderBox->scrollUp();
+            inputManager->reset(true);
+            break;
 
-            // Update menu title to show current path
-            String title = "File Browser: " + currentDirectory;
-            fileBrowserMenu->setTitle(title.c_str());
+        case BUTTON_DOWN:
+            fileBrowserReaderBox->scrollDown();
+            inputManager->reset(true);
+            break;
 
-            // Reload directory contents
-            loadDirectoryContents(viewManager);
-        }
-        else
-        {
-            // No more directories in stack, exit the app
-            viewManager->back();
-        }
-        inputManager->reset(true);
-        break;
+        case BUTTON_LEFT:
+        case BUTTON_BACK:
+        case BUTTON_CENTER:
+        case BUTTON_RIGHT:
+            hideFileContents(viewManager);
+            inputManager->reset(true);
+            break;
 
-    case BUTTON_CENTER:
-    case BUTTON_RIGHT:
-    {
-        const char *currentItem = fileBrowserMenu->getCurrentItem();
-        auto selectedIndex = fileBrowserMenu->getSelectedIndex();
-
-        // Skip if empty directory message
-        if (strcmp(currentItem, "(Empty directory)") == 0)
-        {
+        default:
             break;
         }
-
-        // Get the actual file/directory entry
-        File selectedEntry = sdCard->getFileOrDirectoryAtIndex(currentDirectory.c_str(), selectedIndex);
-
-        if (selectedEntry)
+    }
+    else
+    {
+        switch (input)
         {
-            if (selectedEntry.isDirectory())
-            {
-                // It's a directory - navigate into it
-                directoryStack.push_back(currentDirectory); // Save current directory to stack
+        case BUTTON_UP:
+            fileBrowserMenu->scrollUp();
+            fileBrowserMenu->draw();
+            inputManager->reset(true);
+            break;
 
-                // Build new directory path
-                String newPath = currentDirectory;
-                if (newPath != "/")
-                {
-                    newPath += "/";
-                }
-                newPath += selectedEntry.name();
-                currentDirectory = newPath;
+        case BUTTON_DOWN:
+            fileBrowserMenu->scrollDown();
+            fileBrowserMenu->draw();
+            inputManager->reset(true);
+            break;
+
+        case BUTTON_LEFT:
+        case BUTTON_BACK:
+            if (!directoryStack.empty())
+            {
+                // Pop the last directory from stack
+                currentDirectory = directoryStack.back();
+                directoryStack.pop_back();
 
                 // Update menu title to show current path
                 String title = "File Browser: " + currentDirectory;
                 fileBrowserMenu->setTitle(title.c_str());
 
-                // Load new directory contents
+                // Reload directory contents
                 loadDirectoryContents(viewManager);
             }
             else
             {
-                // later I'll add file viewing/editing functionality
+                // No more directories in stack, exit the app
+                viewManager->back();
             }
-            selectedEntry.close();
-        }
-        inputManager->reset(true);
-        break;
-    }
+            inputManager->reset(true);
+            break;
 
-    default:
-        break;
+        case BUTTON_CENTER:
+        case BUTTON_RIGHT:
+        {
+            const char *currentItem = fileBrowserMenu->getCurrentItem();
+            auto selectedIndex = fileBrowserMenu->getSelectedIndex();
+
+            // Skip if empty directory message
+            if (strcmp(currentItem, "(Empty directory)") == 0)
+            {
+                break;
+            }
+
+            // Get the actual file/directory entry
+            File selectedEntry = sdCard->getFileOrDirectoryAtIndex(currentDirectory.c_str(), selectedIndex);
+
+            if (selectedEntry)
+            {
+                if (selectedEntry.isDirectory())
+                {
+                    // It's a directory - navigate into it
+                    directoryStack.push_back(currentDirectory); // Save current directory to stack
+
+                    // Build new directory path
+                    String newPath = currentDirectory;
+                    if (newPath != "/")
+                    {
+                        newPath += "/";
+                    }
+                    newPath += selectedEntry.name();
+                    currentDirectory = newPath;
+
+                    // Update menu title to show current path
+                    String title = "File Browser: " + currentDirectory;
+                    fileBrowserMenu->setTitle(title.c_str());
+
+                    // Load new directory contents
+                    loadDirectoryContents(viewManager);
+                }
+                else
+                {
+                    // It's a file - show its contents
+                    String filePath = currentDirectory;
+                    if (filePath != "/")
+                    {
+                        filePath += "/";
+                    }
+                    filePath += selectedEntry.name();
+
+                    showFileContents(viewManager, filePath);
+                }
+                selectedEntry.close();
+            }
+            inputManager->reset(true);
+            break;
+        }
+
+        default:
+            break;
+        }
     }
 }
 
@@ -181,6 +257,9 @@ static void fileBrowserStop(ViewManager *viewManager)
     directoryStack.clear();
     directoryContents.clear();
     currentDirectory = "/";
+    isViewingFile = false;
+    currentFilePath = "";
+    fileBrowserReaderBox.reset();
 }
 
 static const PROGMEM View fileBrowserView = View("File Browser", fileBrowserRun, fileBrowserStart, fileBrowserStop);

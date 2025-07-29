@@ -28,8 +28,8 @@ namespace Picoware
         }
         else
         {
-            backgroundColor = TFT_WHITE;
-            foregroundColor = TFT_BLACK;
+            backgroundColor = TFT_BLACK;
+            foregroundColor = TFT_WHITE;
         }
 
         this->draw = new Draw(board, true, true);

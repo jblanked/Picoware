@@ -17,14 +17,19 @@ namespace Picoware
             auto state = (doc["dark_mode"]);
             if (state)
             {
-                this->setBackgroundColor(TFT_BLACK);
-                this->setForegroundColor(TFT_WHITE);
+                backgroundColor = TFT_BLACK;
+                foregroundColor = TFT_WHITE;
             }
             else
             {
-                this->setBackgroundColor(TFT_WHITE);
-                this->setForegroundColor(TFT_BLACK);
+                backgroundColor = TFT_WHITE;
+                foregroundColor = TFT_BLACK;
             }
+        }
+        else
+        {
+            backgroundColor = TFT_WHITE;
+            foregroundColor = TFT_BLACK;
         }
 
         this->draw = new Draw(board, true, true);

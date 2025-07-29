@@ -64,10 +64,8 @@ static void flipSocialPostRun(ViewManager *viewManager)
 
 static void flipSocialPostStop(ViewManager *viewManager)
 {
-    flipSocialPostIsRunning = false;
-    flipSocialPostSaveRequested = false;
 
-    if (viewManager->getKeyboard() != nullptr)
+    if (flipSocialPostSaveRequested && viewManager->getKeyboard() != nullptr)
     {
         // clear the screen and show posting message
         viewManager->getDraw()->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());
@@ -116,6 +114,9 @@ static void flipSocialPostStop(ViewManager *viewManager)
         delete flipSocialPostAlert;
         flipSocialPostAlert = nullptr;
     }
+
+    flipSocialPostIsRunning = false;
+    flipSocialPostSaveRequested = false;
 }
 
 const PROGMEM View flipSocialPostView = View("FlipSocialPost", flipSocialPostRun, flipSocialPostStart, flipSocialPostStop);

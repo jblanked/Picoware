@@ -28,7 +28,7 @@ static bool desktopStart(ViewManager *viewManager)
         desktop = nullptr;
     }
 
-    desktop = new Desktop(viewManager->getDraw());
+    desktop = new Desktop(viewManager->getDraw(), viewManager->getForegroundColor(), viewManager->getBackgroundColor());
     auto board = viewManager->getBoard();
     isVGM = board.boardType == BOARD_TYPE_VGM;
 
@@ -94,6 +94,9 @@ static void desktopRun(ViewManager *viewManager)
         }
     }
     elapsed++;
+
+    desktop->setTextColor(viewManager->getForegroundColor());
+    desktop->setBackgroundColor(viewManager->getBackgroundColor());
 }
 
 static void desktopStop(ViewManager *viewManager)

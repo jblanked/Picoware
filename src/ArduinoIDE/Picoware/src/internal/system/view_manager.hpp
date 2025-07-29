@@ -9,12 +9,13 @@
 #include "../../internal/system/keyboard.hpp"
 #include "../../internal/system/view.hpp"
 #include "../../internal/system/wifi_utils.hpp"
+#define DARK_MODE_LOCATION "/dark_mode.json"
 namespace Picoware
 {
     class ViewManager
     {
     public:
-        ViewManager(const Board board, uint16_t foregroundColor = TFT_BLACK, uint16_t backgroundColor = TFT_WHITE);
+        ViewManager(const Board board);
         ~ViewManager();
         //
         bool add(const View *view);
@@ -54,6 +55,10 @@ namespace Picoware
             }
             return nullptr;
         }
+
+        void setBackgroundColor(uint16_t color) noexcept { backgroundColor = color; }
+        void setForegroundColor(uint16_t color) noexcept { foregroundColor = color; }
+        void setSelectedColor(uint16_t color) noexcept { selectedColor = color; }
 
     private:
         void clear();

@@ -4,6 +4,7 @@
 #include "../../../internal/system/view.hpp"
 #include "../../../internal/system/view_manager.hpp"
 #include "../../../internal/applications/applications/flip_social/flip_social.hpp"
+#include "../../../internal/applications/applications/file_browser/file_browser.hpp"
 #include "../../../internal/applications/applications/GPS/GPS.hpp"
 #include "../../../internal/applications/applications/Weather/weather.hpp"
 using namespace Picoware;
@@ -29,6 +30,10 @@ static bool applicationsStart(ViewManager *viewManager)
         2                                  // border/separator width
     );
 
+    if (viewManager->getBoard().boardType == BOARD_TYPE_PICO_CALC)
+    {
+        applications->addItem("File Browser");
+    }
     applications->addItem("FlipSocial");
     applications->addItem("GPS");
     applications->addItem("Weather");
@@ -62,6 +67,15 @@ static void applicationsRun(ViewManager *viewManager)
     {
         const char *currentItem = applications->getCurrentItem();
         applicationsIndex = applications->getSelectedIndex();
+        if (strcmp(currentItem, "File Browser") == 0)
+        {
+            if (viewManager->getView("File Browser") == nullptr)
+            {
+                viewManager->add(&fileBrowserView);
+            }
+            viewManager->switchTo("File Browser");
+            return;
+        }
         if (strcmp(currentItem, "FlipSocial") == 0)
         {
             if (viewManager->getView("FlipSocial") == nullptr)

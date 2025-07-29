@@ -30,7 +30,10 @@ static bool applicationsStart(ViewManager *viewManager)
         2                                  // border/separator width
     );
 
-    applications->addItem("File Browser");
+    if (viewManager->getBoard().boardType == BOARD_TYPE_PICO_CALC)
+    {
+        applications->addItem("File Browser");
+    }
     applications->addItem("FlipSocial");
     applications->addItem("GPS");
     applications->addItem("Weather");

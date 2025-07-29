@@ -54,7 +54,6 @@ static void flipSocialPostRun(ViewManager *viewManager)
     // Check if save was requested
     if (flipSocialPostSaveRequested)
     {
-        flipSocialPostSaveRequested = false;
         viewManager->back();
         return;
     }

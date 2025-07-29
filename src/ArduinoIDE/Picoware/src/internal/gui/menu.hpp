@@ -35,6 +35,7 @@ namespace Picoware
         uint16_t getVisibleItemCount() const { return list->getVisibleItemCount(); }
         //
         void setSelected(uint16_t index);
+        void setTitle(const char *newTitle);
         void scrollUp();
         void scrollDown();
 

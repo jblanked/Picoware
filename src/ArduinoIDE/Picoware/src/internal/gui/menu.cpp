@@ -58,6 +58,12 @@ namespace Picoware
         list->scrollUp();
     }
 
+    void Menu::setTitle(const char *newTitle)
+    {
+        title = newTitle;
+        drawTitle();
+    }
+
     void Menu::setSelected(uint16_t index)
     {
         drawTitle();

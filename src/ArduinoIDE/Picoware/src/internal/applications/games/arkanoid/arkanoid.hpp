@@ -22,8 +22,8 @@ static bool arkanoidStart(ViewManager *viewManager)
         Vector(board.width, board.height), // Game size
         viewManager->getDraw(),            // Draw object
         viewManager->getInputManager(),    // Input manager
-        viewManager->getForegroundColor(), // Foreground color
-        viewManager->getBackgroundColor()  // Background color
+        TFT_BLACK,                         // Foreground color
+        TFT_WHITE                          // Background color
     );
 
     // Create and add a level to the game.

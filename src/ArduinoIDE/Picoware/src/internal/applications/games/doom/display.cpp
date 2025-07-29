@@ -34,11 +34,11 @@ void drawVLine(int16_t x, int16_t start_y, int16_t end_y, uint16_t intensity, Pi
     }
 }
 
-void drawText(int16_t x, int16_t y, uint16_t num, Picoware::Draw *const canvas)
+void drawText(int16_t x, int16_t y, uint16_t num, Picoware::Draw *const canvas, uint16_t color)
 {
     char buf[4];
     snprintf(buf, 4, "%d", num);
-    canvas->text(Picoware::Vector(x, y), buf);
+    canvas->text(Picoware::Vector(x, y), buf, color);
 }
 
 void drawTextSpace(int16_t x, int16_t y, const char *txt, uint16_t space, Picoware::Draw *const canvas)

@@ -20,8 +20,8 @@ static bool flipWorldStart(ViewManager *viewManager)
         Vector(board.width, board.height), // Game size
         viewManager->getDraw(),            // Draw object
         viewManager->getInputManager(),    // Input manager
-        viewManager->getForegroundColor(), // Foreground color
-        viewManager->getBackgroundColor(), // Background color
+        TFT_BLACK,                         // Foreground color
+        TFT_WHITE,                         // Background color
         CAMERA_FIRST_PERSON,               // Camera perspective
         nullptr,                           // Game start callback
         FlipWorld::game_stop               // Game stop callback

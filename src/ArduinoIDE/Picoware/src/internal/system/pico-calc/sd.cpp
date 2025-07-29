@@ -12,6 +12,124 @@ PicoCalcSD::PicoCalcSD(uint8_t miso, uint8_t cs, uint8_t sck, uint8_t mosi) : is
     }
 }
 
+File PicoCalcSD::getFileAtIndex(const char *directoryPath, int targetIndex)
+{
+    if (!isInitialized)
+    {
+        Serial.println("SD card not initialized");
+        return File();
+    }
+    int currentIndex = 0;
+
+    auto directory = open(directoryPath);
+    if (!directory)
+    {
+        Serial.println("Failed to open directory");
+        return File();
+    }
+
+    directory.rewindDirectory();
+
+    while (true)
+    {
+        File entry = directory.openNextFile();
+        if (!entry)
+        {
+            break;
+        }
+
+        // Only count files, not directories
+        if (!entry.isDirectory())
+        {
+            if (currentIndex == targetIndex)
+            {
+                return entry;
+            }
+            currentIndex++;
+        }
+
+        entry.close();
+    }
+
+    return File();
+}
+
+int PicoCalcSD::getFileCount(const char *directoryPath)
+{
+    if (!isInitialized)
+    {
+        Serial.println("SD card not initialized");
+        return -1;
+    }
+    int count = 0;
+
+    auto directory = open(directoryPath);
+    if (!directory)
+    {
+        Serial.println("Failed to open directory");
+        return File();
+    }
+
+    directory.rewindDirectory();
+
+    while (true)
+    {
+        File entry = directory.openNextFile();
+        if (!entry)
+        {
+            break;
+        }
+
+        // Count only files, not directories
+        if (!entry.isDirectory())
+        {
+            count++;
+        }
+
+        entry.close();
+    }
+
+    return count;
+}
+
+File PicoCalcSD::getFileOrDirectoryAtIndex(const char *directoryPath, int targetIndex)
+{
+    if (!isInitialized)
+    {
+        Serial.println("SD card not initialized");
+        return File();
+    }
+    int currentIndex = 0;
+
+    auto directory = open(directoryPath);
+    if (!directory)
+    {
+        Serial.println("Failed to open directory");
+        return File();
+    }
+
+    directory.rewindDirectory();
+
+    while (true)
+    {
+        File entry = directory.openNextFile();
+        if (!entry)
+        {
+            break;
+        }
+
+        if (currentIndex == targetIndex)
+        {
+            return entry;
+        }
+
+        currentIndex++;
+        entry.close();
+    }
+
+    return File();
+}
+
 File PicoCalcSD::open(const char *fileName, int mode)
 {
     if (!isInitialized)

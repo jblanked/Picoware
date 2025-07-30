@@ -1,7 +1,6 @@
 import board
 from gc import collect as free
 from terminalio import FONT
-from framebufferio import FramebufferDisplay
 from displayio import (
     Bitmap,
     Group,
@@ -82,9 +81,12 @@ class Draw:
         self.group.append(self.bg_group)
         self.group.append(self.text_group)
 
+        self.spi = None
+
         if board_type.board_type == BOARD_TYPE_VGM:
             try:
                 from picodvi import Framebuffer
+                from framebufferio import FramebufferDisplay
 
                 self.frame_buffer = Framebuffer(
                     320,
@@ -137,15 +139,22 @@ class Draw:
                 from fourwire import FourWire
                 from adafruit_ili9341 import ILI9341
                 from busio import SPI
+                import digitalio
 
-                spi = SPI(clock=board.GP6, MOSI=board.GP7, MISO=board.GP4)
-                spi.configure(baudrate=40000000)
+                self.spi = SPI(clock=board.GP6, MOSI=board.GP7, MISO=board.GP4)
+                if not self.spi.try_lock():
+                    print("Failed to lock SPI bus")
+                    return
+                self.spi.configure(baudrate=40000000)
+                self.spi.unlock()
                 tft_cs = board.GP5
                 tft_dc = board.GP11
                 display_bus = FourWire(
-                    spi, command=tft_dc, chip_select=tft_cs, reset=board.GP10
+                    self.spi, command=tft_dc, chip_select=tft_cs, reset=board.GP10
                 )
-                self.fb_display = ILI9341(display_bus, width=320, height=240)
+                self.fb_display = ILI9341(
+                    display_bus, width=320, height=240, rotation=180
+                )
                 self.display = Bitmap(self.size.x, self.size.y, self.palette_count)
                 self.title_grid = TileGrid(self.display, pixel_shader=self.palette)
                 self.bg_group.append(self.title_grid)
@@ -160,6 +169,54 @@ class Draw:
                     print(
                         "[Draw:__init__]: Failed to allocate memory for display bitmap."
                     )
+            except Exception as e:
+                digitalio.DigitalInOut(board.GP6).deinit()
+                free()
+                if self.debug:
+                    print(f"[Draw:__init__]: Error initializing display: {e}")
+                raise e
+        elif board_type.board_type == BOARD_TYPE_PICO_CALC:
+            try:
+                from fourwire import FourWire
+                from adafruit_ili9341 import ILI9341
+                from busio import SPI
+                import digitalio
+
+                self.spi = SPI(clock=board.GP10, MOSI=board.GP11, MISO=board.GP12)
+                if not self.spi.try_lock():
+                    print("Failed to lock SPI bus")
+                    return
+                self.spi.configure(baudrate=40000000)
+                self.spi.unlock()
+
+                tft_cs = board.GP13
+                tft_dc = board.GP14
+                display_bus = FourWire(
+                    self.spi, command=tft_dc, chip_select=tft_cs, reset=board.GP15
+                )
+                self.fb_display = ILI9341(
+                    display_bus, width=320, height=320, rotation=270
+                )
+                self.display = Bitmap(self.size.x, self.size.y, self.palette_count)
+                self.title_grid = TileGrid(self.display, pixel_shader=self.palette)
+                self.bg_group.append(self.title_grid)
+                self.fb_display.root_group = self.group
+                self.is_ready = True
+                free()
+                if self.debug:
+                    print("[Draw:__init__]: Display initialized successfully.")
+            except MemoryError:
+                free()
+                if self.debug:
+                    print(
+                        "[Draw:__init__]: Failed to allocate memory for display bitmap."
+                    )
+            except Exception as e:
+                digitalio.DigitalInOut(board.GP10).deinit()
+                free()
+                if self.debug:
+                    print(f"[Draw:__init__]: Error initializing display: {e}")
+                raise e
         free()
 
     def _color_to_palette_index(self, color: int) -> int:
@@ -279,6 +336,9 @@ class Draw:
         if hasattr(self, "frame_buffer") and self.frame_buffer:
             self.frame_buffer.deinit()
             self.frame_buffer = None
+
+        if self.spi:
+            self.spi.deinit()
 
         release_displays()
         free()

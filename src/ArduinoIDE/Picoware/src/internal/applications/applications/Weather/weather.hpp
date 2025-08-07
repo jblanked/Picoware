@@ -62,7 +62,9 @@ static void weatherRun(ViewManager *viewManager)
     switch (input)
     {
     case BUTTON_LEFT:
+    case BUTTON_BACK:
         viewManager->back();
+        inputManager->reset(true);
         return;
     default:
         break;

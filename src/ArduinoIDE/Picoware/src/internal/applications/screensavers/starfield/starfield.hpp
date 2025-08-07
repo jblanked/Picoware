@@ -43,6 +43,7 @@ void starfieldRun(ViewManager *viewManager)
     if (input == BUTTON_LEFT || input == BUTTON_BACK)
     {
         viewManager->back();
+        viewManager->getInputManager()->reset(true);
         return;
     }
     for (int i = 0; i < NSTARS; ++i)

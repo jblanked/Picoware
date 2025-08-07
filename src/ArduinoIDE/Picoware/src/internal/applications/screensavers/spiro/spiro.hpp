@@ -62,6 +62,7 @@ void spiroRun(ViewManager *viewManager)
   {
     viewManager->back();
     spiro_elapsed = 0;
+    viewManager->getInputManager()->reset(true);
     return;
   }
   if (spiro_elapsed > 200000)

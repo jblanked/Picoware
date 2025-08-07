@@ -34,6 +34,7 @@ static void aboutRun(ViewManager *viewManager)
     switch (index)
     {
     case BUTTON_LEFT:
+    case BUTTON_BACK:
     {
         viewManager->back();
         inputManager->reset();

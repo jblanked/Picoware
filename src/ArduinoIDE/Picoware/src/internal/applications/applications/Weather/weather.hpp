@@ -64,10 +64,6 @@ static void weatherRun(ViewManager *viewManager)
     case BUTTON_LEFT:
         viewManager->back();
         return;
-    case BUTTON_RIGHT:
-    case BUTTON_CENTER:
-        sendWeatherRequest = false;
-        break;
     default:
         break;
     }

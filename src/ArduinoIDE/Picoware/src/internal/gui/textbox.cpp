@@ -49,8 +49,9 @@ namespace Picoware
             return;
         }
 
+        // Clamp line to valid range instead of just returning
         if (line >= totalLines)
-            return;
+            line = totalLines - 1;
 
         currentLine = line;
         this->setText(currentText);
@@ -58,6 +59,11 @@ namespace Picoware
 
     void TextBox::setText(const char *text)
     {
+        if (text == nullptr)
+        {
+            return;
+        }
+
         display->clear(position, size, backgroundColor);
         scrollBar->clear();
         this->currentText = text;
@@ -154,16 +160,27 @@ namespace Picoware
         }
 
         // Ensure currentLine is within valid bounds
-        if (totalLines > 0 && currentLine >= totalLines)
+        if (totalLines > 0)
         {
-            currentLine = totalLines - 1;
+            if (currentLine >= totalLines)
+            {
+                currentLine = totalLines - 1;
+            }
+        }
+        else
+        {
+            currentLine = 0;
         }
 
         // Calculate the first visible line - implement proper scrolling behavior
         uint32_t firstVisibleLine = 0;
-        if (currentLine > linesPerScreen)
+        if (currentLine >= linesPerScreen)
         {
-            firstVisibleLine = currentLine - linesPerScreen;
+            firstVisibleLine = currentLine - linesPerScreen + 1;
+        }
+        else
+        {
+            firstVisibleLine = 0;
         }
 
         // Second loop: Render only visible lines (from firstVisibleLine to firstVisibleLine + linesPerScreen)
@@ -216,14 +233,22 @@ namespace Picoware
                 // Only render if this line is in view
                 if (lineCounter >= firstVisibleLine && lineCounter < firstVisibleLine + linesPerScreen)
                 {
-                    cursorPos.x = position.x + 1;
-                    cursorPos.y = position.y + 1 + (lineCounter - firstVisibleLine) * 12; // Position based on line number
-
-                    // Draw the word on the new line
-                    for (size_t j = wordStart; j < i; j++)
+                    // Ensure we don't go beyond screen boundaries
+                    if (cursorPos.y + 12 <= position.y + size.y)
                     {
-                        display->text(cursorPos, text[j], foregroundColor);
-                        cursorPos.x = this->display->getCursor().x; // Update cursor position
+                        cursorPos.x = position.x + 1;
+                        cursorPos.y = position.y + 1 + (lineCounter - firstVisibleLine) * 12; // Position based on line number
+
+                        // Draw the word on the new line
+                        for (size_t j = wordStart; j < i && j < len; j++)
+                        {
+                            // Ensure we don't draw beyond the right edge
+                            if (cursorPos.x + 6 <= position.x + size.x - 10) // Leave space for scrollbar
+                            {
+                                display->text(cursorPos, text[j], foregroundColor);
+                                cursorPos.x += 6; // Fixed character width instead of relying on display cursor
+                            }
+                        }
                     }
                 }
                 lineLength += wordLength;
@@ -240,10 +265,18 @@ namespace Picoware
                         cursorPos.y = position.y + 1 + (lineCounter - firstVisibleLine) * 12; // Position based on line number
                     }
 
-                    for (size_t j = wordStart; j < i; j++)
+                    // Ensure we don't go beyond screen boundaries
+                    if (cursorPos.y + 12 <= position.y + size.y)
                     {
-                        display->text(cursorPos, text[j], foregroundColor);
-                        cursorPos.x = this->display->getCursor().x; // Update cursor position
+                        for (size_t j = wordStart; j < i && j < len; j++)
+                        {
+                            // Ensure we don't draw beyond the right edge
+                            if (cursorPos.x + 6 <= position.x + size.x - 10) // Leave space for scrollbar
+                            {
+                                display->text(cursorPos, text[j], foregroundColor);
+                                cursorPos.x += 6; // Fixed character width instead of relying on display cursor
+                            }
+                        }
                     }
                 }
                 lineLength += wordLength;
@@ -253,8 +286,12 @@ namespace Picoware
                 {
                     if (lineCounter >= firstVisibleLine && lineCounter < firstVisibleLine + linesPerScreen)
                     {
-                        display->text(cursorPos, ' ', foregroundColor);
-                        cursorPos.x = this->display->getCursor().x;
+                        // Ensure we don't draw beyond the right edge
+                        if (cursorPos.x + 6 <= position.x + size.x - 10) // Leave space for scrollbar
+                        {
+                            display->text(cursorPos, ' ', foregroundColor);
+                            cursorPos.x += 6; // Fixed character width for space
+                        }
                     }
                     lineLength++;
                     i++; // Move past the space

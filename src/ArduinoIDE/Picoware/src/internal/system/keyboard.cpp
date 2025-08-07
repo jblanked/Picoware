@@ -477,6 +477,61 @@ namespace Picoware
             processKeyPress();
             lastInputTime = millis();
             break;
+        case BUTTON_SHIFT:
+            setCursorPosition(3, 0); // Shift key
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_CAPS_LOCK:
+            setCursorPosition(2, 0); // Caps Lock key
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_PERIOD:
+            setCursorPosition(3, 9); // Period key
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_COMMA:
+            setCursorPosition(3, 8); // Comma key
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_SEMICOLON:
+            setCursorPosition(2, 10); // Semicolon key
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_MINUS:
+            setCursorPosition(0, 10); // Minus key
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_EQUAL:
+            setCursorPosition(0, 11); // Equal key
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_LEFT_BRACKET:
+            setCursorPosition(1, 10); // Left bracket key
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_RIGHT_BRACKET:
+            setCursorPosition(1, 11); // Right bracket key
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_SLASH:
+            setCursorPosition(3, 10); // Slash key
+            processKeyPress();
+            lastInputTime = millis();
+            break;
+        case BUTTON_BACKSLASH:
+            setCursorPosition(1, 12); // Backslash key
+            processKeyPress();
+            lastInputTime = millis();
+            break;
         default:
             // No input or unhandled input
             break;

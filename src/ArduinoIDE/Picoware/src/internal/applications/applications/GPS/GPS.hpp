@@ -58,7 +58,9 @@ static void gpsRun(ViewManager *viewManager)
     switch (input)
     {
     case BUTTON_LEFT:
+    case BUTTON_BACK:
         viewManager->back();
+        inputManager->reset(true);
         return;
     case BUTTON_RIGHT:
     case BUTTON_CENTER:
@@ -68,6 +70,7 @@ static void gpsRun(ViewManager *viewManager)
         draw->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());
         draw->text(Vector(5, 5), "Fetching GPS...");
         draw->swap();
+        inputManager->reset(true);
         break;
     default:
         break;

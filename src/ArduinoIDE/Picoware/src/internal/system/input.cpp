@@ -147,6 +147,30 @@ namespace Picoware
             return BUTTON_8;
         case '9':
             return BUTTON_9;
+        // Special characters
+        case KEY_MOD_SHL:
+        case KEY_MOD_SHR:
+            return BUTTON_SHIFT;
+        case KEY_CAPS_LOCK:
+            return BUTTON_CAPS_LOCK;
+        case '.':
+            return BUTTON_PERIOD;
+        case ',':
+            return BUTTON_COMMA;
+        case ';':
+            return BUTTON_SEMICOLON;
+        case '-':
+            return BUTTON_MINUS;
+        case '=':
+            return BUTTON_EQUAL;
+        case '[':
+            return BUTTON_LEFT_BRACKET;
+        case ']':
+            return BUTTON_RIGHT_BRACKET;
+        case '/':
+            return BUTTON_SLASH;
+        case '\\':
+            return BUTTON_BACKSLASH;
         default:
             return BUTTON_NONE;
         };
@@ -353,7 +377,7 @@ namespace Picoware
     {
         this->pin = -1;
         this->buttonAssignment = BUTTON_PICO_CALC;
-        this->debounce = 0.05f;
+        this->debounce = 0.01f;
         this->lastButton = -1;
         this->elapsedTime = 0;
         this->wasPressed = false;

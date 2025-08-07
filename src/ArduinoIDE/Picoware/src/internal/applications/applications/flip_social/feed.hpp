@@ -59,6 +59,7 @@ static void flipSocialFeedRun(ViewManager *viewManager)
     case BUTTON_LEFT: // for now but should be back once done testing
     case BUTTON_BACK:
         viewManager->back();
+        inputManager->reset(true);
         return;
     case BUTTON_RIGHT:
     case BUTTON_CENTER:
@@ -69,6 +70,7 @@ static void flipSocialFeedRun(ViewManager *viewManager)
         draw->text(Vector(5, 5), "Fetching Feed...");
         draw->swap();
         flipSocialLastFeedIndex = flipSocialFeedTextBox->getCurrentLine() + flipSocialFeedTextBox->getLinesPerScreen() - 1;
+        inputManager->reset(true);
     }
     break;
     case BUTTON_UP:

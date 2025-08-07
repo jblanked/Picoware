@@ -49,6 +49,7 @@ static void labyrinthRun(ViewManager *viewManager)
     if (input == BUTTON_BACK)
     {
         viewManager->back();
+        viewManager->getInputManager()->reset(true);
         return;
     }
 }

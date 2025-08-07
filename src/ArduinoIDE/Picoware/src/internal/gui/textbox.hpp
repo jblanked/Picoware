@@ -18,8 +18,20 @@ namespace Picoware
         //
         void clear();
         //
-        void scrollDown() { setCurrentLine(currentLine + 1); }
-        void scrollUp() { setCurrentLine(currentLine - 1); }
+        void scrollDown()
+        {
+            if (totalLines > 0 && currentLine < totalLines - 1)
+            {
+                setCurrentLine(currentLine + 1);
+            }
+        }
+        void scrollUp()
+        {
+            if (currentLine > 0)
+            {
+                setCurrentLine(currentLine - 1);
+            }
+        }
         void setBackgroundColor(uint16_t color);
         void setCurrentLine(uint32_t line);
         void setForegroundColor(uint16_t color);

@@ -13,10 +13,14 @@ static std::vector<String> directoryContents;
 static String currentDirectory = "/";
 static bool isViewingFile = false;
 static String currentFilePath = "";
+static bool firstLoad = true;
 
-static void loadDirectoryContents(ViewManager *viewManager)
+static void loadDirectoryContents(ViewManager *viewManager, bool shouldDraw = true)
 {
-    fileBrowserMenu->clear();
+    if (shouldDraw)
+    {
+        fileBrowserMenu->clear();
+    }
     directoryContents.clear();
 
     int index = 0;
@@ -50,8 +54,11 @@ static void loadDirectoryContents(ViewManager *viewManager)
         fileBrowserMenu->addItem(directoryContents.back().c_str());
     }
 
-    fileBrowserMenu->setSelected(0);
-    fileBrowserMenu->draw();
+    if (shouldDraw)
+    {
+        fileBrowserMenu->setSelected(0);
+        fileBrowserMenu->draw();
+    }
 }
 
 static void showFileContents(ViewManager *viewManager, const String &filePath)
@@ -112,8 +119,20 @@ static bool fileBrowserStart(ViewManager *viewManager)
     isViewingFile = false;
     currentFilePath = "";
 
-    // Load root directory contents
-    loadDirectoryContents(viewManager);
+    if (firstLoad)
+    {
+        // Load root directory contents (hack to ensure root directory is loaded)
+        // for some reason, the first call since reboot doesnt set the directory names correctly
+        // this only happens on the first load after a reboot
+        // so we can just do this once
+        firstLoad = false;
+        loadDirectoryContents(viewManager, false);
+        loadDirectoryContents(viewManager, true);
+    }
+    else
+    {
+        loadDirectoryContents(viewManager, true);
+    }
 
     return true;
 }

@@ -74,6 +74,7 @@ static void settingsRun(ViewManager *viewManager)
         if (selectedToggleIndex > 0)
         {
             selectedToggleIndex--;
+            inputManager->reset(true);
         }
         break;
     case BUTTON_DOWN:
@@ -81,6 +82,7 @@ static void settingsRun(ViewManager *viewManager)
         if (selectedToggleIndex < 1)
         {
             selectedToggleIndex++;
+            inputManager->reset(true);
         }
         break;
     case BUTTON_LEFT:

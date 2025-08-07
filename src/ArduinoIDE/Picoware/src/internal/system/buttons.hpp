@@ -84,6 +84,8 @@ namespace Picoware
 #define BUTTON_QUESTION 72
 #define BUTTON_BACKSPACE 73
 #define BUTTON_ENTER 74
+#define BUTTON_SHIFT 75
+#define BUTTON_CAPS_LOCK 76
 // HW504 Joystick
 #define HW_LEFT_BUTTON 0
 #define HW_RIGHT_BUTTON 1

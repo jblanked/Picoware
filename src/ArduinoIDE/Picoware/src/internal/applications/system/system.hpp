@@ -71,7 +71,7 @@ static void systemRun(ViewManager *viewManager)
             }
             viewManager->switchTo("Settings");
         }
-        else if (strcmp(currentItem, "About") == 0)
+        else if (strcmp(currentItem, "About Picoware") == 0)
         {
             if (viewManager->getView("About") == nullptr)
             {

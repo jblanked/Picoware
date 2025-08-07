@@ -243,10 +243,10 @@ namespace Picoware
                         for (size_t j = wordStart; j < i && j < len; j++)
                         {
                             // Ensure we don't draw beyond the right edge
-                            if (cursorPos.x + 6 <= position.x + size.x - 10) // Leave space for scrollbar
+                            if (cursorPos.x + 12 <= position.x + size.x - 10) // Leave space for scrollbar
                             {
                                 display->text(cursorPos, text[j], foregroundColor);
-                                cursorPos.x += 6; // Fixed character width instead of relying on display cursor
+                                cursorPos.x = this->display->getCursor().x;
                             }
                         }
                     }
@@ -271,10 +271,10 @@ namespace Picoware
                         for (size_t j = wordStart; j < i && j < len; j++)
                         {
                             // Ensure we don't draw beyond the right edge
-                            if (cursorPos.x + 6 <= position.x + size.x - 10) // Leave space for scrollbar
+                            if (cursorPos.x + 12 <= position.x + size.x - 10) // Leave space for scrollbar
                             {
                                 display->text(cursorPos, text[j], foregroundColor);
-                                cursorPos.x += 6; // Fixed character width instead of relying on display cursor
+                                cursorPos.x = this->display->getCursor().x;
                             }
                         }
                     }
@@ -287,10 +287,10 @@ namespace Picoware
                     if (lineCounter >= firstVisibleLine && lineCounter < firstVisibleLine + linesPerScreen)
                     {
                         // Ensure we don't draw beyond the right edge
-                        if (cursorPos.x + 6 <= position.x + size.x - 10) // Leave space for scrollbar
+                        if (cursorPos.x + 12 <= position.x + size.x - 10) // Leave space for scrollbar
                         {
                             display->text(cursorPos, ' ', foregroundColor);
-                            cursorPos.x += 6; // Fixed character width for space
+                            cursorPos.x = this->display->getCursor().x; // Use display cursor for proper spacing
                         }
                     }
                     lineLength++;

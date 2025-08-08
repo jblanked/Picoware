@@ -17,3 +17,4 @@ Open-source custom firmware for the PicoCalc, Video Game Module, and other Raspb
 ### Related Videos
 - JBlanked (Short-Intro): [https://www.youtube.com/watch?v=VUIrCP-wDYw](https://www.youtube.com/watch?v=VUIrCP-wDYw)
 - JBlanked (Full-Intro): [https://www.youtube.com/watch?v=sCIpAFxkve4](https://www.youtube.com/watch?v=sCIpAFxkve4)
+- JBlanked (Latest Review): [https://www.youtube.com/watch?v=qSHIeeIMuME](https://www.youtube.com/watch?v=qSHIeeIMuME)

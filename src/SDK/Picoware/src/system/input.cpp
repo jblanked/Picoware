@@ -3,14 +3,10 @@
 
 Input::Input()
     : lastButton(-1),
-      elapsedTime(0), debounce(0.05f),
+      elapsedTime(0), debounce(0.01f),
       wasPressed(false)
 {
     keyboard_init(onKeyAvailableCallback);
-    this->debounce = 0.01f;
-    this->lastButton = -1;
-    this->elapsedTime = 0;
-    this->wasPressed = false;
 }
 
 bool Input::isPressed()
@@ -52,8 +48,6 @@ void Input::reset()
 
 void Input::run()
 {
-    bool currentlyPressed = false;
-
     if (this->isPressed())
     {
         this->lastButton = this->read();

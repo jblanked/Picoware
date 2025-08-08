@@ -35,7 +35,7 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(Picoware Picoware.cpp )
+add_executable(Picoware Picoware.cpp fat32.c font-5x10.c font-8x10.c keyboard.c lcd.c sdcard.c southbridge.c)
 
 pico_set_program_name(Picoware "Picoware")
 pico_set_program_version(Picoware "0.1")
@@ -46,7 +46,16 @@ pico_enable_stdio_usb(Picoware 0)
 
 # Add the standard library to the build
 target_link_libraries(Picoware
-        pico_stdlib)
+        pico_stdlib
+        pico_printf
+        pico_float
+        pico_status_led
+        hardware_gpio
+        hardware_i2c
+        hardware_spi
+        hardware_pio
+        hardware_clocks
+        )
 
 # Add the standard include files to the build
 target_include_directories(Picoware PRIVATE

@@ -1,10 +1,17 @@
+/*
+Author: Blair Leduc
+License: MIT License
+Source: https://github.com/BlairLeduc/picocalc-text-starter
+*/
+
 #pragma once
 
 #include <pico/stdlib.h>
 
 #define GLYPH_HEIGHT 10 // Height of each glyph in pixels
 
-typedef struct {
+typedef struct
+{
     uint8_t width;
     uint8_t glyphs[];
 } font_t;

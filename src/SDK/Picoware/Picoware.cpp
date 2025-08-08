@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
-#include "keyboard.h"
-#include "southbridge.h"
-#include "lcd.h"
+#include "src/system/drivers/keyboard.h"
+#include "src/system/drivers/southbridge.h"
+#include "src/system/drivers/lcd.h"
 
 int main()
 {

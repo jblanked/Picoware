@@ -1,3 +1,9 @@
+/*
+Author: Blair Leduc
+License: MIT License
+Source: https://github.com/BlairLeduc/picocalc-text-starter
+*/
+
 #pragma once
 
 // FAT32 constants

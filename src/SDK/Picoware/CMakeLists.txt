@@ -35,7 +35,10 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(Picoware Picoware.cpp fat32.c font-5x10.c font-8x10.c keyboard.c lcd.c sdcard.c southbridge.c)
+add_subdirectory(src/system/drivers)
+
+add_executable(Picoware Picoware.cpp)
+target_link_libraries(Picoware drivers)
 
 pico_set_program_name(Picoware "Picoware")
 pico_set_program_version(Picoware "0.1")

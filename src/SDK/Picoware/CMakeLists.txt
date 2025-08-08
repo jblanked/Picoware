@@ -35,10 +35,10 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_subdirectory(src/system/drivers)
+add_subdirectory(src/system)
 
 add_executable(Picoware Picoware.cpp)
-target_link_libraries(Picoware drivers)
+target_link_libraries(Picoware system)
 
 pico_set_program_name(Picoware "Picoware")
 pico_set_program_version(Picoware "0.1")

@@ -2,6 +2,7 @@
 #include "pico/stdlib.h"
 #include "src/system/drivers/southbridge.h"
 #include "src/system/drivers/lcd.h"
+#include "src/system/led.hpp"
 
 #ifdef CYW43_WL_GPIO_LED_PIN
 // WiFi-specific code for Pico W or Pico 2W
@@ -22,9 +23,12 @@ int main()
     }
 #endif
 
+    LED led;
+
     while (true)
     {
         printf("Hello, world!\n");
+        led.blink();
         sleep_ms(1000);
     }
 }

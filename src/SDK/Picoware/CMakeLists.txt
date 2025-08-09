@@ -60,6 +60,11 @@ target_link_libraries(Picoware
         hardware_clocks
         )
 
+# Add WiFi support if available
+if (PICO_CYW43_SUPPORTED)
+    target_link_libraries(Picoware pico_cyw43_arch_none)
+endif()
+
 # Add the standard include files to the build
 target_include_directories(Picoware PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}

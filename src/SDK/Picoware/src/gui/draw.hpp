@@ -3,6 +3,7 @@
 #include "../gui/vector.hpp"
 #include "../system/colors.hpp"
 #include <cstdint>
+#include <cstdlib>
 
 class Draw
 {

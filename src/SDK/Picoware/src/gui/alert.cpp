@@ -1,4 +1,3 @@
-#pragma once
 #include "../gui/alert.hpp"
 #include <string.h>
 

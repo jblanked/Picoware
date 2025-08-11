@@ -14,3 +14,7 @@ target_link_libraries(system
         hardware_pio
         hardware_clocks
 )
+
+if (PICO_CYW43_SUPPORTED)
+    target_link_libraries(system pico_cyw43_arch_none)
+endif()

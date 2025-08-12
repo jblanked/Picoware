@@ -2,6 +2,7 @@
 
 #include "../gui/vector.hpp"
 #include "../system/colors.hpp"
+#include "../gui/image.hpp"
 #include <cstdint>
 #include <cstdlib>
 
@@ -28,6 +29,7 @@ public:
         uint16_t getPaletteColor(uint8_t index);                                                                                    // Get a color from the 8-bit palette
         Vector getSize() const noexcept { return size; }                                                                            // Returns the size of the display.
         void image(Vector position, const uint8_t *bitmap, Vector size, const uint16_t *palette = nullptr, bool imageCheck = true); // Draws a bitmap on the display at the specified position.
+        void image(Vector position, Image *image, bool imageCheck = true);                                                          // Draws an image on the display at the specified position.
         void setCursor(Vector position);                                                                                            // Sets the cursor position for text rendering.
         void setFont(int font = 2);                                                                                                 // Sets the font for text rendering.
         void setPaletteColor(uint8_t index, uint16_t color);                                                                        // Set a color in the 8-bit palette

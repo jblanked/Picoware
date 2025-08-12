@@ -331,6 +331,20 @@ void Draw::image(Vector position, const uint8_t *bitmap, Vector size, const uint
     }
 }
 
+void Draw::image(Vector position, Image *image, bool imageCheck)
+{
+    const uint8_t *data = image->getData();
+    Vector size = image->getSize();
+    if (!imageCheck || (imageCheck && data != nullptr &&
+                        position.x < this->size.x &&
+                        position.y < this->size.y &&
+                        size.x > 0 &&
+                        size.y > 0))
+    {
+        this->image(position, data, size, nullptr, false);
+    }
+}
+
 void Draw::renderChar(Vector position, char c, uint16_t color)
 {
     const font_t *currentFont = (this->font <= 1) ? &font_8x10 : &font_5x10;

@@ -1,10 +1,8 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "src/system/drivers/southbridge.h"
-#include "src/system/drivers/lcd.h"
 #include "src/system/led.hpp"
-#include "src/system/colors.hpp"
-#include "src/gui/vector.hpp"
+#include "src/system/wifi.hpp"
 #include "src/gui/draw.hpp"
 
 #ifdef CYW43_WL_GPIO_LED_PIN

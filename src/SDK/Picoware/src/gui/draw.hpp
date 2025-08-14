@@ -1,10 +1,9 @@
 #pragma once
 
+#include "../system/helpers.hpp"
 #include "../gui/vector.hpp"
 #include "../system/colors.hpp"
 #include "../gui/image.hpp"
-#include <cstdint>
-#include <cstdlib>
 
 class Draw
 {

@@ -5,6 +5,7 @@
 #include "../../system/view.hpp"
 #include "../../system/view_manager.hpp"
 #include "../../applications/desktop/frames.hpp"
+#include "../../applications/library/library.hpp"
 
 static Desktop *desktop = nullptr;
 static bool isVGM = false;
@@ -35,33 +36,33 @@ static void desktopRun(ViewManager *viewManager)
 {
     static bool systemInfoLoading = false;
     // Handle input
-    // auto input = viewManager->getInputManager()->getInput();
-    // switch (input)
-    // {
-    // case BUTTON_LEFT:
-    //     if (!systemInfoLoading)
-    //     {
-    //         systemInfoLoading = true;
-    //         viewManager->getInputManager()->reset();
-    //         if (viewManager->getView("System Info") == nullptr)
-    //         {
-    //             viewManager->add(&systemInfoView);
-    //         }
-    //         viewManager->switchTo("System Info");
-    //     }
-    //     return;
-    // case BUTTON_CENTER:
-    // case BUTTON_UP:
-    //     viewManager->getInputManager()->reset();
-    //     if (viewManager->getView("Library") == nullptr)
-    //     {
-    //         viewManager->add(&libraryView);
-    //     }
-    //     viewManager->switchTo("Library");
-    //     return;
-    // default:
-    //     break;
-    // }
+    auto input = viewManager->getInputManager()->getLastButton();
+    switch (input)
+    {
+    case BUTTON_LEFT:
+        // if (!systemInfoLoading)
+        // {
+        //     systemInfoLoading = true;
+        //     viewManager->getInputManager()->reset();
+        //     if (viewManager->getView("System Info") == nullptr)
+        //     {
+        //         viewManager->add(&systemInfoView);
+        //     }
+        //     viewManager->switchTo("System Info");
+        // }
+        return;
+    case BUTTON_CENTER:
+    case BUTTON_UP:
+        viewManager->getInputManager()->reset();
+        if (viewManager->getView("Library") == nullptr)
+        {
+            viewManager->add(&libraryView);
+        }
+        viewManager->switchTo("Library");
+        return;
+    default:
+        break;
+    }
 
     static uint8_t next_frame = 1;
     static uint8_t max_frame = 4;

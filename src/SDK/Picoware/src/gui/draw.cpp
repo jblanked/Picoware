@@ -170,10 +170,31 @@ void Draw::drawRect(Vector position, Vector size, uint16_t color)
     if (size.x <= 0 || size.y <= 0)
         return;
 
-    this->drawLine(position, Vector(size.x - 1, 0), color);                         // Top edge
-    this->drawLine(position + Vector(0, size.y - 1), Vector(size.x - 1, 0), color); // Bottom edge
-    this->drawLine(position, Vector(0, size.y - 1), color);                         // Left edge
-    this->drawLine(position + Vector(size.x - 1, 0), Vector(0, size.y - 1), color); // Right edge
+    // Top edge (horizontal line)
+    this->drawLine(position, Vector(size.x, 0), color);
+
+    // Bottom edge (horizontal line)
+    this->drawLine(Vector(position.x, position.y + size.y - 1), Vector(size.x, 0), color);
+
+    // Left edge (vertical line using individual pixels)
+    for (int y = 0; y < size.y; y++)
+    {
+        Vector pixelPos = Vector(position.x, position.y + y);
+        if (pixelPos.x >= 0 && pixelPos.x < this->size.x && pixelPos.y >= 0 && pixelPos.y < this->size.y)
+        {
+            this->drawPixel(pixelPos, color);
+        }
+    }
+
+    // Right edge (vertical line using individual pixels)
+    for (int y = 0; y < size.y; y++)
+    {
+        Vector pixelPos = Vector(position.x + size.x - 1, position.y + y);
+        if (pixelPos.x >= 0 && pixelPos.x < this->size.x && pixelPos.y >= 0 && pixelPos.y < this->size.y)
+        {
+            this->drawPixel(pixelPos, color);
+        }
+    }
 }
 
 void Draw::fillCircle(Vector position, int16_t r, uint16_t color)

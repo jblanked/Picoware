@@ -310,7 +310,7 @@ uint16_t Draw::getPaletteColor(uint8_t index)
     return 0;
 }
 
-void Draw::image(Vector position, const uint8_t *bitmap, Vector size, const uint16_t *palette, bool imageCheck)
+void Draw::image(Vector position, const uint8_t *bitmap, Vector size, const uint16_t *palette, bool imageCheck, bool invert)
 {
     if (!imageCheck || (imageCheck &&
                         bitmap != nullptr &&
@@ -319,12 +319,25 @@ void Draw::image(Vector position, const uint8_t *bitmap, Vector size, const uint
                         size.x > 0 &&
                         size.y > 0))
     {
+        uint8_t pixel;
+        uint16_t color;
         for (int y = 0; y < size.y; y++)
         {
             for (int x = 0; x < size.x; x++)
             {
-                uint8_t pixel = bitmap[static_cast<int>(y * size.x + x)];
-                uint16_t color = palette != nullptr ? palette[pixel] : paletteBuffer[pixel];
+                pixel = bitmap[static_cast<int>(y * size.x + x)];
+                color = palette != nullptr ? palette[pixel] : paletteBuffer[pixel];
+                if (invert)
+                {
+                    if (color == TFT_WHITE)
+                    {
+                        color = TFT_BLACK;
+                    }
+                    else if (color == TFT_BLACK)
+                    {
+                        color = TFT_WHITE;
+                    }
+                }
                 this->drawPixel(Vector(position.x + x, position.y + y), color);
             }
         }

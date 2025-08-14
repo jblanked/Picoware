@@ -37,9 +37,11 @@ pico_sdk_init()
 
 add_subdirectory(src/system)
 add_subdirectory(src/gui)
+add_subdirectory(src/applications)
+add_subdirectory(src/engine)
 
 add_executable(Picoware Picoware.cpp)
-target_link_libraries(Picoware system gui)
+target_link_libraries(Picoware system gui applications engine)
 
 pico_set_program_name(Picoware "Picoware")
 pico_set_program_version(Picoware "0.1")

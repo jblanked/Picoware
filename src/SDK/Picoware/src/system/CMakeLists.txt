@@ -16,5 +16,9 @@ target_link_libraries(system
 )
 
 if (PICO_CYW43_SUPPORTED)
-    target_link_libraries(system pico_cyw43_arch_none)
+    target_link_libraries(system pico_cyw43_arch_lwip_threadsafe_background pico_stdlib )
+    target_include_directories(system PRIVATE
+        ${CMAKE_CURRENT_LIST_DIR}
+        ${CMAKE_CURRENT_LIST_DIR}/../.. # for our common lwipopts
+        )
 endif()

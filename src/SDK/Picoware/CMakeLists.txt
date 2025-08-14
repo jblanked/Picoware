@@ -45,8 +45,8 @@ pico_set_program_name(Picoware "Picoware")
 pico_set_program_version(Picoware "0.1")
 
 # Modify the below lines to enable/disable output over UART/USB
-pico_enable_stdio_uart(Picoware 0)
-pico_enable_stdio_usb(Picoware 0)
+pico_enable_stdio_uart(Picoware 1)
+pico_enable_stdio_usb(Picoware 1)
 
 # Add the standard library to the build
 target_link_libraries(Picoware
@@ -63,7 +63,7 @@ target_link_libraries(Picoware
 
 # Add WiFi support if available
 if (PICO_CYW43_SUPPORTED)
-    target_link_libraries(Picoware pico_cyw43_arch_none)
+    target_link_libraries(Picoware pico_cyw43_arch_lwip_threadsafe_background)
 endif()
 
 # Add the standard include files to the build

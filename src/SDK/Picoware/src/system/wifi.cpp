@@ -13,7 +13,6 @@ static uint8_t wifiTries = 0;
 
 static bool wifiInitialized = false;
 
-// WiFi class implementation
 WiFi::WiFi()
 {
 #ifdef CYW43_WL_GPIO_LED_PIN
@@ -77,6 +76,7 @@ bool WiFi::connectHelper(const char *ssid, const char *password, bool isAP, bool
             int err = cyw43_arch_wifi_connect_async(ssid, password, CYW43_AUTH_WPA2_AES_PSK);
             if (err != 0)
             {
+                printf("WiFi connect failed: %d\n", err);
                 return false;
             }
         }
@@ -106,6 +106,7 @@ bool WiFi::connectHelper(const char *ssid, const char *password, bool isAP, bool
             else
             {
                 wifiTries = 0;
+                printf("WiFi connection failed...\n");
                 return false;
             }
         }

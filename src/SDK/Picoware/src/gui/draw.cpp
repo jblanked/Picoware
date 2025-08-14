@@ -143,39 +143,17 @@ void Draw::drawCircle(Vector position, int16_t r, uint16_t color)
 
 void Draw::drawLine(Vector position, Vector size, uint16_t color)
 {
-    // Bresenham's line algorithm
-    int x1 = (int)position.x;
-    int y1 = (int)position.y;
-    int x2 = (int)(position.x + size.x);
-    int y2 = (int)(position.y + size.y);
+    int x = (int)position.x;
+    int y = (int)position.y;
+    int length = (int)size.x;
 
-    int dx = abs(x2 - x1);
-    int dy = abs(y2 - y1);
-    int sx = (x1 < x2) ? 1 : -1;
-    int sy = (y1 < y2) ? 1 : -1;
-    int err = dx - dy;
-
-    while (true)
+    // Draw a horizontal line from x to x + length at y coordinate
+    for (int i = 0; i < length; i++)
     {
-        // Check bounds before drawing
-        if (x1 >= 0 && x1 < this->size.x && y1 >= 0 && y1 < this->size.y)
+        int currentX = x + i;
+        if (currentX >= 0 && currentX < this->size.x && y >= 0 && y < this->size.y)
         {
-            this->drawPixel(Vector(x1, y1), color);
-        }
-
-        if (x1 == x2 && y1 == y2)
-            break;
-
-        int err2 = err * 2;
-        if (err2 > -dy)
-        {
-            err -= dy;
-            x1 += sx;
-        }
-        if (err2 < dx)
-        {
-            err += dx;
-            y1 += sy;
+            this->drawPixel(Vector(currentX, y), color);
         }
     }
 }

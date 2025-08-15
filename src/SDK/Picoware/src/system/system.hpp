@@ -2,8 +2,9 @@
 #include "pico/stdlib.h"
 #include "pico/bootrom.h"
 #include "hardware/watchdog.h"
-#include "tusb.h"
 #include <malloc.h>
+#include "../system/drivers/rp2040-psram/psram_spi.h"
+#include "psram.hpp"
 
 extern "C"
 {
@@ -12,6 +13,7 @@ extern "C"
 
 class System
 {
+private:
 public:
     System()
     {
@@ -48,7 +50,8 @@ public:
     /// Get the current free PSRAM size.
     static int freeHeapPSRAM() noexcept
     {
-        return 0; // we'll add PSRAM support later
+        PSRAM psram;
+        return psram.getFreeHeapSize();
     }
 
     /// Get if the board is a Pico W.
@@ -84,7 +87,8 @@ public:
     /// Get the total PSRAM size.
     static int totalHeapPSRAM() noexcept
     {
-        return 0; // we'll add PSRAM support later
+        PSRAM psram;
+        return psram.getTotalHeapSize();
     }
 
     /// Get the total used heap size.
@@ -97,6 +101,7 @@ public:
     /// Get the total used PSRAM size.
     static int usedHeapPSRAM() noexcept
     {
-        return 0; // we'll add PSRAM support later
+        PSRAM psram;
+        return psram.getUsedHeapSize();
     }
 };

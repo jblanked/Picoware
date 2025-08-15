@@ -1,3 +1,5 @@
+add_subdirectory(rp2040-psram)
+
 file(GLOB DRIVER_SOURCES "*.c" "*.cpp")
 add_library(drivers ${DRIVER_SOURCES})
 
@@ -10,4 +12,9 @@ target_link_libraries(drivers
         hardware_spi
         hardware_pio
         hardware_clocks
+        hardware_dma
+        hardware_exception
+        hardware_pio
+        pico_multicore
+        rp2040-psram
 )

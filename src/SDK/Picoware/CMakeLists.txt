@@ -43,12 +43,14 @@ add_subdirectory(src/engine)
 add_executable(Picoware Picoware.cpp)
 target_link_libraries(Picoware system gui applications engine)
 
+
 pico_set_program_name(Picoware "Picoware")
 pico_set_program_version(Picoware "0.1")
 
 # Modify the below lines to enable/disable output over UART/USB
-pico_enable_stdio_uart(Picoware 1)
+pico_enable_stdio_uart(Picoware 0)
 pico_enable_stdio_usb(Picoware 1)
+
 
 # Add the standard library to the build
 target_link_libraries(Picoware

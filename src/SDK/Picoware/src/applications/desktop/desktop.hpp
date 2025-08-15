@@ -40,16 +40,16 @@ static void desktopRun(ViewManager *viewManager)
     switch (input)
     {
     case BUTTON_LEFT:
-        // if (!systemInfoLoading)
-        // {
-        //     systemInfoLoading = true;
-        //     viewManager->getInputManager()->reset();
-        //     if (viewManager->getView("System Info") == nullptr)
-        //     {
-        //         viewManager->add(&systemInfoView);
-        //     }
-        //     viewManager->switchTo("System Info");
-        // }
+        if (!systemInfoLoading)
+        {
+            systemInfoLoading = true;
+            viewManager->getInputManager()->reset();
+            if (viewManager->getView("System Info") == nullptr)
+            {
+                viewManager->add(&systemInfoView);
+            }
+            viewManager->switchTo("System Info");
+        }
         return;
     case BUTTON_CENTER:
     case BUTTON_UP:

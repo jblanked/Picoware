@@ -6,7 +6,7 @@
 // #include "../../applications/bluetooth/bluetooth.hpp"
 // #include "../../applications/games/games.hpp"
 #include "../../applications/screensavers/screensavers.hpp"
-// #include "../../applications/system/system.hpp"
+#include "../../applications/system/system.hpp"
 // #include "../../applications/wifi/wifi.hpp"
 
 static Menu *library = nullptr;
@@ -32,7 +32,7 @@ static bool libraryStart(ViewManager *viewManager)
     );
 
     // library->addItem("Applications");
-    // library->addItem("System");
+    library->addItem("System");
     // if (viewManager->getBoard().hasWiFi)
     // {
     //     library->addItem("WiFi");
@@ -84,15 +84,15 @@ static void libraryRun(ViewManager *viewManager)
         //     viewManager->switchTo("Applications");
         //     return;
         // }
-        // if (strcmp(currentItem, "System") == 0)
-        // {
-        //     if (viewManager->getView("System") == nullptr)
-        //     {
-        //         viewManager->add(&systemView);
-        //     }
-        //     viewManager->switchTo("System");
-        //     return;
-        // }
+        if (strcmp(currentItem, "System") == 0)
+        {
+            if (viewManager->getView("System") == nullptr)
+            {
+                viewManager->add(&systemView);
+            }
+            viewManager->switchTo("System");
+            return;
+        }
         // if (strcmp(currentItem, "WiFi") == 0)
         // {
         //     if (viewManager->getView("WiFi") == nullptr)

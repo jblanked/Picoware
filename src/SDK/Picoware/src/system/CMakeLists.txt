@@ -8,6 +8,8 @@ target_link_libraries(system
         pico_stdlib
         pico_printf
         pico_float
+        pico_bootrom
+        hardware_watchdog
         hardware_gpio
         hardware_i2c
         hardware_spi

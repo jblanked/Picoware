@@ -33,6 +33,7 @@ ViewManager::ViewManager()
     foregroundColor = TFT_WHITE;
 
     this->draw = new Draw(foregroundColor, backgroundColor);
+    this->draw->setFont(1); // 8x10
     this->inputManager = new Input();
     this->keyboard = new Keyboard(this->draw, this->inputManager, foregroundColor, backgroundColor, TFT_BLUE);
     this->keyboard->setSaveCallback([this](const String &response)

@@ -29,7 +29,7 @@ List::List(
     // Calculate visible item count based on available height and item height
     visibleItemCount = (size.y - 2 * borderWidth) / ITEM_HEIGHT;
 
-    this->display->swap();
+    this->display->swapRegion(position, size);
 }
 
 List::~List()
@@ -51,11 +51,12 @@ void List::clear()
     setScrollBarSize();
     setScrollBarPosition();
 
-    display->swap();
+    display->swapRegion(position, size);
 }
 
 void List::draw(bool swap)
 {
+    // Clear the region to prevent artifacts
     display->clear(position, size, backgroundColor);
 
     // Draw only visible items
@@ -74,7 +75,7 @@ void List::draw(bool swap)
     }
 
     if (swap)
-        display->swap();
+        display->swapRegion(position, size); // Much faster regional swap!
 }
 
 void List::addItem(const char *item)
@@ -109,11 +110,13 @@ void List::setSelected(uint16_t index)
 void List::scrollUp()
 {
     setSelected(selectedIndex > 0 ? selectedIndex - 1 : 0);
+    draw();
 }
 
 void List::scrollDown()
 {
     setSelected(selectedIndex < items.size() - 1 ? selectedIndex + 1 : items.size() - 1);
+    draw();
 }
 
 void List::updateVisibility()

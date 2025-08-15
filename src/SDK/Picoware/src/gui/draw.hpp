@@ -13,6 +13,7 @@ public:
         void background(uint16_t color);                                            // Sets the background color of the display.
         void clear(Vector position, Vector size, uint16_t color);                   // Clears the display at the specified position and size with the specified color.
         void clearBuffer(uint8_t colorIndex = 0);                                   // Clear the back buffer with a color index
+        void clearBothBuffers(uint8_t colorIndex = 0);                              // Clear both front and back buffers to prevent artifacts
         void color(uint16_t color);                                                 // Sets the color for drawing.
         uint8_t color332(uint16_t color);                                           // Converts 16-bit color to 8-bit
         uint16_t color565(uint8_t r, uint8_t g, uint8_t b);                         // Converts convert three 8-bit RGB levels to RGB565
@@ -36,16 +37,18 @@ public:
             bool invert = false);                                                   // invert pixels
         void image(Vector position, Image *image, bool imageCheck = true);          // Draws an image on the display at the specified position.
         void setCursor(Vector position);                                            // Sets the cursor position for text rendering.
-        void setFont(int font = 2);                                                 // Sets the font for text rendering.
+        void setFont(int font = 1);                                                 // Sets the font for text rendering.
         void setPaletteColor(uint8_t index, uint16_t color);                        // Set a color in the 8-bit palette
         void setTextBackground(uint16_t color) { this->textBackground = color; }    // Sets the background color for text rendering.
         void swap(bool copyFrameBuffer = false, bool copyPalette = false);          // Swaps the display buffer (for double buffering).
+        void swapRegion(Vector position, Vector size);                              // Swap only a specific region of the display (faster for UI updates)
         void text(Vector position, const char text);                                // Draws one character on the display at the specified position.
         void text(Vector position, const char text, uint16_t color);                // Draws one character on the display at the specified position with the specified color.
         void text(Vector position, const char *text);                               // Draws text on the display at the specified position.
         void text(Vector position, const char *text, uint16_t color, int font = 2); // Draws text on the display at the specified position with the specified font and color.
 private:
         void renderChar(Vector position, char c, uint16_t color); // Render a character as pixels
+        void swapOptimized();                                     // Optimized swap using small chunked transfers
         static uint8_t backBuffer[320 * 320];                     // Buffer being drawn to (8-bit) - static allocation
         bool bufferSwapped;                                       // Track which buffer is active
         Vector cursor;                                            // The current cursor position.

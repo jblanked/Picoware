@@ -201,7 +201,7 @@ void Input::reset(bool shouldDelay, int delayMs)
     this->lastButton = -1;
     if (shouldDelay)
     {
-        sleep_ms(delayMs);
+        // sleep_ms(delayMs);
     }
 }
 

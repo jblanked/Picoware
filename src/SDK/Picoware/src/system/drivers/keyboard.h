@@ -47,6 +47,8 @@ Source: https://github.com/BlairLeduc/picocalc-text-starter
 #define KEY_F9 (0x89)
 #define KEY_F10 (0x90)
 
+#define KEY_POWER (0x91)
+
 // Keyboard type-ahead buffer
 #define KBD_BUFFER_SIZE (32)
 

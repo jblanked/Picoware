@@ -7,9 +7,12 @@
 #include <algorithm>
 #include "pico/time.h"
 
+#define constrain(x, min, max) (x < min ? min : (x > max ? max : x))
 #define delay(ms) sleep_ms(ms)
 #define millis() (to_ms_since_boot(get_absolute_time()))
 #define micros() (to_us_since_boot(get_absolute_time()))
+#define sq(x) ((x) * (x))
+#define UNUSED(x) (void)(x)
 
 using String = std::string;
 

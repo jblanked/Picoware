@@ -10,4 +10,5 @@ target_link_libraries(engine
         hardware_spi
         hardware_pio    
         hardware_clocks
+        gui
 )

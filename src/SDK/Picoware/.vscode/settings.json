@@ -96,6 +96,9 @@
         "cinttypes": "cpp",
         "typeinfo": "cpp",
         "variant": "cpp",
-        "psram_spi.h": "c"
+        "psram_spi.h": "c",
+        "stdlib.h": "c",
+        "jsmn_h.h": "c",
+        "stdint.h": "c"
     }
 }

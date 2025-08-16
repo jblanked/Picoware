@@ -1,3 +1,4 @@
+add_subdirectory(jsmn)
 add_subdirectory(rp2040-psram)
 
 file(GLOB DRIVER_SOURCES "*.c" "*.cpp")
@@ -17,4 +18,5 @@ target_link_libraries(drivers
         hardware_pio
         pico_multicore
         rp2040-psram
+        jsmn
 )

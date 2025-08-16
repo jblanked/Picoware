@@ -380,6 +380,79 @@ void Draw::image(Vector position, Image *image, bool imageCheck)
     }
 }
 
+void Draw::imageBitmap(Vector position, const uint8_t *bitmap, Vector size, uint16_t color, bool invert)
+{
+    if (bitmap != nullptr && position.x < this->size.x && position.y < this->size.y && size.x > 0 && size.y > 0)
+    {
+        // 1-bit packed bitmaps
+        int16_t byteWidth = (size.x + 7) / 8;
+        uint8_t byte = 0;
+
+        for (int y = 0; y < size.y; y++)
+        {
+            for (int x = 0; x < size.x; x++)
+            {
+                // Get the bit for this pixel
+                if (x & 7)
+                {
+                    byte <<= 1;
+                }
+                else
+                {
+                    byte = bitmap[y * byteWidth + x / 8];
+                }
+
+                bool pixelSet = (byte & 0x80) != 0;
+                bool shouldDraw;
+
+                if (invert)
+                {
+                    shouldDraw = !pixelSet;
+                }
+                else
+                {
+                    shouldDraw = pixelSet;
+                }
+
+                if (shouldDraw)
+                {
+                    this->drawPixel(Vector(position.x + x, position.y + y), color);
+                }
+            }
+        }
+    }
+}
+
+void Draw::imageColor(Vector position, const uint8_t *bitmap, Vector size, uint16_t color, bool invert, uint8_t transparentColor)
+{
+    if (bitmap != nullptr && position.x < this->size.x && position.y < this->size.y && size.x > 0 && size.y > 0)
+    {
+        uint8_t pixel;
+        bool shouldDraw;
+        for (int y = 0; y < size.y; y++)
+        {
+            for (int x = 0; x < size.x; x++)
+            {
+                pixel = bitmap[static_cast<int>(y * size.x + x)];
+
+                if (invert)
+                {
+                    shouldDraw = (pixel == transparentColor);
+                }
+                else
+                {
+                    shouldDraw = (pixel != transparentColor);
+                }
+
+                if (shouldDraw)
+                {
+                    this->drawPixel(Vector(position.x + x, position.y + y), color);
+                }
+            }
+        }
+    }
+}
+
 void Draw::renderChar(Vector position, char c, uint16_t color)
 {
     const font_t *currentFont = (this->font <= 1) ? &font_8x10 : &font_5x10;

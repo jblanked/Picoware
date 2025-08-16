@@ -11,6 +11,18 @@ Storage::~Storage()
     // nothing to do
 }
 
+uint32_t Storage::getFileSize(const char *filePath)
+{
+    fat32_file_t file;
+    if (fat32_open(&file, filePath) != FAT32_OK)
+    {
+        return 0;
+    }
+    uint32_t size = fat32_size(&file);
+    fat32_close(&file);
+    return size;
+}
+
 bool Storage::read(const char *filePath, void *buffer, size_t size)
 {
     fat32_file_t file;
@@ -21,7 +33,21 @@ bool Storage::read(const char *filePath, void *buffer, size_t size)
     size_t bytes_read;
     const bool status = fat32_read(&file, buffer, size, &bytes_read) == FAT32_OK;
     fat32_close(&file);
-    return status && bytes_read == size;
+    return status;
+}
+
+bool Storage::read(const char *filePath, void *buffer, size_t size, size_t *bytes_read)
+{
+    fat32_file_t file;
+    if (fat32_open(&file, filePath) != FAT32_OK)
+    {
+        if (bytes_read)
+            *bytes_read = 0;
+        return false;
+    }
+    const bool status = fat32_read(&file, buffer, size, bytes_read) == FAT32_OK;
+    fat32_close(&file);
+    return status;
 }
 
 bool Storage::remove(const char *filePath)

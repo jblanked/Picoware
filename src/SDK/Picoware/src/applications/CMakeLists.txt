@@ -1,4 +1,5 @@
 add_subdirectory(desktop)
+add_subdirectory(games)
 add_subdirectory(library)
 add_subdirectory(screensavers)
 add_subdirectory(system)
@@ -9,6 +10,7 @@ add_library(applications ${APPLICATION_SOURCES})
 target_link_libraries(applications
         library
         desktop
+        games
         screensavers
         systemApp
         pico_stdlib

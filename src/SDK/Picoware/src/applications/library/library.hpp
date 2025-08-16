@@ -4,7 +4,7 @@
 #include "../../system/view_manager.hpp"
 // #include "../../applications/applications/applications.hpp"
 // #include "../../applications/bluetooth/bluetooth.hpp"
-// #include "../../applications/games/games.hpp"
+#include "../../applications/games/games.hpp"
 #include "../../applications/screensavers/screensavers.hpp"
 #include "../../applications/system/system.hpp"
 // #include "../../applications/wifi/wifi.hpp"
@@ -41,7 +41,7 @@ static bool libraryStart(ViewManager *viewManager)
     // {
     //     library->addItem("Bluetooth");
     // }
-    // library->addItem("Games");
+    library->addItem("Games");
     library->addItem("Screensavers");
     library->setSelected(libraryIndex);
     library->draw();
@@ -111,15 +111,15 @@ static void libraryRun(ViewManager *viewManager)
         //     viewManager->switchTo("Bluetooth");
         //     return;
         // }
-        // if (strcmp(currentItem, "Games") == 0)
-        // {
-        //     if (viewManager->getView("Games") == nullptr)
-        //     {
-        //         viewManager->add(&gamesView);
-        //     }
-        //     viewManager->switchTo("Games");
-        //     return;
-        // }
+        if (strcmp(currentItem, "Games") == 0)
+        {
+            if (viewManager->getView("Games") == nullptr)
+            {
+                viewManager->add(&gamesView);
+            }
+            viewManager->switchTo("Games");
+            return;
+        }
         if (strcmp(currentItem, "Screensavers") == 0)
         {
             if (viewManager->getView("Screensavers") == nullptr)

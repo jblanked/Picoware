@@ -16,6 +16,9 @@
 
 using String = std::string;
 
+std::string getJsonValue(const char *json, const char *key);
+std::string getJsonArrayValue(const char *json, const char *key, uint32_t index);
+
 static inline int mapValue(int x, int in_min, int in_max, int out_min, int out_max)
 {
     if (in_max == in_min)

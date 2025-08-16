@@ -4,6 +4,7 @@
 #include <ctype.h>
 
 #ifdef CYW43_WL_GPIO_LED_PIN
+#include "pico/cyw43_arch.h"
 WiFiScanResult wifiScanResults[WIFI_MAX_SCAN];
 int wifiScanCount = 0;
 bool wifiScanInProgress = false;
@@ -322,7 +323,7 @@ bool WiFi::isConnected()
 }
 
 #ifdef CYW43_WL_GPIO_LED_PIN
-int WiFi::scanResultCallback(void *env, const cyw43_ev_scan_result_t *result)
+static int scanResultCallback(void *env, const cyw43_ev_scan_result_t *result)
 {
     if (result && wifiScanCount < WIFI_MAX_SCAN)
     {

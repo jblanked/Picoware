@@ -6,7 +6,6 @@
 #include "pico/stdlib.h"
 
 #ifdef CYW43_WL_GPIO_LED_PIN
-#include "pico/cyw43_arch.h"
 
 typedef struct
 {
@@ -60,10 +59,6 @@ public:
 
 private:
     bool connectHelper(const char *ssid, const char *password, bool isAP = false, bool async = false); // Helper function to connect to WiFi
-
-#ifdef CYW43_WL_GPIO_LED_PIN
-    static int scanResultCallback(void *env, const cyw43_ev_scan_result_t *result); // WiFi scan callback
-#endif
 
     WiFiConnectionState currentState = WIFI_STATE_IDLE;
     unsigned long connectionStartTime = 0;

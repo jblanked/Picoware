@@ -1,7 +1,7 @@
 # Installation
 
-> [!CAUTION]
-> If you're using PicoCalc, make sure to update your keyboard firmware first: https://github.com/jblanked/awesome-pico-calc/blob/master/GettingStarted.md#steps-to-update-stm32>
+> [!WARNING]
+> If you're using PicoCalc, make sure to update your keyboard firmware first: https://github.com/jblanked/awesome-pico-calc/blob/master/GettingStarted.md#updating-the-stm32>
 
 **Universal Method**
 1. Download the appropiate build from the `builds` directory.

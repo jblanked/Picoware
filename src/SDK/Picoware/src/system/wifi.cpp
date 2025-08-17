@@ -24,6 +24,7 @@ WiFi::WiFi()
 
     if (cyw43_arch_init())
     {
+        printf("[WiFi]: Failed to initialize WiFi\n");
         return;
     }
 
@@ -38,15 +39,47 @@ WiFi::~WiFi()
     {
         cyw43_arch_deinit();
         wifiInitialized = false;
+        printf("[WiFi]: WiFi deinitialized\n");
     }
 #endif
+}
+
+WiFi::WiFi(WiFi &&other) noexcept
+    : currentState(other.currentState),
+      connectionStartTime(other.connectionStartTime),
+      connectedSSID(std::move(other.connectedSSID)),
+      connectedPassword(std::move(other.connectedPassword)),
+      pendingSSID(std::move(other.pendingSSID)),
+      pendingPassword(std::move(other.pendingPassword))
+{
+    other.currentState = WIFI_STATE_IDLE;
+    other.connectionStartTime = 0;
+}
+
+WiFi &WiFi::operator=(WiFi &&other) noexcept
+{
+    if (this != &other)
+    {
+        currentState = other.currentState;
+        connectionStartTime = other.connectionStartTime;
+        connectedSSID = std::move(other.connectedSSID);
+        connectedPassword = std::move(other.connectedPassword);
+        pendingSSID = std::move(other.pendingSSID);
+        pendingPassword = std::move(other.pendingPassword);
+
+        // Reset other object
+        other.currentState = WIFI_STATE_IDLE;
+        other.connectionStartTime = 0;
+    }
+    return *this;
 }
 
 bool WiFi::connectHelper(const char *ssid, const char *password, bool isAP, bool async)
 {
 #ifdef CYW43_WL_GPIO_LED_PIN
-    if (!wifiInitialized)
+    if (!wifiInitialized && !reinit())
     {
+        printf("[WiFi:connectHelper]: WiFi not initialized\n");
         return false;
     }
 
@@ -58,6 +91,7 @@ bool WiFi::connectHelper(const char *ssid, const char *password, bool isAP, bool
         }
         if (!isAP && (strlen(ssid) == 0 || strlen(password) == 0))
         {
+            printf("SSID or password is empty\n");
             return false;
         }
 
@@ -102,6 +136,7 @@ bool WiFi::connectHelper(const char *ssid, const char *password, bool isAP, bool
                 connectedSSID = std::string(ssid);
                 connectedPassword = std::string(password);
                 wifiTries = 0;
+                printf("WiFi connected to %s\n", ssid);
                 return true;
             }
             else
@@ -123,6 +158,7 @@ bool WiFi::connectHelper(const char *ssid, const char *password, bool isAP, bool
             wifiScanInProgress = false;
             connectedSSID = std::string(ssid);
             connectedPassword = std::string(password);
+            currentState = WIFI_STATE_CONNECTED;
             return true;
         }
         return true;
@@ -138,7 +174,6 @@ bool WiFi::connect(const char *ssid, const char *password, bool async)
 #ifdef CYW43_WL_GPIO_LED_PIN
     if (async)
     {
-        // Use the new async method when async flag is true
         return this->connectAsync(ssid, password);
     }
 
@@ -177,6 +212,7 @@ bool WiFi::connectAsync(const char *ssid, const char *password)
     }
     else
     {
+        printf("Failed to initiate connection\n");
         currentState = WIFI_STATE_FAILED;
         return false;
     }
@@ -211,31 +247,39 @@ bool WiFi::updateConnection()
     cyw43_arch_poll();
 #endif
 
-    if (this->connectHelper(pendingSSID.c_str(), pendingPassword.c_str(), false, true))
+    // Check if we're already connected
+    if (cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA) == CYW43_LINK_UP)
     {
-        if (cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA) == CYW43_LINK_UP)
-        {
-            currentState = WIFI_STATE_CONNECTED;
-            wifiScanInProgress = false;
-            wifiTries = 0;
-            connectedSSID = pendingSSID;
-            connectedPassword = pendingPassword;
-            this->configureTime(); // Configure time when connected
-            return true;
-        }
-        // Still connecting
-        return false;
-    }
-    else
-    {
-        // Connection failed
-        currentState = WIFI_STATE_FAILED;
+        currentState = WIFI_STATE_CONNECTED;
         wifiScanInProgress = false;
         wifiTries = 0;
-        return false;
+        connectedSSID = pendingSSID;
+        connectedPassword = pendingPassword;
+        this->configureTime();
+        return true;
     }
+    return false;
 #else
     return false;
+#endif
+}
+
+bool WiFi::reinit()
+{
+#ifdef CYW43_WL_GPIO_LED_PIN
+    if (wifiInitialized)
+    {
+        cyw43_arch_deinit();
+    }
+
+    if (cyw43_arch_init())
+    {
+        printf("[WiFi]: Failed to re-initialize WiFi\n");
+        return false;
+    }
+
+    wifiInitialized = true;
+    return true;
 #endif
 }
 
@@ -258,7 +302,7 @@ String WiFi::connectAP(const char *ssid)
     {
         return "";
     }
-    // arduion ide sends the soft AP.. not sure how to get that
+    // arduino ide sends the soft AP.. not sure how to get that
     return std::string("192.168.4.1");
 #else
     return "";
@@ -273,7 +317,7 @@ bool WiFi::configureTime()
         return false;
     }
 
-    // eventually we'll set the time like the Arduion IDE version
+    // eventually we'll set the time like the Arduino IDE version
     return true;
 #else
     return false;
@@ -283,7 +327,7 @@ bool WiFi::configureTime()
 String WiFi::deviceIP()
 {
 #ifdef CYW43_WL_GPIO_LED_PIN
-    if (!wifiInitialized || !this->isConnected())
+    if ((!wifiInitialized && !reinit()) || !this->isConnected())
     {
         return std::string("");
     }
@@ -312,7 +356,7 @@ void WiFi::disconnect()
 bool WiFi::isConnected()
 {
 #ifdef CYW43_WL_GPIO_LED_PIN
-    if (!wifiInitialized)
+    if (!wifiInitialized && !reinit())
     {
         return false;
     }
@@ -347,7 +391,7 @@ static int scanResultCallback(void *env, const cyw43_ev_scan_result_t *result)
 String WiFi::scan()
 {
 #ifdef CYW43_WL_GPIO_LED_PIN
-    if (!wifiInitialized)
+    if (!wifiInitialized && !reinit())
     {
         return std::string("{\"networks\":[]}");
     }

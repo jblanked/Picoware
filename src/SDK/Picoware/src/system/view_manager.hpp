@@ -36,7 +36,7 @@ public:
     uint8_t getStackDepth() const noexcept { return stackDepth; }
     Storage getStorage() const noexcept { return storage; }
     const View *getView(const char *viewName) const noexcept;
-    WiFi getWiFi() const noexcept { return wifi; }
+    WiFi &getWiFi() noexcept { return wifi; }
     const char *getTime()
     {
         if (wifi.isConnected())

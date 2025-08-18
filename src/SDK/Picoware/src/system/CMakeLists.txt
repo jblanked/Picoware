@@ -18,9 +18,19 @@ target_link_libraries(system
 )
 
 if (PICO_CYW43_SUPPORTED)
-    target_link_libraries(system pico_cyw43_arch_lwip_threadsafe_background pico_stdlib )
+    target_link_libraries(system 
+    pico_cyw43_arch_lwip_threadsafe_background 
+    pico_stdlib 
+    pico_lwip_mbedtls
+    pico_mbedtls
+    )
     target_include_directories(system PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
         ${CMAKE_CURRENT_LIST_DIR}/../.. # for our common lwipopts
         )
+    # Add lwIP HTTP client source
+    target_sources(system PRIVATE ${PICO_SDK_PATH}/lib/lwip/src/apps/http/http_client.c)
+    
+    # Exclude problematic TLS files that have compatibility issues
+    set_property(SOURCE ${PICO_SDK_PATH}/src/rp2_common/pico_lwip/altcp_tls_mbedtls.c PROPERTY COMPILE_FLAGS "-DSKIP_COMPILATION")
 endif()

@@ -240,15 +240,7 @@ void Level::render(Game *game, CameraPerspective perspective, const CameraParams
             // Only draw the 2D sprite if it exists
             if (ent->sprite != nullptr)
             {
-                // draw 8bit sprite
-                if (ent->is_progmem)
-                {
-                    game->draw->image(Vector(ent->position.x - game->pos.x, ent->position.y - game->pos.y), ent->sprite->getData(), ent->sprite->getSize());
-                }
-                else
-                {
-                    game->draw->image(Vector(ent->position.x - game->pos.x, ent->position.y - game->pos.y), ent->sprite->getData(), ent->sprite->getSize());
-                }
+                game->draw->image(Vector(ent->position.x - game->pos.x, ent->position.y - game->pos.y), ent->sprite->getData(), ent->sprite->getSize());
             }
 
             // Render 3D sprite if it exists

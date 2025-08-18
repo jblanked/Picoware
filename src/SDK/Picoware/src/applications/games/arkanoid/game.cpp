@@ -116,11 +116,11 @@ namespace Arkanoid
             }
 
             // Lose a life if bottom edge hit
-            if (arkanoid_state->ball_state.pos.y >= canvas->getSize().y)
+            if (arkanoid_state->ball_state.pos.y >= 240)
             {
-                canvas->drawRect(Vector(arkanoid_state->xPaddle, canvas->getSize().y - 5), Vector(PADDLE_WIDTH, PADDLE_HEIGHT), TFT_BLACK);
+                canvas->drawRect(Vector(arkanoid_state->xPaddle, 240 - 5), Vector(PADDLE_WIDTH, PADDLE_HEIGHT), TFT_BLACK);
                 arkanoid_state->xPaddle = canvas->getSize().x / 2 - 20;
-                arkanoid_state->ball_state.pos.y = canvas->getSize().y - 10;
+                arkanoid_state->ball_state.pos.y = 240 - 10;
                 arkanoid_state->ball_state.released = false;
                 arkanoid_state->lives--;
                 arkanoid_state->gameStarted = false;
@@ -152,8 +152,8 @@ namespace Arkanoid
 
             // Bounce off paddle
             if (arkanoid_state->ball_state.pos.x + 1 >= arkanoid_state->xPaddle && arkanoid_state->ball_state.pos.x <= arkanoid_state->xPaddle + PADDLE_WIDTH &&
-                arkanoid_state->ball_state.pos.y + 2 >= canvas->getSize().y - 5 &&
-                arkanoid_state->ball_state.pos.y <= canvas->getSize().y)
+                arkanoid_state->ball_state.pos.y + 2 >= 240 - 5 &&
+                arkanoid_state->ball_state.pos.y <= 240)
             {
                 arkanoid_state->ball_state.dy = -arkanoid_state->ball_state.dy;
                 // arkanoid_state->ball_state.dx = ((arkanoid_state->ball_state.pos.x - (arkanoid_state->xPaddle + 6)) / 3); // Applies spin on the ball
@@ -233,7 +233,7 @@ namespace Arkanoid
     static void draw_lives(Draw *canvas)
     {
         // Draw lives
-        auto y = canvas->getSize().y;
+        auto y = 240;
         if (arkanoid_state->lives == 3)
         {
             canvas->drawPixel(Vector(4, y - 7), TFT_VIOLET);
@@ -296,7 +296,7 @@ namespace Arkanoid
     static void draw_paddle(Draw *canvas)
     {
         // Draw paddle
-        canvas->drawRect(Vector(arkanoid_state->xPaddle, canvas->getSize().y - 5), Vector(PADDLE_WIDTH, PADDLE_HEIGHT), TFT_BLACK);
+        canvas->drawRect(Vector(arkanoid_state->xPaddle, 240 - 5), Vector(PADDLE_WIDTH, PADDLE_HEIGHT), TFT_BLACK);
     }
 
     static uint16_t random_color()
@@ -308,7 +308,7 @@ namespace Arkanoid
     {
         // Alter various variables to reset the game
         arkanoid_state->xPaddle = canvas->getSize().x / 2 - (PADDLE_WIDTH / 2) - 5;
-        arkanoid_state->ball_state.pos.y = canvas->getSize().y - 10;
+        arkanoid_state->ball_state.pos.y = 240 - 10;
         arkanoid_state->brickCount = 0;
         arkanoid_state->ball_state.released = false;
         arkanoid_state->gameStarted = false;

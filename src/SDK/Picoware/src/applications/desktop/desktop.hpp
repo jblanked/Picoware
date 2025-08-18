@@ -27,7 +27,7 @@ static bool desktopStart(ViewManager *viewManager)
 
     desktop = new Desktop(viewManager->getDraw(), viewManager->getForegroundColor(), viewManager->getBackgroundColor());
 
-    // wifiUtilsConnectToSavedWiFi(viewManager);
+    wifiUtilsConnectToSavedWiFi(viewManager);
 
     return true;
 }

@@ -1,3 +1,4 @@
+add_subdirectory(applications)
 add_subdirectory(desktop)
 add_subdirectory(games)
 add_subdirectory(library)
@@ -9,6 +10,7 @@ file(GLOB APPLICATION_SOURCES "*.c" "*.cpp")
 add_library(applications ${APPLICATION_SOURCES})
 
 target_link_libraries(applications
+        applicationsApp
         library
         desktop
         games

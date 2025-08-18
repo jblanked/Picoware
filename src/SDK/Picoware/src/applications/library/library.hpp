@@ -2,7 +2,7 @@
 #include "../../gui/menu.hpp"
 #include "../../system/view.hpp"
 #include "../../system/view_manager.hpp"
-// #include "../../applications/applications/applications.hpp"
+#include "../../applications/applications/applications.hpp"
 // #include "../../applications/bluetooth/bluetooth.hpp"
 #include "../../applications/games/games.hpp"
 #include "../../applications/screensavers/screensavers.hpp"
@@ -31,7 +31,7 @@ static bool libraryStart(ViewManager *viewManager)
         2                                  // border/separator width
     );
 
-    // library->addItem("Applications");
+    library->addItem("Applications");
     library->addItem("System");
 #ifdef CYW43_WL_GPIO_LED_PIN
     library->addItem("WiFi");
@@ -74,15 +74,15 @@ static void libraryRun(ViewManager *viewManager)
         inputManager->reset(true);
         auto currentItem = library->getCurrentItem();
         libraryIndex = library->getSelectedIndex();
-        // if (strcmp(currentItem, "Applications") == 0)
-        // {
-        //     if (viewManager->getView("Applications") == nullptr)
-        //     {
-        //         viewManager->add(&applicationsView);
-        //     }
-        //     viewManager->switchTo("Applications");
-        //     return;
-        // }
+        if (strcmp(currentItem, "Applications") == 0)
+        {
+            if (viewManager->getView("Applications") == nullptr)
+            {
+                viewManager->add(&applicationsView);
+            }
+            viewManager->switchTo("Applications");
+            return;
+        }
         if (strcmp(currentItem, "System") == 0)
         {
             if (viewManager->getView("System") == nullptr)

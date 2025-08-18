@@ -2,6 +2,10 @@
 
 The firmware is available for the Arduino IDE (C++), CircuitPython, and C/C++ (using the official SDK). Each environment offers similar configurations, methods, and functionalities to ensure a smooth development experience.
 
+### C/C++ SDK
+
+Here's a video tutorial: https://youtu.be/-eMqPjVN0fU?si=obkQ3QTTLtz72qeE&t=569
+
 ### Arduino IDE
 
 To use the Arduino IDE library:
@@ -18,19 +22,19 @@ To use the Arduino IDE library:
 - Search for `ArduinoJson` and install the `ArduinoJson` library by `Benoit Blanchon`.
 - Search for `ArduinoHttpClient` and install the `ArduinoHttpClient` library by `Arduino`.
 8. Close your Arduino IDE. Within the `src/ArduinoIDE` folder (from earlier), double-click the `ArduinoIDE.ino` file.
-9. Hold the `BOOT` button while connecting your USB data cable.
+9. Hold the `BOOT` button while connecting your `Micro USB` data cable to your `Raspberry Pi Pico` device.
 10. Select the serial port to which your Pico is connected and choose your specific Pico type (e.g., `Raspberry Pi Pico`) as your board.
 11. In line 13, change the board configuration (e.g., `VGMConfig`, `PicoCalcConfigPico`, etc.) to your specific configuration.
 - `VGMConfig`: Video Game Module
 - `JBlankedPicoConfig`: JBlanked's Custom Pico Setup
-- `PicoCalcConfigPico`: Pico Calc (with a Raspberry Pi Pico)
-- `PicoCalcConfigPicoW`: Pico Calc (with a Raspberry Pi Pico W)
-- `PicoCalcConfigPico2`: Pico Calc (with a Raspberry Pi Pico 2)
-- `PicoCalcConfigPico2W`: Pico Calc (with a Raspberry Pi Pico 2 W)
+- `PicoCalcConfigPico`: PicoCalc (with a Raspberry Pi Pico)
+- `PicoCalcConfigPicoW`: PicoCalc (with a Raspberry Pi Pico W)
+- `PicoCalcConfigPico2`: PicoCalc (with a Raspberry Pi Pico 2)
+- `PicoCalcConfigPico2W`: PicoCalc (with a Raspberry Pi Pico 2 W)
 
 12. Open the `User_Setup.h` file in the `TFT_eSPI` library folder (usually located at `../../Documents/Arduino/libraries/TFT_eSPI/User_Setup.h` or `../Arduino/libraries/TFT_eSPI/User_Setup.h`) and:
 
-Replace it with the following code snippet if you're using the Pico Calc:
+Replace it with the following code snippet if you're using the PicoCalc:
 ```cpp
 #define USER_SETUP_ID 60
 #define ILI9488_DRIVER
@@ -74,20 +78,18 @@ Replace it with the following code snippet if you're using JBlanked's Custom Pic
 13. In `Tools` menu, change the `Flash Size` to `2MB (Sketch: 1984KB, FS: 64KB)` (or `4MB (Sketch: 4032KB, FS: 64KB)` if compiling for a Raspberry Pi Pico 2 or 2W device) and `CPU Speed` to `200MHz`. Then change `IP/Bluetooth Stack` to `IPv4 + Bluetooth` if you are not compiling for a non-Pico-W device, otherwise leave it on the default, `IPv4`.
 14. Finally, click `Sketch` in the menu, then select `Upload`.
 
+Here's a video tutorial: https://www.youtube.com/watch?v=-eMqPjVN0fU
+
 ### CircuitPython
 
 Developers can also use CircuitPython, although due to limited memory, they must be more conservative with memory usage and strategically handle text objects.
 
 1. Download and install Thonny IDE (https://thonny.org).
 2. Download this repository as a .zip file (available here: https://github.com/jblanked/Picoware/archive/refs/heads/main.zip).
-3. Press and hold the `BOOT` button on your device for 2 seconds.
-4. While holding the `BOOT` button, connect the device to your computer using a USB cable.
+3. Press and hold the `BOOT` button on your `Raspberry Pi Pico` device for 2 seconds.
+4. While holding the `BOOT` button, connect your `Raspberry Pi Pico` device to your computer using a `Micro USB` cable.
 5. Open Thonny, and in the bottom-right corner, select `Install CircuitPython`.
 6. Change the settings to your specific Raspberry Pi Pico type and proceed with the installation.
 7. Once finished, close the window and press the red `Stop/Restart` button.
 8. Afterward, open the .zip file downloaded earlier and navigate to the `src/CircuitPython` folder. Copy and paste all contents of that folder into your `CIRCUITPY` drive that appeared after CircuitPython finished installing.
 9. In Thonny, press the `Stop/Restart` button again, then double-click the `code.py` file on your `CIRCUITPY` drive and click the green `Start/Run` button.
-
-### C/C++ SDK
-
-This integration is not yet available.

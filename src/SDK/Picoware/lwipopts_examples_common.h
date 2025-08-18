@@ -26,7 +26,7 @@
 #endif
 #define MEM_ALIGNMENT 4
 #ifndef MEM_SIZE
-#define MEM_SIZE 1600 // Reduced from 4000 to save RAM
+#define MEM_SIZE 3200
 #endif
 #define MEMP_NUM_TCP_SEG 8   // Reduced from 32 to save RAM
 #define MEMP_NUM_ARP_QUEUE 4 // Reduced from 10 to save RAM

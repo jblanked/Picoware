@@ -136,7 +136,6 @@ bool WiFi::connectHelper(const char *ssid, const char *password, bool isAP, bool
                 connectedSSID = std::string(ssid);
                 connectedPassword = std::string(password);
                 wifiTries = 0;
-                printf("WiFi connected to %s\n", ssid);
                 return true;
             }
             else
@@ -481,7 +480,7 @@ bool WiFi::setTime(tm &timeinfo, int timeoutMs)
             { // If time is set (more than 1 day since epoch)
                 break;
             }
-            sleep_ms(100);
+            // sleep_ms(100);
             elapsed += 100;
         }
     }

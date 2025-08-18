@@ -98,8 +98,15 @@ Entity::Entity(
     this->position = position;
     this->old_position = position;
     this->size = size;
-    this->sprite = new Image(this->is_8bit);
-    this->sprite->fromByteArray(sprite_data, size, !is_progmem_sprite);
+    if (sprite_data != NULL)
+    {
+        this->sprite = new Image(this->is_8bit);
+        this->sprite->fromByteArray(sprite_data, size, !is_progmem_sprite);
+    }
+    else
+    {
+        this->sprite = nullptr;
+    }
     if (sprite_left_data != NULL)
     {
         this->sprite_left = new Image(this->is_8bit);

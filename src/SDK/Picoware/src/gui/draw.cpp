@@ -2,18 +2,28 @@
 #include "../system/drivers/lcd.h"
 #include "../system/drivers/font.h"
 #include <string.h>
+#include "hardware/dma.h"
 
 // Static buffer definitions
 uint8_t Draw::frontBuffer[320 * 320];
 uint8_t Draw::backBuffer[320 * 320];
 uint16_t Draw::paletteBuffer[256];
+static int dma_channel = -1;
+static bool dma_initialized = false;
 
-Draw::Draw(uint16_t foregroundColor, uint16_t backgroundColor) : bufferSwapped(false), cursor(0, 0), font(1), size(320, 320), textBackground(backgroundColor), textForeground(foregroundColor)
+Draw::Draw(uint16_t foregroundColor, uint16_t backgroundColor) : bufferSwapped(false), cursor(0, 0), font(1), size(320, 320), textBackground(backgroundColor), textForeground(foregroundColor), useBackgroundTextColor(false)
 {
     lcd_init();
     lcd_set_background(backgroundColor);
     lcd_set_underscore(false);
     lcd_enable_cursor(false);
+
+    // Initialize DMA for SPI transfers
+    if (!dma_initialized)
+    {
+        dma_channel = dma_claim_unused_channel(true);
+        dma_initialized = true;
+    }
 
     // init palette
     for (int i = 0; i < 256; i++)
@@ -40,7 +50,13 @@ Draw::Draw(uint16_t foregroundColor, uint16_t backgroundColor) : bufferSwapped(f
 
 Draw::~Draw()
 {
-    // nothing to do here
+    // Clean up DMA resources
+    if (dma_initialized && dma_channel >= 0)
+    {
+        dma_channel_unclaim(dma_channel);
+        dma_initialized = false;
+        dma_channel = -1;
+    }
 }
 
 void Draw::background(uint16_t color)
@@ -89,6 +105,13 @@ void Draw::clearBuffer(uint8_t colorIndex)
 {
     int bufferSize = size.x * size.y;
     memset(backBuffer, colorIndex, bufferSize);
+}
+
+void Draw::clearBothBuffers(uint8_t colorIndex)
+{
+    int bufferSize = size.x * size.y;
+    memset(backBuffer, colorIndex, bufferSize);
+    memset(frontBuffer, colorIndex, bufferSize);
 }
 
 void Draw::color(uint16_t color)
@@ -143,39 +166,17 @@ void Draw::drawCircle(Vector position, int16_t r, uint16_t color)
 
 void Draw::drawLine(Vector position, Vector size, uint16_t color)
 {
-    // Bresenham's line algorithm
-    int x1 = (int)position.x;
-    int y1 = (int)position.y;
-    int x2 = (int)(position.x + size.x);
-    int y2 = (int)(position.y + size.y);
+    int x = (int)position.x;
+    int y = (int)position.y;
+    int length = (int)size.x;
 
-    int dx = abs(x2 - x1);
-    int dy = abs(y2 - y1);
-    int sx = (x1 < x2) ? 1 : -1;
-    int sy = (y1 < y2) ? 1 : -1;
-    int err = dx - dy;
-
-    while (true)
+    // Draw a horizontal line from x to x + length at y coordinate
+    for (int i = 0; i < length; i++)
     {
-        // Check bounds before drawing
-        if (x1 >= 0 && x1 < this->size.x && y1 >= 0 && y1 < this->size.y)
+        int currentX = x + i;
+        if (currentX >= 0 && currentX < this->size.x && y >= 0 && y < this->size.y)
         {
-            this->drawPixel(Vector(x1, y1), color);
-        }
-
-        if (x1 == x2 && y1 == y2)
-            break;
-
-        int err2 = err * 2;
-        if (err2 > -dy)
-        {
-            err -= dy;
-            x1 += sx;
-        }
-        if (err2 < dx)
-        {
-            err += dx;
-            y1 += sy;
+            this->drawPixel(Vector(currentX, y), color);
         }
     }
 }
@@ -192,10 +193,31 @@ void Draw::drawRect(Vector position, Vector size, uint16_t color)
     if (size.x <= 0 || size.y <= 0)
         return;
 
-    this->drawLine(position, Vector(size.x - 1, 0), color);                         // Top edge
-    this->drawLine(position + Vector(0, size.y - 1), Vector(size.x - 1, 0), color); // Bottom edge
-    this->drawLine(position, Vector(0, size.y - 1), color);                         // Left edge
-    this->drawLine(position + Vector(size.x - 1, 0), Vector(0, size.y - 1), color); // Right edge
+    // Top edge (horizontal line)
+    this->drawLine(position, Vector(size.x, 0), color);
+
+    // Bottom edge (horizontal line)
+    this->drawLine(Vector(position.x, position.y + size.y - 1), Vector(size.x, 0), color);
+
+    // Left edge (vertical line using individual pixels)
+    for (int y = 0; y < size.y; y++)
+    {
+        Vector pixelPos = Vector(position.x, position.y + y);
+        if (pixelPos.x >= 0 && pixelPos.x < this->size.x && pixelPos.y >= 0 && pixelPos.y < this->size.y)
+        {
+            this->drawPixel(pixelPos, color);
+        }
+    }
+
+    // Right edge (vertical line using individual pixels)
+    for (int y = 0; y < size.y; y++)
+    {
+        Vector pixelPos = Vector(position.x + size.x - 1, position.y + y);
+        if (pixelPos.x >= 0 && pixelPos.x < this->size.x && pixelPos.y >= 0 && pixelPos.y < this->size.y)
+        {
+            this->drawPixel(pixelPos, color);
+        }
+    }
 }
 
 void Draw::fillCircle(Vector position, int16_t r, uint16_t color)
@@ -310,21 +332,36 @@ uint16_t Draw::getPaletteColor(uint8_t index)
     return 0;
 }
 
-void Draw::image(Vector position, const uint8_t *bitmap, Vector size, const uint16_t *palette, bool imageCheck)
+void Draw::image(Vector position, const uint8_t *bitmap, Vector size, const uint16_t *palette, bool imageCheck, bool invert)
 {
     if (!imageCheck || (imageCheck &&
                         bitmap != nullptr &&
-                        position.x < this->size.x &&
-                        position.y < this->size.y &&
+                        position.x >= 0 &&
+                        position.y >= 0 &&
+                        position.x + size.x <= this->size.x &&
+                        position.y + size.y <= this->size.y &&
                         size.x > 0 &&
                         size.y > 0))
     {
+        uint8_t pixel;
+        uint16_t color;
         for (int y = 0; y < size.y; y++)
         {
             for (int x = 0; x < size.x; x++)
             {
-                uint8_t pixel = bitmap[static_cast<int>(y * size.x + x)];
-                uint16_t color = palette != nullptr ? palette[pixel] : paletteBuffer[pixel];
+                pixel = bitmap[static_cast<int>(y * size.x + x)];
+                color = palette != nullptr ? palette[pixel] : paletteBuffer[pixel];
+                if (invert)
+                {
+                    if (color == TFT_WHITE)
+                    {
+                        color = TFT_BLACK;
+                    }
+                    else if (color == TFT_BLACK)
+                    {
+                        color = TFT_WHITE;
+                    }
+                }
                 this->drawPixel(Vector(position.x + x, position.y + y), color);
             }
         }
@@ -342,6 +379,79 @@ void Draw::image(Vector position, Image *image, bool imageCheck)
                         size.y > 0))
     {
         this->image(position, data, size, nullptr, false);
+    }
+}
+
+void Draw::imageBitmap(Vector position, const uint8_t *bitmap, Vector size, uint16_t color, bool invert)
+{
+    if (bitmap != nullptr && position.x < this->size.x && position.y < this->size.y && size.x > 0 && size.y > 0)
+    {
+        // 1-bit packed bitmaps
+        int16_t byteWidth = (size.x + 7) / 8;
+        uint8_t byte = 0;
+
+        for (int y = 0; y < size.y; y++)
+        {
+            for (int x = 0; x < size.x; x++)
+            {
+                // Get the bit for this pixel
+                if (x & 7)
+                {
+                    byte <<= 1;
+                }
+                else
+                {
+                    byte = bitmap[y * byteWidth + x / 8];
+                }
+
+                bool pixelSet = (byte & 0x80) != 0;
+                bool shouldDraw;
+
+                if (invert)
+                {
+                    shouldDraw = !pixelSet;
+                }
+                else
+                {
+                    shouldDraw = pixelSet;
+                }
+
+                if (shouldDraw)
+                {
+                    this->drawPixel(Vector(position.x + x, position.y + y), color);
+                }
+            }
+        }
+    }
+}
+
+void Draw::imageColor(Vector position, const uint8_t *bitmap, Vector size, uint16_t color, bool invert, uint8_t transparentColor)
+{
+    if (bitmap != nullptr && position.x < this->size.x && position.y < this->size.y && size.x > 0 && size.y > 0)
+    {
+        uint8_t pixel;
+        bool shouldDraw;
+        for (int y = 0; y < size.y; y++)
+        {
+            for (int x = 0; x < size.x; x++)
+            {
+                pixel = bitmap[static_cast<int>(y * size.x + x)];
+
+                if (invert)
+                {
+                    shouldDraw = (pixel == transparentColor);
+                }
+                else
+                {
+                    shouldDraw = (pixel != transparentColor);
+                }
+
+                if (shouldDraw)
+                {
+                    this->drawPixel(Vector(position.x + x, position.y + y), color);
+                }
+            }
+        }
     }
 }
 
@@ -365,8 +475,15 @@ void Draw::renderChar(Vector position, char c, uint16_t color)
             for (int col = 0; col < 8; col++)
             {
                 uint8_t bitMask = 0x80 >> col; // Start from leftmost bit
-                uint16_t pixelColor = (glyphRow & bitMask) ? color : textBackground;
-                this->drawPixel(Vector(position.x + col, position.y + row), pixelColor);
+
+                if ((glyphRow & bitMask) != 0)
+                {
+                    this->drawPixel(Vector(position.x + col, position.y + row), color);
+                }
+                else if (useBackgroundTextColor)
+                {
+                    this->drawPixel(Vector(position.x + col, position.y + row), textBackground);
+                }
             }
         }
         else
@@ -375,8 +492,15 @@ void Draw::renderChar(Vector position, char c, uint16_t color)
             uint8_t bitMasks[5] = {0x10, 0x08, 0x04, 0x02, 0x01};
             for (int col = 0; col < 5; col++)
             {
-                uint16_t pixelColor = (glyphRow & bitMasks[col]) ? color : textBackground;
-                this->drawPixel(Vector(position.x + col, position.y + row), pixelColor);
+
+                if ((glyphRow & bitMasks[col]) != 0)
+                {
+                    this->drawPixel(Vector(position.x + col, position.y + row), color);
+                }
+                else if (useBackgroundTextColor)
+                {
+                    this->drawPixel(Vector(position.x + col, position.y + row), textBackground);
+                }
             }
         }
     }
@@ -420,18 +544,49 @@ void Draw::swap(bool copyFrameBuffer, bool copyPalette)
     }
     else
     {
-        // Swap buffer contents
-        for (int i = 0; i < bufferSize; i++)
+        // Fast buffer swap using 32-bit operations
+        uint32_t *src32 = (uint32_t *)backBuffer;
+        uint32_t *dst32 = (uint32_t *)frontBuffer;
+        int words = bufferSize / 4;
+
+        for (int i = 0; i < words; i++)
         {
-            uint8_t temp = frontBuffer[i];
-            frontBuffer[i] = backBuffer[i];
-            backBuffer[i] = temp;
+            uint32_t temp = dst32[i];
+            dst32[i] = src32[i];
+            src32[i] = temp;
         }
+
+        // Handle remaining bytes
+        int remaining = bufferSize % 4;
+        if (remaining > 0)
+        {
+            int start = words * 4;
+            for (int i = 0; i < remaining; i++)
+            {
+                uint8_t temp = frontBuffer[start + i];
+                frontBuffer[start + i] = backBuffer[start + i];
+                backBuffer[start + i] = temp;
+            }
+        }
+
         bufferSwapped = !bufferSwapped;
     }
 
-    // Send front buffer one line at a time (avoid large temporary buffer)
+    swapOptimized();
+
+    // Clear back buffer for next frame to prevent artifacts
+    clearBuffer(0);
+
+    if (copyPalette)
+    {
+        // nothing to do yet..
+    }
+}
+
+void Draw::swapOptimized()
+{
     const int lineSize = size.x;
+
     uint16_t lineBuffer[lineSize];
 
     for (int y = 0; y < size.y; y++)
@@ -442,13 +597,46 @@ void Draw::swap(bool copyFrameBuffer, bool copyPalette)
             int bufferIndex = y * lineSize + x;
             lineBuffer[x] = paletteBuffer[frontBuffer[bufferIndex]];
         }
-        // send to LCD
+        // Send to LCD - each line is sent immediately
         lcd_blit(lineBuffer, 0, y, lineSize, 1);
     }
+}
 
-    if (copyPalette)
+void Draw::swapRegion(Vector position, Vector size)
+{
+    // Fast region-only swap for UI updates
+    const int lineSize = this->size.x;
+    uint16_t lineBuffer[lineSize];
+
+    // Clamp region to screen bounds
+    int startY = (position.y < 0) ? 0 : position.y;
+    int endY = (position.y + size.y > this->size.y) ? this->size.y : (position.y + size.y);
+    int startX = (position.x < 0) ? 0 : position.x;
+    int endX = (position.x + size.x > this->size.x) ? this->size.x : (position.x + size.x);
+
+    // Swap buffers in the region first
+    for (int y = startY; y < endY; y++)
     {
-        // nothing to do yet..
+        for (int x = startX; x < endX; x++)
+        {
+            int bufferIndex = y * lineSize + x;
+            uint8_t temp = frontBuffer[bufferIndex];
+            frontBuffer[bufferIndex] = backBuffer[bufferIndex];
+            backBuffer[bufferIndex] = temp;
+        }
+    }
+
+    // Update only the affected lines on the display
+    for (int y = startY; y < endY; y++)
+    {
+        // Convert entire line
+        for (int x = 0; x < lineSize; x++)
+        {
+            int bufferIndex = y * lineSize + x;
+            lineBuffer[x] = paletteBuffer[frontBuffer[bufferIndex]];
+        }
+        // Send to LCD
+        lcd_blit(lineBuffer, 0, y, lineSize, 1);
     }
 }
 

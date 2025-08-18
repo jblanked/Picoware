@@ -19,7 +19,7 @@ Menu::Menu(
     this->position = Vector(0, y);
     this->size = Vector(draw->getSize().x, height);
     this->display->clear(position, size, backgroundColor);
-    this->display->swap();
+    this->display->swapRegion(position, size);
 }
 
 Menu::~Menu()
@@ -35,31 +35,40 @@ void Menu::clear()
 
 void Menu::draw()
 {
+    // Clear the title area first to prevent artifacts
+    Vector titleArea = Vector(display->getSize().x, 20);
+    display->clear(position, titleArea, backgroundColor);
+
     drawTitle();
-    list->draw(true);
+    list->draw(false); // Don't swap yet
+
+    // Single swap for the entire menu area
+    display->swapRegion(position, size);
 }
 
 void Menu::drawTitle()
 {
-    display->text(Vector(2, 2), title, textColor, 4);
+    display->text(Vector(2, position.y + 2), title, textColor, 4);
 }
 
 void Menu::scrollDown()
 {
-    drawTitle();
     list->scrollDown();
 }
 
 void Menu::scrollUp()
 {
-    drawTitle();
     list->scrollUp();
 }
 
 void Menu::setTitle(const char *newTitle)
 {
     title = newTitle;
+    // Clear the title area and redraw
+    Vector titleArea = Vector(display->getSize().x, 20);
+    display->clear(position, titleArea, backgroundColor);
     drawTitle();
+    display->swapRegion(position, titleArea);
 }
 
 void Menu::setSelected(uint16_t index)

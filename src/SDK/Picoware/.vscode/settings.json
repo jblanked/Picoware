@@ -95,6 +95,10 @@
         "cfenv": "cpp",
         "cinttypes": "cpp",
         "typeinfo": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "psram_spi.h": "c",
+        "stdlib.h": "c",
+        "jsmn_h.h": "c",
+        "stdint.h": "c"
     }
 }

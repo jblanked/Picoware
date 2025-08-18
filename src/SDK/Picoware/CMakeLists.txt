@@ -30,6 +30,9 @@ include(pico_sdk_import.cmake)
 
 project(Picoware C CXX ASM)
 
+# Add current directory to include path for lwipopts.h
+include_directories(${CMAKE_CURRENT_LIST_DIR})
+
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
@@ -37,16 +40,20 @@ pico_sdk_init()
 
 add_subdirectory(src/system)
 add_subdirectory(src/gui)
+add_subdirectory(src/applications)
+add_subdirectory(src/engine)
 
 add_executable(Picoware Picoware.cpp)
-target_link_libraries(Picoware system gui)
+target_link_libraries(Picoware system gui applications engine)
+
 
 pico_set_program_name(Picoware "Picoware")
 pico_set_program_version(Picoware "0.1")
 
 # Modify the below lines to enable/disable output over UART/USB
 pico_enable_stdio_uart(Picoware 0)
-pico_enable_stdio_usb(Picoware 0)
+pico_enable_stdio_usb(Picoware 1)
+
 
 # Add the standard library to the build
 target_link_libraries(Picoware
@@ -63,7 +70,9 @@ target_link_libraries(Picoware
 
 # Add WiFi support if available
 if (PICO_CYW43_SUPPORTED)
-    target_link_libraries(Picoware pico_cyw43_arch_none)
+    target_link_libraries(Picoware pico_cyw43_arch_lwip_threadsafe_background)
+    # Set the path to our lwipopts.h file
+    target_include_directories(Picoware PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 endif()
 
 # Add the standard include files to the build

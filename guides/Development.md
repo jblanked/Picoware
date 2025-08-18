@@ -2,6 +2,10 @@
 
 The firmware is available for the Arduino IDE (C++), CircuitPython, and C/C++ (using the official SDK). Each environment offers similar configurations, methods, and functionalities to ensure a smooth development experience.
 
+### C/C++ SDK
+
+Here's a video tutorial: https://youtu.be/-eMqPjVN0fU?si=obkQ3QTTLtz72qeE&t=569
+
 ### Arduino IDE
 
 To use the Arduino IDE library:
@@ -89,7 +93,3 @@ Developers can also use CircuitPython, although due to limited memory, they must
 7. Once finished, close the window and press the red `Stop/Restart` button.
 8. Afterward, open the .zip file downloaded earlier and navigate to the `src/CircuitPython` folder. Copy and paste all contents of that folder into your `CIRCUITPY` drive that appeared after CircuitPython finished installing.
 9. In Thonny, press the `Stop/Restart` button again, then double-click the `code.py` file on your `CIRCUITPY` drive and click the green `Start/Run` button.
-
-### C/C++ SDK
-
-Here's a video tutorial: https://youtu.be/-eMqPjVN0fU?si=obkQ3QTTLtz72qeE&t=569

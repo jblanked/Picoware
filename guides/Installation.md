@@ -1,5 +1,8 @@
 # Installation
 
+> [!WARNING]
+> If you're using PicoCalc, make sure to update your keyboard firmware first: https://github.com/jblanked/awesome-pico-calc/blob/master/GettingStarted.md#updating-the-stm32>
+
 **Universal Method**
 1. Download the appropiate build from the `builds` directory.
 2. Press and hold the `BOOT` button on your device for 2 seconds.

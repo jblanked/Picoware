@@ -15,20 +15,18 @@ static const uint8_t BLUETOOTH_OFF_BLACK[] = {
 
 Desktop::Desktop(Draw *draw, uint16_t textColor, uint16_t backgroundColor)
     : display(draw), textColor(textColor), backgroundColor(backgroundColor),
-      hasBattery(false), hasBluetooth(false), hasWiFi(false), darkMode(false),
+      hasBattery(true), hasBluetooth(false), hasWiFi(false), darkMode(false),
       boardName(nullptr), rtcTime(nullptr)
 {
     this->clear();
     this->darkMode = textColor == TFT_WHITE && backgroundColor == TFT_BLACK;
     // auto currentBoard = this->display->getBoard();
     // this->boardName = currentBoard.name;
-    // this->hasWiFi = currentBoard.hasWiFi;
-    // this->hasBluetooth = currentBoard.hasBluetooth;
-    // this->hasBattery = currentBoard.hasBattery;
     this->boardName = "PicoWare SDK";
-    this->hasWiFi = false;
-    this->hasBluetooth = false;
-    this->hasBattery = true;
+#ifdef CYW43_WL_GPIO_LED_PIN
+    this->hasWiFi = true;
+    this->hasBluetooth = true;
+#endif
 }
 
 Desktop::~Desktop()
@@ -52,12 +50,12 @@ void Desktop::draw(const uint8_t *animationFrame, Vector animationSize, const ui
 void Desktop::drawHeader()
 {
     // draw board name
-    display->text(Vector(2, 2), boardName, textColor);
+    display->text(Vector(2, 5), boardName, textColor);
 
     // draw time if set
     if (rtcTime != nullptr && strlen(rtcTime) > 0)
     {
-        display->text(Vector(display->getSize().x - 160, 2), rtcTime, textColor);
+        display->text(Vector(display->getSize().x - 160, 5), rtcTime, textColor);
     }
 
     // draw WiFi icon
@@ -74,10 +72,10 @@ void Desktop::drawHeader()
         int battery_level = raw_level & 0x7F; // Mask out the charging bit
         // bool charging = (raw_level & 0x80) != 0; // Check if charging
         snprintf(batteryText, sizeof(batteryText), "%d%%", battery_level);
-        display->text(Vector(display->getSize().x - 80, 2), batteryText, textColor);
+        display->text(Vector(display->getSize().x - 68, 5), batteryText, textColor);
     }
     else
     {
-        display->text(Vector(display->getSize().x - 80, 2), "100%", textColor);
+        display->text(Vector(display->getSize().x - 68, 5), "100%", textColor);
     }
 }

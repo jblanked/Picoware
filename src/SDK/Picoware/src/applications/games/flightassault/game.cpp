@@ -222,6 +222,18 @@ namespace FlightAssault
     }
     static void player_render(Entity *self, Draw *draw, Game *game)
     {
+        // Update entity position to match actual player position
+        if (player_lives > 0)
+        {
+            self->position.x = player_x;
+            self->position.y = player_y;
+        }
+        else
+        {
+            // Move entity off-screen when game is over
+            self->position.x = -100;
+            self->position.y = -100;
+        }
 
         // Draw game over message if necessary
         if (player_lives <= 0)
@@ -234,7 +246,7 @@ namespace FlightAssault
         // // Draw player
         // canvas_set_bitmap_mode(canvas, true);
         // canvas_draw_xbm(canvas, player_x, player_y, PLAYER_WIDTH, PLAYER_HEIGHT, player_bitmap);
-        draw->imageColor(Vector(player_x, player_y), player_bitmap, Vector(PLAYER_WIDTH, PLAYER_HEIGHT), TFT_DARKCYAN);
+        draw->imageColor(Vector(player_x, player_y), player_bitmap, Vector(PLAYER_WIDTH, PLAYER_HEIGHT), TFT_DARKCYAN, false, 0x00);
 
         // // Draw enemies
         for (int i = 0; i < enemy_count; ++i)
@@ -242,7 +254,7 @@ namespace FlightAssault
             // canvas_set_bitmap_mode(canvas, true);
             // canvas_draw_xbm(canvas, enemy_x[i], enemy_y[i], 9, 8, enemy_bitmap);
             // canvas_set_bitmap_mode(canvas, false);
-            draw->imageColor(Vector(enemy_x[i], enemy_y[i]), enemy_bitmap, Vector(9, 8), TFT_RED);
+            draw->imageColor(Vector(enemy_x[i], enemy_y[i]), enemy_bitmap, Vector(9, 8), TFT_RED, false, 0x00);
         }
 
         // // Draw bullets
@@ -272,14 +284,14 @@ namespace FlightAssault
         for (int i = 0; i < player_lives; ++i)
         {
             // canvas_draw_xbm(canvas, SCREEN_WIDTH - (i + 1) * 12, 0, 7, 7, life_icon);
-            draw->imageColor(Vector(SCREEN_WIDTH - (i + 1) * 12, 8), life_icon, Vector(7, 7), TFT_BLACK);
+            draw->image(Vector(SCREEN_WIDTH - (i + 1) * 12, 8), life_icon, Vector(7, 7), nullptr);
         }
 
         // Draw bonus life icon
         if (bonus_life_active)
         {
             // canvas_draw_xbm(canvas, bonus_life_x, bonus_life_y, 7, 7, bonus_life_icon);
-            draw->imageColor(Vector(bonus_life_x, bonus_life_y), bonus_life_icon, Vector(7, 7), TFT_BLACK);
+            draw->image(Vector(bonus_life_x, bonus_life_y), bonus_life_icon, Vector(7, 7), nullptr);
         }
 
         // Draw shield if active

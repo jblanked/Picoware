@@ -11,7 +11,7 @@ uint16_t Draw::paletteBuffer[256];
 static int dma_channel = -1;
 static bool dma_initialized = false;
 
-Draw::Draw(uint16_t foregroundColor, uint16_t backgroundColor) : bufferSwapped(false), cursor(0, 0), font(1), size(320, 320), textBackground(backgroundColor), textForeground(foregroundColor)
+Draw::Draw(uint16_t foregroundColor, uint16_t backgroundColor) : bufferSwapped(false), cursor(0, 0), font(1), size(320, 320), textBackground(backgroundColor), textForeground(foregroundColor), useBackgroundTextColor(false)
 {
     lcd_init();
     lcd_set_background(backgroundColor);
@@ -336,8 +336,10 @@ void Draw::image(Vector position, const uint8_t *bitmap, Vector size, const uint
 {
     if (!imageCheck || (imageCheck &&
                         bitmap != nullptr &&
-                        position.x < this->size.x &&
-                        position.y < this->size.y &&
+                        position.x >= 0 &&
+                        position.y >= 0 &&
+                        position.x + size.x <= this->size.x &&
+                        position.y + size.y <= this->size.y &&
                         size.x > 0 &&
                         size.y > 0))
     {
@@ -473,8 +475,15 @@ void Draw::renderChar(Vector position, char c, uint16_t color)
             for (int col = 0; col < 8; col++)
             {
                 uint8_t bitMask = 0x80 >> col; // Start from leftmost bit
-                uint16_t pixelColor = (glyphRow & bitMask) ? color : textBackground;
-                this->drawPixel(Vector(position.x + col, position.y + row), pixelColor);
+
+                if ((glyphRow & bitMask) != 0)
+                {
+                    this->drawPixel(Vector(position.x + col, position.y + row), color);
+                }
+                else if (useBackgroundTextColor)
+                {
+                    this->drawPixel(Vector(position.x + col, position.y + row), textBackground);
+                }
             }
         }
         else
@@ -483,8 +492,15 @@ void Draw::renderChar(Vector position, char c, uint16_t color)
             uint8_t bitMasks[5] = {0x10, 0x08, 0x04, 0x02, 0x01};
             for (int col = 0; col < 5; col++)
             {
-                uint16_t pixelColor = (glyphRow & bitMasks[col]) ? color : textBackground;
-                this->drawPixel(Vector(position.x + col, position.y + row), pixelColor);
+
+                if ((glyphRow & bitMasks[col]) != 0)
+                {
+                    this->drawPixel(Vector(position.x + col, position.y + row), color);
+                }
+                else if (useBackgroundTextColor)
+                {
+                    this->drawPixel(Vector(position.x + col, position.y + row), textBackground);
+                }
             }
         }
     }

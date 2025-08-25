@@ -136,7 +136,7 @@ namespace Cube
                     color = TFT_RED; // cyan (shows up as white on VGM)
                 if (i > 7)
                     color = TFT_DARKGREEN; // shows up as red on VGM
-                tft->drawLine(Vector(ret->p0.x, ret->p0.y), Vector(ret->p1.x, ret->p1.y), color);
+                tft->drawLineCustom(Vector(ret->p0.x, ret->p0.y), Vector(ret->p1.x, ret->p1.y), color);
             }
         }
 

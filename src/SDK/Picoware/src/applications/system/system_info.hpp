@@ -7,15 +7,14 @@
 static TextBox *systemBox = nullptr;
 static String systemText()
 {
-    System systemInfo = System();
     String text;
     text += "System Info\n\n";
-    text += "Free Heap: " + std::to_string(systemInfo.freeHeap()) + " bytes\n";
-    text += "Used Heap: " + std::to_string(systemInfo.usedHeap()) + " bytes\n";
-    text += "Total Heap: " + std::to_string(systemInfo.totalHeap()) + " bytes\n\n";
-    text += "Free PSRAM: " + std::to_string(systemInfo.freeHeapPSRAM()) + " bytes\n";
-    text += "Used PSRAM: " + std::to_string(systemInfo.usedHeapPSRAM()) + " bytes\n";
-    text += "Total PSRAM: " + std::to_string(systemInfo.totalHeapPSRAM()) + " bytes\n";
+    text += "Free Heap: " + std::to_string(System::freeHeap()) + " bytes\n";
+    text += "Used Heap: " + std::to_string(System::usedHeap()) + " bytes\n";
+    text += "Total Heap: " + std::to_string(System::totalHeap()) + " bytes\n\n";
+    text += "Free PSRAM: " + std::to_string(System::freeHeapPSRAM()) + " bytes\n";
+    text += "Used PSRAM: " + std::to_string(System::usedHeapPSRAM()) + " bytes\n";
+    text += "Total PSRAM: " + std::to_string(System::totalHeapPSRAM()) + " bytes\n";
     return text;
 }
 

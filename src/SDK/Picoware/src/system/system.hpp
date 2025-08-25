@@ -50,8 +50,7 @@ public:
     /// Get the current free PSRAM size.
     static int freeHeapPSRAM() noexcept
     {
-        PSRAM psram;
-        return psram.getFreeHeapSize();
+        return PSRAM::getFreeHeapSize();
     }
 
     /// Get if the board is a Pico W.
@@ -87,8 +86,7 @@ public:
     /// Get the total PSRAM size.
     static int totalHeapPSRAM() noexcept
     {
-        PSRAM psram;
-        return psram.getTotalHeapSize();
+        return PSRAM::getTotalHeapSize();
     }
 
     /// Get the total used heap size.
@@ -101,7 +99,6 @@ public:
     /// Get the total used PSRAM size.
     static int usedHeapPSRAM() noexcept
     {
-        PSRAM psram;
-        return psram.getUsedHeapSize();
+        return PSRAM::getUsedHeapSize();
     }
 };

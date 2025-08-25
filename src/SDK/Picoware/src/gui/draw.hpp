@@ -19,6 +19,7 @@ public:
     uint16_t color565(uint8_t r, uint8_t g, uint8_t b);                                  // Converts convert three 8-bit RGB levels to RGB565
     void drawCircle(Vector position, int16_t r, uint16_t color);                         // Draws a circle on the display at the specified position with the specified radius and color.
     void drawLine(Vector position, Vector size, uint16_t color);                         // Draws a line on the display at the specified position and size with the specified color.
+    void drawLineCustom(Vector point1, Vector point2, uint16_t color);                   // Draws a line from point1 to point2 with the specified color.
     void drawPixel(Vector position, uint16_t color);                                     // Draws a pixel on the display at the specified position with the specified color.
     void drawRect(Vector position, Vector size, uint16_t color);                         // Draws a rectangle on the display at the specified position and size with the specified color.
     void fillCircle(Vector position, int16_t r, uint16_t color);                         // Fills a circle on the display at the specified position with the specified radius and color.

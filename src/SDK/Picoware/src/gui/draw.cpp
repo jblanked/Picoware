@@ -181,6 +181,46 @@ void Draw::drawLine(Vector position, Vector size, uint16_t color)
     }
 }
 
+void Draw::drawLineCustom(Vector point1, Vector point2, uint16_t color)
+{
+    int x1 = (int)point1.x;
+    int y1 = (int)point1.y;
+    int x2 = (int)point2.x;
+    int y2 = (int)point2.y;
+
+    // Bresenham's line algorithm
+    int dx = abs(x2 - x1);
+    int dy = abs(y2 - y1);
+    int sx = (x1 < x2) ? 1 : -1;
+    int sy = (y1 < y2) ? 1 : -1;
+    int err = dx - dy;
+
+    while (true)
+    {
+        // Draw pixel if within bounds
+        if (x1 >= 0 && x1 < this->size.x && y1 >= 0 && y1 < this->size.y)
+        {
+            this->drawPixel(Vector(x1, y1), color);
+        }
+
+        // Check if we've reached the end point
+        if (x1 == x2 && y1 == y2)
+            break;
+
+        int e2 = 2 * err;
+        if (e2 > -dy)
+        {
+            err -= dy;
+            x1 += sx;
+        }
+        if (e2 < dx)
+        {
+            err += dx;
+            y1 += sy;
+        }
+    }
+}
+
 void Draw::drawPixel(Vector position, uint16_t color)
 {
     uint8_t colorIndex = color332(color);

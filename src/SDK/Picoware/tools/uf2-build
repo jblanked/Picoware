@@ -1,0 +1,140 @@
+#!/bin/bash
+
+# UF2 app build script for Picoware
+# Builds standalone UF2 files that can be loaded by the UF2Loader
+# Uses the user's actual source file and integrates with Picoware SDK
+
+set -e
+
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 <app_source.cpp>"
+    echo "Example: $0 test_apps/hello_world_uf2.cpp"
+    exit 1
+fi
+
+SOURCE_FILE="$1"
+APP_NAME=$(basename "$SOURCE_FILE" .cpp)
+
+echo "Building UF2 app: $APP_NAME from $SOURCE_FILE"
+
+# Check if source file exists
+if [ ! -f "$SOURCE_FILE" ]; then
+    echo "Error: Source file '$SOURCE_FILE' not found"
+    exit 1
+fi
+
+# Use the main project's build directory settings
+MAIN_BUILD_DIR="build"
+
+# Check if main project is built
+if [ ! -f "$MAIN_BUILD_DIR/CMakeCache.txt" ]; then
+    echo "Error: Main project not built. Please run 'cmake --build build' first"
+    exit 1
+fi
+
+# Create temporary build directory for the UF2 app
+TEMP_BUILD_DIR="build/uf2_${APP_NAME}"
+mkdir -p "$TEMP_BUILD_DIR"
+
+cd "$TEMP_BUILD_DIR"
+
+# Get build type from main project
+MAIN_BUILD_TYPE=$(grep "CMAKE_BUILD_TYPE" "../CMakeCache.txt" | cut -d'=' -f2 || echo "Debug")
+
+echo "Using build type: $MAIN_BUILD_TYPE"
+
+# Create CMakeLists.txt for the UF2 app that integrates with Picoware
+cat > CMakeLists.txt << EOF
+cmake_minimum_required(VERSION 3.13)
+
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# Use same board as main project
+set(PICO_BOARD pico2_w CACHE STRING "Board type")
+
+# Include Pico SDK
+include(../../pico_sdk_import.cmake)
+
+project(${APP_NAME})
+
+# Initialize Pico SDK
+pico_sdk_init()
+
+# Create executable using user's actual source file
+add_executable(\${PROJECT_NAME}
+    ../../${SOURCE_FILE}
+)
+
+# Include headers with networking config support
+target_include_directories(\${PROJECT_NAME} PRIVATE
+    \${CMAKE_CURRENT_SOURCE_DIR}/../..
+    \${CMAKE_CURRENT_SOURCE_DIR}/../../src
+    \${CMAKE_CURRENT_SOURCE_DIR}/../../tools
+)
+
+# Link with basic libraries plus networking support
+target_link_libraries(\${PROJECT_NAME}
+    pico_stdlib
+    pico_printf
+    pico_time
+    hardware_gpio
+    hardware_timer
+    hardware_watchdog
+)
+
+# Add WiFi support if available
+if (PICO_CYW43_SUPPORTED)
+    target_link_libraries(\${PROJECT_NAME}
+        pico_cyw43_arch_lwip_threadsafe_background 
+        pico_lwip_core
+        pico_lwip_core4
+        pico_lwip_core6
+        pico_lwip_mbedtls
+        pico_mbedtls
+    )
+    target_include_directories(\${PROJECT_NAME} PRIVATE
+        \${CMAKE_CURRENT_SOURCE_DIR}/../../tools
+    )
+endif()
+
+# Enable USB stdio for debugging
+pico_enable_stdio_usb(\${PROJECT_NAME} 1)
+pico_enable_stdio_uart(\${PROJECT_NAME} 0)
+
+# Create UF2 output
+pico_add_extra_outputs(\${PROJECT_NAME})
+EOF
+
+echo "Configuring CMake for UF2 app..."
+cmake -DCMAKE_BUILD_TYPE=$MAIN_BUILD_TYPE .
+
+echo "Building UF2 app..."
+make -j$(nproc 2>/dev/null || echo 4)
+
+# Check if UF2 was created
+UF2_FILE="${APP_NAME}.uf2"
+if [ -f "$UF2_FILE" ]; then
+    echo "Successfully built UF2 app: $UF2_FILE"
+    echo "Size: $(stat -f%z "$UF2_FILE" 2>/dev/null || stat -c%s "$UF2_FILE" 2>/dev/null || echo "unknown") bytes"
+    
+    # Copy to test_apps directory
+    cp "$UF2_FILE" "../../test_apps/${APP_NAME}.uf2"
+    echo "Copied to: test_apps/${APP_NAME}.uf2"
+    
+    # Show file info
+    echo "UF2 app ready for loading!"
+    echo "To test: Copy ${APP_NAME}.uf2 to the device via USB mass storage"
+else
+    echo "Error: UF2 file not generated"
+    cd ../..
+    rm -rf "$TEMP_BUILD_DIR"
+    exit 1
+fi
+
+cd ../..
+
+echo "UF2 app build completed successfully!"
+echo "Built from source: $SOURCE_FILE"
+echo "Output: test_apps/${APP_NAME}.uf2"

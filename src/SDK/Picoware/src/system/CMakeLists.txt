@@ -1,6 +1,10 @@
 add_subdirectory(drivers)
 
 file(GLOB SYSTEM_SOURCES "*.c" "*.cpp")
+
+# Add UF2 loader source files explicitly
+list(APPEND SYSTEM_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/uf2_loader.cpp")
+
 add_library(system ${SYSTEM_SOURCES})
 
 target_link_libraries(system

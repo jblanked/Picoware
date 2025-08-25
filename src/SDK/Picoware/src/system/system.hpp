@@ -36,6 +36,42 @@ public:
         restore_interrupts(ints);
     }
 
+    /// Get the name of the Raspberry Pi Pico.
+    static const char *getBoardName() noexcept
+    {
+#ifdef CYW43_WL_GPIO_LED_PIN
+#ifdef PICO_RP2040
+        return "Raspberry Pi Pico W";
+#else
+        return "Raspberry Pi Pico 2W";
+#endif
+#else
+#ifdef PICO_RP2040
+        return "Raspberry Pi Pico";
+#else
+        return "Raspberry Pi Pico 2";
+#endif
+#endif
+    }
+
+    /// Get the name of the device.
+    static const char *getDeviceName() noexcept
+    {
+#ifdef CYW43_WL_GPIO_LED_PIN
+#ifdef PICO_RP2040
+        return "PicoCalc - Pico W";
+#else
+        return "PicoCalc - Pico 2W";
+#endif
+#else
+#ifdef PICO_RP2040
+        return "PicoCalc - Pico";
+#else
+        return "PicoCalc - Pico 2";
+#endif
+#endif
+    }
+
     /// Get the current free heap size.
     static int freeHeap() noexcept
     {

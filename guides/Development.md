@@ -13,7 +13,7 @@ To use the Arduino IDE library:
 2. Download this repository as a .zip file (available here: https://github.com/jblanked/Picoware/archive/refs/heads/main.zip).
 3. Within the `src/ArduinoIDE` folder, right-click the `Picoware` folder and select `Copy`.
 4. Navigate to your Arduino libraries folder (usually at `../../Documents/Arduino/libraries` or `../Arduino/libraries`) and paste the folder there.
-5. Open the Arduino IDE you downloaded earlier, go to Preferences/Settings, and add the following URL to the `Additional Boards Manager URLs` field: `https://github.com/earlephilhower/arduino-pico/releases/download/4.6.0/package_rp2040_index.json`. Click `OK`.
+5. Open the Arduino IDE you downloaded earlier, go to Preferences/Settings, and add the following URL to the `Additional Boards Manager URLs` field: `https://github.com/earlephilhower/arduino-pico/releases/download/4.7.1/package_rp2040_index.json`. Click `OK`.
 6. In `Boards Manager`, search for `rp2040` and install the `Raspberry Pi Pico/RP2040/RP2350` package.
 7. In `Library Manager`:
 - Search for `TFT_eSPI` and install the `TFT_eSPI` library by `Bodmer`.

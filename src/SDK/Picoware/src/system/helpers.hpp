@@ -5,6 +5,7 @@
 #include <cmath>
 #include <ctime>
 #include <algorithm>
+#include <memory>
 #include "pico/time.h"
 
 #define constrain(x, min, max) (x < min ? min : (x > max ? max : x))

@@ -13,7 +13,7 @@ Loading::Loading(Draw *draw, uint16_t spinnerColor, uint16_t backgroundColor)
     timeStart = 0;
     animating = false;
 }
-void Loading::animate()
+void Loading::animate(bool swap)
 {
     if (!animating)
     {
@@ -25,7 +25,10 @@ void Loading::animate()
     display->text(Vector(130, 20), currentText, spinnerColor);
     timeElapsed = millis() - timeStart;
     spinnerPosition = (spinnerPosition + 10) % 360; // Rotate by 10 degrees each frame
-    display->swap();
+    if (swap)
+    {
+        display->swap();
+    }
 }
 
 void Loading::clear()

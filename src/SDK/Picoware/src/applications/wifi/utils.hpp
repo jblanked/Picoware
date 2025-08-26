@@ -2,9 +2,9 @@
 #include "../../../system/drivers/jsmn/jsmn.h"
 #include "../../../system/view_manager.hpp"
 
-#define WIFI_SETTINGS_PATH "wifi_settings.json"
-#define WIFI_SSID_PATH "ssid.json"
-#define WIFI_PASSWORD_PATH "password.json"
+#define WIFI_SETTINGS_PATH "picoware/wifi/settings.json"
+#define WIFI_SSID_PATH "picoware/wifi/ssid.json"
+#define WIFI_PASSWORD_PATH "picoware/wifi/password.json"
 
 inline std::string wifiUtilsLoadWiFiSSIDFromFlash(ViewManager *viewManager)
 {

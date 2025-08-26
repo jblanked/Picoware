@@ -11,6 +11,21 @@ Storage::~Storage()
     // nothing to do
 }
 
+bool Storage::createDirectory(const char *dirPath)
+{
+    fat32_file_t dir;
+    fat32_entry_t entry;
+    if (fat32_dir_read(&dir, &entry) != FAT32_OK)
+    {
+        if (fat32_dir_create(&dir, dirPath) != FAT32_OK)
+        {
+            return false;
+        }
+    }
+    fat32_close(&dir);
+    return true;
+}
+
 uint32_t Storage::getFileSize(const char *filePath)
 {
     fat32_file_t file;

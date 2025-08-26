@@ -6,6 +6,7 @@ class Storage
 public:
     Storage();
     ~Storage();
+    bool createDirectory(const char *dirPath);
     bool read(const char *filePath, void *buffer, size_t size);
     bool read(const char *filePath, void *buffer, size_t size, size_t *bytes_read);
     bool remove(const char *filePath);

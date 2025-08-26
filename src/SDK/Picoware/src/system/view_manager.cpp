@@ -222,11 +222,6 @@ void ViewManager::run()
 {
     if (this->inputManager != nullptr)
     {
-        if (this->inputManager->getLastButton() == BUTTON_BACK)
-        {
-            this->inputManager->reset();
-            this->back();
-        }
         this->inputManager->run();
     }
     if (delayTicks > 0)

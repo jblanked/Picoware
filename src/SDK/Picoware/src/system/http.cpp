@@ -18,6 +18,7 @@
 #endif
 #include <cstring>
 #include <cstdio>
+#include <map>
 
 struct SimpleHTTPRequest
 {
@@ -266,7 +267,8 @@ static void http_client_dns_found(const char *hostname, const ip_addr_t *ipaddr,
 
 static bool http_client_request(const std::string &hostname, const std::string &url,
                                 const std::string &method, const std::string &data,
-                                unsigned short port, SimpleHTTPRequest *req)
+                                unsigned short port, SimpleHTTPRequest *req,
+                                const std::map<std::string, std::string> &headers = {})
 {
     if (current_http_state != nullptr)
     {
@@ -316,13 +318,38 @@ static bool http_client_request(const std::string &hostname, const std::string &
     std::string request = method + " " + url + " HTTP/1.1\r\n";
     request += "Host: " + hostname + "\r\n";
     request += "Connection: close\r\n";
-    request += "User-Agent: Pico/1.0\r\n";
-    request += "Accept: application/json, text/plain, */*\r\n";
+
+    // Set default headers if not overridden by custom headers
+    bool has_user_agent = headers.find("User-Agent") != headers.end();
+    bool has_accept = headers.find("Accept") != headers.end();
+    bool has_content_type = headers.find("Content-Type") != headers.end();
+    bool has_content_length = headers.find("Content-Length") != headers.end();
+
+    if (!has_user_agent)
+    {
+        request += "User-Agent: Pico/1.0\r\n";
+    }
+    if (!has_accept)
+    {
+        request += "Accept: application/json, text/plain, */*\r\n";
+    }
+
+    // Add custom headers
+    for (const auto &header : headers)
+    {
+        request += header.first + ": " + header.second + "\r\n";
+    }
 
     if (!data.empty())
     {
-        request += "Content-Type: application/x-www-form-urlencoded\r\n";
-        request += "Content-Length: " + std::to_string(data.length()) + "\r\n";
+        if (!has_content_type)
+        {
+            request += "Content-Type: application/x-www-form-urlencoded\r\n";
+        }
+        if (!has_content_length)
+        {
+            request += "Content-Length: " + std::to_string(data.length()) + "\r\n";
+        }
     }
 
     request += "\r\n";
@@ -382,14 +409,14 @@ void HTTP::clearAsyncResponse()
     state = IDLE;
 }
 
-std::string HTTP::del(const std::string &url)
+std::string HTTP::del(const std::string &url, const std::map<std::string, std::string> &headers)
 {
-    return request("DELETE", url);
+    return request("DELETE", url, headers);
 }
 
-bool HTTP::delAsync(const std::string &url)
+bool HTTP::delAsync(const std::string &url, const std::map<std::string, std::string> &headers)
 {
-    return requestAsync("DELETE", url);
+    return requestAsync("DELETE", url, headers);
 }
 
 std::string HTTP::extractHttpBody(const std::string &httpResponse)
@@ -483,14 +510,14 @@ std::string HTTP::extractHttpBody(const std::string &httpResponse)
     return body;
 }
 
-bool HTTP::getAsync(const std::string &url)
+bool HTTP::getAsync(const std::string &url, const std::map<std::string, std::string> &headers)
 {
-    return requestAsync("GET", url);
+    return requestAsync("GET", url, headers);
 }
 
-std::string HTTP::get(const std::string &url)
+std::string HTTP::get(const std::string &url, const std::map<std::string, std::string> &headers)
 {
-    return request("GET", url);
+    return request("GET", url, headers);
 }
 
 std::string HTTP::getAsyncResponse() const
@@ -528,7 +555,7 @@ bool HTTP::isRequestInProgress() const
     return async_request_in_progress;
 }
 
-std::string HTTP::internalRequest(const std::string &method, const std::string &url, const std::string &data, bool async)
+std::string HTTP::internalRequest(const std::string &method, const std::string &url, bool async, const std::map<std::string, std::string> &headers, const std::string &data)
 {
 #ifdef CYW43_WL_GPIO_LED_PIN
     std::string hostname, path;
@@ -551,7 +578,7 @@ std::string HTTP::internalRequest(const std::string &method, const std::string &
     req.result = 0;
     req.response_data = "";
 
-    if (!http_client_request(hostname, path, method, data, port, &req))
+    if (!http_client_request(hostname, path, method, data, port, &req, headers))
     {
         state = ISSUE;
         return "";
@@ -667,34 +694,34 @@ bool HTTP::parseUrl(const std::string &url, std::string &hostname, std::string &
     return true;
 }
 
-std::string HTTP::post(const std::string &url, const std::string &data)
+std::string HTTP::post(const std::string &url, const std::map<std::string, std::string> &headers, const std::string &data)
 {
-    return request("POST", url, data);
+    return request("POST", url, headers, data);
 }
 
-std::string HTTP::put(const std::string &url, const std::string &data)
+std::string HTTP::put(const std::string &url, const std::map<std::string, std::string> &headers, const std::string &data)
 {
-    return request("PUT", url, data);
+    return request("PUT", url, headers, data);
 }
 
-bool HTTP::postAsync(const std::string &url, const std::string &data)
+bool HTTP::postAsync(const std::string &url, const std::map<std::string, std::string> &headers, const std::string &data)
 {
-    return requestAsync("POST", url, data);
+    return requestAsync("POST", url, headers, data);
 }
 
-bool HTTP::putAsync(const std::string &url, const std::string &data)
+bool HTTP::putAsync(const std::string &url, const std::map<std::string, std::string> &headers, const std::string &data)
 {
-    return requestAsync("PUT", url, data);
+    return requestAsync("PUT", url, headers, data);
 }
 
-std::string HTTP::request(const std::string &method, const std::string &url, const std::string &data)
+std::string HTTP::request(const std::string &method, const std::string &url, const std::map<std::string, std::string> &headers, const std::string &data)
 {
-    return internalRequest(method, url, data, false);
+    return internalRequest(method, url, false, headers, data);
 }
 
-bool HTTP::requestAsync(const std::string &method, const std::string &url, const std::string &data)
+bool HTTP::requestAsync(const std::string &method, const std::string &url, const std::map<std::string, std::string> &headers, const std::string &data)
 {
-    internalRequest(method, url, data, true);
+    internalRequest(method, url, true, headers, data);
     return state != ISSUE;
 }
 

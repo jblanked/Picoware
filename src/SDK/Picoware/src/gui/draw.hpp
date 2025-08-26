@@ -24,6 +24,7 @@ public:
     void drawRect(Vector position, Vector size, uint16_t color);                         // Draws a rectangle on the display at the specified position and size with the specified color.
     void fillCircle(Vector position, int16_t r, uint16_t color);                         // Fills a circle on the display at the specified position with the specified radius and color.
     void fillRect(Vector position, Vector size, uint16_t color);                         // Fills a rectangle on the display at the specified position and size with the specified color.
+    void fillRoundRect(Vector position, Vector size, uint16_t color, int16_t radius);    // Fills a rounded rectangle on the display at the specified position and size with the specified color and radius.
     void fillScreen(uint16_t color);                                                     // Fills the entire screen with the specified color.
     Vector getCursor();                                                                  // Returns the current cursor position.
     Vector getFontSize();                                                                // Returns the width of the current font.

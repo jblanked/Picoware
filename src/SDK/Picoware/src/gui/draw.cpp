@@ -341,6 +341,94 @@ void Draw::fillRect(Vector position, Vector size, uint16_t color)
     }
 }
 
+void Draw::fillRoundRect(Vector position, Vector size, uint16_t color, int16_t radius)
+{
+    if (size.x <= 0 || size.y <= 0 || radius <= 0)
+        return;
+
+    // Clip to screen bounds
+    int x = (int)position.x;
+    int y = (int)position.y;
+    int width = (int)size.x;
+    int height = (int)size.y;
+
+    // Adjust for left and top boundaries
+    if (x < 0)
+    {
+        width += x;
+        x = 0;
+    }
+    if (y < 0)
+    {
+        height += y;
+        y = 0;
+    }
+
+    // Adjust for right and bottom boundaries
+    if (x + width > this->size.x)
+    {
+        width = this->size.x - x;
+    }
+    if (y + height > this->size.y)
+    {
+        height = this->size.y - y;
+    }
+
+    // Only draw if there's something to draw
+    if (width > 0 && height > 0)
+    {
+        // Calculate effective radius considering clipping
+        int effective_radius = (radius < width / 2) ? radius : width / 2;
+        effective_radius = (effective_radius < height / 2) ? effective_radius : height / 2;
+
+        for (int py = y; py < y + height; py++)
+        {
+            for (int px = x; px < x + width; px++)
+            {
+                // Check if the pixel is within the rounded corners
+                bool in_corner = false;
+                if (px < x + effective_radius && py < y + effective_radius)
+                {
+                    // Top-left corner
+                    int dx = px - (x + effective_radius);
+                    int dy = py - (y + effective_radius);
+                    if (dx * dx + dy * dy > effective_radius * effective_radius)
+                        in_corner = true;
+                }
+                else if (px < x + effective_radius && py >= y + height - effective_radius)
+                {
+                    // Bottom-left corner
+                    int dx = px - (x + effective_radius);
+                    int dy = py - (y + height - effective_radius);
+                    if (dx * dx + dy * dy > effective_radius * effective_radius)
+                        in_corner = true;
+                }
+                else if (px >= x + width - effective_radius && py < y + effective_radius)
+                {
+                    // Top-right corner
+                    int dx = px - (x + width - effective_radius);
+                    int dy = py - (y + effective_radius);
+                    if (dx * dx + dy * dy > effective_radius * effective_radius)
+                        in_corner = true;
+                }
+                else if (px >= x + width - effective_radius && py >= y + height - effective_radius)
+                {
+                    // Bottom-right corner
+                    int dx = px - (x + width - effective_radius);
+                    int dy = py - (y + height - effective_radius);
+                    if (dx * dx + dy * dy > effective_radius * effective_radius)
+                        in_corner = true;
+                }
+
+                if (!in_corner)
+                {
+                    this->drawPixel(Vector(px, py), color);
+                }
+            }
+        }
+    }
+}
+
 void Draw::fillScreen(uint16_t color)
 {
     this->fillRect(Vector(0, 0), Vector(this->size.x, this->size.y), color);

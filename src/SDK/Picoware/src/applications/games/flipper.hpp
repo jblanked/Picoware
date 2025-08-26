@@ -74,6 +74,7 @@ void canvas_draw_dot(Canvas *canvas, int32_t x, int32_t y, uint16_t color = TFT_
 void canvas_draw_frame(Canvas *canvas, int32_t x, int32_t y, int32_t w, int32_t h, uint16_t color = TFT_BLACK);
 void canvas_draw_icon(Canvas *canvas, int32_t x, int32_t y, const uint8_t *icon, int32_t w, int32_t h, uint16_t color = TFT_BLACK);
 void canvas_draw_line(Canvas *canvas, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint16_t color = TFT_BLACK);
+void canvas_draw_rbox(Canvas *canvas, int32_t x, int32_t y, size_t width, size_t height, size_t radius, uint16_t color = TFT_BLACK);
 void canvas_draw_rframe(Canvas *canvas, int32_t x, int32_t y, size_t width, size_t height, size_t radius, uint16_t color = TFT_BLACK);
 void canvas_draw_str(Canvas *canvas, int32_t x, int32_t y, const char *str, uint16_t color = TFT_BLACK);
 void canvas_draw_str_aligned(Canvas *canvas, int32_t x, int32_t y, int32_t align_x, int32_t align_y, const char *str, uint16_t color = TFT_BLACK);

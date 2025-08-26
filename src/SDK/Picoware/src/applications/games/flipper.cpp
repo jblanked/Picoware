@@ -21,7 +21,7 @@ size_t canvas_current_font_height(const Canvas *canvas)
 
 void canvas_draw_box(Canvas *canvas, int32_t x, int32_t y, size_t width, size_t height, uint16_t color)
 {
-    canvas->drawRect(Vector(x, y), Vector(width, height), color);
+    canvas->fillRect(Vector(x, y), Vector(width, height), color);
 }
 
 void canvas_draw_dot(Canvas *canvas, int32_t x, int32_t y, uint16_t color)
@@ -41,7 +41,12 @@ void canvas_draw_icon(Canvas *canvas, int32_t x, int32_t y, const uint8_t *icon,
 
 void canvas_draw_line(Canvas *canvas, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint16_t color)
 {
-    canvas->drawLine(Vector(x1, y1), Vector(x2, y2), color);
+    canvas->drawLineCustom(Vector(x1, y1), Vector(x2, y2), color);
+}
+
+void canvas_draw_rbox(Canvas *canvas, int32_t x, int32_t y, size_t width, size_t height, size_t radius, uint16_t color)
+{
+    canvas->fillRoundRect(Vector(x, y), Vector(width, height), color, radius);
 }
 
 void canvas_draw_rframe(Canvas *canvas, int32_t x, int32_t y, size_t width, size_t height, size_t radius, uint16_t color)
@@ -73,7 +78,18 @@ void canvas_set_bitmap_mode(Canvas *canvas, bool alpha)
 
 void canvas_set_color(Canvas *canvas, FlipperColor color)
 {
-    // nothing to do
+    switch (color)
+    {
+    case ColorBlack:
+        canvas->setForegroundTextColor(TFT_BLACK);
+        break;
+    case ColorWhite:
+        canvas->setForegroundTextColor(TFT_WHITE);
+        break;
+    case ColorXOR:
+        // pass for now
+        break;
+    };
 }
 
 void canvas_set_font(Canvas *canvas, FlipperFont font)

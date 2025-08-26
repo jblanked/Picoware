@@ -169,12 +169,8 @@ static void wifiConnectRun(ViewManager *viewManager)
         break;
 
     case BUTTON_UP:
-        // Disconnect if connected
-        if (wifiUtil.isConnected())
-        {
-            wifiUtil.disconnect();
-            statusMessage = "Disconnected";
-        }
+        wifiUtil.disconnect();
+        statusMessage = "Disconnected";
         inputManager->reset();
         break;
 

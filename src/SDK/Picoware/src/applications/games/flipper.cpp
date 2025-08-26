@@ -78,7 +78,25 @@ void canvas_set_color(Canvas *canvas, FlipperColor color)
 
 void canvas_set_font(Canvas *canvas, FlipperFont font)
 {
-    // nothing to do
+    switch (font)
+    {
+    case FontPrimary:
+    case FontKeyboard:
+        // default font
+        canvas->setFont(FONT_SIZE_MEDIUM);
+        break;
+    case FontSecondary:
+        canvas->setFont(FONT_SIZE_SMALL);
+        break;
+    case FontBigNumbers:
+        canvas->setFont(FONT_SIZE_LARGE);
+        break;
+    }
+}
+
+void canvas_set_font_custom(Canvas *canvas, uint8_t font_size)
+{
+    canvas->setFont(font_size);
 }
 
 uint16_t canvas_string_width(Canvas *canvas, const char *str)

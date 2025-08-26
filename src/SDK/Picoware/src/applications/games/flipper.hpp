@@ -35,6 +35,7 @@ typedef enum
 
 typedef enum
 {
+    InputKeyMAX = -1,
     InputKeyRight = BUTTON_RIGHT,
     InputKeyLeft = BUTTON_LEFT,
     InputKeyUp = BUTTON_UP,
@@ -54,6 +55,16 @@ typedef enum
 #define FLIPPER_SCREEN_SIZE Vector(FLIPPER_SCREEN_WIDTH, FLIPPER_SCREEN_HEIGHT)
 #endif
 
+#ifndef FONT_SIZE_SMALL
+#define FONT_SIZE_SMALL 2
+#endif
+#ifndef FONT_SIZE_MEDIUM
+#define FONT_SIZE_MEDIUM 1
+#endif
+#ifndef FONT_SIZE_LARGE
+#define FONT_SIZE_LARGE 0
+#endif
+
 typedef Draw Canvas;
 
 void canvas_clear(Canvas *canvas, uint16_t color = TFT_WHITE);
@@ -70,5 +81,6 @@ size_t canvas_height(Canvas *canvas);
 void canvas_set_bitmap_mode(Canvas *canvas, bool alpha);
 void canvas_set_color(Canvas *canvas, FlipperColor color);
 void canvas_set_font(Canvas *canvas, FlipperFont font);
+void canvas_set_font_custom(Canvas *canvas, uint8_t font_size);
 uint16_t canvas_string_width(Canvas *canvas, const char *str);
 size_t canvas_width(Canvas *canvas);

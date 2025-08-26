@@ -11,4 +11,5 @@ target_link_libraries(gui
         hardware_pio    
         hardware_clocks
         hardware_dma
+        system
 )

@@ -31,6 +31,7 @@ public:
     Vector getSize() const noexcept { return size; }                                     // Returns the size of the display.
     uint16_t getBackgroundTextColor() const noexcept { return textBackground; }          // Returns the background color for text rendering.
     bool getBackgroundTextStatus() const noexcept { return useBackgroundTextColor; }     // Returns the status of background text rendering.
+    uint16_t getForegroundTextColor() const noexcept { return textForeground; }          // Returns the foreground color for text rendering.
     void image(                                                                          // Draws a bitmap on the display at the specified position.
         Vector position,                                                                 // position
         const uint8_t *bitmap,                                                           // data
@@ -54,6 +55,7 @@ public:
         uint8_t transparentColor = 0xFF);                                                // transparent color
     void setBackgroundTextColor(uint16_t color) { this->textBackground = color; }        // Sets the background color for text rendering.
     void setBackgroundTextStatus(bool status) { this->useBackgroundTextColor = status; } // Sets the background text status.
+    void setForegroundTextColor(uint16_t color) { this->textForeground = color; }        // Sets the foreground color for text rendering.
     void setCursor(Vector position);                                                     // Sets the cursor position for text rendering.
     void setFont(int font = 1);                                                          // Sets the font for text rendering.
     void setPaletteColor(uint8_t index, uint16_t color);                                 // Set a color in the 8-bit palette

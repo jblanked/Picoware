@@ -86,7 +86,7 @@ Keyboard::Keyboard(
     cursorRow = 0;
     cursorCol = 0;
     lastInputTime = 0;
-    inputDelay = 200; // milliseconds
+    inputDelay = 10; // milliseconds
 }
 
 Keyboard::~Keyboard()

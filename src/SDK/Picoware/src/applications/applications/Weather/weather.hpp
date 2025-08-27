@@ -181,7 +181,7 @@ static void weatherRun(ViewManager *viewManager)
         weatherRequestInProgress = true;
 
         std::string weatherUrl = "https://wttr.in/@" + ipAddress + "?format=%f,%t,%h";
-
+        weatherHttp->getAsync(weatherUrl);
         draw->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());
         draw->text(Vector(5, 5), "Getting weather data...");
         draw->swap();

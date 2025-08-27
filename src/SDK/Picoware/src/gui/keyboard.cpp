@@ -1,5 +1,6 @@
 #include "../gui/keyboard.hpp"
 #include "pico/time.h"
+#include <vector>
 #define millis() (to_ms_since_boot(get_absolute_time()))
 
 // Define the keyboard layout structure
@@ -12,15 +13,15 @@ struct KeyLayout
 
 // Define keyboard rows
 static const KeyLayout row1[] = {
-    {'1', '!', 1}, {'2', '@', 1}, {'3', '#', 1}, {'4', '$', 1}, {'5', '%', 1}, {'6', '^', 1}, {'7', '&', 1}, {'8', '*', 1}, {'9', '(', 1}, {'0', ')', 1}, {'-', '_', 1}, {'=', '+', 1}, {'\b', '\b', 2} // Backspace (special)
+    {'1', '!', 1}, {'2', '@', 1}, {'3', '#', 1}, {'4', '$', 1}, {'5', '%', 1}, {'6', '^', 1}, {'7', '&', 1}, {'8', '*', 1}, {'9', '(', 1}, {'0', ')', 1}, {'-', '_', 1}, {'=', '+', 1}, {'\b', '\b', 1} // Backspace (special)
 };
 
 static const KeyLayout row2[] = {
-    {'q', 'Q', 1}, {'w', 'W', 1}, {'e', 'E', 1}, {'r', 'R', 1}, {'t', 'T', 1}, {'y', 'Y', 1}, {'u', 'U', 1}, {'i', 'I', 1}, {'o', 'O', 1}, {'p', 'P', 1}, {'[', '{', 1}, {']', '}', 1}, {'\\', '|', 1}, {'?', '?', 1} // ? is a special function key
+    {'q', 'Q', 1}, {'w', 'W', 1}, {'e', 'E', 1}, {'r', 'R', 1}, {'t', 'T', 1}, {'y', 'Y', 1}, {'u', 'U', 1}, {'i', 'I', 1}, {'o', 'O', 1}, {'p', 'P', 1}, {'[', '{', 1}, {']', '}', 1}, {'?', '?', 1} // ? is a special function key (CLR)
 };
 
 static const KeyLayout row3[] = {
-    {'\x01', '\x01', 2}, // Caps Lock (special)
+    {'\x01', '\x01', 1}, // Caps Lock (special)
     {'a', 'A', 1},
     {'s', 'S', 1},
     {'d', 'D', 1},
@@ -32,11 +33,11 @@ static const KeyLayout row3[] = {
     {'l', 'L', 1},
     {';', ':', 1},
     {'\'', '"', 1},
-    {'\r', '\r', 2} // Enter (special)
+    {'\r', '\r', 1} // Enter (special)
 };
 
 static const KeyLayout row4[] = {
-    {'\x02', '\x02', 3}, // Shift (special)
+    {'\x02', '\x02', 1}, // Shift (special)
     {'z', 'Z', 1},
     {'x', 'X', 1},
     {'c', 'C', 1},
@@ -47,23 +48,24 @@ static const KeyLayout row4[] = {
     {',', '<', 1},
     {'.', '>', 1},
     {'/', '?', 1},
-    {'\x02', '\x02', 2} // Right Shift (special)
+    {'\\', '|', 1},
+    {'\x02', '\x02', 1} // Right Shift (special)
 };
 
 static const KeyLayout row5[] = {
-    {' ', ' ', 8},      // Space bar
-    {'\x03', '\x03', 4} // Save (special)
+    {' ', ' ', 6},      // Space bar
+    {'\x03', '\x03', 2} // Save (special)
 };
 
 static const KeyLayout *rows[] = {row1, row2, row3, row4, row5};
-static const uint8_t rowSizes[] = {13, 14, 13, 12, 2};
+static const uint8_t rowSizes[] = {13, 13, 13, 13, 2};
 static const uint8_t numRows = 5;
 
 // Key dimensions
-static const uint8_t keyWidth = 20;
-static const uint8_t keyHeight = 25;
-static const uint8_t keySpacing = 2;
-static const uint8_t textboxHeight = 30;
+static const uint8_t keyWidth = 22;
+static const uint8_t keyHeight = 35;
+static const uint8_t keySpacing = 1;
+static const uint8_t textboxHeight = 45;
 
 Keyboard::Keyboard(
     Draw *draw,
@@ -99,13 +101,23 @@ void Keyboard::drawKey(uint8_t row, uint8_t col, bool isSelected)
 
     const KeyLayout &key = rows[row][col];
 
+    // Calculate total row width for centering
+    uint16_t totalRowWidth = 0;
+    for (uint8_t i = 0; i < rowSizes[row]; i++)
+    {
+        totalRowWidth += rows[row][i].width * keyWidth + (i > 0 ? keySpacing : 0);
+    }
+
+    // Calculate starting X position for centering
+    uint16_t startX = (320 - totalRowWidth) / 2;
+
     // Calculate key position
-    uint16_t xPos = 5; // Start margin
+    uint16_t xPos = startX;
     for (uint8_t i = 0; i < col; i++)
     {
         xPos += rows[row][i].width * keyWidth + keySpacing;
     }
-    uint16_t yPos = textboxHeight + 5 + row * (keyHeight + keySpacing);
+    uint16_t yPos = textboxHeight + 10 + row * (keyHeight + keySpacing);
 
     // Calculate key size
     uint16_t width = key.width * keyWidth + (key.width - 1) * keySpacing;
@@ -155,7 +167,7 @@ void Keyboard::drawKey(uint8_t row, uint8_t col, bool isSelected)
         keyLabel = "SAVE";
         break;
     case '?':
-        if (row == 1 && col == 13)
+        if (row == 1 && col == 12)
         {
             keyLabel = "CLR"; // Clear function
         }
@@ -175,7 +187,7 @@ void Keyboard::drawKey(uint8_t row, uint8_t col, bool isSelected)
 void Keyboard::drawKeyboard()
 {
     // Clear keyboard area
-    uint16_t keyboardHeight = numRows * (keyHeight + keySpacing) + 10;
+    uint16_t keyboardHeight = numRows * (keyHeight + keySpacing) + 20;
     display->fillRect(Vector(0, textboxHeight),
                       Vector(display->getSize().x, keyboardHeight), backgroundColor);
 
@@ -198,22 +210,54 @@ void Keyboard::drawTextbox()
     // Draw textbox border
     display->drawRect(Vector(2, 2), Vector(display->getSize().x - 4, textboxHeight - 4), textColor);
 
-    // Draw response text
+    // Draw response text with word wrapping
     std::string displayText = response;
-    uint16_t maxChars = (display->getSize().x - 10) / 6; // Approximate character width
+    uint16_t maxCharsPerLine = (display->getSize().x - 10) / 6; // Approximate character width
+    uint16_t maxLines = (textboxHeight - 10) / 10;              // Approximate line height
 
-    if (displayText.length() > maxChars)
+    // Split text into lines if needed
+    std::vector<std::string> lines;
+    std::string currentLine = "";
+
+    for (size_t i = 0; i < displayText.length(); i++)
     {
-        displayText = displayText.substr(displayText.length() - maxChars);
+        if (displayText[i] == '\n')
+        {
+            lines.push_back(currentLine);
+            currentLine = "";
+        }
+        else if (currentLine.length() >= maxCharsPerLine)
+        {
+            lines.push_back(currentLine);
+            currentLine = displayText[i];
+        }
+        else
+        {
+            currentLine += displayText[i];
+        }
+    }
+    if (!currentLine.empty())
+    {
+        lines.push_back(currentLine);
     }
 
-    display->text(Vector(5, 8), displayText.c_str(), textColor, 1);
+    // Show only the last few lines that fit
+    size_t startLine = lines.size() > maxLines ? lines.size() - maxLines : 0;
+
+    for (size_t i = startLine; i < lines.size(); i++)
+    {
+        uint16_t yPos = 8 + (i - startLine) * 10;
+        display->text(Vector(5, yPos), lines[i].c_str(), textColor, 1);
+    }
 
     // Draw cursor
-    uint16_t cursorX = 5 + displayText.length() * 6;
+    std::string lastLine = lines.empty() ? "" : lines.back();
+    uint16_t cursorX = 5 + lastLine.length() * 6;
+    uint16_t cursorY = 8 + (lines.size() > 0 ? (std::min(lines.size(), (size_t)maxLines) - 1) * 10 : 0);
+
     if (millis() % 1000 < 500)
     { // Blinking cursor
-        display->text(Vector(cursorX, 8), "_", textColor, 1);
+        display->text(Vector(cursorX, cursorY), "_", textColor, 1);
     }
 }
 
@@ -221,10 +265,10 @@ void Keyboard::handleInput()
 {
     /* Keyboard layout
      * 1 2 3 4 5 6 7 8 9 0 - = DEL
-     * Q W E R T Y U I O P [ ] \ CLR
+     * Q W E R T Y U I O P [ ] CLR
      * Caps A S D F G H J K L ; ' Enter
-     * Shift Z X C V B N M , . / Shift
-     *        Space              Save
+     * Shift Z X C V B N M , . / \ Shift
+     *         Space       Save
      */
     if (millis() - lastInputTime < inputDelay)
         return;
@@ -528,7 +572,7 @@ void Keyboard::handleInput()
         lastInputTime = millis();
         break;
     case BUTTON_BACKSLASH:
-        setCursorPosition(1, 12); // Backslash key
+        setCursorPosition(3, 11); // Backslash key
         processKeyPress();
         lastInputTime = millis();
         break;
@@ -578,7 +622,7 @@ void Keyboard::processKeyPress()
         break;
 
     case '?': // Special function
-        if (cursorRow == 1 && cursorCol == 13)
+        if (cursorRow == 1 && cursorCol == 12)
         {
             // Clear function
             response = "";

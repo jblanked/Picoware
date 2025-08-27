@@ -7,6 +7,7 @@ ViewManager::ViewManager()
       delayTicks(0), delayElapsed(0)
 
 {
+    this->storage.createDirectory("picoware");
     // Load dark mode settings from storage
     // JsonDocument doc;
     // if (this->storage.deserialize(doc, DARK_MODE_LOCATION))
@@ -221,11 +222,6 @@ void ViewManager::run()
 {
     if (this->inputManager != nullptr)
     {
-        if (this->inputManager->getLastButton() == BUTTON_BACK)
-        {
-            this->inputManager->reset();
-            this->back();
-        }
         this->inputManager->run();
     }
     if (delayTicks > 0)

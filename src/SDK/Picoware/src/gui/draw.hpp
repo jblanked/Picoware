@@ -19,10 +19,12 @@ public:
     uint16_t color565(uint8_t r, uint8_t g, uint8_t b);                                  // Converts convert three 8-bit RGB levels to RGB565
     void drawCircle(Vector position, int16_t r, uint16_t color);                         // Draws a circle on the display at the specified position with the specified radius and color.
     void drawLine(Vector position, Vector size, uint16_t color);                         // Draws a line on the display at the specified position and size with the specified color.
+    void drawLineCustom(Vector point1, Vector point2, uint16_t color);                   // Draws a line from point1 to point2 with the specified color.
     void drawPixel(Vector position, uint16_t color);                                     // Draws a pixel on the display at the specified position with the specified color.
     void drawRect(Vector position, Vector size, uint16_t color);                         // Draws a rectangle on the display at the specified position and size with the specified color.
     void fillCircle(Vector position, int16_t r, uint16_t color);                         // Fills a circle on the display at the specified position with the specified radius and color.
     void fillRect(Vector position, Vector size, uint16_t color);                         // Fills a rectangle on the display at the specified position and size with the specified color.
+    void fillRoundRect(Vector position, Vector size, uint16_t color, int16_t radius);    // Fills a rounded rectangle on the display at the specified position and size with the specified color and radius.
     void fillScreen(uint16_t color);                                                     // Fills the entire screen with the specified color.
     Vector getCursor();                                                                  // Returns the current cursor position.
     Vector getFontSize();                                                                // Returns the width of the current font.
@@ -30,6 +32,7 @@ public:
     Vector getSize() const noexcept { return size; }                                     // Returns the size of the display.
     uint16_t getBackgroundTextColor() const noexcept { return textBackground; }          // Returns the background color for text rendering.
     bool getBackgroundTextStatus() const noexcept { return useBackgroundTextColor; }     // Returns the status of background text rendering.
+    uint16_t getForegroundTextColor() const noexcept { return textForeground; }          // Returns the foreground color for text rendering.
     void image(                                                                          // Draws a bitmap on the display at the specified position.
         Vector position,                                                                 // position
         const uint8_t *bitmap,                                                           // data
@@ -53,6 +56,7 @@ public:
         uint8_t transparentColor = 0xFF);                                                // transparent color
     void setBackgroundTextColor(uint16_t color) { this->textBackground = color; }        // Sets the background color for text rendering.
     void setBackgroundTextStatus(bool status) { this->useBackgroundTextColor = status; } // Sets the background text status.
+    void setForegroundTextColor(uint16_t color) { this->textForeground = color; }        // Sets the foreground color for text rendering.
     void setCursor(Vector position);                                                     // Sets the cursor position for text rendering.
     void setFont(int font = 1);                                                          // Sets the font for text rendering.
     void setPaletteColor(uint8_t index, uint16_t color);                                 // Set a color in the 8-bit palette

@@ -5,6 +5,8 @@
 #include <cctype>
 #include "pico/stdlib.h"
 
+class HTTP;
+
 #ifdef CYW43_WL_GPIO_LED_PIN
 
 typedef struct
@@ -75,4 +77,7 @@ private:
     static const unsigned long CONNECTION_TIMEOUT = 10000; // 10 seconds timeout
     String pendingSSID = "";
     String pendingPassword = "";
+
+    // HTTP client for NTP requests
+    HTTP *httpClient = nullptr;
 };

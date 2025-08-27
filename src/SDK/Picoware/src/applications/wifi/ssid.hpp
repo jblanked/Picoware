@@ -40,10 +40,13 @@ static void wifiSSIDRun(ViewManager *viewManager)
         return;
     }
 
+    auto input = viewManager->getInputManager();
+
     // Check if save was requested
-    if (ssidSaveRequested)
+    if (ssidSaveRequested || input->getLastButton() == BUTTON_BACK)
     {
         ssidSaveRequested = false;
+        input->reset(true);
         viewManager->back();
         return;
     }

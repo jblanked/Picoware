@@ -28,14 +28,14 @@ public:
     uint16_t getTextColor() const noexcept { return textColor; }               // Returns the text color
     const std::string &getResponse() const noexcept { return response; }       // Returns the response string
     uint8_t getKeyboardWidth() const noexcept { return display->getSize().x; } // Returns the keyboard width/width of the display
-
+    bool isFinished() const noexcept { return isSavePressed; }                 // Returns whether the keyboard is finished
     void setSaveCallback(std::function<void(const std::string &)> callback)
     {
         onSaveCallback = callback;
     }
 
     void reset();                                                  // Resets the keyboard state
-    void run();                                                    // Runs the input manager, handles input, and draws the keyboard
+    void run(bool swap = true);                                    // Runs the input manager, handles input, and draws the keyboard
     void setResponse(const std::string &text) { response = text; } // Sets the response string
 
 private:
@@ -46,6 +46,7 @@ private:
     void processKeyPress();                                  // Processes the currently selected key press
     void setCursorPosition(uint8_t row, uint8_t col);        // Sets the cursor position on the keyboard
     std::function<void(const std::string &)> onSaveCallback; // Callback function for saving the response
+    bool isSavePressed;                                      // Flag to indicate if the user hit save
     bool justStopped;                                        // Flag to indicate if the keyboard was just stopped
 
     // Core components

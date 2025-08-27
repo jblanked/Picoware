@@ -6,7 +6,7 @@ class Loading
 public:
     Loading(Draw *draw, uint16_t spinnerColor = TFT_BLACK, uint16_t backgroundColor = TFT_WHITE);
     //
-    void animate();
+    void animate(bool swap = true);
     void stop();
     //
     void setText(const char *text) { currentText = text; }

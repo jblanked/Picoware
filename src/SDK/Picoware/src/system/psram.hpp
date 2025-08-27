@@ -188,6 +188,54 @@ public:
      * @param length Number of bytes to copy
      */
     static void copyFromRAM(void *ram_ptr, uint32_t psram_addr, uint32_t length);
+
+    /**
+     * @brief Write an array of uint32_t values to PSRAM using individual writes
+     * @param addr PSRAM address to start writing at
+     * @param values Array of uint32_t values to write
+     * @param count Number of values to write
+     */
+    static void writeUint32Array(uint32_t addr, const uint32_t *values, uint32_t count);
+
+    /**
+     * @brief Read an array of uint32_t values from PSRAM using individual reads
+     * @param addr PSRAM address to start reading from
+     * @param values Array to store the read values
+     * @param count Number of values to read
+     */
+    static void readUint32Array(uint32_t addr, uint32_t *values, uint32_t count);
+
+    /**
+     * @brief Write an array of uint16_t values to PSRAM using individual writes
+     * @param addr PSRAM address to start writing at
+     * @param values Array of uint16_t values to write
+     * @param count Number of values to write
+     */
+    static void writeUint16Array(uint32_t addr, const uint16_t *values, uint32_t count);
+
+    /**
+     * @brief Read an array of uint16_t values from PSRAM using individual reads
+     * @param addr PSRAM address to start reading from
+     * @param values Array to store the read values
+     * @param count Number of values to read
+     */
+    static void readUint16Array(uint32_t addr, uint16_t *values, uint32_t count);
+
+    /**
+     * @brief Write an array of uint8_t values to PSRAM using individual writes
+     * @param addr PSRAM address to start writing at
+     * @param values Array of uint8_t values to write
+     * @param count Number of values to write
+     */
+    static void writeUint8Array(uint32_t addr, const uint8_t *values, uint32_t count);
+
+    /**
+     * @brief Read an array of uint8_t values from PSRAM using individual reads
+     * @param addr PSRAM address to start reading from
+     * @param values Array to store the read values
+     * @param count Number of values to read
+     */
+    static void readUint8Array(uint32_t addr, uint8_t *values, uint32_t count);
 };
 
 /**

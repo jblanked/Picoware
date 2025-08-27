@@ -314,6 +314,72 @@ void PSRAM::memcpy(uint32_t dest, uint32_t src, uint32_t length)
     }
 }
 
+void PSRAM::writeUint32Array(uint32_t addr, const uint32_t *values, uint32_t count)
+{
+    if (!hardware_initialized || values == nullptr || count == 0)
+        return;
+
+    for (uint32_t i = 0; i < count; i++)
+    {
+        write32(addr + (i * 4), values[i]);
+    }
+}
+
+void PSRAM::readUint32Array(uint32_t addr, uint32_t *values, uint32_t count)
+{
+    if (!hardware_initialized || values == nullptr || count == 0)
+        return;
+
+    for (uint32_t i = 0; i < count; i++)
+    {
+        values[i] = read32(addr + (i * 4));
+    }
+}
+
+void PSRAM::writeUint16Array(uint32_t addr, const uint16_t *values, uint32_t count)
+{
+    if (!hardware_initialized || values == nullptr || count == 0)
+        return;
+
+    for (uint32_t i = 0; i < count; i++)
+    {
+        write16(addr + (i * 2), values[i]);
+    }
+}
+
+void PSRAM::readUint16Array(uint32_t addr, uint16_t *values, uint32_t count)
+{
+    if (!hardware_initialized || values == nullptr || count == 0)
+        return;
+
+    for (uint32_t i = 0; i < count; i++)
+    {
+        values[i] = read16(addr + (i * 2));
+    }
+}
+
+void PSRAM::writeUint8Array(uint32_t addr, const uint8_t *values, uint32_t count)
+{
+    if (!hardware_initialized || values == nullptr || count == 0)
+        return;
+
+    for (uint32_t i = 0; i < count; i++)
+    {
+        write8(addr + i, values[i]);
+    }
+}
+
+void PSRAM::readUint8Array(uint32_t addr, uint8_t *values, uint32_t count)
+{
+    if (!hardware_initialized || values == nullptr || count == 0)
+        return;
+
+    for (uint32_t i = 0; i < count; i++)
+    {
+        values[i] = read8(addr + i);
+    }
+}
+
 void PSRAM::copyToRAM(uint32_t psram_addr, const void *ram_ptr, uint32_t length)
 {
     if (!hardware_initialized)

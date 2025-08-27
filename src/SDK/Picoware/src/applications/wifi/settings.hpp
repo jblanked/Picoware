@@ -62,6 +62,7 @@ static void wifiSettingsRun(ViewManager *viewManager)
         inputManager->reset(true);
         break;
     case BUTTON_LEFT:
+    case BUTTON_BACK:
         if (!textBoxVisible)
         {
             viewManager->back();

@@ -85,6 +85,7 @@ static void wifiScanRun(ViewManager *viewManager)
         inputManager->reset(true);
         break;
     case BUTTON_LEFT:
+    case BUTTON_BACK:
         viewManager->back();
         inputManager->reset(true);
         break;

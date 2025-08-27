@@ -3,7 +3,7 @@
 #include "../../../gui/menu.hpp"
 #include "../../../system/view.hpp"
 #include "../../../system/view_manager.hpp"
-// #include "../../../applications/applications/flip_social/flip_social.hpp"
+#include "../../../applications/applications/flip_social/flip_social.hpp"
 // #include "../../../applications/applications/file_browser/file_browser.hpp"
 #include "../../../applications/applications/GPS/GPS.hpp"
 #include "../../../applications/applications/Weather/weather.hpp"
@@ -30,10 +30,9 @@ static bool applicationsStart(ViewManager *viewManager)
         2                                  // border/separator width
     );
 
-    // applications->addItem("File Browser");
-    // applications->addItem("FlipSocial");
-    // if wifi isn't available, return
+// applications->addItem("File Browser");
 #ifdef CYW43_WL_GPIO_LED_PIN
+    applications->addItem("FlipSocial");
     applications->addItem("GPS");
     applications->addItem("Weather");
 #endif
@@ -67,26 +66,25 @@ static void applicationsRun(ViewManager *viewManager)
     {
         const char *currentItem = applications->getCurrentItem();
         applicationsIndex = applications->getSelectedIndex();
-        // if (strcmp(currentItem, "File Browser") == 0)
-        // {
-        //     if (viewManager->getView("File Browser") == nullptr)
-        //     {
-        //         viewManager->add(&fileBrowserView);
-        //     }
-        //     viewManager->switchTo("File Browser");
-        //     return;
-        // }
-        // if (strcmp(currentItem, "FlipSocial") == 0)
-        // {
-        //     if (viewManager->getView("FlipSocial") == nullptr)
-        //     {
-        //         viewManager->add(&flipSocialView);
-        //     }
-        //     viewManager->switchTo("FlipSocial");
-        //     return;
-        // }
-        // if wifi isn't available, return
+// if (strcmp(currentItem, "File Browser") == 0)
+// {
+//     if (viewManager->getView("File Browser") == nullptr)
+//     {
+//         viewManager->add(&fileBrowserView);
+//     }
+//     viewManager->switchTo("File Browser");
+//     return;
+// }
 #ifdef CYW43_WL_GPIO_LED_PIN
+        if (strcmp(currentItem, "FlipSocial") == 0)
+        {
+            if (viewManager->getView("FlipSocial") == nullptr)
+            {
+                viewManager->add(&flipSocialView);
+            }
+            viewManager->switchTo("FlipSocial");
+            return;
+        }
         if (strcmp(currentItem, "GPS") == 0)
         {
             if (viewManager->getView("GPS") == nullptr)

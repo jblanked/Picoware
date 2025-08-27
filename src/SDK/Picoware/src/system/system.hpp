@@ -36,6 +36,42 @@ public:
         restore_interrupts(ints);
     }
 
+    /// Get the name of the Raspberry Pi Pico.
+    static const char *getBoardName() noexcept
+    {
+#ifdef CYW43_WL_GPIO_LED_PIN
+#ifdef PICO_RP2040
+        return "Raspberry Pi Pico W";
+#else
+        return "Raspberry Pi Pico 2W";
+#endif
+#else
+#ifdef PICO_RP2040
+        return "Raspberry Pi Pico";
+#else
+        return "Raspberry Pi Pico 2";
+#endif
+#endif
+    }
+
+    /// Get the name of the device.
+    static const char *getDeviceName() noexcept
+    {
+#ifdef CYW43_WL_GPIO_LED_PIN
+#ifdef PICO_RP2040
+        return "PicoCalc - Pico W";
+#else
+        return "PicoCalc - Pico 2W";
+#endif
+#else
+#ifdef PICO_RP2040
+        return "PicoCalc - Pico";
+#else
+        return "PicoCalc - Pico 2";
+#endif
+#endif
+    }
+
     /// Get the current free heap size.
     static int freeHeap() noexcept
     {
@@ -50,8 +86,7 @@ public:
     /// Get the current free PSRAM size.
     static int freeHeapPSRAM() noexcept
     {
-        PSRAM psram;
-        return psram.getFreeHeapSize();
+        return PSRAM::getFreeHeapSize();
     }
 
     /// Get if the board is a Pico W.
@@ -87,8 +122,7 @@ public:
     /// Get the total PSRAM size.
     static int totalHeapPSRAM() noexcept
     {
-        PSRAM psram;
-        return psram.getTotalHeapSize();
+        return PSRAM::getTotalHeapSize();
     }
 
     /// Get the total used heap size.
@@ -101,7 +135,6 @@ public:
     /// Get the total used PSRAM size.
     static int usedHeapPSRAM() noexcept
     {
-        PSRAM psram;
-        return psram.getUsedHeapSize();
+        return PSRAM::getUsedHeapSize();
     }
 };

@@ -13,7 +13,7 @@ Loading::Loading(Draw *draw, uint16_t spinnerColor, uint16_t backgroundColor)
     timeStart = 0;
     animating = false;
 }
-void Loading::animate()
+void Loading::animate(bool swap)
 {
     if (!animating)
     {
@@ -25,7 +25,10 @@ void Loading::animate()
     display->text(Vector(130, 20), currentText, spinnerColor);
     timeElapsed = millis() - timeStart;
     spinnerPosition = (spinnerPosition + 10) % 360; // Rotate by 10 degrees each frame
-    display->swap();
+    if (swap)
+    {
+        display->swap();
+    }
 }
 
 void Loading::clear()
@@ -72,13 +75,13 @@ void Loading::drawSpinner()
         uint16_t color = fadeColor(spinnerColor, opacity);
 
         // draw just the edge segment
-        display->drawLine(Vector(x1, y1), Vector(x2, y2), color);
+        display->drawLineCustom(Vector(x1, y1), Vector(x2, y2), color);
     }
 
     // draw time elapsed in milliseconds
     display->text(Vector(5, size.y - 20), "Time Elapsed:");
     char timeStr[16];
-    int seconds = timeElapsed / 10000;
+    int seconds = timeElapsed / 1000;
     if (seconds < 60)
     {
         if (seconds <= 1)
@@ -94,7 +97,7 @@ void Loading::drawSpinner()
     {
         snprintf(timeStr, sizeof(timeStr), "%u minutes", seconds / 60);
     }
-    display->text(Vector(230, size.y - 20), timeStr, spinnerColor);
+    display->text(Vector(260, size.y - 20), timeStr, spinnerColor);
 }
 
 // Helper function to adjust color opacity

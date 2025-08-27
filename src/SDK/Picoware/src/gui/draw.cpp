@@ -181,6 +181,46 @@ void Draw::drawLine(Vector position, Vector size, uint16_t color)
     }
 }
 
+void Draw::drawLineCustom(Vector point1, Vector point2, uint16_t color)
+{
+    int x1 = (int)point1.x;
+    int y1 = (int)point1.y;
+    int x2 = (int)point2.x;
+    int y2 = (int)point2.y;
+
+    // Bresenham's line algorithm
+    int dx = abs(x2 - x1);
+    int dy = abs(y2 - y1);
+    int sx = (x1 < x2) ? 1 : -1;
+    int sy = (y1 < y2) ? 1 : -1;
+    int err = dx - dy;
+
+    while (true)
+    {
+        // Draw pixel if within bounds
+        if (x1 >= 0 && x1 < this->size.x && y1 >= 0 && y1 < this->size.y)
+        {
+            this->drawPixel(Vector(x1, y1), color);
+        }
+
+        // Check if we've reached the end point
+        if (x1 == x2 && y1 == y2)
+            break;
+
+        int e2 = 2 * err;
+        if (e2 > -dy)
+        {
+            err -= dy;
+            x1 += sx;
+        }
+        if (e2 < dx)
+        {
+            err += dx;
+            y1 += sy;
+        }
+    }
+}
+
 void Draw::drawPixel(Vector position, uint16_t color)
 {
     uint8_t colorIndex = color332(color);
@@ -296,6 +336,94 @@ void Draw::fillRect(Vector position, Vector size, uint16_t color)
             for (int px = x; px < x + width; px++)
             {
                 this->drawPixel(Vector(px, py), color);
+            }
+        }
+    }
+}
+
+void Draw::fillRoundRect(Vector position, Vector size, uint16_t color, int16_t radius)
+{
+    if (size.x <= 0 || size.y <= 0 || radius <= 0)
+        return;
+
+    // Clip to screen bounds
+    int x = (int)position.x;
+    int y = (int)position.y;
+    int width = (int)size.x;
+    int height = (int)size.y;
+
+    // Adjust for left and top boundaries
+    if (x < 0)
+    {
+        width += x;
+        x = 0;
+    }
+    if (y < 0)
+    {
+        height += y;
+        y = 0;
+    }
+
+    // Adjust for right and bottom boundaries
+    if (x + width > this->size.x)
+    {
+        width = this->size.x - x;
+    }
+    if (y + height > this->size.y)
+    {
+        height = this->size.y - y;
+    }
+
+    // Only draw if there's something to draw
+    if (width > 0 && height > 0)
+    {
+        // Calculate effective radius considering clipping
+        int effective_radius = (radius < width / 2) ? radius : width / 2;
+        effective_radius = (effective_radius < height / 2) ? effective_radius : height / 2;
+
+        for (int py = y; py < y + height; py++)
+        {
+            for (int px = x; px < x + width; px++)
+            {
+                // Check if the pixel is within the rounded corners
+                bool in_corner = false;
+                if (px < x + effective_radius && py < y + effective_radius)
+                {
+                    // Top-left corner
+                    int dx = px - (x + effective_radius);
+                    int dy = py - (y + effective_radius);
+                    if (dx * dx + dy * dy > effective_radius * effective_radius)
+                        in_corner = true;
+                }
+                else if (px < x + effective_radius && py >= y + height - effective_radius)
+                {
+                    // Bottom-left corner
+                    int dx = px - (x + effective_radius);
+                    int dy = py - (y + height - effective_radius);
+                    if (dx * dx + dy * dy > effective_radius * effective_radius)
+                        in_corner = true;
+                }
+                else if (px >= x + width - effective_radius && py < y + effective_radius)
+                {
+                    // Top-right corner
+                    int dx = px - (x + width - effective_radius);
+                    int dy = py - (y + effective_radius);
+                    if (dx * dx + dy * dy > effective_radius * effective_radius)
+                        in_corner = true;
+                }
+                else if (px >= x + width - effective_radius && py >= y + height - effective_radius)
+                {
+                    // Bottom-right corner
+                    int dx = px - (x + width - effective_radius);
+                    int dy = py - (y + height - effective_radius);
+                    if (dx * dx + dy * dy > effective_radius * effective_radius)
+                        in_corner = true;
+                }
+
+                if (!in_corner)
+                {
+                    this->drawPixel(Vector(px, py), color);
+                }
             }
         }
     }

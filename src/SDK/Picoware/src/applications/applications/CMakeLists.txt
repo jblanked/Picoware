@@ -1,4 +1,4 @@
-file(GLOB APPLICATIONS_APP_SOURCES "*.c" "*.cpp")
+file(GLOB_RECURSE APPLICATIONS_APP_SOURCES "*.c" "*.cpp")
 add_library(applicationsApp ${APPLICATIONS_APP_SOURCES})
 
 target_link_libraries(applicationsApp

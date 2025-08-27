@@ -15,6 +15,24 @@ static bool weatherRequestInProgress = false;
 static bool displayingResultW = false;
 static std::string ipAddress = "";
 
+static std::string filterDegreeSymbol(const std::string &input)
+{
+    std::string result;
+    for (size_t i = 0; i < input.length(); i++)
+    {
+        // Skip the degree symbol (° is 0xC2 0xB0 in UTF-8)
+        if (i < input.length() - 1 &&
+            (unsigned char)input[i] == 0xC2 &&
+            (unsigned char)input[i + 1] == 0xB0)
+        {
+            i++; // Skip both bytes of the degree symbol
+            continue;
+        }
+        result += input[i];
+    }
+    return result;
+}
+
 static void resetWeatherState()
 {
     locationRequestSent = false;
@@ -180,7 +198,7 @@ static void weatherRun(ViewManager *viewManager)
         weatherRequestSent = true;
         weatherRequestInProgress = true;
 
-        std::string weatherUrl = "https://wttr.in/@" + ipAddress + "?format=%f,%t,%h";
+        std::string weatherUrl = "https://wttr.in/@" + ipAddress + "?format=%C,%t,%h";
         weatherHttp->getAsync(weatherUrl);
         draw->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());
         draw->text(Vector(5, 5), "Getting weather data...");
@@ -217,15 +235,15 @@ static void weatherRun(ViewManager *viewManager)
                     values.push_back(response);
                 }
 
-                // Extract individual values (temperature, feels_like, humidity)
-                std::string temperature = values.size() > 0 ? values[0] : "N/A";
-                std::string feelsLike = values.size() > 1 ? values[1] : "N/A";
+                // Extract individual values (condition, temperature, humidity)
+                std::string condition = values.size() > 0 ? values[0] : "N/A";
+                std::string temperature = values.size() > 1 ? filterDegreeSymbol(values[1]) : "N/A";
                 std::string humidity = values.size() > 2 ? values[2] : "N/A";
 
-                std::string total_data = std::string("Current Weather:\n") +
+                std::string total_data = std::string("Current Weather:\n\n") +
+                                         "Condition: " + condition + "\n" +
                                          "Temperature: " + temperature + "\n" +
-                                         "Feels Like: " + feelsLike + "\n" +
-                                         "Humidity: " + humidity + "\n" +
+                                         "Humidity: " + humidity + "\n\n" +
                                          "Press CENTER to refresh\nPress LEFT to go back";
 
                 draw->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());

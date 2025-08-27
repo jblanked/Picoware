@@ -77,7 +77,7 @@ Keyboard::Keyboard(
       currentKey(BUTTON_NONE), textColor(textColor),
       backgroundColor(backgroundColor), selectedColor(selectedColor),
       dpadInput(BUTTON_NONE), response(""),
-      onSaveCallback(onSaveCallback),
+      onSaveCallback(onSaveCallback), isSavePressed(false),
       justStopped(false)
 {
     // Initialize cursor position to top-left key
@@ -574,6 +574,7 @@ void Keyboard::processKeyPress()
         {
             onSaveCallback(response);
         }
+        isSavePressed = true;
         break;
 
     case '?': // Special function
@@ -623,6 +624,7 @@ void Keyboard::reset()
     response = "";
     lastInputTime = 0;
     onSaveCallback = nullptr;
+    isSavePressed = false;
 }
 
 void Keyboard::run(bool swap)

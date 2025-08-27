@@ -1,7 +1,9 @@
 #include "../system/wifi.hpp"
+#include "../system/http.hpp"
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <sys/time.h>
 
 #ifdef CYW43_WL_GPIO_LED_PIN
 #include "pico/cyw43_arch.h"
@@ -29,12 +31,21 @@ WiFi::WiFi()
     }
 
     wifiInitialized = true;
+
+    // Initialize HTTP client for NTP requests
+    httpClient = new HTTP();
 #endif
 }
 
 WiFi::~WiFi()
 {
 #ifdef CYW43_WL_GPIO_LED_PIN
+    if (httpClient)
+    {
+        delete httpClient;
+        httpClient = nullptr;
+    }
+
     if (wifiInitialized)
     {
         cyw43_arch_deinit();
@@ -50,26 +61,36 @@ WiFi::WiFi(WiFi &&other) noexcept
       connectedSSID(std::move(other.connectedSSID)),
       connectedPassword(std::move(other.connectedPassword)),
       pendingSSID(std::move(other.pendingSSID)),
-      pendingPassword(std::move(other.pendingPassword))
+      pendingPassword(std::move(other.pendingPassword)),
+      httpClient(other.httpClient)
 {
     other.currentState = WIFI_STATE_IDLE;
     other.connectionStartTime = 0;
+    other.httpClient = nullptr;
 }
 
 WiFi &WiFi::operator=(WiFi &&other) noexcept
 {
     if (this != &other)
     {
+        // Clean up existing HTTP client
+        if (httpClient)
+        {
+            delete httpClient;
+        }
+
         currentState = other.currentState;
         connectionStartTime = other.connectionStartTime;
         connectedSSID = std::move(other.connectedSSID);
         connectedPassword = std::move(other.connectedPassword);
         pendingSSID = std::move(other.pendingSSID);
         pendingPassword = std::move(other.pendingPassword);
+        httpClient = other.httpClient;
 
         // Reset other object
         other.currentState = WIFI_STATE_IDLE;
         other.connectionStartTime = 0;
+        other.httpClient = nullptr;
     }
     return *this;
 }
@@ -278,6 +299,13 @@ bool WiFi::reinit()
     }
 
     wifiInitialized = true;
+
+    // Reinitialize HTTP client if needed
+    if (!httpClient)
+    {
+        httpClient = new HTTP();
+    }
+
     return true;
 #endif
 }
@@ -311,13 +339,82 @@ String WiFi::connectAP(const char *ssid)
 bool WiFi::configureTime()
 {
 #ifdef CYW43_WL_GPIO_LED_PIN
-    if (!this->isConnected())
+    if (!this->isConnected() || !httpClient)
     {
         return false;
     }
 
-    // eventually we'll set the time like the Arduino IDE version
-    return true;
+    std::string response = httpClient->get("http://worldtimeapi.org/api/ip");
+
+    if (response.empty())
+    {
+        printf("[WiFi]: Failed to get timezone-aware time, trying UTC...\n");
+        response = httpClient->get("http://worldtimeapi.org/api/timezone/Etc/UTC");
+
+        if (response.empty())
+        {
+            printf("[WiFi]: Failed to get time from WorldTimeAPI\n");
+            return false;
+        }
+    }
+
+    // Parse JSON response to extract Unix timestamp
+    std::string unixtime_str = getJsonValue(response.c_str(), "unixtime");
+
+    if (unixtime_str.empty())
+    {
+        printf("[WiFi]: Failed to parse time response\n");
+        return false;
+    }
+
+    time_t timestamp = (time_t)atol(unixtime_str.c_str());
+
+    // Try to get timezone offset information
+    std::string raw_offset_str = getJsonValue(response.c_str(), "raw_offset");
+    std::string dst_offset_str = getJsonValue(response.c_str(), "dst_offset");
+    std::string timezone_str = getJsonValue(response.c_str(), "timezone");
+
+    int timezone_offset = 0; // Default to UTC
+
+    if (!raw_offset_str.empty())
+    {
+        int raw_offset = atoi(raw_offset_str.c_str());
+        int dst_offset = 0;
+
+        if (!dst_offset_str.empty())
+        {
+            dst_offset = atoi(dst_offset_str.c_str());
+        }
+
+        timezone_offset = raw_offset + dst_offset;
+        timestamp += timezone_offset;
+    }
+    else
+    {
+        printf("[WiFi]: No timezone offset available, using UTC\n");
+    }
+
+    // ensure timestamp is reasonable (after year 2000)
+    if (timestamp < 946684800)
+    {
+        printf("[WiFi]: Invalid timestamp received: %ld\n", (long)timestamp);
+        return false;
+    }
+
+    // Set system time
+    struct timeval tv;
+    tv.tv_sec = timestamp;
+    tv.tv_usec = 0;
+
+    if (settimeofday(&tv, NULL) == 0)
+    {
+        return true;
+    }
+    else
+    {
+        printf("[WiFi]: Failed to set system time\n");
+        return false;
+    }
 #else
     return false;
 #endif
@@ -465,29 +562,44 @@ bool WiFi::setTime(tm &timeinfo, int timeoutMs)
         return false;
     }
 
-    static bool ntpInitialized = false;
-    if (!ntpInitialized)
+    static bool timeInitialized = false;
+    if (!timeInitialized)
     {
-        this->configureTime();
-        ntpInitialized = true;
-
-        // Wait for time to be set
-        int elapsed = 0;
-        while (elapsed < timeoutMs)
+        // Try to configure time from internet
+        if (this->configureTime())
         {
+            timeInitialized = true;
+        }
+        else
+        {
+            // If internet time sync fails, check if we have a valid system time
             time_t now = time(nullptr);
             if (now > 24 * 3600)
-            { // If time is set (more than 1 day since epoch)
-                break;
+            {
+                timeInitialized = true;
             }
-            // sleep_ms(100);
-            elapsed += 100;
+            else
+            {
+                printf("[WiFi]: Failed to synchronize time\n");
+                return false;
+            }
         }
     }
 
+    // Get current time and populate timeinfo structure
     time_t now = time(nullptr);
-    gmtime_r(&now, &timeinfo);
-    return now > 24 * 3600; // Return true if time appears to be set
+    localtime_r(&now, &timeinfo);
+
+    // Verify that we have a reasonable time (after year 2000)
+    bool timeValid = (now > 946684800); // Jan 1, 2000 00:00:00 UTC
+
+    if (!timeValid)
+    {
+        printf("[WiFi]: System time appears invalid: %ld\n", (long)now);
+        timeInitialized = false; // Reset so we try again next time
+        return false;
+    }
+    return true;
 #else
     return false;
 #endif

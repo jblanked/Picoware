@@ -35,7 +35,7 @@ public:
     }
 
     void reset();                                                  // Resets the keyboard state
-    void run();                                                    // Runs the input manager, handles input, and draws the keyboard
+    void run(bool swap = true);                                    // Runs the input manager, handles input, and draws the keyboard
     void setResponse(const std::string &text) { response = text; } // Sets the response string
 
 private:

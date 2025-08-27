@@ -625,7 +625,7 @@ void Keyboard::reset()
     onSaveCallback = nullptr;
 }
 
-void Keyboard::run()
+void Keyboard::run(bool swap)
 {
     if (justStopped)
     {
@@ -639,7 +639,10 @@ void Keyboard::run()
     drawTextbox();
     drawKeyboard();
 
-    display->swap();
+    if (swap)
+    {
+        display->swap();
+    }
 }
 
 void Keyboard::setCursorPosition(uint8_t row, uint8_t col)

@@ -54,7 +54,7 @@ void Desktop::drawHeader()
     // draw time if set
     if (rtcTime != nullptr && strlen(rtcTime) > 0)
     {
-        display->text(Vector(display->getSize().x - 160, 5), rtcTime, textColor);
+        display->text(Vector(140, 5), rtcTime, textColor);
     }
 
     // draw WiFi icon

@@ -4,15 +4,14 @@
 #include "../../../system/http.hpp"
 #include "../../../system/view.hpp"
 #include "../../../system/view_manager.hpp"
-#include "../../../applications/applications/flip_social/feed.hpp"
-#include "../../../applications/applications/flip_social/post.hpp"
+#include "../../../applications/applications/flip_social/run.hpp"
 #include "../../../applications/applications/flip_social/settings.hpp"
 #include "../../../applications/applications/flip_social/utils.hpp"
 
 static Alert *flipSocialAlert = nullptr;
 static Menu *flipSocialMenu = nullptr;
 static uint8_t flipSocialIndex = 0; // Index for the FlipSocial menu
-static void flipSocialAlertAndReturn(ViewManager *viewManager, const char *message)
+static void flipSocialAlertAndReturn(ViewManager *viewManager, const char *message, bool back = true)
 {
     if (flipSocialAlert)
     {
@@ -22,7 +21,8 @@ static void flipSocialAlertAndReturn(ViewManager *viewManager, const char *messa
     flipSocialAlert = new Alert(viewManager->getDraw(), message, viewManager->getForegroundColor(), viewManager->getBackgroundColor());
     flipSocialAlert->draw();
     delay(2000);
-    viewManager->back();
+    if (back)
+        viewManager->back();
 }
 static bool flipSocialStart(ViewManager *viewManager)
 {
@@ -32,14 +32,14 @@ static bool flipSocialStart(ViewManager *viewManager)
         flipSocialMenu = nullptr;
     }
 
-    viewManager->getStorage().createDirectory("picoware/flip_social");
+    viewManager->getStorage().createDirectory(FLIP_SOCIAL_DIRECTORY);
 
     auto draw = viewManager->getDraw();
 
     // if wifi isn't connected, return
     if (!viewManager->getWiFi().isConnected())
     {
-        flipSocialAlertAndReturn(viewManager, "WiFi not connected yet.");
+        flipSocialAlertAndReturn(viewManager, "WiFi not connected yet.", false);
         return false;
     }
 
@@ -55,8 +55,7 @@ static bool flipSocialStart(ViewManager *viewManager)
         2                                  // border/separator width
     );
 
-    flipSocialMenu->addItem("Feed");
-    flipSocialMenu->addItem("Post");
+    flipSocialMenu->addItem("Run");
     flipSocialMenu->addItem("Settings");
     flipSocialMenu->setSelected(flipSocialIndex);
     flipSocialMenu->draw();
@@ -88,7 +87,7 @@ static void flipSocialRun(ViewManager *viewManager)
         inputManager->reset(true);
         auto currentItem = flipSocialMenu->getCurrentItem();
         flipSocialIndex = flipSocialMenu->getSelectedIndex();
-        if (strcmp(currentItem, "Feed") == 0)
+        if (strcmp(currentItem, "Run") == 0)
         {
             if (flipSocialUtilsLoadUserFromFlash(viewManager) == "" || flipSocialUtilsLoadPasswordFromFlash(viewManager) == "")
             {
@@ -96,26 +95,11 @@ static void flipSocialRun(ViewManager *viewManager)
                 flipSocialAlertAndReturn(viewManager, "Please set your username and password in\nFlipSocial settings first.");
                 return;
             }
-            if (viewManager->getView("FlipSocialFeed") == nullptr)
+            if (viewManager->getView("FlipSocialRun") == nullptr)
             {
-                viewManager->add(&flipSocialFeedView);
+                viewManager->add(&flipSocialRunView);
             }
-            viewManager->switchTo("FlipSocialFeed");
-            return;
-        }
-        if (strcmp(currentItem, "Post") == 0)
-        {
-            if (flipSocialUtilsLoadUserFromFlash(viewManager) == "" || flipSocialUtilsLoadPasswordFromFlash(viewManager) == "")
-            {
-                viewManager->getDraw()->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());
-                flipSocialAlertAndReturn(viewManager, "Please set your username and password in\nFlipSocial settings first.");
-                return;
-            }
-            if (viewManager->getView("FlipSocialPost") == nullptr)
-            {
-                viewManager->add(&flipSocialPostView);
-            }
-            viewManager->switchTo("FlipSocialPost");
+            viewManager->switchTo("FlipSocialRun");
             return;
         }
         if (strcmp(currentItem, "Settings") == 0)

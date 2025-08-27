@@ -1,12 +1,12 @@
 #pragma once
 #include "../../../system/http.hpp"
 #include "../../../system/view_manager.hpp"
+#define FLIP_SOCIAL_DIRECTORY "picoware/flip_social"
+#define FLIP_SOCIAL_SETTINGS_PATH FLIP_SOCIAL_DIRECTORY "/settings.json" // picoware/flip_social/settings.json
+#define FLIP_SOCIAL_USER_PATH FLIP_SOCIAL_DIRECTORY "/username.json"     // picoware/flip_social/username.json
+#define FLIP_SOCIAL_PASSWORD_PATH FLIP_SOCIAL_DIRECTORY "/password.json" // picoware/flip_social/password.json
 
-#define FLIP_SOCIAL_SETTINGS_PATH "picoware/flip_social/settings.json"
-#define FLIP_SOCIAL_USER_PATH "picoware/flip_social/username.json"
-#define FLIP_SOCIAL_PASSWORD_PATH "picoware/flip_social/password.json"
-
-String flipSocialUtilsLoadFromFlash(ViewManager *viewManager, const char *path, const char *key)
+inline String flipSocialUtilsLoadFromFlash(ViewManager *viewManager, const char *path, const char *key)
 {
     auto storage = viewManager->getStorage();
     char buffer[64] = {0};
@@ -19,17 +19,17 @@ String flipSocialUtilsLoadFromFlash(ViewManager *viewManager, const char *path, 
     buffer[bytes_read] = '\0'; // Ensure null termination at actual read length
     return getJsonValue(buffer, key);
 }
-String flipSocialUtilsLoadPasswordFromFlash(ViewManager *viewManager)
+inline String flipSocialUtilsLoadPasswordFromFlash(ViewManager *viewManager)
 {
     return flipSocialUtilsLoadFromFlash(viewManager, FLIP_SOCIAL_PASSWORD_PATH, "password");
 }
 
-String flipSocialUtilsLoadUserFromFlash(ViewManager *viewManager)
+inline String flipSocialUtilsLoadUserFromFlash(ViewManager *viewManager)
 {
     return flipSocialUtilsLoadFromFlash(viewManager, FLIP_SOCIAL_USER_PATH, "username");
 }
 
-String flipSocialHttpRequest(ViewManager *viewManager, const char *method, String url = "", String payload = "")
+inline String flipSocialHttpRequest(ViewManager *viewManager, const char *method, String url = "", String payload = "")
 {
     if (method == nullptr || url == "")
     {

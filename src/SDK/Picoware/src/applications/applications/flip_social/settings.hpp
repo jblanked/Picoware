@@ -1,6 +1,8 @@
 #pragma once
 #include "../../../system/view.hpp"
 #include "../../../system/view_manager.hpp"
+#include "../../../gui/menu.hpp"
+#include "../../../gui/textbox.hpp"
 #include "../../../applications/applications/flip_social/pass.hpp"
 #include "../../../applications/applications/flip_social/user.hpp"
 
@@ -56,6 +58,7 @@ static void flipSocialSettingsRun(ViewManager *viewManager)
         inputManager->reset(true);
         break;
     case BUTTON_LEFT:
+    case BUTTON_BACK:
         if (!textBoxVisible)
         {
             viewManager->back();

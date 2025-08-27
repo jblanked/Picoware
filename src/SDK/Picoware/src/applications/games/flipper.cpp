@@ -118,7 +118,7 @@ void canvas_set_font_custom(Canvas *canvas, uint8_t font_size)
 uint16_t canvas_string_width(Canvas *canvas, const char *str)
 {
     // width in pixels.
-    return strlen(str) * 8;
+    return strlen(str) * canvas->getFontSize().x;
 }
 
 size_t canvas_width(Canvas *canvas)

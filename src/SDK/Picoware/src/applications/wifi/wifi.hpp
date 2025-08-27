@@ -55,6 +55,7 @@ static void wifiRun(ViewManager *viewManager)
         inputManager->reset(true);
         break;
     case BUTTON_LEFT:
+    case BUTTON_BACK:
         viewManager->back();
         wifiIndex = 0;
         inputManager->reset(true);

@@ -39,10 +39,13 @@ static void wifiPasswordRun(ViewManager *viewManager)
         return;
     }
 
+    auto input = viewManager->getInputManager();
+
     // Check if save was requested
-    if (passwordSaveRequested)
+    if (passwordSaveRequested || input->getLastButton() == BUTTON_BACK)
     {
         passwordSaveRequested = false;
+        input->reset(true);
         viewManager->back();
         return;
     }

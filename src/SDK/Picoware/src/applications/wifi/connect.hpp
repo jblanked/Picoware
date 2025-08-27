@@ -59,7 +59,7 @@ static String getWiFiStatusText(ViewManager *viewManager)
     }
 
     text += "Press RIGHT to connect\n";
-    text += "Press LEFT to go back\n";
+    text += "Press LEFT/BACK to go back\n";
     text += "Press UP to disconnect";
 
     return text;
@@ -127,6 +127,7 @@ static void wifiConnectRun(ViewManager *viewManager)
     switch (input)
     {
     case BUTTON_LEFT:
+    case BUTTON_BACK:
         // Go back to previous view
         viewManager->back();
         inputManager->reset();

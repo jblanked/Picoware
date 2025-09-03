@@ -42,6 +42,7 @@ class Draw:
         )
         self.background = background
         self.foreground = foreground
+        self.palette = self._create_rgb332_palette()
         self.display.set_color(foreground, background)
         self.display.fill_rectangle(0, 0, self.size.x, self.size.y, background)
 
@@ -84,6 +85,26 @@ class Draw:
     def color565(self, r, g, b):
         """Convert RGB888 to RGB565 color format"""
         return self.display.color565(r, g, b)
+
+    def _create_rgb332_palette(self):
+        """Create an RGB332 to RGB565 palette conversion table"""
+        palette = []
+        for i in range(256):
+            # Extract RGB332 components
+            r3 = (i >> 5) & 0x07  # 3 bits for red
+            g3 = (i >> 2) & 0x07  # 3 bits for green
+            b2 = i & 0x03  # 2 bits for blue
+
+            # Convert to 8-bit RGB
+            r8 = (r3 * 255) // 7  # Scale 3-bit to 8-bit
+            g8 = (g3 * 255) // 7  # Scale 3-bit to 8-bit
+            b8 = (b2 * 255) // 3  # Scale 2-bit to 8-bit
+
+            # Convert to RGB565
+            rgb565 = ((r8 & 0xF8) << 8) | ((g8 & 0xFC) << 3) | (b8 >> 3)
+            palette.append(rgb565)
+
+        return palette
 
     def erase(self):
         """Erase the display"""
@@ -219,6 +240,17 @@ class Draw:
         for y in range(img.size.y):
             for x in range(img.size.x):
                 color = img.get_pixel(x, y)
+                self.display.pixel(position.x + x, position.y + y, color)
+
+    def image_bytearray(self, position: Vector, size: Vector, byte_data, palette=None):
+        """Draw an image from 8-bit byte data (bytes or bytearray) with optional palette conversion"""
+        if palette is None:
+            palette = self.palette
+
+        for y in range(size.y):
+            for x in range(size.x):
+                palette_index = byte_data[y * size.x + x]
+                color = palette[palette_index] if palette_index < len(palette) else 0
                 self.display.pixel(position.x + x, position.y + y, color)
 
     def line(self, position: Vector, size: Vector, color=TFT_WHITE):

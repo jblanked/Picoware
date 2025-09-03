@@ -22,7 +22,7 @@ class Font:
 class Draw:
     """Class for drawing shapes and text on the display"""
 
-    def __init__(self):
+    def __init__(self, foreground: int = TFT_WHITE, background: int = TFT_BLACK):
         self.size = Vector(320, 320)
         self.display = _ILI9341(
             SPI(
@@ -39,7 +39,19 @@ class Draw:
             h=320,
             r=0,
         )
-        self.display.erase()
+        self.background = background
+        self.foreground = foreground
+        self.display.set_color(foreground, background)
+        self.display.fill_rectangle(0, 0, self.size.x, self.size.y, background)
+
+    def clear(
+        self,
+        position: Vector = Vector(0, 0),
+        size: Vector = Vector(320, 320),
+        color=TFT_BLACK,
+    ):
+        """Fill a rectangular area on the display with a color."""
+        self.display.fill_rectangle(position.x, position.y, size.x, size.y, color)
 
     def circle(self, position: Vector, radius: int, color=TFT_WHITE):
         """Draws a circle from a given position with a given radius using the midpoint circle algorithm"""
@@ -108,7 +120,9 @@ class Draw:
 
     def fill_rectangle(self, position: Vector, size: Vector, color=TFT_WHITE):
         """Draw a filled rectangle on the display"""
-        self.display.fill_rectangle(position.x, position.y, size.x, size.y, color)
+        self.display.fill_rectangle(
+            int(position.x), int(position.y), int(size.x), int(size.y), color
+        )
 
     # this is really slow.. I'll optimize this later
     def fill_round_rectangle(
@@ -202,14 +216,14 @@ class Draw:
     def line(self, position: Vector, size: Vector, color=TFT_WHITE):
         """Draw a line on the display"""
         for i in range(size.x):
-            current_x = position.x + i
+            current_x = int(position.x) + i
             if (
                 current_x >= 0
                 and current_x < self.size.x
                 and position.y >= 0
                 and position.y < self.size.y
             ):
-                self.display.pixel(current_x, position.y, color)
+                self.display.pixel(current_x, int(position.y), color)
 
     def line_custom(self, point_1: Vector, point_2: Vector, color=TFT_WHITE):
         """Draws a line using Bresenham's line algorithm"""
@@ -244,7 +258,7 @@ class Draw:
 
     def pixel(self, position: Vector, color=TFT_WHITE):
         """Draw a pixel on the display"""
-        self.display.pixel(position.x, position.y, color)
+        self.display.pixel(int(position.x), int(position.y), color)
 
     def print(self, text: str, font=Font.AdafruitGFX5x7Font):
         """Print text to the display"""
@@ -329,3 +343,10 @@ class Draw:
             self.display.scroll(distance)
         else:
             self.display.scroll(-distance)
+
+    def text(self, position: Vector, text: str, color=TFT_WHITE):
+        """Draw text at a specific position"""
+        self.display.set_pos(position.x, position.y)
+        self.foreground = color
+        self.display.set_color(color, self.background)
+        self.display.print(text)

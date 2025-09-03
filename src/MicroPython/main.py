@@ -1,11 +1,17 @@
 import time
-from ILI9341 import ILI9341
-from EasySD import EasySD
-from PicoKeyboard import PicoKeyboard
+from picoware.gui.draw import Draw
+from picoware.system.colors import TFT_BLUE, TFT_RED
+from picoware.system.vector import Vector
+from picoware.system.drivers.EasySD import EasySD
+from picoware.system.drivers.PicoKeyboard import PicoKeyboard
 
-display = ILI9341()
+display = Draw()
 display.println("Picoware Screen test")
-display.draw_circle(160, 160, 30)
+display.circle(Vector(160, 160), 30)
+display.line(Vector(150, 100), Vector(50, 0))
+display.rect(Vector(30, 30), Vector(100, 100), TFT_BLUE)
+display.fill_rectangle(Vector(30, 210), Vector(100, 100), TFT_RED)
+
 
 time.sleep(1)
 

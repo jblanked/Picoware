@@ -22,7 +22,6 @@ class PicoKeyboard:
     def __init__(self, sclPin=7, sdaPin=6, address=0x1F):
         self.hardwarekeyBuf = deque((), 30)
         self.i2c = I2C(1, scl=Pin(sclPin), sda=Pin(sdaPin), freq=10000)
-        # self.i2c.scan()
         self.ignor = True
         self.address = address
         self.temp = bytearray(2)
@@ -45,11 +44,7 @@ class PicoKeyboard:
 
     def read_reg8(self, reg):
         self.i2c.writeto(self.address, bytes(reg))
-        # self.temp[0]=reg
-        # self.i2c.writeto(self.address,self.temp[0:1])
         return self.i2c.readfrom(self.address, 1)[0]
-        # self.i2c.readfrom_into(self.address,memoryview(self.temp)[0:1])
-        # return self.temp
 
     def write_reg(self, reg, value):
         self.temp[0] = reg | _WRITE_MASK
@@ -141,9 +136,6 @@ class PicoKeyboard:
                             modifier = b";2"
 
                         if key >= 0xB4 and key <= 0xB7:
-                            # direction keys
-                            # self.hardwarekeyBuf.append(0x1b)
-                            # self.hardwarekeyBuf.append(ord('['))
                             if modifier != b"":
                                 parameters = b"1"
                             else:
@@ -166,7 +158,6 @@ class PicoKeyboard:
                                 )
                         elif key == 0x0A:
                             self.hardwarekeyBuf.append(ord("\r"))
-                            # self.hardwarekeyBuf.append(ord('\n')) #return key
                         elif key == 0xB1:  # KEY_ESC
                             self.hardwarekeyBuf.extend(b"\x1b\x1b")
                         elif key == 0xD2:  # KEY_HOME
@@ -199,7 +190,7 @@ class PicoKeyboard:
                         self.isCtrl = False
                     elif key == 0xA1:
                         self.isAlt = False
-                # self.hardwarekeyBuf.append(key[:])
+
         # now deside how many keys to send to buf
         requestedkeys = len(buf)
         keysLeft = requestedkeys
@@ -207,10 +198,7 @@ class PicoKeyboard:
             len(self.hardwarekeyBuf) == 0
         ):  # after read in the key, still no key in buffer
             return None
-        # print("init buf")
-        # print(buf)
-        # print("hardware key buf size")
-        # print(len(self.hardwarekeyBuf))
+
         while keysLeft > 0:
 
             # fill all keys until key list is empty
@@ -223,9 +211,6 @@ class PicoKeyboard:
             buf[-keysLeft] = key
             keysLeft -= 1
 
-        # print("read buff")
-        # print(buf)
-        # print(requestedkeys-keysLeft)
         if requestedkeys - keysLeft == 0:
             return None
         else:

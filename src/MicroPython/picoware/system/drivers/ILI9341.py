@@ -1,139 +1,3 @@
-# originated from https://github.com/jeffmer/micropython-ili9341
-# edited by JBlanked - 2025-01-09
-
-# This is a driver for the ILI9341 TFT display for MicroPython.
-# I tested this on a 2.4 TFT 240x320 SPI display with an ILI9341 controller.
-
-# Wiring (TFT -> Pico):
-# GNDD -> GND
-# VCC -> VSYS (Pin 39)
-# CS -> GP9 (Pin 12)
-# RESET -> GP10 (Pin 14)
-# DC -> GP11 (Pin 15)
-# SDI/MOSI -> GP6 (Pin 9)
-# SCK -> GP7 (Pin 10)
-# LED -> VSYS (Pin 39)
-
-# edited again (from https://github.com/jblanked/RaspberryPi/tree/main/Pico%20W/Libraries/MicroPython
-# on 2025-09-02 by JBlanked to work with the PicoCalc's screen
-
-
-class Font:
-    AdafruitGFX5x7Font = 0
-    CMSansSerif2012 = 1
-    CMSansSerif201224 = 2
-    CMSansSerif201231 = 3
-
-
-def color565(r, g, b):
-    return (r & 0xF8) << 8 | (g & 0xFC) << 3 | b >> 3
-
-
-class ILI9341:
-    def __init__(
-        self,
-        miso_pin=12,
-        clk_pin=10,
-        mosi_pin=11,
-        cs_pin=13,
-        dc_pin=14,
-        rst_pin=15,
-        width=320,
-        height=320,
-        rotation=0,
-    ):
-        self.width = width
-        self.height = height
-        self.rotation = rotation
-        self.spi = SPI(
-            1,
-            baudrate=25000000,
-            sck=Pin(clk_pin),
-            mosi=Pin(mosi_pin),
-            miso=Pin(miso_pin),
-        )
-        self.display = _ILI9341(
-            self.spi,
-            cs=Pin(cs_pin),
-            dc=Pin(dc_pin),
-            rst=Pin(rst_pin),
-            w=width,
-            h=height,
-            r=rotation,
-        )
-        self.display.erase()
-        self.center_x = int(width / 2)
-        self.center_y = int(height / 2)
-
-    def println(
-        self,
-        text: str,
-        font=Font.AdafruitGFX5x7Font,
-        clear: bool = False,
-    ):
-        if clear:
-            self.display.erase()
-        if font == Font.AdafruitGFX5x7Font:
-            self.display.set_font(AdafruitGFX5x7Font)
-        elif font == Font.CMSansSerif2012:
-            self.display.set_font(CMSansSerif2012)
-        elif font == Font.CMSansSerif201224:
-            self.display.set_font(CMSansSerif201224)
-        elif font == Font.CMSansSerif201231:
-            self.display.set_font(CMSansSerif201231)
-        self.display.print(f"{text}\n")
-
-    def set_color(
-        self,
-        foreground=color565(255, 255, 255),
-        background=color565(150, 150, 150),
-    ):
-        """Set the color for the display"""
-        self.display.set_color(foreground, background)
-
-    def draw_circle(self, xpos0, ypos0, rad, col=color565(255, 255, 255)):
-        """
-        Helper function to draw a circle from a given position with a given radius
-        This is an implementation of the midpoint circle algorithm,
-        see https://en.wikipedia.org/wiki/Midpoint_circle_algorithm#C_example
-        for details
-        """
-        x = rad - 1
-        y = 0
-        dx = 1
-        dy = 1
-        err = dx - (rad << 1)
-        while x >= y:
-            self.display.pixel(xpos0 + x, ypos0 + y, col)
-            self.display.pixel(xpos0 + y, ypos0 + x, col)
-            self.display.pixel(xpos0 - y, ypos0 + x, col)
-            self.display.pixel(xpos0 - x, ypos0 + y, col)
-            self.display.pixel(xpos0 - x, ypos0 - y, col)
-            self.display.pixel(xpos0 - y, ypos0 - x, col)
-            self.display.pixel(xpos0 + y, ypos0 - x, col)
-            self.display.pixel(xpos0 + x, ypos0 - y, col)
-            if err <= 0:
-                y += 1
-                err += dy
-                dy += 2
-            if err > 0:
-                x -= 1
-                dx += 2
-                err += dx - (rad << 1)
-
-    def scroll(self, up: bool = True, distance: int = 1):
-        if up:
-            self.display.scroll(distance)
-        else:
-            self.display.scroll(-distance)
-
-    def reset(self):
-        self.display.reset()
-
-    def erase(self):
-        self.display.erase()
-
-
 # This is an adapted version of the ILI934X driver as below.
 # It works with multiple fonts and also works with the esp32 H/W SPI implementation
 # Also includes a word wrap print function
@@ -153,10 +17,10 @@ import time
 import ustruct
 import framebuf
 from micropython import const
-from machine import Pin, SPI
 
 _RDDSDR = const(0x0F)  # Read Display Self-Diagnostic Result
 _SLPOUT = const(0x11)  # Sleep Out
+_INVON = const(0x21)  # Display Inversion On
 _GAMSET = const(0x26)  # Gamma Set
 _DISPOFF = const(0x28)  # Display Off
 _DISPON = const(0x29)  # Display On
@@ -248,39 +112,39 @@ class _ILI9341:
             self._write(command, data)
 
         if self.rotation == 0:  # 0 deg
-            self._write(_MADCTL, b"\x48")
+            self._write(_MADCTL, b"\x40")  # 0x48 -> 0x40 (BGR mode)
             self.width = self._init_height
             self.height = self._init_width
         elif self.rotation == 1:  # 90 deg
-            self._write(_MADCTL, b"\x28")
+            self._write(_MADCTL, b"\x20")  # 0x28 -> 0x20 (BGR mode)
             self.width = self._init_width
             self.height = self._init_height
         elif self.rotation == 2:  # 180 deg
-            self._write(_MADCTL, b"\x88")
+            self._write(_MADCTL, b"\x80")  # 0x88 -> 0x80 (BGR mode)
             self.width = self._init_height
             self.height = self._init_width
         elif self.rotation == 3:  # 270 deg
-            self._write(_MADCTL, b"\xe8")
+            self._write(_MADCTL, b"\xe0")  # 0xe8 -> 0xe0 (BGR mode)
             self.width = self._init_width
             self.height = self._init_height
         elif self.rotation == 4:  # Mirrored + 0 deg
-            self._write(_MADCTL, b"\xc8")
+            self._write(_MADCTL, b"\xc0")  # 0xc8 -> 0xc0 (BGR mode)
             self.width = self._init_height
             self.height = self._init_width
         elif self.rotation == 5:  # Mirrored + 90 deg
-            self._write(_MADCTL, b"\x68")
+            self._write(_MADCTL, b"\x60")  # 0x68 -> 0x60 (BGR mode)
             self.width = self._init_width
             self.height = self._init_height
         elif self.rotation == 6:  # Mirrored + 180 deg
-            self._write(_MADCTL, b"\x08")
+            self._write(_MADCTL, b"\x00")  # 0x08 -> 0x00 (BGR mode)
             self.width = self._init_height
             self.height = self._init_width
         elif self.rotation == 7:  # Mirrored + 270 deg
-            self._write(_MADCTL, b"\xa8")
+            self._write(_MADCTL, b"\xa0")  # 0xa8 -> 0xa0 (BGR mode)
             self.width = self._init_width
             self.height = self._init_height
         else:
-            self._write(_MADCTL, b"\x08")
+            self._write(_MADCTL, b"\x00")  # 0x08 -> 0x00 (BGR mode)
 
         for command, data in (
             (_PIXSET, b"\x55"),
@@ -301,6 +165,7 @@ class _ILI9341:
         self._write(_SLPOUT)
         time.sleep_ms(120)
         self._write(_DISPON)
+        self._write(_INVON)  # Enable display inversion
 
     def reset(self):
         self.rst(0)
@@ -341,10 +206,13 @@ class _ILI9341:
         self.cs(1)
         return data
 
+    def color565(self, r, g, b):
+        return (r & 0xF8) << 8 | (g & 0xFC) << 3 | b >> 3
+
     def pixel(self, x, y, color=None):
         if color is None:
             r, b, g = self._readblock(x, y, x, y)
-            return color565(r, g, b)
+            return self.color565(r, g, b)
         if not 0 <= x < self.width or not 0 <= y < self.height:
             return
         self._writeblock(x, y, x, y, ustruct.pack(">H", color))

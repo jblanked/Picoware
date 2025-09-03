@@ -1,6 +1,7 @@
 import time
 from picoware.gui.draw import Draw
 from picoware.gui.menu import Menu
+from picoware.gui.textbox import TextBox
 from picoware.system.colors import TFT_BLUE, TFT_RED, TFT_BLACK, TFT_WHITE
 from picoware.system.vector import Vector
 from picoware.system.drivers.EasySD import EasySD
@@ -33,6 +34,20 @@ ls.add_item("A")
 ls.add_item("Menu")
 
 ls.draw()
+
+time.sleep(3)
+
+textbox = TextBox(
+    display,
+    y=0,
+    height=240,
+    foreground_color=TFT_WHITE,
+    background_color=TFT_BLACK,
+)
+
+textbox.set_text(
+    "Hello, this is a test of the TextBox class. It will auto-wrap text too!"
+)
 
 time.sleep(3)
 

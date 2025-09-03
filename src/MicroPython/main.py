@@ -1,6 +1,7 @@
 import time
 from picoware.gui.draw import Draw
-from picoware.system.colors import TFT_BLUE, TFT_RED
+from picoware.gui.menu import Menu
+from picoware.system.colors import TFT_BLUE, TFT_RED, TFT_BLACK, TFT_WHITE
 from picoware.system.vector import Vector
 from picoware.system.drivers.EasySD import EasySD
 from picoware.system.drivers.PicoKeyboard import PicoKeyboard
@@ -13,7 +14,27 @@ display.rect(Vector(30, 30), Vector(100, 100), TFT_BLUE)
 display.fill_rectangle(Vector(30, 210), Vector(100, 100), TFT_RED)
 
 
-time.sleep(1)
+time.sleep(3)
+
+ls = Menu(
+    display,
+    "Test Menu",
+    0,
+    320,
+    TFT_WHITE,
+    TFT_BLACK,
+    selected_color=TFT_BLUE,
+    border_color=TFT_WHITE,
+)
+ls.add_item("Hi")
+ls.add_item("This")
+ls.add_item("Is")
+ls.add_item("A")
+ls.add_item("Menu")
+
+ls.draw()
+
+time.sleep(3)
 
 sd = EasySD()
 sd.mount()  # mount SD card

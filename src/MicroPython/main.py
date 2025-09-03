@@ -2,6 +2,7 @@ import time
 from picoware.gui.draw import Draw
 from picoware.gui.menu import Menu
 from picoware.gui.textbox import TextBox
+from picoware.gui.loading import Loading
 from picoware.system.colors import TFT_BLUE, TFT_RED, TFT_BLACK, TFT_WHITE
 from picoware.system.vector import Vector
 from picoware.system.drivers.EasySD import EasySD
@@ -16,6 +17,14 @@ display.fill_rectangle(Vector(30, 210), Vector(100, 100), TFT_RED)
 
 
 time.sleep(3)
+
+loading = Loading(display, TFT_WHITE, TFT_BLACK)
+i = 0
+while i < 10:
+    loading.animate()
+    i += 1
+    time.sleep(0.1)
+
 
 ls = Menu(
     display,

@@ -1,5 +1,6 @@
 from machine import Pin, SPI
 from picoware.system.colors import TFT_WHITE, TFT_BLACK
+from picoware.gui.image import Image
 from picoware.system.vector import Vector
 from picoware.system.drivers.ILI9341 import (
     _ILI9341,
@@ -212,6 +213,13 @@ class Draw:
         """Get the current font size"""
         _font = self.display._font
         return Vector(_font.max_width, _font.height)
+
+    def image(self, position: Vector, img: Image):
+        """Draw an image on the display"""
+        for y in range(img.size.y):
+            for x in range(img.size.x):
+                color = img.get_pixel(x, y)
+                self.display.pixel(position.x + x, position.y + y, color)
 
     def line(self, position: Vector, size: Vector, color=TFT_WHITE):
         """Draw a line on the display"""

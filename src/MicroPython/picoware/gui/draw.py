@@ -242,6 +242,12 @@ class Draw:
                 color = img.get_pixel(x, y)
                 self.display.pixel(position.x + x, position.y + y, color)
 
+    def image_bmp(self, position: Vector, path: str):
+        """Draw a BMP image from the filesystem"""
+        img = Image()
+        img._load_bmp(path)
+        self.image(position, img)
+
     def image_bytearray(self, position: Vector, size: Vector, byte_data, palette=None):
         """Draw an image from 8-bit byte data (bytes or bytearray) with optional palette conversion"""
         if palette is None:

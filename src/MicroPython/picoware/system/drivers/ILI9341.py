@@ -112,39 +112,39 @@ class _ILI9341:
             self._write(command, data)
 
         if self.rotation == 0:  # 0 deg
-            self._write(_MADCTL, b"\x40")  # 0x48 -> 0x40 (BGR mode)
+            self._write(_MADCTL, b"\x48")  # BGR mode, top to bottom, left to right
             self.width = self._init_height
             self.height = self._init_width
         elif self.rotation == 1:  # 90 deg
-            self._write(_MADCTL, b"\x20")  # 0x28 -> 0x20 (BGR mode)
+            self._write(_MADCTL, b"\x28")  # BGR mode with rotation
             self.width = self._init_width
             self.height = self._init_height
         elif self.rotation == 2:  # 180 deg
-            self._write(_MADCTL, b"\x80")  # 0x88 -> 0x80 (BGR mode)
+            self._write(_MADCTL, b"\x88")  # BGR mode with rotation
             self.width = self._init_height
             self.height = self._init_width
         elif self.rotation == 3:  # 270 deg
-            self._write(_MADCTL, b"\xe0")  # 0xe8 -> 0xe0 (BGR mode)
+            self._write(_MADCTL, b"\xe8")  # BGR mode with rotation
             self.width = self._init_width
             self.height = self._init_height
         elif self.rotation == 4:  # Mirrored + 0 deg
-            self._write(_MADCTL, b"\xc0")  # 0xc8 -> 0xc0 (BGR mode)
+            self._write(_MADCTL, b"\xc8")  # BGR mode with mirroring
             self.width = self._init_height
             self.height = self._init_width
         elif self.rotation == 5:  # Mirrored + 90 deg
-            self._write(_MADCTL, b"\x60")  # 0x68 -> 0x60 (BGR mode)
+            self._write(_MADCTL, b"\x68")  # BGR mode with mirroring and rotation
             self.width = self._init_width
             self.height = self._init_height
         elif self.rotation == 6:  # Mirrored + 180 deg
-            self._write(_MADCTL, b"\x00")  # 0x08 -> 0x00 (BGR mode)
+            self._write(_MADCTL, b"\x08")  # BGR mode with mirroring and rotation
             self.width = self._init_height
             self.height = self._init_width
         elif self.rotation == 7:  # Mirrored + 270 deg
-            self._write(_MADCTL, b"\xa0")  # 0xa8 -> 0xa0 (BGR mode)
+            self._write(_MADCTL, b"\xa8")  # BGR mode with mirroring and rotation
             self.width = self._init_width
             self.height = self._init_height
         else:
-            self._write(_MADCTL, b"\x00")  # 0x08 -> 0x00 (BGR mode)
+            self._write(_MADCTL, b"\x08")  # BGR mode default
 
         for command, data in (
             (_PIXSET, b"\x55"),

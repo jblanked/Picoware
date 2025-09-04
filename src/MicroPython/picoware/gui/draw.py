@@ -1,23 +1,10 @@
 from machine import Pin, SPI
+import micropython
 from picoware.system.colors import TFT_WHITE, TFT_BLACK
 from picoware.gui.image import Image
+from picoware.system.drivers.custom_framebuffer import CustomFrameBuffer
 from picoware.system.vector import Vector
-from picoware.system.drivers.ILI9341 import (
-    _ILI9341,
-    AdafruitGFX5x7Font,
-    CMSansSerif2012,
-    CMSansSerif201224,
-    CMSansSerif201231,
-)
-
-
-class Font:
-    """Enumeration of font types"""
-
-    AdafruitGFX5x7Font = 0
-    CMSansSerif2012 = 1
-    CMSansSerif201224 = 2
-    CMSansSerif201231 = 3
+from picoware.system.drivers.ILI9341 import _ILI9341
 
 
 class Draw:
@@ -42,49 +29,22 @@ class Draw:
         )
         self.background = background
         self.foreground = foreground
-        self.palette = self._create_rgb332_palette()
         self.display.set_color(foreground, background)
+
+        self.framebuffer = None
+        self.fb_data = None
+
+        self.palette = self._create_rgb332_palette()
+
+        self.text_background = background
+        self.text_foreground = foreground
+        self.use_background_text_color = False
+
+        # Initialize the selected buffer system
+        self._init_framebuffer()
+
+        # clear the display
         self.display.fill_rectangle(0, 0, self.size.x, self.size.y, background)
-
-    def clear(
-        self,
-        position: Vector = Vector(0, 0),
-        size: Vector = Vector(320, 320),
-        color=TFT_BLACK,
-    ):
-        """Fill a rectangular area on the display with a color."""
-        self.display.fill_rectangle(position.x, position.y, size.x, size.y, color)
-
-    def circle(self, position: Vector, radius: int, color=TFT_WHITE):
-        """Draws a circle from a given position with a given radius using the midpoint circle algorithm"""
-        x_pos: int = int(position.x)
-        y_pos: int = int(position.y)
-        x: int = radius - 1
-        y: int = 0
-        dx: int = 1
-        dy: int = 1
-        err: int = dx - (radius << 1)
-        while x >= y:
-            self.display.pixel(x_pos + x, y_pos + y, color)
-            self.display.pixel(x_pos + y, y_pos + x, color)
-            self.display.pixel(x_pos - y, y_pos + x, color)
-            self.display.pixel(x_pos - x, y_pos + y, color)
-            self.display.pixel(x_pos - x, y_pos - y, color)
-            self.display.pixel(x_pos - y, y_pos - x, color)
-            self.display.pixel(x_pos + y, y_pos - x, color)
-            self.display.pixel(x_pos + x, y_pos - y, color)
-            if err <= 0:
-                y += 1
-                err += dy
-                dy += 2
-            if err > 0:
-                x -= 1
-                dx += 2
-                err += dx - (radius << 1)
-
-    def color565(self, r, g, b):
-        """Convert RGB888 to RGB565 color format"""
-        return self.display.color565(r, g, b)
 
     def _create_rgb332_palette(self):
         """Create an RGB332 to RGB565 palette conversion table"""
@@ -106,10 +66,118 @@ class Draw:
 
         return palette
 
+    def __del__(self):
+        """Destructor to ensure cleanup on object deletion"""
+        try:
+            self.cleanup()
+        except:
+            pass
+
+    def _draw_pixel_to_buffer(self, position: Vector, color: int):
+        """Draw a pixel to the framebuffer"""
+        if 0 <= position.x < self.size.x and 0 <= position.y < self.size.y:
+            self.framebuffer.pixel(int(position.x), int(position.y), color)
+
+    def _init_framebuffer(self):
+        """Initialize framebuffer with correct color format"""
+        import gc
+
+        gc.collect()
+
+        try:
+            buffer_size = self.size.x * self.size.y * 2  # 2 bytes per pixel
+            self.fb_data = bytearray(buffer_size)
+
+            # Use custom framebuffer with byte order correction for all colors
+            self.framebuffer = CustomFrameBuffer(
+                self.fb_data,
+                self.size.x,
+                self.size.y,
+            )
+
+        except MemoryError:
+            print("Failed to allocate framebuffer")
+            self.framebuffer = None
+            self.fb_data = None
+
+    @micropython.native
+    def circle(self, position: Vector, radius: int, color: int = TFT_WHITE):
+        """Draw a circle"""
+        cx, cy = int(position.x), int(position.y)
+        x, y = 0, radius
+        d = 3 - 2 * radius
+
+        while x <= y:
+            # Draw 8 symmetric points
+            points = [
+                (cx + x, cy + y),
+                (cx - x, cy + y),
+                (cx + x, cy - y),
+                (cx - x, cy - y),
+                (cx + y, cy + x),
+                (cx - y, cy + x),
+                (cx + y, cy - x),
+                (cx - y, cy - x),
+            ]
+
+            for px, py in points:
+                if 0 <= px < self.size.x and 0 <= py < self.size.y:
+                    self._draw_pixel_to_buffer(Vector(px, py), color)
+
+            if d < 0:
+                d += 4 * x + 6
+            else:
+                d += 4 * (x - y) + 10
+                y -= 1
+            x += 1
+
+    def clear(
+        self,
+        position: Vector = Vector(0, 0),
+        size: Vector = Vector(320, 320),
+        color=TFT_BLACK,
+    ):
+        """Fill a rectangular area with a color."""
+        if position == Vector(0, 0) and size == Vector(320, 320):
+            self.fill_screen(color)
+        else:
+            self.fill_rectangle(position, size, color)
+
+    def cleanup(self):
+        """Cleanup all allocated buffers and free memory"""
+        import gc
+
+        # Clean up framebuffer
+        if self.framebuffer is not None:
+            self.framebuffer = None
+        if self.fb_data is not None:
+            del self.fb_data
+            self.fb_data = None
+
+        # Clean up double buffers
+        if self.palette is not None:
+            del self.palette
+            self.palette = None
+
+        # Force garbage collection
+        gc.collect()
+
+    @micropython.native
+    def color332(self, color: int) -> int:
+        """Convert RGB565 to RGB332 color format"""
+        return (
+            ((color & 0xE000) >> 8) | ((color & 0x0700) >> 6) | ((color & 0x0018) >> 3)
+        )
+
+    def color565(self, r, g, b):
+        """Convert RGB888 to RGB565 color format"""
+        return self.display.color565(r, g, b)
+
     def erase(self):
         """Erase the display"""
         self.display.erase()
 
+    @micropython.native
     def fill_circle(self, position: Vector, radius: int, color=TFT_WHITE):
         """Draw a filled circle on the display"""
         if radius <= 0:
@@ -142,11 +210,9 @@ class Draw:
 
     def fill_rectangle(self, position: Vector, size: Vector, color=TFT_WHITE):
         """Draw a filled rectangle on the display"""
-        self.display.fill_rectangle(
-            int(position.x), int(position.y), int(size.x), int(size.y), color
-        )
+        self.framebuffer.fill_rect(position.x, position.y, size.x, size.y, color)
 
-    # this is really slow.. I'll optimize this later
+    @micropython.native
     def fill_round_rectangle(
         self, position: Vector, size: Vector, radius: int, color=TFT_WHITE
     ):
@@ -220,27 +286,23 @@ class Draw:
                             in_corner = True
 
                     if not in_corner:
-                        self.display.pixel(px, py, color)
+                        self.pixel(Vector(px, py), color)
 
-    def get_cursor(self) -> Vector:
-        """Get the current cursor position"""
-        return Vector(self.display._x, self.display._y)
-
-    def get_font(self) -> Font:
-        """Get the current font"""
-        return self.display._font
+    def fill_screen(self, color=TFT_BLACK):
+        """Fill the entire screen with a color"""
+        self.framebuffer.fill(color)
 
     def get_font_size(self) -> Vector:
         """Get the current font size"""
-        _font = self.display._font
-        return Vector(_font.max_width, _font.height)
+        return Vector(8, 8)
 
+    @micropython.native
     def image(self, position: Vector, img: Image):
-        """Draw an image on the display"""
+        """Draw an image to the back buffer"""
         for y in range(img.size.y):
             for x in range(img.size.x):
                 color = img.get_pixel(x, y)
-                self.display.pixel(position.x + x, position.y + y, color)
+                self.pixel(Vector(position.x + x, position.y + y), color)
 
     def image_bmp(self, position: Vector, path: str):
         """Draw a BMP image from the filesystem"""
@@ -248,6 +310,7 @@ class Draw:
         img._load_bmp(path)
         self.image(position, img)
 
+    @micropython.native
     def image_bytearray(self, position: Vector, size: Vector, byte_data, palette=None):
         """Draw an image from 8-bit byte data (bytes or bytearray) with optional palette conversion"""
         if palette is None:
@@ -257,108 +320,42 @@ class Draw:
             for x in range(size.x):
                 palette_index = byte_data[y * size.x + x]
                 color = palette[palette_index] if palette_index < len(palette) else 0
-                self.display.pixel(position.x + x, position.y + y, color)
+                self.pixel(Vector(position.x + x, position.y + y), color)
 
     def line(self, position: Vector, size: Vector, color=TFT_WHITE):
-        """Draw a line on the display"""
-        for i in range(size.x):
-            current_x = int(position.x) + i
-            if (
-                current_x >= 0
-                and current_x < self.size.x
-                and position.y >= 0
-                and position.y < self.size.y
-            ):
-                self.display.pixel(current_x, int(position.y), color)
+        """Draw horizontal line"""
+        self.framebuffer.hline(position.x, position.y, size.x, color)
 
     def line_custom(self, point_1: Vector, point_2: Vector, color=TFT_WHITE):
-        """Draws a line using Bresenham's line algorithm"""
-        x1: int = int(point_1.x)
-        y1: int = int(point_1.y)
-        x2: int = int(point_2.x)
-        y2: int = int(point_2.y)
-
-        dx: int = abs(x2 - x1)
-        dy: int = abs(y2 - y1)
-        sx: int = 1 if x1 < x2 else -1
-        sy: int = 1 if y1 < y2 else -1
-        err: int = dx - dy
-
-        while True:
-            # Draw pixel if within bounds
-            if x1 >= 0 and x1 < self.size.x and y1 >= 0 and y1 < self.size.y:
-                self.display.pixel(x1, y1, color)
-
-            # Check if we've reached the end point
-            if x1 == x2 and y1 == y2:
-                break
-
-            e2: int = 2 * err
-            if e2 > -dy:
-                err -= dy
-                x1 += sx
-
-            if e2 < dx:
-                err += dx
-                y1 += sy
+        """Draw line between two points"""
+        self.framebuffer.line(point_1.x, point_1.y, point_2.x, point_2.y, color)
 
     def pixel(self, position: Vector, color=TFT_WHITE):
-        """Draw a pixel on the display"""
-        self.display.pixel(int(position.x), int(position.y), color)
-
-    def print(self, text: str, font=Font.AdafruitGFX5x7Font):
-        """Print text to the display"""
-        self.set_font(font)
-        self.display.print(text)
-
-    def println(
-        self,
-        text: str,
-        font=Font.AdafruitGFX5x7Font,
-        clear: bool = False,
-    ):
-        """Print text to the display"""
-        if clear:
-            self.display.erase()
-        self.set_font(font)
-        self.display.print(f"{text}\n")
+        """Draw a pixel"""
+        self._draw_pixel_to_buffer(position, color)
 
     def rect(self, position: Vector, size: Vector, color=TFT_WHITE):
         """Draw a rectangle on the display"""
         if size.x <= 0 or size.y <= 0:
             return
 
-        # Top edge (horizontal line)
-        self.line(position, Vector(size.x, 0), color)
-
-        # Bottom edge (horizontal line)
-        self.line(Vector(position.x, position.y + size.y - 1), Vector(size.x, 0), color)
-
-        # Left edge (vertical line using individual pixels)
-        for y in range(size.y):
-            pixel_position = Vector(position.x, position.y + y)
-            if (
-                pixel_position.x >= 0
-                and pixel_position.x < self.size.x
-                and pixel_position.y >= 0
-                and pixel_position.y < self.size.y
-            ):
-                self.pixel(pixel_position, color)
-
-        # Right edge (vertical line using individual pixels)
-        for y in range(size.y):
-            pixel_position = Vector(position.x + size.x - 1, position.y + y)
-            if (
-                pixel_position.x >= 0
-                and pixel_position.x < self.size.x
-                and pixel_position.y >= 0
-                and pixel_position.y < self.size.y
-            ):
-                self.pixel(pixel_position, color)
+        self.framebuffer.rect(position.x, position.y, size.x, size.y, color)
 
     def reset(self):
         """Reset the display"""
         self.display.reset()
+
+    def scroll(self, up: bool = True, distance: int = 1):
+        """Scroll the display up or down"""
+        if up:
+            self.display.scroll(distance)
+        else:
+            self.display.scroll(-distance)
+
+    def set_background_color(self, color: int):
+        """Set the background color"""
+        self.background = color
+        self.display.set_color(self.foreground, color)
 
     def set_color(
         self,
@@ -368,31 +365,15 @@ class Draw:
         """Set the foreground and background color of the display"""
         self.display.set_color(foreground, background)
 
-    def set_cursor(self, position: Vector):
-        """Set the cursor position for text printing"""
-        self.display.set_pos(position.x, position.y)
-
-    def set_font(self, font: int = Font.AdafruitGFX5x7Font):
-        """Set the font for the display"""
-        if font == Font.AdafruitGFX5x7Font:
-            self.display.set_font(AdafruitGFX5x7Font)
-        elif font == Font.CMSansSerif2012:
-            self.display.set_font(CMSansSerif2012)
-        elif font == Font.CMSansSerif201224:
-            self.display.set_font(CMSansSerif201224)
-        elif font == Font.CMSansSerif201231:
-            self.display.set_font(CMSansSerif201231)
-
-    def scroll(self, up: bool = True, distance: int = 1):
-        """Scroll the display up or down"""
-        if up:
-            self.display.scroll(distance)
-        else:
-            self.display.scroll(-distance)
-
-    def text(self, position: Vector, text: str, color=TFT_WHITE):
-        """Draw text at a specific position"""
-        self.display.set_pos(position.x, position.y)
+    def set_foreground_color(self, color: int):
+        """Set the foreground color"""
         self.foreground = color
         self.display.set_color(color, self.background)
-        self.display.print(text)
+
+    def swap(self):
+        """Swap the front and back buffers"""
+        self.display.blit_buffer(self.fb_data, 0, 0, self.size.x, self.size.y)
+
+    def text(self, position: Vector, text: str, color=TFT_WHITE):
+        """Draw text on the display"""
+        self.framebuffer.text(text, position.x, position.y, color)

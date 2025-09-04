@@ -139,23 +139,19 @@ def test_peripherals():
 
     print("Testing keyboard...")
     try:
-        from picoware.system.drivers.PicoKeyboard import PicoKeyboard
+        from picoware.system.input import Input
 
-        kb = PicoKeyboard()
+        kb = Input()
 
         start_time = time.time()
         timeout = 10
 
         print("Waiting for keyboard input for 10 seconds...")
         while time.time() - start_time < timeout:
-            if kb.keyCount() > 0:
-                key_event = kb.keyEvent()
-                if key_event:
-                    state = key_event[0]
-                    key = key_event[1]
-                    if state == 1:
-                        print(f"Key pressed: {chr(key) if 32 <= key <= 126 else key}")
-            time.sleep(0.1)
+            kb.run()
+            _button = kb.get_last_button()
+            if _button != -1:
+                print(f"Key pressed: {_button}")
 
         print("Input timeout reached.")
         del kb

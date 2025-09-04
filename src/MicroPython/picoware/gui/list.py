@@ -1,4 +1,5 @@
 from gc import collect as free
+import micropython
 from picoware.system.vector import Vector
 from picoware.gui.draw import Draw
 from picoware.gui.scrollbar import ScrollBar
@@ -40,7 +41,7 @@ class List:
         self.first_visible_index = 0
         self.visible_item_count = (self.size.y - 2 * border_width) / self.item_height
         self.items = []
-        # draw.swap()
+        draw.swap()
 
     def add_item(self, item: str, update_view: bool = False) -> None:
         """Add an item to the list and update the display."""
@@ -64,69 +65,75 @@ class List:
         self.set_scrollbar_size()
         self.set_scrollbar_position()
 
-        # self.scrollbar.display.swap()
+        self.scrollbar.display.swap()
 
+    @micropython.native
     def draw(self) -> None:
         """Draw the list."""
         self.scrollbar.display.clear(self.position, self.size, self.background_color)
 
         # Draw only visible items
-        displayed = 0
-        for i in range(self.first_visible_index, len(self.items)):
-            if displayed >= int(self.visible_item_count):
-                break
-            self.draw_item(i, i == self.selected_index)
-            displayed += 1
+        self._draw_items_batch()
 
         # Draw the scrollbar
         self.set_scrollbar_size()
         self.set_scrollbar_position()
         self.scrollbar.draw()
 
-        # swap the display buffer
-        # self.scrollbar.display.swap()
+        # Swap buffers
+        self.scrollbar.display.swap()
+
+        # Free unused memory
         free()
 
+    @micropython.native
+    def _draw_items_batch(self) -> None:
+        """Batch drawing of list items."""
+        displayed = 0
+        max_items = int(self.visible_item_count)
+
+        for i in range(self.first_visible_index, len(self.items)):
+            if displayed >= max_items:
+                break
+            self.draw_item(i, i == self.selected_index)
+            displayed += 1
+
+    @micropython.native
     def draw_item(self, index: int, selected: bool) -> None:
         """Draw an item in the list."""
         # Calculate the position within the visible area
         visible_index = index - self.first_visible_index
-        y = self.position.y + self.border_width + visible_index * self.item_height
+        y = int(self.position.y + self.border_width + visible_index * self.item_height)
 
-        # Check if the item is within visible bounds
+        # Bounds check
         if visible_index >= self.visible_item_count:
             return
 
         # Draw item background
-        if selected:
-            self.scrollbar.display.fill_rectangle(
-                Vector(self.position.x + self.border_width, y),
-                Vector(self.size.x - 2 * self.border_width, self.item_height),
-                self.selected_color,
-            )
-        else:
-            self.scrollbar.display.fill_rectangle(
-                Vector(self.position.x + self.border_width, y),
-                Vector(self.size.x - 2 * self.border_width, self.item_height),
-                self.background_color,
-            )
+        bg_x = int(self.position.x + self.border_width)
+        bg_width = int(self.size.x - 2 * self.border_width)
+        bg_height = int(self.item_height)
 
-        # Draw line separator
+        background_color = self.selected_color if selected else self.background_color
+
+        self.scrollbar.display.fill_rectangle(
+            Vector(bg_x, y), Vector(bg_width, bg_height), background_color
+        )
+
+        # Draw border line
         if self.border_width > 0:
+            line_y = y + bg_height - 1
             self.scrollbar.display.line_custom(
-                Vector(self.position.x + self.border_width, y + self.item_height - 1),
-                Vector(
-                    self.position.x + self.size.x - self.border_width - 1,
-                    y + self.item_height - 1,
-                ),
+                Vector(bg_x, line_y),
+                Vector(bg_x + bg_width - 1, line_y),
                 self.border_color,
             )
 
-        # Draw the item text
+        # Draw item text
+        text_x = bg_x + 5  # Small padding
+        text_y = y + 5
         self.scrollbar.display.text(
-            Vector(self.position.x + self.border_width + 5, y + 5),
-            self.items[int(index)],
-            self.text_color,
+            Vector(text_x, text_y), self.items[index], self.text_color
         )
 
     def get_current_item(self) -> str:
@@ -223,10 +230,10 @@ class List:
                     self.position.y + self.border_width + scroll_ratio * scrollable_area
                 )
 
-        self.scrollbar.position = Vector(bar_x, bar_y)
+        self.scrollbar.position = Vector(int(bar_x), int(bar_y))
 
     def set_scrollbar_size(self) -> None:
-        '''Set the size of the scrollbar based on the list content and visible area."""'''
+        """Set the size of the scrollbar based on the list content and visible area."""
         # Get the total content height and visible view height
         content_height = self.get_list_height()
         view_height = self.size.y - 2 * self.border_width
@@ -252,7 +259,7 @@ class List:
             # Make sure it doesn't exceed view height
             bar_height = min(bar_height, view_height)
 
-        self.scrollbar.size = Vector(bar_width, bar_height)
+        self.scrollbar.size = Vector(int(bar_width), int(bar_height))
 
     def update_visibility(self) -> None:
         """Update the visibility of the list."""

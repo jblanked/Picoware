@@ -1,3 +1,4 @@
+import micropython
 from picoware.system.vector import Vector
 from picoware.gui.draw import Draw
 from picoware.gui.list import List
@@ -21,6 +22,7 @@ class Menu:
         self.text_color = text_color
         self.background_color = background_color
         self.title = title
+        self.display = draw
         self.list = List(
             draw,
             y + 20,
@@ -34,7 +36,7 @@ class Menu:
         self.position = Vector(0, y)
         self.size = Vector(draw.size.x, height)
         draw.clear(self.position, self.size, self.background_color)
-        # draw.swap()
+        draw.swap()
 
     def add_item(self, item: str) -> None:
         """Add an item to the menu."""
@@ -44,14 +46,16 @@ class Menu:
         """Clear the menu."""
         self.list.clear()
 
+    @micropython.native
     def draw(self) -> None:
         """Draw the menu."""
         self.draw_title()
         self.list.draw()
 
+    @micropython.native
     def draw_title(self) -> None:
-        """Draw the title of the menu."""
-        self.list.scrollbar.display.text(Vector(2, 8), self.title, self.text_color)
+        """Draw the title."""
+        self.display.text(Vector(2, 8), self.title, self.text_color)
 
     def get_current_item(self) -> str:
         """Get the current item in the menu."""
@@ -77,17 +81,20 @@ class Menu:
         """Remove an item from the menu."""
         self.list.remove_item(index)
 
+    @micropython.native
     def scroll_down(self) -> None:
         """Scroll down the menu."""
         self.draw_title()
         self.list.scroll_down()
 
+    @micropython.native
     def scroll_up(self) -> None:
         """Scroll up the menu."""
         self.draw_title()
         self.list.scroll_up()
 
+    @micropython.native
     def set_selected(self, index: int) -> None:
-        """Set the selected item in the menu."""
+        """Set the selected item."""
         self.draw_title()
         self.list.set_selected(index)

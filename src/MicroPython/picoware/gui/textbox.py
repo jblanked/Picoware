@@ -39,16 +39,16 @@ class TextBox:
             self.background_color,
         )
 
-        self.characters_per_line = 52  # width is 320
-        self.lines_per_screen = 26  # height is 320
+        self.characters_per_line = 40  # width is 320, 8x8 font
+        self.lines_per_screen = 32  # height is 320, 10 pixel line spacing
 
-        # draw.swap()
+        draw.swap()
 
     def get_text_height(self) -> int:
         """Get the height of the text box based on the number of lines and font size."""
         return (
-            0 if self.total_lines == 0 else (self.total_lines - 1) * 12
-        )  # 12 pixel spacing for 6x6 pixel font
+            0 if self.total_lines == 0 else (self.total_lines - 1) * 10
+        )  # 10 pixel spacing for 8x8 pixel font
 
     def set_scrollbar_position(self):
         """Set the position of the scrollbar based on the current line."""
@@ -66,32 +66,32 @@ class TextBox:
         # maximum vertical movement for scrollbar thumb
         max_offset = self.size.y - self.scrollbar.size.y - 2
         # Account for padding
-        bar_offset_y = scroll_ratio * max_offset
+        bar_offset_y = int(scroll_ratio * max_offset)
 
         bar_x = self.position.x + self.size.x - self.scrollbar.size.x - 1
         # 1 pixel padding
         bar_y = self.position.y + bar_offset_y + 1
         # 1 pixel padding
 
-        self.scrollbar.position = Vector(bar_x, bar_y)
+        self.scrollbar.position = Vector(int(bar_x), int(bar_y))
 
     def set_scrollbar_size(self):
         """Set the size of the scrollbar based on the number of lines."""
         content_height = self.get_text_height()
         view_height = self.size.y
-        bar_height = 0.0
+        bar_height = 0
 
-        if content_height <= view_height or content_height <= 0.0:
+        if content_height <= view_height or content_height <= 0:
             bar_height = view_height - 2
             # 1 pixel padding (+1 pixel for the scrollbar)
         else:
-            bar_height = view_height * (view_height / content_height)
+            bar_height = int(view_height * (view_height / content_height))
 
         # enforce minimum scrollbar height
-        min_bar_height = 12.0
+        min_bar_height = 10
         bar_height = max(bar_height, min_bar_height)
 
-        self.scrollbar.size = Vector(6.0, bar_height)
+        self.scrollbar.size = Vector(6, bar_height)
 
     def display_visible_lines(self):
         """Display only the lines that are currently visible."""
@@ -120,10 +120,10 @@ class TextBox:
                         start_idx : start_idx + length
                     ].rstrip()
                     y_pos = (
-                        self.position.y + 5 + (i * 12)
+                        self.position.y + 5 + (i * 10)
                     )  # Position based on line number within view
                     self.scrollbar.display.text(
-                        Vector(self.position.x + 1, y_pos),
+                        Vector(int(self.position.x + 1), int(y_pos)),
                         line_text,
                         self.foreground_color,
                     )
@@ -145,7 +145,7 @@ class TextBox:
         self.scrollbar.clear()
         self.set_scrollbar_size()
         self.set_scrollbar_position()
-        # self.scrollbar.display.swap()
+        self.scrollbar.display.swap()
 
     def scroll_down(self):
         """Scroll down by one line."""
@@ -168,7 +168,7 @@ class TextBox:
         self.set_scrollbar_position()
         self.display_visible_lines()
         self.scrollbar.draw()
-        # self.scrollbar.display.swap()
+        self.scrollbar.display.swap()
 
     def set_text(self, text: str):
         """Set the text in the text box, wrap lines, and scroll to bottom."""
@@ -229,5 +229,5 @@ class TextBox:
         self.set_scrollbar_position()
         self.display_visible_lines()
         self.scrollbar.draw()
-        # self.scrollbar.display.swap()
+        self.scrollbar.display.swap()
         free()

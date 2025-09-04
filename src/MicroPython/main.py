@@ -125,9 +125,9 @@ def test_peripherals():
 
     print("Testing SD card...")
     try:
-        from picoware.system.drivers.EasySD import EasySD
+        from picoware.system.storage import Storage
 
-        sd = EasySD()
+        sd = Storage()
         sd.mount()
         print(sd.read("picoware/wifi/settings.json"))
         print(sd.listdir("/sd"))

@@ -43,6 +43,7 @@ _VMCTRL1 = const(0xC5)  # VCOM Control 1
 _VMCTRL2 = const(0xC7)  # VCOM Control 2
 _FRMCTR1 = const(0xB1)  # Frame Rate Control 1
 _DISCTRL = const(0xB6)  # Display Function Control
+_EMS = const(0xB7)  # Entry Mode Set
 _ENA3G = const(0xF2)  # Enable 3G
 _PGAMCTRL = const(0xE0)  # Positive Gamma Control
 _NGAMCTRL = const(0xE1)  # Negative Gamma Control
@@ -162,6 +163,11 @@ class _ILI9341:
             ),
         ):
             self._write(command, data)
+
+        self._write(
+            _EMS, b"\xc6"
+        )  # Entry mode set: normal display, 16-bit (RGB) to 18-bit (rgb) conversion
+
         self._write(_SLPOUT)
         time.sleep_ms(120)
         self._write(_DISPON)
@@ -263,6 +269,43 @@ class _ILI9341:
         if rest != 0:
             mv = memoryview(self._buf)
             self._data(mv[: rest * 2])
+
+    def blit_buffer(self, buffer_data, x=0, y=0, w=None, h=None):
+        if w is None:
+            w = self.width
+        if h is None:
+            h = self.height
+
+        # Clamp to display bounds
+        x = min(self.width - 1, max(0, x))
+        y = min(self.height - 1, max(0, y))
+        w = min(self.width - x, max(1, w))
+        h = min(self.height - y, max(1, h))
+
+        # Set drawing window
+        self._writeblock(x, y, x + w - 1, y + h - 1, None)
+
+        # Send data in large chunks for maximum performance
+        chunk_size = 8192  # 8KB chunks - much larger than default 2KB
+        bytes_expected = w * h * 2  # RGB565 = 2 bytes per pixel
+
+        for i in range(0, min(len(buffer_data), bytes_expected), chunk_size):
+            chunk_end = min(i + chunk_size, len(buffer_data), bytes_expected)
+            chunk = buffer_data[i:chunk_end]
+            self._data(chunk)
+
+    def blit_line(self, line_data, x, y, w):
+        if w <= 0 or y < 0 or y >= self.height:
+            return
+
+        x = max(0, x)
+        w = min(w, self.width - x)
+
+        if w > 0:
+            self._writeblock(x, y, x + w - 1, y, None)
+            bytes_to_send = w * 2  # RGB565 = 2 bytes per pixel
+            if len(line_data) >= bytes_to_send:
+                self._data(line_data[:bytes_to_send])
 
     def chars(self, str, x, y):
         str_w = self._font.get_width(str)

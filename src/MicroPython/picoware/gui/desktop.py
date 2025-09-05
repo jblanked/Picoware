@@ -319,12 +319,12 @@ class Desktop:
         self.display = draw
         self.text_color = text_color
         self.display.clear(Vector(0, 0), self.display.size, TFT_BLACK)
-        # self.display.swap()
+        self.display.swap()
 
     def clear(self) -> None:
         """Clear the display with the background color."""
         self.display.clear(Vector(0, 0), self.display.size, TFT_BLACK)
-        # self.display.swap()
+        self.display.swap()
 
     def draw(
         self,
@@ -341,7 +341,7 @@ class Desktop:
             animiation_frame,
             palette,
         )
-        # self.display.swap()
+        self.display.swap()
 
     def draw_header(self) -> None:
         """Draw the header with the board name and Wi-Fi status."""

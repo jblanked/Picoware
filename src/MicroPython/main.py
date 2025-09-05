@@ -1,187 +1,47 @@
-import time
 import gc
 
 # Initial cleanup
 gc.collect()
 print(f"Initial memory: {gc.mem_free()}")
 
-from picoware.system.colors import TFT_BLUE, TFT_RED, TFT_BLACK, TFT_WHITE
-from picoware.system.vector import Vector
 
-display = None
+def main():
+    """Main function to run the application"""
+    from picoware.system.view_manager import ViewManager
+    from picoware.system.view import View
+    from picoware.applications import loading
 
-
-def init_display():
-    """Initialize display with memory optimization"""
-    gc.collect()  # Clean up before allocation
-    print(f"Memory before display init: {gc.mem_free()}")
-
-    from picoware.gui.draw import Draw
-
+    # Initialize the view manager
+    vm: ViewManager = None
     try:
-        # Try framebuffer first
-        display = Draw()
-        print("FrameBuffer mode initialized successfully")
-        return display
-    except MemoryError:
-        print("FrameBuffer failed, trying double buffer")
-        gc.collect()
-        return None
+        vm: ViewManager = ViewManager()
 
+        # Add views to the view manager
+        vm.add(View("loading_view", loading.run, loading.start, loading.stop))
 
-def run_tests(display):
-    """Run all the tests with lazy imports to save memory"""
+        # Switch views
+        vm.switch_to("loading_view")
 
-    print("Running basic drawing tests...")
-    display.text(Vector(0, 0), "Picoware Screen test")
-    display.fill_circle(Vector(160, 160), 30)
-    display.line(Vector(150, 100), Vector(50, 0))
-    display.rect(Vector(30, 30), Vector(100, 100), TFT_BLUE)
-    display.fill_rectangle(Vector(30, 210), Vector(100, 100), TFT_RED)
-    display.swap()
-    time.sleep(3)
+        # Main loop
+        while True:
+            vm.run()
 
-    # Test loading animation
-    print("Testing loading animation...")
-    from picoware.gui.loading import Loading
-
-    loading = Loading(display, TFT_WHITE, TFT_BLACK)
-    for i in range(10):
-        loading.animate()
-        time.sleep(0.1)
-
-    # Clean up loading
-    del loading
-    display.clear()
-    gc.collect()
-
-    # Test image display
-    print("Testing image display...")
-    from picoware.gui.image import Image
-
-    img = Image()
-    dyno_20x22 = bytearray(
-        b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"
-    )
-    img.from_byte_array(dyno_20x22, Vector(20, 22))
-    display.image(Vector(50, 50), img)
-    display.swap()
-    time.sleep(3)
-
-    # Clean up image
-    del img
-    del dyno_20x22
-    gc.collect()
-
-    # Test menu
-    print("Testing menu...")
-    from picoware.gui.menu import Menu
-
-    ls = Menu(
-        display,
-        "Test Menu",
-        0,
-        320,
-        TFT_WHITE,
-        TFT_BLACK,
-        selected_color=TFT_BLUE,
-        border_color=TFT_WHITE,
-    )
-    ls.add_item("Hi")
-    ls.add_item("This")
-    ls.add_item("Is")
-    ls.add_item("A")
-    ls.add_item("Menu")
-    ls.draw()
-    time.sleep(2)
-
-    # Clean up menu
-    del ls
-    gc.collect()
-
-    # Test textbox
-    print("Testing textbox...")
-    from picoware.gui.textbox import TextBox
-
-    textbox = TextBox(
-        display,
-        y=0,
-        height=240,
-        foreground_color=TFT_WHITE,
-        background_color=TFT_BLACK,
-    )
-    textbox.set_text(
-        "Hello, this is a test of the TextBox class. It will auto-wrap text too!"
-    )
-    time.sleep(1)
-
-    # Clean up textbox
-    del textbox
-    gc.collect()
-
-
-def test_peripherals():
-    """Test SD card and keyboard separately to avoid memory issues"""
-
-    print("Testing SD card...")
-    try:
-        from picoware.system.storage import Storage
-
-        sd = Storage()
-        sd.mount()
-        print(sd.read("picoware/wifi/settings.json"))
-        print(sd.listdir("/sd"))
-        sd.unmount()
-        del sd
-        gc.collect()
     except Exception as e:
-        print(f"SD card test failed: {e}")
+        print(f"Error occurred: {e}")
+        if vm:
+            try:
+                del vm
+                vm = None
+                gc.collect()
+            except:
+                pass
 
-    print("Testing keyboard...")
-    try:
-        from picoware.system.input import Input
-
-        kb = Input()
-
-        start_time = time.time()
-        timeout = 10
-
-        print("Waiting for keyboard input for 10 seconds...")
-        while time.time() - start_time < timeout:
-            kb.run()
-            _button = kb.get_last_button()
-            if _button != -1:
-                print(f"Key pressed: {_button}")
-
-        print("Input timeout reached.")
-        del kb
+    finally:
+        # Final cleanup
         gc.collect()
-    except Exception as e:
-        print(f"Keyboard test failed: {e}")
+        print(f"Final memory: {gc.mem_free()}")
 
 
-print("Starting")
-try:
-    # Initialize display with memory optimization
-    display = init_display()
-    print("Display ready")
-
-    # Run drawing tests
-    run_tests(display)
-
-    # Test peripherals
-    test_peripherals()
-
-except Exception as e:
-    print(f"Error occurred: {e}")
-    if display:
-        try:
-            del display
-            display = None
-            gc.collect()
-        except:
-            pass
-finally:
-    # Final cleanup
-    gc.collect()
-    print(f"Final memory: {gc.mem_free()}")
+# run the main function
+if __name__ == "__main__":
+    main()

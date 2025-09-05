@@ -80,7 +80,7 @@ class ViewManager:
         self.view_count += 1
         return True
 
-    def back(self, remove_current_view=True):
+    def back(self, remove_current_view=False):
         """
         Navigate back to the previous view in the stack.
 
@@ -222,7 +222,7 @@ class ViewManager:
         self.current_view = self.get_view(view_name)
         if self.current_view is not None:
             if not self.current_view.start(self):
-                self.back()
+                self.back(False)
 
         # Clear the stack when explicitly setting a view
         self.clear_stack()
@@ -252,7 +252,7 @@ class ViewManager:
 
         self.current_view = view
         if not self.current_view.start(self):
-            self.back()
+            self.back(False)
 
     def _push_view(self, view):
         """

@@ -20,6 +20,7 @@ class View:
         if self._start:
             if self._start(view_manager):
                 self.active = True
+                return True
         return False
 
     def stop(self, view_manager):

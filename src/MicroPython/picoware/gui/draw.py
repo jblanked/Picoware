@@ -304,11 +304,127 @@ class Draw:
                 color = img.get_pixel(x, y)
                 self.pixel(Vector(position.x + x, position.y + y), color)
 
+    @micropython.native
     def image_bmp(self, position: Vector, path: str):
-        """Draw a BMP image from the filesystem"""
-        img = Image()
-        img._load_bmp(path)
-        self.image(position, img)
+        """Draw a 24-bit BMP image"""
+        try:
+            with open(path, "rb") as f:
+                # Read BMP file header
+                if f.read(2) != b"BM":
+                    print("Not a BMP file")
+                    return
+
+                # Read file size and reserved fields
+                _ = f.read(8)  # file size (4) + reserved (4)
+                data_offset = int.from_bytes(f.read(4), "little")
+
+                # Read DIB header
+                _ = int.from_bytes(f.read(4), "little")  # dib_header_size
+                width_bytes = f.read(4)
+                height_bytes = f.read(4)
+
+                # Convert bytes to signed integers manually
+                width = int.from_bytes(width_bytes, "little")
+                if width >= 0x80000000:
+                    width = width - 0x100000000
+
+                height = int.from_bytes(height_bytes, "little")
+                if height >= 0x80000000:
+                    height = height - 0x100000000
+
+                # Read rest of header
+                _ = int.from_bytes(f.read(2), "little")  # planes
+                bits_per_pixel = int.from_bytes(f.read(2), "little")
+
+                if bits_per_pixel != 24:
+                    print(f"Expected 24-bit BMP, got {bits_per_pixel}-bit")
+                    return
+
+                # Go to pixel data
+                f.seek(data_offset, 0)
+
+                # Handle BMP orientation
+                bottom_up = height > 0
+                abs_height = abs(height)
+
+                # For 24-bit BMPs: 3 bytes per pixel (BGR format)
+                row_bytes = width * 3
+                padding = (4 - (row_bytes % 4)) % 4
+
+                # Calculate clipping boundaries once
+                start_x = max(0, position.x)
+                end_x = min(self.size.x, position.x + width)
+                start_y = max(0, position.y)
+                end_y = min(self.size.y, position.y + abs_height)
+
+                if start_x >= end_x or start_y >= end_y:
+                    return  # Completely clipped
+
+                # Calculate source clipping
+                src_start_x = max(0, -position.x)
+                dst_width = end_x - start_x
+
+                # Process each row with direct buffer manipulation for speed
+                fb_buffer = self.fb_data  # Access the underlying buffer directly
+                fb_width = self.size.x
+
+                # Process each row with fast direct buffer writes
+                for row in range(abs_height):
+                    row_data = f.read(row_bytes)
+                    if len(row_data) < row_bytes:
+                        break
+
+                    if padding > 0:
+                        f.read(padding)
+
+                    # Calculate y position
+                    if bottom_up:
+                        y = position.y + (abs_height - 1 - row)
+                    else:
+                        y = position.y + row
+
+                    # Skip rows outside visible area
+                    if y < start_y or y >= end_y:
+                        continue
+
+                    # Direct buffer manipulation
+                    # Calculate starting position in framebuffer (2 bytes per pixel for RGB565)
+                    fb_row_start = y * fb_width * 2
+                    fb_pixel_start = fb_row_start + start_x * 2
+
+                    # Create a temporary buffer for the converted row
+                    row_buffer = bytearray(dst_width * 2)  # 2 bytes per pixel
+
+                    # Convert the entire row at once
+                    for i in range(dst_width):
+                        src_idx = src_start_x + i
+                        pixel_offset = src_idx * 3
+
+                        if pixel_offset + 2 < len(row_data):
+                            # Read BGR pixel data
+                            b = row_data[pixel_offset]
+                            g = row_data[pixel_offset + 1]
+                            r = row_data[pixel_offset + 2]
+
+                            # Convert BGR888 to RGB565
+                            rgb565 = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
+
+                            # Apply custom framebuffer color conversion (byte order swap)
+                            converted_color = ((rgb565 & 0xFF) << 8) | (
+                                (rgb565 >> 8) & 0xFF
+                            )
+
+                            # Store in row buffer
+                            row_buffer[i * 2] = converted_color & 0xFF
+                            row_buffer[i * 2 + 1] = (converted_color >> 8) & 0xFF
+
+                    # Copy entire row at once
+                    end_offset = fb_pixel_start + dst_width * 2
+                    if end_offset <= len(fb_buffer):
+                        fb_buffer[fb_pixel_start:end_offset] = row_buffer
+
+        except (OSError, ValueError) as e:
+            print(f"Error loading BMP: {e}")
 
     @micropython.native
     def image_bytearray(self, position: Vector, size: Vector, byte_data, palette=None):

@@ -17,6 +17,7 @@ class View:
 
     def start(self, view_manager) -> bool:
         """Called when the view is created."""
+        self.should_stop = False
         if self._start:
             if self._start(view_manager):
                 self.active = True

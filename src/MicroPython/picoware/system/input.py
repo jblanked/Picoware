@@ -117,7 +117,7 @@ class Input:
                     return key
         return -1
 
-    def reset(self, should_delay, delay_ms: int = 150) -> None:
+    def reset(self, should_delay: bool = False, delay_ms: int = 150) -> None:
         """Resets the input state."""
         self._elapsed_time = 0
         self._was_pressed = False

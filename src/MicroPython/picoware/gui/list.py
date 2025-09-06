@@ -1,8 +1,5 @@
-from gc import collect as free
 import micropython
 from picoware.system.vector import Vector
-from picoware.gui.draw import Draw
-from picoware.gui.scrollbar import ScrollBar
 
 
 class List:
@@ -10,7 +7,7 @@ class List:
 
     def __init__(
         self,
-        draw: Draw,
+        draw,
         y: int,
         height: int,
         text_color: int,
@@ -19,6 +16,8 @@ class List:
         border_color: int,
         border_width: int = 2,
     ):
+        from picoware.gui.scrollbar import ScrollBar
+
         self.position = Vector(0, y)
         self.size = Vector(draw.size.x, height)
         self.text_color = text_color
@@ -70,6 +69,8 @@ class List:
     @micropython.native
     def draw(self) -> None:
         """Draw the list."""
+        from gc import collect
+
         self.scrollbar.display.clear(self.position, self.size, self.background_color)
 
         # Draw only visible items
@@ -84,7 +85,7 @@ class List:
         self.scrollbar.display.swap()
 
         # Free unused memory
-        free()
+        collect()
 
     @micropython.native
     def _draw_items_batch(self) -> None:

@@ -1,9 +1,6 @@
 # originally from https://github.com/zenodante/PicoCalc-micropython-driver/blob/main/pico_files/modules/picocalc.py
 
-import time
 from micropython import const
-from machine import Pin, I2C
-from collections import deque
 
 _REG_CFG = const(0x02)  # config
 _REG_KEY = const(0x04)  # key status
@@ -20,6 +17,9 @@ _StateLongPress = const(2)
 
 class PicoKeyboard:
     def __init__(self, sclPin=7, sdaPin=6, address=0x1F):
+        from machine import Pin, I2C
+        from collections import deque
+
         self.hardwarekeyBuf = deque((), 30)
         self.i2c = I2C(1, scl=Pin(sclPin), sda=Pin(sdaPin), freq=10000)
         self.ignor = True
@@ -72,8 +72,10 @@ class PicoKeyboard:
         self.write_reg(_REG_CFG, self.temp[0:1])
 
     def reset(self):
+        from time import sleep_ms
+
         self.write_cmd(_REG_RST)
-        time.sleep_ms(100)
+        sleep_ms(100)
 
     def keyCount(self):
         buf = self.read_reg16(_REG_KEY)

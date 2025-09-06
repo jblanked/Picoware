@@ -1,7 +1,4 @@
-from gc import collect as free
 from picoware.system.vector import Vector
-from picoware.gui.draw import Draw
-from picoware.gui.scrollbar import ScrollBar
 
 
 class TextBox:
@@ -9,12 +6,14 @@ class TextBox:
 
     def __init__(
         self,
-        draw: Draw,
+        draw,
         y: int,
         height: int,
         foreground_color: int,
         background_color: int,
     ):
+        from picoware.gui.scrollbar import ScrollBar
+
         self.foreground_color = foreground_color
         self.background_color = background_color
         self.characters_per_line = 0
@@ -95,6 +94,8 @@ class TextBox:
 
     def display_visible_lines(self):
         """Display only the lines that are currently visible."""
+        from gc import collect
+
         # Clear current display
         self.scrollbar.display.clear(self.position, self.size, self.background_color)
 
@@ -129,7 +130,7 @@ class TextBox:
                     )
 
         # Force garbage collection
-        free()
+        collect()
 
     def clear(self):
         """Clear the text box and reset the scrollbar."""
@@ -172,6 +173,8 @@ class TextBox:
 
     def set_text(self, text: str):
         """Set the text in the text box, wrap lines, and scroll to bottom."""
+        from gc import collect
+
         self.current_text = text
         # Clear area for fresh draw
         self.scrollbar.display.clear(self.position, self.size, self.background_color)
@@ -230,4 +233,4 @@ class TextBox:
         self.display_visible_lines()
         self.scrollbar.draw()
         self.scrollbar.display.swap()
-        free()
+        collect()

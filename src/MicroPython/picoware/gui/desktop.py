@@ -1,4 +1,3 @@
-from picoware.gui.draw import Draw
 from picoware.system.colors import TFT_BLACK, TFT_WHITE
 from picoware.system.vector import Vector
 
@@ -315,7 +314,7 @@ _WIFI_ON_BLACK = bytes(
 class Desktop:
     """A class to manage the desktop environment for the display."""
 
-    def __init__(self, draw: Draw, text_color: int = TFT_WHITE) -> None:
+    def __init__(self, draw, text_color: int = TFT_WHITE) -> None:
         self.display = draw
         self.text_color = text_color
         self.display.clear(Vector(0, 0), self.display.size, TFT_BLACK)

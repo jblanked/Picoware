@@ -1,5 +1,3 @@
-from sys import byteorder as sys_byteorder
-from gc import collect as free
 from picoware.system.vector import Vector
 
 SEEK_CUR = 1
@@ -30,6 +28,9 @@ class Image:
 
         data: bytes or bytearray length == width*height*2
         """
+        from sys import byteorder
+        from gc import collect
+
         expected = size.x * size.y * 2
         if len(data) != expected:
             raise ValueError(
@@ -40,12 +41,12 @@ class Image:
 
         # ensure little‑endian
         buf = bytearray(data)
-        if sys_byteorder != "little":
+        if byteorder != "little":
             for i in range(0, len(buf), 2):
                 buf[i], buf[i + 1] = buf[i + 1], buf[i]
-            free()
 
         self._raw = buf
+        collect()
         return True
 
     def _load_bmp(self, path):

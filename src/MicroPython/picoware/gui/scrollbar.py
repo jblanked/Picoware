@@ -1,4 +1,3 @@
-from picoware.gui.draw import Draw
 from picoware.system.vector import Vector
 
 
@@ -7,7 +6,7 @@ class ScrollBar:
 
     def __init__(
         self,
-        draw: Draw,
+        draw,
         position: Vector,
         size: Vector,
         outline_color: int,

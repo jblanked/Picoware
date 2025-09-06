@@ -1,7 +1,5 @@
 import micropython
 from picoware.system.vector import Vector
-from picoware.gui.draw import Draw
-from picoware.gui.list import List
 
 
 class Menu:
@@ -9,7 +7,7 @@ class Menu:
 
     def __init__(
         self,
-        draw: Draw,
+        draw,
         title: str,
         y: int,
         height: int,
@@ -19,6 +17,8 @@ class Menu:
         border_color: int,
         border_width: int = 2,
     ):
+        from picoware.gui.list import List
+
         self.text_color = text_color
         self.background_color = background_color
         self.title = title

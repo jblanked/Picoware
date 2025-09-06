@@ -1,16 +1,15 @@
-from machine import Pin, SPI
 import micropython
 from picoware.system.colors import TFT_WHITE, TFT_BLACK
-from picoware.gui.image import Image
-from picoware.system.drivers.custom_framebuffer import CustomFrameBuffer
 from picoware.system.vector import Vector
-from picoware.system.drivers.ILI9341 import _ILI9341
 
 
 class Draw:
     """Class for drawing shapes and text on the display"""
 
     def __init__(self, foreground: int = TFT_WHITE, background: int = TFT_BLACK):
+        from machine import Pin, SPI
+        from picoware.system.drivers.ILI9341 import _ILI9341
+
         self.size = Vector(320, 320)
         self.display = _ILI9341(
             SPI(
@@ -80,6 +79,7 @@ class Draw:
 
     def _init_framebuffer(self):
         """Initialize framebuffer with correct color format"""
+        from picoware.system.drivers.custom_framebuffer import CustomFrameBuffer
         import gc
 
         gc.collect()
@@ -297,8 +297,8 @@ class Draw:
         return Vector(8, 8)
 
     @micropython.native
-    def image(self, position: Vector, img: Image):
-        """Draw an image to the back buffer"""
+    def image(self, position: Vector, img):
+        """Draw an image object to the back buffer"""
         for y in range(img.size.y):
             for x in range(img.size.x):
                 color = img.get_pixel(x, y)

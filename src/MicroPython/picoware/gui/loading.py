@@ -1,17 +1,13 @@
-from utime import ticks_ms
-from math import cos, sin
 import micropython
-from picoware.gui.draw import Draw
 from picoware.system.vector import Vector
 
 PI = 3.14159265358979323846
-RAD_FACTOR = PI / 180.0
 
 
 class Loading:
     """A loading class with spinner animation."""
 
-    def __init__(self, draw: Draw, spinner_color: int, background_color: int):
+    def __init__(self, draw, spinner_color: int, background_color: int):
         self.display = draw
         self.spinner_color = spinner_color
         self.background_color = background_color
@@ -27,6 +23,8 @@ class Loading:
     @micropython.native
     def animate(self) -> None:
         """Animate the loading spinner."""
+        from math import cos, sin
+
         if not self.animating:
             self.animating = True
             self.time_start = self._monotonic()
@@ -83,6 +81,8 @@ class Loading:
 
     def _monotonic(self) -> int:
         """Get the current time in milliseconds as integer."""
+        from utime import ticks_ms
+
         return int(ticks_ms())
 
     def stop(self) -> None:

@@ -1,6 +1,5 @@
 # Description: A simple library to make working with SD cards easier on the Raspberry Pi Pico W with MicroPython.
 # from https://github.com/jblanked/RaspberryPi/tree/main/Pico%20W/Libraries/MicroPython
-from machine import SPI, Pin
 import uos
 import errno
 
@@ -14,6 +13,8 @@ class EasySD:
         mosi_gpio: int = 19,  # GPIO 15
         auto_mount: bool = False,
     ):
+        from machine import SPI, Pin
+
         self.spi = SPI(0, sck=Pin(sck_gpio), mosi=Pin(mosi_gpio), miso=Pin(miso_gpio))
         self.cs = Pin(cs_gpio, Pin.OUT)
         self.sd = SDCard(self.spi, self.cs)

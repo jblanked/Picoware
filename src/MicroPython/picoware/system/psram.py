@@ -1,5 +1,3 @@
-import machine
-import time
 import struct
 import micropython
 from micropython import const
@@ -60,11 +58,13 @@ class PSRAM:
 
     def __init__(self):
         """Initialize PSRAM."""
+        from machine import Pin
+
         # Initialize pins
-        self.cs = machine.Pin(self.PIN_CS, machine.Pin.OUT, value=1)
-        self.sck = machine.Pin(self.PIN_SCK, machine.Pin.OUT, value=0)
-        self.mosi = machine.Pin(self.PIN_MOSI, machine.Pin.OUT, value=0)
-        self.miso = machine.Pin(self.PIN_MISO, machine.Pin.IN)
+        self.cs = Pin(self.PIN_CS, Pin.OUT, value=1)
+        self.sck = Pin(self.PIN_SCK, Pin.OUT, value=0)
+        self.mosi = Pin(self.PIN_MOSI, Pin.OUT, value=0)
+        self.miso = Pin(self.PIN_MISO, Pin.IN)
 
         # Heap management variables
         self._hardware_initialized = False
@@ -119,17 +119,19 @@ class PSRAM:
 
     def _reset_psram(self):
         """Reset PSRAM chip."""
+        from time import sleep_us
+
         # Reset enable
         self.cs(0)
         self._spi_write(bytes([self.CMD_RESET_ENABLE]))
         self.cs(1)
-        time.sleep_us(50)
+        sleep_us(50)
 
         # Reset command
         self.cs(0)
         self._spi_write(bytes([self.CMD_RESET]))
         self.cs(1)
-        time.sleep_us(100)
+        sleep_us(100)
 
     @micropython.native
     def _spi_read(self, length):

@@ -285,14 +285,10 @@ class _ILI9341:
         # Set drawing window
         self._writeblock(x, y, x + w - 1, y + h - 1, None)
 
-        # Send data in large chunks for maximum performance
-        chunk_size = 8192  # 8KB chunks - much larger than default 2KB
-        bytes_expected = w * h * 2  # RGB565 = 2 bytes per pixel
+        buffer_view = memoryview(buffer_data)
+        bytes_expected = w * h * 2
 
-        for i in range(0, min(len(buffer_data), bytes_expected), chunk_size):
-            chunk_end = min(i + chunk_size, len(buffer_data), bytes_expected)
-            chunk = buffer_data[i:chunk_end]
-            self._data(chunk)
+        self._data(buffer_view[:bytes_expected])
 
     def blit_line(self, line_data, x, y, w):
         if w <= 0 or y < 0 or y >= self.height:

@@ -96,7 +96,7 @@ git submodule update --init
 make -C mpy-cross
 ```
 3. Download this repository as a .zip file (available here: https://github.com/jblanked/Picoware/archive/refs/heads/main.zip).
-4. In the `src/MicroPython` folder, copy the entire picoware and picoware_lcd folder into `~/pico/micropython/ports/rp2/modules`
+4. In the `src/MicroPython` folder, copy the `main.py` file and the entire `picoware` and `picoware_lcd` folders into `~/pico/micropython/ports/rp2/modules`
 5. Now, build the MicroPython firmware with:
 ```
 # Pico

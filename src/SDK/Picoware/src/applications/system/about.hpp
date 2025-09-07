@@ -37,7 +37,7 @@ static void aboutRun(ViewManager *viewManager)
     case BUTTON_BACK:
     {
         viewManager->back();
-        inputManager->reset();
+        inputManager->reset(true);
         return;
     }
     case BUTTON_DOWN:

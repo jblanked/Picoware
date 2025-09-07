@@ -21,7 +21,10 @@ def run(view_manager) -> None:
 
 def stop(view_manager) -> None:
     """Stop the loading animation."""
+    from gc import collect
+
     global load
     if load:
         load.stop()
         del load
+    collect()

@@ -1,29 +1,39 @@
-import gc
-
-# Initial cleanup
-gc.collect()
-print(f"Initial memory: {gc.mem_free()}")
-
-
 def main():
     """Main function to run the application"""
+    import gc
+
+    # Initial cleanup
+    gc.collect()
+    print(f"Initial memory: {gc.mem_free()}")
+
     from picoware.system.view_manager import ViewManager
     from picoware.system.view import View
-    from picoware.applications import loading
+    from picoware.applications import desktop
+
+    print(f"After imports memory: {gc.mem_free()}")
+
+    print("Starting ViewManager...")
 
     # Initialize the view manager
     vm: ViewManager = None
     try:
         vm: ViewManager = ViewManager()
 
+        print(f"After ViewManager init memory: {gc.mem_free()}")
+
         # Add views to the view manager
-        vm.add(View("loading_view", loading.run, loading.start, loading.stop))
+        vm.add(View("desktop_view", desktop.run, desktop.start, desktop.stop))
+
+        print(f"After adding views memory: {gc.mem_free()}")
 
         # Switch views
-        vm.switch_to("loading_view")
+        vm.switch_to("desktop_view")
+
+        print(f"After switching views memory: {gc.mem_free()}")
 
         # Main loop
         while True:
+            print("run")
             vm.run()
 
     except Exception as e:

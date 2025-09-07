@@ -1,4 +1,3 @@
-import micropython
 from picoware.system.vector import Vector
 
 
@@ -66,7 +65,6 @@ class List:
 
         self.scrollbar.display.swap()
 
-    @micropython.native
     def draw(self) -> None:
         """Draw the list."""
         from gc import collect
@@ -87,7 +85,6 @@ class List:
         # Free unused memory
         collect()
 
-    @micropython.native
     def _draw_items_batch(self) -> None:
         """Batch drawing of list items."""
         displayed = 0
@@ -99,7 +96,6 @@ class List:
             self.draw_item(i, i == self.selected_index)
             displayed += 1
 
-    @micropython.native
     def draw_item(self, index: int, selected: bool) -> None:
         """Draw an item in the list."""
         # Calculate the position within the visible area

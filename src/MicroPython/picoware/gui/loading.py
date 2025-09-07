@@ -1,4 +1,3 @@
-import micropython
 from picoware.system.vector import Vector
 
 PI = 3.14159265358979323846
@@ -20,7 +19,6 @@ class Loading:
         self.span = 280  # degrees of arc
         self.step = 5  # degrees between segments (280/5 = 56 segments)
 
-    @micropython.native
     def animate(self) -> None:
         """Animate the loading spinner."""
         from math import cos, sin
@@ -66,7 +64,6 @@ class Loading:
         self.time_elapsed = self._monotonic() - self.time_start
         self.spinner_position = (self.spinner_position + 10) % 360
 
-    @micropython.native
     def fade_color(self, color: int, opacity: int) -> int:
         """Fast color fading."""
         if opacity >= 255:

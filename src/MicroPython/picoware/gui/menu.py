@@ -1,4 +1,3 @@
-import micropython
 from picoware.system.vector import Vector
 
 
@@ -46,13 +45,11 @@ class Menu:
         """Clear the menu."""
         self.list.clear()
 
-    @micropython.native
     def draw(self) -> None:
         """Draw the menu."""
         self.draw_title()
         self.list.draw()
 
-    @micropython.native
     def draw_title(self) -> None:
         """Draw the title."""
         self.display.text(Vector(2, 8), self.title, self.text_color)
@@ -81,19 +78,16 @@ class Menu:
         """Remove an item from the menu."""
         self.list.remove_item(index)
 
-    @micropython.native
     def scroll_down(self) -> None:
         """Scroll down the menu."""
         self.draw_title()
         self.list.scroll_down()
 
-    @micropython.native
     def scroll_up(self) -> None:
         """Scroll up the menu."""
         self.draw_title()
         self.list.scroll_up()
 
-    @micropython.native
     def set_selected(self, index: int) -> None:
         """Set the selected item."""
         self.draw_title()

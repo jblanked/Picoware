@@ -325,12 +325,7 @@ class Desktop:
         self.display.clear(Vector(0, 0), self.display.size, TFT_BLACK)
         self.display.swap()
 
-    def draw(
-        self,
-        animiation_frame,
-        animation_size: Vector,
-        palette: list[int] = None,
-    ) -> None:
+    def draw(self, animiation_frame, animation_size: Vector) -> None:
         """Draw the desktop environment with a BMP image from disk."""
         self.display.clear(Vector(0, 0), self.display.size, TFT_BLACK)
         self.draw_header()
@@ -338,7 +333,6 @@ class Desktop:
             Vector(0, 20),
             Vector(animation_size.x, animation_size.y - 20),
             animiation_frame,
-            palette,
         )
         self.display.swap()
 

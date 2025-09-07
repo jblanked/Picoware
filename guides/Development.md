@@ -85,7 +85,7 @@ Here's a video tutorial: https://www.youtube.com/watch?v=-eMqPjVN0fU
 To use MicroPython library:
 1. Download and install Thonny IDE (https://thonny.org).
 2. Install the Micropython SDK:
-'''
+```
 sudo apt install gcc-arm-none-eabi
 mkdir ~/pico
 cd ~/pico
@@ -94,11 +94,11 @@ git clone https://github.com/micropython/micropython-lib.git
 cd micropython
 git submodule update --init
 make -C mpy-cross
-'''
+```
 3. Download this repository as a .zip file (available here: https://github.com/jblanked/Picoware/archive/refs/heads/main.zip).
 4. In the `src/MicroPython` folder, copy the entire picoware and picoware_lcd folder into `~/pico/micropython/ports/rp2/modules`
 5. Now, build the MicroPython firmware with:
-'''
+```
 # Pico
 cd ~/pico/micropython/ports/rp2
 make clean
@@ -118,7 +118,7 @@ make BOARD=RPI_PICO2 USER_C_MODULES=~/pico/micropython/ports/rp2/modules/picowar
 cd ~/pico/micropython/ports/rp2
 make clean
 make BOARD=RPI_PICO2_W USER_C_MODULES=~/pico/micropython/ports/rp2/modules/picoware_lcd/micropython.cmake
-'''
+```
 
 ### CircuitPython
 

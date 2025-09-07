@@ -325,13 +325,15 @@ class Desktop:
         self.display.clear(Vector(0, 0), self.display.size, TFT_BLACK)
         self.display.swap()
 
-    def draw(self, animiation_frame, animation_size: Vector) -> None:
+    def draw(
+        self, animiation_frame, animation_size: Vector, position: Vector = Vector(0, 20)
+    ) -> None:
         """Draw the desktop environment with a BMP image from disk."""
         self.display.clear(Vector(0, 0), self.display.size, TFT_BLACK)
         self.draw_header()
         self.display.image_bytearray(
-            Vector(0, 20),
-            Vector(animation_size.x, animation_size.y - 20),
+            position,
+            Vector(animation_size.x, animation_size.y),
             animiation_frame,
         )
         self.display.swap()
@@ -339,7 +341,7 @@ class Desktop:
     def draw_header(self) -> None:
         """Draw the header with the board name and Wi-Fi status."""
         # draw board name
-        self.display.text(Vector(2, 5), "PicoCalc", self.text_color)
+        self.display.text(Vector(2, 5), "Picoware - PicoCalc", self.text_color)
         # draw wifi icon using the built-in palette
         self.display.image_bytearray(
             Vector(int(self.display.size.x - 21), 2), Vector(19, 16), _WIFI_ON_BLACK

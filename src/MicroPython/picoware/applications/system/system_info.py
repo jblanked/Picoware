@@ -12,7 +12,7 @@ def start(view_manager) -> bool:
         _system_info = TextBox(view_manager.draw, 0, 320, TFT_WHITE, TFT_BLACK)
 
         system = System()
-        info = f"System Information\n\nFree Heap: {system.free_heap()} bytes\nUsed Heap: {system.used_heap()} bytes\n"
+        info = f"System Information\n\nFree Heap: {system.free_heap()} bytes\nUsed Heap: {system.used_heap()} bytes\nFree PSRAM: {system.free_psram()} bytes\nUsed PSRAM: {system.used_psram()} bytes"
         _system_info.set_text(info)
 
     return True

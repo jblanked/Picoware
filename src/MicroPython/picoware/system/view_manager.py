@@ -12,6 +12,8 @@ class ViewManager:
         from picoware.system.input import Input
         from picoware.system.storage import Storage
         from picoware.system.LED import LED
+        from picoware.system.wifi import WiFi
+        from picoware.system.system import System
         from picoware.system.colors import TFT_BLUE, TFT_BLACK, TFT_WHITE
 
         self.current_view = None
@@ -34,6 +36,12 @@ class ViewManager:
 
         # Initialize input manager
         self.input_manager = Input()
+
+        # Initialize WiFi
+        self.wifi = None
+        syst = System()
+        if syst is not None and syst.has_wifi:
+            self.wifi = WiFi()
 
         # Initialize arrays
         self.views = [None] * self.MAX_VIEWS
@@ -60,6 +68,8 @@ class ViewManager:
             del self.storage
         if self.led:
             del self.led
+        if self.wifi:
+            del self.wifi
 
         gc.collect()
 
@@ -321,6 +331,10 @@ class ViewManager:
     def get_storage(self):
         """Get the Storage object."""
         return self.storage
+
+    def get_wifi(self):
+        """Get the WiFi object."""
+        return self.wifi
 
     def set_background_color(self, color):
         """Set the background color."""

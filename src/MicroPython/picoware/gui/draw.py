@@ -332,21 +332,34 @@ class Draw:
         except (OSError, ValueError) as e:
             print(f"Error loading BMP: {e}")
 
-    def image_bytearray(self, position: Vector, size: Vector, byte_data, palette=None):
+    def image_bytearray(self, position: Vector, size: Vector, byte_data):
         """Draw an image from 8-bit byte data (bytes or bytearray)"""
-        if palette is None:
-            palette = self.palette
-        # When palette is provided, use it for color mapping
-        for y in range(size.y):
-            for x in range(size.x):
-                palette_index = byte_data[y * size.x + x]
-                if (
-                    palette_index < len(palette) // 2
-                ):  # Each palette entry is 2 bytes (RGB565)
-                    # Extract RGB565 color from palette
-                    color_bytes = palette[palette_index * 2 : palette_index * 2 + 2]
-                    rgb565 = color_bytes[0] | (color_bytes[1] << 8)  # Little endian
-                    self.pixel(Vector(position.x + x, position.y + y), rgb565)
+        x, y = int(position.x), int(position.y)
+        width, height = int(size.x), int(size.y)
+
+        # Clip to screen bounds
+        src_x = max(0, -x)
+        src_y = max(0, -y)
+        dst_x = max(0, x)
+        dst_y = max(0, y)
+        copy_width = min(width - src_x, self.size.x - dst_x)
+        copy_height = min(height - src_y, self.size.y - dst_y)
+
+        if copy_width <= 0 or copy_height <= 0:
+            return
+
+        fb_view = memoryview(self.fb_data)
+        data_view = memoryview(byte_data)
+
+        # Copy line by line
+        for row in range(copy_height):
+            src_row_start = (src_y + row) * width + src_x
+            dst_row_start = (dst_y + row) * self.size.x + dst_x
+
+            # Direct memory copy for the row
+            fb_view[dst_row_start : dst_row_start + copy_width] = data_view[
+                src_row_start : src_row_start + copy_width
+            ]
 
     def line(self, position: Vector, size: Vector, color=TFT_WHITE):
         """Draw horizontal line"""

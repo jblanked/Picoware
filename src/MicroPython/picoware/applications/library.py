@@ -24,6 +24,7 @@ def start(view_manager) -> bool:
         _library.add_item("WiFi")
         _library.add_item("Screensavers")
         _library.add_item("Editor")
+        _library.add_item("Applications")
         _library.set_selected(_library_index)
 
         _library.draw()
@@ -91,6 +92,18 @@ def run(view_manager) -> None:
 
             view_manager.add(View("editor", editor.run, editor.start, editor.stop))
             view_manager.switch_to("editor")
+        elif _library_index == 4:
+            from picoware.applications.applications import applications
+
+            view_manager.add(
+                View(
+                    "applications",
+                    applications.run,
+                    applications.start,
+                    applications.stop,
+                )
+            )
+            view_manager.switch_to("applications")
 
 
 def stop(view_manager) -> None:

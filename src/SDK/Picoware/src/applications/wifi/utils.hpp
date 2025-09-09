@@ -46,8 +46,9 @@ inline bool wifiUtilsConnectToSavedWiFi(ViewManager *viewManager)
         {
             return wifi.connectAsync(ssid.c_str(), password.c_str());
         }
+        return false;
     }
-    return false;
+    return true;
 }
 
 inline std::string wifiUtilsLoadWiFiFromFlash(ViewManager *viewManager)

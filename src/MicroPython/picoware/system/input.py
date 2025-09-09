@@ -10,6 +10,11 @@ class Input:
         self.debounce = 0.01
         self.keyboard = PicoKeyboard()
 
+    def __del__(self):
+        """Destructor to clean up resources."""
+        if self.keyboard:
+            del self.keyboard
+
     def _key_to_button(self, key: int) -> int:
         """Maps a key to a button."""
         import picoware.system.buttons as buttons

@@ -23,7 +23,6 @@ def main():
 
         # Main loop
         while True:
-            print("run")
             vm.run()
 
     except Exception as e:

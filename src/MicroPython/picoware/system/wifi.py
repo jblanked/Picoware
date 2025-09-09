@@ -30,6 +30,12 @@ class WiFi:
         self.pending_ssid = ""
         self.pending_password = ""
 
+    def __del__(self):
+        """Destructor to clean up resources."""
+        if self.wlan:
+            self.wlan.active(False)
+            del self.wlan
+
     @property
     def device_ip(self):
         """Get the current device IP address."""
@@ -110,6 +116,7 @@ class WiFi:
 
     def scan(self) -> list:
         """Scan for available Wi-Fi networks."""
+        self.wlan.active(True)
         return self.wlan.scan()
 
     def status(self) -> int:

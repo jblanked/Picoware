@@ -49,6 +49,7 @@ class EasySD:
             errno.EPERM: "Operation not permitted.",
             errno.EIO: "I/O Error: Possible SD card disconnection or corruption.",
             errno.ENODEV: "No SD card detected.",
+            errno.EEXIST: "File or directory already exists.",
         }
         return error_messages.get(err.errno, str(err))
 
@@ -142,6 +143,8 @@ class EasySD:
                 self.unmount()
             return True
         except OSError as e:
+            if e.errno == errno.EEXIST:
+                return True
             print(f"Error occurred while making directory: {self.os_error(e)}")
         except Exception as e:
             print(f"Error occurred while making directory: {e}")

@@ -62,6 +62,10 @@ class Storage:
         """List files in a directory."""
         return self.sd.listdir(path)
 
+    def mkdir(self, path: str = "/sd") -> bool:
+        """Create a new directory."""
+        return self.sd.mkdir(path)
+
     def mount(self, mount_point: str = "/sd") -> bool:
         """Mount the SD card."""
         result = self.sd.mount(mount_point)

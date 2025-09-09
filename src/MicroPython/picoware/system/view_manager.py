@@ -24,8 +24,11 @@ class ViewManager:
         self.delay_ticks = 0
         self.delay_elapsed = 0
 
-        # Initialize storage and LED
+        # Initialize storage
         self.storage = Storage(True)
+        self.storage.mkdir("picoware")
+
+        # Initialize LED
         self.led = LED()
 
         # Set up colors

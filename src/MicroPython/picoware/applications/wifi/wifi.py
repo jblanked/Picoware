@@ -6,6 +6,9 @@ def start(view_manager) -> bool:
     """Start the app"""
     from picoware.gui.menu import Menu
 
+    # create wifi folder
+    view_manager.get_storage().mkdir("picoware/wifi")
+
     global _wifi
     global _wifi_index
     if _wifi is None:

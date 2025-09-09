@@ -7,6 +7,7 @@ def start(view_manager) -> bool:
     from picoware.gui.menu import Menu
 
     global _library
+    global _library_index
     if _library is None:
         _library = Menu(
             view_manager.draw,
@@ -20,7 +21,8 @@ def start(view_manager) -> bool:
             2,
         )
         _library.add_item("System")
-
+        _library.add_item("WiFi")
+        _library.add_item("Screensavers")
         _library.set_selected(_library_index)
 
         _library.draw()
@@ -66,6 +68,23 @@ def run(view_manager) -> None:
 
             view_manager.add(View("system", system.run, system.start, system.stop))
             view_manager.switch_to("system")
+        elif _library_index == 1:
+            from picoware.applications.wifi import wifi
+
+            view_manager.add(View("wifi", wifi.run, wifi.start, wifi.stop))
+            view_manager.switch_to("wifi")
+        elif _library_index == 2:
+            from picoware.applications.screensavers import screensavers
+
+            view_manager.add(
+                View(
+                    "screensavers",
+                    screensavers.run,
+                    screensavers.start,
+                    screensavers.stop,
+                )
+            )
+            view_manager.switch_to("screensavers")
 
 
 def stop(view_manager) -> None:

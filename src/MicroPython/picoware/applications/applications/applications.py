@@ -8,6 +8,9 @@ def start(view_manager) -> bool:
     from picoware.gui.menu import Menu
     from picoware.system.app_loader import AppLoader
 
+    # create apps folder if it doesn't exist
+    view_manager.get_storage().mkdir("picoware/apps")
+
     global _applications
     global _applications_index
     global _app_loader

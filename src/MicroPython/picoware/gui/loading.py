@@ -1,6 +1,7 @@
 from picoware.system.vector import Vector
+from micropython import const
 
-PI = 3.14159265358979323846
+PI = const(3.14159265358979323846)
 
 
 class Loading:

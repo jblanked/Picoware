@@ -2,6 +2,7 @@ _editor_is_running = False
 _filename_requested = False
 _editor_mode = False
 _filename = ""
+_keyboard_just_started = False
 
 
 def __callback_filename_save(result: str) -> None:
@@ -22,9 +23,6 @@ def _start_editor(view_manager, filename=None):
     from picoware.system.drivers.vt import vt
 
     global _editor_is_running
-
-    # Set editor as not running immediately to prevent restart loops
-    _editor_is_running = False
 
     # Create virtual terminal instance using view_manager
     terminal = vt(view_manager)
@@ -67,6 +65,7 @@ def _start_editor(view_manager, filename=None):
     except Exception as e:
         print(f"Unexpected editor error: {e}")
     finally:
+        _editor_is_running = False
         view_manager.get_input_manager().reset(True)
         view_manager.back()
 
@@ -77,11 +76,13 @@ def start(view_manager) -> bool:
     global _filename_requested
     global _editor_mode
     global _filename
+    global _keyboard_just_started
 
     _editor_is_running = True
     _filename_requested = False
     _editor_mode = False
     _filename = ""
+    _keyboard_just_started = False
 
     keyboard = view_manager.get_keyboard()
     if keyboard is None:
@@ -118,6 +119,7 @@ def run(view_manager) -> None:
     global _filename_requested
     global _editor_mode
     global _filename
+    global _keyboard_just_started
 
     # If editor is not running, don't do anything
     if not _editor_is_running:
@@ -148,7 +150,9 @@ def run(view_manager) -> None:
             # Reset keyboard and clear display before starting editor
             keyboard.reset()
             draw = view_manager.get_draw()
-            draw.clear()
+            from picoware.system.vector import Vector
+
+            draw.text(Vector(10, 10), "Starting editor...")
             draw.swap()
 
             # Start the editor with the entered filename
@@ -156,7 +160,11 @@ def run(view_manager) -> None:
             return
 
         # Continue running keyboard for filename input
-        keyboard.run()
+        if not _keyboard_just_started:
+            keyboard.run(force=True)
+            _keyboard_just_started = True
+        else:
+            keyboard.run()
 
     if _editor_mode and not _editor_is_running:
         _filename_requested = False

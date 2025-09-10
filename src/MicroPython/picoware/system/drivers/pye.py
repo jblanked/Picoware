@@ -6,12 +6,12 @@ try:
 except:
     import sys
 import gc
-import re
 
 if sys.implementation.name == "micropython":
     is_micropython = True
     import uos as os
     from uio import StringIO
+    from micropython import const
 elif sys.implementation.name == "circuitpython":
     is_micropython = True
     import os
@@ -24,11 +24,9 @@ else:
 
     import os
     from _io import StringIO
-import re
+
 from re import compile as re_compile
 import time
-from picoware.system.drivers.highlighter import Highlighter
-from picoware.system.drivers.default_style import syntax_style
 
 KEY_NONE = const(0x00)
 KEY_UP = const(0x0B)
@@ -198,6 +196,9 @@ class Editor:
     max_places = 20
 
     def __init__(self, tab_size, undo_limit, io_device, storage=None):
+        from picoware.system.drivers.highlighter import Highlighter
+        from picoware.system.drivers.default_style import syntax_style
+
         self.hl = Highlighter(syntax_style=syntax_style, max_tokens=300)
         self.top_line = self.cur_line = self.row = self.vcol = self.col = (
             self.margin

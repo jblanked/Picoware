@@ -1,3 +1,4 @@
+import micropython
 from utime import ticks_ms
 from picoware.system.vector import Vector
 from picoware.system.colors import TFT_BLACK, TFT_WHITE, TFT_BLUE
@@ -137,14 +138,14 @@ class Keyboard:
         self.just_stopped = False
 
     @property
-    def keyboard_width(self) -> int:
-        """Returns the keyboard width/width of the display"""
-        return self.draw.size.x
-
-    @property
     def is_finished(self) -> bool:
         """Returns whether the keyboard is finished"""
         return self.is_save_pressed
+
+    @property
+    def keyboard_width(self) -> int:
+        """Returns the keyboard width/width of the display"""
+        return self.draw.size.x
 
     def get_response(self) -> str:
         """Returns the response string"""
@@ -170,6 +171,7 @@ class Keyboard:
         self.on_save_callback = None
         self.is_save_pressed = False
 
+    @micropython.native
     def _draw_key(self, row: int, col: int, is_selected: bool):
         """Draws a specific key on the keyboard"""
         if row >= self.NUM_ROWS or col >= self.ROW_SIZES[row]:
@@ -241,6 +243,7 @@ class Keyboard:
 
         self.draw.text(Vector(text_x, text_y), key_label, self.text_color)
 
+    @micropython.native
     def _draw_keyboard(self):
         """Draws the entire keyboard"""
         # Clear keyboard area
@@ -257,6 +260,7 @@ class Keyboard:
                 is_selected = row == self.cursor_row and col == self.cursor_col
                 self._draw_key(row, col, is_selected)
 
+    @micropython.native
     def _draw_textbox(self):
         """Draws the text box that displays the current saved response"""
         # Clear textbox area
@@ -307,9 +311,9 @@ class Keyboard:
         cursor_x = 5 + len(last_line) * 6
         cursor_y = 8 + (min(len(lines), max_lines) - 1) * 10 if lines else 8
 
-        if ticks_ms() % 1000 < 500:  # Blinking cursor
-            self.draw.text(Vector(cursor_x, cursor_y), "_", self.text_color)
+        self.draw.text(Vector(cursor_x, cursor_y), "_", self.text_color)
 
+    @micropython.native
     def _handle_input(self):
         """Handles directional input and key selection"""
         from picoware.system.buttons import (
@@ -467,6 +471,7 @@ class Keyboard:
             self._process_key_press()
             self.last_input_time = ticks_ms()
 
+    @micropython.native
     def _process_key_press(self):
         """Processes the currently selected key press"""
         if (
@@ -521,17 +526,22 @@ class Keyboard:
             self.cursor_row = row
             self.cursor_col = col
 
-    def run(self, swap: bool = True):
+    @micropython.native
+    def run(self, swap: bool = True, force: bool = False):
         """Runs the input manager, handles input, and draws the keyboard"""
         if self.just_stopped:
             self.just_stopped = False
             return
 
         self.dpad_input = self.input_manager.get_last_button()
+        shift_pressed = self.input_manager.is_shift_held()
+        if self.dpad_input != -1 or force or shift_pressed:
+            if not self.is_shift_pressed and shift_pressed:
+                self.is_shift_pressed = True
+            # only process input/redraw if there's input
+            self._handle_input()
+            self._draw_textbox()
+            self._draw_keyboard()
 
-        self._handle_input()
-        self._draw_textbox()
-        self._draw_keyboard()
-
-        if swap:
-            self.draw.swap()
+            if swap:
+                self.draw.swap()

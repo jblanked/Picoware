@@ -1,6 +1,7 @@
 _ssid_is_running = False
 _ssid_save_requested = False
 _back_hit = False
+_keyboard_started = False
 
 
 def __callback_save(result: str) -> None:
@@ -22,10 +23,12 @@ def start(view_manager) -> bool:
     global _ssid_is_running
     global _ssid_save_requested
     global _back_hit
+    global _keyboard_started
 
     _ssid_is_running = True
     _ssid_save_requested = False
     _back_hit = False
+    _keyboard_started = False
 
     keyboard = view_manager.get_keyboard()
 
@@ -35,6 +38,7 @@ def start(view_manager) -> bool:
 
     keyboard.set_save_callback(__callback_save)
     keyboard.set_response(load_wifi_ssid(view_manager))
+    keyboard.run(force=True)
 
     return True
 
@@ -48,6 +52,7 @@ def run(view_manager) -> None:
     global _ssid_is_running
     global _ssid_save_requested
     global _back_hit
+    global _keyboard_started
 
     if not _ssid_is_running:
         return
@@ -78,7 +83,11 @@ def run(view_manager) -> None:
         view_manager.back()
         return
 
-    keyboard.run()
+    if not _keyboard_started:
+        keyboard.run(force=True)
+        _keyboard_started = True
+    else:
+        keyboard.run()
 
 
 def stop(view_manager) -> None:

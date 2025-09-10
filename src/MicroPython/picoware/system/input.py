@@ -10,11 +10,21 @@ class Input:
         self.debounce = 0.01
         self.keyboard = PicoKeyboard()
         self._shift_held = False
+        self._ctrl_held = False
+        self._alt_held = False
 
     def __del__(self):
         """Destructor to clean up resources."""
         if self.keyboard:
             del self.keyboard
+
+    def is_alt_held(self) -> bool:
+        """Returns True if alt is currently held."""
+        return self._alt_held
+
+    def is_ctrl_held(self) -> bool:
+        """Returns True if ctrl is currently held."""
+        return self._ctrl_held
 
     def is_shift_held(self) -> bool:
         """Returns True if shift is currently held."""
@@ -176,26 +186,42 @@ class Input:
         self._elapsed_time = 0
         self._was_pressed = False
         self._last_button = -1
+        self._shift_held = False
         if should_delay:
             # sleep_ms(delay_ms);
             pass
 
     def run(self) -> None:
         """Runs the input state machine and sets the current button state."""
-        from picoware.system.buttons import KEY_MOD_SHL, KEY_MOD_SHR
+        from picoware.system.buttons import (
+            KEY_MOD_SHL,
+            KEY_MOD_SHR,
+            KEY_MOD_CTRL,
+            KEY_MOD_ALT,
+        )
 
         _button = self.read_non_blocking()
         if _button != -1:
             if _button in (KEY_MOD_SHL, KEY_MOD_SHR):
                 self._shift_held = True
                 return
+            if _button == KEY_MOD_CTRL:
+                self._ctrl_held = True
+                return
+            if _button == KEY_MOD_ALT:
+                self._alt_held = True
+                return
             self._last_button = self._key_to_button(_button)
             self._elapsed_time += 1
             self._was_pressed = True
-        else:
-            if self._last_button != -1:
-                self._shift_held = False
 
+            if _button not in (KEY_MOD_SHL, KEY_MOD_SHR):
+                self._shift_held = False
+            if _button != KEY_MOD_CTRL:
+                self._ctrl_held = False
+            if _button != KEY_MOD_ALT:
+                self._alt_held = False
+        else:
             self._last_button = -1
             self._was_pressed = False
             self._elapsed_time = 0

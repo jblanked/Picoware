@@ -18,7 +18,9 @@ class AppLoader:
             storage = self.view_manager.get_storage()
             # no need to mount because we're using auto-mount
             file_list = storage.listdir("/sd/picoware/apps")
-            return [f[:-3] for f in file_list if f.endswith(".py")]
+            return [
+                f[:-3] for f in file_list if f.endswith(".py") and not f.startswith(".")
+            ]
 
         except Exception as e:
             print(f"Error listing apps: {e}")
@@ -63,7 +65,6 @@ class AppLoader:
                             )
 
                     self.loaded_apps[app_name] = app_module
-                    print(f"Loaded app: {app_name}")
 
                 finally:
                     # Always unmount the SD card when done

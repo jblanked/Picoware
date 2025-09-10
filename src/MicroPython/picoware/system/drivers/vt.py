@@ -392,6 +392,8 @@ class vt(uio.IOBase):
         button = self.input_manager.get_last_button()
 
         if button != -1:
+            self.input_manager.reset(True)
+
             # Check for screen capture
             from picoware.system.buttons import BUTTON_BACK
 

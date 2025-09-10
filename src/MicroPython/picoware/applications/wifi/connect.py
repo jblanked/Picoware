@@ -121,7 +121,8 @@ def run(view_manager) -> None:
         input_manager.reset(True)
         view_manager.back()
         return
-    elif button == BUTTON_UP:
+
+    if button == BUTTON_UP:
         wifi.disconnect()
         _status_message = "Disconnected"
         input_manager.reset()

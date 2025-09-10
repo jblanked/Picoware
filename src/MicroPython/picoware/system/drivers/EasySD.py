@@ -21,6 +21,25 @@ class EasySD:
         self.auto_mount = auto_mount
         self.is_mounted = self.mount() if auto_mount else False
 
+    def __del__(self):
+        if self.is_mounted and self.auto_mount:
+            self.unmount()
+        if self.spi:
+            self.spi.deinit()
+
+    def open(self, file_path: str, mode: str):
+        """Open a file using a context manager."""
+        if not self.is_mounted and self.auto_mount:
+            if not self.mount():
+                return None
+        try:
+            return open(f"/sd/{file_path}", mode)
+        except OSError as e:
+            print(f"Error occurred while opening file: {self.os_error(e)}")
+        except Exception as e:
+            print(f"Error occurred while opening file: {e}")
+        return None
+
     def os_error(self, err: OSError) -> str:
         """Return a human-readable error message based on the OSError code."""
         error_messages = {
@@ -30,6 +49,7 @@ class EasySD:
             errno.EPERM: "Operation not permitted.",
             errno.EIO: "I/O Error: Possible SD card disconnection or corruption.",
             errno.ENODEV: "No SD card detected.",
+            errno.EEXIST: "File or directory already exists.",
         }
         return error_messages.get(err.errno, str(err))
 
@@ -58,19 +78,6 @@ class EasySD:
         except Exception as e:
             print(f"General Error during unmounting: {e}")
             return False
-
-    def with_open(self, file_path: str, mode: str):
-        """Open a file using a context manager."""
-        if not self.is_mounted and self.auto_mount:
-            if not self.mount():
-                return None
-        try:
-            return open(f"/sd/{file_path}", mode)
-        except OSError as e:
-            print(f"Error occurred while opening file: {self.os_error(e)}")
-        except Exception as e:
-            print(f"Error occurred while opening file: {e}")
-        return None
 
     def write(self, file_path: str, data: str) -> bool:
         """Write data to a file. If the file does not exist, it will be created."""
@@ -136,6 +143,8 @@ class EasySD:
                 self.unmount()
             return True
         except OSError as e:
+            if e.errno == errno.EEXIST:
+                return True
             print(f"Error occurred while making directory: {self.os_error(e)}")
         except Exception as e:
             print(f"Error occurred while making directory: {e}")

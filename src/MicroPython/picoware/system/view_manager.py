@@ -9,9 +9,12 @@ class ViewManager:
     def __init__(self):
         """Initialize the ViewManager with default settings."""
         from picoware.gui.draw import Draw
+        from picoware.gui.keyboard import Keyboard
         from picoware.system.input import Input
         from picoware.system.storage import Storage
         from picoware.system.LED import LED
+        from picoware.system.wifi import WiFi
+        from picoware.system.system import System
         from picoware.system.colors import TFT_BLUE, TFT_BLACK, TFT_WHITE
 
         self.current_view = None
@@ -21,8 +24,11 @@ class ViewManager:
         self.delay_ticks = 0
         self.delay_elapsed = 0
 
-        # Initialize storage and LED
+        # Initialize storage
         self.storage = Storage(True)
+        self.storage.mkdir("picoware")
+
+        # Initialize LED
         self.led = LED()
 
         # Set up colors
@@ -34,6 +40,21 @@ class ViewManager:
 
         # Initialize input manager
         self.input_manager = Input()
+
+        # Initialize keyboard
+        self.keyboard = Keyboard(
+            self.draw,
+            self.input_manager,
+            self.foreground_color,
+            self.background_color,
+            self.selected_color,
+        )
+
+        # Initialize WiFi
+        self.wifi = None
+        syst = System()
+        if syst is not None and syst.has_wifi:
+            self.wifi = WiFi()
 
         # Initialize arrays
         self.views = [None] * self.MAX_VIEWS
@@ -52,6 +73,8 @@ class ViewManager:
                 del self.views[i]
 
         # Clean up other resources
+        if self.keyboard:
+            del self.keyboard
         if self.draw:
             del self.draw
         if self.input_manager:
@@ -60,6 +83,8 @@ class ViewManager:
             del self.storage
         if self.led:
             del self.led
+        if self.wifi:
+            del self.wifi
 
         gc.collect()
 
@@ -302,6 +327,10 @@ class ViewManager:
         """Get the Input manager."""
         return self.input_manager
 
+    def get_keyboard(self):
+        """Get the Keyboard object."""
+        return self.keyboard
+
     def get_led(self):
         """Get the LED object."""
         return self.led
@@ -321,6 +350,10 @@ class ViewManager:
     def get_storage(self):
         """Get the Storage object."""
         return self.storage
+
+    def get_wifi(self):
+        """Get the WiFi object."""
+        return self.wifi
 
     def set_background_color(self, color):
         """Set the background color."""

@@ -220,12 +220,9 @@ class Draw:
         """Fill the entire screen with a color"""
         picoware_lcd.clear_framebuffer(self.fb_data, self._rgb565_to_rgb332(color))
 
-    def get_font_size(self, font_name="5x7") -> Vector:
-        """Get the font size using built-in Python font"""
-        if font_name == "5x7":
-            return Vector(6, 8)  # AdafruitGFX5x7Font is 6 pixels wide, 8 pixels tall
-        else:
-            return Vector(6, 8)  # Default to 5x7 font size
+    def get_font_size(self) -> Vector:
+        """Get the font size"""
+        return Vector(picoware_lcd.CHAR_WIDTH, picoware_lcd.FONT_HEIGHT)
 
     def image(self, position: Vector, img):
         """Draw an image object to the back buffer"""
@@ -424,40 +421,12 @@ class Draw:
 
     def text(self, position: Vector, text: str, color=TFT_WHITE):
         """Draw text on the display"""
-        from picoware.system.drivers.ILI9341 import AdafruitGFX5x7Font
+        picoware_lcd.draw_text(
+            self.fb_data, int(position.x), int(position.y), text, color
+        )
 
-        x, y = int(position.x), int(position.y)
-
-        for char in text:
-            if char == "\n":
-                # Handle newline
-                x = int(position.x)
-                y += AdafruitGFX5x7Font.height()
-                continue
-            elif char == " ":
-                # Handle space - just advance x position
-                x += AdafruitGFX5x7Font.get_width(" ")
-                continue
-
-            # Get character bitmap from font
-            glyph, char_width = AdafruitGFX5x7Font.get_ch(char)
-
-            # Render each pixel of the character
-            for py in range(AdafruitGFX5x7Font.height()):
-                if y + py >= self.size.y:
-                    break
-                for px in range(char_width):
-                    if x + px >= self.size.x:
-                        break
-
-                    # Check if pixel should be drawn (font uses MONO_VLSB format)
-                    byte_index = py // 8
-                    bit_index = py % 8
-
-                    if byte_index < len(glyph) and (
-                        glyph[byte_index * char_width + px] & (1 << bit_index)
-                    ):
-                        picoware_lcd.draw_pixel(self.fb_data, x + px, y + py, color)
-
-            # Advance x position for next character
-            x += char_width
+    def text_char(self, position: Vector, char: str, color=TFT_WHITE):
+        """Draw a single character on the display"""
+        picoware_lcd.draw_char(
+            self.fb_data, int(position.x), int(position.y), ord(char), color
+        )

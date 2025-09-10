@@ -1,6 +1,7 @@
 from picoware.system.vector import Vector
+from micropython import const
 
-SEEK_CUR = 1
+SEEK_CUR = const(1)
 
 
 class Image:

@@ -9,6 +9,9 @@
 3. While holding the `BOOT` button, connect the device to your computer using a USB cable.
 4. Drag and drop the downloaded file onto the device. It will automatically reboot and begin running Picoware.
 
+> [!NOTE]
+> If you are installing the MicroPython version, copy the `apps` folder from `builds/MicroPython` to the `picoware` folder on your SD card. If there is no `picoware` folder, create one.
+
 **Video Game Module (Only)**
 1. Install the Video Game Module Tool app on your Flipper Zero from the Apps catalog: [Video Game Module Tool](https://lab.flipper.net/apps/video_game_module_tool).
 2. Download the `Picoware-VGM.uf2` from the `builds` directory.

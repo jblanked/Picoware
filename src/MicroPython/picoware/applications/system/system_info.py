@@ -6,7 +6,11 @@ def __set_text():
 
     if _system_info:
         system = System()
-        info = f"System Information\n\nFree Heap: {system.free_heap()} bytes\nUsed Heap: {system.used_heap()} bytes\nFree PSRAM: {system.free_psram()} bytes\nUsed PSRAM: {system.used_psram()} bytes"
+        # well I got a freeze on the Pico
+        # for now, only show psram info for Pico 2/Pico 2W
+        info = f"System Information\n\nFree Heap: {system.free_heap()} bytes\nUsed Heap: {system.used_heap()} bytes"
+        if "2" in system.board_name:
+            info = f"System Information\n\nFree Heap: {system.free_heap()} bytes\nUsed Heap: {system.used_heap()} bytes\nFree PSRAM: {system.free_psram()} bytes\nUsed PSRAM: {system.used_psram()} bytes"
         _system_info.set_text(info)
 
 

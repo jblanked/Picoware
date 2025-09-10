@@ -18,7 +18,6 @@ class Highlighter:
         self.token_boundaries = bytearray(max_tokens * 2)
         self.token_types = bytearray(max_tokens)
 
-    @micropython.native
     def highlight_line(self, line):
         code_part, comment_part = self._strip_comment(line)
         token_count = self._tokenize(code_part)

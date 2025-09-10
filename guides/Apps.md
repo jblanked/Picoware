@@ -45,7 +45,7 @@ def run(view_manager):
         BUTTON_RIGHT,
     )
     input_manager = view_manager.input_manager
-    button = input_manager.get_button()
+    button = input_manager.get_last_button()
     if button == BUTTON_BACK:
         input_manager.reset(True) # reset to avoid multiple back presses
         view_manager.back()

@@ -1,6 +1,9 @@
 def main():
     """Main function to run the application"""
     import gc
+    import machine
+    
+    machine.freq(200000000)
 
     # Initial cleanup
     gc.collect()

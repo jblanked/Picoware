@@ -363,8 +363,7 @@ class vt(uio.IOBase):
         # Handle regular character keys
         elif key >= buttons.BUTTON_A and key <= buttons.BUTTON_Z:
             char_code = ord("a") + (key - buttons.BUTTON_A)
-            # Check if shift is held to convert to uppercase using public method
-            if self.input_manager.is_shift_held():
+            if self.input_manager._was_capitalized:
                 char_code = ord("A") + (key - buttons.BUTTON_A)
             return bytes([char_code])
         elif key >= buttons.BUTTON_0 and key <= buttons.BUTTON_9:
@@ -454,6 +453,8 @@ class vt(uio.IOBase):
 
             # Convert button to terminal sequence
             terminal_seq = self._convert_key_to_terminal(button)
+            self.input_manager._was_capitalized = False  # Reset after use
+            self.input_manager._shift_held = False  # Reset shift state after use
             if terminal_seq:
                 self.outputBuffer.extend(terminal_seq)
 

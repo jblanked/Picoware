@@ -52,6 +52,12 @@ class vt(uio.IOBase):
         self.screen_width = self.draw.size.x // self.char_width
         self.screen_height = self.draw.size.y // self.char_height
 
+        self._needs_render = False
+        self._render_enabled = True
+        self._last_render_time = 0
+        self._render_throttle_ms = 50
+        self._batch_mode = False
+
         # Terminal buffer for text display
         self.terminal_buffer = []
         for _ in range(self.screen_height):
@@ -100,6 +106,7 @@ class vt(uio.IOBase):
 
     def _scroll_up(self):
         """Scroll terminal content up by one line"""
+        self._needs_render = True
         for y in range(self.screen_height - 1):
             for x in range(self.screen_width):
                 self.terminal_buffer[y][x] = self.terminal_buffer[y + 1][x]
@@ -109,6 +116,8 @@ class vt(uio.IOBase):
 
     def _print_char(self, char_code):
         """Print a character to the terminal"""
+        self._needs_render = True
+
         if char_code == 10:  # newline
             self.cursor_x = 0
             self.cursor_y += 1
@@ -136,6 +145,8 @@ class vt(uio.IOBase):
 
     def _handle_escape_sequence(self, sequence):
         """Handle ANSI/VT100 escape sequences"""
+        self._needs_render = True
+
         if sequence.startswith("\x1b["):
             # CSI (Control Sequence Introducer) sequences
             params = sequence[2:]
@@ -246,7 +257,18 @@ class vt(uio.IOBase):
                     self._print_char(ord(text_input[i]))
                 i += 1
 
-        self._render_terminal()
+        # Only render if changes were made and rendering is enabled and not in batch mode
+        if self._needs_render and self._render_enabled and not self._batch_mode:
+            current_time = (
+                time.ticks_ms()
+                if hasattr(time, "ticks_ms")
+                else int(time.time() * 1000)
+            )
+            if current_time - self._last_render_time >= self._render_throttle_ms:
+                self._render_terminal()
+                self._needs_render = False
+                self._last_render_time = current_time
+
         return len(text_input)
 
     def _render_terminal(self):
@@ -271,6 +293,35 @@ class vt(uio.IOBase):
 
         # Force display update
         self.draw.swap()
+
+    def start_batch(self):
+        """Start batch mode - accumulate writes without rendering"""
+        self._batch_mode = True
+
+    def end_batch(self):
+        """End batch mode and render if needed"""
+        self._batch_mode = False
+        if self._needs_render and self._render_enabled:
+            self._render_terminal()
+            self._needs_render = False
+            self._last_render_time = (
+                time.ticks_ms()
+                if hasattr(time, "ticks_ms")
+                else int(time.time() * 1000)
+            )
+
+    def update(self):
+        """Update method to be called periodically to handle pending renders"""
+        if self._needs_render and self._render_enabled:
+            current_time = (
+                time.ticks_ms()
+                if hasattr(time, "ticks_ms")
+                else int(time.time() * 1000)
+            )
+            if current_time - self._last_render_time >= self._render_throttle_ms:
+                self._render_terminal()
+                self._needs_render = False
+                self._last_render_time = current_time
 
     def write(self, buf):
         return self.wr(buf.decode())
@@ -407,6 +458,9 @@ class vt(uio.IOBase):
                 self.outputBuffer.extend(terminal_seq)
 
     def rd(self):
+        # Handle any pending renders before reading input
+        self.update()
+
         while not self.outputBuffer:
             self._updateInternalBuffer()
 

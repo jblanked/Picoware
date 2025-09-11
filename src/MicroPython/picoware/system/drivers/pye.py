@@ -263,6 +263,8 @@ class Editor:
             self.wr(Editor.TERMCMD[10] * scrolling)
 
     def redraw(self, flag):
+        self.io_device.start_batch()
+
         self.cursor(False)
         Editor.height, Editor.width = self.io_device.get_screen_size()
         Editor.height -= 1
@@ -277,6 +279,8 @@ class Editor:
             if flag:
                 self.message += "{} Bytes Memory available".format(gc.mem_free())
         self.changed = "" if self.hash == self.hash_buffer() else "*"
+
+        self.io_device.end_batch()
 
     def get_input(
         self,
@@ -315,6 +319,8 @@ class Editor:
                 return KEY_NONE, in_buffer
 
     def display_window(self):
+        self.io_device.start_batch()
+
         self.cur_line = min(self.total_lines - 1, max(self.cur_line, 0))
         self.vcol = max(0, min(self.col, len(self.content[self.cur_line])))
         if self.vcol >= Editor.width + self.margin:
@@ -407,6 +413,8 @@ class Editor:
         self.hilite(0)
         self.goto(self.row, self.vcol - self.margin)
         self.cursor(True)
+
+        self.io_device.end_batch()
 
     def spaces(self, line, pos=None):
         return (

@@ -12,6 +12,9 @@ class Input:
         self._shift_held = False
         self._ctrl_held = False
         self._alt_held = False
+        self._was_capitalized = False
+        self._last_shift_time = 0
+        self._shift_timeout = 1000
 
     def __del__(self):
         """Destructor to clean up resources."""
@@ -60,6 +63,7 @@ class Input:
         }
 
         if key in shifted_char_map:
+            self._shift_held = False
             return shifted_char_map[key]
 
         if shift_held:
@@ -76,6 +80,7 @@ class Input:
                 57: buttons.BUTTON_LEFT_PARENTHESIS,  # Shift + 9 = (
             }
             if key in shifted_number_map:
+                self._shift_held = False
                 return shifted_number_map[key]
 
         button_map = {
@@ -146,6 +151,10 @@ class Input:
             93: buttons.BUTTON_RIGHT_BRACKET,
         }
 
+        # set capital letters if shift is held
+        if 97 <= key <= 122 and shift_held:
+            self._was_capitalized = True
+
         return button_map.get(key, buttons.BUTTON_NONE)
 
     def get_last_button(self) -> int:
@@ -203,7 +212,18 @@ class Input:
         _button = self.read_non_blocking()
         if _button != -1:
             if _button in (KEY_MOD_SHL, KEY_MOD_SHR):
-                self._shift_held = True
+                from utime import ticks_ms, ticks_diff
+
+                current_time_ms = ticks_ms()
+
+                # Check if enough time has passed since the last shift press
+                if (
+                    ticks_diff(current_time_ms, self._last_shift_time)
+                    >= self._shift_timeout
+                ):
+                    self._shift_held = True
+                    self._was_capitalized = False
+                    self._last_shift_time = current_time_ms
                 return
             if _button == KEY_MOD_CTRL:
                 self._ctrl_held = True

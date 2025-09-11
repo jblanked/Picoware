@@ -32,7 +32,7 @@ def ensure_nested_dir(path):
 class vt(uio.IOBase):
 
     def __init__(
-        self, view_manager, screencaptureKey=0x15, captureFolder="/sd/picoware/"
+        self, view_manager, screencaptureKey=None, captureFolder="/sd/picoware/"
     ):  # ctrl+U for screen capture
         self.view_manager = view_manager
         self.draw = view_manager.get_draw()
@@ -395,11 +395,11 @@ class vt(uio.IOBase):
             self.input_manager.reset(True)
 
             # Check for screen capture
-            from picoware.system.buttons import BUTTON_BACK
+            # from picoware.system.buttons import BUTTON_BACK
 
-            if button == self.screencaptureKey and button != BUTTON_BACK:
-                self.screencapture()
-                return
+            # if button == self.screencaptureKey and button != BUTTON_BACK:
+            #     self.screencapture()
+            #     return
 
             # Convert button to terminal sequence
             terminal_seq = self._convert_key_to_terminal(button)

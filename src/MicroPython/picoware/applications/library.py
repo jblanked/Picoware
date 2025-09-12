@@ -25,6 +25,7 @@ def start(view_manager) -> bool:
         _library.add_item("Screensavers")
         _library.add_item("Editor")
         _library.add_item("Applications")
+        _library.add_item("File Browser")
         _library.set_selected(_library_index)
 
         _library.draw()
@@ -104,6 +105,18 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("applications")
+        elif _library_index == 5:
+            from picoware.applications import file_browser
+
+            view_manager.add(
+                View(
+                    "file_browser",
+                    file_browser.run,
+                    file_browser.start,
+                    file_browser.stop,
+                )
+            )
+            view_manager.switch_to("file_browser")
 
 
 def stop(view_manager) -> None:

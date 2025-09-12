@@ -1,6 +1,4 @@
-from utime import ticks_ms
 from picoware.system.vector import Vector
-from picoware.system.colors import TFT_BLACK, TFT_WHITE, TFT_BLUE
 
 
 # Define the keyboard layout structure
@@ -98,9 +96,9 @@ class Keyboard:
         self,
         draw,
         input_manager,
-        text_color: int = TFT_BLACK,
-        background_color: int = TFT_WHITE,
-        selected_color: int = TFT_BLUE,
+        text_color: int = 0xFFFF,
+        background_color: int = 0x0000,
+        selected_color: int = 0x001F,
         on_save_callback: callable = None,
     ):
         """
@@ -311,6 +309,7 @@ class Keyboard:
 
     def _handle_input(self):
         """Handles directional input and key selection"""
+        from utime import ticks_ms
         from picoware.system.buttons import (
             BUTTON_UP,
             BUTTON_DOWN,

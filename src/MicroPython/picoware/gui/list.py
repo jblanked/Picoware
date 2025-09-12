@@ -9,10 +9,10 @@ class List:
         draw,
         y: int,
         height: int,
-        text_color: int,
-        background_color: int,
-        selected_color: int,
-        border_color: int,
+        text_color: int = 0xFFFF,
+        background_color: int = 0x0000,
+        selected_color: int = 0x001F,
+        border_color: int = 0xFFFF,
         border_width: int = 2,
     ):
         from picoware.gui.scrollbar import ScrollBar

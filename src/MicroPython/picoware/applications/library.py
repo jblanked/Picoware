@@ -93,7 +93,7 @@ def run(view_manager) -> None:
             view_manager.add(View("editor", editor.run, editor.start, editor.stop))
             view_manager.switch_to("editor")
         elif _library_index == 4:
-            from picoware.applications.applications import applications
+            from picoware.applications import applications
 
             view_manager.add(
                 View(

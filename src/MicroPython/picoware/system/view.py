@@ -19,15 +19,23 @@ class View:
         """Called when the view is created."""
         self.should_stop = False
         if self._start:
-            if self._start(view_manager):
-                self.active = True
-                return True
+            try:
+                if self._start(view_manager):
+                    self.active = True
+                    return True
+            except Exception as e:
+                print("Error starting view:", e)
+                self.active = False
+                return False
         return False
 
     def stop(self, view_manager):
         """Called when the view is destroyed."""
         if self._stop:
-            self._stop(view_manager)
+            try:
+                self._stop(view_manager)
+            except Exception as e:
+                print("Error stopping view:", e)
         self.active = False
         self.should_stop = True
 
@@ -37,4 +45,7 @@ class View:
             self.stop(view_manager)
             self.should_stop = False
         elif self._run and self.active:
-            self._run(view_manager)
+            try:
+                self._run(view_manager)
+            except Exception as e:
+                print("Error running view:", e)

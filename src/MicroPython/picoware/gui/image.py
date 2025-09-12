@@ -1,7 +1,4 @@
 from picoware.system.vector import Vector
-from micropython import const
-
-SEEK_CUR = const(1)
 
 
 class Image:
@@ -62,7 +59,7 @@ class Image:
             h = int.from_bytes(f.read(4), "little")
             self.size = Vector(w, h)
             # skip remaining header
-            f.seek(data_offset, SEEK_CUR)
+            f.seek(data_offset, 1)
 
             # BMP rows are padded to 4-byte boundaries. We'll just read 2 bytes per pixel.
             raw = bytearray(w * h * 2)

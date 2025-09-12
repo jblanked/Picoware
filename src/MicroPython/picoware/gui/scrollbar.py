@@ -9,8 +9,8 @@ class ScrollBar:
         draw,
         position: Vector,
         size: Vector,
-        outline_color: int,
-        fill_color: int,
+        outline_color: int = 0x0000,
+        fill_color: int = 0xFFFFFF,
     ):
         self.display = draw
         self.position = position

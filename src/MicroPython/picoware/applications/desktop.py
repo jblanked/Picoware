@@ -740,10 +740,13 @@ _frame_counter = 0
 def start(view_manager) -> bool:
     """Start the loading animation."""
     from picoware.gui.desktop import Desktop
+    from picoware.applications.wifi.utils import connect_to_saved_wifi
 
     global _desktop
     if _desktop is None:
         _desktop = Desktop(view_manager.draw)
+
+    connect_to_saved_wifi(view_manager)
     return True
 
 

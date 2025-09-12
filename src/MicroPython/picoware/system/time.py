@@ -26,7 +26,10 @@ class Time:
     def time(self) -> str:
         """Return the current time only as string"""
         date = self._rtc.datetime()
-        return f"{date[4]}:{date[5]}:{date[6]}"
+        _seconds = date[6]
+        if _seconds < 10:
+            _seconds = f"0{_seconds}"
+        return f"{date[4]}:{date[5]}:{_seconds}"
 
     def set(self, year, month, day, hour, minute, second) -> None:
         """Set the current date and time."""

@@ -42,6 +42,9 @@ class HTTP:
             try:
                 # Clean up thread if it exists
                 self._async_thread = None
+                import _thread
+
+                _thread.exit()
             except AttributeError:
                 pass
 
@@ -182,6 +185,7 @@ class HTTP:
             return True
         except Exception as e:
             self._async_error = f"Thread creation failed: {e}"
+            print(self._async_error)
             self._async_request_complete = True
             self._async_request_in_progress = False
             self._state = HTTP_ISSUE
@@ -210,36 +214,11 @@ class HTTP:
 
             self._async_response = result.text if result else ""
             self._state = HTTP_IDLE if result else HTTP_ISSUE
-        except OSError as e:
+        except Exception as e:
             self._async_error = str(e)
             self._async_response = ""
             self._state = HTTP_ISSUE
+            self._async_thread = None
         finally:
             self._async_request_complete = True
             self._async_request_in_progress = False
-
-    def __execute_sync_request(
-        self, method: str, url: str, payload, headers=None, timeout: float = None
-    ):
-        """Execute a synchronous HTTP request."""
-        method = method.upper()
-
-        if method == "GET":
-            return self.get(url, headers=headers, timeout=timeout)
-
-        if method == "POST":
-            return self.post(url, payload, headers=headers, timeout=timeout)
-
-        if method == "PUT":
-            return self.put(url, payload, headers=headers, timeout=timeout)
-
-        if method == "DELETE":
-            return self.delete(url, headers=headers, timeout=timeout)
-
-        if method == "HEAD":
-            return self.head(url, payload, headers=headers, timeout=timeout)
-
-        if method == "PATCH":
-            return self.patch(url, payload, headers=headers, timeout=timeout)
-
-        return None

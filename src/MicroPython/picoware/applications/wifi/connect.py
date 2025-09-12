@@ -4,6 +4,8 @@ _wifi_saved: bool = False
 _connection_initiated = False
 _last_update = 0
 _connection_start_time = 0
+_ssid = ""
+_password = ""
 
 
 def _get_status_text(view_manager) -> str:
@@ -57,8 +59,12 @@ def _get_status_text(view_manager) -> str:
 
 def start(view_manager) -> bool:
     """Start the app."""
+    from picoware.applications.wifi.utils import load_wifi_password, load_wifi_ssid
 
-    global _connect
+    global _connect, _ssid, _password
+
+    _ssid = load_wifi_ssid(view_manager)
+    _password = load_wifi_password(view_manager)
 
     if _connect is None:
         from picoware.gui.textbox import TextBox
@@ -98,7 +104,6 @@ def run(view_manager) -> None:
         BUTTON_UP,
         BUTTON_RIGHT,
     )
-    from picoware.applications.wifi.utils import load_wifi_password, load_wifi_ssid
     from picoware.system.wifi import WiFiState
     from utime import ticks_ms
 
@@ -110,12 +115,12 @@ def run(view_manager) -> None:
     global _connection_initiated
     global _connection_start_time
     global _last_update
+    global _ssid
+    global _password
 
     input_manager = view_manager.input_manager
     button: int = input_manager.get_last_button()
     wifi = view_manager.get_wifi()
-    ssid = load_wifi_ssid(view_manager)
-    password = load_wifi_password(view_manager)
 
     if button in (BUTTON_BACK, BUTTON_LEFT):
         input_manager.reset(True)
@@ -131,7 +136,7 @@ def run(view_manager) -> None:
         state = wifi.status()
         if state == WiFiState.IDLE:
             _status_message = "Starting connection..."
-            if wifi.connect(ssid, password, sta_mode=True, is_async=True):
+            if wifi.connect(_ssid, _password, sta_mode=True, is_async=True):
                 _connection_initiated = True
                 _connection_start_time = wifi.connection_start_time
                 _status_message = "Connecting..."
@@ -140,7 +145,7 @@ def run(view_manager) -> None:
         elif state in (WiFiState.FAILED, WiFiState.TIMEOUT):
             wifi.reset()
             _status_message = "Retrying..."
-            if wifi.connect(ssid, password, sta_mode=True, is_async=True):
+            if wifi.connect(_ssid, _password, sta_mode=True, is_async=True):
                 _connection_initiated = True
                 _connection_start_time = wifi.connection_start_time
                 _status_message = "Connecting..."
@@ -187,11 +192,15 @@ def stop(view_manager) -> None:
     global _connection_initiated
     global _last_update
     global _connection_start_time
+    global _ssid
+    global _password
 
     _status_message = ""
     _wifi_saved = False
     _connection_initiated = False
     _last_update = 0
     _connection_start_time = 0
+    _ssid = ""
+    _password = ""
 
     collect()

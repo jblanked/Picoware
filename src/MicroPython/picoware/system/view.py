@@ -15,6 +15,23 @@ class View:
         self.active = False
         self.should_stop = False
 
+    def __alert(self, message: str, view_manager) -> None:
+        """Display an alert message."""
+        from picoware.gui.alert import Alert
+        from time import sleep
+
+        draw = view_manager.draw
+        draw.clear()
+        alert = Alert(
+            draw,
+            message,
+            view_manager.get_foreground_color(),
+            view_manager.get_background_color(),
+        )
+        alert.draw("Error")
+        draw.swap()
+        sleep(2)
+
     def start(self, view_manager) -> bool:
         """Called when the view is created."""
         self.should_stop = False
@@ -25,6 +42,7 @@ class View:
                     return True
             except Exception as e:
                 print("Error starting view:", e)
+                self.__alert(f"Error starting view:\n{e}", view_manager)
                 self.active = False
                 return False
         return False
@@ -36,6 +54,7 @@ class View:
                 self._stop(view_manager)
             except Exception as e:
                 print("Error stopping view:", e)
+                self.__alert(f"Error stopping view:\n{e}", view_manager)
         self.active = False
         self.should_stop = True
 
@@ -49,6 +68,7 @@ class View:
                 self._run(view_manager)
             except Exception as e:
                 print("Error running view:", e)
+                self.__alert(f"Error running view:\n{e}", view_manager)
                 self.active = False
                 self.should_stop = True
                 view_manager.back()

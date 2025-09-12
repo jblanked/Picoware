@@ -49,3 +49,6 @@ class View:
                 self._run(view_manager)
             except Exception as e:
                 print("Error running view:", e)
+                self.active = False
+                self.should_stop = True
+                view_manager.back()

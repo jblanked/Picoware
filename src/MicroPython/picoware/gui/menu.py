@@ -43,6 +43,7 @@ class Menu:
 
     def clear(self) -> None:
         """Clear the menu."""
+        self.display.clear(Vector(0, 0), Vector(320, 20), self.background_color)
         self.list.clear()
 
     def draw(self) -> None:

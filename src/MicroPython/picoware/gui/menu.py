@@ -10,10 +10,10 @@ class Menu:
         title: str,
         y: int,
         height: int,
-        text_color: int,
-        background_color: int,
-        selected_color: int,
-        border_color: int,
+        text_color: int = 0xFFFF,
+        background_color: int = 0x0000,
+        selected_color: int = 0x001F,
+        border_color: int = 0xFFFF,
         border_width: int = 2,
     ):
         from picoware.gui.list import List
@@ -43,6 +43,7 @@ class Menu:
 
     def clear(self) -> None:
         """Clear the menu."""
+        self.display.clear(Vector(0, 0), Vector(320, 20), self.background_color)
         self.list.clear()
 
     def draw(self) -> None:

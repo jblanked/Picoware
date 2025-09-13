@@ -25,7 +25,6 @@ class PicoKeyboard:
         self.ignor = True
         self.address = address
         self.temp = bytearray(2)
-        self.reset()
         self.isShift = False
         self.isCtrl = False
         self.isAlt = False

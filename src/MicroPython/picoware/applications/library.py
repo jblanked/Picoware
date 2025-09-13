@@ -20,11 +20,13 @@ def start(view_manager) -> bool:
             view_manager.get_foreground_color(),
             2,
         )
+        _library.add_item("Applications")
+        _library.add_item("Editor")
+        _library.add_item("File Browser")
+        _library.add_item("Games")
+        _library.add_item("Screensavers")
         _library.add_item("System")
         _library.add_item("WiFi")
-        _library.add_item("Screensavers")
-        _library.add_item("Editor")
-        _library.add_item("Applications")
         _library.set_selected(_library_index)
 
         _library.draw()
@@ -65,17 +67,27 @@ def run(view_manager) -> None:
         input_manager.reset(True)
         _library_index = _library.get_selected_index()
 
-        if _library_index == 0:
+        app_map = {
+            0: "Applications",
+            1: "Editor",
+            2: "File Browser",
+            3: "Games",
+            4: "Screensavers",
+            5: "System",
+            6: "WiFi",
+        }
+
+        if app_map.get(_library_index) == "System":
             from picoware.applications.system import system
 
             view_manager.add(View("system", system.run, system.start, system.stop))
             view_manager.switch_to("system")
-        elif _library_index == 1:
+        elif app_map.get(_library_index) == "WiFi":
             from picoware.applications.wifi import wifi
 
             view_manager.add(View("wifi", wifi.run, wifi.start, wifi.stop))
             view_manager.switch_to("wifi")
-        elif _library_index == 2:
+        elif app_map.get(_library_index) == "Screensavers":
             from picoware.applications.screensavers import screensavers
 
             view_manager.add(
@@ -87,13 +99,13 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("screensavers")
-        elif _library_index == 3:
+        elif app_map.get(_library_index) == "Editor":
             from picoware.applications import editor
 
             view_manager.add(View("editor", editor.run, editor.start, editor.stop))
             view_manager.switch_to("editor")
-        elif _library_index == 4:
-            from picoware.applications.applications import applications
+        elif app_map.get(_library_index) == "Applications":
+            from picoware.applications import applications
 
             view_manager.add(
                 View(
@@ -104,6 +116,23 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("applications")
+        elif app_map.get(_library_index) == "File Browser":
+            from picoware.applications import file_browser
+
+            view_manager.add(
+                View(
+                    "file_browser",
+                    file_browser.run,
+                    file_browser.start,
+                    file_browser.stop,
+                )
+            )
+            view_manager.switch_to("file_browser")
+        elif app_map.get(_library_index) == "Games":
+            from picoware.applications.games import games
+
+            view_manager.add(View("games", games.run, games.start, games.stop))
+            view_manager.switch_to("games")
 
 
 def stop(view_manager) -> None:

@@ -58,6 +58,10 @@ class Storage:
             if not self.sd.auto_mount and self._mounted:
                 self.unmount()
 
+    def is_directory(self, path: str) -> bool:
+        """Check if a path is a directory."""
+        return self.sd.is_directory(path)
+
     def listdir(self, path: str = "/sd") -> list:
         """List files in a directory."""
         return self.sd.listdir(path)

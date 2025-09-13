@@ -15,6 +15,7 @@ class ViewManager:
         from picoware.system.LED import LED
         from picoware.system.wifi import WiFi
         from picoware.system.system import System
+        from picoware.system.time import Time
         from picoware.system.colors import TFT_BLUE, TFT_BLACK, TFT_WHITE
 
         self.current_view = None
@@ -55,6 +56,9 @@ class ViewManager:
         syst = System()
         if syst is not None and syst.has_wifi:
             self.wifi = WiFi()
+
+        # Initialize time
+        self.time = Time()
 
         # Initialize arrays
         self.views = [None] * self.MAX_VIEWS
@@ -350,6 +354,10 @@ class ViewManager:
     def get_storage(self):
         """Get the Storage object."""
         return self.storage
+
+    def get_time(self):
+        """Get the Time object."""
+        return self.time
 
     def get_wifi(self):
         """Get the WiFi object."""

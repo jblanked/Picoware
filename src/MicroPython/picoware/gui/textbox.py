@@ -9,8 +9,9 @@ class TextBox:
         draw,
         y: int,
         height: int,
-        foreground_color: int,
-        background_color: int,
+        foreground_color: int = 0xFFFF,
+        background_color: int = 0x0000,
+        show_scrollbar: bool = True,
     ):
         from picoware.gui.scrollbar import ScrollBar
 
@@ -20,6 +21,7 @@ class TextBox:
         self.lines_per_screen = 0
         self.total_lines = 0
         self.current_line = -1
+        self.show_scrollbar = show_scrollbar
         #
         self.current_text = ""
         self.position = Vector(0, y)
@@ -165,10 +167,11 @@ class TextBox:
 
         self.current_line = line
         # Update scrollbar and display
-        self.set_scrollbar_size()
-        self.set_scrollbar_position()
         self.display_visible_lines()
-        self.scrollbar.draw()
+        if self.show_scrollbar:
+            self.set_scrollbar_size()
+            self.set_scrollbar_position()
+            self.scrollbar.draw()
         self.scrollbar.display.swap()
 
     def set_text(self, text: str):
@@ -178,7 +181,9 @@ class TextBox:
         self.current_text = text
         # Clear area for fresh draw
         self.scrollbar.display.clear(self.position, self.size, self.background_color)
-        self.scrollbar.clear()
+
+        if self.show_scrollbar:
+            self.scrollbar.clear()
 
         # Wrap text into lines (preserve words)
         self.line_positions = []
@@ -228,9 +233,12 @@ class TextBox:
             self.current_line = self.total_lines - 1
 
         # Update scrollbar and display
-        self.set_scrollbar_size()
-        self.set_scrollbar_position()
         self.display_visible_lines()
-        self.scrollbar.draw()
+
+        if self.show_scrollbar:
+            self.set_scrollbar_size()
+            self.set_scrollbar_position()
+            self.scrollbar.draw()
+
         self.scrollbar.display.swap()
         collect()

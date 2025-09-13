@@ -1,4 +1,3 @@
-from picoware.system.colors import TFT_BLACK, TFT_WHITE
 from picoware.system.vector import Vector
 
 _WIFI_ON_BLACK = bytes(
@@ -1081,7 +1080,9 @@ _BLUEETOOTH_OFF_BLACK = bytes(
 class Desktop:
     """A class to manage the desktop environment for the display."""
 
-    def __init__(self, draw, text_color: int = TFT_WHITE) -> None:
+    def __init__(
+        self, draw, text_color: int = 0xFFFF, background_color: int = 0x0000
+    ) -> None:
         from picoware.system.system import System
 
         system = System()
@@ -1089,19 +1090,21 @@ class Desktop:
         self.has_wifi = system.has_wifi
         self.display = draw
         self.text_color = text_color
-        self.display.clear(Vector(0, 0), self.display.size, TFT_BLACK)
+        self.background_color = background_color
+        self.time_str = ""
+        self.display.clear(Vector(0, 0), self.display.size, self.background_color)
         self.display.swap()
 
     def clear(self) -> None:
         """Clear the display with the background color."""
-        self.display.clear(Vector(0, 0), self.display.size, TFT_BLACK)
+        self.display.clear(Vector(0, 0), self.display.size, self.background_color)
         self.display.swap()
 
     def draw(
         self, animiation_frame, animation_size: Vector, position: Vector = Vector(0, 20)
     ) -> None:
         """Draw the desktop environment with a BMP image from disk."""
-        self.display.clear(Vector(0, 0), self.display.size, TFT_BLACK)
+        self.display.clear(Vector(0, 0), self.display.size, self.background_color)
         self.draw_header()
         self.display.image_bytearray(
             position,
@@ -1114,15 +1117,25 @@ class Desktop:
         """Draw the header with the board name and Wi-Fi status."""
         # draw board name
         self.display.text(Vector(2, 5), self.name, self.text_color)
+
+        # draw time if set
+        if self.time_str:
+            self.display.text(Vector(140, 5), self.time_str, self.text_color)
+
         # draw wifi icon using the built-in palette
         self.display.image_bytearray(
             Vector(int(self.display.size.x - 21), 2),
             Vector(19, 16),
             _WIFI_ON_BLACK if self.has_wifi else _WIFI_OFF_BLACK,
         )
+
         # draw bluetooth icon using the built-in palette
         self.display.image_bytearray(
             Vector(int(self.display.size.x - 40), 2),
             Vector(14, 16),
             _BLUETOOTH_ON_BLACK if self.has_wifi else _BLUEETOOTH_OFF_BLACK,
         )
+
+    def set_time(self, time_str: str) -> None:
+        """Set the time on the header."""
+        self.time_str = time_str

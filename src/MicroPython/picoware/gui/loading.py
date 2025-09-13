@@ -7,7 +7,9 @@ PI = const(3.14159265358979323846)
 class Loading:
     """A loading class with spinner animation."""
 
-    def __init__(self, draw, spinner_color: int, background_color: int):
+    def __init__(
+        self, draw, spinner_color: int = 0xFFFF, background_color: int = 0x0000
+    ):
         self.display = draw
         self.spinner_color = spinner_color
         self.background_color = background_color
@@ -20,7 +22,7 @@ class Loading:
         self.span = 280  # degrees of arc
         self.step = 5  # degrees between segments (280/5 = 56 segments)
 
-    def animate(self) -> None:
+    def animate(self, swap: bool = True) -> None:
         """Animate the loading spinner."""
         from math import cos, sin
 
@@ -60,7 +62,8 @@ class Loading:
         self.display.text(Vector(130, 20), self.current_text, self.spinner_color)
 
         # Single swap
-        self.display.swap()
+        if swap:
+            self.display.swap()
 
         self.time_elapsed = self._monotonic() - self.time_start
         self.spinner_position = (self.spinner_position + 10) % 360

@@ -116,6 +116,28 @@ class EasySD:
                 self.unmount()
         return returned_data
 
+    def is_directory(self, path: str) -> bool:
+        """Check if a path is a directory."""
+        if not self.is_mounted and self.auto_mount:
+            if not self.mount():
+                return False
+        try:
+            stats = uos.stat(f"/sd/{path}")
+            # In MicroPython, stat returns a tuple where the first element (st_mode) contains file type info
+            # Directory check: st_mode & 0o040000 (S_IFDIR)
+            is_dir = (stats[0] & 0o170000) == 0o040000
+            if self.auto_mount:
+                self.unmount()
+            return is_dir
+        except OSError:
+            if self.auto_mount:
+                self.unmount()
+            return False
+        except Exception:
+            if self.auto_mount:
+                self.unmount()
+            return False
+
     def listdir(self, directory: str = "/sd") -> list:
         """List all files in a directory. Default is /sd."""
         files = []

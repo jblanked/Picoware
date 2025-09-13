@@ -9,7 +9,8 @@ class Image:
 
     def __init__(self):
         self.size = Vector(0, 0)
-        self._raw = None  # bytearray containing RGB565 pixel data
+        self._raw = None
+        self.is_8bit = True
 
     def from_path(self, path: str) -> bool:
         """Load a 16‑bit BMP from disk into raw RGB565 data."""
@@ -20,31 +21,39 @@ class Image:
             print(f"Error loading image: {e}")
             return False
 
-    def from_byte_array(self, data: bytearray, size: Vector) -> bool:
+    def from_byte_array(self, data, size, is_8bit: bool = True) -> bool:
         """
-        Create an image from a raw RGB565 byte array.
+        Create an image from raw byte array
 
-        data: bytes or bytearray length == width*height*2
+        data: bytes, bytearray, or memoryview containing pixel data
+        size: Vector(width, height)
+        is_8bit: if True, data is 8-bit
         """
         from sys import byteorder
-        from gc import collect
 
-        expected = size.x * size.y * 2
+        if not isinstance(data, memoryview):
+            data = memoryview(data)
+
+        bytes_per_pixel = 1 if is_8bit else 2
+        expected = size.x * size.y * bytes_per_pixel
         if len(data) != expected:
-            raise ValueError(
-                f"Data length {len(data)} != expected {expected} for {size.x}×{size.y}"
-            )
+            raise ValueError(f"Data length {len(data)} != expected {expected}")
 
-        self.size = Vector(size.x, size.y)
+        self.size = size
+        self.is_8bit = is_8bit
 
-        # ensure little‑endian
-        buf = bytearray(data)
-        if byteorder != "little":
-            for i in range(0, len(buf), 2):
-                buf[i], buf[i + 1] = buf[i + 1], buf[i]
+        if is_8bit or byteorder == "little":
+            self._raw = data
+        else:
+            # big-endian 16-bit
+            buf = bytearray(len(data))
+            i = 0
+            while i < len(data):
+                buf[i] = data[i + 1]
+                buf[i + 1] = data[i]
+                i += 2
+            self._raw = buf
 
-        self._raw = buf
-        collect()
         return True
 
     def _load_bmp(self, path):

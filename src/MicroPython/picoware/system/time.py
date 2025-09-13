@@ -29,7 +29,10 @@ class Time:
         _seconds = date[6]
         if _seconds < 10:
             _seconds = f"0{_seconds}"
-        return f"{date[4]}:{date[5]}:{_seconds}"
+        _minutes = date[5]
+        if _minutes < 10:
+            _minutes = f"0{_minutes}"
+        return f"{date[4]}:{_minutes}:{_seconds}"
 
     def set(self, year, month, day, hour, minute, second) -> None:
         """Set the current date and time."""

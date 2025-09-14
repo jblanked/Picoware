@@ -32,6 +32,8 @@ class View:
         draw.swap()
         sleep(2)
 
+        del alert
+
     def start(self, view_manager) -> bool:
         """Called when the view is created."""
         self.should_stop = False

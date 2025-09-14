@@ -756,7 +756,7 @@ def start(view_manager) -> bool:
 
     connect_to_saved_wifi(view_manager)
 
-    if _desktop_http:
+    if _desktop_http is None:
         from picoware.system.http import HTTP
 
         _desktop_http = HTTP()

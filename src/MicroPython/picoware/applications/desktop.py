@@ -749,14 +749,19 @@ def start(view_manager) -> bool:
     if _desktop is None:
         _desktop = Desktop(view_manager.draw)
 
+    wifi = view_manager.get_wifi()
+
+    if not wifi:
+        return True
+
     connect_to_saved_wifi(view_manager)
 
-    if _desktop_http is None:
+    if _desktop_http:
         from picoware.system.http import HTTP
 
         _desktop_http = HTTP()
 
-        if view_manager.get_wifi().is_connected():
+        if wifi.is_connected():
             _desktop_http.get_async("http://worldtimeapi.org/api/ip")
 
     return True
@@ -788,48 +793,52 @@ def run(view_manager) -> None:
         if _frame_counter % 10 == 0:
             _desktop_frame = (_desktop_frame + 1) % 3
 
-        if not _desktop_time_updated and view_manager.get_wifi().is_connected():
-            if _desktop_http and _desktop_http.is_request_complete():
-                try:
-                    response = _desktop_http.response
-                    if not response:
-                        # i realized that sometimes this API returns an empty response
-                        # but it usually works within 2-3 tries
-                        _desktop_http.clear_async_response()
-                        _desktop_http.get_async("http://worldtimeapi.org/api/ip")
-                        return
-                    if _desktop_http.state == 0:  # HTTP_IDLE
-                        from ujson import loads
+        wifi = view_manager.get_wifi()
+        if wifi:
+            if not _desktop_time_updated and wifi.is_connected():
+                if _desktop_http and _desktop_http.is_request_complete():
+                    try:
+                        response = _desktop_http.response
+                        if not response:
+                            # i realized that sometimes this API returns an empty response
+                            # but it usually works within 2-3 tries
+                            _desktop_http.clear_async_response()
+                            _desktop_http.get_async("http://worldtimeapi.org/api/ip")
+                            return
+                        if _desktop_http.state == 0:  # HTTP_IDLE
+                            from ujson import loads
 
-                        data: dict = loads(response)
-                        datetime_str: str = data.get("datetime", "")
-                        if datetime_str:
-                            date_part, time_part = datetime_str.split("T")
-                            time_part = time_part.split(".")[0]  # Remove milliseconds
-                            hours, minutes, seconds = map(int, time_part.split(":"))
-                            year, month, day = map(int, date_part.split("-"))
+                            data: dict = loads(response)
+                            datetime_str: str = data.get("datetime", "")
+                            if datetime_str:
+                                date_part, time_part = datetime_str.split("T")
+                                time_part = time_part.split(".")[
+                                    0
+                                ]  # Remove milliseconds
+                                hours, minutes, seconds = map(int, time_part.split(":"))
+                                year, month, day = map(int, date_part.split("-"))
 
-                            view_manager.get_time().set(
-                                year, month, day, hours, minutes, seconds
+                                view_manager.get_time().set(
+                                    year, month, day, hours, minutes, seconds
+                                )
+
+                                _desktop_time_updated = True
+
+                                _desktop.set_time(view_manager.get_time().time)
+
+                                del _desktop_http
+                                _desktop_http = None
+                        else:
+                            print(
+                                "Failed to fetch time data, HTTP state:",
+                                _desktop_http.state,
                             )
 
-                            _desktop_time_updated = True
-
-                            _desktop.set_time(view_manager.get_time().time)
-
-                            del _desktop_http
-                            _desktop_http = None
-                    else:
-                        print(
-                            "Failed to fetch time data, HTTP state:",
-                            _desktop_http.state,
-                        )
-
-                except Exception as e:
-                    print("Error processing time data:", e)
-        elif _desktop_time_updated:
-            # time is RTC, so no need to fetch, just pass the updated time
-            _desktop.set_time(view_manager.get_time().time)
+                    except Exception as e:
+                        print("Error processing time data:", e)
+            elif _desktop_time_updated:
+                # time is RTC, so no need to fetch, just pass the updated time
+                _desktop.set_time(view_manager.get_time().time)
 
     input_manager = view_manager.input_manager
     button: int = input_manager.get_last_button()

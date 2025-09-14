@@ -13,11 +13,12 @@ def _get_status_text(view_manager) -> str:
 
     global _status_message
     global _wifi_saved
+    global _ssid
+    global _password
 
     wifi = view_manager.get_wifi()
-    ssid = load_wifi_ssid(view_manager)
     text = "WiFi Setup\n\n"
-    text += "Network: " + ssid + "\n"
+    text += "Network: " + _ssid + "\n"
     text += "Status: " + _status_message + "\n\n"
 
     if wifi.is_connected():
@@ -27,11 +28,12 @@ def _get_status_text(view_manager) -> str:
         if not _wifi_saved:
             from picoware.applications.wifi.utils import save_wifi_settings
 
-            _wifi_saved = save_wifi_settings(
+            save_wifi_settings(
                 view_manager.get_storage(),
-                wifi.ssid,
-                wifi.password,
+                _ssid,
+                _password,
             )
+            _wifi_saved = True
     else:
         state = wifi.status()
         from picoware.system.wifi import WiFiState

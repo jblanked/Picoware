@@ -103,6 +103,8 @@ def start(view_manager) -> bool:
 
     sleep(2)  # Brief pause to let user read the header
 
+    keyboard.run(force=True)
+
     return True
 
 
@@ -180,10 +182,12 @@ def stop(view_manager) -> None:
     global _filename_requested
     global _editor_mode
     global _filename
+    global _keyboard_just_started
 
     _editor_is_running = False
     _filename_requested = False
     _editor_mode = False
     _filename = ""
+    _keyboard_just_started = False
 
     collect()

@@ -108,6 +108,7 @@ def stop(view_manager) -> None:
         del _applications
         _applications = None
     if _app_loader is not None:
+        _app_loader.cleanup_modules()
         del _app_loader
         _app_loader = None
     collect()

@@ -70,6 +70,11 @@ def load_wifi_password(view_manager) -> str:
 
 def save_wifi_settings(storage, ssid: str, password: str) -> bool:
     """Save the WiFi settings to storage."""
+
+    if not ssid or not password:
+        print("SSID and password cannot be empty")
+        return False
+
     from ujson import dumps
 
     settings = {"ssid": ssid, "password": password}
@@ -91,6 +96,11 @@ def save_wifi_settings(storage, ssid: str, password: str) -> bool:
 
 def save_wifi_ssid(storage, ssid: str) -> bool:
     """Save the WiFi SSID to storage."""
+
+    if not ssid:
+        print("SSID cannot be empty")
+        return False
+
     from ujson import dumps
 
     try:
@@ -103,6 +113,11 @@ def save_wifi_ssid(storage, ssid: str) -> bool:
 
 def save_wifi_password(storage, password: str) -> bool:
     """Save the WiFi password to storage."""
+
+    if not password:
+        print("Password cannot be empty")
+        return False
+
     from ujson import dumps
 
     try:

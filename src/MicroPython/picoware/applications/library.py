@@ -26,7 +26,8 @@ def start(view_manager) -> bool:
         _library.add_item("Games")
         _library.add_item("Screensavers")
         _library.add_item("System")
-        _library.add_item("WiFi")
+        if view_manager.get_wifi():
+            _library.add_item("WiFi")
         _library.set_selected(_library_index)
 
         _library.draw()

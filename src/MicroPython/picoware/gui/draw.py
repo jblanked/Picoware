@@ -329,7 +329,9 @@ class Draw:
         except (OSError, ValueError) as e:
             print(f"Error loading BMP: {e}")
 
-    def image_bytearray(self, position: Vector, size: Vector, byte_data):
+    def image_bytearray(
+        self, position: Vector, size: Vector, byte_data, invert: bool = False
+    ):
         """Draw an image from 8-bit byte data (bytes or bytearray)"""
         x, y = int(position.x), int(position.y)
         width, height = int(size.x), int(size.y)
@@ -353,10 +355,15 @@ class Draw:
             src_row_start = (src_y + row) * width + src_x
             dst_row_start = (dst_y + row) * self.size.x + dst_x
 
-            # Direct memory copy for the row
-            fb_view[dst_row_start : dst_row_start + copy_width] = data_view[
-                src_row_start : src_row_start + copy_width
-            ]
+            if invert:
+                # Invert colors while copying
+                for col in range(copy_width):
+                    fb_view[dst_row_start + col] = 255 - data_view[src_row_start + col]
+            else:
+                # Direct memory copy for the row
+                fb_view[dst_row_start : dst_row_start + copy_width] = data_view[
+                    src_row_start : src_row_start + copy_width
+                ]
 
     def line(self, position: Vector, size: Vector, color=TFT_WHITE):
         """Draw horizontal line"""

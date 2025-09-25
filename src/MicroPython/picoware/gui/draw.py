@@ -12,7 +12,7 @@ class Draw:
         self.foreground = foreground
 
         # Initialize native LCD extension
-        picoware_lcd.init()
+        picoware_lcd.init(background)
 
         # Create 8-bit framebuffer
         self.fb_data = bytearray(self.size.x * self.size.y)  # 1 byte per pixel

@@ -1092,6 +1092,7 @@ class Desktop:
         self.text_color = text_color
         self.background_color = background_color
         self.time_str = ""
+        self.is_dark_mode = text_color == 0xFFFF and background_color == 0x0000
         self.display.clear(Vector(0, 0), self.display.size, self.background_color)
         self.display.swap()
 
@@ -1110,6 +1111,7 @@ class Desktop:
             position,
             Vector(animation_size.x, animation_size.y),
             animiation_frame,
+            invert=not self.is_dark_mode,
         )
         self.display.swap()
 
@@ -1127,6 +1129,7 @@ class Desktop:
             Vector(int(self.display.size.x - 21), 2),
             Vector(19, 16),
             _WIFI_ON_BLACK if self.has_wifi else _WIFI_OFF_BLACK,
+            invert=not self.is_dark_mode,
         )
 
         # draw bluetooth icon using the built-in palette
@@ -1134,6 +1137,7 @@ class Desktop:
             Vector(int(self.display.size.x - 40), 2),
             Vector(14, 16),
             _BLUETOOTH_ON_BLACK if self.has_wifi else _BLUEETOOTH_OFF_BLACK,
+            invert=not self.is_dark_mode,
         )
 
     def set_time(self, time_str: str) -> None:

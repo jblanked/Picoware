@@ -737,6 +737,7 @@ _desktop_frame = 0
 _frame_counter = 0
 _desktop_http = None
 _desktop_time_updated = False
+_desktop_is_dark_mode = False
 
 
 def start(view_manager) -> bool:
@@ -744,10 +745,14 @@ def start(view_manager) -> bool:
     from picoware.gui.desktop import Desktop
     from picoware.applications.wifi.utils import connect_to_saved_wifi
 
-    global _desktop, _desktop_http
+    global _desktop, _desktop_http, _desktop_is_dark_mode
 
     if _desktop is None:
-        _desktop = Desktop(view_manager.draw)
+        _desktop = Desktop(
+            view_manager.draw,
+            view_manager.get_foreground_color(),
+            view_manager.get_background_color(),
+        )
 
     wifi = view_manager.get_wifi()
 

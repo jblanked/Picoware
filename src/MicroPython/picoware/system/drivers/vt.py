@@ -64,7 +64,7 @@ class vt(uio.IOBase):
             self.terminal_buffer.append([" "] * self.screen_width)
 
         # Clear the screen initially
-        self.draw.clear()
+        self.draw.clear(color=self.draw.background)
         self.draw.swap()
 
         # Initialize terminal to known state
@@ -273,14 +273,14 @@ class vt(uio.IOBase):
 
     def _render_terminal(self):
         """Render the terminal buffer to the display"""
-        self.draw.clear()
+        self.draw.clear(color=self.draw.background)
 
         # Render text lines
         for y in range(self.screen_height):
             line = "".join(self.terminal_buffer[y]).rstrip()
             if line:
                 pos = Vector(0, y * self.char_height)
-                self.draw.text(pos, line)
+                self.draw.text(pos, line, self.draw.foreground)
 
         # Draw cursor (simple block cursor) if visible
         if self.cursor_visible:

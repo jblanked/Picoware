@@ -93,12 +93,16 @@ def start(view_manager) -> bool:
     keyboard.set_response("")  # Start with empty filename
 
     draw = view_manager.get_draw()
-    draw.clear()
+    draw.clear(color=view_manager.get_background_color())
 
     from picoware.system.vector import Vector
     from time import sleep
 
-    draw.text(Vector(10, 10), "Enter filename (blank for new file):")
+    draw.text(
+        Vector(10, 10),
+        "Enter filename (blank for new file):",
+        view_manager.get_foreground_color(),
+    )
     draw.swap()
 
     sleep(2)  # Brief pause to let user read the header

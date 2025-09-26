@@ -778,6 +778,9 @@ def run(view_manager) -> None:
     from picoware.system.view import View
     from picoware.system.vector import Vector
 
+    input_manager = view_manager.input_manager
+    button: int = input_manager.get_last_button()
+
     global _desktop
     global _desktop_frame
     global _frame_counter
@@ -785,6 +788,9 @@ def run(view_manager) -> None:
     global _desktop_time_updated
 
     if _desktop:
+        raw_level: bytearray = input_manager.keyboard.battery()
+        battery_level: int = raw_level[1]
+        _desktop.set_battery(battery_level)
         _desktop.draw(
             (
                 _FRAME_1_16x15
@@ -844,9 +850,6 @@ def run(view_manager) -> None:
             elif _desktop_time_updated:
                 # time is RTC, so no need to fetch, just pass the updated time
                 _desktop.set_time(view_manager.get_time().time)
-
-    input_manager = view_manager.input_manager
-    button: int = input_manager.get_last_button()
 
     if button == BUTTON_LEFT:
         from picoware.applications.system import system_info

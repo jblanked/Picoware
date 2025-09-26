@@ -1093,6 +1093,7 @@ class Desktop:
         self.background_color = background_color
         self.time_str = ""
         self.is_dark_mode = text_color == 0xFFFF and background_color == 0x0000
+        self.battery_level_str = ""
         self.display.clear(Vector(0, 0), self.display.size, self.background_color)
         self.display.swap()
 
@@ -1139,6 +1140,14 @@ class Desktop:
             _BLUETOOTH_ON_BLACK if self.has_wifi else _BLUEETOOTH_OFF_BLACK,
             invert=not self.is_dark_mode,
         )
+
+        self.display.text(
+            Vector(self.display.size.x - 68, 5), self.battery_level_str, self.text_color
+        )
+
+    def set_battery(self, battery_level: int) -> None:
+        """Set the battery level on the header."""
+        self.battery_level_str = f"{battery_level}%"
 
     def set_time(self, time_str: str) -> None:
         """Set the time on the header."""

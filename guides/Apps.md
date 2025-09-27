@@ -191,3 +191,189 @@ textbox = TextBox(draw, 0, 320, TFT_WHITE, TFT_BLACK)
 # set and draw text
 textbox.set_text(text)
 ```
+
+### Alert
+Use the `Alert` component to display messages to the user in a dialog format.
+```python
+from picoware.gui.draw import Draw
+from picoware.gui.alert import Alert
+from picoware.system.colors import TFT_WHITE, TFT_BLACK
+
+# create draw instance
+draw = Draw()
+
+# create alert instance
+alert = Alert(
+    draw, 
+    "This is an alert message.\nIt can have multiple lines.", 
+    text_color=TFT_WHITE, 
+    background_color=TFT_BLACK
+)
+
+# draw the alert
+alert.draw("Alert Title")
+```
+
+### Desktop
+Use the `Desktop` component to manage the desktop environment, displaying a header with device info and background image.
+```python
+from picoware.gui.draw import Draw
+from picoware.gui.desktop import Desktop
+from picoware.system.colors import TFT_WHITE, TFT_BLACK
+from picoware.system.vector import Vector
+
+# create draw instance
+draw = Draw()
+
+# create desktop instance
+desktop = Desktop(
+    draw, 
+    text_color=TFT_WHITE, 
+    background_color=TFT_BLACK
+)
+
+# set battery level
+desktop.set_battery(85)
+
+# set time
+desktop.set_time("12:34")
+
+# draw desktop with animation frame (assuming you have animation data)
+# animation_frame = some bytearray data
+# animation_size = Vector(320, 200)
+# desktop.draw(animation_frame, animation_size)
+```
+
+### Image
+Use the `Image` component to load and display images from files or byte arrays.
+```python
+from picoware.gui.draw import Draw
+from picoware.gui.image import Image
+from picoware.system.vector import Vector
+
+# create draw instance
+draw = Draw()
+
+# create image instance
+image = Image()
+
+# load from file
+if image.from_path("sd/desktop.bmp"):
+    # draw the image
+    draw.image_bytearray(Vector(0, 0), image.size, image._raw)
+
+# or create from byte array
+# image_data = bytearray([...])
+# image.from_byte_array(image_data, Vector(100, 100), is_8bit=True)
+```
+
+### Keyboard
+Use the `Keyboard` component to create an on-screen keyboard for text input.
+```python
+from picoware.gui.draw import Draw
+from picoware.gui.keyboard import Keyboard
+from picoware.system.colors import TFT_WHITE, TFT_BLACK, TFT_BLUE
+
+# create draw instance
+draw = Draw()
+
+# assume input_manager is available from view_manager
+# input_manager = view_manager.input_manager
+
+# create keyboard instance
+keyboard = Keyboard(
+    draw, 
+    input_manager, 
+    text_color=TFT_WHITE, 
+    background_color=TFT_BLACK, 
+    selected_color=TFT_BLUE
+)
+
+# in the run loop, handle input and draw
+# if not keyboard.is_finished:
+#     keyboard.run()
+# else:
+#     view_manager.back()
+
+# get the entered text
+# response = keyboard.get_response()
+
+# reset the keyboard for next use
+# keyboard.reset()
+```
+
+### Loading
+Use the `Loading` component to display a spinner animation during loading operations.
+```python
+from picoware.gui.draw import Draw
+from picoware.gui.loading import Loading
+from picoware.system.colors import TFT_WHITE, TFT_BLACK
+
+# create draw instance
+draw = Draw()
+
+# create loading instance
+loading = Loading(
+    draw, 
+    spinner_color=TFT_WHITE, 
+    background_color=TFT_BLACK
+)
+
+# animate the spinner
+loading.animate()
+```
+
+### Scrollbar
+Use the `Scrollbar` component to display a visual scrollbar.
+```python
+from picoware.gui.draw import Draw
+from picoware.gui.scrollbar import ScrollBar
+from picoware.system.colors import TFT_WHITE, TFT_BLACK
+from picoware.system.vector import Vector
+
+# create draw instance
+draw = Draw()
+
+# create scrollbar instance
+scrollbar = ScrollBar(
+    draw, 
+    position=Vector(300, 0), 
+    size=Vector(20, 240), 
+    outline_color=TFT_WHITE, 
+    fill_color=TFT_BLACK
+)
+
+# draw the scrollbar
+scrollbar.draw()
+```
+
+### Toggle
+Use the `Toggle` component to create a switch that can be toggled on or off.
+```python
+from picoware.gui.draw import Draw
+from picoware.gui.toggle import Toggle
+from picoware.system.colors import TFT_WHITE, TFT_BLACK, TFT_BLUE
+from picoware.system.vector import Vector
+
+# create draw instance
+draw = Draw()
+
+# create toggle instance
+toggle = Toggle(
+    draw, 
+    position=Vector(50, 50), 
+    size=Vector(100, 40), 
+    text="Enable Feature", 
+    initial_state=False, 
+    foreground_color=TFT_WHITE, 
+    background_color=TFT_BLACK, 
+    on_color=TFT_BLUE, 
+    border_color=TFT_WHITE
+)
+
+# draw the toggle
+toggle.draw()
+
+# check state
+# is_on = toggle.state
+```

@@ -34,15 +34,22 @@ class AppLoader:
         except Exception as e:
             print("Error cleaning up modules: {}".format(e))
 
-    def list_available_apps(self) -> list[str]:
-        """List all available apps (with .py extension) in the /sd/picoware/apps directory"""
+    def list_available_apps(self, subdirectory="") -> list[str]:
+        """List all available apps (with .py extension) in the /sd/picoware/apps directory or subdirectory"""
         try:
             storage = self.view_manager.get_storage()
             # no need to mount because we're using auto-mount
-            file_list = storage.listdir("/sd/picoware/apps")
-            return [
+            apps_path = "/sd/picoware/apps"
+            if subdirectory:
+                apps_path = f"{apps_path}/{subdirectory}"
+
+            file_list = storage.listdir(apps_path)
+            apps = [
                 f[:-3] for f in file_list if f.endswith(".py") and not f.startswith(".")
             ]
+            # Sort alphabetically
+            apps.sort()
+            return apps
 
         except Exception as e:
             print(f"Error listing apps: {e}")
@@ -52,15 +59,17 @@ class AppLoader:
         """List all loaded apps"""
         return list(self.loaded_apps.keys())
 
-    def load_app(self, app_name):
+    def load_app(self, app_name, subdirectory=""):
         """
         Load an app module dynamically
 
         Args:
             app_name: The name of the app module to load (without .py extension)
+            subdirectory: Optional subdirectory within /sd/picoware/apps
         """
         try:
-            if app_name not in self.loaded_apps:
+            cache_key = f"{subdirectory}/{app_name}" if subdirectory else app_name
+            if cache_key not in self.loaded_apps:
                 # Mount the SD card first
                 storage = self.view_manager.get_storage()
                 storage.mount()
@@ -70,6 +79,9 @@ class AppLoader:
                     import sys
 
                     apps_path = "/sd/picoware/apps"
+                    if subdirectory:
+                        apps_path = f"{apps_path}/{subdirectory}"
+
                     if apps_path not in sys.path:
                         sys.path.append(apps_path)
 
@@ -86,13 +98,13 @@ class AppLoader:
                                 f"App {app_name} missing {method} method"
                             )
 
-                    self.loaded_apps[app_name] = app_module
+                    self.loaded_apps[cache_key] = app_module
 
                 finally:
                     # Always unmount the SD card when done
                     storage.unmount()
 
-            return self.loaded_apps[app_name]
+            return self.loaded_apps[cache_key]
 
         except ImportError as e:
             print(f"Could not import app {app_name}: {e}")

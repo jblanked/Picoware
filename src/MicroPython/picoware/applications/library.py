@@ -89,7 +89,7 @@ def run(view_manager) -> None:
             view_manager.add(View("wifi", wifi.run, wifi.start, wifi.stop))
             view_manager.switch_to("wifi")
         elif app_map.get(_library_index) == "Screensavers":
-            from picoware.applications.screensavers import screensavers
+            from picoware.applications import screensavers
 
             view_manager.add(
                 View(
@@ -130,7 +130,7 @@ def run(view_manager) -> None:
             )
             view_manager.switch_to("file_browser")
         elif app_map.get(_library_index) == "Games":
-            from picoware.applications.games import games
+            from picoware.applications import games
 
             view_manager.add(View("games", games.run, games.start, games.stop))
             view_manager.switch_to("games")

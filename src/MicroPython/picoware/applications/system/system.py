@@ -19,6 +19,7 @@ def start(view_manager) -> bool:
             view_manager.get_foreground_color(),
             2,
         )
+        _system.add_item("Settings")
         _system.add_item("About Picoware")
         _system.add_item("System Info")
         _system.add_item("Bootloader Mode")
@@ -64,12 +65,20 @@ def run(view_manager) -> None:
         input_manager.reset(True)
         _system_index = _system.get_selected_index()
         if _system_index == 0:
+            from picoware.applications.system import settings
+            from picoware.system.view import View
+
+            view_manager.add(
+                View("settings", settings.run, settings.start, settings.stop)
+            )
+            view_manager.switch_to("settings")
+        elif _system_index == 1:
             from picoware.applications.system import about
             from picoware.system.view import View
 
             view_manager.add(View("about", about.run, about.start, about.stop))
             view_manager.switch_to("about")
-        elif _system_index == 1:
+        elif _system_index == 2:
             from picoware.applications.system import system_info
             from picoware.system.view import View
 
@@ -79,12 +88,12 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("system_info")
-        elif _system_index == 2:
+        elif _system_index == 3:
             from picoware.system.system import System
 
             system = System()
             system.bootloader_mode()
-        elif _system_index == 3:
+        elif _system_index == 4:
             from picoware.system.system import System
 
             system = System()

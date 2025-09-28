@@ -33,8 +33,15 @@ class ViewManager:
         self.led = LED()
 
         # Set up colors
+        dark_mode_data: str = self.storage.read("picoware/settings/dark_mode.json")
         self.background_color = TFT_BLACK
         self.foreground_color = TFT_WHITE
+
+        if dark_mode_data is not None:
+            state: bool = "true" in dark_mode_data.lower()
+            if not state:
+                self.background_color = TFT_WHITE
+                self.foreground_color = TFT_BLACK
 
         # Initialize drawing system
         self.draw = Draw(self.foreground_color, self.background_color)

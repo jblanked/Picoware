@@ -163,16 +163,25 @@ static const uint8_t *get_font_data(void)
 }
 
 // Function to initialize the LCD
-STATIC mp_obj_t picoware_lcd_init(void)
+STATIC mp_obj_t picoware_lcd_init(size_t n_args, const mp_obj_t *args)
 {
+    // Arguments: background_color
+    if (n_args != 1)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("init requires 1 argument: background_color"));
+    }
+
     if (!module_initialized)
     {
         lcd_init();
+        lcd_set_background(mp_obj_get_int(args[0]));
+        lcd_set_underscore(false);
+        lcd_enable_cursor(false);
         module_initialized = true;
     }
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(picoware_lcd_init_obj, picoware_lcd_init);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_init_obj, 1, 1, picoware_lcd_init);
 
 // Fast 8-bit to RGB565 conversion and blit function
 STATIC mp_obj_t picoware_lcd_blit_8bit(size_t n_args, const mp_obj_t *args)
@@ -513,16 +522,6 @@ STATIC mp_obj_t picoware_lcd_draw_char(size_t n_args, const mp_obj_t *args)
     const uint8_t *font_data = get_font_data();
     const uint8_t *char_data = &font_data[char_code * FONT_WIDTH];
 
-    // Clear character background first
-    for (int py = 0; py < FONT_HEIGHT; py++)
-    {
-        for (int px = 0; px < CHAR_WIDTH; px++)
-        {
-            int buffer_index = (y + py) * DISPLAY_WIDTH + (x + px);
-            fb_data[buffer_index] = 0; // Black background
-        }
-    }
-
     // Render character bitmap
     for (int col = 0; col < FONT_WIDTH; col++)
     {
@@ -608,19 +607,6 @@ STATIC mp_obj_t picoware_lcd_draw_text(size_t n_args, const mp_obj_t *args)
         }
 
         const uint8_t *char_data = &font_data[char_code * FONT_WIDTH];
-
-        // Clear character background
-        for (int py = 0; py < FONT_HEIGHT; py++)
-        {
-            for (int px = 0; px < CHAR_WIDTH; px++)
-            {
-                if (current_x + px < DISPLAY_WIDTH && current_y + py < DISPLAY_HEIGHT)
-                {
-                    int buffer_index = (current_y + py) * DISPLAY_WIDTH + (current_x + px);
-                    fb_data[buffer_index] = 0; // Black background
-                }
-            }
-        }
 
         // Render character bitmap
         for (int col = 0; col < FONT_WIDTH; col++)

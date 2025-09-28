@@ -17,11 +17,16 @@ def __set_text():
 def start(view_manager) -> bool:
     """Start the loading animation."""
     from picoware.gui.textbox import TextBox
-    from picoware.system.colors import TFT_BLACK, TFT_WHITE
 
     global _system_info
     if _system_info is None:
-        _system_info = TextBox(view_manager.draw, 0, 320, TFT_WHITE, TFT_BLACK)
+        _system_info = TextBox(
+            view_manager.draw,
+            0,
+            320,
+            view_manager.get_foreground_color(),
+            view_manager.get_background_color(),
+        )
 
         __set_text()
 

@@ -737,6 +737,7 @@ _desktop_frame = 0
 _frame_counter = 0
 _desktop_http = None
 _desktop_time_updated = False
+_desktop_is_dark_mode = False
 
 
 def start(view_manager) -> bool:
@@ -744,10 +745,14 @@ def start(view_manager) -> bool:
     from picoware.gui.desktop import Desktop
     from picoware.applications.wifi.utils import connect_to_saved_wifi
 
-    global _desktop, _desktop_http
+    global _desktop, _desktop_http, _desktop_is_dark_mode
 
     if _desktop is None:
-        _desktop = Desktop(view_manager.draw)
+        _desktop = Desktop(
+            view_manager.draw,
+            view_manager.get_foreground_color(),
+            view_manager.get_background_color(),
+        )
 
     wifi = view_manager.get_wifi()
 
@@ -773,6 +778,9 @@ def run(view_manager) -> None:
     from picoware.system.view import View
     from picoware.system.vector import Vector
 
+    input_manager = view_manager.input_manager
+    button: int = input_manager.get_last_button()
+
     global _desktop
     global _desktop_frame
     global _frame_counter
@@ -780,6 +788,9 @@ def run(view_manager) -> None:
     global _desktop_time_updated
 
     if _desktop:
+        raw_level: bytearray = input_manager.keyboard.battery()
+        battery_level: int = raw_level[1]
+        _desktop.set_battery(battery_level)
         _desktop.draw(
             (
                 _FRAME_1_16x15
@@ -839,9 +850,6 @@ def run(view_manager) -> None:
             elif _desktop_time_updated:
                 # time is RTC, so no need to fetch, just pass the updated time
                 _desktop.set_time(view_manager.get_time().time)
-
-    input_manager = view_manager.input_manager
-    button: int = input_manager.get_last_button()
 
     if button == BUTTON_LEFT:
         from picoware.applications.system import system_info

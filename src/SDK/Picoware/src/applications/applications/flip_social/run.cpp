@@ -383,13 +383,6 @@ void FlipSocialRun::drawExploreView(Canvas *canvas)
         canvas_draw_str(canvas, 0, 10, "Explore success!");
         canvas_draw_str(canvas, 0, 20, "Press OK to continue.");
 
-        if (!http)
-        {
-            printf("drawExploreView: Failed to load explore data from storage\n");
-            canvas_draw_str(canvas, 0, 30, "Failed to load explore data.");
-            return;
-        }
-
         char *exploreUsers = (char *)malloc(1024);
         if (!exploreUsers)
         {

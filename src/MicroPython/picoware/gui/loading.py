@@ -86,6 +86,10 @@ class Loading:
 
         return int(ticks_ms())
 
+    def set_text(self, text: str) -> None:
+        """Set the loading text."""
+        self.current_text = text
+
     def stop(self) -> None:
         """Stop the loading animation."""
         # Clear the entire screen

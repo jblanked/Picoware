@@ -7,7 +7,6 @@
 #include "../../../applications/applications/flip_social/user.hpp"
 
 static Menu *flipSocialSettings = nullptr;
-static TextBox *flipSocialSettingsTextBox = nullptr;
 
 static bool flipSocialSettingsStart(ViewManager *viewManager)
 {
@@ -15,11 +14,6 @@ static bool flipSocialSettingsStart(ViewManager *viewManager)
     {
         delete flipSocialSettings;
         flipSocialSettings = nullptr;
-    }
-    if (flipSocialSettingsTextBox != nullptr)
-    {
-        delete flipSocialSettingsTextBox;
-        flipSocialSettingsTextBox = nullptr;
     }
 
     flipSocialSettings = new Menu(
@@ -34,8 +28,6 @@ static bool flipSocialSettingsStart(ViewManager *viewManager)
         2                                  // border/separator width
     );
 
-    flipSocialSettingsTextBox = new TextBox(viewManager->getDraw(), 0, 320, viewManager->getForegroundColor(), viewManager->getBackgroundColor());
-
     flipSocialSettings->addItem("Change User");
     flipSocialSettings->addItem("Change Password");
     flipSocialSettings->setSelected(0);
@@ -46,7 +38,6 @@ static void flipSocialSettingsRun(ViewManager *viewManager)
 {
     auto inputManager = viewManager->getInputManager();
     auto input = inputManager->getLastButton();
-    static bool textBoxVisible = false;
     switch (input)
     {
     case BUTTON_UP:
@@ -59,11 +50,8 @@ static void flipSocialSettingsRun(ViewManager *viewManager)
         break;
     case BUTTON_LEFT:
     case BUTTON_BACK:
-        if (!textBoxVisible)
-        {
-            viewManager->back();
-            inputManager->reset(true);
-        }
+        viewManager->back();
+        inputManager->reset(true);
         break;
     case BUTTON_RIGHT:
     case BUTTON_CENTER:
@@ -98,11 +86,6 @@ static void flipSocialSettingsStop(ViewManager *viewManager)
     {
         delete flipSocialSettings;
         flipSocialSettings = nullptr;
-    }
-    if (flipSocialSettingsTextBox != nullptr)
-    {
-        delete flipSocialSettingsTextBox;
-        flipSocialSettingsTextBox = nullptr;
     }
 }
 

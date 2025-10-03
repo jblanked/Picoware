@@ -29,31 +29,6 @@ inline String flipSocialUtilsLoadUserFromFlash(ViewManager *viewManager)
     return flipSocialUtilsLoadFromFlash(viewManager, FLIP_SOCIAL_USER_PATH, "username");
 }
 
-inline String flipSocialHttpRequest(ViewManager *viewManager, const char *method, String url = "", String payload = "")
-{
-    if (method == nullptr || url == "")
-    {
-        return "";
-    }
-    HTTP flipSocialHttp;
-    String response = "";
-    String user = flipSocialUtilsLoadUserFromFlash(viewManager);
-    String password = flipSocialUtilsLoadPasswordFromFlash(viewManager);
-
-    std::map<std::string, std::string> headers;
-    headers["Content-Type"] = "application/json";
-    headers["HTTP_USER_AGENT"] = "Pico";
-    headers["Setting"] = "X-Flipper-Redirect";
-
-    if (user != "" && password != "")
-    {
-        headers["username"] = user.c_str();
-        headers["password"] = password.c_str();
-    }
-
-    return flipSocialHttp.request(method, url.c_str(), headers, payload.c_str());
-}
-
 inline bool flipSocialUtilsSaveToFlash(Storage storage, const char *path, const String &key, const String &value)
 {
     std::string json = "{\"" + key + "\":\"" + value + "\"}";

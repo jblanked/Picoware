@@ -74,8 +74,10 @@ class Entity:
         self.size: Vector = size
         self.is_8bit: bool = is_8bit
         #
-        self.sprite = Image()
-        self.sprite.from_byte_array(sprite_data, size, is_8bit)
+        self.sprite: Image = None
+        if sprite_data:
+            self.sprite = Image()
+            self.sprite.from_byte_array(sprite_data, size, is_8bit)
         self.sprite_left = None
         self.sprite_right = None
         if sprite_data_left:

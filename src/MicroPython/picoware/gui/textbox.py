@@ -45,6 +45,17 @@ class TextBox:
 
         draw.swap()
 
+    def __del__(self):
+        # Reset content
+        self.current_text = ""
+        self.current_line = -1
+        self.line_buffer = []
+        self.line_positions = []
+        self.total_lines = 0
+        # Reset scrollbar
+        del self.scrollbar
+        self.scrollbar = None
+
     def get_text_height(self) -> int:
         """Get the height of the text box based on the number of lines and font size."""
         return (

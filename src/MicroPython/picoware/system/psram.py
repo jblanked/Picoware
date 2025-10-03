@@ -1,30 +1,25 @@
 import struct
-import micropython
-from micropython import const
-
-
-micropython.alloc_emergency_exception_buf(100)
+import picoware_psram as _psram
 
 
 class PSRAM:
-    """MicroPython PSRAM interface using bit-banged SPI."""
+    """MicroPython PSRAM interface using a C module for hardware access."""
 
     # Constants
-    PSRAM_SIZE = const(8 * 1024 * 1024)  # 8MB total
-    HEAP_START = const(0x100000)  # Start heap at 1MB offset
-    HEAP_SIZE = const(7 * 1024 * 1024)  # 7MB for heap
+    PSRAM_SIZE = 8 * 1024 * 1024  # 8MB total
+    HEAP_START = 0x100000  # Start heap at 1MB offset
+    HEAP_SIZE = 7 * 1024 * 1024  # 7MB for heap
 
-    # Pin definitions
-    PIN_CS = const(20)
-    PIN_SCK = const(21)
-    PIN_MOSI = const(2)
-    PIN_MISO = const(3)
+    def __init__(self):
+        """Initialize PSRAM using C module."""
+        # Heap management variables
+        self._hardware_initialized = False
+        self._heap_head = 0
+        self._total_used = 0
+        self._total_blocks = 0
 
-    # PSRAM commands
-    CMD_READ = const(0x0B)
-    CMD_WRITE = const(0x02)
-    CMD_RESET_ENABLE = const(0x66)
-    CMD_RESET = const(0x99)
+        # Initialize hardware via C module
+        self._init_hardware()
 
     @property
     def block_count(self):
@@ -39,7 +34,7 @@ class PSRAM:
     @property
     def is_ready(self):
         """Check if PSRAM is ready for use."""
-        return self._hardware_initialized
+        return _psram.is_ready()
 
     @property
     def total_heap_size(self):
@@ -56,37 +51,18 @@ class PSRAM:
         """Get used heap size in bytes."""
         return self._total_used
 
-    def __init__(self):
-        """Initialize PSRAM."""
-        from machine import Pin
-
-        # Initialize pins
-        self.cs = Pin(self.PIN_CS, Pin.OUT, value=1)
-        self.sck = Pin(self.PIN_SCK, Pin.OUT, value=0)
-        self.mosi = Pin(self.PIN_MOSI, Pin.OUT, value=0)
-        self.miso = Pin(self.PIN_MISO, Pin.IN)
-
-        # Heap management variables
-        self._hardware_initialized = False
-        self._heap_head = 0
-        self._total_used = 0
-        self._total_blocks = 0
-
-        # Initialize hardware
-        self._init_hardware()
-
     def _init_hardware(self):
-        """Initialize PSRAM hardware and heap."""
+        """Initialize PSRAM hardware and heap using C module."""
         if self._hardware_initialized:
             return True
 
-        # PSRAM reset sequence
-        self._reset_psram()
+        # Initialize hardware via C module
+        _psram.init()
 
         # Initialize heap with a single free block
         self._heap_head = self.HEAP_START
         initial_block = struct.pack("<IBIIII", self.HEAP_SIZE, 1, 0, 0, 0, 0)
-        self._write_raw(self._heap_head, initial_block)
+        _psram.write(self._heap_head, initial_block)
 
         self._total_used = 0
         self._total_blocks = 0
@@ -94,232 +70,6 @@ class PSRAM:
 
         return True
 
-    @micropython.native
-    def _read_raw(self, addr, length):
-        """Read raw data from PSRAM address."""
-        if not self._hardware_initialized and addr != self.HEAP_START:
-            return b""
-
-        cmd = bytearray(
-            [
-                self.CMD_READ,
-                (addr >> 16) & 0xFF,
-                (addr >> 8) & 0xFF,
-                addr & 0xFF,
-                0x00,  # Dummy byte for read
-            ]
-        )
-
-        self.cs(0)
-        self._spi_write(cmd)
-        data = self._spi_read(length)
-        self.cs(1)
-
-        return data
-
-    def _reset_psram(self):
-        """Reset PSRAM chip."""
-        from time import sleep_us
-
-        # Reset enable
-        self.cs(0)
-        self._spi_write(bytes([self.CMD_RESET_ENABLE]))
-        self.cs(1)
-        sleep_us(50)
-
-        # Reset command
-        self.cs(0)
-        self._spi_write(bytes([self.CMD_RESET]))
-        self.cs(1)
-        sleep_us(100)
-
-    @micropython.native
-    def _spi_read(self, length):
-        """Read multiple bytes via SPI."""
-        result = bytearray(length)
-        for i in range(length):
-            byte = 0
-            # Unroll the bit loop for maximum speed
-            # Bit 7 (MSB)
-            self.sck(1)
-            if self.miso():
-                byte |= 0x80
-            self.sck(0)
-            # Bit 6
-            self.sck(1)
-            if self.miso():
-                byte |= 0x40
-            self.sck(0)
-            # Bit 5
-            self.sck(1)
-            if self.miso():
-                byte |= 0x20
-            self.sck(0)
-            # Bit 4
-            self.sck(1)
-            if self.miso():
-                byte |= 0x10
-            self.sck(0)
-            # Bit 3
-            self.sck(1)
-            if self.miso():
-                byte |= 0x08
-            self.sck(0)
-            # Bit 2
-            self.sck(1)
-            if self.miso():
-                byte |= 0x04
-            self.sck(0)
-            # Bit 1
-            self.sck(1)
-            if self.miso():
-                byte |= 0x02
-            self.sck(0)
-            # Bit 0 (LSB)
-            self.sck(1)
-            if self.miso():
-                byte |= 0x01
-            self.sck(0)
-
-            result[i] = byte
-        return bytes(result)
-
-    @micropython.native
-    def _spi_write(self, data):
-        """Write buffer via SPI."""
-
-        if not isinstance(data, (memoryview, bytes, bytearray)):
-            data = memoryview(data)
-
-        for byte in data:
-            # Unroll the bit loop
-            # Bit 7 (MSB)
-            self.mosi((byte >> 7) & 1)
-            self.sck(1)
-            self.sck(0)
-            # Bit 6
-            self.mosi((byte >> 6) & 1)
-            self.sck(1)
-            self.sck(0)
-            # Bit 5
-            self.mosi((byte >> 5) & 1)
-            self.sck(1)
-            self.sck(0)
-            # Bit 4
-            self.mosi((byte >> 4) & 1)
-            self.sck(1)
-            self.sck(0)
-            # Bit 3
-            self.mosi((byte >> 3) & 1)
-            self.sck(1)
-            self.sck(0)
-            # Bit 2
-            self.mosi((byte >> 2) & 1)
-            self.sck(1)
-            self.sck(0)
-            # Bit 1
-            self.mosi((byte >> 1) & 1)
-            self.sck(1)
-            self.sck(0)
-            # Bit 0 (LSB)
-            self.mosi(byte & 1)
-            self.sck(1)
-            self.sck(0)
-
-    @micropython.native
-    def _write_raw(self, addr, data):
-        """Write raw data to PSRAM address"""
-        if not self._hardware_initialized and addr != self.HEAP_START:
-            return
-
-        if not isinstance(data, (memoryview, bytes, bytearray)):
-            data = memoryview(data)
-
-        self.cs(0)
-
-        # Write command + address (4 bytes total)
-        command_bytes = [
-            self.CMD_WRITE,
-            (addr >> 16) & 0xFF,
-            (addr >> 8) & 0xFF,
-            addr & 0xFF,
-        ]
-        for byte in command_bytes:
-            self.mosi((byte >> 7) & 1)
-            self.sck(1)
-            self.sck(0)
-            self.mosi((byte >> 6) & 1)
-            self.sck(1)
-            self.sck(0)
-            self.mosi((byte >> 5) & 1)
-            self.sck(1)
-            self.sck(0)
-            self.mosi((byte >> 4) & 1)
-            self.sck(1)
-            self.sck(0)
-            self.mosi((byte >> 3) & 1)
-            self.sck(1)
-            self.sck(0)
-            self.mosi((byte >> 2) & 1)
-            self.sck(1)
-            self.sck(0)
-            self.mosi((byte >> 1) & 1)
-            self.sck(1)
-            self.sck(0)
-            self.mosi(byte & 1)
-            self.sck(1)
-            self.sck(0)
-        # Write data bytes
-        for byte in data:
-            self.mosi((byte >> 7) & 1)
-            self.sck(1)
-            self.sck(0)
-            self.mosi((byte >> 6) & 1)
-            self.sck(1)
-            self.sck(0)
-            self.mosi((byte >> 5) & 1)
-            self.sck(1)
-            self.sck(0)
-            self.mosi((byte >> 4) & 1)
-            self.sck(1)
-            self.sck(0)
-            self.mosi((byte >> 3) & 1)
-            self.sck(1)
-            self.sck(0)
-            self.mosi((byte >> 2) & 1)
-            self.sck(1)
-            self.sck(0)
-            self.mosi((byte >> 1) & 1)
-            self.sck(1)
-            self.sck(0)
-            self.mosi(byte & 1)
-            self.sck(1)
-            self.sck(0)
-
-        self.cs(1)
-
-    @micropython.native
-    def fill(self, addr, value, length, chunk_size=8192):
-        """Fill PSRAM with a specific value."""
-        if length <= 0:
-            return
-
-        max_chunk = min(chunk_size, length)
-        chunk = bytes([value & 0xFF] * max_chunk)
-
-        offset = 0
-        while offset < length:
-            remaining = length - offset
-            if remaining >= max_chunk:
-                self._write_raw(addr + offset, chunk)
-                offset += max_chunk
-            else:
-                # Last partial chunk
-                partial_chunk = chunk[:remaining]
-                self._write_raw(addr + offset, partial_chunk)
-                offset += remaining
-
-    @micropython.native
     def free(self, addr):
         """Free previously allocated PSRAM memory."""
         if not self._hardware_initialized or addr == 0:
@@ -327,7 +77,7 @@ class PSRAM:
 
         header_size = 21
         block_addr = addr - header_size
-        block_data = self._read_raw(block_addr, header_size)
+        block_data = _psram.read(block_addr, header_size)
 
         if len(block_data) < header_size:
             return
@@ -347,13 +97,12 @@ class PSRAM:
             block_data = struct.pack(
                 "<IBIIII", block_size, is_free, 0, 0, next_addr, prev_addr
             )
-            self._write_raw(block_addr, block_data)
+            _psram.write(block_addr, block_data)
 
         except Exception as e:
             print(f"Free error: {e}")
             return
 
-    @micropython.native
     def malloc(self, size):
         """Allocate memory from PSRAM heap."""
         if not self._hardware_initialized or size == 0:
@@ -365,7 +114,7 @@ class PSRAM:
 
         current_addr = self._heap_head
         while current_addr != 0:
-            block_data = self._read_raw(current_addr, header_size)
+            block_data = _psram.read(current_addr, header_size)
             if len(block_data) < header_size:
                 break
 
@@ -386,10 +135,10 @@ class PSRAM:
                             next_addr,
                             current_addr,
                         )
-                        self._write_raw(new_block_addr, new_block_data)
+                        _psram.write(new_block_addr, new_block_data)
 
                         if next_addr != 0:
-                            next_block_data = self._read_raw(next_addr, header_size)
+                            next_block_data = _psram.read(next_addr, header_size)
                             if len(next_block_data) == header_size:
                                 (
                                     next_size,
@@ -408,7 +157,7 @@ class PSRAM:
                                     next_next,
                                     new_block_addr,
                                 )
-                                self._write_raw(next_addr, updated_next)
+                                _psram.write(next_addr, updated_next)
 
                         block_size = total_size
                         next_addr = new_block_addr
@@ -416,7 +165,7 @@ class PSRAM:
                     block_data = struct.pack(
                         "<IBIIII", block_size, 0, 0, 0, next_addr, prev_addr
                     )
-                    self._write_raw(current_addr, block_data)
+                    _psram.write(current_addr, block_data)
 
                     self._total_used += aligned_size
                     self._total_blocks += 1
@@ -431,95 +180,74 @@ class PSRAM:
 
         return 0
 
-    @micropython.native
-    def memcpy(self, dest_addr, src_data, length=None):
-        """Copy memory from one location to another."""
-        if length is None:
-            length = len(src_data)
+    def memcpy(self, dest_addr, src_addr, length):
+        """Copy memory from one PSRAM location to another."""
+        _psram.copy(src_addr, dest_addr, length)
 
-        chunk_size = 8192  # 8KB chunks
-        offset = 0
-
-        while offset < length:
-            remaining = length - offset
-            current_chunk_size = min(chunk_size, remaining)
-            chunk = src_data[offset : offset + current_chunk_size]
-            self._write_raw(dest_addr + offset, chunk)
-            offset += current_chunk_size
-
-    @micropython.native
     def memset(self, addr, value, length):
-        """Set memory region to a specific value"""
+        """Set memory region to a specific value (limited by speed)."""
+        # Use C module's single-byte writes (slow but works)
         if length <= 0:
             return
 
+        # For small lengths, write directly
         if length <= 64:
             data = bytes([value & 0xFF] * length)
-            self._write_raw(addr, data)
+            _psram.write(addr, data)
             return
 
-        chunk_size = 64
+        # For larger lengths, use chunks
+        chunk_size = 256
         chunk_data = bytes([value & 0xFF] * chunk_size)
 
         offset = 0
         while offset < length:
             current_chunk_size = min(chunk_size, length - offset)
             if current_chunk_size == chunk_size:
-                self._write_raw(addr + offset, chunk_data)
+                _psram.write(addr + offset, chunk_data)
             else:
-                self._write_raw(addr + offset, chunk_data[:current_chunk_size])
+                _psram.write(addr + offset, chunk_data[:current_chunk_size])
             offset += current_chunk_size
 
-    @micropython.native
     def read(self, addr, length):
         """Read data bytes from PSRAM."""
-        return self._read_raw(addr, length)
+        return _psram.read(addr, length)
 
-    @micropython.native
     def read8(self, addr):
         """Read 8-bit value from PSRAM."""
-        data = self._read_raw(addr, 1)
-        return data[0] if data else 0
+        return _psram.read8(addr)
 
-    @micropython.native
     def read16(self, addr):
         """Read 16-bit value from PSRAM (little-endian)."""
-        data = self._read_raw(addr, 2)
-        return struct.unpack("<H", data)[0] if len(data) == 2 else 0
+        return _psram.read16(addr)
 
-    @micropython.native
     def read32(self, addr):
         """Read 32-bit value from PSRAM (little-endian)."""
-        data = self._read_raw(addr, 4)
-        return struct.unpack("<I", data)[0] if len(data) == 4 else 0
+        return _psram.read32(addr)
 
-    @micropython.native
     def read_uint8_array(self, addr, count):
         """Read array of uint8 values from PSRAM."""
-        data = self._read_raw(addr, count)
+        data = _psram.read(addr, count)
         return list(data) if data else []
 
-    @micropython.native
     def read_uint16_array(self, addr, count):
         """Read array of uint16 values from PSRAM."""
-        data = self._read_raw(addr, count * 2)
+        data = _psram.read(addr, count * 2)
         if len(data) == count * 2:
             return [
                 struct.unpack("<H", data[i : i + 2])[0] for i in range(0, len(data), 2)
             ]
         return []
 
-    @micropython.native
     def read_uint32_array(self, addr, count):
         """Read array of uint32 values from PSRAM."""
-        data = self._read_raw(addr, count * 4)
+        data = _psram.read(addr, count * 4)
         if len(data) == count * 4:
             return [
                 struct.unpack("<I", data[i : i + 4])[0] for i in range(0, len(data), 4)
             ]
         return []
 
-    @micropython.native
     def realloc(self, addr, new_size):
         """Reallocate PSRAM memory."""
         if new_size == 0:
@@ -532,7 +260,7 @@ class PSRAM:
 
         header_size = 21
         block_addr = addr - header_size
-        block_data = self._read_raw(block_addr, header_size)
+        block_data = _psram.read(block_addr, header_size)
 
         if len(block_data) < header_size:
             return 0
@@ -549,47 +277,42 @@ class PSRAM:
             if new_addr == 0:
                 return 0
 
-            data = self._read_raw(addr, current_data_size)
-            self._write_raw(new_addr, data)
+            data = _psram.read(addr, current_data_size)
+            _psram.write(new_addr, data)
             self.free(addr)
 
             return new_addr
         except Exception:
             return 0
 
-    @micropython.native
     def write(self, addr, data):
-        """Write data bytes to PSRAM"""
+        """Write data bytes to PSRAM."""
         if isinstance(data, (bytes, bytearray, memoryview)):
-            self._write_raw(addr, data)
+            _psram.write(addr, data)
+        elif isinstance(data, str):
+            # Convert string to bytes
+            _psram.write(addr, data.encode("utf-8"))
         else:
-            raise TypeError("Data must be bytes, bytearray, or memoryview")
+            raise TypeError("Data must be bytes, bytearray, memoryview, or str")
 
-    @micropython.native
     def write8(self, addr, value):
         """Write 8-bit value to PSRAM."""
-        self._write_raw(addr, bytes([value & 0xFF]))
+        _psram.write8(addr, value)
 
-    @micropython.native
     def write16(self, addr, value):
         """Write 16-bit value to PSRAM (little-endian)."""
-        data = struct.pack("<H", value)
-        self._write_raw(addr, data)
+        _psram.write16(addr, value)
 
-    @micropython.native
     def write32(self, addr, value):
         """Write 32-bit value to PSRAM (little-endian)."""
-        data = struct.pack("<I", value)
-        self._write_raw(addr, data)
+        _psram.write32(addr, value)
 
-    @micropython.native
     def write_buffer(self, addr, buffer):
-        """Write a buffer to PSRAM"""
+        """Write a buffer to PSRAM."""
         if not isinstance(buffer, (memoryview, bytes, bytearray)):
             buffer = memoryview(buffer)
-        self._write_raw(addr, buffer)
+        _psram.write(addr, buffer)
 
-    @micropython.native
     def write_buffer_chunked(self, addr, buffer, chunk_size=65536):
         """Write large buffer in chunks."""
         if not isinstance(buffer, (memoryview, bytes, bytearray)):
@@ -604,11 +327,10 @@ class PSRAM:
 
             # Use memoryview slice for zero-copy
             chunk = buffer[bytes_written : bytes_written + current_chunk_size]
-            self._write_raw(addr + bytes_written, chunk)
+            _psram.write(addr + bytes_written, chunk)
 
             bytes_written += current_chunk_size
 
-    @micropython.native
     def write_bulk(self, addr, data, chunk_size=1024):
         """Write large amounts of data in chunks."""
         if not isinstance(data, (bytes, bytearray)):
@@ -620,40 +342,37 @@ class PSRAM:
         while offset < data_len:
             current_chunk_size = min(chunk_size, data_len - offset)
             chunk = data[offset : offset + current_chunk_size]
-            self._write_raw(addr + offset, chunk)
+            _psram.write(addr + offset, chunk)
             offset += current_chunk_size
 
-    @micropython.native
     def write_uint8_array(self, addr, values):
         """Write array of uint8 values to PSRAM."""
         if isinstance(values, (list, tuple)):
             data = bytearray(values)
         else:
             data = values
-        self._write_raw(addr, data)
+        _psram.write(addr, data)
 
-    @micropython.native
     def write_uint16_array(self, addr, values):
         """Write array of uint16 values to PSRAM."""
         if isinstance(values, (memoryview, bytes, bytearray)):
             # Already in binary format
-            self._write_raw(addr, values)
+            _psram.write(addr, values)
         else:
             # Convert from list/tuple of integers
             data = bytearray()
             for value in values:
                 data.extend(struct.pack("<H", value))
-            self._write_raw(addr, data)
+            _psram.write(addr, data)
 
-    @micropython.native
     def write_uint32_array(self, addr, values):
         """Write array of uint32 values to PSRAM."""
         if isinstance(values, (memoryview, bytes, bytearray)):
             # Already in binary format
-            self._write_raw(addr, values)
+            _psram.write(addr, values)
         else:
             # Convert from list/tuple of integers
             data = bytearray()
             for value in values:
                 data.extend(struct.pack("<I", value))
-            self._write_raw(addr, data)
+            _psram.write(addr, data)

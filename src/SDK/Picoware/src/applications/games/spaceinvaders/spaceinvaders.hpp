@@ -45,7 +45,7 @@ static void spaceInvadersRun(ViewManager *viewManager)
         spaceInvadersEngine->runAsync(false);
     }
     auto input = viewManager->getInputManager()->getLastButton();
-    if (input == BUTTON_LEFT || input == BUTTON_BACK)
+    if (input == BUTTON_BACK)
     {
         viewManager->back();
         viewManager->getInputManager()->reset(true);

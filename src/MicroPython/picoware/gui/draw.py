@@ -365,6 +365,27 @@ class Draw:
                     src_row_start : src_row_start + copy_width
                 ]
 
+    def image_bytearray_1bit(self, position: Vector, size: Vector, byte_data) -> None:
+        """Draw a 1-bit bitmap from packed byte_data (8 pixels per byte, row-aligned)"""
+        width, height = int(size.x), int(size.y)
+        bytes_per_row = (width + 7) // 8  # Each row is padded to byte boundary
+
+        # Unpack bits to 8-bit pixel values
+        unpacked = bytearray(width * height)
+
+        for y in range(height):
+            row_start_byte = y * bytes_per_row
+            for x in range(width):
+                byte_offset = x // 8
+                bit_position = 7 - (x % 8)  # MSB first
+                byte_index = row_start_byte + byte_offset
+                if byte_index < len(byte_data):
+                    bit_value = (byte_data[byte_index] >> bit_position) & 1
+                    if bit_value:  # Only write if bit is 1
+                        unpacked[y * width + x] = 255
+
+        self.image_bytearray(position, size, unpacked)
+
     def line(self, position: Vector, size: Vector, color=TFT_WHITE):
         """Draw horizontal line"""
         picoware_lcd.draw_line(

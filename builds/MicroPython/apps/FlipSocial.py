@@ -2531,9 +2531,16 @@ def __flip_social_settings_stop(view_manager) -> None:
 def start(view_manager) -> bool:
     """Start the main app"""
     from picoware.gui.menu import Menu
+    
+    wifi = view_manager.get_wifi()
+    
+    # if not a wifi device, return
+    if not wifi:
+        __flip_social_alert(view_manager, "WiFi not available...", False)
+        return False
 
     # if wifi isn't connected, return
-    if not view_manager.get_wifi().is_connected():
+    if not wifi.is_connected():
         from picoware.applications.wifi.utils import connect_to_saved_wifi
         __flip_social_alert(view_manager, "WiFi not connected", False)
         connect_to_save_wifi(view_manager)

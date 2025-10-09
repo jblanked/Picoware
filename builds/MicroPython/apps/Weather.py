@@ -77,9 +77,26 @@ def start(view_manager) -> bool:
         _weather_http = None
 
     draw = view_manager.get_draw()
+    
+    wifi = view_manager.get_wifi()
+    
+    # if not a wifi device, return
+    if not wifi:
+        from picoware.gui.alert import Alert
+        from time import sleep
+
+        _weather_alert = Alert(
+            draw,
+            "WiFi not available..",
+            view_manager.get_foreground_color(),
+            view_manager.get_background_color(),
+        )
+        _weather_alert.draw("Error")
+        sleep(2)
+        return False
 
     # Check if WiFi is connected
-    if not view_manager.get_wifi().is_connected():
+    if not wifi.is_connected():
         from picoware.applications.wifi.utils import connect_to_saved_wifi
         __weather_alert_and_return(view_manager, "WiFi not connected yet.")
         connect_to_saved_wifi(view_manager)

@@ -333,37 +333,36 @@ class Draw:
         self, position: Vector, size: Vector, byte_data, invert: bool = False
     ):
         """Draw an image from 8-bit byte data (bytes or bytearray)"""
-        x, y = int(position.x), int(position.y)
+        picoware_lcd.draw_image_bytearray(
+            self.fb_data,
+            int(position.x),
+            int(position.y),
+            int(size.x),
+            int(size.y),
+            byte_data,
+            invert,
+        )
+
+    def image_bytearray_1bit(self, position: Vector, size: Vector, byte_data) -> None:
+        """Draw a 1-bit bitmap from packed byte_data (8 pixels per byte, row-aligned)"""
         width, height = int(size.x), int(size.y)
+        bytes_per_row = (width + 7) // 8  # Each row is padded to byte boundary
 
-        # Clip to screen bounds
-        src_x = max(0, -x)
-        src_y = max(0, -y)
-        dst_x = max(0, x)
-        dst_y = max(0, y)
-        copy_width = min(width - src_x, self.size.x - dst_x)
-        copy_height = min(height - src_y, self.size.y - dst_y)
+        # Unpack bits to 8-bit pixel values
+        unpacked = bytearray(width * height)
 
-        if copy_width <= 0 or copy_height <= 0:
-            return
+        for y in range(height):
+            row_start_byte = y * bytes_per_row
+            for x in range(width):
+                byte_offset = x // 8
+                bit_position = 7 - (x % 8)  # MSB first
+                byte_index = row_start_byte + byte_offset
+                if byte_index < len(byte_data):
+                    bit_value = (byte_data[byte_index] >> bit_position) & 1
+                    if bit_value:  # Only write if bit is 1
+                        unpacked[y * width + x] = 255
 
-        fb_view = memoryview(self.fb_data)
-        data_view = memoryview(byte_data)
-
-        # Copy line by line
-        for row in range(copy_height):
-            src_row_start = (src_y + row) * width + src_x
-            dst_row_start = (dst_y + row) * self.size.x + dst_x
-
-            if invert:
-                # Invert colors while copying
-                for col in range(copy_width):
-                    fb_view[dst_row_start + col] = 255 - data_view[src_row_start + col]
-            else:
-                # Direct memory copy for the row
-                fb_view[dst_row_start : dst_row_start + copy_width] = data_view[
-                    src_row_start : src_row_start + copy_width
-                ]
+        self.image_bytearray(position, size, unpacked)
 
     def line(self, position: Vector, size: Vector, color=TFT_WHITE):
         """Draw horizontal line"""

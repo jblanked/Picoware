@@ -248,19 +248,17 @@ class Editor:
 
     def scroll_up(self, scrolling):
         if Editor.TERMCMD[9]:
-            # Editor.scrbuf[scrolling:] = Editor.scrbuf[:-scrolling]
-            Editor.scrbuf[scrolling:-1] = Editor.scrbuf[: -scrolling - 1]
-            Editor.scrbuf[:scrolling] = [""] * scrolling
             self.goto(0, 0)
             self.wr(Editor.TERMCMD[9] * scrolling)
+        # Invalidate the entire screen buffer to force full redraw
+        Editor.scrbuf = [(False, "\x00")] * Editor.height
 
     def scroll_down(self, scrolling):
         if Editor.TERMCMD[10]:
-            # Editor.scrbuf[:-scrolling] = Editor.scrbuf[scrolling:]
-            Editor.scrbuf[: -scrolling - 1] = Editor.scrbuf[scrolling:-1]
-            Editor.scrbuf[-scrolling:] = [""] * scrolling
             self.goto(Editor.height - 1, 0)
             self.wr(Editor.TERMCMD[10] * scrolling)
+        # Invalidate the entire screen buffer to force full redraw
+        Editor.scrbuf = [(False, "\x00")] * Editor.height
 
     def redraw(self, flag):
         self.io_device.start_batch()
@@ -547,6 +545,7 @@ class Editor:
         if self.cur_line > 0:
             self.cur_line -= 1
             if self.cur_line < self.top_line:
+                self.top_line = self.cur_line
                 self.scroll_up(1)
 
     def skip_up(self):
@@ -566,7 +565,8 @@ class Editor:
         # print("move_down cur line %d top_line %d",self.cur_line,self.top_line)
         if self.cur_line < self.total_lines - 1:
             self.cur_line += 1
-            if self.cur_line == self.top_line + Editor.height:
+            if self.cur_line >= self.top_line + Editor.height:
+                self.top_line = self.cur_line - Editor.height + 1
                 self.scroll_down(1)
 
     def skip_down(self, l):

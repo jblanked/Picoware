@@ -80,7 +80,9 @@ def start(view_manager) -> bool:
 
     # Check if WiFi is connected
     if not view_manager.get_wifi().is_connected():
+        from picoware.applications.wifi.utils import connect_to_saved_wifi
         __weather_alert_and_return(view_manager, "WiFi not connected yet.")
+        connect_to_saved_wifi(view_manager)
         return False
 
     from picoware.system.vector import Vector

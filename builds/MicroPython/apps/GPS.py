@@ -64,6 +64,7 @@ def start(view_manager) -> bool:
 
     # if wifi isn't connected, return
     if not view_manager.get_wifi().is_connected():
+        from picoware.applications.wifi.utils import connect_to_saved_wifi
         from picoware.gui.alert import Alert
         from time import sleep
 
@@ -75,6 +76,7 @@ def start(view_manager) -> bool:
         )
         _gps_alert.draw("Error")
         sleep(2)
+        connect_to_saved_wifi(view_manager)
         return False
 
     from picoware.system.vector import Vector

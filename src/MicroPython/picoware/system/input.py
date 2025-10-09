@@ -12,6 +12,7 @@ class Input:
         self._shift_held = False
         self._ctrl_held = False
         self._alt_held = False
+        self._caps_lock = False
         self._was_capitalized = False
         self._last_shift_time = 0
         self._shift_timeout = 1000
@@ -21,9 +22,18 @@ class Input:
         if self.keyboard:
             del self.keyboard
 
+    @property
+    def button(self) -> int:
+        """Returns the last button pressed."""
+        return self._last_button
+
     def is_alt_held(self) -> bool:
         """Returns True if alt is currently held."""
         return self._alt_held
+
+    def is_caps_lock_active(self) -> bool:
+        """Returns True if caps lock is currently active."""
+        return self._caps_lock
 
     def is_ctrl_held(self) -> bool:
         """Returns True if ctrl is currently held."""
@@ -99,7 +109,8 @@ class Input:
             buttons.KEY_MOD_ALT: buttons.BUTTON_ALT,
             buttons.KEY_HOME: buttons.BUTTON_HOME,
             buttons.KEY_DEL: buttons.BUTTON_BACKSPACE,
-            # alphabet keys
+            buttons.KEY_CAPS_LOCK: buttons.BUTTON_CAPS_LOCK,
+            # alphabet keys (lowercase)
             97: buttons.BUTTON_A,
             98: buttons.BUTTON_B,
             99: buttons.BUTTON_C,
@@ -126,6 +137,33 @@ class Input:
             120: buttons.BUTTON_X,
             121: buttons.BUTTON_Y,
             122: buttons.BUTTON_Z,
+            # alphabet keys (uppercase - for caps lock)
+            65: buttons.BUTTON_A,
+            66: buttons.BUTTON_B,
+            67: buttons.BUTTON_C,
+            68: buttons.BUTTON_D,
+            69: buttons.BUTTON_E,
+            70: buttons.BUTTON_F,
+            71: buttons.BUTTON_G,
+            72: buttons.BUTTON_H,
+            73: buttons.BUTTON_I,
+            74: buttons.BUTTON_J,
+            75: buttons.BUTTON_K,
+            76: buttons.BUTTON_L,
+            77: buttons.BUTTON_M,
+            78: buttons.BUTTON_N,
+            79: buttons.BUTTON_O,
+            80: buttons.BUTTON_P,
+            81: buttons.BUTTON_Q,
+            82: buttons.BUTTON_R,
+            83: buttons.BUTTON_S,
+            84: buttons.BUTTON_T,
+            85: buttons.BUTTON_U,
+            86: buttons.BUTTON_V,
+            87: buttons.BUTTON_W,
+            88: buttons.BUTTON_X,
+            89: buttons.BUTTON_Y,
+            90: buttons.BUTTON_Z,
             # numbers
             48: buttons.BUTTON_0,
             49: buttons.BUTTON_1,
@@ -151,8 +189,9 @@ class Input:
             93: buttons.BUTTON_RIGHT_BRACKET,
         }
 
-        # set capital letters if shift is held
-        if 97 <= key <= 122 and shift_held:
+        # set capital letters if shift is held or caps lock is active
+        # Check both lowercase (97-122) and uppercase (65-90) key codes
+        if (97 <= key <= 122 and (shift_held or self._caps_lock)) or (65 <= key <= 90):
             self._was_capitalized = True
 
         return button_map.get(key, buttons.BUTTON_NONE)
@@ -190,7 +229,7 @@ class Input:
                     return key
         return -1
 
-    def reset(self, should_delay: bool = False, delay_ms: int = 150) -> None:
+    def reset(self, should_delay: bool = False) -> None:
         """Resets the input state."""
         self._elapsed_time = 0
         self._was_pressed = False
@@ -207,6 +246,7 @@ class Input:
             KEY_MOD_SHR,
             KEY_MOD_CTRL,
             KEY_MOD_ALT,
+            KEY_CAPS_LOCK,
         )
 
         _button = self.read_non_blocking()
@@ -231,6 +271,9 @@ class Input:
             if _button == KEY_MOD_ALT:
                 self._alt_held = True
                 return
+            if _button == KEY_CAPS_LOCK:
+                self._caps_lock = not self._caps_lock
+
             self._last_button = self._key_to_button(_button)
             self._elapsed_time += 1
             self._was_pressed = True

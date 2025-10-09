@@ -61,9 +61,26 @@ def start(view_manager) -> bool:
         _gps_http = None
 
     draw = view_manager.get_draw()
+    
+    wifi = view_manager.get_wifi()
+    
+    # if not a wifi device, return
+    if not wifi:
+        from picoware.gui.alert import Alert
+        from time import sleep
+
+        _gps_alert = Alert(
+            draw,
+            "WiFi not available..",
+            view_manager.get_foreground_color(),
+            view_manager.get_background_color(),
+        )
+        _gps_alert.draw("Error")
+        sleep(2)
+        return False
 
     # if wifi isn't connected, return
-    if not view_manager.get_wifi().is_connected():
+    if not wifi.is_connected():
         from picoware.applications.wifi.utils import connect_to_saved_wifi
         from picoware.gui.alert import Alert
         from time import sleep

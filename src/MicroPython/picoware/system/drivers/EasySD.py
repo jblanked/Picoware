@@ -26,6 +26,10 @@ class EasySD:
             self.unmount()
         if self.spi:
             self.spi.deinit()
+            self.spi = None
+        if self.sd:
+            del self.sd
+            self.sd = None
 
     def open(self, file_path: str, mode: str):
         """Open a file using a context manager."""

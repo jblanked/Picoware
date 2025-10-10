@@ -129,6 +129,7 @@ def stop(view_manager) -> None:
 
     global _settings_menu
     global _settings_textbox
+    global _text_visible
 
     if _settings_menu is not None:
         del _settings_menu
@@ -137,5 +138,7 @@ def stop(view_manager) -> None:
     if _settings_textbox is not None:
         del _settings_textbox
         _settings_textbox = None
+
+    _text_visible = False
 
     collect()

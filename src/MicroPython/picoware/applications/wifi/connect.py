@@ -9,8 +9,6 @@ _password = ""
 
 
 def _get_status_text(view_manager) -> str:
-    from picoware.applications.wifi.utils import load_wifi_ssid
-
     global _status_message
     global _wifi_saved
     global _ssid

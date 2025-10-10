@@ -122,6 +122,20 @@ class Entity:
         self.sprite_rotation: float = 0.0
         self.sprite_scale: float = 1.0
 
+    def __del__(self):
+        if self.sprite:
+            del self.sprite
+            self.sprite = None
+        if self.sprite_left:
+            del self.sprite_left
+            self.sprite_left = None
+        if self.sprite_right:
+            del self.sprite_right
+            self.sprite_right = None
+        if self.sprite_3d:
+            del self.sprite_3d
+            self.sprite_3d = None
+
     def collision(self, other, game):
         """Called when the entity collides with another entity."""
         if self._collision:

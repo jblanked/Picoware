@@ -76,28 +76,41 @@ class ViewManager:
 
     def __del__(self):
         """Destructor to clean up resources."""
-        import gc
+        from gc import collect
 
         # Clean up views
         for i in range(self.MAX_VIEWS):
             if self.views[i] is not None:
                 del self.views[i]
 
+        if self.current_view:
+            del self.current_view
+            self.current_view = None
+
         # Clean up other resources
         if self.keyboard:
             del self.keyboard
+            self.keyboard = None
         if self.draw:
             del self.draw
+            self.draw = None
         if self.input_manager:
             del self.input_manager
+            self.input_manager = None
         if self.storage:
             del self.storage
+            self.storage = None
         if self.led:
             del self.led
+            self.led = None
         if self.wifi:
             del self.wifi
+            self.wifi = None
+        if self.time:
+            del self.time
+            self.time = None
 
-        gc.collect()
+        collect()
 
     def add(self, view):
         """

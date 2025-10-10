@@ -21,6 +21,7 @@ class Input:
         """Destructor to clean up resources."""
         if self.keyboard:
             del self.keyboard
+            self.keyboard = None
 
     @property
     def button(self) -> int:

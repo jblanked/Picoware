@@ -50,6 +50,10 @@ class Game:
     def __del__(self):
         self.stop()
 
+        if self.current_level:
+            del self.current_level
+            self.current_level = None
+
     def clamp(self, value, lower, upper):
         """Clamp a value between a lower and upper bound."""
         return min(max(value, lower), upper)

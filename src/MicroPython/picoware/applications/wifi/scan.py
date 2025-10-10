@@ -40,7 +40,6 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run the app"""
-    from picoware.system.view import View
     from picoware.system.buttons import (
         BUTTON_BACK,
         BUTTON_UP,

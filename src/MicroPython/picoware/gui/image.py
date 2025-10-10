@@ -12,6 +12,11 @@ class Image:
         self._raw = None
         self.is_8bit = True
 
+    def __del__(self) -> None:
+        if self._raw:
+            del self._raw
+            self._raw = None
+
     def from_path(self, path: str) -> bool:
         """Load a 16‑bit BMP from disk into raw RGB565 data."""
         try:

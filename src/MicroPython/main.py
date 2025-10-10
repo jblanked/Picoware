@@ -1,12 +1,12 @@
 def main():
     """Main function to run the application"""
-    import gc
-    import machine
+    from gc import collect
+    from machine import freq
 
-    machine.freq(200000000)
+    freq(200000000)
 
     # Initial cleanup
-    gc.collect()
+    collect()
 
     from picoware.system.view_manager import ViewManager
     from picoware.system.view import View
@@ -52,13 +52,13 @@ def main():
 
                 alert = None
                 vm = None
-                gc.collect()
+                collect()
             except:
                 pass
 
     finally:
         # Final cleanup
-        gc.collect()
+        collect()
 
 
 # run the main function

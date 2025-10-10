@@ -35,6 +35,9 @@ class Level:
         self._start = start
         self._stop = stop
 
+    def __del__(self):
+        self.clear()
+
     @property
     def clear_allowed(self) -> bool:
         """Get if the level is allowed to clear the screen"""

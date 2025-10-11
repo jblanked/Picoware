@@ -7,6 +7,8 @@
 #include "../gui/keyboard.hpp"
 #include "../system/view.hpp"
 #include "../system/wifi.hpp"
+#include <ctime>
+#include "pico/stdlib.h"
 #define DARK_MODE_LOCATION "/dark_mode.json"
 
 class ViewManager
@@ -37,20 +39,7 @@ public:
     Storage getStorage() const noexcept { return storage; }
     const View *getView(const char *viewName) const noexcept;
     WiFi &getWiFi() noexcept { return wifi; }
-    const char *getTime()
-    {
-        if (wifi.isConnected())
-        {
-            struct tm timeinfo;
-            if (wifi.setTime(timeinfo, 5000))
-            {
-                static char timeBuffer[9]; // Buffer for formatted time string (HH:MM:SS)
-                sprintf(timeBuffer, "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-                return timeBuffer;
-            }
-        }
-        return nullptr;
-    }
+    const char *getTime();
 
     void setBackgroundColor(uint16_t color) noexcept { backgroundColor = color; }
     void setForegroundColor(uint16_t color) noexcept { foregroundColor = color; }

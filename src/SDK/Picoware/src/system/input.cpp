@@ -1,13 +1,17 @@
 #include "../system/input.hpp"
 #include "../system/drivers/keyboard.h"
 #include "../system/buttons.hpp"
+#include <cstdio>
 
 Input::Input()
     : lastButton(-1),
       elapsedTime(0), debounce(0.01f),
       wasPressed(false)
 {
-    keyboard_init(onKeyAvailableCallback);
+    keyboard_init();
+    keyboard_set_key_available_callback([]()
+                                        { Input::onKeyAvailableCallback(); });
+    keyboard_set_background_poll(true);
 }
 
 int Input::charToButton(char key) const noexcept
@@ -176,8 +180,7 @@ bool Input::isHeld(uint8_t duration)
 
 void Input::onKeyAvailableCallback()
 {
-    // called when a key is available
-    // nothing to do here for now
+    // nothing to do here yet
 }
 
 char Input::read()

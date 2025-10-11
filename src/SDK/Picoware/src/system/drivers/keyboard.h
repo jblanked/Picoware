@@ -20,19 +20,25 @@ Source: https://github.com/BlairLeduc/picocalc-text-starter
 #define KEY_STATE_HOLD (2)
 #define KEY_STATE_RELEASED (3)
 
+#define KEY_BACKSPACE (0x08)
+#define KEY_TAB (0x09)
+#define KEY_ENTER (0x0A)
+#define KEY_RETURN (0x0D)
+#define KEY_SPACE (0x20)
+
 #define KEY_ESC (0xB1)
 #define KEY_UP (0xB5)
 #define KEY_DOWN (0xB6)
 #define KEY_LEFT (0xB4)
 #define KEY_RIGHT (0xB7)
 
-#define KEY_BREAK (0xd0)
+#define KEY_BREAK (0xD0)
 #define KEY_INSERT (0xD1)
 #define KEY_HOME (0xD2)
 #define KEY_DEL (0xD4)
 #define KEY_END (0xD5)
-#define KEY_PAGE_UP (0xd6)
-#define KEY_PAGE_DOWN (0xd7)
+#define KEY_PAGE_UP (0xD6)
+#define KEY_PAGE_DOWN (0xD7)
 
 #define KEY_CAPS_LOCK (0xC1)
 
@@ -49,8 +55,9 @@ Source: https://github.com/BlairLeduc/picocalc-text-starter
 
 #define KEY_POWER (0x91)
 
-// Keyboard type-ahead buffer
+// Keyboard defaults
 #define KBD_BUFFER_SIZE (32)
+#define KEYBOARD_POLL_MS (100) // poll keyboard every 100 ms
 
 #ifdef __cplusplus
 extern "C"
@@ -60,10 +67,16 @@ extern "C"
     // Callback function type for when a key becomes available
     typedef void (*keyboard_key_available_callback_t)(void);
 
+    // Global user interrupt flag
+    extern volatile bool user_interrupt;
+
     // Keyboard Function prototypes
-    void keyboard_init(keyboard_key_available_callback_t key_available_callback);
-    bool keyboard_key_available();
-    char keyboard_get_key();
+    void keyboard_init(void);
+    void keyboard_set_key_available_callback(keyboard_key_available_callback_t callback);
+    void keyboard_set_background_poll(bool enable);
+    void keyboard_poll(void);
+    bool keyboard_key_available(void);
+    char keyboard_get_key(void);
 
 #ifdef __cplusplus
 }

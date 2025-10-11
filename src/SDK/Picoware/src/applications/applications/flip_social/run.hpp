@@ -218,6 +218,7 @@ static void flipSocialRunUpdate(ViewManager *viewManager)
         auto canvas = viewManager->getDraw();
         flipSocialRunInstance->updateDraw(canvas);
         flipSocialRunInstance->updateInput(viewManager->getInputManager()->getLastButton());
+        viewManager->getInputManager()->reset();
         canvas->swap();
     }
     else if (flipSocialRunInstance && !flipSocialRunInstance->isActive())

@@ -173,6 +173,8 @@ void Game::update()
     // Update input states (view manager runs the input)
     this->input = this->input_manager->getLastButton();
 
+    this->input_manager->reset();
+
     // Update the level
     this->current_level->update(this);
 }

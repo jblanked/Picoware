@@ -98,7 +98,7 @@ static void weatherRun(ViewManager *viewManager)
     case BUTTON_BACK:
         resetWeatherState();
         viewManager->back();
-        inputManager->reset(true);
+        inputManager->reset();
         return;
     case BUTTON_RIGHT:
     case BUTTON_CENTER:
@@ -106,7 +106,7 @@ static void weatherRun(ViewManager *viewManager)
         draw->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());
         draw->text(Vector(5, 5), "Fetching location data...");
         draw->swap();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     default:
         break;

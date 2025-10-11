@@ -116,7 +116,7 @@ static void gpsRun(ViewManager *viewManager)
         requestInProgress = false;
         displayingResult = false;
         viewManager->back();
-        inputManager->reset(true);
+        inputManager->reset();
         return;
     case BUTTON_RIGHT:
     case BUTTON_CENTER:
@@ -126,7 +126,7 @@ static void gpsRun(ViewManager *viewManager)
         draw->clear(Vector(0, 0), viewManager->getSize(), viewManager->getBackgroundColor());
         draw->text(Vector(5, 5), "Starting GPS lookup...");
         draw->swap();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     default:
         break;

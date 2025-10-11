@@ -46,17 +46,17 @@ static void systemRun(ViewManager *viewManager)
     {
     case BUTTON_UP:
         systemApp->scrollUp();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_DOWN:
         systemApp->scrollDown();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_LEFT:
     case BUTTON_BACK:
         systemIndex = 0;
         viewManager->back();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_RIGHT:
     case BUTTON_CENTER:
@@ -88,7 +88,7 @@ static void systemRun(ViewManager *viewManager)
             System systemInfo = System();
             systemInfo.reboot();
         }
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     }
     default:

@@ -55,11 +55,11 @@ static void wifiSettingsRun(ViewManager *viewManager)
     {
     case BUTTON_UP:
         wifiSettings->scrollUp();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_DOWN:
         wifiSettings->scrollDown();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_LEFT:
     case BUTTON_BACK:
@@ -73,11 +73,11 @@ static void wifiSettingsRun(ViewManager *viewManager)
             textBoxVisible = false;
             wifiSettings->draw();
         }
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_RIGHT:
     case BUTTON_CENTER:
-        inputManager->reset(true);
+        inputManager->reset();
         switch (wifiSettings->getSelectedIndex())
         {
         case 0: // Network Info

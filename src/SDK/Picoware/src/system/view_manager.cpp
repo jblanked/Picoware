@@ -220,19 +220,6 @@ void ViewManager::remove(const char *viewName)
 
 void ViewManager::run()
 {
-    if (this->inputManager != nullptr)
-    {
-        this->inputManager->run();
-    }
-    if (delayTicks > 0)
-    {
-        if (this->delayElapsed < delayTicks)
-        {
-            this->delayElapsed += delayTicks;
-            return; // Skip this run cycle if delay not met
-        }
-        this->delayElapsed = 0; // Reset delay elapsed after running
-    }
     if (this->currentView != nullptr)
     {
         this->currentView->run(this);

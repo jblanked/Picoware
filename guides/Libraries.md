@@ -522,7 +522,7 @@ Those are the basic button constants used in Picoware, check the source code for
   - `getLastButton()`: Get last button pressed
   - `isHeld(duration)`: Check if button held for duration
   - `isPressed()`: Check if button currently pressed
-  - `reset(shouldDelay, delayMs)`: Reset input state
+  - `reset()`: Reset input state
   - `run()`: Update input state
   - `read()`: Read key (blocking)
   - `readNonBlocking()`: Read key (non-blocking)

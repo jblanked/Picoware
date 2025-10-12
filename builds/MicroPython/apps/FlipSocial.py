@@ -2544,7 +2544,7 @@ def start(view_manager) -> bool:
         from picoware.applications.wifi.utils import connect_to_saved_wifi
 
         __flip_social_alert(view_manager, "WiFi not connected", False)
-        connect_to_save_wifi(view_manager)
+        connect_to_saved_wifi(view_manager)
         return False
 
     global _flip_social_app_menu, _flip_social_app_index

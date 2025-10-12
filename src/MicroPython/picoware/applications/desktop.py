@@ -788,8 +788,7 @@ def run(view_manager) -> None:
     global _desktop_time_updated
 
     if _desktop:
-        raw_level: bytearray = input_manager.keyboard.battery()
-        battery_level: int = raw_level[1]
+        battery_level: int = input_manager.battery
         _desktop.set_battery(battery_level)
         _desktop.draw(
             (

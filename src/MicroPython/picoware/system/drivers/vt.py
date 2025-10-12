@@ -363,7 +363,7 @@ class vt(uio.IOBase):
         # Handle regular character keys
         elif key >= buttons.BUTTON_A and key <= buttons.BUTTON_Z:
             char_code = ord("a") + (key - buttons.BUTTON_A)
-            if self.input_manager._was_capitalized:
+            if self.input_manager.was_capitalized:
                 char_code = ord("A") + (key - buttons.BUTTON_A)
             return bytes([char_code])
         elif key >= buttons.BUTTON_0 and key <= buttons.BUTTON_9:
@@ -438,11 +438,9 @@ class vt(uio.IOBase):
             return
 
         # Get input from the view_manager's input system
-        self.input_manager.run()
         button = self.input_manager.get_last_button()
 
         if button != -1:
-            self.input_manager.reset()
 
             # Check for screen capture
             # from picoware.system.buttons import BUTTON_BACK
@@ -453,8 +451,7 @@ class vt(uio.IOBase):
 
             # Convert button to terminal sequence
             terminal_seq = self._convert_key_to_terminal(button)
-            self.input_manager._was_capitalized = False  # Reset after use
-            self.input_manager._shift_held = False  # Reset shift state after use
+            self.input_manager.reset()
             if terminal_seq:
                 self.outputBuffer.extend(terminal_seq)
 

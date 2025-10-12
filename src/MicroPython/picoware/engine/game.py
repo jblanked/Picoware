@@ -119,7 +119,7 @@ class Game:
             return
 
         self.input = self.input_manager.get_last_button()
-
+        self.input_manager.reset()
         # update the level
         if self.current_level:
             self.current_level.update()

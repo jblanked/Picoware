@@ -245,15 +245,6 @@ class ViewManager:
 
     def run(self):
         """Run the current view and handle input."""
-        if self.input_manager is not None:
-            self.input_manager.run()
-
-        if self.delay_ticks > 0:
-            if self.delay_elapsed < self.delay_ticks:
-                self.delay_elapsed += self.delay_ticks
-                return  # Skip this run cycle if delay not met
-            self.delay_elapsed = 0  # Reset delay elapsed after running
-
         if self.current_view is not None:
             self.current_view.run(self)
 

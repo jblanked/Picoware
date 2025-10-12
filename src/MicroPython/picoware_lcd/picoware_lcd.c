@@ -27,6 +27,9 @@
 // Module state
 static bool module_initialized = false;
 
+// Static framebuffer
+static uint8_t static_framebuffer[DISPLAY_WIDTH * DISPLAY_HEIGHT];
+
 static const uint8_t *get_font_data(void)
 {
     static const uint8_t font_data[] = {
@@ -698,27 +701,22 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_init_obj, 1, 1, picoware
 // Fast 8-bit to RGB565 conversion and blit function
 STATIC mp_obj_t picoware_lcd_blit_8bit(size_t n_args, const mp_obj_t *args)
 {
-    // Arguments: framebuffer_data, palette_data, width, height, x_offset, y_offset
-    if (n_args != 6)
+    // Arguments: palette_data, width, height, x_offset, y_offset
+    if (n_args != 5)
     {
-        mp_raise_ValueError(MP_ERROR_TEXT("blit_8bit requires 6 arguments"));
+        mp_raise_ValueError(MP_ERROR_TEXT("blit_8bit requires 5 arguments"));
     }
-
-    // Get framebuffer data (8-bit indices)
-    mp_buffer_info_t fb_info;
-    mp_get_buffer_raise(args[0], &fb_info, MP_BUFFER_READ);
-    uint8_t *fb_data = (uint8_t *)fb_info.buf;
 
     // Get palette data (RGB565 values)
     mp_buffer_info_t palette_info;
-    mp_get_buffer_raise(args[1], &palette_info, MP_BUFFER_READ);
+    mp_get_buffer_raise(args[0], &palette_info, MP_BUFFER_READ);
     uint16_t *palette = (uint16_t *)palette_info.buf;
 
     // Get dimensions and position
-    int width = mp_obj_get_int(args[2]);
-    int height = mp_obj_get_int(args[3]);
-    int x_offset = mp_obj_get_int(args[4]);
-    int y_offset = mp_obj_get_int(args[5]);
+    int width = mp_obj_get_int(args[1]);
+    int height = mp_obj_get_int(args[2]);
+    int x_offset = mp_obj_get_int(args[3]);
+    int y_offset = mp_obj_get_int(args[4]);
 
     // Validate arguments
     if (width <= 0 || height <= 0 || width > DISPLAY_WIDTH || height > DISPLAY_HEIGHT)
@@ -730,11 +728,6 @@ STATIC mp_obj_t picoware_lcd_blit_8bit(size_t n_args, const mp_obj_t *args)
         x_offset + width > DISPLAY_WIDTH || y_offset + height > DISPLAY_HEIGHT)
     {
         mp_raise_ValueError(MP_ERROR_TEXT("Invalid position"));
-    }
-
-    if (fb_info.len < (size_t)(width * height))
-    {
-        mp_raise_ValueError(MP_ERROR_TEXT("Framebuffer too small"));
     }
 
     if (palette_info.len < PALETTE_SIZE * 2)
@@ -751,7 +744,7 @@ STATIC mp_obj_t picoware_lcd_blit_8bit(size_t n_args, const mp_obj_t *args)
         for (int x = 0; x < width; x++)
         {
             int fb_index = y * width + x;
-            uint8_t color_index = fb_data[fb_index];
+            uint8_t color_index = static_framebuffer[fb_index];
             if (color_index < PALETTE_SIZE)
             {
                 line_buffer[x] = palette[color_index];
@@ -768,28 +761,16 @@ STATIC mp_obj_t picoware_lcd_blit_8bit(size_t n_args, const mp_obj_t *args)
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_blit_8bit_obj, 6, 6, picoware_lcd_blit_8bit);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_blit_8bit_obj, 5, 5, picoware_lcd_blit_8bit);
 
-STATIC mp_obj_t picoware_lcd_blit_8bit_fullscreen(mp_obj_t fb_obj, mp_obj_t palette_obj)
+STATIC mp_obj_t picoware_lcd_blit_8bit_fullscreen(mp_obj_t palette_obj)
 {
-    // Get framebuffer data (8-bit indices)
-    mp_buffer_info_t fb_info;
-    mp_get_buffer_raise(fb_obj, &fb_info, MP_BUFFER_READ);
-    uint8_t *fb_data = (uint8_t *)fb_info.buf;
-
     // Get palette data (RGB565 values)
     mp_buffer_info_t palette_info;
     mp_get_buffer_raise(palette_obj, &palette_info, MP_BUFFER_READ);
     uint16_t *palette = (uint16_t *)palette_info.buf;
 
-    size_t total_pixels = DISPLAY_WIDTH * DISPLAY_HEIGHT;
-
     // Validate buffer sizes
-    if (fb_info.len < total_pixels)
-    {
-        mp_raise_ValueError(MP_ERROR_TEXT("Framebuffer too small for fullscreen"));
-    }
-
     if (palette_info.len < PALETTE_SIZE * 2)
     {
         mp_raise_ValueError(MP_ERROR_TEXT("Palette too small"));
@@ -804,7 +785,7 @@ STATIC mp_obj_t picoware_lcd_blit_8bit_fullscreen(mp_obj_t fb_obj, mp_obj_t pale
         for (int x = 0; x < DISPLAY_WIDTH; x++)
         {
             int fb_index = y * DISPLAY_WIDTH + x;
-            uint8_t color_index = fb_data[fb_index];
+            uint8_t color_index = static_framebuffer[fb_index];
             if (color_index < PALETTE_SIZE)
             {
                 line_buffer[x] = palette[color_index];
@@ -821,7 +802,7 @@ STATIC mp_obj_t picoware_lcd_blit_8bit_fullscreen(mp_obj_t fb_obj, mp_obj_t pale
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(picoware_lcd_blit_8bit_fullscreen_obj, picoware_lcd_blit_8bit_fullscreen);
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(picoware_lcd_blit_8bit_fullscreen_obj, picoware_lcd_blit_8bit_fullscreen);
 
 STATIC mp_obj_t picoware_lcd_clear_screen(void)
 {
@@ -853,55 +834,45 @@ STATIC uint8_t color565_to_332(uint16_t color)
 // Draw pixel in 8-bit framebuffer
 STATIC mp_obj_t picoware_lcd_draw_pixel(size_t n_args, const mp_obj_t *args)
 {
-    // Arguments: framebuffer_data, x, y, color565
-    if (n_args != 4)
+    // Arguments: x, y, color565
+    if (n_args != 3)
     {
-        mp_raise_ValueError(MP_ERROR_TEXT("draw_pixel requires 4 arguments"));
+        mp_raise_ValueError(MP_ERROR_TEXT("draw_pixel requires 3 arguments"));
     }
 
-    // Get framebuffer data
-    mp_buffer_info_t fb_info;
-    mp_get_buffer_raise(args[0], &fb_info, MP_BUFFER_WRITE);
-    uint8_t *fb_data = (uint8_t *)fb_info.buf;
-
-    int x = mp_obj_get_int(args[1]);
-    int y = mp_obj_get_int(args[2]);
-    uint16_t color = mp_obj_get_int(args[3]);
+    int x = mp_obj_get_int(args[0]);
+    int y = mp_obj_get_int(args[1]);
+    uint16_t color = mp_obj_get_int(args[2]);
 
     // Bounds check
     if (x < 0 || x >= DISPLAY_WIDTH || y < 0 || y >= DISPLAY_HEIGHT)
     {
-        return mp_const_none; // Silently ignore out-of-bounds
+        return mp_const_none;
     }
 
     // Convert to 8-bit and store
     uint8_t color_index = color565_to_332(color);
     int buffer_index = y * DISPLAY_WIDTH + x;
-    fb_data[buffer_index] = color_index;
+    static_framebuffer[buffer_index] = color_index;
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_draw_pixel_obj, 4, 4, picoware_lcd_draw_pixel);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_draw_pixel_obj, 3, 3, picoware_lcd_draw_pixel);
 
 // Fill rectangle in 8-bit framebuffer
 STATIC mp_obj_t picoware_lcd_fill_rect(size_t n_args, const mp_obj_t *args)
 {
-    // Arguments: framebuffer_data, x, y, width, height, color565
-    if (n_args != 6)
+    // Arguments: x, y, width, height, color565
+    if (n_args != 5)
     {
-        mp_raise_ValueError(MP_ERROR_TEXT("fill_rect requires 6 arguments"));
+        mp_raise_ValueError(MP_ERROR_TEXT("fill_rect requires 5 arguments"));
     }
 
-    // Get framebuffer data
-    mp_buffer_info_t fb_info;
-    mp_get_buffer_raise(args[0], &fb_info, MP_BUFFER_WRITE);
-    uint8_t *fb_data = (uint8_t *)fb_info.buf;
-
-    int x = mp_obj_get_int(args[1]);
-    int y = mp_obj_get_int(args[2]);
-    int width = mp_obj_get_int(args[3]);
-    int height = mp_obj_get_int(args[4]);
-    uint16_t color = mp_obj_get_int(args[5]);
+    int x = mp_obj_get_int(args[0]);
+    int y = mp_obj_get_int(args[1]);
+    int width = mp_obj_get_int(args[2]);
+    int height = mp_obj_get_int(args[3]);
+    uint16_t color = mp_obj_get_int(args[4]);
 
     // Bounds clipping
     if (x < 0)
@@ -934,32 +905,27 @@ STATIC mp_obj_t picoware_lcd_fill_rect(size_t n_args, const mp_obj_t *args)
         int line_start = py * DISPLAY_WIDTH + x;
         for (int px = 0; px < width; px++)
         {
-            fb_data[line_start + px] = color_index;
+            static_framebuffer[line_start + px] = color_index;
         }
     }
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_fill_rect_obj, 6, 6, picoware_lcd_fill_rect);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_fill_rect_obj, 5, 5, picoware_lcd_fill_rect);
 
 // Draw line
 STATIC mp_obj_t picoware_lcd_draw_line(size_t n_args, const mp_obj_t *args)
 {
-    // Arguments: framebuffer_data, x, y, length, color565
-    if (n_args != 5)
+    // Arguments: x, y, length, color565
+    if (n_args != 4)
     {
-        mp_raise_ValueError(MP_ERROR_TEXT("draw_line requires 5 arguments"));
+        mp_raise_ValueError(MP_ERROR_TEXT("draw_line requires 4 arguments"));
     }
 
-    // Get framebuffer data
-    mp_buffer_info_t fb_info;
-    mp_get_buffer_raise(args[0], &fb_info, MP_BUFFER_WRITE);
-    uint8_t *fb_data = (uint8_t *)fb_info.buf;
-
-    int x = mp_obj_get_int(args[1]);
-    int y = mp_obj_get_int(args[2]);
-    int length = mp_obj_get_int(args[3]);
-    uint16_t color = mp_obj_get_int(args[4]);
+    int x = mp_obj_get_int(args[0]);
+    int y = mp_obj_get_int(args[1]);
+    int length = mp_obj_get_int(args[2]);
+    uint16_t color = mp_obj_get_int(args[3]);
 
     // Bounds check
     if (y < 0 || y >= DISPLAY_HEIGHT)
@@ -974,48 +940,38 @@ STATIC mp_obj_t picoware_lcd_draw_line(size_t n_args, const mp_obj_t *args)
         if (currentX >= 0 && currentX < DISPLAY_WIDTH)
         {
             int buffer_index = y * DISPLAY_WIDTH + currentX;
-            fb_data[buffer_index] = color_index;
+            static_framebuffer[buffer_index] = color_index;
         }
     }
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_draw_line_obj, 5, 5, picoware_lcd_draw_line);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_draw_line_obj, 4, 4, picoware_lcd_draw_line);
 
 // Clear framebuffer
-STATIC mp_obj_t picoware_lcd_clear_framebuffer(mp_obj_t fb_obj, mp_obj_t color_index_obj)
+STATIC mp_obj_t picoware_lcd_clear_framebuffer(mp_obj_t color_index_obj)
 {
-    // Get framebuffer data
-    mp_buffer_info_t fb_info;
-    mp_get_buffer_raise(fb_obj, &fb_info, MP_BUFFER_WRITE);
-    uint8_t *fb_data = (uint8_t *)fb_info.buf;
-
     uint8_t color_index = mp_obj_get_int(color_index_obj);
 
     // Fast clear using memset
-    memset(fb_data, color_index, DISPLAY_WIDTH * DISPLAY_HEIGHT);
+    memset(static_framebuffer, color_index, DISPLAY_WIDTH * DISPLAY_HEIGHT);
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(picoware_lcd_clear_framebuffer_obj, picoware_lcd_clear_framebuffer);
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(picoware_lcd_clear_framebuffer_obj, picoware_lcd_clear_framebuffer);
 
 STATIC mp_obj_t picoware_lcd_draw_char(size_t n_args, const mp_obj_t *args)
 {
-    // Arguments: framebuffer_data, x, y, char, color565
-    if (n_args != 5)
+    // Arguments: x, y, char, color565
+    if (n_args != 4)
     {
-        mp_raise_ValueError(MP_ERROR_TEXT("draw_char requires 5 arguments"));
+        mp_raise_ValueError(MP_ERROR_TEXT("draw_char requires 4 arguments"));
     }
 
-    // Get framebuffer data
-    mp_buffer_info_t fb_info;
-    mp_get_buffer_raise(args[0], &fb_info, MP_BUFFER_WRITE);
-    uint8_t *fb_data = (uint8_t *)fb_info.buf;
-
-    int x = mp_obj_get_int(args[1]);
-    int y = mp_obj_get_int(args[2]);
-    int char_code = mp_obj_get_int(args[3]);
-    uint16_t color = mp_obj_get_int(args[4]);
+    int x = mp_obj_get_int(args[0]);
+    int y = mp_obj_get_int(args[1]);
+    int char_code = mp_obj_get_int(args[2]);
+    uint16_t color = mp_obj_get_int(args[3]);
 
     // Bounds check
     if (x < 0 || x + CHAR_WIDTH > DISPLAY_WIDTH ||
@@ -1043,32 +999,27 @@ STATIC mp_obj_t picoware_lcd_draw_char(size_t n_args, const mp_obj_t *args)
             if (column_data & (1 << row))
             {
                 int buffer_index = (y + row) * DISPLAY_WIDTH + (x + col);
-                fb_data[buffer_index] = color_index;
+                static_framebuffer[buffer_index] = color_index;
             }
         }
     }
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_draw_char_obj, 5, 5, picoware_lcd_draw_char);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_draw_char_obj, 4, 4, picoware_lcd_draw_char);
 
 STATIC mp_obj_t picoware_lcd_draw_text(size_t n_args, const mp_obj_t *args)
 {
-    // Arguments: framebuffer_data, x, y, text_string, color565
-    if (n_args != 5)
+    // Arguments: x, y, text_string, color565
+    if (n_args != 4)
     {
-        mp_raise_ValueError(MP_ERROR_TEXT("draw_text requires 5 arguments"));
+        mp_raise_ValueError(MP_ERROR_TEXT("draw_text requires 4 arguments"));
     }
 
-    // Get framebuffer data
-    mp_buffer_info_t fb_info;
-    mp_get_buffer_raise(args[0], &fb_info, MP_BUFFER_WRITE);
-    uint8_t *fb_data = (uint8_t *)fb_info.buf;
-
-    int start_x = mp_obj_get_int(args[1]);
-    int start_y = mp_obj_get_int(args[2]);
-    const char *text = mp_obj_str_get_str(args[3]);
-    uint16_t color = mp_obj_get_int(args[4]);
+    int start_x = mp_obj_get_int(args[0]);
+    int start_y = mp_obj_get_int(args[1]);
+    const char *text = mp_obj_str_get_str(args[2]);
+    uint16_t color = mp_obj_get_int(args[3]);
 
     uint8_t color_index = color565_to_332(color);
     const uint8_t *font_data = get_font_data();
@@ -1133,7 +1084,7 @@ STATIC mp_obj_t picoware_lcd_draw_text(size_t n_args, const mp_obj_t *args)
                     if (px < DISPLAY_WIDTH && py < DISPLAY_HEIGHT)
                     {
                         int buffer_index = py * DISPLAY_WIDTH + px;
-                        fb_data[buffer_index] = color_index;
+                        static_framebuffer[buffer_index] = color_index;
                     }
                 }
             }
@@ -1144,27 +1095,22 @@ STATIC mp_obj_t picoware_lcd_draw_text(size_t n_args, const mp_obj_t *args)
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_draw_text_obj, 5, 5, picoware_lcd_draw_text);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_draw_text_obj, 4, 4, picoware_lcd_draw_text);
 
 // Bresenham line algorithm
 STATIC mp_obj_t picoware_lcd_draw_line_custom(size_t n_args, const mp_obj_t *args)
 {
-    // Arguments: framebuffer_data, x1, y1, x2, y2, color565
-    if (n_args != 6)
+    // Arguments: x1, y1, x2, y2, color565
+    if (n_args != 5)
     {
-        mp_raise_ValueError(MP_ERROR_TEXT("draw_line_custom requires 6 arguments"));
+        mp_raise_ValueError(MP_ERROR_TEXT("draw_line_custom requires 5 arguments"));
     }
 
-    // Get framebuffer data
-    mp_buffer_info_t fb_info;
-    mp_get_buffer_raise(args[0], &fb_info, MP_BUFFER_WRITE);
-    uint8_t *fb_data = (uint8_t *)fb_info.buf;
-
-    int x1 = mp_obj_get_int(args[1]);
-    int y1 = mp_obj_get_int(args[2]);
-    int x2 = mp_obj_get_int(args[3]);
-    int y2 = mp_obj_get_int(args[4]);
-    uint16_t color = mp_obj_get_int(args[5]);
+    int x1 = mp_obj_get_int(args[0]);
+    int y1 = mp_obj_get_int(args[1]);
+    int x2 = mp_obj_get_int(args[2]);
+    int y2 = mp_obj_get_int(args[3]);
+    uint16_t color = mp_obj_get_int(args[4]);
 
     uint8_t color_index = color565_to_332(color);
 
@@ -1181,7 +1127,7 @@ STATIC mp_obj_t picoware_lcd_draw_line_custom(size_t n_args, const mp_obj_t *arg
         if (x1 >= 0 && x1 < DISPLAY_WIDTH && y1 >= 0 && y1 < DISPLAY_HEIGHT)
         {
             int buffer_index = y1 * DISPLAY_WIDTH + x1;
-            fb_data[buffer_index] = color_index;
+            static_framebuffer[buffer_index] = color_index;
         }
 
         // Check if we've reached the end point
@@ -1203,25 +1149,20 @@ STATIC mp_obj_t picoware_lcd_draw_line_custom(size_t n_args, const mp_obj_t *arg
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_draw_line_custom_obj, 6, 6, picoware_lcd_draw_line_custom);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_draw_line_custom_obj, 5, 5, picoware_lcd_draw_line_custom);
 
 STATIC mp_obj_t picoware_lcd_draw_circle(size_t n_args, const mp_obj_t *args)
 {
-    // Arguments: framebuffer_data, center_x, center_y, radius, color565
-    if (n_args != 5)
+    // Arguments: center_x, center_y, radius, color565
+    if (n_args != 4)
     {
-        mp_raise_ValueError(MP_ERROR_TEXT("draw_circle requires 5 arguments"));
+        mp_raise_ValueError(MP_ERROR_TEXT("draw_circle requires 4 arguments"));
     }
 
-    // Get framebuffer data
-    mp_buffer_info_t fb_info;
-    mp_get_buffer_raise(args[0], &fb_info, MP_BUFFER_WRITE);
-    uint8_t *fb_data = (uint8_t *)fb_info.buf;
-
-    int center_x = mp_obj_get_int(args[1]);
-    int center_y = mp_obj_get_int(args[2]);
-    int radius = mp_obj_get_int(args[3]);
-    uint16_t color = mp_obj_get_int(args[4]);
+    int center_x = mp_obj_get_int(args[0]);
+    int center_y = mp_obj_get_int(args[1]);
+    int radius = mp_obj_get_int(args[2]);
+    uint16_t color = mp_obj_get_int(args[3]);
 
     if (radius <= 0 || radius > 100) // Limit radius to prevent issues
         return mp_const_none;
@@ -1247,21 +1188,21 @@ STATIC mp_obj_t picoware_lcd_draw_circle(size_t n_args, const mp_obj_t *args)
 
         // Quick bounds check and plot
         if (px1 >= 0 && px1 < DISPLAY_WIDTH && py1 >= 0 && py1 < DISPLAY_HEIGHT)
-            fb_data[py1 * DISPLAY_WIDTH + px1] = color_index;
+            static_framebuffer[py1 * DISPLAY_WIDTH + px1] = color_index;
         if (px2 >= 0 && px2 < DISPLAY_WIDTH && py2 >= 0 && py2 < DISPLAY_HEIGHT)
-            fb_data[py2 * DISPLAY_WIDTH + px2] = color_index;
+            static_framebuffer[py2 * DISPLAY_WIDTH + px2] = color_index;
         if (px3 >= 0 && px3 < DISPLAY_WIDTH && py3 >= 0 && py3 < DISPLAY_HEIGHT)
-            fb_data[py3 * DISPLAY_WIDTH + px3] = color_index;
+            static_framebuffer[py3 * DISPLAY_WIDTH + px3] = color_index;
         if (px4 >= 0 && px4 < DISPLAY_WIDTH && py4 >= 0 && py4 < DISPLAY_HEIGHT)
-            fb_data[py4 * DISPLAY_WIDTH + px4] = color_index;
+            static_framebuffer[py4 * DISPLAY_WIDTH + px4] = color_index;
         if (px5 >= 0 && px5 < DISPLAY_WIDTH && py5 >= 0 && py5 < DISPLAY_HEIGHT)
-            fb_data[py5 * DISPLAY_WIDTH + px5] = color_index;
+            static_framebuffer[py5 * DISPLAY_WIDTH + px5] = color_index;
         if (px6 >= 0 && px6 < DISPLAY_WIDTH && py6 >= 0 && py6 < DISPLAY_HEIGHT)
-            fb_data[py6 * DISPLAY_WIDTH + px6] = color_index;
+            static_framebuffer[py6 * DISPLAY_WIDTH + px6] = color_index;
         if (px7 >= 0 && px7 < DISPLAY_WIDTH && py7 >= 0 && py7 < DISPLAY_HEIGHT)
-            fb_data[py7 * DISPLAY_WIDTH + px7] = color_index;
+            static_framebuffer[py7 * DISPLAY_WIDTH + px7] = color_index;
         if (px8 >= 0 && px8 < DISPLAY_WIDTH && py8 >= 0 && py8 < DISPLAY_HEIGHT)
-            fb_data[py8 * DISPLAY_WIDTH + px8] = color_index;
+            static_framebuffer[py8 * DISPLAY_WIDTH + px8] = color_index;
 
         if (d < 0)
             d += 4 * x + 6;
@@ -1275,25 +1216,20 @@ STATIC mp_obj_t picoware_lcd_draw_circle(size_t n_args, const mp_obj_t *args)
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_draw_circle_obj, 5, 5, picoware_lcd_draw_circle);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_draw_circle_obj, 4, 4, picoware_lcd_draw_circle);
 
 STATIC mp_obj_t picoware_lcd_fill_circle(size_t n_args, const mp_obj_t *args)
 {
-    // Arguments: framebuffer_data, center_x, center_y, radius, color565
-    if (n_args != 5)
+    // Arguments: center_x, center_y, radius, color565
+    if (n_args != 4)
     {
-        mp_raise_ValueError(MP_ERROR_TEXT("fill_circle requires 5 arguments"));
+        mp_raise_ValueError(MP_ERROR_TEXT("fill_circle requires 4 arguments"));
     }
 
-    // Get framebuffer data
-    mp_buffer_info_t fb_info;
-    mp_get_buffer_raise(args[0], &fb_info, MP_BUFFER_WRITE);
-    uint8_t *fb_data = (uint8_t *)fb_info.buf;
-
-    int center_x = mp_obj_get_int(args[1]);
-    int center_y = mp_obj_get_int(args[2]);
-    int radius = mp_obj_get_int(args[3]);
-    uint16_t color = mp_obj_get_int(args[4]);
+    int center_x = mp_obj_get_int(args[0]);
+    int center_y = mp_obj_get_int(args[1]);
+    int radius = mp_obj_get_int(args[2]);
+    uint16_t color = mp_obj_get_int(args[3]);
 
     if (radius <= 0 || radius > 50) // Limit radius to prevent performance issues
         return mp_const_none;
@@ -1330,40 +1266,35 @@ STATIC mp_obj_t picoware_lcd_fill_circle(size_t n_args, const mp_obj_t *args)
 
             if (distance_squared <= radius_squared)
             {
-                fb_data[y * DISPLAY_WIDTH + x] = color_index;
+                static_framebuffer[y * DISPLAY_WIDTH + x] = color_index;
             }
         }
     }
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_fill_circle_obj, 5, 5, picoware_lcd_fill_circle);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_fill_circle_obj, 4, 4, picoware_lcd_fill_circle);
 
 // Draw an 8-bit byte array image
-// Args: fb_data (bytearray), x (int), y (int), width (int), height (int), byte_data (bytes/bytearray), invert (bool)
+// Args: x (int), y (int), width (int), height (int), byte_data (bytes/bytearray), invert (bool)
 STATIC mp_obj_t picoware_lcd_draw_image_bytearray(size_t n_args, const mp_obj_t *args)
 {
-    // Get framebuffer
-    mp_buffer_info_t fb_info;
-    mp_get_buffer_raise(args[0], &fb_info, MP_BUFFER_WRITE);
-    uint8_t *fb_data = (uint8_t *)fb_info.buf;
-
     // Get position and size
-    int x = mp_obj_get_int(args[1]);
-    int y = mp_obj_get_int(args[2]);
-    int width = mp_obj_get_int(args[3]);
-    int height = mp_obj_get_int(args[4]);
+    int x = mp_obj_get_int(args[0]);
+    int y = mp_obj_get_int(args[1]);
+    int width = mp_obj_get_int(args[2]);
+    int height = mp_obj_get_int(args[3]);
 
     // Get byte data
     mp_buffer_info_t data_info;
-    mp_get_buffer_raise(args[5], &data_info, MP_BUFFER_READ);
+    mp_get_buffer_raise(args[4], &data_info, MP_BUFFER_READ);
     uint8_t *byte_data = (uint8_t *)data_info.buf;
 
     // Get invert flag (optional, default false)
     bool invert = false;
-    if (n_args > 6)
+    if (n_args > 5)
     {
-        invert = mp_obj_is_true(args[6]);
+        invert = mp_obj_is_true(args[5]);
     }
 
     // Clip to screen bounds
@@ -1401,19 +1332,19 @@ STATIC mp_obj_t picoware_lcd_draw_image_bytearray(size_t n_args, const mp_obj_t 
             // Invert colors while copying
             for (int col = 0; col < copy_width; col++)
             {
-                fb_data[dst_row_start + col] = 255 - byte_data[src_row_start + col];
+                static_framebuffer[dst_row_start + col] = 255 - byte_data[src_row_start + col];
             }
         }
         else
         {
             // Direct memory copy for the row
-            memcpy(&fb_data[dst_row_start], &byte_data[src_row_start], copy_width);
+            memcpy(&static_framebuffer[dst_row_start], &byte_data[src_row_start], copy_width);
         }
     }
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_draw_image_bytearray_obj, 6, 7, picoware_lcd_draw_image_bytearray);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_draw_image_bytearray_obj, 5, 6, picoware_lcd_draw_image_bytearray);
 
 // Module globals table
 STATIC const mp_rom_map_elem_t picoware_lcd_module_globals_table[] = {

@@ -129,7 +129,12 @@ class ViewManager:
         self.view_count += 1
         return True
 
-    def back(self, remove_current_view=True):
+    def back(
+        self,
+        remove_current_view: bool = True,
+        should_clear: bool = True,
+        should_start: bool = True,
+    ):
         """
         Navigate back to the previous view in the stack.
 
@@ -146,7 +151,8 @@ class ViewManager:
             # Stop current view
             if self.current_view is not None:
                 self.current_view.stop(self)
-                self.clear()
+                if should_clear:
+                    self.clear()
 
             # Pop from stack and set as current view
             self.stack_depth -= 1
@@ -155,10 +161,11 @@ class ViewManager:
 
             # Start the previous view
             if self.current_view is not None:
-                if not self.current_view.start(self):
-                    # If the previous view fails to start, try going back again
-                    self.back(False)
-                    return
+                if should_start:
+                    if not self.current_view.start(self):
+                        # If the previous view fails to start, try going back again
+                        self.back(False, should_clear, should_start)
+                        return
 
             # Remove the view if requested
             if view_to_remove is not None:
@@ -244,7 +251,14 @@ class ViewManager:
                 break
 
     def run(self):
-        """Run the current view and handle input."""
+        """Run the current view."""
+        if self.input_manager.button == 80:  # BUTTON_HOME
+            while self.stack_depth > 0:
+                if self.stack_depth == 1:
+                    self.back(should_clear=True, should_start=True)
+                else:
+                    self.back(should_clear=False, should_start=False)
+
         if self.current_view is not None:
             self.current_view.run(self)
 

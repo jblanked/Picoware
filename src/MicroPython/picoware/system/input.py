@@ -7,7 +7,6 @@ class Input:
         self._elapsed_time = 0
         self._last_button = -1
         self._was_pressed = False
-        self.debounce = 0.01
         self.keyboard = PicoKeyboard()
         self._shift_held = False
         self._ctrl_held = False
@@ -22,6 +21,7 @@ class Input:
         if self.keyboard:
             del self.keyboard
             self.keyboard = None
+        self.reset()
 
     @property
     def button(self) -> int:
@@ -230,15 +230,12 @@ class Input:
                     return key
         return -1
 
-    def reset(self, should_delay: bool = False) -> None:
+    def reset(self) -> None:
         """Resets the input state."""
         self._elapsed_time = 0
         self._was_pressed = False
         self._last_button = -1
         self._shift_held = False
-        if should_delay:
-            # sleep_ms(delay_ms);
-            pass
 
     def run(self) -> None:
         """Runs the input state machine and sets the current button state."""

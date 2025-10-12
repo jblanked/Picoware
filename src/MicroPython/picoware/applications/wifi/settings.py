@@ -55,13 +55,13 @@ def run(view_manager) -> None:
     button: int = input_manager.get_last_button()
 
     if button == BUTTON_UP:
-        input_manager.reset(True)
+        input_manager.reset()
         _settings_menu.scroll_up()
     elif button == BUTTON_DOWN:
-        input_manager.reset(True)
+        input_manager.reset()
         _settings_menu.scroll_down()
     elif button in (BUTTON_BACK, BUTTON_LEFT):
-        input_manager.reset(True)
+        input_manager.reset()
         if not _text_visible:
             view_manager.back()
             return
@@ -70,7 +70,7 @@ def run(view_manager) -> None:
             _settings_textbox.clear()
             _settings_menu.draw()
     elif button in (BUTTON_CENTER, BUTTON_RIGHT):
-        input_manager.reset(True)
+        input_manager.reset()
         _settings_menu_index = _settings_menu.get_selected_index()
         if _settings_menu_index == 0:
             from picoware.applications.wifi.utils import (

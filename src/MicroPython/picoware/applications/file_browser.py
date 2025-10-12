@@ -173,23 +173,23 @@ def run(view_manager) -> None:
         # File viewing mode
         if input_value == BUTTON_UP:
             _file_browser_textbox.scroll_up()
-            input_manager.reset(True)
+            input_manager.reset()
         elif input_value == BUTTON_DOWN:
             _file_browser_textbox.scroll_down()
-            input_manager.reset(True)
+            input_manager.reset()
         elif input_value in [BUTTON_LEFT, BUTTON_BACK, BUTTON_CENTER, BUTTON_RIGHT]:
             __hide_file_contents()
-            input_manager.reset(True)
+            input_manager.reset()
     else:
         # Directory browsing mode
         if input_value == BUTTON_UP:
             _file_browser_menu.scroll_up()
             _file_browser_menu.draw()
-            input_manager.reset(True)
+            input_manager.reset()
         elif input_value == BUTTON_DOWN:
             _file_browser_menu.scroll_down()
             _file_browser_menu.draw()
-            input_manager.reset(True)
+            input_manager.reset()
         elif input_value in [BUTTON_LEFT, BUTTON_BACK]:
             if _directory_stack:
                 # Pop the last directory from stack
@@ -204,7 +204,7 @@ def run(view_manager) -> None:
             else:
                 # No more directories in stack, exit the app
                 view_manager.back()
-            input_manager.reset(True)
+            input_manager.reset()
         elif input_value in [BUTTON_CENTER, BUTTON_RIGHT]:
             current_item = _file_browser_menu.get_current_item()
             selected_index = _file_browser_menu.get_selected_index()
@@ -214,7 +214,7 @@ def run(view_manager) -> None:
                 current_item == "(Empty directory)"
                 or current_item == "(Error reading directory)"
             ):
-                input_manager.reset(True)
+                input_manager.reset()
                 return
 
             # Get the selected item from our contents list
@@ -249,7 +249,7 @@ def run(view_manager) -> None:
 
                     __show_file_contents(view_manager, file_path)
 
-            input_manager.reset(True)
+            input_manager.reset()
 
 
 def stop(view_manager) -> None:

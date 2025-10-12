@@ -123,7 +123,7 @@ def run(view_manager) -> None:
     wifi = view_manager.get_wifi()
 
     if button in (BUTTON_BACK, BUTTON_LEFT):
-        input_manager.reset(True)
+        input_manager.reset()
         view_manager.back()
         return
 

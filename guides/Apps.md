@@ -47,7 +47,7 @@ def run(view_manager):
     input_manager = view_manager.input_manager
     button = input_manager.get_last_button()
     if button == BUTTON_BACK:
-        input_manager.reset(True) # reset to avoid multiple back presses
+        input_manager.reset() # reset to avoid multiple back presses
         view_manager.back()
 
 def stop(view_manager):
@@ -60,7 +60,7 @@ def stop(view_manager):
 ## Best Practices
 
 1. Always handle BACK/LEFT buttons to allow users to exit
-2. Call `input_manager.reset(True)` after handling each button press
+2. Call `input_manager.reset()` after handling each button press
 3. Clean up all resources in the `stop()` function
 4. Use global variables sparingly and clean them up properly
 5. Test your app thoroughly before deployment

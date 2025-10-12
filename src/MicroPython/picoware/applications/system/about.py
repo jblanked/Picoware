@@ -46,13 +46,13 @@ def run(view_manager) -> None:
     button: int = input_manager.get_last_button()
 
     if button in (BUTTON_LEFT, BUTTON_BACK):
-        input_manager.reset(True)
+        input_manager.reset()
         view_manager.back()
     elif button == BUTTON_DOWN:
-        input_manager.reset(True)
+        input_manager.reset()
         _about.scroll_down()
     elif button == BUTTON_UP:
-        input_manager.reset(True)
+        input_manager.reset()
         _about.scroll_up()
 
 

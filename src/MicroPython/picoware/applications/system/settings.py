@@ -93,7 +93,7 @@ def run(view_manager) -> None:
                     view_manager.set_background_color(TFT_WHITE)
                     view_manager.set_foreground_color(TFT_BLACK)
 
-        input_manager.reset(True)
+        input_manager.reset()
 
     if _dark_mode is not None:
         _dark_mode.draw()

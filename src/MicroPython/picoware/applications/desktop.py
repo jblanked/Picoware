@@ -854,7 +854,7 @@ def run(view_manager) -> None:
     if button == BUTTON_LEFT:
         from picoware.applications.system import system_info
 
-        input_manager.reset(True)
+        input_manager.reset()
         view_manager.add(
             View("system_info", system_info.run, system_info.start, system_info.stop)
         )
@@ -862,7 +862,7 @@ def run(view_manager) -> None:
     elif button in (BUTTON_CENTER, BUTTON_UP):
         from picoware.applications import library
 
-        input_manager.reset(True)
+        input_manager.reset()
         view_manager.add(View("library", library.run, library.start, library.stop))
         view_manager.switch_to("library")
 

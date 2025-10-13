@@ -48,33 +48,116 @@ class HTTP:
             except AttributeError:
                 pass
 
-    def delete(self, url, headers=None, timeout: float = None):
-        """Sends a DELETE request and returns a Response object."""
+    def delete(
+        self, url, headers=None, timeout: float = None, save_to_file=None, storage=None
+    ):
+        """Sends a DELETE request and returns a Response object.
+
+        Args:
+            url: URL to request
+            headers: HTTP headers dict
+            timeout: Request timeout in seconds
+            save_to_file: File path to save response data to (requires storage)
+            storage: Storage object for file operations
+        """
         from picoware.system.drivers.urequests_2 import delete
 
         if headers:
-            return delete(url, headers=headers, timeout=timeout)
-        return delete(url, timeout=timeout)
+            return delete(
+                url,
+                headers=headers,
+                timeout=timeout,
+                save_to_file=save_to_file,
+                storage=storage,
+            )
+        return delete(url, timeout=timeout, save_to_file=save_to_file, storage=storage)
 
-    def delete_async(self, url, headers=None, timeout: float = None) -> bool:
-        """Sends an async DELETE request."""
-        return self.__request_async("DELETE", url, headers=headers, timeout=timeout)
+    def delete_async(
+        self, url, headers=None, timeout: float = None, save_to_file=None, storage=None
+    ) -> bool:
+        """Sends an async DELETE request.
 
-    def get(self, url, headers=None, timeout: float = None):
-        """Sends a GET request and returns a Response object."""
+        Args:
+            url: URL to request
+            headers: HTTP headers dict
+            timeout: Request timeout in seconds
+            save_to_file: File path to save response data to (requires storage)
+            storage: Storage object for file operations
+        """
+        return self.__request_async(
+            "DELETE",
+            url,
+            headers=headers,
+            timeout=timeout,
+            save_to_file=save_to_file,
+            storage=storage,
+        )
+
+    def get(
+        self, url, headers=None, timeout: float = None, save_to_file=None, storage=None
+    ):
+        """Sends a GET request and returns a Response object.
+
+        Args:
+            url: URL to request
+            headers: HTTP headers dict
+            timeout: Request timeout in seconds
+            save_to_file: File path to save response data to (requires storage)
+            storage: Storage object for file operations
+        """
         from picoware.system.drivers.urequests_2 import get
 
         if headers:
-            return get(url=url, headers=headers, timeout=timeout)
+            return get(
+                url=url,
+                headers=headers,
+                timeout=timeout,
+                save_to_file=save_to_file,
+                storage=storage,
+            )
 
-        return get(url=url, timeout=timeout)
+        return get(url=url, timeout=timeout, save_to_file=save_to_file, storage=storage)
 
-    def get_async(self, url, headers=None, timeout: float = None) -> bool:
-        """Send an async GET request."""
-        return self.__request_async("GET", url, headers=headers, timeout=timeout)
+    def get_async(
+        self, url, headers=None, timeout: float = None, save_to_file=None, storage=None
+    ) -> bool:
+        """Send an async GET request.
 
-    def head(self, url, payload, headers=None, timeout: float = None):
-        """Sends a HEAD request and returns a Response object."""
+        Args:
+            url: URL to request
+            headers: HTTP headers dict
+            timeout: Request timeout in seconds
+            save_to_file: File path to save response data to (requires storage)
+            storage: Storage object for file operations
+        """
+        return self.__request_async(
+            "GET",
+            url,
+            headers=headers,
+            timeout=timeout,
+            save_to_file=save_to_file,
+            storage=storage,
+        )
+
+    def head(
+        self,
+        url,
+        payload,
+        headers=None,
+        timeout: float = None,
+        save_to_file=None,
+        storage=None,
+    ):
+        """Sends a HEAD request and returns a Response object.
+
+        Args:
+            url: URL to request
+            payload: Request payload (can be str, bytes, or dict)
+            headers: HTTP headers dict
+            timeout: Request timeout in seconds
+            save_to_file: File path to save response data to (requires storage)
+            storage: Storage object for file operations
+        """
         from ujson import dumps
         from picoware.system.drivers.urequests_2 import head
 
@@ -82,24 +165,90 @@ class HTTP:
             return None
         if isinstance(payload, (str, bytes)):
             if headers:
-                return head(url, headers=headers, data=payload, timeout=timeout)
-            return head(url, data=payload, timeout=timeout)
+                return head(
+                    url,
+                    headers=headers,
+                    data=payload,
+                    timeout=timeout,
+                    save_to_file=save_to_file,
+                    storage=storage,
+                )
+            return head(
+                url,
+                data=payload,
+                timeout=timeout,
+                save_to_file=save_to_file,
+                storage=storage,
+            )
         if headers:
-            return head(url, headers=headers, json_data=dumps(payload), timeout=timeout)
-        return head(url, json_data=dumps(payload), timeout=timeout)
+            return head(
+                url,
+                headers=headers,
+                json_data=dumps(payload),
+                timeout=timeout,
+                save_to_file=save_to_file,
+                storage=storage,
+            )
+        return head(
+            url,
+            json_data=dumps(payload),
+            timeout=timeout,
+            save_to_file=save_to_file,
+            storage=storage,
+        )
 
-    def head_async(self, url, payload, headers=None, timeout: float = None) -> bool:
-        """Send an async HEAD request."""
+    def head_async(
+        self,
+        url,
+        payload,
+        headers=None,
+        timeout: float = None,
+        save_to_file=None,
+        storage=None,
+    ) -> bool:
+        """Send an async HEAD request.
+
+        Args:
+            url: URL to request
+            payload: Request payload (can be str, bytes, or dict)
+            headers: HTTP headers dict
+            timeout: Request timeout in seconds
+            save_to_file: File path to save response data to (requires storage)
+            storage: Storage object for file operations
+        """
         return self.__request_async(
-            "HEAD", url, payload=payload, headers=headers, timeout=timeout
+            "HEAD",
+            url,
+            payload=payload,
+            headers=headers,
+            timeout=timeout,
+            save_to_file=save_to_file,
+            storage=storage,
         )
 
     def is_request_complete(self) -> bool:
         """Check if the async request is complete."""
         return self._async_request_complete
 
-    def patch(self, url, payload, headers=None, timeout: float = None):
-        """Sends a PATCH request and returns a Response object."""
+    def patch(
+        self,
+        url,
+        payload,
+        headers=None,
+        timeout: float = None,
+        save_to_file=None,
+        storage=None,
+    ):
+        """Sends a PATCH request and returns a Response object.
+
+        Args:
+            url: URL to request
+            payload: Request payload (can be str, bytes, or dict)
+            headers: HTTP headers dict
+            timeout: Request timeout in seconds
+            save_to_file: File path to save response data to (requires storage)
+            storage: Storage object for file operations
+        """
         from ujson import dumps
         from picoware.system.drivers.urequests_2 import patch
 
@@ -107,22 +256,86 @@ class HTTP:
             return None
         if isinstance(payload, (str, bytes)):
             if headers:
-                return patch(url, headers=headers, data=payload, timeout=timeout)
-            return patch(url, data=payload, timeout=timeout)
+                return patch(
+                    url,
+                    headers=headers,
+                    data=payload,
+                    timeout=timeout,
+                    save_to_file=save_to_file,
+                    storage=storage,
+                )
+            return patch(
+                url,
+                data=payload,
+                timeout=timeout,
+                save_to_file=save_to_file,
+                storage=storage,
+            )
         if headers:
             return patch(
-                url, headers=headers, json_data=dumps(payload), timeout=timeout
+                url,
+                headers=headers,
+                json_data=dumps(payload),
+                timeout=timeout,
+                save_to_file=save_to_file,
+                storage=storage,
             )
-        return patch(url, json_data=dumps(payload), timeout=timeout)
-
-    def patch_async(self, url, payload, headers=None, timeout: float = None) -> bool:
-        """Send an async PATCH request."""
-        return self.__request_async(
-            "PATCH", url, payload=payload, headers=headers, timeout=timeout
+        return patch(
+            url,
+            json_data=dumps(payload),
+            timeout=timeout,
+            save_to_file=save_to_file,
+            storage=storage,
         )
 
-    def post(self, url, payload, headers=None, timeout: float = None):
-        """Sends a POST request and returns a Response object."""
+    def patch_async(
+        self,
+        url,
+        payload,
+        headers=None,
+        timeout: float = None,
+        save_to_file=None,
+        storage=None,
+    ) -> bool:
+        """Send an async PATCH request.
+
+        Args:
+            url: URL to request
+            payload: Request payload (can be str, bytes, or dict)
+            headers: HTTP headers dict
+            timeout: Request timeout in seconds
+            save_to_file: File path to save response data to (requires storage)
+            storage: Storage object for file operations
+        """
+        return self.__request_async(
+            "PATCH",
+            url,
+            payload=payload,
+            headers=headers,
+            timeout=timeout,
+            save_to_file=save_to_file,
+            storage=storage,
+        )
+
+    def post(
+        self,
+        url,
+        payload,
+        headers=None,
+        timeout: float = None,
+        save_to_file=None,
+        storage=None,
+    ):
+        """Sends a POST request and returns a Response object.
+
+        Args:
+            url: URL to request
+            payload: Request payload (can be str, bytes, or dict)
+            headers: HTTP headers dict
+            timeout: Request timeout in seconds
+            save_to_file: File path to save response data to (requires storage)
+            storage: Storage object for file operations
+        """
         from ujson import dumps
         from picoware.system.drivers.urequests_2 import post
 
@@ -130,20 +343,86 @@ class HTTP:
             return None
         if isinstance(payload, (str, bytes)):
             if headers:
-                return post(url, headers=headers, data=payload, timeout=timeout)
-            return post(url, data=payload, timeout=timeout)
+                return post(
+                    url,
+                    headers=headers,
+                    data=payload,
+                    timeout=timeout,
+                    save_to_file=save_to_file,
+                    storage=storage,
+                )
+            return post(
+                url,
+                data=payload,
+                timeout=timeout,
+                save_to_file=save_to_file,
+                storage=storage,
+            )
         if headers:
-            return post(url, headers=headers, data=dumps(payload), timeout=timeout)
-        return post(url, json_data=dumps(payload), timeout=timeout)
-
-    def post_async(self, url, payload, headers=None, timeout: float = None) -> bool:
-        """Send an async POST request."""
-        return self.__request_async(
-            "POST", url, payload=payload, headers=headers, timeout=timeout
+            return post(
+                url,
+                headers=headers,
+                data=dumps(payload),
+                timeout=timeout,
+                save_to_file=save_to_file,
+                storage=storage,
+            )
+        return post(
+            url,
+            json_data=dumps(payload),
+            timeout=timeout,
+            save_to_file=save_to_file,
+            storage=storage,
         )
 
-    def put(self, url, payload, headers=None, timeout: float = None):
-        """Sends a PUT request and returns a Response object."""
+    def post_async(
+        self,
+        url,
+        payload,
+        headers=None,
+        timeout: float = None,
+        save_to_file=None,
+        storage=None,
+    ) -> bool:
+        """Send an async POST request.
+
+        Args:
+            url: URL to request
+            payload: Request payload (can be str, bytes, or dict)
+            headers: HTTP headers dict
+            timeout: Request timeout in seconds
+            save_to_file: File path to save response data to (requires storage)
+            storage: Storage object for file operations
+        """
+        return self.__request_async(
+            "POST",
+            url,
+            payload=payload,
+            headers=headers,
+            timeout=timeout,
+            save_to_file=save_to_file,
+            storage=storage,
+        )
+
+    def put(
+        self,
+        url,
+        payload,
+        headers=None,
+        timeout: float = None,
+        save_to_file=None,
+        storage=None,
+    ):
+        """Sends a PUT request and returns a Response object.
+
+        Args:
+            url: URL to request
+            payload: Request payload (can be str, bytes, or dict)
+            headers: HTTP headers dict
+            timeout: Request timeout in seconds
+            save_to_file: File path to save response data to (requires storage)
+            storage: Storage object for file operations
+        """
         from ujson import dumps
         from picoware.system.drivers.urequests_2 import put
 
@@ -151,22 +430,88 @@ class HTTP:
             return None
         if isinstance(payload, (str, bytes)):
             if headers:
-                return put(url, headers=headers, data=payload, timeout=timeout)
-            return put(url, data=payload, timeout=timeout)
+                return put(
+                    url,
+                    headers=headers,
+                    data=payload,
+                    timeout=timeout,
+                    save_to_file=save_to_file,
+                    storage=storage,
+                )
+            return put(
+                url,
+                data=payload,
+                timeout=timeout,
+                save_to_file=save_to_file,
+                storage=storage,
+            )
         if headers:
-            return put(url, headers=headers, json_data=dumps(payload), timeout=timeout)
-        return put(url, json_data=dumps(payload), timeout=timeout)
+            return put(
+                url,
+                headers=headers,
+                json_data=dumps(payload),
+                timeout=timeout,
+                save_to_file=save_to_file,
+                storage=storage,
+            )
+        return put(
+            url,
+            json_data=dumps(payload),
+            timeout=timeout,
+            save_to_file=save_to_file,
+            storage=storage,
+        )
 
-    def put_async(self, url, payload, headers=None, timeout: float = None) -> bool:
-        """Send an async PUT request."""
+    def put_async(
+        self,
+        url,
+        payload,
+        headers=None,
+        timeout: float = None,
+        save_to_file=None,
+        storage=None,
+    ) -> bool:
+        """Send an async PUT request.
+
+        Args:
+            url: URL to request
+            payload: Request payload (can be str, bytes, or dict)
+            headers: HTTP headers dict
+            timeout: Request timeout in seconds
+            save_to_file: File path to save response data to (requires storage)
+            storage: Storage object for file operations
+        """
         return self.__request_async(
-            "PUT", url, payload=payload, headers=headers, timeout=timeout
+            "PUT",
+            url,
+            payload=payload,
+            headers=headers,
+            timeout=timeout,
+            save_to_file=save_to_file,
+            storage=storage,
         )
 
     def __request_async(
-        self, method, url, payload=None, headers=None, timeout: float = None
+        self,
+        method,
+        url,
+        payload=None,
+        headers=None,
+        timeout: float = None,
+        save_to_file=None,
+        storage=None,
     ) -> bool:
-        """Internal method to handle async requests."""
+        """Internal method to handle async requests.
+
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            url: URL to request
+            payload: Request payload
+            headers: HTTP headers dict
+            timeout: Request timeout in seconds
+            save_to_file: File path to save response data to (requires storage)
+            storage: Storage object for file operations
+        """
         if self._async_request_in_progress:
             return False  # Request already in progress
 
@@ -180,7 +525,8 @@ class HTTP:
 
             # Start the request in a separate thread
             self._async_thread = _thread.start_new_thread(
-                self.__execute_request, (method, url, payload, headers, timeout)
+                self.__execute_request,
+                (method, url, payload, headers, timeout, save_to_file, storage),
             )
             return True
         except Exception as e:
@@ -192,25 +538,82 @@ class HTTP:
             return False
 
     def __execute_request(
-        self, method: str, url: str, payload, headers=None, timeout: float = None
+        self,
+        method: str,
+        url: str,
+        payload,
+        headers=None,
+        timeout: float = None,
+        save_to_file=None,
+        storage=None,
     ):
-        """Execute the actual HTTP request in a separate thread."""
+        """Execute the actual HTTP request in a separate thread.
+
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            url: URL to request
+            payload: Request payload
+            headers: HTTP headers dict
+            timeout: Request timeout in seconds
+            save_to_file: File path to save response data to (requires storage)
+            storage: Storage object for file operations
+        """
         try:
             result = None
             method = method.upper()
 
             if method == "GET":
-                result = self.get(url, headers=headers, timeout=timeout)
+                result = self.get(
+                    url,
+                    headers=headers,
+                    timeout=timeout,
+                    save_to_file=save_to_file,
+                    storage=storage,
+                )
             elif method == "POST":
-                result = self.post(url, payload, headers=headers, timeout=timeout)
+                result = self.post(
+                    url,
+                    payload,
+                    headers=headers,
+                    timeout=timeout,
+                    save_to_file=save_to_file,
+                    storage=storage,
+                )
             elif method == "PUT":
-                result = self.put(url, payload, headers=headers, timeout=timeout)
+                result = self.put(
+                    url,
+                    payload,
+                    headers=headers,
+                    timeout=timeout,
+                    save_to_file=save_to_file,
+                    storage=storage,
+                )
             elif method == "DELETE":
-                result = self.delete(url, headers=headers, timeout=timeout)
+                result = self.delete(
+                    url,
+                    headers=headers,
+                    timeout=timeout,
+                    save_to_file=save_to_file,
+                    storage=storage,
+                )
             elif method == "HEAD":
-                result = self.head(url, payload, headers=headers, timeout=timeout)
+                result = self.head(
+                    url,
+                    payload,
+                    headers=headers,
+                    timeout=timeout,
+                    save_to_file=save_to_file,
+                    storage=storage,
+                )
             elif method == "PATCH":
-                result = self.patch(url, payload, headers=headers, timeout=timeout)
+                result = self.patch(
+                    url,
+                    payload,
+                    headers=headers,
+                    timeout=timeout,
+                    save_to_file=save_to_file,
+                    storage=storage,
+                )
 
             self._async_response = result.text if result else ""
             self._state = HTTP_IDLE if result else HTTP_ISSUE

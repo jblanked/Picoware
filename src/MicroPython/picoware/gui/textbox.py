@@ -40,7 +40,7 @@ class TextBox:
             self.background_color,
         )
 
-        self.characters_per_line = 40  # width is 320, 8x8 font
+        self.characters_per_line = 53  # width is 320, 5x8 font (width of 6)
         self.lines_per_screen = 32  # height is 320, 10 pixel line spacing
 
         draw.swap()
@@ -60,7 +60,7 @@ class TextBox:
         """Get the height of the text box based on the number of lines and font size."""
         return (
             0 if self.total_lines == 0 else (self.total_lines - 1) * 10
-        )  # 10 pixel spacing for 8x8 pixel font
+        )  # 10 pixel spacing for 5x8 pixel font
 
     def set_scrollbar_position(self):
         """Set the position of the scrollbar based on the current line."""

@@ -14,7 +14,7 @@ class Game:
         input_manager,
         foreground_color: int = 0xFFFF,
         background_color: int = 0x0000,
-        perspective: int = 0,
+        perspective: int = 0,  # Default perspective (first person)
         start=None,
         stop=None,
     ):
@@ -54,6 +54,16 @@ class Game:
             del self.current_level
             self.current_level = None
 
+    @property
+    def perspective(self) -> int:
+        """Get the camera perspective"""
+        return self.camera_perspective
+
+    @perspective.setter
+    def perspective(self, perspective: int):
+        """Set the camera perspective"""
+        self.camera_perspective = perspective
+
     def clamp(self, value, lower, upper):
         """Clamp a value between a lower and upper bound."""
         return min(max(value, lower), upper)
@@ -80,7 +90,7 @@ class Game:
     def render(self):
         """Render the current level"""
         if self.current_level:
-            self.current_level.render()
+            self.current_level.render(self.camera_perspective)
 
     def start(self) -> bool:
         """Start the game"""

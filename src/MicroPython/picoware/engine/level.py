@@ -88,20 +88,62 @@ class Level:
             and entity.position.y + entity.size.y > other.position.y
         )
 
-    def render(self):
+    def render(self, perspective=CAMERA_FIRST_PERSON, camera_params=None):
         """Render the level"""
         if self._clear_allowed:
             self.game.draw.clear(
                 Vector(0, 0), self.game.size, self.game.background_color
             )
 
+        # If using third person perspective but no camera params provided, calculate them from player
+        if perspective == CAMERA_THIRD_PERSON and camera_params is None:
+            from math import sqrt
+            from picoware.engine.camera import CameraParams
+
+            calculated_camera_params = CameraParams()
+            # Find the player entity to calculate 3rd person camera
+            player = None
+            for entity in self.entities:
+                if entity is not None and entity.is_player:
+                    player = entity
+                    break
+
+            if player is not None:
+                # Calculate 3rd person camera position behind the player
+                # Use same parameters as Player class for consistency
+                camera_distance = 2.0  # Closer distance for better visibility
+
+                # Normalize direction vector to ensure consistent behavior
+                dir_length = sqrt(
+                    player.direction.x * player.direction.x
+                    + player.direction.y * player.direction.y
+                )
+                if dir_length < 0.001:
+                    # Fallback if direction is zero
+                    dir_length = 1.0
+                    player.direction = Vector(1, 0)  # Default forward direction
+
+                normalized_dir = Vector(
+                    player.direction.x / dir_length, player.direction.y / dir_length
+                )
+
+                calculated_camera_params.position = Vector(
+                    player.position.x - normalized_dir.x * camera_distance,
+                    player.position.y - normalized_dir.y * camera_distance,
+                )
+                calculated_camera_params.direction = normalized_dir
+                calculated_camera_params.plane = player.plane
+                calculated_camera_params.height = 1.6
+                camera_params = calculated_camera_params
+
         for entity in self.entities:
-            if entity.is_active:
+            if entity and entity.is_active:
                 entity.render(self.game.draw, self.game)
 
                 if not entity.is_visible:
-                    continue
+                    continue  # Skip rendering if entity is not visible
 
+                # Only draw the 2D sprite if it exists
                 if entity.sprite:
                     self.game.draw.image_bytearray(
                         Vector(
@@ -111,6 +153,51 @@ class Level:
                         entity.size,
                         entity.sprite._raw,
                     )
+
+                # Render 3D sprite if it exists
+                if entity.has_3d_sprite:
+                    # screen size from the game draw object
+                    screen_size = self.game.draw.size
+
+                    if perspective == CAMERA_FIRST_PERSON:
+
+                        # First person: render from player's own perspective
+                        if entity.is_player:
+                            # Use entity's own direction and plane for rendering
+                            entity.render3DSprite(
+                                self.game.draw,
+                                entity.position,
+                                entity.direction,
+                                entity.plane,
+                                1.5,
+                                screen_size,
+                            )
+                        else:
+                            # For non-player entities, render from the player's perspective
+                            # We need to find the player entity to get the view parameters
+                            player = None
+                            for entity in self.entities:
+                                if entity is not None and entity.is_player:
+                                    player = entity
+                                    break
+                            if player is not None:
+                                entity.render_3d_sprite(
+                                    self.game.draw,
+                                    player.position,
+                                    player.direction,
+                                    1.5,
+                                    screen_size,
+                                )
+
+                    elif perspective == CAMERA_THIRD_PERSON and camera_params:
+                        # Third person: render ALL entities (including player) from the external camera perspective
+                        entity.render_3d_sprite(
+                            self.game.draw,
+                            camera_params.position,
+                            camera_params.direction,
+                            camera_params.height,
+                            screen_size,
+                        )
 
         if self._clear_allowed:
             self.game.draw.swap()

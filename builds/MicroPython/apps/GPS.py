@@ -61,9 +61,9 @@ def start(view_manager) -> bool:
         _gps_http = None
 
     draw = view_manager.get_draw()
-    
+
     wifi = view_manager.get_wifi()
-    
+
     # if not a wifi device, return
     if not wifi:
         from picoware.gui.alert import Alert
@@ -137,14 +137,14 @@ def run(view_manager) -> None:
     if button in (BUTTON_RIGHT, BUTTON_CENTER):
         input_manager.reset()
         __reset_gps_state()
-        
+
         draw.clear(Vector(0, 0), draw.size, view_manager.get_background_color())
         draw.text(Vector(5, 5), "Starting GPS lookup...")
         draw.swap()
 
     if _gps_displaying_result:
         return
-    
+
     if not _gps_request_sent and not _gps_request_in_progress:
         _gps_request_sent = True
         _gps_request_in_progress = True
@@ -152,8 +152,9 @@ def run(view_manager) -> None:
         # start async request for location data
         if not _gps_http:
             from picoware.system.http import HTTP
+
             _gps_http = HTTP()
-            
+
         _gps_http.clear_async_response()
         if not _gps_http.get_async("https://ipwhois.app/json"):
             from picoware.gui.alert import Alert
@@ -165,6 +166,7 @@ def run(view_manager) -> None:
                 view_manager.get_foreground_color(),
                 view_manager.get_background_color(),
             )
+            _gps_alert.draw("Error")
             sleep(2)
             _gps_request_sent = False
             _gps_request_in_progress = False
@@ -205,12 +207,12 @@ def run(view_manager) -> None:
 
                 draw.swap()
                 _gps_displaying_result = True
-                
+
                 # delete to cleanup resources
                 # also necessary for next iteration
                 del _gps_http
                 _gps_http = None
-                
+
                 return
             else:
                 draw.clear(Vector(0, 0), draw.size, view_manager.get_background_color())

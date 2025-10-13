@@ -4,15 +4,15 @@ _http = None
 _textbox = None
 
 
-def __alert(draw, reason: str) -> None:
+def __alert(view_manager, reason: str) -> None:
     from picoware.gui.alert import Alert
     from time import sleep
 
     alert = Alert(
-        draw,
+        view_manager.get_draw(),
         reason,
-        draw.get_foreground_color(),
-        draw.get_background_color(),
+        view_manager.get_foreground_color(),
+        view_manager.get_background_color(),
     )
     alert.draw("Error")
     sleep(2)
@@ -32,10 +32,10 @@ def start(view_manager) -> bool:
     draw = view_manager.get_draw()
 
     if not wifi:
-        __alert(draw, "WiFi not available...")
+        __alert(view_manager, "WiFi not available...")
         return False
     if not wifi.is_connected():
-        __alert(draw, "WiFi not connected...")
+        __alert(view_manager, "WiFi not connected...")
         return False
 
     draw.text(Vector(0, 0), "Loading...", view_manager.get_foreground_color())
@@ -48,7 +48,7 @@ def start(view_manager) -> bool:
     response = _http.get("https://catfact.ninja/fact")
 
     if not response:
-        __alert(draw, "No response from server...")
+        __alert(view_manager, "No response from server...")
         return False
 
     _textbox = TextBox(

@@ -65,6 +65,7 @@ class Entity:
         :param collision: function(Entity, Entity, Game) - the function called when the entity collides with another entity
         :param sprite_3d_type: The type of 3D sprite (if any).
         :param is_8bit: Whether the sprite is in 8-bit format.
+        :param sprite_3d_color: The color of the 3D sprite (if any).
         """
         from picoware.gui.image import Image
 
@@ -148,7 +149,7 @@ class Entity:
     @property
     def position(self) -> Vector:
         """Used by the engine to get the position of the entity."""
-        return Vector(self._position.x, self._position.y)
+        return self._position
 
     @position.setter
     def position(self, value: Vector):

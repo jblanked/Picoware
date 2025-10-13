@@ -1824,7 +1824,9 @@ class FlipSocialRun:
             return
         draw = view_manager.get_draw()
         self.update_draw(draw)
-        self.update_input(view_manager.get_input_manager().get_last_button())
+        inp = view_manager.get_input_manager()
+        self.update_input(inp.button)
+        inp.reset()
         draw.swap()
 
     def stop(self, view_manager) -> None:

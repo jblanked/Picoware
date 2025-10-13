@@ -56,7 +56,13 @@ class TextBox:
         del self.scrollbar
         self.scrollbar = None
 
-    def get_text_height(self) -> int:
+    @property
+    def text(self) -> str:
+        """Get the current text in the text box."""
+        return self.current_text
+
+    @property
+    def text_height(self) -> int:
         """Get the height of the text box based on the number of lines and font size."""
         return (
             0 if self.total_lines == 0 else (self.total_lines - 1) * 10
@@ -89,7 +95,7 @@ class TextBox:
 
     def set_scrollbar_size(self):
         """Set the size of the scrollbar based on the number of lines."""
-        content_height = self.get_text_height()
+        content_height = self.text_height
         view_height = self.size.y
         bar_height = 0
 

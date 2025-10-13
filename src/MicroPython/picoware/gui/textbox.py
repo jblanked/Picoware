@@ -161,6 +161,74 @@ class TextBox:
         self.set_scrollbar_position()
         self.scrollbar.display.swap()
 
+    def refresh(self):
+        """Refresh the display to show current text and scrollbar."""
+        from gc import collect
+
+        # Clear area for fresh draw
+        self.scrollbar.display.clear(self.position, self.size, self.background_color)
+
+        if self.show_scrollbar:
+            self.scrollbar.clear()
+
+        # Wrap text into lines (preserve words)
+        self.line_positions = []
+        str_len = len(self.current_text)
+        line_start = 0
+        line_length = 0
+        total = 1
+        i = 0
+        while i < str_len:
+            if self.current_text[i] == "\n":
+                self.line_positions.append((line_start, line_length))
+                total += 1
+                i += 1
+                line_start = i
+                line_length = 0
+                continue
+            # skip leading spaces
+            if line_length == 0:
+                while i < str_len and self.current_text[i] == " ":
+                    i += 1
+                line_start = i
+            # count word length
+            word_start = i
+            while i < str_len and self.current_text[i] not in (" ", "\n"):
+                i += 1
+            word_length = i - word_start
+            if line_length + word_length > self.characters_per_line and line_length > 0:
+                # new line
+                self.line_positions.append((line_start, line_length))
+                total += 1
+                line_start = word_start
+                line_length = 0
+            # add word
+            line_length += word_length
+            # skip space
+            if i < str_len and self.current_text[i] == " ":
+                line_length += 1
+                i += 1
+        # append final line
+        if line_length > 0 or total == 1:
+            self.line_positions.append((line_start, line_length))
+
+        self.total_lines = len(self.line_positions)
+
+        # Initialize or clamp current line to last line
+        if self.current_line == -1 or self.current_line >= self.total_lines:
+            self.current_line = self.total_lines - 1
+
+        # Update scrollbar and display
+        self.display_visible_lines()
+
+        if self.show_scrollbar:
+            self.set_scrollbar_size()
+            self.set_scrollbar_position()
+            self.scrollbar.draw()
+
+        self.scrollbar.display.swap()
+        collect()
+
     def scroll_down(self):
         """Scroll down by one line."""
         if self.current_line < self.total_lines - 1:
@@ -187,69 +255,5 @@ class TextBox:
 
     def set_text(self, text: str):
         """Set the text in the text box, wrap lines, and scroll to bottom."""
-        from gc import collect
-
         self.current_text = text
-        # Clear area for fresh draw
-        self.scrollbar.display.clear(self.position, self.size, self.background_color)
-
-        if self.show_scrollbar:
-            self.scrollbar.clear()
-
-        # Wrap text into lines (preserve words)
-        self.line_positions = []
-        str_len = len(text)
-        line_start = 0
-        line_length = 0
-        total = 1
-        i = 0
-        while i < str_len:
-            if text[i] == "\n":
-                self.line_positions.append((line_start, line_length))
-                total += 1
-                i += 1
-                line_start = i
-                line_length = 0
-                continue
-            # skip leading spaces
-            if line_length == 0:
-                while i < str_len and text[i] == " ":
-                    i += 1
-                line_start = i
-            # count word length
-            word_start = i
-            while i < str_len and text[i] not in (" ", "\n"):
-                i += 1
-            word_length = i - word_start
-            if line_length + word_length > self.characters_per_line and line_length > 0:
-                # new line
-                self.line_positions.append((line_start, line_length))
-                total += 1
-                line_start = word_start
-                line_length = 0
-            # add word
-            line_length += word_length
-            # skip space
-            if i < str_len and text[i] == " ":
-                line_length += 1
-                i += 1
-        # append final line
-        if line_length > 0 or total == 1:
-            self.line_positions.append((line_start, line_length))
-
-        self.total_lines = len(self.line_positions)
-
-        # Initialize or clamp current line to last line
-        if self.current_line == -1 or self.current_line >= self.total_lines:
-            self.current_line = self.total_lines - 1
-
-        # Update scrollbar and display
-        self.display_visible_lines()
-
-        if self.show_scrollbar:
-            self.set_scrollbar_size()
-            self.set_scrollbar_position()
-            self.scrollbar.draw()
-
-        self.scrollbar.display.swap()
-        collect()
+        self.refresh()

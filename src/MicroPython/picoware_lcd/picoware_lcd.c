@@ -1275,6 +1275,152 @@ STATIC mp_obj_t picoware_lcd_fill_circle(size_t n_args, const mp_obj_t *args)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_fill_circle_obj, 4, 4, picoware_lcd_fill_circle);
 
+// Helper function to swap two floats
+STATIC void swap_float(float *a, float *b)
+{
+    float temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+STATIC mp_obj_t picoware_lcd_fill_triangle(size_t n_args, const mp_obj_t *args)
+{
+    // Arguments: p1_x, p1_y, p2_x, p2_y, p3_x, p3_y, color565
+    if (n_args != 7)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("fill_triangle requires 7 arguments"));
+    }
+
+    // Get triangle vertices
+    float p1_x = (float)mp_obj_get_float(args[0]);
+    float p1_y = (float)mp_obj_get_float(args[1]);
+    float p2_x = (float)mp_obj_get_float(args[2]);
+    float p2_y = (float)mp_obj_get_float(args[3]);
+    float p3_x = (float)mp_obj_get_float(args[4]);
+    float p3_y = (float)mp_obj_get_float(args[5]);
+    uint16_t color = mp_obj_get_int(args[6]);
+
+    uint8_t color_index = color565_to_332(color);
+
+    // Sort vertices by Y coordinate (p1.y <= p2.y <= p3.y)
+    if (p1_y > p2_y)
+    {
+        swap_float(&p1_x, &p2_x);
+        swap_float(&p1_y, &p2_y);
+    }
+    if (p2_y > p3_y)
+    {
+        swap_float(&p2_x, &p3_x);
+        swap_float(&p2_y, &p3_y);
+    }
+    if (p1_y > p2_y)
+    {
+        swap_float(&p1_x, &p2_x);
+        swap_float(&p1_y, &p2_y);
+    }
+
+    int y1 = (int)p1_y;
+    int y2 = (int)p2_y;
+    int y3 = (int)p3_y;
+
+    // Handle degenerate case (all points on same line)
+    if (y1 == y3)
+        return mp_const_none;
+
+    // Fill the triangle using horizontal scanlines
+    for (int y = y1; y <= y3; y++)
+    {
+        if (y < 0 || y >= DISPLAY_HEIGHT)
+            continue; // Skip lines outside screen bounds
+
+        float x_left = 0, x_right = 0;
+        bool has_left = false, has_right = false;
+
+        // Find left edge intersection
+        if (y3 != y1)
+        {
+            x_left = p1_x + (p3_x - p1_x) * (y - y1) / (y3 - y1);
+            has_left = true;
+        }
+
+        // Find right edge intersection
+        if (y <= y2)
+        {
+            // Upper part of triangle (from p1 to p2)
+            if (y2 != y1)
+            {
+                float x_temp = p1_x + (p2_x - p1_x) * (y - y1) / (y2 - y1);
+                if (!has_right)
+                {
+                    x_right = x_temp;
+                    has_right = true;
+                }
+                else
+                {
+                    // We have both intersections, determine which is left/right
+                    if (x_temp < x_left)
+                    {
+                        x_right = x_left;
+                        x_left = x_temp;
+                    }
+                    else
+                    {
+                        x_right = x_temp;
+                    }
+                }
+            }
+        }
+        else
+        {
+            // Lower part of triangle (from p2 to p3)
+            if (y3 != y2)
+            {
+                float x_temp = p2_x + (p3_x - p2_x) * (y - y2) / (y3 - y2);
+                if (!has_right)
+                {
+                    x_right = x_temp;
+                    has_right = true;
+                }
+                else
+                {
+                    // We have both intersections, determine which is left/right
+                    if (x_temp < x_left)
+                    {
+                        x_right = x_left;
+                        x_left = x_temp;
+                    }
+                    else
+                    {
+                        x_right = x_temp;
+                    }
+                }
+            }
+        }
+
+        // Draw horizontal line from x_left to x_right
+        if (has_left && has_right)
+        {
+            int start_x = (int)(x_left < x_right ? x_left : x_right);
+            int end_x = (int)(x_left > x_right ? x_left : x_right);
+
+            // Clamp to screen bounds
+            if (start_x < 0)
+                start_x = 0;
+            if (end_x >= DISPLAY_WIDTH)
+                end_x = DISPLAY_WIDTH - 1;
+
+            // Draw the horizontal line
+            for (int x = start_x; x <= end_x; x++)
+            {
+                static_framebuffer[y * DISPLAY_WIDTH + x] = color_index;
+            }
+        }
+    }
+
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_fill_triangle_obj, 7, 7, picoware_lcd_fill_triangle);
+
 // Draw an 8-bit byte array image
 // Args: x (int), y (int), width (int), height (int), byte_data (bytes/bytearray), invert (bool)
 STATIC mp_obj_t picoware_lcd_draw_image_bytearray(size_t n_args, const mp_obj_t *args)
@@ -1367,6 +1513,7 @@ STATIC const mp_rom_map_elem_t picoware_lcd_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_draw_line_custom), MP_ROM_PTR(&picoware_lcd_draw_line_custom_obj)},
     {MP_ROM_QSTR(MP_QSTR_draw_circle), MP_ROM_PTR(&picoware_lcd_draw_circle_obj)},
     {MP_ROM_QSTR(MP_QSTR_fill_circle), MP_ROM_PTR(&picoware_lcd_fill_circle_obj)},
+    {MP_ROM_QSTR(MP_QSTR_fill_triangle), MP_ROM_PTR(&picoware_lcd_fill_triangle_obj)},
     {MP_ROM_QSTR(MP_QSTR_clear_framebuffer), MP_ROM_PTR(&picoware_lcd_clear_framebuffer_obj)},
     {MP_ROM_QSTR(MP_QSTR_draw_image_bytearray), MP_ROM_PTR(&picoware_lcd_draw_image_bytearray_obj)},
 

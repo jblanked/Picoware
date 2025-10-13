@@ -207,6 +207,20 @@ class Draw:
         """Fill the entire screen with a color"""
         picoware_lcd.clear_framebuffer(self._rgb565_to_rgb332(color))
 
+    def fill_triangle(
+        self, point1: Vector, point2: Vector, point3: Vector, color=TFT_WHITE
+    ):
+        """Draw a filled triangle"""
+        picoware_lcd.fill_triangle(
+            int(point1.x),
+            int(point1.y),
+            int(point2.x),
+            int(point2.y),
+            int(point3.x),
+            int(point3.y),
+            color,
+        )
+
     def get_font_size(self) -> Vector:
         """Get the font size"""
         return Vector(picoware_lcd.CHAR_WIDTH, picoware_lcd.FONT_HEIGHT)

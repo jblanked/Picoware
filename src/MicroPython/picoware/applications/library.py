@@ -21,7 +21,7 @@ def start(view_manager) -> bool:
             2,
         )
         _library.add_item("Applications")
-        _library.add_item("Editor")
+        _library.add_item("Python Editor")
         _library.add_item("File Browser")
         _library.add_item("Games")
         _library.add_item("Screensavers")
@@ -70,7 +70,7 @@ def run(view_manager) -> None:
 
         app_map = {
             0: "Applications",
-            1: "Editor",
+            1: "Python Editor",
             2: "File Browser",
             3: "Games",
             4: "Screensavers",
@@ -100,7 +100,7 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("screensavers")
-        elif app_map.get(_library_index) == "Editor":
+        elif app_map.get(_library_index) == "Python Editor":
             from picoware.applications import editor
 
             view_manager.add(View("editor", editor.run, editor.start, editor.stop))

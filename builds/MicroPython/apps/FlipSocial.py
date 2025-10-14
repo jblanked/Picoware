@@ -1824,7 +1824,9 @@ class FlipSocialRun:
             return
         draw = view_manager.get_draw()
         self.update_draw(draw)
-        self.update_input(view_manager.get_input_manager().get_last_button())
+        inp = view_manager.get_input_manager()
+        self.update_input(inp.button)
+        inp.reset()
         draw.swap()
 
     def stop(self, view_manager) -> None:
@@ -2285,7 +2287,7 @@ def __flip_social_user_run(view_manager) -> None:
     input_button = input_manager.get_last_button()
 
     if input_button == BUTTON_BACK:
-        input_manager.reset(True)
+        input_manager.reset()
         _flip_social_user_is_running = False
         _flip_social_user_save_requested = False
         _flip_social_user_save_verified = False  # don't save
@@ -2293,7 +2295,7 @@ def __flip_social_user_run(view_manager) -> None:
         return
 
     if _flip_social_user_save_requested:
-        input_manager.reset(True)
+        input_manager.reset()
         _flip_social_user_save_requested = False
         _flip_social_user_is_running = False
         _flip_social_user_save_verified = True  # save
@@ -2382,7 +2384,7 @@ def __flip_social_password_run(view_manager) -> None:
     input_button = input_manager.get_last_button()
 
     if input_button == BUTTON_BACK:
-        input_manager.reset(True)
+        input_manager.reset()
         _flip_social_password_is_running = False
         _flip_social_password_save_requested = False
         _flip_social_password_save_verified = False  # don't save
@@ -2390,7 +2392,7 @@ def __flip_social_password_run(view_manager) -> None:
         return
 
     if _flip_social_password_save_requested:
-        input_manager.reset(True)
+        input_manager.reset()
         _flip_social_password_save_requested = False
         _flip_social_password_is_running = False
         _flip_social_password_save_verified = True  # save
@@ -2479,18 +2481,18 @@ def __flip_social_settings_run(view_manager) -> None:
     input_button = input_manager.get_last_button()
 
     if input_button == BUTTON_UP:
-        input_manager.reset(True)
+        input_manager.reset()
         _flip_social_settings_menu.scroll_up()
     elif input_button == BUTTON_DOWN:
-        input_manager.reset(True)
+        input_manager.reset()
         _flip_social_settings_menu.scroll_down()
     elif input_button == BUTTON_BACK:
-        input_manager.reset(True)
+        input_manager.reset()
         view_manager.back()
     elif input_button in (BUTTON_CENTER, BUTTON_RIGHT):
         from picoware.system.view import View
 
-        input_manager.reset(True)
+        input_manager.reset()
         current_item = _flip_social_settings_menu.get_current_item()
 
         if current_item == "Change User":
@@ -2531,9 +2533,9 @@ def __flip_social_settings_stop(view_manager) -> None:
 def start(view_manager) -> bool:
     """Start the main app"""
     from picoware.gui.menu import Menu
-    
+
     wifi = view_manager.get_wifi()
-    
+
     # if not a wifi device, return
     if not wifi:
         __flip_social_alert(view_manager, "WiFi not available...", False)
@@ -2542,8 +2544,9 @@ def start(view_manager) -> bool:
     # if wifi isn't connected, return
     if not wifi.is_connected():
         from picoware.applications.wifi.utils import connect_to_saved_wifi
+
         __flip_social_alert(view_manager, "WiFi not connected", False)
-        connect_to_save_wifi(view_manager)
+        connect_to_saved_wifi(view_manager)
         return False
 
     global _flip_social_app_menu, _flip_social_app_index
@@ -2593,19 +2596,19 @@ def run(view_manager) -> None:
     input_button = input_manager.get_last_button()
 
     if input_button == BUTTON_UP:
-        input_manager.reset(True)
+        input_manager.reset()
         _flip_social_app_menu.scroll_up()
     elif input_button == BUTTON_DOWN:
-        input_manager.reset(True)
+        input_manager.reset()
         _flip_social_app_menu.scroll_down()
     elif input_button == BUTTON_BACK:
-        input_manager.reset(True)
+        input_manager.reset()
         _flip_social_app_index = 0
         view_manager.back()
     elif input_button in (BUTTON_CENTER, BUTTON_RIGHT):
         from picoware.system.view import View
 
-        input_manager.reset(True)
+        input_manager.reset()
         _flip_social_app_index = _flip_social_app_menu.get_selected_index()
         current_item = _flip_social_app_menu.get_current_item()
 

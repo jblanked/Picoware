@@ -1,13 +1,32 @@
 #include "../system/input.hpp"
 #include "../system/drivers/keyboard.h"
 #include "../system/buttons.hpp"
+#include <cstdio>
+
+// Initialize static singleton instance
+Input *Input::instance = nullptr;
 
 Input::Input()
     : lastButton(-1),
       elapsedTime(0), debounce(0.01f),
       wasPressed(false)
 {
-    keyboard_init(onKeyAvailableCallback);
+    // Set singleton instance
+    instance = this;
+
+    keyboard_init();
+    keyboard_set_key_available_callback([]()
+                                        { Input::onKeyAvailableCallback(); });
+    keyboard_set_background_poll(true);
+}
+
+Input::~Input()
+{
+    // Clear singleton instance
+    if (instance == this)
+    {
+        instance = nullptr;
+    }
 }
 
 int Input::charToButton(char key) const noexcept
@@ -176,8 +195,17 @@ bool Input::isHeld(uint8_t duration)
 
 void Input::onKeyAvailableCallback()
 {
-    // called when a key is available
-    // nothing to do here for now
+    if (instance != nullptr)
+    {
+        instance->processInput();
+    }
+}
+
+void Input::processInput()
+{
+    this->lastButton = this->charToButton(this->read());
+    this->elapsedTime++;
+    this->wasPressed = true;
 }
 
 char Input::read()
@@ -194,29 +222,9 @@ char Input::readNonBlocking()
     return 0; // No key available
 }
 
-void Input::reset(bool shouldDelay, int delayMs)
+void Input::reset()
 {
     this->elapsedTime = 0;
     this->wasPressed = false;
     this->lastButton = -1;
-    if (shouldDelay)
-    {
-        // sleep_ms(delayMs);
-    }
-}
-
-void Input::run()
-{
-    if (this->isPressed())
-    {
-        this->lastButton = this->charToButton(this->read());
-        this->elapsedTime++;
-        this->wasPressed = true;
-    }
-    else
-    {
-        this->lastButton = -1;
-        this->wasPressed = false;
-        this->elapsedTime = 0;
-    }
 }

@@ -348,7 +348,7 @@ Those are the basic button constants used in Picoware, check the source code for
 #### picoware.gui.textbox
 - `TextBox` class: Class for a text box with scrolling functionality:
     - `__init__(draw, y, height, foreground_color, background_color, show_scrollbar)`: Initializes the TextBox with drawing context and styling.
-    - `get_text_height()`: Get the height of the text box based on the number of lines and font size.
+    - `text_height`: Get the height of the text box based on the number of lines and font size.
     - `set_scrollbar_position()`: Set the position of the scrollbar based on the current line.
     - `set_scrollbar_size()`: Set the size of the scrollbar based on the number of lines.
     - `display_visible_lines()`: Display only the lines that are currently visible.
@@ -522,7 +522,7 @@ Those are the basic button constants used in Picoware, check the source code for
   - `getLastButton()`: Get last button pressed
   - `isHeld(duration)`: Check if button held for duration
   - `isPressed()`: Check if button currently pressed
-  - `reset(shouldDelay, delayMs)`: Reset input state
+  - `reset()`: Reset input state
   - `run()`: Update input state
   - `read()`: Read key (blocking)
   - `readNonBlocking()`: Read key (non-blocking)

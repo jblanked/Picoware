@@ -47,7 +47,7 @@ static void tetrisRun(ViewManager *viewManager)
     if (input == BUTTON_BACK)
     {
         viewManager->back();
-        viewManager->getInputManager()->reset(true);
+        viewManager->getInputManager()->reset();
         return;
     }
 }

@@ -685,6 +685,8 @@ void Keyboard::run(bool swap)
     drawTextbox();
     drawKeyboard();
 
+    inputManager->reset();
+
     if (swap)
     {
         display->swap();

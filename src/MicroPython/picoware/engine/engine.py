@@ -15,6 +15,13 @@ class GameEngine:
         self.fps = fps
         self.game = game
 
+    def __del__(self) -> None:
+        self.stop()
+
+        if self.game:
+            del self.game
+            self.game = None
+
     def run(self):
         """Run the game engine"""
 

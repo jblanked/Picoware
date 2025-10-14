@@ -186,6 +186,19 @@ static void http_client_err(void *arg, err_t err)
         state->req_data.complete = true;
         state->req_data.result = err;
         state->error = err;
+
+        // Important: When an error callback is invoked, the PCB is already freed by lwIP
+        // So we must NOT call altcp_close or altcp_abort on it
+        // Just mark it as NULL and clean up TLS config if needed
+        state->pcb = NULL;
+
+        if (state->tls_config != NULL)
+        {
+#if LWIP_ALTCP_TLS
+            altcp_tls_free_config((struct altcp_tls_config *)state->tls_config);
+#endif
+            state->tls_config = NULL;
+        }
     }
 }
 

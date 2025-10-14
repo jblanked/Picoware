@@ -365,6 +365,10 @@ class Keyboard:
             BUTTON_RIGHT_BRACKET,
             BUTTON_SLASH,
             BUTTON_BACKSLASH,
+            BUTTON_UNDERSCORE,
+            BUTTON_COLON,
+            BUTTON_SINGLE_QUOTE,
+            BUTTON_DOUBLE_QUOTE,
         )
 
         if ticks_ms() - self.last_input_time < self.input_delay:
@@ -457,6 +461,10 @@ class Keyboard:
             BUTTON_RIGHT_BRACKET: (1, 11),
             BUTTON_SLASH: (3, 10),
             BUTTON_BACKSLASH: (3, 11),
+            BUTTON_UNDERSCORE: (0, 10),
+            BUTTON_COLON: (2, 10),
+            BUTTON_SINGLE_QUOTE: (2, 11),
+            BUTTON_DOUBLE_QUOTE: (2, 11),
         }
 
         if self.dpad_input in key_mappings:
@@ -525,15 +533,15 @@ class Keyboard:
             self.just_stopped = False
             return
 
-        self.dpad_input = self.input_manager.get_last_button()
-        shift_pressed = self.input_manager.is_shift_held()
-        if self.dpad_input != -1 or force or shift_pressed:
-            if not self.is_shift_pressed and shift_pressed:
-                self.is_shift_pressed = True
+        self.dpad_input = self.input_manager.button
+        if self.dpad_input != -1 or force:
+            self.is_shift_pressed = self.input_manager.was_capitalized
             # only process input/redraw if there's input
             self._handle_input()
             self._draw_textbox()
             self._draw_keyboard()
+
+            self.input_manager.reset()
 
             if swap:
                 self.draw.swap()

@@ -185,9 +185,10 @@ void Level::render(Game *game, CameraPerspective perspective, const CameraParams
     }
 
     // If using third person perspective but no camera params provided, calculate them from player
-    CameraParams calculated_camera_params;
     if (perspective == CAMERA_THIRD_PERSON && camera_params == nullptr)
     {
+        CameraParams calculated_camera_params;
+
         // Find the player entity to calculate 3rd person camera
         Entity *player = nullptr;
         for (int i = 0; i < entity_count; i++)

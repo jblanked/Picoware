@@ -65,7 +65,7 @@ def run(view_manager) -> None:
     button = input_manager.get_last_button()
 
     if button == BUTTON_BACK:
-        input_manager.reset(True)
+        input_manager.reset()
         _back_hit = True
         _password_is_running = False
         keyboard.reset()

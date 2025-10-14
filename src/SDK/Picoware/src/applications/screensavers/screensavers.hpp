@@ -45,22 +45,22 @@ static void screensaversRun(ViewManager *viewManager)
     {
     case BUTTON_UP:
         screensavers->scrollUp();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_DOWN:
         screensavers->scrollDown();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_LEFT:
     case BUTTON_BACK:
         screensaversIndex = 0;
         viewManager->back();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_RIGHT:
     case BUTTON_CENTER:
     {
-        inputManager->reset(true);
+        inputManager->reset();
         auto currentItem = screensavers->getCurrentItem();
         screensaversIndex = screensavers->getSelectedIndex();
         if (strcmp(currentItem, "Cube") == 0)

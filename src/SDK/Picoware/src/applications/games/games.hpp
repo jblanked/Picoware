@@ -119,24 +119,24 @@ static void gamesRun(ViewManager *viewManager)
     {
     case BUTTON_UP:
         games->scrollUp();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_DOWN:
         games->scrollDown();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_LEFT:
     case BUTTON_BACK:
         gamesIndex = 0;
         viewManager->back();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_RIGHT:
     case BUTTON_CENTER:
     {
         gamesIndex = games->getSelectedIndex();
         gamesSwitchToView(viewManager);
-        inputManager->reset(true);
+        inputManager->reset();
     }
     break;
     default:

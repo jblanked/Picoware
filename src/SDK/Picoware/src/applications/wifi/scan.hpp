@@ -78,16 +78,16 @@ static void wifiScanRun(ViewManager *viewManager)
     {
     case BUTTON_UP:
         wifiScan->scrollUp();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_DOWN:
         wifiScan->scrollDown();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_LEFT:
     case BUTTON_BACK:
         viewManager->back();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_RIGHT:
         switch (wifiScan->getSelectedIndex())
@@ -95,7 +95,7 @@ static void wifiScanRun(ViewManager *viewManager)
             // maybe we can connect to the selected wifi?
             // send to the loading view, then connect
         };
-        inputManager->reset(true);
+        inputManager->reset();
     default:
         break;
     };

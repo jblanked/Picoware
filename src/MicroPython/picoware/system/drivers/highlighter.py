@@ -1,14 +1,12 @@
 # from https://github.com/zenodante/PicoCalc-micropython-driver/blob/main/pico_files/modules/highlighter.py
-
-import micropython
-
+from micropython import const
 
 _RESET = "\x1b[0m"
-
-
 DELIMITERS = " \t\n+-*/=<>()[]{}:,;\"'#"
-
 COMPOUND_DELIMITERS = ["==", "!=", "<=", ">=", "->", "+=", "-=", "*=", "/="]
+
+TOKEN_NORMAL = const(0)
+TOKEN_STRING = const(1)
 
 
 class Highlighter:
@@ -38,9 +36,6 @@ class Highlighter:
         in_str = False
         str_char = None
         start_pos = 0
-
-        TOKEN_NORMAL = 0
-        TOKEN_STRING = 1
 
         while i < text_len and token_idx < self.max_tokens:
             char = text[i]
@@ -108,8 +103,6 @@ class Highlighter:
 
     def _build_highlighted_output(self, text, token_count):
         result = ""
-        TOKEN_NORMAL = 0
-        TOKEN_STRING = 1
 
         for i in range(token_count):
             start = self.token_boundaries[i * 2]

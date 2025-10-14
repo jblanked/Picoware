@@ -33,45 +33,70 @@ class Response:
         return self._json
 
 
-def read_chunked(s, uart=None, method="GET"):
-    """Read chunked HTTP response."""
+def read_chunked(s, uart=None, method="GET", save_to_file=None, storage=None):
+    """Read chunked HTTP response.
+
+    Args:
+        s: Socket object
+        uart: UART object for writing output
+        method: HTTP method name
+        save_to_file: File path to save response data to (requires storage)
+        storage: Storage object for file operations
+    """
     global RESPONSE_IS_BUSY  # so we can modify the global variable
     if uart:
         uart.write(f"[{method}/SUCCESS] {method} request successful.\n")
+
     body = b""
-    while True:
-        RESPONSE_IS_BUSY = True
-        # Read the chunk size line
-        line = s.readline()
-        if not line:
-            break
-        # Remove any CRLF and convert from hex
-        chunk_size_str = line.strip().split(b";")[0]  # Ignore chunk extensions
-        try:
-            chunk_size = int(chunk_size_str, 16)
-        except ValueError:
-            raise ValueError("Invalid chunk size: %s" % chunk_size_str)
-        if chunk_size == 0:
-            # Read and discard trailer headers
-            while True:
-                trailer = s.readline()
-                if not trailer or trailer == b"\r\n":
-                    break
-            break
-        # Read the chunk data
-        chunk = s.read(chunk_size)
+    file_handle = None
+
+    # Open file for writing if save_to_file is specified
+    if save_to_file and storage:
+        file_handle = storage.sd.open(save_to_file, "wb")
+        if file_handle is None:
+            raise RuntimeError(f"Failed to open file for writing: {save_to_file}")
+
+    try:
+        while True:
+            RESPONSE_IS_BUSY = True
+            # Read the chunk size line
+            line = s.readline()
+            if not line:
+                break
+            # Remove any CRLF and convert from hex
+            chunk_size_str = line.strip().split(b";")[0]  # Ignore chunk extensions
+            try:
+                chunk_size = int(chunk_size_str, 16)
+            except ValueError:
+                raise ValueError("Invalid chunk size: %s" % chunk_size_str)
+            if chunk_size == 0:
+                # Read and discard trailer headers
+                while True:
+                    trailer = s.readline()
+                    if not trailer or trailer == b"\r\n":
+                        break
+                break
+            # Read the chunk data
+            chunk = s.read(chunk_size)
+            if uart:
+                uart.write(chunk)
+                uart.flush()
+            elif file_handle:
+                # Write directly to file
+                file_handle.write(chunk)
+            else:
+                body += chunk
+            # Read the trailing CRLF after the chunk
+            s.read(2)
         if uart:
-            uart.write(chunk)
             uart.flush()
-        else:
-            body += chunk
-        # Read the trailing CRLF after the chunk
-        s.read(2)
-    if uart:
-        uart.flush()
-        uart.write("\n")
-        uart.write(f"[{method}/END]")
-    RESPONSE_IS_BUSY = False
+            uart.write("\n")
+            uart.write(f"[{method}/END]")
+    finally:
+        if file_handle:
+            file_handle.close()
+        RESPONSE_IS_BUSY = False
+
     return body
 
 
@@ -86,8 +111,25 @@ def request(
     timeout=None,
     parse_headers=True,
     uart=None,
+    save_to_file=None,
+    storage=None,
 ):
-    """Make an HTTP request."""
+    """Make an HTTP request.
+
+    Args:
+        method: HTTP method (GET, POST, etc.)
+        url: URL to request
+        data: Request body data
+        json_data: JSON data to send (will be serialized)
+        headers: HTTP headers dict
+        stream: Stream parameter (unused)
+        auth: Authentication tuple (username, password)
+        timeout: Request timeout in seconds
+        parse_headers: Whether to parse response headers
+        uart: UART object for streaming output
+        save_to_file: File path to save response data to (requires storage)
+        storage: Storage object for file operations
+    """
     import ssl
     import usocket
     from ujson import dumps
@@ -211,12 +253,32 @@ def request(
 
         # Read body
         if transfer_encoding == "chunked":
-            body = read_chunked(s, uart, method)
+            body = read_chunked(s, uart, method, save_to_file, storage)
         elif content_length is not None:
-            if not uart:
+            if not uart and not save_to_file:
                 body = s.read(content_length)
+            elif save_to_file and storage:
+                # Save directly to file
+                file_handle = storage.sd.open(save_to_file, "wb")
+                if file_handle is None:
+                    raise RuntimeError(
+                        f"Failed to open file for writing: {save_to_file}"
+                    )
+                try:
+                    while content_length > 0:
+                        RESPONSE_IS_BUSY = True
+                        chunk_size = min(2048, content_length)
+                        chunk = s.read(chunk_size)
+                        if not chunk:
+                            break
+                        file_handle.write(chunk)
+                        content_length -= len(chunk)
+                finally:
+                    file_handle.close()
+                    RESPONSE_IS_BUSY = False
+                body = b""
             else:
-                # Read and write in fixed-size chunks
+                # Read and write in fixed-size chunks to UART
                 uart.write(f"[{method}/SUCCESS] {method} request successful.\n")
                 while content_length > 0:
                     RESPONSE_IS_BUSY = True
@@ -233,8 +295,26 @@ def request(
                 RESPONSE_IS_BUSY = False
         else:
             # Read until the socket is closed
-            if not uart:
+            if not uart and not save_to_file:
                 body = s.read()
+            elif save_to_file and storage:
+                # Save directly to file
+                file_handle = storage.sd.open(save_to_file, "wb")
+                if file_handle is None:
+                    raise RuntimeError(
+                        f"Failed to open file for writing: {save_to_file}"
+                    )
+                try:
+                    while True:
+                        RESPONSE_IS_BUSY = True
+                        chunk = s.read(2048)
+                        if not chunk:
+                            break
+                        file_handle.write(chunk)
+                finally:
+                    file_handle.close()
+                    RESPONSE_IS_BUSY = False
+                body = b""
             else:
                 uart.write(f"[{method}/SUCCESS] {method} request successful.\n")
                 while True:
@@ -252,9 +332,27 @@ def request(
         if redirect:
             s.close()
             if status in [301, 302, 303]:
-                return request("GET", redirect, None, None, headers, stream)
+                return request(
+                    "GET",
+                    redirect,
+                    None,
+                    None,
+                    headers,
+                    stream,
+                    save_to_file=save_to_file,
+                    storage=storage,
+                )
             else:
-                return request(method, redirect, data, json_data, headers, stream)
+                return request(
+                    method,
+                    redirect,
+                    data,
+                    json_data,
+                    headers,
+                    stream,
+                    save_to_file=save_to_file,
+                    storage=storage,
+                )
         else:
             resp = Response(body)
             resp.status_code = status

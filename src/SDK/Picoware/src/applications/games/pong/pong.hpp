@@ -47,7 +47,7 @@ static void pongRun(ViewManager *viewManager)
     if (input == BUTTON_LEFT || input == BUTTON_BACK)
     {
         viewManager->back();
-        viewManager->getInputManager()->reset(true);
+        viewManager->getInputManager()->reset();
         return;
     }
 }

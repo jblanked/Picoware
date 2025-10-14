@@ -14,9 +14,6 @@ class Draw:
         # Initialize native LCD extension
         picoware_lcd.init(background)
 
-        # Create 8-bit framebuffer
-        self.fb_data = bytearray(self.size.x * self.size.y)  # 1 byte per pixel
-
         # Create RGB332 palette
         self.palette = self._create_rgb332_palette()
 
@@ -25,7 +22,7 @@ class Draw:
         self.use_background_text_color = False
 
         # Clear the display and framebuffer
-        picoware_lcd.clear_framebuffer(self.fb_data, self._rgb565_to_rgb332(background))
+        picoware_lcd.clear_framebuffer(self._rgb565_to_rgb332(background))
 
     def _create_rgb332_palette(self):
         """Create an RGB332 to RGB565 palette conversion table"""
@@ -75,13 +72,11 @@ class Draw:
 
     def _draw_pixel_to_buffer(self, position: Vector, color: int):
         """Draw a pixel to the framebuffer"""
-        picoware_lcd.draw_pixel(self.fb_data, int(position.x), int(position.y), color)
+        picoware_lcd.draw_pixel(int(position.x), int(position.y), color)
 
     def circle(self, position: Vector, radius: int, color: int = TFT_WHITE):
         """Draw a circle outline"""
-        picoware_lcd.draw_circle(
-            self.fb_data, int(position.x), int(position.y), radius, color
-        )
+        picoware_lcd.draw_circle(int(position.x), int(position.y), radius, color)
 
     def clear(
         self,
@@ -98,11 +93,6 @@ class Draw:
     def cleanup(self):
         """Cleanup all allocated buffers and free memory"""
         import gc
-
-        # Clean up framebuffer data
-        if self.fb_data is not None:
-            del self.fb_data
-            self.fb_data = None
 
         # Clean up palette
         if self.palette is not None:
@@ -126,14 +116,11 @@ class Draw:
 
     def fill_circle(self, position: Vector, radius: int, color=TFT_WHITE):
         """Draw a filled circle"""
-        picoware_lcd.fill_circle(
-            self.fb_data, int(position.x), int(position.y), radius, color
-        )
+        picoware_lcd.fill_circle(int(position.x), int(position.y), radius, color)
 
     def fill_rectangle(self, position: Vector, size: Vector, color=TFT_WHITE):
         """Draw a filled rectangle"""
         picoware_lcd.fill_rect(
-            self.fb_data,
             int(position.x),
             int(position.y),
             int(size.x),
@@ -218,7 +205,21 @@ class Draw:
 
     def fill_screen(self, color=TFT_BLACK):
         """Fill the entire screen with a color"""
-        picoware_lcd.clear_framebuffer(self.fb_data, self._rgb565_to_rgb332(color))
+        picoware_lcd.clear_framebuffer(self._rgb565_to_rgb332(color))
+
+    def fill_triangle(
+        self, point1: Vector, point2: Vector, point3: Vector, color=TFT_WHITE
+    ):
+        """Draw a filled triangle"""
+        picoware_lcd.fill_triangle(
+            int(point1.x),
+            int(point1.y),
+            int(point2.x),
+            int(point2.y),
+            int(point3.x),
+            int(point3.y),
+            color,
+        )
 
     def get_font_size(self) -> Vector:
         """Get the font size"""
@@ -334,7 +335,6 @@ class Draw:
     ):
         """Draw an image from 8-bit byte data (bytes or bytearray)"""
         picoware_lcd.draw_image_bytearray(
-            self.fb_data,
             int(position.x),
             int(position.y),
             int(size.x),
@@ -366,14 +366,11 @@ class Draw:
 
     def line(self, position: Vector, size: Vector, color=TFT_WHITE):
         """Draw horizontal line"""
-        picoware_lcd.draw_line(
-            self.fb_data, int(position.x), int(position.y), int(size.x), color
-        )
+        picoware_lcd.draw_line(int(position.x), int(position.y), int(size.x), color)
 
     def line_custom(self, point_1: Vector, point_2: Vector, color=TFT_WHITE):
         """Draw line between two points"""
         picoware_lcd.draw_line_custom(
-            self.fb_data,
             int(point_1.x),
             int(point_1.y),
             int(point_2.x),
@@ -383,7 +380,7 @@ class Draw:
 
     def pixel(self, position: Vector, color=TFT_WHITE):
         """Draw a pixel"""
-        picoware_lcd.draw_pixel(self.fb_data, int(position.x), int(position.y), color)
+        picoware_lcd.draw_pixel(int(position.x), int(position.y), color)
 
     def rect(self, position: Vector, size: Vector, color=TFT_WHITE):
         """Draw a rectangle outline on the display"""
@@ -391,11 +388,11 @@ class Draw:
             return
 
         x, y, w, h = int(position.x), int(position.y), int(size.x), int(size.y)
-        picoware_lcd.draw_line(self.fb_data, x, y, w, color)  # Top
-        picoware_lcd.draw_line(self.fb_data, x, y + h - 1, w, color)  # Bottom
-        picoware_lcd.draw_line_custom(self.fb_data, x, y, x, y + h - 1, color)  # Left
+        picoware_lcd.draw_line(x, y, w, color)  # Top
+        picoware_lcd.draw_line(x, y + h - 1, w, color)  # Bottom
+        picoware_lcd.draw_line_custom(x, y, x, y + h - 1, color)  # Left
         picoware_lcd.draw_line_custom(
-            self.fb_data, x + w - 1, y, x + w - 1, y + h - 1, color
+            x + w - 1, y, x + w - 1, y + h - 1, color
         )  # Right
 
     def reset(self):
@@ -423,16 +420,12 @@ class Draw:
         """
         Swap the front and back buffers - convert 8-bit framebuffer to display
         """
-        picoware_lcd.blit_8bit_fullscreen(self.fb_data, self.palette)
+        picoware_lcd.blit_8bit_fullscreen(self.palette)
 
     def text(self, position: Vector, text: str, color=TFT_WHITE):
         """Draw text on the display"""
-        picoware_lcd.draw_text(
-            self.fb_data, int(position.x), int(position.y), text, color
-        )
+        picoware_lcd.draw_text(int(position.x), int(position.y), text, color)
 
     def text_char(self, position: Vector, char: str, color=TFT_WHITE):
         """Draw a single character on the display"""
-        picoware_lcd.draw_char(
-            self.fb_data, int(position.x), int(position.y), ord(char), color
-        )
+        picoware_lcd.draw_char(int(position.x), int(position.y), ord(char), color)

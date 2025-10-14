@@ -46,7 +46,7 @@ static void wifiSSIDRun(ViewManager *viewManager)
     if (ssidSaveRequested || input->getLastButton() == BUTTON_BACK)
     {
         ssidSaveRequested = false;
-        input->reset(true);
+        input->reset();
         viewManager->back();
         return;
     }

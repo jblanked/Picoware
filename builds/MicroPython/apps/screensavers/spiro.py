@@ -83,7 +83,7 @@ def run(view_manager) -> None:
     if input_button == BUTTON_LEFT or input_button == BUTTON_BACK:
         view_manager.back()
         spiro_elapsed = 0
-        view_manager.get_input_manager().reset(True)
+        view_manager.get_input_manager().reset()
         return
 
     if spiro_elapsed > 10:

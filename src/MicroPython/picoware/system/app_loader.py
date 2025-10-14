@@ -16,21 +16,29 @@ class AppLoader:
         """Cleanup loaded apps on deletion"""
         self.stop()
         self.cleanup_modules()
-        self.loaded_apps.clear()
-        self.current_app = None
 
     def cleanup_modules(self):
         """Remove loaded app modules from sys.modules"""
         try:
             import sys
+            from gc import collect
 
-            apps_to_remove = []
-            for app_name in self.loaded_apps.keys():
-                if app_name in sys.modules:
-                    apps_to_remove.append(app_name)
+            # Get list of app names before clearing
+            apps_to_remove = list(self.loaded_apps.keys())
 
-            for app_name in apps_to_remove:
-                del sys.modules[app_name]
+            # Clear our references first
+            self.loaded_apps.clear()
+            self.current_app = None
+
+            # Remove from sys.modules
+            for cache_key in apps_to_remove:
+                module_name = cache_key.split("/")[-1]
+                if module_name in sys.modules:
+                    del sys.modules[module_name]
+
+            # Force garbage collection
+            collect()
+
         except Exception as e:
             print("Error cleaning up modules: {}".format(e))
 
@@ -111,12 +119,6 @@ class AppLoader:
             return None
         except Exception as e:
             print(f"Error loading app {app_name}: {type(e).__name__}: {e}")
-            try:
-                import sys
-
-                sys.print_exception(e)
-            except:
-                pass
             return None
 
     def run(self):

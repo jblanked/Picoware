@@ -76,28 +76,41 @@ class ViewManager:
 
     def __del__(self):
         """Destructor to clean up resources."""
-        import gc
+        from gc import collect
 
         # Clean up views
         for i in range(self.MAX_VIEWS):
             if self.views[i] is not None:
                 del self.views[i]
 
+        if self.current_view:
+            del self.current_view
+            self.current_view = None
+
         # Clean up other resources
         if self.keyboard:
             del self.keyboard
+            self.keyboard = None
         if self.draw:
             del self.draw
+            self.draw = None
         if self.input_manager:
             del self.input_manager
+            self.input_manager = None
         if self.storage:
             del self.storage
+            self.storage = None
         if self.led:
             del self.led
+            self.led = None
         if self.wifi:
             del self.wifi
+            self.wifi = None
+        if self.time:
+            del self.time
+            self.time = None
 
-        gc.collect()
+        collect()
 
     def add(self, view):
         """
@@ -116,7 +129,12 @@ class ViewManager:
         self.view_count += 1
         return True
 
-    def back(self, remove_current_view=True):
+    def back(
+        self,
+        remove_current_view: bool = True,
+        should_clear: bool = True,
+        should_start: bool = True,
+    ):
         """
         Navigate back to the previous view in the stack.
 
@@ -133,7 +151,8 @@ class ViewManager:
             # Stop current view
             if self.current_view is not None:
                 self.current_view.stop(self)
-                self.clear()
+                if should_clear:
+                    self.clear()
 
             # Pop from stack and set as current view
             self.stack_depth -= 1
@@ -142,10 +161,11 @@ class ViewManager:
 
             # Start the previous view
             if self.current_view is not None:
-                if not self.current_view.start(self):
-                    # If the previous view fails to start, try going back again
-                    self.back(False)
-                    return
+                if should_start:
+                    if not self.current_view.start(self):
+                        # If the previous view fails to start, try going back again
+                        self.back(False, should_clear, should_start)
+                        return
 
             # Remove the view if requested
             if view_to_remove is not None:
@@ -231,15 +251,13 @@ class ViewManager:
                 break
 
     def run(self):
-        """Run the current view and handle input."""
-        if self.input_manager is not None:
-            self.input_manager.run()
-
-        if self.delay_ticks > 0:
-            if self.delay_elapsed < self.delay_ticks:
-                self.delay_elapsed += self.delay_ticks
-                return  # Skip this run cycle if delay not met
-            self.delay_elapsed = 0  # Reset delay elapsed after running
+        """Run the current view."""
+        if self.input_manager.button == 80:  # BUTTON_HOME
+            while self.stack_depth > 0:
+                if self.stack_depth == 1:
+                    self.back(should_clear=True, should_start=True)
+                else:
+                    self.back(should_clear=False, should_start=False)
 
         if self.current_view is not None:
             self.current_view.run(self)

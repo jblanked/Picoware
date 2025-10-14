@@ -48,17 +48,17 @@ static void wifiRun(ViewManager *viewManager)
     {
     case BUTTON_UP:
         wifi->scrollUp();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_DOWN:
         wifi->scrollDown();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_LEFT:
     case BUTTON_BACK:
         viewManager->back();
         wifiIndex = 0;
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_RIGHT:
     case BUTTON_CENTER:
@@ -105,7 +105,7 @@ static void wifiRun(ViewManager *viewManager)
         default:
             break;
         }
-        inputManager->reset(true);
+        inputManager->reset();
     }
     break;
     default:

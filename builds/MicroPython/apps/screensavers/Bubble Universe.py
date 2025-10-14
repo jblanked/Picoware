@@ -231,7 +231,7 @@ def run(view_manager) -> None:
 
     if input_button in (BUTTON_LEFT, BUTTON_BACK):
         view_manager.back()
-        input_manager.reset(True)
+        input_manager.reset()
         return
 
     global speed, animation_time, old_time, fps

@@ -56,22 +56,22 @@ static void libraryRun(ViewManager *viewManager)
     {
     case BUTTON_UP:
         library->scrollUp();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_DOWN:
         library->scrollDown();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_LEFT:
     case BUTTON_BACK:
         libraryIndex = 0;
         viewManager->back();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_RIGHT:
     case BUTTON_CENTER:
     {
-        inputManager->reset(true);
+        inputManager->reset();
         auto currentItem = library->getCurrentItem();
         libraryIndex = library->getSelectedIndex();
         if (strcmp(currentItem, "Applications") == 0)

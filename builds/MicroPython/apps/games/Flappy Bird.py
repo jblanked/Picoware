@@ -365,6 +365,11 @@ class BIRD:
         self.gravity: float = 0.0
         self.point: POINT = POINT()
 
+    def __del__(self):
+        if self.point:
+            del self.point
+            self.point = None
+
 
 class PILAR:
     def __init__(self):
@@ -372,6 +377,11 @@ class PILAR:
         self.height: int = 0
         self.visible: int = 0
         self.passed: bool = False
+
+    def __del__(self):
+        if self.point:
+            del self.point
+            self.point = None
 
 
 class GameState:
@@ -381,6 +391,16 @@ class GameState:
         self.pilars_count: int = 0
         self.pilars: list[PILAR] = [PILAR() for _ in range(FLAPPY_PILAR_MAX)]
         self.state: int = GAME_STATE_LIFE
+
+    def __del__(self):
+        if self.bird:
+            del self.bird
+            self.bird = None
+        if self.pilars:
+            for pilar in self.pilars:
+                if pilar:
+                    del pilar
+            self.pilars = None
 
 
 _game_state: GameState = None
@@ -656,7 +676,7 @@ def run(view_manager) -> None:
     button: int = input_manager.get_last_button()
 
     if button == BUTTON_BACK:
-        input_manager.reset(True)
+        input_manager.reset()
         view_manager.back()
 
 

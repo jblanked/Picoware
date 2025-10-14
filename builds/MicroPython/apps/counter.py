@@ -54,18 +54,18 @@ def run(view_manager) -> None:
     button = input_manager.get_last_button()
 
     if button in (BUTTON_BACK, BUTTON_LEFT):
-        input_manager.reset(True)
+        input_manager.reset()
         view_manager.back()
     elif button == BUTTON_UP:
-        input_manager.reset(True)
+        input_manager.reset()
         _counter_value += 1
         _update_display()
     elif button == BUTTON_DOWN:
-        input_manager.reset(True)
+        input_manager.reset()
         _counter_value -= 1
         _update_display()
     elif button == BUTTON_CENTER:
-        input_manager.reset(True)
+        input_manager.reset()
         _counter_value = 0
         _update_display()
 

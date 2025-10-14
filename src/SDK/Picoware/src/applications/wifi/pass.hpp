@@ -45,7 +45,7 @@ static void wifiPasswordRun(ViewManager *viewManager)
     if (passwordSaveRequested || input->getLastButton() == BUTTON_BACK)
     {
         passwordSaveRequested = false;
-        input->reset(true);
+        input->reset();
         viewManager->back();
         return;
     }

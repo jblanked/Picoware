@@ -26,6 +26,10 @@ class EasySD:
             self.unmount()
         if self.spi:
             self.spi.deinit()
+            self.spi = None
+        if self.sd:
+            del self.sd
+            self.sd = None
 
     def open(self, file_path: str, mode: str):
         """Open a file using a context manager."""
@@ -79,13 +83,13 @@ class EasySD:
             print(f"General Error during unmounting: {e}")
             return False
 
-    def write(self, file_path: str, data: str) -> bool:
+    def write(self, file_path: str, data: str, mode: str = "w") -> bool:
         """Write data to a file. If the file does not exist, it will be created."""
         if not self.is_mounted and self.auto_mount:
             if not self.mount():
                 return False
         try:
-            with open(f"/sd/{file_path}", "w") as f:
+            with open(f"/sd/{file_path}", mode) as f:
                 f.write(data)
             if self.auto_mount:
                 self.unmount()
@@ -98,14 +102,14 @@ class EasySD:
             self.unmount()
         return False
 
-    def read(self, file_path: str) -> str:
+    def read(self, file_path: str, mode: str = "r") -> str:
         """Read data from a file."""
         returned_data = ""
         if not self.is_mounted and self.auto_mount:
             if not self.mount():
                 return returned_data
         try:
-            with open(f"/sd/{file_path}", "r") as f:
+            with open(f"/sd/{file_path}", mode) as f:
                 returned_data = f.read()
         except OSError as e:
             print(f"Error occurred while reading: {self.os_error(e)}")

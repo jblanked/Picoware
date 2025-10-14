@@ -1,9 +1,10 @@
 _about = None
-_about_text = (
+
+_ABOUT_TEXT = (
     "Picoware\n"
-    "Version: 1.0.0\n"
+    "Version: 1.4.9\n"
     "A custom firmware for the PicoCalc, Video Game Module, and other Raspberry Pi Pico devices, originally created by JBlanked on 2025-05-13.\n"
-    "This firmware was made with Arduino IDE/C++ and is open source on GitHub. Developers are welcome to contribute.\n"
+    "This firmware was made with MicroPython and is open source on GitHub. Developers are welcome to contribute.\n"
     "Picoware is a work in progress and is not yet complete. Some features may not work as expected. Picoware is not affiliated with ClockworkPI, the Raspberry Pi Foundation, or any other organization.\n"
     "Discord: https://discord.gg/5aN9qwkEc6\n"
     "GitHub: https://www.github.com/jblanked/Picoware\n"
@@ -24,7 +25,7 @@ def start(view_manager) -> bool:
             view_manager.get_foreground_color(),
             view_manager.get_background_color(),
         )
-        _about.set_text(_about_text)
+        _about.set_text(_ABOUT_TEXT)
     return True
 
 
@@ -45,13 +46,13 @@ def run(view_manager) -> None:
     button: int = input_manager.get_last_button()
 
     if button in (BUTTON_LEFT, BUTTON_BACK):
-        input_manager.reset(True)
+        input_manager.reset()
         view_manager.back()
     elif button == BUTTON_DOWN:
-        input_manager.reset(True)
+        input_manager.reset()
         _about.scroll_down()
     elif button == BUTTON_UP:
-        input_manager.reset(True)
+        input_manager.reset()
         _about.scroll_up()
 
 

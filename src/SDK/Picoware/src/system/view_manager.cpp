@@ -220,19 +220,6 @@ void ViewManager::remove(const char *viewName)
 
 void ViewManager::run()
 {
-    if (this->inputManager != nullptr)
-    {
-        this->inputManager->run();
-    }
-    if (delayTicks > 0)
-    {
-        if (this->delayElapsed < delayTicks)
-        {
-            this->delayElapsed += delayTicks;
-            return; // Skip this run cycle if delay not met
-        }
-        this->delayElapsed = 0; // Reset delay elapsed after running
-    }
     if (this->currentView != nullptr)
     {
         this->currentView->run(this);
@@ -314,4 +301,57 @@ void ViewManager::clearStack()
         this->viewStack[i] = nullptr;
     }
     this->stackDepth = 0;
+}
+
+const char *ViewManager::getTime()
+{
+    // Static variables to track last successful time update and error state
+    static uint32_t lastSuccessfulUpdate = 0;
+    static uint32_t lastFailedAttempt = 0;
+    static char timeBuffer[9] = {0};                    // Buffer for formatted time string (HH:MM:SS)
+    static const uint32_t MIN_RETRY_INTERVAL_MS = 5000; // Don't retry more than once per 5 seconds
+    static const uint32_t ERROR_COOLDOWN_MS = 30000;    // Wait 30 seconds after errors before retrying
+
+    if (!wifi.isConnected())
+    {
+        return nullptr;
+    }
+
+    uint32_t currentTime = to_ms_since_boot(get_absolute_time());
+
+    // If we recently failed, wait before retrying
+    if (lastFailedAttempt > 0 && (currentTime - lastFailedAttempt) < ERROR_COOLDOWN_MS)
+    {
+        return timeBuffer[0] != 0 ? timeBuffer : nullptr;
+    }
+
+    // If we recently succeeded, don't make another request too soon
+    if (lastSuccessfulUpdate > 0 && (currentTime - lastSuccessfulUpdate) < MIN_RETRY_INTERVAL_MS)
+    {
+        // Just use the current system time
+        time_t now = time(nullptr);
+        if (now > 946684800) // Valid time (after year 2000)
+        {
+            struct tm timeinfo;
+            localtime_r(&now, &timeinfo);
+            sprintf(timeBuffer, "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+            return timeBuffer;
+        }
+    }
+
+    // Try to get/update time from NTP
+    struct tm timeinfo;
+    if (wifi.setTime(timeinfo, 5000))
+    {
+        sprintf(timeBuffer, "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+        lastSuccessfulUpdate = currentTime;
+        lastFailedAttempt = 0; // Reset failure tracking
+        return timeBuffer;
+    }
+    else
+    {
+        // Failed to get time - mark this attempt and return last known time if available
+        lastFailedAttempt = currentTime;
+        return timeBuffer[0] != 0 ? timeBuffer : nullptr;
+    }
 }

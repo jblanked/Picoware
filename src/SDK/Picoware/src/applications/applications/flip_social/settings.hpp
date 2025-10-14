@@ -42,20 +42,20 @@ static void flipSocialSettingsRun(ViewManager *viewManager)
     {
     case BUTTON_UP:
         flipSocialSettings->scrollUp();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_DOWN:
         flipSocialSettings->scrollDown();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_LEFT:
     case BUTTON_BACK:
         viewManager->back();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_RIGHT:
     case BUTTON_CENTER:
-        inputManager->reset(true);
+        inputManager->reset();
         switch (flipSocialSettings->getSelectedIndex())
         {
         case 0: // Change User

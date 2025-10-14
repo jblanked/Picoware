@@ -37,26 +37,26 @@ static void aboutRun(ViewManager *viewManager)
     case BUTTON_BACK:
     {
         viewManager->back();
-        inputManager->reset(true);
+        inputManager->reset();
         return;
     }
     case BUTTON_DOWN:
     {
         aboutBox->scrollDown();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     }
     case BUTTON_UP:
     {
         aboutBox->scrollUp();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     }
     case BUTTON_RIGHT:
     case BUTTON_CENTER:
     {
         aboutBox->setText(aboutText().c_str());
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     }
     default:

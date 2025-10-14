@@ -49,21 +49,22 @@ static void applicationsRun(ViewManager *viewManager)
     {
     case BUTTON_UP:
         applications->scrollUp();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_DOWN:
         applications->scrollDown();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_LEFT:
     case BUTTON_BACK:
         applicationsIndex = 0;
         viewManager->back();
-        inputManager->reset(true);
+        inputManager->reset();
         break;
     case BUTTON_RIGHT:
     case BUTTON_CENTER:
     {
+        inputManager->reset();
         const char *currentItem = applications->getCurrentItem();
         applicationsIndex = applications->getSelectedIndex();
 // if (strcmp(currentItem, "File Browser") == 0)
@@ -104,7 +105,6 @@ static void applicationsRun(ViewManager *viewManager)
             return;
         }
 #endif
-        inputManager->reset(true);
         break;
     }
     default:

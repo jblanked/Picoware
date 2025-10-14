@@ -31,7 +31,7 @@ def _start_editor(view_manager, filename=None):
     terminal.dryBuffer()
 
     # Also reset input manager to clear any queued inputs
-    view_manager.get_input_manager().reset(True)
+    view_manager.get_input_manager().reset()
 
     try:
         from picoware.system.drivers.pye import pye_edit
@@ -66,7 +66,7 @@ def _start_editor(view_manager, filename=None):
         print(f"Unexpected editor error: {e}")
     finally:
         _editor_is_running = False
-        view_manager.get_input_manager().reset(True)
+        view_manager.get_input_manager().reset()
         view_manager.back()
 
 
@@ -135,7 +135,7 @@ def run(view_manager) -> None:
     button = input_manager.get_last_button()
 
     if button == BUTTON_BACK:
-        input_manager.reset(True)
+        input_manager.reset()
         _editor_is_running = False
         _filename_requested = False
         _editor_mode = False

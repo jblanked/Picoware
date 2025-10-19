@@ -57,6 +57,39 @@ def stop(view_manager):
     collect()
 ```
 
+## Testing in Thonny IDE
+You can test your application in the Thonny IDE by simulating the `view_manager` object. Here's a simple way to create a mock `view_manager` for testing purposes:
+
+```python
+
+# your start, run, stop functions here
+
+# add this at the bottom of your app for testing
+from picoware.system.view_manager import ViewManager
+from picoware.system.view import View
+
+vm = None
+
+try:
+    vm = ViewManager()
+    vm.add(
+        View(
+            "app_tester",
+            run,
+            start,
+            stop,
+        )
+    )
+    vm.switch_to("app_tester")
+    while True:
+        vm.run()
+except Exception as e:
+    print("Error during testing:", e)
+finally:
+    del vm
+    vm = None
+```
+
 ## Best Practices
 
 1. Always handle BACK/LEFT buttons to allow users to exit

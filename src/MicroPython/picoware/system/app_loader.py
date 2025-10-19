@@ -18,23 +18,24 @@ class AppLoader:
         self.cleanup_modules()
 
     def cleanup_modules(self):
-        """Remove loaded app modules from sys.modules"""
+        """Remove all app modules from sys.modules"""
         try:
             import sys
             from gc import collect
-
-            # Get list of app names before clearing
-            apps_to_remove = list(self.loaded_apps.keys())
 
             # Clear our references first
             self.loaded_apps.clear()
             self.current_app = None
 
-            # Remove from sys.modules
-            for cache_key in apps_to_remove:
-                module_name = cache_key.split("/")[-1]
-                if module_name in sys.modules:
-                    del sys.modules[module_name]
+            # Remove ALL modules from the apps directory
+            modules_to_delete = []
+            for mod_name, mod in list(sys.modules.items()):
+                if hasattr(mod, "__file__") and mod.__file__:
+                    if "/sd/picoware/apps/" in mod.__file__:
+                        modules_to_delete.append(mod_name)
+
+            for mod_name in modules_to_delete:
+                del sys.modules[mod_name]
 
             # Force garbage collection
             collect()

@@ -409,7 +409,8 @@ class Editor:
         )
         self.clear_to_eol()
         self.hilite(0)
-        self.goto(self.row, self.vcol - self.margin)
+        cursor_row = self.row + 1 if self.row + 1 < Editor.height else self.row
+        self.goto(cursor_row, self.vcol - self.margin)
         self.cursor(True)
 
         self.io_device.end_batch()

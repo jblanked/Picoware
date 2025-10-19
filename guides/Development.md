@@ -1,6 +1,6 @@
 # Development
 
-The firmware is available for the Arduino IDE (C++), CircuitPython, and C/C++ (using the official SDK). Each environment offers similar configurations, methods, and functionalities to ensure a smooth development experience.
+The firmware is available for MicroPython, the Arduino IDE (C++), CircuitPython, and C/C++ (using the official SDK). Each environment offers similar configurations, methods, and functionalities to ensure a smooth development experience.
 
 ### C/C++ SDK
 
@@ -96,28 +96,28 @@ git submodule update --init
 make -C mpy-cross
 ```
 3. Download this repository as a .zip file (available here: https://github.com/jblanked/Picoware/archive/refs/heads/main.zip).
-4. In the `src/MicroPython` folder, copy the `main.py` file and the entire `picoware` and `picoware_lcd` folders into `~/pico/micropython/ports/rp2/modules`
+4. Unzip the archive, then in the `src/MicroPython` folder, copy the `main.py` file, `picoware_modules.cmake` file, `picoware` folder, `picoware_keyboard` folder, `picoware_lcd` folder, and `picoware_psram` into `~/pico/micropython/ports/rp2/modules`
 5. Now, build the MicroPython firmware with:
 ```
 # Pico
 cd ~/pico/micropython/ports/rp2
 make clean
-make BOARD=RPI_PICO USER_C_MODULES=~/pico/micropython/ports/rp2/modules/picoware_lcd/micropython.cmake
+make BOARD=RPI_PICO USER_C_MODULES=/Users/user/pico/micropython/ports/rp2/modules/picoware_modules.cmake
 
 # Pico W
 cd ~/pico/micropython/ports/rp2
 make clean
-make BOARD=RPI_PICO_W USER_C_MODULES=~/pico/micropython/ports/rp2/modules/picoware_lcd/micropython.cmake
+make BOARD=RPI_PICO_W USER_C_MODULES=/Users/user/pico/micropython/ports/rp2/modules/picoware_modules.cmake
 
 # Pico 2
 cd ~/pico/micropython/ports/rp2
 make clean
-make BOARD=RPI_PICO2 USER_C_MODULES=~/pico/micropython/ports/rp2/modules/picoware_lcd/micropython.cmake
+make BOARD=RPI_PICO2 USER_C_MODULES=/Users/user/pico/micropython/ports/rp2/modules/picoware_modules.cmake
 
 # Pico 2W
 cd ~/pico/micropython/ports/rp2
 make clean
-make BOARD=RPI_PICO2_W USER_C_MODULES=~/pico/micropython/ports/rp2/modules/picoware_lcd/micropython.cmake
+make BOARD=RPI_PICO2_W USER_C_MODULES=/Users/user/pico/micropython/ports/rp2/modules/picoware_modules.cmake
 ```
 
 ### CircuitPython

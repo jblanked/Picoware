@@ -22,6 +22,16 @@ class Loading:
         self.span = 280  # degrees of arc
         self.step = 5  # degrees between segments (280/5 = 56 segments)
 
+    @property
+    def text(self) -> str:
+        """Get the current loading text."""
+        return self.current_text
+
+    @text.setter
+    def text(self, value: str) -> None:
+        """Set the current loading text."""
+        self.current_text = value
+
     def animate(self, swap: bool = True) -> None:
         """Animate the loading spinner."""
         from math import cos, sin
@@ -37,6 +47,10 @@ class Loading:
         screen_size = self.display.size
         center_x = screen_size.x // 2
         center_y = screen_size.y // 2
+
+        # Calculate centered text position
+        text_width = len(self.current_text) * 6  # 6 pixels per character
+        text_x = (screen_size.x - text_width) // 2
 
         # Draw spinner
         start_angle = self.spinner_position
@@ -59,7 +73,7 @@ class Loading:
             self.display.line_custom(Vector(x1, y1), Vector(x2, y2), color)
 
         # Draw text directly to framebuffer
-        self.display.text(Vector(130, 20), self.current_text, self.spinner_color)
+        self.display.text(Vector(text_x, 20), self.current_text, self.spinner_color)
 
         # Single swap
         if swap:

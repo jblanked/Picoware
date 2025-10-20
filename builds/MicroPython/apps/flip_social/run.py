@@ -1681,6 +1681,7 @@ class FlipSocialRun:
             "Setting": "X-Flipper-Redirect",
             "username": username,
             "password": password,
+            "User-Agent": "Raspberry Pi Pico W",
         }
 
         # Handle different request types

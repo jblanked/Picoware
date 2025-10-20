@@ -102,6 +102,39 @@ class Storage:
             if not self.sd.auto_mount and self._mounted:
                 self.unmount()
 
+    def read_chunked(
+        self, file_path: str, start: int = 0, chunk_size: int = 1024
+    ) -> bytes:
+        """
+        Read a chunk of data from a file without loading the entire file.
+
+        :param str file_path: Path to the file to read
+        :param int start: Starting byte position (offset) in the file
+        :param int chunk_size: Number of bytes to read from the start position
+        :return bytes: The chunk of data read from the file
+        """
+        # Handle mounting if needed
+        if not self.sd.is_mounted and not self.sd.auto_mount:
+            if not self.mount():
+                return b""
+
+        file_handle = self.sd.open(file_path, "rb")  # Open in binary mode
+        if file_handle is None:
+            return b""
+
+        try:
+            with file_handle as f:
+                # Seek to the starting position
+                f.seek(start)
+                # Read only the requested chunk
+                return f.read(chunk_size)
+        except Exception as e:
+            print(f"Error reading chunk from file {file_path}: {e}")
+            return b""
+        finally:
+            if not self.sd.auto_mount and self._mounted:
+                self.unmount()
+
     def remove(self, file_path: str) -> bool:
         """Remove a file."""
         return self.sd.remove(file_path)

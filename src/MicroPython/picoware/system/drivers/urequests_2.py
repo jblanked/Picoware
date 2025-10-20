@@ -20,10 +20,14 @@ class Response:
         self.reason = ""
         self.headers = {}
 
+    def __del__(self):
+        self.close()
+
     def close(self):
         self.content = None
         self.text = None
         self._json = None
+        self.headers = None
 
     def json(self):
         from ujson import loads

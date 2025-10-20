@@ -61,6 +61,8 @@ def start(view_manager) -> bool:
 
     _textbox.set_text(response.json().get("fact", "No fact found"))
 
+    response.close()
+
     return True
 
 

@@ -41,6 +41,18 @@ class List:
         self.items = []
         draw.swap()
 
+    def __del__(self):
+        if self.scrollbar:
+            del self.scrollbar
+            self.scrollbar = None
+        if self.size:
+            del self.size
+            self.size = None
+        if self.position:
+            del self.position
+            self.position = None
+        self.items = []
+
     def add_item(self, item: str, update_view: bool = False) -> None:
         """Add an item to the list and update the display."""
         # Add an item to the list

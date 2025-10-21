@@ -23,6 +23,8 @@ class Storage:
             del self.sd
             self.sd = None
 
+        self._mounted = False
+
     def deserialize(self, json_dict: dict, file_path: str) -> None:
         """Deserialize a JSON object and write it to a file."""
         from json import dump

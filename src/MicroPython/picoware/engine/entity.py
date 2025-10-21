@@ -140,6 +140,24 @@ class Entity:
         if self.sprite_3d:
             del self.sprite_3d
             self.sprite_3d = None
+        if self._position:
+            del self._position
+            self._position = None
+        if self._old_position:
+            del self._old_position
+            self._old_position = None
+        if self.direction:
+            del self.direction
+            self.direction = None
+        if self.plane:
+            del self.plane
+            self.plane = None
+        if self.start_position:
+            del self.start_position
+            self.start_position = None
+        if self.end_position:
+            del self.end_position
+            self.end_position = None
 
     @property
     def has_3d_sprite(self) -> bool:

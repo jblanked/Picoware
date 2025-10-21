@@ -41,6 +41,15 @@ class Toggle:
 
         self.clear()
 
+    def __del__(self):
+        if self.position:
+            del self.position
+            self.position = None
+        if self.size:
+            del self.size
+            self.size = None
+        self.text = ""
+
     def clear(self) -> None:
         """Clear the toggle area with the background color."""
         self.display.clear(self.position, self.size, self.background_color)

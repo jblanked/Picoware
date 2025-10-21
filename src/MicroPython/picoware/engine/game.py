@@ -54,6 +54,22 @@ class Game:
             del self.current_level
             self.current_level = None
 
+        if self.camera:
+            del self.camera
+            self.camera = None
+        if self.position:
+            del self.position
+            self.position = None
+        if self.size:
+            del self.size
+            self.size = None
+        if self.world_size:
+            del self.world_size
+            self.world_size = None
+
+        self.name = ""
+        self.input = -1
+
     @property
     def perspective(self) -> int:
         """Get the camera perspective"""

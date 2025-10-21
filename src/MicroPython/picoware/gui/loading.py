@@ -22,6 +22,13 @@ class Loading:
         self.span = 280  # degrees of arc
         self.step = 5  # degrees between segments (280/5 = 56 segments)
 
+    def __del__(self):
+        self.current_text = ""
+        self.animating = False
+        self.time_elapsed = 0
+        self.time_start = 0
+        self.spinner_position = 0
+
     @property
     def text(self) -> str:
         """Get the current loading text."""

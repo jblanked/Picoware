@@ -92,15 +92,19 @@ class Draw:
 
     def cleanup(self):
         """Cleanup all allocated buffers and free memory"""
-        import gc
+        from gc import collect
 
         # Clean up palette
         if self.palette is not None:
             del self.palette
             self.palette = None
 
+        if self.size:
+            del self.size
+            self.size = None
+
         # Force garbage collection
-        gc.collect()
+        collect()
 
     def color332(self, color: int) -> int:
         """Convert RGB565 to RGB332 color format"""

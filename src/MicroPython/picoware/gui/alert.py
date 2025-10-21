@@ -17,6 +17,11 @@ class Alert:
         self.text_color = text_color
         self.background_color = background_color
 
+    def __del__(self):
+        self.text = ""
+        self.text_color = 0
+        self.background_color = 0
+
     def clear(self) -> None:
         """Clear the display with the background color."""
         from picoware.system.vector import Vector

@@ -135,6 +135,10 @@ class Keyboard:
         self.just_stopped = False
         self.current_title = "Enter Text"
 
+    def __del__(self):
+        self.reset()
+        self.current_title = ""
+
     @property
     def is_finished(self) -> bool:
         """Returns whether the keyboard is finished"""

@@ -164,11 +164,10 @@ class Level:
                         # First person: render from player's own perspective
                         if entity.is_player:
                             # Use entity's own direction and plane for rendering
-                            entity.render3DSprite(
+                            entity.render_3d_sprite(
                                 self.game.draw,
                                 entity.position,
                                 entity.direction,
-                                entity.plane,
                                 1.5,
                                 screen_size,
                             )

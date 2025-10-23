@@ -535,6 +535,15 @@ class HTTP:
             self._async_request_complete = True
             self._async_request_in_progress = False
             self._state = HTTP_ISSUE
+            if self._async_thread:
+                try:
+                    # Clean up thread if it exists
+                    self._async_thread = None
+                    import _thread
+
+                    _thread.exit()
+                except AttributeError:
+                    pass
             return False
 
     def __execute_request(

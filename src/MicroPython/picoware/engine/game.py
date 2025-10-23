@@ -94,14 +94,26 @@ class Game:
 
     def level_switch(self, level):
         """Switch to a new level"""
-        if not level:
-            print("Level is not valid.")
-            return
-        if self.current_level:
-            self.current_level.stop()
+        if isinstance(level, int):
+            if level > len(self.levels) - 1:
+                print("Level index out of range")
+                return
+            if self.current_level:
+                self.current_level.stop()
 
-        self.current_level = level
-        self.current_level.start()
+            self.current_level = self.levels[level]
+            self.current_level.start()
+        elif isinstance(level, str):
+            for l in self.levels:
+                if l.name == level:
+                    if self.current_level:
+                        self.current_level.stop()
+
+                    self.current_level = l
+                    self.current_level.start()
+                    return
+        else:
+            print("Invalid level type. Must be int or str.")
 
     def render(self):
         """Render the current level"""

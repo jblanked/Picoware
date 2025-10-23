@@ -1,5 +1,4 @@
 from micropython import const
-from picoware.system.vector import Vector
 
 CAMERA_FIRST_PERSON = const(0)
 CAMERA_THIRD_PERSON = const(1)
@@ -13,7 +12,7 @@ class Level:
     def __init__(
         self,
         name: str,
-        size: Vector,
+        size,
         game,
         start=None,  # start is a function that is called when the level is created
         stop=None,  # stop is a function that is called when the level is destroyed
@@ -37,6 +36,9 @@ class Level:
 
     def __del__(self):
         self.clear()
+        del self.size
+        self.size = None
+        self.name = None
 
     @property
     def clear_allowed(self) -> bool:
@@ -90,6 +92,8 @@ class Level:
 
     def render(self, perspective=CAMERA_FIRST_PERSON, camera_params=None):
         """Render the level"""
+        from picoware.system.vector import Vector
+
         if self._clear_allowed:
             self.game.draw.clear(
                 Vector(0, 0), self.game.size, self.game.background_color
@@ -165,7 +169,6 @@ class Level:
                         if entity.is_player:
                             # Use entity's own direction and plane for rendering
                             entity.render_3d_sprite(
-                                self.game.draw,
                                 entity.position,
                                 entity.direction,
                                 1.5,
@@ -181,7 +184,6 @@ class Level:
                                     break
                             if player is not None:
                                 entity.render_3d_sprite(
-                                    self.game.draw,
                                     player.position,
                                     player.direction,
                                     1.5,
@@ -191,7 +193,6 @@ class Level:
                     elif perspective == CAMERA_THIRD_PERSON and camera_params:
                         # Third person: render ALL entities (including player) from the external camera perspective
                         entity.render_3d_sprite(
-                            self.game.draw,
                             camera_params.position,
                             camera_params.direction,
                             camera_params.height,

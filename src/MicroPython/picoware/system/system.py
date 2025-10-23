@@ -71,6 +71,26 @@ class System:
 
         reset()
 
+    def shutdown_device(self, view_manager=None):
+        """Shutdown the device."""
+        from picoware_southbridge import is_power_off_supported, write_power_off_delay
+
+        if is_power_off_supported():
+
+            if view_manager:
+                from picoware.gui.alert import Alert
+
+                draw = view_manager.get_draw()
+                draw.clear()
+                alert = Alert(
+                    view_manager.get_draw(),
+                    "The device will power off in 5 seconds...",
+                    view_manager.get_foreground_color(),
+                    view_manager.get_background_color(),
+                )
+                alert.draw("Warning")
+                write_power_off_delay(0)
+
     def soft_reset(self):
         """Reboot the system without resetting the hardware."""
         from machine import soft_reset

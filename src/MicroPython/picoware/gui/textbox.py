@@ -53,8 +53,15 @@ class TextBox:
         self.line_positions = []
         self.total_lines = 0
         # Reset scrollbar
-        del self.scrollbar
-        self.scrollbar = None
+        if self.scrollbar:
+            del self.scrollbar
+            self.scrollbar = None
+        if self.position:
+            del self.position
+            self.position = None
+        if self.size:
+            del self.size
+            self.size = None
 
     @property
     def text(self) -> str:

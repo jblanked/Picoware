@@ -33,21 +33,25 @@ def _get_status_text(view_manager) -> str:
             )
             _wifi_saved = True
     else:
-        state = wifi.status()
-        from picoware.system.wifi import WiFiState
+        from picoware.system.wifi import (
+            WIFI_STATE_IDLE,
+            WIFI_STATE_CONNECTING,
+            WIFI_STATE_CONNECTED,
+            WIFI_STATE_TIMEOUT,
+        )
 
-        if state == WiFiState.IDLE:
+        state = wifi.status()
+
+        if state == WIFI_STATE_IDLE:
             text += "Ready to connect\n\n"
-        elif state == WiFiState.CONNECTING:
+        elif state == WIFI_STATE_CONNECTING:
             from utime import ticks_ms
 
             elapsed = (ticks_ms() - wifi.connection_start_time) // 1000
-            text += "Connecting... (" + str(elapsed) + "s)\n\n"
-        elif state == WiFiState.CONNECTED:
+            text += f"Connecting... ({elapsed}s)\n\n"
+        elif state == WIFI_STATE_CONNECTED:
             text += "Connected!\n\n"
-        elif state == WiFiState.FAILED:
-            text += "Connection failed\n\n"
-        elif state == WiFiState.TIMEOUT:
+        elif state == WIFI_STATE_TIMEOUT:
             text += "Connection timeout\n\n"
 
     text += "Press RIGHT to connect\n"
@@ -90,7 +94,7 @@ def start(view_manager) -> bool:
         _last_update = 0
         _connection_start_time = 0
         _status_message = (
-            "Connected" if view_manager.get_wifi().is_connected() else "Initialized"
+            "Connected" if view_manager.get_wifi().is_connected() else "Disconnected"
         )
         _connect.set_text(_get_status_text(view_manager))
     return True
@@ -98,14 +102,18 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run the app."""
+    from utime import ticks_ms
     from picoware.system.buttons import (
         BUTTON_BACK,
         BUTTON_LEFT,
         BUTTON_UP,
         BUTTON_RIGHT,
     )
-    from picoware.system.wifi import WiFiState
-    from utime import ticks_ms
+    from picoware.system.wifi import (
+        WIFI_STATE_CONNECTED,
+        WIFI_STATE_TIMEOUT,
+        WIFI_STATE_ISSUE,
+    )
 
     global _connect
     if _connect is None:
@@ -133,24 +141,14 @@ def run(view_manager) -> None:
         input_manager.reset()
     elif button == BUTTON_RIGHT:
         input_manager.reset()
-        state = wifi.status()
-        if state == WiFiState.IDLE:
-            _status_message = "Starting connection..."
-            if wifi.connect(_ssid, _password, sta_mode=True, is_async=True):
-                _connection_initiated = True
-                _connection_start_time = wifi.connection_start_time
-                _status_message = "Connecting..."
-            else:
-                _status_message = "Failed to start connection"
-        elif state in (WiFiState.FAILED, WiFiState.TIMEOUT):
-            wifi.reset()
-            _status_message = "Retrying..."
-            if wifi.connect(_ssid, _password, sta_mode=True, is_async=True):
-                _connection_initiated = True
-                _connection_start_time = wifi.connection_start_time
-                _status_message = "Connecting..."
-            else:
-                _status_message = "Failed to start connection"
+        wifi.reset()
+        _status_message = "Starting connection..."
+        if wifi.connect(_ssid, _password, sta_mode=True, is_async=True):
+            _connection_initiated = True
+            _connection_start_time = wifi.connection_start_time
+            _status_message = "Connecting..."
+        else:
+            _status_message = "Failed to start connection"
 
     if _connection_initiated:
         # call update to advance the connection process
@@ -159,13 +157,13 @@ def run(view_manager) -> None:
         # update status based on current state
         state = wifi.status()
 
-        if state == WiFiState.CONNECTED:
+        if state == WIFI_STATE_CONNECTED:
             _status_message = "Connected successfully!"
             _connection_initiated = False
-        elif state == WiFiState.FAILED:
-            _status_message = "Connection failed"
+        elif state == WIFI_STATE_ISSUE:
+            _status_message = wifi.last_error
             _connection_initiated = False
-        elif state == WiFiState.TIMEOUT:
+        elif state == WIFI_STATE_TIMEOUT:
             _status_message = "Connection timeout"
             _connection_initiated = False
 

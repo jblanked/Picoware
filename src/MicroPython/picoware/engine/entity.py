@@ -140,6 +140,24 @@ class Entity:
         if self.sprite_3d:
             del self.sprite_3d
             self.sprite_3d = None
+        if self._position:
+            del self._position
+            self._position = None
+        if self._old_position:
+            del self._old_position
+            self._old_position = None
+        if self.direction:
+            del self.direction
+            self.direction = None
+        if self.plane:
+            del self.plane
+            self.plane = None
+        if self.start_position:
+            del self.start_position
+            self.start_position = None
+        if self.end_position:
+            del self.end_position
+            self.end_position = None
 
     @property
     def has_3d_sprite(self) -> bool:
@@ -251,7 +269,6 @@ class Entity:
 
     def render_3d_sprite(
         self,
-        draw,
         player_pos: Vector,
         player_dir: Vector,
         view_height: float,
@@ -261,44 +278,41 @@ class Entity:
         if not self.has_3d_sprite:
             return
 
-        transformed_triangles = self.sprite_3d.get_transformed_triangles(player_pos)
+        from picoware_game import render_sprite3d
+        from struct import pack_into
 
-        for tri in transformed_triangles:
-            # Only render triangles facing the camera
-            if tri.is_facing_camera(player_pos):
-                # Project 3D vertices to 2D screen coordinates
-                screen_points = [Vector(0, 0) for _ in range(3)]
-                all_visible = True
+        # Flatten raw triangle data (model space, not transformed)
+        triangle_count = self.sprite_3d.triangle_count
+        triangle_data = bytearray(
+            triangle_count * 9 * 4
+        )  # 9 floats per triangle x 4 bytes
 
-                for j in range(3):
-                    screen_point = self.project_3d_to_2d(
-                        tri.vertices[j],
-                        player_pos,
-                        player_dir,
-                        view_height,
-                        screen_size,
-                    )
+        offset = 0
+        for i in range(triangle_count):
+            tri = self.sprite_3d.triangles[i]
+            for v in tri.vertices:
+                pack_into("f", triangle_data, offset, v.x)
+                pack_into("f", triangle_data, offset + 4, v.y)
+                pack_into("f", triangle_data, offset + 8, v.z)
+                offset += 12
 
-                    # Check if point is on screen
-                    if (
-                        screen_point.x < 0
-                        or screen_point.x >= screen_size.x
-                        or screen_point.y < 0
-                        or screen_point.y >= screen_size.y
-                    ):
-                        all_visible = False
-                        break
-
-                    screen_points[j] = screen_point
-
-                if all_visible:
-                    # Fill the triangle
-                    draw.fill_triangle(
-                        screen_points[0],
-                        screen_points[1],
-                        screen_points[2],
-                        self.sprite_3d.color,
-                    )
+        # Call C function to do all transformations and rendering
+        render_sprite3d(
+            triangle_data,  # Raw model space triangles
+            triangle_count,  # Number of triangles
+            self.sprite_3d.pos.x,  # Sprite X position
+            self.sprite_3d.pos.y,  # Sprite Y position
+            self.sprite_3d.rotation_y,  # Sprite rotation
+            self.sprite_3d.scale_factor,  # Sprite scale
+            self.sprite_3d.color,  # Sprite color
+            player_pos.x,  # Player X
+            player_pos.y,  # Player Y
+            player_dir.x,  # Player direction X
+            player_dir.y,  # Player direction Y
+            view_height,  # View height
+            int(screen_size.x),  # Screen width
+            int(screen_size.y),  # Screen height
+        )
 
     def set_3d_sprite_scale(self, scale: float):
         """Sets the scale of the 3D sprite."""

@@ -535,6 +535,15 @@ class HTTP:
             self._async_request_complete = True
             self._async_request_in_progress = False
             self._state = HTTP_ISSUE
+            if self._async_thread:
+                try:
+                    # Clean up thread if it exists
+                    self._async_thread = None
+                    import _thread
+
+                    _thread.exit()
+                except AttributeError:
+                    pass
             return False
 
     def __execute_request(
@@ -615,13 +624,27 @@ class HTTP:
                     storage=storage,
                 )
 
-            self._async_response = result.text if result else ""
-            self._state = HTTP_IDLE if result else HTTP_ISSUE
+            if result:
+                self._async_response = result.text
+                self._state = HTTP_IDLE
+                del result
+                result = None
+            else:
+                self._async_response = ""
+                self._state = HTTP_ISSUE
         except Exception as e:
             self._async_error = str(e)
             self._async_response = ""
             self._state = HTTP_ISSUE
-            self._async_thread = None
         finally:
             self._async_request_complete = True
             self._async_request_in_progress = False
+            if self._async_thread:
+                try:
+                    # Clean up thread if it exists
+                    self._async_thread = None
+                    import _thread
+
+                    _thread.exit()
+                except AttributeError:
+                    pass

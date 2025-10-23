@@ -24,6 +24,7 @@ def start(view_manager) -> bool:
         _system.add_item("System Info")
         _system.add_item("Bootloader Mode")
         _system.add_item("Restart Device")
+        _system.add_item("Shutdown Device")
 
         _system.set_selected(_system_index)
 
@@ -98,6 +99,11 @@ def run(view_manager) -> None:
 
             system = System()
             system.hard_reset()
+        elif _system_index == 5:
+            from picoware.system.system import System
+
+            system = System()
+            system.shutdown_device(view_manager)
 
 
 def stop(view_manager) -> None:

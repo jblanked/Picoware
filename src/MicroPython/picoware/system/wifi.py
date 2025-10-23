@@ -1,12 +1,11 @@
-class WiFiState:
-    """Enumeration for WiFi connection states."""
+from micropython import const
 
-    INACTIVE = -1
-    IDLE = 0
-    CONNECTING = 1
-    CONNECTED = 2
-    FAILED = 3
-    TIMEOUT = 4
+WIFI_STATE_INACTIVE = const(-1)
+WIFI_STATE_IDLE = const(0)
+WIFI_STATE_CONNECTING = const(1)
+WIFI_STATE_CONNECTED = const(2)
+WIFI_STATE_ISSUE = const(3)
+WIFI_STATE_TIMEOUT = const(4)
 
 
 class WiFi:
@@ -23,23 +22,31 @@ class WiFi:
         self.mode = STA_IF
         self.wlan = WLAN(self.mode)
         self.local_ip = None
-        self.state = WiFiState.IDLE
+        self.state = WIFI_STATE_IDLE
         self.connection_start_time = None
         self.connection_timeout = 10  # seconds
         self.connection_attempts = 0
         self.pending_ssid = ""
         self.pending_password = ""
+        self.error = ""
 
     def __del__(self):
         """Destructor to clean up resources."""
         if self.wlan:
             self.wlan.active(False)
             del self.wlan
+            self.wlan = None
+        self.reset()
 
     @property
     def device_ip(self):
         """Get the current device IP address."""
         return self.local_ip if self.local_ip else ""
+
+    @property
+    def last_error(self):
+        """Get the last connection error message."""
+        return self.error
 
     def connect(
         self, ssid: str, password: str, sta_mode: bool = True, is_async: bool = False
@@ -93,7 +100,7 @@ class WiFi:
         self.reset()
         self.pending_ssid = ssid
         self.pending_password = password
-        self.state = WiFiState.CONNECTING
+        self.state = WIFI_STATE_CONNECTING
         self.connection_start_time = ticks_ms()
         self.mode = _mode
 
@@ -130,15 +137,26 @@ class WiFi:
             STAT_CONNECT_FAIL,
         )
 
-        wifi_map = {
-            STAT_IDLE: WiFiState.IDLE,
-            STAT_CONNECTING: WiFiState.CONNECTING,
-            STAT_WRONG_PASSWORD: WiFiState.FAILED,
-            STAT_NO_AP_FOUND: WiFiState.FAILED,
-            STAT_CONNECT_FAIL: WiFiState.FAILED,
-            STAT_GOT_IP: WiFiState.CONNECTED,
-        }
-        return wifi_map.get(self.wlan.status(), WiFiState.INACTIVE)
+        status = self.wlan.status()
+
+        if status == STAT_IDLE:
+            return WIFI_STATE_IDLE
+        if status == STAT_CONNECTING:
+            return WIFI_STATE_CONNECTING
+        if status == STAT_GOT_IP:
+            return WIFI_STATE_CONNECTED
+        if status == STAT_WRONG_PASSWORD:
+            self.error = "Wrong password."
+            return WIFI_STATE_ISSUE
+        if status == STAT_NO_AP_FOUND:
+            self.error = "No access point found."
+            return WIFI_STATE_ISSUE
+        if status == STAT_CONNECT_FAIL:
+            self.error = "Failed to connect."
+            return WIFI_STATE_ISSUE
+
+        self.error = "Status not recognized so deemed inactive."
+        return WIFI_STATE_INACTIVE
 
     def reset(self):
         """Reset the Wi-Fi configuration."""
@@ -146,35 +164,37 @@ class WiFi:
         self.ssid = ""
         self.password = ""
         self.local_ip = None
-        self.state = WiFiState.IDLE
+        self.state = WIFI_STATE_IDLE
         self.connection_start_time = None
         self.connection_timeout = 10  # seconds
         self.connection_attempts = 0
         self.pending_ssid = ""
         self.pending_password = ""
+        self.error = ""
 
     def update(self) -> bool:
         """Update the Wi-Fi connection state."""
         from utime import ticks_ms
 
-        if self.state != WiFiState.CONNECTING:
-            return self.state == WiFiState.CONNECTED
+        if self.state != WIFI_STATE_CONNECTING:
+            return self.state == WIFI_STATE_CONNECTED
 
         # Check for timeout
         if self.connection_start_time and (ticks_ms() - self.connection_start_time) > (
             self.connection_timeout * 1000
         ):
-            self.state = WiFiState.TIMEOUT
+            self.state = WIFI_STATE_TIMEOUT
             self.wlan.disconnect()
             self.connection_start_time = None
             self.connection_attempts = 0
+            self.error = "Connection timed out."
             return False
 
-        if self.status() == WiFiState.CONNECTED:
+        if self.status() == WIFI_STATE_CONNECTED:
             self.local_ip = self.wlan.ifconfig()[0]
             self.ssid = self.pending_ssid
             self.password = self.pending_password
-            self.state = WiFiState.CONNECTED
+            self.state = WIFI_STATE_CONNECTED
             self.connection_start_time = None
             self.connection_attempts = 0
             return True

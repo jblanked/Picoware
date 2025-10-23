@@ -20,3 +20,14 @@ class CameraParams:
         self.direction = direction  # Camera direction
         self.plane = plane  # Camera plane
         self.height = height  # Camera height
+
+    def __del__(self):
+        if self.position:
+            del self.position
+            self.position = None
+        if self.direction:
+            del self.direction
+            self.direction = None
+        if self.plane:
+            del self.plane
+            self.plane = None

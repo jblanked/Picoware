@@ -16,6 +16,9 @@ class Image:
         if self._raw:
             del self._raw
             self._raw = None
+        if self.size:
+            del self.size
+            self.size = None
 
     def from_path(self, path: str) -> bool:
         """Load a 16‑bit BMP from disk into raw RGB565 data."""

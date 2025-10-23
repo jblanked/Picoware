@@ -37,6 +37,18 @@ class Menu:
         draw.clear(self.position, self.size, self.background_color)
         draw.swap()
 
+    def __del__(self):
+        if self.list:
+            del self.list
+            self.list = None
+        if self.position:
+            del self.position
+            self.position = None
+        if self.size:
+            del self.size
+            self.size = None
+        self.title = ""
+
     def add_item(self, item: str) -> None:
         """Add an item to the menu."""
         self.list.add_item(item)

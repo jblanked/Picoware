@@ -7,12 +7,12 @@ def start(view_manager) -> bool:
 
     global _scan
     if _scan is None:
-        _scan = view_manager.get_wifi()
+        wifi = view_manager.get_wifi()
 
-        if _scan is None:
+        if wifi is None:
             return False
 
-        results = _scan.scan()
+        results = wifi.scan()
 
         _scan = Menu(
             view_manager.draw,

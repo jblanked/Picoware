@@ -133,6 +133,11 @@ class Keyboard:
         self.response = ""
         self.is_save_pressed = False
         self.just_stopped = False
+        self.current_title = "Enter Text"
+
+    def __del__(self):
+        self.reset()
+        self.current_title = ""
 
     @property
     def is_finished(self) -> bool:
@@ -143,6 +148,16 @@ class Keyboard:
     def keyboard_width(self) -> int:
         """Returns the keyboard width/width of the display"""
         return self.draw.size.x
+
+    @property
+    def title(self) -> str:
+        """Returns the current title of the keyboard"""
+        return self.current_title
+
+    @title.setter
+    def title(self, value: str):
+        """Sets the current title of the keyboard"""
+        self.current_title = value
 
     def get_response(self) -> str:
         """Returns the response string"""
@@ -167,6 +182,7 @@ class Keyboard:
         self.last_input_time = 0
         self.on_save_callback = None
         self.is_save_pressed = False
+        self.current_title = "Enter Text"
 
     def _draw_key(self, row: int, col: int, is_selected: bool):
         """Draws a specific key on the keyboard"""
@@ -189,7 +205,7 @@ class Keyboard:
         x_pos = start_x
         for i in range(col):
             x_pos += self.ROWS[row][i].width * self.KEY_WIDTH + self.KEY_SPACING
-        y_pos = self.TEXTBOX_HEIGHT + 10 + row * (self.KEY_HEIGHT + self.KEY_SPACING)
+        y_pos = self.TEXTBOX_HEIGHT + 20 + row * (self.KEY_HEIGHT + self.KEY_SPACING)
 
         # Calculate key size
         width = key.width * self.KEY_WIDTH + (key.width - 1) * self.KEY_SPACING
@@ -245,7 +261,7 @@ class Keyboard:
         keyboard_height = self.NUM_ROWS * (self.KEY_HEIGHT + self.KEY_SPACING) + 20
         self.draw.fill_rectangle(
             Vector(0, self.TEXTBOX_HEIGHT),
-            Vector(self.draw.size.x, keyboard_height),
+            Vector(self.draw.size.x, keyboard_height + 10),
             self.background_color,
         )
 
@@ -254,6 +270,14 @@ class Keyboard:
             for col in range(self.ROW_SIZES[row]):
                 is_selected = row == self.cursor_row and col == self.cursor_col
                 self._draw_key(row, col, is_selected)
+
+        # Draw title
+        title_x = self.draw.size.x // 2 - len(self.current_title) * 3
+        self.draw.text(
+            Vector(title_x, self.TEXTBOX_HEIGHT + 5),
+            self.current_title,
+            self.text_color,
+        )
 
     def _draw_textbox(self):
         """Draws the text box that displays the current saved response"""

@@ -52,16 +52,11 @@ class Draw:
 
     def _rgb565_to_rgb332(self, rgb565):
         """Convert RGB565 color to RGB332 palette index"""
-        r = (rgb565 >> 11) & 0x1F
-        g = (rgb565 >> 5) & 0x3F
-        b = rgb565 & 0x1F
-
-        # Scale to RGB332
-        r332 = (r * 7) // 31
-        g332 = (g * 7) // 63
-        b332 = (b * 3) // 31
-
-        return (r332 << 5) | (g332 << 2) | b332
+        return (
+            ((rgb565 & 0xE000) >> 8)
+            | ((rgb565 & 0x0700) >> 6)
+            | ((rgb565 & 0x0018) >> 3)
+        )
 
     def __del__(self):
         """Destructor to ensure cleanup on object deletion"""
@@ -92,15 +87,19 @@ class Draw:
 
     def cleanup(self):
         """Cleanup all allocated buffers and free memory"""
-        import gc
+        from gc import collect
 
         # Clean up palette
         if self.palette is not None:
             del self.palette
             self.palette = None
 
+        if self.size:
+            del self.size
+            self.size = None
+
         # Force garbage collection
-        gc.collect()
+        collect()
 
     def color332(self, color: int) -> int:
         """Convert RGB565 to RGB332 color format"""

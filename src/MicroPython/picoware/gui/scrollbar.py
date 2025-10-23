@@ -18,6 +18,14 @@ class ScrollBar:
         self.outline_color = outline_color
         self.fill_color = fill_color
 
+    def __del__(self):
+        if self.position:
+            del self.position
+            self.position = None
+        if self.size:
+            del self.size
+            self.size = None
+
     def clear(self):
         """Clear the scrollbar."""
         self.display.clear(self.position, self.size, self.fill_color)

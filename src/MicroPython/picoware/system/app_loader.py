@@ -18,23 +18,24 @@ class AppLoader:
         self.cleanup_modules()
 
     def cleanup_modules(self):
-        """Remove loaded app modules from sys.modules"""
+        """Remove all app modules from sys.modules"""
         try:
             import sys
             from gc import collect
-
-            # Get list of app names before clearing
-            apps_to_remove = list(self.loaded_apps.keys())
 
             # Clear our references first
             self.loaded_apps.clear()
             self.current_app = None
 
-            # Remove from sys.modules
-            for cache_key in apps_to_remove:
-                module_name = cache_key.split("/")[-1]
-                if module_name in sys.modules:
-                    del sys.modules[module_name]
+            # Remove ALL modules from the apps directory
+            modules_to_delete = []
+            for mod_name, mod in list(sys.modules.items()):
+                if hasattr(mod, "__file__") and mod.__file__:
+                    if "/sd/picoware/apps/" in mod.__file__:
+                        modules_to_delete.append(mod_name)
+
+            for mod_name in modules_to_delete:
+                del sys.modules[mod_name]
 
             # Force garbage collection
             collect()
@@ -82,35 +83,33 @@ class AppLoader:
                 storage = self.view_manager.get_storage()
                 storage.mount()
 
-                try:
-                    # Add the SD card apps directory to sys.path
-                    import sys
+                # Add the SD card apps directory to sys.path
+                import sys
 
-                    apps_path = "/sd/picoware/apps"
-                    if subdirectory:
-                        apps_path = f"{apps_path}/{subdirectory}"
+                # Always add the base apps directory
+                base_apps_path = "/sd/picoware/apps"
+                if base_apps_path not in sys.path:
+                    sys.path.append(base_apps_path)
 
+                # Add subdirectory if specified
+                apps_path = base_apps_path
+                if subdirectory:
+                    apps_path = f"{apps_path}/{subdirectory}"
                     if apps_path not in sys.path:
                         sys.path.append(apps_path)
 
-                    # Now try to import the module by name
-                    app_module = __import__(app_name)
+                # Now try to import the module by name
+                app_module = __import__(app_name)
 
-                    # Verify the app has required methods
-                    required_methods = ["start", "run", "stop"]
-                    for method in required_methods:
-                        if not hasattr(app_module, method) or not callable(
-                            getattr(app_module, method)
-                        ):
-                            raise AttributeError(
-                                f"App {app_name} missing {method} method"
-                            )
+                # Verify the app has required methods
+                required_methods = ["start", "run", "stop"]
+                for method in required_methods:
+                    if not hasattr(app_module, method) or not callable(
+                        getattr(app_module, method)
+                    ):
+                        raise AttributeError(f"App {app_name} missing {method} method")
 
-                    self.loaded_apps[cache_key] = app_module
-
-                finally:
-                    # Always unmount the SD card when done
-                    storage.unmount()
+                self.loaded_apps[cache_key] = app_module
 
             return self.loaded_apps[cache_key]
 

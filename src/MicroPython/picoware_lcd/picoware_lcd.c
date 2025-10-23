@@ -28,7 +28,7 @@
 static bool module_initialized = false;
 
 // Static framebuffer
-static uint8_t static_framebuffer[DISPLAY_WIDTH * DISPLAY_HEIGHT];
+uint8_t static_framebuffer[DISPLAY_WIDTH * DISPLAY_HEIGHT];
 
 static const uint8_t *get_font_data(void)
 {

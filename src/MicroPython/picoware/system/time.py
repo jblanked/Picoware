@@ -10,6 +10,8 @@ class Time:
     def __del__(self):
         self._rtc.deinit()
         del self._rtc
+        self._rtc = None
+        self._is_set = False
 
     @property
     def date(self) -> str:

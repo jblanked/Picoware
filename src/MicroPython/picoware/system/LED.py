@@ -6,6 +6,10 @@ class LED:
 
         self.led = Pin(pin if pin != -1 else "LED", Pin.OUT)
 
+    def __del__(self):
+        del self.led
+        self.led = None
+
     def blink(self, duration=0.5):
         """Blink the LED on and off for a specified duration."""
         from time import sleep

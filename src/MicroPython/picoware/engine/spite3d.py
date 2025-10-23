@@ -51,6 +51,11 @@ class Triangle3D:
         self.visible = True
         self.distance = 0.0
 
+    def __del__(self):
+        for v in self.vertices:
+            del v
+        self.vertices = None
+
     def get_center(self):
         """Calculate triangle center for distance sorting"""
         return Vertex3D(

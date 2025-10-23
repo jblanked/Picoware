@@ -96,7 +96,7 @@ git submodule update --init
 make -C mpy-cross
 ```
 3. Download this repository as a .zip file (available here: https://github.com/jblanked/Picoware/archive/refs/heads/main.zip).
-4. Unzip the archive, then in the `src/MicroPython` folder, copy the `main.py` file, `picoware_modules.cmake` file, `picoware` folder, `picoware_keyboard` folder, `picoware_lcd` folder, and `picoware_psram` into `~/pico/micropython/ports/rp2/modules`
+4. Unzip the archive, then in the `src/MicroPython` folder, copy the `main.py` file, `picoware_modules.cmake` file, `picoware` folder, `picoware_game` folder, `picoware_keyboard` folder, `picoware_lcd` folder, and `picoware_psram` into `~/pico/micropython/ports/rp2/modules`
 5. Now, build the MicroPython firmware with:
 ```
 # Pico

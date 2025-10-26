@@ -122,8 +122,6 @@ class Keyboard:
         # Initialize cursor position to top-left key
         self.cursor_row = 0
         self.cursor_col = 0
-        self.last_input_time = 0
-        self.input_delay = 10  # milliseconds
 
         # Keyboard state
         self.is_shift_pressed = False
@@ -179,7 +177,6 @@ class Keyboard:
         self.is_shift_pressed = False
         self.is_caps_lock_on = False
         self.response = ""
-        self.last_input_time = 0
         self.on_save_callback = None
         self.is_save_pressed = False
         self.current_title = "Enter Text"
@@ -333,7 +330,6 @@ class Keyboard:
 
     def _handle_input(self):
         """Handles directional input and key selection"""
-        from utime import ticks_ms
         from picoware.system.buttons import (
             BUTTON_UP,
             BUTTON_DOWN,
@@ -395,26 +391,20 @@ class Keyboard:
             BUTTON_DOUBLE_QUOTE,
         )
 
-        if ticks_ms() - self.last_input_time < self.input_delay:
-            return
-
         # Handle directional navigation and direct key access
         if self.dpad_input == BUTTON_SPACE:
             self._set_cursor_position(4, 0)
             self._process_key_press()
-            self.last_input_time = ticks_ms()
         elif self.dpad_input == BUTTON_UP:
             if self.cursor_row > 0:
                 self.cursor_row -= 1
                 if self.cursor_col >= self.ROW_SIZES[self.cursor_row]:
                     self.cursor_col = self.ROW_SIZES[self.cursor_row] - 1
-            self.last_input_time = ticks_ms()
         elif self.dpad_input == BUTTON_DOWN:
             if self.cursor_row < self.NUM_ROWS - 1:
                 self.cursor_row += 1
                 if self.cursor_col >= self.ROW_SIZES[self.cursor_row]:
                     self.cursor_col = self.ROW_SIZES[self.cursor_row] - 1
-            self.last_input_time = ticks_ms()
         elif self.dpad_input == BUTTON_LEFT:
             if self.cursor_col > 0:
                 self.cursor_col -= 1
@@ -422,7 +412,6 @@ class Keyboard:
                 # Wrap to end of previous row
                 self.cursor_row -= 1
                 self.cursor_col = self.ROW_SIZES[self.cursor_row] - 1
-            self.last_input_time = ticks_ms()
         elif self.dpad_input == BUTTON_RIGHT:
             if self.cursor_col < self.ROW_SIZES[self.cursor_row] - 1:
                 self.cursor_col += 1
@@ -430,10 +419,8 @@ class Keyboard:
                 # Wrap to start of next row
                 self.cursor_row += 1
                 self.cursor_col = 0
-            self.last_input_time = ticks_ms()
         elif self.dpad_input == BUTTON_CENTER:
             self._process_key_press()
-            self.last_input_time = ticks_ms()
 
         # Handle direct key presses
         key_mappings = {
@@ -495,7 +482,6 @@ class Keyboard:
             row, col = key_mappings[self.dpad_input]
             self._set_cursor_position(row, col)
             self._process_key_press()
-            self.last_input_time = ticks_ms()
 
     def _process_key_press(self):
         """Processes the currently selected key press"""

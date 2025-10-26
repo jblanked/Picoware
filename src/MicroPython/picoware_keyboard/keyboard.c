@@ -19,6 +19,7 @@
 
 #include "keyboard.h"
 #include "southbridge.h"
+#include "hardware/sync.h"
 
 volatile bool user_interrupt = false;
 
@@ -187,6 +188,8 @@ void keyboard_init(void)
     {
         return; // already initialized
     }
+
+    enable_interrupts();
 
     // Initialize the south bridge if not already done
     sb_init(); // Initialize the south bridge

@@ -122,11 +122,10 @@ class Keyboard:
         # Initialize cursor position to top-left key
         self.cursor_row = 0
         self.cursor_col = 0
-        self.last_input_time = 0
-        self.input_delay = 10  # milliseconds
 
         # Keyboard state
         self.is_shift_pressed = False
+        self.is_manual_shift = False
         self.is_caps_lock_on = False
         self.current_key: int = -1
         self.dpad_input: int = -1
@@ -179,7 +178,6 @@ class Keyboard:
         self.is_shift_pressed = False
         self.is_caps_lock_on = False
         self.response = ""
-        self.last_input_time = 0
         self.on_save_callback = None
         self.is_save_pressed = False
         self.current_title = "Enter Text"
@@ -333,7 +331,6 @@ class Keyboard:
 
     def _handle_input(self):
         """Handles directional input and key selection"""
-        from utime import ticks_ms
         from picoware.system.buttons import (
             BUTTON_UP,
             BUTTON_DOWN,
@@ -377,9 +374,6 @@ class Keyboard:
             BUTTON_7,
             BUTTON_8,
             BUTTON_9,
-            BUTTON_BACKSPACE,
-            BUTTON_SHIFT,
-            BUTTON_CAPS_LOCK,
             BUTTON_PERIOD,
             BUTTON_COMMA,
             BUTTON_SEMICOLON,
@@ -393,28 +387,39 @@ class Keyboard:
             BUTTON_COLON,
             BUTTON_SINGLE_QUOTE,
             BUTTON_DOUBLE_QUOTE,
+            BUTTON_AT,
+            BUTTON_EXCLAMATION,
+            BUTTON_HASH,
+            BUTTON_DOLLAR,
+            BUTTON_PERCENT,
+            BUTTON_CARET,
+            BUTTON_AMPERSAND,
+            BUTTON_ASTERISK,
+            BUTTON_LEFT_PARENTHESIS,
+            BUTTON_RIGHT_PARENTHESIS,
+            BUTTON_QUESTION,
+            BUTTON_LESS_THAN,
+            BUTTON_GREATER_THAN,
+            BUTTON_BACKSPACE,
+            BUTTON_LEFT_BRACE,
+            BUTTON_RIGHT_BRACE,
+            BUTTON_PLUS,
         )
-
-        if ticks_ms() - self.last_input_time < self.input_delay:
-            return
 
         # Handle directional navigation and direct key access
         if self.dpad_input == BUTTON_SPACE:
             self._set_cursor_position(4, 0)
             self._process_key_press()
-            self.last_input_time = ticks_ms()
         elif self.dpad_input == BUTTON_UP:
             if self.cursor_row > 0:
                 self.cursor_row -= 1
                 if self.cursor_col >= self.ROW_SIZES[self.cursor_row]:
                     self.cursor_col = self.ROW_SIZES[self.cursor_row] - 1
-            self.last_input_time = ticks_ms()
         elif self.dpad_input == BUTTON_DOWN:
             if self.cursor_row < self.NUM_ROWS - 1:
                 self.cursor_row += 1
                 if self.cursor_col >= self.ROW_SIZES[self.cursor_row]:
                     self.cursor_col = self.ROW_SIZES[self.cursor_row] - 1
-            self.last_input_time = ticks_ms()
         elif self.dpad_input == BUTTON_LEFT:
             if self.cursor_col > 0:
                 self.cursor_col -= 1
@@ -422,7 +427,6 @@ class Keyboard:
                 # Wrap to end of previous row
                 self.cursor_row -= 1
                 self.cursor_col = self.ROW_SIZES[self.cursor_row] - 1
-            self.last_input_time = ticks_ms()
         elif self.dpad_input == BUTTON_RIGHT:
             if self.cursor_col < self.ROW_SIZES[self.cursor_row] - 1:
                 self.cursor_col += 1
@@ -430,10 +434,46 @@ class Keyboard:
                 # Wrap to start of next row
                 self.cursor_row += 1
                 self.cursor_col = 0
-            self.last_input_time = ticks_ms()
         elif self.dpad_input == BUTTON_CENTER:
             self._process_key_press()
-            self.last_input_time = ticks_ms()
+
+            if self.ROWS[self.cursor_row][self.cursor_col].normal == "\x02":
+                self.is_manual_shift = True
+
+        manual_keys = {
+            BUTTON_PERIOD: ".",
+            BUTTON_COMMA: ",",
+            BUTTON_SEMICOLON: ";",
+            BUTTON_MINUS: "-",
+            BUTTON_EQUAL: "=",
+            BUTTON_LEFT_BRACKET: "[",
+            BUTTON_RIGHT_BRACKET: "]",
+            BUTTON_SLASH: "/",
+            BUTTON_BACKSLASH: "\\",
+            BUTTON_UNDERSCORE: "_",
+            BUTTON_COLON: ":",
+            BUTTON_SINGLE_QUOTE: "'",
+            BUTTON_DOUBLE_QUOTE: '"',
+            BUTTON_AT: "@",
+            BUTTON_EXCLAMATION: "!",
+            BUTTON_HASH: "#",
+            BUTTON_DOLLAR: "$",
+            BUTTON_PERCENT: "%",
+            BUTTON_CARET: "^",
+            BUTTON_AMPERSAND: "&",
+            BUTTON_ASTERISK: "*",
+            BUTTON_LEFT_PARENTHESIS: "(",
+            BUTTON_RIGHT_PARENTHESIS: ")",
+            BUTTON_QUESTION: "?",
+            BUTTON_LESS_THAN: "<",
+            BUTTON_GREATER_THAN: ">",
+            BUTTON_LEFT_BRACE: "{",
+            BUTTON_RIGHT_BRACE: "}",
+            BUTTON_PLUS: "+",
+        }
+        if self.dpad_input in manual_keys:
+            self.response += manual_keys[self.dpad_input]
+            return
 
         # Handle direct key presses
         key_mappings = {
@@ -474,31 +514,22 @@ class Keyboard:
             BUTTON_Y: (1, 5),
             BUTTON_Z: (3, 1),
             BUTTON_BACKSPACE: (0, 12),
-            BUTTON_SHIFT: (3, 0),
-            BUTTON_CAPS_LOCK: (2, 0),
-            BUTTON_PERIOD: (3, 9),
-            BUTTON_COMMA: (3, 8),
-            BUTTON_SEMICOLON: (2, 10),
-            BUTTON_MINUS: (0, 10),
-            BUTTON_EQUAL: (0, 11),
-            BUTTON_LEFT_BRACKET: (1, 10),
-            BUTTON_RIGHT_BRACKET: (1, 11),
-            BUTTON_SLASH: (3, 10),
-            BUTTON_BACKSLASH: (3, 11),
-            BUTTON_UNDERSCORE: (0, 10),
-            BUTTON_COLON: (2, 10),
-            BUTTON_SINGLE_QUOTE: (2, 11),
-            BUTTON_DOUBLE_QUOTE: (2, 11),
         }
 
         if self.dpad_input in key_mappings:
             row, col = key_mappings[self.dpad_input]
             self._set_cursor_position(row, col)
             self._process_key_press()
-            self.last_input_time = ticks_ms()
 
     def _process_key_press(self):
         """Processes the currently selected key press"""
+        from picoware.system.buttons import (
+            BUTTON_UP,
+            BUTTON_DOWN,
+            BUTTON_LEFT,
+            BUTTON_RIGHT,
+        )
+
         if (
             self.cursor_row >= self.NUM_ROWS
             or self.cursor_col >= self.ROW_SIZES[self.cursor_row]
@@ -541,9 +572,16 @@ class Keyboard:
                 # Normal character
                 self.response += key.normal
 
-            # Reset shift after character entry
-            if self.is_shift_pressed:
+            # Reset shift after character entry (ignore left/right/up/down)
+            d_pad = {
+                BUTTON_UP,
+                BUTTON_DOWN,
+                BUTTON_LEFT,
+                BUTTON_RIGHT,
+            }
+            if self.is_shift_pressed and self.dpad_input not in d_pad:
                 self.is_shift_pressed = False
+                self.is_manual_shift = False
 
     def _set_cursor_position(self, row: int, col: int):
         """Sets the cursor position on the keyboard"""
@@ -559,7 +597,8 @@ class Keyboard:
 
         self.dpad_input = self.input_manager.button
         if self.dpad_input != -1 or force:
-            self.is_shift_pressed = self.input_manager.was_capitalized
+            if not self.is_manual_shift:
+                self.is_shift_pressed = self.input_manager.was_capitalized
             # only process input/redraw if there's input
             self._handle_input()
             self._draw_textbox()

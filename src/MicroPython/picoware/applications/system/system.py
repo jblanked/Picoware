@@ -100,10 +100,54 @@ def run(view_manager) -> None:
             system = System()
             system.hard_reset()
         elif _system_index == 5:
-            from picoware.system.system import System
 
-            system = System()
-            system.shutdown_device(view_manager)
+            from picoware.gui.choice import Choice
+            from picoware.system.vector import Vector
+
+            choice = Choice(
+                view_manager.draw,
+                Vector(0, 0),
+                Vector(320, 320),
+                "Shutdown Device?",
+                ["No", "Yes"],
+                0,
+                view_manager.get_foreground_color(),
+                view_manager.get_background_color(),
+            )
+            choice.draw()
+
+            while True:
+                _button = input_manager.get_last_button()
+                if _button == BUTTON_LEFT:
+                    input_manager.reset()
+                    choice.scroll_up()
+                elif _button == BUTTON_RIGHT:
+                    input_manager.reset()
+                    choice.scroll_down()
+                elif _button == BUTTON_CENTER:
+                    input_manager.reset()
+                    if choice.state == 1:
+                        del choice
+                        choice = None
+                        from picoware.system.system import System
+
+                        system = System()
+                        system.shutdown_device(view_manager)
+                        break
+
+                    del choice
+                    choice = None
+                    input_manager.reset()
+                    view_manager.draw.clear()
+                    _system.draw()
+                    break
+                elif _button == BUTTON_BACK:
+                    del choice
+                    choice = None
+                    input_manager.reset()
+                    view_manager.draw.clear()
+                    _system.draw()
+                    break
 
 
 def stop(view_manager) -> None:

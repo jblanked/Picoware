@@ -1,5 +1,6 @@
 _file_browser_menu = None
 _file_browser_textbox = None
+_file_browser_choice = None
 _current_directory: str = "/sd"
 _is_viewing_file: bool = False
 _current_file_path: str = ""
@@ -113,10 +114,13 @@ def start(view_manager) -> bool:
     """Start the app"""
     from picoware.gui.menu import Menu
     from picoware.gui.textbox import TextBox
+    from picoware.gui.choice import Choice
+    from picoware.system.vector import Vector
 
     global _file_browser_menu, _file_browser_textbox, _current_directory
     global _directory_stack, _directory_contents, _is_viewing_file
     global _current_file_path
+    global _file_browser_choice
 
     if not _file_browser_menu:
         _file_browser_menu = Menu(
@@ -135,6 +139,17 @@ def start(view_manager) -> bool:
             view_manager.draw,
             0,
             320,
+            view_manager.get_foreground_color(),
+            view_manager.get_background_color(),
+        )
+    if not _file_browser_choice:
+        _file_browser_choice = Choice(
+            view_manager.draw,
+            Vector(0, 0),
+            view_manager.draw.size,
+            "File Browser",
+            ["View", "Delete"],
+            0,
             view_manager.get_foreground_color(),
             view_manager.get_background_color(),
         )
@@ -191,6 +206,7 @@ def run(view_manager) -> None:
             _file_browser_menu.draw()
             input_manager.reset()
         elif input_value in [BUTTON_LEFT, BUTTON_BACK]:
+            input_manager.reset()
             if _directory_stack:
                 # Pop the last directory from stack
                 _current_directory = _directory_stack.pop()
@@ -204,8 +220,8 @@ def run(view_manager) -> None:
             else:
                 # No more directories in stack, exit the app
                 view_manager.back()
-            input_manager.reset()
         elif input_value in [BUTTON_CENTER, BUTTON_RIGHT]:
+            input_manager.reset()
             current_item = _file_browser_menu.get_current_item()
             selected_index = _file_browser_menu.get_selected_index()
 
@@ -214,7 +230,6 @@ def run(view_manager) -> None:
                 current_item == "(Empty directory)"
                 or current_item == "(Error reading directory)"
             ):
-                input_manager.reset()
                 return
 
             # Get the selected item from our contents list
@@ -241,13 +256,57 @@ def run(view_manager) -> None:
                     # Load new directory contents
                     __load_directory_contents(view_manager)
                 else:
-                    # It's a file - show its contents
+                    # It's a file - show choice menu
                     file_path = _current_directory
                     if not file_path.endswith("/"):
                         file_path += "/"
                     file_path += selected_item
 
-                    __show_file_contents(view_manager, file_path)
+                    # Reset choice to default state and draw
+                    _file_browser_choice.state = 0
+                    _file_browser_choice.title = f"File: {selected_item}"
+                    _file_browser_choice.draw()
+
+                    # Enter choice loop
+                    while True:
+                        _button = input_manager.get_last_button()
+                        if _button == BUTTON_LEFT:
+                            input_manager.reset()
+                            _file_browser_choice.scroll_up()
+                        elif _button == BUTTON_RIGHT:
+                            input_manager.reset()
+                            _file_browser_choice.scroll_down()
+                        elif _button == BUTTON_CENTER:
+                            input_manager.reset()
+                            if _file_browser_choice.state == 0:
+                                # View option selected
+                                __show_file_contents(view_manager, file_path)
+                                break
+                            elif _file_browser_choice.state == 1:
+                                # Delete option selected
+                                from picoware.system.storage import Storage
+
+                                storage: Storage = view_manager.get_storage()
+                                try:
+                                    # Remove /sd/ prefix if present
+                                    delete_path = file_path
+                                    if delete_path.startswith("/sd/"):
+                                        delete_path = delete_path[3:]
+                                    storage.remove(delete_path)
+                                    # Reload directory contents after deletion
+                                    view_manager.draw.clear()
+                                    __load_directory_contents(view_manager)
+                                except Exception as e:
+                                    print(f"Error deleting file: {e}")
+                                    # Still reload directory to show current state
+                                    view_manager.draw.clear()
+                                    __load_directory_contents(view_manager)
+                                break
+                        elif _button == BUTTON_BACK:
+                            input_manager.reset()
+                            view_manager.draw.clear()
+                            _file_browser_menu.draw()
+                            break
 
             input_manager.reset()
 
@@ -259,6 +318,7 @@ def stop(view_manager) -> None:
     global _file_browser_menu, _file_browser_textbox, _current_directory
     global _is_viewing_file, _current_file_path
     global _directory_stack, _directory_contents
+    global _file_browser_choice
 
     if _file_browser_menu:
         del _file_browser_menu
@@ -266,6 +326,9 @@ def stop(view_manager) -> None:
     if _file_browser_textbox:
         del _file_browser_textbox
         _file_browser_textbox = None
+    if _file_browser_choice:
+        del _file_browser_choice
+        _file_browser_choice = None
 
     _current_directory = "/sd"
     _is_viewing_file = False

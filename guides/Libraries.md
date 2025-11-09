@@ -23,6 +23,7 @@ This section provides documentation for the libraries available in Picoware.
   - [picoware.system.view_manager](#picoware-system-view_manager)
 - [GUI](#gui)
   - [picoware.gui.alert](#picoware-gui-alert)
+  - [picoware.gui.choice](#picoware-gui-choice)
   - [picoware.gui.desktop](#picoware-gui-desktop)
   - [picoware.gui.draw](#picoware-gui-draw)
   - [picoware.gui.image](#picoware-gui-image)
@@ -234,6 +235,13 @@ Those are the basic button constants used in Picoware, check the source code for
     - `__init__(draw, text, text_color, background_color)`: Initialize the Alert with drawing context and styling.
     - `clear()`: Clear the display with the background color.
     - `draw(title)`: Render the alert message on the display.
+
+#### picoware.gui.choice
+- `Choice` class: A simple choice dialog class for selecting options:
+    - `__init__(draw, position, size, title, options, initial_state, foreground_color, background_color)`: Initialize the Choice with drawing context, position, size, title, options, and styling.
+    - `draw()`: Render the choice dialog on the display.
+    - `scroll_up()`: Move the selection up.
+    - `scroll_down()`: Move the selection down.
 
 #### picoware.gui.desktop
 - `Desktop` class: A class to manage the desktop environment for the display:

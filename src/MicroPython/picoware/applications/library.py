@@ -21,6 +21,7 @@ def start(view_manager) -> bool:
             2,
         )
         _library.add_item("Applications")
+        _library.add_item("App Store")
         _library.add_item("Python Editor")
         _library.add_item("File Browser")
         _library.add_item("Games")
@@ -70,12 +71,13 @@ def run(view_manager) -> None:
 
         app_map = {
             0: "Applications",
-            1: "Python Editor",
-            2: "File Browser",
-            3: "Games",
-            4: "Screensavers",
-            5: "System",
-            6: "WiFi",
+            1: "App Store",
+            2: "Python Editor",
+            3: "File Browser",
+            4: "Games",
+            5: "Screensavers",
+            6: "System",
+            7: "WiFi",
         }
 
         if app_map.get(_library_index) == "System":
@@ -134,6 +136,18 @@ def run(view_manager) -> None:
 
             view_manager.add(View("games", games.run, games.start, games.stop))
             view_manager.switch_to("games")
+        elif app_map.get(_library_index) == "App Store":
+            from picoware.applications import app_store
+
+            view_manager.add(
+                View(
+                    "app_store",
+                    app_store.run,
+                    app_store.start,
+                    app_store.stop,
+                )
+            )
+            view_manager.switch_to("app_store")
 
 
 def stop(view_manager) -> None:

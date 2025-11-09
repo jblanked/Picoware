@@ -33,7 +33,7 @@ class List:
             background_color,
         )
 
-        self.lines_per_screen = 20
+        self.lines_per_screen = 14
         self.item_height = 20
         self.selected_index = 0
         self.first_visible_index = 0
@@ -181,22 +181,26 @@ class List:
 
     def scroll_down(self) -> None:
         """Scroll the list down by one item."""
+        self.selected_index += 1
         if self.first_visible_index + self.visible_item_count < len(self.items):
             self.first_visible_index += 1
-        if self.selected_index < len(self.items):
-            self.selected_index += 1
         if self.selected_index >= len(self.items):
-            self.selected_index = len(self.items) - 1
+            self.selected_index = 0
+            self.first_visible_index = 0
         self.update_visibility()
         self.draw()
 
     def scroll_up(self) -> None:
         """Scroll the list up by one item."""
+        self.selected_index -= 1
         if self.first_visible_index > 0:
             self.first_visible_index -= 1
-        if self.selected_index > 0:
-            self.selected_index -= 1
-        self.selected_index = max(self.selected_index, 0)
+        if self.selected_index < 0:
+            self.selected_index = len(self.items) - 1
+            if len(self.items) <= self.lines_per_screen:
+                self.first_visible_index = 0
+            else:
+                self.first_visible_index = int(len(self.items) - self.lines_per_screen)
         self.update_visibility()
         self.draw()
 

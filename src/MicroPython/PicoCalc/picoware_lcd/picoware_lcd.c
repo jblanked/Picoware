@@ -23,6 +23,7 @@
 #define FONT_WIDTH 5
 #define FONT_HEIGHT 8
 #define CHAR_WIDTH 6 // Including spacing
+#define CHAR_HEIGHT 8
 
 // Module state
 static bool module_initialized = false;
@@ -1525,6 +1526,7 @@ STATIC const mp_rom_map_elem_t picoware_lcd_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_WIDTH), MP_ROM_INT(DISPLAY_WIDTH)},
     {MP_ROM_QSTR(MP_QSTR_HEIGHT), MP_ROM_INT(DISPLAY_HEIGHT)},
     {MP_ROM_QSTR(MP_QSTR_CHAR_WIDTH), MP_ROM_INT(CHAR_WIDTH)},
+    {MP_ROM_QSTR(MP_QSTR_CHAR_HEIGHT), MP_ROM_INT(CHAR_HEIGHT)},
     {MP_ROM_QSTR(MP_QSTR_FONT_HEIGHT), MP_ROM_INT(FONT_HEIGHT)},
 };
 STATIC MP_DEFINE_CONST_DICT(picoware_lcd_module_globals, picoware_lcd_module_globals_table);

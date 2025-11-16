@@ -24,6 +24,11 @@ class Choice:
         :param foreground_color: The color of the text.
         :param background_color: The background color.
         """
+        from picoware.system.system import System
+
+        syst = System()
+        self.is_circular = syst.is_circular
+
         self.display = draw
         self.position = position
         self.size = size
@@ -64,49 +69,110 @@ class Choice:
         """Render the choices on the display."""
         from picoware.system.vector import Vector
 
+        font_size = self.display.font_size
+
         # Clear the area first
         self.display.clear(self.position, self.size, self.background_color)
 
-        # Draw Title
-        title_width = len(self.title) * 6
-        title_x = self.position.x + (self.size.x - title_width) // 2
-        title_y = self.position.y + 5
-        self.display.text(Vector(title_x, title_y), self.title, self.foreground_color)
-
-        # Calculate dimensions for options
         num_options = len(self.options)
         if num_options == 0:
             return
 
-        # Calculate spacing and size for each option box
-        total_spacing = 10  # Space between boxes
-        options_y = title_y + 20  # Position below title
-        available_width = self.size.x - (total_spacing * (num_options + 1))
-        box_width = available_width // num_options
-        box_height = 30
+        if self.is_circular:
+            center_x = self.display.size.x // 2
+            center_y = self.display.size.y // 2
+            radius = min(self.display.size.x, self.display.size.y) // 2
 
-        # Draw each option horizontally
-        for i, option in enumerate(self.options):
-            # Calculate position for this option
-            box_x = self.position.x + total_spacing + (i * (box_width + total_spacing))
-            box_pos = Vector(box_x, options_y)
+            # Draw Title at top
+            title_width = len(self.title) * font_size.x
+            title_x = center_x - (title_width // 2)
+            title_y = int(center_y - radius * 0.7)
+            self.display.text(
+                Vector(title_x, title_y), self.title, self.foreground_color
+            )
+
+            # arrange options vertically in center
+            total_spacing = int(radius * 0.08)
+            option_height = total_spacing * 2
+            start_y = center_y - (
+                (num_options * option_height + (num_options - 1) * total_spacing) // 2
+            )
+
+            for i, option in enumerate(self.options):
+                opt_y = start_y + i * (option_height + total_spacing)
+                text_width = len(option) * font_size.x
+
+                if i == self._state:
+                    # Highlighted option - draw filled rounded area
+                    opt_center_x = center_x
+                    opt_center_y = opt_y + option_height // 2
+                    opt_radius = max(text_width // 2 + 10, option_height // 2 + 5)
+                    self.display.fill_circle(
+                        Vector(opt_center_x, opt_center_y),
+                        opt_radius,
+                        self.foreground_color,
+                    )
+                    text_color = self.background_color
+                else:
+                    # Non-selected option - draw circle outline
+                    opt_center_x = center_x
+                    opt_center_y = opt_y + option_height // 2
+                    opt_radius = max(text_width // 2 + 10, option_height // 2 + 5)
+                    self.display.circle(
+                        Vector(opt_center_x, opt_center_y),
+                        opt_radius,
+                        self.foreground_color,
+                    )
+                    text_color = self.foreground_color
+
+                # Draw option text centered
+                text_x = center_x - (text_width // 2)
+                text_y = opt_y + (option_height - font_size.y) // 2
+                self.display.text(Vector(text_x, text_y), option, text_color)
+        else:
+            # Draw Title
+            title_width = len(self.title) * font_size.x
+            title_x = self.position.x + (self.size.x - title_width) // 2
+            title_y = self.position.y + 5
+            self.display.text(
+                Vector(title_x, title_y), self.title, self.foreground_color
+            )
+
+            # Calculate spacing and size for each option box
+            total_spacing = int(self.display.size.x * 0.03125)  # Space between boxes
+            options_y = title_y + total_spacing * 2  # Position below title
+            available_width = self.size.x - (total_spacing * (num_options + 1))
+            box_width = available_width // num_options
+            box_height = total_spacing * 3
+
+            # Draw each option horizontally
+            box_pos = Vector(0, options_y)
             box_size = Vector(box_width, box_height)
+            box_text = Vector(0, 0)
+            for i, option in enumerate(self.options):
+                # Calculate position for this option
+                box_x = (
+                    self.position.x + total_spacing + (i * (box_width + total_spacing))
+                )
+                box_pos.x = box_x
 
-            # Draw rectangle for option
-            if i == self._state:
-                # Highlighted (selected) option - filled rectangle
-                self.display.fill_rectangle(box_pos, box_size, self.foreground_color)
-                text_color = self.background_color
-            else:
-                # Non-selected option - outline only
-                self.display.rect(box_pos, box_size, self.foreground_color)
-                text_color = self.foreground_color
+                # Draw rectangle for option
+                if i == self._state:
+                    # Highlighted (selected) option - filled rectangle
+                    self.display.fill_rectangle(
+                        box_pos, box_size, self.foreground_color
+                    )
+                    text_color = self.background_color
+                else:
+                    # Non-selected option - outline only
+                    self.display.rect(box_pos, box_size, self.foreground_color)
+                    text_color = self.foreground_color
 
-            # Draw option text centered in the box
-            text_width = len(option) * 6
-            text_x = box_x + (box_width - text_width) // 2
-            text_y = options_y + (box_height - 8) // 2  # 8 is approximate text height
-            self.display.text(Vector(text_x, text_y), option, text_color)
+                # Draw option text centered in the box
+                text_width = len(option) * font_size.x
+                box_text.x = box_x + (box_width - text_width) // 2
+                box_text.y = options_y + (box_height - font_size.y) // 2
+                self.display.text(box_text, option, text_color)
 
         # Update display
         self.display.swap()

@@ -1,4 +1,3 @@
-from picoware.system.vector import Vector
 from micropython import const
 
 PI = const(3.14159265358979323846)
@@ -42,6 +41,7 @@ class Loading:
     def animate(self, swap: bool = True) -> None:
         """Animate the loading spinner."""
         from math import cos, sin
+        from picoware.system.vector import Vector
 
         if not self.animating:
             self.animating = True
@@ -56,11 +56,13 @@ class Loading:
         center_y = screen_size.y // 2
 
         # Calculate centered text position
-        text_width = len(self.current_text) * 6  # 6 pixels per character
+        text_width = len(self.current_text) * self.display.font_size.x
         text_x = (screen_size.x - text_width) // 2
 
         # Draw spinner
         start_angle = self.spinner_position
+        vec_line = Vector(0, 0)
+        vec_line_end = Vector(0, 0)
         for offset in range(0, self.span, self.step):
             angle = (start_angle + offset) % 360
             next_angle = (angle + self.step) % 360
@@ -77,10 +79,18 @@ class Loading:
             color = self.fade_color(self.spinner_color, opacity)
 
             # Draw line segment directly to framebuffer
-            self.display.line_custom(Vector(x1, y1), Vector(x2, y2), color)
+            vec_line.x = x1
+            vec_line.y = y1
+            vec_line_end.x = x2
+            vec_line_end.y = y2
+            self.display.line_custom(vec_line, vec_line_end, color)
 
         # Draw text directly to framebuffer
-        self.display.text(Vector(text_x, 20), self.current_text, self.spinner_color)
+        self.display.text(
+            Vector(text_x, int(self.display.size.y * 0.0625)),
+            self.current_text,
+            self.spinner_color,
+        )
 
         # Single swap
         if swap:
@@ -113,6 +123,8 @@ class Loading:
 
     def stop(self) -> None:
         """Stop the loading animation."""
+        from picoware.system.vector import Vector
+
         # Clear the entire screen
         self.display.clear(Vector(0, 0), self.display.size, self.background_color)
         self.display.swap()

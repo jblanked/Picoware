@@ -87,6 +87,8 @@ def render_image(tft):
     tft.fill_screen(TFT_BLACK)  # clear the screen before drawing the new lines
 
     # Process all lines and convert 3D to 2D
+    line_1 = Vector(0, 0)
+    line_2 = Vector(0, 0)
     for i, line in enumerate(LINES):
         p0, p1 = line
         x1, y1, z1 = p0
@@ -127,8 +129,11 @@ def render_image(tft):
                 color = TFT_DARKGREEN  # Edge lines (dark green)
             else:
                 color = TFT_BLUE  # Back face (blue)
-
-            tft.line_custom(Vector(rx1, ry1), Vector(rx2, ry2), color)
+            line_1.x = rx1
+            line_1.y = ry1
+            line_2.x = rx2
+            line_2.y = ry2
+            tft.line_custom(line_1, line_2, color)
 
     tft.swap()  # swap the buffers to show the new lines
 
@@ -145,8 +150,10 @@ def start(view_manager) -> bool:
 
     fact = 180 / 3.14159259  # conversion from degrees to radians
 
-    Xoff = 160  # Position the centre of the 3d conversion space into the centre of the TFT screen
-    Yoff = 160  # Adjusted for 320x320 screen
+    Xoff = (
+        draw.size.x // 2
+    )  # Position the centre of the 3d conversion space into the centre of the TFT screen
+    Yoff = draw.size.y // 2
     Zoff = 550  # Z offset in 3D space (smaller = closer and bigger rendering)
 
     Xan = 0
@@ -163,7 +170,7 @@ def run(view_manager) -> None:
 
     input_manager = view_manager.get_input_manager()
     input_button = input_manager.get_last_button()
-
+    draw = view_manager.get_draw()
     if input_button in (BUTTON_LEFT, BUTTON_BACK):
         view_manager.back()
         input_manager.reset()
@@ -183,10 +190,10 @@ def run(view_manager) -> None:
     Zoff += inc
     if Zoff > 500:
         inc = -1  # Switch to zoom in
-    elif Zoff < 160:
+    elif Zoff < draw.size.x:
         inc = 1  # Switch to zoom out
 
-    render_image(view_manager.get_draw())  # go draw it!
+    render_image(draw)  # go draw it!
 
 
 def stop(view_manager) -> None:

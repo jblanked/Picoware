@@ -46,7 +46,7 @@ def start(view_manager) -> bool:
             draw,  # draw instance
             "Click an option to download",  # title
             0,  # y position
-            320,  # height
+            draw.size.y,  # height
             view_manager.get_foreground_color(),  # text color
             view_manager.get_background_color(),  # background color
             TFT_BLUE,  # selected item color

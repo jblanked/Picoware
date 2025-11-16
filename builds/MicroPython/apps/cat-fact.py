@@ -52,9 +52,9 @@ def start(view_manager) -> bool:
         return False
 
     _textbox = TextBox(
-        view_manager.get_draw(),
+        draw,
         0,
-        320,
+        draw.size.y,
         view_manager.get_foreground_color(),
         view_manager.get_background_color(),
     )

@@ -606,8 +606,8 @@ class FlipSocialRun:
             return
 
         # Simple word wrapping implementation
-        max_width = 320
-        line_height = 20
+        max_width = canvas.size.x
+        line_height = int(max_width * 0.0625)
         max_lines = 6
         words = user_message.split()
         lines = []
@@ -868,7 +868,7 @@ class FlipSocialRun:
     def draw_menu(self, canvas, selected_index: int, menu_items: list) -> None:
         """Generic menu drawer"""
 
-        SCREEN_W = 320
+        SCREEN_W = canvas.size.x
 
         # Draw title
         title = "FlipSocial"
@@ -882,8 +882,10 @@ class FlipSocialRun:
         )
 
         # Draw decorative pattern
+        dec_pat = Vector(0, 45)
         for i in range(0, SCREEN_W, 10):
-            canvas.pixel(Vector(i, 45), TFT_BLACK)
+            dec_pat.x = i
+            canvas.pixel(dec_pat, TFT_BLACK)
 
         # Get current item
         if 0 <= selected_index < len(menu_items):
@@ -982,7 +984,7 @@ class FlipSocialRun:
                             content = msg.get("content", "")
 
                             if sender and content:
-                                SCREEN_W = 320
+                                SCREEN_W = canvas.size.x
 
                                 # Draw title (sender name)
                                 title_width = __string_width(sender)
@@ -1325,7 +1327,7 @@ class FlipSocialRun:
     def draw_profile_view(self, canvas) -> None:
         """Draw the profile view"""
 
-        SCREEN_W = 320
+        SCREEN_W = canvas.size.x
         storage = self.view_manager.get_storage()
         data = storage.read("picoware/flip_social/profile.json")
 

@@ -19,7 +19,7 @@ def __flip_social_settings_start(view_manager) -> bool:
         draw,  # draw instance
         "Settings",  # title
         0,  # y
-        320,  # height
+        draw.size.y,  # height
         view_manager.get_foreground_color(),  # text color
         view_manager.get_background_color(),  # background color
         view_manager.get_selected_color(),  # selected color
@@ -44,6 +44,7 @@ def __flip_social_settings_run(view_manager) -> None:
         BUTTON_DOWN,
         BUTTON_RIGHT,
         BUTTON_CENTER,
+        BUTTON_LEFT,
     )
 
     global _flip_social_settings_menu
@@ -51,16 +52,16 @@ def __flip_social_settings_run(view_manager) -> None:
     input_manager = view_manager.get_input_manager()
     input_button = input_manager.get_last_button()
 
-    if input_button == BUTTON_UP:
+    if input_button in (BUTTON_UP, BUTTON_LEFT):
         input_manager.reset()
         _flip_social_settings_menu.scroll_up()
-    elif input_button == BUTTON_DOWN:
+    elif input_button in (BUTTON_DOWN, BUTTON_RIGHT):
         input_manager.reset()
         _flip_social_settings_menu.scroll_down()
     elif input_button == BUTTON_BACK:
         input_manager.reset()
         view_manager.back()
-    elif input_button in (BUTTON_CENTER, BUTTON_RIGHT):
+    elif input_button == BUTTON_CENTER:
         from picoware.system.view import View
 
         input_manager.reset()

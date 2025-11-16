@@ -1,6 +1,3 @@
-from picoware.system.vector import Vector
-
-
 class Image:
     """
     Represents an image with RGB565 pixel data for MicroPython.
@@ -8,6 +5,8 @@ class Image:
     """
 
     def __init__(self):
+        from picoware.system.vector import Vector
+
         self.size = Vector(0, 0)
         self._raw = None
         self.is_8bit = True
@@ -66,6 +65,8 @@ class Image:
 
     def _load_bmp(self, path):
         """Read BMP header + pixel data into self._raw as little‑endian RGB565 bytes."""
+        from picoware.system.vector import Vector
+
         with open(path, "rb") as f:
             if f.read(2) != b"BM":
                 raise ValueError("Not a BMP file")
@@ -96,6 +97,8 @@ class Image:
         Create a tiny monochrome‑style RGB565 image from ASCII art:
         \".\" or \"f\" → 0x0000, \"1\" → 0xFFFF, etc.
         """
+        from picoware.system.vector import Vector
+
         rows = image_str.strip("\n").split("\n")
         h = len(rows)
         w = len(rows[0])

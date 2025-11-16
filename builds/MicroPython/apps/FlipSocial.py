@@ -102,7 +102,7 @@ def start(view_manager) -> bool:
         draw,  # draw instance
         "FlipSocial",  # title
         0,  # y
-        320,  # height
+        draw.size.y,  # height
         view_manager.get_foreground_color(),  # text color
         view_manager.get_background_color(),  # background color
         view_manager.get_selected_color(),  # selected color

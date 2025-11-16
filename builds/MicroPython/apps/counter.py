@@ -25,7 +25,7 @@ def start(view_manager) -> bool:
     _counter_textbox = TextBox(
         view_manager.draw,
         0,
-        320,
+        view_manager.draw.size.y,
         view_manager.get_foreground_color(),
         view_manager.get_background_color(),
     )

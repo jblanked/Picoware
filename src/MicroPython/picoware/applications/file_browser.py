@@ -112,6 +112,10 @@ def __hide_file_contents() -> None:
 
 def start(view_manager) -> bool:
     """Start the app"""
+    if not view_manager.has_sd_card:
+        print("File Browser app requires an SD card")
+        return False
+
     from picoware.gui.menu import Menu
     from picoware.gui.textbox import TextBox
     from picoware.gui.choice import Choice
@@ -127,7 +131,7 @@ def start(view_manager) -> bool:
             view_manager.draw,
             "File Browser",
             0,
-            320,
+            view_manager.draw.size.y,
             view_manager.get_foreground_color(),
             view_manager.get_background_color(),
             view_manager.get_selected_color(),
@@ -138,7 +142,7 @@ def start(view_manager) -> bool:
         _file_browser_textbox = TextBox(
             view_manager.draw,
             0,
-            320,
+            view_manager.draw.size.y,
             view_manager.get_foreground_color(),
             view_manager.get_background_color(),
         )
@@ -197,15 +201,15 @@ def run(view_manager) -> None:
             input_manager.reset()
     else:
         # Directory browsing mode
-        if input_value == BUTTON_UP:
+        if input_value in (BUTTON_UP, BUTTON_LEFT):
             _file_browser_menu.scroll_up()
             _file_browser_menu.draw()
             input_manager.reset()
-        elif input_value == BUTTON_DOWN:
+        elif input_value in (BUTTON_DOWN, BUTTON_RIGHT):
             _file_browser_menu.scroll_down()
             _file_browser_menu.draw()
             input_manager.reset()
-        elif input_value in [BUTTON_LEFT, BUTTON_BACK]:
+        elif input_value == BUTTON_BACK:
             input_manager.reset()
             if _directory_stack:
                 # Pop the last directory from stack
@@ -220,7 +224,7 @@ def run(view_manager) -> None:
             else:
                 # No more directories in stack, exit the app
                 view_manager.back()
-        elif input_value in [BUTTON_CENTER, BUTTON_RIGHT]:
+        elif input_value == BUTTON_CENTER:
             input_manager.reset()
             current_item = _file_browser_menu.get_current_item()
             selected_index = _file_browser_menu.get_selected_index()

@@ -754,10 +754,10 @@ def start(view_manager) -> bool:
             view_manager.get_background_color(),
         )
 
-    wifi = view_manager.get_wifi()
-
-    if not wifi:
+    if not view_manager.has_wifi:
         return True
+
+    wifi = view_manager.get_wifi()
 
     connect_to_saved_wifi(view_manager)
 
@@ -779,7 +779,7 @@ def run(view_manager) -> None:
     from picoware.system.vector import Vector
 
     input_manager = view_manager.input_manager
-    button: int = input_manager.get_last_button()
+    button: int = input_manager.button
 
     global _desktop
     global _desktop_frame
@@ -797,7 +797,10 @@ def run(view_manager) -> None:
                 else (_FRAME_2_16x15 if _desktop_frame == 1 else _FRAME_3_16x15)
             ),
             Vector(16, 15),
-            Vector(150, 150),
+            Vector(
+                int(view_manager.draw.size.x * 0.46875),
+                int(view_manager.draw.size.y * 0.46875),
+            ),
         )
         _frame_counter += 1
         if _frame_counter % 10 == 0:

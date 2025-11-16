@@ -137,7 +137,7 @@ def _start_menu(view_manager) -> None:
             view_manager.draw,
             "What type of file?",
             0,
-            320,
+            view_manager.draw.size.y,
             view_manager.get_foreground_color(),
             view_manager.get_background_color(),
             view_manager.get_selected_color(),
@@ -153,6 +153,10 @@ def _start_menu(view_manager) -> None:
 
 def start(view_manager) -> bool:
     """Start the app."""
+    if not view_manager.has_sd_card:
+        print("Screensavers app requires an SD card")
+        return False
+
     global _editor_state
     global _filename
     global _keyboard_just_started

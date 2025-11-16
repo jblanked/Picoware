@@ -22,26 +22,37 @@ class ViewManager:
         self.view_count = 0
         self.selected_color = TFT_BLUE
         self.stack_depth = 0
-        self.delay_ticks = 0
-        self.delay_elapsed = 0
+
+        syst = System()
+
+        # Initialize WiFi
+        self.wifi = None
+        self._current_board_id = syst.board_id
+        if syst is not None and syst.has_wifi:
+            self.wifi = WiFi()
 
         # Initialize storage
-        self.storage = Storage(True)
-        self.storage.mkdir("picoware")
+        self.storage = None
+        if syst.has_sd_card:
+            self.storage = Storage(True)
+            self.storage.mkdir("picoware")
+            self.storage.mkdir("picoware/settings")
 
         # Initialize LED
         self.led = LED()
 
         # Set up colors
-        dark_mode_data: str = self.storage.read("picoware/settings/dark_mode.json")
         self.background_color = TFT_BLACK
         self.foreground_color = TFT_WHITE
 
-        if dark_mode_data is not None:
-            state: bool = "true" in dark_mode_data.lower()
-            if not state:
-                self.background_color = TFT_WHITE
-                self.foreground_color = TFT_BLACK
+        if self.storage is not None:
+            dark_mode_data: str = self.storage.read("picoware/settings/dark_mode.json")
+
+            if len(dark_mode_data) > 1:
+                state: bool = "true" in dark_mode_data.lower()
+                if not state:
+                    self.background_color = TFT_WHITE
+                    self.foreground_color = TFT_BLACK
 
         # Initialize drawing system
         self.draw = Draw(self.foreground_color, self.background_color)
@@ -57,12 +68,6 @@ class ViewManager:
             self.background_color,
             self.selected_color,
         )
-
-        # Initialize WiFi
-        self.wifi = None
-        syst = System()
-        if syst is not None and syst.has_wifi:
-            self.wifi = WiFi()
 
         # Initialize time
         self.time = Time()
@@ -83,7 +88,7 @@ class ViewManager:
             if self.views[i] is not None:
                 del self.views[i]
 
-        if self.current_view:
+        if self.current_view is not None:
             del self.current_view
             self.current_view = None
 
@@ -97,13 +102,13 @@ class ViewManager:
         if self.input_manager:
             del self.input_manager
             self.input_manager = None
-        if self.storage:
+        if self.storage is not None:
             del self.storage
             self.storage = None
         if self.led:
             del self.led
             self.led = None
-        if self.wifi:
+        if self.wifi is not None:
             del self.wifi
             self.wifi = None
         if self.time:
@@ -111,6 +116,35 @@ class ViewManager:
             self.time = None
 
         collect()
+
+    @property
+    def board_id(self):
+        """Return the current board ID."""
+        return self._current_board_id
+
+    @property
+    def board_name(self):
+        """Return the current device name."""
+        from picoware_boards import get_current_name
+
+        return get_current_name()
+
+    @property
+    def has_psram(self):
+        """Return whether the current board has PSRAM."""
+        from picoware_boards import has_psram
+
+        return has_psram(self._current_board_id)
+
+    @property
+    def has_sd_card(self):
+        """Return whether the current board has an SD card."""
+        return self.storage is not None
+
+    @property
+    def has_wifi(self):
+        """Return whether the current board has WiFi capability."""
+        return self.wifi is not None
 
     def add(self, view):
         """

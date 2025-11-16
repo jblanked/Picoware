@@ -28,6 +28,11 @@ class Toggle:
         :param border_color: The color of the border.
         :param border_width: The width of the border.
         """
+        from picoware.system.system import System
+
+        syst = System()
+        self.is_circular = syst.is_circular
+
         self.display = draw
         self.position = position
         self.size = size
@@ -60,53 +65,117 @@ class Toggle:
         from picoware.system.vector import Vector
 
         self.display.clear(self.position, self.size, self.background_color)
-        self.display.line(
-            Vector(self.position.x, self.position.y + self.size.y - self.border_width),
-            Vector(
-                self.position.x + self.size.x,
-                self.position.y + self.size.y - self.border_width,
-            ),
-            self.border_color,
-        )
-        self.display.text(
-            Vector(self.position.x + 5, self.position.y + self.size.y // 2 - 8),
-            self.text,
-            self.foreground_color,
-        )
 
-        toggle_width = 30
-        toggle_height = 16
-        toggle_x = self.position.x + self.size.x - toggle_width - 5
-        toggle_y = self.position.y + (self.size.y - toggle_height) // 2
-        knob_radius = 6
+        display_size: Vector = self.display.size
 
-        if self.state:
-            # Toggle is ON
-            self.display.fill_rectangle(
-                Vector(toggle_x, toggle_y),
-                Vector(toggle_width, toggle_height),
-                self.on_color,
+        if self.is_circular:
+            center_x = display_size.x // 2
+
+            # spacing based on screen size
+            horizontal_offset = int(display_size.x * 0.02)
+            vertical_offset = int(display_size.y * 0.05)
+
+            # Center text and toggle with offsets
+            text_y = (
+                self.position.y
+                + self.size.y // 2
+                - self.display.font_size.y // 2
+                + vertical_offset
             )
-            self.display.fill_circle(
-                Vector(
-                    toggle_x + toggle_width - knob_radius - 2,
-                    toggle_y + toggle_height // 2,
-                ),
-                knob_radius,
-                self.background_color,
-            )
+
+            # Draw text on left side
+            text_width = len(self.text) * self.display.font_size.x
+            toggle_spacing = int(display_size.x * 0.078)
+            text_x = center_x - text_width - toggle_spacing + horizontal_offset
+            self.display.text(Vector(text_x, text_y), self.text, self.foreground_color)
+
+            # Draw circular toggle on right side
+            toggle_offset = int(display_size.x * 0.0625)
+            toggle_center_x = center_x + toggle_offset + horizontal_offset
+            toggle_center_y = self.position.y + self.size.y // 2 + vertical_offset
+            toggle_radius = int(display_size.x * 0.0375)
+            knob_radius = toggle_radius // 2
+
+            if self.state:
+                # Toggle is ON - filled outer circle with knob on right
+                self.display.fill_circle(
+                    Vector(toggle_center_x, toggle_center_y),
+                    toggle_radius,
+                    self.on_color,
+                )
+                self.display.fill_circle(
+                    Vector(
+                        toggle_center_x + toggle_radius - knob_radius - 1,
+                        toggle_center_y,
+                    ),
+                    knob_radius,
+                    self.background_color,
+                )
+            else:
+                # Toggle is OFF - circle outline with knob on left
+                self.display.circle(
+                    Vector(toggle_center_x, toggle_center_y),
+                    toggle_radius,
+                    self.border_color,
+                )
+                self.display.fill_circle(
+                    Vector(
+                        toggle_center_x - toggle_radius + knob_radius + 1,
+                        toggle_center_y,
+                    ),
+                    knob_radius,
+                    self.foreground_color,
+                )
         else:
-            # Toggle is OFF
-            self.display.fill_rectangle(
-                Vector(toggle_x, toggle_y),
-                Vector(toggle_width, toggle_height),
+            self.display.line(
+                Vector(
+                    self.position.x, self.position.y + self.size.y - self.border_width
+                ),
+                Vector(
+                    self.position.x + self.size.x,
+                    self.position.y + self.size.y - self.border_width,
+                ),
                 self.border_color,
             )
-            self.display.fill_circle(
-                Vector(toggle_x + knob_radius + 2, toggle_y + toggle_height // 2),
-                knob_radius,
-                self.background_color,
+            self.display.text(
+                Vector(self.position.x + 5, self.position.y + self.size.y // 2 - 8),
+                self.text,
+                self.foreground_color,
             )
+
+            toggle_width = int(display_size.x * 0.09375)
+            toggle_height = int(display_size.x * 0.05)
+            toggle_x = self.position.x + self.size.x - toggle_width - 5
+            toggle_y = self.position.y + (self.size.y - toggle_height) // 2
+            knob_radius = 6
+
+            if self.state:
+                # Toggle is ON
+                self.display.fill_rectangle(
+                    Vector(toggle_x, toggle_y),
+                    Vector(toggle_width, toggle_height),
+                    self.on_color,
+                )
+                self.display.fill_circle(
+                    Vector(
+                        toggle_x + toggle_width - knob_radius - 2,
+                        toggle_y + toggle_height // 2,
+                    ),
+                    knob_radius,
+                    self.background_color,
+                )
+            else:
+                # Toggle is OFF
+                self.display.fill_rectangle(
+                    Vector(toggle_x, toggle_y),
+                    Vector(toggle_width, toggle_height),
+                    self.border_color,
+                )
+                self.display.fill_circle(
+                    Vector(toggle_x + knob_radius + 2, toggle_y + toggle_height // 2),
+                    knob_radius,
+                    self.background_color,
+                )
 
         self.display.swap()
 

@@ -1,28 +1,83 @@
-import picoware_lcd
 from picoware.system.colors import TFT_WHITE, TFT_BLACK
 from picoware.system.vector import Vector
+from picoware.system.boards import (
+    BOARD_WAVESHARE_1_28_RP2350,
+    BOARD_WAVESHARE_1_43_RP2350,
+)
 
 
 class Draw:
     """Class for drawing shapes and text on the display"""
 
     def __init__(self, foreground: int = TFT_WHITE, background: int = TFT_BLACK):
-        self.size = Vector(320, 320)
+        from picoware_boards import get_current_id
+
+        self._current_board_id = get_current_id()
+
         self.background = background
         self.foreground = foreground
-
-        # Initialize native LCD extension
-        picoware_lcd.init(background)
-
-        # Create RGB332 palette
-        self.palette = self._create_rgb332_palette()
-
         self.text_background = background
         self.text_foreground = foreground
         self.use_background_text_color = False
 
-        # Clear the display and framebuffer
-        picoware_lcd.clear_framebuffer(self._rgb565_to_rgb332(background))
+        self._size = Vector(0, 0)
+        self.palette = None
+
+        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+            self._size = Vector(240, 240)
+
+            from waveshare_lcd import init
+
+            # Initialize native LCD extension
+            init(True)
+
+        elif self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+            self._size = Vector(466, 466)
+
+            from waveshare_lcd import init
+
+            # Initialize native LCD extension
+            init()
+
+        else:  # PicoCalc
+            self._size = Vector(320, 320)
+
+            from picoware_lcd import init, clear_framebuffer
+
+            # Initialize native LCD extension
+            init(background)
+
+            # Create RGB332 palette
+            self.palette = self._create_rgb332_palette()
+
+            # Clear the display and framebuffer
+            clear_framebuffer(self._rgb565_to_rgb332(background))
+
+    @property
+    def board_id(self) -> int:
+        """Get the current board ID"""
+        return self._current_board_id
+
+    @property
+    def font_size(self) -> Vector:
+        """Get the font size"""
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+        ):
+            from waveshare_lcd import get_font_size
+
+            width, height = get_font_size()
+            return Vector(width, height)
+
+        from picoware_lcd import CHAR_WIDTH, FONT_HEIGHT
+
+        return Vector(CHAR_WIDTH, FONT_HEIGHT)
+
+    @property
+    def size(self) -> Vector:
+        """Get the size of the display"""
+        return self._size
 
     def _create_rgb332_palette(self):
         """Create an RGB332 to RGB565 palette conversion table"""
@@ -67,11 +122,31 @@ class Draw:
 
     def _draw_pixel_to_buffer(self, position: Vector, color: int):
         """Draw a pixel to the framebuffer"""
-        picoware_lcd.draw_pixel(int(position.x), int(position.y), color)
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+        ):
+            from waveshare_lcd import draw_pixel
+
+            draw_pixel(int(position.x), int(position.y), color)
+        else:
+            from picoware_lcd import draw_pixel
+
+            draw_pixel(int(position.x), int(position.y), color)
 
     def circle(self, position: Vector, radius: int, color: int = TFT_WHITE):
         """Draw a circle outline"""
-        picoware_lcd.draw_circle(int(position.x), int(position.y), radius, color)
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+        ):
+            from waveshare_lcd import draw_circle
+
+            draw_circle(int(position.x), int(position.y), radius, color)
+        else:
+            from picoware_lcd import draw_circle
+
+            draw_circle(int(position.x), int(position.y), radius, color)
 
     def clear(
         self,
@@ -94,9 +169,8 @@ class Draw:
             del self.palette
             self.palette = None
 
-        if self.size:
-            del self.size
-            self.size = None
+        del self._size
+        self._size = None
 
         # Force garbage collection
         collect()
@@ -115,17 +189,43 @@ class Draw:
 
     def fill_circle(self, position: Vector, radius: int, color=TFT_WHITE):
         """Draw a filled circle"""
-        picoware_lcd.fill_circle(int(position.x), int(position.y), radius, color)
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+        ):
+            from waveshare_lcd import fill_circle
+
+            fill_circle(int(position.x), int(position.y), radius, color)
+        else:
+            from picoware_lcd import fill_circle
+
+            fill_circle(int(position.x), int(position.y), radius, color)
 
     def fill_rectangle(self, position: Vector, size: Vector, color=TFT_WHITE):
         """Draw a filled rectangle"""
-        picoware_lcd.fill_rect(
-            int(position.x),
-            int(position.y),
-            int(size.x),
-            int(size.y),
-            color,
-        )
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+        ):
+            from waveshare_lcd import fill_rect
+
+            fill_rect(
+                int(position.x),
+                int(position.y),
+                int(size.x),
+                int(size.y),
+                color,
+            )
+        else:
+            from picoware_lcd import fill_rect
+
+            fill_rect(
+                int(position.x),
+                int(position.y),
+                int(size.x),
+                int(size.y),
+                color,
+            )
 
     def fill_round_rectangle(
         self, position: Vector, size: Vector, radius: int, color=TFT_WHITE
@@ -149,10 +249,10 @@ class Draw:
             y = 0
 
         # Adjust for right and bottom boundaries
-        if x + width > self.size.x:
-            width = self.size.x - x
-        if y + height > self.size.y:
-            height = self.size.y - y
+        if x + width > self._size.x:
+            width = self._size.x - x
+        if y + height > self._size.y:
+            height = self._size.y - y
 
         # Only draw if there's something to draw
         if width > 0 and height > 0:
@@ -204,25 +304,49 @@ class Draw:
 
     def fill_screen(self, color=TFT_BLACK):
         """Fill the entire screen with a color"""
-        picoware_lcd.clear_framebuffer(self._rgb565_to_rgb332(color))
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+        ):
+            from waveshare_lcd import fill_screen
+
+            fill_screen(color)
+        else:
+            from picoware_lcd import clear_framebuffer
+
+            clear_framebuffer(self._rgb565_to_rgb332(color))
 
     def fill_triangle(
         self, point1: Vector, point2: Vector, point3: Vector, color=TFT_WHITE
     ):
         """Draw a filled triangle"""
-        picoware_lcd.fill_triangle(
-            int(point1.x),
-            int(point1.y),
-            int(point2.x),
-            int(point2.y),
-            int(point3.x),
-            int(point3.y),
-            color,
-        )
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+        ):
+            from waveshare_lcd import fill_triangle
 
-    def get_font_size(self) -> Vector:
-        """Get the font size"""
-        return Vector(picoware_lcd.CHAR_WIDTH, picoware_lcd.FONT_HEIGHT)
+            fill_triangle(
+                int(point1.x),
+                int(point1.y),
+                int(point2.x),
+                int(point2.y),
+                int(point3.x),
+                int(point3.y),
+                color,
+            )
+        else:
+            from picoware_lcd import fill_triangle
+
+            fill_triangle(
+                int(point1.x),
+                int(point1.y),
+                int(point2.x),
+                int(point2.y),
+                int(point3.x),
+                int(point3.y),
+                color,
+            )
 
     def image(self, position: Vector, img):
         """Draw an image object to the back buffer"""
@@ -279,9 +403,9 @@ class Draw:
 
                 # Calculate clipping boundaries once
                 start_x = max(0, position.x)
-                end_x = min(self.size.x, position.x + width)
+                end_x = min(self._size.x, position.x + width)
                 start_y = max(0, position.y)
-                end_y = min(self.size.y, position.y + abs_height)
+                end_y = min(self._size.y, position.y + abs_height)
 
                 if start_x >= end_x or start_y >= end_y:
                     return  # Completely clipped
@@ -333,14 +457,31 @@ class Draw:
         self, position: Vector, size: Vector, byte_data, invert: bool = False
     ):
         """Draw an image from 8-bit byte data (bytes or bytearray)"""
-        picoware_lcd.draw_image_bytearray(
-            int(position.x),
-            int(position.y),
-            int(size.x),
-            int(size.y),
-            byte_data,
-            invert,
-        )
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+        ):
+            from waveshare_lcd import blit
+
+            blit(
+                int(position.x),
+                int(position.y),
+                int(size.x),
+                int(size.y),
+                byte_data,
+                # invert,
+            )
+        else:
+            from picoware_lcd import draw_image_bytearray
+
+            draw_image_bytearray(
+                int(position.x),
+                int(position.y),
+                int(size.x),
+                int(size.y),
+                byte_data,
+                invert,
+            )
 
     def image_bytearray_1bit(self, position: Vector, size: Vector, byte_data) -> None:
         """Draw a 1-bit bitmap from packed byte_data (8 pixels per byte, row-aligned)"""
@@ -365,34 +506,84 @@ class Draw:
 
     def line(self, position: Vector, size: Vector, color=TFT_WHITE):
         """Draw horizontal line"""
-        picoware_lcd.draw_line(int(position.x), int(position.y), int(size.x), color)
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+        ):
+            from waveshare_lcd import draw_line
+
+            draw_line(int(position.x), int(position.y), int(size.x), int(size.y), color)
+        else:
+            from picoware_lcd import draw_line
+
+            draw_line(int(position.x), int(position.y), int(size.x), color)
 
     def line_custom(self, point_1: Vector, point_2: Vector, color=TFT_WHITE):
         """Draw line between two points"""
-        picoware_lcd.draw_line_custom(
-            int(point_1.x),
-            int(point_1.y),
-            int(point_2.x),
-            int(point_2.y),
-            color,
-        )
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+        ):
+            from waveshare_lcd import draw_line
+
+            draw_line(
+                int(point_1.x),
+                int(point_1.y),
+                int(point_2.x),
+                int(point_2.y),
+                color,
+            )
+        else:
+            from picoware_lcd import draw_line_custom
+
+            draw_line_custom(
+                int(point_1.x),
+                int(point_1.y),
+                int(point_2.x),
+                int(point_2.y),
+                color,
+            )
 
     def pixel(self, position: Vector, color=TFT_WHITE):
         """Draw a pixel"""
-        picoware_lcd.draw_pixel(int(position.x), int(position.y), color)
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+        ):
+            from waveshare_lcd import draw_pixel
+
+            draw_pixel(int(position.x), int(position.y), color)
+        else:
+            from picoware_lcd import draw_pixel
+
+            draw_pixel(int(position.x), int(position.y), color)
 
     def rect(self, position: Vector, size: Vector, color=TFT_WHITE):
         """Draw a rectangle outline on the display"""
         if size.x <= 0 or size.y <= 0:
             return
 
-        x, y, w, h = int(position.x), int(position.y), int(size.x), int(size.y)
-        picoware_lcd.draw_line(x, y, w, color)  # Top
-        picoware_lcd.draw_line(x, y + h - 1, w, color)  # Bottom
-        picoware_lcd.draw_line_custom(x, y, x, y + h - 1, color)  # Left
-        picoware_lcd.draw_line_custom(
-            x + w - 1, y, x + w - 1, y + h - 1, color
-        )  # Right
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+        ):
+            from waveshare_lcd import draw_rect
+
+            draw_rect(
+                int(position.x),
+                int(position.y),
+                int(size.x),
+                int(size.y),
+                color,
+            )
+        else:
+            from picoware_lcd import draw_line, draw_line_custom
+
+            x, y, w, h = int(position.x), int(position.y), int(size.x), int(size.y)
+            draw_line(x, y, w, color)  # Top
+            draw_line(x, y + h - 1, w, color)  # Bottom
+            draw_line_custom(x, y, x, y + h - 1, color)  # Left
+            draw_line_custom(x + w - 1, y, x + w - 1, y + h - 1, color)  # Right
 
     def reset(self):
         """Reset the display by clearing the framebuffer"""
@@ -419,12 +610,42 @@ class Draw:
         """
         Swap the front and back buffers - convert 8-bit framebuffer to display
         """
-        picoware_lcd.blit_8bit_fullscreen(self.palette)
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+        ):
+            from waveshare_lcd import swap
+
+            swap()
+        else:
+            from picoware_lcd import blit_8bit_fullscreen
+
+            blit_8bit_fullscreen(self.palette)
 
     def text(self, position: Vector, text: str, color=TFT_WHITE):
         """Draw text on the display"""
-        picoware_lcd.draw_text(int(position.x), int(position.y), text, color)
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+        ):
+            from waveshare_lcd import draw_text
+
+            draw_text(int(position.x), int(position.y), text, color)
+        else:
+            from picoware_lcd import draw_text
+
+            draw_text(int(position.x), int(position.y), text, color)
 
     def text_char(self, position: Vector, char: str, color=TFT_WHITE):
         """Draw a single character on the display"""
-        picoware_lcd.draw_char(int(position.x), int(position.y), ord(char), color)
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+        ):
+            from waveshare_lcd import draw_char
+
+            draw_char(int(position.x), int(position.y), ord(char), color)
+        else:
+            from picoware_lcd import draw_char
+
+            draw_char(int(position.x), int(position.y), ord(char), color)

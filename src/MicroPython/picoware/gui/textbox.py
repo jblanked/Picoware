@@ -1,6 +1,3 @@
-from picoware.system.vector import Vector
-
-
 class TextBox:
     '''Class for a text box with scrolling functionality."""'''
 
@@ -14,6 +11,11 @@ class TextBox:
         show_scrollbar: bool = True,
     ):
         from picoware.gui.scrollbar import ScrollBar
+        from picoware.system.system import System
+        from picoware.system.vector import Vector
+
+        syst = System()
+        self.is_circular = syst.is_circular
 
         self.foreground_color = foreground_color
         self.background_color = background_color
@@ -22,6 +24,7 @@ class TextBox:
         self.total_lines = 0
         self.current_line = -1
         self.show_scrollbar = show_scrollbar
+        self.spacing = int(draw.size.x * 0.03125)
         #
         self.current_text = ""
         self.position = Vector(0, y)
@@ -38,10 +41,15 @@ class TextBox:
             Vector(0, 0),
             self.foreground_color,
             self.background_color,
+            is_horizontal=self.is_circular,
         )
 
-        self.characters_per_line = 53  # width is 320, 5x8 font (width of 6)
-        self.lines_per_screen = 32  # height is 320, 10 pixel line spacing
+        self.characters_per_line = int(
+            draw.size.x // draw.font_size.x
+        )  # width is 320, 5x8 font (width of 6)
+        self.lines_per_screen = int(
+            draw.size.y // draw.font_size.y
+        )  # height is 320, 10 pixel line spacing
 
         draw.swap()
 
@@ -72,11 +80,15 @@ class TextBox:
     def text_height(self) -> int:
         """Get the height of the text box based on the number of lines and font size."""
         return (
-            0 if self.total_lines == 0 else (self.total_lines - 1) * 10
-        )  # 10 pixel spacing for 5x8 pixel font
+            0
+            if self.total_lines == 0
+            else (self.total_lines - 1) * self.scrollbar.display.font_size.y + 2
+        )
 
     def set_scrollbar_position(self):
         """Set the position of the scrollbar based on the current line."""
+        from picoware.system.vector import Vector
+
         # Calculate the proper scroll position based on current line and total lines
         scroll_ratio = 0.0
         if self.total_lines > self.lines_per_screen and self.total_lines > 0:
@@ -88,39 +100,65 @@ class TextBox:
                     self.total_lines - self.lines_per_screen
                 )
 
-        # maximum vertical movement for scrollbar thumb
-        max_offset = self.size.y - self.scrollbar.size.y - 2
-        # Account for padding
-        bar_offset_y = int(scroll_ratio * max_offset)
-
-        bar_x = self.position.x + self.size.x - self.scrollbar.size.x - 1
-        # 1 pixel padding
-        bar_y = self.position.y + bar_offset_y + 1
-        # 1 pixel padding
+        if self.scrollbar.is_horizontal:
+            # Horizontal scrollbar positioning (top for circular displays)
+            max_offset = self.size.x - self.scrollbar.size.x - 2
+            bar_offset_x = int(scroll_ratio * max_offset)
+            bar_x = self.position.x + bar_offset_x + 1
+            bar_y = self.position.y + self.spacing
+        else:
+            # Vertical scrollbar positioning
+            max_offset = self.size.y - self.scrollbar.size.y - 2
+            bar_offset_y = int(scroll_ratio * max_offset)
+            bar_x = (
+                self.position.x + self.size.x - self.scrollbar.size.x - 1
+            )  # 1 pixel padding
+            bar_y = self.position.y + bar_offset_y + 1  # 1 pixel padding
 
         self.scrollbar.position = Vector(int(bar_x), int(bar_y))
 
     def set_scrollbar_size(self):
         """Set the size of the scrollbar based on the number of lines."""
+        from picoware.system.vector import Vector
+
         content_height = self.text_height
         view_height = self.size.y
-        bar_height = 0
 
-        if content_height <= view_height or content_height <= 0:
-            bar_height = view_height - 2
-            # 1 pixel padding (+1 pixel for the scrollbar)
+        if self.scrollbar.is_horizontal:
+            # Horizontal scrollbar sizing
+            view_width = self.size.x
+            bar_width = 0
+
+            if content_height <= view_height or content_height <= 0:
+                bar_width = view_width - 2  # 1 pixel padding
+            else:
+                bar_width = int(view_width * (view_height / content_height))
+
+            # enforce minimum scrollbar width
+            min_bar_width = self.spacing
+            bar_width = max(bar_width, min_bar_width)
+
+            self.scrollbar.size = Vector(bar_width, 6)
         else:
-            bar_height = int(view_height * (view_height / content_height))
+            # Vertical scrollbar sizing
+            bar_height = 0
 
-        # enforce minimum scrollbar height
-        min_bar_height = 10
-        bar_height = max(bar_height, min_bar_height)
+            if content_height <= view_height or content_height <= 0:
+                bar_height = (
+                    view_height - 2
+                )  # 1 pixel padding (+1 pixel for the scrollbar)
+            else:
+                bar_height = int(view_height * (view_height / content_height))
 
-        self.scrollbar.size = Vector(6, bar_height)
+            # enforce minimum scrollbar height
+            min_bar_height = self.spacing
+            bar_height = max(bar_height, min_bar_height)
+
+            self.scrollbar.size = Vector(6, bar_height)
 
     def display_visible_lines(self):
         """Display only the lines that are currently visible."""
-        from gc import collect
+        from picoware.system.vector import Vector
 
         # Clear current display
         self.scrollbar.display.clear(self.position, self.size, self.background_color)
@@ -136,27 +174,63 @@ class TextBox:
             min(first_visible_line + self.lines_per_screen, len(self.line_positions)),
         )
 
-        # Display only the lines in view
-        for i, line_idx in enumerate(visible_range):
-            if line_idx < len(self.line_positions):
-                line_info = self.line_positions[line_idx]
-                start_idx, length = line_info
+        if self.is_circular:
+            # Circular display implementation
+            center_x = self.scrollbar.display.size.x // 2
+            center_y = self.scrollbar.display.size.y // 2
 
-                if start_idx + length <= len(self.current_text):
-                    line_text = self.current_text[
-                        start_idx : start_idx + length
-                    ].rstrip()
-                    y_pos = (
-                        self.position.y + 5 + (i * 10)
-                    )  # Position based on line number within view
-                    self.scrollbar.display.text(
-                        Vector(int(self.position.x + 1), int(y_pos)),
-                        line_text,
-                        self.foreground_color,
-                    )
+            # Display lines with center alignment for circular screen
+            line_vector = Vector(0, 0)
+            for i, line_idx in enumerate(visible_range):
+                if line_idx < len(self.line_positions):
+                    line_info = self.line_positions[line_idx]
+                    start_idx, length = line_info
 
-        # Force garbage collection
-        collect()
+                    if start_idx + length <= len(self.current_text):
+                        line_text = self.current_text[
+                            start_idx : start_idx + length
+                        ].rstrip()
+
+                        # Calculate y position relative to center
+                        y_offset = int(
+                            (i * self.spacing)
+                            - ((len(visible_range) * self.spacing) // 2)
+                        )
+                        y_pos = int(center_y + y_offset + (self.spacing // 2))
+
+                        # Center align text horizontally
+                        text_width = len(line_text) * self.scrollbar.display.font_size.x
+                        line_vector.x = center_x - (text_width // 2)
+                        line_vector.y = int(y_pos)
+
+                        self.scrollbar.display.text(
+                            line_vector,
+                            line_text,
+                            self.foreground_color,
+                        )
+        else:
+            # Original rectangular implementation
+            # Display only the lines in view
+            line_vector = Vector(0, 0)
+            for i, line_idx in enumerate(visible_range):
+                if line_idx < len(self.line_positions):
+                    line_info = self.line_positions[line_idx]
+                    start_idx, length = line_info
+
+                    if start_idx + length <= len(self.current_text):
+                        line_text = self.current_text[
+                            start_idx : start_idx + length
+                        ].rstrip()
+                        y_pos = int(
+                            self.position.y + 5 + (i * self.spacing)
+                        )  # Position based on line number within view
+                        line_vector.x = int(self.position.x + 1)
+                        line_vector.y = y_pos
+                        self.scrollbar.display.text(
+                            line_vector,
+                            line_text,
+                            self.foreground_color,
+                        )
 
     def clear(self):
         """Clear the text box and reset the scrollbar."""
@@ -176,8 +250,6 @@ class TextBox:
 
     def refresh(self):
         """Refresh the display to show current text and scrollbar."""
-        from gc import collect
-
         # Clear area for fresh draw
         self.scrollbar.display.clear(self.position, self.size, self.background_color)
 
@@ -240,7 +312,6 @@ class TextBox:
             self.scrollbar.draw()
 
         self.scrollbar.display.swap()
-        collect()
 
     def scroll_down(self):
         """Scroll down by one line."""

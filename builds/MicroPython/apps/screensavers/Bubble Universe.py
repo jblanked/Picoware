@@ -8,8 +8,8 @@ from array import array
 CURVECOUNT = const(256)
 CURVESTEP = const(16)
 ITERATIONS = const(64)
-SCREENWIDTH = const(320)
-SCREENHEIGHT = const(320)
+SCREENWIDTH = 0
+SCREENHEIGHT = 0
 
 PI = const(3.1415926535897932384626433832795)
 SINTABLEPOWER = const(12)
@@ -211,7 +211,10 @@ def start(view_manager) -> bool:
     draw.text(Vector(10, 10), "Bubble Universe by Movie Vertigo", TFT_WHITE)
     draw.swap()
 
-    global old_time
+    global old_time, SCREENWIDTH, SCREENHEIGHT
+
+    SCREENWIDTH = draw.size.x
+    SCREENHEIGHT = draw.size.y
 
     __create_sin_table()
     __reset_values()

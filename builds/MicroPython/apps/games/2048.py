@@ -21,11 +21,11 @@ from picoware.system.vector import Vector
 
 # Game constants
 GRID_SIZE = const(4)
-TILE_SIZE = const(60)
-GRID_OFFSET_X = const(20)
-GRID_OFFSET_Y = const(40)
-SCREEN_WIDTH = const(320)
-SCREEN_HEIGHT = const(320)
+TILE_SIZE = 0
+GRID_OFFSET_X = 0
+GRID_OFFSET_Y = 0
+SCREEN_WIDTH = 0
+SCREEN_HEIGHT = 0
 
 # Color constants
 COLOR_BG = TFT_BLACK
@@ -332,6 +332,13 @@ def move_grid(grid, direction: int):
 
 def start(view_manager) -> bool:
     """Start the app"""
+    global SCREEN_WIDTH, SCREEN_HEIGHT, GRID_OFFSET_X, GRID_OFFSET_Y, TILE_SIZE
+    draw = view_manager.get_draw()
+    SCREEN_WIDTH = draw.size.x
+    SCREEN_HEIGHT = draw.size.y
+    GRID_OFFSET_X = int(SCREEN_WIDTH * 0.0625)  # 20
+    GRID_OFFSET_Y = GRID_OFFSET_X * 2  # 40
+    TILE_SIZE = GRID_OFFSET_X * 3  # 60
     return True
 
 

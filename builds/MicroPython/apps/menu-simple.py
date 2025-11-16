@@ -2,47 +2,49 @@
 
 _menu = None
 
+
 def start(view_manager) -> bool:
-    '''Start the App'''
+    """Start the App"""
     from picoware.gui.menu import Menu
     from picoware.system.colors import TFT_WHITE, TFT_BLACK, TFT_BLUE
-    
+
     global _menu
-    
+
     if not _menu:
-        
+        draw = view_manager.get_draw()
         # set menu
         _menu = Menu(
-            view_manager.get_draw(), # draw instance
-            "Menu Simple",           # title
-            0,                       # y position
-            320,                     # height
-            TFT_WHITE,               # text color
-            TFT_BLACK,               # background color
-            TFT_BLUE,                # selected item color
-            TFT_WHITE,               # border color
+            draw,  # draw instance
+            "Menu Simple",  # title
+            0,  # y position
+            draw.size.y,  # height
+            TFT_WHITE,  # text color
+            TFT_BLACK,  # background color
+            TFT_BLUE,  # selected item color
+            TFT_WHITE,  # border color
         )
-        
+
         # add items
         _menu.add_item("First Item")
         _menu.add_item("Second Item")
         _menu.add_item("Third Item")
-        
+
         # quick add 4-19
-        for i in range(4, 20): 
+        for i in range(4, 20):
             _menu.add_item(f"Item {i}")
-        
+
         _menu.set_selected(0)
-                
+
     return True
 
+
 def run(view_manager) -> None:
-    '''Run the App'''
+    """Run the App"""
     from picoware.system.buttons import BUTTON_UP, BUTTON_DOWN, BUTTON_BACK
-    
+
     inp = view_manager.get_input_manager()
     button = inp.get_last_button()
-    
+
     if button == BUTTON_UP:
         inp.reset()
         _menu.scroll_up()
@@ -53,14 +55,15 @@ def run(view_manager) -> None:
         inp.reset()
         view_manager.back()
 
+
 def stop(view_manager) -> None:
-    '''Stop the App'''
+    """Stop the App"""
     from gc import collect
-    
+
     global _menu
-    
+
     if _menu:
         del _menu
         _menu = None
-    
+
     collect()

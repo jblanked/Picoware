@@ -212,7 +212,6 @@ def __draw_app_details(view_manager) -> None:
 
     draw = view_manager.get_draw()
     fg = view_manager.get_foreground_color()
-    bg = view_manager.get_background_color()
 
     draw.clear()
 

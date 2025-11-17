@@ -1,741 +1,153 @@
-_FRAME_1_16x15 = bytes(
-    [
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xFD,
-        0xFD,
-        0x00,
-        0xFD,
-        0x00,
-        0x00,
-        0x00,
-        0xFD,
-        0xFD,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xFD,
-        0x00,
-        0x00,
-        0xFD,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xFD,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xFD,
-        0xFD,
-        0x00,
-        0x00,
-        0x00,
-        0xFD,
-        0x00,
-        0x00,
-        0x00,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0x00,
-        0x00,
-        0x00,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0x00,
-        0xFD,
-        0x00,
-        0x00,
-        0x00,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0x00,
-        0x00,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0x00,
-        0x00,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0x00,
-        0xFD,
-        0x00,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0x00,
-        0xFD,
-        0x00,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0x00,
-        0xFD,
-        0xFD,
-        0xFD,
-        0x00,
-        0xFD,
-        0xFD,
-        0xFD,
-        0x00,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0x00,
-        0x00,
-        0x00,
-        0xFD,
-        0xFD,
-        0x00,
-        0xFD,
-        0xFD,
-        0xFD,
-        0x00,
-        0x00,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xFD,
-        0x00,
-        0x00,
-        0xFD,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xFD,
-        0xFD,
-        0xFD,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xFD,
-        0x00,
-        0x00,
-        0x00,
-        0xFD,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xFD,
-        0xFD,
-        0xFD,
-        0x00,
-        0x00,
-        0xFD,
-        0xFD,
-        0xFD,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xFD,
-        0xFD,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xFD,
-        0xFD,
-        0x00,
-        0x00,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0xFD,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-    ]
-)
-_FRAME_2_16x15 = bytes(
-    [
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x00,
-        0x00,
-        0x1B,
-        0x1B,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x1B,
-        0x1B,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x00,
-        0x00,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x1B,
-        0x00,
-        0x00,
-        0x00,
-        0x1B,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x1B,
-        0x00,
-        0x00,
-        0x1B,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x00,
-        0x00,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x00,
-        0x1B,
-        0x1B,
-        0x00,
-        0x00,
-        0x00,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x00,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x00,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x00,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x00,
-        0x1B,
-        0x00,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x00,
-        0x1B,
-        0x00,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x00,
-        0x00,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x00,
-        0x00,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x00,
-        0x00,
-        0x00,
-        0x1B,
-        0x00,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x00,
-        0x00,
-        0x00,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x00,
-        0x00,
-        0x00,
-        0x1B,
-        0x00,
-        0x00,
-        0x00,
-        0x1B,
-        0x1B,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x1B,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x1B,
-        0x00,
-        0x00,
-        0x1B,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x1B,
-        0x1B,
-        0x00,
-        0x00,
-        0x00,
-        0x1B,
-        0x00,
-        0x1B,
-        0x1B,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x1B,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-    ]
-)
+class PicowareAnimation:
+    """Class to draw "Picoware" animation"""
 
-_FRAME_3_16x15 = bytes(
-    [
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0x00,
-        0x00,
-        0xF0,
-        0xF0,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xF0,
-        0xF0,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xF0,
-        0xF0,
-        0xF0,
-        0x00,
-        0x00,
-        0xF0,
-        0xF0,
-        0xF0,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xF0,
-        0x00,
-        0x00,
-        0x00,
-        0xF0,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xF0,
-        0xF0,
-        0xF0,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xF0,
-        0x00,
-        0x00,
-        0xF0,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0x00,
-        0x00,
-        0xF0,
-        0xF0,
-        0xF0,
-        0x00,
-        0xF0,
-        0xF0,
-        0x00,
-        0x00,
-        0x00,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0x00,
-        0xF0,
-        0xF0,
-        0xF0,
-        0x00,
-        0xF0,
-        0xF0,
-        0xF0,
-        0x00,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0x00,
-        0xF0,
-        0x00,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0x00,
-        0xF0,
-        0x00,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0x00,
-        0x00,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0x00,
-        0x00,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0x00,
-        0x00,
-        0x00,
-        0xF0,
-        0x00,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0x00,
-        0x00,
-        0x00,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0x00,
-        0x00,
-        0x00,
-        0xF0,
-        0x00,
-        0x00,
-        0x00,
-        0xF0,
-        0xF0,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xF0,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xF0,
-        0x00,
-        0x00,
-        0xF0,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xF0,
-        0xF0,
-        0x00,
-        0x00,
-        0x00,
-        0xF0,
-        0x00,
-        0xF0,
-        0xF0,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0xF0,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-    ]
-)
+    def __init__(self, draw):
+        self.display = draw
+        self.letter_states = []
+        self.animation_complete = False
+        self.circle_radius = 0
+        self.circle_max_radius = 80
+        self.circle_opacity = 100
+        self.size = self.display.size
+        self.center_x = self.size.x // 2
+        self.center_y = self.size.y // 2
+        self.frame_counter = 0
+
+        self._initialize_letter_animation()
+
+    def _initialize_letter_animation(self) -> None:
+        """Initialize the animation state for each letter in 'Picoware'."""
+        from picoware.system.colors import (
+            TFT_RED,
+            TFT_GREEN,
+            TFT_BLUE,
+            TFT_YELLOW,
+            TFT_VIOLET,
+            TFT_CYAN,
+            TFT_ORANGE,
+            TFT_DARKCYAN,
+            TFT_PINK,
+            TFT_SKYBLUE,
+        )
+
+        self.letter_states = []
+
+        text = "Picoware"
+        self.letter_states = []
+        self.circle_opacity = 100
+
+        # Calculate target position (center of screen)
+        char_width = self.display.font_size.x
+        total_width = len(text) * char_width
+        target_y = self.center_y
+        start_x = (self.size.x - total_width) // 2
+
+        # Color palette (RGB565 format)
+        colors = [
+            TFT_RED,
+            TFT_GREEN,
+            TFT_BLUE,
+            TFT_YELLOW,
+            TFT_VIOLET,
+            TFT_CYAN,
+            TFT_ORANGE,
+            TFT_DARKCYAN,
+            TFT_PINK,
+            TFT_SKYBLUE,
+        ]
+
+        # Different starting Y positions and delays for each letter
+        from random import randint, choice
+
+        for i, char in enumerate(text):
+            letter_state = {
+                "char": char,
+                "target_x": start_x + (i * char_width),
+                "target_y": target_y,
+                "current_y": target_y + randint(-80, -40),  # Start above target
+                "delay": i * 3,  # Staggered start times
+                "frame": 0,
+                "opacity": 0,  # Start invisible (0-100 scale)
+                "color": choice(colors),  # Random color for each letter
+            }
+            self.letter_states.append(letter_state)
+
+    def draw(self) -> None:
+        """Draw the animated 'Picoware' text."""
+        from picoware.system.vector import Vector
+
+        # Draw background animations
+        if self.circle_radius < self.circle_max_radius:
+            self.circle_radius += 2
+        else:
+            # Reset for continuous animation
+            self.circle_radius = 0
+            self.circle_opacity = 100
+
+        # Fade out as it expands
+        if self.circle_radius > self.circle_max_radius // 2:
+            self.circle_opacity = max(0, self.circle_opacity - 3)
+
+        # Draw circle with fade effect
+        if self.circle_opacity > 20:  # Only draw if visible enough
+            color = 0x4208
+
+            # Draw if opacity threshold is met
+            if (
+                self.frame_counter % max(1, (100 - self.circle_opacity) // 20 + 1)
+            ) == 0:
+                self.display.circle(
+                    Vector(self.center_x, self.center_y), self.circle_radius, color
+                )
+
+        all_settled = True
+
+        text_vector = Vector(0, 0)
+        for letter in self.letter_states:
+            # Handle delay before letter starts moving
+            if letter["frame"] < letter["delay"]:
+                letter["frame"] += 1
+                all_settled = False
+                continue
+
+            # Animate Y position (ease-out effect)
+            if letter["current_y"] > letter["target_y"]:
+                diff = letter["current_y"] - letter["target_y"]
+                letter["current_y"] -= max(1, diff // 4)  # Ease-out
+                all_settled = False
+            else:
+                letter["current_y"] = letter["target_y"]
+
+            # Fade in opacity (0-100 scale)
+            if letter["opacity"] < 100:
+                letter["opacity"] = min(100, letter["opacity"] + 5)
+                all_settled = False
+
+            # Draw the letter with fade effect
+            if letter["opacity"] > 0:
+                # Higher opacity = more solid appearance
+                opacity_threshold = 100 - letter["opacity"]
+
+                # Use modulo to create a fade pattern
+                # At low opacity, only draw occasionally; at high opacity, always draw
+                if (self.frame_counter % max(1, opacity_threshold // 10 + 1)) == 0:
+                    text_vector.x = letter["target_x"]
+                    text_vector.y = int(letter["current_y"])
+                    self.display.text(
+                        text_vector,
+                        letter["char"],
+                        letter["color"],
+                    )
+
+            letter["frame"] += 1
+
+        self.animation_complete = all_settled
+        self.frame_counter += 1
+
 
 _desktop = None
-_desktop_frame = 0
-_frame_counter = 0
 _desktop_http = None
+_desktop_picoware = None
 _desktop_time_updated = False
 _desktop_is_dark_mode = False
 
@@ -745,7 +157,7 @@ def start(view_manager) -> bool:
     from picoware.gui.desktop import Desktop
     from picoware.applications.wifi.utils import connect_to_saved_wifi
 
-    global _desktop, _desktop_http, _desktop_is_dark_mode
+    global _desktop, _desktop_http, _desktop_is_dark_mode, _desktop_picoware
 
     if _desktop is None:
         _desktop = Desktop(
@@ -753,6 +165,9 @@ def start(view_manager) -> bool:
             view_manager.get_foreground_color(),
             view_manager.get_background_color(),
         )
+
+    if _desktop_picoware is None:
+        _desktop_picoware = PicowareAnimation(view_manager.draw)
 
     if not view_manager.has_wifi:
         return True
@@ -776,35 +191,32 @@ def run(view_manager) -> None:
     """Animate the loading spinner."""
     from picoware.system.buttons import BUTTON_LEFT, BUTTON_CENTER, BUTTON_UP
     from picoware.system.view import View
-    from picoware.system.vector import Vector
 
     input_manager = view_manager.input_manager
     button: int = input_manager.button
 
     global _desktop
-    global _desktop_frame
-    global _frame_counter
     global _desktop_http
     global _desktop_time_updated
+    global _desktop_picoware
 
     if _desktop:
+        from picoware.system.vector import Vector
+
         battery_level: int = input_manager.battery
         _desktop.set_battery(battery_level)
-        _desktop.draw(
-            (
-                _FRAME_1_16x15
-                if _desktop_frame == 0
-                else (_FRAME_2_16x15 if _desktop_frame == 1 else _FRAME_3_16x15)
-            ),
-            Vector(16, 15),
-            Vector(
-                int(view_manager.draw.size.x * 0.46875),
-                int(view_manager.draw.size.y * 0.46875),
-            ),
+
+        # Clear and draw header
+        view_manager.draw.clear(
+            Vector(0, 0), view_manager.draw.size, view_manager.get_background_color()
         )
-        _frame_counter += 1
-        if _frame_counter % 10 == 0:
-            _desktop_frame = (_desktop_frame + 1) % 3
+        _desktop.draw_header()
+
+        # Draw animated picoware text every frame
+        _desktop_picoware.draw()
+
+        # Swap buffer to display
+        view_manager.draw.swap()
 
         wifi = view_manager.get_wifi()
         if wifi:
@@ -874,15 +286,17 @@ def stop(view_manager) -> None:
     from gc import collect
 
     global _desktop
-    global _desktop_frame
-    global _frame_counter
     global _desktop_http
+    global _desktop_picoware
+
     if _desktop:
         del _desktop
         _desktop = None
     if _desktop_http:
         del _desktop_http
         _desktop_http = None
-    _desktop_frame = 0
-    _frame_counter = 0
+    if _desktop_picoware:
+        del _desktop_picoware
+        _desktop_picoware = None
+
     collect()

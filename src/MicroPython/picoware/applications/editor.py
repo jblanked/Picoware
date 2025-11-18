@@ -18,8 +18,6 @@ _initial_menu = None
 _file_type_menu = None
 _file_browser = None
 _keyboard_just_started = False
-_current_browser_path = "picoware/apps"
-_browser_directory_stack = []
 
 
 def __template(filename: str) -> str:
@@ -182,108 +180,54 @@ def _start_file_type_menu(view_manager) -> None:
     _file_type_menu.draw()
 
 
-def _load_file_browser_contents(view_manager) -> None:
-    """Load the contents of the current directory into the file browser."""
-    from picoware.system.boards import BOARD_WAVESHARE_1_43_RP2350
-
-    include_sd_path = view_manager.board_id != BOARD_WAVESHARE_1_43_RP2350
-
-    global _file_browser
-    global _current_browser_path
-
-    if _file_browser is None:
-        return
-
-    _file_browser.clear()
-
-    storage = view_manager.get_storage()
-    try:
-        # Build the full path
-        full_path = (
-            f"/sd/{_current_browser_path}"
-            if include_sd_path
-            else f"/{_current_browser_path}"
-        )
-        files = storage.listdir(full_path)
-
-        # Separate directories and files
-        directories = []
-        py_files = []
-
-        for item in files:
-            if item.startswith("."):
-                continue  # Skip hidden files
-
-            # Check if it's a directory
-            item_path = f"/{_current_browser_path}/{item}"
-
-            if storage.is_directory(item_path):
-                directories.append(item)
-            elif item.endswith(".py"):
-                py_files.append(item)
-
-        # Sort both lists
-        directories.sort()
-        py_files.sort()
-
-        # Add parent directory option if not at root
-        if _current_browser_path != "picoware/apps":
-            _file_browser.add_item("../")
-
-        # Add directories first with trailing /
-        for directory in directories:
-            _file_browser.add_item(directory + "/")
-
-        # Add Python files
-        for filename in py_files:
-            _file_browser.add_item(filename)
-
-        # Show message if empty
-        if (
-            not directories
-            and not py_files
-            and _current_browser_path == "picoware/apps"
-        ):
-            _file_browser.add_item("(No files or folders found)")
-
-    except Exception as e:
-        print(f"Error loading directory {_current_browser_path}: {e}")
-        _file_browser.add_item(f"(Error: {e})")
-
-    _file_browser.draw()
-
-
 def _start_file_browser(view_manager) -> None:
     """Start the file browser for selecting an existing app."""
-    from picoware.gui.menu import Menu
+    from picoware.gui.file_browser import FileBrowser, FILE_BROWSER_SELECTOR
 
     global _file_browser
-    global _current_browser_path
-    global _browser_directory_stack
-
-    _current_browser_path = "picoware/apps"
-    _browser_directory_stack = []
 
     if _file_browser is None:
-        _file_browser = Menu(
-            view_manager.draw,
-            "Select App to Edit",
-            0,
-            view_manager.draw.size.y,
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
-            view_manager.get_selected_color(),
-            view_manager.get_foreground_color(),
-            2,
+        _file_browser = FileBrowser(
+            view_manager,
+            mode=FILE_BROWSER_SELECTOR,
+            start_directory="/sd/picoware/apps",
         )
 
-    _load_file_browser_contents(view_manager)
+        _file_browser.run()
+
+
+def __alert(view_manager, message: str, back: bool = True) -> None:
+    """Show an alert"""
+
+    from picoware.gui.alert import Alert
+    from picoware.system.buttons import BUTTON_BACK
+
+    draw = view_manager.get_draw()
+    draw.clear()
+    _alert = Alert(
+        draw,
+        message,
+        view_manager.get_foreground_color(),
+        view_manager.get_background_color(),
+    )
+    _alert.draw("Alert")
+
+    # Wait for user to acknowledge
+    inp = view_manager.get_input_manager()
+    while True:
+        button = inp.button
+        if button == BUTTON_BACK:
+            inp.reset()
+            break
+
+    if back:
+        view_manager.back()
 
 
 def start(view_manager) -> bool:
     """Start the app."""
     if not view_manager.has_sd_card:
-        print("Editor app requires an SD card")
+        __alert(view_manager, "Editor app requires an SD card")
         return False
 
     global _editor_state
@@ -292,8 +236,6 @@ def start(view_manager) -> bool:
     global _initial_menu
     global _file_type_menu
     global _file_browser
-    global _current_browser_path
-    global _browser_directory_stack
 
     _editor_state = STATE_INITIAL_MENU
     _filename = ""
@@ -301,8 +243,6 @@ def start(view_manager) -> bool:
     _initial_menu = None
     _file_type_menu = None
     _file_browser = None
-    _current_browser_path = "picoware/apps"
-    _browser_directory_stack = []
 
     # Show the initial menu
     draw = view_manager.get_draw()
@@ -330,7 +270,6 @@ def run(view_manager) -> None:
     global _initial_menu
     global _file_type_menu
     global _file_browser
-    global _current_browser_path
 
     input_manager = view_manager.get_input_manager()
     button = input_manager.get_last_button()
@@ -475,59 +414,34 @@ def run(view_manager) -> None:
             _start_file_browser(view_manager)
             return
 
-        # Handle file browser navigation
-        if button == BUTTON_UP:
-            _file_browser.scroll_up()
-            input_manager.reset()
-        elif button == BUTTON_DOWN:
-            _file_browser.scroll_down()
-            input_manager.reset()
-        elif button == BUTTON_OK:
-            selected_index = _file_browser.get_selected_index()
-            input_manager.reset()
+        # Run the file browser - it handles its own input
+        continue_browsing = _file_browser.run()
 
-            # Get the selected item from the menu
-            selected_item = _file_browser.get_item(selected_index)
+        if not continue_browsing:
+            # User selected a file or exited
+            selected_path = _file_browser.path
 
-            # Skip if it's an error or empty message
-            if selected_item and not selected_item.startswith("("):
-                # Check if it's a directory (ends with /)
-                if selected_item.endswith("/"):
-                    # It's a directory, navigate into it
-                    dir_name = selected_item[:-1]  # Remove trailing slash
+            if selected_path and not selected_path.endswith("/"):
+                # A file was selected, open it in the editor
+                _editor_state = STATE_EDITOR
+                _filename = selected_path
 
-                    if dir_name == "..":
-                        # Go back to parent directory
-                        if "/" in _current_browser_path:
-                            _current_browser_path = "/".join(
-                                _current_browser_path.split("/")[:-1]
-                            )
-                            if not _current_browser_path:
-                                _current_browser_path = "picoware/apps"
-                    else:
-                        # Navigate into subdirectory
-                        _current_browser_path = f"{_current_browser_path}/{dir_name}"
+                draw = view_manager.get_draw()
+                draw.clear(color=view_manager.get_background_color())
+                from picoware.system.vector import Vector
 
-                    # Reload the directory contents
-                    _load_file_browser_contents(view_manager)
-                else:
-                    # It's a Python file, open it in the editor
-                    _editor_state = STATE_EDITOR
-                    _filename = f"{_current_browser_path}/{selected_item}"
+                draw.text(Vector(10, 10), "Starting editor...")
+                draw.swap()
 
-                    draw = view_manager.get_draw()
-                    draw.clear(color=view_manager.get_background_color())
-                    from picoware.system.vector import Vector
-
-                    draw.text(Vector(10, 10), "Starting editor...")
-                    draw.swap()
-
-                    # Start editor with the selected file (no template needed for existing files)
-                    _start_editor(view_manager, _filename, create_template=False)
+                # Start editor with the selected file (no template needed for existing files)
+                _start_editor(view_manager, _filename, create_template=False)
+            else:
+                # User backed out, return to initial menu
+                _editor_state = STATE_INITIAL_MENU
+                draw = view_manager.get_draw()
+                draw.clear(color=view_manager.get_background_color())
+                _start_initial_menu(view_manager)
             return
-
-        # Redraw file browser
-        _file_browser.draw()
 
     # State 4: Editor running
     # The editor handles its own state, and will call back() when done
@@ -543,8 +457,6 @@ def stop(view_manager) -> None:
     global _file_type_menu
     global _file_browser
     global _editor_state
-    global _current_browser_path
-    global _browser_directory_stack
 
     _filename = ""
     _keyboard_just_started = False
@@ -562,7 +474,5 @@ def stop(view_manager) -> None:
         _file_browser = None
 
     _editor_state = STATE_INITIAL_MENU
-    _current_browser_path = "picoware/apps"
-    _browser_directory_stack = []
 
     collect()

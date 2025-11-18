@@ -58,7 +58,7 @@ def __app_store_alert(view_manager, message: str, back: bool = True) -> None:
     from picoware.system.buttons import BUTTON_BACK
 
     draw = view_manager.get_draw()
-    draw.clear()
+    draw.fill_screen(view_manager.get_background_color())
     _app_store_alert = Alert(
         draw,
         message,
@@ -213,7 +213,7 @@ def __draw_app_details(view_manager) -> None:
     draw = view_manager.get_draw()
     fg = view_manager.get_foreground_color()
 
-    draw.clear()
+    draw.fill_screen(view_manager.get_background_color())
 
     if not _selected_app_details:
         return

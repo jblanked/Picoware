@@ -41,7 +41,7 @@ class WiFi:
     @property
     def device_ip(self):
         """Get the current device IP address."""
-        return self.local_ip if self.local_ip else ""
+        return self.wlan.ifconfig()[0] if self.wlan else ""
 
     @property
     def last_error(self):
@@ -191,7 +191,6 @@ class WiFi:
             return False
 
         if self.status() == WIFI_STATE_CONNECTED:
-            self.local_ip = self.wlan.ifconfig()[0]
             self.ssid = self.pending_ssid
             self.password = self.pending_password
             self.state = WIFI_STATE_CONNECTED

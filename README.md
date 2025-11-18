@@ -1,7 +1,7 @@
 ## Picoware
 Open-source custom firmware for the PicoCalc, Video Game Module, and other Raspberry Pi Pico devices. 
 
-![Picoware Demo](./images/destkop-animation.gif)
+![Picoware Demo](./images/desktop-animation.gif)
 
 ### Features
 - Desktop animation

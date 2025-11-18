@@ -109,10 +109,10 @@ class Alert:
             self.display.text(Vector(title_x, 0), title, self.text_color)
 
             # Draw Border
-            border_left = size.x * 0.0625
-            border_top = size.y * 0.0625
-            border_width = size.x - (2 * border_left)
-            border_height = size.y - (2 * border_top)
+            border_left = int(size.x * 0.0625)
+            border_top = int(size.y * 0.0625)
+            border_width = int(size.x - (2 * border_left))
+            border_height = int(size.y - (2 * border_top))
             self.display.rect(
                 Vector(border_left, border_top),
                 Vector(border_width, border_height),
@@ -120,10 +120,10 @@ class Alert:
             )
 
             # Calculate text area constraints
-            text_start_x = size.x * 0.09375
-            text_start_y = size.y * 0.09375
+            text_start_x = int(size.x * 0.09375)
+            text_start_y = int(size.y * 0.09375)
             text_max_width = size.x - (2 * text_start_x)  # Leave padding from border
-            chars_per_line = text_max_width // (font_size.x + 1)
+            chars_per_line = int(text_max_width // (font_size.x + 1))
 
             # Wrap text manually based on character count
             line: int = 0

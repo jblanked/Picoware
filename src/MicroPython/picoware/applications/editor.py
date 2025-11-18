@@ -1,19 +1,25 @@
 from micropython import const
 
-# 1. the user is entering filename via keyboard
-# 2. then the menu is shown to select file type
-#    - if Picoware App is selected and the file is empty or not created yet, we create a basic app template
-#    - if Python Script is selected, we proceed directly
-# 3. finally the pye editor is started
+# 1. First menu: ask if creating new file or editing existing app
+# 2. If creating new: enter filename via keyboard
+# 3. Then show menu to select file type (Picoware App or Python Script)
+# 4. If editing existing: show file browser starting in picoware/apps
+# 5. Finally the pye editor is started
 
-STATE_KEYBOARD = const(0)
-STATE_MENU = const(1)
-STATE_EDITOR = const(2)
+STATE_INITIAL_MENU = const(0)
+STATE_KEYBOARD = const(1)
+STATE_FILE_TYPE_MENU = const(2)
+STATE_FILE_BROWSER = const(3)
+STATE_EDITOR = const(4)
 
 _filename = ""
-_editor_state = STATE_KEYBOARD
-_editor_menu = None
+_editor_state = STATE_INITIAL_MENU
+_initial_menu = None
+_file_type_menu = None
+_file_browser = None
 _keyboard_just_started = False
+_current_browser_path = "picoware/apps"
+_browser_directory_stack = []
 
 
 def __template(filename: str) -> str:
@@ -56,7 +62,7 @@ def __callback_filename_save(result: str) -> None:
         return
 
     _filename = result.strip()
-    _editor_state = STATE_MENU
+    _editor_state = STATE_FILE_TYPE_MENU
 
 
 def _start_editor(view_manager, filename=None, create_template=False):
@@ -126,14 +132,39 @@ def _start_editor(view_manager, filename=None, create_template=False):
         view_manager.back()
 
 
-def _start_menu(view_manager) -> None:
-    """Start the editor menu."""
+def _start_initial_menu(view_manager) -> None:
+    """Start the initial menu to choose between new file or edit existing."""
     from picoware.gui.menu import Menu
 
-    global _editor_menu
+    global _initial_menu
 
-    if _editor_menu is None:
-        _editor_menu = Menu(
+    if _initial_menu is None:
+        _initial_menu = Menu(
+            view_manager.draw,
+            "Python Editor",
+            0,
+            view_manager.draw.size.y,
+            view_manager.get_foreground_color(),
+            view_manager.get_background_color(),
+            view_manager.get_selected_color(),
+            view_manager.get_foreground_color(),
+            2,
+        )
+
+        _initial_menu.add_item("Create New File")
+        _initial_menu.add_item("Edit Existing App")
+
+    _initial_menu.draw()
+
+
+def _start_file_type_menu(view_manager) -> None:
+    """Start the file type menu."""
+    from picoware.gui.menu import Menu
+
+    global _file_type_menu
+
+    if _file_type_menu is None:
+        _file_type_menu = Menu(
             view_manager.draw,
             "What type of file?",
             0,
@@ -145,41 +176,138 @@ def _start_menu(view_manager) -> None:
             2,
         )
 
-        _editor_menu.add_item("Picoware App")
-        _editor_menu.add_item("Python Script")
+        _file_type_menu.add_item("Picoware App")
+        _file_type_menu.add_item("Python Script")
 
-    _editor_menu.draw()
+    _file_type_menu.draw()
+
+
+def _load_file_browser_contents(view_manager) -> None:
+    """Load the contents of the current directory into the file browser."""
+    from picoware.system.boards import BOARD_WAVESHARE_1_43_RP2350
+
+    include_sd_path = view_manager.board_id != BOARD_WAVESHARE_1_43_RP2350
+
+    global _file_browser
+    global _current_browser_path
+
+    if _file_browser is None:
+        return
+
+    _file_browser.clear()
+
+    storage = view_manager.get_storage()
+    try:
+        # Build the full path
+        full_path = (
+            f"/sd/{_current_browser_path}"
+            if include_sd_path
+            else f"/{_current_browser_path}"
+        )
+        files = storage.listdir(full_path)
+
+        # Separate directories and files
+        directories = []
+        py_files = []
+
+        for item in files:
+            if item.startswith("."):
+                continue  # Skip hidden files
+
+            # Check if it's a directory
+            item_path = f"/{_current_browser_path}/{item}"
+
+            if storage.is_directory(item_path):
+                directories.append(item)
+            elif item.endswith(".py"):
+                py_files.append(item)
+
+        # Sort both lists
+        directories.sort()
+        py_files.sort()
+
+        # Add parent directory option if not at root
+        if _current_browser_path != "picoware/apps":
+            _file_browser.add_item("../")
+
+        # Add directories first with trailing /
+        for directory in directories:
+            _file_browser.add_item(directory + "/")
+
+        # Add Python files
+        for filename in py_files:
+            _file_browser.add_item(filename)
+
+        # Show message if empty
+        if (
+            not directories
+            and not py_files
+            and _current_browser_path == "picoware/apps"
+        ):
+            _file_browser.add_item("(No files or folders found)")
+
+    except Exception as e:
+        print(f"Error loading directory {_current_browser_path}: {e}")
+        _file_browser.add_item(f"(Error: {e})")
+
+    _file_browser.draw()
+
+
+def _start_file_browser(view_manager) -> None:
+    """Start the file browser for selecting an existing app."""
+    from picoware.gui.menu import Menu
+
+    global _file_browser
+    global _current_browser_path
+    global _browser_directory_stack
+
+    _current_browser_path = "picoware/apps"
+    _browser_directory_stack = []
+
+    if _file_browser is None:
+        _file_browser = Menu(
+            view_manager.draw,
+            "Select App to Edit",
+            0,
+            view_manager.draw.size.y,
+            view_manager.get_foreground_color(),
+            view_manager.get_background_color(),
+            view_manager.get_selected_color(),
+            view_manager.get_foreground_color(),
+            2,
+        )
+
+    _load_file_browser_contents(view_manager)
 
 
 def start(view_manager) -> bool:
     """Start the app."""
     if not view_manager.has_sd_card:
-        print("Screensavers app requires an SD card")
+        print("Editor app requires an SD card")
         return False
 
     global _editor_state
     global _filename
     global _keyboard_just_started
-    global _editor_menu
+    global _initial_menu
+    global _file_type_menu
+    global _file_browser
+    global _current_browser_path
+    global _browser_directory_stack
 
-    _editor_state = STATE_KEYBOARD
+    _editor_state = STATE_INITIAL_MENU
     _filename = ""
     _keyboard_just_started = False
-    _editor_menu = None
+    _initial_menu = None
+    _file_type_menu = None
+    _file_browser = None
+    _current_browser_path = "picoware/apps"
+    _browser_directory_stack = []
 
-    keyboard = view_manager.get_keyboard()
-    if keyboard is None:
-        print("No keyboard available")
-        return False
-
-    keyboard.set_save_callback(__callback_filename_save)
-    keyboard.set_response("")  # Start with empty filename
-    keyboard.title = "Enter filename"
-
+    # Show the initial menu
     draw = view_manager.get_draw()
     draw.clear(color=view_manager.get_background_color())
-
-    keyboard.run(force=True)
+    _start_initial_menu(view_manager)
 
     return True
 
@@ -188,16 +316,21 @@ def run(view_manager) -> None:
     """
     Run the app.
 
-    State 1 (KEYBOARD): Get filename input from user via keyboard
-    State 2 (MENU): Show menu to select file type (Picoware App or Python Script)
-    State 3 (EDITOR): Launch pye editor with the specified filename
+    State 0 (INITIAL_MENU): Choose between creating new file or editing existing app
+    State 1 (KEYBOARD): Get filename input from user via keyboard (for new files)
+    State 2 (FILE_TYPE_MENU): Show menu to select file type (Picoware App or Python Script)
+    State 3 (FILE_BROWSER): Show file browser to select existing app to edit
+    State 4 (EDITOR): Launch pye editor with the specified filename
     """
     from picoware.system.buttons import BUTTON_BACK, BUTTON_OK, BUTTON_UP, BUTTON_DOWN
 
     global _editor_state
     global _filename
     global _keyboard_just_started
-    global _editor_menu
+    global _initial_menu
+    global _file_type_menu
+    global _file_browser
+    global _current_browser_path
 
     input_manager = view_manager.get_input_manager()
     button = input_manager.get_last_button()
@@ -206,11 +339,18 @@ def run(view_manager) -> None:
     if button == BUTTON_BACK:
         input_manager.reset()
 
-        if _editor_state == STATE_KEYBOARD:
+        if _editor_state == STATE_INITIAL_MENU:
             # Exit the app
             view_manager.back()
             return
-        elif _editor_state == STATE_MENU:
+        elif _editor_state == STATE_KEYBOARD:
+            # Go back to initial menu
+            _editor_state = STATE_INITIAL_MENU
+            draw = view_manager.get_draw()
+            draw.clear(color=view_manager.get_background_color())
+            _start_initial_menu(view_manager)
+            return
+        elif _editor_state == STATE_FILE_TYPE_MENU:
             # Go back to keyboard
             _editor_state = STATE_KEYBOARD
             keyboard = view_manager.get_keyboard()
@@ -222,10 +362,57 @@ def run(view_manager) -> None:
                 keyboard.run(force=True)
                 _keyboard_just_started = True
             return
+        elif _editor_state == STATE_FILE_BROWSER:
+            # Go back to initial menu
+            _editor_state = STATE_INITIAL_MENU
+            draw = view_manager.get_draw()
+            draw.clear(color=view_manager.get_background_color())
+            _start_initial_menu(view_manager)
+            return
         # If in EDITOR state, the editor handles back button itself
 
+    # State 0: Initial menu - choose between new file or edit existing
+    if _editor_state == STATE_INITIAL_MENU:
+        if _initial_menu is None:
+            _start_initial_menu(view_manager)
+            return
+
+        # Handle menu navigation
+        if button == BUTTON_UP:
+            _initial_menu.scroll_up()
+            input_manager.reset()
+        elif button == BUTTON_DOWN:
+            _initial_menu.scroll_down()
+            input_manager.reset()
+        elif button == BUTTON_OK:
+            selected_index = _initial_menu.get_selected_index()
+            input_manager.reset()
+
+            if selected_index == 0:  # Create New File
+                # Transition to keyboard state
+                _editor_state = STATE_KEYBOARD
+                keyboard = view_manager.get_keyboard()
+                if keyboard:
+                    keyboard.set_save_callback(__callback_filename_save)
+                    keyboard.set_response("")  # Start with empty filename
+                    keyboard.title = "Enter filename"
+                    draw = view_manager.get_draw()
+                    draw.clear(color=view_manager.get_background_color())
+                    keyboard.run(force=True)
+                    _keyboard_just_started = True
+            else:  # Edit Existing App
+                # Transition to file browser state
+                _editor_state = STATE_FILE_BROWSER
+                draw = view_manager.get_draw()
+                draw.clear(color=view_manager.get_background_color())
+                _start_file_browser(view_manager)
+            return
+
+        # Redraw menu
+        _initial_menu.draw()
+
     # State 1: Keyboard input for filename
-    if _editor_state == STATE_KEYBOARD:
+    elif _editor_state == STATE_KEYBOARD:
         keyboard = view_manager.get_keyboard()
         if not keyboard:
             return
@@ -237,23 +424,23 @@ def run(view_manager) -> None:
         else:
             keyboard.run()
 
-        # The callback will transition to STATE_MENU when filename is saved
+        # The callback will transition to STATE_FILE_TYPE_MENU when filename is saved
 
     # State 2: Menu to select file type
-    elif _editor_state == STATE_MENU:
-        if _editor_menu is None:
-            _start_menu(view_manager)
+    elif _editor_state == STATE_FILE_TYPE_MENU:
+        if _file_type_menu is None:
+            _start_file_type_menu(view_manager)
             return
 
         # Handle menu navigation
         if button == BUTTON_UP:
-            _editor_menu.scroll_up()
+            _file_type_menu.scroll_up()
             input_manager.reset()
         elif button == BUTTON_DOWN:
-            _editor_menu.scroll_down()
+            _file_type_menu.scroll_down()
             input_manager.reset()
         elif button == BUTTON_OK:
-            selected_index = _editor_menu.get_selected_index()
+            selected_index = _file_type_menu.get_selected_index()
             input_manager.reset()
 
             # Transition to editor state
@@ -280,9 +467,69 @@ def run(view_manager) -> None:
             return
 
         # Redraw menu
-        _editor_menu.draw()
+        _file_type_menu.draw()
 
-    # State 3: Editor running
+    # State 3: File browser for selecting existing app
+    elif _editor_state == STATE_FILE_BROWSER:
+        if _file_browser is None:
+            _start_file_browser(view_manager)
+            return
+
+        # Handle file browser navigation
+        if button == BUTTON_UP:
+            _file_browser.scroll_up()
+            input_manager.reset()
+        elif button == BUTTON_DOWN:
+            _file_browser.scroll_down()
+            input_manager.reset()
+        elif button == BUTTON_OK:
+            selected_index = _file_browser.get_selected_index()
+            input_manager.reset()
+
+            # Get the selected item from the menu
+            selected_item = _file_browser.get_item(selected_index)
+
+            # Skip if it's an error or empty message
+            if selected_item and not selected_item.startswith("("):
+                # Check if it's a directory (ends with /)
+                if selected_item.endswith("/"):
+                    # It's a directory, navigate into it
+                    dir_name = selected_item[:-1]  # Remove trailing slash
+
+                    if dir_name == "..":
+                        # Go back to parent directory
+                        if "/" in _current_browser_path:
+                            _current_browser_path = "/".join(
+                                _current_browser_path.split("/")[:-1]
+                            )
+                            if not _current_browser_path:
+                                _current_browser_path = "picoware/apps"
+                    else:
+                        # Navigate into subdirectory
+                        _current_browser_path = f"{_current_browser_path}/{dir_name}"
+
+                    # Reload the directory contents
+                    _load_file_browser_contents(view_manager)
+                else:
+                    # It's a Python file, open it in the editor
+                    _editor_state = STATE_EDITOR
+                    _filename = f"{_current_browser_path}/{selected_item}"
+
+                    draw = view_manager.get_draw()
+                    draw.clear(color=view_manager.get_background_color())
+                    from picoware.system.vector import Vector
+
+                    draw.text(Vector(10, 10), "Starting editor...")
+                    draw.swap()
+
+                    # Start editor with the selected file (no template needed for existing files)
+                    _start_editor(view_manager, _filename, create_template=False)
+            return
+
+        # Redraw file browser
+        _file_browser.draw()
+
+    # State 4: Editor running
     # The editor handles its own state, and will call back() when done
 
 
@@ -292,14 +539,30 @@ def stop(view_manager) -> None:
 
     global _filename
     global _keyboard_just_started
-    global _editor_menu
+    global _initial_menu
+    global _file_type_menu
+    global _file_browser
     global _editor_state
+    global _current_browser_path
+    global _browser_directory_stack
 
     _filename = ""
     _keyboard_just_started = False
-    if _editor_menu:
-        del _editor_menu
-        _editor_menu = None
-    _editor_state = STATE_KEYBOARD
+
+    if _initial_menu:
+        del _initial_menu
+        _initial_menu = None
+
+    if _file_type_menu:
+        del _file_type_menu
+        _file_type_menu = None
+
+    if _file_browser:
+        del _file_browser
+        _file_browser = None
+
+    _editor_state = STATE_INITIAL_MENU
+    _current_browser_path = "picoware/apps"
+    _browser_directory_stack = []
 
     collect()

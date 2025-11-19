@@ -8,7 +8,10 @@ class AppLoader:
         Args:
             view_manager: The view manager instance to interact with the display and storage
         """
+        from picoware.system.boards import BOARD_WAVESHARE_1_43_RP2350
+
         self.view_manager = view_manager
+        self.include_sd_path = view_manager.board_id != BOARD_WAVESHARE_1_43_RP2350
         self.loaded_apps = {}
         self.current_app = None
 
@@ -29,9 +32,12 @@ class AppLoader:
 
             # Remove ALL modules from the apps directory
             modules_to_delete = []
+            path_str = (
+                "/sd/picoware/apps/" if self.include_sd_path else "/picoware/apps/"
+            )
             for mod_name, mod in list(sys.modules.items()):
                 if hasattr(mod, "__file__") and mod.__file__:
-                    if "/sd/picoware/apps/" in mod.__file__:
+                    if path_str in mod.__file__:
                         modules_to_delete.append(mod_name)
 
             for mod_name in modules_to_delete:
@@ -48,10 +54,11 @@ class AppLoader:
         try:
             storage = self.view_manager.get_storage()
             # no need to mount because we're using auto-mount
-            apps_path = "/sd/picoware/apps"
+            apps_path = (
+                "/sd/picoware/apps" if self.include_sd_path else "/picoware/apps"
+            )
             if subdirectory:
                 apps_path = f"{apps_path}/{subdirectory}"
-
             file_list = storage.listdir(apps_path)
             apps = [
                 f[:-3] for f in file_list if f.endswith(".py") and not f.startswith(".")
@@ -87,7 +94,9 @@ class AppLoader:
                 import sys
 
                 # Always add the base apps directory
-                base_apps_path = "/sd/picoware/apps"
+                base_apps_path = (
+                    "/sd/picoware/apps" if self.include_sd_path else "/picoware/apps"
+                )
                 if base_apps_path not in sys.path:
                     sys.path.append(base_apps_path)
 
@@ -99,7 +108,40 @@ class AppLoader:
                         sys.path.append(apps_path)
 
                 # Now try to import the module by name
-                app_module = __import__(app_name)
+                if not self.include_sd_path:  # Waveshare board
+                    # Check if module is already in sys.modules
+                    if app_name not in sys.modules:
+                        # Manually load the module
+                        app_file_path = f"{apps_path}/{app_name}.py"
+                        # Create a namespace dictionary for the module
+                        module_namespace = {
+                            "__name__": app_name,
+                            "__file__": app_file_path,
+                        }
+                        code_str = storage.read(app_file_path)
+                        if code_str:
+                            compiled_code = compile(code_str, app_file_path, "exec")
+                            exec(compiled_code, module_namespace)
+                        else:
+                            raise ImportError(
+                                f"Could not read app file: {app_file_path}"
+                            )
+
+                        # Create a simple object to hold the module attributes
+                        class Module:
+                            pass
+
+                        app_module = Module()
+                        # Copy all items from namespace to the module object
+                        for key, value in module_namespace.items():
+                            setattr(app_module, key, value)
+                        # Register it in sys.modules
+                        sys.modules[app_name] = app_module
+                    else:
+                        app_module = sys.modules[app_name]
+                else:
+                    # Standard import for VFS-mounted filesystems
+                    app_module = __import__(app_name)
 
                 # Verify the app has required methods
                 required_methods = ["start", "run", "stop"]
@@ -124,8 +166,6 @@ class AppLoader:
         """Run the currently loaded app"""
         if self.current_app:
             self.current_app.run(self.view_manager)
-        else:
-            print("No app currently loaded")
 
     def start(self, app_name) -> bool:
         """Start a specific app"""

@@ -14,6 +14,11 @@ class Vector:
             self.x = x
             self.y = y
 
+    def __del__(self):
+        """Destructor for the Vector class."""
+        self.x = None
+        self.y = None
+
     @classmethod
     def from_val(cls, value):
         """Ensure the value is a Vector. If it's a tuple, convert it."""

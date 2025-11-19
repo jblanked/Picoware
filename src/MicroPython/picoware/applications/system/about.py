@@ -2,8 +2,8 @@ _about = None
 
 _ABOUT_TEXT = (
     "Picoware\n"
-    "Version: 1.5.2\n"
-    "A custom firmware for the PicoCalc, Video Game Module, and other Raspberry Pi Pico devices, originally created by JBlanked on 2025-05-13.\n"
+    "Version: 1.5.3\n"
+    "A custom firmware for the PicoCalc, Video Game Module, Waveshare Touch LCD, and other Raspberry Pi Pico devices, originally created by JBlanked on 2025-05-13.\n"
     "This firmware was made with MicroPython and is open source on GitHub. Developers are welcome to contribute.\n"
     "Picoware is a work in progress and is not yet complete. Some features may not work as expected. Picoware is not affiliated with ClockworkPI, the Raspberry Pi Foundation, or any other organization.\n"
     "Discord: https://discord.gg/5aN9qwkEc6\n"
@@ -21,7 +21,7 @@ def start(view_manager) -> bool:
         _about = TextBox(
             view_manager.draw,
             0,
-            320,
+            view_manager.draw.size.y,
             view_manager.get_foreground_color(),
             view_manager.get_background_color(),
         )

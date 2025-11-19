@@ -11,7 +11,8 @@ def __start_text_editor(view_manager) -> None:
     global _textbox, _text_editor_started, _filename
 
     if _textbox is None:
-        _textbox = TextBox(view_manager.get_draw(), 0, 320)
+        draw = view_manager.get_draw()
+        _textbox = TextBox(draw, 0, draw.size.y)
 
         storage = view_manager.get_storage()
         if _filename:

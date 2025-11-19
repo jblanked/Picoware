@@ -6,8 +6,8 @@ from micropython import const
 # Petal layout
 NUM_PETALS = const(12)
 PETAL_LENGTH = const(40)  # how far it stretches outward
-CX = const(160)
-CY = const(160)
+CX = 0
+CY = 0
 
 shift = 0
 
@@ -125,7 +125,10 @@ def __ellipse(display, cx, cy, xr, yr, color, fill=False, m=None):
 
 def start(view_manager) -> bool:
     """Start the app"""
-    # nothing to do here..
+    global CX, CY
+    draw = view_manager.get_draw()
+    CX = draw.size.x // 2
+    CY = draw.size.y // 2
     return True
 
 
@@ -166,26 +169,27 @@ def run(view_manager) -> None:
     # Draw center (yellow)
     __ellipse(draw, CX, CY, 32, 32, TFT_YELLOW, True)
 
+    petal_colors = [
+        TFT_RED,
+        TFT_GREEN,
+        TFT_BLUE,
+        TFT_YELLOW,
+        TFT_CYAN,
+        TFT_VIOLET,
+        TFT_ORANGE,
+        TFT_PINK,
+        TFT_DARKGREEN,
+        TFT_DARKCYAN,
+        TFT_BROWN,
+        TFT_SKYBLUE,
+        TFT_RED,
+        TFT_GREEN,
+    ]
+
     for i in range(NUM_PETALS):
         angle = i * (2 * pi / NUM_PETALS)
         px = int(CX + 100 * cos(angle))
         py = int(CY + 100 * sin(angle))
-        petal_colors = [
-            TFT_RED,
-            TFT_GREEN,
-            TFT_BLUE,
-            TFT_YELLOW,
-            TFT_CYAN,
-            TFT_VIOLET,
-            TFT_ORANGE,
-            TFT_PINK,
-            TFT_DARKGREEN,
-            TFT_DARKCYAN,
-            TFT_BROWN,
-            TFT_SKYBLUE,
-            TFT_RED,
-            TFT_GREEN,
-        ]
         color = petal_colors[(i + shift) % len(petal_colors)]
 
         # Draw filled circle for the petal

@@ -16,7 +16,7 @@ def start(view_manager) -> bool:
             view_manager.draw,
             "WiFi",
             0,
-            320,
+            view_manager.draw.size.y,
             view_manager.get_foreground_color(),
             view_manager.get_background_color(),
             view_manager.get_selected_color(),
@@ -25,6 +25,7 @@ def start(view_manager) -> bool:
         )
         _wifi.add_item("Connect")
         _wifi.add_item("Scan")
+        _wifi.add_item("Server")
         _wifi.add_item("Settings")
         _wifi.set_selected(_wifi_index)
 
@@ -52,17 +53,17 @@ def run(view_manager) -> None:
     input_manager = view_manager.input_manager
     button: int = input_manager.get_last_button()
 
-    if button == BUTTON_UP:
+    if button in (BUTTON_UP, BUTTON_LEFT):
         input_manager.reset()
         _wifi.scroll_up()
-    elif button == BUTTON_DOWN:
+    elif button in (BUTTON_DOWN, BUTTON_RIGHT):
         input_manager.reset()
         _wifi.scroll_down()
-    elif button in (BUTTON_BACK, BUTTON_LEFT):
+    elif button == BUTTON_BACK:
         _wifi_index = 0
         input_manager.reset()
         view_manager.back()
-    elif button in (BUTTON_CENTER, BUTTON_RIGHT):
+    elif button == BUTTON_CENTER:
         input_manager.reset()
         _wifi_index = _wifi.get_selected_index()
 
@@ -79,6 +80,11 @@ def run(view_manager) -> None:
             view_manager.add(View("wifi_scan", scan.run, scan.start, scan.stop))
             view_manager.switch_to("wifi_scan")
         elif _wifi_index == 2:
+            from picoware.applications.wifi import server
+
+            view_manager.add(View("wifi_server", server.run, server.start, server.stop))
+            view_manager.switch_to("wifi_server")
+        elif _wifi_index == 3:
             from picoware.applications.wifi import settings
 
             view_manager.add(

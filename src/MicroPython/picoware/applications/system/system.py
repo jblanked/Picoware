@@ -12,7 +12,7 @@ def start(view_manager) -> bool:
             view_manager.draw,
             "System",
             0,
-            320,
+            view_manager.draw.size.y,
             view_manager.get_foreground_color(),
             view_manager.get_background_color(),
             view_manager.get_selected_color(),
@@ -51,18 +51,18 @@ def run(view_manager) -> None:
     input_manager = view_manager.input_manager
     button: int = input_manager.get_last_button()
 
-    if button == BUTTON_UP:
+    if button in (BUTTON_UP, BUTTON_LEFT):
         input_manager.reset()
         _system.scroll_up()
-    elif button == BUTTON_DOWN:
+    elif button in (BUTTON_DOWN, BUTTON_RIGHT):
         input_manager.reset()
         _system.scroll_down()
-    elif button in (BUTTON_BACK, BUTTON_LEFT):
+    elif button == BUTTON_BACK:
 
         input_manager.reset()
         view_manager.back()
         _system_index = 0
-    elif button in (BUTTON_CENTER, BUTTON_RIGHT):
+    elif button == BUTTON_CENTER:
         input_manager.reset()
         _system_index = _system.get_selected_index()
         if _system_index == 0:
@@ -107,7 +107,7 @@ def run(view_manager) -> None:
             choice = Choice(
                 view_manager.draw,
                 Vector(0, 0),
-                Vector(320, 320),
+                view_manager.draw.size,
                 "Shutdown Device?",
                 ["No", "Yes"],
                 0,

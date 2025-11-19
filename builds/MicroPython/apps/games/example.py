@@ -331,10 +331,12 @@ def __player_spawn(level):
     from picoware.engine.entity import Entity, ENTITY_TYPE_PLAYER, SPRITE_3D_NONE
     from picoware.system.vector import Vector
 
+    draw = level.game.draw
+
     player = Entity(
         "Player",  # name
         ENTITY_TYPE_PLAYER,  # type
-        Vector(160, 160),  # position
+        Vector(draw.size.x // 2, draw.size.y // 2),  # position
         Vector(20, 16),  # size
         BIRD,  # sprite data
         None,  # sprite data left

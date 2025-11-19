@@ -8,6 +8,10 @@ def start(view_manager) -> bool:
     from picoware.gui.menu import Menu
     from picoware.system.app_loader import AppLoader
 
+    if not view_manager.has_sd_card:
+        print("Games app requires an SD card")
+        return False
+
     # create games folder if it doesn't exist
     view_manager.get_storage().mkdir("picoware/apps/games")
 
@@ -27,7 +31,7 @@ def start(view_manager) -> bool:
         view_manager.draw,
         "Games",
         0,
-        320,
+        view_manager.draw.size.y,
         view_manager.get_foreground_color(),
         view_manager.get_background_color(),
         view_manager.get_selected_color(),
@@ -65,17 +69,17 @@ def run(view_manager) -> None:
     input_manager = view_manager.input_manager
     button: int = input_manager.get_last_button()
 
-    if button == BUTTON_UP:
+    if button in (BUTTON_UP, BUTTON_LEFT):
         input_manager.reset()
         _games.scroll_up()
-    elif button == BUTTON_DOWN:
+    elif button in (BUTTON_DOWN, BUTTON_RIGHT):
         input_manager.reset()
         _games.scroll_down()
-    elif button in (BUTTON_BACK, BUTTON_LEFT):
+    elif button == BUTTON_BACK:
         _games_index = 0
         input_manager.reset()
         view_manager.back()
-    elif button in (BUTTON_CENTER, BUTTON_RIGHT):
+    elif button == BUTTON_CENTER:
         input_manager.reset()
         _games_index = _games.get_selected_index()
 

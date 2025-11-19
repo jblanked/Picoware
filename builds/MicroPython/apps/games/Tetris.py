@@ -208,17 +208,17 @@ def __tetris_game_draw_playfield(draw) -> None:
     global _tetris_state
 
     curr_block_positions = []
-
+    cur_block_pos = Vector(0, 0)
     for y in range(FIELD_HEIGHT):
         for x in range(FIELD_WIDTH):
             if _tetris_state.field[y][x]:
-                x_offset = FIELD_X_OFFSET + x * BLOCK_WIDTH
-                y_offset = FIELD_Y_OFFSET + y * BLOCK_HEIGHT
+                cur_block_pos.x = int(FIELD_X_OFFSET + x * BLOCK_WIDTH)
+                cur_block_pos.y = int(FIELD_Y_OFFSET + y * BLOCK_HEIGHT)
 
                 __tetris_game_draw_block(
-                    draw, x_offset, y_offset, _tetris_state.colors[y][x]
+                    draw, cur_block_pos.x, cur_block_pos.y, _tetris_state.colors[y][x]
                 )
-                curr_block_positions.append(Vector(x_offset, y_offset))
+                curr_block_positions.append(cur_block_pos)
 
     _tetris_state.prev_block_positions = curr_block_positions
     _tetris_state.prev_block_count = len(curr_block_positions)

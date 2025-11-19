@@ -4,6 +4,10 @@ _toggle_index = 0
 
 def start(view_manager) -> bool:
     """Start the app"""
+    if not view_manager.has_sd_card:
+        print("Settings app requires an SD card")
+        return False
+
     from picoware.gui.toggle import Toggle
     from picoware.system.vector import Vector
     from picoware.system.storage import Storage

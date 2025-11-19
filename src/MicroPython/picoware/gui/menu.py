@@ -1,6 +1,3 @@
-from picoware.system.vector import Vector
-
-
 class Menu:
     """A simple menu class for a GUI."""
 
@@ -16,16 +13,18 @@ class Menu:
         border_color: int = 0xFFFF,
         border_width: int = 2,
     ):
+        from picoware.system.vector import Vector
         from picoware.gui.list import List
 
         self.text_color = text_color
         self.background_color = background_color
         self.title = title
         self.display = draw
+        self._height_offset = int(self.display.size.y // 8)  # Reserve space for title
         self.list = List(
             draw,
-            y + 20,
-            height - 20,
+            y + self._height_offset,
+            height - self._height_offset,
             text_color,
             background_color,
             selected_color,
@@ -55,17 +54,41 @@ class Menu:
 
     def clear(self) -> None:
         """Clear the menu."""
-        self.display.clear(Vector(0, 0), Vector(320, 20), self.background_color)
+        from picoware.system.vector import Vector
+
+        self.display.clear(
+            Vector(0, 0),
+            Vector(self.display.size.x, self._height_offset),
+            self.background_color,
+        )
         self.list.clear()
 
     def draw(self) -> None:
         """Draw the menu."""
+
+        # Draw the title
         self.draw_title()
+
+        # Draw the list with the underline position
         self.list.draw()
 
     def draw_title(self) -> None:
-        """Draw the title."""
-        self.display.text(Vector(2, 8), self.title, self.text_color)
+        """Draw the title (kept for API compatibility, now handled in draw)."""
+        from picoware.system.vector import Vector
+
+        # Draw title centered
+        title_width = self.display.font_size.x * len(self.title)
+        title_x = (self.display.size.x - title_width) // 2
+        title_y = self.position.y + 15
+        self.display.text(Vector(title_x, title_y), self.title, self.text_color)
+
+        # Draw underline
+        underline_y = title_y + 10
+        self.display.line_custom(
+            Vector(title_x, underline_y),
+            Vector(title_x + title_width, underline_y),
+            self.text_color,
+        )
 
     def get_current_item(self) -> str:
         """Get the current item in the menu."""

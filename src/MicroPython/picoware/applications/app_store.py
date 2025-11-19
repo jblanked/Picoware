@@ -58,7 +58,7 @@ def __app_store_alert(view_manager, message: str, back: bool = True) -> None:
     from picoware.system.buttons import BUTTON_BACK
 
     draw = view_manager.get_draw()
-    draw.clear()
+    draw.fill_screen(view_manager.get_background_color())
     _app_store_alert = Alert(
         draw,
         message,
@@ -143,7 +143,7 @@ def __parse_app_list(view_manager) -> bool:
                 draw,
                 "App Store",
                 0,
-                320,
+                draw.size.y,
                 view_manager.get_foreground_color(),
                 view_manager.get_background_color(),
             )
@@ -212,9 +212,8 @@ def __draw_app_details(view_manager) -> None:
 
     draw = view_manager.get_draw()
     fg = view_manager.get_foreground_color()
-    bg = view_manager.get_background_color()
 
-    draw.clear()
+    draw.fill_screen(view_manager.get_background_color())
 
     if not _selected_app_details:
         return
@@ -307,6 +306,10 @@ def __download_next_file(view_manager) -> bool:
 
 def start(view_manager) -> bool:
     """Start the app"""
+    if not view_manager.has_sd_card:
+        __app_store_alert(view_manager, "App Store app requires an SD card", False)
+        return False
+
     wifi = view_manager.get_wifi()
 
     # if not a wifi device, return
@@ -342,6 +345,7 @@ def run(view_manager) -> None:
         BUTTON_DOWN,
         BUTTON_CENTER,
         BUTTON_LEFT,
+        BUTTON_RIGHT,
     )
 
     global _app_state, _app_menu, _selected_app_id, _http, _loading, _current_file_index, _files_to_download, _apps_data, _selected_app_details
@@ -356,16 +360,16 @@ def run(view_manager) -> None:
             # Exit app only from main menu
             view_manager.back()
             return
-        elif _app_state == STATE_APP_DETAILS:
+        if _app_state == STATE_APP_DETAILS:
             # Go back to app list from details
             _app_state = STATE_APP_LIST
             if _app_menu:
                 _app_menu.draw()
             return
-        else:
-            # From loading states, go back to app list or exit
-            view_manager.back()
-            return
+
+        # From loading states, go back to app list or exit
+        view_manager.back()
+        return
 
     if _app_state == STATE_LOADING_LIST:
         # Show loading animation while fetching app list
@@ -384,11 +388,11 @@ def run(view_manager) -> None:
 
     elif _app_state == STATE_APP_LIST:
         # Handle menu navigation
-        if button == BUTTON_UP:
+        if button in (BUTTON_UP, BUTTON_LEFT):
             inp.reset()
             if _app_menu:
                 _app_menu.scroll_up()
-        elif button == BUTTON_DOWN:
+        elif button in (BUTTON_DOWN, BUTTON_RIGHT):
             inp.reset()
             if _app_menu:
                 _app_menu.scroll_down()

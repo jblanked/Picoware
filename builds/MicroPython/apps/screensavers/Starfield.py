@@ -67,12 +67,16 @@ def run(view_manager) -> None:
 
     tft = view_manager.get_draw()
     spawn_depth_variation = 255
-
+    pixel_vector = Vector(0, 0)
+    screen_size = tft.size
+    screen_size_half = Vector(screen_size.x // 2, screen_size.y // 2)
     for i in range(NSTARS):
         if sz[i] <= 1:
             rng_x = __rng()
             rng_y = __rng()
-            sx[i] = 160 - 120 + rng_x  # Range: 40 to 295
+            sx[i] = (
+                screen_size_half.x - (screen_size_half.x * 0.75) + rng_x
+            )  # Range: 40 to 295
             sy[i] = rng_y  # Range: 0 to 255
             sz[i] = spawn_depth_variation
             if spawn_depth_variation > 1:
@@ -80,21 +84,40 @@ def run(view_manager) -> None:
         else:
             if sz[i] > 0:
                 # Cast to int and be careful with order of operations to avoid overflow
-                old_screen_x = int((int(sx[i]) - 160) * 256 // sz[i] + 160)
-                old_screen_y = int((int(sy[i]) - 160) * 256 // sz[i] + 160)
+                old_screen_x = int(
+                    (int(sx[i]) - screen_size_half.x) * 256 // sz[i]
+                    + screen_size_half.x
+                )
+                old_screen_y = int(
+                    (int(sy[i]) - screen_size_half.y) * 256 // sz[i]
+                    + screen_size_half.y
+                )
 
-                if 0 <= old_screen_x < 320 and 0 <= old_screen_y < 320:
-                    tft.pixel(Vector(old_screen_x, old_screen_y), TFT_BLACK)
+                if (
+                    0 <= old_screen_x < screen_size.x
+                    and 0 <= old_screen_y < screen_size.y
+                ):
+                    pixel_vector.x = old_screen_x
+                    pixel_vector.y = old_screen_y
+                    tft.pixel(pixel_vector, TFT_BLACK)
 
                 sz[i] -= 2
                 if sz[i] > 1:
-                    screen_x = int((int(sx[i]) - 160) * 256 // sz[i] + 160)
-                    screen_y = int((int(sy[i]) - 160) * 256 // sz[i] + 160)
+                    screen_x = int(
+                        (int(sx[i]) - screen_size_half.x) * 256 // sz[i]
+                        + screen_size_half.x
+                    )
+                    screen_y = int(
+                        (int(sy[i]) - screen_size_half.y) * 256 // sz[i]
+                        + screen_size_half.y
+                    )
 
-                    if 0 <= screen_x < 320 and 0 <= screen_y < 320:
+                    if 0 <= screen_x < screen_size.x and 0 <= screen_y < screen_size.y:
                         r = g = b = 255 - sz[i]
                         color = tft.color565(r, g, b)
-                        tft.pixel(Vector(screen_x, screen_y), color)
+                        pixel_vector.x = screen_x
+                        pixel_vector.y = screen_y
+                        tft.pixel(pixel_vector, color)
                     else:
                         sz[i] = 0
 

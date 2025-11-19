@@ -1094,6 +1094,7 @@ class Desktop:
         self.time_str = ""
         self.is_dark_mode = text_color == 0xFFFF and background_color == 0x0000
         self.battery_level_str = ""
+        self.is_circular = system.is_circular
         self.display.clear(Vector(0, 0), self.display.size, self.background_color)
         self.display.swap()
 
@@ -1119,31 +1120,89 @@ class Desktop:
     def draw_header(self) -> None:
         """Draw the header with the board name and Wi-Fi status."""
         # draw board name
-        self.display.text(Vector(2, 5), self.name, self.text_color)
+        if self.is_circular:
+            name_width = len(self.name) * self.display.font_size.x
+            name_x = (self.display.size.x - name_width) // 2
+            self.display.text(
+                Vector(name_x, int(self.display.size.y / 20)),
+                self.name,
+                self.text_color,
+            )
+        else:
+            self.display.text(Vector(2, 5), self.name, self.text_color)
 
         # draw time if set
         if self.time_str:
-            self.display.text(Vector(140, 5), self.time_str, self.text_color)
+            if self.is_circular:
+                time_width = len(self.time_str) * self.display.font_size.x
+                time_x = (self.display.size.x - time_width) // 2
+                # Position time below the board name to stay within circular boundary
+                self.display.text(
+                    Vector(time_x, int(self.display.size.y / 20) + 10),
+                    self.time_str,
+                    self.text_color,
+                )
+            else:
+                self.display.text(
+                    Vector(int(self.display.size.x * 0.4375), 5),
+                    self.time_str,
+                    self.text_color,
+                )
 
         # draw wifi icon using the built-in palette
-        self.display.image_bytearray(
-            Vector(int(self.display.size.x - 21), 2),
-            Vector(19, 16),
-            _WIFI_ON_BLACK if self.has_wifi else _WIFI_OFF_BLACK,
-            invert=not self.is_dark_mode,
-        )
+        if self.is_circular:
+            # Position WiFi icon to the right, within circular boundary
+            wifi_x = int(self.display.size.x * 0.65)
+            wifi_y = int(self.display.size.y / 20) + 25
+            self.display.image_bytearray(
+                Vector(wifi_x, wifi_y),
+                Vector(19, 16),
+                _WIFI_ON_BLACK if self.has_wifi else _WIFI_OFF_BLACK,
+                invert=not self.is_dark_mode,
+            )
+        else:
+            self.display.image_bytearray(
+                Vector(int(self.display.size.x * (1 - 21 / 320)), 2),
+                Vector(19, 16),
+                _WIFI_ON_BLACK if self.has_wifi else _WIFI_OFF_BLACK,
+                invert=not self.is_dark_mode,
+            )
 
         # draw bluetooth icon using the built-in palette
-        self.display.image_bytearray(
-            Vector(int(self.display.size.x - 40), 2),
-            Vector(14, 16),
-            _BLUETOOTH_ON_BLACK if self.has_wifi else _BLUEETOOTH_OFF_BLACK,
-            invert=not self.is_dark_mode,
-        )
+        if self.is_circular:
+            # Position Bluetooth icon to the left, within circular boundary
+            bt_x = int(self.display.size.x * 0.30)
+            bt_y = int(self.display.size.y / 20) + 25
+            self.display.image_bytearray(
+                Vector(bt_x, bt_y),
+                Vector(14, 16),
+                _BLUETOOTH_ON_BLACK if self.has_wifi else _BLUEETOOTH_OFF_BLACK,
+                invert=not self.is_dark_mode,
+            )
+        else:
+            self.display.image_bytearray(
+                Vector(int(self.display.size.x * 0.875), 2),
+                Vector(14, 16),
+                _BLUETOOTH_ON_BLACK if self.has_wifi else _BLUEETOOTH_OFF_BLACK,
+                invert=not self.is_dark_mode,
+            )
 
-        self.display.text(
-            Vector(self.display.size.x - 68, 5), self.battery_level_str, self.text_color
-        )
+        # draw battery level
+        if self.is_circular:
+            # Center the battery level below time
+            battery_width = len(self.battery_level_str) * (self.display.font_size.x + 1)
+            battery_x = (self.display.size.x - battery_width) // 2
+            self.display.text(
+                Vector(battery_x, int(self.display.size.y / 20) + 32),
+                self.battery_level_str,
+                self.text_color,
+            )
+        else:
+            self.display.text(
+                Vector(int(self.display.size.x * 0.7875), 5),
+                self.battery_level_str,
+                self.text_color,
+            )
 
     def set_battery(self, battery_level: int) -> None:
         """Set the battery level on the header."""

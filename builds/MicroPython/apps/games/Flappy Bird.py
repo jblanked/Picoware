@@ -340,8 +340,8 @@ FLAPPY_GAB_WIDTH = const(10)
 FLAPPY_GRAVITY_JUMP = const(-6.0)
 FLAPPY_GRAVITY_TICK = const(0.7)
 
-FLIPPER_LCD_WIDTH = const(320)
-FLIPPER_LCD_HEIGHT = const(320)
+FLIPPER_LCD_WIDTH = 0
+FLIPPER_LCD_HEIGHT = 0
 
 GAME_STATE_LIFE = const(0)
 GAME_STATE_GAME_OVER = const(1)
@@ -556,25 +556,30 @@ def __player_render(self, draw, game) -> None:
 
     if _game_state.state == GAME_STATE_LIFE:
         # Draw pillars
+        vec_1 = Vector(0, 0)
+        vec_2 = Vector(FLAPPY_GAB_WIDTH, 0)
+        vec_3 = Vector(0, 0)
+        vec_4 = Vector(FLAPPY_GAB_WIDTH, 0)
         for i in range(FLAPPY_PILAR_MAX):
             pilar = _game_state.pilars[i]
             if pilar and pilar.visible == 1:
                 # Top pillar outline
+                vec_1.x = pilar.point.x
+                vec_1.y = pilar.point.y
+                vec_2.y = pilar.height
                 draw.rect(
-                    Vector(pilar.point.x, pilar.point.y),
-                    Vector(FLAPPY_GAB_WIDTH, pilar.height),
+                    vec_1,
+                    vec_2,
                     TFT_BLUE,
                 )
 
                 # Bottom pillar outline
+                vec_3.x = pilar.point.x
+                vec_3.y = pilar.point.y + pilar.height + FLAPPY_GAB_HEIGHT
+                vec_4.y = FLIPPER_LCD_HEIGHT - (pilar.height + FLAPPY_GAB_HEIGHT)
                 draw.rect(
-                    Vector(
-                        pilar.point.x, pilar.point.y + pilar.height + FLAPPY_GAB_HEIGHT
-                    ),
-                    Vector(
-                        FLAPPY_GAB_WIDTH,
-                        FLIPPER_LCD_HEIGHT - (pilar.height + FLAPPY_GAB_HEIGHT),
-                    ),
+                    vec_3,
+                    vec_4,
                     TFT_BLUE,
                 )
 
@@ -633,9 +638,11 @@ def start(view_manager) -> bool:
     from picoware.engine.level import Level
     from picoware.engine.engine import GameEngine
 
-    global _game_engine
+    global _game_engine, FLIPPER_LCD_WIDTH, FLIPPER_LCD_HEIGHT
 
     draw = view_manager.get_draw()
+    FLIPPER_LCD_WIDTH = draw.size.x
+    FLIPPER_LCD_HEIGHT = draw.size.y
 
     # Create the game instance with its name, start/stop callbacks, and colors.
     game = Game(

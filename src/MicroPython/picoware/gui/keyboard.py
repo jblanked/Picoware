@@ -197,7 +197,7 @@ class Keyboard:
             )
 
         # Calculate starting X position for centering
-        start_x = (320 - total_row_width) // 2
+        start_x = (self.draw.size.x - total_row_width) // 2
 
         # Calculate key position
         x_pos = start_x

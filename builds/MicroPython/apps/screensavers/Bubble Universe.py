@@ -8,15 +8,15 @@ from array import array
 CURVECOUNT = const(256)
 CURVESTEP = const(16)
 ITERATIONS = const(64)
-SCREENWIDTH = const(320)
-SCREENHEIGHT = const(320)
+SCREENWIDTH = 0
+SCREENHEIGHT = 0
 
 PI = const(3.1415926535897932384626433832795)
 SINTABLEPOWER = const(12)
 SINTABLEENTRIES = const(1 << SINTABLEPOWER)
 ANG1INC = const((CURVESTEP * SINTABLEENTRIES) // 235)
 ANG2INC = (CURVESTEP * SINTABLEENTRIES) // int(2 * PI)
-SCALEMUL = int(SCREENHEIGHT * PI / 2)
+SCALEMUL = 0
 
 SCALESPEED = const(1.04)
 MOVESPEED = const(2.0)
@@ -211,7 +211,11 @@ def start(view_manager) -> bool:
     draw.text(Vector(10, 10), "Bubble Universe by Movie Vertigo", TFT_WHITE)
     draw.swap()
 
-    global old_time
+    global old_time, SCREENWIDTH, SCREENHEIGHT, SCALEMUL
+
+    SCREENWIDTH = draw.size.x
+    SCREENHEIGHT = draw.size.y
+    SCALEMUL = int(SCREENHEIGHT * PI / 2)
 
     __create_sin_table()
     __reset_values()

@@ -390,8 +390,8 @@ class Player(Entity):
 
     def draw_menu_type1(self, canvas, selected_index: int, option1: str, option2: str):
         """Draw a menu with two options."""
-        width = 320
-        height = 320
+        width = canvas.size.x
+        height = canvas.size.y
 
         canvas.fill_screen(COLOR_WHITE)
 
@@ -441,7 +441,7 @@ class Player(Entity):
         self, canvas, selected_index_main: int, selected_index_settings: int
     ):
         """Draw the system menu."""
-        height = 320
+        height = canvas.size.y
 
         canvas.fill_screen(COLOR_WHITE)
         current_color = COLOR_BLACK
@@ -806,8 +806,8 @@ class Player(Entity):
 
     def draw_rain_effect(self, canvas):
         """Draw rain/star droplet effect."""
-        width = 320
-        height = 320
+        width = canvas.size.x
+        height = canvas.size.y
 
         # Rain droplets/star droplets effect
         for i in range(16):
@@ -1026,8 +1026,8 @@ class Player(Entity):
         # Rain effect
         self.draw_rain_effect(canvas)
 
-        width = 320
-        height = 320
+        width = canvas.size.x
+        height = canvas.size.y
 
         # Draw welcome text with blinking effect
         if (self.welcome_frame // 15) % 2 == 0:

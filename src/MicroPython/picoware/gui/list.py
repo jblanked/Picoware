@@ -1,6 +1,3 @@
-from picoware.system.vector import Vector
-
-
 class List:
     """A simple list class for a GUI."""
 
@@ -15,8 +12,13 @@ class List:
         border_color: int = 0xFFFF,
         border_width: int = 2,
     ):
-        from picoware.gui.scrollbar import ScrollBar
+        from picoware.system.system import System
+        from picoware.system.vector import Vector
 
+        syst = System()
+        self.is_circular = syst.is_circular
+
+        self.display = draw
         self.position = Vector(0, y)
         self.size = Vector(draw.size.x, height)
         self.text_color = text_color
@@ -25,13 +27,6 @@ class List:
         self.border_color = border_color
         self.border_width = border_width
         draw.clear(self.position, self.size, background_color)
-        self.scrollbar = ScrollBar(
-            draw,
-            Vector(0, 0),
-            Vector(0, 0),
-            border_color,
-            background_color,
-        )
 
         self.lines_per_screen = 14
         self.item_height = 20
@@ -42,9 +37,6 @@ class List:
         draw.swap()
 
     def __del__(self):
-        if self.scrollbar:
-            del self.scrollbar
-            self.scrollbar = None
         if self.size:
             del self.size
             self.size = None
@@ -53,14 +45,14 @@ class List:
             self.position = None
         self.items = []
 
-    def add_item(self, item: str, update_view: bool = False) -> None:
-        """Add an item to the list and update the display."""
-        # Add an item to the list
-        self.items.append(item)
+    @property
+    def item_count(self) -> int:
+        """Get the number of items in the list."""
+        return len(self.items)
 
-        # Update visibility if necessary
-        if update_view:
-            self.update_visibility()
+    def add_item(self, item: str) -> None:
+        """Add an item to the list."""
+        self.items.append(item)
 
     def clear(self) -> None:
         """Clear the list."""
@@ -70,80 +62,153 @@ class List:
         self.first_visible_index = 0
 
         # Clear the display area
-        self.scrollbar.display.clear(self.position, self.size, self.background_color)
-
-        self.set_scrollbar_size()
-        self.set_scrollbar_position()
-
-        self.scrollbar.display.swap()
+        self.display.clear(self.position, self.size, self.background_color)
+        self.display.swap()
 
     def draw(self) -> None:
-        """Draw the list."""
-        from gc import collect
+        """Draw the list with new style."""
+        from picoware.system.vector import Vector
 
-        self.scrollbar.display.clear(self.position, self.size, self.background_color)
+        self.display.clear(self.position, self.size, self.background_color)
 
-        # Draw only visible items
-        self._draw_items_batch()
+        size_x = self.display.size.x
 
-        # Draw the scrollbar
-        self.set_scrollbar_size()
-        self.set_scrollbar_position()
-        self.scrollbar.draw()
+        # Draw decorative pattern below underline
+        pattern_y = self.position.y + 5 + (self.display.size.y // 16)
+        _dec_v = Vector(0, pattern_y)
+        for i in range(0, size_x, 10):
+            _dec_v.x = i
+            self.display.pixel(_dec_v, self.border_color)
 
-        # Swap buffers
-        self.scrollbar.display.swap()
+        # Get current selected item
+        if 0 <= self.selected_index < len(self.items):
+            current_item = self.items[self.selected_index]
 
-        # Free unused memory
-        collect()
+            menu_y = self.position.y + self.size.y // 4
+            box_width = size_x - int(size_x // 6.4)
+            box_height = self.size.y // 8
+            box_x = (size_x - box_width) // 2
 
-    def _draw_items_batch(self) -> None:
-        """Batch drawing of list items."""
-        displayed = 0
-        max_items = int(self.visible_item_count)
-
-        for i in range(self.first_visible_index, len(self.items)):
-            if displayed >= max_items:
-                break
-            self.draw_item(i, i == self.selected_index)
-            displayed += 1
-
-    def draw_item(self, index: int, selected: bool) -> None:
-        """Draw an item in the list."""
-        # Calculate the position within the visible area
-        visible_index = index - self.first_visible_index
-        y = int(self.position.y + self.border_width + visible_index * self.item_height)
-
-        # Bounds check
-        if visible_index >= self.visible_item_count:
-            return
-
-        # Draw item background
-        bg_x = int(self.position.x + self.border_width)
-        bg_width = int(self.size.x - 2 * self.border_width)
-        bg_height = int(self.item_height)
-
-        background_color = self.selected_color if selected else self.background_color
-
-        self.scrollbar.display.fill_rectangle(
-            Vector(bg_x, y), Vector(bg_width, bg_height), background_color
-        )
-
-        # Draw border line
-        if self.border_width > 0:
-            line_y = y + bg_height - 1
-            self.scrollbar.display.line_custom(
-                Vector(bg_x, line_y),
-                Vector(bg_x + bg_width - 1, line_y),
-                self.border_color,
+            # Draw selection box
+            self.display.fill_rectangle(
+                Vector(box_x, menu_y - 30),
+                Vector(box_width, box_height),
+                self.selected_color,
             )
 
-        # Draw item text
-        text_x = bg_x + 5  # Small padding
-        text_y = y + 5
-        self.scrollbar.display.text(
-            Vector(text_x, text_y), self.items[index], self.text_color
-        )
+            # Draw text centered
+            item_width = len(current_item) * self.display.font_size.x
+            item_x = (size_x - item_width) // 2
+            self.display.text(
+                Vector(item_x, menu_y - 10), current_item, self.text_color
+            )
+
+            # Draw navigation arrows
+            if self.selected_index > 0:
+                self.display.text(Vector(5, menu_y - 7), "<", self.border_color)
+            if self.selected_index < len(self.items) - 1:
+                self.display.text(
+                    Vector(size_x - 15, menu_y - 7), ">", self.border_color
+                )
+
+            # Draw indicator dots
+            indicator_y = menu_y + 20
+            if len(self.items) <= 15:
+                dots_spacing = 15
+                dots_start_x = (size_x - (len(self.items) * dots_spacing)) // 2
+                _pos = Vector(0, indicator_y)
+                _size = Vector(10, 10)
+                for i in range(len(self.items)):
+                    dot_x = dots_start_x + (i * dots_spacing)
+                    _pos.x = dot_x
+                    if i == self.selected_index:
+                        self.display.fill_rectangle(
+                            _pos,
+                            _size,
+                            self.border_color,
+                        )
+                    else:
+                        self.display.rect(
+                            _pos,
+                            _size,
+                            self.border_color,
+                        )
+            else:
+                # show the current selected item index and total count
+                index_text = "{}/{}".format(self.selected_index + 1, len(self.items))
+                index_text_width = len(index_text) * self.display.font_size.x
+                index_text_x = (size_x - index_text_width) // 2
+                self.display.text(
+                    Vector(index_text_x, indicator_y), index_text, self.border_color
+                )
+
+            # Draw decorative bottom pattern
+            bottom_pattern_y = indicator_y + 25
+            _dec_v_b = Vector(0, bottom_pattern_y)
+            for i in range(0, size_x, 10):
+                _dec_v_b.x = i
+                self.display.pixel(_dec_v_b, self.border_color)
+
+            # Draw scrollable list below decorative pattern
+            list_start_y = bottom_pattern_y + 15
+            available_height = (self.position.y + self.size.y) - list_start_y
+            item_height = self.display.font_size.y + 6  # Font height + padding
+            max_visible_items = max(1, int(available_height / item_height))
+
+            # Calculate which items to show based on selected index
+            if len(self.items) <= max_visible_items:
+                # Show all items if they fit
+                first_visible = 0
+                last_visible = len(self.items)
+            else:
+                # Center the selected item when possible
+                half_visible = max_visible_items // 2
+                first_visible = max(0, self.selected_index - half_visible)
+                last_visible = min(len(self.items), first_visible + max_visible_items)
+
+                # Adjust if we're near the end
+                if last_visible == len(self.items):
+                    first_visible = max(0, len(self.items) - max_visible_items)
+
+            # Draw each visible item
+            rec_vec_pos = Vector(5, 0)
+            rec_vec_size = Vector(size_x - 10, 0)
+            text_vec_pos = Vector(10, 0)
+            for i in range(first_visible, last_visible):
+                visible_idx = i - first_visible
+                item_y = list_start_y + (visible_idx * item_height)
+
+                # Draw background for selected item
+                if i == self.selected_index:
+                    rec_vec_pos.y = item_y
+                    rec_vec_size.y = item_height
+                    self.display.fill_rectangle(
+                        rec_vec_pos,
+                        rec_vec_size,
+                        self.selected_color,
+                    )
+
+                # Draw item text
+                text_y = item_y + 3
+                item_text = self.items[i]
+
+                # Truncate text if too long
+                max_chars = (size_x - 20) // self.display.font_size.x
+                if len(item_text) > max_chars:
+                    item_text = item_text[: max_chars - 2] + ".."
+
+                # Center text if circular display, otherwise left-align with padding
+                if self.is_circular:
+                    text_width = len(item_text) * self.display.font_size.x
+                    text_x = (size_x - text_width) // 2
+                else:
+                    text_x = 10
+                text_vec_pos.x = text_x
+                text_vec_pos.y = text_y
+                self.display.text(text_vec_pos, item_text, self.text_color)
+
+        # Swap buffers
+        self.display.swap()
 
     def get_current_item(self) -> str:
         """Get the currently selected item."""
@@ -176,113 +241,22 @@ class List:
         if self.selected_index >= len(self.items):
             self.selected_index = len(self.items) - 1 if len(self.items) > 0 else 0
 
-        # Update visibility if necessary
-        self.update_visibility()
-
     def scroll_down(self) -> None:
         """Scroll the list down by one item."""
         self.selected_index += 1
-        if self.first_visible_index + self.visible_item_count < len(self.items):
-            self.first_visible_index += 1
         if self.selected_index >= len(self.items):
             self.selected_index = 0
-            self.first_visible_index = 0
-        self.update_visibility()
         self.draw()
 
     def scroll_up(self) -> None:
         """Scroll the list up by one item."""
         self.selected_index -= 1
-        if self.first_visible_index > 0:
-            self.first_visible_index -= 1
         if self.selected_index < 0:
             self.selected_index = len(self.items) - 1
-            if len(self.items) <= self.lines_per_screen:
-                self.first_visible_index = 0
-            else:
-                self.first_visible_index = int(len(self.items) - self.lines_per_screen)
-        self.update_visibility()
         self.draw()
 
     def set_selected(self, index: int) -> None:
         """Set the selected item in the list"""
         if 0 <= index < len(self.items):
             self.selected_index = index
-            self.update_visibility()
             self.draw()
-
-    def set_scrollbar_position(self) -> None:
-        """Set the position of the scrollbar based on the list content and visible area."""
-        # Calculate available scrollable area (view height minus scrollbar thumb height)
-        view_height = self.size.y - 2 * self.border_width
-        scrollable_area = 0
-
-        # Position scrollbar on the right side of the list
-        bar_x = self.position.x + self.size.x - self.scrollbar.size.x - 1
-        bar_y = self.position.y + self.border_width  # Default to top
-
-        # Only calculate scroll position if we need scrolling
-        if len(self.items) > self.visible_item_count:
-            scrollable_area = view_height - self.scrollbar.size.y
-
-            # Calculate scroll position ratio based on first visible index and total scrollable items
-            scroll_ratio = 0.0
-
-            # Calculate the current scroll position as a ratio
-            # Current position = firstVisibleIndex / (total items - visible items)
-            max_first_visible = len(self.items) - self.visible_item_count
-            if max_first_visible > 0:
-                scroll_ratio = float(self.first_visible_index / max_first_visible)
-
-                # Clamp between 0 and 1
-                scroll_ratio = max(scroll_ratio, 0.0)
-                scroll_ratio = min(scroll_ratio, 1.0)
-
-                # Calculate Y position based on scroll ratio
-                bar_y = (
-                    self.position.y + self.border_width + scroll_ratio * scrollable_area
-                )
-
-        self.scrollbar.position = Vector(int(bar_x), int(bar_y))
-
-    def set_scrollbar_size(self) -> None:
-        """Set the size of the scrollbar based on the list content and visible area."""
-        # Get the total content height and visible view height
-        content_height = self.get_list_height()
-        view_height = self.size.y - 2 * self.border_width
-
-        # Fixed width for scrollbar
-        bar_width = 6.0
-
-        # Calculate the scrollbar thumb height proportionally
-        bar_height = 0.0
-
-        # Always show the scrollbar with a minimum height
-        if len(self.items) <= self.visible_item_count or content_height <= view_height:
-            # Even if scrolling isn't needed, show a full-height scrollbar
-            bar_height = view_height
-        else:
-            # Calculate proportional height of the scrollbar thumb
-            # Thumb size = (visible portion / total content) * view height
-            bar_height = float(self.visible_item_count) / len(self.items) * view_height
-
-            # Enforce minimum scrollbar height for usability
-            bar_height = max(bar_height, 12.0)
-
-            # Make sure it doesn't exceed view height
-            bar_height = min(bar_height, view_height)
-
-        self.scrollbar.size = Vector(int(bar_width), int(bar_height))
-
-    def update_visibility(self) -> None:
-        """Update the visibility of the list."""
-        # Make sure the selected item is visible
-        if self.selected_index < self.first_visible_index:
-            # Selected item is above visible area, scroll up
-            self.first_visible_index = self.selected_index
-        elif self.selected_index >= self.first_visible_index + self.visible_item_count:
-            # Selected item is below visible area, scroll down
-            self.first_visible_index = self.selected_index - self.visible_item_count + 1
-
-        self.set_scrollbar_size()
-        self.set_scrollbar_position()

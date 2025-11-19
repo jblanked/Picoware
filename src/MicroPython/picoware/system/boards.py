@@ -1,0 +1,8 @@
+from micropython import const
+
+BOARD_PICOCALC_PICO = const(0)
+BOARD_PICOCALC_PICOW = const(1)
+BOARD_PICOCALC_PICO_2 = const(2)
+BOARD_PICOCALC_PICO_2W = const(3)
+BOARD_WAVESHARE_1_28_RP2350 = const(4)
+BOARD_WAVESHARE_1_43_RP2350 = const(5)

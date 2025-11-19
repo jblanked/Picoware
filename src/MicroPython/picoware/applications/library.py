@@ -13,7 +13,7 @@ def start(view_manager) -> bool:
             view_manager.draw,
             "Library",
             0,
-            320,
+            view_manager.draw.size.y,
             view_manager.get_foreground_color(),
             view_manager.get_background_color(),
             view_manager.get_selected_color(),
@@ -23,7 +23,7 @@ def start(view_manager) -> bool:
         _library.add_item("Applications")
         _library.add_item("App Store")
         _library.add_item("Python Editor")
-        _library.add_item("File Browser")
+        _library.add_item("File Manager")
         _library.add_item("Games")
         _library.add_item("Screensavers")
         _library.add_item("System")
@@ -55,17 +55,17 @@ def run(view_manager) -> None:
     input_manager = view_manager.input_manager
     button: int = input_manager.get_last_button()
 
-    if button == BUTTON_UP:
+    if button in (BUTTON_UP, BUTTON_LEFT):
         input_manager.reset()
         _library.scroll_up()
-    elif button == BUTTON_DOWN:
+    elif button in (BUTTON_DOWN, BUTTON_RIGHT):
         input_manager.reset()
         _library.scroll_down()
-    elif button in (BUTTON_BACK, BUTTON_LEFT):
+    elif button == BUTTON_BACK:
         _library_index = 0
         input_manager.reset()
         view_manager.back()
-    elif button in (BUTTON_CENTER, BUTTON_RIGHT):
+    elif button == BUTTON_CENTER:
         input_manager.reset()
         _library_index = _library.get_selected_index()
 
@@ -73,7 +73,7 @@ def run(view_manager) -> None:
             0: "Applications",
             1: "App Store",
             2: "Python Editor",
-            3: "File Browser",
+            3: "File Manager",
             4: "Games",
             5: "Screensavers",
             6: "System",
@@ -119,18 +119,18 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("applications")
-        elif app_map.get(_library_index) == "File Browser":
-            from picoware.applications import file_browser
+        elif app_map.get(_library_index) == "File Manager":
+            from picoware.applications import file_manager
 
             view_manager.add(
                 View(
-                    "file_browser",
-                    file_browser.run,
-                    file_browser.start,
-                    file_browser.stop,
+                    "file_manager",
+                    file_manager.run,
+                    file_manager.start,
+                    file_manager.stop,
                 )
             )
-            view_manager.switch_to("file_browser")
+            view_manager.switch_to("file_manager")
         elif app_map.get(_library_index) == "Games":
             from picoware.applications import games
 

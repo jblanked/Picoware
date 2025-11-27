@@ -135,9 +135,28 @@ class Server:
             return
 
         inp = self.view_manager.get_input_manager()
+        but = inp.button
+        if but == BUTTON_BACK:
+            inp.reset()
+            box.current_text += "Connection closed by user.\n"
+            box.refresh()
+            print("Connection closed by user.")
+            self.view_manager.back()
+            return
 
         try:
-            self.client, addr = self.server.accept()
+            self.server.setblocking(False)
+            try:
+                self.client, addr = self.server.accept()
+            except OSError:
+                return
+            finally:
+                # Restore blocking mode
+                self.server.setblocking(True)
+
+            # Ensure client socket is in blocking mode
+            self.client.setblocking(True)
+
             buffer = b""  # Initialize an empty buffer for the incoming data
 
             while True:

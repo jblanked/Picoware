@@ -85,9 +85,9 @@ class Input:
 
             return get_percentage()
 
-        from picoware_southbridge import read_battery
+        from picoware_southbridge import get_battery_percentage
 
-        return read_battery()
+        return get_battery_percentage()
 
     @property
     def button(self) -> int:

@@ -3,6 +3,7 @@ class UART:
 
     def __init__(
         self,
+        uart_id: int = 1,
         tx_pin: int = 4,
         rx_pin: int = 5,
         baud_rate: int = 115200,
@@ -12,7 +13,14 @@ class UART:
         from machine import UART as MachineUART
         from machine import Pin
 
-        self._uart = MachineUART(1, baudrate=baud_rate, tx=Pin(tx_pin), rx=Pin(rx_pin))
+        self._uart_id = uart_id
+        self._tx_pin = tx_pin
+        self._rx_pin = rx_pin
+        self._baud_rate = baud_rate
+
+        self._uart = MachineUART(
+            uart_id, baudrate=baud_rate, tx=Pin(tx_pin), rx=Pin(rx_pin)
+        )
         self._uart.init()
         self._timeout = timeout  # milliseconds
 
@@ -23,6 +31,11 @@ class UART:
         self._uart = None
 
     @property
+    def baud_rate(self) -> int:
+        """Get the baud rate of the UART interface."""
+        return self._baud_rate
+
+    @property
     def has_data(self) -> bool:
         """Check if there is data available to read from the UART interface."""
         return self._uart.any() > 0
@@ -31,6 +44,26 @@ class UART:
     def is_sending(self) -> bool:
         """Check if the UART interface is currently sending data."""
         return self._uart.txdone()
+
+    @property
+    def rx_pin(self) -> int:
+        """Get the RX pin number."""
+        return self._rx_pin
+
+    @property
+    def timeout(self) -> int:
+        """Get the timeout value in milliseconds."""
+        return self._timeout
+
+    @timeout.setter
+    def timeout(self, value: int) -> None:
+        """Set the timeout value in milliseconds."""
+        self._timeout = value
+
+    @property
+    def tx_pin(self) -> int:
+        """Get the TX pin number."""
+        return self._tx_pin
 
     def clear(self) -> None:
         """Clear the serial buffer"""

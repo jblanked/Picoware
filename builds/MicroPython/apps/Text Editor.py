@@ -12,7 +12,13 @@ def __start_text_editor(view_manager) -> None:
 
     if _textbox is None:
         draw = view_manager.get_draw()
-        _textbox = TextBox(draw, 0, draw.size.y)
+        _textbox = TextBox(
+            draw,
+            0,
+            draw.size.y,
+            view_manager.foreground_color,
+            view_manager.background_color,
+        )
 
         storage = view_manager.get_storage()
         if _filename:

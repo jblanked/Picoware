@@ -3,8 +3,8 @@ class UART:
 
     def __init__(
         self,
-        tx_pin: int = 0,
-        rx_pin: int = 1,
+        tx_pin: int = 4,
+        rx_pin: int = 5,
         baud_rate: int = 115200,
         timeout: int = 2000,
     ) -> None:
@@ -12,7 +12,7 @@ class UART:
         from machine import UART as MachineUART
         from machine import Pin
 
-        self._uart = MachineUART(0, baudrate=baud_rate, tx=Pin(tx_pin), rx=Pin(rx_pin))
+        self._uart = MachineUART(1, baudrate=baud_rate, tx=Pin(tx_pin), rx=Pin(rx_pin))
         self._uart.init()
         self._timeout = timeout  # milliseconds
 

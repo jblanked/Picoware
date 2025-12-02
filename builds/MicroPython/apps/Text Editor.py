@@ -12,7 +12,13 @@ def __start_text_editor(view_manager) -> None:
 
     if _textbox is None:
         draw = view_manager.get_draw()
-        _textbox = TextBox(draw, 0, draw.size.y)
+        _textbox = TextBox(
+            draw,
+            0,
+            draw.size.y,
+            view_manager.foreground_color,
+            view_manager.background_color,
+        )
 
         storage = view_manager.get_storage()
         if _filename:
@@ -23,119 +29,86 @@ def __start_text_editor(view_manager) -> None:
 
 def __process_text_input(button: int, shift: bool) -> None:
     """Process text input and update the textbox"""
-    from picoware.system.buttons import (
-        BUTTON_CENTER,
-        BUTTON_SPACE,
-        BUTTON_A,
-        BUTTON_B,
-        BUTTON_C,
-        BUTTON_D,
-        BUTTON_E,
-        BUTTON_F,
-        BUTTON_G,
-        BUTTON_H,
-        BUTTON_I,
-        BUTTON_J,
-        BUTTON_K,
-        BUTTON_L,
-        BUTTON_M,
-        BUTTON_N,
-        BUTTON_O,
-        BUTTON_P,
-        BUTTON_Q,
-        BUTTON_R,
-        BUTTON_S,
-        BUTTON_T,
-        BUTTON_U,
-        BUTTON_V,
-        BUTTON_W,
-        BUTTON_X,
-        BUTTON_Y,
-        BUTTON_Z,
-        BUTTON_0,
-        BUTTON_1,
-        BUTTON_2,
-        BUTTON_3,
-        BUTTON_4,
-        BUTTON_5,
-        BUTTON_6,
-        BUTTON_7,
-        BUTTON_8,
-        BUTTON_9,
-        BUTTON_BACKSPACE,
-        BUTTON_PERIOD,
-        BUTTON_COMMA,
-        BUTTON_SEMICOLON,
-        BUTTON_MINUS,
-        BUTTON_EQUAL,
-        BUTTON_LEFT_BRACKET,
-        BUTTON_RIGHT_BRACKET,
-        BUTTON_SLASH,
-        BUTTON_BACKSLASH,
-        BUTTON_UNDERSCORE,
-        BUTTON_COLON,
-        BUTTON_SINGLE_QUOTE,
-        BUTTON_DOUBLE_QUOTE,
-    )
+    from picoware.system import buttons
 
     global _textbox
 
     button_pressed = False
 
     character_map = {
-        BUTTON_A: "a",
-        BUTTON_B: "b",
-        BUTTON_C: "c",
-        BUTTON_D: "d",
-        BUTTON_E: "e",
-        BUTTON_F: "f",
-        BUTTON_G: "g",
-        BUTTON_H: "h",
-        BUTTON_I: "i",
-        BUTTON_J: "j",
-        BUTTON_K: "k",
-        BUTTON_L: "l",
-        BUTTON_M: "m",
-        BUTTON_N: "n",
-        BUTTON_O: "o",
-        BUTTON_P: "p",
-        BUTTON_Q: "q",
-        BUTTON_R: "r",
-        BUTTON_S: "s",
-        BUTTON_T: "t",
-        BUTTON_U: "u",
-        BUTTON_V: "v",
-        BUTTON_W: "w",
-        BUTTON_X: "x",
-        BUTTON_Y: "y",
-        BUTTON_Z: "z",
+        buttons.BUTTON_A: "a",
+        buttons.BUTTON_B: "b",
+        buttons.BUTTON_C: "c",
+        buttons.BUTTON_D: "d",
+        buttons.BUTTON_E: "e",
+        buttons.BUTTON_F: "f",
+        buttons.BUTTON_G: "g",
+        buttons.BUTTON_H: "h",
+        buttons.BUTTON_I: "i",
+        buttons.BUTTON_J: "j",
+        buttons.BUTTON_K: "k",
+        buttons.BUTTON_L: "l",
+        buttons.BUTTON_M: "m",
+        buttons.BUTTON_N: "n",
+        buttons.BUTTON_O: "o",
+        buttons.BUTTON_P: "p",
+        buttons.BUTTON_Q: "q",
+        buttons.BUTTON_R: "r",
+        buttons.BUTTON_S: "s",
+        buttons.BUTTON_T: "t",
+        buttons.BUTTON_U: "u",
+        buttons.BUTTON_V: "v",
+        buttons.BUTTON_W: "w",
+        buttons.BUTTON_X: "x",
+        buttons.BUTTON_Y: "y",
+        buttons.BUTTON_Z: "z",
         #
-        BUTTON_0: "0",
-        BUTTON_1: "1",
-        BUTTON_2: "2",
-        BUTTON_3: "3",
-        BUTTON_4: "4",
-        BUTTON_5: "5",
-        BUTTON_6: "6",
-        BUTTON_7: "7",
-        BUTTON_8: "8",
-        BUTTON_9: "9",
+        buttons.BUTTON_0: "0",
+        buttons.BUTTON_1: "1",
+        buttons.BUTTON_2: "2",
+        buttons.BUTTON_3: "3",
+        buttons.BUTTON_4: "4",
+        buttons.BUTTON_5: "5",
+        buttons.BUTTON_6: "6",
+        buttons.BUTTON_7: "7",
+        buttons.BUTTON_8: "8",
+        buttons.BUTTON_9: "9",
         #
-        BUTTON_CENTER: "\n",
-        BUTTON_SPACE: " ",
-        BUTTON_PERIOD: ".",
-        BUTTON_COMMA: ",",
-        BUTTON_SEMICOLON: ";",
-        BUTTON_MINUS: "-",
-        BUTTON_EQUAL: "=",
-        BUTTON_LEFT_BRACKET: "[",
-        BUTTON_RIGHT_BRACKET: "]",
-        BUTTON_SLASH: "/",
-        BUTTON_BACKSLASH: "\\",
-        BUTTON_UNDERSCORE: "_",
-        BUTTON_COLON: ":",
-        BUTTON_SINGLE_QUOTE: "'",
-        BUTTON_DOUBLE_QUOTE: '"',
+        buttons.BUTTON_CENTER: "\n",
+        buttons.BUTTON_SPACE: " ",
+        buttons.BUTTON_PERIOD: ".",
+        buttons.BUTTON_QUESTION: "?",
+        buttons.BUTTON_COMMA: ",",
+        buttons.BUTTON_SEMICOLON: ";",
+        buttons.BUTTON_MINUS: "-",
+        buttons.BUTTON_EQUAL: "=",
+        buttons.BUTTON_LEFT_BRACKET: "[",
+        buttons.BUTTON_LEFT_BRACE: "{",
+        buttons.BUTTON_RIGHT_BRACKET: "]",
+        buttons.BUTTON_RIGHT_BRACE: "}",
+        buttons.BUTTON_SLASH: "/",
+        buttons.BUTTON_BACKSLASH: "\\",
+        buttons.BUTTON_UNDERSCORE: "_",
+        buttons.BUTTON_COLON: ":",
+        buttons.BUTTON_SINGLE_QUOTE: "'",
+        buttons.BUTTON_DOUBLE_QUOTE: '"',
+        buttons.BUTTON_PLUS: "+",
+        #
+        buttons.BUTTON_EXCLAMATION: "!",
+        buttons.BUTTON_AT: "@",
+        buttons.BUTTON_HASH: "#",
+        buttons.BUTTON_DOLLAR: "$",
+        buttons.BUTTON_PERCENT: "%",
+        buttons.BUTTON_CARET: "^",
+        buttons.BUTTON_AMPERSAND: "&",
+        buttons.BUTTON_ASTERISK: "*",
+        buttons.BUTTON_LEFT_PARENTHESIS: "(",
+        buttons.BUTTON_RIGHT_PARENTHESIS: ")",
+        buttons.BUTTON_LESS_THAN: "<",
+        buttons.BUTTON_GREATER_THAN: ">",
+        buttons.BUTTON_BACK_TICK: "`",
+        buttons.BUTTON_TILDE: "~",
+        buttons.BUTTON_PIPE: "|",
     }
 
     if button in character_map:
@@ -144,7 +117,7 @@ def __process_text_input(button: int, shift: bool) -> None:
             char_to_add = char_to_add.upper()
         _textbox.current_text += char_to_add
         button_pressed = True
-    elif button == BUTTON_BACKSPACE:
+    elif button == buttons.BUTTON_BACKSPACE:
         _textbox.current_text = _textbox.current_text[:-1]
         button_pressed = True
 
@@ -154,19 +127,10 @@ def __process_text_input(button: int, shift: bool) -> None:
 
 def start(view_manager) -> bool:
     """Start the app"""
-    from picoware.system.vector import Vector
-    from time import sleep
-
-    draw = view_manager.get_draw()
-    draw.text(
-        Vector(10, 10), "Enter filename to edit:", view_manager.get_foreground_color()
-    )
-    draw.swap()
-    sleep(2)
     kb = view_manager.get_keyboard()
+    kb.title = "Enter filename to edit:"
     kb.set_response("")
     kb.run(force=True)
-
     return True
 
 

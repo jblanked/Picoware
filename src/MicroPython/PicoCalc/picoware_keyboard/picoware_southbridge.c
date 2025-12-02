@@ -48,6 +48,23 @@ STATIC mp_obj_t picoware_southbridge_read_battery(void)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(picoware_southbridge_read_battery_obj, picoware_southbridge_read_battery);
 
+STATIC mp_obj_t picoware_southbridge_get_battery_percentage(void)
+{
+    int raw_level = sb_read_battery();
+    int battery_level = raw_level & 0x7F; // Mask out the charging bit
+    // bool charging = (raw_level & 0x80) != 0; // Check if charging
+    return MP_OBJ_NEW_SMALL_INT(battery_level);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(picoware_southbridge_get_battery_percentage_obj, picoware_southbridge_get_battery_percentage);
+
+STATIC mp_obj_t picoware_southbridge_is_battery_charging(void)
+{
+    int raw_level = sb_read_battery();
+    bool charging = (raw_level & 0x80) != 0; // Check if charging
+    return mp_obj_new_bool(charging);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(picoware_southbridge_is_battery_charging_obj, picoware_southbridge_is_battery_charging);
+
 // read_lcd_backlight() - Read LCD backlight brightness
 STATIC mp_obj_t picoware_southbridge_read_lcd_backlight(void)
 {
@@ -112,6 +129,8 @@ STATIC const mp_rom_map_elem_t picoware_southbridge_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_read_keyboard), MP_ROM_PTR(&picoware_southbridge_read_keyboard_obj)},
     {MP_ROM_QSTR(MP_QSTR_read_keyboard_state), MP_ROM_PTR(&picoware_southbridge_read_keyboard_state_obj)},
     {MP_ROM_QSTR(MP_QSTR_read_battery), MP_ROM_PTR(&picoware_southbridge_read_battery_obj)},
+    {MP_ROM_QSTR(MP_QSTR_get_battery_percentage), MP_ROM_PTR(&picoware_southbridge_get_battery_percentage_obj)},
+    {MP_ROM_QSTR(MP_QSTR_is_battery_charging), MP_ROM_PTR(&picoware_southbridge_is_battery_charging_obj)},
     {MP_ROM_QSTR(MP_QSTR_read_lcd_backlight), MP_ROM_PTR(&picoware_southbridge_read_lcd_backlight_obj)},
     {MP_ROM_QSTR(MP_QSTR_write_lcd_backlight), MP_ROM_PTR(&picoware_southbridge_write_lcd_backlight_obj)},
     {MP_ROM_QSTR(MP_QSTR_read_keyboard_backlight), MP_ROM_PTR(&picoware_southbridge_read_keyboard_backlight_obj)},

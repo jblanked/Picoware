@@ -85,9 +85,9 @@ class Input:
 
             return get_percentage()
 
-        from picoware_southbridge import read_battery
+        from picoware_southbridge import get_battery_percentage
 
-        return read_battery()
+        return get_battery_percentage()
 
     @property
     def button(self) -> int:
@@ -210,6 +210,7 @@ class Input:
             93: buttons.BUTTON_RIGHT_BRACKET,
             94: buttons.BUTTON_CARET,  # ^
             95: buttons.BUTTON_UNDERSCORE,  # _
+            96: buttons.BUTTON_BACK_TICK,  # `
             # alphabet keys (lowercase)
             97: buttons.BUTTON_A,
             98: buttons.BUTTON_B,
@@ -238,7 +239,9 @@ class Input:
             121: buttons.BUTTON_Y,
             122: buttons.BUTTON_Z,
             123: buttons.BUTTON_LEFT_BRACE,  # {
+            124: buttons.BUTTON_PIPE,  # |
             125: buttons.BUTTON_RIGHT_BRACE,  # }
+            126: buttons.BUTTON_TILDE,  # ~
         }
 
         if 65 <= key <= 90:

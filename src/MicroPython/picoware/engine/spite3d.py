@@ -101,7 +101,16 @@ class Sprite3D:
         self.scale_factor = 1.0
         self.type = SPRITE_CUSTOM
         self.active = False
-        self.color = 0x000000  # Default black
+        self.color = 0x0000  # Default black
+
+    def __del__(self):
+        for tri in self.triangles:
+            del tri
+        self.triangles = None
+        del self.pos
+        self.pos = None
+        self.color = None
+        self.active = False
 
     @property
     def position(self) -> Vector:

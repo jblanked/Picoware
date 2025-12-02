@@ -8,9 +8,7 @@ try:
 except ImportError:
     import io as uio
 from micropython import const
-import time
 import uos
-from picoware.system.vector import Vector
 
 sc_char_width = const(53)
 sc_char_height = const(40)
@@ -31,18 +29,14 @@ def ensure_nested_dir(path):
 
 class vt(uio.IOBase):
 
-    def __init__(
-        self, view_manager, screencaptureKey=None, captureFolder="/sd/picoware/"
-    ):  # ctrl+U for screen capture
+    def __init__(self, view_manager):  # ctrl+U for screen capture
         self.view_manager = view_manager
         self.draw = view_manager.get_draw()
         self.input_manager = view_manager.get_input_manager()
         self.storage = view_manager.get_storage()
 
-        self.captureFolder = captureFolder
         self.keyboardInput = bytearray(30)
         self.outputBuffer = deque((), 30)
-        self.screencaptureKey = screencaptureKey
 
         # Virtual terminal state
         self.cursor_x = 0
@@ -73,36 +67,10 @@ class vt(uio.IOBase):
         self.scroll_bottom = self.screen_height - 1
         self.input_enabled = False  # Start with input disabled
 
-    def screencapture(self):
-        if self.storage:
-            try:
-                # Create timestamp-based filename
-                timestamp = (
-                    time.ticks_ms()
-                    if hasattr(time, "ticks_ms")
-                    else int(time.time() * 1000)
-                )
-                filename = "{}screen_{}.bmp".format(self.captureFolder, timestamp)
-                # This is a placeholder - i dont think I'll implement this...
-                print(f"Screenshot saved to: {filename}")
-                return True
-            except (OSError, MemoryError) as e:
-                print(f"Screenshot failed: {e}")
-                return False
-        return False
-
     def dryBuffer(self):
         self.outputBuffer = deque((), 30)
         # Enable input when buffer is dried (editor is starting)
         self.input_enabled = True
-
-    def stopRefresh(self):
-        # Not needed for Picoware's display system
-        pass
-
-    def recoverRefresh(self):
-        # Not needed for Picoware's display system
-        pass
 
     def _scroll_up(self):
         """Scroll terminal content up by one line"""
@@ -259,11 +227,10 @@ class vt(uio.IOBase):
 
         # Only render if changes were made and rendering is enabled and not in batch mode
         if self._needs_render and self._render_enabled and not self._batch_mode:
-            current_time = (
-                time.ticks_ms()
-                if hasattr(time, "ticks_ms")
-                else int(time.time() * 1000)
-            )
+            from utime import ticks_ms
+
+            current_time = int(ticks_ms())
+
             if current_time - self._last_render_time >= self._render_throttle_ms:
                 self._render_terminal()
                 self._needs_render = False
@@ -273,14 +240,17 @@ class vt(uio.IOBase):
 
     def _render_terminal(self):
         """Render the terminal buffer to the display"""
+        from picoware.system.vector import Vector
+
         self.draw.clear(color=self.draw.background)
 
         # Render text lines
+        pos_vector = Vector(0, 0)
         for y in range(self.screen_height):
             line = "".join(self.terminal_buffer[y]).rstrip()
             if line:
-                pos = Vector(0, y * self.char_height)
-                self.draw.text(pos, line, self.draw.foreground)
+                pos_vector.y = y * self.char_height
+                self.draw.text(pos_vector, line, self.draw.foreground)
 
         # Draw cursor (simple block cursor) if visible
         if self.cursor_visible:
@@ -300,24 +270,20 @@ class vt(uio.IOBase):
 
     def end_batch(self):
         """End batch mode and render if needed"""
+        from utime import ticks_ms
+
         self._batch_mode = False
         if self._needs_render and self._render_enabled:
             self._render_terminal()
             self._needs_render = False
-            self._last_render_time = (
-                time.ticks_ms()
-                if hasattr(time, "ticks_ms")
-                else int(time.time() * 1000)
-            )
+            self._last_render_time = int(ticks_ms())
 
     def update(self):
         """Update method to be called periodically to handle pending renders"""
         if self._needs_render and self._render_enabled:
-            current_time = (
-                time.ticks_ms()
-                if hasattr(time, "ticks_ms")
-                else int(time.time() * 1000)
-            )
+            from utime import ticks_ms
+
+            current_time = int(ticks_ms())
             if current_time - self._last_render_time >= self._render_throttle_ms:
                 self._render_terminal()
                 self._needs_render = False
@@ -333,104 +299,67 @@ class vt(uio.IOBase):
         """Convert Picoware button codes to terminal escape sequences"""
         from picoware.system import buttons
 
-        # Handle special BUTTON_BACK case - map to ESC for pye quit
-        if key == buttons.BUTTON_BACK:
-            return b"\x1b"  # ESC - will trigger KEY_QUIT in pye
-
-        # Map Picoware buttons to terminal sequences
-        if key == buttons.BUTTON_UP:
-            return b"\x1b[A"
-        elif key == buttons.BUTTON_DOWN:
-            return b"\x1b[B"
-        elif key == buttons.BUTTON_RIGHT:
-            return b"\x1b[C"
-        elif key == buttons.BUTTON_LEFT:
-            return b"\x1b[D"
-        elif key == buttons.BUTTON_HOME:
-            return b"\x1b[H"
-        elif key == buttons.BUTTON_ENTER:
-            return b"\r"
-        elif key == buttons.BUTTON_CENTER:  # Map CENTER to Enter as well
-            return b"\r"
-        elif key == buttons.BUTTON_BACKSPACE:  # Use BACKSPACE for backspace in pye
-            return b"\x7f"
-        elif key == buttons.BUTTON_DELETE:  # Use DELETE for forward delete
-            return b"\x1b[3~"
-        elif key == buttons.BUTTON_TAB:
-            return b"\t"
-        elif key == buttons.BUTTON_ESCAPE:
-            return b"\x1b"
         # Handle regular character keys
-        elif key >= buttons.BUTTON_A and key <= buttons.BUTTON_Z:
+        if buttons.BUTTON_A <= key <= buttons.BUTTON_Z:
             char_code = ord("a") + (key - buttons.BUTTON_A)
             if self.input_manager.was_capitalized:
                 char_code = ord("A") + (key - buttons.BUTTON_A)
             return bytes([char_code])
-        elif key >= buttons.BUTTON_0 and key <= buttons.BUTTON_9:
+
+        # Handle number keys
+        if buttons.BUTTON_0 <= key <= buttons.BUTTON_9:
             char_code = ord("0") + (key - buttons.BUTTON_0)
             return bytes([char_code])
-        elif key == buttons.BUTTON_SPACE:
-            return b" "
-        elif key == buttons.BUTTON_PERIOD:
-            return b"."
-        elif key == buttons.BUTTON_COMMA:
-            return b","
-        elif key == buttons.BUTTON_MINUS:
-            return b"-"
-        elif key == buttons.BUTTON_UNDERSCORE:
-            return b"_"
-        elif key == buttons.BUTTON_PLUS:
-            return b"+"
-        elif key == buttons.BUTTON_EQUAL:
-            return b"="
-        elif key == buttons.BUTTON_SEMICOLON:
-            return b";"
-        elif key == buttons.BUTTON_COLON:
-            return b":"
-        elif key == buttons.BUTTON_SINGLE_QUOTE:
-            return b"'"
-        elif key == buttons.BUTTON_DOUBLE_QUOTE:
-            return b'"'
-        elif key == buttons.BUTTON_SLASH:
-            return b"/"
-        elif key == buttons.BUTTON_BACKSLASH:
-            return b"\\"
-        elif key == buttons.BUTTON_LEFT_BRACKET:
-            return b"["
-        elif key == buttons.BUTTON_RIGHT_BRACKET:
-            return b"]"
-        elif key == buttons.BUTTON_LEFT_PARENTHESIS:
-            return b"("
-        elif key == buttons.BUTTON_RIGHT_PARENTHESIS:
-            return b")"
-        elif key == buttons.BUTTON_LEFT_BRACE:
-            return b"{"
-        elif key == buttons.BUTTON_RIGHT_BRACE:
-            return b"}"
-        elif key == buttons.BUTTON_LESS_THAN:
-            return b"<"
-        elif key == buttons.BUTTON_GREATER_THAN:
-            return b">"
-        elif key == buttons.BUTTON_QUESTION:
-            return b"?"
-        elif key == buttons.BUTTON_EXCLAMATION:
-            return b"!"
-        elif key == buttons.BUTTON_AT:
-            return b"@"
-        elif key == buttons.BUTTON_HASH:
-            return b"#"
-        elif key == buttons.BUTTON_DOLLAR:
-            return b"$"
-        elif key == buttons.BUTTON_PERCENT:
-            return b"%"
-        elif key == buttons.BUTTON_CARET:
-            return b"^"
-        elif key == buttons.BUTTON_AMPERSAND:
-            return b"&"
-        elif key == buttons.BUTTON_ASTERISK:
-            return b"*"
-        else:
-            return None
+
+        button_map = {
+            buttons.BUTTON_BACK: b"\x1b",  # ESC - will trigger KEY_QUIT in pye
+            buttons.BUTTON_UP: b"\x1b[A",
+            buttons.BUTTON_DOWN: b"\x1b[B",
+            buttons.BUTTON_RIGHT: b"\x1b[C",
+            buttons.BUTTON_LEFT: b"\x1b[D",
+            buttons.BUTTON_HOME: b"\x1b[H",
+            buttons.BUTTON_ENTER: b"\r",
+            buttons.BUTTON_CENTER: b"\r",  # Map CENTER to Enter as well
+            buttons.BUTTON_BACKSPACE: b"\x7f",  # Use BACKSPACE for backspace in pye
+            buttons.BUTTON_DELETE: b"\x1b[3~",
+            buttons.BUTTON_TAB: b"\t",
+            buttons.BUTTON_ESCAPE: b"\x1b",
+            buttons.BUTTON_SPACE: b" ",
+            buttons.BUTTON_PERIOD: b".",
+            buttons.BUTTON_COMMA: b",",
+            buttons.BUTTON_MINUS: b"-",
+            buttons.BUTTON_UNDERSCORE: b"_",
+            buttons.BUTTON_PLUS: b"+",
+            buttons.BUTTON_EQUAL: b"=",
+            buttons.BUTTON_SEMICOLON: b";",
+            buttons.BUTTON_COLON: b":",
+            buttons.BUTTON_SINGLE_QUOTE: b"'",
+            buttons.BUTTON_DOUBLE_QUOTE: b'"',
+            buttons.BUTTON_SLASH: b"/",
+            buttons.BUTTON_BACKSLASH: b"\\",
+            buttons.BUTTON_LEFT_BRACKET: b"[",
+            buttons.BUTTON_RIGHT_BRACKET: b"]",
+            buttons.BUTTON_LEFT_PARENTHESIS: b"(",
+            buttons.BUTTON_RIGHT_PARENTHESIS: b")",
+            buttons.BUTTON_LEFT_BRACE: b"{",
+            buttons.BUTTON_RIGHT_BRACE: b"}",
+            buttons.BUTTON_LESS_THAN: b"<",
+            buttons.BUTTON_GREATER_THAN: b">",
+            buttons.BUTTON_QUESTION: b"?",
+            buttons.BUTTON_EXCLAMATION: b"!",
+            buttons.BUTTON_AT: b"@",
+            buttons.BUTTON_HASH: b"#",
+            buttons.BUTTON_DOLLAR: b"$",
+            buttons.BUTTON_PERCENT: b"%",
+            buttons.BUTTON_CARET: b"^",
+            buttons.BUTTON_AMPERSAND: b"&",
+            buttons.BUTTON_ASTERISK: b"*",
+            buttons.BUTTON_BACK_TICK: b"`",
+            buttons.BUTTON_TILDE: b"~",
+            buttons.BUTTON_PIPE: b"|",
+        }
+
+        return button_map.get(key, None)
 
     def _updateInternalBuffer(self):
         # Only process input if enabled
@@ -438,16 +367,9 @@ class vt(uio.IOBase):
             return
 
         # Get input from the view_manager's input system
-        button = self.input_manager.get_last_button()
+        button = self.input_manager.button
 
         if button != -1:
-
-            # Check for screen capture
-            # from picoware.system.buttons import BUTTON_BACK
-
-            # if button == self.screencaptureKey and button != BUTTON_BACK:
-            #     self.screencapture()
-            #     return
 
             # Convert button to terminal sequence
             terminal_seq = self._convert_key_to_terminal(button)

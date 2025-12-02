@@ -43,7 +43,7 @@ class UART:
     @property
     def is_sending(self) -> bool:
         """Check if the UART interface is currently sending data."""
-        return self._uart.txdone()
+        return not self._uart.txdone()
 
     @property
     def rx_pin(self) -> int:

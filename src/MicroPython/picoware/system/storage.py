@@ -18,6 +18,8 @@ class Storage:
         from picoware_boards import get_current_id
 
         self._current_board_id = get_current_id()
+        self.sd = None
+
         if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
             from waveshare_sd import init
 
@@ -27,19 +29,15 @@ class Storage:
         else:
             from picoware.system.drivers.EasySD import EasySD
 
-            self._mounted = False
             self.sd = EasySD(auto_mount=auto_mount)
 
     def __del__(self):
         """Destructor to ensure SD card is unmounted."""
-        if self._mounted:
-            self.unmount()
+        self.unmount()
 
         if self.sd:
             del self.sd
             self.sd = None
-
-        self._mounted = False
 
     @property
     def active(self) -> bool:
@@ -76,6 +74,9 @@ class Storage:
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             return
 
+        if self.sd is None:
+            raise RuntimeError("SD card not initialized")
+
         # Handle mounting if needed
         if not self.sd.is_mounted and not self.sd.auto_mount:
             if not self.mount():
@@ -89,7 +90,7 @@ class Storage:
             with file_handle as f:
                 dump(json_dict, f)
         finally:
-            if not self.sd.auto_mount and self._mounted:
+            if not self.sd.auto_mount and self.sd.is_mounted:
                 self.unmount()
 
     def execute_script(self, file_path: str = "/") -> None:
@@ -103,6 +104,9 @@ class Storage:
             return
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             return
+
+        if self.sd is None:
+            raise RuntimeError("SD card not initialized")
 
         # Handle mounting if needed
         if not self.sd.is_mounted and not self.sd.auto_mount:
@@ -118,7 +122,7 @@ class Storage:
                 code = compile(f.read(), file_path, "exec")
                 exec(code, globals())
         finally:
-            if not self.sd.auto_mount and self._mounted:
+            if not self.sd.auto_mount and self.sd.is_mounted:
                 self.unmount()
 
     def exists(self, path: str) -> bool:
@@ -130,6 +134,9 @@ class Storage:
 
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             return False  # No SD storage on this board
+
+        if self.sd is None:
+            return False
 
         # try to open the file/directory
         file_handle = self.sd.open(path, "r")
@@ -195,6 +202,9 @@ class Storage:
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             return False  # No SD storage on this board
 
+        if self.sd is None:
+            return False
+
         return self.sd.is_directory(path)
 
     def listdir(self, path: str = "/sd") -> list[str]:
@@ -214,6 +224,9 @@ class Storage:
 
             return [item["filename"] for item in read_directory(path)]
 
+        if self.sd is None:
+            return []
+
         return self.sd.listdir(path)
 
     def mkdir(self, path: str = "/sd") -> bool:
@@ -224,6 +237,9 @@ class Storage:
             return create_directory(path)
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             return False  # No SD storage on this board
+
+        if self.sd is None:
+            return False
 
         return self.sd.mkdir(path)
 
@@ -239,10 +255,11 @@ class Storage:
                 return False
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             return False  # No SD storage on this board
-        result = self.sd.mount(mount_point)
-        if result:
-            self._mounted = True
-        return result
+        if self.sd is None:
+            return False
+        if self.sd.is_mounted:
+            return True
+        return self.sd.mount(mount_point)
 
     def open(self, file_path: str, mode: str = "r"):
         """Open a file and return the file handle."""
@@ -253,6 +270,9 @@ class Storage:
 
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             return None  # No SD storage on this board
+
+        if self.sd is None:
+            return None
 
         # Handle mounting if needed
         if not self.sd.is_mounted and not self.sd.auto_mount:
@@ -275,6 +295,9 @@ class Storage:
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             return ""  # No SD storage on this board
 
+        if self.sd is None:
+            return ""
+
         # Handle mounting if needed
         if not self.sd.is_mounted and not self.sd.auto_mount:
             if not self.mount():
@@ -291,7 +314,7 @@ class Storage:
             print(f"Error reading file {file_path}: {e}")
             return ""
         finally:
-            if not self.sd.auto_mount and self._mounted:
+            if not self.sd.auto_mount and self.sd.is_mounted:
                 self.unmount()
 
     def read_chunked(
@@ -317,6 +340,9 @@ class Storage:
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             return b""  # No SD storage on this board
 
+        if self.sd is None:
+            return b""
+
         # Handle mounting if needed
         if not self.sd.is_mounted and not self.sd.auto_mount:
             if not self.mount():
@@ -336,7 +362,7 @@ class Storage:
             print(f"Error reading chunk from file {file_path}: {e}")
             return b""
         finally:
-            if not self.sd.auto_mount and self._mounted:
+            if not self.sd.auto_mount and self.sd.is_mounted:
                 self.unmount()
 
     def remove(self, file_path: str) -> bool:
@@ -347,6 +373,9 @@ class Storage:
             return remove(file_path)
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             return False  # No SD storage on this board
+
+        if self.sd is None:
+            return False
 
         return self.sd.remove(file_path)
 
@@ -362,6 +391,8 @@ class Storage:
                 return False
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             return False  # No SD storage on this board
+        if self.sd is None:
+            return False
         return self.sd.rename(old_path, new_path)
 
     def rmdir(self, path: str) -> bool:
@@ -372,6 +403,8 @@ class Storage:
             return remove(path)
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             return False  # No SD storage on this board
+        if self.sd is None:
+            return False
         return self.sd.rmdir(path)
 
     def serialize(self, file_path: str) -> dict:
@@ -391,6 +424,9 @@ class Storage:
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             return {}  # No SD storage on this board
 
+        if self.sd is None:
+            return {}
+
         # Handle mounting if needed
         if not self.sd.is_mounted and not self.sd.auto_mount:
             if not self.mount():
@@ -407,7 +443,7 @@ class Storage:
             print(f"Error deserializing file {file_path}: {e}")
             return {}
         finally:
-            if not self.sd.auto_mount and self._mounted:
+            if not self.sd.auto_mount and self.sd.is_mounted:
                 self.unmount()
 
     def size(self, file_path: str) -> int:
@@ -418,6 +454,9 @@ class Storage:
             return get_file_size(file_path)
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             return 0  # No SD storage on this board
+
+        if self.sd is None:
+            return 0
 
         file_handle = self.sd.open(file_path, "r")
         if file_handle is None:
@@ -449,6 +488,9 @@ class Storage:
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             return False  # No SD storage on this board
 
+        if self.sd is None:
+            return False
+
         # Handle mounting if needed
         if not self.sd.is_mounted and not self.sd.auto_mount:
             if not self.mount():
@@ -469,7 +511,7 @@ class Storage:
             print(f"Error writing to file {file_path}: {e}")
             return False
         finally:
-            if not self.sd.auto_mount and self._mounted:
+            if not self.sd.auto_mount and self.sd.is_mounted:
                 self.unmount()
 
     def unmount(self, mount_point: str = "/sd") -> bool:
@@ -481,7 +523,6 @@ class Storage:
             return True
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             return False  # No SD storage on this board
-        result = self.sd.unmount(mount_point)
-        if result:
-            self._mounted = False
-        return result
+        if self.sd is None:
+            return False
+        return self.sd.unmount(mount_point)

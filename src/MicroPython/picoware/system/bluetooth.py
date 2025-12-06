@@ -10,9 +10,10 @@ class Bluetooth:
 
     def __del__(self):
         """Clean up Bluetooth resources."""
-        self._ble.active(False)
-        del self._ble
-        self._ble = None
+        if self._ble:
+            self._ble.active(False)
+            del self._ble
+            self._ble = None
 
     def __irq(self, event, data):
         """Handle Bluetooth IRQ events."""

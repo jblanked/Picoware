@@ -1,10 +1,8 @@
 # Description: A simple library to make working with SD cards easier on the Raspberry Pi Pico W with MicroPython.
 # from https://github.com/jblanked/RaspberryPi/tree/main/Pico%20W/Libraries/MicroPython
-import uos
-import errno
-
-
 class EasySD:
+    """Class to handle SD card operations using SPI interface on the Raspberry Pi Pico."""
+
     def __init__(
         self,
         miso_gpio: int = 16,  # GPIO 12
@@ -46,21 +44,25 @@ class EasySD:
 
     def os_error(self, err: OSError) -> str:
         """Return a human-readable error message based on the OSError code."""
+        from errno import ENOENT, EACCES, ECONNREFUSED, EPERM, EIO, ENODEV, EEXIST
+
         error_messages = {
-            errno.ENOENT: "File or directory not found.",
-            errno.EACCES: "Permission denied.",
-            errno.ECONNREFUSED: "Connection refused.",
-            errno.EPERM: "Operation not permitted.",
-            errno.EIO: "I/O Error: Possible SD card disconnection or corruption.",
-            errno.ENODEV: "No SD card detected.",
-            errno.EEXIST: "File or directory already exists.",
+            ENOENT: "File or directory not found.",
+            EACCES: "Permission denied.",
+            ECONNREFUSED: "Connection refused.",
+            EPERM: "Operation not permitted.",
+            EIO: "I/O Error: Possible SD card disconnection or corruption.",
+            ENODEV: "No SD card detected.",
+            EEXIST: "File or directory already exists.",
         }
         return error_messages.get(err.errno, str(err))
 
     def mount(self, mount_point: str = "/sd") -> bool:
         """Mount the SD card to the specified mount point. Default is /sd."""
         try:
-            uos.mount(self.sd, mount_point)
+            from uos import mount
+
+            mount(self.sd, mount_point)
             self.is_mounted = True
             return True
         except OSError as e:
@@ -73,7 +75,9 @@ class EasySD:
     def unmount(self, mount_point: str = "/sd") -> bool:
         """Unmount the SD card from the specified mount point. Default is /sd."""
         try:
-            uos.umount(mount_point)
+            from uos import umount
+
+            umount(mount_point)
             self.is_mounted = False
             return True
         except OSError as e:
@@ -126,7 +130,9 @@ class EasySD:
             if not self.mount():
                 return False
         try:
-            stats = uos.stat(f"/sd/{path}")
+            from uos import stat
+
+            stats = stat(f"/sd/{path}")
             # In MicroPython, stat returns a tuple where the first element (st_mode) contains file type info
             # Directory check: st_mode & 0o040000 (S_IFDIR)
             is_dir = (stats[0] & 0o170000) == 0o040000
@@ -149,7 +155,9 @@ class EasySD:
             if not self.mount():
                 return files
         try:
-            files = uos.listdir(directory)
+            from uos import listdir
+
+            files = listdir(directory)
             if self.auto_mount:
                 self.unmount()
         except OSError as e:
@@ -164,12 +172,16 @@ class EasySD:
             if not self.mount():
                 return False
         try:
-            uos.mkdir(f"/sd/{directory}")
+            from uos import mkdir
+
+            mkdir(f"/sd/{directory}")
             if self.auto_mount:
                 self.unmount()
             return True
         except OSError as e:
-            if e.errno == errno.EEXIST:
+            from errno import EEXIST
+
+            if e.errno == EEXIST:
                 return True
             print(f"Error occurred while making directory: {self.os_error(e)}")
         except Exception as e:
@@ -184,12 +196,14 @@ class EasySD:
             if not self.mount():
                 return False
         try:
+            from uos import remove, stat
+
             # Check if it's a file or directory
-            stats = uos.stat(f"/sd/{file_path}")
+            stats = stat(f"/sd/{file_path}")
             if stats[0] & 0x4000:  # Directory flag in mode
                 print("Error: Path is a directory, use rmdir() instead.")
                 return False
-            uos.remove(f"/sd/{file_path}")
+            remove(f"/sd/{file_path}")
             if self.auto_mount:
                 self.unmount()
             return True
@@ -208,7 +222,9 @@ class EasySD:
             if not self.mount():
                 return is_removed
         try:
-            uos.rmdir(f"/sd/{directory}")
+            from uos import rmdir
+
+            rmdir(f"/sd/{directory}")
             is_removed = True
         except OSError as e:
             print(f"Error occurred while removing directory: {self.os_error(e)}")
@@ -226,7 +242,9 @@ class EasySD:
             if not self.mount():
                 return is_renamed
         try:
-            uos.rename(f"/sd/{old_file_path}", f"/sd/{new_file_path}")
+            from uos import rename
+
+            rename(f"/sd/{old_file_path}", f"/sd/{new_file_path}")
             is_renamed = True
         except OSError as e:
             print(f"Error occurred while renaming: {self.os_error(e)}")
@@ -244,7 +262,9 @@ class EasySD:
             if not self.mount():
                 return stats
         try:
-            stats = uos.stat(f"/sd/{file_path}")
+            from uos import stat
+
+            stats = stat(f"/sd/{file_path}")
         except OSError as e:
             print(f"Error occurred while getting file stats: {self.os_error(e)}")
         except Exception as e:
@@ -270,18 +290,11 @@ Line 172: time.sleep_ms(1) to time.sleep(0.0001)
 """
 
 from micropython import const
-import time
-
 
 _CMD_TIMEOUT = const(1000)
 
 _R1_IDLE_STATE = const(1 << 0)
-# R1_ERASE_RESET = const(1 << 1)
 _R1_ILLEGAL_COMMAND = const(1 << 2)
-# R1_COM_CRC_ERROR = const(1 << 3)
-# R1_ERASE_SEQUENCE_ERROR = const(1 << 4)
-# R1_ADDRESS_ERROR = const(1 << 5)
-# R1_PARAMETER_ERROR = const(1 << 6)
 _TOKEN_CMD25 = const(0xFC)
 _TOKEN_STOP_TRAN = const(0xFD)
 _TOKEN_DATA = const(0xFE)
@@ -291,6 +304,7 @@ class SDCard:
     def __init__(self, spi, cs, baudrate=25000000):
         self.spi = spi
         self.cs = cs
+        self.cdv = None
 
         self.cmdbuf = bytearray(6)
         self.dummybuf = bytearray(512)
@@ -321,7 +335,7 @@ class SDCard:
         self.init_spi(400000)
 
         # clock card at least 100 cycles with cs high
-        for i in range(16):
+        for _ in range(16):
             self.spi.write(b"\xff")
 
         # CMD0: init card; should return _R1_IDLE_STATE (allow 5 attempts)
@@ -364,7 +378,7 @@ class SDCard:
         self.init_spi(baudrate)
 
     def init_card_v1(self):
-        for i in range(_CMD_TIMEOUT):
+        for _ in range(_CMD_TIMEOUT):
             self.cmd(55, 0, 0)
             if self.cmd(41, 0, 0) == 0:
                 self.cdv = 512
@@ -373,8 +387,10 @@ class SDCard:
         raise OSError("timeout waiting for v1 card")
 
     def init_card_v2(self):
-        for i in range(_CMD_TIMEOUT):
-            time.sleep_ms(50)
+        from time import sleep_ms
+
+        for _ in range(_CMD_TIMEOUT):
+            sleep_ms(50)
             self.cmd(58, 0, 0, 4)
             self.cmd(55, 0, 0)
             if self.cmd(41, 0x40000000, 0) == 0:
@@ -401,7 +417,7 @@ class SDCard:
             self.spi.readinto(self.tokenbuf, 0xFF)
 
         # wait for the response (response[7] == 0)
-        for i in range(_CMD_TIMEOUT):
+        for _ in range(_CMD_TIMEOUT):
             self.spi.readinto(self.tokenbuf, 0xFF)
             response = self.tokenbuf[0]
             if not (response & 0x80):
@@ -419,14 +435,16 @@ class SDCard:
         return -1
 
     def readinto(self, buf):
+        from time import sleep
+
         self.cs(0)
 
         # read until start byte (0xff)
-        for i in range(_CMD_TIMEOUT):
+        for _ in range(_CMD_TIMEOUT):
             self.spi.readinto(self.tokenbuf, 0xFF)
             if self.tokenbuf[0] == _TOKEN_DATA:
                 break
-            time.sleep(0.0001)
+            sleep(0.0001)
         else:
             self.cs(1)
             raise OSError("timeout waiting for response")

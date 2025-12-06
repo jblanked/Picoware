@@ -24,7 +24,7 @@ class UART:
         self._uart.init()
         self._timeout = timeout  # milliseconds
 
-    def __del__(self):
+    def __del__(self) -> None:
         """Deinitialize the UART interface."""
         self._uart.deinit()
         del self._uart
@@ -70,11 +70,11 @@ class UART:
         while self._uart.any() > 0:
             self._uart.read()
 
-    def flush(self):
+    def flush(self) -> None:
         """Flush the UART interface."""
         self._uart.flush()
 
-    def println(self, message: str):
+    def println(self, message: str) -> None:
         """Write a message followed by a newline to the UART interface."""
         self._uart.write(message + "\n")
 
@@ -101,7 +101,7 @@ class UART:
                         if "\n" in message:
                             message = message.strip("\n")
                             return message
-                except Exception as e:
+                except Exception:
                     continue
 
         # Timeout reached with no newline received
@@ -114,14 +114,14 @@ class UART:
             raw_data = self._uart.read()
             if raw_data:  # Ensures raw_data isn't empty before decoding
                 data = raw_data.decode()
-        except Exception as e:
+        except Exception:
             pass  # raw_data is empty/None
         return data
 
-    def set_callback(self, callback):
+    def set_callback(self, callback) -> None:
         """Set an interrupt handler to be called when a UART event occurs."""
         self._uart.irq(handler=callback)
 
-    def write(self, message: bytes):
+    def write(self, message: bytes) -> None:
         """Write a message to the UART interface."""
         self._uart.write(message)

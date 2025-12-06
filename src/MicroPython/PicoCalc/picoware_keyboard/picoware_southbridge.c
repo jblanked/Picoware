@@ -52,7 +52,6 @@ STATIC mp_obj_t picoware_southbridge_get_battery_percentage(void)
 {
     int raw_level = sb_read_battery();
     int battery_level = raw_level & 0x7F; // Mask out the charging bit
-    // bool charging = (raw_level & 0x80) != 0; // Check if charging
     return MP_OBJ_NEW_SMALL_INT(battery_level);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(picoware_southbridge_get_battery_percentage_obj, picoware_southbridge_get_battery_percentage);

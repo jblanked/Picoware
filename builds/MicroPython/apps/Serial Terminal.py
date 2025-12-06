@@ -145,7 +145,7 @@ def run(view_manager) -> None:
             __loading_run(view_manager)
     elif state == STATE_VIEWING:
         if _uart.has_data:
-            _textbox.current_text += f"Friend: {_uart.read_line()}"
+            _textbox.current_text += f"Friend: {_uart.read_line()}\n"
             _textbox.refresh()
 
 

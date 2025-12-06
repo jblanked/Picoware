@@ -1,6 +1,11 @@
 # Combined Picoware Modules for MicroPython
 # This file includes both picoware_lcd and picoware_psram modules
 
+# Generate PIO header from .pio file for LCD
+pico_generate_pio_header(usermod
+    ${CMAKE_CURRENT_LIST_DIR}/picoware_lcd/st7789_lcd.pio
+)
+
 # Include picoware_lcd module
 add_library(usermod_picoware_lcd INTERFACE)
 
@@ -11,6 +16,7 @@ target_sources(usermod_picoware_lcd INTERFACE
 
 target_include_directories(usermod_picoware_lcd INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/picoware_lcd
+    ${CMAKE_BINARY_DIR}
 )
 
 target_compile_definitions(usermod_picoware_lcd INTERFACE
@@ -22,8 +28,9 @@ target_link_libraries(usermod INTERFACE usermod_picoware_lcd)
 # Link against the required Pico SDK libraries for LCD
 target_link_libraries(usermod_picoware_lcd INTERFACE
     pico_stdlib
-    hardware_spi
+    hardware_pio
     hardware_gpio
+    hardware_clocks
 )
 
 

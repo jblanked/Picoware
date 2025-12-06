@@ -19,6 +19,13 @@
 #include "hardware/spi.h"
 
 #include "lcd.h"
+#include "st7789_lcd.pio.h"
+
+// PIO configuration
+#define LCD_PIO pio1
+static uint lcd_pio_sm = 0;
+static uint lcd_pio_offset = 0;
+static bool lcd_pio_initialized = false;
 
 static bool lcd_initialised = false; // flag to indicate if the LCD is initialised
 
@@ -141,13 +148,20 @@ void lcd_release()
 // Low-level SPI functions
 //
 
+// Helper to set DC and CS pins together
+static inline void lcd_set_dc_cs(bool dc, bool cs)
+{
+    gpio_put_masked((1u << LCD_DCX) | (1u << LCD_CSX), !!dc << LCD_DCX | !!cs << LCD_CSX);
+}
+
 // Send a command
 void lcd_write_cmd(uint8_t cmd)
 {
-    gpio_put(LCD_DCX, 0); // Command
-    gpio_put(LCD_CSX, 0);
-    spi_write_blocking(LCD_SPI, &cmd, 1);
-    gpio_put(LCD_CSX, 1);
+    st7789_lcd_wait_idle(LCD_PIO, lcd_pio_sm);
+    lcd_set_dc_cs(0, 0); // DC=0 (command), CS=0 (active)
+    st7789_lcd_put(LCD_PIO, lcd_pio_sm, cmd);
+    st7789_lcd_wait_idle(LCD_PIO, lcd_pio_sm);
+    lcd_set_dc_cs(0, 1); // CS=1 (inactive)
 }
 
 // Send 8-bit data (byte)
@@ -155,14 +169,18 @@ void lcd_write_data(uint8_t len, ...)
 {
     va_list args;
     va_start(args, len);
-    gpio_put(LCD_DCX, 1); // Data
-    gpio_put(LCD_CSX, 0);
+
+    st7789_lcd_wait_idle(LCD_PIO, lcd_pio_sm);
+    lcd_set_dc_cs(1, 0); // DC=1 (data), CS=0 (active)
+
     for (uint8_t i = 0; i < len; i++)
     {
-        uint8_t data = va_arg(args, int); // get the next byte of data
-        spi_write_blocking(LCD_SPI, &data, 1);
+        uint8_t data = va_arg(args, int);
+        st7789_lcd_put(LCD_PIO, lcd_pio_sm, data);
     }
-    gpio_put(LCD_CSX, 1);
+
+    st7789_lcd_wait_idle(LCD_PIO, lcd_pio_sm);
+    lcd_set_dc_cs(0, 1); // CS=1 (inactive)
     va_end(args);
 }
 
@@ -170,39 +188,37 @@ void lcd_write_data(uint8_t len, ...)
 void lcd_write16_data(uint8_t len, ...)
 {
     va_list args;
-
-    // DO NOT MOVE THE spi_set_format() OR THE gpio_put(LCD_DCX) CALLS!
-    // They are placed before the gpio_put(LCD_CSX) to ensure that a minimum
-    // chip select high pulse width is achieved (at least 40ns)
-    spi_set_format(LCD_SPI, 16, 0, 0, SPI_MSB_FIRST);
-
     va_start(args, len);
-    gpio_put(LCD_DCX, 1); // Data
-    gpio_put(LCD_CSX, 0);
+
+    st7789_lcd_wait_idle(LCD_PIO, lcd_pio_sm);
+    lcd_set_dc_cs(1, 0); // DC=1 (data), CS=0 (active)
+
     for (uint8_t i = 0; i < len; i++)
     {
-        uint16_t data = va_arg(args, int); // get the next half-word of data
-        spi_write16_blocking(LCD_SPI, &data, 1);
+        uint16_t data = va_arg(args, int);
+        st7789_lcd_put(LCD_PIO, lcd_pio_sm, data >> 8);   // High byte first
+        st7789_lcd_put(LCD_PIO, lcd_pio_sm, data & 0xff); // Low byte
     }
-    gpio_put(LCD_CSX, 1);
-    va_end(args);
 
-    spi_set_format(LCD_SPI, 8, 0, 0, SPI_MSB_FIRST);
+    st7789_lcd_wait_idle(LCD_PIO, lcd_pio_sm);
+    lcd_set_dc_cs(0, 1); // CS=1 (inactive)
+    va_end(args);
 }
 
 void lcd_write16_buf(const uint16_t *buffer, size_t len)
 {
-    // DO NOT MOVE THE spi_set_format() OR THE gpio_put(LCD_DCX) CALLS!
-    // They are placed before the gpio_put(LCD_CSX) to ensure that a minimum
-    // chip select high pulse width is achieved (at least 40ns)
-    spi_set_format(LCD_SPI, 16, 0, 0, SPI_MSB_FIRST);
+    st7789_lcd_wait_idle(LCD_PIO, lcd_pio_sm);
+    lcd_set_dc_cs(1, 0); // DC=1 (data), CS=0 (active)
 
-    gpio_put(LCD_DCX, 1); // Data
-    gpio_put(LCD_CSX, 0);
-    spi_write16_blocking(LCD_SPI, buffer, len);
-    gpio_put(LCD_CSX, 1);
+    for (size_t i = 0; i < len; i++)
+    {
+        uint16_t color = buffer[i];
+        st7789_lcd_put(LCD_PIO, lcd_pio_sm, color >> 8);   // High byte first
+        st7789_lcd_put(LCD_PIO, lcd_pio_sm, color & 0xff); // Low byte
+    }
 
-    spi_set_format(LCD_SPI, 8, 0, 0, SPI_MSB_FIRST);
+    st7789_lcd_wait_idle(LCD_PIO, lcd_pio_sm);
+    lcd_set_dc_cs(0, 1); // CS=1 (inactive)
 }
 
 //
@@ -304,7 +320,7 @@ void lcd_define_scrolling(uint16_t top_fixed_area, uint16_t bottom_fixed_area)
         bottom_fixed_area = 0;
         scroll_area = FRAME_HEIGHT;
     }
-    
+
     lcd_scroll_top = top_fixed_area;
     lcd_memory_scroll_height = FRAME_HEIGHT - (top_fixed_area + bottom_fixed_area);
     lcd_scroll_bottom = bottom_fixed_area;
@@ -347,7 +363,8 @@ void lcd_scroll_clear()
 void lcd_scroll_up()
 {
     // Ensure the scroll height is non-zero to avoid division by zero
-    if (lcd_memory_scroll_height == 0) {
+    if (lcd_memory_scroll_height == 0)
+    {
         return; // Exit early if the scroll height is invalid
     }
     // This will rotate the content in the scroll area up by one line
@@ -367,7 +384,8 @@ void lcd_scroll_up()
 void lcd_scroll_down()
 {
     // Ensure lcd_memory_scroll_height is non-zero to avoid division by zero
-    if (lcd_memory_scroll_height == 0) {
+    if (lcd_memory_scroll_height == 0)
+    {
         return; // Safely exit if the scroll height is zero
     }
     // This will rotate the content in the scroll area down by one line
@@ -604,13 +622,21 @@ void lcd_init()
     gpio_set_dir(LCD_DCX, GPIO_OUT);
     gpio_set_dir(LCD_RST, GPIO_OUT);
 
-    // initialise 4-wire SPI
-    spi_init(LCD_SPI, LCD_BAUDRATE);
-    gpio_set_function(LCD_SCL, GPIO_FUNC_SPI);
-    gpio_set_function(LCD_SDI, GPIO_FUNC_SPI);
-    gpio_set_function(LCD_SDO, GPIO_FUNC_SPI);
+    // Initialize PIO for fast SPI communication
+    lcd_pio_offset = pio_add_program(LCD_PIO, &st7789_lcd_program);
+    lcd_pio_sm = pio_claim_unused_sm(LCD_PIO, true);
 
-    gpio_put(LCD_CSX, 1);
+    // Calculate clock divider - target ~75MHz SPI clock
+    // PIO runs at 2 instructions per bit, so we need sys_clk / (75MHz * 2)
+    float clkdiv = (float)clock_get_hz(clk_sys) / (float)(LCD_BAUDRATE * 2);
+    if (clkdiv < 1.0f)
+        clkdiv = 1.0f;
+
+    st7789_lcd_program_init(LCD_PIO, lcd_pio_sm, lcd_pio_offset, LCD_SDI, LCD_SCL, clkdiv);
+    lcd_pio_initialized = true;
+
+    // Set initial pin states
+    lcd_set_dc_cs(0, 1); // CS high (inactive)
     gpio_put(LCD_RST, 1);
 
     lcd_reset(); // reset the LCD controller

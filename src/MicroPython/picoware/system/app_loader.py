@@ -26,7 +26,7 @@ class AppLoader:
         """Remove all app modules from sys.modules"""
         try:
             import sys
-            from gc import collect
+            from gc import collect, mem_free
 
             # Clear our references first
             self.loaded_apps.clear()
@@ -47,6 +47,8 @@ class AppLoader:
 
             # Force garbage collection
             collect()
+
+            print(f"[AppLoader]: Cleaned up modules, free memory: {mem_free()} bytes")
 
         except Exception as e:
             print("Error cleaning up modules: {}".format(e))
@@ -126,6 +128,10 @@ class AppLoader:
                     __import__(app_name)
                     if app_name not in sys.modules
                     else sys.modules[app_name]
+                )
+
+                print(
+                    f"\n[AppLoader]: Imported {app_name} after {ticks_ms() - start_time} ms"
                 )
 
                 # Verify the app has required methods

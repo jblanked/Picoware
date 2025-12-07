@@ -3,20 +3,51 @@ _screensavers_index = 0
 _app_loader = None
 
 
+def __alert(view_manager, message: str, back: bool = True) -> None:
+    """Show an alert"""
+
+    from picoware.gui.alert import Alert
+    from picoware.system.buttons import BUTTON_BACK
+
+    draw = view_manager.get_draw()
+    draw.clear()
+    _alert = Alert(
+        draw,
+        message,
+        view_manager.get_foreground_color(),
+        view_manager.get_background_color(),
+    )
+    _alert.draw("Alert")
+
+    # Wait for user to acknowledge
+    inp = view_manager.get_input_manager()
+    while True:
+        button = inp.button
+        if button == BUTTON_BACK:
+            inp.reset()
+            break
+
+    if back:
+        view_manager.back()
+
+
 def start(view_manager) -> bool:
     """Start the screensavers app"""
     from picoware.gui.menu import Menu
     from picoware.system.app_loader import AppLoader
 
     if not view_manager.has_sd_card:
-        print("Screensavers app requires an SD card")
+        __alert(
+            view_manager,
+            "Screensavers app requires an SD card.",
+            False,
+        )
         return False
 
     # create screensavers folder if it doesn't exist
     view_manager.get_storage().mkdir("picoware/apps/screensavers")
 
     global _screensavers
-    global _screensavers_index
     global _app_loader
 
     if _app_loader:
@@ -61,7 +92,7 @@ def run(view_manager) -> None:
         BUTTON_RIGHT,
     )
 
-    global _screensavers_index, _app_loader
+    global _screensavers_index
 
     if not _screensavers:
         return
@@ -91,21 +122,36 @@ def run(view_manager) -> None:
             screensaver_module = _app_loader.load_app(
                 selected_screensaver, "screensavers"
             )
-            if screensaver_module:
-                # Create a view for the screensaver and switch to it
-                screensaver_view_name = f"screensaver_{selected_screensaver}"
+            if screensaver_module is None:
+                __alert(
+                    view_manager,
+                    f'Could not load screensaver "{selected_screensaver}".',
+                )
+                return
+            from utime import ticks_ms
 
-                # Check if view already exists
-                if view_manager.get_view(screensaver_view_name) is None:
-                    screensaver_view = View(
-                        screensaver_view_name,
-                        screensaver_module.run,
-                        screensaver_module.start,
-                        screensaver_module.stop,
-                    )
-                    view_manager.add(screensaver_view)
+            start_time = ticks_ms()
 
-                view_manager.switch_to(screensaver_view_name)
+            # Create a view for the screensaver and switch to it
+            screensaver_view_name = f"screensaver_{selected_screensaver}"
+
+            # Check if view already exists
+            if view_manager.get_view(screensaver_view_name) is None:
+                screensaver_view = View(
+                    screensaver_view_name,
+                    screensaver_module.run,
+                    screensaver_module.start,
+                    screensaver_module.stop,
+                )
+                print(
+                    f"[Screensavers]: Created view for app {selected_screensaver} after {ticks_ms() - start_time} ms"
+                )
+                view_manager.add(screensaver_view)
+
+            view_manager.switch_to(screensaver_view_name)
+            print(
+                f'[Screensavers]: Switched to view for app "{selected_screensaver}" after {ticks_ms() - start_time} ms'
+            )
 
 
 def stop(view_manager) -> None:

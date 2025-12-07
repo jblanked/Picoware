@@ -8,23 +8,25 @@ class AppLoader:
         Args:
             view_manager: The view manager instance to interact with the display and storage
         """
-        from picoware.system.boards import BOARD_WAVESHARE_1_43_RP2350
-
         self.view_manager = view_manager
-        self.include_sd_path = view_manager.board_id != BOARD_WAVESHARE_1_43_RP2350
         self.loaded_apps = {}
         self.current_app = None
+        self._vfs_ready = False
+        if view_manager.storage.mount_vfs("/sd"):
+            self._vfs_ready = True
 
     def __del__(self):
         """Cleanup loaded apps on deletion"""
         self.stop()
         self.cleanup_modules()
+        self.view_manager.storage.unmount_vfs("/sd")
+        self._vfs_ready = False
 
     def cleanup_modules(self):
         """Remove all app modules from sys.modules"""
         try:
             import sys
-            from gc import collect
+            from gc import collect, mem_free
 
             # Clear our references first
             self.loaded_apps.clear()
@@ -32,12 +34,12 @@ class AppLoader:
 
             # Remove ALL modules from the apps directory
             modules_to_delete = []
-            path_str = (
-                "/sd/picoware/apps/" if self.include_sd_path else "/picoware/apps/"
-            )
+            path_str = "/picoware/apps/"
+            # Also check for VFS-mounted paths
+            sd_path_str = "/sd/picoware/apps/"
             for mod_name, mod in list(sys.modules.items()):
                 if hasattr(mod, "__file__") and mod.__file__:
-                    if path_str in mod.__file__:
+                    if path_str in mod.__file__ or sd_path_str in mod.__file__:
                         modules_to_delete.append(mod_name)
 
             for mod_name in modules_to_delete:
@@ -46,26 +48,31 @@ class AppLoader:
             # Force garbage collection
             collect()
 
+            print(f"[AppLoader]: Cleaned up modules, free memory: {mem_free()} bytes")
+
         except Exception as e:
             print("Error cleaning up modules: {}".format(e))
 
     def list_available_apps(self, subdirectory="") -> list[str]:
-        """List all available apps (with .py extension) in the /sd/picoware/apps directory or subdirectory"""
+        """List all available apps (with .py extension) in the picoware/apps directory or subdirectory"""
         try:
             storage = self.view_manager.get_storage()
             # no need to mount because we're using auto-mount
-            apps_path = (
-                "/sd/picoware/apps" if self.include_sd_path else "/picoware/apps"
-            )
+            apps_path = "/picoware/apps"
             if subdirectory:
                 apps_path = f"{apps_path}/{subdirectory}"
             file_list = storage.listdir(apps_path)
-            apps = [
-                f[:-3] for f in file_list if f.endswith(".py") and not f.startswith(".")
-            ]
+            _py_apps = []
+            for f in file_list:
+                if f.startswith("."):
+                    continue
+                if f.endswith(".py"):
+                    _py_apps.append(f[:-3])
+                if f.endswith(".mpy"):
+                    _py_apps.append(f[:-4])
             # Sort alphabetically
-            apps.sort()
-            return apps
+            _py_apps.sort()
+            return _py_apps
 
         except Exception as e:
             print(f"Error listing apps: {e}")
@@ -80,9 +87,15 @@ class AppLoader:
         Load an app module dynamically
 
         Args:
-            app_name: The name of the app module to load (without .py extension)
-            subdirectory: Optional subdirectory within /sd/picoware/apps
+            app_name: The name of the app module to load (without extension)
+            subdirectory: Optional subdirectory within picoware/apps
         """
+        if not self._vfs_ready:
+            raise RuntimeError("VFS not ready, cannot load apps.")
+
+        from utime import ticks_ms
+
+        start_time = ticks_ms()
         try:
             cache_key = f"{subdirectory}/{app_name}" if subdirectory else app_name
             if cache_key not in self.loaded_apps:
@@ -90,13 +103,16 @@ class AppLoader:
                 storage = self.view_manager.get_storage()
                 storage.mount()
 
-                # Add the SD card apps directory to sys.path
+                # Determine the base path based on VFS mode
+                if not storage.vfs_mounted:
+                    raise RuntimeError("Storage VFS not mounted, cannot load apps.")
+
+                # VFS mode: use /sd prefix for mounted filesystem
+                base_apps_path = "/sd/picoware/apps"
+
                 import sys
 
-                # Always add the base apps directory
-                base_apps_path = (
-                    "/sd/picoware/apps" if self.include_sd_path else "/picoware/apps"
-                )
+                # Always add the base apps directory to sys.path
                 if base_apps_path not in sys.path:
                     sys.path.append(base_apps_path)
 
@@ -107,41 +123,16 @@ class AppLoader:
                     if apps_path not in sys.path:
                         sys.path.append(apps_path)
 
-                # Now try to import the module by name
-                if not self.include_sd_path:  # Waveshare board
-                    # Check if module is already in sys.modules
-                    if app_name not in sys.modules:
-                        # Manually load the module
-                        app_file_path = f"{apps_path}/{app_name}.py"
-                        # Create a namespace dictionary for the module
-                        module_namespace = {
-                            "__name__": app_name,
-                            "__file__": app_file_path,
-                        }
-                        code_str = storage.read(app_file_path)
-                        if code_str:
-                            compiled_code = compile(code_str, app_file_path, "exec")
-                            exec(compiled_code, module_namespace)
-                        else:
-                            raise ImportError(
-                                f"Could not read app file: {app_file_path}"
-                            )
+                # Check if module is already in sys.modules
+                app_module = (
+                    __import__(app_name)
+                    if app_name not in sys.modules
+                    else sys.modules[app_name]
+                )
 
-                        # Create a simple object to hold the module attributes
-                        class Module:
-                            pass
-
-                        app_module = Module()
-                        # Copy all items from namespace to the module object
-                        for key, value in module_namespace.items():
-                            setattr(app_module, key, value)
-                        # Register it in sys.modules
-                        sys.modules[app_name] = app_module
-                    else:
-                        app_module = sys.modules[app_name]
-                else:
-                    # Standard import for VFS-mounted filesystems
-                    app_module = __import__(app_name)
+                print(
+                    f"\n[AppLoader]: Imported {app_name} after {ticks_ms() - start_time} ms"
+                )
 
                 # Verify the app has required methods
                 required_methods = ["start", "run", "stop"]
@@ -174,6 +165,7 @@ class AppLoader:
             self.stop()
 
         app_module = self.load_app(app_name)
+
         if app_module:
             success = app_module.start(self.view_manager)
             if success:

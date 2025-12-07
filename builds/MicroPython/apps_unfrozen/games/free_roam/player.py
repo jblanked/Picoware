@@ -1,6 +1,9 @@
 from micropython import const
 from picoware.system.vector import Vector
 from picoware.engine.entity import Entity, ENTITY_TYPE_PLAYER, SPRITE_3D_HUMANOID
+from picoware.gui.loading import Loading
+from math import sqrt, atan2, pi, cos, sin
+from ujson import loads as json_loads
 
 # GameMainView
 GAME_VIEW_TITLE = const(0)  # title, start, and menu (menu)
@@ -197,9 +200,8 @@ class Player(Entity):
 
         if data is not None:
             try:
-                from ujson import loads
 
-                obj: dict = loads(data)
+                obj: dict = json_loads(data)
                 if "password" in obj:
                     self.loaded_password = obj["password"]
                     return self.loaded_password
@@ -222,9 +224,8 @@ class Player(Entity):
 
         if data is not None:
             try:
-                from ujson import loads
 
-                obj: dict = loads(data)
+                obj: dict = json_loads(data)
                 if "username" in obj:
                     self.loaded_username = obj["username"]
                     return self.loaded_username
@@ -339,7 +340,6 @@ class Player(Entity):
 
             # Only proceed if the request was initiated successfully
             if self.http is not None:
-                from picoware.gui.loading import Loading
 
                 if self.loading:
                     del self.loading
@@ -839,7 +839,6 @@ class Player(Entity):
 
             # Only proceed if the request was initiated successfully
             if self.http is not None:
-                from picoware.gui.loading import Loading
 
                 if self.loading:
                     del self.loading
@@ -903,7 +902,6 @@ class Player(Entity):
 
             # Only proceed if the request was initiated successfully
             if self.http is not None:
-                from picoware.gui.loading import Loading
 
                 if self.loading:
                     del self.loading
@@ -929,13 +927,11 @@ class Player(Entity):
                 return
 
             try:
-                import ujson
-
                 canvas.text(Vector(0, 10), "Loading user info...", COLOR_BLACK)
                 canvas.text(Vector(0, 20), "Please wait...", COLOR_BLACK)
                 canvas.text(Vector(0, 30), "It may take up to 15 seconds.", COLOR_BLACK)
 
-                doc = ujson.loads(response)
+                doc = json_loads(response)
 
                 # Extract user info from response
                 game_stats = doc.get("game_stats", {})
@@ -1440,7 +1436,6 @@ class Player(Entity):
                 if game.perspective == CAMERA_THIRD_PERSON:
                     # Calculate 3rd person camera position for map rendering
                     # Normalize direction vector to ensure consistent behavior
-                    from math import sqrt, atan2, pi
 
                     dir_length = sqrt(
                         self.direction.x * self.direction.x
@@ -1530,7 +1525,6 @@ class Player(Entity):
 
     def update(self, game):
         """Update player state."""
-        from math import cos, sin
 
         self.debounce_input(game)
 

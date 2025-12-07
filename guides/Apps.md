@@ -291,7 +291,7 @@ draw = Draw()
 image = Image()
 
 # load from file
-if image.from_path("sd/desktop.bmp"):
+if image.from_path("desktop.bmp"):
     # draw the image
     draw.image_bytearray(Vector(0, 0), image.size, image._raw)
 

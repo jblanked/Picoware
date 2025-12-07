@@ -142,6 +142,7 @@ class Server:
                                     response += html_content
                                 except Exception as e:
                                     print(f"Error loading HTML file {html_file}: {e}")
+                                    response += f"<h1>Error loading HTML file: {html_file}</h1><p>{e}</p>"
 
                             return response
 
@@ -196,7 +197,7 @@ class Server:
         from json import loads
         from picoware.system.buttons import BUTTON_BACK
 
-        global box
+        global box, menu_state, menu
 
         if not self.server:
             print("Server is not started. Call start() before run().")
@@ -209,7 +210,7 @@ class Server:
             box.current_text += "Connection closed by user.\n"
             box.refresh()
             print("Connection closed by user.")
-            global menu_state, menu
+
             menu_state = STATE_MENU_MAIN
             menu.display.fill_screen(menu.background_color)
             menu.draw()
@@ -238,7 +239,7 @@ class Server:
                         box.current_text += "Connection closed by user.\n"
                         box.refresh()
                         print("Connection closed by user.")
-                        global menu_state, menu
+
                         menu_state = STATE_MENU_MAIN
                         menu.display.fill_screen(menu.background_color)
                         menu.draw()

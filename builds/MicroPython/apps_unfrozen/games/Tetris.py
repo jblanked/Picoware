@@ -1,6 +1,7 @@
 # Original from https://github.com/xMasterX/all-the-plugins/blob/dev/base_pack/tetris_game
 from micropython import const
 from picoware.system.vector import Vector
+from random import getrandbits, randint
 
 BLOCK_WIDTH = const(12)
 BLOCK_HEIGHT = const(12)
@@ -27,8 +28,6 @@ GAME_STATE_PAUSED = const(2)
 
 
 def __random_color() -> int:
-    from random import getrandbits
-
     return (getrandbits(5) << 11) | (getrandbits(6) << 5) | getrandbits(5)
 
 
@@ -283,8 +282,6 @@ def __tetris_game_get_next_piece() -> int:
             _tetris_state.bag[i] = False
 
     # Pick a random piece not in the bag
-    from random import randint
-
     next_piece = randint(0, 6)
     while _tetris_state.bag[next_piece]:
         next_piece = randint(0, 6)

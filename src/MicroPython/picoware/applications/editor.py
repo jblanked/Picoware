@@ -190,7 +190,7 @@ def _start_file_browser(view_manager) -> None:
         _file_browser = FileBrowser(
             view_manager,
             mode=FILE_BROWSER_SELECTOR,
-            start_directory="/sd/picoware/apps",
+            start_directory="/picoware/apps",
         )
 
         _file_browser.run()

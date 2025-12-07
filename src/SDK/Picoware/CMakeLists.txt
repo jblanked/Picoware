@@ -36,7 +36,7 @@ include_directories(${CMAKE_CURRENT_LIST_DIR})
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
-# Add executable. Default name is the project name, version 0.1
+# Add executable. Default name is the project name, version 1.5.5
 
 add_subdirectory(src/system)
 add_subdirectory(src/gui)
@@ -48,7 +48,7 @@ target_link_libraries(Picoware system gui applications engine)
 
 
 pico_set_program_name(Picoware "Picoware")
-pico_set_program_version(Picoware "0.1")
+pico_set_program_version(Picoware "1.5.5")
 
 # Modify the below lines to enable/disable output over UART/USB
 pico_enable_stdio_uart(Picoware 0)

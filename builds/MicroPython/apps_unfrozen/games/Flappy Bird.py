@@ -1,5 +1,6 @@
 # picoware/apps/games/Flappy Bird.py
 # Original from https://github.com/xMasterX/all-the-plugins/blob/dev/base_pack/flappy_bird
+from random import randint
 
 BIRD_ICON = bytes(
     [
@@ -409,15 +410,13 @@ _game_engine = None
 
 def __flappy_game_random_pilar() -> None:
     """Generate a random pilar"""
-    import random
-
     global _game_state
 
     pilar: PILAR = PILAR()
     pilar.passed = False
     pilar.visible = 1
 
-    pilar.height = random.randint(1, FLIPPER_LCD_HEIGHT - FLAPPY_GAB_HEIGHT)
+    pilar.height = randint(1, FLIPPER_LCD_HEIGHT - FLAPPY_GAB_HEIGHT)
     pilar.point.y = 0
     pilar.point.y2 = 0
     pilar.point.x = FLIPPER_LCD_WIDTH + FLAPPY_GAB_WIDTH + 1

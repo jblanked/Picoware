@@ -1,4 +1,5 @@
 # translated from https://github.com/lazerduck/PicoCalc_Dashboard/blob/main/snake/snake.py
+from random import randint
 
 # Display setup
 SCREEN_WIDTH = 0
@@ -95,8 +96,6 @@ class Game:
 
     def spawn_food(self):
         """Spawn food at a random position not occupied by the snake"""
-        from random import randint
-
         while True:
             x = randint(0, GRID_WIDTH - 1)
             y = randint(0, GRID_HEIGHT - 1)

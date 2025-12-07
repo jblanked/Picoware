@@ -34,7 +34,7 @@ class ViewManager:
         # Initialize storage
         self.storage = None
         if syst.has_sd_card:
-            self.storage = Storage(True)
+            self.storage = Storage()
             self.storage.mkdir("picoware")
             self.storage.mkdir("picoware/settings")
 

@@ -157,3 +157,35 @@ target_link_libraries(usermod INTERFACE usermod_picoware_game)
 target_link_libraries(usermod_picoware_game INTERFACE
     pico_stdlib
 )
+
+
+# Include picoware_sd module
+add_library(usermod_picoware_sd INTERFACE)
+
+target_sources(usermod_picoware_sd INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/picoware_sd/picoware_sd.c
+    ${CMAKE_CURRENT_LIST_DIR}/picoware_sd/picoware_vfs.c
+    ${CMAKE_CURRENT_LIST_DIR}/picoware_sd/sdcard.c
+    ${CMAKE_CURRENT_LIST_DIR}/picoware_sd/fat32.c
+)
+
+target_include_directories(usermod_picoware_sd INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/picoware_sd
+)
+
+target_compile_definitions(usermod_picoware_sd INTERFACE
+    MODULE_WAVESHARE_SD_ENABLED=1
+)
+
+target_link_libraries(usermod INTERFACE usermod_picoware_sd)
+
+# Link against the required Pico SDK libraries for SD card
+target_link_libraries(usermod_picoware_sd INTERFACE
+    pico_stdlib
+    pico_printf
+    pico_float
+    hardware_gpio
+    hardware_i2c
+    hardware_spi
+    hardware_pio
+)

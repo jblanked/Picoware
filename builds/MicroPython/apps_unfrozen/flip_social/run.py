@@ -141,9 +141,9 @@ def __flip_social_util_get_username(view_manager) -> str:
 
     if data is not None:
         try:
-            from ujson import loads
+            from ujson import loads as json_loads
 
-            obj: dict = loads(data)
+            obj: dict = json_loads(data)
             if "username" in obj:
                 return obj["username"]
         except Exception:
@@ -159,9 +159,9 @@ def __flip_social_util_get_password(view_manager) -> str:
 
     if data is not None:
         try:
-            from ujson import loads
+            from ujson import loads as json_loads
 
-            obj: dict = loads(data)
+            obj: dict = json_loads(data)
             if "password" in obj:
                 return obj["password"]
         except Exception:
@@ -304,9 +304,9 @@ class FlipSocialRun:
                 response = self.http.response
                 if '"comments":[{' in response:
                     try:
-                        from ujson import loads
+                        from ujson import loads as json_loads
 
-                        obj = loads(response)
+                        obj = json_loads(response)
                         if "comments" in obj and isinstance(obj["comments"], list):
                             comments = obj["comments"]
                             total_comments = len(comments)
@@ -489,9 +489,9 @@ class FlipSocialRun:
                 return
             explore_users = []
             try:
-                from ujson import loads
+                from ujson import loads as json_loads
 
-                obj = loads(data)
+                obj = json_loads(data)
                 if "users" in obj and isinstance(obj["users"], list):
                     explore_users = obj["users"]
             except Exception:
@@ -676,9 +676,9 @@ class FlipSocialRun:
             data = storage.read("picoware/flip_social/feed.json")
             if data:
                 try:
-                    from ujson import loads
+                    from ujson import loads as json_loads
 
-                    obj = loads(data)
+                    obj = json_loads(data)
                     if "feed" in obj and isinstance(obj["feed"], list):
                         feed_items = obj["feed"]
                         if self.feed_item_index < len(feed_items):
@@ -745,15 +745,16 @@ class FlipSocialRun:
                     self.feed_status = FEED_REQUEST_ERROR
                     return
                 if "[SUCCESS]" in self.http.response:
+                    from ujson import loads as json_loads
+                    from ujson import dumps as json_dumps
+
                     # increase the flip count locally for instant feedback
                     # and adjust the flipped status
                     storage = self.view_manager.get_storage()
                     data = storage.read("picoware/flip_social/feed.json")
                     if data:
                         try:
-                            from ujson import loads, dumps
-
-                            obj = loads(data)
+                            obj = json_loads(data)
                             if "feed" in obj and isinstance(obj["feed"], list):
                                 feed_items = obj["feed"]
                                 if self.feed_item_index < len(feed_items):
@@ -771,7 +772,7 @@ class FlipSocialRun:
                                         item["flip_count"] = flip_count + 1
 
                                     # Save updated feed back to storage
-                                    updated_data = dumps(obj)
+                                    updated_data = json_dumps(obj)
                                     storage.write(
                                         "picoware/flip_social/feed.json", updated_data
                                     )
@@ -967,9 +968,9 @@ class FlipSocialRun:
         elif self.messages_status == MESSAGES_SUCCESS:
             if self.http and self.http.response:
                 try:
-                    from ujson import loads
+                    from ujson import loads as json_loads
 
-                    obj: dict = loads(self.http.response)
+                    obj: dict = json_loads(self.http.response)
                     if "conversations" in obj and isinstance(
                         obj["conversations"], list
                     ):
@@ -1012,8 +1013,7 @@ class FlipSocialRun:
                                     content_lines = 3
 
                                 box_height = (content_lines * 20) + 20
-                                if box_height < 40:
-                                    box_height = 40
+                                box_height = max(box_height, 40)
 
                                 box_y_offset = -45 if content_lines > 1 else -30
 
@@ -1209,9 +1209,9 @@ class FlipSocialRun:
             data = storage.read("picoware/flip_social/message_users.json")
             if data:
                 try:
-                    from ujson import loads
+                    from ujson import loads as json_loads
 
-                    obj = loads(data)
+                    obj = json_loads(data)
                     if "users" in obj and isinstance(obj["users"], list):
                         users = obj["users"]
                         if users:
@@ -1345,9 +1345,9 @@ class FlipSocialRun:
             return
 
         try:
-            from ujson import loads
+            from ujson import loads as json_loads
 
-            obj = loads(data)
+            obj = json_loads(data)
             bio = obj.get("bio", "No bio")
             friends_count = str(obj.get("friends_count", 0))
             date_created = obj.get("date_created", "Unknown")
@@ -1592,9 +1592,9 @@ class FlipSocialRun:
             return ""
 
         try:
-            from ujson import loads
+            from ujson import loads as json_loads
 
-            obj = loads(data)
+            obj = json_loads(data)
             if "users" in obj and isinstance(obj["users"], list):
                 users = obj["users"]
                 index = (

@@ -78,9 +78,19 @@ static inline fat32_error_t read_sector(uint32_t sector, uint8_t *buffer)
     return sd_read_block(volume_start_block + sector, buffer);
 }
 
+static inline fat32_error_t read_sectors(uint32_t sector, uint32_t count, uint8_t *buffer)
+{
+    return sd_read_blocks(volume_start_block + sector, count, buffer);
+}
+
 static inline fat32_error_t write_sector(uint32_t sector, const uint8_t *buffer)
 {
     return sd_write_block(volume_start_block + sector, buffer);
+}
+
+static inline fat32_error_t write_sectors(uint32_t sector, uint32_t count, const uint8_t *buffer)
+{
+    return sd_write_blocks(volume_start_block + sector, count, buffer);
 }
 
 //
@@ -1430,26 +1440,70 @@ fat32_error_t fat32_read(fat32_file_t *file, void *buffer, size_t size, size_t *
 
     size_t total_read = 0;
     uint8_t *dest = (uint8_t *)buffer;
+    uint8_t sectors_per_cluster = boot_sector.sectors_per_cluster;
 
     while (total_read < size)
     {
-        uint32_t cluster_offset = file->position % bytes_per_cluster;
-        uint32_t sector_in_cluster = cluster_offset / FAT32_SECTOR_SIZE;
-        uint32_t byte_in_sector = cluster_offset % FAT32_SECTOR_SIZE;
+        uint32_t pos_in_cluster = file->position % bytes_per_cluster;
+        uint32_t sector_in_cluster = pos_in_cluster / FAT32_SECTOR_SIZE;
+        uint32_t byte_in_sector = pos_in_cluster % FAT32_SECTOR_SIZE;
 
-        uint32_t sector = cluster_to_sector(file->current_cluster) + sector_in_cluster;
+        uint32_t base_sector = cluster_to_sector(file->current_cluster);
 
-        RETURN_ON_ERROR(read_sector(sector, sector_buffer));
-
-        size_t bytes_to_copy = FAT32_SECTOR_SIZE - byte_in_sector;
-        if (bytes_to_copy > size - total_read)
+        // If we're not aligned to a sector boundary, read partial sector
+        if (byte_in_sector != 0)
         {
-            bytes_to_copy = size - total_read;
+            RETURN_ON_ERROR(read_sector(base_sector + sector_in_cluster, sector_buffer));
+
+            size_t bytes_to_copy = FAT32_SECTOR_SIZE - byte_in_sector;
+            if (bytes_to_copy > size - total_read)
+            {
+                bytes_to_copy = size - total_read;
+            }
+
+            memcpy(dest + total_read, sector_buffer + byte_in_sector, bytes_to_copy);
+            total_read += bytes_to_copy;
+            file->position += bytes_to_copy;
+            sector_in_cluster++;
         }
 
-        memcpy(dest + total_read, sector_buffer + byte_in_sector, bytes_to_copy);
-        total_read += bytes_to_copy;
-        file->position += bytes_to_copy;
+        // Calculate how many complete sectors we can read directly into buffer
+        uint32_t sectors_remaining_in_cluster = sectors_per_cluster - sector_in_cluster;
+        size_t bytes_remaining = size - total_read;
+        uint32_t complete_sectors = bytes_remaining / FAT32_SECTOR_SIZE;
+
+        if (complete_sectors > sectors_remaining_in_cluster)
+        {
+            complete_sectors = sectors_remaining_in_cluster;
+        }
+
+        // Read multiple sectors directly into destination buffer
+        if (complete_sectors > 0)
+        {
+            RETURN_ON_ERROR(read_sectors(base_sector + sector_in_cluster, complete_sectors, dest + total_read));
+
+            size_t bytes_read_bulk = complete_sectors * FAT32_SECTOR_SIZE;
+            total_read += bytes_read_bulk;
+            file->position += bytes_read_bulk;
+            sector_in_cluster += complete_sectors;
+        }
+
+        // Handle any remaining partial sector at the end
+        bytes_remaining = size - total_read;
+        if (bytes_remaining > 0 && sector_in_cluster < sectors_per_cluster)
+        {
+            RETURN_ON_ERROR(read_sector(base_sector + sector_in_cluster, sector_buffer));
+
+            size_t bytes_to_copy = bytes_remaining;
+            if (bytes_to_copy > FAT32_SECTOR_SIZE)
+            {
+                bytes_to_copy = FAT32_SECTOR_SIZE;
+            }
+
+            memcpy(dest + total_read, sector_buffer, bytes_to_copy);
+            total_read += bytes_to_copy;
+            file->position += bytes_to_copy;
+        }
 
         // Check if we need to move to the next cluster
         if ((file->position % bytes_per_cluster) == 0 && total_read < size)

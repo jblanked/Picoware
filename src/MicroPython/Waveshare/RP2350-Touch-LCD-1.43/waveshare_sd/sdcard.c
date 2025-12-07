@@ -21,8 +21,8 @@
 
 // Global state
 static bool sd_initialised = false;
-static bool is_sdhc = false;                                                      // Set this in sd_card_init()
-static uint8_t dummy_bytes[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // Dummy bytes for SPI read/write
+static bool is_sdhc = false;      // Set this in sd_card_init()
+static uint8_t dummy_byte = 0xFF; // Single dummy byte for SPI
 
 //
 // Low-level SD card SPI functions
@@ -32,13 +32,13 @@ static void sd_spi_write_buf(const uint8_t *src, size_t len);
 static inline void sd_cs_select(void)
 {
     gpio_put(SD_CS, 0);
-    sd_spi_write_buf(dummy_bytes, 8); // Send dummy bytes to ensure CS is low for at least 8 clock cycles
+    spi_write_blocking(SD_SPI, &dummy_byte, 1); // Single dummy byte
 }
 
 static inline void sd_cs_deselect(void)
 {
     gpio_put(SD_CS, 1);
-    sd_spi_write_buf(dummy_bytes, 8); // Send dummy bytes to ensure CS is high for at least 8 clock cycles
+    spi_write_blocking(SD_SPI, &dummy_byte, 1); // Single dummy byte
 }
 
 static uint8_t sd_spi_write_read(uint8_t data)
@@ -55,9 +55,24 @@ static void sd_spi_write_buf(const uint8_t *src, size_t len)
 
 static void sd_spi_read_buf(uint8_t *dst, size_t len)
 {
-    // Send dummy bytes while reading
-    memset(dst, 0xFF, len);
-    spi_write_read_blocking(SD_SPI, dst, dst, len);
+    // Use a static buffer for 0xFF bytes to avoid stack allocation
+    static uint8_t ff_buf[512];
+    static bool ff_buf_initialized = false;
+
+    if (!ff_buf_initialized)
+    {
+        memset(ff_buf, 0xFF, sizeof(ff_buf));
+        ff_buf_initialized = true;
+    }
+
+    // Read in chunks if larger than our buffer
+    while (len > 0)
+    {
+        size_t chunk = (len > sizeof(ff_buf)) ? sizeof(ff_buf) : len;
+        spi_write_read_blocking(SD_SPI, ff_buf, dst, chunk);
+        dst += chunk;
+        len -= chunk;
+    }
 }
 
 static bool sd_wait_ready(void)
@@ -210,27 +225,132 @@ sd_error_t sd_write_block(uint32_t block, const uint8_t *buffer)
 
 sd_error_t sd_read_blocks(uint32_t start_block, uint32_t num_blocks, uint8_t *buffer)
 {
+    if (num_blocks == 0)
+    {
+        return SD_OK;
+    }
+
+    // For single block, use the simple read
+    if (num_blocks == 1)
+    {
+        return sd_read_block(start_block, buffer);
+    }
+
+    // Multi-block read using CMD18
+    uint32_t addr = is_sdhc ? start_block : start_block * SD_BLOCK_SIZE;
+    uint8_t response = sd_send_command(SD_CMD18, addr);
+    if (response != 0)
+    {
+        sd_cs_deselect();
+        return SD_ERROR_READ_FAILED;
+    }
+
+    // Read each block
     for (uint32_t i = 0; i < num_blocks; i++)
     {
-        sd_error_t result = sd_read_block(start_block + i, buffer + (i * SD_BLOCK_SIZE));
-        if (result != SD_OK)
+        // Wait for data token
+        uint32_t timeout = 100000;
+        do
         {
-            return result;
+            response = sd_spi_write_read(0xFF);
+            timeout--;
+        } while (response != SD_DATA_START_BLOCK && timeout > 0);
+
+        if (timeout == 0)
+        {
+            // Send CMD12 to stop transmission
+            sd_spi_write_read(0xFF); // Skip one byte
+            sd_send_command(SD_CMD12, 0);
+            sd_cs_deselect();
+            return SD_ERROR_READ_FAILED;
         }
+
+        // Read data block
+        sd_spi_read_buf(buffer + (i * SD_BLOCK_SIZE), SD_BLOCK_SIZE);
+
+        // Read CRC (ignore it)
+        sd_spi_write_read(0xFF);
+        sd_spi_write_read(0xFF);
     }
+
+    // Send CMD12 to stop transmission
+    sd_spi_write_read(0xFF); // Skip one byte before CMD12
+    response = sd_send_command(SD_CMD12, 0);
+
+    // Wait for card to be ready
+    sd_wait_ready();
+
+    sd_cs_deselect();
     return SD_OK;
 }
 
 sd_error_t sd_write_blocks(uint32_t start_block, uint32_t num_blocks, const uint8_t *buffer)
 {
+    if (num_blocks == 0)
+    {
+        return SD_OK;
+    }
+
+    // For single block, use the simple write
+    if (num_blocks == 1)
+    {
+        return sd_write_block(start_block, buffer);
+    }
+
+    // Multi-block write using CMD25
+    uint32_t addr = is_sdhc ? start_block : start_block * SD_BLOCK_SIZE;
+    uint8_t response = sd_send_command(SD_CMD25, addr);
+    if (response != 0)
+    {
+        sd_cs_deselect();
+        return SD_ERROR_WRITE_FAILED;
+    }
+
+    // Write each block
     for (uint32_t i = 0; i < num_blocks; i++)
     {
-        sd_error_t result = sd_write_block(start_block + i, buffer + (i * SD_BLOCK_SIZE));
-        if (result != SD_OK)
+        // Wait for card to be ready
+        if (!sd_wait_ready())
         {
-            return result;
+            sd_spi_write_read(SD_DATA_STOP_MULT); // Stop token
+            sd_cs_deselect();
+            return SD_ERROR_WRITE_FAILED;
+        }
+
+        // Send data token for multi-block write
+        sd_spi_write_read(SD_DATA_START_BLOCK_MULT);
+
+        // Send data
+        sd_spi_write_buf(buffer + (i * SD_BLOCK_SIZE), SD_BLOCK_SIZE);
+
+        // Send dummy CRC
+        sd_spi_write_read(0xFF);
+        sd_spi_write_read(0xFF);
+
+        // Check data response
+        response = sd_spi_write_read(0xFF) & 0x1F;
+        if (response != 0x05)
+        {
+            sd_spi_write_read(SD_DATA_STOP_MULT); // Stop token
+            sd_cs_deselect();
+            return SD_ERROR_WRITE_FAILED;
         }
     }
+
+    // Wait for last write to complete
+    if (!sd_wait_ready())
+    {
+        sd_cs_deselect();
+        return SD_ERROR_WRITE_FAILED;
+    }
+
+    // Send stop transmission token
+    sd_spi_write_read(SD_DATA_STOP_MULT);
+
+    // Wait for card to finish programming
+    sd_wait_ready();
+
+    sd_cs_deselect();
     return SD_OK;
 }
 

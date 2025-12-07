@@ -13,7 +13,7 @@ class FileBrowser:
         self,
         view_manager,
         mode: int = FILE_BROWSER_SELECTOR,
-        start_directory: str = "/sd",
+        start_directory: str = "",
     ) -> None:
         """Initialize the file browser"""
         from picoware.gui.menu import Menu

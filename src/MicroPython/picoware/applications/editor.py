@@ -267,9 +267,6 @@ def run(view_manager) -> None:
     global _editor_state
     global _filename
     global _keyboard_just_started
-    global _initial_menu
-    global _file_type_menu
-    global _file_browser
 
     input_manager = view_manager.get_input_manager()
     button = input_manager.get_last_button()
@@ -282,14 +279,14 @@ def run(view_manager) -> None:
             # Exit the app
             view_manager.back()
             return
-        elif _editor_state == STATE_KEYBOARD:
+        if _editor_state == STATE_KEYBOARD:
             # Go back to initial menu
             _editor_state = STATE_INITIAL_MENU
             draw = view_manager.get_draw()
             draw.clear(color=view_manager.get_background_color())
             _start_initial_menu(view_manager)
             return
-        elif _editor_state == STATE_FILE_TYPE_MENU:
+        if _editor_state == STATE_FILE_TYPE_MENU:
             # Go back to keyboard
             _editor_state = STATE_KEYBOARD
             keyboard = view_manager.get_keyboard()
@@ -301,7 +298,7 @@ def run(view_manager) -> None:
                 keyboard.run(force=True)
                 _keyboard_just_started = True
             return
-        elif _editor_state == STATE_FILE_BROWSER:
+        if _editor_state == STATE_FILE_BROWSER:
             # Go back to initial menu
             _editor_state = STATE_INITIAL_MENU
             draw = view_manager.get_draw()

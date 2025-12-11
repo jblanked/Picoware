@@ -7,7 +7,7 @@ def start(view_manager) -> bool:
     from picoware.gui.menu import Menu
 
     global _library
-    global _library_index
+
     if _library is None:
         _library = Menu(
             view_manager.draw,
@@ -47,9 +47,9 @@ def run(view_manager) -> None:
         BUTTON_RIGHT,
     )
 
-    global _library
     if not _library:
         return
+
     global _library_index
 
     input_manager = view_manager.input_manager

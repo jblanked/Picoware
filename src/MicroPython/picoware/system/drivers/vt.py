@@ -35,7 +35,6 @@ class vt(uio.IOBase):
         self.input_manager = view_manager.get_input_manager()
         self.storage = view_manager.get_storage()
 
-        self.keyboardInput = bytearray(30)
         self.outputBuffer = deque((), 30)
 
         # Virtual terminal state

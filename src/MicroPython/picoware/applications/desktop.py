@@ -15,6 +15,10 @@ class PicowareAnimation:
 
         self._initialize_letter_animation()
 
+    def __del__(self):
+        del self.letter_states
+        self.letter_states = None
+
     def _initialize_letter_animation(self) -> None:
         """Initialize the animation state for each letter in 'Picoware'."""
         from picoware.system.colors import (
@@ -149,7 +153,6 @@ _desktop = None
 _desktop_http = None
 _desktop_picoware = None
 _desktop_time_updated = False
-_desktop_is_dark_mode = False
 
 
 def start(view_manager) -> bool:
@@ -157,7 +160,7 @@ def start(view_manager) -> bool:
     from picoware.gui.desktop import Desktop
     from picoware.applications.wifi.utils import connect_to_saved_wifi
 
-    global _desktop, _desktop_http, _desktop_is_dark_mode, _desktop_picoware
+    global _desktop, _desktop_http, _desktop_picoware
 
     if _desktop is None:
         _desktop = Desktop(
@@ -195,10 +198,7 @@ def run(view_manager) -> None:
     input_manager = view_manager.input_manager
     button: int = input_manager.button
 
-    global _desktop
-    global _desktop_http
-    global _desktop_time_updated
-    global _desktop_picoware
+    global _desktop_http, _desktop_time_updated
 
     if _desktop:
         from picoware.system.vector import Vector

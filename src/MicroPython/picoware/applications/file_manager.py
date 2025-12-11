@@ -48,8 +48,6 @@ def start(view_manager) -> bool:
 def run(view_manager) -> None:
     """Run the app"""
 
-    global _file_browser
-
     if not _file_browser.run():
         view_manager.back()
 

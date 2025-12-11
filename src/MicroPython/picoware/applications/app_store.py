@@ -107,7 +107,7 @@ def __loading_start(view_manager, text: str = "Fetching...") -> None:
 
 def __fetch_app_list(view_manager) -> bool:
     """Fetch the list of apps from the API"""
-    global _http, _current_list_index, _max_items
+    global _http
 
     if not _http:
         from picoware.system.http import HTTP
@@ -129,7 +129,7 @@ def __fetch_app_list(view_manager) -> bool:
 
 def __parse_app_list(view_manager) -> bool:
     """Parse the app list JSON and populate the menu"""
-    global _apps_data, _app_menu, _current_list_index
+    global _apps_data, _app_menu
 
     storage = view_manager.get_storage()
     file_path = f"picoware/cache/app_list_{_current_list_index}.json"
@@ -289,8 +289,6 @@ def __draw_app_details(view_manager) -> None:
 
 def __download_next_file(view_manager) -> bool:
     """Download the next file in the queue"""
-    global _current_file_index, _files_to_download, _http
-
     if _current_file_index >= len(_files_to_download):
         return False
 

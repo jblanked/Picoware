@@ -4,6 +4,10 @@ echo "Compiling .py files to .mpy files..."
 
 root_dir="/Users/user/Desktop/Picoware/builds/MicroPython/"
 
+# remove existing apps directory if it exists
+rm -rf "${root_dir}apps"
+mkdir -p "${root_dir}apps"
+
 # Navigate to the directory containing the Python files
 cd "$root_dir" || exit 1
 

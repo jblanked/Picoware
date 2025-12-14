@@ -182,7 +182,9 @@ class Keyboard:
         self.is_save_pressed = False
         self.current_title = "Enter Text"
 
-    def _draw_key(self, row: int, col: int, is_selected: bool):
+    def _draw_key(
+        self, row: int, col: int, is_selected: bool, key_vec: Vector, size_vec: Vector
+    ):
         """Draws a specific key on the keyboard"""
         if row >= self.NUM_ROWS or col >= self.ROW_SIZES[row]:
             return
@@ -207,14 +209,17 @@ class Keyboard:
 
         # Calculate key size
         width = key.width * self.KEY_WIDTH + (key.width - 1) * self.KEY_SPACING
-        height = self.KEY_HEIGHT
+        size_vec.x = width
+        size_vec.y = self.KEY_HEIGHT
 
         # Draw key background
         bg_color = self.selected_color if is_selected else self.background_color
-        self.draw.fill_rectangle(Vector(x_pos, y_pos), Vector(width, height), bg_color)
+        key_vec.x = x_pos
+        key_vec.y = y_pos
+        self.draw.fill_rectangle(key_vec, size_vec, bg_color)
 
         # Draw key border
-        self.draw.rect(Vector(x_pos, y_pos), Vector(width, height), self.text_color)
+        self.draw.rect(key_vec, size_vec, self.text_color)
 
         # Determine what character to display
         display_char = key.normal
@@ -248,10 +253,9 @@ class Keyboard:
             key_label = display_char
 
         # Center the text
-        text_x = x_pos + width // 2 - len(key_label) * 3
-        text_y = y_pos + height // 2 - 4
-
-        self.draw.text(Vector(text_x, text_y), key_label, self.text_color)
+        key_vec.x = x_pos + width // 2 - len(key_label) * 3
+        key_vec.y = y_pos + self.KEY_HEIGHT // 2 - 4
+        self.draw.text(key_vec, key_label, self.text_color)
 
     def _draw_keyboard(self):
         """Draws the entire keyboard"""
@@ -264,10 +268,12 @@ class Keyboard:
         )
 
         # Draw all keys
+        key_vec = Vector(0, 0)
+        size_vec = Vector(0, 0)
         for row in range(self.NUM_ROWS):
             for col in range(self.ROW_SIZES[row]):
                 is_selected = row == self.cursor_row and col == self.cursor_col
-                self._draw_key(row, col, is_selected)
+                self._draw_key(row, col, is_selected, key_vec, size_vec)
 
         # Draw title
         title_x = self.draw.size.x // 2 - len(self.current_title) * 3
@@ -318,9 +324,10 @@ class Keyboard:
         # Show only the last few lines that fit
         start_line = max(0, len(lines) - max_lines)
 
+        text_vec = Vector(5, 8)
         for i in range(start_line, len(lines)):
-            y_pos = 8 + (i - start_line) * 10
-            self.draw.text(Vector(5, y_pos), lines[i], self.text_color)
+            text_vec.y = 8 + (i - start_line) * 10
+            self.draw.text(text_vec, lines[i], self.text_color)
 
         # Draw cursor
         last_line = lines[-1] if lines else ""

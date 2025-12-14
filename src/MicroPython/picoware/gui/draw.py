@@ -261,7 +261,7 @@ class Draw:
             effective_radius: int = (
                 effective_radius if effective_radius < height / 2 else height / 2
             )
-
+            pix_vec = Vector(0, 0)
             for py in range(y, y + height):
                 for px in range(x, x + width):
                     # Check if the pixel is within the rounded corners
@@ -300,7 +300,9 @@ class Draw:
                             in_corner = True
 
                     if not in_corner:
-                        self.pixel(Vector(px, py), color)
+                        pix_vec.x = px
+                        pix_vec.y = py
+                        self.pixel(pix_vec, color)
 
     def fill_screen(self, color=TFT_BLACK):
         """Fill the entire screen with a color"""
@@ -350,10 +352,13 @@ class Draw:
 
     def image(self, position: Vector, img):
         """Draw an image object to the back buffer"""
+        image_vec = Vector(0, 0)
         for y in range(img.size.y):
             for x in range(img.size.x):
                 color = img.get_pixel(x, y)
-                self.pixel(Vector(position.x + x, position.y + y), color)
+                image_vec.x = position.x + x
+                image_vec.y = position.y + y
+                self.pixel(image_vec, color)
 
     def image_bmp(self, position: Vector, path: str):
         """Draw a 24-bit BMP image"""
@@ -413,7 +418,7 @@ class Draw:
                 # Calculate source clipping
                 src_start_x = max(0, -position.x)
                 dst_width = end_x - start_x
-
+                image_vec = Vector(0, 0)
                 # Process each row with fast direct buffer writes
                 for row in range(abs_height):
                     row_data = f.read(row_bytes)
@@ -448,7 +453,9 @@ class Draw:
                             rgb565 = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
 
                             # Draw pixel using the framebuffer's conversion
-                            self.pixel(Vector(start_x + i, y), rgb565)
+                            image_vec.x = start_x + i
+                            image_vec.y = y
+                            self.pixel(image_vec, rgb565)
 
         except (OSError, ValueError) as e:
             print(f"Error loading BMP: {e}")

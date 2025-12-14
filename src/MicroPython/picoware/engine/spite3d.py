@@ -43,32 +43,50 @@ class Vertex3D:
 class Triangle3D:
     """3D triangle structure"""
 
-    def __init__(self, v1=None, v2=None, v3=None):
-        if v1 is None:
-            self.vertices = [Vertex3D(), Vertex3D(), Vertex3D()]
-        else:
-            self.vertices = [v1, v2, v3]
+    def __init__(
+        self, x1=0.0, y1=0.0, z1=0.0, x2=0.0, y2=0.0, z2=0.0, x3=0.0, y3=0.0, z3=0.0
+    ) -> None:
+        self.x1, self.y1, self.z1 = float(x1), float(y1), float(z1)
+        self.x2, self.y2, self.z2 = float(x2), float(y2), float(z2)
+        self.x3, self.y3, self.z3 = float(x3), float(y3), float(z3)
         self.visible = True
         self.distance = 0.0
 
-    def __del__(self):
-        for v in self.vertices:
-            del v
-        self.vertices = None
-
-    def get_center(self):
+    @property
+    def center(self) -> Vertex3D:
         """Calculate triangle center for distance sorting"""
         return Vertex3D(
-            (self.vertices[0].x + self.vertices[1].x + self.vertices[2].x) / 3.0,
-            (self.vertices[0].y + self.vertices[1].y + self.vertices[2].y) / 3.0,
-            (self.vertices[0].z + self.vertices[1].z + self.vertices[2].z) / 3.0,
+            (self.x1 + self.x2 + self.x3) / 3.0,
+            (self.y1 + self.y2 + self.y3) / 3.0,
+            (self.z1 + self.z2 + self.z3) / 3.0,
         )
+
+    # we need this to access the scale, rotate, translate methods
+    # and for easier parsing later on
+    @property
+    def vertices(self) -> list:
+        """Get triangle vertices as a list"""
+        return [
+            Vertex3D(self.x1, self.y1, self.z1),
+            Vertex3D(self.x2, self.y2, self.z2),
+            Vertex3D(self.x3, self.y3, self.z3),
+        ]
+
+    @vertices.setter
+    def vertices(self, verts: list[Vertex3D]):
+        """Set triangle vertices from a list"""
+        self.x1, self.y1, self.z1 = verts[0].x, verts[0].y, verts[0].z
+        self.x2, self.y2, self.z2 = verts[1].x, verts[1].y, verts[1].z
+        self.x3, self.y3, self.z3 = verts[2].x, verts[2].y, verts[2].z
 
     def is_facing_camera(self, camera_pos: Vector) -> bool:
         """Check if triangle is facing the camera (basic backface culling)"""
         # Calculate triangle normal using cross product
-        v1 = self.vertices[1] - self.vertices[0]
-        v2 = self.vertices[2] - self.vertices[0]
+        vert_0 = Vertex3D(self.x1, self.y1, self.z1)
+        vert_1 = Vertex3D(self.x2, self.y2, self.z2)
+        vert_2 = Vertex3D(self.x3, self.y3, self.z3)
+        v1 = vert_1 - vert_0
+        v2 = vert_2 - vert_0
 
         # Cross product to get normal (right-hand rule)
         normal = Vertex3D(
@@ -78,7 +96,7 @@ class Triangle3D:
         )
 
         # Vector from triangle center to camera
-        center = self.get_center()
+        center = self.center
         to_camera = Vertex3D(
             camera_pos.x - center.x,
             0.5 - center.y,  # Camera height
@@ -157,7 +175,7 @@ class Sprite3D:
         """Get sprite type"""
         return self.type
 
-    def add_triangle(self, triangle):
+    def add_triangle(self, triangle: Triangle3D):
         """Add triangle to sprite"""
         if self.triangle_count < MAX_TRIANGLES_PER_SPRITE:
             self.triangles[self.triangle_count] = triangle
@@ -219,21 +237,15 @@ class Sprite3D:
 
         for i in range(self.triangle_count):
             transformed = Triangle3D(
-                Vertex3D(
-                    self.triangles[i].vertices[0].x,
-                    self.triangles[i].vertices[0].y,
-                    self.triangles[i].vertices[0].z,
-                ),
-                Vertex3D(
-                    self.triangles[i].vertices[1].x,
-                    self.triangles[i].vertices[1].y,
-                    self.triangles[i].vertices[1].z,
-                ),
-                Vertex3D(
-                    self.triangles[i].vertices[2].x,
-                    self.triangles[i].vertices[2].y,
-                    self.triangles[i].vertices[2].z,
-                ),
+                self.triangles[i].x1,
+                self.triangles[i].y1,
+                self.triangles[i].z1,
+                self.triangles[i].x2,
+                self.triangles[i].y2,
+                self.triangles[i].z2,
+                self.triangles[i].x3,
+                self.triangles[i].y3,
+                self.triangles[i].z3,
             )
 
             # Apply transformations to each vertex
@@ -256,7 +268,7 @@ class Sprite3D:
             # Check if triangle should be rendered
             if transformed.is_facing_camera(camera_pos):
                 # Calculate distance for sorting
-                center = transformed.get_center()
+                center = transformed.center
                 dx = center.x - camera_pos.x
                 dz = center.z - camera_pos.y
                 transformed.distance = sqrt(dx * dx + dz * dz)
@@ -393,64 +405,112 @@ class Sprite3D:
         # Front face (2 triangles)
         self.add_triangle(
             Triangle3D(
-                Vertex3D(x - hw, y - hh, z + hd),
-                Vertex3D(x + hw, y - hh, z + hd),
-                Vertex3D(x + hw, y + hh, z + hd),
+                x - hw,
+                y - hh,
+                z + hd,
+                x + hw,
+                y - hh,
+                z + hd,
+                x + hw,
+                y + hh,
+                z + hd,
             )
         )
         self.add_triangle(
             Triangle3D(
-                Vertex3D(x - hw, y - hh, z + hd),
-                Vertex3D(x + hw, y + hh, z + hd),
-                Vertex3D(x - hw, y + hh, z + hd),
+                x - hw,
+                y - hh,
+                z + hd,
+                x + hw,
+                y + hh,
+                z + hd,
+                x - hw,
+                y + hh,
+                z + hd,
             )
         )
 
         # Back face (2 triangles)
         self.add_triangle(
             Triangle3D(
-                Vertex3D(x + hw, y - hh, z - hd),
-                Vertex3D(x - hw, y - hh, z - hd),
-                Vertex3D(x - hw, y + hh, z - hd),
+                x + hw,
+                y - hh,
+                z - hd,
+                x - hw,
+                y - hh,
+                z - hd,
+                x - hw,
+                y + hh,
+                z - hd,
             )
         )
         self.add_triangle(
             Triangle3D(
-                Vertex3D(x + hw, y - hh, z - hd),
-                Vertex3D(x - hw, y + hh, z - hd),
-                Vertex3D(x + hw, y + hh, z - hd),
+                x + hw,
+                y - hh,
+                z - hd,
+                x - hw,
+                y + hh,
+                z - hd,
+                x + hw,
+                y + hh,
+                z - hd,
             )
         )
 
         # Right face (2 triangles)
         self.add_triangle(
             Triangle3D(
-                Vertex3D(x + hw, y - hh, z + hd),
-                Vertex3D(x + hw, y - hh, z - hd),
-                Vertex3D(x + hw, y + hh, z - hd),
+                x + hw,
+                y - hh,
+                z + hd,
+                x + hw,
+                y - hh,
+                z - hd,
+                x + hw,
+                y + hh,
+                z - hd,
             )
         )
         self.add_triangle(
             Triangle3D(
-                Vertex3D(x + hw, y - hh, z + hd),
-                Vertex3D(x + hw, y + hh, z - hd),
-                Vertex3D(x + hw, y + hh, z + hd),
+                x + hw,
+                y - hh,
+                z + hd,
+                x + hw,
+                y + hh,
+                z - hd,
+                x + hw,
+                y + hh,
+                z + hd,
             )
         )
 
         # Left face (2 triangles)
         self.add_triangle(
             Triangle3D(
-                Vertex3D(x - hw, y - hh, z - hd),
-                Vertex3D(x - hw, y - hh, z + hd),
-                Vertex3D(x - hw, y + hh, z + hd),
+                x - hw,
+                y - hh,
+                z - hd,
+                x - hw,
+                y - hh,
+                z + hd,
+                x - hw,
+                y + hh,
+                z + hd,
             )
         )
         self.add_triangle(
             Triangle3D(
-                Vertex3D(x - hw, y - hh, z - hd),
-                Vertex3D(x - hw, y + hh, z + hd),
-                Vertex3D(x - hw, y + hh, z - hd),
+                x - hw,
+                y - hh,
+                z - hd,
+                x - hw,
+                y + hh,
+                z + hd,
+                x - hw,
+                y + hh,
+                z - hd,
             )
         )
 
@@ -461,8 +521,7 @@ class Sprite3D:
         hh = height * 0.5
 
         # Limit segments to prevent too many triangles
-        if segments > 6:
-            segments = 6
+        segments = min(segments, 6)
 
         # Only side faces - no caps to save triangles
         for i in range(segments):
@@ -477,16 +536,28 @@ class Sprite3D:
             # Side face triangles only
             self.add_triangle(
                 Triangle3D(
-                    Vertex3D(x1, y - hh, z1),
-                    Vertex3D(x2, y - hh, z2),
-                    Vertex3D(x2, y + hh, z2),
+                    x1,
+                    y - hh,
+                    z1,
+                    x2,
+                    y - hh,
+                    z2,
+                    x2,
+                    y + hh,
+                    z2,
                 )
             )
             self.add_triangle(
                 Triangle3D(
-                    Vertex3D(x1, y - hh, z1),
-                    Vertex3D(x2, y + hh, z2),
-                    Vertex3D(x1, y + hh, z1),
+                    x1,
+                    y - hh,
+                    z1,
+                    x2,
+                    y + hh,
+                    z2,
+                    x1,
+                    y + hh,
+                    z1,
                 )
             )
 
@@ -495,8 +566,7 @@ class Sprite3D:
         from math import cos, pi, sin
 
         # Limit segments for sphere to prevent triangle explosion
-        if segments > 4:
-            segments = 4
+        segments = min(segments, 4)
 
         for lat in range(segments // 2):
             theta1 = float(lat) * pi / (segments // 2)
@@ -507,32 +577,51 @@ class Sprite3D:
                 phi2 = float(lon + 1) * 2.0 * pi / segments
 
                 # Calculate vertices
-                v1 = Vertex3D(
-                    x + radius * sin(theta1) * cos(phi1),
-                    y + radius * cos(theta1),
-                    z + radius * sin(theta1) * sin(phi1),
-                )
-                v2 = Vertex3D(
-                    x + radius * sin(theta1) * cos(phi2),
-                    y + radius * cos(theta1),
-                    z + radius * sin(theta1) * sin(phi2),
-                )
-                v3 = Vertex3D(
-                    x + radius * sin(theta2) * cos(phi1),
-                    y + radius * cos(theta2),
-                    z + radius * sin(theta2) * sin(phi1),
-                )
-                v4 = Vertex3D(
-                    x + radius * sin(theta2) * cos(phi2),
-                    y + radius * cos(theta2),
-                    z + radius * sin(theta2) * sin(phi2),
-                )
+                x1 = x + radius * sin(theta1) * cos(phi1)
+                y1 = y + radius * cos(theta1)
+                z1 = z + radius * sin(theta1) * sin(phi1)
+                #
+                x2 = x + radius * sin(theta1) * cos(phi2)
+                y2 = y + radius * cos(theta1)
+                z2 = z + radius * sin(theta1) * sin(phi2)
+                #
+                x3 = x + radius * sin(theta2) * cos(phi1)
+                y3 = y + radius * cos(theta2)
+                z3 = z + radius * sin(theta2) * sin(phi1)
+                #
+                x4 = x + radius * sin(theta2) * cos(phi2)
+                y4 = y + radius * cos(theta2)
+                z4 = z + radius * sin(theta2) * sin(phi2)
 
                 # Add triangles
                 if lat > 0:
-                    self.add_triangle(Triangle3D(v1, v2, v3))
+                    self.add_triangle(
+                        Triangle3D(
+                            x1,
+                            y1,
+                            z1,
+                            x2,
+                            y2,
+                            z2,
+                            x3,
+                            y3,
+                            z3,
+                        )
+                    )
                 if lat < segments // 2 - 1:
-                    self.add_triangle(Triangle3D(v2, v4, v3))
+                    self.add_triangle(
+                        Triangle3D(
+                            x2,
+                            y2,
+                            z2,
+                            x4,
+                            y4,
+                            z4,
+                            x3,
+                            y3,
+                            z3,
+                        )
+                    )
 
     def _create_triangular_prism(self, x, y, z, width, height, depth):
         """Create a triangular prism (for roofs)"""
@@ -543,64 +632,112 @@ class Sprite3D:
         # Front triangle
         self.add_triangle(
             Triangle3D(
-                Vertex3D(x - hw, y - hh, z + hd),
-                Vertex3D(x + hw, y - hh, z + hd),
-                Vertex3D(x, y + hh, z + hd),
+                x - hw,
+                y - hh,
+                z + hd,
+                x + hw,
+                y - hh,
+                z + hd,
+                x,
+                y + hh,
+                z + hd,
             )
         )
 
         # Back triangle
         self.add_triangle(
             Triangle3D(
-                Vertex3D(x + hw, y - hh, z - hd),
-                Vertex3D(x - hw, y - hh, z - hd),
-                Vertex3D(x, y + hh, z - hd),
+                x + hw,
+                y - hh,
+                z - hd,
+                x - hw,
+                y - hh,
+                z - hd,
+                x,
+                y + hh,
+                z - hd,
             )
         )
 
         # Bottom face
         self.add_triangle(
             Triangle3D(
-                Vertex3D(x - hw, y - hh, z - hd),
-                Vertex3D(x + hw, y - hh, z - hd),
-                Vertex3D(x + hw, y - hh, z + hd),
+                x - hw,
+                y - hh,
+                z - hd,
+                x + hw,
+                y - hh,
+                z - hd,
+                x + hw,
+                y - hh,
+                z + hd,
             )
         )
         self.add_triangle(
             Triangle3D(
-                Vertex3D(x - hw, y - hh, z - hd),
-                Vertex3D(x + hw, y - hh, z + hd),
-                Vertex3D(x - hw, y - hh, z + hd),
+                x - hw,
+                y - hh,
+                z - hd,
+                x + hw,
+                y - hh,
+                z + hd,
+                x - hw,
+                y - hh,
+                z + hd,
             )
         )
 
         # Side faces
         self.add_triangle(
             Triangle3D(
-                Vertex3D(x - hw, y - hh, z + hd),
-                Vertex3D(x, y + hh, z + hd),
-                Vertex3D(x, y + hh, z - hd),
+                x - hw,
+                y - hh,
+                z + hd,
+                x,
+                y + hh,
+                z + hd,
+                x,
+                y + hh,
+                z - hd,
             )
         )
         self.add_triangle(
             Triangle3D(
-                Vertex3D(x - hw, y - hh, z + hd),
-                Vertex3D(x, y + hh, z - hd),
-                Vertex3D(x - hw, y - hh, z - hd),
+                x - hw,
+                y - hh,
+                z + hd,
+                x,
+                y + hh,
+                z - hd,
+                x - hw,
+                y - hh,
+                z - hd,
             )
         )
 
         self.add_triangle(
             Triangle3D(
-                Vertex3D(x, y + hh, z + hd),
-                Vertex3D(x + hw, y - hh, z + hd),
-                Vertex3D(x + hw, y - hh, z - hd),
+                x,
+                y + hh,
+                z + hd,
+                x + hw,
+                y - hh,
+                z + hd,
+                x + hw,
+                y - hh,
+                z - hd,
             )
         )
         self.add_triangle(
             Triangle3D(
-                Vertex3D(x, y + hh, z + hd),
-                Vertex3D(x + hw, y - hh, z - hd),
-                Vertex3D(x, y + hh, z - hd),
+                x,
+                y + hh,
+                z + hd,
+                x + hw,
+                y - hh,
+                z - hd,
+                x,
+                y + hh,
+                z - hd,
             )
         )

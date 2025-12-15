@@ -656,3 +656,9 @@ class Draw:
             from picoware_lcd import draw_char
 
             draw_char(int(position.x), int(position.y), ord(char), color)
+
+    def triangle(self, point1: Vector, point2: Vector, point3: Vector, color=TFT_WHITE):
+        """Draw a triangle outline"""
+        self.line_custom(point1, point2, color)
+        self.line_custom(point2, point3, color)
+        self.line_custom(point3, point1, color)

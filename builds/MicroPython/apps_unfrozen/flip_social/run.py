@@ -335,6 +335,8 @@ class FlipSocialRun:
                                             flipped,
                                             flips_str,
                                             date_created,
+                                            "0",
+                                            True,
                                         )
 
                                         # Draw navigation arrows if there are multiple comments
@@ -584,6 +586,8 @@ class FlipSocialRun:
         flipped: str,
         flips: str,
         date_created: str,
+        comments: str,
+        is_comment: bool = False,
     ) -> None:
         """Draw a single feed item"""
         is_flipped: bool = flipped == "true"
@@ -594,10 +598,22 @@ class FlipSocialRun:
         canvas.text(Vector(0, 150), f"{flip_count} {flip_message}", TFT_BLACK)
         flip_status = "Unflip" if is_flipped else "Flip"
         canvas.text(Vector(110 if is_flipped else 115, 150), flip_status, TFT_BLACK)
-        if "minutes ago" in date_created:
-            canvas.text(Vector(190, 150), date_created, TFT_BLACK)
+        if not is_comment:  # draw date in top-right corner
+            if "minutes ago" in date_created:
+                canvas.text(Vector(190, 18), date_created, TFT_BLACK)
+            else:
+                canvas.text(Vector(180, 18), date_created, TFT_BLACK)
+
+            # draw down arrow icon and comment count
+            canvas.text(Vector(160, 150), "Comment", TFT_BLACK)
+            canvas.text(Vector(220, 150), f"({comments})", TFT_BLACK)
+
         else:
-            canvas.text(Vector(180, 150), date_created, TFT_BLACK)
+            # draw in bottom-right corner for comments
+            if "minutes ago" in date_created:
+                canvas.text(Vector(190, 220), date_created, TFT_BLACK)
+            else:
+                canvas.text(Vector(180, 220), date_created, TFT_BLACK)
 
     def draw_feed_message(self, canvas, user_message: str, x: int, y: int) -> None:
         """Draw the feed message with wrapping"""
@@ -687,6 +703,7 @@ class FlipSocialRun:
                             message = item.get("message", "")
                             flipped = item.get("flipped", "false")
                             flips = str(item.get("flip_count", 0))
+                            comments = str(item.get("comment_count", 0))
                             date_created = item.get("date_created", "")
                             item_id = item.get("id", 0)
 
@@ -699,6 +716,8 @@ class FlipSocialRun:
                                     flipped,
                                     flips,
                                     date_created,
+                                    comments,
+                                    False,
                                 )
                             else:
                                 self.feed_status = FEED_PARSE_ERROR

@@ -1,16 +1,5 @@
 _about = None
 
-_ABOUT_TEXT = (
-    "Picoware\n"
-    "Version: 1.5.5\n"
-    "A custom firmware for the PicoCalc, Video Game Module, Waveshare Touch LCD, and other Raspberry Pi Pico devices, originally created by JBlanked on 2025-05-13.\n"
-    "This firmware was made with MicroPython and is open source on GitHub. Developers are welcome to contribute.\n"
-    "Picoware is a work in progress and is not yet complete. Some features may not work as expected. Picoware is not affiliated with ClockworkPI, the Raspberry Pi Foundation, or any other organization.\n"
-    "Discord: https://discord.gg/5aN9qwkEc6\n"
-    "GitHub: https://www.github.com/jblanked/Picoware\n"
-    "Instagram: @jblanked"
-)
-
 
 def start(view_manager) -> bool:
     """Start the app."""
@@ -25,7 +14,18 @@ def start(view_manager) -> bool:
             view_manager.get_foreground_color(),
             view_manager.get_background_color(),
         )
-        _about.set_text(_ABOUT_TEXT)
+        _about.set_text(
+            (
+                "Picoware\n"
+                "Version: 1.5.6\n"
+                "A custom firmware for the PicoCalc, Video Game Module, Waveshare Touch LCD, and other Raspberry Pi Pico devices, originally created by JBlanked on 2025-05-13.\n"
+                "This firmware was made with MicroPython and is open source on GitHub. Developers are welcome to contribute.\n"
+                "Picoware is a work in progress and is not yet complete. Some features may not work as expected. Picoware is not affiliated with ClockworkPI, the Raspberry Pi Foundation, or any other organization.\n"
+                "Discord: https://discord.gg/5aN9qwkEc6\n"
+                "GitHub: https://www.github.com/jblanked/Picoware\n"
+                "Instagram: @jblanked"
+            )
+        )
     return True
 
 
@@ -38,7 +38,6 @@ def run(view_manager) -> None:
         BUTTON_LEFT,
     )
 
-    global _about
     if not _about:
         return
 

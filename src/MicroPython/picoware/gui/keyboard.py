@@ -129,7 +129,7 @@ class Keyboard:
         self.is_caps_lock_on = False
         self.current_key: int = -1
         self.dpad_input: int = -1
-        self.response = ""
+        self._response = ""
         self.is_save_pressed = False
         self.just_stopped = False
         self.current_title = "Enter Text"
@@ -158,9 +158,19 @@ class Keyboard:
         """Sets the current title of the keyboard"""
         self.current_title = value
 
+    @property
+    def response(self) -> str:
+        """Returns the response string"""
+        return self._response
+
+    @response.setter
+    def response(self, value: str):
+        """Sets the response string"""
+        self._response = value
+
     def get_response(self) -> str:
         """Returns the response string"""
-        return self.response
+        return self._response
 
     def set_save_callback(self, callback: callable):
         """Sets the save callback function"""
@@ -168,7 +178,7 @@ class Keyboard:
 
     def set_response(self, text: str):
         """Sets the response string"""
-        self.response = text
+        self._response = text
 
     def reset(self):
         """Resets the keyboard state"""
@@ -177,7 +187,7 @@ class Keyboard:
         self.cursor_col = 0
         self.is_shift_pressed = False
         self.is_caps_lock_on = False
-        self.response = ""
+        self._response = ""
         self.on_save_callback = None
         self.is_save_pressed = False
         self.current_title = "Enter Text"
@@ -300,7 +310,7 @@ class Keyboard:
         )
 
         # Draw response text with word wrapping
-        display_text = self.response
+        display_text = self._response
         max_chars_per_line = (self.draw.size.x - 10) // 6  # Approximate character width
         max_lines = (self.TEXTBOX_HEIGHT - 10) // 10  # Approximate line height
 
@@ -479,7 +489,7 @@ class Keyboard:
             BUTTON_PLUS: "+",
         }
         if self.dpad_input in manual_keys:
-            self.response += manual_keys[self.dpad_input]
+            self._response += manual_keys[self.dpad_input]
             return
 
         # Handle direct key presses
@@ -547,23 +557,23 @@ class Keyboard:
         self.current_key = key.normal
 
         if self.current_key == "\b":  # Backspace
-            if self.response:
-                self.response = self.response[:-1]
+            if self._response:
+                self._response = self._response[:-1]
         elif self.current_key == "\x01":  # Caps Lock
             self.is_caps_lock_on = not self.is_caps_lock_on
         elif self.current_key == "\x02":  # Shift
             self.is_shift_pressed = not self.is_shift_pressed
         elif self.current_key == "\r":  # Enter
-            self.response += "\n"
+            self._response += "\n"
         elif self.current_key == " ":  # Space
-            self.response += " "
+            self._response += " "
         elif self.current_key == "\x03":  # Save
             if self.on_save_callback:
-                self.on_save_callback(self.response)
+                self.on_save_callback(self._response)
             self.is_save_pressed = True
         elif self.current_key == "?" and self.cursor_row == 1 and self.cursor_col == 12:
             # Clear function
-            self.response = ""
+            self._response = ""
         else:
             # Regular character
             if "a" <= self.current_key <= "z":
@@ -571,13 +581,13 @@ class Keyboard:
                 should_capitalize = (
                     self.is_shift_pressed and not self.is_caps_lock_on
                 ) or (not self.is_shift_pressed and self.is_caps_lock_on)
-                self.response += key.shifted if should_capitalize else key.normal
+                self._response += key.shifted if should_capitalize else key.normal
             elif self.is_shift_pressed and key.normal != key.shifted:
                 # Handle shifted special characters
-                self.response += key.shifted
+                self._response += key.shifted
             else:
                 # Normal character
-                self.response += key.normal
+                self._response += key.normal
 
             # Reset shift after character entry (ignore left/right/up/down)
             d_pad = {

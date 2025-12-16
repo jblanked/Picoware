@@ -22,6 +22,21 @@ class HTTP:
         self.clear_async_response()
 
     @property
+    def error(self):
+        """Get the async error message, if any."""
+        return self._async_error
+
+    @property
+    def is_finished(self) -> bool:
+        """Check if the async request is finished."""
+        return self._async_request_complete
+
+    @property
+    def is_successful(self) -> bool:
+        """Check if the async request was successful."""
+        return self._async_request_complete and self._async_error is None
+
+    @property
     def response(self):
         """Get the async response data."""
         return self._async_response

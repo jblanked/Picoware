@@ -183,7 +183,7 @@ def run(view_manager) -> None:
         if _gps_http.is_request_complete():
             _gps_request_in_progress = False
 
-            gps_response: str = _gps_http.response
+            gps_response: str = _gps_http.response.text if _gps_http.response else ""
 
             if gps_response:
                 # parse the location data
@@ -212,8 +212,6 @@ def run(view_manager) -> None:
                 # also necessary for next iteration
                 del _gps_http
                 _gps_http = None
-
-                return
             else:
                 draw.clear(Vector(0, 0), draw.size, view_manager.get_background_color())
                 error_msg = "Failed to get location data."

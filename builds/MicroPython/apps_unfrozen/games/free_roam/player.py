@@ -360,7 +360,7 @@ class Player(Entity):
                 self.loading.animate(swap=False)
                 return
             # Request is complete, process the response
-            response = self.http.response
+            response = self.http.response.text
             if "[SUCCESS]" in response:
                 self.login_status = LOGIN_SUCCESS
                 self.current_main_view = GAME_VIEW_TITLE  # bring to the next view
@@ -858,7 +858,7 @@ class Player(Entity):
             if not self.http.is_request_complete():
                 self.loading.animate(swap=False)
                 return
-            response = self.http.response
+            response = self.http.response.text
             if "[SUCCESS]" in response:
                 self.registration_status = REGISTRATION_SUCCESS
                 self.current_main_view = GAME_VIEW_TITLE  # bring to the next view
@@ -921,7 +921,7 @@ class Player(Entity):
             if not self.http.is_request_complete():
                 self.loading.animate(swap=False)
                 return
-            response = self.http.response
+            response = self.http.response.text
             if not response:
                 self.user_info_status = USER_INFO_REQUEST_ERROR
                 return

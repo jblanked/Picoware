@@ -77,9 +77,9 @@ def start(view_manager) -> bool:
         _weather_http = None
 
     draw = view_manager.get_draw()
-    
+
     wifi = view_manager.get_wifi()
-    
+
     # if not a wifi device, return
     if not wifi:
         from picoware.gui.alert import Alert
@@ -98,6 +98,7 @@ def start(view_manager) -> bool:
     # Check if WiFi is connected
     if not wifi.is_connected():
         from picoware.applications.wifi.utils import connect_to_saved_wifi
+
         __weather_alert_and_return(view_manager, "WiFi not connected yet.")
         connect_to_saved_wifi(view_manager)
         return False
@@ -178,7 +179,9 @@ def run(view_manager) -> None:
         if _weather_http.is_request_complete():
             _location_request_in_progress = False
 
-            location_response = _weather_http.response
+            location_response = (
+                _weather_http.response.text if _weather_http.response else ""
+            )
 
             if location_response:
                 try:
@@ -262,7 +265,7 @@ def run(view_manager) -> None:
         if _weather_http.is_request_complete():
             _weather_request_in_progress = False
 
-            weather_response = _weather_http.response
+            weather_response = _weather_http.response.text
 
             if weather_response:
                 # wttr.in has each value separated by a comma

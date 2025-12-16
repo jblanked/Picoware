@@ -301,7 +301,7 @@ class FlipSocialRun:
                 self.__comments_loading_started = False
         elif self.comments_status == COMMENTS_SUCCESS:
             if self.http and self.http.response:
-                response = self.http.response
+                response = self.http.response.text
                 if '"comments":[{' in response:
                     try:
                         from ujson import loads as json_loads
@@ -427,7 +427,7 @@ class FlipSocialRun:
                     self.comments_status = COMMENTS_REQUEST_ERROR
                     return
 
-                if "[SUCCESS]" in self.http.response:
+                if "[SUCCESS]" in self.http.response.text:
                     self.current_view = SOCIAL_VIEW_FEED
                     self.current_menu_index = SOCIAL_VIEW_FEED
                     self.comments_status = COMMENTS_NOT_STARTED
@@ -472,7 +472,7 @@ class FlipSocialRun:
                     self.explore_status = EXPLORE_REQUEST_ERROR
                     return
 
-                response: str = self.http.response
+                response: str = self.http.response.text
 
                 if response and "users" in response:
                     self.explore_status = EXPLORE_SUCCESS
@@ -563,7 +563,7 @@ class FlipSocialRun:
                     self.explore_status = EXPLORE_REQUEST_ERROR
                     return
 
-                if "[SUCCESS]" in self.http.response:
+                if "[SUCCESS]" in self.http.response.text:
                     self.current_view = SOCIAL_VIEW_MESSAGE_USERS
                     self.current_menu_index = SOCIAL_VIEW_MESSAGE_USERS
                     self.message_users_status = MESSAGE_USERS_NOT_STARTED
@@ -680,7 +680,9 @@ class FlipSocialRun:
                 if self.http.response:
                     self.feed_status = FEED_SUCCESS
                     storage = self.view_manager.get_storage()
-                    storage.write("picoware/flip_social/feed.json", self.http.response)
+                    storage.write(
+                        "picoware/flip_social/feed.json", self.http.response.text
+                    )
                     if self.loading:
                         self.loading.stop()
                     self.__feed_loading_started = False
@@ -763,7 +765,7 @@ class FlipSocialRun:
                 if not self.http or self.http.state == HTTP_ISSUE:
                     self.feed_status = FEED_REQUEST_ERROR
                     return
-                if "[SUCCESS]" in self.http.response:
+                if "[SUCCESS]" in self.http.response.text:
                     from ujson import loads as json_loads
                     from ujson import dumps as json_dumps
 
@@ -833,7 +835,7 @@ class FlipSocialRun:
                     self.login_status = LOGIN_REQUEST_ERROR
                     return
 
-                response = self.http.response
+                response = self.http.response.text
                 if response:
                     if "[SUCCESS]" in response:
                         self.login_status = LOGIN_SUCCESS
@@ -979,7 +981,7 @@ class FlipSocialRun:
                     self.messages_status = MESSAGES_REQUEST_ERROR
                     return
 
-                if self.http.response and "conversations" in self.http.response:
+                if self.http.response and "conversations" in self.http.response.text:
                     self.messages_status = MESSAGES_SUCCESS
                 else:
                     self.messages_status = MESSAGES_REQUEST_ERROR
@@ -989,7 +991,7 @@ class FlipSocialRun:
                 try:
                     from ujson import loads as json_loads
 
-                    obj: dict = json_loads(self.http.response)
+                    obj: dict = json_loads(self.http.response.text)
                     if "conversations" in obj and isinstance(
                         obj["conversations"], list
                     ):
@@ -1178,7 +1180,7 @@ class FlipSocialRun:
                     self.messages_status = MESSAGES_REQUEST_ERROR
                     return
 
-                if "[SUCCESS]" in self.http.response:
+                if "[SUCCESS]" in self.http.response.text:
                     self.messages_status = MESSAGES_NOT_STARTED
                     self.messages_index = 0
                 else:
@@ -1215,7 +1217,7 @@ class FlipSocialRun:
                     self.message_users_status = MESSAGE_USERS_REQUEST_ERROR
                     return
 
-                response = self.http.response
+                response = self.http.response.text
                 if response and "users" in response:
                     self.message_users_status = MESSAGE_USERS_SUCCESS
                     storage = self.view_manager.get_storage()
@@ -1290,7 +1292,7 @@ class FlipSocialRun:
                     self.post_status = POST_REQUEST_ERROR
                     return
 
-                if "[SUCCESS]" in self.http.response:
+                if "[SUCCESS]" in self.http.response.text:
                     self.post_status = POST_SUCCESS
                     self.current_view = SOCIAL_VIEW_FEED
                     self.current_menu_index = SOCIAL_VIEW_FEED
@@ -1458,7 +1460,7 @@ class FlipSocialRun:
                     self.registration_status = REGISTRATION_REQUEST_ERROR
                     return
 
-                response = self.http.response
+                response = self.http.response.text
                 if response:
                     if "[SUCCESS]" in response:
                         self.registration_status = REGISTRATION_SUCCESS
@@ -1521,7 +1523,7 @@ class FlipSocialRun:
                     # Save user info
                     storage = self.view_manager.get_storage()
                     storage.write(
-                        "picoware/flip_social/profile.json", self.http.response
+                        "picoware/flip_social/profile.json", self.http.response.text
                     )
 
                     if self.loading:

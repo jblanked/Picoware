@@ -223,7 +223,7 @@ def run(view_manager) -> None:
             if not _desktop_time_updated and wifi.is_connected():
                 if _desktop_http and _desktop_http.is_request_complete():
                     try:
-                        response = _desktop_http.response
+                        response = _desktop_http.response.text
                         if not response:
                             # i realized that sometimes this API returns an empty response
                             # but it usually works within 2-3 tries

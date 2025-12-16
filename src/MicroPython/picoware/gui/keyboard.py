@@ -139,6 +139,16 @@ class Keyboard:
         self.current_title = ""
 
     @property
+    def callback(self) -> callable:
+        """Returns the current save callback function"""
+        return self.on_save_callback
+
+    @callback.setter
+    def callback(self, value: callable):
+        """Sets the current save callback function"""
+        self.on_save_callback = value
+
+    @property
     def is_finished(self) -> bool:
         """Returns whether the keyboard is finished"""
         return self.is_save_pressed

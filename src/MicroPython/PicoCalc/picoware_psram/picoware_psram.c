@@ -9,6 +9,7 @@
 #include "py/obj.h"
 #include "py/objarray.h"
 #include "py/mphal.h"
+#include "py/objstr.h"
 #include "psram_spi.h"
 #include <stdlib.h>
 #include <string.h>
@@ -202,8 +203,20 @@ STATIC mp_obj_t picoware_psram_write(mp_obj_t addr_obj, mp_obj_t data_obj)
     {
         mp_raise_ValueError(MP_ERROR_TEXT("Write would exceed PSRAM size"));
     }
+    // Chunked DMA write
+    const uint8_t *src = (const uint8_t *)bufinfo.buf;
+    uint32_t remaining = bufinfo.len;
+    uint32_t offset = 0;
+    const uint32_t MAX_WRITE_CHUNK = 27;
 
-    psram_write(&psram_instance, addr, (const uint8_t *)bufinfo.buf, bufinfo.len);
+    while (remaining > 0)
+    {
+        uint32_t chunk_size = (remaining > MAX_WRITE_CHUNK) ? MAX_WRITE_CHUNK : remaining;
+        psram_write(&psram_instance, addr + offset, src + offset, chunk_size);
+        offset += chunk_size;
+        remaining -= chunk_size;
+    }
+
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(picoware_psram_write_obj, picoware_psram_write);
@@ -229,14 +242,25 @@ STATIC mp_obj_t picoware_psram_read(mp_obj_t addr_obj, mp_obj_t length_obj)
         return mp_obj_new_bytes(NULL, 0);
     }
 
-    // Create a new bytes object
-    byte *data = m_new(byte, length);
+    // Use vstr to build the bytes object directly
+    vstr_t vstr;
+    vstr_init_len(&vstr, length);
+    byte *data = (byte *)vstr.buf;
+    // Chunked DMA read
+    uint32_t remaining = length;
+    uint32_t offset = 0;
+    const uint32_t MAX_READ_CHUNK = 31;
 
-    // Read data from PSRAM
-    psram_read(&psram_instance, addr, data, length);
+    while (remaining > 0)
+    {
+        uint32_t chunk_size = (remaining > MAX_READ_CHUNK) ? MAX_READ_CHUNK : remaining;
+        psram_read(&psram_instance, addr + offset, data + offset, chunk_size);
+        offset += chunk_size;
+        remaining -= chunk_size;
+    }
 
-    // Create Python bytes object and let MicroPython manage the memory
-    return mp_obj_new_bytes(data, length);
+    // Create Python bytes object directly from vstr
+    return mp_obj_new_bytes_from_vstr(&vstr);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(picoware_psram_read_obj, picoware_psram_read);
 
@@ -259,7 +283,20 @@ STATIC mp_obj_t picoware_psram_read_into(mp_obj_t addr_obj, mp_obj_t buffer_obj)
         mp_raise_ValueError(MP_ERROR_TEXT("Read would exceed PSRAM size"));
     }
 
-    psram_read(&psram_instance, addr, (uint8_t *)bufinfo.buf, bufinfo.len);
+    // Chunked DMA read
+    uint8_t *dst = (uint8_t *)bufinfo.buf;
+    uint32_t remaining = bufinfo.len;
+    uint32_t offset = 0;
+    const uint32_t MAX_READ_CHUNK = 31;
+
+    while (remaining > 0)
+    {
+        uint32_t chunk_size = (remaining > MAX_READ_CHUNK) ? MAX_READ_CHUNK : remaining;
+        psram_read(&psram_instance, addr + offset, dst + offset, chunk_size);
+        offset += chunk_size;
+        remaining -= chunk_size;
+    }
+
     return mp_obj_new_int(bufinfo.len);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(picoware_psram_read_into_obj, picoware_psram_read_into);
@@ -282,20 +319,35 @@ STATIC mp_obj_t picoware_psram_fill(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("Fill would exceed PSRAM size"));
     }
 
-    // Fill in chunks to avoid memory issues
-    const size_t CHUNK_SIZE = 256;
-    uint8_t fill_buffer[CHUNK_SIZE];
-    memset(fill_buffer, value, CHUNK_SIZE);
+    // Create 32-bit fill value for faster DMA writes
+    uint32_t fill32 = (uint32_t)value | ((uint32_t)value << 8) |
+                      ((uint32_t)value << 16) | ((uint32_t)value << 24);
 
+    uint32_t current_addr = addr;
     uint32_t remaining = length;
-    uint32_t offset = 0;
 
+    // Handle unaligned start with byte writes
+    while (remaining > 0 && (current_addr & 3) != 0)
+    {
+        psram_write8(&psram_instance, current_addr, value);
+        current_addr++;
+        remaining--;
+    }
+
+    // Fast 32-bit aligned fills using DMA
+    while (remaining >= 4)
+    {
+        psram_write32(&psram_instance, current_addr, fill32);
+        current_addr += 4;
+        remaining -= 4;
+    }
+
+    // Handle remaining bytes
     while (remaining > 0)
     {
-        uint32_t chunk_size = (remaining > CHUNK_SIZE) ? CHUNK_SIZE : remaining;
-        psram_write(&psram_instance, addr + offset, fill_buffer, chunk_size);
-        offset += chunk_size;
-        remaining -= chunk_size;
+        psram_write8(&psram_instance, current_addr, value);
+        current_addr++;
+        remaining--;
     }
 
     return mp_const_none;
@@ -320,42 +372,190 @@ STATIC mp_obj_t picoware_psram_copy(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("Copy would exceed PSRAM size"));
     }
 
-    // Use a buffer for copying
-    const size_t CHUNK_SIZE = 256;
-    uint8_t copy_buffer[CHUNK_SIZE];
-
-    uint32_t remaining = length;
-    uint32_t offset = 0;
+    // Check if we can use fast 32-bit aligned copy
+    bool aligned = ((src_addr & 3) == 0) && ((dst_addr & 3) == 0);
 
     // Handle overlapping regions by copying backwards if necessary
     if (dst_addr > src_addr && dst_addr < src_addr + length)
     {
         // Overlapping, copy backwards
-        offset = length;
-        while (offset > 0)
+        uint32_t offset = length;
+
+        if (aligned)
         {
-            uint32_t chunk_size = (offset > CHUNK_SIZE) ? CHUNK_SIZE : offset;
-            offset -= chunk_size;
-            psram_read(&psram_instance, src_addr + offset, copy_buffer, chunk_size);
-            psram_write(&psram_instance, dst_addr + offset, copy_buffer, chunk_size);
+            // Fast 32-bit backward copy for aligned addresses
+            while (offset >= 4)
+            {
+                offset -= 4;
+                uint32_t val = psram_read32(&psram_instance, src_addr + offset);
+                psram_write32(&psram_instance, dst_addr + offset, val);
+            }
+            // Handle remaining bytes
+            while (offset > 0)
+            {
+                offset--;
+                uint8_t val = psram_read8(&psram_instance, src_addr + offset);
+                psram_write8(&psram_instance, dst_addr + offset, val);
+            }
+        }
+        else
+        {
+            // Byte-by-byte for unaligned backward copy
+            while (offset > 0)
+            {
+                offset--;
+                uint8_t val = psram_read8(&psram_instance, src_addr + offset);
+                psram_write8(&psram_instance, dst_addr + offset, val);
+            }
         }
     }
     else
     {
         // Non-overlapping or safe, copy forwards
-        while (remaining > 0)
+        uint32_t offset = 0;
+        uint32_t remaining = length;
+
+        if (aligned)
         {
-            uint32_t chunk_size = (remaining > CHUNK_SIZE) ? CHUNK_SIZE : remaining;
-            psram_read(&psram_instance, src_addr + offset, copy_buffer, chunk_size);
-            psram_write(&psram_instance, dst_addr + offset, copy_buffer, chunk_size);
-            offset += chunk_size;
-            remaining -= chunk_size;
+            // Fast 32-bit forward copy for aligned addresses
+            while (remaining >= 4)
+            {
+                uint32_t val = psram_read32(&psram_instance, src_addr + offset);
+                psram_write32(&psram_instance, dst_addr + offset, val);
+                offset += 4;
+                remaining -= 4;
+            }
+            // Handle remaining bytes
+            while (remaining > 0)
+            {
+                uint8_t val = psram_read8(&psram_instance, src_addr + offset);
+                psram_write8(&psram_instance, dst_addr + offset, val);
+                offset++;
+                remaining--;
+            }
+        }
+        else
+        {
+            // Byte-by-byte for unaligned forward copy
+            while (remaining > 0)
+            {
+                uint8_t val = psram_read8(&psram_instance, src_addr + offset);
+                psram_write8(&psram_instance, dst_addr + offset, val);
+                offset++;
+                remaining--;
+            }
         }
     }
 
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_psram_copy_obj, 3, 3, picoware_psram_copy);
+
+// Fast 32-bit bulk write
+// Writes an array of 32-bit values starting at an aligned address
+STATIC mp_obj_t picoware_psram_write32_bulk(mp_obj_t addr_obj, mp_obj_t data_obj)
+{
+    if (!module_initialized)
+    {
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("PSRAM not initialized. Call init() first."));
+    }
+
+    uint32_t addr = mp_obj_get_int(addr_obj);
+
+    // Get buffer data
+    mp_buffer_info_t bufinfo;
+    mp_get_buffer_raise(data_obj, &bufinfo, MP_BUFFER_READ);
+
+    // Ensure 4-byte alignment
+    if ((addr & 3) != 0)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("Address must be 4-byte aligned for bulk32"));
+    }
+
+    size_t num_words = bufinfo.len / 4;
+    if (addr + (num_words * 4) > PSRAM_SIZE)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("Write would exceed PSRAM size"));
+    }
+
+    const uint32_t *src = (const uint32_t *)bufinfo.buf;
+    for (size_t i = 0; i < num_words; i++)
+    {
+        psram_write32(&psram_instance, addr + (i * 4), src[i]);
+    }
+
+    return mp_obj_new_int(num_words * 4);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(picoware_psram_write32_bulk_obj, picoware_psram_write32_bulk);
+
+// Fast 32-bit bulk read
+// Reads an array of 32-bit values into a provided buffer
+STATIC mp_obj_t picoware_psram_read32_bulk(mp_obj_t addr_obj, mp_obj_t buffer_obj)
+{
+    if (!module_initialized)
+    {
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("PSRAM not initialized. Call init() first."));
+    }
+
+    uint32_t addr = mp_obj_get_int(addr_obj);
+
+    // Get buffer data
+    mp_buffer_info_t bufinfo;
+    mp_get_buffer_raise(buffer_obj, &bufinfo, MP_BUFFER_WRITE);
+
+    // Ensure 4-byte alignment
+    if ((addr & 3) != 0)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("Address must be 4-byte aligned for bulk32"));
+    }
+
+    size_t num_words = bufinfo.len / 4;
+    if (addr + (num_words * 4) > PSRAM_SIZE)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("Read would exceed PSRAM size"));
+    }
+
+    uint32_t *dst = (uint32_t *)bufinfo.buf;
+    for (size_t i = 0; i < num_words; i++)
+    {
+        dst[i] = psram_read32(&psram_instance, addr + (i * 4));
+    }
+
+    return mp_obj_new_int(num_words * 4);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(picoware_psram_read32_bulk_obj, picoware_psram_read32_bulk);
+
+// Fill with 32-bit values
+STATIC mp_obj_t picoware_psram_fill32(size_t n_args, const mp_obj_t *args)
+{
+    if (!module_initialized)
+    {
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("PSRAM not initialized. Call init() first."));
+    }
+
+    // Arguments: addr, value (32-bit), count (number of 32-bit words)
+    uint32_t addr = mp_obj_get_int(args[0]);
+    uint32_t value = (uint32_t)mp_obj_get_int_truncated(args[1]);
+    uint32_t count = mp_obj_get_int(args[2]);
+
+    if ((addr & 3) != 0)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("Address must be 4-byte aligned for fill32"));
+    }
+
+    if (addr + (count * 4) > PSRAM_SIZE)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("Fill would exceed PSRAM size"));
+    }
+
+    for (uint32_t i = 0; i < count; i++)
+    {
+        psram_write32(&psram_instance, addr + (i * 4), value);
+    }
+
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_psram_fill32_obj, 3, 3, picoware_psram_fill32);
 
 // Get PSRAM size
 STATIC mp_obj_t picoware_psram_size(void)
@@ -425,6 +625,11 @@ STATIC const mp_rom_map_elem_t picoware_psram_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_write), MP_ROM_PTR(&picoware_psram_write_obj)},
     {MP_ROM_QSTR(MP_QSTR_read), MP_ROM_PTR(&picoware_psram_read_obj)},
     {MP_ROM_QSTR(MP_QSTR_read_into), MP_ROM_PTR(&picoware_psram_read_into_obj)},
+
+    // 32-bit bulk operations
+    {MP_ROM_QSTR(MP_QSTR_write32_bulk), MP_ROM_PTR(&picoware_psram_write32_bulk_obj)},
+    {MP_ROM_QSTR(MP_QSTR_read32_bulk), MP_ROM_PTR(&picoware_psram_read32_bulk_obj)},
+    {MP_ROM_QSTR(MP_QSTR_fill32), MP_ROM_PTR(&picoware_psram_fill32_obj)},
 
     // Utility operations
     {MP_ROM_QSTR(MP_QSTR_fill), MP_ROM_PTR(&picoware_psram_fill_obj)},

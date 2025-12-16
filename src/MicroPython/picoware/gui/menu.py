@@ -135,6 +135,11 @@ class Menu:
         """Get the index of the selected item."""
         return self.list.selected_index
 
+    def refresh(self) -> None:
+        """Refresh the menu display."""
+        self.draw_title()
+        self.list.set_selected(self.list.selected_index)
+
     def remove_item(self, index: int) -> None:
         """Remove an item from the menu."""
         self.list.remove_item(index)

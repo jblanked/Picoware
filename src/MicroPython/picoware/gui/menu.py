@@ -56,7 +56,7 @@ class Menu:
     @property
     def item_count(self) -> int:
         """Get the number of items."""
-        return self.list.get_item_count()
+        return self.list.item_count
 
     @property
     def list_height(self) -> int:
@@ -134,6 +134,10 @@ class Menu:
     def get_selected_index(self) -> int:
         """Get the index of the selected item."""
         return self.list.selected_index
+
+    def item_exists(self, item: str) -> bool:
+        """Check if an item exists in the menu."""
+        return self.list.item_exists(item)
 
     def refresh(self) -> None:
         """Refresh the menu display."""

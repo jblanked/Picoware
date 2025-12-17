@@ -232,6 +232,10 @@ class List:
         """Get the height of the list."""
         return len(self.items) * self.item_height
 
+    def item_exists(self, item: str) -> bool:
+        """Check if an item exists in the list."""
+        return item in self.items
+
     def remove_item(self, index: int) -> None:
         """Remove an item from the list and update the display."""
         # Remove the item from the list

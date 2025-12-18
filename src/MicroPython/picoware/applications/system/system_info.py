@@ -6,9 +6,21 @@ def __set_text():
 
     if _system_info:
         system = System()
-        # well I got a freeze on the Pico
-        # for now, only show psram info for Pico 2/Pico 2W
-        info = f"System Information\n\nFree Heap: {system.free_heap()} bytes\nUsed Heap: {system.used_heap()} bytes\nFree PSRAM: {system.free_psram()} bytes\nUsed PSRAM: {system.used_psram()} bytes"
+        info = f"""
+        System Information
+
+        Free Heap: {system.free_heap} bytes
+        Used Heap: {system.used_heap} bytes
+        Total Heap: {system.total_heap} bytes
+
+        Free PSRAM: {system.free_psram} bytes
+        Used PSRAM: {system.used_psram} bytes
+        Total PSRAM: {system.total_psram} bytes
+
+        Free Flash: {system.free_flash} bytes
+        Used Flash: {system.used_flash} bytes
+        Total Flash: {system.total_flash} bytes
+        """
         _system_info.set_text(info)
 
 
@@ -17,6 +29,7 @@ def start(view_manager) -> bool:
     from picoware.gui.textbox import TextBox
 
     global _system_info
+
     if _system_info is None:
         _system_info = TextBox(
             view_manager.draw,
@@ -33,7 +46,7 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Animate the loading spinner."""
-    from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
+    from picoware.system.buttons import BUTTON_BACK
 
     input_manager = view_manager.input_manager
     button: int = input_manager.get_last_button()
@@ -41,14 +54,6 @@ def run(view_manager) -> None:
     if button == BUTTON_BACK:
         input_manager.reset()
         view_manager.back()
-    elif button == BUTTON_CENTER:
-        from gc import collect
-
-        collect()
-        input_manager.reset()
-
-        if _system_info:
-            __set_text()
 
 
 def stop(view_manager) -> None:
@@ -59,4 +64,5 @@ def stop(view_manager) -> None:
     if _system_info:
         del _system_info
         _system_info = None
+
     collect()

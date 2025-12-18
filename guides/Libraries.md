@@ -43,7 +43,7 @@ This section provides documentation for the libraries available in Picoware.
 
 ### System
 
-#### picoware.system.bluetooth
+#### picoware-system-bluetooth
 - `_IRQ_CENTRAL_CONNECT`: Constant for central connect event (1)
 - `_IRQ_CENTRAL_DISCONNECT`: Constant for central disconnect event (2)
 - `_IRQ_GATTS_WRITE`: Constant for GATT server write event (3)
@@ -100,7 +100,7 @@ This section provides documentation for the libraries available in Picoware.
     - `subscribe(handle, notify=True)`: Subscribe to notifications from a characteristic.
     - `write(data, handle=None, response=False)`: Write data to the connected peripheral.
 
-#### picoware.system.buttons
+#### picoware-system-buttons
 - `BUTTON_NONE`: No button pressed (-1)
 - `BUTTON_UART`: UART button (-2)
 - `BUTTON_PICO_CALC`: PicoCalc button (-3)
@@ -124,7 +124,7 @@ This section provides documentation for the libraries available in Picoware.
 
 Check the source code for all available button and key constants.
 
-#### picoware.system.colors
+#### picoware-system-colors
 - `TFT_WHITE`: A constant representing the color white (0xFFFF)
 - `TFT_BLACK`: A constant representing the color black (0x0000)
 - `TFT_BLUE`: A constant representing the color blue (0x001F)
@@ -144,7 +144,7 @@ Check the source code for all available button and key constants.
 - `TFT_PINK`: A constant representing the color pink (0xFE19)
 
 
-#### picoware.system.http
+#### picoware-system-http
 - `HTTP_IDLE`: A constant representing the idle state (0)
 - `HTTP_LOADING`: A constant representing the loading state (1)
 - `HTTP_ISSUE`: A constant representing the issue state (2)
@@ -172,7 +172,7 @@ Check the source code for all available button and key constants.
     - `put(url, payload, headers, timeout, save_to_file, storage)`: Performs a synchronous HTTP PUT request with payload.
     - `put_async(url, payload, headers, timeout, save_to_file, storage)`: Starts an asynchronous HTTP PUT request.
 
-#### picoware.system.input
+#### picoware-system-input
 - `Input` class: A class for handling user input:
     - `__init__()`: Initializes the Input object.
     - `battery`: Property that returns the current battery level as a percentage (0-100).
@@ -188,7 +188,7 @@ Check the source code for all available button and key constants.
     - `read_non_blocking()`: Returns the key code as integer, or -1 if no key is pressed.
     - `reset()`: Resets the input state.
 
-#### picoware.system.LED
+#### picoware-system-LED
 - `LED` class: A class for controlling the built-in LED:
     - `__init__(pin)`: Initializes the LED object with the specified pin (default is the onboard LED pin).
     - `blink(duration)`: A function that blinks the LED for a specified duration (in seconds).
@@ -196,7 +196,7 @@ Check the source code for all available button and key constants.
     - `on()`: A function that turns the LED on.
     - `toggle()`: A function that toggles the LED state.
 
-#### picoware.system.storage
+#### picoware-system-storage
 - `Storage` class: A class for handling file storage:
     - `__init__()`: Initializes the Storage object.
     - `active`: Property that returns True if the storage is active (mounted).
@@ -225,7 +225,7 @@ Check the source code for all available button and key constants.
     - `unmount()`: Unmounts the SD card (including VFS if mounted).
     - `unmount_vfs(mount_point)`: Unmounts the VFS filesystem.
 
-#### picoware.system.system
+#### picoware-system-system
 - `System` class: Handle basic system operations:
     - `__init__()`: Initializes the System object.
     - `board_id`: Property that returns the board ID.
@@ -249,7 +249,7 @@ Check the source code for all available button and key constants.
     - `hard_reset()`: Reboots the system.
     - `shutdown_device(view_manager)`: Shuts down the device (if supported).
 
-#### picoware.system.time
+#### picoware-system-time
 - `Time` class: A class for handling time-related functions:
     - `__init__()`: Initializes the Time object.
     - `date`: A property that returns the current date as a string
@@ -257,7 +257,7 @@ Check the source code for all available button and key constants.
     - `time`: A property that returns the current time as a string.
     - `set(year, month, day, hour, minute, second)`: A function that sets the current date and time.
 
-#### picoware.system.vector
+#### picoware-system-vector
 - `Vector` class: A simple 2D vector class for handling coordinates and basic vector operations:
     - `__init__(x=0, y=0)`: Initializes the Vector with x and y coordinates. If x is a tuple, it unpacks it.
     - `from_val(value)`: Class method to ensure the value is a Vector. Converts tuples to Vector instances.
@@ -266,7 +266,7 @@ Check the source code for all available button and key constants.
     - `__rmul__(scalar)`: Right multiplication by a scalar (same as __mul__).
     - `__str__()`: Returns a string representation of the vector as "(x, y)".
 
-#### picoware.system.wifi
+#### picoware-system-wifi
 - `WIFI_STATE_INACTIVE`: WiFi inactive state (-1)
 - `WIFI_STATE_IDLE`: WiFi idle state (0)
 - `WIFI_STATE_CONNECTING`: WiFi connecting state (1)
@@ -285,7 +285,7 @@ Check the source code for all available button and key constants.
     - `reset()`: Resets the Wi-Fi configuration.
     - `update()`: Updates the Wi-Fi connection state (for async connections). Returns True when connected.
 
-#### picoware.system.view
+#### picoware-system-view
 - `View` class: A class representing a view in the system with lifecycle methods:
     - `__init__(name, run, start, stop)`: Initializes the View with a name and callable functions for run, start, and stop.
     - `active`: Attribute indicating if the view is currently active.
@@ -294,7 +294,7 @@ Check the source code for all available button and key constants.
     - `stop(view_manager)`: Called when the view is destroyed.
     - `run(view_manager)`: Called every frame while the view is active.
 
-#### picoware.system.view_manager
+#### picoware-system-view_manager
 - `ViewManager` class: A class that manages multiple views and provides navigation capabilities:
     - `MAX_VIEWS`: Maximum number of views (10).
     - `MAX_STACK_SIZE`: Maximum stack size for navigation (10).
@@ -331,20 +331,20 @@ Check the source code for all available button and key constants.
 
 ### GUI
 
-#### picoware.gui.alert
+#### picoware-gui-alert
 - `Alert` class: A simple alert dialog class for displaying messages to the user:
     - `__init__(draw, text, text_color, background_color)`: Initialize the Alert with drawing context and styling.
     - `clear()`: Clear the display with the background color.
     - `draw(title)`: Render the alert message on the display.
 
-#### picoware.gui.choice
+#### picoware-gui-choice
 - `Choice` class: A simple choice switch for the GUI:
     - `__init__(draw, position, size, title, options, initial_state, foreground_color, background_color)`: Initialize the Choice with drawing context, position, size, title, options, and styling.
     - `state`: Property to get/set the current state of the choice.
     - `clear()`: Clear the choice area with the background color.
     - `draw()`: Render the choices on the display.
 
-#### picoware.gui.desktop
+#### picoware-gui-desktop
 - `Desktop` class: A class to manage the desktop environment for the display:
     - `__init__(draw, text_color, background_color)`: Initializes the Desktop with drawing context and colors.
     - `clear()`: Clear the display with the background color.
@@ -353,7 +353,7 @@ Check the source code for all available button and key constants.
     - `set_battery(battery_level)`: Set the battery level on the header.
     - `set_time(time_str)`: Set the time on the header.
 
-#### picoware.gui.draw
+#### picoware-gui-draw
 - `Draw` class: Class for drawing shapes and text on the display:
     - `__init__(foreground, background)`: Initializes the Draw object with colors.
     - `background`: Property to get/set the current background color.
@@ -386,7 +386,7 @@ Check the source code for all available button and key constants.
     - `text_char(position, char, color)`: Draw a single character on the display.
     - `triangle(point1, point2, point3, color)`: Draw a triangle outline.
 
-#### picoware.gui.image
+#### picoware-gui-image
 - `Image` class: Represents an image with RGB565 pixel data for MicroPython:
     - `__init__()`: Initializes an empty Image object.
     - `size`: Attribute containing the image dimensions as a Vector.
@@ -396,7 +396,7 @@ Check the source code for all available button and key constants.
     - `from_string(image_str)`: Create a tiny monochrome-style RGB565 image from ASCII art.
     - `get_pixel(x, y)`: Get RGB565 pixel value at coordinates (x, y).
 
-#### picoware.gui.keyboard
+#### picoware-gui-keyboard
 - `KeyLayout` class: Defines the keyboard layout structure:
     - `__init__(normal, shifted, width)`: Initializes with normal, shifted characters and width.
 - `Keyboard` class: A simple on-screen keyboard class for a GUI:
@@ -415,7 +415,7 @@ Check the source code for all available button and key constants.
     - `reset()`: Resets the keyboard state.
     - `run(swap, force)`: Run the keyboard input loop.
 
-#### picoware.gui.list
+#### picoware-gui-list
 - `List` class: A simple list class for a GUI:
     - `__init__(draw, y, height, text_color, background_color, selected_color, border_color, border_width)`: Initializes the List with drawing context and styling.
     - `item_count`: Property that returns the number of items in the list.
@@ -432,7 +432,7 @@ Check the source code for all available button and key constants.
     - `scroll_up()`: Scroll the list up by one item.
     - `set_selected(index)`: Set the selected item in the list.
 
-#### picoware.gui.loading
+#### picoware-gui-loading
 - `Loading` class: A loading class with spinner animation:
     - `__init__(draw, spinner_color, background_color)`: Initializes the Loading with drawing context and colors.
     - `text`: Property to get/set the current loading text.
@@ -441,7 +441,7 @@ Check the source code for all available button and key constants.
     - `set_text(text)`: Set the loading text.
     - `stop()`: Stop the loading animation.
 
-#### picoware.gui.menu
+#### picoware-gui-menu
 - `Menu` class: A simple menu class for a GUI:
     - `__init__(draw, title, y, height, text_color, background_color, selected_color, border_color, border_width)`: Initializes the Menu with drawing context and styling.
     - `current_item`: Property that gets the current item.
@@ -465,14 +465,14 @@ Check the source code for all available button and key constants.
     - `scroll_up()`: Scroll up the menu.
     - `set_selected(index)`: Set the selected item.
 
-#### picoware.gui.scrollbar
+#### picoware-gui-scrollbar
 - `ScrollBar` class: A simple scrollbar class for a GUI:
     - `__init__(draw, position, size, outline_color, fill_color, is_horizontal)`: Initializes the ScrollBar with drawing context, colors, and orientation.
     - `clear()`: Clear the scrollbar.
     - `draw()`: Draw the scrollbar.
     - `set_all(position, size, outline_color, fill_color, is_horizontal, should_draw, should_clear)`: Set the properties of the scrollbar.
 
-#### picoware.gui.textbox
+#### picoware-gui-textbox
 - `TextBox` class: Class for a text box with scrolling functionality:
     - `__init__(draw, y, height, foreground_color, background_color, show_scrollbar)`: Initializes the TextBox with drawing context and styling.
     - `text`: Property that gets the current text in the text box.
@@ -487,7 +487,7 @@ Check the source code for all available button and key constants.
     - `set_current_line(line)`: Scroll the text box to the specified line.
     - `set_text(text)`: Set the text in the text box, wrap lines, and scroll to bottom.
 
-#### picoware.gui.toggle
+#### picoware-gui-toggle
 - `Toggle` class: A simple toggle switch for the GUI:
     - `__init__(draw, position, size, text, initial_state, foreground_color, background_color, on_color, border_color, border_width)`: Initialize the Toggle switch with drawing context and styling.
     - `state`: Attribute indicating the current toggle state.
@@ -496,7 +496,7 @@ Check the source code for all available button and key constants.
 
 ### Engine
 
-#### picoware.engine.engine
+#### picoware-engine-engine
 - `GameEngine` class: Represents a game engine:
     - `__init__(game, fps)`: Initialize the game engine.
     - `run()`: Run the game engine.
@@ -504,7 +504,7 @@ Check the source code for all available button and key constants.
     - `stop()`: Stop the game engine.
     - `update_game_input(game_input)`: Update the game input.
 
-#### picoware.engine.entity
+#### picoware-engine-entity
 - `ENTITY_STATE_IDLE`, `ENTITY_STATE_MOVING`, `ENTITY_STATE_MOVING_TO_START`, `ENTITY_STATE_MOVING_TO_END`, `ENTITY_STATE_ATTACKING`, `ENTITY_STATE_DEAD`: Constants for entity states.
 - `ENTITY_TYPE_PLAYER`, `ENTITY_TYPE_ENEMY`, `ENTITY_TYPE_ICON`, `ENTITY_TYPE_NPC`, `ENTITY_TYPE_3D_SPRITE`: Constants for entity types.
 - `SPRITE_3D_NONE`, `SPRITE_3D_HUMANOID`, `SPRITE_3D_TREE`, `SPRITE_3D_HOUSE`, `SPRITE_3D_PILLAR`, `SPRITE_3D_CUSTOM`: Constants for 3D sprite types.
@@ -527,7 +527,7 @@ Check the source code for all available button and key constants.
     - `stop(game)`: Called when the entity is destroyed.
     - `update(game)`: Called every frame.
 
-#### picoware.engine.game
+#### picoware-engine-game
 - `Game` class: Represents a game:
     - `__init__(name, size, draw, input_manager, foreground_color, background_color, perspective, start, stop)`: Initializes the game.
     - `perspective`: Property to get/set the camera perspective.
@@ -544,7 +544,7 @@ Check the source code for all available button and key constants.
     - `stop()`: Stop the game.
     - `update()`: Update the game input and entity positions.
 
-#### picoware.engine.level
+#### picoware-engine-level
 - `CAMERA_FIRST_PERSON`, `CAMERA_THIRD_PERSON`: Constants for camera perspectives.
 - `Level` class: Represents a level in the game:
     - `__init__(name, size, game, start, stop)`: Initializes the level.

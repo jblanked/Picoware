@@ -14,11 +14,8 @@ class Draw:
 
         self._current_board_id = get_current_id()
 
-        self.background = background
-        self.foreground = foreground
-        self.text_background = background
-        self.text_foreground = foreground
-        self.use_background_text_color = False
+        self._background = background
+        self._foreground = foreground
 
         self._size = Vector(0, 0)
         self.palette = None
@@ -54,6 +51,16 @@ class Draw:
             clear_framebuffer(self._rgb565_to_rgb332(background))
 
     @property
+    def background(self) -> int:
+        """Get the current background color"""
+        return self._background
+
+    @background.setter
+    def background(self, color: int):
+        """Set the current background color"""
+        self._background = color
+
+    @property
     def board_id(self) -> int:
         """Get the current board ID"""
         return self._current_board_id
@@ -73,6 +80,16 @@ class Draw:
         from picoware_lcd import CHAR_WIDTH, FONT_HEIGHT
 
         return Vector(CHAR_WIDTH, FONT_HEIGHT)
+
+    @property
+    def foreground(self) -> int:
+        """Get the current foreground color"""
+        return self._foreground
+
+    @foreground.setter
+    def foreground(self, color: int):
+        """Set the current foreground color"""
+        self._foreground = color
 
     @property
     def size(self) -> Vector:
@@ -120,45 +137,33 @@ class Draw:
         except:
             pass
 
-    def _draw_pixel_to_buffer(self, position: Vector, color: int):
-        """Draw a pixel to the framebuffer"""
-        if self._current_board_id in (
-            BOARD_WAVESHARE_1_28_RP2350,
-            BOARD_WAVESHARE_1_43_RP2350,
-        ):
-            from waveshare_lcd import draw_pixel
-
-            draw_pixel(int(position.x), int(position.y), color)
-        else:
-            from picoware_lcd import draw_pixel
-
-            draw_pixel(int(position.x), int(position.y), color)
-
-    def circle(self, position: Vector, radius: int, color: int = TFT_WHITE):
+    def circle(self, position: Vector, radius: int, color: int = None):
         """Draw a circle outline"""
+        _color = color if color is not None else self._foreground
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
         ):
             from waveshare_lcd import draw_circle
 
-            draw_circle(int(position.x), int(position.y), radius, color)
+            draw_circle(int(position.x), int(position.y), radius, _color)
         else:
             from picoware_lcd import draw_circle
 
-            draw_circle(int(position.x), int(position.y), radius, color)
+            draw_circle(int(position.x), int(position.y), radius, _color)
 
     def clear(
         self,
         position: Vector = Vector(0, 0),
         size: Vector = Vector(320, 320),
-        color=TFT_BLACK,
+        color=None,
     ):
         """Fill a rectangular area with a color"""
+        _color = color if color is not None else self._background
         if position == Vector(0, 0) and size == Vector(320, 320):
-            self.fill_screen(color)
+            self.fill_screen(_color)
         else:
-            self.fill_rectangle(position, size, color)
+            self.fill_rectangle(position, size, _color)
 
     def cleanup(self):
         """Cleanup all allocated buffers and free memory"""
@@ -185,24 +190,26 @@ class Draw:
 
     def erase(self):
         """Erase the display by filling with background color"""
-        self.fill_screen(self.background)
+        self.fill_screen(self._background)
 
-    def fill_circle(self, position: Vector, radius: int, color=TFT_WHITE):
+    def fill_circle(self, position: Vector, radius: int, color=None):
         """Draw a filled circle"""
+        _color = color if color is not None else self._foreground
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
         ):
             from waveshare_lcd import fill_circle
 
-            fill_circle(int(position.x), int(position.y), radius, color)
+            fill_circle(int(position.x), int(position.y), radius, _color)
         else:
             from picoware_lcd import fill_circle
 
-            fill_circle(int(position.x), int(position.y), radius, color)
+            fill_circle(int(position.x), int(position.y), radius, _color)
 
-    def fill_rectangle(self, position: Vector, size: Vector, color=TFT_WHITE):
+    def fill_rectangle(self, position: Vector, size: Vector, color=None):
         """Draw a filled rectangle"""
+        _color = color if color is not None else self._foreground
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
@@ -214,7 +221,7 @@ class Draw:
                 int(position.y),
                 int(size.x),
                 int(size.y),
-                color,
+                _color,
             )
         else:
             from picoware_lcd import fill_rect
@@ -224,15 +231,17 @@ class Draw:
                 int(position.y),
                 int(size.x),
                 int(size.y),
-                color,
+                _color,
             )
 
     def fill_round_rectangle(
-        self, position: Vector, size: Vector, radius: int, color=TFT_WHITE
+        self, position: Vector, size: Vector, radius: int, color=None
     ):
         """Draw a filled rounded rectangle on the display"""
         if size.x <= 0 or size.y <= 0 or radius <= 0:
             return
+
+        _color = color if color is not None else self._foreground
 
         # Clip to screen bounds
         x: int = int(position.x)
@@ -302,26 +311,26 @@ class Draw:
                     if not in_corner:
                         pix_vec.x = px
                         pix_vec.y = py
-                        self.pixel(pix_vec, color)
+                        self.pixel(pix_vec, _color)
 
-    def fill_screen(self, color=TFT_BLACK):
+    def fill_screen(self, color=None):
         """Fill the entire screen with a color"""
+        _color = color if color is not None else self._background
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
         ):
             from waveshare_lcd import fill_screen
 
-            fill_screen(color)
+            fill_screen(_color)
         else:
             from picoware_lcd import clear_framebuffer
 
-            clear_framebuffer(self._rgb565_to_rgb332(color))
+            clear_framebuffer(self._rgb565_to_rgb332(_color))
 
-    def fill_triangle(
-        self, point1: Vector, point2: Vector, point3: Vector, color=TFT_WHITE
-    ):
+    def fill_triangle(self, point1: Vector, point2: Vector, point3: Vector, color=None):
         """Draw a filled triangle"""
+        _color = color if color is not None else self._foreground
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
@@ -335,7 +344,7 @@ class Draw:
                 int(point2.y),
                 int(point3.x),
                 int(point3.y),
-                color,
+                _color,
             )
         else:
             from picoware_lcd import fill_triangle
@@ -347,7 +356,7 @@ class Draw:
                 int(point2.y),
                 int(point3.x),
                 int(point3.y),
-                color,
+                _color,
             )
 
     def image(self, position: Vector, img):
@@ -511,22 +520,26 @@ class Draw:
 
         self.image_bytearray(position, size, unpacked)
 
-    def line(self, position: Vector, size: Vector, color=TFT_WHITE):
+    def line(self, position: Vector, size: Vector, color=None):
         """Draw horizontal line"""
+        _color = color if color is not None else self._foreground
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
         ):
             from waveshare_lcd import draw_line
 
-            draw_line(int(position.x), int(position.y), int(size.x), int(size.y), color)
+            draw_line(
+                int(position.x), int(position.y), int(size.x), int(size.y), _color
+            )
         else:
             from picoware_lcd import draw_line
 
-            draw_line(int(position.x), int(position.y), int(size.x), color)
+            draw_line(int(position.x), int(position.y), int(size.x), _color)
 
-    def line_custom(self, point_1: Vector, point_2: Vector, color=TFT_WHITE):
+    def line_custom(self, point_1: Vector, point_2: Vector, color=None):
         """Draw line between two points"""
+        _color = color if color is not None else self._foreground
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
@@ -538,7 +551,7 @@ class Draw:
                 int(point_1.y),
                 int(point_2.x),
                 int(point_2.y),
-                color,
+                _color,
             )
         else:
             from picoware_lcd import draw_line_custom
@@ -548,27 +561,30 @@ class Draw:
                 int(point_1.y),
                 int(point_2.x),
                 int(point_2.y),
-                color,
+                _color,
             )
 
-    def pixel(self, position: Vector, color=TFT_WHITE):
+    def pixel(self, position: Vector, color=None):
         """Draw a pixel"""
+        _color = color if color is not None else self._foreground
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
         ):
             from waveshare_lcd import draw_pixel
 
-            draw_pixel(int(position.x), int(position.y), color)
+            draw_pixel(int(position.x), int(position.y), _color)
         else:
             from picoware_lcd import draw_pixel
 
-            draw_pixel(int(position.x), int(position.y), color)
+            draw_pixel(int(position.x), int(position.y), _color)
 
-    def rect(self, position: Vector, size: Vector, color=TFT_WHITE):
+    def rect(self, position: Vector, size: Vector, color=None):
         """Draw a rectangle outline on the display"""
         if size.x <= 0 or size.y <= 0:
             return
+
+        _color = color if color is not None else self._foreground
 
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
@@ -581,37 +597,20 @@ class Draw:
                 int(position.y),
                 int(size.x),
                 int(size.y),
-                color,
+                _color,
             )
         else:
             from picoware_lcd import draw_line, draw_line_custom
 
             x, y, w, h = int(position.x), int(position.y), int(size.x), int(size.y)
-            draw_line(x, y, w, color)  # Top
-            draw_line(x, y + h - 1, w, color)  # Bottom
-            draw_line_custom(x, y, x, y + h - 1, color)  # Left
-            draw_line_custom(x + w - 1, y, x + w - 1, y + h - 1, color)  # Right
+            draw_line(x, y, w, _color)  # Top
+            draw_line(x, y + h - 1, w, _color)  # Bottom
+            draw_line_custom(x, y, x, y + h - 1, _color)  # Left
+            draw_line_custom(x + w - 1, y, x + w - 1, y + h - 1, _color)  # Right
 
     def reset(self):
         """Reset the display by clearing the framebuffer"""
-        self.fill_screen(self.background)
-
-    def set_background_color(self, color: int):
-        """Set the background color"""
-        self.background = color
-
-    def set_color(
-        self,
-        foreground=TFT_WHITE,
-        background=TFT_BLACK,
-    ):
-        """Set the foreground and background color of the display"""
-        self.foreground = foreground
-        self.background = background
-
-    def set_foreground_color(self, color: int):
-        """Set the foreground color"""
-        self.foreground = color
+        self.fill_screen(self._background)
 
     def swap(self):
         """
@@ -629,36 +628,39 @@ class Draw:
 
             blit_8bit_fullscreen(self.palette)
 
-    def text(self, position: Vector, text: str, color=TFT_WHITE):
+    def text(self, position: Vector, text: str, color=None):
         """Draw text on the display"""
+        _color = color if color is not None else self._foreground
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
         ):
             from waveshare_lcd import draw_text
 
-            draw_text(int(position.x), int(position.y), text, color)
+            draw_text(int(position.x), int(position.y), text, _color)
         else:
             from picoware_lcd import draw_text
 
-            draw_text(int(position.x), int(position.y), text, color)
+            draw_text(int(position.x), int(position.y), text, _color)
 
-    def text_char(self, position: Vector, char: str, color=TFT_WHITE):
+    def text_char(self, position: Vector, char: str, color=None):
         """Draw a single character on the display"""
+        _color = color if color is not None else self._foreground
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
         ):
             from waveshare_lcd import draw_char
 
-            draw_char(int(position.x), int(position.y), ord(char), color)
+            draw_char(int(position.x), int(position.y), ord(char), _color)
         else:
             from picoware_lcd import draw_char
 
-            draw_char(int(position.x), int(position.y), ord(char), color)
+            draw_char(int(position.x), int(position.y), ord(char), _color)
 
-    def triangle(self, point1: Vector, point2: Vector, point3: Vector, color=TFT_WHITE):
+    def triangle(self, point1: Vector, point2: Vector, point3: Vector, color=None):
         """Draw a triangle outline"""
-        self.line_custom(point1, point2, color)
-        self.line_custom(point2, point3, color)
-        self.line_custom(point3, point1, color)
+        _color = color if color is not None else self._foreground
+        self.line_custom(point1, point2, _color)
+        self.line_custom(point2, point3, _color)
+        self.line_custom(point3, point1, _color)

@@ -13,10 +13,10 @@ def start(view_manager) -> bool:
             "System",
             0,
             view_manager.draw.size.y,
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
-            view_manager.get_selected_color(),
-            view_manager.get_foreground_color(),
+            view_manager.foreground_color,
+            view_manager.background_color,
+            view_manager.selected_color,
+            view_manager.foreground_color,
             2,
         )
         _system.add_item("Settings")
@@ -111,8 +111,8 @@ def run(view_manager) -> None:
                 "Shutdown Device?",
                 ["No", "Yes"],
                 0,
-                view_manager.get_foreground_color(),
-                view_manager.get_background_color(),
+                view_manager.foreground_color,
+                view_manager.background_color,
             )
             choice.draw()
 

@@ -329,7 +329,7 @@ def start(view_manager) -> bool:
     global _fb, _demo_state, _frame_count
     from picoware.system.vector import Vector
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
     draw.fill_screen()
     draw.text(Vector(60, 150), "Initializing PSRAM Framebuffer...")
     draw.swap()
@@ -460,8 +460,8 @@ def run(view_manager):
     )
     from picoware.system.vector import Vector
 
-    inp = view_manager.get_input_manager()
-    draw = view_manager.get_draw()
+    inp = view_manager.input_manager
+    draw = view_manager.draw
 
     if inp.button == BUTTON_BACK:
         inp.reset()

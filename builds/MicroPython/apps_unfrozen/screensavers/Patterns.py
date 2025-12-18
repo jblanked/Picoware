@@ -14,7 +14,7 @@ def start(view_manager) -> bool:
     global _demo_state, _frame_count
     from picoware.system.colors import TFT_BLACK, TFT_WHITE
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)
 
     _demo_state = 0
@@ -224,8 +224,8 @@ def run(view_manager) -> None:
     global _demo_state, _frame_count
     from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
 
-    inp = view_manager.get_input_manager()
-    draw = view_manager.get_draw()
+    inp = view_manager.input_manager
+    draw = view_manager.draw
 
     # Exit on any button press
     if inp.button == BUTTON_BACK:

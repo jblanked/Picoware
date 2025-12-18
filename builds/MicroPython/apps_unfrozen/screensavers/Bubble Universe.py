@@ -206,7 +206,7 @@ def start(view_manager) -> bool:
     from picoware.system.vector import Vector
     from picoware.system.colors import TFT_WHITE, TFT_BLACK
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)
     draw.text(Vector(10, 10), "Bubble Universe by Movie Vertigo", TFT_WHITE)
     draw.swap()
@@ -230,7 +230,7 @@ def run(view_manager) -> None:
     from picoware.system.buttons import BUTTON_LEFT, BUTTON_BACK
     from picoware.system.colors import TFT_BLACK, TFT_WHITE
 
-    input_manager = view_manager.get_input_manager()
+    input_manager = view_manager.input_manager
     input_button = input_manager.get_last_button()
 
     if input_button in (BUTTON_LEFT, BUTTON_BACK):
@@ -245,7 +245,7 @@ def run(view_manager) -> None:
     animation_time += delta_time * speed
     old_time = time
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
 
     draw.fill_screen(TFT_BLACK)
 

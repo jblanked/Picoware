@@ -183,8 +183,8 @@ def main(view_manager):
         BUTTON_RIGHT,
     )
 
-    fb = view_manager.get_draw()
-    inp = view_manager.get_input_manager()
+    fb = view_manager.draw
+    inp = view_manager.input_manager
     grid = [[0] * GRID_SIZE for _ in range(GRID_SIZE)]
     score = 0
     state = STATE_PLAYING
@@ -333,7 +333,7 @@ def move_grid(grid, direction: int):
 def start(view_manager) -> bool:
     """Start the app"""
     global SCREEN_WIDTH, SCREEN_HEIGHT, GRID_OFFSET_X, GRID_OFFSET_Y, TILE_SIZE
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
     SCREEN_WIDTH = draw.size.x
     SCREEN_HEIGHT = draw.size.y
     GRID_OFFSET_X = int(SCREEN_WIDTH * 0.0625)  # 20

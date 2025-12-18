@@ -5,7 +5,7 @@ WIFI_PASSWORD_PATH = "picoware/wifi/password.json"
 
 def connect_to_saved_wifi(view_manager) -> bool:
     """Attempt to connect to the saved WiFi network."""
-    wifi = view_manager.get_wifi()
+    wifi = view_manager.wifi
     if not wifi:
         return False
 
@@ -26,7 +26,7 @@ def load_wifi_settings(view_manager) -> dict:
     """Load the saved WiFi settings from storage."""
     from ujson import loads
 
-    storage = view_manager.get_storage()
+    storage = view_manager.storage
     data = storage.read(WIFI_SETTINGS_PATH, "r")
     if not data:
         return {}
@@ -41,7 +41,7 @@ def load_wifi_ssid(view_manager) -> str:
     """Load the saved WiFi SSID from storage."""
     from ujson import loads
 
-    storage = view_manager.get_storage()
+    storage = view_manager.storage
     data = storage.read(WIFI_SSID_PATH, "r")
     if not data:
         return ""
@@ -56,7 +56,7 @@ def load_wifi_password(view_manager) -> str:
     """Load the saved WiFi password from storage."""
     from ujson import loads
 
-    storage = view_manager.get_storage()
+    storage = view_manager.storage
     data = storage.read(WIFI_PASSWORD_PATH, "r")
 
     if not data:

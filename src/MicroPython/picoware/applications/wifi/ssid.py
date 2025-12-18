@@ -30,7 +30,7 @@ def start(view_manager) -> bool:
     _back_hit = False
     _keyboard_started = False
 
-    keyboard = view_manager.get_keyboard()
+    keyboard = view_manager.keyboard
 
     if keyboard is None:
         print("No keyboard available")
@@ -67,7 +67,7 @@ def run(view_manager) -> None:
         view_manager.back()
         return
 
-    keyboard = view_manager.get_keyboard()
+    keyboard = view_manager.keyboard
     if not keyboard:
         return
 
@@ -80,10 +80,10 @@ def run(view_manager) -> None:
             save_wifi_settings,
         )
 
-        if not save_wifi_ssid(view_manager.get_storage(), ssid):
+        if not save_wifi_ssid(view_manager.storage, ssid):
             print("Failed to save WiFi SSID")
         if not save_wifi_settings(
-            view_manager.get_storage(), ssid, load_wifi_password(view_manager)
+            view_manager.storage, ssid, load_wifi_password(view_manager)
         ):
             print("Failed to save WiFi settings")
         keyboard.reset()

@@ -47,18 +47,18 @@ def __alert(view_manager, message: str, back: bool = True) -> None:
     from picoware.gui.alert import Alert
     from picoware.system.buttons import BUTTON_BACK
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
     draw.clear()
     _alert = Alert(
         draw,
         message,
-        view_manager.get_foreground_color(),
-        view_manager.get_background_color(),
+        view_manager.foreground_color,
+        view_manager.background_color,
     )
     _alert.draw("Alert")
 
     # Wait for user to acknowledge
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     while True:
         button = inp.button
         if button == BUTTON_BACK:
@@ -73,7 +73,7 @@ def __channel_display(view_manager) -> None:
     """Display channel messages from saved file"""
     from picoware.system.buttons import BUTTON_UP, BUTTON_DOWN, BUTTON_BACK
 
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     button = inp.button
     global _textbox, current_view, channel_index
     if button == BUTTON_UP:
@@ -134,7 +134,7 @@ def __channel_parse(view_manager) -> bool:
         del _textbox
         _textbox = None
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
     _textbox = TextBox(
         draw,
         0,
@@ -290,7 +290,7 @@ def _loading_run(view_manager, message: str = "Fetching...") -> None:
     global _loading
 
     if _loading is None:
-        draw = view_manager.get_draw()
+        draw = view_manager.draw
         bg = view_manager.background_color
         fg = view_manager.foreground_color
 
@@ -311,7 +311,7 @@ def _menu_start(view_manager) -> None:
         del _menu
         _menu = None
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
     bg = view_manager.background_color
     fg = view_manager.foreground_color
 
@@ -463,7 +463,7 @@ def start(view_manager) -> bool:
         return False
 
     # create telegram folder if it doesn't exist
-    view_manager.get_storage().mkdir("picoware/telegram")
+    view_manager.storage.mkdir("picoware/telegram")
 
     _menu_start(view_manager)
 
@@ -481,7 +481,7 @@ def run(view_manager) -> None:
         BUTTON_CENTER,
     )
 
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     button = inp.button
 
     global current_view, menu_index, _menu, fetch_started, sending_index, keyboard_index, channel_index

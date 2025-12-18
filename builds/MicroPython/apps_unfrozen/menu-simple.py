@@ -11,7 +11,7 @@ def start(view_manager) -> bool:
     global _menu
 
     if not _menu:
-        draw = view_manager.get_draw()
+        draw = view_manager.draw
         # set menu
         _menu = Menu(
             draw,  # draw instance
@@ -42,7 +42,7 @@ def run(view_manager) -> None:
     """Run the App"""
     from picoware.system.buttons import BUTTON_UP, BUTTON_DOWN, BUTTON_BACK
 
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     button = inp.get_last_button()
 
     if button == BUTTON_UP:

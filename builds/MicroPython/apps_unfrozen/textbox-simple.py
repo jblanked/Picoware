@@ -8,7 +8,7 @@ def start(view_manager):
     global _textbox
 
     if _textbox is None:
-        draw = view_manager.get_draw()
+        draw = view_manager.draw
         _textbox = TextBox(draw, 0, draw.size.y)
 
         _textbox.set_text(
@@ -22,7 +22,7 @@ def run(view_manager):
     """Run the app"""
     from picoware.system.buttons import BUTTON_UP, BUTTON_DOWN, BUTTON_BACK
 
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     button = inp.get_last_button()
 
     if button == BUTTON_UP:

@@ -56,10 +56,10 @@ def __weather_alert_and_return(view_manager, message: str) -> None:
     from time import sleep
 
     _weather_alert = Alert(
-        view_manager.get_draw(),
+        view_manager.draw,
         message,
-        view_manager.get_foreground_color(),
-        view_manager.get_background_color(),
+        view_manager.foreground_color,
+        view_manager.background_color,
     )
     _weather_alert.draw("Error")
     sleep(2)
@@ -76,9 +76,9 @@ def start(view_manager) -> bool:
         del _weather_http
         _weather_http = None
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
 
-    wifi = view_manager.get_wifi()
+    wifi = view_manager.wifi
 
     # if not a wifi device, return
     if not wifi:
@@ -88,8 +88,8 @@ def start(view_manager) -> bool:
         _weather_alert = Alert(
             draw,
             "WiFi not available..",
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
+            view_manager.foreground_color,
+            view_manager.background_color,
         )
         _weather_alert.draw("Error")
         sleep(2)
@@ -134,9 +134,9 @@ def run(view_manager) -> None:
     global _location_last_update, _location_dot_count
     global _weather_last_update, _weather_dot_count
 
-    input_manager = view_manager.get_input_manager()
+    input_manager = view_manager.input_manager
     button = input_manager.get_last_button()
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
 
     if button in (BUTTON_LEFT, BUTTON_BACK):
         input_manager.reset()
@@ -147,7 +147,7 @@ def run(view_manager) -> None:
     if button in (BUTTON_RIGHT, BUTTON_CENTER):
         input_manager.reset()
         __reset_weather_state()
-        draw.clear(Vector(0, 0), draw.size, view_manager.get_background_color())
+        draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
         draw.text(Vector(5, 5), "Fetching location data...")
         draw.swap()
 
@@ -170,7 +170,7 @@ def run(view_manager) -> None:
             view_manager.back()
             return
 
-        draw.clear(Vector(0, 0), draw.size, view_manager.get_background_color())
+        draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
         draw.text(Vector(5, 5), "Getting your location...")
         draw.swap()
 
@@ -192,7 +192,7 @@ def run(view_manager) -> None:
 
                     if _ip_address:
                         draw.clear(
-                            Vector(0, 0), draw.size, view_manager.get_background_color()
+                            Vector(0, 0), draw.size, view_manager.background_color
                         )
                         draw.text(Vector(5, 5), "Fetching Weather data...")
                         draw.swap()
@@ -232,10 +232,8 @@ def run(view_manager) -> None:
                 _location_dot_count = (_location_dot_count + 1) % 4
 
                 loading_text = "Getting your location" + ("." * _location_dot_count)
-                draw.clear(Vector(0, 0), draw.size, view_manager.get_background_color())
-                draw.text(
-                    Vector(5, 5), loading_text, view_manager.get_foreground_color()
-                )
+                draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
+                draw.text(Vector(5, 5), loading_text, view_manager.foreground_color)
                 draw.swap()
         return
 
@@ -256,7 +254,7 @@ def run(view_manager) -> None:
             view_manager.back()
             return
 
-        draw.clear(Vector(0, 0), draw.size, view_manager.get_background_color())
+        draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
         draw.text(Vector(5, 5), "Getting weather data...")
         draw.swap()
 
@@ -284,8 +282,8 @@ def run(view_manager) -> None:
                 total_data += f"Humidity: {humidity}\n\n"
                 total_data += "Press CENTER to refresh\nPress LEFT to go back"
 
-                draw.clear(Vector(0, 0), draw.size, view_manager.get_background_color())
-                draw.text(Vector(0, 5), total_data, view_manager.get_foreground_color())
+                draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
+                draw.text(Vector(0, 5), total_data, view_manager.foreground_color)
                 draw.swap()
                 _displaying_result_w = True
 
@@ -311,10 +309,8 @@ def run(view_manager) -> None:
                 _weather_dot_count = (_weather_dot_count + 1) % 4
 
                 loading_text = "Getting weather data" + ("." * _weather_dot_count)
-                draw.clear(Vector(0, 0), draw.size, view_manager.get_background_color())
-                draw.text(
-                    Vector(5, 5), loading_text, view_manager.get_foreground_color()
-                )
+                draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
+                draw.text(Vector(5, 5), loading_text, view_manager.foreground_color)
                 draw.swap()
 
 

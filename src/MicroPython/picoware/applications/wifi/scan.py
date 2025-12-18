@@ -7,7 +7,7 @@ def start(view_manager) -> bool:
 
     global _scan
     if _scan is None:
-        wifi = view_manager.get_wifi()
+        wifi = view_manager.wifi
 
         if wifi is None:
             return False
@@ -19,10 +19,10 @@ def start(view_manager) -> bool:
             "Scan",
             0,
             view_manager.draw.size.y,
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
-            view_manager.get_selected_color(),
-            view_manager.get_foreground_color(),
+            view_manager.foreground_color,
+            view_manager.background_color,
+            view_manager.selected_color,
+            view_manager.foreground_color,
             2,
         )
 

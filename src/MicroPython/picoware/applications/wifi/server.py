@@ -111,7 +111,7 @@ class Server:
             # add routes from json file
             from picoware.system.storage import Storage
 
-            storage: Storage = self.view_manager.get_storage()
+            storage: Storage = self.view_manager.storage
             server_info: dict = storage.serialize(SERVER_INFO)
             if "pages" in server_info:
                 for page in server_info["pages"]:
@@ -203,7 +203,7 @@ class Server:
             print("Server is not started. Call start() before run().")
             return
 
-        inp = self.view_manager.get_input_manager()
+        inp = self.view_manager.input_manager
         but = inp.button
         if but == BUTTON_BACK:
             inp.reset()
@@ -454,7 +454,7 @@ class Server:
 
 def __add_page(view_manager) -> None:
     """Add a new page to the server"""
-    keyboard = view_manager.get_keyboard()
+    keyboard = view_manager.keyboard
 
     if keyboard is None:
         print("No keyboard available")
@@ -474,7 +474,7 @@ def __add_page(view_manager) -> None:
             just_started_editing = True
             url = keyboard.get_response()
             # save new page with default values
-            storage = view_manager.get_storage()
+            storage = view_manager.storage
             try:
                 server_info: dict = storage.serialize(SERVER_INFO)
                 if "pages" not in server_info:
@@ -515,18 +515,18 @@ def __alert(view_manager, message: str, back: bool = True) -> None:
     from picoware.gui.alert import Alert
     from picoware.system.buttons import BUTTON_BACK
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
     draw.clear()
     _alert = Alert(
         draw,
         message,
-        view_manager.get_foreground_color(),
-        view_manager.get_background_color(),
+        view_manager.foreground_color,
+        view_manager.background_color,
     )
     _alert.draw("Alert")
 
     # Wait for user to acknowledge
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     while True:
         button = inp.button
         if button == BUTTON_BACK:
@@ -547,9 +547,9 @@ def __box_start(view_manager) -> None:
         del box
         box = None
 
-    draw = view_manager.get_draw()
-    fg = view_manager.get_foreground_color()
-    bg = view_manager.get_background_color()
+    draw = view_manager.draw
+    fg = view_manager.foreground_color
+    bg = view_manager.background_color
     height = draw.size.y
 
     top = int(height * 0.0625)
@@ -613,7 +613,7 @@ def __edit_page(
     if current_page_info == {} or "url" not in current_page_info:
         current_page_info = __get_page_info_index(view_manager, index)
 
-    keyboard = view_manager.get_keyboard()
+    keyboard = view_manager.keyboard
 
     if keyboard is None:
         print("No keyboard available")
@@ -631,7 +631,7 @@ def __edit_page(
             just_started_editing = True
             # Get the updated value from keyboard
             current_page_info[key] = keyboard.get_response()
-            storage = view_manager.get_storage()
+            storage = view_manager.storage
             try:
                 server_info: dict = storage.serialize(SERVER_INFO)
                 if "pages" in server_info:
@@ -662,7 +662,7 @@ def __get_current_pages(view_manager) -> list[str]:
     """Get the list of current pages from the server info file"""
     from picoware.system.storage import Storage
 
-    storage: Storage = view_manager.get_storage()
+    storage: Storage = view_manager.storage
     pages = []
 
     try:
@@ -680,7 +680,7 @@ def __get_page_info_index(view_manager, index: int) -> dict:
     """Get the page info for a given index from the server info file"""
     from picoware.system.storage import Storage
 
-    storage: Storage = view_manager.get_storage()
+    storage: Storage = view_manager.storage
     page_info = {}
 
     try:
@@ -700,7 +700,7 @@ def __get_setting(view_manager, key: str, default: str = "") -> str:
     """Get a setting from the server info file"""
     from picoware.system.storage import Storage
 
-    storage: Storage = view_manager.get_storage()
+    storage: Storage = view_manager.storage
     value = default
 
     try:
@@ -717,7 +717,7 @@ def __save_setting(view_manager, key: str, value: str) -> None:
     """Save a setting to the server info file"""
     from picoware.system.storage import Storage
 
-    storage: Storage = view_manager.get_storage()
+    storage: Storage = view_manager.storage
 
     try:
         server_info: dict = storage.serialize(SERVER_INFO)
@@ -735,7 +735,7 @@ def __delete_page(view_manager, index: int) -> None:
 
     from picoware.system.storage import Storage
 
-    storage: Storage = view_manager.get_storage()
+    storage: Storage = view_manager.storage
 
     try:
         server_info: dict = storage.serialize(SERVER_INFO)
@@ -768,7 +768,7 @@ def __edit_setting(view_manager, setting_key: str) -> None:
     """Edit a setting using the keyboard"""
     global just_started_editing, save_requested, menu_state, settings_info
 
-    keyboard = view_manager.get_keyboard()
+    keyboard = view_manager.keyboard
 
     if keyboard is None:
         print("No keyboard available")
@@ -819,7 +819,7 @@ def __menu_run(view_manager) -> None:
         BUTTON_RIGHT,
     )
 
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     button = inp.button
 
     global menu_state, edit_page_state, current_page_index, current_page_info
@@ -963,7 +963,7 @@ def __menu_start(view_manager) -> None:
         del menu
         menu = None
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
     draw.clear()
     title = ""
     options = []
@@ -998,9 +998,9 @@ def __menu_start(view_manager) -> None:
             f"{'[X]' if current_mode == 'AP' else '[ ]'} AP (Access Point)",
             f"{'[X]' if current_mode == 'STA' else '[ ]'} STA (Station)",
         ]
-    fg = view_manager.get_foreground_color()
-    bg = view_manager.get_background_color()
-    sel = view_manager.get_selected_color()
+    fg = view_manager.foreground_color
+    bg = view_manager.background_color
+    sel = view_manager.selected_color
     menu = Menu(
         draw,
         title,
@@ -1030,8 +1030,8 @@ def __server_start(view_manager) -> bool:
     if server.start():
         from picoware.system.vector import Vector
 
-        bg = view_manager.get_background_color()
-        fg = view_manager.get_foreground_color()
+        bg = view_manager.background_color
+        fg = view_manager.foreground_color
 
         draw = view_manager.draw
         draw.fill_screen(bg)
@@ -1064,7 +1064,7 @@ def start(view_manager) -> bool:
         return False
 
     # create server folder
-    view_manager.get_storage().mkdir("picoware/wifi/server")
+    view_manager.storage.mkdir("picoware/wifi/server")
 
     wifi = view_manager.wifi
 

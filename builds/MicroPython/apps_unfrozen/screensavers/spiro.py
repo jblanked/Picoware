@@ -64,7 +64,7 @@ def start(view_manager) -> bool:
     """Start the app"""
     from picoware.system.colors import TFT_BLACK
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)
     draw.swap()
     return True
@@ -78,17 +78,17 @@ def run(view_manager) -> None:
 
     global spiro_elapsed, sp_sx, sp_sy, x0, x1, yy0, yy1
 
-    input_button = view_manager.get_input_manager().get_last_button()
+    input_button = view_manager.input_manager.get_last_button()
 
     if input_button in (BUTTON_LEFT, BUTTON_BACK):
         view_manager.back()
         spiro_elapsed = 0
-        view_manager.get_input_manager().reset()
+        view_manager.input_manager.reset()
         return
 
     if spiro_elapsed > 10:
         spiro_elapsed = 0
-        tft = view_manager.get_draw()
+        tft = view_manager.draw
 
         tft.fill_screen(TFT_BLACK)
         n = random_range(2, 23)
@@ -140,8 +140,8 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    draw = view_manager.get_draw()
-    draw.fill_screen(view_manager.get_background_color())
+    draw = view_manager.draw
+    draw.fill_screen(view_manager.background_color)
     draw.swap()
 
     global sp_sx, sp_sy, x0, x1, yy0, yy1, spiro_elapsed

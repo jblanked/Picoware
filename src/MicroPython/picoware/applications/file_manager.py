@@ -7,18 +7,18 @@ def __alert(view_manager, message: str, back: bool = True) -> None:
     from picoware.gui.alert import Alert
     from picoware.system.buttons import BUTTON_BACK
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
     draw.clear()
     _alert = Alert(
         draw,
         message,
-        view_manager.get_foreground_color(),
-        view_manager.get_background_color(),
+        view_manager.foreground_color,
+        view_manager.background_color,
     )
     _alert.draw("Alert")
 
     # Wait for user to acknowledge
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     while True:
         button = inp.button
         if button == BUTTON_BACK:

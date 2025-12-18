@@ -66,19 +66,19 @@ def __app_store_alert(view_manager, message: str, back: bool = True) -> None:
     from picoware.gui.alert import Alert
     from picoware.system.buttons import BUTTON_BACK
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
     bg = view_manager.background_color
     draw.fill_screen(bg)
     _app_store_alert = Alert(
         draw,
         message,
-        view_manager.get_foreground_color(),
+        view_manager.foreground_color,
         bg,
     )
     _app_store_alert.draw("Alert")
 
     # Wait for user to acknowledge
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     while True:
         button = inp.button
         if button == BUTTON_BACK:
@@ -101,7 +101,7 @@ def __loading_start(view_manager, text: str = "Fetching...") -> None:
     global _loading
 
     if not _loading:
-        _loading = Loading(view_manager.get_draw())
+        _loading = Loading(view_manager.draw)
     _loading.set_text(text)
 
 
@@ -114,7 +114,7 @@ def __fetch_app_list(view_manager) -> bool:
 
         _http = HTTP()
 
-    storage = view_manager.get_storage()
+    storage = view_manager.storage
     storage.mkdir("picoware/cache")
 
     url = f"https://www.jblanked.com/picoware/api/apps/{_max_items}/{_current_list_index}/"
@@ -131,7 +131,7 @@ def __parse_app_list(view_manager) -> bool:
     """Parse the app list JSON and populate the menu"""
     global _apps_data, _app_menu
 
-    storage = view_manager.get_storage()
+    storage = view_manager.storage
     file_path = f"picoware/cache/app_list_{_current_list_index}.json"
 
     try:
@@ -150,14 +150,14 @@ def __parse_app_list(view_manager) -> bool:
         if not _app_menu:
             from picoware.gui.menu import Menu
 
-            draw = view_manager.get_draw()
+            draw = view_manager.draw
             _app_menu = Menu(
                 draw,
                 "App Store",
                 0,
                 draw.size.y,
-                view_manager.get_foreground_color(),
-                view_manager.get_background_color(),
+                view_manager.foreground_color,
+                view_manager.background_color,
             )
 
         # Clear and populate menu
@@ -183,7 +183,7 @@ def __fetch_app_details(view_manager, app_id: int) -> bool:
 
         _http = HTTP()
 
-    storage = view_manager.get_storage()
+    storage = view_manager.storage
     url = f"https://www.jblanked.com/picoware/api/app/{app_id}/"
 
     return _http.get_async(
@@ -198,7 +198,7 @@ def __parse_app_details(view_manager, app_id: int) -> bool:
     """Parse app details from JSON"""
     global _selected_app_details
 
-    storage = view_manager.get_storage()
+    storage = view_manager.storage
     file_path = f"picoware/cache/app_{app_id}.json"
 
     try:
@@ -224,10 +224,10 @@ def __draw_app_details(view_manager) -> None:
     """Draw the app details screen with professional layout"""
     from picoware.system.vector import Vector
 
-    draw = view_manager.get_draw()
-    fg = view_manager.get_foreground_color()
+    draw = view_manager.draw
+    fg = view_manager.foreground_color
 
-    draw.fill_screen(view_manager.get_background_color())
+    draw.fill_screen(view_manager.background_color)
 
     if not _selected_app_details:
         return
@@ -300,7 +300,7 @@ def __download_next_file(view_manager) -> bool:
         print(f"DEBUG: Missing download_url or path in file_info: {file_info}")
         return False
 
-    storage = view_manager.get_storage()
+    storage = view_manager.storage
 
     # Create necessary directories
     dir_path = "/".join(file_path.split("/")[:-1])
@@ -322,7 +322,7 @@ def start(view_manager) -> bool:
         __app_store_alert(view_manager, "App Store app requires an SD card", False)
         return False
 
-    wifi = view_manager.get_wifi()
+    wifi = view_manager.wifi
 
     # if not a wifi device, return
     if not wifi:
@@ -363,7 +363,7 @@ def run(view_manager) -> None:
     global _app_state, _app_menu, _selected_app_id, _http, _loading, _current_file_index, _files_to_download, _apps_data, _selected_app_details
     global _download_all_mode, _current_app_index, _total_apps_to_download
 
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     button = inp.button
 
     # Handle BUTTON_BACK based on current state

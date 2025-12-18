@@ -11,8 +11,8 @@ def start(view_manager) -> bool:
             view_manager.draw,
             0,
             view_manager.draw.size.y,
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
+            view_manager.foreground_color,
+            view_manager.background_color,
         )
         _about.set_text(
             (

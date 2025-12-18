@@ -11,7 +11,7 @@ _flip_social_run_instance = None
 
 def __flip_social_util_get_username(view_manager) -> str:
     """Get the username from storage, or return empty string"""
-    storage = view_manager.get_storage()
+    storage = view_manager.storage
     data: str = storage.read("picoware/flip_social/username.json")
 
     if data is not None:
@@ -29,7 +29,7 @@ def __flip_social_util_get_username(view_manager) -> str:
 
 def __flip_social_util_get_password(view_manager) -> str:
     """Get the password from storage, or return empty string"""
-    storage = view_manager.get_storage()
+    storage = view_manager.storage
     data: str = storage.read("picoware/flip_social/password.json")
 
     if data is not None:
@@ -58,10 +58,10 @@ def __flip_social_alert(view_manager, message: str, back: bool = True) -> None:
     from picoware.gui.alert import Alert
 
     _flip_social_alert = Alert(
-        view_manager.get_draw(),
+        view_manager.draw,
         message,
-        view_manager.get_foreground_color(),
-        view_manager.get_background_color(),
+        view_manager.foreground_color,
+        view_manager.background_color,
     )
     _flip_social_alert.draw("Alert")
     sleep(2)
@@ -73,7 +73,7 @@ def start(view_manager) -> bool:
     """Start the main app"""
     from picoware.gui.menu import Menu
 
-    wifi = view_manager.get_wifi()
+    wifi = view_manager.wifi
 
     # if not a wifi device, return
     if not wifi:
@@ -88,25 +88,25 @@ def start(view_manager) -> bool:
         connect_to_saved_wifi(view_manager)
         return False
 
-    global _flip_social_app_menu, _flip_social_app_index
+    global _flip_social_app_menu
 
     if _flip_social_app_menu:
         del _flip_social_app_menu
         _flip_social_app_menu = None
 
-    view_manager.get_storage().mkdir("picoware/flip_social")
+    view_manager.storage.mkdir("picoware/flip_social")
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
 
     _flip_social_app_menu = Menu(
         draw,  # draw instance
         "FlipSocial",  # title
         0,  # y
         draw.size.y,  # height
-        view_manager.get_foreground_color(),  # text color
-        view_manager.get_background_color(),  # background color
-        view_manager.get_selected_color(),  # selected color
-        view_manager.get_foreground_color(),  # border/separator color
+        view_manager.foreground_color,  # text color
+        view_manager.background_color,  # background color
+        view_manager.selected_color,  # selected color
+        view_manager.foreground_color,  # border/separator color
         2,  # border/separator width
     )
 
@@ -129,10 +129,10 @@ def run(view_manager) -> None:
         BUTTON_CENTER,
     )
 
-    global _flip_social_app_menu, _flip_social_app_index, _flip_social_run_instance
+    global _flip_social_app_index, _flip_social_run_instance
 
-    input_manager = view_manager.get_input_manager()
-    input_button = input_manager.get_last_button()
+    input_manager = view_manager.input_manager
+    input_button = input_manager.button
 
     if input_button == BUTTON_UP:
         input_manager.reset()

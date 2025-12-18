@@ -33,13 +33,13 @@ class View:
         alert = Alert(
             draw,
             f"{traceback_str}",
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
+            view_manager.foreground_color,
+            view_manager.background_color,
         )
         alert.draw("Error")
         draw.swap()
         # Wait for user to acknowledge
-        inp = view_manager.get_input_manager()
+        inp = view_manager.input_manager
         while True:
             button = inp.button
             if button == BUTTON_BACK:

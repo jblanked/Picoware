@@ -4,7 +4,7 @@ import random
 def start(view_manager) -> bool:
     from picoware.system.vector import Vector
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
     draw.clear()
     draw.text(Vector(130, 160), "Press Enter :D")
     draw.swap()
@@ -24,7 +24,7 @@ def run(view_manager):
     if button == BUTTON_CENTER:
         input_manager.reset()
 
-        draw = view_manager.get_draw()
+        draw = view_manager.draw
         draw.clear()
 
         # Randomly select color and shape

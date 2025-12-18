@@ -172,7 +172,7 @@ def run(view_manager) -> None:
 
     global mines_placed, game_over, win
 
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     draw = view_manager.draw
     button = inp.button
 

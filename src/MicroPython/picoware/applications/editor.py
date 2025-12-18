@@ -34,7 +34,7 @@ def run(view_manager) -> None:
     """Run the app"""
     from picoware.system.buttons import BUTTON_BACK
 
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     button = inp.button
 
     if button == BUTTON_BACK:
@@ -76,14 +76,14 @@ def _start_editor(view_manager, filename=None, create_template=False):
     terminal.dryBuffer()
 
     # Also reset input manager to clear any queued inputs
-    view_manager.get_input_manager().reset()
+    view_manager.input_manager.reset()
 
     try:
         from picoware.system.drivers.pye import pye_edit
 
         # Enable input processing in the virtual terminal
         terminal.input_enabled = True
-        storage = view_manager.get_storage()
+        storage = view_manager.storage
 
         # If we need to create a template, check if file exists or is empty
         if create_template and filename and len(filename) > 0:
@@ -126,7 +126,7 @@ def _start_editor(view_manager, filename=None, create_template=False):
         print(f"Unexpected editor error: {e}")
     finally:
         _editor_state = STATE_KEYBOARD
-        view_manager.get_input_manager().reset()
+        view_manager.input_manager.reset()
         view_manager.back()
 
 
@@ -142,10 +142,10 @@ def _start_initial_menu(view_manager) -> None:
             "Python Editor",
             0,
             view_manager.draw.size.y,
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
-            view_manager.get_selected_color(),
-            view_manager.get_foreground_color(),
+            view_manager.foreground_color,
+            view_manager.background_color,
+            view_manager.selected_color,
+            view_manager.foreground_color,
             2,
         )
 
@@ -167,10 +167,10 @@ def _start_file_type_menu(view_manager) -> None:
             "What type of file?",
             0,
             view_manager.draw.size.y,
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
-            view_manager.get_selected_color(),
-            view_manager.get_foreground_color(),
+            view_manager.foreground_color,
+            view_manager.background_color,
+            view_manager.selected_color,
+            view_manager.foreground_color,
             2,
         )
 
@@ -202,18 +202,18 @@ def __alert(view_manager, message: str, back: bool = True) -> None:
     from picoware.gui.alert import Alert
     from picoware.system.buttons import BUTTON_BACK
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
     draw.clear()
     _alert = Alert(
         draw,
         message,
-        view_manager.get_foreground_color(),
-        view_manager.get_background_color(),
+        view_manager.foreground_color,
+        view_manager.background_color,
     )
     _alert.draw("Alert")
 
     # Wait for user to acknowledge
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     while True:
         button = inp.button
         if button == BUTTON_BACK:
@@ -245,8 +245,8 @@ def start(view_manager) -> bool:
     _file_browser = None
 
     # Show the initial menu
-    draw = view_manager.get_draw()
-    draw.clear(color=view_manager.get_background_color())
+    draw = view_manager.draw
+    draw.clear(color=view_manager.background_color)
     _start_initial_menu(view_manager)
 
     return True
@@ -268,7 +268,7 @@ def run(view_manager) -> None:
     global _filename
     global _keyboard_just_started
 
-    input_manager = view_manager.get_input_manager()
+    input_manager = view_manager.input_manager
     button = input_manager.get_last_button()
 
     # Handle back button - return to previous state or exit
@@ -282,27 +282,27 @@ def run(view_manager) -> None:
         if _editor_state == STATE_KEYBOARD:
             # Go back to initial menu
             _editor_state = STATE_INITIAL_MENU
-            draw = view_manager.get_draw()
-            draw.clear(color=view_manager.get_background_color())
+            draw = view_manager.draw
+            draw.clear(color=view_manager.background_color)
             _start_initial_menu(view_manager)
             return
         if _editor_state == STATE_FILE_TYPE_MENU:
             # Go back to keyboard
             _editor_state = STATE_KEYBOARD
-            keyboard = view_manager.get_keyboard()
+            keyboard = view_manager.keyboard
             if keyboard:
                 keyboard.reset()
                 keyboard.set_response(_filename)  # Restore previous filename
-                draw = view_manager.get_draw()
-                draw.clear(color=view_manager.get_background_color())
+                draw = view_manager.draw
+                draw.clear(color=view_manager.background_color)
                 keyboard.run(force=True)
                 _keyboard_just_started = True
             return
         if _editor_state == STATE_FILE_BROWSER:
             # Go back to initial menu
             _editor_state = STATE_INITIAL_MENU
-            draw = view_manager.get_draw()
-            draw.clear(color=view_manager.get_background_color())
+            draw = view_manager.draw
+            draw.clear(color=view_manager.background_color)
             _start_initial_menu(view_manager)
             return
         # If in EDITOR state, the editor handles back button itself
@@ -327,20 +327,20 @@ def run(view_manager) -> None:
             if selected_index == 0:  # Create New File
                 # Transition to keyboard state
                 _editor_state = STATE_KEYBOARD
-                keyboard = view_manager.get_keyboard()
+                keyboard = view_manager.keyboard
                 if keyboard:
                     keyboard.set_save_callback(__callback_filename_save)
                     keyboard.set_response("")  # Start with empty filename
                     keyboard.title = "Enter filename"
-                    draw = view_manager.get_draw()
-                    draw.clear(color=view_manager.get_background_color())
+                    draw = view_manager.draw
+                    draw.clear(color=view_manager.background_color)
                     keyboard.run(force=True)
                     _keyboard_just_started = True
             else:  # Edit Existing App
                 # Transition to file browser state
                 _editor_state = STATE_FILE_BROWSER
-                draw = view_manager.get_draw()
-                draw.clear(color=view_manager.get_background_color())
+                draw = view_manager.draw
+                draw.clear(color=view_manager.background_color)
                 _start_file_browser(view_manager)
             return
 
@@ -349,7 +349,7 @@ def run(view_manager) -> None:
 
     # State 1: Keyboard input for filename
     elif _editor_state == STATE_KEYBOARD:
-        keyboard = view_manager.get_keyboard()
+        keyboard = view_manager.keyboard
         if not keyboard:
             return
 
@@ -382,8 +382,8 @@ def run(view_manager) -> None:
             # Transition to editor state
             _editor_state = STATE_EDITOR
 
-            draw = view_manager.get_draw()
-            draw.clear(color=view_manager.get_background_color())
+            draw = view_manager.draw
+            draw.clear(color=view_manager.background_color)
             from picoware.system.vector import Vector
 
             draw.text(Vector(10, 10), "Starting editor...")
@@ -423,8 +423,8 @@ def run(view_manager) -> None:
                 _editor_state = STATE_EDITOR
                 _filename = selected_path
 
-                draw = view_manager.get_draw()
-                draw.clear(color=view_manager.get_background_color())
+                draw = view_manager.draw
+                draw.clear(color=view_manager.background_color)
                 from picoware.system.vector import Vector
 
                 draw.text(Vector(10, 10), "Starting editor...")
@@ -435,8 +435,8 @@ def run(view_manager) -> None:
             else:
                 # User backed out, return to initial menu
                 _editor_state = STATE_INITIAL_MENU
-                draw = view_manager.get_draw()
-                draw.clear(color=view_manager.get_background_color())
+                draw = view_manager.draw
+                draw.clear(color=view_manager.background_color)
                 _start_initial_menu(view_manager)
             return
 

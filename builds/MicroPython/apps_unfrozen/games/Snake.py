@@ -226,7 +226,7 @@ def start(view_manager) -> bool:
 
     global SCREEN_WIDTH, SCREEN_HEIGHT, GRID_SIZE, GRID_WIDTH, GRID_HEIGHT, OFFSET_Y
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
 
     # Display setup
     SCREEN_WIDTH = draw.size.x

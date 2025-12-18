@@ -639,7 +639,7 @@ def start(view_manager) -> bool:
 
     global _game_engine, FLIPPER_LCD_WIDTH, FLIPPER_LCD_HEIGHT
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
     FLIPPER_LCD_WIDTH = draw.size.x
     FLIPPER_LCD_HEIGHT = draw.size.y
 
@@ -648,7 +648,7 @@ def start(view_manager) -> bool:
         "Flappy Bird",  # name
         draw.size,  # size
         draw,  # draw instance
-        view_manager.get_input_manager(),  # input manager
+        view_manager.input_manager,  # input manager
         0x0000,  # foreground color
         0xFFFF,  # background color
         0,  # perspective

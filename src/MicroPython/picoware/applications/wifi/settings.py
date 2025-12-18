@@ -12,14 +12,14 @@ def start(view_manager) -> bool:
 
     if _settings_menu is None:
         _settings_menu = Menu(
-            view_manager.get_draw(),
+            view_manager.draw,
             "WiFi Settings",
             0,
             view_manager.draw.size.y,
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
-            view_manager.get_selected_color(),
-            view_manager.get_foreground_color(),
+            view_manager.foreground_color,
+            view_manager.background_color,
+            view_manager.selected_color,
+            view_manager.foreground_color,
             2,
         )
         _settings_menu.add_item("Network Info")
@@ -87,11 +87,11 @@ def run(view_manager) -> None:
 
             if _settings_textbox is None:
                 _settings_textbox = TextBox(
-                    view_manager.get_draw(),
+                    view_manager.draw,
                     0,
                     320,
-                    view_manager.get_foreground_color(),
-                    view_manager.get_background_color(),
+                    view_manager.foreground_color,
+                    view_manager.background_color,
                 )
 
             _settings_textbox.set_text(info)

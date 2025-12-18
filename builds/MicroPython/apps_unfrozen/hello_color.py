@@ -8,7 +8,7 @@ def start(view_manager) -> bool:
     """Start the app."""
     from picoware.system.vector import Vector
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
 
     draw.clear()
 
@@ -42,7 +42,7 @@ def run(view_manager):
     if button == BUTTON_CENTER:
         input_manager.reset()
 
-        draw = view_manager.get_draw()
+        draw = view_manager.draw
         draw.clear()
         draw.text(Vector(130, 160), hi, choices.get(clr))
         draw.swap()

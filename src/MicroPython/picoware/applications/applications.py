@@ -9,18 +9,18 @@ def __alert(view_manager, message: str, back: bool = True) -> None:
     from picoware.gui.alert import Alert
     from picoware.system.buttons import BUTTON_BACK
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
     draw.clear()
     _alert = Alert(
         draw,
         message,
-        view_manager.get_foreground_color(),
-        view_manager.get_background_color(),
+        view_manager.foreground_color,
+        view_manager.background_color,
     )
     _alert.draw("Alert")
 
     # Wait for user to acknowledge
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     while True:
         button = inp.button
         if button == BUTTON_BACK:
@@ -45,7 +45,7 @@ def start(view_manager) -> bool:
         return False
 
     # create apps folder if it doesn't exist
-    view_manager.get_storage().mkdir("picoware/apps")
+    view_manager.storage.mkdir("picoware/apps")
 
     global _applications
     global _app_loader
@@ -63,10 +63,10 @@ def start(view_manager) -> bool:
         "Applications",
         0,
         view_manager.draw.size.y,
-        view_manager.get_foreground_color(),
-        view_manager.get_background_color(),
-        view_manager.get_selected_color(),
-        view_manager.get_foreground_color(),
+        view_manager.foreground_color,
+        view_manager.background_color,
+        view_manager.selected_color,
+        view_manager.foreground_color,
         2,
     )
     _app_loader = AppLoader(view_manager)

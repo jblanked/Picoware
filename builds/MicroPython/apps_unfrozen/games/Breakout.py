@@ -318,7 +318,7 @@ def start(view_manager) -> bool:
     draw.swap()
 
     # Wait for any key using keyboard.readinto
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     while True:
         button = inp.button
         if button == BUTTON_BACK:
@@ -335,7 +335,7 @@ def run(view_manager) -> None:
     """Run the app"""
     from picoware.system.buttons import BUTTON_BACK
 
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     button = inp.button
 
     if any([button == BUTTON_BACK, game is None, not game.running]):

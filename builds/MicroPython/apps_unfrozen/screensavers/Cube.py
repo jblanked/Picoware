@@ -144,7 +144,7 @@ def start(view_manager) -> bool:
 
     global fact, Xoff, Yoff, Zoff, Xan, Yan
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)
     draw.swap()
 
@@ -168,9 +168,9 @@ def run(view_manager) -> None:
 
     global Xan, Yan, Zoff, inc
 
-    input_manager = view_manager.get_input_manager()
+    input_manager = view_manager.input_manager
     input_button = input_manager.get_last_button()
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
     if input_button in (BUTTON_LEFT, BUTTON_BACK):
         view_manager.back()
         input_manager.reset()
@@ -201,7 +201,7 @@ def stop(view_manager) -> None:
     from picoware.system.colors import TFT_BLACK
     from gc import collect
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)
     draw.swap()
 

@@ -352,7 +352,7 @@ def start(view_manager) -> bool:
     from picoware.system.colors import TFT_BLUE
     from picoware.gui.menu import Menu
 
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     draw = view_manager.draw
     bg = view_manager.background_color
     fg = view_manager.foreground_color
@@ -430,7 +430,7 @@ def run(view_manager) -> None:
 
     global game
 
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     key = inp.button
     draw = view_manager.draw
 

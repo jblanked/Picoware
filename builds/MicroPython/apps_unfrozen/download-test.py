@@ -11,10 +11,10 @@ def __alert(view_manager, reason: str, header: str = "Error") -> None:
     from time import sleep
 
     alert = Alert(
-        view_manager.get_draw(),
+        view_manager.draw,
         reason,
-        view_manager.get_foreground_color(),
-        view_manager.get_background_color(),
+        view_manager.foreground_color,
+        view_manager.background_color,
     )
     alert.draw(header)
     sleep(2)
@@ -27,8 +27,8 @@ def start(view_manager) -> bool:
     from picoware.gui.loading import Loading
     from picoware.system.colors import TFT_BLUE
 
-    draw = view_manager.get_draw()
-    wifi = view_manager.get_wifi()
+    draw = view_manager.draw
+    wifi = view_manager.wifi
     if not wifi:
         __alert(view_manager, "WiFi not available...")
         return False
@@ -36,7 +36,7 @@ def start(view_manager) -> bool:
         __alert(view_manager, "WiFi not connected yet...")
         return False
 
-    global _http, _menu, _loading, _request_started
+    global _menu, _loading, _request_started
 
     _request_started = False
 
@@ -47,10 +47,10 @@ def start(view_manager) -> bool:
             "Click an option to download",  # title
             0,  # y position
             draw.size.y,  # height
-            view_manager.get_foreground_color(),  # text color
-            view_manager.get_background_color(),  # background color
+            view_manager.foreground_color,  # text color
+            view_manager.background_color,  # background color
             TFT_BLUE,  # selected item color
-            view_manager.get_foreground_color(),  # border color
+            view_manager.foreground_color,  # border color
         )
 
         # add items
@@ -62,8 +62,8 @@ def start(view_manager) -> bool:
     if not _loading:
         _loading = Loading(
             draw,
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
+            view_manager.foreground_color,
+            view_manager.background_color,
         )
         _loading.set_text("Downloading...")
 
@@ -79,7 +79,7 @@ def run(view_manager) -> None:
         BUTTON_CENTER,
     )
 
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     button = inp.button
 
     if button == BUTTON_BACK:
@@ -125,7 +125,7 @@ def run(view_manager) -> None:
 
         if url and file_name:
             print(f"Downloading {url} to {file_name}...")
-            storage = view_manager.get_storage()
+            storage = view_manager.storage
             try:
                 # remove file if it exists
                 storage.remove(file_name)

@@ -126,7 +126,7 @@ def __ellipse(display, cx, cy, xr, yr, color, fill=False, m=None):
 def start(view_manager) -> bool:
     """Start the app"""
     global CX, CY
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
     CX = draw.size.x // 2
     CY = draw.size.y // 2
     return True
@@ -152,7 +152,7 @@ def run(view_manager) -> None:
         TFT_SKYBLUE,
     )
 
-    input_manager = view_manager.get_input_manager()
+    input_manager = view_manager.input_manager
     input_button = input_manager.get_last_button()
 
     if input_button in (BUTTON_LEFT, BUTTON_BACK):
@@ -162,7 +162,7 @@ def run(view_manager) -> None:
 
     global shift
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
 
     draw.fill_screen(TFT_BLACK)
 

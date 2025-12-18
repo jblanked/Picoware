@@ -15,13 +15,13 @@ def __free_roam_alert(view_manager, message: str, back: bool = True) -> None:
 
     from picoware.gui.alert import Alert
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
     draw.clear()
     _free_roam_alert = Alert(
         draw,
         message,
-        view_manager.get_foreground_color(),
-        view_manager.get_background_color(),
+        view_manager.foreground_color,
+        view_manager.background_color,
     )
     _free_roam_alert.draw("Alert")
     sleep(2)
@@ -32,7 +32,7 @@ def __free_roam_alert(view_manager, message: str, back: bool = True) -> None:
 def start(view_manager) -> bool:
     """Start the app"""
 
-    wifi = view_manager.get_wifi()
+    wifi = view_manager.wifi
 
     # if not a wifi device, return
     if not wifi:
@@ -58,7 +58,7 @@ def start(view_manager) -> bool:
 def run(view_manager) -> None:
     """Run the app"""
 
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     button = inp.button
 
     global _game

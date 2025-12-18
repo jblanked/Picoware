@@ -194,9 +194,7 @@ class Player(Entity):
         if not self.free_roam_game or not self.free_roam_game.view_manager:
             return ""
         view_manager = self.free_roam_game.view_manager
-        data: str = view_manager.get_storage().read(
-            "picoware/flip_social/password.json"
-        )
+        data: str = view_manager.storage.read("picoware/flip_social/password.json")
 
         if data is not None:
             try:
@@ -218,9 +216,7 @@ class Player(Entity):
         if not self.free_roam_game or not self.free_roam_game.view_manager:
             return ""
         view_manager = self.free_roam_game.view_manager
-        data: str = view_manager.get_storage().read(
-            "picoware/flip_social/username.json"
-        )
+        data: str = view_manager.storage.read("picoware/flip_social/username.json")
 
         if data is not None:
             try:

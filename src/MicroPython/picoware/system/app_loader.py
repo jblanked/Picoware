@@ -56,7 +56,7 @@ class AppLoader:
     def list_available_apps(self, subdirectory="") -> list[str]:
         """List all available apps (with .py extension) in the picoware/apps directory or subdirectory"""
         try:
-            storage = self.view_manager.get_storage()
+            storage = self.view_manager.storage
             # no need to mount because we're using auto-mount
             apps_path = "/picoware/apps"
             if subdirectory:
@@ -100,7 +100,7 @@ class AppLoader:
             cache_key = f"{subdirectory}/{app_name}" if subdirectory else app_name
             if cache_key not in self.loaded_apps:
                 # Mount the SD card first
-                storage = self.view_manager.get_storage()
+                storage = self.view_manager.storage
                 storage.mount()
 
                 # Determine the base path based on VFS mode

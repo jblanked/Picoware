@@ -9,7 +9,7 @@ def start(view_manager) -> bool:
 
     _psram = PSRAM()
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
     draw.fill_screen()
 
     # Display PSRAM info
@@ -48,7 +48,7 @@ def run(view_manager) -> None:
     """Handle input"""
     from picoware.system.buttons import BUTTON_BACK
 
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     if inp.button == BUTTON_BACK:
         inp.reset()
         view_manager.back()

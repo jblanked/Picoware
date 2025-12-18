@@ -7,7 +7,7 @@ def start(view_manager) -> bool:
     from picoware.gui.menu import Menu
 
     # create wifi folder
-    view_manager.get_storage().mkdir("picoware/wifi")
+    view_manager.storage.mkdir("picoware/wifi")
 
     global _wifi
     global _wifi_index
@@ -17,10 +17,10 @@ def start(view_manager) -> bool:
             "WiFi",
             0,
             view_manager.draw.size.y,
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
-            view_manager.get_selected_color(),
-            view_manager.get_foreground_color(),
+            view_manager.foreground_color,
+            view_manager.background_color,
+            view_manager.selected_color,
+            view_manager.foreground_color,
             2,
         )
         _wifi.add_item("Connect")

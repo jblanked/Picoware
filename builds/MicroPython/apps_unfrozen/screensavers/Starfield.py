@@ -42,7 +42,7 @@ def start(view_manager) -> bool:
         sy[i] = 0
         sz[i] = 0
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)  # Black background
     draw.swap()
 
@@ -57,7 +57,7 @@ def run(view_manager) -> None:
 
     global sx, sy, sz
 
-    input_manager = view_manager.get_input_manager()
+    input_manager = view_manager.input_manager
     input_button = input_manager.get_last_button()
 
     if input_button in (BUTTON_LEFT, BUTTON_BACK):
@@ -65,7 +65,7 @@ def run(view_manager) -> None:
         input_manager.reset()
         return
 
-    tft = view_manager.get_draw()
+    tft = view_manager.draw
     spawn_depth_variation = 255
     pixel_vector = Vector(0, 0)
     screen_size = tft.size
@@ -129,7 +129,7 @@ def stop(view_manager) -> None:
     from picoware.system.colors import TFT_BLACK
     from gc import collect
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)  # Black background
     draw.swap()
 

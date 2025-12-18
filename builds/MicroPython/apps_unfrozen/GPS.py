@@ -60,9 +60,9 @@ def start(view_manager) -> bool:
         del _gps_http
         _gps_http = None
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
 
-    wifi = view_manager.get_wifi()
+    wifi = view_manager.wifi
 
     # if not a wifi device, return
     if not wifi:
@@ -72,8 +72,8 @@ def start(view_manager) -> bool:
         _gps_alert = Alert(
             draw,
             "WiFi not available..",
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
+            view_manager.foreground_color,
+            view_manager.background_color,
         )
         _gps_alert.draw("Error")
         sleep(2)
@@ -88,8 +88,8 @@ def start(view_manager) -> bool:
         _gps_alert = Alert(
             draw,
             "WiFi not connected yet",
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
+            view_manager.foreground_color,
+            view_manager.background_color,
         )
         _gps_alert.draw("Error")
         sleep(2)
@@ -124,9 +124,9 @@ def run(view_manager) -> None:
     global _gps_alert, _gps_http
     global _gps_request_sent, _gps_request_in_progress, _gps_displaying_result
 
-    input_manager = view_manager.get_input_manager()
+    input_manager = view_manager.input_manager
     button = input_manager.get_last_button()
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
 
     if button in (BUTTON_LEFT, BUTTON_BACK):
         input_manager.reset()
@@ -138,7 +138,7 @@ def run(view_manager) -> None:
         input_manager.reset()
         __reset_gps_state()
 
-        draw.clear(Vector(0, 0), draw.size, view_manager.get_background_color())
+        draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
         draw.text(Vector(5, 5), "Starting GPS lookup...")
         draw.swap()
 
@@ -163,8 +163,8 @@ def run(view_manager) -> None:
             _gps_alert = Alert(
                 draw,
                 "Failed to start location request",
-                view_manager.get_foreground_color(),
-                view_manager.get_background_color(),
+                view_manager.foreground_color,
+                view_manager.background_color,
             )
             _gps_alert.draw("Error")
             sleep(2)
@@ -172,7 +172,7 @@ def run(view_manager) -> None:
             _gps_request_in_progress = False
             return
 
-        draw.clear(Vector(0, 0), draw.size, view_manager.get_background_color())
+        draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
         draw.text(Vector(5, 5), "Getting your location...")
         draw.swap()
 
@@ -190,20 +190,14 @@ def run(view_manager) -> None:
                 location_text = __parse_location_data(gps_response)
 
                 if location_text:
-                    draw.clear(
-                        Vector(0, 0), draw.size, view_manager.get_background_color()
-                    )
+                    draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
                     draw.text(
-                        Vector(0, 5), location_text, view_manager.get_foreground_color()
+                        Vector(0, 5), location_text, view_manager.foreground_color
                     )
                 else:
-                    draw.clear(
-                        Vector(0, 0), draw.size, view_manager.get_background_color()
-                    )
+                    draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
                     error_msg = f"Unable to parse location data.\n\nRaw Response:\n{location_text}\n\nPress LEFT to go back"
-                    draw.text(
-                        Vector(5, 5), error_msg, view_manager.get_foreground_color()
-                    )
+                    draw.text(Vector(5, 5), error_msg, view_manager.foreground_color)
 
                 draw.swap()
                 _gps_displaying_result = True
@@ -213,7 +207,7 @@ def run(view_manager) -> None:
                 del _gps_http
                 _gps_http = None
             else:
-                draw.clear(Vector(0, 0), draw.size, view_manager.get_background_color())
+                draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
                 error_msg = "Failed to get location data."
                 if _gps_http.state == 2:  # HTTP_ISSUE
                     error_msg += "\nNetwork error or timeout."
@@ -224,8 +218,8 @@ def run(view_manager) -> None:
                 _gps_alert = Alert(
                     draw,
                     error_msg,
-                    view_manager.get_foreground_color(),
-                    view_manager.get_background_color(),
+                    view_manager.foreground_color,
+                    view_manager.background_color,
                 )
                 _gps_alert.draw("Error")
                 sleep(2)
@@ -245,10 +239,8 @@ def run(view_manager) -> None:
                 _gps_dot_count = (_gps_dot_count + 1) % 4  # Cycle through 0-3
 
                 loading_text = "Getting your location" + ("." * _gps_dot_count)
-                draw.clear(Vector(0, 0), draw.size, view_manager.get_background_color())
-                draw.text(
-                    Vector(5, 5), loading_text, view_manager.get_foreground_color()
-                )
+                draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
+                draw.text(Vector(5, 5), loading_text, view_manager.foreground_color)
                 draw.swap()
 
 

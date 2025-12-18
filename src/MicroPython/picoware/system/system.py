@@ -113,13 +113,13 @@ class System:
             if view_manager:
                 from picoware.gui.alert import Alert
 
-                draw = view_manager.get_draw()
+                draw = view_manager.draw
                 draw.clear()
                 alert = Alert(
-                    view_manager.get_draw(),
+                    view_manager.draw,
                     "The device will power off in 5 seconds...",
-                    view_manager.get_foreground_color(),
-                    view_manager.get_background_color(),
+                    view_manager.foreground_color,
+                    view_manager.background_color,
                 )
                 alert.draw("Warning")
                 write_power_off_delay(0)

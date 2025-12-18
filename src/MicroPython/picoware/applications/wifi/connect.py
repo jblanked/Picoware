@@ -10,7 +10,7 @@ _password = ""
 def _get_status_text(view_manager) -> str:
     global _status_message
 
-    wifi = view_manager.get_wifi()
+    wifi = view_manager.wifi
     text = "WiFi Setup\n\n"
     text += "Network: " + _ssid + "\n"
     text += "Status: " + _status_message + "\n\n"
@@ -69,8 +69,8 @@ def start(view_manager) -> bool:
             view_manager.draw,
             0,
             view_manager.draw.size.y,
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
+            view_manager.foreground_color,
+            view_manager.background_color,
         )
 
         if _connect is None:
@@ -81,7 +81,7 @@ def start(view_manager) -> bool:
         _last_update = 0
         _connection_start_time = 0
         _status_message = (
-            "Connected" if view_manager.get_wifi().is_connected() else "Disconnected"
+            "Connected" if view_manager.wifi.is_connected() else "Disconnected"
         )
         _connect.set_text(_get_status_text(view_manager))
 
@@ -116,7 +116,7 @@ def run(view_manager) -> None:
 
     input_manager = view_manager.input_manager
     button: int = input_manager.get_last_button()
-    wifi = view_manager.get_wifi()
+    wifi = view_manager.wifi
 
     if button in (BUTTON_BACK, BUTTON_LEFT):
         input_manager.reset()

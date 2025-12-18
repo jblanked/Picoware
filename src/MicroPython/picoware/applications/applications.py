@@ -112,10 +112,10 @@ def run(view_manager) -> None:
         view_manager.back()
     elif button == BUTTON_CENTER:
         input_manager.reset()
-        _applications_index = _applications.get_selected_index()
+        _applications_index = _applications.selected_index
 
         # Get the selected app name
-        selected_app = _applications.get_current_item()
+        selected_app = _applications.current_item
 
         if selected_app and _app_loader:
             # Try to load the app

@@ -402,7 +402,7 @@ def start(view_manager) -> bool:
                 1: "medium",
                 2: "hard",
             }
-            game = SudokuGame(options.get(_menu.get_selected_index()))
+            game = SudokuGame(options.get(_menu.selected_index))
             game.generate_puzzle()
             return True
         elif key == BUTTON_BACK:

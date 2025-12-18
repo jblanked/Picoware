@@ -109,7 +109,7 @@ def run(view_manager) -> None:
         _menu.scroll_down()
     elif button == BUTTON_CENTER and not _request_started:
         inp.reset()
-        selection = _menu.get_selected_index()
+        selection = _menu.selected_index
         if selection == 0:
             url = "https://httpbin.org/bytes/1024"
             file_name = "httpbin_1kb.bin"

@@ -866,7 +866,7 @@ def __menu_run(view_manager) -> None:
         menu.scroll_down()
     elif button == BUTTON_CENTER:
         inp.reset()
-        selection = menu.get_selected_index()
+        selection = menu.selected_index
 
         if menu_state == STATE_RUNNING:
             if server is not None:

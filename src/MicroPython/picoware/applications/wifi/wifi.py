@@ -65,7 +65,7 @@ def run(view_manager) -> None:
         view_manager.back()
     elif button == BUTTON_CENTER:
         input_manager.reset()
-        _wifi_index = _wifi.get_selected_index()
+        _wifi_index = _wifi.selected_index
 
         if _wifi_index == 0:
             from picoware.applications.wifi import connect

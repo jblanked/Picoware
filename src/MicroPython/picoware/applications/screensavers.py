@@ -112,10 +112,10 @@ def run(view_manager) -> None:
         view_manager.back()
     elif button == BUTTON_CENTER:
         input_manager.reset()
-        _screensavers_index = _screensavers.get_selected_index()
+        _screensavers_index = _screensavers.selected_index
 
         # Get the selected screensaver name
-        selected_screensaver = _screensavers.get_current_item()
+        selected_screensaver = _screensavers.current_item
 
         if selected_screensaver and _app_loader:
             # Try to load the screensaver

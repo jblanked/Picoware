@@ -71,7 +71,7 @@ def run(view_manager) -> None:
             _settings_menu.draw()
     elif button == BUTTON_CENTER:
         input_manager.reset()
-        _settings_menu_index = _settings_menu.get_selected_index()
+        _settings_menu_index = _settings_menu.selected_index
         if _settings_menu_index == 0:
             from picoware.applications.wifi.utils import (
                 load_wifi_password,

@@ -148,8 +148,8 @@ def run(view_manager) -> None:
         from picoware.system.view import View
 
         input_manager.reset()
-        _flip_social_app_index = _flip_social_app_menu.get_selected_index()
-        current_item = _flip_social_app_menu.get_current_item()
+        _flip_social_app_index = _flip_social_app_menu.selected_index
+        current_item = _flip_social_app_menu.current_item
 
         if current_item == "Run":
             if __flip_social_util_get_username(view_manager) == "":

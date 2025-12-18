@@ -321,7 +321,7 @@ def run(view_manager) -> None:
             _initial_menu.scroll_down()
             input_manager.reset()
         elif button == BUTTON_OK:
-            selected_index = _initial_menu.get_selected_index()
+            selected_index = _initial_menu.selected_index
             input_manager.reset()
 
             if selected_index == 0:  # Create New File
@@ -376,7 +376,7 @@ def run(view_manager) -> None:
             _file_type_menu.scroll_down()
             input_manager.reset()
         elif button == BUTTON_OK:
-            selected_index = _file_type_menu.get_selected_index()
+            selected_index = _file_type_menu.selected_index
             input_manager.reset()
 
             # Transition to editor state

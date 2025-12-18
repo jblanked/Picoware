@@ -64,7 +64,7 @@ def run(view_manager) -> None:
         _system_index = 0
     elif button == BUTTON_CENTER:
         input_manager.reset()
-        _system_index = _system.get_selected_index()
+        _system_index = _system.selected_index
         if _system_index == 0:
             from picoware.applications.system import settings
             from picoware.system.view import View

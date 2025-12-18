@@ -112,10 +112,10 @@ def run(view_manager) -> None:
         view_manager.back()
     elif button == BUTTON_CENTER:
         input_manager.reset()
-        _games_index = _games.get_selected_index()
+        _games_index = _games.selected_index
 
         # Get the selected game name
-        selected_game = _games.get_current_item()
+        selected_game = _games.current_item
 
         if selected_game and _app_loader:
             # Try to load the game

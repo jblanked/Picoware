@@ -241,7 +241,7 @@ class FileBrowser:
                 self._current_path = (
                     self._current_directory
                     + "/"
-                    + self._file_browser_menu.get_current_item().rstrip("/")
+                    + self._file_browser_menu.current_item.rstrip("/")
                 )
             elif input_value in (BUTTON_DOWN, BUTTON_RIGHT):
                 self._input_manager.reset()
@@ -250,7 +250,7 @@ class FileBrowser:
                 self._current_path = (
                     self._current_directory
                     + "/"
-                    + self._file_browser_menu.get_current_item().rstrip("/")
+                    + self._file_browser_menu.current_item.rstrip("/")
                 )
             elif input_value == BUTTON_BACK:
                 self._input_manager.reset()
@@ -272,8 +272,8 @@ class FileBrowser:
                     return False
             elif input_value == BUTTON_CENTER:
                 self._input_manager.reset()
-                current_item = self._file_browser_menu.get_current_item()
-                selected_index = self._file_browser_menu.get_selected_index()
+                current_item = self._file_browser_menu.current_item
+                selected_index = self._file_browser_menu.selected_index
 
                 # Skip if empty directory message
                 if current_item in ("(Empty directory)", "(Error reading directory)"):

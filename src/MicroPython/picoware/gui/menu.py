@@ -51,7 +51,7 @@ class Menu:
     @property
     def current_item(self) -> str:
         """Get the current item."""
-        return self.list.get_current_item()
+        return self.list.current_item
 
     @property
     def item_count(self) -> int:
@@ -61,7 +61,7 @@ class Menu:
     @property
     def list_height(self) -> int:
         """Get the height of the list."""
-        return self.list.get_list_height()
+        return self.list.list_height
 
     @property
     def selected_index(self) -> int:
@@ -72,6 +72,11 @@ class Menu:
     def title(self) -> str:
         """Get the menu title."""
         return self._title
+
+    @title.setter
+    def title(self, value: str) -> None:
+        """Set the menu title."""
+        self._title = value
 
     def add_item(self, item: str) -> None:
         """Add an item to the menu."""
@@ -115,25 +120,9 @@ class Menu:
             self.text_color,
         )
 
-    def get_current_item(self) -> str:
-        """Get the current item in the menu."""
-        return self.list.get_current_item()
-
     def get_item(self, index: int) -> str:
         """Get the item at the specified index."""
         return self.list.get_item(index)
-
-    def get_item_count(self) -> int:
-        """Get the number of items in the menu."""
-        return self.list.get_item_count()
-
-    def get_list_height(self) -> int:
-        """Get the height of the list."""
-        return self.list.get_list_height()
-
-    def get_selected_index(self) -> int:
-        """Get the index of the selected item."""
-        return self.list.selected_index
 
     def item_exists(self, item: str) -> bool:
         """Check if an item exists in the menu."""

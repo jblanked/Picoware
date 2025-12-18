@@ -30,7 +30,7 @@ class List:
 
         self.lines_per_screen = 14
         self.item_height = 20
-        self.selected_index = 0
+        self._selected_index = 0
         self.first_visible_index = 0
         self.visible_item_count = (self.size.y - 2 * border_width) / self.item_height
         self.items = []
@@ -46,9 +46,27 @@ class List:
         self.items = []
 
     @property
+    def current_item(self) -> str:
+        """Get the currently selected item."""
+        # Get the currently selected item
+        if 0 <= self._selected_index < len(self.items):
+            return self.items[self._selected_index]
+        return ""
+
+    @property
     def item_count(self) -> int:
         """Get the number of items in the list."""
         return len(self.items)
+
+    @property
+    def list_height(self) -> int:
+        """Get the height of the list."""
+        return len(self.items) * self.item_height
+
+    @property
+    def selected_index(self) -> int:
+        """Get the selected index."""
+        return self._selected_index
 
     def add_item(self, item: str) -> None:
         """Add an item to the list."""
@@ -58,7 +76,7 @@ class List:
         """Clear the list."""
         # Clear the list of items
         self.items = []
-        self.selected_index = 0
+        self._selected_index = 0
         self.first_visible_index = 0
 
         # Clear the display area
@@ -81,8 +99,8 @@ class List:
             self.display.pixel(_dec_v, self.border_color)
 
         # Get current selected item
-        if 0 <= self.selected_index < len(self.items):
-            current_item = self.items[self.selected_index]
+        if 0 <= self._selected_index < len(self.items):
+            current_item = self.items[self._selected_index]
 
             menu_y = self.position.y + self.size.y // 4
             box_width = size_x - int(size_x // 6.4)
@@ -104,9 +122,9 @@ class List:
             )
 
             # Draw navigation arrows
-            if self.selected_index > 0:
+            if self._selected_index > 0:
                 self.display.text(Vector(5, menu_y - 7), "<", self.border_color)
-            if self.selected_index < len(self.items) - 1:
+            if self._selected_index < len(self.items) - 1:
                 self.display.text(
                     Vector(size_x - 15, menu_y - 7), ">", self.border_color
                 )
@@ -121,7 +139,7 @@ class List:
                 for i in range(len(self.items)):
                     dot_x = dots_start_x + (i * dots_spacing)
                     _pos.x = dot_x
-                    if i == self.selected_index:
+                    if i == self._selected_index:
                         self.display.fill_rectangle(
                             _pos,
                             _size,
@@ -135,7 +153,7 @@ class List:
                         )
             else:
                 # show the current selected item index and total count
-                index_text = "{}/{}".format(self.selected_index + 1, len(self.items))
+                index_text = "{}/{}".format(self._selected_index + 1, len(self.items))
                 index_text_width = len(index_text) * self.display.font_size.x
                 index_text_x = (size_x - index_text_width) // 2
                 self.display.text(
@@ -163,7 +181,7 @@ class List:
             else:
                 # Center the selected item when possible
                 half_visible = max_visible_items // 2
-                first_visible = max(0, self.selected_index - half_visible)
+                first_visible = max(0, self._selected_index - half_visible)
                 last_visible = min(len(self.items), first_visible + max_visible_items)
 
                 # Adjust if we're near the end
@@ -179,7 +197,7 @@ class List:
                 item_y = list_start_y + (visible_idx * item_height)
 
                 # Draw background for selected item
-                if i == self.selected_index:
+                if i == self._selected_index:
                     rec_vec_pos.y = item_y
                     rec_vec_size.y = item_height
                     self.display.fill_rectangle(
@@ -210,27 +228,12 @@ class List:
         # Swap buffers
         self.display.swap()
 
-    def get_current_item(self) -> str:
-        """Get the currently selected item."""
-        # Get the currently selected item
-        if 0 <= self.selected_index < len(self.items):
-            return self.items[self.selected_index]
-        return ""
-
     def get_item(self, index: int) -> str:
         """Get an item from the list."""
         # Get the item from the list
         if 0 <= index < len(self.items):
             return self.items[index]
         return ""
-
-    def get_item_count(self) -> int:
-        """Get the number of items in the list."""
-        return len(self.items)
-
-    def get_list_height(self) -> int:
-        """Get the height of the list."""
-        return len(self.items) * self.item_height
 
     def item_exists(self, item: str) -> bool:
         """Check if an item exists in the list."""
@@ -242,25 +245,25 @@ class List:
         if 0 <= index < len(self.items):
             self.items.pop(index)
 
-        if self.selected_index >= len(self.items):
-            self.selected_index = len(self.items) - 1 if len(self.items) > 0 else 0
+        if self._selected_index >= len(self.items):
+            self._selected_index = len(self.items) - 1 if len(self.items) > 0 else 0
 
     def scroll_down(self) -> None:
         """Scroll the list down by one item."""
-        self.selected_index += 1
-        if self.selected_index >= len(self.items):
-            self.selected_index = 0
+        self._selected_index += 1
+        if self._selected_index >= len(self.items):
+            self._selected_index = 0
         self.draw()
 
     def scroll_up(self) -> None:
         """Scroll the list up by one item."""
-        self.selected_index -= 1
-        if self.selected_index < 0:
-            self.selected_index = len(self.items) - 1
+        self._selected_index -= 1
+        if self._selected_index < 0:
+            self._selected_index = len(self.items) - 1
         self.draw()
 
     def set_selected(self, index: int) -> None:
         """Set the selected item in the list"""
         if 0 <= index < len(self.items):
-            self.selected_index = index
+            self._selected_index = index
             self.draw()

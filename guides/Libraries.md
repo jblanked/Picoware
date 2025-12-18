@@ -422,10 +422,10 @@ Check the source code for all available button and key constants.
     - `add_item(item)`: Add an item to the list.
     - `clear()`: Clear the list.
     - `draw()`: Draw the list.
-    - `get_current_item()`: Get the currently selected item.
+    - `current_item`: Get the currently selected item.
     - `get_item(index)`: Get an item from the list at the specified index.
-    - `get_item_count()`: Get the number of items in the list.
-    - `get_list_height()`: Get the height of the list.
+    - `item_count`: Get the number of items in the list.
+    - `list_height`: Get the height of the list.
     - `item_exists(item)`: Check if an item exists in the list.
     - `remove_item(index)`: Remove an item from the list.
     - `scroll_down()`: Scroll the list down by one item.
@@ -453,11 +453,11 @@ Check the source code for all available button and key constants.
     - `clear()`: Clear the menu.
     - `draw()`: Draw the menu.
     - `draw_title()`: Draw the title.
-    - `get_current_item()`: Get the current item in the menu.
+    - `current_item`: Get the current item in the menu.
     - `get_item(index)`: Get the item at the specified index.
-    - `get_item_count()`: Get the number of items in the menu.
-    - `get_list_height()`: Get the height of the list.
-    - `get_selected_index()`: Get the index of the selected item.
+    - `item_count`: Get the number of items in the menu.
+    - `list_height`: Get the height of the list.
+    - `selected_index`: Get the index of the selected item.
     - `item_exists(item)`: Check if an item exists in the menu.
     - `refresh()`: Refresh the menu display.
     - `remove_item(index)`: Remove an item from the menu.
@@ -913,10 +913,10 @@ Check the source code for all available button and key constants.
   - `clear()`: Clear list
   - `draw()`: Draw list
   - `draw_item(index, selected)`: Draw individual item
-  - `get_current_item()`: Get current item
+  - `current_item`: Get current item
   - `get_item(index)`: Get item by index
-  - `get_item_count()`: Get item count
-  - `get_list_height()`: Get list height
+  - `item_count`: Get item count
+  - `list_height`: Get list height
   - `remove_item(index)`: Remove item
   - `scroll_down()`: Scroll down
   - `scroll_up()`: Scroll up
@@ -939,11 +939,11 @@ Check the source code for all available button and key constants.
   - `clear()`: Clear menu
   - `draw()`: Draw menu
   - `draw_title()`: Draw menu title
-  - `get_current_item()`: Get current item
+  - `current_item`: Get current item
   - `get_item(index)`: Get item by index
-  - `get_item_count()`: Get item count
-  - `get_list_height()`: Get list height
-  - `get_selected_index()`: Get selected index
+  - `item_count`: Get item count
+  - `list_height`: Get list height
+  - `selected_index`: Get selected index
   - `remove_item(index)`: Remove item
   - `scroll_down()`: Scroll down
   - `scroll_up()`: Scroll up

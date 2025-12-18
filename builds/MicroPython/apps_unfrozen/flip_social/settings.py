@@ -65,7 +65,7 @@ def __flip_social_settings_run(view_manager) -> None:
         from picoware.system.view import View
 
         input_manager.reset()
-        current_item = _flip_social_settings_menu.get_current_item()
+        current_item = _flip_social_settings_menu.current_item
 
         if current_item == "Change User":
             from flip_social.username import (

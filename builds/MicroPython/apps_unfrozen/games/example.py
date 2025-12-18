@@ -429,7 +429,7 @@ def run(view_manager) -> None:
         _game_engine.run_async(False)
 
     input_manager = view_manager.input_manager
-    button: int = input_manager.get_last_button()
+    button: int = input_manager.button
 
     if button == BUTTON_BACK:
         input_manager.reset()

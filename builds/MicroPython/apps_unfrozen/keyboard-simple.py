@@ -31,7 +31,7 @@ def run(view_manager) -> None:
     from picoware.system.buttons import BUTTON_BACK
 
     inp = view_manager.input_manager
-    but = inp.get_last_button()
+    but = inp.button
     kb = view_manager.keyboard
 
     if but == BUTTON_BACK:

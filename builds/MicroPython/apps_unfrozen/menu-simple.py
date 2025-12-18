@@ -43,7 +43,7 @@ def run(view_manager) -> None:
     from picoware.system.buttons import BUTTON_UP, BUTTON_DOWN, BUTTON_BACK
 
     inp = view_manager.input_manager
-    button = inp.get_last_button()
+    button = inp.button
 
     if button == BUTTON_UP:
         inp.reset()

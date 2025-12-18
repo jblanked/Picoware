@@ -269,7 +269,7 @@ def run(view_manager) -> None:
     global _keyboard_just_started
 
     input_manager = view_manager.input_manager
-    button = input_manager.get_last_button()
+    button = input_manager.button
 
     # Handle back button - return to previous state or exit
     if button == BUTTON_BACK:

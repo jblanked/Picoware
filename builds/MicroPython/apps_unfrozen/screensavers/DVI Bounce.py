@@ -4506,7 +4506,7 @@ def run(view_manager) -> None:
     from picoware.system.vector import Vector
 
     input_manager = view_manager.input_manager
-    input_button = input_manager.get_last_button()
+    input_button = input_manager.button
 
     if input_button in (BUTTON_LEFT, BUTTON_BACK):
         view_manager.back()

@@ -21,7 +21,7 @@ def run(view_manager):
 
     inp = view_manager.input_manager
     draw = view_manager.draw
-    but = inp.get_last_button()
+    but = inp.button
 
     if but == BUTTON_BACK:
         inp.reset()

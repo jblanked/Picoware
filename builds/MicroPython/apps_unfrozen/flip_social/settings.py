@@ -50,7 +50,7 @@ def __flip_social_settings_run(view_manager) -> None:
     global _flip_social_settings_menu
 
     input_manager = view_manager.input_manager
-    input_button = input_manager.get_last_button()
+    input_button = input_manager.button
 
     if input_button in (BUTTON_UP, BUTTON_LEFT):
         input_manager.reset()

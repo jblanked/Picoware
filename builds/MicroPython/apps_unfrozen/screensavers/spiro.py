@@ -78,7 +78,7 @@ def run(view_manager) -> None:
 
     global spiro_elapsed, sp_sx, sp_sy, x0, x1, yy0, yy1
 
-    input_button = view_manager.input_manager.get_last_button()
+    input_button = view_manager.input_manager.button
 
     if input_button in (BUTTON_LEFT, BUTTON_BACK):
         view_manager.back()

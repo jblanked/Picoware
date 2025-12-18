@@ -169,7 +169,7 @@ def run(view_manager) -> None:
     global Xan, Yan, Zoff, inc
 
     input_manager = view_manager.input_manager
-    input_button = input_manager.get_last_button()
+    input_button = input_manager.button
     draw = view_manager.draw
     if input_button in (BUTTON_LEFT, BUTTON_BACK):
         view_manager.back()

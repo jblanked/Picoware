@@ -125,7 +125,7 @@ def run(view_manager) -> None:
     global _gps_request_sent, _gps_request_in_progress, _gps_displaying_result
 
     input_manager = view_manager.input_manager
-    button = input_manager.get_last_button()
+    button = input_manager.button
     draw = view_manager.draw
 
     if button in (BUTTON_LEFT, BUTTON_BACK):

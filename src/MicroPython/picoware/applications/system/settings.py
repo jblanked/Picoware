@@ -60,7 +60,7 @@ def run(view_manager) -> None:
     )
 
     input_manager = view_manager.input_manager
-    button = input_manager.get_last_button()
+    button = input_manager.button
 
     global _dark_mode, _toggle_index
 

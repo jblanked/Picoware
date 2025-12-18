@@ -9,6 +9,7 @@ This section provides documentation for the libraries available in Picoware.
 
 ### Table of Contents
 - [System](#system)
+  - [picoware.system.bluetooth](#picoware-system-bluetooth)
   - [picoware.system.buttons](#picoware-system-buttons)
   - [picoware.system.colors](#picoware-system-colors)
   - [picoware.system.http](#picoware-system-http)
@@ -41,6 +42,63 @@ This section provides documentation for the libraries available in Picoware.
   - [picoware.engine.level](#picoware-engine-level)
 
 ### System
+
+#### picoware.system.bluetooth
+- `_IRQ_CENTRAL_CONNECT`: Constant for central connect event (1)
+- `_IRQ_CENTRAL_DISCONNECT`: Constant for central disconnect event (2)
+- `_IRQ_GATTS_WRITE`: Constant for GATT server write event (3)
+- `_IRQ_SCAN_RESULT`: Constant for scan result event (5)
+- `_IRQ_SCAN_DONE`: Constant for scan done event (6)
+- `_IRQ_PERIPHERAL_CONNECT`: Constant for peripheral connect event (7)
+- `_IRQ_PERIPHERAL_DISCONNECT`: Constant for peripheral disconnect event (8)
+- `_IRQ_GATTC_SERVICE_RESULT`: Constant for GATT client service result event (9)
+- `_IRQ_GATTC_SERVICE_DONE`: Constant for GATT client service done event (10)
+- `_IRQ_GATTC_CHARACTERISTIC_RESULT`: Constant for GATT client characteristic result event (11)
+- `_IRQ_GATTC_CHARACTERISTIC_DONE`: Constant for GATT client characteristic done event (12)
+- `_IRQ_GATTC_DESCRIPTOR_RESULT`: Constant for GATT client descriptor result event (13)
+- `_IRQ_GATTC_DESCRIPTOR_DONE`: Constant for GATT client descriptor done event (14)
+- `_IRQ_GATTC_READ_RESULT`: Constant for GATT client read result event (15)
+- `_IRQ_GATTC_READ_DONE`: Constant for GATT client read done event (16)
+- `_IRQ_GATTC_WRITE_DONE`: Constant for GATT client write done event (17)
+- `_IRQ_GATTC_NOTIFY`: Constant for GATT client notify event (18)
+- `_IRQ_GATTC_INDICATE`: Constant for GATT client indicate event (19)
+- `_IRQ_GATTS_INDICATE_DONE`: Constant for GATT server indicate done event (20)
+- `_IRQ_MTU_EXCHANGED`: Constant for MTU exchanged event (21)
+- `_IRQ_ENCRYPTION_UPDATE`: Constant for encryption update event (28)
+- `_IRQ_PASSKEY_ACTION`: Constant for passkey action event (31)
+- `_PASSKEY_ACTION_NONE`: Constant for no passkey action (0)
+- `_PASSKEY_ACTION_INPUT`: Constant for input passkey action (2)
+- `_PASSKEY_ACTION_DISPLAY`: Constant for display passkey action (3)
+- `_PASSKEY_ACTION_NUMERIC_COMPARISON`: Constant for numeric comparison passkey action (4)
+- `Bluetooth` class: A class to manage Bluetooth functionality as a central device
+    - `__init__(storage=None)`: Initializes the Bluetooth class with optional storage for paired devices.
+    - `callback`: Property to get/set the Bluetooth event callback function. The callback accepts two parameters: event and data.
+    - `characteristics`: Property that returns a list of discovered characteristics.
+    - `connected_address`: Property that returns the address of the connected device.
+    - `is_pairing`: Property that returns True if currently in pairing process.
+    - `is_scanning`: Property that returns True if Bluetooth is currently scanning.
+    - `is_connected`: Property that returns True if connected to a peripheral.
+    - `mac_address`: Property that returns the MAC address of this Bluetooth device.
+    - `passkey`: Property that returns the current passkey during pairing (if any).
+    - `services`: Property that returns a list of discovered services.
+    - `advertise(interval_us=None, name="Picoware")`: Start or stop BLE advertising to make this device discoverable.
+    - `connect(addr_type, addr, timeout_ms=10000)`: Connect to a BLE peripheral device.
+    - `decode_name(adv_data)`: Decode device name from advertising data.
+    - `disconnect(conn_handle=None)`: Disconnect from a device.
+    - `discover_characteristics(start_handle, end_handle)`: Discover characteristics for a service.
+    - `discover_services()`: Discover services on the connected peripheral.
+    - `is_device_paired(addr)`: Check if a device address is in the paired devices list.
+    - `load_paired_devices()`: Load paired devices from storage.
+    - `pair()`: Initiate pairing/bonding with the connected device.
+    - `passkey_reply(accept=True, passkey=None)`: Reply to a passkey request during pairing.
+    - `read(handle)`: Read data from a characteristic.
+    - `remove_paired_device(addr)`: Remove a paired device from storage.
+    - `save_paired_device(addr, name="")`: Save a paired device to storage.
+    - `scan(duration_ms=5000, interval_us=30000, window_us=30000, active=True)`: Start scanning for BLE devices.
+    - `scan_stop()`: Stop an ongoing scan.
+    - `register()`: Register the device as a GATT server.
+    - `subscribe(handle, notify=True)`: Subscribe to notifications from a characteristic.
+    - `write(data, handle=None, response=False)`: Write data to the connected peripheral.
 
 #### picoware.system.buttons
 - `BUTTON_NONE`: No button pressed (-1)

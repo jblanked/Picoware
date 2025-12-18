@@ -44,6 +44,8 @@ This section provides documentation for the libraries available in Picoware.
 
 #### picoware.system.buttons
 - `BUTTON_NONE`: No button pressed (-1)
+- `BUTTON_UART`: UART button (-2)
+- `BUTTON_PICO_CALC`: PicoCalc button (-3)
 - `BUTTON_UP`: Up button (0)
 - `BUTTON_DOWN`: Down button (1)
 - `BUTTON_LEFT`: Left button (2)
@@ -52,8 +54,17 @@ This section provides documentation for the libraries available in Picoware.
 - `BUTTON_OK`: Center/Enter button (4)
 - `BUTTON_BACK`: Back button (5)
 - `BUTTON_START`: Start button (6)
+- `BUTTON_A` through `BUTTON_Z`: Alphabet buttons (7-32)
+- `BUTTON_0` through `BUTTON_9`: Number buttons (33-42)
+- `BUTTON_SPACE`: Space button (43)
+- `BUTTON_EXCLAMATION` through `BUTTON_BACK_TICK`: Special character buttons (44-85)
+- `KEY_MOD_ALT`, `KEY_MOD_SHL`, `KEY_MOD_SHR`, `KEY_MOD_SYM`, `KEY_MOD_CTRL`: Key modifier constants
+- `KEY_ESC`, `KEY_UP`, `KEY_DOWN`, `KEY_LEFT`, `KEY_RIGHT`: Arrow and escape key constants
+- `KEY_BREAK`, `KEY_INSERT`, `KEY_HOME`, `KEY_DEL`, `KEY_END`, `KEY_PAGE_UP`, `KEY_PAGE_DOWN`: Navigation key constants
+- `KEY_CAPS_LOCK`: Caps lock key constant
+- `KEY_F1` through `KEY_F10`: Function key constants
 
-Those are the basic button constants used in Picoware, check the source code for 100 more available constants.
+Check the source code for all available button and key constants.
 
 #### picoware.system.colors
 - `TFT_WHITE`: A constant representing the color white (0xFFFF)
@@ -81,36 +92,43 @@ Those are the basic button constants used in Picoware, check the source code for
 - `HTTP_ISSUE`: A constant representing the issue state (2)
 - `HTTP` class: A class for handling HTTP requests:
     - `__init__()`: Initializes the HTTP object.
-    - `response`: A property that returns the response text after an asynchronous request.
-    - `state`: A property that returns the current state of the HTTP request.
-    - `clear_async_response()`: A function that clears the async response and resets state.
-    - `delete(url, headers, timeout)`: A Response function that performs a synchronous HTTP DELETE request with optional headers and timeout.
-    - `delete_async(url, headers, timeout)`: A boolean function that starts an asynchronous HTTP DELETE request with optional headers and timeout.
-    - `get(url, headers, timeout)`: A Response function that performs a synchronous HTTP GET request with optional headers and timeout.
-    - `get_async(url, headers, timeout)`: A boolean function that starts an asynchronous HTTP GET request with optional headers and timeout.
-    - `head(url, payload, headers, timeout)`: A Response function that performs a synchronous HTTP HEAD request with a payload and optional headers and timeout.
-    - `head_async(url, payload, headers, timeout)`: A boolean function that starts an asynchronous HTTP HEAD request with a payload and optional headers and timeout.
-    - `is_request_complete()`: A boolean function that checks if the asynchronous request is complete.
-    - `patch(url, payload, headers, timeout)`: A Response function that performs a synchronous HTTP PATCH request with a payload and optional headers and timeout.
-    - `patch_async(url, payload, headers, timeout)`: A boolean function that starts an asynchronous HTTP PATCH request with a payload and optional headers and timeout.
-    - `post(url, payload, headers, timeout)`: A Response function that performs a synchronous HTTP POST request with a payload and optional headers and timeout.
-    - `post_async(url, payload, headers, timeout)`: A boolean function that starts an asynchronous HTTP POST request with a payload and optional headers and timeout.
-    - `put(url, payload, headers, timeout)`: A Response function that performs a synchronous HTTP PUT request with a payload and optional headers and timeout.
-    - `put_async(url, payload, headers, timeout)`: A boolean function that starts an asynchronous HTTP PUT request with a payload and optional headers and timeout.
+    - `callback`: Property to get/set the async callback function. The callback accepts three parameters: response, state, and error.
+    - `error`: Property that returns the async error message, if any.
+    - `in_progress`: Property that checks if the async request is in progress.
+    - `is_finished`: Property that checks if the async request is finished.
+    - `is_successful`: Property that checks if the async request was successful (complete and no error).
+    - `response`: Property that returns the async Response object.
+    - `state`: Property that returns the current HTTP state.
+    - `clear_async_response()`: Clears the async response and resets state.
+    - `delete(url, headers, timeout, save_to_file, storage)`: Performs a synchronous HTTP DELETE request with optional headers, timeout, and file saving.
+    - `delete_async(url, headers, timeout, save_to_file, storage)`: Starts an asynchronous HTTP DELETE request.
+    - `get(url, headers, timeout, save_to_file, storage)`: Performs a synchronous HTTP GET request with optional headers, timeout, and file saving.
+    - `get_async(url, headers, timeout, save_to_file, storage)`: Starts an asynchronous HTTP GET request.
+    - `head(url, payload, headers, timeout, save_to_file, storage)`: Performs a synchronous HTTP HEAD request with payload.
+    - `head_async(url, payload, headers, timeout, save_to_file, storage)`: Starts an asynchronous HTTP HEAD request.
+    - `is_request_complete()`: Checks if the asynchronous request is complete.
+    - `patch(url, payload, headers, timeout, save_to_file, storage)`: Performs a synchronous HTTP PATCH request with payload.
+    - `patch_async(url, payload, headers, timeout, save_to_file, storage)`: Starts an asynchronous HTTP PATCH request.
+    - `post(url, payload, headers, timeout, save_to_file, storage)`: Performs a synchronous HTTP POST request with payload.
+    - `post_async(url, payload, headers, timeout, save_to_file, storage)`: Starts an asynchronous HTTP POST request.
+    - `put(url, payload, headers, timeout, save_to_file, storage)`: Performs a synchronous HTTP PUT request with payload.
+    - `put_async(url, payload, headers, timeout, save_to_file, storage)`: Starts an asynchronous HTTP PUT request.
 
 #### picoware.system.input
 - `Input` class: A class for handling user input:
     - `__init__()`: Initializes the Input object.
-    - `is_alt_held()`: A boolean function that checks if the Alt key is held down.
-    - `is_ctrl_held()`: A boolean function that checks if the Ctrl key is held down.
-    - `is_shift_held()`: A boolean function that checks if the Shift key is held down.
-    - `get_last_button()`: A function that returns the last button pressed.
-    - `is_pressed()`: A boolean function that checks if any button is currently pressed.
-    - `is_held(duration)`: A boolean function that checks if any button is held down for a specified duration (in frames).
-    - `read()`: A function that returns the currently pressed button or BUTTON_NONE if no button is pressed.
-    - `read_non_blocking()`: A function that returns the currently pressed button without blocking, or BUTTON_NONE if no button is pressed.
-    - `reset()`: A function that resets the input state.
-    - `run()`: A function that updates the input state, should be called in the main loop.
+    - `battery`: Property that returns the current battery level as a percentage (0-100).
+    - `button`: Property that returns the last button pressed.
+    - `gesture`: Property that returns the last touch gesture.
+    - `has_touch_support`: Property that returns True if touch input is supported on the current board.
+    - `point`: Property that returns the last touch point as (x, y) tuple.
+    - `was_capitalized`: Property that returns True if the last key pressed was a capital letter.
+    - `is_pressed()`: Returns True if any key is currently pressed.
+    - `is_held(duration)`: Returns True if the last button was held for the specified duration (in frames).
+    - `on_key_callback(_)`: Callback invoked when a key becomes available.
+    - `read()`: Returns the key code as an integer (blocking call).
+    - `read_non_blocking()`: Returns the key code as integer, or -1 if no key is pressed.
+    - `reset()`: Resets the input state.
 
 #### picoware.system.LED
 - `LED` class: A class for controlling the built-in LED:
@@ -122,36 +140,56 @@ Those are the basic button constants used in Picoware, check the source code for
 
 #### picoware.system.storage
 - `Storage` class: A class for handling file storage:
-    - `__init__(auto_mount)`: Initializes the Storage object, with an option to auto-mount the filesystem during operations.
-    - `deserialize(json_dict, file_path)`: A function that deserializes a JSON dictionary from a file.
-    - `execute_script(file_path)`: A function that executes a Python script from a file.
-    - `is_directory(path)`: A boolean function that checks if a given path is a directory.
-    - `listdir(path)`: A function that lists the contents of a directory.
-    - `mkdir(path)`: A function that creates a new directory at the specified path.
-    - `mount()`: A function that mounts the SD card.
-    - `read(file_path, mode)`: A function that reads the contents of a file.
-    - `remove(file_path)`: A function that removes a file or directory at the specified path.
-    - `rename(old_path, new_path)`: A function that renames a file or directory from old_path to new_path.
-    - `rmdir(path)`: A function that removes an empty directory at the specified path.
-    - `serialize(file_path)`: A function that serializes an object to a JSON file.
-    - `write(file_path, data, mode)`: A function that writes (or overwrites) data to a file.
-    - `unmount()`: A function that unmounts the SD card.
+    - `__init__()`: Initializes the Storage object.
+    - `active`: Property that returns True if the storage is active (mounted).
+    - `vfs_mounted`: Property that returns True if the VFS is mounted (allows use of open(), __import__, etc.).
+    - `close(file_obj)`: Closes an open file and releases resources.
+    - `deserialize(json_dict, file_path)`: Deserializes a JSON object and writes it to a file.
+    - `execute_script(file_path)`: Runs a Python file from the storage.
+    - `exists(path)`: Checks if a file or directory exists.
+    - `file_read(file_obj)`: Reads from an open file.
+    - `file_seek(file_obj, position)`: Seeks to a specific position in an open file.
+    - `file_write(file_obj, data, mode)`: Writes data to an open file.
+    - `is_directory(path)`: Checks if a path is a directory.
+    - `listdir(path)`: Lists files in a directory.
+    - `mkdir(path)`: Creates a new directory at the specified path.
+    - `mount()`: Mounts the SD card.
+    - `mount_vfs(mount_point)`: Mounts the SD card as a VFS filesystem for use with Python's built-in open(), __import__, etc.
+    - `open(file_path, mode)`: Opens a file and returns the file handle.
+    - `read(file_path, mode)`: Reads and returns the contents of a file.
+    - `read_chunked(file_path, start, chunk_size)`: Reads a chunk of data from a file without loading the entire file.
+    - `remove(file_path)`: Removes a file at the specified path.
+    - `rename(old_path, new_path)`: Renames a file or directory from old_path to new_path.
+    - `rmdir(path)`: Removes a directory at the specified path.
+    - `serialize(file_path)`: Reads a file and returns its contents as a JSON object.
+    - `size(file_path)`: Gets the size of a file in bytes.
+    - `write(file_path, data, mode)`: Writes data to a file, creating or overwriting as needed.
+    - `unmount()`: Unmounts the SD card (including VFS if mounted).
+    - `unmount_vfs(mount_point)`: Unmounts the VFS filesystem.
 
 #### picoware.system.system
 - `System` class: Handle basic system operations:
     - `__init__()`: Initializes the System object.
-    - `board_name`: A property that returns the name of the board.
-    - `device_name`: A property that returns the name of the device.
-    - `has_wifi`: A property that indicates if the device has WiFi capability.
-    - `bootloader_mode()`: A function that reboots the device into bootloader mode.
-    - `free_heap()`: A function that returns the amount of free heap memory.
-    - `free_psram()`: A function that returns the amount of free PSRAM memory.
-    - `hard_reset()`: A function that performs a hard reset of the device.
-    - `soft_reset()`: A function that performs a soft reset of the device.
-    - `total_heap()`: A function that returns the total heap memory.
-    - `total_psram()`: A function that returns the total PSRAM memory.
-    - `used_heap()`: A function that returns the amount of used heap memory.
-    - `used_psram()`: A function that returns the amount of used PSRAM memory
+    - `board_id`: Property that returns the board ID.
+    - `board_name`: Property that returns the name of the board.
+    - `device_name`: Property that returns the name of the device.
+    - `free_flash`: Property that returns the free flash memory size.
+    - `free_heap`: Property that returns the amount of free heap memory.
+    - `free_psram`: Property that returns the amount of free PSRAM memory.
+    - `has_psram`: Property that returns True if the device has PSRAM capabilities.
+    - `has_sd_card`: Property that returns True if the device has an SD card slot.
+    - `has_touch`: Property that returns True if the device has touch capabilities.
+    - `has_wifi`: Property that returns True if the device has WiFi capabilities.
+    - `is_circular`: Property that returns True if the device has a circular display.
+    - `total_flash`: Property that returns the total flash memory size.
+    - `total_heap`: Property that returns the total heap memory size.
+    - `total_psram`: Property that returns the total PSRAM memory size.
+    - `used_flash`: Property that returns the used flash memory size.
+    - `used_heap`: Property that returns the used heap memory.
+    - `used_psram`: Property that returns the used PSRAM memory.
+    - `bootloader_mode()`: Enters the bootloader mode.
+    - `hard_reset()`: Reboots the system.
+    - `shutdown_device(view_manager)`: Shuts down the device (if supported).
 
 #### picoware.system.time
 - `Time` class: A class for handling time-related functions:
@@ -171,62 +209,67 @@ Those are the basic button constants used in Picoware, check the source code for
     - `__str__()`: Returns a string representation of the vector as "(x, y)".
 
 #### picoware.system.wifi
-- `WiFiState` constants: Enumeration for WiFi connection states:
-    - `INACTIVE`: -1
-    - `IDLE`: 0
-    - `CONNECTING`: 1
-    - `CONNECTED`: 2
-    - `FAILED`: 3
-    - `TIMEOUT`: 4
+- `WIFI_STATE_INACTIVE`: WiFi inactive state (-1)
+- `WIFI_STATE_IDLE`: WiFi idle state (0)
+- `WIFI_STATE_CONNECTING`: WiFi connecting state (1)
+- `WIFI_STATE_CONNECTED`: WiFi connected state (2)
+- `WIFI_STATE_ISSUE`: WiFi issue state (3)
+- `WIFI_STATE_TIMEOUT`: WiFi timeout state (4)
 - `WiFi` class: A class to manage WiFi functionality on a MicroPython device:
     - `__init__()`: Initializes the WiFi class.
-    - `__del__()`: Cleans up resources.
     - `device_ip`: Property that gets the current device IP address.
+    - `last_error`: Property that gets the last connection error message.
     - `connect(ssid, password, sta_mode=True, is_async=False)`: Connects to a Wi-Fi network. Returns True on success.
     - `disconnect()`: Disconnects from the Wi-Fi network.
     - `is_connected()`: Checks if the device is connected to a Wi-Fi network.
     - `scan()`: Scans for available Wi-Fi networks and returns a list.
-    - `status()`: Gets the current Wi-Fi connection status as a WiFiState value.
+    - `status()`: Gets the current Wi-Fi connection status as a WiFi state value.
     - `reset()`: Resets the Wi-Fi configuration.
-    - `update()`: Updates the Wi-Fi connection state (for async connections).
+    - `update()`: Updates the Wi-Fi connection state (for async connections). Returns True when connected.
 
 #### picoware.system.view
 - `View` class: A class representing a view in the system with lifecycle methods:
     - `__init__(name, run, start, stop)`: Initializes the View with a name and callable functions for run, start, and stop.
+    - `active`: Attribute indicating if the view is currently active.
+    - `should_stop`: Attribute indicating if the view should stop.
     - `start(view_manager)`: Called when the view is created. Returns True on success.
     - `stop(view_manager)`: Called when the view is destroyed.
     - `run(view_manager)`: Called every frame while the view is active.
 
 #### picoware.system.view_manager
 - `ViewManager` class: A class that manages multiple views and provides navigation capabilities:
+    - `MAX_VIEWS`: Maximum number of views (10).
+    - `MAX_STACK_SIZE`: Maximum stack size for navigation (10).
     - `__init__()`: Initializes the ViewManager with default settings and subsystems.
-    - `__del__()`: Cleans up resources.
+    - `background_color`: Property to get/set the background color.
+    - `board_id`: Property that returns the current board ID.
+    - `board_name`: Property that returns the current device name.
+    - `current_view`: Property that returns the current view.
+    - `draw`: Property that returns the Draw instance.
+    - `foreground_color`: Property to get/set the foreground color.
+    - `has_psram`: Property that returns whether the current board has PSRAM.
+    - `has_sd_card`: Property that returns whether the current board has an SD card.
+    - `has_wifi`: Property that returns whether the current board has WiFi capability.
+    - `input_manager`: Property that returns the Input manager instance.
+    - `keyboard`: Property that returns the Keyboard instance.
+    - `led`: Property that returns the LED instance.
+    - `selected_color`: Property to get/set the selected color.
+    - `screen_size`: Property that returns the screen size as a Vector.
+    - `storage`: Property that returns the Storage instance.
+    - `time`: Property that returns the Time instance.
+    - `view_count`: Property that returns the number of views managed.
+    - `wifi`: Property that returns the WiFi instance.
     - `add(view)`: Adds a view to the manager. Returns True if successful.
-    - `back(remove_current_view=True)`: Navigates back to the previous view in the stack.
+    - `alert(message, back)`: Shows an alert message.
+    - `back(remove_current_view, should_clear, should_start)`: Navigates back to the previous view in the stack.
     - `clear()`: Clears the screen with the background color.
+    - `clear_stack()`: Clears the navigation stack.
     - `get_view(view_name)`: Gets a view by name.
     - `remove(view_name)`: Removes a view by name.
     - `run()`: Runs the current view and handles input.
     - `set(view_name)`: Sets the current view by name, clearing the stack.
-    - `switch_to(view_name, clear_stack=False, push_view=True)`: Switches to a view by name with stack management options.
+    - `switch_to(view_name, clear_stack, push_view)`: Switches to a view by name with stack management options.
     - `push_view(view_name)`: Pushes a view to the stack by name.
-    - `clear_stack()`: Clears the navigation stack.
-    - `get_background_color()`: Gets the background color.
-    - `get_current_view()`: Gets the current view.
-    - `get_draw()`: Gets the Draw object.
-    - `get_foreground_color()`: Gets the foreground color.
-    - `get_input_manager()`: Gets the Input manager.
-    - `get_keyboard()`: Gets the Keyboard object.
-    - `get_led()`: Gets the LED object.
-    - `get_selected_color()`: Gets the selected color.
-    - `get_size()`: Gets the display size as a Vector.
-    - `get_stack_depth()`: Gets the current stack depth.
-    - `get_storage()`: Gets the Storage object.
-    - `get_time()`: Gets the Time object.
-    - `get_wifi()`: Gets the WiFi object.
-    - `set_background_color(color)`: Sets the background color.
-    - `set_foreground_color(color)`: Sets the foreground color.
-    - `set_selected_color(color)`: Sets the selected color.
 
 ### GUI
 
@@ -237,11 +280,11 @@ Those are the basic button constants used in Picoware, check the source code for
     - `draw(title)`: Render the alert message on the display.
 
 #### picoware.gui.choice
-- `Choice` class: A simple choice dialog class for selecting options:
+- `Choice` class: A simple choice switch for the GUI:
     - `__init__(draw, position, size, title, options, initial_state, foreground_color, background_color)`: Initialize the Choice with drawing context, position, size, title, options, and styling.
-    - `draw()`: Render the choice dialog on the display.
-    - `scroll_up()`: Move the selection up.
-    - `scroll_down()`: Move the selection down.
+    - `state`: Property to get/set the current state of the choice.
+    - `clear()`: Clear the choice area with the background color.
+    - `draw()`: Render the choices on the display.
 
 #### picoware.gui.desktop
 - `Desktop` class: A class to manage the desktop environment for the display:
@@ -255,6 +298,11 @@ Those are the basic button constants used in Picoware, check the source code for
 #### picoware.gui.draw
 - `Draw` class: Class for drawing shapes and text on the display:
     - `__init__(foreground, background)`: Initializes the Draw object with colors.
+    - `background`: Property to get/set the current background color.
+    - `board_id`: Property that gets the current board ID.
+    - `font_size`: Property that gets the font size as a Vector.
+    - `foreground`: Property to get/set the current foreground color.
+    - `size`: Property that gets the size of the display as a Vector.
     - `circle(position, radius, color)`: Draw a circle outline.
     - `clear(position, size, color)`: Fill a rectangular area with a color.
     - `cleanup()`: Cleanup all allocated buffers and free memory.
@@ -265,25 +313,28 @@ Those are the basic button constants used in Picoware, check the source code for
     - `fill_rectangle(position, size, color)`: Draw a filled rectangle.
     - `fill_round_rectangle(position, size, radius, color)`: Draw a filled rounded rectangle on the display.
     - `fill_screen(color)`: Fill the entire screen with a color.
-    - `get_font_size()`: Get the size of the font.
-    - `image(position, img)`: Draw an image at the specified position.
-    - `image_bmp(position, path)`: Load and draw a BMP image from file.
-    - `image_bytearray(position, size, byte_data, invert)`: Draw an image from byte array data with optional inversion.
-    - `line(position, size, color)`: Draw a line.
-    - `line_custom(point_1, point_2, color)`: Draw a custom line between two points.
+    - `fill_triangle(point1, point2, point3, color)`: Draw a filled triangle.
+    - `image(position, img)`: Draw an image object to the back buffer.
+    - `image_bmp(position, path)`: Draw a 24-bit BMP image from file.
+    - `image_bytearray(position, size, byte_data, invert)`: Draw an image from 8-bit byte data with optional inversion.
+    - `image_bytearray_1bit(position, size, byte_data)`: Draw a 1-bit bitmap from packed byte_data.
+    - `line(position, size, color)`: Draw horizontal line.
+    - `line_custom(point_1, point_2, color)`: Draw line between two points.
+    - `pixel(position, color)`: Draw a pixel.
+    - `rect(position, size, color)`: Draw a rectangle outline.
     - `reset()`: Reset the display by clearing the framebuffer.
-    - `set_background_color(color)`: Set the background color.
-    - `set_color(foreground, background)`: Set the foreground and background color of the display.
-    - `set_foreground_color(color)`: Set the foreground color.
     - `swap()`: Swap the front and back buffers.
     - `text(position, text, color)`: Draw text on the display.
     - `text_char(position, char, color)`: Draw a single character on the display.
+    - `triangle(point1, point2, point3, color)`: Draw a triangle outline.
 
 #### picoware.gui.image
 - `Image` class: Represents an image with RGB565 pixel data for MicroPython:
     - `__init__()`: Initializes an empty Image object.
-    - `from_path(path)`: Load a 16-bit BMP from disk into raw RGB565 data.
-    - `from_byte_array(data, size, is_8bit)`: Create an image from raw byte array.
+    - `size`: Attribute containing the image dimensions as a Vector.
+    - `is_8bit`: Attribute indicating if the image is in 8-bit format.
+    - `from_path(path)`: Load a 16-bit BMP from disk into raw RGB565 data. Returns True on success.
+    - `from_byte_array(data, size, is_8bit)`: Create an image from raw byte array. Returns True on success.
     - `from_string(image_str)`: Create a tiny monochrome-style RGB565 image from ASCII art.
     - `get_pixel(x, y)`: Get RGB565 pixel value at coordinates (x, y).
 
@@ -294,44 +345,52 @@ Those are the basic button constants used in Picoware, check the source code for
     - `ROW1`, `ROW2`, `ROW3`, `ROW4`, `ROW5`: Constants defining keyboard rows.
     - `ROWS`, `ROW_SIZES`, `NUM_ROWS`: Constants for row configuration.
     - `KEY_WIDTH`, `KEY_HEIGHT`, `KEY_SPACING`, `TEXTBOX_HEIGHT`: Constants for key dimensions.
-    - `__init__(draw, input_manager, text_color, background_color, ...)`: Initializes the Keyboard with drawing and input contexts.
-    - `is_finished()`: Check if the keyboard input is finished.
-    - `keyboard_width()`: Get the width of the keyboard.
-    - `get_response()`: Get the entered text response.
-    - `set_save_callback(callback)`: Set a callback for save action.
-    - `set_response(text)`: Set the initial response text.
-    - `reset()`: Reset the keyboard state.
+    - `__init__(draw, input_manager, text_color, background_color, selected_color, on_save_callback)`: Initializes the Keyboard with drawing and input contexts.
+    - `callback`: Property to get/set the save callback function.
+    - `is_finished`: Property that returns whether the keyboard is finished.
+    - `keyboard_width`: Property that returns the keyboard width.
+    - `title`: Property to get/set the current title of the keyboard.
+    - `response`: Property to get/set the response string.
+    - `get_response()`: Returns the response string.
+    - `set_save_callback(callback)`: Sets the save callback function.
+    - `set_response(text)`: Sets the response string.
+    - `reset()`: Resets the keyboard state.
     - `run(swap, force)`: Run the keyboard input loop.
 
 #### picoware.gui.list
 - `List` class: A simple list class for a GUI:
     - `__init__(draw, y, height, text_color, background_color, selected_color, border_color, border_width)`: Initializes the List with drawing context and styling.
-    - `add_item(item, update_view)`: Add an item to the list and update the display.
+    - `item_count`: Property that returns the number of items in the list.
+    - `add_item(item)`: Add an item to the list.
     - `clear()`: Clear the list.
     - `draw()`: Draw the list.
-    - `draw_item(index, selected)`: Draw an item in the list.
-    - `get_current_item()`: Get the current item in the list.
-    - `get_item(index)`: Get the item at the specified index.
+    - `get_current_item()`: Get the currently selected item.
+    - `get_item(index)`: Get an item from the list at the specified index.
     - `get_item_count()`: Get the number of items in the list.
     - `get_list_height()`: Get the height of the list.
+    - `item_exists(item)`: Check if an item exists in the list.
     - `remove_item(index)`: Remove an item from the list.
-    - `scroll_down()`: Scroll down the menu.
-    - `scroll_up()`: Scroll up the menu.
-    - `set_selected(index)`: Set the selected item.
-    - `set_scrollbar_position()`: Set the position of the scrollbar.
-    - `set_scrollbar_size()`: Set the size of the scrollbar.
-    - `update_visibility()`: Update the visibility of items.
+    - `scroll_down()`: Scroll the list down by one item.
+    - `scroll_up()`: Scroll the list up by one item.
+    - `set_selected(index)`: Set the selected item in the list.
 
 #### picoware.gui.loading
 - `Loading` class: A loading class with spinner animation:
     - `__init__(draw, spinner_color, background_color)`: Initializes the Loading with drawing context and colors.
+    - `text`: Property to get/set the current loading text.
     - `animate(swap)`: Animate the loading spinner.
     - `fade_color(color, opacity)`: Fast color fading.
+    - `set_text(text)`: Set the loading text.
     - `stop()`: Stop the loading animation.
 
 #### picoware.gui.menu
 - `Menu` class: A simple menu class for a GUI:
     - `__init__(draw, title, y, height, text_color, background_color, selected_color, border_color, border_width)`: Initializes the Menu with drawing context and styling.
+    - `current_item`: Property that gets the current item.
+    - `item_count`: Property that gets the number of items.
+    - `list_height`: Property that gets the height of the list.
+    - `selected_index`: Property that gets the selected index.
+    - `title`: Property that gets the menu title.
     - `add_item(item)`: Add an item to the menu.
     - `clear()`: Clear the menu.
     - `draw()`: Draw the menu.
@@ -341,6 +400,8 @@ Those are the basic button constants used in Picoware, check the source code for
     - `get_item_count()`: Get the number of items in the menu.
     - `get_list_height()`: Get the height of the list.
     - `get_selected_index()`: Get the index of the selected item.
+    - `item_exists(item)`: Check if an item exists in the menu.
+    - `refresh()`: Refresh the menu display.
     - `remove_item(index)`: Remove an item from the menu.
     - `scroll_down()`: Scroll down the menu.
     - `scroll_up()`: Scroll up the menu.
@@ -348,32 +409,32 @@ Those are the basic button constants used in Picoware, check the source code for
 
 #### picoware.gui.scrollbar
 - `ScrollBar` class: A simple scrollbar class for a GUI:
-    - `__init__(draw, position, size, outline_color, fill_color)`: Initializes the ScrollBar with drawing context and colors.
+    - `__init__(draw, position, size, outline_color, fill_color, is_horizontal)`: Initializes the ScrollBar with drawing context, colors, and orientation.
     - `clear()`: Clear the scrollbar.
     - `draw()`: Draw the scrollbar.
-    - `set_all(position, size, outline_color, fill_color, should_draw, should_clear)`: Set the properties of the scrollbar.
+    - `set_all(position, size, outline_color, fill_color, is_horizontal, should_draw, should_clear)`: Set the properties of the scrollbar.
 
 #### picoware.gui.textbox
 - `TextBox` class: Class for a text box with scrolling functionality:
     - `__init__(draw, y, height, foreground_color, background_color, show_scrollbar)`: Initializes the TextBox with drawing context and styling.
-    - `text_height`: Get the height of the text box based on the number of lines and font size.
+    - `text`: Property that gets the current text in the text box.
+    - `text_height`: Property that gets the height of the text box based on the number of lines and font size.
     - `set_scrollbar_position()`: Set the position of the scrollbar based on the current line.
     - `set_scrollbar_size()`: Set the size of the scrollbar based on the number of lines.
     - `display_visible_lines()`: Display only the lines that are currently visible.
-    - `clear()`: Clear the text box.
-    - `scroll_down()`: Scroll down the text.
-    - `scroll_up()`: Scroll up the text.
-    - `set_current_line(line)`: Set the current line.
-    - `set_text(text)`: Set the text to display.
+    - `clear()`: Clear the text box and reset the scrollbar.
+    - `refresh()`: Refresh the display to show current text and scrollbar.
+    - `scroll_down()`: Scroll down by one line.
+    - `scroll_up()`: Scroll up by one line.
+    - `set_current_line(line)`: Scroll the text box to the specified line.
+    - `set_text(text)`: Set the text in the text box, wrap lines, and scroll to bottom.
 
 #### picoware.gui.toggle
 - `Toggle` class: A simple toggle switch for the GUI:
     - `__init__(draw, position, size, text, initial_state, foreground_color, background_color, on_color, border_color, border_width)`: Initialize the Toggle switch with drawing context and styling.
+    - `state`: Attribute indicating the current toggle state.
     - `clear()`: Clear the toggle area with the background color.
     - `draw()`: Render the toggle switch on the display.
-    - `set_state(new_state)`: Set the toggle state and redraw.
-    - `toggle()`: Toggle the current state.
-    - `get_state()`: Get the current state of the toggle.
 
 ### Engine
 
@@ -390,9 +451,19 @@ Those are the basic button constants used in Picoware, check the source code for
 - `ENTITY_TYPE_PLAYER`, `ENTITY_TYPE_ENEMY`, `ENTITY_TYPE_ICON`, `ENTITY_TYPE_NPC`, `ENTITY_TYPE_3D_SPRITE`: Constants for entity types.
 - `SPRITE_3D_NONE`, `SPRITE_3D_HUMANOID`, `SPRITE_3D_TREE`, `SPRITE_3D_HOUSE`, `SPRITE_3D_PILLAR`, `SPRITE_3D_CUSTOM`: Constants for 3D sprite types.
 - `Entity` class: Represents an entity in the game:
-    - `__init__(name, entity_type, position, size, sprite_data, sprite_data_left, sprite_data_right, start, stop, update, render, collision, sprite_3d_type, is_8bit)`: Initializes the entity.
-    - `collision(other, game)`: Called when the entity collides with another entity.
+    - `__init__(name, entity_type, position, size, sprite_data, sprite_data_left, sprite_data_right, start, stop, update, render, collision, sprite_3d_type, is_8bit, sprite_3d_color)`: Initializes the entity.
+    - `has_3d_sprite`: Property that returns True if the entity has a 3D sprite.
     - `position`: Property for getting and setting the position.
+    - `is_active`: Attribute indicating if the entity is active.
+    - `is_visible`: Attribute indicating if the entity is visible.
+    - `is_player`: Attribute indicating if the entity is the player.
+    - `direction`: Attribute for the entity's direction vector.
+    - `state`: Attribute for the entity's current state.
+    - `speed`: Attribute for the entity's movement speed.
+    - `health`: Attribute for the entity's current health.
+    - `max_health`: Attribute for the entity's maximum health.
+    - `create_3d_sprite(sprite_3d_type, height, width, rotation, color)`: Creates a 3D sprite for the entity.
+    - `collision(other, game)`: Called when the entity collides with another entity.
     - `render(draw, game)`: Called every frame to render the entity.
     - `start(game)`: Called when the entity is created.
     - `stop(game)`: Called when the entity is destroyed.
@@ -401,12 +472,17 @@ Those are the basic button constants used in Picoware, check the source code for
 #### picoware.engine.game
 - `Game` class: Represents a game:
     - `__init__(name, size, draw, input_manager, foreground_color, background_color, perspective, start, stop)`: Initializes the game.
+    - `perspective`: Property to get/set the camera perspective.
+    - `is_active`: Attribute indicating if the game is active.
+    - `input`: Attribute containing the last button pressed.
+    - `camera`: Attribute containing the camera position as a Vector.
+    - `current_level`: Attribute containing the current level.
     - `clamp(value, lower, upper)`: Clamp a value between a lower and upper bound.
     - `level_add(level)`: Add a level to the game.
     - `level_remove(level)`: Remove a level from the game.
-    - `level_switch(level)`: Switch to a new level.
+    - `level_switch(level)`: Switch to a new level (by index or name).
     - `render()`: Render the current level.
-    - `start()`: Start the game.
+    - `start()`: Start the game. Returns True on success.
     - `stop()`: Stop the game.
     - `update()`: Update the game input and entity positions.
 
@@ -415,16 +491,17 @@ Those are the basic button constants used in Picoware, check the source code for
 - `Level` class: Represents a level in the game:
     - `__init__(name, size, game, start, stop)`: Initializes the level.
     - `clear_allowed`: Property to get/set if the level is allowed to clear the screen.
-    - `clear()`: Clear the level.
+    - `entities`: Attribute containing the list of entities in the level.
+    - `clear()`: Clear the level and stop all entities.
     - `collision_list(entity)`: Return a list of entities that the entity collided with.
     - `entity_add(entity)`: Add an entity to the level.
     - `entity_remove(entity)`: Remove an entity from the level.
     - `has_collided(entity)`: Check for collisions with other entities.
     - `is_collision(entity, other)`: Check if two entities collided using AABB logic.
-    - `render()`: Render the level.
+    - `render(perspective, camera_params)`: Render the level with optional camera perspective.
     - `start()`: Start the level.
     - `stop()`: Stop the level.
-    - `update()`: Update the level.
+    - `update()`: Update the level and check for collisions.
 
 ## SDK
 

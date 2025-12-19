@@ -205,7 +205,7 @@ class SudokuGame:
             self.grid[row][col] = num
 
 
-global game
+game = None
 
 
 def center_text(display, text, y, color):

@@ -63,9 +63,15 @@ class Image:
 
         return True
 
-    def _load_bmp(self, path):
+    def _load_bmp(self, path: str, storage=None):
         """Read BMP header + pixel data into self._raw as little‑endian RGB565 bytes."""
         from picoware.system.vector import Vector
+
+        if storage:
+            storage.mount_vfs()
+
+            if not path.startswith("sd") and not path.startswith("/sd"):
+                path = "/sd/" + path.lstrip("/")
 
         with open(path, "rb") as f:
             if f.read(2) != b"BM":
@@ -91,6 +97,9 @@ class Image:
                 dest = (h - 1 - row) * row_bytes
                 raw[dest : dest + row_bytes] = row_data
             self._raw = raw
+
+        if storage:
+            storage.unmount_vfs()
 
     def from_string(self, image_str: str):
         """

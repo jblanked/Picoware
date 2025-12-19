@@ -6,37 +6,22 @@ _loading = None
 _request_started = False
 
 
-def __alert(view_manager, reason: str, header: str = "Error") -> None:
-    from picoware.gui.alert import Alert
-    from time import sleep
-
-    alert = Alert(
-        view_manager.get_draw(),
-        reason,
-        view_manager.get_foreground_color(),
-        view_manager.get_background_color(),
-    )
-    alert.draw(header)
-    sleep(2)
-    del alert
-
-
 def start(view_manager) -> bool:
     """Start the app."""
     from picoware.gui.menu import Menu
     from picoware.gui.loading import Loading
     from picoware.system.colors import TFT_BLUE
 
-    draw = view_manager.get_draw()
-    wifi = view_manager.get_wifi()
+    draw = view_manager.draw
+    wifi = view_manager.wifi
     if not wifi:
-        __alert(view_manager, "WiFi not available...")
+        view_manager.alert("WiFi not available...")
         return False
     if not wifi.is_connected():
-        __alert(view_manager, "WiFi not connected yet...")
+        view_manager.alert("WiFi not connected yet...")
         return False
 
-    global _http, _menu, _loading, _request_started
+    global _menu, _loading, _request_started
 
     _request_started = False
 
@@ -47,10 +32,10 @@ def start(view_manager) -> bool:
             "Click an option to download",  # title
             0,  # y position
             draw.size.y,  # height
-            view_manager.get_foreground_color(),  # text color
-            view_manager.get_background_color(),  # background color
+            view_manager.foreground_color,  # text color
+            view_manager.background_color,  # background color
             TFT_BLUE,  # selected item color
-            view_manager.get_foreground_color(),  # border color
+            view_manager.foreground_color,  # border color
         )
 
         # add items
@@ -62,8 +47,8 @@ def start(view_manager) -> bool:
     if not _loading:
         _loading = Loading(
             draw,
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
+            view_manager.foreground_color,
+            view_manager.background_color,
         )
         _loading.set_text("Downloading...")
 
@@ -79,7 +64,7 @@ def run(view_manager) -> None:
         BUTTON_CENTER,
     )
 
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     button = inp.button
 
     if button == BUTTON_BACK:
@@ -99,7 +84,7 @@ def run(view_manager) -> None:
             _loading = None
             del _http
             _http = None
-            __alert(view_manager, "Download complete!", "Success")
+            view_manager.alert("Download complete!", False)
 
     if button == BUTTON_UP:
         inp.reset()
@@ -109,7 +94,7 @@ def run(view_manager) -> None:
         _menu.scroll_down()
     elif button == BUTTON_CENTER and not _request_started:
         inp.reset()
-        selection = _menu.get_selected_index()
+        selection = _menu.selected_index
         if selection == 0:
             url = "https://httpbin.org/bytes/1024"
             file_name = "httpbin_1kb.bin"
@@ -125,7 +110,7 @@ def run(view_manager) -> None:
 
         if url and file_name:
             print(f"Downloading {url} to {file_name}...")
-            storage = view_manager.get_storage()
+            storage = view_manager.storage
             try:
                 # remove file if it exists
                 storage.remove(file_name)
@@ -137,7 +122,7 @@ def run(view_manager) -> None:
                 _http = HTTP()
             _request_started = True
             if not _http.get_async(url=url, save_to_file=file_name, storage=storage):
-                __alert(view_manager, "Failed to start download request...")
+                view_manager.alert("Failed to start download request...", False)
                 _request_started = False
 
 

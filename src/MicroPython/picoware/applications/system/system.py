@@ -13,10 +13,10 @@ def start(view_manager) -> bool:
             "System",
             0,
             view_manager.draw.size.y,
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
-            view_manager.get_selected_color(),
-            view_manager.get_foreground_color(),
+            view_manager.foreground_color,
+            view_manager.background_color,
+            view_manager.selected_color,
+            view_manager.foreground_color,
             2,
         )
         _system.add_item("Settings")
@@ -49,7 +49,7 @@ def run(view_manager) -> None:
     global _system_index
 
     input_manager = view_manager.input_manager
-    button: int = input_manager.get_last_button()
+    button: int = input_manager.button
 
     if button in (BUTTON_UP, BUTTON_LEFT):
         input_manager.reset()
@@ -64,7 +64,7 @@ def run(view_manager) -> None:
         _system_index = 0
     elif button == BUTTON_CENTER:
         input_manager.reset()
-        _system_index = _system.get_selected_index()
+        _system_index = _system.selected_index
         if _system_index == 0:
             from picoware.applications.system import settings
             from picoware.system.view import View
@@ -111,13 +111,13 @@ def run(view_manager) -> None:
                 "Shutdown Device?",
                 ["No", "Yes"],
                 0,
-                view_manager.get_foreground_color(),
-                view_manager.get_background_color(),
+                view_manager.foreground_color,
+                view_manager.background_color,
             )
             choice.draw()
 
             while True:
-                _button = input_manager.get_last_button()
+                _button = input_manager.button
                 if _button == BUTTON_LEFT:
                     input_manager.reset()
                     choice.scroll_up()

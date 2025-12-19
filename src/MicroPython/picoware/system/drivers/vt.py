@@ -31,11 +31,10 @@ class vt(uio.IOBase):
 
     def __init__(self, view_manager):  # ctrl+U for screen capture
         self.view_manager = view_manager
-        self.draw = view_manager.get_draw()
-        self.input_manager = view_manager.get_input_manager()
-        self.storage = view_manager.get_storage()
+        self.draw = view_manager.draw
+        self.input_manager = view_manager.input_manager
+        self.storage = view_manager.storage
 
-        self.keyboardInput = bytearray(30)
         self.outputBuffer = deque((), 30)
 
         # Virtual terminal state

@@ -4,21 +4,6 @@ _http = None
 _textbox = None
 
 
-def __alert(view_manager, reason: str) -> None:
-    from picoware.gui.alert import Alert
-    from time import sleep
-
-    alert = Alert(
-        view_manager.get_draw(),
-        reason,
-        view_manager.get_foreground_color(),
-        view_manager.get_background_color(),
-    )
-    alert.draw("Error")
-    sleep(2)
-    del alert
-
-
 def start(view_manager) -> bool:
     """Start the app"""
     from picoware.system.http import HTTP
@@ -27,18 +12,18 @@ def start(view_manager) -> bool:
 
     global _http, _textbox
 
-    wifi = view_manager.get_wifi()
+    wifi = view_manager.wifi
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
 
     if not wifi:
-        __alert(view_manager, "WiFi not available...")
+        view_manager.alert("WiFi not available...", False)
         return False
     if not wifi.is_connected():
-        __alert(view_manager, "WiFi not connected...")
+        view_manager.alert("WiFi not connected...", False)
         return False
 
-    draw.text(Vector(0, 0), "Loading...", view_manager.get_foreground_color())
+    draw.text(Vector(0, 0), "Loading...", view_manager.foreground_color)
 
     draw.swap()
 
@@ -48,15 +33,15 @@ def start(view_manager) -> bool:
     response = _http.get("https://catfact.ninja/fact")
 
     if not response:
-        __alert(view_manager, "No response from server...")
+        view_manager.alert("No response from server...", False)
         return False
 
     _textbox = TextBox(
         draw,
         0,
         draw.size.y,
-        view_manager.get_foreground_color(),
-        view_manager.get_background_color(),
+        view_manager.foreground_color,
+        view_manager.background_color,
     )
 
     _textbox.set_text(response.json().get("fact", "No fact found"))
@@ -70,7 +55,7 @@ def run(view_manager) -> None:
     """Run the app"""
     from picoware.system.buttons import BUTTON_BACK
 
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     button = inp.button
 
     if button == BUTTON_BACK:

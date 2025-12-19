@@ -26,8 +26,8 @@ def start(view_manager) -> bool:
         view_manager.draw,
         0,
         view_manager.draw.size.y,
-        view_manager.get_foreground_color(),
-        view_manager.get_background_color(),
+        view_manager.foreground_color,
+        view_manager.background_color,
     )
 
     _update_display()
@@ -45,13 +45,13 @@ def run(view_manager) -> None:
         BUTTON_CENTER,
     )
 
-    global _counter_textbox, _counter_value
+    global _counter_value
 
     if not _counter_textbox:
         return
 
     input_manager = view_manager.input_manager
-    button = input_manager.get_last_button()
+    button = input_manager.button
 
     if button in (BUTTON_BACK, BUTTON_LEFT):
         input_manager.reset()

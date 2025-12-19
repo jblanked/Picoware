@@ -212,18 +212,22 @@ class Storage:
 
     def mkdir(self, path: str = "/sd") -> bool:
         """Create a new directory."""
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
-            from waveshare_sd import create_directory
+        try:
+            if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+                from waveshare_sd import create_directory
+
+                return create_directory(path)
+            if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+                return False  # No SD storage on this board
+
+            from picoware_sd import create_directory
 
             return create_directory(path)
-        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
-            return False  # No SD storage on this board
+        except Exception as e:
+            print(f"Error creating directory {path}: {e}")
+            return False
 
-        from picoware_sd import create_directory
-
-        return create_directory(path)
-
-    def mount(self, mount_point: str = "/sd") -> bool:
+    def mount(self) -> bool:
         """Mount the SD card."""
         if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
             from waveshare_sd import mount

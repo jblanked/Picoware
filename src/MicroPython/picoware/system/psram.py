@@ -185,33 +185,38 @@ class PSRAM:
         _psram.copy(src_addr, dest_addr, length)
 
     def memset(self, addr, value, length):
-        """Set memory region to a specific value (limited by speed)."""
-        # Use C module's single-byte writes (slow but works)
+        """Set memory region to a specific byte value using DMA-optimized fill."""
         if length <= 0:
             return
+        _psram.fill(addr, value & 0xFF, length)
 
-        # For small lengths, write directly
-        if length <= 64:
-            data = bytes([value & 0xFF] * length)
-            _psram.write(addr, data)
+    def memset32(self, addr, value, word_count):
+        """Fill memory with 32-bit values.
+
+        Args:
+            addr: Starting address (must be 4-byte aligned)
+            value: 32-bit value to fill with
+            word_count: Number of 32-bit words to write
+        """
+        if word_count <= 0:
             return
-
-        # For larger lengths, use chunks
-        chunk_size = 256
-        chunk_data = bytes([value & 0xFF] * chunk_size)
-
-        offset = 0
-        while offset < length:
-            current_chunk_size = min(chunk_size, length - offset)
-            if current_chunk_size == chunk_size:
-                _psram.write(addr + offset, chunk_data)
-            else:
-                _psram.write(addr + offset, chunk_data[:current_chunk_size])
-            offset += current_chunk_size
+        _psram.fill32(addr, value, word_count)
 
     def read(self, addr, length):
         """Read data bytes from PSRAM."""
         return _psram.read(addr, length)
+
+    def read_into(self, addr, buffer):
+        """Read data directly into an existing buffer (zero-copy).
+
+        Args:
+            addr: PSRAM address to read from
+            buffer: bytearray or buffer to read into
+
+        Returns:
+            Number of bytes read
+        """
+        return _psram.read_into(addr, buffer)
 
     def read8(self, addr):
         """Read 8-bit value from PSRAM."""
@@ -313,37 +318,17 @@ class PSRAM:
             buffer = memoryview(buffer)
         _psram.write(addr, buffer)
 
-    def write_buffer_chunked(self, addr, buffer, chunk_size=65536):
-        """Write large buffer in chunks."""
+    def write_buffer_chunked(self, addr, buffer):
+        """Write large buffer to PSRAM"""
         if not isinstance(buffer, (memoryview, bytes, bytearray)):
             buffer = memoryview(buffer)
+        _psram.write(addr, buffer)
 
-        total_size = len(buffer)
-        bytes_written = 0
-
-        while bytes_written < total_size:
-            remaining = total_size - bytes_written
-            current_chunk_size = min(chunk_size, remaining)
-
-            # Use memoryview slice for zero-copy
-            chunk = buffer[bytes_written : bytes_written + current_chunk_size]
-            _psram.write(addr + bytes_written, chunk)
-
-            bytes_written += current_chunk_size
-
-    def write_bulk(self, addr, data, chunk_size=1024):
-        """Write large amounts of data in chunks."""
+    def write_bulk(self, addr, data):
+        """Write large amounts of data."""
         if not isinstance(data, (bytes, bytearray)):
             raise TypeError("Data must be bytes or bytearray")
-
-        data_len = len(data)
-        offset = 0
-
-        while offset < data_len:
-            current_chunk_size = min(chunk_size, data_len - offset)
-            chunk = data[offset : offset + current_chunk_size]
-            _psram.write(addr + offset, chunk)
-            offset += current_chunk_size
+        _psram.write(addr, data)
 
     def write_uint8_array(self, addr, values):
         """Write array of uint8 values to PSRAM."""

@@ -156,7 +156,7 @@ class Game:
         if not self.is_active:
             return
 
-        self.input = self.input_manager.get_last_button()
+        self.input = self.input_manager.button
         self.input_manager.reset()
         # update the level
         if self.current_level:

@@ -136,7 +136,7 @@ def __string_width(text: str) -> int:
 
 def __flip_social_util_get_username(view_manager) -> str:
     """Get the username from storage, or return empty string"""
-    storage = view_manager.get_storage()
+    storage = view_manager.storage
     data: str = storage.read("picoware/flip_social/username.json")
 
     if data is not None:
@@ -154,7 +154,7 @@ def __flip_social_util_get_username(view_manager) -> str:
 
 def __flip_social_util_get_password(view_manager) -> str:
     """Get the password from storage, or return empty string"""
-    storage = view_manager.get_storage()
+    storage = view_manager.storage
     data: str = storage.read("picoware/flip_social/password.json")
 
     if data is not None:
@@ -301,7 +301,7 @@ class FlipSocialRun:
                 self.__comments_loading_started = False
         elif self.comments_status == COMMENTS_SUCCESS:
             if self.http and self.http.response:
-                response = self.http.response
+                response = self.http.response.text
                 if '"comments":[{' in response:
                     try:
                         from ujson import loads as json_loads
@@ -335,6 +335,8 @@ class FlipSocialRun:
                                             flipped,
                                             flips_str,
                                             date_created,
+                                            "0",
+                                            True,
                                         )
 
                                         # Draw navigation arrows if there are multiple comments
@@ -387,7 +389,7 @@ class FlipSocialRun:
             self.comments_status = COMMENTS_WAITING
             self.user_request(REQUEST_TYPE_COMMENT_FETCH)
         elif self.comments_status == COMMENTS_KEYBOARD:
-            keyboard = self.view_manager.get_keyboard()
+            keyboard = self.view_manager.keyboard
             if keyboard:
                 self.should_clear_screen = False
                 if not self.keyboard_ran:
@@ -425,7 +427,7 @@ class FlipSocialRun:
                     self.comments_status = COMMENTS_REQUEST_ERROR
                     return
 
-                if "[SUCCESS]" in self.http.response:
+                if "[SUCCESS]" in self.http.response.text:
                     self.current_view = SOCIAL_VIEW_FEED
                     self.current_menu_index = SOCIAL_VIEW_FEED
                     self.comments_status = COMMENTS_NOT_STARTED
@@ -470,18 +472,18 @@ class FlipSocialRun:
                     self.explore_status = EXPLORE_REQUEST_ERROR
                     return
 
-                response: str = self.http.response
+                response: str = self.http.response.text
 
                 if response and "users" in response:
                     self.explore_status = EXPLORE_SUCCESS
-                    storage = self.view_manager.get_storage()
+                    storage = self.view_manager.storage
                     storage.write("picoware/flip_social/explore.json", response)
                     return
 
                 self.explore_status = EXPLORE_REQUEST_ERROR
 
         elif self.explore_status == EXPLORE_SUCCESS:
-            storage = self.view_manager.get_storage()
+            storage = self.view_manager.storage
             data = storage.read("picoware/flip_social/explore.json")
             if data is None:
                 canvas.text(Vector(0, 30), "Failed to load explore data.", TFT_BLACK)
@@ -513,7 +515,7 @@ class FlipSocialRun:
             self.explore_status = EXPLORE_WAITING
             self.user_request(REQUEST_TYPE_EXPLORE)
         elif self.explore_status == EXPLORE_KEYBOARD_USERS:
-            keyboard = self.view_manager.get_keyboard()
+            keyboard = self.view_manager.keyboard
             if keyboard:
                 self.should_clear_screen = False
                 if not self.keyboard_ran:
@@ -523,7 +525,7 @@ class FlipSocialRun:
                 else:
                     keyboard.run(False, False)
         elif self.explore_status == EXPLORE_KEYBOARD_MESSAGE:
-            keyboard = self.view_manager.get_keyboard()
+            keyboard = self.view_manager.keyboard
             if keyboard:
                 self.should_clear_screen = False
                 if not self.keyboard_ran:
@@ -561,13 +563,13 @@ class FlipSocialRun:
                     self.explore_status = EXPLORE_REQUEST_ERROR
                     return
 
-                if "[SUCCESS]" in self.http.response:
+                if "[SUCCESS]" in self.http.response.text:
                     self.current_view = SOCIAL_VIEW_MESSAGE_USERS
                     self.current_menu_index = SOCIAL_VIEW_MESSAGE_USERS
                     self.message_users_status = MESSAGE_USERS_NOT_STARTED
                     self.explore_status = EXPLORE_KEYBOARD_USERS
                     self.explore_index = 0
-                    keyboard = self.view_manager.get_keyboard()
+                    keyboard = self.view_manager.keyboard
                     self.keyboard_ran = False
                     if keyboard:
                         keyboard.reset()
@@ -584,6 +586,8 @@ class FlipSocialRun:
         flipped: str,
         flips: str,
         date_created: str,
+        comments: str,
+        is_comment: bool = False,
     ) -> None:
         """Draw a single feed item"""
         is_flipped: bool = flipped == "true"
@@ -594,10 +598,22 @@ class FlipSocialRun:
         canvas.text(Vector(0, 150), f"{flip_count} {flip_message}", TFT_BLACK)
         flip_status = "Unflip" if is_flipped else "Flip"
         canvas.text(Vector(110 if is_flipped else 115, 150), flip_status, TFT_BLACK)
-        if "minutes ago" in date_created:
-            canvas.text(Vector(190, 150), date_created, TFT_BLACK)
+        if not is_comment:  # draw date in top-right corner
+            if "minutes ago" in date_created:
+                canvas.text(Vector(190, 18), date_created, TFT_BLACK)
+            else:
+                canvas.text(Vector(180, 18), date_created, TFT_BLACK)
+
+            # draw down arrow icon and comment count
+            canvas.text(Vector(160, 150), "Comment", TFT_BLACK)
+            canvas.text(Vector(220, 150), f"({comments})", TFT_BLACK)
+
         else:
-            canvas.text(Vector(180, 150), date_created, TFT_BLACK)
+            # draw in bottom-right corner for comments
+            if "minutes ago" in date_created:
+                canvas.text(Vector(190, 220), date_created, TFT_BLACK)
+            else:
+                canvas.text(Vector(180, 220), date_created, TFT_BLACK)
 
     def draw_feed_message(self, canvas, user_message: str, x: int, y: int) -> None:
         """Draw the feed message with wrapping"""
@@ -663,8 +679,10 @@ class FlipSocialRun:
 
                 if self.http.response:
                     self.feed_status = FEED_SUCCESS
-                    storage = self.view_manager.get_storage()
-                    storage.write("picoware/flip_social/feed.json", self.http.response)
+                    storage = self.view_manager.storage
+                    storage.write(
+                        "picoware/flip_social/feed.json", self.http.response.text
+                    )
                     if self.loading:
                         self.loading.stop()
                     self.__feed_loading_started = False
@@ -672,7 +690,7 @@ class FlipSocialRun:
                     self.feed_status = FEED_REQUEST_ERROR
 
         elif self.feed_status == FEED_SUCCESS:
-            storage = self.view_manager.get_storage()
+            storage = self.view_manager.storage
             data = storage.read("picoware/flip_social/feed.json")
             if data:
                 try:
@@ -687,6 +705,7 @@ class FlipSocialRun:
                             message = item.get("message", "")
                             flipped = item.get("flipped", "false")
                             flips = str(item.get("flip_count", 0))
+                            comments = str(item.get("comment_count", 0))
                             date_created = item.get("date_created", "")
                             item_id = item.get("id", 0)
 
@@ -699,6 +718,8 @@ class FlipSocialRun:
                                     flipped,
                                     flips,
                                     date_created,
+                                    comments,
+                                    False,
                                 )
                             else:
                                 self.feed_status = FEED_PARSE_ERROR
@@ -744,13 +765,13 @@ class FlipSocialRun:
                 if not self.http or self.http.state == HTTP_ISSUE:
                     self.feed_status = FEED_REQUEST_ERROR
                     return
-                if "[SUCCESS]" in self.http.response:
+                if "[SUCCESS]" in self.http.response.text:
                     from ujson import loads as json_loads
                     from ujson import dumps as json_dumps
 
                     # increase the flip count locally for instant feedback
                     # and adjust the flipped status
-                    storage = self.view_manager.get_storage()
+                    storage = self.view_manager.storage
                     data = storage.read("picoware/flip_social/feed.json")
                     if data:
                         try:
@@ -814,12 +835,12 @@ class FlipSocialRun:
                     self.login_status = LOGIN_REQUEST_ERROR
                     return
 
-                response = self.http.response
+                response = self.http.response.text
                 if response:
                     if "[SUCCESS]" in response:
                         self.login_status = LOGIN_SUCCESS
                         self.current_view = SOCIAL_VIEW_MENU
-                        storage = self.view_manager.get_storage()
+                        storage = self.view_manager.storage
                         storage.write("picoware/flip_social/login.json", '"success"')
                     elif "User not found" in response:
                         self.login_status = LOGIN_NOT_STARTED
@@ -960,7 +981,7 @@ class FlipSocialRun:
                     self.messages_status = MESSAGES_REQUEST_ERROR
                     return
 
-                if self.http.response and "conversations" in self.http.response:
+                if self.http.response and "conversations" in self.http.response.text:
                     self.messages_status = MESSAGES_SUCCESS
                 else:
                     self.messages_status = MESSAGES_REQUEST_ERROR
@@ -970,7 +991,7 @@ class FlipSocialRun:
                 try:
                     from ujson import loads as json_loads
 
-                    obj: dict = json_loads(self.http.response)
+                    obj: dict = json_loads(self.http.response.text)
                     if "conversations" in obj and isinstance(
                         obj["conversations"], list
                     ):
@@ -1122,7 +1143,7 @@ class FlipSocialRun:
             self.user_request(REQUEST_TYPE_MESSAGES_WITH_USER)
 
         elif self.messages_status == MESSAGES_KEYBOARD:
-            keyboard = self.view_manager.get_keyboard()
+            keyboard = self.view_manager.keyboard
             if keyboard:
                 self.should_clear_screen = False
                 if not self.keyboard_ran:
@@ -1151,7 +1172,7 @@ class FlipSocialRun:
                     self.loading.stop()
                 self.__messages_loading_started = False
                 self.keyboard_ran = False
-                keyboard = self.view_manager.get_keyboard()
+                keyboard = self.view_manager.keyboard
                 if keyboard:
                     keyboard.reset()
 
@@ -1159,7 +1180,7 @@ class FlipSocialRun:
                     self.messages_status = MESSAGES_REQUEST_ERROR
                     return
 
-                if "[SUCCESS]" in self.http.response:
+                if "[SUCCESS]" in self.http.response.text:
                     self.messages_status = MESSAGES_NOT_STARTED
                     self.messages_index = 0
                 else:
@@ -1196,16 +1217,16 @@ class FlipSocialRun:
                     self.message_users_status = MESSAGE_USERS_REQUEST_ERROR
                     return
 
-                response = self.http.response
+                response = self.http.response.text
                 if response and "users" in response:
                     self.message_users_status = MESSAGE_USERS_SUCCESS
-                    storage = self.view_manager.get_storage()
+                    storage = self.view_manager.storage
                     storage.write("picoware/flip_social/message_users.json", response)
                 else:
                     self.message_users_status = MESSAGE_USERS_REQUEST_ERROR
 
         elif self.message_users_status == MESSAGE_USERS_SUCCESS:
-            storage = self.view_manager.get_storage()
+            storage = self.view_manager.storage
             data = storage.read("picoware/flip_social/message_users.json")
             if data:
                 try:
@@ -1263,7 +1284,7 @@ class FlipSocialRun:
                     self.loading.stop()
                 self.__post_loading_started = False
                 self.keyboard_ran = False
-                keyboard = self.view_manager.get_keyboard()
+                keyboard = self.view_manager.keyboard
                 if keyboard:
                     keyboard.reset()
 
@@ -1271,7 +1292,7 @@ class FlipSocialRun:
                     self.post_status = POST_REQUEST_ERROR
                     return
 
-                if "[SUCCESS]" in self.http.response:
+                if "[SUCCESS]" in self.http.response.text:
                     self.post_status = POST_SUCCESS
                     self.current_view = SOCIAL_VIEW_FEED
                     self.current_menu_index = SOCIAL_VIEW_FEED
@@ -1296,7 +1317,7 @@ class FlipSocialRun:
             canvas.text(Vector(0, 30), "follows the rules.", TFT_BLACK)
 
         elif self.post_status == POST_KEYBOARD:
-            keyboard = self.view_manager.get_keyboard()
+            keyboard = self.view_manager.keyboard
             if keyboard:
                 self.should_clear_screen = False
                 if not self.keyboard_ran:
@@ -1307,7 +1328,7 @@ class FlipSocialRun:
                     keyboard.run(False, False)
 
         elif self.post_status == POST_CHOOSE:
-            storage = self.view_manager.get_storage()
+            storage = self.view_manager.storage
             data = storage.read("picoware/flip_social/presaves.txt")
 
             menu_items = ["[New Post]"]
@@ -1328,7 +1349,7 @@ class FlipSocialRun:
         """Draw the profile view"""
 
         SCREEN_W = canvas.size.x
-        storage = self.view_manager.get_storage()
+        storage = self.view_manager.storage
         data = storage.read("picoware/flip_social/profile.json")
 
         if not data:
@@ -1439,7 +1460,7 @@ class FlipSocialRun:
                     self.registration_status = REGISTRATION_REQUEST_ERROR
                     return
 
-                response = self.http.response
+                response = self.http.response.text
                 if response:
                     if "[SUCCESS]" in response:
                         self.registration_status = REGISTRATION_SUCCESS
@@ -1500,9 +1521,9 @@ class FlipSocialRun:
                     self.user_info_status = USER_INFO_SUCCESS
 
                     # Save user info
-                    storage = self.view_manager.get_storage()
+                    storage = self.view_manager.storage
                     storage.write(
-                        "picoware/flip_social/profile.json", self.http.response
+                        "picoware/flip_social/profile.json", self.http.response.text
                     )
 
                     if self.loading:
@@ -1579,7 +1600,7 @@ class FlipSocialRun:
 
     def get_message_user(self) -> str:
         """Get the message user at the specified messageUserIndex"""
-        storage = self.view_manager.get_storage()
+        storage = self.view_manager.storage
         file_path = (
             "picoware/flip_social/explore.json"
             if self.current_menu_index == SOCIAL_VIEW_EXPLORE
@@ -1614,7 +1635,7 @@ class FlipSocialRun:
         if self.post_index == 0:
             return "[New Post]"
 
-        storage = self.view_manager.get_storage()
+        storage = self.view_manager.storage
         data = storage.read("picoware/flip_social/presaves.txt")
 
         if not data:
@@ -1687,7 +1708,7 @@ class FlipSocialRun:
         }
 
         # Handle different request types
-        storage = self.view_manager.get_storage()
+        storage = self.view_manager.storage
 
         if request_type == REQUEST_TYPE_LOGIN:
             payload = '{"username":"' + username + '","password":"' + password + '"}'
@@ -1862,11 +1883,11 @@ class FlipSocialRun:
             return True
 
         self._started = True
-        self.original_color = view_manager.get_background_color()
-        view_manager.set_background_color(TFT_WHITE)
+        self.original_color = view_manager.background_color
+        view_manager.background_color = TFT_WHITE
 
         # update login status
-        storage = view_manager.get_storage()
+        storage = view_manager.storage
         data = storage.read("picoware/flip_social/login.json")
         if data and "success" in data:
             self.login_status = LOGIN_SUCCESS
@@ -1882,16 +1903,16 @@ class FlipSocialRun:
         if not self.is_active:
             view_manager.back()
             return
-        draw = view_manager.get_draw()
+        draw = view_manager.draw
         self.update_draw(draw)
-        inp = view_manager.get_input_manager()
+        inp = view_manager.input_manager
         self.update_input(inp.button)
         inp.reset()
         draw.swap()
 
     def stop(self, view_manager) -> None:
         """Stop the FlipSocial run view"""
-        view_manager.set_background_color(self.original_color)
+        view_manager.background_color = self.original_color
 
     def update_draw(self, draw) -> None:
         """Update and draw the run view"""
@@ -2024,13 +2045,13 @@ class FlipSocialRun:
                 self.should_debounce = True
 
         elif self.current_view == SOCIAL_VIEW_POST:
-            keyboard = self.view_manager.get_keyboard()
+            keyboard = self.view_manager.keyboard
             if self.post_status == POST_KEYBOARD:
                 if keyboard and keyboard.is_finished:
                     self.keyboard_ran = False
                     self.should_clear_screen = True
                     response = keyboard.get_response()
-                    storage = self.view_manager.get_storage()
+                    storage = self.view_manager.storage
                     storage.write("picoware/flip_social/new_post.txt", response)
                     self.post_status = POST_WAITING
                     self.user_request(REQUEST_TYPE_POST)
@@ -2087,13 +2108,13 @@ class FlipSocialRun:
                 self.should_debounce = True
 
         elif self.current_view == SOCIAL_VIEW_MESSAGES:
-            keyboard = self.view_manager.get_keyboard()
+            keyboard = self.view_manager.keyboard
             if self.messages_status == MESSAGES_KEYBOARD:
                 if keyboard and keyboard.is_finished:
                     self.keyboard_ran = False
                     self.should_clear_screen = True
                     response = keyboard.get_response()
-                    storage = self.view_manager.get_storage()
+                    storage = self.view_manager.storage
                     storage.write("picoware/flip_social/message_to_user.txt", response)
                     self.messages_status = MESSAGES_SENDING
                     self.user_request(REQUEST_TYPE_MESSAGE_SEND)
@@ -2125,13 +2146,13 @@ class FlipSocialRun:
                     self.should_debounce = True
 
         elif self.current_view == SOCIAL_VIEW_EXPLORE:
-            keyboard = self.view_manager.get_keyboard()
+            keyboard = self.view_manager.keyboard
             if self.explore_status == EXPLORE_KEYBOARD_USERS:
                 if keyboard and keyboard.is_finished:
                     self.keyboard_ran = False
                     self.should_clear_screen = True
                     response = keyboard.get_response()
-                    storage = self.view_manager.get_storage()
+                    storage = self.view_manager.storage
                     storage.write("picoware/flip_social/explore_user.txt", response)
                     self.explore_status = EXPLORE_WAITING
                     self.explore_index = 0
@@ -2152,7 +2173,7 @@ class FlipSocialRun:
                     self.keyboard_ran = False
                     self.should_clear_screen = True
                     response = keyboard.get_response()
-                    storage = self.view_manager.get_storage()
+                    storage = self.view_manager.storage
                     storage.write("picoware/flip_social/message_to_user.txt", response)
                     self.explore_status = EXPLORE_SENDING
                     self.user_request(REQUEST_TYPE_MESSAGE_SEND)
@@ -2205,13 +2226,13 @@ class FlipSocialRun:
                     self.should_debounce = True
 
         elif self.current_view == SOCIAL_VIEW_COMMENTS:
-            keyboard = self.view_manager.get_keyboard()
+            keyboard = self.view_manager.keyboard
             if self.comments_status == COMMENTS_KEYBOARD:
                 if keyboard and keyboard.is_finished:
                     self.keyboard_ran = False
                     self.should_clear_screen = True
                     response = keyboard.get_response()
-                    storage = self.view_manager.get_storage()
+                    storage = self.view_manager.storage
                     storage.write("picoware/flip_social/comment_post.txt", response)
                     self.comments_status = COMMENTS_SENDING
                     self.user_request(REQUEST_TYPE_COMMENT_POST)

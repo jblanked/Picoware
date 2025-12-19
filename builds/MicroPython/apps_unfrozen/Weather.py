@@ -1,4 +1,3 @@
-_weather_alert = None
 _weather_http = None
 _location_request_sent = False
 _location_request_in_progress = False
@@ -44,61 +43,28 @@ def __reset_weather_state() -> None:
     _ip_address = ""
 
 
-def __weather_alert_and_return(view_manager, message: str) -> None:
-    """Show alert and return to previous view"""
-    global _weather_alert
-
-    if _weather_alert:
-        del _weather_alert
-        _weather_alert = None
-
-    from picoware.gui.alert import Alert
-    from time import sleep
-
-    _weather_alert = Alert(
-        view_manager.get_draw(),
-        message,
-        view_manager.get_foreground_color(),
-        view_manager.get_background_color(),
-    )
-    _weather_alert.draw("Error")
-    sleep(2)
-
-
 def start(view_manager) -> bool:
     """Start the weather app"""
-    global _weather_alert, _weather_http
+    global _weather_http
 
-    if _weather_alert:
-        del _weather_alert
-        _weather_alert = None
     if _weather_http:
         del _weather_http
         _weather_http = None
 
-    draw = view_manager.get_draw()
-    
-    wifi = view_manager.get_wifi()
-    
+    draw = view_manager.draw
+
+    wifi = view_manager.wifi
+
     # if not a wifi device, return
     if not wifi:
-        from picoware.gui.alert import Alert
-        from time import sleep
-
-        _weather_alert = Alert(
-            draw,
-            "WiFi not available..",
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
-        )
-        _weather_alert.draw("Error")
-        sleep(2)
+        view_manager.alert("WiFi not available...", False)
         return False
 
     # Check if WiFi is connected
     if not wifi.is_connected():
         from picoware.applications.wifi.utils import connect_to_saved_wifi
-        __weather_alert_and_return(view_manager, "WiFi not connected yet.")
+
+        view_manager.alert("WiFi not connected yet.")
         connect_to_saved_wifi(view_manager)
         return False
 
@@ -126,16 +92,16 @@ def run(view_manager) -> None:
         BUTTON_CENTER,
     )
 
-    global _weather_alert, _weather_http
+    global _weather_http
     global _location_request_sent, _location_request_in_progress
     global _weather_request_sent, _weather_request_in_progress
     global _displaying_result_w, _ip_address
     global _location_last_update, _location_dot_count
     global _weather_last_update, _weather_dot_count
 
-    input_manager = view_manager.get_input_manager()
-    button = input_manager.get_last_button()
-    draw = view_manager.get_draw()
+    input_manager = view_manager.input_manager
+    button = input_manager.button
+    draw = view_manager.draw
 
     if button in (BUTTON_LEFT, BUTTON_BACK):
         input_manager.reset()
@@ -146,7 +112,7 @@ def run(view_manager) -> None:
     if button in (BUTTON_RIGHT, BUTTON_CENTER):
         input_manager.reset()
         __reset_weather_state()
-        draw.clear(Vector(0, 0), draw.size, view_manager.get_background_color())
+        draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
         draw.text(Vector(5, 5), "Fetching location data...")
         draw.swap()
 
@@ -165,11 +131,11 @@ def run(view_manager) -> None:
 
         _weather_http.clear_async_response()
         if not _weather_http.get_async("https://ipwhois.app/json/"):
-            __weather_alert_and_return(view_manager, "Failed to start location request")
+            view_manager.alert("Failed to start location request")
             view_manager.back()
             return
 
-        draw.clear(Vector(0, 0), draw.size, view_manager.get_background_color())
+        draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
         draw.text(Vector(5, 5), "Getting your location...")
         draw.swap()
 
@@ -178,7 +144,9 @@ def run(view_manager) -> None:
         if _weather_http.is_request_complete():
             _location_request_in_progress = False
 
-            location_response = _weather_http.response
+            location_response = (
+                _weather_http.response.text if _weather_http.response else ""
+            )
 
             if location_response:
                 try:
@@ -189,7 +157,7 @@ def run(view_manager) -> None:
 
                     if _ip_address:
                         draw.clear(
-                            Vector(0, 0), draw.size, view_manager.get_background_color()
+                            Vector(0, 0), draw.size, view_manager.background_color
                         )
                         draw.text(Vector(5, 5), "Fetching Weather data...")
                         draw.swap()
@@ -199,23 +167,19 @@ def run(view_manager) -> None:
 
                         return
                     else:
-                        __weather_alert_and_return(
-                            view_manager, "Failed to get location coordinates."
-                        )
+                        view_manager.alert("Failed to get location coordinates.")
                         view_manager.back()
                         return
 
                 except Exception as e:
                     print(f"Error parsing location data: {e}")
-                    __weather_alert_and_return(
-                        view_manager, "Failed to parse location data."
-                    )
+                    view_manager.alert("Failed to parse location data.")
                     return
             else:
                 error_msg = "Failed to fetch location data."
                 if _weather_http.state == 2:  # HTTP_ISSUE
                     error_msg += "\nNetwork error or timeout."
-                __weather_alert_and_return(view_manager, error_msg)
+                view_manager.alert(error_msg)
                 view_manager.back()
                 return
         else:
@@ -229,10 +193,8 @@ def run(view_manager) -> None:
                 _location_dot_count = (_location_dot_count + 1) % 4
 
                 loading_text = "Getting your location" + ("." * _location_dot_count)
-                draw.clear(Vector(0, 0), draw.size, view_manager.get_background_color())
-                draw.text(
-                    Vector(5, 5), loading_text, view_manager.get_foreground_color()
-                )
+                draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
+                draw.text(Vector(5, 5), loading_text, view_manager.foreground_color)
                 draw.swap()
         return
 
@@ -249,11 +211,11 @@ def run(view_manager) -> None:
             _weather_http = HTTP()
 
         if not _weather_http.get_async(weather_url):
-            __weather_alert_and_return(view_manager, "Failed to start weather request")
+            view_manager.alert("Failed to start weather request")
             view_manager.back()
             return
 
-        draw.clear(Vector(0, 0), draw.size, view_manager.get_background_color())
+        draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
         draw.text(Vector(5, 5), "Getting weather data...")
         draw.swap()
 
@@ -262,7 +224,7 @@ def run(view_manager) -> None:
         if _weather_http.is_request_complete():
             _weather_request_in_progress = False
 
-            weather_response = _weather_http.response
+            weather_response = _weather_http.response.text
 
             if weather_response:
                 # wttr.in has each value separated by a comma
@@ -281,8 +243,8 @@ def run(view_manager) -> None:
                 total_data += f"Humidity: {humidity}\n\n"
                 total_data += "Press CENTER to refresh\nPress LEFT to go back"
 
-                draw.clear(Vector(0, 0), draw.size, view_manager.get_background_color())
-                draw.text(Vector(0, 5), total_data, view_manager.get_foreground_color())
+                draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
+                draw.text(Vector(0, 5), total_data, view_manager.foreground_color)
                 draw.swap()
                 _displaying_result_w = True
 
@@ -294,7 +256,7 @@ def run(view_manager) -> None:
                 error_msg = "Failed to fetch weather data."
                 if _weather_http.state == 2:  # HTTP_ISSUE
                     error_msg += "\nNetwork error or timeout."
-                __weather_alert_and_return(view_manager, error_msg)
+                view_manager.alert(error_msg)
                 view_manager.back()
                 return
         else:
@@ -308,10 +270,8 @@ def run(view_manager) -> None:
                 _weather_dot_count = (_weather_dot_count + 1) % 4
 
                 loading_text = "Getting weather data" + ("." * _weather_dot_count)
-                draw.clear(Vector(0, 0), draw.size, view_manager.get_background_color())
-                draw.text(
-                    Vector(5, 5), loading_text, view_manager.get_foreground_color()
-                )
+                draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
+                draw.text(Vector(5, 5), loading_text, view_manager.foreground_color)
                 draw.swap()
 
 
@@ -321,13 +281,10 @@ def stop(view_manager) -> None:
 
     __reset_weather_state()
 
-    global _weather_alert, _weather_http
+    global _weather_http
     global _location_last_update, _location_dot_count
     global _weather_last_update, _weather_dot_count
 
-    if _weather_alert:
-        del _weather_alert
-        _weather_alert = None
     if _weather_http:
         del _weather_http
         _weather_http = None

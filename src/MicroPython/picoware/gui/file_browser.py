@@ -28,8 +28,8 @@ class FileBrowser:
         self._is_viewing_file: bool = False
         self._directory_stack: list[str] = []
         self._directory_contents: list[str] = []
-        self._storage = view_manager.get_storage()
-        self._input_manager = view_manager.get_input_manager()
+        self._storage = view_manager.storage
+        self._input_manager = view_manager.input_manager
 
         draw = view_manager.draw
 
@@ -38,18 +38,18 @@ class FileBrowser:
             "File Browser",
             0,
             draw.size.y,
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
-            view_manager.get_selected_color(),
-            view_manager.get_foreground_color(),
+            view_manager.foreground_color,
+            view_manager.background_color,
+            view_manager.selected_color,
+            view_manager.foreground_color,
         )
 
         self._file_browser_textbox = TextBox(
             draw,
             0,
             draw.size.y,
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
+            view_manager.foreground_color,
+            view_manager.background_color,
         )
 
         self._file_browser_choice = Choice(
@@ -59,8 +59,8 @@ class FileBrowser:
             "File Browser",
             ["View", "Delete"],
             0,
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
+            view_manager.foreground_color,
+            view_manager.background_color,
         )
 
         # Initialize state
@@ -241,7 +241,7 @@ class FileBrowser:
                 self._current_path = (
                     self._current_directory
                     + "/"
-                    + self._file_browser_menu.get_current_item().rstrip("/")
+                    + self._file_browser_menu.current_item.rstrip("/")
                 )
             elif input_value in (BUTTON_DOWN, BUTTON_RIGHT):
                 self._input_manager.reset()
@@ -250,7 +250,7 @@ class FileBrowser:
                 self._current_path = (
                     self._current_directory
                     + "/"
-                    + self._file_browser_menu.get_current_item().rstrip("/")
+                    + self._file_browser_menu.current_item.rstrip("/")
                 )
             elif input_value == BUTTON_BACK:
                 self._input_manager.reset()
@@ -272,8 +272,8 @@ class FileBrowser:
                     return False
             elif input_value == BUTTON_CENTER:
                 self._input_manager.reset()
-                current_item = self._file_browser_menu.get_current_item()
-                selected_index = self._file_browser_menu.get_selected_index()
+                current_item = self._file_browser_menu.current_item
+                selected_index = self._file_browser_menu.selected_index
 
                 # Skip if empty directory message
                 if current_item in ("(Empty directory)", "(Error reading directory)"):

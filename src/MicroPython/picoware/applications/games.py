@@ -3,49 +3,20 @@ _games_index = 0
 _app_loader = None
 
 
-def __alert(view_manager, message: str, back: bool = True) -> None:
-    """Show an alert"""
-
-    from picoware.gui.alert import Alert
-    from picoware.system.buttons import BUTTON_BACK
-
-    draw = view_manager.get_draw()
-    draw.clear()
-    _alert = Alert(
-        draw,
-        message,
-        view_manager.get_foreground_color(),
-        view_manager.get_background_color(),
-    )
-    _alert.draw("Alert")
-
-    # Wait for user to acknowledge
-    inp = view_manager.get_input_manager()
-    while True:
-        button = inp.button
-        if button == BUTTON_BACK:
-            inp.reset()
-            break
-
-    if back:
-        view_manager.back()
-
-
 def start(view_manager) -> bool:
     """Start the games app"""
     from picoware.gui.menu import Menu
     from picoware.system.app_loader import AppLoader
 
     if not view_manager.has_sd_card:
-        __alert(
-            view_manager,
+        view_manager.alert(
             "Games app requires an SD card.",
             False,
         )
         return False
 
     # create games folder if it doesn't exist
-    view_manager.get_storage().mkdir("picoware/apps/games")
+    view_manager.storage.mkdir("picoware/apps/games")
 
     global _games
     global _app_loader
@@ -63,10 +34,10 @@ def start(view_manager) -> bool:
         "Games",
         0,
         view_manager.draw.size.y,
-        view_manager.get_foreground_color(),
-        view_manager.get_background_color(),
-        view_manager.get_selected_color(),
-        view_manager.get_foreground_color(),
+        view_manager.foreground_color,
+        view_manager.background_color,
+        view_manager.selected_color,
+        view_manager.foreground_color,
         2,
     )
     _app_loader = AppLoader(view_manager)
@@ -98,7 +69,7 @@ def run(view_manager) -> None:
         return
 
     input_manager = view_manager.input_manager
-    button: int = input_manager.get_last_button()
+    button: int = input_manager.button
 
     if button in (BUTTON_UP, BUTTON_LEFT):
         input_manager.reset()
@@ -112,19 +83,16 @@ def run(view_manager) -> None:
         view_manager.back()
     elif button == BUTTON_CENTER:
         input_manager.reset()
-        _games_index = _games.get_selected_index()
+        _games_index = _games.selected_index
 
         # Get the selected game name
-        selected_game = _games.get_current_item()
+        selected_game = _games.current_item
 
         if selected_game and _app_loader:
             # Try to load the game
             game_module = _app_loader.load_app(selected_game, "games")
             if game_module is None:
-                __alert(
-                    view_manager,
-                    f'Failed to load game "{selected_game}".',
-                )
+                view_manager.alert(f'Failed to load game "{selected_game}".')
                 return
             # Create a view for the game and switch to it
             game_view_name = f"game_{selected_game}"

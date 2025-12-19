@@ -12,14 +12,14 @@ def start(view_manager) -> bool:
 
     if _settings_menu is None:
         _settings_menu = Menu(
-            view_manager.get_draw(),
+            view_manager.draw,
             "WiFi Settings",
             0,
             view_manager.draw.size.y,
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
-            view_manager.get_selected_color(),
-            view_manager.get_foreground_color(),
+            view_manager.foreground_color,
+            view_manager.background_color,
+            view_manager.selected_color,
+            view_manager.foreground_color,
             2,
         )
         _settings_menu.add_item("Network Info")
@@ -52,7 +52,7 @@ def run(view_manager) -> None:
     global _settings_menu_index
 
     input_manager = view_manager.input_manager
-    button: int = input_manager.get_last_button()
+    button: int = input_manager.button
 
     if button in (BUTTON_UP, BUTTON_LEFT):
         input_manager.reset()
@@ -71,7 +71,7 @@ def run(view_manager) -> None:
             _settings_menu.draw()
     elif button == BUTTON_CENTER:
         input_manager.reset()
-        _settings_menu_index = _settings_menu.get_selected_index()
+        _settings_menu_index = _settings_menu.selected_index
         if _settings_menu_index == 0:
             from picoware.applications.wifi.utils import (
                 load_wifi_password,
@@ -87,11 +87,11 @@ def run(view_manager) -> None:
 
             if _settings_textbox is None:
                 _settings_textbox = TextBox(
-                    view_manager.get_draw(),
+                    view_manager.draw,
                     0,
                     320,
-                    view_manager.get_foreground_color(),
-                    view_manager.get_background_color(),
+                    view_manager.foreground_color,
+                    view_manager.background_color,
                 )
 
             _settings_textbox.set_text(info)

@@ -129,7 +129,7 @@ class Keyboard:
         self.is_caps_lock_on = False
         self.current_key: int = -1
         self.dpad_input: int = -1
-        self.response = ""
+        self._response = ""
         self.is_save_pressed = False
         self.just_stopped = False
         self.current_title = "Enter Text"
@@ -137,6 +137,16 @@ class Keyboard:
     def __del__(self):
         self.reset()
         self.current_title = ""
+
+    @property
+    def callback(self) -> callable:
+        """Returns the current save callback function"""
+        return self.on_save_callback
+
+    @callback.setter
+    def callback(self, value: callable):
+        """Sets the current save callback function"""
+        self.on_save_callback = value
 
     @property
     def is_finished(self) -> bool:
@@ -158,9 +168,19 @@ class Keyboard:
         """Sets the current title of the keyboard"""
         self.current_title = value
 
+    @property
+    def response(self) -> str:
+        """Returns the response string"""
+        return self._response
+
+    @response.setter
+    def response(self, value: str):
+        """Sets the response string"""
+        self._response = value
+
     def get_response(self) -> str:
         """Returns the response string"""
-        return self.response
+        return self._response
 
     def set_save_callback(self, callback: callable):
         """Sets the save callback function"""
@@ -168,7 +188,7 @@ class Keyboard:
 
     def set_response(self, text: str):
         """Sets the response string"""
-        self.response = text
+        self._response = text
 
     def reset(self):
         """Resets the keyboard state"""
@@ -177,12 +197,14 @@ class Keyboard:
         self.cursor_col = 0
         self.is_shift_pressed = False
         self.is_caps_lock_on = False
-        self.response = ""
+        self._response = ""
         self.on_save_callback = None
         self.is_save_pressed = False
         self.current_title = "Enter Text"
 
-    def _draw_key(self, row: int, col: int, is_selected: bool):
+    def _draw_key(
+        self, row: int, col: int, is_selected: bool, key_vec: Vector, size_vec: Vector
+    ):
         """Draws a specific key on the keyboard"""
         if row >= self.NUM_ROWS or col >= self.ROW_SIZES[row]:
             return
@@ -207,14 +229,17 @@ class Keyboard:
 
         # Calculate key size
         width = key.width * self.KEY_WIDTH + (key.width - 1) * self.KEY_SPACING
-        height = self.KEY_HEIGHT
+        size_vec.x = width
+        size_vec.y = self.KEY_HEIGHT
 
         # Draw key background
         bg_color = self.selected_color if is_selected else self.background_color
-        self.draw.fill_rectangle(Vector(x_pos, y_pos), Vector(width, height), bg_color)
+        key_vec.x = x_pos
+        key_vec.y = y_pos
+        self.draw.fill_rectangle(key_vec, size_vec, bg_color)
 
         # Draw key border
-        self.draw.rect(Vector(x_pos, y_pos), Vector(width, height), self.text_color)
+        self.draw.rect(key_vec, size_vec, self.text_color)
 
         # Determine what character to display
         display_char = key.normal
@@ -248,10 +273,9 @@ class Keyboard:
             key_label = display_char
 
         # Center the text
-        text_x = x_pos + width // 2 - len(key_label) * 3
-        text_y = y_pos + height // 2 - 4
-
-        self.draw.text(Vector(text_x, text_y), key_label, self.text_color)
+        key_vec.x = x_pos + width // 2 - len(key_label) * 3
+        key_vec.y = y_pos + self.KEY_HEIGHT // 2 - 4
+        self.draw.text(key_vec, key_label, self.text_color)
 
     def _draw_keyboard(self):
         """Draws the entire keyboard"""
@@ -264,10 +288,12 @@ class Keyboard:
         )
 
         # Draw all keys
+        key_vec = Vector(0, 0)
+        size_vec = Vector(0, 0)
         for row in range(self.NUM_ROWS):
             for col in range(self.ROW_SIZES[row]):
                 is_selected = row == self.cursor_row and col == self.cursor_col
-                self._draw_key(row, col, is_selected)
+                self._draw_key(row, col, is_selected, key_vec, size_vec)
 
         # Draw title
         title_x = self.draw.size.x // 2 - len(self.current_title) * 3
@@ -294,7 +320,7 @@ class Keyboard:
         )
 
         # Draw response text with word wrapping
-        display_text = self.response
+        display_text = self._response
         max_chars_per_line = (self.draw.size.x - 10) // 6  # Approximate character width
         max_lines = (self.TEXTBOX_HEIGHT - 10) // 10  # Approximate line height
 
@@ -318,9 +344,10 @@ class Keyboard:
         # Show only the last few lines that fit
         start_line = max(0, len(lines) - max_lines)
 
+        text_vec = Vector(5, 8)
         for i in range(start_line, len(lines)):
-            y_pos = 8 + (i - start_line) * 10
-            self.draw.text(Vector(5, y_pos), lines[i], self.text_color)
+            text_vec.y = 8 + (i - start_line) * 10
+            self.draw.text(text_vec, lines[i], self.text_color)
 
         # Draw cursor
         last_line = lines[-1] if lines else ""
@@ -472,7 +499,7 @@ class Keyboard:
             BUTTON_PLUS: "+",
         }
         if self.dpad_input in manual_keys:
-            self.response += manual_keys[self.dpad_input]
+            self._response += manual_keys[self.dpad_input]
             return
 
         # Handle direct key presses
@@ -540,23 +567,23 @@ class Keyboard:
         self.current_key = key.normal
 
         if self.current_key == "\b":  # Backspace
-            if self.response:
-                self.response = self.response[:-1]
+            if self._response:
+                self._response = self._response[:-1]
         elif self.current_key == "\x01":  # Caps Lock
             self.is_caps_lock_on = not self.is_caps_lock_on
         elif self.current_key == "\x02":  # Shift
             self.is_shift_pressed = not self.is_shift_pressed
         elif self.current_key == "\r":  # Enter
-            self.response += "\n"
+            self._response += "\n"
         elif self.current_key == " ":  # Space
-            self.response += " "
+            self._response += " "
         elif self.current_key == "\x03":  # Save
             if self.on_save_callback:
-                self.on_save_callback(self.response)
+                self.on_save_callback(self._response)
             self.is_save_pressed = True
         elif self.current_key == "?" and self.cursor_row == 1 and self.cursor_col == 12:
             # Clear function
-            self.response = ""
+            self._response = ""
         else:
             # Regular character
             if "a" <= self.current_key <= "z":
@@ -564,13 +591,13 @@ class Keyboard:
                 should_capitalize = (
                     self.is_shift_pressed and not self.is_caps_lock_on
                 ) or (not self.is_shift_pressed and self.is_caps_lock_on)
-                self.response += key.shifted if should_capitalize else key.normal
+                self._response += key.shifted if should_capitalize else key.normal
             elif self.is_shift_pressed and key.normal != key.shifted:
                 # Handle shifted special characters
-                self.response += key.shifted
+                self._response += key.shifted
             else:
                 # Normal character
-                self.response += key.normal
+                self._response += key.normal
 
             # Reset shift after character entry (ignore left/right/up/down)
             d_pad = {

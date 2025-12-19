@@ -8,7 +8,7 @@ _flip_social_user_keyboard_ran: bool = False
 
 def __flip_social_util_get_username(view_manager) -> str:
     """Get the username from storage, or return empty string"""
-    storage = view_manager.get_storage()
+    storage = view_manager.storage
     data: str = storage.read("picoware/flip_social/username.json")
 
     if data is not None:
@@ -33,7 +33,7 @@ def __flip_social_user_callback(response: str) -> None:
 
 def __flip_social_user_start(view_manager) -> bool:
     """Start the user view"""
-    keyboard = view_manager.get_keyboard()
+    keyboard = view_manager.keyboard
     if not keyboard:
         return False
 
@@ -66,12 +66,12 @@ def __flip_social_user_run(view_manager) -> None:
     if not _flip_social_user_is_running:
         return
 
-    keyboard = view_manager.get_keyboard()
+    keyboard = view_manager.keyboard
     if not keyboard:
         _flip_social_user_is_running = False
         return
 
-    input_manager = view_manager.get_input_manager()
+    input_manager = view_manager.input_manager
     input_button = input_manager.button
 
     if input_button == BUTTON_BACK:
@@ -103,12 +103,12 @@ def __flip_social_user_stop(view_manager) -> None:
 
     global _flip_social_user_is_running, _flip_social_user_save_requested, _flip_social_user_save_verified, _flip_social_user_keyboard_ran
 
-    keyboard = view_manager.get_keyboard()
+    keyboard = view_manager.keyboard
     if keyboard:
         # if we need to save, do it now instead of in the callback
         if _flip_social_user_save_verified:
-            storage = view_manager.get_storage()
-            username = view_manager.get_keyboard().get_response()
+            storage = view_manager.storage
+            username = view_manager.keyboard.get_response()
             try:
                 from ujson import dumps
 

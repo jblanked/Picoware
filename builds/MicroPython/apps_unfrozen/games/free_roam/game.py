@@ -41,7 +41,7 @@ class FreeRoamGame:
     @property
     def draw(self):
         """get the draw object from the view manager"""
-        return self.view_manager.get_draw()
+        return self.view_manager.draw
 
     @property
     def is_active(self):
@@ -131,7 +131,7 @@ class FreeRoamGame:
             "Free Roam",
             Vector(128, 64),
             self.draw,
-            self.view_manager.get_input_manager(),
+            self.view_manager.input_manager,
             COLOR_WHITE,
             COLOR_BLACK,
             CAMERA_THIRD_PERSON,

@@ -7,28 +7,28 @@ def start(view_manager) -> bool:
     from picoware.gui.menu import Menu
 
     global _library
-    global _library_index
+
     if _library is None:
         _library = Menu(
             view_manager.draw,
             "Library",
             0,
             view_manager.draw.size.y,
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
-            view_manager.get_selected_color(),
-            view_manager.get_foreground_color(),
+            view_manager.foreground_color,
+            view_manager.background_color,
+            view_manager.selected_color,
+            view_manager.foreground_color,
             2,
         )
         _library.add_item("Applications")
         _library.add_item("App Store")
-        _library.add_item("Python Editor")
+        _library.add_item("Bluetooth")
         _library.add_item("File Manager")
         _library.add_item("Games")
+        _library.add_item("Python Editor")
         _library.add_item("Screensavers")
         _library.add_item("System")
-        if view_manager.get_wifi():
-            _library.add_item("WiFi")
+        _library.add_item("WiFi")
         _library.set_selected(_library_index)
 
         _library.draw()
@@ -47,13 +47,13 @@ def run(view_manager) -> None:
         BUTTON_RIGHT,
     )
 
-    global _library
     if not _library:
         return
+
     global _library_index
 
     input_manager = view_manager.input_manager
-    button: int = input_manager.get_last_button()
+    button: int = input_manager.button
 
     if button in (BUTTON_UP, BUTTON_LEFT):
         input_manager.reset()
@@ -67,17 +67,18 @@ def run(view_manager) -> None:
         view_manager.back()
     elif button == BUTTON_CENTER:
         input_manager.reset()
-        _library_index = _library.get_selected_index()
+        _library_index = _library.selected_index
 
         app_map = {
             0: "Applications",
             1: "App Store",
-            2: "Python Editor",
+            2: "Bluetooth",
             3: "File Manager",
             4: "Games",
-            5: "Screensavers",
-            6: "System",
-            7: "WiFi",
+            5: "Python Editor",
+            6: "Screensavers",
+            7: "System",
+            8: "WiFi",
         }
 
         if app_map.get(_library_index) == "System":
@@ -148,6 +149,18 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("app_store")
+        elif app_map.get(_library_index) == "Bluetooth":
+            from picoware.applications.bluetooth import bluetooth
+
+            view_manager.add(
+                View(
+                    "bluetooth",
+                    bluetooth.run,
+                    bluetooth.start,
+                    bluetooth.stop,
+                )
+            )
+            view_manager.switch_to("bluetooth")
 
 
 def stop(view_manager) -> None:

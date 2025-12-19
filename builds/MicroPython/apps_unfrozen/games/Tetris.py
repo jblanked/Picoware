@@ -645,14 +645,14 @@ def start(view_manager) -> bool:
     _down_repeat_counter = 0
     _was_down_move = False
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
 
     # Create the game instance with its name, start/stop callbacks, and colors.
     game = Game(
         "Tetris",  # name
         draw.size,  # size
         draw,  # draw instance
-        view_manager.get_input_manager(),  # input manager
+        view_manager.input_manager,  # input manager
         0x0000,  # foreground color
         0xFFFF,  # background color
         0,  # perspective
@@ -686,7 +686,7 @@ def run(view_manager) -> None:
         _game_engine.run_async(False)
 
     input_manager = view_manager.input_manager
-    button: int = input_manager.get_last_button()
+    button: int = input_manager.button
 
     if button == BUTTON_BACK:
         input_manager.reset()

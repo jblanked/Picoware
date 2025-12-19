@@ -56,8 +56,10 @@ def read_chunked(s, uart=None, method="GET", save_to_file=None, storage=None):
 
     # Open file for writing if save_to_file is specified
     if save_to_file and storage:
-        file_handle = storage.sd.open(save_to_file, "wb")
+        storage.mount_vfs()
+        file_handle = open(f"/sd/{save_to_file}", "wb")
         if file_handle is None:
+            storage.unmount_vfs()
             raise RuntimeError(f"Failed to open file for writing: {save_to_file}")
 
     try:
@@ -99,6 +101,7 @@ def read_chunked(s, uart=None, method="GET", save_to_file=None, storage=None):
     finally:
         if file_handle:
             file_handle.close()
+            storage.unmount_vfs()
         RESPONSE_IS_BUSY = False
 
     return body
@@ -263,23 +266,21 @@ def request(
                 body = s.read(content_length)
             elif save_to_file and storage:
                 # Save directly to file
-                file_handle = storage.sd.open(save_to_file, "wb")
-                if file_handle is None:
-                    raise RuntimeError(
-                        f"Failed to open file for writing: {save_to_file}"
-                    )
-                try:
-                    while content_length > 0:
-                        RESPONSE_IS_BUSY = True
-                        chunk_size = min(2048, content_length)
-                        chunk = s.read(chunk_size)
-                        if not chunk:
-                            break
-                        file_handle.write(chunk)
-                        content_length -= len(chunk)
-                finally:
-                    file_handle.close()
-                    RESPONSE_IS_BUSY = False
+                storage.mount_vfs()
+                with open(f"/sd/{save_to_file}", "wb") as f:
+                    try:
+                        while content_length > 0:
+                            RESPONSE_IS_BUSY = True
+                            chunk_size = min(2048, content_length)
+                            chunk = s.read(chunk_size)
+                            if not chunk:
+                                break
+                            f.write(chunk)
+                            content_length -= len(chunk)
+                    finally:
+                        f.close()
+                        RESPONSE_IS_BUSY = False
+                storage.unmount_vfs()
                 body = b""
             else:
                 # Read and write in fixed-size chunks to UART
@@ -303,21 +304,19 @@ def request(
                 body = s.read()
             elif save_to_file and storage:
                 # Save directly to file
-                file_handle = storage.sd.open(save_to_file, "wb")
-                if file_handle is None:
-                    raise RuntimeError(
-                        f"Failed to open file for writing: {save_to_file}"
-                    )
-                try:
-                    while True:
-                        RESPONSE_IS_BUSY = True
-                        chunk = s.read(2048)
-                        if not chunk:
-                            break
-                        file_handle.write(chunk)
-                finally:
-                    file_handle.close()
-                    RESPONSE_IS_BUSY = False
+                storage.mount_vfs()
+                with open(f"/sd/{save_to_file}", "wb") as f:
+                    try:
+                        while True:
+                            RESPONSE_IS_BUSY = True
+                            chunk = s.read(2048)
+                            if not chunk:
+                                break
+                            f.write(chunk)
+                    finally:
+                        f.close()
+                        RESPONSE_IS_BUSY = False
+                storage.unmount_vfs()
                 body = b""
             else:
                 uart.write(f"[{method}/SUCCESS] {method} request successful.\n")

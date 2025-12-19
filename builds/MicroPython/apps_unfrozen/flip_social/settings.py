@@ -13,17 +13,17 @@ def __flip_social_settings_start(view_manager) -> bool:
         del _flip_social_settings_menu
         _flip_social_settings_menu = None
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
 
     _flip_social_settings_menu = Menu(
         draw,  # draw instance
         "Settings",  # title
         0,  # y
         draw.size.y,  # height
-        view_manager.get_foreground_color(),  # text color
-        view_manager.get_background_color(),  # background color
-        view_manager.get_selected_color(),  # selected color
-        view_manager.get_foreground_color(),  # border/separator color
+        view_manager.foreground_color,  # text color
+        view_manager.background_color,  # background color
+        view_manager.selected_color,  # selected color
+        view_manager.foreground_color,  # border/separator color
         2,  # border/separator width
     )
 
@@ -49,8 +49,8 @@ def __flip_social_settings_run(view_manager) -> None:
 
     global _flip_social_settings_menu
 
-    input_manager = view_manager.get_input_manager()
-    input_button = input_manager.get_last_button()
+    input_manager = view_manager.input_manager
+    input_button = input_manager.button
 
     if input_button in (BUTTON_UP, BUTTON_LEFT):
         input_manager.reset()
@@ -65,7 +65,7 @@ def __flip_social_settings_run(view_manager) -> None:
         from picoware.system.view import View
 
         input_manager.reset()
-        current_item = _flip_social_settings_menu.get_current_item()
+        current_item = _flip_social_settings_menu.current_item
 
         if current_item == "Change User":
             from flip_social.username import (

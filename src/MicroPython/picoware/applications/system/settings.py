@@ -16,19 +16,19 @@ def start(view_manager) -> bool:
 
     if _dark_mode is None:
         _dark_mode = Toggle(
-            view_manager.get_draw(),
+            view_manager.draw,
             Vector(10, 10),
             Vector(300, 30),
             "Dark Mode",
             False,
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
-            view_manager.get_selected_color(),
-            view_manager.get_foreground_color(),
+            view_manager.foreground_color,
+            view_manager.background_color,
+            view_manager.selected_color,
+            view_manager.foreground_color,
             2,
         )
 
-        storage: Storage = view_manager.get_storage()
+        storage: Storage = view_manager.storage
 
         # create settings directory if it doesn't exist
         storage.mkdir("picoware/settings")
@@ -59,8 +59,8 @@ def run(view_manager) -> None:
         BUTTON_BACK,
     )
 
-    input_manager = view_manager.get_input_manager()
-    button = input_manager.get_last_button()
+    input_manager = view_manager.input_manager
+    button = input_manager.button
 
     global _dark_mode, _toggle_index
 
@@ -85,17 +85,17 @@ def run(view_manager) -> None:
 
                 obj = {"dark_mode": _dark_mode.get_state()}
                 data = ujson.dumps(obj)
-                storage = view_manager.get_storage()
+                storage = view_manager.storage
                 storage.write("picoware/settings/dark_mode.json", data)
 
                 # Update the background color based on the toggle state
                 # we should probably move this to the ViewManager..
                 if _dark_mode.get_state():
-                    view_manager.set_background_color(TFT_BLACK)
-                    view_manager.set_foreground_color(TFT_WHITE)
+                    view_manager.background_color = TFT_BLACK
+                    view_manager.foreground_color = TFT_WHITE
                 else:
-                    view_manager.set_background_color(TFT_WHITE)
-                    view_manager.set_foreground_color(TFT_BLACK)
+                    view_manager.background_color = TFT_WHITE
+                    view_manager.foreground_color = TFT_BLACK
 
         input_manager.reset()
 

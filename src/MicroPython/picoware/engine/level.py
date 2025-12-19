@@ -140,6 +140,7 @@ class Level:
                 calculated_camera_params.height = 1.6
                 camera_params = calculated_camera_params
 
+        entity_vec = Vector(0, 0)
         for entity in self.entities:
             if entity and entity.is_active:
                 entity.render(self.game.draw, self.game)
@@ -149,11 +150,10 @@ class Level:
 
                 # Only draw the 2D sprite if it exists
                 if entity.sprite:
+                    entity_vec.x = entity.position.x - self.game.position.x
+                    entity_vec.y = entity.position.y - self.game.position.y
                     self.game.draw.image_bytearray(
-                        Vector(
-                            entity.position.x - self.game.position.x,
-                            entity.position.y - self.game.position.y,
-                        ),
+                        entity_vec,
                         entity.size,
                         entity.sprite._raw,
                     )

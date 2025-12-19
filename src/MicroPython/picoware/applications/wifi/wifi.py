@@ -4,10 +4,15 @@ _wifi_index = 0
 
 def start(view_manager) -> bool:
     """Start the app"""
+
+    if not view_manager.has_wifi:
+        view_manager.alert("WiFi not available....")
+        return False
+
     from picoware.gui.menu import Menu
 
     # create wifi folder
-    view_manager.get_storage().mkdir("picoware/wifi")
+    view_manager.storage.mkdir("picoware/wifi")
 
     global _wifi
     global _wifi_index
@@ -17,10 +22,10 @@ def start(view_manager) -> bool:
             "WiFi",
             0,
             view_manager.draw.size.y,
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
-            view_manager.get_selected_color(),
-            view_manager.get_foreground_color(),
+            view_manager.foreground_color,
+            view_manager.background_color,
+            view_manager.selected_color,
+            view_manager.foreground_color,
             2,
         )
         _wifi.add_item("Connect")
@@ -51,7 +56,7 @@ def run(view_manager) -> None:
     global _wifi_index
 
     input_manager = view_manager.input_manager
-    button: int = input_manager.get_last_button()
+    button: int = input_manager.button
 
     if button in (BUTTON_UP, BUTTON_LEFT):
         input_manager.reset()
@@ -65,7 +70,7 @@ def run(view_manager) -> None:
         view_manager.back()
     elif button == BUTTON_CENTER:
         input_manager.reset()
-        _wifi_index = _wifi.get_selected_index()
+        _wifi_index = _wifi.selected_index
 
         if _wifi_index == 0:
             from picoware.applications.wifi import connect

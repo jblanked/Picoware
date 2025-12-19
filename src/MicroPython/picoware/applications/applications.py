@@ -3,49 +3,20 @@ _applications_index = 0
 _app_loader = None
 
 
-def __alert(view_manager, message: str, back: bool = True) -> None:
-    """Show an alert"""
-
-    from picoware.gui.alert import Alert
-    from picoware.system.buttons import BUTTON_BACK
-
-    draw = view_manager.get_draw()
-    draw.clear()
-    _alert = Alert(
-        draw,
-        message,
-        view_manager.get_foreground_color(),
-        view_manager.get_background_color(),
-    )
-    _alert.draw("Alert")
-
-    # Wait for user to acknowledge
-    inp = view_manager.get_input_manager()
-    while True:
-        button = inp.button
-        if button == BUTTON_BACK:
-            inp.reset()
-            break
-
-    if back:
-        view_manager.back()
-
-
 def start(view_manager) -> bool:
     """Start the app"""
     from picoware.gui.menu import Menu
     from picoware.system.app_loader import AppLoader
 
     if not view_manager.has_sd_card:
-        __alert(
-            view_manager,
+        view_manager.alert(
             "Applications app requires an SD card.",
             False,
         )
         return False
 
     # create apps folder if it doesn't exist
-    view_manager.get_storage().mkdir("picoware/apps")
+    view_manager.storage.mkdir("picoware/apps")
 
     global _applications
     global _app_loader
@@ -63,10 +34,10 @@ def start(view_manager) -> bool:
         "Applications",
         0,
         view_manager.draw.size.y,
-        view_manager.get_foreground_color(),
-        view_manager.get_background_color(),
-        view_manager.get_selected_color(),
-        view_manager.get_foreground_color(),
+        view_manager.foreground_color,
+        view_manager.background_color,
+        view_manager.selected_color,
+        view_manager.foreground_color,
         2,
     )
     _app_loader = AppLoader(view_manager)
@@ -98,7 +69,7 @@ def run(view_manager) -> None:
         return
 
     input_manager = view_manager.input_manager
-    button: int = input_manager.get_last_button()
+    button: int = input_manager.button
 
     if button in (BUTTON_UP, BUTTON_LEFT):
         input_manager.reset()
@@ -112,19 +83,16 @@ def run(view_manager) -> None:
         view_manager.back()
     elif button == BUTTON_CENTER:
         input_manager.reset()
-        _applications_index = _applications.get_selected_index()
+        _applications_index = _applications.selected_index
 
         # Get the selected app name
-        selected_app = _applications.get_current_item()
+        selected_app = _applications.current_item
 
         if selected_app and _app_loader:
-            # Try to load the app
+            # Try to load the apps
             app_module = _app_loader.load_app(selected_app)
             if app_module is None:
-                __alert(
-                    view_manager,
-                    f'Could not load application "{selected_app}".',
-                )
+                view_manager.alert(f'Could not load application "{selected_app}".')
                 return
             # Create a view for the app and switch to it
             app_view_name = f"app_{selected_app}"

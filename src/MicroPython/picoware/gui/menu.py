@@ -18,7 +18,7 @@ class Menu:
 
         self.text_color = text_color
         self.background_color = background_color
-        self.title = title
+        self._title = title
         self.display = draw
         self._height_offset = int(self.display.size.y // 8)  # Reserve space for title
         self.list = List(
@@ -46,7 +46,37 @@ class Menu:
         if self.size:
             del self.size
             self.size = None
-        self.title = ""
+        self._title = ""
+
+    @property
+    def current_item(self) -> str:
+        """Get the current item."""
+        return self.list.current_item
+
+    @property
+    def item_count(self) -> int:
+        """Get the number of items."""
+        return self.list.item_count
+
+    @property
+    def list_height(self) -> int:
+        """Get the height of the list."""
+        return self.list.list_height
+
+    @property
+    def selected_index(self) -> int:
+        """Get the selected index."""
+        return self.list.selected_index
+
+    @property
+    def title(self) -> str:
+        """Get the menu title."""
+        return self._title
+
+    @title.setter
+    def title(self, value: str) -> None:
+        """Set the menu title."""
+        self._title = value
 
     def add_item(self, item: str) -> None:
         """Add an item to the menu."""
@@ -77,10 +107,10 @@ class Menu:
         from picoware.system.vector import Vector
 
         # Draw title centered
-        title_width = self.display.font_size.x * len(self.title)
+        title_width = self.display.font_size.x * len(self._title)
         title_x = (self.display.size.x - title_width) // 2
         title_y = self.position.y + 15
-        self.display.text(Vector(title_x, title_y), self.title, self.text_color)
+        self.display.text(Vector(title_x, title_y), self._title, self.text_color)
 
         # Draw underline
         underline_y = title_y + 10
@@ -90,25 +120,18 @@ class Menu:
             self.text_color,
         )
 
-    def get_current_item(self) -> str:
-        """Get the current item in the menu."""
-        return self.list.get_current_item()
-
     def get_item(self, index: int) -> str:
         """Get the item at the specified index."""
         return self.list.get_item(index)
 
-    def get_item_count(self) -> int:
-        """Get the number of items in the menu."""
-        return self.list.get_item_count()
+    def item_exists(self, item: str) -> bool:
+        """Check if an item exists in the menu."""
+        return self.list.item_exists(item)
 
-    def get_list_height(self) -> int:
-        """Get the height of the list."""
-        return self.list.get_list_height()
-
-    def get_selected_index(self) -> int:
-        """Get the index of the selected item."""
-        return self.list.selected_index
+    def refresh(self) -> None:
+        """Refresh the menu display."""
+        self.draw_title()
+        self.list.set_selected(self.list.selected_index)
 
     def remove_item(self, index: int) -> None:
         """Remove an item from the menu."""

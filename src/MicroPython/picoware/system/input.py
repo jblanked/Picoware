@@ -249,10 +249,6 @@ class Input:
 
         return button_map.get(key, buttons.BUTTON_NONE)
 
-    def get_last_button(self) -> int:
-        """Returns the last button pressed."""
-        return self._last_button
-
     def is_pressed(self) -> bool:
         """Returns True if any key is currently pressed."""
         from picoware.system.boards import (

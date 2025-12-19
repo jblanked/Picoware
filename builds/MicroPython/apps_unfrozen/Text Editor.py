@@ -11,7 +11,7 @@ def __start_text_editor(view_manager) -> None:
     global _textbox, _text_editor_started, _filename
 
     if _textbox is None:
-        draw = view_manager.get_draw()
+        draw = view_manager.draw
         _textbox = TextBox(
             draw,
             0,
@@ -20,7 +20,7 @@ def __start_text_editor(view_manager) -> None:
             view_manager.background_color,
         )
 
-        storage = view_manager.get_storage()
+        storage = view_manager.storage
         if _filename:
             _textbox.set_text(storage.read(_filename))
 
@@ -127,7 +127,7 @@ def __process_text_input(button: int, shift: bool) -> None:
 
 def start(view_manager) -> bool:
     """Start the app"""
-    kb = view_manager.get_keyboard()
+    kb = view_manager.keyboard
     kb.title = "Enter filename to edit:"
     kb.set_response("")
     kb.run(force=True)
@@ -140,9 +140,9 @@ def run(view_manager) -> None:
 
     global _textbox, _text_editor_started, _filename, _keyboard_just_started
 
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     but = inp.button
-    kb = view_manager.get_keyboard()
+    kb = view_manager.keyboard
 
     if but == BUTTON_BACK:
         inp.reset()
@@ -173,12 +173,12 @@ def stop(view_manager) -> None:
     global _textbox, _text_editor_started, _filename, _keyboard_just_started
 
     if _textbox and _text_editor_started and _filename:
-        storage = view_manager.get_storage()
+        storage = view_manager.storage
         storage.write(_filename, _textbox.text)
         del _textbox
         _textbox = None
 
-    kb = view_manager.get_keyboard()
+    kb = view_manager.keyboard
     if kb:
         kb.reset()
 

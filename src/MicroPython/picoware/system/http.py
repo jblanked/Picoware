@@ -10,21 +10,59 @@ class HTTP:
 
     def __init__(self):
         """Initialize the HTTP class."""
-        self._async_response = ""
         self._async_request_complete = False
         self._async_request_in_progress = False
         self._async_thread = None
         self._state = HTTP_IDLE
         self._async_error = None
+        self._async_callback: callable = None
+        self._async_result = None
 
     def __del__(self):
         """Destructor to clean up resources."""
         self.clear_async_response()
 
     @property
+    def callback(self) -> callable:
+        """Get the async callback function."""
+        return self._async_callback
+
+    @callback.setter
+    def callback(self, value: callable):
+        """
+        Set the async callback function.
+
+        The callback function should accept three parameters:
+            - response: The Response object or None if there was an error
+            - state: The current HTTP state (HTTP_IDLE, HTTP_LOADING, HTTP_ISSUE)
+            - error: The error message if any, otherwise None
+        """
+        self._async_callback = value
+
+    @property
+    def error(self):
+        """Get the async error message, if any."""
+        return self._async_error
+
+    @property
+    def in_progress(self) -> bool:
+        """Check if the async request is in progress."""
+        return self._async_request_in_progress
+
+    @property
+    def is_finished(self) -> bool:
+        """Check if the async request is finished."""
+        return self._async_request_complete
+
+    @property
+    def is_successful(self) -> bool:
+        """Check if the async request was successful."""
+        return self._async_request_complete and self._async_error is None
+
+    @property
     def response(self):
-        """Get the async response data."""
-        return self._async_response
+        """Get the async Response object."""
+        return self._async_result
 
     @property
     def state(self) -> int:
@@ -33,7 +71,14 @@ class HTTP:
 
     def clear_async_response(self):
         """Clear the async response and reset state."""
-        self._async_response = ""
+        if self._async_result is not None:
+            try:
+                self._async_result.close()
+            except Exception:
+                pass
+            finally:
+                del self._async_result
+                self._async_result = None
         self._async_request_complete = False
         self._async_request_in_progress = False
         self._async_error = None
@@ -625,16 +670,16 @@ class HTTP:
                 )
 
             if result:
-                self._async_response = result.text
+                self._async_result = result
                 self._state = HTTP_IDLE
                 del result
                 result = None
             else:
-                self._async_response = ""
+                self._async_result = None
                 self._state = HTTP_ISSUE
         except Exception as e:
             self._async_error = str(e)
-            self._async_response = ""
+            self._async_result = None
             self._state = HTTP_ISSUE
         finally:
             self._async_request_complete = True
@@ -648,3 +693,10 @@ class HTTP:
                     _thread.exit()
                 except AttributeError:
                     pass
+            # Call the callback function if set
+            if self._async_callback:
+                self._async_callback(
+                    response=self._async_result,
+                    state=self._state,
+                    error=self._async_error,
+                )

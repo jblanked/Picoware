@@ -290,11 +290,16 @@ class Entity:
         offset = 0
         for i in range(triangle_count):
             tri = self.sprite_3d.triangles[i]
-            for v in tri.vertices:
-                pack_into("f", triangle_data, offset, v.x)
-                pack_into("f", triangle_data, offset + 4, v.y)
-                pack_into("f", triangle_data, offset + 8, v.z)
-                offset += 12
+            pack_into("f", triangle_data, offset, tri.x1)
+            pack_into("f", triangle_data, offset + 4, tri.y1)
+            pack_into("f", triangle_data, offset + 8, tri.z1)
+            pack_into("f", triangle_data, offset + 12, tri.x2)
+            pack_into("f", triangle_data, offset + 16, tri.y2)
+            pack_into("f", triangle_data, offset + 20, tri.z2)
+            pack_into("f", triangle_data, offset + 24, tri.x3)
+            pack_into("f", triangle_data, offset + 28, tri.y3)
+            pack_into("f", triangle_data, offset + 32, tri.z3)
+            offset += 36
 
         # Call C function to do all transformations and rendering
         render_sprite3d(

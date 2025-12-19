@@ -24,29 +24,7 @@ class View:
         sys.print_exception(exception, buf)
         traceback_str = buf.getvalue()
         print(traceback_str)
-
-        from picoware.gui.alert import Alert
-        from picoware.system.buttons import BUTTON_BACK
-
-        draw = view_manager.draw
-        draw.clear()
-        alert = Alert(
-            draw,
-            f"{traceback_str}",
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
-        )
-        alert.draw("Error")
-        draw.swap()
-        # Wait for user to acknowledge
-        inp = view_manager.get_input_manager()
-        while True:
-            button = inp.button
-            if button == BUTTON_BACK:
-                inp.reset()
-                break
-
-        del alert
+        view_manager.alert(f"{traceback_str}")
 
     def start(self, view_manager) -> bool:
         """Called when the view is created."""

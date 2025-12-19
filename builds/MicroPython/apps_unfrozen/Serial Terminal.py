@@ -20,10 +20,10 @@ def __box_start(view_manager) -> None:
 
     global _textbox
 
-    draw = view_manager.get_draw()
-    fg = view_manager.get_foreground_color()
+    draw = view_manager.draw
+    fg = view_manager.foreground_color
     height = draw.size.y
-    bg = view_manager.get_background_color()
+    bg = view_manager.background_color
     size = draw.size
 
     draw.fill_screen(bg)
@@ -69,7 +69,7 @@ def __loading_run(view_manager, text: str = "Sending...") -> None:
     global _loading
 
     if not _loading:
-        _loading = Loading(view_manager.get_draw())
+        _loading = Loading(view_manager.draw)
         _loading.set_text(text)
     else:
         _loading.animate()
@@ -77,7 +77,7 @@ def __loading_run(view_manager, text: str = "Sending...") -> None:
 
 def __set_kb(view_manager, title: str) -> None:
     """Set up the keyboard"""
-    kb = view_manager.get_keyboard()
+    kb = view_manager.keyboard
     kb.set_response("")
     kb.set_save_callback(__callback)
     kb.title = title
@@ -116,7 +116,7 @@ def run(view_manager) -> None:
     """Run the app"""
     from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
 
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     button = inp.button
 
     global state, _loading
@@ -131,12 +131,12 @@ def run(view_manager) -> None:
         state = STATE_TYPING
 
     if state == STATE_TYPING:
-        kb = view_manager.get_keyboard()
+        kb = view_manager.keyboard
         kb.run()
     elif state == STATE_SENDING:
         if not _uart.is_sending:
             state = STATE_VIEWING
-            kb = view_manager.get_keyboard()
+            kb = view_manager.keyboard
             kb.reset()
             del _loading
             _loading = None

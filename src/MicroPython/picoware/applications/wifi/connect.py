@@ -1,6 +1,5 @@
 _connect = None
 _status_message: str = ""
-_wifi_saved: bool = False
 _connection_initiated = False
 _last_update = 0
 _connection_start_time = 0
@@ -10,11 +9,8 @@ _password = ""
 
 def _get_status_text(view_manager) -> str:
     global _status_message
-    global _wifi_saved
-    global _ssid
-    global _password
 
-    wifi = view_manager.get_wifi()
+    wifi = view_manager.wifi
     text = "WiFi Setup\n\n"
     text += "Network: " + _ssid + "\n"
     text += "Status: " + _status_message + "\n\n"
@@ -23,15 +19,6 @@ def _get_status_text(view_manager) -> str:
         text += "IP Address: " + wifi.device_ip + "\n"
         text += "Connected!\n\n"
         _status_message = "Connected successfully!"
-        if not _wifi_saved:
-            from picoware.applications.wifi.utils import save_wifi_settings
-
-            save_wifi_settings(
-                view_manager.get_storage(),
-                _ssid,
-                _password,
-            )
-            _wifi_saved = True
     else:
         from picoware.system.wifi import (
             WIFI_STATE_IDLE,
@@ -82,8 +69,8 @@ def start(view_manager) -> bool:
             view_manager.draw,
             0,
             view_manager.draw.size.y,
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
+            view_manager.foreground_color,
+            view_manager.background_color,
         )
 
         if _connect is None:
@@ -94,9 +81,10 @@ def start(view_manager) -> bool:
         _last_update = 0
         _connection_start_time = 0
         _status_message = (
-            "Connected" if view_manager.get_wifi().is_connected() else "Disconnected"
+            "Connected" if view_manager.wifi.is_connected() else "Disconnected"
         )
         _connect.set_text(_get_status_text(view_manager))
+
     return True
 
 
@@ -127,8 +115,8 @@ def run(view_manager) -> None:
     global _password
 
     input_manager = view_manager.input_manager
-    button: int = input_manager.get_last_button()
-    wifi = view_manager.get_wifi()
+    button: int = input_manager.button
+    wifi = view_manager.wifi
 
     if button in (BUTTON_BACK, BUTTON_LEFT):
         input_manager.reset()
@@ -186,7 +174,6 @@ def stop(view_manager) -> None:
         _connect = None
 
     global _status_message
-    global _wifi_saved
     global _connection_initiated
     global _last_update
     global _connection_start_time
@@ -194,7 +181,6 @@ def stop(view_manager) -> None:
     global _password
 
     _status_message = ""
-    _wifi_saved = False
     _connection_initiated = False
     _last_update = 0
     _connection_start_time = 0

@@ -194,9 +194,7 @@ class Player(Entity):
         if not self.free_roam_game or not self.free_roam_game.view_manager:
             return ""
         view_manager = self.free_roam_game.view_manager
-        data: str = view_manager.get_storage().read(
-            "picoware/flip_social/password.json"
-        )
+        data: str = view_manager.storage.read("picoware/flip_social/password.json")
 
         if data is not None:
             try:
@@ -218,9 +216,7 @@ class Player(Entity):
         if not self.free_roam_game or not self.free_roam_game.view_manager:
             return ""
         view_manager = self.free_roam_game.view_manager
-        data: str = view_manager.get_storage().read(
-            "picoware/flip_social/username.json"
-        )
+        data: str = view_manager.storage.read("picoware/flip_social/username.json")
 
         if data is not None:
             try:
@@ -360,7 +356,7 @@ class Player(Entity):
                 self.loading.animate(swap=False)
                 return
             # Request is complete, process the response
-            response = self.http.response
+            response = self.http.response.text
             if "[SUCCESS]" in response:
                 self.login_status = LOGIN_SUCCESS
                 self.current_main_view = GAME_VIEW_TITLE  # bring to the next view
@@ -858,7 +854,7 @@ class Player(Entity):
             if not self.http.is_request_complete():
                 self.loading.animate(swap=False)
                 return
-            response = self.http.response
+            response = self.http.response.text
             if "[SUCCESS]" in response:
                 self.registration_status = REGISTRATION_SUCCESS
                 self.current_main_view = GAME_VIEW_TITLE  # bring to the next view
@@ -921,7 +917,7 @@ class Player(Entity):
             if not self.http.is_request_complete():
                 self.loading.animate(swap=False)
                 return
-            response = self.http.response
+            response = self.http.response.text
             if not response:
                 self.user_info_status = USER_INFO_REQUEST_ERROR
                 return

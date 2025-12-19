@@ -60,39 +60,20 @@ def start(view_manager) -> bool:
         del _gps_http
         _gps_http = None
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
 
-    wifi = view_manager.get_wifi()
+    wifi = view_manager.wifi
 
     # if not a wifi device, return
     if not wifi:
-        from picoware.gui.alert import Alert
-        from time import sleep
-
-        _gps_alert = Alert(
-            draw,
-            "WiFi not available..",
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
-        )
-        _gps_alert.draw("Error")
-        sleep(2)
+        view_manager.alert("WiFi not available...", False)
         return False
 
     # if wifi isn't connected, return
     if not wifi.is_connected():
         from picoware.applications.wifi.utils import connect_to_saved_wifi
-        from picoware.gui.alert import Alert
-        from time import sleep
 
-        _gps_alert = Alert(
-            draw,
-            "WiFi not connected yet",
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
-        )
-        _gps_alert.draw("Error")
-        sleep(2)
+        view_manager.alert("WiFi not connected yet...", False)
         connect_to_saved_wifi(view_manager)
         return False
 
@@ -124,9 +105,9 @@ def run(view_manager) -> None:
     global _gps_alert, _gps_http
     global _gps_request_sent, _gps_request_in_progress, _gps_displaying_result
 
-    input_manager = view_manager.get_input_manager()
-    button = input_manager.get_last_button()
-    draw = view_manager.get_draw()
+    input_manager = view_manager.input_manager
+    button = input_manager.button
+    draw = view_manager.draw
 
     if button in (BUTTON_LEFT, BUTTON_BACK):
         input_manager.reset()
@@ -138,7 +119,7 @@ def run(view_manager) -> None:
         input_manager.reset()
         __reset_gps_state()
 
-        draw.clear(Vector(0, 0), draw.size, view_manager.get_background_color())
+        draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
         draw.text(Vector(5, 5), "Starting GPS lookup...")
         draw.swap()
 
@@ -157,22 +138,12 @@ def run(view_manager) -> None:
 
         _gps_http.clear_async_response()
         if not _gps_http.get_async("https://ipwhois.app/json"):
-            from picoware.gui.alert import Alert
-            from time import sleep
-
-            _gps_alert = Alert(
-                draw,
-                "Failed to start location request",
-                view_manager.get_foreground_color(),
-                view_manager.get_background_color(),
-            )
-            _gps_alert.draw("Error")
-            sleep(2)
+            view_manager.alert("Failed to start location request...")
             _gps_request_sent = False
             _gps_request_in_progress = False
             return
 
-        draw.clear(Vector(0, 0), draw.size, view_manager.get_background_color())
+        draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
         draw.text(Vector(5, 5), "Getting your location...")
         draw.swap()
 
@@ -183,27 +154,21 @@ def run(view_manager) -> None:
         if _gps_http.is_request_complete():
             _gps_request_in_progress = False
 
-            gps_response: str = _gps_http.response
+            gps_response: str = _gps_http.response.text if _gps_http.response else ""
 
             if gps_response:
                 # parse the location data
                 location_text = __parse_location_data(gps_response)
 
                 if location_text:
-                    draw.clear(
-                        Vector(0, 0), draw.size, view_manager.get_background_color()
-                    )
+                    draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
                     draw.text(
-                        Vector(0, 5), location_text, view_manager.get_foreground_color()
+                        Vector(0, 5), location_text, view_manager.foreground_color
                     )
                 else:
-                    draw.clear(
-                        Vector(0, 0), draw.size, view_manager.get_background_color()
-                    )
+                    draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
                     error_msg = f"Unable to parse location data.\n\nRaw Response:\n{location_text}\n\nPress LEFT to go back"
-                    draw.text(
-                        Vector(5, 5), error_msg, view_manager.get_foreground_color()
-                    )
+                    draw.text(Vector(5, 5), error_msg, view_manager.foreground_color)
 
                 draw.swap()
                 _gps_displaying_result = True
@@ -212,26 +177,12 @@ def run(view_manager) -> None:
                 # also necessary for next iteration
                 del _gps_http
                 _gps_http = None
-
-                return
             else:
-                draw.clear(Vector(0, 0), draw.size, view_manager.get_background_color())
+                draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
                 error_msg = "Failed to get location data."
                 if _gps_http.state == 2:  # HTTP_ISSUE
                     error_msg += "\nNetwork error or timeout."
-
-                from picoware.gui.alert import Alert
-                from time import sleep
-
-                _gps_alert = Alert(
-                    draw,
-                    error_msg,
-                    view_manager.get_foreground_color(),
-                    view_manager.get_background_color(),
-                )
-                _gps_alert.draw("Error")
-                sleep(2)
-                view_manager.back()
+                view_manager.alert(error_msg, True)
                 return
         else:
 
@@ -247,10 +198,8 @@ def run(view_manager) -> None:
                 _gps_dot_count = (_gps_dot_count + 1) % 4  # Cycle through 0-3
 
                 loading_text = "Getting your location" + ("." * _gps_dot_count)
-                draw.clear(Vector(0, 0), draw.size, view_manager.get_background_color())
-                draw.text(
-                    Vector(5, 5), loading_text, view_manager.get_foreground_color()
-                )
+                draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
+                draw.text(Vector(5, 5), loading_text, view_manager.foreground_color)
                 draw.swap()
 
 

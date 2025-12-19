@@ -18,35 +18,9 @@ _files_to_download: list = []
 _github_alert = None
 
 
-def __github_alert(view_manager, message: str, back: bool = True) -> None:
-    """Show an alert"""
-    from time import sleep
-
-    global _github_alert
-
-    if _github_alert:
-        del _github_alert
-        _github_alert = None
-
-    from picoware.gui.alert import Alert
-
-    draw = view_manager.get_draw()
-    draw.clear()
-    _github_alert = Alert(
-        draw,
-        message,
-        view_manager.get_foreground_color(),
-        view_manager.get_background_color(),
-    )
-    _github_alert.draw("Alert")
-    sleep(2)
-    if back:
-        view_manager.back()
-
-
 def __download_repo_info(view_manager) -> bool:
     """Create necessary directories and start downloading repo info"""
-    storage = view_manager.get_storage()
+    storage = view_manager.storage
     storage.mkdir("picoware/github")
     storage.mkdir(f"picoware/github/{_github_author}")
     storage.mkdir(f"picoware/github/{_github_author}/{_github_repo}")
@@ -69,7 +43,7 @@ def __download_repo_info(view_manager) -> bool:
 def __parse_repo_info(view_manager) -> bool:
     """Parse the downloaded repo info and build list of files to download using chunked reading"""
     global _github_author, _github_repo, _files_to_download
-    storage = view_manager.get_storage()
+    storage = view_manager.storage
 
     file_path = f"picoware/github/{_github_author}-{_github_repo}-info.json"
     _files_to_download = []
@@ -180,7 +154,7 @@ def __download_next_file(view_manager) -> bool:
         return False  # All files downloaded
 
     file_url, save_path = _files_to_download[_current_file_index]
-    storage = view_manager.get_storage()
+    storage = view_manager.storage
 
     # Create necessary directories
     dir_path = "/".join(save_path.split("/")[:-1])
@@ -203,7 +177,7 @@ def __loading_start(view_manager, text: str = "Fetching...") -> None:
     global _loading
 
     if not _loading:
-        _loading = Loading(view_manager.get_draw())
+        _loading = Loading(view_manager.draw)
     _loading.set_text(text)
 
 
@@ -228,23 +202,23 @@ def __reset() -> None:
 
 def start(view_manager) -> bool:
     """Start the app"""
-    wifi = view_manager.get_wifi()
+    wifi = view_manager.wifi
 
     # if not a wifi device, return
     if not wifi:
-        __github_alert(view_manager, "WiFi not available...", False)
+        view_manager.alert("WiFi not available...", False)
         return False
 
     # if wifi isn't connected, return
     if not wifi.is_connected():
         from picoware.applications.wifi.utils import connect_to_saved_wifi
 
-        __github_alert(view_manager, "WiFi not connected", False)
+        view_manager.alert("WiFi not connected", False)
         connect_to_saved_wifi(view_manager)
         return False
 
     __reset()
-    keyboard = view_manager.get_keyboard()
+    keyboard = view_manager.keyboard
     keyboard.reset()
     keyboard.title = "Enter GitHub Author"
     keyboard.run(force=True)
@@ -256,7 +230,7 @@ def run(view_manager) -> None:
     """Run the app"""
     from picoware.system.buttons import BUTTON_BACK
 
-    inp = view_manager.get_input_manager()
+    inp = view_manager.input_manager
     button = inp.button
 
     if button == BUTTON_BACK:
@@ -266,7 +240,7 @@ def run(view_manager) -> None:
 
     global _app_state, _github_author, _github_repo
 
-    keyboard = view_manager.get_keyboard()
+    keyboard = view_manager.keyboard
 
     if _app_state == STATE_KEYBOARD_AUTHOR:
         if keyboard.is_finished:
@@ -284,7 +258,7 @@ def run(view_manager) -> None:
             keyboard.reset()
             _app_state = STATE_DOWNLOADING_INFO
             if not __download_repo_info(view_manager):
-                __github_alert(view_manager, "Failed to start downloading repo info")
+                view_manager.alert("Failed to start downloading repo info")
             else:
                 __loading_start(view_manager, "Fetching...")
         keyboard.run()
@@ -323,7 +297,7 @@ def run(view_manager) -> None:
                 )
         else:
             # All files downloaded
-            __github_alert(view_manager, "Repository downloaded successfully!")
+            view_manager.alert("Repository downloaded successfully!")
 
 
 def stop(view_manager) -> None:

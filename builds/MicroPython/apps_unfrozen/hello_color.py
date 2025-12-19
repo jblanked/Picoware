@@ -5,9 +5,10 @@ clr = 0
 
 
 def start(view_manager) -> bool:
+    """Start the app."""
     from picoware.system.vector import Vector
 
-    draw = view_manager.get_draw()
+    draw = view_manager.draw
 
     draw.clear()
 
@@ -19,6 +20,7 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager):
+    """Run the app."""
     from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
     from picoware.system.vector import Vector
     from picoware.system.colors import (
@@ -28,24 +30,24 @@ def run(view_manager):
         TFT_YELLOW,
         TFT_GREEN,
     )
-    import random
+    from random import randint
 
-    global hi, clr
+    global clr
 
     input_manager = view_manager.input_manager
-    button = input_manager.get_last_button()
+    button = input_manager.button
 
     choices = {0: TFT_WHITE, 1: TFT_BLUE, 2: TFT_RED, 3: TFT_YELLOW, 4: TFT_GREEN}
 
     if button == BUTTON_CENTER:
         input_manager.reset()
 
-        draw = view_manager.get_draw()
+        draw = view_manager.draw
         draw.clear()
         draw.text(Vector(130, 160), hi, choices.get(clr))
         draw.swap()
 
-        clr = random.randint(0, 4)
+        clr = randint(0, 4)
 
     elif button == BUTTON_BACK:
         input_manager.reset()
@@ -53,6 +55,7 @@ def run(view_manager):
 
 
 def stop(view_manager):
+    """Stop the app."""
     from gc import collect
 
     global clr

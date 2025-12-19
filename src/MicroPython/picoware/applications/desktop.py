@@ -15,6 +15,10 @@ class PicowareAnimation:
 
         self._initialize_letter_animation()
 
+    def __del__(self):
+        del self.letter_states
+        self.letter_states = None
+
     def _initialize_letter_animation(self) -> None:
         """Initialize the animation state for each letter in 'Picoware'."""
         from picoware.system.colors import (
@@ -149,7 +153,6 @@ _desktop = None
 _desktop_http = None
 _desktop_picoware = None
 _desktop_time_updated = False
-_desktop_is_dark_mode = False
 
 
 def start(view_manager) -> bool:
@@ -157,13 +160,13 @@ def start(view_manager) -> bool:
     from picoware.gui.desktop import Desktop
     from picoware.applications.wifi.utils import connect_to_saved_wifi
 
-    global _desktop, _desktop_http, _desktop_is_dark_mode, _desktop_picoware
+    global _desktop, _desktop_http, _desktop_picoware
 
     if _desktop is None:
         _desktop = Desktop(
             view_manager.draw,
-            view_manager.get_foreground_color(),
-            view_manager.get_background_color(),
+            view_manager.foreground_color,
+            view_manager.background_color,
         )
 
     if _desktop_picoware is None:
@@ -172,7 +175,7 @@ def start(view_manager) -> bool:
     if not view_manager.has_wifi:
         return True
 
-    wifi = view_manager.get_wifi()
+    wifi = view_manager.wifi
 
     connect_to_saved_wifi(view_manager)
 
@@ -195,10 +198,7 @@ def run(view_manager) -> None:
     input_manager = view_manager.input_manager
     button: int = input_manager.button
 
-    global _desktop
-    global _desktop_http
-    global _desktop_time_updated
-    global _desktop_picoware
+    global _desktop_http, _desktop_time_updated
 
     if _desktop:
         from picoware.system.vector import Vector
@@ -208,7 +208,7 @@ def run(view_manager) -> None:
 
         # Clear and draw header
         view_manager.draw.clear(
-            Vector(0, 0), view_manager.draw.size, view_manager.get_background_color()
+            Vector(0, 0), view_manager.draw.size, view_manager.background_color
         )
         _desktop.draw_header()
 
@@ -218,7 +218,7 @@ def run(view_manager) -> None:
         # Swap buffer to display
         view_manager.draw.swap()
 
-        wifi = view_manager.get_wifi()
+        wifi = view_manager.wifi
         if wifi:
             if not _desktop_time_updated and wifi.is_connected():
                 if _desktop_http and _desktop_http.is_request_complete():
@@ -231,9 +231,7 @@ def run(view_manager) -> None:
                             _desktop_http.get_async("http://worldtimeapi.org/api/ip")
                             return
                         if _desktop_http.state == 0:  # HTTP_IDLE
-                            from ujson import loads
-
-                            data: dict = loads(response)
+                            data: dict = response.json()
                             datetime_str: str = data.get("datetime", "")
                             if datetime_str:
                                 date_part, time_part = datetime_str.split("T")
@@ -243,13 +241,13 @@ def run(view_manager) -> None:
                                 hours, minutes, seconds = map(int, time_part.split(":"))
                                 year, month, day = map(int, date_part.split("-"))
 
-                                view_manager.get_time().set(
-                                    year, month, day, hours, minutes, seconds
-                                )
+                                _time = view_manager.time
+
+                                _time.set(year, month, day, hours, minutes, seconds)
 
                                 _desktop_time_updated = True
 
-                                _desktop.set_time(view_manager.get_time().time)
+                                _desktop.set_time(_time.time)
 
                                 del _desktop_http
                                 _desktop_http = None
@@ -263,7 +261,7 @@ def run(view_manager) -> None:
                         print("Error processing time data:", e)
             elif _desktop_time_updated:
                 # time is RTC, so no need to fetch, just pass the updated time
-                _desktop.set_time(view_manager.get_time().time)
+                _desktop.set_time(view_manager.time.time)
 
     if button == BUTTON_LEFT:
         from picoware.applications.system import system_info

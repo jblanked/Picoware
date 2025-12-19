@@ -19,7 +19,7 @@ _current_list_index: int = 0
 _max_items: int = 20
 _apps_data: dict = None
 _selected_app_id: int = None
-_selected_app_details: dict = None
+_selected_app_details = None
 _download_all_mode: bool = False
 _current_app_index: int = 0
 _total_apps_to_download: int = 0
@@ -49,7 +49,9 @@ def __reset() -> None:
     _current_list_index = 0
     _apps_data = None
     _selected_app_id = None
-    _selected_app_details = None
+    if _selected_app_details is not None:
+        del _selected_app_details
+        _selected_app_details = None
     _download_all_mode = False
     _current_app_index = 0
     _total_apps_to_download = 0
@@ -207,13 +209,14 @@ def __parse_app_details(view_manager, app_id: int) -> bool:
             return False
 
         from json import loads
+        from picoware.system.app import App
 
         response = loads(data)
 
         if not response.get("success") or not response.get("app"):
             return False
 
-        _selected_app_details = response["app"]
+        _selected_app_details = App(response["app"])
         return True
     except Exception as e:
         print(f"Error parsing app details: {e}")
@@ -233,11 +236,11 @@ def __draw_app_details(view_manager) -> None:
         return
 
     # Title at top
-    title = _selected_app_details.get("title", "Unknown App")
+    title = _selected_app_details.title
     draw.text(Vector(10, 5), f"App: {title[:35]}", fg)
 
     # Description section
-    description = _selected_app_details.get("description", "No description available")
+    description = _selected_app_details.description
     y_pos = 30
 
     # Word wrap the description
@@ -264,7 +267,7 @@ def __draw_app_details(view_manager) -> None:
     draw.text(Vector(10, y_pos), "Files:", fg)
     y_pos += 15
 
-    file_structure = _selected_app_details.get("file_structure", [])
+    file_structure = _selected_app_details.file_structure
     file_count = len(file_structure)
 
     # Show first few files
@@ -413,7 +416,7 @@ def run(view_manager) -> None:
             inp.reset()
             # Get selected app ID
             if _app_menu and _apps_data:
-                selected_index = _app_menu.get_selected_index()
+                selected_index = _app_menu.selected_index
                 # Check if "Download All Apps" is selected (index 0)
                 if selected_index == 0:
                     # Start downloading all apps
@@ -475,8 +478,8 @@ def run(view_manager) -> None:
         elif button == BUTTON_CENTER:
             inp.reset()
             # Start downloading
-            if _selected_app_details and _selected_app_details.get("file_downloads"):
-                _files_to_download = _selected_app_details["file_downloads"]
+            if _selected_app_details and _selected_app_details.file_downloads:
+                _files_to_download = _selected_app_details.file_downloads
                 _current_file_index = 0
 
                 if __download_next_file(view_manager):
@@ -557,8 +560,8 @@ def run(view_manager) -> None:
 
         # Parse app details and start downloading
         if __parse_app_details(view_manager, _selected_app_id):
-            if _selected_app_details and _selected_app_details.get("file_downloads"):
-                _files_to_download = _selected_app_details["file_downloads"]
+            if _selected_app_details and _selected_app_details.file_downloads:
+                _files_to_download = _selected_app_details.file_downloads
                 _current_file_index = 0
 
                 if __download_next_file(view_manager):

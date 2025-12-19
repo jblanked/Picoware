@@ -1,4 +1,3 @@
-_weather_alert = None
 _weather_http = None
 _location_request_sent = False
 _location_request_in_progress = False
@@ -44,34 +43,10 @@ def __reset_weather_state() -> None:
     _ip_address = ""
 
 
-def __weather_alert_and_return(view_manager, message: str) -> None:
-    """Show alert and return to previous view"""
-    global _weather_alert
-
-    if _weather_alert:
-        del _weather_alert
-        _weather_alert = None
-
-    from picoware.gui.alert import Alert
-    from time import sleep
-
-    _weather_alert = Alert(
-        view_manager.draw,
-        message,
-        view_manager.foreground_color,
-        view_manager.background_color,
-    )
-    _weather_alert.draw("Error")
-    sleep(2)
-
-
 def start(view_manager) -> bool:
     """Start the weather app"""
-    global _weather_alert, _weather_http
+    global _weather_http
 
-    if _weather_alert:
-        del _weather_alert
-        _weather_alert = None
     if _weather_http:
         del _weather_http
         _weather_http = None
@@ -82,24 +57,14 @@ def start(view_manager) -> bool:
 
     # if not a wifi device, return
     if not wifi:
-        from picoware.gui.alert import Alert
-        from time import sleep
-
-        _weather_alert = Alert(
-            draw,
-            "WiFi not available..",
-            view_manager.foreground_color,
-            view_manager.background_color,
-        )
-        _weather_alert.draw("Error")
-        sleep(2)
+        view_manager.alert("WiFi not available...", False)
         return False
 
     # Check if WiFi is connected
     if not wifi.is_connected():
         from picoware.applications.wifi.utils import connect_to_saved_wifi
 
-        __weather_alert_and_return(view_manager, "WiFi not connected yet.")
+        view_manager.alert("WiFi not connected yet.")
         connect_to_saved_wifi(view_manager)
         return False
 
@@ -127,7 +92,7 @@ def run(view_manager) -> None:
         BUTTON_CENTER,
     )
 
-    global _weather_alert, _weather_http
+    global _weather_http
     global _location_request_sent, _location_request_in_progress
     global _weather_request_sent, _weather_request_in_progress
     global _displaying_result_w, _ip_address
@@ -166,7 +131,7 @@ def run(view_manager) -> None:
 
         _weather_http.clear_async_response()
         if not _weather_http.get_async("https://ipwhois.app/json/"):
-            __weather_alert_and_return(view_manager, "Failed to start location request")
+            view_manager.alert("Failed to start location request")
             view_manager.back()
             return
 
@@ -202,23 +167,19 @@ def run(view_manager) -> None:
 
                         return
                     else:
-                        __weather_alert_and_return(
-                            view_manager, "Failed to get location coordinates."
-                        )
+                        view_manager.alert("Failed to get location coordinates.")
                         view_manager.back()
                         return
 
                 except Exception as e:
                     print(f"Error parsing location data: {e}")
-                    __weather_alert_and_return(
-                        view_manager, "Failed to parse location data."
-                    )
+                    view_manager.alert("Failed to parse location data.")
                     return
             else:
                 error_msg = "Failed to fetch location data."
                 if _weather_http.state == 2:  # HTTP_ISSUE
                     error_msg += "\nNetwork error or timeout."
-                __weather_alert_and_return(view_manager, error_msg)
+                view_manager.alert(error_msg)
                 view_manager.back()
                 return
         else:
@@ -250,7 +211,7 @@ def run(view_manager) -> None:
             _weather_http = HTTP()
 
         if not _weather_http.get_async(weather_url):
-            __weather_alert_and_return(view_manager, "Failed to start weather request")
+            view_manager.alert("Failed to start weather request")
             view_manager.back()
             return
 
@@ -295,7 +256,7 @@ def run(view_manager) -> None:
                 error_msg = "Failed to fetch weather data."
                 if _weather_http.state == 2:  # HTTP_ISSUE
                     error_msg += "\nNetwork error or timeout."
-                __weather_alert_and_return(view_manager, error_msg)
+                view_manager.alert(error_msg)
                 view_manager.back()
                 return
         else:
@@ -320,13 +281,10 @@ def stop(view_manager) -> None:
 
     __reset_weather_state()
 
-    global _weather_alert, _weather_http
+    global _weather_http
     global _location_last_update, _location_dot_count
     global _weather_last_update, _weather_dot_count
 
-    if _weather_alert:
-        del _weather_alert
-        _weather_alert = None
     if _weather_http:
         del _weather_http
         _weather_http = None

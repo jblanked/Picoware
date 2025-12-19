@@ -8,7 +8,6 @@ STATE_DOWNLOADING = const(4)
 STATE_DOWNLOADING_ALL = const(5)
 STATE_LOADING_NEXT_APP = const(6)
 
-_app_store_alert = None
 _current_file_index: int = 0
 _http = None
 _loading = None
@@ -27,13 +26,9 @@ _total_apps_to_download: int = 0
 
 def __reset() -> None:
     """Reset the app store state"""
-    global _app_store_alert, _http, _loading, _files_to_download, _current_file_index, _app_menu
+    global _http, _loading, _files_to_download, _current_file_index, _app_menu
     global _app_state, _current_list_index, _apps_data, _selected_app_id, _selected_app_details
     global _download_all_mode, _current_app_index, _total_apps_to_download
-
-    if _app_store_alert:
-        del _app_store_alert
-        _app_store_alert = None
     if _http:
         del _http
         _http = None
@@ -55,45 +50,6 @@ def __reset() -> None:
     _download_all_mode = False
     _current_app_index = 0
     _total_apps_to_download = 0
-
-
-def __app_store_alert(view_manager, message: str, back: bool = True) -> None:
-    """Show an alert"""
-    global _app_store_alert
-
-    if _app_store_alert:
-        del _app_store_alert
-        _app_store_alert = None
-
-    from picoware.gui.alert import Alert
-    from picoware.system.buttons import BUTTON_BACK
-
-    draw = view_manager.draw
-    bg = view_manager.background_color
-    draw.fill_screen(bg)
-    _app_store_alert = Alert(
-        draw,
-        message,
-        view_manager.foreground_color,
-        bg,
-    )
-    _app_store_alert.draw("Alert")
-
-    # Wait for user to acknowledge
-    inp = view_manager.input_manager
-    while True:
-        button = inp.button
-        if button == BUTTON_BACK:
-            inp.reset()
-            break
-
-    draw.fill_screen(bg)
-
-    del _app_store_alert
-    _app_store_alert = None
-
-    if back:
-        view_manager.back()
 
 
 def __loading_start(view_manager, text: str = "Fetching...") -> None:
@@ -322,21 +278,21 @@ def __download_next_file(view_manager) -> bool:
 def start(view_manager) -> bool:
     """Start the app"""
     if not view_manager.has_sd_card:
-        __app_store_alert(view_manager, "App Store app requires an SD card", False)
+        view_manager.alert("App Store app requires an SD card", False)
         return False
 
     wifi = view_manager.wifi
 
     # if not a wifi device, return
     if not wifi:
-        __app_store_alert(view_manager, "WiFi not available...", False)
+        view_manager.alert("WiFi not available...", False)
         return False
 
     # if wifi isn't connected, return
     if not wifi.is_connected():
         from picoware.applications.wifi.utils import connect_to_saved_wifi
 
-        __app_store_alert(view_manager, "WiFi not connected", False)
+        view_manager.alert("WiFi not connected", False)
         connect_to_saved_wifi(view_manager)
         return False
 
@@ -346,7 +302,7 @@ def start(view_manager) -> bool:
     if __fetch_app_list(view_manager):
         __loading_start(view_manager, "Loading apps...")
     else:
-        __app_store_alert(view_manager, "Failed to fetch app list")
+        view_manager.alert("Failed to fetch app list")
         return False
 
     return True
@@ -400,7 +356,7 @@ def run(view_manager) -> None:
             if _app_menu:
                 _app_menu.draw()
         else:
-            __app_store_alert(view_manager, "Failed to load apps")
+            view_manager.alert("Failed to load apps")
 
     elif _app_state == STATE_APP_LIST:
         # Handle menu navigation
@@ -432,12 +388,10 @@ def run(view_manager) -> None:
                                 f"Loading app 1/{_total_apps_to_download}...",
                             )
                         else:
-                            __app_store_alert(
-                                view_manager, "Failed to fetch app details", False
-                            )
+                            view_manager.alert("Failed to fetch app details", False)
                             _download_all_mode = False
                     else:
-                        __app_store_alert(view_manager, "No apps to download", False)
+                        view_manager.alert("No apps to download", False)
                 # Adjust index by 1 to account for "Download All Apps" option
                 elif 1 <= selected_index <= len(_apps_data["apps"]):
                     _selected_app_id = _apps_data["apps"][selected_index - 1]["id"]
@@ -446,9 +400,7 @@ def run(view_manager) -> None:
                         _app_state = STATE_LOADING_DETAILS
                         __loading_start(view_manager, "Loading details...")
                     else:
-                        __app_store_alert(
-                            view_manager, "Failed to fetch app details", False
-                        )
+                        view_manager.alert("Failed to fetch app details", False)
 
     elif _app_state == STATE_LOADING_DETAILS:
         # Show loading animation while fetching app details
@@ -462,7 +414,7 @@ def run(view_manager) -> None:
             _app_state = STATE_APP_DETAILS
             __draw_app_details(view_manager)
         else:
-            __app_store_alert(view_manager, "Failed to load app details", False)
+            view_manager.alert("Failed to load app details", False)
             _app_state = STATE_APP_LIST
             if _app_menu:
                 _app_menu.draw()
@@ -488,9 +440,9 @@ def run(view_manager) -> None:
                         view_manager, f"Downloading 1/{len(_files_to_download)}..."
                     )
                 else:
-                    __app_store_alert(view_manager, "Failed to start download", False)
+                    view_manager.alert("Failed to start download", False)
             else:
-                __app_store_alert(view_manager, "No files to download", False)
+                view_manager.alert("No files to download", False)
 
     elif _app_state == STATE_DOWNLOADING:
         # Handle file downloads
@@ -524,10 +476,8 @@ def run(view_manager) -> None:
                             f"Loading app {_current_app_index + 1}/{_total_apps_to_download}...",
                         )
                     else:
-                        __app_store_alert(
-                            view_manager,
-                            f"Failed to fetch app {_current_app_index + 1}",
-                            False,
+                        view_manager.alert(
+                            f"Failed to fetch app {_current_app_index + 1}", False
                         )
                         _download_all_mode = False
                         _app_state = STATE_APP_LIST
@@ -536,17 +486,15 @@ def run(view_manager) -> None:
                 else:
                     # All apps downloaded
                     _download_all_mode = False
-                    __app_store_alert(
-                        view_manager,
-                        f"All {_total_apps_to_download} apps installed!",
-                        False,
+                    view_manager.alert(
+                        f"All {_total_apps_to_download} apps installed!", False
                     )
                     _app_state = STATE_APP_LIST
                     if _app_menu:
                         _app_menu.draw()
             else:
                 # Single app download complete
-                __app_store_alert(view_manager, "App installed successfully!", False)
+                view_manager.alert("App installed successfully!", False)
                 _app_state = STATE_APP_LIST
                 if _app_menu:
                     _app_menu.draw()
@@ -581,19 +529,15 @@ def run(view_manager) -> None:
                                 f"Loading app {_current_app_index + 1}/{_total_apps_to_download}...",
                             )
                         else:
-                            __app_store_alert(
-                                view_manager, "Failed during download all", False
-                            )
+                            view_manager.alert("Failed during download all", False)
                             _download_all_mode = False
                             _app_state = STATE_APP_LIST
                             if _app_menu:
                                 _app_menu.draw()
                     else:
                         _download_all_mode = False
-                        __app_store_alert(
-                            view_manager,
-                            f"All {_total_apps_to_download} apps installed!",
-                            False,
+                        view_manager.alert(
+                            f"All {_total_apps_to_download} apps installed!", False
                         )
                         _app_state = STATE_APP_LIST
                         if _app_menu:
@@ -609,17 +553,14 @@ def run(view_manager) -> None:
                             f"Loading app {_current_app_index + 1}/{_total_apps_to_download}...",
                         )
                     else:
-                        __app_store_alert(
-                            view_manager, "Failed during download all", False
-                        )
+                        view_manager.alert("Failed during download all", False)
                         _download_all_mode = False
                         _app_state = STATE_APP_LIST
                         if _app_menu:
                             _app_menu.draw()
                 else:
                     _download_all_mode = False
-                    __app_store_alert(
-                        view_manager,
+                    view_manager.alert(
                         f"All {_total_apps_to_download} apps installed!",
                         False,
                     )
@@ -637,15 +578,14 @@ def run(view_manager) -> None:
                         f"Loading app {_current_app_index + 1}/{_total_apps_to_download}...",
                     )
                 else:
-                    __app_store_alert(view_manager, "Failed during download all", False)
+                    view_manager.alert("Failed during download all", False)
                     _download_all_mode = False
                     _app_state = STATE_APP_LIST
                     if _app_menu:
                         _app_menu.draw()
             else:
                 _download_all_mode = False
-                __app_store_alert(
-                    view_manager,
+                view_manager.alert(
                     f"All {_total_apps_to_download} apps installed!",
                     False,
                 )

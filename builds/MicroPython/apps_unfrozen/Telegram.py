@@ -41,34 +41,6 @@ fetch_started = False
 _message_to_send = ""
 
 
-def __alert(view_manager, message: str, back: bool = True) -> None:
-    """Show an alert"""
-
-    from picoware.gui.alert import Alert
-    from picoware.system.buttons import BUTTON_BACK
-
-    draw = view_manager.draw
-    draw.clear()
-    _alert = Alert(
-        draw,
-        message,
-        view_manager.foreground_color,
-        view_manager.background_color,
-    )
-    _alert.draw("Alert")
-
-    # Wait for user to acknowledge
-    inp = view_manager.input_manager
-    while True:
-        button = inp.button
-        if button == BUTTON_BACK:
-            inp.reset()
-            break
-
-    if back:
-        view_manager.back()
-
-
 def __channel_display(view_manager) -> None:
     """Display channel messages from saved file"""
     from picoware.system.buttons import BUTTON_UP, BUTTON_DOWN, BUTTON_BACK
@@ -95,7 +67,7 @@ def __channel_parse(view_manager) -> bool:
     messages = storage.read("picoware/telegram/messages.txt")
 
     if not messages:
-        __alert(view_manager, "No messages available..", False)
+        view_manager.alert("No messages available..")
         return False
 
     from ujson import loads
@@ -105,12 +77,12 @@ def __channel_parse(view_manager) -> bool:
     try:
         data = loads(messages)
     except Exception as e:
-        __alert(view_manager, f"Failed to parse messages.\n{e}", False)
+        view_manager.alert(f"Failed to parse messages.\n{e}")
         return False
 
     results = data.get("result", [])
     if not results:
-        __alert(view_manager, "No messages found in feed.", False)
+        view_manager.alert("No messages found in feed.")
         return False
     parsed_text = ""
     for item in results:
@@ -165,7 +137,7 @@ def _http_await(view_manager) -> None:
         return
 
     if not _http.is_successful:
-        __alert(view_manager, f"HTTP request failed.\n{_http.error}", False)
+        view_manager.alert(f"HTTP request failed.\n{_http.error}")
         current_view = VIEW_MAIN_MENU
         sending_index = SENDING_WAITING
         del _http
@@ -176,7 +148,7 @@ def _http_await(view_manager) -> None:
         return
 
     if current_view == VIEW_SENDING_MESSAGE:
-        __alert(view_manager, "Message sent!", False)
+        view_manager.alert("Message sent!")
         current_view = VIEW_MAIN_MENU
         sending_index = SENDING_WAITING
         _menu_start(view_manager)
@@ -253,7 +225,7 @@ def _keyboard_run(view_manager) -> None:
 
         if kb.is_finished:
             if not _keyboard_save(view_manager):
-                __alert(view_manager, "Failed to save message.", False)
+                view_manager.alert("Failed to save message.")
                 current_view = VIEW_MAIN_MENU
                 sending_index = SENDING_WAITING
             else:
@@ -275,9 +247,9 @@ def _keyboard_run(view_manager) -> None:
 
         if kb.is_finished:
             if not _keyboard_save(view_manager):
-                __alert(view_manager, "Failed to save input.", False)
+                view_manager.alert("Failed to save input.")
             else:
-                __alert(view_manager, "Input saved!", False)
+                view_manager.alert("Input saved!")
             current_view = VIEW_MAIN_MENU
             keyboard_index = KEYBOARD_WAITING
             _menu_start(view_manager)
@@ -379,10 +351,7 @@ def __telegram_fetch(view_manager) -> bool:
     token = storage.read("picoware/telegram/token.txt")
 
     if not token:
-        __alert(
-            view_manager,
-            "Bot token not set.",
-        )
+        view_manager.alert("Bot token not set.")
         return False
 
     return _http.get_async(
@@ -408,18 +377,10 @@ def __telegram_send(view_manager, text: str) -> bool:
     chat_id = storage.read("picoware/telegram/chat_id.txt")
 
     if not token:
-        __alert(
-            view_manager,
-            "Bot token not set.",
-            False,
-        )
+        view_manager.alert("Bot token not set.", False)
         return False
     if not chat_id:
-        __alert(
-            view_manager,
-            "Chat ID not set.",
-            False,
-        )
+        view_manager.alert("Chat ID not set.", False)
         return False
 
     payload: dict = {}
@@ -438,16 +399,14 @@ def __telegram_send(view_manager, text: str) -> bool:
 def start(view_manager) -> bool:
     """Start the app"""
     if not view_manager.has_sd_card:
-        __alert(
-            view_manager,
+        view_manager.alert(
             "Telegram app requires an SD card.",
             False,
         )
         return False
 
     if not view_manager.has_wifi:
-        __alert(
-            view_manager,
+        view_manager.alert(
             "Telegram app requires WiFi.",
             False,
         )
@@ -456,7 +415,7 @@ def start(view_manager) -> bool:
     if not view_manager.wifi.is_connected:
         from picoware.applications.wifi.utils import connect_to_saved_wifi
 
-        __alert(view_manager, "WiFi not connected...", False)
+        view_manager.alert("WiFi not connected...", False)
 
         connect_to_saved_wifi(view_manager)
 

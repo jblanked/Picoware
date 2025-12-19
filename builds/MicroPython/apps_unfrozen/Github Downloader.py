@@ -18,32 +18,6 @@ _files_to_download: list = []
 _github_alert = None
 
 
-def __github_alert(view_manager, message: str, back: bool = True) -> None:
-    """Show an alert"""
-    from time import sleep
-
-    global _github_alert
-
-    if _github_alert:
-        del _github_alert
-        _github_alert = None
-
-    from picoware.gui.alert import Alert
-
-    draw = view_manager.draw
-    draw.clear()
-    _github_alert = Alert(
-        draw,
-        message,
-        view_manager.foreground_color,
-        view_manager.background_color,
-    )
-    _github_alert.draw("Alert")
-    sleep(2)
-    if back:
-        view_manager.back()
-
-
 def __download_repo_info(view_manager) -> bool:
     """Create necessary directories and start downloading repo info"""
     storage = view_manager.storage
@@ -232,14 +206,14 @@ def start(view_manager) -> bool:
 
     # if not a wifi device, return
     if not wifi:
-        __github_alert(view_manager, "WiFi not available...", False)
+        view_manager.alert("WiFi not available...", False)
         return False
 
     # if wifi isn't connected, return
     if not wifi.is_connected():
         from picoware.applications.wifi.utils import connect_to_saved_wifi
 
-        __github_alert(view_manager, "WiFi not connected", False)
+        view_manager.alert("WiFi not connected", False)
         connect_to_saved_wifi(view_manager)
         return False
 
@@ -284,7 +258,7 @@ def run(view_manager) -> None:
             keyboard.reset()
             _app_state = STATE_DOWNLOADING_INFO
             if not __download_repo_info(view_manager):
-                __github_alert(view_manager, "Failed to start downloading repo info")
+                view_manager.alert("Failed to start downloading repo info")
             else:
                 __loading_start(view_manager, "Fetching...")
         keyboard.run()
@@ -323,7 +297,7 @@ def run(view_manager) -> None:
                 )
         else:
             # All files downloaded
-            __github_alert(view_manager, "Repository downloaded successfully!")
+            view_manager.alert("Repository downloaded successfully!")
 
 
 def stop(view_manager) -> None:

@@ -509,34 +509,6 @@ def __add_page_callback(result: str) -> None:
     save_requested = True
 
 
-def __alert(view_manager, message: str, back: bool = True) -> None:
-    """Show an alert"""
-
-    from picoware.gui.alert import Alert
-    from picoware.system.buttons import BUTTON_BACK
-
-    draw = view_manager.draw
-    draw.clear()
-    _alert = Alert(
-        draw,
-        message,
-        view_manager.foreground_color,
-        view_manager.background_color,
-    )
-    _alert.draw("Alert")
-
-    # Wait for user to acknowledge
-    inp = view_manager.input_manager
-    while True:
-        button = inp.button
-        if button == BUTTON_BACK:
-            inp.reset()
-            break
-
-    if back:
-        view_manager.back()
-
-
 def __box_start(view_manager) -> None:
     """Start the textbox for server output"""
     from picoware.gui.textbox import TextBox
@@ -1055,12 +1027,12 @@ def start(view_manager) -> bool:
 
     # if not a wifi device, return
     if not view_manager.has_wifi:
-        __alert(view_manager, "WiFi not available...", False)
+        view_manager.alert("WiFi not available...", False)
         return False
 
     # if no sd card, return
     if not view_manager.has_sd_card:
-        __alert(view_manager, "Server app requires an SD card")
+        view_manager.alert("Server app requires an SD card")
         return False
 
     # create server folder
@@ -1072,7 +1044,7 @@ def start(view_manager) -> bool:
     if not wifi.is_connected():
         from picoware.applications.wifi.utils import connect_to_saved_wifi
 
-        __alert(view_manager, "WiFi not connected", False)
+        view_manager.alert("WiFi not connected", False)
         connect_to_saved_wifi(view_manager)
         return False
 

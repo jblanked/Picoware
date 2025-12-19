@@ -3,6 +3,10 @@ _psram = None
 
 def start(view_manager) -> bool:
     """Initialize PSRAM and run tests"""
+    if not view_manager.has_psram:
+        view_manager.alert("PSRAM not available...")
+        return False
+
     global _psram
     from picoware.system.psram import PSRAM
     from picoware.system.vector import Vector

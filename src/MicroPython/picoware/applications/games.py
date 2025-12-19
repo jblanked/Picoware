@@ -3,42 +3,13 @@ _games_index = 0
 _app_loader = None
 
 
-def __alert(view_manager, message: str, back: bool = True) -> None:
-    """Show an alert"""
-
-    from picoware.gui.alert import Alert
-    from picoware.system.buttons import BUTTON_BACK
-
-    draw = view_manager.draw
-    draw.clear()
-    _alert = Alert(
-        draw,
-        message,
-        view_manager.foreground_color,
-        view_manager.background_color,
-    )
-    _alert.draw("Alert")
-
-    # Wait for user to acknowledge
-    inp = view_manager.input_manager
-    while True:
-        button = inp.button
-        if button == BUTTON_BACK:
-            inp.reset()
-            break
-
-    if back:
-        view_manager.back()
-
-
 def start(view_manager) -> bool:
     """Start the games app"""
     from picoware.gui.menu import Menu
     from picoware.system.app_loader import AppLoader
 
     if not view_manager.has_sd_card:
-        __alert(
-            view_manager,
+        view_manager.alert(
             "Games app requires an SD card.",
             False,
         )
@@ -121,10 +92,7 @@ def run(view_manager) -> None:
             # Try to load the game
             game_module = _app_loader.load_app(selected_game, "games")
             if game_module is None:
-                __alert(
-                    view_manager,
-                    f'Failed to load game "{selected_game}".',
-                )
+                view_manager.alert(f'Failed to load game "{selected_game}".')
                 return
             # Create a view for the game and switch to it
             game_view_name = f"game_{selected_game}"

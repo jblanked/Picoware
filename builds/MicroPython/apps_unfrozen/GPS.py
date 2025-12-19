@@ -66,33 +66,14 @@ def start(view_manager) -> bool:
 
     # if not a wifi device, return
     if not wifi:
-        from picoware.gui.alert import Alert
-        from time import sleep
-
-        _gps_alert = Alert(
-            draw,
-            "WiFi not available..",
-            view_manager.foreground_color,
-            view_manager.background_color,
-        )
-        _gps_alert.draw("Error")
-        sleep(2)
+        view_manager.alert("WiFi not available...", False)
         return False
 
     # if wifi isn't connected, return
     if not wifi.is_connected():
         from picoware.applications.wifi.utils import connect_to_saved_wifi
-        from picoware.gui.alert import Alert
-        from time import sleep
 
-        _gps_alert = Alert(
-            draw,
-            "WiFi not connected yet",
-            view_manager.foreground_color,
-            view_manager.background_color,
-        )
-        _gps_alert.draw("Error")
-        sleep(2)
+        view_manager.alert("WiFi not connected yet...", False)
         connect_to_saved_wifi(view_manager)
         return False
 
@@ -157,17 +138,7 @@ def run(view_manager) -> None:
 
         _gps_http.clear_async_response()
         if not _gps_http.get_async("https://ipwhois.app/json"):
-            from picoware.gui.alert import Alert
-            from time import sleep
-
-            _gps_alert = Alert(
-                draw,
-                "Failed to start location request",
-                view_manager.foreground_color,
-                view_manager.background_color,
-            )
-            _gps_alert.draw("Error")
-            sleep(2)
+            view_manager.alert("Failed to start location request...")
             _gps_request_sent = False
             _gps_request_in_progress = False
             return
@@ -211,19 +182,7 @@ def run(view_manager) -> None:
                 error_msg = "Failed to get location data."
                 if _gps_http.state == 2:  # HTTP_ISSUE
                     error_msg += "\nNetwork error or timeout."
-
-                from picoware.gui.alert import Alert
-                from time import sleep
-
-                _gps_alert = Alert(
-                    draw,
-                    error_msg,
-                    view_manager.foreground_color,
-                    view_manager.background_color,
-                )
-                _gps_alert.draw("Error")
-                sleep(2)
-                view_manager.back()
+                view_manager.alert(error_msg, True)
                 return
         else:
 

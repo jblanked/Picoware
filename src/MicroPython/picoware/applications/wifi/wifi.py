@@ -4,6 +4,11 @@ _wifi_index = 0
 
 def start(view_manager) -> bool:
     """Start the app"""
+
+    if not view_manager.has_wifi:
+        view_manager.alert("WiFi not available....")
+        return False
+
     from picoware.gui.menu import Menu
 
     # create wifi folder

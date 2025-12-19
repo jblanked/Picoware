@@ -3,45 +3,13 @@ _screensavers_index = 0
 _app_loader = None
 
 
-def __alert(view_manager, message: str, back: bool = True) -> None:
-    """Show an alert"""
-
-    from picoware.gui.alert import Alert
-    from picoware.system.buttons import BUTTON_BACK
-
-    draw = view_manager.draw
-    draw.clear()
-    _alert = Alert(
-        draw,
-        message,
-        view_manager.foreground_color,
-        view_manager.background_color,
-    )
-    _alert.draw("Alert")
-
-    # Wait for user to acknowledge
-    inp = view_manager.input_manager
-    while True:
-        button = inp.button
-        if button == BUTTON_BACK:
-            inp.reset()
-            break
-
-    if back:
-        view_manager.back()
-
-
 def start(view_manager) -> bool:
     """Start the screensavers app"""
     from picoware.gui.menu import Menu
     from picoware.system.app_loader import AppLoader
 
     if not view_manager.has_sd_card:
-        __alert(
-            view_manager,
-            "Screensavers app requires an SD card.",
-            False,
-        )
+        view_manager.alert("Screensavers app requires an SD card.", False)
         return False
 
     # create screensavers folder if it doesn't exist
@@ -123,9 +91,8 @@ def run(view_manager) -> None:
                 selected_screensaver, "screensavers"
             )
             if screensaver_module is None:
-                __alert(
-                    view_manager,
-                    f'Could not load screensaver "{selected_screensaver}".',
+                view_manager.alert(
+                    f'Could not load screensaver "{selected_screensaver}".'
                 )
                 return
             from utime import ticks_ms

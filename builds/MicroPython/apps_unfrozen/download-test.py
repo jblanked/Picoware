@@ -6,21 +6,6 @@ _loading = None
 _request_started = False
 
 
-def __alert(view_manager, reason: str, header: str = "Error") -> None:
-    from picoware.gui.alert import Alert
-    from time import sleep
-
-    alert = Alert(
-        view_manager.draw,
-        reason,
-        view_manager.foreground_color,
-        view_manager.background_color,
-    )
-    alert.draw(header)
-    sleep(2)
-    del alert
-
-
 def start(view_manager) -> bool:
     """Start the app."""
     from picoware.gui.menu import Menu
@@ -30,10 +15,10 @@ def start(view_manager) -> bool:
     draw = view_manager.draw
     wifi = view_manager.wifi
     if not wifi:
-        __alert(view_manager, "WiFi not available...")
+        view_manager.alert("WiFi not available...")
         return False
     if not wifi.is_connected():
-        __alert(view_manager, "WiFi not connected yet...")
+        view_manager.alert("WiFi not connected yet...")
         return False
 
     global _menu, _loading, _request_started
@@ -99,7 +84,7 @@ def run(view_manager) -> None:
             _loading = None
             del _http
             _http = None
-            __alert(view_manager, "Download complete!", "Success")
+            view_manager.alert("Download complete!", False)
 
     if button == BUTTON_UP:
         inp.reset()
@@ -137,7 +122,7 @@ def run(view_manager) -> None:
                 _http = HTTP()
             _request_started = True
             if not _http.get_async(url=url, save_to_file=file_name, storage=storage):
-                __alert(view_manager, "Failed to start download request...")
+                view_manager.alert("Failed to start download request...", False)
                 _request_started = False
 
 

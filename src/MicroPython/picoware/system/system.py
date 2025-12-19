@@ -187,19 +187,8 @@ class System:
         from picoware_southbridge import is_power_off_supported, write_power_off_delay
 
         if is_power_off_supported():
-
             if view_manager:
-                from picoware.gui.alert import Alert
-
-                draw = view_manager.draw
-                draw.clear()
-                alert = Alert(
-                    view_manager.draw,
-                    "The device will power off in 5 seconds...",
-                    view_manager.foreground_color,
-                    view_manager.background_color,
-                )
-                alert.draw("Warning")
+                view_manager.alert("This device will power off in 5 seconds...")
                 write_power_off_delay(0)
 
     def soft_reset(self):

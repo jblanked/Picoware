@@ -1,8 +1,5 @@
 # original from https://github.com/jblanked/FlipSocial
 # modified for micropython picoware by @jblanked
-
-
-_flip_social_alert = None
 _flip_social_app_menu = None
 _flip_social_app_index: int = 0  # index for the FlipSocial app menu
 
@@ -45,30 +42,6 @@ def __flip_social_util_get_password(view_manager) -> str:
     return ""
 
 
-def __flip_social_alert(view_manager, message: str, back: bool = True) -> None:
-    """Show an alert"""
-    from time import sleep
-
-    global _flip_social_alert
-
-    if _flip_social_alert:
-        del _flip_social_alert
-        _flip_social_alert = None
-
-    from picoware.gui.alert import Alert
-
-    _flip_social_alert = Alert(
-        view_manager.draw,
-        message,
-        view_manager.foreground_color,
-        view_manager.background_color,
-    )
-    _flip_social_alert.draw("Alert")
-    sleep(2)
-    if back:
-        view_manager.back()
-
-
 def start(view_manager) -> bool:
     """Start the main app"""
     from picoware.gui.menu import Menu
@@ -77,14 +50,14 @@ def start(view_manager) -> bool:
 
     # if not a wifi device, return
     if not wifi:
-        __flip_social_alert(view_manager, "WiFi not available...", False)
+        view_manager.alert("WiFi not available...", False)
         return False
 
     # if wifi isn't connected, return
     if not wifi.is_connected():
         from picoware.applications.wifi.utils import connect_to_saved_wifi
 
-        __flip_social_alert(view_manager, "WiFi not connected", False)
+        view_manager.alert("WiFi not connected", False)
         connect_to_saved_wifi(view_manager)
         return False
 
@@ -153,15 +126,15 @@ def run(view_manager) -> None:
 
         if current_item == "Run":
             if __flip_social_util_get_username(view_manager) == "":
-                __flip_social_alert(
-                    view_manager,
+                view_manager.alert(
                     "Please set your username in \nFlipSocial settings first",
+                    False,
                 )
                 return
             if __flip_social_util_get_password(view_manager) == "":
-                __flip_social_alert(
-                    view_manager,
+                view_manager.alert(
                     "Please set your password in \nFlipSocial settings first",
+                    False,
                 )
                 return
 
@@ -207,11 +180,8 @@ def stop(view_manager) -> None:
     """Stop the main app"""
     from gc import collect
 
-    global _flip_social_alert, _flip_social_app_menu, _flip_social_run_instance
+    global _flip_social_app_menu, _flip_social_run_instance
 
-    if _flip_social_alert:
-        del _flip_social_alert
-        _flip_social_alert = None
     if _flip_social_app_menu:
         del _flip_social_app_menu
         _flip_social_app_menu = None

@@ -11,6 +11,8 @@ class HTTP:
 
     def __init__(self):
         """Initialize the HTTP class."""
+        from _thread import allocate_lock
+
         self._async_request_complete = False
         self._async_request_in_progress = False
         self._async_thread = None
@@ -18,10 +20,12 @@ class HTTP:
         self._async_error = None
         self._async_callback: callable = None
         self._async_result = None
+        self._lock = allocate_lock()
+        self._running = False
 
     def __del__(self):
         """Destructor to clean up resources."""
-        self.clear_async_response()
+        self.close()
 
     @property
     def callback(self) -> callable:
@@ -70,29 +74,23 @@ class HTTP:
         """Get the current HTTP state."""
         return self._state
 
-    def clear_async_response(self):
-        """Clear the async response and reset state."""
-        if self._async_result is not None:
-            try:
-                self._async_result.close()
-            except Exception:
-                pass
-            finally:
-                del self._async_result
-                self._async_result = None
-        self._async_request_complete = False
-        self._async_request_in_progress = False
-        self._async_error = None
-        self._state = HTTP_IDLE
-        if self._async_thread:
-            try:
-                # Clean up thread if it exists
-                self._async_thread = None
-                import _thread
-
-                _thread.exit()
-            except AttributeError:
-                pass
+    def close(self):
+        """Close the async thread, clear the async response, reset state."""
+        self._async_thread = None
+        with self._lock:
+            self._running = False
+            if self._async_result is not None:
+                try:
+                    self._async_result.close()
+                except Exception:
+                    pass
+                finally:
+                    del self._async_result
+                    self._async_result = None
+            self._async_request_complete = False
+            self._async_request_in_progress = False
+            self._async_error = None
+            self._state = HTTP_IDLE
 
     def delete(
         self, url, headers=None, timeout: float = None, save_to_file=None, storage=None
@@ -581,6 +579,12 @@ class HTTP:
 
         try:
             while True:
+                if not self._running:
+                    s.close()
+                    if file_handle:
+                        file_handle.close()
+                        storage.unmount_vfs()
+                    break
                 # Read the chunk size line
                 line = s.readline()
                 if not line:
@@ -705,6 +709,7 @@ class HTTP:
                 pass
 
         try:
+            self._running = True
             s.connect(ai[-1])
             if proto == "https:":
                 s = ssl.wrap_socket(s, server_hostname=host)
@@ -751,6 +756,9 @@ class HTTP:
             transfer_encoding = None
             content_length = None
             while True:
+                if not self._running:
+                    s.close()
+                    break
                 l = s.readline()
                 if not l or l == b"\r\n":
                     break
@@ -901,7 +909,7 @@ class HTTP:
             return False  # Request already in progress
 
         # Reset state
-        self.clear_async_response()
+        self.close()
         self._async_request_in_progress = True
         self._state = HTTP_LOADING
 
@@ -920,15 +928,7 @@ class HTTP:
             self._async_request_complete = True
             self._async_request_in_progress = False
             self._state = HTTP_ISSUE
-            if self._async_thread:
-                try:
-                    # Clean up thread if it exists
-                    self._async_thread = None
-                    import _thread
-
-                    _thread.exit()
-                except AttributeError:
-                    pass
+            self._async_thread = None
             return False
 
     def __execute_request(
@@ -1024,15 +1024,7 @@ class HTTP:
         finally:
             self._async_request_complete = True
             self._async_request_in_progress = False
-            if self._async_thread:
-                try:
-                    # Clean up thread if it exists
-                    self._async_thread = None
-                    import _thread
-
-                    _thread.exit()
-                except AttributeError:
-                    pass
+            self._async_thread = None
             # Call the callback function if set
             if self._async_callback:
                 self._async_callback(
@@ -1040,3 +1032,4 @@ class HTTP:
                     state=self._state,
                     error=self._async_error,
                 )
+            self._running = False

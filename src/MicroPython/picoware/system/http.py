@@ -1,4 +1,5 @@
 from micropython import const
+from picoware.system.response import Response
 
 HTTP_IDLE = const(0)
 HTTP_LOADING = const(1)
@@ -95,7 +96,7 @@ class HTTP:
 
     def delete(
         self, url, headers=None, timeout: float = None, save_to_file=None, storage=None
-    ):
+    ) -> Response:
         """Sends a DELETE request and returns a Response object.
 
         Args:
@@ -105,17 +106,18 @@ class HTTP:
             save_to_file: File path to save response data to (requires storage)
             storage: Storage object for file operations
         """
-        from picoware.system.drivers.urequests_2 import delete
-
         if headers:
-            return delete(
+            return self.request(
+                "DELETE",
                 url,
                 headers=headers,
                 timeout=timeout,
                 save_to_file=save_to_file,
                 storage=storage,
             )
-        return delete(url, timeout=timeout, save_to_file=save_to_file, storage=storage)
+        return self.request(
+            "DELETE", url, timeout=timeout, save_to_file=save_to_file, storage=storage
+        )
 
     def delete_async(
         self, url, headers=None, timeout: float = None, save_to_file=None, storage=None
@@ -129,7 +131,7 @@ class HTTP:
             save_to_file: File path to save response data to (requires storage)
             storage: Storage object for file operations
         """
-        return self.__request_async(
+        return self.request_async(
             "DELETE",
             url,
             headers=headers,
@@ -140,7 +142,7 @@ class HTTP:
 
     def get(
         self, url, headers=None, timeout: float = None, save_to_file=None, storage=None
-    ):
+    ) -> Response:
         """Sends a GET request and returns a Response object.
 
         Args:
@@ -150,10 +152,9 @@ class HTTP:
             save_to_file: File path to save response data to (requires storage)
             storage: Storage object for file operations
         """
-        from picoware.system.drivers.urequests_2 import get
-
         if headers:
-            return get(
+            return self.request(
+                "GET",
                 url=url,
                 headers=headers,
                 timeout=timeout,
@@ -161,7 +162,9 @@ class HTTP:
                 storage=storage,
             )
 
-        return get(url=url, timeout=timeout, save_to_file=save_to_file, storage=storage)
+        return self.request(
+            "GET", url=url, timeout=timeout, save_to_file=save_to_file, storage=storage
+        )
 
     def get_async(
         self, url, headers=None, timeout: float = None, save_to_file=None, storage=None
@@ -175,7 +178,7 @@ class HTTP:
             save_to_file: File path to save response data to (requires storage)
             storage: Storage object for file operations
         """
-        return self.__request_async(
+        return self.request_async(
             "GET",
             url,
             headers=headers,
@@ -192,7 +195,7 @@ class HTTP:
         timeout: float = None,
         save_to_file=None,
         storage=None,
-    ):
+    ) -> Response:
         """Sends a HEAD request and returns a Response object.
 
         Args:
@@ -204,13 +207,14 @@ class HTTP:
             storage: Storage object for file operations
         """
         from ujson import dumps
-        from picoware.system.drivers.urequests_2 import head
 
         if payload is None:
-            return None
+            raise ValueError("HEAD request requires a payload.")
+
         if isinstance(payload, (str, bytes)):
             if headers:
-                return head(
+                return self.request(
+                    "HEAD",
                     url,
                     headers=headers,
                     data=payload,
@@ -218,7 +222,8 @@ class HTTP:
                     save_to_file=save_to_file,
                     storage=storage,
                 )
-            return head(
+            return self.request(
+                "HEAD",
                 url,
                 data=payload,
                 timeout=timeout,
@@ -226,7 +231,8 @@ class HTTP:
                 storage=storage,
             )
         if headers:
-            return head(
+            return self.request(
+                "HEAD",
                 url,
                 headers=headers,
                 json_data=dumps(payload),
@@ -234,7 +240,8 @@ class HTTP:
                 save_to_file=save_to_file,
                 storage=storage,
             )
-        return head(
+        return self.request(
+            "HEAD",
             url,
             json_data=dumps(payload),
             timeout=timeout,
@@ -261,7 +268,7 @@ class HTTP:
             save_to_file: File path to save response data to (requires storage)
             storage: Storage object for file operations
         """
-        return self.__request_async(
+        return self.request_async(
             "HEAD",
             url,
             payload=payload,
@@ -283,7 +290,7 @@ class HTTP:
         timeout: float = None,
         save_to_file=None,
         storage=None,
-    ):
+    ) -> Response:
         """Sends a PATCH request and returns a Response object.
 
         Args:
@@ -295,13 +302,14 @@ class HTTP:
             storage: Storage object for file operations
         """
         from ujson import dumps
-        from picoware.system.drivers.urequests_2 import patch
 
         if payload is None:
-            return None
+            raise ValueError("Payload cannot be None for PATCH request")
+
         if isinstance(payload, (str, bytes)):
             if headers:
-                return patch(
+                return self.request(
+                    "PATCH",
                     url,
                     headers=headers,
                     data=payload,
@@ -309,7 +317,8 @@ class HTTP:
                     save_to_file=save_to_file,
                     storage=storage,
                 )
-            return patch(
+            return self.request(
+                "PATCH",
                 url,
                 data=payload,
                 timeout=timeout,
@@ -317,7 +326,8 @@ class HTTP:
                 storage=storage,
             )
         if headers:
-            return patch(
+            return self.request(
+                "PATCH",
                 url,
                 headers=headers,
                 json_data=dumps(payload),
@@ -325,7 +335,8 @@ class HTTP:
                 save_to_file=save_to_file,
                 storage=storage,
             )
-        return patch(
+        return self.request(
+            "PATCH",
             url,
             json_data=dumps(payload),
             timeout=timeout,
@@ -352,7 +363,7 @@ class HTTP:
             save_to_file: File path to save response data to (requires storage)
             storage: Storage object for file operations
         """
-        return self.__request_async(
+        return self.request_async(
             "PATCH",
             url,
             payload=payload,
@@ -370,7 +381,7 @@ class HTTP:
         timeout: float = None,
         save_to_file=None,
         storage=None,
-    ):
+    ) -> Response:
         """Sends a POST request and returns a Response object.
 
         Args:
@@ -382,13 +393,14 @@ class HTTP:
             storage: Storage object for file operations
         """
         from ujson import dumps
-        from picoware.system.drivers.urequests_2 import post
 
         if payload is None:
-            return None
+            raise ValueError("Payload cannot be None for POST request")
+
         if isinstance(payload, (str, bytes)):
             if headers:
-                return post(
+                return self.request(
+                    "POST",
                     url,
                     headers=headers,
                     data=payload,
@@ -396,7 +408,8 @@ class HTTP:
                     save_to_file=save_to_file,
                     storage=storage,
                 )
-            return post(
+            return self.request(
+                "POST",
                 url,
                 data=payload,
                 timeout=timeout,
@@ -404,7 +417,8 @@ class HTTP:
                 storage=storage,
             )
         if headers:
-            return post(
+            return self.request(
+                "POST",
                 url,
                 headers=headers,
                 data=dumps(payload),
@@ -412,7 +426,8 @@ class HTTP:
                 save_to_file=save_to_file,
                 storage=storage,
             )
-        return post(
+        return self.request(
+            "POST",
             url,
             json_data=dumps(payload),
             timeout=timeout,
@@ -439,7 +454,7 @@ class HTTP:
             save_to_file: File path to save response data to (requires storage)
             storage: Storage object for file operations
         """
-        return self.__request_async(
+        return self.request_async(
             "POST",
             url,
             payload=payload,
@@ -457,7 +472,7 @@ class HTTP:
         timeout: float = None,
         save_to_file=None,
         storage=None,
-    ):
+    ) -> Response:
         """Sends a PUT request and returns a Response object.
 
         Args:
@@ -469,13 +484,14 @@ class HTTP:
             storage: Storage object for file operations
         """
         from ujson import dumps
-        from picoware.system.drivers.urequests_2 import put
 
         if payload is None:
-            return None
+            raise ValueError("Payload cannot be None for PUT request")
+
         if isinstance(payload, (str, bytes)):
             if headers:
-                return put(
+                return self.request(
+                    "PUT",
                     url,
                     headers=headers,
                     data=payload,
@@ -483,7 +499,8 @@ class HTTP:
                     save_to_file=save_to_file,
                     storage=storage,
                 )
-            return put(
+            return self.request(
+                "PUT",
                 url,
                 data=payload,
                 timeout=timeout,
@@ -491,7 +508,8 @@ class HTTP:
                 storage=storage,
             )
         if headers:
-            return put(
+            return self.request(
+                "PUT",
                 url,
                 headers=headers,
                 json_data=dumps(payload),
@@ -499,7 +517,8 @@ class HTTP:
                 save_to_file=save_to_file,
                 storage=storage,
             )
-        return put(
+        return self.request(
+            "PUT",
             url,
             json_data=dumps(payload),
             timeout=timeout,
@@ -526,7 +545,7 @@ class HTTP:
             save_to_file: File path to save response data to (requires storage)
             storage: Storage object for file operations
         """
-        return self.__request_async(
+        return self.request_async(
             "PUT",
             url,
             payload=payload,
@@ -536,7 +555,328 @@ class HTTP:
             storage=storage,
         )
 
-    def __request_async(
+    def read_chunked(self, s, uart=None, method="GET", save_to_file=None, storage=None):
+        """Read chunked HTTP response.
+
+        Args:
+            s: Socket object
+            uart: UART object for writing output
+            method: HTTP method name
+            save_to_file: File path to save response data to (requires storage)
+            storage: Storage object for file operations
+        """
+        if uart:
+            uart.write(f"[{method}/SUCCESS] {method} request successful.\n")
+
+        body = b""
+        file_handle = None
+
+        # Open file for writing if save_to_file is specified
+        if save_to_file and storage:
+            storage.mount_vfs()
+            file_handle = open(f"/sd/{save_to_file}", "wb")
+            if file_handle is None:
+                storage.unmount_vfs()
+                raise RuntimeError(f"Failed to open file for writing: {save_to_file}")
+
+        try:
+            while True:
+                # Read the chunk size line
+                line = s.readline()
+                if not line:
+                    break
+                # Remove any CRLF and convert from hex
+                chunk_size_str = line.strip().split(b";")[0]  # Ignore chunk extensions
+                try:
+                    chunk_size = int(chunk_size_str, 16)
+                except ValueError:
+                    raise ValueError("Invalid chunk size: %s" % chunk_size_str)
+                if chunk_size == 0:
+                    # Read and discard trailer headers
+                    while True:
+                        trailer = s.readline()
+                        if not trailer or trailer == b"\r\n":
+                            break
+                    break
+                # Read the chunk data
+                chunk = s.read(chunk_size)
+                if uart:
+                    uart.write(chunk)
+                    uart.flush()
+                elif file_handle:
+                    # Write directly to file
+                    file_handle.write(chunk)
+                else:
+                    body += chunk
+                # Read the trailing CRLF after the chunk
+                s.read(2)
+            if uart:
+                uart.flush()
+                uart.write("\n")
+                uart.write(f"[{method}/END]")
+        finally:
+            if file_handle:
+                file_handle.close()
+                storage.unmount_vfs()
+
+        return body
+
+    def request(
+        self,
+        method,
+        url,
+        data=None,
+        json_data=None,
+        headers={},
+        stream=None,
+        auth=None,
+        timeout=None,
+        parse_headers=True,
+        uart=None,
+        save_to_file=None,
+        storage=None,
+    ) -> Response:
+        """Make an HTTP request.
+
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            url: URL to request
+            data: Request body data
+            json_data: JSON data to send (will be serialized)
+            headers: HTTP headers dict
+            stream: Stream parameter (unused)
+            auth: Authentication tuple (username, password)
+            timeout: Request timeout in seconds
+            parse_headers: Whether to parse response headers
+            uart: UART object for streaming output
+            save_to_file: File path to save response data to (requires storage)
+            storage: Storage object for file operations
+        """
+        import ssl
+        import usocket
+        from ujson import dumps
+
+        redirect = None  # redirection url, None means no redirection
+        chunked_data = (
+            data
+            and getattr(data, "__next__", None)
+            and not getattr(data, "__len__", None)
+        )
+
+        if auth is not None:
+            import ubinascii
+
+            username, password = auth
+            formated = b"{}:{}".format(username, password)
+            formated = str(ubinascii.b2a_base64(formated)[:-1], "ascii")
+            headers["Authorization"] = "Basic {}".format(formated)
+
+        try:
+            proto, dummy, host, path = url.split("/", 3)
+        except ValueError:
+            proto, dummy, host = url.split("/", 2)
+            path = ""
+        if proto == "http:":
+            port = 80
+        elif proto == "https:":
+            port = 443
+        else:
+            raise ValueError("Unsupported protocol: " + proto)
+
+        if ":" in host:
+            host, port = host.split(":", 1)
+            port = int(port)
+
+        ai = usocket.getaddrinfo(host, port, 0, usocket.SOCK_STREAM)
+        ai = ai[0]
+
+        resp_d = {}
+        if parse_headers is False:
+            resp_d = None
+
+        s = usocket.socket(ai[0], usocket.SOCK_STREAM, ai[2])
+
+        if timeout is not None:
+            # Note: settimeout is not supported on all platforms, will raise
+            # an AttributeError if not available.
+            try:
+                s.settimeout(timeout)
+            except AttributeError:
+                pass
+
+        try:
+            s.connect(ai[-1])
+            if proto == "https:":
+                s = ssl.wrap_socket(s, server_hostname=host)
+            s.write(b"%s /%s HTTP/1.1\r\n" % (method, path))
+            if "Host" not in headers:
+                s.write(b"Host: %s\r\n" % host)
+            # Iterate over keys to avoid tuple alloc
+            for k in headers:
+                s.write(k)
+                s.write(b": ")
+                s.write(headers[k])
+                s.write(b"\r\n")
+            if json_data is not None:
+                assert data is None
+                data = dumps(json_data)
+                s.write(b"Content-Type: application/json\r\n")
+            if data:
+                if chunked_data:
+                    s.write(b"Transfer-Encoding: chunked\r\n")
+                else:
+                    s.write(b"Content-Length: %d\r\n" % len(data))
+            s.write(b"Connection: close\r\n\r\n")
+            if data:
+                if chunked_data:
+                    for chunk in data:
+                        s.write(b"%x\r\n" % len(chunk))
+                        s.write(chunk)
+                        s.write(b"\r\n")
+                    s.write("0\r\n\r\n")
+                else:
+                    s.write(data)
+
+            # Read the status line
+            l = s.readline()
+            # print(l)
+            l = l.split(None, 2)
+            if len(l) < 2:
+                # Invalid response
+                raise ValueError("HTTP error: BadStatusLine:\n%s" % l)
+            status = int(l[1])
+            reason = ""
+            if len(l) > 2:
+                reason = l[2].rstrip()
+            transfer_encoding = None
+            content_length = None
+            while True:
+                l = s.readline()
+                if not l or l == b"\r\n":
+                    break
+                # print(l)
+                if l.startswith(b"Transfer-Encoding:"):
+                    if b"chunked" in l:
+                        transfer_encoding = "chunked"
+                elif l.startswith(b"Content-Length:"):
+                    content_length = int(l.split(b":", 1)[1].strip())
+                elif l.startswith(b"Location:") and not 200 <= status <= 299:
+                    if status in [301, 302, 303, 307, 308]:
+                        redirect = str(l[10:-2], "utf-8")
+                    else:
+                        raise NotImplementedError(
+                            "Redirect %d not yet supported" % status
+                        )
+                if parse_headers is False:
+                    pass
+                elif parse_headers is True:
+                    l = str(l, "utf-8")
+                    k, v = l.split(":", 1)
+                    resp_d[k] = v.strip()
+                else:
+                    parse_headers(l, resp_d)
+
+            # Read body
+            if transfer_encoding == "chunked":
+                body = self.read_chunked(s, uart, method, save_to_file, storage)
+            elif content_length is not None:
+                if not uart and not save_to_file:
+                    body = s.read(content_length)
+                elif save_to_file and storage:
+                    # Save directly to file
+                    storage.mount_vfs()
+                    with open(f"/sd/{save_to_file}", "wb") as f:
+                        try:
+                            while content_length > 0:
+                                chunk_size = min(2048, content_length)
+                                chunk = s.read(chunk_size)
+                                if not chunk:
+                                    break
+                                f.write(chunk)
+                                content_length -= len(chunk)
+                        finally:
+                            f.close()
+                    storage.unmount_vfs()
+                    body = b""
+                else:
+                    # Read and write in fixed-size chunks to UART
+                    uart.write(f"[{method}/SUCCESS] {method} request successful.\n")
+                    while content_length > 0:
+                        chunk_size = min(2048, content_length)
+                        chunk = s.read(chunk_size)
+                        if not chunk:
+                            break
+                        uart.write(chunk)
+                        uart.flush()
+                        content_length -= len(chunk)
+                    uart.flush()
+                    uart.write("\n")
+                    uart.write(f"[{method}/END]")
+            else:
+                # Read until the socket is closed
+                if not uart and not save_to_file:
+                    body = s.read()
+                elif save_to_file and storage:
+                    # Save directly to file
+                    storage.mount_vfs()
+                    with open(f"/sd/{save_to_file}", "wb") as f:
+                        try:
+                            while True:
+                                chunk = s.read(2048)
+                                if not chunk:
+                                    break
+                                f.write(chunk)
+                        finally:
+                            f.close()
+                    storage.unmount_vfs()
+                    body = b""
+                else:
+                    uart.write(f"[{method}/SUCCESS] {method} request successful.\n")
+                    while True:
+                        chunk = s.read(2048)
+                        if not chunk:
+                            break
+                        uart.write(chunk)
+                        uart.flush()
+                    uart.flush()
+                    uart.write("\n")
+                    uart.write(f"[{method}/END]")
+
+            if redirect:
+                s.close()
+                if status in [301, 302, 303]:
+                    return self.request(
+                        "GET",
+                        redirect,
+                        None,
+                        None,
+                        headers,
+                        stream,
+                        save_to_file=save_to_file,
+                        storage=storage,
+                    )
+                return self.request(
+                    method,
+                    redirect,
+                    data,
+                    json_data,
+                    headers,
+                    stream,
+                    save_to_file=save_to_file,
+                    storage=storage,
+                )
+            resp = Response(body)
+            resp.status_code = status
+            resp.reason = reason
+            if resp_d is not None:
+                resp.headers = resp_d
+            return resp
+
+        except OSError:
+            s.close()
+            raise
+
+    def request_async(
         self,
         method,
         url,
@@ -546,7 +886,7 @@ class HTTP:
         save_to_file=None,
         storage=None,
     ) -> bool:
-        """Internal method to handle async requests.
+        """Method to handle async requests.
 
         Args:
             method: HTTP method (GET, POST, etc.)
@@ -600,7 +940,7 @@ class HTTP:
         timeout: float = None,
         save_to_file=None,
         storage=None,
-    ):
+    ) -> None:
         """Execute the actual HTTP request in a separate thread.
 
         Args:

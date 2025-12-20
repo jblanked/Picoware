@@ -129,7 +129,7 @@ def run(view_manager) -> None:
 
             _weather_http = HTTP()
 
-        _weather_http.clear_async_response()
+        _weather_http.close()
         if not _weather_http.get_async("https://ipwhois.app/json/"):
             view_manager.alert("Failed to start location request")
             view_manager.back()

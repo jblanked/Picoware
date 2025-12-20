@@ -136,7 +136,7 @@ def run(view_manager) -> None:
 
             _gps_http = HTTP()
 
-        _gps_http.clear_async_response()
+        _gps_http.close()
         if not _gps_http.get_async("https://ipwhois.app/json"):
             view_manager.alert("Failed to start location request...")
             _gps_request_sent = False

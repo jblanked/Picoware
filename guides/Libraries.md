@@ -157,7 +157,7 @@ Check the source code for all available button and key constants.
     - `is_successful`: Property that checks if the async request was successful (complete and no error).
     - `response`: Property that returns the async Response object.
     - `state`: Property that returns the current HTTP state.
-    - `clear_async_response()`: Clears the async response and resets state.
+    - `close()`: Close the async thread, clear the async response, and reset state.
     - `delete(url, headers, timeout, save_to_file, storage)`: Performs a synchronous HTTP DELETE request with optional headers, timeout, and file saving.
     - `delete_async(url, headers, timeout, save_to_file, storage)`: Starts an asynchronous HTTP DELETE request.
     - `get(url, headers, timeout, save_to_file, storage)`: Performs a synchronous HTTP GET request with optional headers, timeout, and file saving.

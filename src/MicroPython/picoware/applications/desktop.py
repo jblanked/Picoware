@@ -227,7 +227,7 @@ def run(view_manager) -> None:
                         if not response:
                             # i realized that sometimes this API returns an empty response
                             # but it usually works within 2-3 tries
-                            _desktop_http.clear_async_response()
+                            _desktop_http.close()
                             _desktop_http.get_async("http://worldtimeapi.org/api/ip")
                             return
                         if _desktop_http.state == 0:  # HTTP_IDLE

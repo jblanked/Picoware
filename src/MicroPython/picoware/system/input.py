@@ -249,6 +249,100 @@ class Input:
 
         return button_map.get(key, buttons.BUTTON_NONE)
 
+    def button_to_char(self, button: int) -> str:
+        """Converts a button code to its corresponding character.
+
+        Args:
+            button (int): Button code.
+
+        Returns:
+            str: Corresponding character or empty string if no mapping exists.
+        """
+        import picoware.system.buttons as buttons
+
+        character_map = {
+            buttons.BUTTON_A: "a",
+            buttons.BUTTON_B: "b",
+            buttons.BUTTON_C: "c",
+            buttons.BUTTON_D: "d",
+            buttons.BUTTON_E: "e",
+            buttons.BUTTON_F: "f",
+            buttons.BUTTON_G: "g",
+            buttons.BUTTON_H: "h",
+            buttons.BUTTON_I: "i",
+            buttons.BUTTON_J: "j",
+            buttons.BUTTON_K: "k",
+            buttons.BUTTON_L: "l",
+            buttons.BUTTON_M: "m",
+            buttons.BUTTON_N: "n",
+            buttons.BUTTON_O: "o",
+            buttons.BUTTON_P: "p",
+            buttons.BUTTON_Q: "q",
+            buttons.BUTTON_R: "r",
+            buttons.BUTTON_S: "s",
+            buttons.BUTTON_T: "t",
+            buttons.BUTTON_U: "u",
+            buttons.BUTTON_V: "v",
+            buttons.BUTTON_W: "w",
+            buttons.BUTTON_X: "x",
+            buttons.BUTTON_Y: "y",
+            buttons.BUTTON_Z: "z",
+            #
+            buttons.BUTTON_0: "0",
+            buttons.BUTTON_1: "1",
+            buttons.BUTTON_2: "2",
+            buttons.BUTTON_3: "3",
+            buttons.BUTTON_4: "4",
+            buttons.BUTTON_5: "5",
+            buttons.BUTTON_6: "6",
+            buttons.BUTTON_7: "7",
+            buttons.BUTTON_8: "8",
+            buttons.BUTTON_9: "9",
+            #
+            buttons.BUTTON_CENTER: "\n",
+            buttons.BUTTON_SPACE: " ",
+            buttons.BUTTON_PERIOD: ".",
+            buttons.BUTTON_QUESTION: "?",
+            buttons.BUTTON_COMMA: ",",
+            buttons.BUTTON_SEMICOLON: ";",
+            buttons.BUTTON_MINUS: "-",
+            buttons.BUTTON_EQUAL: "=",
+            buttons.BUTTON_LEFT_BRACKET: "[",
+            buttons.BUTTON_LEFT_BRACE: "{",
+            buttons.BUTTON_RIGHT_BRACKET: "]",
+            buttons.BUTTON_RIGHT_BRACE: "}",
+            buttons.BUTTON_SLASH: "/",
+            buttons.BUTTON_BACKSLASH: "\\",
+            buttons.BUTTON_UNDERSCORE: "_",
+            buttons.BUTTON_COLON: ":",
+            buttons.BUTTON_SINGLE_QUOTE: "'",
+            buttons.BUTTON_DOUBLE_QUOTE: '"',
+            buttons.BUTTON_PLUS: "+",
+            #
+            buttons.BUTTON_EXCLAMATION: "!",
+            buttons.BUTTON_AT: "@",
+            buttons.BUTTON_HASH: "#",
+            buttons.BUTTON_DOLLAR: "$",
+            buttons.BUTTON_PERCENT: "%",
+            buttons.BUTTON_CARET: "^",
+            buttons.BUTTON_AMPERSAND: "&",
+            buttons.BUTTON_ASTERISK: "*",
+            buttons.BUTTON_LEFT_PARENTHESIS: "(",
+            buttons.BUTTON_RIGHT_PARENTHESIS: ")",
+            buttons.BUTTON_LESS_THAN: "<",
+            buttons.BUTTON_GREATER_THAN: ">",
+            buttons.BUTTON_BACK_TICK: "`",
+            buttons.BUTTON_TILDE: "~",
+            buttons.BUTTON_PIPE: "|",
+        }
+
+        if button in character_map:
+            char_to_add = character_map[button]
+            if self._was_capitalized and char_to_add.isalpha():
+                char_to_add = char_to_add.upper()
+            return char_to_add
+        return ""
+
     def is_pressed(self) -> bool:
         """Returns True if any key is currently pressed."""
         from picoware.system.boards import (

@@ -50,6 +50,11 @@ class Level:
         """Set if the level is allowed to clear the screen"""
         self._clear_allowed = value
 
+    @property
+    def entity_count(self) -> int:
+        """Return the number of entities in the level"""
+        return len(self.entities)
+
     def clear(self):
         """Clear the level"""
         for entity in self.entities:

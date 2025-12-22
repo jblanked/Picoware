@@ -1,4 +1,6 @@
 from micropython import const
+from math import cos, sin
+from picoware.system.vector import Vector
 
 PI = const(3.14159265358979323846)
 
@@ -20,6 +22,9 @@ class Loading:
         self.radius = 20  # spinner radius
         self.span = 280  # degrees of arc
         self.step = 5  # degrees between segments (280/5 = 56 segments)
+        self.vec_line = Vector(0, 0)
+        self.vec_line_end = Vector(0, 0)
+        self.text_vec = Vector(0, 0)
 
     def __del__(self):
         self.current_text = ""
@@ -27,6 +32,9 @@ class Loading:
         self.time_elapsed = 0
         self.time_start = 0
         self.spinner_position = 0
+        self.vec_line = None
+        self.vec_line_end = None
+        self.text_vec = None
 
     @property
     def text(self) -> str:
@@ -40,9 +48,6 @@ class Loading:
 
     def animate(self, swap: bool = True) -> None:
         """Animate the loading spinner."""
-        from math import cos, sin
-        from picoware.system.vector import Vector
-
         if not self.animating:
             self.animating = True
             self.time_start = self._monotonic()
@@ -61,8 +66,6 @@ class Loading:
 
         # Draw spinner
         start_angle = self.spinner_position
-        vec_line = Vector(0, 0)
-        vec_line_end = Vector(0, 0)
         for offset in range(0, self.span, self.step):
             angle = (start_angle + offset) % 360
             next_angle = (angle + self.step) % 360
@@ -79,15 +82,17 @@ class Loading:
             color = self.fade_color(self.spinner_color, opacity)
 
             # Draw line segment directly to framebuffer
-            vec_line.x = x1
-            vec_line.y = y1
-            vec_line_end.x = x2
-            vec_line_end.y = y2
-            self.display.line_custom(vec_line, vec_line_end, color)
+            self.vec_line.x = x1
+            self.vec_line.y = y1
+            self.vec_line_end.x = x2
+            self.vec_line_end.y = y2
+            self.display.line_custom(self.vec_line, self.vec_line_end, color)
 
         # Draw text directly to framebuffer
+        self.text_vec.x = text_x
+        self.text_vec.y = int(self.display.size.y * 0.0625)
         self.display.text(
-            Vector(text_x, int(self.display.size.y * 0.0625)),
+            self.text_vec,
             self.current_text,
             self.spinner_color,
         )
@@ -123,10 +128,8 @@ class Loading:
 
     def stop(self) -> None:
         """Stop the loading animation."""
-        from picoware.system.vector import Vector
-
         # Clear the entire screen
-        self.display.clear(Vector(0, 0), self.display.size, self.background_color)
+        self.display.erase()
         self.display.swap()
         self.animating = False
         self.time_elapsed = 0

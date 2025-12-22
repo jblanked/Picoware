@@ -1,3 +1,6 @@
+from picoware.system.vector import Vector
+
+
 class Menu:
     """A simple menu class for a GUI."""
 
@@ -13,7 +16,6 @@ class Menu:
         border_color: int = 0xFFFF,
         border_width: int = 2,
     ):
-        from picoware.system.vector import Vector
         from picoware.gui.list import List
 
         self.text_color = text_color
@@ -84,8 +86,6 @@ class Menu:
 
     def clear(self) -> None:
         """Clear the menu."""
-        from picoware.system.vector import Vector
-
         self.display.clear(
             Vector(0, 0),
             Vector(self.display.size.x, self._height_offset),
@@ -104,7 +104,6 @@ class Menu:
 
     def draw_title(self) -> None:
         """Draw the title (kept for API compatibility, now handled in draw)."""
-        from picoware.system.vector import Vector
 
         # Draw title centered
         title_width = self.display.font_size.x * len(self._title)

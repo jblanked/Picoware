@@ -1,5 +1,7 @@
 from micropython import const
+from struct import pack_into
 from picoware.system.vector import Vector
+from picoware_game import render_sprite3d
 
 # entity state
 ENTITY_STATE_IDLE = const(0)
@@ -278,9 +280,6 @@ class Entity:
         """Renders the 3D sprite."""
         if not self.has_3d_sprite:
             return
-
-        from picoware_game import render_sprite3d
-        from struct import pack_into
 
         # Flatten raw triangle data (model space, not transformed)
         triangle_count = self.sprite_3d.triangle_count

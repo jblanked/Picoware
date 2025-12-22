@@ -1,4 +1,7 @@
 from micropython import const
+from math import sqrt
+from picoware.system.vector import Vector
+from picoware.engine.camera import CameraParams
 
 CAMERA_FIRST_PERSON = const(0)
 CAMERA_THIRD_PERSON = const(1)
@@ -97,7 +100,6 @@ class Level:
 
     def render(self, perspective=CAMERA_FIRST_PERSON, camera_params=None):
         """Render the level"""
-        from picoware.system.vector import Vector
 
         if self._clear_allowed:
             self.game.draw.clear(
@@ -106,8 +108,6 @@ class Level:
 
         # If using third person perspective but no camera params provided, calculate them from player
         if perspective == CAMERA_THIRD_PERSON and camera_params is None:
-            from math import sqrt
-            from picoware.engine.camera import CameraParams
 
             calculated_camera_params = CameraParams()
             # Find the player entity to calculate 3rd person camera

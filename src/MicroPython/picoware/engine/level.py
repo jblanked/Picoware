@@ -78,6 +78,10 @@ class Level:
         entity.start(self.game)
         entity.is_active = True
 
+    def entity_exists(self, entity_name: str) -> bool:
+        """Check if an entity exists in the level"""
+        return entity_name in [entity.name for entity in self.entities]
+
     def entity_remove(self, entity):
         """Remove an entity from the level"""
         self.entities.remove(entity)

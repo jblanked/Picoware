@@ -368,16 +368,19 @@ class Input:
         Args:
             _: Unused argument (required by mp_sched_schedule)
         """
-        __button = self.read_non_blocking()
+        try:
+            __button = self.read_non_blocking()
 
-        if __button == -1:
-            self.reset()
-            return
+            if __button == -1:
+                self.reset()
+                return
 
-        self._was_capitalized = False
-        self._last_button = self._key_to_button(__button)
-        self._elapsed_time += 1
-        self._was_pressed = True
+            self._was_capitalized = False
+            self._last_button = self._key_to_button(__button)
+            self._elapsed_time += 1
+            self._was_pressed = True
+        except Exception as e:
+            raise e
 
     def read(self) -> int:
         """Returns the key code as an integer (blocking call).

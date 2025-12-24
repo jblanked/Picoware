@@ -66,9 +66,11 @@ class Level:
 
     def collision_list(self, entity) -> list:
         """Return a list of entities that the entity collided with"""
+        if not entity.is_active:
+            return []
         collided = []
         for other in self.entities:
-            if entity != other and self.is_collision(entity, other):
+            if other.is_active and entity != other and self.is_collision(entity, other):
                 collided.append(other)
         return collided
 

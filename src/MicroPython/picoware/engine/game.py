@@ -88,6 +88,10 @@ class Game:
         """Add a level to the game"""
         self.levels.append(level)
 
+    def level_exists(self, level_name: str) -> bool:
+        """Check if a level exists in the game"""
+        return level_name in [level.name for level in self.levels]
+
     def level_remove(self, level):
         """Remove a level from the game"""
         self.levels.remove(level)

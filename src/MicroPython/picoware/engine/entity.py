@@ -180,6 +180,12 @@ class Entity:
         """Used by the engine to get the previous position of the entity."""
         return self._old_position
 
+    @old_position.setter
+    def old_position(self, value: Vector):
+        """Used by the engine to set the previous position of the entity."""
+        self._old_position.x = value.x
+        self._old_position.y = value.y
+
     @property
     def position(self) -> Vector:
         """Used by the engine to get the position of the entity."""

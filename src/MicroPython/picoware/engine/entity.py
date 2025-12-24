@@ -188,8 +188,10 @@ class Entity:
     @position.setter
     def position(self, value: Vector):
         """Used by the engine to set the position of the entity."""
-        self._old_position = self._position
-        self._position = value
+        self._old_position.x = self._position.x
+        self._old_position.y = self._position.y
+        self._position.x = value.x
+        self._position.y = value.y
 
     def create_3d_sprite(
         self,

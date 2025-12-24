@@ -168,6 +168,19 @@ class Entity:
         return self.sprite_3d_type != SPRITE_3D_NONE and self.sprite_3d is not None
 
     @property
+    def has_changed_position(self) -> bool:
+        """Returns True if the entity's position has changed since the last frame."""
+        return (
+            self._position.x != self._old_position.x
+            or self._position.y != self._old_position.y
+        )
+
+    @property
+    def old_position(self) -> Vector:
+        """Used by the engine to get the previous position of the entity."""
+        return self._old_position
+
+    @property
     def position(self) -> Vector:
         """Used by the engine to get the position of the entity."""
         return self._position

@@ -12,6 +12,8 @@ SPRITE_CUSTOM = const(4)
 class Vertex3D:
     """3D vertex structure"""
 
+    __slots__ = ("x", "y", "z")
+
     def __init__(self, x=0.0, y=0.0, z=0.0):
         self.x = float(x)
         self.y = float(y)

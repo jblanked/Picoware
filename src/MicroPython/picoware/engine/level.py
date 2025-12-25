@@ -1,4 +1,7 @@
 from micropython import const
+from math import sqrt
+from picoware.system.vector import Vector
+from picoware.engine.camera import CameraParams
 
 CAMERA_FIRST_PERSON = const(0)
 CAMERA_THIRD_PERSON = const(1)
@@ -33,12 +36,17 @@ class Level:
         self._clear_allowed: bool = True
         self._start = start
         self._stop = stop
+        self._entity_vec = Vector(0, 0)
 
     def __del__(self):
         self.clear()
         del self.size
         self.size = None
         self.name = None
+        del self.entities
+        self.entities = None
+        del self._entity_vec
+        self._entity_vec = None
 
     @property
     def clear_allowed(self) -> bool:
@@ -50,6 +58,11 @@ class Level:
         """Set if the level is allowed to clear the screen"""
         self._clear_allowed = value
 
+    @property
+    def entity_count(self) -> int:
+        """Return the number of entities in the level"""
+        return len(self.entities)
+
     def clear(self):
         """Clear the level"""
         for entity in self.entities:
@@ -58,9 +71,11 @@ class Level:
 
     def collision_list(self, entity) -> list:
         """Return a list of entities that the entity collided with"""
+        if not entity.is_active:
+            return []
         collided = []
         for other in self.entities:
-            if entity != other and self.is_collision(entity, other):
+            if other.is_active and entity != other and self.is_collision(entity, other):
                 collided.append(other)
         return collided
 
@@ -69,6 +84,10 @@ class Level:
         self.entities.append(entity)
         entity.start(self.game)
         entity.is_active = True
+
+    def entity_exists(self, entity_name: str) -> bool:
+        """Check if an entity exists in the level"""
+        return entity_name in [entity.name for entity in self.entities]
 
     def entity_remove(self, entity):
         """Remove an entity from the level"""
@@ -92,7 +111,6 @@ class Level:
 
     def render(self, perspective=CAMERA_FIRST_PERSON, camera_params=None):
         """Render the level"""
-        from picoware.system.vector import Vector
 
         if self._clear_allowed:
             self.game.draw.clear(
@@ -101,8 +119,6 @@ class Level:
 
         # If using third person perspective but no camera params provided, calculate them from player
         if perspective == CAMERA_THIRD_PERSON and camera_params is None:
-            from math import sqrt
-            from picoware.engine.camera import CameraParams
 
             calculated_camera_params = CameraParams()
             # Find the player entity to calculate 3rd person camera
@@ -125,7 +141,8 @@ class Level:
                 if dir_length < 0.001:
                     # Fallback if direction is zero
                     dir_length = 1.0
-                    player.direction = Vector(1, 0)  # Default forward direction
+                    player.direction.x = 1
+                    player.direction.y = 0
 
                 normalized_dir = Vector(
                     player.direction.x / dir_length, player.direction.y / dir_length
@@ -140,7 +157,8 @@ class Level:
                 calculated_camera_params.height = 1.6
                 camera_params = calculated_camera_params
 
-        entity_vec = Vector(0, 0)
+        self._entity_vec.x = 0
+        self._entity_vec.y = 0
         for entity in self.entities:
             if entity and entity.is_active:
                 entity.render(self.game.draw, self.game)
@@ -150,10 +168,10 @@ class Level:
 
                 # Only draw the 2D sprite if it exists
                 if entity.sprite:
-                    entity_vec.x = entity.position.x - self.game.position.x
-                    entity_vec.y = entity.position.y - self.game.position.y
+                    self._entity_vec.x = entity.position.x - self.game.position.x
+                    self._entity_vec.y = entity.position.y - self.game.position.y
                     self.game.draw.image_bytearray(
-                        entity_vec,
+                        self._entity_vec,
                         entity.size,
                         entity.sprite._raw,
                     )

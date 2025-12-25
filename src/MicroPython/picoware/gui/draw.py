@@ -369,9 +369,14 @@ class Draw:
                 image_vec.y = position.y + y
                 self.pixel(image_vec, color)
 
-    def image_bmp(self, position: Vector, path: str):
+    def image_bmp(self, position: Vector, path: str, storage=None):
         """Draw a 24-bit BMP image"""
         try:
+            if storage:
+                storage.mount_vfs()
+                if not path.startswith("sd") and not path.startswith("/sd"):
+                    path = "/sd/" + path.lstrip("/")
+
             with open(path, "rb") as f:
                 # Read BMP file header
                 if f.read(2) != b"BM":
@@ -465,6 +470,9 @@ class Draw:
                             image_vec.x = start_x + i
                             image_vec.y = y
                             self.pixel(image_vec, rgb565)
+
+            if storage:
+                storage.unmount_vfs()
 
         except (OSError, ValueError) as e:
             print(f"Error loading BMP: {e}")

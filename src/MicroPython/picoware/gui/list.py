@@ -1,3 +1,6 @@
+from picoware.system.vector import Vector
+
+
 class List:
     """A simple list class for a GUI."""
 
@@ -13,7 +16,6 @@ class List:
         border_width: int = 2,
     ):
         from picoware.system.system import System
-        from picoware.system.vector import Vector
 
         syst = System()
         self.is_circular = syst.is_circular
@@ -85,8 +87,6 @@ class List:
 
     def draw(self) -> None:
         """Draw the list with new style."""
-        from picoware.system.vector import Vector
-
         self.display.clear(self.position, self.size, self.background_color)
 
         size_x = self.display.size.x

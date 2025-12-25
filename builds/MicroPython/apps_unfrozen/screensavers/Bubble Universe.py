@@ -4,6 +4,22 @@
 
 from micropython import const
 from array import array
+from picoware.system.vector import Vector
+from picoware.system.colors import TFT_WHITE, TFT_BLACK
+from picoware.system.buttons import (
+    BUTTON_HOME,
+    BUTTON_UP,
+    BUTTON_DOWN,
+    BUTTON_LEFT,
+    BUTTON_RIGHT,
+    BUTTON_MINUS,
+    BUTTON_EQUAL,
+    BUTTON_DELETE,
+    BUTTON_SPACE,
+    BUTTON_ESCAPE,
+    BUTTON_CENTER,
+    BUTTON_BACK,
+)
 
 CURVECOUNT = const(256)
 CURVESTEP = const(16)
@@ -36,6 +52,8 @@ palette = None
 old_time: int = 0
 fps: str = ""
 
+pixel_vec = None
+
 
 def __millis() -> int:
     """Get the current time in milliseconds as integer."""
@@ -46,7 +64,7 @@ def __millis() -> int:
 
 def __reset_values() -> None:
     """Reset global values"""
-    global speed, old_speed, size, x_offset, y_offset
+    global speed, old_speed, size, x_offset, y_offset, pixel_vec
     speed = 0.2
     old_speed = 0.0
     size = 1.0
@@ -84,20 +102,6 @@ def __poll_keyboard(button: int) -> None:
     """Poll the keyboard for input"""
     if button == -1:
         return
-
-    from picoware.system.buttons import (
-        BUTTON_HOME,
-        BUTTON_UP,
-        BUTTON_DOWN,
-        BUTTON_LEFT,
-        BUTTON_RIGHT,
-        BUTTON_MINUS,
-        BUTTON_EQUAL,
-        BUTTON_DELETE,
-        BUTTON_SPACE,
-        BUTTON_ESCAPE,
-        BUTTON_CENTER,
-    )
 
     global speed, old_speed, size, x_offset, y_offset
 
@@ -152,7 +156,6 @@ def __calculate_color(curve_index: int, iteration: int) -> int:
 
 def __render(draw) -> None:
     """Render the bubble universe"""
-    from picoware.system.vector import Vector
 
     global animation_time, size, x_offset, y_offset, sin_table, cos_table
 
@@ -160,7 +163,7 @@ def __render(draw) -> None:
     screen_center_x = SCREENWIDTH // 2
     screen_center_y = SCREENHEIGHT // 2
 
-    pixel_vector = Vector(0, 0)
+    pixel_vector = pixel_vec  # Local reference for performance
 
     ang1_start = int(animation_time)
     ang2_start = int(animation_time)
@@ -203,15 +206,15 @@ def __render(draw) -> None:
 
 def start(view_manager) -> bool:
     """Start the app"""
-    from picoware.system.vector import Vector
-    from picoware.system.colors import TFT_WHITE, TFT_BLACK
 
     draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)
     draw.text(Vector(10, 10), "Bubble Universe by Movie Vertigo", TFT_WHITE)
     draw.swap()
 
-    global old_time, SCREENWIDTH, SCREENHEIGHT, SCALEMUL
+    global old_time, SCREENWIDTH, SCREENHEIGHT, SCALEMUL, pixel_vec
+
+    pixel_vec = Vector(0, 0)
 
     SCREENWIDTH = draw.size.x
     SCREENHEIGHT = draw.size.y
@@ -226,14 +229,10 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run the app"""
-    from picoware.system.vector import Vector
-    from picoware.system.buttons import BUTTON_LEFT, BUTTON_BACK
-    from picoware.system.colors import TFT_BLACK, TFT_WHITE
-
     input_manager = view_manager.input_manager
     input_button = input_manager.button
 
-    if input_button in (BUTTON_LEFT, BUTTON_BACK):
+    if input_button == BUTTON_BACK:
         view_manager.back()
         input_manager.reset()
         return
@@ -253,25 +252,18 @@ def run(view_manager) -> None:
 
     __poll_keyboard(input_button)
 
-    # fps = f"FPS: {1000 / delta_time:.2f}"
-    # draw.text(Vector(0, 0), fps, TFT_WHITE)
-
     draw.swap()
-
-    from gc import collect
-
-    collect()
 
 
 def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global sin_table, cos_table, palette
+    global sin_table, cos_table, palette, pixel_vec
     sin_table = None
     cos_table = None
     palette = None
-
+    pixel_vec = None
     __reset_values()
 
     collect()

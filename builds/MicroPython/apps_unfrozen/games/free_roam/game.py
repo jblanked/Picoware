@@ -161,6 +161,10 @@ class FreeRoamGame:
         level2 = Level("First", Vector(128, 64), game)
         level3 = Level("Second", Vector(128, 64), game)
 
+        level1.clear_allowed = False  # Player will handle clearing and swapping
+        level2.clear_allowed = False
+        level3.clear_allowed = False
+
         # we'll clear ourselves and swap afterwards too
         level1.clear_allowed = False
         level2.clear_allowed = False

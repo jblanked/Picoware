@@ -1,5 +1,7 @@
 from micropython import const
+from struct import pack_into
 from picoware.system.vector import Vector
+from picoware_game import render_sprite3d
 
 # entity state
 ENTITY_STATE_IDLE = const(0)
@@ -7,7 +9,8 @@ ENTITY_STATE_MOVING = const(1)
 ENTITY_STATE_MOVING_TO_START = const(2)
 ENTITY_STATE_MOVING_TO_END = const(3)
 ENTITY_STATE_ATTACKING = const(4)
-ENTITY_STATE_DEAD = const(5)
+ENTITY_STATE_ATTACKED = const(5)
+ENTITY_STATE_DEAD = const(6)
 
 # entity type
 ENTITY_TYPE_PLAYER = const(0)
@@ -165,6 +168,25 @@ class Entity:
         return self.sprite_3d_type != SPRITE_3D_NONE and self.sprite_3d is not None
 
     @property
+    def has_changed_position(self) -> bool:
+        """Returns True if the entity's position has changed since the last frame."""
+        return (
+            self._position.x != self._old_position.x
+            or self._position.y != self._old_position.y
+        )
+
+    @property
+    def old_position(self) -> Vector:
+        """Used by the engine to get the previous position of the entity."""
+        return self._old_position
+
+    @old_position.setter
+    def old_position(self, value: Vector):
+        """Used by the engine to set the previous position of the entity."""
+        self._old_position.x = value.x
+        self._old_position.y = value.y
+
+    @property
     def position(self) -> Vector:
         """Used by the engine to get the position of the entity."""
         return self._position
@@ -172,8 +194,10 @@ class Entity:
     @position.setter
     def position(self, value: Vector):
         """Used by the engine to set the position of the entity."""
-        self.position_old = self._position
-        self._position = value
+        self._old_position.x = self._position.x
+        self._old_position.y = self._position.y
+        self._position.x = value.x
+        self._position.y = value.y
 
     def create_3d_sprite(
         self,
@@ -277,9 +301,6 @@ class Entity:
         """Renders the 3D sprite."""
         if not self.has_3d_sprite:
             return
-
-        from picoware_game import render_sprite3d
-        from struct import pack_into
 
         # Flatten raw triangle data (model space, not transformed)
         triangle_count = self.sprite_3d.triangle_count

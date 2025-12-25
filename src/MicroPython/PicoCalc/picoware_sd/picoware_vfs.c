@@ -31,7 +31,7 @@ extern const mp_obj_type_t picoware_vfs_file_type;
 // VFS File Object
 // =============================================================================
 
-#define VFS_FILE_BUFFER_SIZE 2048
+#define VFS_FILE_BUFFER_SIZE 1024 * 8 // 8KB buffer for file reads
 
 typedef struct _picoware_vfs_file_obj_t
 {

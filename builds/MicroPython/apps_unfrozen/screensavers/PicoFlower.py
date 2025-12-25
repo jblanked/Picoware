@@ -2,6 +2,23 @@
 # https://www.youtube.com/shorts/9l2e5ybXaVk
 
 from micropython import const
+from math import pi, cos, sin
+from picoware.system.buttons import BUTTON_LEFT, BUTTON_BACK
+from picoware.system.colors import (
+    TFT_BLACK,
+    TFT_RED,
+    TFT_GREEN,
+    TFT_BLUE,
+    TFT_YELLOW,
+    TFT_CYAN,
+    TFT_VIOLET,
+    TFT_ORANGE,
+    TFT_PINK,
+    TFT_DARKGREEN,
+    TFT_DARKCYAN,
+    TFT_BROWN,
+    TFT_SKYBLUE,
+)
 
 # Petal layout
 NUM_PETALS = const(12)
@@ -161,24 +178,6 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run the app"""
-    from math import pi, cos, sin
-    from picoware.system.buttons import BUTTON_LEFT, BUTTON_BACK
-    from picoware.system.colors import (
-        TFT_BLACK,
-        TFT_RED,
-        TFT_GREEN,
-        TFT_BLUE,
-        TFT_YELLOW,
-        TFT_CYAN,
-        TFT_VIOLET,
-        TFT_ORANGE,
-        TFT_PINK,
-        TFT_DARKGREEN,
-        TFT_DARKCYAN,
-        TFT_BROWN,
-        TFT_SKYBLUE,
-    )
-
     input_manager = view_manager.input_manager
     input_button = input_manager.button
 

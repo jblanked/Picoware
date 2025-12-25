@@ -1,4 +1,7 @@
 from micropython import const
+from picoware.system.vector import Vector
+from picoware_psram import write8, write32
+from picoware_psram import read8
 
 # Display constants
 WIDTH = const(320)
@@ -54,7 +57,6 @@ class PSRAMFramebuffer:
 
     def pixel(self, x, y, color):
         """Set a single pixel (RGB332 color)."""
-        from picoware_psram import write8
 
         if 0 <= x < self.width and 0 <= y < self.height:
             addr = self.base_addr + (y * ROW_SIZE) + x
@@ -62,8 +64,6 @@ class PSRAMFramebuffer:
 
     def get_pixel(self, x, y):
         """Get pixel color at (x, y)."""
-        from picoware_psram import read8
-
         if 0 <= x < self.width and 0 <= y < self.height:
             addr = self.base_addr + (y * ROW_SIZE) + x
             return read8(addr)
@@ -71,8 +71,6 @@ class PSRAMFramebuffer:
 
     def hline(self, x, y, length, color):
         """Draw a fast horizontal line using DMA."""
-        from picoware_psram import write8, write32
-
         if y < 0 or y >= self.height:
             return
 
@@ -111,8 +109,6 @@ class PSRAMFramebuffer:
 
     def vline(self, x, y, length, color):
         """Draw a vertical line."""
-        from picoware_psram import write8
-
         if x < 0 or x >= self.width:
             return
 
@@ -275,7 +271,6 @@ class PSRAMFramebuffer:
         """
         Render the PSRAM framebuffer to the display line-by-line.
         """
-        from picoware.system.vector import Vector
 
         pos = Vector(0, 0)
         size = Vector(self.width, 1)
@@ -290,7 +285,6 @@ class PSRAMFramebuffer:
 
     def blit_region_to_display(self, draw, x, y, w, h):
         """Blit only a specific region to the display."""
-        from picoware.system.vector import Vector
         from picoware_psram import read_into
 
         # Clip bounds
@@ -327,7 +321,6 @@ def start(view_manager) -> bool:
         return False
 
     global _fb, _demo_state, _frame_count
-    from picoware.system.vector import Vector
 
     draw = view_manager.draw
     draw.fill_screen()
@@ -458,7 +451,6 @@ def run(view_manager):
         BUTTON_BACK,
         BUTTON_CENTER,
     )
-    from picoware.system.vector import Vector
 
     inp = view_manager.input_manager
     draw = view_manager.draw

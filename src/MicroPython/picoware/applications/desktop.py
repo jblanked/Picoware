@@ -1,3 +1,6 @@
+from picoware.system.vector import Vector
+
+
 class PicowareAnimation:
     """Class to draw "Picoware" animation"""
 
@@ -13,11 +16,16 @@ class PicowareAnimation:
         self.center_y = self.size.y // 2
         self.frame_counter = 0
 
+        self.text_vec = Vector(0, 0)
+        self.circ_vec = Vector(0, 0)
+
         self._initialize_letter_animation()
 
     def __del__(self):
         del self.letter_states
         self.letter_states = None
+        self.text_vec = None
+        self.circ_vec = None
 
     def _initialize_letter_animation(self) -> None:
         """Initialize the animation state for each letter in 'Picoware'."""
@@ -78,7 +86,6 @@ class PicowareAnimation:
 
     def draw(self) -> None:
         """Draw the animated 'Picoware' text."""
-        from picoware.system.vector import Vector
 
         # Draw background animations
         if self.circle_radius < self.circle_max_radius:
@@ -100,13 +107,12 @@ class PicowareAnimation:
             if (
                 self.frame_counter % max(1, (100 - self.circle_opacity) // 20 + 1)
             ) == 0:
-                self.display.circle(
-                    Vector(self.center_x, self.center_y), self.circle_radius, color
-                )
+                self.circ_vec.x = self.center_x
+                self.circ_vec.y = self.center_y
+                self.display.circle(self.circ_vec, self.circle_radius, color)
 
         all_settled = True
 
-        text_vector = Vector(0, 0)
         for letter in self.letter_states:
             # Handle delay before letter starts moving
             if letter["frame"] < letter["delay"]:
@@ -135,10 +141,10 @@ class PicowareAnimation:
                 # Use modulo to create a fade pattern
                 # At low opacity, only draw occasionally; at high opacity, always draw
                 if (self.frame_counter % max(1, opacity_threshold // 10 + 1)) == 0:
-                    text_vector.x = letter["target_x"]
-                    text_vector.y = int(letter["current_y"])
+                    self.text_vec.x = letter["target_x"]
+                    self.text_vec.y = int(letter["current_y"])
                     self.display.text(
-                        text_vector,
+                        self.text_vec,
                         letter["char"],
                         letter["color"],
                     )
@@ -193,7 +199,6 @@ def start(view_manager) -> bool:
 def run(view_manager) -> None:
     """Animate the loading spinner."""
     from picoware.system.buttons import BUTTON_LEFT, BUTTON_CENTER, BUTTON_UP
-    from picoware.system.view import View
 
     input_manager = view_manager.input_manager
     button: int = input_manager.button
@@ -201,15 +206,11 @@ def run(view_manager) -> None:
     global _desktop_http, _desktop_time_updated
 
     if _desktop:
-        from picoware.system.vector import Vector
-
         battery_level: int = input_manager.battery
         _desktop.set_battery(battery_level)
 
         # Clear and draw header
-        view_manager.draw.clear(
-            Vector(0, 0), view_manager.draw.size, view_manager.background_color
-        )
+        view_manager.draw.erase()
         _desktop.draw_header()
 
         # Draw animated picoware text every frame
@@ -227,7 +228,7 @@ def run(view_manager) -> None:
                         if not response:
                             # i realized that sometimes this API returns an empty response
                             # but it usually works within 2-3 tries
-                            _desktop_http.clear_async_response()
+                            _desktop_http.close()
                             _desktop_http.get_async("http://worldtimeapi.org/api/ip")
                             return
                         if _desktop_http.state == 0:  # HTTP_IDLE
@@ -265,6 +266,7 @@ def run(view_manager) -> None:
 
     if button == BUTTON_LEFT:
         from picoware.applications.system import system_info
+        from picoware.system.view import View
 
         input_manager.reset()
         view_manager.add(
@@ -273,6 +275,7 @@ def run(view_manager) -> None:
         view_manager.switch_to("system_info")
     elif button in (BUTTON_CENTER, BUTTON_UP):
         from picoware.applications import library
+        from picoware.system.view import View
 
         input_manager.reset()
         view_manager.add(View("library", library.run, library.start, library.stop))

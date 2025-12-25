@@ -1,7 +1,10 @@
 # Original from https://github.com/Bodmer/TFT_eSPI/blob/master/examples/320%20x%20240/TFT_Spiro/TFT_Spiro.ino
 from micropython import const
-import math
-import random
+from math import cos, sin
+from random import randint
+from picoware.system.buttons import BUTTON_LEFT, BUTTON_BACK
+from picoware.system.colors import TFT_BLACK
+from picoware.system.vector import Vector
 
 DEG2RAD = const(0.0174532925)  # Convert angles in degrees to radians
 sp_sx = 0.0
@@ -11,6 +14,8 @@ x1 = 0
 yy0 = 0
 yy1 = 0
 spiro_elapsed = 10
+vec1 = None
+vec2 = None
 
 
 def rainbow(value: int) -> int:
@@ -50,7 +55,7 @@ def random_range(min_val: int, max_val: int) -> int:
     """Generate a random number in the range [min_val, max_val)"""
     if max_val <= min_val:
         return min_val
-    return min_val + random.randint(0, max_val - min_val - 1)
+    return min_val + randint(0, max_val - min_val - 1)
 
 
 def map_value(x: int, in_min: int, in_max: int, out_min: int, out_max: int) -> int:
@@ -64,6 +69,9 @@ def start(view_manager) -> bool:
     """Start the app"""
     from picoware.system.colors import TFT_BLACK
 
+    global vec1, vec2
+    vec1 = Vector(0, 0)
+    vec2 = Vector(0, 0)
     draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)
     draw.swap()
@@ -72,10 +80,6 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run the app"""
-    from picoware.system.buttons import BUTTON_LEFT, BUTTON_BACK
-    from picoware.system.colors import TFT_BLACK
-    from picoware.system.vector import Vector
-
     global spiro_elapsed, sp_sx, sp_sy, x0, x1, yy0, yy1
 
     input_button = view_manager.input_manager.button
@@ -95,15 +99,15 @@ def run(view_manager) -> None:
         r = random_range(20, 100)
 
         # First spirograph pattern
-        vec_1 = Vector(159, 119)
+        vec_1 = vec1
         for i in range(360 * n):
-            sp_sx = math.cos((i / n - 90) * DEG2RAD)
-            sp_sy = math.sin((i / n - 90) * DEG2RAD)
+            sp_sx = cos((i / n - 90) * DEG2RAD)
+            sp_sy = sin((i / n - 90) * DEG2RAD)
             x0 = int(sp_sx * (120 - r) + 159)
             yy0 = int(sp_sy * (120 - r) + 119)
 
-            sp_sy = math.cos(((i % 360) - 90) * DEG2RAD)
-            sp_sx = math.sin(((i % 360) - 90) * DEG2RAD)
+            sp_sy = cos(((i % 360) - 90) * DEG2RAD)
+            sp_sx = sin(((i % 360) - 90) * DEG2RAD)
             x1 = int(sp_sx * r + x0)
             yy1 = int(sp_sy * r + yy0)
 
@@ -114,15 +118,15 @@ def run(view_manager) -> None:
 
         # Second spirograph pattern with different radius
         r = random_range(20, 100)
-        vec_2 = Vector(0, 0)
+        vec_2 = vec2
         for i in range(360 * n):
-            sp_sx = math.cos((i / n - 90) * DEG2RAD)
-            sp_sy = math.sin((i / n - 90) * DEG2RAD)
+            sp_sx = cos((i / n - 90) * DEG2RAD)
+            sp_sy = sin((i / n - 90) * DEG2RAD)
             x0 = int(sp_sx * (120 - r) + 159)
             yy0 = int(sp_sy * (120 - r) + 119)
 
-            sp_sy = math.cos(((i % 360) - 90) * DEG2RAD)
-            sp_sx = math.sin(((i % 360) - 90) * DEG2RAD)
+            sp_sy = cos(((i % 360) - 90) * DEG2RAD)
+            sp_sx = sin(((i % 360) - 90) * DEG2RAD)
             x1 = int(sp_sx * r + x0)
             yy1 = int(sp_sy * r + yy0)
 
@@ -144,7 +148,7 @@ def stop(view_manager) -> None:
     draw.fill_screen(view_manager.background_color)
     draw.swap()
 
-    global sp_sx, sp_sy, x0, x1, yy0, yy1, spiro_elapsed
+    global sp_sx, sp_sy, x0, x1, yy0, yy1, spiro_elapsed, vec1, vec2
 
     sp_sx = 0.0
     sp_sy = 0.0
@@ -153,5 +157,7 @@ def stop(view_manager) -> None:
     yy0 = 0
     yy1 = 0
     spiro_elapsed = 10
+    vec1 = None
+    vec2 = None
 
     collect()

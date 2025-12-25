@@ -45,6 +45,20 @@ class Vertex3D:
 class Triangle3D:
     """3D triangle structure"""
 
+    __slots__ = (
+        "x1",
+        "y1",
+        "z1",
+        "x2",
+        "y2",
+        "z2",
+        "x3",
+        "y3",
+        "z3",
+        "visible",
+        "distance",
+    )
+
     def __init__(
         self, x1=0.0, y1=0.0, z1=0.0, x2=0.0, y2=0.0, z2=0.0, x3=0.0, y3=0.0, z3=0.0
     ) -> None:

@@ -36,12 +36,17 @@ class Level:
         self._clear_allowed: bool = True
         self._start = start
         self._stop = stop
+        self._entity_vec = Vector(0, 0)
 
     def __del__(self):
         self.clear()
         del self.size
         self.size = None
         self.name = None
+        del self.entities
+        self.entities = None
+        del self._entity_vec
+        self._entity_vec = None
 
     @property
     def clear_allowed(self) -> bool:
@@ -136,7 +141,8 @@ class Level:
                 if dir_length < 0.001:
                     # Fallback if direction is zero
                     dir_length = 1.0
-                    player.direction = Vector(1, 0)  # Default forward direction
+                    player.direction.x = 1
+                    player.direction.y = 0
 
                 normalized_dir = Vector(
                     player.direction.x / dir_length, player.direction.y / dir_length
@@ -151,7 +157,8 @@ class Level:
                 calculated_camera_params.height = 1.6
                 camera_params = calculated_camera_params
 
-        entity_vec = Vector(0, 0)
+        self._entity_vec.x = 0
+        self._entity_vec.y = 0
         for entity in self.entities:
             if entity and entity.is_active:
                 entity.render(self.game.draw, self.game)
@@ -161,10 +168,10 @@ class Level:
 
                 # Only draw the 2D sprite if it exists
                 if entity.sprite:
-                    entity_vec.x = entity.position.x - self.game.position.x
-                    entity_vec.y = entity.position.y - self.game.position.y
+                    self._entity_vec.x = entity.position.x - self.game.position.x
+                    self._entity_vec.y = entity.position.y - self.game.position.y
                     self.game.draw.image_bytearray(
-                        entity_vec,
+                        self._entity_vec,
                         entity.size,
                         entity.sprite._raw,
                     )

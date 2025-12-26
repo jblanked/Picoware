@@ -33,7 +33,6 @@ class List:
         self.lines_per_screen = 14
         self.item_height = 20
         self._selected_index = 0
-        self.first_visible_index = 0
         self.visible_item_count = (self.size.y - 2 * border_width) / self.item_height
         self.items = []
         draw.swap()
@@ -79,7 +78,6 @@ class List:
         # Clear the list of items
         self.items = []
         self._selected_index = 0
-        self.first_visible_index = 0
 
         # Clear the display area
         self.display.clear(self.position, self.size, self.background_color)

@@ -1,7 +1,17 @@
 from micropython import const
+from math import sin, cos, radians
 from picoware.system.vector import Vector
-from picoware_psram import write8, write32
-from picoware_psram import read8
+from picoware_psram import (
+    write8,
+    write32,
+    read8,
+    read,
+    read_into,
+    write,
+    is_ready,
+    init,
+    fill32,
+)
 
 # Display constants
 WIDTH = const(320)
@@ -30,8 +40,6 @@ class PSRAMFramebuffer:
     """
 
     def __init__(self, base_addr=FRAMEBUFFER_ADDR):
-        from picoware_psram import is_ready, init
-
         self.base_addr = base_addr
         self.width = WIDTH
         self.height = HEIGHT
@@ -41,10 +49,20 @@ class PSRAMFramebuffer:
         if not is_ready():
             init()
 
+        self.pos = Vector(0, 0)
+        self.size = Vector(self.width, 1)
+
+    def __del__(self):
+        """Cleanup PSRAM framebuffer resources if needed."""
+        del self._row_buffer
+        self._row_buffer = None
+        del self.pos
+        self.pos = None
+        del self.size
+        self.size = None
+
     def clear(self, color=BLACK):
         """Clear the entire framebuffer with a color (RGB332)."""
-        from picoware_psram import fill32
-
         # Use 32-bit fill
         # Pack four RGB332 pixels into one 32-bit value
         fill_value = (color << 24) | (color << 16) | (color << 8) | color
@@ -87,7 +105,7 @@ class PSRAMFramebuffer:
         addr = self.base_addr + (y * ROW_SIZE) + x
 
         # Use 32-bit writes for aligned sections
-        fill32 = (color << 24) | (color << 16) | (color << 8) | color
+        _fill32 = (color << 24) | (color << 16) | (color << 8) | color
 
         # Handle unaligned start
         while length > 0 and (addr & 3):
@@ -97,7 +115,7 @@ class PSRAMFramebuffer:
 
         # 32-bit fill for aligned middle
         while length >= 4:
-            write32(addr, fill32)
+            write32(addr, _fill32)
             addr += 4
             length -= 4
 
@@ -242,7 +260,6 @@ class PSRAMFramebuffer:
 
     def read_row(self, y):
         """Read a single row from the framebuffer (for line-by-line rendering)."""
-        from picoware_psram import read
 
         if 0 <= y < self.height:
             addr = self.base_addr + (y * ROW_SIZE)
@@ -251,7 +268,6 @@ class PSRAMFramebuffer:
 
     def read_row_into(self, y, buffer):
         """Read a row directly into a provided buffer."""
-        from picoware_psram import read_into
 
         if 0 <= y < self.height and len(buffer) >= ROW_SIZE:
             addr = self.base_addr + (y * ROW_SIZE)
@@ -261,7 +277,6 @@ class PSRAMFramebuffer:
 
     def write_row(self, y, data):
         """Write a complete row to the framebuffer."""
-        from picoware_psram import write
 
         if 0 <= y < self.height:
             addr = self.base_addr + (y * ROW_SIZE)
@@ -271,43 +286,13 @@ class PSRAMFramebuffer:
         """
         Render the PSRAM framebuffer to the display line-by-line.
         """
-
-        pos = Vector(0, 0)
-        size = Vector(self.width, 1)
-
         for y in range(self.height):
             # Read row from PSRAM directly into buffer
             self.read_row_into(y, self._row_buffer)
 
             # blit
-            pos.y = y
-            draw.image_bytearray(pos, size, self._row_buffer)
-
-    def blit_region_to_display(self, draw, x, y, w, h):
-        """Blit only a specific region to the display."""
-        from picoware_psram import read_into
-
-        # Clip bounds
-        x = max(0, x)
-        y = max(0, y)
-        w = min(w, self.width - x)
-        h = min(h, self.height - y)
-
-        if w <= 0 or h <= 0:
-            return
-
-        pos = Vector(x, 0)
-        size = Vector(w, 1)
-        temp_buffer = bytearray(w)
-
-        for row in range(y, y + h):
-            # Read partial row from PSRAM
-            addr = self.base_addr + (row * ROW_SIZE) + x
-            read_into(addr, temp_buffer)
-
-            # blit
-            pos.y = row
-            draw.image_bytearray(pos, size, temp_buffer)
+            self.pos.y = y
+            draw.image_bytearray(self.pos, self.size, self._row_buffer)
 
 
 _fb = None
@@ -360,13 +345,12 @@ def _draw_demo():
     if _demo_state == 0:
         # Demo 1: Lines radiating from center
         cx, cy = 160, 160
-        import math
 
         for i in range(0, 360, 10):
 
-            angle = math.radians(i)
-            x = int(cx + 150 * math.cos(angle))
-            y = int(cy + 150 * math.sin(angle))
+            angle = radians(i)
+            x = int(cx + 150 * cos(angle))
+            y = int(cy + 150 * sin(angle))
             _fb.line(cx, cy, x, y, colors[i // 10 % len(colors)])
 
     elif _demo_state == 1:

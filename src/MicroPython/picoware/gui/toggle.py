@@ -1,11 +1,14 @@
+from picoware.system.vector import Vector
+
+
 class Toggle:
     """A simple toggle switch for the GUI."""
 
     def __init__(
         self,
         draw,
-        position,
-        size,
+        position: Vector,
+        size: Vector,
         text: str,
         initial_state: bool = False,
         foreground_color: int = 0xFFFF,
@@ -60,11 +63,11 @@ class Toggle:
         self.display.clear(self.position, self.size, self.background_color)
         self.display.swap()
 
-    def draw(self) -> None:
+    def draw(self, swap: bool = True, clear: bool = True) -> None:
         """Render the toggle switch on the display."""
-        from picoware.system.vector import Vector
 
-        self.display.clear(self.position, self.size, self.background_color)
+        if clear:
+            self.display.clear(self.position, self.size, self.background_color)
 
         display_size: Vector = self.display.size
 
@@ -177,7 +180,8 @@ class Toggle:
                     self.background_color,
                 )
 
-        self.display.swap()
+        if swap:
+            self.display.swap()
 
     def set_state(self, new_state: bool) -> None:
         """Set the toggle state and redraw."""

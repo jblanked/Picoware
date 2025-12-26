@@ -67,7 +67,7 @@ def __channel_parse(view_manager) -> bool:
     messages = storage.read("picoware/telegram/messages.txt")
 
     if not messages:
-        view_manager.alert("No messages available..")
+        view_manager.alert("No messages available..", False)
         return False
 
     from ujson import loads
@@ -77,12 +77,12 @@ def __channel_parse(view_manager) -> bool:
     try:
         data = loads(messages)
     except Exception as e:
-        view_manager.alert(f"Failed to parse messages.\n{e}")
+        view_manager.alert(f"Failed to parse messages.\n{e}", False)
         return False
 
     results = data.get("result", [])
     if not results:
-        view_manager.alert("No messages found in feed.")
+        view_manager.alert("No messages found in feed.", False)
         return False
     parsed_text = ""
     for item in results:
@@ -137,7 +137,7 @@ def _http_await(view_manager) -> None:
         return
 
     if not _http.is_successful:
-        view_manager.alert(f"HTTP request failed.\n{_http.error}")
+        view_manager.alert(f"HTTP request failed.\n{_http.error}", False)
         current_view = VIEW_MAIN_MENU
         sending_index = SENDING_WAITING
         del _http
@@ -148,7 +148,7 @@ def _http_await(view_manager) -> None:
         return
 
     if current_view == VIEW_SENDING_MESSAGE:
-        view_manager.alert("Message sent!")
+        view_manager.alert("Message sent!", False)
         current_view = VIEW_MAIN_MENU
         sending_index = SENDING_WAITING
         _menu_start(view_manager)
@@ -225,7 +225,7 @@ def _keyboard_run(view_manager) -> None:
 
         if kb.is_finished:
             if not _keyboard_save(view_manager):
-                view_manager.alert("Failed to save message.")
+                view_manager.alert("Failed to save message.", False)
                 current_view = VIEW_MAIN_MENU
                 sending_index = SENDING_WAITING
             else:
@@ -247,9 +247,9 @@ def _keyboard_run(view_manager) -> None:
 
         if kb.is_finished:
             if not _keyboard_save(view_manager):
-                view_manager.alert("Failed to save input.")
+                view_manager.alert("Failed to save input.", False)
             else:
-                view_manager.alert("Input saved!")
+                view_manager.alert("Input saved!", False)
             current_view = VIEW_MAIN_MENU
             keyboard_index = KEYBOARD_WAITING
             _menu_start(view_manager)
@@ -351,7 +351,7 @@ def __telegram_fetch(view_manager) -> bool:
     token = storage.read("picoware/telegram/token.txt")
 
     if not token:
-        view_manager.alert("Bot token not set.")
+        view_manager.alert("Bot token not set.", False)
         return False
 
     return _http.get_async(

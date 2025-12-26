@@ -10,6 +10,11 @@ except ImportError:
 from micropython import const
 import uos
 
+
+from picoware.system.vector import Vector
+from picoware.system import buttons
+from utime import ticks_ms
+
 sc_char_width = const(53)
 sc_char_height = const(40)
 
@@ -40,8 +45,8 @@ class vt(uio.IOBase):
         # Virtual terminal state
         self.cursor_x = 0
         self.cursor_y = 0
-        self.char_width = 6  # Font character width
-        self.char_height = 8  # Font character height
+        self.char_width = self.draw.font_size.x  # Font character width
+        self.char_height = self.draw.font_size.y  # Font character height
         self.screen_width = self.draw.size.x // self.char_width
         self.screen_height = self.draw.size.y // self.char_height
 
@@ -65,6 +70,10 @@ class vt(uio.IOBase):
         self.scroll_top = 0
         self.scroll_bottom = self.screen_height - 1
         self.input_enabled = False  # Start with input disabled
+
+        self.pos_vector = Vector(0, 0)
+        self.char_vec = Vector(self.char_width, 2)
+        self.cursor_pos = Vector(0, 0)
 
     def dryBuffer(self):
         self.outputBuffer = deque((), 30)
@@ -226,8 +235,6 @@ class vt(uio.IOBase):
 
         # Only render if changes were made and rendering is enabled and not in batch mode
         if self._needs_render and self._render_enabled and not self._batch_mode:
-            from utime import ticks_ms
-
             current_time = int(ticks_ms())
 
             if current_time - self._last_render_time >= self._render_throttle_ms:
@@ -239,25 +246,24 @@ class vt(uio.IOBase):
 
     def _render_terminal(self):
         """Render the terminal buffer to the display"""
-        from picoware.system.vector import Vector
-
         self.draw.clear(color=self.draw.background)
 
         # Render text lines
-        pos_vector = Vector(0, 0)
+        self.pos_vector.x = 0
+        self.pos_vector.y = 0
         for y in range(self.screen_height):
             line = "".join(self.terminal_buffer[y]).rstrip()
             if line:
-                pos_vector.y = y * self.char_height
-                self.draw.text(pos_vector, line, self.draw.foreground)
+                self.pos_vector.y = y * self.char_height
+                self.draw.text(self.pos_vector, line, self.draw.foreground)
 
         # Draw cursor (simple block cursor) if visible
         if self.cursor_visible:
-            cursor_pos = Vector(
-                self.cursor_x * self.char_width, self.cursor_y * self.char_height
-            )
+            self.cursor_pos.x = self.cursor_x * self.char_width
+            self.cursor_pos.y = self.cursor_y * self.char_height
+
             self.draw.fill_rectangle(
-                cursor_pos, Vector(self.char_width, 2), self.draw.foreground
+                self.cursor_pos, self.char_vec, self.draw.foreground
             )
 
         # Force display update
@@ -269,8 +275,6 @@ class vt(uio.IOBase):
 
     def end_batch(self):
         """End batch mode and render if needed"""
-        from utime import ticks_ms
-
         self._batch_mode = False
         if self._needs_render and self._render_enabled:
             self._render_terminal()
@@ -280,8 +284,6 @@ class vt(uio.IOBase):
     def update(self):
         """Update method to be called periodically to handle pending renders"""
         if self._needs_render and self._render_enabled:
-            from utime import ticks_ms
-
             current_time = int(ticks_ms())
             if current_time - self._last_render_time >= self._render_throttle_ms:
                 self._render_terminal()
@@ -296,8 +298,6 @@ class vt(uio.IOBase):
 
     def _convert_key_to_terminal(self, key):
         """Convert Picoware button codes to terminal escape sequences"""
-        from picoware.system import buttons
-
         # Handle regular character keys
         if buttons.BUTTON_A <= key <= buttons.BUTTON_Z:
             char_code = ord("a") + (key - buttons.BUTTON_A)

@@ -66,10 +66,11 @@ STATIC mp_obj_t mp_fat32_file_make_new(const mp_obj_type_t *type, size_t n_args,
 
 MP_DEFINE_CONST_OBJ_TYPE(
     mp_fat32_file_type,
-    MP_QSTR_fat32_file,
+    MP_QSTR_fat32_file, // name
     MP_TYPE_FLAG_NONE,
-    print, mp_fat32_file_print,
-    make_new, mp_fat32_file_make_new);
+    print, mp_fat32_file_print,      // print function
+    make_new, mp_fat32_file_make_new // constructor
+);
 
 // Function to initialize the SD card
 STATIC mp_obj_t waveshare_sd_init(void)
@@ -78,15 +79,6 @@ STATIC mp_obj_t waveshare_sd_init(void)
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(waveshare_sd_init_obj, waveshare_sd_init);
-
-// Function to close a fat32_file_t object
-STATIC mp_obj_t waveshare_sd_close(mp_obj_t file_obj)
-{
-    mp_fat32_file_obj_t *file = MP_OBJ_TO_PTR(file_obj);
-    fat32_close(&file->file);
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(waveshare_sd_close_obj, waveshare_sd_close);
 
 // Function to create a file on the SD card
 STATIC mp_obj_t waveshare_sd_create_file(mp_obj_t filepath_obj)
@@ -170,6 +162,28 @@ STATIC mp_obj_t waveshare_sd_get_file_size(mp_obj_t filepath_obj)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(waveshare_sd_get_file_size_obj, waveshare_sd_get_file_size);
 
+// Function to close a fat32_file_t object
+STATIC mp_obj_t waveshare_sd_file_close(mp_obj_t file_obj)
+{
+    mp_fat32_file_obj_t *file = MP_OBJ_TO_PTR(file_obj);
+    fat32_close(&file->file);
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(waveshare_sd_file_close_obj, waveshare_sd_file_close);
+
+// Function to open a file and return a fat32_file_t object
+STATIC mp_obj_t waveshare_sd_file_open(mp_obj_t filepath_obj)
+{
+    const char *filePath = mp_obj_str_get_str(filepath_obj);
+    mp_fat32_file_obj_t *file_obj = mp_fat32_file_make_new(&mp_fat32_file_type, 0, 0, NULL);
+    if (fat32_open(&file_obj->file, filePath) != FAT32_OK)
+    {
+        mp_raise_OSError(MP_ENOENT);
+    }
+    return MP_OBJ_FROM_PTR(file_obj);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(waveshare_sd_file_open_obj, waveshare_sd_file_open);
+
 // Function to read within a file object
 STATIC mp_obj_t waveshare_sd_file_read(size_t n_args, const mp_obj_t *args)
 {
@@ -188,7 +202,8 @@ STATIC mp_obj_t waveshare_sd_file_read(size_t n_args, const mp_obj_t *args)
     {
         count = mp_obj_get_int(args[2]);
     }
-    fat32_file_t *file = (fat32_file_t *)MP_OBJ_TO_PTR(args[0]);
+    mp_fat32_file_obj_t *file_obj = MP_OBJ_TO_PTR(args[0]);
+    fat32_file_t *file = &file_obj->file;
     if (index > 0)
     {
         if (fat32_seek(file, index) != FAT32_OK)
@@ -209,6 +224,27 @@ STATIC mp_obj_t waveshare_sd_file_read(size_t n_args, const mp_obj_t *args)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(waveshare_sd_file_read_obj, 1, 3, waveshare_sd_file_read);
 
+STATIC mp_obj_t waveshare_sd_file_readinto(size_t n_args, const mp_obj_t *args)
+{
+    // Arguments: mp_file_obj, buffer
+    if (n_args != 2)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("readinto requires 2 arguments: mp_file_obj, buffer"));
+    }
+    mp_fat32_file_obj_t *file_obj = MP_OBJ_TO_PTR(args[0]);
+    fat32_file_t *file = &file_obj->file;
+    mp_buffer_info_t bufinfo;
+    mp_get_buffer_raise(args[1], &bufinfo, MP_BUFFER_WRITE);
+    size_t bytes_read;
+    if (fat32_read(file, bufinfo.buf, bufinfo.len, &bytes_read) != FAT32_OK)
+    {
+        PRINT("Failed to read into buffer.\n");
+        mp_raise_OSError(MP_EIO);
+    }
+    return mp_obj_new_int(bytes_read);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(waveshare_sd_file_readinto_obj, 2, 2, waveshare_sd_file_readinto);
+
 // Function to seek within a file object
 STATIC mp_obj_t waveshare_sd_file_seek(size_t n_args, const mp_obj_t *args)
 {
@@ -218,7 +254,8 @@ STATIC mp_obj_t waveshare_sd_file_seek(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("seek requires 2 arguments: mp_file_obj,position"));
     }
     // Arguments: mp_file_obj, position
-    fat32_file_t *file = (fat32_file_t *)MP_OBJ_TO_PTR(args[0]);
+    mp_fat32_file_obj_t *file_obj = MP_OBJ_TO_PTR(args[0]);
+    fat32_file_t *file = &file_obj->file;
     uint32_t position = mp_obj_get_int(args[1]);
     if (fat32_seek(file, position) != FAT32_OK)
     {
@@ -237,7 +274,8 @@ STATIC mp_obj_t waveshare_sd_file_write(size_t n_args, const mp_obj_t *args)
     {
         mp_raise_ValueError(MP_ERROR_TEXT("write requires 2 arguments: mp_file_obj, data"));
     }
-    fat32_file_t *file = (fat32_file_t *)MP_OBJ_TO_PTR(args[0]);
+    mp_fat32_file_obj_t *file_obj = MP_OBJ_TO_PTR(args[0]);
+    fat32_file_t *file = &file_obj->file;
     mp_buffer_info_t bufinfo;
     mp_get_buffer_raise(args[1], &bufinfo, MP_BUFFER_READ);
     size_t bytes_written;
@@ -332,19 +370,6 @@ STATIC mp_obj_t waveshare_sd_mount(void)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(waveshare_sd_mount_obj, waveshare_sd_mount);
 
-// Function to open a file and return a fat32_file_t object
-STATIC mp_obj_t waveshare_sd_open(mp_obj_t filepath_obj)
-{
-    const char *filePath = mp_obj_str_get_str(filepath_obj);
-    mp_fat32_file_obj_t *file_obj = mp_fat32_file_make_new(&mp_fat32_file_type, 0, 0, NULL);
-    if (fat32_open(&file_obj->file, filePath) != FAT32_OK)
-    {
-        mp_raise_OSError(MP_ENOENT);
-    }
-    return MP_OBJ_FROM_PTR(file_obj);
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(waveshare_sd_open_obj, waveshare_sd_open);
-
 // Function to read a file
 STATIC mp_obj_t waveshare_sd_read(size_t n_args, const mp_obj_t *args)
 {
@@ -420,6 +445,25 @@ STATIC mp_obj_t waveshare_sd_read_directory(mp_obj_t dirpath_obj)
     return list;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(waveshare_sd_read_directory_obj, waveshare_sd_read_directory);
+
+STATIC mp_obj_t waveshare_sd_readinto(mp_obj_t filepath_obj, mp_obj_t buffer_obj)
+{
+    const char *filePath = mp_obj_str_get_str(filepath_obj);
+    fat32_file_t file;
+    fat32_error_t err = fat32_open(&file, filePath);
+    if (err != FAT32_OK)
+    {
+        PRINT("Failed to open file for reading: %s\n", fat32_error_string(err));
+        mp_raise_OSError(MP_ENOENT);
+    }
+    mp_buffer_info_t bufinfo;
+    mp_get_buffer_raise(buffer_obj, &bufinfo, MP_BUFFER_WRITE);
+    size_t bytes_read;
+    const bool status = fat32_read(&file, bufinfo.buf, bufinfo.len, &bytes_read) == FAT32_OK;
+    fat32_close(&file);
+    return status ? mp_obj_new_int(bytes_read) : mp_obj_new_int(0);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(waveshare_sd_readinto_obj, waveshare_sd_readinto);
 
 // Function to remove a file
 STATIC mp_obj_t waveshare_sd_remove(mp_obj_t filepath_obj)
@@ -524,11 +568,13 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_0(waveshare_sd_unmount_obj, waveshare_sd_unmount)
 STATIC const mp_rom_map_elem_t waveshare_sd_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_waveshare_sd)},
     {MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&waveshare_sd_init_obj)},
-    {MP_ROM_QSTR(MP_QSTR_close), MP_ROM_PTR(&waveshare_sd_close_obj)},
     {MP_ROM_QSTR(MP_QSTR_create_file), MP_ROM_PTR(&waveshare_sd_create_file_obj)},
     {MP_ROM_QSTR(MP_QSTR_create_directory), MP_ROM_PTR(&waveshare_sd_create_directory_obj)},
     {MP_ROM_QSTR(MP_QSTR_exists), MP_ROM_PTR(&waveshare_sd_exists_obj)},
+    {MP_ROM_QSTR(MP_QSTR_file_close), MP_ROM_PTR(&waveshare_sd_file_close_obj)},
+    {MP_ROM_QSTR(MP_QSTR_file_open), MP_ROM_PTR(&waveshare_sd_file_open_obj)},
     {MP_ROM_QSTR(MP_QSTR_file_read), MP_ROM_PTR(&waveshare_sd_file_read_obj)},
+    {MP_ROM_QSTR(MP_QSTR_file_readinto), MP_ROM_PTR(&waveshare_sd_file_readinto_obj)},
     {MP_ROM_QSTR(MP_QSTR_file_seek), MP_ROM_PTR(&waveshare_sd_file_seek_obj)},
     {MP_ROM_QSTR(MP_QSTR_file_write), MP_ROM_PTR(&waveshare_sd_file_write_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_file_size), MP_ROM_PTR(&waveshare_sd_get_file_size_obj)},
@@ -538,9 +584,9 @@ STATIC const mp_rom_map_elem_t waveshare_sd_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_is_initialized), MP_ROM_PTR(&waveshare_sd_is_initialized_obj)},
     {MP_ROM_QSTR(MP_QSTR_is_file), MP_ROM_PTR(&waveshare_sd_is_file_obj)},
     {MP_ROM_QSTR(MP_QSTR_mount), MP_ROM_PTR(&waveshare_sd_mount_obj)},
-    {MP_ROM_QSTR(MP_QSTR_open), MP_ROM_PTR(&waveshare_sd_open_obj)},
     {MP_ROM_QSTR(MP_QSTR_read), MP_ROM_PTR(&waveshare_sd_read_obj)},
     {MP_ROM_QSTR(MP_QSTR_read_directory), MP_ROM_PTR(&waveshare_sd_read_directory_obj)},
+    {MP_ROM_QSTR(MP_QSTR_readinto), MP_ROM_PTR(&waveshare_sd_readinto_obj)},
     {MP_ROM_QSTR(MP_QSTR_remove), MP_ROM_PTR(&waveshare_sd_remove_obj)},
     {MP_ROM_QSTR(MP_QSTR_rename), MP_ROM_PTR(&waveshare_sd_rename_obj)},
     {MP_ROM_QSTR(MP_QSTR_write), MP_ROM_PTR(&waveshare_sd_write_obj)},

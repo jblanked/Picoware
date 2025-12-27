@@ -31,7 +31,7 @@ extern const mp_obj_type_t waveshare_vfs_file_type;
 // VFS File Object
 // =============================================================================
 
-#define VFS_FILE_BUFFER_SIZE 2048
+#define VFS_FILE_BUFFER_SIZE 1024 * 16 // 16KB read buffer
 
 typedef struct _waveshare_vfs_file_obj_t
 {
@@ -293,6 +293,26 @@ STATIC mp_obj_t vfs_file_read_method(size_t n_args, const mp_obj_t *args)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(vfs_file_read_method_obj, 1, 2, vfs_file_read_method);
 
+STATIC mp_obj_t vfs_file_readinto(mp_obj_t self_in, mp_obj_t buf_in)
+{
+    picoware_vfs_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    file_ensure_open(self);
+
+    mp_buffer_info_t bufinfo;
+    mp_get_buffer_raise(buf_in, &bufinfo, MP_BUFFER_WRITE);
+
+    int errcode;
+    mp_uint_t bytes_read = vfs_file_read(self_in, bufinfo.buf, bufinfo.len, &errcode);
+
+    if (bytes_read == MP_STREAM_ERROR)
+    {
+        mp_raise_OSError(errcode);
+    }
+
+    return mp_obj_new_int(bytes_read);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(vfs_file_readinto_obj, vfs_file_readinto);
+
 STATIC mp_obj_t vfs_file_readline(size_t n_args, const mp_obj_t *args)
 {
     waveshare_vfs_file_obj_t *self = MP_OBJ_TO_PTR(args[0]);
@@ -481,6 +501,7 @@ STATIC mp_obj_t vfs_file_iternext(mp_obj_t self_in)
 
 STATIC const mp_rom_map_elem_t vfs_file_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_read), MP_ROM_PTR(&vfs_file_read_method_obj)},
+    {MP_ROM_QSTR(MP_QSTR_readinto), MP_ROM_PTR(&vfs_file_readinto_obj)},
     {MP_ROM_QSTR(MP_QSTR_readline), MP_ROM_PTR(&vfs_file_readline_obj)},
     {MP_ROM_QSTR(MP_QSTR_readlines), MP_ROM_PTR(&vfs_file_readlines_obj)},
     {MP_ROM_QSTR(MP_QSTR_write), MP_ROM_PTR(&vfs_file_write_method_obj)},

@@ -21,6 +21,7 @@
 #define BOARD_PICOCALC_PICO_2W 3
 #define BOARD_WAVESHARE_1_28_RP2350 4
 #define BOARD_WAVESHARE_1_43_RP2350 5
+#define BOARD_WAVESHARE_3_49_RP2350 6
 
 STATIC mp_obj_t picoware_boards_get_current_display_size(void)
 {
@@ -121,6 +122,9 @@ STATIC mp_obj_t picoware_boards_get_name(mp_obj_t board_id_obj)
     case BOARD_WAVESHARE_1_43_RP2350:
         snprintf(board_name, sizeof(board_name), "Waveshare 1.43");
         break;
+    case BOARD_WAVESHARE_3_49_RP2350:
+        snprintf(board_name, sizeof(board_name), "Waveshare 3.49");
+        break;
     default:
         snprintf(board_name, sizeof(board_name), "Unknown Board");
         break;
@@ -152,6 +156,10 @@ STATIC mp_obj_t picoware_boards_get_display_size(mp_obj_t board_id_obj)
     case BOARD_WAVESHARE_1_43_RP2350:
         width = 466;
         height = 466;
+        break;
+    case BOARD_WAVESHARE_3_49_RP2350:
+        width = 172;
+        height = 640;
         break;
     default:
         width = 0;
@@ -199,6 +207,7 @@ STATIC mp_obj_t picoware_boards_has_sd_card(mp_obj_t board_id_obj)
     case BOARD_PICOCALC_PICO_2:
     case BOARD_PICOCALC_PICO_2W:
     case BOARD_WAVESHARE_1_43_RP2350:
+    case BOARD_WAVESHARE_3_49_RP2350:
         has_sd_card = true;
         break;
     default:
@@ -219,6 +228,7 @@ STATIC mp_obj_t picoware_boards_has_touch(mp_obj_t board_id_obj)
     {
     case BOARD_WAVESHARE_1_28_RP2350:
     case BOARD_WAVESHARE_1_43_RP2350:
+    case BOARD_WAVESHARE_3_49_RP2350:
         has_touch = true;
         break;
     default:

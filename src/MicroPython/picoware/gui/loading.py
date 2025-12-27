@@ -1,4 +1,5 @@
 from micropython import const
+from utime import ticks_ms
 from math import cos, sin
 from picoware.system.vector import Vector
 
@@ -50,7 +51,7 @@ class Loading:
         """Animate the loading spinner."""
         if not self.animating:
             self.animating = True
-            self.time_start = self._monotonic()
+            self.time_start = ticks_ms()
 
         # Clear the screen
         self.display.fill_screen(self.background_color)
@@ -66,12 +67,12 @@ class Loading:
 
         # Draw spinner
         start_angle = self.spinner_position
+        rad = PI / 180.0
         for offset in range(0, self.span, self.step):
             angle = (start_angle + offset) % 360
             next_angle = (angle + self.step) % 360
 
             # Convert to radians and calculate positions
-            rad = PI / 180.0
             x1 = center_x + int(self.radius * cos(angle * rad))
             y1 = center_y + int(self.radius * sin(angle * rad))
             x2 = center_x + int(self.radius * cos(next_angle * rad))
@@ -97,11 +98,34 @@ class Loading:
             self.spinner_color,
         )
 
+        # draw time elapsed in seconds
+        time_str = ""
+        seconds = self.time_elapsed / 1000
+        if seconds < 60:
+            if seconds <= 1:
+                time_str = f"{int(seconds)} second"
+            else:
+                time_str = f"{int(seconds)} seconds"
+            self.text_vec.x = (
+                screen_size.x - len(time_str) * self.display.font_size.x
+            ) // 2
+            self.text_vec.y = screen_size.y - 15
+            self.display.text(self.text_vec, time_str, self.spinner_color)
+        else:
+            minutes = seconds / 60
+            remaining_seconds = seconds % 60
+            time_str = f"{int(minutes)}:{int(remaining_seconds):02} minutes"
+            self.text_vec.x = (
+                screen_size.x - len(time_str) * self.display.font_size.x
+            ) // 2
+            self.text_vec.y = screen_size.y - 15
+            self.display.text(self.text_vec, time_str, self.spinner_color)
+
         # Single swap
         if swap:
             self.display.swap()
 
-        self.time_elapsed = self._monotonic() - self.time_start
+        self.time_elapsed = ticks_ms() - self.time_start
         self.spinner_position = (self.spinner_position + 10) % 360
 
     def fade_color(self, color: int, opacity: int) -> int:
@@ -115,12 +139,6 @@ class Loading:
         b = ((color & 0x1F) * opacity) >> 8
 
         return (r << 11) | (g << 5) | b
-
-    def _monotonic(self) -> int:
-        """Get the current time in milliseconds as integer."""
-        from utime import ticks_ms
-
-        return int(ticks_ms())
 
     def set_text(self, text: str) -> None:
         """Set the loading text."""

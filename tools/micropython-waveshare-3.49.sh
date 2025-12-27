@@ -1,0 +1,55 @@
+#!/bin/sh
+# Script to build and install the MicroPython version of Picoware 
+echo "Building MicroPython Picoware firmware for Waveshare 3.49..."
+
+# set your locations
+micropython_dir="/Users/user/pico/micropython/ports/rp2"
+picoware_dir="/Users/user/Desktop/Picoware"
+
+echo "Using MicroPython directory: $micropython_dir"
+echo "Using Picoware directory: $picoware_dir"
+
+echo "Cleaning existing MicroPython Picoware modules..."
+
+# remove existing main.py and picoware folder if it exists
+rm -rf "$micropython_dir"/modules/main.py
+rm -rf "$micropython_dir"/modules/picoware
+
+# remove existing PicoCalc modules directory if it exists
+rm -rf "$micropython_dir"/modules/PicoCalc # delete entire PicoCalc directory
+
+# remove existing Waveshare modules directory if it exists
+rm -rf "$micropython_dir"/modules/Waveshare
+
+# Clean previous builds
+echo "Cleaning previous builds..."
+cd "$micropython_dir"
+rm -rf build-RPI_PICO2 
+
+echo "Installing new MicroPython Picoware modules..."
+
+# copy main.py and picoware folder if it exists
+cp "$picoware_dir"/src/MicroPython/main.py "$micropython_dir"/modules/main.py
+cp -r "$picoware_dir"/src/MicroPython/picoware "$micropython_dir"/modules/picoware
+
+# ensure Waveshare 3.49 modules directory exists
+mkdir -p "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-3.49
+
+# copy waveshare 3.49 modules file to micropython modules directory
+cp "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-3.49/waveshare_modules.cmake "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-3.49/waveshare_modules.cmake
+cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-3.49/picoware_boards "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-3.49/picoware_boards
+cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-3.49/picoware_game "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-3.49/picoware_game
+cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-3.49/waveshare_battery "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-3.49/waveshare_battery
+cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-3.49/waveshare_lcd "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-3.49/waveshare_lcd
+cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-3.49/waveshare_sd "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-3.49/waveshare_sd
+cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-3.49/waveshare_touch "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-3.49/waveshare_touch
+
+
+echo "Starting Waveshare 3.49 build process..."
+
+# Waveshare - 3.49 - Pico 2
+make BOARD=RPI_PICO2 USER_C_MODULES="$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-3.49/waveshare_modules.cmake
+cp "$micropython_dir"/build-RPI_PICO2/firmware.uf2 "$picoware_dir"/builds/MicroPython/Picoware-Waveshare-3.49.uf2
+echo "Waveshare - 3.49 - Pico 2 build complete."
+
+echo "MicroPython Picoware Waveshare 3.49 build completed successfully!"

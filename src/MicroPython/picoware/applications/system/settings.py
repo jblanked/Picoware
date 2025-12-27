@@ -1,5 +1,49 @@
-_dark_mode = None
-_toggle_index = 0
+from micropython import const
+from picoware.system.colors import TFT_BLACK, TFT_WHITE
+
+STATE_DARK_MODE = const(0)
+
+_toggle_list = None
+_view_manager = None
+
+
+def __callback(index: int, state: bool) -> None:
+    """Callback for when the toggle state changes."""
+
+    if index == STATE_DARK_MODE:
+        # Save the state to flash
+        __save_state("picoware/settings/dark_mode.json", "dark_mode", state)
+
+        if _toggle_list.current_state:
+            _view_manager.background_color = TFT_BLACK
+            _view_manager.foreground_color = TFT_WHITE
+        else:
+            _view_manager.background_color = TFT_WHITE
+            _view_manager.foreground_color = TFT_BLACK
+
+
+def __load_state(filename: str, key: str, default: bool = False) -> bool:
+    """Load the dark mode state from storage."""
+    data = _view_manager.storage.read(filename)
+    if data is not None:
+        try:
+            import ujson
+
+            obj = ujson.loads(data)
+            if key in obj:
+                return bool(obj[key])
+        except Exception:
+            pass
+    return default
+
+
+def __save_state(filename: str, key: str, state: bool) -> None:
+    """Save the dark mode state to storage."""
+    import ujson
+
+    obj = {key: state}
+    data = ujson.dumps(obj)
+    _view_manager.storage.write(filename, data)
 
 
 def start(view_manager) -> bool:
@@ -8,109 +52,56 @@ def start(view_manager) -> bool:
         print("Settings app requires an SD card")
         return False
 
-    from picoware.gui.toggle import Toggle
-    from picoware.system.vector import Vector
-    from picoware.system.storage import Storage
+    from picoware.gui.toggle_list import ToggleList
 
-    global _dark_mode
+    global _toggle_list, _storage, _view_manager
 
-    if _dark_mode is None:
-        _dark_mode = Toggle(
-            view_manager.draw,
-            Vector(10, 10),
-            Vector(300, 30),
-            "Dark Mode",
-            False,
-            view_manager.foreground_color,
-            view_manager.background_color,
-            view_manager.selected_color,
-            view_manager.foreground_color,
-            2,
-        )
+    _view_manager = view_manager
 
-        storage: Storage = view_manager.storage
+    if _toggle_list is not None:
+        del _toggle_list
+        _toggle_list = None
 
-        # create settings directory if it doesn't exist
-        storage.mkdir("picoware/settings")
+    _toggle_list = ToggleList(
+        view_manager,
+        view_manager.foreground_color,
+        view_manager.background_color,
+        view_manager.selected_color,
+        view_manager.foreground_color,
+        2,
+        __callback,
+    )
 
-        data = storage.read("picoware/settings/dark_mode.json")
+    _storage = view_manager.storage
 
-        if data is not None:
-            try:
-                import ujson
+    # create settings directory if it doesn't exist
+    _storage.mkdir("picoware/settings")
 
-                obj = ujson.loads(data)
-                if "dark_mode" in obj:
-                    _dark_mode.set_state(bool(obj["dark_mode"]))
-            except Exception:
-                pass
+    # get/add the saved dark mode state (set to True by default)
+    _toggle_list.add_toggle(
+        "Dark Mode",
+        __load_state("picoware/settings/dark_mode.json", "dark_mode", True),
+    )
 
     return True
 
 
 def run(view_manager) -> None:
     """Run the app"""
-    from picoware.system.colors import TFT_BLACK, TFT_WHITE
-    from picoware.system.buttons import (
-        BUTTON_UP,
-        BUTTON_DOWN,
-        BUTTON_LEFT,
-        BUTTON_CENTER,
-        BUTTON_BACK,
-    )
 
-    input_manager = view_manager.input_manager
-    button = input_manager.button
-
-    global _dark_mode, _toggle_index
-
-    if button == BUTTON_UP:
-        if _toggle_index > 0:
-            _toggle_index -= 1
-            input_manager.reset()
-    elif button == BUTTON_DOWN:
-        if _toggle_index < 1:
-            _toggle_index += 1
-            input_manager.reset()
-    elif button in (BUTTON_LEFT, BUTTON_BACK):
+    if not _toggle_list.run():
+        # user wants to exit the app
         view_manager.back()
-        input_manager.reset()
-    elif button == BUTTON_CENTER:
-        if _toggle_index == 0 and _dark_mode is not None:
-            if _dark_mode:
-                _dark_mode.toggle()
-
-                # Save the state to flash
-                import ujson
-
-                obj = {"dark_mode": _dark_mode.get_state()}
-                data = ujson.dumps(obj)
-                storage = view_manager.storage
-                storage.write("picoware/settings/dark_mode.json", data)
-
-                # Update the background color based on the toggle state
-                # we should probably move this to the ViewManager..
-                if _dark_mode.get_state():
-                    view_manager.background_color = TFT_BLACK
-                    view_manager.foreground_color = TFT_WHITE
-                else:
-                    view_manager.background_color = TFT_WHITE
-                    view_manager.foreground_color = TFT_BLACK
-
-        input_manager.reset()
-
-    if _dark_mode is not None:
-        _dark_mode.draw()
 
 
 def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global _dark_mode
+    global _toggle_list
 
-    if _dark_mode:
-        del _dark_mode
-        _dark_mode = None
+    if _toggle_list:
+        del _toggle_list
+        _toggle_list = None
 
     collect()

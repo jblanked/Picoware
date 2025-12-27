@@ -1,11 +1,14 @@
+from picoware.system.vector import Vector
+
+
 class Toggle:
     """A simple toggle switch for the GUI."""
 
     def __init__(
         self,
         draw,
-        position,
-        size,
+        position: Vector,
+        size: Vector,
         text: str,
         initial_state: bool = False,
         foreground_color: int = 0xFFFF,
@@ -13,6 +16,7 @@ class Toggle:
         on_color: int = 0x001F,
         border_color: int = 0xFFFF,
         border_width: int = 1,
+        should_clear: bool = True,
     ):
         """
         Initialize the Toggle switch with drawing context and styling.
@@ -36,15 +40,15 @@ class Toggle:
         self.display = draw
         self.position = position
         self.size = size
-        self.text = text
-        self.state = initial_state
+        self._text = text
+        self._state = initial_state
         self.foreground_color = foreground_color
         self.background_color = background_color
         self.on_color = on_color
         self.border_color = border_color
         self.border_width = border_width
-
-        self.clear()
+        if should_clear:
+            self.clear()
 
     def __del__(self):
         if self.position:
@@ -53,18 +57,42 @@ class Toggle:
         if self.size:
             del self.size
             self.size = None
-        self.text = ""
+        self._text = ""
+
+    @property
+    def state(self) -> bool:
+        """Get the current state of the toggle."""
+        return self._state
+
+    @state.setter
+    def state(self, new_state: bool) -> None:
+        """Set the toggle state and redraw."""
+        self._state = new_state
+        self.draw()
+
+    @property
+    def text(self) -> str:
+        """Get the current text of the toggle."""
+        return self._text
+
+    @text.setter
+    def text(self, new_text: str) -> None:
+        """Set the toggle text and redraw."""
+        self._text = new_text
+        self.draw()
 
     def clear(self) -> None:
         """Clear the toggle area with the background color."""
         self.display.clear(self.position, self.size, self.background_color)
         self.display.swap()
 
-    def draw(self) -> None:
+    def draw(
+        self, swap: bool = True, clear: bool = True, selected: bool = False
+    ) -> None:
         """Render the toggle switch on the display."""
-        from picoware.system.vector import Vector
 
-        self.display.clear(self.position, self.size, self.background_color)
+        if clear:
+            self.display.clear(self.position, self.size, self.background_color)
 
         display_size: Vector = self.display.size
 
@@ -84,10 +112,10 @@ class Toggle:
             )
 
             # Draw text on left side
-            text_width = len(self.text) * self.display.font_size.x
+            text_width = len(self._text) * self.display.font_size.x
             toggle_spacing = int(display_size.x * 0.078)
             text_x = center_x - text_width - toggle_spacing + horizontal_offset
-            self.display.text(Vector(text_x, text_y), self.text, self.foreground_color)
+            self.display.text(Vector(text_x, text_y), self._text, self.foreground_color)
 
             # Draw circular toggle on right side
             toggle_offset = int(display_size.x * 0.0625)
@@ -96,7 +124,7 @@ class Toggle:
             toggle_radius = int(display_size.x * 0.0375)
             knob_radius = toggle_radius // 2
 
-            if self.state:
+            if self._state:
                 # Toggle is ON - filled outer circle with knob on right
                 self.display.fill_circle(
                     Vector(toggle_center_x, toggle_center_y),
@@ -139,8 +167,8 @@ class Toggle:
             )
             self.display.text(
                 Vector(self.position.x + 5, self.position.y + self.size.y // 2 - 8),
-                self.text,
-                self.foreground_color,
+                self._text,
+                self.on_color if selected else self.foreground_color,
             )
 
             toggle_width = int(display_size.x * 0.09375)
@@ -149,7 +177,7 @@ class Toggle:
             toggle_y = self.position.y + (self.size.y - toggle_height) // 2
             knob_radius = 6
 
-            if self.state:
+            if self._state:
                 # Toggle is ON
                 self.display.fill_rectangle(
                     Vector(toggle_x, toggle_y),
@@ -177,17 +205,15 @@ class Toggle:
                     self.background_color,
                 )
 
-        self.display.swap()
-
-    def set_state(self, new_state: bool) -> None:
-        """Set the toggle state and redraw."""
-        self.state = new_state
-        self.draw()
+        if swap:
+            self.display.swap()
 
     def toggle(self) -> None:
         """Toggle the current state."""
-        self.set_state(not self.state)
+        self._state = not self._state
+        self.draw()
 
-    def get_state(self) -> bool:
-        """Get the current state of the toggle."""
-        return self.state
+    def update(self, text: str, state: bool) -> None:
+        """Update both text and state of the toggle."""
+        self._text = text
+        self._state = state

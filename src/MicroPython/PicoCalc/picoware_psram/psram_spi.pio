@@ -1,17 +1,17 @@
 ; rp2040-psram
-; 
+;
 ; Copyright © 2023 Ian Scott
-; 
+;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy of
 ; this software and associated documentation files (the “Software”), to deal in
 ; the Software without restriction, including without limitation the rights to
 ; use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
 ; of the Software, and to permit persons to whom the Software is furnished to do
 ; so, subject to the following conditions:
-; 
+;
 ; The above copyright notice and this permission notice shall be included in all
 ; copies or substantial portions of the Software.
-; 
+;
 ; THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 ; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 ; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -95,18 +95,19 @@ static inline void pio_spi_psram_cs_init(PIO pio, uint sm, uint prog_offs, uint 
 begin:
     out x, 8            side 0b01  ; x = number of nibbles to output. CS deasserted
     out y, 8            side 0b01  ; y = number of nibbles to input
-    jmp x--, writeloop  side 0b01  ; Pre-decement x by 1 so loop has correct number of iterations
+    jmp x--, writeloop  side 0b00  ; Pre-decement x by 1 so loop has correct number of iterations
 writeloop:
     out pins, 4         side 0b00  ; Write value on pins, lower clock. CS asserted
     jmp x--, writeloop  side 0b10  ; Raise clock: this is when PSRAM reads the value. Loop if we have more to write
     jmp !y, begin       side 0b00  ; If this is a write-only operation, jump back to beginning
-    set pindirs 0       side 0b10  ; Fudge factor of extra clock cycle; the PSRAM needs 1 extra for output to start appearing
-    nop    side 0b00  ; Jump to middle of readloop to decrement y and get right clock phase
+    set pindirs 0       side 0b10
+    ; jmp y--, readloop   side 0b00  ; Loop if we have more to read
+    jmp readloop_mid    side 0b00  ; Loop if we have more to read
 readloop:
-    in pins, 4          side 0b10  ; Read value on s, lower clock. Datasheet says to read on falling edge > 83MHz
+    in pins, 4          side 0b00  ; Read value on s, lower clock. Datasheet says to read on falling edge > 83MHz
 readloop_mid:
-    jmp y--, readloop   side 0b00  ; Raise clock. Loop if we have more to read
-    set pindirs 0xF     side 0b01
+    jmp y--, readloop   side 0b10  ; Loop if we have more to read
+    set pindirs 0xF     side 0b01  ;
 
 % c-sdk {
 #include "hardware/gpio.h"
@@ -122,14 +123,17 @@ static inline void pio_qspi_psram_cs_init(PIO pio, uint sm, uint prog_offs, uint
 
     pio_sm_set_consecutive_pindirs(pio, sm, pin_cs, 2, true);
     pio_sm_set_consecutive_pindirs(pio, sm, pin_sio0, 4, true);
-    pio_gpio_init(pio, pin_sio0);
+    pio_gpio_init(pio, pin_sio0 + 0);
     pio_gpio_init(pio, pin_sio0 + 1);
     pio_gpio_init(pio, pin_sio0 + 2);
     pio_gpio_init(pio, pin_sio0 + 3);
     pio_gpio_init(pio, pin_cs);
     pio_gpio_init(pio, pin_cs + 1);
 
-    hw_set_bits(&pio->input_sync_bypass, 0xfu << pin_sio0);
+    hw_set_bits(&pio->input_sync_bypass, 0x1u << (pin_sio0 + 0));
+    hw_set_bits(&pio->input_sync_bypass, 0x1u << (pin_sio0 + 1));
+    hw_set_bits(&pio->input_sync_bypass, 0x1u << (pin_sio0 + 2));
+    hw_set_bits(&pio->input_sync_bypass, 0x1u << (pin_sio0 + 3));
 
     pio_sm_init(pio, sm, prog_offs, &c);
     pio_sm_set_enabled(pio, sm, true);

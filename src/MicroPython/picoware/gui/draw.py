@@ -3,6 +3,7 @@ from picoware.system.vector import Vector
 from picoware.system.boards import (
     BOARD_WAVESHARE_1_28_RP2350,
     BOARD_WAVESHARE_1_43_RP2350,
+    BOARD_WAVESHARE_3_49_RP2350,
 )
 
 
@@ -18,31 +19,46 @@ class Draw:
         self._foreground = foreground
 
         self._size = Vector(0, 0)
+        self._font_size = Vector(0, 0)
         self.palette = None
 
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             self._size = Vector(240, 240)
 
-            from waveshare_lcd import init
+            from waveshare_lcd import init, get_font_size
 
             # Initialize native LCD extension
             init(True)
+            self._font_size.x, self._font_size.y = get_font_size()
 
         elif self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
             self._size = Vector(466, 466)
 
-            from waveshare_lcd import init
+            from waveshare_lcd import init, get_font_size
 
             # Initialize native LCD extension
             init()
+            self._font_size.x, self._font_size.y = get_font_size()
+
+        elif self._current_board_id == BOARD_WAVESHARE_3_49_RP2350:
+            self._size = Vector(172, 640)
+
+            from waveshare_lcd import init, get_font_size
+
+            # Initialize native LCD extension
+            init()
+            self._font_size.x, self._font_size.y = get_font_size()
 
         else:  # PicoCalc
             self._size = Vector(320, 320)
 
-            from picoware_lcd import init, clear_framebuffer
+            from picoware_lcd import init, clear_framebuffer, CHAR_WIDTH, FONT_HEIGHT
 
             # Initialize native LCD extension
             init(background)
+
+            self._font_size.x = CHAR_WIDTH
+            self._font_size.y = FONT_HEIGHT
 
             # Create RGB332 palette
             self.palette = self._create_rgb332_palette()
@@ -68,18 +84,7 @@ class Draw:
     @property
     def font_size(self) -> Vector:
         """Get the font size"""
-        if self._current_board_id in (
-            BOARD_WAVESHARE_1_28_RP2350,
-            BOARD_WAVESHARE_1_43_RP2350,
-        ):
-            from waveshare_lcd import get_font_size
-
-            width, height = get_font_size()
-            return Vector(width, height)
-
-        from picoware_lcd import CHAR_WIDTH, FONT_HEIGHT
-
-        return Vector(CHAR_WIDTH, FONT_HEIGHT)
+        return self._font_size
 
     @property
     def foreground(self) -> int:
@@ -96,7 +101,7 @@ class Draw:
         """Get the size of the display"""
         return self._size
 
-    def _create_rgb332_palette(self):
+    def _create_rgb332_palette(self) -> bytearray:
         """Create an RGB332 to RGB565 palette conversion table"""
         palette = bytearray(256 * 2)  # 256 colors × 2 bytes (RGB565)
         for i in range(256):
@@ -143,6 +148,7 @@ class Draw:
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
         ):
             from waveshare_lcd import draw_circle
 
@@ -198,6 +204,7 @@ class Draw:
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
         ):
             from waveshare_lcd import fill_circle
 
@@ -213,6 +220,7 @@ class Draw:
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
         ):
             from waveshare_lcd import fill_rect
 
@@ -319,6 +327,7 @@ class Draw:
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
         ):
             from waveshare_lcd import fill_screen
 
@@ -334,6 +343,7 @@ class Draw:
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
         ):
             from waveshare_lcd import fill_triangle
 
@@ -484,6 +494,7 @@ class Draw:
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
         ):
             from waveshare_lcd import blit
 
@@ -566,6 +577,7 @@ class Draw:
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
         ):
             from waveshare_lcd import draw_line
 
@@ -583,6 +595,7 @@ class Draw:
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
         ):
             from waveshare_lcd import draw_line
 
@@ -610,6 +623,7 @@ class Draw:
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
         ):
             from waveshare_lcd import draw_pixel
 
@@ -629,6 +643,7 @@ class Draw:
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
         ):
             from waveshare_lcd import draw_rect
 
@@ -659,6 +674,7 @@ class Draw:
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
         ):
             from waveshare_lcd import swap
 
@@ -674,6 +690,7 @@ class Draw:
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
         ):
             from waveshare_lcd import draw_text
 
@@ -689,6 +706,7 @@ class Draw:
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
         ):
             from waveshare_lcd import draw_char
 

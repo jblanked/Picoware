@@ -1,6 +1,7 @@
 from picoware.system.boards import (
     BOARD_WAVESHARE_1_28_RP2350,
     BOARD_WAVESHARE_1_43_RP2350,
+    BOARD_WAVESHARE_3_49_RP2350,
 )
 from picoware_sd import fat32_file
 
@@ -18,7 +19,10 @@ class Storage:
 
         self._current_board_id = get_current_id()
         self._vfs_mounted = False
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             from waveshare_sd import init
 
             init()
@@ -36,7 +40,10 @@ class Storage:
     @property
     def active(self) -> bool:
         """Returns True if the storage is active (mounted)."""
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             from waveshare_sd import is_initialized
 
             return is_initialized()
@@ -55,7 +62,10 @@ class Storage:
         """Deserialize a JSON object and write it to a file."""
         from json import dumps
 
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             from waveshare_sd import write
 
             try:
@@ -78,7 +88,10 @@ class Storage:
 
     def execute_script(self, file_path: str = "/") -> None:
         """Run a Python file from the storage."""
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             from waveshare_sd import read
 
             script_content = read(file_path, 0, 0).decode("utf-8")
@@ -96,7 +109,10 @@ class Storage:
 
     def exists(self, path: str) -> bool:
         """Check if a file or directory exists."""
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             from waveshare_sd import exists
 
             return exists(path)
@@ -110,7 +126,10 @@ class Storage:
 
     def file_close(self, file_obj: fat32_file) -> None:
         """Close the storage and release resources."""
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             from waveshare_sd import file_close
 
             file_close(file_obj)
@@ -123,7 +142,10 @@ class Storage:
 
     def file_open(self, file_path: str) -> fat32_file:
         """Open a file and return the file handle."""
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             from waveshare_sd import file_open
 
             return file_open(file_path)
@@ -139,7 +161,10 @@ class Storage:
         self, file_obj: fat32_file, index: int = 0, count: int = 0, decode: bool = True
     ):
         """Read from an open file."""
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             from waveshare_sd import file_read
 
             return (
@@ -160,7 +185,10 @@ class Storage:
 
     def file_readinto(self, file_obj: fat32_file, buffer: bytearray) -> int:
         """Read data from an open file into a pre-allocated buffer."""
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             from waveshare_sd import file_readinto
 
             return file_readinto(file_obj, buffer)
@@ -174,7 +202,10 @@ class Storage:
 
     def file_seek(self, file_obj: fat32_file, position: int) -> None:
         """Seek to a specific position in an open file."""
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             from waveshare_sd import file_seek
 
             file_seek(file_obj, position)
@@ -187,7 +218,10 @@ class Storage:
 
     def file_write(self, file_obj: fat32_file, data: str, mode: str = "w") -> bool:
         """Write data to an open file."""
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             from waveshare_sd import file_write
 
             try:
@@ -217,7 +251,10 @@ class Storage:
 
     def is_directory(self, path: str) -> bool:
         """Check if a path is a directory."""
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             from waveshare_sd import is_directory
 
             return is_directory(path)
@@ -240,7 +277,10 @@ class Storage:
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             return []  # Waveshare SD module does not support listdir yet
 
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             from waveshare_sd import read_directory
 
             return [item["filename"] for item in read_directory(path)]
@@ -252,7 +292,10 @@ class Storage:
     def mkdir(self, path: str = "/sd") -> bool:
         """Create a new directory."""
         try:
-            if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+            if self._current_board_id in (
+                BOARD_WAVESHARE_1_43_RP2350,
+                BOARD_WAVESHARE_3_49_RP2350,
+            ):
                 from waveshare_sd import create_directory
 
                 return create_directory(path)
@@ -268,7 +311,10 @@ class Storage:
 
     def mount(self) -> bool:
         """Mount the SD card."""
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             from waveshare_sd import mount
 
             try:
@@ -315,7 +361,10 @@ class Storage:
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             return False  # No SD storage on this board
 
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             try:
                 from waveshare_vfs import mount
 
@@ -357,7 +406,10 @@ class Storage:
         if not self._vfs_mounted:
             return True
 
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             try:
                 from waveshare_vfs import umount
 
@@ -384,7 +436,10 @@ class Storage:
 
     def read(self, file_path: str, mode: str = "r", index: int = 0, count: int = 0):
         """Read and return the contents of a file."""
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             from waveshare_sd import read
 
             try:
@@ -410,7 +465,10 @@ class Storage:
 
     def readinto(self, file_path: str, buffer: bytearray) -> int:
         """Read data from an open file into a pre-allocated buffer."""
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             from waveshare_sd import readinto
 
             return readinto(file_path, buffer)
@@ -433,7 +491,10 @@ class Storage:
         :param int chunk_size: Number of bytes to read from the start position
         :return bytes: The chunk of data read from the file
         """
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             from waveshare_sd import read
 
             try:
@@ -455,7 +516,10 @@ class Storage:
 
     def remove(self, file_path: str) -> bool:
         """Remove a file."""
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             from waveshare_sd import remove
 
             return remove(file_path)
@@ -468,7 +532,10 @@ class Storage:
 
     def rename(self, old_path: str, new_path: str) -> bool:
         """Rename a file or directory."""
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             from waveshare_sd import rename
 
             try:
@@ -488,7 +555,10 @@ class Storage:
 
     def rmdir(self, path: str) -> bool:
         """Remove a directory."""
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             from waveshare_sd import remove
 
             return remove(path)
@@ -502,7 +572,10 @@ class Storage:
         """Read a file and return its contents as a JSON object."""
         from json import loads
 
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             from waveshare_sd import read
 
             try:
@@ -526,7 +599,10 @@ class Storage:
 
     def size(self, file_path: str) -> int:
         """Get the size of a file in bytes."""
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             from waveshare_sd import get_file_size
 
             return get_file_size(file_path)
@@ -539,7 +615,10 @@ class Storage:
 
     def write(self, file_path: str, data: str, mode: str = "w") -> bool:
         """Write data to a file, creating or overwriting as needed."""
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             from waveshare_sd import write
 
             try:
@@ -573,7 +652,10 @@ class Storage:
         if self._vfs_mounted:
             self.unmount_vfs()
 
-        if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
             from waveshare_sd import unmount
 
             unmount()

@@ -25,8 +25,8 @@
 
 STATIC mp_obj_t picoware_boards_get_current_display_size(void)
 {
-    int width = 320;
-    int height = 320;
+    int width = 172;
+    int height = 640;
 
     mp_obj_t tuple[2];
     tuple[0] = mp_obj_new_int(width);
@@ -37,45 +37,14 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_0(picoware_boards_get_current_display_size_obj, p
 
 STATIC mp_obj_t picoware_boards_get_current_id(void)
 {
-#ifdef CYW43_WL_GPIO_LED_PIN
-#ifdef PICO_RP2040
-    // PicoCalc - Pico W
-    return mp_obj_new_int(BOARD_PICOCALC_PICOW);
-#else
-    // PicoCalc - Pico 2W
-    return mp_obj_new_int(BOARD_PICOCALC_PICO_2W);
-#endif
-#else
-#ifdef PICO_RP2040
-    // PicoCalc - Pico
-    return mp_obj_new_int(BOARD_PICOCALC_PICO);
-#else
-    // PicoCalc - Pico 2
-    return mp_obj_new_int(BOARD_PICOCALC_PICO_2);
-#endif
-#endif
+    return mp_obj_new_int(BOARD_WAVESHARE_1_43_RP2350);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(picoware_boards_get_current_id_obj, picoware_boards_get_current_id);
 
 STATIC mp_obj_t picoware_boards_get_current_name(void)
 {
-#ifdef CYW43_WL_GPIO_LED_PIN
-#ifdef PICO_RP2040
-    // PicoCalc - Pico W
-    return mp_obj_new_str("PicoCalc - Pico W", strlen("PicoCalc - Pico W"));
-#else
-    // PicoCalc - Pico 2W
-    return mp_obj_new_str("PicoCalc - Pico 2W", strlen("PicoCalc - Pico 2W"));
-#endif
-#else
-#ifdef PICO_RP2040
-    // PicoCalc - Pico
-    return mp_obj_new_str("PicoCalc - Pico", strlen("PicoCalc - Pico"));
-#else
-    // PicoCalc - Pico 2
-    return mp_obj_new_str("PicoCalc - Pico 2", strlen("PicoCalc - Pico 2"));
-#endif
-#endif
+    // Waveshare 3.49
+    return mp_obj_new_str("Waveshare 3.49", strlen("Waveshare 3.49"));
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(picoware_boards_get_current_name_obj, picoware_boards_get_current_name);
 
@@ -195,6 +164,27 @@ STATIC mp_obj_t picoware_boards_has_psram(mp_obj_t board_id_obj)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(picoware_boards_has_psram_obj, picoware_boards_has_psram);
 
+STATIC mp_obj_t picoware_boards_has_touch(mp_obj_t board_id_obj)
+{
+    int board_id = mp_obj_get_int(board_id_obj);
+    bool has_touch = false;
+
+    switch (board_id)
+    {
+    case BOARD_WAVESHARE_1_28_RP2350:
+    case BOARD_WAVESHARE_1_43_RP2350:
+    case BOARD_WAVESHARE_3_49_RP2350:
+        has_touch = true;
+        break;
+    default:
+        has_touch = false;
+        break;
+    }
+
+    return mp_obj_new_bool(has_touch);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(picoware_boards_has_touch_obj, picoware_boards_has_touch);
+
 STATIC mp_obj_t picoware_boards_has_sd_card(mp_obj_t board_id_obj)
 {
     int board_id = mp_obj_get_int(board_id_obj);
@@ -218,27 +208,6 @@ STATIC mp_obj_t picoware_boards_has_sd_card(mp_obj_t board_id_obj)
     return mp_obj_new_bool(has_sd_card);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(picoware_boards_has_sd_card_obj, picoware_boards_has_sd_card);
-
-STATIC mp_obj_t picoware_boards_has_touch(mp_obj_t board_id_obj)
-{
-    int board_id = mp_obj_get_int(board_id_obj);
-    bool has_touch = false;
-
-    switch (board_id)
-    {
-    case BOARD_WAVESHARE_1_28_RP2350:
-    case BOARD_WAVESHARE_1_43_RP2350:
-    case BOARD_WAVESHARE_3_49_RP2350:
-        has_touch = true;
-        break;
-    default:
-        has_touch = false;
-        break;
-    }
-
-    return mp_obj_new_bool(has_touch);
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(picoware_boards_has_touch_obj, picoware_boards_has_touch);
 
 STATIC mp_obj_t picoware_boards_has_wifi(mp_obj_t board_id_obj)
 {

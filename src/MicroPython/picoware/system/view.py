@@ -24,7 +24,7 @@ class View:
         sys.print_exception(exception, buf)
         traceback_str = buf.getvalue()
         print(traceback_str)
-        view_manager.alert(f"{traceback_str}")
+        view_manager.alert(f"{traceback_str}", False)
 
     def start(self, view_manager) -> bool:
         """Called when the view is created."""

@@ -245,7 +245,7 @@ class ViewManager:
         self._view_count += 1
         return True
 
-    def alert(self, message: str, back: bool = True) -> None:
+    def alert(self, message: str, back: bool = False) -> None:
         """Show an alert"""
 
         from picoware.gui.alert import Alert

@@ -1468,6 +1468,16 @@ STATIC mp_obj_t picoware_lcd_draw_image_bytearray(size_t n_args, const mp_obj_t 
         return mp_const_none;
     }
 
+    if (src_x == 0 && dst_x == 0 && copy_width == width &&
+        width == DISPLAY_WIDTH && !invert)
+    {
+        // direct memory copy for full-width rows without inversion
+        memcpy(&static_framebuffer[dst_y * DISPLAY_WIDTH],
+               &byte_data[src_y * width],
+               copy_height * width);
+        return mp_const_none;
+    }
+
     // Copy line by line
     for (int row = 0; row < copy_height; row++)
     {

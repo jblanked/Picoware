@@ -528,6 +528,38 @@ class Draw:
 
         self.image_bytearray(position, size, unpacked)
 
+    def image_bytearray_path(
+        self,
+        position: Vector,
+        size: Vector,
+        path: str,
+        storage=None,
+        seek=0,
+        chunk_size=0,
+        mount_vfs=True,
+    ):
+        """Draw an image from an 8-bit bytearray file stored on disk"""
+        try:
+            if storage and mount_vfs:
+                storage.mount_vfs()
+                if not path.startswith("sd") and not path.startswith("/sd"):
+                    path = "/sd/" + path.lstrip("/")
+
+            with open(path, "rb") as f:
+                if seek:
+                    f.seek(seek, 0)
+                if chunk_size:
+                    byte_data = f.read(chunk_size)
+                else:
+                    byte_data = f.read()
+                self.image_bytearray(position, size, byte_data)
+
+            if storage and mount_vfs:
+                storage.unmount_vfs()
+
+        except (OSError, ValueError) as e:
+            print(f"Error loading bytearray image: {e}")
+
     def line(self, position: Vector, size: Vector, color=None):
         """Draw horizontal line"""
         _color = color if color is not None else self._foreground

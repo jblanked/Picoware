@@ -30,7 +30,10 @@ class HTTP:
     @property
     def callback(self) -> callable:
         """Get the async callback function."""
-        return self._async_callback
+        _callback = None
+        with self._lock:
+            _callback = self._async_callback
+        return _callback
 
     @callback.setter
     def callback(self, value: callable):
@@ -42,37 +45,56 @@ class HTTP:
             - state: The current HTTP state (HTTP_IDLE, HTTP_LOADING, HTTP_ISSUE)
             - error: The error message if any, otherwise None
         """
-        self._async_callback = value
+        with self._lock:
+            self._async_callback = value
 
     @property
     def error(self):
         """Get the async error message, if any."""
-        return self._async_error
+        _error = None
+        with self._lock:
+            _error = self._async_error
+        return _error
 
     @property
     def in_progress(self) -> bool:
         """Check if the async request is in progress."""
-        return self._async_request_in_progress
+        _in_progress = False
+        with self._lock:
+            _in_progress = self._async_request_in_progress
+        return _in_progress
 
     @property
     def is_finished(self) -> bool:
         """Check if the async request is finished."""
-        return self._async_request_complete
+        _finished = False
+        with self._lock:
+            _finished = self._async_request_complete
+        return _finished
 
     @property
     def is_successful(self) -> bool:
         """Check if the async request was successful."""
-        return self._async_request_complete and self._async_error is None
+        _successful = False
+        with self._lock:
+            _successful = self._async_request_complete and self._async_error is None
+        return _successful
 
     @property
     def response(self):
         """Get the async Response object."""
-        return self._async_result
+        _result = None
+        with self._lock:
+            _result = self._async_result
+        return _result
 
     @property
     def state(self) -> int:
         """Get the current HTTP state."""
-        return self._state
+        _state = -1
+        with self._lock:
+            _state = self._state
+        return _state
 
     def close(self):
         """Close the async thread, clear the async response, reset state."""
@@ -278,7 +300,10 @@ class HTTP:
 
     def is_request_complete(self) -> bool:
         """Check if the async request is complete."""
-        return self._async_request_complete
+        _is_finished = False
+        with self._lock:
+            _is_finished = self._async_request_complete
+        return _is_finished
 
     def patch(
         self,

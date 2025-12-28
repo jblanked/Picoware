@@ -17,7 +17,7 @@ def start(view_manager) -> bool:
         _about.set_text(
             (
                 "Picoware\n"
-                "Version: 1.5.8\n"
+                "Version: 1.5.9\n"
                 "A custom firmware for the PicoCalc, Video Game Module, Waveshare Touch LCD, and other Raspberry Pi Pico devices, originally created by JBlanked on 2025-05-13.\n"
                 "This firmware was made with MicroPython and is open source on GitHub. Developers are welcome to contribute.\n"
                 "Picoware is a work in progress and is not yet complete. Some features may not work as expected. Picoware is not affiliated with ClockworkPI, the Raspberry Pi Foundation, or any other organization.\n"

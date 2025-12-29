@@ -61,6 +61,8 @@ def __loading_start(view_manager, text: str = "Fetching...") -> None:
 
     if not _loading:
         _loading = Loading(view_manager.draw)
+    else:
+        _loading.stop()
     _loading.set_text(text)
 
 
@@ -339,6 +341,7 @@ def run(view_manager) -> None:
             # Go back to app list from details
             _app_state = STATE_APP_LIST
             if _app_menu:
+                view_manager.draw.erase()
                 _app_menu.draw()
             return
 
@@ -352,6 +355,9 @@ def run(view_manager) -> None:
             if _loading:
                 _loading.animate()
             return
+
+        if _loading:
+            _loading.stop()
 
         # Parse the app list
         if __parse_app_list(view_manager):
@@ -411,6 +417,9 @@ def run(view_manager) -> None:
             if _loading:
                 _loading.animate()
             return
+
+        if _loading:
+            _loading.stop()
 
         # Parse app details
         if __parse_app_details(view_manager, _selected_app_id):

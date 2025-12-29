@@ -544,16 +544,28 @@ class Input:
                 # x: 150-300
                 # y: 430-466
 
-                if 430 <= x <= 466 and 150 <= y <= 350:
-                    self._last_button = buttons.BUTTON_RIGHT
-                elif 0 <= x <= 36 and 150 <= y <= 350:
-                    self._last_button = buttons.BUTTON_LEFT
-                elif 150 <= x <= 300 and 0 <= y <= 36:
-                    self._last_button = buttons.BUTTON_UP
-                elif 150 <= x <= 300 and 430 <= y <= 466:
-                    self._last_button = buttons.BUTTON_DOWN
-                else:
-                    self._last_button = buttons.BUTTON_CENTER
+                if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:  # 466x466
+                    if 430 <= x <= 466 and 150 <= y <= 350:
+                        self._last_button = buttons.BUTTON_RIGHT
+                    elif 0 <= x <= 36 and 150 <= y <= 350:
+                        self._last_button = buttons.BUTTON_LEFT
+                    elif 150 <= x <= 300 and 0 <= y <= 36:
+                        self._last_button = buttons.BUTTON_UP
+                    elif 150 <= x <= 300 and 430 <= y <= 466:
+                        self._last_button = buttons.BUTTON_DOWN
+                    else:
+                        self._last_button = buttons.BUTTON_CENTER
+                else:  # BOARD_WAVESHARE_3_49_RP2350 172x640
+                    if 140 <= x <= 172 and 200 <= y <= 440:
+                        self._last_button = buttons.BUTTON_RIGHT
+                    elif 0 <= x <= 32 and 200 <= y <= 440:
+                        self._last_button = buttons.BUTTON_LEFT
+                    elif 50 <= x <= 120 and 0 <= y <= 40:
+                        self._last_button = buttons.BUTTON_UP
+                    elif 50 <= x <= 120 and 600 <= y <= 640:
+                        self._last_button = buttons.BUTTON_DOWN
+                    else:
+                        self._last_button = buttons.BUTTON_CENTER
 
                 self._elapsed_time += 1
                 self._was_pressed = True

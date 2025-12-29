@@ -8,6 +8,8 @@ STATE_DOWNLOADING = const(4)
 STATE_DOWNLOADING_ALL = const(5)
 STATE_LOADING_NEXT_APP = const(6)
 
+MAX_ITEMS = const(100)
+
 _current_file_index: int = 0
 _http = None
 _loading = None
@@ -15,7 +17,6 @@ _files_to_download: list = []
 _app_menu = None
 _app_state: int = STATE_LOADING_LIST
 _current_list_index: int = 0
-_max_items: int = 20
 _apps_data: dict = None
 _selected_app_id: int = None
 _selected_app_details = None
@@ -75,7 +76,9 @@ def __fetch_app_list(view_manager) -> bool:
     storage = view_manager.storage
     storage.mkdir("picoware/cache")
 
-    url = f"https://www.jblanked.com/picoware/api/apps/{_max_items}/{_current_list_index}/"
+    url = (
+        f"https://www.jblanked.com/picoware/api/apps/{MAX_ITEMS}/{_current_list_index}/"
+    )
 
     return _http.get_async(
         url,

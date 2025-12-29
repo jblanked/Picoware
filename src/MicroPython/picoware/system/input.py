@@ -5,14 +5,14 @@ class Input:
 
     def __init__(self):
         """Initializes the Input class."""
-        from picoware_boards import get_current_id
+        from picoware_boards import BOARD_ID
         from picoware.system.boards import (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         )
 
-        self._current_board_id = get_current_id()
+        self._current_board_id = BOARD_ID
         self.pin = None
         self._last_point = (0, 0)
         self._last_gesture = 0  # 0 is TOUCH_GESTURE_NONE

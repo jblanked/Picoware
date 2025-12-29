@@ -1,9 +1,27 @@
-from picoware.system.boards import (
+from picoware_boards import (
+    BOARD_ID,
     BOARD_WAVESHARE_1_28_RP2350,
     BOARD_WAVESHARE_1_43_RP2350,
     BOARD_WAVESHARE_3_49_RP2350,
 )
-from picoware_sd import fat32_file
+
+if BOARD_ID in (BOARD_WAVESHARE_1_43_RP2350, BOARD_WAVESHARE_3_49_RP2350):
+    from waveshare_sd import fat32_file
+    from waveshare_vfs import mount as mount_vfs
+    from waveshare_vfs import umount as unmount_vfs
+    import waveshare_sd
+elif BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+    pass  # no sd card
+else:
+    from picoware_sd import fat32_file
+    from picoware_vfs import mount as mount_vfs
+    from picoware_vfs import umount as unmount_vfs
+    import picoware_sd
+
+# to do in an upcoming release:
+# instead of separate modules for waveshare and picoware sd,
+# we should make one picoware_sd and just use board definitions
+# same for vfs modules, picoware_game, and picoware_boards
 
 
 class Storage:
@@ -15,23 +33,16 @@ class Storage:
         """
         Initialize the storage class.
         """
-        from picoware_boards import get_current_id
-
-        self._current_board_id = get_current_id()
         self._vfs_mounted = False
-        if self._current_board_id in (
+        if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_sd import init
-
-            init()
-        elif self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+            waveshare_sd.init()
+        elif BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             pass  # No SD storage on this board
         else:
-            from picoware_sd import init
-
-            init()
+            picoware_sd.init()
 
     def __del__(self):
         """Destructor to ensure SD card is unmounted."""
@@ -40,18 +51,14 @@ class Storage:
     @property
     def active(self) -> bool:
         """Returns True if the storage is active (mounted)."""
-        if self._current_board_id in (
+        if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_sd import is_initialized
-
-            return is_initialized()
-        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+            return waveshare_sd.is_initialized()
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return False  # No SD storage on this board
-        from picoware_sd import is_initialized
-
-        return is_initialized()
+        return picoware_sd.is_initialized()
 
     @property
     def vfs_mounted(self) -> bool:
@@ -62,208 +69,171 @@ class Storage:
         """Deserialize a JSON object and write it to a file."""
         from json import dumps
 
-        if self._current_board_id in (
+        if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_sd import write
-
             try:
                 json_str = dumps(json_dict)
-                write(file_path, json_str.encode("utf-8"), True)
+                waveshare_sd.write(file_path, json_str.encode("utf-8"), True)
             except Exception as e:
                 print(f"Error writing JSON to file {file_path}: {e}")
             return
 
-        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return
-
-        from picoware_sd import write
 
         try:
             json_str = dumps(json_dict)
-            write(file_path, json_str.encode("utf-8"), True)
+            picoware_sd.write(file_path, json_str.encode("utf-8"), True)
         except Exception as e:
             print(f"Error writing JSON to file {file_path}: {e}")
 
     def execute_script(self, file_path: str = "/") -> None:
         """Run a Python file from the storage."""
-        if self._current_board_id in (
+        if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_sd import read
-
-            script_content = read(file_path, 0, 0).decode("utf-8")
+            script_content = waveshare_sd.read(file_path, 0, 0).decode("utf-8")
             code = compile(script_content, file_path, "exec")
             exec(code, globals())
             return
-        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return
 
-        from picoware_sd import read
-
-        script_content = read(file_path, 0, 0).decode("utf-8")
+        script_content = picoware_sd.read(file_path, 0, 0).decode("utf-8")
         code = compile(script_content, file_path, "exec")
         exec(code, globals())
 
     def exists(self, path: str) -> bool:
         """Check if a file or directory exists."""
-        if self._current_board_id in (
+        if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_sd import exists
+            return waveshare_sd.exists(path)
 
-            return exists(path)
-
-        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return False  # No SD storage on this board
 
-        from picoware_sd import exists
-
-        return exists(path)
+        return picoware_sd.exists(path)
 
     def file_close(self, file_obj: fat32_file) -> None:
         """Close the storage and release resources."""
-        if self._current_board_id in (
+        if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_sd import file_close
-
-            file_close(file_obj)
-        elif self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+            waveshare_sd.file_close(file_obj)
+        elif BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             pass  # No SD storage on this board
         else:
-            from picoware_sd import file_close
-
-            file_close(file_obj)
+            picoware_sd.file_close(file_obj)
 
     def file_open(self, file_path: str) -> fat32_file:
         """Open a file and return the file handle."""
-        if self._current_board_id in (
+        if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_sd import file_open
+            return waveshare_sd.file_open(file_path)
 
-            return file_open(file_path)
-
-        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return None  # No SD storage on this board
 
-        from picoware_sd import file_open
-
-        return file_open(file_path)
+        return picoware_sd.file_open(file_path)
 
     def file_read(
         self, file_obj: fat32_file, index: int = 0, count: int = 0, decode: bool = True
     ):
         """Read from an open file."""
-        if self._current_board_id in (
+        if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_sd import file_read
-
             return (
-                file_read(file_obj, index, count).decode("utf-8")
+                waveshare_sd.file_read(file_obj, index, count).decode("utf-8")
                 if decode
-                else file_read(file_obj, index, count)
+                else waveshare_sd.file_read(file_obj, index, count)
             )
-        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
-            return ""  # Waveshare SD module does not support file read yet
-
-        from picoware_sd import file_read
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+            return ""  # no SD storage on this board
 
         return (
-            file_read(file_obj, index, count).decode("utf-8")
+            picoware_sd.file_read(file_obj, index, count).decode("utf-8")
             if decode
-            else file_read(file_obj, index, count)
+            else picoware_sd.file_read(file_obj, index, count)
         )
 
     def file_readinto(self, file_obj: fat32_file, buffer: bytearray) -> int:
         """Read data from an open file into a pre-allocated buffer."""
-        if self._current_board_id in (
+        if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_sd import file_readinto
+            return waveshare_sd.file_readinto(file_obj, buffer)
 
-            return file_readinto(file_obj, buffer)
-
-        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return 0  # Waveshare SD module does not support file readinto yet
 
-        from picoware_sd import file_readinto
-
-        return file_readinto(file_obj, buffer)
+        return picoware_sd.file_readinto(file_obj, buffer)
 
     def file_seek(self, file_obj: fat32_file, position: int) -> None:
         """Seek to a specific position in an open file."""
-        if self._current_board_id in (
+        if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_sd import file_seek
-
-            file_seek(file_obj, position)
-        elif self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+            waveshare_sd.file_seek(file_obj, position)
+        elif BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             pass  # Waveshare SD module does not support file seek yet
         else:
-            from picoware_sd import file_seek
-
-            file_seek(file_obj, position)
+            picoware_sd.file_seek(file_obj, position)
 
     def file_write(self, file_obj: fat32_file, data: str, mode: str = "w") -> bool:
         """Write data to an open file."""
-        if self._current_board_id in (
+        if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_sd import file_write
-
             try:
                 if mode == "w":
-                    return file_write(file_obj, data.encode("utf-8"), True)
+                    return waveshare_sd.file_write(file_obj, data.encode("utf-8"), True)
                 if mode == "a":
-                    return file_write(file_obj, data.encode("utf-8"), False)
-                return file_write(file_obj, data, False)
+                    return waveshare_sd.file_write(
+                        file_obj, data.encode("utf-8"), False
+                    )
+                return waveshare_sd.file_write(file_obj, data, False)
             except Exception as e:
                 print(f"Error writing to file {file_obj}: {e}")
                 return False
 
-        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return False  # Waveshare SD module does not support file write yet
-
-        from picoware_sd import file_write
 
         try:
             if mode == "w":
-                return file_write(file_obj, data.encode("utf-8"), True)
+                return picoware_sd.file_write(file_obj, data.encode("utf-8"), True)
             if mode == "a":
-                return file_write(file_obj, data.encode("utf-8"), False)
-            return file_write(file_obj, data, False)
+                return picoware_sd.file_write(file_obj, data.encode("utf-8"), False)
+            return picoware_sd.file_write(file_obj, data, False)
         except Exception as e:
             print(f"Error writing to file {file_obj}: {e}")
             return False
 
     def is_directory(self, path: str) -> bool:
         """Check if a path is a directory."""
-        if self._current_board_id in (
+        if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_sd import is_directory
+            return waveshare_sd.is_directory(path)
 
-            return is_directory(path)
-        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return False  # No SD storage on this board
 
-        from picoware_sd import is_directory
-
-        return is_directory(path)
+        return picoware_sd.is_directory(path)
 
     def listdir(self, path: str = "/sd") -> list[str]:
         """List files in a directory.
@@ -274,60 +244,48 @@ class Storage:
         Returns:
             List of filenames in the directory
         """
-        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return []  # Waveshare SD module does not support listdir yet
 
-        if self._current_board_id in (
+        if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_sd import read_directory
+            return [item["filename"] for item in waveshare_sd.read_directory(path)]
 
-            return [item["filename"] for item in read_directory(path)]
-
-        from picoware_sd import read_directory
-
-        return [item["filename"] for item in read_directory(path)]
+        return [item["filename"] for item in picoware_sd.read_directory(path)]
 
     def mkdir(self, path: str = "/sd") -> bool:
         """Create a new directory."""
         try:
-            if self._current_board_id in (
+            if BOARD_ID in (
                 BOARD_WAVESHARE_1_43_RP2350,
                 BOARD_WAVESHARE_3_49_RP2350,
             ):
-                from waveshare_sd import create_directory
-
-                return create_directory(path)
-            if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+                return waveshare_sd.create_directory(path)
+            if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
                 return False  # No SD storage on this board
 
-            from picoware_sd import create_directory
-
-            return create_directory(path)
+            return picoware_sd.create_directory(path)
         except Exception as e:
             print(f"Error creating directory {path}: {e}")
             return False
 
     def mount(self) -> bool:
         """Mount the SD card."""
-        if self._current_board_id in (
+        if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_sd import mount
-
             try:
-                return mount()
+                return waveshare_sd.mount()
             except Exception as e:
                 print(f"Error mounting SD card: {e}")
                 return False
-        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return False  # No SD storage on this board
-        from picoware_sd import mount
-
         try:
-            return mount()
+            return picoware_sd.mount()
         except Exception as e:
             print(f"Error mounting SD card: {e}")
             return False
@@ -358,36 +316,16 @@ class Storage:
             sys.path.append("/sd/picoware/apps")
             import myapp  # imports /sd/picoware/apps/myapp.py
         """
-        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return False  # No SD storage on this board
 
-        if self._current_board_id in (
-            BOARD_WAVESHARE_1_43_RP2350,
-            BOARD_WAVESHARE_3_49_RP2350,
-        ):
-            try:
-                from waveshare_vfs import mount
-
-                result = mount(mount_point)
-                if result:
-                    self._vfs_mounted = True
-                return result
-            except ImportError:
-                print("waveshare_vfs module not available - VFS mount not supported")
-                return False
-            except Exception as e:
-                print(f"Error mounting VFS on Waveshare: {e}")
-                return False
-
         try:
-            from picoware_vfs import mount
-
-            result = mount(mount_point)
+            result = mount_vfs(mount_point)
             if result:
                 self._vfs_mounted = True
             return result
         except ImportError:
-            print("picoware_vfs module not available - VFS mount not supported")
+            print("module not available - VFS mount not supported")
             return False
         except Exception as e:
             print(f"Error mounting VFS: {e}")
@@ -406,26 +344,8 @@ class Storage:
         if not self._vfs_mounted:
             return True
 
-        if self._current_board_id in (
-            BOARD_WAVESHARE_1_43_RP2350,
-            BOARD_WAVESHARE_3_49_RP2350,
-        ):
-            try:
-                from waveshare_vfs import umount
-
-                umount(mount_point)
-                self._vfs_mounted = False
-                return True
-            except ImportError:
-                return False
-            except Exception as e:
-                print(f"Error unmounting VFS on Waveshare: {e}")
-                return False
-
         try:
-            from picoware_vfs import umount
-
-            umount(mount_point)
+            unmount_vfs(mount_point)
             self._vfs_mounted = False
             return True
         except ImportError:
@@ -436,49 +356,41 @@ class Storage:
 
     def read(self, file_path: str, mode: str = "r", index: int = 0, count: int = 0):
         """Read and return the contents of a file."""
-        if self._current_board_id in (
+        if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_sd import read
-
             try:
                 if mode == "r":
-                    return read(file_path, index, count).decode("utf-8")
-                return read(file_path, index, count)
+                    return waveshare_sd.read(file_path, index, count).decode("utf-8")
+                return waveshare_sd.read(file_path, index, count)
             except Exception as e:
                 print(f"Error reading file {file_path}: {e}")
                 return ""
 
-        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return ""  # No SD storage on this board
-
-        from picoware_sd import read
 
         try:
             if mode == "r":
-                return read(file_path, index, count).decode("utf-8")
-            return read(file_path, index, count)
+                return picoware_sd.read(file_path, index, count).decode("utf-8")
+            return picoware_sd.read(file_path, index, count)
         except Exception as e:
             print(f"Error reading file {file_path}: {e}")
             return ""
 
     def readinto(self, file_path: str, buffer: bytearray) -> int:
         """Read data from an open file into a pre-allocated buffer."""
-        if self._current_board_id in (
+        if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_sd import readinto
+            return waveshare_sd.readinto(file_path, buffer)
 
-            return readinto(file_path, buffer)
-
-        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return 0  # No SD storage on this board
 
-        from picoware_sd import readinto
-
-        return readinto(file_path, buffer)
+        return picoware_sd.readinto(file_path, buffer)
 
     def read_chunked(
         self, file_path: str, start: int = 0, chunk_size: int = 1024
@@ -491,107 +403,85 @@ class Storage:
         :param int chunk_size: Number of bytes to read from the start position
         :return bytes: The chunk of data read from the file
         """
-        if self._current_board_id in (
+        if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_sd import read
-
             try:
-                return read(file_path, start, chunk_size)  # returns bytes
+                return waveshare_sd.read(file_path, start, chunk_size)  # returns bytes
             except Exception as e:
                 print(f"Error reading chunk from file {file_path}: {e}")
                 return b""
 
-        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return b""  # No SD storage on this board
 
-        from picoware_sd import read
-
         try:
-            return read(file_path, start, chunk_size)  # returns bytes
+            return picoware_sd.read(file_path, start, chunk_size)  # returns bytes
         except Exception as e:
             print(f"Error reading chunk from file {file_path}: {e}")
             return b""
 
     def remove(self, file_path: str) -> bool:
         """Remove a file."""
-        if self._current_board_id in (
+        if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_sd import remove
-
-            return remove(file_path)
-        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+            return waveshare_sd.remove(file_path)
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return False  # No SD storage on this board
-
-        from picoware_sd import remove
-
-        return remove(file_path)
+        return picoware_sd.remove(file_path)
 
     def rename(self, old_path: str, new_path: str) -> bool:
         """Rename a file or directory."""
-        if self._current_board_id in (
+        if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_sd import rename
-
             try:
-                return rename(old_path, new_path)
+                return waveshare_sd.rename(old_path, new_path)
             except Exception as e:
                 print(f"Error renaming from {old_path} to {new_path}: {e}")
                 return False
-        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return False  # No SD storage on this board
-        from picoware_sd import rename
-
         try:
-            return rename(old_path, new_path)
+            return picoware_sd.rename(old_path, new_path)
         except Exception as e:
             print(f"Error renaming from {old_path} to {new_path}: {e}")
             return False
 
     def rmdir(self, path: str) -> bool:
         """Remove a directory."""
-        if self._current_board_id in (
+        if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_sd import remove
-
-            return remove(path)
-        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+            return waveshare_sd.remove(path)
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return False  # No SD storage on this board
-        from picoware_sd import remove
-
-        return remove(path)
+        return picoware_sd.remove(path)
 
     def serialize(self, file_path: str) -> dict:
         """Read a file and return its contents as a JSON object."""
         from json import loads
 
-        if self._current_board_id in (
+        if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_sd import read
-
             try:
-                file_content = read(file_path, 0, 0).decode("utf-8")
+                file_content = waveshare_sd.read(file_path, 0, 0).decode("utf-8")
                 return loads(file_content)
             except Exception as e:
                 print(f"Error deserializing file {file_path}: {e}")
                 return {}
 
-        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return {}  # No SD storage on this board
-
-        from picoware_sd import read
-
         try:
-            file_content = read(file_path, 0, 0).decode("utf-8")
+            file_content = picoware_sd.read(file_path, 0, 0).decode("utf-8")
             return loads(file_content)
         except Exception as e:
             print(f"Error deserializing file {file_path}: {e}")
@@ -599,49 +489,40 @@ class Storage:
 
     def size(self, file_path: str) -> int:
         """Get the size of a file in bytes."""
-        if self._current_board_id in (
+        if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_sd import get_file_size
-
-            return get_file_size(file_path)
-        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+            return waveshare_sd.get_file_size(file_path)
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return 0  # No SD storage on this board
-
-        from picoware_sd import get_file_size
-
-        return get_file_size(file_path)
+        return picoware_sd.get_file_size(file_path)
 
     def write(self, file_path: str, data: str, mode: str = "w") -> bool:
         """Write data to a file, creating or overwriting as needed."""
-        if self._current_board_id in (
+        if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_sd import write
-
             try:
                 if mode == "w":
-                    return write(file_path, data.encode("utf-8"), True)
+                    return waveshare_sd.write(file_path, data.encode("utf-8"), True)
                 if mode == "a":
-                    return write(file_path, data.encode("utf-8"), False)
-                return write(file_path, data, False)
+                    return waveshare_sd.write(file_path, data.encode("utf-8"), False)
+                return waveshare_sd.write(file_path, data, False)
             except Exception as e:
                 print(f"Error writing to file {file_path}: {e}")
                 return False
 
-        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return False  # No SD storage on this board
-
-        from picoware_sd import write
 
         try:
             if mode == "w":
-                return write(file_path, data.encode("utf-8"), True)
+                return picoware_sd.write(file_path, data.encode("utf-8"), True)
             if mode == "a":
-                return write(file_path, data.encode("utf-8"), False)
-            return write(file_path, data, False)
+                return picoware_sd.write(file_path, data.encode("utf-8"), False)
+            return picoware_sd.write(file_path, data, False)
         except Exception as e:
             print(f"Error writing to file {file_path}: {e}")
             return False
@@ -652,17 +533,13 @@ class Storage:
         if self._vfs_mounted:
             self.unmount_vfs()
 
-        if self._current_board_id in (
+        if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_sd import unmount
-
-            unmount()
+            waveshare_sd.unmount()
             return True
-        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return False  # No SD storage on this board
-        from picoware_sd import unmount
-
-        unmount()
+        picoware_sd.unmount()
         return True

@@ -11,9 +11,9 @@ class Draw:
     """Class for drawing shapes and text on the display"""
 
     def __init__(self, foreground: int = TFT_WHITE, background: int = TFT_BLACK):
-        from picoware_boards import get_current_id
+        from picoware_boards import BOARD_ID
 
-        self._current_board_id = get_current_id()
+        self._current_board_id = BOARD_ID
 
         self._background = background
         self._foreground = foreground

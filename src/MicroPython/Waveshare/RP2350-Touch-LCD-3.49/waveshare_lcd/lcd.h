@@ -10,6 +10,8 @@
 #define LCD_HEIGHT 640
 #define LCD_WIDTH 172
 
+extern uint8_t framebuffer[LCD_WIDTH * LCD_HEIGHT];
+
 #define LCD_CHUNK_LINES 8
 #define LCD_X_OFFSET 0
 

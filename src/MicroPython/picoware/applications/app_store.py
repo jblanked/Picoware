@@ -198,14 +198,15 @@ def __draw_app_details(view_manager) -> None:
 
     # Title at top
     title = _selected_app_details.title
-    draw.text(Vector(10, 5), f"App: {title[:35]}", fg)
+    version = _selected_app_details.version
+    draw.text(Vector(10, 5), f"{title[:35]} v{version}", fg)
 
     # Description section
     description = _selected_app_details.description
     y_pos = 30
 
     # Word wrap the description
-    max_chars = 45
+    max_chars = 100
     words = description.split()
     current_line = ""
 
@@ -232,7 +233,7 @@ def __draw_app_details(view_manager) -> None:
     file_count = len(file_structure)
 
     # Show first few files
-    for i, file_path in enumerate(file_structure[:5]):
+    for file_path in file_structure[:5]:
         if y_pos > 250:
             break
         # Shorten path if too long
@@ -246,7 +247,7 @@ def __draw_app_details(view_manager) -> None:
 
     # Instructions at bottom
     y_pos = 285
-    draw.text(Vector(10, y_pos), "CENTER=Install  LEFT=Back", fg)
+    draw.text(Vector(10, y_pos), "CENTER = Install", fg)
 
     draw.swap()
 

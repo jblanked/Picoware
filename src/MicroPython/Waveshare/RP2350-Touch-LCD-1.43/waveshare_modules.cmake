@@ -142,6 +142,7 @@ add_library(usermod_waveshare_sd INTERFACE)
 
 target_sources(usermod_waveshare_sd INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/waveshare_sd/waveshare_sd.c
+    ${CMAKE_CURRENT_LIST_DIR}/waveshare_sd/waveshare_vfs.c
     ${CMAKE_CURRENT_LIST_DIR}/waveshare_sd/sdcard.c
     ${CMAKE_CURRENT_LIST_DIR}/waveshare_sd/fat32.c
 )

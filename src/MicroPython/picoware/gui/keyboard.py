@@ -1,8 +1,83 @@
-from picoware.system.vector import Vector
+from picoware.system.buttons import (
+    BUTTON_UP,
+    BUTTON_DOWN,
+    BUTTON_LEFT,
+    BUTTON_RIGHT,
+    BUTTON_CENTER,
+    BUTTON_SPACE,
+    BUTTON_A,
+    BUTTON_B,
+    BUTTON_C,
+    BUTTON_D,
+    BUTTON_E,
+    BUTTON_F,
+    BUTTON_G,
+    BUTTON_H,
+    BUTTON_I,
+    BUTTON_J,
+    BUTTON_K,
+    BUTTON_L,
+    BUTTON_M,
+    BUTTON_N,
+    BUTTON_O,
+    BUTTON_P,
+    BUTTON_Q,
+    BUTTON_R,
+    BUTTON_S,
+    BUTTON_T,
+    BUTTON_U,
+    BUTTON_V,
+    BUTTON_W,
+    BUTTON_X,
+    BUTTON_Y,
+    BUTTON_Z,
+    BUTTON_0,
+    BUTTON_1,
+    BUTTON_2,
+    BUTTON_3,
+    BUTTON_4,
+    BUTTON_5,
+    BUTTON_6,
+    BUTTON_7,
+    BUTTON_8,
+    BUTTON_9,
+    BUTTON_PERIOD,
+    BUTTON_COMMA,
+    BUTTON_SEMICOLON,
+    BUTTON_MINUS,
+    BUTTON_EQUAL,
+    BUTTON_LEFT_BRACKET,
+    BUTTON_RIGHT_BRACKET,
+    BUTTON_SLASH,
+    BUTTON_BACKSLASH,
+    BUTTON_UNDERSCORE,
+    BUTTON_COLON,
+    BUTTON_SINGLE_QUOTE,
+    BUTTON_DOUBLE_QUOTE,
+    BUTTON_AT,
+    BUTTON_EXCLAMATION,
+    BUTTON_HASH,
+    BUTTON_DOLLAR,
+    BUTTON_PERCENT,
+    BUTTON_CARET,
+    BUTTON_AMPERSAND,
+    BUTTON_ASTERISK,
+    BUTTON_LEFT_PARENTHESIS,
+    BUTTON_RIGHT_PARENTHESIS,
+    BUTTON_QUESTION,
+    BUTTON_LESS_THAN,
+    BUTTON_GREATER_THAN,
+    BUTTON_BACKSPACE,
+    BUTTON_LEFT_BRACE,
+    BUTTON_RIGHT_BRACE,
+    BUTTON_PLUS,
+)
 
 
 # Define the keyboard layout structure
 class KeyLayout:
+    __slots__ = ("normal", "shifted", "width")
+
     def __init__(self, normal: str, shifted: str, width: int = 1):
         self.normal = normal
         self.shifted = shifted
@@ -112,6 +187,8 @@ class Keyboard:
             selected_color: Color for the selected key highlight.
             on_save_callback: Optional callback function to call when "Save" is pressed. (must accept one argument: the current response string)
         """
+        from picoware.system.vector import Vector
+
         self.draw = draw
         self.input_manager = input_manager
         self.text_color = text_color
@@ -122,6 +199,8 @@ class Keyboard:
         # Initialize cursor position to top-left key
         self.cursor_row = 0
         self.cursor_col = 0
+        self.text_cursor_x = 0
+        self.text_cursor_y = 0
 
         # Keyboard state
         self.is_shift_pressed = False
@@ -133,341 +212,32 @@ class Keyboard:
         self.is_save_pressed = False
         self.just_stopped = False
         self.current_title = "Enter Text"
+        self.is_in_textbox = False
+        self.text_cursor_position = 0
 
-    def __del__(self):
-        self.reset()
-        self.current_title = ""
+        self.max_chars_per_line = (self.draw.size.x - 10) // self.draw.font_size.x
+        self.max_lines = (self.TEXTBOX_HEIGHT - 10) // self.draw.font_size.y
 
-    @property
-    def callback(self) -> callable:
-        """Returns the current save callback function"""
-        return self.on_save_callback
+        self.keyboard_height = self.NUM_ROWS * (self.KEY_HEIGHT + self.KEY_SPACING) + 20
+        self.key_vec = Vector(0, 0)
+        self.size_vec = Vector(0, 0)
+        self.text_vec = Vector(5, 8)
+        self.cursor = Vector(0, 0)
 
-    @callback.setter
-    def callback(self, value: callable):
-        """Sets the current save callback function"""
-        self.on_save_callback = value
+        self.text_box_pos_vec = Vector(0, self.TEXTBOX_HEIGHT)
+        self.text_box_pos_size = Vector(self.draw.size.x, self.keyboard_height + 10)
 
-    @property
-    def is_finished(self) -> bool:
-        """Returns whether the keyboard is finished"""
-        return self.is_save_pressed
+        self.textbox_pos = Vector(0, 0)
+        self.textbox_size = Vector(self.draw.size.x, self.TEXTBOX_HEIGHT)
 
-    @property
-    def keyboard_width(self) -> int:
-        """Returns the keyboard width/width of the display"""
-        return self.draw.size.x
+        self.text_border_pos = Vector(2, 2)
+        self.text_border_size = Vector(self.draw.size.x - 4, self.TEXTBOX_HEIGHT - 4)
 
-    @property
-    def title(self) -> str:
-        """Returns the current title of the keyboard"""
-        return self.current_title
-
-    @title.setter
-    def title(self, value: str):
-        """Sets the current title of the keyboard"""
-        self.current_title = value
-
-    @property
-    def response(self) -> str:
-        """Returns the response string"""
-        return self._response
-
-    @response.setter
-    def response(self, value: str):
-        """Sets the response string"""
-        self._response = value
-
-    def get_response(self) -> str:
-        """Returns the response string"""
-        return self._response
-
-    def set_save_callback(self, callback: callable):
-        """Sets the save callback function"""
-        self.on_save_callback = callback
-
-    def set_response(self, text: str):
-        """Sets the response string"""
-        self._response = text
-
-    def reset(self):
-        """Resets the keyboard state"""
-        self.just_stopped = True
-        self.cursor_row = 0
-        self.cursor_col = 0
-        self.is_shift_pressed = False
-        self.is_caps_lock_on = False
-        self._response = ""
-        self.on_save_callback = None
-        self.is_save_pressed = False
-        self.current_title = "Enter Text"
-
-    def _draw_key(
-        self, row: int, col: int, is_selected: bool, key_vec: Vector, size_vec: Vector
-    ):
-        """Draws a specific key on the keyboard"""
-        if row >= self.NUM_ROWS or col >= self.ROW_SIZES[row]:
-            return
-
-        key = self.ROWS[row][col]
-
-        # Calculate total row width for centering
-        total_row_width = 0
-        for i in range(self.ROW_SIZES[row]):
-            total_row_width += self.ROWS[row][i].width * self.KEY_WIDTH + (
-                self.KEY_SPACING if i > 0 else 0
-            )
-
-        # Calculate starting X position for centering
-        start_x = (self.draw.size.x - total_row_width) // 2
-
-        # Calculate key position
-        x_pos = start_x
-        for i in range(col):
-            x_pos += self.ROWS[row][i].width * self.KEY_WIDTH + self.KEY_SPACING
-        y_pos = self.TEXTBOX_HEIGHT + 20 + row * (self.KEY_HEIGHT + self.KEY_SPACING)
-
-        # Calculate key size
-        width = key.width * self.KEY_WIDTH + (key.width - 1) * self.KEY_SPACING
-        size_vec.x = width
-        size_vec.y = self.KEY_HEIGHT
-
-        # Draw key background
-        bg_color = self.selected_color if is_selected else self.background_color
-        key_vec.x = x_pos
-        key_vec.y = y_pos
-        self.draw.fill_rectangle(key_vec, size_vec, bg_color)
-
-        # Draw key border
-        self.draw.rect(key_vec, size_vec, self.text_color)
-
-        # Determine what character to display
-        display_char = key.normal
-        should_capitalize = False
-
-        if "a" <= key.normal <= "z":
-            should_capitalize = (
-                self.is_shift_pressed and not self.is_caps_lock_on
-            ) or (not self.is_shift_pressed and self.is_caps_lock_on)
-            display_char = key.shifted if should_capitalize else key.normal
-        elif self.is_shift_pressed and key.normal != key.shifted:
-            display_char = key.shifted
-
-        # Draw key label
-        key_label = ""
-        if key.normal == "\b":
-            key_label = "DEL"
-        elif key.normal == "\x01":
-            key_label = "CAPS*" if self.is_caps_lock_on else "CAPS"
-        elif key.normal == "\x02":
-            key_label = "SHFT*" if self.is_shift_pressed else "SHFT"
-        elif key.normal == "\r":
-            key_label = "ENT"
-        elif key.normal == " ":
-            key_label = "SPACE"
-        elif key.normal == "\x03":
-            key_label = "SAVE"
-        elif key.normal == "?" and row == 1 and col == 12:
-            key_label = "CLR"  # Clear function
-        else:
-            key_label = display_char
-
-        # Center the text
-        key_vec.x = x_pos + width // 2 - len(key_label) * 3
-        key_vec.y = y_pos + self.KEY_HEIGHT // 2 - 4
-        self.draw.text(key_vec, key_label, self.text_color)
-
-    def _draw_keyboard(self):
-        """Draws the entire keyboard"""
-        # Clear keyboard area
-        keyboard_height = self.NUM_ROWS * (self.KEY_HEIGHT + self.KEY_SPACING) + 20
-        self.draw.fill_rectangle(
-            Vector(0, self.TEXTBOX_HEIGHT),
-            Vector(self.draw.size.x, keyboard_height + 10),
-            self.background_color,
+        self.title_vec = Vector(
+            self.draw.size.x // 2 - len(self.current_title) * 3, self.TEXTBOX_HEIGHT + 5
         )
 
-        # Draw all keys
-        key_vec = Vector(0, 0)
-        size_vec = Vector(0, 0)
-        for row in range(self.NUM_ROWS):
-            for col in range(self.ROW_SIZES[row]):
-                is_selected = row == self.cursor_row and col == self.cursor_col
-                self._draw_key(row, col, is_selected, key_vec, size_vec)
-
-        # Draw title
-        title_x = self.draw.size.x // 2 - len(self.current_title) * 3
-        self.draw.text(
-            Vector(title_x, self.TEXTBOX_HEIGHT + 5),
-            self.current_title,
-            self.text_color,
-        )
-
-    def _draw_textbox(self):
-        """Draws the text box that displays the current saved response"""
-        # Clear textbox area
-        self.draw.fill_rectangle(
-            Vector(0, 0),
-            Vector(self.draw.size.x, self.TEXTBOX_HEIGHT),
-            self.background_color,
-        )
-
-        # Draw textbox border
-        self.draw.rect(
-            Vector(2, 2),
-            Vector(self.draw.size.x - 4, self.TEXTBOX_HEIGHT - 4),
-            self.text_color,
-        )
-
-        # Draw response text with word wrapping
-        display_text = self._response
-        max_chars_per_line = (self.draw.size.x - 10) // 6  # Approximate character width
-        max_lines = (self.TEXTBOX_HEIGHT - 10) // 10  # Approximate line height
-
-        # Split text into lines if needed
-        lines = []
-        current_line = ""
-
-        for char in display_text:
-            if char == "\n":
-                lines.append(current_line)
-                current_line = ""
-            elif len(current_line) >= max_chars_per_line:
-                lines.append(current_line)
-                current_line = char
-            else:
-                current_line += char
-
-        if current_line:
-            lines.append(current_line)
-
-        # Show only the last few lines that fit
-        start_line = max(0, len(lines) - max_lines)
-
-        text_vec = Vector(5, 8)
-        for i in range(start_line, len(lines)):
-            text_vec.y = 8 + (i - start_line) * 10
-            self.draw.text(text_vec, lines[i], self.text_color)
-
-        # Draw cursor
-        last_line = lines[-1] if lines else ""
-        cursor_x = 5 + len(last_line) * 6
-        cursor_y = 8 + (min(len(lines), max_lines) - 1) * 10 if lines else 8
-
-        self.draw.text(Vector(cursor_x, cursor_y), "_", self.text_color)
-
-    def _handle_input(self):
-        """Handles directional input and key selection"""
-        from picoware.system.buttons import (
-            BUTTON_UP,
-            BUTTON_DOWN,
-            BUTTON_LEFT,
-            BUTTON_RIGHT,
-            BUTTON_CENTER,
-            BUTTON_SPACE,
-            BUTTON_A,
-            BUTTON_B,
-            BUTTON_C,
-            BUTTON_D,
-            BUTTON_E,
-            BUTTON_F,
-            BUTTON_G,
-            BUTTON_H,
-            BUTTON_I,
-            BUTTON_J,
-            BUTTON_K,
-            BUTTON_L,
-            BUTTON_M,
-            BUTTON_N,
-            BUTTON_O,
-            BUTTON_P,
-            BUTTON_Q,
-            BUTTON_R,
-            BUTTON_S,
-            BUTTON_T,
-            BUTTON_U,
-            BUTTON_V,
-            BUTTON_W,
-            BUTTON_X,
-            BUTTON_Y,
-            BUTTON_Z,
-            BUTTON_0,
-            BUTTON_1,
-            BUTTON_2,
-            BUTTON_3,
-            BUTTON_4,
-            BUTTON_5,
-            BUTTON_6,
-            BUTTON_7,
-            BUTTON_8,
-            BUTTON_9,
-            BUTTON_PERIOD,
-            BUTTON_COMMA,
-            BUTTON_SEMICOLON,
-            BUTTON_MINUS,
-            BUTTON_EQUAL,
-            BUTTON_LEFT_BRACKET,
-            BUTTON_RIGHT_BRACKET,
-            BUTTON_SLASH,
-            BUTTON_BACKSLASH,
-            BUTTON_UNDERSCORE,
-            BUTTON_COLON,
-            BUTTON_SINGLE_QUOTE,
-            BUTTON_DOUBLE_QUOTE,
-            BUTTON_AT,
-            BUTTON_EXCLAMATION,
-            BUTTON_HASH,
-            BUTTON_DOLLAR,
-            BUTTON_PERCENT,
-            BUTTON_CARET,
-            BUTTON_AMPERSAND,
-            BUTTON_ASTERISK,
-            BUTTON_LEFT_PARENTHESIS,
-            BUTTON_RIGHT_PARENTHESIS,
-            BUTTON_QUESTION,
-            BUTTON_LESS_THAN,
-            BUTTON_GREATER_THAN,
-            BUTTON_BACKSPACE,
-            BUTTON_LEFT_BRACE,
-            BUTTON_RIGHT_BRACE,
-            BUTTON_PLUS,
-        )
-
-        # Handle directional navigation and direct key access
-        if self.dpad_input == BUTTON_SPACE:
-            self._set_cursor_position(4, 0)
-            self._process_key_press()
-        elif self.dpad_input == BUTTON_UP:
-            if self.cursor_row > 0:
-                self.cursor_row -= 1
-                if self.cursor_col >= self.ROW_SIZES[self.cursor_row]:
-                    self.cursor_col = self.ROW_SIZES[self.cursor_row] - 1
-        elif self.dpad_input == BUTTON_DOWN:
-            if self.cursor_row < self.NUM_ROWS - 1:
-                self.cursor_row += 1
-                if self.cursor_col >= self.ROW_SIZES[self.cursor_row]:
-                    self.cursor_col = self.ROW_SIZES[self.cursor_row] - 1
-        elif self.dpad_input == BUTTON_LEFT:
-            if self.cursor_col > 0:
-                self.cursor_col -= 1
-            elif self.cursor_row > 0:
-                # Wrap to end of previous row
-                self.cursor_row -= 1
-                self.cursor_col = self.ROW_SIZES[self.cursor_row] - 1
-        elif self.dpad_input == BUTTON_RIGHT:
-            if self.cursor_col < self.ROW_SIZES[self.cursor_row] - 1:
-                self.cursor_col += 1
-            elif self.cursor_row < self.NUM_ROWS - 1:
-                # Wrap to start of next row
-                self.cursor_row += 1
-                self.cursor_col = 0
-        elif self.dpad_input == BUTTON_CENTER:
-            self._process_key_press()
-
-            if self.ROWS[self.cursor_row][self.cursor_col].normal == "\x02":
-                self.is_manual_shift = True
-
-        manual_keys = {
+        self.manual_keys = {
             BUTTON_PERIOD: ".",
             BUTTON_COMMA: ",",
             BUTTON_SEMICOLON: ";",
@@ -498,12 +268,8 @@ class Keyboard:
             BUTTON_RIGHT_BRACE: "}",
             BUTTON_PLUS: "+",
         }
-        if self.dpad_input in manual_keys:
-            self._response += manual_keys[self.dpad_input]
-            return
 
-        # Handle direct key presses
-        key_mappings = {
+        self.key_mappings = {
             BUTTON_1: (0, 0),
             BUTTON_2: (0, 1),
             BUTTON_3: (0, 2),
@@ -543,20 +309,351 @@ class Keyboard:
             BUTTON_BACKSPACE: (0, 12),
         }
 
-        if self.dpad_input in key_mappings:
-            row, col = key_mappings[self.dpad_input]
+    def __del__(self):
+        self.reset()
+        self.current_title = ""
+        self.key_vec = None
+        self.size_vec = None
+        self.text_vec = None
+        self.cursor = None
+        self.text_box_pos_vec = None
+        self.text_box_pos_size = None
+        self.textbox_pos = None
+        self.textbox_size = None
+        self.text_border_pos = None
+        self.text_border_size = None
+        self.title_vec = None
+        self.manual_keys = {}
+        self.key_mappings = {}
+
+    @property
+    def callback(self) -> callable:
+        """Returns the current save callback function"""
+        return self.on_save_callback
+
+    @callback.setter
+    def callback(self, value: callable):
+        """Sets the current save callback function"""
+        self.on_save_callback = value
+
+    @property
+    def is_finished(self) -> bool:
+        """Returns whether the keyboard is finished"""
+        return self.is_save_pressed
+
+    @property
+    def keyboard_width(self) -> int:
+        """Returns the keyboard width/width of the display"""
+        return self.draw.size.x
+
+    @property
+    def title(self) -> str:
+        """Returns the current title of the keyboard"""
+        return self.current_title
+
+    @title.setter
+    def title(self, value: str):
+        """Sets the current title of the keyboard"""
+        from picoware.system.vector import Vector
+
+        self.current_title = value
+        self.title_vec = Vector(
+            self.draw.size.x // 2 - len(value) * 3, self.TEXTBOX_HEIGHT + 5
+        )
+
+    @property
+    def response(self) -> str:
+        """Returns the response string"""
+        return self._response
+
+    @response.setter
+    def response(self, value: str):
+        """Sets the response string"""
+        self._response = value
+        self.text_cursor_position = len(value)
+
+    def get_response(self) -> str:
+        """Returns the response string"""
+        return self._response
+
+    def set_save_callback(self, callback: callable):
+        """Sets the save callback function"""
+        self.on_save_callback = callback
+
+    def set_response(self, text: str):
+        """Sets the response string"""
+        self._response = text
+        self.text_cursor_position = len(text)
+
+    def reset(self):
+        """Resets the keyboard state"""
+        self.just_stopped = True
+        self.cursor_row = 0
+        self.cursor_col = 0
+        self.is_shift_pressed = False
+        self.is_caps_lock_on = False
+        self._response = ""
+        self.on_save_callback = None
+        self.is_save_pressed = False
+        self.current_title = "Enter Text"
+        self.is_in_textbox = False
+        self.text_cursor_position = 0
+
+    def _draw_key(self, row: int, col: int, is_selected: bool):
+        """Draws a specific key on the keyboard"""
+        if row >= self.NUM_ROWS or col >= self.ROW_SIZES[row]:
+            return
+
+        key = self.ROWS[row][col]
+
+        # Calculate total row width for centering
+        total_row_width = 0
+        for i in range(self.ROW_SIZES[row]):
+            total_row_width += self.ROWS[row][i].width * self.KEY_WIDTH + (
+                self.KEY_SPACING if i > 0 else 0
+            )
+
+        # Calculate starting X position for centering
+        start_x = (self.draw.size.x - total_row_width) // 2
+
+        # Calculate key position
+        x_pos = start_x
+        for i in range(col):
+            x_pos += self.ROWS[row][i].width * self.KEY_WIDTH + self.KEY_SPACING
+        y_pos = self.TEXTBOX_HEIGHT + 20 + row * (self.KEY_HEIGHT + self.KEY_SPACING)
+
+        # Calculate key size
+        width = key.width * self.KEY_WIDTH + (key.width - 1) * self.KEY_SPACING
+        self.size_vec.x = width
+        self.size_vec.y = self.KEY_HEIGHT
+
+        # Draw key background
+        bg_color = self.selected_color if is_selected else self.background_color
+        self.key_vec.x = x_pos
+        self.key_vec.y = y_pos
+        self.draw.fill_rectangle(self.key_vec, self.size_vec, bg_color)
+
+        # Draw key border
+        self.draw.rect(self.key_vec, self.size_vec, self.text_color)
+
+        # Determine what character to display
+        display_char = key.normal
+        should_capitalize = False
+
+        if "a" <= key.normal <= "z":
+            should_capitalize = (
+                self.is_shift_pressed and not self.is_caps_lock_on
+            ) or (not self.is_shift_pressed and self.is_caps_lock_on)
+            display_char = key.shifted if should_capitalize else key.normal
+        elif self.is_shift_pressed and key.normal != key.shifted:
+            display_char = key.shifted
+
+        # Draw key label
+        key_label = ""
+        if key.normal == "\b":
+            key_label = "DEL"
+        elif key.normal == "\x01":
+            key_label = "CAPS*" if self.is_caps_lock_on else "CAPS"
+        elif key.normal == "\x02":
+            key_label = "SHFT*" if self.is_shift_pressed else "SHFT"
+        elif key.normal == "\r":
+            key_label = "ENT"
+        elif key.normal == " ":
+            key_label = "SPACE"
+        elif key.normal == "\x03":
+            key_label = "SAVE"
+        elif key.normal == "?" and row == 1 and col == 12:
+            key_label = "CLR"  # Clear function
+        else:
+            key_label = display_char
+
+        # Center the text
+        self.key_vec.x = x_pos + width // 2 - len(key_label) * 3
+        self.key_vec.y = y_pos + self.KEY_HEIGHT // 2 - 4
+        self.draw.text(self.key_vec, key_label, self.text_color)
+
+    def _draw_keyboard(self):
+        """Draws the entire keyboard"""
+        # Clear keyboard area
+        self.draw.fill_rectangle(
+            self.text_box_pos_vec,
+            self.text_box_pos_size,
+            self.background_color,
+        )
+
+        # Draw all keys
+        for row in range(self.NUM_ROWS):
+            for col in range(self.ROW_SIZES[row]):
+                is_selected = row == self.cursor_row and col == self.cursor_col
+                self._draw_key(row, col, is_selected)
+
+        # Draw title
+        self.draw.text(
+            self.title_vec,
+            self.current_title,
+            self.text_color,
+        )
+
+    def _draw_textbox(self):
+        """Draws the text box that displays the current saved response"""
+        # Clear textbox area
+        self.draw.fill_rectangle(
+            self.textbox_pos,
+            self.textbox_size,
+            self.background_color,
+        )
+
+        # Draw textbox border (highlight if in textbox mode)
+        border_color = self.selected_color if self.is_in_textbox else self.text_color
+        self.draw.rect(
+            self.text_border_pos,
+            self.text_border_size,
+            border_color,
+        )
+
+        # Split text into lines if needed
+        lines = []
+        line_positions = []  # Track character positions for each line
+        current_line = ""
+        char_pos = 0
+
+        for char in self._response:
+            if char == "\n":
+                lines.append(current_line)
+                line_positions.append(char_pos - len(current_line))
+                current_line = ""
+            elif len(current_line) >= self.max_chars_per_line:
+                lines.append(current_line)
+                line_positions.append(char_pos - len(current_line))
+                current_line = char
+            else:
+                current_line += char
+            char_pos += 1
+
+        if current_line or not lines:
+            lines.append(current_line)
+            line_positions.append(char_pos - len(current_line))
+
+        # Show only the last few lines that fit
+        start_line = max(0, len(lines) - self.max_lines)
+
+        for i in range(start_line, len(lines)):
+            self.text_vec.y = 8 + (i - start_line) * 10
+            self.draw.text(self.text_vec, lines[i], self.text_color)
+
+        # Draw cursor at the current position
+        # Find which line and column the cursor is on
+        cursor_line = 0
+        cursor_col = self.text_cursor_position
+
+        for i, line_start_pos in enumerate(line_positions):
+            if self.text_cursor_position >= line_start_pos:
+                cursor_line = i
+                cursor_col = self.text_cursor_position - line_start_pos
+            else:
+                break
+
+        # Only draw cursor if the line is visible
+        if cursor_line >= start_line:
+            display_line = cursor_line - start_line
+            self.cursor.x = 5 + cursor_col * 6
+            self.cursor.y = 8 + display_line * 10
+            self.draw.text(self.cursor, "_", self.text_color)
+
+    def _handle_input(self):
+        """Handles directional input and key selection"""
+        # Handle directional navigation and direct key access
+        if self.is_in_textbox:
+            # Textbox mode navigation
+            if self.dpad_input == BUTTON_LEFT:
+                if self.text_cursor_position > 0:
+                    self.text_cursor_position -= 1
+            elif self.dpad_input == BUTTON_RIGHT:
+                if self.text_cursor_position < len(self._response):
+                    self.text_cursor_position += 1
+            elif self.dpad_input == BUTTON_DOWN:
+                # Exit textbox mode and return to keyboard
+                self.is_in_textbox = False
+            elif self.dpad_input == BUTTON_SPACE:
+                # Insert space at cursor position
+                self._response = (
+                    self._response[: self.text_cursor_position]
+                    + " "
+                    + self._response[self.text_cursor_position :]
+                )
+                self.text_cursor_position += 1
+                return
+            elif self.dpad_input == BUTTON_BACKSPACE:
+                # Handle backspace in textbox mode
+                if (
+                    self.dpad_input == BUTTON_BACKSPACE
+                    and self.text_cursor_position > 0
+                ):
+                    self._response = (
+                        self._response[: self.text_cursor_position - 1]
+                        + self._response[self.text_cursor_position :]
+                    )
+                    self.text_cursor_position -= 1
+                    return
+
+        else:
+            # Keyboard mode navigation
+            if self.dpad_input == BUTTON_SPACE:
+                self._set_cursor_position(4, 0)
+                self._process_key_press()
+            elif self.dpad_input == BUTTON_UP:
+                if self.cursor_row == 0:
+                    # Enter textbox mode from top row
+                    self.is_in_textbox = True
+                    self.text_cursor_position = len(self._response)  # Start at end
+                elif self.cursor_row > 0:
+                    self.cursor_row -= 1
+                    if self.cursor_col >= self.ROW_SIZES[self.cursor_row]:
+                        self.cursor_col = self.ROW_SIZES[self.cursor_row] - 1
+            elif self.dpad_input == BUTTON_DOWN:
+                if self.cursor_row < self.NUM_ROWS - 1:
+                    self.cursor_row += 1
+                    if self.cursor_col >= self.ROW_SIZES[self.cursor_row]:
+                        self.cursor_col = self.ROW_SIZES[self.cursor_row] - 1
+            elif self.dpad_input == BUTTON_LEFT:
+                if self.cursor_col > 0:
+                    self.cursor_col -= 1
+                elif self.cursor_row > 0:
+                    # Wrap to end of previous row
+                    self.cursor_row -= 1
+                    self.cursor_col = self.ROW_SIZES[self.cursor_row] - 1
+            elif self.dpad_input == BUTTON_RIGHT:
+                if self.cursor_col < self.ROW_SIZES[self.cursor_row] - 1:
+                    self.cursor_col += 1
+                elif self.cursor_row < self.NUM_ROWS - 1:
+                    # Wrap to start of next row
+                    self.cursor_row += 1
+                    self.cursor_col = 0
+            elif self.dpad_input == BUTTON_CENTER:
+                self._process_key_press()
+
+                if self.ROWS[self.cursor_row][self.cursor_col].normal == "\x02":
+                    self.is_manual_shift = True
+
+        # both modes can handle manual character entry for special characters
+        if self.dpad_input in self.manual_keys:
+            char = self.manual_keys[self.dpad_input]
+            self._response = (
+                self._response[: self.text_cursor_position]
+                + char
+                + self._response[self.text_cursor_position :]
+            )
+            self.text_cursor_position += 1
+            return
+
+        # Handle direct key presses
+        if self.dpad_input in self.key_mappings:
+            row, col = self.key_mappings[self.dpad_input]
             self._set_cursor_position(row, col)
             self._process_key_press()
 
     def _process_key_press(self):
         """Processes the currently selected key press"""
-        from picoware.system.buttons import (
-            BUTTON_UP,
-            BUTTON_DOWN,
-            BUTTON_LEFT,
-            BUTTON_RIGHT,
-        )
-
         if (
             self.cursor_row >= self.NUM_ROWS
             or self.cursor_col >= self.ROW_SIZES[self.cursor_row]
@@ -567,16 +664,30 @@ class Keyboard:
         self.current_key = key.normal
 
         if self.current_key == "\b":  # Backspace
-            if self._response:
-                self._response = self._response[:-1]
+            if self.text_cursor_position > 0:
+                self._response = (
+                    self._response[: self.text_cursor_position - 1]
+                    + self._response[self.text_cursor_position :]
+                )
+                self.text_cursor_position -= 1
         elif self.current_key == "\x01":  # Caps Lock
             self.is_caps_lock_on = not self.is_caps_lock_on
         elif self.current_key == "\x02":  # Shift
             self.is_shift_pressed = not self.is_shift_pressed
         elif self.current_key == "\r":  # Enter
-            self._response += "\n"
+            self._response = (
+                self._response[: self.text_cursor_position]
+                + "\n"
+                + self._response[self.text_cursor_position :]
+            )
+            self.text_cursor_position += 1
         elif self.current_key == " ":  # Space
-            self._response += " "
+            self._response = (
+                self._response[: self.text_cursor_position]
+                + " "
+                + self._response[self.text_cursor_position :]
+            )
+            self.text_cursor_position += 1
         elif self.current_key == "\x03":  # Save
             if self.on_save_callback:
                 self.on_save_callback(self._response)
@@ -584,20 +695,30 @@ class Keyboard:
         elif self.current_key == "?" and self.cursor_row == 1 and self.cursor_col == 12:
             # Clear function
             self._response = ""
+            self.text_cursor_position = 0
         else:
             # Regular character
+            char_to_insert = ""
             if "a" <= self.current_key <= "z":
                 # Handle letter case
                 should_capitalize = (
                     self.is_shift_pressed and not self.is_caps_lock_on
                 ) or (not self.is_shift_pressed and self.is_caps_lock_on)
-                self._response += key.shifted if should_capitalize else key.normal
+                char_to_insert = key.shifted if should_capitalize else key.normal
             elif self.is_shift_pressed and key.normal != key.shifted:
                 # Handle shifted special characters
-                self._response += key.shifted
+                char_to_insert = key.shifted
             else:
                 # Normal character
-                self._response += key.normal
+                char_to_insert = key.normal
+
+            # Insert character at cursor position
+            self._response = (
+                self._response[: self.text_cursor_position]
+                + char_to_insert
+                + self._response[self.text_cursor_position :]
+            )
+            self.text_cursor_position += 1
 
             # Reset shift after character entry (ignore left/right/up/down)
             d_pad = {

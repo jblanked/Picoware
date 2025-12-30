@@ -24,13 +24,19 @@ rm -rf "$micropython_dir"/modules/Waveshare
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"
-rm -rf build-RPI_PICO2 
+rm -rf build-WAVESHARE_RP2350_TOUCH_LCD_1_43 
 
 echo "Installing new MicroPython Picoware modules..."
 
 # copy main.py and picoware folder if it exists
 cp "$picoware_dir"/src/MicroPython/main.py "$micropython_dir"/modules/main.py
 cp -r "$picoware_dir"/src/MicroPython/picoware "$micropython_dir"/modules/picoware
+
+# copy waveshare_rp2350_touch_lcd_1.43 boards folder to micropython boards directory
+cp -r "$picoware_dir"/src/MicroPython/boards/WAVESHARE_RP2350_TOUCH_LCD_1_43 "$micropython_dir"/boards
+
+# copy waveshare_rp2350_touch_lcd_1.43.h to PicoSDK boards include directory
+cp "$picoware_dir"/src/MicroPython/boards/WAVESHARE_RP2350_TOUCH_LCD_1_43/waveshare_rp2350_touch_lcd_1.43.h "$micropython_dir"/../../lib/pico-sdk/src/boards/include/boards/
 
 # ensure Waveshare 1.43 modules directory exists
 mkdir -p "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.43
@@ -47,9 +53,9 @@ cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.43/waveshare_
 
 echo "Starting Waveshare 1.43 build process..."
 
-# Waveshare - 1.43 - Pico 2
-make BOARD=RPI_PICO2 USER_C_MODULES="$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.43/waveshare_modules.cmake
-cp "$micropython_dir"/build-RPI_PICO2/firmware.uf2 "$picoware_dir"/builds/MicroPython/Picoware-Waveshare-1.43.uf2
-echo "Waveshare - 1.43 - Pico 2 build complete."
+# Waveshare - 1.43 
+make BOARD=WAVESHARE_RP2350_TOUCH_LCD_1_43 USER_C_MODULES="$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.43/waveshare_modules.cmake
+cp "$micropython_dir"/build-WAVESHARE_RP2350_TOUCH_LCD_1_43/firmware.uf2 "$picoware_dir"/builds/MicroPython/Picoware-Waveshare-1.43.uf2
+echo "Waveshare - 1.43 build complete."
 
 echo "MicroPython Picoware Waveshare 1.43 build completed successfully!"

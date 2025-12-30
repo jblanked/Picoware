@@ -1,6 +1,7 @@
 # translated from https://github.com/lazerduck/PicoCalc_Dashboard/blob/main/2048/2048.py
 # 2048 game for MicroPython
 # by LazerDuck
+from random import choice, random
 from micropython import const
 from picoware.system.colors import (
     TFT_BLACK,
@@ -17,7 +18,6 @@ from picoware.system.colors import (
     TFT_PINK,
     TFT_LIGHTGREY,
 )
-from picoware.system.vector import Vector
 
 # Game constants
 GRID_SIZE = const(4)
@@ -40,11 +40,15 @@ STATE_PLAYING = const(0)
 STATE_WIN = const(1)
 STATE_LOSE = const(2)
 
+grid_vector = None
+text_vector = None
+size_vector = None
+
+color_map = {}
+
 
 def add_tile(grid):
     """Adds a new tile (2 or 4) to a random empty position in the grid."""
-    from random import choice, random
-
     empty = [
         (y, x) for y in range(GRID_SIZE) for x in range(GRID_SIZE) if grid[y][x] == 0
     ]
@@ -77,15 +81,12 @@ def check_lose(grid) -> bool:
 def draw_grid(fb, grid, score: int, state: int) -> None:
     """Draws the game grid on the framebuffer."""
     fb.fill_screen(COLOR_BG)
-    grid_vector = Vector(0, 0)
-    text_vector = Vector(0, 0)
-    size_vector = Vector(TILE_SIZE - 4, TILE_SIZE - 4)
     for y in range(GRID_SIZE):
         for x in range(GRID_SIZE):
             val = grid[y][x]
             grid_vector.x = GRID_OFFSET_X + x * TILE_SIZE
             grid_vector.y = GRID_OFFSET_Y + y * TILE_SIZE
-            color = get_tile_color(val)
+            color = color_map.get(val, TFT_WHITE)
             fb.fill_rectangle(grid_vector, size_vector, color)
             if val:
                 text_vector.x = grid_vector.x + TILE_SIZE // 2 - 8
@@ -116,9 +117,6 @@ def draw_grid(fb, grid, score: int, state: int) -> None:
 def draw_grid_with_offsets(fb, grid, score: int, state: int, offsets=None) -> None:
     """Draws the game grid on the framebuffer with tile offsets for animation."""
     fb.fill_screen(COLOR_BG)
-    grid_vector = Vector(0, 0)
-    text_vector = Vector(0, 0)
-    size_vector = Vector(TILE_SIZE - 4, TILE_SIZE - 4)
     for y in range(GRID_SIZE):
         for x in range(GRID_SIZE):
             val = grid[y][x]
@@ -127,7 +125,7 @@ def draw_grid_with_offsets(fb, grid, score: int, state: int, offsets=None) -> No
                 dx, dy = offsets[(y, x)]
             grid_vector.x = GRID_OFFSET_X + x * TILE_SIZE + dx
             grid_vector.y = GRID_OFFSET_Y + y * TILE_SIZE + dy
-            color = get_tile_color(val)
+            color = color_map.get(val, TFT_WHITE)
             fb.fill_rectangle(grid_vector, size_vector, color)
             if val:
                 text_vector.x = grid_vector.x + TILE_SIZE // 2 - 8
@@ -153,25 +151,6 @@ def draw_grid_with_offsets(fb, grid, score: int, state: int, offsets=None) -> No
     fb.text(text_vector, "Back: Quit", COLOR_TEXT)
     text_vector.x = 120
     fb.text(text_vector, "Arrows: Move", COLOR_TEXT)
-
-
-def get_tile_color(number: int) -> int:
-    """Returns the color for a given tile number."""
-    color_map = {
-        0: TFT_BLACK,
-        2: TFT_GREEN,
-        4: TFT_RED,
-        8: TFT_YELLOW,
-        16: TFT_VIOLET,
-        32: TFT_CYAN,
-        64: TFT_BLUE,
-        128: TFT_DARKGREEN,
-        256: TFT_SKYBLUE,
-        512: TFT_ORANGE,
-        1024: TFT_PINK,
-        2048: TFT_LIGHTGREY,
-    }
-    return color_map.get(number, TFT_WHITE)
 
 
 def main(view_manager):
@@ -332,13 +311,32 @@ def move_grid(grid, direction: int):
 
 def start(view_manager) -> bool:
     """Start the app"""
-    global SCREEN_WIDTH, SCREEN_HEIGHT, GRID_OFFSET_X, GRID_OFFSET_Y, TILE_SIZE
+    from picoware.system.vector import Vector
+
+    global SCREEN_WIDTH, SCREEN_HEIGHT, GRID_OFFSET_X, GRID_OFFSET_Y, TILE_SIZE, grid_vector, text_vector, size_vector, color_map
     draw = view_manager.draw
     SCREEN_WIDTH = draw.size.x
     SCREEN_HEIGHT = draw.size.y
     GRID_OFFSET_X = int(SCREEN_WIDTH * 0.0625)  # 20
     GRID_OFFSET_Y = GRID_OFFSET_X * 2  # 40
     TILE_SIZE = GRID_OFFSET_X * 3  # 60
+    grid_vector = Vector(0, 0)
+    text_vector = Vector(0, 0)
+    size_vector = Vector(TILE_SIZE - 4, TILE_SIZE - 4)
+    color_map = {
+        0: TFT_BLACK,
+        2: TFT_GREEN,
+        4: TFT_RED,
+        8: TFT_YELLOW,
+        16: TFT_VIOLET,
+        32: TFT_CYAN,
+        64: TFT_BLUE,
+        128: TFT_DARKGREEN,
+        256: TFT_SKYBLUE,
+        512: TFT_ORANGE,
+        1024: TFT_PINK,
+        2048: TFT_LIGHTGREY,
+    }
     return True
 
 
@@ -351,4 +349,10 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
+    global grid_vector, text_vector, size_vector, color_map
+
+    grid_vector = None
+    text_vector = None
+    size_vector = None
+    color_map = {}
     collect()

@@ -360,10 +360,9 @@ def __player_update(self, game):
         BUTTON_LEFT,
         BUTTON_RIGHT,
     )
-    from picoware.system.vector import Vector
 
     button: int = game.input
-    position: Vector = self.position
+    position = self.position
 
     if button == BUTTON_UP:
         position.y -= 5
@@ -422,8 +421,6 @@ def start(view_manager) -> bool:
 def run(view_manager) -> None:
     """Run the app."""
     from picoware.system.buttons import BUTTON_BACK
-
-    global _game_engine
 
     if _game_engine:
         _game_engine.run_async(False)

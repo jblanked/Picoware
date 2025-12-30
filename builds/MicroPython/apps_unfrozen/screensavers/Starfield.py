@@ -14,6 +14,10 @@ sx = [0] * NSTARS
 sy = [0] * NSTARS
 sz = [0] * NSTARS
 
+pixel_vector = None
+screen_size = None
+screen_size_half = None
+
 
 def __rng() -> int:
     global za, zb, zc, zx
@@ -28,8 +32,9 @@ def start(view_manager) -> bool:
     """Start the app"""
     import random
     from picoware.system.colors import TFT_BLACK
+    from picoware.system.vector import Vector
 
-    global za, zb, zc, zx, sx, sy, sz
+    global za, zb, zc, zx, sx, sy, sz, pixel_vector, screen_size, screen_size_half
 
     za = random.randint(0, 255)
     zb = random.randint(0, 255)
@@ -42,6 +47,10 @@ def start(view_manager) -> bool:
         sy[i] = 0
         sz[i] = 0
 
+    pixel_vector = Vector(0, 0)
+    screen_size = view_manager.draw.size
+    screen_size_half = Vector(screen_size.x // 2, screen_size.y // 2)
+
     draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)  # Black background
     draw.swap()
@@ -53,7 +62,6 @@ def run(view_manager) -> None:
     """Run the app"""
     from picoware.system.buttons import BUTTON_LEFT, BUTTON_BACK
     from picoware.system.colors import TFT_BLACK
-    from picoware.system.vector import Vector
 
     global sx, sy, sz
 
@@ -67,9 +75,7 @@ def run(view_manager) -> None:
 
     tft = view_manager.draw
     spawn_depth_variation = 255
-    pixel_vector = Vector(0, 0)
-    screen_size = tft.size
-    screen_size_half = Vector(screen_size.x // 2, screen_size.y // 2)
+
     for i in range(NSTARS):
         if sz[i] <= 1:
             rng_x = __rng()
@@ -129,13 +135,18 @@ def stop(view_manager) -> None:
     from picoware.system.colors import TFT_BLACK
     from gc import collect
 
+    global sx, sy, sz, pixel_vector, screen_size, screen_size_half
+
     draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)  # Black background
     draw.swap()
 
-    global sx, sy, sz
     sx = [0] * NSTARS
     sy = [0] * NSTARS
     sz = [0] * NSTARS
+
+    pixel_vector = None
+    screen_size = None
+    screen_size_half = None
 
     collect()

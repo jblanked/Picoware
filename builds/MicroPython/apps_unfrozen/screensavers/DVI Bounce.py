@@ -4476,6 +4476,9 @@ LOGO = bytes(
 )
 
 from micropython import const
+from picoware.system.buttons import BUTTON_BACK
+from picoware.system.colors import TFT_BLACK
+from picoware.system.vector import Vector
 
 SPRITE_WIDTH = const(239)
 SPRITE_HEIGHT = const(149)
@@ -4485,30 +4488,31 @@ y: int = 0  # top left corner,
 vx: int = 1  # moving right
 vy: int = 1  # and down
 
+pos: Vector = None
+size: Vector = None
+
 
 def start(view_manager) -> bool:
     """Start the app"""
-    global x, y, vx, vy
+    global x, y, vx, vy, pos, size
 
     # Reset position to top-left corner
     x = 0
     y = 0
     vx = 5
     vy = 5
+    pos = Vector(x, y)
+    size = Vector(SPRITE_WIDTH, SPRITE_HEIGHT)
 
     return True
 
 
 def run(view_manager) -> None:
     """Run the app"""
-    from picoware.system.buttons import BUTTON_LEFT, BUTTON_BACK
-    from picoware.system.colors import TFT_BLACK
-    from picoware.system.vector import Vector
-
     input_manager = view_manager.input_manager
     input_button = input_manager.button
 
-    if input_button in (BUTTON_LEFT, BUTTON_BACK):
+    if input_button == BUTTON_BACK:
         view_manager.back()
         input_manager.reset()
         return
@@ -4517,7 +4521,9 @@ def run(view_manager) -> None:
 
     draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)
-    draw.image_bytearray_1bit(Vector(x, y), Vector(SPRITE_WIDTH, SPRITE_HEIGHT), LOGO)
+    pos.x = x
+    pos.y = y
+    draw.image_bytearray_1bit(pos, size, LOGO)
     draw.swap()
 
     # Update sprite position, bouncing off all 4 sides
@@ -4535,12 +4541,14 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global x, y, vx, vy
+    global x, y, vx, vy, pos, size
 
     # Reset position to top-left corner
     x = 0
     y = 0
     vx = 5
     vy = 5
+    pos = None
+    size = None
 
     collect()

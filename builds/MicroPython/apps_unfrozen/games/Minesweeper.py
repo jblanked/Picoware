@@ -1,5 +1,14 @@
 # minesweeper.py - Minesweeper for PicoCalc
 # translated from https://github.com/lazerduck/PicoCalc_Dashboard/blob/main/minesweeper.py
+from picoware.system.colors import (
+    TFT_BLACK,
+    TFT_BLUE,
+    TFT_ORANGE,
+    TFT_RED,
+    TFT_WHITE,
+    TFT_GREEN,
+)
+
 CELL_SIZE = 20
 GRID_W = 12  # 12x12 grid
 GRID_H = 12
@@ -13,62 +22,41 @@ mines_placed = False
 game_over = False
 win = False
 
+reusable_vec = None
+pos_vec = None
+size_vec = None
 
-def draw_cell(
-    draw, pos_vec, size_vec, value, is_revealed, is_flagged, resuable_vec
-) -> None:
+
+def draw_cell(draw, value, is_revealed, is_flagged) -> None:
     """Draw a single cell at (x, y)"""
-    from picoware.system.colors import (
-        TFT_BLACK,
-        TFT_BLUE,
-        TFT_ORANGE,
-        TFT_RED,
-        TFT_WHITE,
-        TFT_GREEN,
-    )
-
-    resuable_vec.x = pos_vec.x * CELL_SIZE
-    resuable_vec.y = pos_vec.y * CELL_SIZE + 20
+    reusable_vec.x = pos_vec.x * CELL_SIZE
+    reusable_vec.y = pos_vec.y * CELL_SIZE + 20
     # Cell background
     if is_revealed:
-        draw.fill_rectangle(resuable_vec, size_vec, TFT_ORANGE)
+        draw.fill_rectangle(reusable_vec, size_vec, TFT_ORANGE)
     else:
-        draw.fill_rectangle(resuable_vec, size_vec, TFT_BLACK)
+        draw.fill_rectangle(reusable_vec, size_vec, TFT_BLACK)
     # Cell border
-    draw.rect(resuable_vec, size_vec, TFT_BLUE)
+    draw.rect(reusable_vec, size_vec, TFT_BLUE)
     # Content
-    resuable_vec.x += 6
-    resuable_vec.y += 2
+    reusable_vec.x += 6
+    reusable_vec.y += 2
     if is_revealed:
         if value == -1:
-            draw.text(resuable_vec, "*", TFT_RED)
+            draw.text(reusable_vec, "*", TFT_RED)
         elif value > 0:
-            draw.text(resuable_vec, str(value), TFT_WHITE)
+            draw.text(reusable_vec, str(value), TFT_WHITE)
     elif is_flagged:
-        draw.text(resuable_vec, "F", TFT_GREEN)
+        draw.text(reusable_vec, "F", TFT_GREEN)
 
 
 def draw_grid(draw) -> None:
     """Draw the entire grid including the cursor"""
-    from picoware.system.vector import Vector
-    from picoware.system.colors import TFT_GREEN
-
-    reusable_vec = Vector(0, 0)
-    pos_vec = Vector(0, 0)
-    size_vec = Vector(CELL_SIZE, CELL_SIZE)
     for y in range(GRID_H):
         for x in range(GRID_W):
             pos_vec.x = x
             pos_vec.y = y
-            draw_cell(
-                draw,
-                pos_vec,
-                size_vec,
-                grid[y][x],
-                revealed[y][x],
-                flagged[y][x],
-                reusable_vec,
-            )
+            draw_cell(draw, grid[y][x], revealed[y][x], flagged[y][x])
     # Draw cursor
     cx, cy = cursor
     reusable_vec.x = cx * CELL_SIZE
@@ -140,11 +128,15 @@ def start(view_manager) -> bool:
     from picoware.system.vector import Vector
     from picoware.system.colors import TFT_BLACK, TFT_WHITE
 
-    global grid, revealed, flagged
+    global grid, revealed, flagged, reusable_vec, pos_vec, size_vec
 
     grid = [[0] * GRID_W for _ in range(GRID_H)]
     revealed = [[False] * GRID_W for _ in range(GRID_H)]
     flagged = [[False] * GRID_W for _ in range(GRID_H)]
+
+    reusable_vec = Vector(0, 0)
+    pos_vec = Vector(0, 0)
+    size_vec = Vector(CELL_SIZE, CELL_SIZE)
 
     draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)
@@ -167,8 +159,6 @@ def run(view_manager) -> None:
         BUTTON_SPACE,
         BUTTON_F,
     )
-    from picoware.system.vector import Vector
-    from picoware.system.colors import TFT_RED, TFT_GREEN, TFT_WHITE, TFT_BLACK
 
     global mines_placed, game_over, win
 
@@ -216,10 +206,14 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global grid, revealed, flagged
+    global grid, revealed, flagged, reusable_vec, pos_vec, size_vec
 
     grid = []
     revealed = []
     flagged = []
+
+    reusable_vec = None
+    pos_vec = None
+    size_vec = None
 
     collect()

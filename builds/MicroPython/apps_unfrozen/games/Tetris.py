@@ -32,6 +32,8 @@ def __random_color() -> int:
 
 
 class Point:
+    __slots__ = ("x", "y")
+
     def __init__(self, x: int, y: int) -> None:
         self.x = x
         self.y = y
@@ -679,8 +681,6 @@ def start(view_manager) -> bool:
 def run(view_manager) -> None:
     """Run the app."""
     from picoware.system.buttons import BUTTON_BACK
-
-    global _game_engine
 
     if _game_engine:
         _game_engine.run_async(False)

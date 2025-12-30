@@ -1111,7 +1111,7 @@ class Desktop:
         self.draw_header()
         self.display.image_bytearray(
             position,
-            Vector(animation_size.x, animation_size.y),
+            animation_size,
             animiation_frame,
             invert=not self.is_dark_mode,
         )

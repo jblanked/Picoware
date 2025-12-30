@@ -6,8 +6,8 @@
 
 static bool lcd_initialized = false; // flag to indicate if the LCD is initialized
 
-// Static framebuffer (16-bit per pixel for RGB565)
-static uint8_t framebuffer[LCD_WIDTH * LCD_HEIGHT];
+// Static framebuffer (8-bit per pixel for RGB332)
+uint8_t framebuffer[LCD_WIDTH * LCD_HEIGHT];
 static uint16_t palette[256]; // 256-color palette for RGB332
 static uint8_t backlight_level;
 static uint8_t last_cmd = 0x00; // Track last command for data writes

@@ -5,7 +5,6 @@
 from micropython import const
 from picoware.system.vector import Vector
 from picoware.system.buttons import BUTTON_BACK
-from picoware_sd import fat32_file
 
 FRAME_START = const(1)
 FRAME_STOP = const(5965)
@@ -38,7 +37,7 @@ def start(view_manager) -> bool:
 
     # Use C module directly
     storage.mount()
-    file_obj: fat32_file = storage.file_open("big-buck-bunny.bin")
+    file_obj = storage.file_open("big-buck-bunny.bin")
     print(file_obj)
 
     # Pre-allocate frame buffer once

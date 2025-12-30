@@ -3,6 +3,7 @@
 # translated directly from https://github.com/pelrun/picocalc-bubbleuniverse/blob/main/main.c
 
 from micropython import const
+from utime import ticks_ms
 from array import array
 from picoware.system.vector import Vector
 from picoware.system.colors import TFT_WHITE, TFT_BLACK
@@ -54,12 +55,8 @@ fps: str = ""
 
 pixel_vec = None
 
-
-def __millis() -> int:
-    """Get the current time in milliseconds as integer."""
-    from utime import ticks_ms
-
-    return int(ticks_ms())
+screen_center_x = 0
+screen_center_y = 0
 
 
 def __reset_values() -> None:
@@ -159,12 +156,6 @@ def __render(draw) -> None:
 
     global animation_time, size, x_offset, y_offset, sin_table, cos_table
 
-    # Calculate screen center
-    screen_center_x = SCREENWIDTH // 2
-    screen_center_y = SCREENHEIGHT // 2
-
-    pixel_vector = pixel_vec  # Local reference for performance
-
     ang1_start = int(animation_time)
     ang2_start = int(animation_time)
 
@@ -196,9 +187,9 @@ def __render(draw) -> None:
                 # Calculate color directly
                 color = palette[(i >> 2) * 64 + j]
 
-                pixel_vector.x = screen_x
-                pixel_vector.y = screen_y
-                draw.pixel(pixel_vector, color)
+                pixel_vec.x = screen_x
+                pixel_vec.y = screen_y
+                draw.pixel(pixel_vec, color)
 
         ang1_start += ANG1INC
         ang2_start += ANG2INC
@@ -212,7 +203,7 @@ def start(view_manager) -> bool:
     draw.text(Vector(10, 10), "Bubble Universe by Movie Vertigo", TFT_WHITE)
     draw.swap()
 
-    global old_time, SCREENWIDTH, SCREENHEIGHT, SCALEMUL, pixel_vec
+    global old_time, SCREENWIDTH, SCREENHEIGHT, SCALEMUL, pixel_vec, screen_center_x, screen_center_y
 
     pixel_vec = Vector(0, 0)
 
@@ -220,9 +211,13 @@ def start(view_manager) -> bool:
     SCREENHEIGHT = draw.size.y
     SCALEMUL = int(SCREENHEIGHT * PI / 2)
 
+    # Calculate screen center
+    screen_center_x = SCREENWIDTH // 2
+    screen_center_y = SCREENHEIGHT // 2
+
     __create_sin_table()
     __reset_values()
-    old_time = __millis()
+    old_time = ticks_ms()
 
     return True
 
@@ -237,9 +232,9 @@ def run(view_manager) -> None:
         input_manager.reset()
         return
 
-    global speed, animation_time, old_time, fps
+    global animation_time, old_time
 
-    time = __millis()
+    time = ticks_ms()
     delta_time = time - old_time
     animation_time += delta_time * speed
     old_time = time
@@ -259,11 +254,13 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global sin_table, cos_table, palette, pixel_vec
+    global sin_table, cos_table, palette, pixel_vec, screen_center_x, screen_center_y
     sin_table = None
     cos_table = None
     palette = None
     pixel_vec = None
+    screen_center_x = 0
+    screen_center_y = 0
     __reset_values()
 
     collect()

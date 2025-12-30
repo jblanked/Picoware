@@ -40,6 +40,48 @@ target_link_libraries(usermod_waveshare_lcd INTERFACE
     hardware_pio
 )
 
+# include picoware_boards module
+add_library(usermod_picoware_boards INTERFACE)
+
+target_sources(usermod_picoware_boards INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/picoware_boards/picoware_boards.c
+)
+
+target_include_directories(usermod_picoware_boards INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/picoware_boards
+)
+
+target_link_libraries(usermod INTERFACE usermod_picoware_boards)
+
+# link against the required Pico SDK libraries for board management
+target_link_libraries(usermod_picoware_boards INTERFACE
+    pico_stdlib
+)
+
+# Include picoware_game module (fast raycasting and 3D rendering)
+add_library(usermod_picoware_game INTERFACE)
+
+target_sources(usermod_picoware_game INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/picoware_game/picoware_game.c
+)
+
+target_include_directories(usermod_picoware_game INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/picoware_game
+    ${CMAKE_CURRENT_LIST_DIR}/waveshare_lcd
+)
+
+target_compile_definitions(usermod_picoware_game INTERFACE
+    MODULE_PICOWARE_GAME_ENABLED=1
+)
+
+target_link_libraries(usermod INTERFACE usermod_picoware_game)
+
+# Link against the required Pico SDK libraries for picoware_game
+target_link_libraries(usermod_picoware_game INTERFACE
+    pico_stdlib
+)
+
+
 # Include waveshare_battery module
 add_library(usermod_waveshare_battery INTERFACE)
 
@@ -100,6 +142,7 @@ add_library(usermod_waveshare_sd INTERFACE)
 
 target_sources(usermod_waveshare_sd INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/waveshare_sd/waveshare_sd.c
+    ${CMAKE_CURRENT_LIST_DIR}/waveshare_sd/waveshare_vfs.c
     ${CMAKE_CURRENT_LIST_DIR}/waveshare_sd/sdcard.c
     ${CMAKE_CURRENT_LIST_DIR}/waveshare_sd/fat32.c
 )

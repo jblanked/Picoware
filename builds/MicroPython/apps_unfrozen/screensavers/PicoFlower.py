@@ -31,6 +31,8 @@ rec_pos = None
 rec_size = None
 pixel_pos = None
 
+petal_colors = []
+
 
 def __ellipse(display, cx, cy, xr, yr, color, fill=False, m=None):
     """
@@ -166,13 +168,29 @@ def start(view_manager) -> bool:
     CX = draw.size.x // 2
     CY = draw.size.y // 2
 
-    global rec_pos, rec_size, pixel_pos, petal_length
+    global rec_pos, rec_size, pixel_pos, petal_length, petal_colors
     from picoware.system.vector import Vector
 
     rec_pos = Vector(0, 0)
     rec_size = Vector(0, 0)
     pixel_pos = Vector(0, 0)
     petal_length = min(draw.size.x, draw.size.y) // 8
+    petal_colors = [
+        TFT_RED,
+        TFT_GREEN,
+        TFT_BLUE,
+        TFT_YELLOW,
+        TFT_CYAN,
+        TFT_VIOLET,
+        TFT_ORANGE,
+        TFT_PINK,
+        TFT_DARKGREEN,
+        TFT_DARKCYAN,
+        TFT_BROWN,
+        TFT_SKYBLUE,
+        TFT_RED,
+        TFT_GREEN,
+    ]
     return True
 
 
@@ -195,23 +213,6 @@ def run(view_manager) -> None:
     # Draw center (yellow)
     __ellipse(draw, CX, CY, 32, 32, TFT_YELLOW, True)
 
-    petal_colors = [
-        TFT_RED,
-        TFT_GREEN,
-        TFT_BLUE,
-        TFT_YELLOW,
-        TFT_CYAN,
-        TFT_VIOLET,
-        TFT_ORANGE,
-        TFT_PINK,
-        TFT_DARKGREEN,
-        TFT_DARKCYAN,
-        TFT_BROWN,
-        TFT_SKYBLUE,
-        TFT_RED,
-        TFT_GREEN,
-    ]
-
     for i in range(NUM_PETALS):
         angle = i * (2 * pi / NUM_PETALS)
         px = int(CX + 100 * cos(angle))
@@ -230,7 +231,7 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global rec_pos, rec_size, pixel_pos, shift, petal_length
+    global rec_pos, rec_size, pixel_pos, shift, petal_length, petal_colors
     shift = 0
     petal_length = 0
     if rec_pos is not None:
@@ -242,4 +243,5 @@ def stop(view_manager) -> None:
     if pixel_pos is not None:
         del pixel_pos
         pixel_pos = None
+    petal_colors = []
     collect()

@@ -1,3 +1,13 @@
+from utime import ticks_ms
+import picoware.system.buttons as buttons
+from picoware.system.boards import (
+    BOARD_WAVESHARE_1_28_RP2350,
+    BOARD_WAVESHARE_1_43_RP2350,
+    BOARD_WAVESHARE_3_49_RP2350,
+    BOARD_ID,
+)
+
+
 class Input:
     """
     Handles input from the keyboard.
@@ -5,14 +15,7 @@ class Input:
 
     def __init__(self):
         """Initializes the Input class."""
-        from picoware_boards import get_current_id
-        from picoware.system.boards import (
-            BOARD_WAVESHARE_1_28_RP2350,
-            BOARD_WAVESHARE_1_43_RP2350,
-            BOARD_WAVESHARE_3_49_RP2350,
-        )
-
-        self._current_board_id = get_current_id()
+        self._current_board_id = BOARD_ID
         self.pin = None
         self._last_point = (0, 0)
         self._last_gesture = 0  # 0 is TOUCH_GESTURE_NONE
@@ -88,12 +91,6 @@ class Input:
     @property
     def battery(self) -> int:
         """Returns the current battery level as a percentage (0-100)."""
-        from picoware.system.boards import (
-            BOARD_WAVESHARE_1_28_RP2350,
-            BOARD_WAVESHARE_1_43_RP2350,
-            BOARD_WAVESHARE_3_49_RP2350,
-        )
-
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
@@ -120,12 +117,6 @@ class Input:
     @property
     def has_touch_support(self) -> bool:
         """Returns True if touch input is supported on the current board."""
-        from picoware.system.boards import (
-            BOARD_WAVESHARE_1_28_RP2350,
-            BOARD_WAVESHARE_1_43_RP2350,
-            BOARD_WAVESHARE_3_49_RP2350,
-        )
-
         return self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
@@ -148,7 +139,6 @@ class Input:
         Args:
             key: Key code as integer (from C module) or string (for compatibility)
         """
-        import picoware.system.buttons as buttons
 
         button_map = {
             buttons.KEY_UP: buttons.BUTTON_UP,
@@ -278,7 +268,6 @@ class Input:
         Returns:
             str: Corresponding character or empty string if no mapping exists.
         """
-        import picoware.system.buttons as buttons
 
         character_map = {
             buttons.BUTTON_A: "a",
@@ -365,11 +354,6 @@ class Input:
 
     def is_pressed(self) -> bool:
         """Returns True if any key is currently pressed."""
-        from picoware.system.boards import (
-            BOARD_WAVESHARE_1_28_RP2350,
-            BOARD_WAVESHARE_1_43_RP2350,
-            BOARD_WAVESHARE_3_49_RP2350,
-        )
 
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             return self._last_gesture != 0  # 0 is TOUCH_GESTURE_NONE
@@ -432,11 +416,6 @@ class Input:
 
     def reset(self) -> None:
         """Resets the input state."""
-        from picoware.system.boards import (
-            BOARD_WAVESHARE_1_43_RP2350,
-            BOARD_WAVESHARE_3_49_RP2350,
-        )
-
         self._elapsed_time = 0
         self._was_pressed = False
         self._last_button = -1
@@ -454,12 +433,6 @@ class Input:
 
     def __touch_callback(self, pin):
         """Touch interrupt callback function"""
-        from picoware.system.boards import (
-            BOARD_WAVESHARE_1_28_RP2350,
-            BOARD_WAVESHARE_1_43_RP2350,
-            BOARD_WAVESHARE_3_49_RP2350,
-        )
-
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             from waveshare_touch import (
                 get_gesture,
@@ -476,8 +449,6 @@ class Input:
             self._last_gesture = get_gesture()
             if self._last_gesture != TOUCH_GESTURE_NONE:
 
-                from utime import ticks_ms
-
                 self._elapsed_touch_now = int(ticks_ms())
 
                 if self._elapsed_touch_now - self._elapsed_touch_start < self._delay_ms:
@@ -485,9 +456,6 @@ class Input:
                     return
 
                 self._elapsed_touch_start = self._elapsed_touch_now
-
-                import picoware.system.buttons as buttons
-
                 self._last_point = get_touch_point()
 
                 # set last button based on gesture
@@ -515,8 +483,6 @@ class Input:
 
             if self._last_point != (0, 0):
 
-                from utime import ticks_ms
-
                 self._elapsed_touch_now = int(ticks_ms())
 
                 if self._elapsed_touch_now - self._elapsed_touch_start < self._delay_ms:
@@ -526,7 +492,6 @@ class Input:
                 self._elapsed_touch_start = self._elapsed_touch_now
 
                 x, y = self._last_point
-                import picoware.system.buttons as buttons
 
                 # Right:
                 # x: 430-466
@@ -544,16 +509,28 @@ class Input:
                 # x: 150-300
                 # y: 430-466
 
-                if 430 <= x <= 466 and 150 <= y <= 350:
-                    self._last_button = buttons.BUTTON_RIGHT
-                elif 0 <= x <= 36 and 150 <= y <= 350:
-                    self._last_button = buttons.BUTTON_LEFT
-                elif 150 <= x <= 300 and 0 <= y <= 36:
-                    self._last_button = buttons.BUTTON_UP
-                elif 150 <= x <= 300 and 430 <= y <= 466:
-                    self._last_button = buttons.BUTTON_DOWN
-                else:
-                    self._last_button = buttons.BUTTON_CENTER
+                if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:  # 466x466
+                    if 430 <= x <= 466 and 150 <= y <= 350:
+                        self._last_button = buttons.BUTTON_RIGHT
+                    elif 0 <= x <= 36 and 150 <= y <= 350:
+                        self._last_button = buttons.BUTTON_LEFT
+                    elif 150 <= x <= 300 and 0 <= y <= 36:
+                        self._last_button = buttons.BUTTON_UP
+                    elif 150 <= x <= 300 and 430 <= y <= 466:
+                        self._last_button = buttons.BUTTON_DOWN
+                    else:
+                        self._last_button = buttons.BUTTON_CENTER
+                else:  # BOARD_WAVESHARE_3_49_RP2350 172x640
+                    if 140 <= x <= 172 and 200 <= y <= 440:
+                        self._last_button = buttons.BUTTON_RIGHT
+                    elif 0 <= x <= 32 and 200 <= y <= 440:
+                        self._last_button = buttons.BUTTON_LEFT
+                    elif 50 <= x <= 120 and 0 <= y <= 40:
+                        self._last_button = buttons.BUTTON_UP
+                    elif 50 <= x <= 120 and 600 <= y <= 640:
+                        self._last_button = buttons.BUTTON_DOWN
+                    else:
+                        self._last_button = buttons.BUTTON_CENTER
 
                 self._elapsed_time += 1
                 self._was_pressed = True

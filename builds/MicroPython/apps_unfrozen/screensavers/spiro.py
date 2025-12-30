@@ -99,7 +99,6 @@ def run(view_manager) -> None:
         r = random_range(20, 100)
 
         # First spirograph pattern
-        vec_1 = vec1
         for i in range(360 * n):
             sp_sx = cos((i / n - 90) * DEG2RAD)
             sp_sy = sin((i / n - 90) * DEG2RAD)
@@ -112,13 +111,12 @@ def run(view_manager) -> None:
             yy1 = int(sp_sy * r + yy0)
 
             color = rainbow(map_value(i % 360, 0, 360, 0, 127))
-            vec_1.x = x1
-            vec_1.y = yy1
-            tft.pixel(vec_1, color)
+            vec1.x = x1
+            vec1.y = yy1
+            tft.pixel(vec1, color)
 
         # Second spirograph pattern with different radius
         r = random_range(20, 100)
-        vec_2 = vec2
         for i in range(360 * n):
             sp_sx = cos((i / n - 90) * DEG2RAD)
             sp_sy = sin((i / n - 90) * DEG2RAD)
@@ -131,9 +129,9 @@ def run(view_manager) -> None:
             yy1 = int(sp_sy * r + yy0)
 
             color = rainbow(map_value(i % 360, 0, 360, 0, 127))
-            vec_2.x = x1
-            vec_2.y = yy1
-            tft.pixel(vec_2, color)
+            vec2.x = x1
+            vec2.y = yy1
+            tft.pixel(vec2, color)
 
         tft.swap()
 

@@ -2,14 +2,14 @@ class System:
     """Handle basic system operations."""
 
     def __init__(self):
-        pass
+        from picoware_boards import BOARD_ID
+
+        self._board_id = BOARD_ID
 
     @property
-    def board_id(self):
+    def board_id(self) -> int:
         """Return the board ID."""
-        from picoware_boards import get_current_id
-
-        return get_current_id()
+        return self._board_id
 
     @property
     def board_name(self):
@@ -28,11 +28,9 @@ class System:
     @property
     def free_psram(self):
         """Return the amount of free PSRAM memory."""
-        from picoware_boards import get_current_id, has_psram
+        from picoware_boards import BOARD_HAS_PSRAM
 
-        board_id = get_current_id()
-        if not has_psram(board_id):
-            # waveshare boards do not have PSRAM
+        if BOARD_HAS_PSRAM == 0:
             return 0
 
         from picoware.system.psram import PSRAM
@@ -41,51 +39,46 @@ class System:
         return psram.free_heap_size
 
     @property
-    def free_heap(self):
+    def free_heap(self) -> int:
         """Return the amount of free heap memory."""
         from gc import mem_free
 
         return mem_free()
 
     @property
-    def has_psram(self):
+    def has_psram(self) -> bool:
         """Return True if the device has PSRAM capabilities."""
-        from picoware_boards import has_psram, get_current_id
+        from picoware_boards import BOARD_HAS_PSRAM
 
-        board_id = get_current_id()
-        return has_psram(board_id)
+        return BOARD_HAS_PSRAM == 1
 
     @property
-    def has_sd_card(self):
+    def has_sd_card(self) -> bool:
         """Return True if the device has an SD card slot."""
-        from picoware_boards import has_sd_card, get_current_id
+        from picoware_boards import BOARD_HAS_SD
 
-        board_id = get_current_id()
-        return has_sd_card(board_id)
+        return BOARD_HAS_SD == 1
 
     @property
     def has_touch(self):
         """Return True if the device has touch capabilities."""
-        from picoware_boards import get_current_id, has_touch
+        from picoware_boards import BOARD_HAS_TOUCH
 
-        board_id = get_current_id()
-        return has_touch(board_id)
+        return BOARD_HAS_TOUCH == 1
 
     @property
     def has_wifi(self):
         """Return True if the device has WiFi capabilities."""
-        from picoware_boards import has_wifi, get_current_id
+        from picoware_boards import BOARD_HAS_WIFI
 
-        board_id = get_current_id()
-        return has_wifi(board_id)
+        return BOARD_HAS_WIFI == 1
 
     @property
     def is_circular(self):
         """Return True if the device has a circular display."""
-        from picoware_boards import get_current_id, is_circular
+        from picoware_boards import is_circular
 
-        board_id = get_current_id()
-        return is_circular(board_id)
+        return is_circular(self._board_id)
 
     @property
     def free_flash(self):
@@ -129,11 +122,9 @@ class System:
     @property
     def total_psram(self):
         """Return the total PSRAM memory size."""
-        from picoware_boards import get_current_id, has_psram
+        from picoware_boards import BOARD_HAS_PSRAM
 
-        board_id = get_current_id()
-        if not has_psram(board_id):
-            # waveshare boards do not have PSRAM
+        if BOARD_HAS_PSRAM == 0:
             return 0
 
         from picoware.system.psram import PSRAM
@@ -151,11 +142,9 @@ class System:
     @property
     def used_psram(self):
         """Return the total PSRAM memory used."""
-        from picoware_boards import get_current_id, has_psram
+        from picoware_boards import BOARD_HAS_PSRAM
 
-        board_id = get_current_id()
-        if not has_psram(board_id):
-            # waveshare boards do not have PSRAM
+        if BOARD_HAS_PSRAM == 0:
             return 0
 
         from picoware.system.psram import PSRAM
@@ -177,11 +166,9 @@ class System:
 
     def shutdown_device(self, view_manager=None):
         """Shutdown the device."""
-        from picoware_boards import get_current_id, has_psram
+        from picoware_boards import BOARD_HAS_PSRAM
 
-        board_id = get_current_id()
-        if not has_psram(board_id):
-            # waveshare boards do not have PSRAM
+        if BOARD_HAS_PSRAM == 0:
             return
 
         from picoware_southbridge import is_power_off_supported, write_power_off_delay

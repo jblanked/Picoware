@@ -204,7 +204,7 @@ STATIC mp_obj_t waveshare_sd_file_read(size_t n_args, const mp_obj_t *args)
     }
     mp_fat32_file_obj_t *file_obj = MP_OBJ_TO_PTR(args[0]);
     fat32_file_t *file = &file_obj->file;
-    if (index > 0)
+    if (index > 0 && file->position != index)
     {
         if (fat32_seek(file, index) != FAT32_OK)
         {

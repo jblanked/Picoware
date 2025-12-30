@@ -8,6 +8,8 @@ STATE_DOWNLOADING = const(4)
 STATE_DOWNLOADING_ALL = const(5)
 STATE_LOADING_NEXT_APP = const(6)
 
+MAX_ITEMS = const(100)
+
 _current_file_index: int = 0
 _http = None
 _loading = None
@@ -15,7 +17,6 @@ _files_to_download: list = []
 _app_menu = None
 _app_state: int = STATE_LOADING_LIST
 _current_list_index: int = 0
-_max_items: int = 20
 _apps_data: dict = None
 _selected_app_id: int = None
 _selected_app_details = None
@@ -60,6 +61,8 @@ def __loading_start(view_manager, text: str = "Fetching...") -> None:
 
     if not _loading:
         _loading = Loading(view_manager.draw)
+    else:
+        _loading.stop()
     _loading.set_text(text)
 
 
@@ -75,7 +78,9 @@ def __fetch_app_list(view_manager) -> bool:
     storage = view_manager.storage
     storage.mkdir("picoware/cache")
 
-    url = f"https://www.jblanked.com/picoware/api/apps/{_max_items}/{_current_list_index}/"
+    url = (
+        f"https://www.jblanked.com/picoware/api/apps/{MAX_ITEMS}/{_current_list_index}/"
+    )
 
     return _http.get_async(
         url,
@@ -193,14 +198,15 @@ def __draw_app_details(view_manager) -> None:
 
     # Title at top
     title = _selected_app_details.title
-    draw.text(Vector(10, 5), f"App: {title[:35]}", fg)
+    version = _selected_app_details.version
+    draw.text(Vector(10, 5), f"{title[:35]} v{version}", fg)
 
     # Description section
     description = _selected_app_details.description
     y_pos = 30
 
     # Word wrap the description
-    max_chars = 45
+    max_chars = 100
     words = description.split()
     current_line = ""
 
@@ -227,7 +233,7 @@ def __draw_app_details(view_manager) -> None:
     file_count = len(file_structure)
 
     # Show first few files
-    for i, file_path in enumerate(file_structure[:5]):
+    for file_path in file_structure[:5]:
         if y_pos > 250:
             break
         # Shorten path if too long
@@ -241,7 +247,7 @@ def __draw_app_details(view_manager) -> None:
 
     # Instructions at bottom
     y_pos = 285
-    draw.text(Vector(10, y_pos), "CENTER=Install  LEFT=Back", fg)
+    draw.text(Vector(10, y_pos), "CENTER = Install", fg)
 
     draw.swap()
 
@@ -336,6 +342,7 @@ def run(view_manager) -> None:
             # Go back to app list from details
             _app_state = STATE_APP_LIST
             if _app_menu:
+                view_manager.draw.erase()
                 _app_menu.draw()
             return
 
@@ -349,6 +356,9 @@ def run(view_manager) -> None:
             if _loading:
                 _loading.animate()
             return
+
+        if _loading:
+            _loading.stop()
 
         # Parse the app list
         if __parse_app_list(view_manager):
@@ -408,6 +418,9 @@ def run(view_manager) -> None:
             if _loading:
                 _loading.animate()
             return
+
+        if _loading:
+            _loading.stop()
 
         # Parse app details
         if __parse_app_details(view_manager, _selected_app_id):

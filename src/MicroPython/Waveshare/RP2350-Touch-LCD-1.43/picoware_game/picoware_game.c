@@ -6,7 +6,7 @@
 #include "py/runtime.h"
 #include "py/obj.h"
 #include "py/objarray.h"
-#include "waveshare_lcd/lcd.h"
+#include "lcd.h"
 #include <math.h>
 #include <stdbool.h>
 

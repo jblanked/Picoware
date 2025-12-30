@@ -102,29 +102,20 @@ def pick_birth_color(x, y):
     return choice([1, 2, 3])
 
 
-# === Drawing ===
-# Pre-create color lookup and reusable Vector objects for performance
-_COLORS = {
-    0: TFT_BLACK,  # dead = black
-    1: TFT_RED,  # red
-    2: TFT_GREEN,  # green
-    3: TFT_BLUE,  # blue
-}
-_vec_size = Vector(CELL_SIZE, CELL_SIZE)
-_vec_pos = Vector(0, 0)
+_COLORS = {}
+_vec_size = None
+_vec_pos = None
 
 
 def draw(display):
     # Color mappings
-    COLORS = _COLORS
-
     display.fill_screen(TFT_BLACK)
     vec_size = _vec_size
     vec_pos = _vec_pos
 
     for y in range(GRID_SIZE):
         for x in range(GRID_SIZE):
-            color = COLORS.get(grid[y][x], TFT_BLACK)
+            color = _COLORS.get(grid[y][x], TFT_BLACK)
             if color != TFT_BLACK:  # Skip drawing black pixels for speed
                 vec_pos.x = x * CELL_SIZE
                 vec_pos.y = y * CELL_SIZE
@@ -134,11 +125,21 @@ def draw(display):
 
 def start(view_manager) -> bool:
     """Start the app"""
-    global _psram, _new_grid_addr, _neighbor_addr, grid
+    global _psram, _new_grid_addr, _neighbor_addr, grid, _vec_size, _vec_pos, _COLORS
 
     if not view_manager.has_psram:
         view_manager.alert("Game of Life requires PSRAM to run.")
         return False
+
+    _vec_size = Vector(CELL_SIZE, CELL_SIZE)
+    _vec_pos = Vector(0, 0)
+
+    _COLORS = {
+        0: TFT_BLACK,  # dead = black
+        1: TFT_RED,  # red
+        2: TFT_GREEN,  # green
+        3: TFT_BLUE,  # blue
+    }
 
     # Initialize PSRAM
     _psram = PSRAM()
@@ -183,10 +184,13 @@ def stop(view_manager) -> None:
     """Stop the app and free PSRAM resources"""
     from gc import collect
 
-    global _psram, _new_grid_addr, _neighbor_addr, grid
+    global _psram, _new_grid_addr, _neighbor_addr, grid, _vec_size, _vec_pos, _COLORS
 
     # Free RAM grid
     grid = []
+    _vec_size = None
+    _vec_pos = None
+    _COLORS = {}
 
     # Free all allocated PSRAM memory
     if _psram is not None:

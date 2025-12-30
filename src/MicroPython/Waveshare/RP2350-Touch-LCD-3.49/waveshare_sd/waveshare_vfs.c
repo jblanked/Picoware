@@ -295,7 +295,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(vfs_file_read_method_obj, 1, 2, vfs_f
 
 STATIC mp_obj_t vfs_file_readinto(mp_obj_t self_in, mp_obj_t buf_in)
 {
-    picoware_vfs_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    waveshare_vfs_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
     file_ensure_open(self);
 
     mp_buffer_info_t bufinfo;

@@ -168,8 +168,8 @@ class Level:
 
                 # Only draw the 2D sprite if it exists
                 if entity.sprite:
-                    self._entity_vec.x = entity.position.x - self.game.position.x
-                    self._entity_vec.y = entity.position.y - self.game.position.y
+                    self._entity_vec.x = int(entity.position.x - self.game.position.x)
+                    self._entity_vec.y = int(entity.position.y - self.game.position.y)
                     self.game.draw.image_bytearray(
                         self._entity_vec,
                         entity.size,

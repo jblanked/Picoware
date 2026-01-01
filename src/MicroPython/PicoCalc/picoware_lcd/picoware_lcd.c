@@ -25,11 +25,15 @@
 #define CHAR_WIDTH 6 // Including spacing
 #define CHAR_HEIGHT 8
 
+#define LCD_CHUNK_LINES 8
+
 // Module state
 static bool module_initialized = false;
 
 // Static framebuffer
 uint8_t static_framebuffer[DISPLAY_WIDTH * DISPLAY_HEIGHT];
+
+static uint16_t palette[256]; // 256-color palette for RGB332
 
 static const uint8_t *get_font_data(void)
 {
@@ -677,7 +681,10 @@ static const uint8_t *get_font_data(void)
     };
     return font_data;
 }
-
+static uint16_t lcd_color332_to_565(uint8_t r, uint8_t g, uint8_t b)
+{
+    return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
+}
 // Function to initialize the LCD
 STATIC mp_obj_t picoware_lcd_init(size_t n_args, const mp_obj_t *args)
 {
@@ -693,117 +700,57 @@ STATIC mp_obj_t picoware_lcd_init(size_t n_args, const mp_obj_t *args)
         lcd_set_background(mp_obj_get_int(args[0]));
         lcd_set_underscore(false);
         lcd_enable_cursor(false);
+        // init palette
+        for (int i = 0; i < 256; i++)
+        {
+            // Extract RGB332 components
+            uint8_t r3 = (i >> 5) & 0x07; // 3 bits for red
+            uint8_t g3 = (i >> 2) & 0x07; // 3 bits for green
+            uint8_t b2 = i & 0x03;        // 2 bits for blue
+
+            // Convert to 8-bit RGB
+            uint8_t r8 = (r3 * 255) / 7; // Scale 3-bit to 8-bit
+            uint8_t g8 = (g3 * 255) / 7; // Scale 3-bit to 8-bit
+            uint8_t b8 = (b2 * 255) / 3; // Scale 2-bit to 8-bit
+
+            // Convert to RGB565 for the palette
+            palette[i] = lcd_color332_to_565(r8, g8, b8);
+        }
         module_initialized = true;
     }
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_init_obj, 1, 1, picoware_lcd_init);
 
-// Fast 8-bit to RGB565 conversion and blit function
-STATIC mp_obj_t picoware_lcd_blit_8bit(size_t n_args, const mp_obj_t *args)
+STATIC mp_obj_t picoware_lcd_swap(void)
 {
-    // Arguments: palette_data, width, height, x_offset, y_offset
-    if (n_args != 5)
-    {
-        mp_raise_ValueError(MP_ERROR_TEXT("blit_8bit requires 5 arguments"));
-    }
-
-    // Get palette data (RGB565 values)
-    mp_buffer_info_t palette_info;
-    mp_get_buffer_raise(args[0], &palette_info, MP_BUFFER_READ);
-    uint16_t *palette = (uint16_t *)palette_info.buf;
-
-    // Get dimensions and position
-    int width = mp_obj_get_int(args[1]);
-    int height = mp_obj_get_int(args[2]);
-    int x_offset = mp_obj_get_int(args[3]);
-    int y_offset = mp_obj_get_int(args[4]);
-
-    // Validate arguments
-    if (width <= 0 || height <= 0 || width > DISPLAY_WIDTH || height > DISPLAY_HEIGHT)
-    {
-        mp_raise_ValueError(MP_ERROR_TEXT("Invalid dimensions"));
-    }
-
-    if (x_offset < 0 || y_offset < 0 ||
-        x_offset + width > DISPLAY_WIDTH || y_offset + height > DISPLAY_HEIGHT)
-    {
-        mp_raise_ValueError(MP_ERROR_TEXT("Invalid position"));
-    }
-
-    if (palette_info.len < PALETTE_SIZE * 2)
-    {
-        mp_raise_ValueError(MP_ERROR_TEXT("Palette too small"));
-    }
-
-    // Use line-by-line conversion to avoid large buffer allocation
-    uint16_t line_buffer[DISPLAY_WIDTH];
-
-    for (int y = 0; y < height; y++)
-    {
-        // Convert one line at a time
-        for (int x = 0; x < width; x++)
-        {
-            int fb_index = y * width + x;
-            uint8_t color_index = static_framebuffer[fb_index];
-            if (color_index < PALETTE_SIZE)
-            {
-                line_buffer[x] = palette[color_index];
-            }
-            else
-            {
-                line_buffer[x] = 0; // Black for invalid indices
-            }
-        }
-
-        // Blit one line at a time
-        lcd_blit(line_buffer, x_offset, y_offset + y, width, 1);
-    }
-
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_blit_8bit_obj, 5, 5, picoware_lcd_blit_8bit);
-
-STATIC mp_obj_t picoware_lcd_blit_8bit_fullscreen(mp_obj_t palette_obj)
-{
-    // Get palette data (RGB565 values)
-    mp_buffer_info_t palette_info;
-    mp_get_buffer_raise(palette_obj, &palette_info, MP_BUFFER_READ);
-    uint16_t *palette = (uint16_t *)palette_info.buf;
-
-    // Validate buffer sizes
-    if (palette_info.len < PALETTE_SIZE * 2)
-    {
-        mp_raise_ValueError(MP_ERROR_TEXT("Palette too small"));
-    }
-
     // Use line-by-line conversion for memory efficiency
-    uint16_t line_buffer[DISPLAY_WIDTH];
+    uint16_t line_buffer[DISPLAY_WIDTH * LCD_CHUNK_LINES];
 
-    for (int y = 0; y < DISPLAY_HEIGHT; y++)
+    // Send data line by line in chunks
+    for (uint16_t y = 0; y < DISPLAY_HEIGHT; y += LCD_CHUNK_LINES)
     {
-        // Convert one line from 8-bit to 16-bit
-        for (int x = 0; x < DISPLAY_WIDTH; x++)
+        uint16_t lines_to_send = (y + LCD_CHUNK_LINES > DISPLAY_HEIGHT) ? (DISPLAY_HEIGHT - y) : LCD_CHUNK_LINES;
+
+        // Convert this chunk from RGB332 to RGB565 with byte swapping
+        for (uint16_t line = 0; line < lines_to_send; line++)
         {
-            int fb_index = y * DISPLAY_WIDTH + x;
-            uint8_t color_index = static_framebuffer[fb_index];
-            if (color_index < PALETTE_SIZE)
+            for (uint16_t x = 0; x < DISPLAY_WIDTH; x++)
             {
-                line_buffer[x] = palette[color_index];
-            }
-            else
-            {
-                line_buffer[x] = 0; // Black for invalid indices
+                size_t fb_index = (y + line) * DISPLAY_WIDTH + x;
+                size_t buf_index = line * DISPLAY_WIDTH + x;
+                uint8_t palette_index = static_framebuffer[fb_index];
+                line_buffer[buf_index] = palette[palette_index];
             }
         }
 
-        // Send to LCD - each line is sent immediately
-        lcd_blit(line_buffer, 0, y, DISPLAY_WIDTH, 1);
+        // Send to LCD
+        lcd_blit(line_buffer, 0, y, DISPLAY_WIDTH, lines_to_send);
     }
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(picoware_lcd_blit_8bit_fullscreen_obj, picoware_lcd_blit_8bit_fullscreen);
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(picoware_lcd_swap_obj, picoware_lcd_swap);
 
 STATIC mp_obj_t picoware_lcd_clear_screen(void)
 {
@@ -1513,9 +1460,8 @@ STATIC const mp_rom_map_elem_t picoware_lcd_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_display_on), MP_ROM_PTR(&picoware_lcd_display_on_obj)},
     {MP_ROM_QSTR(MP_QSTR_display_off), MP_ROM_PTR(&picoware_lcd_display_off_obj)},
 
-    // Blitting functions
-    {MP_ROM_QSTR(MP_QSTR_blit_8bit), MP_ROM_PTR(&picoware_lcd_blit_8bit_obj)},
-    {MP_ROM_QSTR(MP_QSTR_blit_8bit_fullscreen), MP_ROM_PTR(&picoware_lcd_blit_8bit_fullscreen_obj)},
+    // swap
+    {MP_ROM_QSTR(MP_QSTR_swap), MP_ROM_PTR(&picoware_lcd_swap_obj)},
 
     // Drawing functions
     {MP_ROM_QSTR(MP_QSTR_draw_pixel), MP_ROM_PTR(&picoware_lcd_draw_pixel_obj)},

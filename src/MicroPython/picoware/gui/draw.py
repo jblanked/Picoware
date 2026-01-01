@@ -60,9 +60,6 @@ class Draw:
             self._font_size.x = CHAR_WIDTH
             self._font_size.y = FONT_HEIGHT
 
-            # Create RGB332 palette
-            self.palette = self._create_rgb332_palette()
-
             # Clear the display and framebuffer
             clear_framebuffer(self._rgb565_to_rgb332(background))
 
@@ -101,32 +98,6 @@ class Draw:
         """Get the size of the display"""
         return self._size
 
-    def _create_rgb332_palette(self) -> bytearray:
-        """Create an RGB332 to RGB565 palette conversion table"""
-        palette = bytearray(256 * 2)  # 256 colors × 2 bytes (RGB565)
-        for i in range(256):
-            # Extract RGB332 components
-            r3 = (i >> 5) & 0x07  # 3 bits for red
-            g3 = (i >> 2) & 0x07  # 3 bits for green
-            b2 = i & 0x03  # 2 bits for blue
-
-            # Convert to 8-bit RGB
-            r8 = (r3 * 255) // 7  # Scale 3-bit to 8-bit
-            g8 = (g3 * 255) // 7  # Scale 3-bit to 8-bit
-            b8 = (b2 * 255) // 3  # Scale 2-bit to 8-bit
-
-            # Convert to RGB565
-            r565 = (r8 >> 3) & 0x1F
-            g565 = (g8 >> 2) & 0x3F
-            b565 = (b8 >> 3) & 0x1F
-            rgb565 = (r565 << 11) | (g565 << 5) | b565
-
-            # Store as little-endian bytes
-            palette[i * 2] = rgb565 & 0xFF
-            palette[i * 2 + 1] = (rgb565 >> 8) & 0xFF
-
-        return palette
-
     def _rgb565_to_rgb332(self, rgb565):
         """Convert RGB565 color to RGB332 palette index"""
         return (
@@ -139,7 +110,7 @@ class Draw:
         """Destructor to ensure cleanup on object deletion"""
         try:
             self.cleanup()
-        except:
+        except Exception:
             pass
 
     def circle(self, position: Vector, radius: int, color: int = None):
@@ -680,9 +651,9 @@ class Draw:
 
             swap()
         else:
-            from picoware_lcd import blit_8bit_fullscreen
+            from picoware_lcd import swap
 
-            blit_8bit_fullscreen(self.palette)
+            swap()
 
     def text(self, position: Vector, text: str, color=None):
         """Draw text on the display"""

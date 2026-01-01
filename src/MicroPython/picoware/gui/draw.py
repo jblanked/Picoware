@@ -149,7 +149,7 @@ class Draw:
     def circle(self, position: Vector, radius: int, color: int = None):
         """Draw a circle outline"""
         _color = color if color is not None else self._foreground
-        draw_circle(int(position.x), int(position.y), radius, _color)
+        draw_circle(position.x, position.y, radius, _color)
 
     def clear(
         self,
@@ -184,16 +184,16 @@ class Draw:
     def fill_circle(self, position: Vector, radius: int, color=None):
         """Draw a filled circle"""
         _color = color if color is not None else self._foreground
-        fill_circle(int(position.x), int(position.y), radius, _color)
+        fill_circle(position.x, position.y, radius, _color)
 
     def fill_rectangle(self, position: Vector, size: Vector, color=None):
         """Draw a filled rectangle"""
         _color = color if color is not None else self._foreground
         fill_rect(
-            int(position.x),
-            int(position.y),
-            int(size.x),
-            int(size.y),
+            position.x,
+            position.y,
+            size.x,
+            size.y,
             _color,
         )
 
@@ -207,10 +207,10 @@ class Draw:
         _color = color if color is not None else self._foreground
 
         # Clip to screen bounds
-        x: int = int(position.x)
-        y: int = int(position.y)
-        width: int = int(size.x)
-        height: int = int(size.y)
+        x: int = position.x
+        y: int = position.y
+        width: int = size.x
+        height: int = size.y
 
         # Adjust for left and top boundaries
         if x < 0:
@@ -286,12 +286,12 @@ class Draw:
         """Draw a filled triangle"""
         _color = color if color is not None else self._foreground
         fill_triangle(
-            int(point1.x),
-            int(point1.y),
-            int(point2.x),
-            int(point2.y),
-            int(point3.x),
-            int(point3.y),
+            point1.x,
+            point1.y,
+            point2.x,
+            point2.y,
+            point3.x,
+            point3.y,
             _color,
         )
 
@@ -417,26 +417,26 @@ class Draw:
             BOARD_WAVESHARE_3_49_RP2350,
         ):
             waveshare_blit(
-                int(position.x),
-                int(position.y),
-                int(size.x),
-                int(size.y),
+                position.x,
+                position.y,
+                size.x,
+                size.y,
                 byte_data,
                 # invert,
             )
         else:
             draw_image_bytearray(
-                int(position.x),
-                int(position.y),
-                int(size.x),
-                int(size.y),
+                position.x,
+                position.y,
+                size.x,
+                size.y,
                 byte_data,
                 invert,
             )
 
     def image_bytearray_1bit(self, position: Vector, size: Vector, byte_data) -> None:
         """Draw a 1-bit bitmap from packed byte_data (8 pixels per byte, row-aligned)"""
-        width, height = int(size.x), int(size.y)
+        width, height = size.x, size.y
         bytes_per_row = (width + 7) // 8  # Each row is padded to byte boundary
 
         # Unpack bits to 8-bit pixel values
@@ -490,7 +490,7 @@ class Draw:
     def line(self, position: Vector, size: Vector, color=None):
         """Draw horizontal line"""
         _color = color if color is not None else self._foreground
-        draw_line(int(position.x), int(position.y), int(size.x), _color)
+        draw_line(position.x, position.y, size.x, _color)
 
     def line_custom(self, point_1: Vector, point_2: Vector, color=None):
         """Draw line between two points"""
@@ -501,25 +501,25 @@ class Draw:
             BOARD_WAVESHARE_3_49_RP2350,
         ):
             draw_line(
-                int(point_1.x),
-                int(point_1.y),
-                int(point_2.x),
-                int(point_2.y),
+                point_1.x,
+                point_1.y,
+                point_2.x,
+                point_2.y,
                 _color,
             )
         else:
             draw_line_custom(
-                int(point_1.x),
-                int(point_1.y),
-                int(point_2.x),
-                int(point_2.y),
+                point_1.x,
+                point_1.y,
+                point_2.x,
+                point_2.y,
                 _color,
             )
 
     def pixel(self, position: Vector, color=None):
         """Draw a pixel"""
         _color = color if color is not None else self._foreground
-        draw_pixel(int(position.x), int(position.y), _color)
+        draw_pixel(position.x, position.y, _color)
 
     def rect(self, position: Vector, size: Vector, color=None):
         """Draw a rectangle outline on the display"""
@@ -534,14 +534,14 @@ class Draw:
             BOARD_WAVESHARE_3_49_RP2350,
         ):
             waveshare_draw_rect(
-                int(position.x),
-                int(position.y),
-                int(size.x),
-                int(size.y),
+                position.x,
+                position.y,
+                size.x,
+                size.y,
                 _color,
             )
         else:
-            x, y, w, h = int(position.x), int(position.y), int(size.x), int(size.y)
+            x, y, w, h = position.x, position.y, size.x, size.y
             draw_line(x, y, w, _color)  # Top
             draw_line(x, y + h - 1, w, _color)  # Bottom
             draw_line_custom(x, y, x, y + h - 1, _color)  # Left
@@ -560,12 +560,12 @@ class Draw:
     def text(self, position: Vector, text: str, color=None):
         """Draw text on the display"""
         _color = color if color is not None else self._foreground
-        draw_text(int(position.x), int(position.y), text, _color)
+        draw_text(position.x, position.y, text, _color)
 
     def text_char(self, position: Vector, char: str, color=None):
         """Draw a single character on the display"""
         _color = color if color is not None else self._foreground
-        draw_char(int(position.x), int(position.y), ord(char), _color)
+        draw_char(position.x, position.y, ord(char), _color)
 
     def triangle(self, point1: Vector, point2: Vector, point3: Vector, color=None):
         """Draw a triangle outline"""

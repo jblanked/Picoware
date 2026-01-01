@@ -25,6 +25,16 @@ class Vector:
             return value
         raise TypeError("Expected a tuple or a Vector.")
 
+    def to_float(self):
+        """Convert the vector components to floats."""
+        self.x = float(self.x)
+        self.y = float(self.y)
+
+    def to_int(self):
+        """Convert the vector components to integers."""
+        self.x = int(self.x)
+        self.y = int(self.y)
+
     def __add__(self, other):
         other = Vector.from_val(other)
         return Vector(self.x + other.x, self.y + other.y)

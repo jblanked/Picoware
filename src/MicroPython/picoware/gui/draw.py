@@ -490,7 +490,14 @@ class Draw:
     def line(self, position: Vector, size: Vector, color=None):
         """Draw horizontal line"""
         _color = color if color is not None else self._foreground
-        draw_line(position.x, position.y, size.x, _color)
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
+            draw_line(position.x, position.y, size.x, size.y, _color)
+        else:
+            draw_line(position.x, position.y, size.x, _color)
 
     def line_custom(self, point_1: Vector, point_2: Vector, color=None):
         """Draw line between two points"""

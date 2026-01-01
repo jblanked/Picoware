@@ -1,6 +1,10 @@
 # picoware/apps/games/Flappy Bird.py
 # Original from https://github.com/xMasterX/all-the-plugins/blob/dev/base_pack/flappy_bird
 from random import randint
+from micropython import const
+from picoware.system.vector import Vector
+from picoware.system.buttons import BUTTON_UP, BUTTON_CENTER, BUTTON_BACK
+from picoware.system.colors import TFT_BLACK, TFT_BLUE, TFT_WHITE
 
 BIRD_ICON = bytes(
     [
@@ -327,7 +331,6 @@ BIRD_ICON = bytes(
     ]
 )
 
-from micropython import const
 
 FLAPPY_BIRD_HEIGHT = const(16)
 FLAPPY_BIRD_WIDTH = const(20)
@@ -387,11 +390,21 @@ class PILAR:
 
 class GameState:
     def __init__(self):
+
         self.bird: BIRD = BIRD()
         self.points: int = 0
         self.pilars_count: int = 0
         self.pilars: list[PILAR] = [PILAR() for _ in range(FLAPPY_PILAR_MAX)]
         self.state: int = GAME_STATE_LIFE
+
+        self.lcd_vec = Vector(FLIPPER_LCD_WIDTH, FLIPPER_LCD_HEIGHT)
+        self.bird_vec = Vector(FLAPPY_BIRD_WIDTH, FLAPPY_BIRD_HEIGHT)
+        self.vec_1 = Vector(0, 0)
+        self.vec_2 = Vector(FLAPPY_GAB_WIDTH, 0)
+        self.vec_3 = Vector(0, 0)
+        self.vec_4 = Vector(FLAPPY_GAB_WIDTH, 0)
+        self.lcd_pos = Vector(0, 0)
+        self.text_pos = Vector(140, 12)
 
     def __del__(self):
         if self.bird:
@@ -402,6 +415,22 @@ class GameState:
                 if pilar:
                     del pilar
             self.pilars = None
+        del self.lcd_vec
+        self.lcd_vec = None
+        del self.bird_vec
+        self.bird_vec = None
+        del self.vec_1
+        self.vec_1 = None
+        del self.vec_2
+        self.vec_2 = None
+        del self.vec_3
+        self.vec_3 = None
+        del self.vec_4
+        self.vec_4 = None
+        del self.lcd_pos
+        self.lcd_pos = None
+        del self.text_pos
+        self.text_pos = None
 
 
 _game_state: GameState = None
@@ -525,7 +554,6 @@ def __flappy_game_flap() -> None:
 
 def __player_update(self, game):
     """Move the player based on input"""
-    from picoware.system.buttons import BUTTON_UP, BUTTON_CENTER
 
     global _game_state
 
@@ -543,54 +571,50 @@ def __player_update(self, game):
 
 def __player_render(self, draw, game) -> None:
     """Render the player"""
-    from picoware.system.vector import Vector
-    from picoware.system.colors import TFT_BLACK, TFT_BLUE, TFT_WHITE
 
     global _game_state
 
     # draw a border
-    draw.rect(
-        Vector(0, 0), Vector(FLIPPER_LCD_WIDTH, FLIPPER_LCD_HEIGHT), TFT_BLACK
-    )  # black border
+    draw.rect(_game_state.lcd_pos, _game_state.lcd_vec, TFT_BLACK)  # black border
 
     if _game_state.state == GAME_STATE_LIFE:
         # Draw pillars
-        vec_1 = Vector(0, 0)
-        vec_2 = Vector(FLAPPY_GAB_WIDTH, 0)
-        vec_3 = Vector(0, 0)
-        vec_4 = Vector(FLAPPY_GAB_WIDTH, 0)
         for i in range(FLAPPY_PILAR_MAX):
             pilar = _game_state.pilars[i]
             if pilar and pilar.visible == 1:
                 # Top pillar outline
-                vec_1.x = pilar.point.x
-                vec_1.y = pilar.point.y
-                vec_2.y = pilar.height
+                _game_state.vec_1.x = pilar.point.x
+                _game_state.vec_1.y = pilar.point.y
+                _game_state.vec_2.y = pilar.height
                 draw.rect(
-                    vec_1,
-                    vec_2,
+                    _game_state.vec_1,
+                    _game_state.vec_2,
                     TFT_BLUE,
                 )
 
                 # Bottom pillar outline
-                vec_3.x = pilar.point.x
-                vec_3.y = pilar.point.y + pilar.height + FLAPPY_GAB_HEIGHT
-                vec_4.y = FLIPPER_LCD_HEIGHT - (pilar.height + FLAPPY_GAB_HEIGHT)
+                _game_state.vec_3.x = pilar.point.x
+                _game_state.vec_3.y = pilar.point.y + pilar.height + FLAPPY_GAB_HEIGHT
+                _game_state.vec_4.y = FLIPPER_LCD_HEIGHT - (
+                    pilar.height + FLAPPY_GAB_HEIGHT
+                )
                 draw.rect(
-                    vec_3,
-                    vec_4,
+                    _game_state.vec_3,
+                    _game_state.vec_4,
                     TFT_BLUE,
                 )
 
         # Draw the bird
-        self.position = Vector(_game_state.bird.point.x, _game_state.bird.point.y)
+        # self.position = Vector(
+        #     int(_game_state.bird.point.x), int(_game_state.bird.point.y)
+        # )
+        self.position.x = int(_game_state.bird.point.x)
+        self.position.y = int(_game_state.bird.point.y)
 
-        draw.image_bytearray(
-            self.position, Vector(FLAPPY_BIRD_WIDTH, FLAPPY_BIRD_HEIGHT), BIRD_ICON
-        )
+        draw.image_bytearray(self.position, _game_state.bird_vec, BIRD_ICON)
 
         # Score
-        draw.text(Vector(140, 12), f"Score: {_game_state.points}", TFT_BLACK)
+        draw.text(_game_state.text_pos, f"Score: {_game_state.points}", TFT_BLACK)
 
     elif _game_state.state == GAME_STATE_GAME_OVER:
         self.position = Vector(-100, -100)
@@ -605,7 +629,6 @@ def __player_render(self, draw, game) -> None:
 def __player_spawn(level):
     """Spawn the player in the level."""
     from picoware.engine.entity import Entity, ENTITY_TYPE_PLAYER, SPRITE_3D_NONE
-    from picoware.system.vector import Vector
 
     global _game_state
 
@@ -671,7 +694,6 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run the app."""
-    from picoware.system.buttons import BUTTON_BACK
 
     global _game_engine
 

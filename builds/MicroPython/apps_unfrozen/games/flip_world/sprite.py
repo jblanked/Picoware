@@ -58,6 +58,9 @@ class Sprite(Entity):
         self.flip_world_run = None
         self._update_new_pos = Vector(0, 0)
         self._update_direction = Vector(0, 0)
+        self.cent_box_pos = Vector(0, 0)
+        self.cent_box_size = Vector(0, 0)
+        self.cent_box_text = Vector(0, 0)
         if name == "Cyclops":
 
             self.size = Vector(10, 11)
@@ -118,6 +121,14 @@ class Sprite(Entity):
             self.sprite_left = None
             self.sprite_right = None
 
+    def __del__(self):
+        """Destructor to clean up resources."""
+        self._update_new_pos = None
+        self._update_direction = None
+        self.cent_box_pos = None
+        self.cent_box_size = None
+        self.cent_box_text = None
+
     def collision(self, other, game):
         """Handles collision with another entity."""
         if self.type != ENTITY_TYPE_ENEMY or other.type != ENTITY_TYPE_PLAYER:
@@ -133,20 +144,20 @@ class Sprite(Entity):
 
         if any(
             [
-                (self.direction == Vector(-1, 0) and player_pos.x < enemy_pos.x),
-                (self.direction == Vector(1, 0) and player_pos.x > enemy_pos.x),
-                (self.direction == Vector(0, -1) and player_pos.y < enemy_pos.y),
-                (self.direction == Vector(0, 1) and player_pos.y > enemy_pos.y),
+                (self.direction.x == -1 and player_pos.x < enemy_pos.x),
+                (self.direction.x == 1 and player_pos.x > enemy_pos.x),
+                (self.direction.y == -1 and player_pos.y < enemy_pos.y),
+                (self.direction.y == 1 and player_pos.y > enemy_pos.y),
             ]
         ):
             enemy_is_facing_player = True
 
         if any(
             [
-                (other.direction == Vector(-1, 0) and enemy_pos.x < player_pos.x)
-                or (other.direction == Vector(1, 0) and enemy_pos.x > player_pos.x)
-                or (other.direction == Vector(0, -1) and enemy_pos.y < player_pos.y)
-                or (other.direction == Vector(0, 1) and enemy_pos.y > player_pos.y)
+                (other.direction.x == -1 and enemy_pos.x < player_pos.x)
+                or (other.direction.x == 1 and enemy_pos.x > player_pos.x)
+                or (other.direction.y == -1 and enemy_pos.y < player_pos.y)
+                or (other.direction.y == 1 and enemy_pos.y > player_pos.y)
             ]
         ):
             player_is_facing_enemy = True
@@ -230,30 +241,29 @@ class Sprite(Entity):
             _name = str(self.health)
         elif self.type == ENTITY_TYPE_NPC:
             _name = "NPC"
-
         if not _name or not game:
             return
 
         # Calculate the center of the sprite horizontally
-        sprite_center_x = pos.x + self.size.x / 2
-        screen_x = sprite_center_x - game.position.x
-        screen_y = pos.y - game.position.y
+        sprite_center_x = int(pos.x + self.size.x // 2)
+        screen_x = int(sprite_center_x - game.position.x)
+        screen_y = int(pos.y - game.position.y)
 
         # Calculate text width using font size
-        text_width = len(_name) * game.draw.font_size.x
-        font_height = game.draw.font_size.y
+        text_width = int(len(_name) * game.draw.font_size.x)
+        font_height = int(game.draw.font_size.y)
 
         # Calculate box dimensions with padding
         box_padding = 2
-        box_width = text_width + (box_padding * 2)
-        box_height = font_height + (box_padding * 2)
+        box_width = int(text_width + (box_padding * 2))
+        box_height = int(font_height + (box_padding * 2))
 
         # Position box above the sprite at consistent height
-        vertical_offset = game.draw.size.x // 22
+        vertical_offset = int(game.draw.size.x // 22)
 
         # Center the box horizontally on the sprite
-        box_x = screen_x - box_width / 2
-        box_y = screen_y - vertical_offset
+        box_x = int(screen_x - box_width // 2)
+        box_y = int(screen_y - vertical_offset)
 
         # Check if box is within screen bounds
         if box_x < 0 or box_x + box_width > game.draw.size.x:
@@ -262,17 +272,23 @@ class Sprite(Entity):
             return
 
         # Draw centered box
+        self.cent_box_pos.x = box_x
+        self.cent_box_pos.y = box_y
+        self.cent_box_size.x = box_width
+        self.cent_box_size.y = box_height
         game.draw.fill_rectangle(
-            Vector(box_x, box_y),
-            Vector(box_width, box_height),
+            self.cent_box_pos,
+            self.cent_box_size,
             0xFFFF,  # white
         )
 
         # Center the text in the box
-        text_x = screen_x - text_width / 2
-        text_y = box_y + box_padding
+        text_x = int(screen_x - text_width // 2)
+        text_y = int(box_y + box_padding)
+        self.cent_box_text.x = text_x
+        self.cent_box_text.y = text_y
         game.draw.text(
-            Vector(text_x, text_y),
+            self.cent_box_text,
             _name,
             0x0000,  # black
         )

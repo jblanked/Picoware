@@ -209,6 +209,15 @@ class Player(Entity):
         self._img_vec = Vector(0, 0)
         self._img_size = Vector(0, 0)
 
+        self.pix_vec = Vector(1, 1)
+        self.cent_box_pos = Vector(0, 0)
+        self.cent_box_size = Vector(0, 0)
+        self.cent_box_text = Vector(0, 0)
+
+        self.user_stats_rect_pos = Vector(0, 0)
+        self.user_stats_size = Vector(0, 0)
+        self.user_stats_text = Vector(0, 0)
+
     def __del__(self):
         if self.loading:
             del self.loading
@@ -227,6 +236,24 @@ class Player(Entity):
         self._img_vec = None
         del self._img_size
         self._img_size = None
+        del self._update_new_pos
+        self._update_new_pos = None
+        del self._update_old_pos
+        self._update_old_pos = None
+        del self.pix_vec
+        self.pix_vec = None
+        del self.cent_box_pos
+        self.cent_box_pos = None
+        del self.cent_box_size
+        self.cent_box_size = None
+        del self.cent_box_text
+        self.cent_box_text = None
+        del self.user_stats_size
+        self.user_stats_size = None
+        del self.user_stats_text
+        self.user_stats_text = None
+        del self.user_stats_rect_pos
+        self.user_stats_rect_pos = None
 
     @property
     def should_leave_game(self) -> bool:
@@ -480,8 +507,8 @@ class Player(Entity):
             if self.lobby_count == 0:
                 canvas.text(Vector(5, 25), "No lobbies available", COLOR_BLACK)
             else:
-                start_y = self.screen_size.y // 5
-                item_height = self.screen_size.y // 10
+                start_y = int(self.screen_size.y) // 5
+                item_height = int(self.screen_size.y) // 10
                 for i in range(min(4, self.lobby_count)):
                     y = start_y + i * item_height
                     if i == self.current_lobby_index:
@@ -551,7 +578,6 @@ class Player(Entity):
         height = canvas.size.y
 
         # Rain droplets/star droplets effect
-        pix_vec = Vector(1, 1)
         for i in range(16):
             # Use pseudo-random offsets based on frame and droplet index
             seed = (self.rain_frame + i * 37) & 0xFF
@@ -559,21 +585,21 @@ class Player(Entity):
             y = (self.rain_frame * 2 + seed * 7 + i * 23) % height
 
             # Draw star-like droplet with bounds checking
-            pix_vec.x = x
-            pix_vec.y = y
-            canvas.pixel(pix_vec, COLOR_BLACK)
+            self.pix_vec.x = x
+            self.pix_vec.y = y
+            canvas.pixel(self.pix_vec, COLOR_BLACK)
             if x >= 1:
-                pix_vec.x = x - 1
-                canvas.pixel(pix_vec, COLOR_BLACK)
+                self.pix_vec.x = x - 1
+                canvas.pixel(self.pix_vec, COLOR_BLACK)
             if x <= width - 2:
-                pix_vec.x = x + 1
-                canvas.pixel(pix_vec, COLOR_BLACK)
+                self.pix_vec.x = x + 1
+                canvas.pixel(self.pix_vec, COLOR_BLACK)
             if y >= 1:
-                pix_vec.y = y - 1
-                canvas.pixel(pix_vec, COLOR_BLACK)
+                self.pix_vec.y = y - 1
+                canvas.pixel(self.pix_vec, COLOR_BLACK)
             if y <= height - 2:
-                pix_vec.y = y + 1
-                canvas.pixel(pix_vec, COLOR_BLACK)
+                self.pix_vec.y = y + 1
+                canvas.pixel(self.pix_vec, COLOR_BLACK)
 
         self.rain_frame += 1
         if self.rain_frame >= width:
@@ -858,25 +884,25 @@ class Player(Entity):
             return
 
         # Calculate the center of the player horizontally
-        player_center_x = pos.x + self.size.x / 2
-        screen_x = player_center_x - game.position.x
-        screen_y = pos.y - game.position.y
+        player_center_x = int(pos.x + self.size.x / 2)
+        screen_x = int(player_center_x - game.position.x)
+        screen_y = int(pos.y - game.position.y)
 
         # Calculate text width using font size
-        text_width = len(self.name) * game.draw.font_size.x
-        font_height = game.draw.font_size.y
+        text_width = int(len(self.name) * game.draw.font_size.x)
+        font_height = int(game.draw.font_size.y)
 
         # Calculate box dimensions with padding
         box_padding = 2
-        box_width = text_width + (box_padding * 2)
-        box_height = font_height + (box_padding * 2)
+        box_width = int(text_width + (box_padding * 2))
+        box_height = int(font_height + (box_padding * 2))
 
         # Position box above the player at consistent height
-        vertical_offset = self.screen_size.x // 18
+        vertical_offset = int(self.screen_size.x // 18)
 
         # Center the box horizontally on the player
-        box_x = screen_x - box_width / 2
-        box_y = screen_y - vertical_offset
+        box_x = int(screen_x - box_width // 2)
+        box_y = int(screen_y - vertical_offset)
 
         # Check if box is within screen bounds
         if box_x < 0 or box_x + box_width > self.screen_size.x:
@@ -885,26 +911,34 @@ class Player(Entity):
             return
 
         # Draw centered box
+        self.cent_box_pos.x = box_x
+        self.cent_box_pos.y = box_y
+        self.cent_box_size.x = box_width
+        self.cent_box_size.y = box_height
         game.draw.fill_rectangle(
-            Vector(box_x, box_y),
-            Vector(box_width, box_height),
+            self.cent_box_pos,
+            self.cent_box_size,
             COLOR_WHITE,
         )
 
         # Center the text in the box
-        text_x = screen_x - text_width / 2
-        text_y = box_y + box_padding
+        text_x = int(screen_x - text_width // 2)
+        text_y = int(box_y + box_padding)
+        self.cent_box_text.x = text_x
+        self.cent_box_text.y = text_y
         game.draw.text(
-            Vector(text_x, text_y),
+            self.cent_box_text,
             self.name,
             COLOR_BLACK,
         )
 
     def draw_user_stats(self, pos: Vector, canvas):
         """Draw the user stats at the specified position."""
+        self.user_stats_rect_pos.x = int(pos.x - 2)
+        self.user_stats_rect_pos.y = int(pos.y - 5)
         canvas.fill_rectangle(
-            Vector(pos.x - 2, pos.y - 5),
-            Vector(self.screen_size.x // 5, self.screen_size.y // 10),
+            self.user_stats_rect_pos,
+            self.user_stats_size,
             COLOR_WHITE,
         )
 
@@ -915,9 +949,15 @@ class Player(Entity):
         else:
             xp_str = f"XP : {int(self.xp // 1000)}K"
 
-        canvas.text(Vector(pos.x, pos.y), health_str, COLOR_BLACK)
-        canvas.text(Vector(pos.x, pos.y + 9), xp_str, COLOR_BLACK)
-        canvas.text(Vector(pos.x, pos.y + 18), level_str, COLOR_BLACK)
+        self.user_stats_text.x = int(pos.x)
+        self.user_stats_text.y = int(pos.y)
+        canvas.text(self.user_stats_text, health_str, COLOR_BLACK)
+        #
+        self.user_stats_text.y = int(pos.y + 9)
+        canvas.text(self.user_stats_text, xp_str, COLOR_BLACK)
+        #
+        self.user_stats_text.y = int(pos.y + 18)
+        canvas.text(self.user_stats_text, level_str, COLOR_BLACK)
 
     def icon_group_render(self, game):
         """Render the icon group for the current level."""

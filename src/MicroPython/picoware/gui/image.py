@@ -46,7 +46,8 @@ class Image:
         if len(data) != expected:
             raise ValueError(f"Data length {len(data)} != expected {expected}")
 
-        self.size = size
+        self.size.x = int(size.x)
+        self.size.y = int(size.y)
         self.is_8bit = is_8bit
 
         if is_8bit or byteorder == "little":

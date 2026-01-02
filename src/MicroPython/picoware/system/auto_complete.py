@@ -22,6 +22,14 @@ class AutoComplete:
         """Add a word to the auto-complete dictionary."""
         return auto_complete.add_word(self._ac, word)
 
+    def add_words(self, words: list[str]) -> int:
+        """Add multiple words to the auto-complete dictionary."""
+        count = 0
+        for word in words:
+            if auto_complete.add_word(self._ac, word):
+                count += 1
+        return count
+
     def remove_suggestions(self) -> None:
         """Remove all search suggestions."""
         auto_complete.remove_suggestions(self._ac)

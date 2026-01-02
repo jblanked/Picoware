@@ -212,15 +212,11 @@ STATIC mp_obj_t picoware_psram_write(mp_obj_t addr_obj, mp_obj_t data_obj)
     }
 
     const uint8_t *src = (const uint8_t *)bufinfo.buf;
-    uint32_t remaining = bufinfo.len;
-    uint32_t offset = 0;
 
-    while (remaining > 0)
+    // Use byte-by-byte writes for reliability
+    for (size_t i = 0; i < bufinfo.len; i++)
     {
-        uint32_t chunk_size = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
-        psram_qspi_write(&psram_instance, addr + offset, src + offset, chunk_size);
-        offset += chunk_size;
-        remaining -= chunk_size;
+        psram_qspi_write8(&psram_instance, addr + i, src[i]);
     }
 
     return mp_const_none;
@@ -253,15 +249,10 @@ STATIC mp_obj_t picoware_psram_read(mp_obj_t addr_obj, mp_obj_t length_obj)
     vstr_init_len(&vstr, length);
     byte *data = (byte *)vstr.buf;
 
-    uint32_t remaining = length;
-    uint32_t offset = 0;
-
-    while (remaining > 0)
+    // Use byte-by-byte reads for reliability
+    for (size_t i = 0; i < length; i++)
     {
-        uint32_t chunk_size = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
-        psram_qspi_read(&psram_instance, addr + offset, data + offset, chunk_size);
-        offset += chunk_size;
-        remaining -= chunk_size;
+        data[i] = psram_qspi_read8(&psram_instance, addr + i);
     }
 
     // Create Python bytes object directly from vstr
@@ -289,15 +280,11 @@ STATIC mp_obj_t picoware_psram_read_into(mp_obj_t addr_obj, mp_obj_t buffer_obj)
     }
 
     uint8_t *dst = (uint8_t *)bufinfo.buf;
-    uint32_t remaining = bufinfo.len;
-    uint32_t offset = 0;
 
-    while (remaining > 0)
+    // Use byte-by-byte reads for reliability
+    for (size_t i = 0; i < bufinfo.len; i++)
     {
-        uint32_t chunk_size = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
-        psram_qspi_read(&psram_instance, addr + offset, dst + offset, chunk_size);
-        offset += chunk_size;
-        remaining -= chunk_size;
+        dst[i] = psram_qspi_read8(&psram_instance, addr + i);
     }
 
     return mp_obj_new_int(bufinfo.len);

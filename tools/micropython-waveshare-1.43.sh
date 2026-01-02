@@ -21,6 +21,9 @@ rm -rf "$micropython_dir"/modules/PicoCalc # delete entire PicoCalc directory
 # remove existing Waveshare modules directory if it exists
 rm -rf "$micropython_dir"/modules/Waveshare
 
+# remove auto complete module if it exists
+rm -rf "$micropython_dir"/modules/auto_complete
+
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"
@@ -49,6 +52,9 @@ cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.43/waveshare_
 cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.43/waveshare_lcd "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.43/waveshare_lcd
 cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.43/waveshare_sd "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.43/waveshare_sd
 cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.43/waveshare_touch "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.43/waveshare_touch
+
+# copy auto complete module
+cp -r "$picoware_dir"/src/MicroPython/auto_complete "$micropython_dir"/modules/auto_complete
 
 
 echo "Starting Waveshare 1.43 build process..."

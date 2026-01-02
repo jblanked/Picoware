@@ -110,16 +110,13 @@ _vec_pos = None
 def draw(display):
     # Color mappings
     display.fill_screen(TFT_BLACK)
-    vec_size = _vec_size
-    vec_pos = _vec_pos
-
     for y in range(GRID_SIZE):
         for x in range(GRID_SIZE):
             color = _COLORS.get(grid[y][x], TFT_BLACK)
             if color != TFT_BLACK:  # Skip drawing black pixels for speed
-                vec_pos.x = x * CELL_SIZE
-                vec_pos.y = y * CELL_SIZE
-                display.fill_rectangle(vec_pos, vec_size, color)
+                _vec_pos.x = x * CELL_SIZE
+                _vec_pos.y = y * CELL_SIZE
+                display.fill_rectangle(_vec_pos, _vec_size, color)
     display.swap()
 
 

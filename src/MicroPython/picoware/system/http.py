@@ -17,9 +17,9 @@ class HTTP:
         self._async_request_in_progress = False
         self._async_thread = None
         self._state = HTTP_IDLE
-        self._async_error = None
+        self._async_error = ""
         self._async_callback: callable = None
-        self._async_result = None
+        self._async_result: Response = None
         self._lock = allocate_lock()
         self._running = False
 
@@ -51,7 +51,7 @@ class HTTP:
     @property
     def error(self):
         """Get the async error message, if any."""
-        _error = None
+        _error = ""
         with self._lock:
             _error = self._async_error
         return _error
@@ -77,7 +77,7 @@ class HTTP:
         """Check if the async request was successful."""
         _successful = False
         with self._lock:
-            _successful = self._async_request_complete and self._async_error is None
+            _successful = self._async_request_complete and self._async_error == ""
         return _successful
 
     @property
@@ -98,8 +98,8 @@ class HTTP:
 
     def close(self):
         """Close the async thread, clear the async response, reset state."""
-        self._async_thread = None
         with self._lock:
+            self._async_thread = None
             self._running = False
             if self._async_result is not None:
                 try:
@@ -111,7 +111,7 @@ class HTTP:
                     self._async_result = None
             self._async_request_complete = False
             self._async_request_in_progress = False
-            self._async_error = None
+            self._async_error = ""
             self._state = HTTP_IDLE
 
     def delete(
@@ -685,6 +685,8 @@ class HTTP:
         import usocket
         from ujson import dumps
 
+        self._running = True
+
         redirect = None  # redirection url, None means no redirection
         chunked_data = (
             data
@@ -716,12 +718,18 @@ class HTTP:
             host, port = host.split(":", 1)
             port = int(port)
 
+        if not self._running:
+            return
+
         ai = usocket.getaddrinfo(host, port, 0, usocket.SOCK_STREAM)
         ai = ai[0]
 
         resp_d = {}
         if parse_headers is False:
             resp_d = None
+
+        if not self._running:
+            return
 
         s = usocket.socket(ai[0], usocket.SOCK_STREAM, ai[2])
 
@@ -734,7 +742,9 @@ class HTTP:
                 pass
 
         try:
-            self._running = True
+            if not self._running:
+                s.close()
+                return
             s.connect(ai[-1])
             if proto == "https:":
                 s = ssl.wrap_socket(s, server_hostname=host)
@@ -808,6 +818,10 @@ class HTTP:
                     resp_d[k] = v.strip()
                 else:
                     parse_headers(l, resp_d)
+
+            if not self._running:
+                s.close()
+                return
 
             # Read body
             if transfer_encoding == "chunked":
@@ -954,6 +968,7 @@ class HTTP:
             self._async_request_in_progress = False
             self._state = HTTP_ISSUE
             self._async_thread = None
+            self._running = False
             return False
 
     def __execute_request(
@@ -1034,27 +1049,33 @@ class HTTP:
                     storage=storage,
                 )
 
-            if result:
-                self._async_result = result
-                self._state = HTTP_IDLE
-                del result
-                result = None
-            else:
+            with self._lock:
+                if result:
+                    self._async_result = result
+                    self._state = HTTP_IDLE
+                    del result
+                    result = None
+                else:
+                    self._async_result = None
+                    self._state = HTTP_ISSUE
+        except Exception as e:
+            with self._lock:
+                self._async_error = str(e)
                 self._async_result = None
                 self._state = HTTP_ISSUE
-        except Exception as e:
-            self._async_error = str(e)
-            self._async_result = None
-            self._state = HTTP_ISSUE
         finally:
-            self._async_request_complete = True
-            self._async_request_in_progress = False
-            self._async_thread = None
+            with self._lock:
+                self._async_request_complete = True
+                self._async_request_in_progress = False
+                self._async_thread = None
+                self._running = False
             # Call the callback function if set
             if self._async_callback:
-                self._async_callback(
-                    response=self._async_result,
-                    state=self._state,
-                    error=self._async_error,
-                )
-            self._running = False
+                try:
+                    self._async_callback(
+                        response=self._async_result,
+                        state=self._state,
+                        error=self._async_error,
+                    )
+                except Exception:
+                    pass

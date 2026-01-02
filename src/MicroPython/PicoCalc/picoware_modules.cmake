@@ -58,12 +58,12 @@ add_library(usermod_picoware_psram INTERFACE)
 
 # Generate PIO header from .pio file
 pico_generate_pio_header(usermod_picoware_psram
-    ${CMAKE_CURRENT_LIST_DIR}/picoware_psram/psram_spi.pio
+    ${CMAKE_CURRENT_LIST_DIR}/picoware_psram/psram_qspi.pio
 )
 
 target_sources(usermod_picoware_psram INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/picoware_psram/picoware_psram.c
-    ${CMAKE_CURRENT_LIST_DIR}/picoware_psram/psram_spi.c
+    ${CMAKE_CURRENT_LIST_DIR}/picoware_psram/psram_qspi.c
 )
 
 target_include_directories(usermod_picoware_psram INTERFACE

@@ -1,6 +1,7 @@
 /*
  * Picoware LCD Native C Extension for MicroPython
  *
+ * Uses PSRAM for framebuffer storage instead of static RAM
  */
 
 #include "py/runtime.h"
@@ -8,6 +9,8 @@
 #include "py/objarray.h"
 #include "py/mphal.h"
 #include "lcd.h"
+#include "../picoware_psram/psram_qspi.h"
+#include "../picoware_psram/picoware_psram_shared.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -27,11 +30,17 @@
 
 #define LCD_CHUNK_LINES 8
 
+// PSRAM framebuffer configuration
+#define PSRAM_FRAMEBUFFER_ADDR 0x400000                    // 4MB offset in PSRAM
+#define PSRAM_ROW_SIZE (DISPLAY_WIDTH)                     // 320 bytes per row (RGB332)
+#define PSRAM_BUFFER_SIZE (DISPLAY_WIDTH * DISPLAY_HEIGHT) // 102,400 bytes
+#define PSRAM_CHUNK_SIZE 64                                // Match picoware_psram chunk size
+
 // Module state
 static bool module_initialized = false;
 
-// Static framebuffer
-uint8_t static_framebuffer[DISPLAY_WIDTH * DISPLAY_HEIGHT];
+// Line buffer for batch operations (reusable)
+static uint8_t line_buffer[DISPLAY_WIDTH];
 
 static uint16_t palette[256]; // 256-color palette for RGB332
 
@@ -685,7 +694,55 @@ static uint16_t lcd_color332_to_565(uint8_t r, uint8_t g, uint8_t b)
 {
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
 }
-// Function to initialize the LCD
+
+// Helper to write a single pixel to PSRAM framebuffer
+__force_inline static void psram_write_pixel(int x, int y, uint8_t color_index)
+{
+    if (x >= 0 && x < DISPLAY_WIDTH && y >= 0 && y < DISPLAY_HEIGHT)
+    {
+        uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (y * PSRAM_ROW_SIZE) + x;
+        psram_qspi_write8(&psram_instance, addr, color_index);
+    }
+}
+
+// Helper to write a horizontal line to PSRAM (optimized batch write)
+__force_inline static void psram_write_hline(int x, int y, int length, uint8_t color_index)
+{
+    if (y < 0 || y >= DISPLAY_HEIGHT || length <= 0)
+        return;
+
+    // Clip to screen bounds
+    if (x < 0)
+    {
+        length += x;
+        x = 0;
+    }
+    if (x + length > DISPLAY_WIDTH)
+    {
+        length = DISPLAY_WIDTH - x;
+    }
+    if (length <= 0)
+        return;
+
+    uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (y * PSRAM_ROW_SIZE) + x;
+
+    // Fill line buffer with color
+    memset(line_buffer, color_index, length);
+
+    // Write in chunks to PSRAM
+    uint32_t remaining = length;
+    uint32_t offset = 0;
+
+    while (remaining > 0)
+    {
+        uint32_t chunk_size = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
+        psram_qspi_write(&psram_instance, addr + offset, line_buffer + offset, chunk_size);
+        offset += chunk_size;
+        remaining -= chunk_size;
+    }
+}
+
+// Function to initialize the LCD and PSRAM framebuffer
 STATIC mp_obj_t picoware_lcd_init(size_t n_args, const mp_obj_t *args)
 {
     // Arguments: background_color
@@ -700,7 +757,15 @@ STATIC mp_obj_t picoware_lcd_init(size_t n_args, const mp_obj_t *args)
         lcd_set_background(mp_obj_get_int(args[0]));
         lcd_set_underscore(false);
         lcd_enable_cursor(false);
-        // init palette
+
+        // Initialize PSRAM for framebuffer
+        if (!psram_initialized)
+        {
+            psram_instance = psram_qspi_init(pio1, -1, 1.0f);
+            psram_initialized = true;
+        }
+
+        // Init palette
         for (int i = 0; i < 256; i++)
         {
             // Extract RGB332 components
@@ -725,7 +790,8 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_init_obj, 1, 1, picoware
 STATIC mp_obj_t picoware_lcd_swap(void)
 {
     // Use line-by-line conversion for memory efficiency
-    uint16_t line_buffer[DISPLAY_WIDTH * LCD_CHUNK_LINES];
+    uint16_t lcd_line_buffer[DISPLAY_WIDTH * LCD_CHUNK_LINES];
+    uint8_t psram_row_buffer[DISPLAY_WIDTH];
 
     // Send data line by line in chunks
     for (uint16_t y = 0; y < DISPLAY_HEIGHT; y += LCD_CHUNK_LINES)
@@ -735,17 +801,30 @@ STATIC mp_obj_t picoware_lcd_swap(void)
         // Convert this chunk from RGB332 to RGB565 with byte swapping
         for (uint16_t line = 0; line < lines_to_send; line++)
         {
+            // Read row from PSRAM
+            uint32_t psram_addr = PSRAM_FRAMEBUFFER_ADDR + ((y + line) * PSRAM_ROW_SIZE);
+            uint32_t remaining = DISPLAY_WIDTH;
+            uint32_t offset = 0;
+
+            while (remaining > 0)
+            {
+                uint32_t chunk_size = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
+                psram_qspi_read(&psram_instance, psram_addr + offset, psram_row_buffer + offset, chunk_size);
+                offset += chunk_size;
+                remaining -= chunk_size;
+            }
+
+            // Convert to RGB565
             for (uint16_t x = 0; x < DISPLAY_WIDTH; x++)
             {
-                size_t fb_index = (y + line) * DISPLAY_WIDTH + x;
                 size_t buf_index = line * DISPLAY_WIDTH + x;
-                uint8_t palette_index = static_framebuffer[fb_index];
-                line_buffer[buf_index] = palette[palette_index];
+                uint8_t palette_index = psram_row_buffer[x];
+                lcd_line_buffer[buf_index] = palette[palette_index];
             }
         }
 
         // Send to LCD
-        lcd_blit(line_buffer, 0, y, DISPLAY_WIDTH, lines_to_send);
+        lcd_blit(lcd_line_buffer, 0, y, DISPLAY_WIDTH, lines_to_send);
     }
 
     return mp_const_none;
@@ -779,7 +858,7 @@ STATIC uint8_t color565_to_332(uint16_t color)
     return ((color & 0xE000) >> 8) | ((color & 0x0700) >> 6) | ((color & 0x0018) >> 3);
 }
 
-// Draw pixel in 8-bit framebuffer
+// Draw pixel in PSRAM framebuffer
 STATIC mp_obj_t picoware_lcd_draw_pixel(size_t n_args, const mp_obj_t *args)
 {
     // Arguments: x, y, color565
@@ -798,16 +877,16 @@ STATIC mp_obj_t picoware_lcd_draw_pixel(size_t n_args, const mp_obj_t *args)
         return mp_const_none;
     }
 
-    // Convert to 8-bit and store
+    // Convert to 8-bit and write to PSRAM
     uint8_t color_index = color565_to_332(color);
-    int buffer_index = y * DISPLAY_WIDTH + x;
-    static_framebuffer[buffer_index] = color_index;
+    uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (y * PSRAM_ROW_SIZE) + x;
+    psram_qspi_write8(&psram_instance, addr, color_index);
 
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_draw_pixel_obj, 3, 3, picoware_lcd_draw_pixel);
 
-// Fill rectangle in 8-bit framebuffer
+// Fill rectangle in PSRAM framebuffer
 STATIC mp_obj_t picoware_lcd_fill_rect(size_t n_args, const mp_obj_t *args)
 {
     // Arguments: x, y, width, height, color565
@@ -847,13 +926,22 @@ STATIC mp_obj_t picoware_lcd_fill_rect(size_t n_args, const mp_obj_t *args)
 
     uint8_t color_index = color565_to_332(color);
 
-    // Fast fill using optimized loops
+    // Fill line buffer with color once
+    memset(line_buffer, color_index, width);
+
+    // Write each row using optimized PSRAM writes
     for (int py = y; py < y + height; py++)
     {
-        int line_start = py * DISPLAY_WIDTH + x;
-        for (int px = 0; px < width; px++)
+        uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (py * PSRAM_ROW_SIZE) + x;
+        uint32_t remaining = width;
+        uint32_t offset = 0;
+
+        while (remaining > 0)
         {
-            static_framebuffer[line_start + px] = color_index;
+            uint32_t chunk_size = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
+            psram_qspi_write(&psram_instance, addr + offset, line_buffer + offset, chunk_size);
+            offset += chunk_size;
+            remaining -= chunk_size;
         }
     }
 
@@ -861,7 +949,7 @@ STATIC mp_obj_t picoware_lcd_fill_rect(size_t n_args, const mp_obj_t *args)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_fill_rect_obj, 5, 5, picoware_lcd_fill_rect);
 
-// Draw line
+// Draw horizontal line using optimized PSRAM batch writes
 STATIC mp_obj_t picoware_lcd_draw_line(size_t n_args, const mp_obj_t *args)
 {
     // Arguments: x, y, length, color565
@@ -881,28 +969,43 @@ STATIC mp_obj_t picoware_lcd_draw_line(size_t n_args, const mp_obj_t *args)
 
     uint8_t color_index = color565_to_332(color);
 
-    // Draw horizontal line with bounds checking
-    for (int i = 0; i < length; i++)
-    {
-        int currentX = x + i;
-        if (currentX >= 0 && currentX < DISPLAY_WIDTH)
-        {
-            int buffer_index = y * DISPLAY_WIDTH + currentX;
-            static_framebuffer[buffer_index] = color_index;
-        }
-    }
+    // Use optimized horizontal line write
+    psram_write_hline(x, y, length, color_index);
 
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_draw_line_obj, 4, 4, picoware_lcd_draw_line);
 
-// Clear framebuffer
+// Clear PSRAM framebuffer using optimized 32-bit fill
 STATIC mp_obj_t picoware_lcd_clear_framebuffer(mp_obj_t color_index_obj)
 {
     uint8_t color_index = mp_obj_get_int(color_index_obj);
 
-    // Fast clear using memset
-    memset(static_framebuffer, color_index, DISPLAY_WIDTH * DISPLAY_HEIGHT);
+    // Pack four pixels into a 32-bit value for DMA burst fill
+    uint32_t fill_value = (color_index << 24) | (color_index << 16) | (color_index << 8) | color_index;
+
+    // Calculate number of 32-bit words (BUFFER_SIZE / 4)
+    uint32_t word_count = PSRAM_BUFFER_SIZE / 4;
+
+    // Use 32-bit fill with chunked writes for optimal DMA performance
+    static uint32_t fill32_buffer[PSRAM_CHUNK_SIZE / 4];
+
+    // Fill the buffer with the 32-bit value
+    for (size_t i = 0; i < PSRAM_CHUNK_SIZE / 4; i++)
+    {
+        fill32_buffer[i] = fill_value;
+    }
+
+    uint32_t current_addr = PSRAM_FRAMEBUFFER_ADDR;
+    uint32_t remaining = word_count;
+
+    while (remaining > 0)
+    {
+        uint32_t words_in_chunk = (remaining > (PSRAM_CHUNK_SIZE / 4)) ? (PSRAM_CHUNK_SIZE / 4) : remaining;
+        psram_qspi_write(&psram_instance, current_addr, (const uint8_t *)fill32_buffer, words_in_chunk * 4);
+        current_addr += words_in_chunk * 4;
+        remaining -= words_in_chunk;
+    }
 
     return mp_const_none;
 }
@@ -938,7 +1041,7 @@ STATIC mp_obj_t picoware_lcd_draw_char(size_t n_args, const mp_obj_t *args)
     const uint8_t *font_data = get_font_data();
     const uint8_t *char_data = &font_data[char_code * FONT_WIDTH];
 
-    // Render character bitmap
+    // Render character bitmap using PSRAM writes
     for (int col = 0; col < FONT_WIDTH; col++)
     {
         uint8_t column_data = char_data[col];
@@ -946,8 +1049,8 @@ STATIC mp_obj_t picoware_lcd_draw_char(size_t n_args, const mp_obj_t *args)
         {
             if (column_data & (1 << row))
             {
-                int buffer_index = (y + row) * DISPLAY_WIDTH + (x + col);
-                static_framebuffer[buffer_index] = color_index;
+                uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + ((y + row) * PSRAM_ROW_SIZE) + (x + col);
+                psram_qspi_write8(&psram_instance, addr, color_index);
             }
         }
     }
@@ -1019,7 +1122,7 @@ STATIC mp_obj_t picoware_lcd_draw_text(size_t n_args, const mp_obj_t *args)
 
         const uint8_t *char_data = &font_data[char_code * FONT_WIDTH];
 
-        // Render character bitmap
+        // Render character bitmap using PSRAM writes
         for (int col = 0; col < FONT_WIDTH; col++)
         {
             uint8_t column_data = char_data[col];
@@ -1031,8 +1134,8 @@ STATIC mp_obj_t picoware_lcd_draw_text(size_t n_args, const mp_obj_t *args)
                     int py = current_y + row;
                     if (px < DISPLAY_WIDTH && py < DISPLAY_HEIGHT)
                     {
-                        int buffer_index = py * DISPLAY_WIDTH + px;
-                        static_framebuffer[buffer_index] = color_index;
+                        uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (py * PSRAM_ROW_SIZE) + px;
+                        psram_qspi_write8(&psram_instance, addr, color_index);
                     }
                 }
             }
@@ -1045,7 +1148,7 @@ STATIC mp_obj_t picoware_lcd_draw_text(size_t n_args, const mp_obj_t *args)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_draw_text_obj, 4, 4, picoware_lcd_draw_text);
 
-// Bresenham line algorithm
+// Bresenham line algorithm using PSRAM writes
 STATIC mp_obj_t picoware_lcd_draw_line_custom(size_t n_args, const mp_obj_t *args)
 {
     // Arguments: x1, y1, x2, y2, color565
@@ -1062,7 +1165,20 @@ STATIC mp_obj_t picoware_lcd_draw_line_custom(size_t n_args, const mp_obj_t *arg
 
     uint8_t color_index = color565_to_332(color);
 
-    // Bresenham's line algorithm (from draw.cpp)
+    // Fast path for horizontal lines - use batch write
+    if (y1 == y2)
+    {
+        if (x1 > x2)
+        {
+            int temp = x1;
+            x1 = x2;
+            x2 = temp;
+        }
+        psram_write_hline(x1, y1, x2 - x1 + 1, color_index);
+        return mp_const_none;
+    }
+
+    // Bresenham's line algorithm
     int dx = abs(x2 - x1);
     int dy = abs(y2 - y1);
     int sx = (x1 < x2) ? 1 : -1;
@@ -1071,11 +1187,11 @@ STATIC mp_obj_t picoware_lcd_draw_line_custom(size_t n_args, const mp_obj_t *arg
 
     while (true)
     {
-        // Draw pixel if within bounds
+        // Draw pixel if within bounds using PSRAM write
         if (x1 >= 0 && x1 < DISPLAY_WIDTH && y1 >= 0 && y1 < DISPLAY_HEIGHT)
         {
-            int buffer_index = y1 * DISPLAY_WIDTH + x1;
-            static_framebuffer[buffer_index] = color_index;
+            uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (y1 * PSRAM_ROW_SIZE) + x1;
+            psram_qspi_write8(&psram_instance, addr, color_index);
         }
 
         // Check if we've reached the end point
@@ -1099,6 +1215,7 @@ STATIC mp_obj_t picoware_lcd_draw_line_custom(size_t n_args, const mp_obj_t *arg
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_draw_line_custom_obj, 5, 5, picoware_lcd_draw_line_custom);
 
+// Draw circle outline using midpoint algorithm with PSRAM writes
 STATIC mp_obj_t picoware_lcd_draw_circle(size_t n_args, const mp_obj_t *args)
 {
     // Arguments: center_x, center_y, radius, color565
@@ -1117,40 +1234,55 @@ STATIC mp_obj_t picoware_lcd_draw_circle(size_t n_args, const mp_obj_t *args)
 
     uint8_t color_index = color565_to_332(color);
 
-    // Simple Bresenham circle with minimal bounds checking
+    // Midpoint circle algorithm with PSRAM writes
     int x = 0;
     int y = radius;
     int d = 3 - 2 * radius;
 
     while (x <= y)
     {
-        // Only plot points that are clearly within bounds (fast check)
-        int px1 = center_x + x, py1 = center_y + y;
-        int px2 = center_x - x, py2 = center_y + y;
-        int px3 = center_x + x, py3 = center_y - y;
-        int px4 = center_x - x, py4 = center_y - y;
-        int px5 = center_x + y, py5 = center_y + x;
-        int px6 = center_x - y, py6 = center_y + x;
-        int px7 = center_x + y, py7 = center_y - x;
-        int px8 = center_x - y, py8 = center_y - x;
+        // Write all 8 octant pixels using PSRAM write8
+        int px, py;
 
-        // Quick bounds check and plot
-        if (px1 >= 0 && px1 < DISPLAY_WIDTH && py1 >= 0 && py1 < DISPLAY_HEIGHT)
-            static_framebuffer[py1 * DISPLAY_WIDTH + px1] = color_index;
-        if (px2 >= 0 && px2 < DISPLAY_WIDTH && py2 >= 0 && py2 < DISPLAY_HEIGHT)
-            static_framebuffer[py2 * DISPLAY_WIDTH + px2] = color_index;
-        if (px3 >= 0 && px3 < DISPLAY_WIDTH && py3 >= 0 && py3 < DISPLAY_HEIGHT)
-            static_framebuffer[py3 * DISPLAY_WIDTH + px3] = color_index;
-        if (px4 >= 0 && px4 < DISPLAY_WIDTH && py4 >= 0 && py4 < DISPLAY_HEIGHT)
-            static_framebuffer[py4 * DISPLAY_WIDTH + px4] = color_index;
-        if (px5 >= 0 && px5 < DISPLAY_WIDTH && py5 >= 0 && py5 < DISPLAY_HEIGHT)
-            static_framebuffer[py5 * DISPLAY_WIDTH + px5] = color_index;
-        if (px6 >= 0 && px6 < DISPLAY_WIDTH && py6 >= 0 && py6 < DISPLAY_HEIGHT)
-            static_framebuffer[py6 * DISPLAY_WIDTH + px6] = color_index;
-        if (px7 >= 0 && px7 < DISPLAY_WIDTH && py7 >= 0 && py7 < DISPLAY_HEIGHT)
-            static_framebuffer[py7 * DISPLAY_WIDTH + px7] = color_index;
-        if (px8 >= 0 && px8 < DISPLAY_WIDTH && py8 >= 0 && py8 < DISPLAY_HEIGHT)
-            static_framebuffer[py8 * DISPLAY_WIDTH + px8] = color_index;
+        px = center_x + x;
+        py = center_y + y;
+        if (px >= 0 && px < DISPLAY_WIDTH && py >= 0 && py < DISPLAY_HEIGHT)
+            psram_qspi_write8(&psram_instance, PSRAM_FRAMEBUFFER_ADDR + (py * PSRAM_ROW_SIZE) + px, color_index);
+
+        px = center_x - x;
+        py = center_y + y;
+        if (px >= 0 && px < DISPLAY_WIDTH && py >= 0 && py < DISPLAY_HEIGHT)
+            psram_qspi_write8(&psram_instance, PSRAM_FRAMEBUFFER_ADDR + (py * PSRAM_ROW_SIZE) + px, color_index);
+
+        px = center_x + x;
+        py = center_y - y;
+        if (px >= 0 && px < DISPLAY_WIDTH && py >= 0 && py < DISPLAY_HEIGHT)
+            psram_qspi_write8(&psram_instance, PSRAM_FRAMEBUFFER_ADDR + (py * PSRAM_ROW_SIZE) + px, color_index);
+
+        px = center_x - x;
+        py = center_y - y;
+        if (px >= 0 && px < DISPLAY_WIDTH && py >= 0 && py < DISPLAY_HEIGHT)
+            psram_qspi_write8(&psram_instance, PSRAM_FRAMEBUFFER_ADDR + (py * PSRAM_ROW_SIZE) + px, color_index);
+
+        px = center_x + y;
+        py = center_y + x;
+        if (px >= 0 && px < DISPLAY_WIDTH && py >= 0 && py < DISPLAY_HEIGHT)
+            psram_qspi_write8(&psram_instance, PSRAM_FRAMEBUFFER_ADDR + (py * PSRAM_ROW_SIZE) + px, color_index);
+
+        px = center_x - y;
+        py = center_y + x;
+        if (px >= 0 && px < DISPLAY_WIDTH && py >= 0 && py < DISPLAY_HEIGHT)
+            psram_qspi_write8(&psram_instance, PSRAM_FRAMEBUFFER_ADDR + (py * PSRAM_ROW_SIZE) + px, color_index);
+
+        px = center_x + y;
+        py = center_y - x;
+        if (px >= 0 && px < DISPLAY_WIDTH && py >= 0 && py < DISPLAY_HEIGHT)
+            psram_qspi_write8(&psram_instance, PSRAM_FRAMEBUFFER_ADDR + (py * PSRAM_ROW_SIZE) + px, color_index);
+
+        px = center_x - y;
+        py = center_y - x;
+        if (px >= 0 && px < DISPLAY_WIDTH && py >= 0 && py < DISPLAY_HEIGHT)
+            psram_qspi_write8(&psram_instance, PSRAM_FRAMEBUFFER_ADDR + (py * PSRAM_ROW_SIZE) + px, color_index);
 
         if (d < 0)
             d += 4 * x + 6;
@@ -1166,6 +1298,7 @@ STATIC mp_obj_t picoware_lcd_draw_circle(size_t n_args, const mp_obj_t *args)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_draw_circle_obj, 4, 4, picoware_lcd_draw_circle);
 
+// Fill circle using horizontal line spans
 STATIC mp_obj_t picoware_lcd_fill_circle(size_t n_args, const mp_obj_t *args)
 {
     // Arguments: center_x, center_y, radius, color565
@@ -1179,44 +1312,34 @@ STATIC mp_obj_t picoware_lcd_fill_circle(size_t n_args, const mp_obj_t *args)
     int radius = mp_obj_get_int(args[2]);
     uint16_t color = mp_obj_get_int(args[3]);
 
-    if (radius <= 0 || radius > 50) // Limit radius to prevent performance issues
+    if (radius <= 0 || radius > 100)
         return mp_const_none;
 
     uint8_t color_index = color565_to_332(color);
-    int radius_squared = radius * radius;
 
-    // Very tight bounding box with safety margins
-    int start_x = center_x - radius;
-    int end_x = center_x + radius;
-    int start_y = center_y - radius;
-    int end_y = center_y + radius;
+    // Midpoint algorithm with horizontal line fills using PSRAM batch writes
+    int x = 0;
+    int y = radius;
+    int d = 3 - 2 * radius;
 
-    // Clamp to display bounds
-    if (start_x < 0)
-        start_x = 0;
-    if (end_x >= DISPLAY_WIDTH)
-        end_x = DISPLAY_WIDTH - 1;
-    if (start_y < 0)
-        start_y = 0;
-    if (end_y >= DISPLAY_HEIGHT)
-        end_y = DISPLAY_HEIGHT - 1;
-
-    // Fill using distance check - optimized for small circles
-    for (int y = start_y; y <= end_y; y++)
+    while (x <= y)
     {
-        int dy = y - center_y;
-        int dy_squared = dy * dy;
+        // Draw horizontal lines for each row of the circle
+        psram_write_hline(center_x - x, center_y + y, 2 * x + 1, color_index);
+        psram_write_hline(center_x - x, center_y - y, 2 * x + 1, color_index);
+        psram_write_hline(center_x - y, center_y + x, 2 * y + 1, color_index);
+        psram_write_hline(center_x - y, center_y - x, 2 * y + 1, color_index);
 
-        for (int x = start_x; x <= end_x; x++)
+        if (d < 0)
         {
-            int dx = x - center_x;
-            int distance_squared = dx * dx + dy_squared;
-
-            if (distance_squared <= radius_squared)
-            {
-                static_framebuffer[y * DISPLAY_WIDTH + x] = color_index;
-            }
+            d += 4 * x + 6;
         }
+        else
+        {
+            d += 4 * (x - y) + 10;
+            y--;
+        }
+        x++;
     }
 
     return mp_const_none;
@@ -1351,17 +1474,8 @@ STATIC mp_obj_t picoware_lcd_fill_triangle(size_t n_args, const mp_obj_t *args)
             int start_x = (int)(x_left < x_right ? x_left : x_right);
             int end_x = (int)(x_left > x_right ? x_left : x_right);
 
-            // Clamp to screen bounds
-            if (start_x < 0)
-                start_x = 0;
-            if (end_x >= DISPLAY_WIDTH)
-                end_x = DISPLAY_WIDTH - 1;
-
-            // Draw the horizontal line
-            for (int x = start_x; x <= end_x; x++)
-            {
-                static_framebuffer[y * DISPLAY_WIDTH + x] = color_index;
-            }
+            // Use optimized horizontal line write
+            psram_write_hline(start_x, y, end_x - start_x + 1, color_index);
         }
     }
 
@@ -1369,7 +1483,7 @@ STATIC mp_obj_t picoware_lcd_fill_triangle(size_t n_args, const mp_obj_t *args)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_fill_triangle_obj, 7, 7, picoware_lcd_fill_triangle);
 
-// Draw an 8-bit byte array image
+// Draw an 8-bit byte array image to PSRAM framebuffer
 // Args: x (int), y (int), width (int), height (int), byte_data (bytes/bytearray), invert (bool)
 STATIC mp_obj_t picoware_lcd_draw_image_bytearray(size_t n_args, const mp_obj_t *args)
 {
@@ -1415,40 +1529,62 @@ STATIC mp_obj_t picoware_lcd_draw_image_bytearray(size_t n_args, const mp_obj_t 
         return mp_const_none;
     }
 
-    if (src_x == 0 && dst_x == 0 && copy_width == width &&
-        width == DISPLAY_WIDTH && !invert)
-    {
-        // direct memory copy for full-width rows without inversion
-        memcpy(&static_framebuffer[dst_y * DISPLAY_WIDTH],
-               &byte_data[src_y * width],
-               copy_height * width);
-        return mp_const_none;
-    }
-
-    // Copy line by line
+    // Copy line by line to PSRAM
     for (int row = 0; row < copy_height; row++)
     {
         int src_row_start = (src_y + row) * width + src_x;
-        int dst_row_start = (dst_y + row) * DISPLAY_WIDTH + dst_x;
+        uint32_t psram_addr = PSRAM_FRAMEBUFFER_ADDR + ((dst_y + row) * PSRAM_ROW_SIZE) + dst_x;
 
         if (invert)
         {
-            // Invert colors while copying
+            // Invert colors while copying - use line buffer
             for (int col = 0; col < copy_width; col++)
             {
-                static_framebuffer[dst_row_start + col] = 255 - byte_data[src_row_start + col];
+                line_buffer[col] = 255 - byte_data[src_row_start + col];
+            }
+
+            // Write inverted data to PSRAM in chunks
+            uint32_t remaining = copy_width;
+            uint32_t offset = 0;
+            while (remaining > 0)
+            {
+                uint32_t chunk_size = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
+                psram_qspi_write(&psram_instance, psram_addr + offset, line_buffer + offset, chunk_size);
+                offset += chunk_size;
+                remaining -= chunk_size;
             }
         }
         else
         {
-            // Direct memory copy for the row
-            memcpy(&static_framebuffer[dst_row_start], &byte_data[src_row_start], copy_width);
+            // Direct write to PSRAM in chunks
+            uint32_t remaining = copy_width;
+            uint32_t offset = 0;
+            while (remaining > 0)
+            {
+                uint32_t chunk_size = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
+                psram_qspi_write(&psram_instance, psram_addr + offset, byte_data + src_row_start + offset, chunk_size);
+                offset += chunk_size;
+                remaining -= chunk_size;
+            }
         }
     }
 
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_draw_image_bytearray_obj, 5, 6, picoware_lcd_draw_image_bytearray);
+
+// Check if PSRAM framebuffer is initialized
+STATIC mp_obj_t picoware_lcd_is_psram_ready(void)
+{
+    return mp_obj_new_bool(psram_initialized);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(picoware_lcd_is_psram_ready_obj, picoware_lcd_is_psram_ready);
+
+// Get PSRAM instance pointer
+psram_qspi_inst_t *picoware_get_psram_instance(void)
+{
+    return psram_initialized ? &psram_instance : NULL;
+}
 
 // Module globals table
 STATIC const mp_rom_map_elem_t picoware_lcd_module_globals_table[] = {
@@ -1459,6 +1595,7 @@ STATIC const mp_rom_map_elem_t picoware_lcd_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_clear_screen), MP_ROM_PTR(&picoware_lcd_clear_screen_obj)},
     {MP_ROM_QSTR(MP_QSTR_display_on), MP_ROM_PTR(&picoware_lcd_display_on_obj)},
     {MP_ROM_QSTR(MP_QSTR_display_off), MP_ROM_PTR(&picoware_lcd_display_off_obj)},
+    {MP_ROM_QSTR(MP_QSTR_is_psram_ready), MP_ROM_PTR(&picoware_lcd_is_psram_ready_obj)},
 
     // swap
     {MP_ROM_QSTR(MP_QSTR_swap), MP_ROM_PTR(&picoware_lcd_swap_obj)},
@@ -1484,6 +1621,7 @@ STATIC const mp_rom_map_elem_t picoware_lcd_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_CHAR_WIDTH), MP_ROM_INT(CHAR_WIDTH)},
     {MP_ROM_QSTR(MP_QSTR_CHAR_HEIGHT), MP_ROM_INT(CHAR_HEIGHT)},
     {MP_ROM_QSTR(MP_QSTR_FONT_HEIGHT), MP_ROM_INT(FONT_HEIGHT)},
+    {MP_ROM_QSTR(MP_QSTR_PSRAM_FRAMEBUFFER_ADDR), MP_ROM_INT(PSRAM_FRAMEBUFFER_ADDR)},
 };
 STATIC MP_DEFINE_CONST_DICT(picoware_lcd_module_globals, picoware_lcd_module_globals_table);
 

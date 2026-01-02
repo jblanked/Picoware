@@ -7,8 +7,14 @@ class PSRAM:
 
     # Constants
     PSRAM_SIZE = 8 * 1024 * 1024  # 8MB total
-    HEAP_START = 0x100000  # Start heap at 1MB offset
-    HEAP_SIZE = 7 * 1024 * 1024  # 7MB for heap
+
+    # Framebuffer reservation
+    FRAMEBUFFER_ADDR = 0x100000  # 1MB offset
+    FRAMEBUFFER_SIZE = 320 * 320  # 102,400 bytes
+
+    # Heap starts after LCDframebuffer region
+    HEAP_START = 0x120000  # 1MB + 128KB offset (after framebuffer)
+    HEAP_SIZE = PSRAM_SIZE - HEAP_START
 
     def __init__(self):
         """Initialize PSRAM using C module."""
@@ -56,8 +62,8 @@ class PSRAM:
         if self._hardware_initialized:
             return True
 
-        # Initialize hardware via C module
-        _psram.init()
+        if not _psram.is_ready():
+            _psram.init()
 
         # Initialize heap with a single free block
         self._heap_head = self.HEAP_START

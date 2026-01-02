@@ -27,6 +27,9 @@
 // Static tile buffer
 static uint8_t tile_buffer[64 * 64];
 
+// PSRAM instance for framebuffer access
+static psram_qspi_inst_t *psram_inst = NULL;
+
 // Initialize or clear the tile buffer
 STATIC mp_obj_t picoware_init_tile_buffer(mp_obj_t clear_value_obj)
 {
@@ -90,9 +93,17 @@ static inline uint8_t color565_to_332(uint16_t color)
     return ((color & 0xE000) >> 8) | ((color & 0x0700) >> 6) | ((color & 0x0018) >> 3);
 }
 
-// Fast vertical line drawing in framebuffer
+// Fast vertical line drawing in PSRAM framebuffer
 static inline void draw_vline(int x, int start_y, int end_y, uint8_t color_index, int screen_width, int screen_height, bool fill_in)
 {
+    // Get PSRAM instance if not already cached
+    if (!psram_inst)
+    {
+        psram_inst = picoware_get_psram_instance();
+        if (!psram_inst)
+            return; // PSRAM not initialized
+    }
+
     // Clamp to screen bounds
     if (start_y < 0)
         start_y = 0;
@@ -101,16 +112,15 @@ static inline void draw_vline(int x, int start_y, int end_y, uint8_t color_index
     if (x < 0 || x >= screen_width)
         return;
 
-    // Draw vertical line
+    // Draw vertical line using PSRAM writes
     for (int y = start_y; y <= end_y; y++)
     {
-        int idx = y * DISPLAY_WIDTH + x;
-        static_framebuffer[idx] = color_index;
+        picoware_psram_write_pixel_fb(psram_inst, x, y, color_index);
 
         // Fill in adjacent pixel if requested
         if (fill_in && x + 1 < screen_width)
         {
-            static_framebuffer[idx + 1] = color_index;
+            picoware_psram_write_pixel_fb(psram_inst, x + 1, y, color_index);
         }
     }
 }
@@ -494,11 +504,10 @@ STATIC mp_obj_t picoware_render_sprite3d(size_t n_args, const mp_obj_t *args)
             if (x_right >= screen_width)
                 x_right = screen_width - 1;
 
-            // Draw horizontal line
+            // Draw horizontal line using PSRAM writes
             for (int x = x_left; x <= x_right; x++)
             {
-                int idx = y * DISPLAY_WIDTH + x;
-                static_framebuffer[idx] = color_index;
+                picoware_psram_write_pixel_fb(psram_inst, x, y, color_index);
             }
         }
     }

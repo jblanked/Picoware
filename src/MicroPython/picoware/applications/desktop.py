@@ -1,10 +1,9 @@
-from picoware.system.vector import Vector
-
-
 class PicowareAnimation:
     """Class to draw "Picoware" animation"""
 
     def __init__(self, draw):
+        from picoware.system.vector import Vector
+
         self.display = draw
         self.letter_states = []
         self.animation_complete = False
@@ -159,6 +158,38 @@ _desktop = None
 _desktop_http = None
 _desktop_picoware = None
 _desktop_time_updated = False
+_time = None
+
+
+def _http_callback(response, state, error):
+    """HTTP callback to process time data."""
+    global _desktop_http, _desktop_time_updated
+
+    if not _desktop_http:
+        return
+
+    if any([not response, error, state == 2]):  # HTTP_ERROR
+        _desktop_http.close()
+        _desktop_http.get_async("http://worldtimeapi.org/api/ip")
+        return
+
+    data: dict = response.json()
+    datetime_str: str = data.get("datetime", "")
+    if datetime_str:
+        date_part, time_part = datetime_str.split("T")
+        time_part = time_part.split(".")[0]  # Remove milliseconds
+        hours, minutes, seconds = map(int, time_part.split(":"))
+        year, month, day = map(int, date_part.split("-"))
+
+        _time.set(year, month, day, hours, minutes, seconds)
+
+        _desktop_time_updated = True
+
+        _desktop.set_time(_time.time)
+
+        _desktop_http.close()
+        del _desktop_http
+        _desktop_http = None
 
 
 def start(view_manager) -> bool:
@@ -166,7 +197,7 @@ def start(view_manager) -> bool:
     from picoware.gui.desktop import Desktop
     from picoware.applications.wifi.utils import connect_to_saved_wifi
 
-    global _desktop, _desktop_http, _desktop_picoware
+    global _desktop, _desktop_http, _desktop_picoware, _time, _desktop_time_updated
 
     if _desktop is None:
         _desktop = Desktop(
@@ -190,10 +221,14 @@ def start(view_manager) -> bool:
 
         _desktop_http = HTTP()
 
-        if wifi.is_connected():
+        if wifi.is_connected() and not view_manager.time.is_set:
+            _desktop_time_updated = False
             _desktop_http.get_async("http://worldtimeapi.org/api/ip")
+            _desktop_http.callback = _http_callback
 
-    return True
+    _time = view_manager.time
+
+    return _desktop is not None
 
 
 def run(view_manager) -> None:
@@ -202,67 +237,6 @@ def run(view_manager) -> None:
 
     input_manager = view_manager.input_manager
     button: int = input_manager.button
-
-    global _desktop_http, _desktop_time_updated
-
-    if _desktop:
-        battery_level: int = input_manager.battery
-        _desktop.set_battery(battery_level)
-
-        # Clear and draw header
-        view_manager.draw.erase()
-        _desktop.draw_header()
-
-        # Draw animated picoware text every frame
-        _desktop_picoware.draw()
-
-        # Swap buffer to display
-        view_manager.draw.swap()
-
-        wifi = view_manager.wifi
-        if wifi:
-            if not _desktop_time_updated and wifi.is_connected():
-                if _desktop_http and _desktop_http.is_request_complete():
-                    try:
-                        response = _desktop_http.response
-                        if not response:
-                            # i realized that sometimes this API returns an empty response
-                            # but it usually works within 2-3 tries
-                            _desktop_http.close()
-                            _desktop_http.get_async("http://worldtimeapi.org/api/ip")
-                            return
-                        if _desktop_http.state == 0:  # HTTP_IDLE
-                            data: dict = response.json()
-                            datetime_str: str = data.get("datetime", "")
-                            if datetime_str:
-                                date_part, time_part = datetime_str.split("T")
-                                time_part = time_part.split(".")[
-                                    0
-                                ]  # Remove milliseconds
-                                hours, minutes, seconds = map(int, time_part.split(":"))
-                                year, month, day = map(int, date_part.split("-"))
-
-                                _time = view_manager.time
-
-                                _time.set(year, month, day, hours, minutes, seconds)
-
-                                _desktop_time_updated = True
-
-                                _desktop.set_time(_time.time)
-
-                                del _desktop_http
-                                _desktop_http = None
-                        else:
-                            print(
-                                "Failed to fetch time data, HTTP state:",
-                                _desktop_http.state,
-                            )
-
-                    except Exception as e:
-                        print("Error processing time data:", e)
-            elif _desktop_time_updated:
-                # time is RTC, so no need to fetch, just pass the updated time
-                _desktop.set_time(view_manager.time.time)
 
     if button == BUTTON_LEFT:
         from picoware.applications.system import system_info
@@ -273,13 +247,36 @@ def run(view_manager) -> None:
             View("system_info", system_info.run, system_info.start, system_info.stop)
         )
         view_manager.switch_to("system_info")
-    elif button in (BUTTON_CENTER, BUTTON_UP):
+        return
+    if button in (BUTTON_CENTER, BUTTON_UP):
         from picoware.applications import library
         from picoware.system.view import View
 
         input_manager.reset()
         view_manager.add(View("library", library.run, library.start, library.stop))
         view_manager.switch_to("library")
+        return
+
+    battery_level: int = input_manager.battery
+    _desktop.set_battery(battery_level)
+
+    # Clear and draw header
+    view_manager.draw.erase()
+    _desktop.draw_header()
+
+    # Draw animated picoware text every frame
+    _desktop_picoware.draw()
+
+    # Swap buffer to display
+    view_manager.draw.swap()
+
+    wifi = view_manager.wifi
+    if not wifi or not wifi.is_connected():
+        return
+
+    if _desktop_time_updated:
+        # time is RTC, so no need to fetch, just pass the updated time
+        _desktop.set_time(_time.time)
 
 
 def stop(view_manager) -> None:
@@ -289,15 +286,19 @@ def stop(view_manager) -> None:
     global _desktop
     global _desktop_http
     global _desktop_picoware
+    global _desktop_time_updated
 
     if _desktop:
         del _desktop
         _desktop = None
     if _desktop_http:
+        _desktop_http.close()
         del _desktop_http
         _desktop_http = None
     if _desktop_picoware:
         del _desktop_picoware
         _desktop_picoware = None
+
+    _desktop_time_updated = view_manager.time.is_set
 
     collect()

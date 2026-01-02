@@ -22,7 +22,7 @@ def start(view_manager) -> bool:
     draw.text(Vector(10, 50), f"Ready: {_psram.is_ready}")
     draw.swap()
 
-    test_addr = 0x200000
+    test_addr = 0x400000
 
     # Write test data directly to PSRAM
     test_data = b"PSRAM Test"

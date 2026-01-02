@@ -309,6 +309,8 @@ class Keyboard:
             BUTTON_BACKSPACE: (0, 12),
         }
 
+        self._show_keyboard = True
+
     def __del__(self):
         self.reset()
         self.current_title = ""
@@ -345,6 +347,16 @@ class Keyboard:
     def keyboard_width(self) -> int:
         """Returns the keyboard width/width of the display"""
         return self.draw.size.x
+
+    @property
+    def show_keyboard(self) -> bool:
+        """Returns whether the on-screen keyboard is shown"""
+        return self._show_keyboard
+
+    @show_keyboard.setter
+    def show_keyboard(self, value: bool):
+        """Sets whether the on-screen keyboard is shown"""
+        self._show_keyboard = value
 
     @property
     def title(self) -> str:
@@ -487,13 +499,6 @@ class Keyboard:
                 is_selected = row == self.cursor_row and col == self.cursor_col
                 self._draw_key(row, col, is_selected)
 
-        # Draw title
-        self.draw.text(
-            self.title_vec,
-            self.current_title,
-            self.text_color,
-        )
-
     def _draw_textbox(self):
         """Draws the text box that displays the current saved response"""
         # Clear textbox area
@@ -563,7 +568,7 @@ class Keyboard:
     def _handle_input(self):
         """Handles directional input and key selection"""
         # Handle directional navigation and direct key access
-        if self.is_in_textbox:
+        if self.is_in_textbox or not self._show_keyboard:
             # Textbox mode navigation
             if self.dpad_input == BUTTON_LEFT:
                 if self.text_cursor_position > 0:
@@ -595,6 +600,10 @@ class Keyboard:
                     )
                     self.text_cursor_position -= 1
                     return
+            elif self.dpad_input == BUTTON_CENTER:  # save from textbox mode
+                if self.on_save_callback:
+                    self.on_save_callback(self._response)
+                self.is_save_pressed = True
 
         else:
             # Keyboard mode navigation
@@ -750,9 +759,17 @@ class Keyboard:
             # only process input/redraw if there's input
             self._handle_input()
             self._draw_textbox()
-            self._draw_keyboard()
+
+            if self._show_keyboard:
+                self._draw_keyboard()
+
+            self.draw.text(
+                self.title_vec,
+                self.current_title,
+                self.text_color,
+            )
 
             self.input_manager.reset()
 
-            if swap:
+            if swap or force:
                 self.draw.swap()

@@ -38,6 +38,8 @@ class Alert:
         """Render the alert message on the display."""
         from picoware.system.vector import Vector
 
+        self.clear()
+
         size: Vector = self.display.size
         font_size: Vector = self.display.font_size
 

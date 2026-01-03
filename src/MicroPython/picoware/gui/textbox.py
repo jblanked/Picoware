@@ -51,6 +51,8 @@ class TextBox:
             draw.size.y // draw.font_size.y
         )  # height is 320, 10 pixel line spacing
 
+        self.line_vector = Vector(0, 0)
+
         draw.swap()
 
     def __del__(self):
@@ -70,6 +72,9 @@ class TextBox:
         if self.size:
             del self.size
             self.size = None
+        if self.line_vector:
+            del self.line_vector
+            self.line_vector = None
 
     @property
     def text(self) -> str:
@@ -158,8 +163,6 @@ class TextBox:
 
     def display_visible_lines(self):
         """Display only the lines that are currently visible."""
-        from picoware.system.vector import Vector
-
         # Clear current display
         self.scrollbar.display.clear(self.position, self.size, self.background_color)
 
@@ -180,7 +183,6 @@ class TextBox:
             center_y = self.scrollbar.display.size.y // 2
 
             # Display lines with center alignment for circular screen
-            line_vector = Vector(0, 0)
             for i, line_idx in enumerate(visible_range):
                 if line_idx < len(self.line_positions):
                     line_info = self.line_positions[line_idx]
@@ -200,18 +202,17 @@ class TextBox:
 
                         # Center align text horizontally
                         text_width = len(line_text) * self.scrollbar.display.font_size.x
-                        line_vector.x = center_x - (text_width // 2)
-                        line_vector.y = int(y_pos)
+                        self.line_vector.x = center_x - (text_width // 2)
+                        self.line_vector.y = int(y_pos)
 
                         self.scrollbar.display.text(
-                            line_vector,
+                            self.line_vector,
                             line_text,
                             self.foreground_color,
                         )
         else:
             # Original rectangular implementation
             # Display only the lines in view
-            line_vector = Vector(0, 0)
             for i, line_idx in enumerate(visible_range):
                 if line_idx < len(self.line_positions):
                     line_info = self.line_positions[line_idx]
@@ -224,10 +225,10 @@ class TextBox:
                         y_pos = int(
                             self.position.y + 5 + (i * self.spacing)
                         )  # Position based on line number within view
-                        line_vector.x = int(self.position.x + 1)
-                        line_vector.y = y_pos
+                        self.line_vector.x = int(self.position.x + 1)
+                        self.line_vector.y = y_pos
                         self.scrollbar.display.text(
-                            line_vector,
+                            self.line_vector,
                             line_text,
                             self.foreground_color,
                         )

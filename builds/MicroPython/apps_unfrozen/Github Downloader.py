@@ -244,24 +244,35 @@ def run(view_manager) -> None:
 
     if _app_state == STATE_KEYBOARD_AUTHOR:
         if keyboard.is_finished:
-            _github_author = keyboard.get_response()
+            _github_author = keyboard.response
             keyboard.reset()
             _app_state = STATE_KEYBOARD_REPO
             keyboard.title = "Enter Repository Name"
             keyboard.run(force=True)
             keyboard.run(force=True)
             return
-        keyboard.run()
+        if not keyboard.run():
+            # back pressed, exit app
+            view_manager.back()
+            return
     elif _app_state == STATE_KEYBOARD_REPO:
         if keyboard.is_finished:
-            _github_repo = keyboard.get_response()
+            _github_repo = keyboard.response
             keyboard.reset()
             _app_state = STATE_DOWNLOADING_INFO
             if not __download_repo_info(view_manager):
                 view_manager.alert("Failed to start downloading repo info")
             else:
                 __loading_start(view_manager, "Fetching...")
-        keyboard.run()
+        if not keyboard.run():
+            # back pressed, return to author input
+            _app_state = STATE_KEYBOARD_AUTHOR
+            keyboard.reset()
+            keyboard.title = "Enter GitHub Author"
+            keyboard.response = _github_author
+            keyboard.run(force=True)
+            keyboard.run(force=True)
+            return
     elif _app_state == STATE_DOWNLOADING_INFO:
         global _http, _loading, _current_file_index
         if not _http.is_request_complete():
@@ -305,5 +316,5 @@ def stop(view_manager) -> None:
     from gc import collect
 
     __reset()
-
+    view_manager.keyboard.reset()
     collect()

@@ -45,15 +45,6 @@ class ViewManager:
         self._background_color = TFT_BLACK
         self._foreground_color = TFT_WHITE
 
-        if self._storage is not None:
-            dark_mode_data: str = self._storage.read("picoware/settings/dark_mode.json")
-
-            if len(dark_mode_data) > 1:
-                state: bool = "true" in dark_mode_data.lower()
-                if not state:
-                    self._background_color = TFT_WHITE
-                    self._foreground_color = TFT_BLACK
-
         # Initialize drawing system
         self._draw = Draw(self._foreground_color, self._background_color)
 
@@ -75,6 +66,23 @@ class ViewManager:
         # Initialize arrays
         self.views = [None] * self.MAX_VIEWS
         self.view_stack = [None] * self.MAX_STACK_SIZE
+
+        if self._storage is not None:
+            dark_mode_data: str = self._storage.read("picoware/settings/dark_mode.json")
+
+            if len(dark_mode_data) > 1:
+                state: bool = "true" in dark_mode_data.lower()
+                if not state:
+                    self._background_color = TFT_WHITE
+                    self._foreground_color = TFT_BLACK
+
+            on_screen_keyboard_data: str = self._storage.read(
+                "picoware/settings/onscreen_keyboard.json"
+            )
+
+            if len(on_screen_keyboard_data) > 1:
+                state: bool = "true" in on_screen_keyboard_data.lower()
+                self._keyboard.show_keyboard = state
 
         # Clear screen
         self.clear()
@@ -127,6 +135,7 @@ class ViewManager:
         """Set the background color."""
         self._background_color = color
         self._draw.background = color
+        self._keyboard.background_color = color
 
     @property
     def board_id(self):
@@ -160,6 +169,7 @@ class ViewManager:
         """Set the foreground color."""
         self._foreground_color = color
         self._draw.foreground = color
+        self._keyboard.text_color = color
 
     @property
     def has_psram(self):
@@ -202,6 +212,7 @@ class ViewManager:
     def selected_color(self, color):
         """Set the selected color."""
         self._selected_color = color
+        self._keyboard.selected_color = color
 
     @property
     def screen_size(self):

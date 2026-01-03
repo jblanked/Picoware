@@ -28,6 +28,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_0(waveshare_lcd_get_backlight_level_obj, waveshar
 STATIC mp_obj_t waveshare_lcd_init(void)
 {
     lcd_init();
+    lcd_set_font(FONT_SMALL);
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(waveshare_lcd_init_obj, waveshare_lcd_init);

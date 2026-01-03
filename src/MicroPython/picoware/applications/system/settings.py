@@ -2,6 +2,7 @@ from micropython import const
 from picoware.system.colors import TFT_BLACK, TFT_WHITE
 
 STATE_DARK_MODE = const(0)
+STATE_ONSCREEN_KEYBOARD = const(1)
 
 _toggle_list = None
 _view_manager = None
@@ -20,6 +21,12 @@ def __callback(index: int, state: bool) -> None:
         else:
             _view_manager.background_color = TFT_WHITE
             _view_manager.foreground_color = TFT_BLACK
+    elif index == STATE_ONSCREEN_KEYBOARD:
+        # Save the state to flash
+        __save_state(
+            "picoware/settings/onscreen_keyboard.json", "onscreen_keyboard", state
+        )
+        _view_manager.keyboard.show_keyboard = state
 
 
 def __load_state(filename: str, key: str, default: bool = False) -> bool:
@@ -79,8 +86,16 @@ def start(view_manager) -> bool:
 
     # get/add the saved dark mode state (set to True by default)
     _toggle_list.add_toggle(
-        "Dark Mode",
+        "Dark Mode?",
         __load_state("picoware/settings/dark_mode.json", "dark_mode", True),
+    )
+
+    # get/add the on-screen keyboard state (set to True by default)
+    _toggle_list.add_toggle(
+        "Show on-screen keyboard?",
+        __load_state(
+            "picoware/settings/onscreen_keyboard.json", "onscreen_keyboard", True
+        ),
     )
 
     return True

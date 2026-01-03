@@ -5,14 +5,27 @@ Displays various animated geometric patterns
 Press any key to exit.
 """
 
+from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
+from picoware.system.vector import Vector
+from picoware.system.colors import (
+    TFT_RED,
+    TFT_GREEN,
+    TFT_BLUE,
+    TFT_YELLOW,
+    TFT_WHITE,
+    TFT_BLACK,
+    TFT_CYAN,
+    TFT_VIOLET,
+)
+
 _demo_state = 0
 _frame_count = 0
+colors = []
 
 
 def start(view_manager) -> bool:
     """Initialize the screensaver."""
-    global _demo_state, _frame_count
-    from picoware.system.colors import TFT_BLACK, TFT_WHITE
+    global _demo_state, _frame_count, colors
 
     draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)
@@ -20,9 +33,17 @@ def start(view_manager) -> bool:
     _demo_state = 0
     _frame_count = 0
 
-    # tell user to press center to advance
-    from picoware.system.vector import Vector
+    colors = [
+        TFT_RED,
+        TFT_GREEN,
+        TFT_BLUE,
+        TFT_YELLOW,
+        TFT_CYAN,
+        TFT_VIOLET,
+        TFT_WHITE,
+    ]
 
+    # tell user to press center to advance
     size = len("Press Center") * draw.font_size.x
     draw.text(
         Vector(draw.size.x // 2 - size // 2, draw.size.y // 2),
@@ -38,30 +59,9 @@ def start(view_manager) -> bool:
 def _draw_pattern(draw):
     """Draw the current pattern to the display."""
     global _demo_state
-    from picoware.system.vector import Vector
-    from picoware.system.colors import (
-        TFT_RED,
-        TFT_GREEN,
-        TFT_BLUE,
-        TFT_YELLOW,
-        TFT_CYAN,
-        TFT_VIOLET,
-        TFT_WHITE,
-        TFT_BLACK,
-    )
 
     # Clear screen
     draw.fill_screen(TFT_BLACK)
-
-    colors = [
-        TFT_RED,
-        TFT_GREEN,
-        TFT_BLUE,
-        TFT_YELLOW,
-        TFT_CYAN,
-        TFT_VIOLET,
-        TFT_WHITE,
-    ]
 
     if _demo_state == 0:
         # Pattern 1: Lines radiating from center
@@ -150,10 +150,10 @@ def _draw_pattern(draw):
             r = 10 + i * 2
             circ_pos.x = int(160 + r * math.cos(angle))
             circ_pos.y = int(160 + r * math.sin(angle))
-            radius = 5 + i // 10
+            radius = int(5 + i // 10)
             draw.circle(circ_pos, radius, colors[i % len(colors)])
 
-    elif _demo_state == 9:
+    elif _demo_state == 8:
         # Pattern 10: Starburst lines
         lin_pos = Vector(draw.size.x // 2, draw.size.y // 2)
         lin_size = Vector(0, 0)
@@ -167,7 +167,7 @@ def _draw_pattern(draw):
             lin_size.y = int(160 + 150 * math.sin(angle))
             draw.line_custom(lin_pos, lin_size, colors[i // 5 % len(colors)])
 
-    elif _demo_state == 10:
+    elif _demo_state == 9:
         # Pattern 11: Diamond grid
         point_1 = Vector(0, 0)
         point_2 = Vector(0, 0)
@@ -201,7 +201,7 @@ def _draw_pattern(draw):
                     colors[(x // 40 + y // 40) % len(colors)],
                 )
 
-    elif _demo_state == 11:
+    elif _demo_state == 10:
         # Pattern 12: Concentric squares
         rec_pos = Vector(0, 0)
         rec_size = Vector(0, 0)
@@ -222,7 +222,6 @@ def _draw_pattern(draw):
 def run(view_manager) -> None:
     """Run the screensaver - auto-advance patterns."""
     global _demo_state, _frame_count
-    from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
 
     inp = view_manager.input_manager
     draw = view_manager.draw
@@ -233,13 +232,16 @@ def run(view_manager) -> None:
         view_manager.back()
     elif inp.button == BUTTON_CENTER:
         inp.reset()
-        _demo_state = (_demo_state + 1) % 12
         _draw_pattern(draw)
+        _demo_state = (_demo_state + 1) % 11
         draw.swap()
 
 
 def stop(view_manager) -> None:
     """Cleanup."""
     from gc import collect
+
+    global colors
+    colors = []
 
     collect()

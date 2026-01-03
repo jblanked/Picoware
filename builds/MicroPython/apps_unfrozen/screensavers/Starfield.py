@@ -2,17 +2,19 @@
 # Original from https://github.com/Bodmer/TFT_eSPI/tree/master/examples/320%20x%20240/TFT_Starfield
 
 from micropython import const
+from picoware.system.buttons import BUTTON_LEFT, BUTTON_BACK
+from picoware.system.colors import TFT_BLACK
 
-NSTARS = const(128)  # Number of stars
+NSTARS = const(256)  # Number of stars
 
 za: int = -1
 zb: int = -1
 zc: int = -1
 zx: int = -1
 
-sx = [0] * NSTARS
-sy = [0] * NSTARS
-sz = [0] * NSTARS
+sx = []
+sy = []
+sz = []
 
 pixel_vector = None
 screen_size = None
@@ -35,6 +37,10 @@ def start(view_manager) -> bool:
     from picoware.system.vector import Vector
 
     global za, zb, zc, zx, sx, sy, sz, pixel_vector, screen_size, screen_size_half
+
+    sx = [0] * NSTARS
+    sy = [0] * NSTARS
+    sz = [0] * NSTARS
 
     za = random.randint(0, 255)
     zb = random.randint(0, 255)
@@ -60,11 +66,6 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run the app"""
-    from picoware.system.buttons import BUTTON_LEFT, BUTTON_BACK
-    from picoware.system.colors import TFT_BLACK
-
-    global sx, sy, sz
-
     input_manager = view_manager.input_manager
     input_button = input_manager.button
 
@@ -141,9 +142,9 @@ def stop(view_manager) -> None:
     draw.fill_screen(TFT_BLACK)  # Black background
     draw.swap()
 
-    sx = [0] * NSTARS
-    sy = [0] * NSTARS
-    sz = [0] * NSTARS
+    sx = []
+    sy = []
+    sz = []
 
     pixel_vector = None
     screen_size = None

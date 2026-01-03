@@ -37,7 +37,7 @@ def start(view_manager) -> bool:
         return False
 
     keyboard.set_save_callback(__callback_save)
-    keyboard.set_response(load_wifi_ssid(view_manager))
+    keyboard.response = load_wifi_ssid(view_manager)
     keyboard.run(force=True)
 
     return True
@@ -73,7 +73,7 @@ def run(view_manager) -> None:
 
     if _ssid_save_requested:
         _ssid_save_requested = False
-        ssid = keyboard.get_response()
+        ssid = keyboard.response
         from picoware.applications.wifi.utils import (
             save_wifi_ssid,
             load_wifi_password,
@@ -95,7 +95,9 @@ def run(view_manager) -> None:
         keyboard.run(force=True)
         _keyboard_started = True
     else:
-        keyboard.run()
+        if not keyboard.run():
+            input_manager.reset()
+            view_manager.back()
 
 
 def stop(view_manager) -> None:
@@ -109,5 +111,6 @@ def stop(view_manager) -> None:
     _ssid_is_running = False
     _ssid_save_requested = False
     _back_hit = False
+    view_manager.keyboard.reset()
 
     collect()

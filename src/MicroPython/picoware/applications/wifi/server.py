@@ -452,51 +452,55 @@ class Server:
             print(f"Unexpected error: {e}")
 
 
-def __add_page(view_manager) -> None:
+def __add_page(view_manager) -> bool:
     """Add a new page to the server"""
     keyboard = view_manager.keyboard
 
     if keyboard is None:
         print("No keyboard available")
-        return
+        return False
 
     global just_started_editing, save_requested, menu_state
 
     if just_started_editing:
         just_started_editing = False
         keyboard.set_save_callback(__add_page_callback)
-        keyboard.set_response("")
+        keyboard.response = ""
         keyboard.run(force=True)
         keyboard.run(force=True)
-    else:
-        if save_requested:
-            save_requested = False
-            just_started_editing = True
-            url = keyboard.get_response()
-            # save new page with default values
-            storage = view_manager.storage
-            try:
-                server_info: dict = storage.serialize(SERVER_INFO)
-                if "pages" not in server_info:
-                    server_info["pages"] = []
-                new_page = {
-                    "url": url if url.startswith("/") else "/" + url,
-                    "method": "GET",
-                    "html": "",
-                    "script": "",
-                }
-                server_info["pages"].append(new_page)
-                storage.deserialize(server_info, SERVER_INFO)
-            except Exception as e:
-                print("Error saving server info:", e)
-            #
-            keyboard.reset()
-            # Go back to edit menu
-            menu_state = STATE_MENU_EDIT
-            __menu_start(view_manager)
-            return
+        return True
 
-        keyboard.run()
+    if save_requested:
+        save_requested = False
+        just_started_editing = True
+        url = keyboard.response
+        # save new page with default values
+        storage = view_manager.storage
+        try:
+            server_info: dict = storage.serialize(SERVER_INFO)
+            if "pages" not in server_info:
+                server_info["pages"] = []
+            new_page = {
+                "url": url if url.startswith("/") else "/" + url,
+                "method": "GET",
+                "html": "",
+                "script": "",
+            }
+            server_info["pages"].append(new_page)
+            storage.deserialize(server_info, SERVER_INFO)
+        except Exception as e:
+            print("Error saving server info:", e)
+        #
+        keyboard.reset()
+        # Go back to edit menu
+        menu_state = STATE_MENU_EDIT
+        __menu_start(view_manager)
+        return True
+
+    if not keyboard.run():
+        just_started_editing = True
+        return False
+    return True
 
 
 def __add_page_callback(result: str) -> None:
@@ -575,10 +579,10 @@ def __edit_page(
     key: str,
     return_status: bool = True,
     return_state: int = STATE_PAGE_MENU,
-) -> None:
+) -> bool:
     """Edit a page given its index"""
     if index < 0:
-        return
+        return False
 
     global current_page_info, just_started_editing, save_requested, edit_page_state, add_page_state, menu_state
 
@@ -589,45 +593,49 @@ def __edit_page(
 
     if keyboard is None:
         print("No keyboard available")
-        return
+        return False
 
     if just_started_editing:
         just_started_editing = False
         keyboard.set_save_callback(__callback_edit_save)
-        keyboard.set_response(current_page_info.get(key, ""))
+        keyboard.response = current_page_info.get(key, "")
         keyboard.run(force=True)
         keyboard.run(force=True)
-    else:
-        if save_requested:
-            save_requested = False
-            just_started_editing = True
-            # Get the updated value from keyboard
-            current_page_info[key] = keyboard.get_response()
-            storage = view_manager.storage
-            try:
-                server_info: dict = storage.serialize(SERVER_INFO)
-                if "pages" in server_info:
-                    if 0 <= index < len(server_info["pages"]):
-                        server_info["pages"][index] = {
-                            "url": current_page_info.get("url", "/"),
-                            "method": current_page_info.get("method", "GET"),
-                            "html": current_page_info.get("html", ""),
-                            "script": current_page_info.get("script", ""),
-                        }
-                        storage.deserialize(server_info, SERVER_INFO)
-            except Exception as e:
-                print("Error saving server info:", e)
-            #
-            keyboard.reset()
-            if return_status:
-                edit_page_state = return_state
-                add_page_state = return_state
-                # Stay in edit page menu to allow editing other fields
-                menu_state = STATE_MENU_EDIT_PAGE
-                __menu_start(view_manager)
-                return
+        return True
 
-        keyboard.run()
+    if save_requested:
+        save_requested = False
+        just_started_editing = True
+        # Get the updated value from keyboard
+        current_page_info[key] = keyboard.response
+        storage = view_manager.storage
+        try:
+            server_info: dict = storage.serialize(SERVER_INFO)
+            if "pages" in server_info:
+                if 0 <= index < len(server_info["pages"]):
+                    server_info["pages"][index] = {
+                        "url": current_page_info.get("url", "/"),
+                        "method": current_page_info.get("method", "GET"),
+                        "html": current_page_info.get("html", ""),
+                        "script": current_page_info.get("script", ""),
+                    }
+                    storage.deserialize(server_info, SERVER_INFO)
+        except Exception as e:
+            print("Error saving server info:", e)
+        #
+        keyboard.reset()
+        if return_status:
+            edit_page_state = return_state
+            add_page_state = return_state
+            # Stay in edit page menu to allow editing other fields
+            menu_state = STATE_MENU_EDIT_PAGE
+            __menu_start(view_manager)
+            return True
+
+    if not keyboard.run():
+        just_started_editing = True
+        return False
+    return True
 
 
 def __get_current_pages(view_manager) -> list[str]:
@@ -736,7 +744,7 @@ def __toggle_mode(view_manager, selection: int) -> None:
     __menu_start(view_manager)
 
 
-def __edit_setting(view_manager, setting_key: str) -> None:
+def __edit_setting(view_manager, setting_key: str) -> bool:
     """Edit a setting using the keyboard"""
     global just_started_editing, save_requested, menu_state, settings_info
 
@@ -744,29 +752,33 @@ def __edit_setting(view_manager, setting_key: str) -> None:
 
     if keyboard is None:
         print("No keyboard available")
-        return
+        return False
 
     if just_started_editing:
         just_started_editing = False
         current_value = __get_setting(view_manager, setting_key, "")
         settings_info = {"key": setting_key, "value": current_value}
         keyboard.set_save_callback(__setting_callback)
-        keyboard.set_response(current_value)
+        keyboard.response = current_value
         keyboard.run(force=True)
         keyboard.run(force=True)
-    else:
-        if save_requested:
-            save_requested = False
-            just_started_editing = True
-            new_value = keyboard.get_response()
-            __save_setting(view_manager, setting_key, new_value)
-            keyboard.reset()
-            settings_info = {}
-            menu_state = STATE_MENU_SETTINGS
-            menu.draw()
-            return
+        return True
 
-        keyboard.run()
+    if save_requested:
+        save_requested = False
+        just_started_editing = True
+        new_value = keyboard.response
+        __save_setting(view_manager, setting_key, new_value)
+        keyboard.reset()
+        settings_info = {}
+        menu_state = STATE_MENU_SETTINGS
+        menu.draw()
+        return True
+
+    if not keyboard.run():
+        just_started_editing = True
+        return False
+    return True
 
 
 def __setting_callback(result: str) -> None:
@@ -903,7 +915,10 @@ def __menu_run(view_manager) -> None:
             if server.is_running:
                 server.run()
     elif menu_state == STATE_MENU_ADD_PAGE:
-        __add_page(view_manager)
+        if not __add_page(view_manager):
+            view_manager.keyboard.reset()
+            menu_state = STATE_MENU_EDIT
+            __menu_start(view_manager)
     elif menu_state == STATE_MENU_EDIT_PAGE and edit_page_state != STATE_PAGE_MENU:
         state_map = {
             STATE_PAGE_URL: "url",
@@ -911,17 +926,26 @@ def __menu_run(view_manager) -> None:
             STATE_PAGE_METHOD: "method",
             STATE_PAGE_SCRIPT: "script",
         }
-        __edit_page(
+        if not __edit_page(
             view_manager,
             current_page_index,
             state_map.get(edit_page_state, "url"),
             True,
             STATE_PAGE_MENU,
-        )
+        ):
+            view_manager.keyboard.reset()
+            edit_page_state = STATE_PAGE_MENU
+            __menu_start(view_manager)
     elif menu_state == STATE_SETTINGS_SSID:
-        __edit_setting(view_manager, "ssid")
+        if not __edit_setting(view_manager, "ssid"):
+            view_manager.keyboard.reset()
+            menu_state = STATE_MENU_SETTINGS
+            __menu_start(view_manager)
     elif menu_state == STATE_SETTINGS_PASSWORD:
-        __edit_setting(view_manager, "password")
+        if not __edit_setting(view_manager, "password"):
+            view_manager.keyboard.reset()
+            menu_state = STATE_MENU_SETTINGS
+            __menu_start(view_manager)
 
 
 def __menu_start(view_manager) -> None:
@@ -1096,5 +1120,7 @@ def stop(view_manager) -> None:
     just_started_editing = True
     save_requested = False
     settings_info = {}
+
+    view_manager.keyboard.reset()
 
     collect()

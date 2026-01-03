@@ -49,7 +49,7 @@ def __flip_social_password_start(view_manager) -> bool:
     keyboard.on_save_callback = __flip_social_password_callback
 
     # load the password from flash
-    keyboard.set_response(__flip_social_util_get_password(view_manager))
+    keyboard.response = __flip_social_util_get_password(view_manager)
 
     keyboard.run(True, True)
     keyboard.run(True, True)
@@ -108,7 +108,7 @@ def __flip_social_password_stop(view_manager) -> None:
         # if we need to save, do it now instead of in the callback
         if _flip_social_password_save_verified:
             storage = view_manager.storage
-            password = view_manager.keyboard.get_response()
+            password = view_manager.keyboard.response
             try:
                 from ujson import dumps
 

@@ -47,9 +47,9 @@ class ToggleList:
         self.states = []
         self._selected_index = 0
         self.max_visible_items = 8
-        self.toggle_size = Vector(self.size.x - 20, self.size.y // 10.67)
+        self.toggle_size = Vector(self.size.x - 20, int(self.size.y // 10.67))
         self.toggle_position = Vector(10, 10)
-        self.toggle_spacing = self.size.y // self.max_visible_items
+        self.toggle_spacing = int(self.size.y // self.max_visible_items)
 
         self._callback = callback
         self._just_started = True
@@ -215,7 +215,7 @@ class ToggleList:
             original_y = toggle.position.y
 
             # Calculate new position for this visible slot
-            new_y = 10 + (visible_idx * self.toggle_spacing)
+            new_y = int(10 + (visible_idx * self.toggle_spacing))
             toggle.position.y = new_y
 
             # Draw the toggle

@@ -332,7 +332,8 @@ class FlipWorldRun:
         if entity.health <= 0:
             entity.health = 0
             entity.state = ENTITY_STATE_DEAD
-            entity.position = Vector(-100, -100)
+            entity.position.x = float(-100)
+            entity.position.y = float(-100)
             return True
 
         entity.elapsed_attack_timer = float(eat)
@@ -370,7 +371,8 @@ class FlipWorldRun:
             xp_required = int(xp_required * 1.5)
 
         # Set position
-        entity.position = Vector(float(x), float(y))
+        entity.position.x = float(x)
+        entity.position.y = float(y)
 
         return True
 
@@ -830,6 +832,9 @@ class FlipWorldRun:
         self.player.flip_world_run = self
         self.player.user_stats_pos.x = 5
         self.player.user_stats_pos.y = self.player.screen_size.y - 30
+        self.player.user_stats_size = Vector(
+            int(self.player.screen_size.x) // 5, int(self.player.screen_size.y) // 10
+        )
 
         # Create the game instance
         game = Game(
@@ -1110,7 +1115,8 @@ class FlipWorldRun:
             x = sp.get("x", None)
             y = sp.get("y", None)
             if x is not None and y is not None:
-                entity.position = Vector(float(x), float(y))
+                entity.position.x = float(x)
+                entity.position.y = float(y)
 
         return True
 

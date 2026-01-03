@@ -19,6 +19,7 @@ class Input:
         self.pin = None
         self._last_point = (0, 0)
         self._last_gesture = 0  # 0 is TOUCH_GESTURE_NONE
+        self._delay_ms = 100  # milliseconds (for Touch input polling)
 
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             from waveshare_touch import init, TOUCH_GESTURE_MODE, TOUCH_GESTURE_NONE
@@ -33,10 +34,7 @@ class Input:
 
             self._last_point = (0, 0)
             self._last_gesture = TOUCH_GESTURE_NONE
-        elif self._current_board_id in (
-            BOARD_WAVESHARE_1_43_RP2350,
-            BOARD_WAVESHARE_3_49_RP2350,
-        ):
+        elif self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
             from waveshare_touch import init
             from machine import Pin
 
@@ -54,12 +52,16 @@ class Input:
 
             # Initialize touch in gesture mode
             init()
+
             # set pin
             self.pin = Pin(11, Pin.IN, Pin.PULL_UP)
+
             # set callback
             self.pin.irq(handler=self.__touch_callback, trigger=Pin.IRQ_FALLING)
 
             self._last_point = (0, 0)
+
+            self._delay_ms = 200
 
         else:
             from picoware_keyboard import (
@@ -75,7 +77,6 @@ class Input:
         self._elapsed_time = 0
         self._elapsed_touch_start = 0
         self._elapsed_touch_now = 0
-        self._delay_ms = 100  # milliseconds (for Touch input polling)
         self._last_button = -1
         self._was_pressed = False
         self._was_capitalized = False
@@ -477,60 +478,67 @@ class Input:
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            from waveshare_touch import get_touch_point
+            from waveshare_touch import get_touch_point, reset_state
 
-            self._last_point = get_touch_point()
+            point = get_touch_point()
+            if point == (0, 0):
+                self._last_point = (0, 0)
+                self._last_button = buttons.BUTTON_NONE
+                self._was_pressed = False
+                self._elapsed_time = 0
+                return
 
-            if self._last_point != (0, 0):
+            self._elapsed_touch_now = int(ticks_ms())
 
-                self._elapsed_touch_now = int(ticks_ms())
+            if self._elapsed_touch_now - self._elapsed_touch_start < self._delay_ms:
+                self._last_point = (0, 0)
+                reset_state()
+                return
 
-                if self._elapsed_touch_now - self._elapsed_touch_start < self._delay_ms:
-                    self._last_point = (0, 0)
-                    return
+            self._elapsed_touch_start = self._elapsed_touch_now
+            self._last_point = point
 
-                self._elapsed_touch_start = self._elapsed_touch_now
+            x, y = point
 
-                x, y = self._last_point
+            # Right:
+            # x: 430-466
+            # y: 150-350
 
-                # Right:
-                # x: 430-466
-                # y: 150-350
+            # Left:
+            # x: 0 - 36
+            # y: 150-350
 
-                # Left:
-                # x: 0 - 36
-                # y: 150-350
+            # Up:
+            # x: 150-300
+            # y: 0-36
 
-                # Up:
-                # x: 150-300
-                # y: 0-36
+            # Down:
+            # x: 150-300
+            # y: 430-466
 
-                # Down:
-                # x: 150-300
-                # y: 430-466
+            if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:  # 466x466
+                if 430 <= x <= 466 and 150 <= y <= 350:
+                    self._last_button = buttons.BUTTON_RIGHT
+                elif 0 <= x <= 36 and 150 <= y <= 350:
+                    self._last_button = buttons.BUTTON_LEFT
+                elif 150 <= x <= 300 and 0 <= y <= 36:
+                    self._last_button = buttons.BUTTON_UP
+                elif 150 <= x <= 300 and 430 <= y <= 466:
+                    self._last_button = buttons.BUTTON_DOWN
+                else:
+                    self._last_button = buttons.BUTTON_CENTER
+            else:  # BOARD_WAVESHARE_3_49_RP2350 172x640
+                if 112 <= x <= 172 and 200 <= y <= 440:
+                    self._last_button = buttons.BUTTON_RIGHT
+                elif 0 <= x <= 60 and 200 <= y <= 440:
+                    self._last_button = buttons.BUTTON_LEFT
+                elif 0 <= x <= 172 and 0 <= y <= 175:
+                    self._last_button = buttons.BUTTON_UP
+                elif 0 <= x <= 172 and 540 <= y <= 640:
+                    self._last_button = buttons.BUTTON_DOWN
+                elif 60 < x < 112 and 175 < y < 540:
+                    self._last_button = buttons.BUTTON_CENTER
 
-                if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:  # 466x466
-                    if 430 <= x <= 466 and 150 <= y <= 350:
-                        self._last_button = buttons.BUTTON_RIGHT
-                    elif 0 <= x <= 36 and 150 <= y <= 350:
-                        self._last_button = buttons.BUTTON_LEFT
-                    elif 150 <= x <= 300 and 0 <= y <= 36:
-                        self._last_button = buttons.BUTTON_UP
-                    elif 150 <= x <= 300 and 430 <= y <= 466:
-                        self._last_button = buttons.BUTTON_DOWN
-                    else:
-                        self._last_button = buttons.BUTTON_CENTER
-                else:  # BOARD_WAVESHARE_3_49_RP2350 172x640
-                    if 140 <= x <= 172 and 200 <= y <= 440:
-                        self._last_button = buttons.BUTTON_RIGHT
-                    elif 0 <= x <= 32 and 200 <= y <= 440:
-                        self._last_button = buttons.BUTTON_LEFT
-                    elif 50 <= x <= 120 and 0 <= y <= 40:
-                        self._last_button = buttons.BUTTON_UP
-                    elif 50 <= x <= 120 and 600 <= y <= 640:
-                        self._last_button = buttons.BUTTON_DOWN
-                    else:
-                        self._last_button = buttons.BUTTON_CENTER
-
-                self._elapsed_time += 1
-                self._was_pressed = True
+            self._elapsed_time += 1
+            self._was_pressed = True
+            reset_state()

@@ -271,7 +271,7 @@ def _keyboard_save(view_manager) -> bool:
     return False
 
 
-def _keyboard_run(view_manager) -> None:
+def _keyboard_run(view_manager) -> bool:
     """Start the keyboard view"""
     global current_view, sending_index, keyboard_index
 
@@ -284,7 +284,7 @@ def _keyboard_run(view_manager) -> None:
         keyboard_index = KEYBOARD_ENTERING
         kb.run(force=True)
         kb.run(force=True)
-        return
+        return True
 
     # Initialize keyboard for recipient email
     if current_view == VIEW_KEYBOARD_RECIPIENT and keyboard_index == KEYBOARD_WAITING:
@@ -299,7 +299,7 @@ def _keyboard_run(view_manager) -> None:
         keyboard_index = KEYBOARD_ENTERING
         kb.run(force=True)
         kb.run(force=True)
-        return
+        return True
 
     # Initialize keyboard for sending message
     if current_view == VIEW_SENDING_MESSAGE and sending_index == SENDING_WAITING:
@@ -310,7 +310,7 @@ def _keyboard_run(view_manager) -> None:
         kb.run(force=True)
         kb.run(force=True)
         sending_index = SENDING_KEYBOARD
-        return
+        return True
 
     # Initialize keyboard for email/password/name
     if (
@@ -333,12 +333,13 @@ def _keyboard_run(view_manager) -> None:
         keyboard_index = KEYBOARD_ENTERING
         kb.run(force=True)
         kb.run(force=True)
-        return
+        return True
 
     # Run keyboard for subject (part of send flow)
     if current_view == VIEW_KEYBOARD_SUBJECT and keyboard_index == KEYBOARD_ENTERING:
         kb = view_manager.keyboard
-        kb.run()
+        if not kb.run():
+            return False
 
         if kb.is_finished:
             if not _keyboard_save(view_manager):
@@ -350,12 +351,13 @@ def _keyboard_run(view_manager) -> None:
                 current_view = VIEW_KEYBOARD_RECIPIENT
                 keyboard_index = KEYBOARD_WAITING
                 _keyboard_run(view_manager)
-        return
+        return True
 
     # Run keyboard for recipient email
     if current_view == VIEW_KEYBOARD_RECIPIENT and keyboard_index == KEYBOARD_ENTERING:
         kb = view_manager.keyboard
-        kb.run()
+        if not kb.run():
+            return False
 
         if kb.is_finished:
             if not _keyboard_save(view_manager):
@@ -367,12 +369,13 @@ def _keyboard_run(view_manager) -> None:
                 current_view = VIEW_SENDING_MESSAGE
                 keyboard_index = KEYBOARD_WAITING
                 _keyboard_run(view_manager)
-        return
+        return True
 
     # Run keyboard for sending message
     if current_view == VIEW_SENDING_MESSAGE and sending_index == SENDING_KEYBOARD:
         kb = view_manager.keyboard
-        kb.run()
+        if not kb.run():
+            return False
 
         if kb.is_finished:
             if not _keyboard_save(view_manager):
@@ -386,7 +389,7 @@ def _keyboard_run(view_manager) -> None:
                         view_manager.alert("Email credentials not set!", False)
                         current_view = VIEW_MAIN_MENU
                         sending_index = SENDING_WAITING
-                        return
+                        return True
                     smtp.send_email(
                         sender_email,
                         sender_app_password,
@@ -402,7 +405,7 @@ def _keyboard_run(view_manager) -> None:
 
                 current_view = VIEW_MAIN_MENU
                 sending_index = SENDING_WAITING
-        return
+        return True
 
     # Run keyboard for sender email/password/name
     if (
@@ -411,7 +414,8 @@ def _keyboard_run(view_manager) -> None:
         and keyboard_index == KEYBOARD_ENTERING
     ):
         kb = view_manager.keyboard
-        kb.run()
+        if not kb.run():
+            return False
 
         if kb.is_finished:
             if not _keyboard_save(view_manager):
@@ -421,6 +425,7 @@ def _keyboard_run(view_manager) -> None:
             current_view = VIEW_MAIN_MENU
             keyboard_index = KEYBOARD_WAITING
             _menu_start(view_manager)
+        return True
 
 
 def _loading_run(view_manager, message: str = "Sending...") -> None:
@@ -548,32 +553,32 @@ def run(view_manager) -> None:
             menu_index = _menu.selected_index
             if menu_index == MENU_ITEM_SEND_MESSAGE:
                 current_view = VIEW_KEYBOARD_SUBJECT
-                _keyboard_run(view_manager)
+                if not _keyboard_run(view_manager):
+                    view_manager.back()
             elif menu_index == MENU_ITEM_SET_EMAIL:
                 current_view = VIEW_KEYBOARD_EMAIL
-                _keyboard_run(view_manager)
+                if not _keyboard_run(view_manager):
+                    current_view = VIEW_MAIN_MENU
             elif menu_index == MENU_ITEM_SET_PASSWORD:
                 current_view = VIEW_KEYBOARD_PASSWORD
-                _keyboard_run(view_manager)
+                if not _keyboard_run(view_manager):
+                    current_view = VIEW_MAIN_MENU
             elif menu_index == MENU_ITEM_SET_NAME:
                 current_view = VIEW_KEYBOARD_NAME
-                _keyboard_run(view_manager)
+                if not _keyboard_run(view_manager):
+                    current_view = VIEW_MAIN_MENU
     elif current_view == VIEW_KEYBOARD_SUBJECT:
-        if button == BUTTON_BACK:
+        if button == BUTTON_BACK or not _keyboard_run(view_manager):
             inp.reset()
             current_view = VIEW_MAIN_MENU
             keyboard_index = KEYBOARD_WAITING
             _menu_start(view_manager)
-        else:
-            _keyboard_run(view_manager)
     elif current_view == VIEW_KEYBOARD_RECIPIENT:
-        if button == BUTTON_BACK:
+        if button == BUTTON_BACK or not _keyboard_run(view_manager):
             inp.reset()
             current_view = VIEW_MAIN_MENU
             keyboard_index = KEYBOARD_WAITING
             _menu_start(view_manager)
-        else:
-            _keyboard_run(view_manager)
     elif current_view == VIEW_SENDING_MESSAGE:
         if button == BUTTON_BACK:
             inp.reset()
@@ -581,7 +586,10 @@ def run(view_manager) -> None:
             sending_index = SENDING_WAITING
             _menu_start(view_manager)
         elif sending_index == SENDING_KEYBOARD:
-            _keyboard_run(view_manager)
+            if not _keyboard_run(view_manager):
+                current_view = VIEW_MAIN_MENU
+                sending_index = SENDING_WAITING
+                _menu_start(view_manager)
         elif sending_index == SENDING_SENDING:
             __await_send(view_manager)
     elif current_view in (
@@ -589,13 +597,11 @@ def run(view_manager) -> None:
         VIEW_KEYBOARD_PASSWORD,
         VIEW_KEYBOARD_NAME,
     ):
-        if button == BUTTON_BACK:
+        if button == BUTTON_BACK or not _keyboard_run(view_manager):
             inp.reset()
             current_view = VIEW_MAIN_MENU
             keyboard_index = KEYBOARD_WAITING
             _menu_start(view_manager)
-        else:
-            _keyboard_run(view_manager)
 
 
 def stop(view_manager) -> None:
@@ -609,4 +615,5 @@ def stop(view_manager) -> None:
     _menu = None
     del _loading
     _loading = None
+    view_manager.keyboard.reset()
     collect()

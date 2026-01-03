@@ -167,3 +167,18 @@ target_link_libraries(usermod_waveshare_sd INTERFACE
     hardware_spi
     hardware_pio
 )
+
+
+# Include auto_complete module
+add_library(usermod_auto_complete INTERFACE)
+
+target_sources(usermod_auto_complete INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../auto_complete/auto_complete.c
+    ${CMAKE_CURRENT_LIST_DIR}/../../auto_complete/auto_complete_mp.c
+)
+
+target_include_directories(usermod_auto_complete INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../auto_complete
+)
+
+target_link_libraries(usermod INTERFACE usermod_auto_complete)

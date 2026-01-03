@@ -49,7 +49,7 @@ def __flip_social_user_start(view_manager) -> bool:
     keyboard.on_save_callback = __flip_social_user_callback
 
     # load the ssid from flash
-    keyboard.set_response(__flip_social_util_get_username(view_manager))
+    keyboard.response = __flip_social_util_get_username(view_manager)
 
     keyboard.run(True, True)
     keyboard.run(True, True)
@@ -94,7 +94,8 @@ def __flip_social_user_run(view_manager) -> None:
         keyboard.run(True, True)
         _flip_social_user_keyboard_ran = True
     else:
-        keyboard.run(True, False)
+        if not keyboard.run(True, False):
+            view_manager.back()
 
 
 def __flip_social_user_stop(view_manager) -> None:
@@ -108,7 +109,7 @@ def __flip_social_user_stop(view_manager) -> None:
         # if we need to save, do it now instead of in the callback
         if _flip_social_user_save_verified:
             storage = view_manager.storage
-            username = view_manager.keyboard.get_response()
+            username = view_manager.keyboard.response
             try:
                 from ujson import dumps
 

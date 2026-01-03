@@ -1,5 +1,14 @@
 # original from https://github.com/jblanked/FlipSocial
 # modified for micropython picoware by @jblanked
+from picoware.system.buttons import (
+    BUTTON_BACK,
+    BUTTON_UP,
+    BUTTON_DOWN,
+    BUTTON_RIGHT,
+    BUTTON_CENTER,
+)
+
+
 _flip_social_app_menu = None
 _flip_social_app_index: int = 0  # index for the FlipSocial app menu
 
@@ -94,14 +103,6 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run the main app"""
-    from picoware.system.buttons import (
-        BUTTON_BACK,
-        BUTTON_UP,
-        BUTTON_DOWN,
-        BUTTON_RIGHT,
-        BUTTON_CENTER,
-    )
-
     global _flip_social_app_index, _flip_social_run_instance
 
     input_manager = view_manager.input_manager

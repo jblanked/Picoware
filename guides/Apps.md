@@ -324,12 +324,14 @@ keyboard = Keyboard(
 
 # in the run loop, handle input and draw
 # if not keyboard.is_finished:
-#     keyboard.run()
+#     if not keyboard.run():
+#         input_manager.reset()
+#         view_manager.back()
 # else:
 #     view_manager.back()
 
 # get the entered text
-# response = keyboard.get_response()
+# response = keyboard.response
 
 # reset the keyboard for next use
 # keyboard.reset()

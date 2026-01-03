@@ -409,9 +409,7 @@ Check the source code for all available button and key constants.
     - `keyboard_width`: Property that returns the keyboard width.
     - `title`: Property to get/set the current title of the keyboard.
     - `response`: Property to get/set the response string.
-    - `get_response()`: Returns the response string.
     - `set_save_callback(callback)`: Sets the save callback function.
-    - `set_response(text)`: Sets the response string.
     - `reset()`: Resets the keyboard state.
     - `run(swap, force)`: Run the keyboard input loop.
 

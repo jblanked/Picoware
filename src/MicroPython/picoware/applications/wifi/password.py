@@ -37,7 +37,7 @@ def start(view_manager) -> bool:
         return False
 
     keyboard.set_save_callback(__callback_save)
-    keyboard.set_response(load_wifi_password(view_manager))
+    keyboard.response = load_wifi_password(view_manager)
     keyboard.run(force=True)
 
     return True
@@ -74,7 +74,7 @@ def run(view_manager) -> None:
 
     if _password_save_requested:
         _password_save_requested = False
-        password = keyboard.get_response()
+        password = keyboard.response
         from picoware.applications.wifi.utils import (
             save_wifi_password,
             save_wifi_settings,
@@ -96,7 +96,9 @@ def run(view_manager) -> None:
         keyboard.run(force=True)
         _keyboard_started = True
     else:
-        keyboard.run()
+        if not keyboard.run():
+            input_manager.reset()
+            view_manager.back()
 
 
 def stop(view_manager) -> None:
@@ -110,5 +112,6 @@ def stop(view_manager) -> None:
     _password_is_running = False
     _password_save_requested = False
     _back_hit = False
+    view_manager.keyboard.reset()
 
     collect()

@@ -264,7 +264,7 @@ def run(view_manager) -> None:
             keyboard = view_manager.keyboard
             if keyboard:
                 keyboard.reset()
-                keyboard.set_response(_filename)  # Restore previous filename
+                keyboard.response = _filename  # Restore previous filename
                 draw = view_manager.draw
                 draw.clear(color=view_manager.background_color)
                 keyboard.run(force=True)
@@ -302,7 +302,7 @@ def run(view_manager) -> None:
                 keyboard = view_manager.keyboard
                 if keyboard:
                     keyboard.set_save_callback(__callback_filename_save)
-                    keyboard.set_response("")  # Start with empty filename
+                    keyboard.response = ""  # Start with empty filename
                     keyboard.title = "Enter filename"
                     draw = view_manager.draw
                     draw.clear(color=view_manager.background_color)
@@ -330,7 +330,9 @@ def run(view_manager) -> None:
             keyboard.run(force=True)
             _keyboard_just_started = True
         else:
-            keyboard.run()
+            if not keyboard.run():
+                view_manager.back()
+                return
 
         # The callback will transition to STATE_FILE_TYPE_MENU when filename is saved
 
@@ -443,5 +445,6 @@ def stop(view_manager) -> None:
         _file_browser = None
 
     _editor_state = STATE_INITIAL_MENU
+    view_manager.keyboard.reset()
 
     collect()

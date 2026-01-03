@@ -135,6 +135,7 @@ class ViewManager:
         """Set the background color."""
         self._background_color = color
         self._draw.background = color
+        self._keyboard.background_color = color
 
     @property
     def board_id(self):
@@ -168,6 +169,7 @@ class ViewManager:
         """Set the foreground color."""
         self._foreground_color = color
         self._draw.foreground = color
+        self._keyboard.text_color = color
 
     @property
     def has_psram(self):
@@ -210,6 +212,7 @@ class ViewManager:
     def selected_color(self, color):
         """Set the selected color."""
         self._selected_color = color
+        self._keyboard.selected_color = color
 
     @property
     def screen_size(self):

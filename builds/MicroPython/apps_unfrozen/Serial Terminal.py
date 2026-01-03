@@ -78,7 +78,7 @@ def __loading_run(view_manager, text: str = "Sending...") -> None:
 def __set_kb(view_manager, title: str) -> None:
     """Set up the keyboard"""
     kb = view_manager.keyboard
-    kb.set_response("")
+    kb.response = ""
     kb.set_save_callback(__callback)
     kb.title = title
     kb.run(force=True)
@@ -92,7 +92,7 @@ def start(view_manager) -> bool:
         BOARD_WAVESHARE_1_28_RP2350,
     )
 
-    global _textbox, _uart
+    global _textbox, _uart, state
 
     if _textbox is not None:
         del _textbox
@@ -100,6 +100,11 @@ def start(view_manager) -> bool:
     if _uart is not None:
         del _uart
         _uart = None
+    if _loading is not None:
+        del _loading
+        _loading = None
+
+    state = STATE_TYPING
 
     board_id = view_manager.board_id
     if board_id == BOARD_WAVESHARE_1_28_RP2350:
@@ -127,12 +132,12 @@ def run(view_manager) -> None:
     if button == BUTTON_CENTER and state == STATE_VIEWING:
         inp.reset()
         __set_kb(view_manager, "Send a message")
-        global state
         state = STATE_TYPING
 
     if state == STATE_TYPING:
         kb = view_manager.keyboard
-        kb.run()
+        if not kb.run():
+            view_manager.back()
     elif state == STATE_SENDING:
         if not _uart.is_sending:
             state = STATE_VIEWING
@@ -166,5 +171,7 @@ def stop(view_manager) -> None:
         _loading = None
     state = STATE_TYPING
     message = ""
+
+    view_manager.keyboard.reset()
 
     collect()

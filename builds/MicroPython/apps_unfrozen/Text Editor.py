@@ -129,7 +129,7 @@ def start(view_manager) -> bool:
     """Start the app"""
     kb = view_manager.keyboard
     kb.title = "Enter filename to edit:"
-    kb.set_response("")
+    kb.response = ""
     kb.run(force=True)
     return True
 
@@ -149,7 +149,7 @@ def run(view_manager) -> None:
         view_manager.back()
     elif not _text_editor_started:
         if kb.is_finished:
-            _filename = kb.get_response()
+            _filename = kb.response
             __start_text_editor(view_manager)
             kb.reset()
             return

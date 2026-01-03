@@ -205,7 +205,10 @@ class FlipSocialRun:
         self.message_user_index: int = (
             0  # index of the user in the Message Users submenu
         )
-        self.original_color: int = 0  # original color of the draw instance
+        self.original_color_bg: int = 0  # original color of the draw instance
+        self.original_color_fg: int = (
+            0  # original foreground color of the draw instance
+        )
         self.post_index: int = 0  # index of the post in the Post submenu
         self.post_status: int = POST_CHOOSE  # current post status
         self.registration_status: int = (
@@ -1883,8 +1886,10 @@ class FlipSocialRun:
             return True
 
         self._started = True
-        self.original_color = view_manager.background_color
+        self.original_color_bg = view_manager.background_color
+        self.original_color_fg = view_manager.foreground_color
         view_manager.background_color = TFT_WHITE
+        view_manager.foreground_color = TFT_BLACK
 
         # update login status
         storage = view_manager.storage
@@ -1912,7 +1917,8 @@ class FlipSocialRun:
 
     def stop(self, view_manager) -> None:
         """Stop the FlipSocial run view"""
-        view_manager.background_color = self.original_color
+        view_manager.background_color = self.original_color_bg
+        view_manager.foreground_color = self.original_color_fg
 
     def update_draw(self, draw) -> None:
         """Update and draw the run view"""
@@ -2050,7 +2056,7 @@ class FlipSocialRun:
                 if keyboard and keyboard.is_finished:
                     self.keyboard_ran = False
                     self.should_clear_screen = True
-                    response = keyboard.get_response()
+                    response = keyboard.response
                     storage = self.view_manager.storage
                     storage.write("picoware/flip_social/new_post.txt", response)
                     self.post_status = POST_WAITING
@@ -2087,7 +2093,7 @@ class FlipSocialRun:
                     else:
                         selected_post = self.get_selected_post()
                         if selected_post and keyboard:
-                            keyboard.set_response(selected_post)
+                            keyboard.response = selected_post
                             self.post_status = POST_KEYBOARD
                             self.should_debounce = True
 
@@ -2113,7 +2119,7 @@ class FlipSocialRun:
                 if keyboard and keyboard.is_finished:
                     self.keyboard_ran = False
                     self.should_clear_screen = True
-                    response = keyboard.get_response()
+                    response = keyboard.response
                     storage = self.view_manager.storage
                     storage.write("picoware/flip_social/message_to_user.txt", response)
                     self.messages_status = MESSAGES_SENDING
@@ -2151,7 +2157,7 @@ class FlipSocialRun:
                 if keyboard and keyboard.is_finished:
                     self.keyboard_ran = False
                     self.should_clear_screen = True
-                    response = keyboard.get_response()
+                    response = keyboard.response
                     storage = self.view_manager.storage
                     storage.write("picoware/flip_social/explore_user.txt", response)
                     self.explore_status = EXPLORE_WAITING
@@ -2172,7 +2178,7 @@ class FlipSocialRun:
                 if keyboard and keyboard.is_finished:
                     self.keyboard_ran = False
                     self.should_clear_screen = True
-                    response = keyboard.get_response()
+                    response = keyboard.response
                     storage = self.view_manager.storage
                     storage.write("picoware/flip_social/message_to_user.txt", response)
                     self.explore_status = EXPLORE_SENDING
@@ -2231,7 +2237,7 @@ class FlipSocialRun:
                 if keyboard and keyboard.is_finished:
                     self.keyboard_ran = False
                     self.should_clear_screen = True
-                    response = keyboard.get_response()
+                    response = keyboard.response
                     storage = self.view_manager.storage
                     storage.write("picoware/flip_social/comment_post.txt", response)
                     self.comments_status = COMMENTS_SENDING
@@ -2264,7 +2270,7 @@ class FlipSocialRun:
                         self.keyboard_ran = False
                         self.should_clear_screen = True
                         keyboard.reset()
-                        keyboard.set_response("")
+                        keyboard.response = ""
                     self.should_debounce = True
                 elif self.last_input == BUTTON_CENTER:
                     if self.comment_is_valid:

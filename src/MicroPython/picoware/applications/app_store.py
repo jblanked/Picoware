@@ -325,7 +325,7 @@ def run(view_manager) -> None:
         BUTTON_RIGHT,
     )
 
-    global _app_state, _app_menu, _selected_app_id, _http, _loading, _current_file_index, _files_to_download, _apps_data, _selected_app_details
+    global _app_state, _selected_app_id, _current_file_index, _files_to_download
     global _download_all_mode, _current_app_index, _total_apps_to_download
 
     inp = view_manager.input_manager

@@ -336,8 +336,8 @@ class Entity:
             player_dir.x,  # Player direction X
             player_dir.y,  # Player direction Y
             view_height,  # View height
-            int(screen_size.x),  # Screen width
-            int(screen_size.y),  # Screen height
+            screen_size.x,  # Screen width
+            screen_size.y,  # Screen height
         )
 
     def set_3d_sprite_scale(self, scale: float):

@@ -92,8 +92,6 @@ class TextBox:
 
     def set_scrollbar_position(self):
         """Set the position of the scrollbar based on the current line."""
-        from picoware.system.vector import Vector
-
         # Calculate the proper scroll position based on current line and total lines
         scroll_ratio = 0.0
         if self.total_lines > self.lines_per_screen and self.total_lines > 0:
@@ -120,12 +118,10 @@ class TextBox:
             )  # 1 pixel padding
             bar_y = self.position.y + bar_offset_y + 1  # 1 pixel padding
 
-        self.scrollbar.position = Vector(int(bar_x), int(bar_y))
+        self.scrollbar.position.x, self.scrollbar.position.y = int(bar_x), int(bar_y)
 
     def set_scrollbar_size(self):
         """Set the size of the scrollbar based on the number of lines."""
-        from picoware.system.vector import Vector
-
         content_height = self.text_height
         view_height = self.size.y
 
@@ -143,7 +139,7 @@ class TextBox:
             min_bar_width = self.spacing
             bar_width = max(bar_width, min_bar_width)
 
-            self.scrollbar.size = Vector(bar_width, 6)
+            self.scrollbar.size.x, self.scrollbar.size.y = bar_width, 6
         else:
             # Vertical scrollbar sizing
             bar_height = 0
@@ -159,7 +155,7 @@ class TextBox:
             min_bar_height = self.spacing
             bar_height = max(bar_height, min_bar_height)
 
-            self.scrollbar.size = Vector(6, bar_height)
+            self.scrollbar.size.x, self.scrollbar.size.y = 6, bar_height
 
     def display_visible_lines(self):
         """Display only the lines that are currently visible."""
@@ -340,5 +336,7 @@ class TextBox:
 
     def set_text(self, text: str):
         """Set the text in the text box, wrap lines, and scroll to bottom."""
+        if self.current_text == text:
+            return
         self.current_text = text
         self.refresh()

@@ -9,6 +9,8 @@ CAMERA_THIRD_PERSON = const(1)  # Render from external camera position
 class CameraParams:
     """Camera parameters for 3D rendering"""
 
+    __slots__ = ("position", "direction", "plane", "height")
+
     def __init__(
         self,
         position: Vector = Vector(0, 0),

@@ -97,7 +97,8 @@ class Choice:
             start_y = center_y - (
                 (num_options * option_height + (num_options - 1) * total_spacing) // 2
             )
-
+            text_pos = Vector(0, 0)
+            circ_pos = Vector(0, 0)
             for i, option in enumerate(self.options):
                 opt_y = start_y + i * (option_height + total_spacing)
                 text_width = len(option) * font_size.x
@@ -107,8 +108,9 @@ class Choice:
                     opt_center_x = center_x
                     opt_center_y = opt_y + option_height // 2
                     opt_radius = max(text_width // 2 + 10, option_height // 2 + 5)
+                    circ_pos.x, circ_pos.y = opt_center_x, opt_center_y
                     self.display.fill_circle(
-                        Vector(opt_center_x, opt_center_y),
+                        circ_pos,
                         opt_radius,
                         self.foreground_color,
                     )
@@ -118,8 +120,9 @@ class Choice:
                     opt_center_x = center_x
                     opt_center_y = opt_y + option_height // 2
                     opt_radius = max(text_width // 2 + 10, option_height // 2 + 5)
+                    circ_pos.x, circ_pos.y = opt_center_x, opt_center_y
                     self.display.circle(
-                        Vector(opt_center_x, opt_center_y),
+                        circ_pos,
                         opt_radius,
                         self.foreground_color,
                     )
@@ -128,7 +131,8 @@ class Choice:
                 # Draw option text centered
                 text_x = center_x - (text_width // 2)
                 text_y = opt_y + (option_height - font_size.y) // 2
-                self.display.text(Vector(text_x, text_y), option, text_color)
+                text_pos.x, text_pos.y = text_x, text_y
+                self.display.text(text_pos, option, text_color)
         else:
             # Draw Title
             title_width = len(self.title) * font_size.x

@@ -35,6 +35,16 @@ class Menu:
         )
         self.position = Vector(0, y)
         self.size = Vector(draw.size.x, height)
+
+        title_width = self.display.font_size.x * len(self._title)
+        title_x = (self.display.size.x - title_width) // 2
+        title_y = self.position.y + 15
+        underline_y = title_y + 10
+
+        self.title_pos = Vector(title_x, title_y)
+        self.line_pos = Vector(self.title_pos.x, underline_y)
+        self.line_size = Vector(self.title_pos.x + title_width, underline_y)
+
         draw.clear(self.position, self.size, self.background_color)
         draw.swap()
 
@@ -80,6 +90,15 @@ class Menu:
         """Set the menu title."""
         self._title = value
 
+        title_width = self.display.font_size.x * len(self._title)
+        title_x = (self.display.size.x - title_width) // 2
+        title_y = self.position.y + 15
+        underline_y = title_y + 10
+
+        self.title_pos.x, self.title_pos.y = title_x, title_y
+        self.line_pos.x, self.line_pos.y = self.title_pos.x, underline_y
+        self.line_size.x, self.line_size.y = self.title_pos.x + title_width, underline_y
+
     def add_item(self, item: str) -> None:
         """Add an item to the menu."""
         self.list.add_item(item)
@@ -106,16 +125,12 @@ class Menu:
         """Draw the title (kept for API compatibility, now handled in draw)."""
 
         # Draw title centered
-        title_width = self.display.font_size.x * len(self._title)
-        title_x = (self.display.size.x - title_width) // 2
-        title_y = self.position.y + 15
-        self.display.text(Vector(title_x, title_y), self._title, self.text_color)
+        self.display.text(self.title_pos, self._title, self.text_color)
 
         # Draw underline
-        underline_y = title_y + 10
         self.display.line_custom(
-            Vector(title_x, underline_y),
-            Vector(title_x + title_width, underline_y),
+            self.line_pos,
+            self.line_size,
             self.text_color,
         )
 

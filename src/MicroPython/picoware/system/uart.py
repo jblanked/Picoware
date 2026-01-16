@@ -17,11 +17,16 @@ class UART:
         self._tx_pin = tx_pin
         self._rx_pin = rx_pin
         self._baud_rate = baud_rate
+        self._uart = None
 
-        self._uart = MachineUART(
-            uart_id, baudrate=baud_rate, tx=Pin(tx_pin), rx=Pin(rx_pin)
-        )
-        self._uart.init()
+        try:
+            self._uart = MachineUART(
+                uart_id, baudrate=baud_rate, tx=Pin(tx_pin), rx=Pin(rx_pin)
+            )
+            self._uart.init()
+        except Exception as e:
+            raise e
+
         self._timeout = timeout  # milliseconds
 
     def __del__(self) -> None:
@@ -64,6 +69,11 @@ class UART:
     def tx_pin(self) -> int:
         """Get the TX pin number."""
         return self._tx_pin
+
+    @property
+    def uart(self):
+        """Get the UART context."""
+        return self._uart
 
     def clear(self) -> None:
         """Clear the serial buffer"""

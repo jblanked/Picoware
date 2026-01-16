@@ -128,7 +128,7 @@ class Sprite3D:
     """3D sprite class for rendering 3D objects"""
 
     def __init__(self):
-        self.triangles = [Triangle3D() for _ in range(MAX_TRIANGLES_PER_SPRITE)]
+        self.triangles: list[Triangle3D] = []
         self.triangle_count = 0
         self.pos = Vector(0, 0)
         self.rotation_y = 0.0
@@ -194,11 +194,12 @@ class Sprite3D:
     def add_triangle(self, triangle: Triangle3D):
         """Add triangle to sprite"""
         if self.triangle_count < MAX_TRIANGLES_PER_SPRITE:
-            self.triangles[self.triangle_count] = triangle
+            self.triangles.append(triangle)
             self.triangle_count += 1
 
     def clear_triangles(self):
         """Clear all triangles"""
+        self.triangles.clear()
         self.triangle_count = 0
 
     # Initialize sprite with specific parameters (for Entity class)

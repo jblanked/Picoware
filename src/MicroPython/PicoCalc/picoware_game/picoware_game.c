@@ -115,12 +115,12 @@ static inline void draw_vline(int x, int start_y, int end_y, uint8_t color_index
     // Draw vertical line using PSRAM writes
     for (int y = start_y; y <= end_y; y++)
     {
-        picoware_psram_write_pixel_fb(psram_inst, x, y, color_index);
+        picoware_write_pixel_fb(psram_inst, x, y, color_index);
 
         // Fill in adjacent pixel if requested
         if (fill_in && x + 1 < screen_width)
         {
-            picoware_psram_write_pixel_fb(psram_inst, x + 1, y, color_index);
+            picoware_write_pixel_fb(psram_inst, x + 1, y, color_index);
         }
     }
 }
@@ -507,7 +507,7 @@ STATIC mp_obj_t picoware_render_sprite3d(size_t n_args, const mp_obj_t *args)
             // Draw horizontal line using PSRAM writes
             for (int x = x_left; x <= x_right; x++)
             {
-                picoware_psram_write_pixel_fb(psram_inst, x, y, color_index);
+                picoware_write_pixel_fb(psram_inst, x, y, color_index);
             }
         }
     }

@@ -62,7 +62,6 @@ STATIC mp_obj_t picoware_psram_init(size_t n_args, const mp_obj_t *args)
         PIO pio = (pio_num == 0) ? pio0 : pio1;
         psram_instance = psram_qspi_init(pio, sm_num, 1.0f);
         psram_initialized = true;
-        mp_printf(&mp_plat_print, "PSRAM initialized (QSPI mode)\n");
     }
 
     return mp_const_none;

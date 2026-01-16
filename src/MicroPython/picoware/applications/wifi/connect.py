@@ -1,10 +1,27 @@
+from utime import ticks_ms
+
 _connect = None
 _status_message: str = ""
-_connection_initiated = False
-_last_update = 0
 _connection_start_time = 0
 _ssid = ""
 _password = ""
+
+
+def __connect_callback(state: int, error: str) -> None:
+    """Callback for Wi-Fi connection status updates."""
+    from picoware.system.wifi import (
+        WIFI_STATE_CONNECTED,
+        WIFI_STATE_TIMEOUT,
+        WIFI_STATE_ISSUE,
+    )
+
+    global _status_message
+    if state == WIFI_STATE_CONNECTED:
+        _status_message = "Connected successfully!"
+    elif state == WIFI_STATE_ISSUE:
+        _status_message = error or "Connection issue"
+    elif state == WIFI_STATE_TIMEOUT:
+        _status_message = "Connection timeout"
 
 
 def _get_status_text(view_manager) -> str:
@@ -32,8 +49,6 @@ def _get_status_text(view_manager) -> str:
         if state == WIFI_STATE_IDLE:
             text += "Ready to connect\n\n"
         elif state == WIFI_STATE_CONNECTING:
-            from utime import ticks_ms
-
             elapsed = (ticks_ms() - wifi.connection_start_time) // 1000
             text += f"Connecting... ({elapsed}s)\n\n"
         elif state == WIFI_STATE_CONNECTED:
@@ -57,11 +72,15 @@ def start(view_manager) -> bool:
     _ssid = load_wifi_ssid(view_manager)
     _password = load_wifi_password(view_manager)
 
+    if not _ssid or not _password:
+        view_manager.alert(
+            "No saved WiFi credentials found.\nPlease set up WiFi in the Settings app.",
+        )
+        return False
+
     if _connect is None:
         from picoware.gui.textbox import TextBox
 
-        global _connection_initiated
-        global _last_update
         global _connection_start_time
         global _status_message
 
@@ -77,8 +96,6 @@ def start(view_manager) -> bool:
             return False
 
         # Reset state
-        _connection_initiated = False
-        _last_update = 0
         _connection_start_time = 0
         _status_message = (
             "Connected" if view_manager.wifi.is_connected() else "Disconnected"
@@ -90,17 +107,11 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run the app."""
-    from utime import ticks_ms
     from picoware.system.buttons import (
         BUTTON_BACK,
         BUTTON_LEFT,
         BUTTON_UP,
         BUTTON_RIGHT,
-    )
-    from picoware.system.wifi import (
-        WIFI_STATE_CONNECTED,
-        WIFI_STATE_TIMEOUT,
-        WIFI_STATE_ISSUE,
     )
 
     global _connect
@@ -108,11 +119,7 @@ def run(view_manager) -> None:
         return
 
     global _status_message
-    global _connection_initiated
     global _connection_start_time
-    global _last_update
-    global _ssid
-    global _password
 
     input_manager = view_manager.input_manager
     button: int = input_manager.button
@@ -131,37 +138,13 @@ def run(view_manager) -> None:
         input_manager.reset()
         wifi.reset()
         _status_message = "Starting connection..."
-        if wifi.connect(_ssid, _password, sta_mode=True, is_async=True):
-            _connection_initiated = True
-            _connection_start_time = wifi.connection_start_time
-            _status_message = "Connecting..."
+        wifi.callback_connect = __connect_callback
+        if wifi.connect_async(_ssid, _password, sta_mode=True):
+            _connection_start_time = ticks_ms()
         else:
             _status_message = "Failed to start connection"
 
-    if _connection_initiated:
-        # call update to advance the connection process
-        wifi.update()
-
-        # update status based on current state
-        state = wifi.status()
-
-        if state == WIFI_STATE_CONNECTED:
-            _status_message = "Connected successfully!"
-            _connection_initiated = False
-        elif state == WIFI_STATE_ISSUE:
-            _status_message = wifi.last_error
-            _connection_initiated = False
-        elif state == WIFI_STATE_TIMEOUT:
-            _status_message = "Connection timeout"
-            _connection_initiated = False
-
-        _connect.set_text(_get_status_text(view_manager))
-        _last_update = ticks_ms()
-    else:
-        current_time = ticks_ms()
-        if current_time - _last_update > 250:
-            _connect.set_text(_get_status_text(view_manager))
-            _last_update = current_time
+    _connect.set_text(_get_status_text(view_manager))
 
 
 def stop(view_manager) -> None:
@@ -174,15 +157,11 @@ def stop(view_manager) -> None:
         _connect = None
 
     global _status_message
-    global _connection_initiated
-    global _last_update
     global _connection_start_time
     global _ssid
     global _password
 
     _status_message = ""
-    _connection_initiated = False
-    _last_update = 0
     _connection_start_time = 0
     _ssid = ""
     _password = ""

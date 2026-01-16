@@ -1,3 +1,4 @@
+from utime import ticks_ms, sleep
 from micropython import const
 
 WIFI_STATE_INACTIVE = const(-1)
@@ -16,19 +17,22 @@ class WiFi:
         Initialize the WiFi class.
         """
         from network import STA_IF, WLAN
+        from _thread import allocate_lock
 
         self.ssid = ""
         self.password = ""
         self.mode = STA_IF
         self.wlan = WLAN(self.mode)
-        self.local_ip = None
-        self.state = WIFI_STATE_IDLE
+        self._state = WIFI_STATE_IDLE
         self.connection_start_time = None
         self.connection_timeout = 10  # seconds
-        self.connection_attempts = 0
-        self.pending_ssid = ""
-        self.pending_password = ""
         self.error = ""
+        #
+        self._thread = None
+        self._thread_running = False
+        self._thread_lock = allocate_lock()
+        #
+        self._callback_connect: callable = None
 
     def __del__(self):
         """Destructor to clean up resources."""
@@ -37,89 +41,155 @@ class WiFi:
             del self.wlan
             self.wlan = None
         self.reset()
+        self.callback_connect = None
+        self.__close_thread()
+
+    def __close_thread(self):
+        """Internal method to close the background thread."""
+        with self._thread_lock:
+            self._thread_running = False
+            self._thread = None
+
+    @property
+    def callback_connect(self) -> callable:
+        """Get the connection callback function."""
+        _callback = None
+        with self._thread_lock:
+            _callback = self._callback_connect
+        return _callback
+
+    @callback_connect.setter
+    def callback_connect(self, func: callable) -> None:
+        """
+        Set the connection callback function.
+
+        The callback function should accept two arguments: the Wi-Fi state and an error message (if any).
+        """
+        with self._thread_lock:
+            self._callback_connect = func
 
     @property
     def device_ip(self):
         """Get the current device IP address."""
-        return self.wlan.ifconfig()[0] if self.wlan else ""
+        addr = ""
+        with self._thread_lock:
+            return self.wlan.ifconfig()[0] if self.wlan else ""
+        return addr
 
     @property
-    def last_error(self):
+    def last_error(self) -> str:
         """Get the last connection error message."""
-        return self.error
+        error = ""
+        with self._thread_lock:
+            error = self.error
+        return error
 
-    def connect(
-        self, ssid: str, password: str, sta_mode: bool = True, is_async: bool = False
-    ) -> bool:
+    @property
+    def state(self) -> int:
+        """Get the current Wi-Fi state."""
+        _state = 0
+        with self._thread_lock:
+            _state = self._state
+        return _state
+
+    def connect(self, ssid: str, password: str, sta_mode: bool = True) -> bool:
         """
         Connect to a Wi-Fi network.
 
         :param ssid: SSID of the Wi-Fi network.
         :param password: Password for the Wi-Fi network.
         :param sta_mode: If True, use station mode (STA_IF), otherwise use access point mode (AP_IF).
-        :param is_async: If True, use asynchronous connection handling.
         """
-        from time import sleep
         from network import STA_IF, AP_IF
 
         _mode = STA_IF if sta_mode else AP_IF
 
-        if not is_async:
-            # sync
-            if _mode == STA_IF:
-                try:
-                    self.wlan.active(True)
-                    if not self.wlan.isconnected():
-                        self.wlan.connect(ssid, password)
-                        while not self.wlan.isconnected():
-                            sleep(1)
-                    self.mode = _mode
-                    self.ssid = ssid
-                    self.password = password
-                    self.local_ip = self.wlan.ifconfig()[0]
-                    return True
-                except Exception as e:
-                    print("Error:", e)
-                    return False
-
+        # sync
+        if _mode == STA_IF:
+            # check if already connected
+            if self.wlan.isconnected() and self.ssid == self.wlan.config("ssid"):
+                return True
             try:
-                self.wlan.config(ssid=ssid, password=password)
+                self._thread_running = True
+                self._state = WIFI_STATE_CONNECTING
+                self.connection_start_time = ticks_ms()
                 self.wlan.active(True)
+                if not self.wlan.isconnected():
+                    self.wlan.connect(ssid, password)
+                    while not self.wlan.isconnected():
+                        if self.connection_start_time and (
+                            ticks_ms() - self.connection_start_time
+                        ) > (self.connection_timeout * 1000):
+                            self._state = WIFI_STATE_TIMEOUT
+                            self.wlan.disconnect()
+                            self.connection_start_time = None
+                            self.error = "Connection timed out."
+                            if self._callback_connect:
+                                self._callback_connect(self._state, self.error)
+                            self._thread_running = False
+                            self._thread = None
+                            return False
+                        if not self._thread_running:
+                            return False
+                        sleep(0.1)
                 self.mode = _mode
                 self.ssid = ssid
                 self.password = password
-                self.local_ip = self.wlan.ifconfig()[0]
+                self._state = WIFI_STATE_CONNECTED
+                self.connection_start_time = None
+                self.error = ""
+                if self._callback_connect:
+                    self._callback_connect(self._state, self.error)
+                self._thread_running = False
+                self._thread = None
                 return True
             except Exception as e:
-                print("Failed to set up Access Point:", e)
+                self.error = f"Error: {e}"
                 return False
 
-        # async
-        from utime import ticks_ms
-
-        self.reset()
-        self.pending_ssid = ssid
-        self.pending_password = password
-        self.state = WIFI_STATE_CONNECTING
-        self.connection_start_time = ticks_ms()
-        self.mode = _mode
-
-        if _mode == STA_IF:
-            self.wlan.active(True)
-            self.wlan.connect(ssid, password)
-        else:
+        try:
             self.wlan.config(ssid=ssid, password=password)
             self.wlan.active(True)
+            self.mode = _mode
+            self.ssid = ssid
+            self.password = password
+            return True
+        except Exception as e:
+            self.error = f"Failed to set up Access Point: {e}"
+            return False
 
-        return True
+    def connect_async(self, ssid: str, password: str, sta_mode: bool = True) -> bool:
+        """
+        Connect to a Wi-Fi network.
+
+        :param ssid: SSID of the Wi-Fi network.
+        :param password: Password for the Wi-Fi network.
+        :param sta_mode: If True, use station mode (STA_IF), otherwise use access point mode (AP_IF).
+        """
+        try:
+            import _thread
+
+            # Start the request in a separate thread
+            self._thread = _thread.start_new_thread(
+                self.connect,
+                (ssid, password, sta_mode),
+            )
+            return True
+        except Exception as e:
+            self.error = f"Failed to start WiFi connection thread: {e}"
+            return False
 
     def disconnect(self):
         """Disconnect from the Wi-Fi network."""
-        self.wlan.disconnect()
+        with self._thread_lock:
+            self.wlan.disconnect()
 
     def is_connected(self):
         """Check if the device is connected to a Wi-Fi network."""
-        return self.wlan.isconnected()
+        status = False
+        with self._thread_lock:
+            status = self.wlan.isconnected()
+        return status
 
     def scan(self) -> list:
         """Scan for available Wi-Fi networks."""
@@ -137,65 +207,36 @@ class WiFi:
             STAT_CONNECT_FAIL,
         )
 
-        status = self.wlan.status()
+        with self._thread_lock:
+            status = self.wlan.status()
+            if status == STAT_IDLE:
+                return WIFI_STATE_IDLE
+            if status == STAT_CONNECTING:
+                return WIFI_STATE_CONNECTING
+            if status == STAT_GOT_IP:
+                return WIFI_STATE_CONNECTED
+            if status == STAT_WRONG_PASSWORD:
+                self.error = "Wrong password."
+                return WIFI_STATE_ISSUE
+            if status == STAT_NO_AP_FOUND:
+                self.error = "No access point found."
+                return WIFI_STATE_ISSUE
+            if status == STAT_CONNECT_FAIL:
+                self.error = "Failed to connect."
+                return WIFI_STATE_ISSUE
 
-        if status == STAT_IDLE:
-            return WIFI_STATE_IDLE
-        if status == STAT_CONNECTING:
-            return WIFI_STATE_CONNECTING
-        if status == STAT_GOT_IP:
-            return WIFI_STATE_CONNECTED
-        if status == STAT_WRONG_PASSWORD:
-            self.error = "Wrong password."
-            return WIFI_STATE_ISSUE
-        if status == STAT_NO_AP_FOUND:
-            self.error = "No access point found."
-            return WIFI_STATE_ISSUE
-        if status == STAT_CONNECT_FAIL:
-            self.error = "Failed to connect."
-            return WIFI_STATE_ISSUE
+            self.error = "Status not recognized so deemed inactive."
 
-        self.error = "Status not recognized so deemed inactive."
         return WIFI_STATE_INACTIVE
 
     def reset(self):
         """Reset the Wi-Fi configuration."""
-        self.wlan.active(False)
-        self.ssid = ""
-        self.password = ""
-        self.local_ip = None
-        self.state = WIFI_STATE_IDLE
-        self.connection_start_time = None
-        self.connection_timeout = 10  # seconds
-        self.connection_attempts = 0
-        self.pending_ssid = ""
-        self.pending_password = ""
-        self.error = ""
-
-    def update(self) -> bool:
-        """Update the Wi-Fi connection state."""
-        from utime import ticks_ms
-
-        if self.state != WIFI_STATE_CONNECTING:
-            return self.state == WIFI_STATE_CONNECTED
-
-        # Check for timeout
-        if self.connection_start_time and (ticks_ms() - self.connection_start_time) > (
-            self.connection_timeout * 1000
-        ):
-            self.state = WIFI_STATE_TIMEOUT
-            self.wlan.disconnect()
+        with self._thread_lock:
+            self.wlan.active(False)
+            self.ssid = ""
+            self.password = ""
+            self._state = WIFI_STATE_IDLE
             self.connection_start_time = None
-            self.connection_attempts = 0
-            self.error = "Connection timed out."
-            return False
-
-        if self.status() == WIFI_STATE_CONNECTED:
-            self.ssid = self.pending_ssid
-            self.password = self.pending_password
-            self.state = WIFI_STATE_CONNECTED
-            self.connection_start_time = None
-            self.connection_attempts = 0
-            return True
-
-        return False
+            self.connection_timeout = 10  # seconds
+            self.error = ""
+        self.__close_thread()

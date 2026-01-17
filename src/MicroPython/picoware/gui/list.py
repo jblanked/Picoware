@@ -1,6 +1,3 @@
-from picoware.system.vector import Vector
-
-
 class List:
     """A simple list class for a GUI."""
 
@@ -16,6 +13,7 @@ class List:
         border_width: int = 2,
     ):
         from picoware.system.system import System
+        from picoware.system.vector import Vector
 
         syst = System()
         self.is_circular = syst.is_circular

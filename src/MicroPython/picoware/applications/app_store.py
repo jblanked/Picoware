@@ -575,7 +575,10 @@ def __download_next_file(view_manager) -> bool:
         file_url,
         save_to_file=file_path,
         storage=storage,
-        headers={"User-Agent": "Raspberry Pi Pico W"},
+        headers={
+            "User-Agent": "Raspberry Pi Pico W",
+            "Content-Type": "application/octet-stream",
+        },
     )
 
 

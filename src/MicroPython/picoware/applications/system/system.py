@@ -20,6 +20,7 @@ def start(view_manager) -> bool:
             2,
         )
         _system.add_item("Settings")
+        _system.add_item("Check for Updates")
         _system.add_item("About Picoware")
         _system.add_item("System Info")
         _system.add_item("Bootloader Mode")
@@ -74,12 +75,18 @@ def run(view_manager) -> None:
             )
             view_manager.switch_to("settings")
         elif _system_index == 1:
+            from picoware.applications.system import update
+            from picoware.system.view import View
+
+            view_manager.add(View("update", update.run, update.start, update.stop))
+            view_manager.switch_to("update")
+        elif _system_index == 2:
             from picoware.applications.system import about
             from picoware.system.view import View
 
             view_manager.add(View("about", about.run, about.start, about.stop))
             view_manager.switch_to("about")
-        elif _system_index == 2:
+        elif _system_index == 3:
             from picoware.applications.system import system_info
             from picoware.system.view import View
 
@@ -89,17 +96,17 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("system_info")
-        elif _system_index == 3:
-            from picoware.system.system import System
-
-            system = System()
-            system.bootloader_mode()
         elif _system_index == 4:
             from picoware.system.system import System
 
             system = System()
-            system.hard_reset()
+            system.bootloader_mode()
         elif _system_index == 5:
+            from picoware.system.system import System
+
+            system = System()
+            system.hard_reset()
+        elif _system_index == 6:
 
             from picoware.gui.choice import Choice
             from picoware.system.vector import Vector

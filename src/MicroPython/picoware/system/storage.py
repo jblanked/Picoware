@@ -18,11 +18,6 @@ else:
     from picoware_vfs import umount as unmount_vfs
     import picoware_sd
 
-# to do in an upcoming release:
-# instead of separate modules for waveshare and picoware sd,
-# we should make one picoware_sd and just use board definitions
-# same for vfs modules, picoware_game, and picoware_boards
-
 
 class Storage:
     """
@@ -191,7 +186,7 @@ class Storage:
         else:
             picoware_sd.file_seek(file_obj, position)
 
-    def file_write(self, file_obj: fat32_file, data: str, mode: str = "w") -> bool:
+    def file_write(self, file_obj: fat32_file, data, mode: str = "w") -> bool:
         """Write data to an open file."""
         if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
@@ -199,14 +194,12 @@ class Storage:
         ):
             try:
                 if mode == "w":
-                    return waveshare_sd.file_write(file_obj, data.encode("utf-8"), True)
+                    return waveshare_sd.file_write(file_obj, data.encode("utf-8"))
                 if mode == "a":
-                    return waveshare_sd.file_write(
-                        file_obj, data.encode("utf-8"), False
-                    )
-                return waveshare_sd.file_write(file_obj, data, False)
+                    return waveshare_sd.file_write(file_obj, data.encode("utf-8"))
+                return waveshare_sd.file_write(file_obj, data)
             except Exception as e:
-                print(f"Error writing to file {file_obj}: {e}")
+                print(f"Error writing to file: {e}")
                 return False
 
         if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
@@ -214,12 +207,12 @@ class Storage:
 
         try:
             if mode == "w":
-                return picoware_sd.file_write(file_obj, data.encode("utf-8"), True)
+                return picoware_sd.file_write(file_obj, data.encode("utf-8"))
             if mode == "a":
-                return picoware_sd.file_write(file_obj, data.encode("utf-8"), False)
-            return picoware_sd.file_write(file_obj, data, False)
+                return picoware_sd.file_write(file_obj, data.encode("utf-8"))
+            return picoware_sd.file_write(file_obj, data)
         except Exception as e:
-            print(f"Error writing to file {file_obj}: {e}")
+            print(f"Error writing to file: {e}")
             return False
 
     def is_directory(self, path: str) -> bool:

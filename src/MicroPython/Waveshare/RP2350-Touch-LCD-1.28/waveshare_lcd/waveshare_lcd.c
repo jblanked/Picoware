@@ -226,6 +226,26 @@ STATIC mp_obj_t waveshare_lcd_fill_circle(size_t n_args, const mp_obj_t *args)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(waveshare_lcd_fill_circle_obj, 4, 4, waveshare_lcd_fill_circle);
 
+STATIC mp_obj_t waveshare_lcd_fill_round_rectangle(size_t n_args, const mp_obj_t *args)
+{
+    // Arguments: x, y, width, height, radius, color
+    if (n_args != 6)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("fill_round_rectangle requires 6 arguments: x, y, width, height, radius, color"));
+    }
+
+    uint16_t x = mp_obj_get_int(args[0]);
+    uint16_t y = mp_obj_get_int(args[1]);
+    uint16_t width = mp_obj_get_int(args[2]);
+    uint16_t height = mp_obj_get_int(args[3]);
+    uint16_t radius = mp_obj_get_int(args[4]);
+    uint16_t color = mp_obj_get_int(args[5]);
+
+    lcd_fill_round_rectangle(x, y, width, height, radius, color);
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(waveshare_lcd_fill_round_rectangle_obj, 6, 6, waveshare_lcd_fill_round_rectangle);
+
 // Fill a triangle
 STATIC mp_obj_t waveshare_lcd_fill_triangle(size_t n_args, const mp_obj_t *args)
 {
@@ -345,6 +365,7 @@ STATIC const mp_rom_map_elem_t waveshare_lcd_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_fill_rect), MP_ROM_PTR(&waveshare_lcd_fill_rect_obj)},
     {MP_ROM_QSTR(MP_QSTR_draw_circle), MP_ROM_PTR(&waveshare_lcd_draw_circle_obj)},
     {MP_ROM_QSTR(MP_QSTR_fill_circle), MP_ROM_PTR(&waveshare_lcd_fill_circle_obj)},
+    {MP_ROM_QSTR(MP_QSTR_fill_round_rectangle), MP_ROM_PTR(&waveshare_lcd_fill_round_rectangle_obj)},
     {MP_ROM_QSTR(MP_QSTR_fill_triangle), MP_ROM_PTR(&waveshare_lcd_fill_triangle_obj)},
 
     // Text rendering functions

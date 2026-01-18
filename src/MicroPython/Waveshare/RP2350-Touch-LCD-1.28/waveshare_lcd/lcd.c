@@ -439,6 +439,113 @@ void lcd_fill_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint1
 }
 
 /******************************************************************************
+function: Draw a filled rounded rectangle to the framebuffer
+parameter:
+    x      : Top-left X coordinate
+    y      : Top-left Y coordinate
+    width  : Width of rectangle
+    height : Height of rectangle
+    radius : Corner radius in pixels
+    color  : RGB565 color value
+returns: none
+******************************************************************************/
+void lcd_fill_round_rectangle(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t radius, uint16_t color)
+{
+    if (width <= 0 || height <= 0 || radius <= 0)
+        return;
+
+    // Clip to screen bounds
+    if (x < 0)
+    {
+        width += x;
+        x = 0;
+    }
+    if (y < 0)
+    {
+        height += y;
+        y = 0;
+    }
+    if (x + width > LCD_WIDTH)
+    {
+        width = LCD_WIDTH - x;
+    }
+    if (y + height > LCD_HEIGHT)
+    {
+        height = LCD_HEIGHT - y;
+    }
+
+    if (width <= 0 || height <= 0)
+        return;
+
+    // Calculate effective radius considering clipping
+    int effective_radius = radius;
+    if (effective_radius > width / 2)
+        effective_radius = width / 2;
+    if (effective_radius > height / 2)
+        effective_radius = height / 2;
+
+    uint8_t color_index = lcd_color565_to_332(color);
+
+    // Pre-calculate corner centers
+    int tl_cx = x + effective_radius;
+    int tl_cy = y + effective_radius;
+    int tr_cx = x + width - effective_radius;
+    int tr_cy = y + effective_radius;
+    int bl_cx = x + effective_radius;
+    int bl_cy = y + height - effective_radius;
+    int br_cx = x + width - effective_radius;
+    int br_cy = y + height - effective_radius;
+
+    int radius_sq = effective_radius * effective_radius;
+
+    for (int py = y; py < y + height; py++)
+    {
+        for (int px = x; px < x + width; px++)
+        {
+            bool in_corner = false;
+
+            // Check if pixel is in one of the corner exclusion zones
+            if (px < tl_cx && py < tl_cy)
+            {
+                // Top-left corner
+                int dx = px - tl_cx;
+                int dy = py - tl_cy;
+                if (dx * dx + dy * dy > radius_sq)
+                    in_corner = true;
+            }
+            else if (px >= tr_cx && py < tr_cy)
+            {
+                // Top-right corner
+                int dx = px - tr_cx;
+                int dy = py - tr_cy;
+                if (dx * dx + dy * dy > radius_sq)
+                    in_corner = true;
+            }
+            else if (px < bl_cx && py >= bl_cy)
+            {
+                // Bottom-left corner
+                int dx = px - bl_cx;
+                int dy = py - bl_cy;
+                if (dx * dx + dy * dy > radius_sq)
+                    in_corner = true;
+            }
+            else if (px >= br_cx && py >= br_cy)
+            {
+                // Bottom-right corner
+                int dx = px - br_cx;
+                int dy = py - br_cy;
+                if (dx * dx + dy * dy > radius_sq)
+                    in_corner = true;
+            }
+
+            if (!in_corner)
+            {
+                framebuffer[py * LCD_WIDTH + px] = color_index;
+            }
+        }
+    }
+}
+/******************************************************************************
 function: Fill the entire framebuffer with a solid color
 parameter:
     color : RGB565 color value to fill with

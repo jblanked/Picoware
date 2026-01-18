@@ -19,6 +19,7 @@ try:
         draw_circle,
         fill_circle,
         fill_rect,
+        fill_round_rectangle,
         fill_triangle,
         draw_pixel,
         swap,
@@ -39,6 +40,7 @@ try:
         draw_circle,
         fill_circle,
         fill_rect,
+        fill_round_rectangle,
         fill_triangle,
         draw_image_bytearray,
         draw_line,
@@ -217,69 +219,14 @@ class Draw:
 
         _color = color if color is not None else self._foreground
 
-        # Clip to screen bounds
-        x: int = position.x
-        y: int = position.y
-        width: int = size.x
-        height: int = size.y
-
-        # Adjust for left and top boundaries
-        if x < 0:
-            width += x
-            x = 0
-        if y < 0:
-            height += y
-            y = 0
-
-        # Adjust for right and bottom boundaries
-        if x + width > self._size.x:
-            width = self._size.x - x
-        if y + height > self._size.y:
-            height = self._size.y - y
-
-        # Only draw if there's something to draw
-        if width > 0 and height > 0:
-            # Calculate effective radius considering clipping
-            effective_radius: int = min(radius, width // 2, height // 2)
-            for py in range(y, y + height):
-                for px in range(x, x + width):
-                    # Check if the pixel is within the rounded corners
-                    in_corner: bool = False
-                    if px < x + effective_radius and py < y + effective_radius:
-                        # Top-left corner
-                        dx: int = px - (x + effective_radius)
-                        dy: int = py - (y + effective_radius)
-                        if dx * dx + dy * dy > effective_radius * effective_radius:
-                            in_corner = True
-                    elif (
-                        px < x + effective_radius
-                        and py >= y + height - effective_radius
-                    ):
-                        # Bottom-left corner
-                        dx: int = px - (x + effective_radius)
-                        dy: int = py - (y + height - effective_radius)
-                        if dx * dx + dy * dy > effective_radius * effective_radius:
-                            in_corner = True
-                    elif (
-                        px >= x + width - effective_radius and py < y + effective_radius
-                    ):
-                        # Top-right corner
-                        dx: int = px - (x + width - effective_radius)
-                        dy: int = py - (y + effective_radius)
-                        if dx * dx + dy * dy > effective_radius * effective_radius:
-                            in_corner = True
-                    elif (
-                        px >= x + width - effective_radius
-                        and py >= y + height - effective_radius
-                    ):
-                        # Bottom-right corner
-                        dx: int = px - (x + width - effective_radius)
-                        dy: int = py - (y + height - effective_radius)
-                        if dx * dx + dy * dy > effective_radius * effective_radius:
-                            in_corner = True
-
-                    if not in_corner:
-                        draw_pixel(px, py, _color)
+        fill_round_rectangle(
+            position.x,
+            position.y,
+            size.x,
+            size.y,
+            radius,
+            _color,
+        )
 
     def fill_screen(self, color=None):
         """Fill the entire screen with a color"""

@@ -1739,6 +1739,173 @@ STATIC mp_obj_t picoware_lcd_fill_circle(size_t n_args, const mp_obj_t *args)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_fill_circle_obj, 4, 4, picoware_lcd_fill_circle);
 
+// Fill rounded rectangle
+STATIC mp_obj_t picoware_lcd_fill_round_rectangle(size_t n_args, const mp_obj_t *args)
+{
+    // Arguments: x, y, width, height, radius, color565
+    if (n_args != 6)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("fill_round_rectangle requires 6 arguments"));
+    }
+
+    int x = mp_obj_get_int(args[0]);
+    int y = mp_obj_get_int(args[1]);
+    int width = mp_obj_get_int(args[2]);
+    int height = mp_obj_get_int(args[3]);
+    int radius = mp_obj_get_int(args[4]);
+    uint16_t color = mp_obj_get_int(args[5]);
+
+    if (width <= 0 || height <= 0 || radius <= 0)
+        return mp_const_none;
+
+    // Clip to screen bounds
+    if (x < 0)
+    {
+        width += x;
+        x = 0;
+    }
+    if (y < 0)
+    {
+        height += y;
+        y = 0;
+    }
+    if (x + width > DISPLAY_WIDTH)
+    {
+        width = DISPLAY_WIDTH - x;
+    }
+    if (y + height > DISPLAY_HEIGHT)
+    {
+        height = DISPLAY_HEIGHT - y;
+    }
+
+    if (width <= 0 || height <= 0)
+        return mp_const_none;
+
+    // Calculate effective radius considering clipping
+    int effective_radius = radius;
+    if (effective_radius > width / 2)
+        effective_radius = width / 2;
+    if (effective_radius > height / 2)
+        effective_radius = height / 2;
+
+    uint8_t color_index = color565_to_332(color);
+
+    // Pre-calculate corner centers
+    int tl_cx = x + effective_radius;
+    int tl_cy = y + effective_radius;
+    int tr_cx = x + width - effective_radius;
+    int tr_cy = y + effective_radius;
+    int bl_cx = x + effective_radius;
+    int bl_cy = y + height - effective_radius;
+    int br_cx = x + width - effective_radius;
+    int br_cy = y + height - effective_radius;
+
+    int radius_sq = effective_radius * effective_radius;
+
+    if (lcd_mode == LCD_MODE_PSRAM)
+    {
+        for (int py = y; py < y + height; py++)
+        {
+            for (int px = x; px < x + width; px++)
+            {
+                bool in_corner = false;
+
+                // Check if pixel is in one of the corner exclusion zones
+                if (px < tl_cx && py < tl_cy)
+                {
+                    // Top-left corner
+                    int dx = px - tl_cx;
+                    int dy = py - tl_cy;
+                    if (dx * dx + dy * dy > radius_sq)
+                        in_corner = true;
+                }
+                else if (px >= tr_cx && py < tr_cy)
+                {
+                    // Top-right corner
+                    int dx = px - tr_cx;
+                    int dy = py - tr_cy;
+                    if (dx * dx + dy * dy > radius_sq)
+                        in_corner = true;
+                }
+                else if (px < bl_cx && py >= bl_cy)
+                {
+                    // Bottom-left corner
+                    int dx = px - bl_cx;
+                    int dy = py - bl_cy;
+                    if (dx * dx + dy * dy > radius_sq)
+                        in_corner = true;
+                }
+                else if (px >= br_cx && py >= br_cy)
+                {
+                    // Bottom-right corner
+                    int dx = px - br_cx;
+                    int dy = py - br_cy;
+                    if (dx * dx + dy * dy > radius_sq)
+                        in_corner = true;
+                }
+
+                if (!in_corner)
+                {
+                    uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (py * PSRAM_ROW_SIZE) + px;
+                    psram_qspi_write8(&psram_instance, addr, color_index);
+                }
+            }
+        }
+    }
+    else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
+    {
+        for (int py = y; py < y + height; py++)
+        {
+            for (int px = x; px < x + width; px++)
+            {
+                bool in_corner = false;
+
+                // Check if pixel is in one of the corner exclusion zones
+                if (px < tl_cx && py < tl_cy)
+                {
+                    // Top-left corner
+                    int dx = px - tl_cx;
+                    int dy = py - tl_cy;
+                    if (dx * dx + dy * dy > radius_sq)
+                        in_corner = true;
+                }
+                else if (px >= tr_cx && py < tr_cy)
+                {
+                    // Top-right corner
+                    int dx = px - tr_cx;
+                    int dy = py - tr_cy;
+                    if (dx * dx + dy * dy > radius_sq)
+                        in_corner = true;
+                }
+                else if (px < bl_cx && py >= bl_cy)
+                {
+                    // Bottom-left corner
+                    int dx = px - bl_cx;
+                    int dy = py - bl_cy;
+                    if (dx * dx + dy * dy > radius_sq)
+                        in_corner = true;
+                }
+                else if (px >= br_cx && py >= br_cy)
+                {
+                    // Bottom-right corner
+                    int dx = px - br_cx;
+                    int dy = py - br_cy;
+                    if (dx * dx + dy * dy > radius_sq)
+                        in_corner = true;
+                }
+
+                if (!in_corner)
+                {
+                    heap_framebuffer[py * DISPLAY_WIDTH + px] = color_index;
+                }
+            }
+        }
+    }
+
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_fill_round_rectangle_obj, 6, 6, picoware_lcd_fill_round_rectangle);
+
 // Helper function to swap two floats
 STATIC void swap_float(float *a, float *b)
 {
@@ -2095,6 +2262,7 @@ STATIC const mp_rom_map_elem_t picoware_lcd_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_draw_line_custom), MP_ROM_PTR(&picoware_lcd_draw_line_custom_obj)},
     {MP_ROM_QSTR(MP_QSTR_draw_circle), MP_ROM_PTR(&picoware_lcd_draw_circle_obj)},
     {MP_ROM_QSTR(MP_QSTR_fill_circle), MP_ROM_PTR(&picoware_lcd_fill_circle_obj)},
+    {MP_ROM_QSTR(MP_QSTR_fill_round_rectangle), MP_ROM_PTR(&picoware_lcd_fill_round_rectangle_obj)},
     {MP_ROM_QSTR(MP_QSTR_fill_triangle), MP_ROM_PTR(&picoware_lcd_fill_triangle_obj)},
     {MP_ROM_QSTR(MP_QSTR_clear_framebuffer), MP_ROM_PTR(&picoware_lcd_clear_framebuffer_obj)},
     {MP_ROM_QSTR(MP_QSTR_draw_image_bytearray), MP_ROM_PTR(&picoware_lcd_draw_image_bytearray_obj)},

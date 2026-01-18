@@ -93,12 +93,9 @@ def run(view_manager) -> None:
     if _download_complete:
         _download_complete = False
         if _download_error:
-            view_manager.alert(f"Download error: {_download_error}", False)
+            view_manager.alert(f"Download error: {_download_error}", True)
         else:
-            view_manager.alert("Download complete!", False)
-        view_manager.draw.erase()
-        _menu.refresh()
-        _loading.stop()
+            view_manager.alert("Download complete!", True)
         return
 
     if _http and _request_started:

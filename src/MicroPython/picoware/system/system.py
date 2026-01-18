@@ -152,6 +152,11 @@ class System:
         psram = PSRAM()
         return psram.used_heap_size
 
+    @property
+    def version(self) -> str:
+        """Return the Picoware version."""
+        return "1.6.1"
+
     def bootloader_mode(self):
         """Enter the bootloader mode."""
         from machine import bootloader

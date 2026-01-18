@@ -1,6 +1,4 @@
-from picoware.system.vector import Vector
 from picoware.system.buttons import BUTTON_UP, BUTTON_DOWN, BUTTON_CENTER, BUTTON_BACK
-from picoware.gui.toggle import Toggle
 
 
 class ToggleList:
@@ -30,6 +28,7 @@ class ToggleList:
         :param callback: Optional callback function when a toggle is changed.
         """
         from picoware.system.system import System
+        from picoware.system.vector import Vector
 
         syst = System()
         self.is_circular = syst.is_circular
@@ -108,6 +107,8 @@ class ToggleList:
         :param text: The label text for the toggle.
         :param initial_state: Initial state of the toggle (True/False).
         """
+        from picoware.gui.toggle import Toggle
+        from picoware.system.vector import Vector
 
         toggle_pos = Vector(self.toggle_position.x, self.toggle_position.y)
 
@@ -135,7 +136,7 @@ class ToggleList:
         self.toggle_list = []
         self._selected_index = 0
         # Reset toggle position for next time toggles are added
-        self.toggle_position = Vector(10, 0)
+        self.toggle_position.x, self.toggle_position.y = 10, 0
         display = self.view_manager.draw
         display.clear(self.position, self.size, self.background_color)
         display.swap()

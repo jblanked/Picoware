@@ -1,6 +1,8 @@
 class Time:
     """Handles time-related functions."""
 
+    __slots__ = ("_rtc", "_is_set")
+
     def __init__(self):
         from machine import RTC
 
@@ -23,6 +25,11 @@ class Time:
     def is_set(self) -> bool:
         """Return whether the time has been set."""
         return self._is_set
+
+    @property
+    def rtc(self):
+        """Return the RTC object."""
+        return self._rtc
 
     @property
     def time(self) -> str:

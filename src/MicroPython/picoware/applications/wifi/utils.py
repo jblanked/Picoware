@@ -19,7 +19,7 @@ def connect_to_saved_wifi(view_manager) -> bool:
     if not ssid or not password:
         return False
 
-    return wifi.connect(ssid, password, sta_mode=True, is_async=True)
+    return wifi.connect_async(ssid, password, sta_mode=True)
 
 
 def load_wifi_settings(view_manager) -> dict:

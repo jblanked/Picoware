@@ -138,8 +138,7 @@ static uint8_t sd_send_command(uint8_t cmd, uint32_t arg)
 
 bool sd_card_present(void)
 {
-    // Always return true since 6-pin SD modules don't have card detect
-    return true; // No physical card detect pin on 6-pin SD modules
+    return !gpio_get(SD_DETECT); // Active low
 }
 
 bool sd_is_sdhc(void)
@@ -512,11 +511,11 @@ void sd_init(void)
     gpio_init(SD_CS);
     gpio_init(SD_SCK);
     gpio_init(SD_MOSI);
-    // gpio_init(SD_DETECT); // Not available on 6-pin SD modules
+    gpio_init(SD_DETECT);
 
     gpio_set_dir(SD_CS, GPIO_OUT);
-    // gpio_set_dir(SD_DETECT, GPIO_IN);   // Not available on 6-pin SD modules
-    // gpio_pull_up(SD_DETECT);            // Not available on 6-pin SD modules
+    gpio_set_dir(SD_DETECT, GPIO_IN);
+    gpio_pull_up(SD_DETECT);
 
     gpio_set_function(SD_MISO, GPIO_FUNC_SPI);
     gpio_set_function(SD_SCK, GPIO_FUNC_SPI);

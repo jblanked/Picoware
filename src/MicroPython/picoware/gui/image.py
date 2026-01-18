@@ -66,8 +66,6 @@ class Image:
 
     def _load_bmp(self, path: str, storage=None):
         """Read BMP header + pixel data into self._raw as little‑endian RGB565 bytes."""
-        from picoware.system.vector import Vector
-
         if storage:
             storage.mount_vfs()
 
@@ -82,7 +80,7 @@ class Image:
             _ = int.from_bytes(f.read(4), "little")  # header_size
             w = int.from_bytes(f.read(4), "little")
             h = int.from_bytes(f.read(4), "little")
-            self.size = Vector(w, h)
+            self.size.x, self.size.y = w, h
             # skip remaining header
             f.seek(data_offset, 1)
 
@@ -107,12 +105,10 @@ class Image:
         Create a tiny monochrome‑style RGB565 image from ASCII art:
         \".\" or \"f\" → 0x0000, \"1\" → 0xFFFF, etc.
         """
-        from picoware.system.vector import Vector
-
         rows = image_str.strip("\n").split("\n")
         h = len(rows)
         w = len(rows[0])
-        self.size = Vector(w, h)
+        self.size.x, self.size.y = w, h
         raw = bytearray(w * h * 2)
 
         def encode(c):

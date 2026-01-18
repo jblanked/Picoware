@@ -19,6 +19,7 @@ try:
         draw_circle,
         fill_circle,
         fill_rect,
+        fill_round_rectangle,
         fill_triangle,
         draw_pixel,
         swap,
@@ -31,6 +32,7 @@ except ImportError:
 # PicoCalc LCD imports
 try:
     from picoware_lcd import (
+        deinit,
         init,
         clear_framebuffer,
         CHAR_WIDTH,
@@ -38,6 +40,7 @@ try:
         draw_circle,
         fill_circle,
         fill_rect,
+        fill_round_rectangle,
         fill_triangle,
         draw_image_bytearray,
         draw_line,
@@ -46,6 +49,7 @@ try:
         swap,
         draw_text,
         draw_char,
+        set_mode,
     )
 except ImportError:
     pass
@@ -54,7 +58,9 @@ except ImportError:
 class Draw:
     """Class for drawing shapes and text on the display"""
 
-    def __init__(self, foreground: int = TFT_WHITE, background: int = TFT_BLACK):
+    def __init__(
+        self, foreground: int = TFT_WHITE, background: int = TFT_BLACK, mode: int = 0
+    ) -> None:
         self._current_board_id = BOARD_ID
 
         self._background = background
@@ -64,31 +70,31 @@ class Draw:
         self._font_size = Vector(0, 0)
 
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
-            self._size = Vector(240, 240)
+            self._size.x, self._size.y = 240, 240
 
             # Initialize native LCD extension
             init(True)
             self._font_size.x, self._font_size.y = waveshare_get_font_size()
 
         elif self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
-            self._size = Vector(466, 466)
+            self._size.x, self._size.y = 466, 466
 
             # Initialize native LCD extension
             init()
             self._font_size.x, self._font_size.y = waveshare_get_font_size()
 
         elif self._current_board_id == BOARD_WAVESHARE_3_49_RP2350:
-            self._size = Vector(172, 640)
+            self._size.x, self._size.y = 172, 640
 
             # Initialize native LCD extension
             init()
             self._font_size.x, self._font_size.y = waveshare_get_font_size()
 
         else:  # PicoCalc
-            self._size = Vector(320, 320)
+            self._size.x, self._size.y = 320, 320
 
             # Initialize native LCD extension
-            init(background)
+            init(background, mode)
 
             self._font_size.x = CHAR_WIDTH
             self._font_size.y = FONT_HEIGHT
@@ -145,6 +151,13 @@ class Draw:
         self._size = None
         del self._font_size
         self._font_size = None
+
+        if BOARD_ID not in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
+            deinit()
 
     def circle(self, position: Vector, radius: int, color: int = None):
         """Draw a circle outline"""
@@ -206,69 +219,14 @@ class Draw:
 
         _color = color if color is not None else self._foreground
 
-        # Clip to screen bounds
-        x: int = position.x
-        y: int = position.y
-        width: int = size.x
-        height: int = size.y
-
-        # Adjust for left and top boundaries
-        if x < 0:
-            width += x
-            x = 0
-        if y < 0:
-            height += y
-            y = 0
-
-        # Adjust for right and bottom boundaries
-        if x + width > self._size.x:
-            width = self._size.x - x
-        if y + height > self._size.y:
-            height = self._size.y - y
-
-        # Only draw if there's something to draw
-        if width > 0 and height > 0:
-            # Calculate effective radius considering clipping
-            effective_radius: int = min(radius, width // 2, height // 2)
-            for py in range(y, y + height):
-                for px in range(x, x + width):
-                    # Check if the pixel is within the rounded corners
-                    in_corner: bool = False
-                    if px < x + effective_radius and py < y + effective_radius:
-                        # Top-left corner
-                        dx: int = px - (x + effective_radius)
-                        dy: int = py - (y + effective_radius)
-                        if dx * dx + dy * dy > effective_radius * effective_radius:
-                            in_corner = True
-                    elif (
-                        px < x + effective_radius
-                        and py >= y + height - effective_radius
-                    ):
-                        # Bottom-left corner
-                        dx: int = px - (x + effective_radius)
-                        dy: int = py - (y + height - effective_radius)
-                        if dx * dx + dy * dy > effective_radius * effective_radius:
-                            in_corner = True
-                    elif (
-                        px >= x + width - effective_radius and py < y + effective_radius
-                    ):
-                        # Top-right corner
-                        dx: int = px - (x + width - effective_radius)
-                        dy: int = py - (y + effective_radius)
-                        if dx * dx + dy * dy > effective_radius * effective_radius:
-                            in_corner = True
-                    elif (
-                        px >= x + width - effective_radius
-                        and py >= y + height - effective_radius
-                    ):
-                        # Bottom-right corner
-                        dx: int = px - (x + width - effective_radius)
-                        dy: int = py - (y + height - effective_radius)
-                        if dx * dx + dy * dy > effective_radius * effective_radius:
-                            in_corner = True
-
-                    if not in_corner:
-                        draw_pixel(px, py, _color)
+        fill_round_rectangle(
+            position.x,
+            position.y,
+            size.x,
+            size.y,
+            radius,
+            _color,
+        )
 
     def fill_screen(self, color=None):
         """Fill the entire screen with a color"""
@@ -563,6 +521,21 @@ class Draw:
         Swap the front and back buffers - convert 8-bit framebuffer to display
         """
         swap()
+
+    def set_mode(self, mode: int) -> None:
+        """
+        Set the LCD framebuffer mode
+
+        0 = PSRAM mode
+        1 = HEAP mode
+        """
+        if BOARD_ID not in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
+            # MODE_PSRAM = 0, MODE_HEAP = 1
+            set_mode(mode)
 
     def text(self, position: Vector, text: str, color=None):
         """Draw text on the display"""

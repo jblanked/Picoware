@@ -61,7 +61,7 @@ def start(view_manager) -> bool:
 
     from picoware.gui.toggle_list import ToggleList
 
-    global _toggle_list, _storage, _view_manager
+    global _toggle_list, _view_manager
 
     _view_manager = view_manager
 

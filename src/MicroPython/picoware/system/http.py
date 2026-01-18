@@ -1,4 +1,5 @@
 from micropython import const
+from time import sleep_ms
 from picoware.system.response import Response
 
 HTTP_IDLE = const(0)
@@ -9,7 +10,7 @@ HTTP_ISSUE = const(2)
 class HTTP:
     """HTTP class for making HTTP requests."""
 
-    def __init__(self):
+    def __init__(self, chunk_size: int = (1024 * 4)) -> None:
         """Initialize the HTTP class."""
         from _thread import allocate_lock
 
@@ -17,15 +18,17 @@ class HTTP:
         self._async_request_in_progress = False
         self._async_thread = None
         self._state = HTTP_IDLE
-        self._async_error = ""
+        self._async_error = None
         self._async_callback: callable = None
         self._async_result: Response = None
         self._lock = allocate_lock()
         self._running = False
+        self._chunk_size = chunk_size
 
     def __del__(self):
         """Destructor to clean up resources."""
         self.close()
+        self._lock = None
 
     @property
     def callback(self) -> callable:
@@ -53,7 +56,7 @@ class HTTP:
         """Get the async error message, if any."""
         _error = ""
         with self._lock:
-            _error = self._async_error
+            _error = self._async_error if self._async_error else ""
         return _error
 
     @property
@@ -77,7 +80,7 @@ class HTTP:
         """Check if the async request was successful."""
         _successful = False
         with self._lock:
-            _successful = self._async_request_complete and self._async_error == ""
+            _successful = self._async_request_complete and self._async_error is None
         return _successful
 
     @property
@@ -111,7 +114,7 @@ class HTTP:
                     self._async_result = None
             self._async_request_complete = False
             self._async_request_in_progress = False
-            self._async_error = ""
+            self._async_error = None
             self._state = HTTP_IDLE
 
     def delete(
@@ -593,22 +596,28 @@ class HTTP:
 
         body = b""
         file_handle = None
+        vfs_mounted = False
 
         # Open file for writing if save_to_file is specified
         if save_to_file and storage:
-            storage.mount_vfs()
-            file_handle = open(f"/sd/{save_to_file}", "wb")
-            if file_handle is None:
-                storage.unmount_vfs()
-                raise RuntimeError(f"Failed to open file for writing: {save_to_file}")
+            try:
+                storage.mount_vfs()
+                vfs_mounted = True
+                file_handle = open(f"/sd/{save_to_file}", "wb")
+            except Exception as e:
+                if vfs_mounted:
+                    storage.unmount_vfs()
+                raise RuntimeError(
+                    f"Failed to open file for writing: {save_to_file} - {e}"
+                ) from e
 
         try:
             while True:
-                if not self._running:
+                with self._lock:
+                    should_continue = self._running
+
+                if not should_continue:
                     s.close()
-                    if file_handle:
-                        file_handle.close()
-                        storage.unmount_vfs()
                     break
                 # Read the chunk size line
                 line = s.readline()
@@ -624,7 +633,9 @@ class HTTP:
                     # Read and discard trailer headers
                     while True:
                         trailer = s.readline()
-                        if not trailer or trailer == b"\r\n":
+                        with self._lock:
+                            should_continue = self._running
+                        if not trailer or trailer == b"\r\n" or not should_continue:
                             break
                     break
                 # Read the chunk data
@@ -633,8 +644,17 @@ class HTTP:
                     uart.write(chunk)
                     uart.flush()
                 elif file_handle:
-                    # Write directly to file
-                    file_handle.write(chunk)
+                    # Write directly to file with retry
+                    retries = 10
+                    while retries > 0:
+                        try:
+                            file_handle.write(chunk)
+                            break
+                        except OSError as e:
+                            retries -= 1
+                            if retries == 0:
+                                raise e
+                            sleep_ms(10)
                 else:
                     body += chunk
                 # Read the trailing CRLF after the chunk
@@ -645,8 +665,16 @@ class HTTP:
                 uart.write(f"[{method}/END]")
         finally:
             if file_handle:
-                file_handle.close()
-                storage.unmount_vfs()
+                try:
+                    file_handle.flush()
+                    file_handle.close()
+                except Exception:
+                    pass
+            if vfs_mounted:
+                try:
+                    storage.unmount_vfs()
+                except Exception:
+                    pass
 
         return body
 
@@ -656,7 +684,7 @@ class HTTP:
         url,
         data=None,
         json_data=None,
-        headers={},
+        headers=None,
         stream=None,
         auth=None,
         timeout=None,
@@ -685,7 +713,12 @@ class HTTP:
         import usocket
         from ujson import dumps
 
-        self._running = True
+        with self._lock:
+            self._running = True
+
+        # Ensure headers is a dict
+        if headers is None:
+            headers = {}
 
         redirect = None  # redirection url, None means no redirection
         chunked_data = (
@@ -718,7 +751,10 @@ class HTTP:
             host, port = host.split(":", 1)
             port = int(port)
 
-        if not self._running:
+        with self._lock:
+            should_continue = self._running
+
+        if not should_continue:
             return
 
         ai = usocket.getaddrinfo(host, port, 0, usocket.SOCK_STREAM)
@@ -728,7 +764,10 @@ class HTTP:
         if parse_headers is False:
             resp_d = None
 
-        if not self._running:
+        with self._lock:
+            should_continue = self._running
+
+        if not should_continue:
             return
 
         s = usocket.socket(ai[0], usocket.SOCK_STREAM, ai[2])
@@ -742,7 +781,10 @@ class HTTP:
                 pass
 
         try:
-            if not self._running:
+            with self._lock:
+                should_continue = self._running
+
+            if not should_continue:
                 s.close()
                 return
             s.connect(ai[-1])
@@ -779,7 +821,6 @@ class HTTP:
 
             # Read the status line
             l = s.readline()
-            # print(l)
             l = l.split(None, 2)
             if len(l) < 2:
                 # Invalid response
@@ -791,13 +832,15 @@ class HTTP:
             transfer_encoding = None
             content_length = None
             while True:
-                if not self._running:
+                with self._lock:
+                    should_continue = self._running
+
+                if not should_continue:
                     s.close()
                     break
                 l = s.readline()
                 if not l or l == b"\r\n":
                     break
-                # print(l)
                 if l.startswith(b"Transfer-Encoding:"):
                     if b"chunked" in l:
                         transfer_encoding = "chunked"
@@ -819,7 +862,10 @@ class HTTP:
                 else:
                     parse_headers(l, resp_d)
 
-            if not self._running:
+            with self._lock:
+                should_continue = self._running
+
+            if not should_continue:
                 s.close()
                 return
 
@@ -831,31 +877,61 @@ class HTTP:
                     body = s.read(content_length)
                 elif save_to_file and storage:
                     # Save directly to file
-                    storage.mount_vfs()
-                    with open(f"/sd/{save_to_file}", "wb") as f:
-                        try:
+                    vfs_mounted = False
+                    try:
+                        storage.mount_vfs()
+                        vfs_mounted = True
+                        with open(f"/sd/{save_to_file}", "wb") as f:
                             while content_length > 0:
-                                chunk_size = min(2048, content_length)
+                                chunk_size = min(self._chunk_size, content_length)
                                 chunk = s.read(chunk_size)
-                                if not chunk:
+                                with self._lock:
+                                    should_continue = self._running
+                                if not chunk or not should_continue:
                                     break
-                                f.write(chunk)
-                                content_length -= len(chunk)
-                        finally:
-                            f.close()
-                    storage.unmount_vfs()
+                                # handle objects without __len__
+                                try:
+                                    actual_len = len(chunk)
+                                except Exception:
+                                    actual_len = chunk_size
+                                # Write with retry
+                                retries = 10
+                                while retries > 0:
+                                    try:
+                                        f.write(chunk)
+                                        break
+                                    except OSError as e:
+                                        retries -= 1
+                                        if retries == 0:
+                                            raise e
+                                        sleep_ms(10)
+                                content_length -= actual_len
+                            f.flush()
+                    finally:
+                        if vfs_mounted:
+                            try:
+                                storage.unmount_vfs()
+                            except Exception:
+                                pass
                     body = b""
                 else:
                     # Read and write in fixed-size chunks to UART
                     uart.write(f"[{method}/SUCCESS] {method} request successful.\n")
                     while content_length > 0:
-                        chunk_size = min(2048, content_length)
+                        chunk_size = min(self._chunk_size, content_length)
                         chunk = s.read(chunk_size)
-                        if not chunk:
+                        with self._lock:
+                            should_continue = self._running
+                        if not chunk or not should_continue:
                             break
+                        # handle objects without __len__
+                        try:
+                            actual_len = len(chunk)
+                        except Exception:
+                            actual_len = chunk_size
                         uart.write(chunk)
                         uart.flush()
-                        content_length -= len(chunk)
+                        content_length -= actual_len
                     uart.flush()
                     uart.write("\n")
                     uart.write(f"[{method}/END]")
@@ -865,23 +941,43 @@ class HTTP:
                     body = s.read()
                 elif save_to_file and storage:
                     # Save directly to file
-                    storage.mount_vfs()
-                    with open(f"/sd/{save_to_file}", "wb") as f:
-                        try:
+                    vfs_mounted = False
+                    try:
+                        storage.mount_vfs()
+                        vfs_mounted = True
+                        with open(f"/sd/{save_to_file}", "wb") as f:
                             while True:
-                                chunk = s.read(2048)
-                                if not chunk:
+                                chunk = s.read(self._chunk_size)
+                                with self._lock:
+                                    should_continue = self._running
+                                if not chunk or not should_continue:
                                     break
-                                f.write(chunk)
-                        finally:
-                            f.close()
-                    storage.unmount_vfs()
+                                # Write with retry
+                                retries = 10
+                                while retries > 0:
+                                    try:
+                                        f.write(chunk)
+                                        break
+                                    except OSError as e:
+                                        retries -= 1
+                                        if retries == 0:
+                                            raise e
+                                        sleep_ms(10)
+                            f.flush()
+                    finally:
+                        if vfs_mounted:
+                            try:
+                                storage.unmount_vfs()
+                            except Exception:
+                                pass
                     body = b""
                 else:
                     uart.write(f"[{method}/SUCCESS] {method} request successful.\n")
                     while True:
-                        chunk = s.read(2048)
-                        if not chunk:
+                        chunk = s.read(self._chunk_size)
+                        with self._lock:
+                            should_continue = self._running
+                        if not chunk or not should_continue:
                             break
                         uart.write(chunk)
                         uart.flush()
@@ -963,7 +1059,6 @@ class HTTP:
             return True
         except Exception as e:
             self._async_error = f"Thread creation failed: {e}"
-            print(self._async_error)
             self._async_request_complete = True
             self._async_request_in_progress = False
             self._state = HTTP_ISSUE
@@ -1053,6 +1148,7 @@ class HTTP:
                 if result:
                     self._async_result = result
                     self._state = HTTP_IDLE
+                    self._async_error = None
                     del result
                     result = None
                 else:
@@ -1069,7 +1165,7 @@ class HTTP:
                 self._async_request_in_progress = False
                 self._async_thread = None
                 self._running = False
-            # Call the callback function if set
+
             if self._async_callback:
                 try:
                     self._async_callback(

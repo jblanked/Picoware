@@ -77,9 +77,11 @@ from picoware.system.buttons import (
 
 # Define the keyboard layout structure
 class KeyLayout:
+    """Structure to hold key layout information"""
+
     __slots__ = ("normal", "shifted", "width")
 
-    def __init__(self, normal: str, shifted: str, width: int = 1):
+    def __init__(self, normal: str, shifted: str, width: int = 1) -> None:
         self.normal = normal
         self.shifted = shifted
         self.width = width  # Width in units (1 = normal key, 2 = double width, etc.)
@@ -176,7 +178,7 @@ class Keyboard:
         background_color: int = 0x0000,
         selected_color: int = 0x001F,
         on_save_callback: callable = None,
-    ):
+    ) -> None:
         """
         Initializes the keyboard with drawing context and input manager.
 
@@ -239,6 +241,10 @@ class Keyboard:
         self.title_vec = Vector(
             self.draw.size.x // 2 - len(self.current_title) * 3, self.TEXTBOX_HEIGHT + 5
         )
+
+        self.suggestion_vec = Vector(0, 0)
+        self.highlight_pos = Vector(0, 0)
+        self.highlight_size = Vector(0, 0)
 
         self.manual_keys = {
             BUTTON_PERIOD: ".",
@@ -312,11 +318,19 @@ class Keyboard:
             BUTTON_BACKSPACE: (0, 12),
         }
 
+        self.d_pad = {
+            BUTTON_UP,
+            BUTTON_DOWN,
+            BUTTON_LEFT,
+            BUTTON_RIGHT,
+        }
+
         self._show_keyboard = True
         self._auto_complete = AutoComplete()
-        self._words_set = False
+        self._auto_complete_words_set = False
+        self._auto_complete_words = []
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.reset()
         self.current_title = ""
         self.key_vec = None
@@ -330,10 +344,15 @@ class Keyboard:
         self.text_border_pos = None
         self.text_border_size = None
         self.title_vec = None
+        self.suggestion_vec = None
+        self.highlight_pos = None
+        self.highlight_size = None
         self.manual_keys = {}
         self.key_mappings = {}
+        self.d_pad = {}
         del self._auto_complete
         self._auto_complete = None
+        self._auto_complete_words.clear()
 
     @property
     def callback(self) -> callable:
@@ -341,7 +360,7 @@ class Keyboard:
         return self.on_save_callback
 
     @callback.setter
-    def callback(self, value: callable):
+    def callback(self, value: callable) -> None:
         """Sets the current save callback function"""
         self.on_save_callback = value
 
@@ -361,7 +380,7 @@ class Keyboard:
         return self._show_keyboard
 
     @show_keyboard.setter
-    def show_keyboard(self, value: bool):
+    def show_keyboard(self, value: bool) -> None:
         """Sets whether the on-screen keyboard is shown"""
         self._show_keyboard = value
 
@@ -371,7 +390,7 @@ class Keyboard:
         return self.current_title
 
     @title.setter
-    def title(self, value: str):
+    def title(self, value: str) -> None:
         """Sets the current title of the keyboard"""
         from picoware.system.vector import Vector
 
@@ -386,16 +405,27 @@ class Keyboard:
         return self._response
 
     @response.setter
-    def response(self, value: str):
+    def response(self, value: str) -> None:
         """Sets the response string"""
         self._response = value
         self.text_cursor_position = len(value)
 
-    def set_save_callback(self, callback: callable):
+    @property
+    def auto_complete_words(self) -> list[str]:
+        """Returns the list of words for auto-completion"""
+        return self._auto_complete_words
+
+    @auto_complete_words.setter
+    def auto_complete_words(self, value: list[str]) -> None:
+        """Sets the list of words for auto-completion"""
+        self._auto_complete_words = value
+        self._auto_complete_words_set = False
+
+    def set_save_callback(self, callback: callable) -> None:
         """Sets the save callback function"""
         self.on_save_callback = callback
 
-    def reset(self):
+    def reset(self) -> None:
         """Resets the keyboard state"""
         self.cursor_row = 0
         self.cursor_col = 0
@@ -411,7 +441,54 @@ class Keyboard:
         self.selected_suggestion_index = -1
         self._auto_complete.remove_suggestions()
         self._auto_complete.remove_words()
-        self._words_set = False
+        self._auto_complete_words_set = False
+        self._auto_complete_words.clear()
+
+    def run(self, swap: bool = True, force: bool = False) -> bool:
+        """Runs the input manager, handles input, and draws the keyboard"""
+        if self.just_stopped:
+            return False
+
+        self.dpad_input = self.input_manager.button
+        if self.dpad_input != -1 or force:
+            if self.dpad_input == BUTTON_BACK:
+                # Exit keyboard without saving
+                self.just_stopped = True
+                self.input_manager.reset()
+                return False
+
+            if not self.is_manual_shift:
+                self.is_shift_pressed = self.input_manager.was_capitalized
+
+            self.draw.erase()
+
+            if not self._auto_complete_words_set:
+                if not self._auto_complete_words:
+                    self._auto_complete_words = self._default_words()
+                self._set_auto_complete_words()
+
+            # only process input/redraw if there's input
+            self._handle_input()
+            self._draw_textbox()
+
+            if self._show_keyboard:
+                self._draw_keyboard()
+
+            self.draw.text(
+                self.title_vec,
+                self.current_title,
+                self.text_color,
+            )
+
+            # Draw auto-complete suggestions after keyboard/title
+            self._draw_suggestions()
+
+            self.input_manager.reset()
+
+            if swap or force:
+                self.draw.swap()
+
+        return True
 
     def _auto_complete_suggestion(self) -> str:
         """Gets the top auto-complete suggestion based on current response"""
@@ -433,7 +510,33 @@ class Keyboard:
                 return self._auto_complete.search(last_word)
         return ()
 
-    def _draw_key(self, row: int, col: int, is_selected: bool):
+    def _default_words(self) -> list[str]:
+        """Returns a default list of words for auto-completion"""
+        return [
+            "the",
+            "that",
+            "hi",
+            "hey",
+            "help",
+            "hello",
+            "how",
+            "hack",
+            "what",
+            "JBlanked",
+            "PicoCalc",
+            "yooo",
+            "everyone",
+            "anyone",
+            "good",
+            "great",
+            "morning",
+            "night",
+            "message",
+            "awesome",
+            "Picoware",
+        ]
+
+    def _draw_key(self, row: int, col: int, is_selected: bool) -> None:
         """Draws a specific key on the keyboard"""
         if row >= self.NUM_ROWS or col >= self.ROW_SIZES[row]:
             return
@@ -506,7 +609,7 @@ class Keyboard:
         self.key_vec.y = y_pos + self.KEY_HEIGHT // 2 - 4
         self.draw.text(self.key_vec, key_label, self.text_color)
 
-    def _draw_keyboard(self):
+    def _draw_keyboard(self) -> None:
         """Draws the entire keyboard"""
         # Clear keyboard area
         self.draw.fill_rectangle(
@@ -521,7 +624,7 @@ class Keyboard:
                 is_selected = row == self.cursor_row and col == self.cursor_col
                 self._draw_key(row, col, is_selected)
 
-    def _draw_textbox(self):
+    def _draw_textbox(self) -> None:
         """Draws the text box that displays the current saved response"""
         # Draw textbox border (highlight if in textbox mode)
         border_color = self.selected_color if self.is_in_textbox else self.text_color
@@ -582,20 +685,17 @@ class Keyboard:
 
     def _draw_suggestions(self):
         """Draws auto-complete suggestions based on keyboard visibility"""
-        from picoware.system.vector import Vector
-
         suggestions = self._auto_complete_suggestions()
         if not suggestions:
             return
-
         if self._show_keyboard:
             # Show only one suggestion below the keyboard area
             suggestion = suggestions[0]
             y_pos = self.TEXTBOX_HEIGHT + 20 + self.keyboard_height + 5
             text = f"Suggestion: {suggestion}"
             x_pos = (self.draw.size.x - len(text) * self.draw.font_size.x) // 2
-            suggestion_vec = Vector(x_pos, y_pos)
-            self.draw.text(suggestion_vec, text, self.text_color)
+            self.suggestion_vec.x, self.suggestion_vec.y = x_pos, y_pos
+            self.draw.text(self.suggestion_vec, text, self.text_color)
         else:
             # Show all suggestions in 2-column list below the title
             y_start = self.TEXTBOX_HEIGHT + 20
@@ -608,20 +708,24 @@ class Keyboard:
                 col = i % 2
                 x_pos = x_col1 if col == 0 else x_col2
                 y_pos = y_start + row * line_height
-                suggestion_vec = Vector(x_pos, y_pos)
+
+                self.suggestion_vec.x, self.suggestion_vec.y = x_pos, y_pos
 
                 # Highlight selected suggestion
                 if i == self.selected_suggestion_index:
                     # Draw background highlight
-                    highlight_pos = Vector(x_pos - 2, y_pos - 2)
-                    highlight_size = Vector(len(suggestion) * 6 + 4, line_height - 2)
+                    self.highlight_pos.x, self.highlight_pos.y = (x_pos - 2, y_pos - 2)
+                    self.highlight_size.x, self.highlight_size.y = (
+                        len(suggestion) * 6 + 4,
+                        line_height - 2,
+                    )
                     self.draw.fill_rectangle(
-                        highlight_pos, highlight_size, self.selected_color
+                        self.highlight_pos, self.highlight_size, self.selected_color
                     )
 
-                self.draw.text(suggestion_vec, suggestion, self.text_color)
+                self.draw.text(self.suggestion_vec, suggestion, self.text_color)
 
-    def _apply_suggestion(self, suggestion_text: str):
+    def _apply_suggestion(self, suggestion_text: str) -> None:
         """Applies an auto-complete suggestion to the current response"""
         if not suggestion_text or not self._response:
             return
@@ -644,7 +748,7 @@ class Keyboard:
             )
             self.text_cursor_position = word_start_pos + len(suggestion_text)
 
-    def _handle_input(self):
+    def _handle_input(self) -> None:
         """Handles directional input and key selection"""
         suggestions = self._auto_complete_suggestions()
 
@@ -780,7 +884,7 @@ class Keyboard:
             self._set_cursor_position(row, col)
             self._process_key_press()
 
-    def _process_key_press(self):
+    def _process_key_press(self) -> None:
         """Processes the currently selected key press"""
         if (
             self.cursor_row >= self.NUM_ROWS
@@ -849,92 +953,18 @@ class Keyboard:
             self.text_cursor_position += 1
 
             # Reset shift after character entry (ignore left/right/up/down)
-            d_pad = {
-                BUTTON_UP,
-                BUTTON_DOWN,
-                BUTTON_LEFT,
-                BUTTON_RIGHT,
-            }
-            if self.is_shift_pressed and self.dpad_input not in d_pad:
+            if self.is_shift_pressed and self.dpad_input not in self.d_pad:
                 self.is_shift_pressed = False
                 self.is_manual_shift = False
 
-    def _set_cursor_position(self, row: int, col: int):
+    def _set_cursor_position(self, row: int, col: int) -> None:
         """Sets the cursor position on the keyboard"""
         if row < self.NUM_ROWS and col < self.ROW_SIZES[row]:
             self.cursor_row = row
             self.cursor_col = col
 
-    def _set_words(self):
+    def _set_auto_complete_words(self) -> None:
         """Sets the words for auto-completion"""
-        if not self._words_set and self._auto_complete is not None:
-            self._auto_complete.add_words(
-                [
-                    "the",
-                    "that",
-                    "hi",
-                    "hey",
-                    "help",
-                    "hello",
-                    "how",
-                    "hack",
-                    "what",
-                    "JBlanked",
-                    "PicoCalc",
-                    "yooo",
-                    "everyone",
-                    "anyone",
-                    "good",
-                    "great",
-                    "morning",
-                    "night",
-                    "message",
-                    "awesome",
-                    "Picoware",
-                ]
-            )
-            self._words_set = True
-
-    def run(self, swap: bool = True, force: bool = False):
-        """Runs the input manager, handles input, and draws the keyboard"""
-        if self.just_stopped:
-            return False
-
-        self.dpad_input = self.input_manager.button
-        if self.dpad_input != -1 or force:
-            if self.dpad_input == BUTTON_BACK:
-                # Exit keyboard without saving
-                self.just_stopped = True
-                self.input_manager.reset()
-                return False
-
-            if not self.is_manual_shift:
-                self.is_shift_pressed = self.input_manager.was_capitalized
-
-            self.draw.erase()
-
-            if not self._words_set:
-                self._set_words()
-
-            # only process input/redraw if there's input
-            self._handle_input()
-            self._draw_textbox()
-
-            if self._show_keyboard:
-                self._draw_keyboard()
-
-            self.draw.text(
-                self.title_vec,
-                self.current_title,
-                self.text_color,
-            )
-
-            # Draw auto-complete suggestions after keyboard/title
-            self._draw_suggestions()
-
-            self.input_manager.reset()
-
-            if swap or force:
-                self.draw.swap()
-
-        return True
+        if not self._auto_complete_words_set and self._auto_complete is not None:
+            self._auto_complete.add_words(self._auto_complete_words)
+            self._auto_complete_words_set = True

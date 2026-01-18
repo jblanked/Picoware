@@ -1,6 +1,3 @@
-from picoware.system.vector import Vector
-
-
 class List:
     """A simple list class for a GUI."""
 
@@ -16,6 +13,7 @@ class List:
         border_width: int = 2,
     ):
         from picoware.system.system import System
+        from picoware.system.vector import Vector
 
         syst = System()
         self.is_circular = syst.is_circular
@@ -37,14 +35,41 @@ class List:
         self.items = []
         draw.swap()
 
+        self.size_x = self.display.size.x
+        self._dec_v = Vector(0, 0)
+        self._dec_v_b = Vector(0, 0)
+
+        self.rec_vec_pos = Vector(5, 0)
+        self.rec_vec_size = Vector(self.size_x - 10, 0)
+        self.text_vec_pos = Vector(10, 0)
+
+        self.menu_y = int(self.position.y + self.size.y // 4)
+        self.box_width = int(self.size_x - int(self.size_x // 6.4))
+        self.box_height = int(self.size.y // 8)
+        self.box_x = int((self.size_x - self.box_width) // 2)
+        self.box_pos = Vector(self.box_x, self.menu_y - 30)
+        self.box_size = Vector(self.box_width, self.box_height)
+        self.dot_size = Vector(10, 10)
+        self.dot_pos = Vector(0, 0)
+
     def __del__(self):
-        if self.size:
-            del self.size
-            self.size = None
-        if self.position:
-            del self.position
-            self.position = None
+        """Destructor to clean up resources"""
         self.items = []
+        self.size = None
+        self.position = None
+        self._dec_v = None
+        self._dec_v_b = None
+        self.rec_vec_pos = None
+        self.rec_vec_size = None
+        self.text_vec_pos = None
+        self.menu_y = None
+        self.box_width = None
+        self.box_height = None
+        self.box_x = None
+        self.box_pos = None
+        self.box_size = None
+        self.dot_size = None
+        self.dot_pos = None
 
     @property
     def current_item(self) -> str:
@@ -87,86 +112,75 @@ class List:
         """Draw the list with new style."""
         self.display.clear(self.position, self.size, self.background_color)
 
-        size_x = self.display.size.x
-
         # Draw decorative pattern below underline
-        pattern_y = self.position.y + 5 + (self.display.size.y // 16)
-        _dec_v = Vector(0, pattern_y)
-        for i in range(0, size_x, 10):
-            _dec_v.x = i
-            self.display.pixel(_dec_v, self.border_color)
+        self._dec_v.y = self.position.y + 5 + (self.display.size.y // 16)
+        for i in range(0, self.size_x, 10):
+            self._dec_v.x = i
+            self.display.pixel(self._dec_v, self.border_color)
 
         # Get current selected item
         if 0 <= self._selected_index < len(self.items):
             current_item = self.items[self._selected_index]
 
-            menu_y = self.position.y + self.size.y // 4
-            box_width = size_x - int(size_x // 6.4)
-            box_height = self.size.y // 8
-            box_x = (size_x - box_width) // 2
-
             # Draw selection box
             self.display.fill_rectangle(
-                Vector(box_x, menu_y - 30),
-                Vector(box_width, box_height),
+                self.box_pos,
+                self.box_size,
                 self.selected_color,
             )
 
             # Draw text centered
             item_width = len(current_item) * self.display.font_size.x
-            item_x = (size_x - item_width) // 2
-            self.display.text(
-                Vector(item_x, menu_y - 10), current_item, self.text_color
-            )
+            item_x = (self.size_x - item_width) // 2
+            self.text_vec_pos.x, self.text_vec_pos.y = item_x, self.menu_y - 10
+            self.display.text(self.text_vec_pos, current_item, self.text_color)
 
             # Draw navigation arrows
+            self.text_vec_pos.y = self.menu_y - 7
             if self._selected_index > 0:
-                self.display.text(Vector(5, menu_y - 7), "<", self.border_color)
+                self.text_vec_pos.x = 5
+                self.display.text(self.text_vec_pos, "<", self.border_color)
             if self._selected_index < len(self.items) - 1:
-                self.display.text(
-                    Vector(size_x - 15, menu_y - 7), ">", self.border_color
-                )
+                self.text_vec_pos.x = self.size_x - 15
+                self.display.text(self.text_vec_pos, ">", self.border_color)
 
             # Draw indicator dots
-            indicator_y = menu_y + 20
+            indicator_y = self.menu_y + 20
             if len(self.items) <= 15:
                 dots_spacing = 15
-                dots_start_x = (size_x - (len(self.items) * dots_spacing)) // 2
-                _pos = Vector(0, indicator_y)
-                _size = Vector(10, 10)
+                dots_start_x = (self.size_x - (len(self.items) * dots_spacing)) // 2
+                self.dot_pos.x, self.dot_pos.y = 0, indicator_y
                 for i in range(len(self.items)):
                     dot_x = dots_start_x + (i * dots_spacing)
-                    _pos.x = dot_x
+                    self.dot_pos.x = dot_x
                     if i == self._selected_index:
                         self.display.fill_rectangle(
-                            _pos,
-                            _size,
+                            self.dot_pos,
+                            self.dot_size,
                             self.border_color,
                         )
                     else:
                         self.display.rect(
-                            _pos,
-                            _size,
+                            self.dot_pos,
+                            self.dot_size,
                             self.border_color,
                         )
             else:
                 # show the current selected item index and total count
                 index_text = "{}/{}".format(self._selected_index + 1, len(self.items))
                 index_text_width = len(index_text) * self.display.font_size.x
-                index_text_x = (size_x - index_text_width) // 2
-                self.display.text(
-                    Vector(index_text_x, indicator_y), index_text, self.border_color
-                )
+                index_text_x = (self.size_x - index_text_width) // 2
+                self.text_vec_pos.x, self.text_vec_pos.y = index_text_x, indicator_y
+                self.display.text(self.text_vec_pos, index_text, self.border_color)
 
             # Draw decorative bottom pattern
-            bottom_pattern_y = indicator_y + 25
-            _dec_v_b = Vector(0, bottom_pattern_y)
-            for i in range(0, size_x, 10):
-                _dec_v_b.x = i
-                self.display.pixel(_dec_v_b, self.border_color)
+            self._dec_v_b.y = indicator_y + 25
+            for i in range(0, self.size_x, 10):
+                self._dec_v_b.x = i
+                self.display.pixel(self._dec_v_b, self.border_color)
 
             # Draw scrollable list below decorative pattern
-            list_start_y = bottom_pattern_y + 15
+            list_start_y = indicator_y + 40
             available_height = (self.position.y + self.size.y) - list_start_y
             item_height = self.display.font_size.y + 6  # Font height + padding
             max_visible_items = max(1, int(available_height / item_height))
@@ -187,20 +201,17 @@ class List:
                     first_visible = max(0, len(self.items) - max_visible_items)
 
             # Draw each visible item
-            rec_vec_pos = Vector(5, 0)
-            rec_vec_size = Vector(size_x - 10, 0)
-            text_vec_pos = Vector(10, 0)
             for i in range(first_visible, last_visible):
                 visible_idx = i - first_visible
                 item_y = list_start_y + (visible_idx * item_height)
 
                 # Draw background for selected item
                 if i == self._selected_index:
-                    rec_vec_pos.y = item_y
-                    rec_vec_size.y = item_height
+                    self.rec_vec_pos.y = item_y
+                    self.rec_vec_size.y = item_height
                     self.display.fill_rectangle(
-                        rec_vec_pos,
-                        rec_vec_size,
+                        self.rec_vec_pos,
+                        self.rec_vec_size,
                         self.selected_color,
                     )
 
@@ -209,19 +220,18 @@ class List:
                 item_text = self.items[i]
 
                 # Truncate text if too long
-                max_chars = (size_x - 20) // self.display.font_size.x
+                max_chars = (self.size_x - 20) // self.display.font_size.x
                 if len(item_text) > max_chars:
                     item_text = item_text[: max_chars - 2] + ".."
 
                 # Center text if circular display, otherwise left-align with padding
                 if self.is_circular:
                     text_width = len(item_text) * self.display.font_size.x
-                    text_x = (size_x - text_width) // 2
+                    text_x = (self.size_x - text_width) // 2
                 else:
                     text_x = 10
-                text_vec_pos.x = text_x
-                text_vec_pos.y = text_y
-                self.display.text(text_vec_pos, item_text, self.text_color)
+                self.text_vec_pos.x, self.text_vec_pos.y = text_x, text_y
+                self.display.text(self.text_vec_pos, item_text, self.text_color)
 
         # Swap buffers
         self.display.swap()

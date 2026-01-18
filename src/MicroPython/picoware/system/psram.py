@@ -5,24 +5,21 @@ import picoware_psram as _psram
 class PSRAM:
     """MicroPython PSRAM interface using a C module for hardware access."""
 
-    # Constants
-    PSRAM_SIZE = 8 * 1024 * 1024  # 8MB total
-
-    # Framebuffer reservation
-    FRAMEBUFFER_ADDR = 0x100000  # 1MB offset
-    FRAMEBUFFER_SIZE = 320 * 320  # 102,400 bytes
-
-    # Heap starts after LCDframebuffer region
-    HEAP_START = 0x120000  # 1MB + 128KB offset (after framebuffer)
-    HEAP_SIZE = PSRAM_SIZE - HEAP_START
-
     def __init__(self):
         """Initialize PSRAM using C module."""
+        from picoware_lcd import PSRAM_FRAMEBUFFER_ADDR, PSRAM_BUFFER_SIZE
+
         # Heap management variables
         self._hardware_initialized = False
         self._heap_head = 0
         self._total_used = 0
         self._total_blocks = 0
+
+        self._size_total = _psram.SIZE
+        self._start = (
+            PSRAM_FRAMEBUFFER_ADDR + PSRAM_BUFFER_SIZE + 1024
+        )  # Offset after LCD framebuffer and buffer
+        self._size_heap = self._size_total - self._start
 
         # Initialize hardware via C module
         self._init_hardware()
@@ -35,7 +32,7 @@ class PSRAM:
     @property
     def free_heap_size(self):
         """Get free heap size in bytes."""
-        return self.HEAP_SIZE - self._total_used
+        return self._size_heap - self._total_used
 
     @property
     def is_ready(self):
@@ -45,12 +42,12 @@ class PSRAM:
     @property
     def total_heap_size(self):
         """Get total heap size available for allocation."""
-        return self.HEAP_SIZE
+        return self._size_heap
 
     @property
     def total_size(self):
         """Get total PSRAM size in bytes."""
-        return self.PSRAM_SIZE
+        return self._size_total
 
     @property
     def used_heap_size(self):
@@ -66,9 +63,8 @@ class PSRAM:
             _psram.init()
 
         # Initialize heap with a single free block
-        self._heap_head = self.HEAP_START
-        initial_block = struct.pack("<IBIIII", self.HEAP_SIZE, 1, 0, 0, 0, 0)
-        _psram.write(self._heap_head, initial_block)
+        initial_block = struct.pack("<IBIIII", self._size_heap, 1, 0, 0, 0, 0)
+        _psram.write(self._start, initial_block)
 
         self._total_used = 0
         self._total_blocks = 0

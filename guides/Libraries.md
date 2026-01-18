@@ -277,7 +277,8 @@ Check the source code for all available button and key constants.
     - `__init__()`: Initializes the WiFi class.
     - `device_ip`: Property that gets the current device IP address.
     - `last_error`: Property that gets the last connection error message.
-    - `connect(ssid, password, sta_mode=True, is_async=False)`: Connects to a Wi-Fi network. Returns True on success.
+    - `connect(ssid, password, sta_mode=True)`: Connects to a Wi-Fi network. Returns True on success.
+    - `connect_async(ssid, password, sta_mode=True)`: Connects to a Wi-Fi network using a thread. Returns True if the request started successfully.
     - `disconnect()`: Disconnects from the Wi-Fi network.
     - `is_connected()`: Checks if the device is connected to a Wi-Fi network.
     - `scan()`: Scans for available Wi-Fi networks and returns a list.

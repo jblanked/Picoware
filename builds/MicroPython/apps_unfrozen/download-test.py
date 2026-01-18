@@ -1,9 +1,30 @@
 # picoware/apps/download-test.py
+from picoware.system.buttons import (
+    BUTTON_UP,
+    BUTTON_DOWN,
+    BUTTON_BACK,
+    BUTTON_CENTER,
+)
 
 _http = None
 _menu = None
 _loading = None
 _request_started = False
+_download_complete = False
+_download_error = None
+
+
+def __http_callback(response, state, error) -> None:
+    """HTTP callback function - runs in background thread, only sets flags."""
+    global _request_started, _download_complete, _download_error
+
+    if any([response is None, error, state == 2]):  # HTTP_ERROR
+        _download_error = error if error is not None else "Unknown error"
+    else:
+        _download_error = None
+
+    _download_complete = True
+    _request_started = False
 
 
 def start(view_manager) -> bool:
@@ -57,12 +78,6 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run the app."""
-    from picoware.system.buttons import (
-        BUTTON_UP,
-        BUTTON_DOWN,
-        BUTTON_BACK,
-        BUTTON_CENTER,
-    )
 
     inp = view_manager.input_manager
     button = inp.button
@@ -72,19 +87,21 @@ def run(view_manager) -> None:
         view_manager.back()
         return
 
-    global _http, _menu, _loading, _request_started
+    global _http, _menu, _loading, _request_started, _download_complete, _download_error
 
-    if _http:
-        if not _http.is_request_complete():
+    # Check if download completed (callback has finished)
+    if _download_complete:
+        _download_complete = False
+        if _download_error:
+            view_manager.alert(f"Download error: {_download_error}", True)
+        else:
+            view_manager.alert("Download complete!", True)
+        return
+
+    if _http and _request_started:
+        if _loading:
             _loading.animate()
-        elif _request_started and _http.is_request_complete():
-            _request_started = False
-            _loading.stop()
-            del _loading
-            _loading = None
-            del _http
-            _http = None
-            view_manager.alert("Download complete!", False)
+        return
 
     if button == BUTTON_UP:
         inp.reset()
@@ -109,30 +126,44 @@ def run(view_manager) -> None:
             file_name = None
 
         if url and file_name:
-            print(f"Downloading {url} to {file_name}...")
+
             storage = view_manager.storage
             try:
                 # remove file if it exists
                 storage.remove(file_name)
             except Exception:
                 pass
-            if not _http:
-                from picoware.system.http import HTTP
+            if _http is not None:
+                _http.close()
+                del _http
+                _http = None
+            from picoware.system.http import HTTP
 
-                _http = HTTP()
+            _http = HTTP()
+            _http.callback = __http_callback
             _request_started = True
-            if not _http.get_async(url=url, save_to_file=file_name, storage=storage):
+            if not _http.get_async(
+                url=url,
+                save_to_file=file_name,
+                storage=storage,
+                headers={
+                    "User-Agent": "Raspberry Pi Pico W",
+                    "Content-Type": "application/octet-stream",
+                },
+            ):
                 view_manager.alert("Failed to start download request...", False)
                 _request_started = False
+                _menu.refresh()
 
 
 def stop(view_manager) -> None:
     """Stop the app."""
     from gc import collect
 
-    global _http, _menu, _loading, _request_started
+    global _http, _menu, _loading, _request_started, _download_complete, _download_error
 
     if _http:
+        _http.close()
         del _http
         _http = None
 
@@ -146,5 +177,7 @@ def stop(view_manager) -> None:
         _loading = None
 
     _request_started = False
+    _download_complete = False
+    _download_error = None
 
     collect()

@@ -2,8 +2,18 @@ def main():
     """Main function to run the application"""
     from gc import collect
     from machine import freq
+    from picoware.system.boards import (
+        BOARD_ID,
+        BOARD_PICOCALC_PICO,
+        BOARD_PICOCALC_PICOW,
+    )
 
-    freq(200000000)
+    if BOARD_ID in (BOARD_PICOCALC_PICO, BOARD_PICOCALC_PICOW):
+        # if pico, pico w set at 210
+        freq(210000000)
+    else:
+        # if pico2, pico2 w set at 230
+        freq(230000000)
 
     # Initial cleanup
     collect()
@@ -53,7 +63,7 @@ def main():
                 alert = None
                 vm = None
                 collect()
-            except:
+            except Exception:
                 pass
 
     finally:

@@ -4,6 +4,7 @@ _about = None
 def start(view_manager) -> bool:
     """Start the app."""
     from picoware.gui.textbox import TextBox
+    from picoware.system.system import System
 
     global _about
     if _about is None:
@@ -14,10 +15,12 @@ def start(view_manager) -> bool:
             view_manager.foreground_color,
             view_manager.background_color,
         )
+        sys = System()
+        version = sys.version
         _about.set_text(
             (
                 "Picoware\n"
-                "Version: 1.6.0\n"
+                f"Version: {version}\n"
                 "A custom firmware for the PicoCalc, Video Game Module, Waveshare Touch LCD, and other Raspberry Pi Pico devices, originally created by JBlanked on 2025-05-13.\n"
                 "This firmware was made with MicroPython and is open source on GitHub. Developers are welcome to contribute.\n"
                 "Picoware is a work in progress and is not yet complete. Some features may not work as expected. Picoware is not affiliated with ClockworkPI, the Raspberry Pi Foundation, or any other organization.\n"

@@ -75,6 +75,10 @@ class ViewManager:
                 if not state:
                     self._background_color = TFT_WHITE
                     self._foreground_color = TFT_BLACK
+                    self._draw.background = self._background_color
+                    self._draw.foreground = self._foreground_color
+                    self._keyboard.background_color = self._background_color
+                    self._keyboard.text_color = self._foreground_color
 
             on_screen_keyboard_data: str = self._storage.read(
                 "picoware/settings/onscreen_keyboard.json"

@@ -1095,19 +1095,72 @@ class Desktop:
         self.is_dark_mode = text_color == 0xFFFF and background_color == 0x0000
         self.battery_level_str = ""
         self.is_circular = system.is_circular
-        self.display.clear(Vector(0, 0), self.display.size, self.background_color)
+
+        self.size = self.display.size
+        self.font_size_x = self.display.font_size.x
+
+        self.position = Vector(0, 0)
+        self.wifi_size = Vector(19, 16)
+        self.bluetooth_size = Vector(14, 16)
+        self.wifi_pos = Vector(0, 0)
+        self.name_pos = Vector(0, 0)
+        self.time_pos = Vector(int(self.size.x * 0.4375), 5)
+        self.bluetooth_pos = Vector(0, 0)
+        self.battery_pos = Vector(int(self.size.x * 0.7875), 5)
+
+        if self.is_circular:
+            # wifi icon
+            self.wifi_pos.x, self.wifi_pos.y = (
+                int(self.size.x * 0.65),
+                int(self.size.y / 20) + 25,
+            )
+            # board name
+            name_width = len(self.name) * self.font_size_x
+            name_x = (self.size.x - name_width) // 2
+            self.name_pos.x, self.name_pos.y = name_x, int(self.size.y / 20)
+            # bluetooth icon
+            self.bluetooth_pos.x, self.bluetooth_pos.y = (
+                int(self.size.x * 0.30),
+                int(self.size.y / 20) + 25,
+            )
+        else:
+            # wifi icon
+            self.wifi_pos.x, self.wifi_pos.y = (
+                int(self.size.x * (1 - 21 / 320)),
+                2,
+            )
+            # board name
+            self.name_pos.x, self.name_pos.y = 2, 5
+            # bluetooth icon
+            self.bluetooth_pos.x, self.bluetooth_pos.y = (
+                int(self.size.x * 0.875),
+                2,
+            )
+
+        self.display.clear(self.position, self.size, self.background_color)
         self.display.swap()
+
+    def __del__(self) -> None:
+        """Cleanup resources"""
+        self.position = None
+        self.wifi_size = None
+        self.bluetooth_size = None
+        self.wifi_pos = None
+        self.name_pos = None
+        self.time_pos = None
+        self.bluetooth_pos = None
+        self.battery_pos = None
 
     def clear(self) -> None:
         """Clear the display with the background color."""
-        self.display.clear(Vector(0, 0), self.display.size, self.background_color)
+        self.display.clear(self.position, self.size, self.background_color)
         self.display.swap()
 
     def draw(
         self, animiation_frame, animation_size: Vector, position: Vector = Vector(0, 20)
     ) -> None:
         """Draw the desktop environment with a BMP image from disk."""
-        self.display.clear(Vector(0, 0), self.display.size, self.background_color)
+        self.display.clear(self.position, self.size, self.background_color)
         self.draw_header()
         self.display.image_bytearray(
             position,
@@ -1120,94 +1173,57 @@ class Desktop:
     def draw_header(self) -> None:
         """Draw the header with the board name and Wi-Fi status."""
         # draw board name
-        if self.is_circular:
-            name_width = len(self.name) * self.display.font_size.x
-            name_x = (self.display.size.x - name_width) // 2
-            self.display.text(
-                Vector(name_x, int(self.display.size.y / 20)),
-                self.name,
-                self.text_color,
-            )
-        else:
-            self.display.text(Vector(2, 5), self.name, self.text_color)
+        self.display.text(self.name_pos, self.name, self.text_color)
 
         # draw time if set
         if self.time_str:
-            if self.is_circular:
-                time_width = len(self.time_str) * self.display.font_size.x
-                time_x = (self.display.size.x - time_width) // 2
-                # Position time below the board name to stay within circular boundary
-                self.display.text(
-                    Vector(time_x, int(self.display.size.y / 20) + 10),
-                    self.time_str,
-                    self.text_color,
-                )
-            else:
-                self.display.text(
-                    Vector(int(self.display.size.x * 0.4375), 5),
-                    self.time_str,
-                    self.text_color,
-                )
-
-        # draw wifi icon using the built-in palette
-        if self.is_circular:
-            # Position WiFi icon to the right, within circular boundary
-            wifi_x = int(self.display.size.x * 0.65)
-            wifi_y = int(self.display.size.y / 20) + 25
-            self.display.image_bytearray(
-                Vector(wifi_x, wifi_y),
-                Vector(19, 16),
-                _WIFI_ON_BLACK if self.has_wifi else _WIFI_OFF_BLACK,
-                invert=not self.is_dark_mode,
-            )
-        else:
-            self.display.image_bytearray(
-                Vector(int(self.display.size.x * (1 - 21 / 320)), 2),
-                Vector(19, 16),
-                _WIFI_ON_BLACK if self.has_wifi else _WIFI_OFF_BLACK,
-                invert=not self.is_dark_mode,
+            self.display.text(
+                self.time_pos,
+                self.time_str,
+                self.text_color,
             )
 
-        # draw bluetooth icon using the built-in palette
-        if self.is_circular:
-            # Position Bluetooth icon to the left, within circular boundary
-            bt_x = int(self.display.size.x * 0.30)
-            bt_y = int(self.display.size.y / 20) + 25
-            self.display.image_bytearray(
-                Vector(bt_x, bt_y),
-                Vector(14, 16),
-                _BLUETOOTH_ON_BLACK if self.has_wifi else _BLUEETOOTH_OFF_BLACK,
-                invert=not self.is_dark_mode,
-            )
-        else:
-            self.display.image_bytearray(
-                Vector(int(self.display.size.x * 0.875), 2),
-                Vector(14, 16),
-                _BLUETOOTH_ON_BLACK if self.has_wifi else _BLUEETOOTH_OFF_BLACK,
-                invert=not self.is_dark_mode,
-            )
+        # draw wifi icon
+        self.display.image_bytearray(
+            self.wifi_pos,
+            self.wifi_size,
+            _WIFI_ON_BLACK if self.has_wifi else _WIFI_OFF_BLACK,
+            invert=not self.is_dark_mode,
+        )
+
+        # draw bluetooth icon
+        self.display.image_bytearray(
+            self.bluetooth_pos,
+            self.bluetooth_size,
+            _BLUETOOTH_ON_BLACK if self.has_wifi else _BLUEETOOTH_OFF_BLACK,
+            invert=not self.is_dark_mode,
+        )
 
         # draw battery level
-        if self.is_circular:
-            # Center the battery level below time
-            battery_width = len(self.battery_level_str) * (self.display.font_size.x + 1)
-            battery_x = (self.display.size.x - battery_width) // 2
-            self.display.text(
-                Vector(battery_x, int(self.display.size.y / 20) + 32),
-                self.battery_level_str,
-                self.text_color,
-            )
-        else:
-            self.display.text(
-                Vector(int(self.display.size.x * 0.7875), 5),
-                self.battery_level_str,
-                self.text_color,
-            )
+        self.display.text(
+            self.battery_pos,
+            self.battery_level_str,
+            self.text_color,
+        )
 
     def set_battery(self, battery_level: int) -> None:
         """Set the battery level on the header."""
         self.battery_level_str = f"{battery_level}%"
 
+        if self.is_circular:
+            # Center the battery level below time
+            battery_width = len(self.battery_level_str) * (self.font_size_x + 1)
+            battery_x = (self.size.x - battery_width) // 2
+            self.battery_pos.x, self.battery_pos.y = (
+                battery_x,
+                int(self.size.y / 20) + 32,
+            )
+
     def set_time(self, time_str: str) -> None:
         """Set the time on the header."""
         self.time_str = time_str
+
+        if self.is_circular:
+            time_width = len(self.time_str) * self.font_size_x
+            time_x = (self.size.x - time_width) // 2
+            self.time_pos.x, self.time_pos.y = time_x, int(self.size.y / 20) + 10

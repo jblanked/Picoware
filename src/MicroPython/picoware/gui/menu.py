@@ -1,6 +1,3 @@
-from picoware.system.vector import Vector
-
-
 class Menu:
     """A simple menu class for a GUI."""
 
@@ -15,8 +12,9 @@ class Menu:
         selected_color: int = 0x001F,
         border_color: int = 0xFFFF,
         border_width: int = 2,
-    ):
+    ) -> None:
         from picoware.gui.list import List
+        from picoware.system.vector import Vector
 
         self.text_color = text_color
         self.background_color = background_color
@@ -35,6 +33,19 @@ class Menu:
         )
         self.position = Vector(0, y)
         self.size = Vector(draw.size.x, height)
+
+        title_width = self.display.font_size.x * len(self._title)
+        title_x = (self.display.size.x - title_width) // 2
+        title_y = self.position.y + 15
+        underline_y = title_y + 10
+
+        self.title_pos = Vector(title_x, title_y)
+        self.line_pos = Vector(self.title_pos.x, underline_y)
+        self.line_size = Vector(self.title_pos.x + title_width, underline_y)
+
+        self.clear_position = Vector(0, 0)
+        self.clear_size = Vector(self.display.size.x, self._height_offset)
+
         draw.clear(self.position, self.size, self.background_color)
         draw.swap()
 
@@ -48,6 +59,21 @@ class Menu:
         if self.size:
             del self.size
             self.size = None
+        if self.title_pos:
+            del self.title_pos
+            self.title_pos = None
+        if self.line_pos:
+            del self.line_pos
+            self.line_pos = None
+        if self.line_size:
+            del self.line_size
+            self.line_size = None
+        if self.clear_position:
+            del self.clear_position
+            self.clear_position = None
+        if self.clear_size:
+            del self.clear_size
+            self.clear_size = None
         self._title = ""
 
     @property
@@ -80,6 +106,15 @@ class Menu:
         """Set the menu title."""
         self._title = value
 
+        title_width = self.display.font_size.x * len(self._title)
+        title_x = (self.display.size.x - title_width) // 2
+        title_y = self.position.y + 15
+        underline_y = title_y + 10
+
+        self.title_pos.x, self.title_pos.y = title_x, title_y
+        self.line_pos.x, self.line_pos.y = self.title_pos.x, underline_y
+        self.line_size.x, self.line_size.y = self.title_pos.x + title_width, underline_y
+
     def add_item(self, item: str) -> None:
         """Add an item to the menu."""
         self.list.add_item(item)
@@ -87,8 +122,8 @@ class Menu:
     def clear(self) -> None:
         """Clear the menu."""
         self.display.clear(
-            Vector(0, 0),
-            Vector(self.display.size.x, self._height_offset),
+            self.clear_position,
+            self.clear_size,
             self.background_color,
         )
         self.list.clear()
@@ -106,16 +141,12 @@ class Menu:
         """Draw the title (kept for API compatibility, now handled in draw)."""
 
         # Draw title centered
-        title_width = self.display.font_size.x * len(self._title)
-        title_x = (self.display.size.x - title_width) // 2
-        title_y = self.position.y + 15
-        self.display.text(Vector(title_x, title_y), self._title, self.text_color)
+        self.display.text(self.title_pos, self._title, self.text_color)
 
         # Draw underline
-        underline_y = title_y + 10
         self.display.line_custom(
-            Vector(title_x, underline_y),
-            Vector(title_x + title_width, underline_y),
+            self.line_pos,
+            self.line_size,
             self.text_color,
         )
 

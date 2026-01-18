@@ -166,7 +166,10 @@ def __download_next_file(view_manager) -> bool:
         file_url,
         save_to_file=save_path,
         storage=storage,
-        headers={"User-Agent": "Raspberry Pi Pico W"},
+        headers={
+            "User-Agent": "Raspberry Pi Pico W",
+            "Content-Type": "application/json",
+        },
     )
 
 
@@ -308,7 +311,7 @@ def run(view_manager) -> None:
                 )
         else:
             # All files downloaded
-            view_manager.alert("Repository downloaded successfully!")
+            view_manager.alert("Repository downloaded successfully!", True)
 
 
 def stop(view_manager) -> None:

@@ -37,6 +37,8 @@ class Level:
         self._start = start
         self._stop = stop
         self._entity_vec = Vector(0, 0)
+        self._position = Vector(0, 0)
+        self.normalized_dir = Vector(0, 0)
 
     def __del__(self):
         self.clear()
@@ -47,6 +49,10 @@ class Level:
         self.entities = None
         del self._entity_vec
         self._entity_vec = None
+        del self._position
+        self._position = None
+        del self.normalized_dir
+        self.normalized_dir = None
 
     @property
     def clear_allowed(self) -> bool:
@@ -114,7 +120,7 @@ class Level:
 
         if self._clear_allowed:
             self.game.draw.clear(
-                Vector(0, 0), self.game.size, self.game.background_color
+                self._position, self.game.size, self.game.background_color
             )
 
         # If using third person perspective but no camera params provided, calculate them from player
@@ -144,15 +150,18 @@ class Level:
                     player.direction.x = 1
                     player.direction.y = 0
 
-                normalized_dir = Vector(
-                    player.direction.x / dir_length, player.direction.y / dir_length
+                self.normalized_dir.x, self.normalized_dir.y = (
+                    player.direction.x / dir_length,
+                    player.direction.y / dir_length,
                 )
 
-                calculated_camera_params.position = Vector(
-                    player.position.x - normalized_dir.x * camera_distance,
-                    player.position.y - normalized_dir.y * camera_distance,
+                calculated_camera_params.position.x = (
+                    player.position.x - self.normalized_dir.x * camera_distance
                 )
-                calculated_camera_params.direction = normalized_dir
+                calculated_camera_params.position.y = (
+                    player.position.y - self.normalized_dir.y * camera_distance
+                )
+                calculated_camera_params.direction = self.normalized_dir
                 calculated_camera_params.plane = player.plane
                 calculated_camera_params.height = 1.6
                 camera_params = calculated_camera_params
@@ -178,9 +187,6 @@ class Level:
 
                 # Render 3D sprite if it exists
                 if entity.has_3d_sprite:
-                    # screen size from the game draw object
-                    screen_size = self.game.draw.size
-
                     if perspective == CAMERA_FIRST_PERSON:
 
                         # First person: render from player's own perspective
@@ -190,7 +196,7 @@ class Level:
                                 entity.position,
                                 entity.direction,
                                 1.5,
-                                screen_size,
+                                self.game.draw.size,
                             )
                         else:
                             # For non-player entities, render from the player's perspective
@@ -205,7 +211,7 @@ class Level:
                                     player.position,
                                     player.direction,
                                     1.5,
-                                    screen_size,
+                                    self.game.draw.size,
                                 )
 
                     elif perspective == CAMERA_THIRD_PERSON and camera_params:
@@ -214,7 +220,7 @@ class Level:
                             camera_params.position,
                             camera_params.direction,
                             camera_params.height,
-                            screen_size,
+                            self.game.draw.size,
                         )
 
         if self._clear_allowed:

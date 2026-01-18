@@ -29,7 +29,7 @@ def __box_start(view_manager) -> None:
     draw.fill_screen(bg)
 
     msg = f"Listening on GPIO{_uart.rx_pin}"
-    display_x = (size.x - len(msg) * draw.font_size.x) // 2
+    display_x = int((size.x - len(msg) * draw.font_size.x) // 2)
     draw.text(
         Vector(display_x, int(size.y * 0.0625)),
         msg,
@@ -42,8 +42,8 @@ def __box_start(view_manager) -> None:
     if _textbox is None:
         _textbox = TextBox(
             draw,
-            top + (top // 2),
-            height - (top + (top // 2)),
+            top + int(top // 2),
+            height - int(top + (top // 2)),
             fg,
             bg,
         )
@@ -78,10 +78,10 @@ def __loading_run(view_manager, text: str = "Sending...") -> None:
 def __set_kb(view_manager, title: str) -> None:
     """Set up the keyboard"""
     kb = view_manager.keyboard
+    kb.reset()
     kb.response = ""
-    kb.set_save_callback(__callback)
+    kb.callback = __callback
     kb.title = title
-    kb.run(force=True)
     kb.run(force=True)
 
 
@@ -92,7 +92,7 @@ def start(view_manager) -> bool:
         BOARD_WAVESHARE_1_28_RP2350,
     )
 
-    global _textbox, _uart, state
+    global _textbox, _uart, state, _loading
 
     if _textbox is not None:
         del _textbox
@@ -105,6 +105,8 @@ def start(view_manager) -> bool:
         _loading = None
 
     state = STATE_TYPING
+
+    view_manager.draw.set_mode(1)  # Set to HEAP mode
 
     board_id = view_manager.board_id
     if board_id == BOARD_WAVESHARE_1_28_RP2350:
@@ -129,6 +131,7 @@ def run(view_manager) -> None:
     if button == BUTTON_BACK:
         inp.reset()
         view_manager.back()
+        return
     if button == BUTTON_CENTER and state == STATE_VIEWING:
         inp.reset()
         __set_kb(view_manager, "Send a message")
@@ -138,6 +141,7 @@ def run(view_manager) -> None:
         kb = view_manager.keyboard
         if not kb.run():
             view_manager.back()
+            return
     elif state == STATE_SENDING:
         if not _uart.is_sending:
             state = STATE_VIEWING
@@ -173,5 +177,7 @@ def stop(view_manager) -> None:
     message = ""
 
     view_manager.keyboard.reset()
+
+    view_manager.set_mode(0)  # PSRAM mode
 
     collect()

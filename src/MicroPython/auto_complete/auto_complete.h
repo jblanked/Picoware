@@ -11,7 +11,7 @@
 
 #define MAX_WORD_LENGTH 32
 #define MAX_SUGGESTIONS 10
-#define ALPHABET_SIZE 26 // a-z
+#define ALPHABET_SIZE 27 // a-z + space
 
 #ifdef __cplusplus
 extern "C"

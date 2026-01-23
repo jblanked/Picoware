@@ -493,6 +493,7 @@ class WebSocketAsync:
         headers: dict = None,
         timeout: float = 10.0,
         callback: callable = None,  # one-argument function (data: Any)
+        thread_manager=None,
     ):
         import _thread
 
@@ -504,6 +505,8 @@ class WebSocketAsync:
         self._ws: WebSocket = None
         self._thread = None
         self._lock = _thread.allocate_lock()
+        self._thread_manager = thread_manager
+        self._current_task = None
 
     def __del__(self):
         """Destructor to clean up resources."""
@@ -511,8 +514,18 @@ class WebSocketAsync:
 
     def __close_thread(self):
         """Internal method to close the thread."""
+        if self._current_task:
+            self._current_task.stop()
+            self._current_task = None
         if self._thread is not None:
             self._thread = None
+
+    def _should_continue(self) -> bool:
+        """Check if the operation should continue running."""
+        with self._lock:
+            if self._thread_manager is not None and self._current_task is not None:
+                return self._running and not self._current_task.should_stop
+            return self._running
 
     @property
     def error(self) -> str:
@@ -546,8 +559,6 @@ class WebSocketAsync:
 
     def connect(self) -> bool:
         """Start the WebSocket connection in a separate thread."""
-        import _thread
-
         if self._running:
             return True  # Already running
 
@@ -559,7 +570,7 @@ class WebSocketAsync:
                     self._uri, headers=self._headers, timeout=self._timeout
                 )
                 self._running = True
-                while self._running:
+                while self._should_continue():
                     try:
                         data = self._ws.recv()
                         if data is not None and data != "":
@@ -584,7 +595,27 @@ class WebSocketAsync:
                     del self._ws
                     self._ws = None
 
-        self._thread = _thread.start_new_thread(_thread_func, ())
+        try:
+            if self._thread_manager:
+                # Use ThreadManager
+                from picoware.system.thread import ThreadTask
+
+                task = ThreadTask(
+                    "WebSocket",
+                    function=_thread_func,
+                    args=(),
+                )
+                self._current_task = task
+                self._thread_manager.add_task(task)
+            else:
+                import _thread
+
+                self._thread = _thread.start_new_thread(_thread_func, ())
+        except Exception as e:
+            self._running = False
+            if self._callback:
+                self._callback(e)
+            return False
 
         return True
 

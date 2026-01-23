@@ -139,7 +139,7 @@ def run(view_manager) -> None:
                 _http = None
             from picoware.system.http import HTTP
 
-            _http = HTTP()
+            _http = HTTP(thread_manager=view_manager.thread_manager)
             _http.callback = __http_callback
             _request_started = True
             if not _http.get_async(

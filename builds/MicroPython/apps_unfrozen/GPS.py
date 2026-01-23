@@ -83,7 +83,7 @@ def start(view_manager) -> bool:
     draw.text(Vector(5, 5), "Starting GPS lookup...")
     draw.swap()
 
-    _gps_http = HTTP()
+    _gps_http = HTTP(thread_manager=view_manager.thread_manager)
 
     # reset GPS state for fresh start
     __reset_gps_state()
@@ -134,7 +134,7 @@ def run(view_manager) -> None:
         if not _gps_http:
             from picoware.system.http import HTTP
 
-            _gps_http = HTTP()
+            _gps_http = HTTP(thread_manager=view_manager.thread_manager)
 
         _gps_http.close()
         if not _gps_http.get_async("https://ipwhois.app/json"):

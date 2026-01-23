@@ -63,22 +63,9 @@ def __channel_display(view_manager) -> None:
 
 def __channel_parse(view_manager) -> bool:
     """Parse channel messages from saved file"""
-    storage = view_manager.storage
-    messages = storage.read("picoware/telegram/messages.txt")
+    global _http
 
-    if not messages:
-        view_manager.alert("No messages available..", False)
-        return False
-
-    from ujson import loads
-
-    # we have much more ram the flipper zero... so let's parse all at once instead of in chunks
-    # if anything we can write/read into PSRAM since I fixed it in the 1.5.6 update
-    try:
-        data = loads(messages)
-    except Exception as e:
-        view_manager.alert(f"Failed to parse messages.\n{e}", False)
-        return False
+    data = _http.response.json()
 
     results = data.get("result", [])
     if not results:
@@ -116,6 +103,11 @@ def __channel_parse(view_manager) -> bool:
     )
 
     _textbox.set_text(parsed_text)
+
+    _http.close()
+    del _http
+    _http = None
+
     return True
 
 
@@ -159,11 +151,6 @@ def _http_await(view_manager) -> None:
             current_view = VIEW_MAIN_MENU
             channel_index = CHANNEL_FETCHING
             _menu_start(view_manager)
-
-    del _http
-    _http = None
-    del _loading
-    _loading = None
 
 
 def _keyboard_save(view_manager) -> bool:
@@ -342,10 +329,11 @@ def __telegram_fetch(view_manager) -> bool:
 
     global _http
     if _http is not None:
+        _http.close()
         del _http
         _http = None
 
-    _http = HTTP()
+    _http = HTTP(thread_manager=view_manager.thread_manager)
 
     storage = view_manager.storage
     token = storage.read("picoware/telegram/token.txt")
@@ -356,8 +344,8 @@ def __telegram_fetch(view_manager) -> bool:
 
     return _http.get_async(
         url=f"https://api.telegram.org/bot{token}/getUpdates",
-        save_to_file="picoware/telegram/messages.txt",
-        storage=storage,
+        # save_to_file="picoware/telegram/messages.json",
+        # storage=storage,
     )
 
 
@@ -367,10 +355,11 @@ def __telegram_send(view_manager, text: str) -> bool:
 
     global _http
     if _http is not None:
+        _http.close()
         del _http
         _http = None
 
-    _http = HTTP()
+    _http = HTTP(thread_manager=view_manager.thread_manager)
 
     storage = view_manager.storage
     token = storage.read("picoware/telegram/token.txt")
@@ -391,8 +380,6 @@ def __telegram_send(view_manager, text: str) -> bool:
         url=f"https://api.telegram.org/bot{token}/sendMessage",
         payload=payload,
         headers={"Content-Type": "application/json"},
-        save_to_file="picoware/telegram/message.txt",
-        storage=storage,
     )
 
 

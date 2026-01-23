@@ -22,6 +22,8 @@ def start(view_manager) -> bool:
 
     global _game
 
+    view_manager.freq(True)  # set to lower frequency
+
     from flip_world.run import FlipWorldRun
 
     _game = FlipWorldRun(view_manager)
@@ -56,5 +58,7 @@ def stop(view_manager) -> None:
     if _game:
         del _game
         _game = None
+
+    view_manager.freq()  # set to default frequency
 
     collect()

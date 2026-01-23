@@ -1,4 +1,12 @@
 from micropython import const
+from picoware.system.buttons import (
+    BUTTON_BACK,
+    BUTTON_CENTER,
+    BUTTON_UP,
+    BUTTON_DOWN,
+    BUTTON_LEFT,
+    BUTTON_RIGHT,
+)
 
 # App states
 STATE_DISCONNECTED = const(0)
@@ -12,16 +20,17 @@ _textbox = None
 _current_state = STATE_DISCONNECTED
 _messages = []
 _message_count = 0
+_should_update = False
 
 
 def _add_message(msg: str) -> None:
     """Add a message to the display buffer."""
-    global _messages
+    global _messages, _should_update
     _messages.append(msg)
     # Keep only last 10 messages to save memory
     if len(_messages) > 10:
         _messages = _messages[-10:]
-    _update_display()
+    _should_update = True
 
 
 def _update_display() -> None:
@@ -56,20 +65,22 @@ def _update_display() -> None:
         _textbox.set_text(text)
 
 
-def _connect_websocket() -> bool:
+def _connect_websocket(view_manager) -> bool:
     """Establish WebSocket connection."""
-    global _ws, _current_state
+    global _ws, _current_state, _should_update
 
     from picoware.system.websocket import WebSocketAsync
 
     _current_state = STATE_CONNECTING
-    _update_display()
+    _should_update = True
 
     url = "wss://echo.websocket.org"
     _add_message(f"Connecting to {url}...")
 
     try:
-        _ws = WebSocketAsync(url, callback=callback)
+        _ws = WebSocketAsync(
+            url, callback=callback, thread_manager=view_manager.thread_manager
+        )
         if not _ws.connect():
             _current_state = STATE_ERROR
             _add_message(f"Failed to connect: {_ws.error}")
@@ -117,7 +128,7 @@ def _send_ping() -> None:
 
 def callback(data) -> None:
     """Check for and process incoming WebSocket messages."""
-    global _ws, _current_state
+    global _ws, _current_state, _should_update
 
     if not _ws or not _ws.is_connected:
         return
@@ -131,20 +142,20 @@ def callback(data) -> None:
             # Connection closed by server
             _add_message("<<< Server closed connection")
             _current_state = STATE_DISCONNECTED
-            _update_display()
     except ConnectionClosed:
         _add_message("<<< Connection closed")
         _current_state = STATE_DISCONNECTED
-        _update_display()
     except NoDataException:
         pass
     except OSError:
         pass
 
+    _should_update = True
+
 
 def start(view_manager) -> bool:
     """Start the WebSocket test app."""
-    global _textbox, _messages, _message_count, _current_state, _ws
+    global _textbox, _messages, _message_count, _current_state, _ws, _should_update
 
     # Check WiFi
     wifi = view_manager.wifi
@@ -170,6 +181,7 @@ def start(view_manager) -> bool:
     _message_count = 0
     _current_state = STATE_DISCONNECTED
     _ws = None
+    _should_update = False
 
     _textbox = TextBox(
         view_manager.draw,
@@ -182,19 +194,12 @@ def start(view_manager) -> bool:
     _update_display()
 
     # Connect to WebSocket
-    return _connect_websocket()
+    return _connect_websocket(view_manager)
 
 
 def run(view_manager) -> None:
     """Main run loop for the app."""
-    global _current_state
-
-    from picoware.system.buttons import (
-        BUTTON_BACK,
-        BUTTON_CENTER,
-        BUTTON_UP,
-        BUTTON_DOWN,
-    )
+    global _current_state, _should_update
 
     if not _textbox:
         return
@@ -214,17 +219,24 @@ def run(view_manager) -> None:
     elif button == BUTTON_UP:
         input_manager.reset()
         _send_ping()
-    elif button == BUTTON_DOWN:
+    elif button in (BUTTON_DOWN, BUTTON_RIGHT):
         input_manager.reset()
         _textbox.scroll_down()
+    elif button == BUTTON_LEFT:
+        input_manager.reset()
+        _textbox.scroll_up()
+
+    if _should_update:
+        _update_display()
+        _update_display()  # second time for callback
+        _should_update = False
 
 
 def stop(view_manager) -> None:
     """Stop the app and clean up resources."""
     from gc import collect
 
-    global _ws, _textbox, _messages, _current_state
-
+    global _ws, _textbox, _messages, _current_state, _should_update
     if _ws is not None:
         _ws.close()
         del _ws
@@ -236,5 +248,6 @@ def stop(view_manager) -> None:
 
     _messages = []
     _current_state = STATE_DISCONNECTED
+    _should_update = False
 
     collect()

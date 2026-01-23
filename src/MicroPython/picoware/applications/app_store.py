@@ -974,6 +974,8 @@ def run(view_manager) -> None:
                 _app_menu.draw()
         else:
             view_manager.alert("Failed to load apps")
+            _app_state = STATE_MAIN_MENU
+            __show_main_menu(view_manager)
 
     elif _app_state == STATE_APP_LIST:
         # Handle menu navigation

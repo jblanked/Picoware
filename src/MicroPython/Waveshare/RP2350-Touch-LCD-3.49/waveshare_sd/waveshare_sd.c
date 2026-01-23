@@ -178,7 +178,11 @@ STATIC mp_obj_t waveshare_sd_file_open(mp_obj_t filepath_obj)
     mp_fat32_file_obj_t *file_obj = mp_fat32_file_make_new(&mp_fat32_file_type, 0, 0, NULL);
     if (fat32_open(&file_obj->file, filePath) != FAT32_OK)
     {
-        mp_raise_OSError(MP_ENOENT);
+        if (fat32_create(&file_obj->file, filePath) != FAT32_OK)
+        {
+            PRINT("Failed to open and create file.\n");
+            mp_raise_OSError(MP_EIO);
+        }
     }
     return MP_OBJ_FROM_PTR(file_obj);
 }
@@ -472,7 +476,6 @@ STATIC mp_obj_t waveshare_sd_remove(mp_obj_t filepath_obj)
     fat32_file_t file;
     if (fat32_open(&file, filePath) != FAT32_OK)
     {
-        printf("File does not exist.\n");
         return mp_const_true;
     }
     const bool status = fat32_delete(filePath) == FAT32_OK;
@@ -494,7 +497,7 @@ STATIC mp_obj_t waveshare_sd_rename(size_t n_args, const mp_obj_t *args)
     fat32_file_t file;
     if (fat32_open(&file, oldPath) != FAT32_OK)
     {
-        printf("Failed to open file for renaming.\n");
+        PRINT("Failed to open file for renaming.\n");
         mp_raise_OSError(MP_ENOENT);
     }
     const bool status = fat32_rename(oldPath, newPath) == FAT32_OK;
@@ -520,7 +523,7 @@ STATIC mp_obj_t waveshare_sd_write(size_t n_args, const mp_obj_t *args)
     {
         if (fat32_create(&file, filePath) != FAT32_OK)
         {
-            PRINT("Failed to create file.\n");
+            PRINT("Failed to open and create file.\n");
             mp_raise_OSError(MP_EIO);
         }
     }
@@ -530,17 +533,17 @@ STATIC mp_obj_t waveshare_sd_write(size_t n_args, const mp_obj_t *args)
         {
             if (fat32_delete(filePath) != FAT32_OK)
             {
-                printf("Failed to delete existing file.\n");
+                PRINT("Failed to delete existing file.\n");
                 mp_raise_OSError(MP_EIO);
             }
             if (fat32_create(&file, filePath) != FAT32_OK)
             {
-                printf("Failed to create new file.\n");
+                PRINT("Failed to create new file.\n");
                 mp_raise_OSError(MP_EIO);
             }
             if (fat32_open(&file, filePath) != FAT32_OK)
             {
-                printf("Failed to open new file.\n");
+                PRINT("Failed to open new file.\n");
                 mp_raise_OSError(MP_ENOENT);
             }
         }

@@ -66,6 +66,7 @@ class PSRAM:
         initial_block = struct.pack("<IBIIII", self._size_heap, 1, 0, 0, 0, 0)
         _psram.write(self._start, initial_block)
 
+        self._heap_head = self._start
         self._total_used = 0
         self._total_blocks = 0
         self._hardware_initialized = True

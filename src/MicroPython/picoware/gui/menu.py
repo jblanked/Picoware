@@ -140,6 +140,13 @@ class Menu:
     def draw_title(self) -> None:
         """Draw the title (kept for API compatibility, now handled in draw)."""
 
+        # clear title area
+        self.display.clear(
+            self.clear_position,
+            self.clear_size,
+            self.background_color,
+        )
+
         # Draw title centered
         self.display.text(self.title_pos, self._title, self.text_color)
 

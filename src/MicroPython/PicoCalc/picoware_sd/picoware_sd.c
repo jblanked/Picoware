@@ -64,12 +64,137 @@ STATIC mp_obj_t mp_fat32_file_make_new(const mp_obj_type_t *type, size_t n_args,
     return MP_OBJ_FROM_PTR(self);
 }
 
+// Attribute getter functions
+STATIC mp_obj_t mp_fat32_file_is_open(mp_obj_t self_in)
+{
+    mp_fat32_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    return mp_obj_new_bool(self->file.is_open);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_fat32_file_is_open_obj, mp_fat32_file_is_open);
+
+STATIC mp_obj_t mp_fat32_file_last_entry_read(mp_obj_t self_in)
+{
+    mp_fat32_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    return mp_obj_new_bool(self->file.last_entry_read);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_fat32_file_last_entry_read_obj, mp_fat32_file_last_entry_read);
+
+STATIC mp_obj_t mp_fat32_file_attributes(mp_obj_t self_in)
+{
+    mp_fat32_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    return mp_obj_new_int(self->file.attributes);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_fat32_file_attributes_obj, mp_fat32_file_attributes);
+
+STATIC mp_obj_t mp_fat32_file_start_cluster(mp_obj_t self_in)
+{
+    mp_fat32_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    return mp_obj_new_int_from_uint(self->file.start_cluster);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_fat32_file_start_cluster_obj, mp_fat32_file_start_cluster);
+
+STATIC mp_obj_t mp_fat32_file_current_cluster(mp_obj_t self_in)
+{
+    mp_fat32_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    return mp_obj_new_int_from_uint(self->file.current_cluster);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_fat32_file_current_cluster_obj, mp_fat32_file_current_cluster);
+
+STATIC mp_obj_t mp_fat32_file_file_size(mp_obj_t self_in)
+{
+    mp_fat32_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    return mp_obj_new_int_from_uint(self->file.file_size);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_fat32_file_file_size_obj, mp_fat32_file_file_size);
+
+STATIC mp_obj_t mp_fat32_file_position(mp_obj_t self_in)
+{
+    mp_fat32_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    return mp_obj_new_int_from_uint(self->file.position);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_fat32_file_position_obj, mp_fat32_file_position);
+
+STATIC mp_obj_t mp_fat32_file_dir_entry_sector(mp_obj_t self_in)
+{
+    mp_fat32_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    return mp_obj_new_int_from_uint(self->file.dir_entry_sector);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_fat32_file_dir_entry_sector_obj, mp_fat32_file_dir_entry_sector);
+
+STATIC mp_obj_t mp_fat32_file_dir_entry_offset(mp_obj_t self_in)
+{
+    mp_fat32_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    return mp_obj_new_int_from_uint(self->file.dir_entry_offset);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_fat32_file_dir_entry_offset_obj, mp_fat32_file_dir_entry_offset);
+
+// Locals dict for fat32_file type
+STATIC const mp_rom_map_elem_t mp_fat32_file_locals_dict_table[] = {
+    {MP_ROM_QSTR(MP_QSTR_is_open), MP_ROM_PTR(&mp_fat32_file_is_open_obj)},
+    {MP_ROM_QSTR(MP_QSTR_last_entry_read), MP_ROM_PTR(&mp_fat32_file_last_entry_read_obj)},
+    {MP_ROM_QSTR(MP_QSTR_attributes), MP_ROM_PTR(&mp_fat32_file_attributes_obj)},
+    {MP_ROM_QSTR(MP_QSTR_start_cluster), MP_ROM_PTR(&mp_fat32_file_start_cluster_obj)},
+    {MP_ROM_QSTR(MP_QSTR_current_cluster), MP_ROM_PTR(&mp_fat32_file_current_cluster_obj)},
+    {MP_ROM_QSTR(MP_QSTR_file_size), MP_ROM_PTR(&mp_fat32_file_file_size_obj)},
+    {MP_ROM_QSTR(MP_QSTR_position), MP_ROM_PTR(&mp_fat32_file_position_obj)},
+    {MP_ROM_QSTR(MP_QSTR_dir_entry_sector), MP_ROM_PTR(&mp_fat32_file_dir_entry_sector_obj)},
+    {MP_ROM_QSTR(MP_QSTR_dir_entry_offset), MP_ROM_PTR(&mp_fat32_file_dir_entry_offset_obj)},
+};
+STATIC MP_DEFINE_CONST_DICT(mp_fat32_file_locals_dict, mp_fat32_file_locals_dict_table);
+
+// Attribute handler for fat32_file type
+STATIC void mp_fat32_file_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
+{
+    if (destination[0] == MP_OBJ_NULL)
+    {
+        // Load attribute
+        if (attribute == MP_QSTR_is_open)
+        {
+            destination[0] = mp_fat32_file_is_open(self_in);
+        }
+        else if (attribute == MP_QSTR_last_entry_read)
+        {
+            destination[0] = mp_fat32_file_last_entry_read(self_in);
+        }
+        else if (attribute == MP_QSTR_attributes)
+        {
+            destination[0] = mp_fat32_file_attributes(self_in);
+        }
+        else if (attribute == MP_QSTR_start_cluster)
+        {
+            destination[0] = mp_fat32_file_start_cluster(self_in);
+        }
+        else if (attribute == MP_QSTR_current_cluster)
+        {
+            destination[0] = mp_fat32_file_current_cluster(self_in);
+        }
+        else if (attribute == MP_QSTR_file_size)
+        {
+            destination[0] = mp_fat32_file_file_size(self_in);
+        }
+        else if (attribute == MP_QSTR_position)
+        {
+            destination[0] = mp_fat32_file_position(self_in);
+        }
+        else if (attribute == MP_QSTR_dir_entry_sector)
+        {
+            destination[0] = mp_fat32_file_dir_entry_sector(self_in);
+        }
+        else if (attribute == MP_QSTR_dir_entry_offset)
+        {
+            destination[0] = mp_fat32_file_dir_entry_offset(self_in);
+        }
+    }
+}
+
 MP_DEFINE_CONST_OBJ_TYPE(
     mp_fat32_file_type,
     MP_QSTR_fat32_file, // name
     MP_TYPE_FLAG_NONE,
-    print, mp_fat32_file_print,      // print function
-    make_new, mp_fat32_file_make_new // constructor
+    print, mp_fat32_file_print,             // print function
+    make_new, mp_fat32_file_make_new,       // constructor
+    attr, mp_fat32_file_attr,               // attribute handler
+    locals_dict, &mp_fat32_file_locals_dict // locals dictionary
 );
 
 // Function to initialize the SD card

@@ -1,3 +1,5 @@
+"""Bluetooth Apps Menu - Central hub for all Bluetooth applications"""
+
 _bluetooth = None
 _bluetooth_index = 0
 
@@ -27,9 +29,12 @@ def start(view_manager) -> bool:
             view_manager.foreground_color,
             2,
         )
+        _bluetooth.add_item("Scan Devices")
         _bluetooth.add_item("Advertise")
-        _bluetooth.add_item("Pair")
-        _bluetooth.add_item("Scan")
+        _bluetooth.add_item("Pair Device")
+        _bluetooth.add_item("UART Chat")
+        _bluetooth.add_item("Beacon")
+        _bluetooth.add_item("RSSI Monitor")
         _bluetooth.set_selected(_bluetooth_index)
 
         _bluetooth.draw()
@@ -69,31 +74,9 @@ def run(view_manager) -> None:
     elif button == BUTTON_CENTER:
         input_manager.reset()
         _bluetooth_index = _bluetooth.selected_index
+
         if _bluetooth_index == 0:
-            from picoware.applications.bluetooth import advertise
-
-            view_manager.add(
-                View(
-                    "bluetooth_advertise",
-                    advertise.run,
-                    advertise.start,
-                    advertise.stop,
-                )
-            )
-            view_manager.switch_to("bluetooth_advertise")
-        elif _bluetooth_index == 1:
-            from picoware.applications.bluetooth import pair
-
-            view_manager.add(
-                View(
-                    "bluetooth_pair",
-                    pair.run,
-                    pair.start,
-                    pair.stop,
-                )
-            )
-            view_manager.switch_to("bluetooth_pair")
-        elif _bluetooth_index == 2:
+            # Scan Devices
             from picoware.applications.bluetooth import scan
 
             view_manager.add(
@@ -105,6 +88,76 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("bluetooth_scan")
+
+        elif _bluetooth_index == 1:
+            # Advertise
+            from picoware.applications.bluetooth import advertise
+
+            view_manager.add(
+                View(
+                    "bluetooth_advertise",
+                    advertise.run,
+                    advertise.start,
+                    advertise.stop,
+                )
+            )
+            view_manager.switch_to("bluetooth_advertise")
+
+        elif _bluetooth_index == 2:
+            # Pair Device
+            from picoware.applications.bluetooth import pair
+
+            view_manager.add(
+                View(
+                    "bluetooth_pair",
+                    pair.run,
+                    pair.start,
+                    pair.stop,
+                )
+            )
+            view_manager.switch_to("bluetooth_pair")
+
+        elif _bluetooth_index == 3:
+            # UART Chat
+            from picoware.applications.bluetooth import uart_chat
+
+            view_manager.add(
+                View(
+                    "bluetooth_uart_chat",
+                    uart_chat.run,
+                    uart_chat.start,
+                    uart_chat.stop,
+                )
+            )
+            view_manager.switch_to("bluetooth_uart_chat")
+
+        elif _bluetooth_index == 4:
+            # Beacon
+            from picoware.applications.bluetooth import beacon
+
+            view_manager.add(
+                View(
+                    "bluetooth_beacon",
+                    beacon.run,
+                    beacon.start,
+                    beacon.stop,
+                )
+            )
+            view_manager.switch_to("bluetooth_beacon")
+
+        elif _bluetooth_index == 5:
+            # RSSI Monitor
+            from picoware.applications.bluetooth import rssi_monitor
+
+            view_manager.add(
+                View(
+                    "bluetooth_rssi_monitor",
+                    rssi_monitor.run,
+                    rssi_monitor.start,
+                    rssi_monitor.stop,
+                )
+            )
+            view_manager.switch_to("bluetooth_rssi_monitor")
 
 
 def stop(view_manager) -> None:

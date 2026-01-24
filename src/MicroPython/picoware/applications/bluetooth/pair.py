@@ -1,3 +1,5 @@
+"""BLE Pair - Scan, connect, and pair with BLE devices"""
+
 from micropython import const
 
 _bluetooth = None
@@ -7,15 +9,17 @@ _scanned_devices = []  # List of (addr_type, addr_bytes, name, rssi)
 _addresses = []
 _selected_device = None
 
-# states
+# States
 STATE_IDLE = const(0)
 STATE_SCANNING = const(1)
 STATE_CONNECTING = const(2)
-STATE_PAIRING = const(3)
-STATE_CONNECTED = const(4)
-STATE_PAIRED = const(5)
+STATE_DISCOVERING = const(3)
+STATE_PAIRING = const(4)
+STATE_CONNECTED = const(5)
+STATE_PAIRED = const(6)
 
 _state = STATE_IDLE
+_last_update = 0
 
 
 def __alert(view_manager, message: str, back: bool = False) -> None:
@@ -33,7 +37,6 @@ def __alert(view_manager, message: str, back: bool = False) -> None:
     )
     _alert.draw("Alert")
 
-    # Wait for user to acknowledge
     inp = view_manager.input_manager
     while True:
         button = inp.button
@@ -61,25 +64,29 @@ def bluetooth_callback(event, data):
         if addr_str in _addresses:
             return
 
-        # New device
         _addresses.append(addr_str)
         name = _bluetooth.decode_name(adv_data)
         _scanned_devices.append((addr_type, bytes(addr), name, rssi))
 
-        # Add to menu
         if _menu is not None:
-            display = name if name else addr_str
+            display = name if name else addr_str[:17]
             display = f"{display} ({rssi}dB)"
             _menu.add_item(display)
+
     elif event == 6:  # _IRQ_SCAN_DONE
         _addresses.clear()
 
     elif event == 7:  # _IRQ_PERIPHERAL_CONNECT
-        _state = STATE_CONNECTED
+        _state = STATE_DISCOVERING
+        # Start service discovery
+        _bluetooth.discover_services()
 
     elif event == 8:  # _IRQ_PERIPHERAL_DISCONNECT
         _state = STATE_IDLE
         _selected_device = None
+
+    elif event == 10:  # _IRQ_GATTC_SERVICE_DONE
+        _state = STATE_CONNECTED
 
     elif event == 28:  # _IRQ_ENCRYPTION_UPDATE
         conn_handle, encrypted, authenticated, bonded, key_size = data
@@ -93,7 +100,7 @@ def start(view_manager) -> bool:
     from picoware.gui.loading import Loading
     from picoware.system.bluetooth import Bluetooth
 
-    global _bluetooth, _menu, _loading, _scanned_devices, _state
+    global _bluetooth, _menu, _loading, _scanned_devices, _state, _addresses
 
     # Clean up previous instances
     if _bluetooth is not None:
@@ -107,9 +114,9 @@ def start(view_manager) -> bool:
         _loading = None
 
     _scanned_devices = []
+    _addresses = []
     _state = STATE_SCANNING
 
-    # Create menu for device list
     _menu = Menu(
         view_manager.draw,
         "Pair Device",
@@ -122,7 +129,6 @@ def start(view_manager) -> bool:
         2,
     )
 
-    # Create loading animation
     _loading = Loading(
         view_manager.draw,
         view_manager.foreground_color,
@@ -130,11 +136,8 @@ def start(view_manager) -> bool:
     )
     _loading.text = "Scanning for devices..."
 
-    # Initialize Bluetooth with storage for paired devices
     _bluetooth = Bluetooth(storage=view_manager.storage)
     _bluetooth.callback = bluetooth_callback
-
-    # Start scanning
     _bluetooth.scan()
 
     return True
@@ -151,16 +154,16 @@ def run(view_manager) -> None:
         BUTTON_CENTER,
     )
     from picoware.system.vector import Vector
+    import time
 
-    global _state, _selected_device, _loading
+    global _state, _selected_device, _loading, _last_update
 
     input_manager = view_manager.input_manager
     button: int = input_manager.button
 
     if button == BUTTON_BACK:
         input_manager.reset()
-        if _state == STATE_CONNECTED or _state == STATE_PAIRED:
-            # Disconnect first
+        if _state in (STATE_CONNECTED, STATE_PAIRED, STATE_DISCOVERING):
             _bluetooth.disconnect()
             _state = STATE_IDLE
         view_manager.back()
@@ -173,7 +176,6 @@ def run(view_manager) -> None:
                 _loading.animate()
             return
 
-        # Scan complete
         _state = STATE_IDLE
         if _loading:
             _loading.stop()
@@ -192,6 +194,13 @@ def run(view_manager) -> None:
             _loading.animate()
         return
 
+    # State: Discovering services
+    if _state == STATE_DISCOVERING:
+        if _loading:
+            _loading.text = "Discovering services..."
+            _loading.animate()
+        return
+
     # State: Connected - offer to pair
     if _state == STATE_CONNECTED:
         draw = view_manager.draw
@@ -201,15 +210,21 @@ def run(view_manager) -> None:
         if _selected_device:
             addr_type, addr, name, rssi = _selected_device
             addr_str = __addr_to_str(addr)
-            draw.text(Vector(5, 25), f"Device: {name or addr_str}")
+            draw.text(Vector(5, 25), f"Name: {name or 'Unknown'}")
+            draw.text(Vector(5, 45), f"Addr: {addr_str[:17]}")
 
-        draw.text(Vector(5, 55), "Press CENTER to pair")
-        draw.text(Vector(5, 75), "Press BACK to disconnect")
+        # Show discovered services count
+        svc_count = len(_bluetooth.services)
+        char_count = len(_bluetooth.characteristics)
+        draw.text(Vector(5, 70), f"Services: {svc_count}")
+        draw.text(Vector(5, 90), f"Characteristics: {char_count}")
+
+        draw.text(Vector(5, 120), "CENTER: Pair device")
+        draw.text(Vector(5, 140), "BACK: Disconnect")
         draw.swap()
 
         if button == BUTTON_CENTER:
             input_manager.reset()
-            # Initiate pairing
             _bluetooth.pair()
             _state = STATE_PAIRING
         return
@@ -223,7 +238,6 @@ def run(view_manager) -> None:
 
     # State: Paired
     if _state == STATE_PAIRED:
-        # Save the paired device
         if _selected_device:
             addr_type, addr, name, rssi = _selected_device
             addr_str = __addr_to_str(addr)
@@ -235,11 +249,10 @@ def run(view_manager) -> None:
 
         if _selected_device:
             addr_type, addr, name, rssi = _selected_device
-            addr_str = __addr_to_str(addr)
-            draw.text(Vector(5, 25), f"Device: {name or addr_str}")
+            draw.text(Vector(5, 30), f"Name: {name or 'Unknown'}")
 
-        draw.text(Vector(5, 55), "Device saved to paired list")
-        draw.text(Vector(5, 85), "Press BACK to exit")
+        draw.text(Vector(5, 60), "Device saved to paired list")
+        draw.text(Vector(5, draw.size.y - 20), "Press BACK to exit")
         draw.swap()
         return
 
@@ -256,12 +269,23 @@ def run(view_manager) -> None:
             _menu.scroll_down()
         elif button == BUTTON_CENTER:
             input_manager.reset()
-            # Connect to selected device
             idx = _menu.selected_index
             if 0 <= idx < len(_scanned_devices):
                 _selected_device = _scanned_devices[idx]
                 addr_type, addr, name, rssi = _selected_device
                 _state = STATE_CONNECTING
+
+                # Reinit loading for connection
+                if _loading is None:
+                    from picoware.gui.loading import Loading
+
+                    _loading = Loading(
+                        view_manager.draw,
+                        view_manager.foreground_color,
+                        view_manager.background_color,
+                    )
+                _loading.text = "Connecting..."
+
                 _bluetooth.connect(addr_type, addr)
 
 
@@ -271,7 +295,6 @@ def stop(view_manager) -> None:
 
     global _bluetooth, _menu, _loading, _scanned_devices, _selected_device, _state, _addresses
 
-    # Disconnect if connected
     if _bluetooth is not None:
         if _bluetooth.is_connected:
             _bluetooth.disconnect()

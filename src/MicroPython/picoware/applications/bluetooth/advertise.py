@@ -1,6 +1,18 @@
+"""BLE Advertise - Broadcast as a peripheral and accept connections"""
+
+from micropython import const
+
 _bluetooth = None
 _advertising = False
 _connections = []
+_received_data = []
+_last_update = 0
+
+STATE_IDLE = const(0)
+STATE_ADVERTISING = const(1)
+STATE_CONNECTED = const(2)
+
+_state = STATE_IDLE
 
 
 def __alert(view_manager, message: str, back: bool = True) -> None:
@@ -18,7 +30,6 @@ def __alert(view_manager, message: str, back: bool = True) -> None:
     )
     _alert.draw("Alert")
 
-    # Wait for user to acknowledge
     inp = view_manager.input_manager
     while True:
         button = inp.button
@@ -32,26 +43,39 @@ def __alert(view_manager, message: str, back: bool = True) -> None:
 
 def bluetooth_callback(event, data):
     """Bluetooth callback function for connection events"""
-    global _connections
+    global _connections, _state
 
     if event == 1:  # _IRQ_CENTRAL_CONNECT
-        # A central device has connected
         conn_handle, addr_type, addr = data
         addr_str = ":".join("{:02X}".format(b) for b in addr)
         _connections.append((conn_handle, addr_str))
+        _state = STATE_CONNECTED
 
     elif event == 2:  # _IRQ_CENTRAL_DISCONNECT
-        # A central device has disconnected
         conn_handle, addr_type, addr = data
         _connections = [(h, a) for h, a in _connections if h != conn_handle]
+        if len(_connections) == 0:
+            _state = STATE_ADVERTISING
+
+
+def on_data_received(data):
+    """Handle data received from connected central"""
+    global _received_data
+    try:
+        text = data.decode("utf-8")
+    except Exception:
+        text = str(data)
+    _received_data.append(text)
+    # Keep only last 5 messages
+    if len(_received_data) > 5:
+        _received_data = _received_data[-5:]
 
 
 def start(view_manager) -> bool:
     """Start the app - advertise this device so others can find and connect to it"""
     from picoware.system.bluetooth import Bluetooth
-    from picoware.system.vector import Vector
 
-    global _bluetooth, _advertising, _connections
+    global _bluetooth, _advertising, _connections, _received_data, _state
 
     if _bluetooth is not None:
         del _bluetooth
@@ -59,29 +83,22 @@ def start(view_manager) -> bool:
 
     _advertising = False
     _connections = []
+    _received_data = []
+    _state = STATE_IDLE
 
-    # Initialize Bluetooth
     _bluetooth = Bluetooth()
     _bluetooth.callback = bluetooth_callback
+    _bluetooth.on_write(on_data_received)
 
-    # Start advertising with device name
     try:
-        _bluetooth.advertise()
-        _advertising = True
-
-        # Draw initial status
-        draw = view_manager.draw
-        draw.clear()
-        draw.text(Vector(5, 5), "Bluetooth Advertising")
-        draw.text(Vector(5, 25), "Name: Picoware")
-        draw.text(Vector(5, 45), f"MAC: {_bluetooth.mac_address}")
-        draw.text(Vector(5, 70), "Status: Broadcasting...")
-        draw.text(Vector(5, 95), "Connections: 0")
-        draw.text(Vector(5, draw.size.y - 30), "Press BACK to stop")
-        draw.swap()
-
+        if _bluetooth.start_peripheral(name="Picoware"):
+            _advertising = True
+            _state = STATE_ADVERTISING
+        else:
+            __alert(view_manager, "Failed to start advertising")
+            return False
     except Exception as e:
-        __alert(view_manager, f"Failed to start advertising: {str(e)}")
+        __alert(view_manager, f"Error: {str(e)}")
         return False
 
     return True
@@ -89,8 +106,11 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run the app"""
-    from picoware.system.buttons import BUTTON_BACK
+    from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
     from picoware.system.vector import Vector
+    from utime import ticks_ms, ticks_diff
+
+    global _last_update
 
     input_manager = view_manager.input_manager
     button: int = input_manager.button
@@ -100,33 +120,56 @@ def run(view_manager) -> None:
         view_manager.back()
         return
 
+    # Send test data when center pressed
+    if button == BUTTON_CENTER and _state == STATE_CONNECTED:
+        input_manager.reset()
+        _bluetooth.send("Hello from Picoware!")
+
+    # Update display periodically
+    now = ticks_ms()
+    if ticks_diff(now, _last_update) < 200:
+        return
+    _last_update = now
+
     draw = view_manager.draw
     draw.clear()
-    draw.text(Vector(5, 5), "Bluetooth Advertising")
-    draw.text(Vector(5, 25), "Name: Picoware")
+
+    draw.text(Vector(5, 5), "BLE Peripheral Mode")
+    draw.text(Vector(5, 25), f"Name: Picoware")
     draw.text(Vector(5, 45), f"MAC: {_bluetooth.mac_address}")
 
-    if _advertising:
+    # Status
+    if _state == STATE_ADVERTISING:
         draw.text(Vector(5, 70), "Status: Broadcasting...")
+    elif _state == STATE_CONNECTED:
+        draw.text(Vector(5, 70), "Status: Connected")
     else:
-        draw.text(Vector(5, 70), "Status: Inactive")
+        draw.text(Vector(5, 70), "Status: Idle")
 
-    draw.text(Vector(5, 95), f"Connections: {len(_connections)}")
+    draw.text(Vector(5, 90), f"Connections: {len(_connections)}")
 
-    # Display connected devices
-    y_offset = 115
+    # Show connected devices
+    y_offset = 110
     if _connections:
-        draw.text(Vector(5, y_offset), "Connected:")
-        y_offset += 18
-        for i, (handle, addr) in enumerate(
-            _connections[:3]
-        ):  # Show up to 3 connections
-            if y_offset < draw.size.y - 40:
-                draw.text(Vector(5, y_offset), f" {i+1}. {addr}")
+        for i, (handle, addr) in enumerate(_connections[:2]):
+            if y_offset < draw.size.y - 60:
+                draw.text(Vector(10, y_offset), f"{addr[:17]}")
                 y_offset += 15
 
-    # Draw exit instruction
-    draw.text(Vector(5, draw.size.y - 30), "Press BACK to stop")
+    # Show received data
+    if _received_data:
+        y_offset = max(y_offset, 140)
+        draw.text(Vector(5, y_offset), "Last received:")
+        y_offset += 15
+        for msg in _received_data[-2:]:
+            if y_offset < draw.size.y - 30:
+                draw.text(Vector(10, y_offset), msg[:25])
+                y_offset += 12
+
+    # Instructions
+    if _state == STATE_CONNECTED:
+        draw.text(Vector(5, draw.size.y - 30), "CENTER: Send test msg")
+    draw.text(Vector(5, draw.size.y - 15), "BACK: Exit")
     draw.swap()
 
 
@@ -134,27 +177,20 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global _bluetooth, _advertising, _connections
+    global _bluetooth, _advertising, _connections, _received_data, _state
 
-    # Stop advertising
     if _bluetooth is not None:
-        _advertising = False
-        try:
-            _bluetooth.advertise(None)
-        except Exception:
-            pass
-
-        # Disconnect all connections
-        if _connections:
-            for conn_handle, _ in _connections:
-                try:
-                    _bluetooth.disconnect(conn_handle)
-                except Exception:
-                    pass
-
+        _bluetooth.stop_peripheral()
+        for conn_handle, _ in _connections:
+            try:
+                _bluetooth.disconnect(conn_handle)
+            except Exception:
+                pass
         del _bluetooth
         _bluetooth = None
 
+    _advertising = False
     _connections = []
-
+    _received_data = []
+    _state = STATE_IDLE
     collect()

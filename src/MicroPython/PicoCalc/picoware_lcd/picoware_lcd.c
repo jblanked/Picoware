@@ -1,5 +1,6 @@
 /*
  * Picoware LCD Native C Extension for MicroPython
+ * Copyright © 2025 JBlanked
  *
  * Uses PSRAM for framebuffer storage instead of static RAM
  */
@@ -29,12 +30,6 @@
 #define CHAR_HEIGHT 8
 
 #define LCD_CHUNK_LINES 16
-
-// PSRAM framebuffer configuration
-#define PSRAM_FRAMEBUFFER_ADDR 0x100000                    // 1MB offset in PSRAM
-#define PSRAM_ROW_SIZE (DISPLAY_WIDTH)                     // 320 bytes per row (RGB332)
-#define PSRAM_BUFFER_SIZE (DISPLAY_WIDTH * DISPLAY_HEIGHT) // 102,400 bytes
-#define PSRAM_CHUNK_SIZE 64                                // Match picoware_psram chunk size
 
 // Module state
 static bool module_initialized = false;

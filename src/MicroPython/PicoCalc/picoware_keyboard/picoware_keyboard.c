@@ -1,6 +1,7 @@
 /*
  * Picoware Keys Native C Extension for MicroPython
  * Module name: picoware_keyboard
+ *Copyright © 2025 JBlanked
  */
 
 #include "py/runtime.h"

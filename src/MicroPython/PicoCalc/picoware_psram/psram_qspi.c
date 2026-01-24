@@ -4,6 +4,7 @@
  * Enhanced QSPI driver for PSRAM inspired by Waveshare implementation
  *
  * Copyright © 2023 Ian Scott (original SPI implementation)
+ * Copyright © 2025 JBlanked (enhanced QSPI implementation)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -79,6 +80,19 @@ static void psram_send_spi_command(psram_qspi_inst_t *qspi, uint8_t cmd)
     pio_gpio_init(qspi->pio, pin_sio0);
 
     pio_sm_set_enabled(qspi->pio, qspi->sm, true);
+}
+
+/**
+ * @brief Send a single-byte command while in QPI mode
+ */
+static void psram_send_qpi_command(psram_qspi_inst_t *qspi, uint8_t cmd)
+{
+    // QSPI PIO protocol: [nibbles_to_write, nibbles_to_read, cmd]
+    uint8_t qpi_cmd[] = {
+        2, // 2 nibbles (1 byte) to write
+        0, // 0 nibbles to read
+        cmd};
+    qspi_write_dma_blocking(qspi, qpi_cmd, sizeof(qpi_cmd));
 }
 
 /**
@@ -184,7 +198,17 @@ psram_qspi_inst_t psram_qspi_init(PIO pio, int sm, float clkdiv)
 void psram_qspi_deinit(psram_qspi_inst_t *qspi)
 {
 #if defined(PSRAM_QSPI_ASYNC)
-    dma_channel_wait_for_finish_blocking(qspi->async_dma_chan);
+    if (qspi->async_busy)
+    {
+        psram_qspi_async_wait(qspi);
+    }
+#endif
+
+    // Attempt to exit QPI mode before tearing down the PIO/DMA
+    psram_send_qpi_command(qspi, 0xF5);
+    busy_wait_us(50);
+
+#if defined(PSRAM_QSPI_ASYNC)
     dma_channel_unclaim(qspi->async_dma_chan);
 #endif
 

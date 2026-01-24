@@ -1,6 +1,7 @@
 /*
  * Picoware Game - Fast game rendering module for MicroPython
  * Handles raycasting, 3D sprite rendering, and game optimizations
+ * Copyright © 2025 JBlanked
  */
 
 #include "py/runtime.h"

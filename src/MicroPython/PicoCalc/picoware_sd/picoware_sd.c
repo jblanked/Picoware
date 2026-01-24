@@ -1,5 +1,6 @@
 /*
  * Picoware SD Native C Extension for MicroPython
+ * Copyright © 2025 JBlanked
  *
  */
 

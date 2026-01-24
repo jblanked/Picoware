@@ -1,6 +1,7 @@
 /*
  * Picoware Southbridge Native C Extension for MicroPython
  * Direct exposure of southbridge.h methods
+ * Copyright © 2025 JBlanked
  */
 
 #include "py/runtime.h"

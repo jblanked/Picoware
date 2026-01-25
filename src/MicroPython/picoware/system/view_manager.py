@@ -6,7 +6,7 @@ class ViewManager:
     MAX_VIEWS = 10
     MAX_STACK_SIZE = 10
     FREQ_DEFAULT = 200000000
-    FREQ_RP2040 = 210000000
+    FREQ_RP2040 = 200000000  # was 210 but users had issues
     FREQ_RP2350 = 230000000
 
     def __init__(self):

@@ -9,6 +9,11 @@ class PSRAM:
         if not _psram.is_ready():
             _psram.init()
 
+    def __del__(self):
+        """Deinitialize PSRAM on object deletion."""
+        if _psram.is_ready():
+            _psram.collect()
+
     @property
     def free_heap_size(self):
         """Get free PSRAM memory in bytes."""
@@ -45,3 +50,7 @@ class PSRAM:
             print(number + 10)  # 52
         """
         return _psram.malloc(data)
+
+    def mem_free(self) -> int:
+        """Get free PSRAM memory in bytes."""
+        return _psram.mem_free()

@@ -347,7 +347,6 @@ STATIC mp_obj_t picoware_sd_file_read(size_t n_args, const mp_obj_t *args)
     size_t bytes_read;
     if (fat32_read(file, buffer, size_of_buffer, &bytes_read) != FAT32_OK)
     {
-        PRINT("Failed to read from file.\n");
         mp_raise_OSError(MP_EIO);
     }
     return mp_obj_new_bytes(buffer, bytes_read);
@@ -368,7 +367,6 @@ STATIC mp_obj_t picoware_sd_file_readinto(size_t n_args, const mp_obj_t *args)
     size_t bytes_read;
     if (fat32_read(file, bufinfo.buf, bufinfo.len, &bytes_read) != FAT32_OK)
     {
-        PRINT("Failed to read into buffer.\n");
         mp_raise_OSError(MP_EIO);
     }
     return mp_obj_new_int(bytes_read);
@@ -523,7 +521,6 @@ STATIC mp_obj_t picoware_sd_read(size_t n_args, const mp_obj_t *args)
     fat32_error_t err = fat32_open(&file, filePath);
     if (err != FAT32_OK)
     {
-        PRINT("Failed to open file for reading: %s\n", fat32_error_string(err));
         mp_raise_OSError(MP_ENOENT);
     }
     if (index > 0)

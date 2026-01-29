@@ -78,7 +78,7 @@ def check_lose(grid) -> bool:
     return True
 
 
-def draw_grid(fb, grid, score: int, state: int) -> None:
+def draw_grid(fb, grid: list[list[int]], score: int, state: int) -> None:
     """Draws the game grid on the framebuffer."""
     fb.fill_screen(COLOR_BG)
     for y in range(GRID_SIZE):
@@ -181,7 +181,10 @@ def main(view_manager):
     prev_grid = [[0] * GRID_SIZE for _ in range(GRID_SIZE)]
     while True:
         button = inp.button
-        draw_grid(fb, grid, score, state)
+        try:
+            draw_grid(fb, grid, score, state)
+        except Exception:
+            break
         if state != STATE_PLAYING:
             fb.swap()  # Show the final WIN/LOSE screen
             # Wait for button press: any key except arrows restarts, Back quits
@@ -191,7 +194,12 @@ def main(view_manager):
                     inp.reset()
                     view_manager.back()
                     break
-                elif button != -1 and button not in (BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT):
+                elif button != -1 and button not in (
+                    BUTTON_UP,
+                    BUTTON_DOWN,
+                    BUTTON_LEFT,
+                    BUTTON_RIGHT,
+                ):
                     inp.reset()
                     # Restart game
                     grid = [[0] * GRID_SIZE for _ in range(GRID_SIZE)]

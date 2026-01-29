@@ -19,41 +19,83 @@ class List:
         self.is_circular = syst.is_circular
 
         self.display = draw
-        self.position = Vector(0, y)
-        self.size = Vector(draw.size.x, height)
+        self.y = y
+        self.height = height
         self.text_color = text_color
         self.background_color = background_color
         self.selected_color = selected_color
         self.border_color = border_color
         self.border_width = border_width
-        draw.clear(self.position, self.size, background_color)
+        self.use_lvgl = draw.use_lvgl
+        self._lvgl_list = None
 
-        self.lines_per_screen = 14
-        self.item_height = 20
-        self._selected_index = 0
-        self.visible_item_count = (self.size.y - 2 * border_width) / self.item_height
-        self.items = []
-        draw.swap()
+        # Initialize LVGL List if requested
+        if self.use_lvgl:
+            try:
+                from picoware_lvgl import init, List as LVGLList
 
-        self.size_x = self.display.size.x
-        self._dec_v = Vector(0, 0)
-        self._dec_v_b = Vector(0, 0)
+                init()
 
-        self.rec_vec_pos = Vector(5, 0)
-        self.rec_vec_size = Vector(self.size_x - 10, 0)
-        self.text_vec_pos = Vector(10, 0)
+                # Create LVGL List instance
+                self._lvgl_list = LVGLList(
+                    y,
+                    height,
+                    text_color,
+                    background_color,
+                    selected_color,
+                    border_color,
+                    border_width,
+                )
+            except (ImportError, RuntimeError, ValueError):
+                self.use_lvgl = False
 
-        self.menu_y = int(self.position.y + self.size.y // 4)
-        self.box_width = int(self.size_x - int(self.size_x // 6.4))
-        self.box_height = int(self.size.y // 8)
-        self.box_x = int((self.size_x - self.box_width) // 2)
-        self.box_pos = Vector(self.box_x, self.menu_y - 30)
-        self.box_size = Vector(self.box_width, self.box_height)
-        self.dot_size = Vector(10, 10)
-        self.dot_pos = Vector(0, 0)
+        # If not using LVGL, initialize standard rendering
+        if not self.use_lvgl:
+            self.position = Vector(0, y)
+            self.size = Vector(draw.size.x, height)
+            draw.clear(self.position, self.size, background_color)
+
+            self.lines_per_screen = 14
+            self.item_height = 20
+            self._selected_index = 0
+            self.visible_item_count = (
+                self.size.y - 2 * border_width
+            ) / self.item_height
+            self.items = []
+            draw.swap()
+
+            self.size_x = self.display.size.x
+            self._dec_v = Vector(0, 0)
+            self._dec_v_b = Vector(0, 0)
+
+            self.rec_vec_pos = Vector(5, 0)
+            self.rec_vec_size = Vector(self.size_x - 10, 0)
+            self.text_vec_pos = Vector(10, 0)
+
+            self.menu_y = int(self.position.y + self.size.y // 4)
+            self.box_width = int(self.size_x - int(self.size_x // 6.4))
+            self.box_height = int(self.size.y // 8)
+            self.box_x = int((self.size_x - self.box_width) // 2)
+            self.box_pos = Vector(self.box_x, self.menu_y - 30)
+            self.box_size = Vector(self.box_width, self.box_height)
+            self.dot_size = Vector(10, 10)
+            self.dot_pos = Vector(0, 0)
+        else:
+            # For LVGL mode, we still need to track items in Python
+            self.items = []
+            self._selected_index = 0
+            self.position = Vector(0, y)
+            self.size = Vector(draw.size.x, height)
 
     def __del__(self):
         """Destructor to clean up resources"""
+        if self._lvgl_list is not None:
+            self._lvgl_list.deinit()
+            del self._lvgl_list
+            self._lvgl_list = None
+            self.items = []
+            return
+
         self.items = []
         self.size = None
         self.position = None
@@ -74,6 +116,10 @@ class List:
     @property
     def current_item(self) -> str:
         """Get the currently selected item."""
+        if self.use_lvgl and self._lvgl_list is not None:
+            item = self._lvgl_list.current_item()
+            return item if item is not None else ""
+
         # Get the currently selected item
         if 0 <= self._selected_index < len(self.items):
             return self.items[self._selected_index]
@@ -82,24 +128,38 @@ class List:
     @property
     def item_count(self) -> int:
         """Get the number of items in the list."""
+        if self.use_lvgl and self._lvgl_list is not None:
+            return self._lvgl_list.item_count()
         return len(self.items)
 
     @property
     def list_height(self) -> int:
         """Get the height of the list."""
+        if self.use_lvgl and self._lvgl_list is not None:
+            return self._lvgl_list.list_height()
         return len(self.items) * self.item_height
 
     @property
     def selected_index(self) -> int:
         """Get the selected index."""
+        if self.use_lvgl and self._lvgl_list is not None:
+            return self._lvgl_list.selected_index()
         return self._selected_index
 
     def add_item(self, item: str) -> None:
         """Add an item to the list."""
+        if self.use_lvgl and self._lvgl_list is not None:
+            self._lvgl_list.add_item(item)
         self.items.append(item)
 
     def clear(self) -> None:
         """Clear the list."""
+        if self.use_lvgl and self._lvgl_list is not None:
+            self._lvgl_list.clear()
+            self.items = []
+            self._selected_index = 0
+            return
+
         # Clear the list of items
         self.items = []
         self._selected_index = 0
@@ -110,6 +170,14 @@ class List:
 
     def draw(self) -> None:
         """Draw the list with new style."""
+        if self.use_lvgl and self._lvgl_list is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_list.draw()
+            task_handler()
+            return
+
         self.display.clear(self.position, self.size, self.background_color)
 
         # Draw decorative pattern below underline
@@ -238,6 +306,10 @@ class List:
 
     def get_item(self, index: int) -> str:
         """Get an item from the list."""
+        if self.use_lvgl and self._lvgl_list is not None:
+            item = self._lvgl_list.get_item(index)
+            return item if item is not None else ""
+
         # Get the item from the list
         if 0 <= index < len(self.items):
             return self.items[index]
@@ -245,10 +317,20 @@ class List:
 
     def item_exists(self, item: str) -> bool:
         """Check if an item exists in the list."""
+        if self.use_lvgl and self._lvgl_list is not None:
+            return self._lvgl_list.item_exists(item)
         return item in self.items
 
     def remove_item(self, index: int) -> None:
         """Remove an item from the list and update the display."""
+        if self.use_lvgl and self._lvgl_list is not None:
+            self._lvgl_list.remove_item(index)
+            if 0 <= index < len(self.items):
+                self.items.pop(index)
+            if self._selected_index >= len(self.items):
+                self._selected_index = len(self.items) - 1 if len(self.items) > 0 else 0
+            return
+
         # Remove the item from the list
         if 0 <= index < len(self.items):
             self.items.pop(index)
@@ -258,6 +340,12 @@ class List:
 
     def scroll_down(self) -> None:
         """Scroll the list down by one item."""
+        if self.use_lvgl and self._lvgl_list is not None:
+            self._lvgl_list.scroll_down()
+            self._selected_index = self._lvgl_list.selected_index()
+            self.draw()
+            return
+
         self._selected_index += 1
         if self._selected_index >= len(self.items):
             self._selected_index = 0
@@ -265,6 +353,12 @@ class List:
 
     def scroll_up(self) -> None:
         """Scroll the list up by one item."""
+        if self.use_lvgl and self._lvgl_list is not None:
+            self._lvgl_list.scroll_up()
+            self._selected_index = self._lvgl_list.selected_index()
+            self.draw()
+            return
+
         self._selected_index -= 1
         if self._selected_index < 0:
             self._selected_index = len(self.items) - 1
@@ -272,6 +366,12 @@ class List:
 
     def set_selected(self, index: int) -> None:
         """Set the selected item in the list"""
+        if self.use_lvgl and self._lvgl_list is not None:
+            self._lvgl_list.set_selected(index)
+            self._selected_index = index
+            self.draw()
+            return
+
         if 0 <= index < len(self.items):
             self._selected_index = index
             self.draw()

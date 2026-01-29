@@ -20,34 +20,64 @@ class Menu:
         self.background_color = background_color
         self._title = title
         self.display = draw
-        self._height_offset = int(self.display.size.y // 8)  # Reserve space for title
-        self.list = List(
-            draw,
-            y + self._height_offset,
-            height - self._height_offset,
-            text_color,
-            background_color,
-            selected_color,
-            border_color,
-            border_width,
-        )
+        self.use_lvgl = draw.use_lvgl
+
+        if self.use_lvgl:
+            # LVGL mode: List handles title rendering internally
+            self._height_offset = 0
+            self.list = List(
+                draw,
+                y,
+                height,
+                text_color,
+                background_color,
+                selected_color,
+                border_color,
+                border_width,
+            )
+            # Set title on the LVGL list
+            if hasattr(self.list, "_lvgl_list") and self.list._lvgl_list is not None:
+                self.list._lvgl_list.set_title(title)
+        else:
+            # Standard mode: Reserve space for title at top
+            self._height_offset = int(self.display.size.y // 8)
+            self.list = List(
+                draw,
+                y + self._height_offset,
+                height - self._height_offset,
+                text_color,
+                background_color,
+                selected_color,
+                border_color,
+                border_width,
+            )
+
         self.position = Vector(0, y)
         self.size = Vector(draw.size.x, height)
 
-        title_width = self.display.font_size.x * len(self._title)
-        title_x = (self.display.size.x - title_width) // 2
-        title_y = self.position.y + 15
-        underline_y = title_y + 10
+        # Initialize title rendering properties for standard mode
+        if not self.use_lvgl:
+            title_width = self.display.font_size.x * len(self._title)
+            title_x = (self.display.size.x - title_width) // 2
+            title_y = self.position.y + 15
+            underline_y = title_y + 10
 
-        self.title_pos = Vector(title_x, title_y)
-        self.line_pos = Vector(self.title_pos.x, underline_y)
-        self.line_size = Vector(self.title_pos.x + title_width, underline_y)
+            self.title_pos = Vector(title_x, title_y)
+            self.line_pos = Vector(self.title_pos.x, underline_y)
+            self.line_size = Vector(self.title_pos.x + title_width, underline_y)
 
-        self.clear_position = Vector(0, 0)
-        self.clear_size = Vector(self.display.size.x, self._height_offset)
+            self.clear_position = Vector(0, 0)
+            self.clear_size = Vector(self.display.size.x, self._height_offset)
 
-        draw.clear(self.position, self.size, self.background_color)
-        draw.swap()
+            draw.clear(self.position, self.size, self.background_color)
+            draw.swap()
+        else:
+            # LVGL mode doesn't need these
+            self.title_pos = None
+            self.line_pos = None
+            self.line_size = None
+            self.clear_position = None
+            self.clear_size = None
 
     def __del__(self):
         if self.list:
@@ -106,14 +136,28 @@ class Menu:
         """Set the menu title."""
         self._title = value
 
-        title_width = self.display.font_size.x * len(self._title)
-        title_x = (self.display.size.x - title_width) // 2
-        title_y = self.position.y + 15
-        underline_y = title_y + 10
+        # Update LVGL list title if using LVGL
+        if (
+            self.use_lvgl
+            and hasattr(self.list, "_lvgl_list")
+            and self.list._lvgl_list is not None
+        ):
+            self.list._lvgl_list.set_title(value)
+            return
 
-        self.title_pos.x, self.title_pos.y = title_x, title_y
-        self.line_pos.x, self.line_pos.y = self.title_pos.x, underline_y
-        self.line_size.x, self.line_size.y = self.title_pos.x + title_width, underline_y
+        # Update standard rendering title positions
+        if not self.use_lvgl:
+            title_width = self.display.font_size.x * len(self._title)
+            title_x = (self.display.size.x - title_width) // 2
+            title_y = self.position.y + 15
+            underline_y = title_y + 10
+
+            self.title_pos.x, self.title_pos.y = title_x, title_y
+            self.line_pos.x, self.line_pos.y = self.title_pos.x, underline_y
+            self.line_size.x, self.line_size.y = (
+                self.title_pos.x + title_width,
+                underline_y,
+            )
 
     def add_item(self, item: str) -> None:
         """Add an item to the menu."""
@@ -121,24 +165,30 @@ class Menu:
 
     def clear(self) -> None:
         """Clear the menu."""
-        self.display.clear(
-            self.clear_position,
-            self.clear_size,
-            self.background_color,
-        )
-        self.list.clear()
+        if self.use_lvgl:
+            self.list.clear()
+        else:
+            self.display.clear(
+                self.clear_position,
+                self.clear_size,
+                self.background_color,
+            )
+            self.list.clear()
 
     def draw(self) -> None:
         """Draw the menu."""
-
-        # Draw the title
-        self.draw_title()
-
-        # Draw the list with the underline position
-        self.list.draw()
+        if self.use_lvgl:
+            # LVGL mode: List handles everything including title
+            self.list.draw()
+        else:
+            # Standard mode: Draw title then list
+            self.draw_title()
+            self.list.draw()
 
     def draw_title(self) -> None:
-        """Draw the title (kept for API compatibility, now handled in draw)."""
+        """Draw the title (for standard rendering only)."""
+        if self.use_lvgl:
+            return  # Title is handled by LVGL list
 
         # clear title area
         self.display.clear(
@@ -167,8 +217,11 @@ class Menu:
 
     def refresh(self) -> None:
         """Refresh the menu display."""
-        self.draw_title()
-        self.list.set_selected(self.list.selected_index)
+        if self.use_lvgl:
+            self.list.set_selected(self.list.selected_index)
+        else:
+            self.draw_title()
+            self.list.set_selected(self.list.selected_index)
 
     def remove_item(self, index: int) -> None:
         """Remove an item from the menu."""
@@ -176,15 +229,18 @@ class Menu:
 
     def scroll_down(self) -> None:
         """Scroll down the menu."""
-        self.draw_title()
+        if not self.use_lvgl:
+            self.draw_title()
         self.list.scroll_down()
 
     def scroll_up(self) -> None:
         """Scroll up the menu."""
-        self.draw_title()
+        if not self.use_lvgl:
+            self.draw_title()
         self.list.scroll_up()
 
     def set_selected(self, index: int) -> None:
         """Set the selected item."""
-        self.draw_title()
+        if not self.use_lvgl:
+            self.draw_title()
         self.list.set_selected(index)

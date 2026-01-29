@@ -17,6 +17,7 @@ class Toggle:
         border_color: int = 0xFFFF,
         border_width: int = 1,
         should_clear: bool = True,
+        use_lvgl: bool = True,
     ):
         """
         Initialize the Toggle switch with drawing context and styling.
@@ -31,6 +32,7 @@ class Toggle:
         :param on_color: The color when toggle is on.
         :param border_color: The color of the border.
         :param border_width: The width of the border.
+        :param use_lvgl: If True, use LVGL rendering instead of standard rendering.
         """
         from picoware.system.system import System
 
@@ -47,10 +49,42 @@ class Toggle:
         self.on_color = on_color
         self.border_color = border_color
         self.border_width = border_width
-        if should_clear:
+
+        self.use_lvgl = False if not use_lvgl else draw.use_lvgl
+        self._lvgl_toggle = None
+
+        # Initialize LVGL Toggle if requested
+        if self.use_lvgl:
+            try:
+                from picoware_lvgl import init, Toggle as LVGLToggle
+
+                init()
+
+                # Create LVGL Toggle instance
+                self._lvgl_toggle = LVGLToggle(
+                    (position.x, position.y),
+                    (size.x, size.y),
+                    text,
+                    initial_state,
+                    foreground_color,
+                    background_color,
+                    on_color,
+                    border_color,
+                    border_width,
+                    should_clear,
+                )
+            except (ImportError, RuntimeError, ValueError):
+                self.use_lvgl = False
+
+        if not self.use_lvgl and should_clear:
             self.clear()
 
     def __del__(self):
+        if self._lvgl_toggle is not None:
+            self._lvgl_toggle.deinit()
+            del self._lvgl_toggle
+            self._lvgl_toggle = None
+
         if self.position:
             del self.position
             self.position = None
@@ -68,21 +102,54 @@ class Toggle:
     def state(self, new_state: bool) -> None:
         """Set the toggle state and redraw."""
         self._state = new_state
+
+        if self.use_lvgl and self._lvgl_toggle is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_toggle.state = new_state
+            task_handler()
+            return
+
         self.draw()
 
     @property
     def text(self) -> str:
         """Get the current text of the toggle."""
+        if self.use_lvgl and self._lvgl_toggle is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            current_text = self._lvgl_toggle.text()
+            task_handler()
+            return current_text
         return self._text
 
     @text.setter
     def text(self, new_text: str) -> None:
         """Set the toggle text and redraw."""
         self._text = new_text
+
+        if self.use_lvgl and self._lvgl_toggle is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_toggle.set_text(new_text)
+            task_handler()
+            return
+
         self.draw()
 
     def clear(self) -> None:
         """Clear the toggle area with the background color."""
+        if self.use_lvgl and self._lvgl_toggle is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_toggle.clear()
+            task_handler()
+            return
+
         self.display.clear(self.position, self.size, self.background_color)
         self.display.swap()
 
@@ -90,6 +157,13 @@ class Toggle:
         self, swap: bool = True, clear: bool = True, selected: bool = False
     ) -> None:
         """Render the toggle switch on the display."""
+        if self.use_lvgl and self._lvgl_toggle is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_toggle.draw(swap, clear, selected)
+            task_handler()
+            return
 
         if clear:
             self.display.clear(self.position, self.size, self.background_color)
@@ -210,10 +284,29 @@ class Toggle:
 
     def toggle(self) -> None:
         """Toggle the current state."""
+        if self.use_lvgl and self._lvgl_toggle is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_toggle.toggle()
+            task_handler()
+            self._state = not self._state
+            return
+
         self._state = not self._state
         self.draw()
 
     def update(self, text: str, state: bool) -> None:
         """Update both text and state of the toggle."""
+        if self.use_lvgl and self._lvgl_toggle is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_toggle.update(text, state)
+            task_handler()
+            self._text = text
+            self._state = state
+            return
+
         self._text = text
         self._state = state

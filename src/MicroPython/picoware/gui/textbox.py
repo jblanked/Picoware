@@ -14,6 +14,7 @@ class TextBox:
         from picoware.system.system import System
         from picoware.system.vector import Vector
 
+        self.display = draw
         syst = System()
         self.is_circular = syst.is_circular
 
@@ -29,33 +30,72 @@ class TextBox:
         self.current_text = ""
         self.position = Vector(0, y)
         self.size = Vector(draw.size.x, height)
-        draw.clear(self.position, self.size, self.background_color)
 
-        # Line state tracking for memory optimization
-        self.line_buffer = []  # Stores line contents - only visible lines
-        self.line_positions = []  # Stores positions of all lines for quick scrolling
+        self.use_lvgl = draw.use_lvgl
+        self._lvgl_textbox = None
 
-        self.scrollbar = ScrollBar(
-            draw,
-            Vector(0, 0),
-            Vector(0, 0),
-            self.foreground_color,
-            self.background_color,
-            is_horizontal=self.is_circular,
-        )
+        # Initialize LVGL TextBox if requested
+        if self.use_lvgl:
+            try:
+                from picoware_lvgl import init, task_handler, TextBox as LVGLTextBox
 
-        self.characters_per_line = int(
-            draw.size.x // draw.font_size.x
-        )  # width is 320, 5x8 font (width of 6)
-        self.lines_per_screen = int(
-            draw.size.y // draw.font_size.y
-        )  # height is 320, 10 pixel line spacing
+                task_handler()
 
-        self.line_vector = Vector(0, 0)
+                init()
 
-        draw.swap()
+                # Create LVGL TextBox instance
+                self._lvgl_textbox = LVGLTextBox(
+                    y, height, foreground_color, background_color, show_scrollbar
+                )
+            except (ImportError, RuntimeError, ValueError):
+                self.use_lvgl = False
+
+        # Only initialize standard rendering if not using LVGL
+        if not self.use_lvgl:
+            draw.clear(self.position, self.size, self.background_color)
+
+            # Line state tracking for memory optimization
+            self.line_buffer = []  # Stores line contents - only visible lines
+            self.line_positions = (
+                []
+            )  # Stores positions of all lines for quick scrolling
+
+            self.scrollbar = ScrollBar(
+                draw,
+                Vector(0, 0),
+                Vector(0, 0),
+                self.foreground_color,
+                self.background_color,
+                is_horizontal=self.is_circular,
+            )
+
+            self.characters_per_line = int(
+                draw.size.x // draw.font_size.x
+            )  # width is 320, 5x8 font (width of 6)
+            self.lines_per_screen = int(
+                draw.size.y // draw.font_size.y
+            )  # height is 320, 10 pixel line spacing
+
+            self.line_vector = Vector(0, 0)
+
+            draw.swap()
+        else:
+            # Initialize minimal state for LVGL mode
+            self.line_buffer = []
+            self.line_positions = []
+            self.scrollbar = None
+            self.line_vector = None
 
     def __del__(self):
+        if self._lvgl_textbox is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_textbox.deinit()
+            task_handler()
+            del self._lvgl_textbox
+            self._lvgl_textbox = None
+
         # Reset content
         self.current_text = ""
         self.current_line = -1
@@ -79,11 +119,17 @@ class TextBox:
     @property
     def text(self) -> str:
         """Get the current text in the text box."""
+        if self.use_lvgl and self._lvgl_textbox is not None:
+            return self._lvgl_textbox.text()
+
         return self.current_text
 
     @property
     def text_height(self) -> int:
         """Get the height of the text box based on the number of lines and font size."""
+        if self.use_lvgl and self._lvgl_textbox is not None:
+            return self._lvgl_textbox.text_height()
+
         return (
             0
             if self.total_lines == 0
@@ -92,6 +138,9 @@ class TextBox:
 
     def set_scrollbar_position(self):
         """Set the position of the scrollbar based on the current line."""
+        if self.use_lvgl and self._lvgl_textbox is not None:
+            return
+
         # Calculate the proper scroll position based on current line and total lines
         scroll_ratio = 0.0
         if self.total_lines > self.lines_per_screen and self.total_lines > 0:
@@ -122,6 +171,9 @@ class TextBox:
 
     def set_scrollbar_size(self):
         """Set the size of the scrollbar based on the number of lines."""
+        if self.use_lvgl and self._lvgl_textbox is not None:
+            return
+
         content_height = self.text_height
         view_height = self.size.y
 
@@ -159,6 +211,9 @@ class TextBox:
 
     def display_visible_lines(self):
         """Display only the lines that are currently visible."""
+        if self.use_lvgl and self._lvgl_textbox is not None:
+            return
+
         # Clear current display
         self.scrollbar.display.clear(self.position, self.size, self.background_color)
 
@@ -231,6 +286,14 @@ class TextBox:
 
     def clear(self):
         """Clear the text box and reset the scrollbar."""
+        if self.use_lvgl and self._lvgl_textbox is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_textbox.clear()
+            task_handler()
+            return
+
         # Clear display area
         self.scrollbar.display.clear(self.position, self.size, self.background_color)
         # Reset content
@@ -247,6 +310,14 @@ class TextBox:
 
     def refresh(self):
         """Refresh the display to show current text and scrollbar."""
+        if self.use_lvgl and self._lvgl_textbox is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_textbox.refresh()
+            task_handler()
+            return
+
         # Clear area for fresh draw
         self.scrollbar.display.clear(self.position, self.size, self.background_color)
 
@@ -312,16 +383,40 @@ class TextBox:
 
     def scroll_down(self):
         """Scroll down by one line."""
+        if self.use_lvgl and self._lvgl_textbox is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_textbox.scroll_down()
+            task_handler()
+            return
+
         if self.current_line < self.total_lines - 1:
             self.set_current_line(self.current_line + 1)
 
     def scroll_up(self):
         """Scroll up by one line."""
+        if self.use_lvgl and self._lvgl_textbox is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_textbox.scroll_up()
+            task_handler()
+            return
+
         if self.current_line > 0:
             self.set_current_line(self.current_line - 1)
 
     def set_current_line(self, line: int):
         """Scroll the text box to the specified line."""
+        if self.use_lvgl and self._lvgl_textbox is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_textbox.set_current_line(line)
+            task_handler()
+            return
+
         if self.total_lines == 0 or line < 0 or line > (self.total_lines - 1):
             return
 
@@ -336,6 +431,14 @@ class TextBox:
 
     def set_text(self, text: str):
         """Set the text in the text box, wrap lines, and scroll to bottom."""
+        if self.use_lvgl and self._lvgl_textbox is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_textbox.set_text(text)
+            task_handler()
+            return
+
         if self.current_text == text:
             return
         self.current_text = text

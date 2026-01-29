@@ -21,14 +21,36 @@ class Alert:
         self.text = text
         self.text_color = text_color
         self.background_color = background_color
+        self.use_lvgl = draw.use_lvgl
+        self._lvgl_alert = None
+
+        # Initialize LVGL Alert if requested
+        if self.use_lvgl:
+            try:
+                from picoware_lvgl import init, Alert as LVGLAlert
+
+                init()
+
+                # Create LVGL Alert instance
+                self._lvgl_alert = LVGLAlert(text, text_color, background_color)
+            except (ImportError, RuntimeError, ValueError):
+                self.use_lvgl = False
 
     def __del__(self):
+        if self._lvgl_alert is not None:
+            self._lvgl_alert.deinit()
+            del self._lvgl_alert
+            self._lvgl_alert = None
         self.text = ""
         self.text_color = 0
         self.background_color = 0
 
     def clear(self) -> None:
         """Clear the display with the background color."""
+        if self.use_lvgl and self._lvgl_alert is not None:
+            self._lvgl_alert.clear()
+            return
+
         from picoware.system.vector import Vector
 
         self.display.clear(Vector(0, 0), self.display.size, self.background_color)
@@ -36,6 +58,14 @@ class Alert:
 
     def draw(self, title: str) -> None:
         """Render the alert message on the display."""
+        if self.use_lvgl and self._lvgl_alert is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_alert.draw(title)
+            task_handler()
+            return
+
         from picoware.system.vector import Vector
 
         self.clear()

@@ -6,8 +6,18 @@ class Loading:
     """A loading class with spinner animation."""
 
     def __init__(
-        self, draw, spinner_color: int = 0xFFFF, background_color: int = 0x0000
+        self,
+        draw,
+        spinner_color: int = 0xFFFF,
+        background_color: int = 0x0000,
     ) -> None:
+        """
+        Initialize the Loading spinner with drawing context and styling.
+
+        :param draw: The drawing context to render the loading spinner.
+        :param spinner_color: The color of the spinner.
+        :param background_color: The background color.
+        """
         from picoware.system.vector import Vector
 
         self.display = draw
@@ -33,7 +43,28 @@ class Loading:
         text_width = len(self.current_text) * self.font_size_x
         self.text_vec.x = (self.display.size.x - text_width) // 2
 
+        self.use_lvgl = draw.use_lvgl
+        self._lvgl_loading = None
+
+        # Initialize LVGL Loading if requested
+        if self.use_lvgl:
+            try:
+                from picoware_lvgl import init, Loading as LVGLLoading
+
+                init()
+
+                # Create LVGL Loading instance
+                self._lvgl_loading = LVGLLoading(spinner_color, background_color)
+                # Set initial text
+                self._lvgl_loading.set_text(self.current_text)
+            except (ImportError, RuntimeError, ValueError):
+                self.use_lvgl = False
+
     def __del__(self) -> None:
+        if self._lvgl_loading is not None:
+            self._lvgl_loading.deinit()
+            del self._lvgl_loading
+            self._lvgl_loading = None
         self.current_text = ""
         self.animating = False
         self.time_elapsed = 0
@@ -56,12 +87,25 @@ class Loading:
         """Set the current loading text."""
         self.current_text = value
 
+        # Update LVGL Loading if using it
+        if self.use_lvgl and self._lvgl_loading is not None:
+            self._lvgl_loading.set_text(value)
+            return
+
         # Calculate centered text position
         text_width = len(self.current_text) * self.font_size_x
         self.text_vec.x = (self.display.size.x - text_width) // 2
 
     def animate(self, swap: bool = True) -> None:
         """Animate the loading spinner."""
+        if self.use_lvgl and self._lvgl_loading is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(10)
+            self._lvgl_loading.animate(swap)
+            task_handler()
+            return
+
         if not self.animating:
             self.animating = True
             self.time_start = ticks_ms()
@@ -141,12 +185,25 @@ class Loading:
         """Set the loading text."""
         self.current_text = text
 
+        # Update LVGL Loading if using it
+        if self.use_lvgl and self._lvgl_loading is not None:
+            self._lvgl_loading.set_text(text)
+            return
+
         # Calculate centered text position
         text_width = len(self.current_text) * self.font_size_x
         self.text_vec.x = (self.display.size.x - text_width) // 2
 
     def stop(self) -> None:
         """Stop the loading animation."""
+        if self.use_lvgl and self._lvgl_loading is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_loading.stop()
+            task_handler()
+            return
+
         # Clear the entire screen
         self.display.erase()
         self.display.swap()

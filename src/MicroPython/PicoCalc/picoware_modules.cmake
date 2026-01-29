@@ -1,5 +1,5 @@
 # Combined Picoware Modules for MicroPython
-# This file includes both picoware_lcd and picoware_psram modules
+# This file includes picoware_lcd, picoware_psram, romram, and other modules
 
 # Generate PIO header from .pio file for LCD
 pico_generate_pio_header(usermod
@@ -204,3 +204,42 @@ target_include_directories(usermod_auto_complete INTERFACE
 )
 
 target_link_libraries(usermod INTERFACE usermod_auto_complete)
+
+
+# Include picoware_lvgl module
+add_library(usermod_picoware_lvgl INTERFACE)
+
+target_sources(usermod_picoware_lvgl INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/picoware_lvgl/picoware_lvgl.c
+)
+
+target_include_directories(usermod_picoware_lvgl INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}
+    ${CMAKE_CURRENT_LIST_DIR}/picoware_lvgl
+    ${CMAKE_CURRENT_LIST_DIR}/picoware_lvgl/lvgl/
+    ${CMAKE_CURRENT_LIST_DIR}/picoware_lvgl/lvgl/src
+)
+
+# Add LVGL library as subdirectory
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/picoware_lvgl/lvgl)
+
+# Add warning suppression for LVGL compilation
+#target_compile_options(lvgl_interface INTERFACE -Wno-format)
+
+target_link_libraries(usermod_picoware_lvgl INTERFACE lvgl_interface)
+
+target_link_libraries(usermod INTERFACE usermod_picoware_lvgl)
+
+
+# Include vector module
+add_library(usermod_vector INTERFACE)
+
+target_sources(usermod_vector INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../vector/vector_mp.c
+)
+
+target_include_directories(usermod_vector INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../vector
+)
+
+target_link_libraries(usermod INTERFACE usermod_vector)

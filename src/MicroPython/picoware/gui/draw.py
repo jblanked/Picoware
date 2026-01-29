@@ -69,6 +69,8 @@ class Draw:
         self._size = Vector(0, 0)
         self._font_size = Vector(0, 0)
 
+        self._use_lvgl = False
+
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             self._size.x, self._size.y = 240, 240
 
@@ -136,6 +138,16 @@ class Draw:
     def size(self) -> Vector:
         """Get the size of the display"""
         return self._size
+
+    @property
+    def use_lvgl(self) -> bool:
+        """Get whether LVGL mode is enabled"""
+        return self._use_lvgl
+
+    @use_lvgl.setter
+    def use_lvgl(self, state: bool):
+        """Set whether to use LVGL mode for drawing"""
+        self._use_lvgl = state
 
     def _rgb565_to_rgb332(self, rgb565):
         """Convert RGB565 color to RGB332 palette index"""

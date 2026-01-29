@@ -12,9 +12,13 @@ WIFI_STATE_TIMEOUT = const(4)
 class WiFi:
     """Class to manage WiFi functionality on a MicroPython device."""
 
-    def __init__(self):
+    def __init__(self, thread_manager=None, timeout: int = 10) -> None:
         """
         Initialize the WiFi class.
+
+        Args:
+            thread_manager: Optional ThreadManager instance for managed threading.
+            timeout: Connection timeout in seconds.
         """
         from network import STA_IF, WLAN
         from _thread import allocate_lock
@@ -25,12 +29,14 @@ class WiFi:
         self.wlan = WLAN(self.mode)
         self._state = WIFI_STATE_IDLE
         self.connection_start_time = None
-        self.connection_timeout = 10  # seconds
+        self.connection_timeout = timeout
         self.error = ""
         #
         self._thread = None
         self._thread_running = False
         self._thread_lock = allocate_lock()
+        self._thread_manager = thread_manager
+        self._current_task = None
         #
         self._callback_connect: callable = None
 
@@ -46,17 +52,25 @@ class WiFi:
 
     def __close_thread(self):
         """Internal method to close the background thread."""
+        if self._current_task:
+            self._current_task.stop()
+            self._current_task = None
         with self._thread_lock:
             self._thread_running = False
             self._thread = None
 
+    def _should_continue(self) -> bool:
+        """Check if the operation should continue running."""
+        with self._thread_lock:
+            if self._thread_manager is not None and self._current_task is not None:
+                return self._thread_running and not self._current_task.should_stop
+            return self._thread_running
+
     @property
     def callback_connect(self) -> callable:
         """Get the connection callback function."""
-        _callback = None
         with self._thread_lock:
-            _callback = self._callback_connect
-        return _callback
+            return self._callback_connect
 
     @callback_connect.setter
     def callback_connect(self, func: callable) -> None:
@@ -71,26 +85,39 @@ class WiFi:
     @property
     def device_ip(self):
         """Get the current device IP address."""
-        addr = ""
         with self._thread_lock:
             return self.wlan.ifconfig()[0] if self.wlan else ""
-        return addr
 
     @property
     def last_error(self) -> str:
         """Get the last connection error message."""
-        error = ""
         with self._thread_lock:
-            error = self.error
-        return error
+            return self.error
+
+    @property
+    def mac_address(self) -> str:
+        """Get the MAC address of the Wi-Fi interface."""
+        with self._thread_lock:
+            mac = self.wlan.config("mac")
+            return ":".join("{:02x}".format(b) for b in mac)
 
     @property
     def state(self) -> int:
         """Get the current Wi-Fi state."""
-        _state = 0
         with self._thread_lock:
-            _state = self._state
-        return _state
+            return self._state
+
+    @property
+    def timeout(self) -> int:
+        """Get the connection timeout in seconds."""
+        with self._thread_lock:
+            return self.connection_timeout
+
+    @timeout.setter
+    def timeout(self, seconds: int) -> None:
+        """Set the connection timeout in seconds."""
+        with self._thread_lock:
+            self.connection_timeout = seconds
 
     def connect(self, ssid: str, password: str, sta_mode: bool = True) -> bool:
         """
@@ -129,7 +156,7 @@ class WiFi:
                             self._thread_running = False
                             self._thread = None
                             return False
-                        if not self._thread_running:
+                        if not self._should_continue():
                             return False
                         sleep(0.1)
                 self.mode = _mode
@@ -160,13 +187,26 @@ class WiFi:
 
     def connect_async(self, ssid: str, password: str, sta_mode: bool = True) -> bool:
         """
-        Connect to a Wi-Fi network.
+        Connect to a Wi-Fi network asynchronously.
 
         :param ssid: SSID of the Wi-Fi network.
         :param password: Password for the Wi-Fi network.
         :param sta_mode: If True, use station mode (STA_IF), otherwise use access point mode (AP_IF).
         """
         try:
+            if self._thread_manager:
+                # Use ThreadManager
+                from picoware.system.thread import ThreadTask
+
+                task = ThreadTask(
+                    "WiFi",
+                    function=self.connect,
+                    args=(ssid, password, sta_mode),
+                )
+                self._current_task = task
+                self._thread_manager.add_task(task)
+                return True
+
             import _thread
 
             # Start the request in a separate thread
@@ -186,10 +226,8 @@ class WiFi:
 
     def is_connected(self):
         """Check if the device is connected to a Wi-Fi network."""
-        status = False
         with self._thread_lock:
-            status = self.wlan.isconnected()
-        return status
+            return self.wlan.isconnected()
 
     def scan(self) -> list:
         """Scan for available Wi-Fi networks."""

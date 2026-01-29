@@ -219,7 +219,7 @@ def start(view_manager) -> bool:
     if _desktop_http is None:
         from picoware.system.http import HTTP
 
-        _desktop_http = HTTP()
+        _desktop_http = HTTP(thread_manager=view_manager.thread_manager)
 
         if view_manager.wifi.is_connected() and not view_manager.time.is_set:
             _desktop_time_updated = False
@@ -281,7 +281,11 @@ def run(view_manager) -> None:
             connect_to_saved_wifi(view_manager)
         return
 
-    if wifi.is_connected() and not view_manager.time.is_set:
+    if (
+        wifi.is_connected()
+        and not view_manager.time.is_set
+        and not _desktop_http.in_progress
+    ):
         _desktop_time_updated = False
         _desktop_http.callback = _http_callback
         _desktop_http.get_async("http://worldtimeapi.org/api/ip")

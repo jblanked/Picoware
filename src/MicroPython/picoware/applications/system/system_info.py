@@ -61,7 +61,7 @@ def stop(view_manager) -> None:
     from gc import collect
 
     global _system_info
-    if _system_info:
+    if _system_info is not None:
         del _system_info
         _system_info = None
 

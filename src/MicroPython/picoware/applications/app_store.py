@@ -164,15 +164,15 @@ def __check_updates_async(view_manager) -> bool:
     """Start async request to check for updates for all installed apps"""
     global _http, _installed_apps
 
-    if not _http:
-        from picoware.system.http import HTTP
-
-        _http = HTTP()
-
     _installed_apps = __get_installed_apps(view_manager)
 
     if not _installed_apps:
         return False
+
+    if not _http:
+        from picoware.system.http import HTTP
+
+        _http = HTTP(thread_manager=view_manager.thread_manager)
 
     # Build POST data for bulk update check
     from json import dumps
@@ -191,8 +191,6 @@ def __check_updates_async(view_manager) -> bool:
     return _http.post_async(
         url,
         payload=post_data,
-        save_to_file="picoware/cache/update_check.json",
-        storage=storage,
         headers={
             "User-Agent": "Raspberry Pi Pico W",
             "Content-Type": "application/json",
@@ -204,17 +202,11 @@ def __parse_update_check(view_manager) -> bool:
     """Parse update check response and populate updates list"""
     global _updates_available, _app_menu
 
-    storage = view_manager.storage
-    file_path = "picoware/cache/update_check.json"
+    # storage = view_manager.storage
+    # file_path = "picoware/cache/update_check.json"
 
     try:
-        data = storage.read(file_path)
-        if not data:
-            return False
-
-        from json import loads
-
-        response = loads(data)
+        response = _http.response.json()
 
         if not response.get("success") or not response.get("results"):
             return False
@@ -274,7 +266,7 @@ def __check_single_app_update(view_manager, app_id: int, current_version: str) -
     if not _http:
         from picoware.system.http import HTTP
 
-        _http = HTTP()
+        _http = HTTP(thread_manager=view_manager.thread_manager)
 
     storage = view_manager.storage
     url = f"https://www.jblanked.com/picoware/api/app/{app_id}/check_update/{current_version}/"
@@ -367,7 +359,7 @@ def __fetch_app_list(view_manager) -> bool:
     if not _http:
         from picoware.system.http import HTTP
 
-        _http = HTTP()
+        _http = HTTP(thread_manager=view_manager.thread_manager)
 
     storage = view_manager.storage
     storage.mkdir("picoware/cache")
@@ -438,7 +430,7 @@ def __fetch_app_details(view_manager, app_id: int) -> bool:
     if not _http:
         from picoware.system.http import HTTP
 
-        _http = HTTP()
+        _http = HTTP(thread_manager=view_manager.thread_manager)
 
     storage = view_manager.storage
     url = f"https://www.jblanked.com/picoware/api/app/{app_id}/"
@@ -982,6 +974,8 @@ def run(view_manager) -> None:
                 _app_menu.draw()
         else:
             view_manager.alert("Failed to load apps")
+            _app_state = STATE_MAIN_MENU
+            __show_main_menu(view_manager)
 
     elif _app_state == STATE_APP_LIST:
         # Handle menu navigation

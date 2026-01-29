@@ -34,7 +34,7 @@ def _get_status_text(view_manager) -> str:
 
     if wifi.is_connected():
         text += "IP Address: " + wifi.device_ip + "\n"
-        text += "Connected!\n\n"
+        text += "MAC Address: " + wifi.mac_address + "\n\n"
         _status_message = "Connected successfully!"
     else:
         from picoware.system.wifi import (

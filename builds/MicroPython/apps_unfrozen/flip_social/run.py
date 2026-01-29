@@ -1673,7 +1673,7 @@ class FlipSocialRun:
             del self.http
             self.http = None
 
-        self.http = HTTP()
+        self.http = HTTP(thread_manager=self.view_manager.thread_manager)
 
         # Get credentials
         username = __flip_social_util_get_username(self.view_manager)

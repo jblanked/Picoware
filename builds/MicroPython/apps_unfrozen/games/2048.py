@@ -78,7 +78,7 @@ def check_lose(grid) -> bool:
     return True
 
 
-def draw_grid(fb, grid, score: int, state: int) -> None:
+def draw_grid(fb, grid: list[list[int]], score: int, state: int) -> None:
     """Draws the game grid on the framebuffer."""
     fb.fill_screen(COLOR_BG)
     for y in range(GRID_SIZE):
@@ -109,9 +109,13 @@ def draw_grid(fb, grid, score: int, state: int) -> None:
         fb.text(text_vector, "GAME OVER", COLOR_LOSE)
     text_vector.x = 10
     text_vector.y = 300
+    if state != STATE_PLAYING:
+        fb.text(text_vector, "Space: Restart", COLOR_TEXT)
+        text_vector.y = 285
     fb.text(text_vector, "Back: Quit", COLOR_TEXT)
-    text_vector.x = 120
-    fb.text(text_vector, "Arrows: Move", COLOR_TEXT)
+    if state == STATE_PLAYING:
+        text_vector.x = 120
+        fb.text(text_vector, "Arrows: Move", COLOR_TEXT)
 
 
 def draw_grid_with_offsets(fb, grid, score: int, state: int, offsets=None) -> None:
@@ -148,9 +152,13 @@ def draw_grid_with_offsets(fb, grid, score: int, state: int, offsets=None) -> No
         fb.text(text_vector, "GAME OVER", COLOR_LOSE)
     text_vector.x = 10
     text_vector.y = 300
+    if state != STATE_PLAYING:
+        fb.text(text_vector, "Space: Restart", COLOR_TEXT)
+        text_vector.y = 285
     fb.text(text_vector, "Back: Quit", COLOR_TEXT)
-    text_vector.x = 120
-    fb.text(text_vector, "Arrows: Move", COLOR_TEXT)
+    if state == STATE_PLAYING:
+        text_vector.x = 120
+        fb.text(text_vector, "Arrows: Move", COLOR_TEXT)
 
 
 def main(view_manager):
@@ -173,8 +181,36 @@ def main(view_manager):
     prev_grid = [[0] * GRID_SIZE for _ in range(GRID_SIZE)]
     while True:
         button = inp.button
-        draw_grid(fb, grid, score, state)
+        try:
+            draw_grid(fb, grid, score, state)
+        except Exception:
+            break
         if state != STATE_PLAYING:
+            fb.swap()  # Show the final WIN/LOSE screen
+            # Wait for button press: any key except arrows restarts, Back quits
+            while True:
+                button = inp.button
+                if button == BUTTON_BACK:
+                    inp.reset()
+                    view_manager.back()
+                    break
+                elif button != -1 and button not in (
+                    BUTTON_UP,
+                    BUTTON_DOWN,
+                    BUTTON_LEFT,
+                    BUTTON_RIGHT,
+                ):
+                    inp.reset()
+                    # Restart game
+                    grid = [[0] * GRID_SIZE for _ in range(GRID_SIZE)]
+                    score = 0
+                    state = STATE_PLAYING
+                    add_tile(grid)
+                    add_tile(grid)
+                    break
+                fb.swap()  # Keep refreshing the screen
+            if state == STATE_PLAYING:
+                continue  # Restart game loop
             break
         # Input
         moved, s = False, 0  # Always initialize

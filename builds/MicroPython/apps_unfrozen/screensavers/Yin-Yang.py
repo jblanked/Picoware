@@ -238,10 +238,7 @@ def start(view_manager) -> bool:
     _speed = 256
     _adder = 4
 
-    from machine import freq
-
-    # temporarily slow down for rp2350
-    freq(210000000)
+    view_manager.freq(True)  # set to lower frequency
 
     return True
 
@@ -323,6 +320,8 @@ def run(view_manager) -> None:
 
 def stop(view_manager) -> None:
     """Stop the app"""
+    from gc import collect
+
     global _yin_yang_data, _ball_black, _ball_white, _speed, _adder
 
     _yin_yang_data = None
@@ -331,17 +330,7 @@ def stop(view_manager) -> None:
     _speed = 256
     _adder = 4
 
-    from gc import collect
-    from machine import freq
-    from picoware.system.boards import (
-        BOARD_ID,
-        BOARD_PICOCALC_PICO,
-        BOARD_PICOCALC_PICOW,
-    )
-
-    if BOARD_ID not in (BOARD_PICOCALC_PICO, BOARD_PICOCALC_PICOW):
-        # switch back to 230 for pico2, pico2 w
-        freq(230000000)
+    view_manager.freq()  # set to default frequency
 
     # Initial cleanup
     collect()

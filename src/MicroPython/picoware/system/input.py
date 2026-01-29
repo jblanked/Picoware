@@ -1,5 +1,5 @@
 from utime import ticks_ms
-import picoware.system.buttons as buttons
+from picoware.system import buttons
 from picoware.system.boards import (
     BOARD_WAVESHARE_1_28_RP2350,
     BOARD_WAVESHARE_1_43_RP2350,

@@ -207,7 +207,7 @@ def start(view_manager) -> bool:
         + "/"
     )
 
-    _http = HTTP()
+    _http = HTTP(thread_manager=view_manager.thread_manager)
     if not _http.get_async(
         url,
         headers={

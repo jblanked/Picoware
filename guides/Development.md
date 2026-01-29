@@ -2,6 +2,33 @@
 
 The firmware is available for MicroPython, the Arduino IDE (C++), CircuitPython, and C/C++ (using the official SDK). Each environment offers similar configurations, methods, and functionalities to ensure a smooth development experience.
 
+### MicroPython
+
+To develop for the MicroPython version:
+1. Download and install Thonny IDE (https://thonny.org).
+2. Install the Micropython SDK:
+```shell
+sudo apt install gcc-arm-none-eabi
+mkdir ~/pico
+cd ~/pico
+git clone https://github.com/micropython/micropython.git
+git clone https://github.com/micropython/micropython-lib.git
+cd micropython
+git submodule update --init
+make -C mpy-cross
+```
+3. Open up `~/pico/micropython/ports/rp2/boards/RPI_PICO/mpconfigboard.h` and change `#define MICROPY_HW_FLASH_STORAGE_BYTES (1408 * 1024)` to `#define MICROPY_HW_FLASH_STORAGE_BYTES (1024 * 1024)`.
+4. Download this repository as a .zip file (available here: https://github.com/jblanked/Picoware/archive/refs/heads/main.zip) then unzip it once downloaded.
+5. Open the terminal and navigate to the `tools` folder inside the downloaded Picoware repository.
+6. Now you can build the MicroPython firmware with the scripts provided, for example to build for all supported devices:
+```shell
+# Build all
+bash tools/micropython-all.sh
+```
+> [!NOTE]
+> You must change the `micropython_dir` and `picoware_dir` variables in the scripts to point to your local MicroPython SDK and Picoware repository paths respectively.
+7. After building, the firmware files will be located in the `builds/MicroPython` folder inside the Picoware repository.
+
 ### C/C++ SDK
 
 Here's a video tutorial: https://youtu.be/-eMqPjVN0fU?si=obkQ3QTTLtz72qeE&t=569
@@ -79,46 +106,6 @@ Replace it with the following code snippet if you're using JBlanked's Custom Pic
 14. Finally, click `Sketch` in the menu, then select `Upload`.
 
 Here's a video tutorial: https://www.youtube.com/watch?v=-eMqPjVN0fU
-
-### MicroPython
-
-To use MicroPython library:
-1. Download and install Thonny IDE (https://thonny.org).
-2. Install the Micropython SDK:
-```
-sudo apt install gcc-arm-none-eabi
-mkdir ~/pico
-cd ~/pico
-git clone https://github.com/micropython/micropython.git
-git clone https://github.com/micropython/micropython-lib.git
-cd micropython
-git submodule update --init
-make -C mpy-cross
-```
-3. Download this repository as a .zip file (available here: https://github.com/jblanked/Picoware/archive/refs/heads/main.zip).
-4. Unzip the archive, then in the `src/MicroPython` folder, copy the `main.py` file, `picoware_modules.cmake` file, `picoware` folder, `picoware_game` folder, `picoware_keyboard` folder, `picoware_lcd` folder, and `picoware_psram` into `~/pico/micropython/ports/rp2/modules`
-5. Now, build the MicroPython firmware with:
-```
-# Pico
-cd ~/pico/micropython/ports/rp2
-make clean
-make BOARD=RPI_PICO USER_C_MODULES=/Users/user/pico/micropython/ports/rp2/modules/picoware_modules.cmake
-
-# Pico W
-cd ~/pico/micropython/ports/rp2
-make clean
-make BOARD=RPI_PICO_W USER_C_MODULES=/Users/user/pico/micropython/ports/rp2/modules/picoware_modules.cmake
-
-# Pico 2
-cd ~/pico/micropython/ports/rp2
-make clean
-make BOARD=RPI_PICO2 USER_C_MODULES=/Users/user/pico/micropython/ports/rp2/modules/picoware_modules.cmake
-
-# Pico 2W
-cd ~/pico/micropython/ports/rp2
-make clean
-make BOARD=RPI_PICO2_W USER_C_MODULES=/Users/user/pico/micropython/ports/rp2/modules/picoware_modules.cmake
-```
 
 ### CircuitPython
 

@@ -323,18 +323,21 @@ class FileBrowser:
                             self._file_browser_choice.state = 0
                             self._file_browser_choice.title = f"File: {selected_item}"
                             self._file_browser_choice.draw()
+                            self._file_browser_choice.open()
 
                             # Enter choice loop
                             while True:
                                 _button = self._input_manager.button
-                                if _button == BUTTON_LEFT:
+                                if _button in (BUTTON_LEFT, BUTTON_UP):
                                     self._input_manager.reset()
                                     self._file_browser_choice.scroll_up()
-                                elif _button == BUTTON_RIGHT:
+                                elif _button in (BUTTON_RIGHT, BUTTON_DOWN):
                                     self._input_manager.reset()
                                     self._file_browser_choice.scroll_down()
                                 elif _button == BUTTON_CENTER:
                                     self._input_manager.reset()
+                                    if self._file_browser_choice.is_open():
+                                        self._file_browser_choice.close()
                                     if self._file_browser_choice.state == 0:
                                         # View option selected
                                         self.__show_file_contents(file_path)

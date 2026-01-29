@@ -1,5 +1,6 @@
 /*
  * Picoware VFS (Virtual File System) for MicroPython
+ * Copyright © 2025 JBlanked
  *
  * This module provides VFS integration so that the SD card can be mounted
  * as a proper filesystem, enabling use of __import__, open(), os module, etc.

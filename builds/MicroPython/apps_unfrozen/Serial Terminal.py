@@ -106,6 +106,7 @@ def start(view_manager) -> bool:
 
     state = STATE_TYPING
 
+    view_manager.freq(True)  # set to lower frequency
     view_manager.draw.set_mode(1)  # Set to HEAP mode
 
     board_id = view_manager.board_id
@@ -178,6 +179,9 @@ def stop(view_manager) -> None:
 
     view_manager.keyboard.reset()
 
-    view_manager.set_mode(0)  # PSRAM mode
+    view_manager.draw.set_mode(0)  # PSRAM mode
 
+    view_manager.freq()  # set back to higher frequency
+
+    # cleanup
     collect()

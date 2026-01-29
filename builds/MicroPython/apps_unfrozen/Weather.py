@@ -74,7 +74,7 @@ def start(view_manager) -> bool:
     draw.text(Vector(5, 5), "Fetching location data...")
     draw.swap()
 
-    _weather_http = HTTP()
+    _weather_http = HTTP(thread_manager=view_manager.thread_manager)
 
     # Reset weather state for fresh start
     __reset_weather_state()
@@ -127,7 +127,7 @@ def run(view_manager) -> None:
         if not _weather_http:
             from picoware.system.http import HTTP
 
-            _weather_http = HTTP()
+            _weather_http = HTTP(thread_manager=view_manager.thread_manager)
 
         _weather_http.close()
         if not _weather_http.get_async("https://ipwhois.app/json/"):
@@ -208,7 +208,7 @@ def run(view_manager) -> None:
         if not _weather_http:
             from picoware.system.http import HTTP
 
-            _weather_http = HTTP()
+            _weather_http = HTTP(thread_manager=view_manager.thread_manager)
 
         if not _weather_http.get_async(weather_url):
             view_manager.alert("Failed to start weather request")

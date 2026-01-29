@@ -5,6 +5,9 @@ class ViewManager:
 
     MAX_VIEWS = 10
     MAX_STACK_SIZE = 10
+    FREQ_DEFAULT = 200000000
+    FREQ_RP2040 = 200000000  # was 210 but users had issues
+    FREQ_RP2350 = 230000000
 
     def __init__(self):
         """Initialize the ViewManager with default settings."""
@@ -16,6 +19,7 @@ class ViewManager:
         from picoware.system.wifi import WiFi
         from picoware.system.system import System
         from picoware.system.time import Time
+        from picoware.system.thread import ThreadManager
         from picoware.system.colors import TFT_BLUE, TFT_BLACK, TFT_WHITE
 
         self._current_view = None
@@ -24,12 +28,17 @@ class ViewManager:
         self._stack_depth = 0
 
         syst = System()
-
-        # Initialize WiFi
-        self._wifi = None
         self._current_board_id = syst.board_id
+
+        self.freq()
+
+        # Initialize ThreadManager
+        self._thread_manager = ThreadManager()
+
+        # Initialize WiFi if available
+        self._wifi = None
         if syst is not None and syst.has_wifi:
-            self._wifi = WiFi()
+            self._wifi = WiFi(thread_manager=self._thread_manager)
 
         # Initialize storage
         self._storage = None
@@ -88,6 +97,12 @@ class ViewManager:
                 state: bool = "true" in on_screen_keyboard_data.lower()
                 self._keyboard.show_keyboard = state
 
+            lvgl_data: str = self._storage.read("picoware/settings/lvgl_mode.json")
+
+            if len(lvgl_data) > 1:
+                state: bool = "true" in lvgl_data.lower()
+                self._draw.use_lvgl = state
+
         # Clear screen
         self.clear()
 
@@ -126,6 +141,9 @@ class ViewManager:
         if self._time:
             del self._time
             self._time = None
+        if self._thread_manager:
+            del self._thread_manager
+            self._thread_manager = None
 
         collect()
 
@@ -232,6 +250,11 @@ class ViewManager:
     def time(self):
         """Return the Time instance."""
         return self._time
+
+    @property
+    def thread_manager(self):
+        """Return the ThreadManager instance."""
+        return self._thread_manager
 
     @property
     def view_count(self):
@@ -359,6 +382,24 @@ class ViewManager:
             self.view_stack[i] = None
         self._stack_depth = 0
 
+    def freq(self, use_default: bool = False) -> int:
+        """
+        Set the CPU frequency.
+        """
+        from machine import freq
+        from picoware.system.boards import (
+            BOARD_PICOCALC_PICO,
+            BOARD_PICOCALC_PICOW,
+        )
+
+        if use_default:
+            return freq(self.FREQ_DEFAULT)
+
+        if self._current_board_id in (BOARD_PICOCALC_PICO, BOARD_PICOCALC_PICOW):
+            freq(self.FREQ_RP2040)
+        else:
+            freq(self.FREQ_RP2350)
+
     def get_view(self, view_name: str):
         """
         Get a view by name.
@@ -421,6 +462,9 @@ class ViewManager:
                     self.back(should_clear=True, should_start=True)
                 else:
                     self.back(should_clear=False, should_start=False)
+
+        if self._thread_manager:
+            self._thread_manager.run()
 
         if self._current_view is not None:
             self._current_view.run(self)

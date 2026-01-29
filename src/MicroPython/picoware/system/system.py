@@ -155,7 +155,7 @@ class System:
     @property
     def version(self) -> str:
         """Return the Picoware version."""
-        return "1.6.1"
+        return "1.6.2"
 
     def bootloader_mode(self):
         """Enter the bootloader mode."""
@@ -180,7 +180,9 @@ class System:
 
         if is_power_off_supported():
             if view_manager:
-                view_manager.alert("This device will power off in 5 seconds...")
+                view_manager.alert(
+                    "Click 'BACK', the device will turn off in 5 seconds"
+                )
                 write_power_off_delay(0)
 
     def soft_reset(self):

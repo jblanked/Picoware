@@ -1,13 +1,17 @@
 #include "auto_complete.h"
 #include "py/runtime.h"
 
-// Get index for character (a-z maps to 0-25)
+// Get index for character (a-z maps to 0-25, space maps to 26)
 static int char_to_index(char c)
 {
     c = tolower(c);
     if (c >= 'a' && c <= 'z')
     {
         return c - 'a';
+    }
+    else if (c == ' ')
+    {
+        return 26; // Space gets index 26
     }
     return -1; // Invalid character
 }

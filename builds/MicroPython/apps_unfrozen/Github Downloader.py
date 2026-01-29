@@ -1,6 +1,8 @@
 # picoware/apps/Github Downloader.py
 
 from micropython import const
+from json import loads
+from picoware.system.buttons import BUTTON_BACK
 
 STATE_KEYBOARD_AUTHOR = const(0)
 STATE_KEYBOARD_REPO = const(1)
@@ -14,21 +16,25 @@ _github_repo: str = ""
 _current_file_index: int = 0
 _http = None
 _loading = None
-_files_to_download: list = []
+_total_files: int = 0
 _github_alert = None
+_download_queue: list = []
 
 
 def __download_repo_info(view_manager) -> bool:
     """Create necessary directories and start downloading repo info"""
     storage = view_manager.storage
-    storage.mkdir("picoware/github")
-    storage.mkdir(f"picoware/github/{_github_author}")
-    storage.mkdir(f"picoware/github/{_github_author}/{_github_repo}")
+    if not storage.mkdir(f"picoware/github/{_github_author}"):
+        return False
+    if not storage.mkdir(f"picoware/github/{_github_author}/{_github_repo}"):
+        return False
+
     global _http
+
     from picoware.system.http import HTTP
 
     if not _http:
-        _http = HTTP()
+        _http = HTTP(thread_manager=view_manager.thread_manager)
 
     url = f"https://api.github.com/repos/{_github_author}/{_github_repo}/git/trees/HEAD?recursive=1"
 
@@ -36,129 +42,79 @@ def __download_repo_info(view_manager) -> bool:
         url,
         save_to_file=f"picoware/github/{_github_author}-{_github_repo}-info.json",
         storage=storage,
-        headers={"User-Agent": "Raspberry Pi Pico W"},
+        headers={
+            "User-Agent": "Raspberry Pi Pico W",
+            "Content-Type": "application/octet-stream",
+        },
     )
 
 
 def __parse_repo_info(view_manager) -> bool:
-    """Parse the downloaded repo info and build list of files to download using chunked reading"""
-    global _github_author, _github_repo, _files_to_download
+    """Parse the downloaded repo info and build download queue in memory"""
+    global _github_author, _github_repo, _total_files, _download_queue
     storage = view_manager.storage
 
     file_path = f"picoware/github/{_github_author}-{_github_repo}-info.json"
-    _files_to_download = []
+    _total_files = 0
+    _download_queue = []
 
-    # Read file in chunks to avoid memory issues
-    chunk_size = 4096  # 4KB chunks
-    offset = 0
-    buffer = b""
-    in_tree_array = False
-    brace_count = 0
-    current_entry = b""
+    _http.close()
 
-    while True:
-        chunk = storage.read_chunked(file_path, start=offset, chunk_size=chunk_size)
-        if not chunk:
-            break
+    # Read entire file at once
+    file_content = storage.read(file_path)
+    if not file_content:
+        print("Failed to read repository info file")
+        return False
 
-        buffer += chunk
-        offset += len(chunk)
+    # Parse the JSON to get the tree array
+    try:
+        data = loads(file_content)
+        tree = data.get("tree", [])
 
-        # Process the buffer
-        while buffer:
-            if not in_tree_array:
-                # Look for the "tree" array start
-                tree_start = buffer.find(b'"tree"')
-                if tree_start != -1:
-                    # Find the opening bracket after "tree":
-                    bracket_pos = buffer.find(b"[", tree_start)
-                    if bracket_pos != -1:
-                        in_tree_array = True
-                        buffer = buffer[bracket_pos + 1 :]
-                        continue
-                # If not found, keep last 20 bytes in case "tree" is split
-                if len(buffer) > 20:
-                    buffer = buffer[-20:]
-                break
-            else:
-                # We're inside the tree array, parse entries
-                if not current_entry:
-                    # Skip whitespace
-                    buffer = buffer.lstrip()
-                    if not buffer:
-                        break
-                    # Check if we've reached the end of the array
-                    if buffer[0:1] == b"]":
-                        return True  # Successfully parsed all entries
-                    # Start of new entry
-                    if buffer[0:1] == b"{":
-                        current_entry = b"{"
-                        brace_count = 1
-                        buffer = buffer[1:]
+        for entry in tree:
+            if entry.get("type") == "blob":
+                path = entry.get("path")
+                if path:
+                    file_url = f"https://raw.githubusercontent.com/{_github_author}/{_github_repo}/HEAD/{path}"
+                    save_path = (
+                        f"picoware/github/{_github_author}/{_github_repo}/{path}"
+                    )
+                    _download_queue.append((file_url, save_path))
+                    print(f"Queued: {path}")
+                    _total_files += 1
 
-                # Build up the current entry
-                while buffer and brace_count > 0:
-                    char = buffer[0:1]
-                    current_entry += char
-                    buffer = buffer[1:]
+    except Exception as e:
+        print(f"Error parsing JSON: {e}")
+        return False
 
-                    if char == b"{":
-                        brace_count += 1
-                    elif char == b"}":
-                        brace_count -= 1
+    if _total_files == 0:
+        print("No files to download found in repository")
+        return False
 
-                    if brace_count == 0:
-                        # Complete entry found, parse it
-                        try:
-                            from json import loads
-
-                            entry_str = current_entry.decode("utf-8")
-                            tree = loads(entry_str)
-
-                            if tree.get("type") == "blob":
-                                path = tree.get("path")
-                                if path:
-                                    file_url = f"https://raw.githubusercontent.com/{_github_author}/{_github_repo}/HEAD/{path}"
-                                    save_path = f"picoware/github/{_github_author}/{_github_repo}/{path}"
-                                    _files_to_download.append((file_url, save_path))
-                        except Exception as e:
-                            print(f"Error parsing entry: {e}")
-
-                        current_entry = b""
-                        # Skip comma and whitespace
-                        buffer = buffer.lstrip()
-                        if buffer and buffer[0:1] == b",":
-                            buffer = buffer[1:]
-                        break
-
-                # If buffer is empty but we haven't completed the entry, get more data
-                if not buffer and current_entry and brace_count > 0:
-                    break
-
-        # If we've processed everything in the buffer and need more data
-        if not buffer or (in_tree_array and current_entry and brace_count > 0):
-            continue
-
-        # If chunk was smaller than chunk_size, we've reached EOF
-        if len(chunk) < chunk_size:
-            break
-
-    return len(_files_to_download) > 0
+    return True
 
 
 def __download_next_file(view_manager) -> bool:
     """Download the next file in the queue"""
-    global _current_file_index, _files_to_download, _http
+    global _current_file_index, _total_files, _http, _download_queue
 
-    if _current_file_index >= len(_files_to_download):
+    if _current_file_index >= _total_files:
+        print("All files downloaded")
         return False  # All files downloaded
 
-    file_url, save_path = _files_to_download[_current_file_index]
     storage = view_manager.storage
+
+    if _current_file_index >= len(_download_queue):
+        print("Current index exceeds queue length")
+        return False
+
+    file_url, save_path = _download_queue[_current_file_index]
 
     # Create necessary directories
     dir_path = "/".join(save_path.split("/")[:-1])
-    storage.mkdir(dir_path)
+    if not storage.mkdir(dir_path):
+        print(f"Failed to create directory: {dir_path}")
+        # Directory might already exist, continue anyway
 
     print(f"Downloading {file_url} to {save_path}")
 
@@ -168,7 +124,7 @@ def __download_next_file(view_manager) -> bool:
         storage=storage,
         headers={
             "User-Agent": "Raspberry Pi Pico W",
-            "Content-Type": "application/json",
+            "Content-Type": "application/octet-stream",
         },
     )
 
@@ -184,14 +140,15 @@ def __loading_start(view_manager, text: str = "Fetching...") -> None:
     _loading.set_text(text)
 
 
-def __reset() -> None:
+def __reset(view_manager) -> None:
     """Reset the app state"""
-    global _app_state, _github_author, _github_repo, _http, _loading, _current_file_index, _files_to_download, _github_alert
+    global _app_state, _github_author, _github_repo, _http, _loading, _current_file_index, _total_files, _github_alert, _download_queue
     _app_state = STATE_KEYBOARD_AUTHOR
     _github_author = ""
     _github_repo = ""
     _current_file_index = 0
-    _files_to_download = []
+    _total_files = 0
+    _download_queue = []
     if _http:
         del _http
         _http = None
@@ -220,7 +177,13 @@ def start(view_manager) -> bool:
         connect_to_saved_wifi(view_manager)
         return False
 
-    __reset()
+    if not view_manager.storage.mkdir("picoware/github"):
+        view_manager.alert("Failed to create storage directory", False)
+        return False
+
+    view_manager.freq(True)  # set to lower frequency
+
+    __reset(view_manager)
     keyboard = view_manager.keyboard
     keyboard.reset()
     keyboard.title = "Enter GitHub Author"
@@ -231,8 +194,6 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run the app"""
-    from picoware.system.buttons import BUTTON_BACK
-
     inp = view_manager.input_manager
     button = inp.button
 
@@ -278,21 +239,23 @@ def run(view_manager) -> None:
             return
     elif _app_state == STATE_DOWNLOADING_INFO:
         global _http, _loading, _current_file_index
-        if not _http.is_request_complete():
+        if _http and not _http.is_request_complete():
             if _loading:
                 _loading.animate()
             return
         if not __parse_repo_info(view_manager):
+            view_manager.alert("Failed to parse repository info", True)
             return
         # Start downloading first file
         _current_file_index = 0
         if __download_next_file(view_manager):
             _app_state = STATE_DOWNLOADING_REPO
-            __loading_start(
-                view_manager, f"Downloading file 1/{len(_files_to_download)}..."
-            )
+            __loading_start(view_manager, f"Downloading file 1/{_total_files}...")
+        elif _total_files == 0:
+            view_manager.alert("No files to download", True)
         else:
-            print("No files to download")
+            view_manager.alert("Failed to start downloading files", True)
+        return
     elif _app_state == STATE_DOWNLOADING_REPO:
         # Download files one-by-one
         if not _http.is_request_complete():
@@ -303,11 +266,11 @@ def run(view_manager) -> None:
         # Move to next file
         _current_file_index += 1
 
-        if _current_file_index < len(_files_to_download):
+        if _current_file_index < _total_files:
             if __download_next_file(view_manager):
                 __loading_start(
                     view_manager,
-                    f"Downloading file {_current_file_index + 1}/{len(_files_to_download)}...",
+                    f"Downloading file {_current_file_index + 1}/{_total_files}...",
                 )
         else:
             # All files downloaded
@@ -318,6 +281,7 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    __reset()
+    __reset(view_manager)
     view_manager.keyboard.reset()
+    view_manager.freq()  # set to default frequency
     collect()

@@ -24,6 +24,9 @@ rm -rf "$micropython_dir"/modules/Waveshare
 # remove auto complete module if it exists
 rm -rf "$micropython_dir"/modules/auto_complete
 
+# remove vector module if it exists
+rm -rf "$micropython_dir"/modules/vector
+
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"
@@ -46,9 +49,13 @@ cp -r "$picoware_dir"/src/MicroPython/PicoCalc/picoware_keyboard "$micropython_d
 cp -r "$picoware_dir"/src/MicroPython/PicoCalc/picoware_lcd "$micropython_dir"/modules/PicoCalc/picoware_lcd
 cp -r "$picoware_dir"/src/MicroPython/PicoCalc/picoware_psram "$micropython_dir"/modules/PicoCalc/picoware_psram
 cp -r "$picoware_dir"/src/MicroPython/PicoCalc/picoware_sd "$micropython_dir"/modules/PicoCalc/picoware_sd
+cp -r "$picoware_dir"/src/MicroPython/PicoCalc/picoware_lvgl "$micropython_dir"/modules/PicoCalc/picoware_lvgl
 
 # copy auto complete module
 cp -r "$picoware_dir"/src/MicroPython/auto_complete "$micropython_dir"/modules/auto_complete
+
+# copy vector module
+cp -r "$picoware_dir"/src/MicroPython/vector "$micropython_dir"/modules/vector
 
 echo "Starting PicoCalc build process..."
 

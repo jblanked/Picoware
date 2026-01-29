@@ -38,9 +38,39 @@ class Choice:
         self.foreground_color = foreground_color
         self.background_color = background_color
 
-        self.clear()
+        self.use_lvgl = draw.use_lvgl
+        self._lvgl_choice = None
+
+        # Initialize LVGL Choice if requested
+        if self.use_lvgl:
+            try:
+                from picoware_lvgl import init, Choice as LVGLChoice
+
+                init()
+
+                # Create LVGL Choice instance
+                self._lvgl_choice = LVGLChoice(
+                    draw,
+                    (position.x, position.y),
+                    (size.x, size.y),
+                    title,
+                    options,
+                    initial_state,
+                    foreground_color,
+                    background_color,
+                )
+            except (ImportError, RuntimeError, ValueError):
+                self.use_lvgl = False
+
+        if not self.use_lvgl:
+            self.clear()
 
     def __del__(self):
+        if self._lvgl_choice is not None:
+            self._lvgl_choice.deinit()
+            del self._lvgl_choice
+            self._lvgl_choice = None
+
         if self.position:
             del self.position
             self.position = None
@@ -53,6 +83,9 @@ class Choice:
     @property
     def state(self) -> int:
         """Get the current state of the choice."""
+        if self.use_lvgl and self._lvgl_choice is not None:
+            return self._lvgl_choice.get_state()
+
         return self._state
 
     @state.setter
@@ -60,13 +93,46 @@ class Choice:
         """Set the current state of the choice."""
         self._state = value
 
+        if self.use_lvgl and self._lvgl_choice is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_choice.set_state(value)
+            task_handler()
+
     def clear(self) -> None:
         """Clear the choice area with the background color."""
+        if self.use_lvgl and self._lvgl_choice is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_choice.clear()
+            task_handler()
+            return
+
         self.display.clear(self.position, self.size, self.background_color)
         self.display.swap()
 
+    def close(self) -> None:
+        """Close the dropdown menu (LVGL only currently)."""
+        if self.use_lvgl and self._lvgl_choice is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_choice.close()
+            task_handler()
+
     def draw(self) -> None:
         """Render the choices on the display."""
+        if self.use_lvgl and self._lvgl_choice is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_choice.draw()
+            task_handler()
+            self._state = self._lvgl_choice.get_state()
+            return
+
         from picoware.system.vector import Vector
 
         font_size = self.display.font_size
@@ -181,12 +247,51 @@ class Choice:
         # Update display
         self.display.swap()
 
+    def is_open(self) -> bool:
+        """Check if the dropdown is open (LVGL only currently)."""
+        if self.use_lvgl and self._lvgl_choice is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            is_open = self._lvgl_choice.is_open()
+            task_handler()
+            return is_open
+
+        return False
+
+    def open(self) -> None:
+        """Open the dropdown menu (LVGL only currently)."""
+        if self.use_lvgl and self._lvgl_choice is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_choice.open()
+            task_handler()
+
     def reset(self) -> None:
         """Reset the choice to its initial state."""
+        if self.use_lvgl and self._lvgl_choice is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_choice.reset()
+            task_handler()
+            self._state = 0
+            return
+
         self._state = 0
 
     def scroll_down(self) -> None:
         """Scroll down the choice options."""
+        if self.use_lvgl and self._lvgl_choice is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_choice.scroll_down()
+            task_handler()
+            self._state = self._lvgl_choice.get_state()
+            return
+
         self._state += 1
         if self._state >= len(self.options):
             self._state = 0
@@ -194,6 +299,15 @@ class Choice:
 
     def scroll_up(self) -> None:
         """Scroll up the choice options."""
+        if self.use_lvgl and self._lvgl_choice is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_choice.scroll_up()
+            task_handler()
+            self._state = self._lvgl_choice.get_state()
+            return
+
         self._state -= 1
         if self._state < 0:
             self._state = len(self.options) - 1

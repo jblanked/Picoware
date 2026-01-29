@@ -11,7 +11,7 @@
 #endif
 
 // PSRAM framebuffer configuration
-#define PSRAM_FRAMEBUFFER_ADDR 0x100000                                           // 1MB offset in PSRAM
+#define PSRAM_FRAMEBUFFER_ADDR 0x000000                                           // PSRAM start address
 #define PSRAM_ROW_SIZE (DISPLAY_WIDTH)                                            // 320 bytes per row (RGB332)
 #define PSRAM_BUFFER_SIZE (DISPLAY_WIDTH * DISPLAY_HEIGHT)                        // 102,400 bytes
 #define PSRAM_HEAP_START_ADDR (PSRAM_FRAMEBUFFER_ADDR + PSRAM_BUFFER_SIZE + 1024) // Start of heap area after framebuffer

@@ -24,6 +24,9 @@ rm -rf "$micropython_dir"/modules/Waveshare
 # remove auto complete module if it exists
 rm -rf "$micropython_dir"/modules/auto_complete
 
+# remove vector module if it exists
+rm -rf "$micropython_dir"/modules/vector
+
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"
@@ -56,6 +59,8 @@ cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-3.49/waveshare_
 # copy auto complete module
 cp -r "$picoware_dir"/src/MicroPython/auto_complete "$micropython_dir"/modules/auto_complete
 
+# copy vector module
+cp -r "$picoware_dir"/src/MicroPython/vector "$micropython_dir"/modules/vector
 
 echo "Starting Waveshare 3.49 build process..."
 

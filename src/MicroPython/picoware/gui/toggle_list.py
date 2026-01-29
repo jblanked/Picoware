@@ -125,6 +125,7 @@ class ToggleList:
                 self.border_color,
                 self.border_width,
                 False,
+                False,  # only because it clears objects
             )
         )
 

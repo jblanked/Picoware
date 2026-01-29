@@ -122,17 +122,21 @@ def run(view_manager) -> None:
                 view_manager.background_color,
             )
             choice.draw()
+            choice.open()
 
             while True:
                 _button = input_manager.button
-                if _button == BUTTON_LEFT:
+                if _button in (BUTTON_LEFT, BUTTON_UP):
                     input_manager.reset()
                     choice.scroll_up()
-                elif _button == BUTTON_RIGHT:
+                elif _button in (BUTTON_RIGHT, BUTTON_DOWN):
                     input_manager.reset()
                     choice.scroll_down()
                 elif _button == BUTTON_CENTER:
                     input_manager.reset()
+                    if choice.is_open():
+                        choice.close()
+
                     if choice.state == 1:
                         del choice
                         choice = None
@@ -140,13 +144,11 @@ def run(view_manager) -> None:
 
                         system = System()
                         system.shutdown_device(view_manager)
-                        break
-
-                    del choice
-                    choice = None
-                    input_manager.reset()
+                        return
                     view_manager.draw.clear()
                     _system.draw()
+                    del choice
+                    choice = None
                     break
                 elif _button == BUTTON_BACK:
                     del choice

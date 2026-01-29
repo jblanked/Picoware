@@ -10,6 +10,7 @@
 #include "py/objarray.h"
 #include "py/mphal.h"
 #include "lcd.h"
+#include "picoware_lcd_shared.h"
 #include "../picoware_psram/psram_qspi.h"
 #include "../picoware_psram/picoware_psram_shared.h"
 #include <stdlib.h>
@@ -19,15 +20,6 @@
 #ifndef STATIC
 #define STATIC static
 #endif
-
-// Module constants
-#define DISPLAY_WIDTH 320
-#define DISPLAY_HEIGHT 320
-#define PALETTE_SIZE 256
-#define FONT_WIDTH 5
-#define FONT_HEIGHT 8
-#define CHAR_WIDTH 6 // Including spacing
-#define CHAR_HEIGHT 8
 
 #define LCD_CHUNK_LINES 16
 
@@ -49,6 +41,12 @@ static bool heap_framebuffer_allocated = false;
 
 static uint16_t palette[256]; // 256-color palette for RGB332
 
+// Convert RGB565 to RGB332 index
+STATIC uint8_t color565_to_332(uint16_t color)
+{
+    return ((color & 0xE000) >> 8) | ((color & 0x0700) >> 6) | ((color & 0x0018) >> 3);
+}
+
 void picoware_write_pixel_fb(psram_qspi_inst_t *psram, int x, int y, uint8_t color_index)
 {
     if (lcd_mode == LCD_MODE_PSRAM)
@@ -66,6 +64,63 @@ void picoware_write_pixel_fb(psram_qspi_inst_t *psram, int x, int y, uint8_t col
             heap_framebuffer[y * DISPLAY_WIDTH + x] = color_index;
         }
     }
+}
+
+// Batch write buffer to framebuffer (optimized batch write)
+void picoware_write_buffer_fb(psram_qspi_inst_t *psram, int x, int y, int width, int height, const uint8_t *buffer)
+{
+    if (!buffer)
+        return;
+
+    for (int row = 0; row < height; row++)
+    {
+        int fb_y = y + row;
+        if (fb_y < 0 || fb_y >= DISPLAY_HEIGHT)
+            continue;
+
+        for (int col = 0; col < width; col++)
+        {
+            int fb_x = x + col;
+            if (fb_x < 0 || fb_x >= DISPLAY_WIDTH)
+                continue;
+
+            uint8_t color_index = buffer[row * width + col];
+            picoware_write_pixel_fb(psram, fb_x, fb_y, color_index);
+        }
+    }
+}
+
+// Batch write 16-bit RGB565 buffer to framebuffer (for LVGL)
+// Converts RGB565 to RGB332 on the fly
+void picoware_write_buffer_fb_16(psram_qspi_inst_t *psram, int x, int y, int width, int height, const uint16_t *buffer)
+{
+    if (!buffer)
+        return;
+
+    for (int row = 0; row < height; row++)
+    {
+        int fb_y = y + row;
+        if (fb_y < 0 || fb_y >= DISPLAY_HEIGHT)
+            continue;
+
+        for (int col = 0; col < width; col++)
+        {
+            int fb_x = x + col;
+            if (fb_x < 0 || fb_x >= DISPLAY_WIDTH)
+                continue;
+
+            // Convert RGB565 to RGB332 using palette conversion
+            uint16_t rgb565 = buffer[row * width + col];
+            uint8_t rgb332 = color565_to_332(rgb565);
+            picoware_write_pixel_fb(psram, fb_x, fb_y, rgb332);
+        }
+    }
+}
+
+// Get palette pointer for external access
+uint16_t *picoware_get_palette(void)
+{
+    return palette;
 }
 
 static const uint8_t *get_font_data(void)
@@ -924,7 +979,7 @@ STATIC mp_obj_t picoware_lcd_init(size_t n_args, const mp_obj_t *args)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_init_obj, 1, 2, picoware_lcd_init);
 
-STATIC mp_obj_t picoware_lcd_swap(void)
+void picoware_lcd_swap_region(uint16_t x, uint16_t y, uint16_t width, uint16_t height)
 {
     uint16_t lcd_line_buffer[DISPLAY_WIDTH * LCD_CHUNK_LINES];
 
@@ -933,16 +988,16 @@ STATIC mp_obj_t picoware_lcd_swap(void)
         uint8_t psram_row_buffer[DISPLAY_WIDTH];
 
         // Send data line by line in chunks
-        for (uint16_t y = 0; y < DISPLAY_HEIGHT; y += LCD_CHUNK_LINES)
+        for (uint16_t row = 0; row < height; row += LCD_CHUNK_LINES)
         {
-            uint16_t lines_to_send = (y + LCD_CHUNK_LINES > DISPLAY_HEIGHT) ? (DISPLAY_HEIGHT - y) : LCD_CHUNK_LINES;
+            uint16_t lines_to_send = (row + LCD_CHUNK_LINES > height) ? (height - row) : LCD_CHUNK_LINES;
 
             // Convert this chunk from RGB332 to RGB565 with byte swapping
             for (uint16_t line = 0; line < lines_to_send; line++)
             {
                 // Read row from PSRAM
-                uint32_t psram_addr = PSRAM_FRAMEBUFFER_ADDR + ((y + line) * PSRAM_ROW_SIZE);
-                uint32_t remaining = DISPLAY_WIDTH;
+                uint32_t psram_addr = PSRAM_FRAMEBUFFER_ADDR + ((y + row + line) * PSRAM_ROW_SIZE) + x;
+                uint32_t remaining = width;
                 uint32_t offset = 0;
 
                 while (remaining > 0)
@@ -954,16 +1009,16 @@ STATIC mp_obj_t picoware_lcd_swap(void)
                 }
 
                 // Convert to RGB565
-                for (uint16_t x = 0; x < DISPLAY_WIDTH; x++)
+                for (uint16_t col = 0; col < width; col++)
                 {
-                    size_t buf_index = line * DISPLAY_WIDTH + x;
-                    uint8_t palette_index = psram_row_buffer[x];
+                    size_t buf_index = line * width + col;
+                    uint8_t palette_index = psram_row_buffer[col];
                     lcd_line_buffer[buf_index] = palette[palette_index];
                 }
             }
 
             // Send to LCD
-            lcd_blit(lcd_line_buffer, 0, y, DISPLAY_WIDTH, lines_to_send);
+            lcd_blit(lcd_line_buffer, x, y + row, width, lines_to_send);
         }
     }
     else if (lcd_mode == LCD_MODE_HEAP)
@@ -972,30 +1027,32 @@ STATIC mp_obj_t picoware_lcd_swap(void)
         if (heap_framebuffer != NULL)
         {
             // Send data line by line in chunks
-            for (uint16_t y = 0; y < DISPLAY_HEIGHT; y += LCD_CHUNK_LINES)
+            for (uint16_t row = 0; row < height; row += LCD_CHUNK_LINES)
             {
-                uint16_t lines_to_send = (y + LCD_CHUNK_LINES > DISPLAY_HEIGHT) ? (DISPLAY_HEIGHT - y) : LCD_CHUNK_LINES;
+                uint16_t lines_to_send = (row + LCD_CHUNK_LINES > height) ? (height - row) : LCD_CHUNK_LINES;
 
                 // Convert this chunk from RGB332 to RGB565
                 for (uint16_t line = 0; line < lines_to_send; line++)
                 {
-                    uint8_t *heap_row = &heap_framebuffer[(y + line) * DISPLAY_WIDTH];
-
+                    uint8_t *heap_row = &heap_framebuffer[(y + row + line) * DISPLAY_WIDTH + x];
                     // Convert to RGB565
-                    for (uint16_t x = 0; x < DISPLAY_WIDTH; x++)
+                    for (uint16_t col = 0; col < width; col++)
                     {
-                        size_t buf_index = line * DISPLAY_WIDTH + x;
-                        uint8_t palette_index = heap_row[x];
+                        size_t buf_index = line * width + col;
+                        uint8_t palette_index = heap_row[col];
                         lcd_line_buffer[buf_index] = palette[palette_index];
                     }
                 }
-
                 // Send to LCD
-                lcd_blit(lcd_line_buffer, 0, y, DISPLAY_WIDTH, lines_to_send);
+                lcd_blit(lcd_line_buffer, x, y + row, width, lines_to_send);
             }
         }
     }
+}
 
+STATIC mp_obj_t picoware_lcd_swap(void)
+{
+    picoware_lcd_swap_region(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT);
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(picoware_lcd_swap_obj, picoware_lcd_swap);
@@ -1020,12 +1077,6 @@ STATIC mp_obj_t picoware_lcd_display_off(void)
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(picoware_lcd_display_off_obj, picoware_lcd_display_off);
-
-// Convert RGB565 to RGB332 index
-STATIC uint8_t color565_to_332(uint16_t color)
-{
-    return ((color & 0xE000) >> 8) | ((color & 0x0700) >> 6) | ((color & 0x0018) >> 3);
-}
 
 // Draw pixel in framebuffer (PSRAM or HEAP mode)
 STATIC mp_obj_t picoware_lcd_draw_pixel(size_t n_args, const mp_obj_t *args)

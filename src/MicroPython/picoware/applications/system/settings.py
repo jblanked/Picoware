@@ -3,6 +3,7 @@ from picoware.system.colors import TFT_BLACK, TFT_WHITE
 
 STATE_DARK_MODE = const(0)
 STATE_ONSCREEN_KEYBOARD = const(1)
+STATE_LVGL_MODE = const(2)
 
 _toggle_list = None
 _view_manager = None
@@ -27,6 +28,10 @@ def __callback(index: int, state: bool) -> None:
             "picoware/settings/onscreen_keyboard.json", "onscreen_keyboard", state
         )
         _view_manager.keyboard.show_keyboard = state
+    elif index == STATE_LVGL_MODE:
+        # Save the state to flash
+        __save_state("picoware/settings/lvgl_mode.json", "lvgl_mode", state)
+        _view_manager.draw.use_lvgl = state
 
 
 def __load_state(filename: str, key: str, default: bool = False) -> bool:
@@ -96,6 +101,12 @@ def start(view_manager) -> bool:
         __load_state(
             "picoware/settings/onscreen_keyboard.json", "onscreen_keyboard", True
         ),
+    )
+
+    # get/add the LVGL mode state (set to False by default)
+    _toggle_list.add_toggle(
+        "Use LVGL?",
+        __load_state("picoware/settings/lvgl_mode.json", "lvgl_mode", False),
     )
 
     return True

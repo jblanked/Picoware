@@ -97,6 +97,12 @@ class ViewManager:
                 state: bool = "true" in on_screen_keyboard_data.lower()
                 self._keyboard.show_keyboard = state
 
+            lvgl_data: str = self._storage.read("picoware/settings/lvgl_mode.json")
+
+            if len(lvgl_data) > 1:
+                state: bool = "true" in lvgl_data.lower()
+                self._draw.use_lvgl = state
+
         # Clear screen
         self.clear()
 

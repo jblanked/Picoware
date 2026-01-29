@@ -185,6 +185,16 @@ STATIC void mp_fat32_file_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *desti
             destination[0] = mp_fat32_file_dir_entry_offset(self_in);
         }
     }
+    else if (destination[1] != MP_OBJ_NULL)
+    {
+        if (attribute == MP_QSTR_position)
+        {
+            // Store attribute
+            mp_fat32_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
+            self->file.position = mp_obj_get_int(destination[1]);
+            destination[0] = MP_OBJ_NULL; // indicate success
+        }
+    }
 }
 
 MP_DEFINE_CONST_OBJ_TYPE(

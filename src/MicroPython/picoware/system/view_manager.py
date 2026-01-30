@@ -396,9 +396,9 @@ class ViewManager:
             return freq(self.FREQ_DEFAULT)
 
         if self._current_board_id in (BOARD_PICOCALC_PICO, BOARD_PICOCALC_PICOW):
-            freq(self.FREQ_RP2040)
-        else:
-            freq(self.FREQ_RP2350)
+            return freq(self.FREQ_RP2040)
+
+        return freq(self.FREQ_RP2350)
 
     def get_view(self, view_name: str):
         """

@@ -11,8 +11,6 @@
 #define STATIC static
 #endif
 
-const mp_obj_type_t vector_mp_type;
-
 typedef struct
 {
     mp_obj_base_t base;

@@ -1,0 +1,204 @@
+;
+; Copyright © 2023 Ian Scott (original SPI implementation)
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy of
+; this software and associated documentation files (the "Software"), to deal in
+; the Software without restriction, including without limitation the rights to
+; use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+; of the Software, and to permit persons to whom the Software is furnished to do
+; so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+.pio_version 0
+
+; =============================================================================
+; QSPI 4-wire data output program 
+; Used for fast bulk writes to PSRAM
+; =============================================================================
+.program qspi_4wire_write
+.side_set 1 opt
+.wrap_target
+    out pins, 4        side 0      ; Output 4 bits on SIO0-3, clock low
+    nop                side 1      ; Clock high - PSRAM latches data
+.wrap
+
+; =============================================================================
+; QSPI bidirectional program for PSRAM 
+; Sideset: bit 1 = SCK, bit 0 = CS
+; =============================================================================
+.program qspi_psram_rw
+.side_set 2
+begin:
+    out x, 8            side 0b01  ; x = number of nibbles to output, CS high (deasserted)
+    out y, 8            side 0b01  ; y = number of nibbles to input
+    jmp x--, writeloop  side 0b00  ; Pre-decrement x, CS low (asserted)
+
+writeloop:
+    out pins, 4         side 0b00  ; Write 4 bits on SIO0-3, clock low
+    jmp x--, writeloop  side 0b10  ; Clock high - PSRAM reads value, loop if more
+
+    jmp !y, begin       side 0b00  ; If y=0 (write-only), go back to beginning
+    set pindirs 0       side 0b10  ; Switch SIO0-3 to inputs for reading
+
+readloop_entry:
+    jmp readloop_mid    side 0b00  ; Jump to middle for proper clock phase
+
+readloop:
+    in pins, 4          side 0b00  ; Read 4 bits from SIO0-3, clock low
+readloop_mid:
+    jmp y--, readloop   side 0b10  ; Clock high, loop if more to read
+
+    set pindirs 0xF     side 0b01  ; Restore SIO0-3 to outputs, CS high
+
+; =============================================================================
+; SPI 1-wire program 
+; =============================================================================
+.program spi_psram_1wire
+.side_set 2
+begin:
+    out x, 8            side 0b01  ; x = bits to output, CS deasserted
+    out y, 8            side 0b01  ; y = bits to input
+    jmp x--, writeloop  side 0b01  ; Pre-decrement x
+
+writeloop:
+    out pins, 1         side 0b00  ; Write 1 bit, clock low, CS asserted
+    jmp x--, writeloop  side 0b10  ; Clock high, loop if more
+
+    jmp !y, begin       side 0b00  ; If no read, restart
+    jmp readloop_mid    side 0b10  ; Jump for read phase
+
+readloop:
+    in pins, 1          side 0b10  ; Read 1 bit on rising edge
+readloop_mid:
+    jmp y--, readloop   side 0b00  ; Clock low, loop if more
+
+% c-sdk {
+#include "hardware/clocks.h"
+#include "hardware/gpio.h"
+
+/**
+ * Initialize the QSPI 4-wire write-only program 
+ * Used for fast bulk data transfers
+ */
+static inline void qspi_4wire_write_program_init(PIO pio, uint sm, uint offset, 
+                                                  uint pin_sck, uint pin_sio0) {
+    pio_sm_config c = qspi_4wire_write_program_get_default_config(offset);
+
+    // Clock pin (sideset)
+    pio_gpio_init(pio, pin_sck);
+    pio_sm_set_consecutive_pindirs(pio, sm, pin_sck, 1, true);
+    sm_config_set_sideset_pins(&c, pin_sck);
+
+    // Data pins SIO0-3 (4 consecutive pins)
+    for (uint i = 0; i < 4; i++) {
+        pio_gpio_init(pio, pin_sio0 + i);
+    }
+    pio_sm_set_consecutive_pindirs(pio, sm, pin_sio0, 4, true);
+    sm_config_set_out_pins(&c, pin_sio0, 4);
+
+    // Output shift: MSB first, autopull at 8 bits
+    sm_config_set_out_shift(&c, false, true, 8);
+
+    // Clock divider (2.0 for stability, can be lowered for speed)
+    sm_config_set_clkdiv(&c, 2.0f);
+
+    // Initialize and enable
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_clear_fifos(pio, sm);
+    pio_sm_set_enabled(pio, sm, true);
+}
+
+/**
+ * Initialize the QSPI bidirectional program for PSRAM
+ * Supports both read and write with automatic direction switching
+ */
+static inline void qspi_psram_rw_program_init(PIO pio, uint sm, uint offset,
+                                               uint n_bits, float clkdiv,
+                                               uint pin_cs, uint pin_sio0) {
+    pio_sm_config c = qspi_psram_rw_program_get_default_config(offset);
+
+    // Data pins SIO0-3 (output and input)
+    sm_config_set_out_pins(&c, pin_sio0, 4);
+    sm_config_set_in_pins(&c, pin_sio0);
+    sm_config_set_set_pins(&c, pin_sio0, 4);
+
+    // CS and SCK as sideset (CS = pin_cs, SCK = pin_cs + 1)
+    sm_config_set_sideset_pins(&c, pin_cs);
+
+    // Shift configuration
+    sm_config_set_out_shift(&c, false, true, n_bits);  // MSB first, autopull
+    sm_config_set_in_shift(&c, false, true, n_bits);   // MSB first, autopush
+
+    // Clock divider
+    sm_config_set_clkdiv(&c, clkdiv);
+
+    // Pin directions: CS and SCK always output
+    pio_sm_set_consecutive_pindirs(pio, sm, pin_cs, 2, true);
+    // SIO0-3 start as outputs
+    pio_sm_set_consecutive_pindirs(pio, sm, pin_sio0, 4, true);
+
+    // Initialize GPIO for PIO control
+    pio_gpio_init(pio, pin_cs);
+    pio_gpio_init(pio, pin_cs + 1);  // SCK
+    for (uint i = 0; i < 4; i++) {
+        pio_gpio_init(pio, pin_sio0 + i);
+    }
+
+    // Bypass input synchronizer for faster reads
+    hw_set_bits(&pio->input_sync_bypass, 0xFu << pin_sio0);
+
+    // Initialize and enable state machine
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_set_enabled(pio, sm, true);
+}
+
+/**
+ * Initialize the SPI 1-wire fallback program
+ */
+static inline void spi_psram_1wire_program_init(PIO pio, uint sm, uint offset,
+                                                 uint n_bits, float clkdiv,
+                                                 uint pin_cs, uint pin_mosi, uint pin_miso) {
+    pio_sm_config c = spi_psram_1wire_program_get_default_config(offset);
+
+    // MOSI (output)
+    sm_config_set_out_pins(&c, pin_mosi, 1);
+    // MISO (input)  
+    sm_config_set_in_pins(&c, pin_miso);
+    // CS and SCK as sideset
+    sm_config_set_sideset_pins(&c, pin_cs);
+
+    // Shift configuration
+    sm_config_set_out_shift(&c, false, true, n_bits);
+    sm_config_set_in_shift(&c, false, true, n_bits);
+
+    // Clock divider
+    sm_config_set_clkdiv(&c, clkdiv);
+
+    // Pin directions
+    pio_sm_set_consecutive_pindirs(pio, sm, pin_cs, 2, true);   // CS, SCK output
+    pio_sm_set_consecutive_pindirs(pio, sm, pin_mosi, 1, true); // MOSI output
+    pio_sm_set_consecutive_pindirs(pio, sm, pin_miso, 1, false); // MISO input
+
+    // Initialize GPIO
+    pio_gpio_init(pio, pin_cs);
+    pio_gpio_init(pio, pin_cs + 1);
+    pio_gpio_init(pio, pin_mosi);
+    pio_gpio_init(pio, pin_miso);
+
+    // Bypass input synchronizer
+    hw_set_bits(&pio->input_sync_bypass, 1u << pin_miso);
+
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}

@@ -109,14 +109,40 @@ Here's a video tutorial: https://www.youtube.com/watch?v=-eMqPjVN0fU
 
 ### CircuitPython
 
-Developers can also use CircuitPython, although due to limited memory, they must be more conservative with memory usage and strategically handle text objects.
-
+To develop for the CircuitPython version:
 1. Download and install Thonny IDE (https://thonny.org).
-2. Download this repository as a .zip file (available here: https://github.com/jblanked/Picoware/archive/refs/heads/main.zip).
-3. Press and hold the `BOOT` button on your `Raspberry Pi Pico` device for 2 seconds.
-4. While holding the `BOOT` button, connect your `Raspberry Pi Pico` device to your computer using a `Micro USB` cable.
-5. Open Thonny, and in the bottom-right corner, select `Install CircuitPython`.
-6. Change the settings to your specific Raspberry Pi Pico type and proceed with the installation.
-7. Once finished, close the window and press the red `Stop/Restart` button.
-8. Afterward, open the .zip file downloaded earlier and navigate to the `src/CircuitPython` folder. Copy and paste all contents of that folder into your `CIRCUITPY` drive that appeared after CircuitPython finished installing.
-9. In Thonny, press the `Stop/Restart` button again, then double-click the `code.py` file on your `CIRCUITPY` drive and click the green `Start/Run` button.
+2. Install the CircuitPython SDK (https://learn.adafruit.com/building-circuitpython/build-circuitpython):
+```shell
+# clone the CircuitPython repository
+mkdir ~/pico
+cd ~/pico
+git clone https://github.com/adafruit/circuitpython.git
+cd circuitpython
+
+# install prerequisites
+python3 -m venv venv
+source venv/bin/activate
+pip install --upgrade -r requirements-dev.txt
+pip install --upgrade -r requirements-doc.txt
+
+# Build using the latest code on the main branch.
+git checkout main
+
+# initialize submodules
+cd ports/raspberrypi
+make fetch-port-submodules
+
+# build the mpy-cross compiler
+cd ~/pico/circuitpython 
+make -C mpy-cross
+```
+3. Download this repository as a .zip file (available here: https://github.com/jblanked/Picoware/archive/refs/heads/main.zip) then unzip it once downloaded.
+4. Open the terminal and navigate to the `tools` folder inside the downloaded Picoware repository.
+5. Now you can build the CircuitPython firmware with the scripts provided, for example to build for all supported devices:
+```shell
+# Build all
+bash tools/circuitpython-all.sh
+```
+> [!NOTE]
+> You must change the `circuitpython_dir` and `picoware_dir` variables in the scripts to point to your local CircuitPython SDK and Picoware repository paths respectively.
+6. After building, the firmware files will be located in the `builds/CircuitPython` folder inside the Picoware repository.

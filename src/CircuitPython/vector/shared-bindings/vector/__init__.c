@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include "shared-module/vector/__init__.h"
 
 #ifndef STATIC
 #define STATIC static
@@ -111,7 +112,7 @@ STATIC const mp_rom_map_elem_t vector_class_locals_table[] = {
 };
 STATIC MP_DEFINE_CONST_DICT(vector_class_locals, vector_class_locals_table);
 
-// Define MODULE globals (what's available when you import the module)
+// Define MODULE globals
 STATIC const mp_rom_map_elem_t vector_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_vector)},
     {MP_ROM_QSTR(MP_QSTR_Vector), MP_ROM_PTR(&vector_mp_type)},

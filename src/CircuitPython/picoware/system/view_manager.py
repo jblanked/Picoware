@@ -19,7 +19,8 @@ class ViewManager:
         from picoware.system.wifi import WiFi
         from picoware.system.system import System
         from picoware.system.time import Time
-        from picoware.system.thread import ThreadManager
+
+        # from picoware.system.thread import ThreadManager
         from picoware.system.colors import TFT_BLUE, TFT_BLACK, TFT_WHITE
 
         self._current_view = None
@@ -33,12 +34,13 @@ class ViewManager:
         self.freq()
 
         # Initialize ThreadManager
-        self._thread_manager = ThreadManager()
+        self._thread_manager = None  # ThreadManager()
 
         # Initialize WiFi if available
         self._wifi = None
         if syst is not None and syst.has_wifi:
-            self._wifi = WiFi(thread_manager=self._thread_manager)
+            # self._wifi = WiFi(thread_manager=self._thread_manager)
+            self._wifi = WiFi()
 
         # Initialize storage
         self._storage = None
@@ -386,19 +388,21 @@ class ViewManager:
         """
         Set the CPU frequency.
         """
-        from machine import freq
+        import microcontroller
         from picoware.system.boards import (
             BOARD_PICOCALC_PICO,
             BOARD_PICOCALC_PICOW,
         )
 
         if use_default:
-            return freq(self.FREQ_DEFAULT)
+            microcontroller.cpu.frequency = self.FREQ_DEFAULT
+            return microcontroller.cpu.frequency
 
         if self._current_board_id in (BOARD_PICOCALC_PICO, BOARD_PICOCALC_PICOW):
-            return freq(self.FREQ_RP2040)
-
-        return freq(self.FREQ_RP2350)
+            microcontroller.cpu.frequency = self.FREQ_RP2040
+        else:
+            microcontroller.cpu.frequency = self.FREQ_RP2350
+        return microcontroller.cpu.frequency
 
     def get_view(self, view_name: str):
         """

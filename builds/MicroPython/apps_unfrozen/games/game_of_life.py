@@ -11,7 +11,6 @@ from random import random, choice
 from picoware.system.vector import Vector
 from picoware.system.colors import TFT_BLACK, TFT_RED, TFT_GREEN, TFT_BLUE
 from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
-from picoware.system.psram import PSRAM
 
 # === Settings ===
 CELL_SIZE = 6  # 6 pixels per cell (53x53 grid)
@@ -21,11 +20,9 @@ GRID_BYTES = GRID_SIZE * GRID_SIZE
 
 LIVE_CHANCE = 0.3  # 30% of cells alive initially
 
-_psram = None
-_new_grid_addr = 0
-_neighbor_addr = 0
-
-grid = []
+_current_grid = None  # Current state
+_next_grid = None  # Next state
+_neighbor_counts = None  # Neighbor counts
 
 
 def _grid_index(x, y):
@@ -35,70 +32,88 @@ def _grid_index(x, y):
 
 # === Initialize Grid ===
 def random_grid():
-    """Fill the grid with random initial state in RAM."""
-    global grid
+    """Fill the grid with random initial state."""
+    global _current_grid
 
-    grid = [
-        [choice([1, 2, 3]) if random() < LIVE_CHANCE else 0 for _ in range(GRID_SIZE)]
-        for _ in range(GRID_SIZE)
-    ]
+    for i in range(GRID_BYTES):
+        _current_grid[i] = choice([1, 2, 3]) if random() < LIVE_CHANCE else 0
 
 
 # === Game Update ===
 def update():
-    global grid, _new_grid_addr, _neighbor_addr
+    global _current_grid, _next_grid, _neighbor_counts
 
-    # Clear neighbor counts in PSRAM
-    _psram.memset(_neighbor_addr, 0, GRID_BYTES)
+    # Clear neighbor counts and next grid
+    for i in range(GRID_BYTES):
+        _neighbor_counts[i] = 0
+        _next_grid[i] = 0
 
-    # Count neighbors using RAM grid, store counts in PSRAM
+    # Count neighbors
     for y in range(GRID_SIZE):
+        y_offset = y * GRID_SIZE
+        y_prev = ((y - 1) % GRID_SIZE) * GRID_SIZE
+        y_next = ((y + 1) % GRID_SIZE) * GRID_SIZE
+
         for x in range(GRID_SIZE):
-            if grid[y][x] != 0:
-                for dy in (-1, 0, 1):
-                    for dx in (-1, 0, 1):
-                        if dx == 0 and dy == 0:
-                            continue
-                        nx = (x + dx) % GRID_SIZE
-                        ny = (y + dy) % GRID_SIZE
-                        neighbor_idx = _grid_index(nx, ny)
-                        count = _psram.read8(_neighbor_addr + neighbor_idx)
-                        _psram.write8(_neighbor_addr + neighbor_idx, count + 1)
+            idx = y_offset + x
+            cell = _current_grid[idx]
 
-    # Apply rules: read neighbors from PSRAM, write new state to PSRAM
-    _psram.memset(_new_grid_addr, 0, GRID_BYTES)
-    for y in range(GRID_SIZE):
-        for x in range(GRID_SIZE):
-            idx = _grid_index(x, y)
-            neighbors = _psram.read8(_neighbor_addr + idx)
-            cell_value = grid[y][x]
+            if cell != 0:
+                x_prev = (x - 1) % GRID_SIZE
+                x_next = (x + 1) % GRID_SIZE
 
-            if cell_value != 0:
-                if neighbors in (2, 3):
-                    _psram.write8(_new_grid_addr + idx, cell_value)  # Stay alive
-            else:
-                if neighbors == 3:
-                    color = pick_birth_color(x, y)
-                    _psram.write8(_new_grid_addr + idx, color)
+                # Increment all 8 neighbors at once
+                _neighbor_counts[y_prev + x_prev] += 1
+                _neighbor_counts[y_prev + x] += 1
+                _neighbor_counts[y_prev + x_next] += 1
+                _neighbor_counts[y_offset + x_prev] += 1
+                _neighbor_counts[y_offset + x_next] += 1
+                _neighbor_counts[y_next + x_prev] += 1
+                _neighbor_counts[y_next + x] += 1
+                _neighbor_counts[y_next + x_next] += 1
 
-    # Copy new grid from PSRAM back to RAM
-    new_grid_buffer = _psram.read(_new_grid_addr, GRID_BYTES)
-    idx = 0
-    for y in range(GRID_SIZE):
-        for x in range(GRID_SIZE):
-            grid[y][x] = new_grid_buffer[idx]
-            idx += 1
+    # Apply rules
+    for i in range(GRID_BYTES):
+        neighbor_count = _neighbor_counts[i]
+        cell_value = _current_grid[i]
+
+        if cell_value != 0:
+            if neighbor_count in (2, 3):
+                _next_grid[i] = cell_value  # Stay alive
+        elif neighbor_count == 3:
+            # Get birth color from neighbors
+            y = i // GRID_SIZE
+            x = i % GRID_SIZE
+            color = pick_birth_color_ram(x, y, _current_grid)
+            _next_grid[i] = color
+
+    # Swap buffers
+    _current_grid, _next_grid = _next_grid, _current_grid
 
 
-def pick_birth_color(x, y):
-    for dy in (-1, 0, 1):
-        for dx in (-1, 0, 1):
-            if dx == 0 and dy == 0:
-                continue
-            nx = (x + dx) % GRID_SIZE
-            ny = (y + dy) % GRID_SIZE
-            if grid[ny][nx] != 0:
-                return grid[ny][nx]
+def pick_birth_color_ram(x, y, grid_data):
+    """Optimized birth color picker reading."""
+    x_prev = (x - 1) % GRID_SIZE
+    x_next = (x + 1) % GRID_SIZE
+    y_prev = ((y - 1) % GRID_SIZE) * GRID_SIZE
+    y_curr = y * GRID_SIZE
+    y_next = ((y + 1) % GRID_SIZE) * GRID_SIZE
+
+    # Check all 8 neighbors
+    for idx in (
+        y_prev + x_prev,
+        y_prev + x,
+        y_prev + x_next,
+        y_curr + x_prev,
+        y_curr + x_next,
+        y_next + x_prev,
+        y_next + x,
+        y_next + x_next,
+    ):
+        cell = grid_data[idx]
+        if cell != 0:
+            return cell
+
     return choice([1, 2, 3])
 
 
@@ -110,23 +125,21 @@ _vec_pos = None
 def draw(display):
     # Color mappings
     display.fill_screen(TFT_BLACK)
+    idx = 0
     for y in range(GRID_SIZE):
         for x in range(GRID_SIZE):
-            color = _COLORS.get(grid[y][x], TFT_BLACK)
+            color = _COLORS.get(_current_grid[idx], TFT_BLACK)
             if color != TFT_BLACK:  # Skip drawing black pixels for speed
                 _vec_pos.x = x * CELL_SIZE
                 _vec_pos.y = y * CELL_SIZE
                 display.fill_rectangle(_vec_pos, _vec_size, color)
+            idx += 1
     display.swap()
 
 
 def start(view_manager) -> bool:
     """Start the app"""
-    global _psram, _new_grid_addr, _neighbor_addr, grid, _vec_size, _vec_pos, _COLORS
-
-    if not view_manager.has_psram:
-        view_manager.alert("Game of Life requires PSRAM to run.")
-        return False
+    global _current_grid, _next_grid, _neighbor_counts, _vec_size, _vec_pos, _COLORS
 
     _vec_size = Vector(CELL_SIZE, CELL_SIZE)
     _vec_pos = Vector(0, 0)
@@ -138,20 +151,9 @@ def start(view_manager) -> bool:
         3: TFT_BLUE,  # blue
     }
 
-    # Initialize PSRAM
-    _psram = PSRAM()
-
-    # Allocate memory for calculation buffers in PSRAM for calculations
-    _new_grid_addr = _psram.malloc(GRID_BYTES)
-    if _new_grid_addr == 0:
-        view_manager.alert("Failed to allocate PSRAM for new grid buffer.")
-        return False
-
-    _neighbor_addr = _psram.malloc(GRID_BYTES)
-    if _neighbor_addr == 0:
-        _psram.free(_new_grid_addr)
-        view_manager.alert("Failed to allocate PSRAM for neighbor counts.")
-        return False
+    _current_grid = bytearray(GRID_BYTES)
+    _next_grid = bytearray(GRID_BYTES)
+    _neighbor_counts = bytearray(GRID_BYTES)
 
     random_grid()
 
@@ -178,26 +180,17 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app and free PSRAM resources"""
+    """Stop the app and free resources"""
     from gc import collect
 
-    global _psram, _new_grid_addr, _neighbor_addr, grid, _vec_size, _vec_pos, _COLORS
+    global _current_grid, _next_grid, _neighbor_counts, _vec_size, _vec_pos, _COLORS
 
-    # Free RAM grid
-    grid = []
     _vec_size = None
     _vec_pos = None
     _COLORS = {}
 
-    # Free all allocated PSRAM memory
-    if _psram is not None:
-        if _new_grid_addr != 0:
-            _psram.free(_new_grid_addr)
-            _new_grid_addr = 0
-        if _neighbor_addr != 0:
-            _psram.free(_neighbor_addr)
-            _neighbor_addr = 0
-
-        _psram = None
+    _current_grid = None
+    _next_grid = None
+    _neighbor_counts = None
 
     collect()

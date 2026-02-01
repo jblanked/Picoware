@@ -1,4 +1,9 @@
-import picoware_psram as _psram
+try:
+    import picoware_psram as _psram
+
+    PSRAM_AVAILABLE = True
+except ImportError:
+    PSRAM_AVAILABLE = False
 
 
 class PSRAM:
@@ -6,32 +11,64 @@ class PSRAM:
 
     def __init__(self):
         """Initialize PSRAM using C module."""
-        if not _psram.is_ready():
-            _psram.init()
+        if PSRAM_AVAILABLE:
+            if not _psram.is_ready():
+                _psram.init()
 
     def __del__(self):
         """Deinitialize PSRAM on object deletion."""
-        if _psram.is_ready():
-            _psram.collect()
+        if PSRAM_AVAILABLE:
+            if _psram.is_ready():
+                _psram.collect()
 
     @property
-    def free_heap_size(self):
+    def free_heap_size(self) -> int:
         """Get free PSRAM memory in bytes."""
-        return _psram.mem_free()
+        if PSRAM_AVAILABLE:
+            return _psram.mem_free()
+        from gc import mem_free
+
+        return mem_free()
 
     @property
-    def total_heap_size(self):
+    def is_ready(self) -> bool:
+        """Check if PSRAM is ready for use."""
+        return _psram.is_ready()
+
+    @property
+    def next_free_addr(self) -> int:
+        """Get the next free PSRAM memory address."""
+        if PSRAM_AVAILABLE:
+            return _psram.get_next_free()
+        return 0
+
+    @property
+    def total_heap_size(self) -> int:
         """Get total PSRAM memory size in bytes."""
-        return _psram.SIZE
+        if PSRAM_AVAILABLE:
+            return _psram.SIZE
+        return 0
 
     @property
-    def used_heap_size(self):
+    def used_heap_size(self) -> int:
         """Get used PSRAM memory in bytes."""
-        return _psram.SIZE - _psram.mem_free()
+        if PSRAM_AVAILABLE:
+            return _psram.SIZE - _psram.mem_free()
+        from gc import mem_alloc
+
+        return mem_alloc()
 
     def collect(self) -> int:
         """Compact PSRAM free list, Returns the total moved"""
-        return _psram.collect()
+        if PSRAM_AVAILABLE:
+            return _psram.collect()
+        return 0
+
+    def deinit(self):
+        """Deinitialize PSRAM."""
+        if PSRAM_AVAILABLE:
+            if _psram.is_ready():
+                _psram.deinit()
 
     def malloc(self, data):
         """Allocate PSRAM-backed Python object (GC-managed).
@@ -49,8 +86,57 @@ class PSRAM:
             number = psram.malloc(42)
             print(number + 10)  # 52
         """
-        return _psram.malloc(data)
+        if PSRAM_AVAILABLE:
+            return _psram.malloc(data)
+        return data
+
+    def memcpy(self, dest_addr, src_addr, length):
+        """Copy memory from one PSRAM location to another."""
+        if PSRAM_AVAILABLE:
+            _psram.copy(src_addr, dest_addr, length)
+
+    def memset(self, addr, value, length):
+        """Set memory region to a specific byte value using DMA-optimized fill."""
+        if length <= 0:
+            return
+        if PSRAM_AVAILABLE:
+            _psram.fill(addr, value & 0xFF, length)
 
     def mem_free(self) -> int:
         """Get free PSRAM memory in bytes."""
-        return _psram.mem_free()
+        if PSRAM_AVAILABLE:
+            return _psram.mem_free()
+        from gc import mem_free
+
+        return mem_free()
+
+    def read(self, addr, length) -> bytes:
+        """Read data bytes from PSRAM."""
+        if PSRAM_AVAILABLE:
+            return _psram.read(addr, length)
+        return b""
+
+    def read_into(self, addr, buffer) -> int:
+        """Read data directly into an existing buffer (zero-copy)."""
+        if PSRAM_AVAILABLE:
+            return _psram.read_into(addr, buffer)
+        return 0
+
+    def write(self, addr, data) -> bool:
+        """Write data bytes to PSRAM."""
+        if PSRAM_AVAILABLE:
+            try:
+                if isinstance(data, (bytes, bytearray, memoryview)):
+                    _psram.write(addr, data)
+                elif isinstance(data, str):
+                    # Convert string to bytes
+                    _psram.write(addr, data.encode("utf-8"))
+                else:
+                    print("Data must be bytes, bytearray, memoryview, or str")
+                    return False
+
+                return True
+            except Exception as e:
+                print("PSRAM write error:", e)
+                return False
+        return False

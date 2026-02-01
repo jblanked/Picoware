@@ -5,10 +5,11 @@ from collections import deque
 
 try:
     import uio
+    import uos
 except ImportError:
     import io as uio
+    import os as uos
 from micropython import const
-import uos
 
 
 from picoware.system.vector import Vector

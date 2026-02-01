@@ -4,59 +4,66 @@ from random import randint
 from micropython import const
 from picoware.system.vector import Vector
 from picoware.system.buttons import BUTTON_UP, BUTTON_CENTER, BUTTON_BACK
-from picoware.system.colors import TFT_BLACK, TFT_BLUE, TFT_WHITE
+from picoware.system.colors import (
+    TFT_BLACK,
+    TFT_WHITE,
+    TFT_GREEN,
+    TFT_CYAN,
+    TFT_DARKGREEN,
+    TFT_YELLOW,
+)
 
 BIRD_ICON = bytes(
     [
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
         0xF6,
         0xED,
         0xED,
         0xF2,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
         0xF6,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
         0xF6,
         0xE9,
         0xC0,
         0xC0,
         0xE4,
         0xF6,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
         0xF6,
         0xC4,
         0xFB,
-        0xFF,
-        0xFF,
-        0xFF,
+        0x1F,
+        0x1F,
+        0x1F,
         0xFB,
         0xC4,
         0xE5,
@@ -65,32 +72,32 @@ BIRD_ICON = bytes(
         0xE9,
         0xC4,
         0xF6,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
         0xF6,
         0xC0,
         0xC4,
         0xF6,
-        0xFF,
+        0x1F,
         0xF6,
         0xC4,
         0xE5,
         0xE9,
         0xF2,
-        0xFF,
+        0x1F,
         0xFB,
         0xFB,
         0xE9,
         0xF2,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
         0xF6,
         0xC0,
         0xE5,
@@ -100,17 +107,17 @@ BIRD_ICON = bytes(
         0xC0,
         0xE5,
         0xF2,
-        0xFF,
+        0x1F,
         0xDB,
         0x6D,
         0xFB,
         0xC9,
         0xF2,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
         0xF6,
         0xC0,
         0xE5,
@@ -120,17 +127,17 @@ BIRD_ICON = bytes(
         0xC0,
         0xE9,
         0xFB,
-        0xFF,
+        0x1F,
         0xD6,
         0x92,
-        0xFF,
+        0x1F,
         0xF1,
         0xF1,
         0xFE,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
         0xF6,
         0xC0,
         0xE5,
@@ -142,15 +149,15 @@ BIRD_ICON = bytes(
         0xFB,
         0xFB,
         0xFB,
-        0xFF,
+        0x1F,
         0xF6,
         0xF5,
         0xF9,
         0xFA,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
         0xF6,
         0xC0,
         0xE5,
@@ -160,17 +167,17 @@ BIRD_ICON = bytes(
         0xC0,
         0xE9,
         0xF7,
-        0xFF,
+        0x1F,
         0xFB,
         0xF6,
         0xC9,
         0xF6,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
         0xF6,
         0xC4,
         0xE5,
@@ -184,14 +191,14 @@ BIRD_ICON = bytes(
         0xC4,
         0xC9,
         0xFB,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
         0xF6,
         0xE4,
         0xC0,
@@ -203,16 +210,16 @@ BIRD_ICON = bytes(
         0xEC,
         0xEC,
         0xF0,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
         0xF2,
         0xC4,
         0xE0,
@@ -223,13 +230,13 @@ BIRD_ICON = bytes(
         0xF4,
         0xF4,
         0xF5,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
         0xFB,
         0xF6,
         0xF6,
@@ -243,13 +250,13 @@ BIRD_ICON = bytes(
         0xF4,
         0xF4,
         0xF9,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
         0xF2,
         0xC0,
         0xC0,
@@ -262,14 +269,14 @@ BIRD_ICON = bytes(
         0xF4,
         0xF4,
         0xF9,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
         0xF2,
         0xC0,
         0xE5,
@@ -281,15 +288,15 @@ BIRD_ICON = bytes(
         0xF4,
         0xF4,
         0xFA,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
         0xF2,
         0xC0,
         0xC0,
@@ -300,34 +307,34 @@ BIRD_ICON = bytes(
         0xFE,
         0xFE,
         0xFE,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
         0xFB,
         0xED,
         0xED,
         0xED,
         0xED,
         0xF6,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
-        0xFF,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
+        0x1F,
     ]
 )
 
@@ -405,6 +412,11 @@ class GameState:
         self.vec_4 = Vector(FLAPPY_GAB_WIDTH, 0)
         self.lcd_pos = Vector(0, 0)
         self.text_pos = Vector(140, 12)
+        self.cloud_pos = Vector(0, 0)
+        self.gnd_pos = Vector(0, 0)
+        self.gnd_size = Vector(0, 0)
+        self.grs_pos = Vector(0, 0)
+        self.grs_size = Vector(0, 0)
 
     def __del__(self):
         if self.bird:
@@ -431,6 +443,16 @@ class GameState:
         self.lcd_pos = None
         del self.text_pos
         self.text_pos = None
+        del self.cloud_pos
+        self.cloud_pos = None
+        del self.gnd_pos
+        self.gnd_pos = None
+        del self.gnd_size
+        self.gnd_size = None
+        del self.grs_pos
+        self.grs_pos = None
+        del self.grs_size
+        self.grs_size = None
 
 
 _game_state: GameState = None
@@ -574,34 +596,89 @@ def __player_render(self, draw, game) -> None:
 
     global _game_state
 
-    # draw a border
-    draw.rect(_game_state.lcd_pos, _game_state.lcd_vec, TFT_BLACK)  # black border
+    # Draw sky background
+    draw.fill_rectangle(_game_state.lcd_pos, _game_state.lcd_vec, TFT_CYAN)
+
+    # Draw clouds (simple white circles/ovals)
+    cloud_y_positions = [20, 50, 80, 110]
+    cloud_x_offset = int(_game_state.points * 2) % 320
+    for i, y in enumerate(cloud_y_positions):
+        x = (i * 80 - cloud_x_offset) % (FLIPPER_LCD_WIDTH + 80) - 40
+        if -40 < x < FLIPPER_LCD_WIDTH:
+            _game_state.cloud_pos.x, _game_state.cloud_pos.y = x, y
+            draw.fill_circle(_game_state.cloud_pos, 12, TFT_WHITE)
+            _game_state.cloud_pos.x, _game_state.cloud_pos.y = x + 10, y - 5
+            draw.fill_circle(_game_state.cloud_pos, 10, TFT_WHITE)
+            _game_state.cloud_pos.x, _game_state.cloud_pos.y = x - 8, y - 3
+            draw.fill_circle(_game_state.cloud_pos, 8, TFT_WHITE)
+
+    # Draw ground
+    ground_height = 20
+    _game_state.gnd_pos.x, _game_state.gnd_pos.y = (
+        0,
+        FLIPPER_LCD_HEIGHT - ground_height,
+    )
+    _game_state.gnd_size.x, _game_state.gnd_size.y = (FLIPPER_LCD_WIDTH, ground_height)
+    draw.fill_rectangle(
+        _game_state.gnd_pos,
+        _game_state.gnd_size,
+        TFT_GREEN,
+    )
+    # Ground pattern (grass-like)
+    for x in range(0, FLIPPER_LCD_WIDTH, 15):
+        _game_state.grs_pos.x, _game_state.grs_pos.y = (
+            x,
+            FLIPPER_LCD_HEIGHT - ground_height,
+        )
+        _game_state.grs_size.x, _game_state.grs_size.y = (
+            x,
+            FLIPPER_LCD_HEIGHT - ground_height + 5,
+        )
+        draw.line(
+            _game_state.grs_pos,
+            _game_state.grs_size,
+            TFT_DARKGREEN,
+        )
 
     if _game_state.state == GAME_STATE_LIFE:
         # Draw pillars
         for i in range(FLAPPY_PILAR_MAX):
             pilar = _game_state.pilars[i]
             if pilar and pilar.visible == 1:
-                # Top pillar outline
+                # Top pillar - filled with green
                 _game_state.vec_1.x = pilar.point.x
                 _game_state.vec_1.y = pilar.point.y
                 _game_state.vec_2.y = pilar.height
+                draw.fill_rectangle(
+                    _game_state.vec_1,
+                    _game_state.vec_2,
+                    TFT_GREEN,
+                )
+                # Top pillar border
                 draw.rect(
                     _game_state.vec_1,
                     _game_state.vec_2,
-                    TFT_BLUE,
+                    TFT_DARKGREEN,
                 )
 
-                # Bottom pillar outline
+                # Bottom pillar - filled with green
                 _game_state.vec_3.x = pilar.point.x
                 _game_state.vec_3.y = pilar.point.y + pilar.height + FLAPPY_GAB_HEIGHT
-                _game_state.vec_4.y = FLIPPER_LCD_HEIGHT - (
-                    pilar.height + FLAPPY_GAB_HEIGHT
+                _game_state.vec_4.y = (
+                    FLIPPER_LCD_HEIGHT
+                    - (pilar.height + FLAPPY_GAB_HEIGHT)
+                    - ground_height
                 )
+                draw.fill_rectangle(
+                    _game_state.vec_3,
+                    _game_state.vec_4,
+                    TFT_GREEN,
+                )
+                # Bottom pillar border
                 draw.rect(
                     _game_state.vec_3,
                     _game_state.vec_4,
-                    TFT_BLUE,
+                    TFT_DARKGREEN,
                 )
 
         # Draw the bird
@@ -619,11 +696,12 @@ def __player_render(self, draw, game) -> None:
     elif _game_state.state == GAME_STATE_GAME_OVER:
         self.position = Vector(-100, -100)
 
-        # Simple "Game Over" box in upper-left area
-        draw.fill_rectangle(Vector(129, 128), Vector(62, 24), TFT_WHITE)
-        draw.rect(Vector(129, 128), Vector(62, 24), TFT_BLACK)
-        draw.text(Vector(132, 130), "Game Over", TFT_BLACK)
-        draw.text(Vector(132, 140), f"Score: {_game_state.points}", TFT_BLACK)
+        # "Game Over" box with yellow background
+        draw.fill_rectangle(Vector(120, 100), Vector(100, 60), TFT_YELLOW)
+        draw.rect(Vector(120, 100), Vector(100, 60), TFT_BLACK)
+        draw.text(Vector(130, 110), "Game Over!", TFT_BLACK)
+        draw.text(Vector(125, 125), f"Score: {_game_state.points}", TFT_BLACK)
+        draw.text(Vector(125, 140), "Press to Retry", TFT_BLACK)
 
 
 def __player_spawn(level):
@@ -689,7 +767,7 @@ def start(view_manager) -> bool:
     # Create the game engine (with 240 frames per second target).
     _game_engine = GameEngine(game, 240)
 
-    return True
+    return _game_engine is not None
 
 
 def run(view_manager) -> None:

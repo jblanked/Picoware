@@ -378,7 +378,7 @@ def __telegram_send(view_manager, text: str) -> bool:
 
     return _http.post_async(
         url=f"https://api.telegram.org/bot{token}/sendMessage",
-        payload=payload,
+        json=payload,
         headers={"Content-Type": "application/json"},
     )
 

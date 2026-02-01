@@ -15,6 +15,8 @@ score_right = 0
 game_started = False
 score_pos_left = None
 score_pos_right = None
+pos = None
+size = None
 
 PADDLE_WIDTH = const(8)
 PADDLE_HEIGHT = const(40)
@@ -45,13 +47,13 @@ class Paddle:
         """Move paddle up or down"""
         self.y += dy
         # Keep within screen bounds
-        if self.y < 0:
-            self.y = 0
+        self.y = max(self.y, 0)
         if self.y + self.height > screen_size.y:
             self.y = screen_size.y - self.height
 
     def draw(self, draw, color):
         """Draw the paddle"""
+        self.pos.x, self.pos.y = (self.x, self.y)
         draw.fill_rectangle(self.pos, self.size, color)
 
 
@@ -59,7 +61,13 @@ class Ball:
     """Ball object"""
 
     def __init__(self):
-        self.reset()
+        self.x = screen_size.x // 2
+        self.y = screen_size.y // 2
+        self.vx = BALL_SPEED if randint(0, 1) else -BALL_SPEED
+        self.vy = randint(-3, 3)
+        self.size = BALL_SIZE
+        self.pos_vec = Vector(int(self.x), int(self.y))
+        self.size_vec = Vector(self.size, self.size)
 
     def reset(self):
         """Reset ball to center with random direction"""
@@ -80,9 +88,8 @@ class Ball:
 
     def draw(self, draw):
         """Draw the ball"""
-        pos = Vector(int(self.x), int(self.y))
-        size = Vector(self.size, self.size)
-        draw.fill_rectangle(pos, size, TFT_WHITE)
+        self.pos_vec.x, self.pos_vec.y = (int(self.x), int(self.y))
+        draw.fill_rectangle(self.pos_vec, self.size_vec, TFT_WHITE)
 
     def check_paddle_collision(self, paddle):
         """Check collision with paddle"""
@@ -103,10 +110,9 @@ class Ball:
 
 def start(view_manager) -> bool:
     """Start the app"""
-    global screen_size, paddle_left, paddle_right, ball, score_left, score_right, game_started, score_pos_left, score_pos_right
+    global screen_size, paddle_left, paddle_right, ball, score_left, score_right, game_started, score_pos_left, score_pos_right, pos, size
 
-    draw = view_manager.draw
-    screen_size = Vector(draw.size.x, draw.size.y)
+    screen_size = view_manager.draw.size
 
     # Create paddles
     paddle_left = Paddle(10, screen_size.y // 2 - PADDLE_HEIGHT // 2)
@@ -124,12 +130,15 @@ def start(view_manager) -> bool:
     score_pos_left = Vector(screen_size.x // 4, 10)
     score_pos_right = Vector(screen_size.x * 3 // 4, 10)
 
+    pos = Vector(0, 0)
+    size = Vector(4, 10)
+
     return True
 
 
 def run(view_manager) -> None:
     """Run the app"""
-    global score_left, score_right, game_started
+    global score_left, score_right
 
     inp = view_manager.input_manager
     button = inp.button
@@ -175,8 +184,6 @@ def run(view_manager) -> None:
     draw.fill_screen(TFT_BLACK)
 
     # Draw center line
-    pos = Vector(0, 0)
-    size = Vector(4, 10)
     for y in range(0, screen_size.y, 20):
         pos.x, pos.y = (screen_size.x // 2 - 2, y)
         draw.fill_rectangle(pos, size, TFT_WHITE)
@@ -199,7 +206,7 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global screen_size, paddle_left, paddle_right, ball, score_left, score_right, game_started, score_pos_left, score_pos_right
+    global screen_size, paddle_left, paddle_right, ball, score_left, score_right, game_started, score_pos_left, score_pos_right, pos, size
 
     screen_size = None
     paddle_left = None
@@ -210,5 +217,7 @@ def stop(view_manager) -> None:
     game_started = False
     score_pos_left = None
     score_pos_right = None
+    pos = None
+    size = None
 
     collect()

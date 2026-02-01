@@ -1,6 +1,6 @@
 #!/bin/sh
 # Script to build and install the CircuitPython version of Picoware 
-echo "Building CircuitPython Picoware firmware for all supported devices..."
+echo "Building CircuitPython Picoware firmware for PicoCalc Pimoroni 2W..."
 
 # set your locations
 circuitpython_dir="/Users/user/pico/circuitpython"
@@ -16,8 +16,8 @@ echo "Compiling PIO files to headers..."
 
 # Find pioasm (use MicroPython build or CircuitPython build)
 pioasm_path=""
-if [ -f "/Users/user/pico/micropython/ports/rp2/build-RPI_PICO/pioasm/pioasm" ]; then
-    pioasm_path="/Users/user/pico/micropython/ports/rp2/build-RPI_PICO/pioasm/pioasm"
+if [ -f "/Users/user/pico/micropython/ports/rp2/build-RPI_PICO2_W/pioasm/pioasm" ]; then
+    pioasm_path="/Users/user/pico/micropython/ports/rp2/build-RPI_PICO2_W/pioasm/pioasm"
 elif [ -f "/Users/user/pico/pico-sdk/tools/pioasm/build/pioasm" ]; then
     pioasm_path="/Users/user/pico/pico-sdk/tools/pioasm/build/pioasm"
 elif command -v pioasm > /dev/null 2>&1; then
@@ -81,7 +81,7 @@ rm -rf "$circuitpython_dir"/shared-bindings/vector
 
 echo "Cleaning previous builds..."
 cd "$circuitpython_dir/ports/raspberrypi"
-rm -rf build-raspberry_pi_pico2_w build-raspberry_pi_pico2 build-raspberry_pi_pico_w build-raspberry_pi_pico
+rm -rf build-pimoroni_pico_plus2w
 
 echo "Installing new CircuitPython Picoware modules..."
 
@@ -137,19 +137,6 @@ echo "Building firmware..."
 cd "$circuitpython_dir/ports/raspberrypi"
 
 # Build with frozen modules - point to parent directory so picoware becomes a namespace
-make -j $(nproc) BOARD=raspberry_pi_pico FROZEN_MPY_DIRS="$circuitpython_dir/frozen/picoware_frozen" &&
-cp build-raspberry_pi_pico/firmware.uf2 "$picoware_dir"/builds/CircuitPython/Picoware-PicoCalcPico.uf2 &&
-
-make -j $(nproc) BOARD=raspberry_pi_pico_w FROZEN_MPY_DIRS="$circuitpython_dir/frozen/picoware_frozen" &&
-cp build-raspberry_pi_pico_w/firmware.uf2 "$picoware_dir"/builds/CircuitPython/Picoware-PicoCalcPicoW.uf2 &&
-
-make -j $(nproc) BOARD=raspberry_pi_pico2 FROZEN_MPY_DIRS="$circuitpython_dir/frozen/picoware_frozen" &&
-cp build-raspberry_pi_pico2/firmware.uf2 "$picoware_dir"/builds/CircuitPython/Picoware-PicoCalcPico2.uf2 &&
-
-make -j $(nproc) BOARD=raspberry_pi_pico2_w FROZEN_MPY_DIRS="$circuitpython_dir/frozen/picoware_frozen" &&
-cp build-raspberry_pi_pico2_w/firmware.uf2 "$picoware_dir"/builds/CircuitPython/Picoware-PicoCalcPico2W.uf2 
-
 make -j $(nproc) BOARD=pimoroni_pico_plus2w FROZEN_MPY_DIRS="$circuitpython_dir/frozen/picoware_frozen"
-cp build-pimoroni_pico_plus2w/firmware.uf2 "$picoware_dir"/builds/CircuitPython/Picoware-PicoCalcPimoroni2W.uf2
 
-echo "All CircuitPython Picoware firmware builds complete."
+cp build-pimoroni_pico_plus2w/firmware.uf2 "$picoware_dir"/builds/CircuitPython/Picoware-PicoCalcPimoroni2W.uf2

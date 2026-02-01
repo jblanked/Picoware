@@ -14,12 +14,12 @@ class HTTP:
         self.wifi = wifi_object
         self.pool = None
         self.ssl_context = None
+        self._error = None
         self._state = HTTP_IDLE
         self.requests = None
         self._response = None
         self.is_ready = False
         self._callback: callable = None
-        self.begin()
 
     @property
     def callback(self) -> callable:
@@ -32,9 +32,24 @@ class HTTP:
         self._callback = func
 
     @property
+    def error(self):
+        """Get the last error encountered."""
+        return self._error if self._error else ""
+
+    @property
     def in_progress(self) -> bool:
         """Return True if a request is in progress, False otherwise."""
         return self._state == HTTP_LOADING
+
+    @property
+    def is_finished(self) -> bool:
+        """Return True if the last request has finished, False otherwise."""
+        return self._state == HTTP_IDLE
+
+    @property
+    def is_successful(self) -> bool:
+        """Return True if the last request was successful, False otherwise."""
+        return self._state == HTTP_IDLE and self._error is None
 
     @property
     def response(self) -> Response:
@@ -63,11 +78,31 @@ class HTTP:
             )
             self.requests = adafruit_requests.Session(self.pool, self.ssl_context)
             self.is_ready = True
+            self._error = None
             return True
         except Exception as e:
             print("HTTP initialization error:", e)
+            self._error = e
             self.is_ready = False
+            del self.pool
+            self.pool = None
+            del self.ssl_context
+            self.ssl_context = None
+            del self.requests
+            self.requests = None
             return False
+
+    def close(self) -> None:
+        """Close the HTTP session and free resources."""
+        free()
+        if self.is_ready:
+            del self.pool
+            self.pool = None
+            del self.ssl_context
+            self.ssl_context = None
+            del self.requests
+            self.requests = None
+            self.is_ready = False
 
     def __async(self, url: str, method: str, **kw) -> bool:
         """Make an asynchronous HTTP request to the specified URL."""
@@ -79,7 +114,7 @@ class HTTP:
                         "HTTP client is not initialized and failed to begin.."
                     )
 
-            self._response = getattr(self.requests, method)(url, **kw)
+            self._response = self.__request(url, method, **kw)
             self._state = HTTP_LOADING
             if self._callback:
                 self._callback(response=self._response, error=None, state=HTTP_IDLE)
@@ -87,7 +122,9 @@ class HTTP:
             return True
         except Exception as e:
             self._state = HTTP_ISSUE
-            self._callback(response=None, error=e, state=HTTP_ISSUE)
+            self._error = e
+            if self._callback:
+                self._callback(response=None, error=e, state=HTTP_ISSUE)
             del self._response
             self._response = None
             del self.pool
@@ -101,10 +138,7 @@ class HTTP:
 
     def delete(self, url: str, **kw) -> Response:
         """Make a DELETE request to the specified URL."""
-        free()
-        if not self.is_ready:
-            raise RuntimeError("HTTP client is not initialized. Call begin() first.")
-        return self.requests.delete(url, **kw)
+        return self.__request(url, "delete", **kw)
 
     def delete_async(self, url: str, **kw) -> bool:
         """Make an asynchronous DELETE request to the specified URL."""
@@ -112,10 +146,7 @@ class HTTP:
 
     def get(self, url: str, **kw) -> Response:
         """Make a GET request to the specified URL."""
-        free()
-        if not self.is_ready:
-            raise RuntimeError("HTTP client is not initialized. Call begin() first.")
-        return self.requests.get(url, **kw)
+        return self.__request(url, "get", **kw)
 
     def get_async(self, url: str, **kw) -> bool:
         """Make an asynchronous GET request to the specified URL."""
@@ -123,10 +154,7 @@ class HTTP:
 
     def patch(self, url: str, data: dict = None, json: dict = None, **kw) -> Response:
         """Make a PATCH request to the specified URL."""
-        free()
-        if not self.is_ready:
-            raise RuntimeError("HTTP client is not initialized. Call begin() first.")
-        return self.requests.patch(url, data=data, json=json, **kw)
+        return self.__request(url, "patch", data=data, json=json, **kw)
 
     def patch_async(self, url: str, data: dict = None, json: dict = None, **kw) -> bool:
         """Make an asynchronous PATCH request to the specified URL."""
@@ -134,10 +162,7 @@ class HTTP:
 
     def post(self, url: str, data: dict = None, json: dict = None, **kw) -> Response:
         """Make a POST request to the specified URL."""
-        free()
-        if not self.is_ready:
-            raise RuntimeError("HTTP client is not initialized. Call begin() first.")
-        return self.requests.post(url, data=data, json=json, **kw)
+        return self.__request(url, "post", data=data, json=json, **kw)
 
     def post_async(self, url: str, data: dict = None, json: dict = None, **kw) -> bool:
         """Make an asynchronous POST request to the specified URL."""
@@ -145,11 +170,18 @@ class HTTP:
 
     def put(self, url: str, data: dict = None, json: dict = None, **kw) -> Response:
         """Make a PUT request to the specified URL."""
-        free()
-        if not self.is_ready:
-            raise RuntimeError("HTTP client is not initialized. Call begin() first.")
-        return self.requests.put(url, data=data, json=json, **kw)
+        return self.__request(url, "put", data=data, json=json, **kw)
 
     def put_async(self, url: str, data: dict = None, json: dict = None, **kw) -> bool:
         """Make an asynchronous PUT request to the specified URL."""
         return self.__async(url, "put", data=data, json=json, **kw)
+
+    def __request(self, url: str, method: str, **kw) -> Response:
+        """Make a synchronous HTTP request to the specified URL."""
+        free()
+        if not self.is_ready:
+            if not self.begin():
+                raise RuntimeError(
+                    "HTTP client is not initialized. Call begin() first."
+                )
+        return getattr(self.requests, method)(url, **kw)

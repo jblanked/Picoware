@@ -17,7 +17,7 @@ class Time:
     @property
     def date(self) -> str:
         """Return the current date only as string"""
-        date = self._rtc.datetime()
+        date = self._rtc.datetime
         return f"{date[1]}/{date[2]}/{date[0]}"
 
     @property
@@ -33,7 +33,8 @@ class Time:
     @property
     def time(self) -> str:
         """Return the current time only as string"""
-        date = self._rtc.datetime()
+        date = self._rtc.datetime
+
         _seconds = date[6]
         if _seconds < 10:
             _seconds = f"0{_seconds}"

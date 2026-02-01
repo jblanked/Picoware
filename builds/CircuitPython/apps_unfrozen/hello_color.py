@@ -1,12 +1,25 @@
 from micropython import const
+from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
+from picoware.system.vector import Vector
+from picoware.system.colors import (
+    TFT_WHITE,
+    TFT_BLUE,
+    TFT_RED,
+    TFT_YELLOW,
+    TFT_GREEN,
+)
+from random import randint
 
 hi = const(b"Hello World")
 clr = 0
+choices = {}
 
 
 def start(view_manager) -> bool:
     """Start the app."""
     from picoware.system.vector import Vector
+
+    global choices
 
     draw = view_manager.draw
 
@@ -16,28 +29,17 @@ def start(view_manager) -> bool:
 
     draw.swap()
 
+    choices = {0: TFT_WHITE, 1: TFT_BLUE, 2: TFT_RED, 3: TFT_YELLOW, 4: TFT_GREEN}
+
     return True
 
 
 def run(view_manager):
     """Run the app."""
-    from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
-    from picoware.system.vector import Vector
-    from picoware.system.colors import (
-        TFT_WHITE,
-        TFT_BLUE,
-        TFT_RED,
-        TFT_YELLOW,
-        TFT_GREEN,
-    )
-    from random import randint
-
     global clr
 
     input_manager = view_manager.input_manager
     button = input_manager.button
-
-    choices = {0: TFT_WHITE, 1: TFT_BLUE, 2: TFT_RED, 3: TFT_YELLOW, 4: TFT_GREEN}
 
     if button == BUTTON_CENTER:
         input_manager.reset()
@@ -58,8 +60,9 @@ def stop(view_manager):
     """Stop the app."""
     from gc import collect
 
-    global clr
+    global clr, choices
 
     clr = 0
+    choices = {}
 
     collect()

@@ -184,9 +184,12 @@ def run(view_manager) -> None:
                 return
         else:
             # Show loading indicator for location
-            from utime import ticks_ms
+            try:
+                from utime import ticks_ms
+            except ImportError:
+                from supervisor import ticks_ms
 
-            millis = int(ticks_ms())
+            millis = ticks_ms()
 
             if millis - _location_last_update > 500:
                 _location_last_update = millis
@@ -261,9 +264,12 @@ def run(view_manager) -> None:
                 return
         else:
             # Show loading indicator for weather
-            from utime import ticks_ms
+            try:
+                from utime import ticks_ms
+            except ImportError:
+                from supervisor import ticks_ms
 
-            millis = int(ticks_ms())
+            millis = ticks_ms()
 
             if millis - _weather_last_update > 500:
                 _weather_last_update = millis

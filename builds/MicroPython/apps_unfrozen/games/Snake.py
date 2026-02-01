@@ -169,7 +169,14 @@ class Game:
 
 def main(view_manager):
     """Main function to run the Snake game"""
-    import time
+    try:
+        from utime import ticks_ms, ticks_diff
+    except ImportError:
+        from supervisor import ticks_ms
+
+        def ticks_diff(a, b):
+            return a - b
+
     from picoware.system.buttons import (
         BUTTON_UP,
         BUTTON_DOWN,
@@ -184,12 +191,12 @@ def main(view_manager):
     game = Game(draw)
 
     # Game loop
-    last_update = time.ticks_ms()
+    last_update = ticks_ms()
     update_interval = 150  # Move every 150ms
 
     running = True
     while running:
-        current_time = time.ticks_ms()
+        current_time = ticks_ms()
         _button = inp.button
 
         # Handle input
@@ -211,7 +218,7 @@ def main(view_manager):
             game.snake.set_direction((-1, 0))
 
         # Update game at fixed interval
-        if time.ticks_diff(current_time, last_update) >= update_interval:
+        if ticks_diff(current_time, last_update) >= update_interval:
             game.update()
             game.draw()
             draw.swap()

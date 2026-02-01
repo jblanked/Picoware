@@ -30,13 +30,19 @@ rm -rf "$micropython_dir"/modules/vector
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"
-rm -rf build-RPI_PICO build-RPI_PICO_W build-RPI_PICO2 build-RPI_PICO2_W
+rm -rf build-RPI_PICO build-RPI_PICO_W build-RPI_PICO2 build-RPI_PICO2_W build-PIMORONI_PICO_PLUS2W_RP2350
 
 echo "Installing new MicroPython Picoware modules..."
 
 # copy main.py and picoware folder if it exists
 cp "$picoware_dir"/src/MicroPython/main.py "$micropython_dir"/modules/main.py
 cp -r "$picoware_dir"/src/MicroPython/picoware "$micropython_dir"/modules/picoware
+
+# copy pIMORONI_PICO_PLUS2W_RP2350 boards folder to micropython boards directory
+cp -r "$picoware_dir"/src/MicroPython/boards/PIMORONI_PICO_PLUS2W_RP2350 "$micropython_dir"/boards
+
+# copy pIMORONI_PICO_PLUS2W_RP2350.h to PicoSDK boards include directory
+cp "$picoware_dir"/src/MicroPython/boards/PIMORONI_PICO_PLUS2W_RP2350/pIMORONI_PICO_PLUS2W_RP2350.h "$micropython_dir"/../../lib/pico-sdk/src/boards/include/boards/
 
 # ensure PicoCalc modules directory exists
 mkdir -p "$micropython_dir"/modules/PicoCalc
@@ -81,6 +87,11 @@ echo "PicoCalc - Pico 2 build complete."
 make BOARD=RPI_PICO2_W USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake
 cp "$micropython_dir"/build-RPI_PICO2_W/firmware.uf2 "$picoware_dir"/builds/MicroPython/Picoware-PicoCalcPico2W.uf2
 echo "PicoCalc - Pico 2W build complete."
+
+# PicoCalc - Pimoroni 2W 
+make BOARD=PIMORONI_PICO_PLUS2W_RP2350 USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake
+cp "$micropython_dir"/build-PIMORONI_PICO_PLUS2W_RP2350/firmware.uf2 "$picoware_dir"/builds/MicroPython/Picoware-PicoCalcPimoroni2W.uf2
+echo "PicoCalc - Pimoroni 2W build complete."
 
 echo "MicroPython Picoware PicoCalc builds completed successfully!"
 echo "---------------------------------------"

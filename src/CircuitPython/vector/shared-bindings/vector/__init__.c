@@ -55,32 +55,19 @@ STATIC mp_obj_t vector_mp_del(mp_obj_t self_in)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(vector_mp_del_obj, vector_mp_del);
 
-STATIC mp_obj_t vector_mp_x(mp_obj_t self_in)
-{
-    vector_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    return self->integer ? mp_obj_new_int((int)self->x) : mp_obj_new_float(self->x);
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(vector_mp_x_obj, vector_mp_x);
-
-STATIC mp_obj_t vector_mp_y(mp_obj_t self_in)
-{
-    vector_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    return self->integer ? mp_obj_new_int((int)self->y) : mp_obj_new_float(self->y);
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(vector_mp_y_obj, vector_mp_y);
-
 STATIC void vector_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
+    vector_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     if (destination[0] == MP_OBJ_NULL)
     {
-        // Load attributea
+        // Load attributes
         if (attribute == MP_QSTR_x)
         {
-            destination[0] = vector_mp_x(self_in);
+            destination[0] = self->integer ? mp_obj_new_int((int)self->x) : mp_obj_new_float(self->x);
         }
         else if (attribute == MP_QSTR_y)
         {
-            destination[0] = vector_mp_y(self_in);
+            destination[0] = self->integer ? mp_obj_new_int((int)self->y) : mp_obj_new_float(self->y);
         }
         else if (attribute == MP_QSTR___del__)
         {
@@ -90,7 +77,6 @@ STATIC void vector_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destinati
     else if (destination[1] != MP_OBJ_NULL)
     {
         // Store attributes
-        vector_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
         if (attribute == MP_QSTR_x)
         {
             self->x = self->integer ? (float)mp_obj_get_int(destination[1]) : mp_obj_get_float(destination[1]);
@@ -104,15 +90,6 @@ STATIC void vector_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destinati
     }
 }
 
-// Define CLASS locals
-STATIC const mp_rom_map_elem_t vector_class_locals_table[] = {
-    {MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&vector_mp_del_obj)},
-    {MP_ROM_QSTR(MP_QSTR_x), MP_ROM_PTR(&vector_mp_x_obj)},
-    {MP_ROM_QSTR(MP_QSTR_y), MP_ROM_PTR(&vector_mp_y_obj)},
-};
-STATIC MP_DEFINE_CONST_DICT(vector_class_locals, vector_class_locals_table);
-
-// Define MODULE globals
 STATIC const mp_rom_map_elem_t vector_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_vector)},
     {MP_ROM_QSTR(MP_QSTR_Vector), MP_ROM_PTR(&vector_mp_type)},
@@ -125,8 +102,7 @@ MP_DEFINE_CONST_OBJ_TYPE(
     MP_TYPE_FLAG_HAS_SPECIAL_ACCESSORS,
     print, vector_mp_print,
     make_new, vector_mp_make_new,
-    attr, vector_mp_attr,
-    locals_dict, &vector_class_locals);
+    attr, vector_mp_attr);
 
 // Define module
 const mp_obj_module_t vector_user_cmodule = {

@@ -23,8 +23,6 @@
 #define STATIC static
 #endif
 
-#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
-
 // Module state
 bool psram_initialized = false;
 psram_qspi_inst_t psram_instance;

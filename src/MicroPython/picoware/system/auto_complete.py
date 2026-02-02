@@ -1,46 +1,57 @@
-import auto_complete
+import auto_complete as ac
 
 
 class AutoComplete:
     """A simple auto-complete class"""
 
     def __init__(self) -> None:
-        self._ac = auto_complete.AutoComplete()
+        self._ac = ac.AutoComplete()
 
     def __del__(self) -> None:
-        auto_complete.free(self._ac)
+        del self._ac
+        self._ac = None
 
     def __str__(self) -> str:
         return str(self._ac)
 
     @property
-    def context(self) -> auto_complete.AutoComplete:
+    def context(self) -> tuple:
         """Get the underlying auto-complete context."""
-        return self._ac
+        return self._ac.context
+
+    @property
+    def suggestion_count(self) -> int:
+        """Get the number of current search suggestions."""
+        return self._ac.context[1]
+
+    @property
+    def suggestions(self) -> tuple:
+        """Get the current search suggestions."""
+        return self._ac.context[0]
 
     def add_word(self, word: str) -> bool:
         """Add a word to the auto-complete dictionary."""
-        return auto_complete.add_word(self._ac, word)
+        return ac.add_word(self._ac, word)
 
     def add_words(self, words: list[str]) -> int:
         """Add multiple words to the auto-complete dictionary."""
         count = 0
         for word in words:
-            if auto_complete.add_word(self._ac, word):
+            if ac.add_word(self._ac, word):
                 count += 1
         return count
 
     def remove_suggestions(self) -> None:
         """Remove all search suggestions."""
-        auto_complete.remove_suggestions(self._ac)
+        ac.remove_suggestions(self._ac)
 
     def remove_words(self) -> None:
         """Remove all words from the auto-complete dictionary."""
-        auto_complete.remove_words(self._ac)
+        ac.remove_words(self._ac)
 
     def search(self, prefix: str) -> tuple:
         """Search for words that match the given prefix."""
-        results = auto_complete.search(self._ac, prefix)
+        results = ac.search(self._ac, prefix)
         if not results:
             return ()
         return results

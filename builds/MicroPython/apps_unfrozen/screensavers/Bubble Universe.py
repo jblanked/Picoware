@@ -2,8 +2,12 @@
 # original algorithm from https://x.com/yuruyurau/status/1226846058728177665
 # translated directly from https://github.com/pelrun/picocalc-bubbleuniverse/blob/main/main.c
 
+try:
+    from utime import ticks_ms
+except ImportError:
+    from supervisor import ticks_ms
+
 from micropython import const
-from utime import ticks_ms
 from array import array
 from picoware.system.vector import Vector
 from picoware.system.colors import TFT_WHITE, TFT_BLACK

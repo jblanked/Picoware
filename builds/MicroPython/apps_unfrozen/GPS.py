@@ -189,9 +189,12 @@ def run(view_manager) -> None:
             # show loading indicator while request is in progress
             global _gps_last_update, _gps_dot_count
 
-            from utime import ticks_ms
+            try:
+                from utime import ticks_ms
+            except ImportError:
+                from supervisor import ticks_ms
 
-            millis = int(ticks_ms())
+            millis = ticks_ms()
 
             if millis - _gps_last_update > 500:
                 _gps_last_update = millis

@@ -4,9 +4,14 @@
 
 from picoware.system.vector import Vector
 from picoware.system.colors import TFT_BLACK
-from urandom import getrandbits
 from picoware.system.buttons import BUTTON_BACK
 from micropython import const
+
+try:
+    from urandom import getrandbits
+except ImportError:
+    from random import getrandbits
+
 
 # Constants
 FLOAT_SHIFT = const(8)

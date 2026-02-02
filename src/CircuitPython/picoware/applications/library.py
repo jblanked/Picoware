@@ -22,7 +22,7 @@ def start(view_manager) -> bool:
         )
         _library.add_item("Applications")
         _library.add_item("App Store")
-        _library.add_item("Bluetooth")
+        # _library.add_item("Bluetooth")
         _library.add_item("File Manager")
         _library.add_item("Games")
         _library.add_item("Python Editor")
@@ -72,13 +72,13 @@ def run(view_manager) -> None:
         app_map = {
             0: "Applications",
             1: "App Store",
-            2: "Bluetooth",
-            3: "File Manager",
-            4: "Games",
-            5: "Python Editor",
-            6: "Screensavers",
-            7: "System",
-            8: "WiFi",
+            # 2: "Bluetooth",
+            2: "File Manager",
+            3: "Games",
+            4: "Python Editor",
+            5: "Screensavers",
+            6: "System",
+            7: "WiFi",
         }
 
         if app_map.get(_library_index) == "System":

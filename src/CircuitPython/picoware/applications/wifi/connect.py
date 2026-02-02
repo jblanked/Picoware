@@ -139,10 +139,12 @@ def run(view_manager) -> None:
         wifi.reset()
         _status_message = "Starting connection..."
         wifi.callback_connect = __connect_callback
+        _connect.set_text(_get_status_text(view_manager))
         if wifi.connect(_ssid, _password):
             _connection_start_time = int(monotonic())
         else:
             _status_message = "Failed to start connection"
+        return
 
     _connect.set_text(_get_status_text(view_manager))
 

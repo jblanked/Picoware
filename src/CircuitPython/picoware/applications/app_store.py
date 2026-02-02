@@ -190,7 +190,7 @@ def __check_updates_async(view_manager) -> bool:
 
     return _http.post(
         url,
-        payload=post_data,
+        json=post_data,
         headers={
             "User-Agent": "Raspberry Pi Pico W",
             "Content-Type": "application/json",

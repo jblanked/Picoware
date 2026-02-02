@@ -26,12 +26,11 @@ def start(view_manager) -> bool:
             2,
         )
 
-        for ssid, bssid, channel, rssi, authmode, hidden in results:
-            _ssid = ssid.decode("utf-8")
+        for result in results:
+            _ssid = result.ssid
             if len(_ssid) == 0:
                 _ssid = "<hidden>"
-            _scan.add_item(f"{_ssid} ({rssi}dB)")
-
+            _scan.add_item(f"{_ssid} ({result.rssi}dB)")
         _scan.set_selected(0)
 
         _scan.draw()

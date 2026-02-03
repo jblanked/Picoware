@@ -577,7 +577,9 @@ class HTTP:
             storage=storage,
         )
 
-    def read_chunked(self, s, uart=None, method="GET", save_to_file=None, storage=None):
+    def read_chunked(
+        self, s, uart=None, method="GET", save_to_file=None, storage=None
+    ) -> bytes:
         """Read chunked HTTP response.
 
         Args:
@@ -591,20 +593,13 @@ class HTTP:
             uart.write(f"[{method}/SUCCESS] {method} request successful.\n")
 
         body = b""
-        # file_handle = None
-        # vfs_mounted = False
         file = None
 
         # Open file for writing if save_to_file is specified
         if save_to_file and storage:
             try:
-                # storage.mount_vfs()
-                # vfs_mounted = True
-                # file_handle = open(f"/sd/{save_to_file}", "wb")
                 file = storage.file_open(save_to_file)
             except Exception as e:
-                # if vfs_mounted:
-                # storage.unmount_vfs()
                 storage.file_close(file)
                 raise RuntimeError(
                     f"Failed to open file for writing: {save_to_file} - {e}"
@@ -623,8 +618,8 @@ class HTTP:
                 chunk_size_str = line.strip().split(b";")[0]  # Ignore chunk extensions
                 try:
                     chunk_size = int(chunk_size_str, 16)
-                except ValueError:
-                    raise ValueError("Invalid chunk size: %s" % chunk_size_str)
+                except ValueError as exc:
+                    raise ValueError("Invalid chunk size: %s" % chunk_size_str) from exc
                 if chunk_size == 0:
                     # Read and discard trailer headers
                     while True:
@@ -641,18 +636,6 @@ class HTTP:
                 if uart:
                     uart.write(chunk)
                     uart.flush()
-                # elif file_handle:
-                #     # Write directly to file with retry
-                #     retries = 10
-                #     while retries > 0:
-                #         try:
-                #             file_handle.write(chunk)
-                #             break
-                #         except OSError as e:
-                #             retries -= 1
-                #             if retries == 0:
-                #                 raise e
-                #             sleep_ms(10)
                 elif file:
                     # Write directly to file with retry
                     retries = 10
@@ -674,17 +657,6 @@ class HTTP:
                 uart.write("\n")
                 uart.write(f"[{method}/END]")
         finally:
-            # if file_handle:
-            #     try:
-            #         file_handle.flush()
-            #         file_handle.close()
-            #     except Exception:
-            #         pass
-            # if vfs_mounted:
-            #     try:
-            #         storage.unmount_vfs()
-            #     except Exception:
-            #         pass
             if file:
                 try:
                     storage.file_close(file)

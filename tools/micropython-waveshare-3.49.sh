@@ -27,6 +27,9 @@ rm -rf "$micropython_dir"/modules/auto_complete
 # remove vector module if it exists
 rm -rf "$micropython_dir"/modules/vector
 
+# remove response module if it exists
+rm -rf "$micropython_dir"/modules/response
+
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"
@@ -62,10 +65,13 @@ cp -r "$picoware_dir"/src/MicroPython/auto_complete "$micropython_dir"/modules/a
 # copy vector module
 cp -r "$picoware_dir"/src/MicroPython/vector "$micropython_dir"/modules/vector
 
+# copy response module
+cp -r "$picoware_dir"/src/MicroPython/response "$micropython_dir"/modules/response
+
 echo "Starting Waveshare 3.49 build process..."
 
 # Waveshare - 3.49
-make BOARD=WAVESHARE_RP2350_TOUCH_LCD_3_49 USER_C_MODULES="$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-3.49/waveshare_modules.cmake
+make -j BOARD=WAVESHARE_RP2350_TOUCH_LCD_3_49 USER_C_MODULES="$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-3.49/waveshare_modules.cmake
 cp "$micropython_dir"/build-WAVESHARE_RP2350_TOUCH_LCD_3_49/firmware.uf2 "$picoware_dir"/builds/MicroPython/Picoware-Waveshare-3.49.uf2
 echo "Waveshare - 3.49 build complete."
 

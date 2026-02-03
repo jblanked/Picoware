@@ -27,6 +27,9 @@ rm -rf "$micropython_dir"/modules/auto_complete
 # remove vector module if it exists
 rm -rf "$micropython_dir"/modules/vector
 
+# remove response module if it exists
+rm -rf "$micropython_dir"/modules/response
+
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"
@@ -57,12 +60,15 @@ cp -r "$picoware_dir"/src/MicroPython/auto_complete "$micropython_dir"/modules/a
 # copy vector module
 cp -r "$picoware_dir"/src/MicroPython/vector "$micropython_dir"/modules/vector
 
+# copy response module
+cp -r "$picoware_dir"/src/MicroPython/response "$micropython_dir"/modules/response
+
 echo "Starting PicoCalc build process..."
 
 # move to the micropython rp2 port directory
 cd "$micropython_dir"
 
 # PicoCalc - Pico 2W 
-make BOARD=RPI_PICO2_W USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake
+make -j BOARD=RPI_PICO2_W USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake
 cp "$micropython_dir"/build-RPI_PICO2_W/firmware.uf2 "$picoware_dir"/builds/MicroPython/Picoware-PicoCalcPico2W.uf2
 echo "PicoCalc - Pico 2W build complete."

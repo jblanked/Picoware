@@ -776,16 +776,6 @@ static uint16_t lcd_color332_to_565(uint8_t r, uint8_t g, uint8_t b)
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
 }
 
-// Helper to write a single pixel to PSRAM framebuffer
-__force_inline static void psram_write_pixel(int x, int y, uint8_t color_index)
-{
-    if (x >= 0 && x < DISPLAY_WIDTH && y >= 0 && y < DISPLAY_HEIGHT)
-    {
-        uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (y * PSRAM_ROW_SIZE) + x;
-        psram_qspi_write8(&psram_instance, addr, color_index);
-    }
-}
-
 // Helper to write a horizontal line to PSRAM (optimized batch write)
 __force_inline static void psram_write_hline(int x, int y, int length, uint8_t color_index)
 {

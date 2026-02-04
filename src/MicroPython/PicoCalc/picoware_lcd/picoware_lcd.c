@@ -93,12 +93,6 @@ void picoware_write_buffer_fb_16(psram_qspi_inst_t *psram, int x, int y, int wid
     }
 }
 
-// Get palette pointer for external access
-uint16_t *picoware_get_palette(void)
-{
-    return palette;
-}
-
 static const uint8_t *get_font_data(void)
 {
     static const uint8_t font_data[] = {

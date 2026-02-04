@@ -221,17 +221,17 @@ STATIC mp_obj_t picoware_sd_create_file(mp_obj_t filepath_obj)
 {
     const char *filePath = mp_obj_str_get_str(filepath_obj);
     fat32_file_t file;
-    bool status = true;
     if (fat32_open(&file, filePath) != FAT32_OK)
     {
-        if (fat32_create(&file, filePath) != FAT32_OK)
+        fat32_error_t err = fat32_create(&file, filePath);
+        if (err != FAT32_OK)
         {
-            printf("Failed to create file.\n");
-            status = false;
+            PRINT("Failed to create file: %s\n", fat32_error_string(err));
+            mp_raise_OSError(MP_EIO);
         }
     }
     fat32_close(&file);
-    return mp_obj_new_bool(status);
+    return mp_obj_new_bool(true);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(picoware_sd_create_file_obj, picoware_sd_create_file);
 

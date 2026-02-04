@@ -14,6 +14,9 @@ class Response:
             del self._context
             self._context = None
 
+    def __str__(self) -> str:
+        return str(self._context)
+
     @property
     def content(self) -> bytes:
         """Get the response content as bytes."""

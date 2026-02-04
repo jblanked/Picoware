@@ -23,9 +23,6 @@ extern psram_qspi_inst_t *picoware_get_psram_instance(void);
 // Inline helper to write pixel to PSRAM framebuffer
 extern void picoware_write_pixel_fb(psram_qspi_inst_t *psram, int x, int y, uint8_t color_index);
 
-// Batch write buffer to framebuffer
-extern void picoware_write_buffer_fb(psram_qspi_inst_t *psram, int x, int y, int width, int height, const uint8_t *buffer);
-
 // Batch write 16-bit RGB565 buffer to framebuffer (for LVGL) - converts to RGB332
 extern void picoware_write_buffer_fb_16(psram_qspi_inst_t *psram, int x, int y, int width, int height, const uint16_t *buffer);
 

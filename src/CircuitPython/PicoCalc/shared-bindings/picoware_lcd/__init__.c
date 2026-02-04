@@ -68,30 +68,6 @@ void picoware_write_pixel_fb(psram_qspi_inst_t *psram, int x, int y, uint8_t col
     }
 }
 
-// Batch write buffer to framebuffer (optimized batch write)
-void picoware_write_buffer_fb(psram_qspi_inst_t *psram, int x, int y, int width, int height, const uint8_t *buffer)
-{
-    if (!buffer)
-        return;
-
-    for (int row = 0; row < height; row++)
-    {
-        int fb_y = y + row;
-        if (fb_y < 0 || fb_y >= DISPLAY_HEIGHT)
-            continue;
-
-        for (int col = 0; col < width; col++)
-        {
-            int fb_x = x + col;
-            if (fb_x < 0 || fb_x >= DISPLAY_WIDTH)
-                continue;
-
-            uint8_t color_index = buffer[row * width + col];
-            picoware_write_pixel_fb(psram, fb_x, fb_y, color_index);
-        }
-    }
-}
-
 // Batch write 16-bit RGB565 buffer to framebuffer (for LVGL)
 // Converts RGB565 to RGB332 on the fly
 void picoware_write_buffer_fb_16(psram_qspi_inst_t *psram, int x, int y, int width, int height, const uint16_t *buffer)

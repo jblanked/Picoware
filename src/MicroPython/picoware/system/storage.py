@@ -347,7 +347,7 @@ class Storage:
             print(f"Error unmounting VFS: {e}")
             return False
 
-    def read(self, file_path: str, mode: str = "r", index: int = 0, count: int = 0):
+    def read(self, file_path, mode: str = "r", index: int = 0, count: int = 0):
         """Read and return the contents of a file."""
         if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
@@ -372,7 +372,7 @@ class Storage:
             print(f"Error reading file {file_path}: {e}")
             return ""
 
-    def readinto(self, file_path: str, buffer: bytearray) -> int:
+    def readinto(self, file_path, buffer: bytearray) -> int:
         """Read data from an open file into a pre-allocated buffer."""
         if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,
@@ -385,9 +385,7 @@ class Storage:
 
         return picoware_sd.readinto(file_path, buffer)
 
-    def read_chunked(
-        self, file_path: str, start: int = 0, chunk_size: int = 1024
-    ) -> bytes:
+    def read_chunked(self, file_path, start: int = 0, chunk_size: int = 1024) -> bytes:
         """
         Read a chunk of data from a file without loading the entire file.
 
@@ -491,7 +489,7 @@ class Storage:
             return 0  # No SD storage on this board
         return picoware_sd.get_file_size(file_path)
 
-    def write(self, file_path: str, data: str, mode: str = "w") -> bool:
+    def write(self, file_path, data: str, mode: str = "w") -> bool:
         """Write data to a file, creating or overwriting as needed."""
         if BOARD_ID in (
             BOARD_WAVESHARE_1_43_RP2350,

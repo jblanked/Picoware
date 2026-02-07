@@ -176,7 +176,9 @@ class HTTP:
         """Make an asynchronous PUT request to the specified URL."""
         return self.__async(url, "put", data=data, json=json, **kw)
 
-    def __request(self, url: str, method: str, **kw) -> Response:
+    def __request(
+        self, url: str, method: str, save_to_file=None, storage=None, **kw
+    ) -> Response:
         """Make a synchronous HTTP request to the specified URL."""
         free()
         if not self.is_ready:

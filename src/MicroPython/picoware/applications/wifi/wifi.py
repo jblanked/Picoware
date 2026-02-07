@@ -15,7 +15,7 @@ def start(view_manager) -> bool:
     view_manager.storage.mkdir("picoware/wifi")
 
     global _wifi
-    global _wifi_index
+
     if _wifi is None:
         _wifi = Menu(
             view_manager.draw,
@@ -32,6 +32,7 @@ def start(view_manager) -> bool:
         _wifi.add_item("Scan")
         _wifi.add_item("Server")
         _wifi.add_item("Settings")
+        _wifi.add_item("RSSI Monitor")
         _wifi.set_selected(_wifi_index)
 
         _wifi.draw()
@@ -50,9 +51,9 @@ def run(view_manager) -> None:
         BUTTON_RIGHT,
     )
 
-    global _wifi
     if not _wifi:
         return
+
     global _wifi_index
 
     input_manager = view_manager.input_manager
@@ -96,6 +97,18 @@ def run(view_manager) -> None:
                 View("wifi_settings", settings.run, settings.start, settings.stop)
             )
             view_manager.switch_to("wifi_settings")
+        elif _wifi_index == 4:
+            from picoware.applications.wifi import rssi_monitor
+
+            view_manager.add(
+                View(
+                    "wifi_rssi_monitor",
+                    rssi_monitor.run,
+                    rssi_monitor.start,
+                    rssi_monitor.stop,
+                )
+            )
+            view_manager.switch_to("wifi_rssi_monitor")
 
 
 def stop(view_manager) -> None:

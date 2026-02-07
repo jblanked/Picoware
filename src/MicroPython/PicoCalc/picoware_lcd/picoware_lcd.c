@@ -27,7 +27,7 @@
 static bool module_initialized = false;
 
 // Line buffer for batch operations (reusable)
-static uint8_t line_buffer[DISPLAY_WIDTH];
+static uint8_t line_buffer[DISPLAY_WIDTH] __attribute__((aligned(64)));
 
 #define LCD_MODE_PSRAM 0 // PSRAM framebuffer with RGB332 palette
 #define LCD_MODE_HEAP 1  // Heap RAM framebuffer with RGB332 (converted to RGB565 on swap)
@@ -39,7 +39,7 @@ static uint8_t *heap_framebuffer = NULL; // RGB332 framebuffer in heap RAM
 static bool heap_framebuffer_allocated = false;
 #define HEAP_BUFFER_SIZE (DISPLAY_WIDTH * DISPLAY_HEIGHT) // 102,400 bytes for RGB332
 
-static uint16_t palette[256]; // 256-color palette for RGB332
+static uint16_t palette[256] __attribute__((aligned(64))); // 256-color palette for RGB332
 
 // Convert RGB565 to RGB332 index
 STATIC uint8_t color565_to_332(uint16_t color)
@@ -62,30 +62,6 @@ void picoware_write_pixel_fb(psram_qspi_inst_t *psram, int x, int y, uint8_t col
         if (heap_framebuffer != NULL && x >= 0 && x < DISPLAY_WIDTH && y >= 0 && y < DISPLAY_HEIGHT)
         {
             heap_framebuffer[y * DISPLAY_WIDTH + x] = color_index;
-        }
-    }
-}
-
-// Batch write buffer to framebuffer (optimized batch write)
-void picoware_write_buffer_fb(psram_qspi_inst_t *psram, int x, int y, int width, int height, const uint8_t *buffer)
-{
-    if (!buffer)
-        return;
-
-    for (int row = 0; row < height; row++)
-    {
-        int fb_y = y + row;
-        if (fb_y < 0 || fb_y >= DISPLAY_HEIGHT)
-            continue;
-
-        for (int col = 0; col < width; col++)
-        {
-            int fb_x = x + col;
-            if (fb_x < 0 || fb_x >= DISPLAY_WIDTH)
-                continue;
-
-            uint8_t color_index = buffer[row * width + col];
-            picoware_write_pixel_fb(psram, fb_x, fb_y, color_index);
         }
     }
 }
@@ -115,12 +91,6 @@ void picoware_write_buffer_fb_16(psram_qspi_inst_t *psram, int x, int y, int wid
             picoware_write_pixel_fb(psram, fb_x, fb_y, rgb332);
         }
     }
-}
-
-// Get palette pointer for external access
-uint16_t *picoware_get_palette(void)
-{
-    return palette;
 }
 
 static const uint8_t *get_font_data(void)
@@ -774,16 +744,6 @@ static uint16_t lcd_color332_to_565(uint8_t r, uint8_t g, uint8_t b)
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
 }
 
-// Helper to write a single pixel to PSRAM framebuffer
-__force_inline static void psram_write_pixel(int x, int y, uint8_t color_index)
-{
-    if (x >= 0 && x < DISPLAY_WIDTH && y >= 0 && y < DISPLAY_HEIGHT)
-    {
-        uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (y * PSRAM_ROW_SIZE) + x;
-        psram_qspi_write8(&psram_instance, addr, color_index);
-    }
-}
-
 // Helper to write a horizontal line to PSRAM (optimized batch write)
 __force_inline static void psram_write_hline(int x, int y, int length, uint8_t color_index)
 {
@@ -857,7 +817,7 @@ static void clear_psram_framebuffer(uint8_t color_index)
     uint32_t word_count = PSRAM_BUFFER_SIZE / 4;
 
     // Use 32-bit fill with chunked writes for optimal DMA performance
-    static uint32_t fill32_buffer[PSRAM_CHUNK_SIZE / 4];
+    static uint32_t fill32_buffer[PSRAM_CHUNK_SIZE / 4] __attribute__((aligned(64)));
 
     // Fill the buffer with the 32-bit value
     for (size_t i = 0; i < PSRAM_CHUNK_SIZE / 4; i++)

@@ -33,14 +33,14 @@ def start(view_manager) -> bool:
     keyboard = view_manager.keyboard
 
     if keyboard is None:
-        print("No keyboard available")
+        view_manager.alert("No keyboard available")
         return False
 
     keyboard.set_save_callback(__callback_save)
     keyboard.response = load_wifi_ssid(view_manager)
-    keyboard.run(force=True)
+    keyboard.title = "Enter WiFi SSID"
 
-    return True
+    return keyboard.run(force=True)
 
 
 def run(view_manager) -> None:
@@ -81,11 +81,11 @@ def run(view_manager) -> None:
         )
 
         if not save_wifi_ssid(view_manager.storage, ssid):
-            print("Failed to save WiFi SSID")
+            view_manager.alert("Failed to save WiFi SSID")
         if not save_wifi_settings(
             view_manager.storage, ssid, load_wifi_password(view_manager)
         ):
-            print("Failed to save WiFi settings")
+            view_manager.alert("Failed to save WiFi settings")
         keyboard.reset()
         _ssid_is_running = False
         view_manager.back()

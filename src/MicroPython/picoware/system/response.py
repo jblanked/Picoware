@@ -1,29 +1,25 @@
-class Response:
+from response import Response as resp
+from json import loads
+
+
+class Response(resp):
     """Response object for HTTP requests."""
 
-    def __init__(self, body) -> None:
+    def __init__(self, body: bytes) -> None:
+        """Initialize the response with the given body."""
+        super().__init__()
         self.content = body
-        self.encoding = "utf-8"
-        self.headers = {}
-        self.reason = ""
-        self.status_code = None
-        self.text = str(self.content, self.encoding)
-
-    def __del__(self) -> None:
-        """Destructor to clean up resources."""
-        self.close()
+        self.text = str(body, self.encoding)
 
     def close(self) -> None:
         """Close the response and release any resources."""
-        self.content = None
-        self.encoding = None
-        self.headers = None
-        self.reason = None
-        self.status_code = None
-        self.text = None
+        self.content = b""
+        self.encoding = ""
+        self.headers = {}
+        self.reason = ""
+        self.status_code = 0
+        self.text = ""
 
     def json(self) -> dict:
         """Convert the response content to a JSON object."""
-        from ujson import loads
-
         return loads(self.content)

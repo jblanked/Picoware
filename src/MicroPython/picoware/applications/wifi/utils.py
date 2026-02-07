@@ -1,6 +1,9 @@
-WIFI_SETTINGS_PATH = "picoware/wifi/settings.json"
-WIFI_SSID_PATH = "picoware/wifi/ssid.json"
-WIFI_PASSWORD_PATH = "picoware/wifi/password.json"
+from micropython import const
+from json import loads, dumps
+
+WIFI_SETTINGS_PATH = const(b"picoware/wifi/settings.json")
+WIFI_SSID_PATH = const(b"picoware/wifi/ssid.json")
+WIFI_PASSWORD_PATH = const(b"picoware/wifi/password.json")
 
 
 def connect_to_saved_wifi(view_manager) -> bool:
@@ -24,7 +27,6 @@ def connect_to_saved_wifi(view_manager) -> bool:
 
 def load_wifi_settings(view_manager) -> dict:
     """Load the saved WiFi settings from storage."""
-    from ujson import loads
 
     storage = view_manager.storage
     data = storage.read(WIFI_SETTINGS_PATH, "r")
@@ -39,8 +41,6 @@ def load_wifi_settings(view_manager) -> dict:
 
 def load_wifi_ssid(view_manager) -> str:
     """Load the saved WiFi SSID from storage."""
-    from ujson import loads
-
     storage = view_manager.storage
     data = storage.read(WIFI_SSID_PATH, "r")
     if not data:
@@ -54,8 +54,6 @@ def load_wifi_ssid(view_manager) -> str:
 
 def load_wifi_password(view_manager) -> str:
     """Load the saved WiFi password from storage."""
-    from ujson import loads
-
     storage = view_manager.storage
     data = storage.read(WIFI_PASSWORD_PATH, "r")
 
@@ -74,9 +72,6 @@ def save_wifi_settings(storage, ssid: str, password: str) -> bool:
     if not ssid or not password:
         print("SSID and password cannot be empty")
         return False
-
-    from ujson import dumps
-
     settings = {"ssid": ssid, "password": password}
     try:
         if not storage.write(WIFI_SETTINGS_PATH, dumps(settings)):
@@ -101,11 +96,8 @@ def save_wifi_ssid(storage, ssid: str) -> bool:
         print("SSID cannot be empty")
         return False
 
-    from ujson import dumps
-
     try:
-        storage.write(WIFI_SSID_PATH, dumps({"ssid": ssid}))
-        return True
+        return storage.write(WIFI_SSID_PATH, dumps({"ssid": ssid}))
     except Exception as e:
         print("Error saving WiFi SSID:", e)
         return False
@@ -118,11 +110,8 @@ def save_wifi_password(storage, password: str) -> bool:
         print("Password cannot be empty")
         return False
 
-    from ujson import dumps
-
     try:
-        storage.write(WIFI_PASSWORD_PATH, dumps({"password": password}))
-        return True
+        return storage.write(WIFI_PASSWORD_PATH, dumps({"password": password}))
     except Exception as e:
         print("Error saving WiFi password:", e)
         return False

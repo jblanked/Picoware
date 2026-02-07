@@ -23,6 +23,7 @@ def test_manual_del():
     data = _psram.malloc("hello")
     log(f"Created: {data}")
     log(f"Has del: {hasattr(data, '__del__')}")
+    log(f"Attributes: {dir(data)}")
     if hasattr(data, "__del__"):
         log("Calling __del__...")
         data.__del__()
@@ -140,8 +141,7 @@ def test_function():
     log(f"Created func: {func_obj}")
     log(f"free: {_psram.mem_free()}")
 
-    # func_obj() would run it
-    log("Function stored")
+    func_obj()
 
     del func_obj
     log("Deleted func ref")

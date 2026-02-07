@@ -159,3 +159,16 @@ target_include_directories(usermod_vector INTERFACE
 )
 
 target_link_libraries(usermod INTERFACE usermod_vector)
+
+# Include response module
+add_library(usermod_response INTERFACE)
+
+target_sources(usermod_response INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../response/response_mp.c
+)
+
+target_include_directories(usermod_response INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../response
+)
+
+target_link_libraries(usermod INTERFACE usermod_response)

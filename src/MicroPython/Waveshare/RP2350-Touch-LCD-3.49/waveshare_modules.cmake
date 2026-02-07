@@ -4,9 +4,9 @@
 add_library(usermod_waveshare_lcd INTERFACE)
 
 # Generate PIO header from .pio file
-pico_generate_pio_header(usermod_waveshare_lcd
-    ${CMAKE_CURRENT_LIST_DIR}/waveshare_lcd/qspi.pio
-)
+# pico_generate_pio_header(usermod_waveshare_lcd
+#     ${CMAKE_CURRENT_LIST_DIR}/waveshare_lcd/qspi.pio
+# )
 
 target_sources(usermod_waveshare_lcd INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/waveshare_lcd/qspi_pio.c
@@ -196,3 +196,17 @@ target_include_directories(usermod_vector INTERFACE
 )
 
 target_link_libraries(usermod INTERFACE usermod_vector)
+
+
+# Include response module
+add_library(usermod_response INTERFACE)
+
+target_sources(usermod_response INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../response/response_mp.c
+)
+
+target_include_directories(usermod_response INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../response
+)
+
+target_link_libraries(usermod INTERFACE usermod_response)

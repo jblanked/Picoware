@@ -38,9 +38,9 @@ def start(view_manager) -> bool:
 
     keyboard.set_save_callback(__callback_save)
     keyboard.response = load_wifi_password(view_manager)
-    keyboard.run(force=True)
+    keyboard.title = "Enter WiFi Password"
 
-    return True
+    return keyboard.run(force=True)
 
 
 def run(view_manager) -> None:
@@ -82,11 +82,11 @@ def run(view_manager) -> None:
         )
 
         if not save_wifi_password(view_manager.storage, password):
-            print("Failed to save WiFi password")
+            view_manager.alert("Failed to save WiFi password")
         if not save_wifi_settings(
             view_manager.storage, load_wifi_ssid(view_manager), password
         ):
-            print("Failed to save WiFi settings")
+            view_manager.alert("Failed to save WiFi settings")
         keyboard.reset()
         _password_is_running = False
         view_manager.back()

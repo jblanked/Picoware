@@ -1,3 +1,4 @@
+import json
 from micropython import const
 from picoware.system.colors import TFT_BLACK, TFT_WHITE
 
@@ -39,9 +40,7 @@ def __load_state(filename: str, key: str, default: bool = False) -> bool:
     data = _view_manager.storage.read(filename)
     if data is not None:
         try:
-            import ujson
-
-            obj = ujson.loads(data)
+            obj = json.loads(data)
             if key in obj:
                 return bool(obj[key])
         except Exception:
@@ -49,13 +48,12 @@ def __load_state(filename: str, key: str, default: bool = False) -> bool:
     return default
 
 
-def __save_state(filename: str, key: str, state: bool) -> None:
+def __save_state(filename: str, key: str, state: bool) -> bool:
     """Save the dark mode state to storage."""
-    import ujson
 
     obj = {key: state}
-    data = ujson.dumps(obj)
-    _view_manager.storage.write(filename, data)
+    data = json.dumps(obj)
+    return _view_manager.storage.write(filename, data)
 
 
 def start(view_manager) -> bool:

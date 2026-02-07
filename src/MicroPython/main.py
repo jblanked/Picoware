@@ -1,9 +1,10 @@
 def main():
     """Main function to run the application"""
-    from gc import collect
+    from gc import collect, threshold, mem_free, mem_alloc
 
     # Initial cleanup
     collect()
+    threshold(mem_free() // 4 + mem_alloc())
 
     from picoware.system.view_manager import ViewManager
     from picoware.system.view import View
@@ -28,34 +29,15 @@ def main():
         print(f"Error occurred: {e}")
         if vm:
             try:
-                # show an alert to user
-                from picoware.gui.alert import Alert
-                from time import sleep
-
-                draw = vm.draw
-                draw.clear()
-                alert = Alert(
-                    draw,
-                    f"Critical Error:\n{e}\nPlease restart.",
-                    vm.get_foreground_color(),
-                    vm.get_background_color(),
-                )
-                alert.draw("Error")
-                draw.swap()
-                sleep(2)
-
-                del alert
-                del vm
-
-                alert = None
-                vm = None
-                collect()
+                vm.alert(f"Critical Error:\n{e}\nPlease restart.")
             except Exception:
                 pass
-
     finally:
+        del vm
+        vm = None
         # Final cleanup
         collect()
+        threshold(mem_free() // 4 + mem_alloc())
 
 
 # run the main function

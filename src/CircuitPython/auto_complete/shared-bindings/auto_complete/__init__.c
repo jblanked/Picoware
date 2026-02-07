@@ -87,16 +87,6 @@ STATIC void auto_complete_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *de
         }
     }
 }
-
-MP_DEFINE_CONST_OBJ_TYPE(
-    auto_complete_mp_type,
-    MP_QSTR_AutoComplete, // Name of the type in Python
-    MP_TYPE_FLAG_HAS_SPECIAL_ACCESSORS,
-    print, auto_complete_mp_print,       // Print function
-    make_new, auto_complete_mp_make_new, // constructor
-    attr, auto_complete_mp_attr          // attribute handler
-);
-
 STATIC mp_obj_t auto_complete_mp_add_word(mp_obj_t self_in, mp_obj_t word_obj)
 {
     auto_complete_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -149,15 +139,28 @@ STATIC mp_obj_t auto_complete_mp_search(mp_obj_t self_in, mp_obj_t prefix_obj)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(auto_complete_mp_search_obj, auto_complete_mp_search);
 
+STATIC const mp_rom_map_elem_t auto_complete_mp_locals_dict_table[] = {
+    {MP_ROM_QSTR(MP_QSTR_add_word), MP_ROM_PTR(&auto_complete_mp_add_word_obj)},
+    {MP_ROM_QSTR(MP_QSTR_search), MP_ROM_PTR(&auto_complete_mp_search_obj)},
+    {MP_ROM_QSTR(MP_QSTR_remove_suggestions), MP_ROM_PTR(&auto_complete_mp_remove_suggestions_obj)},
+    {MP_ROM_QSTR(MP_QSTR_remove_words), MP_ROM_PTR(&auto_complete_mp_remove_words_obj)},
+    {MP_ROM_QSTR(MP_QSTR_free), MP_ROM_PTR(&auto_complete_mp_free_obj)},
+};
+STATIC MP_DEFINE_CONST_DICT(auto_complete_mp_locals_dict, auto_complete_mp_locals_dict_table);
+
+MP_DEFINE_CONST_OBJ_TYPE(
+    auto_complete_mp_type,
+    MP_QSTR_AutoComplete, // Name of the type in Python
+    MP_TYPE_FLAG_HAS_SPECIAL_ACCESSORS,
+    print, auto_complete_mp_print,       // Print function
+    make_new, auto_complete_mp_make_new, // constructor
+    attr, auto_complete_mp_attr,         // attribute handler
+    locals_dict, &auto_complete_mp_locals_dict);
+
 // Define module globals
 STATIC const mp_rom_map_elem_t auto_complete_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_auto_complete)},
     {MP_ROM_QSTR(MP_QSTR_AutoComplete), MP_ROM_PTR(&auto_complete_mp_type)},
-    {MP_ROM_QSTR(MP_QSTR_add_word), MP_ROM_PTR(&auto_complete_mp_add_word_obj)},
-    {MP_ROM_QSTR(MP_QSTR_free), MP_ROM_PTR(&auto_complete_mp_free_obj)},
-    {MP_ROM_QSTR(MP_QSTR_remove_suggestions), MP_ROM_PTR(&auto_complete_mp_remove_suggestions_obj)},
-    {MP_ROM_QSTR(MP_QSTR_remove_words), MP_ROM_PTR(&auto_complete_mp_remove_words_obj)},
-    {MP_ROM_QSTR(MP_QSTR_search), MP_ROM_PTR(&auto_complete_mp_search_obj)},
 };
 STATIC MP_DEFINE_CONST_DICT(auto_complete_module_globals, auto_complete_module_globals_table);
 

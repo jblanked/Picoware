@@ -8,6 +8,7 @@ Open-source custom firmware for the PicoCalc, Video Game Module, and other Raspb
 - On-Device Code Editor
 - File Manager
 - On-Device App Store
+- OTA Updates
 - WiFi (scanning, captive portal, and more)
 - Bluetooth (scanning, BLE operations, and more)
 - Games (Doom, Tetris, and more)
@@ -24,5 +25,5 @@ Follow the instructions in the [Installation Guide](./guides/Installation.md) to
 - [Waveshare RP2350 1.43inch AMOLED Display Development Board](https://www.waveshare.com/rp2350-touch-amoled-1.43.htm?sku=30737)
 - [Waveshare RP2350 3.49inch Touch LCD](https://www.waveshare.com/rp2350-touch-lcd-3.49.htm?sku=32775)
 ### Related Videos
-- JBlanked (Quick Overview): [https://www.youtube.com/watch?v=85W4pillyjQ](https://www.youtube.com/watch?v=85W4pillyjQ)
 - JBlanked (PicoCalc Playlist): [https://www.youtube.com/playlist?list=PLSRet1BCVgXhDNONa1T-1OIDoSibsF_ey](https://www.youtube.com/playlist?list=PLSRet1BCVgXhDNONa1T-1OIDoSibsF_ey)
+- A collection of video tutorials for Picoware: https://github.com/jblanked/Picoware/tree/main/guides/Tutorials.md

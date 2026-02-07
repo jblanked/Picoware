@@ -3,8 +3,9 @@
 PYE_VERSION = " V2.78 "
 try:
     import usys as sys
-except:
+except ImportError:
     import sys
+
 import gc
 
 if sys.implementation.name == "micropython":
@@ -1172,7 +1173,7 @@ class Editor:
                             )
                             if not res or res[0].upper() != "Y":
                                 return
-                        except:
+                        except Exception:
                             pass
                 try:
                     self.put_file(fname)  # put_file will handle SD path internally
@@ -1430,7 +1431,7 @@ class Editor:
                     f.write("\n")
             try:
                 os.remove(fname)
-            except:
+            except Exception:
                 pass
             os.rename(tmpfile, fname)
 

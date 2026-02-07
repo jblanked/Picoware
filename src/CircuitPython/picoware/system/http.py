@@ -186,4 +186,7 @@ class HTTP:
                 raise RuntimeError(
                     "HTTP client is not initialized. Call begin() first."
                 )
-        return getattr(self.requests, method)(url, **kw)
+        response = getattr(self.requests, method)(url, **kw)
+        if save_to_file and storage and response and response.text:
+            storage.write(save_to_file, response.text)
+        return response

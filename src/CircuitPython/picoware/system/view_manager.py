@@ -8,6 +8,7 @@ class ViewManager:
     FREQ_DEFAULT = 200000000
     FREQ_RP2040 = 200000000  # was 210 but users had issues
     FREQ_RP2350 = 230000000
+    FREQ_PIMORONI = 210000000
 
     def __init__(self):
         """Initialize the ViewManager with default settings."""
@@ -392,6 +393,7 @@ class ViewManager:
         from picoware.system.boards import (
             BOARD_PICOCALC_PICO,
             BOARD_PICOCALC_PICOW,
+            BOARD_PICOCALC_PIMORONI_2W,
         )
 
         if use_default:
@@ -400,6 +402,8 @@ class ViewManager:
 
         if self._current_board_id in (BOARD_PICOCALC_PICO, BOARD_PICOCALC_PICOW):
             microcontroller.cpu.frequency = self.FREQ_RP2040
+        elif self._current_board_id == BOARD_PICOCALC_PIMORONI_2W:
+            microcontroller.cpu.frequency = self.FREQ_PIMORONI
         else:
             microcontroller.cpu.frequency = self.FREQ_RP2350
         return microcontroller.cpu.frequency

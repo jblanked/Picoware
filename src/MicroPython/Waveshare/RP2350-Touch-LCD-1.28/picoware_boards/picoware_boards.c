@@ -22,6 +22,7 @@
 #define BOARD_WAVESHARE_1_28_RP2350 4
 #define BOARD_WAVESHARE_1_43_RP2350 5
 #define BOARD_WAVESHARE_3_49_RP2350 6
+#define BOARD_PICOCALC_PIMORONI_2W 7
 
 #define BOARD_ID BOARD_WAVESHARE_1_28_RP2350
 
@@ -75,16 +76,16 @@ STATIC mp_obj_t picoware_boards_get_name(mp_obj_t board_id_obj)
     switch (board_id)
     {
     case BOARD_PICOCALC_PICO:
-        snprintf(board_name, sizeof(board_name), "PicCalc - Pico");
+        snprintf(board_name, sizeof(board_name), "PicoCalc - Pico");
         break;
     case BOARD_PICOCALC_PICOW:
-        snprintf(board_name, sizeof(board_name), "Picoware - Pico W");
+        snprintf(board_name, sizeof(board_name), "PicoCalc - Pico W");
         break;
     case BOARD_PICOCALC_PICO_2:
-        snprintf(board_name, sizeof(board_name), "PicCalc - Pico 2");
+        snprintf(board_name, sizeof(board_name), "PicoCalc - Pico 2");
         break;
     case BOARD_PICOCALC_PICO_2W:
-        snprintf(board_name, sizeof(board_name), "PicCalc - Pico 2 W");
+        snprintf(board_name, sizeof(board_name), "PicoCalc - Pico 2 W");
         break;
     case BOARD_WAVESHARE_1_28_RP2350:
         snprintf(board_name, sizeof(board_name), "Waveshare 1.28");
@@ -94,6 +95,9 @@ STATIC mp_obj_t picoware_boards_get_name(mp_obj_t board_id_obj)
         break;
     case BOARD_WAVESHARE_3_49_RP2350:
         snprintf(board_name, sizeof(board_name), "Waveshare 3.49");
+        break;
+    case BOARD_PICOCALC_PIMORONI_2W:
+        snprintf(board_name, sizeof(board_name), "PicoCalc - Pimoroni 2 W");
         break;
     default:
         snprintf(board_name, sizeof(board_name), "Unknown Board");
@@ -116,6 +120,7 @@ STATIC mp_obj_t picoware_boards_get_display_size(mp_obj_t board_id_obj)
     case BOARD_PICOCALC_PICOW:
     case BOARD_PICOCALC_PICO_2:
     case BOARD_PICOCALC_PICO_2W:
+    case BOARD_PICOCALC_PIMORONI_2W:
         width = 320;
         height = 320;
         break;
@@ -154,6 +159,7 @@ STATIC mp_obj_t picoware_boards_has_psram(mp_obj_t board_id_obj)
     case BOARD_PICOCALC_PICOW:
     case BOARD_PICOCALC_PICO_2:
     case BOARD_PICOCALC_PICO_2W:
+    case BOARD_PICOCALC_PIMORONI_2W:
         has_psram = true;
         break;
     default:
@@ -199,6 +205,7 @@ STATIC mp_obj_t picoware_boards_has_sd_card(mp_obj_t board_id_obj)
     case BOARD_PICOCALC_PICO_2W:
     case BOARD_WAVESHARE_1_43_RP2350:
     case BOARD_WAVESHARE_3_49_RP2350:
+    case BOARD_PICOCALC_PIMORONI_2W:
         has_sd_card = true;
         break;
     default:
@@ -219,6 +226,7 @@ STATIC mp_obj_t picoware_boards_has_wifi(mp_obj_t board_id_obj)
     {
     case BOARD_PICOCALC_PICOW:
     case BOARD_PICOCALC_PICO_2W:
+    case BOARD_PICOCALC_PIMORONI_2W:
         has_wifi = true;
         break;
     default:
@@ -270,6 +278,7 @@ STATIC const mp_rom_map_elem_t picoware_boards_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_BOARD_WAVESHARE_1_28_RP2350), MP_ROM_INT(BOARD_WAVESHARE_1_28_RP2350)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_WAVESHARE_1_43_RP2350), MP_ROM_INT(BOARD_WAVESHARE_1_43_RP2350)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_WAVESHARE_3_49_RP2350), MP_ROM_INT(BOARD_WAVESHARE_3_49_RP2350)},
+    {MP_ROM_QSTR(MP_QSTR_BOARD_PICOCALC_PIMORONI_2W), MP_ROM_INT(BOARD_PICOCALC_PIMORONI_2W)},
     //
     {MP_ROM_QSTR(MP_QSTR_BOARD_ID), MP_ROM_INT(BOARD_ID)},
     //

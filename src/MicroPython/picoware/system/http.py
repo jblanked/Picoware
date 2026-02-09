@@ -1,5 +1,18 @@
+from json import dumps
 from micropython import const
-from utime import sleep_ms
+import tls
+
+try:
+    from utime import sleep_ms
+    import usocket
+except ImportError:
+    from time import sleep
+    import socket as usocket
+
+    def sleep_ms(ms):
+        sleep(ms / 1000)
+
+
 from picoware.system.response import Response
 
 HTTP_IDLE = const(0)
@@ -696,10 +709,6 @@ class HTTP:
             save_to_file: File path to save response data to (requires storage)
             storage: Storage object for file operations
         """
-        import ssl
-        import usocket
-        from ujson import dumps
-
         with self._lock:
             self._running = True
 
@@ -767,7 +776,9 @@ class HTTP:
                 return
             s.connect(ai[-1])
             if proto == "https:":
-                s = ssl.wrap_socket(s, server_hostname=host)
+                _context = tls.SSLContext(tls.PROTOCOL_TLS_CLIENT)
+                _context.verify_mode = tls.CERT_NONE
+                s = _context.wrap_socket(s, server_hostname=host)
             s.write(b"%s /%s HTTP/1.1\r\n" % (method, path))
             if "Host" not in headers:
                 s.write(b"Host: %s\r\n" % host)

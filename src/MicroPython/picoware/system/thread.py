@@ -168,9 +168,10 @@ class ThreadManager:
                 # Task timed out, stop it
                 self._active_thread.stop()
                 self._active_task.error = Exception("Thread task timed out.")
+            return
 
         # Start next task if no active thread
-        if self._active_thread is None and self._tasks:
+        if self._tasks:
             task = self._tasks.pop(0)
             # Skip task if stop was requested
             if task.should_stop:

@@ -162,44 +162,59 @@ _desktop_http = None
 _desktop_picoware = None
 _desktop_time_updated = False
 _time = None
+_timezone = None
 
 
 def _http_callback(response, state, error):
-    """HTTP callback to process time data."""
-    global _desktop_http, _desktop_time_updated
+    """HTTP callback to process location and time data."""
+    global _desktop_http, _desktop_time_updated, _timezone
 
     if not _desktop_http:
         return
 
     if any([not response, error, state == 2]):  # HTTP_ERROR
         _desktop_http.close()
-        _desktop_http.get_async("http://worldtimeapi.org/api/ip")
+        # Retry step 1
+        _desktop_http.get_async("https://ipwhois.app/json/")
         return
 
     data: dict = response.json()
-    datetime_str: str = data.get("datetime", "")
-    if datetime_str:
-        date_part, time_part = datetime_str.split("T")
-        time_part = time_part.split(".")[0]  # Remove milliseconds
-        hours, minutes, seconds = map(int, time_part.split(":"))
-        year, month, day = map(int, date_part.split("-"))
 
-        _time.set(year, month, day, hours, minutes, seconds)
+    # Get timezone from IP location
+    if _timezone is None:
+        timezone = data.get("timezone", "UTC")
+        _timezone = timezone
 
+        # Fetch time for detected timezone
+        _desktop_http.close()
+        _desktop_http.get_async(
+            f"http://timeapi.io/api/time/current/zone?timeZone={_timezone}"
+        )
+        return
+
+    # Process time data from timeapi.io
+    year = data.get("year")
+    month = data.get("month")
+    day = data.get("day")
+    hour = data.get("hour")
+    minute = data.get("minute")
+    seconds = data.get("seconds")
+
+    if all([year, month, day, hour, minute, seconds]):
+        _time.set(year, month, day, hour, minute, seconds)
         _desktop_time_updated = True
-
         _desktop.set_time(_time.time)
 
-        _desktop_http.close()
-        del _desktop_http
-        _desktop_http = None
+    _desktop_http.close()
+    del _desktop_http
+    _desktop_http = None
 
 
 def start(view_manager) -> bool:
     """Start the loading animation."""
     from picoware.gui.desktop import Desktop
 
-    global _desktop, _desktop_http, _desktop_picoware, _time, _desktop_time_updated
+    global _desktop, _desktop_http, _desktop_picoware, _time, _desktop_time_updated, _timezone
 
     if _desktop is None:
         _desktop = Desktop(
@@ -223,8 +238,10 @@ def start(view_manager) -> bool:
 
         if view_manager.wifi.is_connected() and not view_manager.time.is_set:
             _desktop_time_updated = False
+            _timezone = None  # Reset timezone
             _desktop_http.callback = _http_callback
-            _desktop_http.get_async("http://worldtimeapi.org/api/ip")
+            # Get timezone from IP location
+            _desktop_http.get_async("https://ipwhois.app/json/")
 
     _time = view_manager.time
 
@@ -235,7 +252,7 @@ def run(view_manager) -> None:
     """Animate the loading spinner."""
     from picoware.system.buttons import BUTTON_LEFT, BUTTON_CENTER, BUTTON_UP
 
-    global _desktop_time_updated
+    global _desktop_time_updated, _timezone
 
     input_manager = view_manager.input_manager
     button: int = input_manager.button
@@ -287,8 +304,10 @@ def run(view_manager) -> None:
         and not _desktop_http.in_progress
     ):
         _desktop_time_updated = False
+        _timezone = None  # Reset timezone
         _desktop_http.callback = _http_callback
-        _desktop_http.get_async("http://worldtimeapi.org/api/ip")
+        # Get timezone from IP location
+        _desktop_http.get_async("https://ipwhois.app/json/")
         return
 
     if _desktop_time_updated:
@@ -304,6 +323,7 @@ def stop(view_manager) -> None:
     global _desktop_http
     global _desktop_picoware
     global _desktop_time_updated
+    global _timezone
 
     if _desktop:
         del _desktop
@@ -317,5 +337,6 @@ def stop(view_manager) -> None:
         _desktop_picoware = None
 
     _desktop_time_updated = view_manager.time.is_set
+    _timezone = None
 
     collect()

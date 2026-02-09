@@ -198,9 +198,11 @@ class WebSocket:
 
         # Wrap with SSL if secure
         if protocol == "wss":
-            import ssl
+            import tls
 
-            sock = ssl.wrap_socket(sock, server_hostname=hostname)
+            _context = tls.SSLContext(tls.PROTOCOL_TLS_CLIENT)
+            _context.verify_mode = tls.CERT_NONE
+            sock = _context.wrap_socket(sock, server_hostname=hostname)
 
         # Helper to send headers
         def send_header(header, *args):

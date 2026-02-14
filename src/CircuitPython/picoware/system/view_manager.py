@@ -16,7 +16,6 @@ class ViewManager:
         from picoware.gui.keyboard import Keyboard
         from picoware.system.input import Input
         from picoware.system.storage import Storage
-        from picoware.system.LED import LED
         from picoware.system.wifi import WiFi
         from picoware.system.system import System
         from picoware.system.time import Time
@@ -49,9 +48,6 @@ class ViewManager:
             self._storage = Storage()
             self._storage.mkdir("picoware")
             self._storage.mkdir("picoware/settings")
-
-        # Initialize LED
-        self._led = LED()
 
         # Set up colors
         self._background_color = TFT_BLACK
@@ -135,9 +131,6 @@ class ViewManager:
         if self._storage is not None:
             del self._storage
             self._storage = None
-        if self._led:
-            del self._led
-            self._led = None
         if self._wifi is not None:
             del self._wifi
             self._wifi = None

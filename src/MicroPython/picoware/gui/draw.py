@@ -194,14 +194,6 @@ class Draw:
         else:
             self.fill_rectangle(position, size, _color)
 
-    def color332(self, color: int) -> int:
-        """Convert RGB565 to RGB332 color format"""
-        return self._rgb565_to_rgb332(color)
-
-    def color565(self, r, g, b):
-        """Convert RGB888 to RGB565 color format"""
-        return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
-
     def erase(self):
         """Erase the display by filling with background color"""
         self.fill_screen(self._background)

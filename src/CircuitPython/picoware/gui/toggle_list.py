@@ -27,11 +27,7 @@ class ToggleList:
         :param border_width: The width of the border.
         :param callback: Optional callback function when a toggle is changed.
         """
-        from picoware.system.system import System
         from picoware.system.vector import Vector
-
-        syst = System()
-        self.is_circular = syst.is_circular
 
         self.view_manager = view_manager
         self.position = Vector(0, 0)

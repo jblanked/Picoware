@@ -39,7 +39,6 @@ class PicowareAnimation:
             TFT_VIOLET,
             TFT_CYAN,
             TFT_ORANGE,
-            TFT_DARKCYAN,
             TFT_PINK,
             TFT_SKYBLUE,
         )
@@ -65,7 +64,6 @@ class PicowareAnimation:
             TFT_VIOLET,
             TFT_CYAN,
             TFT_ORANGE,
-            TFT_DARKCYAN,
             TFT_PINK,
             TFT_SKYBLUE,
         ]
@@ -163,6 +161,7 @@ _desktop_picoware = None
 _desktop_time_updated = False
 _time = None
 _timezone = None
+_has_wifi = True
 
 
 def _http_callback(response, state, error):
@@ -214,7 +213,7 @@ def start(view_manager) -> bool:
     """Start the loading animation."""
     from picoware.gui.desktop import Desktop
 
-    global _desktop, _desktop_http, _desktop_picoware, _time, _desktop_time_updated, _timezone
+    global _desktop, _desktop_http, _desktop_picoware, _time, _desktop_time_updated, _timezone, _has_wifi
 
     if _desktop is None:
         _desktop = Desktop(
@@ -227,7 +226,10 @@ def start(view_manager) -> bool:
         _desktop_picoware = PicowareAnimation(view_manager.draw)
 
     if not view_manager.has_wifi:
+        _has_wifi = False
         return True
+
+    _has_wifi = True
 
     connect_to_saved_wifi(view_manager)
 
@@ -252,7 +254,7 @@ def run(view_manager) -> None:
     """Animate the loading spinner."""
     from picoware.system.buttons import BUTTON_LEFT, BUTTON_CENTER, BUTTON_UP
 
-    global _desktop_time_updated, _timezone
+    global _desktop_time_updated, _timezone, _has_wifi
 
     input_manager = view_manager.input_manager
     button: int = input_manager.button
@@ -281,7 +283,7 @@ def run(view_manager) -> None:
 
     # Clear and draw header
     view_manager.draw.erase()
-    _desktop.draw_header()
+    _desktop.draw_header(False if not _has_wifi else view_manager.wifi.is_connected())
 
     # Draw animated picoware text every frame
     _desktop_picoware.draw()
@@ -289,20 +291,17 @@ def run(view_manager) -> None:
     # Swap buffer to display
     view_manager.draw.swap()
 
-    if not view_manager.has_wifi:
+    if not _has_wifi:
         return
 
     wifi = view_manager.wifi
-    if not wifi.is_connected():
+    is_connected = wifi.is_connected()
+    if not is_connected:
         if wifi.state in (0, 4):  # WIFI_STATE_IDLE, WIFI_STATE_TIMEOUT
             connect_to_saved_wifi(view_manager)
         return
 
-    if (
-        wifi.is_connected()
-        and not view_manager.time.is_set
-        and not _desktop_http.in_progress
-    ):
+    if is_connected and not view_manager.time.is_set and not _desktop_http.in_progress:
         _desktop_time_updated = False
         _timezone = None  # Reset timezone
         _desktop_http.callback = _http_callback
@@ -324,6 +323,7 @@ def stop(view_manager) -> None:
     global _desktop_picoware
     global _desktop_time_updated
     global _timezone
+    global _has_wifi
 
     if _desktop:
         del _desktop
@@ -338,5 +338,6 @@ def stop(view_manager) -> None:
 
     _desktop_time_updated = view_manager.time.is_set
     _timezone = None
+    _has_wifi = True
 
     collect()

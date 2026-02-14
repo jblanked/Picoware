@@ -804,7 +804,7 @@ class HTTP:
                         s.write(b"%x\r\n" % len(chunk))
                         s.write(chunk)
                         s.write(b"\r\n")
-                    s.write("0\r\n\r\n")
+                    s.write(b"0\r\n\r\n")
                 else:
                     s.write(data)
 

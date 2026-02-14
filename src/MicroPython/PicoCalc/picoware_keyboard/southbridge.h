@@ -36,6 +36,7 @@ extern "C"
 #endif
 
     // Function prototypes
+    void sb_deinit(void);
     void sb_init(void);
     bool sb_available(void);
 

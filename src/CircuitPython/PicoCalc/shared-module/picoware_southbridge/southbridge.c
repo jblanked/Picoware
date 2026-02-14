@@ -23,7 +23,7 @@ volatile atomic_bool sb_i2c_in_use = false; // flag to indicate if I2C bus is in
 //
 
 //  Is the southbridge available?
-bool sb_available(void)
+bool sb_available()
 {
     return atomic_load(&sb_i2c_in_use) == false;
 }
@@ -51,7 +51,7 @@ static size_t sb_read(uint8_t *dst, size_t len)
 }
 
 // Read the keyboard
-uint16_t sb_read_keyboard(void)
+uint16_t sb_read_keyboard()
 {
     uint8_t buffer[2];
 
@@ -72,7 +72,7 @@ uint16_t sb_read_keyboard(void)
     return buffer[0] << 8 | buffer[1];
 }
 
-uint16_t sb_read_keyboard_state(void)
+uint16_t sb_read_keyboard_state()
 {
     uint8_t buffer[2];
 
@@ -94,7 +94,7 @@ uint16_t sb_read_keyboard_state(void)
 }
 
 // Read the battery level from the southbridge
-uint8_t sb_read_battery(void)
+uint8_t sb_read_battery()
 {
     uint8_t buffer[2];
 
@@ -116,7 +116,7 @@ uint8_t sb_read_battery(void)
 }
 
 // Read the LCD backlight level
-uint8_t sb_read_lcd_backlight(void)
+uint8_t sb_read_lcd_backlight()
 {
     uint8_t buffer[2];
 
@@ -161,7 +161,7 @@ uint8_t sb_write_lcd_backlight(uint8_t brightness)
 }
 
 // Read the keyboard backlight level
-uint8_t sb_read_keyboard_backlight(void)
+uint8_t sb_read_keyboard_backlight()
 {
     uint8_t buffer[2];
 
@@ -205,7 +205,7 @@ uint8_t sb_write_keyboard_backlight(uint8_t brightness)
     return buffer[1];
 }
 
-bool sb_is_power_off_supported(void)
+bool sb_is_power_off_supported()
 {
     uint8_t buffer[2];
 
@@ -263,8 +263,20 @@ bool sb_reset(uint8_t delay_seconds)
     return true;
 }
 
+// Deinitialize the southbridge
+void sb_deinit()
+{
+    if (!sb_initialised)
+    {
+        return; // not initialized
+    }
+
+    i2c_deinit(SB_I2C);
+    sb_initialised = false;
+}
+
 // Initialize the southbridge
-void sb_init(void)
+void sb_init()
 {
     if (sb_initialised)
     {

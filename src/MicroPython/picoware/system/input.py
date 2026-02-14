@@ -89,6 +89,15 @@ class Input:
             del self.pin
             self.pin = None
 
+        if self._current_board_id not in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
+            from picoware_southbridge import deinit
+
+            deinit()
+
     @property
     def battery(self) -> int:
         """Returns the current battery level as a percentage (0-100)."""

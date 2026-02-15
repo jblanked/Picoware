@@ -262,6 +262,12 @@ class Draw:
             _color,
         )
 
+    def get_font(self, font_size: int = 0):
+        """Get the FontSize object for the specified font size"""
+        from picoware.system.font import FontSize
+
+        return FontSize(font_size)
+
     def image(self, position: Vector, img):
         """Draw an image object to the back buffer"""
         for y in range(img.size.y):
@@ -453,6 +459,12 @@ class Draw:
 
         except (OSError, ValueError) as e:
             print(f"Error loading bytearray image: {e}")
+
+    def len(self, text: str, font_size: int = 0) -> int:
+        """Calculate the pixel width of a text string for a given font size"""
+        font = self.get_font(font_size)
+        length = len(text)
+        return length * font.width
 
     def line(self, position: Vector, size: Vector, color=None):
         """Draw horizontal line"""

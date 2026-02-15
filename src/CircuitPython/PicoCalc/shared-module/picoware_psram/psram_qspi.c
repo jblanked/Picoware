@@ -83,19 +83,6 @@ static void psram_send_spi_command(psram_qspi_inst_t *qspi, uint8_t cmd)
 }
 
 /**
- * @brief Send a single-byte command while in QPI mode
- */
-static void psram_send_qpi_command(psram_qspi_inst_t *qspi, uint8_t cmd)
-{
-    // QSPI PIO protocol: [nibbles_to_write, nibbles_to_read, cmd]
-    uint8_t qpi_cmd[] = {
-        2, // 2 nibbles (1 byte) to write
-        0, // 0 nibbles to read
-        cmd};
-    qspi_write_dma_blocking(qspi, qpi_cmd, sizeof(qpi_cmd));
-}
-
-/**
  * @brief Initialize PSRAM QSPI interface
  */
 psram_qspi_inst_t psram_qspi_init(PIO pio, int sm, float clkdiv)

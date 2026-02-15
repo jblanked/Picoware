@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include "pico/stdlib.h"
 
-#include "fonts.h"
+#include "../../../font/font_mp.h"
 
 #define LCD_HEIGHT 466
 #define LCD_WIDTH 466
@@ -32,7 +32,7 @@ extern uint8_t framebuffer[LCD_WIDTH * LCD_HEIGHT]; // Framebuffer for 8-bit ind
 #define LCD_X_OFFSET 6
 
 #define LCD_DEFAULT_BRIGHTNESS 50 // Default brightness (0-100)
-#define LCD_DEFAULT_FONT_SIZE FONT_MEDIUM
+// #define LCD_DEFAULT_FONT_SIZE FONT_MEDIUM
 
 // RGB565 Color definitions
 #ifndef COLOR_WHITE
@@ -129,11 +129,8 @@ extern "C"
     void lcd_fill_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color);
 
     // Text rendering functions
-    void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color);
-    void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color);
-    uint8_t lcd_get_font_height(void);
-    uint8_t lcd_get_font_width(void);
-    void lcd_set_font(FontSize size);
+    void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color, FontSize font_size);
+    void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color, FontSize font_size);
 
     // Low-level LCD communication functions
     void lcd_write_cmd(uint8_t cmd);

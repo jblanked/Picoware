@@ -13,8 +13,6 @@ static uint8_t backlight_level;
 static uint8_t last_cmd = 0x00; // Track last command for data writes
 static bool set_brightness_flag = false;
 
-static FontTable *current_font = NULL;
-
 // DMA channel and configuration for QSPI transfers
 static int dma_tx;
 static dma_channel_config c;
@@ -266,20 +264,21 @@ parameter:
     color : RGB565 color value
 returns: none
 ******************************************************************************/
-void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color)
+void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color, FontSize font_size)
 {
-    if (current_font == NULL || c < 32 || c > 126)
+    const FontTable current_font = font_get_table(font_size);
+    if (c < 32 || c > 126)
         return; // invalid font or character
 
     // Calculate bytes per row (width rounded up to nearest byte boundary)
-    uint8_t bytes_per_row = (current_font->width + 7) / 8;
-    const uint8_t *char_data = &current_font->table[(c - 32) * current_font->height * bytes_per_row];
+    uint8_t bytes_per_row = (current_font.width + 7) / 8;
+    const uint8_t *char_data = &current_font.table[(c - 32) * current_font.height * bytes_per_row];
 
-    for (uint8_t row = 0; row < current_font->height; row++)
+    for (uint8_t row = 0; row < current_font.height; row++)
     {
         const uint8_t *row_data = &char_data[row * bytes_per_row];
 
-        for (uint8_t col = 0; col < current_font->width; col++)
+        for (uint8_t col = 0; col < current_font.width; col++)
         {
             uint8_t byte_index = col / 8;
             uint8_t bit_index = 7 - (col % 8);
@@ -342,10 +341,9 @@ void lcd_draw_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint
     }
 }
 
-void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color)
+void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color, FontSize font_size)
 {
-    if (current_font == NULL)
-        return; // invalid font
+    const FontTable current_font = font_get_table(font_size);
 
     uint16_t cursor_x = x;
     uint16_t cursor_y = y;
@@ -356,31 +354,31 @@ void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color)
 
         if (ch == '\n')
         {
-            cursor_x = x;                     // Reset to start of line
-            cursor_y += current_font->height; // Move down one line
+            cursor_x = x;                    // Reset to start of line
+            cursor_y += current_font.height; // Move down one line
         }
         else if (ch == ' ')
         {
             // Handle space - just advance position without drawing
-            cursor_x += current_font->width;
+            cursor_x += current_font.width;
         }
         else
         {
             // Check if character would exceed screen width
-            if (cursor_x + current_font->width > LCD_WIDTH)
+            if (cursor_x + current_font.width > LCD_WIDTH)
             {
                 // Wrap to next line
                 cursor_x = x;
-                cursor_y += current_font->height;
+                cursor_y += current_font.height;
             }
 
             // Check if we're still within screen height
-            if (cursor_y + current_font->height <= LCD_HEIGHT)
+            if (cursor_y + current_font.height <= LCD_HEIGHT)
             {
-                lcd_draw_char(cursor_x, cursor_y, ch, color);
+                lcd_draw_char(cursor_x, cursor_y, ch, color, font_size);
             }
 
-            cursor_x += current_font->width;
+            cursor_x += current_font.width;
         }
         text++;
     }
@@ -688,34 +686,6 @@ uint8_t lcd_get_backlight_level(void)
 }
 
 /********************************************************************************
-function: Get the current font height
-parameter: none
-returns: Font height in pixels
-********************************************************************************/
-uint8_t lcd_get_font_height(void)
-{
-    if (current_font != NULL)
-    {
-        return current_font->height;
-    }
-    return 0;
-}
-
-/********************************************************************************
-function: Get the current font width
-parameter: none
-returns: Font width in pixels
-********************************************************************************/
-uint8_t lcd_get_font_width(void)
-{
-    if (current_font != NULL)
-    {
-        return current_font->width;
-    }
-    return 0;
-}
-
-/********************************************************************************
 function: Initialize the LCD display hardware and framebuffer
 returns: none
 note: Can only be called once; subsequent calls are ignored
@@ -805,8 +775,6 @@ void lcd_init()
         palette[i] = lcd_color332_to_565(r8, g8, b8);
     }
 
-    lcd_set_font(LCD_DEFAULT_FONT_SIZE); // Set default font
-
     set_window(); // Set the drawing window to full screen
 
     // Clear framebuffer to black and push to display BEFORE turning display on
@@ -834,31 +802,6 @@ void lcd_set_backlight_level(uint8_t brightness)
 
     backlight_level = brightness;
     set_brightness_flag = true;
-}
-
-void lcd_set_font(FontSize size)
-{
-    switch (size)
-    {
-    case FONT_XTRA_SMALL:
-        current_font = (FontTable *)&Font8;
-        break;
-    case FONT_SMALL:
-        current_font = (FontTable *)&Font12;
-        break;
-    case FONT_MEDIUM:
-        current_font = (FontTable *)&Font16;
-        break;
-    case FONT_LARGE:
-        current_font = (FontTable *)&Font20;
-        break;
-    case FONT_XTRA_LARGE:
-        current_font = (FontTable *)&Font24;
-        break;
-    default:
-        current_font = (FontTable *)&Font16; // Default to medium if invalid size
-        break;
-    }
 }
 
 /******************************************************************************

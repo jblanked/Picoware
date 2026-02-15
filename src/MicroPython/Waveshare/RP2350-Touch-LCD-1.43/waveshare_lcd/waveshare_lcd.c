@@ -266,10 +266,10 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(waveshare_lcd_fill_triangle_obj, 7, 7
 // Draw a single character
 STATIC mp_obj_t waveshare_lcd_draw_char(size_t n_args, const mp_obj_t *args)
 {
-    // Arguments: x, y, char, color
-    if (n_args != 4)
+    // Arguments: x, y, char, color, font_size
+    if (n_args < 4)
     {
-        mp_raise_ValueError(MP_ERROR_TEXT("draw_char requires 4 arguments: x, y, char, color"));
+        mp_raise_ValueError(MP_ERROR_TEXT("draw_char requires at least 4 arguments: x, y, char, color, [font_size]"));
     }
 
     uint16_t x = mp_obj_get_int(args[0]);
@@ -283,60 +283,47 @@ STATIC mp_obj_t waveshare_lcd_draw_char(size_t n_args, const mp_obj_t *args)
     char c = str[0];
 
     uint16_t color = mp_obj_get_int(args[3]);
+    FontSize font_size = FONT_MEDIUM; // Default font size
+    if (n_args >= 5)
+    {
+        font_size = mp_obj_get_int(args[4]);
+        if (font_size < 0 || font_size > FONT_XTRA_LARGE)
+        {
+            mp_raise_ValueError(MP_ERROR_TEXT("Invalid font size"));
+        }
+    }
 
-    lcd_draw_char(x, y, c, color);
+    lcd_draw_char(x, y, c, color, font_size);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(waveshare_lcd_draw_char_obj, 4, 4, waveshare_lcd_draw_char);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(waveshare_lcd_draw_char_obj, 4, 5, waveshare_lcd_draw_char);
 
 // Draw text
 STATIC mp_obj_t waveshare_lcd_draw_text(size_t n_args, const mp_obj_t *args)
 {
-    // Arguments: x, y, text, color
-    if (n_args != 4)
+    // Arguments: x, y, text, color, font_size
+    if (n_args < 4)
     {
-        mp_raise_ValueError(MP_ERROR_TEXT("draw_text requires 4 arguments: x, y, text, color"));
+        mp_raise_ValueError(MP_ERROR_TEXT("draw_text requires at least 4 arguments: x, y, text, color, [font_size]"));
     }
 
     uint16_t x = mp_obj_get_int(args[0]);
     uint16_t y = mp_obj_get_int(args[1]);
     const char *text = mp_obj_str_get_str(args[2]);
     uint16_t color = mp_obj_get_int(args[3]);
-
-    lcd_draw_text(x, y, text, color);
+    FontSize font_size = FONT_MEDIUM; // Default font size
+    if (n_args >= 5)
+    {
+        font_size = mp_obj_get_int(args[4]);
+        if (font_size < 0 || font_size > FONT_XTRA_LARGE)
+        {
+            mp_raise_ValueError(MP_ERROR_TEXT("Invalid font size"));
+        }
+    }
+    lcd_draw_text(x, y, text, color, font_size);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(waveshare_lcd_draw_text_obj, 4, 4, waveshare_lcd_draw_text);
-
-// Get font size (as a tuple)
-STATIC mp_obj_t waveshare_lcd_get_font_size(void)
-{
-    uint8_t width = lcd_get_font_width();
-    uint8_t height = lcd_get_font_height();
-    mp_obj_t tuple[2] = {mp_obj_new_int(width), mp_obj_new_int(height)};
-    return mp_obj_new_tuple(2, tuple);
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(waveshare_lcd_get_font_size_obj, waveshare_lcd_get_font_size);
-
-// Set font size
-STATIC mp_obj_t waveshare_lcd_set_font(size_t n_args, const mp_obj_t *args)
-{
-    // Arguments: font_size (0-4)
-    if (n_args != 1)
-    {
-        mp_raise_ValueError(MP_ERROR_TEXT("set_font requires 1 argument: font_size (0-4)"));
-    }
-
-    int font_size = mp_obj_get_int(args[0]);
-    if (font_size < 0 || font_size > 4)
-    {
-        mp_raise_ValueError(MP_ERROR_TEXT("font_size must be between 0 (FONT_XTRA_SMALL) and 4 (FONT_XTRA_LARGE)"));
-    }
-
-    lcd_set_font((FontSize)font_size);
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(waveshare_lcd_set_font_obj, 1, 1, waveshare_lcd_set_font);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(waveshare_lcd_draw_text_obj, 4, 5, waveshare_lcd_draw_text);
 
 // Module globals table
 STATIC const mp_rom_map_elem_t waveshare_lcd_module_globals_table[] = {
@@ -366,8 +353,6 @@ STATIC const mp_rom_map_elem_t waveshare_lcd_module_globals_table[] = {
     // Text rendering functions
     {MP_ROM_QSTR(MP_QSTR_draw_char), MP_ROM_PTR(&waveshare_lcd_draw_char_obj)},
     {MP_ROM_QSTR(MP_QSTR_draw_text), MP_ROM_PTR(&waveshare_lcd_draw_text_obj)},
-    {MP_ROM_QSTR(MP_QSTR_get_font_size), MP_ROM_PTR(&waveshare_lcd_get_font_size_obj)},
-    {MP_ROM_QSTR(MP_QSTR_set_font), MP_ROM_PTR(&waveshare_lcd_set_font_obj)},
 
     // Font size constants
     {MP_ROM_QSTR(MP_QSTR_FONT_XTRA_SMALL), MP_ROM_INT(0)},

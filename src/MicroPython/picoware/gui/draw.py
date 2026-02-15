@@ -541,15 +541,15 @@ class Draw:
             # MODE_PSRAM = 0, MODE_HEAP = 1
             set_mode(mode)
 
-    def text(self, position: Vector, text: str, color=None):
+    def text(self, position: Vector, text: str, color=None, font_size: int = 0):
         """Draw text on the display"""
         _color = color if color is not None else self._foreground
-        draw_text(position.x, position.y, text, _color)
+        draw_text(position.x, position.y, text, _color, font_size)
 
-    def text_char(self, position: Vector, char: str, color=None):
+    def text_char(self, position: Vector, char: str, color=None, font_size: int = 0):
         """Draw a single character on the display"""
         _color = color if color is not None else self._foreground
-        draw_char(position.x, position.y, ord(char), _color)
+        draw_char(position.x, position.y, ord(char), _color, font_size)
 
     def triangle(self, point1: Vector, point2: Vector, point3: Vector, color=None):
         """Draw a triangle outline"""

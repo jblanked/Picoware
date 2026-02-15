@@ -199,7 +199,7 @@ def start(view_manager) -> bool:
     _board_id = system.board_id
 
     url = (
-        "https://www.jblanked.com/picoware/api/firmware/check/micropython/"
+        "https://www.jblanked.com/picoware/api/firmware/check/circuitpython/"
         + str(_current_version)
         + "/"
         + str(_board_id)

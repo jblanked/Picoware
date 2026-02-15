@@ -172,3 +172,21 @@ target_include_directories(usermod_response INTERFACE
 )
 
 target_link_libraries(usermod INTERFACE usermod_response)
+
+# Include font module
+add_library(usermod_font INTERFACE)
+
+target_sources(usermod_font INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../font/font_mp.c
+    ${CMAKE_CURRENT_LIST_DIR}/../../font/font8.c
+    ${CMAKE_CURRENT_LIST_DIR}/../../font/font12.c
+    ${CMAKE_CURRENT_LIST_DIR}/../../font/font16.c
+    ${CMAKE_CURRENT_LIST_DIR}/../../font/font20.c
+    ${CMAKE_CURRENT_LIST_DIR}/../../font/font24.c
+)
+
+target_include_directories(usermod_font INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../font
+)
+
+target_link_libraries(usermod INTERFACE usermod_font)

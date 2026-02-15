@@ -51,7 +51,7 @@ class RainColumn:
                     color = 0x05C0  # Medium green
                 else:
                     color = TFT_DARKGREEN
-                draw.text_char(self.pos, self.chars[i], color)
+                draw.char(self.pos, self.chars[i], color)
 
     def is_offscreen(self) -> bool:
         """Check if column is completely off screen"""

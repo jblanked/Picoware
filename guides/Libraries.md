@@ -384,7 +384,7 @@ Check the source code for all available button and key constants.
     - `reset()`: Reset the display by clearing the framebuffer.
     - `swap()`: Swap the front and back buffers.
     - `text(position, text, color)`: Draw text on the display.
-    - `text_char(position, char, color)`: Draw a single character on the display.
+    - `char(position, char, color)`: Draw a single character on the display.
     - `triangle(point1, point2, point3, color)`: Draw a triangle outline.
 
 #### picoware-gui-image

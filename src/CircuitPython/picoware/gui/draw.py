@@ -171,6 +171,11 @@ class Draw:
         ):
             deinit()
 
+    def char(self, position: Vector, char: str, color=None):
+        """Draw a single character on the display"""
+        _color = color if color is not None else self._foreground
+        draw_char(position.x, position.y, ord(char), _color)
+
     def circle(self, position: Vector, radius: int, color: int = None):
         """Draw a circle outline"""
         _color = color if color is not None else self._foreground
@@ -553,11 +558,6 @@ class Draw:
         """Draw text on the display"""
         _color = color if color is not None else self._foreground
         draw_text(position.x, position.y, text, _color)
-
-    def text_char(self, position: Vector, char: str, color=None):
-        """Draw a single character on the display"""
-        _color = color if color is not None else self._foreground
-        draw_char(position.x, position.y, ord(char), _color)
 
     def triangle(self, point1: Vector, point2: Vector, point3: Vector, color=None):
         """Draw a triangle outline"""

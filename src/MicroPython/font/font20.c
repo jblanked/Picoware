@@ -36,7 +36,7 @@
  */
 
 /* Includes ------------------------------------------------------------------*/
-#include "fonts.h"
+#include "font.h"
 
 // Character bitmaps for Courier New 15pt
 static const uint8_t Font20_Table[] =

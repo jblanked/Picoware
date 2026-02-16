@@ -16,9 +16,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "../../font/font_mp.h"
+
 // Define STATIC if not already defined (MicroPython macro)
 #ifndef STATIC
 #define STATIC static
+#endif
+
+#ifdef FONT_DEFAULT
+#undef FONT_DEFAULT
+#define FONT_DEFAULT FONT_XTRA_SMALL
 #endif
 
 #define LCD_CHUNK_LINES 16
@@ -93,652 +100,6 @@ void picoware_write_buffer_fb_16(psram_qspi_inst_t *psram, int x, int y, int wid
     }
 }
 
-static const uint8_t *get_font_data(void)
-{
-    static const uint8_t font_data[] = {
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00, // char 0
-        0x3e,
-        0x5b,
-        0x4f,
-        0x5b,
-        0x3e, // char 1
-        0x3e,
-        0x6b,
-        0x4f,
-        0x6b,
-        0x3e, // char 2
-        0x1c,
-        0x3e,
-        0x7c,
-        0x3e,
-        0x1c, // char 3
-        0x18,
-        0x3c,
-        0x7e,
-        0x3c,
-        0x18, // char 4
-        0x1c,
-        0x57,
-        0x7d,
-        0x57,
-        0x1c, // char 5
-        0x1c,
-        0x5e,
-        0x7f,
-        0x5e,
-        0x1c, // char 6
-        0x00,
-        0x18,
-        0x3c,
-        0x18,
-        0x00, // char 7
-        0xff,
-        0xe7,
-        0xc3,
-        0xe7,
-        0xff, // char 8
-        0x00,
-        0x18,
-        0x24,
-        0x18,
-        0x00, // char 9
-        0xff,
-        0xe7,
-        0xdb,
-        0xe7,
-        0xff, // char 10
-        0x30,
-        0x48,
-        0x3a,
-        0x06,
-        0x0e, // char 11
-        0x26,
-        0x29,
-        0x79,
-        0x29,
-        0x26, // char 12
-        0x40,
-        0x7f,
-        0x05,
-        0x05,
-        0x07, // char 13
-        0x40,
-        0x7f,
-        0x05,
-        0x25,
-        0x3f, // char 14
-        0x5a,
-        0x3c,
-        0xe7,
-        0x3c,
-        0x5a, // char 15
-        0x7f,
-        0x3e,
-        0x1c,
-        0x1c,
-        0x08, // char 16
-        0x08,
-        0x1c,
-        0x1c,
-        0x3e,
-        0x7f, // char 17
-        0x14,
-        0x22,
-        0x7f,
-        0x22,
-        0x14, // char 18
-        0x5f,
-        0x5f,
-        0x00,
-        0x5f,
-        0x5f, // char 19
-        0x06,
-        0x09,
-        0x7f,
-        0x01,
-        0x7f, // char 20
-        0x00,
-        0x66,
-        0x89,
-        0x95,
-        0x6a, // char 21
-        0x60,
-        0x60,
-        0x60,
-        0x60,
-        0x60, // char 22
-        0x94,
-        0xa2,
-        0xff,
-        0xa2,
-        0x94, // char 23
-        0x08,
-        0x04,
-        0x7e,
-        0x04,
-        0x08, // char 24
-        0x10,
-        0x20,
-        0x7e,
-        0x20,
-        0x10, // char 25
-        0x08,
-        0x08,
-        0x2a,
-        0x1c,
-        0x08, // char 26
-        0x08,
-        0x1c,
-        0x2a,
-        0x08,
-        0x08, // char 27
-        0x1e,
-        0x10,
-        0x10,
-        0x10,
-        0x10, // char 28
-        0x0c,
-        0x1e,
-        0x0c,
-        0x1e,
-        0x0c, // char 29
-        0x30,
-        0x38,
-        0x3e,
-        0x38,
-        0x30, // char 30
-        0x06,
-        0x0e,
-        0x3e,
-        0x0e,
-        0x06, // char 31
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00, // ' ' (space)
-        0x00,
-        0x00,
-        0x5f,
-        0x00,
-        0x00, // '!'
-        0x00,
-        0x07,
-        0x00,
-        0x07,
-        0x00, // '"'
-        0x14,
-        0x7f,
-        0x14,
-        0x7f,
-        0x14, // '#'
-        0x24,
-        0x2a,
-        0x7f,
-        0x2a,
-        0x12, // '$'
-        0x23,
-        0x13,
-        0x08,
-        0x64,
-        0x62, // '%'
-        0x36,
-        0x49,
-        0x56,
-        0x20,
-        0x50, // '&'
-        0x00,
-        0x08,
-        0x07,
-        0x03,
-        0x00, // '\''
-        0x00,
-        0x1c,
-        0x22,
-        0x41,
-        0x00, // '('
-        0x00,
-        0x41,
-        0x22,
-        0x1c,
-        0x00, // ')'
-        0x2a,
-        0x1c,
-        0x7f,
-        0x1c,
-        0x2a, // '*'
-        0x08,
-        0x08,
-        0x3e,
-        0x08,
-        0x08, // '+'
-        0x00,
-        0x80,
-        0x70,
-        0x30,
-        0x00, // ','
-        0x08,
-        0x08,
-        0x08,
-        0x08,
-        0x08, // '-'
-        0x00,
-        0x00,
-        0x60,
-        0x60,
-        0x00, // '.'
-        0x20,
-        0x10,
-        0x08,
-        0x04,
-        0x02, // '/'
-        0x3e,
-        0x51,
-        0x49,
-        0x45,
-        0x3e, // '0'
-        0x00,
-        0x42,
-        0x7f,
-        0x40,
-        0x00, // '1'
-        0x72,
-        0x49,
-        0x49,
-        0x49,
-        0x46, // '2'
-        0x21,
-        0x41,
-        0x49,
-        0x4d,
-        0x33, // '3'
-        0x18,
-        0x14,
-        0x12,
-        0x7f,
-        0x10, // '4'
-        0x27,
-        0x45,
-        0x45,
-        0x45,
-        0x39, // '5'
-        0x3c,
-        0x4a,
-        0x49,
-        0x49,
-        0x31, // '6'
-        0x41,
-        0x21,
-        0x11,
-        0x09,
-        0x07, // '7'
-        0x36,
-        0x49,
-        0x49,
-        0x49,
-        0x36, // '8'
-        0x46,
-        0x49,
-        0x49,
-        0x29,
-        0x1e, // '9'
-        0x00,
-        0x00,
-        0x14,
-        0x00,
-        0x00, // ':'
-        0x00,
-        0x40,
-        0x34,
-        0x00,
-        0x00, // ';'
-        0x00,
-        0x08,
-        0x14,
-        0x22,
-        0x41, // '<'
-        0x14,
-        0x14,
-        0x14,
-        0x14,
-        0x14, // '='
-        0x00,
-        0x41,
-        0x22,
-        0x14,
-        0x08, // '>'
-        0x02,
-        0x01,
-        0x59,
-        0x09,
-        0x06, // '?'
-        0x3e,
-        0x41,
-        0x5d,
-        0x59,
-        0x4e, // '@'
-        0x7c,
-        0x12,
-        0x11,
-        0x12,
-        0x7c, // 'A'
-        0x7f,
-        0x49,
-        0x49,
-        0x49,
-        0x36, // 'B'
-        0x3e,
-        0x41,
-        0x41,
-        0x41,
-        0x22, // 'C'
-        0x7f,
-        0x41,
-        0x41,
-        0x41,
-        0x3e, // 'D'
-        0x7f,
-        0x49,
-        0x49,
-        0x49,
-        0x41, // 'E'
-        0x7f,
-        0x09,
-        0x09,
-        0x09,
-        0x01, // 'F'
-        0x3e,
-        0x41,
-        0x41,
-        0x51,
-        0x73, // 'G'
-        0x7f,
-        0x08,
-        0x08,
-        0x08,
-        0x7f, // 'H'
-        0x00,
-        0x41,
-        0x7f,
-        0x41,
-        0x00, // 'I'
-        0x20,
-        0x40,
-        0x41,
-        0x3f,
-        0x01, // 'J'
-        0x7f,
-        0x08,
-        0x14,
-        0x22,
-        0x41, // 'K'
-        0x7f,
-        0x40,
-        0x40,
-        0x40,
-        0x40, // 'L'
-        0x7f,
-        0x02,
-        0x1c,
-        0x02,
-        0x7f, // 'M'
-        0x7f,
-        0x04,
-        0x08,
-        0x10,
-        0x7f, // 'N'
-        0x3e,
-        0x41,
-        0x41,
-        0x41,
-        0x3e, // 'O'
-        0x7f,
-        0x09,
-        0x09,
-        0x09,
-        0x06, // 'P'
-        0x3e,
-        0x41,
-        0x51,
-        0x21,
-        0x5e, // 'Q'
-        0x7f,
-        0x09,
-        0x19,
-        0x29,
-        0x46, // 'R'
-        0x26,
-        0x49,
-        0x49,
-        0x49,
-        0x32, // 'S'
-        0x03,
-        0x01,
-        0x7f,
-        0x01,
-        0x03, // 'T'
-        0x3f,
-        0x40,
-        0x40,
-        0x40,
-        0x3f, // 'U'
-        0x1f,
-        0x20,
-        0x40,
-        0x20,
-        0x1f, // 'V'
-        0x3f,
-        0x40,
-        0x38,
-        0x40,
-        0x3f, // 'W'
-        0x63,
-        0x14,
-        0x08,
-        0x14,
-        0x63, // 'X'
-        0x03,
-        0x04,
-        0x78,
-        0x04,
-        0x03, // 'Y'
-        0x61,
-        0x59,
-        0x49,
-        0x4d,
-        0x43, // 'Z'
-        0x00,
-        0x7f,
-        0x41,
-        0x41,
-        0x41, // '['
-        0x02,
-        0x04,
-        0x08,
-        0x10,
-        0x20, // '\'
-        0x00,
-        0x41,
-        0x41,
-        0x41,
-        0x7f, // ']'
-        0x04,
-        0x02,
-        0x01,
-        0x02,
-        0x04, // '^'
-        0x40,
-        0x40,
-        0x40,
-        0x40,
-        0x40, // '_'
-        0x00,
-        0x03,
-        0x07,
-        0x08,
-        0x00, // '`'
-        0x20,
-        0x54,
-        0x54,
-        0x78,
-        0x40, // 'a'
-        0x7f,
-        0x28,
-        0x44,
-        0x44,
-        0x38, // 'b'
-        0x38,
-        0x44,
-        0x44,
-        0x44,
-        0x28, // 'c'
-        0x38,
-        0x44,
-        0x44,
-        0x28,
-        0x7f, // 'd'
-        0x38,
-        0x54,
-        0x54,
-        0x54,
-        0x18, // 'e'
-        0x00,
-        0x08,
-        0x7e,
-        0x09,
-        0x02, // 'f'
-        0x18,
-        0xa4,
-        0xa4,
-        0x9c,
-        0x78, // 'g'
-        0x7f,
-        0x08,
-        0x04,
-        0x04,
-        0x78, // 'h'
-        0x00,
-        0x44,
-        0x7d,
-        0x40,
-        0x00, // 'i'
-        0x20,
-        0x40,
-        0x40,
-        0x3d,
-        0x00, // 'j'
-        0x7f,
-        0x10,
-        0x28,
-        0x44,
-        0x00, // 'k'
-        0x00,
-        0x41,
-        0x7f,
-        0x40,
-        0x00, // 'l'
-        0x7c,
-        0x04,
-        0x78,
-        0x04,
-        0x78, // 'm'
-        0x7c,
-        0x08,
-        0x04,
-        0x04,
-        0x78, // 'n'
-        0x38,
-        0x44,
-        0x44,
-        0x44,
-        0x38, // 'o'
-        0xfc,
-        0x18,
-        0x24,
-        0x24,
-        0x18, // 'p'
-        0x18,
-        0x24,
-        0x24,
-        0x18,
-        0xfc, // 'q'
-        0x7c,
-        0x08,
-        0x04,
-        0x04,
-        0x08, // 'r'
-        0x48,
-        0x54,
-        0x54,
-        0x54,
-        0x24, // 's'
-        0x04,
-        0x04,
-        0x3f,
-        0x44,
-        0x24, // 't'
-        0x3c,
-        0x40,
-        0x40,
-        0x20,
-        0x7c, // 'u'
-        0x1c,
-        0x20,
-        0x40,
-        0x20,
-        0x1c, // 'v'
-        0x3c,
-        0x40,
-        0x30,
-        0x40,
-        0x3c, // 'w'
-        0x44,
-        0x28,
-        0x10,
-        0x28,
-        0x44, // 'x'
-        0x4c,
-        0x90,
-        0x90,
-        0x90,
-        0x7c, // 'y'
-        0x44,
-        0x64,
-        0x54,
-        0x4c,
-        0x44, // 'z'
-        0x00,
-        0x08,
-        0x36,
-        0x41,
-        0x00, // '{'
-        0x00,
-        0x00,
-        0x77,
-        0x00,
-        0x00, // '|'
-        0x00,
-        0x41,
-        0x36,
-        0x08,
-        0x00, // '}'
-        0x02,
-        0x01,
-        0x02,
-        0x04,
-        0x02, // '~'
-        0x3c,
-        0x26,
-        0x23,
-        0x26,
-        0x3c, // char 127
-    };
-    return font_data;
-}
 static uint16_t lcd_color332_to_565(uint8_t r, uint8_t g, uint8_t b)
 {
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
@@ -1219,43 +580,56 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(picoware_lcd_clear_framebuffer_obj, picoware_lc
 
 STATIC mp_obj_t picoware_lcd_draw_char(size_t n_args, const mp_obj_t *args)
 {
-    // Arguments: x, y, char, color565
-    if (n_args != 4)
+    // Arguments: x, y, char, color565, font_size
+    if (n_args < 4)
     {
-        mp_raise_ValueError(MP_ERROR_TEXT("draw_char requires 4 arguments"));
+        mp_raise_ValueError(MP_ERROR_TEXT("draw_char requires at least 4 arguments"));
     }
 
     int x = mp_obj_get_int(args[0]);
     int y = mp_obj_get_int(args[1]);
     int char_code = mp_obj_get_int(args[2]);
     uint16_t color = mp_obj_get_int(args[3]);
+    int font_size = (n_args >= 5) ? mp_obj_get_int(args[4]) : FONT_DEFAULT;
 
-    // Bounds check
-    if (x < 0 || x + CHAR_WIDTH > DISPLAY_WIDTH ||
-        y < 0 || y + FONT_HEIGHT > DISPLAY_HEIGHT)
+    // Validate character code
+    if (char_code < 32 || char_code > 126)
+    {
+        return mp_const_none; // Character out of range
+    }
+
+    // Get font dimensions dynamically
+    uint8_t char_width = font_get_width(font_size);
+    uint8_t char_height = font_get_height(font_size);
+    uint8_t bytes_per_row = (char_width + 7) / 8;
+
+    // Bounds check with actual font dimensions
+    if (x < 0 || x + char_width > DISPLAY_WIDTH ||
+        y < 0 || y + char_height > DISPLAY_HEIGHT)
     {
         return mp_const_none; // Character would be out of bounds
     }
 
-    // Validate character code
-    if (char_code < 0 || char_code > 127)
-    {
-        char_code = 127; // Use default character for out of range
-    }
-
     uint8_t color_index = color565_to_332(color);
-    const uint8_t *font_data = get_font_data();
-    const uint8_t *char_data = &font_data[char_code * FONT_WIDTH];
+    const uint8_t *char_data = font_get_character(font_size, char_code);
+
+    if (char_data == NULL)
+    {
+        return mp_const_none; // Invalid character
+    }
 
     if (lcd_mode == LCD_MODE_PSRAM)
     {
-        // Render character bitmap using PSRAM writes
-        for (int col = 0; col < FONT_WIDTH; col++)
+        // Render character bitmap using PSRAM writes (row-by-row)
+        for (uint8_t row = 0; row < char_height; row++)
         {
-            uint8_t column_data = char_data[col];
-            for (int row = 0; row < FONT_HEIGHT; row++)
+            const uint8_t *row_data = &char_data[row * bytes_per_row];
+            for (uint8_t col = 0; col < char_width; col++)
             {
-                if (column_data & (1 << row))
+                uint8_t byte_index = col / 8;
+                uint8_t bit_index = 7 - (col % 8); // MSB = leftmost pixel
+
+                if (row_data[byte_index] & (1 << bit_index))
                 {
                     uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + ((y + row) * PSRAM_ROW_SIZE) + (x + col);
                     psram_qspi_write8(&psram_instance, addr, color_index);
@@ -1265,13 +639,16 @@ STATIC mp_obj_t picoware_lcd_draw_char(size_t n_args, const mp_obj_t *args)
     }
     else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
     {
-        // Render character bitmap to RGB332 heap framebuffer
-        for (int col = 0; col < FONT_WIDTH; col++)
+        // Render character bitmap to RGB332 heap framebuffer (row-by-row)
+        for (uint8_t row = 0; row < char_height; row++)
         {
-            uint8_t column_data = char_data[col];
-            for (int row = 0; row < FONT_HEIGHT; row++)
+            const uint8_t *row_data = &char_data[row * bytes_per_row];
+            for (uint8_t col = 0; col < char_width; col++)
             {
-                if (column_data & (1 << row))
+                uint8_t byte_index = col / 8;
+                uint8_t bit_index = 7 - (col % 8); // MSB = leftmost pixel
+
+                if (row_data[byte_index] & (1 << bit_index))
                 {
                     heap_framebuffer[(y + row) * DISPLAY_WIDTH + (x + col)] = color_index;
                 }
@@ -1281,23 +658,31 @@ STATIC mp_obj_t picoware_lcd_draw_char(size_t n_args, const mp_obj_t *args)
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_draw_char_obj, 4, 4, picoware_lcd_draw_char);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_draw_char_obj, 4, 5, picoware_lcd_draw_char);
 
 STATIC mp_obj_t picoware_lcd_draw_text(size_t n_args, const mp_obj_t *args)
 {
-    // Arguments: x, y, text_string, color565
-    if (n_args != 4)
+    // Arguments: x, y, text_string, color565, font_size (optional)
+    if (n_args < 4)
     {
-        mp_raise_ValueError(MP_ERROR_TEXT("draw_text requires 4 arguments"));
+        mp_raise_ValueError(MP_ERROR_TEXT("draw_text requires at least 4 arguments"));
     }
 
     int start_x = mp_obj_get_int(args[0]);
     int start_y = mp_obj_get_int(args[1]);
     const char *text = mp_obj_str_get_str(args[2]);
     uint16_t color = mp_obj_get_int(args[3]);
+    int font_size = (n_args >= 5) ? mp_obj_get_int(args[4]) : FONT_DEFAULT;
 
     uint8_t color_index = color565_to_332(color);
-    const uint8_t *font_data = get_font_data();
+
+    // Get font dimensions dynamically
+    uint8_t char_width = font_get_width(font_size);
+    uint8_t char_height = font_get_height(font_size);
+    uint8_t bytes_per_row = (char_width + 7) / 8;
+    uint8_t char_spacing = char_width + 1; // Add 1 pixel spacing
+
+    const uint8_t *font_data = font_get_data(font_size);
 
     int current_x = start_x;
     int current_y = start_y;
@@ -1311,27 +696,27 @@ STATIC mp_obj_t picoware_lcd_draw_text(size_t n_args, const mp_obj_t *args)
         {
             // Handle newline
             current_x = start_x;
-            current_y += FONT_HEIGHT;
+            current_y += char_height;
             continue;
         }
         else if (ch == ' ')
         {
             // Handle space - just advance position
-            current_x += CHAR_WIDTH;
+            current_x += char_spacing;
             continue;
         }
 
         // Check bounds
-        if (current_y + FONT_HEIGHT > DISPLAY_HEIGHT)
+        if (current_y + char_height > DISPLAY_HEIGHT)
         {
             break; // Text goes below screen
         }
-        if (current_x + CHAR_WIDTH > DISPLAY_WIDTH)
+        if (current_x + char_width > DISPLAY_WIDTH)
         {
             // Wrap to next line
             current_x = start_x;
-            current_y += FONT_HEIGHT;
-            if (current_y + FONT_HEIGHT > DISPLAY_HEIGHT)
+            current_y += char_height;
+            if (current_y + char_height > DISPLAY_HEIGHT)
             {
                 break;
             }
@@ -1339,22 +724,26 @@ STATIC mp_obj_t picoware_lcd_draw_text(size_t n_args, const mp_obj_t *args)
 
         // Validate character
         int char_code = (int)ch;
-        if (char_code < 0 || char_code > 127)
+        if (char_code < 32 || char_code > 126)
         {
-            char_code = 127; // Default character
+            char_code = 32; // Default to space for invalid characters
         }
 
-        const uint8_t *char_data = &font_data[char_code * FONT_WIDTH];
+        // Font table starts at ASCII 32, so subtract 32 to get index
+        const uint8_t *char_data = &font_data[(char_code - 32) * char_height * bytes_per_row];
 
         if (lcd_mode == LCD_MODE_PSRAM)
         {
-            // Render character bitmap using PSRAM writes
-            for (int col = 0; col < FONT_WIDTH; col++)
+            // Render character bitmap using PSRAM writes (row-by-row)
+            for (uint8_t row = 0; row < char_height; row++)
             {
-                uint8_t column_data = char_data[col];
-                for (int row = 0; row < FONT_HEIGHT; row++)
+                const uint8_t *row_data = &char_data[row * bytes_per_row];
+                for (uint8_t col = 0; col < char_width; col++)
                 {
-                    if (column_data & (1 << row))
+                    uint8_t byte_index = col / 8;
+                    uint8_t bit_index = 7 - (col % 8); // MSB = leftmost pixel
+
+                    if (row_data[byte_index] & (1 << bit_index))
                     {
                         int px = current_x + col;
                         int py = current_y + row;
@@ -1369,13 +758,16 @@ STATIC mp_obj_t picoware_lcd_draw_text(size_t n_args, const mp_obj_t *args)
         }
         else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
         {
-            // Render character bitmap to RGB332 heap framebuffer
-            for (int col = 0; col < FONT_WIDTH; col++)
+            // Render character bitmap to RGB332 heap framebuffer (row-by-row)
+            for (uint8_t row = 0; row < char_height; row++)
             {
-                uint8_t column_data = char_data[col];
-                for (int row = 0; row < FONT_HEIGHT; row++)
+                const uint8_t *row_data = &char_data[row * bytes_per_row];
+                for (uint8_t col = 0; col < char_width; col++)
                 {
-                    if (column_data & (1 << row))
+                    uint8_t byte_index = col / 8;
+                    uint8_t bit_index = 7 - (col % 8); // MSB = leftmost pixel
+
+                    if (row_data[byte_index] & (1 << bit_index))
                     {
                         int px = current_x + col;
                         int py = current_y + row;
@@ -1388,12 +780,12 @@ STATIC mp_obj_t picoware_lcd_draw_text(size_t n_args, const mp_obj_t *args)
             }
         }
 
-        current_x += CHAR_WIDTH;
+        current_x += char_spacing;
     }
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_draw_text_obj, 4, 4, picoware_lcd_draw_text);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_lcd_draw_text_obj, 4, 5, picoware_lcd_draw_text);
 
 // Bresenham line algorithm (supports both modes)
 STATIC mp_obj_t picoware_lcd_draw_line_custom(size_t n_args, const mp_obj_t *args)
@@ -2289,6 +1681,8 @@ STATIC const mp_rom_map_elem_t picoware_lcd_module_globals_table[] = {
     // Mode constants
     {MP_ROM_QSTR(MP_QSTR_MODE_PSRAM), MP_ROM_INT(LCD_MODE_PSRAM)},
     {MP_ROM_QSTR(MP_QSTR_MODE_HEAP), MP_ROM_INT(LCD_MODE_HEAP)},
+
+    {MP_ROM_QSTR(MP_QSTR_FONT_DEFAULT), MP_ROM_INT(FONT_DEFAULT)},
 };
 STATIC MP_DEFINE_CONST_DICT(picoware_lcd_module_globals, picoware_lcd_module_globals_table);
 

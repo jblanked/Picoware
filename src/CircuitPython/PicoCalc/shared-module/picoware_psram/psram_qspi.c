@@ -83,19 +83,6 @@ static void psram_send_spi_command(psram_qspi_inst_t *qspi, uint8_t cmd)
 }
 
 /**
- * @brief Send a single-byte command while in QPI mode
- */
-static void psram_send_qpi_command(psram_qspi_inst_t *qspi, uint8_t cmd)
-{
-    // QSPI PIO protocol: [nibbles_to_write, nibbles_to_read, cmd]
-    uint8_t qpi_cmd[] = {
-        2, // 2 nibbles (1 byte) to write
-        0, // 0 nibbles to read
-        cmd};
-    qspi_write_dma_blocking(qspi, qpi_cmd, sizeof(qpi_cmd));
-}
-
-/**
  * @brief Initialize PSRAM QSPI interface
  */
 psram_qspi_inst_t psram_qspi_init(PIO pio, int sm, float clkdiv)
@@ -202,18 +189,14 @@ void psram_qspi_deinit(psram_qspi_inst_t *qspi)
     {
         psram_qspi_async_wait(qspi);
     }
-#endif
-
-    // Attempt to exit QPI mode before tearing down the PIO/DMA
-    psram_send_qpi_command(qspi, 0xF5);
-    busy_wait_us(50);
-
-#if defined(PSRAM_QSPI_ASYNC)
+    // Async DMA channel teardown
     dma_channel_unclaim(qspi->async_dma_chan);
 #endif
 
 #if defined(PSRAM_QSPI_USE_DMA)
+    // Write DMA channel teardown
     dma_channel_unclaim(qspi->write_dma_chan);
+    // Read DMA channel teardown
     dma_channel_unclaim(qspi->read_dma_chan);
 #endif
 
@@ -222,10 +205,15 @@ void psram_qspi_deinit(psram_qspi_inst_t *qspi)
     spin_lock_unclaim(spin_id);
 #endif
 
-    // Exit QPI mode (send in QSPI since we're in QPI mode)
-    // For simplicity, we'll just disable the state machine
-    pio_sm_set_enabled(qspi->pio, qspi->sm, false);
+    // Unclaim state machine
     pio_sm_unclaim(qspi->pio, qspi->sm);
+
+    // Exit QPI mode before removing the program
+    uint8_t psram_qpi_exit_cmd[] = {2, 0, 0xF5};
+    qspi_write_dma_blocking(qspi, psram_qpi_exit_cmd, 3);
+    busy_wait_us(50);
+
+    // Remove PIO program
     pio_remove_program(qspi->pio, &qspi_psram_rw_program, qspi->offset);
 }
 

@@ -25,6 +25,14 @@
 #define STATIC static
 #endif
 
+typedef struct
+{
+    mp_obj_base_t base;
+    bool initialized;
+} psram_mp_obj_t;
+
+const mp_obj_type_t psram_mp_type;
+
 // Module state
 bool psram_initialized = false;
 psram_qspi_inst_t psram_instance;
@@ -969,8 +977,19 @@ STATIC mp_obj_t mp_psram_data___del__(mp_obj_t self_in)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_psram_data___del___obj, mp_psram_data___del__);
 
+STATIC mp_obj_t mp_psram_data_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
+{
+    mp_arg_check_num(n_args, n_kw, 0, 0, false);
+    mp_psram_data_obj_t *self = mp_obj_malloc_with_finaliser(mp_psram_data_obj_t, type);
+    self->psram_addr = 0;
+    self->length = 0;
+    self->allocated = false;
+    return MP_OBJ_FROM_PTR(self);
+}
+
 // Locals dict for PSRAM data types
 STATIC const mp_rom_map_elem_t mp_psram_data_locals_dict_table[] = {
+    {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_psram_data)},
     {MP_ROM_QSTR(MP_QSTR_value), MP_ROM_PTR(&mp_psram_data_get_value_obj)},
     {MP_ROM_QSTR(MP_QSTR_addr), MP_ROM_PTR(&mp_psram_data_get_addr_obj)},
     {MP_ROM_QSTR(MP_QSTR_length), MP_ROM_PTR(&mp_psram_data_get_length_obj)},
@@ -984,6 +1003,7 @@ MP_DEFINE_CONST_OBJ_TYPE(
     MP_QSTR_psram_data,
     MP_TYPE_FLAG_HAS_SPECIAL_ACCESSORS,
     print, mp_psram_data_print,
+    make_new, mp_psram_data_make_new,
     unary_op, mp_psram_data_unary_op,
     binary_op, mp_psram_data_binary_op,
     subscr, mp_psram_data_subscr,
@@ -1026,10 +1046,9 @@ STATIC mp_obj_t picoware_psram_init(size_t n_args, const mp_obj_t *args)
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_psram_init_obj, 0, 2, picoware_psram_init);
 
 // Write 8-bit value
-STATIC mp_obj_t picoware_psram_write8(mp_obj_t addr_obj, mp_obj_t value_obj)
+STATIC mp_obj_t picoware_psram_write8(mp_obj_t self_in, mp_obj_t addr_obj, mp_obj_t value_obj)
 {
     if (!psram_initialized)
     {
@@ -1047,10 +1066,10 @@ STATIC mp_obj_t picoware_psram_write8(mp_obj_t addr_obj, mp_obj_t value_obj)
     psram_qspi_write8(&psram_instance, addr, value);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(picoware_psram_write8_obj, picoware_psram_write8);
+STATIC MP_DEFINE_CONST_FUN_OBJ_3(picoware_psram_write8_obj, picoware_psram_write8);
 
 // Read 8-bit value
-STATIC mp_obj_t picoware_psram_read8(mp_obj_t addr_obj)
+STATIC mp_obj_t picoware_psram_read8(mp_obj_t self_in, mp_obj_t addr_obj)
 {
     if (!psram_initialized)
     {
@@ -1067,10 +1086,10 @@ STATIC mp_obj_t picoware_psram_read8(mp_obj_t addr_obj)
     uint8_t value = psram_qspi_read8(&psram_instance, addr);
     return mp_obj_new_int(value);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(picoware_psram_read8_obj, picoware_psram_read8);
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(picoware_psram_read8_obj, picoware_psram_read8);
 
 // Write 16-bit value
-STATIC mp_obj_t picoware_psram_write16(mp_obj_t addr_obj, mp_obj_t value_obj)
+STATIC mp_obj_t picoware_psram_write16(mp_obj_t self_in, mp_obj_t addr_obj, mp_obj_t value_obj)
 {
     if (!psram_initialized)
     {
@@ -1088,10 +1107,10 @@ STATIC mp_obj_t picoware_psram_write16(mp_obj_t addr_obj, mp_obj_t value_obj)
     psram_qspi_write16(&psram_instance, addr, value);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(picoware_psram_write16_obj, picoware_psram_write16);
+STATIC MP_DEFINE_CONST_FUN_OBJ_3(picoware_psram_write16_obj, picoware_psram_write16);
 
 // Read 16-bit value
-STATIC mp_obj_t picoware_psram_read16(mp_obj_t addr_obj)
+STATIC mp_obj_t picoware_psram_read16(mp_obj_t self_in, mp_obj_t addr_obj)
 {
     if (!psram_initialized)
     {
@@ -1108,10 +1127,10 @@ STATIC mp_obj_t picoware_psram_read16(mp_obj_t addr_obj)
     uint16_t value = psram_qspi_read16(&psram_instance, addr);
     return mp_obj_new_int(value);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(picoware_psram_read16_obj, picoware_psram_read16);
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(picoware_psram_read16_obj, picoware_psram_read16);
 
 // Write 32-bit value
-STATIC mp_obj_t picoware_psram_write32(mp_obj_t addr_obj, mp_obj_t value_obj)
+STATIC mp_obj_t picoware_psram_write32(mp_obj_t self_in, mp_obj_t addr_obj, mp_obj_t value_obj)
 {
     if (!psram_initialized)
     {
@@ -1129,10 +1148,10 @@ STATIC mp_obj_t picoware_psram_write32(mp_obj_t addr_obj, mp_obj_t value_obj)
     psram_qspi_write32(&psram_instance, addr, value);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(picoware_psram_write32_obj, picoware_psram_write32);
+STATIC MP_DEFINE_CONST_FUN_OBJ_3(picoware_psram_write32_obj, picoware_psram_write32);
 
 // Read 32-bit value
-STATIC mp_obj_t picoware_psram_read32(mp_obj_t addr_obj)
+STATIC mp_obj_t picoware_psram_read32(mp_obj_t self_in, mp_obj_t addr_obj)
 {
     if (!psram_initialized)
     {
@@ -1149,10 +1168,10 @@ STATIC mp_obj_t picoware_psram_read32(mp_obj_t addr_obj)
     uint32_t value = psram_qspi_read32(&psram_instance, addr);
     return mp_obj_new_int_from_uint(value);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(picoware_psram_read32_obj, picoware_psram_read32);
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(picoware_psram_read32_obj, picoware_psram_read32);
 
 // Write buffer of bytes
-STATIC mp_obj_t picoware_psram_write(mp_obj_t addr_obj, mp_obj_t data_obj)
+STATIC mp_obj_t picoware_psram_write(mp_obj_t self_in, mp_obj_t addr_obj, mp_obj_t data_obj)
 {
     if (!psram_initialized)
     {
@@ -1180,10 +1199,10 @@ STATIC mp_obj_t picoware_psram_write(mp_obj_t addr_obj, mp_obj_t data_obj)
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(picoware_psram_write_obj, picoware_psram_write);
+STATIC MP_DEFINE_CONST_FUN_OBJ_3(picoware_psram_write_obj, picoware_psram_write);
 
 // Read buffer of bytes
-STATIC mp_obj_t picoware_psram_read(mp_obj_t addr_obj, mp_obj_t length_obj)
+STATIC mp_obj_t picoware_psram_read(mp_obj_t self_in, mp_obj_t addr_obj, mp_obj_t length_obj)
 {
     if (!psram_initialized)
     {
@@ -1217,10 +1236,10 @@ STATIC mp_obj_t picoware_psram_read(mp_obj_t addr_obj, mp_obj_t length_obj)
     // Create Python bytes object directly from vstr
     return mp_obj_new_bytes_from_vstr(&vstr);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(picoware_psram_read_obj, picoware_psram_read);
+STATIC MP_DEFINE_CONST_FUN_OBJ_3(picoware_psram_read_obj, picoware_psram_read);
 
 // Read into existing buffer
-STATIC mp_obj_t picoware_psram_read_into(mp_obj_t addr_obj, mp_obj_t buffer_obj)
+STATIC mp_obj_t picoware_psram_read_into(mp_obj_t self_in, mp_obj_t addr_obj, mp_obj_t buffer_obj)
 {
     if (!psram_initialized)
     {
@@ -1248,7 +1267,7 @@ STATIC mp_obj_t picoware_psram_read_into(mp_obj_t addr_obj, mp_obj_t buffer_obj)
 
     return mp_obj_new_int(bufinfo.len);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(picoware_psram_read_into_obj, picoware_psram_read_into);
+STATIC MP_DEFINE_CONST_FUN_OBJ_3(picoware_psram_read_into_obj, picoware_psram_read_into);
 
 // Fill PSRAM region with a byte value
 STATIC mp_obj_t picoware_psram_fill(size_t n_args, const mp_obj_t *args)
@@ -1258,10 +1277,10 @@ STATIC mp_obj_t picoware_psram_fill(size_t n_args, const mp_obj_t *args)
         mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("PSRAM not initialized. Call init() first."));
     }
 
-    // Arguments: addr, value, length
-    uint32_t addr = mp_obj_get_int(args[0]);
-    uint8_t value = mp_obj_get_int(args[1]);
-    uint32_t length = mp_obj_get_int(args[2]);
+    // Arguments: self,addr, value, length
+    uint32_t addr = mp_obj_get_int(args[1]);
+    uint8_t value = mp_obj_get_int(args[2]);
+    uint32_t length = mp_obj_get_int(args[3]);
 
     if (addr + length > PSRAM_SIZE)
     {
@@ -1286,7 +1305,7 @@ STATIC mp_obj_t picoware_psram_fill(size_t n_args, const mp_obj_t *args)
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_psram_fill_obj, 3, 3, picoware_psram_fill);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_psram_fill_obj, 4, 4, picoware_psram_fill);
 
 // Copy within PSRAM (src -> dst)
 STATIC mp_obj_t picoware_psram_copy(size_t n_args, const mp_obj_t *args)
@@ -1296,10 +1315,10 @@ STATIC mp_obj_t picoware_psram_copy(size_t n_args, const mp_obj_t *args)
         mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("PSRAM not initialized. Call init() first."));
     }
 
-    // Arguments: src_addr, dst_addr, length
-    uint32_t src_addr = mp_obj_get_int(args[0]);
-    uint32_t dst_addr = mp_obj_get_int(args[1]);
-    uint32_t length = mp_obj_get_int(args[2]);
+    // Arguments: self, src_addr, dst_addr, length
+    uint32_t src_addr = mp_obj_get_int(args[1]);
+    uint32_t dst_addr = mp_obj_get_int(args[2]);
+    uint32_t length = mp_obj_get_int(args[3]);
 
     if (src_addr + length > PSRAM_SIZE || dst_addr + length > PSRAM_SIZE)
     {
@@ -1349,11 +1368,11 @@ STATIC mp_obj_t picoware_psram_copy(size_t n_args, const mp_obj_t *args)
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_psram_copy_obj, 3, 3, picoware_psram_copy);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_psram_copy_obj, 4, 4, picoware_psram_copy);
 
 // Fast 32-bit bulk write
 // Writes an array of 32-bit values starting at an aligned address
-STATIC mp_obj_t picoware_psram_write32_bulk(mp_obj_t addr_obj, mp_obj_t data_obj)
+STATIC mp_obj_t picoware_psram_write32_bulk(mp_obj_t self_in, mp_obj_t addr_obj, mp_obj_t data_obj)
 {
     if (!psram_initialized)
     {
@@ -1393,11 +1412,11 @@ STATIC mp_obj_t picoware_psram_write32_bulk(mp_obj_t addr_obj, mp_obj_t data_obj
 
     return mp_obj_new_int(total_bytes);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(picoware_psram_write32_bulk_obj, picoware_psram_write32_bulk);
+STATIC MP_DEFINE_CONST_FUN_OBJ_3(picoware_psram_write32_bulk_obj, picoware_psram_write32_bulk);
 
 // Fast 32-bit bulk read
 // Reads an array of 32-bit values into a provided buffer
-STATIC mp_obj_t picoware_psram_read32_bulk(mp_obj_t addr_obj, mp_obj_t buffer_obj)
+STATIC mp_obj_t picoware_psram_read32_bulk(mp_obj_t self_in, mp_obj_t addr_obj, mp_obj_t buffer_obj)
 {
     if (!psram_initialized)
     {
@@ -1437,7 +1456,7 @@ STATIC mp_obj_t picoware_psram_read32_bulk(mp_obj_t addr_obj, mp_obj_t buffer_ob
 
     return mp_obj_new_int(total_bytes);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(picoware_psram_read32_bulk_obj, picoware_psram_read32_bulk);
+STATIC MP_DEFINE_CONST_FUN_OBJ_3(picoware_psram_read32_bulk_obj, picoware_psram_read32_bulk);
 
 // Fill with 32-bit values
 STATIC mp_obj_t picoware_psram_fill32(size_t n_args, const mp_obj_t *args)
@@ -1447,10 +1466,10 @@ STATIC mp_obj_t picoware_psram_fill32(size_t n_args, const mp_obj_t *args)
         mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("PSRAM not initialized. Call init() first."));
     }
 
-    // Arguments: addr, value (32-bit), count (number of 32-bit words)
-    uint32_t addr = mp_obj_get_int(args[0]);
-    uint32_t value = (uint32_t)mp_obj_get_int_truncated(args[1]);
-    uint32_t count = mp_obj_get_int(args[2]);
+    // Arguments: self, addr, value (32-bit), count (number of 32-bit words)
+    uint32_t addr = mp_obj_get_int(args[1]);
+    uint32_t value = (uint32_t)mp_obj_get_int_truncated(args[2]);
+    uint32_t count = mp_obj_get_int(args[3]);
 
     if ((addr & 3) != 0)
     {
@@ -1483,24 +1502,24 @@ STATIC mp_obj_t picoware_psram_fill32(size_t n_args, const mp_obj_t *args)
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_psram_fill32_obj, 3, 3, picoware_psram_fill32);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(picoware_psram_fill32_obj, 4, 4, picoware_psram_fill32);
 
 // Get PSRAM size
-STATIC mp_obj_t picoware_psram_size(void)
+STATIC mp_obj_t picoware_psram_size(mp_obj_t self_in)
 {
     return mp_obj_new_int(PSRAM_SIZE);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(picoware_psram_size_obj, picoware_psram_size);
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(picoware_psram_size_obj, picoware_psram_size);
 
 // Check if initialized
-STATIC mp_obj_t picoware_psram_is_ready(void)
+STATIC mp_obj_t picoware_psram_is_ready(mp_obj_t self_in)
 {
     return mp_obj_new_bool(psram_initialized);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(picoware_psram_is_ready_obj, picoware_psram_is_ready);
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(picoware_psram_is_ready_obj, picoware_psram_is_ready);
 
 // Test PSRAM (basic read/write test)
-STATIC mp_obj_t picoware_psram_test(void)
+STATIC mp_obj_t picoware_psram_test(mp_obj_t self_in)
 {
     if (!psram_initialized)
     {
@@ -1512,7 +1531,7 @@ STATIC mp_obj_t picoware_psram_test(void)
 
     return mp_obj_new_int(result);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(picoware_psram_test_obj, picoware_psram_test);
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(picoware_psram_test_obj, picoware_psram_test);
 
 // Uninitialize PSRAM
 STATIC mp_obj_t picoware_psram_deinit(void)
@@ -1541,10 +1560,9 @@ STATIC mp_obj_t picoware_psram_deinit(void)
     }
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(picoware_psram_deinit_obj, picoware_psram_deinit);
 
 // malloc: Allocate PSRAM-backed Python object
-STATIC mp_obj_t picoware_psram_malloc(mp_obj_t data_obj)
+STATIC mp_obj_t picoware_psram_malloc(mp_obj_t self_in, mp_obj_t data_obj)
 {
     if (!psram_initialized)
     {
@@ -2101,17 +2119,17 @@ STATIC mp_obj_t picoware_psram_malloc(mp_obj_t data_obj)
 
     return MP_OBJ_FROM_PTR(psram_obj);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(picoware_psram_malloc_obj, picoware_psram_malloc);
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(picoware_psram_malloc_obj, picoware_psram_malloc);
 
 // Get next free address
-STATIC mp_obj_t picoware_psram_get_next_free(void)
+STATIC mp_obj_t picoware_psram_get_next_free(mp_obj_t self_in)
 {
     return mp_obj_new_int_from_uint(next_free_addr);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(picoware_psram_get_next_free_obj, picoware_psram_get_next_free);
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(picoware_psram_get_next_free_obj, picoware_psram_get_next_free);
 
 // Get free memory (accounts for allocated memory and free list)
-STATIC mp_obj_t picoware_psram_mem_free(void)
+STATIC mp_obj_t picoware_psram_mem_free(mp_obj_t self_in)
 {
     if (!psram_initialized)
     {
@@ -2135,11 +2153,11 @@ STATIC mp_obj_t picoware_psram_mem_free(void)
     // Total free memory is the sum of free space at end and any holes
     return mp_obj_new_int_from_uint(free_at_end + free_in_list);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(picoware_psram_mem_free_obj, picoware_psram_mem_free);
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(picoware_psram_mem_free_obj, picoware_psram_mem_free);
 
 // Perform memory compaction - move all allocated blocks to the beginning
 // Call this after gc.collect() to reclaim fragmented space
-STATIC mp_obj_t picoware_psram_collect(void)
+STATIC mp_obj_t picoware_psram_collect(mp_obj_t self_in)
 {
     if (!psram_initialized)
     {
@@ -2258,15 +2276,55 @@ STATIC mp_obj_t picoware_psram_collect(void)
 
     return mp_obj_new_int(total_moved);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(picoware_psram_collect_obj, picoware_psram_collect);
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(picoware_psram_collect_obj, picoware_psram_collect);
 
-// Module globals table
-STATIC const mp_rom_map_elem_t picoware_psram_module_globals_table[] = {
-    {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_picoware_psram)},
+STATIC void psram_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
+{
+    (void)kind;
+    psram_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    mp_print_str(print, "PSRAM()");
+    mp_print_str(print, "initialized=");
+    mp_obj_print_helper(print, mp_obj_new_bool(self->initialized), PRINT_REPR);
+    mp_print_str(print, ")");
+}
+STATIC mp_obj_t psram_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
+{
+    mp_arg_check_num(n_args, n_kw, 0, 0, false);
+    psram_mp_obj_t *self = mp_obj_malloc_with_finaliser(psram_mp_obj_t, &psram_mp_type);
+    self->base.type = &psram_mp_type;
+    picoware_psram_init(n_args, args);
+    self->initialized = psram_initialized;
+    return MP_OBJ_FROM_PTR(self);
+}
+STATIC mp_obj_t psram_mp_del(mp_obj_t self_in)
+{
+    psram_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    self->initialized = false;
+    picoware_psram_deinit();
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(psram_mp_del_obj, psram_mp_del);
 
+STATIC void psram_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
+{
+    psram_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (destination[0] != MP_OBJ_NULL)
+    {
+        // Read attributes
+        if (attribute == MP_QSTR___del__)
+        {
+            destination[0] = MP_OBJ_FROM_PTR(&psram_mp_del_obj);
+        }
+        else if (attribute == MP_QSTR_initialized)
+        {
+            destination[0] = mp_obj_new_bool(self->initialized);
+        }
+    }
+}
+
+// Module locals table
+STATIC const mp_rom_map_elem_t picoware_psram_module_locals_table[] = {
     // Initialization functions
-    {MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&picoware_psram_init_obj)},
-    {MP_ROM_QSTR(MP_QSTR_deinit), MP_ROM_PTR(&picoware_psram_deinit_obj)},
     {MP_ROM_QSTR(MP_QSTR_is_ready), MP_ROM_PTR(&picoware_psram_is_ready_obj)},
     {MP_ROM_QSTR(MP_QSTR_size), MP_ROM_PTR(&picoware_psram_size_obj)},
     {MP_ROM_QSTR(MP_QSTR_test), MP_ROM_PTR(&picoware_psram_test_obj)},
@@ -2298,14 +2356,35 @@ STATIC const mp_rom_map_elem_t picoware_psram_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_copy), MP_ROM_PTR(&picoware_psram_copy_obj)},
 
     // Memory allocation
-    {MP_ROM_QSTR(MP_QSTR_malloc), MP_ROM_PTR(&picoware_psram_malloc_obj)},
+    {MP_ROM_QSTR(MP_QSTR_alloc_object), MP_ROM_PTR(&picoware_psram_malloc_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_next_free), MP_ROM_PTR(&picoware_psram_get_next_free_obj)},
     {MP_ROM_QSTR(MP_QSTR_mem_free), MP_ROM_PTR(&picoware_psram_mem_free_obj)},
     {MP_ROM_QSTR(MP_QSTR_collect), MP_ROM_PTR(&picoware_psram_collect_obj)},
+};
+STATIC MP_DEFINE_CONST_DICT(picoware_psram_module_locals, picoware_psram_module_locals_table);
+
+MP_DEFINE_CONST_OBJ_TYPE(
+    psram_mp_type,
+    MP_QSTR_PSRAM,
+    MP_TYPE_FLAG_HAS_SPECIAL_ACCESSORS,
+    print, psram_mp_print,
+    make_new, psram_mp_make_new,
+    attr, psram_mp_attr,
+    locals_dict, &picoware_psram_module_locals);
+
+// Module globals table
+STATIC const mp_rom_map_elem_t picoware_psram_module_globals_table[] = {
+    {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_picoware_psram)},
 
     // Constants
     {MP_ROM_QSTR(MP_QSTR_SIZE), MP_ROM_INT(PSRAM_SIZE)},
     {MP_ROM_QSTR(MP_QSTR_HEAP_START_ADDR), MP_ROM_INT(PSRAM_HEAP_START_ADDR)},
+
+    // psram data type
+    {MP_ROM_QSTR(MP_QSTR_Object), MP_ROM_PTR(&mp_psram_data_type)},
+
+    // psram type
+    {MP_ROM_QSTR(MP_QSTR_PSRAM), MP_ROM_PTR(&psram_mp_type)},
 };
 STATIC MP_DEFINE_CONST_DICT(picoware_psram_module_globals, picoware_psram_module_globals_table);
 

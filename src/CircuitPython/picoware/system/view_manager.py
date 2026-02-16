@@ -5,10 +5,6 @@ class ViewManager:
 
     MAX_VIEWS = 10
     MAX_STACK_SIZE = 10
-    FREQ_DEFAULT = 200000000
-    FREQ_RP2040 = 200000000  # was 210 but users had issues
-    FREQ_RP2350 = 230000000
-    FREQ_PIMORONI = 210000000
 
     def __init__(self):
         """Initialize the ViewManager with default settings."""
@@ -16,7 +12,6 @@ class ViewManager:
         from picoware.gui.keyboard import Keyboard
         from picoware.system.input import Input
         from picoware.system.storage import Storage
-        from picoware.system.LED import LED
         from picoware.system.wifi import WiFi
         from picoware.system.system import System
         from picoware.system.time import Time
@@ -31,8 +26,6 @@ class ViewManager:
 
         syst = System()
         self._current_board_id = syst.board_id
-
-        self.freq()
 
         # Initialize ThreadManager
         self._thread_manager = None  # ThreadManager()
@@ -49,9 +42,6 @@ class ViewManager:
             self._storage = Storage()
             self._storage.mkdir("picoware")
             self._storage.mkdir("picoware/settings")
-
-        # Initialize LED
-        self._led = LED()
 
         # Set up colors
         self._background_color = TFT_BLACK
@@ -135,9 +125,6 @@ class ViewManager:
         if self._storage is not None:
             del self._storage
             self._storage = None
-        if self._led:
-            del self._led
-            self._led = None
         if self._wifi is not None:
             del self._wifi
             self._wifi = None
@@ -222,11 +209,6 @@ class ViewManager:
     def keyboard(self):
         """Return the Keyboard instance."""
         return self._keyboard
-
-    @property
-    def led(self):
-        """Return the LED instance."""
-        return self._led
 
     @property
     def selected_color(self):
@@ -384,29 +366,6 @@ class ViewManager:
         for i in range(self._stack_depth):
             self.view_stack[i] = None
         self._stack_depth = 0
-
-    def freq(self, use_default: bool = False) -> int:
-        """
-        Set the CPU frequency.
-        """
-        import microcontroller
-        from picoware.system.boards import (
-            BOARD_PICOCALC_PICO,
-            BOARD_PICOCALC_PICOW,
-            BOARD_PICOCALC_PIMORONI_2W,
-        )
-
-        if use_default:
-            microcontroller.cpu.frequency = self.FREQ_DEFAULT
-            return microcontroller.cpu.frequency
-
-        if self._current_board_id in (BOARD_PICOCALC_PICO, BOARD_PICOCALC_PICOW):
-            microcontroller.cpu.frequency = self.FREQ_RP2040
-        elif self._current_board_id == BOARD_PICOCALC_PIMORONI_2W:
-            microcontroller.cpu.frequency = self.FREQ_PIMORONI
-        else:
-            microcontroller.cpu.frequency = self.FREQ_RP2350
-        return microcontroller.cpu.frequency
 
     def get_view(self, view_name: str):
         """

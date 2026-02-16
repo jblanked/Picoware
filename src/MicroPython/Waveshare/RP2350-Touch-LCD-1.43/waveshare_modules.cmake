@@ -12,11 +12,6 @@ target_sources(usermod_waveshare_lcd INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/waveshare_lcd/waveshare_lcd.c
     ${CMAKE_CURRENT_LIST_DIR}/waveshare_lcd/bsp_dma_channel_irq.c
     ${CMAKE_CURRENT_LIST_DIR}/waveshare_lcd/lcd.c
-    ${CMAKE_CURRENT_LIST_DIR}/waveshare_lcd/font8.c
-    ${CMAKE_CURRENT_LIST_DIR}/waveshare_lcd/font12.c
-    ${CMAKE_CURRENT_LIST_DIR}/waveshare_lcd/font16.c
-    ${CMAKE_CURRENT_LIST_DIR}/waveshare_lcd/font20.c
-    ${CMAKE_CURRENT_LIST_DIR}/waveshare_lcd/font24.c
     ${CMAKE_CURRENT_LIST_DIR}/waveshare_lcd/pio_qspi.c
 )
 
@@ -210,3 +205,21 @@ target_include_directories(usermod_response INTERFACE
 )
 
 target_link_libraries(usermod INTERFACE usermod_response)
+
+# Include font module
+add_library(usermod_font INTERFACE)
+
+target_sources(usermod_font INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../font/font_mp.c
+    ${CMAKE_CURRENT_LIST_DIR}/../../font/font8.c
+    ${CMAKE_CURRENT_LIST_DIR}/../../font/font12.c
+    ${CMAKE_CURRENT_LIST_DIR}/../../font/font16.c
+    ${CMAKE_CURRENT_LIST_DIR}/../../font/font20.c
+    ${CMAKE_CURRENT_LIST_DIR}/../../font/font24.c
+)
+
+target_include_directories(usermod_font INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../font
+)
+
+target_link_libraries(usermod INTERFACE usermod_font)

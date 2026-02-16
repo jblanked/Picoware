@@ -4,16 +4,44 @@ Author: JBlanked
 Github: https://github.com/jblanked/Picoware
 Info: A custom firmware for the PicoCalc, Video Game Module, and other Raspberry Pi Pico devices.
 Created: 2025-05-14
-Updated: 2026-01-30
+Updated: 2026-02-15
 """
+
+
+def disable():
+    """Disable the USB drive"""
+    import storage
+
+    try:
+        storage.disable_usb_drive()
+    except Exception as e:
+        print(e)
+
+
+def enable():
+    """Enable the USB drive for file access"""
+    import storage
+
+    try:
+        storage.enable_usb_drive()
+    except Exception as e:
+        print(e)
+
+
+def freq():
+    """Set the CPU frequency to 200 MHz"""
+    import microcontroller
+
+    microcontroller.cpu.frequency = 200000000
 
 
 def main():
     """Main function to run the application"""
     from gc import collect
-    import storage
 
-    storage.disable_usb_drive()
+    freq()
+
+    disable()
 
     # Initial cleanup
     collect()
@@ -41,34 +69,14 @@ def main():
         print(f"Error occurred: {e}")
         if vm:
             try:
-                # show an alert to user
-                from picoware.gui.alert import Alert
-                from time import sleep
-
-                draw = vm.draw
-                draw.clear()
-                alert = Alert(
-                    draw,
-                    f"Critical Error:\n{e}\nPlease restart.",
-                    vm.get_foreground_color(),
-                    vm.get_background_color(),
-                )
-                alert.draw("Error")
-                draw.swap()
-                sleep(2)
-
-                del alert
-                del vm
-
-                alert = None
-                vm = None
-                collect()
+                vm.alert(f"Critical Error:\n{e}\nPlease restart.")
             except Exception:
                 pass
 
     finally:
         # Final cleanup
         collect()
+        enable()
 
 
 # run the main function

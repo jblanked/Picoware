@@ -1,10 +1,9 @@
 /**
  ******************************************************************************
- * @file    fonts.h
+ * @file    font.h
  * @author  MCD Application Team
  * @version V1.0.0
  * @date    18-February-2014
- * @brief   Header for fonts.c file
  ******************************************************************************
  * @attention
  *
@@ -36,10 +35,8 @@
  */
 
 #pragma once
-
 #include <stdlib.h>
 #include <stdint.h>
-#include "pico/stdlib.h"
 
 typedef enum
 {

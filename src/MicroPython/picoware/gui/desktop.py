@@ -847,7 +847,7 @@ _BLUETOOTH_ON_BLACK = bytes(
     ]
 )
 
-_BLUEETOOTH_OFF_BLACK = bytes(
+_BLUETOOTH_OFF_BLACK = bytes(
     [
         0x00,
         0x00,
@@ -1170,7 +1170,7 @@ class Desktop:
         )
         self.display.swap()
 
-    def draw_header(self) -> None:
+    def draw_header(self, wifi_is_connected: bool = True) -> None:
         """Draw the header with the board name and Wi-Fi status."""
         # draw board name
         self.display.text(self.name_pos, self.name, self.text_color)
@@ -1187,7 +1187,7 @@ class Desktop:
         self.display.image_bytearray(
             self.wifi_pos,
             self.wifi_size,
-            _WIFI_ON_BLACK if self.has_wifi else _WIFI_OFF_BLACK,
+            _WIFI_ON_BLACK if self.has_wifi and wifi_is_connected else _WIFI_OFF_BLACK,
             invert=not self.is_dark_mode,
         )
 
@@ -1195,7 +1195,7 @@ class Desktop:
         self.display.image_bytearray(
             self.bluetooth_pos,
             self.bluetooth_size,
-            _BLUETOOTH_ON_BLACK if self.has_wifi else _BLUEETOOTH_OFF_BLACK,
+            (_BLUETOOTH_ON_BLACK if self.has_wifi else _BLUETOOTH_OFF_BLACK),
             invert=not self.is_dark_mode,
         )
 

@@ -10,7 +10,7 @@ from picoware.system.boards import (
 # Waveshare LCD imports
 try:
     from waveshare_lcd import (
-        get_font_size as waveshare_get_font_size,
+        FONT_DEFAULT,
         fill_screen as waveshare_fill_screen,
         draw_line,
         draw_rect as waveshare_draw_rect,
@@ -35,8 +35,7 @@ try:
         deinit,
         init,
         clear_framebuffer,
-        CHAR_WIDTH,
-        FONT_HEIGHT,
+        FONT_DEFAULT,
         draw_circle,
         fill_circle,
         fill_rect,
@@ -61,13 +60,16 @@ class Draw:
     def __init__(
         self, foreground: int = TFT_WHITE, background: int = TFT_BLACK, mode: int = 0
     ) -> None:
+        from picoware.system.font import FontSize
+
         self._current_board_id = BOARD_ID
 
         self._background = background
         self._foreground = foreground
 
         self._size = Vector(0, 0)
-        self._font_size = Vector(0, 0)
+        self._font_default = FontSize(FONT_DEFAULT)
+        self._font_size = Vector(self._font_default.width, self._font_default.height)
 
         self._use_lvgl = False
 
@@ -76,30 +78,24 @@ class Draw:
 
             # Initialize native LCD extension
             init(True)
-            self._font_size.x, self._font_size.y = waveshare_get_font_size()
 
         elif self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
             self._size.x, self._size.y = 466, 466
 
             # Initialize native LCD extension
             init()
-            self._font_size.x, self._font_size.y = waveshare_get_font_size()
 
         elif self._current_board_id == BOARD_WAVESHARE_3_49_RP2350:
             self._size.x, self._size.y = 172, 640
 
             # Initialize native LCD extension
             init()
-            self._font_size.x, self._font_size.y = waveshare_get_font_size()
 
         else:  # PicoCalc
             self._size.x, self._size.y = 320, 320
 
             # Initialize native LCD extension
             init(background, mode)
-
-            self._font_size.x = CHAR_WIDTH
-            self._font_size.y = FONT_HEIGHT
 
             # Clear the display and framebuffer
             clear_framebuffer(self._rgb565_to_rgb332(background))
@@ -118,6 +114,22 @@ class Draw:
     def board_id(self) -> int:
         """Get the current board ID"""
         return self._current_board_id
+
+    @property
+    def font(self) -> int:
+        """Get the default font size"""
+        return self._font_default.size
+
+    @font.setter
+    def font(self, font_size: int):
+        """Set the default font size"""
+        from picoware.system.font import FontSize
+
+        self._font_default = FontSize(font_size)
+        self._font_size.x, self._font_size.y = (
+            self._font_default.width,
+            self._font_default.height,
+        )
 
     @property
     def font_size(self) -> Vector:
@@ -171,6 +183,12 @@ class Draw:
         ):
             deinit()
 
+    def char(self, position: Vector, char: str, color=None, font_size: int = -1):
+        """Draw a single character on the display"""
+        _color = color if color is not None else self._foreground
+        _font_size = font_size if font_size >= 0 else self._font_default.size
+        draw_char(position.x, position.y, ord(char), _color, _font_size)
+
     def circle(self, position: Vector, radius: int, color: int = None):
         """Draw a circle outline"""
         _color = color if color is not None else self._foreground
@@ -193,14 +211,6 @@ class Draw:
             self.fill_screen(_color)
         else:
             self.fill_rectangle(position, size, _color)
-
-    def color332(self, color: int) -> int:
-        """Convert RGB565 to RGB332 color format"""
-        return self._rgb565_to_rgb332(color)
-
-    def color565(self, r, g, b):
-        """Convert RGB888 to RGB565 color format"""
-        return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
 
     def erase(self):
         """Erase the display by filling with background color"""
@@ -264,6 +274,12 @@ class Draw:
             point3.y,
             _color,
         )
+
+    def get_font(self, font_size: int = 0):
+        """Get the FontSize object for the specified font size"""
+        from picoware.system.font import FontSize
+
+        return FontSize(font_size)
 
     def image(self, position: Vector, img):
         """Draw an image object to the back buffer"""
@@ -457,6 +473,12 @@ class Draw:
         except (OSError, ValueError) as e:
             print(f"Error loading bytearray image: {e}")
 
+    def len(self, text: str, font_size: int = 0) -> int:
+        """Calculate the pixel width of a text string for a given font size"""
+        font = self.get_font(font_size)
+        length = len(text)
+        return length * font.width
+
     def line(self, position: Vector, size: Vector, color=None):
         """Draw horizontal line"""
         _color = color if color is not None else self._foreground
@@ -528,12 +550,6 @@ class Draw:
         """Reset the display by clearing the framebuffer"""
         self.fill_screen(self._background)
 
-    def swap(self):
-        """
-        Swap the front and back buffers - convert 8-bit framebuffer to display
-        """
-        swap()
-
     def set_mode(self, mode: int) -> None:
         """
         Set the LCD framebuffer mode
@@ -549,15 +565,17 @@ class Draw:
             # MODE_PSRAM = 0, MODE_HEAP = 1
             set_mode(mode)
 
-    def text(self, position: Vector, text: str, color=None):
+    def swap(self):
+        """
+        Swap the front and back buffers - convert 8-bit framebuffer to display
+        """
+        swap()
+
+    def text(self, position: Vector, text: str, color=None, font_size: int = -1):
         """Draw text on the display"""
         _color = color if color is not None else self._foreground
-        draw_text(position.x, position.y, text, _color)
-
-    def text_char(self, position: Vector, char: str, color=None):
-        """Draw a single character on the display"""
-        _color = color if color is not None else self._foreground
-        draw_char(position.x, position.y, ord(char), _color)
+        _font_size = font_size if font_size >= 0 else self._font_default.size
+        draw_text(position.x, position.y, text, _color, _font_size)
 
     def triangle(self, point1: Vector, point2: Vector, point3: Vector, color=None):
         """Draw a triangle outline"""

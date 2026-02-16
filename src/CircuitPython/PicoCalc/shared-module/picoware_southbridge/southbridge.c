@@ -263,6 +263,18 @@ bool sb_reset(uint8_t delay_seconds)
     return true;
 }
 
+// Deinitialize the southbridge
+void sb_deinit(void)
+{
+    if (!sb_initialised)
+    {
+        return; // not initialized
+    }
+
+    i2c_deinit(SB_I2C);
+    sb_initialised = false;
+}
+
 // Initialize the southbridge
 void sb_init(void)
 {

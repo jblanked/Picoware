@@ -8,7 +8,7 @@
 #include "hardware/spi.h"
 #include "hardware/pwm.h"
 
-#include "fonts.h"
+#include "../../../font/font_mp.h"
 
 #define LCD_HEIGHT 240
 #define LCD_WIDTH 240
@@ -27,7 +27,6 @@ extern uint8_t framebuffer[LCD_WIDTH * LCD_HEIGHT]; // Framebuffer for 8-bit ind
 #define LCD_BL_PIN (25)   // backlight control pin
 
 #define LCD_DEFAULT_BRIGHTNESS 30 // Default backlight brightness (0-100)
-#define LCD_DEFAULT_FONT_SIZE FONT_SMALL
 
 // RGB565 Color definitions
 #ifndef COLOR_WHITE
@@ -124,11 +123,8 @@ extern "C"
     void lcd_fill_round_rectangle(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t radius, uint16_t color);
 
     // Text rendering functions
-    void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color);
-    void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color);
-    uint8_t lcd_get_font_height(void);
-    uint8_t lcd_get_font_width(void);
-    void lcd_set_font(FontSize size);
+    void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color, FontSize size);
+    void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color, FontSize size);
 
     // Low-level LCD communication functions
     void lcd_write_cmd(uint8_t cmd);

@@ -23,7 +23,10 @@
 #define STATIC static
 #endif
 
+#ifdef FONT_DEFAULT
+#undef FONT_DEFAULT
 #define FONT_DEFAULT FONT_XTRA_SMALL
+#endif
 
 #define LCD_CHUNK_LINES 16
 

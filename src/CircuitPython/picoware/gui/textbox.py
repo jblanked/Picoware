@@ -366,9 +366,7 @@ class TextBox:
             self.line_positions.append((line_start, line_length))
 
         self.total_lines = len(self.line_positions)
-
-        # Initialize or clamp current line to last line
-        if self.current_line == -1 or self.current_line >= self.total_lines:
+        if self.total_lines > 0:
             self.current_line = self.total_lines - 1
 
         # Update scrollbar and display

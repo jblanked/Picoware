@@ -23,6 +23,8 @@
 #define STATIC static
 #endif
 
+#define FONT_DEFAULT FONT_XTRA_SMALL
+
 #define LCD_CHUNK_LINES 16
 
 // Module state
@@ -1676,6 +1678,8 @@ STATIC const mp_rom_map_elem_t picoware_lcd_module_globals_table[] = {
     // Mode constants
     {MP_ROM_QSTR(MP_QSTR_MODE_PSRAM), MP_ROM_INT(LCD_MODE_PSRAM)},
     {MP_ROM_QSTR(MP_QSTR_MODE_HEAP), MP_ROM_INT(LCD_MODE_HEAP)},
+
+    {MP_ROM_QSTR(MP_QSTR_FONT_DEFAULT), MP_ROM_INT(FONT_DEFAULT)},
 };
 STATIC MP_DEFINE_CONST_DICT(picoware_lcd_module_globals, picoware_lcd_module_globals_table);
 

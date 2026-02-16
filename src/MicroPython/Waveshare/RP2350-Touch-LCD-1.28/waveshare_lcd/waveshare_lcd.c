@@ -16,6 +16,8 @@
 #define STATIC static
 #endif
 
+#define FONT_DEFAULT FONT_XTRA_SMALL
+
 // Function to get backlight level
 STATIC mp_obj_t waveshare_lcd_get_backlight_level(void)
 {
@@ -381,6 +383,8 @@ STATIC const mp_rom_map_elem_t waveshare_lcd_module_globals_table[] = {
     // Display dimensions
     {MP_ROM_QSTR(MP_QSTR_LCD_WIDTH), MP_ROM_INT(LCD_WIDTH)},
     {MP_ROM_QSTR(MP_QSTR_LCD_HEIGHT), MP_ROM_INT(LCD_HEIGHT)},
+
+    {MP_ROM_QSTR(MP_QSTR_FONT_DEFAULT), MP_ROM_INT(FONT_DEFAULT)},
 };
 STATIC MP_DEFINE_CONST_DICT(waveshare_lcd_module_globals, waveshare_lcd_module_globals_table);
 

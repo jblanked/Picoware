@@ -68,8 +68,8 @@ class Draw:
         self._foreground = foreground
 
         self._size = Vector(0, 0)
-        default_font = FontSize(FONT_DEFAULT)
-        self._font_size = Vector(default_font.width, default_font.height)
+        self._font_default = FontSize(FONT_DEFAULT)
+        self._font_size = Vector(self._font_default.width, self._font_default.height)
 
         self._use_lvgl = False
 
@@ -114,6 +114,22 @@ class Draw:
     def board_id(self) -> int:
         """Get the current board ID"""
         return self._current_board_id
+
+    @property
+    def font(self) -> int:
+        """Get the default font size"""
+        return self._font_default.size
+
+    @font.setter
+    def font(self, font_size: int):
+        """Set the default font size"""
+        from picoware.system.font import FontSize
+
+        self._font_default = FontSize(font_size)
+        self._font_size.x, self._font_size.y = (
+            self._font_default.width,
+            self._font_default.height,
+        )
 
     @property
     def font_size(self) -> Vector:
@@ -167,10 +183,11 @@ class Draw:
         ):
             deinit()
 
-    def char(self, position: Vector, char: str, color=None, font_size: int = 0):
+    def char(self, position: Vector, char: str, color=None, font_size: int = -1):
         """Draw a single character on the display"""
         _color = color if color is not None else self._foreground
-        draw_char(position.x, position.y, ord(char), _color, font_size)
+        _font_size = font_size if font_size >= 0 else self._font_default.size
+        draw_char(position.x, position.y, ord(char), _color, _font_size)
 
     def circle(self, position: Vector, radius: int, color: int = None):
         """Draw a circle outline"""
@@ -533,12 +550,6 @@ class Draw:
         """Reset the display by clearing the framebuffer"""
         self.fill_screen(self._background)
 
-    def swap(self):
-        """
-        Swap the front and back buffers - convert 8-bit framebuffer to display
-        """
-        swap()
-
     def set_mode(self, mode: int) -> None:
         """
         Set the LCD framebuffer mode
@@ -554,10 +565,17 @@ class Draw:
             # MODE_PSRAM = 0, MODE_HEAP = 1
             set_mode(mode)
 
-    def text(self, position: Vector, text: str, color=None, font_size: int = 0):
+    def swap(self):
+        """
+        Swap the front and back buffers - convert 8-bit framebuffer to display
+        """
+        swap()
+
+    def text(self, position: Vector, text: str, color=None, font_size: int = -1):
         """Draw text on the display"""
         _color = color if color is not None else self._foreground
-        draw_text(position.x, position.y, text, _color, font_size)
+        _font_size = font_size if font_size >= 0 else self._font_default.size
+        draw_text(position.x, position.y, text, _color, _font_size)
 
     def triangle(self, point1: Vector, point2: Vector, point3: Vector, color=None):
         """Draw a triangle outline"""

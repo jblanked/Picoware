@@ -69,7 +69,10 @@ class Draw:
 
         self._size = Vector(0, 0)
         self._font_default = FontSize(FONT_DEFAULT)
-        self._font_size = Vector(self._font_default.width, self._font_default.height)
+        self._font_size = Vector(
+            self._font_default.width + self._font_default.spacing,
+            self._font_default.height,
+        )
 
         self._use_lvgl = False
 
@@ -127,7 +130,7 @@ class Draw:
 
         self._font_default = FontSize(font_size)
         self._font_size.x, self._font_size.y = (
-            self._font_default.width,
+            self._font_default.width + self._font_default.spacing,
             self._font_default.height,
         )
 

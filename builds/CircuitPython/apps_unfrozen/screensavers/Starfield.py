@@ -30,6 +30,11 @@ def __rng() -> int:
     return zc
 
 
+def color565(r: int, g: int, b: int) -> int:
+    """Convert RGB888 to RGB565 color format"""
+    return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
+
+
 def start(view_manager) -> bool:
     """Start the app"""
     import random
@@ -121,7 +126,7 @@ def run(view_manager) -> None:
 
                     if 0 <= screen_x < screen_size.x and 0 <= screen_y < screen_size.y:
                         r = g = b = 255 - sz[i]
-                        color = tft.color565(r, g, b)
+                        color = color565(r, g, b)
                         pixel_vector.x = screen_x
                         pixel_vector.y = screen_y
                         tft.pixel(pixel_vector, color)

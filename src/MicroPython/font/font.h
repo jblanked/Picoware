@@ -53,6 +53,7 @@ typedef struct
   const uint8_t *table;
   uint8_t width;
   uint8_t height;
+  uint8_t spacing;
 } FontTable;
 
 #ifdef __cplusplus

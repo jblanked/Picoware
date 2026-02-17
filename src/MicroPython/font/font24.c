@@ -7075,6 +7075,7 @@ const FontTable Font24 = {
 	Font24_Table,
 	17, /* Width */
 	24, /* Height */
+	5,	/* Spacing */
 };
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

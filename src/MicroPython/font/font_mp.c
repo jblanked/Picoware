@@ -84,6 +84,25 @@ uint8_t font_get_height(FontSize size)
   }
 }
 
+uint8_t font_get_spacing(FontSize size)
+{
+  switch (size)
+  {
+  case FONT_XTRA_SMALL:
+    return Font8.spacing;
+  case FONT_SMALL:
+    return Font12.spacing;
+  case FONT_MEDIUM:
+    return Font16.spacing;
+  case FONT_LARGE:
+    return Font20.spacing;
+  case FONT_XTRA_LARGE:
+    return Font24.spacing;
+  default:
+    return Font8.spacing;
+  }
+}
+
 uint8_t font_get_width(FontSize size)
 {
   switch (size)
@@ -148,6 +167,19 @@ mp_obj_t font_mp_get_height(mp_obj_t self_in, mp_obj_t size)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(font_mp_get_height_obj, font_mp_get_height);
 
+mp_obj_t font_mp_get_spacing(mp_obj_t self_in, mp_obj_t size)
+{
+  font_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+  if (!self->initialized)
+  {
+    return mp_const_none; // Font not initialized
+  }
+  FontSize font_size = mp_obj_get_int(size);
+  uint8_t spacing = font_get_spacing(font_size);
+  return mp_obj_new_int(spacing); // Return the spacing of the font in pixels
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(font_mp_get_spacing_obj, font_mp_get_spacing);
+
 mp_obj_t font_mp_get_width(mp_obj_t self_in, mp_obj_t size)
 {
   font_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -207,6 +239,7 @@ STATIC const mp_rom_map_elem_t font_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_get_data), MP_ROM_PTR(&font_mp_get_data_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_height), MP_ROM_PTR(&font_mp_get_height_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_width), MP_ROM_PTR(&font_mp_get_width_obj)},
+    {MP_ROM_QSTR(MP_QSTR_get_spacing), MP_ROM_PTR(&font_mp_get_spacing_obj)},
 };
 STATIC MP_DEFINE_CONST_DICT(font_mp_locals_dict, font_mp_locals_dict_table);
 
@@ -249,6 +282,8 @@ void font_size_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind
   mp_obj_print_helper(print, mp_obj_new_int(self->width), PRINT_REPR);
   mp_print_str(print, ", height=");
   mp_obj_print_helper(print, mp_obj_new_int(self->height), PRINT_REPR);
+  mp_print_str(print, ", spacing=");
+  mp_obj_print_helper(print, mp_obj_new_int(self->spacing), PRINT_REPR);
   mp_print_str(print, ")");
 }
 
@@ -262,12 +297,14 @@ mp_obj_t font_size_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t 
     self->size = size;
     self->width = font_get_width(size);
     self->height = font_get_height(size);
+    self->spacing = font_get_spacing(size);
   }
   else
   {
     self->size = FONT_DEFAULT;
     self->width = font_get_width(FONT_DEFAULT);
     self->height = font_get_height(FONT_DEFAULT);
+    self->spacing = font_get_spacing(FONT_DEFAULT);
   }
   return MP_OBJ_FROM_PTR(self);
 }
@@ -278,6 +315,7 @@ mp_obj_t font_size_mp_del(mp_obj_t self_in)
   self->size = FONT_DEFAULT;
   self->width = 0;
   self->height = 0;
+  self->spacing = 0;
   return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(font_size_mp_del_obj, font_size_mp_del);
@@ -300,6 +338,10 @@ void font_size_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
     {
       destination[0] = mp_obj_new_int(self->height);
     }
+    else if (attribute == MP_QSTR_spacing)
+    {
+      destination[0] = mp_obj_new_int(self->spacing);
+    }
     else if (attribute == MP_QSTR___del__)
     {
       destination[0] = MP_OBJ_FROM_PTR(&font_size_mp_del_obj);
@@ -314,6 +356,7 @@ void font_size_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
       self->size = new_size;
       self->width = font_get_width(new_size);
       self->height = font_get_height(new_size);
+      self->spacing = font_get_spacing(new_size);
       destination[0] = MP_OBJ_NULL; // Indicate that the attribute was set successfully
     }
   }

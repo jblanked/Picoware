@@ -3,6 +3,7 @@
 Here are some tutorials and reviews to help you get started with Picoware:
 
 ## Reviews/Application Walkthroughs
+- PicoCalc Gets a BIG 2026 Update with LVGL, SSH Terminal, and more!: https://youtu.be/kErRrKBkjew
 - PicoCalc's 2026 Firmware Update is Here and It's HUGE!: https://youtu.be/L_rmjF6NUDo
 - Get Started With PicoCalc CircuitPython TODAY!: https://www.youtube.com/watch?v=fkOSQjKK7zk
 - PicoCalc Custom Firmware Update 2026: Graphing Equations, Retro Games, and more!!: https://youtu.be/2naZiLK0AJs

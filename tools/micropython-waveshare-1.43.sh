@@ -77,7 +77,7 @@ cp -r "$picoware_dir"/src/MicroPython/font "$micropython_dir"/modules/font
 echo "Starting Waveshare 1.43 build process..."
 
 # Waveshare - 1.43 
-make -j BOARD=WAVESHARE_RP2350_TOUCH_LCD_1_43 USER_C_MODULES="$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.43/waveshare_modules.cmake
+make -j BOARD=WAVESHARE_RP2350_TOUCH_LCD_1_43 USER_C_MODULES="$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.43/waveshare_modules.cmake CFLAGS_EXTRA="-DWAVESHARE_1_43"
 cp "$micropython_dir"/build-WAVESHARE_RP2350_TOUCH_LCD_1_43/firmware.uf2 "$picoware_dir"/builds/MicroPython/Picoware-Waveshare-1.43.uf2
 echo "Waveshare - 1.43 build complete."
 

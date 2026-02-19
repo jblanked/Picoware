@@ -9,9 +9,7 @@ extern "C"
 {
 #endif
 
-#if defined(WAVESHARE_1_28)
-#include "../Waveshare/RP2350-Touch-LCD-1.28/waveshare_sd/fat32.h"
-#elif defined(WAVESHARE_1_43)
+#if defined(WAVESHARE_1_43)
 #include "../Waveshare/RP2350-Touch-LCD-1.43/waveshare_sd/fat32.h"
 #elif defined(WAVESHARE_3_49)
 #include "../Waveshare/RP2350-Touch-LCD-3.49/waveshare_sd/fat32.h"

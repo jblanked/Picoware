@@ -152,11 +152,28 @@ STATIC mp_obj_t auto_complete_mp_search(mp_obj_t self_in, mp_obj_t prefix_obj)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(auto_complete_mp_search_obj, auto_complete_mp_search);
 
+#if defined(STORAGE_INCLUDE) && defined(STORAGE_READ)
+STATIC mp_obj_t auto_complete_mp_add_dictionary(mp_obj_t self_in, mp_obj_t filename_obj)
+{
+    auto_complete_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    const char *filename = mp_obj_str_get_str(filename_obj);
+    if (!self->freed && auto_complete_add_dictionary(&self->context, filename))
+    {
+        return mp_const_true;
+    }
+    return mp_const_false;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(auto_complete_mp_add_dictionary_obj, auto_complete_mp_add_dictionary);
+#endif
+
 STATIC const mp_rom_map_elem_t auto_complete_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_add_word), MP_ROM_PTR(&auto_complete_mp_add_word_obj)},
     {MP_ROM_QSTR(MP_QSTR_search), MP_ROM_PTR(&auto_complete_mp_search_obj)},
     {MP_ROM_QSTR(MP_QSTR_remove_suggestions), MP_ROM_PTR(&auto_complete_mp_remove_suggestions_obj)},
     {MP_ROM_QSTR(MP_QSTR_remove_words), MP_ROM_PTR(&auto_complete_mp_remove_words_obj)},
+#if defined(STORAGE_INCLUDE) && defined(STORAGE_READ)
+    {MP_ROM_QSTR(MP_QSTR_add_dictionary), MP_ROM_PTR(&auto_complete_mp_add_dictionary_obj)},
+#endif
 };
 STATIC MP_DEFINE_CONST_DICT(auto_complete_mp_locals_dict, auto_complete_mp_locals_dict_table);
 

@@ -131,7 +131,7 @@ def __string_width(text: str) -> int:
     """Calculate the width of a string in pixels"""
     if not text:
         return 0
-    return len(text) * 5
+    return len(text) * 6
 
 
 def __flip_social_util_get_username(view_manager) -> str:
@@ -594,8 +594,16 @@ class FlipSocialRun:
     ) -> None:
         """Draw a single feed item"""
         is_flipped: bool = flipped == "true"
+        is_admin: bool = username == "JBlanked"
         flip_count: int = int(flips) if flips.isdigit() else 0
-        canvas.text(Vector(0, 18), username, TFT_BLACK)
+        if is_admin:
+            # Filled black badge with white username text
+            width = __string_width(username) + 4
+            canvas.fill_rectangle(Vector(0, 18), Vector(width, 10), TFT_BLACK)
+            canvas.text(Vector(0, 18), username, TFT_WHITE)
+
+        else:
+            canvas.text(Vector(0, 18), username, TFT_BLACK)
         self.draw_feed_message(canvas, message, 0, 30)
         flip_message = "flip" if flip_count == 1 else "flips"
         canvas.text(Vector(0, 150), f"{flip_count} {flip_message}", TFT_BLACK)
@@ -689,6 +697,7 @@ class FlipSocialRun:
                     if self.loading:
                         self.loading.stop()
                     self.__feed_loading_started = False
+                    self.http.close()
                 else:
                     self.feed_status = FEED_REQUEST_ERROR
 

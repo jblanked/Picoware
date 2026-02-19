@@ -46,6 +46,7 @@ class ViewManager:
             self._storage = Storage()
             self._storage.mkdir("picoware")
             self._storage.mkdir("picoware/settings")
+            self._storage.write("picoware/version.txt", syst.version)
 
         # Set up colors
         self._background_color = TFT_BLACK

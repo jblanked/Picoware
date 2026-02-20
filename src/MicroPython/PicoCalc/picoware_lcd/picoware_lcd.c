@@ -7,6 +7,7 @@
 #include "picoware_lcd.h"
 #include "../picoware_psram/psram_qspi.h"
 #include "../picoware_psram/picoware_psram_shared.h"
+#include "py/runtime.h"
 
 #ifndef FONT_DEFAULT
 #define FONT_DEFAULT FONT_XTRA_SMALL
@@ -143,7 +144,7 @@ static bool allocate_heap_framebuffer(void)
 {
     if (heap_framebuffer == NULL)
     {
-        heap_framebuffer = (uint8_t *)malloc(HEAP_BUFFER_SIZE);
+        heap_framebuffer = (uint8_t *)m_malloc(HEAP_BUFFER_SIZE);
         if (heap_framebuffer == NULL)
             return false;
         memset(heap_framebuffer, 0, HEAP_BUFFER_SIZE);
@@ -156,7 +157,7 @@ static void free_heap_framebuffer(void)
 {
     if (heap_framebuffer != NULL && heap_framebuffer_allocated)
     {
-        free(heap_framebuffer);
+        m_free(heap_framebuffer);
         heap_framebuffer = NULL;
         heap_framebuffer_allocated = false;
     }
@@ -845,6 +846,48 @@ void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color, Fon
 // ---------------------------------------------------------------------------
 // Misc public helpers
 // ---------------------------------------------------------------------------
+
+void lcd_set_mode(uint8_t mode)
+{
+    if (mode == lcd_mode)
+    {
+        return; // Already in this mode
+    }
+
+    if (mode == LCD_MODE_PSRAM)
+    {
+        // Switch to PSRAM mode
+        if (!psram_initialized)
+        {
+            psram_instance = psram_qspi_init(pio1, -1, 1.0f);
+            psram_initialized = true;
+        }
+
+        // Free HEAP buffer if it was allocated
+        free_heap_framebuffer();
+    }
+    else if (mode == LCD_MODE_HEAP)
+    {
+        // Switch to HEAP mode
+        if (!allocate_heap_framebuffer())
+        {
+            // Allocation failed, stay in PSRAM mode
+            return;
+        }
+        // Clear the framebuffer to black
+        memset(heap_framebuffer, 0, HEAP_BUFFER_SIZE);
+
+        // deinit psram
+        if (psram_initialized)
+        {
+            clear_psram_framebuffer(0);
+            psram_qspi_deinit(&psram_instance);
+            psram_initialized = false;
+        }
+    }
+
+    lcd_mode = mode;
+}
 
 psram_qspi_inst_t *picoware_get_psram_instance(void)
 {

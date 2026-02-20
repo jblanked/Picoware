@@ -32,6 +32,8 @@ void lcd_draw_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint1
 void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color, FontSize size);
 void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color, FontSize size);
 
+void lcd_set_mode(uint8_t mode);
+
 // External PSRAM instance access
 extern psram_qspi_inst_t *picoware_get_psram_instance(void);
 

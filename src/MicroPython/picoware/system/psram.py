@@ -71,6 +71,24 @@ class PSRAM(picoware_psram.PSRAM):
         """Get used PSRAM memory in bytes."""
         return picoware_psram.SIZE - self.mem_free()
 
+    def from_file(self, storage, addr, file_path, chunk_size: int = 2048) -> int:
+        """Load data from a file into PSRAM memory and return the size of the data loaded."""
+        file = storage.file_open(file_path)
+        if not file:
+            return -1
+        _addr = addr
+        buffer = bytearray(chunk_size)
+        while True:
+            bytes_read = storage.file_readinto(file, buffer)
+            if bytes_read <= 0:
+                break
+            self.write(_addr, buffer)
+            _addr += bytes_read
+            if bytes_read < chunk_size:
+                break
+        storage.file_close(file)
+        return _addr - addr
+
     def malloc(self, data) -> PSRAMObject:
         """Allocate PSRAM memory for the given data and return a PSRAMObject."""
         return self.alloc_object(data)

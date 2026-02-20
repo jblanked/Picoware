@@ -9,7 +9,7 @@
 
 #include "picoware_psram_shared.h"
 #include "picoware_lvgl.h"
-#include "../picoware_lcd/picoware_lcd_shared.h"
+#include "../picoware_lcd/picoware_lcd.h"
 
 // GUIs
 #include "picoware_lvgl_alert.h"

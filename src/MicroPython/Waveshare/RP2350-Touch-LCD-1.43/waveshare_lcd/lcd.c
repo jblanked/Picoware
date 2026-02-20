@@ -891,6 +891,23 @@ void lcd_swap(void)
 }
 
 /******************************************************************************
+function: Draw a triangle outline to the framebuffer
+parameter:
+    x1, y1 : First vertex coordinates
+    x2, y2 : Second vertex coordinates
+    x3, y3 : Third vertex coordinates
+    color  : RGB565 color value
+returns: none
+******************************************************************************/
+void lcd_draw_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color)
+{
+    const uint8_t color_index = lcd_color565_to_332(color);
+    lcd_draw_line(x1, y1, x2, y2, color_index);
+    lcd_draw_line(x2, y2, x3, y3, color_index);
+    lcd_draw_line(x3, y3, x1, y1, color_index);
+}
+
+/******************************************************************************
 function: Send a command byte to the OLED controller
 parameter:
     cmd : Command byte to send

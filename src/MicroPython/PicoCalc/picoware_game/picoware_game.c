@@ -7,7 +7,7 @@
 #include "py/runtime.h"
 #include "py/obj.h"
 #include "py/objarray.h"
-#include "picoware_lcd_shared.h"
+#include "picoware_lcd.h"
 #include <math.h>
 #include <stdbool.h>
 

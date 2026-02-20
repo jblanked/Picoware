@@ -33,6 +33,9 @@ rm -rf "$micropython_dir"/modules/response
 # remove font module if it exists
 rm -rf "$micropython_dir"/modules/font
 
+# remove lcd module if it exists
+rm -rf "$micropython_dir"/modules/lcd
+
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"
@@ -73,6 +76,9 @@ cp -r "$picoware_dir"/src/MicroPython/response "$micropython_dir"/modules/respon
 
 # copy font module
 cp -r "$picoware_dir"/src/MicroPython/font "$micropython_dir"/modules/font
+
+# copy lcd module
+cp -r "$picoware_dir"/src/MicroPython/lcd "$micropython_dir"/modules/lcd
 
 echo "Starting Waveshare 1.28 build process..."
 

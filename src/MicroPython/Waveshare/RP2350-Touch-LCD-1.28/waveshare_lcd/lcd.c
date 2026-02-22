@@ -582,6 +582,30 @@ void lcd_blit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uin
     }
 }
 
+/******************************************************************************
+function: Copy an external image buffer into the framebuffer at specified position
+parameter:
+    x      : Top-left X coordinate
+    y      : Top-left Y coordinate
+    width  : Width of the buffer to blit
+    height : Height of the buffer to blit
+    buffer : Pointer to RGB565 pixel data array (16-bit per pixel)
+returns: none
+******************************************************************************/
+void lcd_blit_16bit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint16_t *buffer)
+{
+    for (uint16_t j = 0; j < height; j++)
+    {
+        for (uint16_t i = 0; i < width; i++)
+        {
+            if ((x + i) < LCD_WIDTH && (y + j) < LCD_HEIGHT)
+            {
+                framebuffer[(y + j) * LCD_WIDTH + (x + i)] = lcd_color565_to_332(buffer[j * width + i]);
+            }
+        }
+    }
+}
+
 /********************************************************************************
 function: Get the current backlight brightness level
 parameter: none

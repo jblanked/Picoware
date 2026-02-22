@@ -14,6 +14,7 @@
 #define LCD_MP_FILL_ROUND_RECTANGLE lcd_fill_round_rectangle
 #define LCD_MP_FILL_TRIANGLE lcd_fill_triangle
 #define LCD_MP_BLIT picocalc_lcd_blit
+#define LCD_MP_BLIT_16BIT lcd_blit_16bit
 #define LCD_MP_LINE lcd_draw_line
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_RECTANGLE lcd_draw_rect
@@ -35,6 +36,7 @@
 #define LCD_MP_FILL_ROUND_RECTANGLE lcd_fill_round_rectangle
 #define LCD_MP_FILL_TRIANGLE lcd_fill_triangle
 #define LCD_MP_BLIT lcd_blit
+#define LCD_MP_BLIT_16BIT lcd_blit_16bit
 #define LCD_MP_LINE lcd_draw_line
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_RECTANGLE lcd_draw_rect
@@ -55,6 +57,7 @@
 #define LCD_MP_FILL_ROUND_RECTANGLE lcd_fill_round_rectangle
 #define LCD_MP_FILL_TRIANGLE lcd_fill_triangle
 #define LCD_MP_BLIT lcd_blit
+#define LCD_MP_BLIT_16BIT lcd_blit_16bit
 #define LCD_MP_LINE lcd_draw_line
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_RECTANGLE lcd_draw_rect
@@ -75,6 +78,7 @@
 #define LCD_MP_FILL_ROUND_RECTANGLE lcd_fill_round_rectangle
 #define LCD_MP_FILL_TRIANGLE lcd_fill_triangle
 #define LCD_MP_BLIT lcd_blit
+#define LCD_MP_BLIT_16BIT lcd_blit_16bit
 #define LCD_MP_LINE lcd_draw_line
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_RECTANGLE lcd_draw_rect

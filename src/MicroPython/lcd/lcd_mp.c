@@ -265,13 +265,21 @@ mp_obj_t lcd_mp_image_bytearray(size_t n_args, const mp_obj_t *args)
     mp_get_buffer_raise(args[5], &bufinfo, MP_BUFFER_READ);
 
     // Verify buffer size
-    size_t expected_size = width * height * sizeof(uint8_t);
-    if (bufinfo.len < expected_size)
+    size_t expected_size_8bit = width * height * sizeof(uint8_t);
+    size_t expected_size_16bit = width * height * sizeof(uint16_t);
+    if (bufinfo.len < expected_size_8bit && bufinfo.len < expected_size_16bit)
     {
         mp_raise_ValueError(MP_ERROR_TEXT("buffer too small for blit operation"));
     }
 
-    LCD_MP_BLIT(x, y, width, height, (uint8_t *)bufinfo.buf);
+    if (bufinfo.len == expected_size_16bit)
+    {
+        LCD_MP_BLIT_16BIT(x, y, width, height, (uint16_t *)bufinfo.buf);
+    }
+    else if (bufinfo.len == expected_size_8bit)
+    {
+        LCD_MP_BLIT(x, y, width, height, (uint8_t *)bufinfo.buf);
+    }
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_image_bytearray_obj, 6, 6, lcd_mp_image_bytearray);

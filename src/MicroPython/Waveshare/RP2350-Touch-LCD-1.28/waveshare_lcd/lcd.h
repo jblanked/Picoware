@@ -117,6 +117,7 @@ extern "C"
     void lcd_draw_pixel(uint16_t x, uint16_t y, uint16_t color);
     void lcd_fill(uint16_t color);
     void lcd_blit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint8_t *buffer);
+    void lcd_blit_16bit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint16_t *buffer);
 
     // Shape drawing functions
     void lcd_draw_line(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color);

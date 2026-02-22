@@ -388,6 +388,31 @@ void picocalc_lcd_blit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, 
     }
 }
 
+void lcd_blit_16bit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint16_t *buffer)
+{
+    if (!buffer)
+        return;
+
+    int src_x = (x < 0) ? -(int)x : 0;
+    int src_y = (y < 0) ? -(int)y : 0;
+    int dst_x = (x < 0) ? 0 : (int)x;
+    int dst_y = (y < 0) ? 0 : (int)y;
+    int copy_width = (int)width - src_x;
+    int copy_height = (int)height - src_y;
+
+    if (dst_x + copy_width > DISPLAY_WIDTH)
+        copy_width = DISPLAY_WIDTH - dst_x;
+    if (dst_y + copy_height > DISPLAY_HEIGHT)
+        copy_height = DISPLAY_HEIGHT - dst_y;
+    if (copy_width <= 0 || copy_height <= 0)
+        return;
+
+    if (lcd_mode == LCD_MODE_PSRAM)
+        picoware_write_buffer_fb_16(&psram_instance, dst_x, dst_y, copy_width, copy_height, buffer);
+    else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
+        picoware_write_buffer_fb_16(NULL, dst_x, dst_y, copy_width, copy_height, buffer);
+}
+
 void lcd_draw_line(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color)
 {
     uint8_t color_index = color565_to_332(color);

@@ -31,13 +31,13 @@ class FileBrowser:
         self._storage = view_manager.storage
         self._input_manager = view_manager.input_manager
 
-        draw = view_manager.draw
+        self._draw = view_manager.draw
 
         self._file_browser_menu = Menu(
-            draw,
+            self._draw,
             "File Browser",
             0,
-            draw.size.y,
+            self._draw.size.y,
             view_manager.foreground_color,
             view_manager.background_color,
             view_manager.selected_color,
@@ -45,23 +45,25 @@ class FileBrowser:
         )
 
         self._file_browser_textbox = TextBox(
-            draw,
+            self._draw,
             0,
-            draw.size.y,
+            self._draw.size.y,
             view_manager.foreground_color,
             view_manager.background_color,
         )
 
         self._file_browser_choice = Choice(
-            draw,
+            self._draw,
             Vector(0, 0),
-            draw.size,
+            self._draw.size,
             "File Browser",
             ["View", "Delete"],
             0,
             view_manager.foreground_color,
             view_manager.background_color,
         )
+
+        self._jpeg_vec = Vector(0, 0)
 
         # Initialize state
         self._directory_stack.clear()
@@ -178,6 +180,42 @@ class FileBrowser:
         self._file_browser_textbox.set_text(
             "Loading file... hit BACK if this takes too long"
         )
+
+        _extension = file_path.split(".")[-1].lower() if "." in file_path else ""
+
+        if _extension in ("jpg", "jpeg"):
+            self._file_browser_textbox.clear()
+            self._is_viewing_file = True
+            self._current_file_viewed = file_path
+            self._draw.image_jpeg(self._jpeg_vec, file_path, self._storage)
+            self._draw.swap()
+            return
+
+        if _extension == "bmp":
+            self._file_browser_textbox.clear()
+            self._is_viewing_file = True
+            self._current_file_viewed = file_path
+            self._draw.image_bmp(self._jpeg_vec, file_path, self._storage)
+            self._draw.swap()
+            return
+
+        if _extension not in (
+            "txt",
+            "log",
+            "cfg",
+            "json",
+            "py",
+            "md",
+            "bas",
+            "lua",
+            "html",
+            "css",
+            "js",
+        ):
+            self._file_browser_textbox.set_text(f"Unsupported file type: .{_extension}")
+            self._is_viewing_file = True
+            self._current_file_viewed = file_path
+            return
 
         try:
             if file_path.startswith("/sd/"):

@@ -235,3 +235,16 @@ target_include_directories(usermod_lcd INTERFACE
 )
 
 target_link_libraries(usermod INTERFACE usermod_lcd)
+
+# Include jpeg module
+add_library(usermod_jpeg INTERFACE)
+
+target_sources(usermod_jpeg INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../jpeg/jpegdec_mp.c
+)
+
+target_include_directories(usermod_jpeg INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../jpeg
+)
+
+target_link_libraries(usermod INTERFACE usermod_jpeg)

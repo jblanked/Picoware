@@ -24,7 +24,8 @@ void lcd_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kin
 
 mp_obj_t lcd_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
-    lcd_mp_obj_t *self = mp_obj_malloc(lcd_mp_obj_t, type);
+    lcd_mp_obj_t *self = mp_obj_malloc_with_finaliser(lcd_mp_obj_t, &lcd_mp_type);
+    self->base.type = &lcd_mp_type;
     self->width = LCD_MP_WIDTH;
     self->height = LCD_MP_HEIGHT;
     LCD_MP_INIT();

@@ -291,6 +291,28 @@ class Draw(lcd.LCD):
         except (OSError, ValueError) as e:
             print(f"Error loading BMP: {e}")
 
+    def image_jpeg(self, position: Vector, path: str, storage=None) -> bool:
+        """Draw a JPEG image from a file path"""
+        from picoware.gui.jpeg import JPEG
+
+        try:
+            jpeg = JPEG(screen_width=self._size.x, screen_height=self._size.y)
+            return jpeg.draw(position.x, position.y, path, storage)
+        except Exception as e:
+            print(f"Error loading JPEG: {e}")
+            return False
+
+    def image_jpeg_buffer(self, position: Vector, buf) -> bool:
+        """Draw a JPEG image from bytes data into a BytesIO buffer."""
+        from picoware.gui.jpeg import JPEG
+
+        try:
+            jpeg = JPEG(screen_width=self._size.x, screen_height=self._size.y)
+            return jpeg.draw_buffer(position.x, position.y, buf)
+        except Exception as e:
+            print(f"Error loading JPEG from buffer: {e}")
+            return False
+
     def image_bytearray(
         self, position: Vector, size: Vector, byte_data, invert: bool = False
     ):

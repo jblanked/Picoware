@@ -35,7 +35,9 @@ from picoware.system.buttons import (
     # Import the period and backspace keys for numeric editing
     BUTTON_PERIOD, BUTTON_BACKSPACE,
     # Import explicitly mapped letter shortcut keys and the ESCAPE key for exiting
-    BUTTON_C, BUTTON_F, BUTTON_T, BUTTON_V, BUTTON_H, BUTTON_ESCAPE
+    BUTTON_C, BUTTON_F, BUTTON_T, BUTTON_V, BUTTON_H, BUTTON_ESCAPE,
+    # Import the M key specifically to act as the negative/positive toggle shortcut
+    BUTTON_M
 )
 # Import the TextBox GUI component to manage and render the scrollable help overlay
 from picoware.gui.textbox import TextBox
@@ -71,8 +73,8 @@ _CONVERSIONS = (
     ("Temp", (("C", 0), ("F", 0), ("K", 0)))
 )
 
-# Define the updated help text string containing the new shop categories and adjusted layout
-_HELP_TEXT = "UNIT CONVERTER\nVersion 1.2\n----------------\nCATEGORIES:\n- Len, Area, Vol\n- Wgt, Spd, Press\n- Torq, Pwr, Ang\n- Temp\n\nSHORTCUTS:\n[C] Cycle Cat\n[F] Edit From\n[T] Edit To\n[V] Edit Value\n[H] Open Help\n[ESC] Exit App\n\nCONTROLS:\n[UP/DN]: Cursor\n[L/R]: Select\n[CENTER]: Confirm\n[BACK]: Exit"
+# Define the updated help text string containing the new negative toggle shortcut and bumped version
+_HELP_TEXT = "UNIT CONVERTER\nVersion 1.7\n----------------\nCATEGORIES:\n- Len, Area, Vol\n- Wgt, Spd, Press\n- Torq, Pwr, Ang\n- Temp\n\nSHORTCUTS:\n[C] Cycle Cat\n[F] Edit From\n[T] Edit To\n[V] Edit Value\n[H] Open Help\n[M] Toggle +/- (Contextual)\n[ESC] Exit App\n\nCONTROLS:\n[UP/DN]: Cursor\n[L/R]: Select\n[CENTER]: Confirm\n[BACK]: Exit"
 
 # Define the baseline default configuration dictionary to ensure predictable behavior upon boot
 DEFAULT_STATE = {
@@ -215,7 +217,7 @@ def start(view_manager):
     storage = view_manager.storage
     # Execute the configuration loading and validation routine synchronously
     validate_and_load_settings()
-    # Ensure the unit indices fit the currently loaded category correctly to prevent boot crashes
+    # Ensure the unit indices and sign constraints fit the currently loaded category correctly
     clamp_unit_indices()
     # Perform the initial mathematical conversion calculation to populate the startup UI
     conv_result = calculate_conversion()
@@ -271,6 +273,10 @@ def handle_direct_input(button):
         if current_val == "0" or current_val == "0.0":
             # Overwrite the initial placeholder zero entirely with the newly provided numeric digit
             state[target_key] = str(digit)
+        # Check if the current cached value is specifically a negative zero placeholder
+        elif current_val == "-0" or current_val == "-0.0":
+            # Overwrite the zero but strictly retain the negative sign for correct formatting
+            state[target_key] = "-" + str(digit)
         # Execute this block if the current cached value already contains established meaningful characters
         else:
             # Append the newly provided numeric digit strictly to the far right end of the existing string
@@ -293,12 +299,29 @@ def handle_direct_input(button):
         if len(current_val) > 0:
             # Slice the string dynamically to remove strictly the final character from the sequence
             state[target_key] = current_val[:-1]
-            # Reset the value safely to a string zero if the deletion removed the absolute final character
-            if state[target_key] == "": state[target_key] = "0"
+            # Reset the value safely to a string zero if the deletion removed the final character or left a dangling minus
+            if state[target_key] == "" or state[target_key] == "-": 
+                # Default securely back to a standard positive zero string
+                state[target_key] = "0"
             # Flag the UI system to explicitly execute a redraw to display the shortened value
             state["dirty_ui"] = True
+            
+    # Evaluate if the pressed physical button strictly corresponds to the newly added negative toggle command
+    elif button == BUTTON_M:
+        # Verify the current category logically permits negative real-world values
+        if _CONVERSIONS[state["category_idx"]][0] in ("Temp", "Angle", "Torque"):
+            # Check the string logically to see if the first character is currently a minus sign
+            if current_val.startswith("-"):
+                # Slice the string securely from the second character onwards to dynamically remove the minus sign
+                state[target_key] = current_val[1:]
+            # Execute this block if the current numerical value is currently positive
+            else:
+                # Prepend the minus sign securely to the exact beginning of the current string value
+                state[target_key] = "-" + current_val
+            # Flag the UI system to explicitly execute a structural redraw to show the changed sign state
+            state["dirty_ui"] = True
 
-# Define a helper function to ensure unit indices remain within valid bounds when categories change
+# Define a helper function to ensure unit indices and data remain within valid physical bounds
 def clamp_unit_indices():
     # Cache the active category index securely
     c_idx = state["category_idx"]
@@ -308,6 +331,15 @@ def clamp_unit_indices():
     if state["from_idx"] >= max_units: state["from_idx"] = max_units - 1
     # Clamp the 'To' unit index down to the maximum permissible bound if it mathematically exceeds it
     if state["to_idx"] >= max_units: state["to_idx"] = max_units - 1
+    
+    # Enforce real-world physics by stripping negative signs from incompatible categories
+    if _CONVERSIONS[c_idx][0] not in ("Temp", "Angle", "Torque"):
+        # Check if a negative sign is currently lingering in the state
+        if state["input_val"].startswith("-"):
+            # Strip the negative sign completely to protect mathematical integrity
+            state["input_val"] = state["input_val"][1:]
+            # Catch edge cases where stripping leaves an empty or invalid string
+            if state["input_val"] == "": state["input_val"] = "0"
 
 # Define the main non-blocking application loop executed repeatedly by the Picoware OS
 def run(view_manager):
@@ -448,6 +480,21 @@ def run(view_manager):
                 show_help = True
                 # Flag the UI sequence for a structural redraw
                 state["dirty_ui"] = True
+
+            # Handle the 'M' letter key shortcut to instantly toggle the mathematical sign
+            elif button == BUTTON_M:
+                # Verify the current category logically permits negative real-world values
+                if _CONVERSIONS[state["category_idx"]][0] in ("Temp", "Angle", "Torque"):
+                    # Check logically if the first character is currently a minus sign
+                    if state["input_val"].startswith("-"):
+                        # Slice the string securely from the second character onwards to dynamically remove the minus sign
+                        state["input_val"] = state["input_val"][1:]
+                    # Execute this block if the current numerical value is currently positive
+                    else:
+                        # Prepend the minus sign securely to the exact beginning of the current string value
+                        state["input_val"] = "-" + state["input_val"]
+                    # Flag the UI sequence for a structural redraw to show the changed sign state immediately
+                    state["dirty_ui"] = True
 
             # Handle DOWN joystick physical movement to move the cursor down the interface list
             elif button == BUTTON_DOWN:
@@ -660,12 +707,27 @@ def run(view_manager):
                 draw.text(Vector(screen_w - 20, in_y + 90), "<", TFT_YELLOW)
 
             # --- FOOTER CONTROLS RENDERING ---
-            # Draw the absolute footer separation line element
-            draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), TFT_LIGHTGREY)
-            # Draw the explicit shortcut text elements utilizing letters securely mapped to the UI
-            draw.text(Vector(5, screen_h - 32), "[C]Cat [F]From [T]To [V]Val", TFT_CYAN)
+            # Draw the absolute footer separation line element expanded vertically to hold more info
+            draw.fill_rectangle(Vector(0, screen_h - 55), Vector(screen_w, 2), TFT_LIGHTGREY)
+            # Draw the first row of explicit shortcut text elements utilizing cyan
+            draw.text(Vector(5, screen_h - 47), "[C]Cat [F]From [T]To [V]Val", TFT_CYAN)
+            
+            # Extract the literal name of the currently active category to verify math constraints
+            current_cat_name = _CONVERSIONS[state["category_idx"]][0]
+            # Verify the current category logically permits negative real-world values
+            if current_cat_name in ("Temp", "Angle", "Torque"):
+                # Define the text string including the active minus toggle shortcut
+                footer_row_2 = "[H]Help [M]+/- [ESC]Exit"
+            # Execute this block if the category strictly forbids negative physical values
+            else:
+                # Define the text string explicitly omitting the minus toggle shortcut
+                footer_row_2 = "[H]Help [ESC]Exit"
+                
+            # Draw the dynamically formulated second row of explicit shortcut text elements utilizing cyan
+            draw.text(Vector(5, screen_h - 32), footer_row_2, TFT_CYAN)
+            
             # Draw the primary navigation hints to guide the operator accurately
-            draw.text(Vector(5, screen_h - 15), "[UP/DN] Move Cursor | [ENT] Edit", TFT_WHITE)
+            draw.text(Vector(5, screen_h - 15), "[UP/DN]Nav [ENT]Edit/Select", TFT_WHITE)
         
         # Push the fully structured internal back-buffer frame to the physical TFT display immediately via SPI
         draw.swap()

@@ -42,6 +42,9 @@ rm -rf "$micropython_dir"/modules/JPEGDEC
 # remove jpeg module if it exists
 rm -rf "$micropython_dir"/modules/jpeg
 
+# remove vt module if it exists
+rm -rf "$micropython_dir"/modules/vt
+
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"
@@ -98,6 +101,9 @@ cp -r "$picoware_dir"/src/MicroPython/JPEGDEC "$micropython_dir"/modules/JPEGDEC
 
 # copy jpeg module
 cp -r "$picoware_dir"/src/MicroPython/jpeg "$micropython_dir"/modules/jpeg
+
+# copy vt module
+cp -r "$picoware_dir"/src/MicroPython/vt "$micropython_dir"/modules/vt
 
 echo "Starting PicoCalc build process..."
 

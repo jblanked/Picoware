@@ -34,59 +34,55 @@ from picoware.system.buttons import (
     BUTTON_5, BUTTON_6, BUTTON_7, BUTTON_8, BUTTON_9,
     # Import the period and backspace keys for numeric editing
     BUTTON_PERIOD, BUTTON_BACKSPACE,
-    # Import explicitly mapped letter shortcut keys and the ESCAPE key for exiting
-    BUTTON_C, BUTTON_F, BUTTON_T, BUTTON_V, BUTTON_H, BUTTON_ESCAPE,
-    # Import the M key specifically to act as the negative/positive toggle shortcut
-    BUTTON_M
+    # Import explicitly requested letter shortcut keys and the ESCAPE key for exiting
+    BUTTON_S, BUTTON_M, BUTTON_D, BUTTON_V, BUTTON_R, BUTTON_H, BUTTON_ESCAPE
 )
 # Import the TextBox GUI component to manage and render the scrollable help overlay
 from picoware.gui.textbox import TextBox
+# Import the math module to access the Pi constant required for the cutting speed formulas
+import math
 # Import the json module to parse and serialize the application's configuration state
 import json
 # Import the garbage collection module to manually free unreferenced memory on the Pico
 import gc
 
 # Define the absolute file path for saving the settings JSON on the SD card
-_SETTINGS_FILE = "/picoware/apps/unit_converter_settings.json" 
+_SETTINGS_FILE = "/picoware/apps/drill_pro_settings.json" 
 
-# Define the expanded categories and their respective units with base conversion multipliers
-_CONVERSIONS = (
-    # Define the Length category with base unit as meters (m). Included microns and thou for machining.
-    ("Length", (("um", 0.000001), ("thou", 0.0000254), ("mm", 0.001), ("cm", 0.01), ("m", 1.0), ("in", 0.0254), ("ft", 0.3048), ("yd", 0.9144))),
-    # Define the Weight category with base unit as kilograms (kg)
-    ("Weight", (("mg", 0.000001), ("g", 0.001), ("kg", 1.0), ("oz", 0.0283495), ("lb", 0.453592))),
-    # Define the Volume category with base unit as Liters (L)
-    ("Volume", (("ml", 0.001), ("L", 1.0), ("gal", 3.78541), ("fl oz", 0.0295735))),
-    # Define the Area category with base unit as square meters (m2). Included sq in for shop materials.
-    ("Area", (("cm2", 0.0001), ("m2", 1.0), ("sq in", 0.00064516), ("sq ft", 0.092903))),
-    # Define the Speed category with base unit as meters per second (m/s). Included mm/s for 3D printing.
-    ("Speed", (("mm/s", 0.001), ("m/s", 1.0), ("km/h", 0.277778), ("mph", 0.44704))),
-    # Define the Pressure category with base unit as Pascals (Pa). Essential for air compressors and pneumatics.
-    ("Press", (("Pa", 1.0), ("kPa", 1000.0), ("bar", 100000.0), ("psi", 6894.76))),
-    # Define the Torque category with base unit as Newton-meters (Nm). Essential for fasteners and servos.
-    ("Torque", (("Nmm", 0.001), ("Nm", 1.0), ("in-lb", 0.1129848), ("ft-lb", 1.355818))),
-    # Define the Power category with base unit as Watts (W). Essential for spindles and electronics.
-    ("Power", (("W", 1.0), ("kW", 1000.0), ("hp", 745.7))),
-    # Define the Angle category with base unit as Degrees. Essential for setups and indexing.
-    ("Angle", (("deg", 1.0), ("rad", 57.2957795))),
-    # Define the Temperature category (multipliers not used directly, requires custom logic)
-    ("Temp", (("C", 0), ("F", 0), ("K", 0)))
+# Define the material database as a tuple of tuples to drastically reduce heap memory usage
+_MATERIALS = (
+    # Define Aluminium configuration (Name, Vc, Color)
+    ("Aluminium", 45, TFT_WHITE),
+    # Define Brass configuration (Name, Vc, Color)
+    ("Brass",     35, TFT_YELLOW),
+    # Define Wood configuration (Name, Vc, Color)
+    ("Wood",      28, TFT_ORANGE),
+    # Define Steel St37 configuration (Name, Vc, Color)
+    ("Steel St37", 22, TFT_GREEN),
+    # Define Plastic configuration (Name, Vc, Color)
+    ("Plastic",   18, TFT_CYAN),
+    # Define Stainless configuration (Name, Vc, Color)
+    ("Stainless", 12, TFT_BLUE),
+    # Define Custom configuration (Name, Vc, Color)
+    ("Custom",    0,  TFT_RED)
 )
 
-# Define the updated help text string containing the new negative toggle shortcut and bumped version
-_HELP_TEXT = "UNIT CONVERTER\nVersion 1.7\n----------------\nCATEGORIES:\n- Len, Area, Vol\n- Wgt, Spd, Press\n- Torq, Pwr, Ang\n- Temp\n\nSHORTCUTS:\n[C] Cycle Cat\n[F] Edit From\n[T] Edit To\n[V] Edit Value\n[H] Open Help\n[M] Toggle +/- (Contextual)\n[ESC] Exit App\n\nCONTROLS:\n[UP/DN]: Cursor\n[L/R]: Select\n[CENTER]: Confirm\n[BACK]: Exit"
+# Define the detailed help text string containing the updated independent row layout and ESC instruction
+_HELP_TEXT = "DRILL SPEED PRO\nVersion 1.7\n----------------\nABOUT:\nCalculates safe spindle RPM.\n\nMODES:\n- DRILL: Standard calc.\n- SINK: Forces Dia to 20mm.\n\nSHORTCUTS:\n[S] Key: Toggle Mode\n[M] Key: Cycle Material\n[D] Key: Edit Diameter\n[V] Key: Edit Custom Vc\n[R] Key: Edit Max RPM\n[H] Key: Open Help\n[ESC] Key: Exit App\n\nCONTROLS:\n[UP/DN]: Move Cursor\n[L/R]: Change Mode/Material\n[CENTER]: Select / Confirm\n[BACK]/[ESC]: Cancel / Exit\n\nMade by Slasher006"
 
 # Define the baseline default configuration dictionary to ensure predictable behavior upon boot
 DEFAULT_STATE = {
-    # Set the default category index (0 = Length)
-    "category_idx": 0,
-    # Set the default From unit index
-    "from_idx": 0,
-    # Set the default To unit index
-    "to_idx": 1,
-    # Set the default input value string
-    "input_val": "1.0",
-    # Initialize the cursor index to 0 (Category Selection)
+    # Set the default material index
+    "mat_index": 3,
+    # Set the default custom cutting speed
+    "custom_vc": "30",
+    # Set the default drill diameter
+    "diameter_mm": "5.0",
+    # Set the default maximum machine RPM limit
+    "max_rpm": "3500",
+    # Set the default operational mode boolean to False
+    "mode_sink": False,
+    # Initialize the cursor index to 0 (Mode Selection)
     "cursor_idx": 0,
     # Initialize the dirty UI flag to force an initial render
     "dirty_ui": True
@@ -97,8 +93,10 @@ state = DEFAULT_STATE.copy()
 # Initialize the active input tracker to None to signify the typing mode is currently closed
 state["active_input"] = None
 
-# Initialize the global conversion result string to zero
-conv_result = "0.0"
+# Initialize the global RPM result calculation string to zero
+rpm_result = "0"
+# Initialize the boolean flag tracking if the calculated RPM exceeds the user limit
+is_capped = False
 # Initialize the global storage manager reference to None
 storage = None
 # Initialize the boolean flag determining if the help screen overlay is actively rendered
@@ -106,68 +104,46 @@ show_help = False
 # Initialize the global help box UI instance to None to save memory until requested
 help_box = None
 
-# Define the core mathematical calculation function for determining the converted value
-def calculate_conversion():
+# Define the core mathematical calculation function for determining the target RPM
+def calculate_rpm_metric():
+    # Declare the is_capped variable as global to modify the UI warning state from within the function
+    global is_capped
     # Wrap the calculation logic in a try block to gracefully catch potential float conversion errors
     try:
-        # Parse the user-defined input value string into a mathematical float type
-        val = float(state["input_val"])
-        # Fetch the active category index from the application state
-        c_idx = state["category_idx"]
-        # Fetch the active 'From' unit index from the application state
-        f_idx = state["from_idx"]
-        # Fetch the active 'To' unit index from the application state
-        t_idx = state["to_idx"]
-        
-        # Fetch the literal string name of the active category to robustly route logic
-        cat_name = _CONVERSIONS[c_idx][0]
-        
-        # Check logically if the currently selected category is Temperature by string name
-        if cat_name == "Temp":
-            # Extract the literal string name of the 'From' unit
-            from_name = _CONVERSIONS[c_idx][1][f_idx][0]
-            # Extract the literal string name of the 'To' unit
-            to_name = _CONVERSIONS[c_idx][1][t_idx][0]
-            
-            # Initialize a temporary variable to hold the standardized Celsius value
-            celsius_val = 0.0
-            
-            # Convert the input value from Celsius to the standardized Celsius base
-            if from_name == "C": celsius_val = val
-            # Convert the input value from Fahrenheit to the standardized Celsius base
-            elif from_name == "F": celsius_val = (val - 32) * 5.0 / 9.0
-            # Convert the input value from Kelvin to the standardized Celsius base
-            elif from_name == "K": celsius_val = val - 273.15
-            
-            # Convert the standardized Celsius base to the final Celsius target
-            if to_name == "C": final_val = celsius_val
-            # Convert the standardized Celsius base to the final Fahrenheit target
-            elif to_name == "F": final_val = (celsius_val * 9.0 / 5.0) + 32
-            # Convert the standardized Celsius base to the final Kelvin target
-            elif to_name == "K": final_val = celsius_val + 273.15
-            
-            # Return the calculated temperature formatted safely to three decimal places
-            return f"{final_val:.3f}"
-            
-        # Execute this block if the selected category utilizes standard base multipliers
+        # Check if the countersink mode flag is currently active in the application state
+        if state["mode_sink"]:
+            # Override the operational diameter strictly to 20.0mm for countersink safety
+            d = 20.0
+        # Execute this block if standard standard drilling mode is currently active
         else:
-            # Retrieve the standard base multiplier for the selected 'From' unit
-            from_mult = _CONVERSIONS[c_idx][1][f_idx][1]
-            # Retrieve the standard base multiplier for the selected 'To' unit
-            to_mult = _CONVERSIONS[c_idx][1][t_idx][1]
-            
-            # Convert the input value to the category's standard base unit
-            base_val = val * from_mult
-            # Convert the standard base value into the target 'To' unit mathematically
-            final_val = base_val / to_mult
-            
-            # Validate if the calculation is exceedingly small or large to adjust formatting dynamically
-            if final_val < 0.0001 and final_val > 0:
-                # Format the exceedingly small calculation mathematically into scientific notation
-                return f"{final_val:.2e}"
-            # Return the calculated conversion formatted safely to four decimal places for standard values
-            return f"{final_val:.4f}"
-            
+            # Parse the user-defined diameter state string into a mathematical float type
+            d = float(state["diameter_mm"])
+
+        # Fetch the active material tuple from the optimized memory database using the current index
+        mat = _MATERIALS[state["mat_index"]]
+        # Parse custom Vc if the Custom material is active, otherwise utilize the preset Vc
+        vc = float(state["custom_vc"]) if mat[0] == "Custom" else mat[1]
+        # Parse the user-defined maximum machine RPM string safely into a mathematical float type
+        limit = float(state["max_rpm"])
+        
+        # Abort the mathematical calculation and return zero if any physical parameters are invalid
+        if d <= 0 or vc <= 0: return "0"
+        
+        # Execute the standard metric machining RPM formula: (Cutting Speed * 1000) / (Pi * Diameter)
+        rpm = (vc * 1000) / (math.pi * d)
+        
+        # Evaluate if the newly calculated RPM mathematically exceeds the user-defined physical limit
+        if rpm > limit:
+            # Enable the limit warning flag to trigger the red GUI text warning
+            is_capped = True
+            # Return the limit cast as an integer and subsequently converted to a display string
+            return str(int(limit))
+        # Execute this block if the calculated RPM falls securely within the defined safe bounds
+        else:
+            # Disable the limit warning flag for the GUI rendering
+            is_capped = False
+            # Return the dynamically calculated RPM cast as an integer and converted to a string
+            return str(int(rpm))
     # Catch any arbitrary parsing or mathematical exceptions silently to prevent OS crashes
     except:
         # Return an error placeholder string to the UI if a mathematical fault absolutely occurs
@@ -212,22 +188,20 @@ def validate_and_load_settings():
 # Define the primary application initialization function required by the Picoware framework
 def start(view_manager):
     # Declare global variables requiring immediate initialization on boot
-    global conv_result, storage
+    global rpm_result, storage
     # Assign the framework's internal storage subsystem to the global variable
     storage = view_manager.storage
     # Execute the configuration loading and validation routine synchronously
     validate_and_load_settings()
-    # Ensure the unit indices and sign constraints fit the currently loaded category correctly
-    clamp_unit_indices()
-    # Perform the initial mathematical conversion calculation to populate the startup UI
-    conv_result = calculate_conversion()
+    # Perform the initial mathematical RPM calculation to populate the startup UI
+    rpm_result = calculate_rpm_metric()
     
     # Retrieve the drawing subsystem from the view manager object
     draw = view_manager.draw
     # Clear the entire display to a pure black background to prevent artifacting
     draw.clear()
     # Draw an initial loading notification text to confirm the display driver is responsive
-    draw.text(Vector(10, 10), "Loading Converter...", TFT_GREEN)
+    draw.text(Vector(10, 10), "Loading Drill Pro...", TFT_GREEN)
     # Swap the display buffer to physically push the loading screen to the TFT panel
     draw.swap()
     
@@ -238,8 +212,12 @@ def start(view_manager):
 
 # Define function to handle direct numeric input mapping keyboard characters to application state
 def handle_direct_input(button):
-    # Enforce input strictly to the input value key context
-    target_key = "input_val"
+    # Default the target state key to diameter modification
+    target_key = "diameter_mm"
+    # Reassign the target key to custom cutting speed if the virtual VC mode is actively selected
+    if state["active_input"] == "vc": target_key = "custom_vc"
+    # Reassign the target key to maximum machine RPM if the virtual RPM mode is actively selected
+    if state["active_input"] == "rpm": target_key = "max_rpm"
     
     # Cache the current string value of the actively targeted state key for logical manipulation
     current_val = state[target_key]
@@ -273,10 +251,6 @@ def handle_direct_input(button):
         if current_val == "0" or current_val == "0.0":
             # Overwrite the initial placeholder zero entirely with the newly provided numeric digit
             state[target_key] = str(digit)
-        # Check if the current cached value is specifically a negative zero placeholder
-        elif current_val == "-0" or current_val == "-0.0":
-            # Overwrite the zero but strictly retain the negative sign for correct formatting
-            state[target_key] = "-" + str(digit)
         # Execute this block if the current cached value already contains established meaningful characters
         else:
             # Append the newly provided numeric digit strictly to the far right end of the existing string
@@ -299,52 +273,15 @@ def handle_direct_input(button):
         if len(current_val) > 0:
             # Slice the string dynamically to remove strictly the final character from the sequence
             state[target_key] = current_val[:-1]
-            # Reset the value safely to a string zero if the deletion removed the final character or left a dangling minus
-            if state[target_key] == "" or state[target_key] == "-": 
-                # Default securely back to a standard positive zero string
-                state[target_key] = "0"
+            # Reset the value safely to a string zero if the deletion removed the absolute final character
+            if state[target_key] == "": state[target_key] = "0"
             # Flag the UI system to explicitly execute a redraw to display the shortened value
             state["dirty_ui"] = True
-            
-    # Evaluate if the pressed physical button strictly corresponds to the newly added negative toggle command
-    elif button == BUTTON_M:
-        # Verify the current category logically permits negative real-world values
-        if _CONVERSIONS[state["category_idx"]][0] in ("Temp", "Angle", "Torque"):
-            # Check the string logically to see if the first character is currently a minus sign
-            if current_val.startswith("-"):
-                # Slice the string securely from the second character onwards to dynamically remove the minus sign
-                state[target_key] = current_val[1:]
-            # Execute this block if the current numerical value is currently positive
-            else:
-                # Prepend the minus sign securely to the exact beginning of the current string value
-                state[target_key] = "-" + current_val
-            # Flag the UI system to explicitly execute a structural redraw to show the changed sign state
-            state["dirty_ui"] = True
-
-# Define a helper function to ensure unit indices and data remain within valid physical bounds
-def clamp_unit_indices():
-    # Cache the active category index securely
-    c_idx = state["category_idx"]
-    # Determine the absolute maximum number of units available in the newly selected category
-    max_units = len(_CONVERSIONS[c_idx][1])
-    # Clamp the 'From' unit index down to the maximum permissible bound if it mathematically exceeds it
-    if state["from_idx"] >= max_units: state["from_idx"] = max_units - 1
-    # Clamp the 'To' unit index down to the maximum permissible bound if it mathematically exceeds it
-    if state["to_idx"] >= max_units: state["to_idx"] = max_units - 1
-    
-    # Enforce real-world physics by stripping negative signs from incompatible categories
-    if _CONVERSIONS[c_idx][0] not in ("Temp", "Angle", "Torque"):
-        # Check if a negative sign is currently lingering in the state
-        if state["input_val"].startswith("-"):
-            # Strip the negative sign completely to protect mathematical integrity
-            state["input_val"] = state["input_val"][1:]
-            # Catch edge cases where stripping leaves an empty or invalid string
-            if state["input_val"] == "": state["input_val"] = "0"
 
 # Define the main non-blocking application loop executed repeatedly by the Picoware OS
 def run(view_manager):
     # Declare globals required for dynamic display rendering and active state updates
-    global conv_result, show_help, help_box
+    global rpm_result, is_capped, show_help, help_box
     # Map the framework drawing subsystem to a local variable for expedited code access
     draw = view_manager.draw
     # Map the framework input subsystem to a local variable for expedited code access
@@ -434,151 +371,123 @@ def run(view_manager):
                 # Exit the loop frame immediately to officially terminate application execution
                 return
 
-            # Handle the 'C' letter key shortcut to jump directly to Category Selection
-            elif button == BUTTON_C:
+            # Handle the 'S' letter key shortcut to jump directly to Mode Selection
+            elif button == BUTTON_S:
                 # Move the UI cursor securely to index 0
                 state["cursor_idx"] = 0
-                # Increment the category index safely wrapping around utilizing modulo based on robust array length
-                state["category_idx"] = (state["category_idx"] + 1) % len(_CONVERSIONS)
-                # Ensure the selected sub-units mathematically fit the newly selected category
-                clamp_unit_indices()
+                # Immediately toggle the sink mode status boolean for rapid user workflow
+                state["mode_sink"] = not state["mode_sink"]
                 # Flag the UI sequence for a structural redraw
                 state["dirty_ui"] = True
                 
-            # Handle the 'F' letter key shortcut to jump directly to From Unit Selection
-            elif button == BUTTON_F:
+            # Handle the 'M' letter key shortcut to jump directly to Material Selection
+            elif button == BUTTON_M:
                 # Move the UI cursor securely to index 1
                 state["cursor_idx"] = 1
-                # Increment the From unit safely within the current category bounds
-                state["from_idx"] = (state["from_idx"] + 1) % len(_CONVERSIONS[state["category_idx"]][1])
+                # Increment the material structure forwards
+                state["mat_index"] = (state["mat_index"] + 1) % len(_MATERIALS)
                 # Flag the UI sequence for a structural redraw
                 state["dirty_ui"] = True
                 
-            # Handle the 'T' letter key shortcut to jump directly to To Unit Selection
-            elif button == BUTTON_T:
+            # Handle the 'D' letter key shortcut to jump directly to Diameter editing
+            elif button == BUTTON_D:
                 # Move the UI cursor securely to index 2
                 state["cursor_idx"] = 2
-                # Increment the To unit safely within the current category bounds
-                state["to_idx"] = (state["to_idx"] + 1) % len(_CONVERSIONS[state["category_idx"]][1])
-                # Flag the UI sequence for a redraw
+                # Set the target input tracker to the Diameter field explicitly
+                state["active_input"] = "dia"
+                # Flag the UI sequence for a redraw to visualize the active input field highlight
                 state["dirty_ui"] = True
                 
-            # Handle the 'V' letter key shortcut to jump directly to Value editing
+            # Handle the 'V' letter key shortcut to jump directly to Vc editing
             elif button == BUTTON_V:
                 # Move the UI cursor securely to index 3
                 state["cursor_idx"] = 3
-                # Set the target input tracker explicitly to the value field
-                state["active_input"] = "val"
+                # Auto-switch the material to Custom mode to ensure validity
+                state["mat_index"] = 6
+                # Set the target input tracker to the Custom VC field explicitly
+                state["active_input"] = "vc"
+                # Flag the UI sequence for a redraw to visualize the active input field highlight
+                state["dirty_ui"] = True
+                
+            # Handle the 'R' letter key shortcut to jump directly to Max RPM editing
+            elif button == BUTTON_R:
+                # Move the UI cursor securely to index 4
+                state["cursor_idx"] = 4
+                # Set the target input tracker specifically to the Maximum RPM field
+                state["active_input"] = "rpm"
                 # Flag the UI sequence for a redraw to visualize the active input field highlight
                 state["dirty_ui"] = True
                 
             # Handle the 'H' letter key shortcut to instantly open the documentation menu
             elif button == BUTTON_H:
-                # Move the UI cursor securely to index 4 for visual consistency underneath the overlay
-                state["cursor_idx"] = 4
+                # Move the UI cursor securely to index 5 for visual consistency underneath the overlay
+                state["cursor_idx"] = 5
                 # Force the help overlay activation boolean flag
                 show_help = True
                 # Flag the UI sequence for a structural redraw
                 state["dirty_ui"] = True
 
-            # Handle the 'M' letter key shortcut to instantly toggle the mathematical sign
-            elif button == BUTTON_M:
-                # Verify the current category logically permits negative real-world values
-                if _CONVERSIONS[state["category_idx"]][0] in ("Temp", "Angle", "Torque"):
-                    # Check logically if the first character is currently a minus sign
-                    if state["input_val"].startswith("-"):
-                        # Slice the string securely from the second character onwards to dynamically remove the minus sign
-                        state["input_val"] = state["input_val"][1:]
-                    # Execute this block if the current numerical value is currently positive
-                    else:
-                        # Prepend the minus sign securely to the exact beginning of the current string value
-                        state["input_val"] = "-" + state["input_val"]
-                    # Flag the UI sequence for a structural redraw to show the changed sign state immediately
-                    state["dirty_ui"] = True
-
             # Handle DOWN joystick physical movement to move the cursor down the interface list
             elif button == BUTTON_DOWN:
-                # Increment the cursor index safely wrapping from 0 to 4 utilizing modulo arithmetic
-                state["cursor_idx"] = (state["cursor_idx"] + 1) % 5
+                # Increment the cursor index safely wrapping from 0 to 5 utilizing modulo arithmetic
+                state["cursor_idx"] = (state["cursor_idx"] + 1) % 6
                 # Flag the UI sequence for a structural redraw
                 state["dirty_ui"] = True
 
             # Handle UP joystick physical movement to move the cursor up the interface list
             elif button == BUTTON_UP:
-                # Decrement the cursor index safely wrapping around from 0 to 4 utilizing modulo
-                state["cursor_idx"] = (state["cursor_idx"] - 1) % 5
+                # Decrement the cursor index safely wrapping around from 0 to 5 utilizing modulo
+                state["cursor_idx"] = (state["cursor_idx"] - 1) % 6
                 # Flag the UI sequence for a structural redraw
                 state["dirty_ui"] = True
 
             # Handle LEFT / RIGHT joystick movements to physically change values based on cursor context
             elif button in (BUTTON_LEFT, BUTTON_RIGHT):
-                # Determine if the cursor resides strictly on Index 0 (Category Selection Row)
+                # Determine if the cursor resides strictly on Index 0 (Mode Selection Row)
                 if state["cursor_idx"] == 0:
-                    # Increment the category forwards
+                    # Toggle the boolean operational mode logically
+                    state["mode_sink"] = not state["mode_sink"]
+                    # Flag the UI sequence for a structural redraw
+                    state["dirty_ui"] = True
+                # Determine if the cursor resides strictly on Index 1 (Material Selection Row)
+                elif state["cursor_idx"] == 1:
+                    # Increment the material structure forwards
                     if button == BUTTON_RIGHT:
-                        # Add to the index utilizing modulo to prevent array bounds errors based on full list
-                        state["category_idx"] = (state["category_idx"] + 1) % len(_CONVERSIONS)
-                    # Decrement the category backwards
+                        # Add to the index utilizing modulo to prevent array bounds errors
+                        state["mat_index"] = (state["mat_index"] + 1) % len(_MATERIALS)
+                    # Decrement the material structure backwards
                     elif button == BUTTON_LEFT:
                         # Subtract from the index utilizing modulo to prevent array bounds errors
-                        state["category_idx"] = (state["category_idx"] - 1) % len(_CONVERSIONS)
-                    # Force valid bounds checking on the child unit arrays
-                    clamp_unit_indices()
-                    # Flag the UI sequence for a structural redraw
-                    state["dirty_ui"] = True
-                    
-                # Determine if the cursor resides strictly on Index 1 (From Unit Row)
-                elif state["cursor_idx"] == 1:
-                    # Cache the max units directly evaluated from the current selected category array length
-                    max_units = len(_CONVERSIONS[state["category_idx"]][1])
-                    # Increment the unit forwards
-                    if button == BUTTON_RIGHT:
-                        # Cycle forwards with modulo
-                        state["from_idx"] = (state["from_idx"] + 1) % max_units
-                    # Decrement the unit backwards
-                    elif button == BUTTON_LEFT:
-                        # Cycle backwards with modulo
-                        state["from_idx"] = (state["from_idx"] - 1) % max_units
-                    # Flag the UI sequence for a structural redraw
-                    state["dirty_ui"] = True
-                    
-                # Determine if the cursor resides strictly on Index 2 (To Unit Row)
-                elif state["cursor_idx"] == 2:
-                    # Cache the max units directly evaluated from the current selected category array length
-                    max_units = len(_CONVERSIONS[state["category_idx"]][1])
-                    # Increment the unit forwards
-                    if button == BUTTON_RIGHT:
-                        # Cycle forwards with modulo
-                        state["to_idx"] = (state["to_idx"] + 1) % max_units
-                    # Decrement the unit backwards
-                    elif button == BUTTON_LEFT:
-                        # Cycle backwards with modulo
-                        state["to_idx"] = (state["to_idx"] - 1) % max_units
+                        state["mat_index"] = (state["mat_index"] - 1) % len(_MATERIALS)
                     # Flag the UI sequence for a structural redraw
                     state["dirty_ui"] = True
 
             # Handle CENTER click to execute a specific action contextually based on the cursor position
             elif button == BUTTON_CENTER:
-                # Determine if the cursor resides strictly on Index 0 (Category Row)
+                # Determine if the cursor resides strictly on Index 0 (Mode Row)
                 if state["cursor_idx"] == 0:
-                    # Cycle the category logically based on dynamic length boundaries
-                    state["category_idx"] = (state["category_idx"] + 1) % len(_CONVERSIONS)
-                    # Bind the units legally to the new category parameters
-                    clamp_unit_indices()
-                # Determine if the cursor resides strictly on Index 1 (From Unit Row)
+                    # Toggle the boolean operational mode logically
+                    state["mode_sink"] = not state["mode_sink"]
+                # Determine if the cursor resides strictly on Index 1 (Material Row)
                 elif state["cursor_idx"] == 1:
-                    # Cycle the from unit selection forwards based on dynamic active array length
-                    state["from_idx"] = (state["from_idx"] + 1) % len(_CONVERSIONS[state["category_idx"]][1])
-                # Determine if the cursor resides strictly on Index 2 (To Unit Row)
+                    # Cycle the material selection forwards
+                    state["mat_index"] = (state["mat_index"] + 1) % len(_MATERIALS)
+                # Determine if the cursor resides strictly on Index 2 (Diameter Row)
                 elif state["cursor_idx"] == 2:
-                    # Cycle the to unit selection forwards based on dynamic active array length
-                    state["to_idx"] = (state["to_idx"] + 1) % len(_CONVERSIONS[state["category_idx"]][1])
-                # Determine if the cursor resides strictly on Index 3 (Input Value Row)
+                    # Select the standard Diameter target state key securely
+                    state["active_input"] = "dia"
+                # Determine if the cursor resides strictly on Index 3 (Vc Row)
                 elif state["cursor_idx"] == 3:
-                    # Select the Value target state key securely for direct typing
-                    state["active_input"] = "val"
-                # Determine if the cursor resides strictly on Index 4 (Help Row)
+                    # Auto-switch the material to Custom mode to ensure validity
+                    state["mat_index"] = 6
+                    # Select the Custom VC target state key securely
+                    state["active_input"] = "vc"
+                # Determine if the cursor resides strictly on Index 4 (Max RPM Row)
                 elif state["cursor_idx"] == 4:
+                    # Select the Maximum RPM target state key securely
+                    state["active_input"] = "rpm"
+                # Determine if the cursor resides strictly on Index 5 (Help Row)
+                elif state["cursor_idx"] == 5:
                     # Trigger the help overlay rendering process
                     show_help = True
                     
@@ -592,7 +501,7 @@ def run(view_manager):
     # Check if the dirty flag indicates changes and the help screen is not currently obscuring the UI
     if state["dirty_ui"] and not show_help:
         # Recalculate the physical mathematical metric instantly utilizing the updated state parameters
-        conv_result = calculate_conversion()
+        rpm_result = calculate_rpm_metric()
 
     # === GLITCH-FREE UI RENDERING ===
     # Only execute expensive visual rendering operations via SPI if the dirty flag is expressly enabled
@@ -611,30 +520,24 @@ def run(view_manager):
             # Render the mathematically updated TextBox overlay directly to the internal graphical buffer
             help_box.refresh()
             
-        # Execute this rendering block to strictly draw the standard converter application interface
+        # Execute this rendering block to strictly draw the standard calculator application interface
         else:
             # Fill the entire background with pure dark grey to construct the segmented panel aesthetic
             draw.fill_rectangle(Vector(0, 0), Vector(screen_w, screen_h), TFT_DARKGREY)
-            
-            # Fetch the active category tuple to dynamically style the specific interface elements
-            cat = _CONVERSIONS[state["category_idx"]]
+            # Fetch the active material configuration tuple to dynamically style the specific interface colors
+            mat = _MATERIALS[state["mat_index"]]
             # Fetch the firmly established current numerical cursor position for highlight processing
             c_idx = state["cursor_idx"]
-            
-            # Extract the actual names of the selected units for drawing
-            f_name = cat[1][state["from_idx"]][0]
-            # Extract the literal string name of the target unit
-            t_name = cat[1][state["to_idx"]][0]
             
             # --- HEADER PANEL RENDERING (Row 0) ---
             # Draw the header background utilizing pure black
             draw.fill_rectangle(Vector(0, 0), Vector(screen_w, 30), TFT_BLACK)
-            # Define the category text natively from the state database
-            cat_text = f"MODE: {cat[0].upper()}"
-            # Highlight the text yellow explicitly if the cursor resides on Row 0, otherwise utilize green
-            cat_color = TFT_YELLOW if c_idx == 0 else TFT_GREEN
+            # Define the mode text utilizing ternary logical string evaluation
+            mode_text = "MODE: COUNTERSINK" if state["mode_sink"] else "MODE: DRILLING"
+            # Highlight the text yellow explicitly if the cursor resides on Row 0, otherwise utilize mode colors
+            mode_color = TFT_YELLOW if c_idx == 0 else (TFT_ORANGE if state["mode_sink"] else TFT_GREEN)
             # Draw the dynamic mode text safely aligned to the top left
-            draw.text(Vector(10, 10), cat_text, cat_color)
+            draw.text(Vector(10, 10), mode_text, mode_color)
             # Draw the dedicated selection indicator arrow if mathematically selected
             if c_idx == 0: 
                 # Render the left-facing arrow utilizing bright yellow
@@ -649,85 +552,106 @@ def run(view_manager):
             draw.fill_round_rectangle(Vector(10, out_y), Vector(screen_w - 20, 60), 5, TFT_BLACK)
             # Draw the contrasting white output border around the calculation result
             draw.rect(Vector(10, out_y), Vector(screen_w - 20, 60), TFT_WHITE)
-            # Draw the static descriptor output label text mapping the conversion context
-            draw.text(Vector(20, out_y + 10), f"RESULT ({t_name}):", TFT_LIGHTGREY)
-            # Draw the mathematically formulated result value natively in bright green
-            draw.text(Vector(20, out_y + 35), f"{conv_result}", TFT_GREEN)
+            # Draw the static descriptor output label text
+            draw.text(Vector(20, out_y + 10), "TARGET RPM:", TFT_LIGHTGREY)
+            # Determine the exact result color utilizing the physical cap safety boolean
+            res_color = TFT_RED if is_capped else TFT_GREEN
+            # Draw the mathematically formulated result value integer
+            draw.text(Vector(20, out_y + 35), f"{rpm_result}", res_color)
+            # Check the active limit cap status continuously
+            if is_capped: 
+                # Draw the physical limit warning to safely alert the human operator
+                draw.text(Vector(120, out_y + 35), "(LIMIT)", TFT_RED)
 
-            # --- INPUT PANEL RENDERING (Row 1 to 4) ---
+            # --- INPUT PANEL RENDERING (Row 1 to 5) ---
             # Define the absolute input panel y coordinate baseline
             in_y = 120
             
-            # Row 1: From Unit Selection Implementation
-            # Draw the explicit from unit label colored dynamically
-            draw.text(Vector(15, in_y), "From Unit:", TFT_YELLOW if c_idx == 1 else TFT_LIGHTGREY)
-            # Determine the targeted element color contextually
-            f_color = TFT_YELLOW if c_idx == 1 else TFT_WHITE
-            # Draw the exact from unit name utilizing conditional color rules
-            draw.text(Vector(120, in_y), f"< {f_name} >", f_color)
+            # Row 1: Material Selection Implementation
+            # Draw the explicit material label colored dynamically
+            draw.text(Vector(15, in_y), "Material:", TFT_YELLOW if c_idx == 1 else TFT_LIGHTGREY)
+            # Determine the targeted material color contextually
+            mat_color = TFT_YELLOW if c_idx == 1 else mat[2]
+            # Draw the exact material name utilizing conditional color rules
+            draw.text(Vector(100, in_y), f"< {mat[0]} >", mat_color)
             # Draw the active selection indicator element
             if c_idx == 1: 
                 # Render the left-facing arrow
                 draw.text(Vector(screen_w - 20, in_y), "<", TFT_YELLOW)
             
-            # Row 2: To Unit Selection Implementation
-            # Draw the explicit to unit label colored dynamically
-            draw.text(Vector(15, in_y + 30), "To Unit:", TFT_YELLOW if c_idx == 2 else TFT_LIGHTGREY)
-            # Determine the targeted element color contextually
-            t_color = TFT_YELLOW if c_idx == 2 else TFT_WHITE
-            # Draw the exact to unit name utilizing conditional color rules
-            draw.text(Vector(120, in_y + 30), f"< {t_name} >", t_color)
+            # Row 2: Diameter Selection Implementation
+            # Draw the explicit diameter label colored dynamically
+            draw.text(Vector(15, in_y + 30), "Diameter:", TFT_YELLOW if c_idx == 2 else TFT_LIGHTGREY)
+            # Determine the target diameter color contextually based on the mode override
+            dia_color = TFT_YELLOW if c_idx == 2 else TFT_WHITE
+            # Dim the diameter element completely if visually inactive
+            if state["mode_sink"]: 
+                # Apply the dimmed color hex
+                dia_color = TFT_LIGHTGREY 
+            # Highlight utilizing cyan securely if actively typing
+            if state["active_input"] == "dia": dia_color = TFT_CYAN
+            # Dynamically attach a visual positional text cursor underscore strictly if editing diameter
+            dia_cursor = "_" if state["active_input"] == "dia" else ""
+            # Draw the active diameter value appending cursor and unit strings
+            draw.text(Vector(100, in_y + 30), f"{state['diameter_mm']}{dia_cursor} mm", dia_color)
             # Draw the active selection indicator element
             if c_idx == 2: 
                 # Render the left-facing arrow
                 draw.text(Vector(screen_w - 20, in_y + 30), "<", TFT_YELLOW)
             
-            # Row 3: Value Input Implementation
-            # Draw the explicit value label colored dynamically
-            draw.text(Vector(15, in_y + 60), "Value:", TFT_YELLOW if c_idx == 3 else TFT_LIGHTGREY)
-            # Determine the target value color contextually
-            val_color = TFT_YELLOW if c_idx == 3 else TFT_WHITE
+            # Row 3: VC Selection Implementation
+            # Draw the explicit VC label colored dynamically
+            draw.text(Vector(15, in_y + 60), "Vc (m/min):", TFT_YELLOW if c_idx == 3 else TFT_LIGHTGREY)
+            # Determine the accurate custom VC color logic
+            vc_color = TFT_YELLOW if c_idx == 3 else TFT_WHITE
+            # Dim the VC element completely if it is not Custom
+            if mat[0] != "Custom": 
+                # Apply the dimmed color hex
+                vc_color = TFT_LIGHTGREY
             # Highlight utilizing cyan securely if actively typing
-            if state["active_input"] == "val": val_color = TFT_CYAN
-            # Dynamically attach a visual positional text cursor underscore strictly if editing value
-            val_cursor = "_" if state["active_input"] == "val" else ""
-            # Draw the active string value appending cursor seamlessly
-            draw.text(Vector(120, in_y + 60), f"{state['input_val']}{val_cursor}", val_color)
+            if state["active_input"] == "vc": vc_color = TFT_CYAN
+            # Extract the mathematically active VC value
+            vc_val = state["custom_vc"] if mat[0] == "Custom" else mat[1]
+            # Dynamically attach a visual positional text cursor underscore strictly if editing VC
+            vc_cursor = "_" if state["active_input"] == "vc" else ""
+            # Draw the specific VC value conditionally appending the positional cursor
+            draw.text(Vector(100, in_y + 60), f"{vc_val}{vc_cursor}", vc_color)
             # Draw the active selection indicator element
             if c_idx == 3: 
                 # Render the left-facing arrow
                 draw.text(Vector(screen_w - 20, in_y + 60), "<", TFT_YELLOW)
 
-            # Row 4: Help Screen Selection Implementation
-            # Draw the explicit help string colored dynamically
-            draw.text(Vector(15, in_y + 90), "View Help / Manual", TFT_YELLOW if c_idx == 4 else TFT_LIGHTGREY)
+            # Row 4: Max RPM Selection Implementation
+            # Draw the explicit RPM label colored dynamically
+            draw.text(Vector(15, in_y + 90), "Max Spindle:", TFT_YELLOW if c_idx == 4 else TFT_LIGHTGREY)
+            # Determine the target RPM color contextually
+            rpm_color = TFT_YELLOW if c_idx == 4 else TFT_WHITE
+            # Highlight utilizing cyan securely if actively typing
+            if state["active_input"] == "rpm": rpm_color = TFT_CYAN
+            # Dynamically attach a visual positional text cursor underscore strictly if editing RPM
+            rpm_cursor = "_" if state["active_input"] == "rpm" else ""
+            # Draw the accurate RPM value string conditionally appending the positional cursor
+            draw.text(Vector(100, in_y + 90), f"{state['max_rpm']}{rpm_cursor}", rpm_color)
             # Draw the active selection indicator element
             if c_idx == 4: 
                 # Render the left-facing arrow
                 draw.text(Vector(screen_w - 20, in_y + 90), "<", TFT_YELLOW)
+            
+            # Row 5: Help Screen Selection Implementation
+            # Draw the explicit help string colored dynamically
+            draw.text(Vector(15, in_y + 120), "View Help / Manual", TFT_YELLOW if c_idx == 5 else TFT_LIGHTGREY)
+            # Draw the active selection indicator element
+            if c_idx == 5: 
+                # Render the left-facing arrow
+                draw.text(Vector(screen_w - 20, in_y + 120), "<", TFT_YELLOW)
 
             # --- FOOTER CONTROLS RENDERING ---
-            # Draw the absolute footer separation line element expanded vertically to hold more info
-            draw.fill_rectangle(Vector(0, screen_h - 55), Vector(screen_w, 2), TFT_LIGHTGREY)
-            # Draw the first row of explicit shortcut text elements utilizing cyan
-            draw.text(Vector(5, screen_h - 47), "[C]Cat [F]From [T]To [V]Val", TFT_CYAN)
-            
-            # Extract the literal name of the currently active category to verify math constraints
-            current_cat_name = _CONVERSIONS[state["category_idx"]][0]
-            # Verify the current category logically permits negative real-world values
-            if current_cat_name in ("Temp", "Angle", "Torque"):
-                # Define the text string including the active minus toggle shortcut
-                footer_row_2 = "[H]Help [M]+/- [ESC]Exit"
-            # Execute this block if the category strictly forbids negative physical values
-            else:
-                # Define the text string explicitly omitting the minus toggle shortcut
-                footer_row_2 = "[H]Help [ESC]Exit"
-                
-            # Draw the dynamically formulated second row of explicit shortcut text elements utilizing cyan
-            draw.text(Vector(5, screen_h - 32), footer_row_2, TFT_CYAN)
-            
+            # Draw the absolute footer separation line element
+            draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), TFT_LIGHTGREY)
+            # Draw the explicit shortcut text elements utilizing letters securely
+            draw.text(Vector(5, screen_h - 32), "[S]Mode [M]Mat [D]Dia [R]RPM", TFT_CYAN)
             # Draw the primary navigation hints to guide the operator accurately
-            draw.text(Vector(5, screen_h - 15), "[UP/DN]Nav [ENT]Edit/Select", TFT_WHITE)
+            draw.text(Vector(5, screen_h - 15), "[UP/DN] Move Cursor | [ENT] Edit", TFT_WHITE)
         
         # Push the fully structured internal back-buffer frame to the physical TFT display immediately via SPI
         draw.swap()

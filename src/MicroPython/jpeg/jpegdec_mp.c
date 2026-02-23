@@ -345,16 +345,24 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(jpegdec_mp_del_obj, jpegdec_mp_del);
 void jpegdec_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
     jpegdec_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (destination[0] != MP_OBJ_NULL)
+    if (destination[0] == MP_OBJ_NULL)
     {
         if (attribute == MP_QSTR_initialized)
         {
             destination[0] = mp_obj_new_bool(self->initialized);
         }
-        else if (attribute == MP_QSTR_context)
+        else if (attribute == MP_QSTR_context && self->initialized)
         {
-            // this obvs wont work lol I'll come back to this
-            destination[0] = MP_OBJ_FROM_PTR(self->context);
+            mp_obj_t tuple[8]; // position_x, position_y, width, height, crop_x, crop_y, crop_width, crop_height
+            tuple[0] = mp_obj_new_int(self->context->iXOffset);
+            tuple[1] = mp_obj_new_int(self->context->iYOffset);
+            tuple[2] = mp_obj_new_int(self->context->iWidth);
+            tuple[3] = mp_obj_new_int(self->context->iHeight);
+            tuple[4] = mp_obj_new_int(self->context->iCropX);
+            tuple[5] = mp_obj_new_int(self->context->iCropY);
+            tuple[6] = mp_obj_new_int(self->context->iCropCX);
+            tuple[7] = mp_obj_new_int(self->context->iCropCY);
+            destination[0] = mp_obj_new_tuple(8, tuple);
         }
         else if (attribute == MP_QSTR___del__)
         {

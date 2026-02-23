@@ -463,8 +463,6 @@ class Keyboard:
             self.draw.erase()
 
             if not self._auto_complete_words_set:
-                if not self._auto_complete_words:
-                    self._auto_complete_words = self._default_words()
                 self._set_auto_complete_words()
 
             # only process input/redraw if there's input
@@ -966,5 +964,10 @@ class Keyboard:
     def _set_auto_complete_words(self) -> None:
         """Sets the words for auto-completion"""
         if not self._auto_complete_words_set and self._auto_complete is not None:
-            self._auto_complete.add_words(self._auto_complete_words)
+            if not self._auto_complete.add_dictionary(
+                "picoware/keyboard/dictionary.txt"
+            ):
+                if not self._auto_complete_words:
+                    self._auto_complete_words = self._default_words()
+                self._auto_complete.add_words(self._auto_complete_words)
             self._auto_complete_words_set = True

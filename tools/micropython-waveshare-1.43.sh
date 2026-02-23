@@ -33,6 +33,18 @@ rm -rf "$micropython_dir"/modules/response
 # remove font module if it exists
 rm -rf "$micropython_dir"/modules/font
 
+# remove lcd module if it exists
+rm -rf "$micropython_dir"/modules/lcd
+
+# remove JPEGDEC module if it exists
+rm -rf "$micropython_dir"/modules/JPEGDEC
+
+# remove jpeg module if it exists
+rm -rf "$micropython_dir"/modules/jpeg
+
+# remove vt module if it exists
+rm -rf "$micropython_dir"/modules/vt
+
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"
@@ -74,10 +86,28 @@ cp -r "$picoware_dir"/src/MicroPython/response "$micropython_dir"/modules/respon
 # copy font module
 cp -r "$picoware_dir"/src/MicroPython/font "$micropython_dir"/modules/font
 
+# copy lcd module
+cp -r "$picoware_dir"/src/MicroPython/lcd "$micropython_dir"/modules/lcd
+
+# ensure JPEGDEC is installed
+if [ ! -d "$picoware_dir"/src/MicroPython/JPEGDEC ]; then
+    cd "$micropython_dir"/modules
+    git clone https://github.com/bitbank2/JPEGDEC.git
+fi
+
+# copy JPEGDEC module
+cp -r "$picoware_dir"/src/MicroPython/JPEGDEC "$micropython_dir"/modules/JPEGDEC
+
+# copy jpeg module
+cp -r "$picoware_dir"/src/MicroPython/jpeg "$micropython_dir"/modules/jpeg
+
+# copy vt module
+cp -r "$picoware_dir"/src/MicroPython/vt "$micropython_dir"/modules/vt
+
 echo "Starting Waveshare 1.43 build process..."
 
 # Waveshare - 1.43 
-make -j BOARD=WAVESHARE_RP2350_TOUCH_LCD_1_43 USER_C_MODULES="$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.43/waveshare_modules.cmake
+make -j BOARD=WAVESHARE_RP2350_TOUCH_LCD_1_43 USER_C_MODULES="$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.43/waveshare_modules.cmake CFLAGS_EXTRA="-DWAVESHARE_1_43"
 cp "$micropython_dir"/build-WAVESHARE_RP2350_TOUCH_LCD_1_43/firmware.uf2 "$picoware_dir"/builds/MicroPython/Picoware-Waveshare-1.43.uf2
 echo "Waveshare - 1.43 build complete."
 

@@ -5,18 +5,17 @@ from collections import deque
 from micropython import const
 
 try:
-    import uio, uos
+    import uio
     from utime import ticks_ms
 except ImportError:
     import io as uio
-    import os as uos
     from supervisor import ticks_ms
 
 
 from picoware.system.vector import Vector
 from picoware.system import buttons
-from picoware.system.drivers.highlighter import Highlighter
 from picoware.system import colors
+import vt as vt_c
 
 sc_char_width = const(53)
 sc_char_height = const(40)
@@ -65,67 +64,44 @@ class vt(uio.IOBase):
         self.char_vec = Vector(self.char_width, 2)
         self.cursor_pos = Vector(0, 0)
 
-        # Python syntax highlighting style (ANSI color codes)
-        self.python_syntax_style = {
-            "def": "\x1b[94m",  # blue
-            "class": "\x1b[94m",  # blue
-            "import": "\x1b[32m",  # green
-            "from": "\x1b[32m",  # green
-            "if": "\x1b[95m",  # violet
-            "elif": "\x1b[95m",  # violet
-            "else": "\x1b[95m",  # violet
-            "for": "\x1b[95m",  # violet
-            "while": "\x1b[95m",  # violet
-            "return": "\x1b[95m",  # violet
-            "yield": "\x1b[95m",  # violet
-            "break": "\x1b[95m",  # violet
-            "continue": "\x1b[95m",  # violet
-            "pass": "\x1b[95m",  # violet
-            "try": "\x1b[95m",  # violet
-            "except": "\x1b[95m",  # violet
-            "finally": "\x1b[95m",  # violet
-            "raise": "\x1b[95m",  # violet
-            "with": "\x1b[95m",  # violet
-            "as": "\x1b[95m",  # violet
-            "in": "\x1b[95m",  # violet
-            "and": "\x1b[95m",  # violet
-            "or": "\x1b[95m",  # violet
-            "not": "\x1b[95m",  # violet
-            "is": "\x1b[95m",  # violet
-            "lambda": "\x1b[95m",  # violet
-            "True": "\x1b[94m",  # blue
-            "False": "\x1b[94m",  # blue
-            "None": "\x1b[94m",  # blue
-            "string": "\x1b[33m",  # orange
-            "#": "\x1b[93m",  # yellow
-            "bool": "\x1b[32m",  # green
-            "int": "\x1b[32m",  # green
-            "float": "\x1b[32m",  # green
-        }
-        # Initialize syntax highlighter
-        self.highlighter = Highlighter(
-            syntax_style=self.python_syntax_style, max_tokens=300
-        )
-
-        # ANSI to TFT color mapping
-        self.ansi_color_map = {
-            "\x1b[90m": colors.TFT_DARKGREY,  # gray
-            "\x1b[91m": colors.TFT_ORANGE,  # orange
-            "\x1b[92m": colors.TFT_DARKGREEN,  # dark green
-            "\x1b[93m": colors.TFT_YELLOW,  # yellow
-            "\x1b[94m": colors.TFT_SKYBLUE,  # blue
-            "\x1b[95m": colors.TFT_PINK,  # pink
-            "\x1b[96m": colors.TFT_CYAN,  # cyan
-            "\x1b[97m": colors.TFT_WHITE,  # white
-            "\x1b[30m": colors.TFT_BLACK,  # black
-            "\x1b[31m": colors.TFT_RED,  # red
-            "\x1b[32m": colors.TFT_GREEN,  # green
-            "\x1b[33m": colors.TFT_ORANGE,  # orange
-            "\x1b[34m": colors.TFT_SKYBLUE,  # blue
-            "\x1b[35m": colors.TFT_PINK,  # pink
-            "\x1b[36m": colors.TFT_CYAN,  # cyan
-            "\x1b[37m": colors.TFT_LIGHTGREY,  # light gray
-        }
+        # Direct keyword → TFT color map for C module syntax highlighting
+        # (skips ANSI escape code intermediate step entirely)
+        self._syntax_map = [
+            ("def", colors.TFT_SKYBLUE),
+            ("class", colors.TFT_SKYBLUE),
+            ("import", colors.TFT_GREEN),
+            ("from", colors.TFT_GREEN),
+            ("if", colors.TFT_PINK),
+            ("elif", colors.TFT_PINK),
+            ("else", colors.TFT_PINK),
+            ("for", colors.TFT_PINK),
+            ("while", colors.TFT_PINK),
+            ("return", colors.TFT_PINK),
+            ("yield", colors.TFT_PINK),
+            ("break", colors.TFT_PINK),
+            ("continue", colors.TFT_PINK),
+            ("pass", colors.TFT_PINK),
+            ("try", colors.TFT_PINK),
+            ("except", colors.TFT_PINK),
+            ("finally", colors.TFT_PINK),
+            ("raise", colors.TFT_PINK),
+            ("with", colors.TFT_PINK),
+            ("as", colors.TFT_PINK),
+            ("in", colors.TFT_PINK),
+            ("and", colors.TFT_PINK),
+            ("or", colors.TFT_PINK),
+            ("not", colors.TFT_PINK),
+            ("is", colors.TFT_PINK),
+            ("lambda", colors.TFT_PINK),
+            ("True", colors.TFT_SKYBLUE),
+            ("False", colors.TFT_SKYBLUE),
+            ("None", colors.TFT_SKYBLUE),
+            ("bool", colors.TFT_GREEN),
+            ("int", colors.TFT_GREEN),
+            ("float", colors.TFT_GREEN),
+        ]
+        self._string_color = colors.TFT_ORANGE
+        self._comment_color = colors.TFT_YELLOW
 
     def dryBuffer(self):
         self.outputBuffer = deque((), 30)
@@ -297,87 +273,25 @@ class vt(uio.IOBase):
         return len(text_input)
 
     def _render_terminal(self):
-        """Render the terminal buffer to the display"""
-        self.draw.clear(color=self.draw.background)
-
-        # Render text lines with syntax highlighting
-        self.pos_vector.x = 0
-        for y in range(self.screen_height):
-            line = "".join(self.terminal_buffer[y]).rstrip()
-            if line:
-                self.pos_vector.y = y * self.char_height
-                # Apply syntax highlighting
-                highlighted = self.highlighter.highlight_line(line)
-                self._render_highlighted_line(highlighted, self.pos_vector.y)
-
-        # Draw cursor (simple block cursor) if visible
-        if self.cursor_visible:
-            self.cursor_pos.x = self.cursor_x * self.char_width
-            self.cursor_pos.y = self.cursor_y * self.char_height
-
-            self.draw.fill_rectangle(
-                self.cursor_pos, self.char_vec, self.draw.foreground
-            )
-
-        # Force display update
-        self.draw.swap()
-
-    def _render_highlighted_line(self, highlighted_text, y_pos):
-        """Render a line with ANSI color codes parsed and applied"""
-        # Parse ANSI color codes and render segments
-        segments = self._parse_ansi_colors(highlighted_text)
-        x_offset = 0
-
-        for text, color in segments:
-            if text:
-                self.pos_vector.x, self.pos_vector.y = x_offset, y_pos
-                self.draw.text(self.pos_vector, text, color)
-                x_offset += len(text) * self.char_width
-
-    def _parse_ansi_colors(self, text):
-        """Parse ANSI color codes and return list of (text, color) tuples"""
-        segments = []
-        current_color = self.draw.foreground
-        current_text = ""
-        i = 0
-
-        while i < len(text):
-            if text[i] == "\x1b" and i + 1 < len(text) and text[i + 1] == "[":
-                # Found escape sequence
-                if current_text:
-                    segments.append((current_text, current_color))
-                    current_text = ""
-
-                # Find end of escape sequence
-                j = i + 2
-                while j < len(text) and text[j] not in "mHJKhlr~":
-                    j += 1
-
-                if j < len(text):
-                    escape_seq = text[i : j + 1]
-
-                    # Check if it's a reset sequence
-                    if escape_seq == "\x1b[0m":
-                        current_color = self.draw.foreground
-                    else:
-                        # Look up color in map
-                        current_color = self.ansi_color_map.get(
-                            escape_seq, current_color
-                        )
-
-                    i = j + 1
-                else:
-                    # Malformed escape, treat as regular char
-                    current_text += text[i]
-                    i += 1
-            else:
-                current_text += text[i]
-                i += 1
-
-        if current_text:
-            segments.append((current_text, current_color))
-
-        return segments
+        """Render the terminal buffer to the display using C module"""
+        vt_c.render(
+            self.terminal_buffer,
+            self.screen_height,
+            self.screen_width,
+            self.char_height,
+            self.char_width,
+            self.draw.background,
+            self.draw.foreground,
+            self.cursor_visible,
+            self.cursor_x * self.char_width,
+            self.cursor_y * self.char_height,
+            self.char_vec.x,
+            self.char_vec.y,
+            self.draw.foreground,
+            self._syntax_map,
+            self._string_color,
+            self._comment_color,
+        )
 
     def start_batch(self):
         """Start batch mode - accumulate writes without rendering"""

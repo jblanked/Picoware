@@ -2,7 +2,6 @@
 add_library(usermod_waveshare_lcd INTERFACE)
 
 target_sources(usermod_waveshare_lcd INTERFACE
-    ${CMAKE_CURRENT_LIST_DIR}/waveshare_lcd.c
     ${CMAKE_CURRENT_LIST_DIR}/lcd.c
 )
 

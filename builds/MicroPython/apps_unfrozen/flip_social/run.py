@@ -4,6 +4,9 @@ from micropython import const
 from picoware.system.vector import Vector
 from picoware.system.colors import TFT_BLACK, TFT_WHITE
 
+from json import loads as json_loads
+from json import dumps as json_dumps
+
 
 # social view constants
 SOCIAL_VIEW_MENU = const(-1)  # main menu view
@@ -131,7 +134,7 @@ def __string_width(text: str) -> int:
     """Calculate the width of a string in pixels"""
     if not text:
         return 0
-    return len(text) * 5
+    return len(text) * 6
 
 
 def __flip_social_util_get_username(view_manager) -> str:
@@ -141,8 +144,6 @@ def __flip_social_util_get_username(view_manager) -> str:
 
     if data is not None:
         try:
-            from ujson import loads as json_loads
-
             obj: dict = json_loads(data)
             if "username" in obj:
                 return obj["username"]
@@ -159,8 +160,6 @@ def __flip_social_util_get_password(view_manager) -> str:
 
     if data is not None:
         try:
-            from ujson import loads as json_loads
-
             obj: dict = json_loads(data)
             if "password" in obj:
                 return obj["password"]
@@ -220,20 +219,7 @@ class FlipSocialRun:
 
         # Private variables to replace bound method attributes
         self.__debounce_counter: int = 0  # debounce counter
-        self.__comments_loading_started: bool = False  # comments loading started flag
-        self.__explore_loading_started: bool = False  # explore loading started flag
-        self.__feed_loading_started: bool = False  # feed loading started flag
-        self.__login_loading_started: bool = False  # login loading started flag
-        self.__messages_loading_started: bool = False  # messages loading started flag
-        self.__message_users_loading_started: bool = (
-            False  # message users loading started flag
-        )
-        self.__post_loading_started: bool = False  # post loading started flag
-        self.__registration_loading_started: bool = (
-            False  # registration loading started flag
-        )
-        self.__user_info_loading_started: bool = False  # user info loading started flag
-
+        self.__loading_started: bool = False  # loading started flag
         self.view_manager = view_manager  # reference to view manager
         self.keyboard_ran: bool = False  # has the keyboard run at least once
         self.should_clear_screen: bool = True  # should clear the screen
@@ -250,6 +236,18 @@ class FlipSocialRun:
     def is_active(self) -> bool:
         """Check if the FlipSocialRun instance is active"""
         return self.should_return_to_menu is False
+
+    def __loading_start(self, canvas, title: str) -> None:
+        """Start the loading animation with the given title"""
+        if not self.loading:
+            from picoware.gui.loading import Loading
+
+            self.loading = Loading(canvas, TFT_BLACK, TFT_WHITE)
+            self.__loading_started = True
+            if self.loading:
+                self.loading.set_text(title)
+        else:
+            self.loading.set_text(title)
 
     def debounce_input(self) -> None:
         """Debounce input to prevent multiple triggers"""
@@ -268,21 +266,11 @@ class FlipSocialRun:
     def draw_comments_view(self, canvas) -> None:
         """Draw the comments view"""
         if self.comments_status == COMMENTS_WAITING:
-            if not self.__comments_loading_started:
-                if not self.loading:
-                    from picoware.gui.loading import Loading
-
-                    self.loading = Loading(canvas, TFT_BLACK, TFT_WHITE)
-                    self.__comments_loading_started = True
-                    if self.loading:
-                        self.loading.set_text("Fetching...")
+            if not self.__loading_started:
+                self.__loading_start(canvas, "Fetching...")
             if not self.http_request_is_finished():
                 if self.loading:
                     self.loading.animate(False)
-                else:
-                    from picoware.gui.loading import Loading
-
-                    self.loading = Loading(canvas, TFT_BLACK, TFT_WHITE)
             else:
                 from picoware.system.http import HTTP_ISSUE
 
@@ -295,21 +283,19 @@ class FlipSocialRun:
                     self.feed_status = FEED_REQUEST_ERROR
                     if self.loading:
                         self.loading.stop()
-                    self.__comments_loading_started = False
+                    self.__loading_started = False
                     return
 
                 self.comments_status = COMMENTS_SUCCESS
                 if self.loading:
                     self.loading.stop()
-                self.__comments_loading_started = False
+                self.__loading_started = False
         elif self.comments_status == COMMENTS_SUCCESS:
             if self.http and self.http.response:
-                response = self.http.response.text
-                if '"comments":[{' in response:
+                text_vec = Vector(0, 10)
+                if '"comments":[{' in self.http.response.text:
                     try:
-                        from ujson import loads as json_loads
-
-                        obj = json_loads(response)
+                        obj = self.http.response.json()
                         if "comments" in obj and isinstance(obj["comments"], list):
                             comments = obj["comments"]
                             total_comments = len(comments)
@@ -344,19 +330,16 @@ class FlipSocialRun:
 
                                         # Draw navigation arrows if there are multiple comments
                                         if self.comments_index > 0:
-                                            canvas.text(
-                                                Vector(2, 60), "< Prev", TFT_BLACK
-                                            )
+                                            text_vec.x, text_vec.y = 2, 60
+                                            canvas.text(text_vec, "< Prev", TFT_BLACK)
                                         if self.comments_index < total_comments - 1:
-                                            canvas.text(
-                                                Vector(96, 60), "Next >", TFT_BLACK
-                                            )
+                                            text_vec.x, text_vec.y = 96, 60
+                                            canvas.text(text_vec, "Next >", TFT_BLACK)
 
                                         # Draw comment counter
                                         counter_text = f"{self.comments_index + 1}/{total_comments}"
-                                        canvas.text(
-                                            Vector(112, 10), counter_text, TFT_BLACK
-                                        )
+                                        text_vec.x, text_vec.y = 112, 10
+                                        canvas.text(text_vec, counter_text, TFT_BLACK)
                                     else:
                                         self.comments_status = COMMENTS_PARSE_ERROR
                                         return
@@ -365,29 +348,36 @@ class FlipSocialRun:
                                     if self.comments_index > 0:
                                         self.comments_index -= 1
                             else:
+                                text_vec.x, text_vec.y = 0, 10
                                 canvas.text(
-                                    Vector(0, 10),
+                                    text_vec,
                                     "No comments found for this post.",
                                     TFT_BLACK,
                                 )
+                                text_vec.x, text_vec.y = 0, 60
                                 canvas.text(
-                                    Vector(0, 60), "Be the first, click DOWN", TFT_BLACK
+                                    text_vec, "Be the first, click DOWN", TFT_BLACK
                                 )
                     except Exception as e:
                         print(f"Error parsing comments: {e}")
                         self.comments_status = COMMENTS_PARSE_ERROR
                 else:
-                    canvas.text(
-                        Vector(0, 10), "No comments found for this post.", TFT_BLACK
-                    )
-                    canvas.text(Vector(0, 60), "Be the first, click DOWN", TFT_BLACK)
+                    text_vec.x, text_vec.y = 0, 10
+                    canvas.text(text_vec, "No comments found for this post.", TFT_BLACK)
+                    text_vec.x, text_vec.y = 0, 60
+                    canvas.text(text_vec, "Be the first, click DOWN", TFT_BLACK)
         elif self.comments_status == COMMENTS_REQUEST_ERROR:
-            canvas.text(Vector(0, 10), "Comments request failed!", TFT_BLACK)
-            canvas.text(Vector(0, 20), "Check your network and", TFT_BLACK)
-            canvas.text(Vector(0, 30), "try again later.", TFT_BLACK)
+            text_vec = Vector(0, 10)
+            canvas.text(text_vec, "Comments request failed!", TFT_BLACK)
+            text_vec.y += 10
+            canvas.text(text_vec, "Check your network and", TFT_BLACK)
+            text_vec.y += 10
+            canvas.text(text_vec, "try again later.", TFT_BLACK)
         elif self.comments_status == COMMENTS_PARSE_ERROR:
-            canvas.text(Vector(0, 10), "Failed to parse comments!", TFT_BLACK)
-            canvas.text(Vector(0, 20), "Try again...", TFT_BLACK)
+            text_vec = Vector(0, 10)
+            canvas.text(text_vec, "Failed to parse comments!", TFT_BLACK)
+            text_vec.y += 10
+            canvas.text(text_vec, "Try again...", TFT_BLACK)
         elif self.comments_status == COMMENTS_NOT_STARTED:
             self.comments_status = COMMENTS_WAITING
             self.user_request(REQUEST_TYPE_COMMENT_FETCH)
@@ -402,16 +392,8 @@ class FlipSocialRun:
                 else:
                     keyboard.run(False, False)
         elif self.comments_status == COMMENTS_SENDING:
-            if not self.__comments_loading_started:
-                if not self.loading:
-                    from picoware.gui.loading import Loading
-
-                    self.loading = Loading(canvas, TFT_BLACK, TFT_WHITE)
-                    self.__comments_loading_started = True
-                    if self.loading:
-                        self.loading.set_text("Sending...")
-                else:
-                    self.loading.set_text("Sending...")
+            if not self.__loading_started:
+                self.__loading_start(canvas, "Sending...")
             if not self.http_request_is_finished():
                 if self.loading:
                     self.loading.animate(False)
@@ -424,7 +406,7 @@ class FlipSocialRun:
 
                 if self.loading:
                     self.loading.stop()
-                self.__comments_loading_started = False
+                self.__loading_started = False
 
                 if not self.http or self.http.state == HTTP_ISSUE:
                     self.comments_status = COMMENTS_REQUEST_ERROR
@@ -446,30 +428,18 @@ class FlipSocialRun:
         """Draw the explore view"""
 
         if self.explore_status == EXPLORE_WAITING:
-            if not self.__explore_loading_started:
-                if not self.loading:
-                    from picoware.gui.loading import Loading
-
-                    self.loading = Loading(canvas, TFT_BLACK, TFT_WHITE)
-                    self.__explore_loading_started = True
-                    if self.loading:
-                        self.loading.set_text("Fetching...")
-                else:
-                    self.loading.set_text("Fetching...")
+            if not self.__loading_started:
+                self.__loading_start(canvas, "Fetching...")
             if not self.http_request_is_finished():
                 if self.loading:
                     self.loading.animate(False)
-                else:
-                    from picoware.gui.loading import Loading
-
-                    self.loading = Loading(canvas, TFT_BLACK, TFT_WHITE)
             else:
                 from picoware.system.http import HTTP_ISSUE
 
                 if self.loading:
                     self.loading.stop()
 
-                self.__explore_loading_started = False
+                self.__loading_started = False
 
                 if not self.http or self.http.state == HTTP_ISSUE:
                     self.explore_status = EXPLORE_REQUEST_ERROR
@@ -481,6 +451,7 @@ class FlipSocialRun:
                     self.explore_status = EXPLORE_SUCCESS
                     storage = self.view_manager.storage
                     storage.write("picoware/flip_social/explore.json", response)
+                    self.http.close()
                     return
 
                 self.explore_status = EXPLORE_REQUEST_ERROR
@@ -494,8 +465,6 @@ class FlipSocialRun:
                 return
             explore_users = []
             try:
-                from ujson import loads as json_loads
-
                 obj = json_loads(data)
                 if "users" in obj and isinstance(obj["users"], list):
                     explore_users = obj["users"]
@@ -538,29 +507,17 @@ class FlipSocialRun:
                 else:
                     keyboard.run(False, False)
         elif self.explore_status == EXPLORE_SENDING:
-            if not self.__explore_loading_started:
-                if not self.loading:
-                    from picoware.gui.loading import Loading
-
-                    self.loading = Loading(canvas, TFT_BLACK, TFT_WHITE)
-                    self.__explore_loading_started = True
-                    if self.loading:
-                        self.loading.set_text("Sending...")
-                else:
-                    self.loading.set_text("Sending...")
+            if not self.__loading_started:
+                self.__loading_start(canvas, "Sending...")
             if not self.http_request_is_finished():
                 if self.loading:
                     self.loading.animate(False)
-                else:
-                    from picoware.gui.loading import Loading
-
-                    self.loading = Loading(canvas, TFT_BLACK, TFT_WHITE)
             else:
                 from picoware.system.http import HTTP_ISSUE
 
                 if self.loading:
                     self.loading.stop()
-                self.__explore_loading_started = False
+                self.__loading_started = False
 
                 if not self.http or self.http.state == HTTP_ISSUE:
                     self.explore_status = EXPLORE_REQUEST_ERROR
@@ -594,29 +551,46 @@ class FlipSocialRun:
     ) -> None:
         """Draw a single feed item"""
         is_flipped: bool = flipped == "true"
+        is_admin: bool = username == "JBlanked"
         flip_count: int = int(flips) if flips.isdigit() else 0
-        canvas.text(Vector(0, 18), username, TFT_BLACK)
+        text_vec = Vector(0, 18)
+        if is_admin:
+            # Filled black badge with white username text
+            width = __string_width(username) + 4
+            canvas.fill_rectangle(text_vec, Vector(width, 10), TFT_BLACK)
+            canvas.text(text_vec, username, TFT_WHITE)
+
+        else:
+            canvas.text(text_vec, username, TFT_BLACK)
         self.draw_feed_message(canvas, message, 0, 30)
         flip_message = "flip" if flip_count == 1 else "flips"
-        canvas.text(Vector(0, 150), f"{flip_count} {flip_message}", TFT_BLACK)
+        text_vec.x, text_vec.y = 0, 150
+        canvas.text(text_vec, f"{flip_count} {flip_message}", TFT_BLACK)
         flip_status = "Unflip" if is_flipped else "Flip"
-        canvas.text(Vector(110 if is_flipped else 115, 150), flip_status, TFT_BLACK)
+        text_vec.x, text_vec.y = 110 if is_flipped else 115, 150
+        canvas.text(text_vec, flip_status, TFT_BLACK)
         if not is_comment:  # draw date in top-right corner
             if "minutes ago" in date_created:
-                canvas.text(Vector(190, 18), date_created, TFT_BLACK)
+                text_vec.x, text_vec.y = 190, 18
+                canvas.text(text_vec, date_created, TFT_BLACK)
             else:
-                canvas.text(Vector(180, 18), date_created, TFT_BLACK)
+                text_vec.x, text_vec.y = 180, 18
+                canvas.text(text_vec, date_created, TFT_BLACK)
 
             # draw down arrow icon and comment count
-            canvas.text(Vector(160, 150), "Comment", TFT_BLACK)
-            canvas.text(Vector(220, 150), f"({comments})", TFT_BLACK)
+            text_vec.x, text_vec.y = 160, 150
+            canvas.text(text_vec, "Comment", TFT_BLACK)
+            text_vec.x, text_vec.y = 220, 150
+            canvas.text(text_vec, f"({comments})", TFT_BLACK)
 
         else:
             # draw in bottom-right corner for comments
             if "minutes ago" in date_created:
-                canvas.text(Vector(190, 220), date_created, TFT_BLACK)
+                text_vec.x, text_vec.y = 190, 220
+                canvas.text(text_vec, date_created, TFT_BLACK)
             else:
-                canvas.text(Vector(180, 220), date_created, TFT_BLACK)
+                text_vec.x, text_vec.y = 180, 220
+                canvas.text(text_vec, date_created, TFT_BLACK)
 
     def draw_feed_message(self, canvas, user_message: str, x: int, y: int) -> None:
         """Draw the feed message with wrapping"""
@@ -647,29 +621,19 @@ class FlipSocialRun:
             lines.append(current_line)
 
         # Draw each line
+        text_vec = Vector(x, y)
         for i, line in enumerate(lines):
-            canvas.text(Vector(x, y + (i * line_height)), line, TFT_BLACK)
+            text_vec.x, text_vec.y = x, y + (i * line_height)
+            canvas.text(text_vec, line, TFT_BLACK)
 
     def draw_feed_view(self, canvas) -> None:
         """Draw the feed view"""
         if self.feed_status == FEED_WAITING:
-            if not self.__feed_loading_started:
-                if not self.loading:
-                    from picoware.gui.loading import Loading
-
-                    self.loading = Loading(canvas, TFT_BLACK, TFT_WHITE)
-                    self.__feed_loading_started = True
-                    if self.loading:
-                        self.loading.set_text("Fetching...")
-                else:
-                    self.loading.set_text("Fetching...")
+            if not self.__loading_started:
+                self.__loading_start(canvas, "Fetching...")
             if not self.http_request_is_finished():
                 if self.loading:
                     self.loading.animate(False)
-                else:
-                    from picoware.gui.loading import Loading
-
-                    self.loading = Loading(canvas, TFT_BLACK, TFT_WHITE)
             else:
                 from picoware.system.http import HTTP_ISSUE
 
@@ -677,7 +641,7 @@ class FlipSocialRun:
                     self.feed_status = FEED_REQUEST_ERROR
                     if self.loading:
                         self.loading.stop()
-                    self.__feed_loading_started = False
+                    self.__loading_started = False
                     return
 
                 if self.http.response:
@@ -688,7 +652,8 @@ class FlipSocialRun:
                     )
                     if self.loading:
                         self.loading.stop()
-                    self.__feed_loading_started = False
+                    self.__loading_started = False
+                    self.http.close()
                 else:
                     self.feed_status = FEED_REQUEST_ERROR
 
@@ -697,8 +662,6 @@ class FlipSocialRun:
             data = storage.read("picoware/flip_social/feed.json")
             if data:
                 try:
-                    from ujson import loads as json_loads
-
                     obj = json_loads(data)
                     if "feed" in obj and isinstance(obj["feed"], list):
                         feed_items = obj["feed"]
@@ -744,34 +707,21 @@ class FlipSocialRun:
             self.user_request(REQUEST_TYPE_FEED)
 
         elif self.feed_status == FEED_FLIPPING:
-            if not self.__feed_loading_started:
-                if not self.loading:
-                    from picoware.gui.loading import Loading
-
-                    self.loading = Loading(canvas, TFT_BLACK, TFT_WHITE)
-                    self.__feed_loading_started = True
-                    if self.loading:
-                        self.loading.set_text("Flipping...")
+            if not self.__loading_started:
+                self.__loading_start(canvas, "Flipping...")
             if not self.http_request_is_finished():
                 if self.loading:
                     self.loading.animate(False)
-                else:
-                    from picoware.gui.loading import Loading
-
-                    self.loading = Loading(canvas, TFT_BLACK, TFT_WHITE)
             else:
                 from picoware.system.http import HTTP_ISSUE
 
                 if self.loading:
                     self.loading.stop()
-                self.__feed_loading_started = False
+                self.__loading_started = False
                 if not self.http or self.http.state == HTTP_ISSUE:
                     self.feed_status = FEED_REQUEST_ERROR
                     return
                 if "[SUCCESS]" in self.http.response.text:
-                    from ujson import loads as json_loads
-                    from ujson import dumps as json_dumps
-
                     # increase the flip count locally for instant feedback
                     # and adjust the flipped status
                     storage = self.view_manager.storage
@@ -814,16 +764,8 @@ class FlipSocialRun:
         """Draw the login view"""
 
         if self.login_status == LOGIN_WAITING:
-            if not self.__login_loading_started:
-                if not self.loading:
-                    from picoware.gui.loading import Loading
-
-                    self.loading = Loading(canvas, TFT_BLACK, TFT_WHITE)
-                    self.__login_loading_started = True
-                    if self.loading:
-                        self.loading.set_text("Logging in...")
-                else:
-                    self.loading.set_text("Logging in...")
+            if not self.__loading_started:
+                self.__loading_start(canvas, "Logging in...")
             if not self.http_request_is_finished():
                 if self.loading:
                     self.loading.animate(False)
@@ -832,7 +774,7 @@ class FlipSocialRun:
 
                 if self.loading:
                     self.loading.stop()
-                self.__login_loading_started = False
+                self.__loading_started = False
 
                 if not self.http or self.http.state == HTTP_ISSUE:
                     self.login_status = LOGIN_REQUEST_ERROR
@@ -938,38 +880,31 @@ class FlipSocialRun:
 
             # Draw indicator dots
             indicator_y = 130
+            vec_doc_pos = Vector(0, 130)
+            vec_dot_size = Vector(10, 10)
             if len(menu_items) <= 15:
                 dots_spacing = 15
                 dots_start_x = (SCREEN_W - (len(menu_items) * dots_spacing)) // 2
                 for i in range(len(menu_items)):
                     dot_x = dots_start_x + (i * dots_spacing)
+                    vec_doc_pos.x, vec_doc_pos.y = dot_x, indicator_y
                     if i == selected_index:
-                        canvas.fill_rectangle(
-                            Vector(dot_x, indicator_y), Vector(10, 10), TFT_BLACK
-                        )
+                        canvas.fill_rectangle(vec_doc_pos, vec_dot_size, TFT_BLACK)
                     else:
-                        canvas.rect(
-                            Vector(dot_x, indicator_y), Vector(10, 10), TFT_BLACK
-                        )
+                        canvas.rect(vec_doc_pos, vec_dot_size, TFT_BLACK)
 
             # Draw decorative bottom pattern
+            vec_doc_pos.x, vec_doc_pos.y = 0, 145
             for i in range(0, SCREEN_W, 10):
-                canvas.pixel(Vector(i, 145), TFT_BLACK)
+                vec_doc_pos.x, vec_doc_pos.y = i, 145
+                canvas.pixel(vec_doc_pos, TFT_BLACK)
 
     def draw_messages_view(self, canvas) -> None:
         """Draw the messages view"""
 
         if self.messages_status == MESSAGES_WAITING:
-            if not self.__messages_loading_started:
-                if not self.loading:
-                    from picoware.gui.loading import Loading
-
-                    self.loading = Loading(canvas, TFT_BLACK, TFT_WHITE)
-                    self.__messages_loading_started = True
-                    if self.loading:
-                        self.loading.set_text("Retrieving...")
-                else:
-                    self.loading.set_text("Retrieving...")
+            if not self.__loading_started:
+                self.__loading_start(canvas, "Retrieving...")
             if not self.http_request_is_finished():
                 if self.loading:
                     self.loading.animate(False)
@@ -978,7 +913,7 @@ class FlipSocialRun:
 
                 if self.loading:
                     self.loading.stop()
-                self.__messages_loading_started = False
+                self.__loading_started = False
 
                 if not self.http or self.http.state == HTTP_ISSUE:
                     self.messages_status = MESSAGES_REQUEST_ERROR
@@ -992,8 +927,6 @@ class FlipSocialRun:
         elif self.messages_status == MESSAGES_SUCCESS:
             if self.http and self.http.response:
                 try:
-                    from ujson import loads as json_loads
-
                     obj: dict = json_loads(self.http.response.text)
                     if "conversations" in obj and isinstance(
                         obj["conversations"], list
@@ -1014,18 +947,21 @@ class FlipSocialRun:
                                 # Draw title (sender name)
                                 title_width = __string_width(sender)
                                 title_x = (SCREEN_W - title_width) // 2
-                                canvas.text(Vector(title_x, 25), sender, TFT_BLACK)
+                                vec = Vector(title_x, 25)
+                                canvas.text(vec, sender, TFT_BLACK)
 
                                 # Draw underline for title
+                                vec.x, vec.y = title_x, 35
                                 canvas.line_custom(
-                                    Vector(title_x, 35),
+                                    vec,
                                     Vector(title_x + title_width, 35),
                                     TFT_BLACK,
                                 )
 
                                 # Draw decorative horizontal pattern
                                 for i in range(0, SCREEN_W, 10):
-                                    canvas.pixel(Vector(i, 45), TFT_BLACK)
+                                    vec.x, vec.y = i, 45
+                                    canvas.pixel(vec, TFT_BLACK)
 
                                 menu_y = 100
 
@@ -1042,8 +978,9 @@ class FlipSocialRun:
                                 box_y_offset = -45 if content_lines > 1 else -30
 
                                 # Draw message content box
+                                vec.x, vec.y = 25, menu_y + box_y_offset
                                 canvas.fill_rectangle(
-                                    Vector(25, menu_y + box_y_offset),
+                                    vec,
                                     Vector(270, box_height),
                                     TFT_BLACK,
                                 )
@@ -1054,9 +991,8 @@ class FlipSocialRun:
                                     line_width = __string_width(content)
                                     line_x = (SCREEN_W - line_width) // 2
                                     line_y = menu_y + 10 - 20
-                                    canvas.text(
-                                        Vector(line_x, line_y), content, TFT_WHITE
-                                    )
+                                    vec.x, vec.y = line_x, line_y
+                                    canvas.text(vec, content, TFT_WHITE)
                                 else:
                                     # Multi-line - break at word boundaries
                                     break_pos = content.rfind(" ", 0, 30)
@@ -1077,25 +1013,25 @@ class FlipSocialRun:
                                     line1_width = __string_width(line1)
                                     line1_x = (SCREEN_W - line1_width) // 2
                                     line1_y = menu_y + 10 - 30
-                                    canvas.text(
-                                        Vector(line1_x, line1_y), line1, TFT_WHITE
-                                    )
+                                    vec.x, vec.y = line1_x, line1_y
+                                    canvas.text(vec, line1, TFT_WHITE)
 
                                     # Draw second line if it exists
                                     if line2:
                                         line2_width = __string_width(line2)
                                         line2_x = (SCREEN_W - line2_width) // 2
                                         line2_y = menu_y + 10 - 10
-                                        canvas.text(
-                                            Vector(line2_x, line2_y), line2, TFT_WHITE
-                                        )
+                                        vec.x, vec.y = line2_x, line2_y
+                                        canvas.text(vec, line2, TFT_WHITE)
 
                                 # Navigation arrows
                                 if self.messages_index > 0:
-                                    canvas.text(Vector(5, menu_y - 7), "<", TFT_BLACK)
+                                    vec.x, vec.y = 5, menu_y - 7
+                                    canvas.text(vec, "<", TFT_BLACK)
                                 if self.messages_index < len(convos) - 1:
+                                    vec.x, vec.y = SCREEN_W - 15, menu_y - 7
                                     canvas.text(
-                                        Vector(SCREEN_W - 15, menu_y - 7),
+                                        vec,
                                         ">",
                                         TFT_BLACK,
                                     )
@@ -1108,8 +1044,9 @@ class FlipSocialRun:
                                 )
                                 counter_width = __string_width(message_counter)
                                 counter_x = (SCREEN_W - counter_width) // 2
+                                vec.x, vec.y = counter_x, indicator_y
                                 canvas.text(
-                                    Vector(counter_x, indicator_y),
+                                    vec,
                                     message_counter,
                                     TFT_BLACK,
                                 )
@@ -1118,15 +1055,17 @@ class FlipSocialRun:
                                 reply_text = "Press OK to Reply"
                                 reply_width = __string_width(reply_text)
                                 reply_x = (SCREEN_W - reply_width) // 2
+                                vec.x, vec.y = reply_x, indicator_y + 25
                                 canvas.text(
-                                    Vector(reply_x, indicator_y + 25),
+                                    vec,
                                     reply_text,
                                     TFT_BLACK,
                                 )
 
                                 # Draw decorative bottom pattern
                                 for i in range(0, SCREEN_W, 10):
-                                    canvas.pixel(Vector(i, 145), TFT_BLACK)
+                                    vec.x, vec.y = i, 145
+                                    canvas.pixel(vec, TFT_BLACK)
 
                 except Exception as e:
                     print(f"Error parsing messages: {e}")
@@ -1157,14 +1096,8 @@ class FlipSocialRun:
                     keyboard.run(False, False)
 
         elif self.messages_status == MESSAGES_SENDING:
-            if not self.__messages_loading_started:
-                if not self.loading:
-                    from picoware.gui.loading import Loading
-
-                    self.loading = Loading(canvas, TFT_BLACK, TFT_WHITE)
-                    self.__messages_loading_started = True
-                    if self.loading:
-                        self.loading.set_text("Sending...")
+            if not self.__loading_started:
+                self.__loading_start(canvas, "Sending...")
             if not self.http_request_is_finished():
                 if self.loading:
                     self.loading.animate(False)
@@ -1173,7 +1106,7 @@ class FlipSocialRun:
 
                 if self.loading:
                     self.loading.stop()
-                self.__messages_loading_started = False
+                self.__loading_started = False
                 self.keyboard_ran = False
                 keyboard = self.view_manager.keyboard
                 if keyboard:
@@ -1196,16 +1129,8 @@ class FlipSocialRun:
         """Draw the message users view"""
 
         if self.message_users_status == MESSAGE_USERS_WAITING:
-            if not self.__message_users_loading_started:
-                if not self.loading:
-                    from picoware.gui.loading import Loading
-
-                    self.loading = Loading(canvas, TFT_BLACK, TFT_WHITE)
-                    self.__message_users_loading_started = True
-                    if self.loading:
-                        self.loading.set_text("Retrieving...")
-                else:
-                    self.loading.set_text("Retrieving...")
+            if not self.__loading_started:
+                self.__loading_start(canvas, "Retrieving...")
             if not self.http_request_is_finished():
                 if self.loading:
                     self.loading.animate(False)
@@ -1214,7 +1139,7 @@ class FlipSocialRun:
 
                 if self.loading:
                     self.loading.stop()
-                self.__message_users_loading_started = False
+                self.__loading_started = False
 
                 if not self.http or self.http.state == HTTP_ISSUE:
                     self.message_users_status = MESSAGE_USERS_REQUEST_ERROR
@@ -1233,8 +1158,6 @@ class FlipSocialRun:
             data = storage.read("picoware/flip_social/message_users.json")
             if data:
                 try:
-                    from ujson import loads as json_loads
-
                     obj = json_loads(data)
                     if "users" in obj and isinstance(obj["users"], list):
                         users = obj["users"]
@@ -1267,16 +1190,8 @@ class FlipSocialRun:
     def draw_post_view(self, canvas) -> None:
         """Draw the post view"""
         if self.post_status == POST_WAITING:
-            if not self.__post_loading_started:
-                if not self.loading:
-                    from picoware.gui.loading import Loading
-
-                    self.loading = Loading(canvas, TFT_BLACK, TFT_WHITE)
-                    self.__post_loading_started = True
-                    if self.loading:
-                        self.loading.set_text("Posting...")
-                else:
-                    self.loading.set_text("Posting...")
+            if not self.__loading_started:
+                self.__loading_start(canvas, "Posting...")
             if not self.http_request_is_finished():
                 if self.loading:
                     self.loading.animate(False)
@@ -1285,7 +1200,7 @@ class FlipSocialRun:
 
                 if self.loading:
                     self.loading.stop()
-                self.__post_loading_started = False
+                self.__loading_started = False
                 self.keyboard_ran = False
                 keyboard = self.view_manager.keyboard
                 if keyboard:
@@ -1354,23 +1269,20 @@ class FlipSocialRun:
         SCREEN_W = canvas.size.x
         storage = self.view_manager.storage
         data = storage.read("picoware/flip_social/profile.json")
+        vec = Vector(0, 0)
 
         if not data:
-            canvas.text(
-                Vector(SCREEN_W // 2 - 70, 80), "Failed to load user info.", TFT_BLACK
-            )
+            vec.x, vec.y = SCREEN_W // 2 - 70, 80
+            canvas.text(vec, "Failed to load user info.", TFT_BLACK)
             return
 
         username = __flip_social_util_get_username(self.view_manager)
         if not username:
-            canvas.text(
-                Vector(SCREEN_W // 2 - 70, 80), "Failed to load username.", TFT_BLACK
-            )
+            vec.x, vec.y = SCREEN_W // 2 - 70, 80
+            canvas.text(vec, "Failed to load username.", TFT_BLACK)
             return
 
         try:
-            from ujson import loads as json_loads
-
             obj = json_loads(data)
             bio = obj.get("bio", "No bio")
             friends_count = str(obj.get("friends_count", 0))
@@ -1379,20 +1291,22 @@ class FlipSocialRun:
             # Draw title
             title_width = __string_width(username)
             title_x = (SCREEN_W - title_width) // 2
-            canvas.text(Vector(title_x, 25), username, TFT_BLACK)
+            vec.x, vec.y = title_x, 25
+            canvas.text(vec, username, TFT_BLACK)
 
             # Draw underline
-            canvas.line_custom(
-                Vector(title_x, 35), Vector(title_x + title_width, 35), TFT_BLACK
-            )
+            vec.x, vec.y = title_x, 35
+            canvas.line_custom(vec, Vector(title_x + title_width, 35), TFT_BLACK)
 
             # Draw decorative pattern
             for i in range(0, SCREEN_W, 10):
-                canvas.pixel(Vector(i, 45), TFT_BLACK)
+                vec.x, vec.y = i, 45
+                canvas.pixel(vec, TFT_BLACK)
 
             # Profile elements
             menu_y = 100
-            canvas.fill_rectangle(Vector(25, menu_y - 30), Vector(270, 40), TFT_BLACK)
+            vec.x, vec.y = 25, menu_y - 30
+            canvas.fill_rectangle(vec, Vector(270, 40), TFT_BLACK)
 
             # Draw content based on current element
             if self.current_profile_element == PROFILE_ELEMENT_BIO:
@@ -1406,49 +1320,46 @@ class FlipSocialRun:
 
             content_width = __string_width(content)
             content_x = (SCREEN_W - content_width) // 2
-            canvas.text(Vector(content_x, menu_y - 10), content, TFT_WHITE)
+            vec.x, vec.y = content_x, menu_y - 10
+            canvas.text(vec, content, TFT_WHITE)
 
             # Navigation arrows
             if self.current_profile_element > 0:
-                canvas.text(Vector(5, menu_y - 7), "<", TFT_BLACK)
+                vec.x, vec.y = 5, menu_y - 7
+                canvas.text(vec, "<", TFT_BLACK)
             if self.current_profile_element < PROFILE_ELEMENT_MAX - 1:
-                canvas.text(Vector(SCREEN_W - 15, menu_y - 7), ">", TFT_BLACK)
+                vec.x, vec.y = SCREEN_W - 15, menu_y - 7
+                canvas.text(vec, ">", TFT_BLACK)
 
             # Indicator dots
             indicator_y = 130
             dots_spacing = 15
             dots_start_x = (SCREEN_W - (PROFILE_ELEMENT_MAX * dots_spacing)) // 2
+            size_vec = Vector(8, 8)
             for i in range(PROFILE_ELEMENT_MAX):
                 dot_x = dots_start_x + (i * dots_spacing)
+                vec.x, vec.y = dot_x, indicator_y
                 if i == self.current_profile_element:
-                    canvas.fill_rectangle(
-                        Vector(dot_x, indicator_y), Vector(8, 8), TFT_BLACK
-                    )
+                    canvas.fill_rectangle(vec, size_vec, TFT_BLACK)
                 else:
-                    canvas.rect(Vector(dot_x, indicator_y), Vector(8, 8), TFT_BLACK)
+                    canvas.rect(vec, size_vec, TFT_BLACK)
 
             # Draw decorative bottom pattern
             for i in range(0, SCREEN_W, 10):
-                canvas.pixel(Vector(i, 145), TFT_BLACK)
+                vec.x, vec.y = i, 145
+                canvas.pixel(vec, TFT_BLACK)
 
         except Exception as e:
             print(f"Error parsing profile: {e}")
-            canvas.text(Vector(0, 30), "Incomplete profile data.", TFT_BLACK)
+            vec.x, vec.y = 0, 30
+            canvas.text(vec, "Incomplete profile data.", TFT_BLACK)
 
     def draw_registration_view(self, canvas) -> None:
         """Draw the registration view"""
 
         if self.registration_status == REGISTRATION_WAITING:
-            if not self.__registration_loading_started:
-                if not self.loading:
-                    from picoware.gui.loading import Loading
-
-                    self.loading = Loading(canvas, TFT_BLACK, TFT_WHITE)
-                    self.__registration_loading_started = True
-                    if self.loading:
-                        self.loading.set_text("Registering...")
-                else:
-                    self.loading.set_text("Registering...")
+            if not self.__loading_started:
+                self.__loading_start(canvas, "Registering...")
             if not self.http_request_is_finished():
                 if self.loading:
                     self.loading.animate(False)
@@ -1457,7 +1368,7 @@ class FlipSocialRun:
 
                 if self.loading:
                     self.loading.stop()
-                self.__registration_loading_started = False
+                self.__loading_started = False
 
                 if not self.http or self.http.state == HTTP_ISSUE:
                     self.registration_status = REGISTRATION_REQUEST_ERROR
@@ -1497,16 +1408,8 @@ class FlipSocialRun:
     def draw_user_info_view(self, canvas) -> None:
         """Draw the user info view"""
         if self.user_info_status == USER_INFO_WAITING:
-            if not self.__user_info_loading_started:
-                if not self.loading:
-                    from picoware.gui.loading import Loading
-
-                    self.loading = Loading(canvas, TFT_BLACK, TFT_WHITE)
-                    self.__user_info_loading_started = True
-                    if self.loading:
-                        self.loading.set_text("Syncing...")
-                else:
-                    self.loading.set_text("Syncing...")
+            if not self.__loading_started:
+                self.__loading_start(canvas, "Syncing...")
             if not self.http_request_is_finished():
                 if self.loading:
                     self.loading.animate(False)
@@ -1517,7 +1420,7 @@ class FlipSocialRun:
                     self.user_info_status = USER_INFO_REQUEST_ERROR
                     if self.loading:
                         self.loading.stop()
-                    self.__user_info_loading_started = False
+                    self.__loading_started = False
                     return
 
                 if self.http.response:
@@ -1531,7 +1434,7 @@ class FlipSocialRun:
 
                     if self.loading:
                         self.loading.stop()
-                    self.__user_info_loading_started = False
+                    self.__loading_started = False
                     self.current_view = SOCIAL_VIEW_PROFILE
                 else:
                     self.user_info_status = USER_INFO_REQUEST_ERROR
@@ -1559,15 +1462,18 @@ class FlipSocialRun:
 
     def draw_wrapped_bio(self, canvas, text: str, x: int, y: int) -> None:
         """Draw the bio text with wrapping"""
+        vec = Vector(0, 0)
         if not text or len(text) == 0:
-            canvas.text(Vector(64, y + 2), "No bio", TFT_BLACK)
+            vec.x, vec.y = 64, y + 2
+            canvas.text(vec, "No bio", TFT_BLACK)
             return
 
         max_chars_per_line = 18
         text_len = len(text)
 
         if text_len <= max_chars_per_line:
-            canvas.text(Vector(64, y + 2), text, TFT_BLACK)
+            vec.x, vec.y = 64, y + 2
+            canvas.text(vec, text, TFT_BLACK)
             return
 
         # First line
@@ -1596,10 +1502,13 @@ class FlipSocialRun:
             else:
                 line2 = remaining[:line2_len]
 
-            canvas.text(Vector(x, y), line1, TFT_BLACK)
-            canvas.text(Vector(x, y + 8), line2, TFT_BLACK)
+            vec.x, vec.y = x, y
+            canvas.text(vec, line1, TFT_BLACK)
+            vec.y += 8
+            canvas.text(vec, line2, TFT_BLACK)
         else:
-            canvas.text(Vector(x, y), line1, TFT_BLACK)
+            vec.x, vec.y = x, y
+            canvas.text(vec, line1, TFT_BLACK)
 
     def get_message_user(self) -> str:
         """Get the message user at the specified messageUserIndex"""
@@ -1616,8 +1525,6 @@ class FlipSocialRun:
             return ""
 
         try:
-            from ujson import loads as json_loads
-
             obj = json_loads(data)
             if "users" in obj and isinstance(obj["users"], list):
                 users = obj["users"]

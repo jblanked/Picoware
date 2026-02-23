@@ -56,7 +56,7 @@ parameter:
     color : RGB565 color value
 returns: none
 ******************************************************************************/
-void lcd_draw_pixel(uint8_t x, uint8_t y, uint16_t color)
+void lcd_draw_pixel(uint16_t x, uint16_t y, uint16_t color)
 {
     if (x >= LCD_WIDTH || y >= LCD_HEIGHT)
     {
@@ -568,7 +568,7 @@ parameter:
     buffer : Pointer to RGB332 pixel data array (8-bit per pixel)
 returns: none
 ******************************************************************************/
-void lcd_blit(uint8_t x, uint8_t y, uint8_t width, uint8_t height, const uint8_t *buffer)
+void lcd_blit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint8_t *buffer)
 {
     for (uint16_t j = 0; j < height; j++)
     {
@@ -577,6 +577,30 @@ void lcd_blit(uint8_t x, uint8_t y, uint8_t width, uint8_t height, const uint8_t
             if ((x + i) < LCD_WIDTH && (y + j) < LCD_HEIGHT)
             {
                 framebuffer[(y + j) * LCD_WIDTH + (x + i)] = buffer[j * width + i];
+            }
+        }
+    }
+}
+
+/******************************************************************************
+function: Copy an external image buffer into the framebuffer at specified position
+parameter:
+    x      : Top-left X coordinate
+    y      : Top-left Y coordinate
+    width  : Width of the buffer to blit
+    height : Height of the buffer to blit
+    buffer : Pointer to RGB565 pixel data array (16-bit per pixel)
+returns: none
+******************************************************************************/
+void lcd_blit_16bit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint16_t *buffer)
+{
+    for (uint16_t j = 0; j < height; j++)
+    {
+        for (uint16_t i = 0; i < width; i++)
+        {
+            if ((x + i) < LCD_WIDTH && (y + j) < LCD_HEIGHT)
+            {
+                framebuffer[(y + j) * LCD_WIDTH + (x + i)] = lcd_color565_to_332(buffer[j * width + i]);
             }
         }
     }
@@ -599,12 +623,14 @@ parameter:
 returns: none
 note: Can only be called once; subsequent calls are ignored
 ********************************************************************************/
-void lcd_init(bool horizontal)
+void lcd_init(void)
 {
     if (lcd_initialized)
     {
         return; // already initialized
     }
+
+    bool horizontal = true; // default to horizontal mode
 
     // initialize the GPIO
     gpio_init(LCD_RST_PIN);
@@ -967,6 +993,23 @@ void lcd_swap(void)
         uint8_t data[2] = {high_byte, low_byte};
         spi_write_blocking(LCD_SPI_PORT, data, 2);
     }
+}
+
+/******************************************************************************
+function: Draw a triangle outline to the framebuffer
+parameter:
+    x1, y1 : First vertex coordinates
+    x2, y2 : Second vertex coordinates
+    x3, y3 : Third vertex coordinates
+    color  : RGB565 color value
+returns: none
+******************************************************************************/
+void lcd_draw_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color)
+{
+    const uint8_t color_index = lcd_color565_to_332(color);
+    lcd_draw_line(x1, y1, x2, y2, color_index);
+    lcd_draw_line(x2, y2, x3, y3, color_index);
+    lcd_draw_line(x3, y3, x1, y1, color_index);
 }
 
 /******************************************************************************

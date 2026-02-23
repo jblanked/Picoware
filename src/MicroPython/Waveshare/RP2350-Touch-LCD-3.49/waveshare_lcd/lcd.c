@@ -675,6 +675,30 @@ void lcd_blit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uin
     }
 }
 
+/******************************************************************************
+function: Copy an external image buffer into the framebuffer at specified position
+parameter:
+    x      : Top-left X coordinate
+    y      : Top-left Y coordinate
+    width  : Width of the buffer to blit
+    height : Height of the buffer to blit
+    buffer : Pointer to RGB565 pixel data array (16-bit per pixel)
+returns: none
+******************************************************************************/
+void lcd_blit_16bit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint16_t *buffer)
+{
+    for (uint16_t j = 0; j < height; j++)
+    {
+        for (uint16_t i = 0; i < width; i++)
+        {
+            if ((x + i) < LCD_WIDTH && (y + j) < LCD_HEIGHT)
+            {
+                framebuffer[(y + j) * LCD_WIDTH + (x + i)] = lcd_color565_to_332(buffer[j * width + i]);
+            }
+        }
+    }
+}
+
 /********************************************************************************
 function: Get the current backlight brightness level
 parameter: none
@@ -871,6 +895,23 @@ void lcd_swap(void)
 
     // Deselect only after all data is sent
     QSPI_Deselect(qspi);
+}
+
+/******************************************************************************
+function: Draw a triangle outline to the framebuffer
+parameter:
+    x1, y1 : First vertex coordinates
+    x2, y2 : Second vertex coordinates
+    x3, y3 : Third vertex coordinates
+    color  : RGB565 color value
+returns: none
+******************************************************************************/
+void lcd_draw_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color)
+{
+    const uint8_t color_index = lcd_color565_to_332(color);
+    lcd_draw_line(x1, y1, x2, y2, color_index);
+    lcd_draw_line(x2, y2, x3, y3, color_index);
+    lcd_draw_line(x3, y3, x1, y1, color_index);
 }
 
 /******************************************************************************

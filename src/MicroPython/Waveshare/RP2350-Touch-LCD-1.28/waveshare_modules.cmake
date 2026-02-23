@@ -4,7 +4,6 @@
 add_library(usermod_waveshare_lcd INTERFACE)
 
 target_sources(usermod_waveshare_lcd INTERFACE
-    ${CMAKE_CURRENT_LIST_DIR}/waveshare_lcd/waveshare_lcd.c
     ${CMAKE_CURRENT_LIST_DIR}/waveshare_lcd/lcd.c
 )
 
@@ -185,3 +184,42 @@ target_include_directories(usermod_font INTERFACE
 )
 
 target_link_libraries(usermod INTERFACE usermod_font)
+
+# Include lcd module
+add_library(usermod_lcd INTERFACE)
+
+target_sources(usermod_lcd INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../lcd/lcd_mp.c
+)
+
+target_include_directories(usermod_lcd INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../lcd
+)
+
+target_link_libraries(usermod INTERFACE usermod_lcd)
+
+# Include jpeg module
+add_library(usermod_jpeg INTERFACE)
+
+target_sources(usermod_jpeg INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../jpeg/jpegdec_mp.c
+)
+
+target_include_directories(usermod_jpeg INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../jpeg
+)
+
+target_link_libraries(usermod INTERFACE usermod_jpeg)
+
+# Include vt module
+add_library(usermod_vt INTERFACE)
+
+target_sources(usermod_vt INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../vt/vt_mp.c
+)
+
+target_include_directories(usermod_vt INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../vt
+)
+
+target_link_libraries(usermod INTERFACE usermod_vt)

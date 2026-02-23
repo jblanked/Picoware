@@ -33,6 +33,18 @@ rm -rf "$micropython_dir"/modules/response
 # remove font module if it exists
 rm -rf "$micropython_dir"/modules/font
 
+# remove lcd module if it exists
+rm -rf "$micropython_dir"/modules/lcd
+
+# remove JPEGDEC module if it exists
+rm -rf "$micropython_dir"/modules/JPEGDEC
+
+# remove jpeg module if it exists
+rm -rf "$micropython_dir"/modules/jpeg
+
+# remove vt module if it exists
+rm -rf "$micropython_dir"/modules/vt
+
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"
@@ -69,12 +81,30 @@ cp -r "$picoware_dir"/src/MicroPython/response "$micropython_dir"/modules/respon
 # copy font module
 cp -r "$picoware_dir"/src/MicroPython/font "$micropython_dir"/modules/font
 
+# copy lcd module
+cp -r "$picoware_dir"/src/MicroPython/lcd "$micropython_dir"/modules/lcd
+
+# ensure JPEGDEC is installed
+if [ ! -d "$picoware_dir"/src/MicroPython/JPEGDEC ]; then
+    cd "$micropython_dir"/modules
+    git clone https://github.com/bitbank2/JPEGDEC.git
+fi
+
+# copy JPEGDEC module
+cp -r "$picoware_dir"/src/MicroPython/JPEGDEC "$micropython_dir"/modules/JPEGDEC
+
+# copy jpeg module
+cp -r "$picoware_dir"/src/MicroPython/jpeg "$micropython_dir"/modules/jpeg
+
+# copy vt module
+cp -r "$picoware_dir"/src/MicroPython/vt "$micropython_dir"/modules/vt
+
 echo "Starting PicoCalc build process..."
 
 # move to the micropython rp2 port directory
 cd "$micropython_dir"
 
 # PicoCalc - Pico
-make -j BOARD=RPI_PICO USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake
+make -j BOARD=RPI_PICO USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake CFLAGS_EXTRA="-DPICOCALC"
 cp "$micropython_dir"/build-RPI_PICO/firmware.uf2 "$picoware_dir"/builds/MicroPython/Picoware-PicoCalcPico.uf2
 echo "PicoCalc - Pico build complete."

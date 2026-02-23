@@ -5,7 +5,6 @@ add_library(usermod_waveshare_lcd INTERFACE)
 pico_generate_pio_header(usermod_waveshare_lcd ${CMAKE_CURRENT_LIST_DIR}/pio_qspi.pio)
 
 target_sources(usermod_waveshare_lcd INTERFACE
-    ${CMAKE_CURRENT_LIST_DIR}/waveshare_lcd.c
     ${CMAKE_CURRENT_LIST_DIR}/bsp_dma_channel_irq.c
     ${CMAKE_CURRENT_LIST_DIR}/lcd.c
     ${CMAKE_CURRENT_LIST_DIR}/pio_qspi.c

@@ -67,17 +67,17 @@ void vector_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
         // Store attributes
         if (attribute == MP_QSTR_x)
         {
-            self->x = self->integer ? (float)mp_obj_get_int(destination[1]) : mp_obj_get_float(destination[1]);
+            self->x = mp_obj_get_float(destination[1]);
             destination[0] = MP_OBJ_NULL;
         }
         else if (attribute == MP_QSTR_y)
         {
-            self->y = self->integer ? (float)mp_obj_get_int(destination[1]) : mp_obj_get_float(destination[1]);
+            self->y = mp_obj_get_float(destination[1]);
             destination[0] = MP_OBJ_NULL;
         }
         else if (attribute == MP_QSTR_z)
         {
-            self->z = self->integer ? (float)mp_obj_get_int(destination[1]) : mp_obj_get_float(destination[1]);
+            self->z = mp_obj_get_float(destination[1]);
             destination[0] = MP_OBJ_NULL;
         }
     }

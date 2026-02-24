@@ -340,7 +340,7 @@ mp_obj_t jpegdec_mp_del(mp_obj_t self_in)
     self->initialized = false;
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(jpegdec_mp_del_obj, jpegdec_mp_del);
+static MP_DEFINE_CONST_FUN_OBJ_1(jpegdec_mp_del_obj, jpegdec_mp_del);
 
 void jpegdec_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
@@ -376,24 +376,20 @@ mp_obj_t jpegdec_decode(mp_obj_t self_in, mp_obj_t data)
     mp_buffer_info_t inbuf;
     mp_get_buffer_raise(data, &inbuf, MP_BUFFER_READ);
 
+    mp_obj_t res[3];
+    res[0] = mp_const_false;
+    res[1] = mp_obj_new_int(0);
+    res[2] = mp_obj_new_int(0);
+
     if (self->initialized && decode_core1_prepare(0, &_jpeg, inbuf.len, (uint8_t *)inbuf.buf, JPEGDraw) == 1)
     {
         if (DecodeJPEG(&_jpeg) == 1)
         {
-            mp_obj_t res[3] = {
-                mp_const_true,
-                mp_obj_new_int(_jpeg.iWidth),
-                mp_obj_new_int(_jpeg.iHeight)};
-
-            return mp_obj_new_tuple(3, res);
+            res[0] = mp_const_true;
+            res[1] = mp_obj_new_int(_jpeg.iWidth);
+            res[2] = mp_obj_new_int(_jpeg.iHeight);
         }
     }
-
-    mp_obj_t res[3] = {
-        mp_const_false,
-        mp_obj_new_int(0),
-        mp_obj_new_int(0)};
-
     return mp_obj_new_tuple(3, res);
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(jpegdec_decode_obj, jpegdec_decode);
@@ -404,26 +400,22 @@ mp_obj_t jpegdec_decodex2(size_t n_args, const mp_obj_t *args)
     mp_get_buffer_raise(args[1], &inbuf, MP_BUFFER_READ);
     jpeg_param_init(&_jpeg, inbuf.len, (uint8_t *)inbuf.buf, JPEGDrawx2);
 
+    mp_obj_t res[3];
+    res[0] = mp_const_false;
+    res[1] = mp_obj_new_int(0);
+    res[2] = mp_obj_new_int(0);
+
     if (JPEGInit(&_jpeg) == 1)
     {
         _jpeg.iOptions = JPEG_USES_DMA;
         JPEG_setCropArea(&_jpeg, 0, 0, disp_width / 2, disp_height / 2);
         if (DecodeJPEG(&_jpeg) == 1)
         {
-            mp_obj_t res[3] = {
-                mp_const_true,
-                mp_obj_new_int(_jpeg.iWidth),
-                mp_obj_new_int(_jpeg.iHeight)};
-
-            return mp_obj_new_tuple(3, res);
+            res[0] = mp_const_true;
+            res[1] = mp_obj_new_int(_jpeg.iWidth);
+            res[2] = mp_obj_new_int(_jpeg.iHeight);
         }
     }
-
-    mp_obj_t res[3] = {
-        mp_const_false,
-        mp_obj_new_int(0),
-        mp_obj_new_int(0)};
-
     return mp_obj_new_tuple(3, res);
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(jpegdec_decodex2_obj, 2, 2, jpegdec_decodex2);
@@ -574,6 +566,11 @@ mp_obj_t jpegdec_decode_opt(size_t n_args, const mp_obj_t *args)
         ioption = mp_obj_get_int(args[4]);
     }
 
+    mp_obj_t res[3];
+    res[0] = mp_const_false;
+    res[1] = mp_obj_new_int(0);
+    res[2] = mp_obj_new_int(0);
+
     jpeg_param_init(&_jpeg, inbuf.len, (uint8_t *)inbuf.buf, JPEGDraw);
     if (JPEGInit(&_jpeg) == 1)
     {
@@ -583,20 +580,11 @@ mp_obj_t jpegdec_decode_opt(size_t n_args, const mp_obj_t *args)
         JPEG_setCropArea(&_jpeg, clip_x, clip_y, clip_w, clip_h);
         if (DecodeJPEG(&_jpeg) == 1)
         {
-            mp_obj_t res[4] = {
-                mp_const_true,
-                mp_obj_new_int(_jpeg.iWidth),
-                mp_obj_new_int(_jpeg.iHeight)};
-
-            return mp_obj_new_tuple(3, res);
+            res[0] = mp_const_true;
+            res[1] = mp_obj_new_int(_jpeg.iWidth);
+            res[2] = mp_obj_new_int(_jpeg.iHeight);
         }
     }
-
-    mp_obj_t res[3] = {
-        mp_const_false,
-        mp_obj_new_int(0),
-        mp_obj_new_int(0)};
-
     return mp_obj_new_tuple(3, res);
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(jpegdec_decode_opt_obj, 2, 5, jpegdec_decode_opt);
@@ -708,22 +696,22 @@ static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(jpegdec_decode_split_buffer_obj, 4, 4
 mp_obj_t jpegdec_decode_split_wait(mp_obj_t self_in)
 {
     jpegdec_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    mp_obj_t res[4];
     if (!self->initialized)
     {
-        mp_obj_t res[4] = {
-            mp_obj_new_int(-1),
-            mp_obj_new_int(0),
-            mp_obj_new_int(0),
-            mp_obj_new_int(0),
-        };
+        res[0] = mp_obj_new_int(-1);
+        res[1] = mp_obj_new_int(0);
+        res[2] = mp_obj_new_int(0);
+        res[3] = mp_obj_new_int(0);
         return mp_obj_new_tuple(4, res);
     }
-    int result = 0;
+    int result = 1;
     int res1 = INVALID_MESSAGE;
     int res2 = 0;
     int res3 = 0;
     if (core1_running == 1)
     { // core1 is running
+        result = 0;
         res1 = get_message_box();
         res2 = get_message_box2();
         res3 = get_message_box3();
@@ -737,20 +725,12 @@ mp_obj_t jpegdec_decode_split_wait(mp_obj_t self_in)
         res2 = (int)JPEG_msg_core1; // core1 result
         res1 = docode_result;
         core1_running = 0;
-        result = 1;
     }
-    else
-    { // core1 does nothing
-        result = 1;
-    }
-    mp_obj_t res[4] = {
-        mp_obj_new_int(result), // 0: running, 1: done
-        mp_obj_new_int(res1),   // if result==0 : message_box(required filepointer)
-                                // if result==1 : core1 decode result
-        mp_obj_new_int(res2),   // if result==0 : message_box(required datasize)
-        mp_obj_new_int(res3),   // if result==0 : message_box(index information)
-    };
-
+    res[0] = mp_obj_new_int(result); // 0: running, 1: done
+    res[1] = mp_obj_new_int(res1);   // if result==0 : message_box(required filepointer)
+                                     // if result==1 : core1 decode result
+    res[2] = mp_obj_new_int(res2);   // if result==0 : message_box(required datasize)
+    res[3] = mp_obj_new_int(res3);   // if result==0 : message_box(index information)
     return mp_obj_new_tuple(4, res);
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(jpegdec_decode_split_wait_obj, jpegdec_decode_split_wait);
@@ -771,15 +751,11 @@ mp_obj_t jpegdec_getinfo(mp_obj_t self_in, mp_obj_t data)
 
     jpeg_param_init(&_jpeg, iDataSize, pData, JPEGDraw);
     result = JPEGInit(&_jpeg);
-    mp_obj_t res[6] = {
+    mp_obj_t res[3] = {
         mp_obj_new_bool(result == 1),
         mp_obj_new_int(_jpeg.iWidth),
-        mp_obj_new_int(_jpeg.iHeight),
-        mp_obj_new_int((int)(&_jpeg)),
-        mp_obj_new_int(0),
-        mp_obj_new_int(0),
-    };
-    return mp_obj_new_tuple(6, res);
+        mp_obj_new_int(_jpeg.iHeight)};
+    return mp_obj_new_tuple(3, res);
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(jpegdec_getinfo_obj, jpegdec_getinfo);
 

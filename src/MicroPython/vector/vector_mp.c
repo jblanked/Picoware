@@ -11,17 +11,20 @@ void vector_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t 
     mp_obj_print_helper(print, mp_obj_new_int(self->integer ? (int)self->x : self->x), PRINT_REPR);
     mp_print_str(print, ", y=");
     mp_obj_print_helper(print, mp_obj_new_int(self->integer ? (int)self->y : self->y), PRINT_REPR);
+    mp_print_str(print, ", z=");
+    mp_obj_print_helper(print, mp_obj_new_int(self->integer ? (int)self->z : self->z), PRINT_REPR);
     mp_print_str(print, ")");
 }
 
 mp_obj_t vector_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
-    mp_arg_check_num(n_args, n_kw, 2, 3, false);
+    mp_arg_check_num(n_args, n_kw, 2, 4, false);
     vector_mp_obj_t *self = mp_obj_malloc_with_finaliser(vector_mp_obj_t, &vector_mp_type);
     self->base.type = &vector_mp_type;
-    self->integer = n_args == 3 ? mp_obj_is_true(args[2]) : false;
+    self->integer = n_args == 4 ? mp_obj_is_true(args[3]) : false;
     self->x = mp_obj_get_float(args[0]);
     self->y = mp_obj_get_float(args[1]);
+    self->z = n_args > 2 ? mp_obj_get_float(args[2]) : 0.0f;
     return MP_OBJ_FROM_PTR(self);
 }
 
@@ -30,6 +33,7 @@ mp_obj_t vector_mp_del(mp_obj_t self_in)
     vector_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     self->x = 0;
     self->y = 0;
+    self->z = 0;
     self->integer = false;
     return mp_const_none;
 }
@@ -49,6 +53,10 @@ void vector_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
         {
             destination[0] = self->integer ? mp_obj_new_int((int)self->y) : mp_obj_new_float(self->y);
         }
+        else if (attribute == MP_QSTR_z)
+        {
+            destination[0] = self->integer ? mp_obj_new_int((int)self->z) : mp_obj_new_float(self->z);
+        }
         else if (attribute == MP_QSTR___del__)
         {
             destination[0] = MP_OBJ_FROM_PTR(&vector_mp_del_obj);
@@ -65,6 +73,11 @@ void vector_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
         else if (attribute == MP_QSTR_y)
         {
             self->y = self->integer ? (float)mp_obj_get_int(destination[1]) : mp_obj_get_float(destination[1]);
+            destination[0] = MP_OBJ_NULL;
+        }
+        else if (attribute == MP_QSTR_z)
+        {
+            self->z = self->integer ? (float)mp_obj_get_int(destination[1]) : mp_obj_get_float(destination[1]);
             destination[0] = MP_OBJ_NULL;
         }
     }

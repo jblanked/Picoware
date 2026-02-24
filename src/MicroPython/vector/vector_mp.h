@@ -10,6 +10,7 @@ typedef struct
     mp_obj_base_t base;
     float x;
     float y;
+    float z;
     bool integer;
 } vector_mp_obj_t;
 

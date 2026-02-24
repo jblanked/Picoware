@@ -1,27 +1,8 @@
-#include "py/runtime.h"
-#include "py/obj.h"
-#include "py/objarray.h"
-#include "py/mphal.h"
-#include "stdio.h"
-#include <stdlib.h>
-#include <string.h>
-#include <stdbool.h>
-
-#ifndef STATIC
-#define STATIC static
-#endif
-
-typedef struct
-{
-    mp_obj_base_t base;
-    float x;
-    float y;
-    bool integer;
-} vector_mp_obj_t;
+#include "vector_mp.h"
 
 const mp_obj_type_t vector_mp_type;
 
-STATIC void vector_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
+void vector_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
 {
     (void)kind;
     vector_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -33,7 +14,7 @@ STATIC void vector_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_
     mp_print_str(print, ")");
 }
 
-STATIC mp_obj_t vector_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
+mp_obj_t vector_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
     mp_arg_check_num(n_args, n_kw, 2, 3, false);
     vector_mp_obj_t *self = mp_obj_malloc_with_finaliser(vector_mp_obj_t, &vector_mp_type);
@@ -44,7 +25,7 @@ STATIC mp_obj_t vector_mp_make_new(const mp_obj_type_t *type, size_t n_args, siz
     return MP_OBJ_FROM_PTR(self);
 }
 
-STATIC mp_obj_t vector_mp_del(mp_obj_t self_in)
+mp_obj_t vector_mp_del(mp_obj_t self_in)
 {
     vector_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     self->x = 0;
@@ -52,9 +33,9 @@ STATIC mp_obj_t vector_mp_del(mp_obj_t self_in)
     self->integer = false;
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(vector_mp_del_obj, vector_mp_del);
+static MP_DEFINE_CONST_FUN_OBJ_1(vector_mp_del_obj, vector_mp_del);
 
-STATIC void vector_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
+void vector_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
     vector_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     if (destination[0] == MP_OBJ_NULL)
@@ -89,11 +70,11 @@ STATIC void vector_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destinati
     }
 }
 
-STATIC const mp_rom_map_elem_t vector_module_globals_table[] = {
+static const mp_rom_map_elem_t vector_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_vector)},
     {MP_ROM_QSTR(MP_QSTR_Vector), MP_ROM_PTR(&vector_mp_type)},
 };
-STATIC MP_DEFINE_CONST_DICT(vector_module_globals, vector_module_globals_table);
+static MP_DEFINE_CONST_DICT(vector_module_globals, vector_module_globals_table);
 
 MP_DEFINE_CONST_OBJ_TYPE(
     vector_mp_type,

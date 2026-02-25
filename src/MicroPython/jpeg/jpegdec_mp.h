@@ -18,6 +18,7 @@ typedef struct
     mp_obj_base_t base;
     JPEGIMAGE *context;
     bool initialized;
+    bool freed;
 } jpegdec_mp_obj_t;
 
 void jpegdec_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind);                    // print function for the JPEG decoder object
@@ -27,7 +28,6 @@ void jpegdec_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination);  
 
 mp_obj_t jpegdec_decode(mp_obj_t self_in, mp_obj_t data);
 mp_obj_t jpegdec_decodex2(size_t n_args, const mp_obj_t *args);
-mp_obj_t jpegdec_decode_core(size_t n_args, const mp_obj_t *args);
 mp_obj_t jpegdec_decode_core_stat(mp_obj_t self_in);
 mp_obj_t jpegdec_decode_core_wait(size_t n_args, const mp_obj_t *args);
 mp_obj_t jpegdec_decode_opt(size_t n_args, const mp_obj_t *args);

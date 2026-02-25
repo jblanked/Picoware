@@ -18,7 +18,9 @@ class RainColumn:
         self.y = randint(-20, 0)
         self.speed = randint(1, 4)
         self.length = randint(8, 20)
-        self._chars = "01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン"
+        self._chars = (
+            "01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!?#$%@&*[]"
+        )
         self.chars = [choice(self._chars) for _ in range(self.length)]
         self.brightness = [255 - (i * 15) for i in range(self.length)]
         self.pos = Vector(0, 0)

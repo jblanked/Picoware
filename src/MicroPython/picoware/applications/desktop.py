@@ -301,17 +301,22 @@ def run(view_manager) -> None:
             connect_to_saved_wifi(view_manager)
         return
 
-    if is_connected and not view_manager.time.is_set and not _desktop_http.in_progress:
+    if _desktop_time_updated:
+        # time is RTC, so no need to fetch, just pass the updated time
+        _desktop.set_time(_time.time)
+        return
+
+    if (
+        is_connected
+        and not view_manager.time.is_set
+        and _desktop_http is not None
+        and not _desktop_http.in_progress
+    ):
         _desktop_time_updated = False
         _timezone = None  # Reset timezone
         _desktop_http.callback = _http_callback
         # Get timezone from IP location
         _desktop_http.get_async("https://ipwhois.app/json/")
-        return
-
-    if _desktop_time_updated:
-        # time is RTC, so no need to fetch, just pass the updated time
-        _desktop.set_time(_time.time)
 
 
 def stop(view_manager) -> None:

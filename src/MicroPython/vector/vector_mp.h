@@ -16,6 +16,7 @@ typedef struct
 
 extern const mp_obj_type_t vector_mp_type;
 
+void vector_mp_init(vector_mp_obj_t *vector_obj, float x, float y, float z, bool integer);
 void vector_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind);
 mp_obj_t vector_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args);
 mp_obj_t vector_mp_del(mp_obj_t self_in);

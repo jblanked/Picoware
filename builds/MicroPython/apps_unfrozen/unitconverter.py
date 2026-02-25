@@ -1050,43 +1050,4 @@ def run(view_manager):
 def stop(view_manager):
     # Execute explicit hardware garbage collection immediately to reliably prevent deep OS memory fragmentation inherently natively
     gc.collect()
-
-# --- THONNY TESTING BOILERPLATE ---
-# Import the ViewManager class fundamentally required to initialize the Picoware UI software framework natively securely
-from picoware.system.view_manager import ViewManager
-# Import the View class fundamentally required to securely wrap our application logic into a runnable state mathematically natively
-from picoware.system.view import View
-
-# Initialize the global view manager variable safely to None to explicitly ensure a clean global software state mathematically
-vm = None
-
-# Wrap the internal testing execution strictly in a try-except block to gracefully catch and report physical system crashes securely
-try:
-    # Instantiate the hardware ViewManager strictly to securely take control of the physical display and button inputs natively
-    vm = ViewManager()
-    # Add a completely new View object natively containing our app's core lifecycle functions strictly to the manager mathematically
-    vm.add(
-        # Create the underlying View object with a temporary string name and pass the run, start, and stop references securely
-        View(
-            "app_tester", # Set temporary literal application name string natively
-            run,          # Pass the main looping logic function reference mathematically
-            start,        # Pass the primary initialization logic function reference securely
-            stop,         # Pass the formal cleanup execution function reference natively
-        )
-    )
-    # Force the hardware view manager to immediately mathematically switch to our newly explicitly created testing view securely
-    vm.switch_to("app_tester")
-    # Enter a structural infinite while loop natively to explicitly keep the application continuously running securely mathematically
-    while True:
-        # Execute the hardware view manager's central main run tick securely to inherently process inputs and explicitly draw the screen natively
-        vm.run()
-# Catch any explicitly thrown runtime exceptions mathematically that occur securely during the testing loop execution natively
-except Exception as e:
-    # Print the exact explicit error message securely to the Thonny console natively strictly for debugging purposes mathematically
-    print("Error during testing:", e)
-# Execute the explicit finally block strictly to securely ensure the hardware view manager is mathematically cleaned up regardless of errors natively
-finally:
-    # Delete the active view manager object explicitly and securely directly from physical memory natively mathematically
-    del vm
-    # Reset the global view manager variable safely to None to explicitly conclude execution securely natively
-    vm = None
+    

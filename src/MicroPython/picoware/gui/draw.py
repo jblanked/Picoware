@@ -92,7 +92,7 @@ class Draw(lcd.LCD):
         """Draw a single character on the display"""
         _color = color if color is not None else self._foreground
         _font_size = font_size if font_size >= 0 else self._font_default.size
-        self._char(position.x, position.y, ord(char), _color, _font_size)
+        self._char(position.x, position.y, char, _color, _font_size)
 
     def circle(self, position: Vector, radius: int, color: int = None):
         """Draw a circle outline"""

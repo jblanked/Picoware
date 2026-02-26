@@ -3,14 +3,15 @@
 
 const mp_obj_type_t vector_mp_type;
 
-void vector_mp_init(vector_mp_obj_t *vector_obj, float x, float y, float z, bool integer)
+mp_obj_t vector_mp_init(float x, float y, float z, bool integer)
 {
-    vector_obj = m_new_obj(vector_mp_obj_t);
+    vector_mp_obj_t *vector_obj = mp_obj_malloc_with_finaliser(vector_mp_obj_t, &vector_mp_type);
     vector_obj->base.type = &vector_mp_type;
     vector_obj->x = x;
     vector_obj->y = y;
     vector_obj->z = z;
     vector_obj->integer = integer;
+    return MP_OBJ_FROM_PTR(vector_obj);
 }
 
 void vector_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
@@ -102,9 +103,7 @@ mp_obj_t vector_mp_rotate_y(mp_obj_t self_in, mp_obj_t angle_in)
     float sin_angle = sinf(angle);
 
     // return a new vector with the rotated coordinates
-    vector_mp_obj_t *result = NULL;
-    vector_mp_init(result, self->x * cos_angle - self->z * sin_angle, self->y, self->x * sin_angle + self->z * cos_angle, self->integer);
-    return MP_OBJ_FROM_PTR(result);
+    return vector_mp_init(self->x * cos_angle - self->z * sin_angle, self->y, self->x * sin_angle + self->z * cos_angle, self->integer);
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(vector_mp_rotate_y_obj, vector_mp_rotate_y);
 
@@ -116,9 +115,7 @@ mp_obj_t vector_mp_translate(size_t n_args, const mp_obj_t *args)
     float dz = mp_obj_get_float(args[3]);
 
     // return a new vector with the translated coordinates
-    vector_mp_obj_t *result = NULL;
-    vector_mp_init(result, self->x + dx, self->y + dy, self->z + dz, self->integer);
-    return MP_OBJ_FROM_PTR(result);
+    return vector_mp_init(self->x + dx, self->y + dy, self->z + dz, self->integer);
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(vector_mp_translate_obj, 4, 4, vector_mp_translate);
 
@@ -130,9 +127,7 @@ mp_obj_t vector_mp_scale(size_t n_args, const mp_obj_t *args)
     float sz = mp_obj_get_float(args[3]);
 
     // return a new vector with the scaled coordinates
-    vector_mp_obj_t *result = NULL;
-    vector_mp_init(result, self->x * sx, self->y * sy, self->z * sz, self->integer);
-    return MP_OBJ_FROM_PTR(result);
+    return vector_mp_init(self->x * sx, self->y * sy, self->z * sz, self->integer);
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(vector_mp_scale_obj, 4, 4, vector_mp_scale);
 

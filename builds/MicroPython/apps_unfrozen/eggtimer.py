@@ -20,9 +20,9 @@ from picoware.system.wifi import ( # Import WiFi constants for the diagnostic sc
 ) # End WiFi imports
 
 try: # Attempt to import extended keyboard keys
-    from picoware.system.buttons import BUTTON_A, BUTTON_Z, BUTTON_0, BUTTON_9, BUTTON_SPACE, BUTTON_N, BUTTON_T, BUTTON_S, BUTTON_C, BUTTON_M, BUTTON_R # Import alpha-numeric and shortcut keys
+    from picoware.system.buttons import BUTTON_A, BUTTON_Z, BUTTON_0, BUTTON_9, BUTTON_SPACE, BUTTON_N, BUTTON_T, BUTTON_S, BUTTON_C, BUTTON_M, BUTTON_R, BUTTON_D # Import alpha-numeric and shortcut keys
 except ImportError: # Fallback if extended keys are not available
-    BUTTON_A = BUTTON_Z = BUTTON_0 = BUTTON_9 = BUTTON_SPACE = BUTTON_N = BUTTON_T = BUTTON_S = BUTTON_C = BUTTON_M = BUTTON_R = -99 # Assign dummy values to avoid crashes
+    BUTTON_A = BUTTON_Z = BUTTON_0 = BUTTON_9 = BUTTON_SPACE = BUTTON_N = BUTTON_T = BUTTON_S = BUTTON_C = BUTTON_M = BUTTON_R = BUTTON_D = -99 # Assign dummy values to avoid crashes
 
 try: # Attempt to initialize hardware buzzers
     from machine import Pin, PWM # Import Pin and PWM for audio generation
@@ -56,7 +56,7 @@ _EGG_PRESETS = ( # Tuple defining standard egg cooking times
     (10, "Hard+ (10m)") # 10-minute extra hard boil
 ) # End presets tuple
 
-_VERSION = "0.09" # App version string frozen until instructed otherwise
+_VERSION = "0.10" # App version string updated
 
 def get_help_lines(): # Function to dynamically generate help lines to save RAM
     global state # Access global state for the board name
@@ -96,6 +96,7 @@ def get_help_lines(): # Function to dynamically generate help lines to save RAM
         "[N] New Alarm", # Create new alarm
         "[M] Alarm List", # View alarm list
         "[R] Reset Timers", # Reset timers
+        "[D] Diagnostics", # Open diagnostic screen (if enabled)
         "[ESC] Exit App", # Exit application
         "", # Empty line
         "CONTROLS:", # Controls header
@@ -179,10 +180,12 @@ def save_settings(): # Function to commit settings to disk
         json_str = json.dumps(save_data) # Convert dict to JSON string
         if json_str == _last_saved_json: # Check if data actually changed
             state["dirty_save"] = False # Reset save flag
+            gc.collect() # Sweep RAM used by JSON formatting
             return # Exit early to save flash wear
         storage.write(_SETTINGS_FILE, json_str, "w") # Write to persistent file
         _last_saved_json = json_str # Update JSON cache
         state["dirty_save"] = False # Reset save flag
+        gc.collect() # Sweep RAM used by JSON formatting
     except Exception: pass # Ignore save errors silently
 
 def validate_and_load_settings(): # Function to load and migrate settings
@@ -363,6 +366,7 @@ def handle_input_main(button, input_mgr, view_manager, t, c_sec): # Handle dashb
         return # Exit the function immediately
     elif button == BUTTON_H: show_help = True; state["dirty_ui"] = True # Show help
     elif button == BUTTON_O: show_options = True; state["dirty_ui"] = True # Show options
+    elif button == BUTTON_D and state.get("show_diagnostics", False): state["mode"] = "diagnostic"; state["dirty_ui"] = True # Go to diagnostic screen if enabled
     elif button == BUTTON_M: 
         if not state["time_synced"]: state["mode"] = "hardware_warning"; state["msg_origin"] = "main"; state["dirty_ui"] = True # Block entry if NTP missing
         else: state["mode"] = "alarms"; state["cursor_idx"] = 0; state["dirty_ui"] = True # Jump alarms
@@ -539,6 +543,7 @@ INPUT_DISPATCH = { # Map string states to specific input handlers
 
 def draw_diagnostic(view_manager, draw, screen_w, screen_h, theme_color, bg_color): # Render the diagnostic screen
     global state # Access the global state dictionary
+    import gc # Import garbage collector to calculate live memory stats
     wifi = view_manager.wifi # Get the WiFi manager instance from the view manager
     
     draw.text(Vector(10, 10), "SYSTEM DIAGNOSTICS", TFT_WHITE) # Draw the header text at the top left
@@ -546,32 +551,49 @@ def draw_diagnostic(view_manager, draw, screen_w, screen_h, theme_color, bg_colo
     
     validate_hardware_and_time(view_manager) # Update the hardware logic natively
     
+    try: # Safely attempt to read OS firmware info natively
+        import os # Import OS bindings
+        fw_ver = os.uname().release[:16] # Truncate to fit safely on the screen
+    except Exception:
+        fw_ver = "Unknown" # Fallback if firmware info is inaccessible
+        
+    b_name = state.get("board_name", "Unknown")[:16] # Get hardware string safely and limit length
+    
+    # --- RENDER SYSTEM INFORMATION ---
+    draw.text(Vector(10, 40), f"App Ver : v{_VERSION}", TFT_LIGHTGREY) # Draw the current application version
+    draw.text(Vector(10, 56), f"Firmware: {fw_ver}", TFT_LIGHTGREY) # Draw the Picoware OS version
+    
+    ram_u = gc.mem_alloc() // 1024 # Calculate currently used RAM in KB
+    ram_f = gc.mem_free() // 1024 # Calculate remaining free RAM in KB
+    draw.text(Vector(10, 72), f"RAM: {ram_u}KB Used / {ram_f}KB Free", TFT_LIGHTGREY) # Draw live RAM stats
+    
+    # --- RENDER HARDWARE & NETWORK STATUS ---
     hw_col = TFT_GREEN if state["has_hardware"] else TFT_RED # Choose green if hardware exists, else red
-    b_name = state.get("board_name", "Unknown")[:14] # Get string safely and limit length to fit on screen
-    hw_txt = f"HW: OK ({b_name})" if state["has_hardware"] else f"HW: MISSING ({b_name})" # Set the hardware status text to include board name
-    draw.text(Vector(10, 50), hw_txt, hw_col) # Draw the hardware status on the screen
+    hw_txt = f"HW: OK ({b_name})" if state["has_hardware"] else f"HW: MISSING ({b_name})" # Set the hardware status text
+    draw.text(Vector(10, 96), hw_txt, hw_col) # Draw the hardware status on the screen
     
     if state["has_hardware"]: # Protect against crashing un-supported dummy modules
         ws = wifi.status() # Fetch the current WiFi connection status
         if ws == WIFI_STATE_CONNECTED: # Check if WiFi is actively connected
-            ip_str = wifi.device_ip if wifi.device_ip else "Unknown IP" # Safely fetch the IP address or fallback to prevent concatenation errors
-            draw.text(Vector(10, 70), "WiFi: Connected (" + ip_str + ")", TFT_GREEN) # Draw the connected status and IP
+            ip_str = wifi.device_ip if wifi.device_ip else "Unknown IP" # Safely fetch the IP address
+            draw.text(Vector(10, 112), f"WiFi: Connected ({ip_str})", TFT_GREEN) # Draw the connected status and IP
         elif ws == WIFI_STATE_CONNECTING: # Check if WiFi is currently trying to connect
-            draw.text(Vector(10, 70), "WiFi: Connecting...", TFT_YELLOW) # Draw the connecting progress status
+            draw.text(Vector(10, 112), "WiFi: Connecting...", TFT_YELLOW) # Draw the connecting progress status
         elif ws in (WIFI_STATE_ISSUE, WIFI_STATE_TIMEOUT): # Check if WiFi encountered an error
-            draw.text(Vector(10, 70), "WiFi: Connection Error", TFT_RED) # Draw the connection error status
+            draw.text(Vector(10, 112), "WiFi: Connection Error", TFT_RED) # Draw the connection error status
         else: # Handle any other WiFi states like idle or disconnected
-            draw.text(Vector(10, 70), "WiFi: Idle/Disconnected", TFT_WHITE) # Draw the idle status
+            draw.text(Vector(10, 112), "WiFi: Idle/Disconnected", TFT_WHITE) # Draw the idle status
     else:
-        draw.text(Vector(10, 70), "WiFi: Not Available", TFT_RED) # Display failure if hardware is missing
+        draw.text(Vector(10, 112), "WiFi: Not Available", TFT_RED) # Display failure if hardware is missing
         
     sync_col = TFT_GREEN if state["time_synced"] else TFT_RED # Choose green if time is synced, else red
     sync_txt = "NTP Time: SYNCED" if state["time_synced"] else "NTP Time: NOT SET" # Set the NTP status text
-    draw.text(Vector(10, 90), sync_txt, sync_col) # Draw the NTP status on the screen
+    draw.text(Vector(10, 128), sync_txt, sync_col) # Draw the NTP status on the screen
     
+    # --- RENDER FOOTER HINTS ---
     draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), theme_color) # Draw a horizontal footer line
     draw.text(Vector(5, screen_h - 32), "[ENT] Start  [RHT] Sync NTP", TFT_WHITE) # Draw the footer instruction hints for the user
-    draw.text(Vector(5, screen_h - 15), "[ESC/BCK] Exit App", TFT_LIGHTGREY) # Add the missing exit visual hint
+    draw.text(Vector(5, screen_h - 15), "[ESC/BCK] Exit App", TFT_LIGHTGREY) # Provide exit visual hint
 
 def draw_modals(view_manager, draw, screen_w, screen_h, theme_color, bg_color): # Render errors and popups
     global state # Access state
@@ -706,7 +728,11 @@ def draw_main(view_manager, draw, screen_w, screen_h, theme_color, bg_color): # 
             draw.rect(Vector(160, r_y - 2), Vector(60, r_height), b_col) # Draw badge box outline
             draw.text(Vector(170, r_y + 1), cnt, badge_col) # Draw badge text internally
             
-    draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), theme_color); draw.text(Vector(5, screen_h - 32), "[M]List [N]New [O]Opt [ESC]Exit", theme_color); draw.text(Vector(5, screen_h - 15), "[UP/DN]Nav [ENT]Select", TFT_LIGHTGREY) # Footers
+    draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), theme_color) # Footer line
+    draw.text(Vector(5, screen_h - 32), "[M]List [N]New [O]Opt [ESC]Exit", theme_color) # Top hint row
+    
+    hint_row_2 = "[UP/DN]Nav [ENT]Select" + ("  [D]Diag" if state.get("show_diagnostics", False) else "") # Conditionally append D shortcut
+    draw.text(Vector(5, screen_h - 15), hint_row_2, TFT_LIGHTGREY) # Bottom hint row
 
 def draw_alarms(view_manager, draw, screen_w, screen_h, theme_color, bg_color): # Render alarms list
     global state # Access state
@@ -775,11 +801,14 @@ def process_input(button, input_mgr, view_manager, t, c_sec): # Core lightweight
     if show_help: # Overlay logic layer takes priority
         if button in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_H): # Dismiss help
             show_help = False; help_scroll = 0; state["dirty_ui"] = True # Reset scroll and close
+            gc.collect() # Instantly sweep RAM after closing the massive text list
         elif button == BUTTON_DOWN: help_scroll += 1; state["dirty_ui"] = True # Scroll down
         elif button == BUTTON_UP: help_scroll = max(0, help_scroll - 1); state["dirty_ui"] = True # Scroll up
         input_mgr.reset(); return # Exit out of standard handlers
     elif show_options: # Overlay logic layer takes priority
-        if button in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER): show_options = False; state["dirty_ui"] = True; queue_save() # Dismiss
+        if button in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER): 
+            show_options = False; state["dirty_ui"] = True; queue_save() # Dismiss
+            gc.collect() # Instantly sweep RAM after destroying the heavy options UI
         elif button == BUTTON_DOWN: state["options_cursor_idx"] = (state["options_cursor_idx"] + 1) % 7; state["dirty_ui"] = True # Down
         elif button == BUTTON_UP: state["options_cursor_idx"] = (state["options_cursor_idx"] - 1) % 7; state["dirty_ui"] = True # Up
         elif button == BUTTON_RIGHT: # Increment value

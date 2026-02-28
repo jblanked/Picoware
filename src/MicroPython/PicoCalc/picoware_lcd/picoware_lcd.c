@@ -914,6 +914,38 @@ void lcd_set_mode(uint8_t mode)
     lcd_mode = mode;
 }
 
+void lcd_psram(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint32_t addr)
+{
+    if (!psram_initialized)
+        return;
+
+    if (x >= DISPLAY_WIDTH || y >= DISPLAY_HEIGHT)
+        return;
+
+    uint32_t row_bytes = (uint32_t)width * 2;
+    uint16_t lcd_row_buffer[width];
+
+    for (uint16_t row = 0; row < height; row++)
+    {
+        uint16_t cur_y = y + row;
+        if (cur_y >= DISPLAY_HEIGHT)
+            break;
+
+        uint32_t src_offset = row * row_bytes;
+        uint32_t remaining = row_bytes, off = 0;
+        while (remaining > 0)
+        {
+            uint32_t chunk = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
+            psram_qspi_read(&psram_instance, addr + src_offset + off,
+                            (uint8_t *)lcd_row_buffer + off, chunk);
+            off += chunk;
+            remaining -= chunk;
+        }
+
+        lcd_blit_16bit(x, cur_y, width, 1, lcd_row_buffer);
+    }
+}
+
 psram_qspi_inst_t *picoware_get_psram_instance(void)
 {
     return psram_initialized ? &psram_instance : NULL;

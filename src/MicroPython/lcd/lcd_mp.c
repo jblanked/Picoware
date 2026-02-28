@@ -332,6 +332,32 @@ mp_obj_t lcd_mp_pixel(size_t n_args, const mp_obj_t *args)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_pixel_obj, 4, 4, lcd_mp_pixel);
 
+mp_obj_t lcd_mp_psram(size_t n_args, const mp_obj_t *args)
+{
+    // Arguments: self, x, y, width, height, addr
+    if (n_args != 6)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("psram requires 6 arguments: self, x, y, width, height, addr"));
+    }
+
+    lcd_mp_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    if (!self->initialized)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
+    }
+
+#ifdef LCD_MP_PSRAM
+    uint16_t x = mp_obj_get_int(args[1]);
+    uint16_t y = mp_obj_get_int(args[2]);
+    uint16_t width = mp_obj_get_int(args[3]);
+    uint16_t height = mp_obj_get_int(args[4]);
+    uint32_t addr = mp_obj_get_int(args[5]);
+    LCD_MP_PSRAM(x, y, width, height, addr);
+#endif
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_psram_obj, 6, 6, lcd_mp_psram);
+
 mp_obj_t lcd_mp_rectangle(size_t n_args, const mp_obj_t *args)
 {
     // Arguments: self, x, y, width, height, color
@@ -453,6 +479,7 @@ STATIC const mp_rom_map_elem_t lcd_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR__bytearray), MP_ROM_PTR(&lcd_mp_image_bytearray_obj)},                 // self._bytearray()
     {MP_ROM_QSTR(MP_QSTR__line), MP_ROM_PTR(&lcd_mp_line_obj)},                                 // self._line()
     {MP_ROM_QSTR(MP_QSTR__pixel), MP_ROM_PTR(&lcd_mp_pixel_obj)},                               // self._pixel()
+    {MP_ROM_QSTR(MP_QSTR__psram), MP_ROM_PTR(&lcd_mp_psram_obj)},                               // self._psram()
     {MP_ROM_QSTR(MP_QSTR__rectangle), MP_ROM_PTR(&lcd_mp_rectangle_obj)},                       // self._rectangle()
     {MP_ROM_QSTR(MP_QSTR_set_mode), MP_ROM_PTR(&lcd_mp_set_mode_obj)},                          // self.set_mode()
     {MP_ROM_QSTR(MP_QSTR_swap), MP_ROM_PTR(&lcd_mp_swap_obj)},                                  // self.swap()

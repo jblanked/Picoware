@@ -35,6 +35,9 @@ void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color, Fon
 
 void lcd_set_mode(uint8_t mode);
 
+// reads from a PSRAM address and writes to the LCD
+void lcd_psram(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint32_t addr);
+
 // External PSRAM instance access
 extern psram_qspi_inst_t *picoware_get_psram_instance(void);
 

@@ -399,6 +399,10 @@ class Draw(lcd.LCD):
         _color = color if color is not None else self._foreground
         self._pixel(position.x, position.y, _color)
 
+    def psram(self, position: Vector, size: Vector, addr: int):
+        """Draw pixel data directly from PSRAM at the specified address and length"""
+        self._psram(position.x, position.y, size.x, size.y, addr)
+
     def rect(self, position: Vector, size: Vector, color=None):
         """Draw a rectangle outline on the display"""
         if size.x <= 0 or size.y <= 0:

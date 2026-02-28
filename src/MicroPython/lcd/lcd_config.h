@@ -17,6 +17,7 @@
 #define LCD_MP_BLIT_16BIT lcd_blit_16bit
 #define LCD_MP_LINE lcd_draw_line
 #define LCD_MP_PIXEL lcd_draw_pixel
+#define LCD_MP_PSRAM lcd_psram
 #define LCD_MP_RECTANGLE lcd_draw_rect
 #define LCD_MP_SET_MODE lcd_set_mode
 #define LCD_MP_SWAP lcd_swap

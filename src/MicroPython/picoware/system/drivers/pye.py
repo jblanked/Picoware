@@ -449,6 +449,7 @@ class Editor:
         pos = len(res)
         del_all = True
         mouse_last = None
+        self.io_device._render_terminal()
         while True:
             key, char = self.get_input()
             if key == KEY_NONE:
@@ -1257,7 +1258,7 @@ class Editor:
             key = self.handle_edit_keys(key, char)
             if key == KEY_QUIT:
                 if self.hash != self.hash_buffer():
-                    res = self.line_edit("Save changes? (y/N/f): ", "N")
+                    res = self.line_edit("Save changes? (Y/n/f): ", "Y")
                     if res and res[0].upper() == "Y":
                         # Try to save the file
                         fname = self.fname if self.fname and not self.is_dir else None

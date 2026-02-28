@@ -35,6 +35,21 @@ try:
 except Exception:
     buzzer = None
 
+def track_ram(func):
+    def wrapper(*args, **kwargs):
+        import gc
+        gc.collect()  # Clean up before starting
+        start_mem = gc.mem_alloc()
+        
+        result = func(*args, **kwargs)  # Run your actual function
+        
+        end_mem = gc.mem_alloc()
+        diff = end_mem - start_mem
+        print(f"[RAM TRACKER] {func.__name__} added: {diff} bytes")
+        
+        return result
+    return wrapper
+
 show_options = False
 help_scroll = 0
 _last_saved_json = ""
@@ -189,6 +204,7 @@ def queue_save():
         state["dirty_save"] = True
         state["save_timer"] = 60
 
+@track_ram
 def save_settings():
     global _last_saved_json, state, storage
     if not storage or not state: return
@@ -204,6 +220,7 @@ def save_settings():
         state["dirty_save"] = False
     except Exception: pass
 
+@track_ram
 def validate_and_load_settings():
     global state, _last_saved_json, storage
     if storage and storage.exists(_SETTINGS_FILE):
@@ -534,6 +551,7 @@ INPUT_DISPATCH = {
     "invalid_date_format": handle_input_modals
 }
 
+@track_ram
 def draw_diagnostic(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
     global state
     sys_inst = System()
@@ -646,6 +664,7 @@ def draw_countdown(view_manager, draw, screen_w, screen_h, theme_color, bg_color
         draw.text(Vector(st_x + 140, 70), f"{state['cd_s']:02d}", c2, 4)
         draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), theme_color); draw.text(Vector(5, screen_h - 32), "[L/R]Sel [U/D]Adj [ENT]Go [R]Rst", theme_color)
 
+@track_ram
 def draw_main(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
     global state
     c_idx = state["cursor_idx"]
@@ -693,6 +712,7 @@ def draw_main(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
     draw.text(Vector(5, screen_h - 32), "[M]List [N]New [O]Opt [ESC]Exit", theme_color)
     draw.text(Vector(5, screen_h - 15), "[UP/DN]Nav [ENT]Select" + ("  [D]Diag" if state.get("show_diagnostics", False) else ""), TFT_LIGHTGREY)
 
+@track_ram
 def draw_alarms(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
     global state
     c_idx = state["cursor_idx"]; list_len = len(state["alarms"]) + 1
@@ -791,6 +811,7 @@ def process_input(button, input_mgr, view_manager, t, c_sec):
     if handler: handler(button, input_mgr, view_manager, t, c_sec)
     input_mgr.reset()
 
+@track_ram
 def draw_view(view_manager):
     global help_scroll
     draw = view_manager.draw; screen_w = draw.size.x; screen_h = draw.size.y
@@ -832,7 +853,7 @@ def draw_view(view_manager):
 
     draw.swap(); state["dirty_ui"] = False
 
-
+@track_ram
 def start(view_manager):
     global storage, state, show_help, show_options, help_box, _last_saved_json
     
@@ -857,6 +878,7 @@ def start(view_manager):
     state["last_s"] = -1
     return True
 
+@track_ram
 def run(view_manager):
     global state
     draw = view_manager.draw; input_mgr = view_manager.input_manager; button = input_mgr.button

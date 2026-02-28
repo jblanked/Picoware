@@ -551,7 +551,6 @@ INPUT_DISPATCH = {
     "invalid_date_format": handle_input_modals
 }
 
-@track_ram
 def draw_diagnostic(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
     global state
     sys_inst = System()
@@ -853,7 +852,6 @@ def draw_view(view_manager):
 
     draw.swap(); state["dirty_ui"] = False
 
-@track_ram
 def start(view_manager):
     global storage, state, show_help, show_options, help_box, _last_saved_json
     
@@ -878,7 +876,6 @@ def start(view_manager):
     state["last_s"] = -1
     return True
 
-@track_ram
 def run(view_manager):
     global state
     draw = view_manager.draw; input_mgr = view_manager.input_manager; button = input_mgr.button

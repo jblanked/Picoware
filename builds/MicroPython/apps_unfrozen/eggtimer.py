@@ -174,7 +174,14 @@ egg_end = 0
 cd_end = 0
 snooze_epoch = 0
 
-cd_h = 0; cd_m = 0; cd_s = 0
+# Initialize the countdown timer hours variable to zero
+cd_h = 0
+# Initialize the countdown timer minutes variable to zero
+cd_m = 0
+# Initialize the countdown timer seconds variable to zero
+cd_s = 0
+# Initialize the countdown cursor position to the first slot (hours)
+cd_cursor = 0
 
 last_s = -1
 last_trig_m = -1
@@ -855,10 +862,10 @@ def draw_view(view_manager):
 
 # Define the start function that executes when the app is launched
 def start(view_manager):
-    # Declare standard global variables needed for UI overlays and storage
+# Declare standard global variables needed for UI overlays and storage
     global storage, show_help, show_options
-    # Declare global state variables needed to boot the main loop
-    global settings, current_mode, dirty_ui, last_s
+    # Declare global state variables needed to boot the main loop, including the new cursor
+    global settings, current_mode, dirty_ui, last_s, cd_cursor
     
     # Re-initialize the lightweight settings dictionary fresh on boot
     settings = {
@@ -905,6 +912,8 @@ def start(view_manager):
     dirty_ui = True
     # Reset the last second tracker so the clock logic fires immediately
     last_s = -1
+    # Reset the countdown cursor to the first slot so it is fresh on boot
+    cd_cursor = 0
     # Return True to signal to the OS that the app started successfully
     return True
 

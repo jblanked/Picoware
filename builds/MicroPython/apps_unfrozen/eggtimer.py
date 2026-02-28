@@ -870,8 +870,11 @@ def run(view_manager):
     if state is None: return
     
     if state["dirty_save"] and button == -1:
-        if state["save_timer"] > 0: state["save_timer"] -= 1
-        else: save_settings()
+        if state["save_timer"] > 0: 
+            state["save_timer"] -= 1
+        else: 
+            # Send the save function through our RAM profiler
+            profile_ram("save_settings", save_settings)
         
     if state["dirty_ui"]: draw_view(view_manager)
 

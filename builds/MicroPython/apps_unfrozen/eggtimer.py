@@ -78,8 +78,15 @@ _cached_help_lines = []
 
 def get_help_lines():
     global board_name, _cached_help_lines
+    import gc
     
+    # Sweep temporary garbage to get an accurate live baseline
+    gc.collect() 
+    ram_str = f"RAM: {gc.mem_alloc() // 1024}KB / {gc.mem_free() // 1024}KB"
+    
+    # If the cache exists, just surgically update the RAM line (Index 5)
     if _cached_help_lines:
+        _cached_help_lines[5] = ram_str
         return _cached_help_lines
         
     b_name = board_name[:18]
@@ -91,6 +98,7 @@ def get_help_lines():
         "DEBUG INFO:",
         f"Board: {b_name}",
         f"FW: {hw_fw}",
+        ram_str, # <--- Live RAM sits at Index 5
         "",
         "CREDITS:",
         "made by Slasher006",
@@ -566,22 +574,28 @@ INPUT_DISPATCH = {
 
 def draw_diagnostic(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
     global board_name, has_hardware, settings
-    sys_inst = System()
+    import gc
+    
     draw.text(Vector(10, 10), "SYSTEM DIAGNOSTICS", TFT_WHITE)
     draw.fill_rectangle(Vector(0, 30), Vector(screen_w, 2), TFT_WHITE)
+    
     fw_ver = os.uname().release[:16] if hasattr(os, "uname") else "Unknown"
     b_name = board_name[:16] 
+    
     draw.text(Vector(10, 40), f"App Ver : v{_VERSION}", TFT_LIGHTGREY)
     draw.text(Vector(10, 56), f"Firmware: {fw_ver}", TFT_LIGHTGREY)
-    try:
-        ram_u = sys_inst.used_heap // 1024 if hasattr(sys_inst, 'used_heap') else gc.mem_alloc() // 1024
-        ram_f = sys_inst.free_heap // 1024 if hasattr(sys_inst, 'free_heap') else gc.mem_free() // 1024
-    except Exception:
-        ram_u = gc.mem_alloc() // 1024; ram_f = gc.mem_free() // 1024
+    
+    # Force a garbage sweep and grab the exact, live Python heap numbers
+    gc.collect()
+    ram_u = gc.mem_alloc() // 1024
+    ram_f = gc.mem_free() // 1024
+        
     draw.text(Vector(10, 72), f"RAM: {ram_u}KB Used / {ram_f}KB Free", TFT_LIGHTGREY)
+    
     hw_col = TFT_GREEN if has_hardware else TFT_RED
     hw_txt = f"HW: OK ({b_name})" if has_hardware else f"HW: MISSING ({b_name})"
     draw.text(Vector(10, 96), hw_txt, hw_col)
+    
     draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), theme_color)
     draw.text(Vector(5, screen_h - 32), "[ENT] Start", TFT_WHITE)
     draw.text(Vector(5, screen_h - 15), "[ESC/BCK] Exit App", TFT_LIGHTGREY)

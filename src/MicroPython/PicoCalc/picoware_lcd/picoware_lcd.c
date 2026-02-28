@@ -946,6 +946,25 @@ void lcd_psram(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint32_t
     }
 }
 
+bool lcd_psram_read_row(uint32_t addr, uint16_t row, uint16_t width, uint16_t *dst)
+{
+    if (!psram_initialized || !dst)
+        return false;
+
+    uint32_t row_bytes = (uint32_t)width * 2;
+    uint32_t row_addr = addr + (uint32_t)row * row_bytes;
+    uint32_t remaining = row_bytes, off = 0;
+    while (remaining > 0)
+    {
+        uint32_t chunk = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
+        psram_qspi_read(&psram_instance, row_addr + off,
+                        (uint8_t *)dst + off, chunk);
+        off += chunk;
+        remaining -= chunk;
+    }
+    return true;
+}
+
 psram_qspi_inst_t *picoware_get_psram_instance(void)
 {
     return psram_initialized ? &psram_instance : NULL;

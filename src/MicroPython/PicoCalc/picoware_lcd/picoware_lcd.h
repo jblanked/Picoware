@@ -38,6 +38,10 @@ void lcd_set_mode(uint8_t mode);
 // reads from a PSRAM address and writes to the LCD
 void lcd_psram(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint32_t addr);
 
+// reads one row of 16-bit pixels from a PSRAM address into a caller-provided buffer
+// returns true on success, false if PSRAM is not initialized
+bool lcd_psram_read_row(uint32_t addr, uint16_t row, uint16_t width, uint16_t *dst);
+
 // External PSRAM instance access
 extern psram_qspi_inst_t *picoware_get_psram_instance(void);
 

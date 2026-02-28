@@ -18,6 +18,7 @@
 #define LCD_MP_LINE lcd_draw_line
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_PSRAM lcd_psram
+#define LCD_MP_PSRAM_READ_ROW lcd_psram_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
 #define LCD_MP_SET_MODE lcd_set_mode
 #define LCD_MP_SWAP lcd_swap

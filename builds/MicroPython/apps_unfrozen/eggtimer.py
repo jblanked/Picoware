@@ -159,6 +159,27 @@ show_options = False
 help_box = None
 sys_time = time # Create a global fallback mapping to the standard time module
 
+
+def profile_ram(func_name, target_function, *args, **kwargs):
+    # Force a deep cleanup to get a completely flat baseline
+    gc.collect()
+    
+    # Record the exact number of bytes currently allocated in the heap
+    start_mem = gc.mem_alloc()
+    
+    # Execute the target view function
+    target_function(*args, **kwargs)
+    
+    # Record the exact number of bytes allocated after the function finishes
+    end_mem = gc.mem_alloc()
+    
+    # Calculate the total bytes added to RAM by this function
+    diff = end_mem - start_mem
+    
+    # Print the result to the Thonny console
+    print(f"[RAM LOG] View '{func_name}' consumed: {diff} bytes")
+
+
 def rgb_to_565(r, g, b):
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
 
@@ -805,9 +826,12 @@ def draw_view(view_manager):
         draw.text(Vector(5, screen_h - 20), "[L/R] Edit  [ENT] Close", TFT_WHITE)
     else:
         handler = VIEW_DISPATCH.get(state["mode"])
-        if handler: handler(view_manager, draw, screen_w, screen_h, theme_color, bg_color)
+        if handler: 
+            # Send the rendering through our RAM profiler instead of calling it directly
+            profile_ram(state["mode"], handler, view_manager, draw, screen_w, screen_h, theme_color, bg_color)
 
     draw.swap(); state["dirty_ui"] = False
+
 
 def start(view_manager):
     global storage, state, show_help, show_options, help_box, _last_saved_json
@@ -870,3 +894,30 @@ def stop(view_manager):
     VIEW_DISPATCH = None
     import gc
     gc.collect()
+
+# your start, run, stop functions here
+
+# add this at the bottom of your app for testing
+from picoware.system.view_manager import ViewManager
+from picoware.system.view import View
+
+vm = None
+
+try:
+    vm = ViewManager()
+    vm.add(
+        View(
+            "app_tester",
+            run,
+            start,
+            stop,
+        )
+    )
+    vm.switch_to("app_tester")
+    while True:
+        vm.run()
+except Exception as e:
+    print("Error during testing:", e)
+finally:
+    del vm
+    vm = None

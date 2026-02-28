@@ -45,6 +45,9 @@ rm -rf "$micropython_dir"/modules/jpeg
 # remove vt module if it exists
 rm -rf "$micropython_dir"/modules/vt
 
+# remove engine module if it exists
+rm -rf "$micropython_dir"/modules/engine
+
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"
@@ -103,6 +106,9 @@ cp -r "$picoware_dir"/src/MicroPython/jpeg "$micropython_dir"/modules/jpeg
 
 # copy vt module
 cp -r "$picoware_dir"/src/MicroPython/vt "$micropython_dir"/modules/vt
+
+# copy engine module
+cp -r "$picoware_dir"/src/MicroPython/engine "$micropython_dir"/modules/engine
 
 echo "Starting Waveshare 1.28 build process..."
 

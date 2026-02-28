@@ -311,3 +311,22 @@ target_include_directories(usermod_vt INTERFACE
 )
 
 target_link_libraries(usermod INTERFACE usermod_vt) 
+
+# Include engine module
+add_library(usermod_engine INTERFACE)
+
+target_sources(usermod_engine INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/camera_mp.c
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/engine_mp.c
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/entity_mp.c
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/game_mp.c
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/level_mp.c
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/sprite3d_mp.c
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/triangle3d_mp.c
+)
+
+target_include_directories(usermod_engine INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../engine
+)
+
+target_link_libraries(usermod INTERFACE usermod_engine) 

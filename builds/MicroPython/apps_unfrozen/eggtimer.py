@@ -116,62 +116,72 @@ def get_help_lines():
     ]
     return _cached_help_lines
 
-DEFAULT_STATE = {
-    "theme_idx": 0,
-    "bg_r": 0,
-    "bg_g": 0,
-    "bg_b": 0,
-    "use_12h": False,
-    "snooze_min": 5,
-    "show_diagnostics": False,
-    "alarms": [],
-    "egg_preset": 1,
-    "egg_end": 0,
-    "sw_run": False,
-    "sw_start": 0,
-    "sw_accum": 0,
-    "last_sw_ms": 0,
-    "cd_h": 0,
-    "cd_m": 0,
-    "cd_s": 0,
-    "cd_cursor": 0,
-    "cd_end": 0,
-    "mode": "main",
-    "origin": "main",
-    "msg_origin": "main",
-    "cursor_idx": 0,
-    "options_cursor_idx": 0,
-    "edit_idx": -1,
-    "tmp_daily": False,
-    "tmp_y": 2026,
-    "tmp_mo": 1,
-    "tmp_d": 1,
-    "date_cursor": 0,
-    "tmp_h": 12,
-    "tmp_m": 0,
-    "tmp_label": "",
-    "tmp_audible": True,
-    "ringing_idx": -1,
-    "snooze_epoch": 0,
-    "snooze_idx": -1,
-    "snooze_count": 0,
-    "last_s": -1,
-    "last_trig_m": -1,
-    "dirty_ui": True,
-    "ring_flash": False,
-    "dirty_save": False,
-    "save_timer": 0,
-    "del_confirm_yes": False,
-    "clear_confirm_yes": False,
-    "has_hardware": True,
-    "board_name": "Unknown"
+# --- VIEW MODE CONSTANTS ---
+MODE_MAIN = 0
+MODE_ALARMS = 1
+MODE_EGG = 2
+MODE_STOPWATCH = 3
+MODE_COUNTDOWN = 4
+MODE_OPTIONS = 5
+MODE_HELP = 6
+MODE_DIAGNOSTIC = 7
+MODE_RING = 8
+MODE_EDIT_TYPE = 10
+MODE_EDIT_DATE = 11
+MODE_EDIT_H = 12
+MODE_EDIT_M = 13
+MODE_EDIT_L = 14
+MODE_EDIT_AUD = 15
+MODE_CONFIRM_DEL = 20
+MODE_CONFIRM_CLR = 21
+MODE_ERR_TIME = 22
+MODE_ERR_DATE = 23
+
+# --- PERSISTENT SETTINGS ---
+settings = {
+    "theme_idx": 0, "bg_r": 0, "bg_g": 0, "bg_b": 0,
+    "use_12h": False, "snooze_min": 5, "show_diagnostics": False, "alarms": []
 }
 
-state = None
+# --- VOLATILE UI GLOBALS ---
+current_mode = MODE_MAIN
+origin_mode = MODE_MAIN
+msg_origin = MODE_MAIN
+
+dirty_ui = True
+dirty_save = False
+save_timer = 0
+
+cursor_idx = 0
+options_cursor_idx = 0
+date_cursor = 0
+
+sw_run = False
+sw_start = 0
+sw_accum = 0
+last_sw_ms = 0
+
+egg_preset = 1
+egg_end = 0
+cd_end = 0
+snooze_epoch = 0
+
+cd_h = 0; cd_m = 0; cd_s = 0
+
+last_s = -1
+last_trig_m = -1
+ringing_idx = -1
+ring_flash = False
+snooze_idx = -1
+snooze_count = 0
+
+has_hardware = True
+board_name = "Unknown"
+
+# Core system references
 storage = None
 show_help = False
 show_options = False
-help_box = None
 sys_time = time # Create a global fallback mapping to the standard time module
 
 
@@ -199,48 +209,41 @@ def rgb_to_565(r, g, b):
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
 
 def queue_save():
-    global state
-    if state:
-        state["dirty_save"] = True
-        state["save_timer"] = 60
+    global dirty_save, save_timer
+    dirty_save = True
+    save_timer = 60
 
 @track_ram
 def save_settings():
-    global _last_saved_json, state, storage
-    if not storage or not state: return
+    global settings, storage, dirty_save
+    if not storage or not dirty_save: return
     try:
-        exclude_keys = ("dirty_ui", "mode", "cursor_idx", "options_cursor_idx", "tmp_y", "tmp_mo", "tmp_d", "date_cursor", "tmp_h", "tmp_m", "tmp_label", "tmp_audible", "edit_idx", "ringing_idx", "last_s", "ring_flash", "dirty_save", "save_timer", "origin", "del_confirm_yes", "clear_confirm_yes", "snooze_epoch", "snooze_idx", "last_trig_m", "snooze_count", "msg_origin", "tmp_daily", "egg_end", "sw_run", "sw_start", "sw_accum", "last_sw_ms", "cd_end", "cd_cursor", "has_hardware", "board_name")
-        save_data = {k: v for k, v in state.items() if k not in exclude_keys}
-        json_str = json.dumps(save_data)
-        if json_str == _last_saved_json:
-            state["dirty_save"] = False
-            return
+        json_str = json.dumps(settings)
         storage.write(_SETTINGS_FILE, json_str, "w")
-        _last_saved_json = json_str
-        state["dirty_save"] = False
+        dirty_save = False
+        del json_str
+        import gc
+        gc.collect()
     except Exception: pass
 
 @track_ram
 def validate_and_load_settings():
-    global state, _last_saved_json, storage
+    global settings, storage
     if storage and storage.exists(_SETTINGS_FILE):
         try:
             raw_data = storage.read(_SETTINGS_FILE, "r")
             loaded = json.loads(raw_data)
-            exclude_keys = ("dirty_ui", "mode", "cursor_idx", "options_cursor_idx", "tmp_y", "tmp_mo", "tmp_d", "date_cursor", "tmp_h", "tmp_m", "tmp_label", "tmp_audible", "edit_idx", "ringing_idx", "last_s", "ring_flash", "dirty_save", "save_timer", "origin", "del_confirm_yes", "clear_confirm_yes", "snooze_epoch", "snooze_idx", "last_trig_m", "snooze_count", "msg_origin", "tmp_daily", "egg_end", "sw_run", "sw_start", "sw_accum", "last_sw_ms", "cd_end", "cd_cursor", "has_hardware", "board_name")
-            for key in loaded:
-                if key in state and key not in exclude_keys: state[key] = loaded[key]
+            for key in settings:
+                if key in loaded: settings[key] = loaded[key]
             
             t = sys_time.localtime()
-            for i in range(len(state["alarms"])):
-                a = state["alarms"][i]
-                if len(a) == 3: state["alarms"][i] = [t[0], t[1], t[2], a[0], a[1], a[2], "ALARM", True, False]
-                elif len(a) == 4: state["alarms"][i] = [t[0], t[1], t[2], a[0], a[1], a[2], a[3], True, False]
-                elif len(a) == 7: state["alarms"][i] = [a[0], a[1], a[2], a[3], a[4], a[5], a[6], True, False]
-                elif len(a) == 8: state["alarms"][i] = [a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], False]
-            
-            save_data = {k: v for k, v in state.items() if k not in exclude_keys}
-            _last_saved_json = json.dumps(save_data)
+            for i in range(len(settings["alarms"])):
+                a = settings["alarms"][i]
+                if len(a) == 3: settings["alarms"][i] = [t[0], t[1], t[2], a[0], a[1], a[2], "ALARM", True, False]
+                elif len(a) == 4: settings["alarms"][i] = [t[0], t[1], t[2], a[0], a[1], a[2], a[3], True, False]
+                elif len(a) == 7: settings["alarms"][i] = [a[0], a[1], a[2], a[3], a[4], a[5], a[6], True, False]
+                elif len(a) == 8: settings["alarms"][i] = [a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], False]
+                
         except Exception: pass
 
 def handle_audio_silence():

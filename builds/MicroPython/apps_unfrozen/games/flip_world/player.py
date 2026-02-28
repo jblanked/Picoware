@@ -1262,6 +1262,9 @@ class Player(Entity):
             del self.http
             self.http = None
 
+        view_manager = self.flip_world_run.view_manager
+        self.http = HTTP(thread_manager=view_manager.thread_manager)
+
         try:
             # Create JSON payload for login/registration
             payload = {"username": username, "password": password}
@@ -1275,27 +1278,23 @@ class Player(Entity):
             }
 
             if request_type == REQUEST_TYPE_LOGIN:
-                self.http = HTTP()
                 self.http.post_async(
                     "https://www.jblanked.com/flipper/api/user/login/",
                     payload,
                     headers,
                 )
             elif request_type == REQUEST_TYPE_REGISTRATION:
-                self.http = HTTP()
                 self.http.post_async(
                     "https://www.jblanked.com/flipper/api/user/register/",
                     payload,
                     headers,
                 )
             elif request_type == REQUEST_TYPE_USER_INFO:
-                self.http = HTTP()
                 self.http.get_async(
                     f"https://www.jblanked.com/flipper/api/user/game-stats/{username}/",
                     headers,
                 )
             elif request_type == REQUEST_TYPE_LOBBIES:
-                self.http = HTTP()
                 self.http.get_async(
                     "https://www.jblanked.com/flipper/api/world/pve/lobbies/10/4/",
                     headers,
@@ -1303,13 +1302,14 @@ class Player(Entity):
             elif request_type == REQUEST_TYPE_JOIN_LOBBY:
                 lobby_id = self.lobbies[self.current_lobby_index].id
                 payload2 = {"username": username, "game_id": lobby_id}
-                self.http = HTTP()
                 self.http.post_async(
                     "https://www.jblanked.com/flipper/api/world/pve/lobby/join/",
                     payload2,
                     headers,
                 )
             elif request_type == REQUEST_TYPE_START_WEBSOCKET:
+                del self.http
+                self.http = None
                 if self.ws is not None:
                     self.ws.close()
                     del self.ws
@@ -1320,6 +1320,7 @@ class Player(Entity):
                 self.ws = WebSocketAsync(
                     f"ws://www.jblanked.com/ws/game/{self.lobbies[self.current_lobby_index].id}/",
                     callback=self.__user_request_ws_callback,
+                    thread_manager=view_manager.thread_manager,
                 )
                 if not self.ws or not self.ws.connect():
                     print("Failed to start WebSocket")
@@ -1327,13 +1328,14 @@ class Player(Entity):
                     del self.ws
                     self.ws = None
             elif request_type == REQUEST_TYPE_STOP_WEBSOCKET:
+                del self.http
+                self.http = None
                 if self.ws is not None:
                     self.ws.close()
                     del self.ws
                     self.ws = None
             elif request_type == REQUEST_TYPE_SAVE_STATS:
                 player_json = self.flip_world_run.entity_to_json(self)
-                self.http = HTTP()
                 if not self.http.post_async(
                     "https://www.jblanked.com/flipper/api/user/update-game-stats/",
                     player_json,

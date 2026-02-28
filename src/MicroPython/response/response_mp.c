@@ -80,7 +80,7 @@ STATIC mp_obj_t response_mp_make_new(const mp_obj_type_t *type, size_t n_args, s
     (void)n_kw;
     (void)args;
     (void)type;
-    response_mp_obj_t *self = mp_obj_malloc(response_mp_obj_t, &response_mp_type);
+    response_mp_obj_t *self = mp_obj_malloc_with_finaliser(response_mp_obj_t, &response_mp_type);
     self->base.type = &response_mp_type;
     self->content = NULL;
     self->content_len = 0;

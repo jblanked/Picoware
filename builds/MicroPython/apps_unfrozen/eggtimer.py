@@ -994,29 +994,3 @@ def stop(view_manager):
     import gc
     gc.collect()
 
-# your start, run, stop functions here
-
-# add this at the bottom of your app for testing
-from picoware.system.view_manager import ViewManager
-from picoware.system.view import View
-
-vm = None
-
-try:
-    vm = ViewManager()
-    vm.add(
-        View(
-            "app_tester",
-            run,
-            start,
-            stop,
-        )
-    )
-    vm.switch_to("app_tester")
-    while True:
-        vm.run()
-except Exception as e:
-    print("Error during testing:", e)
-finally:
-    del vm
-    vm = None

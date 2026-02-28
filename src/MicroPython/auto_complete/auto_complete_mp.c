@@ -1,28 +1,8 @@
-#include "py/runtime.h"
-#include "py/obj.h"
-#include "py/objarray.h"
-#include "py/mphal.h"
-#include "stdio.h"
-#include <stdlib.h>
-#include <string.h>
-#include <stdbool.h>
-#include "auto_complete.h"
-
-// Define STATIC if not already defined (MicroPython macro)
-#ifndef STATIC
-#define STATIC static
-#endif
-
-typedef struct
-{
-    mp_obj_base_t base;
-    AutoComplete context;
-    bool freed;
-} auto_complete_mp_obj_t;
+#include "auto_complete_mp.h"
 
 const mp_obj_type_t auto_complete_mp_type;
 
-STATIC void auto_complete_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
+void auto_complete_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
 {
     (void)kind;
     auto_complete_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -49,7 +29,7 @@ STATIC void auto_complete_mp_print(const mp_print_t *print, mp_obj_t self_in, mp
     mp_print_str(print, ")");
 }
 
-STATIC mp_obj_t auto_complete_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
+mp_obj_t auto_complete_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
     auto_complete_mp_obj_t *self = mp_obj_malloc_with_finaliser(auto_complete_mp_obj_t, &auto_complete_mp_type);
     self->base.type = &auto_complete_mp_type;
@@ -62,7 +42,7 @@ STATIC mp_obj_t auto_complete_mp_make_new(const mp_obj_type_t *type, size_t n_ar
     return MP_OBJ_FROM_PTR(self);
 }
 
-STATIC mp_obj_t auto_complete_mp_del(mp_obj_t self_in)
+mp_obj_t auto_complete_mp_del(mp_obj_t self_in)
 {
     auto_complete_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     if (!self->freed)
@@ -72,9 +52,9 @@ STATIC mp_obj_t auto_complete_mp_del(mp_obj_t self_in)
     }
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(auto_complete_mp_del_obj, auto_complete_mp_del);
+static MP_DEFINE_CONST_FUN_OBJ_1(auto_complete_mp_del_obj, auto_complete_mp_del);
 
-STATIC void auto_complete_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
+void auto_complete_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
     auto_complete_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     if (destination[0] == MP_OBJ_NULL)
@@ -98,7 +78,7 @@ STATIC void auto_complete_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *de
         }
     }
 }
-STATIC mp_obj_t auto_complete_mp_add_word(mp_obj_t self_in, mp_obj_t word_obj)
+mp_obj_t auto_complete_mp_add_word(mp_obj_t self_in, mp_obj_t word_obj)
 {
     auto_complete_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     if (!self->freed)
@@ -108,9 +88,9 @@ STATIC mp_obj_t auto_complete_mp_add_word(mp_obj_t self_in, mp_obj_t word_obj)
     }
     return mp_const_false;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(auto_complete_mp_add_word_obj, auto_complete_mp_add_word);
+static MP_DEFINE_CONST_FUN_OBJ_2(auto_complete_mp_add_word_obj, auto_complete_mp_add_word);
 
-STATIC mp_obj_t auto_complete_mp_remove_suggestions(mp_obj_t self_in)
+mp_obj_t auto_complete_mp_remove_suggestions(mp_obj_t self_in)
 {
     auto_complete_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     if (!self->freed)
@@ -119,9 +99,9 @@ STATIC mp_obj_t auto_complete_mp_remove_suggestions(mp_obj_t self_in)
     }
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(auto_complete_mp_remove_suggestions_obj, auto_complete_mp_remove_suggestions);
+static MP_DEFINE_CONST_FUN_OBJ_1(auto_complete_mp_remove_suggestions_obj, auto_complete_mp_remove_suggestions);
 
-STATIC mp_obj_t auto_complete_mp_remove_words(mp_obj_t self_in)
+mp_obj_t auto_complete_mp_remove_words(mp_obj_t self_in)
 {
     auto_complete_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     if (!self->freed)
@@ -130,9 +110,9 @@ STATIC mp_obj_t auto_complete_mp_remove_words(mp_obj_t self_in)
     }
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(auto_complete_mp_remove_words_obj, auto_complete_mp_remove_words);
+static MP_DEFINE_CONST_FUN_OBJ_1(auto_complete_mp_remove_words_obj, auto_complete_mp_remove_words);
 
-STATIC mp_obj_t auto_complete_mp_search(mp_obj_t self_in, mp_obj_t prefix_obj)
+mp_obj_t auto_complete_mp_search(mp_obj_t self_in, mp_obj_t prefix_obj)
 {
     auto_complete_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     const char *prefix = mp_obj_str_get_str(prefix_obj);
@@ -150,10 +130,10 @@ STATIC mp_obj_t auto_complete_mp_search(mp_obj_t self_in, mp_obj_t prefix_obj)
         return mp_const_none;
     }
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(auto_complete_mp_search_obj, auto_complete_mp_search);
+static MP_DEFINE_CONST_FUN_OBJ_2(auto_complete_mp_search_obj, auto_complete_mp_search);
 
 #if defined(STORAGE_INCLUDE) && defined(STORAGE_READ)
-STATIC mp_obj_t auto_complete_mp_add_dictionary(mp_obj_t self_in, mp_obj_t filename_obj)
+mp_obj_t auto_complete_mp_add_dictionary(mp_obj_t self_in, mp_obj_t filename_obj)
 {
     auto_complete_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     const char *filename = mp_obj_str_get_str(filename_obj);
@@ -163,10 +143,10 @@ STATIC mp_obj_t auto_complete_mp_add_dictionary(mp_obj_t self_in, mp_obj_t filen
     }
     return mp_const_false;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(auto_complete_mp_add_dictionary_obj, auto_complete_mp_add_dictionary);
+static MP_DEFINE_CONST_FUN_OBJ_2(auto_complete_mp_add_dictionary_obj, auto_complete_mp_add_dictionary);
 #endif
 
-STATIC const mp_rom_map_elem_t auto_complete_mp_locals_dict_table[] = {
+static const mp_rom_map_elem_t auto_complete_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_add_word), MP_ROM_PTR(&auto_complete_mp_add_word_obj)},
     {MP_ROM_QSTR(MP_QSTR_search), MP_ROM_PTR(&auto_complete_mp_search_obj)},
     {MP_ROM_QSTR(MP_QSTR_remove_suggestions), MP_ROM_PTR(&auto_complete_mp_remove_suggestions_obj)},
@@ -175,7 +155,7 @@ STATIC const mp_rom_map_elem_t auto_complete_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_add_dictionary), MP_ROM_PTR(&auto_complete_mp_add_dictionary_obj)},
 #endif
 };
-STATIC MP_DEFINE_CONST_DICT(auto_complete_mp_locals_dict, auto_complete_mp_locals_dict_table);
+static MP_DEFINE_CONST_DICT(auto_complete_mp_locals_dict, auto_complete_mp_locals_dict_table);
 
 MP_DEFINE_CONST_OBJ_TYPE(
     auto_complete_mp_type,
@@ -187,11 +167,11 @@ MP_DEFINE_CONST_OBJ_TYPE(
     locals_dict, &auto_complete_mp_locals_dict);
 
 // Define module globals
-STATIC const mp_rom_map_elem_t auto_complete_module_globals_table[] = {
+static const mp_rom_map_elem_t auto_complete_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_auto_complete)},
     {MP_ROM_QSTR(MP_QSTR_AutoComplete), MP_ROM_PTR(&auto_complete_mp_type)},
 };
-STATIC MP_DEFINE_CONST_DICT(auto_complete_module_globals, auto_complete_module_globals_table);
+static MP_DEFINE_CONST_DICT(auto_complete_module_globals, auto_complete_module_globals_table);
 
 // Define module
 const mp_obj_module_t auto_complete_user_cmodule = {

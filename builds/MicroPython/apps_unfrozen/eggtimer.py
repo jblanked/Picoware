@@ -102,7 +102,7 @@ def get_help_lines():
         "",
         "CREDITS:",
         "made by Slasher006",
-        "with the help of Gemini",
+        "with the help of jBlanked and Gemini",
         "Date: 2026-02-28",
         "",
         "SHORTCUTS:",

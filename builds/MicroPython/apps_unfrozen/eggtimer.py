@@ -178,6 +178,16 @@ snooze_count = 0
 has_hardware = True
 board_name = "Unknown"
 
+# Editor Temporary State
+edit_idx = -1
+tmp_daily = False
+tmp_y = 2026; tmp_mo = 1; tmp_d = 1
+tmp_h = 12; tmp_m = 0
+tmp_label = ""
+tmp_audible = True
+del_confirm_yes = False
+clear_confirm_yes = False
+
 # Core system references
 storage = None
 show_help = False
@@ -253,74 +263,75 @@ def handle_audio_silence():
         except Exception: pass
 
 def validate_hardware_and_time(view_manager):
-    global state
+    global board_name, has_hardware
     sys_inst = System()
     
     # Try SDK board name, fallback to standard MicroPython if the SDK crashes
     try:
         b_name = sys_inst.board_name
-        if callable(b_name): # Just in case it's a method instead of a property
-            b_name = b_name()
+        if callable(b_name): b_name = b_name()
     except Exception:
         b_name = os.uname().machine if hasattr(os, "uname") else "Unknown Board"
         
-    state["board_name"] = str(b_name)
+    board_name = str(b_name)
     
     # Try SDK has_wifi, fallback to False if the SDK crashes
     try:
         hw = sys_inst.has_wifi
-        if callable(hw):
-            hw = hw()
+        if callable(hw): hw = hw()
     except Exception:
         hw = False
         
-    state["has_hardware"] = bool(hw)
+    has_hardware = bool(hw)
 
 def check_time_and_alarms(t, c_sec):
-    global state
+    global current_mode, sw_run, last_sw_ms, dirty_ui, last_s, egg_end
+    global ringing_idx, cd_end, snooze_epoch, snooze_idx, last_trig_m
+    global snooze_count, ring_flash, settings
+    
     cy, cmo, cd, ch, cm, cs = t[0], t[1], t[2], t[3], t[4], t[5]
     
-    if state["mode"] == "stopwatch" and state["sw_run"]:
+    if current_mode == MODE_STOPWATCH and sw_run:
         now_ms = time.ticks_ms()
-        if time.ticks_diff(now_ms, state["last_sw_ms"]) > 100:
-            state["last_sw_ms"] = now_ms
-            state["dirty_ui"] = True
+        if time.ticks_diff(now_ms, last_sw_ms) > 100:
+            last_sw_ms = now_ms
+            dirty_ui = True
             
-    if cs != state["last_s"]:
-        state["last_s"] = cs
-        state["dirty_ui"] = True
-        if state["mode"] != "ring":
-            if state["egg_end"] > 0 and c_sec >= state["egg_end"]:
-                state["mode"] = "ring"
-                state["ringing_idx"] = -2
-                state["egg_end"] = 0
-            elif state["cd_end"] > 0 and c_sec >= state["cd_end"]:
-                state["mode"] = "ring"
-                state["ringing_idx"] = -3
-                state["cd_end"] = 0
-            elif state["snooze_epoch"] > 0 and c_sec >= state["snooze_epoch"]:
-                state["mode"] = "ring"
-                state["ringing_idx"] = state["snooze_idx"]
-                state["snooze_epoch"] = 0
-                state["last_trig_m"] = cm
-            elif cs == 0 and state["last_trig_m"] != cm:
-                for i in range(len(state["alarms"])):
-                    a = state["alarms"][i]
+    if cs != last_s:
+        last_s = cs
+        dirty_ui = True
+        if current_mode != MODE_RING:
+            if egg_end > 0 and c_sec >= egg_end:
+                current_mode = MODE_RING
+                ringing_idx = -2
+                egg_end = 0
+            elif cd_end > 0 and c_sec >= cd_end:
+                current_mode = MODE_RING
+                ringing_idx = -3
+                cd_end = 0
+            elif snooze_epoch > 0 and c_sec >= snooze_epoch:
+                current_mode = MODE_RING
+                ringing_idx = snooze_idx
+                snooze_epoch = 0
+                last_trig_m = cm
+            elif cs == 0 and last_trig_m != cm:
+                for i in range(len(settings["alarms"])):
+                    a = settings["alarms"][i]
                     if a[5] and a[3] == ch and a[4] == cm and (a[8] or (a[0] == cy and a[1] == cmo and a[2] == cd)):
-                        state["mode"] = "ring"
-                        state["ringing_idx"] = i
-                        state["snooze_count"] = 0
-                        state["last_trig_m"] = cm
+                        current_mode = MODE_RING
+                        ringing_idx = i
+                        snooze_count = 0
+                        last_trig_m = cm
                         break
 
-    if state["mode"] == "ring" and state["dirty_ui"]:
-        state["ring_flash"] = not state["ring_flash"]
-        is_audible = True if state["ringing_idx"] in (-2, -3) else state["alarms"][state["ringing_idx"]][7]
+    if current_mode == MODE_RING and dirty_ui:
+        ring_flash = not ring_flash
+        is_audible = True if ringing_idx in (-2, -3) else settings["alarms"][ringing_idx][7]
         if buzzer and is_audible:
             try:
                 for b in buzzer:
-                    b.freq(1000) if state["ring_flash"] else None
-                    b.duty_u16(32768 if state["ring_flash"] else 0)
+                    b.freq(1000) if ring_flash else None
+                    b.duty_u16(32768 if ring_flash else 0)
             except Exception: pass
 
 def handle_input_diagnostic(button, input_mgr, view_manager, t, c_sec):
@@ -555,169 +566,146 @@ INPUT_DISPATCH = {
 }
 
 def draw_diagnostic(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
-    global state
+    global board_name, has_hardware, settings
     sys_inst = System()
-    
     draw.text(Vector(10, 10), "SYSTEM DIAGNOSTICS", TFT_WHITE)
     draw.fill_rectangle(Vector(0, 30), Vector(screen_w, 2), TFT_WHITE)
-    
     fw_ver = os.uname().release[:16] if hasattr(os, "uname") else "Unknown"
-    
-    # Grab the safely cached board name from state instead of querying the SDK again
-    b_name = state.get("board_name", "Unknown")[:16] 
-    
+    b_name = board_name[:16] 
     draw.text(Vector(10, 40), f"App Ver : v{_VERSION}", TFT_LIGHTGREY)
     draw.text(Vector(10, 56), f"Firmware: {fw_ver}", TFT_LIGHTGREY)
-    
-    # Wrap RAM checks safely in case the SDK memory properties also have bugs
     try:
         ram_u = sys_inst.used_heap // 1024 if hasattr(sys_inst, 'used_heap') else gc.mem_alloc() // 1024
         ram_f = sys_inst.free_heap // 1024 if hasattr(sys_inst, 'free_heap') else gc.mem_free() // 1024
     except Exception:
-        ram_u = gc.mem_alloc() // 1024
-        ram_f = gc.mem_free() // 1024
-        
+        ram_u = gc.mem_alloc() // 1024; ram_f = gc.mem_free() // 1024
     draw.text(Vector(10, 72), f"RAM: {ram_u}KB Used / {ram_f}KB Free", TFT_LIGHTGREY)
-    
-    hw_flag = state.get("has_hardware", False)
-    hw_col = TFT_GREEN if hw_flag else TFT_RED
-    hw_txt = f"HW: OK ({b_name})" if hw_flag else f"HW: MISSING ({b_name})"
+    hw_col = TFT_GREEN if has_hardware else TFT_RED
+    hw_txt = f"HW: OK ({b_name})" if has_hardware else f"HW: MISSING ({b_name})"
     draw.text(Vector(10, 96), hw_txt, hw_col)
-    
     draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), theme_color)
     draw.text(Vector(5, screen_h - 32), "[ENT] Start", TFT_WHITE)
     draw.text(Vector(5, screen_h - 15), "[ESC/BCK] Exit App", TFT_LIGHTGREY)
 
-
 def draw_modals(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
-    global state
-    if state["mode"] in ("invalid_date_format", "invalid_time"):
+    global current_mode, cursor_idx, settings, del_confirm_yes, clear_confirm_yes
+    if current_mode in (MODE_ERR_DATE, MODE_ERR_TIME):
         draw.text(Vector(10, 10), "ERROR", TFT_WHITE); draw.fill_rectangle(Vector(0, 30), Vector(screen_w, 2), TFT_RED)
         draw.fill_rectangle(Vector(15, 60), Vector(screen_w - 30, 80), TFT_DARKGREY); draw.rect(Vector(15, 60), Vector(screen_w - 30, 80), TFT_RED)
-        if state["mode"] == "invalid_date_format": draw.text(Vector(25, 75), "INVALID DATE", TFT_RED); draw.text(Vector(25, 100), "This date does not", TFT_WHITE); draw.text(Vector(25, 115), "exist in calendar.", TFT_WHITE)
-        elif state["mode"] == "invalid_time": draw.text(Vector(25, 75), "INVALID DATE/TIME", TFT_RED); draw.text(Vector(25, 100), "Alarm must be set", TFT_WHITE); draw.text(Vector(25, 115), "in the future.", TFT_WHITE)
+        if current_mode == MODE_ERR_DATE: draw.text(Vector(25, 75), "INVALID DATE", TFT_RED); draw.text(Vector(25, 100), "This date does not", TFT_WHITE); draw.text(Vector(25, 115), "exist in calendar.", TFT_WHITE)
+        elif current_mode == MODE_ERR_TIME: draw.text(Vector(25, 75), "INVALID DATE/TIME", TFT_RED); draw.text(Vector(25, 100), "Alarm must be set", TFT_WHITE); draw.text(Vector(25, 115), "in the future.", TFT_WHITE)
         draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), TFT_RED); draw.text(Vector(5, screen_h - 32), "[Any Key] Go Back", TFT_RED)
     else:
-        draw.text(Vector(10, 10), f"MODE: {'DELETE' if state['mode'] == 'confirm_delete' else 'CLEAR'} ALARM(S)", TFT_WHITE); draw.fill_rectangle(Vector(0, 30), Vector(screen_w, 2), theme_color)
+        draw.text(Vector(10, 10), f"MODE: {'DELETE' if current_mode == MODE_CONFIRM_DEL else 'CLEAR'} ALARM(S)", TFT_WHITE); draw.fill_rectangle(Vector(0, 30), Vector(screen_w, 2), theme_color)
         draw.fill_rectangle(Vector(15, 60), Vector(screen_w - 30, 80), TFT_DARKGREY); draw.rect(Vector(15, 60), Vector(screen_w - 30, 80), theme_color)
-        draw.text(Vector(25, 70), "Delete this alarm?" if state["mode"] == "confirm_delete" else "Clear past alarms?", TFT_WHITE)
-        if state["mode"] == "confirm_delete":
-            a = state["alarms"][state["cursor_idx"]]; lbl = a[6][:10]; adh = a[3] % 12 if state["use_12h"] else a[3]; adh = 12 if state["use_12h"] and adh == 0 else adh
-            aampm = ("AM" if a[3] < 12 else "PM") if state["use_12h"] else ""; dt_str = "DAILY" if a[8] else (f"{a[1]:02d}/{a[2]:02d}" if state["use_12h"] else f"{a[2]:02d}.{a[1]:02d}.{a[0]:04d}")
+        draw.text(Vector(25, 70), "Delete this alarm?" if current_mode == MODE_CONFIRM_DEL else "Clear past alarms?", TFT_WHITE)
+        if current_mode == MODE_CONFIRM_DEL:
+            a = settings["alarms"][cursor_idx]; lbl = a[6][:10]; adh = a[3] % 12 if settings["use_12h"] else a[3]; adh = 12 if settings["use_12h"] and adh == 0 else adh
+            aampm = ("AM" if a[3] < 12 else "PM") if settings["use_12h"] else ""; dt_str = "DAILY" if a[8] else (f"{a[1]:02d}/{a[2]:02d}" if settings["use_12h"] else f"{a[2]:02d}.{a[1]:02d}.{a[0]:04d}")
             draw.text(Vector(25, 90), f"{dt_str} {adh:02d}:{a[4]:02d} {aampm} [{lbl}]", theme_color)
         else: draw.text(Vector(25, 90), "This cannot be undone.", TFT_LIGHTGREY)
-        is_yes = state["del_confirm_yes"] if state["mode"] == "confirm_delete" else state["clear_confirm_yes"]
+        is_yes = del_confirm_yes if current_mode == MODE_CONFIRM_DEL else clear_confirm_yes
         draw.fill_rectangle(Vector(30, 115), Vector(60, 20), TFT_BLACK if is_yes else TFT_DARKGREY); draw.text(Vector(45, 118), "YES", theme_color if is_yes else TFT_LIGHTGREY)
         draw.fill_rectangle(Vector(140, 115), Vector(60, 20), TFT_BLACK if not is_yes else TFT_DARKGREY); draw.text(Vector(160, 118), "NO", theme_color if not is_yes else TFT_LIGHTGREY)
         draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), theme_color); draw.text(Vector(5, screen_h - 32), "[L/R] Select [ENT] Confirm", theme_color); draw.text(Vector(5, screen_h - 15), "[ESC] Cancel", TFT_LIGHTGREY)
-
+        
 def draw_ring(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
-    global state
-    if state["ringing_idx"] == -2: display_lbl = "EGG READY!"; hint_str = "[ENT/O] Dismiss"
-    elif state["ringing_idx"] == -3: display_lbl = "TIME'S UP!"; hint_str = "[ENT/O] Dismiss"
-    else: display_lbl = state["alarms"][state["ringing_idx"]][6][:15] + "..." if len(state["alarms"][state["ringing_idx"]][6]) > 15 else state["alarms"][state["ringing_idx"]][6]; hint_str = f"[S/ENT]Snooze({5-state['snooze_count']}) [O]Off" if state["snooze_count"] < 5 else "[O]Off (Max Snooze)"
-    draw.fill_rectangle(Vector(0, 0), Vector(screen_w, screen_h), TFT_WHITE if state["ring_flash"] else TFT_BLACK)
-    draw.text(Vector(30, 60), "ALARM!", TFT_BLACK if state["ring_flash"] else theme_color, 3)
-    draw.text(Vector(10, 100), display_lbl, TFT_BLACK if state["ring_flash"] else theme_color, 2)
-    draw.text(Vector(10, 150), hint_str, TFT_BLACK if state["ring_flash"] else theme_color)
+    global ringing_idx, snooze_count, ring_flash, settings
+    if ringing_idx == -2: display_lbl = "EGG READY!"; hint_str = "[ENT/O] Dismiss"
+    elif ringing_idx == -3: display_lbl = "TIME'S UP!"; hint_str = "[ENT/O] Dismiss"
+    else: display_lbl = settings["alarms"][ringing_idx][6][:15] + "..." if len(settings["alarms"][ringing_idx][6]) > 15 else settings["alarms"][ringing_idx][6]; hint_str = f"[S/ENT]Snooze({5-snooze_count}) [O]Off" if snooze_count < 5 else "[O]Off (Max Snooze)"
+    draw.fill_rectangle(Vector(0, 0), Vector(screen_w, screen_h), TFT_WHITE if ring_flash else TFT_BLACK)
+    draw.text(Vector(30, 60), "ALARM!", TFT_BLACK if ring_flash else theme_color, 3)
+    draw.text(Vector(10, 100), display_lbl, TFT_BLACK if ring_flash else theme_color, 2)
+    draw.text(Vector(10, 150), hint_str, TFT_BLACK if ring_flash else theme_color)
 
 def draw_egg_timer(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
-    global state
+    global egg_end, egg_preset, sys_time
     draw.text(Vector(10, 10), "MODE: EGG TIMER", TFT_WHITE); draw.fill_rectangle(Vector(0, 30), Vector(screen_w, 2), theme_color)
-    if state["egg_end"] > 0:
-        rem = max(0, state["egg_end"] - int(sys_time.time())); m, s = divmod(rem, 60)
+    if egg_end > 0:
+        rem = max(0, egg_end - int(sys_time.time())); m, s = divmod(rem, 60)
         draw.text(Vector(15, 40), f"Run: {m:02d}:{s:02d}", TFT_GREEN, 2)
     else: draw.text(Vector(15, 45), "Status: Inactive", TFT_LIGHTGREY)
     draw.text(Vector(15, 70), "Select Preset:", TFT_LIGHTGREY)
     for i, (_, lbl) in enumerate(_EGG_PRESETS):
-        c = theme_color if state["egg_preset"] == i else TFT_LIGHTGREY
-        if state["egg_preset"] == i: draw.text(Vector(10, 90 + i*20), ">", theme_color)
+        c = theme_color if egg_preset == i else TFT_LIGHTGREY
+        if egg_preset == i: draw.text(Vector(10, 90 + i*20), ">", theme_color)
         draw.text(Vector(25, 90 + i*20), lbl, c)
     draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), theme_color)
     draw.text(Vector(5, screen_h - 32), "[UP/DN] Nav [ENT] Apply", theme_color)
 
 def draw_stopwatch(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
-    global state
+    global sw_accum, sw_run, sw_start
     draw.text(Vector(10, 10), "MODE: STOPWATCH", TFT_WHITE); draw.fill_rectangle(Vector(0, 30), Vector(screen_w, 2), theme_color)
-    current_ms = state["sw_accum"]
-    if state["sw_run"]: current_ms += time.ticks_diff(time.ticks_ms(), state["sw_start"])
+    current_ms = sw_accum
+    if sw_run: current_ms += time.ticks_diff(time.ticks_ms(), sw_start)
     ms = (current_ms % 1000) // 100; sec = (current_ms // 1000) % 60; mins = (current_ms // 60000) % 60; hrs = (current_ms // 3600000)
     sw_text = f"{hrs:02d}:{mins:02d}:{sec:02d}" if hrs > 0 else f"{mins:02d}:{sec:02d}.{ms:01d}"
     draw.text(Vector((screen_w // 2) - 85, 70), sw_text, theme_color, 4)
-    stat_str = "RUNNING" if state["sw_run"] else "STOPPED"
-    draw.text(Vector((screen_w // 2) - 30, 130), stat_str, TFT_GREEN if state["sw_run"] else TFT_LIGHTGREY)
+    stat_str = "RUNNING" if sw_run else "STOPPED"
+    draw.text(Vector((screen_w // 2) - 30, 130), stat_str, TFT_GREEN if sw_run else TFT_LIGHTGREY)
     draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), theme_color)
     draw.text(Vector(5, screen_h - 32), "[ENT] Start/Stop [R] Reset", theme_color)
 
 def draw_countdown(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
-    global state
+    global cd_end, cd_cursor, cd_h, cd_m, cd_s, sys_time
     draw.text(Vector(10, 10), "MODE: COUNTDOWN", TFT_WHITE); draw.fill_rectangle(Vector(0, 30), Vector(screen_w, 2), theme_color)
-    if state["cd_end"] > 0:
-        rem = max(0, state["cd_end"] - int(sys_time.time())); h = rem // 3600; m = (rem % 3600) // 60; s = rem % 60
+    if cd_end > 0:
+        rem = max(0, cd_end - int(sys_time.time())); h = rem // 3600; m = (rem % 3600) // 60; s = rem % 60
         draw.text(Vector((screen_w // 2) - 85, 70), f"{h:02d}:{m:02d}:{s:02d}", theme_color, 4)
         draw.text(Vector((screen_w // 2) - 30, 130), "RUNNING", TFT_GREEN)
         draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), theme_color); draw.text(Vector(5, screen_h - 32), "[ENT] Cancel", theme_color)
     else:
         draw.text(Vector(15, 45), "Set Duration:", TFT_LIGHTGREY)
-        c0 = theme_color if state["cd_cursor"] == 0 else TFT_WHITE; c1 = theme_color if state["cd_cursor"] == 1 else TFT_WHITE; c2 = theme_color if state["cd_cursor"] == 2 else TFT_WHITE
+        c0 = theme_color if cd_cursor == 0 else TFT_WHITE; c1 = theme_color if cd_cursor == 1 else TFT_WHITE; c2 = theme_color if cd_cursor == 2 else TFT_WHITE
         st_x = (screen_w // 2) - 85
-        draw.text(Vector(st_x, 70), f"{state['cd_h']:02d}", c0, 4); draw.text(Vector(st_x + 50, 70), ":", TFT_LIGHTGREY, 4)
-        draw.text(Vector(st_x + 70, 70), f"{state['cd_m']:02d}", c1, 4); draw.text(Vector(st_x + 120, 70), ":", TFT_LIGHTGREY, 4)
-        draw.text(Vector(st_x + 140, 70), f"{state['cd_s']:02d}", c2, 4)
+        draw.text(Vector(st_x, 70), f"{cd_h:02d}", c0, 4); draw.text(Vector(st_x + 50, 70), ":", TFT_LIGHTGREY, 4)
+        draw.text(Vector(st_x + 70, 70), f"{cd_m:02d}", c1, 4); draw.text(Vector(st_x + 120, 70), ":", TFT_LIGHTGREY, 4)
+        draw.text(Vector(st_x + 140, 70), f"{cd_s:02d}", c2, 4)
         draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), theme_color); draw.text(Vector(5, screen_h - 32), "[L/R]Sel [U/D]Adj [ENT]Go [R]Rst", theme_color)
 
 @track_ram
 def draw_main(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
-    global state
-    c_idx = state["cursor_idx"]
+    global cursor_idx, settings, sys_time, snooze_epoch, snooze_idx, egg_end, sw_run, cd_end
+    c_idx = cursor_idx
     draw.text(Vector(10, 10), f"Eggtimer {_VERSION}", TFT_WHITE); draw.fill_rectangle(Vector(0, 30), Vector(screen_w, 2), theme_color)
     draw.text(Vector(15, 42), "CURRENT TIME:", TFT_LIGHTGREY); draw.fill_rectangle(Vector(15, 55), Vector(screen_w - 30, 43), TFT_DARKGREY); draw.rect(Vector(15, 55), Vector(screen_w - 30, 43), theme_color)
-    t = sys_time.localtime(); dh = t[3] % 12 if state["use_12h"] else t[3]; dh = 12 if state["use_12h"] and dh == 0 else dh
-    time_str = "{:02d}:{:02d}:{:02d} {}".format(dh, t[4], t[5], "AM" if t[3] < 12 else "PM") if state["use_12h"] else "{:02d}:{:02d}:{:02d}".format(t[3], t[4], t[5])
-    draw.text(Vector(40 if not state["use_12h"] else 20, 58), time_str, theme_color, 2)
+    t = sys_time.localtime(); dh = t[3] % 12 if settings["use_12h"] else t[3]; dh = 12 if settings["use_12h"] and dh == 0 else dh
+    time_str = "{:02d}:{:02d}:{:02d} {}".format(dh, t[4], t[5], "AM" if t[3] < 12 else "PM") if settings["use_12h"] else "{:02d}:{:02d}:{:02d}".format(t[3], t[4], t[5])
+    draw.text(Vector(40 if not settings["use_12h"] else 20, 58), time_str, theme_color, 2)
     
     n_str = "Next: None Active"; min_d = 9999999999; c_sec = sys_time.time(); next_a = None; is_snooze_next = False
-    for a in state["alarms"]:
+    for a in settings["alarms"]:
         if a[5]:
             a_sec = sys_time.mktime((t[0], t[1], t[2], a[3], a[4], 0, 0, 0)) + (86400 if a[8] and (a[3] < t[3] or (a[3] == t[3] and a[4] <= t[4])) else 0) if a[8] else sys_time.mktime((a[0], a[1], a[2], a[3], a[4], 0, 0, 0))
             d = a_sec - c_sec
             if 0 < d < min_d: min_d = d; next_a = a; is_snooze_next = False
-    if state["snooze_epoch"] > 0 and 0 < state["snooze_epoch"] - c_sec < min_d: next_a = state["alarms"][state["snooze_idx"]]; is_snooze_next = True
+    if snooze_epoch > 0 and 0 < snooze_epoch - c_sec < min_d: next_a = settings["alarms"][snooze_idx]; is_snooze_next = True
     if next_a:
-        lbl = next_a[6][:4] + "Zz" if is_snooze_next else next_a[6][:6]; nh, nm = (sys_time.localtime(state["snooze_epoch"])[3:5] if is_snooze_next else next_a[3:5])
-        nmo, nd = (sys_time.localtime(state["snooze_epoch"])[1:3] if is_snooze_next else (next_a[1:3] if not next_a[8] else (t[1], t[2])))
-        ny = sys_time.localtime(state["snooze_epoch"])[0] if is_snooze_next else (next_a[0] if not next_a[8] else t[0])
-        ndh = nh % 12 if state["use_12h"] else nh; ndh = 12 if state["use_12h"] and ndh == 0 else ndh; nampm = ("A" if nh < 12 else "P") if state["use_12h"] else ""
-        n_str = ("Next: DAILY " if next_a[8] and not is_snooze_next else f"Next: {nmo:02d}/{nd:02d} " if state["use_12h"] else f"Next: {nd:02d}.{nmo:02d}.{ny:04d} ") + f"{ndh:02d}:{nm:02d}{nampm} [{lbl}]"
+        lbl = next_a[6][:4] + "Zz" if is_snooze_next else next_a[6][:6]; nh, nm = (sys_time.localtime(snooze_epoch)[3:5] if is_snooze_next else next_a[3:5])
+        nmo, nd = (sys_time.localtime(snooze_epoch)[1:3] if is_snooze_next else (next_a[1:3] if not next_a[8] else (t[1], t[2])))
+        ny = sys_time.localtime(snooze_epoch)[0] if is_snooze_next else (next_a[0] if not next_a[8] else t[0])
+        ndh = nh % 12 if settings["use_12h"] else nh; ndh = 12 if settings["use_12h"] and ndh == 0 else ndh; nampm = ("A" if nh < 12 else "P") if settings["use_12h"] else ""
+        n_str = ("Next: DAILY " if next_a[8] and not is_snooze_next else f"Next: {nmo:02d}/{nd:02d} " if settings["use_12h"] else f"Next: {nd:02d}.{nmo:02d}.{ny:04d} ") + f"{ndh:02d}:{nm:02d}{nampm} [{lbl}]"
     
     draw.text(Vector(20, 80), n_str, TFT_WHITE)
     
-    in_y = 102; r_height = 16; egg_str = "RUN" if state["egg_end"] > 0 else ""; sw_str = "RUN" if state.get("sw_run", False) else ""; cd_str = "RUN" if state.get("cd_end", 0) > 0 else ""
-    for i, (txt, cnt) in enumerate([("Manage Alarms", f"[{len(state['alarms'])}]"), ("Egg Timer", egg_str), ("Stopwatch", sw_str), ("Countdown", cd_str), ("Options Menu", ""), ("View Help", "")]):
+    in_y = 102; r_height = 16; egg_str = "RUN" if egg_end > 0 else ""; sw_str = "RUN" if sw_run else ""; cd_str = "RUN" if cd_end > 0 else ""
+    for i, (txt, cnt) in enumerate([("Manage Alarms", f"[{len(settings['alarms'])}]"), ("Egg Timer", egg_str), ("Stopwatch", sw_str), ("Countdown", cd_str), ("Options Menu", ""), ("View Help", "")]):
         r_y = in_y + (i * 16)
-        
-        col = theme_color if c_idx == i else TFT_LIGHTGREY
-        b_col = theme_color if c_idx == i else TFT_DARKGREY
-        badge_col = theme_color if c_idx == i else TFT_WHITE
-            
-        if c_idx == i:
-            draw.fill_rectangle(Vector(0, r_y - 2), Vector(screen_w, r_height), TFT_DARKGREY)
-            draw.text(Vector(screen_w - 20, r_y + 1), "<", theme_color)
-            
+        col = theme_color if c_idx == i else TFT_LIGHTGREY; b_col = theme_color if c_idx == i else TFT_DARKGREY; badge_col = theme_color if c_idx == i else TFT_WHITE
+        if c_idx == i: draw.fill_rectangle(Vector(0, r_y - 2), Vector(screen_w, r_height), TFT_DARKGREY); draw.text(Vector(screen_w - 20, r_y + 1), "<", theme_color)
         draw.text(Vector(15, r_y + 1), txt, col)
-        
-        if cnt:
-            draw.rect(Vector(160, r_y - 2), Vector(60, r_height), b_col)
-            draw.text(Vector(170, r_y + 1), cnt, badge_col)
+        if cnt: draw.rect(Vector(160, r_y - 2), Vector(60, r_height), b_col); draw.text(Vector(170, r_y + 1), cnt, badge_col)
             
     draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), theme_color)
     draw.text(Vector(5, screen_h - 32), "[M]List [N]New [O]Opt [ESC]Exit", theme_color)
-    draw.text(Vector(5, screen_h - 15), "[UP/DN]Nav [ENT]Select" + ("  [D]Diag" if state.get("show_diagnostics", False) else ""), TFT_LIGHTGREY)
+    draw.text(Vector(5, screen_h - 15), "[UP/DN]Nav [ENT]Select" + ("  [D]Diag" if settings.get("show_diagnostics", False) else ""), TFT_LIGHTGREY)
 
 @track_ram
 def draw_alarms(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
-    global state
-    c_idx = state["cursor_idx"]; list_len = len(state["alarms"]) + 1
+    global cursor_idx, settings, sys_time
+    c_idx = cursor_idx; list_len = len(settings["alarms"]) + 1
     draw.text(Vector(10, 10), "MODE: ALARMS LIST", TFT_WHITE); draw.fill_rectangle(Vector(0, 30), Vector(screen_w, 2), theme_color)
     c_sec = sys_time.time(); has_past = False
     for i in range(min(4, list_len)):
@@ -725,13 +713,13 @@ def draw_alarms(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
         if idx < list_len:
             r_y = 50 + (i * 35)
             if idx == c_idx: draw.fill_rectangle(Vector(0, r_y - 4), Vector(screen_w, 30), TFT_DARKGREY)
-            if idx < len(state["alarms"]):
-                a = state["alarms"][idx]; is_past = not a[8] and sys_time.mktime((a[0], a[1], a[2], a[3], a[4], 0, 0, 0)) < c_sec
+            if idx < len(settings["alarms"]):
+                a = settings["alarms"][idx]; is_past = not a[8] and sys_time.mktime((a[0], a[1], a[2], a[3], a[4], 0, 0, 0)) < c_sec
                 if is_past: has_past = True
                 t_col = theme_color if idx == c_idx else TFT_LIGHTGREY; label_color = TFT_RED if is_past else t_col
                 draw.text(Vector(5, r_y + 1), f"{a[6][:6]}:", label_color); draw.rect(Vector(65, r_y - 4), Vector(250, 30), theme_color if idx == c_idx else TFT_DARKGREY)
-                stat_str = ("ON*" if a[7] else "ON ") if a[5] else ("OFF*" if a[7] else "OFF "); adh = a[3] % 12 if state["use_12h"] else a[3]; adh = 12 if state["use_12h"] and adh == 0 else adh
-                aampm = ("A" if a[3] < 12 else "P") if state["use_12h"] else ""; a_str = f"DAILY {adh:02d}:{a[4]:02d}{aampm} [{stat_str}]" if a[8] else (f"{a[1]:02d}/{a[2]:02d} " if state["use_12h"] else f"{a[2]:02d}.{a[1]:02d}.{a[0]:04d} ") + f"{adh:02d}:{a[4]:02d}{aampm} [{stat_str}]"
+                stat_str = ("ON*" if a[7] else "ON ") if a[5] else ("OFF*" if a[7] else "OFF "); adh = a[3] % 12 if settings["use_12h"] else a[3]; adh = 12 if settings["use_12h"] and adh == 0 else adh
+                aampm = ("A" if a[3] < 12 else "P") if settings["use_12h"] else ""; a_str = f"DAILY {adh:02d}:{a[4]:02d}{aampm} [{stat_str}]" if a[8] else (f"{a[1]:02d}/{a[2]:02d} " if settings["use_12h"] else f"{a[2]:02d}.{a[1]:02d}.{a[0]:04d} ") + f"{adh:02d}:{a[4]:02d}{aampm} [{stat_str}]"
                 draw.text(Vector(70, r_y + 1), a_str, TFT_RED if is_past else (theme_color if idx == c_idx else TFT_WHITE))
             else: draw.text(Vector(15, r_y + 1), "+ Create New Alarm", theme_color if idx == c_idx else TFT_LIGHTGREY)
     draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), theme_color); draw.text(Vector(5, screen_h - 32), "[L/R]Tgl " + ("[C]Clr " if has_past else "") + "[N]New [ESC]Back", theme_color); draw.text(Vector(5, screen_h - 15), "[UP/DN]Nav [T]Snd [BS]Del [ENT]Edit", TFT_LIGHTGREY)
@@ -856,67 +844,103 @@ def draw_view(view_manager):
     draw.swap(); state["dirty_ui"] = False
 
 def start(view_manager):
-    global storage, state, show_help, show_options, help_box, _last_saved_json
+    global storage, show_help, show_options, sys_time
+    global settings, current_mode, dirty_ui, last_s
     
-    sys_time = view_manager.time # Bind the official Picoware RTC directly to our global variable
+    # Fix the scope trap so the custom Picoware RTC is actually used globally
+    sys_time = view_manager.time 
     
-    state = DEFAULT_STATE.copy()
+    # Re-initialize the tiny settings dictionary on boot
+    settings = {
+        "theme_idx": 0, "bg_r": 0, "bg_g": 0, "bg_b": 0,
+        "use_12h": False, "snooze_min": 5, "show_diagnostics": False, "alarms": []
+    }
+    
     show_help = False
     show_options = False
-    help_box = None
-    _last_saved_json = ""
     storage = view_manager.storage
     
     validate_hardware_and_time(view_manager)
     validate_and_load_settings()
     
-    if state.get("show_diagnostics", False):
-        state["mode"] = "diagnostic"
+    # Check the new settings dict for the diagnostic flag, and use the integer constants
+    if settings.get("show_diagnostics", False):
+        current_mode = MODE_DIAGNOSTIC
     else:
-        state["mode"] = "main"
-    
-    state["dirty_ui"] = True
-    state["last_s"] = -1
+        current_mode = MODE_MAIN
+        
+    dirty_ui = True
+    last_s = -1
     return True
 
 def run(view_manager):
-    global state
+    global settings, dirty_ui, dirty_save, save_timer, sys_time
+    
     draw = view_manager.draw; input_mgr = view_manager.input_manager; button = input_mgr.button
     t = sys_time.localtime(); c_sec = sys_time.time()
     
     check_time_and_alarms(t, c_sec)
     
-    if button == -1 and not state["dirty_ui"] and not state["dirty_save"]: return
+    if button == -1 and not dirty_ui and not dirty_save: return
     if button != -1: process_input(button, input_mgr, view_manager, t, c_sec)
     
-    if state is None: return
+    if settings is None: return
     
-    if state["dirty_save"] and button == -1:
-        if state["save_timer"] > 0: 
-            state["save_timer"] -= 1
+    if dirty_save and button == -1:
+        if save_timer > 0: 
+            save_timer -= 1
         else: 
             # Send the save function through our RAM profiler
             profile_ram("save_settings", save_settings)
         
-    if state["dirty_ui"]: draw_view(view_manager)
+    if dirty_ui: draw_view(view_manager)
 
 def stop(view_manager):
-    global state, storage, help_box, _last_saved_json
-    global _EGG_PRESETS, _THEMES, buzzer_l, buzzer_r, DEFAULT_STATE, INPUT_DISPATCH, VIEW_DISPATCH
+    global settings, storage
+    global _EGG_PRESETS, _THEMES, buzzer_l, buzzer_r, INPUT_DISPATCH, VIEW_DISPATCH
+    
     save_settings()
     handle_audio_silence()
-    if state is not None: state.clear()
-    state = None
+    
+    # Tear down the new settings dictionary instead of state
+    if settings is not None: settings.clear()
+    settings = None
     storage = None
-    help_box = None
-    _last_saved_json = ""
+    
+    # Tear down massive global structures to free RAM for the main OS
     _EGG_PRESETS = None
     _THEMES = None
     buzzer_l = None
     buzzer_r = None
-    DEFAULT_STATE = None
     INPUT_DISPATCH = None
     VIEW_DISPATCH = None
+    
     import gc
     gc.collect()
 
+# your start, run, stop functions here
+
+# add this at the bottom of your app for testing
+from picoware.system.view_manager import ViewManager
+from picoware.system.view import View
+
+vm = None
+
+try:
+    vm = ViewManager()
+    vm.add(
+        View(
+            "app_tester",
+            run,
+            start,
+            stop,
+        )
+    )
+    vm.switch_to("app_tester")
+    while True:
+        vm.run()
+except Exception as e:
+    print("Error during testing:", e)
+finally:
+    del vm
+    vm = None

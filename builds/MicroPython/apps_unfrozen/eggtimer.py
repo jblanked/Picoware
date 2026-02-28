@@ -72,7 +72,7 @@ _EGG_PRESETS = (
     (10, "Hard+ (10m)")
 )
 
-_VERSION = "0.11"
+_VERSION = "0.12"
 
 _cached_help_lines = []
 

@@ -8,7 +8,7 @@ mp_obj_t sprite3d_mp_init(void)
 {
     sprite3d_mp_obj_t *sprite3d = mp_obj_malloc_with_finaliser(sprite3d_mp_obj_t, &sprite3d_mp_type);
     sprite3d->base.type = &sprite3d_mp_type;
-    sprite3d->triangles = mp_obj_new_list(0, MP_OBJ_NULL);
+    sprite3d->triangles = mp_obj_new_list(0, NULL);
     sprite3d->triangle_count = 0;
     sprite3d->pos = vector_mp_init(0.0f, 0.0f, 0.0f, false);
     sprite3d->rotation_y = 0.0f;
@@ -161,8 +161,7 @@ void sprite3d_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 mp_obj_t sprite3d_mp_add_triangle(mp_obj_t self_in, mp_obj_t triangle_in)
 {
     sprite3d_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    mp_obj_list_t *triangles_list = MP_OBJ_TO_PTR(self->triangles);
-    triangles_list->items[self->triangle_count] = triangle_in;
+    mp_obj_list_append(self->triangles, triangle_in);
     self->triangle_count++;
     return mp_const_none;
 }
@@ -172,14 +171,7 @@ mp_obj_t sprite3d_mp_clear_triangles(mp_obj_t self_in)
 {
     sprite3d_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     mp_obj_list_t *triangles_list = MP_OBJ_TO_PTR(self->triangles);
-    for (size_t i = 0; i < self->triangle_count; i++)
-    {
-        if (triangles_list->items[i] != MP_OBJ_NULL)
-        {
-            m_del_obj(triangle3d_mp_obj_t, MP_OBJ_TO_PTR(triangles_list->items[i]));
-            triangles_list->items[i] = NULL;
-        }
-    }
+    triangles_list->len = 0;
     self->triangle_count = 0;
     return mp_const_none;
 }

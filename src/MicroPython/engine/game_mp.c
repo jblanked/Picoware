@@ -65,7 +65,7 @@ mp_obj_t game_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw,
         self->name[name_len] = '\0';
     }
     self->size = args[1];
-    self->levels = mp_obj_new_list(0, MP_OBJ_NULL);
+    self->levels = mp_obj_new_list(0, NULL);
     self->position = vector_mp_init(0, 0, 0, true);
     self->is_active = false;
     self->foreground_color = (n_args >= 3) ? mp_obj_get_int(args[2]) : 0xFFFF;

@@ -31,7 +31,7 @@ mp_obj_t level_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw
         self->name[name_len] = '\0';
     }
     self->size = args[1];
-    self->entities = mp_obj_new_list(0, MP_OBJ_NULL);
+    self->entities = mp_obj_new_list(0, NULL);
     self->freed = false;
     return MP_OBJ_FROM_PTR(self);
 }

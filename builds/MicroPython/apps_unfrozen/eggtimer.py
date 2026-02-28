@@ -940,16 +940,48 @@ def run(view_manager):
     if dirty_ui: draw_view(view_manager)
 
 def stop(view_manager):
-    global settings, storage
+    # 1. System and Settings
+    global settings, storage, _cached_help_lines
+    # 2. Large Static Dispatchers and Hardware
     global _EGG_PRESETS, _THEMES, buzzer_l, buzzer_r, INPUT_DISPATCH, VIEW_DISPATCH
+    # 3. Volatile Strings and Memory
+    global tmp_label, board_name
+    # 4. Timers and Accumulators
+    global sw_run, sw_start, sw_accum, last_sw_ms, egg_end, cd_end, snooze_epoch
+    global cd_h, cd_m, cd_s, egg_preset
+    # 5. UI Cursors and Trackers
+    global show_help, show_options, help_scroll, current_mode, origin_mode, msg_origin
+    global dirty_ui, dirty_save, save_timer, cursor_idx, options_cursor_idx, date_cursor, cd_cursor
+    global last_s, last_trig_m, ringing_idx, ring_flash, snooze_idx, snooze_count, edit_idx
+    global tmp_daily, tmp_y, tmp_mo, tmp_d, tmp_h, tmp_m, tmp_audible, del_confirm_yes, clear_confirm_yes
     
     save_settings()
     handle_audio_silence()
     
-    # Tear down the new settings dictionary instead of state
+    # Tear down the settings dictionary
     if settings is not None: settings.clear()
     settings = None
     storage = None
+    
+    # Clear string caches (The most important step for freeing RAM)
+    _cached_help_lines = []
+    tmp_label = ""
+    board_name = ""
+    
+    # Zero out all integer accumulators, timers, and trackers
+    sw_start = sw_accum = last_sw_ms = egg_end = cd_end = snooze_epoch = 0
+    cd_h = cd_m = cd_s = save_timer = help_scroll = 0
+    cursor_idx = options_cursor_idx = date_cursor = cd_cursor = 0
+    current_mode = origin_mode = msg_origin = 0
+    last_s = last_trig_m = ringing_idx = snooze_idx = edit_idx = -1
+    snooze_count = 0
+    egg_preset = 1
+    tmp_y = 2026; tmp_mo = 1; tmp_d = 1; tmp_h = 12; tmp_m = 0
+    
+    # Reset booleans
+    sw_run = dirty_ui = dirty_save = ring_flash = show_help = show_options = False
+    tmp_daily = del_confirm_yes = clear_confirm_yes = False
+    tmp_audible = True
     
     # Tear down massive global structures to free RAM for the main OS
     _EGG_PRESETS = None

@@ -335,234 +335,233 @@ def check_time_and_alarms(t, c_sec):
             except Exception: pass
 
 def handle_input_diagnostic(button, input_mgr, view_manager, t, c_sec):
-    global state
+    global current_mode, dirty_ui
     if button in (BUTTON_BACK, BUTTON_ESCAPE):
-        state["dirty_ui"] = False
+        dirty_ui = False
         view_manager.back()
         return
     elif button == BUTTON_CENTER:
-        state["mode"] = "main"
-        state["dirty_ui"] = True
+        current_mode = MODE_MAIN
+        dirty_ui = True
 
 def handle_input_modals(button, input_mgr, view_manager, t, c_sec):
-    global state
-    if state["mode"] in ("invalid_time", "invalid_date_format"):
+    global current_mode, dirty_ui, msg_origin, del_confirm_yes, clear_confirm_yes, settings, cursor_idx, snooze_idx, snooze_epoch, snooze_count, sys_time
+    if current_mode in (MODE_ERR_TIME, MODE_ERR_DATE):
         if button in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_UP, BUTTON_DOWN):
-            state["mode"] = state.get("msg_origin", "main"); state["dirty_ui"] = True
-    elif state["mode"] == "confirm_delete":
-        if button in (BUTTON_BACK, BUTTON_ESCAPE): state["mode"] = "alarms"; state["dirty_ui"] = True
-        elif button in (BUTTON_LEFT, BUTTON_RIGHT): state["del_confirm_yes"] = not state["del_confirm_yes"]; state["dirty_ui"] = True
+            current_mode = msg_origin; dirty_ui = True
+    elif current_mode == MODE_CONFIRM_DEL:
+        if button in (BUTTON_BACK, BUTTON_ESCAPE): current_mode = MODE_ALARMS; dirty_ui = True
+        elif button in (BUTTON_LEFT, BUTTON_RIGHT): del_confirm_yes = not del_confirm_yes; dirty_ui = True
         elif button == BUTTON_CENTER:
-            if state["del_confirm_yes"]:
-                if state["snooze_idx"] == state["cursor_idx"]: state["snooze_epoch"] = state["snooze_count"] = 0
-                elif state["snooze_idx"] > state["cursor_idx"]: state["snooze_idx"] -= 1
-                state["alarms"].pop(state["cursor_idx"]); state["cursor_idx"] = max(0, state["cursor_idx"] - 1); queue_save()
-            state["mode"] = "alarms"; state["dirty_ui"] = True
-    elif state["mode"] == "confirm_clear":
-        if button in (BUTTON_BACK, BUTTON_ESCAPE): state["mode"] = "alarms"; state["dirty_ui"] = True
-        elif button in (BUTTON_LEFT, BUTTON_RIGHT): state["clear_confirm_yes"] = not state["clear_confirm_yes"]; state["dirty_ui"] = True
+            if del_confirm_yes:
+                if snooze_idx == cursor_idx: snooze_epoch = snooze_count = 0
+                elif snooze_idx > cursor_idx: snooze_idx -= 1
+                settings["alarms"].pop(cursor_idx); cursor_idx = max(0, cursor_idx - 1); queue_save()
+            current_mode = MODE_ALARMS; dirty_ui = True
+    elif current_mode == MODE_CONFIRM_CLR:
+        if button in (BUTTON_BACK, BUTTON_ESCAPE): current_mode = MODE_ALARMS; dirty_ui = True
+        elif button in (BUTTON_LEFT, BUTTON_RIGHT): clear_confirm_yes = not clear_confirm_yes; dirty_ui = True
         elif button == BUTTON_CENTER:
-            if state["clear_confirm_yes"]:
-                for i in range(len(state["alarms"]) - 1, -1, -1):
-                    a = state["alarms"][i]
+            if clear_confirm_yes:
+                for i in range(len(settings["alarms"]) - 1, -1, -1):
+                    a = settings["alarms"][i]
                     if not a[8] and sys_time.mktime((a[0], a[1], a[2], a[3], a[4], 0, 0, 0)) < c_sec:
-                        if state["snooze_idx"] == i: state["snooze_epoch"] = state["snooze_count"] = 0
-                        elif state["snooze_idx"] > i: state["snooze_idx"] -= 1
-                        state["alarms"].pop(i)
-                state["cursor_idx"] = 0; queue_save()
-            state["mode"] = "alarms"; state["dirty_ui"] = True
+                        if snooze_idx == i: snooze_epoch = snooze_count = 0
+                        elif snooze_idx > i: snooze_idx -= 1
+                        settings["alarms"].pop(i)
+                cursor_idx = 0; queue_save()
+            current_mode = MODE_ALARMS; dirty_ui = True
 
 def handle_input_ring(button, input_mgr, view_manager, t, c_sec):
-    global state
-    if state["ringing_idx"] in (-2, -3):
+    global current_mode, dirty_ui, ringing_idx, snooze_count, snooze_epoch, snooze_idx, settings
+    if ringing_idx in (-2, -3):
         if button in (BUTTON_CENTER, BUTTON_O, BUTTON_BACK, BUTTON_ESCAPE):
-            state["mode"] = "egg_timer" if state["ringing_idx"] == -2 else "countdown"; state["ringing_idx"] = -1; state["dirty_ui"] = True; handle_audio_silence()
+            current_mode = MODE_EGG if ringing_idx == -2 else MODE_COUNTDOWN; ringing_idx = -1; dirty_ui = True; handle_audio_silence()
     else:
         if button in (BUTTON_S, BUTTON_CENTER):
-            if state["snooze_count"] < 5:
-                state["snooze_epoch"] = c_sec + (state["snooze_min"] * 60); state["snooze_idx"] = state["ringing_idx"]; state["snooze_count"] += 1; queue_save()
+            if snooze_count < 5:
+                snooze_epoch = c_sec + (settings["snooze_min"] * 60); snooze_idx = ringing_idx; snooze_count += 1; queue_save()
             else:
-                if 0 <= state["ringing_idx"] < len(state["alarms"]) and not state["alarms"][state["ringing_idx"]][8]: state["alarms"][state["ringing_idx"]][5] = False; queue_save()
-                state["snooze_epoch"] = state["snooze_count"] = 0
-            state["mode"] = "main"; state["ringing_idx"] = -1; state["dirty_ui"] = True; handle_audio_silence()
+                if 0 <= ringing_idx < len(settings["alarms"]) and not settings["alarms"][ringing_idx][8]: settings["alarms"][ringing_idx][5] = False; queue_save()
+                snooze_epoch = snooze_count = 0
+            current_mode = MODE_MAIN; ringing_idx = -1; dirty_ui = True; handle_audio_silence()
         elif button in (BUTTON_O, BUTTON_BACK, BUTTON_ESCAPE):
-            state["mode"] = "main"
-            if 0 <= state["ringing_idx"] < len(state["alarms"]) and not state["alarms"][state["ringing_idx"]][8]: state["alarms"][state["ringing_idx"]][5] = False; queue_save()
-            state["ringing_idx"] = -1; state["snooze_epoch"] = state["snooze_count"] = 0; state["dirty_ui"] = True; handle_audio_silence()
+            current_mode = MODE_MAIN
+            if 0 <= ringing_idx < len(settings["alarms"]) and not settings["alarms"][ringing_idx][8]: settings["alarms"][ringing_idx][5] = False; queue_save()
+            ringing_idx = -1; snooze_epoch = snooze_count = 0; dirty_ui = True; handle_audio_silence()
 
 def handle_input_main(button, input_mgr, view_manager, t, c_sec):
-    global state, show_help, show_options
+    global current_mode, dirty_ui, show_help, show_options, cursor_idx, origin_mode, edit_idx, tmp_daily, tmp_y, tmp_mo, tmp_d, date_cursor, tmp_h, tmp_m, tmp_label, tmp_audible, settings
     cy, cmo, cd, ch, cm = t[0], t[1], t[2], t[3], t[4]
     if button in (BUTTON_BACK, BUTTON_ESCAPE):
-        state["dirty_ui"] = False
-        view_manager.back()
-        return
-    elif button == BUTTON_H: show_help = True; state["dirty_ui"] = True
-    elif button == BUTTON_O: show_options = True; state["dirty_ui"] = True
-    elif button == BUTTON_D and state.get("show_diagnostics", False): state["mode"] = "diagnostic"; state["dirty_ui"] = True
-    elif button == BUTTON_M: state["mode"] = "alarms"; state["cursor_idx"] = 0; state["dirty_ui"] = True
-    elif button == BUTTON_N: state["mode"] = "edit_type"; state["origin"] = "main"; state["edit_idx"] = -1; state["tmp_daily"] = False; state["tmp_y"] = cy; state["tmp_mo"] = cmo; state["tmp_d"] = cd; state["date_cursor"] = 0; state["tmp_h"] = ch; state["tmp_m"] = cm; state["tmp_label"] = ""; state["tmp_audible"] = True; state["dirty_ui"] = True
-    elif button == BUTTON_DOWN: state["cursor_idx"] = (state["cursor_idx"] + 1) % 6; state["dirty_ui"] = True
-    elif button == BUTTON_UP: state["cursor_idx"] = (state["cursor_idx"] - 1) % 6; state["dirty_ui"] = True
+        dirty_ui = False; view_manager.back(); return
+    elif button == BUTTON_H: show_help = True; dirty_ui = True
+    elif button == BUTTON_O: show_options = True; dirty_ui = True
+    elif button == BUTTON_D and settings.get("show_diagnostics", False): current_mode = MODE_DIAGNOSTIC; dirty_ui = True
+    elif button == BUTTON_M: current_mode = MODE_ALARMS; cursor_idx = 0; dirty_ui = True
+    elif button == BUTTON_N: 
+        current_mode = MODE_EDIT_TYPE; origin_mode = MODE_MAIN; edit_idx = -1; tmp_daily = False; tmp_y = cy; tmp_mo = cmo; tmp_d = cd; date_cursor = 0; tmp_h = ch; tmp_m = cm; tmp_label = ""; tmp_audible = True; dirty_ui = True
+    elif button == BUTTON_DOWN: cursor_idx = (cursor_idx + 1) % 6; dirty_ui = True
+    elif button == BUTTON_UP: cursor_idx = (cursor_idx - 1) % 6; dirty_ui = True
     elif button == BUTTON_CENTER:
-        if state["cursor_idx"] == 0: state["mode"] = "alarms"; state["cursor_idx"] = 0
-        elif state["cursor_idx"] == 1: state["mode"] = "egg_timer"
-        elif state["cursor_idx"] == 2: state["mode"] = "stopwatch"
-        elif state["cursor_idx"] == 3: state["mode"] = "countdown"
-        elif state["cursor_idx"] == 4: show_options = True
-        elif state["cursor_idx"] == 5: show_help = True
-        state["dirty_ui"] = True
+        if cursor_idx == 0: current_mode = MODE_ALARMS; cursor_idx = 0
+        elif cursor_idx == 1: current_mode = MODE_EGG
+        elif cursor_idx == 2: current_mode = MODE_STOPWATCH
+        elif cursor_idx == 3: current_mode = MODE_COUNTDOWN
+        elif cursor_idx == 4: show_options = True
+        elif cursor_idx == 5: show_help = True
+        dirty_ui = True
 
 def handle_input_egg_timer(button, input_mgr, view_manager, t, c_sec):
-    global state
-    if button in (BUTTON_BACK, BUTTON_ESCAPE): state["mode"] = "main"; state["dirty_ui"] = True
-    elif button == BUTTON_DOWN: state["egg_preset"] = (state["egg_preset"] + 1) % len(_EGG_PRESETS); state["dirty_ui"] = True
-    elif button == BUTTON_UP: state["egg_preset"] = (state["egg_preset"] - 1) % len(_EGG_PRESETS); state["dirty_ui"] = True
+    global current_mode, dirty_ui, egg_preset, egg_end
+    if button in (BUTTON_BACK, BUTTON_ESCAPE): current_mode = MODE_MAIN; dirty_ui = True
+    elif button == BUTTON_DOWN: egg_preset = (egg_preset + 1) % len(_EGG_PRESETS); dirty_ui = True
+    elif button == BUTTON_UP: egg_preset = (egg_preset - 1) % len(_EGG_PRESETS); dirty_ui = True
     elif button == BUTTON_CENTER:
-        m = _EGG_PRESETS[state["egg_preset"]][0]
-        if m == 0: state["egg_end"] = 0
-        else: state["egg_end"] = c_sec + (m * 60)
-        queue_save(); state["dirty_ui"] = True
+        m = _EGG_PRESETS[egg_preset][0]
+        if m == 0: egg_end = 0
+        else: egg_end = c_sec + (m * 60)
+        queue_save(); dirty_ui = True
 
 def handle_input_stopwatch(button, input_mgr, view_manager, t, c_sec):
-    global state
-    if button in (BUTTON_BACK, BUTTON_ESCAPE): state["mode"] = "main"; state["dirty_ui"] = True
+    global current_mode, dirty_ui, sw_run, sw_accum, sw_start
+    if button in (BUTTON_BACK, BUTTON_ESCAPE): current_mode = MODE_MAIN; dirty_ui = True
     elif button == BUTTON_CENTER:
-        if state["sw_run"]: state["sw_accum"] += time.ticks_diff(time.ticks_ms(), state["sw_start"]); state["sw_run"] = False
-        else: state["sw_start"] = time.ticks_ms(); state["sw_run"] = True
-        state["dirty_ui"] = True
-    elif button == BUTTON_R: state["sw_accum"] = 0; state["sw_run"] = False; state["dirty_ui"] = True
+        if sw_run: sw_accum += time.ticks_diff(time.ticks_ms(), sw_start); sw_run = False
+        else: sw_start = time.ticks_ms(); sw_run = True
+        dirty_ui = True
+    elif button == BUTTON_R: sw_accum = 0; sw_run = False; dirty_ui = True
 
 def handle_input_countdown(button, input_mgr, view_manager, t, c_sec):
-    global state
-    if button in (BUTTON_BACK, BUTTON_ESCAPE): state["mode"] = "main"; state["dirty_ui"] = True
-    elif state["cd_end"] == 0:
-        if button == BUTTON_LEFT: state["cd_cursor"] = (state["cd_cursor"] - 1) % 3; state["dirty_ui"] = True
-        elif button == BUTTON_RIGHT: state["cd_cursor"] = (state["cd_cursor"] + 1) % 3; state["dirty_ui"] = True
+    global current_mode, dirty_ui, cd_end, cd_cursor, cd_h, cd_m, cd_s
+    if button in (BUTTON_BACK, BUTTON_ESCAPE): current_mode = MODE_MAIN; dirty_ui = True
+    elif cd_end == 0:
+        if button == BUTTON_LEFT: cd_cursor = (cd_cursor - 1) % 3; dirty_ui = True
+        elif button == BUTTON_RIGHT: cd_cursor = (cd_cursor + 1) % 3; dirty_ui = True
         elif button == BUTTON_UP:
-            if state["cd_cursor"] == 0: state["cd_h"] = (state["cd_h"] + 1) % 100
-            elif state["cd_cursor"] == 1: state["cd_m"] = (state["cd_m"] + 1) % 60
-            elif state["cd_cursor"] == 2: state["cd_s"] = (state["cd_s"] + 1) % 60
-            state["dirty_ui"] = True; queue_save()
+            if cd_cursor == 0: cd_h = (cd_h + 1) % 100
+            elif cd_cursor == 1: cd_m = (cd_m + 1) % 60
+            elif cd_cursor == 2: cd_s = (cd_s + 1) % 60
+            dirty_ui = True; queue_save()
         elif button == BUTTON_DOWN:
-            if state["cd_cursor"] == 0: state["cd_h"] = (state["cd_h"] - 1) % 100
-            elif state["cd_cursor"] == 1: state["cd_m"] = (state["cd_m"] - 1) % 60
-            elif state["cd_cursor"] == 2: state["cd_s"] = (state["cd_s"] - 1) % 60
-            state["dirty_ui"] = True; queue_save()
+            if cd_cursor == 0: cd_h = (cd_h - 1) % 100
+            elif cd_cursor == 1: cd_m = (cd_m - 1) % 60
+            elif cd_cursor == 2: cd_s = (cd_s - 1) % 60
+            dirty_ui = True; queue_save()
         elif button == BUTTON_CENTER:
-            total_s = state["cd_h"] * 3600 + state["cd_m"] * 60 + state["cd_s"]
-            if total_s > 0: state["cd_end"] = c_sec + total_s; state["dirty_ui"] = True
-        elif button == BUTTON_R: state["cd_h"] = state["cd_m"] = state["cd_s"] = 0; state["dirty_ui"] = True; queue_save()
+            total_s = cd_h * 3600 + cd_m * 60 + cd_s
+            if total_s > 0: cd_end = c_sec + total_s; dirty_ui = True
+        elif button == BUTTON_R: cd_h = cd_m = cd_s = 0; dirty_ui = True; queue_save()
     else:
-        if button in (BUTTON_CENTER, BUTTON_R): state["cd_end"] = 0; state["dirty_ui"] = True
+        if button in (BUTTON_CENTER, BUTTON_R): cd_end = 0; dirty_ui = True
 
 def handle_input_alarms(button, input_mgr, view_manager, t, c_sec):
-    global state
+    global current_mode, dirty_ui, cursor_idx, settings, sys_time, msg_origin, clear_confirm_yes, del_confirm_yes, origin_mode, edit_idx, tmp_daily, tmp_y, tmp_mo, tmp_d, date_cursor, tmp_h, tmp_m, tmp_label, tmp_audible, snooze_idx, snooze_epoch, snooze_count
     cy, cmo, cd, ch, cm = t[0], t[1], t[2], t[3], t[4]
-    list_len = len(state["alarms"]) + 1
-    if button in (BUTTON_BACK, BUTTON_ESCAPE): state["mode"] = "main"; state["cursor_idx"] = 0; state["dirty_ui"] = True
-    elif button == BUTTON_DOWN and state["cursor_idx"] < list_len - 1: state["cursor_idx"] += 1; state["dirty_ui"] = True
-    elif button == BUTTON_UP and state["cursor_idx"] > 0: state["cursor_idx"] -= 1; state["dirty_ui"] = True
-    elif button in (BUTTON_LEFT, BUTTON_RIGHT) and state["cursor_idx"] < len(state["alarms"]):
-        a = state["alarms"][state["cursor_idx"]]
+    list_len = len(settings["alarms"]) + 1
+    if button in (BUTTON_BACK, BUTTON_ESCAPE): current_mode = MODE_MAIN; cursor_idx = 0; dirty_ui = True
+    elif button == BUTTON_DOWN and cursor_idx < list_len - 1: cursor_idx += 1; dirty_ui = True
+    elif button == BUTTON_UP and cursor_idx > 0: cursor_idx -= 1; dirty_ui = True
+    elif button in (BUTTON_LEFT, BUTTON_RIGHT) and cursor_idx < len(settings["alarms"]):
+        a = settings["alarms"][cursor_idx]
         if not a[5]:
-            if not a[8] and sys_time.mktime((a[0], a[1], a[2], a[3], a[4], 0, 0, 0)) <= c_sec: state["mode"] = "invalid_time"; state["msg_origin"] = "alarms"; state["dirty_ui"] = True
-            else: a[5] = True; queue_save(); state["dirty_ui"] = True
+            if not a[8] and sys_time.mktime((a[0], a[1], a[2], a[3], a[4], 0, 0, 0)) <= c_sec: current_mode = MODE_ERR_TIME; msg_origin = MODE_ALARMS; dirty_ui = True
+            else: a[5] = True; queue_save(); dirty_ui = True
         else:
             a[5] = False
-            if state["snooze_idx"] == state["cursor_idx"]: state["snooze_epoch"] = state["snooze_count"] = 0
-            queue_save(); state["dirty_ui"] = True
-    elif button == BUTTON_T and state["cursor_idx"] < len(state["alarms"]): state["alarms"][state["cursor_idx"]][7] = not state["alarms"][state["cursor_idx"]][7]; queue_save(); state["dirty_ui"] = True
+            if snooze_idx == cursor_idx: snooze_epoch = snooze_count = 0
+            queue_save(); dirty_ui = True
+    elif button == BUTTON_T and cursor_idx < len(settings["alarms"]): settings["alarms"][cursor_idx][7] = not settings["alarms"][cursor_idx][7]; queue_save(); dirty_ui = True
     elif button == BUTTON_C:
-        has_past = any(not a[8] and sys_time.mktime((a[0], a[1], a[2], a[3], a[4], 0, 0, 0)) < c_sec for a in state["alarms"])
-        if has_past: state["mode"] = "confirm_clear"; state["clear_confirm_yes"] = False; state["dirty_ui"] = True
-    elif button == BUTTON_BACKSPACE and state["cursor_idx"] < len(state["alarms"]): state["mode"] = "confirm_delete"; state["del_confirm_yes"] = False; state["dirty_ui"] = True
+        has_past = any(not a[8] and sys_time.mktime((a[0], a[1], a[2], a[3], a[4], 0, 0, 0)) < c_sec for a in settings["alarms"])
+        if has_past: current_mode = MODE_CONFIRM_CLR; clear_confirm_yes = False; dirty_ui = True
+    elif button == BUTTON_BACKSPACE and cursor_idx < len(settings["alarms"]): current_mode = MODE_CONFIRM_DEL; del_confirm_yes = False; dirty_ui = True
     elif button == BUTTON_CENTER:
-        state["mode"] = "edit_type"; state["origin"] = "alarms"; state["date_cursor"] = 0; state["dirty_ui"] = True
-        if state["cursor_idx"] == len(state["alarms"]):
-            state["edit_idx"] = -1; state["tmp_daily"] = False; state["tmp_y"] = cy; state["tmp_mo"] = cmo; state["tmp_d"] = cd; state["tmp_h"] = ch; state["tmp_m"] = cm; state["tmp_label"] = ""; state["tmp_audible"] = True
+        current_mode = MODE_EDIT_TYPE; origin_mode = MODE_ALARMS; date_cursor = 0; dirty_ui = True
+        if cursor_idx == len(settings["alarms"]):
+            edit_idx = -1; tmp_daily = False; tmp_y = cy; tmp_mo = cmo; tmp_d = cd; tmp_h = ch; tmp_m = cm; tmp_label = ""; tmp_audible = True
         else:
-            a = state["alarms"][state["cursor_idx"]]; state["edit_idx"] = state["cursor_idx"]
-            state["tmp_y"] = a[0]; state["tmp_mo"] = a[1]; state["tmp_d"] = a[2]; state["tmp_h"] = a[3]; state["tmp_m"] = a[4]; state["tmp_label"] = a[6]; state["tmp_audible"] = a[7]; state["tmp_daily"] = a[8]
+            a = settings["alarms"][cursor_idx]; edit_idx = cursor_idx
+            tmp_y = a[0]; tmp_mo = a[1]; tmp_d = a[2]; tmp_h = a[3]; tmp_m = a[4]; tmp_label = a[6]; tmp_audible = a[7]; tmp_daily = a[8]
 
 def handle_input_editor(button, input_mgr, view_manager, t, c_sec):
-    global state
+    global current_mode, dirty_ui, settings, origin_mode, msg_origin, tmp_daily, tmp_y, tmp_mo, tmp_d, date_cursor, tmp_h, tmp_m, tmp_label, tmp_audible, edit_idx, cursor_idx, sys_time
     cy, cmo, cd, ch, cm = t[0], t[1], t[2], t[3], t[4]
-    if state["mode"] == "edit_type":
-        if button in (BUTTON_BACK, BUTTON_ESCAPE): state["mode"] = state.get("origin", "main"); state["dirty_ui"] = True
-        elif button in (BUTTON_LEFT, BUTTON_RIGHT, BUTTON_UP, BUTTON_DOWN): state["tmp_daily"] = not state["tmp_daily"]; state["dirty_ui"] = True
-        elif button == BUTTON_CENTER: state["mode"] = "edit_h" if state["tmp_daily"] else "edit_date"; state["dirty_ui"] = True
-    elif state["mode"] == "edit_date":
-        if button in (BUTTON_BACK, BUTTON_ESCAPE): state["mode"] = "edit_type"; state["dirty_ui"] = True
-        elif button == BUTTON_LEFT: state["date_cursor"] = (state["date_cursor"] - 1) % 3; state["dirty_ui"] = True
-        elif button == BUTTON_RIGHT: state["date_cursor"] = (state["date_cursor"] + 1) % 3; state["dirty_ui"] = True
+    if current_mode == MODE_EDIT_TYPE:
+        if button in (BUTTON_BACK, BUTTON_ESCAPE): current_mode = origin_mode; dirty_ui = True
+        elif button in (BUTTON_LEFT, BUTTON_RIGHT, BUTTON_UP, BUTTON_DOWN): tmp_daily = not tmp_daily; dirty_ui = True
+        elif button == BUTTON_CENTER: current_mode = MODE_EDIT_H if tmp_daily else MODE_EDIT_DATE; dirty_ui = True
+    elif current_mode == MODE_EDIT_DATE:
+        if button in (BUTTON_BACK, BUTTON_ESCAPE): current_mode = MODE_EDIT_TYPE; dirty_ui = True
+        elif button == BUTTON_LEFT: date_cursor = (date_cursor - 1) % 3; dirty_ui = True
+        elif button == BUTTON_RIGHT: date_cursor = (date_cursor + 1) % 3; dirty_ui = True
         elif button == BUTTON_UP:
-            if state["date_cursor"] == 0: state["tmp_y"] += 1 if state["use_12h"] else 0; state["tmp_d"] = state["tmp_d"] + 1 if state["tmp_d"] < 31 and not state["use_12h"] else (1 if not state["use_12h"] else state["tmp_d"])
-            elif state["date_cursor"] == 1: state["tmp_mo"] = state["tmp_mo"] + 1 if state["tmp_mo"] < 12 else 1
-            elif state["date_cursor"] == 2: state["tmp_d"] = state["tmp_d"] + 1 if state["tmp_d"] < 31 and state["use_12h"] else (1 if state["use_12h"] else state["tmp_d"]); state["tmp_y"] += 1 if not state["use_12h"] else 0
-            state["dirty_ui"] = True
+            if date_cursor == 0: tmp_y += 1 if settings["use_12h"] else 0; tmp_d = tmp_d + 1 if tmp_d < 31 and not settings["use_12h"] else (1 if not settings["use_12h"] else tmp_d)
+            elif date_cursor == 1: tmp_mo = tmp_mo + 1 if tmp_mo < 12 else 1
+            elif date_cursor == 2: tmp_d = tmp_d + 1 if tmp_d < 31 and settings["use_12h"] else (1 if settings["use_12h"] else tmp_d); tmp_y += 1 if not settings["use_12h"] else 0
+            dirty_ui = True
         elif button == BUTTON_DOWN:
-            if state["date_cursor"] == 0: state["tmp_y"] = max(2024, state["tmp_y"] - 1) if state["use_12h"] else state["tmp_y"]; state["tmp_d"] = state["tmp_d"] - 1 if state["tmp_d"] > 1 and not state["use_12h"] else (31 if not state["use_12h"] else state["tmp_d"])
-            elif state["date_cursor"] == 1: state["tmp_mo"] = state["tmp_mo"] - 1 if state["tmp_mo"] > 1 else 12
-            elif state["date_cursor"] == 2: state["tmp_d"] = state["tmp_d"] - 1 if state["tmp_d"] > 1 and state["use_12h"] else (31 if state["use_12h"] else state["tmp_d"]); state["tmp_y"] = max(2024, state["tmp_y"] - 1) if not state["use_12h"] else state["tmp_y"]
-            state["dirty_ui"] = True
+            if date_cursor == 0: tmp_y = max(2024, tmp_y - 1) if settings["use_12h"] else tmp_y; tmp_d = tmp_d - 1 if tmp_d > 1 and not settings["use_12h"] else (31 if not settings["use_12h"] else tmp_d)
+            elif date_cursor == 1: tmp_mo = tmp_mo - 1 if tmp_mo > 1 else 12
+            elif date_cursor == 2: tmp_d = tmp_d - 1 if tmp_d > 1 and settings["use_12h"] else (31 if settings["use_12h"] else tmp_d); tmp_y = max(2024, tmp_y - 1) if not settings["use_12h"] else tmp_y
+            dirty_ui = True
         elif button == BUTTON_CENTER:
-            leap = 1 if (state["tmp_y"] % 4 == 0 and (state["tmp_y"] % 100 != 0 or state["tmp_y"] % 400 == 0)) else 0
-            dim = [31, 28 + leap, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][state["tmp_mo"] - 1]
-            if state["tmp_d"] > dim: state["mode"] = "invalid_date_format"; state["msg_origin"] = "edit_date"; state["dirty_ui"] = True; return
-            if state["tmp_y"] < cy or (state["tmp_y"] == cy and state["tmp_mo"] < cmo) or (state["tmp_y"] == cy and state["tmp_mo"] == cmo and state["tmp_d"] < cd): state["mode"] = "invalid_time"; state["msg_origin"] = "edit_date"; state["dirty_ui"] = True; return
-            state["mode"] = "edit_h"; state["dirty_ui"] = True
-    elif state["mode"] == "edit_h":
-        if button in (BUTTON_BACK, BUTTON_ESCAPE): state["mode"] = "edit_type" if state["tmp_daily"] else "edit_date"; state["dirty_ui"] = True
-        elif button == BUTTON_DOWN: state["tmp_h"] = (state["tmp_h"] - 1) % 24; state["dirty_ui"] = True
-        elif button == BUTTON_UP: state["tmp_h"] = (state["tmp_h"] + 1) % 24; state["dirty_ui"] = True
+            leap = 1 if (tmp_y % 4 == 0 and (tmp_y % 100 != 0 or tmp_y % 400 == 0)) else 0
+            dim = [31, 28 + leap, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][tmp_mo - 1]
+            if tmp_d > dim: current_mode = MODE_ERR_DATE; msg_origin = MODE_EDIT_DATE; dirty_ui = True; return
+            if tmp_y < cy or (tmp_y == cy and tmp_mo < cmo) or (tmp_y == cy and tmp_mo == cmo and tmp_d < cd): current_mode = MODE_ERR_TIME; msg_origin = MODE_EDIT_DATE; dirty_ui = True; return
+            current_mode = MODE_EDIT_H; dirty_ui = True
+    elif current_mode == MODE_EDIT_H:
+        if button in (BUTTON_BACK, BUTTON_ESCAPE): current_mode = MODE_EDIT_TYPE if tmp_daily else MODE_EDIT_DATE; dirty_ui = True
+        elif button == BUTTON_DOWN: tmp_h = (tmp_h - 1) % 24; dirty_ui = True
+        elif button == BUTTON_UP: tmp_h = (tmp_h + 1) % 24; dirty_ui = True
         elif button == BUTTON_CENTER:
-            if not state["tmp_daily"] and state["tmp_y"] == cy and state["tmp_mo"] == cmo and state["tmp_d"] == cd and state["tmp_h"] < ch: state["mode"] = "invalid_time"; state["msg_origin"] = "edit_h"; state["dirty_ui"] = True; return
-            state["mode"] = "edit_m"; state["dirty_ui"] = True
-    elif state["mode"] == "edit_m":
-        if button in (BUTTON_BACK, BUTTON_ESCAPE): state["mode"] = "edit_h"; state["dirty_ui"] = True
-        elif button == BUTTON_DOWN: state["tmp_m"] = (state["tmp_m"] - 1) % 60; state["dirty_ui"] = True
-        elif button == BUTTON_UP: state["tmp_m"] = (state["tmp_m"] + 1) % 60; state["dirty_ui"] = True
+            if not tmp_daily and tmp_y == cy and tmp_mo == cmo and tmp_d == cd and tmp_h < ch: current_mode = MODE_ERR_TIME; msg_origin = MODE_EDIT_H; dirty_ui = True; return
+            current_mode = MODE_EDIT_M; dirty_ui = True
+    elif current_mode == MODE_EDIT_M:
+        if button in (BUTTON_BACK, BUTTON_ESCAPE): current_mode = MODE_EDIT_H; dirty_ui = True
+        elif button == BUTTON_DOWN: tmp_m = (tmp_m - 1) % 60; dirty_ui = True
+        elif button == BUTTON_UP: tmp_m = (tmp_m + 1) % 60; dirty_ui = True
         elif button == BUTTON_CENTER:
-            if not state["tmp_daily"] and state["tmp_y"] == cy and state["tmp_mo"] == cmo and state["tmp_d"] == cd and state["tmp_h"] == ch and state["tmp_m"] <= cm: state["mode"] = "invalid_time"; state["msg_origin"] = "edit_m"; state["dirty_ui"] = True; return
-            state["mode"] = "edit_l"; state["dirty_ui"] = True
-    elif state["mode"] == "edit_l":
-        if button in (BUTTON_BACK, BUTTON_ESCAPE): state["mode"] = "edit_m"; state["dirty_ui"] = True
-        elif button == BUTTON_CENTER: state["mode"] = "edit_aud"; state["dirty_ui"] = True
-        elif button == BUTTON_BACKSPACE and len(state["tmp_label"]) > 0: state["tmp_label"] = state["tmp_label"][:-1]; state["dirty_ui"] = True
-        elif button == BUTTON_SPACE and len(state["tmp_label"]) < 50: state["tmp_label"] += " "; state["dirty_ui"] = True
-        elif button >= BUTTON_A and button <= BUTTON_Z and len(state["tmp_label"]) < 50: state["tmp_label"] += chr(button - BUTTON_A + ord('A')); state["dirty_ui"] = True
-        elif button >= BUTTON_0 and button <= BUTTON_9 and len(state["tmp_label"]) < 50: state["tmp_label"] += chr(button - BUTTON_0 + ord('0')); state["dirty_ui"] = True
-    elif state["mode"] == "edit_aud":
-        if button in (BUTTON_BACK, BUTTON_ESCAPE): state["mode"] = "edit_l"; state["dirty_ui"] = True
-        elif button in (BUTTON_LEFT, BUTTON_RIGHT, BUTTON_UP, BUTTON_DOWN): state["tmp_audible"] = not state["tmp_audible"]; state["dirty_ui"] = True
+            if not tmp_daily and tmp_y == cy and tmp_mo == cmo and tmp_d == cd and tmp_h == ch and tmp_m <= cm: current_mode = MODE_ERR_TIME; msg_origin = MODE_EDIT_M; dirty_ui = True; return
+            current_mode = MODE_EDIT_L; dirty_ui = True
+    elif current_mode == MODE_EDIT_L:
+        if button in (BUTTON_BACK, BUTTON_ESCAPE): current_mode = MODE_EDIT_M; dirty_ui = True
+        elif button == BUTTON_CENTER: current_mode = MODE_EDIT_AUD; dirty_ui = True
+        elif button == BUTTON_BACKSPACE and len(tmp_label) > 0: tmp_label = tmp_label[:-1]; dirty_ui = True
+        elif button == BUTTON_SPACE and len(tmp_label) < 50: tmp_label += " "; dirty_ui = True
+        elif button >= BUTTON_A and button <= BUTTON_Z and len(tmp_label) < 50: tmp_label += chr(button - BUTTON_A + ord('A')); dirty_ui = True
+        elif button >= BUTTON_0 and button <= BUTTON_9 and len(tmp_label) < 50: tmp_label += chr(button - BUTTON_0 + ord('0')); dirty_ui = True
+    elif current_mode == MODE_EDIT_AUD:
+        if button in (BUTTON_BACK, BUTTON_ESCAPE): current_mode = MODE_EDIT_L; dirty_ui = True
+        elif button in (BUTTON_LEFT, BUTTON_RIGHT, BUTTON_UP, BUTTON_DOWN): tmp_audible = not tmp_audible; dirty_ui = True
         elif button == BUTTON_CENTER:
-            final_lbl = state["tmp_label"].strip() or "ALARM"
-            if not state["tmp_daily"] and sys_time.mktime((state["tmp_y"], state["tmp_mo"], state["tmp_d"], state["tmp_h"], state["tmp_m"], 0, 0, 0)) <= c_sec: state["mode"] = "invalid_time"; state["msg_origin"] = "edit_aud"; state["dirty_ui"] = True; return
-            new_a = [state["tmp_y"], state["tmp_mo"], state["tmp_d"], state["tmp_h"], state["tmp_m"], True, final_lbl, state["tmp_audible"], state["tmp_daily"]]
-            if state["edit_idx"] == -1: state["alarms"].append(new_a)
-            else: state["alarms"][state["edit_idx"]] = new_a
-            queue_save(); state["mode"] = state.get("origin", "main"); state["dirty_ui"] = True
-            if state["origin"] == "main": state["cursor_idx"] = 0
+            final_lbl = tmp_label.strip() or "ALARM"
+            if not tmp_daily and sys_time.mktime((tmp_y, tmp_mo, tmp_d, tmp_h, tmp_m, 0, 0, 0)) <= c_sec: current_mode = MODE_ERR_TIME; msg_origin = MODE_EDIT_AUD; dirty_ui = True; return
+            new_a = [tmp_y, tmp_mo, tmp_d, tmp_h, tmp_m, True, final_lbl, tmp_audible, tmp_daily]
+            if edit_idx == -1: settings["alarms"].append(new_a)
+            else: settings["alarms"][edit_idx] = new_a
+            queue_save(); current_mode = origin_mode; dirty_ui = True
+            if origin_mode == MODE_MAIN: cursor_idx = 0
 
 INPUT_DISPATCH = {
-    "diagnostic": handle_input_diagnostic,
-    "main": handle_input_main,
-    "egg_timer": handle_input_egg_timer,
-    "stopwatch": handle_input_stopwatch,
-    "countdown": handle_input_countdown,
-    "alarms": handle_input_alarms,
-    "ring": handle_input_ring,
-    "edit_type": handle_input_editor,
-    "edit_date": handle_input_editor,
-    "edit_h": handle_input_editor,
-    "edit_m": handle_input_editor,
-    "edit_l": handle_input_editor,
-    "edit_aud": handle_input_editor,
-    "confirm_delete": handle_input_modals,
-    "confirm_clear": handle_input_modals,
-    "invalid_time": handle_input_modals,
-    "invalid_date_format": handle_input_modals
+    MODE_DIAGNOSTIC: handle_input_diagnostic,
+    MODE_MAIN: handle_input_main,
+    MODE_EGG: handle_input_egg_timer,
+    MODE_STOPWATCH: handle_input_stopwatch,
+    MODE_COUNTDOWN: handle_input_countdown,
+    MODE_ALARMS: handle_input_alarms,
+    MODE_RING: handle_input_ring,
+    MODE_EDIT_TYPE: handle_input_editor,
+    MODE_EDIT_DATE: handle_input_editor,
+    MODE_EDIT_H: handle_input_editor,
+    MODE_EDIT_M: handle_input_editor,
+    MODE_EDIT_L: handle_input_editor,
+    MODE_EDIT_AUD: handle_input_editor,
+    MODE_CONFIRM_DEL: handle_input_modals,
+    MODE_CONFIRM_CLR: handle_input_modals,
+    MODE_ERR_TIME: handle_input_modals,
+    MODE_ERR_DATE: handle_input_modals
 }
 
 def draw_diagnostic(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
@@ -608,7 +607,7 @@ def draw_modals(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
         draw.fill_rectangle(Vector(30, 115), Vector(60, 20), TFT_BLACK if is_yes else TFT_DARKGREY); draw.text(Vector(45, 118), "YES", theme_color if is_yes else TFT_LIGHTGREY)
         draw.fill_rectangle(Vector(140, 115), Vector(60, 20), TFT_BLACK if not is_yes else TFT_DARKGREY); draw.text(Vector(160, 118), "NO", theme_color if not is_yes else TFT_LIGHTGREY)
         draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), theme_color); draw.text(Vector(5, screen_h - 32), "[L/R] Select [ENT] Confirm", theme_color); draw.text(Vector(5, screen_h - 15), "[ESC] Cancel", TFT_LIGHTGREY)
-        
+
 def draw_ring(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
     global ringing_idx, snooze_count, ring_flash, settings
     if ringing_idx == -2: display_lbl = "EGG READY!"; hint_str = "[ENT/O] Dismiss"
@@ -725,123 +724,120 @@ def draw_alarms(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
     draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), theme_color); draw.text(Vector(5, screen_h - 32), "[L/R]Tgl " + ("[C]Clr " if has_past else "") + "[N]New [ESC]Back", theme_color); draw.text(Vector(5, screen_h - 15), "[UP/DN]Nav [T]Snd [BS]Del [ENT]Edit", TFT_LIGHTGREY)
 
 def draw_editor(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
-    global state
-    draw.text(Vector(10, 10), "MODE: EDIT ALARM" if state.get("edit_idx", -1) != -1 else "MODE: ADD ALARM", TFT_WHITE); draw.fill_rectangle(Vector(0, 30), Vector(screen_w, 2), theme_color)
-    out_y = 45; draw.fill_rectangle(Vector(15, out_y + 25), Vector(screen_w - 30, 80 if state["mode"] == "edit_l" else 35), TFT_DARKGREY); draw.rect(Vector(15, out_y + 25), Vector(screen_w - 30, 80 if state["mode"] == "edit_l" else 35), theme_color)
-    if state["mode"] == "edit_type": draw.text(Vector(15, out_y + 5), "ALARM TYPE:", TFT_LIGHTGREY); draw.text(Vector(40, out_y + 33), f"< {'DAILY' if state['tmp_daily'] else 'SPECIFIC DATE'} >", theme_color, 2)
-    elif state["mode"] == "edit_date":
+    global current_mode, edit_idx, tmp_daily, tmp_y, tmp_mo, tmp_d, date_cursor, tmp_h, tmp_m, tmp_label, tmp_audible, settings, sys_time
+    draw.text(Vector(10, 10), "MODE: EDIT ALARM" if edit_idx != -1 else "MODE: ADD ALARM", TFT_WHITE); draw.fill_rectangle(Vector(0, 30), Vector(screen_w, 2), theme_color)
+    out_y = 45; draw.fill_rectangle(Vector(15, out_y + 25), Vector(screen_w - 30, 80 if current_mode == MODE_EDIT_L else 35), TFT_DARKGREY); draw.rect(Vector(15, out_y + 25), Vector(screen_w - 30, 80 if current_mode == MODE_EDIT_L else 35), theme_color)
+    if current_mode == MODE_EDIT_TYPE: draw.text(Vector(15, out_y + 5), "ALARM TYPE:", TFT_LIGHTGREY); draw.text(Vector(40, out_y + 33), f"< {'DAILY' if tmp_daily else 'SPECIFIC DATE'} >", theme_color, 2)
+    elif current_mode == MODE_EDIT_DATE:
         draw.text(Vector(15, out_y + 5), "SET DATE:", TFT_LIGHTGREY)
-        cy, cm, cd = (state["tmp_y"], state["tmp_mo"], state["tmp_d"]) if state["use_12h"] else (state["tmp_d"], state["tmp_mo"], state["tmp_y"]); c0, c1, c2 = (theme_color if state["date_cursor"] == i else TFT_WHITE for i in range(3))
-        if state["use_12h"]: draw.text(Vector(30, out_y+33), f"{cy:04d}", c0, 2); draw.text(Vector(100, out_y+33), "-", TFT_LIGHTGREY, 2); draw.text(Vector(120, out_y+33), f"{cm:02d}", c1, 2); draw.text(Vector(160, out_y+33), "-", TFT_LIGHTGREY, 2); draw.text(Vector(180, out_y+33), f"{cd:02d}", c2, 2)
+        cy, cm, cd = (tmp_y, tmp_mo, tmp_d) if settings["use_12h"] else (tmp_d, tmp_mo, tmp_y); c0, c1, c2 = (theme_color if date_cursor == i else TFT_WHITE for i in range(3))
+        if settings["use_12h"]: draw.text(Vector(30, out_y+33), f"{cy:04d}", c0, 2); draw.text(Vector(100, out_y+33), "-", TFT_LIGHTGREY, 2); draw.text(Vector(120, out_y+33), f"{cm:02d}", c1, 2); draw.text(Vector(160, out_y+33), "-", TFT_LIGHTGREY, 2); draw.text(Vector(180, out_y+33), f"{cd:02d}", c2, 2)
         else: draw.text(Vector(30, out_y+33), f"{cy:02d}", c0, 2); draw.text(Vector(70, out_y+33), ".", TFT_LIGHTGREY, 2); draw.text(Vector(90, out_y+33), f"{cm:02d}", c1, 2); draw.text(Vector(130, out_y+33), ".", TFT_LIGHTGREY, 2); draw.text(Vector(150, out_y+33), f"{cd:04d}", c2, 2)
-    elif state["mode"] in ("edit_h", "edit_m"):
-        draw.text(Vector(15, out_y + 5), "SET TIME:", TFT_LIGHTGREY); th = state["tmp_h"] % 12 if state["use_12h"] else state["tmp_h"]; th = 12 if state["use_12h"] and th == 0 else th
-        draw.text(Vector(60, out_y + 33), f"{th:02d}", theme_color if state["mode"] == "edit_h" else TFT_WHITE, 2); draw.text(Vector(100, out_y + 33), ":", TFT_LIGHTGREY, 2); draw.text(Vector(120, out_y + 33), f"{state['tmp_m']:02d}", theme_color if state["mode"] == "edit_m" else TFT_WHITE, 2)
-        if state["use_12h"]: draw.text(Vector(150, out_y + 33), "AM" if state["tmp_h"] < 12 else "PM", TFT_LIGHTGREY, 2)
-    elif state["mode"] == "edit_l":
-        draw.text(Vector(15, out_y + 5), f"SET LABEL ({len(state['tmp_label'])}/50):", TFT_LIGHTGREY); v_str = state["tmp_label"] + ("_" if (int(sys_time.time()) % 2 == 0) else "")
+    elif current_mode in (MODE_EDIT_H, MODE_EDIT_M):
+        draw.text(Vector(15, out_y + 5), "SET TIME:", TFT_LIGHTGREY); th = tmp_h % 12 if settings["use_12h"] else tmp_h; th = 12 if settings["use_12h"] and th == 0 else th
+        draw.text(Vector(60, out_y + 33), f"{th:02d}", theme_color if current_mode == MODE_EDIT_H else TFT_WHITE, 2); draw.text(Vector(100, out_y + 33), ":", TFT_LIGHTGREY, 2); draw.text(Vector(120, out_y + 33), f"{tmp_m:02d}", theme_color if current_mode == MODE_EDIT_M else TFT_WHITE, 2)
+        if settings["use_12h"]: draw.text(Vector(150, out_y + 33), "AM" if tmp_h < 12 else "PM", TFT_LIGHTGREY, 2)
+    elif current_mode == MODE_EDIT_L:
+        draw.text(Vector(15, out_y + 5), f"SET LABEL ({len(tmp_label)}/50):", TFT_LIGHTGREY); v_str = tmp_label + ("_" if (int(sys_time.time()) % 2 == 0) else "")
         for i in range(0, len(v_str), 18): draw.text(Vector(20, out_y + 30 + (i // 18) * 20), v_str[i:i+18], TFT_WHITE, 2)
-    elif state["mode"] == "edit_aud": draw.text(Vector(15, out_y + 5), "AUDIBLE SOUND:", TFT_LIGHTGREY); draw.text(Vector(80, out_y + 33), f"< {'YES' if state['tmp_audible'] else 'NO '} >", theme_color, 2)
+    elif current_mode == MODE_EDIT_AUD: draw.text(Vector(15, out_y + 5), "AUDIBLE SOUND:", TFT_LIGHTGREY); draw.text(Vector(80, out_y + 33), f"< {'YES' if tmp_audible else 'NO '} >", theme_color, 2)
     draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), theme_color); draw.text(Vector(5, screen_h - 32), "[ESC] Cancel / Back", theme_color); draw.text(Vector(5, screen_h - 15), "[ENT] Next / Save", TFT_LIGHTGREY)
 
 VIEW_DISPATCH = {
-    "diagnostic": draw_diagnostic,
-    "main": draw_main,
-    "alarms": draw_alarms,
-    "stopwatch": draw_stopwatch,
-    "countdown": draw_countdown,
-    "egg_timer": draw_egg_timer,
-    "ring": draw_ring,
-    "edit_type": draw_editor,
-    "edit_date": draw_editor,
-    "edit_h": draw_editor,
-    "edit_m": draw_editor,
-    "edit_l": draw_editor,
-    "edit_aud": draw_editor,
-    "confirm_delete": draw_modals,
-    "confirm_clear": draw_modals,
-    "invalid_time": draw_modals,
-    "invalid_date_format": draw_modals
+    MODE_DIAGNOSTIC: draw_diagnostic,
+    MODE_MAIN: draw_main,
+    MODE_ALARMS: draw_alarms,
+    MODE_STOPWATCH: draw_stopwatch,
+    MODE_COUNTDOWN: draw_countdown,
+    MODE_EGG: draw_egg_timer,
+    MODE_RING: draw_ring,
+    MODE_EDIT_TYPE: draw_editor,
+    MODE_EDIT_DATE: draw_editor,
+    MODE_EDIT_H: draw_editor,
+    MODE_EDIT_M: draw_editor,
+    MODE_EDIT_L: draw_editor,
+    MODE_EDIT_AUD: draw_editor,
+    MODE_CONFIRM_DEL: draw_modals,
+    MODE_CONFIRM_CLR: draw_modals,
+    MODE_ERR_TIME: draw_modals,
+    MODE_ERR_DATE: draw_modals
 }
 
 def process_input(button, input_mgr, view_manager, t, c_sec):
-    global show_help, show_options, help_scroll, state
+    global show_help, show_options, help_scroll, current_mode, dirty_ui, options_cursor_idx, settings
     if show_help:
         if button in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_H):
-            show_help = False; help_scroll = 0; state["dirty_ui"] = True
-        elif button == BUTTON_DOWN: help_scroll += 1; state["dirty_ui"] = True
-        elif button == BUTTON_UP: help_scroll = max(0, help_scroll - 1); state["dirty_ui"] = True
+            show_help = False; help_scroll = 0; dirty_ui = True
+        elif button == BUTTON_DOWN: help_scroll += 1; dirty_ui = True
+        elif button == BUTTON_UP: help_scroll = max(0, help_scroll - 1); dirty_ui = True
         input_mgr.reset(); return
     elif show_options:
         if button in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER):
-            show_options = False; state["dirty_ui"] = True; queue_save()
-        elif button == BUTTON_DOWN: state["options_cursor_idx"] = (state["options_cursor_idx"] + 1) % 7; state["dirty_ui"] = True
-        elif button == BUTTON_UP: state["options_cursor_idx"] = (state["options_cursor_idx"] - 1) % 7; state["dirty_ui"] = True
+            show_options = False; dirty_ui = True; queue_save()
+        elif button == BUTTON_DOWN: options_cursor_idx = (options_cursor_idx + 1) % 7; dirty_ui = True
+        elif button == BUTTON_UP: options_cursor_idx = (options_cursor_idx - 1) % 7; dirty_ui = True
         elif button == BUTTON_RIGHT:
-            if state["options_cursor_idx"] == 0: state["theme_idx"] = (state["theme_idx"] + 1) % len(_THEMES)
-            elif state["options_cursor_idx"] == 1: state["bg_r"] = (state["bg_r"] + 5) % 256
-            elif state["options_cursor_idx"] == 2: state["bg_g"] = (state["bg_g"] + 5) % 256
-            elif state["options_cursor_idx"] == 3: state["bg_b"] = (state["bg_b"] + 5) % 256
-            elif state["options_cursor_idx"] == 4: state["use_12h"] = not state["use_12h"]
-            elif state["options_cursor_idx"] == 5: state["snooze_min"] = state["snooze_min"] + 1 if state["snooze_min"] < 60 else 1
-            elif state["options_cursor_idx"] == 6: state["show_diagnostics"] = not state.get("show_diagnostics", False)
-            state["dirty_ui"] = True; queue_save()
+            if options_cursor_idx == 0: settings["theme_idx"] = (settings["theme_idx"] + 1) % len(_THEMES)
+            elif options_cursor_idx == 1: settings["bg_r"] = (settings["bg_r"] + 5) % 256
+            elif options_cursor_idx == 2: settings["bg_g"] = (settings["bg_g"] + 5) % 256
+            elif options_cursor_idx == 3: settings["bg_b"] = (settings["bg_b"] + 5) % 256
+            elif options_cursor_idx == 4: settings["use_12h"] = not settings["use_12h"]
+            elif options_cursor_idx == 5: settings["snooze_min"] = settings["snooze_min"] + 1 if settings["snooze_min"] < 60 else 1
+            elif options_cursor_idx == 6: settings["show_diagnostics"] = not settings.get("show_diagnostics", False)
+            dirty_ui = True; queue_save()
         elif button == BUTTON_LEFT:
-            if state["options_cursor_idx"] == 0: state["theme_idx"] = (state["theme_idx"] - 1) % len(_THEMES)
-            elif state["options_cursor_idx"] == 1: state["bg_r"] = (state["bg_r"] - 5) % 256
-            elif state["options_cursor_idx"] == 2: state["bg_g"] = (state["bg_g"] - 5) % 256
-            elif state["options_cursor_idx"] == 3: state["bg_b"] = (state["bg_b"] - 5) % 256
-            elif state["options_cursor_idx"] == 4: state["use_12h"] = not state["use_12h"]
-            elif state["options_cursor_idx"] == 5: state["snooze_min"] = state["snooze_min"] - 1 if state["snooze_min"] > 1 else 60
-            elif state["options_cursor_idx"] == 6: state["show_diagnostics"] = not state.get("show_diagnostics", False)
-            state["dirty_ui"] = True; queue_save()
+            if options_cursor_idx == 0: settings["theme_idx"] = (settings["theme_idx"] - 1) % len(_THEMES)
+            elif options_cursor_idx == 1: settings["bg_r"] = (settings["bg_r"] - 5) % 256
+            elif options_cursor_idx == 2: settings["bg_g"] = (settings["bg_g"] - 5) % 256
+            elif options_cursor_idx == 3: settings["bg_b"] = (settings["bg_b"] - 5) % 256
+            elif options_cursor_idx == 4: settings["use_12h"] = not settings["use_12h"]
+            elif options_cursor_idx == 5: settings["snooze_min"] = settings["snooze_min"] - 1 if settings["snooze_min"] > 1 else 60
+            elif options_cursor_idx == 6: settings["show_diagnostics"] = not settings.get("show_diagnostics", False)
+            dirty_ui = True; queue_save()
         input_mgr.reset(); return
 
-    handler = INPUT_DISPATCH.get(state["mode"])
+    handler = INPUT_DISPATCH.get(current_mode)
     if handler: handler(button, input_mgr, view_manager, t, c_sec)
     input_mgr.reset()
 
 @track_ram
 def draw_view(view_manager):
-    global help_scroll
+    global help_scroll, current_mode, show_options, show_help, options_cursor_idx, settings, dirty_ui
     draw = view_manager.draw; screen_w = draw.size.x; screen_h = draw.size.y
-    bg_color = rgb_to_565(state["bg_r"], state["bg_g"], state["bg_b"]); theme_color = _THEMES[state["theme_idx"]][1]
+    bg_color = rgb_to_565(settings["bg_r"], settings["bg_g"], settings["bg_b"]); theme_color = _THEMES[settings["theme_idx"]][1]
     
-    if not (show_options or state["mode"] == "ring"):
+    if not (show_options or current_mode == MODE_RING):
         draw.clear(); draw.fill_rectangle(Vector(0, 0), Vector(screen_w, screen_h), bg_color)
         
     if show_help:
         lines = get_help_lines()
         max_scroll = max(0, len(lines) - 12)
         help_scroll = min(help_scroll, max_scroll)
-        
         for i in range(12):
             if help_scroll + i < len(lines):
                 draw.text(Vector(10, 10 + i * 20), lines[help_scroll + i], TFT_WHITE)
-                
         draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 40), bg_color)
         draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), theme_color)
         draw.text(Vector(5, screen_h - 32), "[UP/DN] Scroll  [ESC/H] Close", theme_color)
 
     elif show_options:
         draw.fill_rectangle(Vector(0, 0), Vector(screen_w, screen_h), TFT_DARKGREY); draw.fill_rectangle(Vector(0, 0), Vector(screen_w, 30), theme_color); draw.text(Vector(10, 10), "OPTIONS MENU", TFT_WHITE)
-        o_idx = state["options_cursor_idx"]
-        c0 = theme_color if o_idx == 0 else TFT_LIGHTGREY; draw.fill_rectangle(Vector(0, 36), Vector(screen_w, 22), TFT_BLACK) if o_idx == 0 else None; draw.text(Vector(15, 40), "Theme Color:", c0); draw.text(Vector(140, 40), f"< {_THEMES[state['theme_idx']][0]} >", c0)
-        c1 = theme_color if o_idx == 1 else TFT_LIGHTGREY; draw.fill_rectangle(Vector(0, 60), Vector(screen_w, 22), TFT_BLACK) if o_idx == 1 else None; draw.text(Vector(15, 64), "Back R (0-255):", c1); draw.text(Vector(140, 64), f"< {state['bg_r']} >", c1)
-        c2 = theme_color if o_idx == 2 else TFT_LIGHTGREY; draw.fill_rectangle(Vector(0, 84), Vector(screen_w, 22), TFT_BLACK) if o_idx == 2 else None; draw.text(Vector(15, 88), "Back G (0-255):", c2); draw.text(Vector(140, 88), f"< {state['bg_g']} >", c2)
-        c3 = theme_color if o_idx == 3 else TFT_LIGHTGREY; draw.fill_rectangle(Vector(0, 108), Vector(screen_w, 22), TFT_BLACK) if o_idx == 3 else None; draw.text(Vector(15, 112), "Back B (0-255):", c3); draw.text(Vector(140, 112), f"< {state['bg_b']} >", c3)
-        c4 = theme_color if o_idx == 4 else TFT_LIGHTGREY; draw.fill_rectangle(Vector(0, 132), Vector(screen_w, 22), TFT_BLACK) if o_idx == 4 else None; draw.text(Vector(15, 136), "Time Format:", c4); draw.text(Vector(140, 136), f"< {'12 Hour' if state['use_12h'] else '24 Hour'} >", c4)
-        c5 = theme_color if o_idx == 5 else TFT_LIGHTGREY; draw.fill_rectangle(Vector(0, 156), Vector(screen_w, 22), TFT_BLACK) if o_idx == 5 else None; draw.text(Vector(15, 160), "Snooze (Min):", c5); draw.text(Vector(140, 160), f"< {state['snooze_min']} >", c5)
-        c6 = theme_color if o_idx == 6 else TFT_LIGHTGREY; draw.fill_rectangle(Vector(0, 180), Vector(screen_w, 22), TFT_BLACK) if o_idx == 6 else None; draw.text(Vector(15, 184), "Boot Diag:", c6); draw.text(Vector(140, 184), f"< {'ON ' if state.get('show_diagnostics', False) else 'OFF'} >", c6)
+        o_idx = options_cursor_idx
+        c0 = theme_color if o_idx == 0 else TFT_LIGHTGREY; draw.fill_rectangle(Vector(0, 36), Vector(screen_w, 22), TFT_BLACK) if o_idx == 0 else None; draw.text(Vector(15, 40), "Theme Color:", c0); draw.text(Vector(140, 40), f"< {_THEMES[settings['theme_idx']][0]} >", c0)
+        c1 = theme_color if o_idx == 1 else TFT_LIGHTGREY; draw.fill_rectangle(Vector(0, 60), Vector(screen_w, 22), TFT_BLACK) if o_idx == 1 else None; draw.text(Vector(15, 64), "Back R (0-255):", c1); draw.text(Vector(140, 64), f"< {settings['bg_r']} >", c1)
+        c2 = theme_color if o_idx == 2 else TFT_LIGHTGREY; draw.fill_rectangle(Vector(0, 84), Vector(screen_w, 22), TFT_BLACK) if o_idx == 2 else None; draw.text(Vector(15, 88), "Back G (0-255):", c2); draw.text(Vector(140, 88), f"< {settings['bg_g']} >", c2)
+        c3 = theme_color if o_idx == 3 else TFT_LIGHTGREY; draw.fill_rectangle(Vector(0, 108), Vector(screen_w, 22), TFT_BLACK) if o_idx == 3 else None; draw.text(Vector(15, 112), "Back B (0-255):", c3); draw.text(Vector(140, 112), f"< {settings['bg_b']} >", c3)
+        c4 = theme_color if o_idx == 4 else TFT_LIGHTGREY; draw.fill_rectangle(Vector(0, 132), Vector(screen_w, 22), TFT_BLACK) if o_idx == 4 else None; draw.text(Vector(15, 136), "Time Format:", c4); draw.text(Vector(140, 136), f"< {'12 Hour' if settings['use_12h'] else '24 Hour'} >", c4)
+        c5 = theme_color if o_idx == 5 else TFT_LIGHTGREY; draw.fill_rectangle(Vector(0, 156), Vector(screen_w, 22), TFT_BLACK) if o_idx == 5 else None; draw.text(Vector(15, 160), "Snooze (Min):", c5); draw.text(Vector(140, 160), f"< {settings['snooze_min']} >", c5)
+        c6 = theme_color if o_idx == 6 else TFT_LIGHTGREY; draw.fill_rectangle(Vector(0, 180), Vector(screen_w, 22), TFT_BLACK) if o_idx == 6 else None; draw.text(Vector(15, 184), "Boot Diag:", c6); draw.text(Vector(140, 184), f"< {'ON ' if settings.get('show_diagnostics', False) else 'OFF'} >", c6)
         draw.text(Vector(15, 204), "Preview:", TFT_LIGHTGREY); draw.rect(Vector(90, 202), Vector(135, 14), theme_color); draw.fill_rectangle(Vector(91, 203), Vector(133, 12), bg_color)
         draw.text(Vector(5, screen_h - 20), "[L/R] Edit  [ENT] Close", TFT_WHITE)
     else:
-        handler = VIEW_DISPATCH.get(state["mode"])
+        handler = VIEW_DISPATCH.get(current_mode)
         if handler: 
-            # Send the rendering through our RAM profiler instead of calling it directly
-            profile_ram(state["mode"], handler, view_manager, draw, screen_w, screen_h, theme_color, bg_color)
+            profile_ram(str(current_mode), handler, view_manager, draw, screen_w, screen_h, theme_color, bg_color)
 
-    draw.swap(); state["dirty_ui"] = False
+    draw.swap(); dirty_ui = False
 
 def start(view_manager):
     global storage, show_help, show_options, sys_time

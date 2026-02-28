@@ -77,12 +77,12 @@ _VERSION = "0.11"
 _cached_help_lines = []
 
 def get_help_lines():
-    global state, _cached_help_lines
+    global board_name, _cached_help_lines
     
     if _cached_help_lines:
         return _cached_help_lines
         
-    b_name = state.get("board_name", "Unknown Board")[:18]
+    b_name = board_name[:18]
     hw_fw = os.uname().release if hasattr(os, "uname") else "Unknown FW"
         
     _cached_help_lines = [
@@ -95,7 +95,7 @@ def get_help_lines():
         "CREDITS:",
         "made by Slasher006",
         "with the help of Gemini",
-        "Date: 2026-02-27",
+        "Date: 2026-02-28",
         "",
         "SHORTCUTS:",
         "[L/R] Tgl ON/OFF",
@@ -839,34 +839,59 @@ def draw_view(view_manager):
 
     draw.swap(); dirty_ui = False
 
+# Define the start function that executes when the app is launched
 def start(view_manager):
-    global storage, show_help, show_options, sys_time
+    # Declare standard global variables needed for UI overlays and storage
+    global storage, show_help, show_options
+    # Declare global state variables needed to boot the main loop
     global settings, current_mode, dirty_ui, last_s
     
-    # Fix the scope trap so the custom Picoware RTC is actually used globally
-    sys_time = view_manager.time 
-    
-    # Re-initialize the tiny settings dictionary on boot
+    # Re-initialize the lightweight settings dictionary fresh on boot
     settings = {
-        "theme_idx": 0, "bg_r": 0, "bg_g": 0, "bg_b": 0,
-        "use_12h": False, "snooze_min": 5, "show_diagnostics": False, "alarms": []
+        # Default highlight theme index
+        "theme_idx": 0, 
+        # Default background red color value (0-255)
+        "bg_r": 0, 
+        # Default background green color value (0-255)
+        "bg_g": 0, 
+        # Default background blue color value (0-255)
+        "bg_b": 0,
+        # Default to 24-hour time display
+        "use_12h": False, 
+        # Default snooze duration is set to 5 minutes
+        "snooze_min": 5, 
+        # By default, bypass the hardware diagnostic screen
+        "show_diagnostics": False, 
+        # Initialize an empty list to hold alarm arrays
+        "alarms": []
     }
     
+    # Ensure the help overlay is hidden when the app opens
     show_help = False
+    # Ensure the options menu is hidden when the app opens
     show_options = False
+    # Bind the Picoware storage API reference to our global variable
     storage = view_manager.storage
     
+    # Validate the board name and hardware capabilities
     validate_hardware_and_time(view_manager)
+    # Read the JSON file from the SD card and populate the settings dictionary
     validate_and_load_settings()
     
-    # Check the new settings dict for the diagnostic flag, and use the integer constants
+    # Check if the user previously enabled the diagnostic boot screen
     if settings.get("show_diagnostics", False):
+        # Set the starting integer mode to the diagnostics screen
         current_mode = MODE_DIAGNOSTIC
+    # If the diagnostic screen is disabled
     else:
+        # Set the starting integer mode to the main menu
         current_mode = MODE_MAIN
         
+    # Flag the UI as dirty so the screen immediately renders on tick 1
     dirty_ui = True
+    # Reset the last second tracker so the clock logic fires immediately
     last_s = -1
+    # Return True to signal to the OS that the app started successfully
     return True
 
 def run(view_manager):

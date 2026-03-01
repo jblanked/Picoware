@@ -210,25 +210,25 @@ show_options = False
 sys_time = time # Create a global fallback mapping to the standard time module
 
 
-def profile_ram(func_name, target_function, *args, **kwargs):
+#def profile_ram(func_name, target_function, *args, **kwargs):
     # Force a deep cleanup to get a completely flat baseline
-    gc.collect()
+#    gc.collect()
     
     # Record the exact number of bytes currently allocated in the heap
-    start_mem = gc.mem_alloc()
+#    start_mem = gc.mem_alloc()
     
     # Execute the target view function
-    target_function(*args, **kwargs)
+#    target_function(*args, **kwargs)
     
     # Record the exact number of bytes allocated after the function finishes
-    end_mem = gc.mem_alloc()
+#    end_mem = gc.mem_alloc()
     
     # Calculate the total bytes added to RAM by this function
-    diff = end_mem - start_mem
+#    diff = end_mem - start_mem
     
     # Print the result to the Thonny console
-    print(f"[RAM LOG] View '{func_name}' consumed: {diff} bytes")
-
+#    print(f"[RAM LOG] View '{func_name}' consumed: {diff} bytes")
+#    pass
 
 def rgb_to_565(r, g, b):
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
@@ -238,7 +238,6 @@ def queue_save():
     dirty_save = True
     save_timer = 60
 
-@track_ram
 def save_settings():
     global settings, storage, dirty_save
     if not storage or not dirty_save: return
@@ -251,7 +250,6 @@ def save_settings():
         gc.collect()
     except Exception: pass
 
-@track_ram
 def validate_and_load_settings():
     global settings, storage
     if storage and storage.exists(_SETTINGS_FILE):
@@ -684,7 +682,6 @@ def draw_countdown(view_manager, draw, screen_w, screen_h, theme_color, bg_color
         draw.text(Vector(st_x + 140, 70), f"{cd_s:02d}", c2, 4)
         draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), theme_color); draw.text(Vector(5, screen_h - 32), "[L/R]Sel [U/D]Adj [ENT]Go [R]Rst", theme_color)
 
-@track_ram
 def draw_main(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
     global cursor_idx, settings, sys_time, snooze_epoch, snooze_idx, egg_end, sw_run, cd_end
     c_idx = cursor_idx
@@ -722,7 +719,6 @@ def draw_main(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
     draw.text(Vector(5, screen_h - 32), "[M]List [N]New [O]Opt [ESC]Exit", theme_color)
     draw.text(Vector(5, screen_h - 15), "[UP/DN]Nav [ENT]Select" + ("  [D]Diag" if settings.get("show_diagnostics", False) else ""), TFT_LIGHTGREY)
 
-@track_ram
 def draw_alarms(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
     global cursor_idx, settings, sys_time
     c_idx = cursor_idx; list_len = len(settings["alarms"]) + 1
@@ -821,7 +817,6 @@ def process_input(button, input_mgr, view_manager, t, c_sec):
     if handler: handler(button, input_mgr, view_manager, t, c_sec)
     input_mgr.reset()
 
-@track_ram
 def draw_view(view_manager):
     global help_scroll, current_mode, show_options, show_help, options_cursor_idx, settings, dirty_ui
     draw = view_manager.draw; screen_w = draw.size.x; screen_h = draw.size.y
@@ -855,8 +850,7 @@ def draw_view(view_manager):
         draw.text(Vector(5, screen_h - 20), "[L/R] Edit  [ENT] Close", TFT_WHITE)
     else:
         handler = VIEW_DISPATCH.get(current_mode)
-        if handler: 
-            profile_ram(str(current_mode), handler, view_manager, draw, screen_w, screen_h, theme_color, bg_color)
+        handler(view_manager, draw, screen_w, screen_h, theme_color, bg_color)        
 
     draw.swap(); dirty_ui = False
 
@@ -934,9 +928,8 @@ def run(view_manager):
         if save_timer > 0: 
             save_timer -= 1
         else: 
-            # Send the save function through our RAM profiler
-            profile_ram("save_settings", save_settings)
-        
+            save_settings()
+
     if dirty_ui: draw_view(view_manager)
 
 def stop(view_manager):
@@ -994,3 +987,29 @@ def stop(view_manager):
     import gc
     gc.collect()
 
+# your start, run, stop functions here
+
+# add this at the bottom of your app for testing
+from picoware.system.view_manager import ViewManager
+from picoware.system.view import View
+
+vm = None
+
+try:
+    vm = ViewManager()
+    vm.add(
+        View(
+            "app_tester",
+            run,
+            start,
+            stop,
+        )
+    )
+    vm.switch_to("app_tester")
+    while True:
+        vm.run()
+except Exception as e:
+    print("Error during testing:", e)
+finally:
+    del vm
+    vm = None

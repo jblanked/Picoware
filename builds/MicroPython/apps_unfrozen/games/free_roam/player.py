@@ -1642,7 +1642,8 @@ class Player(Entity):
         if not self.http:
             from picoware.system.http import HTTP
 
-            self.http = HTTP()
+            view_manager = self.free_roam_game.view_manager
+            self.http = HTTP(thread_manager=view_manager.thread_manager)
 
         if self.http is None:
             print("[USER_REQUEST] Failed to create HTTP instance.")

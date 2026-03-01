@@ -1,7 +1,8 @@
 from time import sleep
+import engine
 
 
-class GameEngine:
+class GameEngine(engine.Engine):
     """
     Represents a game engine.
     """
@@ -12,15 +13,10 @@ class GameEngine:
         :param fps: int - the frames per second of the game engine
         :param game: Game - the game to be run by the engine
         """
-        self.fps = fps
-        self.game = game
+        super().__init__(game, fps)
 
     def __del__(self) -> None:
         self.stop()
-
-        if self.game:
-            del self.game
-            self.game = None
 
     def run(self):
         """Run the game engine"""
@@ -52,11 +48,8 @@ class GameEngine:
 
     def stop(self):
         """Stop the game engine"""
-        from picoware.system.vector import Vector
-
         self.game.stop()
-        self.game.draw.clear(Vector(0, 0), self.game.size, self.game.background_color)
-        self.game.stop()
+        self.game.draw.erase()
 
     def update_game_input(self, game_input: int):
         """Update the game input"""

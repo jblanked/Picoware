@@ -1,15 +1,6 @@
 from micropython import const
 from picoware.system.vector import Vector
 
-# colors
-COLOR_WHITE = const(0xFFFF)
-COLOR_BLACK = const(0x0000)
-
-# map dimensions and limits
-MAX_MAP_WIDTH = const(64)
-MAX_MAP_HEIGHT = const(64)
-MAX_WALLS = const(100)
-
 # tile types
 TILE_EMPTY = const(0)
 TILE_WALL = const(1)
@@ -17,32 +8,6 @@ TILE_DOOR = const(2)
 TILE_TELEPORT = const(3)
 TILE_ENEMY_SPAWN = const(4)
 TILE_ITEM_SPAWN = const(5)
-
-
-class Wall:
-    """Wall structure for dynamic walls"""
-
-    def __init__(
-        self,
-        start: Vector = Vector(0, 0),
-        end: Vector = Vector(0, 0),
-        tile_type: int = TILE_EMPTY,
-        height: int = 0,
-        is_solid: bool = False,
-    ):
-        self.start: Vector = start
-        self.end: Vector = end
-        self.tile_type: int = tile_type
-        self.height: int = height
-        self.is_solid: bool = is_solid
-
-    def __del__(self):
-        if self.start:
-            del self.start
-            self.start = None
-        if self.end:
-            del self.end
-            self.end = None
 
 
 class DynamicMap:
@@ -219,5 +184,5 @@ class DynamicMap:
             int(size.x),
             int(size.y),
             self._fill_in,
-            COLOR_BLACK,
+            0x0000,
         )

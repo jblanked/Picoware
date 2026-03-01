@@ -222,6 +222,7 @@ class WiFi:
     def disconnect(self):
         """Disconnect from the Wi-Fi network."""
         with self._thread_lock:
+            self._thread_running = False
             self.wlan.disconnect()
 
     def is_connected(self):

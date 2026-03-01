@@ -332,7 +332,7 @@ class vt(uio.IOBase):
             return bytes([char_code])
 
         button_map = {
-            buttons.BUTTON_BACK: b"\x1b",  # ESC - will trigger KEY_QUIT in pye
+            buttons.BUTTON_BACK: b"\x11",  # Ctrl+Q - directly triggers KEY_QUIT in pye without escape sequence parsing
             buttons.BUTTON_UP: b"\x1b[A",
             buttons.BUTTON_DOWN: b"\x1b[B",
             buttons.BUTTON_RIGHT: b"\x1b[C",

@@ -10,16 +10,6 @@ Source: https://github.com/BlairLeduc/picocalc-text-starter
 #include <stdbool.h>
 #include <stddef.h>
 
-#define SD_SPI (spi1)
-
-// touch lcd 3.49 pins
-#define SD_MISO (28) // master in, slave out (MISO) - SPI1 RX
-#define SD_MOSI (27) // master out, slave in (MOSI) - SPI1 TX
-#define SD_SCK (26)  // serial clock (SCK) - SPI1 SCK
-#define SD_CS (31)   // chip select (CS) - any available GPIO
-
-// .baud_rate = 125 * 1000 * 1000 / 4  // 31250000 Hz
-
 // SD card interface definitions
 #define SD_INIT_BAUDRATE (400000) // 400 KHz SPI clock speed for initialization
 #define SD_BAUDRATE (25000000)    // 25 MHz SPI clock speed (SD spec max for SPI mode)

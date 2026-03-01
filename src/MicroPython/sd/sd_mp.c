@@ -1,35 +1,17 @@
 /*
- * Waveshare SD Native C Extension for MicroPython
+ * Picoware SD Native C Extension for MicroPython
+ * Copyright © 2025 JBlanked
  *
  */
 
-#include "py/runtime.h"
-#include "py/obj.h"
-#include "py/objarray.h"
-#include "py/mphal.h"
-#include "fat32.h"
-#include "py/mperrno.h"
+#include "sd_mp.h"
 #include "stdio.h"
 #include <stdlib.h>
 #include <string.h>
 
-// Define STATIC if not already defined (MicroPython macro)
-#ifndef STATIC
-#define STATIC static
-#endif
-
-#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
-
 const mp_obj_type_t mp_fat32_file_type;
 
-// micropython struct for fat32_file_t
-typedef struct
-{
-    mp_obj_base_t base;
-    fat32_file_t file;
-} mp_fat32_file_obj_t;
-
-STATIC void mp_fat32_file_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
+void mp_fat32_file_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
 {
     (void)kind;
     mp_fat32_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -55,7 +37,7 @@ STATIC void mp_fat32_file_print(const mp_print_t *print, mp_obj_t self_in, mp_pr
     mp_print_str(print, ")");
 }
 
-STATIC mp_obj_t mp_fat32_file_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
+mp_obj_t mp_fat32_file_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
     mp_fat32_file_obj_t *self = mp_obj_malloc_with_finaliser(mp_fat32_file_obj_t, &mp_fat32_file_type);
     self->base.type = &mp_fat32_file_type;
@@ -64,16 +46,16 @@ STATIC mp_obj_t mp_fat32_file_make_new(const mp_obj_type_t *type, size_t n_args,
     return MP_OBJ_FROM_PTR(self);
 }
 
-STATIC mp_obj_t mp_fat32_file_del(mp_obj_t self_in)
+mp_obj_t mp_fat32_file_del(mp_obj_t self_in)
 {
     mp_fat32_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
     fat32_close(&self->file);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_fat32_file_del_obj, mp_fat32_file_del);
+static MP_DEFINE_CONST_FUN_OBJ_1(mp_fat32_file_del_obj, mp_fat32_file_del);
 
 // Attribute handler for fat32_file type
-STATIC void mp_fat32_file_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
+void mp_fat32_file_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
     mp_fat32_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
     if (destination[0] == MP_OBJ_NULL)
@@ -142,15 +124,15 @@ MP_DEFINE_CONST_OBJ_TYPE(
 );
 
 // Function to initialize the SD card
-STATIC mp_obj_t waveshare_sd_init(void)
+mp_obj_t sd_mp_init(void)
 {
     fat32_init();
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(waveshare_sd_init_obj, waveshare_sd_init);
+static MP_DEFINE_CONST_FUN_OBJ_0(sd_mp_init_obj, sd_mp_init);
 
 // Function to create a file on the SD card
-STATIC mp_obj_t waveshare_sd_create_file(mp_obj_t filepath_obj)
+mp_obj_t sd_mp_create_file(mp_obj_t filepath_obj)
 {
     const char *filePath = mp_obj_str_get_str(filepath_obj);
     fat32_file_t file;
@@ -166,10 +148,10 @@ STATIC mp_obj_t waveshare_sd_create_file(mp_obj_t filepath_obj)
     fat32_close(&file);
     return mp_obj_new_bool(true);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(waveshare_sd_create_file_obj, waveshare_sd_create_file);
+static MP_DEFINE_CONST_FUN_OBJ_1(sd_mp_create_file_obj, sd_mp_create_file);
 
 // Function to create a directory on the SD card
-STATIC mp_obj_t waveshare_sd_create_directory(mp_obj_t directory_path_obj)
+mp_obj_t sd_mp_create_directory(mp_obj_t directory_path_obj)
 {
     const char *dirPath = mp_obj_str_get_str(directory_path_obj);
     fat32_file_t dir;
@@ -199,10 +181,10 @@ STATIC mp_obj_t waveshare_sd_create_directory(mp_obj_t directory_path_obj)
     fat32_close(&dir);
     return mp_const_true;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(waveshare_sd_create_directory_obj, waveshare_sd_create_directory);
+static MP_DEFINE_CONST_FUN_OBJ_1(sd_mp_create_directory_obj, sd_mp_create_directory);
 
 // Function to check if a file or directory exists
-STATIC mp_obj_t waveshare_sd_exists(mp_obj_t path_obj)
+mp_obj_t sd_mp_exists(mp_obj_t path_obj)
 {
     const char *path = mp_obj_str_get_str(path_obj);
     fat32_file_t file;
@@ -213,10 +195,10 @@ STATIC mp_obj_t waveshare_sd_exists(mp_obj_t path_obj)
     }
     return mp_const_false;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(waveshare_sd_exists_obj, waveshare_sd_exists);
+static MP_DEFINE_CONST_FUN_OBJ_1(sd_mp_exists_obj, sd_mp_exists);
 
 // Function to get the file size
-STATIC mp_obj_t waveshare_sd_get_file_size(mp_obj_t filepath_obj)
+mp_obj_t sd_mp_get_file_size(mp_obj_t filepath_obj)
 {
     const char *filePath = mp_obj_str_get_str(filepath_obj);
     fat32_file_t file;
@@ -229,19 +211,19 @@ STATIC mp_obj_t waveshare_sd_get_file_size(mp_obj_t filepath_obj)
     fat32_close(&file);
     return mp_obj_new_int_from_uint(size);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(waveshare_sd_get_file_size_obj, waveshare_sd_get_file_size);
+static MP_DEFINE_CONST_FUN_OBJ_1(sd_mp_get_file_size_obj, sd_mp_get_file_size);
 
 // Function to close a fat32_file_t object
-STATIC mp_obj_t waveshare_sd_file_close(mp_obj_t file_obj)
+mp_obj_t sd_mp_file_close(mp_obj_t file_obj)
 {
     mp_fat32_file_obj_t *file = MP_OBJ_TO_PTR(file_obj);
     fat32_close(&file->file);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(waveshare_sd_file_close_obj, waveshare_sd_file_close);
+static MP_DEFINE_CONST_FUN_OBJ_1(sd_mp_file_close_obj, sd_mp_file_close);
 
 // Function to open a file and return a fat32_file_t object
-STATIC mp_obj_t waveshare_sd_file_open(mp_obj_t filepath_obj)
+mp_obj_t sd_mp_file_open(mp_obj_t filepath_obj)
 {
     const char *filePath = mp_obj_str_get_str(filepath_obj);
     mp_fat32_file_obj_t *file_obj = mp_fat32_file_make_new(&mp_fat32_file_type, 0, 0, NULL);
@@ -255,10 +237,10 @@ STATIC mp_obj_t waveshare_sd_file_open(mp_obj_t filepath_obj)
     }
     return MP_OBJ_FROM_PTR(file_obj);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(waveshare_sd_file_open_obj, waveshare_sd_file_open);
+static MP_DEFINE_CONST_FUN_OBJ_1(sd_mp_file_open_obj, sd_mp_file_open);
 
 // Function to read within a file object
-STATIC mp_obj_t waveshare_sd_file_read(size_t n_args, const mp_obj_t *args)
+mp_obj_t sd_mp_file_read(size_t n_args, const mp_obj_t *args)
 {
     // Arguments: mp_file_obj, index (optional), count (optional)
     if (n_args < 1 || n_args > 3)
@@ -290,14 +272,13 @@ STATIC mp_obj_t waveshare_sd_file_read(size_t n_args, const mp_obj_t *args)
     size_t bytes_read;
     if (fat32_read(file, buffer, size_of_buffer, &bytes_read) != FAT32_OK)
     {
-        PRINT("Failed to read from file.\n");
         mp_raise_OSError(MP_EIO);
     }
     return mp_obj_new_bytes(buffer, bytes_read);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(waveshare_sd_file_read_obj, 1, 3, waveshare_sd_file_read);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sd_mp_file_read_obj, 1, 3, sd_mp_file_read);
 
-STATIC mp_obj_t waveshare_sd_file_readinto(size_t n_args, const mp_obj_t *args)
+mp_obj_t sd_mp_file_readinto(size_t n_args, const mp_obj_t *args)
 {
     // Arguments: mp_file_obj, buffer
     if (n_args != 2)
@@ -311,15 +292,14 @@ STATIC mp_obj_t waveshare_sd_file_readinto(size_t n_args, const mp_obj_t *args)
     size_t bytes_read;
     if (fat32_read(file, bufinfo.buf, bufinfo.len, &bytes_read) != FAT32_OK)
     {
-        PRINT("Failed to read into buffer.\n");
         mp_raise_OSError(MP_EIO);
     }
     return mp_obj_new_int(bytes_read);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(waveshare_sd_file_readinto_obj, 2, 2, waveshare_sd_file_readinto);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sd_mp_file_readinto_obj, 2, 2, sd_mp_file_readinto);
 
 // Function to seek within a file object
-STATIC mp_obj_t waveshare_sd_file_seek(size_t n_args, const mp_obj_t *args)
+mp_obj_t sd_mp_file_seek(size_t n_args, const mp_obj_t *args)
 {
     // Arguments: mp_file_obj,position
     if (n_args != 2)
@@ -337,10 +317,10 @@ STATIC mp_obj_t waveshare_sd_file_seek(size_t n_args, const mp_obj_t *args)
     }
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(waveshare_sd_file_seek_obj, 2, 2, waveshare_sd_file_seek);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sd_mp_file_seek_obj, 2, 2, sd_mp_file_seek);
 
 // Function to write to a file object
-STATIC mp_obj_t waveshare_sd_file_write(size_t n_args, const mp_obj_t *args)
+mp_obj_t sd_mp_file_write(size_t n_args, const mp_obj_t *args)
 {
     // Arguments: mp_file_obj, data
     if (n_args != 2)
@@ -359,10 +339,10 @@ STATIC mp_obj_t waveshare_sd_file_write(size_t n_args, const mp_obj_t *args)
     }
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(waveshare_sd_file_write_obj, 2, 2, waveshare_sd_file_write);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sd_mp_file_write_obj, 2, 2, sd_mp_file_write);
 
 // Function to get the free space of the SD card
-STATIC mp_obj_t waveshare_sd_get_free_space(void)
+mp_obj_t sd_mp_get_free_space(void)
 {
     uint64_t free_space = 0;
     if (fat32_get_free_space(&free_space) != FAT32_OK)
@@ -372,10 +352,10 @@ STATIC mp_obj_t waveshare_sd_get_free_space(void)
     }
     return mp_obj_new_int_from_ull(free_space);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(waveshare_sd_get_free_space_obj, waveshare_sd_get_free_space);
+static MP_DEFINE_CONST_FUN_OBJ_0(sd_mp_get_free_space_obj, sd_mp_get_free_space);
 
 // Function to get the total space of the SD card
-STATIC mp_obj_t waveshare_sd_get_total_space(void)
+mp_obj_t sd_mp_get_total_space(void)
 {
     uint64_t total_space = 0;
     if (fat32_get_total_space(&total_space) != FAT32_OK)
@@ -385,17 +365,17 @@ STATIC mp_obj_t waveshare_sd_get_total_space(void)
     }
     return mp_obj_new_int_from_ull(total_space);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(waveshare_sd_get_total_space_obj, waveshare_sd_get_total_space);
+static MP_DEFINE_CONST_FUN_OBJ_0(sd_mp_get_total_space_obj, sd_mp_get_total_space);
 
-// Functino to check if SD card is initialized
-STATIC mp_obj_t waveshare_sd_is_initialized(void)
+// Function to check if SD card is initialized
+mp_obj_t sd_mp_is_initialized(void)
 {
     return mp_obj_new_bool(fat32_is_ready());
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(waveshare_sd_is_initialized_obj, waveshare_sd_is_initialized);
+static MP_DEFINE_CONST_FUN_OBJ_0(sd_mp_is_initialized_obj, sd_mp_is_initialized);
 
 // Function to check if path is a directory
-STATIC mp_obj_t waveshare_sd_is_directory(mp_obj_t path_obj)
+mp_obj_t sd_mp_is_directory(mp_obj_t path_obj)
 {
     const char *dirPath = mp_obj_str_get_str(path_obj);
     fat32_file_t dir;
@@ -408,10 +388,10 @@ STATIC mp_obj_t waveshare_sd_is_directory(mp_obj_t path_obj)
     }
     return mp_const_false;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(waveshare_sd_is_directory_obj, waveshare_sd_is_directory);
+static MP_DEFINE_CONST_FUN_OBJ_1(sd_mp_is_directory_obj, sd_mp_is_directory);
 
 // Function to check if path is a file
-STATIC mp_obj_t waveshare_sd_is_file(mp_obj_t path_obj)
+mp_obj_t sd_mp_is_file(mp_obj_t path_obj)
 {
     const char *path = mp_obj_str_get_str(path_obj);
     fat32_file_t file;
@@ -424,10 +404,10 @@ STATIC mp_obj_t waveshare_sd_is_file(mp_obj_t path_obj)
     }
     return mp_const_false;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(waveshare_sd_is_file_obj, waveshare_sd_is_file);
+static MP_DEFINE_CONST_FUN_OBJ_1(sd_mp_is_file_obj, sd_mp_is_file);
 
 // Function to mount the SD card
-STATIC mp_obj_t waveshare_sd_mount(void)
+mp_obj_t sd_mp_mount(void)
 {
     if (fat32_is_mounted())
     {
@@ -441,10 +421,10 @@ STATIC mp_obj_t waveshare_sd_mount(void)
     }
     return mp_const_true;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(waveshare_sd_mount_obj, waveshare_sd_mount);
+static MP_DEFINE_CONST_FUN_OBJ_0(sd_mp_mount_obj, sd_mp_mount);
 
 // Function to read a file
-STATIC mp_obj_t waveshare_sd_read(size_t n_args, const mp_obj_t *args)
+mp_obj_t sd_mp_read(size_t n_args, const mp_obj_t *args)
 {
     // Arguments: File path, index (optional), count (optional)
     if (n_args < 1 || n_args > 3)
@@ -466,7 +446,6 @@ STATIC mp_obj_t waveshare_sd_read(size_t n_args, const mp_obj_t *args)
     fat32_error_t err = fat32_open(&file, filePath);
     if (err != FAT32_OK)
     {
-        PRINT("Failed to open file for reading: %s\n", fat32_error_string(err));
         mp_raise_OSError(MP_ENOENT);
     }
     if (index > 0)
@@ -487,9 +466,9 @@ STATIC mp_obj_t waveshare_sd_read(size_t n_args, const mp_obj_t *args)
     mp_obj_t result = status ? mp_obj_new_bytes(buffer, bytes_read) : mp_const_none;
     return result;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(waveshare_sd_read_obj, 1, 3, waveshare_sd_read);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sd_mp_read_obj, 1, 3, sd_mp_read);
 
-STATIC mp_obj_t waveshare_sd_read_directory(mp_obj_t dirpath_obj)
+mp_obj_t sd_mp_read_directory(mp_obj_t dirpath_obj)
 {
     const char *dirPath = mp_obj_str_get_str(dirpath_obj);
     fat32_file_t dir;
@@ -517,9 +496,9 @@ STATIC mp_obj_t waveshare_sd_read_directory(mp_obj_t dirpath_obj)
     fat32_close(&dir);
     return list;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(waveshare_sd_read_directory_obj, waveshare_sd_read_directory);
+static MP_DEFINE_CONST_FUN_OBJ_1(sd_mp_read_directory_obj, sd_mp_read_directory);
 
-STATIC mp_obj_t waveshare_sd_readinto(mp_obj_t filepath_obj, mp_obj_t buffer_obj)
+mp_obj_t sd_mp_readinto(mp_obj_t filepath_obj, mp_obj_t buffer_obj)
 {
     const char *filePath = mp_obj_str_get_str(filepath_obj);
     fat32_file_t file;
@@ -536,10 +515,10 @@ STATIC mp_obj_t waveshare_sd_readinto(mp_obj_t filepath_obj, mp_obj_t buffer_obj
     fat32_close(&file);
     return status ? mp_obj_new_int(bytes_read) : mp_obj_new_int(0);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(waveshare_sd_readinto_obj, waveshare_sd_readinto);
+static MP_DEFINE_CONST_FUN_OBJ_2(sd_mp_readinto_obj, sd_mp_readinto);
 
 // Function to remove a file
-STATIC mp_obj_t waveshare_sd_remove(mp_obj_t filepath_obj)
+mp_obj_t sd_mp_remove(mp_obj_t filepath_obj)
 {
     const char *filePath = mp_obj_str_get_str(filepath_obj);
     fat32_file_t file;
@@ -551,10 +530,10 @@ STATIC mp_obj_t waveshare_sd_remove(mp_obj_t filepath_obj)
     fat32_close(&file);
     return mp_obj_new_bool(status);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(waveshare_sd_remove_obj, waveshare_sd_remove);
+static MP_DEFINE_CONST_FUN_OBJ_1(sd_mp_remove_obj, sd_mp_remove);
 
 // Function to rename a file
-STATIC mp_obj_t waveshare_sd_rename(size_t n_args, const mp_obj_t *args)
+mp_obj_t sd_mp_rename(size_t n_args, const mp_obj_t *args)
 {
     // Arguments: old_path, new_path
     if (n_args != 2)
@@ -573,10 +552,10 @@ STATIC mp_obj_t waveshare_sd_rename(size_t n_args, const mp_obj_t *args)
     fat32_close(&file);
     return mp_obj_new_bool(status);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(waveshare_sd_rename_obj, 2, 2, waveshare_sd_rename);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sd_mp_rename_obj, 2, 2, sd_mp_rename);
 
 // Function to write to a file
-STATIC mp_obj_t waveshare_sd_write(size_t n_args, const mp_obj_t *args)
+mp_obj_t sd_mp_write(size_t n_args, const mp_obj_t *args)
 {
     // Arguments: file_path, data, overwrite
     if (n_args != 3)
@@ -622,10 +601,10 @@ STATIC mp_obj_t waveshare_sd_write(size_t n_args, const mp_obj_t *args)
     fat32_close(&file);
     return mp_obj_new_bool(status && bytes_written == bufinfo.len);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(waveshare_sd_write_obj, 3, 3, waveshare_sd_write);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sd_mp_write_obj, 3, 3, sd_mp_write);
 
 // Function to unmount the SD card
-STATIC mp_obj_t waveshare_sd_unmount(void)
+mp_obj_t sd_mp_unmount(void)
 {
     if (!fat32_is_mounted())
     {
@@ -634,35 +613,35 @@ STATIC mp_obj_t waveshare_sd_unmount(void)
     fat32_unmount();
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(waveshare_sd_unmount_obj, waveshare_sd_unmount);
+static MP_DEFINE_CONST_FUN_OBJ_0(sd_mp_unmount_obj, sd_mp_unmount);
 
 // Define module globals
-STATIC const mp_rom_map_elem_t waveshare_sd_module_globals_table[] = {
-    {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_waveshare_sd)},
-    {MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&waveshare_sd_init_obj)},
-    {MP_ROM_QSTR(MP_QSTR_create_file), MP_ROM_PTR(&waveshare_sd_create_file_obj)},
-    {MP_ROM_QSTR(MP_QSTR_create_directory), MP_ROM_PTR(&waveshare_sd_create_directory_obj)},
-    {MP_ROM_QSTR(MP_QSTR_exists), MP_ROM_PTR(&waveshare_sd_exists_obj)},
-    {MP_ROM_QSTR(MP_QSTR_file_close), MP_ROM_PTR(&waveshare_sd_file_close_obj)},
-    {MP_ROM_QSTR(MP_QSTR_file_open), MP_ROM_PTR(&waveshare_sd_file_open_obj)},
-    {MP_ROM_QSTR(MP_QSTR_file_read), MP_ROM_PTR(&waveshare_sd_file_read_obj)},
-    {MP_ROM_QSTR(MP_QSTR_file_readinto), MP_ROM_PTR(&waveshare_sd_file_readinto_obj)},
-    {MP_ROM_QSTR(MP_QSTR_file_seek), MP_ROM_PTR(&waveshare_sd_file_seek_obj)},
-    {MP_ROM_QSTR(MP_QSTR_file_write), MP_ROM_PTR(&waveshare_sd_file_write_obj)},
-    {MP_ROM_QSTR(MP_QSTR_get_file_size), MP_ROM_PTR(&waveshare_sd_get_file_size_obj)},
-    {MP_ROM_QSTR(MP_QSTR_get_free_space), MP_ROM_PTR(&waveshare_sd_get_free_space_obj)},
-    {MP_ROM_QSTR(MP_QSTR_get_total_space), MP_ROM_PTR(&waveshare_sd_get_total_space_obj)},
-    {MP_ROM_QSTR(MP_QSTR_is_directory), MP_ROM_PTR(&waveshare_sd_is_directory_obj)},
-    {MP_ROM_QSTR(MP_QSTR_is_initialized), MP_ROM_PTR(&waveshare_sd_is_initialized_obj)},
-    {MP_ROM_QSTR(MP_QSTR_is_file), MP_ROM_PTR(&waveshare_sd_is_file_obj)},
-    {MP_ROM_QSTR(MP_QSTR_mount), MP_ROM_PTR(&waveshare_sd_mount_obj)},
-    {MP_ROM_QSTR(MP_QSTR_read), MP_ROM_PTR(&waveshare_sd_read_obj)},
-    {MP_ROM_QSTR(MP_QSTR_read_directory), MP_ROM_PTR(&waveshare_sd_read_directory_obj)},
-    {MP_ROM_QSTR(MP_QSTR_readinto), MP_ROM_PTR(&waveshare_sd_readinto_obj)},
-    {MP_ROM_QSTR(MP_QSTR_remove), MP_ROM_PTR(&waveshare_sd_remove_obj)},
-    {MP_ROM_QSTR(MP_QSTR_rename), MP_ROM_PTR(&waveshare_sd_rename_obj)},
-    {MP_ROM_QSTR(MP_QSTR_write), MP_ROM_PTR(&waveshare_sd_write_obj)},
-    {MP_ROM_QSTR(MP_QSTR_unmount), MP_ROM_PTR(&waveshare_sd_unmount_obj)},
+static const mp_rom_map_elem_t sd_mp_module_globals_table[] = {
+    {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_sd_mp)},
+    {MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&sd_mp_init_obj)},
+    {MP_ROM_QSTR(MP_QSTR_create_file), MP_ROM_PTR(&sd_mp_create_file_obj)},
+    {MP_ROM_QSTR(MP_QSTR_create_directory), MP_ROM_PTR(&sd_mp_create_directory_obj)},
+    {MP_ROM_QSTR(MP_QSTR_exists), MP_ROM_PTR(&sd_mp_exists_obj)},
+    {MP_ROM_QSTR(MP_QSTR_file_close), MP_ROM_PTR(&sd_mp_file_close_obj)},
+    {MP_ROM_QSTR(MP_QSTR_file_open), MP_ROM_PTR(&sd_mp_file_open_obj)},
+    {MP_ROM_QSTR(MP_QSTR_file_read), MP_ROM_PTR(&sd_mp_file_read_obj)},
+    {MP_ROM_QSTR(MP_QSTR_file_readinto), MP_ROM_PTR(&sd_mp_file_readinto_obj)},
+    {MP_ROM_QSTR(MP_QSTR_file_seek), MP_ROM_PTR(&sd_mp_file_seek_obj)},
+    {MP_ROM_QSTR(MP_QSTR_file_write), MP_ROM_PTR(&sd_mp_file_write_obj)},
+    {MP_ROM_QSTR(MP_QSTR_get_file_size), MP_ROM_PTR(&sd_mp_get_file_size_obj)},
+    {MP_ROM_QSTR(MP_QSTR_get_free_space), MP_ROM_PTR(&sd_mp_get_free_space_obj)},
+    {MP_ROM_QSTR(MP_QSTR_get_total_space), MP_ROM_PTR(&sd_mp_get_total_space_obj)},
+    {MP_ROM_QSTR(MP_QSTR_is_directory), MP_ROM_PTR(&sd_mp_is_directory_obj)},
+    {MP_ROM_QSTR(MP_QSTR_is_initialized), MP_ROM_PTR(&sd_mp_is_initialized_obj)},
+    {MP_ROM_QSTR(MP_QSTR_is_file), MP_ROM_PTR(&sd_mp_is_file_obj)},
+    {MP_ROM_QSTR(MP_QSTR_mount), MP_ROM_PTR(&sd_mp_mount_obj)},
+    {MP_ROM_QSTR(MP_QSTR_read), MP_ROM_PTR(&sd_mp_read_obj)},
+    {MP_ROM_QSTR(MP_QSTR_readinto), MP_ROM_PTR(&sd_mp_readinto_obj)},
+    {MP_ROM_QSTR(MP_QSTR_read_directory), MP_ROM_PTR(&sd_mp_read_directory_obj)},
+    {MP_ROM_QSTR(MP_QSTR_remove), MP_ROM_PTR(&sd_mp_remove_obj)},
+    {MP_ROM_QSTR(MP_QSTR_rename), MP_ROM_PTR(&sd_mp_rename_obj)},
+    {MP_ROM_QSTR(MP_QSTR_write), MP_ROM_PTR(&sd_mp_write_obj)},
+    {MP_ROM_QSTR(MP_QSTR_unmount), MP_ROM_PTR(&sd_mp_unmount_obj)},
 
     // Expose fat32_file type
     {MP_ROM_QSTR(MP_QSTR_fat32_file), MP_ROM_PTR(&mp_fat32_file_type)},
@@ -670,13 +649,13 @@ STATIC const mp_rom_map_elem_t waveshare_sd_module_globals_table[] = {
     // constants
     {MP_ROM_QSTR(MP_QSTR_FAT32_OK), MP_ROM_INT(FAT32_OK)},
 };
-STATIC MP_DEFINE_CONST_DICT(waveshare_sd_module_globals, waveshare_sd_module_globals_table);
+static MP_DEFINE_CONST_DICT(sd_mp_module_globals, sd_mp_module_globals_table);
 
 // Define module
-const mp_obj_module_t waveshare_sd_user_cmodule = {
+const mp_obj_module_t sd_mp_user_cmodule = {
     .base = {&mp_type_module},
-    .globals = (mp_obj_dict_t *)&waveshare_sd_module_globals,
+    .globals = (mp_obj_dict_t *)&sd_mp_module_globals,
 };
 
 // Register the module to make it available in Python
-MP_REGISTER_MODULE(MP_QSTR_waveshare_sd, waveshare_sd_user_cmodule);
+MP_REGISTER_MODULE(MP_QSTR_sd_mp, sd_mp_user_cmodule);

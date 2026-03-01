@@ -24,6 +24,9 @@ rm -rf "$micropython_dir"/modules/PicoCalc # delete entire PicoCalc directory
 # remove existing Waveshare modules directory if it exists
 rm -rf "$micropython_dir"/modules/Waveshare
 
+# remove existing sd module if it exists
+rm -rf "$micropython_dir"/modules/sd
+
 # remove auto complete module if it exists
 rm -rf "$micropython_dir"/modules/auto_complete
 
@@ -73,12 +76,13 @@ mkdir -p "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.43
 
 # copy waveshare 1.43 modules file to micropython modules directory
 cp "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.43/waveshare_modules.cmake "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.43/waveshare_modules.cmake
-cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.43/picoware_boards "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.43/picoware_boards
 cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.43/picoware_game "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.43/picoware_game
 cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.43/waveshare_battery "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.43/waveshare_battery
 cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.43/waveshare_lcd "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.43/waveshare_lcd
-cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.43/waveshare_sd "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.43/waveshare_sd
 cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.43/waveshare_touch "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.43/waveshare_touch
+
+# copy sd module
+cp -r "$picoware_dir"/src/MicroPython/sd "$micropython_dir"/modules/sd
 
 # copy picoware_boards module
 cp -r "$picoware_dir"/src/MicroPython/picoware_boards "$micropython_dir"/modules/picoware_boards

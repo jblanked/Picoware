@@ -18,6 +18,7 @@
 #include "hardware/spi.h"
 
 #include "sdcard.h"
+#include "sd_config.h"
 
 // Global state
 static bool sd_initialised = false;
@@ -138,7 +139,11 @@ static uint8_t sd_send_command(uint8_t cmd, uint32_t arg)
 
 bool sd_card_present(void)
 {
+#ifdef SD_DETECT
     return !gpio_get(SD_DETECT); // Active low
+#else
+    return true; // Assume present if no detect pin
+#endif
 }
 
 bool sd_is_sdhc(void)
@@ -511,11 +516,15 @@ void sd_init(void)
     gpio_init(SD_CS);
     gpio_init(SD_SCK);
     gpio_init(SD_MOSI);
+#ifdef SD_DETECT
     gpio_init(SD_DETECT);
+#endif
 
     gpio_set_dir(SD_CS, GPIO_OUT);
+#ifdef SD_DETECT
     gpio_set_dir(SD_DETECT, GPIO_IN);
     gpio_pull_up(SD_DETECT);
+#endif
 
     gpio_set_function(SD_MISO, GPIO_FUNC_SPI);
     gpio_set_function(SD_SCK, GPIO_FUNC_SPI);

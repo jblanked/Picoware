@@ -1,54 +1,19 @@
 /*
- * Waveshare VFS (Virtual File System) for MicroPython
+ * Picoware VFS (Virtual File System) for MicroPython
+ * Copyright © 2025 JBlanked
  *
  * This module provides VFS integration so that the SD card can be mounted
  * as a proper filesystem, enabling use of __import__, open(), os module, etc.
  */
 
-#include "py/runtime.h"
-#include "py/obj.h"
-#include "py/objstr.h"
-#include "py/stream.h"
-#include "py/mperrno.h"
-#include "py/mphal.h"
-#include "py/builtin.h"
-#include "extmod/vfs.h"
-#include "fat32.h"
+#include "vfs_mp.h"
 
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 
-#ifndef STATIC
-#define STATIC static
-#endif
-
-// Forward declarations - use extern to avoid static/non-static conflict
-extern const mp_obj_type_t waveshare_vfs_type;
-extern const mp_obj_type_t waveshare_vfs_file_type;
-
-// =============================================================================
-// VFS File Object
-// =============================================================================
-
-#define VFS_FILE_BUFFER_SIZE 1024 * 16 // 16KB read buffer
-
-typedef struct _waveshare_vfs_file_obj_t
-{
-    mp_obj_base_t base;
-    fat32_file_t file;
-    bool is_open;
-    bool is_text; // text mode vs binary mode
-    bool is_writable;
-    bool is_readable;
-    // Read buffer for efficient small reads (especially readline)
-    uint8_t read_buffer[VFS_FILE_BUFFER_SIZE];
-    size_t buffer_pos; // Current position in buffer
-    size_t buffer_len; // Valid bytes in buffer
-} waveshare_vfs_file_obj_t;
-
 // Helper to fill read buffer
-STATIC mp_uint_t vfs_file_fill_buffer(waveshare_vfs_file_obj_t *self, int *errcode)
+mp_uint_t vfs_file_fill_buffer(vfs_mp_file_obj_t *self, int *errcode)
 {
     self->buffer_pos = 0;
     self->buffer_len = 0;
@@ -67,7 +32,7 @@ STATIC mp_uint_t vfs_file_fill_buffer(waveshare_vfs_file_obj_t *self, int *errco
 }
 
 // Buffered read - uses internal buffer for efficiency
-STATIC mp_uint_t vfs_file_read_buffered(waveshare_vfs_file_obj_t *self, void *buf, mp_uint_t size, int *errcode)
+mp_uint_t vfs_file_read_buffered(vfs_mp_file_obj_t *self, void *buf, mp_uint_t size, int *errcode)
 {
     uint8_t *dest = (uint8_t *)buf;
     size_t total_read = 0;
@@ -101,7 +66,7 @@ STATIC mp_uint_t vfs_file_read_buffered(waveshare_vfs_file_obj_t *self, void *bu
     return total_read;
 }
 
-STATIC void file_ensure_open(waveshare_vfs_file_obj_t *self)
+static void file_ensure_open(vfs_mp_file_obj_t *self)
 {
     if (!self->is_open)
     {
@@ -109,9 +74,9 @@ STATIC void file_ensure_open(waveshare_vfs_file_obj_t *self)
     }
 }
 
-STATIC mp_obj_t vfs_file_close(mp_obj_t self_in)
+mp_obj_t vfs_file_close(mp_obj_t self_in)
 {
-    waveshare_vfs_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    vfs_mp_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
     if (self->is_open)
     {
         fat32_close(&self->file);
@@ -119,18 +84,18 @@ STATIC mp_obj_t vfs_file_close(mp_obj_t self_in)
     }
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(vfs_file_close_obj, vfs_file_close);
+static MP_DEFINE_CONST_FUN_OBJ_1(vfs_file_close_obj, vfs_file_close);
 
-STATIC mp_obj_t vfs_file___exit__(size_t n_args, const mp_obj_t *args)
+mp_obj_t vfs_file___exit__(size_t n_args, const mp_obj_t *args)
 {
     (void)n_args;
     return vfs_file_close(args[0]);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(vfs_file___exit___obj, 4, 4, vfs_file___exit__);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(vfs_file___exit___obj, 4, 4, vfs_file___exit__);
 
-STATIC mp_uint_t vfs_file_read(mp_obj_t self_in, void *buf, mp_uint_t size, int *errcode)
+mp_uint_t vfs_file_read(mp_obj_t self_in, void *buf, mp_uint_t size, int *errcode)
 {
-    waveshare_vfs_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    vfs_mp_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
 
     if (!self->is_open)
     {
@@ -156,9 +121,9 @@ STATIC mp_uint_t vfs_file_read(mp_obj_t self_in, void *buf, mp_uint_t size, int 
     return bytes_read;
 }
 
-STATIC mp_uint_t vfs_file_write(mp_obj_t self_in, const void *buf, mp_uint_t size, int *errcode)
+mp_uint_t vfs_file_write(mp_obj_t self_in, const void *buf, mp_uint_t size, int *errcode)
 {
-    waveshare_vfs_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    vfs_mp_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
 
     if (!self->is_open)
     {
@@ -184,9 +149,9 @@ STATIC mp_uint_t vfs_file_write(mp_obj_t self_in, const void *buf, mp_uint_t siz
     return bytes_written;
 }
 
-STATIC mp_uint_t vfs_file_ioctl(mp_obj_t self_in, mp_uint_t request, uintptr_t arg, int *errcode)
+mp_uint_t vfs_file_ioctl(mp_obj_t self_in, mp_uint_t request, uintptr_t arg, int *errcode)
 {
-    waveshare_vfs_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    vfs_mp_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
 
     switch (request)
     {
@@ -239,9 +204,9 @@ STATIC mp_uint_t vfs_file_ioctl(mp_obj_t self_in, mp_uint_t request, uintptr_t a
     }
 }
 
-STATIC mp_obj_t vfs_file_read_method(size_t n_args, const mp_obj_t *args)
+mp_obj_t vfs_file_read_method(size_t n_args, const mp_obj_t *args)
 {
-    waveshare_vfs_file_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    vfs_mp_file_obj_t *self = MP_OBJ_TO_PTR(args[0]);
     file_ensure_open(self);
 
     mp_int_t size = -1;
@@ -291,11 +256,11 @@ STATIC mp_obj_t vfs_file_read_method(size_t n_args, const mp_obj_t *args)
         return mp_obj_new_bytes_from_vstr(&vstr);
     }
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(vfs_file_read_method_obj, 1, 2, vfs_file_read_method);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(vfs_file_read_method_obj, 1, 2, vfs_file_read_method);
 
-STATIC mp_obj_t vfs_file_readinto(mp_obj_t self_in, mp_obj_t buf_in)
+mp_obj_t vfs_file_readinto(mp_obj_t self_in, mp_obj_t buf_in)
 {
-    waveshare_vfs_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    vfs_mp_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
     file_ensure_open(self);
 
     mp_buffer_info_t bufinfo;
@@ -311,11 +276,11 @@ STATIC mp_obj_t vfs_file_readinto(mp_obj_t self_in, mp_obj_t buf_in)
 
     return mp_obj_new_int(bytes_read);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(vfs_file_readinto_obj, vfs_file_readinto);
+static MP_DEFINE_CONST_FUN_OBJ_2(vfs_file_readinto_obj, vfs_file_readinto);
 
-STATIC mp_obj_t vfs_file_readline(size_t n_args, const mp_obj_t *args)
+mp_obj_t vfs_file_readline(size_t n_args, const mp_obj_t *args)
 {
-    waveshare_vfs_file_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    vfs_mp_file_obj_t *self = MP_OBJ_TO_PTR(args[0]);
     file_ensure_open(self);
 
     mp_int_t max_size = -1;
@@ -369,11 +334,11 @@ STATIC mp_obj_t vfs_file_readline(size_t n_args, const mp_obj_t *args)
         return mp_obj_new_bytes_from_vstr(&vstr);
     }
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(vfs_file_readline_obj, 1, 2, vfs_file_readline);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(vfs_file_readline_obj, 1, 2, vfs_file_readline);
 
-STATIC mp_obj_t vfs_file_readlines(mp_obj_t self_in)
+mp_obj_t vfs_file_readlines(mp_obj_t self_in)
 {
-    waveshare_vfs_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    vfs_mp_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
     file_ensure_open(self);
 
     mp_obj_t list = mp_obj_new_list(0, NULL);
@@ -393,11 +358,11 @@ STATIC mp_obj_t vfs_file_readlines(mp_obj_t self_in)
 
     return list;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(vfs_file_readlines_obj, vfs_file_readlines);
+static MP_DEFINE_CONST_FUN_OBJ_1(vfs_file_readlines_obj, vfs_file_readlines);
 
-STATIC mp_obj_t vfs_file_write_method(mp_obj_t self_in, mp_obj_t data)
+mp_obj_t vfs_file_write_method(mp_obj_t self_in, mp_obj_t data)
 {
-    waveshare_vfs_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    vfs_mp_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
     file_ensure_open(self);
 
     mp_buffer_info_t bufinfo;
@@ -413,11 +378,11 @@ STATIC mp_obj_t vfs_file_write_method(mp_obj_t self_in, mp_obj_t data)
 
     return mp_obj_new_int(bytes_written);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(vfs_file_write_method_obj, vfs_file_write_method);
+static MP_DEFINE_CONST_FUN_OBJ_2(vfs_file_write_method_obj, vfs_file_write_method);
 
-STATIC mp_obj_t vfs_file_seek(size_t n_args, const mp_obj_t *args)
+mp_obj_t vfs_file_seek(size_t n_args, const mp_obj_t *args)
 {
-    waveshare_vfs_file_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    vfs_mp_file_obj_t *self = MP_OBJ_TO_PTR(args[0]);
     file_ensure_open(self);
 
     mp_int_t offset = mp_obj_get_int(args[1]);
@@ -446,47 +411,47 @@ STATIC mp_obj_t vfs_file_seek(size_t n_args, const mp_obj_t *args)
 
     return mp_obj_new_int(seek_s.offset);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(vfs_file_seek_obj, 2, 3, vfs_file_seek);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(vfs_file_seek_obj, 2, 3, vfs_file_seek);
 
-STATIC mp_obj_t vfs_file_tell(mp_obj_t self_in)
+mp_obj_t vfs_file_tell(mp_obj_t self_in)
 {
-    waveshare_vfs_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    vfs_mp_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
     file_ensure_open(self);
     return mp_obj_new_int(self->file.position);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(vfs_file_tell_obj, vfs_file_tell);
+static MP_DEFINE_CONST_FUN_OBJ_1(vfs_file_tell_obj, vfs_file_tell);
 
-STATIC mp_obj_t vfs_file_flush(mp_obj_t self_in)
+mp_obj_t vfs_file_flush(mp_obj_t self_in)
 {
-    waveshare_vfs_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    vfs_mp_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
     file_ensure_open(self);
     // Writes are synchronous, nothing to do
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(vfs_file_flush_obj, vfs_file_flush);
+static MP_DEFINE_CONST_FUN_OBJ_1(vfs_file_flush_obj, vfs_file_flush);
 
-STATIC mp_obj_t vfs_file___enter__(mp_obj_t self_in)
+mp_obj_t vfs_file___enter__(mp_obj_t self_in)
 {
     return self_in;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(vfs_file___enter___obj, vfs_file___enter__);
+static MP_DEFINE_CONST_FUN_OBJ_1(vfs_file___enter___obj, vfs_file___enter__);
 
-STATIC mp_obj_t vfs_file_readable(mp_obj_t self_in)
+mp_obj_t vfs_file_readable(mp_obj_t self_in)
 {
-    waveshare_vfs_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    vfs_mp_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
     return mp_obj_new_bool(self->is_readable);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(vfs_file_readable_obj, vfs_file_readable);
+static MP_DEFINE_CONST_FUN_OBJ_1(vfs_file_readable_obj, vfs_file_readable);
 
-STATIC mp_obj_t vfs_file_writable(mp_obj_t self_in)
+mp_obj_t vfs_file_writable(mp_obj_t self_in)
 {
-    waveshare_vfs_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    vfs_mp_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
     return mp_obj_new_bool(self->is_writable);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(vfs_file_writable_obj, vfs_file_writable);
+static MP_DEFINE_CONST_FUN_OBJ_1(vfs_file_writable_obj, vfs_file_writable);
 
 // File iterator support (for line in file)
-STATIC mp_obj_t vfs_file_iternext(mp_obj_t self_in)
+mp_obj_t vfs_file_iternext(mp_obj_t self_in)
 {
     mp_obj_t args[2] = {self_in, MP_OBJ_NEW_SMALL_INT(-1)};
     mp_obj_t line = vfs_file_readline(2, args);
@@ -499,7 +464,7 @@ STATIC mp_obj_t vfs_file_iternext(mp_obj_t self_in)
     return line;
 }
 
-STATIC const mp_rom_map_elem_t vfs_file_locals_dict_table[] = {
+static const mp_rom_map_elem_t vfs_file_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_read), MP_ROM_PTR(&vfs_file_read_method_obj)},
     {MP_ROM_QSTR(MP_QSTR_readinto), MP_ROM_PTR(&vfs_file_readinto_obj)},
     {MP_ROM_QSTR(MP_QSTR_readline), MP_ROM_PTR(&vfs_file_readline_obj)},
@@ -514,17 +479,17 @@ STATIC const mp_rom_map_elem_t vfs_file_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR___enter__), MP_ROM_PTR(&vfs_file___enter___obj)},
     {MP_ROM_QSTR(MP_QSTR___exit__), MP_ROM_PTR(&vfs_file___exit___obj)},
 };
-STATIC MP_DEFINE_CONST_DICT(vfs_file_locals_dict, vfs_file_locals_dict_table);
+static MP_DEFINE_CONST_DICT(vfs_file_locals_dict, vfs_file_locals_dict_table);
 
-STATIC const mp_stream_p_t vfs_file_stream_p = {
+static const mp_stream_p_t vfs_file_stream_p = {
     .read = vfs_file_read,
     .write = vfs_file_write,
     .ioctl = vfs_file_ioctl,
 };
 
 MP_DEFINE_CONST_OBJ_TYPE(
-    waveshare_vfs_file_type,
-    MP_QSTR_WaveshareFile,
+    vfs_mp_file_type,
+    MP_QSTR_PicowareFile,
     MP_TYPE_FLAG_ITER_IS_ITERNEXT,
     protocol, &vfs_file_stream_p,
     iter, vfs_file_iternext,
@@ -534,18 +499,11 @@ MP_DEFINE_CONST_OBJ_TYPE(
 // VFS Object
 // =============================================================================
 
-typedef struct _waveshare_vfs_obj_t
-{
-    mp_obj_base_t base;
-    vstr_t root; // Mount point root path
-    bool readonly;
-} waveshare_vfs_obj_t;
-
-STATIC mp_obj_t waveshare_vfs_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
+mp_obj_t vfs_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
     mp_arg_check_num(n_args, n_kw, 0, 1, true);
 
-    waveshare_vfs_obj_t *self = mp_obj_malloc(waveshare_vfs_obj_t, type);
+    vfs_mp_obj_t *self = mp_obj_malloc(vfs_mp_obj_t, type);
 
     vstr_init(&self->root, 0);
     self->readonly = false;
@@ -570,7 +528,7 @@ STATIC mp_obj_t waveshare_vfs_make_new(const mp_obj_type_t *type, size_t n_args,
 }
 
 // Helper to build absolute path
-STATIC void build_path(waveshare_vfs_obj_t *vfs, const char *path, char *out_path, size_t max_len)
+static void build_path(vfs_mp_obj_t *vfs, const char *path, char *out_path, size_t max_len)
 {
     if (path[0] == '/')
     {
@@ -593,9 +551,9 @@ STATIC void build_path(waveshare_vfs_obj_t *vfs, const char *path, char *out_pat
 }
 
 // mount(readonly, mkfs)
-STATIC mp_obj_t waveshare_vfs_mount(mp_obj_t self_in, mp_obj_t readonly, mp_obj_t mkfs)
+mp_obj_t vfs_mp_mount(mp_obj_t self_in, mp_obj_t readonly, mp_obj_t mkfs)
 {
-    waveshare_vfs_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    vfs_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     self->readonly = mp_obj_is_true(readonly);
 
     if (!fat32_is_mounted())
@@ -609,21 +567,21 @@ STATIC mp_obj_t waveshare_vfs_mount(mp_obj_t self_in, mp_obj_t readonly, mp_obj_
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_3(waveshare_vfs_mount_obj, waveshare_vfs_mount);
+static MP_DEFINE_CONST_FUN_OBJ_3(vfs_mp_mount_obj, vfs_mp_mount);
 
 // umount()
-STATIC mp_obj_t waveshare_vfs_umount(mp_obj_t self_in)
+mp_obj_t vfs_mp_umount(mp_obj_t self_in)
 {
     (void)self_in;
     fat32_unmount();
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(waveshare_vfs_umount_obj, waveshare_vfs_umount);
+static MP_DEFINE_CONST_FUN_OBJ_1(vfs_mp_umount_obj, vfs_mp_umount);
 
 // open(path, mode)
-STATIC mp_obj_t waveshare_vfs_open(mp_obj_t self_in, mp_obj_t path_in, mp_obj_t mode_in)
+mp_obj_t vfs_mp_open(mp_obj_t self_in, mp_obj_t path_in, mp_obj_t mode_in)
 {
-    waveshare_vfs_obj_t *vfs = MP_OBJ_TO_PTR(self_in);
+    vfs_mp_obj_t *vfs = MP_OBJ_TO_PTR(self_in);
     const char *path = mp_obj_str_get_str(path_in);
     const char *mode = mp_obj_str_get_str(mode_in);
 
@@ -682,7 +640,7 @@ STATIC mp_obj_t waveshare_vfs_open(mp_obj_t self_in, mp_obj_t path_in, mp_obj_t 
         mp_raise_OSError(MP_EROFS);
     }
 
-    waveshare_vfs_file_obj_t *file_obj = mp_obj_malloc(waveshare_vfs_file_obj_t, &waveshare_vfs_file_type);
+    vfs_mp_file_obj_t *file_obj = mp_obj_malloc(vfs_mp_file_obj_t, &vfs_mp_file_type);
     memset(&file_obj->file, 0, sizeof(fat32_file_t));
     file_obj->is_open = false;
     file_obj->is_text = is_text;
@@ -742,12 +700,12 @@ STATIC mp_obj_t waveshare_vfs_open(mp_obj_t self_in, mp_obj_t path_in, mp_obj_t 
 
     return MP_OBJ_FROM_PTR(file_obj);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_3(waveshare_vfs_open_obj, waveshare_vfs_open);
+static MP_DEFINE_CONST_FUN_OBJ_3(vfs_mp_open_obj, vfs_mp_open);
 
 // ilistdir(path)
-STATIC mp_obj_t waveshare_vfs_ilistdir_func(mp_obj_t self_in, mp_obj_t path_in)
+mp_obj_t vfs_mp_ilistdir_func(mp_obj_t self_in, mp_obj_t path_in)
 {
-    waveshare_vfs_obj_t *vfs = MP_OBJ_TO_PTR(self_in);
+    vfs_mp_obj_t *vfs = MP_OBJ_TO_PTR(self_in);
     const char *path = mp_obj_str_get_str(path_in);
 
     char full_path[FAT32_MAX_PATH_LEN];
@@ -791,12 +749,12 @@ STATIC mp_obj_t waveshare_vfs_ilistdir_func(mp_obj_t self_in, mp_obj_t path_in)
     // Return the list directly - lists are iterable
     return list;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(waveshare_vfs_ilistdir_obj, waveshare_vfs_ilistdir_func);
+static MP_DEFINE_CONST_FUN_OBJ_2(vfs_mp_ilistdir_obj, vfs_mp_ilistdir_func);
 
 // mkdir(path)
-STATIC mp_obj_t waveshare_vfs_mkdir(mp_obj_t self_in, mp_obj_t path_in)
+mp_obj_t vfs_mp_mkdir(mp_obj_t self_in, mp_obj_t path_in)
 {
-    waveshare_vfs_obj_t *vfs = MP_OBJ_TO_PTR(self_in);
+    vfs_mp_obj_t *vfs = MP_OBJ_TO_PTR(self_in);
     const char *path = mp_obj_str_get_str(path_in);
 
     if (vfs->readonly)
@@ -821,12 +779,12 @@ STATIC mp_obj_t waveshare_vfs_mkdir(mp_obj_t self_in, mp_obj_t path_in)
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(waveshare_vfs_mkdir_obj, waveshare_vfs_mkdir);
+static MP_DEFINE_CONST_FUN_OBJ_2(vfs_mp_mkdir_obj, vfs_mp_mkdir);
 
 // rmdir(path)
-STATIC mp_obj_t waveshare_vfs_rmdir(mp_obj_t self_in, mp_obj_t path_in)
+mp_obj_t vfs_mp_rmdir(mp_obj_t self_in, mp_obj_t path_in)
 {
-    waveshare_vfs_obj_t *vfs = MP_OBJ_TO_PTR(self_in);
+    vfs_mp_obj_t *vfs = MP_OBJ_TO_PTR(self_in);
     const char *path = mp_obj_str_get_str(path_in);
 
     if (vfs->readonly)
@@ -853,12 +811,12 @@ STATIC mp_obj_t waveshare_vfs_rmdir(mp_obj_t self_in, mp_obj_t path_in)
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(waveshare_vfs_rmdir_obj, waveshare_vfs_rmdir);
+static MP_DEFINE_CONST_FUN_OBJ_2(vfs_mp_rmdir_obj, vfs_mp_rmdir);
 
 // remove(path)
-STATIC mp_obj_t waveshare_vfs_remove(mp_obj_t self_in, mp_obj_t path_in)
+mp_obj_t vfs_mp_remove(mp_obj_t self_in, mp_obj_t path_in)
 {
-    waveshare_vfs_obj_t *vfs = MP_OBJ_TO_PTR(self_in);
+    vfs_mp_obj_t *vfs = MP_OBJ_TO_PTR(self_in);
     const char *path = mp_obj_str_get_str(path_in);
 
     if (vfs->readonly)
@@ -881,12 +839,12 @@ STATIC mp_obj_t waveshare_vfs_remove(mp_obj_t self_in, mp_obj_t path_in)
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(waveshare_vfs_remove_obj, waveshare_vfs_remove);
+static MP_DEFINE_CONST_FUN_OBJ_2(vfs_mp_remove_obj, vfs_mp_remove);
 
 // rename(old, new)
-STATIC mp_obj_t waveshare_vfs_rename(mp_obj_t self_in, mp_obj_t old_in, mp_obj_t new_in)
+mp_obj_t vfs_mp_rename(mp_obj_t self_in, mp_obj_t old_in, mp_obj_t new_in)
 {
-    waveshare_vfs_obj_t *vfs = MP_OBJ_TO_PTR(self_in);
+    vfs_mp_obj_t *vfs = MP_OBJ_TO_PTR(self_in);
     const char *old_path = mp_obj_str_get_str(old_in);
     const char *new_path = mp_obj_str_get_str(new_in);
 
@@ -912,12 +870,12 @@ STATIC mp_obj_t waveshare_vfs_rename(mp_obj_t self_in, mp_obj_t old_in, mp_obj_t
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_3(waveshare_vfs_rename_obj, waveshare_vfs_rename);
+static MP_DEFINE_CONST_FUN_OBJ_3(vfs_mp_rename_obj, vfs_mp_rename);
 
 // stat(path)
-STATIC mp_obj_t waveshare_vfs_stat(mp_obj_t self_in, mp_obj_t path_in)
+mp_obj_t vfs_mp_stat(mp_obj_t self_in, mp_obj_t path_in)
 {
-    waveshare_vfs_obj_t *vfs = MP_OBJ_TO_PTR(self_in);
+    vfs_mp_obj_t *vfs = MP_OBJ_TO_PTR(self_in);
     const char *path = mp_obj_str_get_str(path_in);
 
     char full_path[FAT32_MAX_PATH_LEN];
@@ -963,10 +921,10 @@ STATIC mp_obj_t waveshare_vfs_stat(mp_obj_t self_in, mp_obj_t path_in)
 
     return MP_OBJ_FROM_PTR(t);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(waveshare_vfs_stat_obj, waveshare_vfs_stat);
+static MP_DEFINE_CONST_FUN_OBJ_2(vfs_mp_stat_obj, vfs_mp_stat);
 
 // statvfs(path)
-STATIC mp_obj_t waveshare_vfs_statvfs(mp_obj_t self_in, mp_obj_t path_in)
+mp_obj_t vfs_mp_statvfs(mp_obj_t self_in, mp_obj_t path_in)
 {
     (void)path_in;
 
@@ -997,12 +955,12 @@ STATIC mp_obj_t waveshare_vfs_statvfs(mp_obj_t self_in, mp_obj_t path_in)
 
     return MP_OBJ_FROM_PTR(t);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(waveshare_vfs_statvfs_obj, waveshare_vfs_statvfs);
+static MP_DEFINE_CONST_FUN_OBJ_2(vfs_mp_statvfs_obj, vfs_mp_statvfs);
 
 // chdir(path)
-STATIC mp_obj_t waveshare_vfs_chdir(mp_obj_t self_in, mp_obj_t path_in)
+mp_obj_t vfs_mp_chdir(mp_obj_t self_in, mp_obj_t path_in)
 {
-    waveshare_vfs_obj_t *vfs = MP_OBJ_TO_PTR(self_in);
+    vfs_mp_obj_t *vfs = MP_OBJ_TO_PTR(self_in);
     const char *path = mp_obj_str_get_str(path_in);
 
     char full_path[FAT32_MAX_PATH_LEN];
@@ -1016,10 +974,10 @@ STATIC mp_obj_t waveshare_vfs_chdir(mp_obj_t self_in, mp_obj_t path_in)
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(waveshare_vfs_chdir_obj, waveshare_vfs_chdir);
+static MP_DEFINE_CONST_FUN_OBJ_2(vfs_mp_chdir_obj, vfs_mp_chdir);
 
 // getcwd()
-STATIC mp_obj_t waveshare_vfs_getcwd(mp_obj_t self_in)
+mp_obj_t vfs_mp_getcwd(mp_obj_t self_in)
 {
     (void)self_in;
 
@@ -1032,37 +990,37 @@ STATIC mp_obj_t waveshare_vfs_getcwd(mp_obj_t self_in)
 
     return mp_obj_new_str(path, strlen(path));
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(waveshare_vfs_getcwd_obj, waveshare_vfs_getcwd);
+static MP_DEFINE_CONST_FUN_OBJ_1(vfs_mp_getcwd_obj, vfs_mp_getcwd);
 
-STATIC const mp_rom_map_elem_t waveshare_vfs_locals_dict_table[] = {
-    {MP_ROM_QSTR(MP_QSTR_mount), MP_ROM_PTR(&waveshare_vfs_mount_obj)},
-    {MP_ROM_QSTR(MP_QSTR_umount), MP_ROM_PTR(&waveshare_vfs_umount_obj)},
-    {MP_ROM_QSTR(MP_QSTR_open), MP_ROM_PTR(&waveshare_vfs_open_obj)},
-    {MP_ROM_QSTR(MP_QSTR_ilistdir), MP_ROM_PTR(&waveshare_vfs_ilistdir_obj)},
-    {MP_ROM_QSTR(MP_QSTR_mkdir), MP_ROM_PTR(&waveshare_vfs_mkdir_obj)},
-    {MP_ROM_QSTR(MP_QSTR_rmdir), MP_ROM_PTR(&waveshare_vfs_rmdir_obj)},
-    {MP_ROM_QSTR(MP_QSTR_remove), MP_ROM_PTR(&waveshare_vfs_remove_obj)},
-    {MP_ROM_QSTR(MP_QSTR_rename), MP_ROM_PTR(&waveshare_vfs_rename_obj)},
-    {MP_ROM_QSTR(MP_QSTR_stat), MP_ROM_PTR(&waveshare_vfs_stat_obj)},
-    {MP_ROM_QSTR(MP_QSTR_statvfs), MP_ROM_PTR(&waveshare_vfs_statvfs_obj)},
-    {MP_ROM_QSTR(MP_QSTR_chdir), MP_ROM_PTR(&waveshare_vfs_chdir_obj)},
-    {MP_ROM_QSTR(MP_QSTR_getcwd), MP_ROM_PTR(&waveshare_vfs_getcwd_obj)},
+static const mp_rom_map_elem_t vfs_mp_locals_dict_table[] = {
+    {MP_ROM_QSTR(MP_QSTR_mount), MP_ROM_PTR(&vfs_mp_mount_obj)},
+    {MP_ROM_QSTR(MP_QSTR_umount), MP_ROM_PTR(&vfs_mp_umount_obj)},
+    {MP_ROM_QSTR(MP_QSTR_open), MP_ROM_PTR(&vfs_mp_open_obj)},
+    {MP_ROM_QSTR(MP_QSTR_ilistdir), MP_ROM_PTR(&vfs_mp_ilistdir_obj)},
+    {MP_ROM_QSTR(MP_QSTR_mkdir), MP_ROM_PTR(&vfs_mp_mkdir_obj)},
+    {MP_ROM_QSTR(MP_QSTR_rmdir), MP_ROM_PTR(&vfs_mp_rmdir_obj)},
+    {MP_ROM_QSTR(MP_QSTR_remove), MP_ROM_PTR(&vfs_mp_remove_obj)},
+    {MP_ROM_QSTR(MP_QSTR_rename), MP_ROM_PTR(&vfs_mp_rename_obj)},
+    {MP_ROM_QSTR(MP_QSTR_stat), MP_ROM_PTR(&vfs_mp_stat_obj)},
+    {MP_ROM_QSTR(MP_QSTR_statvfs), MP_ROM_PTR(&vfs_mp_statvfs_obj)},
+    {MP_ROM_QSTR(MP_QSTR_chdir), MP_ROM_PTR(&vfs_mp_chdir_obj)},
+    {MP_ROM_QSTR(MP_QSTR_getcwd), MP_ROM_PTR(&vfs_mp_getcwd_obj)},
 };
-STATIC MP_DEFINE_CONST_DICT(waveshare_vfs_locals_dict, waveshare_vfs_locals_dict_table);
+static MP_DEFINE_CONST_DICT(vfs_mp_locals_dict, vfs_mp_locals_dict_table);
 
 MP_DEFINE_CONST_OBJ_TYPE(
-    waveshare_vfs_type,
-    MP_QSTR_VfsWaveshare,
+    vfs_mp_type,
+    MP_QSTR_VfsPicoware,
     MP_TYPE_FLAG_NONE,
-    make_new, waveshare_vfs_make_new,
-    locals_dict, &waveshare_vfs_locals_dict);
+    make_new, vfs_mp_make_new,
+    locals_dict, &vfs_mp_locals_dict);
 
 // =============================================================================
 // Module Functions
 // =============================================================================
 
 // Check if a mount point is already mounted
-STATIC bool is_mount_point_in_use(const char *mount_point)
+static bool is_mount_point_in_use(const char *mount_point)
 {
     // Call mp_vfs_mount with 0 args to get list of mounts
     mp_map_t kw_args;
@@ -1092,7 +1050,7 @@ STATIC bool is_mount_point_in_use(const char *mount_point)
 }
 
 // Helper function to mount VFS at a given path
-STATIC mp_obj_t waveshare_vfs_mount_helper(size_t n_args, const mp_obj_t *args)
+mp_obj_t vfs_mp_mount_helper(size_t n_args, const mp_obj_t *args)
 {
     // mount(mount_point="/sd")
     const char *mount_point = "/sd";
@@ -1124,7 +1082,7 @@ STATIC mp_obj_t waveshare_vfs_mount_helper(size_t n_args, const mp_obj_t *args)
     }
 
     // Create VFS object
-    mp_obj_t vfs = waveshare_vfs_make_new(&waveshare_vfs_type, 0, 0, NULL);
+    mp_obj_t vfs = vfs_mp_make_new(&vfs_mp_type, 0, 0, NULL);
 
     // Mount it using MicroPython's VFS system
     mp_obj_t mount_point_obj = mp_obj_new_str(mount_point, strlen(mount_point));
@@ -1137,10 +1095,10 @@ STATIC mp_obj_t waveshare_vfs_mount_helper(size_t n_args, const mp_obj_t *args)
 
     return mp_const_true;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(waveshare_vfs_mount_helper_obj, 0, 1, waveshare_vfs_mount_helper);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(vfs_mp_mount_helper_obj, 0, 1, vfs_mp_mount_helper);
 
 // Unmount helper
-STATIC mp_obj_t waveshare_vfs_umount_helper(size_t n_args, const mp_obj_t *args)
+mp_obj_t vfs_mp_umount_helper(size_t n_args, const mp_obj_t *args)
 {
     const char *mount_point = "/sd";
     if (n_args > 0)
@@ -1161,23 +1119,23 @@ STATIC mp_obj_t waveshare_vfs_umount_helper(size_t n_args, const mp_obj_t *args)
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(waveshare_vfs_umount_helper_obj, 0, 1, waveshare_vfs_umount_helper);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(vfs_mp_umount_helper_obj, 0, 1, vfs_mp_umount_helper);
 
 // =============================================================================
 // Module Definition
 // =============================================================================
 
-STATIC const mp_rom_map_elem_t waveshare_vfs_module_globals_table[] = {
-    {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_waveshare_vfs)},
-    {MP_ROM_QSTR(MP_QSTR_VfsWaveshare), MP_ROM_PTR(&waveshare_vfs_type)},
-    {MP_ROM_QSTR(MP_QSTR_mount), MP_ROM_PTR(&waveshare_vfs_mount_helper_obj)},
-    {MP_ROM_QSTR(MP_QSTR_umount), MP_ROM_PTR(&waveshare_vfs_umount_helper_obj)},
+static const mp_rom_map_elem_t vfs_mp_module_globals_table[] = {
+    {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_vfs_mp)},
+    {MP_ROM_QSTR(MP_QSTR_VfsPicoware), MP_ROM_PTR(&vfs_mp_type)},
+    {MP_ROM_QSTR(MP_QSTR_mount), MP_ROM_PTR(&vfs_mp_mount_helper_obj)},
+    {MP_ROM_QSTR(MP_QSTR_umount), MP_ROM_PTR(&vfs_mp_umount_helper_obj)},
 };
-STATIC MP_DEFINE_CONST_DICT(waveshare_vfs_module_globals, waveshare_vfs_module_globals_table);
+static MP_DEFINE_CONST_DICT(vfs_mp_module_globals, vfs_mp_module_globals_table);
 
-const mp_obj_module_t waveshare_vfs_user_cmodule = {
+const mp_obj_module_t vfs_mp_user_cmodule = {
     .base = {&mp_type_module},
-    .globals = (mp_obj_dict_t *)&waveshare_vfs_module_globals,
+    .globals = (mp_obj_dict_t *)&vfs_mp_module_globals,
 };
 
-MP_REGISTER_MODULE(MP_QSTR_waveshare_vfs, waveshare_vfs_user_cmodule);
+MP_REGISTER_MODULE(MP_QSTR_vfs_mp, vfs_mp_user_cmodule);

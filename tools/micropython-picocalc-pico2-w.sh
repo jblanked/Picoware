@@ -15,6 +15,9 @@ echo "Cleaning existing MicroPython Picoware modules..."
 rm -rf "$micropython_dir"/modules/main.py
 rm -rf "$micropython_dir"/modules/picoware
 
+# remove existing picoware_boards directory if it exists
+rm -rf "$micropython_dir"/modules/picoware_boards
+
 # remove existing PicoCalc modules directory if it exists
 rm -rf "$micropython_dir"/modules/PicoCalc # delete entire PicoCalc directory
 
@@ -71,6 +74,9 @@ cp -r "$picoware_dir"/src/MicroPython/PicoCalc/picoware_lcd "$micropython_dir"/m
 cp -r "$picoware_dir"/src/MicroPython/PicoCalc/picoware_psram "$micropython_dir"/modules/PicoCalc/picoware_psram
 cp -r "$picoware_dir"/src/MicroPython/PicoCalc/picoware_sd "$micropython_dir"/modules/PicoCalc/picoware_sd
 cp -r "$picoware_dir"/src/MicroPython/PicoCalc/picoware_lvgl "$micropython_dir"/modules/PicoCalc/picoware_lvgl
+
+# copy picoware_boards module
+cp -r "$picoware_dir"/src/MicroPython/picoware_boards "$micropython_dir"/modules/picoware_boards
 
 # copy auto complete module
 cp -r "$picoware_dir"/src/MicroPython/auto_complete "$micropython_dir"/modules/auto_complete

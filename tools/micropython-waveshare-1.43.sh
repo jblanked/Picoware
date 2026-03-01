@@ -15,6 +15,9 @@ echo "Cleaning existing MicroPython Picoware modules..."
 rm -rf "$micropython_dir"/modules/main.py
 rm -rf "$micropython_dir"/modules/picoware
 
+# remove existing picoware_boards directory if it exists
+rm -rf "$micropython_dir"/modules/picoware_boards
+
 # remove existing PicoCalc modules directory if it exists
 rm -rf "$micropython_dir"/modules/PicoCalc # delete entire PicoCalc directory
 
@@ -76,6 +79,9 @@ cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.43/waveshare_
 cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.43/waveshare_lcd "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.43/waveshare_lcd
 cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.43/waveshare_sd "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.43/waveshare_sd
 cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.43/waveshare_touch "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.43/waveshare_touch
+
+# copy picoware_boards module
+cp -r "$picoware_dir"/src/MicroPython/picoware_boards "$micropython_dir"/modules/picoware_boards
 
 # copy auto complete module
 cp -r "$picoware_dir"/src/MicroPython/auto_complete "$micropython_dir"/modules/auto_complete

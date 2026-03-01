@@ -15,6 +15,10 @@ typedef struct
     bool initialized;
     uint16_t width;
     uint16_t height;
+    float scale_x;
+    float scale_y;
+    bool scale_set;
+    bool scale_position;
 } lcd_mp_obj_t;
 
 void lcd_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind);                    // print function for the LCD object
@@ -35,6 +39,7 @@ mp_obj_t lcd_mp_pixel(size_t n_args, const mp_obj_t *args);                // dr
 mp_obj_t lcd_mp_psram(size_t n_args, const mp_obj_t *args);                // draw a buffer from PSRAM
 mp_obj_t lcd_mp_rectangle(size_t n_args, const mp_obj_t *args);            // draw a rectangle on the LCD
 mp_obj_t lcd_mp_set_mode(mp_obj_t self_in, mp_obj_t mode);                 // set the LCD mode (PSRAM or HEAP)
+mp_obj_t lcd_mp_set_scaling(size_t n_args, const mp_obj_t *args);          // set the LCD scaling parameters
 mp_obj_t lcd_mp_swap(mp_obj_t self_in);                                    // swap function to update the display with the current framebuffer contents
 mp_obj_t lcd_mp_text(size_t n_args, const mp_obj_t *args);                 // draw text on the LCD
 mp_obj_t lcd_mp_triangle(size_t n_args, const mp_obj_t *args);             // draw a triangle on the LCD

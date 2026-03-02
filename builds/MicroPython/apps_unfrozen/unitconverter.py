@@ -40,7 +40,9 @@ _CONVERSIONS = (
     ("Torque", (("Nmm", 0.001), ("Nm", 1.0), ("in-lb", 0.1129848), ("ft-lb", 1.355818))),
     ("Power", (("W", 1.0), ("kW", 1000.0), ("hp", 745.7))),
     ("Angle", (("deg", 1.0), ("rad", 57.2957795))),
-    ("Temp", (("C", 0), ("F", 0), ("K", 0)))
+    ("Temp", (("C", 0), ("F", 0), ("K", 0))),
+    ("Wood", (("cu in", 0.0069444), ("bd ft", 1.0), ("cu ft", 12.0), ("m3", 423.776), ("mbf", 1000.0))),
+    ("Fasten", (("23ga", 0.635), ("18ga", 1.2065), ("16ga", 1.5875), ("15ga", 1.8288), ("#6", 3.5052), ("#8", 4.1656), ("#10", 4.826), ("mm", 1.0), ("in", 25.4)))
 )
 
 # View modes
@@ -101,7 +103,8 @@ def get_help_lines():
         "- Len, Area, Vol",
         "- Kitch, Wgt, Spd",
         "- Press, Torq, Pwr",
-        "- Ang, Temp",
+        "- Ang, Temp, Wood",
+        "- Fasten",
         "",
         "SHORTCUTS:",
         "[C] Cycle Cat",

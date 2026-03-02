@@ -91,6 +91,7 @@ def start(view_manager) -> bool:
     from picoware.system.boards import (
         BOARD_WAVESHARE_1_28_RP2350,
         BOARD_WAVESHARE_1_43_RP2350,
+        BOARD_WAVESHARE_3_49_RP2350,
     )
 
     global _textbox, _uart, state, _loading
@@ -108,14 +109,37 @@ def start(view_manager) -> bool:
     state = STATE_TYPING
 
     view_manager.freq(True)  # set to lower frequency
+    is_pico_calc = False
 
     board_id = view_manager.board_id
     if board_id == BOARD_WAVESHARE_1_28_RP2350:
         _uart = UART(uart_id=0, tx_pin=16, rx_pin=17)
-    elif board_id == BOARD_WAVESHARE_1_43_RP2350:
+    elif board_id in (BOARD_WAVESHARE_1_43_RP2350, BOARD_WAVESHARE_3_49_RP2350):
         _uart = UART(uart_id=1, tx_pin=4, rx_pin=5)
     else:  # PicoCalc
         _uart = UART(uart_id=0, tx_pin=0, rx_pin=1)
+        is_pico_calc = True
+
+    # first show info screen about connection
+    d = view_manager.draw
+    fg = view_manager.foreground_color
+    d.erase()
+    d._text(0, 0, "To connect to the device, use the following settings:", fg)
+    d._text(0, 16, "Baudrate: 115200", fg)
+    if not is_pico_calc:
+        d._text(0, 32, f"TX Pin: GP{_uart.tx_pin if _uart else 'N/A'}", fg)
+        d._text(0, 48, f"RX Pin: GP{_uart.rx_pin if _uart else 'N/A'}", fg)
+    else:
+        d._text(0, 32, "TX Pin: UART0_TX (GP0)", fg)
+        d._text(0, 48, "RX Pin: UART0_RX (GP1)", fg)
+    d._text(0, 64, "Press the any button to continue...", fg)
+    d.swap()
+    inp = view_manager.input_manager
+    while True:
+        but = inp.button
+        if but != -1:
+            inp.reset()
+            break
 
     __set_kb(view_manager, "Start the conversation")
 

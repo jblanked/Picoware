@@ -1,4 +1,3 @@
-import time
 import json
 import gc
 import os
@@ -20,8 +19,9 @@ from picoware.system.buttons import (
 )
 
 _SETTINGS_FILE = "/picoware/settings/drill_pro_settings.json" 
-_VERSION = "1.8"
+_VERSION = "1.81"
 
+# Static tuple for materials to save RAM over dictionaries
 _MATERIALS = (
     ("Aluminium", 45, TFT_WHITE),
     ("Brass",     35, TFT_YELLOW),
@@ -32,6 +32,7 @@ _MATERIALS = (
     ("Custom",    0,  TFT_RED)
 )
 
+# View and typing modes
 MODE_MAIN = 0
 MODE_HELP = 1
 MODE_TYPING = 2
@@ -50,6 +51,7 @@ state = {
     "cursor_idx": 0
 }
 
+# Volatile state variables
 current_mode = MODE_MAIN
 active_typing_field = TYPING_NONE
 rpm_result = "0"
@@ -65,14 +67,14 @@ _last_saved_json = ""
 _cached_help_lines = []
 has_hardware = True
 board_name = "Unknown"
-sys_time = time
 
 def get_help_lines():
     global board_name, _cached_help_lines
-    import gc
+    
     gc.collect() 
     ram_str = f"RAM: {gc.mem_alloc() // 1024}KB / {gc.mem_free() // 1024}KB"
     
+    # Surgically update RAM string to prevent full list recreation overhead
     if _cached_help_lines:
         _cached_help_lines[5] = ram_str
         return _cached_help_lines
@@ -91,7 +93,7 @@ def get_help_lines():
         "CREDITS:",
         "made by Slasher006",
         "with the help of Gemini",
-        "Date: 2026-03-01",
+        "Date: 2026-03-02",
         "",
         "ABOUT:",
         "Calculates safe spindle RPM.",
@@ -120,18 +122,20 @@ def get_help_lines():
 def queue_save():
     global pending_save, save_timer
     pending_save = True
-    save_timer = 150
+    save_timer = 150 # Defer writes to protect SD card wear
 
 def save_settings():
-    global storage, _last_saved_json
-    if not storage: return
+    global storage, _last_saved_json, pending_save
+    if not storage or not pending_save: return
     try:
-        save_data = state.copy()
-        json_str = json.dumps(save_data)
-        if json_str == _last_saved_json: return
-        storage.write(_SETTINGS_FILE, json_str, "w")
-        _last_saved_json = json_str
-        import gc
+        json_str = json.dumps(state)
+        # Delta-check bypasses redundant hardware writes
+        if json_str != _last_saved_json:
+            storage.write(_SETTINGS_FILE, json_str, "w")
+            _last_saved_json = json_str
+            
+        pending_save = False
+        del json_str
         gc.collect()
     except Exception: pass
 
@@ -143,7 +147,10 @@ def validate_and_load_settings():
             loaded = json.loads(raw_data)
             for key in state:
                 if key in loaded: state[key] = loaded[key]
+                
             _last_saved_json = json.dumps(state)
+            del raw_data, loaded
+            gc.collect()
         except Exception: pass
 
 def validate_hardware_and_time(view_manager):
@@ -165,6 +172,7 @@ def validate_hardware_and_time(view_manager):
 def calculate_rpm_metric():
     global is_capped
     try:
+        # Countersink mode overrides custom diameter to standard 20mm
         d = 20.0 if state["mode_sink"] else float(state["diameter_mm"])
         mat = _MATERIALS[state["mat_index"]]
         vc = float(state["custom_vc"]) if mat[0] == "Custom" else mat[1]
@@ -172,6 +180,7 @@ def calculate_rpm_metric():
         
         if d <= 0 or vc <= 0: return "0"
         
+        # Standard spindle speed formula: n = (Vc * 1000) / (pi * d)
         rpm = (vc * 1000) / (math.pi * d)
         
         if rpm > limit:
@@ -386,6 +395,7 @@ def run(view_manager):
     draw = view_manager.draw; input_mgr = view_manager.input_manager; button = input_mgr.button
     screen_w = draw.size.x; screen_h = draw.size.y
     
+    # Handle typing cursor blink state
     if current_mode == MODE_TYPING:
         blink_counter += 1
         if blink_counter > 15:
@@ -400,9 +410,10 @@ def run(view_manager):
         input_mgr.reset()
         if dirty_ui: queue_save()
 
+    # Process pending SD saves when idle
     if pending_save and button == -1:
         if save_timer > 0: save_timer -= 1
-        else: save_settings(); pending_save = False
+        else: save_settings() # Pending state clears within save_settings natively
 
     if dirty_ui and current_mode in (MODE_MAIN, MODE_TYPING):
         rpm_result = calculate_rpm_metric()
@@ -425,6 +436,7 @@ def stop(view_manager):
     
     save_settings()
     
+    # Teardown large persistent objects to free RAM for OS
     if state is not None: state.clear()
     state = None
     
@@ -443,5 +455,4 @@ def stop(view_manager):
     blink_counter = save_timer = help_scroll = 0
     cursor_visible = True
     
-    import gc
     gc.collect()

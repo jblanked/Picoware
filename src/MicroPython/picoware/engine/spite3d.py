@@ -1,7 +1,7 @@
 from micropython import const
 from picoware.system.vector import Vector
+import engine
 
-MAX_TRIANGLES_PER_SPRITE = const(28)
 SPRITE_HUMANOID = const(0)
 SPRITE_TREE = const(1)
 SPRITE_HOUSE = const(2)
@@ -9,142 +9,31 @@ SPRITE_PILLAR = const(3)
 SPRITE_CUSTOM = const(4)
 
 
-class Vertex3D:
-    """3D vertex structure"""
-
-    __slots__ = ("x", "y", "z")
-
-    def __init__(self, x=0.0, y=0.0, z=0.0):
-        self.x = float(x)
-        self.y = float(y)
-        self.z = float(z)
-
-    def rotate_y(self, angle):
-        """Rotate vertex around Y axis (for sprite facing)"""
-        from math import sin, cos
-
-        cos_a = cos(angle)
-        sin_a = sin(angle)
-        return Vertex3D(
-            self.x * cos_a - self.z * sin_a, self.y, self.x * sin_a + self.z * cos_a
-        )
-
-    def translate(self, dx, dy, dz):
-        """Translate vertex"""
-        return Vertex3D(self.x + dx, self.y + dy, self.z + dz)
-
-    def scale(self, sx, sy, sz):
-        """Scale vertex"""
-        return Vertex3D(self.x * sx, self.y * sy, self.z * sz)
-
-    def __sub__(self, other):
-        """Subtraction operator for vector operations"""
-        return Vertex3D(self.x - other.x, self.y - other.y, self.z - other.z)
-
-
-class Triangle3D:
+class Triangle3D(engine.Triangle3D):
     """3D triangle structure"""
 
-    __slots__ = (
-        "x1",
-        "y1",
-        "z1",
-        "x2",
-        "y2",
-        "z2",
-        "x3",
-        "y3",
-        "z3",
-        "visible",
-        "distance",
-    )
-
-    def __init__(
-        self, x1=0.0, y1=0.0, z1=0.0, x2=0.0, y2=0.0, z2=0.0, x3=0.0, y3=0.0, z3=0.0
-    ) -> None:
-        self.x1, self.y1, self.z1 = float(x1), float(y1), float(z1)
-        self.x2, self.y2, self.z2 = float(x2), float(y2), float(z2)
-        self.x3, self.y3, self.z3 = float(x3), float(y3), float(z3)
-        self.visible = True
-        self.distance = 0.0
-
     @property
-    def center(self) -> Vertex3D:
+    def center(self) -> Vector:
         """Calculate triangle center for distance sorting"""
-        return Vertex3D(
-            (self.x1 + self.x2 + self.x3) / 3.0,
-            (self.y1 + self.y2 + self.y3) / 3.0,
-            (self.z1 + self.z2 + self.z3) / 3.0,
-        )
+        return self.get_center()
 
     # we need this to access the scale, rotate, translate methods
     # and for easier parsing later on
     @property
     def vertices(self) -> list:
         """Get triangle vertices as a list"""
-        return [
-            Vertex3D(self.x1, self.y1, self.z1),
-            Vertex3D(self.x2, self.y2, self.z2),
-            Vertex3D(self.x3, self.y3, self.z3),
-        ]
+        return self.get_vertices()
 
     @vertices.setter
-    def vertices(self, verts: list[Vertex3D]):
+    def vertices(self, verts: list[Vector]):
         """Set triangle vertices from a list"""
         self.x1, self.y1, self.z1 = verts[0].x, verts[0].y, verts[0].z
         self.x2, self.y2, self.z2 = verts[1].x, verts[1].y, verts[1].z
         self.x3, self.y3, self.z3 = verts[2].x, verts[2].y, verts[2].z
 
-    def is_facing_camera(self, camera_pos: Vector) -> bool:
-        """Check if triangle is facing the camera (basic backface culling)"""
-        # Calculate triangle normal using cross product
-        vert_0 = Vertex3D(self.x1, self.y1, self.z1)
-        vert_1 = Vertex3D(self.x2, self.y2, self.z2)
-        vert_2 = Vertex3D(self.x3, self.y3, self.z3)
-        v1 = vert_1 - vert_0
-        v2 = vert_2 - vert_0
 
-        # Cross product to get normal (right-hand rule)
-        normal = Vertex3D(
-            v1.y * v2.z - v1.z * v2.y,
-            v1.z * v2.x - v1.x * v2.z,
-            v1.x * v2.y - v1.y * v2.x,
-        )
-
-        # Vector from triangle center to camera
-        center = self.center
-        to_camera = Vertex3D(
-            camera_pos.x - center.x,
-            0.5 - center.y,  # Camera height
-            camera_pos.y - center.z,  # camera_pos.y is Z in world space
-        )
-
-        # Dot product - if positive, triangle faces camera
-        dot = normal.x * to_camera.x + normal.y * to_camera.y + normal.z * to_camera.z
-        return dot > 0.0
-
-
-class Sprite3D:
+class Sprite3D(engine.Sprite3D):
     """3D sprite class for rendering 3D objects"""
-
-    def __init__(self):
-        self.triangles: list[Triangle3D] = []
-        self.triangle_count = 0
-        self.pos = Vector(0, 0)
-        self.rotation_y = 0.0
-        self.scale_factor = 1.0
-        self.type = SPRITE_CUSTOM
-        self.active = False
-        self.color = 0x0000  # Default black
-
-    def __del__(self):
-        for tri in self.triangles:
-            del tri
-        self.triangles = None
-        del self.pos
-        self.pos = None
-        self.color = None
-        self.active = False
 
     @property
     def position(self) -> Vector:
@@ -190,17 +79,6 @@ class Sprite3D:
     def sprite_type(self):
         """Get sprite type"""
         return self.type
-
-    def add_triangle(self, triangle: Triangle3D):
-        """Add triangle to sprite"""
-        if self.triangle_count < MAX_TRIANGLES_PER_SPRITE:
-            self.triangles.append(triangle)
-            self.triangle_count += 1
-
-    def clear_triangles(self):
-        """Clear all triangles"""
-        self.triangles.clear()
-        self.triangle_count = 0
 
     # Initialize sprite with specific parameters (for Entity class)
     def initialize_as_humanoid(self, pos, height, rot, color=0x000000):

@@ -1,7 +1,8 @@
 from picoware.system.vector import Vector
+import engine
 
 
-class Game:
+class Game(engine.Game):
     """
     Represents a game.
     """
@@ -30,22 +31,18 @@ class Game:
         :param start: function(Game) - the function called when the game is started
         :param stop: function(Game) - the function called when the game is stopped
         """
-        self.name = name
+        super().__init__(
+            name,
+            size,
+            foreground_color,
+            background_color,
+            perspective,
+        )
         self._start = start
         self._stop = stop
-        self.levels = []  # List of levels in the game
-        self.current_level = None  # holds the current level
-        self.input_manager = input_manager
-        self.input: int = -1  # last button pressed
+        self.current_level = None
         self.draw = draw
-        self.camera = Vector(0, 0)
-        self.position = Vector(0, 0)
-        self.size = size
-        self.world_size = size
-        self.is_active = False
-        self.foreground_color = foreground_color
-        self.background_color = background_color
-        self.camera_perspective = perspective  # first person or third person
+        self.input_manager = input_manager
 
     def __del__(self):
         self.stop()
@@ -53,22 +50,6 @@ class Game:
         if self.current_level:
             del self.current_level
             self.current_level = None
-
-        if self.camera:
-            del self.camera
-            self.camera = None
-        if self.position:
-            del self.position
-            self.position = None
-        if self.size:
-            del self.size
-            self.size = None
-        if self.world_size:
-            del self.world_size
-            self.world_size = None
-
-        self.name = ""
-        self.input = -1
 
     @property
     def perspective(self) -> int:

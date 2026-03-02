@@ -9,12 +9,8 @@ extern "C"
 {
 #endif
 
-#if defined(WAVESHARE_1_43)
-#include "../Waveshare/RP2350-Touch-LCD-1.43/waveshare_sd/fat32.h"
-#elif defined(WAVESHARE_3_49)
-#include "../Waveshare/RP2350-Touch-LCD-3.49/waveshare_sd/fat32.h"
-#elif defined(PICOCALC)
-#include "../PicoCalc/picoware_sd/fat32.h"
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC)
+#include "../sd/fat32.h"
 #endif
 
     static inline size_t storage_read(const char *file_path, char *buffer, size_t buffer_size)

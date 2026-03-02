@@ -3,14 +3,17 @@ from vector import Vector as vector_mp
 
 class Vector(vector_mp):
     """
-    A simple 2D vector class.
+    A simple 3D vector class.
 
     @param x: The x-coordinate of the vector.
     @param y: The y-coordinate of the vector.
+    @param z: The z-coordinate of the vector.
     """
 
-    def __init__(self, x=0, y=0):
-        super().__init__(x, y, isinstance(x, int) and isinstance(y, int))
+    def __init__(self, x=0, y=0, z=0):
+        super().__init__(
+            x, y, z, isinstance(x, int) and isinstance(y, int) and isinstance(z, int)
+        )
 
     @classmethod
     def from_val(cls, value):
@@ -23,13 +26,13 @@ class Vector(vector_mp):
 
     def __add__(self, other):
         other = Vector.from_val(other)
-        return Vector(self.x + other.x, self.y + other.y)
+        return Vector(self.x + other.x, self.y + other.y, self.z + other.z)
 
     def __mul__(self, scalar):
-        return Vector(self.x * scalar, self.y * scalar)
+        return Vector(self.x * scalar, self.y * scalar, self.z * scalar)
 
     __rmul__ = __mul__
 
     def __eq__(self, other):
         other = Vector.from_val(other)
-        return self.x == other.x and self.y == other.y
+        return self.x == other.x and self.y == other.y and self.z == other.z

@@ -2,12 +2,13 @@ from micropython import const
 from math import sqrt
 from picoware.system.vector import Vector
 from picoware.engine.camera import CameraParams
+import engine
 
 CAMERA_FIRST_PERSON = const(0)
 CAMERA_THIRD_PERSON = const(1)
 
 
-class Level:
+class Level(engine.Level):
     """
     Represents a level in the game.
     """
@@ -29,10 +30,8 @@ class Level:
         :param start: function(Level) - the function called when the level is created
         :param stop: function(Level) - the function called when the level is destroyed
         """
-        self.name = name
-        self.size = size
+        super().__init__(name, size)
         self.game = game
-        self.entities = []  # List of entities in the level
         self._clear_allowed: bool = True
         self._start = start
         self._stop = stop
@@ -42,11 +41,6 @@ class Level:
 
     def __del__(self):
         self.clear()
-        del self.size
-        self.size = None
-        self.name = None
-        del self.entities
-        self.entities = None
         del self._entity_vec
         self._entity_vec = None
         del self._position

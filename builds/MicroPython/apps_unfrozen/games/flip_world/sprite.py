@@ -196,7 +196,7 @@ class Sprite(Entity):
                 if self.health > 0:
                     self.state = ENTITY_STATE_ATTACKED
                     self.elapsed_move_timer = 0
-                    self.position = self._old_position
+                    self.position = self.old_position
 
                 # update multiplayer state after being attacked
                 # we must allow both host and clients to sync enemy state after being attacked
@@ -215,7 +215,7 @@ class Sprite(Entity):
                 # check if player is dead
                 if other.health > 0:
                     other.state = ENTITY_STATE_ATTACKED
-                    other.position = other._old_position
+                    other.position = other.old_position
 
                 # update multiplayer state after being attacked
                 # we must allow both host and clients to sync enemy state after being attacked
@@ -387,7 +387,7 @@ class Sprite(Entity):
             if self.state == ENTITY_STATE_ATTACKED:
                 self.state = (
                     ENTITY_STATE_MOVING_TO_END
-                    if self.position.x < self._old_position.x
+                    if self.position.x < self.old_position.x
                     else ENTITY_STATE_MOVING_TO_START
                 )
 

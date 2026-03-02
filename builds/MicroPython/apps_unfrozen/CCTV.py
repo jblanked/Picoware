@@ -3,13 +3,13 @@ CCTV/MJPEG App for Picoware
 Copyright (c) 2026 JBlanked
 GPL-3.0 License
 https://www.github.com/jblanked/Picoware
-Last Updated: 2026-02-22
+Last Updated: 2026-03-01
 
 Users need a word list of CCTV stream URLs in "picoware/cctv/list.txt" on the device's storage, with one URL per line.
 The app connects to each URL in turn and displays the MJPEG stream.
 Use the UP/DOWN or LEFT/RIGHT buttons to switch between cameras, and BACK to exit.
 
-In my testing I saw 300kb frames so its possible on the Pico2W and Pimoroni 2W only... although so endpoints may have smaller frames
+In my testing I saw 113kb frames so its possible on the Pico2W and Pimoroni 2W only... although so endpoints may have smaller frames
 """
 
 from picoware.system.buttons import (
@@ -20,12 +20,60 @@ from picoware.system.buttons import (
     BUTTON_RIGHT,
 )
 from picoware.system.vector import Vector
+from gc import mem_alloc, mem_free
 
 tv_list = []
 
 _tv_index = 0
 _streaming = False
 _cctv = None
+_psram = None
+_frame_addr = 0
+MAX_FRAME_SIZE = 320000
+
+
+class PSRAMReader:
+    """File-like reader backed by a PSRAM region.
+
+    Provides readinto() and seek() so the JPEG split-decoder can stream
+    directly from PSRAM without copying the full frame to heap.
+    """
+
+    def __init__(self, psram, addr: int, size: int):
+        self._psram = psram
+        self._addr = addr
+        self._size = size
+        self._pos = 0
+
+    def seek(self, pos: int, whence: int = 0) -> int:
+        if whence == 0:
+            self._pos = pos
+        elif whence == 1:
+            self._pos += pos
+        elif whence == 2:
+            self._pos = self._size + pos
+        return self._pos
+
+    def readinto(self, buf) -> int:
+        avail = self._size - self._pos
+        if avail <= 0:
+            return 0
+        n = min(len(buf), avail)
+        data = self._psram.read(self._addr + self._pos, n)
+        buf[:n] = data
+        self._pos += n
+        return n
+
+    def read(self, n: int = -1) -> bytes:
+        avail = self._size - self._pos
+        if avail <= 0:
+            return b""
+        if n < 0:
+            n = avail
+        n = min(n, avail)
+        data = self._psram.read(self._addr + self._pos, n)
+        self._pos += n
+        return data
 
 
 class CCTV:
@@ -172,7 +220,9 @@ class CCTV:
 
             # Read JPEG payload
             if content_length > 0:
-                data = self._read_exactly(content_length)
+                data = self._read_exactly_to_psram(
+                    content_length, _psram, _frame_addr, MAX_FRAME_SIZE
+                )
             else:
                 # Fallback: accumulate until JPEG EOI marker FF D9
                 buf = bytearray()
@@ -239,6 +289,103 @@ class CCTV:
         except OSError:
             return None
         return bytes(buf)
+
+    def _read_exactly_to_psram(
+        self, n: int, psram, addr: int, chunk_size: int = 2048
+    ) -> int:
+        """Stream exactly *n* bytes directly into PSRAM. Returns bytes written or -1 on error."""
+        chunk_buf = bytearray(chunk_size)
+        view = memoryview(chunk_buf)
+        received = 0
+        try:
+            while received < n:
+                if not self._is_running:
+                    return -1
+                to_read = min(chunk_size, n - received)
+                got = self._sock.readinto(view[:to_read])
+                if not got:
+                    return -1
+                psram.write(addr + received, view[:got])
+                received += got
+        except OSError:
+            return -1
+        return received
+
+    def next_frame_to_psram(
+        self, psram, addr: int, max_size: int = MAX_FRAME_SIZE
+    ) -> int:
+        """Read the next JPEG frame directly into PSRAM.
+
+        Streams the payload chunk-by-chunk so the full frame is never on heap.
+        Returns the number of bytes written, or -1 on failure.
+        """
+        if self._sock is None:
+            return -1
+
+        try:
+            # Find boundary marker
+            for _ in range(64):
+                if not self._is_running:
+                    return -1
+                line = self._readline()
+                if line is None:
+                    return -1
+                if line.startswith(b"--"):
+                    break
+            else:
+                return -1
+
+            # Read part headers
+            content_length = 0
+            for _ in range(16):
+                if not self._is_running:
+                    return -1
+                line = self._readline()
+                if line is None:
+                    return -1
+                if line == b"":
+                    break
+                if line.lower().startswith(b"content-length:"):
+                    try:
+                        content_length = int(line.split(b":", 1)[1].strip())
+                    except ValueError:
+                        pass
+
+            if content_length > 0 and content_length <= max_size:
+                return self._read_exactly_to_psram(content_length, psram, addr)
+
+            # Fallback: stream byte-by-byte watching for JPEG EOI (FF D9)
+            chunk = bytearray(256)
+            cpos = 0
+            written = 0
+            prev_byte = 0
+            try:
+                while written + cpos < max_size:
+                    if not self._is_running:
+                        return -1
+                    b = self._sock.read(1)
+                    if not b:
+                        break
+                    byte_val = b[0]
+                    found_eoi = prev_byte == 0xFF and byte_val == 0xD9
+                    chunk[cpos] = byte_val
+                    cpos += 1
+                    if cpos >= 256 or found_eoi:
+                        psram.write(addr + written, memoryview(chunk)[:cpos])
+                        written += cpos
+                        cpos = 0
+                        if found_eoi:
+                            break
+                    prev_byte = byte_val
+                if cpos > 0:
+                    psram.write(addr + written, memoryview(chunk)[:cpos])
+                    written += cpos
+            except OSError:
+                return -1
+            return written if written > 4 else -1
+
+        except OSError:
+            return -1
 
 
 class CCTVAsync:
@@ -334,6 +481,20 @@ class CCTVAsync:
             self._frame_count += 1
         return frame
 
+    def next_frame_to_psram(
+        self, psram, addr: int, max_size: int = MAX_FRAME_SIZE
+    ) -> int:
+        """Stream the next JPEG frame directly into PSRAM.
+
+        Returns the number of bytes written, or -1 if not connected / error.
+        """
+        if not self._connected or not self._running:
+            return -1
+        size = self._cctv.next_frame_to_psram(psram, addr, max_size)
+        if size > 0:
+            self._frame_count += 1
+        return size
+
 
 def load_tv_list(storage):
     """Load the list of CCTV URLs from storage."""
@@ -392,6 +553,20 @@ def start(view_manager):
 
     _streaming = False
     _tv_index = 0
+
+    # Reserve a PSRAM address region for the frame buffer if the board supports it
+    global _psram, _frame_addr
+    _psram = None
+    _frame_addr = 0
+    if view_manager.has_psram:
+        try:
+            from picoware.system.psram import PSRAM
+
+            _psram = PSRAM()
+            _frame_addr = _psram.get_next_free()
+        except Exception as e:
+            _psram = None
+            _frame_addr = 0
 
     draw = view_manager.draw
     fg = view_manager.foreground_color
@@ -470,63 +645,121 @@ def run(view_manager):
             )
         return
 
-    frame = _cctv.next_frame()
+    if _psram and _frame_addr:
+        frame_size = _cctv.next_frame_to_psram(_psram, _frame_addr, MAX_FRAME_SIZE)
 
-    if frame is None:
-        if _cctv.error_msg:
-            err = _cctv.error_msg
+        if frame_size <= 0:
+            if _cctv.error_msg:
+                err = _cctv.error_msg
+                _status(
+                    draw,
+                    fg,
+                    bg,
+                    "CCTV Viewer",
+                    "Stream lost:",
+                    err[:36],
+                    "BACK to exit",
+                )
+                _cctv.close()
+                _streaming = False
+            else:
+                _status(
+                    draw,
+                    fg,
+                    bg,
+                    "CCTV Viewer",
+                    "Waiting for frame...",
+                    "Frame #{}".format(_cctv.frame_count + 1),
+                    "BACK to exit",
+                )
+            return
+
+        _status(
+            draw,
+            fg,
+            bg,
+            f"CCTV Viewer {mem_alloc() // 1024} KB used",
+            "Decoding... (PSRAM)",
+            "Frame #{} ({} B)".format(_cctv.frame_count, frame_size),
+        )
+        try:
+            from picoware.gui.jpeg import JPEG
+
+            jpeg = JPEG(screen_width=draw.width, screen_height=draw.height)
+            jpeg._init_buffers()
+            reader = PSRAMReader(_psram, _frame_addr, frame_size)
+            jpeg._decode_split(reader, frame_size, 40, 120)
+        except Exception as e:
             _status(
                 draw,
                 fg,
                 bg,
                 "CCTV Viewer",
-                "Stream lost:",
-                err[:36],
+                "Decode failed...{}".format(e),
+                "Frame #{}".format(_cctv.frame_count),
+                "Size: {} B".format(frame_size),
+                tv_list[_tv_index],
                 "BACK to exit",
             )
-            _cctv.close()
-            _streaming = False
-        else:
-            _status(
-                draw,
-                fg,
-                bg,
-                "CCTV Viewer",
-                "Waiting for frame...",
-                "Frame #{}".format(_cctv.frame_count + 1),
-                "BACK to exit",
-            )
-        return
+            return
+    else:
+        # Heap fallback for boards without PSRAM
+        frame = _cctv.next_frame()
 
-    _status(
-        draw,
-        fg,
-        bg,
-        "CCTV Viewer",
-        "Decoding...",
-        "Frame #{} ({} B)".format(_cctv.frame_count, len(frame)),
-    )
-    try:
-        draw.image_jpeg_buffer(Vector(40, 120), frame)
-    except Exception:
+        if frame is None:
+            if _cctv.error_msg:
+                err = _cctv.error_msg
+                _status(
+                    draw,
+                    fg,
+                    bg,
+                    "CCTV Viewer",
+                    "Stream lost:",
+                    err[:36],
+                    "BACK to exit",
+                )
+                _cctv.close()
+                _streaming = False
+            else:
+                _status(
+                    draw,
+                    fg,
+                    bg,
+                    "CCTV Viewer",
+                    "Waiting for frame...",
+                    "Frame #{}".format(_cctv.frame_count + 1),
+                    "BACK to exit",
+                )
+            return
         _status(
             draw,
             fg,
             bg,
             "CCTV Viewer",
-            "Decode failed...",
-            "Frame #{}".format(_cctv.frame_count),
-            "Size: {} B".format(len(frame)),
-            tv_list[_tv_index],
-            "BACK to exit",
+            "Decoding...",
+            "Frame #{} ({} B)".format(_cctv.frame_count, len(frame)),
+            "Heap free: {} B".format(mem_free()),
         )
-        return
-
+        try:
+            draw.image_jpeg_buffer(Vector(40, 120), frame)
+        except Exception:
+            _status(
+                draw,
+                fg,
+                bg,
+                "CCTV Viewer",
+                "Decode failed...",
+                "Frame #{}".format(_cctv.frame_count),
+                "Size: {} B".format(len(frame)),
+                tv_list[_tv_index],
+                "BACK to exit",
+            )
+            return
     _status(
         draw,
         fg,
         bg,
-        "CCTV Viewer",
+        f"CCTV Viewer {mem_alloc() // 1024} KB used",
         "Displaying...",
         "Frame #{}".format(_cctv.frame_count),
     )
@@ -537,12 +770,19 @@ def stop(view_manager):
     """Stop the CCTV viewer and release resources."""
     from gc import collect
 
-    global _cctv, _streaming, _tv_index, tv_list
+    global _cctv, _streaming, _tv_index, tv_list, _psram, _frame_addr
 
     if _cctv:
         _cctv.close()
         del _cctv
         _cctv = None
+
+    if _psram:
+        _psram.collect()
+        del _psram
+        _psram = None
+
+    _frame_addr = 0
 
     _streaming = False
     _tv_index = 0

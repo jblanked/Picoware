@@ -1,32 +1,8 @@
-#include "py/runtime.h"
-#include "py/obj.h"
-#include "py/objarray.h"
-#include "py/mphal.h"
-#include "stdio.h"
-#include <stdlib.h>
-#include <string.h>
-#include <stdbool.h>
-
-// Define STATIC if not already defined (MicroPython macro)
-#ifndef STATIC
-#define STATIC static
-#endif
-
-typedef struct
-{
-    mp_obj_base_t base;
-    uint8_t *content;       // The content buffer
-    size_t content_len;     // Length of content (for binary data)
-    char *encoding;         // Encoding type (owned copy)
-    mp_obj_dict_t *headers; // Headers dictionary
-    char *reason;           // Reason phrase (owned copy)
-    int status_code;        // HTTP status code
-    char *text;             // Text representation of content (owned copy)
-} response_mp_obj_t;
+#include "response_mp.h"
 
 const mp_obj_type_t response_mp_type;
 
-STATIC void response_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
+void response_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
 {
     (void)kind;
     response_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -74,13 +50,13 @@ STATIC void response_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_prin
     mp_print_str(print, ")");
 }
 
-STATIC mp_obj_t response_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
+mp_obj_t response_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
     (void)n_args;
     (void)n_kw;
     (void)args;
     (void)type;
-    response_mp_obj_t *self = mp_obj_malloc(response_mp_obj_t, &response_mp_type);
+    response_mp_obj_t *self = mp_obj_malloc_with_finaliser(response_mp_obj_t, &response_mp_type);
     self->base.type = &response_mp_type;
     self->content = NULL;
     self->content_len = 0;
@@ -89,13 +65,17 @@ STATIC mp_obj_t response_mp_make_new(const mp_obj_type_t *type, size_t n_args, s
     self->status_code = -1;
     self->reason = NULL;
     self->text = NULL;
+    self->freed = false;
     return MP_OBJ_FROM_PTR(self);
 }
 
-// Manual cleanup method
-STATIC mp_obj_t response_mp_del(mp_obj_t self_in)
+mp_obj_t response_mp_del(mp_obj_t self_in)
 {
     response_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (self->freed)
+    {
+        return mp_const_none;
+    }
     if (self->content)
     {
         m_free(self->content);
@@ -123,11 +103,12 @@ STATIC mp_obj_t response_mp_del(mp_obj_t self_in)
         self->headers = NULL;
     }
     self->status_code = -1;
+    self->freed = true;
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(response_mp_del_obj, response_mp_del);
+static MP_DEFINE_CONST_FUN_OBJ_1(response_mp_del_obj, response_mp_del);
 
-STATIC void response_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
+void response_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
     response_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     if (destination[0] == MP_OBJ_NULL)
@@ -264,11 +245,11 @@ MP_DEFINE_CONST_OBJ_TYPE(
     attr, response_mp_attr          // attribute handler
 );
 // Define module globals
-STATIC const mp_rom_map_elem_t response_module_globals_table[] = {
+static const mp_rom_map_elem_t response_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_response)},
     {MP_ROM_QSTR(MP_QSTR_Response), MP_ROM_PTR(&response_mp_type)},
 };
-STATIC MP_DEFINE_CONST_DICT(response_module_globals, response_module_globals_table);
+static MP_DEFINE_CONST_DICT(response_module_globals, response_module_globals_table);
 
 // Define module
 const mp_obj_module_t response_user_cmodule = {

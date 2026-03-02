@@ -266,6 +266,7 @@ class FlipWorldRun:
                         self.player.loading.animate()
                     else:
                         self.player.loading.animate()
+                        self.view_manager.thread_manager.run()  # Process HTTP thread
         if self.engine:
             self.engine.stop()
             del self.engine

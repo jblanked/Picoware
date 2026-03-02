@@ -3,10 +3,57 @@ from picoware.system.vector import Vector
 
 
 class Draw(lcd.LCD):
-    """Class for drawing shapes and text on the display"""
+    """
+    Class for drawing shapes and text on the display
 
-    def __init__(self, foreground: int = 0xFFFF, background: int = 0x0000) -> None:
-        super().__init__()
+    Args:
+        foreground (int): The default color for drawing (default: 0xFFFF)
+        background (int): The default color for clearing (default: 0x0000)
+        scale_x (float): Optional horizontal scaling factor for all drawing operations (default: 1.0)
+        scale_y (float): Optional vertical scaling factor for all drawing operations (default: 1.0)
+        scale_position (bool): If True, also scale the position of drawn elements
+
+    Methods:
+        char(position, char, color=None, font_size=-1): Draw a single character
+        circle(position, radius, color=None): Draw a circle outline
+        clear(position=Vector(0, 0), size=Vector(320, 320), color=None): Fill a rectangular area with a color
+        erase(): Clear the entire display
+        fill_circle(position, radius, color=None): Draw a filled circle
+        fill_rectangle(position, size, color=None): Draw a filled rectangle
+        fill_round_rectangle(position, size, radius, color=None): Draw a filled rounded rectangle
+        fill_screen(color=None): Fill the entire screen with a color
+        fill_triangle(point1, point2, point3, color=None): Draw a filled triangle
+        get_font(font_size=0): Get the FontSize object for a given font size
+        image(position, img): Draw an image object to the back buffer
+        image_bmp(position, path, storage=None): Draw a 24-bit BMP image from a file path
+        image_jpeg(position, path, storage=None): Draw a JPEG image from a file path
+        image_jpeg_buffer(position, buf): Draw a JPEG image from bytes data in a buffer
+        image_bytearray(position, size, byte_data, invert=False): Draw an image from 8-bit byte data (bytes or bytearray)
+        image_bytearray_1bit(position, size, byte_data): Draw a 1-bit bitmap from packed byte_data (8 pixels per byte, row-aligned)
+        image_bytearray_path(position, size, path, storage=None, seek=0, chunk_size=0, mount_vfs=True): Draw an image from an 8-bit bytearray file stored on disk
+        len(text, font_size=0): Calculate the pixel width of a text string for a given font size
+        line(position, size, color=None): Draw a horizontal line
+        line_custom(point_1, point_2, color=None): Draw a line between two points
+        pixel(position, color=None): Draw a single pixel
+        psram(position, size, addr): Draw pixel data directly from PSRAM at the specified address and length
+        rect(position, size, color=None): Draw a rectangle outline
+        set_mode(mode): Set the LCD mode (PSRAM or HEAP)
+        set_scaling(scale_x, scale_y, scale_position=False): Set the LCD scaling parameters
+        swap(): Update the display with the current framebuffer contents
+        text(position, text, color=None, font_size=-1): Draw text on the display
+        triangle(point1, point2, point3, color=None): Draw a triangle outline
+
+    """
+
+    def __init__(
+        self,
+        foreground: int = 0xFFFF,
+        background: int = 0x0000,
+        scale_x: float = 1.0,
+        scale_y: float = 1.0,
+        scale_position: bool = False,
+    ) -> None:
+        super().__init__(scale_x, scale_y, scale_position)
 
         from picoware.system.font import FontSize
 
@@ -92,7 +139,7 @@ class Draw(lcd.LCD):
         """Draw a single character on the display"""
         _color = color if color is not None else self._foreground
         _font_size = font_size if font_size >= 0 else self._font_default.size
-        self._char(position.x, position.y, ord(char), _color, _font_size)
+        self._char(position.x, position.y, char, _color, _font_size)
 
     def circle(self, position: Vector, radius: int, color: int = None):
         """Draw a circle outline"""
@@ -398,6 +445,10 @@ class Draw(lcd.LCD):
         """Draw a pixel"""
         _color = color if color is not None else self._foreground
         self._pixel(position.x, position.y, _color)
+
+    def psram(self, position: Vector, size: Vector, addr: int):
+        """Draw pixel data directly from PSRAM at the specified address and length"""
+        self._psram(position.x, position.y, size.x, size.y, addr)
 
     def rect(self, position: Vector, size: Vector, color=None):
         """Draw a rectangle outline on the display"""

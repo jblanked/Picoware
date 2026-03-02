@@ -72,6 +72,7 @@ extern "C"
         uint8_t attributes;
         uint32_t start_cluster;
         uint32_t current_cluster;
+        uint32_t current_cluster_index; // Index of current_cluster in the chain (0-based)
         uint32_t file_size;
         uint32_t position;
         uint32_t dir_entry_sector; // Sector containing the directory entry

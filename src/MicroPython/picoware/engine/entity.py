@@ -2,6 +2,7 @@ from micropython import const
 from struct import pack_into
 from picoware.system.vector import Vector
 from picoware_game import render_sprite3d
+import engine
 
 # entity state
 ENTITY_STATE_IDLE = const(0)
@@ -28,7 +29,7 @@ SPRITE_3D_PILLAR = const(4)
 SPRITE_3D_CUSTOM = const(5)
 
 
-class Entity:
+class Entity(engine.Entity):
     """
     Represents an entity in the game.
     """
@@ -72,13 +73,7 @@ class Entity:
         """
         from picoware.gui.image import Image
 
-        self.name: str = name
-        self.type: int = entity_type
-        self._position: Vector = position
-        self._old_position: Vector = position
-        self.size: Vector = size
-        self.is_8bit: bool = is_8bit
-        #
+        super().__init__(name, entity_type, position, size, sprite_3d_type, is_8bit)
         self.sprite: Image = None
         if sprite_data:
             self.sprite = Image()
@@ -98,35 +93,6 @@ class Entity:
         self._render = render
         self._collision = collision
         #
-        self.is_active: bool = False
-        self.is_visible: bool = True
-        self.is_player: bool = False
-        #
-        self.direction: Vector = Vector(1, 0)
-        self.plane: Vector = Vector(0, 0)
-        #
-        self.state: int = ENTITY_STATE_IDLE
-        self.start_position: Vector = position
-        self.end_position: Vector = position
-        self.move_timer: float = 0
-        self.elapsed_move_timer: float = 0
-        self.radius: float = self.size.x / 2
-        self.speed: float = 0
-        self.attack_timer: float = 0
-        self.elapsed_attack_timer: float = 0
-        self.strength: float = 0
-        self.health: float = 0
-        self.max_health: float = 0
-        self.level: float = 0
-        self.xp: float = 0
-        self.health_regen: float = 0
-        self.elapsed_health_regen: float = 0
-        #
-        self.sprite_3d = None  # for now
-        self.sprite_3d_type: int = sprite_3d_type
-        self.sprite_rotation: float = 0.0
-        self.sprite_scale: float = 1.0
-
         if self.sprite_3d_type != SPRITE_3D_NONE:
             self.create_3d_sprite(self.sprite_3d_type, color=sprite_3d_color)
 
@@ -140,64 +106,19 @@ class Entity:
         if self.sprite_right:
             del self.sprite_right
             self.sprite_right = None
-        if self.sprite_3d:
-            del self.sprite_3d
-            self.sprite_3d = None
-        if self._position:
-            del self._position
-            self._position = None
-        if self._old_position:
-            del self._old_position
-            self._old_position = None
-        if self.direction:
-            del self.direction
-            self.direction = None
-        if self.plane:
-            del self.plane
-            self.plane = None
-        if self.start_position:
-            del self.start_position
-            self.start_position = None
-        if self.end_position:
-            del self.end_position
-            self.end_position = None
 
     @property
     def has_3d_sprite(self) -> bool:
         """Returns True if the entity has a 3D sprite."""
-        return self.sprite_3d_type != SPRITE_3D_NONE and self.sprite_3d is not None
+        return self.has_sprite3d()
 
     @property
     def has_changed_position(self) -> bool:
         """Returns True if the entity's position has changed since the last frame."""
         return (
-            self._position.x != self._old_position.x
-            or self._position.y != self._old_position.y
+            self.position.x != self.old_position.x
+            or self.position.y != self.old_position.y
         )
-
-    @property
-    def old_position(self) -> Vector:
-        """Used by the engine to get the previous position of the entity."""
-        return self._old_position
-
-    @old_position.setter
-    def old_position(self, value: Vector):
-        """Used by the engine to set the previous position of the entity."""
-        self._old_position.x = value.x
-        self._old_position.y = value.y
-
-    @property
-    def position(self) -> Vector:
-        """Used by the engine to get the position of the entity."""
-        return self._position
-
-    @position.setter
-    def position(self, value: Vector):
-        """Used by the engine to set the position of the entity."""
-        self._old_position.x = self._position.x
-        self._old_position.y = self._position.y
-        self._position.x = value.x
-        self._position.y = value.y
 
     def create_3d_sprite(
         self,
@@ -239,52 +160,9 @@ class Entity:
 
     def destroy_3d_sprite(self):
         """Destroys the 3D sprite associated with the entity."""
-        if self.sprite_3d:
-            del self.sprite_3d
+        if self.has_sprite3d():
             self.sprite_3d = None
         self.sprite_3d_type = SPRITE_3D_NONE
-
-    def project_3d_to_2d(
-        self,
-        vertex,
-        player_pos: Vector,
-        player_dir: Vector,
-        view_height: float,
-        screen_size: Vector,
-    ) -> Vector:
-        """Projects a 3D vertex onto the 2D screen."""
-        # Transform world coordinates to camera coordinates
-        world_dx: float = vertex.x - player_pos.x
-        world_dz: float = (
-            vertex.z - player_pos.y
-        )  # player_pos.y is actually the Z coordinate in world space
-        world_dy: float = vertex.y - view_height  # Height difference from camera
-
-        # Create camera coordinate system
-        forward_x: float = player_dir.x
-        forward_z: float = player_dir.y
-        right_x: float = player_dir.y  # Perpendicular to forward
-        right_z: float = -player_dir.x
-
-        # Transform to camera space
-        cam_x: float = world_dx * right_x + world_dz * right_z
-        cam_z: float = world_dx * forward_x + world_dz * forward_z
-        cam_y: float = world_dy  # Height difference
-
-        # Prevent division by zero and reject points behind camera
-        if cam_z <= 0.1:
-            return Vector(-1, -1)  # Invalid point (behind camera)
-
-        # Project to screen coordinates - scale based on screen size
-        fov_scale: float = screen_size.y  # Use screen height
-        screen_x: float = (
-            cam_x / cam_z
-        ) * fov_scale + screen_size.x / 2.0  # Center at screen width/2
-        screen_y: float = (
-            -cam_y / cam_z
-        ) * fov_scale + screen_size.y / 2.0  # Center at screen height/2
-
-        return Vector(screen_x, screen_y)
 
     def render(self, draw, game):
         """Called every frame to render the entity."""

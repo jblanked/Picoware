@@ -197,10 +197,6 @@ class Editor:
     max_places = 20
 
     def __init__(self, tab_size, undo_limit, io_device, storage=None):
-        from picoware.system.drivers.highlighter import Highlighter
-        from picoware.system.drivers.default_style import syntax_style
-
-        self.hl = Highlighter(syntax_style=syntax_style, max_tokens=300)
         self.top_line = self.cur_line = self.row = self.vcol = self.col = (
             self.margin
         ) = 0
@@ -366,10 +362,7 @@ class Editor:
                 if (flag and line == self.cur_line) or l != Editor.scrbuf[c]:
                     self.goto(c, 0)
                     if flag == 0:
-                        # self.wr(l[1])
-                        highlighted = self.hl.highlight_line(l[1])
-                        # highlighted = self.highlight_line(l[1])
-                        self.wr(highlighted)
+                        self.wr(l[1])
                     elif flag == 7:
                         self.wr(l[1][:start_col])
                         self.hilite(2)
@@ -449,6 +442,7 @@ class Editor:
         pos = len(res)
         del_all = True
         mouse_last = None
+        self.io_device._render_terminal()
         while True:
             key, char = self.get_input()
             if key == KEY_NONE:
@@ -1257,7 +1251,7 @@ class Editor:
             key = self.handle_edit_keys(key, char)
             if key == KEY_QUIT:
                 if self.hash != self.hash_buffer():
-                    res = self.line_edit("Save changes? (y/N/f): ", "N")
+                    res = self.line_edit("Save changes? (Y/n/f): ", "Y")
                     if res and res[0].upper() == "Y":
                         # Try to save the file
                         fname = self.fname if self.fname and not self.is_dir else None

@@ -38,11 +38,11 @@ target_link_libraries(usermod_picoware_lcd INTERFACE
 add_library(usermod_picoware_boards INTERFACE)
 
 target_sources(usermod_picoware_boards INTERFACE
-    ${CMAKE_CURRENT_LIST_DIR}/picoware_boards/picoware_boards.c
+    ${CMAKE_CURRENT_LIST_DIR}/../picoware_boards/picoware_boards.c
 )
 
 target_include_directories(usermod_picoware_boards INTERFACE
-    ${CMAKE_CURRENT_LIST_DIR}/picoware_boards
+    ${CMAKE_CURRENT_LIST_DIR}/../picoware_boards
 )
 
 target_link_libraries(usermod INTERFACE usermod_picoware_boards)
@@ -159,28 +159,25 @@ target_link_libraries(usermod_picoware_game INTERFACE
 )
 
 
-# Include picoware_sd module
-add_library(usermod_picoware_sd INTERFACE)
+# Include sd module
+add_library(usermod_sd INTERFACE)
 
-target_sources(usermod_picoware_sd INTERFACE
-    ${CMAKE_CURRENT_LIST_DIR}/picoware_sd/picoware_sd.c
-    ${CMAKE_CURRENT_LIST_DIR}/picoware_sd/picoware_vfs.c
-    ${CMAKE_CURRENT_LIST_DIR}/picoware_sd/sdcard.c
-    ${CMAKE_CURRENT_LIST_DIR}/picoware_sd/fat32.c
+target_sources(usermod_sd INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../sd/fat32.c
+    ${CMAKE_CURRENT_LIST_DIR}/../sd/sd_mp.c
+    ${CMAKE_CURRENT_LIST_DIR}/../sd/sdcard.c
+    ${CMAKE_CURRENT_LIST_DIR}/../sd/vfs_mp.c
 )
 
-target_include_directories(usermod_picoware_sd INTERFACE
-    ${CMAKE_CURRENT_LIST_DIR}/picoware_sd
+target_include_directories(usermod_sd INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../sd
 )
 
-target_compile_definitions(usermod_picoware_sd INTERFACE
-    MODULE_WAVESHARE_SD_ENABLED=1
-)
+target_link_libraries(usermod INTERFACE usermod_sd)
 
-target_link_libraries(usermod INTERFACE usermod_picoware_sd)
 
 # Link against the required Pico SDK libraries for SD card
-target_link_libraries(usermod_picoware_sd INTERFACE
+target_link_libraries(usermod_sd INTERFACE
     pico_stdlib
     pico_printf
     pico_float
@@ -311,3 +308,22 @@ target_include_directories(usermod_vt INTERFACE
 )
 
 target_link_libraries(usermod INTERFACE usermod_vt) 
+
+# Include engine module
+add_library(usermod_engine INTERFACE)
+
+target_sources(usermod_engine INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/camera_mp.c
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/engine_mp.c
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/entity_mp.c
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/game_mp.c
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/level_mp.c
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/sprite3d_mp.c
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/triangle3d_mp.c
+)
+
+target_include_directories(usermod_engine INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../engine
+)
+
+target_link_libraries(usermod INTERFACE usermod_engine) 

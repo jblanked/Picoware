@@ -72,7 +72,7 @@ _EGG_PRESETS = (
     (10, "Hard+ (10m)")
 )
 
-_VERSION = "0.12"
+_VERSION = "0.13"
 
 _cached_help_lines = []
 
@@ -103,7 +103,7 @@ def get_help_lines():
         "CREDITS:",
         "made by Slasher006",
         "with the help of jBlanked and Gemini",
-        "Date: 2026-02-28",
+        "Date: 2026-03-02",
         "",
         "SHORTCUTS:",
         "[L/R] Tgl ON/OFF",
@@ -209,27 +209,6 @@ show_help = False
 show_options = False
 sys_time = time # Create a global fallback mapping to the standard time module
 
-
-#def profile_ram(func_name, target_function, *args, **kwargs):
-    # Force a deep cleanup to get a completely flat baseline
-#    gc.collect()
-    
-    # Record the exact number of bytes currently allocated in the heap
-#    start_mem = gc.mem_alloc()
-    
-    # Execute the target view function
-#    target_function(*args, **kwargs)
-    
-    # Record the exact number of bytes allocated after the function finishes
-#    end_mem = gc.mem_alloc()
-    
-    # Calculate the total bytes added to RAM by this function
-#    diff = end_mem - start_mem
-    
-    # Print the result to the Thonny console
-#    print(f"[RAM LOG] View '{func_name}' consumed: {diff} bytes")
-#    pass
-
 def rgb_to_565(r, g, b):
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
 
@@ -327,7 +306,7 @@ def check_time_and_alarms(t, c_sec):
                 ringing_idx = snooze_idx
                 snooze_epoch = 0
                 last_trig_m = cm
-            elif cs == 0 and last_trig_m != cm:
+            elif cs == 0 and last_trig_m != cm and has_hardware:
                 for i in range(len(settings["alarms"])):
                     a = settings["alarms"][i]
                     if a[5] and a[3] == ch and a[4] == cm and (a[8] or (a[0] == cy and a[1] == cmo and a[2] == cd)):
@@ -411,13 +390,13 @@ def handle_input_main(button, input_mgr, view_manager, t, c_sec):
     elif button == BUTTON_H: show_help = True; dirty_ui = True
     elif button == BUTTON_O: show_options = True; dirty_ui = True
     elif button == BUTTON_D and settings.get("show_diagnostics", False): current_mode = MODE_DIAGNOSTIC; dirty_ui = True
-    elif button == BUTTON_M: current_mode = MODE_ALARMS; cursor_idx = 0; dirty_ui = True
-    elif button == BUTTON_N: 
-        current_mode = MODE_EDIT_TYPE; origin_mode = MODE_MAIN; edit_idx = -1; tmp_daily = False; tmp_y = cy; tmp_mo = cmo; tmp_d = cd; date_cursor = 0; tmp_h = ch; tmp_m = cm; tmp_label = ""; tmp_audible = True; dirty_ui = True
-    elif button == BUTTON_DOWN: cursor_idx = (cursor_idx + 1) % 6; dirty_ui = True
+    elif button == BUTTON_M and has_hardware: current_mode = MODE_ALARMS; cursor_idx = 0; dirty_ui = True # Shortcut to Alarm List (only if Wi-Fi hardware is present)
+    elif button == BUTTON_N and has_hardware: # Shortcut to Create New Alarm (only if Wi-Fi hardware is present)
+        current_mode = MODE_EDIT_TYPE; origin_mode = MODE_MAIN; edit_idx = -1; tmp_daily = False; tmp_y = cy; tmp_mo = cmo; tmp_d = cd; date_cursor = 0; tmp_h = ch; tmp_m = cm; tmp_label = ""; tmp_audible = True; dirty_ui = True # Init editor states    elif button == BUTTON_DOWN: cursor_idx = (cursor_idx + 1) % 6; dirty_ui = True
     elif button == BUTTON_UP: cursor_idx = (cursor_idx - 1) % 6; dirty_ui = True
+    elif button == BUTTON_DOWN: cursor_idx = (cursor_idx + 1) % 6; dirty_ui = True
     elif button == BUTTON_CENTER:
-        if cursor_idx == 0: current_mode = MODE_ALARMS; cursor_idx = 0
+        if cursor_idx == 0 and has_hardware: current_mode = MODE_ALARMS; cursor_idx = 0 # Enter Alarm List (only if hardware supports time sync)
         elif cursor_idx == 1: current_mode = MODE_EGG
         elif cursor_idx == 2: current_mode = MODE_STOPWATCH
         elif cursor_idx == 3: current_mode = MODE_COUNTDOWN
@@ -708,13 +687,15 @@ def draw_main(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
     draw.text(Vector(20, 80), n_str, TFT_WHITE)
     
     in_y = 102; r_height = 16; egg_str = "RUN" if egg_end > 0 else ""; sw_str = "RUN" if sw_run else ""; cd_str = "RUN" if cd_end > 0 else ""
-    for i, (txt, cnt) in enumerate([("Manage Alarms", f"[{len(settings['alarms'])}]"), ("Egg Timer", egg_str), ("Stopwatch", sw_str), ("Countdown", cd_str), ("Options Menu", ""), ("View Help", "")]):
-        r_y = in_y + (i * 16)
-        col = theme_color if c_idx == i else TFT_LIGHTGREY; b_col = theme_color if c_idx == i else TFT_DARKGREY; badge_col = theme_color if c_idx == i else TFT_WHITE
-        if c_idx == i: draw.fill_rectangle(Vector(0, r_y - 2), Vector(screen_w, r_height), TFT_DARKGREY); draw.text(Vector(screen_w - 20, r_y + 1), "<", theme_color)
-        draw.text(Vector(15, r_y + 1), txt, col)
-        if cnt: draw.rect(Vector(160, r_y - 2), Vector(60, r_height), b_col); draw.text(Vector(170, r_y + 1), cnt, badge_col)
-            
+    for i, (txt, cnt) in enumerate([("Manage Alarms", f"[{len(settings['alarms'])}]"), ("Egg Timer", egg_str), ("Stopwatch", sw_str), ("Countdown", cd_str), ("Options Menu", ""), ("View Help", "")]): # Iterate over the main menu list
+        r_y = in_y + (i * 16) # Calculate the vertical Y position for this specific row
+        is_disabled = (i == 0 and not has_hardware) # Boolean flag to check if this is the alarm row and hardware is missing
+        col = TFT_DARKGREY if is_disabled else (theme_color if c_idx == i else TFT_LIGHTGREY) # Gray out text if disabled, otherwise use theme or light grey
+        b_col = TFT_DARKGREY if is_disabled else (theme_color if c_idx == i else TFT_DARKGREY) # Gray out badge box if disabled, otherwise use theme or dark grey
+        badge_col = TFT_DARKGREY if is_disabled else (theme_color if c_idx == i else TFT_WHITE) # Gray out badge text if disabled, otherwise use theme or white
+        if c_idx == i: draw.fill_rectangle(Vector(0, r_y - 2), Vector(screen_w, r_height), TFT_DARKGREY); draw.text(Vector(screen_w - 20, r_y + 1), "<", theme_color) # Draw the active cursor highlight background
+        draw.text(Vector(15, r_y + 1), txt, col) # Draw the primary row label text using the calculated color
+        if cnt: draw.rect(Vector(160, r_y - 2), Vector(60, r_height), b_col); draw.text(Vector(170, r_y + 1), cnt, badge_col) # Draw the badge box and count using the calculated colors         
     draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), theme_color)
     draw.text(Vector(5, screen_h - 32), "[M]List [N]New [O]Opt [ESC]Exit", theme_color)
     draw.text(Vector(5, screen_h - 15), "[UP/DN]Nav [ENT]Select" + ("  [D]Diag" if settings.get("show_diagnostics", False) else ""), TFT_LIGHTGREY)
@@ -986,4 +967,3 @@ def stop(view_manager):
     
     import gc
     gc.collect()
-    

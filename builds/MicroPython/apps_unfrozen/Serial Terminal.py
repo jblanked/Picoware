@@ -90,6 +90,7 @@ def start(view_manager) -> bool:
     from picoware.system.uart import UART
     from picoware.system.boards import (
         BOARD_WAVESHARE_1_28_RP2350,
+        BOARD_WAVESHARE_1_43_RP2350,
     )
 
     global _textbox, _uart, state, _loading
@@ -107,13 +108,14 @@ def start(view_manager) -> bool:
     state = STATE_TYPING
 
     view_manager.freq(True)  # set to lower frequency
-    view_manager.draw.set_mode(1)  # Set to HEAP mode
 
     board_id = view_manager.board_id
     if board_id == BOARD_WAVESHARE_1_28_RP2350:
         _uart = UART(uart_id=0, tx_pin=16, rx_pin=17)
-    else:  # PicoCalc and Waveshare 1.43
+    elif board_id == BOARD_WAVESHARE_1_43_RP2350:
         _uart = UART(uart_id=1, tx_pin=4, rx_pin=5)
+    else:  # PicoCalc
+        _uart = UART(uart_id=0, tx_pin=0, rx_pin=1)
 
     __set_kb(view_manager, "Start the conversation")
 
@@ -178,8 +180,6 @@ def stop(view_manager) -> None:
     message = ""
 
     view_manager.keyboard.reset()
-
-    view_manager.draw.set_mode(0)  # PSRAM mode
 
     view_manager.freq()  # set back to higher frequency
 

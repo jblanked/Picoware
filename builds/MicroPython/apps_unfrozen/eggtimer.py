@@ -217,24 +217,27 @@ def queue_save():
     dirty_save = True
     save_timer = 60
 
-def save_settings():
-    global settings, storage, dirty_save
-    if not storage or not dirty_save: return
-    try:
-        json_str = json.dumps(settings)
-        storage.write(_SETTINGS_FILE, json_str, "w")
-        dirty_save = False
-        del json_str
-        import gc
-        gc.collect()
-    except Exception: pass
+def save_settings(): # Function to persist the global settings dictionary to the SD card
+    global settings, storage, dirty_save, _last_saved_json # Reference global variables including the delta cache
+    if not storage or not dirty_save: return # Abort if storage is missing or no save is needed
+    try: # Begin error handling block for SD card operations
+        json_str = json.dumps(settings) # Serialize the settings dictionary into a JSON string
+        if json_str != _last_saved_json: # Check if the newly generated string differs from the cached string
+            storage.write(_SETTINGS_FILE, json_str, "w") # Write the new JSON string to the physical SD card
+            _last_saved_json = json_str # Update the cached delta string with the newly written data
+        dirty_save = False # Clear the save required flag regardless of whether a physical write occurred
+        del json_str # Delete the local JSON string variable from RAM to free memory
+        import gc # Import garbage collection
+        gc.collect() # Force a sweep to immediately reclaim the memory from the JSON string
+    except Exception: pass # Silently ignore any file system errors
 
 def validate_and_load_settings():
-    global settings, storage
-    if storage and storage.exists(_SETTINGS_FILE):
-        try:
-            raw_data = storage.read(_SETTINGS_FILE, "r")
-            loaded = json.loads(raw_data)
+    global settings, storage, _last_saved_json # Reference global variables including the delta cache
+    if storage and storage.exists(_SETTINGS_FILE): # Check if the storage API works and the file exists
+        try: # Begin error handling block for reading operations
+            raw_data = storage.read(_SETTINGS_FILE, "r") # Read the raw JSON string from the SD card
+            _last_saved_json = raw_data # Store the raw string to act as the baseline delta check
+            loaded = json.loads(raw_data) # Parse the raw string into a Python dictionary
             for key in settings:
                 if key in loaded: settings[key] = loaded[key]
             

@@ -897,57 +897,52 @@ def run(view_manager):
 
     if dirty_ui: draw_view(view_manager)
 
-def stop(view_manager):
+def stop(view_manager): # Function to halt the app and return memory to the Picoware OS
     # 1. System and Settings
-    global settings, storage, _cached_help_lines
+    global settings, storage, _cached_help_lines, _last_saved_json # Add the new JSON cache string to globals
     # 2. Large Static Dispatchers and Hardware
-    global _EGG_PRESETS, _THEMES, buzzer_l, buzzer_r, INPUT_DISPATCH, VIEW_DISPATCH
+    global _EGG_PRESETS, _THEMES, buzzer_l, buzzer_r, INPUT_DISPATCH, VIEW_DISPATCH # Global dispatchers
     # 3. Volatile Strings and Memory
-    global tmp_label, board_name
+    global tmp_label, board_name # Global strings
     # 4. Timers and Accumulators
-    global sw_run, sw_start, sw_accum, last_sw_ms, egg_end, cd_end, snooze_epoch
-    global cd_h, cd_m, cd_s, egg_preset
+    global sw_run, sw_start, sw_accum, last_sw_ms, egg_end, cd_end, snooze_epoch # Global timers
+    global cd_h, cd_m, cd_s, egg_preset # Global presets
     # 5. UI Cursors and Trackers
-    global show_help, show_options, help_scroll, current_mode, origin_mode, msg_origin
-    global dirty_ui, dirty_save, save_timer, cursor_idx, options_cursor_idx, date_cursor, cd_cursor
-    global last_s, last_trig_m, ringing_idx, ring_flash, snooze_idx, snooze_count, edit_idx
-    global tmp_daily, tmp_y, tmp_mo, tmp_d, tmp_h, tmp_m, tmp_audible, del_confirm_yes, clear_confirm_yes
+    global show_help, show_options, help_scroll, current_mode, origin_mode, msg_origin # Global modes
+    global dirty_ui, dirty_save, save_timer, cursor_idx, options_cursor_idx, date_cursor, cd_cursor # Global cursors
+    global last_s, last_trig_m, ringing_idx, ring_flash, snooze_idx, snooze_count, edit_idx # Global trackers
+    global tmp_daily, tmp_y, tmp_mo, tmp_d, tmp_h, tmp_m, tmp_audible, del_confirm_yes, clear_confirm_yes # Editor globals
     
-    save_settings()
-    handle_audio_silence()
+    save_settings() # Trigger one final save evaluation before exiting
+    handle_audio_silence() # Force hardware buzzers to mute
     
-    # Tear down the settings dictionary
-    if settings is not None: settings.clear()
-    settings = None
-    storage = None
+    if settings is not None: settings.clear() # Empty the settings dictionary
+    settings = None # Destroy the settings reference
+    storage = None # Destroy the storage reference
     
-    # Clear string caches (The most important step for freeing RAM)
-    _cached_help_lines = []
-    tmp_label = ""
-    board_name = ""
+    _cached_help_lines = [] # Empty the help screen string cache
+    _last_saved_json = "" # Empty the SD card delta-save cache to free the JSON string from RAM
+    tmp_label = "" # Empty the temporary editor label
+    board_name = "" # Empty the hardware board name string
     
-    # Zero out all integer accumulators, timers, and trackers
-    sw_start = sw_accum = last_sw_ms = egg_end = cd_end = snooze_epoch = 0
-    cd_h = cd_m = cd_s = save_timer = help_scroll = 0
-    cursor_idx = options_cursor_idx = date_cursor = cd_cursor = 0
-    current_mode = origin_mode = msg_origin = 0
-    last_s = last_trig_m = ringing_idx = snooze_idx = edit_idx = -1
-    snooze_count = 0
-    egg_preset = 1
-    tmp_y = 2026; tmp_mo = 1; tmp_d = 1; tmp_h = 12; tmp_m = 0
+    sw_start = sw_accum = last_sw_ms = egg_end = cd_end = snooze_epoch = 0 # Zero out timer integer variables
+    cd_h = cd_m = cd_s = save_timer = help_scroll = 0 # Zero out countdown and scroll integer variables
+    cursor_idx = options_cursor_idx = date_cursor = cd_cursor = 0 # Zero out all navigation cursors
+    current_mode = origin_mode = msg_origin = 0 # Return to the default main mode integer
+    last_s = last_trig_m = ringing_idx = snooze_idx = edit_idx = -1 # Reset special index trackers
+    snooze_count = 0 # Reset snooze integer
+    egg_preset = 1 # Reset the egg timer preset integer
+    tmp_y = 2026; tmp_mo = 1; tmp_d = 1; tmp_h = 12; tmp_m = 0 # Reset the temporary editor date and time variables
     
-    # Reset booleans
-    sw_run = dirty_ui = dirty_save = ring_flash = show_help = show_options = False
-    tmp_daily = del_confirm_yes = clear_confirm_yes = False
-    tmp_audible = True
+    sw_run = dirty_ui = dirty_save = ring_flash = show_help = show_options = False # Reset UI and state booleans to False
+    tmp_daily = del_confirm_yes = clear_confirm_yes = False # Reset modal and editor booleans to False
+    tmp_audible = True # Reset audio toggle to its default True state
     
-    # Tear down massive global structures to free RAM for the main OS
-    _EGG_PRESETS = None
-    _THEMES = None
-    buzzer_l = None
-    buzzer_r = None
-    INPUT_DISPATCH = None
-    VIEW_DISPATCH = None
+    _EGG_PRESETS = None # Destroy the egg presets tuple
+    _THEMES = None # Destroy the color themes tuple
+    buzzer_l = None # Destroy the left buzzer hardware reference
+    buzzer_r = None # Destroy the right buzzer hardware reference
+    INPUT_DISPATCH = None # Destroy the input routing dictionary
+    VIEW_DISPATCH = None # Destroy the view rendering dictionary
     
-    import gc
-    gc.collect()
+    gc.collect() # Force a deep garbage collection sweep using the global gc import

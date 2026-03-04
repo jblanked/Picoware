@@ -9,7 +9,6 @@ from picoware.system.buttons import BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_
 from picoware.gui.menu import Menu
 from picoware.system.system import System
 
-# Map optional keyboard buttons gracefully
 try:
     from picoware.system.buttons import BUTTON_S, BUTTON_A, BUTTON_Z, BUTTON_0, BUTTON_9, BUTTON_SPACE, BUTTON_N, BUTTON_D
 except ImportError:
@@ -22,7 +21,6 @@ except ImportError:
     BUTTON_N = 110
     BUTTON_D = 100
 
-# Global state variables
 _app_state = None
 _last_saved_json = "{}"
 _last_save_time = 0
@@ -43,12 +41,12 @@ _sys = None
 _needs_redraw = True 
 _char_map = None 
 
+OPTIONS_LABELS = ("Theme", "BG R (0-255)", "BG G (0-255)", "BG B (0-255)", "Bar R (0-255)", "Bar G (0-255)", "Bar B (0-255)", "Sort Mode", "Hidden Files")
+
 def rgb_to_565(r, g, b):
-    # Convert standard RGB to 16-bit 565 format for the TFT
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
 
 def _get_theme(state):
-    # Returns background, bar, text, directory, and bar-text colors
     th = state.get("theme", 0)
     if th == 0:
         return TFT_BLUE, TFT_CYAN, TFT_WHITE, TFT_YELLOW, TFT_BLACK
@@ -60,7 +58,6 @@ def _get_theme(state):
         return c_bg, c_bar, TFT_WHITE, TFT_YELLOW, TFT_BLACK
 
 def _force_sync(vm):
-    # Yielding time allows the SD Card SPI controller to finish flushing hardware buffers
     print("[DEBUG] Yielding to let SD Card SPI flush...")
     time.sleep(0.3)
     try:
@@ -72,7 +69,6 @@ def _exists(vm, path):
     if path in ("/", ""):
         return True
         
-    # 1. Probe the native file system directly
     try:
         if vm.storage.exists(path):
             print(f"[DEBUG] Native storage found file: {path}")
@@ -80,7 +76,6 @@ def _exists(vm, path):
     except Exception:
         pass
         
-    # 2. Safety Net: Probe our active UI state to see if we just loaded it into RAM
     try:
         target_dir = path[:path.rfind("/")]
         if target_dir == "": target_dir = "/"
@@ -106,7 +101,6 @@ def _exists(vm, path):
 def _init_state(vm):
     global _app_state, _last_saved_json
     
-    # Pre-create settings directory once to avoid doing it inside the save loop
     try:
         vm.storage.mkdir("/picoware")
     except Exception:
@@ -169,12 +163,11 @@ def _init_state(vm):
             })
             del data
             del saved_state
-            gc.collect() # Release JSON parse load immediately
+            gc.collect() 
     except Exception:
         pass
 
 def _rmtree(vm, path):
-    # Recursive deletion to handle populated directories
     print(f"[DEBUG] Completely removing path: {path}")
     try:
         is_dir = False
@@ -207,7 +200,6 @@ def _rmtree(vm, path):
     gc.collect()
 
 def _draw_progress(vm, title, percentage):
-    # Unpack only used colors to save memory assignments
     c_bg, c_bar, _, _, _ = _get_theme(_app_state)
     draw = vm.draw
     screen_w = draw.size.x
@@ -231,7 +223,6 @@ def _draw_progress(vm, title, percentage):
 
 def _copy_item(vm, src, dst):
     print(f"[DEBUG] Copying: {src} -> {dst}")
-    # Robust recursive copy to handle both single files and full directory trees
     is_dir = False
     try:
         is_dir = vm.storage.is_directory(src)
@@ -250,7 +241,7 @@ def _copy_item(vm, src, dst):
                     continue
                 s_path = src + "/" + item if src != "/" else "/" + item
                 d_path = dst + "/" + item if dst != "/" else "/" + item
-                _copy_item(vm, s_path, d_path) # Recursive copy for subfolders
+                _copy_item(vm, s_path, d_path)
         except Exception:
             pass
     else:
@@ -259,7 +250,6 @@ def _copy_item(vm, src, dst):
             pos = 0
             while pos < f_size:
                 try:
-                    # 2KB chunks to comfortably fit in minimal RAM without choking
                     chunk = vm.storage.read_chunked(src, pos, 2048)
                 except Exception:
                     break
@@ -309,14 +299,13 @@ def _load_dir(vm, path):
             items.append((item, is_dir, mtime, size))
         del dir_list
         
-        # Sort items
         if _app_state["sort_mode"] == "name":
             items.sort(key=lambda x: (not x[1], x[0].lower()))
         else:
-            items.sort(key=lambda x: (not x[1], -x[2]))
+            items.sort(key=lambda x: (not x[1], x[0].lower() if x[1] else -x[2]))
             
-        # Strip mtime out to save RAM on cached list
-        items = [(x[0], x[1], x[3]) for x in items]
+        for i in range(len(items)):
+            items[i] = (items[i][0], items[i][1], items[i][3])
     except Exception:
         items = [("<ERROR>", False, 0)]
     gc.collect()
@@ -326,7 +315,6 @@ def _load_dir(vm, path):
     return items
 
 def _refresh_panes(vm):
-    # Safely reloads the directory contents and clamps the cursor index to prevent IndexError crashes
     global _app_state
     if _app_state is None:
         return
@@ -405,24 +393,23 @@ def _draw_ui(vm):
         draw.fill_rectangle(Vector(10, 10), Vector(screen_w - 20, 20), c_bar)
         draw.text(Vector(15, 14), "OPTIONS MENU", c_btxt)
         
-        opts = [
-            ("Theme", ["Classic", "Dark", "Custom"][_app_state.get("theme", 0)]),
-            ("BG R (0-255)", str(_app_state.get("bg_r", 0))),
-            ("BG G (0-255)", str(_app_state.get("bg_g", 0))),
-            ("BG B (0-255)", str(_app_state.get("bg_b", 170))),
-            ("Bar R (0-255)", str(_app_state.get("bar_r", 0))),
-            ("Bar G (0-255)", str(_app_state.get("bar_g", 170))),
-            ("Bar B (0-255)", str(_app_state.get("bar_b", 170))),
-            ("Sort Mode", "Name" if _app_state.get("sort_mode", "name") == "name" else "Date"),
-            ("Hidden Files", "Show" if _app_state.get("show_hidden", False) else "Hide")
-        ]
-        
-        for i, (lbl, val) in enumerate(opts):
+        for i, lbl in enumerate(OPTIONS_LABELS):
             y_pos = 35 + (i * 15)
             t_col = c_bar if i == opt_idx else TFT_WHITE
             if i == opt_idx:
                 draw.fill_rectangle(Vector(12, y_pos - 2), Vector(screen_w - 24, 13), TFT_DARKGREY)
             draw.text(Vector(20, y_pos), lbl + ":", t_col)
+            
+            if i == 0: val = ("Classic", "Dark", "Custom")[_app_state.get("theme", 0)]
+            elif i == 1: val = str(_app_state.get("bg_r", 0))
+            elif i == 2: val = str(_app_state.get("bg_g", 0))
+            elif i == 3: val = str(_app_state.get("bg_b", 170))
+            elif i == 4: val = str(_app_state.get("bar_r", 0))
+            elif i == 5: val = str(_app_state.get("bar_g", 170))
+            elif i == 6: val = str(_app_state.get("bar_b", 170))
+            elif i == 7: val = "Name" if _app_state.get("sort_mode", "name") == "name" else "Date"
+            elif i == 8: val = "Show" if _app_state.get("show_hidden", False) else "Hide"
+            
             draw.text(Vector(130, y_pos), f"< {val} >", t_col)
             
         prv_bg = rgb_to_565(_app_state.get("bg_r",0), _app_state.get("bg_g",0), _app_state.get("bg_b",170))
@@ -457,7 +444,7 @@ def _draw_ui(vm):
         if int(time.time() * 3) % 2 == 0:
             cur_x = 15 + (_input_cursor * 6)
             draw.fill_rectangle(Vector(cur_x, box_y + 35), Vector(6, 2), TFT_CYAN)
-            _needs_redraw = True # Keep redrawing to flash the cursor
+            _needs_redraw = True 
             
         draw.text(Vector(15, box_y + 48), "[ENT] Save  [ESC] Cancel", TFT_LIGHTGREY)
         draw.swap()
@@ -550,7 +537,6 @@ def _draw_ui(vm):
 def _auto_save(vm):
     global _last_saved_json, _last_save_time
     current_time = time.time()
-    # Check if 5 seconds have passed since last write attempt
     if current_time - _last_save_time > 5:
         current_state = {
             "left_path": _app_state["left_path"],
@@ -567,7 +553,6 @@ def _auto_save(vm):
             "bar_b": _app_state.get("bar_b", 170)
         }
         current_json = json.dumps(current_state)
-        # Delta-check to bypass redundant SD card writes
         if current_json != _last_saved_json:
             try:
                 vm.storage.write("/picoware/settings/picocmd_state.json", current_json, "w")
@@ -591,11 +576,9 @@ def start(vm):
     _sys = System()
     _init_state(vm)
     
-    # Check if disclaimer has been accepted previously
     if not _app_state.get("disclaimer_accepted", False):
         _is_disclaimer_screen = True
     
-    # Robustly build the physical button character map locally on start
     _char_map = {}
     try:
         import picoware.system.buttons as __btns
@@ -609,7 +592,6 @@ def start(vm):
             __attr = "BUTTON_" + __c
             if hasattr(__btns, __attr):
                 _char_map[getattr(__btns, __attr)] = __c
-        # Common symbols needed for filenames
         for attr, char in [("BUTTON_SPACE", " "), ("BUTTON_PERIOD", "."), ("BUTTON_MINUS", "-"), ("BUTTON_UNDERSCORE", "_")]:
             if hasattr(__btns, attr):
                 _char_map[getattr(__btns, attr)] = char
@@ -645,12 +627,10 @@ def run(vm):
         is_printable = False
         char_to_add = ""
         
-        # 1. Map Picocalc hardware keypad buttons explicitly
         if _char_map is not None and btn in _char_map:
             is_printable = True
             char_to_add = _char_map[btn]
             
-        # 2. Fallback for Thonny/USB generic string keys
         elif key and isinstance(key, str) and len(key) == 1 and 32 <= ord(key) <= 126:
             is_printable = True
             char_to_add = key
@@ -695,7 +675,7 @@ def run(vm):
                         _input_active = False
                         _needs_redraw = True
                         time.sleep(0.3)
-                        return # Pause to await user confirmation
+                        return 
                     else:
                         if _input_mode == "rename":
                             try:
@@ -946,19 +926,12 @@ def run(vm):
                 _confirm_menu.add_item("No")
                 _confirm_menu.add_item("Yes")
                 _confirm_menu.set_selected(0)
-            elif action == "Execute":
-                if _context_target_path.endswith(".py") or _context_target_path.endswith(".mpy"):
-                    try:
-                        exec(open(_context_target_path).read())
-                    except Exception as e:
-                        print(f"[DEBUG] Execute error: {e}")
             elif action == "Rename":
                 _input_active = True
                 _input_text = _context_target_path.split("/")[-1]
                 _input_cursor = len(_input_text)
                 _input_mode = "rename"
             elif action in ("Copy", "Move"):
-                # Dynamically calculate destination
                 t_dir = _app_state["right_path"] if _app_state["active_pane"] == "left" else _app_state["left_path"]
                 f_name = _context_target_path.split("/")[-1]
                 d_path = "/" + f_name if t_dir == "/" else t_dir + "/" + f_name
@@ -1048,7 +1021,6 @@ def run(vm):
                     parent = "/"
                 _app_state[path_key] = parent
                 
-                # Use our safe helper so the cursor gets clamped 
                 _refresh_panes(vm)
                 
                 new_cursor_idx = 0
@@ -1067,7 +1039,6 @@ def run(vm):
                     screen_h = vm.draw.size.y
                     _context_target_path = new_path
                     _context_menu = Menu(vm.draw, selected_file[:14], 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
-                    _context_menu.add_item("Execute")
                     _context_menu.add_item("Copy")
                     _context_menu.add_item("Move")
                     _context_menu.add_item("Rename")
@@ -1077,7 +1048,6 @@ def run(vm):
                     time.sleep(0.3)
             _needs_redraw = True
 
-    # Heavily optimize display SPI traffic: Only redraw when state changes
     if _needs_redraw:
         _draw_ui(vm)
         
@@ -1106,7 +1076,6 @@ def stop(vm):
         _confirm_menu.clear()
     _confirm_menu = None
     
-    # Completely destroy the dictionary mapping on exit to save memory 
     if _char_map is not None:
         _char_map.clear()
     _char_map = None
@@ -1123,5 +1092,31 @@ def stop(vm):
     _needs_redraw = True
     _sys = None
     
-    # Aggressively clean up memory upon app exit
     gc.collect()
+
+# your start, run, stop functions here
+
+# add this at the bottom of your app for testing
+from picoware.system.view_manager import ViewManager
+from picoware.system.view import View
+
+vm = None
+
+try:
+    vm = ViewManager()
+    vm.add(
+        View(
+            "app_tester",
+            run,
+            start,
+            stop,
+        )
+    )
+    vm.switch_to("app_tester")
+    while True:
+        vm.run()
+except Exception as e:
+    print("Error during testing:", e)
+finally:
+    del vm
+    vm = None

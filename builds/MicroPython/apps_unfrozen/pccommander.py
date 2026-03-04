@@ -4,7 +4,7 @@ import json
 import os
 
 from picoware.system.vector import Vector
-from picoware.system.colors import TFT_WHITE, TFT_BLACK, TFT_BLUE, TFT_YELLOW, TFT_CYAN, TFT_DARKGREY, TFT_LIGHTGREY
+from picoware.system.colors import TFT_WHITE, TFT_BLACK, TFT_BLUE, TFT_YELLOW, TFT_CYAN, TFT_DARKGREY, TFT_LIGHTGREY, TFT_RED
 from picoware.system.buttons import BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_CENTER, BUTTON_BACK, BUTTON_H, BUTTON_O, BUTTON_BACKSPACE
 from picoware.gui.menu import Menu
 from picoware.system.system import System
@@ -27,6 +27,7 @@ _app_state = None
 _last_saved_json = "{}"
 _last_save_time = 0
 _is_help_screen = False
+_is_disclaimer_screen = False
 show_options = False
 opt_idx = 0
 _context_menu = None
@@ -60,7 +61,6 @@ def _get_theme(state):
 
 def _force_sync(vm):
     # Yielding time allows the SD Card SPI controller to finish flushing hardware buffers
-    # unmounting crashes the VFS linkage entirely, so we just wait gracefully.
     print("[DEBUG] Yielding to let SD Card SPI flush...")
     time.sleep(0.3)
     try:
@@ -126,6 +126,7 @@ def _init_state(vm):
         "active_pane": "left",
         "sort_mode": "name",
         "show_hidden": False,
+        "disclaimer_accepted": False,
         "theme": 0,
         "bg_r": 0,
         "bg_g": 0,
@@ -143,6 +144,7 @@ def _init_state(vm):
             _app_state["right_path"] = saved_state.get("right_path", "/")
             _app_state["sort_mode"] = saved_state.get("sort_mode", "name")
             _app_state["show_hidden"] = saved_state.get("show_hidden", False)
+            _app_state["disclaimer_accepted"] = saved_state.get("disclaimer_accepted", False)
             _app_state["theme"] = saved_state.get("theme", 0)
             _app_state["bg_r"] = saved_state.get("bg_r", 0)
             _app_state["bg_g"] = saved_state.get("bg_g", 0)
@@ -156,6 +158,7 @@ def _init_state(vm):
                 "right_path": _app_state["right_path"],
                 "sort_mode": _app_state["sort_mode"],
                 "show_hidden": _app_state["show_hidden"],
+                "disclaimer_accepted": _app_state["disclaimer_accepted"],
                 "theme": _app_state["theme"],
                 "bg_r": _app_state["bg_r"],
                 "bg_g": _app_state["bg_g"],
@@ -337,7 +340,7 @@ def _refresh_panes(vm):
         _app_state["right_index"] = max(0, len(_app_state["right_files"]) - 1)
 
 def _draw_ui(vm):
-    global show_options, opt_idx, _input_active, _input_text, _input_cursor, _input_mode, _needs_redraw
+    global show_options, opt_idx, _input_active, _input_text, _input_cursor, _input_mode, _needs_redraw, _is_disclaimer_screen
     c_bg, c_bar, c_txt, c_dir, c_btxt = _get_theme(_app_state)
     
     draw = vm.draw
@@ -351,6 +354,23 @@ def _draw_ui(vm):
     name_limit = char_limit - 6
     max_items = (screen_h - 38) // 12
     
+    if _is_disclaimer_screen:
+        draw.fill_rectangle(Vector(10, 50), Vector(screen_w - 20, 140), TFT_BLACK)
+        draw.rect(Vector(10, 50), Vector(screen_w - 20, 140), TFT_RED)
+        draw.fill_rectangle(Vector(10, 50), Vector(screen_w - 20, 20), TFT_RED)
+        draw.text(Vector(15, 54), "WARNING", TFT_WHITE)
+        
+        draw.text(Vector(20, 85), "With this app it is", TFT_WHITE)
+        draw.text(Vector(20, 100), "possible to delete ANY", TFT_WHITE)
+        draw.text(Vector(20, 115), "file on the SD card.", TFT_WHITE)
+        draw.text(Vector(20, 130), "Please be careful!", TFT_WHITE)
+        
+        draw.fill_rectangle(Vector(10, 170), Vector(screen_w - 20, 20), TFT_RED)
+        draw.text(Vector(15, 174), "[CENTER/ENT] I Understand", TFT_WHITE)
+        draw.swap()
+        _needs_redraw = False
+        return
+
     if _is_help_screen:
         draw.text(Vector(10, 10), "PicoCommander Help", TFT_WHITE)
         draw.text(Vector(10, 24), "H: Toggle Help", c_bar)
@@ -374,7 +394,7 @@ def _draw_ui(vm):
 
         draw.text(Vector(10, screen_h - 40), "made by Slasher006", c_bar)
         draw.text(Vector(10, screen_h - 30), "with the help of Gemini", c_bar)
-        draw.text(Vector(10, screen_h - 20), "Date: 2026-03-04 | v1.07", c_bar)
+        draw.text(Vector(10, screen_h - 20), "Date: 2026-03-04 | v1.09", c_bar)
         draw.swap()
         _needs_redraw = False
         return
@@ -458,7 +478,8 @@ def _draw_ui(vm):
 
     draw.fill_rectangle(Vector(0, 0), Vector(screen_w, 12), c_bar)
     sort_str = "Name" if _app_state["sort_mode"] == "name" else "Date"
-    draw.text(Vector(2, 2), f" Lft  File  Cmd  Opt({sort_str})  Rgt", c_btxt)
+    header_text = f"PicoCalcCommander v1.09  [{sort_str}]"
+    draw.text(Vector(2, 2), header_text, c_btxt)
 
     draw.fill_rectangle(Vector(mid_x, 12), Vector(1, screen_h - 24), c_bar)
 
@@ -521,7 +542,7 @@ def _draw_ui(vm):
         y_offset += 12
 
     draw.fill_rectangle(Vector(0, screen_h - 12), Vector(screen_w, 12), c_bar)
-    draw.text(Vector(2, screen_h - 10), "H Hlp O Opt N New C Cp M Mv D/DEL Del", c_btxt)
+    draw.text(Vector(2, screen_h - 10), "H:Help O:Opt ENT:Menu L/R:Pane ESC:Exit", c_btxt)
 
     draw.swap()
     _needs_redraw = False
@@ -536,6 +557,7 @@ def _auto_save(vm):
             "right_path": _app_state["right_path"],
             "sort_mode": _app_state["sort_mode"],
             "show_hidden": _app_state.get("show_hidden", False),
+            "disclaimer_accepted": _app_state.get("disclaimer_accepted", False),
             "theme": _app_state.get("theme", 0),
             "bg_r": _app_state.get("bg_r", 0),
             "bg_g": _app_state.get("bg_g", 0),
@@ -558,7 +580,7 @@ def _auto_save(vm):
         _last_save_time = current_time
 
 def start(vm):
-    global _sys, _needs_redraw, _char_map
+    global _sys, _needs_redraw, _char_map, _is_disclaimer_screen
     
     print("[DEBUG] PicoCommander App Starting...")
     vm.draw.clear(color=TFT_BLACK)
@@ -568,6 +590,10 @@ def start(vm):
     
     _sys = System()
     _init_state(vm)
+    
+    # Check if disclaimer has been accepted previously
+    if not _app_state.get("disclaimer_accepted", False):
+        _is_disclaimer_screen = True
     
     # Robustly build the physical button character map locally on start
     _char_map = {}
@@ -598,6 +624,7 @@ def start(vm):
 def run(vm):
     global _is_help_screen, _context_menu, _confirm_menu, show_options, opt_idx
     global _context_target_path, _pending_action, _pending_dest_path, _sys, _input_active, _input_text, _input_cursor, _input_mode, _needs_redraw
+    global _is_disclaimer_screen
     
     input_mgr = vm.input_manager
     btn = input_mgr.button
@@ -605,7 +632,16 @@ def run(vm):
     
     c_bg, c_bar, _, _, _ = _get_theme(_app_state)
 
-    if _input_active:
+    if _is_disclaimer_screen:
+        is_enter = (btn == BUTTON_CENTER) or key in ('\n', '\r') or btn in (10, 13)
+        if is_enter:
+            input_mgr.reset()
+            _is_disclaimer_screen = False
+            _app_state["disclaimer_accepted"] = True
+            _needs_redraw = True
+            time.sleep(0.3)
+            
+    elif _input_active:
         is_printable = False
         char_to_add = ""
         
@@ -839,16 +875,18 @@ def run(vm):
                     if _pending_dest_path != _context_target_path:
                         _draw_progress(vm, "Copying...", 0.0)
                         if _exists(vm, _pending_dest_path):
-                            print(f"[DEBUG] Found existing destination '{_pending_dest_path}', clearing before copy to prevent appended files.")
+                            print(f"[DEBUG] Removing existing file/folder to prevent underlying append duplication.")
                             _rmtree(vm, _pending_dest_path) 
+                            time.sleep(0.1)
                         _copy_item(vm, _context_target_path, _pending_dest_path)
                         _draw_progress(vm, "Copying 100%", 1.0)
                 elif _pending_action == "move":
                     if _pending_dest_path != _context_target_path:
                         _draw_progress(vm, "Moving...", 0.0)
                         if _exists(vm, _pending_dest_path):
-                            print(f"[DEBUG] Found existing destination '{_pending_dest_path}', clearing before move.")
+                            print(f"[DEBUG] Removing existing file/folder before rename/move.")
                             _rmtree(vm, _pending_dest_path)
+                            time.sleep(0.1)
                         try:
                             print(f"[DEBUG] Attempting standard rename for move...")
                             vm.storage.rename(_context_target_path, _pending_dest_path)
@@ -861,8 +899,9 @@ def run(vm):
                     if _pending_dest_path != _context_target_path:
                         _draw_progress(vm, "Renaming...", 0.0)
                         if _exists(vm, _pending_dest_path):
-                            print(f"[DEBUG] Found existing destination '{_pending_dest_path}', clearing before rename.")
+                            print(f"[DEBUG] Removing existing file/folder before rename.")
                             _rmtree(vm, _pending_dest_path)
+                            time.sleep(0.1)
                         try:
                             vm.storage.rename(_context_target_path, _pending_dest_path)
                         except Exception as e:
@@ -1049,7 +1088,7 @@ def stop(vm):
     print("[DEBUG] PicoCommander App Stopping...")
     global _app_state, _last_saved_json, _context_menu, _confirm_menu, show_options, opt_idx
     global _pending_action, _pending_dest_path, _sys, _input_active, _input_text, _input_cursor, _input_mode, _needs_redraw
-    global _char_map
+    global _char_map, _is_disclaimer_screen
     
     _auto_save(vm)
     
@@ -1080,33 +1119,9 @@ def stop(vm):
     _input_text = ""
     _input_cursor = 0
     _input_mode = ""
+    _is_disclaimer_screen = False
     _needs_redraw = True
     _sys = None
     
     # Aggressively clean up memory upon app exit
     gc.collect()
-
-# add this at the bottom of your app for testing
-from picoware.system.view_manager import ViewManager
-from picoware.system.view import View
-
-vm = None
-
-try:
-    vm = ViewManager()
-    vm.add(
-        View(
-            "app_tester",
-            run,
-            start,
-            stop,
-        )
-    )
-    vm.switch_to("app_tester")
-    while True:
-        vm.run()
-except Exception as e:
-    print("Error during testing:", e)
-finally:
-    del vm
-    vm = None

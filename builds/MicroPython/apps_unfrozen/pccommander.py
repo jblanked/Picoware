@@ -142,7 +142,8 @@ def _init_state(vm):
         "bg_b": 170,
         "bar_r": 0,
         "bar_g": 170,
-        "bar_b": 170
+        "bar_b": 170,
+        "marked": []
     }
     
     try:
@@ -382,8 +383,8 @@ def _draw_ui(vm):
 
     if _is_help_screen:
         d_text(Vector(10, 10), "PicoCommander Help", TFT_WHITE)
-        d_text(Vector(10, 24), "H:Help O:Opt I:Info", c_bar)
-        d_text(Vector(10, 36), "N:New Folder D:Delete", c_bar)
+        d_text(Vector(10, 24), "SPC:Mark H:Help O:Opt", c_bar)
+        d_text(Vector(10, 36), "I:Info N:NewFolder D:Del", c_bar)
         d_text(Vector(10, 48), "UP/DOWN: Scroll", TFT_WHITE)
         d_text(Vector(10, 60), "L/R: Switch Pane", TFT_WHITE)
         d_text(Vector(10, 72), "CENTER: Menu/Exec", TFT_WHITE)
@@ -401,7 +402,7 @@ def _draw_ui(vm):
 
         d_text(Vector(10, screen_h - 40), "made by Slasher006", c_bar)
         d_text(Vector(10, screen_h - 30), "with the help of Gemini", c_bar)
-        d_text(Vector(10, screen_h - 20), "Date: 2026-03-04 | v1.09", c_bar)
+        d_text(Vector(10, screen_h - 20), "Date: 2026-03-04 | v1.10", c_bar)
         d_swap()
         _needs_redraw = False
         return
@@ -500,7 +501,7 @@ def _draw_ui(vm):
 
     fill_rect(Vector(0, 0), Vector(screen_w, 12), c_bar)
     sort_str = "Name" if _app_state["sort_mode"] == SORT_NAME else "Date"
-    header_text = f"PicoCalcCommander v1.09  [{sort_str}]"
+    header_text = f"PicoCalcCommander v1.10  [{sort_str}]"
     d_text(Vector(2, 2), header_text, c_btxt)
 
     fill_rect(Vector(mid_x, 12), Vector(1, screen_h - 24), c_bar)
@@ -516,7 +517,11 @@ def _draw_ui(vm):
         f_name, is_dir, f_size = item_data
         actual_idx = i + left_start
         display_name = "/" + f_name if is_dir else f_name
-        base_color = c_dir if is_dir else c_txt
+        
+        full_p = "/" + f_name if _app_state["left_path"] == "/" else _app_state["left_path"] + "/" + f_name
+        is_marked = full_p in _app_state["marked"]
+        
+        base_color = TFT_RED if is_marked else (c_dir if is_dir else c_txt)
         text_color = base_color if act_pane == PANE_RIGHT or actual_idx != _app_state["left_index"] else c_btxt
         if act_pane == PANE_LEFT and actual_idx == _app_state["left_index"]:
             fill_rect(Vector(0, y_offset-1), Vector(mid_x - 2, 10), c_bar)
@@ -545,7 +550,11 @@ def _draw_ui(vm):
         f_name, is_dir, f_size = item_data
         actual_idx = i + right_start
         display_name = "/" + f_name if is_dir else f_name
-        base_color = c_dir if is_dir else c_txt
+        
+        full_p = "/" + f_name if _app_state["right_path"] == "/" else _app_state["right_path"] + "/" + f_name
+        is_marked = full_p in _app_state["marked"]
+        
+        base_color = TFT_RED if is_marked else (c_dir if is_dir else c_txt)
         text_color = base_color if act_pane == PANE_LEFT or actual_idx != _app_state["right_index"] else c_btxt
         if act_pane == PANE_RIGHT and actual_idx == _app_state["right_index"]:
             fill_rect(Vector(mid_x + 2, y_offset-1), Vector(mid_x - 4, 10), c_bar)
@@ -566,7 +575,7 @@ def _draw_ui(vm):
         y_offset += 12
 
     fill_rect(Vector(0, screen_h - 12), Vector(screen_w, 12), c_bar)
-    d_text(Vector(2, screen_h - 10), "H:Help O:Opt I:Info ENT:Menu ESC:Exit", c_btxt)
+    d_text(Vector(2, screen_h - 10), "SPC:Mark ENT:Menu O:Opt I:Info H:Help ESC:Exit", c_btxt)
 
     d_swap()
     _needs_redraw = False
@@ -774,6 +783,29 @@ def run(vm):
                 _input_cursor += 1
                 _needs_redraw = True
             time.sleep(0.18)
+
+    elif (btn == BUTTON_SPACE or key == ' ' or btn == 32) and not _is_help_screen and not show_options and _confirm_menu is None and _context_menu is None and not _input_active and not _show_info:
+        input_reset()
+        act_pane = _app_state["active_pane"]
+        current_path = _app_state["left_path"] if act_pane == PANE_LEFT else _app_state["right_path"]
+        files = _app_state["left_files"] if act_pane == PANE_LEFT else _app_state["right_files"]
+        idx = _app_state["left_index"] if act_pane == PANE_LEFT else _app_state["right_index"]
+        
+        if len(files) > 0:
+            selected_file, is_dir, _ = files[idx]
+            if selected_file != "..":
+                full_p = "/" + selected_file if current_path == "/" else current_path + "/" + selected_file
+                if full_p in _app_state["marked"]:
+                    _app_state["marked"].remove(full_p)
+                else:
+                    _app_state["marked"].append(full_p)
+                
+                if act_pane == PANE_LEFT:
+                    _app_state["left_index"] = (idx + 1) % len(files)
+                else:
+                    _app_state["right_index"] = (idx + 1) % len(files)
+                _needs_redraw = True
+        time.sleep(0.15)
             
     elif btn == BUTTON_H or key in ('h', 'H', ord('h'), ord('H')) or btn in (ord('h'), ord('H')):
         input_reset()
@@ -823,22 +855,30 @@ def run(vm):
 
     elif (btn in (BUTTON_D, ord('d'), ord('D')) or key in ('d', 'D') or (btn == BUTTON_BACKSPACE and btn not in (66, 98)) or btn in (8, 127) or key in ('\x08', '\x7f')) and not _is_help_screen and not show_options and _confirm_menu is None and _context_menu is None:
         input_reset()
-        act_pane = _app_state["active_pane"]
-        current_path = _app_state["left_path"] if act_pane == PANE_LEFT else _app_state["right_path"]
-        files = _app_state["left_files"] if act_pane == PANE_LEFT else _app_state["right_files"]
-        idx = _app_state["left_index"] if act_pane == PANE_LEFT else _app_state["right_index"]
-        
-        if len(files) > 0:
-            selected_file, is_dir, _ = files[idx]
-            if selected_file != "..":
-                new_path = "/" + selected_file if current_path == "/" else current_path + "/" + selected_file
-                screen_h = vm.draw.size.y
-                _context_target_path = new_path
-                _pending_action = ACT_DELETE
-                _confirm_menu = Menu(vm.draw, "Confirm Delete?", 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
-                _confirm_menu.add_item("No")
-                _confirm_menu.add_item("Yes")
-                _confirm_menu.set_selected(0)
+        marked = _app_state["marked"]
+        screen_h = vm.draw.size.y
+        if len(marked) > 0:
+            _pending_action = ACT_DELETE
+            _confirm_menu = Menu(vm.draw, f"Delete {len(marked)} items?", 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
+            _confirm_menu.add_item("No")
+            _confirm_menu.add_item("Yes")
+            _confirm_menu.set_selected(0)
+        else:
+            act_pane = _app_state["active_pane"]
+            current_path = _app_state["left_path"] if act_pane == PANE_LEFT else _app_state["right_path"]
+            files = _app_state["left_files"] if act_pane == PANE_LEFT else _app_state["right_files"]
+            idx = _app_state["left_index"] if act_pane == PANE_LEFT else _app_state["right_index"]
+            
+            if len(files) > 0:
+                selected_file, is_dir, _ = files[idx]
+                if selected_file != "..":
+                    new_path = "/" + selected_file if current_path == "/" else current_path + "/" + selected_file
+                    _context_target_path = new_path
+                    _pending_action = ACT_DELETE
+                    _confirm_menu = Menu(vm.draw, "Confirm Delete?", 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
+                    _confirm_menu.add_item("No")
+                    _confirm_menu.add_item("Yes")
+                    _confirm_menu.set_selected(0)
         _needs_redraw = True
 
     elif show_options:
@@ -901,32 +941,71 @@ def run(vm):
             input_reset()
             selection = _confirm_menu.current_item
             if selection == "Yes":
+                marked = _app_state["marked"]
+                is_batch = len(marked) > 0
+                
                 if _pending_action == ACT_DELETE:
-                    _draw_progress(vm, "Deleting...", 0.0)
-                    _rmtree(vm, _context_target_path)
-                    _draw_progress(vm, "Deleting...", 1.0)
+                    if is_batch:
+                        total = len(marked)
+                        _draw_progress(vm, "Deleting...", 0.0)
+                        for i, m_path in enumerate(marked):
+                            _rmtree(vm, m_path)
+                            _draw_progress(vm, "Deleting...", (i+1)/total)
+                    else:
+                        _draw_progress(vm, "Deleting...", 0.0)
+                        _rmtree(vm, _context_target_path)
+                        _draw_progress(vm, "Deleting...", 1.0)
+                        
                 elif _pending_action == ACT_COPY:
-                    if _pending_dest_path != _context_target_path:
-                        _draw_progress(vm, "Copying...", 0.0)
-                        if _exists(vm, _pending_dest_path):
-                            _rmtree(vm, _pending_dest_path) 
-                            time.sleep(0.1)
-                        _copy_item(vm, _context_target_path, _pending_dest_path)
-                        _draw_progress(vm, "Copying 100%", 1.0)
-                elif _pending_action == ACT_MOVE:
-                    if _pending_dest_path != _context_target_path:
-                        _draw_progress(vm, "Moving...", 0.0)
-                        if _exists(vm, _pending_dest_path):
-                            _rmtree(vm, _pending_dest_path)
-                            time.sleep(0.1)
-                        try:
-                            storage.rename(_context_target_path, _pending_dest_path)
-                        except Exception:
+                    if is_batch:
+                        total = len(marked)
+                        for i, m_path in enumerate(marked):
+                            f_name = m_path.split("/")[-1]
+                            d_path = "/" + f_name if _pending_dest_path == "/" else _pending_dest_path + "/" + f_name
+                            if _exists(vm, d_path):
+                                _rmtree(vm, d_path)
+                                time.sleep(0.1)
+                            _copy_item(vm, m_path, d_path)
+                            _draw_progress(vm, "Batch Copy...", (i+1)/total)
+                    else:
+                        if _pending_dest_path != _context_target_path:
+                            _draw_progress(vm, "Copying...", 0.0)
+                            if _exists(vm, _pending_dest_path):
+                                _rmtree(vm, _pending_dest_path) 
+                                time.sleep(0.1)
                             _copy_item(vm, _context_target_path, _pending_dest_path)
-                            _rmtree(vm, _context_target_path)
-                        _draw_progress(vm, "Moving...", 1.0)
+                            _draw_progress(vm, "Copying 100%", 1.0)
+                            
+                elif _pending_action == ACT_MOVE:
+                    if is_batch:
+                        total = len(marked)
+                        for i, m_path in enumerate(marked):
+                            f_name = m_path.split("/")[-1]
+                            d_path = "/" + f_name if _pending_dest_path == "/" else _pending_dest_path + "/" + f_name
+                            if _exists(vm, d_path):
+                                _rmtree(vm, d_path)
+                                time.sleep(0.1)
+                            try:
+                                storage.rename(m_path, d_path)
+                            except Exception:
+                                _copy_item(vm, m_path, d_path)
+                                _rmtree(vm, m_path)
+                            _draw_progress(vm, "Batch Move...", (i+1)/total)
+                    else:
+                        if _pending_dest_path != _context_target_path:
+                            _draw_progress(vm, "Moving...", 0.0)
+                            if _exists(vm, _pending_dest_path):
+                                _rmtree(vm, _pending_dest_path)
+                                time.sleep(0.1)
+                            try:
+                                storage.rename(_context_target_path, _pending_dest_path)
+                            except Exception:
+                                _copy_item(vm, _context_target_path, _pending_dest_path)
+                                _rmtree(vm, _context_target_path)
+                            _draw_progress(vm, "Moving...", 1.0)
+                            
                 elif _pending_action == ACT_RENAME:
-                    if _pending_dest_path != _context_target_path:
+                    if not is_batch and _pending_dest_path != _context_target_path:
                         _draw_progress(vm, "Renaming...", 0.0)
                         if _exists(vm, _pending_dest_path):
                             _rmtree(vm, _pending_dest_path)
@@ -937,6 +1016,9 @@ def run(vm):
                             pass
                         _draw_progress(vm, "Renaming...", 1.0)
                 
+                if is_batch:
+                    _app_state["marked"].clear()
+                    
                 if _pending_action in (ACT_DELETE, ACT_COPY, ACT_MOVE, ACT_RENAME):
                     _force_sync(vm)
                     _refresh_panes(vm)
@@ -967,6 +1049,9 @@ def run(vm):
             action = _context_menu.current_item
             if action == "Cancel":
                 pass
+            elif action == "Clear Marks":
+                _app_state["marked"].clear()
+                _refresh_panes(vm)
             elif action == "Open":
                 act_pane = _app_state["active_pane"]
                 if act_pane == PANE_LEFT:
@@ -979,7 +1064,11 @@ def run(vm):
             elif action == "Delete":
                 screen_h = vm.draw.size.y
                 _pending_action = ACT_DELETE
-                _confirm_menu = Menu(vm.draw, "Confirm Delete?", 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
+                marked = _app_state["marked"]
+                if len(marked) > 0:
+                    _confirm_menu = Menu(vm.draw, f"Delete {len(marked)} items?", 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
+                else:
+                    _confirm_menu = Menu(vm.draw, "Confirm Delete?", 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
                 _confirm_menu.add_item("No")
                 _confirm_menu.add_item("Yes")
                 _confirm_menu.set_selected(0)
@@ -991,26 +1080,37 @@ def run(vm):
             elif action in ("Copy", "Move"):
                 act_pane = _app_state["active_pane"]
                 t_dir = _app_state["right_path"] if act_pane == PANE_LEFT else _app_state["left_path"]
-                f_name = _context_target_path.split("/")[-1]
-                d_path = "/" + f_name if t_dir == "/" else t_dir + "/" + f_name
+                marked = _app_state["marked"]
                 
-                if d_path == _context_target_path:
-                    _input_active = True
-                    _input_text = f_name
-                    _input_cursor = len(_input_text)
-                    _input_mode = MODE_COPY_SAME if action == "Copy" else MODE_RENAME
-                else:
+                if len(marked) > 0:
                     screen_h = vm.draw.size.y
                     _pending_action = ACT_COPY if action == "Copy" else ACT_MOVE
-                    _pending_dest_path = d_path
-                    
-                    exists = _exists(vm, d_path)
-                    msg = "Overwrite?" if exists else f"Confirm {action}?"
-                    
-                    _confirm_menu = Menu(vm.draw, msg, 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
+                    _pending_dest_path = t_dir
+                    _confirm_menu = Menu(vm.draw, f"Confirm {action}?", 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
                     _confirm_menu.add_item("No")
                     _confirm_menu.add_item("Yes")
                     _confirm_menu.set_selected(0)
+                else:
+                    f_name = _context_target_path.split("/")[-1]
+                    d_path = "/" + f_name if t_dir == "/" else t_dir + "/" + f_name
+                    
+                    if d_path == _context_target_path:
+                        _input_active = True
+                        _input_text = f_name
+                        _input_cursor = len(_input_text)
+                        _input_mode = MODE_COPY_SAME if action == "Copy" else MODE_RENAME
+                    else:
+                        screen_h = vm.draw.size.y
+                        _pending_action = ACT_COPY if action == "Copy" else ACT_MOVE
+                        _pending_dest_path = d_path
+                        
+                        exists = _exists(vm, d_path)
+                        msg = "Overwrite?" if exists else f"Confirm {action}?"
+                        
+                        _confirm_menu = Menu(vm.draw, msg, 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
+                        _confirm_menu.add_item("No")
+                        _confirm_menu.add_item("Yes")
+                        _confirm_menu.set_selected(0)
                     
             _context_menu = None
             _needs_redraw = True
@@ -1100,15 +1200,28 @@ def run(vm):
             else:
                 new_path = "/" + selected_file if current_path == "/" else current_path + "/" + selected_file
                 screen_h = vm.draw.size.y
-                _context_target_path = new_path
-                _context_menu = Menu(vm.draw, selected_file[:14], 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
-                if is_dir:
-                    _context_menu.add_item("Open")
-                _context_menu.add_item("Copy")
-                _context_menu.add_item("Move")
-                _context_menu.add_item("Rename")
-                _context_menu.add_item("Delete")
-                _context_menu.add_item("Cancel")
+                
+                marked = _app_state["marked"]
+                if len(marked) > 0:
+                    _context_menu = Menu(vm.draw, f"{len(marked)} Marked", 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
+                    if is_dir:
+                        _context_target_path = new_path
+                        _context_menu.add_item("Open")
+                    _context_menu.add_item("Copy")
+                    _context_menu.add_item("Move")
+                    _context_menu.add_item("Delete")
+                    _context_menu.add_item("Clear Marks")
+                    _context_menu.add_item("Cancel")
+                else:
+                    _context_target_path = new_path
+                    _context_menu = Menu(vm.draw, selected_file[:14], 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
+                    if is_dir:
+                        _context_menu.add_item("Open")
+                    _context_menu.add_item("Copy")
+                    _context_menu.add_item("Move")
+                    _context_menu.add_item("Rename")
+                    _context_menu.add_item("Delete")
+                    _context_menu.add_item("Cancel")
                 _context_menu.set_selected(0)
                 time.sleep(0.3)
             _needs_redraw = True
@@ -1127,6 +1240,8 @@ def stop(vm):
     _auto_save(vm)
     
     if _app_state is not None:
+        if "marked" in _app_state:
+            _app_state["marked"].clear()
         _app_state.clear()
     _app_state = None
     

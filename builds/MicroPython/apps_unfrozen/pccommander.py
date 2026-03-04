@@ -10,7 +10,7 @@ from picoware.gui.menu import Menu
 from picoware.system.system import System
 
 try:
-    from picoware.system.buttons import BUTTON_S, BUTTON_A, BUTTON_Z, BUTTON_0, BUTTON_9, BUTTON_SPACE, BUTTON_N, BUTTON_D
+    from picoware.system.buttons import BUTTON_S, BUTTON_A, BUTTON_Z, BUTTON_0, BUTTON_9, BUTTON_SPACE, BUTTON_N, BUTTON_D, BUTTON_I
 except ImportError:
     BUTTON_S = -99
     BUTTON_A = 97
@@ -20,6 +20,7 @@ except ImportError:
     BUTTON_SPACE = 32
     BUTTON_N = 110
     BUTTON_D = 100
+    BUTTON_I = 105
 
 _app_state = None
 _last_saved_json = "{}"
@@ -40,6 +41,8 @@ _pending_dest_path = ""
 _sys = None
 _needs_redraw = True 
 _char_map = None 
+_show_info = False
+_info_data = []
 
 OPTIONS_LABELS = ("Theme", "BG R (0-255)", "BG G (0-255)", "BG B (0-255)", "Bar R (0-255)", "Bar G (0-255)", "Bar B (0-255)", "Sort Mode", "Hidden Files")
 
@@ -328,7 +331,7 @@ def _refresh_panes(vm):
         _app_state["right_index"] = max(0, len(_app_state["right_files"]) - 1)
 
 def _draw_ui(vm):
-    global show_options, opt_idx, _input_active, _input_text, _input_cursor, _input_mode, _needs_redraw, _is_disclaimer_screen
+    global show_options, opt_idx, _input_active, _input_text, _input_cursor, _input_mode, _needs_redraw, _is_disclaimer_screen, _show_info, _info_data
     c_bg, c_bar, c_txt, c_dir, c_btxt = _get_theme(_app_state)
     
     draw = vm.draw
@@ -361,14 +364,12 @@ def _draw_ui(vm):
 
     if _is_help_screen:
         draw.text(Vector(10, 10), "PicoCommander Help", TFT_WHITE)
-        draw.text(Vector(10, 24), "H: Toggle Help", c_bar)
-        draw.text(Vector(10, 36), "O: Options Menu", c_bar)
-        draw.text(Vector(10, 48), "N: New Folder", c_bar)
-        draw.text(Vector(10, 60), "D/DEL: Delete Item", c_bar)
-        draw.text(Vector(10, 72), "UP/DOWN: Scroll", TFT_WHITE)
-        draw.text(Vector(10, 84), "L/R: Switch Pane", TFT_WHITE)
-        draw.text(Vector(10, 96), "CENTER: Menu/Exec", TFT_WHITE)
-        draw.text(Vector(10, 108), "BACK: Exit App", TFT_WHITE)
+        draw.text(Vector(10, 24), "H:Help O:Opt I:Info", c_bar)
+        draw.text(Vector(10, 36), "N:New Folder D:Delete", c_bar)
+        draw.text(Vector(10, 48), "UP/DOWN: Scroll", TFT_WHITE)
+        draw.text(Vector(10, 60), "L/R: Switch Pane", TFT_WHITE)
+        draw.text(Vector(10, 72), "CENTER: Menu/Exec", TFT_WHITE)
+        draw.text(Vector(10, 84), "BACK: Exit App", TFT_WHITE)
         
         gc.collect()
         used_ram = gc.mem_alloc() // 1024
@@ -383,6 +384,22 @@ def _draw_ui(vm):
         draw.text(Vector(10, screen_h - 40), "made by Slasher006", c_bar)
         draw.text(Vector(10, screen_h - 30), "with the help of Gemini", c_bar)
         draw.text(Vector(10, screen_h - 20), "Date: 2026-03-04 | v1.09", c_bar)
+        draw.swap()
+        _needs_redraw = False
+        return
+
+    if _show_info:
+        box_w = 200
+        box_h = 100
+        x = (screen_w - box_w) // 2
+        y = (screen_h - box_h) // 2
+        draw.fill_rectangle(Vector(x, y), Vector(box_w, box_h), TFT_BLACK)
+        draw.rect(Vector(x, y), Vector(box_w, box_h), c_bar)
+        draw.fill_rectangle(Vector(x, y), Vector(box_w, 16), c_bar)
+        draw.text(Vector(x + 5, y + 2), "FILE INFORMATION", c_btxt)
+        for i, line in enumerate(_info_data):
+            draw.text(Vector(x + 10, y + 25 + (i * 15)), line, TFT_WHITE)
+        draw.text(Vector(x + 10, y + box_h - 15), "[ESC/ENT] Close", TFT_LIGHTGREY)
         draw.swap()
         _needs_redraw = False
         return
@@ -529,7 +546,7 @@ def _draw_ui(vm):
         y_offset += 12
 
     draw.fill_rectangle(Vector(0, screen_h - 12), Vector(screen_w, 12), c_bar)
-    draw.text(Vector(2, screen_h - 10), "H:Help O:Opt ENT:Menu L/R:Pane ESC:Exit", c_btxt)
+    draw.text(Vector(2, screen_h - 10), "H:Help O:Opt I:Info ENT:Menu ESC:Exit", c_btxt)
 
     draw.swap()
     _needs_redraw = False
@@ -606,7 +623,7 @@ def start(vm):
 def run(vm):
     global _is_help_screen, _context_menu, _confirm_menu, show_options, opt_idx
     global _context_target_path, _pending_action, _pending_dest_path, _sys, _input_active, _input_text, _input_cursor, _input_mode, _needs_redraw
-    global _is_disclaimer_screen
+    global _is_disclaimer_screen, _show_info, _info_data
     
     input_mgr = vm.input_manager
     btn = input_mgr.button
@@ -620,6 +637,14 @@ def run(vm):
             input_mgr.reset()
             _is_disclaimer_screen = False
             _app_state["disclaimer_accepted"] = True
+            _needs_redraw = True
+            time.sleep(0.3)
+
+    elif _show_info:
+        if btn in (BUTTON_BACK, BUTTON_CENTER) or key in ('\x1b', '\n', '\r') or btn in (10, 13):
+            input_mgr.reset()
+            _show_info = False
+            _info_data = []
             _needs_redraw = True
             time.sleep(0.3)
             
@@ -764,6 +789,23 @@ def run(vm):
         _needs_redraw = True
         time.sleep(0.3)
         
+    elif (btn == BUTTON_I or key in ('i', 'I', ord('i'), ord('I')) or btn in (ord('i'), ord('I'))) and not _is_help_screen and not show_options and _confirm_menu is None and _context_menu is None and not _show_info:
+        input_mgr.reset()
+        pane = _app_state["active_pane"]
+        files_key = pane + "_files"
+        idx_key = pane + "_index"
+        if len(_app_state[files_key]) > 0:
+            selected_file, is_dir, f_size = _app_state[files_key][_app_state[idx_key]]
+            if selected_file != "..":
+                _info_data = [
+                    f"Name: {selected_file[:22]}",
+                    f"Type: {'Directory' if is_dir else 'File'}",
+                    f"Size: {f_size} bytes"
+                ]
+                _show_info = True
+                _needs_redraw = True
+        time.sleep(0.3)
+
     elif (btn in (BUTTON_D, ord('d'), ord('D')) or key in ('d', 'D') or (btn == BUTTON_BACKSPACE and btn not in (66, 98)) or btn in (8, 127) or key in ('\x08', '\x7f')) and not _is_help_screen and not show_options and _confirm_menu is None and _context_menu is None:
         input_mgr.reset()
         pane = _app_state["active_pane"]
@@ -919,6 +961,11 @@ def run(vm):
             print(f"[DEBUG] Selected action from context menu: {action}")
             if action == "Cancel":
                 pass
+            elif action == "Open":
+                pane = _app_state["active_pane"]
+                _app_state[pane + "_path"] = _context_target_path
+                _refresh_panes(vm)
+                _app_state[pane + "_index"] = 0
             elif action == "Delete":
                 screen_h = vm.draw.size.y
                 _pending_action = "delete"
@@ -1031,21 +1078,18 @@ def run(vm):
                 _app_state[idx_key] = new_cursor_idx
             else:
                 new_path = "/" + selected_file if current_path == "/" else current_path + "/" + selected_file
+                screen_h = vm.draw.size.y
+                _context_target_path = new_path
+                _context_menu = Menu(vm.draw, selected_file[:14], 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
                 if is_dir:
-                    _app_state[path_key] = new_path
-                    _refresh_panes(vm)
-                    _app_state[idx_key] = 0
-                else:
-                    screen_h = vm.draw.size.y
-                    _context_target_path = new_path
-                    _context_menu = Menu(vm.draw, selected_file[:14], 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
-                    _context_menu.add_item("Copy")
-                    _context_menu.add_item("Move")
-                    _context_menu.add_item("Rename")
-                    _context_menu.add_item("Delete")
-                    _context_menu.add_item("Cancel")
-                    _context_menu.set_selected(0)
-                    time.sleep(0.3)
+                    _context_menu.add_item("Open")
+                _context_menu.add_item("Copy")
+                _context_menu.add_item("Move")
+                _context_menu.add_item("Rename")
+                _context_menu.add_item("Delete")
+                _context_menu.add_item("Cancel")
+                _context_menu.set_selected(0)
+                time.sleep(0.3)
             _needs_redraw = True
 
     if _needs_redraw:
@@ -1058,7 +1102,7 @@ def stop(vm):
     print("[DEBUG] PicoCommander App Stopping...")
     global _app_state, _last_saved_json, _context_menu, _confirm_menu, show_options, opt_idx
     global _pending_action, _pending_dest_path, _sys, _input_active, _input_text, _input_cursor, _input_mode, _needs_redraw
-    global _char_map, _is_disclaimer_screen
+    global _char_map, _is_disclaimer_screen, _show_info, _info_data
     
     _auto_save(vm)
     
@@ -1089,6 +1133,8 @@ def stop(vm):
     _input_cursor = 0
     _input_mode = ""
     _is_disclaimer_screen = False
+    _show_info = False
+    _info_data = []
     _needs_redraw = True
     _sys = None
     

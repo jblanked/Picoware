@@ -5,7 +5,7 @@ import os
 
 from picoware.system.vector import Vector
 from picoware.system.colors import TFT_WHITE, TFT_BLACK, TFT_BLUE, TFT_YELLOW, TFT_CYAN, TFT_DARKGREY, TFT_LIGHTGREY, TFT_RED
-from picoware.system.buttons import BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_CENTER, BUTTON_BACK, BUTTON_H, BUTTON_O, BUTTON_BACKSPACE
+from picoware.system.buttons import BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_CENTER, BUTTON_BACK, BUTTON_H, BUTTON_O, BUTTON_BACKSPACE, BUTTON_ESCAPE
 from picoware.gui.menu import Menu
 from picoware.system.system import System
 
@@ -135,7 +135,7 @@ def _init_state(vm):
         "active_pane": PANE_LEFT,
         "sort_mode": SORT_NAME,
         "show_hidden": False,
-        "dir_menu": False,
+        "dir_menu": True,
         "disclaimer_accepted": False,
         "theme": 0,
         "bg_r": 0,
@@ -676,7 +676,7 @@ def run(vm):
             time.sleep(0.3)
 
     elif _show_info:
-        if btn in (BUTTON_BACK, BUTTON_CENTER) or key in ('\x1b', '\n', '\r') or btn in (10, 13):
+        if btn in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER) or key in ('\x1b', '\n', '\r') or btn in (10, 13):
             input_reset()
             _show_info = False
             _info_data = []
@@ -696,7 +696,7 @@ def run(vm):
             char_to_add = key
             
         is_enter = (btn == BUTTON_CENTER and not is_printable) or key in ('\n', '\r') or btn in (10, 13)
-        is_esc = (btn == BUTTON_BACK and not is_printable) or key == '\x1b'
+        is_esc = (btn in (BUTTON_BACK, BUTTON_ESCAPE) and not is_printable) or key == '\x1b'
         is_bs = (btn == BUTTON_BACKSPACE and not is_printable) or key in ('\x08', '\x7f') or btn in (8, 127)
         is_left = (btn == BUTTON_LEFT and not is_printable)
         is_right = (btn == BUTTON_RIGHT and not is_printable)
@@ -886,12 +886,16 @@ def run(vm):
         _needs_redraw = True
 
     elif show_options:
-        if btn in (BUTTON_BACK, BUTTON_CENTER) or key in (10, 13, '\n', '\r') or btn in (10, 13):
+        if btn in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER) or key in ('\x1b', 10, 13, '\n', '\r') or btn in (10, 13):
             input_reset()
             show_options = False
             _refresh_panes(vm)
             _needs_redraw = True
             time.sleep(0.3)
+        elif btn == BUTTON_UP:
+            input_reset()
+            opt_idx = (opt_idx - 1) % 10
+            _needs_redraw = True
         elif btn == BUTTON_DOWN:
             input_reset()
             opt_idx = (opt_idx + 1) % 10
@@ -924,7 +928,7 @@ def run(vm):
             elif opt_idx == 9: _app_state["dir_menu"] = not _app_state.get("dir_menu", True)
 
     elif _confirm_menu is not None:
-        if btn == BUTTON_BACK:
+        if btn in (BUTTON_BACK, BUTTON_ESCAPE) or key == '\x1b':
             input_reset()
             _confirm_menu = None
             _pending_action = ACT_NONE
@@ -1033,7 +1037,7 @@ def run(vm):
             time.sleep(0.3)
 
     elif _context_menu is not None:
-        if btn == BUTTON_BACK:
+        if btn in (BUTTON_BACK, BUTTON_ESCAPE) or key == '\x1b':
             input_reset()
             _context_menu = None
             _needs_redraw = True
@@ -1118,7 +1122,7 @@ def run(vm):
             _needs_redraw = True
             time.sleep(0.3)
 
-    elif btn == BUTTON_BACK:
+    elif btn in (BUTTON_BACK, BUTTON_ESCAPE) or key == '\x1b':
         input_reset()
         if _is_help_screen:
             _is_help_screen = False
@@ -1286,27 +1290,3 @@ def stop(vm):
     _sys = None
     
     gc.collect()
-
-from picoware.system.view_manager import ViewManager
-from picoware.system.view import View
-
-vm = None
-
-try:
-    vm = ViewManager()
-    vm.add(
-        View(
-            "app_tester",
-            run,
-            start,
-            stop,
-        )
-    )
-    vm.switch_to("app_tester")
-    while True:
-        vm.run()
-except Exception as e:
-    print("Error during testing:", e)
-finally:
-    del vm
-    vm = None

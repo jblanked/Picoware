@@ -9,6 +9,7 @@ from picoware.system.buttons import BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_
 from picoware.gui.menu import Menu
 from picoware.system.system import System
 
+# Map optional keyboard buttons gracefully
 try:
     from picoware.system.buttons import BUTTON_S, BUTTON_A, BUTTON_Z, BUTTON_0, BUTTON_9, BUTTON_SPACE, BUTTON_N, BUTTON_D
 except ImportError:
@@ -21,30 +22,7 @@ except ImportError:
     BUTTON_N = 110
     BUTTON_D = 100
 
-_char_map = {}
-try:
-    import picoware.system.buttons as __btns
-    for __i in range(26):
-        __c = chr(97 + __i)
-        __attr = "BUTTON_" + __c.upper()
-        if hasattr(__btns, __attr):
-            _char_map[getattr(__btns, __attr)] = __c
-    for __i in range(10):
-        __c = str(__i)
-        __attr = "BUTTON_" + __c
-        if hasattr(__btns, __attr):
-            _char_map[getattr(__btns, __attr)] = __c
-    if hasattr(__btns, "BUTTON_SPACE"):
-        _char_map[getattr(__btns, "BUTTON_SPACE")] = " "
-    if hasattr(__btns, "BUTTON_PERIOD"):
-        _char_map[getattr(__btns, "BUTTON_PERIOD")] = "."
-    if hasattr(__btns, "BUTTON_MINUS"):
-        _char_map[getattr(__btns, "BUTTON_MINUS")] = "-"
-    if hasattr(__btns, "BUTTON_UNDERSCORE"):
-        _char_map[getattr(__btns, "BUTTON_UNDERSCORE")] = "_"
-except Exception:
-    pass
-
+# Global state variables
 _app_state = None
 _last_saved_json = "{}"
 _last_save_time = 0
@@ -59,12 +37,17 @@ _input_cursor = 0
 _input_mode = ""
 _context_target_path = ""
 _pending_action = ""
+_pending_dest_path = "" 
 _sys = None
+_needs_redraw = True 
+_char_map = None 
 
 def rgb_to_565(r, g, b):
+    # Convert standard RGB to 16-bit 565 format for the TFT
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
 
 def _get_theme(state):
+    # Returns background, bar, text, directory, and bar-text colors
     th = state.get("theme", 0)
     if th == 0:
         return TFT_BLUE, TFT_CYAN, TFT_WHITE, TFT_YELLOW, TFT_BLACK
@@ -75,8 +58,64 @@ def _get_theme(state):
         c_bar = rgb_to_565(state.get("bar_r", 0), state.get("bar_g", 170), state.get("bar_b", 170))
         return c_bg, c_bar, TFT_WHITE, TFT_YELLOW, TFT_BLACK
 
+def _force_sync(vm):
+    # Yielding time allows the SD Card SPI controller to finish flushing hardware buffers
+    # unmounting crashes the VFS linkage entirely, so we just wait gracefully.
+    print("[DEBUG] Yielding to let SD Card SPI flush...")
+    time.sleep(0.3)
+    try:
+        os.sync()
+    except Exception:
+        pass
+
+def _exists(vm, path):
+    if path in ("/", ""):
+        return True
+        
+    # 1. Probe the native file system directly
+    try:
+        if vm.storage.exists(path):
+            print(f"[DEBUG] Native storage found file: {path}")
+            return True
+    except Exception:
+        pass
+        
+    # 2. Safety Net: Probe our active UI state to see if we just loaded it into RAM
+    try:
+        target_dir = path[:path.rfind("/")]
+        if target_dir == "": target_dir = "/"
+        target_file = path[path.rfind("/")+1:]
+        
+        if _app_state is not None:
+            if target_dir == _app_state.get("left_path"):
+                for f in _app_state.get("left_files", []):
+                    if f[0] == target_file:
+                        print(f"[DEBUG] RAM UI cache found file: {path}")
+                        return True
+            if target_dir == _app_state.get("right_path"):
+                for f in _app_state.get("right_files", []):
+                    if f[0] == target_file:
+                        print(f"[DEBUG] RAM UI cache found file: {path}")
+                        return True
+    except Exception:
+        pass
+        
+    print(f"[DEBUG] System confirms {path} does not exist.")
+    return False
+
 def _init_state(vm):
     global _app_state, _last_saved_json
+    
+    # Pre-create settings directory once to avoid doing it inside the save loop
+    try:
+        vm.storage.mkdir("/picoware")
+    except Exception:
+        pass
+    try:
+        vm.storage.mkdir("/picoware/settings")
+    except Exception:
+        pass
+        
     _app_state = {
         "left_path": "/",
         "right_path": "/",
@@ -127,11 +166,13 @@ def _init_state(vm):
             })
             del data
             del saved_state
-            gc.collect()
+            gc.collect() # Release JSON parse load immediately
     except Exception:
         pass
 
 def _rmtree(vm, path):
+    # Recursive deletion to handle populated directories
+    print(f"[DEBUG] Completely removing path: {path}")
     try:
         is_dir = False
         try:
@@ -143,7 +184,7 @@ def _rmtree(vm, path):
             try:
                 items = vm.storage.listdir(path)
                 for item in items:
-                    if item == "." or item == "..":
+                    if item in (".", ".."):
                         continue
                     full_path = "/" + item if path == "/" else path + "/" + item
                     _rmtree(vm, full_path)
@@ -158,8 +199,76 @@ def _rmtree(vm, path):
                     pass
         else:
             vm.storage.remove(path)
+    except Exception as e:
+        print(f"[DEBUG] Error deleting {path}: {e}")
+    gc.collect()
+
+def _draw_progress(vm, title, percentage):
+    # Unpack only used colors to save memory assignments
+    c_bg, c_bar, _, _, _ = _get_theme(_app_state)
+    draw = vm.draw
+    screen_w = draw.size.x
+    screen_h = draw.size.y
+    box_w = 200
+    box_h = 60
+    x = (screen_w - box_w) // 2
+    y = (screen_h - box_h) // 2
+    
+    draw.fill_rectangle(Vector(x, y), Vector(box_w, box_h), c_bg)
+    draw.rect(Vector(x, y), Vector(box_w, box_h), c_bar)
+    draw.text(Vector(x + 10, y + 10), title, TFT_WHITE)
+    
+    bar_w = box_w - 20
+    draw.rect(Vector(x + 10, y + 30), Vector(bar_w, 15), TFT_WHITE)
+    fill_w = int((bar_w - 2) * percentage)
+    if fill_w > 0:
+        draw.fill_rectangle(Vector(x + 11, y + 31), Vector(fill_w, 13), c_bar)
+        
+    draw.swap()
+
+def _copy_item(vm, src, dst):
+    print(f"[DEBUG] Copying: {src} -> {dst}")
+    # Robust recursive copy to handle both single files and full directory trees
+    is_dir = False
+    try:
+        is_dir = vm.storage.is_directory(src)
     except Exception:
         pass
+        
+    if is_dir:
+        try:
+            vm.storage.mkdir(dst)
+        except Exception:
+            pass
+        try:
+            items = vm.storage.listdir(src)
+            for item in items:
+                if item in (".", ".."): 
+                    continue
+                s_path = src + "/" + item if src != "/" else "/" + item
+                d_path = dst + "/" + item if dst != "/" else "/" + item
+                _copy_item(vm, s_path, d_path) # Recursive copy for subfolders
+        except Exception:
+            pass
+    else:
+        try:
+            f_size = vm.storage.size(src)
+            pos = 0
+            while pos < f_size:
+                try:
+                    # 2KB chunks to comfortably fit in minimal RAM without choking
+                    chunk = vm.storage.read_chunked(src, pos, 2048)
+                except Exception:
+                    break
+                if not chunk: 
+                    break
+                vm.storage.write(dst, chunk, "ab" if pos > 0 else "wb")
+                pos += len(chunk)
+                if f_size > 0:
+                    _draw_progress(vm, f"Copying {int((pos/f_size)*100)}%", min(1.0, pos / f_size))
+                gc.collect()
+        except Exception as e:
+            print(f"[DEBUG] Error copying file {src}: {e}")
     gc.collect()
 
 def _load_dir(vm, path):
@@ -167,7 +276,7 @@ def _load_dir(vm, path):
     try:
         dir_list = vm.storage.listdir(path)
         for item in dir_list:
-            if item == "." or item == "..":
+            if item in (".", ".."):
                 continue
             if not _app_state.get("show_hidden", False) and item.startswith("."):
                 continue
@@ -197,11 +306,13 @@ def _load_dir(vm, path):
             items.append((item, is_dir, mtime, size))
         del dir_list
         
+        # Sort items
         if _app_state["sort_mode"] == "name":
             items.sort(key=lambda x: (not x[1], x[0].lower()))
         else:
             items.sort(key=lambda x: (not x[1], -x[2]))
             
+        # Strip mtime out to save RAM on cached list
         items = [(x[0], x[1], x[3]) for x in items]
     except Exception:
         items = [("<ERROR>", False, 0)]
@@ -211,30 +322,22 @@ def _load_dir(vm, path):
         return [("..", True, 0)] + items
     return items
 
-def _draw_progress(vm, title, percentage):
-    c_bg, c_bar, c_txt, c_dir, c_btxt = _get_theme(_app_state)
-    draw = vm.draw
-    screen_w = draw.size.x
-    screen_h = draw.size.y
-    box_w = 200
-    box_h = 60
-    x = (screen_w - box_w) // 2
-    y = (screen_h - box_h) // 2
-    
-    draw.fill_rectangle(Vector(x, y), Vector(box_w, box_h), c_bg)
-    draw.rect(Vector(x, y), Vector(box_w, box_h), c_bar)
-    draw.text(Vector(x + 10, y + 10), title, TFT_WHITE)
-    
-    bar_w = box_w - 20
-    draw.rect(Vector(x + 10, y + 30), Vector(bar_w, 15), TFT_WHITE)
-    fill_w = int((bar_w - 2) * percentage)
-    if fill_w > 0:
-        draw.fill_rectangle(Vector(x + 11, y + 31), Vector(fill_w, 13), c_bar)
+def _refresh_panes(vm):
+    # Safely reloads the directory contents and clamps the cursor index to prevent IndexError crashes
+    global _app_state
+    if _app_state is None:
+        return
         
-    draw.swap()
+    _app_state["left_files"] = _load_dir(vm, _app_state["left_path"])
+    if _app_state["left_index"] >= len(_app_state["left_files"]):
+        _app_state["left_index"] = max(0, len(_app_state["left_files"]) - 1)
+        
+    _app_state["right_files"] = _load_dir(vm, _app_state["right_path"])
+    if _app_state["right_index"] >= len(_app_state["right_files"]):
+        _app_state["right_index"] = max(0, len(_app_state["right_files"]) - 1)
 
 def _draw_ui(vm):
-    global show_options, opt_idx, _input_active, _input_text, _input_cursor, _input_mode
+    global show_options, opt_idx, _input_active, _input_text, _input_cursor, _input_mode, _needs_redraw
     c_bg, c_bar, c_txt, c_dir, c_btxt = _get_theme(_app_state)
     
     draw = vm.draw
@@ -271,8 +374,9 @@ def _draw_ui(vm):
 
         draw.text(Vector(10, screen_h - 40), "made by Slasher006", c_bar)
         draw.text(Vector(10, screen_h - 30), "with the help of Gemini", c_bar)
-        draw.text(Vector(10, screen_h - 20), "Date: 2026-03-04", c_bar)
+        draw.text(Vector(10, screen_h - 20), "Date: 2026-03-04 | v1.07", c_bar)
         draw.swap()
+        _needs_redraw = False
         return
 
     if show_options:
@@ -308,8 +412,9 @@ def _draw_ui(vm):
         draw.rect(Vector(140, 183), Vector(60, 20), prv_bar)
         
         draw.fill_rectangle(Vector(10, screen_h - 30), Vector(screen_w - 20, 20), c_bar)
-        draw.text(Vector(15, screen_h - 26), "[L/R] Edit   [ESC/ENT] Save & Close", c_btxt)
+        draw.text(Vector(15, screen_h - 26), "[L/R] Edit   [ESC/ENT] Save", c_btxt)
         draw.swap()
+        _needs_redraw = False
         return
 
     if _input_active:
@@ -319,27 +424,36 @@ def _draw_ui(vm):
         draw.rect(Vector(10, box_y), Vector(screen_w - 20, box_h), c_bar)
         draw.fill_rectangle(Vector(10, box_y), Vector(screen_w - 20, 16), c_bar)
         
-        title_str = "RENAME FILE:" if _input_mode == "rename" else "NEW FOLDER:"
+        if _input_mode == "rename":
+            title_str = "RENAME FILE:"
+        elif _input_mode == "copy_same":
+            title_str = "COPY AS:"
+        else:
+            title_str = "NEW FOLDER:"
+            
         draw.text(Vector(15, box_y + 2), title_str, c_btxt)
-        
         draw.text(Vector(15, box_y + 24), _input_text, TFT_WHITE)
         
         if int(time.time() * 3) % 2 == 0:
             cur_x = 15 + (_input_cursor * 6)
             draw.fill_rectangle(Vector(cur_x, box_y + 35), Vector(6, 2), TFT_CYAN)
+            _needs_redraw = True # Keep redrawing to flash the cursor
             
         draw.text(Vector(15, box_y + 48), "[ENT] Save  [ESC] Cancel", TFT_LIGHTGREY)
         draw.swap()
+        if not _needs_redraw: _needs_redraw = False
         return
 
     if _confirm_menu is not None:
         _confirm_menu.draw()
         draw.swap()
+        _needs_redraw = False
         return
 
     if _context_menu is not None:
         _context_menu.draw()
         draw.swap()
+        _needs_redraw = False
         return
 
     draw.fill_rectangle(Vector(0, 0), Vector(screen_w, 12), c_bar)
@@ -410,10 +524,12 @@ def _draw_ui(vm):
     draw.text(Vector(2, screen_h - 10), "H Hlp O Opt N New C Cp M Mv D/DEL Del", c_btxt)
 
     draw.swap()
+    _needs_redraw = False
 
 def _auto_save(vm):
     global _last_saved_json, _last_save_time
     current_time = time.time()
+    # Check if 5 seconds have passed since last write attempt
     if current_time - _last_save_time > 5:
         current_state = {
             "left_path": _app_state["left_path"],
@@ -429,15 +545,8 @@ def _auto_save(vm):
             "bar_b": _app_state.get("bar_b", 170)
         }
         current_json = json.dumps(current_state)
+        # Delta-check to bypass redundant SD card writes
         if current_json != _last_saved_json:
-            try:
-                vm.storage.mkdir("/picoware")
-            except Exception:
-                pass
-            try:
-                vm.storage.mkdir("/picoware/settings")
-            except Exception:
-                pass
             try:
                 vm.storage.write("/picoware/settings/picocmd_state.json", current_json, "w")
                 _last_saved_json = current_json
@@ -449,8 +558,9 @@ def _auto_save(vm):
         _last_save_time = current_time
 
 def start(vm):
-    global _sys
+    global _sys, _needs_redraw, _char_map
     
+    print("[DEBUG] PicoCommander App Starting...")
     vm.draw.clear(color=TFT_BLACK)
     vm.draw.text(Vector(10, 10), "Loading PicoCommander...", TFT_WHITE)
     vm.draw.swap()
@@ -458,115 +568,176 @@ def start(vm):
     
     _sys = System()
     _init_state(vm)
-    _app_state["left_files"] = _load_dir(vm, _app_state["left_path"])
-    _app_state["right_files"] = _load_dir(vm, _app_state["right_path"])
+    
+    # Robustly build the physical button character map locally on start
+    _char_map = {}
+    try:
+        import picoware.system.buttons as __btns
+        for __i in range(26):
+            __c = chr(97 + __i)
+            __attr = "BUTTON_" + __c.upper()
+            if hasattr(__btns, __attr):
+                _char_map[getattr(__btns, __attr)] = __c
+        for __i in range(10):
+            __c = str(__i)
+            __attr = "BUTTON_" + __c
+            if hasattr(__btns, __attr):
+                _char_map[getattr(__btns, __attr)] = __c
+        # Common symbols needed for filenames
+        for attr, char in [("BUTTON_SPACE", " "), ("BUTTON_PERIOD", "."), ("BUTTON_MINUS", "-"), ("BUTTON_UNDERSCORE", "_")]:
+            if hasattr(__btns, attr):
+                _char_map[getattr(__btns, attr)] = char
+    except Exception:
+        pass
+    
+    _refresh_panes(vm)
+    _needs_redraw = True
     gc.collect()
     return True
 
 def run(vm):
     global _is_help_screen, _context_menu, _confirm_menu, show_options, opt_idx
-    global _context_target_path, _pending_action, _sys, _input_active, _input_text, _input_cursor, _input_mode
+    global _context_target_path, _pending_action, _pending_dest_path, _sys, _input_active, _input_text, _input_cursor, _input_mode, _needs_redraw
     
     input_mgr = vm.input_manager
     btn = input_mgr.button
     key = input_mgr.read_non_blocking()
-    c_bg, c_bar, c_txt, c_dir, c_btxt = _get_theme(_app_state)
     
-    dirty_ui = False
+    c_bg, c_bar, _, _, _ = _get_theme(_app_state)
 
     if _input_active:
         is_printable = False
         char_to_add = ""
         
-        if key and isinstance(key, str) and len(key) == 1 and 32 <= ord(key) <= 126:
+        # 1. Map Picocalc hardware keypad buttons explicitly
+        if _char_map is not None and btn in _char_map:
+            is_printable = True
+            char_to_add = _char_map[btn]
+            
+        # 2. Fallback for Thonny/USB generic string keys
+        elif key and isinstance(key, str) and len(key) == 1 and 32 <= ord(key) <= 126:
             is_printable = True
             char_to_add = key
-        elif isinstance(btn, int) and 32 <= btn <= 126:
-            is_printable = True
-            char_to_add = chr(btn)
             
         is_enter = (btn == BUTTON_CENTER and not is_printable) or key in ('\n', '\r') or btn in (10, 13)
         is_esc = (btn == BUTTON_BACK and not is_printable) or key == '\x1b'
-        is_bs = (btn == BUTTON_BACKSPACE and not is_printable and btn not in (66, 98)) or key in ('\x08', '\x7f') or btn in (8, 127)
+        is_bs = (btn == BUTTON_BACKSPACE and not is_printable) or key in ('\x08', '\x7f') or btn in (8, 127)
         is_left = (btn == BUTTON_LEFT and not is_printable)
         is_right = (btn == BUTTON_RIGHT and not is_printable)
         
         if is_esc:
             input_mgr.reset()
             _input_active = False
-            dirty_ui = True
+            _needs_redraw = True
             time.sleep(0.3)
         elif is_enter:
             input_mgr.reset()
             new_name = _input_text.strip()
+            refresh_needed = False
+            
+            print(f"[DEBUG] Submitting keyboard input: '{new_name}' for mode: '{_input_mode}'")
+            
             if new_name:
                 t_dir = _app_state["left_path"] if _app_state["active_pane"] == "left" else _app_state["right_path"]
                 new_path = "/" + new_name if t_dir == "/" else t_dir + "/" + new_name
                 
-                if _input_mode == "rename" and new_path != _context_target_path:
-                    try:
-                        vm.storage.rename(_context_target_path, new_path)
-                    except Exception:
-                        pass
-                elif _input_mode == "mkdir":
-                    try:
-                        vm.storage.mkdir(new_path)
-                    except Exception:
-                        pass
+                if _input_mode in ("rename", "copy_same") and new_path != _context_target_path:
+                    exists = _exists(vm, new_path)
+                    print(f"[DEBUG] Keyboard input target '{new_path}' exists? {exists}")
                         
-                _app_state["left_files"] = _load_dir(vm, _app_state["left_path"])
-                _app_state["right_files"] = _load_dir(vm, _app_state["right_path"])
+                    if exists:
+                        _pending_dest_path = new_path
+                        _pending_action = "rename" if _input_mode == "rename" else "copy"
+                        print(f"[DEBUG] Triggering overwrite menu for action: {_pending_action}")
+                        
+                        screen_h = vm.draw.size.y
+                        _confirm_menu = Menu(vm.draw, "Overwrite?", 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_BLACK, border_color=c_bar, border_width=2)
+                        _confirm_menu.add_item("No")
+                        _confirm_menu.add_item("Yes")
+                        _confirm_menu.set_selected(0)
+                        
+                        _input_active = False
+                        _needs_redraw = True
+                        time.sleep(0.3)
+                        return # Pause to await user confirmation
+                    else:
+                        if _input_mode == "rename":
+                            try:
+                                print(f"[DEBUG] Renaming {_context_target_path} to {new_path}")
+                                vm.storage.rename(_context_target_path, new_path)
+                                refresh_needed = True
+                            except Exception as e:
+                                print(f"[DEBUG] Rename Error: {e}")
+                        elif _input_mode == "copy_same":
+                            print(f"[DEBUG] Copying in same dir: {_context_target_path} -> {new_path}")
+                            _draw_progress(vm, "Copying...", 0.0)
+                            _copy_item(vm, _context_target_path, new_path)
+                            _draw_progress(vm, "Copying 100%", 1.0)
+                            refresh_needed = True
+                            
+                elif _input_mode == "mkdir":
+                    exists = _exists(vm, new_path)
+                    if not exists:
+                        try:
+                            print(f"[DEBUG] Creating new directory: {new_path}")
+                            vm.storage.mkdir(new_path)
+                            refresh_needed = True
+                        except Exception as e:
+                            print(f"[DEBUG] Mkdir Error: {e}")
+                            
+            if refresh_needed:
+                _force_sync(vm)
+                _refresh_panes(vm)
             
             _input_active = False
             _context_target_path = ""
-            dirty_ui = True
+            _needs_redraw = True
             time.sleep(0.3)
         elif is_left:
             input_mgr.reset()
             if _input_cursor > 0:
                 _input_cursor -= 1
-                dirty_ui = True
+                _needs_redraw = True
             time.sleep(0.15)
         elif is_right:
             input_mgr.reset()
             if _input_cursor < len(_input_text):
                 _input_cursor += 1
-                dirty_ui = True
+                _needs_redraw = True
             time.sleep(0.15)
         elif is_bs:
             input_mgr.reset()
             if _input_cursor > 0:
                 _input_text = _input_text[:_input_cursor - 1] + _input_text[_input_cursor:]
                 _input_cursor -= 1
-                dirty_ui = True
+                _needs_redraw = True
             time.sleep(0.15)
         elif is_printable:
             input_mgr.reset()
             if len(_input_text) < 35:
                 _input_text = _input_text[:_input_cursor] + char_to_add + _input_text[_input_cursor:]
                 _input_cursor += 1
-                dirty_ui = True
+                _needs_redraw = True
             time.sleep(0.18)
             
     elif btn == BUTTON_H or key in ('h', 'H', ord('h'), ord('H')) or btn in (ord('h'), ord('H')):
         input_mgr.reset()
         _is_help_screen = not _is_help_screen
-        dirty_ui = True
+        _needs_redraw = True
 
     elif (btn == BUTTON_O or key in ('o', 'O', ord('o'), ord('O')) or btn in (ord('o'), ord('O'))) and not _is_help_screen and _confirm_menu is None and _context_menu is None:
         input_mgr.reset()
         show_options = True
         opt_idx = 0
-        dirty_ui = True
+        _needs_redraw = True
 
     elif (btn == BUTTON_S or key in ('s', 'S', ord('s'), ord('S')) or btn in (ord('s'), ord('S'))) and not _is_help_screen and not show_options and _confirm_menu is None and _context_menu is None:
         input_mgr.reset()
         _app_state["sort_mode"] = "date" if _app_state["sort_mode"] == "name" else "name"
-        _app_state["left_files"] = _load_dir(vm, _app_state["left_path"])
-        _app_state["right_files"] = _load_dir(vm, _app_state["right_path"])
+        _refresh_panes(vm)
         _app_state["left_index"] = 0
         _app_state["right_index"] = 0
-        dirty_ui = True
+        _needs_redraw = True
 
     elif (btn == BUTTON_N or key in ('n', 'N', ord('n'), ord('N')) or btn in (ord('n'), ord('N'))) and not _is_help_screen and not show_options and _confirm_menu is None and _context_menu is None:
         input_mgr.reset()
@@ -574,7 +745,7 @@ def run(vm):
         _input_mode = "mkdir"
         _input_text = ""
         _input_cursor = 0
-        dirty_ui = True
+        _needs_redraw = True
         time.sleep(0.3)
         
     elif (btn in (BUTTON_D, ord('d'), ord('D')) or key in ('d', 'D') or (btn == BUTTON_BACKSPACE and btn not in (66, 98)) or btn in (8, 127) or key in ('\x08', '\x7f')) and not _is_help_screen and not show_options and _confirm_menu is None and _context_menu is None:
@@ -596,27 +767,26 @@ def run(vm):
                 _confirm_menu.add_item("No")
                 _confirm_menu.add_item("Yes")
                 _confirm_menu.set_selected(0)
-        dirty_ui = True
+        _needs_redraw = True
 
     elif show_options:
         if btn in (BUTTON_BACK, BUTTON_CENTER) or key in (10, 13, '\n', '\r') or btn in (10, 13):
             input_mgr.reset()
             show_options = False
-            _app_state["left_files"] = _load_dir(vm, _app_state["left_path"])
-            _app_state["right_files"] = _load_dir(vm, _app_state["right_path"])
-            dirty_ui = True
+            _refresh_panes(vm)
+            _needs_redraw = True
             time.sleep(0.3)
         elif btn == BUTTON_UP:
             input_mgr.reset()
             opt_idx = (opt_idx - 1) % 9
-            dirty_ui = True
+            _needs_redraw = True
         elif btn == BUTTON_DOWN:
             input_mgr.reset()
             opt_idx = (opt_idx + 1) % 9
-            dirty_ui = True
+            _needs_redraw = True
         elif btn == BUTTON_RIGHT:
             input_mgr.reset()
-            dirty_ui = True
+            _needs_redraw = True
             if opt_idx == 0: _app_state["theme"] = (_app_state.get("theme", 0) + 1) % 3
             elif opt_idx == 1: _app_state["bg_r"] = (_app_state.get("bg_r", 0) + 15) % 256
             elif opt_idx == 2: _app_state["bg_g"] = (_app_state.get("bg_g", 0) + 15) % 256
@@ -628,7 +798,7 @@ def run(vm):
             elif opt_idx == 8: _app_state["show_hidden"] = not _app_state.get("show_hidden", False)
         elif btn == BUTTON_LEFT:
             input_mgr.reset()
-            dirty_ui = True
+            _needs_redraw = True
             if opt_idx == 0: _app_state["theme"] = (_app_state.get("theme", 0) - 1) % 3
             elif opt_idx == 1: _app_state["bg_r"] = (_app_state.get("bg_r", 0) - 15) % 256
             elif opt_idx == 2: _app_state["bg_g"] = (_app_state.get("bg_g", 0) - 15) % 256
@@ -642,89 +812,92 @@ def run(vm):
     elif _confirm_menu is not None:
         if btn == BUTTON_BACK:
             input_mgr.reset()
+            print("[DEBUG] Confirmation menu cancelled by user.")
             _confirm_menu = None
             _pending_action = ""
-            dirty_ui = True
+            _pending_dest_path = ""
+            _needs_redraw = True
             time.sleep(0.3)
         elif btn == BUTTON_UP:
             input_mgr.reset()
             _confirm_menu.scroll_up()
-            dirty_ui = True
+            _needs_redraw = True
         elif btn == BUTTON_DOWN:
             input_mgr.reset()
             _confirm_menu.scroll_down()
-            dirty_ui = True
+            _needs_redraw = True
         elif btn == BUTTON_CENTER or key in (10, 13, '\n', '\r') or btn in (10, 13):
             input_mgr.reset()
             selection = _confirm_menu.current_item
             if selection == "Yes":
+                print(f"[DEBUG] User confirmed action '{_pending_action}' from {_context_target_path} to {_pending_dest_path}")
                 if _pending_action == "delete":
                     _draw_progress(vm, "Deleting...", 0.0)
                     _rmtree(vm, _context_target_path)
                     _draw_progress(vm, "Deleting...", 1.0)
                 elif _pending_action == "copy":
-                    t_dir = _app_state["right_path"] if _app_state["active_pane"] == "left" else _app_state["left_path"]
-                    f_name = _context_target_path.split("/")[-1]
-                    d_path = "/" + f_name if t_dir == "/" else t_dir + "/" + f_name
-                    if d_path != _context_target_path:
+                    if _pending_dest_path != _context_target_path:
                         _draw_progress(vm, "Copying...", 0.0)
-                        try:
-                            f_size = vm.storage.size(_context_target_path)
-                            pos = 0
-                            while pos < f_size:
-                                try:
-                                    chunk = vm.storage.read_chunked(_context_target_path, pos, 2048)
-                                except Exception:
-                                    break
-                                if not chunk:
-                                    break
-                                vm.storage.write(d_path, chunk, "ab" if pos > 0 else "wb")
-                                pos += len(chunk)
-                                if f_size > 0:
-                                    _draw_progress(vm, f"Copying {int((pos/f_size)*100)}%", min(1.0, pos / f_size))
-                                gc.collect()
-                        except Exception:
-                            pass
+                        if _exists(vm, _pending_dest_path):
+                            print(f"[DEBUG] Found existing destination '{_pending_dest_path}', clearing before copy to prevent appended files.")
+                            _rmtree(vm, _pending_dest_path) 
+                        _copy_item(vm, _context_target_path, _pending_dest_path)
                         _draw_progress(vm, "Copying 100%", 1.0)
                 elif _pending_action == "move":
-                    t_dir = _app_state["right_path"] if _app_state["active_pane"] == "left" else _app_state["left_path"]
-                    f_name = _context_target_path.split("/")[-1]
-                    d_path = "/" + f_name if t_dir == "/" else t_dir + "/" + f_name
-                    if d_path != _context_target_path:
+                    if _pending_dest_path != _context_target_path:
                         _draw_progress(vm, "Moving...", 0.0)
+                        if _exists(vm, _pending_dest_path):
+                            print(f"[DEBUG] Found existing destination '{_pending_dest_path}', clearing before move.")
+                            _rmtree(vm, _pending_dest_path)
                         try:
-                            vm.storage.rename(_context_target_path, d_path)
+                            print(f"[DEBUG] Attempting standard rename for move...")
+                            vm.storage.rename(_context_target_path, _pending_dest_path)
                         except Exception:
-                            pass
+                            print(f"[DEBUG] Standard rename failed. Falling back to copy+delete for cross-drive move.")
+                            _copy_item(vm, _context_target_path, _pending_dest_path)
+                            _rmtree(vm, _context_target_path)
                         _draw_progress(vm, "Moving...", 1.0)
+                elif _pending_action == "rename":
+                    if _pending_dest_path != _context_target_path:
+                        _draw_progress(vm, "Renaming...", 0.0)
+                        if _exists(vm, _pending_dest_path):
+                            print(f"[DEBUG] Found existing destination '{_pending_dest_path}', clearing before rename.")
+                            _rmtree(vm, _pending_dest_path)
+                        try:
+                            vm.storage.rename(_context_target_path, _pending_dest_path)
+                        except Exception as e:
+                            print(f"[DEBUG] Final Rename Error: {e}")
+                        _draw_progress(vm, "Renaming...", 1.0)
                 
-                if _pending_action in ["delete", "copy", "move"]:
-                    _app_state["left_files"] = _load_dir(vm, _app_state["left_path"])
-                    _app_state["right_files"] = _load_dir(vm, _app_state["right_path"])
+                if _pending_action in ["delete", "copy", "move", "rename"]:
+                    _force_sync(vm)
+                    _refresh_panes(vm)
 
             _confirm_menu = None
             _pending_action = ""
             _context_target_path = ""
-            dirty_ui = True
+            _pending_dest_path = ""
+            _needs_redraw = True
             time.sleep(0.3)
 
     elif _context_menu is not None:
         if btn == BUTTON_BACK:
             input_mgr.reset()
             _context_menu = None
-            dirty_ui = True
+            _needs_redraw = True
             time.sleep(0.3)
         elif btn == BUTTON_UP:
             input_mgr.reset()
             _context_menu.scroll_up()
-            dirty_ui = True
+            _needs_redraw = True
         elif btn == BUTTON_DOWN:
             input_mgr.reset()
             _context_menu.scroll_down()
-            dirty_ui = True
+            _needs_redraw = True
         elif btn == BUTTON_CENTER or key in (10, 13, '\n', '\r') or btn in (10, 13):
             input_mgr.reset()
             action = _context_menu.current_item
+            print(f"[DEBUG] Selected action from context menu: {action}")
             if action == "Cancel":
                 pass
             elif action == "Delete":
@@ -738,49 +911,65 @@ def run(vm):
                 if _context_target_path.endswith(".py") or _context_target_path.endswith(".mpy"):
                     try:
                         exec(open(_context_target_path).read())
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        print(f"[DEBUG] Execute error: {e}")
             elif action == "Rename":
                 _input_active = True
                 _input_text = _context_target_path.split("/")[-1]
                 _input_cursor = len(_input_text)
                 _input_mode = "rename"
-            elif action == "Copy":
-                screen_h = vm.draw.size.y
-                _pending_action = "copy"
-                _confirm_menu = Menu(vm.draw, "Confirm Copy?", 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_BLACK, border_color=c_bar, border_width=2)
-                _confirm_menu.add_item("No")
-                _confirm_menu.add_item("Yes")
-                _confirm_menu.set_selected(0)
-            elif action == "Move":
-                screen_h = vm.draw.size.y
-                _pending_action = "move"
-                _confirm_menu = Menu(vm.draw, "Confirm Move?", 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_BLACK, border_color=c_bar, border_width=2)
-                _confirm_menu.add_item("No")
-                _confirm_menu.add_item("Yes")
-                _confirm_menu.set_selected(0)
+            elif action in ("Copy", "Move"):
+                # Dynamically calculate destination
+                t_dir = _app_state["right_path"] if _app_state["active_pane"] == "left" else _app_state["left_path"]
+                f_name = _context_target_path.split("/")[-1]
+                d_path = "/" + f_name if t_dir == "/" else t_dir + "/" + f_name
+                
+                print(f"[DEBUG] Pane target directory: {t_dir}")
+                print(f"[DEBUG] Calculated destination path: {d_path}")
+                
+                if d_path == _context_target_path:
+                    print(f"[DEBUG] Same-directory copy/move detected.")
+                    _input_active = True
+                    _input_text = f_name
+                    _input_cursor = len(_input_text)
+                    _input_mode = "copy_same" if action == "Copy" else "rename"
+                else:
+                    screen_h = vm.draw.size.y
+                    _pending_action = action.lower()
+                    _pending_dest_path = d_path
+                    
+                    exists = _exists(vm, d_path)
+                    print(f"[DEBUG] Checking target existence for cross-pane {action}: {exists}")
+                        
+                    msg = "Overwrite?" if exists else f"Confirm {action}?"
+                    
+                    _confirm_menu = Menu(vm.draw, msg, 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_BLACK, border_color=c_bar, border_width=2)
+                    _confirm_menu.add_item("No")
+                    _confirm_menu.add_item("Yes")
+                    _confirm_menu.set_selected(0)
+                    
             _context_menu = None
-            dirty_ui = True
+            _needs_redraw = True
             time.sleep(0.3)
 
     elif btn == BUTTON_BACK:
         input_mgr.reset()
         if _is_help_screen:
             _is_help_screen = False
+            _needs_redraw = True
         else:
             vm.back()
             return
-        dirty_ui = True
         
     elif btn == BUTTON_LEFT and _is_help_screen == False:
         input_mgr.reset()
         _app_state["active_pane"] = "left"
-        dirty_ui = True
+        _needs_redraw = True
         
     elif btn == BUTTON_RIGHT and _is_help_screen == False:
         input_mgr.reset()
         _app_state["active_pane"] = "right"
-        dirty_ui = True
+        _needs_redraw = True
         
     elif btn == BUTTON_UP and _is_help_screen == False:
         input_mgr.reset()
@@ -790,7 +979,7 @@ def run(vm):
         f_len = len(_app_state[files_key])
         if f_len > 0:
             _app_state[idx_key] = (_app_state[idx_key] - 1) % f_len
-            dirty_ui = True
+            _needs_redraw = True
         
     elif btn == BUTTON_DOWN and _is_help_screen == False:
         input_mgr.reset()
@@ -800,7 +989,7 @@ def run(vm):
         f_len = len(_app_state[files_key])
         if f_len > 0:
             _app_state[idx_key] = (_app_state[idx_key] + 1) % f_len
-            dirty_ui = True
+            _needs_redraw = True
 
     elif btn == BUTTON_CENTER and _is_help_screen == False:
         input_mgr.reset()
@@ -819,10 +1008,12 @@ def run(vm):
                 if parent == "//" or parent == "":
                     parent = "/"
                 _app_state[path_key] = parent
-                new_file_list = _load_dir(vm, parent)
-                _app_state[files_key] = new_file_list
+                
+                # Use our safe helper so the cursor gets clamped 
+                _refresh_panes(vm)
+                
                 new_cursor_idx = 0
-                for i, item_data in enumerate(new_file_list):
+                for i, item_data in enumerate(_app_state[files_key]):
                     if item_data[0] == folder_exited:
                         new_cursor_idx = i
                         break
@@ -831,7 +1022,7 @@ def run(vm):
                 new_path = "/" + selected_file if current_path == "/" else current_path + "/" + selected_file
                 if is_dir:
                     _app_state[path_key] = new_path
-                    _app_state[files_key] = _load_dir(vm, new_path)
+                    _refresh_panes(vm)
                     _app_state[idx_key] = 0
                 else:
                     screen_h = vm.draw.size.y
@@ -845,15 +1036,20 @@ def run(vm):
                     _context_menu.add_item("Cancel")
                     _context_menu.set_selected(0)
                     time.sleep(0.3)
-            dirty_ui = True
+            _needs_redraw = True
 
-    _draw_ui(vm)
+    # Heavily optimize display SPI traffic: Only redraw when state changes
+    if _needs_redraw:
+        _draw_ui(vm)
+        
     _auto_save(vm)
     gc.collect()
 
 def stop(vm):
+    print("[DEBUG] PicoCommander App Stopping...")
     global _app_state, _last_saved_json, _context_menu, _confirm_menu, show_options, opt_idx
-    global _pending_action, _sys, _input_active, _input_text, _input_cursor, _input_mode
+    global _pending_action, _pending_dest_path, _sys, _input_active, _input_text, _input_cursor, _input_mode, _needs_redraw
+    global _char_map
     
     _auto_save(vm)
     
@@ -871,15 +1067,23 @@ def stop(vm):
         _confirm_menu.clear()
     _confirm_menu = None
     
+    # Completely destroy the dictionary mapping on exit to save memory 
+    if _char_map is not None:
+        _char_map.clear()
+    _char_map = None
+    
     show_options = False
     opt_idx = 0
     _pending_action = ""
+    _pending_dest_path = ""
     _input_active = False
     _input_text = ""
     _input_cursor = 0
     _input_mode = ""
+    _needs_redraw = True
     _sys = None
     
+    # Aggressively clean up memory upon app exit
     gc.collect()
 
 # add this at the bottom of your app for testing

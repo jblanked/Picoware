@@ -60,7 +60,7 @@ _char_map = None
 _show_info = False
 _info_data = []
 
-OPTIONS_LABELS = ("Theme", "BG R (0-255)", "BG G (0-255)", "BG B (0-255)", "Bar R (0-255)", "Bar G (0-255)", "Bar B (0-255)", "Sort Mode", "Hidden Files")
+OPTIONS_LABELS = ("Theme", "BG R (0-255)", "BG G (0-255)", "BG B (0-255)", "Bar R (0-255)", "Bar G (0-255)", "Bar B (0-255)", "Sort Mode", "Hidden Files", "Dir Enter")
 
 def rgb_to_565(r, g, b):
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
@@ -135,6 +135,7 @@ def _init_state(vm):
         "active_pane": PANE_LEFT,
         "sort_mode": SORT_NAME,
         "show_hidden": False,
+        "dir_menu": True,
         "disclaimer_accepted": False,
         "theme": 0,
         "bg_r": 0,
@@ -160,6 +161,7 @@ def _init_state(vm):
             _app_state["active_pane"] = PANE_LEFT if ap in ("left", PANE_LEFT) else PANE_RIGHT
             
             _app_state["show_hidden"] = saved_state.get("show_hidden", False)
+            _app_state["dir_menu"] = saved_state.get("dir_menu", True)
             _app_state["disclaimer_accepted"] = saved_state.get("disclaimer_accepted", False)
             _app_state["theme"] = saved_state.get("theme", 0)
             _app_state["bg_r"] = saved_state.get("bg_r", 0)
@@ -445,6 +447,7 @@ def _draw_ui(vm):
             elif i == 6: val = str(_app_state.get("bar_b", 170))
             elif i == 7: val = "Name" if _app_state.get("sort_mode", SORT_NAME) == SORT_NAME else "Date"
             elif i == 8: val = "Show" if _app_state.get("show_hidden", False) else "Hide"
+            elif i == 9: val = "Menu" if _app_state.get("dir_menu", True) else "Open"
             
             d_text(Vector(130, y_pos), f"< {val} >", t_col)
             
@@ -590,6 +593,7 @@ def _auto_save(vm):
             "sort_mode": _app_state["sort_mode"],
             "active_pane": _app_state.get("active_pane", PANE_LEFT),
             "show_hidden": _app_state.get("show_hidden", False),
+            "dir_menu": _app_state.get("dir_menu", True),
             "disclaimer_accepted": _app_state.get("disclaimer_accepted", False),
             "theme": _app_state.get("theme", 0),
             "bg_r": _app_state.get("bg_r", 0),
@@ -888,13 +892,9 @@ def run(vm):
             _refresh_panes(vm)
             _needs_redraw = True
             time.sleep(0.3)
-        elif btn == BUTTON_UP:
-            input_reset()
-            opt_idx = (opt_idx - 1) % 9
-            _needs_redraw = True
         elif btn == BUTTON_DOWN:
             input_reset()
-            opt_idx = (opt_idx + 1) % 9
+            opt_idx = (opt_idx + 1) % 10
             _needs_redraw = True
         elif btn == BUTTON_RIGHT:
             input_reset()
@@ -908,6 +908,7 @@ def run(vm):
             elif opt_idx == 6: _app_state["bar_b"] = (_app_state.get("bar_b", 0) + 15) % 256
             elif opt_idx == 7: _app_state["sort_mode"] = SORT_DATE if _app_state["sort_mode"] == SORT_NAME else SORT_NAME
             elif opt_idx == 8: _app_state["show_hidden"] = not _app_state.get("show_hidden", False)
+            elif opt_idx == 9: _app_state["dir_menu"] = not _app_state.get("dir_menu", True)
         elif btn == BUTTON_LEFT:
             input_reset()
             _needs_redraw = True
@@ -920,6 +921,7 @@ def run(vm):
             elif opt_idx == 6: _app_state["bar_b"] = (_app_state.get("bar_b", 0) - 15) % 256
             elif opt_idx == 7: _app_state["sort_mode"] = SORT_NAME if _app_state["sort_mode"] == SORT_DATE else SORT_DATE
             elif opt_idx == 8: _app_state["show_hidden"] = not _app_state.get("show_hidden", False)
+            elif opt_idx == 9: _app_state["dir_menu"] = not _app_state.get("dir_menu", True)
 
     elif _confirm_menu is not None:
         if btn == BUTTON_BACK:
@@ -1202,7 +1204,15 @@ def run(vm):
                 screen_h = vm.draw.size.y
                 
                 marked = _app_state["marked"]
-                if len(marked) > 0:
+                if is_dir and not _app_state.get("dir_menu", True) and len(marked) == 0:
+                    if act_pane == PANE_LEFT:
+                        _app_state["left_path"] = new_path
+                        _app_state["left_index"] = 0
+                    else:
+                        _app_state["right_path"] = new_path
+                        _app_state["right_index"] = 0
+                    _refresh_panes(vm)
+                elif len(marked) > 0:
                     _context_menu = Menu(vm.draw, f"{len(marked)} Marked", 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
                     if is_dir:
                         _context_target_path = new_path
@@ -1212,6 +1222,8 @@ def run(vm):
                     _context_menu.add_item("Delete")
                     _context_menu.add_item("Clear Marks")
                     _context_menu.add_item("Cancel")
+                    _context_menu.set_selected(0)
+                    time.sleep(0.3)
                 else:
                     _context_target_path = new_path
                     _context_menu = Menu(vm.draw, selected_file[:14], 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
@@ -1222,8 +1234,8 @@ def run(vm):
                     _context_menu.add_item("Rename")
                     _context_menu.add_item("Delete")
                     _context_menu.add_item("Cancel")
-                _context_menu.set_selected(0)
-                time.sleep(0.3)
+                    _context_menu.set_selected(0)
+                    time.sleep(0.3)
             _needs_redraw = True
 
     if _needs_redraw:

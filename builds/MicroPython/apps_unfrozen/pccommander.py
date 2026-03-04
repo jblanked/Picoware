@@ -687,7 +687,7 @@ def run(vm):
                         print(f"[DEBUG] Triggering overwrite menu for action: {_pending_action}")
                         
                         screen_h = vm.draw.size.y
-                        _confirm_menu = Menu(vm.draw, "Overwrite?", 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_BLACK, border_color=c_bar, border_width=2)
+                        _confirm_menu = Menu(vm.draw, "Overwrite?", 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
                         _confirm_menu.add_item("No")
                         _confirm_menu.add_item("Yes")
                         _confirm_menu.set_selected(0)
@@ -799,7 +799,7 @@ def run(vm):
                 screen_h = vm.draw.size.y
                 _context_target_path = new_path
                 _pending_action = "delete"
-                _confirm_menu = Menu(vm.draw, "Confirm Delete?", 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_BLACK, border_color=c_bar, border_width=2)
+                _confirm_menu = Menu(vm.draw, "Confirm Delete?", 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
                 _confirm_menu.add_item("No")
                 _confirm_menu.add_item("Yes")
                 _confirm_menu.set_selected(0)
@@ -942,7 +942,7 @@ def run(vm):
             elif action == "Delete":
                 screen_h = vm.draw.size.y
                 _pending_action = "delete"
-                _confirm_menu = Menu(vm.draw, "Confirm Delete?", 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_BLACK, border_color=c_bar, border_width=2)
+                _confirm_menu = Menu(vm.draw, "Confirm Delete?", 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
                 _confirm_menu.add_item("No")
                 _confirm_menu.add_item("Yes")
                 _confirm_menu.set_selected(0)
@@ -982,7 +982,7 @@ def run(vm):
                         
                     msg = "Overwrite?" if exists else f"Confirm {action}?"
                     
-                    _confirm_menu = Menu(vm.draw, msg, 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_BLACK, border_color=c_bar, border_width=2)
+                    _confirm_menu = Menu(vm.draw, msg, 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
                     _confirm_menu.add_item("No")
                     _confirm_menu.add_item("Yes")
                     _confirm_menu.set_selected(0)
@@ -1066,7 +1066,7 @@ def run(vm):
                 else:
                     screen_h = vm.draw.size.y
                     _context_target_path = new_path
-                    _context_menu = Menu(vm.draw, selected_file[:14], 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_BLACK, border_color=c_bar, border_width=2)
+                    _context_menu = Menu(vm.draw, selected_file[:14], 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
                     _context_menu.add_item("Execute")
                     _context_menu.add_item("Copy")
                     _context_menu.add_item("Move")

@@ -135,7 +135,7 @@ def _init_state(vm):
         "active_pane": PANE_LEFT,
         "sort_mode": SORT_NAME,
         "show_hidden": False,
-        "dir_menu": True,
+        "dir_menu": False,
         "disclaimer_accepted": False,
         "theme": 0,
         "bg_r": 0,

@@ -226,6 +226,7 @@ def _copy_item(vm, src, dst):
                 if not chunk: break
                 storage.write(dst, chunk, "ab" if pos > 0 else "wb")
                 pos += len(chunk)
+                del chunk 
                 if f_size > 0:
                     _draw_progress(vm, f"Copying {int((pos/f_size)*100)}%", min(1.0, pos / f_size))
                 gc.collect()
@@ -278,24 +279,26 @@ def _refresh_panes(vm):
     global _app_state
     if _app_state is None: return
         
+    _app_state["left_files"].clear()
     _app_state["left_files"] = _load_dir(vm, _app_state["left_path"])
     _app_state["left_index"] = max(0, min(_app_state["left_index"], len(_app_state["left_files"]) - 1))
         
+    _app_state["right_files"].clear()
     _app_state["right_files"] = _load_dir(vm, _app_state["right_path"])
     _app_state["right_index"] = max(0, min(_app_state["right_index"], len(_app_state["right_files"]) - 1))
 
 def _open_editor(vm, path, read_only=False):
     global _is_editing, _edit_read_only, _edit_text, _edit_file, _edit_cx, _edit_cy, _edit_sx, _edit_sy, _edit_unsaved, _needs_redraw
-    _edit_text = []
+    _edit_text.clear()
     try:
         data = vm.storage.read(path, "r")
         if data:
-            _edit_text = data.split('\n')
+            _edit_text.extend(data.split('\n'))
         del data
     except Exception: pass
     gc.collect()
     
-    if not _edit_text: _edit_text = [""]
+    if not _edit_text: _edit_text.append("")
     
     _edit_file = path
     _edit_read_only = read_only
@@ -388,7 +391,7 @@ def _draw_ui(vm):
 
         d_text(Vector(10, screen_h - 40), "made by Slasher006", c_bar)
         d_text(Vector(10, screen_h - 30), "with the help of Gemini", c_bar)
-        d_text(Vector(10, screen_h - 20), "Date: 2026-03-04 | v1.14", c_bar)
+        d_text(Vector(10, screen_h - 20), "Date: 2026-03-04 | v1.15", c_bar)
         d_swap()
         _needs_redraw = False
         return
@@ -473,7 +476,7 @@ def _draw_ui(vm):
 
     fill_rect(Vector(0, 0), Vector(screen_w, 12), c_bar)
     sort_str = "Name" if _app_state["sort_mode"] == SORT_NAME else "Date"
-    d_text(Vector(2, 2), f"PicoCalcCommander v1.14  [{sort_str}]", c_btxt)
+    d_text(Vector(2, 2), f"PicoCalcCommander v1.15  [{sort_str}]", c_btxt)
     fill_rect(Vector(mid_x, 12), Vector(1, screen_h - 24), c_bar)
     
     act_pane = _app_state["active_pane"]
@@ -723,7 +726,7 @@ def run(vm):
         if is_esc or is_enter:
             input_reset()
             _show_info = False
-            _info_data = []
+            _info_data.clear()
             _needs_redraw = True
             time.sleep(0.3)
             
@@ -748,6 +751,7 @@ def run(vm):
                         _pending_dest_path = new_path
                         _pending_action = ACT_RENAME if _input_mode == MODE_RENAME else ACT_COPY
                         screen_h = vm.draw.size.y
+                        if _confirm_menu: _confirm_menu.clear()
                         _confirm_menu = Menu(vm.draw, "Overwrite?", 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
                         _confirm_menu.add_item("No")
                         _confirm_menu.add_item("Yes")
@@ -865,11 +869,12 @@ def run(vm):
         if len(files) > 0:
             selected_file, is_dir, f_size = files[idx]
             if selected_file != "..":
-                _info_data = [
+                _info_data.clear()
+                _info_data.extend([
                     f"Name: {selected_file[:22]}",
                     f"Type: {'Directory' if is_dir else 'File'}",
                     f"Size: {f_size} bytes"
-                ]
+                ])
                 _show_info = True
                 _needs_redraw = True
         time.sleep(0.3)
@@ -878,6 +883,8 @@ def run(vm):
         input_reset()
         marked = _app_state["marked"]
         screen_h = vm.draw.size.y
+        if _confirm_menu: _confirm_menu.clear()
+        
         if len(marked) > 0:
             _pending_action = ACT_DELETE
             _confirm_menu = Menu(vm.draw, f"Delete {len(marked)} items?", 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
@@ -946,6 +953,7 @@ def run(vm):
     elif _confirm_menu is not None:
         if is_esc:
             input_reset()
+            _confirm_menu.clear()
             _confirm_menu = None
             _pending_action = ACT_NONE
             _pending_dest_path = ""
@@ -1039,6 +1047,7 @@ def run(vm):
                     _force_sync(vm)
                     _refresh_panes(vm)
 
+            _confirm_menu.clear()
             _confirm_menu = None
             _pending_action = ACT_NONE
             _context_target_path = _pending_dest_path = ""
@@ -1048,6 +1057,7 @@ def run(vm):
     elif _context_menu is not None:
         if is_esc:
             input_reset()
+            _context_menu.clear()
             _context_menu = None
             _needs_redraw = True
             time.sleep(0.3)
@@ -1076,6 +1086,7 @@ def run(vm):
                     if action == "Save & Exit": _is_editing = False
                 elif action == "Exit without Saving":
                     _is_editing = False
+                _context_menu.clear()
                 _context_menu = None
                 _needs_redraw = True
                 time.sleep(0.3)
@@ -1102,6 +1113,7 @@ def run(vm):
                     _pending_action = ACT_DELETE
                     marked = _app_state["marked"]
                     msg = f"Delete {len(marked)} items?" if len(marked) > 0 else "Confirm Delete?"
+                    if _confirm_menu: _confirm_menu.clear()
                     _confirm_menu = Menu(vm.draw, msg, 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
                     _confirm_menu.add_item("No")
                     _confirm_menu.add_item("Yes")
@@ -1120,6 +1132,7 @@ def run(vm):
                         screen_h = vm.draw.size.y
                         _pending_action = ACT_COPY if action == "Copy" else ACT_MOVE
                         _pending_dest_path = t_dir
+                        if _confirm_menu: _confirm_menu.clear()
                         _confirm_menu = Menu(vm.draw, f"Confirm {action}?", 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
                         _confirm_menu.add_item("No")
                         _confirm_menu.add_item("Yes")
@@ -1141,11 +1154,13 @@ def run(vm):
                             exists = _exists(vm, d_path)
                             msg = "Overwrite?" if exists else f"Confirm {action}?"
                             
+                            if _confirm_menu: _confirm_menu.clear()
                             _confirm_menu = Menu(vm.draw, msg, 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
                             _confirm_menu.add_item("No")
                             _confirm_menu.add_item("Yes")
                             _confirm_menu.set_selected(0)
                         
+                _context_menu.clear()
                 _context_menu = None
                 _needs_redraw = True
                 time.sleep(0.3)
@@ -1232,6 +1247,7 @@ def run(vm):
                         _app_state["right_index"] = 0
                     _refresh_panes(vm)
                 elif len(marked) > 0:
+                    if _context_menu: _context_menu.clear()
                     _context_menu = Menu(vm.draw, f"{len(marked)} Marked", 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
                     if is_dir:
                         _context_target_path = new_path
@@ -1245,6 +1261,7 @@ def run(vm):
                     time.sleep(0.3)
                 else:
                     _context_target_path = new_path
+                    if _context_menu: _context_menu.clear()
                     _context_menu = Menu(vm.draw, selected_file[:14], 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
                     if is_dir:
                         _context_menu.add_item("Open")
@@ -1291,7 +1308,6 @@ def stop(vm):
     _is_editing = False
     _edit_read_only = False
     _edit_text.clear()
-    _edit_text = []
     _edit_file = ""
     
     show_options = False
@@ -1304,7 +1320,7 @@ def stop(vm):
     _input_mode = MODE_NONE
     _is_disclaimer_screen = False
     _show_info = False
-    _info_data = []
+    _info_data.clear()
     _needs_redraw = True
     _sys = None
     

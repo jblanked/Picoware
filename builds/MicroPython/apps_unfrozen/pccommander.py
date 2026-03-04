@@ -10,7 +10,7 @@ from picoware.gui.menu import Menu
 from picoware.system.system import System
 
 try:
-    from picoware.system.buttons import BUTTON_S, BUTTON_A, BUTTON_Z, BUTTON_0, BUTTON_9, BUTTON_SPACE, BUTTON_N
+    from picoware.system.buttons import BUTTON_S, BUTTON_A, BUTTON_Z, BUTTON_0, BUTTON_9, BUTTON_SPACE, BUTTON_N, BUTTON_D
 except ImportError:
     BUTTON_S = -99
     BUTTON_A = 97
@@ -19,6 +19,7 @@ except ImportError:
     BUTTON_9 = 57
     BUTTON_SPACE = 32
     BUTTON_N = 110
+    BUTTON_D = 100
 
 _char_map = {}
 try:
@@ -130,11 +131,39 @@ def _init_state(vm):
     except Exception:
         pass
 
+def _rmtree(vm, path):
+    try:
+        is_dir = False
+        try:
+            is_dir = vm.storage.is_directory(path)
+        except Exception:
+            pass
+            
+        if is_dir:
+            try:
+                items = vm.storage.listdir(path)
+                for item in items:
+                    if item == "." or item == "..":
+                        continue
+                    full_path = "/" + item if path == "/" else path + "/" + item
+                    _rmtree(vm, full_path)
+            except Exception:
+                pass
+            try:
+                vm.storage.rmdir(path)
+            except Exception:
+                try:
+                    vm.storage.remove(path)
+                except Exception:
+                    pass
+        else:
+            vm.storage.remove(path)
+    except Exception:
+        pass
+    gc.collect()
+
 def _load_dir(vm, path):
     items = []
-    parent = []
-    if path != "/":
-        parent.append(("..", True))
     try:
         dir_list = vm.storage.listdir(path)
         for item in dir_list:
@@ -146,14 +175,26 @@ def _load_dir(vm, path):
             full_path = "/" + item if path == "/" else path + "/" + item
             is_dir = False
             mtime = 0
+            size = 0
+            
             try:
-                if vm.storage.is_directory(full_path):
-                    is_dir = True
-                elif _app_state["sort_mode"] == "date":
-                    mtime = os.stat(full_path)[8]
+                is_dir = vm.storage.is_directory(full_path)
             except Exception:
                 pass
-            items.append((item, is_dir, mtime))
+                
+            try:
+                if not is_dir:
+                    size = vm.storage.size(full_path)
+            except Exception:
+                pass
+                
+            if _app_state["sort_mode"] == "date":
+                try:
+                    mtime = os.stat(full_path)[8]
+                except Exception:
+                    pass
+                    
+            items.append((item, is_dir, mtime, size))
         del dir_list
         
         if _app_state["sort_mode"] == "name":
@@ -161,11 +202,14 @@ def _load_dir(vm, path):
         else:
             items.sort(key=lambda x: (not x[1], -x[2]))
             
-        items = [(x[0], x[1]) for x in items]
+        items = [(x[0], x[1], x[3]) for x in items]
     except Exception:
-        items = [("<ERROR>", False)]
+        items = [("<ERROR>", False, 0)]
     gc.collect()
-    return parent + items
+    
+    if path != "/":
+        return [("..", True, 0)] + items
+    return items
 
 def _draw_progress(vm, title, percentage):
     c_bg, c_bar, c_txt, c_dir, c_btxt = _get_theme(_app_state)
@@ -201,6 +245,7 @@ def _draw_ui(vm):
     mid_x = screen_w // 2
     
     char_limit = (mid_x - 8) // 6
+    name_limit = char_limit - 6
     max_items = (screen_h - 38) // 12
     
     if _is_help_screen:
@@ -208,20 +253,21 @@ def _draw_ui(vm):
         draw.text(Vector(10, 24), "H: Toggle Help", c_bar)
         draw.text(Vector(10, 36), "O: Options Menu", c_bar)
         draw.text(Vector(10, 48), "N: New Folder", c_bar)
-        draw.text(Vector(10, 60), "UP/DOWN: Scroll", TFT_WHITE)
-        draw.text(Vector(10, 72), "L/R: Switch Pane", TFT_WHITE)
-        draw.text(Vector(10, 84), "CENTER: Menu/Exec", TFT_WHITE)
-        draw.text(Vector(10, 96), "BACK: Exit App", TFT_WHITE)
+        draw.text(Vector(10, 60), "D/DEL: Delete Item", c_bar)
+        draw.text(Vector(10, 72), "UP/DOWN: Scroll", TFT_WHITE)
+        draw.text(Vector(10, 84), "L/R: Switch Pane", TFT_WHITE)
+        draw.text(Vector(10, 96), "CENTER: Menu/Exec", TFT_WHITE)
+        draw.text(Vector(10, 108), "BACK: Exit App", TFT_WHITE)
         
         gc.collect()
         used_ram = gc.mem_alloc() // 1024
         free_ram = gc.mem_free() // 1024
-        draw.text(Vector(10, 114), f"RAM: {used_ram}KB used / {free_ram}KB free", TFT_YELLOW)
+        draw.text(Vector(10, 126), f"RAM: {used_ram}KB used / {free_ram}KB free", TFT_YELLOW)
         
         if _sys and _sys.has_psram:
             used_psram = _sys.used_psram // 1024
             free_psram = _sys.free_psram // 1024
-            draw.text(Vector(10, 126), f"PSRAM: {used_psram}KB used / {free_psram}KB free", TFT_YELLOW)
+            draw.text(Vector(10, 138), f"PSRAM: {used_psram}KB used / {free_psram}KB free", TFT_YELLOW)
 
         draw.text(Vector(10, screen_h - 40), "made by Slasher006", c_bar)
         draw.text(Vector(10, screen_h - 30), "with the help of Gemini", c_bar)
@@ -308,14 +354,27 @@ def _draw_ui(vm):
     left_start = max(0, _app_state["left_index"] - (max_items - 1))
     y_offset = 26
     for i, item_data in enumerate(_app_state["left_files"][left_start : left_start + max_items]):
-        f_name, is_dir = item_data
+        f_name, is_dir, f_size = item_data
         actual_idx = i + left_start
         display_name = "/" + f_name if is_dir else f_name
         base_color = c_dir if is_dir else c_txt
         text_color = base_color if _app_state["active_pane"] == "right" or actual_idx != _app_state["left_index"] else c_btxt
         if _app_state["active_pane"] == "left" and actual_idx == _app_state["left_index"]:
             draw.fill_rectangle(Vector(0, y_offset-1), Vector(mid_x - 2, 10), c_bar)
-        draw.text(Vector(2, y_offset), display_name[:char_limit], text_color)
+            
+        if is_dir:
+            sz_str = "<DIR>"
+        elif f_size < 1024:
+            sz_str = f"{f_size}B"
+        elif f_size < 1048576:
+            sz_str = f"{f_size//1024}K"
+        else:
+            sz_str = f"{f_size//1048576}M"
+            
+        pad_len = max(0, char_limit - len(display_name[:name_limit]) - len(sz_str))
+        full_str = display_name[:name_limit] + (" " * pad_len) + sz_str
+            
+        draw.text(Vector(2, y_offset), full_str, text_color)
         y_offset += 12
         
     if _app_state["active_pane"] == "right":
@@ -324,18 +383,31 @@ def _draw_ui(vm):
     right_start = max(0, _app_state["right_index"] - (max_items - 1))
     y_offset = 26
     for i, item_data in enumerate(_app_state["right_files"][right_start : right_start + max_items]):
-        f_name, is_dir = item_data
+        f_name, is_dir, f_size = item_data
         actual_idx = i + right_start
         display_name = "/" + f_name if is_dir else f_name
         base_color = c_dir if is_dir else c_txt
         text_color = base_color if _app_state["active_pane"] == "left" or actual_idx != _app_state["right_index"] else c_btxt
         if _app_state["active_pane"] == "right" and actual_idx == _app_state["right_index"]:
             draw.fill_rectangle(Vector(mid_x + 2, y_offset-1), Vector(mid_x - 4, 10), c_bar)
-        draw.text(Vector(mid_x + 4, y_offset), display_name[:char_limit], text_color)
+            
+        if is_dir:
+            sz_str = "<DIR>"
+        elif f_size < 1024:
+            sz_str = f"{f_size}B"
+        elif f_size < 1048576:
+            sz_str = f"{f_size//1024}K"
+        else:
+            sz_str = f"{f_size//1048576}M"
+            
+        pad_len = max(0, char_limit - len(display_name[:name_limit]) - len(sz_str))
+        full_str = display_name[:name_limit] + (" " * pad_len) + sz_str
+            
+        draw.text(Vector(mid_x + 4, y_offset), full_str, text_color)
         y_offset += 12
 
     draw.fill_rectangle(Vector(0, screen_h - 12), Vector(screen_w, 12), c_bar)
-    draw.text(Vector(2, screen_h - 10), "H Hlp O Opt N New C Cp M Mv", c_btxt)
+    draw.text(Vector(2, screen_h - 10), "H Hlp O Opt N New C Cp M Mv D/DEL Del", c_btxt)
 
     draw.swap()
 
@@ -403,12 +475,28 @@ def run(vm):
     dirty_ui = False
 
     if _input_active:
-        if btn == BUTTON_BACK:
+        is_printable = False
+        char_to_add = ""
+        
+        if key and isinstance(key, str) and len(key) == 1 and 32 <= ord(key) <= 126:
+            is_printable = True
+            char_to_add = key
+        elif isinstance(btn, int) and 32 <= btn <= 126:
+            is_printable = True
+            char_to_add = chr(btn)
+            
+        is_enter = (btn == BUTTON_CENTER and not is_printable) or key in ('\n', '\r') or btn in (10, 13)
+        is_esc = (btn == BUTTON_BACK and not is_printable) or key == '\x1b'
+        is_bs = (btn == BUTTON_BACKSPACE and not is_printable and btn not in (66, 98)) or key in ('\x08', '\x7f') or btn in (8, 127)
+        is_left = (btn == BUTTON_LEFT and not is_printable)
+        is_right = (btn == BUTTON_RIGHT and not is_printable)
+        
+        if is_esc:
             input_mgr.reset()
             _input_active = False
             dirty_ui = True
-            time.sleep(0.15)
-        elif btn == BUTTON_CENTER or key in (10, 13, '\n', '\r') or btn in (10, 13):
+            time.sleep(0.3)
+        elif is_enter:
             input_mgr.reset()
             new_name = _input_text.strip()
             if new_name:
@@ -432,55 +520,46 @@ def run(vm):
             _input_active = False
             _context_target_path = ""
             dirty_ui = True
-            time.sleep(0.15)
-        elif btn == BUTTON_LEFT:
+            time.sleep(0.3)
+        elif is_left:
             input_mgr.reset()
             if _input_cursor > 0:
                 _input_cursor -= 1
                 dirty_ui = True
-            time.sleep(0.08)
-        elif btn == BUTTON_RIGHT:
+            time.sleep(0.15)
+        elif is_right:
             input_mgr.reset()
             if _input_cursor < len(_input_text):
                 _input_cursor += 1
                 dirty_ui = True
-            time.sleep(0.08)
-        elif btn == BUTTON_BACKSPACE or key in (8, 127, '\x08', '\x7f') or btn in (8, 127):
+            time.sleep(0.15)
+        elif is_bs:
             input_mgr.reset()
             if _input_cursor > 0:
                 _input_text = _input_text[:_input_cursor - 1] + _input_text[_input_cursor:]
                 _input_cursor -= 1
                 dirty_ui = True
-            time.sleep(0.08)
-        else:
-            char_to_add = ""
-            if key and isinstance(key, str) and len(key) == 1 and 32 <= ord(key) <= 126:
-                char_to_add = key
-            elif btn in _char_map:
-                char_to_add = _char_map[btn]
-            elif isinstance(btn, int) and 32 <= btn <= 126 and btn not in (BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_CENTER, BUTTON_BACK, BUTTON_H, BUTTON_O):
-                char_to_add = chr(btn)
-                
-            if char_to_add:
-                input_mgr.reset()
-                if len(_input_text) < 35:
-                    _input_text = _input_text[:_input_cursor] + char_to_add + _input_text[_input_cursor:]
-                    _input_cursor += 1
-                    dirty_ui = True
-                time.sleep(0.08)
+            time.sleep(0.15)
+        elif is_printable:
+            input_mgr.reset()
+            if len(_input_text) < 35:
+                _input_text = _input_text[:_input_cursor] + char_to_add + _input_text[_input_cursor:]
+                _input_cursor += 1
+                dirty_ui = True
+            time.sleep(0.18)
             
     elif btn == BUTTON_H or key in ('h', 'H', ord('h'), ord('H')) or btn in (ord('h'), ord('H')):
         input_mgr.reset()
         _is_help_screen = not _is_help_screen
         dirty_ui = True
 
-    elif btn == BUTTON_O or key in ('o', 'O', ord('o'), ord('O')) or btn in (ord('o'), ord('O')):
+    elif (btn == BUTTON_O or key in ('o', 'O', ord('o'), ord('O')) or btn in (ord('o'), ord('O'))) and not _is_help_screen and _confirm_menu is None and _context_menu is None:
         input_mgr.reset()
         show_options = True
         opt_idx = 0
         dirty_ui = True
 
-    elif btn == BUTTON_S or key in ('s', 'S', ord('s'), ord('S')) or btn in (ord('s'), ord('S')):
+    elif (btn == BUTTON_S or key in ('s', 'S', ord('s'), ord('S')) or btn in (ord('s'), ord('S'))) and not _is_help_screen and not show_options and _confirm_menu is None and _context_menu is None:
         input_mgr.reset()
         _app_state["sort_mode"] = "date" if _app_state["sort_mode"] == "name" else "name"
         _app_state["left_files"] = _load_dir(vm, _app_state["left_path"])
@@ -489,12 +568,34 @@ def run(vm):
         _app_state["right_index"] = 0
         dirty_ui = True
 
-    elif btn == BUTTON_N or key in ('n', 'N', ord('n'), ord('N')) or btn in (ord('n'), ord('N')):
+    elif (btn == BUTTON_N or key in ('n', 'N', ord('n'), ord('N')) or btn in (ord('n'), ord('N'))) and not _is_help_screen and not show_options and _confirm_menu is None and _context_menu is None:
         input_mgr.reset()
         _input_active = True
         _input_mode = "mkdir"
         _input_text = ""
         _input_cursor = 0
+        dirty_ui = True
+        time.sleep(0.3)
+        
+    elif (btn in (BUTTON_D, ord('d'), ord('D')) or key in ('d', 'D') or (btn == BUTTON_BACKSPACE and btn not in (66, 98)) or btn in (8, 127) or key in ('\x08', '\x7f')) and not _is_help_screen and not show_options and _confirm_menu is None and _context_menu is None:
+        input_mgr.reset()
+        pane = _app_state["active_pane"]
+        path_key = pane + "_path"
+        files_key = pane + "_files"
+        idx_key = pane + "_index"
+        current_path = _app_state[path_key]
+        
+        if len(_app_state[files_key]) > 0:
+            selected_file, is_dir, _ = _app_state[files_key][_app_state[idx_key]]
+            if selected_file != "..":
+                new_path = "/" + selected_file if current_path == "/" else current_path + "/" + selected_file
+                screen_h = vm.draw.size.y
+                _context_target_path = new_path
+                _pending_action = "delete"
+                _confirm_menu = Menu(vm.draw, "Confirm Delete?", 0, screen_h, TFT_WHITE, c_bg, selected_color=TFT_BLACK, border_color=c_bar, border_width=2)
+                _confirm_menu.add_item("No")
+                _confirm_menu.add_item("Yes")
+                _confirm_menu.set_selected(0)
         dirty_ui = True
 
     elif show_options:
@@ -504,7 +605,7 @@ def run(vm):
             _app_state["left_files"] = _load_dir(vm, _app_state["left_path"])
             _app_state["right_files"] = _load_dir(vm, _app_state["right_path"])
             dirty_ui = True
-            time.sleep(0.15)
+            time.sleep(0.3)
         elif btn == BUTTON_UP:
             input_mgr.reset()
             opt_idx = (opt_idx - 1) % 9
@@ -544,7 +645,7 @@ def run(vm):
             _confirm_menu = None
             _pending_action = ""
             dirty_ui = True
-            time.sleep(0.15)
+            time.sleep(0.3)
         elif btn == BUTTON_UP:
             input_mgr.reset()
             _confirm_menu.scroll_up()
@@ -559,10 +660,7 @@ def run(vm):
             if selection == "Yes":
                 if _pending_action == "delete":
                     _draw_progress(vm, "Deleting...", 0.0)
-                    try:
-                        vm.storage.remove(_context_target_path)
-                    except Exception:
-                        pass
+                    _rmtree(vm, _context_target_path)
                     _draw_progress(vm, "Deleting...", 1.0)
                 elif _pending_action == "copy":
                     t_dir = _app_state["right_path"] if _app_state["active_pane"] == "left" else _app_state["left_path"]
@@ -608,14 +706,14 @@ def run(vm):
             _pending_action = ""
             _context_target_path = ""
             dirty_ui = True
-            time.sleep(0.15)
+            time.sleep(0.3)
 
     elif _context_menu is not None:
         if btn == BUTTON_BACK:
             input_mgr.reset()
             _context_menu = None
             dirty_ui = True
-            time.sleep(0.15)
+            time.sleep(0.3)
         elif btn == BUTTON_UP:
             input_mgr.reset()
             _context_menu.scroll_up()
@@ -663,7 +761,7 @@ def run(vm):
                 _confirm_menu.set_selected(0)
             _context_menu = None
             dirty_ui = True
-            time.sleep(0.15)
+            time.sleep(0.3)
 
     elif btn == BUTTON_BACK:
         input_mgr.reset()
@@ -713,7 +811,7 @@ def run(vm):
         current_path = _app_state[path_key]
         
         if len(_app_state[files_key]) > 0:
-            selected_file, is_dir = _app_state[files_key][_app_state[idx_key]]
+            selected_file, is_dir, _ = _app_state[files_key][_app_state[idx_key]]
             if selected_file == "..":
                 parts = current_path.rstrip("/").split("/")
                 folder_exited = parts[-1] if len(parts) > 1 else ""
@@ -746,7 +844,7 @@ def run(vm):
                     _context_menu.add_item("Delete")
                     _context_menu.add_item("Cancel")
                     _context_menu.set_selected(0)
-                    time.sleep(0.15)
+                    time.sleep(0.3)
             dirty_ui = True
 
     _draw_ui(vm)

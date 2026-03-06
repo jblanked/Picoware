@@ -99,7 +99,11 @@ class Storage:
         if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return None  # No SD storage on this board
 
-        return sd_mp.file_open(file_path)
+        try:
+            return sd_mp.file_open(file_path)
+        except Exception as e:
+            print(f"Error opening file {file_path}: {e}")
+            return None
 
     def file_read(
         self, file_obj: FAT32File, index: int = 0, count: int = 0, decode: bool = True
@@ -121,12 +125,17 @@ class Storage:
 
         return sd_mp.file_readinto(file_obj, buffer)
 
-    def file_seek(self, file_obj: FAT32File, position: int) -> None:
+    def file_seek(self, file_obj: FAT32File, position: int) -> bool:
         """Seek to a specific position in an open file."""
         if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
-            return  # Waveshare SD module does not support file seek yet
+            return False  # Waveshare SD module does not support file seek yet
 
-        sd_mp.file_seek(file_obj, position)
+        try:
+            sd_mp.file_seek(file_obj, position)
+            return True
+        except Exception as e:
+            print(f"Error seeking in file: {e}")
+            return False
 
     def file_write(self, file_obj: FAT32File, data, mode: str = "w") -> bool:
         """Write data to an open file."""
@@ -134,11 +143,11 @@ class Storage:
             return False  # Waveshare SD module does not support file write yet
 
         try:
-            if mode == "w":
-                return sd_mp.file_write(file_obj, data.encode("utf-8"))
-            if mode == "a":
-                return sd_mp.file_write(file_obj, data.encode("utf-8"))
-            return sd_mp.file_write(file_obj, data)
+            if mode in ("w", "a"):
+                sd_mp.file_write(file_obj, data.encode("utf-8"))
+            else:
+                sd_mp.file_write(file_obj, data)
+            return True
         except Exception as e:
             print(f"Error writing to file: {e}")
             return False

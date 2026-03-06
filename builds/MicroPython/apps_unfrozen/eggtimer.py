@@ -35,21 +35,6 @@ try:
 except Exception:
     buzzer = None
 
-def track_ram(func):
-    def wrapper(*args, **kwargs):
-        import gc
-        gc.collect()  # Clean up before starting
-        start_mem = gc.mem_alloc()
-        
-        result = func(*args, **kwargs)  # Run your actual function
-        
-        end_mem = gc.mem_alloc()
-        diff = end_mem - start_mem
-        print(f"[RAM TRACKER] {func.__name__} added: {diff} bytes")
-        
-        return result
-    return wrapper
-
 show_options = False
 help_scroll = 0
 _last_saved_json = ""
@@ -72,18 +57,16 @@ _EGG_PRESETS = (
     (10, "Hard+ (10m)")
 )
 
-_VERSION = "0.12"
+_VERSION = "0.13a"
 
 _cached_help_lines = []
 
 def get_help_lines():
     global board_name, _cached_help_lines
-    import gc
     
     # Sweep temporary garbage to get an accurate live baseline
     gc.collect() 
-    ram_str = f"RAM: {gc.mem_alloc() // 1024}KB / {gc.mem_free() // 1024}KB"
-    
+    ram_str = f"RAM: {gc.mem_alloc() // 1024}KB / {gc.mem_free() // 1024}KB" # Format the live RAM string in kilobytes    
     # If the cache exists, just surgically update the RAM line (Index 5)
     if _cached_help_lines:
         _cached_help_lines[5] = ram_str
@@ -103,7 +86,7 @@ def get_help_lines():
         "CREDITS:",
         "made by Slasher006",
         "with the help of jBlanked and Gemini",
-        "Date: 2026-02-28",
+        "Date: 2026-03-02",
         "",
         "SHORTCUTS:",
         "[L/R] Tgl ON/OFF",
@@ -207,28 +190,6 @@ clear_confirm_yes = False
 storage = None
 show_help = False
 show_options = False
-sys_time = time # Create a global fallback mapping to the standard time module
-
-
-#def profile_ram(func_name, target_function, *args, **kwargs):
-    # Force a deep cleanup to get a completely flat baseline
-#    gc.collect()
-    
-    # Record the exact number of bytes currently allocated in the heap
-#    start_mem = gc.mem_alloc()
-    
-    # Execute the target view function
-#    target_function(*args, **kwargs)
-    
-    # Record the exact number of bytes allocated after the function finishes
-#    end_mem = gc.mem_alloc()
-    
-    # Calculate the total bytes added to RAM by this function
-#    diff = end_mem - start_mem
-    
-    # Print the result to the Thonny console
-#    print(f"[RAM LOG] View '{func_name}' consumed: {diff} bytes")
-#    pass
 
 def rgb_to_565(r, g, b):
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
@@ -238,28 +199,31 @@ def queue_save():
     dirty_save = True
     save_timer = 60
 
-def save_settings():
-    global settings, storage, dirty_save
-    if not storage or not dirty_save: return
-    try:
-        json_str = json.dumps(settings)
-        storage.write(_SETTINGS_FILE, json_str, "w")
-        dirty_save = False
-        del json_str
-        import gc
-        gc.collect()
-    except Exception: pass
+def save_settings(): # Function to persist the global settings dictionary to the SD card
+    global settings, storage, dirty_save, _last_saved_json # Reference global variables including the delta cache
+    if not storage or not dirty_save: return # Abort if storage is missing or no save is needed
+    try: # Begin error handling block for SD card operations
+        json_str = json.dumps(settings) # Serialize the settings dictionary into a JSON string
+        if json_str != _last_saved_json: # Check if the newly generated string differs from the cached string
+            storage.write(_SETTINGS_FILE, json_str, "w") # Write the new JSON string to the physical SD card
+            _last_saved_json = json_str # Update the cached delta string with the newly written data
+        dirty_save = False # Clear the save required flag regardless of whether a physical write occurred
+        del json_str # Delete the local JSON string variable from RAM to free memory
+        import gc # Import garbage collection
+        gc.collect() # Force a sweep to immediately reclaim the memory from the JSON string
+    except Exception: pass # Silently ignore any file system errors
 
 def validate_and_load_settings():
-    global settings, storage
-    if storage and storage.exists(_SETTINGS_FILE):
-        try:
-            raw_data = storage.read(_SETTINGS_FILE, "r")
-            loaded = json.loads(raw_data)
+    global settings, storage, _last_saved_json # Reference global variables including the delta cache
+    if storage and storage.exists(_SETTINGS_FILE): # Check if the storage API works and the file exists
+        try: # Begin error handling block for reading operations
+            raw_data = storage.read(_SETTINGS_FILE, "r") # Read the raw JSON string from the SD card
+            _last_saved_json = raw_data # Store the raw string to act as the baseline delta check
+            loaded = json.loads(raw_data) # Parse the raw string into a Python dictionary
             for key in settings:
                 if key in loaded: settings[key] = loaded[key]
             
-            t = sys_time.localtime()
+            t = time.localtime()
             for i in range(len(settings["alarms"])):
                 a = settings["alarms"][i]
                 if len(a) == 3: settings["alarms"][i] = [t[0], t[1], t[2], a[0], a[1], a[2], "ALARM", True, False]
@@ -327,7 +291,7 @@ def check_time_and_alarms(t, c_sec):
                 ringing_idx = snooze_idx
                 snooze_epoch = 0
                 last_trig_m = cm
-            elif cs == 0 and last_trig_m != cm:
+            elif cs == 0 and last_trig_m != cm and has_hardware:
                 for i in range(len(settings["alarms"])):
                     a = settings["alarms"][i]
                     if a[5] and a[3] == ch and a[4] == cm and (a[8] or (a[0] == cy and a[1] == cmo and a[2] == cd)):
@@ -378,7 +342,7 @@ def handle_input_modals(button, input_mgr, view_manager, t, c_sec):
             if clear_confirm_yes:
                 for i in range(len(settings["alarms"]) - 1, -1, -1):
                     a = settings["alarms"][i]
-                    if not a[8] and sys_time.mktime((a[0], a[1], a[2], a[3], a[4], 0, 0, 0)) < c_sec:
+                    if not a[8] and time.mktime((a[0], a[1], a[2], a[3], a[4], 0, 0, 0)) < c_sec:
                         if snooze_idx == i: snooze_epoch = snooze_count = 0
                         elif snooze_idx > i: snooze_idx -= 1
                         settings["alarms"].pop(i)
@@ -411,13 +375,13 @@ def handle_input_main(button, input_mgr, view_manager, t, c_sec):
     elif button == BUTTON_H: show_help = True; dirty_ui = True
     elif button == BUTTON_O: show_options = True; dirty_ui = True
     elif button == BUTTON_D and settings.get("show_diagnostics", False): current_mode = MODE_DIAGNOSTIC; dirty_ui = True
-    elif button == BUTTON_M: current_mode = MODE_ALARMS; cursor_idx = 0; dirty_ui = True
-    elif button == BUTTON_N: 
-        current_mode = MODE_EDIT_TYPE; origin_mode = MODE_MAIN; edit_idx = -1; tmp_daily = False; tmp_y = cy; tmp_mo = cmo; tmp_d = cd; date_cursor = 0; tmp_h = ch; tmp_m = cm; tmp_label = ""; tmp_audible = True; dirty_ui = True
-    elif button == BUTTON_DOWN: cursor_idx = (cursor_idx + 1) % 6; dirty_ui = True
+    elif button == BUTTON_M and has_hardware: current_mode = MODE_ALARMS; cursor_idx = 0; dirty_ui = True # Shortcut to Alarm List (only if Wi-Fi hardware is present)
+    elif button == BUTTON_N and has_hardware: # Shortcut to Create New Alarm (only if Wi-Fi hardware is present)
+        current_mode = MODE_EDIT_TYPE; origin_mode = MODE_MAIN; edit_idx = -1; tmp_daily = False; tmp_y = cy; tmp_mo = cmo; tmp_d = cd; date_cursor = 0; tmp_h = ch; tmp_m = cm; tmp_label = ""; tmp_audible = True; dirty_ui = True # Init editor states    elif button == BUTTON_DOWN: cursor_idx = (cursor_idx + 1) % 6; dirty_ui = True
     elif button == BUTTON_UP: cursor_idx = (cursor_idx - 1) % 6; dirty_ui = True
+    elif button == BUTTON_DOWN: cursor_idx = (cursor_idx + 1) % 6; dirty_ui = True
     elif button == BUTTON_CENTER:
-        if cursor_idx == 0: current_mode = MODE_ALARMS; cursor_idx = 0
+        if cursor_idx == 0 and has_hardware: current_mode = MODE_ALARMS; cursor_idx = 0 # Enter Alarm List (only if hardware supports time sync)
         elif cursor_idx == 1: current_mode = MODE_EGG
         elif cursor_idx == 2: current_mode = MODE_STOPWATCH
         elif cursor_idx == 3: current_mode = MODE_COUNTDOWN
@@ -478,7 +442,7 @@ def handle_input_alarms(button, input_mgr, view_manager, t, c_sec):
     elif button in (BUTTON_LEFT, BUTTON_RIGHT) and cursor_idx < len(settings["alarms"]):
         a = settings["alarms"][cursor_idx]
         if not a[5]:
-            if not a[8] and sys_time.mktime((a[0], a[1], a[2], a[3], a[4], 0, 0, 0)) <= c_sec: current_mode = MODE_ERR_TIME; msg_origin = MODE_ALARMS; dirty_ui = True
+            if not a[8] and time.mktime((a[0], a[1], a[2], a[3], a[4], 0, 0, 0)) <= c_sec: current_mode = MODE_ERR_TIME; msg_origin = MODE_ALARMS; dirty_ui = True
             else: a[5] = True; queue_save(); dirty_ui = True
         else:
             a[5] = False
@@ -486,7 +450,7 @@ def handle_input_alarms(button, input_mgr, view_manager, t, c_sec):
             queue_save(); dirty_ui = True
     elif button == BUTTON_T and cursor_idx < len(settings["alarms"]): settings["alarms"][cursor_idx][7] = not settings["alarms"][cursor_idx][7]; queue_save(); dirty_ui = True
     elif button == BUTTON_C:
-        has_past = any(not a[8] and sys_time.mktime((a[0], a[1], a[2], a[3], a[4], 0, 0, 0)) < c_sec for a in settings["alarms"])
+        has_past = any(not a[8] and time.mktime((a[0], a[1], a[2], a[3], a[4], 0, 0, 0)) < c_sec for a in settings["alarms"])
         if has_past: current_mode = MODE_CONFIRM_CLR; clear_confirm_yes = False; dirty_ui = True
     elif button == BUTTON_BACKSPACE and cursor_idx < len(settings["alarms"]): current_mode = MODE_CONFIRM_DEL; del_confirm_yes = False; dirty_ui = True
     elif button == BUTTON_CENTER:
@@ -550,7 +514,7 @@ def handle_input_editor(button, input_mgr, view_manager, t, c_sec):
         elif button in (BUTTON_LEFT, BUTTON_RIGHT, BUTTON_UP, BUTTON_DOWN): tmp_audible = not tmp_audible; dirty_ui = True
         elif button == BUTTON_CENTER:
             final_lbl = tmp_label.strip() or "ALARM"
-            if not tmp_daily and sys_time.mktime((tmp_y, tmp_mo, tmp_d, tmp_h, tmp_m, 0, 0, 0)) <= c_sec: current_mode = MODE_ERR_TIME; msg_origin = MODE_EDIT_AUD; dirty_ui = True; return
+            if not tmp_daily and time.mktime((tmp_y, tmp_mo, tmp_d, tmp_h, tmp_m, 0, 0, 0)) <= c_sec: current_mode = MODE_ERR_TIME; msg_origin = MODE_EDIT_AUD; dirty_ui = True; return
             new_a = [tmp_y, tmp_mo, tmp_d, tmp_h, tmp_m, True, final_lbl, tmp_audible, tmp_daily]
             if edit_idx == -1: settings["alarms"].append(new_a)
             else: settings["alarms"][edit_idx] = new_a
@@ -577,12 +541,11 @@ INPUT_DISPATCH = {
     MODE_ERR_DATE: handle_input_modals
 }
 
-def draw_diagnostic(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
-    global board_name, has_hardware, settings
-    import gc
+def draw_diagnostic(view_manager, draw, screen_w, screen_h, theme_color, bg_color): # Function to render the diagnostic view
+    global board_name, has_hardware, settings # Reference global variables required for rendering
     
-    draw.text(Vector(10, 10), "SYSTEM DIAGNOSTICS", TFT_WHITE)
-    draw.fill_rectangle(Vector(0, 30), Vector(screen_w, 2), TFT_WHITE)
+    draw.text(Vector(10, 10), "SYSTEM DIAGNOSTICS", TFT_WHITE) # Render the screen title
+    draw.fill_rectangle(Vector(0, 30), Vector(screen_w, 2), TFT_WHITE) # Render the separator line
     
     fw_ver = os.uname().release[:16] if hasattr(os, "uname") else "Unknown"
     b_name = board_name[:16] 
@@ -641,7 +604,7 @@ def draw_egg_timer(view_manager, draw, screen_w, screen_h, theme_color, bg_color
     global egg_end, egg_preset, sys_time
     draw.text(Vector(10, 10), "MODE: EGG TIMER", TFT_WHITE); draw.fill_rectangle(Vector(0, 30), Vector(screen_w, 2), theme_color)
     if egg_end > 0:
-        rem = max(0, egg_end - int(sys_time.time())); m, s = divmod(rem, 60)
+        rem = max(0, egg_end - int(time.time())); m, s = divmod(rem, 60)
         draw.text(Vector(15, 40), f"Run: {m:02d}:{s:02d}", TFT_GREEN, 2)
     else: draw.text(Vector(15, 45), "Status: Inactive", TFT_LIGHTGREY)
     draw.text(Vector(15, 70), "Select Preset:", TFT_LIGHTGREY)
@@ -669,7 +632,7 @@ def draw_countdown(view_manager, draw, screen_w, screen_h, theme_color, bg_color
     global cd_end, cd_cursor, cd_h, cd_m, cd_s, sys_time
     draw.text(Vector(10, 10), "MODE: COUNTDOWN", TFT_WHITE); draw.fill_rectangle(Vector(0, 30), Vector(screen_w, 2), theme_color)
     if cd_end > 0:
-        rem = max(0, cd_end - int(sys_time.time())); h = rem // 3600; m = (rem % 3600) // 60; s = rem % 60
+        rem = max(0, cd_end - int(time.time())); h = rem // 3600; m = (rem % 3600) // 60; s = rem % 60
         draw.text(Vector((screen_w // 2) - 85, 70), f"{h:02d}:{m:02d}:{s:02d}", theme_color, 4)
         draw.text(Vector((screen_w // 2) - 30, 130), "RUNNING", TFT_GREEN)
         draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), theme_color); draw.text(Vector(5, screen_h - 32), "[ENT] Cancel", theme_color)
@@ -687,34 +650,36 @@ def draw_main(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
     c_idx = cursor_idx
     draw.text(Vector(10, 10), f"Eggtimer {_VERSION}", TFT_WHITE); draw.fill_rectangle(Vector(0, 30), Vector(screen_w, 2), theme_color)
     draw.text(Vector(15, 42), "CURRENT TIME:", TFT_LIGHTGREY); draw.fill_rectangle(Vector(15, 55), Vector(screen_w - 30, 43), TFT_DARKGREY); draw.rect(Vector(15, 55), Vector(screen_w - 30, 43), theme_color)
-    t = sys_time.localtime(); dh = t[3] % 12 if settings["use_12h"] else t[3]; dh = 12 if settings["use_12h"] and dh == 0 else dh
+    t = time.localtime(); dh = t[3] % 12 if settings["use_12h"] else t[3]; dh = 12 if settings["use_12h"] and dh == 0 else dh
     time_str = "{:02d}:{:02d}:{:02d} {}".format(dh, t[4], t[5], "AM" if t[3] < 12 else "PM") if settings["use_12h"] else "{:02d}:{:02d}:{:02d}".format(t[3], t[4], t[5])
     draw.text(Vector(40 if not settings["use_12h"] else 20, 58), time_str, theme_color, 2)
     
-    n_str = "Next: None Active"; min_d = 9999999999; c_sec = sys_time.time(); next_a = None; is_snooze_next = False
+    n_str = "Next: None Active"; min_d = 9999999999; c_sec = time.time(); next_a = None; is_snooze_next = False
     for a in settings["alarms"]:
         if a[5]:
-            a_sec = sys_time.mktime((t[0], t[1], t[2], a[3], a[4], 0, 0, 0)) + (86400 if a[8] and (a[3] < t[3] or (a[3] == t[3] and a[4] <= t[4])) else 0) if a[8] else sys_time.mktime((a[0], a[1], a[2], a[3], a[4], 0, 0, 0))
+            a_sec = time.mktime((t[0], t[1], t[2], a[3], a[4], 0, 0, 0)) + (86400 if a[8] and (a[3] < t[3] or (a[3] == t[3] and a[4] <= t[4])) else 0) if a[8] else time.mktime((a[0], a[1], a[2], a[3], a[4], 0, 0, 0))
             d = a_sec - c_sec
             if 0 < d < min_d: min_d = d; next_a = a; is_snooze_next = False
     if snooze_epoch > 0 and 0 < snooze_epoch - c_sec < min_d: next_a = settings["alarms"][snooze_idx]; is_snooze_next = True
     if next_a:
-        lbl = next_a[6][:4] + "Zz" if is_snooze_next else next_a[6][:6]; nh, nm = (sys_time.localtime(snooze_epoch)[3:5] if is_snooze_next else next_a[3:5])
-        nmo, nd = (sys_time.localtime(snooze_epoch)[1:3] if is_snooze_next else (next_a[1:3] if not next_a[8] else (t[1], t[2])))
-        ny = sys_time.localtime(snooze_epoch)[0] if is_snooze_next else (next_a[0] if not next_a[8] else t[0])
+        lbl = next_a[6][:4] + "Zz" if is_snooze_next else next_a[6][:6]; nh, nm = (time.localtime(snooze_epoch)[3:5] if is_snooze_next else next_a[3:5])
+        nmo, nd = (time.localtime(snooze_epoch)[1:3] if is_snooze_next else (next_a[1:3] if not next_a[8] else (t[1], t[2])))
+        ny = time.localtime(snooze_epoch)[0] if is_snooze_next else (next_a[0] if not next_a[8] else t[0])
         ndh = nh % 12 if settings["use_12h"] else nh; ndh = 12 if settings["use_12h"] and ndh == 0 else ndh; nampm = ("A" if nh < 12 else "P") if settings["use_12h"] else ""
         n_str = ("Next: DAILY " if next_a[8] and not is_snooze_next else f"Next: {nmo:02d}/{nd:02d} " if settings["use_12h"] else f"Next: {nd:02d}.{nmo:02d}.{ny:04d} ") + f"{ndh:02d}:{nm:02d}{nampm} [{lbl}]"
     
     draw.text(Vector(20, 80), n_str, TFT_WHITE)
     
     in_y = 102; r_height = 16; egg_str = "RUN" if egg_end > 0 else ""; sw_str = "RUN" if sw_run else ""; cd_str = "RUN" if cd_end > 0 else ""
-    for i, (txt, cnt) in enumerate([("Manage Alarms", f"[{len(settings['alarms'])}]"), ("Egg Timer", egg_str), ("Stopwatch", sw_str), ("Countdown", cd_str), ("Options Menu", ""), ("View Help", "")]):
-        r_y = in_y + (i * 16)
-        col = theme_color if c_idx == i else TFT_LIGHTGREY; b_col = theme_color if c_idx == i else TFT_DARKGREY; badge_col = theme_color if c_idx == i else TFT_WHITE
-        if c_idx == i: draw.fill_rectangle(Vector(0, r_y - 2), Vector(screen_w, r_height), TFT_DARKGREY); draw.text(Vector(screen_w - 20, r_y + 1), "<", theme_color)
-        draw.text(Vector(15, r_y + 1), txt, col)
-        if cnt: draw.rect(Vector(160, r_y - 2), Vector(60, r_height), b_col); draw.text(Vector(170, r_y + 1), cnt, badge_col)
-            
+    for i, (txt, cnt) in enumerate([("Manage Alarms", f"[{len(settings['alarms'])}]"), ("Egg Timer", egg_str), ("Stopwatch", sw_str), ("Countdown", cd_str), ("Options Menu", ""), ("View Help", "")]): # Iterate over the main menu list
+        r_y = in_y + (i * 16) # Calculate the vertical Y position for this specific row
+        is_disabled = (i == 0 and not has_hardware) # Boolean flag to check if this is the alarm row and hardware is missing
+        col = TFT_DARKGREY if is_disabled else (theme_color if c_idx == i else TFT_LIGHTGREY) # Gray out text if disabled, otherwise use theme or light grey
+        b_col = TFT_DARKGREY if is_disabled else (theme_color if c_idx == i else TFT_DARKGREY) # Gray out badge box if disabled, otherwise use theme or dark grey
+        badge_col = TFT_DARKGREY if is_disabled else (theme_color if c_idx == i else TFT_WHITE) # Gray out badge text if disabled, otherwise use theme or white
+        if c_idx == i: draw.fill_rectangle(Vector(0, r_y - 2), Vector(screen_w, r_height), TFT_DARKGREY); draw.text(Vector(screen_w - 20, r_y + 1), "<", theme_color) # Draw the active cursor highlight background
+        draw.text(Vector(15, r_y + 1), txt, col) # Draw the primary row label text using the calculated color
+        if cnt: draw.rect(Vector(160, r_y - 2), Vector(60, r_height), b_col); draw.text(Vector(170, r_y + 1), cnt, badge_col) # Draw the badge box and count using the calculated colors         
     draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), theme_color)
     draw.text(Vector(5, screen_h - 32), "[M]List [N]New [O]Opt [ESC]Exit", theme_color)
     draw.text(Vector(5, screen_h - 15), "[UP/DN]Nav [ENT]Select" + ("  [D]Diag" if settings.get("show_diagnostics", False) else ""), TFT_LIGHTGREY)
@@ -723,14 +688,14 @@ def draw_alarms(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
     global cursor_idx, settings, sys_time
     c_idx = cursor_idx; list_len = len(settings["alarms"]) + 1
     draw.text(Vector(10, 10), "MODE: ALARMS LIST", TFT_WHITE); draw.fill_rectangle(Vector(0, 30), Vector(screen_w, 2), theme_color)
-    c_sec = sys_time.time(); has_past = False
+    c_sec = time.time(); has_past = False
     for i in range(min(4, list_len)):
         idx = c_idx - (c_idx % 4) + i
         if idx < list_len:
             r_y = 50 + (i * 35)
             if idx == c_idx: draw.fill_rectangle(Vector(0, r_y - 4), Vector(screen_w, 30), TFT_DARKGREY)
             if idx < len(settings["alarms"]):
-                a = settings["alarms"][idx]; is_past = not a[8] and sys_time.mktime((a[0], a[1], a[2], a[3], a[4], 0, 0, 0)) < c_sec
+                a = settings["alarms"][idx]; is_past = not a[8] and time.mktime((a[0], a[1], a[2], a[3], a[4], 0, 0, 0)) < c_sec
                 if is_past: has_past = True
                 t_col = theme_color if idx == c_idx else TFT_LIGHTGREY; label_color = TFT_RED if is_past else t_col
                 draw.text(Vector(5, r_y + 1), f"{a[6][:6]}:", label_color); draw.rect(Vector(65, r_y - 4), Vector(250, 30), theme_color if idx == c_idx else TFT_DARKGREY)
@@ -755,7 +720,7 @@ def draw_editor(view_manager, draw, screen_w, screen_h, theme_color, bg_color):
         draw.text(Vector(60, out_y + 33), f"{th:02d}", theme_color if current_mode == MODE_EDIT_H else TFT_WHITE, 2); draw.text(Vector(100, out_y + 33), ":", TFT_LIGHTGREY, 2); draw.text(Vector(120, out_y + 33), f"{tmp_m:02d}", theme_color if current_mode == MODE_EDIT_M else TFT_WHITE, 2)
         if settings["use_12h"]: draw.text(Vector(150, out_y + 33), "AM" if tmp_h < 12 else "PM", TFT_LIGHTGREY, 2)
     elif current_mode == MODE_EDIT_L:
-        draw.text(Vector(15, out_y + 5), f"SET LABEL ({len(tmp_label)}/50):", TFT_LIGHTGREY); v_str = tmp_label + ("_" if (int(sys_time.time()) % 2 == 0) else "")
+        draw.text(Vector(15, out_y + 5), f"SET LABEL ({len(tmp_label)}/50):", TFT_LIGHTGREY); v_str = tmp_label + ("_" if (int(time.time()) % 2 == 0) else "")
         for i in range(0, len(v_str), 18): draw.text(Vector(20, out_y + 30 + (i // 18) * 20), v_str[i:i+18], TFT_WHITE, 2)
     elif current_mode == MODE_EDIT_AUD: draw.text(Vector(15, out_y + 5), "AUDIBLE SOUND:", TFT_LIGHTGREY); draw.text(Vector(80, out_y + 33), f"< {'YES' if tmp_audible else 'NO '} >", theme_color, 2)
     draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), theme_color); draw.text(Vector(5, screen_h - 32), "[ESC] Cancel / Back", theme_color); draw.text(Vector(5, screen_h - 15), "[ENT] Next / Save", TFT_LIGHTGREY)
@@ -915,7 +880,7 @@ def run(view_manager):
     global settings, dirty_ui, dirty_save, save_timer, sys_time
     
     draw = view_manager.draw; input_mgr = view_manager.input_manager; button = input_mgr.button
-    t = sys_time.localtime(); c_sec = sys_time.time()
+    t = time.localtime(); c_sec = time.time()
     
     check_time_and_alarms(t, c_sec)
     
@@ -932,58 +897,52 @@ def run(view_manager):
 
     if dirty_ui: draw_view(view_manager)
 
-def stop(view_manager):
+def stop(view_manager): # Function to halt the app and return memory to the Picoware OS
     # 1. System and Settings
-    global settings, storage, _cached_help_lines
+    global settings, storage, _cached_help_lines, _last_saved_json # Add the new JSON cache string to globals
     # 2. Large Static Dispatchers and Hardware
-    global _EGG_PRESETS, _THEMES, buzzer_l, buzzer_r, INPUT_DISPATCH, VIEW_DISPATCH
+    global _EGG_PRESETS, _THEMES, buzzer_l, buzzer_r, INPUT_DISPATCH, VIEW_DISPATCH # Global dispatchers
     # 3. Volatile Strings and Memory
-    global tmp_label, board_name
+    global tmp_label, board_name # Global strings
     # 4. Timers and Accumulators
-    global sw_run, sw_start, sw_accum, last_sw_ms, egg_end, cd_end, snooze_epoch
-    global cd_h, cd_m, cd_s, egg_preset
+    global sw_run, sw_start, sw_accum, last_sw_ms, egg_end, cd_end, snooze_epoch # Global timers
+    global cd_h, cd_m, cd_s, egg_preset # Global presets
     # 5. UI Cursors and Trackers
-    global show_help, show_options, help_scroll, current_mode, origin_mode, msg_origin
-    global dirty_ui, dirty_save, save_timer, cursor_idx, options_cursor_idx, date_cursor, cd_cursor
-    global last_s, last_trig_m, ringing_idx, ring_flash, snooze_idx, snooze_count, edit_idx
-    global tmp_daily, tmp_y, tmp_mo, tmp_d, tmp_h, tmp_m, tmp_audible, del_confirm_yes, clear_confirm_yes
+    global show_help, show_options, help_scroll, current_mode, origin_mode, msg_origin # Global modes
+    global dirty_ui, dirty_save, save_timer, cursor_idx, options_cursor_idx, date_cursor, cd_cursor # Global cursors
+    global last_s, last_trig_m, ringing_idx, ring_flash, snooze_idx, snooze_count, edit_idx # Global trackers
+    global tmp_daily, tmp_y, tmp_mo, tmp_d, tmp_h, tmp_m, tmp_audible, del_confirm_yes, clear_confirm_yes # Editor globals
     
-    save_settings()
-    handle_audio_silence()
+    save_settings() # Trigger one final save evaluation before exiting
+    handle_audio_silence() # Force hardware buzzers to mute
     
-    # Tear down the settings dictionary
-    if settings is not None: settings.clear()
-    settings = None
-    storage = None
+    if settings is not None: settings.clear() # Empty the settings dictionary
+    settings = None # Destroy the settings reference
+    storage = None # Destroy the storage reference
     
-    # Clear string caches (The most important step for freeing RAM)
-    _cached_help_lines = []
-    tmp_label = ""
-    board_name = ""
+    _cached_help_lines = [] # Empty the help screen string cache
+    _last_saved_json = "" # Empty the SD card delta-save cache to free the JSON string from RAM
+    tmp_label = "" # Empty the temporary editor label
+    board_name = "" # Empty the hardware board name string
     
-    # Zero out all integer accumulators, timers, and trackers
-    sw_start = sw_accum = last_sw_ms = egg_end = cd_end = snooze_epoch = 0
-    cd_h = cd_m = cd_s = save_timer = help_scroll = 0
-    cursor_idx = options_cursor_idx = date_cursor = cd_cursor = 0
-    current_mode = origin_mode = msg_origin = 0
-    last_s = last_trig_m = ringing_idx = snooze_idx = edit_idx = -1
-    snooze_count = 0
-    egg_preset = 1
-    tmp_y = 2026; tmp_mo = 1; tmp_d = 1; tmp_h = 12; tmp_m = 0
+    sw_start = sw_accum = last_sw_ms = egg_end = cd_end = snooze_epoch = 0 # Zero out timer integer variables
+    cd_h = cd_m = cd_s = save_timer = help_scroll = 0 # Zero out countdown and scroll integer variables
+    cursor_idx = options_cursor_idx = date_cursor = cd_cursor = 0 # Zero out all navigation cursors
+    current_mode = origin_mode = msg_origin = 0 # Return to the default main mode integer
+    last_s = last_trig_m = ringing_idx = snooze_idx = edit_idx = -1 # Reset special index trackers
+    snooze_count = 0 # Reset snooze integer
+    egg_preset = 1 # Reset the egg timer preset integer
+    tmp_y = 2026; tmp_mo = 1; tmp_d = 1; tmp_h = 12; tmp_m = 0 # Reset the temporary editor date and time variables
     
-    # Reset booleans
-    sw_run = dirty_ui = dirty_save = ring_flash = show_help = show_options = False
-    tmp_daily = del_confirm_yes = clear_confirm_yes = False
-    tmp_audible = True
+    sw_run = dirty_ui = dirty_save = ring_flash = show_help = show_options = False # Reset UI and state booleans to False
+    tmp_daily = del_confirm_yes = clear_confirm_yes = False # Reset modal and editor booleans to False
+    tmp_audible = True # Reset audio toggle to its default True state
     
-    # Tear down massive global structures to free RAM for the main OS
-    _EGG_PRESETS = None
-    _THEMES = None
-    buzzer_l = None
-    buzzer_r = None
-    INPUT_DISPATCH = None
-    VIEW_DISPATCH = None
+    _EGG_PRESETS = None # Destroy the egg presets tuple
+    _THEMES = None # Destroy the color themes tuple
+    buzzer_l = None # Destroy the left buzzer hardware reference
+    buzzer_r = None # Destroy the right buzzer hardware reference
+    INPUT_DISPATCH = None # Destroy the input routing dictionary
+    VIEW_DISPATCH = None # Destroy the view rendering dictionary
     
-    import gc
-    gc.collect()
-    
+    gc.collect() # Force a deep garbage collection sweep using the global gc import

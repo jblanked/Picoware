@@ -57,7 +57,7 @@ mp_obj_t picoware_boards_get_current_name(void)
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(picoware_boards_get_current_name_obj, picoware_boards_get_current_name);
 
-mp_obj_t picoware_boards_get_device_name(mp_obj_t board_id_obj)
+mp_obj_t picoware_boards_get_device_name(void)
 {
 #ifdef CYW43_WL_GPIO_LED_PIN
 #ifdef PICO_RP2040
@@ -73,7 +73,7 @@ mp_obj_t picoware_boards_get_device_name(mp_obj_t board_id_obj)
 #endif
 #endif
 }
-static MP_DEFINE_CONST_FUN_OBJ_1(picoware_boards_get_device_name_obj, picoware_boards_get_device_name);
+static MP_DEFINE_CONST_FUN_OBJ_0(picoware_boards_get_device_name_obj, picoware_boards_get_device_name);
 
 mp_obj_t picoware_boards_get_name(mp_obj_t board_id_obj)
 {

@@ -67,7 +67,7 @@
 
 mp_obj_t picoware_boards_get_current_display_size(void);
 mp_obj_t picoware_boards_get_current_name(void);
-mp_obj_t picoware_boards_get_device_name(mp_obj_t board_id_obj);
+mp_obj_t picoware_boards_get_device_name(void);
 mp_obj_t picoware_boards_get_name(mp_obj_t board_id_obj);
 mp_obj_t picoware_boards_get_display_size(mp_obj_t board_id_obj);
 mp_obj_t picoware_boards_has_psram(mp_obj_t board_id_obj);

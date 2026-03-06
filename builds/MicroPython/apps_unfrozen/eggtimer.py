@@ -63,15 +63,14 @@ def get_help_lines():
     if _cached_help_lines:
         _cached_help_lines[5] = ram_str
         return _cached_help_lines
-        
-    b_name = board_name[:18]
+    
     hw_fw = os.uname().release if hasattr(os, "uname") else "Unknown FW"
         
     _cached_help_lines = [
         f"EGGTIMER v{_VERSION}",
         "--------------------",
         "DEBUG INFO:",
-        f"Board: {b_name}",
+        f"Board: {board_name}",
         f"FW: {hw_fw}",
         ram_str, # <--- Live RAM sits at Index 5
         "",
@@ -235,23 +234,18 @@ def validate_hardware_and_time(view_manager):
     global board_name, has_hardware
     sys_inst = System()
     
-    # Try SDK board name, fallback to standard MicroPython if the SDK crashes
-    try:
-        b_name = sys_inst.board_name
-        if callable(b_name): b_name = b_name()
-    except Exception:
-        b_name = os.uname().machine if hasattr(os, "uname") else "Unknown Board"
-        
-    board_name = str(b_name)
-    
-    # Try SDK has_wifi, fallback to False if the SDK crashes
-    try:
-        hw = sys_inst.has_wifi
-        if callable(hw): hw = hw()
-    except Exception:
-        hw = False
-        
-    has_hardware = bool(hw)
+    board_name = sys_inst.device_name
+    # we talked about this in a commit and the only
+    # reason I decided to just set it to true is because
+    # even in the Wirless variants, there's a chance the WiFi
+    # isnt connected and/or the RTC/time isnt set too
+    # users can still set future alarms based on their current
+    # time even if it's wrong :D
+    # in other words, the presence of WiFi hardware is not a requisite for
+    # the core functionality of this app
+    # you can test this on any Pico (even the wirless one) by not connecting
+    # to WiFi and opening the app
+    has_hardware = True
 
 def check_time_and_alarms(t, c_sec):
     global current_mode, sw_run, last_sw_ms, dirty_ui, last_s, egg_end
@@ -540,7 +534,6 @@ def draw_diagnostic(view_manager, draw, screen_w, screen_h, theme_color, bg_colo
     draw.fill_rectangle(Vector(0, 30), Vector(screen_w, 2), TFT_WHITE) # Render the separator line
     
     fw_ver = os.uname().release[:16] if hasattr(os, "uname") else "Unknown"
-    b_name = board_name[:16] 
     
     draw.text(Vector(10, 40), f"App Ver : v{_VERSION}", TFT_LIGHTGREY)
     draw.text(Vector(10, 56), f"Firmware: {fw_ver}", TFT_LIGHTGREY)
@@ -553,7 +546,7 @@ def draw_diagnostic(view_manager, draw, screen_w, screen_h, theme_color, bg_colo
     draw.text(Vector(10, 72), f"RAM: {ram_u}KB Used / {ram_f}KB Free", TFT_LIGHTGREY)
     
     hw_col = TFT_GREEN if has_hardware else TFT_RED
-    hw_txt = f"HW: OK ({b_name})" if has_hardware else f"HW: MISSING ({b_name})"
+    hw_txt = f"HW: OK ({board_name})"
     draw.text(Vector(10, 96), hw_txt, hw_col)
     
     draw.fill_rectangle(Vector(0, screen_h - 40), Vector(screen_w, 2), theme_color)

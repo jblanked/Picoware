@@ -374,7 +374,7 @@ class ViewManager:
             self.view_stack[i] = None
         self._stack_depth = 0
 
-    def freq(self, use_default: bool = False) -> int:
+    def freq(self, use_default: bool = False, frequency: int = None) -> int:
         """
         Set the CPU frequency.
         """
@@ -384,6 +384,9 @@ class ViewManager:
             BOARD_PICOCALC_PICOW,
             BOARD_PICOCALC_PIMORONI_2W,
         )
+
+        if frequency is not None:
+            return freq(frequency)
 
         if use_default:
             return freq(self.FREQ_DEFAULT)

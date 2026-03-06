@@ -3,9 +3,9 @@ class UART:
 
     def __init__(
         self,
-        uart_id: int = 1,
-        tx_pin: int = 4,
-        rx_pin: int = 5,
+        uart_id: int = 0,
+        tx_pin: int = 0,
+        rx_pin: int = 1,
         baud_rate: int = 115200,
         timeout: int = 2000,
     ) -> None:

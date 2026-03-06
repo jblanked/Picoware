@@ -31,7 +31,7 @@ show_options = False
 help_scroll = 0
 _last_saved_json = ""
 
-_SETTINGS_FILE = "/picoware/settings/eggtimer_settings.json"
+_SETTINGS_FILE = "picoware/settings/eggtimer_settings.json"
 
 _THEMES = (
     ("Green", TFT_GREEN),

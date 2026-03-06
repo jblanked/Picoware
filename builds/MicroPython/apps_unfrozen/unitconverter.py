@@ -19,7 +19,7 @@ from picoware.system.buttons import (
 )
 
 _SETTINGS_FILE = "/picoware/settings/unit_converter_settings.json" 
-_VERSION = "1.96"
+_VERSION = "1.96a"
 
 _THEMES = (
     ("Green", TFT_GREEN),

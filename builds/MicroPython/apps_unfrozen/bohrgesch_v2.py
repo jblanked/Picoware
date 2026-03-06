@@ -19,7 +19,7 @@ from picoware.system.buttons import (
 )
 
 _SETTINGS_FILE = "/picoware/settings/drill_pro_settings.json" 
-_VERSION = "1.81"
+_VERSION = "1.82"
 
 # Static tuple for materials to save RAM over dictionaries
 _MATERIALS = (

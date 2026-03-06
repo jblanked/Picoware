@@ -211,9 +211,6 @@ class FileBrowser:
             self._last_save_time = curr_t
 
     def start(self):
-        self._draw.clear(color=TFT_BLACK)
-        self._draw.text(Vector(10, 10), "Loading PicoCommander...", TFT_WHITE)
-        self._draw.swap()
         for d in ("/picoware", "/picoware/settings"):
             try:
                 self._storage.mkdir(d)
@@ -396,13 +393,15 @@ class FileBrowser:
                 idx = self._edit_sy + i
                 if idx < len(self._edit_text):
                     d_txt(Vector(2, 14 + i * 12), self._edit_text[idx][self._edit_sx : self._edit_sx + m_chr], c_txt)
-            if not self._edit_read_only and int(time.time() * 3) % 2 == 0:
+            if not self._edit_read_only and (time.ticks_ms() // 500) % 2 == 0:
                 cx, cy = 2 + (self._edit_cx - self._edit_sx) * 6, 14 + (self._edit_cy - self._edit_sy) * 12
                 if 0 <= cx < sw and 12 < cy < sh - 12:
                     f_rect(Vector(cx, cy - 1), Vector(6, 11), TFT_CYAN)
                     try: d_txt(Vector(cx, cy), self._edit_text[self._edit_cy][self._edit_cx], TFT_BLACK)
                     except IndexError: pass
-            self._needs_redraw = True
+            if not self._edit_read_only:
+                self._needs_redraw = True
+                
             f_rect(Vector(0, sh - 12), Vector(sw, 12), c_bar)
             d_txt(Vector(2, sh - 10), "UP/DWN:Scroll ESC:Close" if self._edit_read_only else "ENT:Menu ESC:Close", c_btxt)
             if self._context_menu:
@@ -441,7 +440,7 @@ class FileBrowser:
                 d_txt(Vector(10, 138), f"PSRAM: {self._sys.used_psram // 1024}KB used / {self._sys.free_psram // 1024}KB free", TFT_YELLOW)
             d_txt(Vector(10, sh - 40), "made by Slasher006", c_bar)
             d_txt(Vector(10, sh - 30), "with the help of Gemini", c_bar)
-            d_txt(Vector(10, sh - 20), "Date: 2026-03-06 | v1.15", c_bar)
+            d_txt(Vector(10, sh - 20), "Date: 2026-03-06 | v1.17", c_bar)
             d_swp()
             self._needs_redraw = False
             return
@@ -494,12 +493,11 @@ class FileBrowser:
             ts = "RENAME FILE:" if self._input_mode == MODE_RENAME else "COPY AS:" if self._input_mode == MODE_COPY_SAME else "NEW FOLDER:"
             d_txt(Vector(15, by + 2), ts, c_btxt)
             d_txt(Vector(15, by + 24), self._input_text, TFT_WHITE)
-            if int(time.time() * 3) % 2 == 0:
+            if (time.ticks_ms() // 500) % 2 == 0:
                 f_rect(Vector(15 + (self._input_cursor * 6), by + 35), Vector(6, 2), TFT_CYAN)
-                self._needs_redraw = True
+            self._needs_redraw = True
             d_txt(Vector(15, by + 48), "[ENT] Save  [ESC] Cancel", TFT_LIGHTGREY)
             d_swp()
-            if not self._needs_redraw: self._needs_redraw = False
             return
 
         if self._confirm_menu:
@@ -517,7 +515,7 @@ class FileBrowser:
         f_rect(Vector(0, 0), Vector(sw, 12), c_bar)
         ss = "Name" if self._app_state["sort_mode"] == SORT_NAME else "Date"
         ms = "Viewer" if self._mode == FILE_BROWSER_VIEWER else "Select" if self._mode == FILE_BROWSER_SELECTOR else "Manager"
-        d_txt(Vector(2, 2), f"PicoCmd v1.15 [{ms}] [{ss}]", c_btxt)
+        d_txt(Vector(2, 2), f"PicoCmd v1.17 [{ms}] [{ss}]", c_btxt)
         f_rect(Vector(mx, 12), Vector(1, sh - 24), c_bar)
         
         c_lim, n_lim, m_itm = (mx - 8) // 6, ((mx - 8) // 6) - 6, (sh - 38) // 12
@@ -595,9 +593,8 @@ class FileBrowser:
                 self._image_path = ""
                 self._needs_redraw = True
                 time.sleep(0.3)
-            return True
 
-        if self._is_editing and self._context_menu is None and self._confirm_menu is None:
+        elif self._is_editing and self._context_menu is None and self._confirm_menu is None:
             if ies:
                 irs()
                 if self._edit_unsaved and not self._edit_read_only:
@@ -705,7 +702,6 @@ class FileBrowser:
                 if self._edit_cy >= self._edit_sy + ml: self._edit_sy = self._edit_cy - ml + 1
                 if self._edit_cx < self._edit_sx: self._edit_sx = max(0, self._edit_cx - 5)
                 if self._edit_cx >= self._edit_sx + mc: self._edit_sx = self._edit_cx - mc + 1
-            return True
 
         elif self._is_disclaimer_screen:
             if ien:
@@ -714,7 +710,6 @@ class FileBrowser:
                 self._app_state["disclaimer_accepted"] = True
                 self._needs_redraw = True
                 time.sleep(0.3)
-            return True
 
         elif self._show_info:
             if ies or ien:
@@ -723,7 +718,6 @@ class FileBrowser:
                 self._info_data = []
                 self._needs_redraw = True
                 time.sleep(0.3)
-            return True
                 
         elif self._input_active:
             if ies:
@@ -751,7 +745,6 @@ class FileBrowser:
                             self._input_active = False
                             self._needs_redraw = True
                             time.sleep(0.3)
-                            return True
                         else:
                             if self._input_mode == MODE_RENAME:
                                 try:
@@ -774,9 +767,10 @@ class FileBrowser:
                     self._force_sync()
                     self._refresh_panes()
                 
-                self._input_active = False
-                self._context_target_path = ""
-                self._needs_redraw = True
+                if not self._confirm_menu:
+                    self._input_active = False
+                    self._context_target_path = ""
+                    self._needs_redraw = True
                 time.sleep(0.3)
             elif ilf:
                 irs()
@@ -804,9 +798,8 @@ class FileBrowser:
                     self._input_cursor += 1
                     self._needs_redraw = True
                 time.sleep(0.18)
-            return True
 
-        if (btn == BUTTON_SPACE or key == ' ' or btn == 32) and not self._is_help_screen and not self._show_options and self._confirm_menu is None and self._context_menu is None and not self._input_active and not self._show_info:
+        elif (btn == BUTTON_SPACE or key == ' ' or btn == 32) and not self._is_help_screen and not self._show_options and self._confirm_menu is None and self._context_menu is None and not self._input_active and not self._show_info:
             irs()
             if self._mode == FILE_BROWSER_MANAGER:
                 ap = self._app_state["active_pane"]
@@ -1259,14 +1252,13 @@ class FileBrowser:
                         time.sleep(0.3)
                 self._needs_redraw = True
 
-        if self._needs_redraw: self._draw_ui()
+        if self._needs_redraw:
+            self._draw_ui()
+            
         self._auto_save()
         gc.collect()
         return True
 
-
-# your start, run, stop functions here
-_test_browser = None
 def start(view_manager):
     global _test_browser
     _test_browser = FileBrowser(view_manager, FILE_BROWSER_MANAGER)

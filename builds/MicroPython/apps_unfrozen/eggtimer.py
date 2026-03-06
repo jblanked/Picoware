@@ -15,11 +15,6 @@ from picoware.system.buttons import (
     BUTTON_CENTER, BUTTON_BACKSPACE, BUTTON_H, BUTTON_ESCAPE, BUTTON_O
 )
 
-from picoware.system.wifi import (
-    WIFI_STATE_CONNECTED, WIFI_STATE_CONNECTING,
-    WIFI_STATE_ISSUE, WIFI_STATE_TIMEOUT
-)
-
 try:
     from picoware.system.buttons import BUTTON_A, BUTTON_Z, BUTTON_0, BUTTON_9, BUTTON_SPACE, BUTTON_N, BUTTON_T, BUTTON_S, BUTTON_C, BUTTON_M, BUTTON_R, BUTTON_D
 except ImportError:

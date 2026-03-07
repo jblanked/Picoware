@@ -608,8 +608,6 @@ class FileBrowser:
                 self._draw_ui()
             return True
 
-        self._input_manager.reset()
-
         if self._is_viewing_image:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER):
                 self._is_viewing_image = False
@@ -1111,6 +1109,7 @@ class FileBrowser:
                 self._is_help_screen = False
                 self._needs_redraw = True
             else:
+                self._input_manager.reset()
                 return False
             
         elif btn == BUTTON_LEFT and not self._is_help_screen:
@@ -1209,7 +1208,7 @@ class FileBrowser:
 
         if self._needs_redraw:
             self._draw_ui()
-            
+        self._input_manager.reset()
         self._auto_save()
         gc.collect()
         return True

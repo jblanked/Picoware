@@ -276,71 +276,66 @@ class FileBrowser:
             try: self._storage.remove(path)
             except Exception as e: print("File Delete Error:", e)
 
-    def _verified_copy(self, src, dst):
+    def _copy_item(self, src, dst):
         # ---------------------------------------------------------
-        # Hardened File Copier with 100% Integrity Verification
+        # Standard VFS Binary File Copier
+        # Uses core Python streams to ensure binary 0x00 safety
         # ---------------------------------------------------------
         is_dir = False
         try: is_dir = self._storage.is_directory(src)
         except Exception: pass
         
         if is_dir:
-            # Recreate directories recursively
             try: self._storage.mkdir(dst)
             except Exception: pass
             try:
                 items = self._storage.listdir(src)
                 for item in items:
                     if item not in (".", ".."):
-                        self._verified_copy(f"{src}/{item}", f"{dst}/{item}")
+                        self._copy_item(f"{src}/{item}", f"{dst}/{item}")
                 del items
             except Exception as e:
                 print("Dir Copy Error:", e)
         else:
-            # 1. Attempt firmware native copy (Fastest)
-            try: self._storage.copy(src, dst)
-            except Exception: pass
-            
-            # 2. Check strict file size parity
-            sz = 0
-            try: sz = self._storage.size(src)
-            except Exception: pass
-            
-            dst_sz = -1
-            try: dst_sz = self._storage.size(dst)
-            except Exception: pass
-            
-            match = (sz == dst_sz)
-            
-            # 3. Check byte-for-byte accuracy incrementally to maintain flat memory
-            if match and sz > 0:
-                chunk_sz = 2048
-                for pos in range(0, sz, chunk_sz):
-                    c1 = self._storage.read_chunked(src, pos, chunk_sz)
-                    c2 = self._storage.read_chunked(dst, pos, chunk_sz)
-                    if c1 != c2:
-                        match = False
-                        break
-                    del c1, c2
-            
-            # 4. Fallback execution if the native firmare call corrupted the file
-            if not match:
-                try: self._storage.remove(dst)
-                except Exception: pass
+            try: 
+                self._storage.mount_vfs()
+            except Exception: 
+                pass
                 
-                try:
-                    # Write an empty string with mode 'w' to format the destination file
-                    self._storage.write(dst, "", "w")
+            f_in = None
+            f_out = None
+            try:
+                # Sanitize paths for VFS
+                r_src = "/sd/" + src.lstrip("/") if not src.startswith("/sd") and not src.startswith("sd") else src
+                r_dst = "/sd/" + dst.lstrip("/") if not dst.startswith("/sd") and not dst.startswith("sd") else dst
+                
+                f_in = open(r_src, "rb")
+                f_out = open(r_dst, "wb")
+                
+                while True:
+                    # Use standard read() to guarantee native 'bytes' objects.
+                    # This bypasses any incomplete readinto/bytearray C-implementations
+                    # and entirely prevents 0x00 null-byte truncation during write.
+                    chunk = f_in.read(2048)
+                    if not chunk:
+                        break
+                    f_out.write(chunk)
+                    del chunk
                     
-                    # Interactively copy the file using purely binary chunks
-                    for pos in range(0, sz, 2048):
-                        chunk = self._storage.read_chunked(src, pos, 2048)
-                        if chunk:
-                            # Mode 'ab' forces writing in binary without text-handling overrides
-                            self._storage.write(dst, chunk, "ab")
-                        del chunk
-                except Exception as e:
-                    print("Fallback Copy Error:", e)
+            except Exception as inner_e:
+                print("VFS Copy Error:", inner_e)
+            finally:
+                # Force file handle closure to prevent EMFILE limits on batch operations
+                if f_out is not None:
+                    try: f_out.flush()
+                    except Exception: pass
+                    try: f_out.close()
+                    except Exception: pass
+                if f_in is not None:
+                    try: f_in.close()
+                    except Exception: pass
+            
+            gc.collect()
 
     def _draw_progress(self, title, percentage):
         # High-performance, low-RAM custom progress bar overlay
@@ -936,7 +931,7 @@ class FileBrowser:
                             elif self._input_mode == self.MODE_COPY_SAME:
                                 self._draw_progress("Copying...", 0.0)
                                 try:
-                                    self._verified_copy(self._context_target_path, np)
+                                    self._copy_item(self._context_target_path, np)
                                     rn = True
                                 except Exception as e: print("Copy Error:", e)
                                 self._draw_progress("Copied", 1.0)
@@ -1161,7 +1156,7 @@ class FileBrowser:
                                     except Exception: pass
                                     
                                 if self._pending_action == self.ACT_COPY:
-                                    try: self._verified_copy(t, dp)
+                                    try: self._copy_item(t, dp)
                                     except Exception as e: print("Copy Error:", e)
                                 else:
                                     try: self._storage.move(t, dp)

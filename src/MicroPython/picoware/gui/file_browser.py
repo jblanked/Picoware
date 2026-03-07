@@ -120,7 +120,20 @@ class FileBrowser:
             "bar_r": 0, "bar_g": 170, "bar_b": 170,
             "marked": []
         }
-        self.start()
+        
+        try:
+            data = self._storage.read("/picoware/settings/file_browser_state.json", "r")
+            if data:
+                loaded = json.loads(data)
+                self._app_state.update({k: loaded.get(k, self._app_state[k]) for k in self._app_state})
+                self._last_saved_json = json.dumps(self._app_state)
+                del loaded
+            del data
+        except Exception:
+            pass
+
+        self._refresh_panes()
+        self._needs_redraw = True
 
     def __del__(self):
         self._auto_save()
@@ -206,22 +219,6 @@ class FileBrowser:
             del save_dict
             self._last_save_time = curr_t
 
-    def start(self):
-        try:
-            data = self._storage.read("/picoware/settings/file_browser_state.json", "r")
-            if data:
-                loaded = json.loads(data)
-                self._app_state.update({k: loaded.get(k, self._app_state[k]) for k in self._app_state})
-                self._last_saved_json = json.dumps(self._app_state)
-                del loaded
-            del data
-        except Exception:
-            pass
-
-        self._refresh_panes()
-        self._needs_redraw = True
-        return True
-
     def _draw_progress(self, title, percentage):
         c_bg, c_bar, _, _, _ = self._get_theme()
         sw, sh = self._draw.size.x, self._draw.size.y
@@ -278,21 +275,23 @@ class FileBrowser:
                     continue
                     
                 fp = f"/{itm}" if path == "/" else f"{path}/{itm}"
-                is_d = False
-                mt = 0
                 
+                is_d = False
                 if fp in self._stat_cache:
-                    is_d, _ = self._stat_cache[fp]
+                    is_d = self._stat_cache[fp][0]
                 else:
                     try: is_d = self._storage.is_directory(fp)
                     except Exception: pass
+                    self._stat_cache[fp] = (is_d, -1)
                     
                 if sort_m == self.SORT_DATE:
+                    mt = 0
                     try: mt = os.stat(fp)[8]
                     except Exception: pass
+                    temp_list.append((itm, is_d, mt))
+                else:
+                    temp_list.append((itm, is_d))
                     
-                temp_list.append((itm, is_d, mt))
-                
             del d_list
             
             if sort_m == self.SORT_NAME:
@@ -308,13 +307,13 @@ class FileBrowser:
         return [".."] + items if path != "/" else items
 
     def _refresh_panes(self):
+        self._stat_cache.clear()
         self._app_state["left_files"].clear()
         self._app_state["left_files"] = self._load_dir(self._app_state["left_path"])
         self._app_state["left_index"] = max(0, min(self._app_state["left_index"], len(self._app_state["left_files"]) - 1))
         self._app_state["right_files"].clear()
         self._app_state["right_files"] = self._load_dir(self._app_state["right_path"])
         self._app_state["right_index"] = max(0, min(self._app_state["right_index"], len(self._app_state["right_files"]) - 1))
-        self._stat_cache.clear()
 
     def _open_viewer(self, path):
         ext = path.split(".")[-1].lower() if "." in path else ""
@@ -531,6 +530,10 @@ class FileBrowser:
                 else:
                     if fp in self._stat_cache:
                         isd, fz = self._stat_cache[fp]
+                        if not isd and fz == -1:
+                            try: fz = self._storage.size(fp)
+                            except Exception: fz = 0
+                            self._stat_cache[fp] = (isd, fz)
                     else:
                         isd = False
                         fz = 0
@@ -700,12 +703,12 @@ class FileBrowser:
                             return True
                         else:
                             if self._input_mode == self.MODE_RENAME:
-                                self._draw_progress("Renaming 0%", 0.0)
+                                self._draw_progress("Renaming...", 0.0)
                                 try:
                                     self._storage.rename(self._context_target_path, np)
                                     rn = True
                                 except Exception: pass
-                                self._draw_progress("Renaming 100%", 1.0)
+                                self._draw_progress("Renamed", 1.0)
                             elif self._input_mode == self.MODE_COPY_SAME:
                                 self._copy_item(self._context_target_path, np, "Copying")
                                 rn = True
@@ -812,14 +815,16 @@ class FileBrowser:
                     isd = False
                     fz = 0
                     if fp in self._stat_cache:
-                        isd, fz = self._stat_cache[fp]
+                        isd = self._stat_cache[fp][0]
+                        if not isd:
+                            try: fz = self._storage.size(fp)
+                            except Exception: pass
                     else:
                         try: isd = self._storage.is_directory(fp)
                         except Exception: pass
                         if not isd:
                             try: fz = self._storage.size(fp)
                             except Exception: pass
-                        self._stat_cache[fp] = (isd, fz)
                         
                     self._info_data = [
                         f"Name: {sf[:22]}",
@@ -896,14 +901,14 @@ class FileBrowser:
                             self._draw_progress(f"Deleting {int((i/total)*100)}%", i/total)
                             try: self._storage.remove(t)
                             except Exception: pass
-                        self._draw_progress("Deleting 100%", 1.0)
+                        self._draw_progress("Deleted", 1.0)
                             
                     elif self._pending_action in (self.ACT_COPY, self.ACT_MOVE):
                         total = len(targets)
                         act_name = "Copying" if self._pending_action == self.ACT_COPY else "Moving"
                         
                         if total == 1 and self._pending_action == self.ACT_MOVE:
-                            self._draw_progress("Moving 0%", 0.0)
+                            self._draw_progress("Moving...", 0.0)
                             
                         for i, t in enumerate(targets):
                             if total > 1:
@@ -927,16 +932,16 @@ class FileBrowser:
                                     except Exception: pass
                         
                         if self._pending_action == self.ACT_MOVE or total > 1:
-                            self._draw_progress(f"{act_name} 100%", 1.0)
+                            self._draw_progress("Done", 1.0)
                                     
                     elif self._pending_action == self.ACT_RENAME:
-                        self._draw_progress("Renaming 0%", 0.0)
+                        self._draw_progress("Renaming...", 0.0)
                         if self._storage.exists(self._pending_dest_path):
                             try: self._storage.remove(self._pending_dest_path)
                             except Exception: pass
                         try: self._storage.rename(self._context_target_path, self._pending_dest_path)
                         except Exception: pass
-                        self._draw_progress("Renaming 100%", 1.0)
+                        self._draw_progress("Renamed", 1.0)
                     
                     if len(mk) > 0: self._app_state["marked"].clear()
                     if self._pending_action != self.ACT_NONE:
@@ -969,7 +974,7 @@ class FileBrowser:
                             del data
                             self._edit_unsaved = False
                         except Exception: pass
-                        self._draw_progress("Saving 100%", 1.0)
+                        self._draw_progress("Saved", 1.0)
                         if ac == "Save & Exit": self._is_editing = False
                     elif ac == "Exit without Saving":
                         self._is_editing = False
@@ -1105,7 +1110,7 @@ class FileBrowser:
                     
                     isd = False
                     if np in self._stat_cache:
-                        isd, _ = self._stat_cache[np]
+                        isd = self._stat_cache[np][0]
                     else:
                         try: isd = self._storage.is_directory(np)
                         except Exception: pass

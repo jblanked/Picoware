@@ -232,26 +232,6 @@ class FileBrowser:
         gc.collect()
         return True
 
-    def _rmtree(self, path):
-        is_d = False
-        try: is_d = self._storage.is_directory(path)
-        except Exception: pass
-        
-        if is_d:
-            try:
-                for itm in self._storage.listdir(path):
-                    if itm not in (".", ".."):
-                        self._rmtree(f"{path}/{itm}" if path != "/" else f"/{itm}")
-            except Exception: pass
-            try: self._storage.rmdir(path)
-            except Exception:
-                try: self._storage.remove(path)
-                except Exception: pass
-        else:
-            try: self._storage.remove(path)
-            except Exception: pass
-        gc.collect()
-
     def _draw_progress(self, title, percentage):
         c_bg, c_bar, _, _, _ = self._get_theme()
         sw, sh = self._draw.size.x, self._draw.size.y
@@ -955,7 +935,8 @@ class FileBrowser:
                         total = len(targets)
                         for i, t in enumerate(targets):
                             self._draw_progress(f"Deleting {int((i/total)*100)}%", i/total)
-                            self._rmtree(t)
+                            try: self._storage.remove(t)
+                            except Exception: pass
                         self._draw_progress("Deleting 100%", 1.0)
                             
                     elif self._pending_action in (self.ACT_COPY, self.ACT_MOVE):
@@ -984,7 +965,8 @@ class FileBrowser:
                                 try: self._storage.rename(t, dp)
                                 except Exception:
                                     self._copy_item(t, dp, act_name)
-                                    self._rmtree(t)
+                                    try: self._storage.remove(t)
+                                    except Exception: pass
                         
                         if self._pending_action == self.ACT_MOVE or total > 1:
                             self._draw_progress(f"{act_name} 100%", 1.0)

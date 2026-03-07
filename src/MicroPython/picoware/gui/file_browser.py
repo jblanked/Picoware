@@ -1392,20 +1392,20 @@ class FileBrowser:
         self._auto_save()
         return True
 
-_test_browser = None
+_app_instance = None
 
 def start(view_manager):
-    global _test_browser
-    _test_browser = FileBrowser(view_manager, FILE_BROWSER_MANAGER)
+    global _app_instance
+    _app_instance = FileBrowser(view_manager, FILE_BROWSER_MANAGER)
     return True
 
 def run(view_manager):
-    if not _test_browser.run():
+    if not _app_instance.run():
         view_manager.back()
 
 def stop(view_manager):
-    global _test_browser
-    if _test_browser:
-        del _test_browser
-        _test_browser = None
+    global _app_instance
+    if _app_instance:
+        del _app_instance
+        _app_instance = None
         gc.collect()

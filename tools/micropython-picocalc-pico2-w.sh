@@ -3,8 +3,8 @@
 echo "Building MicroPython Picoware firmware for PicoCalc Pico 2W..."
 
 # set your locations
-micropython_dir="/Users/user/pico/micropython/ports/rp2"
-picoware_dir="/Users/user/Desktop/Picoware"
+micropython_dir="/home/slasher006/Picocalc_programming/micropython/ports/rp2"
+picoware_dir="/home/slasher006/Picocalc_programming/Picoware"
 
 echo "Using MicroPython directory: $micropython_dir"
 echo "Using Picoware directory: $picoware_dir"

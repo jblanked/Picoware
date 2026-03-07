@@ -6,6 +6,7 @@ from micropython import const
 from picoware.system.vector import Vector
 from picoware.system.colors import TFT_WHITE, TFT_BLACK, TFT_BLUE, TFT_YELLOW, TFT_CYAN, TFT_DARKGREY, TFT_LIGHTGREY, TFT_RED
 from picoware.gui.menu import Menu
+from picoware.gui.loading import Loading
 from picoware.system.system import System
 
 from picoware.system.buttons import (
@@ -491,9 +492,8 @@ class FileBrowser:
             return
 
         self._draw.fill_rectangle(Vector(0, 0), Vector(sw, 12), c_bar)
-        ms = "Viewer" if self._mode == FILE_BROWSER_VIEWER else "Select" if self._mode == FILE_BROWSER_SELECTOR else "Manager"
         ss = "Name" if self._app_state.get("sort_mode", self.SORT_NAME) == self.SORT_NAME else "Date"
-        self._draw.text(Vector(2, 2), f"File Browser v1.26 [{ms}] [{ss}]", c_btxt)
+        self._draw.text(Vector(2, 2), f"File Browser v1.26 [{ss}]", c_btxt)
         self._draw.fill_rectangle(Vector(mx, 12), Vector(1, sh - 24), c_bar)
         
         c_lim, n_lim, m_itm = (mx - 8) // 6, ((mx - 8) // 6) - 6, (sh - 38) // 12
@@ -563,9 +563,9 @@ class FileBrowser:
 
         self._draw.fill_rectangle(Vector(0, sh - 12), Vector(sw, 12), c_bar)
         if self._mode == FILE_BROWSER_SELECTOR:
-            self._draw.text(Vector(2, sh - 10), "ENT:Select O:Opt S:Sort BACK:Exit", c_btxt)
+            self._draw.text(Vector(2, sh - 10), "ENT:Select O:Opt S:Sort", c_btxt)
         else:
-            self._draw.text(Vector(2, sh - 10), "ENT:Men SPC:Mrk N:New S:Srt O:Opt BACK", c_btxt)
+            self._draw.text(Vector(2, sh - 10), "ENT:Men SPC:Mrk N:New S:Srt O:Opt", c_btxt)
         self._draw.swap()
         self._needs_redraw = False
 

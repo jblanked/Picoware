@@ -137,7 +137,6 @@ class FileBrowser:
         self._edit_text.clear()
         self._char_map.clear()
         self._sys = None
-        gc.collect()
 
     @property
     def directory(self) -> str:
@@ -205,7 +204,6 @@ class FileBrowser:
                     pass
             del curr_j
             del save_dict
-            gc.collect()
             self._last_save_time = curr_t
 
     def start(self):
@@ -222,7 +220,6 @@ class FileBrowser:
 
         self._refresh_panes()
         self._needs_redraw = True
-        gc.collect()
         return True
 
     def _draw_progress(self, title, percentage):
@@ -265,9 +262,7 @@ class FileBrowser:
                     del chk
                     if f_sz > 0:
                         self._draw_progress(f"{action_text} {int((pos/f_sz)*100)}%", pos / f_sz)
-                    gc.collect()
             except Exception: pass
-        gc.collect()
 
     def _load_dir(self, path):
         items = []
@@ -310,7 +305,6 @@ class FileBrowser:
         except Exception:
             items = ["<ERROR>"]
             
-        gc.collect()
         return [".."] + items if path != "/" else items
 
     def _refresh_panes(self):
@@ -338,7 +332,6 @@ class FileBrowser:
             if data: self._edit_text.extend(data.split('\n'))
             del data
         except Exception: pass
-        gc.collect()
         
         if not self._edit_text: self._edit_text.append("")
         self._edit_file = path
@@ -573,7 +566,7 @@ class FileBrowser:
         self._draw.swap()
         self._needs_redraw = False
 
-def run(self):
+    def run(self):
         btn = self._input_manager.button
         
         if btn is None or btn == BUTTON_NONE:
@@ -976,7 +969,6 @@ def run(self):
                             del data
                             self._edit_unsaved = False
                         except Exception: pass
-                        gc.collect()
                         self._draw_progress("Saving 100%", 1.0)
                         if ac == "Save & Exit": self._is_editing = False
                     elif ac == "Exit without Saving":
@@ -1121,7 +1113,6 @@ def run(self):
                     if self._mode == FILE_BROWSER_SELECTOR and not isd:
                         self._input_manager.reset()
                         self._auto_save()
-                        gc.collect()
                         return False
 
                     mk = self._app_state["marked"]
@@ -1153,7 +1144,6 @@ def run(self):
             
         self._input_manager.reset()
         self._auto_save()
-        gc.collect()
         return True
 
 _test_browser = None
@@ -1172,4 +1162,3 @@ def stop(view_manager):
     if _test_browser:
         del _test_browser
         _test_browser = None
-    gc.collect()

@@ -2,14 +2,14 @@ class System:
     """Handle basic system operations."""
 
     def __init__(self):
-        from picoware_boards import BOARD_ID
-
-        self._board_id = BOARD_ID
+        pass
 
     @property
     def board_id(self) -> int:
         """Return the board ID."""
-        return self._board_id
+        from picoware_boards import BOARD_ID
+
+        return BOARD_ID
 
     @property
     def board_name(self):
@@ -76,9 +76,9 @@ class System:
     @property
     def is_circular(self):
         """Return True if the device has a circular display."""
-        from picoware_boards import is_circular
+        from picoware_boards import is_circular, BOARD_ID
 
-        return is_circular(self._board_id)
+        return is_circular(BOARD_ID)
 
     @property
     def free_flash(self):
@@ -155,7 +155,7 @@ class System:
     @property
     def version(self) -> str:
         """Return the Picoware version."""
-        return "1.7.1"
+        return "1.7.2"
 
     def bootloader_mode(self):
         """Enter the bootloader mode."""

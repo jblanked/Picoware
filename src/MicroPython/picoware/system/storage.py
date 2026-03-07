@@ -59,6 +59,20 @@ class Storage:
         """Returns True if the VFS is mounted (allows use of open(), __import__, etc.)."""
         return self._vfs_mounted
 
+    def copy(
+        self, source_path: str, destination_path: str, bytes_per_chunk: int = 2048
+    ) -> bool:
+        """Copy a file or directory from source_path to destination_path."""
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+            return False  # No SD storage on this board
+
+        try:
+            sd_mp.copy(source_path, destination_path, bytes_per_chunk)
+            return True
+        except Exception as e:
+            print(f"Error copying from {source_path} to {destination_path}: {e}")
+            return False
+
     def deserialize(self, json_dict: dict, file_path: str) -> None:
         """Deserialize a JSON object and write it to a file."""
         from json import dumps
@@ -94,12 +108,44 @@ class Storage:
             return  # No SD storage on this board
         sd_mp.file_close(file_obj)
 
+    def file_copy(
+        self, source_file: FAT32File, destination_path: str, bytes_per_chunk: int = 2048
+    ) -> bool:
+        """Copy an open file to a new location."""
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+            return False  # No SD storage on this board
+
+        try:
+            sd_mp.file_copy(source_file, destination_path, bytes_per_chunk)
+            return True
+        except Exception as e:
+            print(f"Error copying file to {destination_path}: {e}")
+            return False
+
+    def file_move(
+        self, source_file: FAT32File, destination_path: str, bytes_per_chunk: int = 2048
+    ) -> bool:
+        """Move an open file to a new location."""
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+            return False  # No SD storage on this board
+
+        try:
+            sd_mp.file_move(source_file, destination_path, bytes_per_chunk)
+            return True
+        except Exception as e:
+            print(f"Error moving file to {destination_path}: {e}")
+            return False
+
     def file_open(self, file_path: str) -> FAT32File:
         """Open a file and return the file handle."""
         if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return None  # No SD storage on this board
 
-        return sd_mp.file_open(file_path)
+        try:
+            return sd_mp.file_open(file_path)
+        except Exception as e:
+            print(f"Error opening file {file_path}: {e}")
+            return None
 
     def file_read(
         self, file_obj: FAT32File, index: int = 0, count: int = 0, decode: bool = True
@@ -121,12 +167,17 @@ class Storage:
 
         return sd_mp.file_readinto(file_obj, buffer)
 
-    def file_seek(self, file_obj: FAT32File, position: int) -> None:
+    def file_seek(self, file_obj: FAT32File, position: int) -> bool:
         """Seek to a specific position in an open file."""
         if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
-            return  # Waveshare SD module does not support file seek yet
+            return False  # Waveshare SD module does not support file seek yet
 
-        sd_mp.file_seek(file_obj, position)
+        try:
+            sd_mp.file_seek(file_obj, position)
+            return True
+        except Exception as e:
+            print(f"Error seeking in file: {e}")
+            return False
 
     def file_write(self, file_obj: FAT32File, data, mode: str = "w") -> bool:
         """Write data to an open file."""
@@ -134,11 +185,11 @@ class Storage:
             return False  # Waveshare SD module does not support file write yet
 
         try:
-            if mode == "w":
-                return sd_mp.file_write(file_obj, data.encode("utf-8"))
-            if mode == "a":
-                return sd_mp.file_write(file_obj, data.encode("utf-8"))
-            return sd_mp.file_write(file_obj, data)
+            if mode in ("w", "a"):
+                sd_mp.file_write(file_obj, data.encode("utf-8"))
+            else:
+                sd_mp.file_write(file_obj, data)
+            return True
         except Exception as e:
             print(f"Error writing to file: {e}")
             return False
@@ -150,11 +201,11 @@ class Storage:
 
         return sd_mp.is_directory(path)
 
-    def listdir(self, path: str = "/sd") -> list[str]:
+    def listdir(self, path: str = "") -> list[str]:
         """List files in a directory.
 
         Args:
-            path: Directory path to list (default: "/sd")
+            path: Directory path to list (default: "")
 
         Returns:
             List of filenames in the directory
@@ -164,7 +215,7 @@ class Storage:
 
         return [item["filename"] for item in sd_mp.read_directory(path)]
 
-    def mkdir(self, path: str = "/sd") -> bool:
+    def mkdir(self, path: str) -> bool:
         """Create a new directory."""
         try:
             if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
@@ -224,6 +275,18 @@ class Storage:
             return False
         except Exception as e:
             print(f"Error mounting VFS: {e}")
+            return False
+
+    def move(self, source_path: str, destination_path: str) -> bool:
+        """Move a file or directory from source_path to destination_path."""
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+            return False  # No SD storage on this board
+
+        try:
+            sd_mp.move(source_path, destination_path)
+            return True
+        except Exception as e:
+            print(f"Error moving from {source_path} to {destination_path}: {e}")
             return False
 
     def unmount_vfs(self, mount_point: str = "/sd") -> bool:

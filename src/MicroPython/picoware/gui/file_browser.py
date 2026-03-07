@@ -221,18 +221,12 @@ class FileBrowser:
             self._last_save_time = curr_t
 
     def _draw_progress(self, title, percentage):
-        c_bg, c_bar, _, _, _ = self._get_theme()
-        sw, sh = self._draw.size.x, self._draw.size.y
-        bw, bh = 200, 60
-        x, y = (sw - bw) // 2, (sh - bh) // 2
-        self._draw.fill_rectangle(Vector(x, y), Vector(bw, bh), c_bg)
-        self._draw.rect(Vector(x, y), Vector(bw, bh), c_bar)
-        self._draw.text(Vector(x + 10, y + 10), title, TFT_WHITE)
-        self._draw.rect(Vector(x + 10, y + 30), Vector(bw - 20, 15), TFT_WHITE)
-        fill_w = int((bw - 22) * max(0.0, min(1.0, percentage)))
-        if fill_w > 0: 
-            self._draw.fill_rectangle(Vector(x + 11, y + 31), Vector(fill_w, 13), c_bar)
-        self._draw.swap()
+        try:
+            load_ui = Loading(self._draw, title)
+            load_ui.draw()
+            self._draw.swap()
+        except Exception:
+            pass
 
     def _copy_item(self, src, dst, action_text="Copying"):
         is_d = False
@@ -403,7 +397,7 @@ class FileBrowser:
 
         if self._is_help_screen:
             self._draw.text(Vector(10, 10), "File Browser Help", TFT_WHITE)
-            self._draw.text(Vector(10, 24), "SPC:Mark H:Help O:Opt S:Sort", c_bar)
+            self._draw.text(Vector(10, 24), "SPC:Mrk H:Help O:Opt M:Mode", c_bar)
             self._draw.text(Vector(10, 36), "I:Info N:NewFolder D:Del", c_bar)
             self._draw.text(Vector(10, 48), "UP/DOWN: Scroll", TFT_WHITE)
             self._draw.text(Vector(10, 60), "L/R: Switch Pane", TFT_WHITE)
@@ -493,7 +487,8 @@ class FileBrowser:
 
         self._draw.fill_rectangle(Vector(0, 0), Vector(sw, 12), c_bar)
         ss = "Name" if self._app_state.get("sort_mode", self.SORT_NAME) == self.SORT_NAME else "Date"
-        self._draw.text(Vector(2, 2), f"File Browser v1.26 [{ss}]", c_btxt)
+        dm = "Menu" if self._app_state.get("dir_menu", True) else "Open"
+        self._draw.text(Vector(2, 2), f"File Browser v1.26 [{ss}] [Dir:{dm}]", c_btxt)
         self._draw.fill_rectangle(Vector(mx, 12), Vector(1, sh - 24), c_bar)
         
         c_lim, n_lim, m_itm = (mx - 8) // 6, ((mx - 8) // 6) - 6, (sh - 38) // 12
@@ -563,9 +558,9 @@ class FileBrowser:
 
         self._draw.fill_rectangle(Vector(0, sh - 12), Vector(sw, 12), c_bar)
         if self._mode == FILE_BROWSER_SELECTOR:
-            self._draw.text(Vector(2, sh - 10), "ENT:Select O:Opt S:Sort", c_btxt)
+            self._draw.text(Vector(2, sh - 10), "ENT:Sel M:DirMode O:Opt", c_btxt)
         else:
-            self._draw.text(Vector(2, sh - 10), "ENT:Men SPC:Mrk N:New S:Srt O:Opt", c_btxt)
+            self._draw.text(Vector(2, sh - 10), "ENT:Men SPC N:New S:Srt O:Opt M:Dir", c_btxt)
         self._draw.swap()
         self._needs_redraw = False
 
@@ -781,6 +776,10 @@ class FileBrowser:
             self._app_state["sort_mode"] = self.SORT_DATE if self._app_state.get("sort_mode", self.SORT_NAME) == self.SORT_NAME else self.SORT_NAME
             self._refresh_panes()
             self._app_state["left_index"] = self._app_state["right_index"] = 0
+            self._needs_redraw = True
+            
+        elif btn == BUTTON_M and not self._is_help_screen and not self._show_options and self._confirm_menu is None and self._context_menu is None and not self._input_active:
+            self._app_state["dir_menu"] = not self._app_state.get("dir_menu", True)
             self._needs_redraw = True
                 
         elif btn == BUTTON_H and self._confirm_menu is None and self._context_menu is None and not self._input_active and not self._show_options:

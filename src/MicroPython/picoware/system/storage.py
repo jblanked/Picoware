@@ -159,11 +159,11 @@ class Storage:
 
         return sd_mp.is_directory(path)
 
-    def listdir(self, path: str = "/sd") -> list[str]:
+    def listdir(self, path: str = "") -> list[str]:
         """List files in a directory.
 
         Args:
-            path: Directory path to list (default: "/sd")
+            path: Directory path to list (default: "")
 
         Returns:
             List of filenames in the directory
@@ -173,7 +173,7 @@ class Storage:
 
         return [item["filename"] for item in sd_mp.read_directory(path)]
 
-    def mkdir(self, path: str = "/sd") -> bool:
+    def mkdir(self, path: str) -> bool:
         """Create a new directory."""
         try:
             if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:

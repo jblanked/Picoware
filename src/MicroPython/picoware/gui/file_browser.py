@@ -24,9 +24,14 @@ FILE_BROWSER_MANAGER = const(1)
 FILE_BROWSER_SELECTOR = const(2)
 
 def rgb_to_565(r, g, b):
+    # Helper to convert standard RGB colors to the display's 16-bit color format
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
 
 class FileBrowser:
+    """
+    Main File Browser application class. Handles dual-pane navigation, 
+    file operations (copy/move/delete), and integrated text/image viewing.
+    """
     PANE_LEFT = const(0)
     PANE_RIGHT = const(1)
     SORT_NAME = const(0)
@@ -46,6 +51,7 @@ class FileBrowser:
     OPTIONS_LABELS = ("Theme", "BG R (0-255)", "BG G (0-255)", "BG B (0-255)", "Bar R (0-255)", "Bar G (0-255)", "Bar B (0-255)", "Sort Mode", "Hidden Files", "Dir Enter")
     
     def __init__(self, view_manager, mode=FILE_BROWSER_SELECTOR, start_directory=""):
+        # Link to system managers
         self._vm = view_manager
         self._mode = mode
         self._storage = view_manager.storage
@@ -53,10 +59,12 @@ class FileBrowser:
         self._input_manager = view_manager.input_manager
         self._sys = System()
         
+        # State tracking and caching
         self._last_saved_json = "{}"
         self._last_save_time = 0
         self._stat_cache = {}
         
+        # UI overlays
         self._is_help_screen = False
         self._show_options = False
         self._show_info = False
@@ -67,6 +75,7 @@ class FileBrowser:
         self._context_menu = None
         self._confirm_menu = None
         
+        # Input handling for renaming/creating folders
         self._input_active = False
         self._input_text = ""
         self._input_cursor = 0
@@ -78,6 +87,7 @@ class FileBrowser:
         self._is_shift = False
         self._is_caps = False
         
+        # Text Editor and Image Viewer state
         self._is_editing = False
         self._edit_read_only = False
         self._edit_text = []
@@ -103,6 +113,7 @@ class FileBrowser:
             BUTTON_UNDERSCORE: "_"
         }
         
+        # Core application state to be saved/loaded
         self._app_state = {
             "left_path": start_directory if start_directory else "/",
             "right_path": start_directory if start_directory else "/",
@@ -122,6 +133,7 @@ class FileBrowser:
             "marked": []
         }
         
+        # Load user settings if they exist
         try:
             data = self._storage.read("/picoware/settings/file_browser_state.json", "r")
             if data:
@@ -137,6 +149,7 @@ class FileBrowser:
         self._needs_redraw = True
 
     def __del__(self):
+        # Force a settings save and safely clear memory on exit
         self._auto_save()
         if self._context_menu:
             del self._context_menu
@@ -161,6 +174,7 @@ class FileBrowser:
 
     @property
     def path(self) -> str:
+        # Resolves the full absolute path of the currently highlighted item
         act = self._app_state["active_pane"]
         p_dir = self._app_state["left_path"] if act == self.PANE_LEFT else self._app_state["right_path"]
         f_lst = self._app_state["left_files"] if act == self.PANE_LEFT else self._app_state["right_files"]
@@ -187,6 +201,7 @@ class FileBrowser:
         }
 
     def _get_theme(self):
+        # Maps the user's saved theme index to specific display colors
         th = self._app_state.get("theme", 0)
         if th == 0:
             return TFT_BLUE, TFT_CYAN, TFT_WHITE, TFT_YELLOW, TFT_BLACK
@@ -198,6 +213,7 @@ class FileBrowser:
             return c_bg, c_bar, TFT_WHITE, TFT_YELLOW, TFT_BLACK
 
     def _spawn_menu(self, title, items):
+        # Helper to construct a pop-up context menu overlaid on the main interface
         c_bg, c_bar, _, _, _ = self._get_theme()
         m = Menu(self._draw, title, 0, self._draw.size.y, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
         for i in items:
@@ -206,6 +222,7 @@ class FileBrowser:
         return m
 
     def _auto_save(self):
+        # Non-blocking delta check to silently save settings every 5 seconds if changed
         curr_t = time.time()
         if curr_t - self._last_save_time > 5:
             save_dict = {k: self._app_state[k] for k in ["left_path", "right_path", "active_pane", "sort_mode", "show_hidden", "dir_menu", "theme", "bg_r", "bg_g", "bg_b", "bar_r", "bar_g", "bar_b", "left_top", "right_top"]}
@@ -221,6 +238,7 @@ class FileBrowser:
             self._last_save_time = curr_t
 
     def _draw_progress(self, title, percentage):
+        # Displays the integrated Picoware loading bar overlay
         try:
             load_ui = Loading(self._draw, title)
             load_ui.draw()
@@ -229,6 +247,7 @@ class FileBrowser:
             pass
 
     def _copy_item(self, src, dst, action_text="Copying"):
+        # Recursive file and directory copy operation with visual progress
         is_d = False
         try: is_d = self._storage.is_directory(src)
         except Exception: pass
@@ -257,6 +276,8 @@ class FileBrowser:
             except Exception: pass
 
     def _load_dir(self, path):
+        # Reads directory contents and implements lazy caching for is_directory checks.
+        # Only queries file sizes later during UI rendering to minimize RAM and SD reads.
         items = []
         show_hid = self._app_state.get("show_hidden", False)
         sort_m = self._app_state.get("sort_mode", self.SORT_NAME)
@@ -302,6 +323,7 @@ class FileBrowser:
         return [".."] + items if path != "/" else items
 
     def _refresh_panes(self):
+        # Wipes the lazy cache entirely to prevent memory leaks, then repopulates panes
         self._stat_cache.clear()
         self._app_state["left_files"].clear()
         self._app_state["left_files"] = self._load_dir(self._app_state["left_path"])
@@ -311,6 +333,7 @@ class FileBrowser:
         self._app_state["right_index"] = max(0, min(self._app_state["right_index"], len(self._app_state["right_files"]) - 1))
 
     def _open_viewer(self, path):
+        # Determines if the file is an image or text and launches the appropriate viewer
         ext = path.split(".")[-1].lower() if "." in path else ""
         if ext in ("jpg", "jpeg", "bmp"):
             self._is_viewing_image = True
@@ -320,6 +343,7 @@ class FileBrowser:
             self._open_editor(path, read_only=True)
 
     def _open_editor(self, path, read_only=False):
+        # Loads file contents into RAM for integrated text viewing or editing
         self._edit_text.clear()
         try:
             data = self._storage.read(path, "r")
@@ -340,9 +364,14 @@ class FileBrowser:
         self._needs_redraw = True
 
     def _draw_ui(self):
+        # ---------------------------------------------------------
+        # Main Rendering Method
+        # Resolves overlapping layers based on current active state
+        # ---------------------------------------------------------
         c_bg, c_bar, c_txt, c_dir, c_btxt = self._get_theme()
         sw, sh, mx = self._draw.size.x, self._draw.size.y, self._draw.size.x // 2
 
+        # 1. Image Viewer Overlay
         if self._is_viewing_image:
             self._draw.clear(color=TFT_BLACK)
             if self._image_path.lower().endswith("bmp"):
@@ -355,6 +384,7 @@ class FileBrowser:
             self._needs_redraw = False
             return
 
+        # 2. Text Editor Overlay
         if self._is_editing:
             self._draw.clear(color=c_bg)
             self._draw.fill_rectangle(Vector(0, 0), Vector(sw, 12), c_bar)
@@ -395,6 +425,7 @@ class FileBrowser:
 
         self._draw.clear(color=c_bg)
 
+        # 3. Help Screen Overlay
         if self._is_help_screen:
             self._draw.text(Vector(10, 10), "File Browser Help", TFT_WHITE)
             self._draw.text(Vector(10, 24), "SPC:Mrk H:Help O:Opt M:Mode", c_bar)
@@ -413,6 +444,7 @@ class FileBrowser:
             self._needs_redraw = False
             return
 
+        # 4. File Info Window
         if self._show_info:
             bx, by, bw, bh = (sw - 200) // 2, (sh - 100) // 2, 200, 100
             self._draw.fill_rectangle(Vector(bx, by), Vector(bw, bh), TFT_BLACK)
@@ -426,6 +458,7 @@ class FileBrowser:
             self._needs_redraw = False
             return
 
+        # 5. Options Menu
         if self._show_options:
             self._draw.fill_rectangle(Vector(10, 10), Vector(sw - 20, sh - 20), TFT_BLACK)
             self._draw.rect(Vector(10, 10), Vector(sw - 20, sh - 20), c_bar)
@@ -455,6 +488,7 @@ class FileBrowser:
             self._needs_redraw = False
             return
 
+        # 6. Text Input Overlay (for renaming/creating)
         if self._input_active:
             by = (sh - 70) // 2
             self._draw.fill_rectangle(Vector(10, by), Vector(sw - 20, 70), TFT_BLACK)
@@ -473,6 +507,7 @@ class FileBrowser:
             self._draw.swap()
             return
 
+        # 7. Action Menus (Context and Confirmations)
         if self._confirm_menu:
             self._confirm_menu.draw()
             self._draw.swap()
@@ -485,6 +520,7 @@ class FileBrowser:
             self._needs_redraw = False
             return
 
+        # 8. Main Dual-Pane Browser View
         self._draw.fill_rectangle(Vector(0, 0), Vector(sw, 12), c_bar)
         ss = "Name" if self._app_state.get("sort_mode", self.SORT_NAME) == self.SORT_NAME else "Date"
         dm = "Menu" if self._app_state.get("dir_menu", True) else "Open"
@@ -494,6 +530,7 @@ class FileBrowser:
         c_lim, n_lim, m_itm = (mx - 8) // 6, ((mx - 8) // 6) - 6, (sh - 38) // 12
         ap = self._app_state["active_pane"]
 
+        # Loop through left, then right pane to draw current directory listings
         for pn in (self.PANE_LEFT, self.PANE_RIGHT):
             il = pn == self.PANE_LEFT
             xb = 0 if il else mx + 1
@@ -504,6 +541,7 @@ class FileBrowser:
             top_key = "left_top" if il else "right_top"
             si = self._app_state.get(top_key, 0)
             
+            # Auto-scroll clamping logic
             if ix < si:
                 si = ix
             elif ix >= si + m_itm:
@@ -511,10 +549,12 @@ class FileBrowser:
                 
             self._app_state[top_key] = si
             
+            # Highlight currently active pane header
             if ap == pn: 
                 self._draw.fill_rectangle(Vector(xb, 12), Vector(mx - (0 if il else 1), 12), c_bar)
             self._draw.text(Vector(xb + 2, 14), ps[:c_lim], c_btxt if ap == pn else c_txt)
             
+            # Render visible files, polling sizes on-the-fly to save massive RAM buildup
             yo = 26
             for i, fn in enumerate(fl[si : si + m_itm]):
                 ai = i + si
@@ -565,6 +605,10 @@ class FileBrowser:
         self._needs_redraw = False
 
     def run(self):
+        # ---------------------------------------------------------
+        # Application Tick Loop
+        # Processes user input contextual to the currently active UI overlay
+        # ---------------------------------------------------------
         btn = self._input_manager.button
         
         if btn is None or btn == BUTTON_NONE:
@@ -572,12 +616,14 @@ class FileBrowser:
                 self._draw_ui()
             return True
 
+        # --- Sub-View: Image Viewer Input ---
         if self._is_viewing_image:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER):
                 self._is_viewing_image = False
                 self._image_path = ""
                 self._needs_redraw = True
                 
+        # --- Sub-View: Text Editor Input ---
         elif self._is_editing and self._context_menu is None and self._confirm_menu is None:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE):
                 if self._edit_unsaved and not self._edit_read_only:
@@ -658,6 +704,7 @@ class FileBrowser:
                         self._is_shift = False
                     self._needs_redraw = True
                 
+            # Restrict cursor viewport mathematically
             if self._needs_redraw and not self._edit_read_only:
                 ml = (self._draw.size.y - 24) // 12
                 mc = (self._draw.size.x - 4) // 6
@@ -666,12 +713,14 @@ class FileBrowser:
                 if self._edit_cx < self._edit_sx: self._edit_sx = max(0, self._edit_cx - 5)
                 if self._edit_cx >= self._edit_sx + mc: self._edit_sx = self._edit_cx - mc + 1
 
+        # --- Sub-View: Information Dialog Input ---
         elif self._show_info:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER):
                 self._show_info = False
                 self._info_data = []
                 self._needs_redraw = True
                 
+        # --- Sub-View: Text Entry (Rename/Make Folder) Input ---
         elif self._input_active:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE):
                 self._input_active = False
@@ -754,6 +803,7 @@ class FileBrowser:
                         self._is_shift = False
                     self._needs_redraw = True
 
+        # --- Main File Browser Input: Marking items ---
         elif btn == BUTTON_SPACE and not self._is_help_screen and not self._show_options and self._confirm_menu is None and self._context_menu is None and not self._input_active and not self._show_info:
             if self._mode == FILE_BROWSER_MANAGER:
                 ap = self._app_state["active_pane"]
@@ -772,6 +822,7 @@ class FileBrowser:
                         else: self._app_state["right_index"] = (ix + 1) % len(fl)
                         self._needs_redraw = True
             
+        # --- Main File Browser Input: Hotkeys (Sort, Dir Mode, Help, Options, New, Info, Delete) ---
         elif btn == BUTTON_S and not self._is_help_screen and not self._show_options and self._confirm_menu is None and self._context_menu is None and not self._input_active:
             self._app_state["sort_mode"] = self.SORT_DATE if self._app_state.get("sort_mode", self.SORT_NAME) == self.SORT_NAME else self.SORT_NAME
             self._refresh_panes()
@@ -853,6 +904,7 @@ class FileBrowser:
                             self._confirm_menu = self._spawn_menu("Confirm Delete?", ("No", "Yes"))
             self._needs_redraw = True
 
+        # --- Sub-View: Options Menu Input ---
         elif self._show_options:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER):
                 self._show_options = False
@@ -876,6 +928,7 @@ class FileBrowser:
                 elif idx == 8: self._app_state["show_hidden"] = not self._app_state.get("show_hidden", False)
                 elif idx == 9: self._app_state["dir_menu"] = not self._app_state.get("dir_menu", True)
 
+        # --- Sub-View: Confirm Overwrite/Delete Dialog Input ---
         elif self._confirm_menu is not None:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE):
                 self._confirm_menu = None
@@ -951,6 +1004,7 @@ class FileBrowser:
                 self._context_target_path = self._pending_dest_path = ""
                 self._needs_redraw = True
 
+        # --- Sub-View: Context Menu (View, Edit, Copy, Delete) Input ---
         elif self._context_menu is not None:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE):
                 self._context_menu = None
@@ -1041,6 +1095,7 @@ class FileBrowser:
                     self._context_menu = None
                     self._needs_redraw = True
 
+        # --- Main File Browser Input: Navigation and Exiting ---
         elif btn in (BUTTON_BACK, BUTTON_ESCAPE):
             if self._is_help_screen:
                 self._is_help_screen = False

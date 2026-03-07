@@ -256,8 +256,8 @@ class FileBrowser:
             self._last_save_time = curr_t
 
     def _delete_item(self, path):
-        # Recursively clear out folders and files, freeing RAM at each step. 
-        # Safely required for deleting folders that are not entirely empty.
+        # Recursively clear out folders and files, freeing RAM at each step.
+        # Defers strictly to self._storage API.
         is_dir = False
         try: is_dir = self._storage.is_directory(path)
         except Exception: pass
@@ -275,67 +275,6 @@ class FileBrowser:
         else:
             try: self._storage.remove(path)
             except Exception as e: print("File Delete Error:", e)
-
-    def _copy_item(self, src, dst):
-        # ---------------------------------------------------------
-        # Standard VFS Binary File Copier
-        # Uses core Python streams to ensure binary 0x00 safety
-        # ---------------------------------------------------------
-        is_dir = False
-        try: is_dir = self._storage.is_directory(src)
-        except Exception: pass
-        
-        if is_dir:
-            try: self._storage.mkdir(dst)
-            except Exception: pass
-            try:
-                items = self._storage.listdir(src)
-                for item in items:
-                    if item not in (".", ".."):
-                        self._copy_item(f"{src}/{item}", f"{dst}/{item}")
-                del items
-            except Exception as e:
-                print("Dir Copy Error:", e)
-        else:
-            try: 
-                self._storage.mount_vfs()
-            except Exception: 
-                pass
-                
-            f_in = None
-            f_out = None
-            try:
-                # Sanitize paths for VFS
-                r_src = "/sd/" + src.lstrip("/") if not src.startswith("/sd") and not src.startswith("sd") else src
-                r_dst = "/sd/" + dst.lstrip("/") if not dst.startswith("/sd") and not dst.startswith("sd") else dst
-                
-                f_in = open(r_src, "rb")
-                f_out = open(r_dst, "wb")
-                
-                while True:
-                    # Use standard read() to guarantee native 'bytes' objects.
-                    # This bypasses any incomplete readinto/bytearray C-implementations
-                    # and entirely prevents 0x00 null-byte truncation during write.
-                    chunk = f_in.read(2048)
-                    if not chunk:
-                        break
-                    f_out.write(chunk)
-                    del chunk
-                    
-            except Exception as inner_e:
-                print("VFS Copy Error:", inner_e)
-            finally:
-                # Force file handle closure to prevent EMFILE limits on batch operations
-                if f_out is not None:
-                    try: f_out.flush()
-                    except Exception: pass
-                    try: f_out.close()
-                    except Exception: pass
-                if f_in is not None:
-                    try: f_in.close()
-                    except Exception: pass
-            
-            gc.collect()
 
     def _draw_progress(self, title, percentage):
         # High-performance, low-RAM custom progress bar overlay
@@ -931,7 +870,7 @@ class FileBrowser:
                             elif self._input_mode == self.MODE_COPY_SAME:
                                 self._draw_progress("Copying...", 0.0)
                                 try:
-                                    self._copy_item(self._context_target_path, np)
+                                    self._storage.copy(self._context_target_path, np)
                                     rn = True
                                 except Exception as e: print("Copy Error:", e)
                                 self._draw_progress("Copied", 1.0)
@@ -1121,6 +1060,7 @@ class FileBrowser:
                 self._needs_redraw = True
             elif btn == BUTTON_CENTER:
                 sl = self._confirm_menu.current_item
+                
                 if sl == "Yes":
                     mk = self._app_state["marked"]
                     targets = mk if len(mk) > 0 else [self._context_target_path]
@@ -1137,7 +1077,6 @@ class FileBrowser:
                         total = len(targets)
                         act_name = "Copying" if self._pending_action == self.ACT_COPY else "Moving"
                         
-                        # Restored visual feedback for single-item copies
                         if total == 1:
                             self._draw_progress(f"{act_name}...", 0.5)
                             
@@ -1156,7 +1095,7 @@ class FileBrowser:
                                     except Exception: pass
                                     
                                 if self._pending_action == self.ACT_COPY:
-                                    try: self._copy_item(t, dp)
+                                    try: self._storage.copy(t, dp)
                                     except Exception as e: print("Copy Error:", e)
                                 else:
                                     try: self._storage.move(t, dp)

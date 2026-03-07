@@ -302,18 +302,23 @@ class FileBrowser:
                     
                 if sort_m == self.SORT_DATE:
                     mt = 0
-                    try: mt = os.stat(fp)[8]
-                    except Exception: pass
+                    try: 
+                        # os.stat[9] accesses creation time, [8] is last modified time
+                        mt = os.stat(fp)[9] 
+                    except Exception: 
+                        pass
                     temp_list.append((itm, is_d, mt))
                 else:
                     temp_list.append((itm, is_d))
                     
             del d_list
             
-            if sort_m == self.SORT_NAME:
-                temp_list.sort(key=lambda x: (not x[1], x[0].lower()))
-            else:
+            if sort_m == self.SORT_DATE:
+                # Sort by: Folders first, then creation date (newest first), then name
                 temp_list.sort(key=lambda x: (not x[1], -x[2], x[0].lower()))
+            else:
+                # Sort by: Folders first, then name
+                temp_list.sort(key=lambda x: (not x[1], x[0].lower()))
                 
             items = [x[0] for x in temp_list]
             del temp_list

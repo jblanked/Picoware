@@ -199,7 +199,7 @@ class FileBrowser:
             curr_j = json.dumps(save_dict)
             if curr_j != self._last_saved_json:
                 try:
-                    self._storage.write("/picoware/settings/picocmd_state.json", curr_j, "w")
+                    self._storage.write("/picoware/settings/file_browser_state.json", curr_j, "w")
                     self._last_saved_json = curr_j
                 except Exception:
                     pass
@@ -210,7 +210,7 @@ class FileBrowser:
 
     def start(self):
         try:
-            data = self._storage.read("/picoware/settings/picocmd_state.json", "r")
+            data = self._storage.read("/picoware/settings/file_browser_state.json", "r")
             if data:
                 loaded = json.loads(data)
                 self._app_state.update({k: loaded.get(k, self._app_state[k]) for k in self._app_state})
@@ -409,7 +409,7 @@ class FileBrowser:
         self._draw.clear(color=c_bg)
 
         if self._is_help_screen:
-            self._draw.text(Vector(10, 10), "PicoCommander Help", TFT_WHITE)
+            self._draw.text(Vector(10, 10), "File Browser Help", TFT_WHITE)
             self._draw.text(Vector(10, 24), "SPC:Mark H:Help O:Opt S:Sort", c_bar)
             self._draw.text(Vector(10, 36), "I:Info N:NewFolder D:Del", c_bar)
             self._draw.text(Vector(10, 48), "UP/DOWN: Scroll", TFT_WHITE)
@@ -421,7 +421,7 @@ class FileBrowser:
                 self._draw.text(Vector(10, 138), f"PSRAM: {self._sys.used_psram // 1024}KB used / {self._sys.free_psram // 1024}KB free", TFT_YELLOW)
             self._draw.text(Vector(10, sh - 40), "made by Slasher006", c_bar)
             self._draw.text(Vector(10, sh - 30), "with the help of Gemini", c_bar)
-            self._draw.text(Vector(10, sh - 20), "Date: 2026-03-06 | v1.26", c_bar)
+            self._draw.text(Vector(10, sh - 20), "Date: 2026-03-07 | v1.26", c_bar)
             self._draw.swap()
             self._needs_redraw = False
             return
@@ -501,7 +501,7 @@ class FileBrowser:
         self._draw.fill_rectangle(Vector(0, 0), Vector(sw, 12), c_bar)
         ms = "Viewer" if self._mode == FILE_BROWSER_VIEWER else "Select" if self._mode == FILE_BROWSER_SELECTOR else "Manager"
         ss = "Name" if self._app_state.get("sort_mode", self.SORT_NAME) == self.SORT_NAME else "Date"
-        self._draw.text(Vector(2, 2), f"PicoCmd v1.26 [{ms}] [{ss}]", c_btxt)
+        self._draw.text(Vector(2, 2), f"File Browser v1.26 [{ms}] [{ss}]", c_btxt)
         self._draw.fill_rectangle(Vector(mx, 12), Vector(1, sh - 24), c_bar)
         
         c_lim, n_lim, m_itm = (mx - 8) // 6, ((mx - 8) // 6) - 6, (sh - 38) // 12

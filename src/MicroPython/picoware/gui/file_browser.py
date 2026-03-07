@@ -192,13 +192,6 @@ class FileBrowser:
         m.set_selected(0)
         return m
 
-    def _force_sync(self):
-        time.sleep(0.3)
-        try:
-            os.sync()
-        except Exception:
-            pass
-
     def _auto_save(self):
         curr_t = time.time()
         if curr_t - self._last_save_time > 5:
@@ -580,7 +573,7 @@ class FileBrowser:
         self._draw.swap()
         self._needs_redraw = False
 
-    def run(self):
+def run(self):
         btn = self._input_manager.button
         
         if btn is None or btn == BUTTON_NONE:
@@ -593,7 +586,6 @@ class FileBrowser:
                 self._is_viewing_image = False
                 self._image_path = ""
                 self._needs_redraw = True
-                time.sleep(0.3)
                 
         elif self._is_editing and self._context_menu is None and self._confirm_menu is None:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE):
@@ -604,7 +596,6 @@ class FileBrowser:
                     self._is_shift = False
                     self._is_caps = False
                 self._needs_redraw = True
-                time.sleep(0.3)
             elif btn == BUTTON_UP:
                 if self._edit_read_only:
                     if self._edit_sy > 0: self._edit_sy -= 1
@@ -612,7 +603,6 @@ class FileBrowser:
                     self._edit_cy -= 1
                     self._edit_cx = min(self._edit_cx, len(self._edit_text[self._edit_cy]))
                 self._needs_redraw = True
-                time.sleep(0.1)
             elif btn == BUTTON_DOWN:
                 if self._edit_read_only:
                     ml = (self._draw.size.y - 24) // 12
@@ -621,7 +611,6 @@ class FileBrowser:
                     self._edit_cy += 1
                     self._edit_cx = min(self._edit_cx, len(self._edit_text[self._edit_cy]))
                 self._needs_redraw = True
-                time.sleep(0.1)
             elif btn == BUTTON_LEFT:
                 if self._edit_read_only:
                     if self._edit_sx > 0: self._edit_sx -= 1
@@ -631,7 +620,6 @@ class FileBrowser:
                     self._edit_cy -= 1
                     self._edit_cx = len(self._edit_text[self._edit_cy])
                 self._needs_redraw = True
-                time.sleep(0.1)
             elif btn == BUTTON_RIGHT:
                 if self._edit_read_only:
                     if self._edit_sx < 500: self._edit_sx += 1
@@ -641,21 +629,17 @@ class FileBrowser:
                     self._edit_cy += 1
                     self._edit_cx = 0
                 self._needs_redraw = True
-                time.sleep(0.1)
             elif not self._edit_read_only:
                 if btn == BUTTON_CENTER:
                     self._context_menu = self._spawn_menu("Editor Menu", ("Save", "Save & Exit", "Exit without Saving", "Cancel"))
                     self._needs_redraw = True
-                    time.sleep(0.3)
                 elif btn in (BUTTON_SHIFT, KEY_MOD_SHL, KEY_MOD_SHR):
                     self._is_shift = not self._is_shift
                     self._needs_redraw = True
-                    time.sleep(0.15)
                 elif btn in (BUTTON_CAPS_LOCK, KEY_CAPS_LOCK):
                     self._is_caps = not self._is_caps
                     self._is_shift = False
                     self._needs_redraw = True
-                    time.sleep(0.15)
                 elif btn == BUTTON_BACKSPACE:
                     if self._edit_cx > 0:
                         line = self._edit_text[self._edit_cy]
@@ -671,7 +655,6 @@ class FileBrowser:
                         self._edit_cx = pl
                         self._edit_unsaved = True
                         self._needs_redraw = True
-                    time.sleep(0.1)
                 elif btn in self._char_map:
                     c = self._char_map[btn]
                     if (self._is_shift or self._is_caps) and c.isalpha(): 
@@ -683,7 +666,6 @@ class FileBrowser:
                     if self._is_shift:
                         self._is_shift = False
                     self._needs_redraw = True
-                    time.sleep(0.1)
                 
             if self._needs_redraw and not self._edit_read_only:
                 ml = (self._draw.size.y - 24) // 12
@@ -698,7 +680,6 @@ class FileBrowser:
                 self._show_info = False
                 self._info_data = []
                 self._needs_redraw = True
-                time.sleep(0.3)
                 
         elif self._input_active:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE):
@@ -706,7 +687,6 @@ class FileBrowser:
                 self._is_shift = False
                 self._is_caps = False
                 self._needs_redraw = True
-                time.sleep(0.3)
             elif btn == BUTTON_CENTER:
                 new_name = self._input_text.strip()
                 rn = False
@@ -724,7 +704,6 @@ class FileBrowser:
                             self._is_shift = False
                             self._is_caps = False
                             self._needs_redraw = True
-                            time.sleep(0.3)
                             return True
                         else:
                             if self._input_mode == self.MODE_RENAME:
@@ -745,7 +724,6 @@ class FileBrowser:
                             except Exception: pass
                                 
                 if rn:
-                    self._force_sync()
                     self._refresh_panes()
                 
                 if not self._confirm_menu:
@@ -754,32 +732,26 @@ class FileBrowser:
                     self._is_caps = False
                     self._context_target_path = ""
                     self._needs_redraw = True
-                time.sleep(0.3)
             elif btn in (BUTTON_SHIFT, KEY_MOD_SHL, KEY_MOD_SHR, BUTTON_UP):
                 self._is_shift = not self._is_shift
                 self._needs_redraw = True
-                time.sleep(0.15)
             elif btn in (BUTTON_CAPS_LOCK, KEY_CAPS_LOCK, BUTTON_DOWN):
                 self._is_caps = not self._is_caps
                 self._is_shift = False
                 self._needs_redraw = True
-                time.sleep(0.15)
             elif btn == BUTTON_LEFT:
                 if self._input_cursor > 0:
                     self._input_cursor -= 1
                     self._needs_redraw = True
-                time.sleep(0.15)
             elif btn == BUTTON_RIGHT:
                 if self._input_cursor < len(self._input_text):
                     self._input_cursor += 1
                     self._needs_redraw = True
-                time.sleep(0.15)
             elif btn == BUTTON_BACKSPACE:
                 if self._input_cursor > 0:
                     self._input_text = self._input_text[:self._input_cursor - 1] + self._input_text[self._input_cursor:]
                     self._input_cursor -= 1
                     self._needs_redraw = True
-                time.sleep(0.15)
             elif btn in self._char_map:
                 if len(self._input_text) < 35:
                     c = self._char_map[btn]
@@ -790,7 +762,6 @@ class FileBrowser:
                     if self._is_shift:
                         self._is_shift = False
                     self._needs_redraw = True
-                time.sleep(0.18)
 
         elif btn == BUTTON_SPACE and not self._is_help_screen and not self._show_options and self._confirm_menu is None and self._context_menu is None and not self._input_active and not self._show_info:
             if self._mode == FILE_BROWSER_MANAGER:
@@ -809,7 +780,6 @@ class FileBrowser:
                         if ap == self.PANE_LEFT: self._app_state["left_index"] = (ix + 1) % len(fl)
                         else: self._app_state["right_index"] = (ix + 1) % len(fl)
                         self._needs_redraw = True
-            time.sleep(0.15)
             
         elif btn == BUTTON_S and not self._is_help_screen and not self._show_options and self._confirm_menu is None and self._context_menu is None and not self._input_active:
             self._app_state["sort_mode"] = self.SORT_DATE if self._app_state.get("sort_mode", self.SORT_NAME) == self.SORT_NAME else self.SORT_NAME
@@ -835,7 +805,6 @@ class FileBrowser:
                 self._is_shift = False
                 self._is_caps = False
                 self._needs_redraw = True
-                time.sleep(0.3)
             
         elif btn == BUTTON_I and not self._is_help_screen and not self._show_options and self._confirm_menu is None and self._context_menu is None and not self._show_info:
             ap = self._app_state["active_pane"]
@@ -866,7 +835,6 @@ class FileBrowser:
                     ]
                     self._show_info = True
                     self._needs_redraw = True
-            time.sleep(0.3)
 
         elif btn == BUTTON_D and not self._is_help_screen and not self._show_options and self._confirm_menu is None and self._context_menu is None:
             if self._mode == FILE_BROWSER_MANAGER:
@@ -893,7 +861,6 @@ class FileBrowser:
                 self._show_options = False
                 self._refresh_panes()
                 self._needs_redraw = True
-                time.sleep(0.3)
             elif btn == BUTTON_UP:
                 self._opt_idx = (self._opt_idx - 1) % 10
                 self._needs_redraw = True
@@ -918,7 +885,6 @@ class FileBrowser:
                 self._pending_action = self.ACT_NONE
                 self._pending_dest_path = ""
                 self._needs_redraw = True
-                time.sleep(0.3)
             elif btn == BUTTON_UP:
                 self._confirm_menu.scroll_up()
                 self._needs_redraw = True
@@ -957,7 +923,6 @@ class FileBrowser:
                             if self._storage.exists(dp):
                                 try: self._storage.remove(dp)
                                 except Exception: pass
-                                time.sleep(0.1)
                                 
                             if self._pending_action == self.ACT_COPY:
                                 self._copy_item(t, dp, act_name)
@@ -976,27 +941,23 @@ class FileBrowser:
                         if self._storage.exists(self._pending_dest_path):
                             try: self._storage.remove(self._pending_dest_path)
                             except Exception: pass
-                            time.sleep(0.1)
                         try: self._storage.rename(self._context_target_path, self._pending_dest_path)
                         except Exception: pass
                         self._draw_progress("Renaming 100%", 1.0)
                     
                     if len(mk) > 0: self._app_state["marked"].clear()
                     if self._pending_action != self.ACT_NONE:
-                        self._force_sync()
                         self._refresh_panes()
 
                 self._confirm_menu = None
                 self._pending_action = self.ACT_NONE
                 self._context_target_path = self._pending_dest_path = ""
                 self._needs_redraw = True
-                time.sleep(0.3)
 
         elif self._context_menu is not None:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE):
                 self._context_menu = None
                 self._needs_redraw = True
-                time.sleep(0.3)
             elif btn == BUTTON_UP:
                 self._context_menu.scroll_up()
                 self._needs_redraw = True
@@ -1024,7 +985,6 @@ class FileBrowser:
                     self._is_shift = False
                     self._is_caps = False
                     self._needs_redraw = True
-                    time.sleep(0.3)
                 else:
                     if ac == "Cancel":
                         pass
@@ -1084,7 +1044,6 @@ class FileBrowser:
                             
                     self._context_menu = None
                     self._needs_redraw = True
-                    time.sleep(0.3)
 
         elif btn in (BUTTON_BACK, BUTTON_ESCAPE):
             if self._is_help_screen:
@@ -1160,6 +1119,9 @@ class FileBrowser:
                         except Exception: pass
                     
                     if self._mode == FILE_BROWSER_SELECTOR and not isd:
+                        self._input_manager.reset()
+                        self._auto_save()
+                        gc.collect()
                         return False
 
                     mk = self._app_state["marked"]
@@ -1177,7 +1139,6 @@ class FileBrowser:
                         items = ["Open"] if isd else []
                         items.extend(["Copy", "Move", "Delete", "Clear Marks", "Cancel"])
                         self._context_menu = self._spawn_menu(f"{len(mk)} Marked", items)
-                        time.sleep(0.3)
                     else:
                         self._context_target_path = np
                         items = ["Open"] if isd else ["View", "Edit"]
@@ -1185,11 +1146,11 @@ class FileBrowser:
                             items.extend(["Copy", "Move", "Rename", "Delete"])
                         items.append("Cancel")
                         self._context_menu = self._spawn_menu(sf[:14], items)
-                        time.sleep(0.3)
                 self._needs_redraw = True
 
         if self._needs_redraw:
             self._draw_ui()
+            
         self._input_manager.reset()
         self._auto_save()
         gc.collect()

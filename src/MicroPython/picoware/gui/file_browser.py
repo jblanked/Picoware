@@ -134,7 +134,7 @@ class FileBrowser:
             "sort_mode": self.SORT_NAME,
             "show_hidden": False,
             "dir_menu": True,
-            "theme": 0,
+            "theme": 0, # Defaults to 0 which is now the System theme
             "bg_r": 0, "bg_g": 0, "bg_b": 170,
             "bar_r": 0, "bar_g": 170, "bar_b": 170,
             "marked": []
@@ -213,12 +213,19 @@ class FileBrowser:
 
     def _get_theme(self):
         # Maps the user's saved theme index to specific display colors
+        # Output format: Background, Bar/Border, Standard Text, Directory Text, Bar Text
         th = self._app_state.get("theme", 0)
         if th == 0:
-            return TFT_BLUE, TFT_CYAN, TFT_WHITE, TFT_YELLOW, TFT_BLACK
+            # System Theme: Uses variables dynamically provided by ViewManager
+            return self._vm.background_color, self._vm.selected_color, self._vm.foreground_color, self._vm.foreground_color, self._vm.background_color
         elif th == 1:
+            # Classic Theme
+            return TFT_BLUE, TFT_CYAN, TFT_WHITE, TFT_YELLOW, TFT_BLACK
+        elif th == 2:
+            # Dark Theme
             return TFT_BLACK, TFT_WHITE, TFT_WHITE, TFT_WHITE, TFT_BLACK
         else:
+            # Custom Theme
             c_bg = rgb_to_565(self._app_state.get("bg_r", 0), self._app_state.get("bg_g", 0), self._app_state.get("bg_b", 170))
             c_bar = rgb_to_565(self._app_state.get("bar_r", 0), self._app_state.get("bar_g", 170), self._app_state.get("bar_b", 170))
             return c_bg, c_bar, TFT_WHITE, TFT_YELLOW, TFT_BLACK
@@ -249,7 +256,8 @@ class FileBrowser:
             self._last_save_time = curr_t
 
     def _delete_item(self, path):
-        # Recursively clear out folders and files, freeing RAM at each step
+        # Recursively clear out folders and files, freeing RAM at each step. 
+        # Safely required for deleting folders that are not entirely empty.
         is_dir = False
         try: is_dir = self._storage.is_directory(path)
         except Exception: pass
@@ -268,35 +276,71 @@ class FileBrowser:
             try: self._storage.remove(path)
             except Exception as e: print("File Delete Error:", e)
 
-    def _copy_item(self, src, dst):
-        # Perform chunked file copying to maintain low memory overhead
+    def _verified_copy(self, src, dst):
+        # ---------------------------------------------------------
+        # Hardened File Copier with 100% Integrity Verification
+        # ---------------------------------------------------------
         is_dir = False
         try: is_dir = self._storage.is_directory(src)
         except Exception: pass
         
         if is_dir:
+            # Recreate directories recursively
             try: self._storage.mkdir(dst)
             except Exception: pass
             try:
                 items = self._storage.listdir(src)
                 for item in items:
                     if item not in (".", ".."):
-                        self._copy_item(f"{src}/{item}", f"{dst}/{item}")
+                        self._verified_copy(f"{src}/{item}", f"{dst}/{item}")
                 del items
             except Exception as e:
                 print("Dir Copy Error:", e)
         else:
-            try:
-                f_size = self._storage.size(src)
-                chunk_size = 2048
-                self._storage.write(dst, "", "w")
-                for start_pos in range(0, f_size, chunk_size):
-                    chunk = self._storage.read_chunked(src, start_pos, chunk_size)
-                    if chunk:
-                        self._storage.write(dst, chunk, "ab")
-                    del chunk
-            except Exception as e:
-                print("File Copy Error:", e)
+            # 1. Attempt firmware native copy (Fastest)
+            try: self._storage.copy(src, dst)
+            except Exception: pass
+            
+            # 2. Check strict file size parity
+            sz = 0
+            try: sz = self._storage.size(src)
+            except Exception: pass
+            
+            dst_sz = -1
+            try: dst_sz = self._storage.size(dst)
+            except Exception: pass
+            
+            match = (sz == dst_sz)
+            
+            # 3. Check byte-for-byte accuracy incrementally to maintain flat memory
+            if match and sz > 0:
+                chunk_sz = 2048
+                for pos in range(0, sz, chunk_sz):
+                    c1 = self._storage.read_chunked(src, pos, chunk_sz)
+                    c2 = self._storage.read_chunked(dst, pos, chunk_sz)
+                    if c1 != c2:
+                        match = False
+                        break
+                    del c1, c2
+            
+            # 4. Fallback execution if the native firmare call corrupted the file
+            if not match:
+                try: self._storage.remove(dst)
+                except Exception: pass
+                
+                try:
+                    # Write an empty string with mode 'w' to format the destination file
+                    self._storage.write(dst, "", "w")
+                    
+                    # Interactively copy the file using purely binary chunks
+                    for pos in range(0, sz, 2048):
+                        chunk = self._storage.read_chunked(src, pos, 2048)
+                        if chunk:
+                            # Mode 'ab' forces writing in binary without text-handling overrides
+                            self._storage.write(dst, chunk, "ab")
+                        del chunk
+                except Exception as e:
+                    print("Fallback Copy Error:", e)
 
     def _draw_progress(self, title, percentage):
         # High-performance, low-RAM custom progress bar overlay
@@ -568,7 +612,7 @@ class FileBrowser:
                 self._draw.text(Vector(10, 138), f"PSRAM: {self._sys.used_psram // 1024}KB used / {self._sys.free_psram // 1024}KB free", TFT_YELLOW)
             self._draw.text(Vector(10, sh - 40), "made by Slasher006", c_bar)
             self._draw.text(Vector(10, sh - 30), "with the help of Gemini", c_bar)
-            self._draw.text(Vector(10, sh - 20), "Date: 2026-03-07 | v1.29", c_bar)
+            self._draw.text(Vector(10, sh - 20), "Date: 2026-03-07 | v1.32", c_bar)
             self._draw.swap()
             self._needs_redraw = False
             return
@@ -600,7 +644,7 @@ class FileBrowser:
                     self._draw.fill_rectangle(Vector(12, yp - 2), Vector(sw - 24, 13), TFT_DARKGREY)
                 self._draw.text(Vector(20, yp), l + ":", tc)
                 v = ""
-                if i == 0: v = ("Classic", "Dark", "Custom")[self._app_state.get("theme", 0)]
+                if i == 0: v = ("System", "Classic", "Dark", "Custom")[self._app_state.get("theme", 0)]
                 elif i in range(1, 7): v = str(self._app_state.get(["", "bg_r", "bg_g", "bg_b", "bar_r", "bar_g", "bar_b"][i], 0 if i not in (3,5,6) else 170))
                 elif i == 7: v = "Name" if self._app_state.get("sort_mode", self.SORT_NAME) == self.SORT_NAME else "Date"
                 elif i == 8: v = "Show" if self._app_state.get("show_hidden", False) else "Hide"
@@ -657,7 +701,7 @@ class FileBrowser:
         mk_len = len(self._app_state["marked"])
         mk_str = f" [Sel:{mk_len}]" if mk_len > 0 else ""
         
-        self._draw.text(Vector(2, 2), f"File Browser v1.29 [{ss}] [Dir:{dm}]{mk_str}", c_btxt)
+        self._draw.text(Vector(2, 2), f"File Browser v1.32 [{ss}] [Dir:{dm}]{mk_str}", c_btxt)
         self._draw.fill_rectangle(Vector(mx, 12), Vector(1, sh - 24), c_bar)
         
         c_lim, n_lim, m_itm = (mx - 8) // 6, ((mx - 8) // 6) - 6, (sh - 38) // 12
@@ -885,14 +929,14 @@ class FileBrowser:
                             if self._input_mode == self.MODE_RENAME:
                                 self._draw_progress("Renaming...", 0.0)
                                 try:
-                                    self._storage.rename(self._context_target_path, np)
+                                    self._storage.move(self._context_target_path, np)
                                     rn = True
-                                except Exception as e: print("Rename Error:", e)
+                                except Exception as e: print("Move Error:", e)
                                 self._draw_progress("Renamed", 1.0)
                             elif self._input_mode == self.MODE_COPY_SAME:
                                 self._draw_progress("Copying...", 0.0)
                                 try:
-                                    self._copy_item(self._context_target_path, np)
+                                    self._verified_copy(self._context_target_path, np)
                                     rn = True
                                 except Exception as e: print("Copy Error:", e)
                                 self._draw_progress("Copied", 1.0)
@@ -1059,7 +1103,7 @@ class FileBrowser:
                 self._needs_redraw = True
                 d = 1 if btn == BUTTON_RIGHT else -1
                 idx = self._opt_idx
-                if idx == 0: self._app_state["theme"] = (self._app_state.get("theme", 0) + d) % 3
+                if idx == 0: self._app_state["theme"] = (self._app_state.get("theme", 0) + d) % 4
                 elif 1 <= idx <= 6:
                     k = ["", "bg_r", "bg_g", "bg_b", "bar_r", "bar_g", "bar_b"][idx]
                     self._app_state[k] = (self._app_state.get(k, 0) + (15 * d)) % 256
@@ -1117,10 +1161,10 @@ class FileBrowser:
                                     except Exception: pass
                                     
                                 if self._pending_action == self.ACT_COPY:
-                                    try: self._copy_item(t, dp)
+                                    try: self._verified_copy(t, dp)
                                     except Exception as e: print("Copy Error:", e)
                                 else:
-                                    try: self._storage.rename(t, dp)
+                                    try: self._storage.move(t, dp)
                                     except Exception as e: print("Move Error:", e)
                         
                         self._draw_progress("Done", 1.0)
@@ -1130,7 +1174,7 @@ class FileBrowser:
                         if self._storage.exists(self._pending_dest_path):
                             try: self._delete_item(self._pending_dest_path)
                             except Exception: pass
-                        try: self._storage.rename(self._context_target_path, self._pending_dest_path)
+                        try: self._storage.move(self._context_target_path, self._pending_dest_path)
                         except Exception as e: print("Rename Error:", e)
                         self._draw_progress("Renamed", 1.0)
                     

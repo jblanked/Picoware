@@ -1,3 +1,8 @@
+# ==============================================================================
+# File Browser Application for Picoware OS
+# Designed for Picocalc 2.0 Hardware
+# ==============================================================================
+
 import gc
 import time
 import json
@@ -6,7 +11,6 @@ from micropython import const
 from picoware.system.vector import Vector
 from picoware.system.colors import TFT_WHITE, TFT_BLACK, TFT_BLUE, TFT_YELLOW, TFT_CYAN, TFT_DARKGREY, TFT_LIGHTGREY, TFT_RED
 from picoware.gui.menu import Menu
-from picoware.gui.loading import Loading
 from picoware.system.system import System
 
 from picoware.system.buttons import (
@@ -65,6 +69,7 @@ class FileBrowser:
         self._stat_cache = {}
         
         # UI overlays
+        self._loading = None
         self._is_help_screen = False
         self._show_options = False
         self._show_info = False
@@ -97,7 +102,9 @@ class FileBrowser:
         self._edit_sx = 0
         self._edit_sy = 0
         self._edit_unsaved = False
+        
         self._is_viewing_image = False
+        self._image_load_state = 0
         self._image_path = ""
         self._jpeg_vec = Vector(0, 0)
         
@@ -151,6 +158,10 @@ class FileBrowser:
     def __del__(self):
         # Force a settings save and safely clear memory on exit
         self._auto_save()
+        if self._loading:
+            self._loading.stop()
+            del self._loading
+            self._loading = None
         if self._context_menu:
             del self._context_menu
         if self._confirm_menu:
@@ -237,43 +248,70 @@ class FileBrowser:
             del save_dict
             self._last_save_time = curr_t
 
-    def _draw_progress(self, title, percentage):
-        # Displays the integrated Picoware loading bar overlay
-        try:
-            load_ui = Loading(self._draw, title)
-            load_ui.draw()
-            self._draw.swap()
-        except Exception:
-            pass
-
-    def _copy_item(self, src, dst, action_text="Copying"):
-        # Recursive file and directory copy operation with visual progress
-        is_d = False
-        try: is_d = self._storage.is_directory(src)
+    def _delete_item(self, path):
+        # Recursively clear out folders and files, freeing RAM at each step
+        is_dir = False
+        try: is_dir = self._storage.is_directory(path)
         except Exception: pass
         
-        if is_d:
+        if is_dir:
+            try:
+                items = self._storage.listdir(path)
+                for item in items:
+                    if item not in (".", ".."):
+                        self._delete_item(f"{path}/{item}")
+                del items
+                self._storage.rmdir(path)
+            except Exception as e:
+                print("Dir Delete Error:", e)
+        else:
+            try: self._storage.remove(path)
+            except Exception as e: print("File Delete Error:", e)
+
+    def _copy_item(self, src, dst):
+        # Perform chunked file copying to maintain low memory overhead
+        is_dir = False
+        try: is_dir = self._storage.is_directory(src)
+        except Exception: pass
+        
+        if is_dir:
             try: self._storage.mkdir(dst)
             except Exception: pass
             try:
-                for itm in self._storage.listdir(src):
-                    if itm not in (".", ".."):
-                        self._copy_item(f"{src}/{itm}" if src != "/" else f"/{itm}", f"{dst}/{itm}" if dst != "/" else f"/{itm}", action_text)
-            except Exception: pass
+                items = self._storage.listdir(src)
+                for item in items:
+                    if item not in (".", ".."):
+                        self._copy_item(f"{src}/{item}", f"{dst}/{item}")
+                del items
+            except Exception as e:
+                print("Dir Copy Error:", e)
         else:
             try:
-                f_sz = self._storage.size(src)
-                pos = 0
-                while pos < f_sz:
-                    try: chk = self._storage.read_chunked(src, pos, 2048)
-                    except Exception: break
-                    if not chk: break
-                    self._storage.write(dst, chk, "ab" if pos > 0 else "wb")
-                    pos += len(chk)
-                    del chk
-                    if f_sz > 0:
-                        self._draw_progress(f"{action_text} {int((pos/f_sz)*100)}%", pos / f_sz)
-            except Exception: pass
+                f_size = self._storage.size(src)
+                chunk_size = 2048
+                self._storage.write(dst, "", "w")
+                for start_pos in range(0, f_size, chunk_size):
+                    chunk = self._storage.read_chunked(src, start_pos, chunk_size)
+                    if chunk:
+                        self._storage.write(dst, chunk, "ab")
+                    del chunk
+            except Exception as e:
+                print("File Copy Error:", e)
+
+    def _draw_progress(self, title, percentage):
+        # High-performance, low-RAM custom progress bar overlay
+        c_bg, c_bar, _, _, _ = self._get_theme()
+        sw, sh = self._draw.size.x, self._draw.size.y
+        bw, bh = 200, 60
+        x, y = (sw - bw) // 2, (sh - bh) // 2
+        self._draw.fill_rectangle(Vector(x, y), Vector(bw, bh), c_bg)
+        self._draw.rect(Vector(x, y), Vector(bw, bh), c_bar)
+        self._draw.text(Vector(x + 10, y + 10), title, TFT_WHITE)
+        self._draw.rect(Vector(x + 10, y + 30), Vector(bw - 20, 15), TFT_WHITE)
+        fill_w = int((bw - 22) * max(0.0, min(1.0, percentage)))
+        if fill_w > 0: 
+            self._draw.fill_rectangle(Vector(x + 11, y + 31), Vector(fill_w, 13), c_bar)
+        self._draw.swap()
 
     def _load_dir(self, path):
         # Reads directory contents and implements lazy caching for is_directory checks.
@@ -285,6 +323,11 @@ class FileBrowser:
         try:
             d_list = self._storage.listdir(path)
             temp_list = []
+            
+            # Mount VFS explicitly so standard os library can see hardware paths for sorting by date
+            if sort_m == self.SORT_DATE:
+                try: self._storage.mount_vfs()
+                except Exception: pass
             
             for itm in d_list:
                 if itm in (".", "..") or (not show_hid and itm.startswith(".")): 
@@ -303,8 +346,12 @@ class FileBrowser:
                 if sort_m == self.SORT_DATE:
                     mt = 0
                     try: 
+                        real_fp = fp
+                        if not real_fp.startswith("sd") and not real_fp.startswith("/sd"):
+                            real_fp = "/sd/" + real_fp.lstrip("/")
                         # os.stat[9] accesses creation time, [8] is last modified time
-                        mt = os.stat(fp)[9] 
+                        try: mt = os.stat(real_fp)[9] 
+                        except Exception: mt = os.stat(real_fp)[8]
                     except Exception: 
                         pass
                     temp_list.append((itm, is_d, mt))
@@ -312,6 +359,8 @@ class FileBrowser:
                     temp_list.append((itm, is_d))
                     
             del d_list
+            
+            # DO NOT unmount VFS here, unmounting crashes the OS.
             
             if sort_m == self.SORT_DATE:
                 # Sort by: Folders first, then creation date (newest first), then name
@@ -342,6 +391,7 @@ class FileBrowser:
         ext = path.split(".")[-1].lower() if "." in path else ""
         if ext in ("jpg", "jpeg", "bmp"):
             self._is_viewing_image = True
+            self._image_load_state = 0
             self._image_path = path
             self._needs_redraw = True
         else:
@@ -376,18 +426,92 @@ class FileBrowser:
         c_bg, c_bar, c_txt, c_dir, c_btxt = self._get_theme()
         sw, sh, mx = self._draw.size.x, self._draw.size.y, self._draw.size.x // 2
 
-        # 1. Image Viewer Overlay
+        # 1. Image Viewer Overlay (State Machine for Loading Animation)
         if self._is_viewing_image:
-            self._draw.clear(color=TFT_BLACK)
-            if self._image_path.lower().endswith("bmp"):
-                self._draw.image_bmp(self._jpeg_vec, self._image_path, self._storage)
+            # Stage 1: Tick the loading spinner animation for 5 loops so the user actually sees it
+            if self._image_load_state < 5:
+                if not self._loading:
+                    from picoware.gui.loading import Loading
+                    self._loading = Loading(self._draw, background_color=TFT_BLACK)
+                    self._loading.set_text("Loading Image...")
+                
+                self._loading.animate(swap=True)
+                self._image_load_state += 1
+                self._needs_redraw = True
+                return
+            
+            # Stage 2: Stop the spinner, format the background, and execute hardware block
+            elif self._image_load_state == 5:
+                if self._loading:
+                    self._loading.stop()
+                    self._loading = None
+                
+                self._draw.clear(color=TFT_BLACK)
+                self._draw.fill_rectangle(Vector(0, sh - 12), Vector(sw, 12), c_bar)
+                self._draw.text(Vector(2, sh - 10), "BACK : Close Image", c_btxt)
+                self._draw.swap()
+                
+                gc.collect() # Defragment RAM so C-decoder has a contiguous block
+                
+                # Mount VFS explicitly so standard python open() can find it, avoiding silent failures
+                try:
+                    self._storage.mount_vfs()
+                except Exception:
+                    pass
+                
+                try:
+                    # Pass self._storage so the decoders have the VFS context they need to open the file
+                    # We pass the original path to avoid case-sensitivity bugs within the VFS string checks
+                    if self._image_path.lower().endswith("bmp"):
+                        self._draw.image_bmp(self._jpeg_vec, self._image_path, self._storage)
+                        self._draw.swap()
+                    else:
+                        # Safety Pre-Check: Scan the header for the "Progressive JPEG" marker (FF C2).
+                        # We must intercept it here before the C-library caches it, or the device will completely hard freeze.
+                        is_safe_jpeg = True
+                        try:
+                            # Read the first few KB where the image structure headers exist
+                            header_chunk = self._storage.read_chunked(self._image_path, 0, 2048)
+                            if header_chunk:
+                                for j in range(len(header_chunk) - 1):
+                                    if header_chunk[j] == 0xFF and header_chunk[j+1] == 0xC2:
+                                        is_safe_jpeg = False
+                                        break
+                            del header_chunk
+                        except Exception:
+                            pass
+                        
+                        if not is_safe_jpeg:
+                            raise ValueError("Progressive JPEG formats are unsupported by hardware.")
+                            
+                        self._draw.image_jpeg(self._jpeg_vec, self._image_path, self._storage)
+                        # Push the newly decoded image from the backbuffer to the actual display
+                        self._draw.swap()
+                        
+                except Exception as e:
+                    # Catch un-decodable formats gracefully to prevent the app from freezing
+                    self._draw.clear(color=TFT_BLACK)
+                    self._draw.text(Vector(10, 30), "Format not supported", TFT_RED)
+                    self._draw.text(Vector(10, 45), "or resolution too large.", TFT_RED)
+                    self._draw.text(Vector(10, 60), "(Must be Baseline JPEG)", TFT_YELLOW)
+                    self._draw.fill_rectangle(Vector(0, sh - 12), Vector(sw, 12), c_bar)
+                    self._draw.text(Vector(2, sh - 10), "BACK : Close Image", c_btxt)
+                    self._draw.swap()
+                finally:
+                    # CRITICAL FIX: jpeg.py forcefully unmounts the VFS when it is finished decoding. 
+                    # We MUST immediately remount the VFS here, otherwise the OS crashes when reading directories.
+                    try:
+                        self._storage.mount_vfs()
+                    except Exception:
+                        pass
+                        
+                self._image_load_state = 6
+                self._needs_redraw = False
+                return
             else:
-                self._draw.image_jpeg(self._jpeg_vec, self._image_path, self._storage)
-            self._draw.fill_rectangle(Vector(0, sh - 12), Vector(sw, 12), c_bar)
-            self._draw.text(Vector(2, sh - 10), "BACK : Close Image", c_btxt)
-            self._draw.swap()
-            self._needs_redraw = False
-            return
+                # Stage 3: Keep the decoded image or error screen visible until user exits
+                self._needs_redraw = False
+                return
 
         # 2. Text Editor Overlay
         if self._is_editing:
@@ -444,7 +568,7 @@ class FileBrowser:
                 self._draw.text(Vector(10, 138), f"PSRAM: {self._sys.used_psram // 1024}KB used / {self._sys.free_psram // 1024}KB free", TFT_YELLOW)
             self._draw.text(Vector(10, sh - 40), "made by Slasher006", c_bar)
             self._draw.text(Vector(10, sh - 30), "with the help of Gemini", c_bar)
-            self._draw.text(Vector(10, sh - 20), "Date: 2026-03-07 | v1.26", c_bar)
+            self._draw.text(Vector(10, sh - 20), "Date: 2026-03-07 | v1.29", c_bar)
             self._draw.swap()
             self._needs_redraw = False
             return
@@ -529,7 +653,11 @@ class FileBrowser:
         self._draw.fill_rectangle(Vector(0, 0), Vector(sw, 12), c_bar)
         ss = "Name" if self._app_state.get("sort_mode", self.SORT_NAME) == self.SORT_NAME else "Date"
         dm = "Menu" if self._app_state.get("dir_menu", True) else "Open"
-        self._draw.text(Vector(2, 2), f"File Browser v1.26 [{ss}] [Dir:{dm}]", c_btxt)
+        
+        mk_len = len(self._app_state["marked"])
+        mk_str = f" [Sel:{mk_len}]" if mk_len > 0 else ""
+        
+        self._draw.text(Vector(2, 2), f"File Browser v1.29 [{ss}] [Dir:{dm}]{mk_str}", c_btxt)
         self._draw.fill_rectangle(Vector(mx, 12), Vector(1, sh - 24), c_bar)
         
         c_lim, n_lim, m_itm = (mx - 8) // 6, ((mx - 8) // 6) - 6, (sh - 38) // 12
@@ -615,6 +743,9 @@ class FileBrowser:
         # Processes user input contextual to the currently active UI overlay
         # ---------------------------------------------------------
         btn = self._input_manager.button
+        
+        # Reset input manager immediately at the top of the loop so inputs aren't missed between UI conditions
+        self._input_manager.reset()
         
         if btn is None or btn == BUTTON_NONE:
             if self._needs_redraw:
@@ -756,18 +887,21 @@ class FileBrowser:
                                 try:
                                     self._storage.rename(self._context_target_path, np)
                                     rn = True
-                                except Exception: pass
+                                except Exception as e: print("Rename Error:", e)
                                 self._draw_progress("Renamed", 1.0)
                             elif self._input_mode == self.MODE_COPY_SAME:
-                                self._copy_item(self._context_target_path, np, "Copying")
-                                rn = True
+                                self._draw_progress("Copying...", 0.0)
+                                try:
+                                    self._copy_item(self._context_target_path, np)
+                                    rn = True
+                                except Exception as e: print("Copy Error:", e)
+                                self._draw_progress("Copied", 1.0)
                     elif self._input_mode == self.MODE_MKDIR:
                         if not self._storage.exists(np):
                             try:
                                 self._storage.mkdir(np)
                                 rn = True
-                            except Exception: pass
-                                
+                            except Exception as e: print("Mkdir Error:", e)
                 if rn:
                     self._refresh_panes()
                 
@@ -807,7 +941,7 @@ class FileBrowser:
                     if self._is_shift:
                         self._is_shift = False
                     self._needs_redraw = True
-
+        
         # --- Main File Browser Input: Marking items ---
         elif btn == BUTTON_SPACE and not self._is_help_screen and not self._show_options and self._confirm_menu is None and self._context_menu is None and not self._input_active and not self._show_info:
             if self._mode == FILE_BROWSER_MANAGER:
@@ -956,16 +1090,17 @@ class FileBrowser:
                         total = len(targets)
                         for i, t in enumerate(targets):
                             self._draw_progress(f"Deleting {int((i/total)*100)}%", i/total)
-                            try: self._storage.remove(t)
-                            except Exception: pass
+                            try: self._delete_item(t)
+                            except Exception as e: print("Delete Error:", e)
                         self._draw_progress("Deleted", 1.0)
                             
                     elif self._pending_action in (self.ACT_COPY, self.ACT_MOVE):
                         total = len(targets)
                         act_name = "Copying" if self._pending_action == self.ACT_COPY else "Moving"
                         
-                        if total == 1 and self._pending_action == self.ACT_MOVE:
-                            self._draw_progress("Moving...", 0.0)
+                        # Restored visual feedback for single-item copies
+                        if total == 1:
+                            self._draw_progress(f"{act_name}...", 0.5)
                             
                         for i, t in enumerate(targets):
                             if total > 1:
@@ -975,29 +1110,28 @@ class FileBrowser:
                             if len(mk) > 0: 
                                 dp = f"{dp}/{t.split('/')[-1]}".replace("//", "/")
                             
-                            if self._storage.exists(dp):
-                                try: self._storage.remove(dp)
-                                except Exception: pass
-                                
-                            if self._pending_action == self.ACT_COPY:
-                                self._copy_item(t, dp, act_name)
-                            else:
-                                try: self._storage.rename(t, dp)
-                                except Exception:
-                                    self._copy_item(t, dp, act_name)
-                                    try: self._storage.remove(t)
+                            # Prevent crash from trying to copy a file over top of itself
+                            if t != dp:
+                                if self._storage.exists(dp):
+                                    try: self._delete_item(dp)
                                     except Exception: pass
+                                    
+                                if self._pending_action == self.ACT_COPY:
+                                    try: self._copy_item(t, dp)
+                                    except Exception as e: print("Copy Error:", e)
+                                else:
+                                    try: self._storage.rename(t, dp)
+                                    except Exception as e: print("Move Error:", e)
                         
-                        if self._pending_action == self.ACT_MOVE or total > 1:
-                            self._draw_progress("Done", 1.0)
+                        self._draw_progress("Done", 1.0)
                                     
                     elif self._pending_action == self.ACT_RENAME:
                         self._draw_progress("Renaming...", 0.0)
                         if self._storage.exists(self._pending_dest_path):
-                            try: self._storage.remove(self._pending_dest_path)
+                            try: self._delete_item(self._pending_dest_path)
                             except Exception: pass
                         try: self._storage.rename(self._context_target_path, self._pending_dest_path)
-                        except Exception: pass
+                        except Exception as e: print("Rename Error:", e)
                         self._draw_progress("Renamed", 1.0)
                     
                     if len(mk) > 0: self._app_state["marked"].clear()
@@ -1008,7 +1142,7 @@ class FileBrowser:
                 self._pending_action = self.ACT_NONE
                 self._context_target_path = self._pending_dest_path = ""
                 self._needs_redraw = True
-
+                
         # --- Sub-View: Context Menu (View, Edit, Copy, Delete) Input ---
         elif self._context_menu is not None:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE):
@@ -1106,7 +1240,6 @@ class FileBrowser:
                 self._is_help_screen = False
                 self._needs_redraw = True
             else:
-                self._input_manager.reset()
                 return False
             
         elif btn == BUTTON_LEFT and not self._is_help_screen:
@@ -1175,7 +1308,6 @@ class FileBrowser:
                         except Exception: pass
                     
                     if self._mode == FILE_BROWSER_SELECTOR and not isd:
-                        self._input_manager.reset()
                         self._auto_save()
                         return False
 
@@ -1196,7 +1328,14 @@ class FileBrowser:
                         self._context_menu = self._spawn_menu(f"{len(mk)} Marked", items)
                     else:
                         self._context_target_path = np
-                        items = ["Open"] if isd else ["View", "Edit"]
+                        
+                        # Strip "Edit" option for images to prevent binary corruption/crashing
+                        if isd:
+                            items = ["Open"]
+                        else:
+                            is_img = np.lower().endswith((".jpg", ".jpeg", ".bmp"))
+                            items = ["View"] if is_img else ["View", "Edit"]
+                            
                         if self._mode == FILE_BROWSER_MANAGER:
                             items.extend(["Copy", "Move", "Rename", "Delete"])
                         items.append("Cancel")
@@ -1206,7 +1345,6 @@ class FileBrowser:
         if self._needs_redraw:
             self._draw_ui()
             
-        self._input_manager.reset()
         self._auto_save()
         return True
 
@@ -1226,3 +1364,4 @@ def stop(view_manager):
     if _test_browser:
         del _test_browser
         _test_browser = None
+        gc.collect()

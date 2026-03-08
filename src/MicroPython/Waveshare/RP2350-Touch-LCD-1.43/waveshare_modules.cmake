@@ -1,5 +1,8 @@
 # Combined Waveshare Modules for MicroPython
 
+# Define WAVESHARE_1_43 for all modules compiled via this file
+add_compile_definitions(WAVESHARE_1_43)
+
 # Include waveshare_lcd module
 add_library(usermod_waveshare_lcd INTERFACE)
 
@@ -270,6 +273,14 @@ target_sources(usermod_engine INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/../../engine/level_mp.c
     ${CMAKE_CURRENT_LIST_DIR}/../../engine/sprite3d_mp.c
     ${CMAKE_CURRENT_LIST_DIR}/../../engine/triangle3d_mp.c
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/engine/draw.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/engine/entity.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/engine/game.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/engine/image.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/engine/level.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/engine/sprite3d.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/engine/triangle3d.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/engine/vector.cpp
 )
 
 target_include_directories(usermod_engine INTERFACE

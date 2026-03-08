@@ -297,7 +297,7 @@ static fat32_error_t release_cluster_chain(uint32_t start_cluster)
     return FAT32_OK;
 }
 
-static fat32_error_t find_last_cluster(uint32_t start_cluster, uint32_t count, uint32_t *last_cluster)
+fat32_error_t find_last_cluster(uint32_t start_cluster, uint32_t count, uint32_t *last_cluster)
 {
     *last_cluster = start_cluster;
     for (uint32_t i = 1; i < count; i++)

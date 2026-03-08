@@ -255,27 +255,6 @@ class FileBrowser:
             del save_dict
             self._last_save_time = curr_t
 
-    def _delete_item(self, path):
-        # Recursively clear out folders and files, freeing RAM at each step.
-        # Defers strictly to self._storage API.
-        is_dir = False
-        try: is_dir = self._storage.is_directory(path)
-        except Exception: pass
-        
-        if is_dir:
-            try:
-                items = self._storage.listdir(path)
-                for item in items:
-                    if item not in (".", ".."):
-                        self._delete_item(f"{path}/{item}")
-                del items
-                self._storage.rmdir(path)
-            except Exception as e:
-                print("Dir Delete Error:", e)
-        else:
-            try: self._storage.remove(path)
-            except Exception as e: print("File Delete Error:", e)
-
     def _draw_progress(self, title, percentage):
         # High-performance, low-RAM custom progress bar overlay
         c_bg, c_bar, _, _, _ = self._get_theme()
@@ -635,7 +614,7 @@ class FileBrowser:
         mk_len = len(self._app_state["marked"])
         mk_str = f" [Sel:{mk_len}]" if mk_len > 0 else ""
         
-        self._draw.text(Vector(2, 2), f"File Browser v1.32 [{ss}] [Dir:{dm}]{mk_str}", c_btxt)
+        self._draw.text(Vector(2, 2), f"File Browser [{ss}] [Dir:{dm}]{mk_str}", c_btxt)
         self._draw.fill_rectangle(Vector(mx, 12), Vector(1, sh - 24), c_bar)
         
         c_lim, n_lim, m_itm = (mx - 8) // 6, ((mx - 8) // 6) - 6, (sh - 38) // 12
@@ -1069,7 +1048,7 @@ class FileBrowser:
                         total = len(targets)
                         for i, t in enumerate(targets):
                             self._draw_progress(f"Deleting {int((i/total)*100)}%", i/total)
-                            try: self._delete_item(t)
+                            try: self._storage.remove(t)
                             except Exception as e: print("Delete Error:", e)
                         self._draw_progress("Deleted", 1.0)
                             
@@ -1091,7 +1070,7 @@ class FileBrowser:
                             # Prevent crash from trying to copy a file over top of itself
                             if t != dp:
                                 if self._storage.exists(dp):
-                                    try: self._delete_item(dp)
+                                    try: self._storage.remove(dp)
                                     except Exception: pass
                                     
                                 if self._pending_action == self.ACT_COPY:
@@ -1106,7 +1085,7 @@ class FileBrowser:
                     elif self._pending_action == self.ACT_RENAME:
                         self._draw_progress("Renaming...", 0.0)
                         if self._storage.exists(self._pending_dest_path):
-                            try: self._delete_item(self._pending_dest_path)
+                            try: self._storage.remove(self._pending_dest_path)
                             except Exception: pass
                         try: self._storage.move(self._context_target_path, self._pending_dest_path)
                         except Exception as e: print("Rename Error:", e)

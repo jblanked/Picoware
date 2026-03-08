@@ -407,11 +407,8 @@ class FileBrowser:
                     self._draw.image_bmp(self._jpeg_vec, self._image_path, self._storage)
                     self._draw.swap()
                 else:
-                    img_path = self._image_path
-                    if not img_path.startswith("/sd/") and not img_path.startswith("sd/"):
-                        img_path = "/sd/" + img_path.lstrip("/")
-                        
-                    success = self._draw.image_jpeg(self._jpeg_vec, img_path, self._storage)
+                    # Let the OS handle the path formatting automatically
+                    success = self._draw.image_jpeg(self._jpeg_vec, self._image_path, self._storage)
                     
                     if success:
                         self._draw.swap()
@@ -507,15 +504,22 @@ class FileBrowser:
 
         # 4. File Info Window
         if self._show_info:
-            bx, by, bw, bh = (sw - 200) // 2, (sh - 100) // 2, 200, 100
-            self._draw.fill_rectangle(Vector(bx, by), Vector(bw, bh), TFT_BLACK)
-            self._draw.rect(Vector(bx, by), Vector(bw, bh), c_bar)
-            self._draw.fill_rectangle(Vector(bx, by), Vector(bw, 16), c_bar)
-            self._draw.text(Vector(bx + 5, by + 2), "FILE INFORMATION", c_btxt)
-            for i, ln in enumerate(self._info_data): 
-                self._draw.text(Vector(bx + 10, by + 25 + (i * 15)), ln, TFT_WHITE)
-            self._draw.text(Vector(bx + 10, by + bh - 15), "[BACK/ENT] Close", TFT_LIGHTGREY)
-            self._draw.swap()
+            if not hasattr(self, "_info_box") or self._info_box is None:
+                from picoware.gui.textbox import TextBox
+                # Span the middle of the screen, leaving room for a 20px header and footer
+                self._info_box = TextBox(self._draw, 20, sh - 40, c_txt, c_bg)
+            
+            # Draw header
+            self._draw.fill_rectangle(Vector(0, 0), Vector(sw, 20), c_bar)
+            self._draw.text(Vector(5, 4), "FILE INFORMATION", c_btxt)
+            
+            # Draw footer
+            self._draw.fill_rectangle(Vector(0, sh - 20), Vector(sw, 20), c_bar)
+            self._draw.text(Vector(5, sh - 16), "UP/DWN:Scroll   [BACK/ENT]:Close", c_btxt)
+            
+            # Update textbox content (the TextBox automatically calls draw.swap() for us!)
+            self._info_box.set_text(self._info_data)
+            
             self._needs_redraw = False
             return
 
@@ -781,8 +785,20 @@ class FileBrowser:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER):
                 self._input_manager.reset()
                 self._show_info = False
-                self._info_data = []
+                self._info_data = ""
+                # Clean up the textbox memory when closing
+                if hasattr(self, "_info_box") and self._info_box:
+                    del self._info_box
+                    self._info_box = None
                 self._needs_redraw = True
+            elif btn == BUTTON_UP:
+                self._input_manager.reset()
+                if hasattr(self, "_info_box") and self._info_box:
+                    self._info_box.scroll_up()
+            elif btn == BUTTON_DOWN:
+                self._input_manager.reset()
+                if hasattr(self, "_info_box") and self._info_box:
+                    self._info_box.scroll_down()
                 
         # --- Sub-View: Text Entry (Rename/Make Folder) Input ---
         elif self._input_active:
@@ -955,11 +971,11 @@ class FileBrowser:
                         if not isd:
                             fz = self._storage.size(fp)
                         
-                    self._info_data = [
-                        f"Name: {sf[:22]}",
-                        f"Type: {'Directory' if isd else 'File'}",
+                    self._info_data = (
+                        f"Name: {sf}\n"
+                        f"Type: {'Directory' if isd else 'File'}\n"
                         f"Size: {fz} bytes"
-                    ]
+                    )
                     self._show_info = True
                     self._needs_redraw = True
 

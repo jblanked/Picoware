@@ -316,9 +316,11 @@ class FileBrowser:
                     
             del d_list
             
-            # DO NOT unmount VFS here, unmounting crashes the OS.
-            
             if sort_m == self.SORT_DATE:
+                # Unmount the VFS immediately after reading the dates so the OS App Loader doesn't break
+                try: self._storage.unmount_vfs()
+                except Exception: pass
+                
                 # Sort by: Folders first, then creation date (newest first), then name
                 temp_list.sort(key=lambda x: (not x[1], -x[2], x[0].lower()))
             else:
@@ -408,12 +410,6 @@ class FileBrowser:
                 
                 gc.collect() # Defragment RAM so C-decoder has a contiguous block
                 
-                # Mount VFS explicitly so standard python open() can find it, avoiding silent failures
-                try:
-                    self._storage.mount_vfs()
-                except Exception:
-                    pass
-                
                 try:
                     # Pass self._storage so the decoders have the VFS context they need to open the file
                     # We pass the original path to avoid case-sensitivity bugs within the VFS string checks
@@ -452,13 +448,6 @@ class FileBrowser:
                     self._draw.fill_rectangle(Vector(0, sh - 12), Vector(sw, 12), c_bar)
                     self._draw.text(Vector(2, sh - 10), "BACK : Close Image", c_btxt)
                     self._draw.swap()
-                finally:
-                    # CRITICAL FIX: jpeg.py forcefully unmounts the VFS when it is finished decoding. 
-                    # We MUST immediately remount the VFS here, otherwise the OS crashes when reading directories.
-                    try:
-                        self._storage.mount_vfs()
-                    except Exception:
-                        pass
                         
                 self._image_load_state = 6
                 self._needs_redraw = False

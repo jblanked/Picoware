@@ -656,7 +656,7 @@ class FileBrowser:
         if self._mode == FILE_BROWSER_SELECTOR:
             self._draw.text(Vector(2, sh - 10), "ENT:Sel M:DirMode O:Opt", c_btxt)
         else:
-            self._draw.text(Vector(2, sh - 10), "ENT:Men SPC N:New S:Srt O:Opt M:Dir", c_btxt)
+            self._draw.text(Vector(2, sh - 10), "ENT:Menu SPC N:New S:Srt M:DirMode O:Opt H:Help", c_btxt)
         self._draw.swap()
         self._needs_redraw = False
 

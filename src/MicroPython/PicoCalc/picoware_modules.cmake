@@ -1,6 +1,9 @@
 # Combined Picoware Modules for MicroPython
 # This file includes picoware_lcd, picoware_psram, romram, and other modules
 
+# Define PICOCALC for all modules compiled via this file
+add_compile_definitions(PICOCALC)
+
 # Generate PIO header from .pio file for LCD
 # pico_generate_pio_header(usermod
 #     ${CMAKE_CURRENT_LIST_DIR}/picoware_lcd/st7789_lcd.pio
@@ -320,6 +323,14 @@ target_sources(usermod_engine INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/../engine/level_mp.c
     ${CMAKE_CURRENT_LIST_DIR}/../engine/sprite3d_mp.c
     ${CMAKE_CURRENT_LIST_DIR}/../engine/triangle3d_mp.c
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/engine/draw.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/engine/entity.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/engine/game.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/engine/image.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/engine/level.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/engine/sprite3d.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/engine/triangle3d.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/engine/vector.cpp
 )
 
 target_include_directories(usermod_engine INTERFACE

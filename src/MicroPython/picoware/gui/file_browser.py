@@ -502,19 +502,31 @@ class FileBrowser:
 
         # 3. Help Screen Overlay
         if self._is_help_screen:
-            self._draw.text(Vector(10, 10), "File Browser Help", TFT_WHITE)
-            self._draw.text(Vector(10, 24), "SPC:Mrk H:Help O:Opt M:Mode", c_bar)
-            self._draw.text(Vector(10, 36), "I:Info N:NewFolder D:Del", c_bar)
-            self._draw.text(Vector(10, 48), "UP/DOWN: Scroll", TFT_WHITE)
-            self._draw.text(Vector(10, 60), "L/R: Switch Pane", TFT_WHITE)
-            self._draw.text(Vector(10, 72), "CENTER: Menu (View/Edit...)", TFT_WHITE)
-            self._draw.text(Vector(10, 84), "BACK: Exit App", TFT_WHITE)
-            self._draw.text(Vector(10, 126), f"RAM: {gc.mem_alloc() // 1024}KB used / {gc.mem_free() // 1024}KB free", TFT_YELLOW)
+            self._draw.text(Vector(10, 5), "--- FILE BROWSER SHORTCUTS ---", TFT_YELLOW)
+            
+            self._draw.text(Vector(10, 20), "[MAIN BROWSER]", c_bar)
+            self._draw.text(Vector(10, 32), "UP/DWN:Scroll   L/R:Switch Pane", TFT_WHITE)
+            self._draw.text(Vector(10, 44), "CENTER:Menu     BACK:Exit App", TFT_WHITE)
+            self._draw.text(Vector(10, 56), "SPACE:Mark/Sel  D:Delete Marked", TFT_WHITE)
+            self._draw.text(Vector(10, 68), "N:New Folder    I:File Info", TFT_WHITE)
+            self._draw.text(Vector(10, 80), "S:Sort Mode     M:Dir Enter Mode", TFT_WHITE)
+            self._draw.text(Vector(10, 92), "O:Options       H:Toggle Help", TFT_WHITE)
+            
+            self._draw.text(Vector(10, 108), "[TEXT EDITOR]", c_bar)
+            self._draw.text(Vector(10, 120), "Arrows:Cursor   CENTER:Save Menu", TFT_WHITE)
+            self._draw.text(Vector(10, 132), "SHF/CAPS:Upper  BSPC:Delete Char", TFT_WHITE)
+            self._draw.text(Vector(10, 144), "BACK:Close Editor", TFT_WHITE)
+            
+            self._draw.text(Vector(10, 160), "[TEXT ENTRY & MENUS]", c_bar)
+            self._draw.text(Vector(10, 172), "UP/DWN:Case     L/R:Move Cursor", TFT_WHITE)
+            self._draw.text(Vector(10, 184), "CENTER:Confirm  BACK:Cancel", TFT_WHITE)
+            
+            self._draw.text(Vector(10, 200), "[IMAGE VIEWER]", c_bar)
+            self._draw.text(Vector(10, 212), "CENTER / BACK: Close Image", TFT_WHITE)
+
+            self._draw.text(Vector(10, 228), f"RAM: {gc.mem_alloc() // 1024}K / {gc.mem_free() // 1024}K", TFT_YELLOW)
             if self._sys and self._sys.has_psram:
-                self._draw.text(Vector(10, 138), f"PSRAM: {self._sys.used_psram // 1024}KB used / {self._sys.free_psram // 1024}KB free", TFT_YELLOW)
-            self._draw.text(Vector(10, sh - 40), "made by Slasher006", c_bar)
-            self._draw.text(Vector(10, sh - 30), "with the help of Gemini", c_bar)
-            self._draw.text(Vector(10, sh - 20), "Date: 2026-03-07 | v1.32", c_bar)
+                self._draw.text(Vector(160, 228), f"PSRAM: {self._sys.used_psram // 1024}K / {self._sys.free_psram // 1024}K", TFT_YELLOW)
             self._draw.swap()
             self._needs_redraw = False
             return

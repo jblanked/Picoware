@@ -351,7 +351,7 @@ class Storage:
             return b""
 
     def remove(self, file_path: str) -> bool:
-        """Remove a file."""
+        """Remove a file or directory."""
         if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return False  # No SD storage on this board
         return sd_mp.remove(file_path)

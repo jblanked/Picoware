@@ -335,10 +335,20 @@ class FileBrowser:
             self._image_load_state = 0
             self._image_path = path
             self._needs_redraw = True
-        else:
+        elif ext in ("txt", "py", "json", "csv", "md", "ini", "log", "xml", "html", "conf", ""):
             self._open_editor(path, read_only=True)
+        else:
+            self._vm.alert("Unsupported file format.")
+            self._needs_redraw = True
 
     def _open_editor(self, path, read_only=False):
+        # Guard against binary files crashing the editor if opened directly via the Edit menu
+        ext = path.split(".")[-1].lower() if "." in path else ""
+        if ext not in ("txt", "py", "json", "csv", "md", "ini", "log", "xml", "html", "conf", ""):
+            self._vm.alert("Unsupported file format.")
+            self._needs_redraw = True
+            return
+
         # Loads file contents into RAM for integrated text viewing or editing
         self._edit_text.clear()
         data = self._storage.read(path, "r")
@@ -393,46 +403,27 @@ class FileBrowser:
                 self._draw.fill_rectangle(Vector(0, sh - 12), Vector(sw, 12), c_bar)
                 self._draw.text(Vector(2, sh - 10), "BACK : Close Image", c_btxt)
                 
-                gc.collect() # Defragment RAM so C-decoder has a contiguous block
-                
-                try:
-                    # Pass self._storage so the decoders have the VFS context they need to open the file
-                    # We pass the original path to avoid case-sensitivity bugs within the VFS string checks
-                    if self._image_path.lower().endswith("bmp"):
-                        self._draw.image_bmp(self._jpeg_vec, self._image_path, self._storage)
+                if self._image_path.lower().endswith("bmp"):
+                    self._draw.image_bmp(self._jpeg_vec, self._image_path, self._storage)
+                    self._draw.swap()
+                else:
+                    img_path = self._image_path
+                    if not img_path.startswith("/sd/") and not img_path.startswith("sd/"):
+                        img_path = "/sd/" + img_path.lstrip("/")
+                        
+                    success = self._draw.image_jpeg(self._jpeg_vec, img_path, self._storage)
+                    
+                    if success:
                         self._draw.swap()
                     else:
-                        # Safety Pre-Check: Scan the header for the "Progressive JPEG" marker (FF C2).
-                        # We must intercept it here before the C-library caches it, or the device will completely hard freeze.
-                        is_safe_jpeg = True
-                        try:
-                            # Read the first few KB where the image structure headers exist
-                            header_chunk = self._storage.read_chunked(self._image_path, 0, 2048)
-                            if header_chunk:
-                                for j in range(len(header_chunk) - 1):
-                                    if header_chunk[j] == 0xFF and header_chunk[j+1] == 0xC2:
-                                        is_safe_jpeg = False
-                                        break
-                            del header_chunk
-                        except Exception:
-                            pass
-                        
-                        if not is_safe_jpeg:
-                            raise ValueError("Progressive JPEG formats are unsupported by hardware.")
-                            
-                        self._draw.image_jpeg(self._jpeg_vec, self._image_path, self._storage)
-                        # Push the newly decoded image from the backbuffer to the actual display
+                        # Hardware rejected the image format, draw the error screen
+                        self._draw.clear(color=TFT_BLACK)
+                        self._draw.text(Vector(10, 30), "Format not supported", TFT_RED)
+                        self._draw.text(Vector(10, 45), "or resolution too large.", TFT_RED)
+                        self._draw.text(Vector(10, 60), "(Must be Baseline JPEG)", TFT_YELLOW)
+                        self._draw.fill_rectangle(Vector(0, sh - 12), Vector(sw, 12), c_bar)
+                        self._draw.text(Vector(2, sh - 10), "BACK : Close Image", c_btxt)
                         self._draw.swap()
-                        
-                except Exception as e:
-                    # Catch un-decodable formats gracefully to prevent the app from freezing
-                    self._draw.clear(color=TFT_BLACK)
-                    self._draw.text(Vector(10, 30), "Format not supported", TFT_RED)
-                    self._draw.text(Vector(10, 45), "or resolution too large.", TFT_RED)
-                    self._draw.text(Vector(10, 60), "(Must be Baseline JPEG)", TFT_YELLOW)
-                    self._draw.fill_rectangle(Vector(0, sh - 12), Vector(sw, 12), c_bar)
-                    self._draw.text(Vector(2, sh - 10), "BACK : Close Image", c_btxt)
-                    self._draw.swap()
                         
                 self._image_load_state = 6
                 self._needs_redraw = False

@@ -52,7 +52,7 @@ class FileBrowser:
     ACT_MOVE = const(3)
     ACT_RENAME = const(4)
     
-    OPTIONS_LABELS = ("Theme", "BG R (0-255)", "BG G (0-255)", "BG B (0-255)", "Bar R (0-255)", "Bar G (0-255)", "Bar B (0-255)", "Sort Mode", "Hidden Files", "Dir Enter")
+    OPTIONS_LABELS = ("Sort Mode", "Hidden Files", "Dir Enter")
     
     def __init__(self, view_manager, mode=FILE_BROWSER_SELECTOR, start_directory=""):
         # Link to system managers
@@ -134,9 +134,6 @@ class FileBrowser:
             "sort_mode": self.SORT_NAME,
             "show_hidden": False,
             "dir_menu": True,
-            "theme": 0, # Defaults to 0 which is now the System theme
-            "bg_r": 0, "bg_g": 0, "bg_b": 170,
-            "bar_r": 0, "bar_g": 170, "bar_b": 170,
             "marked": []
         }
         
@@ -212,23 +209,9 @@ class FileBrowser:
         }
 
     def _get_theme(self):
-        # Maps the user's saved theme index to specific display colors
+        # Always use the System Theme provided dynamically by the ViewManager
         # Output format: Background, Bar/Border, Standard Text, Directory Text, Bar Text
-        th = self._app_state.get("theme", 0)
-        if th == 0:
-            # System Theme: Uses variables dynamically provided by ViewManager
-            return self._vm.background_color, self._vm.selected_color, self._vm.foreground_color, self._vm.foreground_color, self._vm.background_color
-        elif th == 1:
-            # Classic Theme
-            return TFT_BLUE, TFT_CYAN, TFT_WHITE, TFT_YELLOW, TFT_BLACK
-        elif th == 2:
-            # Dark Theme
-            return TFT_BLACK, TFT_WHITE, TFT_WHITE, TFT_WHITE, TFT_BLACK
-        else:
-            # Custom Theme
-            c_bg = rgb_to_565(self._app_state.get("bg_r", 0), self._app_state.get("bg_g", 0), self._app_state.get("bg_b", 170))
-            c_bar = rgb_to_565(self._app_state.get("bar_r", 0), self._app_state.get("bar_g", 170), self._app_state.get("bar_b", 170))
-            return c_bg, c_bar, TFT_WHITE, TFT_YELLOW, TFT_BLACK
+        return self._vm.background_color, self._vm.selected_color, self._vm.foreground_color, self._vm.foreground_color, self._vm.background_color
 
     def _spawn_menu(self, title, items):
         # Helper to construct a pop-up context menu overlaid on the main interface
@@ -243,7 +226,7 @@ class FileBrowser:
         # Non-blocking delta check to silently save settings every 5 seconds if changed
         curr_t = time.time()
         if curr_t - self._last_save_time > 5:
-            save_dict = {k: self._app_state[k] for k in ["left_path", "right_path", "active_pane", "sort_mode", "show_hidden", "dir_menu", "theme", "bg_r", "bg_g", "bg_b", "bar_r", "bar_g", "bar_b", "left_top", "right_top"]}
+            save_dict = {k: self._app_state[k] for k in ["left_path", "right_path", "active_pane", "sort_mode", "show_hidden", "dir_menu", "left_top", "right_top"]}
             curr_j = json.dumps(save_dict)
             if curr_j != self._last_saved_json:
                 if self._storage.write("/picoware/settings/file_browser_state.json", curr_j, "w"):
@@ -558,17 +541,10 @@ class FileBrowser:
                     self._draw.fill_rectangle(Vector(12, yp - 2), Vector(sw - 24, 13), TFT_DARKGREY)
                 self._draw.text(Vector(20, yp), l + ":", tc)
                 v = ""
-                if i == 0: v = ("System", "Classic", "Dark", "Custom")[self._app_state.get("theme", 0)]
-                elif i in range(1, 7): v = str(self._app_state.get(["", "bg_r", "bg_g", "bg_b", "bar_r", "bar_g", "bar_b"][i], 0 if i not in (3,5,6) else 170))
-                elif i == 7: v = "Name" if self._app_state.get("sort_mode", self.SORT_NAME) == self.SORT_NAME else "Date"
-                elif i == 8: v = "Show" if self._app_state.get("show_hidden", False) else "Hide"
-                elif i == 9: v = "Menu" if self._app_state.get("dir_menu", True) else "Open"
+                if i == 0: v = "Name" if self._app_state.get("sort_mode", self.SORT_NAME) == self.SORT_NAME else "Date"
+                elif i == 1: v = "Show" if self._app_state.get("show_hidden", False) else "Hide"
+                elif i == 2: v = "Menu" if self._app_state.get("dir_menu", True) else "Open"
                 self._draw.text(Vector(130, yp), f"< {v} >", tc)
-            pbg = rgb_to_565(self._app_state.get("bg_r",0), self._app_state.get("bg_g",0), self._app_state.get("bg_b",170))
-            pbr = rgb_to_565(self._app_state.get("bar_r",0), self._app_state.get("bar_g",170), self._app_state.get("bar_b",170))
-            self._draw.text(Vector(20, 185), "Custom Preview:", TFT_LIGHTGREY)
-            self._draw.fill_rectangle(Vector(140, 183), Vector(60, 20), pbg)
-            self._draw.rect(Vector(140, 183), Vector(60, 20), pbr)
             self._draw.fill_rectangle(Vector(10, sh - 30), Vector(sw - 20, 20), c_bar)
             self._draw.text(Vector(15, sh - 26), "[L/R] Edit   [BACK/ENT] Save", c_btxt)
             self._draw.swap()
@@ -1026,24 +1002,19 @@ class FileBrowser:
                 self._needs_redraw = True
             elif btn == BUTTON_UP:
                 self._input_manager.reset()
-                self._opt_idx = (self._opt_idx - 1) % 10
+                self._opt_idx = (self._opt_idx - 1) % len(self.OPTIONS_LABELS)
                 self._needs_redraw = True
             elif btn == BUTTON_DOWN:
                 self._input_manager.reset()
-                self._opt_idx = (self._opt_idx + 1) % 10
+                self._opt_idx = (self._opt_idx + 1) % len(self.OPTIONS_LABELS)
                 self._needs_redraw = True
             elif btn in (BUTTON_LEFT, BUTTON_RIGHT):
                 self._input_manager.reset()
                 self._needs_redraw = True
-                d = 1 if btn == BUTTON_RIGHT else -1
                 idx = self._opt_idx
-                if idx == 0: self._app_state["theme"] = (self._app_state.get("theme", 0) + d) % 4
-                elif 1 <= idx <= 6:
-                    k = ["", "bg_r", "bg_g", "bg_b", "bar_r", "bar_g", "bar_b"][idx]
-                    self._app_state[k] = (self._app_state.get(k, 0) + (15 * d)) % 256
-                elif idx == 7: self._app_state["sort_mode"] = self.SORT_DATE if self._app_state.get("sort_mode", self.SORT_NAME) == self.SORT_NAME else self.SORT_NAME
-                elif idx == 8: self._app_state["show_hidden"] = not self._app_state.get("show_hidden", False)
-                elif idx == 9: self._app_state["dir_menu"] = not self._app_state.get("dir_menu", True)
+                if idx == 0: self._app_state["sort_mode"] = self.SORT_DATE if self._app_state.get("sort_mode", self.SORT_NAME) == self.SORT_NAME else self.SORT_NAME
+                elif idx == 1: self._app_state["show_hidden"] = not self._app_state.get("show_hidden", False)
+                elif idx == 2: self._app_state["dir_menu"] = not self._app_state.get("dir_menu", True)
 
         # --- Sub-View: Confirm Overwrite/Delete Dialog Input ---
         elif self._confirm_menu is not None:

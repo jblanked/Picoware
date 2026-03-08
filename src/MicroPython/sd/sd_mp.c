@@ -169,6 +169,12 @@ mp_obj_t sd_mp_copy(size_t n_args, const mp_obj_t *args)
             PRINT("Failed to create destination file: %s\n", fat32_error_string(err));
             mp_raise_OSError(MP_EIO);
         }
+        if (fat32_open(&destination_file, destination_path) != FAT32_OK)
+        {
+            fat32_close(&source_file);
+            PRINT("Failed to open destination file after creation.\n");
+            mp_raise_OSError(MP_EIO);
+        }
         while (fat32_read(&source_file, buffer, bytes_per_chunk, &bytes_read) == FAT32_OK && bytes_read > 0)
         {
             if (fat32_write(&destination_file, buffer, bytes_read, &bytes_written) != FAT32_OK || bytes_written != bytes_read)
@@ -335,6 +341,11 @@ mp_obj_t sd_mp_file_copy(size_t n_args, const mp_obj_t *args)
         PRINT("Failed to create destination file: %s\n", fat32_error_string(err));
         mp_raise_OSError(MP_EIO);
     }
+    if (fat32_open(&destination_file, destination_path) != FAT32_OK)
+    {
+        PRINT("Failed to open destination file after creation.\n");
+        mp_raise_OSError(MP_EIO);
+    }
     while (fat32_read(source_file, buffer, bytes_per_chunk, &bytes_read) == FAT32_OK && bytes_read > 0)
     {
         if (fat32_write(&destination_file, buffer, bytes_read, &bytes_written) != FAT32_OK || bytes_written != bytes_read)
@@ -373,6 +384,11 @@ mp_obj_t sd_mp_file_move(size_t n_args, const mp_obj_t *args)
     if (err != FAT32_OK)
     {
         PRINT("Failed to create destination file: %s\n", fat32_error_string(err));
+        mp_raise_OSError(MP_EIO);
+    }
+    if (fat32_open(&destination_file, destination_path) != FAT32_OK)
+    {
+        PRINT("Failed to open destination file after creation.\n");
         mp_raise_OSError(MP_EIO);
     }
     while (fat32_read(source_file, buffer, bytes_per_chunk, &bytes_read) == FAT32_OK && bytes_read > 0)

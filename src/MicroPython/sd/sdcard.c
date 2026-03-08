@@ -157,37 +157,42 @@ bool sd_is_sdhc(void)
 
 sd_error_t sd_read_block(uint32_t block, uint8_t *buffer)
 {
-    int32_t addr = is_sdhc ? block : block * SD_BLOCK_SIZE;
-    uint8_t response = sd_send_command(SD_CMD17, addr);
-    if (response != 0)
+    // Retry up to 3 times to handle transient SPI/card-busy failures
+    for (int attempt = 0; attempt < 3; attempt++)
     {
+        int32_t addr = is_sdhc ? block : block * SD_BLOCK_SIZE;
+        uint8_t response = sd_send_command(SD_CMD17, addr);
+        if (response != 0)
+        {
+            sd_cs_deselect();
+            continue; // retry
+        }
+
+        // Wait for data token
+        uint32_t timeout = 100000;
+        do
+        {
+            response = sd_spi_write_read(0xFF);
+            timeout--;
+        } while (response != SD_DATA_START_BLOCK && timeout > 0);
+
+        if (timeout == 0)
+        {
+            sd_cs_deselect();
+            continue; // retry
+        }
+
+        // Read data
+        sd_spi_read_buf(buffer, SD_BLOCK_SIZE);
+
+        // Read CRC (ignore it)
+        sd_spi_write_read(0xFF);
+        sd_spi_write_read(0xFF);
+
         sd_cs_deselect();
-        return SD_ERROR_READ_FAILED;
+        return SD_OK;
     }
-
-    // Wait for data token
-    uint32_t timeout = 100000;
-    do
-    {
-        response = sd_spi_write_read(0xFF);
-        timeout--;
-    } while (response != SD_DATA_START_BLOCK && timeout > 0);
-
-    if (timeout == 0)
-    {
-        sd_cs_deselect();
-        return SD_ERROR_READ_FAILED;
-    }
-
-    // Read data
-    sd_spi_read_buf(buffer, SD_BLOCK_SIZE);
-
-    // Read CRC (ignore it)
-    sd_spi_write_read(0xFF);
-    sd_spi_write_read(0xFF);
-
-    sd_cs_deselect();
-    return SD_OK;
+    return SD_ERROR_READ_FAILED;
 }
 
 sd_error_t sd_write_block(uint32_t block, const uint8_t *buffer)

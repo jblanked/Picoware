@@ -169,14 +169,21 @@ mp_obj_t sd_mp_copy(size_t n_args, const mp_obj_t *args)
             PRINT("Failed to create destination file: %s\n", fat32_error_string(err));
             mp_raise_OSError(MP_EIO);
         }
+        if (fat32_open(&destination_file, destination_path) != FAT32_OK)
+        {
+            fat32_close(&source_file);
+            PRINT("Failed to open destination file after creation.\n");
+            mp_raise_OSError(MP_EIO);
+        }
         while (fat32_read(&source_file, buffer, bytes_per_chunk, &bytes_read) == FAT32_OK && bytes_read > 0)
         {
-            if (fat32_write(&destination_file, buffer, bytes_read, &bytes_written) != FAT32_OK || bytes_written != bytes_read)
+            err = fat32_write(&destination_file, buffer, bytes_read, &bytes_written);
+            if (err != FAT32_OK || bytes_written != bytes_read)
             {
                 fat32_close(&source_file);
                 fat32_close(&destination_file);
                 m_free(buffer);
-                PRINT("Failed to write to destination file.\n");
+                PRINT("Failed to write to destination file. Error: %s\n", fat32_error_string(err));
                 mp_raise_OSError(MP_EIO);
             }
         }
@@ -335,6 +342,11 @@ mp_obj_t sd_mp_file_copy(size_t n_args, const mp_obj_t *args)
         PRINT("Failed to create destination file: %s\n", fat32_error_string(err));
         mp_raise_OSError(MP_EIO);
     }
+    if (fat32_open(&destination_file, destination_path) != FAT32_OK)
+    {
+        PRINT("Failed to open destination file after creation.\n");
+        mp_raise_OSError(MP_EIO);
+    }
     while (fat32_read(source_file, buffer, bytes_per_chunk, &bytes_read) == FAT32_OK && bytes_read > 0)
     {
         if (fat32_write(&destination_file, buffer, bytes_read, &bytes_written) != FAT32_OK || bytes_written != bytes_read)
@@ -373,6 +385,11 @@ mp_obj_t sd_mp_file_move(size_t n_args, const mp_obj_t *args)
     if (err != FAT32_OK)
     {
         PRINT("Failed to create destination file: %s\n", fat32_error_string(err));
+        mp_raise_OSError(MP_EIO);
+    }
+    if (fat32_open(&destination_file, destination_path) != FAT32_OK)
+    {
+        PRINT("Failed to open destination file after creation.\n");
         mp_raise_OSError(MP_EIO);
     }
     while (fat32_read(source_file, buffer, bytes_per_chunk, &bytes_read) == FAT32_OK && bytes_read > 0)
@@ -462,13 +479,16 @@ mp_obj_t sd_mp_file_read(size_t n_args, const mp_obj_t *args)
         }
     }
     const uint32_t size_of_buffer = count != 0 ? count : fat32_size(file);
-    uint8_t buffer[size_of_buffer];
+    uint8_t *buffer = (uint8_t *)m_malloc(size_of_buffer);
     size_t bytes_read;
     if (fat32_read(file, buffer, size_of_buffer, &bytes_read) != FAT32_OK)
     {
+        m_free(buffer);
         mp_raise_OSError(MP_EIO);
     }
-    return mp_obj_new_bytes(buffer, bytes_read);
+    mp_obj_t result = mp_obj_new_bytes(buffer, bytes_read);
+    m_free(buffer);
+    return result;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sd_mp_file_read_obj, 1, 3, sd_mp_file_read);
 
@@ -733,12 +753,12 @@ mp_obj_t sd_mp_read(size_t n_args, const mp_obj_t *args)
         }
     }
     const uint32_t size_of_buffer = count != 0 ? count : fat32_size(&file);
-    uint8_t buffer[size_of_buffer];
+    uint8_t *buffer = (uint8_t *)m_malloc(size_of_buffer);
     size_t bytes_read;
     const bool status = fat32_read(&file, buffer, size_of_buffer, &bytes_read) == FAT32_OK;
     fat32_close(&file);
-    buffer[bytes_read] = '\0'; // Null-terminate the buffer
     mp_obj_t result = status ? mp_obj_new_bytes(buffer, bytes_read) : mp_const_none;
+    m_free(buffer);
     return result;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sd_mp_read_obj, 1, 3, sd_mp_read);

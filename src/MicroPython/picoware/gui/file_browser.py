@@ -403,10 +403,12 @@ class FileBrowser:
                     self._loading.stop()
                     self._loading = None
                 
+                # Prep the backbuffer, but DO NOT swap it to the screen yet! 
+                # This leaves the loading spinner perfectly visible on the display 
+                # while the CPU is frozen decoding the heavy image data.
                 self._draw.clear(color=TFT_BLACK)
                 self._draw.fill_rectangle(Vector(0, sh - 12), Vector(sw, 12), c_bar)
                 self._draw.text(Vector(2, sh - 10), "BACK : Close Image", c_btxt)
-                self._draw.swap()
                 
                 gc.collect() # Defragment RAM so C-decoder has a contiguous block
                 

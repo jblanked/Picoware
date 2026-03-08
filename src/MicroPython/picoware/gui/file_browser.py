@@ -246,29 +246,29 @@ class FileBrowser:
             save_dict = {k: self._app_state[k] for k in ["left_path", "right_path", "active_pane", "sort_mode", "show_hidden", "dir_menu", "theme", "bg_r", "bg_g", "bg_b", "bar_r", "bar_g", "bar_b", "left_top", "right_top"]}
             curr_j = json.dumps(save_dict)
             if curr_j != self._last_saved_json:
-                try:
-                    self._storage.write("/picoware/settings/file_browser_state.json", curr_j, "w")
+                if self._storage.write("/picoware/settings/file_browser_state.json", curr_j, "w"):
                     self._last_saved_json = curr_j
-                except Exception:
-                    pass
             del curr_j
             del save_dict
             self._last_save_time = curr_t
 
     def _draw_progress(self, title, percentage):
-        # High-performance, low-RAM custom progress bar overlay
-        c_bg, c_bar, _, _, _ = self._get_theme()
-        sw, sh = self._draw.size.x, self._draw.size.y
-        bw, bh = 200, 60
-        x, y = (sw - bw) // 2, (sh - bh) // 2
-        self._draw.fill_rectangle(Vector(x, y), Vector(bw, bh), c_bg)
-        self._draw.rect(Vector(x, y), Vector(bw, bh), c_bar)
-        self._draw.text(Vector(x + 10, y + 10), title, TFT_WHITE)
-        self._draw.rect(Vector(x + 10, y + 30), Vector(bw - 20, 15), TFT_WHITE)
-        fill_w = int((bw - 22) * max(0.0, min(1.0, percentage)))
-        if fill_w > 0: 
-            self._draw.fill_rectangle(Vector(x + 11, y + 31), Vector(fill_w, 13), c_bar)
-        self._draw.swap()
+        # Stop and clear the loading spinner when the task is done (100%)
+        if percentage >= 1.0:
+            if self._loading:
+                self._loading.stop()
+                self._loading = None
+            return
+
+        # Initialize the standard OS loading spinner if it isn't running yet
+        if not self._loading:
+            from picoware.gui.loading import Loading
+            c_bg, _, _, _, _ = self._get_theme()
+            self._loading = Loading(self._draw, background_color=c_bg)
+            
+        # Update the text (e.g., "Copying...") and tick the animation
+        self._loading.set_text(title)
+        self._loading.animate(swap=True)
 
     def _load_dir(self, path):
         # Reads directory contents and implements lazy caching for is_directory checks.
@@ -296,8 +296,7 @@ class FileBrowser:
                 if fp in self._stat_cache:
                     is_d = self._stat_cache[fp][0]
                 else:
-                    try: is_d = self._storage.is_directory(fp)
-                    except Exception: pass
+                    is_d = self._storage.is_directory(fp)
                     self._stat_cache[fp] = (is_d, -1)
                     
                 if sort_m == self.SORT_DATE:
@@ -357,11 +356,10 @@ class FileBrowser:
     def _open_editor(self, path, read_only=False):
         # Loads file contents into RAM for integrated text viewing or editing
         self._edit_text.clear()
-        try:
-            data = self._storage.read(path, "r")
-            if data: self._edit_text.extend(data.split('\n'))
-            del data
-        except Exception: pass
+        data = self._storage.read(path, "r")
+        if data: 
+            self._edit_text.extend(data.split('\n'))
+        del data
         
         if not self._edit_text: self._edit_text.append("")
         self._edit_file = path
@@ -656,17 +654,11 @@ class FileBrowser:
                     if fp in self._stat_cache:
                         isd, fz = self._stat_cache[fp]
                         if not isd and fz == -1:
-                            try: fz = self._storage.size(fp)
-                            except Exception: fz = 0
+                            fz = self._storage.size(fp)
                             self._stat_cache[fp] = (isd, fz)
                     else:
-                        isd = False
-                        fz = 0
-                        try: isd = self._storage.is_directory(fp)
-                        except Exception: pass
-                        if not isd:
-                            try: fz = self._storage.size(fp)
-                            except Exception: pass
+                        isd = self._storage.is_directory(fp)
+                        fz = 0 if isd else self._storage.size(fp)
                         self._stat_cache[fp] = (isd, fz)
                 
                 im = fp in self._app_state["marked"]
@@ -841,24 +833,24 @@ class FileBrowser:
                         else:
                             if self._input_mode == self.MODE_RENAME:
                                 self._draw_progress("Renaming...", 0.0)
-                                try:
-                                    self._storage.move(self._context_target_path, np)
+                                if self._storage.move(self._context_target_path, np):
                                     rn = True
-                                except Exception as e: print("Move Error:", e)
+                                else:
+                                    print("Move Error")
                                 self._draw_progress("Renamed", 1.0)
                             elif self._input_mode == self.MODE_COPY_SAME:
                                 self._draw_progress("Copying...", 0.0)
-                                try:
-                                    self._storage.copy(self._context_target_path, np)
+                                if self._storage.copy(self._context_target_path, np):
                                     rn = True
-                                except Exception as e: print("Copy Error:", e)
+                                else:
+                                    print("Copy Error")
                                 self._draw_progress("Copied", 1.0)
                     elif self._input_mode == self.MODE_MKDIR:
                         if not self._storage.exists(np):
-                            try:
-                                self._storage.mkdir(np)
+                            if self._storage.mkdir(np):
                                 rn = True
-                            except Exception as e: print("Mkdir Error:", e)
+                            else:
+                                print("Mkdir Error")
                 if rn:
                     self._refresh_panes()
                 
@@ -963,14 +955,11 @@ class FileBrowser:
                     if fp in self._stat_cache:
                         isd = self._stat_cache[fp][0]
                         if not isd:
-                            try: fz = self._storage.size(fp)
-                            except Exception: pass
+                            fz = self._storage.size(fp)
                     else:
-                        try: isd = self._storage.is_directory(fp)
-                        except Exception: pass
+                        isd = self._storage.is_directory(fp)
                         if not isd:
-                            try: fz = self._storage.size(fp)
-                            except Exception: pass
+                            fz = self._storage.size(fp)
                         
                     self._info_data = [
                         f"Name: {sf[:22]}",
@@ -1048,8 +1037,8 @@ class FileBrowser:
                         total = len(targets)
                         for i, t in enumerate(targets):
                             self._draw_progress(f"Deleting {int((i/total)*100)}%", i/total)
-                            try: self._storage.remove(t)
-                            except Exception as e: print("Delete Error:", e)
+                            if not self._storage.remove(t):
+                                print("Delete Error on:", t)
                         self._draw_progress("Deleted", 1.0)
                             
                     elif self._pending_action in (self.ACT_COPY, self.ACT_MOVE):
@@ -1070,25 +1059,23 @@ class FileBrowser:
                             # Prevent crash from trying to copy a file over top of itself
                             if t != dp:
                                 if self._storage.exists(dp):
-                                    try: self._storage.remove(dp)
-                                    except Exception: pass
+                                    self._storage.remove(dp)
                                     
                                 if self._pending_action == self.ACT_COPY:
-                                    try: self._storage.copy(t, dp)
-                                    except Exception as e: print("Copy Error:", e)
+                                    if not self._storage.copy(t, dp):
+                                        print("Copy Error on:", t)
                                 else:
-                                    try: self._storage.move(t, dp)
-                                    except Exception as e: print("Move Error:", e)
+                                    if not self._storage.move(t, dp):
+                                        print("Move Error on:", t)
                         
                         self._draw_progress("Done", 1.0)
                                     
                     elif self._pending_action == self.ACT_RENAME:
                         self._draw_progress("Renaming...", 0.0)
                         if self._storage.exists(self._pending_dest_path):
-                            try: self._storage.remove(self._pending_dest_path)
-                            except Exception: pass
-                        try: self._storage.move(self._context_target_path, self._pending_dest_path)
-                        except Exception as e: print("Rename Error:", e)
+                            self._storage.remove(self._pending_dest_path)
+                        if not self._storage.move(self._context_target_path, self._pending_dest_path):
+                            print("Rename Error")
                         self._draw_progress("Renamed", 1.0)
                     
                     if len(mk) > 0: self._app_state["marked"].clear()
@@ -1117,12 +1104,12 @@ class FileBrowser:
                 if self._is_editing:
                     if ac in ("Save", "Save & Exit"):
                         self._draw_progress("Saving...", 0.5)
-                        try:
-                            data = "\n".join(self._edit_text)
-                            self._storage.write(self._edit_file, data, "w")
-                            del data
+                        data = "\n".join(self._edit_text)
+                        if self._storage.write(self._edit_file, data, "w"):
                             self._edit_unsaved = False
-                        except Exception: pass
+                        else:
+                            print("Save Error")
+                        del data
                         self._draw_progress("Saved", 1.0)
                         if ac == "Save & Exit": self._is_editing = False
                     elif ac == "Exit without Saving":
@@ -1261,8 +1248,7 @@ class FileBrowser:
                     if np in self._stat_cache:
                         isd = self._stat_cache[np][0]
                     else:
-                        try: isd = self._storage.is_directory(np)
-                        except Exception: pass
+                        isd = self._storage.is_directory(np)
                     
                     if self._mode == FILE_BROWSER_SELECTOR and not isd:
                         self._auto_save()

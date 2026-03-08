@@ -177,12 +177,13 @@ mp_obj_t sd_mp_copy(size_t n_args, const mp_obj_t *args)
         }
         while (fat32_read(&source_file, buffer, bytes_per_chunk, &bytes_read) == FAT32_OK && bytes_read > 0)
         {
-            if (fat32_write(&destination_file, buffer, bytes_read, &bytes_written) != FAT32_OK || bytes_written != bytes_read)
+            err = fat32_write(&destination_file, buffer, bytes_read, &bytes_written);
+            if (err != FAT32_OK || bytes_written != bytes_read)
             {
                 fat32_close(&source_file);
                 fat32_close(&destination_file);
                 m_free(buffer);
-                PRINT("Failed to write to destination file.\n");
+                PRINT("Failed to write to destination file. Error: %s\n", fat32_error_string(err));
                 mp_raise_OSError(MP_EIO);
             }
         }

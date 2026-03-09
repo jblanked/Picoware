@@ -329,26 +329,29 @@ _game_engine = None
 def __player_spawn(level):
     """Spawn the player in the level."""
     from picoware.engine.entity import Entity, ENTITY_TYPE_PLAYER, SPRITE_3D_NONE
+    from picoware.engine.image import Image
     from picoware.system.vector import Vector
 
-    draw = level.game.draw
+    _size = Vector(20, 16)
 
     player = Entity(
         "Player",  # name
         ENTITY_TYPE_PLAYER,  # type
-        Vector(draw.size.x // 2, draw.size.y // 2),  # position
-        Vector(20, 16),  # size
-        BIRD,  # sprite data
-        None,  # sprite data left
-        None,  # sprite data right
+        Vector(level.size.x // 2, level.size.y // 2),  # position
+        _size,  # size
+        Image(_size, True, BIRD),  # sprite data (Image)
+        None,  # sprite data left (Image)
+        None,  # sprite data right (Image)
         None,  # start
         None,  # stop
         __player_update,  # update
         None,  # render
-        None,  # collide
-        SPRITE_3D_NONE,  # 3d type
+        None,  # collision
         True,  # is_8bit
+        SPRITE_3D_NONE,  # 3d type
+        0x0000,  # 3d color
     )
+
     level.entity_add(player)
 
 
@@ -396,13 +399,13 @@ def start(view_manager) -> bool:
     game = Game(
         "Example",  # name
         draw.size,  # size
-        draw,  # draw instance
+        draw,  # draw context
         view_manager.input_manager,  # input manager
         0x0000,  # foreground color
         0xFFFF,  # background color
-        0,  # perspective
+        None,  # camera context
         None,  # start
-        None,  # Stop
+        None,  # stop
     )
 
     # Create and add a level to the game.
@@ -415,7 +418,7 @@ def start(view_manager) -> bool:
     # Create the game engine (with 240 frames per second target).
     _game_engine = GameEngine(game, 240)
 
-    return True
+    return _game_engine is not None
 
 
 def run(view_manager) -> None:

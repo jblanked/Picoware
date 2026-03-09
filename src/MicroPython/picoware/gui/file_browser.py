@@ -3,7 +3,6 @@
 # Designed for Picocalc 2.0 Hardware
 # ==============================================================================
 
-import gc
 import time
 import json
 import os
@@ -11,7 +10,6 @@ from micropython import const
 from picoware.system.vector import Vector
 from picoware.system.colors import TFT_WHITE, TFT_BLACK, TFT_BLUE, TFT_YELLOW, TFT_CYAN, TFT_DARKGREY, TFT_LIGHTGREY, TFT_RED
 from picoware.gui.menu import Menu
-from picoware.system.system import System
 
 from picoware.system.buttons import (
     BUTTON_NONE, BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_CENTER, BUTTON_BACK, 
@@ -61,7 +59,6 @@ class FileBrowser:
         self._storage = view_manager.storage
         self._draw = view_manager.draw
         self._input_manager = view_manager.input_manager
-        self._sys = System()
         
         # State tracking and caching
         self._last_saved_json = "{}"
@@ -104,6 +101,8 @@ class FileBrowser:
         self._edit_unsaved = False
         
         self._is_viewing_image = False
+        self._is_viewing_text = False
+        self._text_viewer_box = None
         self._image_load_state = 0
         self._image_path = ""
         self._jpeg_vec = Vector(0, 0)
@@ -171,7 +170,6 @@ class FileBrowser:
         self._stat_cache.clear()
         self._edit_text.clear()
         self._char_map.clear()
-        self._sys = None
 
     @property
     def directory(self) -> str:
@@ -335,8 +333,21 @@ class FileBrowser:
             self._image_load_state = 0
             self._image_path = path
             self._needs_redraw = True
-        elif ext in ("txt", "py", "json", "csv", "md", "ini", "log", "xml", "html", "conf", ""):
-            self._open_editor(path, read_only=True)
+        elif ext in ("txt", "py", "json", "csv", "md", "ini", "log", "xml", "html", "conf", "sh", "bat", "yml", "yaml", "toml", "cfg", "css", "js", "h", "c", "cpp", "php", "env", "gitignore", "lua", "bas", ""):
+            self._is_viewing_text = True
+            self._edit_file = path  # Store path for the header title
+            
+            data = self._storage.read(path, "r")
+            
+            from picoware.gui.textbox import TextBox
+            c_bg, _, c_txt, _, _ = self._get_theme()
+            
+            # Span the middle of the screen, leaving room for a 20px header and footer
+            self._text_viewer_box = TextBox(self._draw, 20, self._draw.size.y - 40, c_txt, c_bg)
+            self._text_viewer_box.set_text(data if data else "")
+            del data
+            
+            self._needs_redraw = True
         else:
             self._vm.alert("Unsupported file format.")
             self._needs_redraw = True
@@ -344,7 +355,7 @@ class FileBrowser:
     def _open_editor(self, path, read_only=False):
         # Guard against binary files crashing the editor if opened directly via the Edit menu
         ext = path.split(".")[-1].lower() if "." in path else ""
-        if ext not in ("txt", "py", "json", "csv", "md", "ini", "log", "xml", "html", "conf", ""):
+        if ext not in ("txt", "py", "json", "csv", "md", "ini", "log", "xml", "html", "conf", "sh", "bat", "yml", "yaml", "toml", "cfg", "css", "js", "h", "c", "cpp", "php", "env", "gitignore", "lua", "bas", ""):
             self._vm.alert("Unsupported file format.")
             self._needs_redraw = True
             return
@@ -361,6 +372,7 @@ class FileBrowser:
         self._edit_read_only = read_only
         self._edit_cx = self._edit_cy = self._edit_sx = self._edit_sy = 0
         self._edit_unsaved = False
+        self._edit_show_marks = False
         
         self._is_shift = False
         self._is_caps = False
@@ -430,6 +442,21 @@ class FileBrowser:
                 self._needs_redraw = False
                 return
 
+        # 1.5 Text Viewer Overlay (Read-Only with Word Wrap)
+        if self._is_viewing_text:
+            self._draw.fill_rectangle(Vector(0, 0), Vector(sw, 20), c_bar)
+            self._draw.text(Vector(5, 4), f"View: {self._edit_file.split('/')[-1]}", c_btxt)
+            
+            self._draw.fill_rectangle(Vector(0, sh - 20), Vector(sw, 20), c_bar)
+            self._draw.text(Vector(5, sh - 16), "UP/DWN:Scroll   BACK:Close", c_btxt)
+            
+            if self._text_viewer_box:
+                self._text_viewer_box.refresh()
+                
+            self._draw.swap()
+            self._needs_redraw = False
+            return
+
         # 2. Text Editor Overlay
         if self._is_editing:
             self._draw.clear(color=c_bg)
@@ -448,7 +475,24 @@ class FileBrowser:
             for i in range(m_lin):
                 idx = self._edit_sy + i
                 if idx < len(self._edit_text):
-                    self._draw.text(Vector(2, 14 + i * 12), self._edit_text[idx][self._edit_sx : self._edit_sx + m_chr], c_txt)
+                    full_line = self._edit_text[idx]
+                    line_text = full_line[self._edit_sx : self._edit_sx + m_chr]
+                    
+                    # Draw the standard text first
+                    self._draw.text(Vector(2, 14 + i * 12), line_text, c_txt)
+                    
+                    # If toggled on, draw formatting marks
+                    if getattr(self, "_edit_show_marks", False):
+                        # Draw periods for spaces
+                        for c_idx, char in enumerate(line_text):
+                            if char == " ":
+                                dot_x = 2 + (c_idx * 6)
+                                self._draw.text(Vector(dot_x, 14 + i * 12), ".", TFT_CYAN)
+                        
+                        # Draw the newline mark (<) at the end of the line if it's visible on screen
+                        if self._edit_sx + len(line_text) >= len(full_line) and len(line_text) < m_chr:
+                            end_x = 2 + (len(line_text) * 6)
+                            self._draw.text(Vector(end_x, 14 + i * 12), "<", TFT_YELLOW)
                     
             if not self._edit_read_only and (time.ticks_ms() // 500) % 2 == 0:
                 cx, cy = 2 + (self._edit_cx - self._edit_sx) * 6, 14 + (self._edit_cy - self._edit_sy) * 12
@@ -461,7 +505,7 @@ class FileBrowser:
                 self._needs_redraw = True
                 
             self._draw.fill_rectangle(Vector(0, sh - 12), Vector(sw, 12), c_bar)
-            self._draw.text(Vector(2, sh - 10), "UP/DWN:Scroll BACK:Close" if self._edit_read_only else "ENT:Menu BACK:Close", c_btxt)
+            self._draw.text(Vector(2, sh - 10), "UP/DWN:Scroll BACK:Close" if self._edit_read_only else "ENT:NewLn BACK:Menu", c_btxt)
             
             if self._context_menu:
                 self._context_menu.draw()
@@ -484,20 +528,17 @@ class FileBrowser:
             self._draw.text(Vector(10, 92), "O:Options       H:Toggle Help", TFT_WHITE)
             
             self._draw.text(Vector(10, 108), "[TEXT EDITOR]", c_bar)
-            self._draw.text(Vector(10, 120), "Arrows:Cursor   CENTER:Save Menu", TFT_WHITE)
+            self._draw.text(Vector(10, 120), "Arrows:Cursor   CENTER:Newline", TFT_WHITE)
             self._draw.text(Vector(10, 132), "SHF/CAPS:Upper  BSPC:Delete Char", TFT_WHITE)
-            self._draw.text(Vector(10, 144), "BACK:Close Editor", TFT_WHITE)
+            self._draw.text(Vector(10, 144), "BACK:Menu (Save/Exit/Whitespace)", TFT_WHITE)
             
             self._draw.text(Vector(10, 160), "[TEXT ENTRY & MENUS]", c_bar)
-            self._draw.text(Vector(10, 172), "UP/DWN:Case     L/R:Move Cursor", TFT_WHITE)
+            self._draw.text(Vector(10, 172), "SHF/CAPS:Case   L/R:Move Cursor", TFT_WHITE)
             self._draw.text(Vector(10, 184), "CENTER:Confirm  BACK:Cancel", TFT_WHITE)
             
-            self._draw.text(Vector(10, 200), "[IMAGE VIEWER]", c_bar)
-            self._draw.text(Vector(10, 212), "CENTER / BACK: Close Image", TFT_WHITE)
+            self._draw.text(Vector(10, 200), "[IMAGE & TEXT VIEWER]", c_bar)
+            self._draw.text(Vector(10, 212), "UP/DWN:Scroll   BACK: Close", TFT_WHITE)
 
-            self._draw.text(Vector(10, 228), f"RAM: {gc.mem_alloc() // 1024}K / {gc.mem_free() // 1024}K", TFT_YELLOW)
-            if self._sys and self._sys.has_psram:
-                self._draw.text(Vector(160, 228), f"PSRAM: {self._sys.used_psram // 1024}K / {self._sys.free_psram // 1024}K", TFT_YELLOW)
             self._draw.swap()
             self._needs_redraw = False
             return
@@ -561,7 +602,7 @@ class FileBrowser:
             if (time.ticks_ms() // 500) % 2 == 0:
                 self._draw.fill_rectangle(Vector(15 + (self._input_cursor * 6), by + 35), Vector(6, 2), TFT_CYAN)
             self._needs_redraw = True
-            self._draw.text(Vector(15, by + 48), "UP/DWN:Caps ENT:Save BACK:Cancel", TFT_LIGHTGREY)
+            self._draw.text(Vector(15, by + 48), "ENT:Save BACK:Cancel", TFT_LIGHTGREY)
             self._draw.swap()
             return
 
@@ -680,16 +721,35 @@ class FileBrowser:
                 self._image_path = ""
                 self._needs_redraw = True
                 
+        # --- Sub-View: Text Viewer Input ---
+        elif self._is_viewing_text:
+            if btn in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER):
+                self._input_manager.reset()
+                self._is_viewing_text = False
+                if self._text_viewer_box:
+                    self._text_viewer_box.clear()
+                    self._text_viewer_box = None
+                self._needs_redraw = True
+            elif btn == BUTTON_UP:
+                self._input_manager.reset()
+                if self._text_viewer_box:
+                    self._text_viewer_box.scroll_up()
+            elif btn == BUTTON_DOWN:
+                self._input_manager.reset()
+                if self._text_viewer_box:
+                    self._text_viewer_box.scroll_down()
+
         # --- Sub-View: Text Editor Input ---
         elif self._is_editing and self._context_menu is None and self._confirm_menu is None:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE):
                 self._input_manager.reset()
-                if self._edit_unsaved and not self._edit_read_only:
-                    self._context_menu = self._spawn_menu("Unsaved Changes!", ("Save & Exit", "Exit without Saving", "Cancel"))
-                else:
-                    self._is_editing = False
-                    self._is_shift = False
-                    self._is_caps = False
+                menu_title = "Unsaved Changes!" if self._edit_unsaved else "Editor Menu"
+                
+                # Dynamically check the status
+                fm_status = "ON" if getattr(self, "_edit_show_marks", False) else "OFF"
+                fm_label = f"Format Marks: {fm_status}"
+                
+                self._context_menu = self._spawn_menu(menu_title, ("Save", "Save & Exit", "Exit", fm_label, "Cancel"))
                 self._needs_redraw = True
             elif btn == BUTTON_UP:
                 self._input_manager.reset()
@@ -731,7 +791,13 @@ class FileBrowser:
             elif not self._edit_read_only:
                 if btn == BUTTON_CENTER:
                     self._input_manager.reset()
-                    self._context_menu = self._spawn_menu("Editor Menu", ("Save", "Save & Exit", "Exit without Saving", "Cancel"))
+                    # Split the current line at the cursor and push the rest to a new line
+                    line = self._edit_text[self._edit_cy]
+                    self._edit_text[self._edit_cy] = line[:self._edit_cx]
+                    self._edit_text.insert(self._edit_cy + 1, line[self._edit_cx:])
+                    self._edit_cy += 1
+                    self._edit_cx = 0
+                    self._edit_unsaved = True
                     self._needs_redraw = True
                 elif btn in (BUTTON_SHIFT, KEY_MOD_SHL, KEY_MOD_SHR):
                     self._input_manager.reset()
@@ -759,9 +825,10 @@ class FileBrowser:
                         self._edit_unsaved = True
                         self._needs_redraw = True
                 elif btn in self._char_map:
+                    is_hw_cap = self._input_manager.was_capitalized
                     self._input_manager.reset()
                     c = self._char_map[btn]
-                    if (self._is_shift or self._is_caps) and c.isalpha(): 
+                    if (is_hw_cap or self._is_shift or self._is_caps) and c.isalpha(): 
                         c = c.upper()
                     line = self._edit_text[self._edit_cy]
                     self._edit_text[self._edit_cy] = line[:self._edit_cx] + c + line[self._edit_cx:]
@@ -857,11 +924,11 @@ class FileBrowser:
                     self._is_caps = False
                     self._context_target_path = ""
                     self._needs_redraw = True
-            elif btn in (BUTTON_SHIFT, KEY_MOD_SHL, KEY_MOD_SHR, BUTTON_UP):
+            elif btn in (BUTTON_SHIFT, KEY_MOD_SHL, KEY_MOD_SHR):
                 self._input_manager.reset()
                 self._is_shift = not self._is_shift
                 self._needs_redraw = True
-            elif btn in (BUTTON_CAPS_LOCK, KEY_CAPS_LOCK, BUTTON_DOWN):
+            elif btn in (BUTTON_CAPS_LOCK, KEY_CAPS_LOCK):
                 self._input_manager.reset()
                 self._is_caps = not self._is_caps
                 self._is_shift = False
@@ -883,10 +950,11 @@ class FileBrowser:
                     self._input_cursor -= 1
                     self._needs_redraw = True
             elif btn in self._char_map:
+                is_hw_cap = self._input_manager.was_capitalized
                 self._input_manager.reset()
                 if len(self._input_text) < 35:
                     c = self._char_map[btn]
-                    if (self._is_shift or self._is_caps) and c.isalpha(): 
+                    if (is_hw_cap or self._is_shift or self._is_caps) and c.isalpha(): 
                         c = c.upper()
                     self._input_text = self._input_text[:self._input_cursor] + c + self._input_text[self._input_cursor:]
                     self._input_cursor += 1
@@ -1129,12 +1197,18 @@ class FileBrowser:
                             print("Save Error")
                         del data
                         self._draw_progress("Saved", 1.0)
-                        if ac == "Save & Exit": self._is_editing = False
-                    elif ac == "Exit without Saving":
+                        if ac == "Save & Exit": 
+                            self._is_editing = False
+                            self._is_shift = False
+                            self._is_caps = False
+                    elif ac in ("Exit", "Exit without Saving"):
                         self._is_editing = False
+                        self._is_shift = False
+                        self._is_caps = False
+                    elif ac.startswith("Format Marks:"):
+                        self._edit_show_marks = not getattr(self, "_edit_show_marks", False)
+                        
                     self._context_menu = None
-                    self._is_shift = False
-                    self._is_caps = False
                     self._needs_redraw = True
                 else:
                     if ac == "Cancel":

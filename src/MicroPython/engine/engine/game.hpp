@@ -3,6 +3,7 @@
 #include "draw.hpp"
 #include "level.hpp"
 #include "vector.hpp"
+#include <functional>
 
 #define MAX_LEVELS 10
 
@@ -10,14 +11,15 @@ class Game
 {
 public:
     Game(
-        const char *name,                // Name of the game
-        Vector size,                     // game/world size
-        Draw *draw,                      // drawing object for rendering
-        uint16_t fg_color = 0x0000,      // Foreground color
-        uint16_t bg_color = 0xFFFF,      // Background color
-        Camera *cameraContext = nullptr, // Camera context for rendering
-        void (*start)() = NULL,          // Callback function for when the game starts
-        void (*stop)() = NULL);          // Callback function for when the game stops
+        const char *name,                        // Name of the game
+        Vector size,                             // game/world size
+        Draw *draw,                              // drawing object for rendering
+        uint16_t fg_color = 0x0000,              // Foreground color
+        uint16_t bg_color = 0xFFFF,              // Background color
+        Camera *cameraContext = nullptr,         // Camera context for rendering
+        std::function<void()> start = nullptr,   // Callback function for when the game starts
+        std::function<void()> stop = nullptr,    // Callback function for when the game stops
+        std::function<void()> update = nullptr); // Callback function for when the game updates
     ~Game();
 
     void clamp(float &value, float min, float max); // Clamp a value between a lower and upper bound.
@@ -36,7 +38,7 @@ public:
     Level *levels[MAX_LEVELS]; // Array of levels
     Level *current_level;      // Current level
     Draw *draw;                // Draw object for rendering
-    uint8_t input;             // Last input (e.g., one of the BUTTON_ constants)
+    int input;                 // Last input (e.g., one of the BUTTON_ constants)
     Camera *camera;            // Camera context
     Vector pos;                // Player position
     Vector old_pos;            // Previous position
@@ -45,6 +47,7 @@ public:
     uint16_t bg_color;         // Background color
     uint16_t fg_color;         // Foreground color
 private:
-    void (*_start)();
-    void (*_stop)();
+    std::function<void()> _start;
+    std::function<void()> _stop;
+    std::function<void()> _update;
 };

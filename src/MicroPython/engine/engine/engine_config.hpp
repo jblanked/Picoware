@@ -1,11 +1,19 @@
 #pragma once
 
 // memory
-#define ENGINE_MEM_INCLUDE "py/runtime.h"
+#if defined(PICOCALC)
+#define ENGINE_MEM_INCLUDE "../../engine/memory.h"
+#else
+#define ENGINE_MEM_INCLUDE "../../../engine/memory.h"
+#endif
 #define ENGINE_MEM_NEW new
 #define ENGINE_MEM_DELETE delete
 #define ENGINE_MEM_MALLOC m_malloc
 #define ENGINE_MEM_FREE m_free
+
+// delay
+#define ENGINE_DELAY_INCLUDE "py/mphal.h"
+#define ENGINE_DELAY_MS(ms) mp_hal_delay_ms(ms)
 
 // font
 #if defined(PICOCALC)

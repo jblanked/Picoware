@@ -3,13 +3,14 @@
 add_library(usermod_engine INTERFACE)
 
 target_sources(usermod_engine INTERFACE
-    ${CMAKE_CURRENT_LIST_DIR}/camera_mp.c
-    ${CMAKE_CURRENT_LIST_DIR}/engine_mp.c
-    ${CMAKE_CURRENT_LIST_DIR}/entity_mp.c
-    ${CMAKE_CURRENT_LIST_DIR}/game_mp.c
-    ${CMAKE_CURRENT_LIST_DIR}/level_mp.c
-    ${CMAKE_CURRENT_LIST_DIR}/sprite3d_mp.c
-    ${CMAKE_CURRENT_LIST_DIR}/triangle3d_mp.c
+    ${CMAKE_CURRENT_LIST_DIR}/camera_mp.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/engine_mp.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/entity_mp.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/game_mp.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/image_mp.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/level_mp.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/sprite3d_mp.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/triangle3d_mp.cpp
     ${CMAKE_CURRENT_LIST_DIR}/engine/draw.cpp
     ${CMAKE_CURRENT_LIST_DIR}/engine/entity.cpp
     ${CMAKE_CURRENT_LIST_DIR}/engine/game.cpp

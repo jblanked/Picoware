@@ -1,38 +1,20 @@
-# ==============================================================================
-# File Browser Application for Picoware OS
-# Designed for Picocalc 2.0 Hardware
-# ==============================================================================
-
-import time
 import json
-import os
 from micropython import const
 from picoware.system.vector import Vector
-from picoware.system.colors import TFT_WHITE, TFT_BLACK, TFT_BLUE, TFT_YELLOW, TFT_CYAN, TFT_DARKGREY, TFT_LIGHTGREY, TFT_RED
-from picoware.gui.menu import Menu
-
 from picoware.system.buttons import (
     BUTTON_NONE, BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_CENTER, BUTTON_BACK, 
-    BUTTON_ESCAPE, BUTTON_BACKSPACE, BUTTON_SPACE, BUTTON_PERIOD, BUTTON_MINUS, BUTTON_UNDERSCORE,
-    BUTTON_A, BUTTON_B, BUTTON_C, BUTTON_D, BUTTON_E, BUTTON_F, BUTTON_G, BUTTON_H, BUTTON_I,
-    BUTTON_J, BUTTON_K, BUTTON_L, BUTTON_M, BUTTON_N, BUTTON_O, BUTTON_P, BUTTON_Q, BUTTON_R,
-    BUTTON_S, BUTTON_T, BUTTON_U, BUTTON_V, BUTTON_W, BUTTON_X, BUTTON_Y, BUTTON_Z,
-    BUTTON_0, BUTTON_1, BUTTON_2, BUTTON_3, BUTTON_4, BUTTON_5, BUTTON_6, BUTTON_7, BUTTON_8, BUTTON_9,
-    BUTTON_SHIFT, BUTTON_CAPS_LOCK, KEY_MOD_SHL, KEY_MOD_SHR, KEY_CAPS_LOCK
+    BUTTON_ESCAPE, BUTTON_BACKSPACE, BUTTON_SPACE, BUTTON_D, BUTTON_H, BUTTON_I,BUTTON_M, BUTTON_N, 
+    BUTTON_O, BUTTON_S, BUTTON_SHIFT, BUTTON_CAPS_LOCK, KEY_MOD_SHL, KEY_MOD_SHR, KEY_CAPS_LOCK
 )
+from picoware.system.colors import TFT_WHITE, TFT_BLACK, TFT_YELLOW, TFT_CYAN, TFT_DARKGREY, TFT_LIGHTGREY, TFT_RED
 
 FILE_BROWSER_VIEWER = const(0)
 FILE_BROWSER_MANAGER = const(1)
 FILE_BROWSER_SELECTOR = const(2)
 
-def rgb_to_565(r, g, b):
-    # Helper to convert standard RGB colors to the display's 16-bit color format
-    return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
-
 class FileBrowser:
     """
-    Main File Browser application class. Handles dual-pane navigation, 
-    file operations (copy/move/delete), and integrated text/image viewing.
+    Class to handle file browsing, text editing, and image viewing within Picoware.
     """
     PANE_LEFT = const(0)
     PANE_RIGHT = const(1)
@@ -53,6 +35,14 @@ class FileBrowser:
     OPTIONS_LABELS = ("Sort Mode", "Hidden Files", "Dir Enter")
     
     def __init__(self, view_manager, mode=FILE_BROWSER_SELECTOR, start_directory=""):
+
+        from picoware.system.buttons import (
+            BUTTON_PERIOD, BUTTON_MINUS, BUTTON_UNDERSCORE,
+            BUTTON_A, BUTTON_B, BUTTON_C, BUTTON_E, BUTTON_F, BUTTON_G,
+            BUTTON_J, BUTTON_K, BUTTON_L, BUTTON_P, BUTTON_Q, BUTTON_R,
+            BUTTON_T, BUTTON_U, BUTTON_V, BUTTON_W, BUTTON_X, BUTTON_Y, BUTTON_Z,
+            BUTTON_0, BUTTON_1, BUTTON_2, BUTTON_3, BUTTON_4, BUTTON_5, BUTTON_6, BUTTON_7, BUTTON_8, BUTTON_9,
+        )
         # Link to system managers
         self._vm = view_manager
         self._mode = mode
@@ -212,7 +202,8 @@ class FileBrowser:
         return self._vm.background_color, self._vm.selected_color, self._vm.foreground_color, self._vm.foreground_color, self._vm.background_color
 
     def _spawn_menu(self, title, items):
-        # Helper to construct a pop-up context menu overlaid on the main interface
+        "Helper to construct a pop-up context menu overlaid on the main interface"
+        from picoware.gui.menu import Menu
         c_bg, c_bar, _, _, _ = self._get_theme()
         m = Menu(self._draw, title, 0, self._draw.size.y, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
         for i in items:
@@ -221,17 +212,14 @@ class FileBrowser:
         return m
 
     def _auto_save(self):
-        # Non-blocking delta check to silently save settings every 5 seconds if changed
-        curr_t = time.time()
-        if curr_t - self._last_save_time > 5:
-            save_dict = {k: self._app_state[k] for k in ["left_path", "right_path", "active_pane", "sort_mode", "show_hidden", "dir_menu", "left_top", "right_top"]}
-            curr_j = json.dumps(save_dict)
-            if curr_j != self._last_saved_json:
-                if self._storage.write("/picoware/settings/file_browser_state.json", curr_j, "w"):
-                    self._last_saved_json = curr_j
-            del curr_j
-            del save_dict
-            self._last_save_time = curr_t
+        "Save user settings"
+        save_dict = {k: self._app_state[k] for k in ["left_path", "right_path", "active_pane", "sort_mode", "show_hidden", "dir_menu", "left_top", "right_top"]}
+        curr_j = json.dumps(save_dict)
+        if curr_j != self._last_saved_json:
+            if self._storage.write("/picoware/settings/file_browser_state.json", curr_j, "w"):
+                self._last_saved_json = curr_j
+        del curr_j
+        del save_dict
 
     def _draw_progress(self, title, percentage):
         # Stop and clear the loading spinner when the task is done (100%)
@@ -254,6 +242,7 @@ class FileBrowser:
     def _load_dir(self, path):
         # Reads directory contents and implements lazy caching for is_directory checks.
         # Only queries file sizes later during UI rendering to minimize RAM and SD reads.
+        import uos as os
         items = []
         show_hid = self._app_state.get("show_hidden", False)
         sort_m = self._app_state.get("sort_mode", self.SORT_NAME)
@@ -494,7 +483,7 @@ class FileBrowser:
                             end_x = 2 + (len(line_text) * 6)
                             self._draw.text(Vector(end_x, 14 + i * 12), "<", TFT_YELLOW)
                     
-            if not self._edit_read_only and (time.ticks_ms() // 500) % 2 == 0:
+            if not self._edit_read_only:
                 cx, cy = 2 + (self._edit_cx - self._edit_sx) * 6, 14 + (self._edit_cy - self._edit_sy) * 12
                 if 0 <= cx < sw and 12 < cy < sh - 12:
                     self._draw.fill_rectangle(Vector(cx, cy - 1), Vector(6, 11), TFT_CYAN)
@@ -599,8 +588,7 @@ class FileBrowser:
             
             self._draw.text(Vector(15, by + 2), f"{ts} [{ind}]:", c_btxt)
             self._draw.text(Vector(15, by + 24), self._input_text, TFT_WHITE)
-            if (time.ticks_ms() // 500) % 2 == 0:
-                self._draw.fill_rectangle(Vector(15 + (self._input_cursor * 6), by + 35), Vector(6, 2), TFT_CYAN)
+            self._draw.fill_rectangle(Vector(15 + (self._input_cursor * 6), by + 35), Vector(6, 2), TFT_CYAN)
             self._needs_redraw = True
             self._draw.text(Vector(15, by + 48), "ENT:Save BACK:Cancel", TFT_LIGHTGREY)
             self._draw.swap()

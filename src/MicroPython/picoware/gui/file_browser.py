@@ -18,8 +18,6 @@ class FileBrowser:
     """
     PANE_LEFT = const(0)
     PANE_RIGHT = const(1)
-    SORT_NAME = const(0)
-    SORT_DATE = const(1)
     
     MODE_NONE = const(0)
     MODE_MKDIR = const(1)
@@ -162,6 +160,7 @@ class FileBrowser:
 
     @property
     def directory(self) -> str:
+        """Get the current directory path."""
         _dir = self._app_state["left_path"] if self._app_state["active_pane"] == self.PANE_LEFT else self._app_state["right_path"]
         if _dir.startswith("/sd/"):
             _dir = _dir[3:]
@@ -169,7 +168,7 @@ class FileBrowser:
 
     @property
     def path(self) -> str:
-        # Resolves the full absolute path of the currently highlighted item
+        """Get the current path."""
         act = self._app_state["active_pane"]
         p_dir = self._app_state["left_path"] if act == self.PANE_LEFT else self._app_state["right_path"]
         f_lst = self._app_state["left_files"] if act == self.PANE_LEFT else self._app_state["right_files"]
@@ -187,6 +186,7 @@ class FileBrowser:
 
     @property
     def stats(self) -> dict:
+        """Get stastics about the current file"""
         _p = self.path
         return {
             "directory": self.directory,
@@ -195,16 +195,13 @@ class FileBrowser:
             "type": _p.split(".")[-1] if "." in _p else "unknown"
         }
 
-    def _get_theme(self):
-        # Always use the System Theme provided dynamically by the ViewManager
-        # Output format: Background, Bar/Border, Standard Text, Directory Text, Bar Text
-        return self._vm.background_color, self._vm.selected_color, self._vm.foreground_color, self._vm.foreground_color, self._vm.background_color
-
-    def _spawn_menu(self, title, items):
+    def __menu_spawn(self, title: str, items: list):
         "Helper to construct a pop-up context menu overlaid on the main interface"
         from picoware.gui.menu import Menu
-        c_bg, c_bar, _, _, _ = self._get_theme()
-        m = Menu(self._draw, title, 0, self._draw.size.y, TFT_WHITE, c_bg, selected_color=TFT_DARKGREY, border_color=c_bar, border_width=2)
+        fg = self._vm.foreground_color
+        bg = self._vm.background_color
+        sel = self._vm.selected_color
+        m = Menu(self._draw, title, 0, self._draw.size.y, fg, bg, sel, bg)
         for i in items:
             m.add_item(i)
         m.set_selected(0)
@@ -231,16 +228,14 @@ class FileBrowser:
         # Initialize the standard OS loading spinner if it isn't running yet
         if not self._loading:
             from picoware.gui.loading import Loading
-            c_bg, _, _, _, _ = self._get_theme()
-            self._loading = Loading(self._draw, background_color=c_bg)
+            self._loading = Loading(self._draw, self._vm.foreground_color, self._vm.background_color)
             
         # Update the text (e.g., "Copying...") and tick the animation
         self._loading.set_text(title)
         self._loading.animate(swap=True)
 
-    def _load_dir(self, path):
-        # Reads directory contents and implements lazy caching for is_directory checks.
-        # Only queries file sizes later during UI rendering to minimize RAM and SD reads.
+    def __load_directory_contents(self, path):
+        """Load the contents of a directory."""
         items = []
         show_hid = self._app_state.get("show_hidden", False)
         
@@ -279,10 +274,10 @@ class FileBrowser:
         # Wipes the lazy cache entirely to prevent memory leaks, then repopulates panes
         self._stat_cache.clear()
         self._app_state["left_files"].clear()
-        self._app_state["left_files"] = self._load_dir(self._app_state["left_path"])
+        self._app_state["left_files"] = self.__load_directory_contents(self._app_state["left_path"])
         self._app_state["left_index"] = max(0, min(self._app_state["left_index"], len(self._app_state["left_files"]) - 1))
         self._app_state["right_files"].clear()
-        self._app_state["right_files"] = self._load_dir(self._app_state["right_path"])
+        self._app_state["right_files"] = self.__load_directory_contents(self._app_state["right_path"])
         self._app_state["right_index"] = max(0, min(self._app_state["right_index"], len(self._app_state["right_files"]) - 1))
 
     def _open_viewer(self, path):
@@ -300,10 +295,8 @@ class FileBrowser:
             data = self._storage.read(path, "r")
             
             from picoware.gui.textbox import TextBox
-            c_bg, _, c_txt, _, _ = self._get_theme()
-            
             # Span the middle of the screen, leaving room for a 20px header and footer
-            self._text_viewer_box = TextBox(self._draw, 20, self._draw.size.y - 40, c_txt, c_bg)
+            self._text_viewer_box = TextBox(self._draw, 20, self._draw.size.y - 40, self._vm.foreground_color, self._vm.background_color)
             self._text_viewer_box.set_text(data if data else "")
             del data
             
@@ -340,12 +333,14 @@ class FileBrowser:
         self._is_editing = True
         self._needs_redraw = True
 
-    def _draw_ui(self):
-        # ---------------------------------------------------------
-        # Main Rendering Method
-        # Resolves overlapping layers based on current active state
-        # ---------------------------------------------------------
-        c_bg, c_bar, c_txt, c_dir, c_btxt = self._get_theme()
+    def _draw_ui(self) -> None:
+        """Draw the UI based on the current state"""
+        c_bg = self._vm.background_color
+        c_bar = self._vm.selected_color
+        c_txt = self._vm.foreground_color
+        c_dir = self._vm.foreground_color
+        c_btxt = self._vm.background_color
+
         sw, sh, mx = self._draw.size.x, self._draw.size.y, self._draw.size.x // 2
 
         # 1. Image Viewer Overlay (State Machine for Loading Animation)
@@ -354,7 +349,7 @@ class FileBrowser:
             if self._image_load_state < 5:
                 if not self._loading:
                     from picoware.gui.loading import Loading
-                    self._loading = Loading(self._draw, background_color=TFT_BLACK)
+                    self._loading = Loading(self._draw, self._vm.foreground_color, self._vm.background_color)
                     self._loading.set_text("Loading Image...")
                 
                 self._loading.animate(swap=True)
@@ -368,23 +363,12 @@ class FileBrowser:
                     self._loading.stop()
                     self._loading = None
                 
-                # Prep the backbuffer, but DO NOT swap it to the screen yet! 
-                # This leaves the loading spinner perfectly visible on the display 
-                # while the CPU is frozen decoding the heavy image data.
-                self._draw.clear(color=TFT_BLACK)
-                self._draw.fill_rectangle(Vector(0, sh - 12), Vector(sw, 12), c_bar)
-                self._draw.text(Vector(2, sh - 10), "BACK : Close Image", c_btxt)
+                self._draw.erase()
                 
                 if self._image_path.lower().endswith("bmp"):
                     self._draw.image_bmp(self._jpeg_vec, self._image_path, self._storage)
-                    self._draw.swap()
                 else:
-                    # Let the OS handle the path formatting automatically
-                    success = self._draw.image_jpeg(self._jpeg_vec, self._image_path, self._storage)
-                    
-                    if success:
-                        self._draw.swap()
-                    else:
+                    if not self._draw.image_jpeg(self._jpeg_vec, self._image_path, self._storage):
                         # Hardware rejected the image format, draw the error screen
                         self._draw.clear(color=TFT_BLACK)
                         self._draw.text(Vector(10, 30), "Format not supported", TFT_RED)
@@ -392,8 +376,8 @@ class FileBrowser:
                         self._draw.text(Vector(10, 60), "(Must be Baseline JPEG)", TFT_YELLOW)
                         self._draw.fill_rectangle(Vector(0, sh - 12), Vector(sw, 12), c_bar)
                         self._draw.text(Vector(2, sh - 10), "BACK : Close Image", c_btxt)
-                        self._draw.swap()
-                        
+
+                self._draw.swap()
                 self._image_load_state = 6
                 self._needs_redraw = False
                 return
@@ -439,7 +423,7 @@ class FileBrowser:
                     line_text = full_line[self._edit_sx : self._edit_sx + m_chr]
                     
                     # Draw the standard text first
-                    self._draw.text(Vector(2, 14 + i * 12), line_text, c_txt)
+                    self._draw._text(2, 14 + i * 12, line_text, c_txt)
                     
                     # If toggled on, draw formatting marks
                     if getattr(self, "_edit_show_marks", False):
@@ -447,18 +431,18 @@ class FileBrowser:
                         for c_idx, char in enumerate(line_text):
                             if char == " ":
                                 dot_x = 2 + (c_idx * 6)
-                                self._draw.text(Vector(dot_x, 14 + i * 12), ".", TFT_CYAN)
+                                self._draw._text(dot_x, 14 + i * 12, ".", TFT_CYAN)
                         
                         # Draw the newline mark (<) at the end of the line if it's visible on screen
                         if self._edit_sx + len(line_text) >= len(full_line) and len(line_text) < m_chr:
                             end_x = 2 + (len(line_text) * 6)
-                            self._draw.text(Vector(end_x, 14 + i * 12), "<", TFT_YELLOW)
+                            self._draw._text(end_x, 14 + i * 12, "<", TFT_YELLOW)
                     
             if not self._edit_read_only:
                 cx, cy = 2 + (self._edit_cx - self._edit_sx) * 6, 14 + (self._edit_cy - self._edit_sy) * 12
                 if 0 <= cx < sw and 12 < cy < sh - 12:
                     self._draw.fill_rectangle(Vector(cx, cy - 1), Vector(6, 11), TFT_CYAN)
-                    try: self._draw.text(Vector(cx, cy), self._edit_text[self._edit_cy][self._edit_cx], TFT_BLACK)
+                    try: self._draw._text(cx, cy, self._edit_text[self._edit_cy][self._edit_cx], TFT_BLACK)
                     except IndexError: pass
                     
             if not self._edit_read_only:
@@ -473,7 +457,7 @@ class FileBrowser:
             self._draw.swap()
             return
 
-        self._draw.clear(color=c_bg)
+        self._draw.erase()
 
         # 3. Help Screen Overlay
         if self._is_help_screen:
@@ -535,14 +519,14 @@ class FileBrowser:
                 tc = c_bar if i == self._opt_idx else TFT_WHITE
                 if i == self._opt_idx: 
                     self._draw.fill_rectangle(Vector(12, yp - 2), Vector(sw - 24, 13), TFT_DARKGREY)
-                self._draw.text(Vector(20, yp), l + ":", tc)
+                self._draw._text(20, yp, l + ":", tc)
                 v = ""
                 if i == 0: v = "Name"
                 elif i == 1: v = "Show" if self._app_state.get("show_hidden", False) else "Hide"
                 elif i == 2: v = "Menu" if self._app_state.get("dir_menu", True) else "Open"
-                self._draw.text(Vector(130, yp), f"< {v} >", tc)
+                self._draw._text(130, yp, f"< {v} >", tc)
             self._draw.fill_rectangle(Vector(10, sh - 30), Vector(sw - 20, 20), c_bar)
-            self._draw.text(Vector(15, sh - 26), "[L/R] Edit   [BACK/ENT] Save", c_btxt)
+            self._draw._text(15, sh - 26, "[L/R] Edit   [BACK/ENT] Save", c_btxt)
             self._draw.swap()
             self._needs_redraw = False
             return
@@ -557,11 +541,11 @@ class FileBrowser:
             ts = "RENAME" if self._input_mode == self.MODE_RENAME else "COPY AS" if self._input_mode == self.MODE_COPY_SAME else "NEW DIR"
             ind = 'A' if self._is_caps else ('^' if self._is_shift else 'a')
             
-            self._draw.text(Vector(15, by + 2), f"{ts} [{ind}]:", c_btxt)
-            self._draw.text(Vector(15, by + 24), self._input_text, TFT_WHITE)
+            self._draw._text(15, by + 2, f"{ts} [{ind}]:", c_btxt)
+            self._draw._text(15, by + 24, self._input_text, TFT_WHITE)
             self._draw.fill_rectangle(Vector(15 + (self._input_cursor * 6), by + 35), Vector(6, 2), TFT_CYAN)
             self._needs_redraw = True
-            self._draw.text(Vector(15, by + 48), "ENT:Save BACK:Cancel", TFT_LIGHTGREY)
+            self._draw._text(15, by + 48, "ENT:Save BACK:Cancel", TFT_LIGHTGREY)
             self._draw.swap()
             return
 
@@ -580,13 +564,13 @@ class FileBrowser:
 
         # 8. Main Dual-Pane Browser View
         self._draw.fill_rectangle(Vector(0, 0), Vector(sw, 12), c_bar)
-        ss = "Name" if self._app_state.get("sort_mode", self.SORT_NAME) == self.SORT_NAME else "Date"
+        ss = "Name"
         dm = "Menu" if self._app_state.get("dir_menu", True) else "Open"
         
         mk_len = len(self._app_state["marked"])
         mk_str = f" [Sel:{mk_len}]" if mk_len > 0 else ""
         
-        self._draw.text(Vector(2, 2), f"File Browser [{ss}] [Dir:{dm}]{mk_str}", c_btxt)
+        self._draw._text(2, 2, f"File Browser [{ss}] [Dir:{dm}]{mk_str}", c_btxt)
         self._draw.fill_rectangle(Vector(mx, 12), Vector(1, sh - 24), c_bar)
         
         c_lim, n_lim, m_itm = (mx - 8) // 6, ((mx - 8) // 6) - 6, (sh - 38) // 12
@@ -614,7 +598,7 @@ class FileBrowser:
             # Highlight currently active pane header
             if ap == pn: 
                 self._draw.fill_rectangle(Vector(xb, 12), Vector(mx - (0 if il else 1), 12), c_bar)
-            self._draw.text(Vector(xb + 2, 14), ps[:c_lim], c_btxt if ap == pn else c_txt)
+            self._draw._text(xb + 2, 14, ps[:c_lim], c_btxt if ap == pn else c_txt)
             
             # Render visible files, polling sizes on-the-fly to save massive RAM buildup
             yo = 26
@@ -649,22 +633,24 @@ class FileBrowser:
                     
                 dn = f"/{fn}" if isd else fn
                 pl = max(0, c_lim - len(dn[:n_lim]) - len(szs))
-                self._draw.text(Vector(xb + 2, yo), dn[:n_lim] + (" " * pl) + szs, tc)
+                self._draw._text(xb + 2, yo, dn[:n_lim] + (" " * pl) + szs, tc)
                 yo += 12
 
         self._draw.fill_rectangle(Vector(0, sh - 12), Vector(sw, 12), c_bar)
         if self._mode == FILE_BROWSER_SELECTOR:
-            self._draw.text(Vector(2, sh - 10), "ENT:Sel M:DirMode O:Opt", c_btxt)
+            self._draw._text(2, sh - 10, "ENT:Sel M:DirMode O:Opt", c_btxt)
         else:
-            self._draw.text(Vector(2, sh - 10), "ENT:Menu SPC N:New S:Srt M:DirMode O:Opt H:Help", c_btxt)
+            self._draw._text(2, sh - 10, "ENT:Menu SPC N:New S:Srt M:DirMode O:Opt H:Help", c_btxt)
         self._draw.swap()
         self._needs_redraw = False
 
-    def run(self):
-        # ---------------------------------------------------------
-        # Application Tick Loop
-        # Processes user input contextual to the currently active UI overlay
-        # ---------------------------------------------------------
+    def run(self) -> bool:
+        """
+        Run the app
+
+        Returns:
+            bool: True to continue running, False to exit the app.
+        """
         btn = self._input_manager.button
         
         if btn is None or btn == BUTTON_NONE:
@@ -708,7 +694,7 @@ class FileBrowser:
                 fm_status = "ON" if getattr(self, "_edit_show_marks", False) else "OFF"
                 fm_label = f"Format Marks: {fm_status}"
                 
-                self._context_menu = self._spawn_menu(menu_title, ("Save", "Save & Exit", "Exit", fm_label, "Cancel"))
+                self._context_menu = self.__menu_spawn(menu_title, ("Save", "Save & Exit", "Exit", fm_label, "Cancel"))
                 self._needs_redraw = True
             elif btn == BUTTON_UP:
                 self._input_manager.reset()
@@ -847,7 +833,7 @@ class FileBrowser:
                         if self._storage.exists(np):
                             self._pending_dest_path = np
                             self._pending_action = self.ACT_RENAME if self._input_mode == self.MODE_RENAME else self.ACT_COPY
-                            self._confirm_menu = self._spawn_menu("Overwrite?", ("No", "Yes"))
+                            self._confirm_menu = self.__menu_spawn("Overwrite?", ("No", "Yes"))
                             self._input_active = False
                             self._is_shift = False
                             self._is_caps = False
@@ -1011,7 +997,7 @@ class FileBrowser:
                 mk = self._app_state["marked"]
                 if len(mk) > 0:
                     self._pending_action = self.ACT_DELETE
-                    self._confirm_menu = self._spawn_menu(f"Delete {len(mk)} items?", ("No", "Yes"))
+                    self._confirm_menu = self.__menu_spawn(f"Delete {len(mk)} items?", ("No", "Yes"))
                 else:
                     ap = self._app_state["active_pane"]
                     cp = self._app_state["left_path"] if ap == self.PANE_LEFT else self._app_state["right_path"]
@@ -1023,7 +1009,7 @@ class FileBrowser:
                         if sf != "..":
                             self._context_target_path = f"/{sf}" if cp == "/" else f"{cp}/{sf}"
                             self._pending_action = self.ACT_DELETE
-                            self._confirm_menu = self._spawn_menu("Confirm Delete?", ("No", "Yes"))
+                            self._confirm_menu = self.__menu_spawn("Confirm Delete?", ("No", "Yes"))
             self._needs_redraw = True
 
         # --- Sub-View: Options Menu Input ---
@@ -1190,7 +1176,7 @@ class FileBrowser:
                         self._pending_action = self.ACT_DELETE
                         mk = self._app_state["marked"]
                         msg = f"Delete {len(mk)} items?" if len(mk) > 0 else "Confirm Delete?"
-                        self._confirm_menu = self._spawn_menu(msg, ("No", "Yes"))
+                        self._confirm_menu = self.__menu_spawn(msg, ("No", "Yes"))
                     elif ac == "Rename":
                         self._input_active = True
                         self._input_text = self._context_target_path.split("/")[-1]
@@ -1206,7 +1192,7 @@ class FileBrowser:
                         if len(mk) > 0:
                             self._pending_action = self.ACT_COPY if ac == "Copy" else self.ACT_MOVE
                             self._pending_dest_path = td
-                            self._confirm_menu = self._spawn_menu(f"Confirm {ac}?", ("No", "Yes"))
+                            self._confirm_menu = self.__menu_spawn(f"Confirm {ac}?", ("No", "Yes"))
                         else:
                             fn = self._context_target_path.split("/")[-1]
                             dp = f"/{fn}" if td == "/" else f"/{td}/{fn}".replace("//", "/")
@@ -1223,7 +1209,7 @@ class FileBrowser:
                                 self._pending_dest_path = dp
                                 ex = self._storage.exists(dp)
                                 msg = "Overwrite?" if ex else f"Confirm {ac}?"
-                                self._confirm_menu = self._spawn_menu(msg, ("No", "Yes"))
+                                self._confirm_menu = self.__menu_spawn(msg, ("No", "Yes"))
                             
                     self._context_menu = None
                     self._needs_redraw = True
@@ -1324,7 +1310,7 @@ class FileBrowser:
                         self._context_target_path = np
                         items = ["Open"] if isd else []
                         items.extend(["Copy", "Move", "Delete", "Clear Marks", "Cancel"])
-                        self._context_menu = self._spawn_menu(f"{len(mk)} Marked", items)
+                        self._context_menu = self.__menu_spawn(f"{len(mk)} Marked", items)
                     else:
                         self._context_target_path = np
                         
@@ -1338,7 +1324,7 @@ class FileBrowser:
                         if self._mode == FILE_BROWSER_MANAGER:
                             items.extend(["Copy", "Move", "Rename", "Delete"])
                         items.append("Cancel")
-                        self._context_menu = self._spawn_menu(sf[:14], items)
+                        self._context_menu = self.__menu_spawn(sf[:14], items)
                 self._needs_redraw = True
 
         if self._needs_redraw:

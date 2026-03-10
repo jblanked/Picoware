@@ -350,6 +350,25 @@ class Storage:
             print(f"Error reading chunk from file {file_path}: {e}")
             return b""
 
+    def read_directory(self, path: str = "") -> list[dict]:
+        """
+        Read the contents of a directory and return a list of entries.
+        Each entry is a dictionary containing:
+            - filename: The name of the file or directory
+            - size: The size of the file in bytes (0 for directories)
+            - date: The last modified date of the file or directory
+            - time: The last modified time of the file or directory
+            - attributes: The file attributes (e.g., read-only, hidden, system, etc
+        """
+        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+            return []  # No SD storage on this board
+
+        try:
+            return sd_mp.read_directory(path)
+        except Exception as e:
+            print(f"Error reading directory {path}: {e}")
+            return []
+
     def remove(self, file_path: str) -> bool:
         """Remove a file or directory."""
         if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:

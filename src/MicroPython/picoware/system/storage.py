@@ -213,7 +213,7 @@ class Storage:
         if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return []  # Waveshare SD module does not support listdir yet
 
-        return [item["filename"] for item in sd_mp.read_directory(path)]
+        return sd_mp.list_directory(path)
 
     def mkdir(self, path: str) -> bool:
         """Create a new directory."""

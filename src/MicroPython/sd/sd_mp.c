@@ -620,6 +620,27 @@ mp_obj_t sd_mp_is_file(mp_obj_t path_obj)
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(sd_mp_is_file_obj, sd_mp_is_file);
 
+// Function to list only the filenames in a directory
+mp_obj_t sd_mp_list_directory(mp_obj_t dirpath_obj)
+{
+    const char *dirPath = mp_obj_str_get_str(dirpath_obj);
+    fat32_file_t dir;
+    if (fat32_open(&dir, dirPath) != FAT32_OK)
+    {
+        PRINT("Failed to open directory for listing.\n");
+        mp_raise_OSError(MP_ENOENT);
+    }
+    mp_obj_t list = mp_obj_new_list(0, NULL);
+    fat32_entry_t entry;
+    while (fat32_dir_read(&dir, &entry) == FAT32_OK && entry.filename[0])
+    {
+        mp_obj_list_append(list, mp_obj_new_str(entry.filename, strlen(entry.filename)));
+    }
+    fat32_close(&dir);
+    return list;
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(sd_mp_list_directory_obj, sd_mp_list_directory);
+
 // Function to mount the SD card
 mp_obj_t sd_mp_mount(void)
 {
@@ -951,6 +972,7 @@ static const mp_rom_map_elem_t sd_mp_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_is_directory), MP_ROM_PTR(&sd_mp_is_directory_obj)},
     {MP_ROM_QSTR(MP_QSTR_is_initialized), MP_ROM_PTR(&sd_mp_is_initialized_obj)},
     {MP_ROM_QSTR(MP_QSTR_is_file), MP_ROM_PTR(&sd_mp_is_file_obj)},
+    {MP_ROM_QSTR(MP_QSTR_list_directory), MP_ROM_PTR(&sd_mp_list_directory_obj)},
     {MP_ROM_QSTR(MP_QSTR_mount), MP_ROM_PTR(&sd_mp_mount_obj)},
     {MP_ROM_QSTR(MP_QSTR_move), MP_ROM_PTR(&sd_mp_move_obj)},
     {MP_ROM_QSTR(MP_QSTR_read), MP_ROM_PTR(&sd_mp_read_obj)},

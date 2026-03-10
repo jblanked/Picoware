@@ -49,6 +49,7 @@ mp_obj_t sd_mp_get_total_space(void);
 mp_obj_t sd_mp_is_initialized(void);
 mp_obj_t sd_mp_is_directory(mp_obj_t path_obj);
 mp_obj_t sd_mp_is_file(mp_obj_t path_obj);
+mp_obj_t sd_mp_list_directory(mp_obj_t dirpath_obj);
 mp_obj_t sd_mp_mount(void);
 mp_obj_t sd_mp_move(size_t n_args, const mp_obj_t *args);
 mp_obj_t sd_mp_read(size_t n_args, const mp_obj_t *args);

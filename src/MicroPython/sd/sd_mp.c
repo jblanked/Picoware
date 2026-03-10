@@ -779,12 +779,13 @@ mp_obj_t sd_mp_read_directory(mp_obj_t dirpath_obj)
     // Loop through all directory entries
     while (fat32_dir_read(&dir, &entry) == FAT32_OK && entry.filename[0])
     {
-        mp_obj_t entry_dict = mp_obj_new_dict(5);
+        mp_obj_t entry_dict = mp_obj_new_dict(6);
         mp_obj_dict_store(entry_dict, MP_OBJ_NEW_QSTR(MP_QSTR_filename), mp_obj_new_str(entry.filename, strlen(entry.filename)));
         mp_obj_dict_store(entry_dict, MP_OBJ_NEW_QSTR(MP_QSTR_size), mp_obj_new_int_from_uint(entry.size));
         mp_obj_dict_store(entry_dict, MP_OBJ_NEW_QSTR(MP_QSTR_date), mp_obj_new_int(entry.date));
         mp_obj_dict_store(entry_dict, MP_OBJ_NEW_QSTR(MP_QSTR_time), mp_obj_new_int(entry.time));
         mp_obj_dict_store(entry_dict, MP_OBJ_NEW_QSTR(MP_QSTR_attributes), mp_obj_new_int(entry.attr));
+        mp_obj_dict_store(entry_dict, MP_OBJ_NEW_QSTR(MP_QSTR_is_directory), mp_obj_new_bool((entry.attr & FAT32_ATTR_DIRECTORY) != 0));
         mp_obj_list_append(list, entry_dict);
     }
 

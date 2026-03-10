@@ -358,7 +358,8 @@ class Storage:
             - size: The size of the file in bytes (0 for directories)
             - date: The last modified date of the file or directory
             - time: The last modified time of the file or directory
-            - attributes: The file attributes (e.g., read-only, hidden, system, etc
+            - attributes: The file attributes (e.g., read-only, hidden, system, etc)
+            - is_directory: True if the entry is a directory, False if it's a file
         """
         if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return []  # No SD storage on this board

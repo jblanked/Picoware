@@ -303,7 +303,7 @@ class Storage:
             return True
 
         try:
-            vfs_mp.unmount(mount_point)
+            vfs_mp.umount(mount_point)
             self._vfs_mounted = False
             return True
         except ImportError:

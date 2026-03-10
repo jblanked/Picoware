@@ -120,7 +120,6 @@ class FileBrowser:
             "left_top": 0,
             "right_top": 0,
             "active_pane": self.PANE_LEFT,
-            "sort_mode": self.SORT_NAME,
             "show_hidden": False,
             "dir_menu": True,
             "marked": []
@@ -128,7 +127,7 @@ class FileBrowser:
         
         # Load user settings if they exist
         try:
-            data = self._storage.read("/picoware/settings/file_browser_state.json", "r")
+            data = self._storage.read("picoware/settings/file_browser_state.json", "r")
             if data:
                 loaded = json.loads(data)
                 self._app_state.update({k: loaded.get(k, self._app_state[k]) for k in self._app_state})
@@ -213,10 +212,10 @@ class FileBrowser:
 
     def _auto_save(self):
         "Save user settings"
-        save_dict = {k: self._app_state[k] for k in ["left_path", "right_path", "active_pane", "sort_mode", "show_hidden", "dir_menu", "left_top", "right_top"]}
+        save_dict = {k: self._app_state[k] for k in ["left_path", "right_path", "active_pane", "show_hidden", "dir_menu", "left_top", "right_top"]}
         curr_j = json.dumps(save_dict)
         if curr_j != self._last_saved_json:
-            if self._storage.write("/picoware/settings/file_browser_state.json", curr_j, "w"):
+            if self._storage.write("picoware/settings/file_browser_state.json", curr_j, "w"):
                 self._last_saved_json = curr_j
         del curr_j
         del save_dict
@@ -242,19 +241,12 @@ class FileBrowser:
     def _load_dir(self, path):
         # Reads directory contents and implements lazy caching for is_directory checks.
         # Only queries file sizes later during UI rendering to minimize RAM and SD reads.
-        import uos as os
         items = []
         show_hid = self._app_state.get("show_hidden", False)
-        sort_m = self._app_state.get("sort_mode", self.SORT_NAME)
         
         try:
             d_list = self._storage.listdir(path)
             temp_list = []
-            
-            # Mount VFS explicitly so standard os library can see hardware paths for sorting by date
-            if sort_m == self.SORT_DATE:
-                try: self._storage.mount_vfs()
-                except Exception: pass
             
             for itm in d_list:
                 if itm in (".", "..") or (not show_hid and itm.startswith(".")): 
@@ -269,33 +261,12 @@ class FileBrowser:
                     is_d = self._storage.is_directory(fp)
                     self._stat_cache[fp] = (is_d, -1)
                     
-                if sort_m == self.SORT_DATE:
-                    mt = 0
-                    try: 
-                        real_fp = fp
-                        if not real_fp.startswith("sd") and not real_fp.startswith("/sd"):
-                            real_fp = "/sd/" + real_fp.lstrip("/")
-                        # os.stat[9] accesses creation time, [8] is last modified time
-                        try: mt = os.stat(real_fp)[9] 
-                        except Exception: mt = os.stat(real_fp)[8]
-                    except Exception: 
-                        pass
-                    temp_list.append((itm, is_d, mt))
-                else:
-                    temp_list.append((itm, is_d))
+                temp_list.append((itm, is_d))
                     
             del d_list
             
-            if sort_m == self.SORT_DATE:
-                # Unmount the VFS immediately after reading the dates so the OS App Loader doesn't break
-                try: self._storage.unmount_vfs()
-                except Exception: pass
-                
-                # Sort by: Folders first, then creation date (newest first), then name
-                temp_list.sort(key=lambda x: (not x[1], -x[2], x[0].lower()))
-            else:
-                # Sort by: Folders first, then name
-                temp_list.sort(key=lambda x: (not x[1], x[0].lower()))
+            # Sort by: Folders first, then name
+            temp_list.sort(key=lambda x: (not x[1], x[0].lower()))
                 
             items = [x[0] for x in temp_list]
             del temp_list
@@ -566,7 +537,7 @@ class FileBrowser:
                     self._draw.fill_rectangle(Vector(12, yp - 2), Vector(sw - 24, 13), TFT_DARKGREY)
                 self._draw.text(Vector(20, yp), l + ":", tc)
                 v = ""
-                if i == 0: v = "Name" if self._app_state.get("sort_mode", self.SORT_NAME) == self.SORT_NAME else "Date"
+                if i == 0: v = "Name"
                 elif i == 1: v = "Show" if self._app_state.get("show_hidden", False) else "Hide"
                 elif i == 2: v = "Menu" if self._app_state.get("dir_menu", True) else "Open"
                 self._draw.text(Vector(130, yp), f"< {v} >", tc)
@@ -973,7 +944,6 @@ class FileBrowser:
         # --- Main File Browser Input: Hotkeys (Sort, Dir Mode, Help, Options, New, Info, Delete) ---
         elif btn == BUTTON_S and not self._is_help_screen and not self._show_options and self._confirm_menu is None and self._context_menu is None and not self._input_active:
             self._input_manager.reset()
-            self._app_state["sort_mode"] = self.SORT_DATE if self._app_state.get("sort_mode", self.SORT_NAME) == self.SORT_NAME else self.SORT_NAME
             self._refresh_panes()
             self._app_state["left_index"] = self._app_state["right_index"] = 0
             self._needs_redraw = True
@@ -1075,7 +1045,7 @@ class FileBrowser:
                 self._input_manager.reset()
                 self._needs_redraw = True
                 idx = self._opt_idx
-                if idx == 0: self._app_state["sort_mode"] = self.SORT_DATE if self._app_state.get("sort_mode", self.SORT_NAME) == self.SORT_NAME else self.SORT_NAME
+                if idx == 0: pass # was sort mode but now removed
                 elif idx == 1: self._app_state["show_hidden"] = not self._app_state.get("show_hidden", False)
                 elif idx == 2: self._app_state["dir_menu"] = not self._app_state.get("dir_menu", True)
 

@@ -49,8 +49,6 @@ class FileBrowser:
         self._input_manager = view_manager.input_manager
         
         # State tracking and caching
-        self._last_saved_json = "{}"
-        self._last_save_time = 0
         self._stat_cache = {}
         
         # UI overlays
@@ -106,11 +104,13 @@ class FileBrowser:
             BUTTON_9: "9", BUTTON_SPACE: " ", BUTTON_PERIOD: ".", BUTTON_MINUS: "-", 
             BUTTON_UNDERSCORE: "_"
         }
+
+        _start = start_directory if start_directory else "/"
         
         # Core application state to be saved/loaded
         self._app_state = {
-            "left_path": start_directory if start_directory else "/",
-            "right_path": start_directory if start_directory else "/",
+            "left_path": _start,
+            "right_path": _start,
             "left_files": [],
             "right_files": [],
             "left_index": 0,
@@ -129,18 +129,19 @@ class FileBrowser:
             if data:
                 loaded = json.loads(data)
                 self._app_state.update({k: loaded.get(k, self._app_state[k]) for k in self._app_state})
-                self._last_saved_json = json.dumps(self._app_state)
                 del loaded
             del data
         except Exception:
             pass
 
+        self._app_state["left_path"] = _start
+        self._app_state["right_path"] = _start
+
         self._refresh_panes()
         self._needs_redraw = True
 
     def __del__(self):
-        # Force a settings save and safely clear memory on exit
-        self._auto_save()
+        """Cleanup resources"""
         if self._loading:
             self._loading.stop()
             del self._loading
@@ -207,15 +208,12 @@ class FileBrowser:
         m.set_selected(0)
         return m
 
-    def _auto_save(self):
+    def __save_settings(self):
         "Save user settings"
         save_dict = {k: self._app_state[k] for k in ["left_path", "right_path", "active_pane", "show_hidden", "dir_menu", "left_top", "right_top"]}
         curr_j = json.dumps(save_dict)
-        if curr_j != self._last_saved_json:
-            if self._storage.write("picoware/settings/file_browser_state.json", curr_j, "w"):
-                self._last_saved_json = curr_j
+        self._storage.write("picoware/settings/file_browser_state.json", curr_j, "w")
         del curr_j
-        del save_dict
 
     def _draw_progress(self, title, percentage):
         # Stop and clear the loading spinner when the task is done (100%)
@@ -325,7 +323,6 @@ class FileBrowser:
         self._edit_read_only = read_only
         self._edit_cx = self._edit_cy = self._edit_sx = self._edit_sy = 0
         self._edit_unsaved = False
-        self._edit_show_marks = False
         
         self._is_shift = False
         self._is_caps = False
@@ -358,7 +355,7 @@ class FileBrowser:
                 return
             
             # Stage 2: Stop the spinner, format the background, and execute hardware block
-            elif self._image_load_state == 5:
+            if self._image_load_state == 5:
                 if self._loading:
                     self._loading.stop()
                     self._loading = None
@@ -381,10 +378,10 @@ class FileBrowser:
                 self._image_load_state = 6
                 self._needs_redraw = False
                 return
-            else:
-                # Stage 3: Keep the decoded image or error screen visible until user exits
-                self._needs_redraw = False
-                return
+
+            # Stage 3: Keep the decoded image or error screen visible until user exits
+            self._needs_redraw = False
+            return
 
         # 1.5 Text Viewer Overlay (Read-Only with Word Wrap)
         if self._is_viewing_text:
@@ -1149,8 +1146,6 @@ class FileBrowser:
                         self._is_editing = False
                         self._is_shift = False
                         self._is_caps = False
-                    elif ac.startswith("Format Marks:"):
-                        self._edit_show_marks = not getattr(self, "_edit_show_marks", False)
                         
                     self._context_menu = None
                     self._needs_redraw = True
@@ -1221,6 +1216,7 @@ class FileBrowser:
                 self._is_help_screen = False
                 self._needs_redraw = True
             else:
+                self.__save_settings()
                 return False
             
         elif btn == BUTTON_LEFT and not self._is_help_screen:
@@ -1293,7 +1289,7 @@ class FileBrowser:
                         isd = self._storage.is_directory(np)
                     
                     if self._mode == FILE_BROWSER_SELECTOR and not isd:
-                        self._auto_save()
+                        self.__save_settings()
                         return False
 
                     mk = self._app_state["marked"]
@@ -1329,6 +1325,5 @@ class FileBrowser:
 
         if self._needs_redraw:
             self._draw_ui()
-            
-        self._auto_save()
+    
         return True

@@ -5,7 +5,6 @@ from picoware.system.buttons import (
     BUTTON_ESCAPE, BUTTON_BACKSPACE, BUTTON_SPACE, BUTTON_D, BUTTON_H, BUTTON_I,BUTTON_M, BUTTON_N, 
     BUTTON_O, BUTTON_S, BUTTON_SHIFT, BUTTON_CAPS_LOCK, KEY_MOD_SHL, KEY_MOD_SHR, KEY_CAPS_LOCK
 )
-from picoware.system.colors import TFT_WHITE, TFT_BLACK, TFT_YELLOW, TFT_CYAN, TFT_DARKGREY, TFT_LIGHTGREY, TFT_RED
 
 FILE_BROWSER_VIEWER = const(0)
 FILE_BROWSER_MANAGER = const(1)
@@ -92,6 +91,7 @@ class FileBrowser:
         self._image_load_state = 0
         self._image_path = ""
         self._jpeg_vec = Vector(0, 0)
+        self._info_box = None
         
         self._char_map = {
             BUTTON_A: "a", BUTTON_B: "b", BUTTON_C: "c", BUTTON_D: "d", BUTTON_E: "e",
@@ -148,16 +148,25 @@ class FileBrowser:
             self._loading = None
         if self._context_menu:
             del self._context_menu
+            self._context_menu = None
         if self._confirm_menu:
             del self._confirm_menu
+            self._confirm_menu = None
+        if self._info_box:
+            del self._info_box
+            self._info_box = None
+        if self._text_viewer_box:
+            del self._text_viewer_box
+            self._text_viewer_box = None
             
-        self._app_state["left_files"].clear()
-        self._app_state["right_files"].clear()
-        self._app_state["marked"].clear()
-        self._app_state.clear()
-        self._stat_cache.clear()
-        self._edit_text.clear()
-        self._char_map.clear()
+        self._app_state = None
+        self._stat_cache = None
+        self._edit_text = None
+        self._edit_file = None
+        self._char_map = None
+        self._info_data = None
+
+        del self._jpeg_vec
 
     @property
     def directory(self) -> str:
@@ -224,7 +233,6 @@ class FileBrowser:
                 self._loading = None
             return
 
-        # Initialize the standard OS loading spinner if it isn't running yet
         if not self._loading:
             from picoware.gui.loading import Loading
             self._loading = Loading(self._draw, self._vm.foreground_color, self._vm.background_color)
@@ -309,7 +317,7 @@ class FileBrowser:
 
         self._edit_text.clear()
         data = self._storage.read(path, "r")
-        if data: 
+        if data:
             self._edit_text.extend(data.split('\n'))
         del data
         
@@ -327,12 +335,6 @@ class FileBrowser:
 
     def _draw_ui(self) -> None:
         """Draw the UI based on the current state"""
-        c_bg = self._vm.background_color
-        c_bar = self._vm.selected_color
-        c_txt = self._vm.foreground_color
-        c_dir = self._vm.foreground_color
-        c_btxt = self._vm.background_color
-
         sw, sh, mx = self._draw.size.x, self._draw.size.y, self._draw.size.x // 2
 
         # 1. Image Viewer Overlay (State Machine for Loading Animation)
@@ -361,11 +363,11 @@ class FileBrowser:
                     self._draw.image_bmp(self._jpeg_vec, self._image_path, self._storage)
                 else:
                     if not self._draw.image_jpeg(self._jpeg_vec, self._image_path, self._storage):
-                        self._draw.text(Vector(10, 30), "Format not supported", TFT_RED)
-                        self._draw.text(Vector(10, 45), "or resolution too large.", TFT_RED)
-                        self._draw.text(Vector(10, 60), "(Must be Baseline JPEG)", TFT_YELLOW)
-                        self._draw.fill_rectangle(Vector(0, sh - 12), Vector(sw, 12), c_bar)
-                        self._draw.text(Vector(2, sh - 10), "BACK : Close Image", c_btxt)
+                        self._draw.text(Vector(10, 30), "Format not supported", self._vm.foreground_color)
+                        self._draw.text(Vector(10, 45), "or resolution too large.", self._vm.foreground_color)
+                        self._draw.text(Vector(10, 60), "(Must be Baseline JPEG)", self._vm.foreground_color)
+                        self._draw.fill_rectangle(Vector(0, sh - 12), Vector(sw, 12), self._vm.selected_color)
+                        self._draw.text(Vector(2, sh - 10), "BACK : Close Image", self._vm.background_color)
 
                 self._draw.swap()
                 self._image_load_state = 6
@@ -378,10 +380,10 @@ class FileBrowser:
 
         # 1.5 Text Viewer Overlay (Read-Only with Word Wrap)
         if self._is_viewing_text:
-            self._draw.fill_rectangle(Vector(0, 0), Vector(sw, 20), c_bar)
+            self._draw.fill_rectangle(Vector(0, 0), Vector(sw, 20), self._vm.selected_color)
             self._draw.text(Vector(5, 4), f"View: {self._edit_file.split('/')[-1]}", self._vm.foreground_color)
             
-            self._draw.fill_rectangle(Vector(0, sh - 20), Vector(sw, 20), c_bar)
+            self._draw.fill_rectangle(Vector(0, sh - 20), Vector(sw, 20), self._vm.selected_color)
             self._draw.text(Vector(5, sh - 16), "UP/DWN:Scroll   BACK:Close", self._vm.foreground_color)
             
             if self._text_viewer_box:
@@ -393,8 +395,8 @@ class FileBrowser:
 
         # 2. Text Editor Overlay
         if self._is_editing:
-            self._draw.clear(color=c_bg)
-            self._draw.fill_rectangle(Vector(0, 0), Vector(sw, 12), c_bar)
+            self._draw.erase()
+            self._draw.fill_rectangle(Vector(0, 0), Vector(sw, 12), self._vm.selected_color)
             mode_s = "View" if self._edit_read_only else "Edit"
             mod_s = "*" if self._edit_unsaved and not self._edit_read_only else ""
             
@@ -403,7 +405,7 @@ class FileBrowser:
                 ind = 'A' if self._is_caps else ('^' if self._is_shift else 'a')
                 ind_s = f" [{ind}]"
                 
-            self._draw.text(Vector(2, 2), f"{mode_s}: {self._edit_file.split('/')[-1]}{mod_s}{ind_s}", c_btxt)
+            self._draw.text(Vector(2, 2), f"{mode_s}: {self._edit_file.split('/')[-1]}{mod_s}{ind_s}", self._vm.foreground_color)
             
             m_lin, m_chr = (sh - 24) // 12, (sw - 4) // 6
             for i in range(m_lin):
@@ -413,20 +415,20 @@ class FileBrowser:
                     line_text = full_line[self._edit_sx : self._edit_sx + m_chr]
                     
                     # Draw the standard text first
-                    self._draw._text(2, 14 + i * 12, line_text, c_txt)
+                    self._draw._text(2, 14 + i * 12, line_text, self._vm.foreground_color)
                     
             if not self._edit_read_only:
                 cx, cy = 2 + (self._edit_cx - self._edit_sx) * 6, 14 + (self._edit_cy - self._edit_sy) * 12
                 if 0 <= cx < sw and 12 < cy < sh - 12:
-                    self._draw.fill_rectangle(Vector(cx, cy - 1), Vector(6, 11), TFT_CYAN)
-                    try: self._draw._text(cx, cy, self._edit_text[self._edit_cy][self._edit_cx], TFT_BLACK)
+                    self._draw.fill_rectangle(Vector(cx, cy - 1), Vector(6, 11), self._vm.selected_color)
+                    try: self._draw._text(cx, cy, self._edit_text[self._edit_cy][self._edit_cx], self._vm.foreground_color)
                     except IndexError: pass
                     
             if not self._edit_read_only:
                 self._needs_redraw = True
                 
-            self._draw.fill_rectangle(Vector(0, sh - 12), Vector(sw, 12), c_bar)
-            self._draw.text(Vector(2, sh - 10), "UP/DWN:Scroll BACK:Close" if self._edit_read_only else "ENT:NewLn BACK:Menu", c_btxt)
+            self._draw.fill_rectangle(Vector(0, sh - 12), Vector(sw, 12), self._vm.selected_color)
+            self._draw.text(Vector(2, sh - 10), "UP/DWN:Scroll BACK:Close" if self._edit_read_only else "ENT:NewLn BACK:Menu", self._vm.foreground_color)
             
             if self._context_menu:
                 self._context_menu.set_selected(0)
@@ -439,27 +441,27 @@ class FileBrowser:
 
         # 3. Help Screen Overlay
         if self._is_help_screen:
-            self._draw.text(Vector(10, 5), "--- FILE BROWSER SHORTCUTS ---", TFT_YELLOW)
+            self._draw.text(Vector(10, 5), "--- FILE BROWSER SHORTCUTS ---", self._vm.selected_color)
             
-            self._draw.text(Vector(10, 20), "[MAIN BROWSER]", c_bar)
-            self._draw.text(Vector(10, 32), "UP/DWN:Scroll   L/R:Switch Pane", TFT_WHITE)
-            self._draw.text(Vector(10, 44), "CENTER:Menu     BACK:Exit App", TFT_WHITE)
-            self._draw.text(Vector(10, 56), "SPACE:Mark/Sel  D:Delete Marked", TFT_WHITE)
-            self._draw.text(Vector(10, 68), "N:New Folder    I:File Info", TFT_WHITE)
-            self._draw.text(Vector(10, 80), "S:Sort Mode     M:Dir Enter Mode", TFT_WHITE)
-            self._draw.text(Vector(10, 92), "O:Options       H:Toggle Help", TFT_WHITE)
+            self._draw.text(Vector(10, 20), "[MAIN BROWSER]", self._vm.selected_color)
+            self._draw.text(Vector(10, 32), "UP/DWN:Scroll   L/R:Switch Pane", self._vm.foreground_color)
+            self._draw.text(Vector(10, 44), "CENTER:Menu     BACK:Exit App", self._vm.foreground_color)
+            self._draw.text(Vector(10, 56), "SPACE:Mark/Sel  D:Delete Marked", self._vm.foreground_color)
+            self._draw.text(Vector(10, 68), "N:New Folder    I:File Info", self._vm.foreground_color)
+            self._draw.text(Vector(10, 80), "S:Sort Mode     M:Dir Enter Mode", self._vm.foreground_color)
+            self._draw.text(Vector(10, 92), "O:Options       H:Toggle Help", self._vm.foreground_color)
             
-            self._draw.text(Vector(10, 108), "[TEXT EDITOR]", c_bar)
-            self._draw.text(Vector(10, 120), "Arrows:Cursor   CENTER:Newline", TFT_WHITE)
-            self._draw.text(Vector(10, 132), "SHF/CAPS:Upper  BSPC:Delete Char", TFT_WHITE)
-            self._draw.text(Vector(10, 144), "BACK:Menu (Save/Exit/Whitespace)", TFT_WHITE)
+            self._draw.text(Vector(10, 108), "[TEXT EDITOR]", self._vm.selected_color)
+            self._draw.text(Vector(10, 120), "Arrows:Cursor   CENTER:Newline", self._vm.foreground_color)
+            self._draw.text(Vector(10, 132), "SHF/CAPS:Upper  BSPC:Delete Char", self._vm.foreground_color)
+            self._draw.text(Vector(10, 144), "BACK:Menu (Save/Exit/Whitespace)", self._vm.foreground_color)
             
-            self._draw.text(Vector(10, 160), "[TEXT ENTRY & MENUS]", c_bar)
-            self._draw.text(Vector(10, 172), "SHF/CAPS:Case   L/R:Move Cursor", TFT_WHITE)
-            self._draw.text(Vector(10, 184), "CENTER:Confirm  BACK:Cancel", TFT_WHITE)
+            self._draw.text(Vector(10, 160), "[TEXT ENTRY & MENUS]", self._vm.selected_color)
+            self._draw.text(Vector(10, 172), "SHF/CAPS:Case   L/R:Move Cursor", self._vm.foreground_color)
+            self._draw.text(Vector(10, 184), "CENTER:Confirm  BACK:Cancel", self._vm.foreground_color)
             
-            self._draw.text(Vector(10, 200), "[IMAGE & TEXT VIEWER]", c_bar)
-            self._draw.text(Vector(10, 212), "UP/DWN:Scroll   BACK: Close", TFT_WHITE)
+            self._draw.text(Vector(10, 200), "[IMAGE & TEXT VIEWER]", self._vm.selected_color)
+            self._draw.text(Vector(10, 212), "UP/DWN:Scroll   BACK: Close", self._vm.foreground_color)
 
             self._draw.swap()
             self._needs_redraw = False
@@ -467,18 +469,18 @@ class FileBrowser:
 
         # 4. File Info Window
         if self._show_info:
-            if not hasattr(self, "_info_box") or self._info_box is None:
+            if self._info_box is None:
                 from picoware.gui.textbox import TextBox
                 # Span the middle of the screen, leaving room for a 20px header and footer
-                self._info_box = TextBox(self._draw, 20, sh - 40, c_txt, c_bg)
+                self._info_box = TextBox(self._draw, 20, sh - 40, self._vm.foreground_color, self._vm.background_color)
             
             # Draw header
-            self._draw.fill_rectangle(Vector(0, 0), Vector(sw, 20), c_bar)
-            self._draw.text(Vector(5, 4), "FILE INFORMATION", c_btxt)
+            self._draw.fill_rectangle(Vector(0, 0), Vector(sw, 20), self._vm.selected_color)
+            self._draw.text(Vector(5, 4), "FILE INFORMATION", self._vm.selected_color)
             
             # Draw footer
-            self._draw.fill_rectangle(Vector(0, sh - 20), Vector(sw, 20), c_bar)
-            self._draw.text(Vector(5, sh - 16), "UP/DWN:Scroll   [BACK/ENT]:Close", c_btxt)
+            self._draw.fill_rectangle(Vector(0, sh - 20), Vector(sw, 20), self._vm.selected_color)
+            self._draw.text(Vector(5, sh - 16), "UP/DWN:Scroll   [BACK/ENT]:Close", self._vm.selected_color)
             
             # Update textbox content (the TextBox automatically calls draw.swap() for us!)
             self._info_box.set_text(self._info_data)
@@ -488,23 +490,23 @@ class FileBrowser:
 
         # 5. Options Menu
         if self._show_options:
-            self._draw.fill_rectangle(Vector(10, 10), Vector(sw - 20, sh - 20), TFT_BLACK)
-            self._draw.rect(Vector(10, 10), Vector(sw - 20, sh - 20), c_bar)
-            self._draw.fill_rectangle(Vector(10, 10), Vector(sw - 20, 20), c_bar)
-            self._draw.text(Vector(15, 14), "OPTIONS MENU", c_btxt)
+            self._draw.fill_rectangle(Vector(10, 10), Vector(sw - 20, sh - 20), self._vm.background_color)
+            self._draw.rect(Vector(10, 10), Vector(sw - 20, sh - 20), self._vm.selected_color)
+            self._draw.fill_rectangle(Vector(10, 10), Vector(sw - 20, 20), self._vm.selected_color)
+            self._draw.text(Vector(15, 14), "OPTIONS MENU", self._vm.selected_color)
             for i, l in enumerate(self.OPTIONS_LABELS):
                 yp = 35 + (i * 15)
-                tc = c_bar if i == self._opt_idx else TFT_WHITE
+                tc = self._vm.selected_color if i == self._opt_idx else self._vm.foreground_color
                 if i == self._opt_idx: 
-                    self._draw._fill_rectangle(12, yp - 2, sw - 24, 13, TFT_DARKGREY)
+                    self._draw._fill_rectangle(12, yp - 2, sw - 24, 13, self._vm.background_color)
                 self._draw._text(20, yp, l + ":", tc)
                 v = ""
                 if i == 0: v = "Name"
                 elif i == 1: v = "Show" if self._app_state.get("show_hidden", False) else "Hide"
                 elif i == 2: v = "Menu" if self._app_state.get("dir_menu", True) else "Open"
                 self._draw._text(130, yp, f"< {v} >", tc)
-            self._draw.fill_rectangle(Vector(10, sh - 30), Vector(sw - 20, 20), c_bar)
-            self._draw._text(15, sh - 26, "[L/R] Edit   [BACK/ENT] Save", c_btxt)
+            self._draw.fill_rectangle(Vector(10, sh - 30), Vector(sw - 20, 20), self._vm.selected_color)
+            self._draw._text(15, sh - 26, "[L/R] Edit   [BACK/ENT] Save", self._vm.selected_color)
             self._draw.swap()
             self._needs_redraw = False
             return
@@ -512,18 +514,18 @@ class FileBrowser:
         # 6. Text Input Overlay (for renaming/creating)
         if self._input_active:
             by = (sh - 70) // 2
-            self._draw.fill_rectangle(Vector(10, by), Vector(sw - 20, 70), TFT_BLACK)
-            self._draw.rect(Vector(10, by), Vector(sw - 20, 70), c_bar)
-            self._draw.fill_rectangle(Vector(10, by), Vector(sw - 20, 16), c_bar)
+            self._draw.fill_rectangle(Vector(10, by), Vector(sw - 20, 70), self._vm.background_color)
+            self._draw.rect(Vector(10, by), Vector(sw - 20, 70), self._vm.selected_color)
+            self._draw.fill_rectangle(Vector(10, by), Vector(sw - 20, 16), self._vm.selected_color)
             
             ts = "RENAME" if self._input_mode == self.MODE_RENAME else "COPY AS" if self._input_mode == self.MODE_COPY_SAME else "NEW DIR"
             ind = 'A' if self._is_caps else ('^' if self._is_shift else 'a')
             
-            self._draw._text(15, by + 2, f"{ts} [{ind}]:", c_btxt)
-            self._draw._text(15, by + 24, self._input_text, TFT_WHITE)
-            self._draw.fill_rectangle(Vector(15 + (self._input_cursor * 6), by + 35), Vector(6, 2), TFT_CYAN)
+            self._draw._text(15, by + 2, f"{ts} [{ind}]:", self._vm.selected_color)
+            self._draw._text(15, by + 24, self._input_text, self._vm.foreground_color)
+            self._draw.fill_rectangle(Vector(15 + (self._input_cursor * 6), by + 35), Vector(6, 2), self._vm.selected_color)
             self._needs_redraw = True
-            self._draw._text(15, by + 48, "ENT:Save BACK:Cancel", TFT_LIGHTGREY)
+            self._draw._text(15, by + 48, "ENT:Save BACK:Cancel", self._vm.selected_color)
             self._draw.swap()
             return
 
@@ -541,7 +543,7 @@ class FileBrowser:
             return
 
         # 8. Main Dual-Pane Browser View
-        self._draw.fill_rectangle(Vector(0, 0), Vector(sw, 12), c_bar)
+        self._draw.fill_rectangle(Vector(0, 0), Vector(sw, 12), self._vm.selected_color)
         ss = "Name"
         dm = "Menu" if self._app_state.get("dir_menu", True) else "Open"
         
@@ -549,7 +551,7 @@ class FileBrowser:
         mk_str = f" [Sel:{mk_len}]" if mk_len > 0 else ""
         
         self._draw._text(2, 2, f"File Browser [{ss}] [Dir:{dm}]{mk_str}", self._vm.foreground_color)
-        self._draw.fill_rectangle(Vector(mx, 12), Vector(1, sh - 24), c_bar)
+        self._draw.fill_rectangle(Vector(mx, 12), Vector(1, sh - 24), self._vm.selected_color)
         
         c_lim, n_lim, m_itm = (mx - 8) // 6, ((mx - 8) // 6) - 6, (sh - 38) // 12
         ap = self._app_state["active_pane"]
@@ -575,7 +577,7 @@ class FileBrowser:
             
             # Highlight currently active pane header
             if ap == pn: 
-                self._draw._fill_rectangle(xb, 12, mx - (0 if il else 1), 12, c_bar)
+                self._draw._fill_rectangle(xb, 12, mx - (0 if il else 1), 12, self._vm.selected_color)
             self._draw._text(xb + 2, 14, ps[:c_lim], self._vm.foreground_color)
             
             yo = 26
@@ -596,13 +598,10 @@ class FileBrowser:
                         fz = 0 if isd else self._storage.size(fp)
                         self._stat_cache[fp] = (isd, fz)
                 
-                im = fp in self._app_state["marked"]
-                bc = TFT_RED if im else (c_dir if isd else c_txt)
-                tc = bc if ap != pn or ai != ix else c_btxt
-                
-                if ap == pn and ai == ix: 
-                    self._draw._fill_rectangle(xb + (0 if il else 1), yo - 1, mx - (2 if il else 3), 10, c_bar)
-                
+                if ap == pn:
+                    if ai == ix or fp in self._app_state["marked"]:
+                        self._draw._fill_rectangle(xb + (0 if il else 1), yo - 1, mx - (2 if il else 3), 10, self._vm.selected_color)
+
                 if isd: szs = "<DIR>"
                 elif fz < 1024: szs = f"{fz}B"
                 elif fz < 1048576: szs = f"{fz//1024}K"
@@ -613,7 +612,7 @@ class FileBrowser:
                 self._draw._text(xb + 2, yo, dn[:n_lim] + (" " * pl) + szs, self._vm.foreground_color)
                 yo += 12
 
-        self._draw.fill_rectangle(Vector(0, sh - 12), Vector(sw, 12), c_bar)
+        self._draw.fill_rectangle(Vector(0, sh - 12), Vector(sw, 12), self._vm.selected_color)
         if self._mode == FILE_BROWSER_SELECTOR:
             self._draw._text(2, sh - 10, "ENT:Sel M:DirMode O:Opt", self._vm.foreground_color)
         else:
@@ -776,17 +775,17 @@ class FileBrowser:
                 self._show_info = False
                 self._info_data = ""
                 # Clean up the textbox memory when closing
-                if hasattr(self, "_info_box") and self._info_box:
+                if self._info_box:
                     del self._info_box
                     self._info_box = None
                 self._needs_redraw = True
             elif btn == BUTTON_UP:
                 self._input_manager.reset()
-                if hasattr(self, "_info_box") and self._info_box:
+                if self._info_box:
                     self._info_box.scroll_up()
             elif btn == BUTTON_DOWN:
                 self._input_manager.reset()
-                if hasattr(self, "_info_box") and self._info_box:
+                if self._info_box:
                     self._info_box.scroll_down()
                 
         # --- Sub-View: Text Entry (Rename/Make Folder) Input ---

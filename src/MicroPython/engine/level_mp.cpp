@@ -143,6 +143,10 @@ void level_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
         {
             destination[0] = mp_obj_new_int(ctx->getEntityCount());
         }
+        else if (attribute == MP_QSTR_clear_allowed)
+        {
+            destination[0] = mp_obj_new_bool(ctx->isClearAllowed());
+        }
         else if (attribute == MP_QSTR___del__)
         {
             destination[0] = MP_OBJ_FROM_PTR(&level_mp_del_obj);
@@ -175,6 +179,11 @@ void level_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
             ctx->size.y = vec->y;
             ctx->size.z = vec->z;
             ctx->size.integer = vec->integer;
+            destination[0] = MP_OBJ_NULL;
+        }
+        else if (attribute == MP_QSTR_clear_allowed)
+        {
+            ctx->setClearAllowed(mp_obj_is_true(destination[1]));
             destination[0] = MP_OBJ_NULL;
         }
     }

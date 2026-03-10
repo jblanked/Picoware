@@ -239,29 +239,24 @@ class FileBrowser:
         show_hid = self._app_state.get("show_hidden", False)
         
         try:
-            d_list = self._storage.listdir(path)
+            d_list = self._storage.read_directory(path)
             temp_list = []
             
-            for itm in d_list:
-                if itm in (".", "..") or (not show_hid and itm.startswith(".")): 
+            for entry in d_list:
+                itm = entry["filename"]
+                if itm in (".", "..") or (not show_hid and itm.startswith(".")):
                     continue
-                    
+
                 fp = f"/{itm}" if path == "/" else f"{path}/{itm}"
-                
-                is_d = False
-                if fp in self._stat_cache:
-                    is_d = self._stat_cache[fp][0]
-                else:
-                    is_d = self._storage.is_directory(fp)
-                    self._stat_cache[fp] = (is_d, -1)
-                    
+                is_d = entry["is_directory"]
+                self._stat_cache[fp] = (is_d, -1)
                 temp_list.append((itm, is_d))
-                    
+
             del d_list
-            
+
             # Sort by: Folders first, then name
             temp_list.sort(key=lambda x: (not x[1], x[0].lower()))
-                
+
             items = [x[0] for x in temp_list]
             del temp_list
         except Exception:

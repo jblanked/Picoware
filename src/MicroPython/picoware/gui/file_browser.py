@@ -514,8 +514,6 @@ class FileBrowser:
                 if idx < len(self._edit_text):
                     full_line = self._edit_text[idx]
                     line_text = full_line[self._edit_sx : self._edit_sx + m_chr]
-
-                    # Draw the standard text first
                     draw._text(2, 14 + i * 12, line_text, color_fg)
 
             if not self._edit_read_only:
@@ -592,7 +590,6 @@ class FileBrowser:
             if self._info_box is None:
                 from picoware.gui.textbox import TextBox
 
-                # Span the middle of the screen, leaving room for a 20px header and footer
                 self._info_box = TextBox(
                     draw,
                     0,
@@ -828,8 +825,6 @@ class FileBrowser:
             if self._needs_redraw:
                 self.__render()
             return True
-
-        draw = self._vm.draw
 
         # --- Sub-View: Image Viewer Input ---
         if self._is_viewing_image:
@@ -1335,9 +1330,7 @@ class FileBrowser:
                 inp.reset()
                 self._needs_redraw = True
                 idx = self._opt_idx
-                if idx == 0:
-                    pass  # was sort mode but now removed
-                elif idx == 1:
+                if idx == 1:
                     self._app_state["show_hidden"] = not self._app_state.get(
                         "show_hidden", False
                     )
@@ -1460,8 +1453,6 @@ class FileBrowser:
                         data = "\n".join(self._edit_text)
                         if self._vm.storage.write(self._edit_file, data, "w"):
                             self._edit_unsaved = False
-                        else:
-                            print("Save Error")
                         del data
                         self.__loading_run("Saved", 1.0)
                         if ac == "Save & Exit":

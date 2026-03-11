@@ -1,3 +1,9 @@
+/*
+Author: JBlanked
+License: GPL-3.0 License
+Source: https://github.com/jblanked/Picoware
+*/
+
 #pragma once
 
 #if defined(PICOCALC)

@@ -201,48 +201,44 @@ class Choice:
                 self.display.text(text_pos, option, text_color)
         else:
             # Draw Title
-            title_width = len(self.title) * font_size.x
+            _font = self.display.get_font(3)
+            title_width = len(self.title) * _font.width
             title_x = self.position.x + (self.size.x - title_width) // 2
             title_y = self.position.y + 5
             self.display.text(
-                Vector(title_x, title_y), self.title, self.foreground_color
+                Vector(title_x, title_y), self.title, self.foreground_color, 3
             )
 
-            # Calculate spacing and size for each option box
-            total_spacing = int(self.display.size.x * 0.03125)  # Space between boxes
-            options_y = title_y + total_spacing * 2  # Position below title
-            available_width = self.size.x - (total_spacing * (num_options + 1))
-            box_width = available_width // num_options
-            box_height = total_spacing * 3
+            # Draw options in a 2-column list below the title
+            y_start = title_y + _font.height + 10
+            x_col1 = self.position.x + 5
+            x_col2 = self.position.x + self.size.x // 2 + 5
+            line_height = _font.height * 2
 
-            # Draw each option horizontally
-            box_pos = Vector(0, options_y)
-            box_size = Vector(box_width, box_height)
-            box_text = Vector(0, 0)
+            item_pos = Vector(0, 0)
+            highlight_pos = Vector(0, 0)
+            highlight_size = Vector(0, 0)
             for i, option in enumerate(self.options):
-                # Calculate position for this option
-                box_x = (
-                    self.position.x + total_spacing + (i * (box_width + total_spacing))
-                )
-                box_pos.x = box_x
+                row = i // 2
+                col = i % 2
+                x_pos = x_col1 if col == 0 else x_col2
+                y_pos = y_start + row * line_height
 
-                # Draw rectangle for option
                 if i == self._state:
-                    # Highlighted (selected) option - filled rectangle
+                    # Draw background highlight for selected option
+                    highlight_pos.x = x_pos - 2
+                    highlight_pos.y = y_pos - 2
+                    highlight_size.x = len(option) * font_size.x + 4
+                    highlight_size.y = line_height - 2
                     self.display.fill_rectangle(
-                        box_pos, box_size, self.foreground_color
+                        highlight_pos, highlight_size, self.foreground_color
                     )
                     text_color = self.background_color
                 else:
-                    # Non-selected option - outline only
-                    self.display.rect(box_pos, box_size, self.foreground_color)
                     text_color = self.foreground_color
 
-                # Draw option text centered in the box
-                text_width = len(option) * font_size.x
-                box_text.x = box_x + (box_width - text_width) // 2
-                box_text.y = options_y + (box_height - font_size.y) // 2
-                self.display.text(box_text, option, text_color)
+                item_pos.x, item_pos.y = x_pos, y_pos
+                self.display.text(item_pos, option, text_color)
 
         # Update display
         self.display.swap()

@@ -123,6 +123,12 @@ class FileBrowser:
         self.__refresh_panes()
         self._needs_redraw = True
 
+        # we're using scaling to make this gui fit for all devices
+        # it was originally made for 320x320
+        draw = self._vm.draw
+        self._scale_og = Vector(draw.scale_x, draw.scale_y)
+        draw.set_scaling(draw.size.x // 320, draw.size.y // 320, True)
+
     def __del__(self):
         """Cleanup resources"""
         if self._loading:
@@ -149,6 +155,7 @@ class FileBrowser:
         self._info_data = None
 
         del self._jpeg_vec
+        del self._scale_og
 
     @property
     def directory(self) -> str:
@@ -200,7 +207,7 @@ class FileBrowser:
         return {
             "directory": self.directory,
             "path": _p,
-            "size": _storage.size(_p) if not _storage.is_directory(_p) else 0,
+            "size": _storage.size(_p),
             "type": _p.split(".")[-1] if "." in _p else "unknown",
         }
 
@@ -306,7 +313,7 @@ class FileBrowser:
             self._text_viewer_box = TextBox(
                 draw,
                 0,
-                draw.size.y,
+                320,
                 self._vm.foreground_color,
                 self._vm.background_color,
             )
@@ -377,7 +384,7 @@ class FileBrowser:
         bg = self._vm.background_color
         sel = self._vm.selected_color
         draw = self._vm.draw
-        m = Menu(draw, title, 0, draw.size.y, fg, bg, sel, bg)
+        m = Menu(draw, title, 0, 320, fg, bg, sel, bg)
         for i in items:
             m.add_item(i)
         m.set_selected(0)
@@ -408,7 +415,7 @@ class FileBrowser:
     def __render(self) -> None:
         """Draw the UI based on the current state"""
         draw = self._vm.draw
-        sw, sh, mx = draw.size.x, draw.size.y, draw.size.x // 2
+        sw, sh, mx = 320, 320, 160
         color_fg = self._vm.foreground_color
         color_bg = self._vm.background_color
         color_sel = self._vm.selected_color
@@ -589,7 +596,7 @@ class FileBrowser:
                 self._info_box = TextBox(
                     draw,
                     0,
-                    draw.size.y,
+                    320,
                     color_fg,
                     color_bg,
                 )
@@ -716,7 +723,7 @@ class FileBrowser:
                             self._stat_cache[fp] = (isd, fz)
                     else:
                         isd = storage.is_directory(fp)
-                        fz = 0 if isd else storage.size(fp)
+                        fz = storage.size(fp)
                         self._stat_cache[fp] = (isd, fz)
 
                 if ap == pn:
@@ -882,7 +889,7 @@ class FileBrowser:
             elif btn == BUTTON_DOWN:
                 inp.reset()
                 if self._edit_read_only:
-                    ml = (draw.size.y - 24) // 12
+                    ml = (296) // 12
                     if self._edit_sy + ml < len(self._edit_text):
                         self._edit_sy += 1
                 elif self._edit_cy < len(self._edit_text) - 1:
@@ -969,8 +976,8 @@ class FileBrowser:
 
             # Restrict cursor viewport mathematically
             if self._needs_redraw and not self._edit_read_only:
-                ml = (draw.size.y - 24) // 12
-                mc = (draw.size.x - 4) // 6
+                ml = 296 // 12
+                mc = 316 // 6
                 self._edit_sy = min(self._edit_sy, self._edit_cy)
                 if self._edit_cy >= self._edit_sy + ml:
                     self._edit_sy = self._edit_cy - ml + 1
@@ -1251,12 +1258,10 @@ class FileBrowser:
                     fz = 0
                     if fp in self._stat_cache:
                         isd = self._stat_cache[fp][0]
-                        if not isd:
-                            fz = storage.size(fp)
+                        fz = storage.size(fp)
                     else:
                         isd = storage.is_directory(fp)
-                        if not isd:
-                            fz = storage.size(fp)
+                        fz = storage.size(fp)
 
                     self._info_data = (
                         f"Name: {sf}\n"
@@ -1562,6 +1567,7 @@ class FileBrowser:
                 self._needs_redraw = True
             else:
                 self.__save_settings()
+                self._vm.draw.set_scaling(self._scale_og.x, self._scale_og.y, False)
                 return False
 
         elif btn == BUTTON_LEFT and not self._is_help_screen:
@@ -1678,6 +1684,9 @@ class FileBrowser:
 
                     if self._mode == FILE_BROWSER_SELECTOR and not isd:
                         self.__save_settings()
+                        self._vm.draw.set_scaling(
+                            self._scale_og.x, self._scale_og.y, False
+                        )
                         return False
 
                     mk = self._app_state["marked"]

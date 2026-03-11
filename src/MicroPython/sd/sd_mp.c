@@ -418,7 +418,7 @@ mp_obj_t sd_mp_get_file_size(mp_obj_t filepath_obj)
         PRINT("Failed to open file for reading.\n");
         return mp_obj_new_int(0);
     }
-    const uint32_t size = fat32_size(&file);
+    const uint32_t size = (file.attributes & FAT32_ATTR_DIRECTORY) ? 0 : fat32_size(&file);
     fat32_close(&file);
     return mp_obj_new_int_from_uint(size);
 }

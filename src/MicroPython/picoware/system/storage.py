@@ -406,7 +406,7 @@ class Storage:
             return {}
 
     def size(self, file_path: str) -> int:
-        """Get the size of a file in bytes."""
+        """Get the size of a file or directory in bytes."""
         if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
             return 0  # No SD storage on this board
         return sd_mp.get_file_size(file_path)

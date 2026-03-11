@@ -79,9 +79,42 @@ void lcd_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
         {
             destination[0] = mp_obj_new_int(self->height);
         }
+        else if (attribute == MP_QSTR_scale_x)
+        {
+            destination[0] = mp_obj_new_float(self->scale_x);
+        }
+        else if (attribute == MP_QSTR_scale_y)
+        {
+            destination[0] = mp_obj_new_float(self->scale_y);
+        }
+        else if (attribute == MP_QSTR_scale_set)
+        {
+            destination[0] = mp_obj_new_bool(self->scale_set);
+        }
+        else if (attribute == MP_QSTR_scale_position)
+        {
+            destination[0] = mp_obj_new_bool(self->scale_position);
+        }
         else if (attribute == MP_QSTR___del__)
         {
             destination[0] = MP_OBJ_FROM_PTR(&lcd_mp_del_obj);
+        }
+    }
+    else if (destination[1] != MP_OBJ_NULL)
+    {
+        if (attribute == MP_QSTR_scale_x)
+        {
+            self->scale_x = mp_obj_get_float(destination[1]);
+            self->scale_set = self->scale_x != 1.0f || self->scale_y != 1.0f;
+        }
+        else if (attribute == MP_QSTR_scale_y)
+        {
+            self->scale_y = mp_obj_get_float(destination[1]);
+            self->scale_set = self->scale_x != 1.0f || self->scale_y != 1.0f;
+        }
+        else if (attribute == MP_QSTR_scale_position)
+        {
+            self->scale_position = mp_obj_is_true(destination[1]);
         }
     }
 }

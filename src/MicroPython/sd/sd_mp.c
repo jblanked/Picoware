@@ -930,6 +930,14 @@ mp_obj_t sd_mp_write(size_t n_args, const mp_obj_t *args)
                 mp_raise_OSError(MP_ENOENT);
             }
         }
+        else
+        {
+            if (fat32_seek(&file, fat32_size(&file)) != FAT32_OK)
+            {
+                PRINT("Failed to seek to end of file.\n");
+                mp_raise_OSError(MP_EIO);
+            }
+        }
     }
     size_t bytes_written;
     const bool status = fat32_write(&file, bufinfo.buf, bufinfo.len, &bytes_written) == FAT32_OK;

@@ -230,3 +230,17 @@ target_include_directories(usermod_engine INTERFACE
 )
 
 target_link_libraries(usermod INTERFACE usermod_engine)
+
+
+# Include log module
+add_library(usermod_log INTERFACE)
+
+target_sources(usermod_log INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../log/log_mp.c
+)
+
+target_include_directories(usermod_log INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../log
+)
+
+target_link_libraries(usermod INTERFACE usermod_log)

@@ -149,7 +149,7 @@ class ThreadManager:
             if not self._active_thread.is_running:
                 if self._active_task is not None:
                     print(
-                        f"[ThreadManager] Task {self._active_task.name} finished after {ticks_ms() - self._active_task.start_time} ms.\n"
+                        f"[ThreadManager] Task {self._active_task.id} ({self._active_task.name}) finished after {ticks_ms() - self._active_task.start_time} ms.\n"
                     )
                     # Task finished, capture error if any
                     self._active_task.error = self._active_thread.error
@@ -181,7 +181,7 @@ class ThreadManager:
                 task.start_time = ticks_ms()
                 task.id = self._id
                 self._id += 1
-                print(f"[ThreadManager] Task {task.name} started.")
+                print(f"[ThreadManager] Task {task.id} ({task.name}) started.")
                 self._active_thread = thread
                 self._active_task = task
             else:

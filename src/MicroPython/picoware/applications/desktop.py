@@ -156,64 +156,16 @@ class PicowareAnimation:
 
 
 _desktop = None
-_desktop_http = None
 _desktop_picoware = None
 _desktop_time_updated = False
-_time = None
-_timezone = None
 _has_wifi = True
-
-
-def _http_callback(response, state, error):
-    """HTTP callback to process location and time data."""
-    global _desktop_http, _desktop_time_updated, _timezone
-
-    if not _desktop_http:
-        return
-
-    if any([not response, error, state == 2]):  # HTTP_ERROR
-        _desktop_http.close()
-        # Retry step 1
-        _desktop_http.get_async("https://ipwhois.app/json/")
-        return
-
-    data: dict = response.json()
-
-    # Get timezone from IP location
-    if _timezone is None:
-        timezone = data.get("timezone", "UTC")
-        _timezone = timezone
-
-        # Fetch time for detected timezone
-        _desktop_http.close()
-        _desktop_http.get_async(
-            f"http://timeapi.io/api/time/current/zone?timeZone={_timezone}"
-        )
-        return
-
-    # Process time data from timeapi.io
-    year = data.get("year")
-    month = data.get("month")
-    day = data.get("day")
-    hour = data.get("hour")
-    minute = data.get("minute")
-    seconds = data.get("seconds")
-
-    if all([year, month, day, hour, minute, seconds]):
-        _time.set(year, month, day, hour, minute, seconds)
-        _desktop_time_updated = True
-        _desktop.set_time(_time.time)
-
-    _desktop_http.close()
-    del _desktop_http
-    _desktop_http = None
 
 
 def start(view_manager) -> bool:
     """Start the loading animation."""
     from picoware.gui.desktop import Desktop
 
-    global _desktop, _desktop_http, _desktop_picoware, _time, _desktop_time_updated, _timezone, _has_wifi
+    global _desktop, _desktop_picoware, _has_wifi
 
     if _desktop is None:
         _desktop = Desktop(
@@ -233,19 +185,10 @@ def start(view_manager) -> bool:
 
     connect_to_saved_wifi(view_manager)
 
-    if _desktop_http is None:
-        from picoware.system.http import HTTP
-
-        _desktop_http = HTTP(thread_manager=view_manager.thread_manager)
-
-        if view_manager.wifi.is_connected() and not view_manager.time.is_set:
-            _desktop_time_updated = False
-            _timezone = None  # Reset timezone
-            _desktop_http.callback = _http_callback
-            # Get timezone from IP location
-            _desktop_http.get_async("https://ipwhois.app/json/")
-
     _time = view_manager.time
+
+    if view_manager.wifi.is_connected() and _time.is_set:
+        _time.fetch()
 
     return _desktop is not None
 
@@ -254,7 +197,7 @@ def run(view_manager) -> None:
     """Animate the loading spinner."""
     from picoware.system.buttons import BUTTON_LEFT, BUTTON_CENTER, BUTTON_UP
 
-    global _desktop_time_updated, _timezone, _has_wifi
+    global _desktop_time_updated
 
     input_manager = view_manager.input_manager
     button: int = input_manager.button
@@ -296,27 +239,19 @@ def run(view_manager) -> None:
 
     wifi = view_manager.wifi
     is_connected = wifi.is_connected()
+    _time = view_manager.time
     if not is_connected:
         if wifi.state in (0, 4):  # WIFI_STATE_IDLE, WIFI_STATE_TIMEOUT
             connect_to_saved_wifi(view_manager)
-        return
-
-    if _desktop_time_updated:
-        # time is RTC, so no need to fetch, just pass the updated time
-        _desktop.set_time(_time.time)
-        return
-
-    if (
-        is_connected
-        and not view_manager.time.is_set
-        and _desktop_http is not None
-        and not _desktop_http.in_progress
-    ):
-        _desktop_time_updated = False
-        _timezone = None  # Reset timezone
-        _desktop_http.callback = _http_callback
-        # Get timezone from IP location
-        _desktop_http.get_async("https://ipwhois.app/json/")
+    else:
+        if _desktop_time_updated:
+            # time is RTC, so no need to fetch, just pass the updated time
+            _desktop.set_time(_time.time)
+        elif _time.is_set:
+            _desktop_time_updated = True
+        elif not _time.is_fetching:
+            _desktop_time_updated = False
+            _time.fetch(view_manager.gmt_offset)
 
 
 def stop(view_manager) -> None:
@@ -324,25 +259,18 @@ def stop(view_manager) -> None:
     from gc import collect
 
     global _desktop
-    global _desktop_http
     global _desktop_picoware
     global _desktop_time_updated
-    global _timezone
     global _has_wifi
 
     if _desktop:
         del _desktop
         _desktop = None
-    if _desktop_http:
-        _desktop_http.close()
-        del _desktop_http
-        _desktop_http = None
     if _desktop_picoware:
         del _desktop_picoware
         _desktop_picoware = None
 
     _desktop_time_updated = view_manager.time.is_set
-    _timezone = None
     _has_wifi = True
 
     collect()

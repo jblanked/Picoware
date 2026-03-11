@@ -75,7 +75,12 @@ class ViewManager:
         self.views = [None] * self.MAX_VIEWS
         self.view_stack = [None] * self.MAX_STACK_SIZE
 
+        # load settings
+        self._debug = False
+        self._gmt_offset = 0
         if self._storage is not None:
+
+            # dark mode
             dark_mode_data: str = self._storage.read("picoware/settings/dark_mode.json")
 
             if len(dark_mode_data) > 1:
@@ -88,6 +93,7 @@ class ViewManager:
                     self._keyboard.background_color = self._background_color
                     self._keyboard.text_color = self._foreground_color
 
+            # on screen keyboard
             on_screen_keyboard_data: str = self._storage.read(
                 "picoware/settings/onscreen_keyboard.json"
             )
@@ -96,11 +102,47 @@ class ViewManager:
                 state: bool = "true" in on_screen_keyboard_data.lower()
                 self._keyboard.show_keyboard = state
 
+            # LVGL mode
             lvgl_data: str = self._storage.read("picoware/settings/lvgl_mode.json")
 
             if len(lvgl_data) > 1:
                 state: bool = "true" in lvgl_data.lower()
                 self._draw.use_lvgl = state
+
+            # theme color
+            theme_color_data: str = self._storage.read(
+                "picoware/settings/theme_color.json"
+            )
+
+            if len(theme_color_data) > 1:
+                try:
+                    import json
+
+                    obj = json.loads(theme_color_data)
+                    if "theme_color" in obj:
+                        color = int(obj["theme_color"])
+                        self.selected_color = color
+                except Exception:
+                    pass
+
+            # debug mode
+            debug_data: str = self._storage.read("picoware/settings/debug.json")
+
+            if len(debug_data) > 1:
+                self._debug = "true" in debug_data.lower()
+
+            # GMT offset
+            gmt_offset_data: str = self._storage.read(
+                "picoware/settings/gmt_offset.json"
+            )
+
+            if len(gmt_offset_data) > 1:
+                try:
+                    obj = json.loads(gmt_offset_data)
+                    if "gmt_offset" in obj:
+                        self._gmt_offset = int(obj["gmt_offset"])
+                except ValueError:
+                    pass
 
         # Clear screen
         self.clear()
@@ -189,6 +231,11 @@ class ViewManager:
         self._foreground_color = color
         self._draw.foreground = color
         self._keyboard.text_color = color
+
+    @property
+    def gmt_offset(self):
+        """Return the GMT offset in hours."""
+        return self._gmt_offset
 
     @property
     def has_psram(self):

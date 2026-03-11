@@ -69,7 +69,7 @@ class ViewManager:
         )
 
         # Initialize time
-        self._time = Time()
+        self._time = Time(self._thread_manager)
 
         # Initialize arrays
         self.views = [None] * self.MAX_VIEWS

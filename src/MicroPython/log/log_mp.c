@@ -177,13 +177,11 @@ static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(log_mp_log_obj, 2, 3, log_mp_log);
 mp_obj_t log_mp_reset(mp_obj_t self_in)
 {
     log_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    bool success = false;
-    if (self->file_path)
+    if (self->file_path == NULL)
     {
-        // Erase the log file by writing an empty string with overwrite=true
-        success = LOG_STORAGE_WRITE(self->file_path, "", 0, true);
+        return mp_const_true;
     }
-    return success ? mp_const_true : mp_const_false;
+    return LOG_STORAGE_WRITE(self->file_path, "", 0, true) ? mp_const_true : mp_const_false;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(log_mp_reset_obj, log_mp_reset);
 

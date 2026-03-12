@@ -25,6 +25,28 @@ def start(view_manager) -> bool:
         view_manager.alert("App requires an SD card.", False)
         return False
 
+    # first show info screen about connection
+    d = view_manager.draw
+    fg = view_manager.foreground_color
+    d.erase()
+    info = (
+        "Big Buck Bunny\n\n"
+        "Follow these steps to get started:\n\n"
+        "- download from: http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4\n\n"
+        '- then convert to png frames with:\nmkdir big-buck-bunny && ffmpeg -i ~/Downloads/BigBuckBunny.mp4 -vf "fps=10,scale=320:320:force_original_aspect_ratio=decrease,pad=320:320:(ow-iw)/2:(oh-ih)/2" big-buck-bunny/frame_%04d.png\n\n'
+        "- then convert to .bin using the png2fb.py script in tools:\npython png2fb.py <folder> --8bit\n\n"
+        "- then rename to  `big-buck-bunny.bin` and copy to the root of your SD card"
+    )
+    d._text(0, 0, info, fg)
+    d.swap()
+
+    inp = view_manager.input_manager
+    while True:
+        but = inp.button
+        if but != -1:
+            inp.reset()
+            break
+
     global position, size, current_frame, file_obj, frame_data
     current_frame = FRAME_START
     position = Vector(0, 0)

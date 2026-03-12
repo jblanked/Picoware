@@ -244,3 +244,17 @@ target_include_directories(usermod_log INTERFACE
 )
 
 target_link_libraries(usermod INTERFACE usermod_log)
+
+
+# Include textbox module
+add_library(usermod_textbox INTERFACE)
+
+target_sources(usermod_textbox INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../textbox/textbox_mp.c
+)
+
+target_include_directories(usermod_textbox INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../textbox
+)
+
+target_link_libraries(usermod INTERFACE usermod_textbox)

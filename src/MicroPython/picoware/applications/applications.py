@@ -105,13 +105,13 @@ def run(view_manager) -> None:
                 app_view = View(
                     app_view_name, app_module.run, app_module.start, app_module.stop
                 )
-                print(
+                view_manager.log(
                     f"[Applications]: Created view for app {selected_app} after {ticks_ms() - start_time} ms"
                 )
                 view_manager.add(app_view)
 
             view_manager.switch_to(app_view_name)
-            print(
+            view_manager.log(
                 f'[Applications]: Switched to view for app "{selected_app}" after {ticks_ms() - start_time} ms'
             )
 

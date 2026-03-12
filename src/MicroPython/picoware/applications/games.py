@@ -108,14 +108,14 @@ def run(view_manager) -> None:
                     game_module.start,
                     game_module.stop,
                 )
-                print(
-                    f"[Games]: Created view for app {selected_game} after {ticks_ms() - start_time} ms"
+                view_manager.log(
+                    f"[Games]: Created view for app {selected_game} after {ticks_ms() - start_time} ms",
                 )
                 view_manager.add(game_view)
 
             view_manager.switch_to(game_view_name)
-            print(
-                f'[Games]: Switched to view for app "{selected_game}" after {ticks_ms() - start_time} ms'
+            view_manager.log(
+                f'[Games]: Switched to view for app "{selected_game}" after {ticks_ms() - start_time} ms',
             )
 
 

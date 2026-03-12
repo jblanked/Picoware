@@ -85,7 +85,7 @@ class Server:
     def close(self, reason=None):
         """Close the server and client connections."""
         if reason:
-            print(reason)
+            self.view_manager.log(reason)
         if self.client is not None:
             self.client.close()
             del self.client
@@ -95,7 +95,7 @@ class Server:
             del self.server
             self.server = None
 
-        print("Server closed.")
+        self.view_manager.log("Server closed.")
 
     def start(self, port=80) -> bool:
         """Start the server on the specified port."""
@@ -133,7 +133,9 @@ class Server:
                                     if "handle_request" in local_scope:
                                         response = local_scope["handle_request"](data)
                                 except Exception as e:
-                                    print(f"Error executing script {script_file}: {e}")
+                                    self.view_manager.log(
+                                        f"Error executing script {script_file}: {e}", 2
+                                    )
 
                             # Load HTML file if available
                             if html_file:
@@ -141,7 +143,9 @@ class Server:
                                     html_content = storage.read(html_file)
                                     response += html_content
                                 except Exception as e:
-                                    print(f"Error loading HTML file {html_file}: {e}")
+                                    self.view_manager.log(
+                                        f"Error loading HTML file {html_file}: {e}", 2
+                                    )
                                     response += f"<h1>Error loading HTML file: {html_file}</h1><p>{e}</p>"
 
                             return response
@@ -152,7 +156,7 @@ class Server:
                     self.add_route(url, handler, method)
             return True
         except Exception as e:
-            print("Failed to start server:", e)
+            self.view_manager.log(f"Failed to start server: {e}", 2)
             return False
 
     def add_route(self, path, handler, method="GET"):
@@ -200,7 +204,9 @@ class Server:
         global box, menu_state, menu
 
         if not self.server:
-            print("Server is not started. Call start() before run().")
+            self.view_manager.log(
+                "Server is not started. Call start() before run().", 2
+            )
             return
 
         inp = self.view_manager.input_manager
@@ -209,7 +215,7 @@ class Server:
             inp.reset()
             box.current_text += "Connection closed by user.\n"
             box.refresh()
-            print("Connection closed by user.")
+            self.view_manager.log("Connection closed by user.", 2)
 
             menu_state = STATE_MENU_MAIN
             menu.display.fill_screen(menu.background_color)
@@ -238,7 +244,7 @@ class Server:
                         inp.reset()
                         box.current_text += "Connection closed by user.\n"
                         box.refresh()
-                        print("Connection closed by user.")
+                        self.view_manager.log("Connection closed by user.", 2)
 
                         menu_state = STATE_MENU_MAIN
                         menu.display.fill_screen(menu.background_color)
@@ -248,7 +254,7 @@ class Server:
                     if not data:
                         box.current_text += f"Client {addr} disconnected.\n"
                         box.refresh()
-                        print(f"Client {addr} disconnected.")
+                        self.view_manager.log(f"Client {addr} disconnected.", 2)
                         break
                     buffer += data
                     # Check if we've received all headers
@@ -272,7 +278,9 @@ class Server:
                             f"Malformed request line from {addr}. Connection closed.\n"
                         )
                         box.refresh()
-                        print(f"Malformed request line from {addr}. Connection closed.")
+                        self.view_manager.log(
+                            f"Malformed request line from {addr}. Connection closed.", 2
+                        )
                         break
 
                     headers = {}
@@ -325,8 +333,9 @@ class Server:
                                     except Exception as handler_e:
                                         box.current_text += f"Handler error for path '{path}': {handler_e}\n"
                                         box.refresh()
-                                        print(
-                                            f"Handler error for path '{path}': {handler_e}"
+                                        self.view_manager.log(
+                                            f"Handler error for path '{path}': {handler_e}",
+                                            2,
                                         )
                                         response_content = "<h1>500 Internal Server Error</h1><p>Handler execution failed.</p>"
                                         status_line = "500 Internal Server Error\r\n"
@@ -344,7 +353,9 @@ class Server:
                                             f"JSON decoding error: {ve}\n"
                                         )
                                         box.refresh()
-                                        print(f"JSON decoding error: {ve}")
+                                        self.view_manager.log(
+                                            f"JSON decoding error: {ve}", 2
+                                        )
                                         response_content = "<h1>400 Bad Request</h1><p>Invalid JSON.</p>"
                                         status_line = "400 Bad Request\r\n"
                                         parsed_body = None
@@ -363,7 +374,9 @@ class Server:
                                             f"Error parsing POST data: {e}\n"
                                         )
                                         box.refresh()
-                                        print(f"Error parsing POST data: {e}")
+                                        self.view_manager.log(
+                                            f"Error parsing POST data: {e}", 2
+                                        )
                                         parsed_body = {}
 
                                 # Execute the handler with the parsed data
@@ -381,8 +394,9 @@ class Server:
                                 except Exception as handler_e:
                                     box.current_text += f"Handler error for path '{path}': {handler_e}\n"
                                     box.refresh()
-                                    print(
-                                        f"Handler error for path '{path}': {handler_e}"
+                                    self.view_manager.log(
+                                        f"Handler error for path '{path}': {handler_e}",
+                                        2,
                                     )
                                     response_content = "<h1>500 Internal Server Error</h1><p>Handler execution failed.</p>"
                                     status_line = "500 Internal Server Error\r\n"
@@ -412,7 +426,7 @@ class Server:
                     printer = f'"{request_line}" {status_line.strip()}'
                     box.current_text += f"{printer}\n"
                     box.refresh()
-                    print(printer)
+                    self.view_manager.log(printer)
 
                     # Remove the processed request from the buffer
                     buffer = buffer[header_end + 4 + content_length :]
@@ -424,16 +438,16 @@ class Server:
                     if e.args and e.args[0] == ETIMEDOUT:
                         box.current_text += f"Connection with {addr} timed out.\n"
                         box.refresh()
-                        print(f"Connection with {addr} timed out.")
+                        self.view_manager.log(f"Connection with {addr} timed out.", 2)
                     else:
                         box.current_text += f"OS error: {e}\n"
                         box.refresh()
-                        print(f"OS error: {e}")
+                        self.view_manager.log(f"OS error: {e}", 2)
                     break
                 except Exception as e:
                     box.current_text += f"Unexpected error: {e}\n"
                     box.refresh()
-                    print(f"Unexpected error: {e}")
+                    self.view_manager.log(f"Unexpected error: {e}", 2)
                     break
 
             # Close the client connection
@@ -445,11 +459,11 @@ class Server:
         except OSError as e:
             box.current_text += f"Server accept error: {e}\n"
             box.refresh()
-            print(f"Server accept error: {e}")
+            self.view_manager.log(f"Server accept error: {e}", 2)
         except Exception as e:
             box.current_text += f"Unexpected error: {e}\n"
             box.refresh()
-            print(f"Unexpected error: {e}")
+            self.view_manager.log(f"Unexpected error: {e}", 2)
 
 
 def __add_page(view_manager) -> bool:
@@ -489,7 +503,7 @@ def __add_page(view_manager) -> bool:
             server_info["pages"].append(new_page)
             storage.deserialize(server_info, SERVER_INFO)
         except Exception as e:
-            print("Error saving server info:", e)
+            view_manager.log("Error saving server info:", e, 2)
         #
         keyboard.reset()
         # Go back to edit menu
@@ -621,7 +635,7 @@ def __edit_page(
                     }
                     storage.deserialize(server_info, SERVER_INFO)
         except Exception as e:
-            print("Error saving server info:", e)
+            view_manager.log("Error saving server info:", e, 2)
         #
         keyboard.reset()
         if return_status:
@@ -651,7 +665,7 @@ def __get_current_pages(view_manager) -> list[str]:
             for page in _current_stats["pages"]:
                 pages.append(page["url"])
     except Exception as e:
-        print("Error reading server info:", e)
+        view_manager.log("Error reading server info:", e, 2)
 
     return pages
 
@@ -671,7 +685,7 @@ def __get_page_info_index(view_manager, index: int) -> dict:
                 page_info = _current_stats["pages"][index]
                 page_info["count"] = _page_amount
     except Exception as e:
-        print("Error reading server info:", e)
+        view_manager.log("Error reading server info:", e, 2)
 
     return page_info
 
@@ -688,7 +702,7 @@ def __get_setting(view_manager, key: str, default: str = "") -> str:
         if "settings" in server_info:
             value = server_info["settings"].get(key, default)
     except Exception as e:
-        print("Error reading server setting:", e)
+        view_manager.log("Error reading server setting:", e, 2)
 
     return value
 
@@ -706,7 +720,7 @@ def __save_setting(view_manager, key: str, value: str) -> None:
         server_info["settings"][key] = value
         storage.deserialize(server_info, SERVER_INFO)
     except Exception as e:
-        print("Error saving server setting:", e)
+        view_manager.log("Error saving server setting:", e, 2)
 
 
 def __delete_page(view_manager, index: int) -> None:
@@ -724,7 +738,7 @@ def __delete_page(view_manager, index: int) -> None:
                 del server_info["pages"][index]
                 storage.deserialize(server_info, SERVER_INFO)
     except Exception as e:
-        print("Error deleting page:", e)
+        view_manager.log("Error deleting page:", e, 2)
 
     # Go back to view pages
     menu_state = STATE_MENU_VIEW_PAGES

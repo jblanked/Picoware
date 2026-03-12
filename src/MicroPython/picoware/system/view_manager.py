@@ -20,6 +20,7 @@ class ViewManager:
         from picoware.system.system import System
         from picoware.system.time import Time
         from picoware.system.thread import ThreadManager
+        from picoware.system.log import Log, LOG_MODE_ALL, LOG_MODE_REPL
         from picoware.system.colors import TFT_BLUE, TFT_BLACK, TFT_WHITE
 
         self._current_view = None
@@ -76,7 +77,7 @@ class ViewManager:
         self.view_stack = [None] * self.MAX_STACK_SIZE
 
         # load settings
-        self._debug = False
+        __debug = False
         self._gmt_offset = 0
         if self._storage is not None:
 
@@ -129,7 +130,7 @@ class ViewManager:
             debug_data: str = self._storage.read("picoware/settings/debug.json")
 
             if len(debug_data) > 1:
-                self._debug = "true" in debug_data.lower()
+                __debug = "true" in debug_data.lower()
 
             # GMT offset
             gmt_offset_data: str = self._storage.read(
@@ -143,6 +144,10 @@ class ViewManager:
                         self._gmt_offset = int(obj["gmt_offset"])
                 except ValueError:
                     pass
+
+        self._log = Log(
+            LOG_MODE_ALL if __debug else LOG_MODE_REPL, "picoware/log.txt", True
+        )
 
         # Clear screen
         self.clear()
@@ -263,6 +268,11 @@ class ViewManager:
     def keyboard(self):
         """Return the Keyboard instance."""
         return self._keyboard
+
+    @property
+    def logs(self) -> list:
+        """Return the stored logs as a list of strings."""
+        return self._log.logs
 
     @property
     def selected_color(self):
@@ -461,10 +471,21 @@ class ViewManager:
                 if self.views[i].name == view_name:
                     return self.views[i]
             else:
-                print(
-                    f"ViewManager: View '{view_name}' found in views array but is None."
+                self.log(
+                    f"ViewManager: View '{view_name}' found in views array but is None.",
+                    2,
                 )
         return None
+
+    def log(self, message: str, log_type: int = 3) -> bool:
+        """
+        Log a message with an optional log type.
+
+        Args:
+            message (str): The message to log
+            log_type (int): The type of log (e.g., LOG_TYPE_INFO, LOG_TYPE_WARN, LOG_TYPE_ERROR, LOG_TYPE_DEBUG)
+        """
+        return self._log.log(message, log_type)
 
     def remove(self, view_name: str):
         """
@@ -509,8 +530,9 @@ class ViewManager:
                 else:
                     self.back(should_clear=False, should_start=False)
 
-        if self._thread_manager:
-            self._thread_manager.run()
+        _data = self._thread_manager.run()
+        if _data:
+            self.log(_data)
 
         if self._current_view is not None:
             self._current_view.run(self)
@@ -545,7 +567,7 @@ class ViewManager:
         """
         view = self.get_view(view_name)
         if view is None:
-            print(f"ViewManager: View '{view_name}' not found or is None.")
+            self.log(f"ViewManager: View '{view_name}' not found or is None.", 2)
             return
 
         # Push current view to stack before switching

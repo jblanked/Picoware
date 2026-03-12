@@ -122,6 +122,7 @@ class ThreadManager:
         self._tasks: list[ThreadTask] = []
         self._active_thread: Thread = None
         self._active_task: ThreadTask = None
+        self._outgoing = ""
 
     @property
     def task(self) -> ThreadTask:
@@ -142,15 +143,14 @@ class ThreadManager:
         if task_id in self._tasks:
             self._tasks.remove(task_id)
 
-    def run(self) -> None:
+    def run(self) -> str:
         """Run tasks one-by-one, waiting for each to complete before starting the next."""
+        self._outgoing = ""
         # Check if active thread finished
         if self._active_thread is not None:
             if not self._active_thread.is_running:
                 if self._active_task is not None:
-                    print(
-                        f"[ThreadManager] Task {self._active_task.id} ({self._active_task.name}) finished after {ticks_ms() - self._active_task.start_time} ms.\n"
-                    )
+                    self._outgoing = f"[ThreadManager] Task {self._active_task.id} ({self._active_task.name}) finished after {ticks_ms() - self._active_task.start_time} ms.\n"
                     # Task finished, capture error if any
                     self._active_task.error = self._active_thread.error
                 self._active_thread = None
@@ -168,21 +168,24 @@ class ThreadManager:
                 # Task timed out, stop it
                 self._active_thread.stop()
                 self._active_task.error = Exception("Thread task timed out.")
-            return
+            return self._outgoing
 
         # Start next task if no active thread
         if self._tasks:
             task = self._tasks.pop(0)
             # Skip task if stop was requested
             if task.should_stop:
-                return
+                return self._outgoing
             thread = Thread(task.function, task.args)
             if thread.run():
                 task.start_time = ticks_ms()
                 task.id = self._id
                 self._id += 1
-                print(f"[ThreadManager] Task {task.id} ({task.name}) started.")
+                self._outgoing = (
+                    f"[ThreadManager] Task {task.id} ({task.name}) started."
+                )
                 self._active_thread = thread
                 self._active_task = task
             else:
                 task.error = thread.error
+        return self._outgoing

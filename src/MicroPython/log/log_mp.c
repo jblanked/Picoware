@@ -6,7 +6,11 @@
 
 #include "log_mp.h"
 #include "log_config.h"
+#ifdef LOG_STORAGE_INCLUDE
 #include LOG_STORAGE_INCLUDE
+#else
+#include <stdio.h>
+#endif
 
 const mp_obj_type_t log_mp_type;
 
@@ -92,6 +96,7 @@ void log_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
             }
             else
             {
+#ifdef LOG_STORAGE_READ
                 const size_t file_size = LOG_FILE_SIZE(self->file_path);
                 char *buffer = (char *)m_malloc(file_size + 1);
                 size_t bytes_read = LOG_STORAGE_READ(self->file_path, buffer, file_size);
@@ -104,6 +109,7 @@ void log_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
                     line = strtok(NULL, "\n");
                 }
                 m_free(buffer);
+#endif
                 destination[0] = log_list;
             }
         }
@@ -163,11 +169,17 @@ mp_obj_t log_mp_log(size_t n_args, const mp_obj_t *args)
     bool success = true;
     if (self->mode == LOG_MODE_REPL || self->mode == LOG_MODE_ALL)
     {
+#ifdef PRINT
         PRINT(full_message);
+#else
+        mp_printf(&mp_plat_print, "%s", full_message);
+#endif
     }
     if (self->mode == LOG_MODE_STORAGE || self->mode == LOG_MODE_ALL)
     {
+#ifdef LOG_STORAGE_WRITE
         success = LOG_STORAGE_WRITE(self->file_path, full_message, strlen(full_message), false);
+#endif
     }
     m_free(full_message);
     return success ? mp_const_true : mp_const_false;
@@ -181,7 +193,11 @@ mp_obj_t log_mp_reset(mp_obj_t self_in)
     {
         return mp_const_true;
     }
+#ifdef LOG_STORAGE_WRITE
     return LOG_STORAGE_WRITE(self->file_path, "", 0, true) ? mp_const_true : mp_const_false;
+#else
+    return mp_const_false;
+#endif
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(log_mp_reset_obj, log_mp_reset);
 

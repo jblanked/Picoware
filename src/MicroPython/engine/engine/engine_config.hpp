@@ -117,7 +117,9 @@
 // storage
 #if defined(PICOCALC)
 #define ENGINE_STORAGE_INCLUDE "../../engine/storage.h"
-#else
+#elif !defined(WAVESHARE_1_28)
 #define ENGINE_STORAGE_INCLUDE "../../../engine/storage.h"
 #endif
+#ifdef ENGINE_STORAGE_INCLUDE
 #define ENGINE_STORAGE_READ storage_read // (const char *file_path, void *buffer, size_t buffer_size)
+#endif

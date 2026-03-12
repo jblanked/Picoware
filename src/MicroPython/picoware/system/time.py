@@ -124,7 +124,7 @@ class Time:
                         self._is_set = False
                     return
 
-                t = val - NTP_DELTA
+                t = val - NTP_DELTA + int(offset * 3600)  # Apply timezone offset
                 tm = gmtime(t)
                 with self._lock:
                     self._rtc.datetime(
@@ -133,7 +133,7 @@ class Time:
                             tm[1],  # month
                             tm[2],  # day of the month
                             tm[6] + 1,  # weekday
-                            tm[3] + offset,  # hour with offset
+                            tm[3],  # hour
                             tm[4],  # minute
                             tm[5],  # second
                             0,  # subseconds

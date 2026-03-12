@@ -143,16 +143,16 @@ mp_obj_t log_mp_log(size_t n_args, const mp_obj_t *args)
     switch (log_type)
     {
     case LOG_TYPE_INFO:
-        log_type_str = "[INFO] ";
+        log_type_str = "[INFO]";
         break;
     case LOG_TYPE_WARN:
-        log_type_str = "[WARN] ";
+        log_type_str = "[WARN]";
         break;
     case LOG_TYPE_ERROR:
-        log_type_str = "[ERROR] ";
+        log_type_str = "[ERROR]";
         break;
     case LOG_TYPE_DEBUG:
-        log_type_str = "[DEBUG] ";
+        log_type_str = "[DEBUG]";
         break;
     default:
         log_type_str = "";

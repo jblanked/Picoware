@@ -1,12 +1,6 @@
 #include "textbox_mp.h"
-
-#if defined(PICOCALC)
 #include "../lcd/lcd_config.h"
 #include "../vector/vector_mp.h"
-#else
-#include "../../lcd/lcd_config.h"
-#include "../../vector/vector_mp.h"
-#endif
 
 #ifdef LCD_INCLUDE
 #include LCD_INCLUDE

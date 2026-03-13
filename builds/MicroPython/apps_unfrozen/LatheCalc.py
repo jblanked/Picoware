@@ -1,5 +1,5 @@
 # ==========================================
-# CNC-MACHINIST PRO v1.0
+# LATHE-CALC v1.0
 # ==========================================
 # Help Text: Use UP/DOWN to move the cursor. 
 # Use LEFT/RIGHT to toggle bracketed settings or adjust numbers.
@@ -105,7 +105,7 @@ class AppState:
         
         # System
         self.is_typing = False
-        self.kb = None
+        self.kb_force = False
         self.text_lines = []
         self.scroll_pos = 0
 
@@ -161,7 +161,7 @@ def _apply_theme():
     s = state
     from picoware.system.colors import TFT_BLACK, TFT_WHITE, TFT_BLUE, TFT_GREEN, TFT_YELLOW, TFT_RED, TFT_CYAN
     
-    if s.theme_id == 0:   # DARK CNC
+    if s.theme_id == 0:   # DARK THEME
         s.c_bg = TFT_BLACK; s.c_fg = TFT_WHITE; s.c_hlt = TFT_YELLOW
         s.c_ok = TFT_GREEN; s.c_warn = TFT_YELLOW; s.c_err = TFT_RED; s.c_sec = TFT_BLUE
     elif s.theme_id == 1: # TERMINAL
@@ -515,7 +515,7 @@ def _draw_options(view_manager):
     _draw.text(Vector(5, 5), "PERSONALIZATION", s.c_fg)
     _draw.fill_rectangle(Vector(0, 22), Vector(320, 1), s.c_fg)
     
-    themes = ["0: DARK CNC", "1: TERMINAL", "2: BLUEPRINT", "3: LIGHT MODE"]
+    themes = ["0: DARK THEME", "1: TERMINAL", "2: BLUEPRINT", "3: LIGHT MODE"]
     
     opts = [
         "UI THEME: < " + themes[s.theme_id] + " >",
@@ -652,7 +652,7 @@ def _draw_calc(view_manager):
     _draw = view_manager.draw
     
     _draw.clear(color=s.c_bg)
-    _draw.text(Vector(5, 5), "CNC-MACHINIST PRO v1.0", s.c_fg)
+    _draw.text(Vector(5, 5), "LATHE-CALC v1.0", s.c_fg)
     _draw.fill_rectangle(Vector(0, 22), Vector(320, 1), s.c_fg)
 
     _str_unit = "METRIC" if s.val_unit == UNIT_METRIC else "IMPERL"
@@ -760,15 +760,20 @@ def run(view_manager):
         if _needs_redraw: _im.reset(); _draw_ui(view_manager)
         return
         
-    # Handle Keyboard Input
+    # Handle Keyboard Input (Using Picoware System Keyboard)
     if s.is_typing:
-        if not s.kb.is_finished:
-            if s.kb.run(True, False) is False:
-                s.is_typing = False; s.kb = None
+        kb = view_manager.keyboard
+        if not kb.is_finished:
+            # Pass s.kb_force into kb.run to guarantee it renders on the exact frame it opens
+            if kb.run(True, s.kb_force) is False:
+                s.is_typing = False
+                s.kb_force = False
+                kb.reset()
                 _im.reset(); _draw_ui(view_manager)
+            s.kb_force = False
         else:
             try:
-                new_val = float(s.kb.response)
+                new_val = float(kb.response)
                 if s.current_screen == SCREEN_CALC:
                     if s.sel_main == FIELD_DIAM: s.val_diam = new_val
                     elif s.sel_main == FIELD_LEN: s.val_len = new_val
@@ -786,7 +791,9 @@ def run(view_manager):
                 _calculate()
                 queue_save()
             except Exception: pass
-            s.is_typing = False; s.kb = None
+            s.is_typing = False
+            s.kb_force = False
+            kb.reset()
             _im.reset(); _draw_ui(view_manager)
         return
 
@@ -841,12 +848,18 @@ def run(view_manager):
         elif _btn == BUTTON_CENTER:
             if s.sel_tp == TP_BACK: s.current_screen = SCREEN_TOOLBOX; _needs_redraw = True
             else:
-                from picoware.gui.keyboard import Keyboard
-                s.kb = Keyboard(view_manager.draw, _im, on_save_callback=None)
-                if s.sel_tp == TP_D: s.kb.response = str(s.tp_D)
-                elif s.sel_tp == TP_d: s.kb.response = str(s.tp_d)
-                elif s.sel_tp == TP_L: s.kb.response = str(s.tp_L)
-                s.is_typing = True; _im.reset(); return
+                kb = view_manager.keyboard
+                kb.reset()
+                if s.sel_tp == TP_D: 
+                    kb.title = "LARGE DIAMETER"
+                    kb.response = str(s.tp_D)
+                elif s.sel_tp == TP_d: 
+                    kb.title = "SMALL DIAMETER"
+                    kb.response = str(s.tp_d)
+                elif s.sel_tp == TP_L: 
+                    kb.title = "TAPER LENGTH"
+                    kb.response = str(s.tp_L)
+                s.is_typing = True; s.kb_force = True; _im.reset(); return
                 
     elif s.current_screen == SCREEN_THREAD:
         if _btn == BUTTON_DOWN: s.sel_th = (s.sel_th + 1) % 4; _needs_redraw = True
@@ -863,11 +876,15 @@ def run(view_manager):
         elif _btn == BUTTON_CENTER:
             if s.sel_th == TH_BACK: s.current_screen = SCREEN_TOOLBOX; _needs_redraw = True
             elif s.sel_th in (TH_DIAM, TH_PITCH):
-                from picoware.gui.keyboard import Keyboard
-                s.kb = Keyboard(view_manager.draw, _im, on_save_callback=None)
-                if s.sel_th == TH_DIAM: s.kb.response = str(s.th_diam)
-                elif s.sel_th == TH_PITCH: s.kb.response = str(s.th_pitch)
-                s.is_typing = True; _im.reset(); return
+                kb = view_manager.keyboard
+                kb.reset()
+                if s.sel_th == TH_DIAM: 
+                    kb.title = "MAJOR DIAMETER"
+                    kb.response = str(s.th_diam)
+                elif s.sel_th == TH_PITCH: 
+                    kb.title = "PITCH / TPI"
+                    kb.response = str(s.th_pitch)
+                s.is_typing = True; s.kb_force = True; _im.reset(); return
 
     elif s.current_screen == SCREEN_CONVERT:
         if _btn == BUTTON_DOWN: s.sel_cv = (s.sel_cv + 1) % 3; _needs_redraw = True
@@ -881,10 +898,11 @@ def run(view_manager):
         elif _btn == BUTTON_CENTER:
             if s.sel_cv == CV_BACK: s.current_screen = SCREEN_TOOLBOX; _needs_redraw = True
             elif s.sel_cv == CV_VAL:
-                from picoware.gui.keyboard import Keyboard
-                s.kb = Keyboard(view_manager.draw, _im, on_save_callback=None)
-                s.kb.response = str(s.cv_val)
-                s.is_typing = True; _im.reset(); return
+                kb = view_manager.keyboard
+                kb.reset()
+                kb.title = "CONVERT VALUE"
+                kb.response = str(s.cv_val)
+                s.is_typing = True; s.kb_force = True; _im.reset(); return
 
     elif s.current_screen == SCREEN_CALC:
         if _btn == BUTTON_DOWN: s.sel_main = (s.sel_main + 1) % 12; _needs_redraw = True
@@ -926,13 +944,26 @@ def run(view_manager):
                 s.current_screen = SCREEN_HELP
                 _load_text("HELP"); _needs_redraw = True
             elif s.sel_main in (FIELD_DIAM, FIELD_LEN, FIELD_VC, FIELD_FEED):
-                from picoware.gui.keyboard import Keyboard
-                s.kb = Keyboard(view_manager.draw, _im, on_save_callback=None)
-                if s.sel_main == FIELD_DIAM: s.kb.response = str(s.val_diam)
-                elif s.sel_main == FIELD_LEN: s.kb.response = str(s.val_len)
-                elif s.sel_main == FIELD_VC: s.kb.response = str(s.val_vc)
-                elif s.sel_main == FIELD_FEED: s.kb.response = str(s.val_feed)
-                s.is_typing = True; _im.reset(); return
+                kb = view_manager.keyboard
+                kb.reset()
+                
+                _u_d = "mm" if s.val_unit == UNIT_METRIC else "in"
+                _u_v = "m/m" if s.val_unit == UNIT_METRIC else "SFM"
+                _u_f = "mm/r" if s.val_unit == UNIT_METRIC else "in/r"
+                
+                if s.sel_main == FIELD_DIAM: 
+                    kb.title = "DIAMETER (" + _u_d + ")"
+                    kb.response = str(s.val_diam)
+                elif s.sel_main == FIELD_LEN: 
+                    kb.title = "LENGTH (" + _u_d + ")"
+                    kb.response = str(s.val_len)
+                elif s.sel_main == FIELD_VC: 
+                    kb.title = "SPEED (" + _u_v + ")"
+                    kb.response = str(s.val_vc)
+                elif s.sel_main == FIELD_FEED: 
+                    kb.title = "FEED (" + _u_f + ")"
+                    kb.response = str(s.val_feed)
+                s.is_typing = True; s.kb_force = True; _im.reset(); return
 
     if _needs_redraw:
         _im.reset(); _draw_ui(view_manager)
@@ -944,6 +975,9 @@ def stop(view_manager):
     
     save_settings() 
     
+    if view_manager.keyboard:
+        view_manager.keyboard.reset()
+        
     del state; state = None
     storage = None
     dirty_save = False

@@ -72,6 +72,7 @@ class FileBrowser:
         self._edit_sx = 0
         self._edit_sy = 0
         self._edit_unsaved = False
+        self._text_editor = None
 
         self._is_viewing_image = False
         self._is_viewing_text = False
@@ -263,6 +264,13 @@ class FileBrowser:
 
         self._is_editing = True
         self._needs_redraw = True
+
+        if not read_only:
+            from picoware.gui.text_editor import TextEditor
+
+            self._text_editor = TextEditor(self._vm)
+            self._text_editor.current_text = "\n".join(self._edit_text)
+
         return True
 
     def __file_view(self, path) -> None:
@@ -493,22 +501,17 @@ class FileBrowser:
 
         # 2. Text Editor Overlay
         if self._is_editing:
+            if self._text_editor is not None:
+                # TextEditor owns all rendering; only overlay the context menu if present
+                if self._context_menu:
+                    self._context_menu.refresh()
+                    self._needs_redraw = False
+                return
+
+            # Read-only viewer
             draw.erase()
             draw._fill_rectangle(0, 0, sw, 12, color_sel)
-            mode_s = "View" if self._edit_read_only else "Edit"
-            mod_s = "*" if self._edit_unsaved and not self._edit_read_only else ""
-
-            ind_s = ""
-            if not self._edit_read_only:
-                ind = "A" if self._is_caps else ("^" if self._is_shift else "a")
-                ind_s = f" [{ind}]"
-
-            draw._text(
-                2,
-                2,
-                f"{mode_s}: {self._edit_file.split('/')[-1]}{mod_s}{ind_s}",
-                color_fg,
-            )
+            draw._text(2, 2, f"View: {self._edit_file.split('/')[-1]}", color_fg)
 
             m_lin, m_chr = (sh - 24) // 12, (sw - 4) // 6
             for i in range(m_lin):
@@ -518,37 +521,8 @@ class FileBrowser:
                     line_text = full_line[self._edit_sx : self._edit_sx + m_chr]
                     draw._text(2, 14 + i * 12, line_text, color_fg)
 
-            if not self._edit_read_only:
-                cx, cy = (
-                    2 + (self._edit_cx - self._edit_sx) * 6,
-                    14 + (self._edit_cy - self._edit_sy) * 12,
-                )
-                if 0 <= cx < sw and 12 < cy < sh - 12:
-                    draw._fill_rectangle(cx, cy - 1, 6, 11, color_sel)
-                    try:
-                        draw._text(
-                            cx,
-                            cy,
-                            self._edit_text[self._edit_cy][self._edit_cx],
-                            color_fg,
-                        )
-                    except IndexError:
-                        pass
-
-            if not self._edit_read_only:
-                self._needs_redraw = True
-
             draw._fill_rectangle(0, sh - 12, sw, 12, color_sel)
-            draw._text(
-                2,
-                sh - 10,
-                (
-                    "UP/DWN:Scroll BACK:Close"
-                    if self._edit_read_only
-                    else "ENT:NewLn BACK:Menu"
-                ),
-                color_fg,
-            )
+            draw._text(2, sh - 10, "UP/DWN:Scroll BACK:Close", color_fg)
 
             if self._context_menu:
                 self._context_menu.refresh()
@@ -646,13 +620,15 @@ class FileBrowser:
             # Changed color_sel to color_bg so the text is visible
             draw._text(15, by + 2, f"{ts} [{ind}]:", color_bg)
             draw._text(15, by + 24, self._input_text, color_fg)
-            
+
             # Blinking horizontal cursor (500ms intervals)
             import time
+
             if (time.ticks_ms() // 500) % 2 == 0:
                 draw._fill_rectangle(
-                    15 + (self._input_cursor * 6), by + 35, 6, 2, color_fg)
-            
+                    15 + (self._input_cursor * 6), by + 35, 6, 2, color_fg
+                )
+
             self._needs_redraw = True
             draw._text(15, by + 48, "ENT:Save BACK:Cancel", color_sel)
             draw.swap()
@@ -750,7 +726,7 @@ class FileBrowser:
                 # Define a local variable for the indicator and append it to the display name
                 mk_char = "*" if fp in self._app_state["marked"] else ""
                 dn = f"{mk_char}/{fn}" if isd else f"{mk_char}{fn}"
-                
+
                 pl = max(0, c_lim - len(dn[:n_lim]) - len(szs))
                 draw._text(xb + 2, yo, dn[:n_lim] + (" " * pl) + szs, color_fg)
                 yo += 12
@@ -878,119 +854,33 @@ class FileBrowser:
                     menu_title, ("Save", "Save & Exit", "Exit", fm_label, "Cancel")
                 )
                 self._needs_redraw = True
-            elif btn == BUTTON_UP:
-                inp.reset()
-                if self._edit_read_only:
+            elif self._edit_read_only:
+                if btn == BUTTON_UP:
+                    inp.reset()
                     if self._edit_sy > 0:
                         self._edit_sy -= 1
-                elif self._edit_cy > 0:
-                    self._edit_cy -= 1
-                    self._edit_cx = min(
-                        self._edit_cx, len(self._edit_text[self._edit_cy])
-                    )
-                self._needs_redraw = True
-            elif btn == BUTTON_DOWN:
-                inp.reset()
-                if self._edit_read_only:
+                    self._needs_redraw = True
+                elif btn == BUTTON_DOWN:
+                    inp.reset()
                     ml = (296) // 12
                     if self._edit_sy + ml < len(self._edit_text):
                         self._edit_sy += 1
-                elif self._edit_cy < len(self._edit_text) - 1:
-                    self._edit_cy += 1
-                    self._edit_cx = min(
-                        self._edit_cx, len(self._edit_text[self._edit_cy])
-                    )
-                self._needs_redraw = True
-            elif btn == BUTTON_LEFT:
-                inp.reset()
-                if self._edit_read_only:
+                    self._needs_redraw = True
+                elif btn == BUTTON_LEFT:
+                    inp.reset()
                     if self._edit_sx > 0:
                         self._edit_sx -= 1
-                elif self._edit_cx > 0:
-                    self._edit_cx -= 1
-                elif self._edit_cy > 0:
-                    self._edit_cy -= 1
-                    self._edit_cx = len(self._edit_text[self._edit_cy])
-                self._needs_redraw = True
-            elif btn == BUTTON_RIGHT:
-                inp.reset()
-                if self._edit_read_only:
+                    self._needs_redraw = True
+                elif btn == BUTTON_RIGHT:
+                    inp.reset()
                     if self._edit_sx < 500:
                         self._edit_sx += 1
-                elif self._edit_cx < len(self._edit_text[self._edit_cy]):
-                    self._edit_cx += 1
-                elif self._edit_cy < len(self._edit_text) - 1:
-                    self._edit_cy += 1
-                    self._edit_cx = 0
-                self._needs_redraw = True
-            elif not self._edit_read_only:
-                if btn == BUTTON_CENTER:
-                    inp.reset()
-                    # Split the current line at the cursor and push the rest to a new line
-                    line = self._edit_text[self._edit_cy]
-                    self._edit_text[self._edit_cy] = line[: self._edit_cx]
-                    self._edit_text.insert(self._edit_cy + 1, line[self._edit_cx :])
-                    self._edit_cy += 1
-                    self._edit_cx = 0
+                    self._needs_redraw = True
+            elif self._text_editor is not None:
+                prev_text = self._text_editor.current_text
+                self._text_editor.run()
+                if self._text_editor.current_text != prev_text:
                     self._edit_unsaved = True
-                    self._needs_redraw = True
-                elif btn in (BUTTON_SHIFT, KEY_MOD_SHL, KEY_MOD_SHR):
-                    inp.reset()
-                    self._is_shift = not self._is_shift
-                    self._needs_redraw = True
-                elif btn in (BUTTON_CAPS_LOCK, KEY_CAPS_LOCK):
-                    inp.reset()
-                    self._is_caps = not self._is_caps
-                    self._is_shift = False
-                    self._needs_redraw = True
-                elif btn == BUTTON_BACKSPACE:
-                    inp.reset()
-                    if self._edit_cx > 0:
-                        line = self._edit_text[self._edit_cy]
-                        self._edit_text[self._edit_cy] = (
-                            line[: self._edit_cx - 1] + line[self._edit_cx :]
-                        )
-                        self._edit_cx -= 1
-                        self._edit_unsaved = True
-                        self._needs_redraw = True
-                    elif self._edit_cy > 0:
-                        pl = len(self._edit_text[self._edit_cy - 1])
-                        self._edit_text[self._edit_cy - 1] += self._edit_text[
-                            self._edit_cy
-                        ]
-                        self._edit_text.pop(self._edit_cy)
-                        self._edit_cy -= 1
-                        self._edit_cx = pl
-                        self._edit_unsaved = True
-                        self._needs_redraw = True
-                else:
-                    is_cap = inp.was_capitalized
-                    inp.reset()
-                    c = inp.button_to_char(btn)
-                    if c:
-                        if is_cap or self._is_shift or self._is_caps:
-                            c = c.upper()
-                        line = self._edit_text[self._edit_cy]
-                        self._edit_text[self._edit_cy] = (
-                            line[: self._edit_cx] + c + line[self._edit_cx :]
-                        )
-                        self._edit_cx += 1
-                        self._edit_unsaved = True
-                        if self._is_shift:
-                            self._is_shift = False
-                        self._needs_redraw = True
-
-            # Restrict cursor viewport mathematically
-            if self._needs_redraw and not self._edit_read_only:
-                ml = 296 // 12
-                mc = 316 // 6
-                self._edit_sy = min(self._edit_sy, self._edit_cy)
-                if self._edit_cy >= self._edit_sy + ml:
-                    self._edit_sy = self._edit_cy - ml + 1
-                if self._edit_cx < self._edit_sx:
-                    self._edit_sx = max(0, self._edit_cx - 5)
-                if self._edit_cx >= self._edit_sx + mc:
-                    self._edit_sx = self._edit_cx - mc + 1
 
         # --- Sub-View: Information Dialog Input ---
         elif self._show_info:
@@ -1032,9 +922,11 @@ class FileBrowser:
                         else self._app_state["right_path"]
                     )
                     np = f"/{new_name}" if td == "/" else f"{td}/{new_name}"
-                    
+
                     storage = self._vm.storage
-                    print(f"DEBUG: Processing target path: {np} | Mode: {self._input_mode}")
+                    self._vm.log(
+                        f"DEBUG: Processing target path: {np} | Mode: {self._input_mode}"
+                    )
 
                     if (
                         self._input_mode in (self.MODE_RENAME, self.MODE_COPY_SAME)
@@ -1376,7 +1268,7 @@ class FileBrowser:
                                 f"Deleting {int((i/total)*100)}%", i / total
                             )
                             if not storage.remove(t):
-                                print("Delete Error on:", t)
+                                self._vm.log(f"Delete Error on: {t}", 2)
                         self.__loading_run("Deleted", 1.0)
 
                     elif self._pending_action in (self.ACT_COPY, self.ACT_MOVE):
@@ -1407,10 +1299,10 @@ class FileBrowser:
 
                                 if self._pending_action == self.ACT_COPY:
                                     if not storage.copy(t, dp):
-                                        print("Copy Error on:", t)
+                                        self._vm.log(f"Copy Error on: {t}", 2)
                                 else:
                                     if not storage.move(t, dp):
-                                        print("Move Error on:", t)
+                                        self._vm.log(f"Move Error on: {t}", 2)
 
                         self.__loading_run("Done", 1.0)
 
@@ -1421,7 +1313,9 @@ class FileBrowser:
                         if not storage.move(
                             self._context_target_path, self._pending_dest_path
                         ):
-                            print("Rename Error")
+                            self._vm.log(
+                                f"Rename Error on: {self._context_target_path}", 2
+                            )
                         self.__loading_run("Renamed", 1.0)
 
                     if len(mk) > 0:
@@ -1457,7 +1351,11 @@ class FileBrowser:
                 if self._is_editing:
                     if ac in ("Save", "Save & Exit"):
                         self.__loading_run("Saving...", 0.5)
-                        data = "\n".join(self._edit_text)
+                        data = (
+                            self._text_editor.current_text
+                            if self._text_editor is not None
+                            else "\n".join(self._edit_text)
+                        )
                         if self._vm.storage.write(self._edit_file, data, "w"):
                             self._edit_unsaved = False
                         del data
@@ -1466,10 +1364,12 @@ class FileBrowser:
                             self._is_editing = False
                             self._is_shift = False
                             self._is_caps = False
+                            self._text_editor = None
                     elif ac in ("Exit", "Exit without Saving"):
                         self._is_editing = False
                         self._is_shift = False
                         self._is_caps = False
+                        self._text_editor = None
                     del self._context_menu
                     self._context_menu = None
                     self._needs_redraw = True

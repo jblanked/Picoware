@@ -54,6 +54,7 @@ class FileBrowser:
         self._input_active = False
         self._input_text = ""
         self._input_cursor = 0
+        self._cursor_frame = 0
         self._input_mode = self.MODE_NONE
         self._context_target_path = ""
         self._pending_action = self.ACT_NONE
@@ -621,10 +622,9 @@ class FileBrowser:
             draw._text(15, by + 2, f"{ts} [{ind}]:", color_bg)
             draw._text(15, by + 24, self._input_text, color_fg)
 
-            # Blinking horizontal cursor (500ms intervals)
-            import time
-
-            if (time.ticks_ms() // 500) % 2 == 0:
+            # Blinking horizontal cursor (every 8 frames)
+            self._cursor_frame = (self._cursor_frame + 1) % 16
+            if self._cursor_frame < 8:
                 draw._fill_rectangle(
                     15 + (self._input_cursor * 6), by + 35, 6, 2, color_fg
                 )

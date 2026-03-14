@@ -646,8 +646,13 @@ class FileBrowser:
             # Changed color_sel to color_bg so the text is visible
             draw._text(15, by + 2, f"{ts} [{ind}]:", color_bg)
             draw._text(15, by + 24, self._input_text, color_fg)
-            draw._fill_rectangle(
-                15 + (self._input_cursor * 6), by + 35, 6, 2, color_bg)
+            
+            # Blinking horizontal cursor (500ms intervals)
+            import time
+            if (time.ticks_ms() // 500) % 2 == 0:
+                draw._fill_rectangle(
+                    15 + (self._input_cursor * 6), by + 35, 6, 2, color_fg)
+            
             self._needs_redraw = True
             draw._text(15, by + 48, "ENT:Save BACK:Cancel", color_sel)
             draw.swap()

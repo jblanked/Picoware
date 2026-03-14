@@ -646,8 +646,13 @@ class FileBrowser:
             # Changed color_sel to color_bg so the text is visible
             draw._text(15, by + 2, f"{ts} [{ind}]:", color_bg)
             draw._text(15, by + 24, self._input_text, color_fg)
-            draw._fill_rectangle(
-                15 + (self._input_cursor * 6), by + 35, 6, 2, color_bg)
+            
+            # Blinking horizontal cursor (500ms intervals)
+            import time
+            if (time.ticks_ms() // 500) % 2 == 0:
+                draw._fill_rectangle(
+                    15 + (self._input_cursor * 6), by + 35, 6, 2, color_fg)
+            
             self._needs_redraw = True
             draw._text(15, by + 48, "ENT:Save BACK:Cancel", color_sel)
             draw.swap()
@@ -959,9 +964,12 @@ class FileBrowser:
                         self._edit_unsaved = True
                         self._needs_redraw = True
                 else:
+                    is_cap = inp.was_capitalized
                     inp.reset()
                     c = inp.button_to_char(btn)
                     if c:
+                        if is_cap or self._is_shift or self._is_caps:
+                            c = c.upper()
                         line = self._edit_text[self._edit_cy]
                         self._edit_text[self._edit_cy] = (
                             line[: self._edit_cx] + c + line[self._edit_cx :]
@@ -1100,9 +1108,12 @@ class FileBrowser:
                     self._input_cursor -= 1
                     self._needs_redraw = True
             else:
+                is_cap = inp.was_capitalized
                 inp.reset()
                 c = inp.button_to_char(btn)
                 if c and len(self._input_text) < 35:
+                    if is_cap or self._is_shift or self._is_caps:
+                        c = c.upper()
                     self._input_text = (
                         self._input_text[: self._input_cursor]
                         + c

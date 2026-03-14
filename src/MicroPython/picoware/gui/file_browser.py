@@ -1365,6 +1365,8 @@ class FileBrowser:
                             self._is_shift = False
                             self._is_caps = False
                             self._text_editor = None
+                        else:
+                            self._text_editor.refresh()
                     elif ac in ("Exit", "Exit without Saving"):
                         self._is_editing = False
                         self._is_shift = False

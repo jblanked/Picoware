@@ -624,7 +624,7 @@ class FileBrowser:
                     v = "Menu" if self._app_state.get("dir_menu", True) else "Open"
                 draw._text(130, yp, f"< {v} >", tc)
             draw._fill_rectangle(10, sh - 30, sw - 20, 20, color_sel)
-            draw._text(15, sh - 26, "[L/R] Edit   [BACK/ENT] Save", color_sel)
+            draw._text(15, sh - 26, "[L/R] Edit   [BACK/ENT] Save", color_bg)
             draw.swap()
             self._needs_redraw = False
             return
@@ -643,11 +643,11 @@ class FileBrowser:
             )
             ind = "A" if self._is_caps else ("^" if self._is_shift else "a")
 
-            draw._text(15, by + 2, f"{ts} [{ind}]:", color_sel)
+            # Changed color_sel to color_bg so the text is visible
+            draw._text(15, by + 2, f"{ts} [{ind}]:", color_bg)
             draw._text(15, by + 24, self._input_text, color_fg)
             draw._fill_rectangle(
-                15 + (self._input_cursor * 6), by + 35, 6, 2, color_sel
-            )
+                15 + (self._input_cursor * 6), by + 35, 6, 2, color_bg)
             self._needs_redraw = True
             draw._text(15, by + 48, "ENT:Save BACK:Cancel", color_sel)
             draw.swap()
@@ -754,7 +754,7 @@ class FileBrowser:
             draw._text(
                 2,
                 sh - 10,
-                "ENT:Menu SPC N:New S:Srt M:DirMode O:Opt H:Help",
+                "ENT:Menu SPC:Mark N:New S:Srt M:DirMode O:Opt H:Help",
                 color_fg,
             )
         draw.swap()
@@ -1021,12 +1021,14 @@ class FileBrowser:
                         else self._app_state["right_path"]
                     )
                     np = f"/{new_name}" if td == "/" else f"{td}/{new_name}"
+                    
+                    storage = self._vm.storage
+                    print(f"DEBUG: Processing target path: {np} | Mode: {self._input_mode}")
 
                     if (
                         self._input_mode in (self.MODE_RENAME, self.MODE_COPY_SAME)
                         and np != self._context_target_path
                     ):
-                        storage = self._vm.storage
                         if storage.exists(np):
                             self._pending_dest_path = np
                             self._pending_action = (

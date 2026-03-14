@@ -119,11 +119,51 @@ static void textbox_wrap(textbox_mp_obj_t *self)
         }
     }
 
-    // Commit the last (possibly empty) line
-    if (line_length > 0 || self->total_lines == 0)
+    // Commit the last line; also emit an empty trailing line when text ends with '\n'
+    // so the cursor lands on a fresh line rather than the end of the previous one.
+    if (line_length > 0 || self->total_lines == 0 ||
+        (str_len > 0 && text[str_len - 1] == '\n'))
         textbox_add_line(self, line_start, line_length);
 
     self->cache_valid = true;
+}
+
+// Draw the cursor as a static horizontal underline at the current cursor_pos.
+static void textbox_draw_cursor(textbox_mp_obj_t *self, uint16_t first, uint16_t last)
+{
+    if (!self->show_cursor || self->total_lines == 0)
+        return;
+
+    // Find which wrapped line contains cursor_pos.
+    uint16_t cursor_line = self->total_lines - 1;
+    uint16_t cursor_col = 0;
+    for (uint16_t i = 0; i < self->total_lines; i++)
+    {
+        uint32_t ls = self->lines[i].start;
+        uint16_t ll = self->lines[i].length;
+        if (self->cursor_pos >= ls &&
+            (self->cursor_pos < ls + ll || i == self->total_lines - 1))
+        {
+            cursor_line = i;
+            cursor_col = (uint16_t)(self->cursor_pos - ls);
+            if (cursor_col > ll)
+                cursor_col = ll; // clamp to end of line
+            break;
+        }
+    }
+
+    // Only draw if the cursor's line is currently on screen.
+    if (cursor_line < first || cursor_line >= last)
+        return;
+
+    uint16_t char_w = (self->chars_per_line > 0)
+                          ? (uint16_t)(self->box_width / self->chars_per_line)
+                          : 8;
+    uint16_t cx = (uint16_t)(1 + cursor_col * char_w);
+    // Place the 2px underline at the bottom of the character cell.
+    uint16_t cy = (uint16_t)(self->pos_y + 5 + (uint32_t)(cursor_line - first) * self->spacing + self->spacing - 2);
+
+    LCD_MP_FILL_RECTANGLE(cx, cy, char_w, 2, self->foreground_color);
 }
 
 // Draw the vertical scrollbar track + indicator.
@@ -214,6 +254,8 @@ static void textbox_display(textbox_mp_obj_t *self)
     if (self->show_scrollbar)
         textbox_draw_scrollbar(self);
 
+    textbox_draw_cursor(self, first, last);
+
     LCD_MP_SWAP();
     m_free(line_buf);
 }
@@ -228,10 +270,10 @@ void textbox_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t
 // Constructor: TextBox(y, height, display_width, chars_per_line, spacing, fg_color, bg_color, show_scrollbar)
 mp_obj_t textbox_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
-    if (n_args != 8)
+    if (n_args != 9)
     {
         mp_raise_TypeError(MP_ERROR_TEXT(
-            "TextBox requires 8 args: y, height, display_width, chars_per_line, spacing, fg_color, bg_color, show_scrollbar"));
+            "TextBox requires 9 args: y, height, display_width, chars_per_line, spacing, fg_color, bg_color, show_scrollbar, show_cursor"));
     }
 
     textbox_mp_obj_t *self = mp_obj_malloc_with_finaliser(textbox_mp_obj_t, &textbox_mp_type);
@@ -245,7 +287,7 @@ mp_obj_t textbox_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_
     self->foreground_color = (uint16_t)mp_obj_get_int(args[5]);
     self->background_color = (uint16_t)mp_obj_get_int(args[6]);
     self->show_scrollbar = mp_obj_is_true(args[7]);
-
+    self->show_cursor = mp_obj_is_true(args[8]);
     self->lines_per_screen = (self->spacing > 0)
                                  ? (uint16_t)(self->box_height / self->spacing)
                                  : 1;
@@ -300,6 +342,7 @@ mp_obj_t textbox_mp_render(mp_obj_t self_in)
 
     if (self->total_lines > 0)
         self->current_line = (uint16_t)(self->total_lines - 1);
+    self->cursor_pos = self->text_len;
 
     textbox_display(self);
     return mp_const_none;
@@ -369,6 +412,7 @@ mp_obj_t textbox_mp_set_text(mp_obj_t self_in, mp_obj_t text_in)
     textbox_wrap(self);
     if (self->total_lines > 0)
         self->current_line = (uint16_t)(self->total_lines - 1);
+    self->cursor_pos = self->text_len;
     textbox_display(self);
     return mp_const_none;
 }
@@ -407,6 +451,14 @@ void textbox_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
             destination[0] = mp_obj_new_int(self->foreground_color);
         else if (attribute == MP_QSTR_background_color)
             destination[0] = mp_obj_new_int(self->background_color);
+        else if (attribute == MP_QSTR_show_scrollbar)
+            destination[0] = mp_obj_new_bool(self->show_scrollbar);
+        else if (attribute == MP_QSTR_show_cursor)
+            destination[0] = mp_obj_new_bool(self->show_cursor);
+        else if (attribute == MP_QSTR_lines_per_screen)
+            destination[0] = mp_obj_new_int(self->lines_per_screen);
+        else if (attribute == MP_QSTR_cursor)
+            destination[0] = mp_obj_new_int((mp_int_t)self->cursor_pos);
         else if (attribute == MP_QSTR___del__)
             destination[0] = MP_OBJ_FROM_PTR(&textbox_mp_del_obj);
     }
@@ -421,6 +473,23 @@ void textbox_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
         else if (attribute == MP_QSTR_background_color)
         {
             self->background_color = (uint16_t)mp_obj_get_int(destination[1]);
+            destination[0] = MP_OBJ_NULL;
+        }
+        else if (attribute == MP_QSTR_show_cursor)
+        {
+            self->show_cursor = mp_obj_get_int(destination[1]);
+            destination[0] = MP_OBJ_NULL;
+        }
+        else if (attribute == MP_QSTR_cursor)
+        {
+            size_t pos = (size_t)mp_obj_get_int(destination[1]);
+            if (pos <= self->text_len)
+                self->cursor_pos = pos;
+            destination[0] = MP_OBJ_NULL;
+        }
+        else if (attribute == MP_QSTR_show_scrollbar)
+        {
+            self->show_scrollbar = mp_obj_get_int(destination[1]);
             destination[0] = MP_OBJ_NULL;
         }
     }

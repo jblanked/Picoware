@@ -12,6 +12,7 @@ class TextBox(textbox.TextBox):
         foreground_color: int = 0xFFFF,
         background_color: int = 0x0000,
         show_scrollbar: bool = True,
+        show_cursor: bool = False,
     ) -> None:
         self.use_lvgl = draw.use_lvgl
         self._lvgl_textbox = None
@@ -25,6 +26,7 @@ class TextBox(textbox.TextBox):
             foreground_color,
             background_color,
             show_scrollbar,
+            show_cursor,
         )
 
         # LVGL path

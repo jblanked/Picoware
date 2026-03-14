@@ -20,7 +20,9 @@ class TextEditor(TextBox):
         self._vm = view_manager
         self._callback = callback
         draw = view_manager.draw
-        super().__init__(draw, 0, draw.height, draw.foreground, draw.background)
+        super().__init__(
+            draw, 0, draw.height, draw.foreground, draw.background, True, True
+        )
 
     @property
     def callback(self) -> callable:

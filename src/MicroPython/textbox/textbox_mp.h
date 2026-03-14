@@ -53,6 +53,9 @@ extern "C"
         uint16_t line_capacity;
         uint16_t current_line;
         bool cache_valid;
+        // Cursor state
+        size_t cursor_pos; // byte offset of the cursor in the text
+        bool show_cursor;  // whether to render the cursor
         bool freed;
     } textbox_mp_obj_t;
 

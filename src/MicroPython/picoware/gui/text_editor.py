@@ -67,6 +67,6 @@ class TextEditor(TextBox):
             inp.reset()
             return False
         if but != -1:
-            inp.reset()
             self.__process_text_input(but)
+            inp.reset()
         return True

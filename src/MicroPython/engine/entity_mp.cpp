@@ -258,27 +258,32 @@ mp_obj_t entity_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
     if (n_args > 7 && mp_obj_is_callable(args[7]))
     {
         self->start = args[7];
-        start_func = {entity_start_trampoline, self};
+        start_func.fn = entity_start_trampoline;
+        start_func.ctx = self;
     }
     if (n_args > 8 && mp_obj_is_callable(args[8]))
     {
         self->stop = args[8];
-        stop_func = {entity_stop_trampoline, self};
+        stop_func.fn = entity_stop_trampoline;
+        stop_func.ctx = self;
     }
     if (n_args > 9 && mp_obj_is_callable(args[9]))
     {
         self->update = args[9];
-        update_func = {entity_update_trampoline, self};
+        update_func.fn = entity_update_trampoline;
+        update_func.ctx = self;
     }
     if (n_args > 10 && mp_obj_is_callable(args[10]))
     {
         self->render = args[10];
-        render_func = {entity_render_trampoline, self};
+        render_func.fn = entity_render_trampoline;
+        render_func.ctx = self;
     }
     if (n_args > 11 && mp_obj_is_callable(args[11]))
     {
         self->collision = args[11];
-        collision_func = {entity_collision_trampoline, self};
+        collision_func.fn = entity_collision_trampoline;
+        collision_func.ctx = self;
     }
 
     // Extract Image* from image_mp_obj_t for sprite args (handles Python subclass wrappers)

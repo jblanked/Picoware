@@ -24,7 +24,7 @@ class FileBrowser:
     ACT_MOVE = const(3)
     ACT_RENAME = const(4)
 
-    OPTIONS_LABELS = ("Sort Mode", "Hidden Files", "Dir Enter")
+    OPTIONS_LABELS = ("Hidden Files", "Dir Enter")
 
     def __init__(self, view_manager, mode=FILE_BROWSER_SELECTOR, start_directory=""):
         """Initialize the file browser."""
@@ -362,6 +362,7 @@ class FileBrowser:
         if percentage >= 1.0:
             if self._loading:
                 self._loading.stop()
+                del self._loading
                 self._loading = None
             return
 
@@ -439,6 +440,7 @@ class FileBrowser:
             if self._image_load_state == 5:
                 if self._loading:
                     self._loading.stop()
+                    del self._loading
                     self._loading = None
 
                 draw.erase()
@@ -566,7 +568,7 @@ class FileBrowser:
             draw._text(10, 44, "CENTER:Menu     BACK:Exit App", color_fg)
             draw._text(10, 56, "SPACE:Mark/Sel  D:Delete Marked", color_fg)
             draw._text(10, 68, "N:New Folder    I:File Info", color_fg)
-            draw._text(10, 80, "S:Sort Mode     M:Dir Enter Mode", color_fg)
+            draw._text(10, 80, "M:Dir Enter Mode", color_fg)
             draw._text(10, 92, "O:Options       H:Toggle Help", color_fg)
 
             draw._text(10, 108, "[TEXT EDITOR]", color_sel)
@@ -617,14 +619,12 @@ class FileBrowser:
                 draw._text(20, yp, l + ":", tc)
                 v = ""
                 if i == 0:
-                    v = "Name"
-                elif i == 1:
                     v = "Show" if self._app_state.get("show_hidden", False) else "Hide"
-                elif i == 2:
+                elif i == 1:
                     v = "Menu" if self._app_state.get("dir_menu", True) else "Open"
                 draw._text(130, yp, f"< {v} >", tc)
             draw._fill_rectangle(10, sh - 30, sw - 20, 20, color_sel)
-            draw._text(15, sh - 26, "[L/R] Edit   [BACK/ENT] Save", color_sel)
+            draw._text(15, sh - 26, "[L/R] Edit   [BACK/ENT] Save", color_bg)
             draw.swap()
             self._needs_redraw = False
             return
@@ -643,11 +643,11 @@ class FileBrowser:
             )
             ind = "A" if self._is_caps else ("^" if self._is_shift else "a")
 
-            draw._text(15, by + 2, f"{ts} [{ind}]:", color_sel)
+            # Changed color_sel to color_bg so the text is visible
+            draw._text(15, by + 2, f"{ts} [{ind}]:", color_bg)
             draw._text(15, by + 24, self._input_text, color_fg)
             draw._fill_rectangle(
-                15 + (self._input_cursor * 6), by + 35, 6, 2, color_sel
-            )
+                15 + (self._input_cursor * 6), by + 35, 6, 2, color_bg)
             self._needs_redraw = True
             draw._text(15, by + 48, "ENT:Save BACK:Cancel", color_sel)
             draw.swap()
@@ -668,13 +668,12 @@ class FileBrowser:
 
         # 8. Main Dual-Pane Browser View
         draw._fill_rectangle(0, 0, sw, 12, color_sel)
-        ss = "Name"
         dm = "Menu" if self._app_state.get("dir_menu", True) else "Open"
 
         mk_len = len(self._app_state["marked"])
         mk_str = f" [Sel:{mk_len}]" if mk_len > 0 else ""
 
-        draw._text(2, 2, f"File Browser [{ss}] [Dir:{dm}]{mk_str}", color_fg)
+        draw._text(2, 2, f"File Browser [Dir:{dm}]{mk_str}", color_fg)
         draw._fill_rectangle(mx, 12, 1, sh - 24, color_sel)
 
         c_lim, n_lim, m_itm = (mx - 8) // 6, ((mx - 8) // 6) - 6, (sh - 38) // 12
@@ -724,7 +723,8 @@ class FileBrowser:
                         self._stat_cache[fp] = (isd, fz)
 
                 if ap == pn:
-                    if ai == ix or fp in self._app_state["marked"]:
+                    # Removed the 'or marked' condition so only the active cursor gets the background color
+                    if ai == ix:
                         draw._fill_rectangle(
                             xb + (0 if il else 1),
                             yo - 1,
@@ -742,7 +742,10 @@ class FileBrowser:
                 else:
                     szs = f"{fz//1048576}M"
 
-                dn = f"/{fn}" if isd else fn
+                # Define a local variable for the indicator and append it to the display name
+                mk_char = "*" if fp in self._app_state["marked"] else ""
+                dn = f"{mk_char}/{fn}" if isd else f"{mk_char}{fn}"
+                
                 pl = max(0, c_lim - len(dn[:n_lim]) - len(szs))
                 draw._text(xb + 2, yo, dn[:n_lim] + (" " * pl) + szs, color_fg)
                 yo += 12
@@ -754,7 +757,7 @@ class FileBrowser:
             draw._text(
                 2,
                 sh - 10,
-                "ENT:Menu SPC N:New S:Srt M:DirMode O:Opt H:Help",
+                "ENT:Menu SPC:Mark N:New M:DirMode O:Opt H:Help",
                 color_fg,
             )
         draw.swap()
@@ -810,7 +813,6 @@ class FileBrowser:
             BUTTON_M,
             BUTTON_N,
             BUTTON_O,
-            BUTTON_S,
             BUTTON_SHIFT,
             BUTTON_CAPS_LOCK,
             KEY_MOD_SHL,
@@ -841,6 +843,7 @@ class FileBrowser:
                 self._is_viewing_text = False
                 if self._text_viewer_box:
                     self._text_viewer_box.clear()
+                    del self._text_viewer_box
                     self._text_viewer_box = None
                 self._needs_redraw = True
             elif btn == BUTTON_UP:
@@ -1021,12 +1024,14 @@ class FileBrowser:
                         else self._app_state["right_path"]
                     )
                     np = f"/{new_name}" if td == "/" else f"{td}/{new_name}"
+                    
+                    storage = self._vm.storage
+                    print(f"DEBUG: Processing target path: {np} | Mode: {self._input_mode}")
 
                     if (
                         self._input_mode in (self.MODE_RENAME, self.MODE_COPY_SAME)
                         and np != self._context_target_path
                     ):
-                        storage = self._vm.storage
                         if storage.exists(np):
                             self._pending_dest_path = np
                             self._pending_action = (
@@ -1152,19 +1157,7 @@ class FileBrowser:
                             self._app_state["right_index"] = (ix + 1) % len(fl)
                         self._needs_redraw = True
 
-        # --- Main File Browser Input: Hotkeys (Sort, Dir Mode, Help, Options, New, Info, Delete) ---
-        elif (
-            btn == BUTTON_S
-            and not self._is_help_screen
-            and not self._show_options
-            and self._confirm_menu is None
-            and self._context_menu is None
-            and not self._input_active
-        ):
-            inp.reset()
-            self.__refresh_panes()
-            self._app_state["left_index"] = self._app_state["right_index"] = 0
-            self._needs_redraw = True
+        # --- Main File Browser Input: Hotkeys (Dir Mode, Help, Options, New, Info, Delete) ---
 
         elif (
             btn == BUTTON_M
@@ -1330,11 +1323,11 @@ class FileBrowser:
                 inp.reset()
                 self._needs_redraw = True
                 idx = self._opt_idx
-                if idx == 1:
+                if idx == 0:
                     self._app_state["show_hidden"] = not self._app_state.get(
                         "show_hidden", False
                     )
-                elif idx == 2:
+                elif idx == 1:
                     self._app_state["dir_menu"] = not self._app_state.get(
                         "dir_menu", True
                     )
@@ -1343,6 +1336,7 @@ class FileBrowser:
         elif self._confirm_menu is not None:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE):
                 inp.reset()
+                del self._confirm_menu
                 self._confirm_menu = None
                 self._pending_action = self.ACT_NONE
                 self._pending_dest_path = ""
@@ -1424,6 +1418,7 @@ class FileBrowser:
                     if self._pending_action != self.ACT_NONE:
                         self.__refresh_panes()
 
+                del self._confirm_menu
                 self._confirm_menu = None
                 self._pending_action = self.ACT_NONE
                 self._context_target_path = self._pending_dest_path = ""
@@ -1433,6 +1428,7 @@ class FileBrowser:
         elif self._context_menu is not None:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE):
                 inp.reset()
+                del self._context_menu
                 self._context_menu = None
                 self._needs_redraw = True
             elif btn == BUTTON_UP:
@@ -1463,7 +1459,7 @@ class FileBrowser:
                         self._is_editing = False
                         self._is_shift = False
                         self._is_caps = False
-
+                    del self._context_menu
                     self._context_menu = None
                     self._needs_redraw = True
                 else:
@@ -1546,7 +1542,7 @@ class FileBrowser:
                                 self._confirm_menu = self.__menu_spawn(
                                     msg, ("No", "Yes")
                                 )
-
+                    del self._context_menu
                     self._context_menu = None
                     self._needs_redraw = True
 

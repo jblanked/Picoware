@@ -3,7 +3,6 @@
 #include "engine/game.hpp"
 #include "engine/level.hpp"
 #include "engine/entity.hpp"
-#include <functional>
 
 static inline Level *level_get_context(level_mp_obj_t *self)
 {
@@ -29,6 +28,18 @@ void level_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t k
     mp_print_str(print, "), entity_count=");
     mp_obj_print_helper(print, mp_obj_new_int(ctx->getEntityCount()), PRINT_REPR);
     mp_print_str(print, ")");
+}
+
+// Trampoline functions for level callbacks
+static void level_start_trampoline(Level &level, void *ctx)
+{
+    level_mp_obj_t *self = static_cast<level_mp_obj_t *>(ctx);
+    mp_call_function_1(self->start, MP_OBJ_FROM_PTR(self));
+}
+static void level_stop_trampoline(Level &level, void *ctx)
+{
+    level_mp_obj_t *self = static_cast<level_mp_obj_t *>(ctx);
+    mp_call_function_1(self->stop, MP_OBJ_FROM_PTR(self));
 }
 
 mp_obj_t level_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
@@ -63,20 +74,14 @@ mp_obj_t level_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw
     // pointers to start and stop functions (optional)
     self->start = mp_const_none;
     self->stop = mp_const_none;
-    std::function<void(Level &)> start_func = nullptr;
-    std::function<void(Level &)> stop_func = nullptr;
+    CallbackLevel start_func = {};
+    CallbackLevel stop_func = {};
     if (n_args > 3)
     {
         if (mp_obj_is_callable(args[3]))
         {
             self->start = args[3];
-            level_mp_obj_t *self_ptr = self;
-            mp_obj_t cb = args[3];
-            start_func = [self_ptr, cb](Level &level)
-            {
-                mp_obj_t level_obj = MP_OBJ_FROM_PTR(self_ptr);
-                mp_call_function_1(cb, level_obj);
-            };
+            start_func = {level_start_trampoline, self};
         }
     }
     if (n_args > 4)
@@ -84,13 +89,7 @@ mp_obj_t level_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw
         if (mp_obj_is_callable(args[4]))
         {
             self->stop = args[4];
-            level_mp_obj_t *self_ptr = self;
-            mp_obj_t cb = args[4];
-            stop_func = [self_ptr, cb](Level &level)
-            {
-                mp_obj_t level_obj = MP_OBJ_FROM_PTR(self_ptr);
-                mp_call_function_1(cb, level_obj);
-            };
+            stop_func = {level_stop_trampoline, self};
         }
     }
     // Create the C++ Level — all state lives in this single context

@@ -2,7 +2,6 @@
 #include "game_mp.h"
 #include "image_mp.h"
 #include "engine/entity.hpp"
-#include <functional>
 
 static inline Entity *entity_get_context(entity_mp_obj_t *self)
 {
@@ -142,6 +141,68 @@ void entity_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t 
     mp_print_str(print, ")");
 }
 
+// Trampoline functions for entity callbacks
+static void entity_start_trampoline(Entity *e, Game *g, void *ctx)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(ctx);
+    game_mp_obj_t *game_obj = mp_obj_malloc(game_mp_obj_t, &game_mp_type);
+    game_obj->context = g;
+    game_obj->freed = false;
+    game_obj->start = mp_const_none;
+    game_obj->stop = mp_const_none;
+    game_obj->update = mp_const_none;
+    game_obj->draw = game_mp_get_current_draw();
+    mp_call_function_2(self->start, MP_OBJ_FROM_PTR(self), MP_OBJ_FROM_PTR(game_obj));
+}
+static void entity_stop_trampoline(Entity *e, Game *g, void *ctx)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(ctx);
+    game_mp_obj_t *game_obj = mp_obj_malloc(game_mp_obj_t, &game_mp_type);
+    game_obj->context = g;
+    game_obj->freed = false;
+    game_obj->start = mp_const_none;
+    game_obj->stop = mp_const_none;
+    game_obj->update = mp_const_none;
+    game_obj->draw = game_mp_get_current_draw();
+    mp_call_function_2(self->stop, MP_OBJ_FROM_PTR(self), MP_OBJ_FROM_PTR(game_obj));
+}
+static void entity_update_trampoline(Entity *e, Game *g, void *ctx)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(ctx);
+    game_mp_obj_t *game_obj = mp_obj_malloc(game_mp_obj_t, &game_mp_type);
+    game_obj->context = g;
+    game_obj->freed = false;
+    game_obj->start = mp_const_none;
+    game_obj->stop = mp_const_none;
+    game_obj->update = mp_const_none;
+    game_obj->draw = game_mp_get_current_draw();
+    mp_call_function_2(self->update, MP_OBJ_FROM_PTR(self), MP_OBJ_FROM_PTR(game_obj));
+}
+static void entity_render_trampoline(Entity *e, Draw *d, Game *g, void *ctx)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(ctx);
+    game_mp_obj_t *game_obj = mp_obj_malloc(game_mp_obj_t, &game_mp_type);
+    game_obj->context = g;
+    game_obj->freed = false;
+    game_obj->start = mp_const_none;
+    game_obj->stop = mp_const_none;
+    game_obj->update = mp_const_none;
+    game_obj->draw = game_mp_get_current_draw();
+    mp_call_function_2(self->render, MP_OBJ_FROM_PTR(self), MP_OBJ_FROM_PTR(game_obj));
+}
+static void entity_collision_trampoline(Entity *e, Entity *other, Game *g, void *ctx)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(ctx);
+    game_mp_obj_t *game_obj = mp_obj_malloc(game_mp_obj_t, &game_mp_type);
+    game_obj->context = g;
+    game_obj->freed = false;
+    game_obj->start = mp_const_none;
+    game_obj->stop = mp_const_none;
+    game_obj->update = mp_const_none;
+    game_obj->draw = game_mp_get_current_draw();
+    mp_call_function_2(self->collision, MP_OBJ_FROM_PTR(self), MP_OBJ_FROM_PTR(game_obj));
+}
+
 mp_obj_t entity_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
     // name (str), type (EntityType), position (Vector), size (Vector), sprite_data (Image)[optional], sprite_left_data (Image)[optional], sprite_right_data (Image)[optional], start (function)[optional], stop (function)[optional], update (function)[optional], render (function)[optional], collision (function)[optional], is_8bit_sprite (bool, optional), sprite_3d_type (Sprite3DType, optional), sprite_3d_color (int, optional)
@@ -188,103 +249,36 @@ mp_obj_t entity_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
     self->render = mp_const_none;
     self->collision = mp_const_none;
 
-    std::function<void(Entity *, Game *)> start_func = nullptr;
-    std::function<void(Entity *, Game *)> stop_func = nullptr;
-    std::function<void(Entity *, Game *)> update_func = nullptr;
-    std::function<void(Entity *, Draw *, Game *)> render_func = nullptr;
-    std::function<void(Entity *, Entity *, Game *)> collision_func = nullptr;
+    CallbackEntityGame start_func = {};
+    CallbackEntityGame stop_func = {};
+    CallbackEntityGame update_func = {};
+    CallbackEntityDrawGame render_func = {};
+    CallbackEntityEntityGame collision_func = {};
 
     if (n_args > 7 && mp_obj_is_callable(args[7]))
     {
         self->start = args[7];
-        entity_mp_obj_t *self_ptr = self;
-        mp_obj_t cb = args[7];
-        start_func = [self_ptr, cb](Entity *e, Game *g)
-        {
-            mp_obj_t entity_obj = MP_OBJ_FROM_PTR(self_ptr);
-            // Create a temporary non-owning game wrapper
-            game_mp_obj_t *game_obj = mp_obj_malloc(game_mp_obj_t, &game_mp_type);
-            game_obj->context = g;
-            game_obj->freed = false;
-            game_obj->start = mp_const_none;
-            game_obj->stop = mp_const_none;
-            game_obj->update = mp_const_none;
-            game_obj->draw = game_mp_get_current_draw();
-            mp_call_function_2(cb, entity_obj, MP_OBJ_FROM_PTR(game_obj));
-        };
+        start_func = {entity_start_trampoline, self};
     }
     if (n_args > 8 && mp_obj_is_callable(args[8]))
     {
         self->stop = args[8];
-        entity_mp_obj_t *self_ptr = self;
-        mp_obj_t cb = args[8];
-        stop_func = [self_ptr, cb](Entity *e, Game *g)
-        {
-            mp_obj_t entity_obj = MP_OBJ_FROM_PTR(self_ptr);
-            game_mp_obj_t *game_obj = mp_obj_malloc(game_mp_obj_t, &game_mp_type);
-            game_obj->context = g;
-            game_obj->freed = false;
-            game_obj->start = mp_const_none;
-            game_obj->stop = mp_const_none;
-            game_obj->update = mp_const_none;
-            game_obj->draw = game_mp_get_current_draw();
-            mp_call_function_2(cb, entity_obj, MP_OBJ_FROM_PTR(game_obj));
-        };
+        stop_func = {entity_stop_trampoline, self};
     }
     if (n_args > 9 && mp_obj_is_callable(args[9]))
     {
         self->update = args[9];
-        entity_mp_obj_t *self_ptr = self;
-        mp_obj_t cb = args[9];
-        update_func = [self_ptr, cb](Entity *e, Game *g)
-        {
-            mp_obj_t entity_obj = MP_OBJ_FROM_PTR(self_ptr);
-            game_mp_obj_t *game_obj = mp_obj_malloc(game_mp_obj_t, &game_mp_type);
-            game_obj->context = g;
-            game_obj->freed = false;
-            game_obj->start = mp_const_none;
-            game_obj->stop = mp_const_none;
-            game_obj->update = mp_const_none;
-            game_obj->draw = game_mp_get_current_draw();
-            mp_call_function_2(cb, entity_obj, MP_OBJ_FROM_PTR(game_obj));
-        };
+        update_func = {entity_update_trampoline, self};
     }
     if (n_args > 10 && mp_obj_is_callable(args[10]))
     {
         self->render = args[10];
-        entity_mp_obj_t *self_ptr = self;
-        mp_obj_t cb = args[10];
-        render_func = [self_ptr, cb](Entity *e, Draw *d, Game *g)
-        {
-            mp_obj_t entity_obj = MP_OBJ_FROM_PTR(self_ptr);
-            game_mp_obj_t *game_obj = mp_obj_malloc(game_mp_obj_t, &game_mp_type);
-            game_obj->context = g;
-            game_obj->freed = false;
-            game_obj->start = mp_const_none;
-            game_obj->stop = mp_const_none;
-            game_obj->update = mp_const_none;
-            game_obj->draw = game_mp_get_current_draw();
-            mp_call_function_2(cb, entity_obj, MP_OBJ_FROM_PTR(game_obj));
-        };
+        render_func = {entity_render_trampoline, self};
     }
     if (n_args > 11 && mp_obj_is_callable(args[11]))
     {
         self->collision = args[11];
-        entity_mp_obj_t *self_ptr = self;
-        mp_obj_t cb = args[11];
-        collision_func = [self_ptr, cb](Entity *e, Entity *other, Game *g)
-        {
-            mp_obj_t entity_obj = MP_OBJ_FROM_PTR(self_ptr);
-            // TODO: also wrap 'other' as entity_mp_obj_t when collision callbacks are needed
-            game_mp_obj_t *game_obj = mp_obj_malloc(game_mp_obj_t, &game_mp_type);
-            game_obj->context = g;
-            game_obj->freed = false;
-            game_obj->start = mp_const_none;
-            game_obj->stop = mp_const_none;
-            game_obj->update = mp_const_none;
-            game_obj->draw = game_mp_get_current_draw();
-            mp_call_function_2(cb, entity_obj, MP_OBJ_FROM_PTR(game_obj));
-        };
+        collision_func = {entity_collision_trampoline, self};
     }
 
     // Extract Image* from image_mp_obj_t for sprite args (handles Python subclass wrappers)

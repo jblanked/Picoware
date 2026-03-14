@@ -2,7 +2,6 @@
 #include "camera_mp.h"
 #include "level_mp.h"
 #include "engine/game.hpp"
-#include <functional>
 
 // Static reference to the current game's Python Draw object,
 // so entity callbacks can propagate it to temporary game wrappers.
@@ -78,6 +77,35 @@ void game_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t ki
     mp_print_str(print, ")");
 }
 
+// Trampoline functions for game callbacks
+static void game_start_trampoline(void *ctx)
+{
+    game_mp_obj_t *self = static_cast<game_mp_obj_t *>(ctx);
+    mp_call_function_1(self->start, MP_OBJ_FROM_PTR(self));
+}
+static void game_stop_trampoline(void *ctx)
+{
+    game_mp_obj_t *self = static_cast<game_mp_obj_t *>(ctx);
+    mp_call_function_1(self->stop, MP_OBJ_FROM_PTR(self));
+}
+static void game_update_trampoline(void *ctx)
+{
+    game_mp_obj_t *self = static_cast<game_mp_obj_t *>(ctx);
+    mp_call_function_0(self->update);
+}
+mp_obj_t game_mp_set_update(mp_obj_t self_in, mp_obj_t update_in)
+{
+    game_mp_obj_t *self = static_cast<game_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (mp_obj_is_callable(update_in))
+    {
+        self->update = update_in;
+        Game *ctx = game_get_context(self);
+        ctx->_update = {game_update_trampoline, self};
+    }
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(game_mp_set_update_obj, game_mp_set_update);
+
 mp_obj_t game_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
     // required: name (str), size (Vector)
@@ -86,14 +114,12 @@ mp_obj_t game_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw,
     game_mp_obj_t *self = mp_obj_malloc_with_finaliser(game_mp_obj_t, &game_mp_type);
     self->base.type = &game_mp_type;
     self->freed = false;
-
     // Parse name
     size_t name_len;
     const char *name_str = mp_obj_str_get_data(args[0], &name_len);
     char *name_buf = static_cast<char *>(m_malloc(name_len + 1));
     memcpy(name_buf, name_str, name_len);
     name_buf[name_len] = '\0';
-
     // Parse size (handles Python subclass wrappers)
     mp_obj_t native_size = mp_obj_cast_to_native_base(args[1], MP_OBJ_FROM_PTR(&vector_mp_type));
     if (native_size == MP_OBJ_NULL)
@@ -104,7 +130,6 @@ mp_obj_t game_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw,
     // Parse optional args
     uint16_t fg_color = (n_args >= 3) ? static_cast<uint16_t>(mp_obj_get_int(args[2])) : 0xFFFF;
     uint16_t bg_color = (n_args >= 4) ? static_cast<uint16_t>(mp_obj_get_int(args[3])) : 0x0000;
-
     // Initialize callback fields
     self->start = mp_const_none;
     self->stop = mp_const_none;
@@ -115,41 +140,24 @@ mp_obj_t game_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw,
         self->draw = args[8];
         _game_mp_draw_ref = args[8];
     }
-    std::function<void()> start_func = nullptr;
-    std::function<void()> stop_func = nullptr;
-    std::function<void()> update_func = nullptr;
+    CallbackVoid start_func = {};
+    CallbackVoid stop_func = {};
+    CallbackVoid update_func = {};
 
     if (n_args >= 6 && mp_obj_is_callable(args[5]))
     {
         self->start = args[5];
-        game_mp_obj_t *self_ptr = self;
-        mp_obj_t cb = args[5];
-        start_func = [self_ptr, cb]()
-        {
-            mp_obj_t game_obj = MP_OBJ_FROM_PTR(self_ptr);
-            mp_call_function_1(cb, game_obj);
-        };
+        start_func = {game_start_trampoline, self};
     }
     if (n_args >= 7 && mp_obj_is_callable(args[6]))
     {
         self->stop = args[6];
-        game_mp_obj_t *self_ptr = self;
-        mp_obj_t cb = args[6];
-        stop_func = [self_ptr, cb]()
-        {
-            mp_obj_t game_obj = MP_OBJ_FROM_PTR(self_ptr);
-            mp_call_function_1(cb, game_obj);
-        };
+        stop_func = {game_stop_trampoline, self};
     }
     if (n_args >= 8 && mp_obj_is_callable(args[7]))
     {
         self->update = args[7];
-        mp_obj_t cb = args[7];
-        update_func = [cb]()
-        {
-            // cb is typically a bound method (e.g. self._update) so call with 0 extra args
-            mp_call_function_0(cb);
-        };
+        update_func = {game_update_trampoline, self};
     }
 
     // Create a Draw instance for the Game
@@ -165,10 +173,8 @@ mp_obj_t game_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw,
         camera_mp_obj_t *cam_mp = static_cast<camera_mp_obj_t *>(MP_OBJ_TO_PTR(native_cam));
         camera_ctx = static_cast<Camera *>(cam_mp->context);
     }
-
     // Create the C++ Game — all state lives in this single context
     self->context = new Game(name_buf, size, draw, fg_color, bg_color, camera_ctx, start_func, stop_func, update_func);
-
     return MP_OBJ_FROM_PTR(self);
 }
 
@@ -414,6 +420,7 @@ static const mp_rom_map_elem_t game_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_level_add), MP_ROM_PTR(&game_mp_level_add_obj)},
     {MP_ROM_QSTR(MP_QSTR_level_remove), MP_ROM_PTR(&game_mp_level_remove_obj)},
     {MP_ROM_QSTR(MP_QSTR_level_switch), MP_ROM_PTR(&game_mp_level_switch_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_update), MP_ROM_PTR(&game_mp_set_update_obj)},
 
     // Constants
     {MP_ROM_QSTR(MP_QSTR_MAX_LEVELS), MP_ROM_INT(MAX_LEVELS)},

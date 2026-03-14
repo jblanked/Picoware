@@ -723,7 +723,8 @@ class FileBrowser:
                         self._stat_cache[fp] = (isd, fz)
 
                 if ap == pn:
-                    if ai == ix or fp in self._app_state["marked"]:
+                    # Removed the 'or marked' condition so only the active cursor gets the background color
+                    if ai == ix:
                         draw._fill_rectangle(
                             xb + (0 if il else 1),
                             yo - 1,
@@ -741,7 +742,10 @@ class FileBrowser:
                 else:
                     szs = f"{fz//1048576}M"
 
-                dn = f"/{fn}" if isd else fn
+                # Define a local variable for the indicator and append it to the display name
+                mk_char = "*" if fp in self._app_state["marked"] else ""
+                dn = f"{mk_char}/{fn}" if isd else f"{mk_char}{fn}"
+                
                 pl = max(0, c_lim - len(dn[:n_lim]) - len(szs))
                 draw._text(xb + 2, yo, dn[:n_lim] + (" " * pl) + szs, color_fg)
                 yo += 12

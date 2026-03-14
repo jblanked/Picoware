@@ -48,10 +48,12 @@ class AppLoader:
             # Force garbage collection
             collect()
 
-            print(f"[AppLoader]: Cleaned up modules, free memory: {mem_free()} bytes")
+            self.view_manager.log(
+                f"[AppLoader]: Cleaned up modules, free memory: {mem_free()} bytes"
+            )
 
         except Exception as e:
-            print("Error cleaning up modules: {}".format(e))
+            self.view_manager.log("Error cleaning up modules: {}".format(e), 2)
 
     def list_available_apps(self, subdirectory="") -> list[str]:
         """List all available apps (with .py extension) in the picoware/apps directory or subdirectory"""
@@ -75,7 +77,7 @@ class AppLoader:
             return _py_apps
 
         except Exception as e:
-            print(f"Error listing apps: {e}")
+            self.view_manager.log(f"Error listing apps: {e}", 2)
             return []
 
     def list_loaded_apps(self) -> list:
@@ -130,8 +132,8 @@ class AppLoader:
                     else sys.modules[app_name]
                 )
 
-                print(
-                    f"\n[AppLoader]: Imported {app_name} after {ticks_ms() - start_time} ms"
+                self.view_manager.log(
+                    f"[AppLoader]: Imported {app_name} after {ticks_ms() - start_time} ms"
                 )
 
                 # Verify the app has required methods
@@ -147,10 +149,12 @@ class AppLoader:
             return self.loaded_apps[cache_key]
 
         except ImportError as e:
-            print(f"Could not import app {app_name}: {e}")
+            self.view_manager.log(f"Could not import app {app_name}: {e}", 2)
             return None
         except Exception as e:
-            print(f"Error loading app {app_name}: {type(e).__name__}: {e}")
+            self.view_manager.log(
+                f"Error loading app {app_name}: {type(e).__name__}: {e}", 2
+            )
             return None
 
     def run(self):

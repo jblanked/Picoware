@@ -862,9 +862,12 @@ class HTTP:
                     # Save directly to file
                     file = storage.file_open(save_to_file)
                     while content_length > 0:
+                        if not self._should_continue():
+                            s.close()
+                            break
                         chunk_size = min(self._chunk_size, content_length)
                         chunk = s.read(chunk_size)
-                        if not chunk or not self._should_continue():
+                        if not chunk:
                             break
                         # handle objects without __len__
                         try:
@@ -890,9 +893,12 @@ class HTTP:
                     # Read and write in fixed-size chunks to UART
                     uart.write(f"[{method}/SUCCESS] {method} request successful.\n")
                     while content_length > 0:
+                        if not self._should_continue():
+                            s.close()
+                            break
                         chunk_size = min(self._chunk_size, content_length)
                         chunk = s.read(chunk_size)
-                        if not chunk or not self._should_continue():
+                        if not chunk:
                             break
                         # handle objects without __len__
                         try:
@@ -913,8 +919,11 @@ class HTTP:
                     # Save directly to file
                     file = storage.file_open(save_to_file)
                     while True:
+                        if not self._should_continue():
+                            s.close()
+                            break
                         chunk = s.read(self._chunk_size)
-                        if not chunk or not self._should_continue():
+                        if not chunk:
                             break
                         # Write with retry
                         retries = 10
@@ -932,8 +941,11 @@ class HTTP:
                 else:
                     uart.write(f"[{method}/SUCCESS] {method} request successful.\n")
                     while True:
+                        if not self._should_continue():
+                            s.close()
+                            break
                         chunk = s.read(self._chunk_size)
-                        if not chunk or not self._should_continue():
+                        if not chunk:
                             break
                         uart.write(chunk)
                         uart.flush()

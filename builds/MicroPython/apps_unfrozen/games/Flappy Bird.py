@@ -467,7 +467,7 @@ def __flappy_game_random_pilar() -> None:
     pilar.passed = False
     pilar.visible = 1
 
-    pilar.height = randint(1, FLIPPER_LCD_HEIGHT - FLAPPY_GAB_HEIGHT)
+    pilar.height = randint(1, FLIPPER_LCD_HEIGHT - FLAPPY_GAB_HEIGHT - 21)
     pilar.point.y = 0
     pilar.point.y2 = 0
     pilar.point.x = FLIPPER_LCD_WIDTH + FLAPPY_GAB_WIDTH + 1
@@ -591,17 +591,19 @@ def __player_update(self, game):
     __flappy_game_tick()
 
 
-def __player_render(self, draw, game) -> None:
+def __player_render(self, game) -> None:  # the new signature is self, game
     """Render the player"""
 
     global _game_state
+
+    draw = game.draw
 
     # Draw sky background
     draw.fill_rectangle(_game_state.lcd_pos, _game_state.lcd_vec, TFT_CYAN)
 
     # Draw clouds (simple white circles/ovals)
     cloud_y_positions = [20, 50, 80, 110]
-    cloud_x_offset = int(_game_state.points * 2) % 320
+    cloud_x_offset = int(_game_state.points * 2) % FLIPPER_LCD_WIDTH
     for i, y in enumerate(cloud_y_positions):
         x = (i * 80 - cloud_x_offset) % (FLIPPER_LCD_WIDTH + 80) - 40
         if -40 < x < FLIPPER_LCD_WIDTH:
@@ -644,7 +646,12 @@ def __player_render(self, draw, game) -> None:
         # Draw pillars
         for i in range(FLAPPY_PILAR_MAX):
             pilar = _game_state.pilars[i]
-            if pilar and pilar.visible == 1:
+            if (
+                pilar
+                and pilar.visible == 1
+                and pilar.point.x >= 0
+                and pilar.point.x < FLIPPER_LCD_WIDTH
+            ):
                 # Top pillar - filled with green
                 _game_state.vec_1.x = pilar.point.x
                 _game_state.vec_1.y = pilar.point.y
@@ -669,24 +676,23 @@ def __player_render(self, draw, game) -> None:
                     - (pilar.height + FLAPPY_GAB_HEIGHT)
                     - ground_height
                 )
-                draw.fill_rectangle(
-                    _game_state.vec_3,
-                    _game_state.vec_4,
-                    TFT_GREEN,
-                )
-                # Bottom pillar border
-                draw.rect(
-                    _game_state.vec_3,
-                    _game_state.vec_4,
-                    TFT_DARKGREEN,
-                )
+                if _game_state.vec_4.y > 0:
+                    draw.fill_rectangle(
+                        _game_state.vec_3,
+                        _game_state.vec_4,
+                        TFT_GREEN,
+                    )
+                    # Bottom pillar border
+                    draw.rect(
+                        _game_state.vec_3,
+                        _game_state.vec_4,
+                        TFT_DARKGREEN,
+                    )
 
         # Draw the bird
-        # self.position = Vector(
-        #     int(_game_state.bird.point.x), int(_game_state.bird.point.y)
-        # )
-        self.position.x = int(_game_state.bird.point.x)
-        self.position.y = int(_game_state.bird.point.y)
+        self.position = Vector(
+            int(_game_state.bird.point.x), int(_game_state.bird.point.y)
+        )
 
         draw.image_bytearray(self.position, _game_state.bird_vec, BIRD_ICON)
 
@@ -722,9 +728,10 @@ def __player_spawn(level):
         None,  # stop
         __player_update,  # update
         __player_render,  # render
-        None,  # collide
-        SPRITE_3D_NONE,  # 3d type
+        None,  # collision
         True,  # is_8bit
+        SPRITE_3D_NONE,  # 3d type
+        0x0000,  # 3d color
     )
 
     level.entity_add(player)
@@ -748,11 +755,11 @@ def start(view_manager) -> bool:
     game = Game(
         "Flappy Bird",  # name
         draw.size,  # size
-        draw,  # draw instance
+        draw,  # draw context
         view_manager.input_manager,  # input manager
         0x0000,  # foreground color
         0xFFFF,  # background color
-        0,  # perspective
+        None,  # camera context
         None,  # start
         None,  # Stop
     )
@@ -772,9 +779,6 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run the app."""
-
-    global _game_engine
-
     if _game_engine:
         _game_engine.run_async(False)
 

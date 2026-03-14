@@ -99,7 +99,7 @@ def _start_editor(view_manager, filename=None, create_template=False):
                 if file_needs_template:
                     storage.write(filename, __template(filename))
             except Exception as e:
-                print(f"Template creation error: {e}")
+                view_manager.log(f"[Editor]: Template creation error: {e}", 2)
 
         # Start the pye editor with our terminal
         if filename and len(filename) > 0:
@@ -121,9 +121,9 @@ def _start_editor(view_manager, filename=None, create_template=False):
         # nothing to do here
         pass
     except (OSError, MemoryError, RuntimeError) as e:
-        print(f"Editor error: {e}")
+        view_manager.log(f"[Editor]: Editor error: {e}", 2)
     except Exception as e:
-        print(f"Unexpected editor error: {e}")
+        view_manager.log(f"[Editor]: Unexpected editor error: {e}", 2)
     finally:
         _editor_state = STATE_KEYBOARD
         view_manager.input_manager.reset()

@@ -152,10 +152,10 @@ def __get_installed_apps(view_manager) -> list:
                                 }
                             )
                 except Exception as e:
-                    print(f"Error reading {filename}: {e}")
+                    view_manager.log(f"Error reading {filename}: {e}", 2)
                     continue
     except Exception as e:
-        print(f"Error listing cache files: {e}")
+        view_manager.log(f"Error listing cache files: {e}", 2)
 
     return installed
 
@@ -255,7 +255,7 @@ def __parse_update_check(view_manager) -> bool:
 
         return True
     except Exception as e:
-        print(f"Error parsing update check: {e}")
+        view_manager.log(f"Error parsing update check: {e}", 2)
         return False
 
 
@@ -419,7 +419,7 @@ def __parse_app_list(view_manager) -> bool:
 
         return True
     except Exception as e:
-        print(f"Error parsing app list: {e}")
+        view_manager.log(f"Error parsing app list: {e}", 2)
         return False
 
 
@@ -466,7 +466,7 @@ def __parse_app_details(view_manager, app_id: int) -> bool:
         _selected_app_details = App(response["app"])
         return True
     except Exception as e:
-        print(f"Error parsing app details: {e}")
+        view_manager.log(f"Error parsing app details: {e}", 2)
         return False
 
 
@@ -951,7 +951,7 @@ def run(view_manager) -> None:
                 if _app_menu:
                     _app_menu.draw()
         except Exception as e:
-            print(f"Error parsing update check: {e}")
+            view_manager.log(f"Error parsing update check: {e}", 2)
             view_manager.alert("Failed to check update", False)
             _app_state = STATE_CURRENT_APPS_LIST
             if _app_menu:

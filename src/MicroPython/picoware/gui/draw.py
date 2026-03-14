@@ -237,24 +237,37 @@ class Draw(lcd.LCD):
         """Draw a 24-bit BMP image"""
         try:
             if storage:
-                storage.mount_vfs()
-                if not path.startswith("sd") and not path.startswith("/sd"):
-                    path = "/sd/" + path.lstrip("/")
-
-            with open(path, "rb") as f:
-                # Read BMP file header
-                if f.read(2) != b"BM":
-                    print("Not a BMP file")
+                file = storage.file_open(path)
+                if not file:
+                    print(f"File not found: {path}")
                     return
 
-                # Read file size and reserved fields
-                _ = f.read(8)  # file size (4) + reserved (4)
-                data_offset = int.from_bytes(f.read(4), "little")
+                pos = 0
 
-                # Read DIB header
-                _ = int.from_bytes(f.read(4), "little")  # dib_header_size
-                width_bytes = f.read(4)
-                height_bytes = f.read(4)
+                # Read BMP signature
+                if storage.file_read(file, pos, 2, decode=False) != b"BM":
+                    print("Not a BMP file")
+                    storage.file_close(file)
+                    return
+                pos += 2
+
+                # Skip file size and reserved fields (8 bytes)
+                pos += 8
+
+                # Read data offset
+                data_offset = int.from_bytes(
+                    storage.file_read(file, pos, 4, decode=False), "little"
+                )
+                pos += 4
+
+                # Skip DIB header size (4 bytes)
+                pos += 4
+
+                # Read width and height
+                width_bytes = storage.file_read(file, pos, 4, decode=False)
+                pos += 4
+                height_bytes = storage.file_read(file, pos, 4, decode=False)
+                pos += 4
 
                 # Convert bytes to signed integers manually
                 width = int.from_bytes(width_bytes, "little")
@@ -265,16 +278,17 @@ class Draw(lcd.LCD):
                 if height >= 0x80000000:
                     height = height - 0x100000000
 
-                # Read rest of header
-                _ = int.from_bytes(f.read(2), "little")  # planes
-                bits_per_pixel = int.from_bytes(f.read(2), "little")
+                # Skip planes (2 bytes), read bits per pixel
+                pos += 2
+                bits_per_pixel = int.from_bytes(
+                    storage.file_read(file, pos, 2, decode=False), "little"
+                )
+                pos += 2
 
                 if bits_per_pixel != 24:
                     print(f"Expected 24-bit BMP, got {bits_per_pixel}-bit")
+                    storage.file_close(file)
                     return
-
-                # Go to pixel data
-                f.seek(data_offset, 0)
 
                 # Handle BMP orientation
                 bottom_up = height > 0
@@ -291,19 +305,21 @@ class Draw(lcd.LCD):
                 end_y = min(self._size.y, position.y + abs_height)
 
                 if start_x >= end_x or start_y >= end_y:
+                    storage.file_close(file)
                     return  # Completely clipped
 
                 # Calculate source clipping
                 src_start_x = max(0, -position.x)
                 dst_width = end_x - start_x
-                # Process each row with fast direct buffer writes
+
+                # Process each row
+                row_pos = data_offset
                 for row in range(abs_height):
-                    row_data = f.read(row_bytes)
+                    row_data = storage.file_read(file, row_pos, row_bytes, decode=False)
+                    row_pos += row_bytes + padding
+
                     if len(row_data) < row_bytes:
                         break
-
-                    if padding > 0:
-                        f.read(padding)
 
                     # Calculate y position
                     if bottom_up:
@@ -315,7 +331,7 @@ class Draw(lcd.LCD):
                     if y < start_y or y >= end_y:
                         continue
 
-                    # For 8-bit framebuffer, convert each pixel and draw directly
+                    # Convert each pixel and draw directly
                     for i in range(dst_width):
                         src_idx = src_start_x + i
                         pixel_offset = src_idx * 3
@@ -332,8 +348,7 @@ class Draw(lcd.LCD):
                             # Draw pixel using the framebuffer's conversion
                             self._pixel(start_x + i, y, rgb565)
 
-            if storage:
-                storage.unmount_vfs()
+                storage.file_close(file)
 
         except (OSError, ValueError) as e:
             print(f"Error loading BMP: {e}")
@@ -395,28 +410,19 @@ class Draw(lcd.LCD):
         storage=None,
         seek=0,
         chunk_size=0,
-        mount_vfs=True,
     ):
         """Draw an image from an 8-bit bytearray file stored on disk"""
         try:
-            if storage and mount_vfs:
-                storage.mount_vfs()
-                if not path.startswith("sd") and not path.startswith("/sd"):
-                    path = "/sd/" + path.lstrip("/")
+            if storage:
+                file = storage.file_open(path)
+                if not file:
+                    print(f"File not found: {path}")
+                    return
+                byte_array = storage.file_read(file, seek, chunk_size, decode=False)
+                self._bytearray(position.x, position.y, size.x, size.y, byte_array)
+                storage.file_close(file)
 
-            with open(path, "rb") as f:
-                if seek:
-                    f.seek(seek, 0)
-                if chunk_size:
-                    byte_data = f.read(chunk_size)
-                else:
-                    byte_data = f.read()
-                self._bytearray(position.x, position.y, size.x, size.y, byte_data)
-
-            if storage and mount_vfs:
-                storage.unmount_vfs()
-
-        except (OSError, ValueError) as e:
+        except Exception as e:
             print(f"Error loading bytearray image: {e}")
 
     def len(self, text: str, font_size: int = 0) -> int:

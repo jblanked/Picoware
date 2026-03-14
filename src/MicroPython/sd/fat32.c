@@ -236,18 +236,26 @@ static fat32_error_t write_cluster_fat_entry(uint32_t cluster, uint32_t value)
 static fat32_error_t get_next_free_cluster(uint32_t *cluster)
 {
     // Start searching from next free or first data cluster
-    uint32_t start_cluster = fsinfo.next_free != 0xFFFFFFFF ? fsinfo.next_free : 2;
-
-    // Iterate through the FAT to find a free cluster
-    for (uint32_t i = start_cluster; i < cluster_count + 2; i++)
+    uint32_t start_cluster = (fsinfo.next_free >= 2 && fsinfo.next_free != 0xFFFFFFFF) ? fsinfo.next_free : 2;
+    if (start_cluster >= cluster_count + 2)
     {
-        uint32_t value;
-        RETURN_ON_ERROR(read_cluster_fat_entry(i, &value));
+        start_cluster = 2; // Clamp to valid range
+    }
 
-        if (value == FAT32_FAT_ENTRY_FREE)
+    // Iterate through the FAT to find a free cluster, wrapping around if needed
+    for (uint32_t pass = 0; pass < 2; pass++)
+    {
+        uint32_t end = (pass == 0) ? cluster_count + 2 : start_cluster;
+        uint32_t begin = (pass == 0) ? start_cluster : 2;
+        for (uint32_t i = begin; i < end; i++)
         {
-            *cluster = i;
-            return FAT32_OK; // Found a free cluster
+            uint32_t value;
+            RETURN_ON_ERROR(read_cluster_fat_entry(i, &value));
+            if (value == FAT32_FAT_ENTRY_FREE)
+            {
+                *cluster = i;
+                return FAT32_OK; // Found a free cluster
+            }
         }
     }
     return FAT32_ERROR_DISK_FULL; // No free clusters found
@@ -289,7 +297,7 @@ static fat32_error_t release_cluster_chain(uint32_t start_cluster)
     return FAT32_OK;
 }
 
-static fat32_error_t find_last_cluster(uint32_t start_cluster, uint32_t count, uint32_t *last_cluster)
+fat32_error_t find_last_cluster(uint32_t start_cluster, uint32_t count, uint32_t *last_cluster)
 {
     *last_cluster = start_cluster;
     for (uint32_t i = 1; i < count; i++)
@@ -310,8 +318,16 @@ static fat32_error_t allocate_and_link_cluster(uint32_t last_cluster, uint32_t *
     if (fsinfo.free_count != 0xFFFFFFFF)
     {
         fsinfo.free_count--; // Decrease free count
-        update_fsinfo();     // Update FSInfo sector
     }
+    // Advance next_free hint past the just-allocated cluster so the next
+    // search starts from a useful position rather than re-scanning from the
+    // beginning every time.
+    fsinfo.next_free = *new_cluster + 1;
+    if (fsinfo.next_free >= cluster_count + 2)
+    {
+        fsinfo.next_free = 2; // Wrap hint back to start
+    }
+    update_fsinfo();
 
     return FAT32_OK;
 }
@@ -1243,8 +1259,14 @@ static fat32_error_t link_entry(fat32_entry_t *entry, const char *path)
         if (fsinfo.free_count != 0xFFFFFFFF)
         {
             fsinfo.free_count--;
-            update_fsinfo();
         }
+        // Advance next_free hint
+        fsinfo.next_free = entry->start_cluster + 1;
+        if (fsinfo.next_free >= cluster_count + 2)
+        {
+            fsinfo.next_free = 2;
+        }
+        update_fsinfo();
     }
 
     // Write 8.3 entry
@@ -1598,22 +1620,27 @@ fat32_error_t fat32_write(fat32_file_t *file, const void *buffer, size_t size, s
     // Calculate how many clusters are needed for the write
     uint32_t end_pos = file->position + size;
     uint32_t needed_clusters = (end_pos + bytes_per_cluster - 1) / bytes_per_cluster;
-    uint32_t current_clusters = file->file_size == 0 ? 1 : (file->file_size + bytes_per_cluster - 1) / bytes_per_cluster;
 
-    // Find last cluster in chain
-    cluster = file->start_cluster;
-    uint32_t last_cluster = cluster;
-    if (current_clusters > 0)
+    // Find the actual last cluster by traversing from the navigation section's
+    // current_cluster to the real EOC marker.
+    uint32_t last_cluster = file->current_cluster;
+    uint32_t actual_chain_length = file->current_cluster_index + 1;
+    if (last_cluster >= 2)
     {
-        RETURN_ON_ERROR(find_last_cluster(cluster, current_clusters, &last_cluster));
+        uint32_t next_c;
+        while (read_cluster_fat_entry(last_cluster, &next_c) == FAT32_OK && next_c < FAT32_FAT_ENTRY_EOC)
+        {
+            last_cluster = next_c;
+            actual_chain_length++;
+        }
     }
 
     // Allocate clusters if needed
-    for (uint32_t i = current_clusters; i < needed_clusters; i++)
+    for (uint32_t i = actual_chain_length; i < needed_clusters; i++)
     {
         uint32_t new_cluster = 0;
 
-        if (current_clusters > 0 || i > 0)
+        if (actual_chain_length > 0 || i > 0)
         {
             RETURN_ON_ERROR(allocate_and_link_cluster(last_cluster, &new_cluster));
         }

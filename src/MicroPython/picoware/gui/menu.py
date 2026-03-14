@@ -57,10 +57,11 @@ class Menu:
 
         # Initialize title rendering properties for standard mode
         if not self.use_lvgl:
-            title_width = self.display.font_size.x * len(self._title)
+            _font = self.display.get_font(3)
+            title_width = len(self._title) * _font.width
             title_x = (self.display.size.x - title_width) // 2
             title_y = self.position.y + 15
-            underline_y = title_y + 10
+            underline_y = title_y + _font.height + 5
 
             self.title_pos = Vector(title_x, title_y)
             self.line_pos = Vector(self.title_pos.x, underline_y)
@@ -147,10 +148,11 @@ class Menu:
 
         # Update standard rendering title positions
         if not self.use_lvgl:
-            title_width = self.display.font_size.x * len(self._title)
+            _font = self.display.get_font(3)
+            title_width = len(self._title) * _font.width
             title_x = (self.display.size.x - title_width) // 2
             title_y = self.position.y + 15
-            underline_y = title_y + 10
+            underline_y = title_y + _font.height + 5
 
             self.title_pos.x, self.title_pos.y = title_x, title_y
             self.line_pos.x, self.line_pos.y = self.title_pos.x, underline_y
@@ -198,7 +200,7 @@ class Menu:
         )
 
         # Draw title centered
-        self.display.text(self.title_pos, self._title, self.text_color)
+        self.display.text(self.title_pos, self._title, self.text_color, 3)
 
         # Draw underline
         self.display.line_custom(

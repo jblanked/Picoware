@@ -1,5 +1,8 @@
 # Combined Waveshare Modules for MicroPython
 
+# Define WAVESHARE_1_43 for all modules compiled via this file
+add_compile_definitions(WAVESHARE_1_43)
+
 # Include waveshare_lcd module
 add_library(usermod_waveshare_lcd INTERFACE)
 
@@ -53,28 +56,6 @@ target_link_libraries(usermod_picoware_boards INTERFACE
     pico_stdlib
 )
 
-# Include picoware_game module (fast raycasting and 3D rendering)
-add_library(usermod_picoware_game INTERFACE)
-
-target_sources(usermod_picoware_game INTERFACE
-    ${CMAKE_CURRENT_LIST_DIR}/picoware_game/picoware_game.c
-)
-
-target_include_directories(usermod_picoware_game INTERFACE
-    ${CMAKE_CURRENT_LIST_DIR}/picoware_game
-    ${CMAKE_CURRENT_LIST_DIR}/waveshare_lcd
-)
-
-target_compile_definitions(usermod_picoware_game INTERFACE
-    MODULE_PICOWARE_GAME_ENABLED=1
-)
-
-target_link_libraries(usermod INTERFACE usermod_picoware_game)
-
-# Link against the required Pico SDK libraries for picoware_game
-target_link_libraries(usermod_picoware_game INTERFACE
-    pico_stdlib
-)
 
 # Include waveshare_battery module
 add_library(usermod_waveshare_battery INTERFACE)
@@ -263,13 +244,22 @@ target_link_libraries(usermod INTERFACE usermod_vt)
 add_library(usermod_engine INTERFACE)
 
 target_sources(usermod_engine INTERFACE
-    ${CMAKE_CURRENT_LIST_DIR}/../../engine/camera_mp.c
-    ${CMAKE_CURRENT_LIST_DIR}/../../engine/engine_mp.c
-    ${CMAKE_CURRENT_LIST_DIR}/../../engine/entity_mp.c
-    ${CMAKE_CURRENT_LIST_DIR}/../../engine/game_mp.c
-    ${CMAKE_CURRENT_LIST_DIR}/../../engine/level_mp.c
-    ${CMAKE_CURRENT_LIST_DIR}/../../engine/sprite3d_mp.c
-    ${CMAKE_CURRENT_LIST_DIR}/../../engine/triangle3d_mp.c
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/camera_mp.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/engine_mp.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/entity_mp.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/game_mp.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/image_mp.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/level_mp.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/sprite3d_mp.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/triangle3d_mp.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/engine/draw.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/engine/entity.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/engine/game.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/engine/image.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/engine/level.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/engine/sprite3d.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/engine/triangle3d.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/engine/vector.cpp
 )
 
 target_include_directories(usermod_engine INTERFACE
@@ -277,3 +267,31 @@ target_include_directories(usermod_engine INTERFACE
 )
 
 target_link_libraries(usermod INTERFACE usermod_engine)
+
+
+# Include log module
+add_library(usermod_log INTERFACE)
+
+target_sources(usermod_log INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../log/log_mp.c
+)
+
+target_include_directories(usermod_log INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../log
+)
+
+target_link_libraries(usermod INTERFACE usermod_log)
+
+
+# Include textbox module
+add_library(usermod_textbox INTERFACE)
+
+target_sources(usermod_textbox INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../textbox/textbox_mp.c
+)
+
+target_include_directories(usermod_textbox INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../textbox
+)
+
+target_link_libraries(usermod INTERFACE usermod_textbox)

@@ -110,14 +110,14 @@ def run(view_manager) -> None:
                     screensaver_module.start,
                     screensaver_module.stop,
                 )
-                print(
-                    f"[Screensavers]: Created view for app {selected_screensaver} after {ticks_ms() - start_time} ms"
+                view_manager.log(
+                    f"[Screensavers]: Created view for app {selected_screensaver} after {ticks_ms() - start_time} ms",
                 )
                 view_manager.add(screensaver_view)
 
             view_manager.switch_to(screensaver_view_name)
-            print(
-                f'[Screensavers]: Switched to view for app "{selected_screensaver}" after {ticks_ms() - start_time} ms'
+            view_manager.log(
+                f'[Screensavers]: Switched to view for app "{selected_screensaver}" after {ticks_ms() - start_time} ms',
             )
 
 

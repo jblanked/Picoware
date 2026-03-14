@@ -198,10 +198,10 @@ class List:
             )
 
             # Draw text centered
-            item_width = len(current_item) * self.display.font_size.x
+            item_width = self.display.len(current_item, 2)
             item_x = (self.size_x - item_width) // 2
-            self.text_vec_pos.x, self.text_vec_pos.y = item_x, self.menu_y - 10
-            self.display.text(self.text_vec_pos, current_item, self.text_color)
+            self.text_vec_pos.x, self.text_vec_pos.y = item_x, self.menu_y - 20
+            self.display.text(self.text_vec_pos, current_item, self.text_color, 2)
 
             # Draw navigation arrows
             self.text_vec_pos.y = self.menu_y - 7

@@ -54,6 +54,12 @@ rm -rf "$micropython_dir"/modules/vt
 # remove engine module if it exists
 rm -rf "$micropython_dir"/modules/engine
 
+# remove log module if it exists
+rm -rf "$micropython_dir"/modules/log
+
+# remove textbox module if it exists
+rm -rf "$micropython_dir"/modules/textbox
+
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"
@@ -117,6 +123,12 @@ cp -r "$picoware_dir"/src/MicroPython/vt "$micropython_dir"/modules/vt
 
 # copy engine module
 cp -r "$picoware_dir"/src/MicroPython/engine "$micropython_dir"/modules/engine
+
+# copy log module
+cp -r "$picoware_dir"/src/MicroPython/log "$micropython_dir"/modules/log
+
+# copy textbox module
+cp -r "$picoware_dir"/src/MicroPython/textbox "$micropython_dir"/modules/textbox
 
 echo "Starting Waveshare 1.28 build process..."
 

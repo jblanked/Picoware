@@ -1,4 +1,3 @@
-import time
 import json
 import gc
 import os
@@ -20,7 +19,7 @@ from picoware.system.buttons import (
 )
 
 _SETTINGS_FILE = "/picoware/settings/unit_converter_settings.json" 
-_VERSION = "1.95"
+_VERSION = "1.96a"
 
 _THEMES = (
     ("Green", TFT_GREEN),
@@ -30,21 +29,23 @@ _THEMES = (
     ("Orange", TFT_ORANGE)
 )
 
+# Static tuple for conversions to save RAM over using dictionaries
 _CONVERSIONS = (
     ("Length", (("um", 0.000001), ("thou", 0.0000254), ("mm", 0.001), ("cm", 0.01), ("m", 1.0), ("in", 0.0254), ("ft", 0.3048), ("yd", 0.9144))),
     ("Weight", (("mg", 0.000001), ("g", 0.001), ("kg", 1.0), ("oz", 0.0283495), ("lb", 0.453592))),
     ("Volume", (("ml", 0.001), ("L", 1.0), ("gal", 3.78541), ("fl oz", 0.0295735))),
-    ("Kitchen", (("ml", 1.0), ("tsp", 4.92892), ("tbsp", 14.7868), ("fl oz", 29.5735), ("cup", 236.588), ("pint", 473.176), ("L", 1000.0))),
-    ("Area", (("cm2", 0.0001), ("m2", 1.0), ("sq in", 0.00064516), ("sq ft", 0.092903))),
+    ("Kitchen", (("Drop", 0.05), ("ml", 1.0), ("US tsp", 4.92892), ("US tbsp", 14.7868), ("UK fl oz", 28.4131), ("US fl oz", 29.5735), ("Stick(US)", 118.294), ("US cup", 236.588), ("Met cup", 250.0), ("UK cup", 284.131), ("US pint", 473.176), ("UK pint", 568.261), ("US qt", 946.353), ("UK qt", 1136.52), ("L", 1000.0))),
     ("Speed", (("mm/s", 0.001), ("m/s", 1.0), ("km/h", 0.277778), ("mph", 0.44704))),
     ("Press", (("Pa", 1.0), ("kPa", 1000.0), ("bar", 100000.0), ("psi", 6894.76))),
     ("Torque", (("Nmm", 0.001), ("Nm", 1.0), ("in-lb", 0.1129848), ("ft-lb", 1.355818))),
+    ("Area", (("cm2", 0.0001), ("m2", 1.0), ("sq in", 0.00064516), ("sq ft", 0.092903))),
     ("Power", (("W", 1.0), ("kW", 1000.0), ("hp", 745.7))),
     ("Angle", (("deg", 1.0), ("rad", 57.2957795))),
-    ("Temp", (("C", 0), ("F", 0), ("K", 0)))
+    ("Temp", (("C", 0), ("F", 0), ("K", 0))),
+    ("Wood", (("cu in", 0.0069444), ("bd ft", 1.0), ("cu ft", 12.0), ("m3", 423.776), ("mbf", 1000.0)))
 )
 
-# --- VIEW MODE CONSTANTS ---
+# View modes
 MODE_MAIN = 0
 MODE_OPTIONS = 1
 MODE_HELP = 2
@@ -70,14 +71,14 @@ _last_saved_json = ""
 _cached_help_lines = []
 has_hardware = True
 board_name = "Unknown"
-sys_time = time
 
 def get_help_lines():
     global board_name, _cached_help_lines
-    import gc
+    
     gc.collect() 
     ram_str = f"RAM: {gc.mem_alloc() // 1024}KB / {gc.mem_free() // 1024}KB"
     
+    # Surgically update RAM string to prevent full list recreation
     if _cached_help_lines:
         _cached_help_lines[5] = ram_str
         return _cached_help_lines
@@ -96,13 +97,13 @@ def get_help_lines():
         "CREDITS:",
         "made by Slasher006",
         "with the help of Gemini",
-        "Date: 2026-03-01",
+        "Date: 2026-03-02",
         "",
         "CATEGORIES:",
         "- Len, Area, Vol",
         "- Kitch, Wgt, Spd",
         "- Press, Torq, Pwr",
-        "- Ang, Temp",
+        "- Ang, Temp, Wood",
         "",
         "SHORTCUTS:",
         "[C] Cycle Cat",
@@ -128,17 +129,20 @@ def rgb_to_565(r, g, b):
 def queue_save():
     global pending_save, save_timer
     pending_save = True
-    save_timer = 150
+    save_timer = 150 # Defer writes to prevent SD wear
 
 def save_settings():
-    global storage, _last_saved_json
-    if not storage: return
+    global storage, _last_saved_json, pending_save
+    if not storage or not pending_save: return
     try:
         json_str = json.dumps(state)
-        if json_str == _last_saved_json: return
-        storage.write(_SETTINGS_FILE, json_str, "w")
-        _last_saved_json = json_str
-        import gc
+        # Delta-check bypasses redundant hardware writes
+        if json_str != _last_saved_json:
+            storage.write(_SETTINGS_FILE, json_str, "w")
+            _last_saved_json = json_str
+        
+        pending_save = False
+        del json_str
         gc.collect()
     except Exception: pass
 
@@ -150,7 +154,10 @@ def validate_and_load_settings():
             loaded = json.loads(raw_data)
             for key in state:
                 if key in loaded: state[key] = loaded[key]
+            
             _last_saved_json = json.dumps(state)
+            del raw_data, loaded
+            gc.collect()
         except Exception: pass
 
 def validate_hardware_and_time(view_manager):
@@ -175,6 +182,7 @@ def calculate_conversion():
         c_idx, f_idx, t_idx = state["category_idx"], state["from_idx"], state["to_idx"]
         cat_name = _CONVERSIONS[c_idx][0]
         
+        # Temp conversions require additive logic instead of multipliers
         if cat_name == "Temp":
             from_name = _CONVERSIONS[c_idx][1][f_idx][0]
             to_name = _CONVERSIONS[c_idx][1][t_idx][0]
@@ -482,6 +490,7 @@ def run(view_manager):
     draw = view_manager.draw; input_mgr = view_manager.input_manager; button = input_mgr.button
     screen_w = draw.size.x; screen_h = draw.size.y
     
+    # Handle typing cursor blink state
     if current_mode == MODE_TYPING:
         blink_counter += 1
         if blink_counter > 15:
@@ -496,9 +505,10 @@ def run(view_manager):
         input_mgr.reset()
         if dirty_ui: queue_save()
 
+    # Process pending SD saves when idle
     if pending_save and button == -1:
         if save_timer > 0: save_timer -= 1
-        else: save_settings(); pending_save = False
+        else: save_settings() # Pending state clears within save_settings natively
 
     if dirty_ui and current_mode in (MODE_MAIN, MODE_TYPING):
         conv_result = calculate_conversion()
@@ -524,6 +534,7 @@ def stop(view_manager):
     
     save_settings()
     
+    # Teardown large persistent objects to free RAM for OS
     if state is not None: state.clear()
     state = None
     
@@ -542,5 +553,4 @@ def stop(view_manager):
     blink_counter = save_timer = help_scroll = 0
     cursor_visible = True
     
-    import gc
     gc.collect()

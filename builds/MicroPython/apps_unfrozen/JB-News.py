@@ -206,7 +206,6 @@ def __loading_run(view_manager, message: str = "Fetching...") -> None:
 def __menu_start(view_manager):
     """Initialize the Menu"""
     from picoware.gui.menu import Menu
-    from picoware.system.colors import TFT_BLUE
 
     global _menu
 
@@ -218,6 +217,7 @@ def __menu_start(view_manager):
     draw = view_manager.draw
     bg = view_manager.background_color
     fg = view_manager.foreground_color
+    sel = view_manager.selected_color
 
     # Set menu
     _menu = Menu(
@@ -227,7 +227,7 @@ def __menu_start(view_manager):
         draw.size.y,
         fg,
         bg,
-        TFT_BLUE,
+        sel,
         fg,
     )
 
@@ -565,6 +565,10 @@ def run(view_manager) -> None:
                 initial_text = __load_setting(save_key, view_manager)
                 __keyboard_start(view_manager, title, save_key, initial_text)
     elif _state == STATE_VIEW:
+        if button == BUTTON_BACK:
+            inp.reset()
+            _state = STATE_MENU
+            __menu_start(view_manager)
         # first we fetch news (and show loading animation)
         # then we load news from storage and display it
         if not _data_fetched and not _data_loaded:

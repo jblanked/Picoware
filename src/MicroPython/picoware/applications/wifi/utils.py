@@ -35,7 +35,7 @@ def load_wifi_settings(view_manager) -> dict:
     try:
         return loads(data)
     except Exception as e:
-        print("Error loading WiFi settings:", e)
+        view_manager.log(f"[WiFi:utils]: Error loading WiFi settings: {e}", 2)
         return {}
 
 
@@ -48,7 +48,7 @@ def load_wifi_ssid(view_manager) -> str:
     try:
         return loads(data).get("ssid", "")
     except Exception as e:
-        print("Error loading WiFi SSID:", e)
+        view_manager.log(f"[WiFi:utils]: Error loading WiFi SSID: {e}", 2)
         return ""
 
 
@@ -62,7 +62,7 @@ def load_wifi_password(view_manager) -> str:
     try:
         return loads(data).get("password", "")
     except Exception as e:
-        print("Error loading WiFi password:", e)
+        view_manager.log(f"[WiFi:utils]: Error loading WiFi password: {e}", 2)
         return ""
 
 

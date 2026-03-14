@@ -20,6 +20,7 @@ class ViewManager:
         from picoware.system.system import System
         from picoware.system.time import Time
         from picoware.system.thread import ThreadManager
+        from picoware.system.log import Log, LOG_MODE_ALL, LOG_MODE_REPL
         from picoware.system.colors import TFT_BLUE, TFT_BLACK, TFT_WHITE
 
         self._current_view = None
@@ -69,13 +70,18 @@ class ViewManager:
         )
 
         # Initialize time
-        self._time = Time()
+        self._time = Time(self._thread_manager)
 
         # Initialize arrays
         self.views = [None] * self.MAX_VIEWS
         self.view_stack = [None] * self.MAX_STACK_SIZE
 
+        # load settings
+        __debug = False
+        self._gmt_offset = 0
         if self._storage is not None:
+
+            # dark mode
             dark_mode_data: str = self._storage.read("picoware/settings/dark_mode.json")
 
             if len(dark_mode_data) > 1:
@@ -88,6 +94,7 @@ class ViewManager:
                     self._keyboard.background_color = self._background_color
                     self._keyboard.text_color = self._foreground_color
 
+            # on screen keyboard
             on_screen_keyboard_data: str = self._storage.read(
                 "picoware/settings/onscreen_keyboard.json"
             )
@@ -96,11 +103,51 @@ class ViewManager:
                 state: bool = "true" in on_screen_keyboard_data.lower()
                 self._keyboard.show_keyboard = state
 
+            # LVGL mode
             lvgl_data: str = self._storage.read("picoware/settings/lvgl_mode.json")
 
             if len(lvgl_data) > 1:
                 state: bool = "true" in lvgl_data.lower()
                 self._draw.use_lvgl = state
+
+            # theme color
+            theme_color_data: str = self._storage.read(
+                "picoware/settings/theme_color.json"
+            )
+
+            if len(theme_color_data) > 1:
+                try:
+                    import json
+
+                    obj = json.loads(theme_color_data)
+                    if "theme_color" in obj:
+                        color = int(obj["theme_color"])
+                        self.selected_color = color
+                except Exception:
+                    pass
+
+            # debug mode
+            debug_data: str = self._storage.read("picoware/settings/debug.json")
+
+            if len(debug_data) > 1:
+                __debug = "true" in debug_data.lower()
+
+            # GMT offset
+            gmt_offset_data: str = self._storage.read(
+                "picoware/settings/gmt_offset.json"
+            )
+
+            if len(gmt_offset_data) > 1:
+                try:
+                    obj = json.loads(gmt_offset_data)
+                    if "gmt_offset" in obj:
+                        self._gmt_offset = int(obj["gmt_offset"])
+                except ValueError:
+                    pass
+
+        self._log = Log(
+            LOG_MODE_ALL if __debug else LOG_MODE_REPL, "picoware/log.txt", True
+        )
 
         # Clear screen
         self.clear()
@@ -191,6 +238,11 @@ class ViewManager:
         self._keyboard.text_color = color
 
     @property
+    def gmt_offset(self):
+        """Return the GMT offset in hours."""
+        return self._gmt_offset
+
+    @property
     def has_psram(self):
         """Return whether the current board has PSRAM."""
         from picoware_boards import has_psram
@@ -216,6 +268,11 @@ class ViewManager:
     def keyboard(self):
         """Return the Keyboard instance."""
         return self._keyboard
+
+    @property
+    def logs(self) -> list:
+        """Return the stored logs as a list of strings."""
+        return self._log.logs
 
     @property
     def selected_color(self):
@@ -374,7 +431,7 @@ class ViewManager:
             self.view_stack[i] = None
         self._stack_depth = 0
 
-    def freq(self, use_default: bool = False) -> int:
+    def freq(self, use_default: bool = False, frequency: int = None) -> int:
         """
         Set the CPU frequency.
         """
@@ -384,6 +441,9 @@ class ViewManager:
             BOARD_PICOCALC_PICOW,
             BOARD_PICOCALC_PIMORONI_2W,
         )
+
+        if frequency is not None:
+            return freq(frequency)
 
         if use_default:
             return freq(self.FREQ_DEFAULT)
@@ -411,10 +471,21 @@ class ViewManager:
                 if self.views[i].name == view_name:
                     return self.views[i]
             else:
-                print(
-                    f"ViewManager: View '{view_name}' found in views array but is None."
+                self.log(
+                    f"ViewManager: View '{view_name}' found in views array but is None.",
+                    2,
                 )
         return None
+
+    def log(self, message: str, log_type: int = 3) -> bool:
+        """
+        Log a message with an optional log type.
+
+        Args:
+            message (str): The message to log
+            log_type (int): The type of log (e.g., LOG_TYPE_INFO, LOG_TYPE_WARN, LOG_TYPE_ERROR, LOG_TYPE_DEBUG)
+        """
+        return self._log.log(message, log_type)
 
     def remove(self, view_name: str):
         """
@@ -459,8 +530,9 @@ class ViewManager:
                 else:
                     self.back(should_clear=False, should_start=False)
 
-        if self._thread_manager:
-            self._thread_manager.run()
+        _data = self._thread_manager.run()
+        if _data:
+            self.log(_data)
 
         if self._current_view is not None:
             self._current_view.run(self)
@@ -495,7 +567,7 @@ class ViewManager:
         """
         view = self.get_view(view_name)
         if view is None:
-            print(f"ViewManager: View '{view_name}' not found or is None.")
+            self.log(f"ViewManager: View '{view_name}' not found or is None.", 2)
             return
 
         # Push current view to stack before switching

@@ -1,9 +1,9 @@
 """
-SSH Client/Terminal App for Picoware (work in progress)
+SSH Client/Terminal App for Picoware
 Copyright (c) 2026 JBlanked
 GPL-3.0 License
 https://www.github.com/jblanked/Picoware
-Last Updated: 2026-02-16
+Last Updated: 2026-03-12
 """
 
 from micropython import const
@@ -20,18 +20,15 @@ VIEW_KEYBOARD_HOST = const(1)
 VIEW_KEYBOARD_PORT = const(2)
 VIEW_KEYBOARD_USERNAME = const(3)
 VIEW_KEYBOARD_PASSWORD = const(4)
-VIEW_KEYBOARD_COMMAND = const(5)
 VIEW_CONNECTING = const(6)
-VIEW_CONNECTED = const(7)
-VIEW_OUTPUT = const(8)
+VIEW_TERMINAL = const(7)
 
-# Menu constants
+# Menu constants (disconnected state)
 MENU_ITEM_CONNECT = const(0)
 MENU_ITEM_SET_HOST = const(1)
 MENU_ITEM_SET_PORT = const(2)
 MENU_ITEM_SET_USERNAME = const(3)
 MENU_ITEM_SET_PASSWORD = const(4)
-MENU_ITEM_DISCONNECT = const(5)
 
 # Connection states
 STATE_DISCONNECTED = const(0)
@@ -43,6 +40,10 @@ STATE_ERROR = const(4)
 # Keyboard states
 KEYBOARD_WAITING = const(-1)
 KEYBOARD_ENTERING = const(0)
+
+# History file and max entries
+_HISTORY_FILE = "picoware/ssh/history.txt"
+_HISTORY_MAX = const(50)
 
 # SSH Message Types
 SSH_MSG_DISCONNECT = const(1)
@@ -99,22 +100,25 @@ _X25519_A24 = const(121665)
 
 # Globals
 current_view = VIEW_MAIN_MENU
-menu_index = MENU_ITEM_CONNECT
 keyboard_index = KEYBOARD_WAITING
 connection_state = STATE_DISCONNECTED
 
 _menu = None
 _loading = None
 _ssh_client = None
-_textbox = None
-_previous_text_len = 0
+
+# Terminal state
+_input_line = ""  # current typed command
+_history = []  # command history (in-memory)
+_history_index = -1  # -1 = not navigating; otherwise index into _history
+_history_saved = ""  # saved input when navigating history
+_terminal_dirty = True  # whether the terminal display needs a redraw
 
 # SSH connection details
 ssh_host = ""
 ssh_port = "22"
 ssh_username = ""
 ssh_password = ""
-ssh_command = ""
 
 
 # --- SSH Protocol Helpers ---
@@ -1111,6 +1115,11 @@ class SSHClient:
                 self._output.append("[Error: %s]" % str(e))
             return False
 
+    def clear_output(self):
+        """Clear all accumulated command output"""
+        with self._lock:
+            self._output.clear()
+
     def disconnect(self):
         """Send SSH_MSG_DISCONNECT and clean up"""
         with self._lock:
@@ -1151,6 +1160,201 @@ class SSHClient:
         self.disconnect()
 
 
+def _load_history(storage) -> list:
+    """Load command history from SD card"""
+    text = storage.read(_HISTORY_FILE)
+    if not text:
+        return []
+    return [line for line in text.split("\n") if line.strip()]
+
+
+def _save_history(storage) -> None:
+    """Persist in-memory command history to SD card"""
+    global _history
+    entries = _history[-_HISTORY_MAX:]
+    storage.write(_HISTORY_FILE, "\n".join(entries))
+
+
+def _render_terminal(view_manager) -> None:
+    """Render the interactive terminal: colored output lines + inline prompt"""
+    from picoware.system.colors import (
+        TFT_GREEN,
+        TFT_CYAN,
+        TFT_RED,
+        TFT_YELLOW,
+        TFT_WHITE,
+    )
+    from picoware.system.vector import Vector
+
+    global _terminal_dirty
+    if not _terminal_dirty:
+        return
+    _terminal_dirty = False
+
+    draw = view_manager.draw
+    cw = draw.font_size.x
+    ch = draw.font_size.y
+    sw = draw.size.x
+    sh = draw.size.y
+    max_chars = sw // cw
+    max_lines = (sh // ch) - 1  # reserve last row for the input prompt
+
+    # Build wrapped lines as [(text, color)]
+    wrapped = []
+    if _ssh_client:
+        for line in _ssh_client.output:
+            if line.startswith("[stderr]") or line.startswith("[Error"):
+                color = TFT_RED
+            elif line.startswith("$ "):
+                color = TFT_CYAN
+            else:
+                color = TFT_WHITE
+            # Word-wrap lines that exceed screen width
+            while len(line) > max_chars:
+                wrapped.append((line[:max_chars], color))
+                line = line[max_chars:]
+            wrapped.append((line, color))
+
+    # Show only the last max_lines rows of output
+    start = max(0, len(wrapped) - max_lines)
+    visible = wrapped[start:]
+
+    draw.erase()
+
+    pos = Vector(0, 0)
+    for i, (text, color) in enumerate(visible):
+        if text:
+            pos.x = 0
+            pos.y = i * ch
+            draw.text(pos, text, color)
+
+    # --- Prompt line at the bottom ---
+    prompt_user = ssh_username or "user"
+    prompt_host = (ssh_host.split(":")[0] if ssh_host else "") or "host"
+    if len(prompt_host) > 12:
+        prompt_host = prompt_host[:12]
+
+    y = max_lines * ch
+    x = 0
+    pos.y = y
+
+    pos.x = x
+    draw.text(pos, prompt_user, TFT_GREEN)
+    x += len(prompt_user) * cw
+
+    pos.x = x
+    draw.text(pos, "@", TFT_WHITE)
+    x += cw
+
+    pos.x = x
+    draw.text(pos, prompt_host, TFT_CYAN)
+    x += len(prompt_host) * cw
+
+    pos.x = x
+    draw.text(pos, ":~$ ", TFT_WHITE)
+    x += 4 * cw
+
+    # Truncate input if it overflows the available width
+    avail = max(1, (sw - x) // cw - 1)
+    disp_input = _input_line[-avail:] if len(_input_line) > avail else _input_line
+
+    pos.x = x
+    draw.text(pos, disp_input + "_", TFT_YELLOW)
+
+    draw.swap()
+    collect()
+
+
+def _handle_terminal_input(view_manager) -> None:
+    """Process key presses while in the interactive terminal view"""
+    from picoware.system.buttons import (
+        BUTTON_BACK,
+        BUTTON_UP,
+        BUTTON_DOWN,
+        BUTTON_BACKSPACE,
+        BUTTON_DELETE,
+        BUTTON_ENTER,
+        BUTTON_CENTER,
+    )
+
+    global _input_line, _history_index, _history_saved, _terminal_dirty
+    global current_view, connection_state
+
+    inp = view_manager.input_manager
+    button = inp.button
+
+    if button == -1:
+        return
+
+    inp.reset()
+
+    if button == BUTTON_BACK:
+        current_view = VIEW_MAIN_MENU
+        _menu_start(view_manager)
+        return
+
+    if button in (BUTTON_ENTER, BUTTON_CENTER):
+        cmd = _input_line.strip()
+        _input_line = ""
+        _history_index = -1
+        _history_saved = ""
+        _terminal_dirty = True
+        if not cmd:
+            return
+        # Record in history
+        _history.append(cmd)
+        if len(_history) > _HISTORY_MAX:
+            _history.pop(0)
+        _save_history(view_manager.storage)
+        # Built-in: clear
+        if cmd == "clear":
+            if _ssh_client:
+                _ssh_client.clear_output()
+            return
+        # Execute on server
+        if _ssh_client:
+            _ssh_client.execute_command(cmd)
+        return
+
+    if button == BUTTON_UP:
+        if not _history:
+            return
+        if _history_index == -1:
+            _history_saved = _input_line
+            _history_index = len(_history) - 1
+        elif _history_index > 0:
+            _history_index -= 1
+        _input_line = _history[_history_index]
+        _terminal_dirty = True
+        return
+
+    if button == BUTTON_DOWN:
+        if _history_index == -1:
+            return
+        if _history_index < len(_history) - 1:
+            _history_index += 1
+            _input_line = _history[_history_index]
+        else:
+            _history_index = -1
+            _input_line = _history_saved
+            _history_saved = ""
+        _terminal_dirty = True
+        return
+
+    if button in (BUTTON_BACKSPACE, BUTTON_DELETE):
+        if _input_line:
+            _input_line = _input_line[:-1]
+            _terminal_dirty = True
+        return
+
+    # Regular character input
+    char = inp.button_to_char(button)
+    if char is not None:
+        _input_line += char
+        _history_index = -1
+        _terminal_dirty = True
+
+
 def __load_ssh_credentials(view_manager) -> bool:
     """Load SSH credentials from storage"""
     global ssh_host, ssh_port, ssh_username, ssh_password
@@ -1178,13 +1382,9 @@ def __load_ssh_credentials(view_manager) -> bool:
 
 def _keyboard_save(view_manager) -> bool:
     """Keyboard callback function"""
-    global ssh_host, ssh_port, ssh_username, ssh_password, ssh_command
+    global ssh_host, ssh_port, ssh_username, ssh_password
     storage = view_manager.storage
     kb = view_manager.keyboard
-
-    if current_view == VIEW_KEYBOARD_COMMAND:
-        ssh_command = kb.response
-        return True
 
     # Determine which file to write to based on current view
     file_path = ""
@@ -1228,9 +1428,6 @@ def _keyboard_run(view_manager) -> bool:
         elif current_view == VIEW_KEYBOARD_PASSWORD:
             kb.title = "Enter Password"
             kb.response = ssh_password
-        elif current_view == VIEW_KEYBOARD_COMMAND:
-            kb.title = "Enter Command"
-            kb.response = ""
 
         keyboard_index = KEYBOARD_ENTERING
         return kb.run(force=True)
@@ -1239,11 +1436,7 @@ def _keyboard_run(view_manager) -> bool:
     if keyboard_index == KEYBOARD_ENTERING:
         if not kb.run(force=True):
             kb.reset()
-            current_view = (
-                VIEW_MAIN_MENU
-                if connection_state == STATE_DISCONNECTED
-                else VIEW_CONNECTED
-            )
+            current_view = VIEW_MAIN_MENU
             _menu_start(view_manager)
             keyboard_index = KEYBOARD_WAITING
             return False
@@ -1252,12 +1445,9 @@ def _keyboard_run(view_manager) -> bool:
             if _keyboard_save(view_manager):
                 kb.reset()
 
-                # Return to appropriate view
-                if current_view == VIEW_KEYBOARD_COMMAND:
-                    current_view = VIEW_CONNECTED
-                else:
-                    current_view = VIEW_MAIN_MENU
-                    _menu_start(view_manager)
+                # Return to main menu after saving credentials
+                current_view = VIEW_MAIN_MENU
+                _menu_start(view_manager)
 
                 keyboard_index = KEYBOARD_WAITING
                 return True
@@ -1300,7 +1490,7 @@ def _menu_start(view_manager) -> None:
     draw = view_manager.draw
     bg = view_manager.background_color
     fg = view_manager.foreground_color
-
+    sel = view_manager.selected_color
     # Set menu
     _menu = Menu(
         draw,
@@ -1309,7 +1499,7 @@ def _menu_start(view_manager) -> None:
         draw.size.y,
         fg,
         bg,
-        TFT_BLUE,
+        sel,
         fg,
     )
 
@@ -1321,38 +1511,11 @@ def _menu_start(view_manager) -> None:
         _menu.add_item("Set Username")
         _menu.add_item("Set Password")
     else:
-        _menu.add_item("Execute Command")
-        _menu.add_item("View Output")
+        _menu.add_item("Return to Terminal")
         _menu.add_item("Disconnect")
 
     _menu.set_selected(0)
     _menu.set_selected(0)
-
-
-def _textbox_start(view_manager) -> None:
-    global _textbox, _ssh_client, _previous_text_len
-
-    if not _ssh_client:
-        return
-
-    _output = "\n".join(_ssh_client.output)
-    _len = len(_output)
-    if _output == "" or _len == _previous_text_len:
-        return
-
-    _previous_text_len = _len
-
-    if _textbox is None:
-        from picoware.gui.textbox import TextBox
-
-        draw = view_manager.draw
-        _textbox = TextBox(draw, 0, draw.size.y)
-        _textbox.set_text(_output)
-    else:
-        _textbox.set_text(_output)
-
-    # move to end of text
-    _textbox.set_current_line(_textbox.text_height)
 
 
 def start(view_manager) -> bool:
@@ -1379,9 +1542,13 @@ def start(view_manager) -> bool:
     __load_ssh_credentials(view_manager)
 
     # Initialize SSH client
-    global _ssh_client
+    global _ssh_client, _history, _terminal_dirty
 
     _ssh_client = SSHClient()
+
+    # Load command history from SD card
+    _history = _load_history(view_manager.storage)
+    _terminal_dirty = True
 
     # Start menu
     _menu_start(view_manager)
@@ -1401,7 +1568,7 @@ def run(view_manager) -> None:
     inp = view_manager.input_manager
     button = inp.button
 
-    global current_view, keyboard_index, connection_state, ssh_command
+    global current_view, keyboard_index, connection_state, _terminal_dirty, _loading
 
     if current_view == VIEW_MAIN_MENU:
         if button == BUTTON_BACK:
@@ -1443,14 +1610,11 @@ def run(view_manager) -> None:
                     keyboard_index = KEYBOARD_WAITING
             else:
                 # Connected menu
-                if selected == 0:  # Execute Command
-                    current_view = VIEW_KEYBOARD_COMMAND
-                    keyboard_index = KEYBOARD_WAITING
+                if selected == 0:  # Return to Terminal
+                    current_view = VIEW_TERMINAL
+                    _terminal_dirty = True
 
-                elif selected == 1:  # View Output
-                    current_view = VIEW_OUTPUT
-
-                elif selected == 2:  # Disconnect
+                elif selected == 1:  # Disconnect
                     if _ssh_client:
                         _ssh_client.disconnect()
                     connection_state = STATE_DISCONNECTED
@@ -1468,88 +1632,41 @@ def run(view_manager) -> None:
 
                 if success:
                     connection_state = STATE_CONNECTED
-                    current_view = VIEW_CONNECTED
-                    _menu_start(view_manager)
+                    current_view = VIEW_TERMINAL
+                    _terminal_dirty = True
+                    if _loading:
+                        del _loading
+                        _loading = None
                 else:
                     error = _ssh_client.error or "Connection failed"
                     view_manager.alert(error[:30], False)
                     connection_state = STATE_DISCONNECTED
                     current_view = VIEW_MAIN_MENU
+                    _menu_start(view_manager)
             except Exception as e:
                 view_manager.alert(f"Error: {str(e)[:20]}", False)
                 connection_state = STATE_DISCONNECTED
                 current_view = VIEW_MAIN_MENU
-
-    elif current_view == VIEW_CONNECTED:
-        if button == BUTTON_BACK:
-            inp.reset()
-            current_view = VIEW_MAIN_MENU
-        elif button == BUTTON_UP:
-            inp.reset()
-            _menu.scroll_up()
-
-        elif button == BUTTON_DOWN:
-            inp.reset()
-            _menu.scroll_down()
-
-        elif button == BUTTON_CENTER:
-            inp.reset()
-            selected = _menu.selected_index
-
-            if selected == 0:  # Execute Command
-                current_view = VIEW_KEYBOARD_COMMAND
-                keyboard_index = KEYBOARD_WAITING
-
-            elif selected == 1:  # View Output
-                current_view = VIEW_OUTPUT
-
-            elif selected == 2:  # Disconnect
-                if _ssh_client:
-                    _ssh_client.disconnect()
-                connection_state = STATE_DISCONNECTED
-                current_view = VIEW_MAIN_MENU
                 _menu_start(view_manager)
 
-    elif current_view == VIEW_OUTPUT:
-        _textbox_start(view_manager)
-
-        if button == BUTTON_BACK:
-            inp.reset()
-            current_view = VIEW_CONNECTED
-            _menu_start(view_manager)
-
-        elif not _textbox:
-            return
-
-        elif button == BUTTON_UP:
-            inp.reset()
-            _textbox.scroll_up()
-
-        elif button == BUTTON_DOWN:
-            inp.reset()
-            _textbox.scroll_down()
+    elif current_view == VIEW_TERMINAL:
+        _handle_terminal_input(view_manager)
+        _render_terminal(view_manager)
 
     elif current_view in (
         VIEW_KEYBOARD_HOST,
         VIEW_KEYBOARD_PORT,
         VIEW_KEYBOARD_USERNAME,
         VIEW_KEYBOARD_PASSWORD,
-        VIEW_KEYBOARD_COMMAND,
     ):
-        if not _keyboard_run(view_manager):
-            return
-
-        # If command was entered, execute it
-        if current_view == VIEW_CONNECTED and ssh_command and _ssh_client:
-            _ssh_client.execute_command(ssh_command)
-            ssh_command = ""
-            current_view = VIEW_OUTPUT
+        _keyboard_run(view_manager)
 
 
 def stop(view_manager) -> None:
     """Stop the SSH app"""
-    global _ssh_client, _menu, _loading, _textbox, _previous_text_len
-    global ssh_host, ssh_port, ssh_username, ssh_password, ssh_command
+    global _ssh_client, _menu, _loading
+    global ssh_host, ssh_port, ssh_username, ssh_password
+    global _history, _history_index, _history_saved, _input_line, _terminal_dirty
 
     # Disconnect SSH
     if _ssh_client:
@@ -1566,17 +1683,16 @@ def stop(view_manager) -> None:
         del _loading
         _loading = None
 
-    if _textbox:
-        del _textbox
-        _textbox = None
-
     ssh_host = ""
     ssh_port = "22"
     ssh_username = ""
     ssh_password = ""
-    ssh_command = ""
 
-    _previous_text_len = 0
+    _history.clear()
+    _history_index = -1
+    _history_saved = ""
+    _input_line = ""
+    _terminal_dirty = True
 
     view_manager.keyboard.reset()
     collect()

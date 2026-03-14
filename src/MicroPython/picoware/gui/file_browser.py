@@ -959,9 +959,12 @@ class FileBrowser:
                         self._edit_unsaved = True
                         self._needs_redraw = True
                 else:
+                    is_cap = inp.was_capitalized
                     inp.reset()
                     c = inp.button_to_char(btn)
                     if c:
+                        if is_cap or self._is_shift or self._is_caps:
+                            c = c.upper()
                         line = self._edit_text[self._edit_cy]
                         self._edit_text[self._edit_cy] = (
                             line[: self._edit_cx] + c + line[self._edit_cx :]
@@ -1100,9 +1103,12 @@ class FileBrowser:
                     self._input_cursor -= 1
                     self._needs_redraw = True
             else:
+                is_cap = inp.was_capitalized
                 inp.reset()
                 c = inp.button_to_char(btn)
                 if c and len(self._input_text) < 35:
+                    if is_cap or self._is_shift or self._is_caps:
+                        c = c.upper()
                     self._input_text = (
                         self._input_text[: self._input_cursor]
                         + c
@@ -1719,3 +1725,61 @@ class FileBrowser:
             self.__render()
 
         return True
+
+if __name__ == "__main__":
+    from picoware.system.view_manager import ViewManager
+    from picoware.system.view import View
+    import gc
+
+    print("DEBUG: Initializing Thonny test environment for FileBrowser...")
+    
+    # We use a simple container class to avoid global variable issues
+    class TestWrapper:
+        def __init__(self):
+            self.browser = None
+            
+    tester = TestWrapper()
+
+    def test_start(v_man):
+        print("DEBUG: test_start() called. Instantiating FileBrowser in MANAGER mode.")
+        # Pass mode=1 (FILE_BROWSER_MANAGER) to enable the 'N' key
+        tester.browser = FileBrowser(v_man, mode=1) 
+        return True
+
+    def test_run(v_man):
+        # Run the browser loop; if it returns False (user pressed BACK), exit
+        if tester.browser and not tester.browser.run():
+            print("DEBUG: FileBrowser returned False. Exiting view.")
+            v_man.back()
+
+    def test_stop(v_man):
+        print("DEBUG: test_stop() called. Cleaning up RAM.")
+        if tester.browser:
+            del tester.browser
+            tester.browser = None
+        gc.collect()
+
+    vm = None
+
+    try:
+        vm = ViewManager()
+        # Register our wrapper functions as a view
+        test_view = View("file_browser_test", test_run, test_start, test_stop)
+        vm.add(test_view)
+        vm.switch_to("file_browser_test")
+        
+        print("DEBUG: Starting main ViewManager loop...")
+        # Loop as long as our test view is active
+        while vm.current_view and vm.current_view.name == "file_browser_test":
+            vm.run()
+            
+    except Exception as e:
+        print(f"DEBUG: Error during testing: {e}")
+    finally:
+        print("DEBUG: Shutting down Thonny test...")
+        del test_view
+        if vm:
+            del vm
+        del tester
+        gc.collect()
+        print("DEBUG: Memory cleanup complete.")

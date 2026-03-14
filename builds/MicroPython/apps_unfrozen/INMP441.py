@@ -227,6 +227,7 @@ def start(view_manager) -> bool:
     d._text(0, 80, "SCK -> GP0 (UART0_TX)", fg)
     d._text(0, 100, "WS -> GP1 (UART0_RX)", fg)
     d._text(0, 120, "SD -> GP21", fg)
+    d._text(0, 140, "L/R -> GND", fg)
     d.swap()
 
     inp = view_manager.input_manager

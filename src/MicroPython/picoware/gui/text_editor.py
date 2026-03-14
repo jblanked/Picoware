@@ -54,7 +54,7 @@ class TextEditor(TextBox):
         if button_pressed:
             self.refresh()
 
-    def run(self):
+    def run(self) -> bool:
         """Runs the text editor - call this every frame/tick."""
         from picoware.system.buttons import BUTTON_BACK
 
@@ -63,7 +63,8 @@ class TextEditor(TextBox):
 
         if but == BUTTON_BACK:
             inp.reset()
-            self._vm.back()
-        elif but != -1:
+            return False
+        if but != -1:
             inp.reset()
             self.__process_text_input(but)
+        return True

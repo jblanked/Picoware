@@ -6,6 +6,7 @@
 #else
 #define ENGINE_MEM_INCLUDE "../../../engine/memory.h"
 #endif
+#include ENGINE_MEM_INCLUDE
 #define ENGINE_MEM_NEW new
 #define ENGINE_MEM_DELETE delete
 #define ENGINE_MEM_MALLOC m_malloc
@@ -27,8 +28,8 @@
 // LCD
 #if defined(PICOCALC)
 #define ENGINE_LCD_INCLUDE "../PicoCalc/picoware_lcd/picoware_lcd.h"
-#define ENGINE_LCD_INIT picocalc_lcd_init
-#define ENGINE_LCD_DEINIT lcd_deinit
+// #define ENGINE_LCD_INIT picocalc_lcd_init
+// #define ENGINE_LCD_DEINIT lcd_deinit
 #define ENGINE_LCD_WIDTH DISPLAY_WIDTH
 #define ENGINE_LCD_HEIGHT DISPLAY_HEIGHT
 #define ENGINE_LCD_CHAR lcd_draw_char
@@ -51,8 +52,8 @@
 #define ENGINE_LCD_TRIANGLE lcd_draw_triangle
 #elif defined(WAVESHARE_1_28)
 #define ENGINE_LCD_INCLUDE "../Waveshare/RP2350-Touch-LCD-1.28/waveshare_lcd/lcd.h"
-#define ENGINE_LCD_INIT lcd_init
-#define ENGINE_LCD_DEINIT lcd_reset
+// #define ENGINE_LCD_INIT lcd_init
+// #define ENGINE_LCD_DEINIT lcd_reset
 #define ENGINE_LCD_WIDTH LCD_WIDTH
 #define ENGINE_LCD_HEIGHT LCD_HEIGHT
 #define ENGINE_LCD_CHAR lcd_draw_char
@@ -72,8 +73,8 @@
 #define ENGINE_LCD_TRIANGLE lcd_draw_triangle
 #elif defined(WAVESHARE_1_43)
 #define ENGINE_LCD_INCLUDE "../Waveshare/RP2350-Touch-LCD-1.43/waveshare_lcd/lcd.h"
-#define ENGINE_LCD_INIT lcd_init
-#define ENGINE_LCD_DEINIT lcd_reset
+// #define ENGINE_LCD_INIT lcd_init
+// #define ENGINE_LCD_DEINIT lcd_reset
 #define ENGINE_LCD_WIDTH LCD_WIDTH
 #define ENGINE_LCD_HEIGHT LCD_HEIGHT
 #define ENGINE_LCD_CHAR lcd_draw_char
@@ -93,8 +94,8 @@
 #define ENGINE_LCD_TRIANGLE lcd_draw_triangle
 #elif defined(WAVESHARE_3_49)
 #define ENGINE_LCD_INCLUDE "../Waveshare/RP2350-Touch-LCD-3.49/waveshare_lcd/lcd.h"
-#define ENGINE_LCD_INIT lcd_init
-// #define ENGINE_LCD_DEINIT
+// #define ENGINE_LCD_INIT lcd_init
+//  #define ENGINE_LCD_DEINIT
 #define ENGINE_LCD_WIDTH LCD_WIDTH
 #define ENGINE_LCD_HEIGHT LCD_HEIGHT
 #define ENGINE_LCD_CHAR lcd_draw_char

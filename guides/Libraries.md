@@ -766,7 +766,7 @@ All color constants are RGB565 format and defined as `micropython.const` integer
 #### picoware-engine-camera
 - `CAMERA_FIRST_PERSON`: First-person camera mode constant (0)
 - `CAMERA_THIRD_PERSON`: Third-person camera mode constant (1)
-- `CameraParams` class: Wraps the C `engine.Camera` object. Stores camera parameters used by the 3D renderer (position, direction, plane vectors). Passed as `camera_context` to `Game`.
+- `Camera` class: Wraps the C `engine.Camera` object. Stores camera parameters used by the 3D renderer (position, direction, plane vectors). Passed as `camera_context` to `Game`.
 
 #### picoware-engine-engine
 - `GameEngine` class: Represents a game engine:

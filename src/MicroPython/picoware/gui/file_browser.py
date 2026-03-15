@@ -30,6 +30,7 @@ class FileBrowser:
         """Initialize the file browser."""
         import json
         from picoware.system.vector import Vector
+        print("DEBUG: Initializing FileBrowser...")
 
         # Link to system managers
         self._vm = view_manager
@@ -65,15 +66,10 @@ class FileBrowser:
 
         # Text Editor and Image Viewer state
         self._is_editing = False
-        self._edit_read_only = False
-        self._edit_text = []
         self._edit_file = ""
-        self._edit_cx = 0
-        self._edit_cy = 0
-        self._edit_sx = 0
-        self._edit_sy = 0
         self._edit_unsaved = False
         self._text_editor = None
+        self._editor_state = 0  # Developer Approved: Explicit state (0 = Editing, 1 = Menu Open)
 
         self._is_viewing_image = False
         self._is_viewing_text = False
@@ -113,8 +109,8 @@ class FileBrowser:
                 )
                 del loaded
             del data
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"DEBUG: Failed to load settings: {e}")
 
         self._app_state["left_path"] = _start
         self._app_state["right_path"] = _start
@@ -125,14 +121,13 @@ class FileBrowser:
         self.__refresh_panes()
         self._needs_redraw = True
 
-        # we're using scaling to make this gui fit for all devices
-        # it was originally made for 320x320
         draw = self._vm.draw
         self._scale_og = Vector(draw.scale_x, draw.scale_y)
         draw.set_scaling(draw.size.x // 320, draw.size.y // 320, True)
 
     def __del__(self):
-        """Cleanup resources"""
+        """Cleanup resources to prevent RAM build-up."""
+        print("DEBUG: Cleaning up FileBrowser...")
         if self._loading:
             self._loading.stop()
             del self._loading
@@ -149,10 +144,12 @@ class FileBrowser:
         if self._text_viewer_box:
             del self._text_viewer_box
             self._text_viewer_box = None
+        if self._text_editor:
+            del self._text_editor
+            self._text_editor = None
 
         self._app_state = None
         self._stat_cache = None
-        self._edit_text = None
         self._edit_file = None
         self._info_data = None
 
@@ -203,7 +200,7 @@ class FileBrowser:
 
     @property
     def stats(self) -> dict:
-        """Get stastics about the current file"""
+        """Get statistics about the current file."""
         _p = self.path
         _storage = self._vm.storage
         return {
@@ -213,69 +210,47 @@ class FileBrowser:
             "type": _p.split(".")[-1] if "." in _p else "unknown",
         }
 
-    def __file_edit(self, path, read_only=False) -> bool:
-        """Start editing a text file"""
+    def __file_edit(self, path) -> bool:
+        """Start editing a text file."""
+        print(f"DEBUG: Opening file for edit: {path}")
         ext = path.split(".")[-1].lower() if "." in path else ""
         if ext not in (
-            "txt",
-            "py",
-            "json",
-            "csv",
-            "md",
-            "ini",
-            "log",
-            "xml",
-            "html",
-            "conf",
-            "sh",
-            "bat",
-            "yml",
-            "yaml",
-            "toml",
-            "cfg",
-            "css",
-            "js",
-            "h",
-            "c",
-            "cpp",
-            "php",
-            "env",
-            "gitignore",
-            "lua",
-            "bas",
-            "",
+            "txt", "py", "json", "csv", "md", "ini", "log", "xml", "html", 
+            "conf", "sh", "bat", "yml", "yaml", "toml", "cfg", "css", "js", 
+            "h", "c", "cpp", "php", "env", "gitignore", "lua", "bas", ""
         ):
             self._vm.alert("Unsupported file format.")
             self._needs_redraw = True
             return False
 
-        self._edit_text.clear()
-        data = self._vm.storage.read(path, "r")
-        if data:
-            self._edit_text.extend(data.split("\n"))
-        del data
-
         self._edit_file = path
-        self._edit_read_only = read_only
-        self._edit_cx = self._edit_cy = self._edit_sx = self._edit_sy = 0
         self._edit_unsaved = False
-
+        self._editor_state = 0
         self._is_shift = False
         self._is_caps = False
-
         self._is_editing = True
         self._needs_redraw = True
 
-        if not read_only:
-            from picoware.gui.text_editor import TextEditor
+        data = self._vm.storage.read(path, "r")
+        if data is None:
+            data = ""
+            
+        # Developer Approved: Sanitize invisible bytes that break the C renderer's math (Format Marks removal)
+        data = data.replace('\r\n', '\n').replace('\r', '\n').replace('\t', '    ')
 
-            self._text_editor = TextEditor(self._vm)
-            self._text_editor.current_text = "\n".join(self._edit_text)
+        from picoware.gui.text_editor import TextEditor
+        self._text_editor = TextEditor(self._vm)
+        
+        # Pass the contiguous string directly to the C module (No list conversion to save RAM)
+        self._text_editor.current_text = data
+            
+        del data
 
         return True
 
     def __file_view(self, path) -> None:
-        """View a file (image or text) based on its extension"""
+        """View a file (image or text) based on its extension."""
+        print(f"DEBUG: Viewing file: {path}")
         ext = path.split(".")[-1].lower() if "." in path else ""
         if ext in ("jpg", "jpeg", "bmp"):
             self._is_viewing_image = True
@@ -283,36 +258,12 @@ class FileBrowser:
             self._image_path = path
             self._needs_redraw = True
         elif ext in (
-            "txt",
-            "py",
-            "json",
-            "csv",
-            "md",
-            "ini",
-            "log",
-            "xml",
-            "html",
-            "conf",
-            "sh",
-            "bat",
-            "yml",
-            "yaml",
-            "toml",
-            "cfg",
-            "css",
-            "js",
-            "h",
-            "c",
-            "cpp",
-            "php",
-            "env",
-            "gitignore",
-            "lua",
-            "bas",
-            "",
+            "txt", "py", "json", "csv", "md", "ini", "log", "xml", "html",
+            "conf", "sh", "bat", "yml", "yaml", "toml", "cfg", "css", "js",
+            "h", "c", "cpp", "php", "env", "gitignore", "lua", "bas", "",
         ):
             self._is_viewing_text = True
-            self._edit_file = path  # Store path for the header title
+            self._edit_file = path 
 
             data = self._vm.storage.read(path, "r")
 
@@ -361,7 +312,8 @@ class FileBrowser:
 
             items = [x[0] for x in temp_list]
             del temp_list
-        except Exception:
+        except Exception as e:
+            print(f"DEBUG: Error loading directory contents: {e}")
             items = ["<ERROR>"]
 
         return [".."] + items if path != "/" else items
@@ -382,12 +334,11 @@ class FileBrowser:
                 self._vm.draw, self._vm.foreground_color, self._vm.background_color
             )
 
-        # Update the text (e.g., "Copying...") and tick the animation
         self._loading.set_text(title)
         self._loading.animate(swap=True)
 
     def __menu_spawn(self, title: str, items: list):
-        "Helper to construct a pop-up context menu overlaid on the main interface"
+        """Helper to construct a pop-up context menu overlaid on the main interface."""
         from picoware.gui.menu import Menu
 
         fg = self._vm.foreground_color
@@ -401,7 +352,7 @@ class FileBrowser:
         return m
 
     def __refresh_panes(self) -> None:
-        """Refresh the file lists for both panes"""
+        """Refresh the file lists for both panes."""
         self._stat_cache.clear()
         self._app_state["left_files"].clear()
         self._app_state["left_files"] = self.__load_directory_contents(
@@ -423,7 +374,7 @@ class FileBrowser:
         )
 
     def __render(self) -> None:
-        """Draw the UI based on the current state"""
+        """Draw the UI based on the current state."""
         draw = self._vm.draw
         sw, sh, mx = 320, 320, 160
         color_fg = self._vm.foreground_color
@@ -432,11 +383,9 @@ class FileBrowser:
 
         # 1. Image Viewer Overlay (State Machine for Loading Animation)
         if self._is_viewing_image:
-            # Stage 1: Tick the loading spinner animation for 5 loops so the user actually sees it
             if self._image_load_state < 5:
                 if not self._loading:
                     from picoware.gui.loading import Loading
-
                     self._loading = Loading(draw, color_fg, color_bg)
                     self._loading.set_text("Loading Image...")
 
@@ -445,7 +394,6 @@ class FileBrowser:
                 self._needs_redraw = True
                 return
 
-            # Stage 2: Stop the spinner, format the background, and execute hardware block
             if self._image_load_state == 5:
                 if self._loading:
                     self._loading.stop()
@@ -461,12 +409,7 @@ class FileBrowser:
                         self._jpeg_vec, self._image_path, self._vm.storage
                     ):
                         draw._text(10, 30, "Format not supported", color_fg)
-                        draw._text(
-                            10,
-                            45,
-                            "or resolution too large.",
-                            color_fg,
-                        )
+                        draw._text(10, 45, "or resolution too large.", color_fg)
                         draw._text(10, 60, "(Must be Baseline JPEG)", color_fg)
                         draw._fill_rectangle(0, sh - 12, sw, 12, color_sel)
                         draw._text(2, sh - 10, "BACK : Close Image", color_bg)
@@ -476,20 +419,13 @@ class FileBrowser:
                 self._needs_redraw = False
                 return
 
-            # Stage 3: Keep the decoded image or error screen visible until user exits
             self._needs_redraw = False
             return
 
         # 1.5 Text Viewer Overlay (Read-Only with Word Wrap)
         if self._is_viewing_text:
             draw._fill_rectangle(0, 0, sw, 20, color_sel)
-            draw._text(
-                5,
-                4,
-                f"View: {self._edit_file.split('/')[-1]}",
-                color_fg,
-            )
-
+            draw._text(5, 4, f"View: {self._edit_file.split('/')[-1]}", color_fg)
             draw._fill_rectangle(0, sh - 20, sw, 20, color_sel)
             draw._text(5, sh - 16, "UP/DWN:Scroll   BACK:Close", color_fg)
 
@@ -503,41 +439,19 @@ class FileBrowser:
         # 2. Text Editor Overlay
         if self._is_editing:
             if self._text_editor is not None:
-                # TextEditor owns all rendering; only overlay the context menu if present
-                if self._context_menu:
+                # Developer Approved: Explicit state tracking avoids ghost frames
+                if self._editor_state == 1:
                     self._context_menu.refresh()
-                    self._needs_redraw = False
-                return
-
-            # Read-only viewer
-            draw.erase()
-            draw._fill_rectangle(0, 0, sw, 12, color_sel)
-            draw._text(2, 2, f"View: {self._edit_file.split('/')[-1]}", color_fg)
-
-            m_lin, m_chr = (sh - 24) // 12, (sw - 4) // 6
-            for i in range(m_lin):
-                idx = self._edit_sy + i
-                if idx < len(self._edit_text):
-                    full_line = self._edit_text[idx]
-                    line_text = full_line[self._edit_sx : self._edit_sx + m_chr]
-                    draw._text(2, 14 + i * 12, line_text, color_fg)
-
-            draw._fill_rectangle(0, sh - 12, sw, 12, color_sel)
-            draw._text(2, sh - 10, "UP/DWN:Scroll BACK:Close", color_fg)
-
-            if self._context_menu:
-                self._context_menu.refresh()
+                else:
+                    self._text_editor.refresh()
                 self._needs_redraw = False
-            else:
-                draw.swap()
-            return
+                return
 
         draw.erase()
 
         # 3. Help Screen Overlay
         if self._is_help_screen:
             draw._text(10, 5, "--- FILE BROWSER SHORTCUTS ---", color_sel)
-
             draw._text(10, 20, "[MAIN BROWSER]", color_sel)
             draw._text(10, 32, "UP/DWN:Scroll   L/R:Switch Pane", color_fg)
             draw._text(10, 44, "CENTER:Menu     BACK:Exit App", color_fg)
@@ -545,16 +459,13 @@ class FileBrowser:
             draw._text(10, 68, "N:New Folder    I:File Info", color_fg)
             draw._text(10, 80, "M:Dir Enter Mode", color_fg)
             draw._text(10, 92, "O:Options       H:Toggle Help", color_fg)
-
             draw._text(10, 108, "[TEXT EDITOR]", color_sel)
             draw._text(10, 120, "Arrows:Cursor   CENTER:Newline", color_fg)
             draw._text(10, 132, "SHF/CAPS:Upper  BSPC:Delete Char", color_fg)
             draw._text(10, 144, "BACK:Menu (Save/Exit/Whitespace)", color_fg)
-
             draw._text(10, 160, "[TEXT ENTRY & MENUS]", color_sel)
             draw._text(10, 172, "SHF/CAPS:Case   L/R:Move Cursor", color_fg)
             draw._text(10, 184, "CENTER:Confirm  BACK:Cancel", color_fg)
-
             draw._text(10, 200, "[IMAGE & TEXT VIEWER]", color_sel)
             draw._text(10, 212, "UP/DWN:Scroll   BACK: Close", color_fg)
 
@@ -566,14 +477,7 @@ class FileBrowser:
         if self._show_info:
             if self._info_box is None:
                 from picoware.gui.textbox import TextBox
-
-                self._info_box = TextBox(
-                    draw,
-                    0,
-                    320,
-                    color_fg,
-                    color_bg,
-                )
+                self._info_box = TextBox(draw, 0, 320, color_fg, color_bg)
 
             self._info_box.set_text(self._info_data)
             self._info_box.refresh()
@@ -618,11 +522,9 @@ class FileBrowser:
             )
             ind = "A" if self._is_caps else ("^" if self._is_shift else "a")
 
-            # Changed color_sel to color_bg so the text is visible
             draw._text(15, by + 2, f"{ts} [{ind}]:", color_bg)
             draw._text(15, by + 24, self._input_text, color_fg)
 
-            # Blinking horizontal cursor (every 8 frames)
             self._cursor_frame = (self._cursor_frame + 1) % 16
             if self._cursor_frame < 8:
                 draw._fill_rectangle(
@@ -660,7 +562,6 @@ class FileBrowser:
         c_lim, n_lim, m_itm = (mx - 8) // 6, ((mx - 8) // 6) - 6, (sh - 38) // 12
         ap = self._app_state["active_pane"]
 
-        # Loop through left, then right pane to draw current directory listings
         storage = self._vm.storage
         for pn in (self.PANE_LEFT, self.PANE_RIGHT):
             il = pn == self.PANE_LEFT
@@ -672,7 +573,6 @@ class FileBrowser:
             top_key = "left_top" if il else "right_top"
             si = self._app_state.get(top_key, 0)
 
-            # Auto-scroll clamping logic
             if ix < si:
                 si = ix
             elif ix >= si + m_itm:
@@ -680,7 +580,6 @@ class FileBrowser:
 
             self._app_state[top_key] = si
 
-            # Highlight currently active pane header
             if ap == pn:
                 draw._fill_rectangle(xb, 12, mx - (0 if il else 1), 12, color_sel)
             draw._text(xb + 2, 14, ps[:c_lim], color_fg)
@@ -704,7 +603,6 @@ class FileBrowser:
                         self._stat_cache[fp] = (isd, fz)
 
                 if ap == pn:
-                    # Removed the 'or marked' condition so only the active cursor gets the background color
                     if ai == ix:
                         draw._fill_rectangle(
                             xb + (0 if il else 1),
@@ -723,7 +621,6 @@ class FileBrowser:
                 else:
                     szs = f"{fz//1048576}M"
 
-                # Define a local variable for the indicator and append it to the display name
                 mk_char = "*" if fp in self._app_state["marked"] else ""
                 dn = f"{mk_char}/{fn}" if isd else f"{mk_char}{fn}"
 
@@ -745,7 +642,7 @@ class FileBrowser:
         self._needs_redraw = False
 
     def __save_settings(self) -> bool:
-        """Save user settings"""
+        """Save user settings."""
         import json
 
         try:
@@ -767,38 +664,22 @@ class FileBrowser:
             )
             del curr_j
             return True
-        except Exception:
+        except Exception as e:
+            print(f"DEBUG: Failed to save settings: {e}")
             return False
 
     def run(self) -> bool:
         """
         Run the app
-
         Returns:
             bool: True to continue running, False to exit the app.
         """
         from picoware.system.buttons import (
-            BUTTON_NONE,
-            BUTTON_UP,
-            BUTTON_DOWN,
-            BUTTON_LEFT,
-            BUTTON_RIGHT,
-            BUTTON_CENTER,
-            BUTTON_BACK,
-            BUTTON_ESCAPE,
-            BUTTON_BACKSPACE,
-            BUTTON_SPACE,
-            BUTTON_D,
-            BUTTON_H,
-            BUTTON_I,
-            BUTTON_M,
-            BUTTON_N,
-            BUTTON_O,
-            BUTTON_SHIFT,
-            BUTTON_CAPS_LOCK,
-            KEY_MOD_SHL,
-            KEY_MOD_SHR,
-            KEY_CAPS_LOCK,
+            BUTTON_NONE, BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT,
+            BUTTON_CENTER, BUTTON_BACK, BUTTON_ESCAPE, BUTTON_BACKSPACE,
+            BUTTON_SPACE, BUTTON_D, BUTTON_H, BUTTON_I, BUTTON_M, BUTTON_N,
+            BUTTON_O, BUTTON_SHIFT, BUTTON_CAPS_LOCK, KEY_MOD_SHL,
+            KEY_MOD_SHR, KEY_CAPS_LOCK,
         )
 
         inp = self._vm.input_manager
@@ -839,43 +720,18 @@ class FileBrowser:
         # --- Sub-View: Text Editor Input ---
         elif (
             self._is_editing
-            and self._context_menu is None
+            and self._editor_state == 0
             and self._confirm_menu is None
         ):
             if btn in (BUTTON_BACK, BUTTON_ESCAPE):
                 inp.reset()
                 menu_title = "Unsaved Changes!" if self._edit_unsaved else "Editor Menu"
 
-                # check the status
-                fm_status = "OFF"
-                fm_label = f"Format Marks: {fm_status}"
-
                 self._context_menu = self.__menu_spawn(
-                    menu_title, ("Save", "Save & Exit", "Exit", fm_label, "Cancel")
+                    menu_title, ("Save", "Save & Exit", "Exit", "Cancel")
                 )
+                self._editor_state = 1
                 self._needs_redraw = True
-            elif self._edit_read_only:
-                if btn == BUTTON_UP:
-                    inp.reset()
-                    if self._edit_sy > 0:
-                        self._edit_sy -= 1
-                    self._needs_redraw = True
-                elif btn == BUTTON_DOWN:
-                    inp.reset()
-                    ml = (296) // 12
-                    if self._edit_sy + ml < len(self._edit_text):
-                        self._edit_sy += 1
-                    self._needs_redraw = True
-                elif btn == BUTTON_LEFT:
-                    inp.reset()
-                    if self._edit_sx > 0:
-                        self._edit_sx -= 1
-                    self._needs_redraw = True
-                elif btn == BUTTON_RIGHT:
-                    inp.reset()
-                    if self._edit_sx < 500:
-                        self._edit_sx += 1
-                    self._needs_redraw = True
             elif self._text_editor is not None:
                 prev_text = self._text_editor.current_text
                 self._text_editor.run()
@@ -888,7 +744,6 @@ class FileBrowser:
                 inp.reset()
                 self._show_info = False
                 self._info_data = ""
-                # Clean up the textbox memory when closing
                 if self._info_box:
                     del self._info_box
                     self._info_box = None
@@ -924,9 +779,7 @@ class FileBrowser:
                     np = f"/{new_name}" if td == "/" else f"{td}/{new_name}"
 
                     storage = self._vm.storage
-                    self._vm.log(
-                        f"DEBUG: Processing target path: {np} | Mode: {self._input_mode}"
-                    )
+                    print(f"DEBUG: Processing target path: {np} | Mode: {self._input_mode}")
 
                     if (
                         self._input_mode in (self.MODE_RENAME, self.MODE_COPY_SAME)
@@ -1060,8 +913,7 @@ class FileBrowser:
                             self._app_state["right_index"] = (ix + 1) % len(fl)
                         self._needs_redraw = True
 
-        # --- Main File Browser Input: Hotkeys (Dir Mode, Help, Options, New, Info, Delete) ---
-
+        # --- Main File Browser Input: Hotkeys ---
         elif (
             btn == BUTTON_M
             and not self._is_help_screen
@@ -1292,7 +1144,6 @@ class FileBrowser:
                             if len(mk) > 0:
                                 dp = f"{dp}/{t.split('/')[-1]}".replace("//", "/")
 
-                            # Prevent crash from trying to copy a file over top of itself
                             if t != dp:
                                 if storage.exists(dp):
                                     storage.remove(dp)
@@ -1329,12 +1180,13 @@ class FileBrowser:
                 self._context_target_path = self._pending_dest_path = ""
                 self._needs_redraw = True
 
-        # --- Sub-View: Context Menu (View, Edit, Copy, Delete) Input ---
+        # --- Sub-View: Context Menu Input ---
         elif self._context_menu is not None:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE):
                 inp.reset()
                 del self._context_menu
                 self._context_menu = None
+                self._editor_state = 0
                 self._needs_redraw = True
             elif btn == BUTTON_UP:
                 inp.reset()
@@ -1351,14 +1203,12 @@ class FileBrowser:
                 if self._is_editing:
                     if ac in ("Save", "Save & Exit"):
                         self.__loading_run("Saving...", 0.5)
-                        data = (
-                            self._text_editor.current_text
-                            if self._text_editor is not None
-                            else "\n".join(self._edit_text)
-                        )
+                        
+                        data = self._text_editor.current_text
+                            
                         if self._vm.storage.write(self._edit_file, data, "w"):
                             self._edit_unsaved = False
-                        del data
+                        del data # Plug memory leak right after save
                         self.__loading_run("Saved", 1.0)
                         if ac == "Save & Exit":
                             self._is_editing = False
@@ -1372,8 +1222,10 @@ class FileBrowser:
                         self._is_shift = False
                         self._is_caps = False
                         self._text_editor = None
+                    
                     del self._context_menu
                     self._context_menu = None
+                    self._editor_state = 0
                     self._needs_redraw = True
                 else:
                     if ac == "Cancel":
@@ -1392,7 +1244,7 @@ class FileBrowser:
                     elif ac == "View":
                         self.__file_view(self._context_target_path)
                     elif ac == "Edit":
-                        self.__file_edit(self._context_target_path, read_only=False)
+                        self.__file_edit(self._context_target_path)
                     elif ac == "Delete":
                         self._pending_action = self.ACT_DELETE
                         mk = self._app_state["marked"]
@@ -1615,7 +1467,6 @@ class FileBrowser:
                     else:
                         self._context_target_path = np
 
-                        # Strip "Edit" option for images to prevent binary corruption/crashing
                         if isd:
                             items = ["Open"]
                         else:

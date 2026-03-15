@@ -74,6 +74,7 @@ class FileBrowser:
         self._edit_sy = 0
         self._edit_unsaved = False
         self._text_editor = None
+        self._editor_state = 0  # Explicit state: 0 = Editing, 1 = Menu Open
 
         self._is_viewing_image = False
         self._is_viewing_text = False
@@ -217,60 +218,43 @@ class FileBrowser:
         """Start editing a text file"""
         ext = path.split(".")[-1].lower() if "." in path else ""
         if ext not in (
-            "txt",
-            "py",
-            "json",
-            "csv",
-            "md",
-            "ini",
-            "log",
-            "xml",
-            "html",
-            "conf",
-            "sh",
-            "bat",
-            "yml",
-            "yaml",
-            "toml",
-            "cfg",
-            "css",
-            "js",
-            "h",
-            "c",
-            "cpp",
-            "php",
-            "env",
-            "gitignore",
-            "lua",
-            "bas",
-            "",
+            "txt", "py", "json", "csv", "md", "ini", "log", "xml", "html", 
+            "conf", "sh", "bat", "yml", "yaml", "toml", "cfg", "css", "js", 
+            "h", "c", "cpp", "php", "env", "gitignore", "lua", "bas", ""
         ):
             self._vm.alert("Unsupported file format.")
             self._needs_redraw = True
             return False
 
-        self._edit_text.clear()
-        data = self._vm.storage.read(path, "r")
-        if data:
-            self._edit_text.extend(data.split("\n"))
-        del data
-
         self._edit_file = path
         self._edit_read_only = read_only
         self._edit_cx = self._edit_cy = self._edit_sx = self._edit_sy = 0
         self._edit_unsaved = False
-
+        self._editor_state = 0
         self._is_shift = False
         self._is_caps = False
-
         self._is_editing = True
         self._needs_redraw = True
 
+        # Read file directly into a single string
+        data = self._vm.storage.read(path, "r")
+        if data is None:
+            data = ""
+            
+        # Sanitize invisible bytes that break the C renderer's math
+        data = data.replace('\r\n', '\n').replace('\r', '\n').replace('\t', '    ')
+
         if not read_only:
             from picoware.gui.text_editor import TextEditor
-
             self._text_editor = TextEditor(self._vm)
-            self._text_editor.current_text = "\n".join(self._edit_text)
+            self._text_editor.current_text = data
+            self._edit_text.clear() # Keep list empty to save RAM
+        else:
+            self._edit_text.clear()
+            self._edit_text.extend(data.split("\n"))
+            
+        # Free the large string from Python's memory immediately
+        del data
 
         return True
 
@@ -503,10 +487,12 @@ class FileBrowser:
         # 2. Text Editor Overlay
         if self._is_editing:
             if self._text_editor is not None:
-                # TextEditor owns all rendering; only overlay the context menu if present
-                if self._context_menu:
+                # Explicit state tracking avoids ghost frames
+                if self._editor_state == 1:
                     self._context_menu.refresh()
-                    self._needs_redraw = False
+                else:
+                    self._text_editor.refresh()
+                self._needs_redraw = False
                 return
 
             # Read-only viewer
@@ -525,7 +511,7 @@ class FileBrowser:
             draw._fill_rectangle(0, sh - 12, sw, 12, color_sel)
             draw._text(2, sh - 10, "UP/DWN:Scroll BACK:Close", color_fg)
 
-            if self._context_menu:
+            if self._editor_state == 1:
                 self._context_menu.refresh()
                 self._needs_redraw = False
             else:
@@ -839,20 +825,17 @@ class FileBrowser:
         # --- Sub-View: Text Editor Input ---
         elif (
             self._is_editing
-            and self._context_menu is None
+            and self._editor_state == 0
             and self._confirm_menu is None
         ):
             if btn in (BUTTON_BACK, BUTTON_ESCAPE):
                 inp.reset()
                 menu_title = "Unsaved Changes!" if self._edit_unsaved else "Editor Menu"
 
-                # check the status
-                fm_status = "OFF"
-                fm_label = f"Format Marks: {fm_status}"
-
                 self._context_menu = self.__menu_spawn(
-                    menu_title, ("Save", "Save & Exit", "Exit", fm_label, "Cancel")
+                    menu_title, ("Save", "Save & Exit", "Exit", "Cancel")
                 )
+                self._editor_state = 1
                 self._needs_redraw = True
             elif self._edit_read_only:
                 if btn == BUTTON_UP:
@@ -1335,6 +1318,7 @@ class FileBrowser:
                 inp.reset()
                 del self._context_menu
                 self._context_menu = None
+                self._editor_state = 0
                 self._needs_redraw = True
             elif btn == BUTTON_UP:
                 inp.reset()
@@ -1372,8 +1356,10 @@ class FileBrowser:
                         self._is_shift = False
                         self._is_caps = False
                         self._text_editor = None
+                    
                     del self._context_menu
                     self._context_menu = None
+                    self._editor_state = 0
                     self._needs_redraw = True
                 else:
                     if ac == "Cancel":

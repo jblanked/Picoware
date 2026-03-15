@@ -156,9 +156,7 @@ static void textbox_draw_cursor(textbox_mp_obj_t *self, uint16_t first, uint16_t
     if (cursor_line < first || cursor_line >= last)
         return;
 
-    uint16_t char_w = (self->chars_per_line > 0)
-                          ? (uint16_t)(self->box_width / self->chars_per_line)
-                          : 8;
+    uint16_t char_w = font_get_width(FONT_DEFAULT) + font_get_spacing(FONT_DEFAULT);
     uint16_t cx = (uint16_t)(1 + cursor_col * char_w);
     // Place the 2px underline at the bottom of the character cell.
     uint16_t cy = (uint16_t)(self->pos_y + 5 + (uint32_t)(cursor_line - first) * self->spacing + self->spacing - 2);
@@ -249,7 +247,7 @@ static void textbox_display(textbox_mp_obj_t *self)
         line_buf[copy_len] = '\0';
 
         uint16_t y = (uint16_t)(self->pos_y + 5 + (uint32_t)(i - first) * self->spacing);
-        LCD_MP_TEXT(text_x, y, line_buf, self->foreground_color, 0);
+        LCD_MP_TEXT(text_x, y, line_buf, self->foreground_color, FONT_DEFAULT);
     }
 
     if (self->show_scrollbar)
@@ -289,8 +287,10 @@ mp_obj_t textbox_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_
     self->background_color = (uint16_t)mp_obj_get_int(args[6]);
     self->show_scrollbar = mp_obj_is_true(args[7]);
     self->show_cursor = mp_obj_is_true(args[8]);
-    self->lines_per_screen = (self->spacing > 0)
-                                 ? (uint16_t)(self->box_height / self->spacing)
+    // Reserve the 5-px top offset so the cursor underline (text_y + spacing - 2)
+    // for the last visible row always lands inside the box.
+    self->lines_per_screen = (self->spacing > 0 && self->box_height > 5)
+                                 ? (uint16_t)((self->box_height - 5) / self->spacing)
                                  : 1;
 
     // Empty text

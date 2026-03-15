@@ -44,19 +44,13 @@ static void textbox_wrap(textbox_mp_obj_t *self)
         {
             textbox_add_line(self, line_start, line_length);
             i++;
-            // skip leading spaces on the new logical line
-            while (i < str_len && text[i] == ' ')
-                i++;
             line_start = i;
             line_length = 0;
             continue;
         }
 
-        // Skip leading spaces at the start of a wrapped line
         if (line_length == 0)
         {
-            while (i < str_len && text[i] == ' ')
-                i++;
             line_start = i;
         }
 
@@ -119,13 +113,28 @@ static void textbox_wrap(textbox_mp_obj_t *self)
         }
     }
 
-    // Commit the last line; also emit an empty trailing line when text ends with '\n'
-    // so the cursor lands on a fresh line rather than the end of the previous one.
+    // Commit the last line
     if (line_length > 0 || self->total_lines == 0 ||
         (str_len > 0 && text[str_len - 1] == '\n'))
         textbox_add_line(self, line_start, line_length);
 
     self->cache_valid = true;
+}
+
+// Helper to find the wrapped line index of the current cursor position
+static uint16_t textbox_get_cursor_line(textbox_mp_obj_t *self)
+{
+    if (self->total_lines == 0) return 0;
+    
+    for (uint16_t i = 0; i < self->total_lines - 1; i++) {
+        // A line logically owns all bytes from its start up to the next line's start.
+        if (self->cursor_pos >= self->lines[i].start && self->cursor_pos < self->lines[i+1].start) {
+            return i;
+        }
+    }
+    
+    // If it hasn't matched any previous line, it must belong to the last line.
+    return self->total_lines - 1;
 }
 
 // Draw the cursor as a static horizontal underline at the current cursor_pos.
@@ -134,33 +143,23 @@ static void textbox_draw_cursor(textbox_mp_obj_t *self, uint16_t first, uint16_t
     if (!self->show_cursor || self->total_lines == 0)
         return;
 
-    // Find which wrapped line contains cursor_pos.
-    uint16_t cursor_line = self->total_lines - 1;
-    uint16_t cursor_col = 0;
-    for (uint16_t i = 0; i < self->total_lines; i++)
-    {
-        uint32_t ls = self->lines[i].start;
-        uint16_t ll = self->lines[i].length;
-        if (self->cursor_pos >= ls &&
-            (self->cursor_pos < ls + ll || i == self->total_lines - 1))
-        {
-            cursor_line = i;
-            cursor_col = (uint16_t)(self->cursor_pos - ls);
-            if (cursor_col > ll)
-                cursor_col = ll; // clamp to end of line
-            break;
-        }
-    }
+    uint16_t cursor_line = textbox_get_cursor_line(self);
 
     // Only draw if the cursor's line is currently on screen.
     if (cursor_line < first || cursor_line >= last)
         return;
 
-    uint16_t char_w = (self->chars_per_line > 0)
-                          ? (uint16_t)(self->box_width / self->chars_per_line)
-                          : 8;
+    uint32_t ls = self->lines[cursor_line].start;
+    uint16_t ll = self->lines[cursor_line].length;
+    
+    uint16_t cursor_col = (uint16_t)(self->cursor_pos - ls);
+    if (cursor_col > ll)
+        cursor_col = ll; // clamp to end of line
+
+    // Lock the cursor to the physical 6-pixel font width to prevent drift
+    uint16_t char_w = 6; 
+    
     uint16_t cx = (uint16_t)(1 + cursor_col * char_w);
-    // Place the 2px underline at the bottom of the character cell.
     uint16_t cy = (uint16_t)(self->pos_y + 5 + (uint32_t)(cursor_line - first) * self->spacing + self->spacing - 2);
 
     LCD_MP_FILL_RECTANGLE(cx, cy, char_w, 2, self->foreground_color);
@@ -194,10 +193,10 @@ static void textbox_draw_scrollbar(textbox_mp_obj_t *self)
 
     // Indicator position (follows current_line)
     uint16_t bar_y = track_y;
-    if (self->total_lines > self->lines_per_screen && self->current_line > self->lines_per_screen)
+    if (self->total_lines > self->lines_per_screen && self->current_line > 0)
     {
         uint32_t scrollable = track_h - bar_h;
-        uint32_t ratio_num = self->current_line - self->lines_per_screen;
+        uint32_t ratio_num = self->current_line;
         uint32_t ratio_den = self->total_lines - self->lines_per_screen;
         bar_y = (uint16_t)(track_y + (scrollable * ratio_num / ratio_den));
     }
@@ -217,11 +216,22 @@ static void textbox_display(textbox_mp_obj_t *self)
         return;
     }
 
-    // Determine the first visible line
-    uint16_t first = 0;
-    if (self->current_line > self->lines_per_screen)
-        first = (uint16_t)(self->current_line - self->lines_per_screen);
+    // --- AUTO-SCROLL LOGIC ---
+    if (self->show_cursor) 
+    {
+        uint16_t cursor_line = textbox_get_cursor_line(self);
+        
+        if (cursor_line < self->current_line) {
+            // Cursor moved above screen, snap view up
+            self->current_line = cursor_line;
+        } else if (cursor_line >= self->current_line + self->lines_per_screen) {
+            // Cursor moved below screen, snap view down
+            self->current_line = cursor_line - self->lines_per_screen + 1;
+        }
+    }
 
+    // Determine the first visible line
+    uint16_t first = self->current_line;
     uint16_t last = first + self->lines_per_screen;
     if (last > self->total_lines)
         last = self->total_lines;
@@ -340,9 +350,10 @@ mp_obj_t textbox_mp_render(mp_obj_t self_in)
     if (!self->cache_valid)
         textbox_wrap(self);
 
-    if (self->total_lines > 0)
-        self->current_line = (uint16_t)(self->total_lines - 1);
-    self->cursor_pos = self->text_len;
+    // Safeguard: Clamp cursor to valid memory bounds
+    if (self->cursor_pos > self->text_len) {
+        self->cursor_pos = self->text_len;
+    }
 
     textbox_display(self);
     return mp_const_none;
@@ -352,9 +363,27 @@ static MP_DEFINE_CONST_FUN_OBJ_1(textbox_mp_render_obj, textbox_mp_render);
 mp_obj_t textbox_mp_scroll_up(mp_obj_t self_in)
 {
     textbox_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (self->freed || self->current_line == 0)
-        return mp_const_none;
-    self->current_line--;
+    if (self->freed) return mp_const_none;
+
+    if (self->show_cursor && self->total_lines > 0) {
+        // Editor Mode: Move cursor up one logical line
+        uint16_t line = textbox_get_cursor_line(self);
+        if (line > 0) {
+            uint16_t col = (uint16_t)(self->cursor_pos - self->lines[line].start);
+            uint16_t prev_len = self->lines[line - 1].length;
+            
+            if (prev_len > 0 && self->text[self->lines[line - 1].start + prev_len - 1] == '\n') {
+                prev_len -= 1;
+            }
+            
+            uint16_t target_col = (col > prev_len) ? prev_len : col;
+            self->cursor_pos = self->lines[line - 1].start + target_col;
+        }
+    } else {
+        // Viewer Mode: Just scroll the screen
+        if (self->current_line > 0) self->current_line--;
+    }
+    
     textbox_display(self);
     return mp_const_none;
 }
@@ -363,9 +392,29 @@ static MP_DEFINE_CONST_FUN_OBJ_1(textbox_mp_scroll_up_obj, textbox_mp_scroll_up)
 mp_obj_t textbox_mp_scroll_down(mp_obj_t self_in)
 {
     textbox_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (self->freed || self->total_lines == 0 || self->current_line >= self->total_lines - 1)
-        return mp_const_none;
-    self->current_line++;
+    if (self->freed || self->total_lines == 0) return mp_const_none;
+
+    if (self->show_cursor) {
+        // Editor Mode: Move cursor down one logical line
+        uint16_t line = textbox_get_cursor_line(self);
+        if (line < self->total_lines - 1) {
+            uint16_t col = (uint16_t)(self->cursor_pos - self->lines[line].start);
+            uint16_t next_len = self->lines[line + 1].length;
+            
+            if (next_len > 0 && self->text[self->lines[line + 1].start + next_len - 1] == '\n') {
+                next_len -= 1;
+            }
+
+            uint16_t target_col = (col > next_len) ? next_len : col;
+            self->cursor_pos = self->lines[line + 1].start + target_col;
+        }
+    } else {
+        // Viewer Mode: Just scroll the screen
+        if (self->current_line + self->lines_per_screen < self->total_lines) {
+            self->current_line++;
+        }
+    }
+    
     textbox_display(self);
     return mp_const_none;
 }
@@ -399,20 +448,21 @@ mp_obj_t textbox_mp_set_text(mp_obj_t self_in, mp_obj_t text_in)
     size_t new_len;
     const char *new_text = mp_obj_str_get_data(text_in, &new_len);
 
-    // No-op if text unchanged
     if (new_len == self->text_len && memcmp(new_text, self->text, new_len) == 0)
         return mp_const_none;
 
-    self->text_obj = text_in; // root the string in the struct
+    self->text_obj = text_in; 
     self->text = new_text;
     self->text_len = new_len;
     self->cache_valid = false;
 
-    // re-wrap + display
     textbox_wrap(self);
-    if (self->total_lines > 0)
-        self->current_line = (uint16_t)(self->total_lines - 1);
-    self->cursor_pos = self->text_len;
+    
+    // STRICT BOUNDS ONLY: No auto-shifting. Let Python or scroll functions handle movement.
+    if (self->cursor_pos > self->text_len) {
+        self->cursor_pos = self->text_len;
+    }
+
     textbox_display(self);
     return mp_const_none;
 }
@@ -433,6 +483,31 @@ mp_obj_t textbox_mp_set_current_line(mp_obj_t self_in, mp_obj_t line_in)
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(textbox_mp_set_current_line_obj, textbox_mp_set_current_line);
+
+
+mp_obj_t textbox_mp_set_cursor(mp_obj_t self_in, mp_obj_t pos_in)
+{
+    textbox_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (self->freed) return mp_const_none;
+    
+    size_t pos = (size_t)mp_obj_get_int(pos_in);
+    if (pos <= self->text_len) {
+        self->cursor_pos = pos;
+    } else {
+        self->cursor_pos = self->text_len;
+    }
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(textbox_mp_set_cursor_obj, textbox_mp_set_cursor);
+
+mp_obj_t textbox_mp_get_cursor(mp_obj_t self_in)
+{
+    textbox_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (self->freed) return mp_obj_new_int(0);
+    return mp_obj_new_int((mp_int_t)self->cursor_pos);
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(textbox_mp_get_cursor_obj, textbox_mp_get_cursor);
+
 
 void textbox_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
@@ -502,6 +577,8 @@ static const mp_rom_map_elem_t textbox_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR__clear), MP_ROM_PTR(&textbox_mp_clear_obj)},
     {MP_ROM_QSTR(MP_QSTR__set_text), MP_ROM_PTR(&textbox_mp_set_text_obj)},
     {MP_ROM_QSTR(MP_QSTR__set_current_line), MP_ROM_PTR(&textbox_mp_set_current_line_obj)},
+    {MP_ROM_QSTR(MP_QSTR__set_cursor), MP_ROM_PTR(&textbox_mp_set_cursor_obj)},
+    {MP_ROM_QSTR(MP_QSTR__get_cursor), MP_ROM_PTR(&textbox_mp_get_cursor_obj)},
 };
 static MP_DEFINE_CONST_DICT(textbox_mp_locals_dict, textbox_mp_locals_dict_table);
 

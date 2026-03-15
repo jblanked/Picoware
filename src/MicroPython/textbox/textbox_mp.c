@@ -194,10 +194,10 @@ static void textbox_draw_scrollbar(textbox_mp_obj_t *self)
 
     // Indicator position (follows current_line)
     uint16_t bar_y = track_y;
-    if (self->total_lines > self->lines_per_screen && self->current_line > self->lines_per_screen)
+    if (self->total_lines > self->lines_per_screen && self->current_line >= self->lines_per_screen)
     {
         uint32_t scrollable = track_h - bar_h;
-        uint32_t ratio_num = self->current_line - self->lines_per_screen;
+        uint32_t ratio_num = self->current_line + 1 - self->lines_per_screen;
         uint32_t ratio_den = self->total_lines - self->lines_per_screen;
         bar_y = (uint16_t)(track_y + (scrollable * ratio_num / ratio_den));
     }
@@ -218,9 +218,10 @@ static void textbox_display(textbox_mp_obj_t *self)
     }
 
     // Determine the first visible line
+    // current_line is the index of the last line shown on screen.
     uint16_t first = 0;
-    if (self->current_line > self->lines_per_screen)
-        first = (uint16_t)(self->current_line - self->lines_per_screen);
+    if (self->current_line >= self->lines_per_screen)
+        first = (uint16_t)(self->current_line + 1 - self->lines_per_screen);
 
     uint16_t last = first + self->lines_per_screen;
     if (last > self->total_lines)

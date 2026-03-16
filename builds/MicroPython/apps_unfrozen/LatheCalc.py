@@ -163,6 +163,18 @@ def load_settings():
             for key in loaded:
                 if hasattr(s, key):
                     setattr(s, key, loaded[key])
+            
+            # Sanitize indices to repair any float corruption in the save file
+            s.val_unit = int(s.val_unit)
+            s.val_cutter = int(s.val_cutter)
+            s.val_work = int(s.val_work)
+            s.val_type = int(s.val_type)
+            s.val_proc = int(s.val_proc)
+            s.val_pass = int(s.val_pass)
+            s.theme_id = int(s.theme_id)
+            s.th_type = int(s.th_type)
+            s.cv_unit = int(s.cv_unit)
+            
             return True
         except Exception: pass
     return False

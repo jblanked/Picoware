@@ -789,9 +789,9 @@ class FileBrowser:
                 self._editor_state = self.MODE_MENU
                 self._needs_redraw = True
             elif self._text_editor is not None:
-                prev_text = self._text_editor.current_text
+                prev_text_len = len(self._text_editor.current_text)
                 self._text_editor.run()
-                if self._text_editor.current_text != prev_text:
+                if len(self._text_editor.current_text) != prev_text_len:
                     self._edit_unsaved = True
 
         # --- Sub-View: Information Dialog Input ---

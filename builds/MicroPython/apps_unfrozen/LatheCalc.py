@@ -48,7 +48,7 @@ OPT_THEME = 0; OPT_BACK = 1
 # Constants - Toggles
 UNIT_METRIC = 0; UNIT_IMP = 1
 CUT_HSS = 0; CUT_CARB = 1
-WORK_ALU = 0; WORK_BRASS = 1; WORK_MILD = 2; WORK_STAIN = 3; WORK_CAST = 4; WORK_PLAST = 5; WORK_TITAN = 6
+WORK_ALU = 0; WORK_BRASS = 1; WORK_MILD = 2; WORK_STAIN = 3; WORK_CAST = 4; WORK_PLAST = 5; WORK_TITAN = 6; WORK_COPPER = 7; WORK_MED_C = 8; WORK_TOOL_ST = 9; WORK_SUPER = 10
 TYPE_HOBBY = 0; TYPE_INDUST = 1
 PROC_TURN = 0; PROC_FACE = 1; PROC_PART = 2; PROC_CHAMFER = 3; PROC_BORE = 4; PROC_DRILL = 5
 PASS_ROUGH = 0; PASS_FINISH = 1
@@ -477,11 +477,23 @@ def _apply_safe_defaults():
     s = state 
     
     if s.val_type == TYPE_HOBBY:
-        vc_map = [60.0, 45.0, 18.0, 12.0, 12.0, 85.0, 10.0] if s.val_cutter == CUT_HSS else [150.0, 100.0, 70.0, 50.0, 60.0, 150.0, 35.0]
+        vc_map = [60.0, 45.0, 18.0, 12.0, 12.0, 85.0, 10.0, 30.0, 12.0, 10.0, 3.0] if s.val_cutter == CUT_HSS else [150.0, 100.0, 70.0, 50.0, 60.0, 150.0, 35.0, 100.0, 60.0, 40.0, 20.0]
     else:
-        vc_map = [75.0, 50.0, 27.0, 17.0, 20.0, 120.0, 12.0] if s.val_cutter == CUT_HSS else [200.0, 150.0, 100.0, 80.0, 100.0, 200.0, 50.0]
+        vc_map = [75.0, 50.0, 27.0, 17.0, 20.0, 120.0, 12.0, 37.0, 21.0, 15.0, 4.0] if s.val_cutter == CUT_HSS else [200.0, 150.0, 100.0, 80.0, 100.0, 200.0, 50.0, 120.0, 80.0, 65.0, 30.0]
         
     base_vc = vc_map[s.val_work]
+    
+    # Local variable feed modifier to prevent RAM clutter
+    _f_mod = 1.0 
+    
+    # Feed overrides for specific challenging materials
+    if s.val_proc not in (PROC_PART, PROC_CHAMFER):
+        if s.val_work == WORK_SUPER:
+            _f_mod = 1.25  # +25% feed to force tool under the work-hardened layer
+        elif s.val_work == WORK_TOOL_ST:
+            _f_mod = 0.85  # -15% feed to protect tool life in hard alloys
+        elif s.val_work == WORK_COPPER and s.val_pass == PASS_FINISH:
+            _f_mod = 1.50  # +50% finish feed to prevent copper from tearing
     
     if s.val_unit == UNIT_IMP:
         base_vc = base_vc * 3.28084
@@ -490,16 +502,26 @@ def _apply_safe_defaults():
             s.val_feed = 0.002
         else:
             s.val_vc = base_vc if s.val_pass == PASS_ROUGH else base_vc * 1.3
-            s.val_feed = (0.006 if s.val_cutter == CUT_HSS else 0.008) if s.val_pass == PASS_ROUGH else (0.002 if s.val_cutter == CUT_HSS else 0.003)
+            # Apply the modifier to the standard imperial feeds
+            _base_feed = (0.006 if s.val_cutter == CUT_HSS else 0.008) if s.val_pass == PASS_ROUGH else (0.002 if s.val_cutter == CUT_HSS else 0.003)
+            s.val_feed = _base_feed * _f_mod
+            
         s.val_vc = int(s.val_vc)
+        s.val_feed = int(s.val_feed * 10000) / 10000.0
     else:
         if s.val_proc in (PROC_PART, PROC_CHAMFER):
             s.val_vc = base_vc * 0.5
             s.val_feed = 0.05
         else:
             s.val_vc = base_vc if s.val_pass == PASS_ROUGH else base_vc * 1.3
-            s.val_feed = (0.15 if s.val_cutter == CUT_HSS else 0.20) if s.val_pass == PASS_ROUGH else (0.05 if s.val_cutter == CUT_HSS else 0.08)
+            # Apply the modifier to the standard metric feeds
+            _base_feed = (0.15 if s.val_cutter == CUT_HSS else 0.20) if s.val_pass == PASS_ROUGH else (0.05 if s.val_cutter == CUT_HSS else 0.08)
+            s.val_feed = _base_feed * _f_mod
+            
         s.val_vc = int(s.val_vc * 10) / 10.0
+        s.val_feed = int(s.val_feed * 1000) / 1000.0 
+        
+    print("DEBUG: Feed computed as", s.val_feed)
 
 def _calculate():
     s = state 
@@ -517,7 +539,7 @@ def _calculate():
             s.warn_rpm_cap = True
             if s.val_cutter == CUT_CARB: s.warn_carbide_spd = True
         
-        if s.val_cutter == CUT_HSS or s.val_proc in (PROC_PART, PROC_CHAMFER, PROC_DRILL) or s.val_work in (WORK_STAIN, WORK_TITAN): s.warn_coolant = True
+        if s.val_cutter == CUT_HSS or s.val_proc in (PROC_PART, PROC_CHAMFER, PROC_DRILL) or s.val_work in (WORK_STAIN, WORK_TITAN, WORK_SUPER): s.warn_coolant = True
             
         if s.val_proc == PROC_PART:
             s.rec_doc = "FULL BLD"
@@ -535,9 +557,15 @@ def _calculate():
                 s.rec_doc = "SEE SPEC" if s.val_cutter == CUT_CARB else ("2.0mm+" if s.val_unit == UNIT_METRIC else "0.08in+")
             else:
                 if s.val_pass == PASS_ROUGH:
-                    s.rec_doc = ("1.0mm" if s.val_cutter == CUT_HSS else "0.5mm") if s.val_unit == UNIT_METRIC else ("0.04in" if s.val_cutter == CUT_HSS else "0.02in")
+                    if s.val_work in (WORK_SUPER, WORK_TOOL_ST):
+                        # 50% DOC reduction for extremely hard materials on hobby machines
+                        s.rec_doc = ("0.5mm" if s.val_cutter == CUT_HSS else "0.2mm") if s.val_unit == UNIT_METRIC else ("0.02in" if s.val_cutter == CUT_HSS else "0.008in")
+                    else:
+                        s.rec_doc = ("1.0mm" if s.val_cutter == CUT_HSS else "0.5mm") if s.val_unit == UNIT_METRIC else ("0.04in" if s.val_cutter == CUT_HSS else "0.02in")
                 else:
                     s.rec_doc = "0.1-0.2mm" if s.val_unit == UNIT_METRIC else "0.004-0.008in"
+        
+        print("DEBUG: Recommended DOC computed as", s.rec_doc)
 
         s.feed_m_result = s.rpm_result * s.val_feed
         s.feed_m_result = int(s.feed_m_result * 10) / 10.0 if s.val_unit == UNIT_METRIC else int(s.feed_m_result * 1000) / 1000.0
@@ -846,7 +874,7 @@ def _draw_calc(view_manager):
     _str_proc = _proc_names[s.val_proc]
     _str_pass = "ROUGH" if s.val_pass == PASS_ROUGH else "FINISH"
     
-    work_names = ["ALUM", "BRASS", "MILD ST", "STAINLS", "CST IRN", "PLASTIC", "TITAN"]
+    work_names = ["ALUM", "BRASS", "MILD ST", "STAINLS", "CST IRN", "PLASTIC", "TITAN", "COPPER", "HI-C ST", "TOOL ST", "SUPERAL"]
     _str_work = work_names[s.val_work]
     
     _u_d = "mm" if s.val_unit == UNIT_METRIC else "in"
@@ -1124,7 +1152,7 @@ def run(view_manager):
                     pass
                 else:
                     s.val_cutter = CUT_CARB if s.val_cutter == CUT_HSS else CUT_HSS
-            elif s.sel_main == FIELD_WORK: s.val_work = (s.val_work + int(_dir)) % 7
+            elif s.sel_main == FIELD_WORK: s.val_work = (s.val_work + int(_dir)) % 11
             elif s.sel_main == FIELD_TYPE: 
                 s.val_type = TYPE_INDUST if s.val_type == TYPE_HOBBY else TYPE_HOBBY
                 if s.val_type == TYPE_HOBBY and s.val_proc == PROC_DRILL and s.val_cutter == CUT_CARB:

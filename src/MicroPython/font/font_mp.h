@@ -16,10 +16,6 @@ extern "C"
 #include "py/objarray.h"
 #include "font.h"
 
-#ifndef STATIC
-#define STATIC static
-#endif
-
 #define FONT_DEFAULT FONT_XTRA_SMALL
 
     typedef struct
@@ -59,6 +55,7 @@ extern "C"
     mp_obj_t font_size_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args); // constructor for the font size object
     mp_obj_t font_size_mp_del(mp_obj_t self_in);                                                                 // destructor for the font size object
     void font_size_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination);                             // attribute handler for the font size object (e.g., to access properties like height and width)
+    mp_obj_t font_size_mp_set_size(mp_obj_t self_in, mp_obj_t size_obj);                                         // Method to set the font size and update width, height, and spacing accordingly
 
 #ifdef __cplusplus
 }

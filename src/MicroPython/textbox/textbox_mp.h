@@ -19,6 +19,7 @@ extern "C"
 
 #define TEXTBOX_INITIAL_LINE_CAPACITY 64
 #define TEXTBOX_SCROLLBAR_WIDTH 6
+#define TEXTBOX_INITIAL_EDIT_CAPACITY 256
 
     // Stores the start byte-offset and character count of one wrapped line
     typedef struct
@@ -31,7 +32,6 @@ extern "C"
     {
         mp_obj_base_t base;
         // Text storage
-        mp_obj_t text_obj;
         const char *text;
         size_t text_len;
         // Geometry
@@ -57,6 +57,9 @@ extern "C"
         size_t cursor_pos; // byte offset of the cursor in the text
         bool show_cursor;  // whether to render the cursor
         bool freed;
+        // Editing
+        char *edit_buf;
+        size_t edit_buf_capacity;
     } textbox_mp_obj_t;
 
     extern const mp_obj_type_t textbox_mp_type;
@@ -74,6 +77,11 @@ extern "C"
     mp_obj_t textbox_mp_clear(mp_obj_t self_in);                           // clear text and redraw
     mp_obj_t textbox_mp_set_text(mp_obj_t self_in, mp_obj_t text);         // set text and redraw
     mp_obj_t textbox_mp_set_current_line(mp_obj_t self_in, mp_obj_t line); // jump to line
+    mp_obj_t textbox_mp_set_cursor(mp_obj_t self_in, mp_obj_t pos_in);     // set cursor position, scroll viewport, and redraw
+    mp_obj_t textbox_mp_cursor_up(mp_obj_t self_in);                       // move cursor up one wrapped line
+    mp_obj_t textbox_mp_cursor_down(mp_obj_t self_in);                     // move cursor down one wrapped line
+    mp_obj_t textbox_mp_insert_char(mp_obj_t self_in, mp_obj_t char_in);   // insert char at cursor and advance
+    mp_obj_t textbox_mp_delete_char(mp_obj_t self_in);                     // delete char before cursor (backspace)
 
 #ifdef __cplusplus
 }

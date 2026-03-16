@@ -52,6 +52,16 @@ class TextBox(textbox.TextBox):
             del self._lvgl_textbox
             self._lvgl_textbox = None
 
+    def __setattr__(self, name, value):
+        if name == "text":
+            self.set_text(value)
+        elif name == "cursor":
+            self._set_cursor(value)
+        elif name == "current_line":
+            self.set_current_line(value)
+        else:
+            super().__setattr__(name, value)
+
     @property
     def current_text(self) -> str:
         """Returns the current text content of the text box."""

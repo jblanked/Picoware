@@ -521,8 +521,6 @@ def _apply_safe_defaults():
         s.val_vc = int(s.val_vc * 10) / 10.0
         s.val_feed = int(s.val_feed * 1000) / 1000.0 
         
-    print("DEBUG: Feed computed as", s.val_feed)
-
 def _calculate():
     s = state 
     _pi = 3.14159
@@ -565,7 +563,6 @@ def _calculate():
                 else:
                     s.rec_doc = "0.1-0.2mm" if s.val_unit == UNIT_METRIC else "0.004-0.008in"
         
-        print("DEBUG: Recommended DOC computed as", s.rec_doc)
 
         s.feed_m_result = s.rpm_result * s.val_feed
         s.feed_m_result = int(s.feed_m_result * 10) / 10.0 if s.val_unit == UNIT_METRIC else int(s.feed_m_result * 1000) / 1000.0

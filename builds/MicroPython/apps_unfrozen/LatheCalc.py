@@ -1,5 +1,5 @@
 # ==========================================
-# LATHE-CALC v1.0
+# LATHE-CALC v1.5
 # ==========================================
 # Help Text: Use UP/DOWN to move the cursor. 
 # Use LEFT/RIGHT to toggle bracketed settings or adjust numbers.
@@ -21,6 +21,7 @@ SCREEN_HELP = 5
 SCREEN_THREAD = 6
 SCREEN_CONVERT = 7
 SCREEN_OPTIONS = 8
+SCREEN_KNURL = 9
 
 # Constants - Field States (Main)
 FIELD_UNIT = 0; FIELD_TYPE = 1; FIELD_WORK = 2; FIELD_CUTTER = 3
@@ -28,7 +29,7 @@ FIELD_PROC = 4; FIELD_PASS = 5; FIELD_DIAM = 6; FIELD_LEN = 7
 FIELD_VC = 8; FIELD_FEED = 9; FIELD_MAIN_TOOLBOX = 10; FIELD_MAIN_HELP = 11
 
 # Constants - Field States (Toolbox)
-TB_CHART = 0; TB_TAP = 1; TB_TAPER = 2; TB_THREAD = 3; TB_CONVERT = 4; TB_OPTIONS = 5; TB_BACK = 6
+TB_CHART = 0; TB_TAP = 1; TB_TAPER = 2; TB_THREAD = 3; TB_CONVERT = 4; TB_KNURL = 5; TB_OPTIONS = 6; TB_BACK = 7
 
 # Constants - Field States (Sub-Tools)
 TP_D = 0; TP_d = 1; TP_L = 2; TP_BACK = 3
@@ -41,7 +42,7 @@ UNIT_METRIC = 0; UNIT_IMP = 1
 CUT_HSS = 0; CUT_CARB = 1
 WORK_ALU = 0; WORK_BRASS = 1; WORK_MILD = 2; WORK_STAIN = 3; WORK_CAST = 4; WORK_PLAST = 5; WORK_TITAN = 6
 TYPE_HOBBY = 0; TYPE_INDUST = 1
-PROC_TURN = 0; PROC_FACE = 1; PROC_PART = 2
+PROC_TURN = 0; PROC_FACE = 1; PROC_PART = 2; PROC_CHAMFER = 3; PROC_BORE = 4; PROC_DRILL = 5
 PASS_ROUGH = 0; PASS_FINISH = 1
 TH_METRIC = 0; TH_UNIFIED = 1
 
@@ -271,6 +272,30 @@ def _load_text(mode):
             "3/8 - 24  | Q     | .3320\n"
             "1/2 - 20  | 29/64 | .4531\n"
         )
+    elif mode == "KNURL":
+        text = (
+            "--- KNURLING REFERENCE ---\n\n"
+            "PITCH | TPI  | USE CASE\n"
+            "1.2mm | 21   | Coarse (Lrg Diam)\n"
+            "0.8mm | 33   | Medium (Gen Purp)\n"
+            "0.5mm | 50   | Fine (Sml Diam)\n\n"
+            "--- BLANK PREPARATION ---\n\n"
+            "Form knurls displace metal \n"
+            "outward. Turn your blank \n"
+            "undersize before knurling.\n\n"
+            "FORMULA:\n"
+            "Blank Diam = Finished Diam\n"
+            "minus (Pitch / 3)\n\n"
+            "EXAMPLE:\n"
+            "To get a 20mm finish with\n"
+            "a 0.8mm pitch wheel:\n"
+            "20 - (0.8 / 3) = 19.73mm\n\n"
+            "--- PRO TIPS ---\n\n"
+            "* Always chamfer blank edges \n"
+            "  first to prevent flaking.\n"
+            "* Flood with cutting fluid.\n"
+            "* Use power feed if possible.\n"
+        )
     elif mode == "HELP":
         text = (
             "=== ABBREVIATIONS GLOSSARY ===\n\n"
@@ -287,7 +312,12 @@ def _load_text(mode):
             "CARB: Carbide insert cutter.\n"
             "SYS: Machine type (Hobby/Ind).\n"
             "PROC: Machining Process.\n"
-            "PASS: Roughing vs Finishing.\n\n"
+            "PASS: Roughing vs Finishing.\n"
+            "CHAMF: Chamfering/Bevel cut.\n"
+            "BORE: Internal turning.\n"
+            "DRILL: Tailstock drilling.\n"
+            "MANUAL: Feed tool by hand.\n"
+            "PECK: Clear chips frequently.\n\n"
             "=== DETAILED USAGE GUIDE ===\n\n"
             "1. NAVIGATION:\n"
             "   Use UP and DOWN buttons to\n"
@@ -326,6 +356,7 @@ def _load_text(mode):
 
 def _apply_safe_defaults():
     s = state 
+    
     if s.val_type == TYPE_HOBBY:
         vc_map = [60.0, 45.0, 18.0, 12.0, 12.0, 85.0, 10.0] if s.val_cutter == CUT_HSS else [150.0, 100.0, 70.0, 50.0, 60.0, 150.0, 35.0]
     else:
@@ -335,7 +366,7 @@ def _apply_safe_defaults():
     
     if s.val_unit == UNIT_IMP:
         base_vc = base_vc * 3.28084
-        if s.val_proc == PROC_PART:
+        if s.val_proc in (PROC_PART, PROC_CHAMFER):
             s.val_vc = base_vc * 0.5
             s.val_feed = 0.002
         else:
@@ -343,7 +374,7 @@ def _apply_safe_defaults():
             s.val_feed = (0.006 if s.val_cutter == CUT_HSS else 0.008) if s.val_pass == PASS_ROUGH else (0.002 if s.val_cutter == CUT_HSS else 0.003)
         s.val_vc = int(s.val_vc)
     else:
-        if s.val_proc == PROC_PART:
+        if s.val_proc in (PROC_PART, PROC_CHAMFER):
             s.val_vc = base_vc * 0.5
             s.val_feed = 0.05
         else:
@@ -367,10 +398,19 @@ def _calculate():
             s.warn_rpm_cap = True
             if s.val_cutter == CUT_CARB: s.warn_carbide_spd = True
         
-        if s.val_cutter == CUT_HSS or s.val_proc == PROC_PART or s.val_work in (WORK_STAIN, WORK_TITAN): s.warn_coolant = True
+        if s.val_cutter == CUT_HSS or s.val_proc in (PROC_PART, PROC_CHAMFER, PROC_DRILL) or s.val_work in (WORK_STAIN, WORK_TITAN): s.warn_coolant = True
             
         if s.val_proc == PROC_PART:
             s.rec_doc = "FULL BLD"
+        elif s.val_proc == PROC_CHAMFER:
+            s.rec_doc = "MANUAL"
+        elif s.val_proc == PROC_DRILL:
+            s.rec_doc = "PECK"
+        elif s.val_proc == PROC_BORE:
+            if s.val_type == TYPE_INDUST:
+                s.rec_doc = "SEE SPEC" if s.val_cutter == CUT_CARB else ("1.0mm+" if s.val_unit == UNIT_METRIC else "0.04in+")
+            else:
+                s.rec_doc = "0.2-0.5mm" if s.val_unit == UNIT_METRIC else "0.01-0.02in"
         else:
             if s.val_type == TYPE_INDUST:
                 s.rec_doc = "SEE SPEC" if s.val_cutter == CUT_CARB else ("2.0mm+" if s.val_unit == UNIT_METRIC else "0.08in+")
@@ -448,7 +488,7 @@ def _draw_ui(view_manager):
     elif state.current_screen == SCREEN_THREAD: _draw_thread(view_manager)
     elif state.current_screen == SCREEN_CONVERT: _draw_convert(view_manager)
     elif state.current_screen == SCREEN_OPTIONS: _draw_options(view_manager)
-    elif state.current_screen in (SCREEN_CHART, SCREEN_TAP, SCREEN_HELP): _draw_text_screen(view_manager, state.current_screen)
+    elif state.current_screen in (SCREEN_CHART, SCREEN_TAP, SCREEN_HELP, SCREEN_KNURL): _draw_text_screen(view_manager, state.current_screen)
 
 def _draw_text_screen(view_manager, mode):
     s = state
@@ -459,6 +499,7 @@ def _draw_text_screen(view_manager, mode):
     
     if mode == SCREEN_CHART: _draw.text(Vector(5, 5), "SYSTEM DATA CHARTS", s.c_fg)
     elif mode == SCREEN_TAP: _draw.text(Vector(5, 5), "TAP & CLEARANCE SIZES", s.c_fg)
+    elif mode == SCREEN_KNURL: _draw.text(Vector(5, 5), "KNURLING REFERENCE", s.c_fg)
     else: _draw.text(Vector(5, 5), "HELP & ABBREVIATIONS", s.c_fg)
     _draw.fill_rectangle(Vector(0, 22), Vector(320, 1), s.c_fg)
     
@@ -494,11 +535,12 @@ def _draw_toolbox(view_manager):
         "3. TAPER ANGLE CALC",
         "4. THREADING ASSIST",
         "5. UNIT CONVERTER",
-        "6. OPTIONS & THEMES",
+        "6. KNURLING GUIDE",
+        "7. OPTIONS & THEMES",
         "<  RETURN TO MAIN"
     ]
     
-    for i in range(7):
+    for i in range(8):
         _y = 35 + i * 22
         if i == s.sel_tb:
             _draw.text(Vector(10, _y), "> " + opts[i], s.c_hlt)
@@ -652,13 +694,14 @@ def _draw_calc(view_manager):
     _draw = view_manager.draw
     
     _draw.clear(color=s.c_bg)
-    _draw.text(Vector(5, 5), "LATHE-CALC v1.0", s.c_fg)
+    _draw.text(Vector(5, 5), "LATHE-CALC v1.5", s.c_fg)
     _draw.fill_rectangle(Vector(0, 22), Vector(320, 1), s.c_fg)
 
     _str_unit = "METRIC" if s.val_unit == UNIT_METRIC else "IMPERL"
     _str_cut = "HSS" if s.val_cutter == CUT_HSS else "CARBID"
     _str_type = "HOBBY" if s.val_type == TYPE_HOBBY else "INDUST"
-    _str_proc = "TURN" if s.val_proc == PROC_TURN else ("FACE" if s.val_proc == PROC_FACE else "PART")
+    _proc_names = ["TURN", "FACE", "PART", "CHAMF", "BORE", "DRILL"]
+    _str_proc = _proc_names[s.val_proc]
     _str_pass = "ROUGH" if s.val_pass == PASS_ROUGH else "FINISH"
     
     work_names = ["ALUM", "BRASS", "MILD ST", "STAINLS", "CST IRN", "PLASTIC", "TITAN"]
@@ -748,7 +791,7 @@ def run(view_manager):
             save_settings()
 
     # Handle Text Screen Scrolling
-    if s.current_screen in (SCREEN_CHART, SCREEN_TAP, SCREEN_HELP):
+    if s.current_screen in (SCREEN_CHART, SCREEN_TAP, SCREEN_HELP, SCREEN_KNURL):
         if _btn == BUTTON_BACK:
             s.current_screen = SCREEN_TOOLBOX if s.current_screen != SCREEN_HELP else SCREEN_CALC
             s.text_lines = [] 
@@ -808,8 +851,8 @@ def run(view_manager):
 
     # Sub-Menu Routing
     if s.current_screen == SCREEN_TOOLBOX:
-        if _btn == BUTTON_DOWN: s.sel_tb = (s.sel_tb + 1) % 7; _needs_redraw = True
-        elif _btn == BUTTON_UP: s.sel_tb = (s.sel_tb - 1) % 7; _needs_redraw = True
+        if _btn == BUTTON_DOWN: s.sel_tb = (s.sel_tb + 1) % 8; _needs_redraw = True
+        elif _btn == BUTTON_UP: s.sel_tb = (s.sel_tb - 1) % 8; _needs_redraw = True
         elif _btn == BUTTON_CENTER:
             if s.sel_tb == TB_CHART:
                 s.current_screen = SCREEN_CHART; _load_text("CHART")
@@ -818,6 +861,8 @@ def run(view_manager):
             elif s.sel_tb == TB_TAPER: s.current_screen = SCREEN_TAPER
             elif s.sel_tb == TB_THREAD: s.current_screen = SCREEN_THREAD
             elif s.sel_tb == TB_CONVERT: s.current_screen = SCREEN_CONVERT
+            elif s.sel_tb == TB_KNURL:
+                s.current_screen = SCREEN_KNURL; _load_text("KNURL")
             elif s.sel_tb == TB_OPTIONS: s.current_screen = SCREEN_OPTIONS
             elif s.sel_tb == TB_BACK: s.current_screen = SCREEN_CALC
             _needs_redraw = True
@@ -920,7 +965,7 @@ def run(view_manager):
             elif s.sel_main == FIELD_CUTTER: s.val_cutter = CUT_CARB if s.val_cutter == CUT_HSS else CUT_HSS
             elif s.sel_main == FIELD_WORK: s.val_work = (s.val_work + int(_dir)) % 7
             elif s.sel_main == FIELD_TYPE: s.val_type = TYPE_INDUST if s.val_type == TYPE_HOBBY else TYPE_HOBBY
-            elif s.sel_main == FIELD_PROC: s.val_proc = (s.val_proc + int(_dir)) % 3
+            elif s.sel_main == FIELD_PROC: s.val_proc = (s.val_proc + int(_dir)) % 6
             elif s.sel_main == FIELD_PASS: s.val_pass = PASS_FINISH if s.val_pass == PASS_ROUGH else PASS_ROUGH
             elif s.sel_main == FIELD_DIAM: 
                 s.val_diam = max(0.001, s.val_diam + (_dir * (1.0 if s.val_unit == UNIT_METRIC else 0.1)))

@@ -49,6 +49,9 @@ extern "C"
     mp_obj_t log_mp_log(size_t n_args, const mp_obj_t *args); // method to log a message with a specified type and mode
     mp_obj_t log_mp_reset(mp_obj_t self_in);                  // method to reset logs (erasing storage if applicable)
 
+    mp_obj_t log_mp_set_mode(mp_obj_t self_in, mp_obj_t mode_obj);           // Method to set the logging mode (REPL, Storage, or All)
+    mp_obj_t log_mp_set_file_path(mp_obj_t self_in, mp_obj_t file_path_obj); // Method to set the file path for storage logging
+
 #ifdef __cplusplus
 }
 #endif

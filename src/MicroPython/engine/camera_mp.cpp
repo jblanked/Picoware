@@ -60,6 +60,7 @@ mp_obj_t camera_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
         ctx->position.y = position->y;
         ctx->position.z = position->z;
         ctx->position.integer = position->integer;
+        self->position_obj = args[0];
     }
     if (n_args > 1)
     {
@@ -71,6 +72,7 @@ mp_obj_t camera_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
         ctx->direction.y = direction->y;
         ctx->direction.z = direction->z;
         ctx->direction.integer = direction->integer;
+        self->direction_obj = args[1];
     }
     if (n_args > 2)
     {
@@ -82,6 +84,7 @@ mp_obj_t camera_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
         ctx->plane.y = plane->y;
         ctx->plane.z = plane->z;
         ctx->plane.integer = plane->integer;
+        self->plane_obj = args[2];
     }
     if (n_args > 3)
     {
@@ -107,9 +110,13 @@ mp_obj_t camera_mp_del(mp_obj_t self_in)
         return mp_const_none;
     }
     Camera *ctx = camera_get_context(self);
-    delete ctx;
+    if (ctx)
+        delete ctx;
     self->context = nullptr;
     self->freed = true;
+    self->position_obj = MP_OBJ_NULL;
+    self->direction_obj = MP_OBJ_NULL;
+    self->plane_obj = MP_OBJ_NULL;
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(camera_mp_del_obj, camera_mp_del);
@@ -121,97 +128,176 @@ void camera_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
     {
         return;
     }
-    Camera *ctx = camera_get_context(self);
     if (destination[0] == MP_OBJ_NULL)
     {
-        // Load attributes — return new Vector MicroPython objects from Camera fields
-        if (attribute == MP_QSTR_position)
+        Camera *ctx = camera_get_context(self);
+        // Load attributes
+        switch (attribute)
         {
-            destination[0] = vector_mp_init(ctx->position.x, ctx->position.y, ctx->position.z, ctx->position.integer);
-        }
-        else if (attribute == MP_QSTR_direction)
-        {
-            destination[0] = vector_mp_init(ctx->direction.x, ctx->direction.y, ctx->direction.z, ctx->direction.integer);
-        }
-        else if (attribute == MP_QSTR_plane)
-        {
-            destination[0] = vector_mp_init(ctx->plane.x, ctx->plane.y, ctx->plane.z, ctx->plane.integer);
-        }
-        else if (attribute == MP_QSTR_height)
-        {
+        case MP_QSTR_position:
+            destination[0] = self->position_obj;
+            break;
+        case MP_QSTR_direction:
+            destination[0] = self->direction_obj;
+            break;
+        case MP_QSTR_plane:
+            destination[0] = self->plane_obj;
+            break;
+        case MP_QSTR_height:
             destination[0] = mp_obj_new_float(ctx->height);
-        }
-        else if (attribute == MP_QSTR_distance)
-        {
+            break;
+        case MP_QSTR_distance:
             destination[0] = mp_obj_new_float(ctx->distance);
-        }
-        else if (attribute == MP_QSTR_perspective)
-        {
+            break;
+        case MP_QSTR_perspective:
             destination[0] = mp_obj_new_int(ctx->perspective);
-        }
-        else if (attribute == MP_QSTR___del__)
-        {
+            break;
+        case MP_QSTR___del__:
             destination[0] = MP_OBJ_FROM_PTR(&camera_mp_del_obj);
-        }
+            break;
+        default:
+            return; // Fail
+        };
     }
     else if (destination[1] != MP_OBJ_NULL)
     {
         // Store attributes
-        if (attribute == MP_QSTR_position)
+        switch (attribute)
         {
-            mp_obj_t native_vec = mp_obj_cast_to_native_base(destination[1], MP_OBJ_FROM_PTR(&vector_mp_type));
-            if (native_vec == MP_OBJ_NULL)
-                mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
-            vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
-            ctx->position.x = vec->x;
-            ctx->position.y = vec->y;
-            ctx->position.z = vec->z;
-            ctx->position.integer = vec->integer;
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_direction)
-        {
-            mp_obj_t native_vec = mp_obj_cast_to_native_base(destination[1], MP_OBJ_FROM_PTR(&vector_mp_type));
-            if (native_vec == MP_OBJ_NULL)
-                mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
-            vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
-            ctx->direction.x = vec->x;
-            ctx->direction.y = vec->y;
-            ctx->direction.z = vec->z;
-            ctx->direction.integer = vec->integer;
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_plane)
-        {
-            mp_obj_t native_vec = mp_obj_cast_to_native_base(destination[1], MP_OBJ_FROM_PTR(&vector_mp_type));
-            if (native_vec == MP_OBJ_NULL)
-                mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
-            vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
-            ctx->plane.x = vec->x;
-            ctx->plane.y = vec->y;
-            ctx->plane.z = vec->z;
-            ctx->plane.integer = vec->integer;
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_height)
-        {
-            ctx->height = mp_obj_get_float(destination[1]);
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_distance)
-        {
-            ctx->distance = mp_obj_get_float(destination[1]);
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_perspective)
-        {
-            ctx->perspective = static_cast<CameraPerspective>(mp_obj_get_int(destination[1]));
-            destination[0] = MP_OBJ_NULL;
-        }
+        case MP_QSTR_position:
+            camera_mp_set_position(self_in, destination[1]);
+            break;
+        case MP_QSTR_direction:
+            camera_mp_set_direction(self_in, destination[1]);
+            break;
+        case MP_QSTR_plane:
+            camera_mp_set_plane(self_in, destination[1]);
+            break;
+        case MP_QSTR_height:
+            camera_mp_set_height(self_in, destination[1]);
+            break;
+        case MP_QSTR_distance:
+            camera_mp_set_distance(self_in, destination[1]);
+            break;
+        case MP_QSTR_perspective:
+            camera_mp_set_perspective(self_in, destination[1]);
+            break;
+        default:
+            return; // Fail
+        };
+        destination[0] = MP_OBJ_NULL;
     }
 }
 
+mp_obj_t camera_mp_set_position(mp_obj_t self_in, mp_obj_t position_obj)
+{
+    camera_mp_obj_t *self = static_cast<camera_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (self->freed)
+    {
+        return mp_const_none;
+    }
+    Camera *ctx = camera_get_context(self);
+    mp_obj_t native_vec = mp_obj_cast_to_native_base(position_obj, MP_OBJ_FROM_PTR(&vector_mp_type));
+    if (native_vec == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
+    vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
+    ctx->position.x = vec->x;
+    ctx->position.y = vec->y;
+    ctx->position.z = vec->z;
+    ctx->position.integer = vec->integer;
+    self->position_obj = position_obj;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(camera_mp_set_position_obj, camera_mp_set_position);
+
+mp_obj_t camera_mp_set_direction(mp_obj_t self_in, mp_obj_t direction_obj)
+{
+    camera_mp_obj_t *self = static_cast<camera_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (self->freed)
+    {
+        return mp_const_none;
+    }
+    Camera *ctx = camera_get_context(self);
+    mp_obj_t native_vec = mp_obj_cast_to_native_base(direction_obj, MP_OBJ_FROM_PTR(&vector_mp_type));
+    if (native_vec == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
+    vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
+    ctx->direction.x = vec->x;
+    ctx->direction.y = vec->y;
+    ctx->direction.z = vec->z;
+    ctx->direction.integer = vec->integer;
+    self->direction_obj = direction_obj;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(camera_mp_set_direction_obj, camera_mp_set_direction);
+
+mp_obj_t camera_mp_set_plane(mp_obj_t self_in, mp_obj_t plane_obj)
+{
+    camera_mp_obj_t *self = static_cast<camera_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (self->freed)
+    {
+        return mp_const_none;
+    }
+    Camera *ctx = camera_get_context(self);
+    mp_obj_t native_vec = mp_obj_cast_to_native_base(plane_obj, MP_OBJ_FROM_PTR(&vector_mp_type));
+    if (native_vec == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
+    vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
+    ctx->plane.x = vec->x;
+    ctx->plane.y = vec->y;
+    ctx->plane.z = vec->z;
+    ctx->plane.integer = vec->integer;
+    self->plane_obj = plane_obj;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(camera_mp_set_plane_obj, camera_mp_set_plane);
+
+mp_obj_t camera_mp_set_height(mp_obj_t self_in, mp_obj_t height_obj)
+{
+    camera_mp_obj_t *self = static_cast<camera_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (self->freed)
+    {
+        return mp_const_none;
+    }
+    Camera *ctx = camera_get_context(self);
+    ctx->height = mp_obj_get_float(height_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(camera_mp_set_height_obj, camera_mp_set_height);
+
+mp_obj_t camera_mp_set_distance(mp_obj_t self_in, mp_obj_t distance_obj)
+{
+    camera_mp_obj_t *self = static_cast<camera_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (self->freed)
+    {
+        return mp_const_none;
+    }
+    Camera *ctx = camera_get_context(self);
+    ctx->distance = mp_obj_get_float(distance_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(camera_mp_set_distance_obj, camera_mp_set_distance);
+
+mp_obj_t camera_mp_set_perspective(mp_obj_t self_in, mp_obj_t perspective_obj)
+{
+    camera_mp_obj_t *self = static_cast<camera_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (self->freed)
+    {
+        return mp_const_none;
+    }
+    Camera *ctx = camera_get_context(self);
+    ctx->perspective = static_cast<CameraPerspective>(mp_obj_get_int(perspective_obj));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(camera_mp_set_perspective_obj, camera_mp_set_perspective);
+
 static const mp_rom_map_elem_t camera_mp_locals_dict_table[] = {
+    {MP_ROM_QSTR(MP_QSTR_set_position), MP_ROM_PTR(&camera_mp_set_position_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_direction), MP_ROM_PTR(&camera_mp_set_direction_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_plane), MP_ROM_PTR(&camera_mp_set_plane_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_height), MP_ROM_PTR(&camera_mp_set_height_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_distance), MP_ROM_PTR(&camera_mp_set_distance_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_perspective), MP_ROM_PTR(&camera_mp_set_perspective_obj)},
     {MP_ROM_QSTR(MP_QSTR_CAMERA_FIRST_PERSON), MP_ROM_INT(CAMERA_FIRST_PERSON)},
     {MP_ROM_QSTR(MP_QSTR_CAMERA_THIRD_PERSON), MP_ROM_INT(CAMERA_THIRD_PERSON)},
 };

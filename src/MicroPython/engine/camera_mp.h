@@ -22,6 +22,9 @@ extern "C"
         mp_obj_base_t base;
         void *context; // Camera* in C++
         bool freed;
+        mp_obj_t position_obj;
+        mp_obj_t direction_obj;
+        mp_obj_t plane_obj;
     } camera_mp_obj_t;
 
     extern const mp_obj_type_t camera_mp_type;
@@ -30,6 +33,13 @@ extern "C"
     mp_obj_t camera_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args);
     mp_obj_t camera_mp_del(mp_obj_t self_in);
     void camera_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination);
+
+    mp_obj_t camera_mp_set_position(mp_obj_t self_in, mp_obj_t position_obj);
+    mp_obj_t camera_mp_set_direction(mp_obj_t self_in, mp_obj_t direction_obj);
+    mp_obj_t camera_mp_set_plane(mp_obj_t self_in, mp_obj_t plane_obj);
+    mp_obj_t camera_mp_set_height(mp_obj_t self_in, mp_obj_t height_obj);
+    mp_obj_t camera_mp_set_distance(mp_obj_t self_in, mp_obj_t distance_obj);
+    mp_obj_t camera_mp_set_perspective(mp_obj_t self_in, mp_obj_t perspective_obj);
 
 #ifdef __cplusplus
 }

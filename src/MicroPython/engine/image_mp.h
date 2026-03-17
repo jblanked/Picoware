@@ -22,6 +22,7 @@ extern "C"
         mp_obj_base_t base;
         void *context; // Image* in C++
         bool freed;
+        mp_obj_t size_obj;
     } image_mp_obj_t;
 
     extern const mp_obj_type_t image_mp_type;
@@ -30,6 +31,7 @@ extern "C"
     mp_obj_t image_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args);
     mp_obj_t image_mp_del(mp_obj_t self_in);
     void image_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination);
+    mp_obj_t image_mp_set_size(mp_obj_t self_in, mp_obj_t size_obj);
 
 #ifdef __cplusplus
 }

@@ -25,6 +25,7 @@ extern "C"
         bool freed;
         mp_obj_t start;
         mp_obj_t stop;
+        mp_obj_t size_obj;
     } level_mp_obj_t;
 
     extern const mp_obj_type_t level_mp_type;
@@ -37,6 +38,10 @@ extern "C"
     mp_obj_t level_mp_clear(mp_obj_t self_in);
     mp_obj_t level_mp_entity_add(mp_obj_t self_in, mp_obj_t entity);
     mp_obj_t level_mp_entity_remove(mp_obj_t self_in, mp_obj_t entity);
+
+    mp_obj_t level_mp_set_name(mp_obj_t self_in, mp_obj_t name_obj);
+    mp_obj_t level_mp_set_size(mp_obj_t self_in, mp_obj_t size_obj);
+    mp_obj_t level_mp_set_clear_allowed(mp_obj_t self_in, mp_obj_t clear_allowed_obj);
 
 #ifdef __cplusplus
 }

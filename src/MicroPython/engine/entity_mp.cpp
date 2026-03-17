@@ -1,7 +1,12 @@
 #include "entity_mp.h"
 #include "game_mp.h"
+#include "engine_mp.h"
 #include "image_mp.h"
 #include "engine/entity.hpp"
+
+#ifndef PRINT
+#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
+#endif
 
 static inline Entity *entity_get_context(entity_mp_obj_t *self)
 {
@@ -145,62 +150,72 @@ void entity_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t 
 static void entity_start_trampoline(Entity *e, Game *g, void *ctx)
 {
     entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(ctx);
-    game_mp_obj_t *game_obj = mp_obj_malloc(game_mp_obj_t, &game_mp_type);
-    game_obj->context = g;
-    game_obj->freed = false;
-    game_obj->start = mp_const_none;
-    game_obj->stop = mp_const_none;
-    game_obj->update = mp_const_none;
-    game_obj->draw = game_mp_get_current_draw();
-    mp_call_function_2(self->start, MP_OBJ_FROM_PTR(self), MP_OBJ_FROM_PTR(game_obj));
+    mp_obj_t current_game = engine_mp_get_current_game();
+    if (current_game == MP_OBJ_NULL)
+    {
+        PRINT("Warning: entity_start_trampoline called but no current game context\n");
+        return;
+    }
+    mp_call_function_2(self->start, MP_OBJ_FROM_PTR(self), current_game);
 }
 static void entity_stop_trampoline(Entity *e, Game *g, void *ctx)
 {
     entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(ctx);
-    game_mp_obj_t *game_obj = mp_obj_malloc(game_mp_obj_t, &game_mp_type);
-    game_obj->context = g;
-    game_obj->freed = false;
-    game_obj->start = mp_const_none;
-    game_obj->stop = mp_const_none;
-    game_obj->update = mp_const_none;
-    game_obj->draw = game_mp_get_current_draw();
-    mp_call_function_2(self->stop, MP_OBJ_FROM_PTR(self), MP_OBJ_FROM_PTR(game_obj));
+    mp_obj_t current_game = engine_mp_get_current_game();
+    if (current_game == MP_OBJ_NULL)
+    {
+        PRINT("Warning: entity_stop_trampoline called but no current game context\n");
+        return;
+    }
+    mp_call_function_2(self->stop, MP_OBJ_FROM_PTR(self), current_game);
 }
+
 static void entity_update_trampoline(Entity *e, Game *g, void *ctx)
 {
     entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(ctx);
-    game_mp_obj_t *game_obj = mp_obj_malloc(game_mp_obj_t, &game_mp_type);
-    game_obj->context = g;
-    game_obj->freed = false;
-    game_obj->start = mp_const_none;
-    game_obj->stop = mp_const_none;
-    game_obj->update = mp_const_none;
-    game_obj->draw = game_mp_get_current_draw();
-    mp_call_function_2(self->update, MP_OBJ_FROM_PTR(self), MP_OBJ_FROM_PTR(game_obj));
+    mp_obj_t current_game = engine_mp_get_current_game();
+    if (current_game == MP_OBJ_NULL)
+    {
+        PRINT("Warning: entity_update_trampoline called but no current game context\n");
+        return;
+    }
+    mp_call_function_2(self->update, MP_OBJ_FROM_PTR(self), current_game);
 }
 static void entity_render_trampoline(Entity *e, Draw *d, Game *g, void *ctx)
 {
     entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(ctx);
-    game_mp_obj_t *game_obj = mp_obj_malloc(game_mp_obj_t, &game_mp_type);
-    game_obj->context = g;
-    game_obj->freed = false;
-    game_obj->start = mp_const_none;
-    game_obj->stop = mp_const_none;
-    game_obj->update = mp_const_none;
-    game_obj->draw = game_mp_get_current_draw();
-    mp_call_function_2(self->render, MP_OBJ_FROM_PTR(self), MP_OBJ_FROM_PTR(game_obj));
+    mp_obj_t current_game = engine_mp_get_current_game();
+    if (current_game == MP_OBJ_NULL || current_game == mp_const_none)
+    {
+        PRINT("Warning: entity_render_trampoline called but no current game context\n");
+        return;
+    }
+    mp_obj_t native_game = mp_obj_cast_to_native_base(current_game, MP_OBJ_FROM_PTR(&game_mp_type));
+    if (native_game == MP_OBJ_NULL)
+    {
+        PRINT("Warning: entity_render_trampoline could not resolve native game base\n");
+        return;
+    }
+    game_mp_obj_t *game_ptr = static_cast<game_mp_obj_t *>(MP_OBJ_TO_PTR(native_game));
+    mp_obj_t draw_obj = game_ptr->draw;
+    if (draw_obj == MP_OBJ_NULL || draw_obj == mp_const_none)
+    {
+        PRINT("Warning: entity_render_trampoline called but game has no draw object\n");
+        return;
+    }
+    mp_obj_t render_args[3] = {MP_OBJ_FROM_PTR(self), draw_obj, current_game};
+    mp_call_function_n_kw(self->render, 3, 0, render_args);
 }
 static void entity_collision_trampoline(Entity *e, Entity *other, Game *g, void *ctx)
 {
     entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(ctx);
-    game_mp_obj_t *game_obj = mp_obj_malloc(game_mp_obj_t, &game_mp_type);
-    game_obj->context = g;
-    game_obj->freed = false;
-    game_obj->start = mp_const_none;
-    game_obj->stop = mp_const_none;
-    game_obj->update = mp_const_none;
-    game_obj->draw = game_mp_get_current_draw();
-    mp_call_function_2(self->collision, MP_OBJ_FROM_PTR(self), MP_OBJ_FROM_PTR(game_obj));
+    mp_obj_t current_game = engine_mp_get_current_game();
+    if (current_game == MP_OBJ_NULL)
+    {
+        PRINT("Warning: entity_collision_trampoline called but no current game context\n");
+        return;
+    }
+    mp_call_function_2(self->collision, MP_OBJ_FROM_PTR(self), current_game);
 }
 
 mp_obj_t entity_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
@@ -226,12 +241,13 @@ mp_obj_t entity_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
         mp_raise_TypeError(MP_ERROR_TEXT("expected Vector for position"));
     vector_mp_obj_t *pos_vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_pos));
     Vector position(pos_vec->x, pos_vec->y, pos_vec->z, pos_vec->integer);
+    self->position_obj = args[2];
     mp_obj_t native_size = mp_obj_cast_to_native_base(args[3], MP_OBJ_FROM_PTR(&vector_mp_type));
     if (native_size == MP_OBJ_NULL)
         mp_raise_TypeError(MP_ERROR_TEXT("expected Vector for size"));
     vector_mp_obj_t *size_vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_size));
     Vector size(size_vec->x, size_vec->y, size_vec->z, size_vec->integer);
-
+    self->size_obj = args[3];
     // Parse optional args
     // args layout: name[0], type[1], position[2], size[3],
     //   sprite_data[4], sprite_left[5], sprite_right[6],
@@ -285,8 +301,6 @@ mp_obj_t entity_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
         collision_func.fn = entity_collision_trampoline;
         collision_func.ctx = self;
     }
-
-    // Extract Image* from image_mp_obj_t for sprite args (handles Python subclass wrappers)
     Image *sprite_data = nullptr;
     Image *sprite_left_data = nullptr;
     Image *sprite_right_data = nullptr;
@@ -315,13 +329,20 @@ mp_obj_t entity_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
         sprite_right_data = static_cast<Image *>(img->context);
     }
 
-    // Create the C++ Entity — all state lives in this single context
+    // Create the C++ Entity
     self->context = new Entity(
         name_buf, entity_type, position, size,
         sprite_data, sprite_left_data, sprite_right_data,
         start_func, stop_func, update_func,
         render_func, collision_func,
         is_8bit, s3d_type, s3d_color);
+
+    Entity *ctx = entity_get_context(self);
+    self->old_position_obj = vector_mp_init(ctx->old_position.x, ctx->old_position.y, ctx->old_position.z, ctx->old_position.integer);
+    self->direction_obj = vector_mp_init(ctx->direction.x, ctx->direction.y, ctx->direction.z, ctx->direction.integer);
+    self->plane_obj = vector_mp_init(ctx->plane.x, ctx->plane.y, ctx->plane.z, ctx->plane.integer);
+    self->start_position_obj = vector_mp_init(ctx->start_position.x, ctx->start_position.y, ctx->start_position.z, ctx->start_position.integer);
+    self->end_position_obj = vector_mp_init(ctx->end_position.x, ctx->end_position.y, ctx->end_position.z, ctx->end_position.integer);
 
     return MP_OBJ_FROM_PTR(self);
 }
@@ -334,14 +355,28 @@ mp_obj_t entity_mp_del(mp_obj_t self_in)
         return mp_const_none;
     }
     Entity *ctx = entity_get_context(self);
-    // Free the name buffer we allocated in make_new (Entity doesn't own it)
-    if (ctx->name != NULL)
+    if (ctx)
     {
-        m_free(const_cast<char *>(ctx->name));
-        ctx->name = NULL;
+        if (ctx->name != NULL)
+        {
+            m_free(const_cast<char *>(ctx->name));
+            ctx->name = NULL;
+        }
+        delete ctx;
     }
-    delete ctx;
     self->context = nullptr;
+    self->start = mp_const_none;
+    self->stop = mp_const_none;
+    self->update = mp_const_none;
+    self->render = mp_const_none;
+    self->collision = mp_const_none;
+    self->position_obj = MP_OBJ_NULL;
+    self->old_position_obj = MP_OBJ_NULL;
+    self->size_obj = MP_OBJ_NULL;
+    self->direction_obj = MP_OBJ_NULL;
+    self->plane_obj = MP_OBJ_NULL;
+    self->start_position_obj = MP_OBJ_NULL;
+    self->end_position_obj = MP_OBJ_NULL;
     self->freed = true;
     return mp_const_none;
 }
@@ -358,340 +393,229 @@ void entity_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
     {
         // Load attributes
         Entity *ctx = entity_get_context(self);
-        if (attribute == MP_QSTR_name)
+        switch (attribute)
         {
+        case MP_QSTR_name:
             destination[0] = mp_obj_new_str(ctx->name, strlen(ctx->name));
-        }
-        else if (attribute == MP_QSTR_type)
-        {
+            break;
+        case MP_QSTR_type:
             destination[0] = mp_obj_new_int(ctx->type);
-        }
-        else if (attribute == MP_QSTR_position)
-        {
-            destination[0] = vector_mp_init(ctx->position.x, ctx->position.y, ctx->position.z, ctx->position.integer);
-        }
-        else if (attribute == MP_QSTR_old_position)
-        {
-            destination[0] = vector_mp_init(ctx->old_position.x, ctx->old_position.y, ctx->old_position.z, ctx->old_position.integer);
-        }
-        else if (attribute == MP_QSTR_size)
-        {
-            destination[0] = vector_mp_init(ctx->size.x, ctx->size.y, ctx->size.z, ctx->size.integer);
-        }
-        else if (attribute == MP_QSTR_is_8bit)
-        {
+            break;
+        case MP_QSTR_position:
+            destination[0] = self->position_obj;
+            break;
+        case MP_QSTR_old_position:
+            destination[0] = self->old_position_obj;
+            break;
+        case MP_QSTR_size:
+            destination[0] = self->size_obj;
+            break;
+        case MP_QSTR_is_8bit:
             destination[0] = mp_obj_new_bool(ctx->is_8bit);
-        }
-        else if (attribute == MP_QSTR_is_active)
-        {
+            break;
+        case MP_QSTR_is_active:
             destination[0] = mp_obj_new_bool(ctx->is_active);
-        }
-        else if (attribute == MP_QSTR_is_visible)
-        {
+            break;
+        case MP_QSTR_is_visible:
             destination[0] = mp_obj_new_bool(ctx->is_visible);
-        }
-        else if (attribute == MP_QSTR_is_player)
-        {
+            break;
+        case MP_QSTR_is_player:
             destination[0] = mp_obj_new_bool(ctx->is_player);
-        }
-        else if (attribute == MP_QSTR_direction)
-        {
-            destination[0] = vector_mp_init(ctx->direction.x, ctx->direction.y, ctx->direction.z, ctx->direction.integer);
-        }
-        else if (attribute == MP_QSTR_plane)
-        {
-            destination[0] = vector_mp_init(ctx->plane.x, ctx->plane.y, ctx->plane.z, ctx->plane.integer);
-        }
-        else if (attribute == MP_QSTR_state)
-        {
+            break;
+        case MP_QSTR_direction:
+            destination[0] = self->direction_obj;
+            break;
+        case MP_QSTR_plane:
+            destination[0] = self->plane_obj;
+            break;
+        case MP_QSTR_state:
             destination[0] = mp_obj_new_int(ctx->state);
-        }
-        else if (attribute == MP_QSTR_start_position)
-        {
-            destination[0] = vector_mp_init(ctx->start_position.x, ctx->start_position.y, ctx->start_position.z, ctx->start_position.integer);
-        }
-        else if (attribute == MP_QSTR_end_position)
-        {
-            destination[0] = vector_mp_init(ctx->end_position.x, ctx->end_position.y, ctx->end_position.z, ctx->end_position.integer);
-        }
-        else if (attribute == MP_QSTR_move_timer)
-        {
+            break;
+        case MP_QSTR_start_position:
+            destination[0] = self->start_position_obj;
+            break;
+        case MP_QSTR_end_position:
+            destination[0] = self->end_position_obj;
+            break;
+        case MP_QSTR_move_timer:
             destination[0] = mp_obj_new_float(ctx->move_timer);
-        }
-        else if (attribute == MP_QSTR_elapsed_move_timer)
-        {
+            break;
+        case MP_QSTR_elapsed_move_timer:
             destination[0] = mp_obj_new_float(ctx->elapsed_move_timer);
-        }
-        else if (attribute == MP_QSTR_radius)
-        {
+            break;
+        case MP_QSTR_radius:
             destination[0] = mp_obj_new_float(ctx->radius);
-        }
-        else if (attribute == MP_QSTR_speed)
-        {
+            break;
+        case MP_QSTR_speed:
             destination[0] = mp_obj_new_float(ctx->speed);
-        }
-        else if (attribute == MP_QSTR_attack_timer)
-        {
+            break;
+        case MP_QSTR_attack_timer:
             destination[0] = mp_obj_new_float(ctx->attack_timer);
-        }
-        else if (attribute == MP_QSTR_elapsed_attack_timer)
-        {
+            break;
+        case MP_QSTR_elapsed_attack_timer:
             destination[0] = mp_obj_new_float(ctx->elapsed_attack_timer);
-        }
-        else if (attribute == MP_QSTR_strength)
-        {
+            break;
+        case MP_QSTR_strength:
             destination[0] = mp_obj_new_float(ctx->strength);
-        }
-        else if (attribute == MP_QSTR_health)
-        {
+            break;
+        case MP_QSTR_health:
             destination[0] = mp_obj_new_float(ctx->health);
-        }
-        else if (attribute == MP_QSTR_max_health)
-        {
+            break;
+        case MP_QSTR_max_health:
             destination[0] = mp_obj_new_float(ctx->max_health);
-        }
-        else if (attribute == MP_QSTR_level)
-        {
+            break;
+        case MP_QSTR_level:
             destination[0] = mp_obj_new_float(ctx->level);
-        }
-        else if (attribute == MP_QSTR_xp)
-        {
+            break;
+        case MP_QSTR_xp:
             destination[0] = mp_obj_new_float(ctx->xp);
-        }
-        else if (attribute == MP_QSTR_health_regen)
-        {
+            break;
+        case MP_QSTR_health_regen:
             destination[0] = mp_obj_new_float(ctx->health_regen);
-        }
-        else if (attribute == MP_QSTR_elapsed_health_regen)
-        {
+            break;
+        case MP_QSTR_elapsed_health_regen:
             destination[0] = mp_obj_new_float(ctx->elapsed_health_regen);
-        }
-        else if (attribute == MP_QSTR_sprite_3d_type)
-        {
+            break;
+        case MP_QSTR_sprite_3d_type:
             destination[0] = mp_obj_new_int(ctx->sprite_3d_type);
-        }
-        else if (attribute == MP_QSTR_sprite_rotation)
-        {
+            break;
+        case MP_QSTR_sprite_rotation:
             destination[0] = mp_obj_new_float(ctx->sprite_rotation);
-        }
-        else if (attribute == MP_QSTR_sprite_scale)
-        {
+            break;
+        case MP_QSTR_sprite_scale:
             destination[0] = mp_obj_new_float(ctx->sprite_scale);
-        }
-        else if (attribute == MP_QSTR___del__)
-        {
+            break;
+        case MP_QSTR___del__:
             destination[0] = MP_OBJ_FROM_PTR(&entity_mp_del_obj);
-        }
+            break;
+        default:
+            return; // Fail
+        };
     }
     else if (destination[1] != MP_OBJ_NULL)
     {
         // Store attributes
-        Entity *ctx = entity_get_context(self);
-        if (attribute == MP_QSTR_name)
+        switch (attribute)
         {
-            size_t name_len;
-            const char *name_str = mp_obj_str_get_data(destination[1], &name_len);
-            if (ctx->name != NULL)
-            {
-                m_free(const_cast<char *>(ctx->name));
-            }
-            char *name_buf = static_cast<char *>(m_malloc(name_len + 1));
-            memcpy(name_buf, name_str, name_len);
-            name_buf[name_len] = '\0';
-            ctx->name = name_buf;
+        case MP_QSTR_name:
+            entity_mp_set_name(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_type)
-        {
-            ctx->type = static_cast<EntityType>(mp_obj_get_int(destination[1]));
+            break;
+        case MP_QSTR_type:
+            entity_mp_set_type(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_position)
-        {
-            mp_obj_t native_vec = mp_obj_cast_to_native_base(destination[1], MP_OBJ_FROM_PTR(&vector_mp_type));
-            if (native_vec == MP_OBJ_NULL)
-                mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
-            vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
-            ctx->position_set(vec->x, vec->y, vec->z, vec->integer);
+            break;
+        case MP_QSTR_position:
+            entity_mp_set_position(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_old_position)
-        {
-            mp_obj_t native_vec = mp_obj_cast_to_native_base(destination[1], MP_OBJ_FROM_PTR(&vector_mp_type));
-            if (native_vec == MP_OBJ_NULL)
-                mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
-            vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
-            ctx->old_position.x = vec->x;
-            ctx->old_position.y = vec->y;
-            ctx->old_position.z = vec->z;
-            ctx->old_position.integer = vec->integer;
+            break;
+        case MP_QSTR_old_position:
+            entity_mp_set_old_position(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_size)
-        {
-            mp_obj_t native_vec = mp_obj_cast_to_native_base(destination[1], MP_OBJ_FROM_PTR(&vector_mp_type));
-            if (native_vec == MP_OBJ_NULL)
-                mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
-            vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
-            ctx->size.x = vec->x;
-            ctx->size.y = vec->y;
-            ctx->size.z = vec->z;
-            ctx->size.integer = vec->integer;
+            break;
+        case MP_QSTR_size:
+            entity_mp_set_size(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_is_8bit)
-        {
-            ctx->is_8bit = mp_obj_is_true(destination[1]);
+            break;
+        case MP_QSTR_is_8bit:
+            entity_mp_set_is_8bit(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_is_active)
-        {
-            ctx->is_active = mp_obj_is_true(destination[1]);
+            break;
+        case MP_QSTR_is_active:
+            entity_mp_set_is_active(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_is_visible)
-        {
-            ctx->is_visible = mp_obj_is_true(destination[1]);
+            break;
+        case MP_QSTR_is_visible:
+            entity_mp_set_is_visible(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_is_player)
-        {
-            ctx->is_player = mp_obj_is_true(destination[1]);
+            break;
+        case MP_QSTR_is_player:
+            entity_mp_set_is_player(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_direction)
-        {
-            mp_obj_t native_vec = mp_obj_cast_to_native_base(destination[1], MP_OBJ_FROM_PTR(&vector_mp_type));
-            if (native_vec == MP_OBJ_NULL)
-                mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
-            vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
-            ctx->direction.x = vec->x;
-            ctx->direction.y = vec->y;
-            ctx->direction.z = vec->z;
-            ctx->direction.integer = vec->integer;
+            break;
+        case MP_QSTR_direction:
+            entity_mp_set_direction(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_plane)
-        {
-            mp_obj_t native_vec = mp_obj_cast_to_native_base(destination[1], MP_OBJ_FROM_PTR(&vector_mp_type));
-            if (native_vec == MP_OBJ_NULL)
-                mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
-            vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
-            ctx->plane.x = vec->x;
-            ctx->plane.y = vec->y;
-            ctx->plane.z = vec->z;
-            ctx->plane.integer = vec->integer;
+            break;
+        case MP_QSTR_plane:
+            entity_mp_set_plane(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_state)
-        {
-            ctx->state = static_cast<EntityState>(mp_obj_get_int(destination[1]));
+            break;
+        case MP_QSTR_state:
+            entity_mp_set_state(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_start_position)
-        {
-            mp_obj_t native_vec = mp_obj_cast_to_native_base(destination[1], MP_OBJ_FROM_PTR(&vector_mp_type));
-            if (native_vec == MP_OBJ_NULL)
-                mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
-            vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
-            ctx->start_position.x = vec->x;
-            ctx->start_position.y = vec->y;
-            ctx->start_position.z = vec->z;
-            ctx->start_position.integer = vec->integer;
+            break;
+        case MP_QSTR_start_position:
+            entity_mp_set_start_position(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_end_position)
-        {
-            mp_obj_t native_vec = mp_obj_cast_to_native_base(destination[1], MP_OBJ_FROM_PTR(&vector_mp_type));
-            if (native_vec == MP_OBJ_NULL)
-                mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
-            vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
-            ctx->end_position.x = vec->x;
-            ctx->end_position.y = vec->y;
-            ctx->end_position.z = vec->z;
-            ctx->end_position.integer = vec->integer;
+            break;
+        case MP_QSTR_end_position:
+            entity_mp_set_end_position(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_move_timer)
-        {
-            ctx->move_timer = mp_obj_get_float(destination[1]);
+            break;
+        case MP_QSTR_move_timer:
+            entity_mp_set_move_timer(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_elapsed_move_timer)
-        {
-            ctx->elapsed_move_timer = mp_obj_get_float(destination[1]);
+            break;
+        case MP_QSTR_elapsed_move_timer:
+            entity_mp_set_elapsed_move_timer(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_radius)
-        {
-            ctx->radius = mp_obj_get_float(destination[1]);
+            break;
+        case MP_QSTR_radius:
+            entity_mp_set_radius(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_speed)
-        {
-            ctx->speed = mp_obj_get_float(destination[1]);
+            break;
+        case MP_QSTR_speed:
+            entity_mp_set_speed(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_attack_timer)
-        {
-            ctx->attack_timer = mp_obj_get_float(destination[1]);
+            break;
+        case MP_QSTR_attack_timer:
+            entity_mp_set_attack_timer(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_elapsed_attack_timer)
-        {
-            ctx->elapsed_attack_timer = mp_obj_get_float(destination[1]);
+            break;
+        case MP_QSTR_elapsed_attack_timer:
+            entity_mp_set_elapsed_attack_timer(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_strength)
-        {
-            ctx->strength = mp_obj_get_float(destination[1]);
+            break;
+        case MP_QSTR_strength:
+            entity_mp_set_strength(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_health)
-        {
-            ctx->health = mp_obj_get_float(destination[1]);
+            break;
+        case MP_QSTR_health:
+            entity_mp_set_health(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_max_health)
-        {
-            ctx->max_health = mp_obj_get_float(destination[1]);
+            break;
+        case MP_QSTR_max_health:
+            entity_mp_set_max_health(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_level)
-        {
-            ctx->level = mp_obj_get_float(destination[1]);
+            break;
+        case MP_QSTR_level:
+            entity_mp_set_level(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_xp)
-        {
-            ctx->xp = mp_obj_get_float(destination[1]);
+            break;
+        case MP_QSTR_xp:
+            entity_mp_set_xp(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_health_regen)
-        {
-            ctx->health_regen = mp_obj_get_float(destination[1]);
+            break;
+        case MP_QSTR_health_regen:
+            entity_mp_set_health_regen(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_elapsed_health_regen)
-        {
-            ctx->elapsed_health_regen = mp_obj_get_float(destination[1]);
+            break;
+        case MP_QSTR_elapsed_health_regen:
+            entity_mp_set_elapsed_health_regen(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_sprite_3d_type)
-        {
-            ctx->sprite_3d_type = static_cast<Sprite3DType>(mp_obj_get_int(destination[1]));
+            break;
+        case MP_QSTR_sprite_rotation:
+            entity_mp_set_3d_sprite_rotation(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_sprite_rotation)
-        {
-            ctx->set3DSpriteRotation(mp_obj_get_float(destination[1]));
+            break;
+        case MP_QSTR_sprite_scale:
+            entity_mp_set_3d_sprite_scale(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_sprite_scale)
-        {
-            ctx->set3DSpriteScale(mp_obj_get_float(destination[1]));
-            destination[0] = MP_OBJ_NULL;
-        }
+            break;
+        default:
+            return; // Fail
+        };
     }
 }
 
@@ -738,6 +662,329 @@ mp_obj_t entity_mp_has_changed_position(mp_obj_t self_in)
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(entity_mp_has_changed_position_obj, entity_mp_has_changed_position);
 
+mp_obj_t entity_mp_set_name(mp_obj_t self_in, mp_obj_t name_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    size_t name_len;
+    const char *name_str = mp_obj_str_get_data(name_obj, &name_len);
+    char *name_buf = static_cast<char *>(m_malloc(name_len + 1));
+    memcpy(name_buf, name_str, name_len);
+    name_buf[name_len] = '\0';
+    if (ctx->name != NULL)
+    {
+        m_free(const_cast<char *>(ctx->name));
+    }
+    ctx->name = name_buf;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_name_obj, entity_mp_set_name);
+
+mp_obj_t entity_mp_set_type(mp_obj_t self_in, mp_obj_t type_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    ctx->type = static_cast<EntityType>(mp_obj_get_int(type_obj));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_type_obj, entity_mp_set_type);
+
+mp_obj_t entity_mp_set_position(mp_obj_t self_in, mp_obj_t position_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    mp_obj_t native_vec = mp_obj_cast_to_native_base(position_obj, MP_OBJ_FROM_PTR(&vector_mp_type));
+    if (native_vec == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
+    vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
+    ctx->position_set(vec->x, vec->y, vec->z, vec->integer);
+    self->position_obj = position_obj;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_position_obj, entity_mp_set_position);
+
+mp_obj_t entity_mp_set_old_position(mp_obj_t self_in, mp_obj_t old_position_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    mp_obj_t native_vec = mp_obj_cast_to_native_base(old_position_obj, MP_OBJ_FROM_PTR(&vector_mp_type));
+    if (native_vec == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
+    vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
+    ctx->old_position.x = vec->x;
+    ctx->old_position.y = vec->y;
+    ctx->old_position.z = vec->z;
+    ctx->old_position.integer = vec->integer;
+    self->old_position_obj = old_position_obj;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_old_position_obj, entity_mp_set_old_position);
+
+mp_obj_t entity_mp_set_size(mp_obj_t self_in, mp_obj_t size_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    mp_obj_t native_vec = mp_obj_cast_to_native_base(size_obj, MP_OBJ_FROM_PTR(&vector_mp_type));
+    if (native_vec == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
+    vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
+    ctx->size.x = vec->x;
+    ctx->size.y = vec->y;
+    ctx->size.z = vec->z;
+    ctx->size.integer = vec->integer;
+    self->size_obj = size_obj;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_size_obj, entity_mp_set_size);
+
+mp_obj_t entity_mp_set_is_8bit(mp_obj_t self_in, mp_obj_t is_8bit_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    ctx->is_8bit = mp_obj_is_true(is_8bit_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_is_8bit_obj, entity_mp_set_is_8bit);
+
+mp_obj_t entity_mp_set_is_active(mp_obj_t self_in, mp_obj_t is_active_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    ctx->is_active = mp_obj_is_true(is_active_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_is_active_obj, entity_mp_set_is_active);
+
+mp_obj_t entity_mp_set_is_visible(mp_obj_t self_in, mp_obj_t is_visible_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    ctx->is_visible = mp_obj_is_true(is_visible_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_is_visible_obj, entity_mp_set_is_visible);
+
+mp_obj_t entity_mp_set_is_player(mp_obj_t self_in, mp_obj_t is_player_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    ctx->is_player = mp_obj_is_true(is_player_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_is_player_obj, entity_mp_set_is_player);
+
+mp_obj_t entity_mp_set_direction(mp_obj_t self_in, mp_obj_t direction_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    mp_obj_t native_vec = mp_obj_cast_to_native_base(direction_obj, MP_OBJ_FROM_PTR(&vector_mp_type));
+    if (native_vec == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
+    vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
+    ctx->direction.x = vec->x;
+    ctx->direction.y = vec->y;
+    ctx->direction.z = vec->z;
+    ctx->direction.integer = vec->integer;
+    self->direction_obj = direction_obj;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_direction_obj, entity_mp_set_direction);
+
+mp_obj_t entity_mp_set_plane(mp_obj_t self_in, mp_obj_t plane_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    mp_obj_t native_vec = mp_obj_cast_to_native_base(plane_obj, MP_OBJ_FROM_PTR(&vector_mp_type));
+    if (native_vec == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
+    vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
+    ctx->plane.x = vec->x;
+    ctx->plane.y = vec->y;
+    ctx->plane.z = vec->z;
+    ctx->plane.integer = vec->integer;
+    self->plane_obj = plane_obj;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_plane_obj, entity_mp_set_plane);
+
+mp_obj_t entity_mp_set_state(mp_obj_t self_in, mp_obj_t state_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    ctx->state = static_cast<EntityState>(mp_obj_get_int(state_obj));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_state_obj, entity_mp_set_state);
+
+mp_obj_t entity_mp_set_start_position(mp_obj_t self_in, mp_obj_t start_position_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    mp_obj_t native_vec = mp_obj_cast_to_native_base(start_position_obj, MP_OBJ_FROM_PTR(&vector_mp_type));
+    if (native_vec == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
+    vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
+    ctx->start_position.x = vec->x;
+    ctx->start_position.y = vec->y;
+    ctx->start_position.z = vec->z;
+    ctx->start_position.integer = vec->integer;
+    self->start_position_obj = start_position_obj;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_start_position_obj, entity_mp_set_start_position);
+
+mp_obj_t entity_mp_set_end_position(mp_obj_t self_in, mp_obj_t end_position_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    mp_obj_t native_vec = mp_obj_cast_to_native_base(end_position_obj, MP_OBJ_FROM_PTR(&vector_mp_type));
+    if (native_vec == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
+    vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
+    ctx->end_position.x = vec->x;
+    ctx->end_position.y = vec->y;
+    ctx->end_position.z = vec->z;
+    ctx->end_position.integer = vec->integer;
+    self->end_position_obj = end_position_obj;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_end_position_obj, entity_mp_set_end_position);
+
+mp_obj_t entity_mp_set_move_timer(mp_obj_t self_in, mp_obj_t move_timer_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    ctx->move_timer = mp_obj_get_float(move_timer_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_move_timer_obj, entity_mp_set_move_timer);
+
+mp_obj_t entity_mp_set_elapsed_move_timer(mp_obj_t self_in, mp_obj_t elapsed_move_timer_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    ctx->elapsed_move_timer = mp_obj_get_float(elapsed_move_timer_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_elapsed_move_timer_obj, entity_mp_set_elapsed_move_timer);
+
+mp_obj_t entity_mp_set_radius(mp_obj_t self_in, mp_obj_t radius_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    ctx->radius = mp_obj_get_float(radius_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_radius_obj, entity_mp_set_radius);
+
+mp_obj_t entity_mp_set_speed(mp_obj_t self_in, mp_obj_t speed_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    ctx->speed = mp_obj_get_float(speed_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_speed_obj, entity_mp_set_speed);
+
+mp_obj_t entity_mp_set_attack_timer(mp_obj_t self_in, mp_obj_t attack_timer_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    ctx->attack_timer = mp_obj_get_float(attack_timer_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_attack_timer_obj, entity_mp_set_attack_timer);
+
+mp_obj_t entity_mp_set_elapsed_attack_timer(mp_obj_t self_in, mp_obj_t elapsed_attack_timer_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    ctx->elapsed_attack_timer = mp_obj_get_float(elapsed_attack_timer_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_elapsed_attack_timer_obj, entity_mp_set_elapsed_attack_timer);
+
+mp_obj_t entity_mp_set_strength(mp_obj_t self_in, mp_obj_t strength_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    ctx->strength = mp_obj_get_float(strength_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_strength_obj, entity_mp_set_strength);
+
+mp_obj_t entity_mp_set_health(mp_obj_t self_in, mp_obj_t health_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    ctx->health = mp_obj_get_float(health_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_health_obj, entity_mp_set_health);
+
+mp_obj_t entity_mp_set_max_health(mp_obj_t self_in, mp_obj_t max_health_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    ctx->max_health = mp_obj_get_float(max_health_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_max_health_obj, entity_mp_set_max_health);
+
+mp_obj_t entity_mp_set_level(mp_obj_t self_in, mp_obj_t level_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    ctx->level = mp_obj_get_float(level_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_level_obj, entity_mp_set_level);
+
+mp_obj_t entity_mp_set_xp(mp_obj_t self_in, mp_obj_t xp_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    ctx->xp = mp_obj_get_float(xp_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_xp_obj, entity_mp_set_xp);
+
+mp_obj_t entity_mp_set_health_regen(mp_obj_t self_in, mp_obj_t health_regen_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    ctx->health_regen = mp_obj_get_float(health_regen_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_health_regen_obj, entity_mp_set_health_regen);
+
+mp_obj_t entity_mp_set_elapsed_health_regen(mp_obj_t self_in, mp_obj_t elapsed_health_regen_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    ctx->elapsed_health_regen = mp_obj_get_float(elapsed_health_regen_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_elapsed_health_regen_obj, entity_mp_set_elapsed_health_regen);
+
+mp_obj_t entity_mp_set_sprite_rotation(mp_obj_t self_in, mp_obj_t sprite_rotation_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    ctx->set3DSpriteRotation(mp_obj_get_float(sprite_rotation_obj));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_sprite_rotation_obj, entity_mp_set_sprite_rotation);
+
+mp_obj_t entity_mp_set_sprite_scale(mp_obj_t self_in, mp_obj_t sprite_scale_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    ctx->set3DSpriteScale(mp_obj_get_float(sprite_scale_obj));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_sprite_scale_obj, entity_mp_set_sprite_scale);
+
 static const mp_rom_map_elem_t entity_mp_locals_dict_table[] = {
     // Methods
     {MP_ROM_QSTR(MP_QSTR_has_3d_sprite), MP_ROM_PTR(&entity_mp_has_3d_sprite_obj)},
@@ -745,6 +992,36 @@ static const mp_rom_map_elem_t entity_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_set_3d_sprite_scale), MP_ROM_PTR(&entity_mp_set_3d_sprite_scale_obj)},
     {MP_ROM_QSTR(MP_QSTR_update_3d_sprite_position), MP_ROM_PTR(&entity_mp_update_3d_sprite_position_obj)},
     {MP_ROM_QSTR(MP_QSTR_has_changed_position), MP_ROM_PTR(&entity_mp_has_changed_position_obj)},
+    //
+    {MP_ROM_QSTR(MP_QSTR_set_name), MP_ROM_PTR(&entity_mp_set_name_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_type), MP_ROM_PTR(&entity_mp_set_type_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_position), MP_ROM_PTR(&entity_mp_set_position_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_old_position), MP_ROM_PTR(&entity_mp_set_old_position_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_size), MP_ROM_PTR(&entity_mp_set_size_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_is_8bit), MP_ROM_PTR(&entity_mp_set_is_8bit_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_is_active), MP_ROM_PTR(&entity_mp_set_is_active_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_is_visible), MP_ROM_PTR(&entity_mp_set_is_visible_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_is_player), MP_ROM_PTR(&entity_mp_set_is_player_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_direction), MP_ROM_PTR(&entity_mp_set_direction_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_plane), MP_ROM_PTR(&entity_mp_set_plane_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_state), MP_ROM_PTR(&entity_mp_set_state_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_start_position), MP_ROM_PTR(&entity_mp_set_start_position_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_end_position), MP_ROM_PTR(&entity_mp_set_end_position_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_move_timer), MP_ROM_PTR(&entity_mp_set_move_timer_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_elapsed_move_timer), MP_ROM_PTR(&entity_mp_set_elapsed_move_timer_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_radius), MP_ROM_PTR(&entity_mp_set_radius_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_speed), MP_ROM_PTR(&entity_mp_set_speed_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_attack_timer), MP_ROM_PTR(&entity_mp_set_attack_timer_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_elapsed_attack_timer), MP_ROM_PTR(&entity_mp_set_elapsed_attack_timer_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_strength), MP_ROM_PTR(&entity_mp_set_strength_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_health), MP_ROM_PTR(&entity_mp_set_health_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_max_health), MP_ROM_PTR(&entity_mp_set_max_health_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_level), MP_ROM_PTR(&entity_mp_set_level_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_xp), MP_ROM_PTR(&entity_mp_set_xp_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_health_regen), MP_ROM_PTR(&entity_mp_set_health_regen_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_elapsed_health_regen), MP_ROM_PTR(&entity_mp_set_elapsed_health_regen_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_sprite_rotation), MP_ROM_PTR(&entity_mp_set_sprite_rotation_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_sprite_scale), MP_ROM_PTR(&entity_mp_set_sprite_scale_obj)},
 
     // Entity type constants
     {MP_ROM_QSTR(MP_QSTR_ENTITY_PLAYER), MP_ROM_INT(ENTITY_PLAYER)},

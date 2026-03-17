@@ -69,7 +69,8 @@ mp_obj_t triangle3d_mp_del(mp_obj_t self_in)
         return mp_const_none;
     }
     Triangle3D *ctx = triangle3d_get_context(self);
-    delete ctx;
+    if (ctx)
+        delete ctx;
     self->context = nullptr;
     self->freed = true;
     return mp_const_none;
@@ -87,123 +88,97 @@ void triangle3d_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
     {
         // Load attributes
         Triangle3D *ctx = triangle3d_get_context(self);
-        if (attribute == MP_QSTR_x1)
+        switch (attribute)
         {
+        case MP_QSTR_x1:
             destination[0] = mp_obj_new_float(ctx->x1);
-        }
-        else if (attribute == MP_QSTR_y1)
-        {
+            break;
+        case MP_QSTR_y1:
             destination[0] = mp_obj_new_float(ctx->y1);
-        }
-        else if (attribute == MP_QSTR_z1)
-        {
+            break;
+        case MP_QSTR_z1:
             destination[0] = mp_obj_new_float(ctx->z1);
-        }
-        else if (attribute == MP_QSTR_x2)
-        {
+            break;
+        case MP_QSTR_x2:
             destination[0] = mp_obj_new_float(ctx->x2);
-        }
-        else if (attribute == MP_QSTR_y2)
-        {
+            break;
+        case MP_QSTR_y2:
             destination[0] = mp_obj_new_float(ctx->y2);
-        }
-        else if (attribute == MP_QSTR_z2)
-        {
+            break;
+        case MP_QSTR_z2:
             destination[0] = mp_obj_new_float(ctx->z2);
-        }
-        else if (attribute == MP_QSTR_x3)
-        {
+            break;
+        case MP_QSTR_x3:
             destination[0] = mp_obj_new_float(ctx->x3);
-        }
-        else if (attribute == MP_QSTR_y3)
-        {
+            break;
+        case MP_QSTR_y3:
             destination[0] = mp_obj_new_float(ctx->y3);
-        }
-        else if (attribute == MP_QSTR_z3)
-        {
+            break;
+        case MP_QSTR_z3:
             destination[0] = mp_obj_new_float(ctx->z3);
-        }
-        else if (attribute == MP_QSTR_visible)
-        {
+            break;
+        case MP_QSTR_visible:
             destination[0] = ctx->visible ? mp_const_true : mp_const_false;
-        }
-        else if (attribute == MP_QSTR_distance)
-        {
+            break;
+        case MP_QSTR_distance:
             destination[0] = mp_obj_new_float(ctx->distance);
-        }
-        else if (attribute == MP_QSTR_color)
-        {
+            break;
+        case MP_QSTR_color:
             destination[0] = mp_obj_new_int(ctx->color);
-        }
-        else if (attribute == MP_QSTR___del__)
-        {
+            break;
+        case MP_QSTR___del__:
             destination[0] = MP_OBJ_FROM_PTR(&triangle3d_mp_del_obj);
-        }
+            break;
+        default:
+            return; // Fail
+        };
     }
     else if (destination[1] != MP_OBJ_NULL)
     {
         // Store attributes
         Triangle3D *ctx = triangle3d_get_context(self);
-        if (attribute == MP_QSTR_x1)
+        switch (attribute)
         {
+        case MP_QSTR_x1:
             ctx->x1 = mp_obj_get_float(destination[1]);
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_y1)
-        {
+            break;
+        case MP_QSTR_y1:
             ctx->y1 = mp_obj_get_float(destination[1]);
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_z1)
-        {
+            break;
+        case MP_QSTR_z1:
             ctx->z1 = mp_obj_get_float(destination[1]);
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_x2)
-        {
+            break;
+        case MP_QSTR_x2:
             ctx->x2 = mp_obj_get_float(destination[1]);
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_y2)
-        {
+            break;
+        case MP_QSTR_y2:
             ctx->y2 = mp_obj_get_float(destination[1]);
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_z2)
-        {
+            break;
+        case MP_QSTR_z2:
             ctx->z2 = mp_obj_get_float(destination[1]);
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_x3)
-        {
+            break;
+        case MP_QSTR_x3:
             ctx->x3 = mp_obj_get_float(destination[1]);
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_y3)
-        {
+            break;
+        case MP_QSTR_y3:
             ctx->y3 = mp_obj_get_float(destination[1]);
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_z3)
-        {
+            break;
+        case MP_QSTR_z3:
             ctx->z3 = mp_obj_get_float(destination[1]);
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_visible)
-        {
+            break;
+        case MP_QSTR_visible:
             ctx->visible = mp_obj_is_true(destination[1]);
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_distance)
-        {
+            break;
+        case MP_QSTR_distance:
             ctx->distance = mp_obj_get_float(destination[1]);
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_color)
-        {
+            break;
+        case MP_QSTR_color:
             ctx->color = static_cast<uint16_t>(mp_obj_get_int(destination[1]));
-            destination[0] = MP_OBJ_NULL;
-        }
+            break;
+        default:
+            return; // Fail
+        };
+        destination[0] = MP_OBJ_NULL;
     }
 }
 
@@ -229,9 +204,177 @@ mp_obj_t triangle3d_mp_is_facing_camera(mp_obj_t self_in, mp_obj_t camera_pos_ve
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(triangle3d_mp_is_facing_camera_obj, triangle3d_mp_is_facing_camera);
 
+mp_obj_t triangle3d_mp_set_x1(mp_obj_t self_in, mp_obj_t x1_obj)
+{
+    triangle3d_mp_obj_t *self = static_cast<triangle3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (self->freed)
+    {
+        return mp_const_none;
+    }
+    Triangle3D *ctx = triangle3d_get_context(self);
+    ctx->x1 = mp_obj_get_float(x1_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(triangle3d_mp_set_x1_obj, triangle3d_mp_set_x1);
+
+mp_obj_t triangle3d_mp_set_y1(mp_obj_t self_in, mp_obj_t y1_obj)
+{
+    triangle3d_mp_obj_t *self = static_cast<triangle3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (self->freed)
+    {
+        return mp_const_none;
+    }
+    Triangle3D *ctx = triangle3d_get_context(self);
+    ctx->y1 = mp_obj_get_float(y1_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(triangle3d_mp_set_y1_obj, triangle3d_mp_set_y1);
+
+mp_obj_t triangle3d_mp_set_z1(mp_obj_t self_in, mp_obj_t z1_obj)
+{
+    triangle3d_mp_obj_t *self = static_cast<triangle3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (self->freed)
+    {
+        return mp_const_none;
+    }
+    Triangle3D *ctx = triangle3d_get_context(self);
+    ctx->z1 = mp_obj_get_float(z1_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(triangle3d_mp_set_z1_obj, triangle3d_mp_set_z1);
+
+mp_obj_t triangle3d_mp_set_x2(mp_obj_t self_in, mp_obj_t x2_obj)
+{
+    triangle3d_mp_obj_t *self = static_cast<triangle3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (self->freed)
+    {
+        return mp_const_none;
+    }
+    Triangle3D *ctx = triangle3d_get_context(self);
+    ctx->x2 = mp_obj_get_float(x2_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(triangle3d_mp_set_x2_obj, triangle3d_mp_set_x2);
+
+mp_obj_t triangle3d_mp_set_y2(mp_obj_t self_in, mp_obj_t y2_obj)
+{
+    triangle3d_mp_obj_t *self = static_cast<triangle3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (self->freed)
+    {
+        return mp_const_none;
+    }
+    Triangle3D *ctx = triangle3d_get_context(self);
+    ctx->y2 = mp_obj_get_float(y2_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(triangle3d_mp_set_y2_obj, triangle3d_mp_set_y2);
+
+mp_obj_t triangle3d_mp_set_z2(mp_obj_t self_in, mp_obj_t z2_obj)
+{
+    triangle3d_mp_obj_t *self = static_cast<triangle3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (self->freed)
+    {
+        return mp_const_none;
+    }
+    Triangle3D *ctx = triangle3d_get_context(self);
+    ctx->z2 = mp_obj_get_float(z2_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(triangle3d_mp_set_z2_obj, triangle3d_mp_set_z2);
+
+mp_obj_t triangle3d_mp_set_x3(mp_obj_t self_in, mp_obj_t x3_obj)
+{
+    triangle3d_mp_obj_t *self = static_cast<triangle3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (self->freed)
+    {
+        return mp_const_none;
+    }
+    Triangle3D *ctx = triangle3d_get_context(self);
+    ctx->x3 = mp_obj_get_float(x3_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(triangle3d_mp_set_x3_obj, triangle3d_mp_set_x3);
+
+mp_obj_t triangle3d_mp_set_y3(mp_obj_t self_in, mp_obj_t y3_obj)
+{
+    triangle3d_mp_obj_t *self = static_cast<triangle3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (self->freed)
+    {
+        return mp_const_none;
+    }
+    Triangle3D *ctx = triangle3d_get_context(self);
+    ctx->y3 = mp_obj_get_float(y3_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(triangle3d_mp_set_y3_obj, triangle3d_mp_set_y3);
+
+mp_obj_t triangle3d_mp_set_z3(mp_obj_t self_in, mp_obj_t z3_obj)
+{
+    triangle3d_mp_obj_t *self = static_cast<triangle3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (self->freed)
+    {
+        return mp_const_none;
+    }
+    Triangle3D *ctx = triangle3d_get_context(self);
+    ctx->z3 = mp_obj_get_float(z3_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(triangle3d_mp_set_z3_obj, triangle3d_mp_set_z3);
+
+mp_obj_t triangle3d_mp_set_visible(mp_obj_t self_in, mp_obj_t visible_obj)
+{
+    triangle3d_mp_obj_t *self = static_cast<triangle3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (self->freed)
+    {
+        return mp_const_none;
+    }
+    Triangle3D *ctx = triangle3d_get_context(self);
+    ctx->visible = mp_obj_is_true(visible_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(triangle3d_mp_set_visible_obj, triangle3d_mp_set_visible);
+
+mp_obj_t triangle3d_mp_set_distance(mp_obj_t self_in, mp_obj_t distance_obj)
+{
+    triangle3d_mp_obj_t *self = static_cast<triangle3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (self->freed)
+    {
+        return mp_const_none;
+    }
+    Triangle3D *ctx = triangle3d_get_context(self);
+    ctx->distance = mp_obj_get_float(distance_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(triangle3d_mp_set_distance_obj, triangle3d_mp_set_distance);
+
+mp_obj_t triangle3d_mp_set_color(mp_obj_t self_in, mp_obj_t color_obj)
+{
+    triangle3d_mp_obj_t *self = static_cast<triangle3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (self->freed)
+    {
+        return mp_const_none;
+    }
+    Triangle3D *ctx = triangle3d_get_context(self);
+    ctx->color = static_cast<uint16_t>(mp_obj_get_int(color_obj));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(triangle3d_mp_set_color_obj, triangle3d_mp_set_color);
+
 static const mp_rom_map_elem_t triangle3d_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_get_center), MP_ROM_PTR(&triangle3d_mp_center_obj)},
     {MP_ROM_QSTR(MP_QSTR_is_facing_camera), MP_ROM_PTR(&triangle3d_mp_is_facing_camera_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_x1), MP_ROM_PTR(&triangle3d_mp_set_x1_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_y1), MP_ROM_PTR(&triangle3d_mp_set_y1_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_z1), MP_ROM_PTR(&triangle3d_mp_set_z1_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_x2), MP_ROM_PTR(&triangle3d_mp_set_x2_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_y2), MP_ROM_PTR(&triangle3d_mp_set_y2_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_z2), MP_ROM_PTR(&triangle3d_mp_set_z2_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_x3), MP_ROM_PTR(&triangle3d_mp_set_x3_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_y3), MP_ROM_PTR(&triangle3d_mp_set_y3_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_z3), MP_ROM_PTR(&triangle3d_mp_set_z3_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_visible), MP_ROM_PTR(&triangle3d_mp_set_visible_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_distance), MP_ROM_PTR(&triangle3d_mp_set_distance_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_color), MP_ROM_PTR(&triangle3d_mp_set_color_obj)},
 };
 static MP_DEFINE_CONST_DICT(triangle3d_mp_locals_dict, triangle3d_mp_locals_dict_table);
 

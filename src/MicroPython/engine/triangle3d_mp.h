@@ -33,6 +33,19 @@ extern "C"
     mp_obj_t triangle3d_mp_center(mp_obj_t self_in);
     mp_obj_t triangle3d_mp_is_facing_camera(mp_obj_t self_in, mp_obj_t camera_pos_vector);
 
+    mp_obj_t triangle3d_mp_set_x1(mp_obj_t self_in, mp_obj_t x1_obj);
+    mp_obj_t triangle3d_mp_set_y1(mp_obj_t self_in, mp_obj_t y1_obj);
+    mp_obj_t triangle3d_mp_set_z1(mp_obj_t self_in, mp_obj_t z1_obj);
+    mp_obj_t triangle3d_mp_set_x2(mp_obj_t self_in, mp_obj_t x2_obj);
+    mp_obj_t triangle3d_mp_set_y2(mp_obj_t self_in, mp_obj_t y2_obj);
+    mp_obj_t triangle3d_mp_set_z2(mp_obj_t self_in, mp_obj_t z2_obj);
+    mp_obj_t triangle3d_mp_set_x3(mp_obj_t self_in, mp_obj_t x3_obj);
+    mp_obj_t triangle3d_mp_set_y3(mp_obj_t self_in, mp_obj_t y3_obj);
+    mp_obj_t triangle3d_mp_set_z3(mp_obj_t self_in, mp_obj_t z3_obj);
+    mp_obj_t triangle3d_mp_set_visible(mp_obj_t self_in, mp_obj_t visible_obj);
+    mp_obj_t triangle3d_mp_set_distance(mp_obj_t self_in, mp_obj_t distance_obj);
+    mp_obj_t triangle3d_mp_set_color(mp_obj_t self_in, mp_obj_t color_obj);
+
 #ifdef __cplusplus
 }
 #endif

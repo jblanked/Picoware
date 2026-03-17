@@ -28,3 +28,19 @@ class Camera(engine.Camera):
             distance,  # distance
             perspective,  # camera perspective type
         )
+
+    def __setattr__(self, name, value):
+        if name == "position":
+            self.set_position(value)
+        elif name == "direction":
+            self.set_direction(value)
+        elif name == "plane":
+            self.set_plane(value)
+        elif name == "height":
+            self.set_height(value)
+        elif name == "distance":
+            self.set_distance(value)
+        elif name == "perspective":
+            self.set_perspective(value)
+        else:
+            super().__setattr__(name, value)

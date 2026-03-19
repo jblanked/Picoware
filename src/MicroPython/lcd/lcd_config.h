@@ -22,6 +22,7 @@
 #define LCD_MP_RECTANGLE lcd_draw_rect
 #define LCD_MP_SET_MODE lcd_set_mode
 #define LCD_MP_SWAP lcd_swap
+#define LCD_MP_SWAP_REGION picoware_lcd_swap_region
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
 #elif defined(WAVESHARE_1_28)

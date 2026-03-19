@@ -14,6 +14,31 @@ def start(view_manager) -> bool:
         view_manager.alert("PSRAM not available...")
         return False
 
+    # first show info screen about connection
+    d = view_manager.draw
+    fg = view_manager.foreground_color
+    d.erase()
+    d._text(0, 0, "GameBoy Emulator (PSRAM, 60 FPS)", fg)
+    d._text(0, 20, "Up arrow is the Up key", fg)
+    d._text(0, 40, "Down arrow is the Down key", fg)
+    d._text(0, 60, "Left arrow is the Left key", fg)
+    d._text(0, 80, "Right arrow is the Right key", fg)
+    d._text(0, 100, "Right bracket is the A key", fg)
+    d._text(0, 120, "Left bracket is the B key", fg)
+    d._text(0, 140, "Equal sign is the Start key", fg)
+    d._text(0, 160, "Minus sign is the Select key", fg)
+    d.swap()
+
+    inp = view_manager.input_manager
+    while True:
+        but = inp.button
+        if but != -1:
+            inp.reset()
+            if but == 5:  # back
+                return False
+
+            break
+
     from picoware.gui.file_browser import FileBrowser
     from picoware.system.gameboy import GameBoy
 

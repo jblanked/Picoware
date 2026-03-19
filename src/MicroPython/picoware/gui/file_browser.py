@@ -29,7 +29,13 @@ class FileBrowser:
     MODE_EDITING = 0
     MODE_MENU = 1
 
-    def __init__(self, view_manager, mode=FILE_BROWSER_SELECTOR, start_directory=""):
+    def __init__(
+        self,
+        view_manager,
+        mode=FILE_BROWSER_SELECTOR,
+        start_directory="",
+        allowed_extensions=[],
+    ):
         """Initialize the file browser."""
         import json
         from picoware.system.vector import Vector
@@ -40,6 +46,7 @@ class FileBrowser:
 
         # State tracking and caching
         self._stat_cache = {}
+        self._allowed_extensions = allowed_extensions
 
         # UI overlays
         self._loading = None
@@ -338,6 +345,11 @@ class FileBrowser:
                 itm = entry["filename"]
                 if itm in (".", "..") or (not show_hid and itm.startswith(".")):
                     continue
+
+                if self._allowed_extensions and not entry["is_directory"]:
+                    ext = itm.split(".")[-1].lower() if "." in itm else ""
+                    if ext not in self._allowed_extensions:
+                        continue
 
                 fp = f"/{itm}" if path == "/" else f"{path}/{itm}"
                 is_d = entry["is_directory"]

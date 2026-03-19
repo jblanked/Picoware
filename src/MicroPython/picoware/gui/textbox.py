@@ -12,6 +12,7 @@ class TextBox(textbox.TextBox):
         foreground_color: int = 0xFFFF,
         background_color: int = 0x0000,
         show_scrollbar: bool = True,
+        show_cursor: bool = False,
     ) -> None:
         self.use_lvgl = draw.use_lvgl
         self._lvgl_textbox = None
@@ -25,6 +26,7 @@ class TextBox(textbox.TextBox):
             foreground_color,
             background_color,
             show_scrollbar,
+            show_cursor,
         )
 
         # LVGL path
@@ -49,6 +51,16 @@ class TextBox(textbox.TextBox):
             task_handler()
             del self._lvgl_textbox
             self._lvgl_textbox = None
+
+    def __setattr__(self, name, value):
+        if name == "text":
+            self.set_text(value)
+        elif name == "cursor":
+            self._set_cursor(value)
+        elif name == "current_line":
+            self.set_current_line(value)
+        else:
+            super().__setattr__(name, value)
 
     @property
     def current_text(self) -> str:

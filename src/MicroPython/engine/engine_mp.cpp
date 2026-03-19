@@ -13,6 +13,13 @@ static inline GameEngine *engine_get_context(engine_mp_obj_t *self)
     return static_cast<GameEngine *>(self->context);
 }
 
+static mp_obj_t engine_mp_game_global = MP_OBJ_NULL;
+
+mp_obj_t engine_mp_get_current_game(void)
+{
+    return engine_mp_game_global;
+}
+
 void engine_mp_del_reference(mp_obj_t mp_obj)
 {
     if (mp_obj == MP_OBJ_NULL)
@@ -53,16 +60,14 @@ mp_obj_t engine_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
     mp_arg_check_num(n_args, n_kw, 2, 2, false);
     engine_mp_obj_t *self = mp_obj_malloc_with_finaliser(engine_mp_obj_t, &engine_mp_type);
     self->base.type = &engine_mp_type;
-
-    // Extract Game* from game_mp_obj_t (handles Python subclass wrappers)
     mp_obj_t native_game = mp_obj_cast_to_native_base(args[0], MP_OBJ_FROM_PTR(&game_mp_type));
     if (native_game == MP_OBJ_NULL)
         mp_raise_TypeError(MP_ERROR_TEXT("expected Game"));
     game_mp_obj_t *game_mp = static_cast<game_mp_obj_t *>(MP_OBJ_TO_PTR(native_game));
     Game *game_ctx = static_cast<Game *>(game_mp->context);
-
+    self->game_obj = args[0];
+    engine_mp_game_global = self->game_obj;
     float fps = (float)mp_obj_get_int(args[1]);
-
     self->context = new GameEngine(game_ctx, fps);
     self->freed = false;
     return MP_OBJ_FROM_PTR(self);
@@ -76,14 +81,15 @@ mp_obj_t engine_mp_del(mp_obj_t self_in)
         return mp_const_none;
     }
     GameEngine *ctx = engine_get_context(self);
-    delete ctx;
+    if (ctx)
+        delete ctx;
     self->context = nullptr;
     self->freed = true;
+    self->game_obj = MP_OBJ_NULL;
+    engine_mp_game_global = MP_OBJ_NULL;
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(engine_mp_del_obj, engine_mp_del);
-
-// Methods
 
 mp_obj_t engine_mp_run(mp_obj_t self_in)
 {
@@ -113,8 +119,13 @@ mp_obj_t engine_mp_stop(mp_obj_t self_in)
     engine_mp_obj_t *self = static_cast<engine_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
     if (self->freed)
         return mp_const_none;
-    GameEngine *ctx = engine_get_context(self);
-    ctx->stop();
+    // remove below for now.. we got a freeze
+    // I think its because python still holds references
+    // but no matter what I did before/after calling stop
+    // nothing helped.. regardless we used m_malloc on all contexts
+    // so gc will clean them up
+    // GameEngine *ctx = engine_get_context(self);
+    //  ctx->stop();
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(engine_mp_stop_obj, engine_mp_stop);
@@ -130,29 +141,6 @@ mp_obj_t engine_mp_update_game_input(mp_obj_t self_in, mp_obj_t input)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(engine_mp_update_game_input_obj, engine_mp_update_game_input);
 
-mp_obj_t engine_mp_get_game(mp_obj_t self_in)
-{
-    engine_mp_obj_t *self = static_cast<engine_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
-    if (self->freed)
-        return mp_const_none;
-    GameEngine *ctx = engine_get_context(self);
-    Game *game = ctx->getGame();
-    if (game == nullptr)
-        return mp_const_none;
-
-    // Create a non-owning game_mp_obj_t wrapper.
-    // Use mp_obj_malloc (no finaliser) so GC won't call game_mp_del on this view.
-    game_mp_obj_t *game_obj = mp_obj_malloc(game_mp_obj_t, &game_mp_type);
-    game_obj->base.type = &game_mp_type;
-    game_obj->context = game;
-    game_obj->freed = false;
-    game_obj->draw = game_mp_get_current_draw();
-    return MP_OBJ_FROM_PTR(game_obj);
-}
-static MP_DEFINE_CONST_FUN_OBJ_1(engine_mp_get_game_obj, engine_mp_get_game);
-
-// Attribute getter/setter
-
 void engine_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
     engine_mp_obj_t *self = static_cast<engine_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
@@ -163,7 +151,7 @@ void engine_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
         // Load attributes
         if (attribute == MP_QSTR_game)
         {
-            destination[0] = engine_mp_get_game(self_in);
+            destination[0] = self->game_obj;
         }
         else if (attribute == MP_QSTR___del__)
         {
@@ -172,18 +160,12 @@ void engine_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
     }
 }
 
-// Locals dict (methods)
-
 static const mp_rom_map_elem_t engine_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_run), MP_ROM_PTR(&engine_mp_run_obj)},
     {MP_ROM_QSTR(MP_QSTR_run_async), MP_ROM_PTR(&engine_mp_run_async_obj)},
     {MP_ROM_QSTR(MP_QSTR_stop), MP_ROM_PTR(&engine_mp_stop_obj)},
-    {MP_ROM_QSTR(MP_QSTR_update_game_input), MP_ROM_PTR(&engine_mp_update_game_input_obj)},
-    {MP_ROM_QSTR(MP_QSTR_get_game), MP_ROM_PTR(&engine_mp_get_game_obj)},
-};
+    {MP_ROM_QSTR(MP_QSTR_update_game_input), MP_ROM_PTR(&engine_mp_update_game_input_obj)}};
 static MP_DEFINE_CONST_DICT(engine_mp_locals_dict, engine_mp_locals_dict_table);
-
-// Type definition
 
 extern "C"
 {
@@ -203,8 +185,6 @@ extern "C"
         },
     };
 }
-
-// Module globals
 
 static const mp_rom_map_elem_t engine_mp_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_engine)},

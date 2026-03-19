@@ -79,15 +79,15 @@ void log_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
     if (destination[0] == MP_OBJ_NULL)
     {
         // Load attributes
-        if (attribute == MP_QSTR_mode)
+        switch (attribute)
         {
+        case MP_QSTR_mode:
             destination[0] = mp_obj_new_int((int)self->mode);
-        }
-        else if (attribute == MP_QSTR_file_path)
-        {
+            break;
+        case MP_QSTR_file_path:
             destination[0] = self->file_path ? mp_obj_new_str(self->file_path, strlen(self->file_path)) : mp_const_none;
-        }
-        else if (attribute == MP_QSTR_logs)
+            break;
+        case MP_QSTR_logs:
         {
             mp_obj_t log_list = mp_obj_new_list(0, NULL);
             if (self->file_path == NULL)
@@ -113,24 +113,29 @@ void log_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
                 destination[0] = log_list;
             }
         }
-        else if (attribute == MP_QSTR___del__)
-        {
+        break;
+        case MP_QSTR___del__:
             destination[0] = MP_OBJ_FROM_PTR(&log_mp_del_obj);
-        }
+            break;
+        default:
+            return; // Fail
+        };
     }
     else if (destination[1] != MP_OBJ_NULL)
     {
         // Store attributes
-        if (attribute == MP_QSTR_mode)
+        switch (attribute)
         {
+        case MP_QSTR_mode:
             self->mode = (LogMode)mp_obj_get_int(destination[1]);
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_file_path)
-        {
+            break;
+        case MP_QSTR_file_path:
             self->file_path = mp_obj_str_get_str(destination[1]);
-            destination[0] = MP_OBJ_NULL;
-        }
+            break;
+        default:
+            return; // Fail
+        };
+        destination[0] = MP_OBJ_NULL;
     }
 }
 
@@ -201,9 +206,27 @@ mp_obj_t log_mp_reset(mp_obj_t self_in)
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(log_mp_reset_obj, log_mp_reset);
 
+mp_obj_t log_mp_set_mode(mp_obj_t self_in, mp_obj_t mode_obj)
+{
+    log_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    self->mode = (LogMode)mp_obj_get_int(mode_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(log_mp_set_mode_obj, log_mp_set_mode);
+
+mp_obj_t log_mp_set_file_path(mp_obj_t self_in, mp_obj_t file_path_obj)
+{
+    log_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    self->file_path = mp_obj_str_get_str(file_path_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(log_mp_set_file_path_obj, log_mp_set_file_path);
+
 static const mp_rom_map_elem_t log_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_log), MP_ROM_PTR(&log_mp_log_obj)},
     {MP_ROM_QSTR(MP_QSTR_reset), MP_ROM_PTR(&log_mp_reset_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_mode), MP_ROM_PTR(&log_mp_set_mode_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_file_path), MP_ROM_PTR(&log_mp_set_file_path_obj)},
 
     // constants
     {MP_ROM_QSTR(MP_QSTR_LOG_MODE_REPL), MP_ROM_INT(LOG_MODE_REPL)},

@@ -23,6 +23,12 @@ try:
             - dir_entry_offset: The byte offset within the directory sector for this file's entry
         """
 
+        def __setattr__(self, name, value):
+            if name == "position":
+                self.set_position(value)
+            else:
+                super().__setattr__(name, value)
+
 except ImportError:
     # waveshare 1.28 board
     pass

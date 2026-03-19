@@ -7,6 +7,9 @@ This details how to update Picoware on your device, specifically for the MicroPy
 ## Overview
 The MicroPython OTA update system allows you to update Picoware directly from your device without needing to connect it to a computer. Once the new version of Picoware is installed, you'll use [uf2loader](https://github.com/pelrun/uf2loader) to load the new uf2. Here's a [video guide](https://youtu.be/kErRrKBkjew?si=uNC3b_UJsbPvvyxc&t=193) that explains the process.
 
+> [!NOTE]
+> The uf2loader must be installed on your device for this update process to work. On your first install of the  uf2loader, place Picoware's uf2 file on the SD card, then use the bootloader menu to load Picoware. After that, you can follow the steps below to update Picoware in the future.
+
 ## Steps to Update
 1. **Check for Updates**: Turn on your device, press `Enter` to open the `Library`, then navigate to `Settings` → `Check for Updates`. If an update is available, you will be prompted to download it.
 2. **Download the Update**: Press `Enter` to download the update. The device will download the new version of Picoware and save it to the SD card.

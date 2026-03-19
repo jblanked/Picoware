@@ -24,6 +24,7 @@ def start(view_manager) -> bool:
         _library.add_item("App Store")
         _library.add_item("Bluetooth")
         _library.add_item("File Manager")
+        _library.add_item("GameBoy Emulator")
         _library.add_item("Games")
         _library.add_item("Python Editor")
         _library.add_item("Screensavers")
@@ -74,11 +75,12 @@ def run(view_manager) -> None:
             1: "App Store",
             2: "Bluetooth",
             3: "File Manager",
-            4: "Games",
-            5: "Python Editor",
-            6: "Screensavers",
-            7: "System",
-            8: "WiFi",
+            4: "GameBoy Emulator",
+            5: "Games",
+            6: "Python Editor",
+            7: "Screensavers",
+            8: "System",
+            9: "WiFi",
         }
 
         if app_map.get(_library_index) == "System":
@@ -161,6 +163,18 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("bluetooth")
+        elif app_map.get(_library_index) == "GameBoy Emulator":
+            from picoware.applications import gameboy
+
+            view_manager.add(
+                View(
+                    "gameboy",
+                    gameboy.run,
+                    gameboy.start,
+                    gameboy.stop,
+                )
+            )
+            view_manager.switch_to("gameboy")
 
 
 def stop(view_manager) -> None:

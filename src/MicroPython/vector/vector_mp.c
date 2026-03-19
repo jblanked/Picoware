@@ -57,43 +57,69 @@ void vector_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
     if (destination[0] == MP_OBJ_NULL)
     {
         // Load attributes
-        if (attribute == MP_QSTR_x)
+        switch (attribute)
         {
+        case MP_QSTR_x:
             destination[0] = self->integer ? mp_obj_new_int((int)self->x) : mp_obj_new_float(self->x);
-        }
-        else if (attribute == MP_QSTR_y)
-        {
+            break;
+        case MP_QSTR_y:
             destination[0] = self->integer ? mp_obj_new_int((int)self->y) : mp_obj_new_float(self->y);
-        }
-        else if (attribute == MP_QSTR_z)
-        {
+            break;
+        case MP_QSTR_z:
             destination[0] = self->integer ? mp_obj_new_int((int)self->z) : mp_obj_new_float(self->z);
-        }
-        else if (attribute == MP_QSTR___del__)
-        {
+            break;
+        case MP_QSTR___del__:
             destination[0] = MP_OBJ_FROM_PTR(&vector_mp_del_obj);
-        }
+            break;
+        default:
+            return; // Fail
+        };
     }
     else if (destination[1] != MP_OBJ_NULL)
     {
         // Store attributes
-        if (attribute == MP_QSTR_x)
+        switch (attribute)
         {
+        case MP_QSTR_x:
             self->x = mp_obj_get_float(destination[1]);
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_y)
-        {
+            break;
+        case MP_QSTR_y:
             self->y = mp_obj_get_float(destination[1]);
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_z)
-        {
+            break;
+        case MP_QSTR_z:
             self->z = mp_obj_get_float(destination[1]);
-            destination[0] = MP_OBJ_NULL;
-        }
+            break;
+        default:
+            return; // Fail
+        };
+
+        destination[0] = MP_OBJ_NULL; // Success
     }
 }
+
+mp_obj_t vector_mp_set_x(mp_obj_t self_in, mp_obj_t value_in)
+{
+    vector_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    self->x = mp_obj_get_float(value_in);
+    return MP_OBJ_NULL;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(vector_mp_set_x_obj, vector_mp_set_x);
+
+mp_obj_t vector_mp_set_y(mp_obj_t self_in, mp_obj_t value_in)
+{
+    vector_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    self->y = mp_obj_get_float(value_in);
+    return MP_OBJ_NULL;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(vector_mp_set_y_obj, vector_mp_set_y);
+
+mp_obj_t vector_mp_set_z(mp_obj_t self_in, mp_obj_t value_in)
+{
+    vector_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    self->z = mp_obj_get_float(value_in);
+    return MP_OBJ_NULL;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(vector_mp_set_z_obj, vector_mp_set_z);
 
 mp_obj_t vector_mp_rotate_y(mp_obj_t self_in, mp_obj_t angle_in)
 {
@@ -132,6 +158,9 @@ mp_obj_t vector_mp_scale(size_t n_args, const mp_obj_t *args)
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(vector_mp_scale_obj, 4, 4, vector_mp_scale);
 
 static const mp_rom_map_elem_t vector_mp_locals_dict_table[] = {
+    {MP_ROM_QSTR(MP_QSTR_set_x), MP_ROM_PTR(&vector_mp_set_x_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_y), MP_ROM_PTR(&vector_mp_set_y_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_z), MP_ROM_PTR(&vector_mp_set_z_obj)},
     {MP_ROM_QSTR(MP_QSTR_rotate_y), MP_ROM_PTR(&vector_mp_rotate_y_obj)},
     {MP_ROM_QSTR(MP_QSTR_translate), MP_ROM_PTR(&vector_mp_translate_obj)},
     {MP_ROM_QSTR(MP_QSTR_scale), MP_ROM_PTR(&vector_mp_scale_obj)},

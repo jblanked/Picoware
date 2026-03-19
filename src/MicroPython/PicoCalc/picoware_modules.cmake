@@ -343,3 +343,27 @@ target_include_directories(usermod_textbox INTERFACE
 )
 
 target_link_libraries(usermod INTERFACE usermod_textbox) 
+
+
+# Include gameboy module
+add_library(usermod_gameboy INTERFACE)
+
+target_sources(usermod_gameboy INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../gameboy/buffer.c
+    ${CMAKE_CURRENT_LIST_DIR}/../gameboy/flash.c
+    ${CMAKE_CURRENT_LIST_DIR}/../gameboy/gameboy_mp.c
+    ${CMAKE_CURRENT_LIST_DIR}/../gameboy/lcd.c
+    ${CMAKE_CURRENT_LIST_DIR}/../gameboy/storage.c
+    ${CMAKE_CURRENT_LIST_DIR}/../gameboy/PicoCalc-GameBoy/src/gb.c
+    ${CMAKE_CURRENT_LIST_DIR}/../gameboy/PicoCalc-GameBoy/src/rom.c
+    ${CMAKE_CURRENT_LIST_DIR}/../gameboy/PicoCalc-GameBoy/src/state.c
+    ${CMAKE_CURRENT_LIST_DIR}/../gameboy/PicoCalc-GameBoy/src/ram_cart.c
+)
+
+target_include_directories(usermod_gameboy INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../gameboy
+    ${CMAKE_CURRENT_LIST_DIR}/../gameboy/PicoCalc-GameBoy/src
+    ${CMAKE_CURRENT_LIST_DIR}/../gameboy/PicoCalc-GameBoy/ext/Walnut-CGB
+)
+
+target_link_libraries(usermod INTERFACE usermod_gameboy) 

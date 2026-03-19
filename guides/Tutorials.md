@@ -3,6 +3,7 @@
 Here are some tutorials and reviews to help you get started with Picoware:
 
 ## Reviews/Application Walkthroughs
+- PicoCalc JUST Got a HUGE Update with Audio Recording and C++ game engine!: https://www.youtube.com/watch?v=MHH927SBowg
 - PicoCalc Custom Firmware Update: March 2026: https://youtu.be/nN-i2cD6q-A
 - PicoCalc Gets a BIG 2026 Update with LVGL, SSH Terminal, and more!: https://youtu.be/kErRrKBkjew
 - PicoCalc's 2026 Firmware Update is Here and It's HUGE!: https://youtu.be/L_rmjF6NUDo

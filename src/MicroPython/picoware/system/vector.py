@@ -1,7 +1,7 @@
-from vector import Vector as vector_mp
+import vector
 
 
-class Vector(vector_mp):
+class Vector(vector.Vector):
     """
     A simple 3D vector class.
 
@@ -14,6 +14,16 @@ class Vector(vector_mp):
         super().__init__(
             x, y, z, isinstance(x, int) and isinstance(y, int) and isinstance(z, int)
         )
+
+    def __setattr__(self, name, value):
+        if name == "x":
+            self.set_x(value)
+        elif name == "y":
+            self.set_y(value)
+        elif name == "z":
+            self.set_z(value)
+        else:
+            super().__setattr__(name, value)
 
     @classmethod
     def from_val(cls, value):

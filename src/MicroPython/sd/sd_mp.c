@@ -11,6 +11,10 @@
 
 const mp_obj_type_t mp_fat32_file_type;
 
+#ifndef PRINT
+#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
+#endif
+
 void mp_fat32_file_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
 {
     (void)kind;
@@ -114,14 +118,32 @@ void mp_fat32_file_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
     }
 }
 
+mp_obj_t mp_fat32_file_set_position(mp_obj_t self_in, mp_obj_t position_obj)
+{
+    mp_fat32_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    uint32_t position = mp_obj_get_int(position_obj);
+    if (fat32_seek(&self->file, position) != FAT32_OK)
+    {
+        PRINT("Failed to seek in file.\n");
+        mp_raise_OSError(MP_EIO);
+    }
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(mp_fat32_file_set_position_obj, mp_fat32_file_set_position);
+
+static const mp_rom_map_elem_t mp_fat32_file_locals_dict_table[] = {
+    {MP_ROM_QSTR(MP_QSTR_set_position), MP_ROM_PTR(&mp_fat32_file_set_position_obj)},
+};
+static MP_DEFINE_CONST_DICT(mp_fat32_file_locals_dict, mp_fat32_file_locals_dict_table);
+
 MP_DEFINE_CONST_OBJ_TYPE(
     mp_fat32_file_type,
     MP_QSTR_fat32_file, // name
     MP_TYPE_FLAG_HAS_SPECIAL_ACCESSORS,
     print, mp_fat32_file_print,       // print function
     make_new, mp_fat32_file_make_new, // constructor
-    attr, mp_fat32_file_attr          // attribute handler
-);
+    attr, mp_fat32_file_attr,         // attribute handler
+    locals_dict, &mp_fat32_file_locals_dict);
 
 // Function to initialize the SD card
 mp_obj_t sd_mp_init(void)

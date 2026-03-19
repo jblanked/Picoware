@@ -30,18 +30,38 @@ class Game(engine.Game):
         :param start: function(Game) - the function called when the game is started
         :param stop: function(Game) - the function called when the game is stopped
         """
+        from picoware.engine.camera import Camera
+
         super().__init__(
             name,
             size,
             foreground_color,
             background_color,
-            camera_context,
+            Camera() if camera_context is None else camera_context,
             start,
             stop,
             self._update,
             draw,
         )
         self.input_manager = input_manager
+
+    def __setattr__(self, name, value):
+        if name == "name":
+            self.set_name(value)
+        elif name == "size":
+            self.set_size(value)
+        elif name == "is_active":
+            self.set_is_active(value)
+        elif name == "foreground_color":
+            self.set_foreground_color(value)
+        elif name == "background_color":
+            self.set_background_color(value)
+        elif name == "input":
+            self.set_input(value)
+        elif name == "camera":
+            self.set_camera(value)
+        else:
+            super().__setattr__(name, value)
 
     def _update(self) -> None:
         """Update the game input and entity positions in a thread-safe manner."""

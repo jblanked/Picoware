@@ -23,6 +23,7 @@ extern "C"
         mp_obj_base_t base;
         void *context; // Sprite3D* in C++
         bool freed;
+        mp_obj_t position_obj;
     } sprite3d_mp_obj_t;
 
     extern const mp_obj_type_t sprite3d_mp_type;
@@ -49,6 +50,11 @@ extern "C"
     mp_obj_t sprite3d_mp_initialize_as_humanoid(size_t n_args, const mp_obj_t *args);
     mp_obj_t sprite3d_mp_initialize_as_pillar(size_t n_args, const mp_obj_t *args);
     mp_obj_t sprite3d_mp_initialize_as_tree(size_t n_args, const mp_obj_t *args);
+
+    mp_obj_t sprite3d_mp_set_position(mp_obj_t self_in, mp_obj_t position_obj);
+    mp_obj_t sprite3d_mp_set_rotation_y(mp_obj_t self_in, mp_obj_t rotation_obj);
+    mp_obj_t sprite3d_mp_set_scale(mp_obj_t self_in, mp_obj_t scale_obj);
+    mp_obj_t sprite3d_mp_set_active(mp_obj_t self_in, mp_obj_t active_obj);
 
 #ifdef __cplusplus
 }

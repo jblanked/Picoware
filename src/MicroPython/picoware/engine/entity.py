@@ -30,3 +30,65 @@ class Entity(engine.Entity):
     """
     Represents an entity in the game.
     """
+
+    def __setattr__(self, name, value):
+        if name == "name":
+            self.set_name(value)
+        elif name == "type":
+            self.set_type(value)
+        elif name == "position":
+            self.set_position(value)
+        elif name == "old_position":
+            self.set_old_position(value)
+        elif name == "size":
+            self.set_size(value)
+        elif name == "is_8bit":
+            self.set_is_8bit(value)
+        elif name == "is_active":
+            self.set_is_active(value)
+        elif name == "is_visible":
+            self.set_is_visible(value)
+        elif name == "is_player":
+            self.set_is_player(value)
+        elif name == "direction":
+            self.set_direction(value)
+        elif name == "plane":
+            self.set_plane(value)
+        elif name == "state":
+            self.set_state(value)
+        elif name == "start_position":
+            self.set_start_position(value)
+        elif name == "end_position":
+            self.set_end_position(value)
+        elif name == "move_timer":
+            self.set_move_timer(value)
+        elif name == "elapsed_move_timer":
+            self.set_elapsed_move_timer(value)
+        elif name == "radius":
+            self.set_radius(value)
+        elif name == "speed":
+            self.set_speed(value)
+        elif name == "attack_timer":
+            self.set_attack_timer(value)
+        elif name == "elapsed_attack_timer":
+            self.set_elapsed_attack_timer(value)
+        elif name == "strength":
+            self.set_strength(value)
+        elif name == "health":
+            self.set_health(value)
+        elif name == "max_health":
+            self.set_max_health(value)
+        elif name == "level":
+            self.set_level(value)
+        elif name == "xp":
+            self.set_xp(value)
+        elif name == "health_regen":
+            self.set_health_regen(value)
+        elif name == "elapsed_health_regen":
+            self.set_elapsed_health_regen(value)
+        elif name == "sprite_rotation":
+            self.set_3d_sprite_rotation(value)
+        elif name == "sprite_scale":
+            self.set_3d_sprite_scale(value)
+        else:
+            super().__setattr__(name, value)

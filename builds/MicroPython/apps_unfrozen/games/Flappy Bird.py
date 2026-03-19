@@ -417,6 +417,7 @@ class GameState:
         self.gnd_size = Vector(0, 0)
         self.grs_pos = Vector(0, 0)
         self.grs_size = Vector(0, 0)
+        self.cloud_y_positions = [20, 50, 80, 110]
 
     def __del__(self):
         if self.bird:
@@ -453,6 +454,8 @@ class GameState:
         self.grs_pos = None
         del self.grs_size
         self.grs_size = None
+        del self.cloud_y_positions
+        self.cloud_y_positions = None
 
 
 _game_state: GameState = None
@@ -591,20 +594,19 @@ def __player_update(self, game):
     __flappy_game_tick()
 
 
-def __player_render(self, game) -> None:  # the new signature is self, game
+def __player_render(self, draw, game) -> None:
     """Render the player"""
 
     global _game_state
 
-    draw = game.draw
+    # draw = game.draw
 
     # Draw sky background
     draw.fill_rectangle(_game_state.lcd_pos, _game_state.lcd_vec, TFT_CYAN)
 
     # Draw clouds (simple white circles/ovals)
-    cloud_y_positions = [20, 50, 80, 110]
     cloud_x_offset = int(_game_state.points * 2) % FLIPPER_LCD_WIDTH
-    for i, y in enumerate(cloud_y_positions):
+    for i, y in enumerate(_game_state.cloud_y_positions):
         x = (i * 80 - cloud_x_offset) % (FLIPPER_LCD_WIDTH + 80) - 40
         if -40 < x < FLIPPER_LCD_WIDTH:
             _game_state.cloud_pos.x, _game_state.cloud_pos.y = x, y
@@ -690,9 +692,8 @@ def __player_render(self, game) -> None:  # the new signature is self, game
                     )
 
         # Draw the bird
-        self.position = Vector(
-            int(_game_state.bird.point.x), int(_game_state.bird.point.y)
-        )
+        self.position.x = int(_game_state.bird.point.x)
+        self.position.y = int(_game_state.bird.point.y)
 
         draw.image_bytearray(self.position, _game_state.bird_vec, BIRD_ICON)
 

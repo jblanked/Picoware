@@ -63,6 +63,7 @@ mp_obj_t level_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw
         mp_raise_TypeError(MP_ERROR_TEXT("expected Vector for size"));
     vector_mp_obj_t *size_vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_size));
     Vector size(size_vec->x, size_vec->y, size_vec->z, size_vec->integer);
+    self->size_obj = args[1];
 
     // Extract Game* from the game_mp_obj_t (handles Python subclass wrappers)
     mp_obj_t native_game = mp_obj_cast_to_native_base(args[2], MP_OBJ_FROM_PTR(&game_mp_type));
@@ -106,15 +107,21 @@ mp_obj_t level_mp_del(mp_obj_t self_in)
         return mp_const_none;
     }
     Level *ctx = level_get_context(self);
-    // Free the name buffer we allocated in make_new
-    if (ctx->name != NULL)
+    if (ctx)
     {
-        m_free(const_cast<char *>(ctx->name));
-        ctx->name = NULL;
+        // Free the name buffer we allocated in make_new
+        if (ctx->name != NULL)
+        {
+            m_free(const_cast<char *>(ctx->name));
+            ctx->name = NULL;
+        }
+        delete ctx;
     }
-    delete ctx;
     self->context = nullptr;
     self->freed = true;
+    self->start = mp_const_none;
+    self->stop = mp_const_none;
+    self->size_obj = MP_OBJ_NULL;
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(level_mp_del_obj, level_mp_del);
@@ -126,65 +133,49 @@ void level_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
     {
         return;
     }
-    Level *ctx = level_get_context(self);
     if (destination[0] == MP_OBJ_NULL)
     {
         // Load attributes
-        if (attribute == MP_QSTR_name)
+        Level *ctx = level_get_context(self);
+        switch (attribute)
         {
+        case MP_QSTR_name:
             destination[0] = mp_obj_new_str(ctx->name, strlen(ctx->name));
-        }
-        else if (attribute == MP_QSTR_size)
-        {
-            destination[0] = vector_mp_init(ctx->size.x, ctx->size.y, ctx->size.z, ctx->size.integer);
-        }
-        else if (attribute == MP_QSTR_entity_count)
-        {
+            break;
+        case MP_QSTR_size:
+            destination[0] = self->size_obj;
+            break;
+        case MP_QSTR_entity_count:
             destination[0] = mp_obj_new_int(ctx->getEntityCount());
-        }
-        else if (attribute == MP_QSTR_clear_allowed)
-        {
+            break;
+        case MP_QSTR_clear_allowed:
             destination[0] = mp_obj_new_bool(ctx->isClearAllowed());
-        }
-        else if (attribute == MP_QSTR___del__)
-        {
+            break;
+        case MP_QSTR___del__:
             destination[0] = MP_OBJ_FROM_PTR(&level_mp_del_obj);
-        }
+            break;
+        default:
+            return; // Fail
+        };
     }
     else if (destination[1] != MP_OBJ_NULL)
     {
         // Store attributes
-        if (attribute == MP_QSTR_name)
+        switch (attribute)
         {
-            size_t name_len;
-            const char *name_str = mp_obj_str_get_data(destination[1], &name_len);
-            if (ctx->name != NULL)
-            {
-                m_free(const_cast<char *>(ctx->name));
-            }
-            char *name_buf = static_cast<char *>(m_malloc(name_len + 1));
-            memcpy(name_buf, name_str, name_len);
-            name_buf[name_len] = '\0';
-            ctx->name = name_buf;
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_size)
-        {
-            mp_obj_t native_vec = mp_obj_cast_to_native_base(destination[1], MP_OBJ_FROM_PTR(&vector_mp_type));
-            if (native_vec == MP_OBJ_NULL)
-                mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
-            vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
-            ctx->size.x = vec->x;
-            ctx->size.y = vec->y;
-            ctx->size.z = vec->z;
-            ctx->size.integer = vec->integer;
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_clear_allowed)
-        {
-            ctx->setClearAllowed(mp_obj_is_true(destination[1]));
-            destination[0] = MP_OBJ_NULL;
-        }
+        case MP_QSTR_name:
+            level_mp_set_name(self_in, destination[1]);
+            break;
+        case MP_QSTR_size:
+            level_mp_set_size(self_in, destination[1]);
+            break;
+        case MP_QSTR_clear_allowed:
+            level_mp_set_clear_allowed(self_in, destination[1]);
+            break;
+        default:
+            return; // Fail
+        };
+        destination[0] = MP_OBJ_NULL;
     }
 }
 
@@ -241,10 +232,57 @@ mp_obj_t level_mp_entity_remove(mp_obj_t self_in, mp_obj_t entity_in)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(level_mp_entity_remove_obj, level_mp_entity_remove);
 
+mp_obj_t level_mp_set_name(mp_obj_t self_in, mp_obj_t name_obj)
+{
+    level_mp_obj_t *self = static_cast<level_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Level *ctx = level_get_context(self);
+    size_t name_len;
+    const char *name_str = mp_obj_str_get_data(name_obj, &name_len);
+    if (ctx->name != NULL)
+    {
+        m_free(const_cast<char *>(ctx->name));
+    }
+    char *name_buf = static_cast<char *>(m_malloc(name_len + 1));
+    memcpy(name_buf, name_str, name_len);
+    name_buf[name_len] = '\0';
+    ctx->name = name_buf;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(level_mp_set_name_obj, level_mp_set_name);
+
+mp_obj_t level_mp_set_size(mp_obj_t self_in, mp_obj_t size_obj)
+{
+    level_mp_obj_t *self = static_cast<level_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Level *ctx = level_get_context(self);
+    mp_obj_t native_vec = mp_obj_cast_to_native_base(size_obj, MP_OBJ_FROM_PTR(&vector_mp_type));
+    if (native_vec == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
+    vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
+    ctx->size.x = vec->x;
+    ctx->size.y = vec->y;
+    ctx->size.z = vec->z;
+    ctx->size.integer = vec->integer;
+    self->size_obj = size_obj;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(level_mp_set_size_obj, level_mp_set_size);
+
+mp_obj_t level_mp_set_clear_allowed(mp_obj_t self_in, mp_obj_t clear_allowed_obj)
+{
+    level_mp_obj_t *self = static_cast<level_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Level *ctx = level_get_context(self);
+    ctx->setClearAllowed(mp_obj_is_true(clear_allowed_obj));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(level_mp_set_clear_allowed_obj, level_mp_set_clear_allowed);
+
 static const mp_rom_map_elem_t level_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_clear), MP_ROM_PTR(&level_mp_clear_obj)},
     {MP_ROM_QSTR(MP_QSTR_entity_add), MP_ROM_PTR(&level_mp_entity_add_obj)},
     {MP_ROM_QSTR(MP_QSTR_entity_remove), MP_ROM_PTR(&level_mp_entity_remove_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_name), MP_ROM_PTR(&level_mp_set_name_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_size), MP_ROM_PTR(&level_mp_set_size_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_clear_allowed), MP_ROM_PTR(&level_mp_set_clear_allowed_obj)},
 };
 static MP_DEFINE_CONST_DICT(level_mp_locals_dict, level_mp_locals_dict_table);
 

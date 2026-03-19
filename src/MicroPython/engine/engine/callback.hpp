@@ -1,4 +1,5 @@
 #pragma once
+#include <cstddef>
 
 // Lightweight callback structs
 // Each holds a plain function pointer and a void* context (for captured state).
@@ -25,6 +26,8 @@ struct CallbackEntityGame
 {
     void (*fn)(Entity *, Game *, void *) = nullptr;
     void *ctx = nullptr;
+    CallbackEntityGame() = default;
+    CallbackEntityGame(std::nullptr_t) : fn(nullptr), ctx(nullptr) {}
     void operator()(Entity *e, Game *g) const
     {
         if (fn)
@@ -37,6 +40,8 @@ struct CallbackEntityDrawGame
 {
     void (*fn)(Entity *, Draw *, Game *, void *) = nullptr;
     void *ctx = nullptr;
+    CallbackEntityDrawGame() = default;
+    CallbackEntityDrawGame(std::nullptr_t) : fn(nullptr), ctx(nullptr) {}
     void operator()(Entity *e, Draw *d, Game *g) const
     {
         if (fn)
@@ -49,6 +54,8 @@ struct CallbackEntityEntityGame
 {
     void (*fn)(Entity *, Entity *, Game *, void *) = nullptr;
     void *ctx = nullptr;
+    CallbackEntityEntityGame() = default;
+    CallbackEntityEntityGame(std::nullptr_t) : fn(nullptr), ctx(nullptr) {}
     void operator()(Entity *e1, Entity *e2, Game *g) const
     {
         if (fn)

@@ -12,6 +12,9 @@ mp_obj_t sprite3d_mp_init(void)
     sprite3d->base.type = &sprite3d_mp_type;
     sprite3d->context = new Sprite3D();
     sprite3d->freed = false;
+    Sprite3D *ctx = sprite3d_get_context(sprite3d);
+    Vector pos = ctx->getPosition();
+    sprite3d->position_obj = vector_mp_init(pos.x, pos.y, pos.z, pos.integer);
     return MP_OBJ_FROM_PTR(sprite3d);
 }
 
@@ -57,9 +60,11 @@ mp_obj_t sprite3d_mp_del(mp_obj_t self_in)
         return mp_const_none;
     }
     Sprite3D *ctx = sprite3d_get_context(self);
-    delete ctx;
+    if (ctx)
+        delete ctx;
     self->context = nullptr;
     self->freed = true;
+    self->position_obj = MP_OBJ_NULL;
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(sprite3d_mp_del_obj, sprite3d_mp_del);
@@ -71,64 +76,56 @@ void sprite3d_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
     {
         // load attributes
         Sprite3D *ctx = sprite3d_get_context(self);
-        if (attribute == MP_QSTR_position)
+        switch (attribute)
         {
-            Vector pos = ctx->getPosition();
-            destination[0] = vector_mp_init(pos.x, pos.y, pos.z, pos.integer);
+        case MP_QSTR_position:
+        {
+            destination[0] = self->position_obj;
+            break;
         }
-        else if (attribute == MP_QSTR_rotation_y)
-        {
+        case MP_QSTR_rotation_y:
             destination[0] = mp_obj_new_float(ctx->getRotation());
-        }
-        else if (attribute == MP_QSTR_scale_factor)
-        {
+            break;
+        case MP_QSTR_scale_factor:
             destination[0] = mp_obj_new_float(ctx->getScale());
-        }
-        else if (attribute == MP_QSTR_type)
-        {
+            break;
+        case MP_QSTR_type:
             destination[0] = mp_obj_new_int(ctx->getType());
-        }
-        else if (attribute == MP_QSTR_active)
-        {
+            break;
+        case MP_QSTR_active:
             destination[0] = mp_obj_new_bool(ctx->isActive());
-        }
-        else if (attribute == MP_QSTR_triangle_count)
-        {
+            break;
+        case MP_QSTR_triangle_count:
             destination[0] = mp_obj_new_int(ctx->getTriangleCount());
-        }
-        else if (attribute == MP_QSTR___del__)
-        {
+            break;
+        case MP_QSTR___del__:
             destination[0] = MP_OBJ_FROM_PTR(&sprite3d_mp_del_obj);
-        }
+            break;
+        default:
+            return; // Fail
+        };
     }
     else if (destination[1] != MP_OBJ_NULL)
     {
         // store attributes
-        Sprite3D *ctx = sprite3d_get_context(self);
-        if (attribute == MP_QSTR_position)
+        switch (attribute)
         {
-            mp_obj_t native_vec = mp_obj_cast_to_native_base(destination[1], MP_OBJ_FROM_PTR(&vector_mp_type));
-            if (native_vec == MP_OBJ_NULL)
-                mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
-            vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
-            ctx->setPosition(Vector(vec->x, vec->y, vec->z, vec->integer));
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_rotation_y)
-        {
-            ctx->setRotation(mp_obj_get_float(destination[1]));
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_scale_factor)
-        {
-            ctx->setScale(mp_obj_get_float(destination[1]));
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_active)
-        {
-            ctx->setActive(mp_obj_is_true(destination[1]));
-            destination[0] = MP_OBJ_NULL;
-        }
+        case MP_QSTR_position:
+            sprite3d_mp_set_position(self_in, destination[1]);
+            break;
+        case MP_QSTR_rotation_y:
+            sprite3d_mp_set_rotation_y(self_in, destination[1]);
+            break;
+        case MP_QSTR_scale_factor:
+            sprite3d_mp_set_scale(self_in, destination[1]);
+            break;
+        case MP_QSTR_active:
+            sprite3d_mp_set_active(self_in, destination[1]);
+            break;
+        default:
+            return; // Fail
+        };
+        destination[0] = MP_OBJ_NULL;
     }
 }
 
@@ -372,6 +369,47 @@ mp_obj_t sprite3d_mp_initialize_as_tree(size_t n_args, const mp_obj_t *args)
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_initialize_as_tree_obj, 3, 4, sprite3d_mp_initialize_as_tree);
 
+mp_obj_t sprite3d_mp_set_position(mp_obj_t self_in, mp_obj_t position_obj)
+{
+    sprite3d_mp_obj_t *self = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Sprite3D *ctx = sprite3d_get_context(self);
+    mp_obj_t native_vec = mp_obj_cast_to_native_base(position_obj, MP_OBJ_FROM_PTR(&vector_mp_type));
+    if (native_vec == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Vector for position"));
+    vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
+    ctx->setPosition(Vector(vec->x, vec->y, vec->z, vec->integer));
+    self->position_obj = position_obj;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(sprite3d_mp_set_position_obj, sprite3d_mp_set_position);
+
+mp_obj_t sprite3d_mp_set_rotation_y(mp_obj_t self_in, mp_obj_t rotation_obj)
+{
+    sprite3d_mp_obj_t *self = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Sprite3D *ctx = sprite3d_get_context(self);
+    ctx->setRotation(mp_obj_get_float(rotation_obj));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(sprite3d_mp_set_rotation_y_obj, sprite3d_mp_set_rotation_y);
+
+mp_obj_t sprite3d_mp_set_scale(mp_obj_t self_in, mp_obj_t scale_obj)
+{
+    sprite3d_mp_obj_t *self = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Sprite3D *ctx = sprite3d_get_context(self);
+    ctx->setScale(mp_obj_get_float(scale_obj));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(sprite3d_mp_set_scale_obj, sprite3d_mp_set_scale);
+
+mp_obj_t sprite3d_mp_set_active(mp_obj_t self_in, mp_obj_t active_obj)
+{
+    sprite3d_mp_obj_t *self = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Sprite3D *ctx = sprite3d_get_context(self);
+    ctx->setActive(mp_obj_is_true(active_obj));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(sprite3d_mp_set_active_obj, sprite3d_mp_set_active);
+
 static const mp_rom_map_elem_t sprite3d_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_add_triangle), MP_ROM_PTR(&sprite3d_mp_add_triangle_obj)},
     {MP_ROM_QSTR(MP_QSTR_clear_triangles), MP_ROM_PTR(&sprite3d_mp_clear_triangles_obj)},
@@ -388,6 +426,11 @@ static const mp_rom_map_elem_t sprite3d_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_initialize_as_humanoid), MP_ROM_PTR(&sprite3d_mp_initialize_as_humanoid_obj)},
     {MP_ROM_QSTR(MP_QSTR_initialize_as_pillar), MP_ROM_PTR(&sprite3d_mp_initialize_as_pillar_obj)},
     {MP_ROM_QSTR(MP_QSTR_initialize_as_tree), MP_ROM_PTR(&sprite3d_mp_initialize_as_tree_obj)},
+
+    {MP_ROM_QSTR(MP_QSTR_set_position), MP_ROM_PTR(&sprite3d_mp_set_position_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_rotation_y), MP_ROM_PTR(&sprite3d_mp_set_rotation_y_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_scale), MP_ROM_PTR(&sprite3d_mp_set_scale_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_active), MP_ROM_PTR(&sprite3d_mp_set_active_obj)},
 
     {MP_ROM_QSTR(MP_QSTR_MAX_TRIANGLES_PER_SPRITE), MP_ROM_INT(MAX_TRIANGLES_PER_SPRITE)},
 

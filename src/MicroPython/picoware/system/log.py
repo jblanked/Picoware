@@ -33,3 +33,11 @@ class Log(log.Log):
         reset: bool = False,
     ):
         super().__init__(mode, file_path, reset)
+
+    def __setattr__(self, name, value):
+        if name == "mode":
+            self.set_mode(value)
+        elif name == "file_path":
+            self.set_file_path(value)
+        else:
+            super().__setattr__(name, value)

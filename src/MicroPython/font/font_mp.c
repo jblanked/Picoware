@@ -139,7 +139,7 @@ mp_obj_t font_mp_get_character(mp_obj_t self_in, mp_obj_t size, mp_obj_t char_ob
   FontTable table = font_get_table(font_size);
   return mp_obj_new_bytes(char_data, (table.width * table.height + 7) / 8); // Return the character bitmap as bytes
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_3(font_mp_get_character_obj, font_mp_get_character);
+static MP_DEFINE_CONST_FUN_OBJ_3(font_mp_get_character_obj, font_mp_get_character);
 
 mp_obj_t font_mp_get_data(mp_obj_t self_in, mp_obj_t size)
 {
@@ -152,7 +152,7 @@ mp_obj_t font_mp_get_data(mp_obj_t self_in, mp_obj_t size)
   FontTable table = font_get_table(font_size);
   return mp_obj_new_bytes(table.table, (table.width * table.height + 7) / 8 * (126 - 32 + 1)); // Return the entire font data as bytes
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(font_mp_get_data_obj, font_mp_get_data);
+static MP_DEFINE_CONST_FUN_OBJ_2(font_mp_get_data_obj, font_mp_get_data);
 
 mp_obj_t font_mp_get_height(mp_obj_t self_in, mp_obj_t size)
 {
@@ -165,7 +165,7 @@ mp_obj_t font_mp_get_height(mp_obj_t self_in, mp_obj_t size)
   uint8_t height = font_get_height(font_size);
   return mp_obj_new_int(height); // Return the height of the font in pixels
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(font_mp_get_height_obj, font_mp_get_height);
+static MP_DEFINE_CONST_FUN_OBJ_2(font_mp_get_height_obj, font_mp_get_height);
 
 mp_obj_t font_mp_get_spacing(mp_obj_t self_in, mp_obj_t size)
 {
@@ -178,7 +178,7 @@ mp_obj_t font_mp_get_spacing(mp_obj_t self_in, mp_obj_t size)
   uint8_t spacing = font_get_spacing(font_size);
   return mp_obj_new_int(spacing); // Return the spacing of the font in pixels
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(font_mp_get_spacing_obj, font_mp_get_spacing);
+static MP_DEFINE_CONST_FUN_OBJ_2(font_mp_get_spacing_obj, font_mp_get_spacing);
 
 mp_obj_t font_mp_get_width(mp_obj_t self_in, mp_obj_t size)
 {
@@ -191,7 +191,7 @@ mp_obj_t font_mp_get_width(mp_obj_t self_in, mp_obj_t size)
   uint8_t width = font_get_width(font_size);
   return mp_obj_new_int(width); // Return the width of the font in pixels
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(font_mp_get_width_obj, font_mp_get_width);
+static MP_DEFINE_CONST_FUN_OBJ_2(font_mp_get_width_obj, font_mp_get_width);
 
 void font_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
 {
@@ -215,7 +215,7 @@ mp_obj_t font_mp_del(mp_obj_t self_in)
   self->initialized = false; // Mark the font as uninitialized
   return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(font_mp_del_obj, font_mp_del);
+static MP_DEFINE_CONST_FUN_OBJ_1(font_mp_del_obj, font_mp_del);
 
 void font_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
@@ -234,14 +234,14 @@ void font_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
   }
 }
 
-STATIC const mp_rom_map_elem_t font_mp_locals_dict_table[] = {
+static const mp_rom_map_elem_t font_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_get_character), MP_ROM_PTR(&font_mp_get_character_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_data), MP_ROM_PTR(&font_mp_get_data_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_height), MP_ROM_PTR(&font_mp_get_height_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_width), MP_ROM_PTR(&font_mp_get_width_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_spacing), MP_ROM_PTR(&font_mp_get_spacing_obj)},
 };
-STATIC MP_DEFINE_CONST_DICT(font_mp_locals_dict, font_mp_locals_dict_table);
+static MP_DEFINE_CONST_DICT(font_mp_locals_dict, font_mp_locals_dict_table);
 
 MP_DEFINE_CONST_OBJ_TYPE(
     font_mp_type,
@@ -318,7 +318,7 @@ mp_obj_t font_size_mp_del(mp_obj_t self_in)
   self->spacing = 0;
   return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(font_size_mp_del_obj, font_size_mp_del);
+static MP_DEFINE_CONST_FUN_OBJ_1(font_size_mp_del_obj, font_size_mp_del);
 
 void font_size_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
@@ -362,21 +362,39 @@ void font_size_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
   }
 }
 
+mp_obj_t font_size_mp_set_size(mp_obj_t self_in, mp_obj_t size_obj)
+{
+  font_size_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+  FontSize new_size = mp_obj_get_int(size_obj);
+  self->size = new_size;
+  self->width = font_get_width(new_size);
+  self->height = font_get_height(new_size);
+  self->spacing = font_get_spacing(new_size);
+  return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(font_size_mp_set_size_obj, font_size_mp_set_size);
+
+static const mp_rom_map_elem_t font_size_mp_locals_dict_table[] = {
+    {MP_ROM_QSTR(MP_QSTR_set_size), MP_ROM_PTR(&font_size_mp_set_size_obj)},
+};
+static MP_DEFINE_CONST_DICT(font_size_mp_locals_dict, font_size_mp_locals_dict_table);
+
 MP_DEFINE_CONST_OBJ_TYPE(
     font_size_mp_type,
     MP_QSTR_FontSize,
     MP_TYPE_FLAG_HAS_SPECIAL_ACCESSORS,
     print, font_size_mp_print,
     make_new, font_size_mp_make_new,
-    attr, font_size_mp_attr);
+    attr, font_size_mp_attr,
+    locals_dict, &font_size_mp_locals_dict);
 
 // Define module globals
-STATIC const mp_rom_map_elem_t font_mp_globals_table[] = {
+static const mp_rom_map_elem_t font_mp_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_font)},
     {MP_ROM_QSTR(MP_QSTR_Font), MP_ROM_PTR(&font_mp_type)},
     {MP_ROM_QSTR(MP_QSTR_FontSize), MP_ROM_PTR(&font_size_mp_type)},
 };
-STATIC MP_DEFINE_CONST_DICT(font_mp_globals, font_mp_globals_table);
+static MP_DEFINE_CONST_DICT(font_mp_globals, font_mp_globals_table);
 
 // Define module
 const mp_obj_module_t font_mp_user_cmodule = {

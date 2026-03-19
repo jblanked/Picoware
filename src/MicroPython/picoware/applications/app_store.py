@@ -82,7 +82,11 @@ def __loading_start(view_manager, text: str = "Fetching...") -> None:
     global _loading
 
     if not _loading:
-        _loading = Loading(view_manager.draw)
+        _loading = Loading(
+            view_manager.draw,
+            view_manager.foreground_color,
+            view_manager.background_color,
+        )
     else:
         _loading.stop()
     _loading.set_text(text)
@@ -105,6 +109,7 @@ def __show_main_menu(view_manager) -> None:
             draw.size.y,
             view_manager.foreground_color,
             view_manager.background_color,
+            view_manager.selected_color,
         )
 
     _main_menu.clear()
@@ -241,6 +246,7 @@ def __parse_update_check(view_manager) -> bool:
                 draw.size.y,
                 view_manager.foreground_color,
                 view_manager.background_color,
+                view_manager.selected_color,
             )
 
         _app_menu.clear()
@@ -407,6 +413,7 @@ def __parse_app_list(view_manager) -> bool:
                 draw.size.y,
                 view_manager.foreground_color,
                 view_manager.background_color,
+                view_manager.selected_color,
             )
 
         # Clear and populate menu

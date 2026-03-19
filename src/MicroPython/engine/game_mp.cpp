@@ -3,14 +3,9 @@
 #include "level_mp.h"
 #include "engine/game.hpp"
 
-// Static reference to the current game's Python Draw object,
-// so entity callbacks can propagate it to temporary game wrappers.
-static mp_obj_t _game_mp_draw_ref = MP_OBJ_NULL;
-
-mp_obj_t game_mp_get_current_draw(void)
-{
-    return _game_mp_draw_ref != MP_OBJ_NULL ? _game_mp_draw_ref : mp_const_none;
-}
+#ifndef PRINT
+#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
+#endif
 
 static inline Game *game_get_context(game_mp_obj_t *self)
 {
@@ -126,6 +121,7 @@ mp_obj_t game_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw,
         mp_raise_TypeError(MP_ERROR_TEXT("expected Vector for size"));
     vector_mp_obj_t *size_vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_size));
     Vector size(size_vec->x, size_vec->y, size_vec->z, size_vec->integer);
+    self->size_obj = args[1];
 
     // Parse optional args
     uint16_t fg_color = (n_args >= 3) ? static_cast<uint16_t>(mp_obj_get_int(args[2])) : 0xFFFF;
@@ -134,12 +130,7 @@ mp_obj_t game_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw,
     self->start = mp_const_none;
     self->stop = mp_const_none;
     self->update = mp_const_none;
-    self->draw = mp_const_none;
-    if (n_args >= 9 && args[8] != mp_const_none)
-    {
-        self->draw = args[8];
-        _game_mp_draw_ref = args[8];
-    }
+    self->draw = n_args == 9 ? args[8] : MP_OBJ_NULL;
     CallbackVoid start_func = {};
     CallbackVoid stop_func = {};
     CallbackVoid update_func = {};
@@ -165,6 +156,7 @@ mp_obj_t game_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw,
 
     // Extract Camera* from camera_mp_obj_t if provided (handles Python subclass wrappers)
     Camera *camera_ctx = nullptr;
+    self->camera_obj = MP_OBJ_NULL;
     if (n_args >= 5 && args[4] != mp_const_none)
     {
         mp_obj_t native_cam = mp_obj_cast_to_native_base(args[4], MP_OBJ_FROM_PTR(&camera_mp_type));
@@ -172,9 +164,13 @@ mp_obj_t game_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw,
             mp_raise_TypeError(MP_ERROR_TEXT("expected Camera"));
         camera_mp_obj_t *cam_mp = static_cast<camera_mp_obj_t *>(MP_OBJ_TO_PTR(native_cam));
         camera_ctx = static_cast<Camera *>(cam_mp->context);
+        self->camera_obj = args[4];
     }
     // Create the C++ Game — all state lives in this single context
     self->context = new Game(name_buf, size, draw, fg_color, bg_color, camera_ctx, start_func, stop_func, update_func);
+    Game *ctx = game_get_context(self);
+    Vector pos = ctx->pos;
+    self->position_obj = vector_mp_init(pos.x, pos.y, pos.z, pos.integer);
     return MP_OBJ_FROM_PTR(self);
 }
 
@@ -186,15 +182,25 @@ mp_obj_t game_mp_del(mp_obj_t self_in)
         return mp_const_none;
     }
     Game *ctx = game_get_context(self);
-    // Free the name buffer we allocated in make_new
-    if (ctx->name != NULL)
+    if (ctx)
     {
-        m_free(const_cast<char *>(ctx->name));
-        ctx->name = NULL;
+        // Free the name buffer we allocated in make_new
+        if (ctx->name != NULL)
+        {
+            m_free(const_cast<char *>(ctx->name));
+            ctx->name = NULL;
+        }
+        delete ctx;
     }
-    delete ctx;
     self->context = nullptr;
     self->freed = true;
+    self->position_obj = MP_OBJ_NULL;
+    self->size_obj = MP_OBJ_NULL;
+    self->camera_obj = MP_OBJ_NULL;
+    self->draw = MP_OBJ_NULL;
+    self->start = mp_const_none;
+    self->stop = mp_const_none;
+    self->update = mp_const_none;
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(game_mp_del_obj, game_mp_del);
@@ -206,138 +212,80 @@ void game_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
     {
         return;
     }
-    Game *ctx = game_get_context(self);
     if (destination[0] == MP_OBJ_NULL)
     {
         // Load attributes
-        if (attribute == MP_QSTR_name)
+        Game *ctx = game_get_context(self);
+        switch (attribute)
         {
+        case MP_QSTR_name:
             destination[0] = mp_obj_new_str(ctx->name, strlen(ctx->name));
-        }
-        else if (attribute == MP_QSTR_position)
-        {
-            destination[0] = vector_mp_init(ctx->pos.x, ctx->pos.y, ctx->pos.z, ctx->pos.integer);
-        }
-        else if (attribute == MP_QSTR_size)
-        {
-            destination[0] = vector_mp_init(ctx->size.x, ctx->size.y, ctx->size.z, ctx->size.integer);
-        }
-        else if (attribute == MP_QSTR_is_active)
-        {
+            break;
+        case MP_QSTR_position:
+            destination[0] = self->position_obj;
+            break;
+        case MP_QSTR_size:
+            destination[0] = self->size_obj;
+            break;
+        case MP_QSTR_is_active:
             destination[0] = ctx->is_active ? mp_const_true : mp_const_false;
-        }
-        else if (attribute == MP_QSTR_foreground_color)
-        {
+            break;
+        case MP_QSTR_foreground_color:
             destination[0] = mp_obj_new_int(ctx->fg_color);
-        }
-        else if (attribute == MP_QSTR_background_color)
-        {
+            break;
+        case MP_QSTR_background_color:
             destination[0] = mp_obj_new_int(ctx->bg_color);
-        }
-        else if (attribute == MP_QSTR_camera)
-        {
-            destination[0] = mp_const_none; // Return None for camera attribute for now..
-        }
-        else if (attribute == MP_QSTR_input)
-        {
+            break;
+        case MP_QSTR_camera:
+            destination[0] = self->camera_obj;
+            break;
+        case MP_QSTR_input:
             destination[0] = mp_obj_new_int(ctx->input);
-        }
-        else if (attribute == MP_QSTR_draw)
-        {
+            break;
+        case MP_QSTR_draw:
             destination[0] = self->draw;
-        }
-        else if (attribute == MP_QSTR___del__)
-        {
+            break;
+        case MP_QSTR___del__:
             destination[0] = MP_OBJ_FROM_PTR(&game_mp_del_obj);
-        }
+            break;
+        default:
+            return; // Fail
+        };
     }
     else if (destination[1] != MP_OBJ_NULL)
     {
         // Store attributes
-        if (attribute == MP_QSTR_name)
+        switch (attribute)
         {
-            size_t name_len;
-            const char *name_str = mp_obj_str_get_data(destination[1], &name_len);
-            if (ctx->name != NULL)
-            {
-                m_free(const_cast<char *>(ctx->name));
-            }
-            char *name_buf = static_cast<char *>(m_malloc(name_len + 1));
-            memcpy(name_buf, name_str, name_len);
-            name_buf[name_len] = '\0';
-            ctx->name = name_buf;
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_position)
-        {
-            mp_obj_t native_vec = mp_obj_cast_to_native_base(destination[1], MP_OBJ_FROM_PTR(&vector_mp_type));
-            if (native_vec == MP_OBJ_NULL)
-                mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
-            vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
-            ctx->old_pos.x = ctx->pos.x;
-            ctx->old_pos.y = ctx->pos.y;
-            ctx->old_pos.z = ctx->pos.z;
-            ctx->old_pos.integer = ctx->pos.integer;
-            ctx->pos.x = vec->x;
-            ctx->pos.y = vec->y;
-            ctx->pos.z = vec->z;
-            ctx->pos.integer = vec->integer;
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_size)
-        {
-            mp_obj_t native_vec = mp_obj_cast_to_native_base(destination[1], MP_OBJ_FROM_PTR(&vector_mp_type));
-            if (native_vec == MP_OBJ_NULL)
-                mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
-            vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
-            ctx->size.x = vec->x;
-            ctx->size.y = vec->y;
-            ctx->size.z = vec->z;
-            ctx->size.integer = vec->integer;
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_is_active)
-        {
-            ctx->is_active = mp_obj_is_true(destination[1]);
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_foreground_color)
-        {
-            ctx->fg_color = static_cast<uint16_t>(mp_obj_get_int(destination[1]));
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_background_color)
-        {
-            ctx->bg_color = static_cast<uint16_t>(mp_obj_get_int(destination[1]));
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_camera_perspective)
-        {
-            if (ctx->camera != nullptr)
-            {
-                ctx->camera->perspective = static_cast<CameraPerspective>(mp_obj_get_int(destination[1]));
-            }
-            destination[0] = MP_OBJ_NULL;
-        }
-        else if (attribute == MP_QSTR_input)
-        {
-            ctx->input = static_cast<int>(mp_obj_get_int(destination[1]));
-            destination[0] = MP_OBJ_NULL;
-        }
+        case MP_QSTR_name:
+            game_mp_set_name(self_in, destination[1]);
+            break;
+        case MP_QSTR_position:
+            game_mp_set_position(self_in, destination[1]);
+            break;
+        case MP_QSTR_size:
+            game_mp_set_size(self_in, destination[1]);
+            break;
+        case MP_QSTR_is_active:
+            game_mp_set_is_active(self_in, destination[1]);
+            break;
+        case MP_QSTR_foreground_color:
+            game_mp_set_foreground_color(self_in, destination[1]);
+            break;
+        case MP_QSTR_background_color:
+            game_mp_set_background_color(self_in, destination[1]);
+            break;
+        case MP_QSTR_input:
+            game_mp_set_input(self_in, destination[1]);
+            break;
+        case MP_QSTR_camera:
+            game_mp_set_camera(self_in, destination[1]);
+            break;
+        default:
+            return; // Fail
+        };
+        destination[0] = MP_OBJ_NULL;
     }
-}
-
-mp_obj_t game_mp_get_camera(mp_obj_t self_in)
-{
-    game_mp_obj_t *self = static_cast<game_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
-    Game *ctx = game_get_context(self);
-    Camera *cam = ctx->getCamera();
-    if (cam == nullptr)
-    {
-        return mp_const_none;
-    }
-    // Return a new Camera MP object wrapping the Game's camera fields
-    return vector_mp_init(cam->position.x, cam->position.y, cam->position.z, cam->position.integer);
 }
 
 mp_obj_t game_mp_set_camera(mp_obj_t self_in, mp_obj_t camera_in)
@@ -350,6 +298,7 @@ mp_obj_t game_mp_set_camera(mp_obj_t self_in, mp_obj_t camera_in)
     camera_mp_obj_t *cam_mp = static_cast<camera_mp_obj_t *>(MP_OBJ_TO_PTR(native_cam));
     Camera *cam_ctx = static_cast<Camera *>(cam_mp->context);
     ctx->setCamera(*cam_ctx);
+    self->camera_obj = camera_in;
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(game_mp_set_camera_obj, game_mp_set_camera);
@@ -413,6 +362,89 @@ mp_obj_t game_mp_level_switch(mp_obj_t self_in, mp_obj_t index_in)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(game_mp_level_switch_obj, game_mp_level_switch);
 
+mp_obj_t game_mp_set_name(mp_obj_t self_in, mp_obj_t name_obj)
+{
+    game_mp_obj_t *self = static_cast<game_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Game *ctx = game_get_context(self);
+    size_t name_len;
+    const char *name_str = mp_obj_str_get_data(name_obj, &name_len);
+    if (ctx->name != NULL)
+    {
+        m_free(const_cast<char *>(ctx->name));
+    }
+    char *name_buf = static_cast<char *>(m_malloc(name_len + 1));
+    memcpy(name_buf, name_str, name_len);
+    name_buf[name_len] = '\0';
+    ctx->name = name_buf;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(game_mp_set_name_obj, game_mp_set_name);
+
+mp_obj_t game_mp_set_position(mp_obj_t self_in, mp_obj_t position_obj)
+{
+    game_mp_obj_t *self = static_cast<game_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Game *ctx = game_get_context(self);
+    mp_obj_t native_vec = mp_obj_cast_to_native_base(position_obj, MP_OBJ_FROM_PTR(&vector_mp_type));
+    if (native_vec == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
+    vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
+    ctx->old_pos.x = ctx->pos.x;
+    ctx->old_pos.y = ctx->pos.y;
+    ctx->old_pos.z = ctx->pos.z;
+    ctx->old_pos.integer = ctx->pos.integer;
+    ctx->pos.x = vec->x;
+    ctx->pos.y = vec->y;
+    ctx->pos.z = vec->z;
+    ctx->pos.integer = vec->integer;
+    self->position_obj = position_obj;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(game_mp_set_position_obj, game_mp_set_position);
+
+mp_obj_t game_mp_set_size(mp_obj_t self_in, mp_obj_t size_obj)
+{
+    game_mp_obj_t *self = static_cast<game_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Game *ctx = game_get_context(self);
+    mp_obj_t native_vec = mp_obj_cast_to_native_base(size_obj, MP_OBJ_FROM_PTR(&vector_mp_type));
+    if (native_vec == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Vector"));
+    vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
+    ctx->size.x = vec->x;
+    ctx->size.y = vec->y;
+    ctx->size.z = vec->z;
+    ctx->size.integer = vec->integer;
+    self->size_obj = size_obj;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(game_mp_set_size_obj, game_mp_set_size);
+
+mp_obj_t game_mp_set_is_active(mp_obj_t self_in, mp_obj_t is_active_obj)
+{
+    game_mp_obj_t *self = static_cast<game_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Game *ctx = game_get_context(self);
+    ctx->is_active = mp_obj_is_true(is_active_obj);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(game_mp_set_is_active_obj, game_mp_set_is_active);
+
+mp_obj_t game_mp_set_foreground_color(mp_obj_t self_in, mp_obj_t fg_color_obj)
+{
+    game_mp_obj_t *self = static_cast<game_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Game *ctx = game_get_context(self);
+    ctx->fg_color = static_cast<uint16_t>(mp_obj_get_int(fg_color_obj));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(game_mp_set_foreground_color_obj, game_mp_set_foreground_color);
+
+mp_obj_t game_mp_set_background_color(mp_obj_t self_in, mp_obj_t bg_color_obj)
+{
+    game_mp_obj_t *self = static_cast<game_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Game *ctx = game_get_context(self);
+    ctx->bg_color = static_cast<uint16_t>(mp_obj_get_int(bg_color_obj));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(game_mp_set_background_color_obj, game_mp_set_background_color);
+
 static const mp_rom_map_elem_t game_mp_locals_dict_table[] = {
     // Methods
     {MP_ROM_QSTR(MP_QSTR_set_camera), MP_ROM_PTR(&game_mp_set_camera_obj)},
@@ -421,7 +453,12 @@ static const mp_rom_map_elem_t game_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_level_remove), MP_ROM_PTR(&game_mp_level_remove_obj)},
     {MP_ROM_QSTR(MP_QSTR_level_switch), MP_ROM_PTR(&game_mp_level_switch_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_update), MP_ROM_PTR(&game_mp_set_update_obj)},
-
+    {MP_ROM_QSTR(MP_QSTR_set_name), MP_ROM_PTR(&game_mp_set_name_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_position), MP_ROM_PTR(&game_mp_set_position_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_size), MP_ROM_PTR(&game_mp_set_size_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_is_active), MP_ROM_PTR(&game_mp_set_is_active_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_foreground_color), MP_ROM_PTR(&game_mp_set_foreground_color_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_background_color), MP_ROM_PTR(&game_mp_set_background_color_obj)},
     // Constants
     {MP_ROM_QSTR(MP_QSTR_MAX_LEVELS), MP_ROM_INT(MAX_LEVELS)},
 };

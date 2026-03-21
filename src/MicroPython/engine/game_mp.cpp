@@ -472,6 +472,23 @@ mp_obj_t game_mp_set_current_level(mp_obj_t self_in, mp_obj_t level_in)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(game_mp_set_current_level_obj, game_mp_set_current_level);
 
+mp_obj_t game_mp_level_exists(mp_obj_t self_in, mp_obj_t level_in)
+{
+    game_mp_obj_t *self = static_cast<game_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Game *ctx = game_get_context(self);
+    // level_in is the name of the level to check for existence
+    const char *level_name = mp_obj_str_get_str(level_in);
+    for (int i = 0; i < MAX_LEVELS; i++)
+    {
+        if (ctx->levels[i] && strcmp(ctx->levels[i]->name, level_name) == 0)
+        {
+            return mp_const_true;
+        }
+    }
+    return mp_const_false;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(game_mp_level_exists_obj, game_mp_level_exists);
+
 static const mp_rom_map_elem_t game_mp_locals_dict_table[] = {
     // Methods
     {MP_ROM_QSTR(MP_QSTR_set_camera), MP_ROM_PTR(&game_mp_set_camera_obj)},
@@ -487,6 +504,7 @@ static const mp_rom_map_elem_t game_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_set_foreground_color), MP_ROM_PTR(&game_mp_set_foreground_color_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_background_color), MP_ROM_PTR(&game_mp_set_background_color_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_current_level), MP_ROM_PTR(&game_mp_set_current_level_obj)},
+    {MP_ROM_QSTR(MP_QSTR_level_exists), MP_ROM_PTR(&game_mp_level_exists_obj)},
     // Constants
     {MP_ROM_QSTR(MP_QSTR_MAX_LEVELS), MP_ROM_INT(MAX_LEVELS)},
 };

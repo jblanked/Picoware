@@ -54,6 +54,8 @@ extern "C"
     mp_obj_t game_mp_set_background_color(mp_obj_t self_in, mp_obj_t bg_color_obj);
     mp_obj_t game_mp_set_current_level(mp_obj_t self_in, mp_obj_t level_in);
 
+    mp_obj_t game_mp_level_exists(mp_obj_t self_in, mp_obj_t level_in);
+
 #ifdef __cplusplus
 }
 #endif

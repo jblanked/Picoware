@@ -985,6 +985,19 @@ mp_obj_t entity_mp_set_sprite_scale(mp_obj_t self_in, mp_obj_t sprite_scale_obj)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_sprite_scale_obj, entity_mp_set_sprite_scale);
 
+mp_obj_t entity_mp_set_sprite3d(mp_obj_t self_in, mp_obj_t sprite3d_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    mp_obj_t native_sprite3d = mp_obj_cast_to_native_base(sprite3d_obj, MP_OBJ_FROM_PTR(&sprite3d_mp_type));
+    if (native_sprite3d == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Sprite3D"));
+    sprite3d_mp_obj_t *sprite3d = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(native_sprite3d));
+    ctx->sprite_3d = static_cast<Sprite3D *>(sprite3d->context);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_sprite3d_obj, entity_mp_set_sprite3d);
+
 static const mp_rom_map_elem_t entity_mp_locals_dict_table[] = {
     // Methods
     {MP_ROM_QSTR(MP_QSTR_has_3d_sprite), MP_ROM_PTR(&entity_mp_has_3d_sprite_obj)},
@@ -1022,6 +1035,7 @@ static const mp_rom_map_elem_t entity_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_set_elapsed_health_regen), MP_ROM_PTR(&entity_mp_set_elapsed_health_regen_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_sprite_rotation), MP_ROM_PTR(&entity_mp_set_sprite_rotation_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_sprite_scale), MP_ROM_PTR(&entity_mp_set_sprite_scale_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_sprite3d), MP_ROM_PTR(&entity_mp_set_sprite3d_obj)},
 
     // Entity type constants
     {MP_ROM_QSTR(MP_QSTR_ENTITY_PLAYER), MP_ROM_INT(ENTITY_PLAYER)},

@@ -90,5 +90,7 @@ class Entity(engine.Entity):
             self.set_3d_sprite_rotation(value)
         elif name == "sprite_scale":
             self.set_3d_sprite_scale(value)
+        elif name == "sprite_3d":
+            self.set_sprite3d(value)
         else:
             super().__setattr__(name, value)

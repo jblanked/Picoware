@@ -276,6 +276,32 @@ mp_obj_t level_mp_set_clear_allowed(mp_obj_t self_in, mp_obj_t clear_allowed_obj
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(level_mp_set_clear_allowed_obj, level_mp_set_clear_allowed);
 
+mp_obj_t level_mp_get_entity(mp_obj_t self_in, mp_obj_t index_obj)
+{
+    level_mp_obj_t *self = static_cast<level_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Level *ctx = level_get_context(self);
+    mp_int_t index = mp_obj_get_int(index_obj);
+    if (index < 0 || index >= ctx->getEntityCount())
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("Entity index out of range"));
+    }
+    Entity *entity_ctx = ctx->getEntity(index);
+    if (entity_ctx == nullptr)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("Entity context is null"));
+    }
+    // Wrap the Entity* in a new entity_mp_obj_t
+    entity_mp_obj_t *entity_obj = mp_obj_malloc(entity_mp_obj_t, &entity_mp_type);
+    entity_obj->base.type = &entity_mp_type;
+    entity_obj->context = entity_ctx;
+    entity_obj->freed = false;
+    // we'll come back positions and such later until needed..
+    // right now this is just used in Free Roam which only
+    // needs name and type which are provided by the Entity context
+    return MP_OBJ_FROM_PTR(entity_obj);
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(level_mp_get_entity_obj, level_mp_get_entity);
+
 static const mp_rom_map_elem_t level_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_clear), MP_ROM_PTR(&level_mp_clear_obj)},
     {MP_ROM_QSTR(MP_QSTR_entity_add), MP_ROM_PTR(&level_mp_entity_add_obj)},
@@ -283,6 +309,7 @@ static const mp_rom_map_elem_t level_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_set_name), MP_ROM_PTR(&level_mp_set_name_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_size), MP_ROM_PTR(&level_mp_set_size_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_clear_allowed), MP_ROM_PTR(&level_mp_set_clear_allowed_obj)},
+    {MP_ROM_QSTR(MP_QSTR_get_entity), MP_ROM_PTR(&level_mp_get_entity_obj)},
 };
 static MP_DEFINE_CONST_DICT(level_mp_locals_dict, level_mp_locals_dict_table);
 

@@ -197,6 +197,7 @@ mp_obj_t game_mp_del(mp_obj_t self_in)
     self->position_obj = MP_OBJ_NULL;
     self->size_obj = MP_OBJ_NULL;
     self->camera_obj = MP_OBJ_NULL;
+    self->current_level_obj = MP_OBJ_NULL;
     self->draw = MP_OBJ_NULL;
     self->start = mp_const_none;
     self->stop = mp_const_none;
@@ -245,6 +246,9 @@ void game_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
         case MP_QSTR_draw:
             destination[0] = self->draw;
             break;
+        case MP_QSTR_current_level:
+            destination[0] = self->current_level_obj;
+            break;
         case MP_QSTR___del__:
             destination[0] = MP_OBJ_FROM_PTR(&game_mp_del_obj);
             break;
@@ -280,6 +284,9 @@ void game_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
             break;
         case MP_QSTR_camera:
             game_mp_set_camera(self_in, destination[1]);
+            break;
+        case MP_QSTR_current_level:
+            game_mp_set_current_level(self_in, destination[1]);
             break;
         default:
             return; // Fail
@@ -445,6 +452,26 @@ mp_obj_t game_mp_set_background_color(mp_obj_t self_in, mp_obj_t bg_color_obj)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(game_mp_set_background_color_obj, game_mp_set_background_color);
 
+mp_obj_t game_mp_set_current_level(mp_obj_t self_in, mp_obj_t level_in)
+{
+    game_mp_obj_t *self = static_cast<game_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Game *ctx = game_get_context(self);
+    if (level_in == mp_const_none)
+    {
+        ctx->current_level = nullptr;
+        return mp_const_none;
+    }
+    mp_obj_t native_level = mp_obj_cast_to_native_base(level_in, MP_OBJ_FROM_PTR(&level_mp_type));
+    if (native_level == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Level or None"));
+    level_mp_obj_t *level = static_cast<level_mp_obj_t *>(MP_OBJ_TO_PTR(native_level));
+    Level *level_ctx = static_cast<Level *>(level->context);
+    ctx->current_level = level_ctx;
+    self->current_level_obj = level_in;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(game_mp_set_current_level_obj, game_mp_set_current_level);
+
 static const mp_rom_map_elem_t game_mp_locals_dict_table[] = {
     // Methods
     {MP_ROM_QSTR(MP_QSTR_set_camera), MP_ROM_PTR(&game_mp_set_camera_obj)},
@@ -459,6 +486,7 @@ static const mp_rom_map_elem_t game_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_set_is_active), MP_ROM_PTR(&game_mp_set_is_active_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_foreground_color), MP_ROM_PTR(&game_mp_set_foreground_color_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_background_color), MP_ROM_PTR(&game_mp_set_background_color_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_current_level), MP_ROM_PTR(&game_mp_set_current_level_obj)},
     // Constants
     {MP_ROM_QSTR(MP_QSTR_MAX_LEVELS), MP_ROM_INT(MAX_LEVELS)},
 };

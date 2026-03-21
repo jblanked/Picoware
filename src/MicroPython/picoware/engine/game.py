@@ -60,6 +60,8 @@ class Game(engine.Game):
             self.set_input(value)
         elif name == "camera":
             self.set_camera(value)
+        elif name == "current_level":
+            self.set_current_level(value)
         else:
             super().__setattr__(name, value)
 

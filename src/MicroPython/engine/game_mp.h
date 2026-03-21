@@ -30,6 +30,7 @@ extern "C"
         mp_obj_t position_obj;
         mp_obj_t size_obj;
         mp_obj_t camera_obj;
+        mp_obj_t current_level_obj;
     } game_mp_obj_t;
 
     extern const mp_obj_type_t game_mp_type;
@@ -51,6 +52,7 @@ extern "C"
     mp_obj_t game_mp_set_is_active(mp_obj_t self_in, mp_obj_t is_active_obj);
     mp_obj_t game_mp_set_foreground_color(mp_obj_t self_in, mp_obj_t fg_color_obj);
     mp_obj_t game_mp_set_background_color(mp_obj_t self_in, mp_obj_t bg_color_obj);
+    mp_obj_t game_mp_set_current_level(mp_obj_t self_in, mp_obj_t level_in);
 
 #ifdef __cplusplus
 }

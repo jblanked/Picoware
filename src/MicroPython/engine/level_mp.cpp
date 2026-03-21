@@ -30,16 +30,40 @@ void level_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t k
     mp_print_str(print, ")");
 }
 
-// Trampoline functions for level callbacks
 static void level_start_trampoline(Level &level, void *ctx)
 {
     level_mp_obj_t *self = static_cast<level_mp_obj_t *>(ctx);
-    mp_call_function_1(self->start, MP_OBJ_FROM_PTR(self));
+
+    if (self->start == MP_OBJ_NULL || self->start == mp_const_none)
+        return;
+
+    if (mp_obj_is_type(self->start, &mp_type_bound_meth))
+    {
+        mp_call_function_n_kw(self->start, 0, 0, nullptr);
+    }
+    else
+    {
+        mp_obj_t call_args[1] = {MP_OBJ_FROM_PTR(self)};
+        mp_call_function_n_kw(self->start, 1, 0, call_args);
+    }
 }
+
 static void level_stop_trampoline(Level &level, void *ctx)
 {
     level_mp_obj_t *self = static_cast<level_mp_obj_t *>(ctx);
-    mp_call_function_1(self->stop, MP_OBJ_FROM_PTR(self));
+
+    if (self->stop == MP_OBJ_NULL || self->stop == mp_const_none)
+        return;
+
+    if (mp_obj_is_type(self->stop, &mp_type_bound_meth))
+    {
+        mp_call_function_n_kw(self->stop, 0, 0, nullptr);
+    }
+    else
+    {
+        mp_obj_t call_args[1] = {MP_OBJ_FROM_PTR(self)};
+        mp_call_function_n_kw(self->stop, 1, 0, call_args);
+    }
 }
 
 mp_obj_t level_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)

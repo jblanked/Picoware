@@ -3,7 +3,7 @@
 #include "engine_mp.h"
 #include "image_mp.h"
 #include "engine/entity.hpp"
-
+//
 #ifndef PRINT
 #define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
 #endif
@@ -146,44 +146,95 @@ void entity_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t 
     mp_print_str(print, ")");
 }
 
-// Trampoline functions for entity callbacks
 static void entity_start_trampoline(Entity *e, Game *g, void *ctx)
 {
     entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(ctx);
+    if (self->start == MP_OBJ_NULL || self->start == mp_const_none)
+    {
+        return;
+    }
     mp_obj_t current_game = engine_mp_get_current_game();
-    if (current_game == MP_OBJ_NULL)
+    if (current_game == MP_OBJ_NULL || current_game == mp_const_none)
     {
         PRINT("Warning: entity_start_trampoline called but no current game context\n");
         return;
     }
-    mp_call_function_2(self->start, MP_OBJ_FROM_PTR(self), current_game);
+
+    if (mp_obj_is_type(self->start, &mp_type_bound_meth))
+    {
+        mp_obj_t call_args[1] = {current_game};
+        mp_call_function_n_kw(self->start, 1, 0, call_args);
+    }
+    else
+    {
+        mp_obj_t call_args[2] = {MP_OBJ_FROM_PTR(self), current_game};
+        mp_call_function_n_kw(self->start, 2, 0, call_args);
+    }
 }
+
 static void entity_stop_trampoline(Entity *e, Game *g, void *ctx)
 {
     entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(ctx);
+    if (self->stop == MP_OBJ_NULL || self->stop == mp_const_none)
+    {
+        return;
+    }
     mp_obj_t current_game = engine_mp_get_current_game();
-    if (current_game == MP_OBJ_NULL)
+    if (current_game == MP_OBJ_NULL || current_game == mp_const_none)
     {
         PRINT("Warning: entity_stop_trampoline called but no current game context\n");
         return;
     }
-    mp_call_function_2(self->stop, MP_OBJ_FROM_PTR(self), current_game);
+
+    if (mp_obj_is_type(self->stop, &mp_type_bound_meth))
+    {
+        mp_obj_t call_args[1] = {current_game};
+        mp_call_function_n_kw(self->stop, 1, 0, call_args);
+    }
+    else
+    {
+        mp_obj_t call_args[2] = {MP_OBJ_FROM_PTR(self), current_game};
+        mp_call_function_n_kw(self->stop, 2, 0, call_args);
+    }
 }
 
 static void entity_update_trampoline(Entity *e, Game *g, void *ctx)
 {
     entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(ctx);
+
+    if (self->update == MP_OBJ_NULL || self->update == mp_const_none)
+    {
+        return;
+    }
+
     mp_obj_t current_game = engine_mp_get_current_game();
-    if (current_game == MP_OBJ_NULL)
+    if (current_game == MP_OBJ_NULL || current_game == mp_const_none)
     {
         PRINT("Warning: entity_update_trampoline called but no current game context\n");
         return;
     }
-    mp_call_function_2(self->update, MP_OBJ_FROM_PTR(self), current_game);
+
+    if (mp_obj_is_type(self->update, &mp_type_bound_meth))
+    {
+        mp_obj_t call_args[1] = {current_game};
+        mp_call_function_n_kw(self->update, 1, 0, call_args);
+    }
+    else
+    {
+        mp_obj_t call_args[2] = {MP_OBJ_FROM_PTR(self), current_game};
+        mp_call_function_n_kw(self->update, 2, 0, call_args);
+    }
 }
+
 static void entity_render_trampoline(Entity *e, Draw *d, Game *g, void *ctx)
 {
     entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(ctx);
+
+    if (self->render == MP_OBJ_NULL || self->render == mp_const_none)
+    {
+        return;
+    }
+
     mp_obj_t current_game = engine_mp_get_current_game();
     if (current_game == MP_OBJ_NULL || current_game == mp_const_none)
     {
@@ -203,19 +254,40 @@ static void entity_render_trampoline(Entity *e, Draw *d, Game *g, void *ctx)
         PRINT("Warning: entity_render_trampoline called but game has no draw object\n");
         return;
     }
-    mp_obj_t render_args[3] = {MP_OBJ_FROM_PTR(self), draw_obj, current_game};
-    mp_call_function_n_kw(self->render, 3, 0, render_args);
+
+    if (mp_obj_is_type(self->render, &mp_type_bound_meth))
+    {
+        mp_obj_t call_args[2] = {draw_obj, current_game};
+        mp_call_function_n_kw(self->render, 2, 0, call_args);
+    }
+    else
+    {
+        mp_obj_t call_args[3] = {MP_OBJ_FROM_PTR(self), draw_obj, current_game};
+        mp_call_function_n_kw(self->render, 3, 0, call_args);
+    }
 }
+
 static void entity_collision_trampoline(Entity *e, Entity *other, Game *g, void *ctx)
 {
     entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(ctx);
     mp_obj_t current_game = engine_mp_get_current_game();
-    if (current_game == MP_OBJ_NULL)
+    if (current_game == MP_OBJ_NULL || current_game == mp_const_none)
     {
         PRINT("Warning: entity_collision_trampoline called but no current game context\n");
         return;
     }
-    mp_call_function_2(self->collision, MP_OBJ_FROM_PTR(self), current_game);
+
+    // Note: 'other' entity — you may want to wrap this as an mp_obj too
+    if (mp_obj_is_type(self->collision, &mp_type_bound_meth))
+    {
+        mp_obj_t call_args[1] = {current_game};
+        mp_call_function_n_kw(self->collision, 1, 0, call_args);
+    }
+    else
+    {
+        mp_obj_t call_args[2] = {MP_OBJ_FROM_PTR(self), current_game};
+        mp_call_function_n_kw(self->collision, 2, 0, call_args);
+    }
 }
 
 mp_obj_t entity_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)

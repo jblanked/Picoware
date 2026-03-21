@@ -76,30 +76,56 @@ void game_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t ki
 static void game_start_trampoline(void *ctx)
 {
     game_mp_obj_t *self = static_cast<game_mp_obj_t *>(ctx);
-    mp_call_function_1(self->start, MP_OBJ_FROM_PTR(self));
+
+    if (self->start == MP_OBJ_NULL || self->start == mp_const_none)
+        return;
+
+    if (mp_obj_is_type(self->start, &mp_type_bound_meth))
+    {
+        mp_call_function_n_kw(self->start, 0, 0, nullptr);
+    }
+    else
+    {
+        mp_obj_t call_args[1] = {MP_OBJ_FROM_PTR(self)};
+        mp_call_function_n_kw(self->start, 1, 0, call_args);
+    }
 }
+
 static void game_stop_trampoline(void *ctx)
 {
     game_mp_obj_t *self = static_cast<game_mp_obj_t *>(ctx);
-    mp_call_function_1(self->stop, MP_OBJ_FROM_PTR(self));
+
+    if (self->stop == MP_OBJ_NULL || self->stop == mp_const_none)
+        return;
+
+    if (mp_obj_is_type(self->stop, &mp_type_bound_meth))
+    {
+        mp_call_function_n_kw(self->stop, 0, 0, nullptr);
+    }
+    else
+    {
+        mp_obj_t call_args[1] = {MP_OBJ_FROM_PTR(self)};
+        mp_call_function_n_kw(self->stop, 1, 0, call_args);
+    }
 }
+
 static void game_update_trampoline(void *ctx)
 {
     game_mp_obj_t *self = static_cast<game_mp_obj_t *>(ctx);
-    mp_call_function_0(self->update);
-}
-mp_obj_t game_mp_set_update(mp_obj_t self_in, mp_obj_t update_in)
-{
-    game_mp_obj_t *self = static_cast<game_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
-    if (mp_obj_is_callable(update_in))
+
+    if (self->update == MP_OBJ_NULL || self->update == mp_const_none)
+        return;
+
+    if (mp_obj_is_type(self->update, &mp_type_bound_meth))
     {
-        self->update = update_in;
-        Game *ctx = game_get_context(self);
-        ctx->_update = {game_update_trampoline, self};
+        mp_call_function_n_kw(self->update, 0, 0, nullptr);
     }
-    return mp_const_none;
+    else
+    {
+        mp_obj_t call_args[1] = {MP_OBJ_FROM_PTR(self)};
+        mp_call_function_n_kw(self->update, 1, 0, call_args);
+    }
 }
-static MP_DEFINE_CONST_FUN_OBJ_2(game_mp_set_update_obj, game_mp_set_update);
 
 mp_obj_t game_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
@@ -561,7 +587,6 @@ static const mp_rom_map_elem_t game_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_level_add), MP_ROM_PTR(&game_mp_level_add_obj)},
     {MP_ROM_QSTR(MP_QSTR_level_remove), MP_ROM_PTR(&game_mp_level_remove_obj)},
     {MP_ROM_QSTR(MP_QSTR_level_switch), MP_ROM_PTR(&game_mp_level_switch_obj)},
-    {MP_ROM_QSTR(MP_QSTR_set_update), MP_ROM_PTR(&game_mp_set_update_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_name), MP_ROM_PTR(&game_mp_set_name_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_position), MP_ROM_PTR(&game_mp_set_position_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_size), MP_ROM_PTR(&game_mp_set_size_obj)},

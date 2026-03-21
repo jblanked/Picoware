@@ -31,6 +31,7 @@ extern "C"
         mp_obj_t size_obj;
         mp_obj_t camera_obj;
         mp_obj_t current_level_obj;
+        mp_obj_t level_objs[10];
     } game_mp_obj_t;
 
     extern const mp_obj_type_t game_mp_type;

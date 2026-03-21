@@ -304,6 +304,9 @@ mp_obj_t entity_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
     Image *sprite_data = nullptr;
     Image *sprite_left_data = nullptr;
     Image *sprite_right_data = nullptr;
+    self->sprite_obj = mp_const_none;
+    self->sprite_left_obj = mp_const_none;
+    self->sprite_right_obj = mp_const_none;
     if (n_args > 4 && args[4] != mp_const_none)
     {
         mp_obj_t native_img = mp_obj_cast_to_native_base(args[4], MP_OBJ_FROM_PTR(&image_mp_type));
@@ -311,6 +314,7 @@ mp_obj_t entity_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
             mp_raise_TypeError(MP_ERROR_TEXT("expected Image for sprite_data"));
         image_mp_obj_t *img = static_cast<image_mp_obj_t *>(MP_OBJ_TO_PTR(native_img));
         sprite_data = static_cast<Image *>(img->context);
+        self->sprite_obj = args[4];
     }
     if (n_args > 5 && args[5] != mp_const_none)
     {
@@ -319,6 +323,7 @@ mp_obj_t entity_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
             mp_raise_TypeError(MP_ERROR_TEXT("expected Image for sprite_left"));
         image_mp_obj_t *img = static_cast<image_mp_obj_t *>(MP_OBJ_TO_PTR(native_img));
         sprite_left_data = static_cast<Image *>(img->context);
+        self->sprite_left_obj = args[5];
     }
     if (n_args > 6 && args[6] != mp_const_none)
     {
@@ -327,6 +332,7 @@ mp_obj_t entity_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
             mp_raise_TypeError(MP_ERROR_TEXT("expected Image for sprite_right"));
         image_mp_obj_t *img = static_cast<image_mp_obj_t *>(MP_OBJ_TO_PTR(native_img));
         sprite_right_data = static_cast<Image *>(img->context);
+        self->sprite_right_obj = args[6];
     }
 
     // Create the C++ Entity
@@ -377,6 +383,9 @@ mp_obj_t entity_mp_del(mp_obj_t self_in)
     self->plane_obj = MP_OBJ_NULL;
     self->start_position_obj = MP_OBJ_NULL;
     self->end_position_obj = MP_OBJ_NULL;
+    self->sprite_obj = MP_OBJ_NULL;
+    self->sprite_left_obj = MP_OBJ_NULL;
+    self->sprite_right_obj = MP_OBJ_NULL;
     self->freed = true;
     return mp_const_none;
 }
@@ -484,6 +493,15 @@ void entity_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
             break;
         case MP_QSTR_sprite_scale:
             destination[0] = mp_obj_new_float(ctx->sprite_scale);
+            break;
+        case MP_QSTR_sprite:
+            destination[0] = self->sprite_obj;
+            break;
+        case MP_QSTR_sprite_left:
+            destination[0] = self->sprite_left_obj;
+            break;
+        case MP_QSTR_sprite_right:
+            destination[0] = self->sprite_right_obj;
             break;
         case MP_QSTR___del__:
             destination[0] = MP_OBJ_FROM_PTR(&entity_mp_del_obj);
@@ -611,6 +629,18 @@ void entity_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
             break;
         case MP_QSTR_sprite_scale:
             entity_mp_set_3d_sprite_scale(self_in, destination[1]);
+            destination[0] = MP_OBJ_NULL;
+            break;
+        case MP_QSTR_sprite:
+            entity_mp_set_sprite(self_in, destination[1]);
+            destination[0] = MP_OBJ_NULL;
+            break;
+        case MP_QSTR_sprite_left:
+            entity_mp_set_sprite_left(self_in, destination[1]);
+            destination[0] = MP_OBJ_NULL;
+            break;
+        case MP_QSTR_sprite_right:
+            entity_mp_set_sprite_right(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
             break;
         default:
@@ -998,6 +1028,48 @@ mp_obj_t entity_mp_set_sprite3d(mp_obj_t self_in, mp_obj_t sprite3d_obj)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_sprite3d_obj, entity_mp_set_sprite3d);
 
+mp_obj_t entity_mp_set_sprite(mp_obj_t self_in, mp_obj_t sprite_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    mp_obj_t native_sprite = mp_obj_cast_to_native_base(sprite_obj, MP_OBJ_FROM_PTR(&image_mp_type));
+    if (native_sprite == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Image"));
+    image_mp_obj_t *img = static_cast<image_mp_obj_t *>(MP_OBJ_TO_PTR(native_sprite));
+    ctx->sprite = static_cast<Image *>(img->context);
+    self->sprite_obj = sprite_obj;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_sprite_obj, entity_mp_set_sprite);
+
+mp_obj_t entity_mp_set_sprite_left(mp_obj_t self_in, mp_obj_t sprite_left_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    mp_obj_t native_sprite_left = mp_obj_cast_to_native_base(sprite_left_obj, MP_OBJ_FROM_PTR(&image_mp_type));
+    if (native_sprite_left == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Image"));
+    image_mp_obj_t *img_left = static_cast<image_mp_obj_t *>(MP_OBJ_TO_PTR(native_sprite_left));
+    ctx->sprite_left = static_cast<Image *>(img_left->context);
+    self->sprite_left_obj = sprite_left_obj;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_sprite_left_obj, entity_mp_set_sprite_left);
+
+mp_obj_t entity_mp_set_sprite_right(mp_obj_t self_in, mp_obj_t sprite_right_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    mp_obj_t native_sprite_right = mp_obj_cast_to_native_base(sprite_right_obj, MP_OBJ_FROM_PTR(&image_mp_type));
+    if (native_sprite_right == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Image"));
+    image_mp_obj_t *img_right = static_cast<image_mp_obj_t *>(MP_OBJ_TO_PTR(native_sprite_right));
+    ctx->sprite_right = static_cast<Image *>(img_right->context);
+    self->sprite_right_obj = sprite_right_obj;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_sprite_right_obj, entity_mp_set_sprite_right);
+
 static const mp_rom_map_elem_t entity_mp_locals_dict_table[] = {
     // Methods
     {MP_ROM_QSTR(MP_QSTR_has_3d_sprite), MP_ROM_PTR(&entity_mp_has_3d_sprite_obj)},
@@ -1036,6 +1108,9 @@ static const mp_rom_map_elem_t entity_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_set_sprite_rotation), MP_ROM_PTR(&entity_mp_set_sprite_rotation_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_sprite_scale), MP_ROM_PTR(&entity_mp_set_sprite_scale_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_sprite3d), MP_ROM_PTR(&entity_mp_set_sprite3d_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_sprite), MP_ROM_PTR(&entity_mp_set_sprite_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_sprite_left), MP_ROM_PTR(&entity_mp_set_sprite_left_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_sprite_right), MP_ROM_PTR(&entity_mp_set_sprite_right_obj)},
 
     // Entity type constants
     {MP_ROM_QSTR(MP_QSTR_ENTITY_PLAYER), MP_ROM_INT(ENTITY_PLAYER)},

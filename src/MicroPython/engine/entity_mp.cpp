@@ -270,6 +270,10 @@ static void entity_render_trampoline(Entity *e, Draw *d, Game *g, void *ctx)
 static void entity_collision_trampoline(Entity *e, Entity *other, Game *g, void *ctx)
 {
     entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(ctx);
+
+    if (self->collision == MP_OBJ_NULL || self->collision == mp_const_none)
+        return;
+
     mp_obj_t current_game = engine_mp_get_current_game();
     if (current_game == MP_OBJ_NULL || current_game == mp_const_none)
     {
@@ -277,16 +281,21 @@ static void entity_collision_trampoline(Entity *e, Entity *other, Game *g, void 
         return;
     }
 
-    // Note: 'other' entity — you may want to wrap this as an mp_obj too
+    mp_obj_t other_obj = mp_const_none;
+    if (other != nullptr && other->mp_ctx != nullptr)
+    {
+        other_obj = MP_OBJ_FROM_PTR(static_cast<entity_mp_obj_t *>(other->mp_ctx));
+    }
+
     if (mp_obj_is_type(self->collision, &mp_type_bound_meth))
     {
-        mp_obj_t call_args[1] = {current_game};
-        mp_call_function_n_kw(self->collision, 1, 0, call_args);
+        mp_obj_t call_args[2] = {other_obj, current_game};
+        mp_call_function_n_kw(self->collision, 2, 0, call_args);
     }
     else
     {
-        mp_obj_t call_args[2] = {MP_OBJ_FROM_PTR(self), current_game};
-        mp_call_function_n_kw(self->collision, 2, 0, call_args);
+        mp_obj_t call_args[3] = {MP_OBJ_FROM_PTR(self), other_obj, current_game};
+        mp_call_function_n_kw(self->collision, 3, 0, call_args);
     }
 }
 
@@ -421,7 +430,7 @@ mp_obj_t entity_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
     self->plane_obj = vector_mp_init(ctx->plane.x, ctx->plane.y, ctx->plane.z, ctx->plane.integer);
     self->start_position_obj = vector_mp_init(ctx->start_position.x, ctx->start_position.y, ctx->start_position.z, ctx->start_position.integer);
     self->end_position_obj = vector_mp_init(ctx->end_position.x, ctx->end_position.y, ctx->end_position.z, ctx->end_position.integer);
-
+    ctx->mp_ctx = static_cast<void *>(self);
     return MP_OBJ_FROM_PTR(self);
 }
 

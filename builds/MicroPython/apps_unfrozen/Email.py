@@ -449,7 +449,6 @@ def _loading_run(view_manager, message: str = "Sending...") -> None:
 def _menu_start(view_manager) -> None:
     """Start the menu view"""
     from picoware.gui.menu import Menu
-    from picoware.system.colors import TFT_BLUE
 
     global _menu
 
@@ -469,7 +468,7 @@ def _menu_start(view_manager) -> None:
         draw.size.y,
         fg,
         bg,
-        TFT_BLUE,
+        view_manager.selected_color,
         fg,
     )
 

@@ -110,6 +110,7 @@ def __show_main_menu(view_manager) -> None:
             view_manager.foreground_color,
             view_manager.background_color,
             view_manager.selected_color,
+            view_manager.foreground_color,
         )
 
     _main_menu.clear()
@@ -247,6 +248,7 @@ def __parse_update_check(view_manager) -> bool:
                 view_manager.foreground_color,
                 view_manager.background_color,
                 view_manager.selected_color,
+                view_manager.foreground_color,
             )
 
         _app_menu.clear()
@@ -414,6 +416,7 @@ def __parse_app_list(view_manager) -> bool:
                 view_manager.foreground_color,
                 view_manager.background_color,
                 view_manager.selected_color,
+                view_manager.foreground_color,
             )
 
         # Clear and populate menu
@@ -702,6 +705,8 @@ def run(view_manager) -> None:
                             draw.size.y,
                             view_manager.foreground_color,
                             view_manager.background_color,
+                            view_manager.selected_color,
+                            view_manager.foreground_color,
                         )
                         _app_menu.clear()
                         for app in _installed_apps:

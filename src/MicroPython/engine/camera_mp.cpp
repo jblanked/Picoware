@@ -1,5 +1,6 @@
 #include "camera_mp.h"
 #include "engine/camera.hpp"
+#include "memory.h"
 
 static inline Camera *camera_get_context(camera_mp_obj_t *self)
 {
@@ -49,7 +50,9 @@ mp_obj_t camera_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
     //
     self->context = new Camera();
     Camera *ctx = camera_get_context(self);
-
+    self->position_obj = MP_OBJ_NULL;
+    self->direction_obj = MP_OBJ_NULL;
+    self->plane_obj = MP_OBJ_NULL;
     if (n_args > 0)
     {
         mp_obj_t native_vec = mp_obj_cast_to_native_base(args[0], MP_OBJ_FROM_PTR(&vector_mp_type));

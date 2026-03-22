@@ -137,7 +137,8 @@ def _init_translations(storage, force=False):
                 "Cost per Person:": "Cost per Person:",
                 "Reset Values?": "Reset Values?",
                 "Update Translations": "Update Translations",
-                "Language File Updated!": "Language File Updated!"
+                "Language File Updated!": "Language File Updated!",
+                "CALC_FOOTER": "[BS] Reset Values"
             },
             "de": {
                 "Grocery Companion": "Einkaufsbegleiter",
@@ -255,7 +256,8 @@ def _init_translations(storage, force=False):
                 "Cost per Person:": "Kosten pro Person:",
                 "Reset Values?": "Werte zuruecksetzen?",
                 "Update Translations": "Sprachdatei aktualisieren",
-                "Language File Updated!": "Sprachdatei aktualisiert!"
+                "Language File Updated!": "Sprachdatei aktualisiert!",
+                "CALC_FOOTER": "[BS] Werte zuruecksetzen"
             }
         }
         try:
@@ -2492,6 +2494,9 @@ def _handle_calculators(view_manager):
             draw.text(Vector(10, y), _T("Best Deal:", lang), fg, font_size)
             res_w = draw.len(res_str, font_size)
             draw.text(Vector(310 - res_w, y), res_str, hl, font_size)
+            
+            draw.line_custom(Vector(0, 300), Vector(320, 300), fg)
+            draw.text(Vector(5, 304), _T("CALC_FOOTER", lang), fg)
             draw.swap()
 
     elif state == STATE_CALC_DISCOUNT:
@@ -2597,6 +2602,9 @@ def _handle_calculators(view_manager):
             save_str = ("{:." + str(dec) + "f}").format(saved).replace('.', dp) + f" {curr}"
             save_w = draw.len(save_str, font_size)
             draw.text(Vector(310 - save_w, y), save_str, hl, font_size)
+            
+            draw.line_custom(Vector(0, 300), Vector(320, 300), fg)
+            draw.text(Vector(5, 304), _T("CALC_FOOTER", lang), fg)
             
             draw.swap()
 
@@ -2716,6 +2724,9 @@ def _handle_calculators(view_manager):
             res_str = num_str.replace('.', dp) + f" {units[to_idx]}"
             res_w = draw.len(res_str, font_size)
             draw.text(Vector(310 - res_w, y), res_str, hl, font_size)
+            
+            draw.line_custom(Vector(0, 300), Vector(320, 300), fg)
+            draw.text(Vector(5, 304), _T("CALC_FOOTER", lang), fg)
             draw.swap()
 
     elif state in (STATE_CALC_RUNNING_TOTAL, STATE_CALC_BOGO, STATE_CALC_BULK, STATE_CALC_TAX, STATE_CALC_SPLIT):
@@ -2907,6 +2918,8 @@ def _handle_calculators(view_manager):
                 res_w = draw.len(res_str, font_size)
                 draw.text(Vector(310 - res_w, y), res_str, hl, font_size)
 
+            draw.line_custom(Vector(0, 300), Vector(320, 300), fg)
+            draw.text(Vector(5, 304), _T("CALC_FOOTER", lang), fg)
             draw.swap()
 
 def _handle_help(view_manager):

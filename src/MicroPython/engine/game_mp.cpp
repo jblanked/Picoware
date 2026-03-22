@@ -278,7 +278,34 @@ void game_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
             destination[0] = self->draw != MP_OBJ_NULL ? self->draw : mp_const_none;
             break;
         case MP_QSTR_current_level:
-            destination[0] = self->current_level_obj != MP_OBJ_NULL ? self->current_level_obj : mp_const_none;
+            if (self->current_level_obj != MP_OBJ_NULL)
+            {
+                destination[0] = self->current_level_obj;
+            }
+            else if (ctx->current_level != nullptr)
+            {
+                // if C++ current level is set, then set our Python wrapper to match
+                destination[0] = mp_const_none;
+                for (int i = 0; i < MAX_LEVELS; i++)
+                {
+                    if (self->level_objs[i] == MP_OBJ_NULL)
+                        continue;
+                    mp_obj_t native_i = mp_obj_cast_to_native_base(self->level_objs[i], MP_OBJ_FROM_PTR(&level_mp_type));
+                    if (native_i == MP_OBJ_NULL)
+                        continue;
+                    level_mp_obj_t *lobj = static_cast<level_mp_obj_t *>(MP_OBJ_TO_PTR(native_i));
+                    if (static_cast<Level *>(lobj->context) == ctx->current_level)
+                    {
+                        self->current_level_obj = self->level_objs[i];
+                        destination[0] = self->current_level_obj;
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                destination[0] = mp_const_none;
+            }
             break;
         case MP_QSTR___del__:
             destination[0] = MP_OBJ_FROM_PTR(&game_mp_del_obj);

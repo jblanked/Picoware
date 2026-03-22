@@ -704,6 +704,14 @@ void entity_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
             entity_mp_set_elapsed_health_regen(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
             break;
+        case MP_QSTR_sprite_3d_type:
+            entity_mp_set_sprite3d_type(self_in, destination[1]);
+            destination[0] = MP_OBJ_NULL;
+            break;
+        case MP_QSTR_sprite_3d:
+            entity_mp_set_sprite3d(self_in, destination[1]);
+            destination[0] = MP_OBJ_NULL;
+            break;
         case MP_QSTR_sprite_rotation:
             entity_mp_set_3d_sprite_rotation(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
@@ -1096,6 +1104,15 @@ mp_obj_t entity_mp_set_sprite_scale(mp_obj_t self_in, mp_obj_t sprite_scale_obj)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_sprite_scale_obj, entity_mp_set_sprite_scale);
 
+mp_obj_t entity_mp_set_sprite3d_type(mp_obj_t self_in, mp_obj_t type_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    ctx->sprite_3d_type = static_cast<Sprite3DType>(mp_obj_get_int(type_obj));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_sprite3d_type_obj, entity_mp_set_sprite3d_type);
+
 mp_obj_t entity_mp_set_sprite3d(mp_obj_t self_in, mp_obj_t sprite3d_obj)
 {
     entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
@@ -1188,6 +1205,7 @@ static const mp_rom_map_elem_t entity_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_set_elapsed_health_regen), MP_ROM_PTR(&entity_mp_set_elapsed_health_regen_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_sprite_rotation), MP_ROM_PTR(&entity_mp_set_sprite_rotation_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_sprite_scale), MP_ROM_PTR(&entity_mp_set_sprite_scale_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_sprite3d_type), MP_ROM_PTR(&entity_mp_set_sprite3d_type_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_sprite3d), MP_ROM_PTR(&entity_mp_set_sprite3d_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_sprite), MP_ROM_PTR(&entity_mp_set_sprite_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_sprite_left), MP_ROM_PTR(&entity_mp_set_sprite_left_obj)},

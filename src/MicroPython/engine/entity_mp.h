@@ -85,6 +85,7 @@ extern "C"
     mp_obj_t entity_mp_set_elapsed_health_regen(mp_obj_t self_in, mp_obj_t elapsed_health_regen_obj);
     mp_obj_t entity_mp_set_sprite_rotation(mp_obj_t self_in, mp_obj_t sprite_rotation_obj);
     mp_obj_t entity_mp_set_sprite_scale(mp_obj_t self_in, mp_obj_t sprite_scale_obj);
+    mp_obj_t entity_mp_set_sprite3d_type(mp_obj_t self_in, mp_obj_t type_obj);
     mp_obj_t entity_mp_set_sprite3d(mp_obj_t self_in, mp_obj_t sprite3d_obj);
     mp_obj_t entity_mp_set_sprite(mp_obj_t self_in, mp_obj_t sprite_obj);
     mp_obj_t entity_mp_set_sprite_left(mp_obj_t self_in, mp_obj_t sprite_left_obj);

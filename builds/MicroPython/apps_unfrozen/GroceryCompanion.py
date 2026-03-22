@@ -43,6 +43,7 @@ STATE_CALC_TAX = const(37)
 STATE_KEYBOARD_TAX = const(38)
 STATE_CALC_SPLIT = const(39)
 STATE_KEYBOARD_SPLIT = const(40)
+STATE_CONFIRM_CLEAR_CALCULATOR = const(41)
 
 def _init_translations(storage, force=False):
     """
@@ -52,7 +53,7 @@ def _init_translations(storage, force=False):
     if force or not storage.exists("picoware/grocery/lang.json"):
         trans = {
             "en": {
-                "HELP_TEXT": "Grocery Companion Help\n\n[Shopping List]\nCreate, manage and edit grocery lists.\n\n[In Store Mode]\nSelect 'Shopping Mode' on a list.\n- L/R: Change quantity\n- ENTER: Check off item\n- F1: Help Overlay\n- F2: Rename Item\n- F3: Add Item\n- BS: Delete Item\n- F4/F5: Switch Lists\n- BACK: Exit mode\n\n[Pantry]\nManage your existing inventory.\n\n[Settings]\nCustomize theme, language, and font size.\n\n[Calculators]\n- Price Compare: Best deal between 2 items.\n- Discount: Price after % off.\n- Unit Conv: Convert g, kg, oz, lb, L, etc.\n- Running Total: Track spending vs budget.\n- BOGO: True price of Buy 1 Get 1 deals.\n- Bulk: Total cost by weight/qty.\n- Tax: Calculate sales tax.\n- Splitter: Split bill + tip among people.\n\nMade by Slasher006 with the help GeminiAI.",
+                "HELP_TEXT": "Grocery Companion Help\n\n[Shopping List]\nCreate, manage and edit grocery lists.\n\n[In Store Mode]\nSelect 'Shopping Mode' on a list.\n- L/R: Change quantity\n- ENTER: Check off item\n- F1: Help Overlay\n- F2: Rename Item\n- F3: Add Item\n- BS: Delete Item\n- F4/F5: Switch Lists\n- BACK: Exit mode\n\n[Pantry]\nManage your existing inventory.\n\n[Settings]\nCustomize theme, language, and font size.\n\n[Calculators]\n- BS: Reset current calculator values.\n- Price Compare: Best deal between 2 items.\n- Discount: Price after % off.\n- Unit Conv: Convert g, kg, oz, lb, L, etc.\n- Running Total: Track spending vs budget.\n- BOGO: True price of Buy 1 Get 1 deals.\n- Bulk: Total cost by weight/qty.\n- Tax: Calculate sales tax.\n- Splitter: Split bill + tip among people.\n\nMade by Slasher006 with the help GeminiAI.",
                 "Uncheck All": "Uncheck All",
                 "Uncheck All?": "Uncheck All?",
                 "Clear Checked": "Clear Checked",
@@ -134,6 +135,7 @@ def _init_translations(storage, force=False):
                 "People": "People",
                 "Tip %": "Tip %",
                 "Cost per Person:": "Cost per Person:",
+                "Reset Values?": "Reset Values?",
                 "Update Translations": "Update Translations",
                 "Language File Updated!": "Language File Updated!"
             },
@@ -201,7 +203,7 @@ def _init_translations(storage, force=False):
                 "Item already in list!\nQuantity increased.": "Bereits in Liste!\nMenge erhoeht.",
                 "List already exists!": "Liste existiert bereits!",
                 "Help": "Hilfe",
-                "HELP_TEXT": "Einkaufsbegleiter Hilfe\n\n[Einkaufsliste]\nEinkaufslisten erstellen und bearbeiten.\n\n[Einkaufsmodus]\n'Einkaufsmodus' in einer Liste waehlen.\n- L/R: Menge aendern\n- ENTER: Artikel abhaken\n- F1: Hilfe Overlay\n- F2: Artikel umbenennen\n- F3: Artikel hinzufuegen\n- BS: Artikel loeschen\n- F4/F5: Liste wechseln\n- ZURUECK: Modus beenden\n\n[Speisekammer]\nVerwalte dein vorhandenes Inventar.\n\n[Einstellungen]\nDesign, Sprache und Schriftgroesse anpassen.\n\n[Rechner]\n- Preisvergl.: Finde das beste Angebot.\n- Rabatt: Preis nach % Abzug.\n- Einheiten: g, kg, oz, lb, L usw.\n- Zwischensumme: Budget im Blick behalten.\n- BOGO: Echter Preis bei Kauf 1, Bekomme 1.\n- Mengenrechner: Kosten nach Gewicht/Menge.\n- Steuer: Mehrwertsteuer berechnen.\n- Teiler: Rechnung + Trinkgeld aufteilen.\n\nMade by Slasher006 with the help GeminiAI.",
+                "HELP_TEXT": "Einkaufsbegleiter Hilfe\n\n[Einkaufsliste]\nEinkaufslisten erstellen und bearbeiten.\n\n[Einkaufsmodus]\n'Einkaufsmodus' in einer Liste waehlen.\n- L/R: Menge aendern\n- ENTER: Artikel abhaken\n- F1: Hilfe Overlay\n- F2: Artikel umbenennen\n- F3: Artikel hinzufuegen\n- BS: Artikel loeschen\n- F4/F5: Liste wechseln\n- ZURUECK: Modus beenden\n\n[Speisekammer]\nVerwalte dein vorhandenes Inventar.\n\n[Einstellungen]\nDesign, Sprache und Schriftgroesse anpassen.\n\n[Rechner]\n- BS: Aktuelle Werte auf 0 zuruecksetzen.\n- Preisvergl.: Finde das beste Angebot.\n- Rabatt: Preis nach % Abzug.\n- Einheiten: g, kg, oz, lb, L usw.\n- Zwischensumme: Budget im Blick behalten.\n- BOGO: Echter Preis bei Kauf 1, Bekomme 1.\n- Mengenrechner: Kosten nach Gewicht/Menge.\n- Steuer: Mehrwertsteuer berechnen.\n- Teiler: Rechnung + Trinkgeld aufteilen.\n\nMade by Slasher006 with the help GeminiAI.",
                 "Calculators": "Rechner",
                 "Price Compare": "Preisvergleich",
                 "Price A": "Preis A",
@@ -251,6 +253,7 @@ def _init_translations(storage, force=False):
                 "People": "Personen",
                 "Tip %": "Trinkgeld %",
                 "Cost per Person:": "Kosten pro Person:",
+                "Reset Values?": "Werte zuruecksetzen?",
                 "Update Translations": "Sprachdatei aktualisieren",
                 "Language File Updated!": "Sprachdatei aktualisiert!"
             }
@@ -577,7 +580,8 @@ def start(view_manager):
         "font_size": 1,
         "currency": "$",
         "decimals": 2,
-        "dec_point": "."
+        "dec_point": ".",
+        "calc": {}
     }
     view_manager.storage.mkdir("picoware/settings")
     view_manager.storage.mkdir("picoware/grocery")
@@ -597,6 +601,8 @@ def start(view_manager):
             view_manager.grocery_settings["decimals"] = loaded["decimals"]
         if "dec_point" in loaded:
             view_manager.grocery_settings["dec_point"] = loaded["dec_point"]
+        if "calc" in loaded:
+            view_manager.grocery_settings["calc"] = loaded["calc"]
     
     try:
         all_trans = view_manager.storage.serialize("picoware/grocery/lang.json")
@@ -1136,44 +1142,45 @@ def _handle_menus(view_manager):
 
                 elif state == STATE_MENU_CALCULATORS:
                     selected_item_text = current_menu.current_item
+                    calc_dict = settings.setdefault("calc", {})
                     if selected_item_text == _T("Price Compare", lang):
                         view_manager.custom_app_state = STATE_CALC_PRICE_COMPARE
-                        view_manager.calc_data = [0.0, 1.0, 0, 0.0, 1.0, 0] # Price A, Qty A, Unit A, Price B, Qty B, Unit B
+                        view_manager.calc_data = calc_dict.setdefault("price", [0.0, 1.0, 0, 0.0, 1.0, 0])
                         view_manager.calc_selected = 0
                         view_manager.store_ui_dirty = True
                     elif selected_item_text == _T("Discount Calc", lang):
                         view_manager.custom_app_state = STATE_CALC_DISCOUNT
-                        view_manager.calc_data = [0.0, 0.0] # Price, Discount %
+                        view_manager.calc_data = calc_dict.setdefault("discount", [0.0, 0.0])
                         view_manager.calc_selected = 0
                         view_manager.store_ui_dirty = True
                     elif selected_item_text == _T("Unit Converter", lang):
                         view_manager.custom_app_state = STATE_CALC_UNIT_CONVERT
-                        view_manager.calc_data = [1.0, 0, 1] # Value, From Idx, To Idx
+                        view_manager.calc_data = calc_dict.setdefault("unit", [1.0, 0, 1])
                         view_manager.calc_selected = 0
                         view_manager.store_ui_dirty = True
                     elif selected_item_text == _T("Running Total", lang):
                         view_manager.custom_app_state = STATE_CALC_RUNNING_TOTAL
-                        view_manager.calc_data = [0.0, 0.0, 0.0]
+                        view_manager.calc_data = calc_dict.setdefault("total", [0.0, 0.0, 0.0])
                         view_manager.calc_selected = 0
                         view_manager.store_ui_dirty = True
                     elif selected_item_text == _T("BOGO Calc", lang):
                         view_manager.custom_app_state = STATE_CALC_BOGO
-                        view_manager.calc_data = [0.0, 1.0, 1.0, 100.0]
+                        view_manager.calc_data = calc_dict.setdefault("bogo", [0.0, 1.0, 1.0, 100.0])
                         view_manager.calc_selected = 0
                         view_manager.store_ui_dirty = True
                     elif selected_item_text == _T("Bulk Estimator", lang):
                         view_manager.custom_app_state = STATE_CALC_BULK
-                        view_manager.calc_data = [0.0, 0.0]
+                        view_manager.calc_data = calc_dict.setdefault("bulk", [0.0, 0.0])
                         view_manager.calc_selected = 0
                         view_manager.store_ui_dirty = True
                     elif selected_item_text == _T("Sales Tax", lang):
                         view_manager.custom_app_state = STATE_CALC_TAX
-                        view_manager.calc_data = [0.0, 0.0]
+                        view_manager.calc_data = calc_dict.setdefault("tax", [0.0, 0.0])
                         view_manager.calc_selected = 0
                         view_manager.store_ui_dirty = True
                     elif selected_item_text == _T("Bill Splitter", lang):
                         view_manager.custom_app_state = STATE_CALC_SPLIT
-                        view_manager.calc_data = [0.0, 2.0, 0.0]
+                        view_manager.calc_data = calc_dict.setdefault("split", [0.0, 2.0, 0.0])
                         view_manager.calc_selected = 0
                         view_manager.store_ui_dirty = True
                     elif selected_item_text == _T("Back", lang):
@@ -2250,6 +2257,88 @@ def _handle_confirmations(view_manager):
                 
             draw.swap()
             del v1, v2, y_pos, n_pos
+            
+    elif state == STATE_CONFIRM_CLEAR_CALCULATOR:
+        choice_state = getattr(view_manager, "store_exit_choice_state", 1)
+        dirty = getattr(view_manager, "store_ui_dirty", True)
+        
+        if button != -1:
+            dirty = True
+            if button in (BUTTON_LEFT, BUTTON_UP):
+                choice_state = 0
+            elif button in (BUTTON_RIGHT, BUTTON_DOWN):
+                choice_state = 1
+            elif button == BUTTON_CENTER:
+                ret_state = getattr(view_manager, "calc_return_state", STATE_MENU_CALCULATORS)
+                if choice_state == 0: # Yes
+                    if ret_state == STATE_CALC_PRICE_COMPARE:
+                        view_manager.calc_data[:] = [0.0, 1.0, 0, 0.0, 1.0, 0]
+                    elif ret_state == STATE_CALC_DISCOUNT:
+                        view_manager.calc_data[:] = [0.0, 0.0]
+                    elif ret_state == STATE_CALC_UNIT_CONVERT:
+                        view_manager.calc_data[:] = [1.0, 0, 1]
+                    elif ret_state == STATE_CALC_RUNNING_TOTAL:
+                        view_manager.calc_data[:] = [0.0, 0.0, 0.0]
+                    elif ret_state == STATE_CALC_BOGO:
+                        view_manager.calc_data[:] = [0.0, 1.0, 1.0, 100.0]
+                    elif ret_state == STATE_CALC_BULK:
+                        view_manager.calc_data[:] = [0.0, 0.0]
+                    elif ret_state == STATE_CALC_TAX:
+                        view_manager.calc_data[:] = [0.0, 0.0]
+                    elif ret_state == STATE_CALC_SPLIT:
+                        view_manager.calc_data[:] = [0.0, 2.0, 0.0]
+                    view_manager.storage.deserialize(settings, "picoware/settings/grocerycompanion_set.json")
+                
+                view_manager.custom_app_state = ret_state
+                if hasattr(view_manager, "store_exit_choice_state"): del view_manager.store_exit_choice_state
+                if hasattr(view_manager, "calc_return_state"): del view_manager.calc_return_state
+                view_manager.store_ui_dirty = True
+            elif button == BUTTON_BACK:
+                ret_state = getattr(view_manager, "calc_return_state", STATE_MENU_CALCULATORS)
+                view_manager.custom_app_state = ret_state
+                if hasattr(view_manager, "store_exit_choice_state"): del view_manager.store_exit_choice_state
+                if hasattr(view_manager, "calc_return_state"): del view_manager.calc_return_state
+                view_manager.store_ui_dirty = True
+                
+            if hasattr(view_manager, "store_exit_choice_state"):
+                view_manager.store_exit_choice_state = choice_state
+            input_manager.reset()
+            
+        if dirty and getattr(view_manager, 'custom_app_state', STATE_CONFIRM_CLEAR_CALCULATOR) == STATE_CONFIRM_CLEAR_CALCULATOR:
+            view_manager.store_ui_dirty = False
+            _, bg, fg, hl = _get_theme_colors(settings["theme_idx"])
+            
+            draw.clear(color=bg)
+            
+            v1 = Vector(20, 100)
+            v2 = Vector(280, 120)
+            draw.rect(v1, v2, fg)
+            
+            title_str = _T("Reset Values?", lang)
+            font_sz = 2
+            tw = draw.len(title_str, font_sz)
+            draw.text(Vector(20 + (280 - tw)//2, 115), title_str, fg, font_sz)
+            
+            opt_yes = _T("Yes", lang)
+            yw = draw.len(opt_yes, font_sz)
+            y_pos = Vector(70, 170)
+            if choice_state == 0:
+                draw.fill_rectangle(Vector(y_pos.x - 10, y_pos.y - 5), Vector(yw + 20, 26), hl)
+                draw.text(y_pos, opt_yes, bg, font_sz)
+            else:
+                draw.text(y_pos, opt_yes, fg, font_sz)
+                
+            opt_no = _T("No", lang)
+            nw = draw.len(opt_no, font_sz)
+            n_pos = Vector(250 - nw, 170)
+            if choice_state == 1:
+                draw.fill_rectangle(Vector(n_pos.x - 10, n_pos.y - 5), Vector(nw + 20, 26), hl)
+                draw.text(n_pos, opt_no, bg, font_sz)
+            else:
+                draw.text(n_pos, opt_no, fg, font_sz)
+                
+            draw.swap()
+            del v1, v2, y_pos, n_pos
 
 def _handle_calculators(view_manager):
     """
@@ -2281,13 +2370,17 @@ def _handle_calculators(view_manager):
             elif button == BUTTON_LEFT:
                 if view_manager.calc_selected == 1:
                     view_manager.calc_data[2] = (view_manager.calc_data[2] - 1) % len(units)
+                    view_manager.storage.deserialize(settings, "picoware/settings/grocerycompanion_set.json")
                 elif view_manager.calc_selected == 3:
                     view_manager.calc_data[5] = (view_manager.calc_data[5] - 1) % len(units)
+                    view_manager.storage.deserialize(settings, "picoware/settings/grocerycompanion_set.json")
             elif button == BUTTON_RIGHT:
                 if view_manager.calc_selected == 1:
                     view_manager.calc_data[2] = (view_manager.calc_data[2] + 1) % len(units)
+                    view_manager.storage.deserialize(settings, "picoware/settings/grocerycompanion_set.json")
                 elif view_manager.calc_selected == 3:
                     view_manager.calc_data[5] = (view_manager.calc_data[5] + 1) % len(units)
+                    view_manager.storage.deserialize(settings, "picoware/settings/grocerycompanion_set.json")
             elif button == BUTTON_CENTER:
                 input_manager.reset()
                 view_manager.custom_app_state = STATE_KEYBOARD_PRICE_COMPARE
@@ -2309,6 +2402,11 @@ def _handle_calculators(view_manager):
                 view_manager.custom_app_menu = _build_calculators_menu(view_manager)
                 view_manager.custom_app_menu.draw()
                 draw.swap()
+            elif button == BUTTON_BACKSPACE:
+                view_manager.custom_app_state = STATE_CONFIRM_CLEAR_CALCULATOR
+                view_manager.store_exit_choice_state = 1
+                view_manager.calc_return_state = STATE_CALC_PRICE_COMPARE
+                view_manager.store_ui_dirty = True
             else:
                 char = input_manager.button_to_char(button)
                 if char and char in "0123456789.,":
@@ -2424,6 +2522,11 @@ def _handle_calculators(view_manager):
                 view_manager.custom_app_menu = _build_calculators_menu(view_manager)
                 view_manager.custom_app_menu.draw()
                 draw.swap()
+            elif button == BUTTON_BACKSPACE:
+                view_manager.custom_app_state = STATE_CONFIRM_CLEAR_CALCULATOR
+                view_manager.store_exit_choice_state = 1
+                view_manager.calc_return_state = STATE_CALC_DISCOUNT
+                view_manager.store_ui_dirty = True
             else:
                 char = input_manager.button_to_char(button)
                 if char and char in "0123456789.,":
@@ -2510,13 +2613,17 @@ def _handle_calculators(view_manager):
             elif button == BUTTON_LEFT:
                 if view_manager.calc_selected == 1:
                     view_manager.calc_data[1] = (view_manager.calc_data[1] - 1) % len(units)
+                    view_manager.storage.deserialize(settings, "picoware/settings/grocerycompanion_set.json")
                 elif view_manager.calc_selected == 2:
                     view_manager.calc_data[2] = (view_manager.calc_data[2] - 1) % len(units)
+                    view_manager.storage.deserialize(settings, "picoware/settings/grocerycompanion_set.json")
             elif button == BUTTON_RIGHT:
                 if view_manager.calc_selected == 1:
                     view_manager.calc_data[1] = (view_manager.calc_data[1] + 1) % len(units)
+                    view_manager.storage.deserialize(settings, "picoware/settings/grocerycompanion_set.json")
                 elif view_manager.calc_selected == 2:
                     view_manager.calc_data[2] = (view_manager.calc_data[2] + 1) % len(units)
+                    view_manager.storage.deserialize(settings, "picoware/settings/grocerycompanion_set.json")
             elif button == BUTTON_CENTER:
                 if view_manager.calc_selected == 0:
                     input_manager.reset()
@@ -2536,6 +2643,11 @@ def _handle_calculators(view_manager):
                 view_manager.custom_app_menu = _build_calculators_menu(view_manager)
                 view_manager.custom_app_menu.draw()
                 draw.swap()
+            elif button == BUTTON_BACKSPACE:
+                view_manager.custom_app_state = STATE_CONFIRM_CLEAR_CALCULATOR
+                view_manager.store_exit_choice_state = 1
+                view_manager.calc_return_state = STATE_CALC_UNIT_CONVERT
+                view_manager.store_ui_dirty = True
             else:
                 if view_manager.calc_selected == 0:
                     char = input_manager.button_to_char(button)
@@ -2611,14 +2723,19 @@ def _handle_calculators(view_manager):
         
         if state == STATE_CALC_RUNNING_TOTAL:
             c_rows, c_title, c_kb, c_lbls = 3, "Running Total", STATE_KEYBOARD_RUNNING_TOTAL, ["Budget", "Add Amount", "Manual Total"]
+            c_defaults = [0.0, 0.0, 0.0]
         elif state == STATE_CALC_BOGO:
             c_rows, c_title, c_kb, c_lbls = 4, "BOGO Calc", STATE_KEYBOARD_BOGO, ["Item Price", "Buy Qty", "Get Qty", "Discount %"]
+            c_defaults = [0.0, 1.0, 1.0, 100.0]
         elif state == STATE_CALC_BULK:
             c_rows, c_title, c_kb, c_lbls = 2, "Bulk Estimator", STATE_KEYBOARD_BULK, ["Price/Unit", "Est. Weight"]
+            c_defaults = [0.0, 0.0]
         elif state == STATE_CALC_TAX:
             c_rows, c_title, c_kb, c_lbls = 2, "Sales Tax", STATE_KEYBOARD_TAX, ["Pre-Tax Price", "Tax %"]
+            c_defaults = [0.0, 0.0]
         elif state == STATE_CALC_SPLIT:
             c_rows, c_title, c_kb, c_lbls = 3, "Bill Splitter", STATE_KEYBOARD_SPLIT, ["Total Bill", "People", "Tip %"]
+            c_defaults = [0.0, 2.0, 0.0]
             
         if button != -1:
             dirty = True
@@ -2646,6 +2763,11 @@ def _handle_calculators(view_manager):
                 view_manager.custom_app_menu = _build_calculators_menu(view_manager)
                 view_manager.custom_app_menu.draw()
                 draw.swap()
+            elif button == BUTTON_BACKSPACE:
+                view_manager.custom_app_state = STATE_CONFIRM_CLEAR_CALCULATOR
+                view_manager.store_exit_choice_state = 1
+                view_manager.calc_return_state = state
+                view_manager.store_ui_dirty = True
             else:
                 char = input_manager.button_to_char(button)
                 if char and char in "0123456789.,":
@@ -3094,6 +3216,7 @@ def _handle_keyboards(view_manager):
                     view_manager.calc_data[view_manager.calc_selected] = val
                     view_manager.custom_app_state = STATE_CALC_SPLIT
                     
+                view_manager.storage.deserialize(settings, "picoware/settings/grocerycompanion_set.json")
                 kb.reset()
                 view_manager.store_ui_dirty = True
         del kb
@@ -3104,7 +3227,7 @@ def run(view_manager):
         _handle_menus(view_manager)
     elif state == STATE_VIEW_LIST:
         _handle_store(view_manager)
-    elif state in (STATE_CONFIRM_EXIT_STORE, STATE_CONFIRM_DELETE_LIST, STATE_CONFIRM_DELETE_ITEM, STATE_CONFIRM_UNCHECK_ALL, STATE_CONFIRM_CLEAR_CHECKED, STATE_CONFIRM_CLEAR_ALL_ITEMS, STATE_CONFIRM_TRANSFER_PANTRY):
+    elif state in (STATE_CONFIRM_EXIT_STORE, STATE_CONFIRM_DELETE_LIST, STATE_CONFIRM_DELETE_ITEM, STATE_CONFIRM_UNCHECK_ALL, STATE_CONFIRM_CLEAR_CHECKED, STATE_CONFIRM_CLEAR_ALL_ITEMS, STATE_CONFIRM_TRANSFER_PANTRY, STATE_CONFIRM_CLEAR_CALCULATOR):
         _handle_confirmations(view_manager)
     elif state in (STATE_CALC_PRICE_COMPARE, STATE_CALC_DISCOUNT, STATE_CALC_UNIT_CONVERT, STATE_CALC_RUNNING_TOTAL, STATE_CALC_BOGO, STATE_CALC_BULK, STATE_CALC_TAX, STATE_CALC_SPLIT):
         _handle_calculators(view_manager)
@@ -3142,7 +3265,7 @@ def stop(view_manager):
         'store_exit_choice_state', 'active_item_idx', 'active_item_name',
         'keyboard_just_opened', 'grocery_orig_mapper', 'help_return_state',
         'clear_checked_return_state', 'transfer_pantry_return_state',
-        'calc_data', 'calc_selected'
+        'calc_data', 'calc_selected', 'calc_return_state'
     ]
     
     for attr in attrs_to_clean:

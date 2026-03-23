@@ -2351,29 +2351,3 @@ def stop(view_manager):
     # Final garbage collection sweep
     from gc import collect
     collect()
-
-# add this at the bottom of your app for testing
-if __name__ == "__main__":
-    from picoware.system.view_manager import ViewManager
-    from picoware.system.view import View
-
-    vm = None
-
-    try:
-        vm = ViewManager()
-        vm.add(
-            View(
-                "app_tester",
-                run,
-                start,
-                stop,
-            )
-        )
-        vm.switch_to("app_tester")
-        while True:
-            vm.run()
-    except Exception as e:
-        print("Error during testing:", e)
-    finally:
-        del vm
-        vm = None

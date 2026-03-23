@@ -22,6 +22,7 @@ class ViewManager:
         from picoware.system.thread import ThreadManager
         from picoware.system.log import Log, LOG_MODE_ALL, LOG_MODE_REPL
         from picoware.system.colors import TFT_BLUE, TFT_BLACK, TFT_WHITE
+        from picoware.system.buttons import BUTTON_BACK
 
         self._current_view = None
         self._view_count = 0
@@ -57,28 +58,11 @@ class ViewManager:
         # Initialize drawing system
         self._draw = Draw(self._foreground_color, self._background_color)
 
-        # Initialize input manager
-        self._input_manager = Input()
-
-        # Initialize keyboard
-        self._keyboard = Keyboard(
-            self._draw,
-            self._input_manager,
-            self._foreground_color,
-            self._background_color,
-            self._selected_color,
-        )
-
-        # Initialize time
-        self._time = Time(self._thread_manager)
-
-        # Initialize arrays
-        self.views = [None] * self.MAX_VIEWS
-        self.view_stack = [None] * self.MAX_STACK_SIZE
-
         # load settings
         __debug = False
         self._gmt_offset = 0
+        _back_button = BUTTON_BACK
+        _keyboard_state = False
         if self._storage is not None:
 
             # dark mode
@@ -91,8 +75,6 @@ class ViewManager:
                     self._foreground_color = TFT_BLACK
                     self._draw.background = self._background_color
                     self._draw.foreground = self._foreground_color
-                    self._keyboard.background_color = self._background_color
-                    self._keyboard.text_color = self._foreground_color
 
             # on screen keyboard
             on_screen_keyboard_data: str = self._storage.read(
@@ -100,8 +82,7 @@ class ViewManager:
             )
 
             if len(on_screen_keyboard_data) > 1:
-                state: bool = "true" in on_screen_keyboard_data.lower()
-                self._keyboard.show_keyboard = state
+                _keyboard_state = "true" in on_screen_keyboard_data.lower()
 
             # LVGL mode
             lvgl_data: str = self._storage.read("picoware/settings/lvgl_mode.json")
@@ -144,6 +125,40 @@ class ViewManager:
                         self._gmt_offset = int(obj["gmt_offset"])
                 except ValueError:
                     pass
+
+            # exit button
+            exit_button_data: str = self._storage.read(
+                "picoware/settings/exit_button.json"
+            )
+            if len(exit_button_data) > 1:
+                try:
+                    import json
+
+                    obj = json.loads(exit_button_data)
+                    if "exit_button" in obj:
+                        _back_button = int(obj["exit_button"])
+                except ValueError:
+                    pass
+
+        # Initialize input manager
+        self._input_manager = Input(_back_button)
+
+        # Initialize keyboard
+        self._keyboard = Keyboard(
+            self._draw,
+            self._input_manager,
+            self._foreground_color,
+            self._background_color,
+            self._selected_color,
+        )
+        self._keyboard.show_keyboard = _keyboard_state
+
+        # Initialize time
+        self._time = Time(self._thread_manager)
+
+        # Initialize arrays
+        self.views = [None] * self.MAX_VIEWS
+        self.view_stack = [None] * self.MAX_STACK_SIZE
 
         self._log = Log(
             LOG_MODE_ALL if __debug else LOG_MODE_REPL, "picoware/log.txt", True

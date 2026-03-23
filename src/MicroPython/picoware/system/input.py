@@ -13,13 +13,21 @@ class Input:
     Handles input from the keyboard.
     """
 
-    def __init__(self):
+    def __init__(self, back_button=buttons.BUTTON_BACK):
         """Initializes the Input class."""
         self._current_board_id = BOARD_ID
         self.pin = None
         self._last_point = (0, 0)
         self._last_gesture = 0  # 0 is TOUCH_GESTURE_NONE
         self._delay_ms = 100  # milliseconds (for Touch input polling)
+        _back_special = back_button != buttons.BUTTON_BACK
+        self._key_esc = (
+            buttons.BUTTON_ESCAPE if not _back_special else buttons.BUTTON_BACK
+        )
+
+        self._key_back = (
+            buttons.BUTTON_BACK if not _back_special else buttons.BUTTON_BACKSPACE
+        )
 
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             from waveshare_touch import init, TOUCH_GESTURE_MODE, TOUCH_GESTURE_NONE
@@ -166,10 +174,10 @@ class Input:
             buttons.KEY_DOWN: buttons.BUTTON_DOWN,
             buttons.KEY_LEFT: buttons.BUTTON_LEFT,
             buttons.KEY_RIGHT: buttons.BUTTON_RIGHT,
-            buttons.KEY_ESC: buttons.BUTTON_ESCAPE,
+            buttons.KEY_ESC: self._key_esc,
             buttons.KEY_HOME: buttons.BUTTON_HOME,
             buttons.KEY_DEL: buttons.BUTTON_BACKSPACE,
-            8: buttons.BUTTON_BACK,
+            8: self._key_back,
             9: buttons.BUTTON_TAB,
             13: buttons.BUTTON_CENTER,
             # special keys

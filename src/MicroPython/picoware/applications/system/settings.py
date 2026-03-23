@@ -8,6 +8,7 @@ STATE_LVGL_MODE = const(2)  # toggle (use LVGL or not)
 STATE_THEME_COLOR = const(3)  # choice (select from predefined colors)
 STATE_DEBUG = const(4)  # toggle (enable/disable)
 STATE_TIME = const(5)  # menu with date (date picker), GMT offset (keyboard)
+STATE_EXIT_BUTTON = const(6)  # selection to choose which button triggers app exits
 
 # modes
 _MODE_MENU = const(0)
@@ -80,7 +81,21 @@ def __config() -> tuple:
         ("Theme Color", None, None, None),
         ("Debug", "picoware/settings/debug.json", "debug", False),
         ("Time", None, None, None),
+        ("Exit Button", None, None, None),
     )
+
+
+def __exit_button_mapping() -> dict[int, str]:
+    """Get the mapping of button values to their names for the exit button setting."""
+    from picoware.system.buttons import (
+        BUTTON_BACK,
+        BUTTON_ESCAPE,
+    )
+
+    return {
+        BUTTON_BACK: "<-Back",
+        BUTTON_ESCAPE: "Esc",
+    }
 
 
 def __load_state(filename: str, key: str, default: bool = False) -> bool:
@@ -115,11 +130,35 @@ def __load_theme_color() -> int:
     return 0x001F  # TFT_BLUE
 
 
+def __load_exit_button() -> int:
+    """Load the saved exit button from storage."""
+    from picoware.system.buttons import BUTTON_BACK
+
+    data = _view_manager.storage.read("picoware/settings/exit_button.json")
+    if data is not None:
+        try:
+            obj = json.loads(data)
+            if "exit_button" in obj:
+                return int(obj["exit_button"])
+        except Exception:
+            pass
+
+    return BUTTON_BACK
+
+
 def __save_theme_color(color: int) -> bool:
     """Save the theme color to storage."""
     return _view_manager.storage.write(
         "picoware/settings/theme_color.json",
         json.dumps({"theme_color": color}),
+    )
+
+
+def __save_exit_button(button: int) -> bool:
+    """Save the exit button to storage."""
+    return _view_manager.storage.write(
+        "picoware/settings/exit_button.json",
+        json.dumps({"exit_button": button}),
     )
 
 
@@ -212,6 +251,42 @@ def __open_choice() -> None:
         draw.size,
         "Theme Color",
         _color_names,
+        initial_index,
+        _view_manager.foreground_color,
+        _view_manager.background_color,
+    )
+    _choice.draw()
+    _mode = _MODE_CHOICE
+
+
+def __open_choice_button() -> None:
+    """Open a Choice sub-view for the button to exit setting."""
+    global _choice, _mode, _current_setting
+    from picoware.gui.choice import Choice
+    from picoware.system.vector import Vector
+
+    _current_setting = STATE_EXIT_BUTTON
+    current_button = __load_exit_button()
+    str_buttons = list(__exit_button_mapping().values())
+    initial_index = 0
+    button_mapping = __exit_button_mapping()
+    for i, button_value in enumerate(button_mapping.keys()):
+        if button_value == current_button:
+            initial_index = i
+            break
+
+    draw = _view_manager.draw
+    draw.erase()
+    if _choice is not None:
+        del _choice
+        _choice = None
+
+    _choice = Choice(
+        draw,
+        Vector(0, 0),
+        draw.size,
+        "Button to Exit",
+        str_buttons,
         initial_index,
         _view_manager.foreground_color,
         _view_manager.background_color,
@@ -424,6 +499,8 @@ def run(view_manager) -> None:
                 __open_choice()
             elif selected == STATE_TIME:
                 __open_time_menu()
+            elif selected == STATE_EXIT_BUTTON:
+                __open_choice_button()
             else:
                 __open_toggle(selected)
 
@@ -500,9 +577,18 @@ def run(view_manager) -> None:
             _choice.scroll_down()
         elif button == BUTTON_CENTER:
             input_manager.reset()
-            selected_color = __color_values()[_choice.state]
-            __save_theme_color(selected_color)
-            _view_manager.selected_color = selected_color
+            if _current_setting == STATE_THEME_COLOR:
+                selected_color = __color_values()[_choice.state]
+                __save_theme_color(selected_color)
+                _view_manager.selected_color = selected_color
+            elif _current_setting == STATE_EXIT_BUTTON:
+                button_mapping = __exit_button_mapping()
+                selected_button_value = list(button_mapping.keys())[_choice.state]
+                __save_exit_button(selected_button_value)
+                from picoware.system.system import System
+
+                s = System()
+                s.hard_reset()
             __back_to_menu()
 
 

@@ -20,18 +20,28 @@ class Sprite(Entity):
         name: str,
         position: Vector,
         sprite_type: int,
-        height: float = 2.0,  # not used in C++ version
-        width: float = 1.0,  # not used in C++ version
+        height: float = 1.5,
+        width: float = 1.0,
         rotation: float = 0.0,
         end_position: Vector = Vector(-1, -1),
+        color: int = 0x915C,
     ):
         super().__init__(
             name,
             ENTITY_TYPE_3D_SPRITE,
             position,
-            Vector(10, 10),
-            None,
-            sprite_3d_type=sprite_type,
+            Vector(width, height),  # size
+            None,  # sprite data,
+            None,  # Image left
+            None,  # Image right
+            None,  # start
+            None,  # stop
+            self.update,  # update
+            None,  # render
+            self.collision,  # collision
+            True,  # is_8bit
+            sprite_type,  # 3d type
+            color,  # 3d color
         )
         self.set_3d_sprite_rotation(rotation)
         self.start_position = position

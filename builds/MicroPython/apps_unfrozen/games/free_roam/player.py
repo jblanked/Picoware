@@ -1,6 +1,13 @@
 from micropython import const
 from picoware.system.vector import Vector
-from picoware.engine.entity import Entity, ENTITY_TYPE_PLAYER, SPRITE_3D_HUMANOID
+from picoware.engine.entity import (
+    Entity,
+    ENTITY_TYPE_PLAYER,
+    SPRITE_3D_HUMANOID,
+    SPRITE_3D_NONE,
+    ENTITY_TYPE_3D_SPRITE,
+    SPRITE_3D_CUSTOM,
+)
 from picoware.gui.loading import Loading
 from math import sqrt, atan2, pi, cos, sin
 from ujson import loads as json_loads
@@ -99,6 +106,7 @@ def toggle_to_string(state: int) -> str:
     return "On" if state == TOGGLE_STATE_ON else "Off"
 
 
+# current bug -> adding self.render to super.init() causes freezing when the engine tries to run it!
 class Player(Entity):
     """Player entity for the free roam game."""
 
@@ -106,18 +114,27 @@ class Player(Entity):
         super().__init__(
             "Player",
             ENTITY_TYPE_PLAYER,
-            Vector(6, 6),
-            Vector(10, 10),
-            None,
-            sprite_3d_type=SPRITE_3D_HUMANOID,
+            Vector(10, 10),  # position
+            Vector(1.0, 1.5),  # size
+            None,  # Image
+            None,  # Image left
+            None,  # Image right
+            None,  # start
+            None,  # stop
+            self.update,  # update
+            self.render,  # render
+            None,  # collision
+            True,  # is_8bit
+            SPRITE_3D_HUMANOID,
+            0x915C,  # 3d color
         )
         # facing east initially (better for 3rd person view)
         self.direction = Vector(1, 0)
         self.plane = Vector(0, 0.66)  # camera plane perpendicular to direction
         # Mark this entity as a player (so level doesn't delete it)
         self.is_player = True
-        self.end_position = Vector(6, 6)  # Initialize end position
-        self.start_position = Vector(6, 6)  # Initialize start position
+        self.end_position = Vector(10, 10)  # Initialize end position
+        self.start_position = Vector(10, 10)  # Initialize start position
         self.player_name = "Player"  # Copy default player name
         self.name = self.player_name  # Point Entity's name to our writable buffer
 
@@ -141,7 +158,6 @@ class Player(Entity):
 
         # Track if player has been positioned to prevent repeated resets
         self.has_been_positioned: bool = False
-        self.input_held: bool = False  # whether input is held
         self.just_started: bool = True  # whether the player just started the game
 
         # whether the player just switched levels
@@ -156,7 +172,6 @@ class Player(Entity):
 
         # Current registration status
         self.registration_status: int = REGISTRATION_NOT_STARTED
-        self.should_debounce: bool = False  # whether to debounce input
         self.sound_toggle: int = TOGGLE_STATE_ON  # sound toggle state
 
         # Current user info status
@@ -265,14 +280,6 @@ class Player(Entity):
 
         return False  # No collision detected
 
-    def debounce_input(self, game):
-        """Handle input debouncing."""
-        if self.should_debounce:
-            debounce_counter = 0
-            while debounce_counter < 10:
-                debounce_counter += 1
-            self.should_debounce = False
-
     def draw_current_view(self, canvas):
         """Draw the current view based on current_main_view."""
         if self.current_main_view == GAME_VIEW_TITLE:
@@ -306,10 +313,6 @@ class Player(Entity):
                 if self.should_leave_game:
                     self.free_roam_game.end_game()
                     return
-                self.free_roam_game.engine.update_game_input(
-                    self.free_roam_game.last_input
-                )
-                # Reset the input after processing to prevent it from being continuously pressed
                 self.free_roam_game.reset_input()
                 self.free_roam_game.engine.run_async(False)
             return
@@ -356,7 +359,11 @@ class Player(Entity):
                 self.loading.animate(swap=False)
                 return
             # Request is complete, process the response
-            response = self.http.response.text
+            _response = self.http.response
+            if _response is None:
+                self.login_status = LOGIN_REQUEST_ERROR
+                return
+            response = _response.text
             if "[SUCCESS]" in response:
                 self.login_status = LOGIN_SUCCESS
                 self.current_main_view = GAME_VIEW_TITLE  # bring to the next view
@@ -813,15 +820,15 @@ class Player(Entity):
             y = (self.rain_frame * 2 + seed * 7 + i * 23) % height
 
             # Draw star-like droplet with bounds checking
-            canvas.pixel(Vector(x, y), COLOR_BLACK)
+            canvas._pixel(x, y, COLOR_BLACK)
             if x >= 1:
-                canvas.pixel(Vector(x - 1, y), COLOR_BLACK)
+                canvas._pixel(x - 1, y, COLOR_BLACK)
             if x <= width - 2:
-                canvas.pixel(Vector(x + 1, y), COLOR_BLACK)
+                canvas._pixel(x + 1, y, COLOR_BLACK)
             if y >= 1:
-                canvas.pixel(Vector(x, y - 1), COLOR_BLACK)
+                canvas._pixel(x, y - 1, COLOR_BLACK)
             if y <= height - 2:
-                canvas.pixel(Vector(x, y + 1), COLOR_BLACK)
+                canvas._pixel(x, y + 1, COLOR_BLACK)
 
         self.rain_frame += 1
         if self.rain_frame >= width:
@@ -917,10 +924,11 @@ class Player(Entity):
             if not self.http.is_request_complete():
                 self.loading.animate(swap=False)
                 return
-            response = self.http.response.text
-            if not response:
+            if not self.http.response:
                 self.user_info_status = USER_INFO_REQUEST_ERROR
                 return
+
+            response = self.http.response.text
 
             try:
                 canvas.text(Vector(0, 10), "Loading user info...", COLOR_BLACK)
@@ -984,7 +992,8 @@ class Player(Entity):
                 canvas.text(Vector(0, 40), "It may take up to 15 seconds.", COLOR_BLACK)
 
                 if self.free_roam_game:
-                    self.free_roam_game.start_game()
+                    game_started = self.free_roam_game.start_game()
+                    print("Game started:", game_started)
             except Exception as e:
                 print(f"Error parsing user info: {e}")
                 self.user_info_status = USER_INFO_PARSE_ERROR
@@ -1049,7 +1058,7 @@ class Player(Entity):
         default_pos = self.start_position
 
         if level_name == "Tutorial":
-            default_pos = Vector(6, 6)  # Center of tutorial room
+            default_pos = Vector(10, 10)  # Center of tutorial room
         elif level_name == "First":
             # Try several safe positions in the First level
             candidates = [
@@ -1092,25 +1101,25 @@ class Player(Entity):
             if game.input == INPUT_KEY_UP:
                 if self.current_menu_index > MENU_INDEX_PROFILE:
                     self.current_menu_index -= 1
-                self.should_debounce = True
+
             elif game.input == INPUT_KEY_DOWN:
                 if self.current_menu_index < MENU_INDEX_ABOUT:
                     self.current_menu_index += 1
-                self.should_debounce = True
+
         else:
             # Handle settings menu
             if self.current_settings_index == MENU_SETTINGS_MAIN:
                 if game.input == INPUT_KEY_UP:
                     if self.current_menu_index > MENU_INDEX_PROFILE:
                         self.current_menu_index -= 1
-                    self.should_debounce = True
+
                 elif game.input == INPUT_KEY_DOWN:
                     if self.current_menu_index < MENU_INDEX_ABOUT:
                         self.current_menu_index += 1
-                    self.should_debounce = True
+
                 elif game.input == INPUT_KEY_LEFT:
                     self.current_settings_index = MENU_SETTINGS_SOUND
-                    self.should_debounce = True
+
             elif self.current_settings_index == MENU_SETTINGS_SOUND:
                 # sound on/off (using OK button), down to vibration, right to MainSettingsMain
                 if game.input == INPUT_KEY_OK:
@@ -1120,17 +1129,17 @@ class Player(Entity):
                         if self.sound_toggle == TOGGLE_STATE_ON
                         else TOGGLE_STATE_ON
                     )
-                    self.should_debounce = True
+
                 elif game.input == INPUT_KEY_RIGHT:
                     self.current_settings_index = (
                         MENU_SETTINGS_MAIN  # Switch back to main settings
                     )
-                    self.should_debounce = True
+
                 elif game.input == INPUT_KEY_DOWN:
                     self.current_settings_index = (
                         MENU_SETTINGS_VIBRATION  # Switch to vibration settings
                     )
-                    self.should_debounce = True
+
             elif self.current_settings_index == MENU_SETTINGS_VIBRATION:
                 # vibration on/off (using OK button), up to sound, right to MainSettingsMain, down to leave game
                 if game.input == INPUT_KEY_OK:
@@ -1140,38 +1149,37 @@ class Player(Entity):
                         if self.vibration_toggle == TOGGLE_STATE_ON
                         else TOGGLE_STATE_ON
                     )
-                    self.should_debounce = True
+
                 elif game.input == INPUT_KEY_RIGHT:
                     self.current_settings_index = (
                         MENU_SETTINGS_MAIN  # Switch back to main settings
                     )
-                    self.should_debounce = True
+
                 elif game.input == INPUT_KEY_UP:
                     self.current_settings_index = (
                         MENU_SETTINGS_SOUND  # Switch to sound settings
                     )
-                    self.should_debounce = True
+
                 elif game.input == INPUT_KEY_DOWN:
                     self.current_settings_index = (
                         MENU_SETTINGS_LEAVE  # Switch to leave game settings
                     )
-                    self.should_debounce = True
+
             elif self.current_settings_index == MENU_SETTINGS_LEAVE:
                 # leave game (using OK button), up to vibration, right to MainSettingsMain
                 if game.input == INPUT_KEY_OK:
                     # Leave game
                     self.leave_game = TOGGLE_STATE_ON
-                    self.should_debounce = True
+
                 elif game.input == INPUT_KEY_RIGHT:
                     self.current_settings_index = (
                         MENU_SETTINGS_MAIN  # Switch back to main settings
                     )
-                    self.should_debounce = True
+
                 elif game.input == INPUT_KEY_UP:
                     self.current_settings_index = (
                         MENU_SETTINGS_VIBRATION  # Switch to vibration settings
                     )
-                    self.should_debounce = True
 
         if game.input == INPUT_KEY_OK:
             if self.current_settings_index == MENU_SETTINGS_SOUND:
@@ -1181,7 +1189,7 @@ class Player(Entity):
                     if self.sound_toggle == TOGGLE_STATE_ON
                     else TOGGLE_STATE_ON
                 )
-                self.should_debounce = True
+
             elif self.current_settings_index == MENU_SETTINGS_VIBRATION:
                 # Toggle vibration on/off
                 self.vibration_toggle = (
@@ -1189,10 +1197,9 @@ class Player(Entity):
                     if self.vibration_toggle == TOGGLE_STATE_ON
                     else TOGGLE_STATE_ON
                 )
-                self.should_debounce = True
+
             elif self.current_settings_index == MENU_SETTINGS_LEAVE:
                 self.leave_game = TOGGLE_STATE_ON
-                self.should_debounce = True
 
         self.draw_menu_type2(draw, self.current_menu_index, self.current_settings_index)
 
@@ -1234,86 +1241,83 @@ class Player(Entity):
                     )
                 else:
                     self.current_main_view = GAME_VIEW_TITLE
-                self.free_roam_game.should_debounce = True
+
             elif current_input in (INPUT_KEY_BACK, INPUT_KEY_LEFT):
                 if self.free_roam_game:
                     self.free_roam_game.end_game()
-                self.free_roam_game.should_debounce = True
 
         elif self.current_main_view == GAME_VIEW_TITLE:
             if current_input == INPUT_KEY_UP:
                 self.current_title_index = TITLE_INDEX_START
-                self.free_roam_game.should_debounce = True
+
             elif current_input == INPUT_KEY_DOWN:
                 self.current_title_index = TITLE_INDEX_MENU
-                self.free_roam_game.should_debounce = True
+
             elif current_input == INPUT_KEY_OK:
                 if self.current_title_index == TITLE_INDEX_START:
                     # Start button pressed - go to lobby menu
                     self.current_main_view = GAME_VIEW_LOBBY_MENU
-                    self.free_roam_game.should_debounce = True
+
                 elif self.current_title_index == TITLE_INDEX_MENU:
                     # Menu button pressed - go to system menu
                     self.current_main_view = GAME_VIEW_SYSTEM_MENU
-                    self.free_roam_game.should_debounce = True
+
             elif current_input == INPUT_KEY_BACK or current_input == INPUT_KEY_LEFT:
                 self.free_roam_game.end_game()
-                self.free_roam_game.should_debounce = True
 
         elif self.current_main_view == GAME_VIEW_LOBBY_MENU:
             if current_input == INPUT_KEY_UP:
                 self.current_lobby_menu_index = LOBBY_MENU_INDEX_LOCAL
-                self.free_roam_game.should_debounce = True
+
             elif current_input == INPUT_KEY_DOWN:
                 self.current_lobby_menu_index = LOBBY_MENU_INDEX_ONLINE
-                self.free_roam_game.should_debounce = True
+
             elif current_input == INPUT_KEY_OK:
                 # Switch to GameViewUserInfo and load player stats
                 self.current_main_view = GAME_VIEW_USER_INFO
                 self.user_info_status = (
                     USER_INFO_NOT_STARTED  # Let draw_user_info_view handle the request
                 )
-                self.free_roam_game.should_debounce = True
+
             elif current_input in (INPUT_KEY_BACK, INPUT_KEY_LEFT):
                 self.current_main_view = GAME_VIEW_TITLE
-                self.free_roam_game.should_debounce = True
 
         elif self.current_main_view == GAME_VIEW_SYSTEM_MENU:
             # Handle system menu with full navigation logic
             if self.current_menu_index != MENU_INDEX_SETTINGS:
                 if current_input in (INPUT_KEY_BACK, INPUT_KEY_LEFT):
                     self.current_main_view = GAME_VIEW_TITLE
-                    self.free_roam_game.should_debounce = True
+
                 elif current_input == INPUT_KEY_UP:
                     if self.current_menu_index > MENU_INDEX_PROFILE:
                         self.current_menu_index -= 1
-                    self.free_roam_game.should_debounce = True
+
                 elif current_input == INPUT_KEY_DOWN:
                     if self.current_menu_index < MENU_INDEX_ABOUT:
                         self.current_menu_index += 1
-                    self.free_roam_game.should_debounce = True
+
                 elif current_input == INPUT_KEY_OK:
                     # Enter the selected menu item
                     if self.current_menu_index == MENU_INDEX_SETTINGS:
                         # Entering settings - this doesn't change the main menu
                         self.current_settings_index = MENU_SETTINGS_MAIN
-                    self.free_roam_game.should_debounce = True
+
             else:  # current_menu_index == MENU_INDEX_SETTINGS
                 if self.current_settings_index == MENU_SETTINGS_MAIN:
                     if current_input == INPUT_KEY_BACK:
                         self.current_main_view = GAME_VIEW_TITLE
-                        self.free_roam_game.should_debounce = True
+
                     elif current_input == INPUT_KEY_UP:
                         if self.current_menu_index > MENU_INDEX_PROFILE:
                             self.current_menu_index -= 1
-                        self.free_roam_game.should_debounce = True
+
                     elif current_input == INPUT_KEY_DOWN:
                         if self.current_menu_index < MENU_INDEX_ABOUT:
                             self.current_menu_index += 1
-                        self.free_roam_game.should_debounce = True
+
                     elif current_input == INPUT_KEY_LEFT:
                         self.current_settings_index = MENU_SETTINGS_SOUND
-                        self.free_roam_game.should_debounce = True
+
                 elif self.current_settings_index == MENU_SETTINGS_SOUND:
                     if current_input == INPUT_KEY_OK:
                         # Toggle sound
@@ -1325,13 +1329,13 @@ class Player(Entity):
                         # Update the game's sound settings
                         if self.free_roam_game:
                             self.free_roam_game.sound_toggle = self.sound_toggle
-                        self.free_roam_game.should_debounce = True
+
                     elif current_input == INPUT_KEY_RIGHT:
                         self.current_settings_index = MENU_SETTINGS_MAIN
-                        self.free_roam_game.should_debounce = True
+
                     elif current_input == INPUT_KEY_DOWN:
                         self.current_settings_index = MENU_SETTINGS_VIBRATION
-                        self.free_roam_game.should_debounce = True
+
                 elif self.current_settings_index == MENU_SETTINGS_VIBRATION:
                     if current_input == INPUT_KEY_OK:
                         # Toggle vibration
@@ -1343,49 +1347,45 @@ class Player(Entity):
                         # Update the game's vibration settings
                         if self.free_roam_game:
                             self.free_roam_game.vibration_toggle = self.vibration_toggle
-                        self.free_roam_game.should_debounce = True
+
                     elif current_input == INPUT_KEY_RIGHT:
                         self.current_settings_index = MENU_SETTINGS_MAIN
-                        self.free_roam_game.should_debounce = True
+
                     elif current_input == INPUT_KEY_UP:
                         self.current_settings_index = MENU_SETTINGS_SOUND
-                        self.free_roam_game.should_debounce = True
+
                     elif current_input == INPUT_KEY_DOWN:
                         self.current_settings_index = MENU_SETTINGS_LEAVE
-                        self.free_roam_game.should_debounce = True
+
                 elif self.current_settings_index == MENU_SETTINGS_LEAVE:
                     if current_input == INPUT_KEY_OK:
                         self.leave_game = TOGGLE_STATE_ON
-                        self.free_roam_game.should_debounce = True
+
                     elif current_input == INPUT_KEY_RIGHT:
                         self.current_settings_index = MENU_SETTINGS_MAIN
-                        self.free_roam_game.should_debounce = True
+
                     elif current_input == INPUT_KEY_UP:
                         self.current_settings_index = MENU_SETTINGS_VIBRATION
-                        self.free_roam_game.should_debounce = True
 
         elif self.current_main_view == GAME_VIEW_LOGIN:
             if current_input in (INPUT_KEY_BACK, INPUT_KEY_LEFT):
                 self.current_main_view = GAME_VIEW_WELCOME
-                self.free_roam_game.should_debounce = True
+
             elif current_input == INPUT_KEY_OK:
                 if self.login_status == LOGIN_SUCCESS:
                     self.current_main_view = GAME_VIEW_TITLE
-                    self.free_roam_game.should_debounce = True
 
         elif self.current_main_view == GAME_VIEW_REGISTRATION:
             if current_input in (INPUT_KEY_BACK, INPUT_KEY_LEFT):
                 self.current_main_view = GAME_VIEW_WELCOME
-                self.free_roam_game.should_debounce = True
+
             elif current_input == INPUT_KEY_OK:
                 if self.registration_status == REGISTRATION_SUCCESS:
                     self.current_main_view = GAME_VIEW_TITLE
-                    self.free_roam_game.should_debounce = True
 
         elif self.current_main_view == GAME_VIEW_USER_INFO:
             if current_input in (INPUT_KEY_BACK, INPUT_KEY_LEFT):
                 self.current_main_view = GAME_VIEW_TITLE
-                self.free_roam_game.should_debounce = True
 
         elif self.current_main_view in (GAME_VIEW_GAME_LOCAL, GAME_VIEW_GAME_ONLINE):
             # In game views, we need to handle input differently
@@ -1395,7 +1395,8 @@ class Player(Entity):
 
     def render(self, canvas, game):
         """Render the player view."""
-        if not canvas or not game or not game.current_level:
+        if not game.current_level:
+            print("No current level to render.")
             return
 
         _state = GAME_STATE_PLAYING  # Static variable equivalent
@@ -1419,17 +1420,16 @@ class Player(Entity):
         if self.game_state == GAME_STATE_PLAYING:
             if _state != GAME_STATE_PLAYING:
                 # Make entities active again
-                for entity in game.current_level.entities:
+                for i in range(game.current_level.entity_count):
+                    entity = game.current_level.get_entity(i)
                     if entity and not entity.is_active and not entity.is_player:
                         entity.is_active = True  # Activate all entities
                 self.is_visible = True  # Show player entity in game
                 _state = GAME_STATE_PLAYING
 
             if self.current_dynamic_map is not None:
-                camera_height = 1.6
-
                 # Check if the game is using 3rd person perspective
-                if game.perspective == CAMERA_THIRD_PERSON:
+                if game.camera.perspective == CAMERA_THIRD_PERSON:
                     # Calculate 3rd person camera position for map rendering
                     # Normalize direction vector to ensure consistent behavior
 
@@ -1441,13 +1441,7 @@ class Player(Entity):
                         self.direction.x / dir_length, self.direction.y / dir_length
                     )
 
-                    camera_pos = Vector(
-                        self.position.x
-                        - 1.5,  # Fixed offset instead of direction-based
-                        self.position.y - 1.5,
-                    )
-
-                    if self.has_3d_sprite:
+                    if self.has_3d_sprite():
                         # Use Entity's methods instead of direct Sprite3D access
                         self.update_3d_sprite_position()
 
@@ -1458,27 +1452,11 @@ class Player(Entity):
                         )
                         self.set_3d_sprite_rotation(camera_direction_angle)
 
-                    # Render map from 3rd person camera position
-                    self.current_dynamic_map.render(
-                        camera_height,
-                        camera_pos,
-                        normalized_dir,
-                        self.plane,
-                        canvas.size,
-                    )
-                else:
-                    # Default 1st person rendering
-                    self.current_dynamic_map.render(
-                        camera_height,
-                        self.position,
-                        self.direction,
-                        self.plane,
-                        canvas.size,
-                    )
         elif self.game_state == GAME_STATE_MENU:
             if _state != GAME_STATE_MENU:
                 # Make entities inactive
-                for entity in game.current_level.entities:
+                for i in range(game.current_level.entity_count):
+                    entity = game.current_level.get_entity(i)
                     if entity and entity.is_active and not entity.is_player:
                         entity.is_active = False  # Deactivate all entities
                 self.is_visible = False  # Hide player entity in menu
@@ -1487,6 +1465,9 @@ class Player(Entity):
 
     def switch_levels(self, game):
         """Switch to a new level if necessary."""
+        if not game.current_level:
+            print("No current level to switch to.")
+            return
         if (
             self.current_dynamic_map is None
             or self.current_dynamic_map.name != game.current_level.name
@@ -1494,7 +1475,6 @@ class Player(Entity):
             self.current_dynamic_map = None  # Reset
 
             posi = self.start_position
-
             if game.current_level.name == "Tutorial":
                 from free_roam.maps import map_tutorial
 
@@ -1508,21 +1488,82 @@ class Player(Entity):
 
                 self.current_dynamic_map = map_second()
 
+            if self.current_dynamic_map is None:
+                print(f"Error: No map found for level '{game.current_level.name}'")
+                return
+
             if self.current_dynamic_map is not None:
                 # Find a safe spawn position for the new level
                 posi = self.find_safe_spawn_position(game.current_level.name)
 
-                # Set position
+                # Always set position when switching levels to avoid being stuck
                 self.position = posi
                 self.has_been_positioned = True
 
+                # update 3D sprite position immediately after setting player position
+                if self.has_3d_sprite():
+                    self.update_3d_sprite_position()
+
+                    # Also ensure the sprite rotation and scale are set correctly
+                    self.set_3d_sprite_rotation(
+                        atan2(self.direction.y, self.direction.x) + (pi / 2)
+                    )  # Face forward with orientation correction
+                    self.set_3d_sprite_scale(1.0)  # Normal scale
+
+                # Register wall Sprite3Ds as Entity objects so Level renders them automatically.
+                # Only do this once per level – if any "Wall" entities already exist, skip.
+                walls_already_registered = False
+                for i in range(game.current_level.entity_count):
+                    e = game.current_level.get_entity(i)
+                    if (
+                        e
+                        and e.name
+                        and e.name == "Wall"
+                        and e.type == ENTITY_TYPE_3D_SPRITE
+                    ):
+                        walls_already_registered = True
+                        print(
+                            "Wall entities already registered for this level, skipping registration."
+                        )
+                        break
+
+                if not walls_already_registered:
+                    # Transfer Sprite3D ownership from DynamicMap to new Entity objects
+
+                    for wall in self.current_dynamic_map._render_walls:
+                        if wall is None:
+                            continue
+                        wall_entity = Entity(
+                            "Wall",
+                            ENTITY_TYPE_3D_SPRITE,
+                            wall.position,
+                            Vector(1, 1),
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            None,
+                            False,
+                            SPRITE_3D_NONE,
+                            0x7BEF,  # Light gray color for walls
+                        )
+                        # Assign the Sprite3D directly – entity now owns it
+                        wall_entity.sprite_3d = wall
+                        wall_entity.sprite_3d_type = SPRITE_3D_CUSTOM
+                        wall_entity.is_visible = True
+                        game.current_level.entity_add(wall_entity)
+                    self.current_dynamic_map.release_render_walls()
+
+                # Indicate that we just switched levels
                 self.just_switched_levels = True
+                # Reset counter for level switch delay
                 self.level_switch_counter = 0
 
     def update(self, game):
         """Update player state."""
-
-        self.debounce_input(game)
 
         if game.input == INPUT_KEY_BACK:
             self.game_state = (
@@ -1530,7 +1571,7 @@ class Player(Entity):
                 if self.game_state == GAME_STATE_MENU
                 else GAME_STATE_MENU
             )
-            self.should_debounce = True
+            return
 
         if self.game_state == GAME_STATE_MENU:
             return  # Don't update player position in menu
@@ -1548,7 +1589,18 @@ class Player(Entity):
             if self.current_dynamic_map is None or not self.collision_map_check(
                 new_pos
             ):
+                # Move forward in the direction the player is facing
                 self.position = new_pos
+
+                # Update 3D sprite position and rotation to match camera direction
+                if self.has_3d_sprite():
+                    self.update_3d_sprite_position()
+                    camera_direction_angle = atan2(
+                        self.direction.y, self.direction.x
+                    ) + (
+                        pi / 2
+                    )  # Face forward with orientation correction
+                    self.set_3d_sprite_rotation(camera_direction_angle)
 
             game.input = INPUT_KEY_MAX
             self.just_started = False
@@ -1568,6 +1620,15 @@ class Player(Entity):
             ):
                 self.position = new_pos
 
+                # Update 3D sprite position and rotation to match camera direction
+                if self.has_3d_sprite():
+                    self.update_3d_sprite_position()
+                    camera_direction_angle = atan2(
+                        self.direction.y, self.direction.x
+                    ) + (
+                        pi / 2
+                    )  # Face forward with orientation correction
+                    self.set_3d_sprite_rotation(camera_direction_angle)
             game.input = INPUT_KEY_MAX
             self.just_started = False
             self.just_switched_levels = False
@@ -1576,19 +1637,21 @@ class Player(Entity):
         elif game.input == INPUT_KEY_LEFT:
             old_dir_x = self.direction.x
             old_plane_x = self.plane.x
+            self.direction = Vector(
+                self.direction.x * cos(-rot_speed) - self.direction.y * sin(-rot_speed),
+                old_dir_x * sin(-rot_speed) + self.direction.y * cos(-rot_speed),
+            )
+            self.plane = Vector(
+                self.plane.x * cos(-rot_speed) - self.plane.y * sin(-rot_speed),
+                old_plane_x * sin(-rot_speed) + self.plane.y * cos(-rot_speed),
+            )
 
-            self.direction.x = self.direction.x * cos(
-                -rot_speed
-            ) - self.direction.y * sin(-rot_speed)
-            self.direction.y = old_dir_x * sin(-rot_speed) + self.direction.y * cos(
-                -rot_speed
-            )
-            self.plane.x = self.plane.x * cos(-rot_speed) - self.plane.y * sin(
-                -rot_speed
-            )
-            self.plane.y = old_plane_x * sin(-rot_speed) + self.plane.y * cos(
-                -rot_speed
-            )
+            # Update sprite rotation to match new camera direction
+            if self.has_3d_sprite():
+                camera_direction_angle = atan2(self.direction.y, self.direction.x) + (
+                    pi / 2
+                )  # Face forward with orientation correction
+                self.set_3d_sprite_rotation(camera_direction_angle)
 
             game.input = INPUT_KEY_MAX
             self.just_started = False
@@ -1599,14 +1662,21 @@ class Player(Entity):
             old_dir_x = self.direction.x
             old_plane_x = self.plane.x
 
-            self.direction.x = self.direction.x * cos(
-                rot_speed
-            ) - self.direction.y * sin(rot_speed)
-            self.direction.y = old_dir_x * sin(rot_speed) + self.direction.y * cos(
-                rot_speed
+            self.direction = Vector(
+                self.direction.x * cos(rot_speed) - self.direction.y * sin(rot_speed),
+                old_dir_x * sin(rot_speed) + self.direction.y * cos(rot_speed),
             )
-            self.plane.x = self.plane.x * cos(rot_speed) - self.plane.y * sin(rot_speed)
-            self.plane.y = old_plane_x * sin(rot_speed) + self.plane.y * cos(rot_speed)
+            self.plane = Vector(
+                self.plane.x * cos(rot_speed) - self.plane.y * sin(rot_speed),
+                old_plane_x * sin(rot_speed) + self.plane.y * cos(rot_speed),
+            )
+
+            # Update sprite rotation to match new camera direction
+            if self.has_3d_sprite():
+                camera_direction_angle = atan2(self.direction.y, self.direction.x) + (
+                    pi / 2
+                )  # Face forward with orientation correction
+                self.set_3d_sprite_rotation(camera_direction_angle)
 
             game.input = INPUT_KEY_MAX
             self.just_started = False
@@ -1620,7 +1690,7 @@ class Player(Entity):
                 int(self.position.x), int(self.position.y)
             )
             == 3
-        ):  # Assuming TILE_TELEPORT = 3
+        ):
             # Switch to the next level or map
             if game.current_level is not None:
                 if game.current_level.name == "Tutorial":
@@ -1639,14 +1709,14 @@ class Player(Entity):
         Returns:
             None
         """
+        view_manager = self.free_roam_game.view_manager
         if not self.http:
             from picoware.system.http import HTTP
 
-            view_manager = self.free_roam_game.view_manager
             self.http = HTTP(thread_manager=view_manager.thread_manager)
 
         if self.http is None:
-            print("[USER_REQUEST] Failed to create HTTP instance.")
+            view_manager.log("[USER_REQUEST] Failed to create HTTP instance.", 2)
             if request_type == REQUEST_TYPE_LOGIN:
                 self.login_status = LOGIN_REQUEST_ERROR
             elif request_type == REQUEST_TYPE_REGISTRATION:
@@ -1659,7 +1729,7 @@ class Player(Entity):
         password = self.password
 
         if not user or not password:
-            print("Missing credentials for user request.")
+            view_manager.log("[USER_REQUEST] Missing credentials for user request.", 2)
             if request_type == REQUEST_TYPE_LOGIN:
                 self.login_status = LOGIN_CREDENTIALS_MISSING
             elif request_type == REQUEST_TYPE_REGISTRATION:
@@ -1685,7 +1755,7 @@ class Player(Entity):
                     payload,
                     headers=headers,
                 ):
-                    print("Login request failed to start.")
+                    view_manager.log("[USER_REQUEST] Login request failed to start.", 2)
                     self.login_status = LOGIN_REQUEST_ERROR
             elif request_type == REQUEST_TYPE_REGISTRATION:
                 if not self.http.post_async(
@@ -1693,21 +1763,25 @@ class Player(Entity):
                     payload,
                     headers=headers,
                 ):
-                    print("Registration request failed to start.")
+                    view_manager.log(
+                        "[USER_REQUEST] Registration request failed to start.", 2
+                    )
                     self.registration_status = REGISTRATION_REQUEST_ERROR
             elif request_type == REQUEST_TYPE_USER_INFO:
                 if not self.http.get_async(
                     f"https://www.jblanked.com/flipper/api/user/game-stats/{user}/",
                     headers=headers,
                 ):
-                    print("User info request failed to start.")
+                    view_manager.log(
+                        "[USER_REQUEST] User info request failed to start.", 2
+                    )
                     self.user_info_status = USER_INFO_REQUEST_ERROR
             else:
                 self.login_status = LOGIN_REQUEST_ERROR
                 self.registration_status = REGISTRATION_REQUEST_ERROR
                 self.user_info_status = USER_INFO_REQUEST_ERROR
         except Exception as e:
-            print(f"HTTP request error: {e}")
+            view_manager.log(f"[USER_REQUEST] HTTP request error: {e}", 2)
             if request_type == REQUEST_TYPE_LOGIN:
                 self.login_status = LOGIN_REQUEST_ERROR
             elif request_type == REQUEST_TYPE_REGISTRATION:

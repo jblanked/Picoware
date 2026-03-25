@@ -259,9 +259,52 @@ void Level::render(Game *game)
         }
     }
 
+    // Painter's algorithm (back-to-front) for third-person
+    int render_order[1024];
+    bool use_depth_order = (gameCamera->perspective == CAMERA_THIRD_PERSON && entity_count > 1 && entity_count <= 1024);
+    if (use_depth_order)
+    {
+        for (int i = 0; i < entity_count; i++)
+            render_order[i] = i;
+        // Insertion sort: furthest entities first so closer ones overdraw them
+        for (int i = 1; i < entity_count; i++)
+        {
+            int key_idx = render_order[i];
+            float key_dist = 0.0f;
+            if (entities[key_idx] != nullptr)
+            {
+                float dx = entities[key_idx]->position.x - gameCamera->position.x;
+                float dy = entities[key_idx]->position.y - gameCamera->position.y;
+                key_dist = dx * dx + dy * dy;
+            }
+            int j = i - 1;
+            while (j >= 0)
+            {
+                int cmp_idx = render_order[j];
+                float cmp_dist = 0.0f;
+                if (entities[cmp_idx] != nullptr)
+                {
+                    float dx = entities[cmp_idx]->position.x - gameCamera->position.x;
+                    float dy = entities[cmp_idx]->position.y - gameCamera->position.y;
+                    cmp_dist = dx * dx + dy * dy;
+                }
+                if (cmp_dist < key_dist)
+                {
+                    render_order[j + 1] = render_order[j];
+                    j--;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            render_order[j + 1] = key_idx;
+        }
+    }
+
     for (int i = 0; i < entity_count; i++)
     {
-        Entity *ent = entities[i];
+        Entity *ent = entities[use_depth_order ? render_order[i] : i];
 
         if (ent != nullptr && ent->is_active)
         {
@@ -399,7 +442,7 @@ void Level::render3DSprite(const Sprite3D *sprite3d, Draw *draw, Vector player_p
                 {
                     // Compute a lighter outline color from the fill color
                     uint8_t r = (uint8_t)((triangle.color >> 11) & 0x1F);
-                    uint8_t g = (uint8_t)((triangle.color >> 5)  & 0x3F);
+                    uint8_t g = (uint8_t)((triangle.color >> 5) & 0x3F);
                     uint8_t b = (uint8_t)(triangle.color & 0x1F);
                     r = r + ((0x1F - r) >> 1);
                     g = g + ((0x3F - g) >> 1);

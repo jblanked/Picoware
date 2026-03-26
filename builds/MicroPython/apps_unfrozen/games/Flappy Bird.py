@@ -752,8 +752,6 @@ def start(view_manager) -> bool:
     draw = view_manager.draw
     FLIPPER_LCD_WIDTH = draw.size.x
     FLIPPER_LCD_HEIGHT = draw.size.y
-    
-    print("creating game")
 
     # Create the game instance with its name, start/stop callbacks, and colors.
     game = Game(
@@ -763,31 +761,26 @@ def start(view_manager) -> bool:
         view_manager.input_manager,  # input manager
         0x0000,  # foreground color
         0xFFFF,  # background color
-        Camera(),  # camera context
+        None,  # camera context
         None,  # start
         None,  # Stop
     )
-    
-    print("creating level")
 
     # Create and add a level to the game.
     level = Level("Level", draw.size, game)
-    print("adding level")
+
     game.level_add(level)
-    print("player spawn")
+
     # Add the player entity to the level
     __player_spawn(level)
-    print("starting game engine")
+
     # Create the game engine (with 240 frames per second target).
     _game_engine = GameEngine(game, 240)
-    print("done")
     return _game_engine is not None
 
 
 def run(view_manager) -> None:
     """Run the app."""
-    if _game_engine:
-        _game_engine.run_async(False)
 
     input_manager = view_manager.input_manager
     button: int = input_manager.button
@@ -795,6 +788,9 @@ def run(view_manager) -> None:
     if button == BUTTON_BACK:
         input_manager.reset()
         view_manager.back()
+
+    if _game_engine:
+        _game_engine.run_async(False)
 
 
 def stop(view_manager) -> None:
@@ -813,25 +809,3 @@ def stop(view_manager) -> None:
         _game_state = None
 
     collect()
-
-from picoware.system.view_manager import ViewManager
-from picoware.system.view import View
-
-vm = None
-
-try:
-    vm = ViewManager()
-    vm.add(
-        View(
-            "app_tester",
-            run,
-            start,
-            stop,
-        )
-    )
-    vm.switch_to("app_tester")
-    while True:
-        vm.run()
-finally:
-    del vm
-    vm = None

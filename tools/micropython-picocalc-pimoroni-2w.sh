@@ -63,6 +63,9 @@ rm -rf "$micropython_dir"/modules/textbox
 # remove gameboy module if it exists
 rm -rf "$micropython_dir"/modules/gameboy
 
+# remove audio module if it exists
+rm -rf "$micropython_dir"/modules/audio
+
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"
@@ -138,6 +141,9 @@ cp -r "$picoware_dir"/src/MicroPython/textbox "$micropython_dir"/modules/textbox
 
 # copy gameboy module
 cp -r "$picoware_dir"/src/MicroPython/gameboy "$micropython_dir"/modules/gameboy
+
+# copy audio module
+cp -r "$picoware_dir"/src/MicroPython/audio "$micropython_dir"/modules/audio
 
 echo "Starting PicoCalc build process..."
 

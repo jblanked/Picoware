@@ -367,3 +367,17 @@ target_include_directories(usermod_gameboy INTERFACE
 )
 
 target_link_libraries(usermod INTERFACE usermod_gameboy) 
+
+# Include audio module
+add_library(usermod_audio INTERFACE)
+
+target_sources(usermod_audio INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../audio/audio_mp.c
+    ${CMAKE_CURRENT_LIST_DIR}/../audio/audio.c
+)
+
+target_include_directories(usermod_audio INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../audio
+)
+
+target_link_libraries(usermod INTERFACE usermod_audio) 

@@ -46,6 +46,13 @@ class System:
         return mem_free()
 
     @property
+    def has_audio(self) -> bool:
+        """Return True if the device has audio capabilities."""
+        from picoware_boards import BOARD_HAS_AUDIO
+
+        return BOARD_HAS_AUDIO == 1
+
+    @property
     def has_psram(self) -> bool:
         """Return True if the device has PSRAM capabilities."""
         from picoware_boards import BOARD_HAS_PSRAM

@@ -26,18 +26,21 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_SD 0    // no sd card
 #define BOARD_HAS_TOUCH 1 // has touch
 #define BOARD_HAS_WIFI 0  // no wifi
+#define BOARD_HAS_AUDIO 0 // no audio
 #elif defined(WAVESHARE_1_43)
 #define BOARD_ID BOARD_WAVESHARE_1_43_RP2350
 #define BOARD_HAS_PSRAM 0 // no psram
 #define BOARD_HAS_SD 1    // has sd card
 #define BOARD_HAS_TOUCH 1 // has touch
 #define BOARD_HAS_WIFI 0  // no wifi
+#define BOARD_HAS_AUDIO 0 // no audio
 #elif defined(WAVESHARE_3_49)
 #define BOARD_ID BOARD_WAVESHARE_3_49_RP2350
 #define BOARD_HAS_PSRAM 0 // no psram
 #define BOARD_HAS_SD 1    // has sd card
 #define BOARD_HAS_TOUCH 1 // has touch
 #define BOARD_HAS_WIFI 0  // no wifi
+#define BOARD_HAS_AUDIO 0 // no audio
 #elif defined(PIMORONI_PICO_PLUS2W_RP2350)
 // PicoCalc - Pimoroni 2 W
 #define BOARD_ID BOARD_PICOCALC_PIMORONI_2W
@@ -45,11 +48,13 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_SD 1    // has sd card
 #define BOARD_HAS_TOUCH 0 // no touch
 #define BOARD_HAS_WIFI 1  // has wifi
+#define BOARD_HAS_AUDIO 1 // has audio
 #elif defined CYW43_WL_GPIO_LED_PIN
 #define BOARD_HAS_PSRAM 1 // has psram
 #define BOARD_HAS_SD 1    // has sd card
 #define BOARD_HAS_TOUCH 0 // no touch
 #define BOARD_HAS_WIFI 1  // has wifi
+#define BOARD_HAS_AUDIO 1 // has audio
 #ifdef PICO_RP2040
 // PicoCalc - Pico W
 #define BOARD_ID BOARD_PICOCALC_PICOW
@@ -63,6 +68,7 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_SD 1    // has sd card
 #define BOARD_HAS_TOUCH 0 // no touch
 #define BOARD_HAS_WIFI 0  // no wifi
+#define BOARD_HAS_AUDIO 1 // has audio
 // PicoCalc - Pico
 #define BOARD_ID BOARD_PICOCALC_PICO
 #elif defined(PICO_RP2350)
@@ -80,4 +86,5 @@ mp_obj_t picoware_boards_has_psram(mp_obj_t board_id_obj);
 mp_obj_t picoware_boards_has_sd_card(mp_obj_t board_id_obj);
 mp_obj_t picoware_boards_has_touch(mp_obj_t board_id_obj);
 mp_obj_t picoware_boards_has_wifi(mp_obj_t board_id_obj);
+mp_obj_t picoware_boards_has_audio(mp_obj_t board_id_obj);
 mp_obj_t picoware_boards_is_circular(mp_obj_t board_id_obj);

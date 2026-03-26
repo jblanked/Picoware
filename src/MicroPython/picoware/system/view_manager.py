@@ -20,6 +20,7 @@ class ViewManager:
         from picoware.system.system import System
         from picoware.system.time import Time
         from picoware.system.thread import ThreadManager
+        from picoware.system.audio import Audio
         from picoware.system.log import Log, LOG_MODE_ALL, LOG_MODE_REPL
         from picoware.system.colors import TFT_BLUE, TFT_BLACK, TFT_WHITE
         from picoware.system.buttons import BUTTON_BACK
@@ -164,6 +165,11 @@ class ViewManager:
             LOG_MODE_ALL if __debug else LOG_MODE_REPL, "picoware/log.txt", True
         )
 
+        # Initialize audio
+        self._audio = None
+        if syst.has_audio:
+            self._audio = Audio()
+
         # Clear screen
         self.clear()
 
@@ -197,6 +203,9 @@ class ViewManager:
         if self._wifi is not None:
             del self._wifi
             self._wifi = None
+        if self._audio is not None:
+            del self._audio
+            self._audio = None
         if self._time:
             del self._time
             self._time = None
@@ -205,6 +214,11 @@ class ViewManager:
             self._thread_manager = None
 
         collect()
+
+    @property
+    def audio(self):
+        """Return the Audio instance."""
+        return self._audio
 
     @property
     def background_color(self):
@@ -256,6 +270,11 @@ class ViewManager:
     def gmt_offset(self):
         """Return the GMT offset in hours."""
         return self._gmt_offset
+
+    @property
+    def has_audio(self):
+        """Return whether the current board has audio capability."""
+        return self._audio is not None
 
     @property
     def has_psram(self):

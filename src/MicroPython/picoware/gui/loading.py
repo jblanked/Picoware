@@ -111,7 +111,7 @@ class Loading:
             self.time_start = ticks_ms()
 
         # Clear the screen
-        self.display.fill_screen(self.background_color)
+        self.display.erase()
 
         # Get screen center
         screen_size = self.display.size
@@ -135,13 +135,12 @@ class Loading:
             color = self.fade_color(self.spinner_color, opacity)
 
             # Draw line segment
-            self.vec_line.x, self.vec_line.y = x1, y1
-            self.vec_line_end.x, self.vec_line_end.y = x2, y2
-            self.display.line_custom(self.vec_line, self.vec_line_end, color)
+            self.display._line(x1, y1, x2, y2, color)
 
         # Draw text
-        self.display.text(
-            self.text_vec,
+        self.display._text(
+            self.text_vec.x,
+            self.text_vec.y,
             self.current_text,
             self.spinner_color,
         )
@@ -155,13 +154,17 @@ class Loading:
             else:
                 time_str = f"{int(seconds)} seconds"
             self.text_vec_2.x = (screen_size.x - len(time_str) * self.font_size_x) // 2
-            self.display.text(self.text_vec_2, time_str, self.spinner_color)
+            self.display._text(
+                self.text_vec_2.x, self.text_vec_2.y, time_str, self.spinner_color
+            )
         else:
             minutes = seconds / 60
             remaining_seconds = seconds % 60
             time_str = f"{int(minutes)}:{int(remaining_seconds):02} minutes"
             self.text_vec_2.x = (screen_size.x - len(time_str) * self.font_size_x) // 2
-            self.display.text(self.text_vec_2, time_str, self.spinner_color)
+            self.display._text(
+                self.text_vec_2.x, self.text_vec_2.y, time_str, self.spinner_color
+            )
 
         self.time_elapsed = ticks_ms() - self.time_start
         self.spinner_position = (self.spinner_position + 10) % 360

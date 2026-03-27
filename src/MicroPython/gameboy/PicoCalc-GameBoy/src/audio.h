@@ -10,17 +10,14 @@ typedef enum
     AUDIO_CMD_INVALID
 } audio_commands_e;
 
-extern int16_t *stream;
-
-/* Init: allocate stream, set up I2S hardware, init APU emulator state.
- * Must be called with GIL held (uses m_malloc). */
+// Init: allocate stream, set up I2S hardware, init APU emulator state.
 void audio_init_thread(void);
 
 /* Dispatch one command from the inter-core FIFO. */
 void audio_handle_cmd(uint32_t raw_cmd);
 
-/* Send a command to the core1 audio loop (safe from core0; not FIFO-based). */
+/* Send a command to the core1 audio loop via multicore FIFO. */
 void audio_send_cmd(uint32_t cmd);
 
-/* Bare-metal SDK entry point: calls audio_init_thread then blocks on the queue. */
+/* Core1 entry point: blocks on multicore FIFO and dispatches audio commands. */
 void audio_process_gb(void);

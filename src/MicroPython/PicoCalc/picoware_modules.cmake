@@ -358,11 +358,16 @@ target_sources(usermod_gameboy INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/../gameboy/PicoCalc-GameBoy/src/rom.c
     ${CMAKE_CURRENT_LIST_DIR}/../gameboy/PicoCalc-GameBoy/src/state.c
     ${CMAKE_CURRENT_LIST_DIR}/../gameboy/PicoCalc-GameBoy/src/ram_cart.c
+    ${CMAKE_CURRENT_LIST_DIR}/../gameboy/PicoCalc-GameBoy/src/audio.c
+    ${CMAKE_CURRENT_LIST_DIR}/../gameboy/PicoCalc-GameBoy/ext/minigb_apu/minigb_apu.c
+    ${CMAKE_CURRENT_LIST_DIR}/../gameboy/PicoCalc-GameBoy/ext/PicoAudio/audio.c
 )
 
 target_include_directories(usermod_gameboy INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/../gameboy
     ${CMAKE_CURRENT_LIST_DIR}/../gameboy/PicoCalc-GameBoy/src
+    ${CMAKE_CURRENT_LIST_DIR}/../gameboy/PicoCalc-GameBoy/ext/minigb_apu
+    ${CMAKE_CURRENT_LIST_DIR}/../gameboy/PicoCalc-GameBoy/ext/PicoAudio
     ${CMAKE_CURRENT_LIST_DIR}/../gameboy/PicoCalc-GameBoy/ext/Walnut-CGB
 )
 

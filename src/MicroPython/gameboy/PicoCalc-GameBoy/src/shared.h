@@ -9,7 +9,7 @@ typedef uint16_t palette_t[3][4];
 #endif
 
 #if ENABLE_SOUND
-#include "minigb_apu.h"
+#include "../ext/minigb_apu/minigb_apu.h"
 extern struct minigb_apu_ctx apu_ctx;
 #undef audio_read
 #undef audio_write

@@ -8,6 +8,8 @@
 #include "PicoCalc-GameBoy/src/rom.h"
 #include "PicoCalc-GameBoy/src/gb.h"
 #include "PicoCalc-GameBoy/src/gbcolors.h"
+#include "PicoCalc-GameBoy/src/audio.h"
+#include <pico/multicore.h>
 
 #define WALNUT_GB_HEADER_ONLY
 #ifndef WALNUT_GB_H
@@ -16,10 +18,15 @@
 
 #define GB_FRAME_TIME_US 16742U /* 1,000,000 / 59.7275 Hz — microseconds per Game Boy frame */
 
+#if ENABLE_SOUND
+struct minigb_apu_ctx apu_ctx = {0}; // Game Boy APU context
+#endif
 uint8_t pixels_buffer[FRAME_BUFF_WIDTH] = {0}; // Line buffer for rendering Game Boy LCD output (RGB332, 1 byte per pixel)
 palette_t palette;                             // Current color palette
 uint8_t manual_palette_selected = 0;           // Index of manually selected palette
-int lcd_line_busy = 0;                         // Flag for LCD line rendering status
+
+#define AUDIO_CORE1_STACK_SIZE 1024 * 8
+static uint32_t audio_core1_stack[AUDIO_CORE1_STACK_SIZE / sizeof(uint32_t)];
 
 const mp_obj_type_t gameboy_mp_type;
 
@@ -194,9 +201,9 @@ mp_obj_t gameboy_mp_run(mp_obj_t self_in, mp_obj_t button_pressed)
     {
 #if ENABLE_SOUND
         if (!gb->direct.joypad_bits.up && self->prev_joypad_bits->up)
-            multicore_fifo_push_blocking((uint32_t)AUDIO_CMD_VOLUME_UP);
+            audio_send_cmd((uint32_t)AUDIO_CMD_VOLUME_UP);
         if (!gb->direct.joypad_bits.down && self->prev_joypad_bits->down)
-            multicore_fifo_push_blocking((uint32_t)AUDIO_CMD_VOLUME_DOWN);
+            audio_send_cmd((uint32_t)AUDIO_CMD_VOLUME_DOWN);
 #endif
         if (!gb->direct.joypad_bits.right && self->prev_joypad_bits->right)
         {
@@ -246,7 +253,13 @@ mp_obj_t gameboy_mp_run(mp_obj_t self_in, mp_obj_t button_pressed)
     void (*saved_draw)(struct gb_s *, const uint8_t *, const uint_fast8_t) = gb->display.lcd_draw_line;
     gb->display.lcd_draw_line = NULL; /* suppress PSRAM writes for catch-up frames */
     for (int i = 0; i < n_frames - 1; i++)
+    {
         gb_run_frame_dualfetch(gb);
+#if ENABLE_SOUND
+        if (!gb->direct.frame_skip)
+            audio_send_cmd((uint32_t)AUDIO_CMD_PLAYBACK);
+#endif
+    }
     gb->display.lcd_draw_line = saved_draw;
 
     /* Final frame: render to PSRAM framebuffer, then push to LCD */
@@ -254,7 +267,7 @@ mp_obj_t gameboy_mp_run(mp_obj_t self_in, mp_obj_t button_pressed)
 
 #if ENABLE_SOUND
     if (!gb->direct.frame_skip)
-        multicore_fifo_push_blocking((uint32_t)AUDIO_CMD_PLAYBACK);
+        audio_send_cmd((uint32_t)AUDIO_CMD_PLAYBACK);
 #endif
 
     lcd_swap_gb();
@@ -269,12 +282,12 @@ mp_obj_t gameboy_mp_start(size_t n_args, const mp_obj_t *args)
     const char *rom_path = mp_obj_str_get_str(args[1]);
     self->rom_path = rom_path;
     self->running = true;
-    self->gb_context = m_malloc(sizeof(struct gb_s)); // Allocate memory for the Emulator Context
+    self->gb_context = (struct gb_s *)m_malloc(sizeof(struct gb_s)); // Allocate memory for the Emulator Context
     if (self->gb_context == NULL)
     {
         mp_raise_TypeError(MP_ERROR_TEXT("Failed to allocate memory for Emulator Context"));
     }
-    self->prev_joypad_bits = m_malloc(sizeof(prev_joypad_bits_t)); // Allocate memory for previous joypad state
+    self->prev_joypad_bits = (prev_joypad_bits_t *)m_malloc(sizeof(prev_joypad_bits_t)); // Allocate memory for previous joypad state
     if (self->prev_joypad_bits == NULL)
     {
         m_free(self->gb_context); // Free previously allocated Emulator Context memory
@@ -300,6 +313,12 @@ mp_obj_t gameboy_mp_start(size_t n_args, const mp_obj_t *args)
     struct gb_s *gb = (struct gb_s *)self->gb_context;
 
     load_cart_rom_file((char *)rom_path);
+
+#if ENABLE_SOUND
+    audio_init_thread(); // allocate stream + init I2S + APU on core0 (safe for m_malloc)
+    multicore_reset_core1();
+    multicore_launch_core1_with_stack(audio_process_gb, audio_core1_stack, AUDIO_CORE1_STACK_SIZE);
+#endif
 
 #ifdef LCD_CLEAR
     LCD_CLEAR();
@@ -358,6 +377,9 @@ mp_obj_t gameboy_mp_stop(mp_obj_t self_in)
         return mp_const_none; // Not running, do nothing
     }
     self->running = false;
+#if ENABLE_SOUND
+    multicore_reset_core1(); // stop audio loop on core1
+#endif
     struct gb_s *gb = (struct gb_s *)self->gb_context;
     write_cart_ram_file(gb);
     write_gb_emulator_state(gb);

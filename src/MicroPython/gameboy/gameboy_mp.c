@@ -25,8 +25,8 @@ uint8_t pixels_buffer[FRAME_BUFF_WIDTH] = {0}; // Line buffer for rendering Game
 palette_t palette;                             // Current color palette
 uint8_t manual_palette_selected = 0;           // Index of manually selected palette
 
-#define AUDIO_CORE1_STACK_SIZE 1024 * 8
-static uint32_t audio_core1_stack[AUDIO_CORE1_STACK_SIZE / sizeof(uint32_t)];
+#define AUDIO_CORE1_STACK_SIZE 1024 * 2
+uint32_t audio_core1_stack[AUDIO_CORE1_STACK_SIZE];
 
 const mp_obj_type_t gameboy_mp_type;
 
@@ -315,7 +315,7 @@ mp_obj_t gameboy_mp_start(size_t n_args, const mp_obj_t *args)
     load_cart_rom_file((char *)rom_path);
 
 #if ENABLE_SOUND
-    audio_init_thread(); // allocate stream + init I2S + APU on core0 (safe for m_malloc)
+    audio_init_thread(); // allocate stream + init I2S + APU on core0
     multicore_reset_core1();
     multicore_launch_core1_with_stack(audio_process_gb, audio_core1_stack, AUDIO_CORE1_STACK_SIZE);
 #endif

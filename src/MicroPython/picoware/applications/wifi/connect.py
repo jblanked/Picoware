@@ -72,7 +72,7 @@ def start(view_manager) -> bool:
     _ssid = load_wifi_ssid(view_manager)
     _password = load_wifi_password(view_manager)
 
-    if not _ssid or not _password:
+    if not _ssid:
         view_manager.alert(
             "No saved WiFi credentials found.\nPlease set up WiFi in the Settings app.",
         )

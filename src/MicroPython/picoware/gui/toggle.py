@@ -92,8 +92,11 @@ class Toggle:
 
     def __del__(self):
         if self._lvgl_toggle is not None:
+            from picoware_lvgl import deinit
+
             del self._lvgl_toggle
             self._lvgl_toggle = None
+            deinit()
 
         if self.position:
             del self.position

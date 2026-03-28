@@ -74,8 +74,11 @@ class Choice:
 
     def __del__(self):
         if self._lvgl_choice is not None:
+            from picoware_lvgl import deinit
+
             del self._lvgl_choice
             self._lvgl_choice = None
+            deinit()
 
         if self.position:
             del self.position

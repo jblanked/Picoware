@@ -90,8 +90,11 @@ class List:
     def __del__(self):
         """Destructor to clean up resources"""
         if self._lvgl_list is not None:
+            from picoware_lvgl import deinit
+
             del self._lvgl_list
             self._lvgl_list = None
+            deinit()
             self.items = []
             return
 

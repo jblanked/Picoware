@@ -32,9 +32,8 @@ class TextBox(textbox.TextBox):
         # LVGL path
         if self.use_lvgl:
             try:
-                from picoware_lvgl import init, task_handler, TextBox as LVGLTextBox
+                from picoware_lvgl import init, TextBox as LVGLTextBox
 
-                task_handler()
                 init()
 
                 class LVGLTextBoxWrapper(LVGLTextBox):
@@ -54,12 +53,11 @@ class TextBox(textbox.TextBox):
 
     def __del__(self):
         if self._lvgl_textbox is not None:
-            from picoware_lvgl import tick, task_handler
+            from picoware_lvgl import deinit
 
-            tick(5)
-            task_handler()
             del self._lvgl_textbox
             self._lvgl_textbox = None
+            deinit()
 
     def __setattr__(self, name, value):
         if name == "text":

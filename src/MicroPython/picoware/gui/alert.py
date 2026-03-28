@@ -45,8 +45,11 @@ class Alert:
 
     def __del__(self):
         if self._lvgl_alert is not None:
+            from picoware_lvgl import deinit
+
             del self._lvgl_alert
             self._lvgl_alert = None
+            deinit()
         self._text = ""
         self.text_color = 0
         self.background_color = 0

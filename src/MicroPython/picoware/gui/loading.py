@@ -69,8 +69,11 @@ class Loading:
 
     def __del__(self) -> None:
         if self._lvgl_loading is not None:
+            from picoware_lvgl import deinit
+
             del self._lvgl_loading
             self._lvgl_loading = None
+            deinit()
         self.current_text = ""
         self.animating = False
         self.time_elapsed = 0

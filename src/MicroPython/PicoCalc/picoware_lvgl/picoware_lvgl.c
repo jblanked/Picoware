@@ -8,6 +8,8 @@
 #include "picoware_lvgl_textbox.h"
 #include "picoware_lvgl_toggle.h"
 
+#include "lvgl/src/core/lv_global.h"
+
 // LVGL Display buffer - 16-bit RGB565
 lv_display_t *lvgl_display = NULL;
 static lv_color_t draw_buf[DISPLAY_WIDTH * 10] __attribute__((aligned(4)));
@@ -56,18 +58,12 @@ static void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px
 // deinit
 mp_obj_t picoware_lvgl_deinit(void)
 {
-    if (lvgl_initialized)
+    if (lvgl_initialized || LV_GLOBAL_DEFAULT()->inited)
     {
-        lv_clear_screen(false);
+        LV_GLOBAL_DEFAULT()->inited = false;
+        LV_GLOBAL_DEFAULT()->deinit_in_progress = false;
 
-        if (lvgl_display)
-        {
-            lv_display_delete(lvgl_display);
-            lvgl_display = NULL;
-        }
-
-        lv_deinit();
-
+        lvgl_display = NULL;
         lvgl_initialized = false;
     }
     return mp_const_none;
@@ -77,9 +73,12 @@ static MP_DEFINE_CONST_FUN_OBJ_0(picoware_lvgl_deinit_obj, picoware_lvgl_deinit)
 // Module init function
 mp_obj_t picoware_lvgl_init(void)
 {
-    if (lvgl_initialized)
+    if (lvgl_initialized || LV_GLOBAL_DEFAULT()->inited)
     {
-        return mp_const_none;
+        LV_GLOBAL_DEFAULT()->inited = false;
+        LV_GLOBAL_DEFAULT()->deinit_in_progress = false;
+        lvgl_display = NULL;
+        lvgl_initialized = false;
     }
 
     // Initialize LVGL
@@ -91,6 +90,7 @@ mp_obj_t picoware_lvgl_init(void)
     {
         mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("Failed to create LVGL display"));
     }
+
     lv_display_set_color_format(lvgl_display, LV_COLOR_FORMAT_RGB565);
     lv_display_set_flush_cb(lvgl_display, lvgl_flush_cb);
     lv_display_set_buffers(lvgl_display, draw_buf, NULL, sizeof(draw_buf), LV_DISPLAY_RENDER_MODE_PARTIAL);

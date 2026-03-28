@@ -147,7 +147,7 @@ mp_obj_t picoware_lvgl_choice_make_new(const mp_obj_type_t *type, size_t n_args,
         lv_obj_set_style_border_color(self->dropdown, lv_color_from_rgb565(self->foreground_color_565), LV_PART_MAIN);
         lv_obj_add_flag(self->dropdown, LV_OBJ_FLAG_HIDDEN);
     }
-
+    self->freed = false;
     return MP_OBJ_FROM_PTR(self);
 }
 
@@ -155,7 +155,10 @@ mp_obj_t picoware_lvgl_choice_make_new(const mp_obj_type_t *type, size_t n_args,
 mp_obj_t picoware_lvgl_choice_del(mp_obj_t self_in)
 {
     picoware_lvgl_choice_obj_t *self = MP_OBJ_TO_PTR(self_in);
-
+    if (self->freed)
+    {
+        return mp_const_none;
+    }
     // Clean up LVGL objects
     if (lvgl_display)
     {
@@ -173,7 +176,7 @@ mp_obj_t picoware_lvgl_choice_del(mp_obj_t self_in)
 
     // Clear screen
     lv_clear_screen(true);
-
+    self->freed = true;
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(picoware_lvgl_choice_del_obj, picoware_lvgl_choice_del);

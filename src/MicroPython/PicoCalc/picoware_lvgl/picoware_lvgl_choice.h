@@ -31,6 +31,7 @@ extern "C"
         lv_obj_t *screen;
         lv_obj_t *title_label;
         lv_obj_t *dropdown;
+        bool freed;
     } picoware_lvgl_choice_obj_t;
 
     extern const mp_obj_type_t picoware_lvgl_choice_type;

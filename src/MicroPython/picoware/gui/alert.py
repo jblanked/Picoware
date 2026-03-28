@@ -18,7 +18,7 @@ class Alert:
         self.is_circular = syst.is_circular
 
         self.display = draw
-        self.text = text
+        self._text = text
         self.text_color = text_color
         self.background_color = background_color
         self.use_lvgl = draw.use_lvgl
@@ -31,19 +31,39 @@ class Alert:
 
                 init()
 
+                class LVGLAlertWrapper(LVGLAlert):
+                    def __setattr__(self, name, value):
+                        if name == "text":
+                            self.set_text(value)
+                        else:
+                            super().__setattr__(name, value)
+
                 # Create LVGL Alert instance
-                self._lvgl_alert = LVGLAlert(text, text_color, background_color)
+                self._lvgl_alert = LVGLAlertWrapper(text, text_color, background_color)
             except (ImportError, RuntimeError, ValueError):
                 self.use_lvgl = False
 
     def __del__(self):
         if self._lvgl_alert is not None:
-            self._lvgl_alert.deinit()
             del self._lvgl_alert
             self._lvgl_alert = None
-        self.text = ""
+        self._text = ""
         self.text_color = 0
         self.background_color = 0
+
+    @property
+    def text(self) -> str:
+        """Get the current alert text."""
+        if self._lvgl_alert is not None:
+            return self._lvgl_alert.text
+        return self._text
+
+    @text.setter
+    def text(self, value: str) -> None:
+        """Set the alert text."""
+        self._text = value
+        if self._lvgl_alert is not None:
+            self._lvgl_alert.text = value
 
     def clear(self) -> None:
         """Clear the display with the background color."""
@@ -98,9 +118,9 @@ class Alert:
 
             # Wrap text manually based on character count
             line: int = 0
-            if len(self.text) > 400:
-                self.text = self.text[-400:]
-            words = self.text.split()
+            if len(self._text) > 400:
+                self._text = self._text[-400:]
+            words = self._text.split()
             current_line = ""
 
             text_vector = Vector(0, text_start_y)
@@ -160,9 +180,9 @@ class Alert:
             # Wrap text manually based on character count
             line: int = 0
             # max/last/most-recent 400 characters only
-            if len(self.text) > 400:
-                self.text = self.text[-400:]
-            words = self.text.split()
+            if len(self._text) > 400:
+                self._text = self._text[-400:]
+            words = self._text.split()
             current_line = ""
 
             text_vector = Vector(text_start_x, text_start_y)

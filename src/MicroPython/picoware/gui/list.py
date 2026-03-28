@@ -36,8 +36,11 @@ class List:
 
                 init()
 
+                class LVGLListWrapper(LVGLList):
+                    pass
+
                 # Create LVGL List instance
-                self._lvgl_list = LVGLList(
+                self._lvgl_list = LVGLListWrapper(
                     y,
                     height,
                     text_color,
@@ -87,7 +90,6 @@ class List:
     def __del__(self):
         """Destructor to clean up resources"""
         if self._lvgl_list is not None:
-            self._lvgl_list.deinit()
             del self._lvgl_list
             self._lvgl_list = None
             self.items = []

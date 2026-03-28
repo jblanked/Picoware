@@ -36,7 +36,17 @@ class TextBox(textbox.TextBox):
 
                 task_handler()
                 init()
-                self._lvgl_textbox = LVGLTextBox(
+
+                class LVGLTextBoxWrapper(LVGLTextBox):
+                    def __setattr__(self, name, value):
+                        if name == "text":
+                            self.set_text(value)
+                        elif name == "current_line":
+                            self.set_current_line(value)
+                        else:
+                            super().__setattr__(name, value)
+
+                self._lvgl_textbox = LVGLTextBoxWrapper(
                     y, height, foreground_color, background_color, show_scrollbar
                 )
             except (ImportError, RuntimeError, ValueError):
@@ -47,7 +57,6 @@ class TextBox(textbox.TextBox):
             from picoware_lvgl import tick, task_handler
 
             tick(5)
-            self._lvgl_textbox.deinit()
             task_handler()
             del self._lvgl_textbox
             self._lvgl_textbox = None

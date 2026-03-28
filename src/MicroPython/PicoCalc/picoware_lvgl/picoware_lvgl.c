@@ -1,15 +1,4 @@
-#include "py/runtime.h"
-#include "py/obj.h"
-#include "py/objarray.h"
-#include "py/mphal.h"
-#include "stdio.h"
-#include <stdlib.h>
-#include <string.h>
-#include <stdbool.h>
-
-#include "picoware_psram_shared.h"
 #include "picoware_lvgl.h"
-#include "../picoware_lcd/picoware_lcd.h"
 
 // GUIs
 #include "picoware_lvgl_alert.h"
@@ -21,11 +10,10 @@
 
 // LVGL Display buffer - 16-bit RGB565
 lv_display_t *lvgl_display = NULL;
-static lv_color_t draw_buf[DISPLAY_WIDTH * 10] __attribute__((aligned(64)));
+static lv_color_t draw_buf[DISPLAY_WIDTH * 10] __attribute__((aligned(4)));
 
 // Module state
 static bool lvgl_initialized = false;
-static psram_qspi_inst_t *psram_inst = NULL;
 
 void lv_clear_screen(bool use_object)
 {
@@ -46,33 +34,27 @@ mp_obj_t picoware_lvgl_clear_screen(mp_obj_t use_object)
     lv_clear_screen(use_obj);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(picoware_lvgl_clear_screen_obj, picoware_lvgl_clear_screen);
+static MP_DEFINE_CONST_FUN_OBJ_1(picoware_lvgl_clear_screen_obj, picoware_lvgl_clear_screen);
 
 // flush callback
 static void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
 {
-    if (!psram_inst)
-    {
-        lv_display_flush_ready(disp);
-        return;
-    }
-
     int32_t width = area->x2 - area->x1 + 1;
     int32_t height = area->y2 - area->y1 + 1;
-    uint16_t *color_p = (uint16_t *)px_map;
 
     // batch write
-    picoware_write_buffer_fb_16(psram_inst, area->x1, area->y1, width, height, color_p);
+    uint16_t *color_p = (uint16_t *)px_map;
+    LCD_MP_BLIT_16BIT(area->x1, area->y1, width, height, color_p);
 
     // send to display
-    picoware_lcd_swap_region(area->x1, area->y1, width, height);
+    LCD_MP_SWAP_REGION(area->x1, area->y1, width, height);
 
     // inform LVGL that flushing is done
     lv_display_flush_ready(disp);
 }
 
 // deinit
-STATIC mp_obj_t picoware_lvgl_deinit(void)
+mp_obj_t picoware_lvgl_deinit(void)
 {
     if (lvgl_initialized)
     {
@@ -90,21 +72,14 @@ STATIC mp_obj_t picoware_lvgl_deinit(void)
     }
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(picoware_lvgl_deinit_obj, picoware_lvgl_deinit);
+static MP_DEFINE_CONST_FUN_OBJ_0(picoware_lvgl_deinit_obj, picoware_lvgl_deinit);
 
 // Module init function
-STATIC mp_obj_t picoware_lvgl_init(void)
+mp_obj_t picoware_lvgl_init(void)
 {
     if (lvgl_initialized)
     {
         return mp_const_none;
-    }
-
-    // Get PSRAM instance
-    psram_inst = picoware_get_psram_instance();
-    if (!psram_inst)
-    {
-        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("Failed to get PSRAM instance"));
     }
 
     // Initialize LVGL
@@ -123,19 +98,19 @@ STATIC mp_obj_t picoware_lvgl_init(void)
     lvgl_initialized = true;
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(picoware_lvgl_init_obj, picoware_lvgl_init);
+static MP_DEFINE_CONST_FUN_OBJ_0(picoware_lvgl_init_obj, picoware_lvgl_init);
 
 // Module tick function
-STATIC mp_obj_t picoware_lvgl_tick(mp_obj_t ms_in)
+mp_obj_t picoware_lvgl_tick(mp_obj_t ms_in)
 {
     uint32_t ms = mp_obj_get_int(ms_in);
     lv_tick_inc(ms);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(picoware_lvgl_tick_obj, picoware_lvgl_tick);
+static MP_DEFINE_CONST_FUN_OBJ_1(picoware_lvgl_tick_obj, picoware_lvgl_tick);
 
 // Module task handler
-STATIC mp_obj_t picoware_lvgl_task_handler(void)
+mp_obj_t picoware_lvgl_task_handler(void)
 {
     if (lvgl_initialized)
     {
@@ -143,9 +118,9 @@ STATIC mp_obj_t picoware_lvgl_task_handler(void)
     }
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(picoware_lvgl_task_handler_obj, picoware_lvgl_task_handler);
+static MP_DEFINE_CONST_FUN_OBJ_0(picoware_lvgl_task_handler_obj, picoware_lvgl_task_handler);
 
-STATIC const mp_rom_map_elem_t picoware_lvgl_module_globals_table[] = {
+static const mp_rom_map_elem_t picoware_lvgl_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_picoware_lvgl)},
     {MP_ROM_QSTR(MP_QSTR_deinit), MP_ROM_PTR(&picoware_lvgl_deinit_obj)},
     {MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&picoware_lvgl_init_obj)},
@@ -159,7 +134,7 @@ STATIC const mp_rom_map_elem_t picoware_lvgl_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_TextBox), MP_ROM_PTR(&picoware_lvgl_textbox_type)},
     {MP_ROM_QSTR(MP_QSTR_Toggle), MP_ROM_PTR(&picoware_lvgl_toggle_type)},
 };
-STATIC MP_DEFINE_CONST_DICT(picoware_lvgl_module_globals, picoware_lvgl_module_globals_table);
+static MP_DEFINE_CONST_DICT(picoware_lvgl_module_globals, picoware_lvgl_module_globals_table);
 
 const mp_obj_module_t picoware_lvgl_user_cmodule = {
     .base = {&mp_type_module},

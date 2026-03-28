@@ -48,8 +48,15 @@ class Choice:
 
                 init()
 
+                class LVGLChoiceWrapper(LVGLChoice):
+                    def __setattr__(self, name, value):
+                        if name == "state":
+                            self.set_state(value)
+                        else:
+                            super().__setattr__(name, value)
+
                 # Create LVGL Choice instance
-                self._lvgl_choice = LVGLChoice(
+                self._lvgl_choice = LVGLChoiceWrapper(
                     draw,
                     (position.x, position.y),
                     (size.x, size.y),
@@ -67,7 +74,6 @@ class Choice:
 
     def __del__(self):
         if self._lvgl_choice is not None:
-            self._lvgl_choice.deinit()
             del self._lvgl_choice
             self._lvgl_choice = None
 

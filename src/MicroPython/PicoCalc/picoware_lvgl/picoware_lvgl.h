@@ -1,9 +1,16 @@
 /*
- * Picoware LVGL Header
- * Copyright © 2026 JBlanked
- */
+Author: JBlanked
+License: GPL-3.0 License
+Source: https://github.com/jblanked/Picoware
+*/
 
 #pragma once
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 #include "py/runtime.h"
 #include "py/obj.h"
 #include "py/objarray.h"
@@ -19,9 +26,13 @@
 #include "lv_conf.h"
 #include "lvgl/lvgl.h"
 
-#ifndef STATIC
-#define STATIC static
+#if defined(PICOCALC)
+#include "../../lcd/lcd_config.h"
+#else
+#include "../../../lcd/lcd_config.h"
 #endif
+
+#include LCD_INCLUDE
 
 #ifndef DISPLAY_WIDTH
 #define DISPLAY_WIDTH 320
@@ -52,11 +63,27 @@
 // convert uint16_t color to lv_color_t
 #define lv_color_from_rgb565(c) lv_color_make(((c) >> 8) & 0xF8, ((c) >> 3) & 0xFC, ((c) << 3) & 0xF8)
 
-// LVGL Display buffer - 16-bit RGB565
-extern lv_display_t *lvgl_display;
-
 #define LVGL_BACKGROUND_COLOR 0x0000
 
-// clear the screen with specified color
-extern void lv_clear_screen(bool use_object);
-extern mp_obj_t picoware_lvgl_clear_screen(mp_obj_t use_object);
+    // LVGL Display buffer - 16-bit RGB565
+    extern lv_display_t *lvgl_display;
+
+    // clear the screen with specified color
+    void lv_clear_screen(bool use_object);
+    mp_obj_t picoware_lvgl_clear_screen(mp_obj_t use_object);
+
+    // deinit
+    mp_obj_t picoware_lvgl_deinit(void);
+
+    // Module init function
+    mp_obj_t picoware_lvgl_init(void);
+
+    // Module tick function
+    mp_obj_t picoware_lvgl_tick(mp_obj_t ms_in);
+
+    // Module task handler
+    mp_obj_t picoware_lvgl_task_handler(void);
+
+#ifdef __cplusplus
+}
+#endif

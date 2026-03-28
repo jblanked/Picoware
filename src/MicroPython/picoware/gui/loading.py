@@ -53,8 +53,15 @@ class Loading:
 
                 init()
 
+                class LVGLLoadingWrapper(LVGLLoading):
+                    def __setattr__(self, name, value):
+                        if name == "text":
+                            self.set_text(value)
+                        else:
+                            super().__setattr__(name, value)
+
                 # Create LVGL Loading instance
-                self._lvgl_loading = LVGLLoading(spinner_color, background_color)
+                self._lvgl_loading = LVGLLoadingWrapper(spinner_color, background_color)
                 # Set initial text
                 self._lvgl_loading.set_text(self.current_text)
             except (ImportError, RuntimeError, ValueError):
@@ -62,7 +69,6 @@ class Loading:
 
     def __del__(self) -> None:
         if self._lvgl_loading is not None:
-            self._lvgl_loading.deinit()
             del self._lvgl_loading
             self._lvgl_loading = None
         self.current_text = ""
@@ -80,6 +86,8 @@ class Loading:
     @property
     def text(self) -> str:
         """Get the current loading text."""
+        if self.use_lvgl and self._lvgl_loading is not None:
+            return self._lvgl_loading.text
         return self.current_text
 
     @text.setter

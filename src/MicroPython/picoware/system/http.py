@@ -1021,6 +1021,8 @@ class HTTP:
                 # Use ThreadManager
                 from picoware.system.thread import ThreadTask
 
+                _stack_size = 32 * 1024
+
                 task = ThreadTask(
                     "HTTP",
                     function=self.__execute_request,
@@ -1034,7 +1036,11 @@ class HTTP:
                         storage,
                     ),
                     timeout=timeout,
-                    stack_size=32 * 1024,  # 32KB stack size for HTTP tasks
+                    stack_size=(
+                        _stack_size
+                        if self._chunk_size < _stack_size
+                        else self._chunk_size + 16 * 1024
+                    ),
                 )
                 self._current_task = task
                 self._thread_manager.add_task(task)

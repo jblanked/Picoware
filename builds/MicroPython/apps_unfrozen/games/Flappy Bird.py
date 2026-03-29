@@ -745,6 +745,7 @@ def start(view_manager) -> bool:
     from picoware.engine.game import Game
     from picoware.engine.level import Level
     from picoware.engine.engine import GameEngine
+    from picoware.engine.camera import Camera
 
     global _game_engine, FLIPPER_LCD_WIDTH, FLIPPER_LCD_HEIGHT
 
@@ -767,6 +768,7 @@ def start(view_manager) -> bool:
 
     # Create and add a level to the game.
     level = Level("Level", draw.size, game)
+
     game.level_add(level)
 
     # Add the player entity to the level
@@ -774,14 +776,11 @@ def start(view_manager) -> bool:
 
     # Create the game engine (with 240 frames per second target).
     _game_engine = GameEngine(game, 240)
-
     return _game_engine is not None
 
 
 def run(view_manager) -> None:
     """Run the app."""
-    if _game_engine:
-        _game_engine.run_async(False)
 
     input_manager = view_manager.input_manager
     button: int = input_manager.button
@@ -789,6 +788,9 @@ def run(view_manager) -> None:
     if button == BUTTON_BACK:
         input_manager.reset()
         view_manager.back()
+
+    if _game_engine:
+        _game_engine.run_async(False)
 
 
 def stop(view_manager) -> None:

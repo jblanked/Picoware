@@ -76,30 +76,56 @@ void game_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t ki
 static void game_start_trampoline(void *ctx)
 {
     game_mp_obj_t *self = static_cast<game_mp_obj_t *>(ctx);
-    mp_call_function_1(self->start, MP_OBJ_FROM_PTR(self));
+
+    if (self->start == MP_OBJ_NULL || self->start == mp_const_none)
+        return;
+
+    if (mp_obj_is_type(self->start, &mp_type_bound_meth))
+    {
+        mp_call_function_n_kw(self->start, 0, 0, nullptr);
+    }
+    else
+    {
+        mp_obj_t call_args[1] = {MP_OBJ_FROM_PTR(self)};
+        mp_call_function_n_kw(self->start, 1, 0, call_args);
+    }
 }
+
 static void game_stop_trampoline(void *ctx)
 {
     game_mp_obj_t *self = static_cast<game_mp_obj_t *>(ctx);
-    mp_call_function_1(self->stop, MP_OBJ_FROM_PTR(self));
+
+    if (self->stop == MP_OBJ_NULL || self->stop == mp_const_none)
+        return;
+
+    if (mp_obj_is_type(self->stop, &mp_type_bound_meth))
+    {
+        mp_call_function_n_kw(self->stop, 0, 0, nullptr);
+    }
+    else
+    {
+        mp_obj_t call_args[1] = {MP_OBJ_FROM_PTR(self)};
+        mp_call_function_n_kw(self->stop, 1, 0, call_args);
+    }
 }
+
 static void game_update_trampoline(void *ctx)
 {
     game_mp_obj_t *self = static_cast<game_mp_obj_t *>(ctx);
-    mp_call_function_0(self->update);
-}
-mp_obj_t game_mp_set_update(mp_obj_t self_in, mp_obj_t update_in)
-{
-    game_mp_obj_t *self = static_cast<game_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
-    if (mp_obj_is_callable(update_in))
+
+    if (self->update == MP_OBJ_NULL || self->update == mp_const_none)
+        return;
+
+    if (mp_obj_is_type(self->update, &mp_type_bound_meth))
     {
-        self->update = update_in;
-        Game *ctx = game_get_context(self);
-        ctx->_update = {game_update_trampoline, self};
+        mp_call_function_n_kw(self->update, 0, 0, nullptr);
     }
-    return mp_const_none;
+    else
+    {
+        mp_obj_t call_args[1] = {MP_OBJ_FROM_PTR(self)};
+        mp_call_function_n_kw(self->update, 1, 0, call_args);
+    }
 }
-static MP_DEFINE_CONST_FUN_OBJ_2(game_mp_set_update_obj, game_mp_set_update);
 
 mp_obj_t game_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
@@ -171,6 +197,9 @@ mp_obj_t game_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw,
     Game *ctx = game_get_context(self);
     Vector pos = ctx->pos;
     self->position_obj = vector_mp_init(pos.x, pos.y, pos.z, pos.integer);
+    self->current_level_obj = MP_OBJ_NULL;
+    for (int i = 0; i < MAX_LEVELS; i++)
+        self->level_objs[i] = MP_OBJ_NULL;
     return MP_OBJ_FROM_PTR(self);
 }
 
@@ -197,6 +226,9 @@ mp_obj_t game_mp_del(mp_obj_t self_in)
     self->position_obj = MP_OBJ_NULL;
     self->size_obj = MP_OBJ_NULL;
     self->camera_obj = MP_OBJ_NULL;
+    self->current_level_obj = MP_OBJ_NULL;
+    for (int i = 0; i < MAX_LEVELS; i++)
+        self->level_objs[i] = MP_OBJ_NULL;
     self->draw = MP_OBJ_NULL;
     self->start = mp_const_none;
     self->stop = mp_const_none;
@@ -237,13 +269,43 @@ void game_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
             destination[0] = mp_obj_new_int(ctx->bg_color);
             break;
         case MP_QSTR_camera:
-            destination[0] = self->camera_obj;
+            destination[0] = self->camera_obj != MP_OBJ_NULL ? self->camera_obj : mp_const_none;
             break;
         case MP_QSTR_input:
             destination[0] = mp_obj_new_int(ctx->input);
             break;
         case MP_QSTR_draw:
-            destination[0] = self->draw;
+            destination[0] = self->draw != MP_OBJ_NULL ? self->draw : mp_const_none;
+            break;
+        case MP_QSTR_current_level:
+            if (self->current_level_obj != MP_OBJ_NULL)
+            {
+                destination[0] = self->current_level_obj;
+            }
+            else if (ctx->current_level != nullptr)
+            {
+                // if C++ current level is set, then set our Python wrapper to match
+                destination[0] = mp_const_none;
+                for (int i = 0; i < MAX_LEVELS; i++)
+                {
+                    if (self->level_objs[i] == MP_OBJ_NULL)
+                        continue;
+                    mp_obj_t native_i = mp_obj_cast_to_native_base(self->level_objs[i], MP_OBJ_FROM_PTR(&level_mp_type));
+                    if (native_i == MP_OBJ_NULL)
+                        continue;
+                    level_mp_obj_t *lobj = static_cast<level_mp_obj_t *>(MP_OBJ_TO_PTR(native_i));
+                    if (static_cast<Level *>(lobj->context) == ctx->current_level)
+                    {
+                        self->current_level_obj = self->level_objs[i];
+                        destination[0] = self->current_level_obj;
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                destination[0] = mp_const_none;
+            }
             break;
         case MP_QSTR___del__:
             destination[0] = MP_OBJ_FROM_PTR(&game_mp_del_obj);
@@ -280,6 +342,9 @@ void game_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
             break;
         case MP_QSTR_camera:
             game_mp_set_camera(self_in, destination[1]);
+            break;
+        case MP_QSTR_current_level:
+            game_mp_set_current_level(self_in, destination[1]);
             break;
         default:
             return; // Fail
@@ -324,6 +389,15 @@ mp_obj_t game_mp_level_add(mp_obj_t self_in, mp_obj_t level_in)
     level_mp_obj_t *level = static_cast<level_mp_obj_t *>(MP_OBJ_TO_PTR(native_level));
     Level *level_ctx = static_cast<Level *>(level->context);
     ctx->level_add(level_ctx);
+    // Track the Python wrapper so level_switch can find it later
+    for (int i = 0; i < MAX_LEVELS; i++)
+    {
+        if (self->level_objs[i] == MP_OBJ_NULL)
+        {
+            self->level_objs[i] = level_in;
+            break;
+        }
+    }
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(game_mp_level_add_obj, game_mp_level_add);
@@ -338,6 +412,31 @@ mp_obj_t game_mp_level_remove(mp_obj_t self_in, mp_obj_t level_in)
     level_mp_obj_t *level = static_cast<level_mp_obj_t *>(MP_OBJ_TO_PTR(native_level));
     Level *level_ctx = static_cast<Level *>(level->context);
     ctx->level_remove(level_ctx);
+    // Remove the Python wrapper from tracking
+    for (int i = 0; i < MAX_LEVELS; i++)
+    {
+        if (self->level_objs[i] == MP_OBJ_NULL)
+            continue;
+        mp_obj_t native_i = mp_obj_cast_to_native_base(self->level_objs[i], MP_OBJ_FROM_PTR(&level_mp_type));
+        if (native_i == MP_OBJ_NULL)
+            continue;
+        level_mp_obj_t *lobj = static_cast<level_mp_obj_t *>(MP_OBJ_TO_PTR(native_i));
+        if (static_cast<Level *>(lobj->context) == level_ctx)
+        {
+            self->level_objs[i] = MP_OBJ_NULL;
+            if (self->current_level_obj != MP_OBJ_NULL)
+            {
+                mp_obj_t native_cur = mp_obj_cast_to_native_base(self->current_level_obj, MP_OBJ_FROM_PTR(&level_mp_type));
+                if (native_cur != MP_OBJ_NULL)
+                {
+                    level_mp_obj_t *cur = static_cast<level_mp_obj_t *>(MP_OBJ_TO_PTR(native_cur));
+                    if (static_cast<Level *>(cur->context) == level_ctx)
+                        self->current_level_obj = MP_OBJ_NULL;
+                }
+            }
+            break;
+        }
+    }
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(game_mp_level_remove_obj, game_mp_level_remove);
@@ -357,6 +456,31 @@ mp_obj_t game_mp_level_switch(mp_obj_t self_in, mp_obj_t index_in)
         // Switch by index
         int index = mp_obj_get_int(index_in);
         ctx->level_switch(index);
+    }
+
+    // Update current_level_obj to reflect the new level
+    Level *current_level = ctx->current_level;
+    if (current_level == nullptr)
+    {
+        self->current_level_obj = MP_OBJ_NULL;
+        return mp_const_none;
+    }
+
+    // Find the Python wrapper whose context matches the new current_level
+    self->current_level_obj = MP_OBJ_NULL;
+    for (int i = 0; i < MAX_LEVELS; i++)
+    {
+        if (self->level_objs[i] == MP_OBJ_NULL)
+            continue;
+        mp_obj_t native_i = mp_obj_cast_to_native_base(self->level_objs[i], MP_OBJ_FROM_PTR(&level_mp_type));
+        if (native_i == MP_OBJ_NULL)
+            continue;
+        level_mp_obj_t *lobj = static_cast<level_mp_obj_t *>(MP_OBJ_TO_PTR(native_i));
+        if (static_cast<Level *>(lobj->context) == current_level)
+        {
+            self->current_level_obj = self->level_objs[i];
+            break;
+        }
     }
     return mp_const_none;
 }
@@ -445,6 +569,44 @@ mp_obj_t game_mp_set_background_color(mp_obj_t self_in, mp_obj_t bg_color_obj)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(game_mp_set_background_color_obj, game_mp_set_background_color);
 
+mp_obj_t game_mp_set_current_level(mp_obj_t self_in, mp_obj_t level_in)
+{
+    game_mp_obj_t *self = static_cast<game_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Game *ctx = game_get_context(self);
+    if (level_in == mp_const_none)
+    {
+        ctx->current_level = nullptr;
+        self->current_level_obj = MP_OBJ_NULL;
+        return mp_const_none;
+    }
+    mp_obj_t native_level = mp_obj_cast_to_native_base(level_in, MP_OBJ_FROM_PTR(&level_mp_type));
+    if (native_level == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Level or None"));
+    level_mp_obj_t *level = static_cast<level_mp_obj_t *>(MP_OBJ_TO_PTR(native_level));
+    Level *level_ctx = static_cast<Level *>(level->context);
+    ctx->current_level = level_ctx;
+    self->current_level_obj = level_in;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(game_mp_set_current_level_obj, game_mp_set_current_level);
+
+mp_obj_t game_mp_level_exists(mp_obj_t self_in, mp_obj_t level_in)
+{
+    game_mp_obj_t *self = static_cast<game_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Game *ctx = game_get_context(self);
+    // level_in is the name of the level to check for existence
+    const char *level_name = mp_obj_str_get_str(level_in);
+    for (int i = 0; i < MAX_LEVELS; i++)
+    {
+        if (ctx->levels[i] && strcmp(ctx->levels[i]->name, level_name) == 0)
+        {
+            return mp_const_true;
+        }
+    }
+    return mp_const_false;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(game_mp_level_exists_obj, game_mp_level_exists);
+
 static const mp_rom_map_elem_t game_mp_locals_dict_table[] = {
     // Methods
     {MP_ROM_QSTR(MP_QSTR_set_camera), MP_ROM_PTR(&game_mp_set_camera_obj)},
@@ -452,13 +614,14 @@ static const mp_rom_map_elem_t game_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_level_add), MP_ROM_PTR(&game_mp_level_add_obj)},
     {MP_ROM_QSTR(MP_QSTR_level_remove), MP_ROM_PTR(&game_mp_level_remove_obj)},
     {MP_ROM_QSTR(MP_QSTR_level_switch), MP_ROM_PTR(&game_mp_level_switch_obj)},
-    {MP_ROM_QSTR(MP_QSTR_set_update), MP_ROM_PTR(&game_mp_set_update_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_name), MP_ROM_PTR(&game_mp_set_name_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_position), MP_ROM_PTR(&game_mp_set_position_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_size), MP_ROM_PTR(&game_mp_set_size_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_is_active), MP_ROM_PTR(&game_mp_set_is_active_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_foreground_color), MP_ROM_PTR(&game_mp_set_foreground_color_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_background_color), MP_ROM_PTR(&game_mp_set_background_color_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_current_level), MP_ROM_PTR(&game_mp_set_current_level_obj)},
+    {MP_ROM_QSTR(MP_QSTR_level_exists), MP_ROM_PTR(&game_mp_level_exists_obj)},
     // Constants
     {MP_ROM_QSTR(MP_QSTR_MAX_LEVELS), MP_ROM_INT(MAX_LEVELS)},
 };

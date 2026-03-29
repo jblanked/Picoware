@@ -129,7 +129,7 @@ class HTTP:
             self._state = HTTP_IDLE
 
     def delete(
-        self, url, headers=None, timeout: float = None, save_to_file=None, storage=None
+        self, url, headers=None, timeout: float = 10.0, save_to_file=None, storage=None
     ) -> Response:
         """Sends a DELETE request and returns a Response object.
 
@@ -154,7 +154,7 @@ class HTTP:
         )
 
     def delete_async(
-        self, url, headers=None, timeout: float = None, save_to_file=None, storage=None
+        self, url, headers=None, timeout: float = 10.0, save_to_file=None, storage=None
     ) -> bool:
         """Sends an async DELETE request.
 
@@ -175,7 +175,7 @@ class HTTP:
         )
 
     def get(
-        self, url, headers=None, timeout: float = None, save_to_file=None, storage=None
+        self, url, headers=None, timeout: float = 10.0, save_to_file=None, storage=None
     ) -> Response:
         """Sends a GET request and returns a Response object.
 
@@ -201,7 +201,7 @@ class HTTP:
         )
 
     def get_async(
-        self, url, headers=None, timeout: float = None, save_to_file=None, storage=None
+        self, url, headers=None, timeout: float = 10.0, save_to_file=None, storage=None
     ) -> bool:
         """Send an async GET request.
 
@@ -226,7 +226,7 @@ class HTTP:
         url,
         payload,
         headers=None,
-        timeout: float = None,
+        timeout: float = 10.0,
         save_to_file=None,
         storage=None,
     ) -> Response:
@@ -288,7 +288,7 @@ class HTTP:
         url,
         payload,
         headers=None,
-        timeout: float = None,
+        timeout: float = 10.0,
         save_to_file=None,
         storage=None,
     ) -> bool:
@@ -322,7 +322,7 @@ class HTTP:
         url,
         payload,
         headers=None,
-        timeout: float = None,
+        timeout: float = 10.0,
         save_to_file=None,
         storage=None,
     ) -> Response:
@@ -384,7 +384,7 @@ class HTTP:
         url,
         payload,
         headers=None,
-        timeout: float = None,
+        timeout: float = 10.0,
         save_to_file=None,
         storage=None,
     ) -> bool:
@@ -413,7 +413,7 @@ class HTTP:
         url,
         payload,
         headers=None,
-        timeout: float = None,
+        timeout: float = 10.0,
         save_to_file=None,
         storage=None,
     ) -> Response:
@@ -475,7 +475,7 @@ class HTTP:
         url,
         payload,
         headers=None,
-        timeout: float = None,
+        timeout: float = 10.0,
         save_to_file=None,
         storage=None,
     ) -> bool:
@@ -504,7 +504,7 @@ class HTTP:
         url,
         payload,
         headers=None,
-        timeout: float = None,
+        timeout: float = 10.0,
         save_to_file=None,
         storage=None,
     ) -> Response:
@@ -566,7 +566,7 @@ class HTTP:
         url,
         payload,
         headers=None,
-        timeout: float = None,
+        timeout: float = 10.0,
         save_to_file=None,
         storage=None,
     ) -> bool:
@@ -993,7 +993,7 @@ class HTTP:
         url,
         payload=None,
         headers=None,
-        timeout: float = None,
+        timeout: float = 10.0,
         save_to_file=None,
         storage=None,
     ) -> bool:
@@ -1021,6 +1021,8 @@ class HTTP:
                 # Use ThreadManager
                 from picoware.system.thread import ThreadTask
 
+                _stack_size = 32 * 1024
+
                 task = ThreadTask(
                     "HTTP",
                     function=self.__execute_request,
@@ -1032,6 +1034,12 @@ class HTTP:
                         timeout,
                         save_to_file,
                         storage,
+                    ),
+                    timeout=timeout,
+                    stack_size=(
+                        _stack_size
+                        if self._chunk_size < _stack_size
+                        else self._chunk_size + 16 * 1024
                     ),
                 )
                 self._current_task = task
@@ -1061,7 +1069,7 @@ class HTTP:
         url: str,
         payload,
         headers=None,
-        timeout: float = None,
+        timeout: float = 10.0,
         save_to_file=None,
         storage=None,
     ) -> Response:

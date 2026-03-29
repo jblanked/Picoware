@@ -241,8 +241,6 @@ class Keyboard:
         self.title_vec = Vector(
             self.draw.size.x // 2 - len(self.current_title) * 3, self.TEXTBOX_HEIGHT + 5
         )
-
-        self.suggestion_vec = Vector(0, 0)
         self.highlight_pos = Vector(0, 0)
         self.highlight_size = Vector(0, 0)
 
@@ -344,7 +342,6 @@ class Keyboard:
         self.text_border_pos = None
         self.text_border_size = None
         self.title_vec = None
-        self.suggestion_vec = None
         self.highlight_pos = None
         self.highlight_size = None
         self.manual_keys = {}
@@ -564,12 +561,18 @@ class Keyboard:
 
         # Draw key background
         bg_color = self.selected_color if is_selected else self.background_color
-        self.key_vec.x = x_pos
-        self.key_vec.y = y_pos
-        self.draw.fill_rectangle(self.key_vec, self.size_vec, bg_color)
+        self.draw._fill_rectangle(
+            x_pos, y_pos, self.size_vec.x, self.size_vec.y, bg_color
+        )
 
         # Draw key border
-        self.draw.rect(self.key_vec, self.size_vec, self.text_color)
+        self.draw._rectangle(
+            x_pos,
+            y_pos,
+            self.size_vec.x,
+            self.size_vec.y,
+            self.text_color,
+        )
 
         # Determine what character to display
         display_char = key.normal
@@ -605,14 +608,16 @@ class Keyboard:
         # Center the text
         self.key_vec.x = x_pos + width // 2 - len(key_label) * 3
         self.key_vec.y = y_pos + self.KEY_HEIGHT // 2 - 4
-        self.draw.text(self.key_vec, key_label, self.text_color)
+        self.draw._text(self.key_vec.x, self.key_vec.y, key_label, self.text_color)
 
     def _draw_keyboard(self) -> None:
         """Draws the entire keyboard"""
         # Clear keyboard area
-        self.draw.fill_rectangle(
-            self.text_box_pos_vec,
-            self.text_box_pos_size,
+        self.draw._fill_rectangle(
+            self.text_box_pos_vec.x,
+            self.text_box_pos_vec.y,
+            self.text_box_pos_size.x,
+            self.text_box_pos_size.y,
             self.background_color,
         )
 
@@ -626,9 +631,11 @@ class Keyboard:
         """Draws the text box that displays the current saved response"""
         # Draw textbox border (highlight if in textbox mode)
         border_color = self.selected_color if self.is_in_textbox else self.text_color
-        self.draw.rect(
-            self.text_border_pos,
-            self.text_border_size,
+        self.draw._rectangle(
+            self.text_border_pos.x,
+            self.text_border_pos.y,
+            self.text_border_size.x,
+            self.text_border_size.y,
             border_color,
         )
 
@@ -660,7 +667,7 @@ class Keyboard:
 
         for i in range(start_line, len(lines)):
             self.text_vec.y = 8 + (i - start_line) * 10
-            self.draw.text(self.text_vec, lines[i], self.text_color)
+            self.draw._text(self.text_vec.x, self.text_vec.y, lines[i], self.text_color)
 
         # Draw cursor at the current position
         # Find which line and column the cursor is on
@@ -679,7 +686,7 @@ class Keyboard:
             display_line = cursor_line - start_line
             self.cursor.x = 5 + cursor_col * 6
             self.cursor.y = 8 + display_line * 10
-            self.draw.text(self.cursor, "_", self.text_color)
+            self.draw._text(self.cursor.x, self.cursor.y, "_", self.text_color)
 
     def _draw_suggestions(self):
         """Draws auto-complete suggestions based on keyboard visibility"""
@@ -692,8 +699,7 @@ class Keyboard:
             y_pos = self.TEXTBOX_HEIGHT + 20 + self.keyboard_height + 5
             text = f"Suggestion: {suggestion}"
             x_pos = (self.draw.size.x - len(text) * self.draw.font_size.x) // 2
-            self.suggestion_vec.x, self.suggestion_vec.y = x_pos, y_pos
-            self.draw.text(self.suggestion_vec, text, self.text_color)
+            self.draw._text(x_pos, y_pos, text, self.text_color)
         else:
             # Show all suggestions in 2-column list below the title
             y_start = self.TEXTBOX_HEIGHT + 20
@@ -707,21 +713,18 @@ class Keyboard:
                 x_pos = x_col1 if col == 0 else x_col2
                 y_pos = y_start + row * line_height
 
-                self.suggestion_vec.x, self.suggestion_vec.y = x_pos, y_pos
-
                 # Highlight selected suggestion
                 if i == self.selected_suggestion_index:
                     # Draw background highlight
-                    self.highlight_pos.x, self.highlight_pos.y = (x_pos - 2, y_pos - 2)
-                    self.highlight_size.x, self.highlight_size.y = (
+                    self.draw._fill_rectangle(
+                        x_pos - 2,
+                        y_pos - 2,
                         len(suggestion) * 6 + 4,
                         line_height - 2,
-                    )
-                    self.draw.fill_rectangle(
-                        self.highlight_pos, self.highlight_size, self.selected_color
+                        self.selected_color,
                     )
 
-                self.draw.text(self.suggestion_vec, suggestion, self.text_color)
+                self.draw._text(x_pos, y_pos, suggestion, self.text_color)
 
     def _apply_suggestion(self, suggestion_text: str) -> None:
         """Applies an auto-complete suggestion to the current response"""

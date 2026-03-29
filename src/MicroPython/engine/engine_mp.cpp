@@ -119,13 +119,8 @@ mp_obj_t engine_mp_stop(mp_obj_t self_in)
     engine_mp_obj_t *self = static_cast<engine_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
     if (self->freed)
         return mp_const_none;
-    // remove below for now.. we got a freeze
-    // I think its because python still holds references
-    // but no matter what I did before/after calling stop
-    // nothing helped.. regardless we used m_malloc on all contexts
-    // so gc will clean them up
-    // GameEngine *ctx = engine_get_context(self);
-    //  ctx->stop();
+    GameEngine *ctx = engine_get_context(self);
+    ctx->stop();
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(engine_mp_stop_obj, engine_mp_stop);

@@ -20,6 +20,8 @@ def start(view_manager) -> bool:
         connect_to_saved_wifi(view_manager)
         return False
 
+    view_manager.freq(True)  # set to lower frequency
+
     global _game
     from free_roam.game import FreeRoamGame
 
@@ -57,5 +59,7 @@ def stop(view_manager) -> None:
     if _game:
         del _game
         _game = None
+
+    view_manager.freq()  # set to default frequency
 
     collect()

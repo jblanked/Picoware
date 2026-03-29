@@ -3,7 +3,7 @@
 #include "engine_mp.h"
 #include "image_mp.h"
 #include "engine/entity.hpp"
-
+//
 #ifndef PRINT
 #define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
 #endif
@@ -146,44 +146,95 @@ void entity_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t 
     mp_print_str(print, ")");
 }
 
-// Trampoline functions for entity callbacks
 static void entity_start_trampoline(Entity *e, Game *g, void *ctx)
 {
     entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(ctx);
+    if (self->start == MP_OBJ_NULL || self->start == mp_const_none)
+    {
+        return;
+    }
     mp_obj_t current_game = engine_mp_get_current_game();
-    if (current_game == MP_OBJ_NULL)
+    if (current_game == MP_OBJ_NULL || current_game == mp_const_none)
     {
         PRINT("Warning: entity_start_trampoline called but no current game context\n");
         return;
     }
-    mp_call_function_2(self->start, MP_OBJ_FROM_PTR(self), current_game);
+
+    if (mp_obj_is_type(self->start, &mp_type_bound_meth))
+    {
+        mp_obj_t call_args[1] = {current_game};
+        mp_call_function_n_kw(self->start, 1, 0, call_args);
+    }
+    else
+    {
+        mp_obj_t call_args[2] = {MP_OBJ_FROM_PTR(self), current_game};
+        mp_call_function_n_kw(self->start, 2, 0, call_args);
+    }
 }
+
 static void entity_stop_trampoline(Entity *e, Game *g, void *ctx)
 {
     entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(ctx);
+    if (self->stop == MP_OBJ_NULL || self->stop == mp_const_none)
+    {
+        return;
+    }
     mp_obj_t current_game = engine_mp_get_current_game();
-    if (current_game == MP_OBJ_NULL)
+    if (current_game == MP_OBJ_NULL || current_game == mp_const_none)
     {
         PRINT("Warning: entity_stop_trampoline called but no current game context\n");
         return;
     }
-    mp_call_function_2(self->stop, MP_OBJ_FROM_PTR(self), current_game);
+
+    if (mp_obj_is_type(self->stop, &mp_type_bound_meth))
+    {
+        mp_obj_t call_args[1] = {current_game};
+        mp_call_function_n_kw(self->stop, 1, 0, call_args);
+    }
+    else
+    {
+        mp_obj_t call_args[2] = {MP_OBJ_FROM_PTR(self), current_game};
+        mp_call_function_n_kw(self->stop, 2, 0, call_args);
+    }
 }
 
 static void entity_update_trampoline(Entity *e, Game *g, void *ctx)
 {
     entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(ctx);
+
+    if (self->update == MP_OBJ_NULL || self->update == mp_const_none)
+    {
+        return;
+    }
+
     mp_obj_t current_game = engine_mp_get_current_game();
-    if (current_game == MP_OBJ_NULL)
+    if (current_game == MP_OBJ_NULL || current_game == mp_const_none)
     {
         PRINT("Warning: entity_update_trampoline called but no current game context\n");
         return;
     }
-    mp_call_function_2(self->update, MP_OBJ_FROM_PTR(self), current_game);
+
+    if (mp_obj_is_type(self->update, &mp_type_bound_meth))
+    {
+        mp_obj_t call_args[1] = {current_game};
+        mp_call_function_n_kw(self->update, 1, 0, call_args);
+    }
+    else
+    {
+        mp_obj_t call_args[2] = {MP_OBJ_FROM_PTR(self), current_game};
+        mp_call_function_n_kw(self->update, 2, 0, call_args);
+    }
 }
+
 static void entity_render_trampoline(Entity *e, Draw *d, Game *g, void *ctx)
 {
     entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(ctx);
+
+    if (self->render == MP_OBJ_NULL || self->render == mp_const_none)
+    {
+        return;
+    }
+
     mp_obj_t current_game = engine_mp_get_current_game();
     if (current_game == MP_OBJ_NULL || current_game == mp_const_none)
     {
@@ -203,19 +254,49 @@ static void entity_render_trampoline(Entity *e, Draw *d, Game *g, void *ctx)
         PRINT("Warning: entity_render_trampoline called but game has no draw object\n");
         return;
     }
-    mp_obj_t render_args[3] = {MP_OBJ_FROM_PTR(self), draw_obj, current_game};
-    mp_call_function_n_kw(self->render, 3, 0, render_args);
+
+    if (mp_obj_is_type(self->render, &mp_type_bound_meth))
+    {
+        mp_obj_t call_args[2] = {draw_obj, current_game};
+        mp_call_function_n_kw(self->render, 2, 0, call_args);
+    }
+    else
+    {
+        mp_obj_t call_args[3] = {MP_OBJ_FROM_PTR(self), draw_obj, current_game};
+        mp_call_function_n_kw(self->render, 3, 0, call_args);
+    }
 }
+
 static void entity_collision_trampoline(Entity *e, Entity *other, Game *g, void *ctx)
 {
     entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(ctx);
+
+    if (self->collision == MP_OBJ_NULL || self->collision == mp_const_none)
+        return;
+
     mp_obj_t current_game = engine_mp_get_current_game();
-    if (current_game == MP_OBJ_NULL)
+    if (current_game == MP_OBJ_NULL || current_game == mp_const_none)
     {
         PRINT("Warning: entity_collision_trampoline called but no current game context\n");
         return;
     }
-    mp_call_function_2(self->collision, MP_OBJ_FROM_PTR(self), current_game);
+
+    mp_obj_t other_obj = mp_const_none;
+    if (other != nullptr && other->mp_ctx != nullptr)
+    {
+        other_obj = MP_OBJ_FROM_PTR(static_cast<entity_mp_obj_t *>(other->mp_ctx));
+    }
+
+    if (mp_obj_is_type(self->collision, &mp_type_bound_meth))
+    {
+        mp_obj_t call_args[2] = {other_obj, current_game};
+        mp_call_function_n_kw(self->collision, 2, 0, call_args);
+    }
+    else
+    {
+        mp_obj_t call_args[3] = {MP_OBJ_FROM_PTR(self), other_obj, current_game};
+        mp_call_function_n_kw(self->collision, 3, 0, call_args);
+    }
 }
 
 mp_obj_t entity_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
@@ -304,6 +385,9 @@ mp_obj_t entity_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
     Image *sprite_data = nullptr;
     Image *sprite_left_data = nullptr;
     Image *sprite_right_data = nullptr;
+    self->sprite_obj = mp_const_none;
+    self->sprite_left_obj = mp_const_none;
+    self->sprite_right_obj = mp_const_none;
     if (n_args > 4 && args[4] != mp_const_none)
     {
         mp_obj_t native_img = mp_obj_cast_to_native_base(args[4], MP_OBJ_FROM_PTR(&image_mp_type));
@@ -311,6 +395,7 @@ mp_obj_t entity_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
             mp_raise_TypeError(MP_ERROR_TEXT("expected Image for sprite_data"));
         image_mp_obj_t *img = static_cast<image_mp_obj_t *>(MP_OBJ_TO_PTR(native_img));
         sprite_data = static_cast<Image *>(img->context);
+        self->sprite_obj = args[4];
     }
     if (n_args > 5 && args[5] != mp_const_none)
     {
@@ -319,6 +404,7 @@ mp_obj_t entity_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
             mp_raise_TypeError(MP_ERROR_TEXT("expected Image for sprite_left"));
         image_mp_obj_t *img = static_cast<image_mp_obj_t *>(MP_OBJ_TO_PTR(native_img));
         sprite_left_data = static_cast<Image *>(img->context);
+        self->sprite_left_obj = args[5];
     }
     if (n_args > 6 && args[6] != mp_const_none)
     {
@@ -327,6 +413,7 @@ mp_obj_t entity_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
             mp_raise_TypeError(MP_ERROR_TEXT("expected Image for sprite_right"));
         image_mp_obj_t *img = static_cast<image_mp_obj_t *>(MP_OBJ_TO_PTR(native_img));
         sprite_right_data = static_cast<Image *>(img->context);
+        self->sprite_right_obj = args[6];
     }
 
     // Create the C++ Entity
@@ -343,7 +430,7 @@ mp_obj_t entity_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
     self->plane_obj = vector_mp_init(ctx->plane.x, ctx->plane.y, ctx->plane.z, ctx->plane.integer);
     self->start_position_obj = vector_mp_init(ctx->start_position.x, ctx->start_position.y, ctx->start_position.z, ctx->start_position.integer);
     self->end_position_obj = vector_mp_init(ctx->end_position.x, ctx->end_position.y, ctx->end_position.z, ctx->end_position.integer);
-
+    ctx->mp_ctx = static_cast<void *>(self);
     return MP_OBJ_FROM_PTR(self);
 }
 
@@ -377,6 +464,9 @@ mp_obj_t entity_mp_del(mp_obj_t self_in)
     self->plane_obj = MP_OBJ_NULL;
     self->start_position_obj = MP_OBJ_NULL;
     self->end_position_obj = MP_OBJ_NULL;
+    self->sprite_obj = MP_OBJ_NULL;
+    self->sprite_left_obj = MP_OBJ_NULL;
+    self->sprite_right_obj = MP_OBJ_NULL;
     self->freed = true;
     return mp_const_none;
 }
@@ -484,6 +574,15 @@ void entity_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
             break;
         case MP_QSTR_sprite_scale:
             destination[0] = mp_obj_new_float(ctx->sprite_scale);
+            break;
+        case MP_QSTR_sprite:
+            destination[0] = self->sprite_obj;
+            break;
+        case MP_QSTR_sprite_left:
+            destination[0] = self->sprite_left_obj;
+            break;
+        case MP_QSTR_sprite_right:
+            destination[0] = self->sprite_right_obj;
             break;
         case MP_QSTR___del__:
             destination[0] = MP_OBJ_FROM_PTR(&entity_mp_del_obj);
@@ -605,12 +704,32 @@ void entity_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
             entity_mp_set_elapsed_health_regen(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
             break;
+        case MP_QSTR_sprite_3d_type:
+            entity_mp_set_sprite3d_type(self_in, destination[1]);
+            destination[0] = MP_OBJ_NULL;
+            break;
+        case MP_QSTR_sprite_3d:
+            entity_mp_set_sprite3d(self_in, destination[1]);
+            destination[0] = MP_OBJ_NULL;
+            break;
         case MP_QSTR_sprite_rotation:
             entity_mp_set_3d_sprite_rotation(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
             break;
         case MP_QSTR_sprite_scale:
             entity_mp_set_3d_sprite_scale(self_in, destination[1]);
+            destination[0] = MP_OBJ_NULL;
+            break;
+        case MP_QSTR_sprite:
+            entity_mp_set_sprite(self_in, destination[1]);
+            destination[0] = MP_OBJ_NULL;
+            break;
+        case MP_QSTR_sprite_left:
+            entity_mp_set_sprite_left(self_in, destination[1]);
+            destination[0] = MP_OBJ_NULL;
+            break;
+        case MP_QSTR_sprite_right:
+            entity_mp_set_sprite_right(self_in, destination[1]);
             destination[0] = MP_OBJ_NULL;
             break;
         default:
@@ -985,6 +1104,70 @@ mp_obj_t entity_mp_set_sprite_scale(mp_obj_t self_in, mp_obj_t sprite_scale_obj)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_sprite_scale_obj, entity_mp_set_sprite_scale);
 
+mp_obj_t entity_mp_set_sprite3d_type(mp_obj_t self_in, mp_obj_t type_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    ctx->sprite_3d_type = static_cast<Sprite3DType>(mp_obj_get_int(type_obj));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_sprite3d_type_obj, entity_mp_set_sprite3d_type);
+
+mp_obj_t entity_mp_set_sprite3d(mp_obj_t self_in, mp_obj_t sprite3d_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    mp_obj_t native_sprite3d = mp_obj_cast_to_native_base(sprite3d_obj, MP_OBJ_FROM_PTR(&sprite3d_mp_type));
+    if (native_sprite3d == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Sprite3D"));
+    sprite3d_mp_obj_t *sprite3d = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(native_sprite3d));
+    ctx->sprite_3d = static_cast<Sprite3D *>(sprite3d->context);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_sprite3d_obj, entity_mp_set_sprite3d);
+
+mp_obj_t entity_mp_set_sprite(mp_obj_t self_in, mp_obj_t sprite_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    mp_obj_t native_sprite = mp_obj_cast_to_native_base(sprite_obj, MP_OBJ_FROM_PTR(&image_mp_type));
+    if (native_sprite == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Image"));
+    image_mp_obj_t *img = static_cast<image_mp_obj_t *>(MP_OBJ_TO_PTR(native_sprite));
+    ctx->sprite = static_cast<Image *>(img->context);
+    self->sprite_obj = sprite_obj;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_sprite_obj, entity_mp_set_sprite);
+
+mp_obj_t entity_mp_set_sprite_left(mp_obj_t self_in, mp_obj_t sprite_left_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    mp_obj_t native_sprite_left = mp_obj_cast_to_native_base(sprite_left_obj, MP_OBJ_FROM_PTR(&image_mp_type));
+    if (native_sprite_left == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Image"));
+    image_mp_obj_t *img_left = static_cast<image_mp_obj_t *>(MP_OBJ_TO_PTR(native_sprite_left));
+    ctx->sprite_left = static_cast<Image *>(img_left->context);
+    self->sprite_left_obj = sprite_left_obj;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_sprite_left_obj, entity_mp_set_sprite_left);
+
+mp_obj_t entity_mp_set_sprite_right(mp_obj_t self_in, mp_obj_t sprite_right_obj)
+{
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    mp_obj_t native_sprite_right = mp_obj_cast_to_native_base(sprite_right_obj, MP_OBJ_FROM_PTR(&image_mp_type));
+    if (native_sprite_right == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Image"));
+    image_mp_obj_t *img_right = static_cast<image_mp_obj_t *>(MP_OBJ_TO_PTR(native_sprite_right));
+    ctx->sprite_right = static_cast<Image *>(img_right->context);
+    self->sprite_right_obj = sprite_right_obj;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_sprite_right_obj, entity_mp_set_sprite_right);
+
 static const mp_rom_map_elem_t entity_mp_locals_dict_table[] = {
     // Methods
     {MP_ROM_QSTR(MP_QSTR_has_3d_sprite), MP_ROM_PTR(&entity_mp_has_3d_sprite_obj)},
@@ -1022,6 +1205,11 @@ static const mp_rom_map_elem_t entity_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_set_elapsed_health_regen), MP_ROM_PTR(&entity_mp_set_elapsed_health_regen_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_sprite_rotation), MP_ROM_PTR(&entity_mp_set_sprite_rotation_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_sprite_scale), MP_ROM_PTR(&entity_mp_set_sprite_scale_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_sprite3d_type), MP_ROM_PTR(&entity_mp_set_sprite3d_type_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_sprite3d), MP_ROM_PTR(&entity_mp_set_sprite3d_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_sprite), MP_ROM_PTR(&entity_mp_set_sprite_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_sprite_left), MP_ROM_PTR(&entity_mp_set_sprite_left_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_sprite_right), MP_ROM_PTR(&entity_mp_set_sprite_right_obj)},
 
     // Entity type constants
     {MP_ROM_QSTR(MP_QSTR_ENTITY_PLAYER), MP_ROM_INT(ENTITY_PLAYER)},

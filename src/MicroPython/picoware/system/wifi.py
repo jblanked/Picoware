@@ -119,7 +119,7 @@ class WiFi:
         with self._thread_lock:
             self.connection_timeout = seconds
 
-    def connect(self, ssid: str, password: str, sta_mode: bool = True) -> bool:
+    def connect(self, ssid: str, password: str = "", sta_mode: bool = True) -> bool:
         """
         Connect to a Wi-Fi network.
 
@@ -185,7 +185,9 @@ class WiFi:
             self.error = f"Failed to set up Access Point: {e}"
             return False
 
-    def connect_async(self, ssid: str, password: str, sta_mode: bool = True) -> bool:
+    def connect_async(
+        self, ssid: str, password: str = "", sta_mode: bool = True
+    ) -> bool:
         """
         Connect to a Wi-Fi network asynchronously.
 

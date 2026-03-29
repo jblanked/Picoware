@@ -46,6 +46,13 @@ class System:
         return mem_free()
 
     @property
+    def has_audio(self) -> bool:
+        """Return True if the device has audio capabilities."""
+        from picoware_boards import BOARD_HAS_AUDIO
+
+        return BOARD_HAS_AUDIO == 1
+
+    @property
     def has_psram(self) -> bool:
         """Return True if the device has PSRAM capabilities."""
         from picoware_boards import BOARD_HAS_PSRAM
@@ -155,7 +162,7 @@ class System:
     @property
     def version(self) -> str:
         """Return the Picoware version."""
-        return "1.7.3"
+        return "1.7.4"
 
     def bootloader_mode(self):
         """Enter the bootloader mode."""

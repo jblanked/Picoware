@@ -14,3 +14,4 @@ BOARD_HAS_PSRAM = picoware_boards.BOARD_HAS_PSRAM
 BOARD_HAS_SD = picoware_boards.BOARD_HAS_SD
 BOARD_HAS_TOUCH = picoware_boards.BOARD_HAS_TOUCH
 BOARD_HAS_WIFI = picoware_boards.BOARD_HAS_WIFI
+BOARD_HAS_AUDIO = picoware_boards.BOARD_HAS_AUDIO

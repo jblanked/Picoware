@@ -1479,7 +1479,6 @@ def _loading_run(view_manager, message: str = "Connecting...") -> None:
 def _menu_start(view_manager) -> None:
     """Start the menu view"""
     from picoware.gui.menu import Menu
-    from picoware.system.colors import TFT_BLUE
 
     global _menu, connection_state
 

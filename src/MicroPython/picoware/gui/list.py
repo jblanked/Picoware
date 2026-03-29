@@ -36,8 +36,11 @@ class List:
 
                 init()
 
+                class LVGLListWrapper(LVGLList):
+                    pass
+
                 # Create LVGL List instance
-                self._lvgl_list = LVGLList(
+                self._lvgl_list = LVGLListWrapper(
                     y,
                     height,
                     text_color,
@@ -76,10 +79,7 @@ class List:
             self.box_width = int(self.size_x - int(self.size_x // 6.4))
             self.box_height = int(self.size.y // 8)
             self.box_x = int((self.size_x - self.box_width) // 2)
-            self.box_pos = Vector(self.box_x, self.menu_y - 30)
-            self.box_size = Vector(self.box_width, self.box_height)
             self.dot_size = Vector(10, 10)
-            self.dot_pos = Vector(0, 0)
         else:
             # For LVGL mode, we still need to track items in Python
             self.items = []
@@ -90,9 +90,11 @@ class List:
     def __del__(self):
         """Destructor to clean up resources"""
         if self._lvgl_list is not None:
-            self._lvgl_list.deinit()
+            from picoware_lvgl import deinit
+
             del self._lvgl_list
             self._lvgl_list = None
+            deinit()
             self.items = []
             return
 
@@ -108,10 +110,7 @@ class List:
         self.box_width = None
         self.box_height = None
         self.box_x = None
-        self.box_pos = None
-        self.box_size = None
         self.dot_size = None
-        self.dot_pos = None
 
     @property
     def current_item(self) -> str:
@@ -165,7 +164,13 @@ class List:
         self._selected_index = 0
 
         # Clear the display area
-        self.display.clear(self.position, self.size, self.background_color)
+        self.display._fill_rectangle(
+            self.position.x,
+            self.position.y,
+            self.size.x,
+            self.size.y,
+            self.background_color,
+        )
         self.display.swap()
 
     def draw(self) -> None:
@@ -178,74 +183,88 @@ class List:
             task_handler()
             return
 
-        self.display.clear(self.position, self.size, self.background_color)
+        # Clear the display area
+        self.display._fill_rectangle(
+            self.position.x,
+            self.position.y,
+            self.size.x,
+            self.size.y,
+            self.background_color,
+        )
+
+        _len = len(self.items)
 
         # Draw decorative pattern below underline
         self._dec_v.y = self.position.y + 5 + (self.display.size.y // 16)
         for i in range(0, self.size_x, 10):
-            self._dec_v.x = i
-            self.display.pixel(self._dec_v, self.border_color)
+            self.display._pixel(i, self._dec_v.y, self.border_color)
 
         # Get current selected item
-        if 0 <= self._selected_index < len(self.items):
+        if 0 <= self._selected_index < _len:
             current_item = self.items[self._selected_index]
 
             # Draw selection box
-            self.display.fill_rectangle(
-                self.box_pos,
-                self.box_size,
+            self.display._fill_rectangle(
+                self.box_x,
+                self.menu_y - 30,
+                self.box_width,
+                self.box_height,
                 self.selected_color,
             )
 
             # Draw text centered
             item_width = self.display.len(current_item, 2)
             item_x = (self.size_x - item_width) // 2
-            self.text_vec_pos.x, self.text_vec_pos.y = item_x, self.menu_y - 20
-            self.display.text(self.text_vec_pos, current_item, self.text_color, 2)
+            self.display._text(
+                item_x, self.menu_y - 20, current_item, self.text_color, 2
+            )
 
             # Draw navigation arrows
             self.text_vec_pos.y = self.menu_y - 7
             if self._selected_index > 0:
-                self.text_vec_pos.x = 5
-                self.display.text(self.text_vec_pos, "<", self.border_color)
-            if self._selected_index < len(self.items) - 1:
-                self.text_vec_pos.x = self.size_x - 15
-                self.display.text(self.text_vec_pos, ">", self.border_color)
+                self.display._text(5, self.text_vec_pos.y, "<", self.border_color)
+            if self._selected_index < _len - 1:
+                self.display._text(
+                    self.size_x - 15, self.text_vec_pos.y, ">", self.border_color
+                )
 
             # Draw indicator dots
             indicator_y = self.menu_y + 20
-            if len(self.items) <= 15:
+            if _len <= 15:
                 dots_spacing = 15
-                dots_start_x = (self.size_x - (len(self.items) * dots_spacing)) // 2
-                self.dot_pos.x, self.dot_pos.y = 0, indicator_y
-                for i in range(len(self.items)):
-                    dot_x = dots_start_x + (i * dots_spacing)
-                    self.dot_pos.x = dot_x
+                dots_start_x = (self.size_x - (_len * dots_spacing)) // 2
+                for i in range(_len):
                     if i == self._selected_index:
-                        self.display.fill_rectangle(
-                            self.dot_pos,
-                            self.dot_size,
+                        self.display._fill_rectangle(
+                            dots_start_x + (i * dots_spacing),
+                            indicator_y,
+                            10,
+                            10,
                             self.border_color,
                         )
                     else:
-                        self.display.rect(
-                            self.dot_pos,
-                            self.dot_size,
+                        self.display._rectangle(
+                            dots_start_x + (i * dots_spacing),
+                            indicator_y,
+                            10,
+                            10,
                             self.border_color,
                         )
             else:
                 # show the current selected item index and total count
-                index_text = "{}/{}".format(self._selected_index + 1, len(self.items))
+                index_text = "{}/{}".format(self._selected_index + 1, _len)
                 index_text_width = len(index_text) * self.display.font_size.x
                 index_text_x = (self.size_x - index_text_width) // 2
-                self.text_vec_pos.x, self.text_vec_pos.y = index_text_x, indicator_y
-                self.display.text(self.text_vec_pos, index_text, self.border_color)
+                self.display._text(
+                    index_text_x,
+                    indicator_y,
+                    index_text,
+                    self.border_color,
+                )
 
             # Draw decorative bottom pattern
-            self._dec_v_b.y = indicator_y + 25
             for i in range(0, self.size_x, 10):
-                self._dec_v_b.x = i
-                self.display.pixel(self._dec_v_b, self.border_color)
+                self.display._pixel(i, indicator_y + 25, self.border_color)
 
             # Draw scrollable list below decorative pattern
             list_start_y = indicator_y + 40
@@ -254,19 +273,19 @@ class List:
             max_visible_items = max(1, int(available_height / item_height))
 
             # Calculate which items to show based on selected index
-            if len(self.items) <= max_visible_items:
+            if _len <= max_visible_items:
                 # Show all items if they fit
                 first_visible = 0
-                last_visible = len(self.items)
+                last_visible = _len
             else:
                 # Center the selected item when possible
                 half_visible = max_visible_items // 2
                 first_visible = max(0, self._selected_index - half_visible)
-                last_visible = min(len(self.items), first_visible + max_visible_items)
+                last_visible = min(_len, first_visible + max_visible_items)
 
                 # Adjust if we're near the end
-                if last_visible == len(self.items):
-                    first_visible = max(0, len(self.items) - max_visible_items)
+                if last_visible == _len:
+                    first_visible = max(0, _len - max_visible_items)
 
             # Draw each visible item
             for i in range(first_visible, last_visible):
@@ -275,11 +294,11 @@ class List:
 
                 # Draw background for selected item
                 if i == self._selected_index:
-                    self.rec_vec_pos.y = item_y
-                    self.rec_vec_size.y = item_height
-                    self.display.fill_rectangle(
-                        self.rec_vec_pos,
-                        self.rec_vec_size,
+                    self.display._fill_rectangle(
+                        self.rec_vec_pos.x,
+                        item_y,
+                        self.rec_vec_size.x,
+                        item_height,
                         self.selected_color,
                     )
 
@@ -298,8 +317,7 @@ class List:
                     text_x = (self.size_x - text_width) // 2
                 else:
                     text_x = 10
-                self.text_vec_pos.x, self.text_vec_pos.y = text_x, text_y
-                self.display.text(self.text_vec_pos, item_text, self.text_color)
+                self.display._text(text_x, text_y, item_text, self.text_color)
 
         # Swap buffers
         self.display.swap()
@@ -323,20 +341,21 @@ class List:
 
     def remove_item(self, index: int) -> None:
         """Remove an item from the list and update the display."""
+        _len = len(self.items)
         if self.use_lvgl and self._lvgl_list is not None:
             self._lvgl_list.remove_item(index)
-            if 0 <= index < len(self.items):
+            if 0 <= index < _len:
                 self.items.pop(index)
-            if self._selected_index >= len(self.items):
-                self._selected_index = len(self.items) - 1 if len(self.items) > 0 else 0
+            if self._selected_index >= _len:
+                self._selected_index = _len - 1 if _len > 0 else 0
             return
 
         # Remove the item from the list
-        if 0 <= index < len(self.items):
+        if 0 <= index < _len:
             self.items.pop(index)
 
-        if self._selected_index >= len(self.items):
-            self._selected_index = len(self.items) - 1 if len(self.items) > 0 else 0
+        if self._selected_index >= _len:
+            self._selected_index = _len - 1 if _len > 0 else 0
 
     def scroll_down(self) -> None:
         """Scroll the list down by one item."""

@@ -5,7 +5,6 @@ GAME_VIEW_GAME_ONLINE = const(4)  # game view online (gameplay)
 INPUT_KEY_BACK = const(5)
 COLOR_WHITE = const(0x0000)  # inverted on purpose
 COLOR_BLACK = const(0xFFFF)  # inverted on purpose
-SPRITE_3D_HUMANOID = const(1)
 
 
 class FreeRoamGame:
@@ -13,15 +12,11 @@ class FreeRoamGame:
 
     def __init__(self, view_manager):
         self.current_level_index: int = 0
-        self.debounce_counter: int = 0
         self.engine = None
-        self.input_held_counter: int = 0
-        self.input_held: bool = False
         self.is_game_running: bool = False
         self.last_input: int = -1
         self.level_names: list[str] = ["Tutorial", "First", "Second"]
         self.player = None
-        self.should_debounce: bool = False
         self.should_return_to_menu: bool = False
         self.sound_toggle: int = 1  # ToggleOn
         self.total_levels: int = 3
@@ -53,17 +48,6 @@ class FreeRoamGame:
         """Check if the game engine is running"""
         return self.is_game_running
 
-    def debounce_input(self):
-        """debounce input to prevent multiple actions from a single press"""
-        if self.should_debounce:
-            self.last_input = -1
-            self.debounce_counter += 1
-            if self.debounce_counter < 2:
-                return
-            self.debounce_counter = 0
-            self.should_debounce = False
-            self.input_held = False
-
     def end_game(self):
         """end the game and return to the submenu"""
         self.should_return_to_menu = True
@@ -74,32 +58,6 @@ class FreeRoamGame:
 
     def input_manager(self):
         """manage input for the game, called from updateInput"""
-        # Track input held state
-        if self.last_input != -1:
-            self.input_held_counter += 1
-            if self.input_held_counter > 10:
-                self.input_held = True
-        else:
-            self.input_held_counter = 0
-            self.input_held = False
-
-        # Handle input for all views, but don't debounce when game engine is running
-        if self.player and self.player.current_main_view in (
-            GAME_VIEW_GAME_LOCAL,
-            GAME_VIEW_GAME_ONLINE,
-        ):
-            # When game is running, completely skip debouncing to avoid interference
-            if not self.is_game_running:
-                # Only debounce if game is not actually running (e.g., during startup)
-                if self.last_input == INPUT_KEY_BACK:
-                    self.debounce_input()
-            # When game is running, let all inputs pass through without any debouncing
-        else:
-            # For menu views, use fast debouncing (much faster than original but prevents menu skipping)
-            # Only debounce when shouldDebounce is explicitly set, skip the inputHeld check for speed
-            if self.should_debounce:
-                self.debounce_input()
-
         # Pass input to player for processing
         if self.player:
             self.player.last_input = self.last_input
@@ -108,37 +66,49 @@ class FreeRoamGame:
     def reset_input(self):
         """Reset input after processing"""
         self.last_input = -1
-        self.input_held = False
 
     def start_game(self) -> bool:
         """start the actual game"""
         from math import pi
         from picoware.engine.engine import GameEngine
-        from picoware.engine.level import Level, CAMERA_THIRD_PERSON
+        from picoware.engine.level import Level
         from picoware.engine.game import Game
         from picoware.system.vector import Vector
+        from picoware.engine.camera import Camera, CAMERA_THIRD_PERSON
+        from picoware.engine.entity import (
+            SPRITE_3D_HUMANOID,
+            SPRITE_3D_HOUSE,
+            SPRITE_3D_TREE,
+        )
         from free_roam.sprite import Sprite
 
         self.draw.fill_screen(COLOR_WHITE)
         self.draw.text(Vector(0, 10), "Initializing game...", COLOR_BLACK)
+        self.view_manager.log("Initializing Free Roam Game...")
 
         if self.is_game_running or self.engine:
             # Game already running, skipping start
+            self.view_manager.log("Game already running, skipping initialization")
             return True
 
         # Create the game instance with 3rd person perspective
         game = Game(
             "Free Roam",
-            Vector(128, 64),
+            self.draw.size,
             self.draw,
             self.view_manager.input_manager,
-            COLOR_WHITE,
-            COLOR_BLACK,
-            CAMERA_THIRD_PERSON,
+            COLOR_WHITE,  # foreground color (actually black)
+            COLOR_BLACK,  # background color (actually white)
+            Camera(
+                perspective=CAMERA_THIRD_PERSON
+            ),  # Use 3rd person camera perspective
         )
         if not game:
             # Failed to create Game object
+            self.view_manager.log("Failed to create Game object", 2)
             return False
+
+        self.view_manager.log("Game object created successfully")
 
         # Create the player instance if it doesn't exist
         if not self.player:
@@ -146,8 +116,11 @@ class FreeRoamGame:
 
             self.player = Player()
             if not self.player:
+                self.view_manager.log("Failed to create Player object", 2)
                 # Failed to create Player object
                 return False
+
+        self.view_manager.log("Player object created successfully")
 
         # set sound/vibration toggle states
         self.player.sound_toggle = self.sound_toggle
@@ -160,10 +133,6 @@ class FreeRoamGame:
         level1 = Level("Tutorial", Vector(128, 64), game)
         level2 = Level("First", Vector(128, 64), game)
         level3 = Level("Second", Vector(128, 64), game)
-
-        level1.clear_allowed = False  # Player will handle clearing and swapping
-        level2.clear_allowed = False
-        level3.clear_allowed = False
 
         # we'll clear ourselves and swap afterwards too
         level1.clear_allowed = False
@@ -179,7 +148,7 @@ class FreeRoamGame:
             "Tutorial Guard 1",
             Vector(3, 7),
             SPRITE_3D_HUMANOID,
-            1.7,
+            1.5,
             1.0,
             pi / 4,
             Vector(9, 7),
@@ -188,7 +157,7 @@ class FreeRoamGame:
             "Tutorial Guard 2",
             Vector(6, 2),
             SPRITE_3D_HUMANOID,
-            1.7,
+            1.5,
             1.0,
             pi / 4,
             Vector(1, 2),
@@ -196,18 +165,120 @@ class FreeRoamGame:
         level1.entity_add(tutorial_guard_1)
         level1.entity_add(tutorial_guard_2)
 
+        # Town (level 2) - 4 houses spread across the open map
+        house1 = Sprite(
+            "House 1",
+            Vector(14, 13),
+            SPRITE_3D_HOUSE,
+            10.0,
+            10.0,
+            0.0,
+            Vector(-1, -1),
+            0x03EF,
+        )
+        house2 = Sprite(
+            "House 2",
+            Vector(48, 13),
+            SPRITE_3D_HOUSE,
+            10.0,
+            10.0,
+            pi / 2,
+            Vector(-1, -1),
+            0x03EF,
+        )
+        house3 = Sprite(
+            "House 3",
+            Vector(14, 43),
+            SPRITE_3D_HOUSE,
+            10.0,
+            10.0,
+            pi,
+            Vector(-1, -1),
+            0x03EF,
+        )
+        house4 = Sprite(
+            "House 4",
+            Vector(48, 43),
+            SPRITE_3D_HOUSE,
+            10.0,
+            10.0,
+            pi * 1.5,
+            Vector(-1, -1),
+            0x03EF,
+        )
+        level2.entity_add(house1)
+        level2.entity_add(house2)
+        level2.entity_add(house3)
+        level2.entity_add(house4)
+
+        # Forest (level 3) - trees scattered throughout the open map
+        tree_positions = [
+            Vector(8, 8),
+            Vector(20, 6),
+            Vector(35, 9),
+            Vector(50, 7),
+            Vector(6, 20),
+            Vector(18, 22),
+            Vector(30, 18),
+            Vector(44, 24),
+            Vector(55, 15),
+            Vector(10, 35),
+            Vector(25, 40),
+            Vector(40, 36),
+            Vector(52, 42),
+            Vector(8, 48),
+            Vector(22, 50),
+            Vector(38, 48),
+        ]
+        tree_names = [
+            "Tree 1",
+            "Tree 2",
+            "Tree 3",
+            "Tree 4",
+            "Tree 5",
+            "Tree 6",
+            "Tree 7",
+            "Tree 8",
+            "Tree 9",
+            "Tree 10",
+            "Tree 11",
+            "Tree 12",
+            "Tree 13",
+            "Tree 14",
+            "Tree 15",
+            "Tree 16",
+        ]
+        for i in range(16):
+            level3.entity_add(
+                Sprite(
+                    tree_names[i],
+                    tree_positions[i],
+                    SPRITE_3D_TREE,
+                    3.0,
+                    1.0,
+                    0.0,
+                    Vector(-1, -1),
+                    0x07E0,
+                )
+            )
+
         game.level_add(level1)
         game.level_add(level2)
         game.level_add(level3)
 
+        self.view_manager.log("Levels and player added to game successfully")
+
         self.engine = GameEngine(game, 240)
         if not self.engine:
             # Failed to create GameEngine
+            self.view_manager.log("Failed to create GameEngine", 2)
             return False
+
+        self.view_manager.log("GameEngine created successfully")
 
         self.draw.fill_screen(COLOR_WHITE)
         self.draw.text(Vector(0, 10), "Starting game engine...", COLOR_BLACK)
-
+        self.view_manager.log("Starting Free Roam Game...")
         self.is_game_running = True  # Set the flag to indicate game is running
         return True
 

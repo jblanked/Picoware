@@ -1,35 +1,23 @@
 #pragma once
 #include <stdint.h>
 
-/**
- * Audio Command Enumeration
- *
- * Defines the possible commands that can be sent to the audio processing core.
- */
 typedef enum
 {
-    AUDIO_CMD_IDLE = 0,    // No operation
-    AUDIO_CMD_PLAYBACK,    // Play audio samples
-    AUDIO_CMD_VOLUME_UP,   // Increase volume
-    AUDIO_CMD_VOLUME_DOWN, // Decrease volume
-    AUDIO_CMD_INVALID      // Invalid command
+    AUDIO_CMD_IDLE = 0,
+    AUDIO_CMD_PLAYBACK,
+    AUDIO_CMD_VOLUME_UP,
+    AUDIO_CMD_VOLUME_DOWN,
+    AUDIO_CMD_INVALID
 } audio_commands_e;
 
-/**
- * Global Variables for Audio Processing
- *
- * stream: Contains N=AUDIO_SAMPLES samples
- * Each sample is 32 bits (16 bits for left channel + 16 bits for right channel)
- * in stereo interleaved format. This is played at AUDIO_SAMPLE_RATE Hz.
- */
-extern int16_t *stream;
+// Init: allocate stream, set up I2S hardware, init APU emulator state.
+void audio_init_thread(void);
 
-/**
- * Core 1 Audio Processing Function
- *
- * This function runs on core 1 and handles all audio processing.
- * It initializes the audio hardware, processes audio samples from the
- * Game Boy APU, and sends them to the I2S audio output.
- * Communication with core 0 happens via a queue for commands.
- */
-void audio_process(void);
+/* Dispatch one command from the inter-core FIFO. */
+void audio_handle_cmd(uint32_t raw_cmd);
+
+/* Send a command to the core1 audio loop via multicore FIFO. */
+void audio_send_cmd(uint32_t cmd);
+
+/* Core1 entry point: blocks on multicore FIFO and dispatches audio commands. */
+void audio_process_gb(void);

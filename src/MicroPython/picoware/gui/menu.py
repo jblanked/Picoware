@@ -170,9 +170,11 @@ class Menu:
         if self.use_lvgl:
             self.list.clear()
         else:
-            self.display.clear(
-                self.clear_position,
-                self.clear_size,
+            self.display._fill_rectangle(
+                self.clear_position.x,
+                self.clear_position.y,
+                self.clear_size.x,
+                self.clear_size.y,
                 self.background_color,
             )
             self.list.clear()
@@ -193,19 +195,25 @@ class Menu:
             return  # Title is handled by LVGL list
 
         # clear title area
-        self.display.clear(
-            self.clear_position,
-            self.clear_size,
+        self.display._fill_rectangle(
+            self.clear_position.x,
+            self.clear_position.y,
+            self.clear_size.x,
+            self.clear_size.y,
             self.background_color,
         )
 
         # Draw title centered
-        self.display.text(self.title_pos, self._title, self.text_color, 3)
+        self.display._text(
+            self.title_pos.x, self.title_pos.y, self._title, self.text_color, 3
+        )
 
         # Draw underline
-        self.display.line_custom(
-            self.line_pos,
-            self.line_size,
+        self.display._line(
+            self.line_pos.x,
+            self.line_pos.y,
+            self.line_size.x,
+            self.line_size.y,
             self.text_color,
         )
 

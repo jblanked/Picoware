@@ -10,17 +10,12 @@ class ScrollBar:
         fill_color: int = 0xFFFFFF,
         is_horizontal: bool = False,
     ) -> None:
-        from picoware.system.vector import Vector
-
         self.display = draw
         self.position = position
         self.size = size
         self.outline_color = outline_color
         self.fill_color = fill_color
         self.is_horizontal = is_horizontal
-
-        self.fill_pos = Vector(self.position.x + 1, self.position.y + 1)
-        self.fill_size = Vector(self.size.x - 2, self.size.y - 2)
 
     def __del__(self):
         if self.position:
@@ -32,28 +27,42 @@ class ScrollBar:
 
     def clear(self) -> None:
         """Clear the scrollbar."""
-        self.display.clear(self.position, self.size, self.fill_color)
+        self.display._fill_rectangle(
+            self.position.x, self.position.y, self.size.x, self.size.y, self.fill_color
+        )
 
     def draw(self) -> None:
         """Draw the scrollbar."""
         if self.is_horizontal:
             # Draw horizontal scrollbar
-            self.fill_pos.x, self.fill_pos.y = self.position.x + 1, self.position.y + 1
-            self.fill_size.x, self.fill_size.y = self.size.x - 2, self.size.y - 2
-            self.display.rect(self.position, self.size, self.outline_color)
-            self.display.fill_rectangle(
-                self.fill_pos,
-                self.fill_size,
+            self.display._rectangle(
+                self.position.x,
+                self.position.y,
+                self.size.x,
+                self.size.y,
+                self.outline_color,
+            )
+            self.display._fill_rectangle(
+                self.position.x + 1,
+                self.position.y + 1,
+                self.size.x - 2,
+                self.size.y - 2,
                 self.fill_color,
             )
         else:
             # Draw vertical scrollbar
-            self.fill_pos.x, self.fill_pos.y = self.position.x + 1, self.position.y + 1
-            self.fill_size.x, self.fill_size.y = self.size.x - 2, self.size.y - 2
-            self.display.rect(self.position, self.size, self.outline_color)
-            self.display.fill_rectangle(
-                self.fill_pos,
-                self.fill_size,
+            self.display._rectangle(
+                self.position.x,
+                self.position.y,
+                self.size.x,
+                self.size.y,
+                self.outline_color,
+            )
+            self.display._fill_rectangle(
+                self.position.x + 1,
+                self.position.y + 1,
+                self.size.x - 2,
+                self.size.y - 2,
                 self.fill_color,
             )
 

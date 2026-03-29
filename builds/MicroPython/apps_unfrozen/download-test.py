@@ -31,7 +31,6 @@ def start(view_manager) -> bool:
     """Start the app."""
     from picoware.gui.menu import Menu
     from picoware.gui.loading import Loading
-    from picoware.system.colors import TFT_BLUE
 
     draw = view_manager.draw
     wifi = view_manager.wifi
@@ -55,7 +54,7 @@ def start(view_manager) -> bool:
             draw.size.y,  # height
             view_manager.foreground_color,  # text color
             view_manager.background_color,  # background color
-            TFT_BLUE,  # selected item color
+            view_manager.selected_color,  # selected item color
             view_manager.foreground_color,  # border color
         )
 

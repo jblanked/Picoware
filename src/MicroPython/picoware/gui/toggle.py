@@ -60,8 +60,19 @@ class Toggle:
 
                 init()
 
+                class LVGLToggleWrapper(LVGLToggle):
+                    """Wrapper for LVGL Toggle to integrate with our Toggle class."""
+
+                    def __setattr__(self, name, value):
+                        if name == "text":
+                            self.set_text(value)
+                        elif name == "state":
+                            self.set_state(value)
+                        else:
+                            super().__setattr__(name, value)
+
                 # Create LVGL Toggle instance
-                self._lvgl_toggle = LVGLToggle(
+                self._lvgl_toggle = LVGLToggleWrapper(
                     (position.x, position.y),
                     (size.x, size.y),
                     text,
@@ -81,9 +92,11 @@ class Toggle:
 
     def __del__(self):
         if self._lvgl_toggle is not None:
-            self._lvgl_toggle.deinit()
+            from picoware_lvgl import deinit
+
             del self._lvgl_toggle
             self._lvgl_toggle = None
+            deinit()
 
         if self.position:
             del self.position

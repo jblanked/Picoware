@@ -2,7 +2,7 @@
 
 // Peanut-GB emulator settings
 #define ENABLE_DEBUG 1                // Enable debug output
-#define ENABLE_SOUND 0                // Enable sound output
+#define ENABLE_SOUND 1                // Enable sound output
 #define ENABLE_SDCARD 1               // Enable SD card for ROM and save storage
 #define PEANUT_FULL_GBC_SUPPORT 1     // Enable full Game Boy Color support
 #define WALNUT_GB_HIGH_LCD_ACCURACY 1 // Use high accuracy LCD emulation

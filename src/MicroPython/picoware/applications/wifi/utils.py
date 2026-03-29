@@ -19,7 +19,7 @@ def connect_to_saved_wifi(view_manager) -> bool:
     ssid = settings.get("ssid", "")
     password = settings.get("password", "")
 
-    if not ssid or not password:
+    if not ssid:
         return False
 
     return wifi.connect_async(ssid, password, sta_mode=True)
@@ -66,11 +66,11 @@ def load_wifi_password(view_manager) -> str:
         return ""
 
 
-def save_wifi_settings(storage, ssid: str, password: str) -> bool:
+def save_wifi_settings(storage, ssid: str, password: str = "") -> bool:
     """Save the WiFi settings to storage."""
 
-    if not ssid or not password:
-        print("SSID and password cannot be empty")
+    if not ssid:
+        print("SSID cannot be empty")
         return False
     settings = {"ssid": ssid, "password": password}
     try:

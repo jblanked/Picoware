@@ -43,6 +43,8 @@ extern "C"
     mp_obj_t level_mp_set_size(mp_obj_t self_in, mp_obj_t size_obj);
     mp_obj_t level_mp_set_clear_allowed(mp_obj_t self_in, mp_obj_t clear_allowed_obj);
 
+    mp_obj_t level_mp_get_entity(mp_obj_t self_in, mp_obj_t index_obj);
+
 #ifdef __cplusplus
 }
 #endif

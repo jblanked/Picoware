@@ -53,8 +53,15 @@ class Loading:
 
                 init()
 
+                class LVGLLoadingWrapper(LVGLLoading):
+                    def __setattr__(self, name, value):
+                        if name == "text":
+                            self.set_text(value)
+                        else:
+                            super().__setattr__(name, value)
+
                 # Create LVGL Loading instance
-                self._lvgl_loading = LVGLLoading(spinner_color, background_color)
+                self._lvgl_loading = LVGLLoadingWrapper(spinner_color, background_color)
                 # Set initial text
                 self._lvgl_loading.set_text(self.current_text)
             except (ImportError, RuntimeError, ValueError):
@@ -62,9 +69,11 @@ class Loading:
 
     def __del__(self) -> None:
         if self._lvgl_loading is not None:
-            self._lvgl_loading.deinit()
+            from picoware_lvgl import deinit
+
             del self._lvgl_loading
             self._lvgl_loading = None
+            deinit()
         self.current_text = ""
         self.animating = False
         self.time_elapsed = 0
@@ -80,6 +89,8 @@ class Loading:
     @property
     def text(self) -> str:
         """Get the current loading text."""
+        if self.use_lvgl and self._lvgl_loading is not None:
+            return self._lvgl_loading.text
         return self.current_text
 
     @text.setter
@@ -111,7 +122,7 @@ class Loading:
             self.time_start = ticks_ms()
 
         # Clear the screen
-        self.display.fill_screen(self.background_color)
+        self.display.erase()
 
         # Get screen center
         screen_size = self.display.size
@@ -135,13 +146,12 @@ class Loading:
             color = self.fade_color(self.spinner_color, opacity)
 
             # Draw line segment
-            self.vec_line.x, self.vec_line.y = x1, y1
-            self.vec_line_end.x, self.vec_line_end.y = x2, y2
-            self.display.line_custom(self.vec_line, self.vec_line_end, color)
+            self.display._line(x1, y1, x2, y2, color)
 
         # Draw text
-        self.display.text(
-            self.text_vec,
+        self.display._text(
+            self.text_vec.x,
+            self.text_vec.y,
             self.current_text,
             self.spinner_color,
         )
@@ -155,13 +165,17 @@ class Loading:
             else:
                 time_str = f"{int(seconds)} seconds"
             self.text_vec_2.x = (screen_size.x - len(time_str) * self.font_size_x) // 2
-            self.display.text(self.text_vec_2, time_str, self.spinner_color)
+            self.display._text(
+                self.text_vec_2.x, self.text_vec_2.y, time_str, self.spinner_color
+            )
         else:
             minutes = seconds / 60
             remaining_seconds = seconds % 60
             time_str = f"{int(minutes)}:{int(remaining_seconds):02} minutes"
             self.text_vec_2.x = (screen_size.x - len(time_str) * self.font_size_x) // 2
-            self.display.text(self.text_vec_2, time_str, self.spinner_color)
+            self.display._text(
+                self.text_vec_2.x, self.text_vec_2.y, time_str, self.spinner_color
+            )
 
         self.time_elapsed = ticks_ms() - self.time_start
         self.spinner_position = (self.spinner_position + 10) % 360

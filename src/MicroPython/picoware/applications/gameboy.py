@@ -39,6 +39,8 @@ def start(view_manager) -> bool:
 
             break
 
+    view_manager.freq(True)  # set to lower frequency
+
     from picoware.gui.file_browser import FileBrowser
     from picoware.system.gameboy import GameBoy
 
@@ -123,5 +125,7 @@ def stop(view_manager) -> None:
         gb = None
 
     _state = STATE_BROWSER
+
+    view_manager.freq()  # set back to higher frequency
 
     collect()

@@ -4,7 +4,9 @@ from utime import ticks_ms
 class Thread:
     """Class representing a thread."""
 
-    def __init__(self, function: callable, args: tuple = ()) -> None:
+    def __init__(
+        self, function: callable, args: tuple = (), stack_size: int = 0
+    ) -> None:
         from _thread import allocate_lock
 
         self._args = args
@@ -13,6 +15,7 @@ class Thread:
         self._lock = allocate_lock()
         self._running = False
         self._stop_requested = False
+        self._stack_size = stack_size
 
     def __del__(self):
         self.stop()
@@ -59,6 +62,8 @@ class Thread:
             try:
                 self._running = True
                 self._stop_requested = False
+                if self._stack_size > 0:
+                    _thread.stack_size(self._stack_size)
                 _thread.start_new_thread(self._wrapper, ())
                 return True
             except Exception as e:
@@ -83,12 +88,18 @@ class ThreadTask:
         "name",
         "result",
         "should_stop",
+        "stack_size",
         "start_time",
         "timeout",
     )
 
     def __init__(
-        self, name: str, function: callable, args: tuple = (), timeout: int = 0
+        self,
+        name: str,
+        function: callable,
+        args: tuple = (),
+        timeout: int = 0,
+        stack_size: int = 0,
     ) -> None:
         self.args = args
         self.error = None
@@ -98,6 +109,7 @@ class ThreadTask:
         self.should_stop = False
         self.start_time = 0
         self.timeout = timeout
+        self.stack_size = stack_size
 
     @property
     def id(self) -> int:
@@ -176,7 +188,7 @@ class ThreadManager:
             # Skip task if stop was requested
             if task.should_stop:
                 return self._outgoing
-            thread = Thread(task.function, task.args)
+            thread = Thread(task.function, task.args, task.stack_size)
             if thread.run():
                 task.start_time = ticks_ms()
                 task.id = self._id

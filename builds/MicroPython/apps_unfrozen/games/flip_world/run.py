@@ -40,8 +40,6 @@ from flip_world.general import (
 
 from flip_world.player import (
     Player,
-    GAME_VIEW_GAME,
-    INPUT_KEY_BACK,
     INPUT_KEY_MAX,
     COLOR_WHITE,
     COLOR_BLACK,
@@ -70,6 +68,8 @@ MAX_WEBSOCKET_SIZE = const(256)
 
 class QueuedMessage:
     """Structure to hold queued websocket messages"""
+
+    __slots__ = ("message", "message_len")
 
     def __init__(self):
         self.message: str = ""
@@ -103,9 +103,6 @@ class FlipWorldRun:
 
         # Input state
         self.last_input: int = INPUT_KEY_MAX
-        self.input_held: bool = False
-        self.input_held_counter: int = 0
-        self.debounce_counter: int = 0
 
         # Message queue for websocket
         self.message_queue: list[QueuedMessage] = [
@@ -232,17 +229,6 @@ class FlipWorldRun:
 
         print(f"Failed to create remote player entity for {username}")
         return False
-
-    def debounce_input(self):
-        """Debounce input to prevent multiple actions from a single press."""
-        # if self.should_debounce:
-        #     self.last_input = INPUT_KEY_MAX
-        #     self.debounce_counter += 1
-        #     if self.debounce_counter < 1:  # was 2...
-        #         return
-        #     self.debounce_counter = 0
-        #     self.should_debounce = False
-        #     self.input_held = False
 
     def end_game(self):
         """End the game and return to the submenu."""
@@ -422,6 +408,8 @@ class FlipWorldRun:
     def get_level(self, index: int, game) -> Level:
         """Get a Level object by index."""
 
+        print(f"Creating level {index} - {self.level_names[index]}")
+
         level = Level(
             self.get_level_name(index),
             Vector(768, 384),
@@ -430,6 +418,8 @@ class FlipWorldRun:
         if not level:
             print("Failed to create Level object")
             return None
+
+        print("Level object now created, setting icon group...")
 
         if index == LEVEL_HOME_WOODS:
             spr1 = Sprite(
@@ -443,6 +433,7 @@ class FlipWorldRun:
                 10.0,
                 100.0,
             )
+            print("Sprite 1 created, now creating remaining sprites...")
             spr2 = Sprite(
                 "Ogre",
                 ENTITY_TYPE_ENEMY,
@@ -454,6 +445,7 @@ class FlipWorldRun:
                 20.0,
                 200.0,
             )
+            print("Sprite 2 created, now creating remaining sprites...")
             spr3 = Sprite(
                 "Ghost",
                 ENTITY_TYPE_ENEMY,
@@ -465,6 +457,7 @@ class FlipWorldRun:
                 30.0,
                 300.0,
             )
+            print("Sprite 3 created, now creating remaining sprites...")
             spr4 = Sprite(
                 "Ogre",
                 ENTITY_TYPE_ENEMY,
@@ -476,6 +469,7 @@ class FlipWorldRun:
                 20.0,
                 200.0,
             )
+            print("Sprite 4 created, now creating remaining sprites...")
             spr5 = Sprite(
                 "Funny NPC",
                 ENTITY_TYPE_NPC,
@@ -487,6 +481,7 @@ class FlipWorldRun:
                 0.0,
                 0.0,
             )
+            print("Sprites created, adding to level...")
             #
             spr1.flip_world_run = self
             spr2.flip_world_run = self
@@ -494,11 +489,13 @@ class FlipWorldRun:
             spr4.flip_world_run = self
             spr5.flip_world_run = self
             #
+            print("Sprites linked to FlipWorldRun instance, now adding to level...")
             level.entity_add(spr1)
             level.entity_add(spr2)
             level.entity_add(spr3)
             level.entity_add(spr4)
             level.entity_add(spr5)
+            print("Entities added to level")
 
         elif index == LEVEL_ROCK_WORLD:
             spr1 = Sprite(
@@ -663,7 +660,7 @@ class FlipWorldRun:
             level.entity_add(spr5)
             level.entity_add(spr6)
             level.entity_add(spr7)
-
+        print("Entities added to level")
         level.clear_allowed = False  # swap is done by Player.draw_current_view
         return level
 
@@ -738,24 +735,6 @@ class FlipWorldRun:
 
     def input_manager(self):
         """Manage input for the game, called from update_input."""
-        # Track input held state
-        if self.last_input != INPUT_KEY_MAX:
-            self.input_held_counter += 1
-            if self.input_held_counter > 10:
-                self.input_held = True
-        else:
-            self.input_held_counter = 0
-            self.input_held = False
-
-        # Handle input for all views
-        if self.player and self.player.current_main_view == GAME_VIEW_GAME:
-            if not self.is_game_running:
-                if self.last_input == INPUT_KEY_BACK:
-                    self.debounce_input()
-        else:
-            if self.should_debounce:
-                self.debounce_input()
-
         # Pass input to player for processing
         if self.player:
             self.player.last_input = self.last_input
@@ -775,7 +754,8 @@ class FlipWorldRun:
 
         current_level = self.engine.game.current_level
 
-        for entity in current_level.entities:
+        for i in range(current_level.entity_count):
+            entity = current_level.get_entity(i)
             if entity and entity.type == ENTITY_TYPE_PLAYER:
                 if entity.name == username and entity != self.player:
                     current_level.entity_remove(entity)
@@ -786,7 +766,6 @@ class FlipWorldRun:
     def reset_input(self):
         """Reset input after processing."""
         self.last_input = INPUT_KEY_MAX
-        self.input_held = False
 
     def set_is_lobby_host(self, is_host: bool):
         """Set if this player is the lobby host."""
@@ -853,28 +832,45 @@ class FlipWorldRun:
         self.draw.text(Vector(0, 10), "Adding levels and player...", COLOR_BLACK)
         self.draw.swap()
 
+        print("Getting levels and adding player...")
+
         # Create levels
         level1 = self.get_level(LEVEL_HOME_WOODS, game)
-        # level2 = self.get_level(LEVEL_ROCK_WORLD, game)
-        # level3 = self.get_level(LEVEL_FOREST_WORLD, game)
+        level2 = self.get_level(LEVEL_ROCK_WORLD, game)
+        level3 = self.get_level(LEVEL_FOREST_WORLD, game)
+        print("Levels created")
 
         # Set icon group for first level
         if not self.set_icon_group(LEVEL_HOME_WOODS):
             print("Failed to set icon group for level 0")
             return False
 
+        print("Icon group set for level 0")
+
         # Add player to all levels
         level1.entity_add(self.player)
-        # level2.entity_add(self.player)
-        # level3.entity_add(self.player)
+        level2.entity_add(self.player)
+        level3.entity_add(self.player)
+
+        print("Player added to levels")
 
         # Add levels to game
         game.level_add(level1)
-        # game.level_add(level2)
-        # game.level_add(level3)
+        game.level_add(level2)
+        game.level_add(level3)
+
+        print("Levels added to game")
 
         # Start with first level
         game.level_switch(0)
+
+        if game.current_level is None:
+            print("Failed to switch to first level")
+            return False
+
+        print(
+            f"Switched to first level {game.current_level.name} with {game.current_level.entity_count} entities"
+        )
 
         # Set game position to center of player
         game.position = Vector(384, 192)
@@ -892,18 +888,22 @@ class FlipWorldRun:
         self.draw.swap()
 
         self.is_game_running = True
-
+        print("Gaming engine started")
         return True
 
     def switch_to_level(self, level_index: int):
         """Switch to a specific level by index."""
         if not self.is_game_running or not self.engine or not self.engine.game:
+            print(
+                "Cannot switch levels - game is not running or engine/game is not initialized"
+            )
             return
 
         if level_index < 0 or level_index >= self.total_levels:
             return
 
         if not self.engine.game.level_exists(self.get_level_name(level_index)):
+            print(f"Level {level_index} does not exist in game, creating...")
             # create level if it doesn't exist yet
             level = self.get_level(level_index, self.engine.game)
             if level:
@@ -916,6 +916,8 @@ class FlipWorldRun:
         self.current_level_index = level_index
         self.engine.game.level_switch(self.current_level_index)
         self.set_icon_group(self.current_level_index)
+
+        print(f"Switched to level {level_index} - {self.get_level_name(level_index)}")
 
     def switch_to_next_level(self):
         """Switch to the next level in the game."""
@@ -1161,7 +1163,8 @@ class FlipWorldRun:
 
             # Find existing player or add new one
             found = False
-            for entity in current_level.entities:
+            for i in range(current_level.entity_count):
+                entity = current_level.get_entity(i)
                 if (
                     entity
                     and entity.type == ENTITY_TYPE_PLAYER
@@ -1197,7 +1200,8 @@ class FlipWorldRun:
             enemy_name = enemy_data.get("u", None)
 
             if enemy_name:
-                for entity in current_level.entities:
+                for i in range(current_level.entity_count):
+                    entity = current_level.get_entity(i)
                     if (
                         entity
                         and entity.type == ENTITY_TYPE_ENEMY

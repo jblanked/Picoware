@@ -90,5 +90,15 @@ class Entity(engine.Entity):
             self.set_3d_sprite_rotation(value)
         elif name == "sprite_scale":
             self.set_3d_sprite_scale(value)
+        elif name == "sprite_3d_type":
+            self.set_sprite3d_type(value)
+        elif name == "sprite_3d":
+            self.set_sprite3d(value)
+        elif name == "sprite":
+            self.set_sprite(value)
+        elif name == "sprite_left":
+            self.set_sprite_left(value)
+        elif name == "sprite_right":
+            self.set_sprite_right(value)
         else:
             super().__setattr__(name, value)

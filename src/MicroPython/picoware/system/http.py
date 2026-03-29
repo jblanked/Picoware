@@ -1033,6 +1033,8 @@ class HTTP:
                         save_to_file,
                         storage,
                     ),
+                    timeout=timeout,
+                    stack_size=32 * 1024,  # 32KB stack size for HTTP tasks
                 )
                 self._current_task = task
                 self._thread_manager.add_task(task)

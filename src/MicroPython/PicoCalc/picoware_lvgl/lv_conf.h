@@ -149,13 +149,14 @@
  * It should be at least `LV_DRAW_LAYER_SIMPLE_BUF_SIZE` sized but if transformed layers are also used
  * it should be enough to store the largest widget too (width x height x 4 area).
  * Set it to 0 to have no limit. */
-#define LV_DRAW_LAYER_MAX_MEMORY 0  /**< No limit by default [bytes]*/
+/* #define LV_DRAW_LAYER_MAX_MEMORY 0 */ 
 
 /** Stack size of drawing thread.
  * NOTE: If FreeType or ThorVG is enabled, it is recommended to set it to 32KB or more.
  */
 
-#define LV_DRAW_THREAD_STACK_SIZE    (8 * 1024)  /**< [bytes]*/
+/* #define LV_DRAW_THREAD_STACK_SIZE    (8 * 1024) */
+/**< [bytes]*/
 
 /** Thread priority of the drawing task.
  *  Higher values mean higher priority.
@@ -516,10 +517,20 @@
  * Others
  *-----------*/
 
-#define LV_ENABLE_GLOBAL_CUSTOM 0
+ // from https://github.com/lvgl/lv_binding_micropython/blob/f33add088fb69b41fd01f0a9e5f3424005bf04f2/lv_conf.h#L426
+ #define LV_USE_PRIVATE_API 1
+
+/*Garbage Collector settings
+ *Used if LVGL is bound to higher level language and the memory is managed by that language*/
+extern void mp_lv_init_gc();
+extern void mp_lv_deinit_gc();
+#define LV_GC_INIT() mp_lv_init_gc()
+#define LV_GC_DEINIT() mp_lv_deinit_gc()
+
+#define LV_ENABLE_GLOBAL_CUSTOM 1
 #if LV_ENABLE_GLOBAL_CUSTOM
-    /** Header to include for custom 'lv_global' function" */
-    #define LV_GLOBAL_CUSTOM_INCLUDE <stdint.h>
+    extern void *mp_lv_roots;
+    #define LV_GLOBAL_CUSTOM() ((lv_global_t*)mp_lv_roots)
 #endif
 
 /** Default cache size in bytes.

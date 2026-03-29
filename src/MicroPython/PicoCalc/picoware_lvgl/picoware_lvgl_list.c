@@ -64,19 +64,16 @@ mp_obj_t picoware_lvgl_list_make_new(const mp_obj_type_t *type, size_t n_args, s
     self->is_circular = false;
 
     // Initialize LVGL objects
-    self->screen = NULL;
-    self->container = NULL;
     self->title_label = NULL;
     self->list_widget = NULL;
     self->list_buttons = NULL;
 
-    lv_clear_screen(true);
+    // lv_clear_screen(true); // i bet the issue is here?
 
     // Create title label immediately if display is available
     if (lvgl_display)
     {
         lv_obj_t *screen = lv_disp_get_scr_act(lvgl_display);
-        self->screen = screen;
 
         // Create title label
         self->title_label = lv_label_create(screen);
@@ -86,6 +83,7 @@ mp_obj_t picoware_lvgl_list_make_new(const mp_obj_type_t *type, size_t n_args, s
         lv_obj_add_flag(self->title_label, LV_OBJ_FLAG_HIDDEN);
     }
     self->freed = false;
+    self->items_changed = false;
     return MP_OBJ_FROM_PTR(self);
 }
 
@@ -105,11 +103,6 @@ mp_obj_t picoware_lvgl_list_del(mp_obj_t self_in)
         {
             lv_obj_delete(self->list_widget);
             self->list_widget = NULL;
-        }
-        if (self->container)
-        {
-            lv_obj_delete(self->container);
-            self->container = NULL;
         }
         if (self->title_label)
         {
@@ -233,20 +226,16 @@ mp_obj_t picoware_lvgl_list_clear(mp_obj_t self_in)
     // Reset items
     self->item_count = 0;
     self->selected_index = 0;
+    self->items_changed = true;
 
     // Clear screen
     lv_clear_screen(false);
 
-    // Delete list widget and container
+    // Delete list widget
     if (self->list_widget)
     {
         lv_obj_delete(self->list_widget);
         self->list_widget = NULL;
-    }
-    if (self->container)
-    {
-        lv_obj_delete(self->container);
-        self->container = NULL;
     }
 
     // Hide title
@@ -283,7 +272,7 @@ mp_obj_t picoware_lvgl_list_add_item(mp_obj_t self_in, mp_obj_t item_in)
 
     // Add item
     self->items[self->item_count++] = item_in;
-
+    self->items_changed = true;
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(picoware_lvgl_list_add_item_obj, picoware_lvgl_list_add_item);
@@ -315,6 +304,7 @@ mp_obj_t picoware_lvgl_list_remove_item(mp_obj_t self_in, mp_obj_t index_in)
     {
         self->selected_index = 0;
     }
+    self->items_changed = true;
 
     return mp_const_none;
 }
@@ -379,24 +369,16 @@ mp_obj_t picoware_lvgl_list_scroll_up(mp_obj_t self_in)
         return mp_const_none;
     }
 
+    int old_index = self->selected_index;
     self->selected_index--;
     if (self->selected_index < 0)
     {
         self->selected_index = self->item_count - 1;
     }
 
-    // Update button states
-    for (size_t i = 0; i < self->item_count; i++)
-    {
-        if ((int)i == self->selected_index)
-        {
-            lv_obj_add_state(self->list_buttons[i], LV_STATE_CHECKED);
-        }
-        else
-        {
-            lv_obj_remove_state(self->list_buttons[i], LV_STATE_CHECKED);
-        }
-    }
+    // Update only the two changed buttons
+    lv_obj_remove_state(self->list_buttons[old_index], LV_STATE_CHECKED);
+    lv_obj_add_state(self->list_buttons[self->selected_index], LV_STATE_CHECKED);
 
     // Scroll to make selected item visible
     lv_obj_update_layout(self->list_widget);
@@ -435,24 +417,16 @@ mp_obj_t picoware_lvgl_list_scroll_down(mp_obj_t self_in)
         return mp_const_none;
     }
 
+    int old_index = self->selected_index;
     self->selected_index++;
     if (self->selected_index >= (int)self->item_count)
     {
         self->selected_index = 0;
     }
 
-    // Update button states
-    for (size_t i = 0; i < self->item_count; i++)
-    {
-        if ((int)i == self->selected_index)
-        {
-            lv_obj_add_state(self->list_buttons[i], LV_STATE_CHECKED);
-        }
-        else
-        {
-            lv_obj_remove_state(self->list_buttons[i], LV_STATE_CHECKED);
-        }
-    }
+    // Update only the two changed buttons
+    lv_obj_remove_state(self->list_buttons[old_index], LV_STATE_CHECKED);
+    lv_obj_add_state(self->list_buttons[self->selected_index], LV_STATE_CHECKED);
 
     // Scroll to make selected item visible
     lv_obj_update_layout(self->list_widget);
@@ -475,122 +449,114 @@ mp_obj_t picoware_lvgl_list_draw(mp_obj_t self_in)
         mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("LVGL display not available"));
     }
 
-    lv_obj_t *screen = lv_disp_get_scr_act(lvgl_display);
-    self->screen = screen;
-
-    // Clear screen
-    lv_clear_screen(false);
-
-    // Clear previous list widget and container
-    if (self->list_widget)
+    if (self->items_changed)
     {
-        lv_obj_delete(self->list_widget);
-        self->list_widget = NULL;
-    }
-    if (self->container)
-    {
-        lv_obj_delete(self->container);
-        self->container = NULL;
-    }
+        lv_obj_t *screen = lv_disp_get_scr_act(lvgl_display);
 
-    // Free previous list buttons
-    if (self->list_buttons)
-    {
-        lv_free(self->list_buttons);
-        self->list_buttons = NULL;
-    }
+        // Clear screen
+        lv_clear_screen(false);
 
-    if (self->item_count == 0)
-    {
-        lv_refr_now(lvgl_display);
-        return mp_const_none;
-    }
-
-    int title_offset = 0;
-
-    // Draw title if set
-    if (self->title_label)
-    {
-        const char *title_text = lv_label_get_text(self->title_label);
-        if (title_text && strlen(title_text) > 0)
+        // Clear previous list widget
+        if (self->list_widget)
         {
-            title_offset = 40;
-            lv_obj_clear_flag(self->title_label, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_align(self->title_label, LV_ALIGN_TOP_MID, 0, self->y + 10);
+            lv_obj_delete(self->list_widget);
+            self->list_widget = NULL;
         }
-    }
 
-    // Create container for the list
-    self->container = lv_obj_create(screen);
-    lv_obj_set_size(self->container, DISPLAY_WIDTH, self->height - title_offset);
-    lv_obj_set_pos(self->container, 0, self->y + title_offset);
-    lv_obj_set_style_bg_color(self->container, lv_color_from_rgb565(self->background_color_565), LV_PART_MAIN);
-    lv_obj_set_style_border_width(self->container, self->border_width, LV_PART_MAIN);
-    lv_obj_set_style_border_color(self->container, lv_color_from_rgb565(self->border_color_565), LV_PART_MAIN);
-    lv_obj_set_style_radius(self->container, 8, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(self->container, 0, LV_PART_MAIN);
+        // Free previous list buttons
+        if (self->list_buttons)
+        {
+            lv_free(self->list_buttons);
+            self->list_buttons = NULL;
+        }
 
-    // Create LVGL list widget
-    self->list_widget = lv_list_create(self->container);
-    lv_obj_set_size(self->list_widget, DISPLAY_WIDTH, self->height - title_offset);
-    lv_obj_align(self->list_widget, LV_ALIGN_CENTER, 0, 0);
+        if (self->item_count == 0)
+        {
+            return mp_const_none;
+        }
 
-    // Enable vertical scrolling
-    lv_obj_set_scroll_dir(self->list_widget, LV_DIR_VER);
+        int title_offset = 0;
 
-    // Style the list background
-    lv_obj_set_style_bg_color(self->list_widget, lv_color_from_rgb565(self->background_color_565), LV_PART_MAIN);
-    lv_obj_set_style_border_width(self->list_widget, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(self->list_widget, 8, LV_PART_MAIN);
-    lv_obj_set_style_pad_row(self->list_widget, 4, LV_PART_MAIN);
+        // Draw title if set
+        if (self->title_label)
+        {
+            const char *title_text = lv_label_get_text(self->title_label);
+            if (title_text && strlen(title_text) > 0)
+            {
+                title_offset = 40;
+                lv_obj_clear_flag(self->title_label, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_align(self->title_label, LV_ALIGN_TOP_MID, 0, self->y + 10);
+            }
+        }
 
-    // Style the scrollbar
-    lv_obj_set_style_bg_color(self->list_widget, lv_color_from_rgb565(self->border_color_565), LV_PART_SCROLLBAR);
-    lv_obj_set_style_bg_opa(self->list_widget, LV_OPA_70, LV_PART_SCROLLBAR);
-    lv_obj_set_style_width(self->list_widget, 6, LV_PART_SCROLLBAR);
+        // Create LVGL list widget directly on screen (no container wrapper to reduce widget tree depth)
+        self->list_widget = lv_list_create(screen);
+        lv_obj_set_size(self->list_widget, DISPLAY_WIDTH, self->height - title_offset);
+        lv_obj_set_pos(self->list_widget, 0, self->y + title_offset);
 
-    // Allocate memory for button array
-    self->list_buttons = lv_malloc(self->item_count * sizeof(lv_obj_t *));
+        // Enable vertical scrolling
+        lv_obj_set_scroll_dir(self->list_widget, LV_DIR_VER);
 
-    // Add all items to the list
-    for (size_t i = 0; i < self->item_count; i++)
-    {
-        // Get the C string from the MicroPython string object
-        const char *item_text = mp_obj_str_get_str(self->items[i]);
+        // Style the list widget (includes border previously on container)
+        lv_obj_set_style_bg_color(self->list_widget, lv_color_from_rgb565(self->background_color_565), LV_PART_MAIN);
+        lv_obj_set_style_border_width(self->list_widget, self->border_width, LV_PART_MAIN);
+        lv_obj_set_style_border_color(self->list_widget, lv_color_from_rgb565(self->border_color_565), LV_PART_MAIN);
+        lv_obj_set_style_radius(self->list_widget, 0, LV_PART_MAIN);
+        lv_obj_set_style_pad_all(self->list_widget, 8, LV_PART_MAIN);
+        lv_obj_set_style_pad_row(self->list_widget, 4, LV_PART_MAIN);
 
-        // Create button with proper text
-        self->list_buttons[i] = lv_list_add_button(self->list_widget, NULL, item_text);
+        // Style the scrollbar
+        lv_obj_set_style_bg_color(self->list_widget, lv_color_from_rgb565(self->border_color_565), LV_PART_SCROLLBAR);
+        lv_obj_set_style_bg_opa(self->list_widget, LV_OPA_COVER, LV_PART_SCROLLBAR);
+        lv_obj_set_style_width(self->list_widget, 6, LV_PART_SCROLLBAR);
 
-        // Style the button for normal state
-        lv_obj_set_style_bg_color(self->list_buttons[i], lv_color_from_rgb565(self->background_color_565), LV_PART_MAIN | LV_STATE_DEFAULT);
-        lv_obj_set_style_bg_opa(self->list_buttons[i], LV_OPA_20, LV_PART_MAIN | LV_STATE_DEFAULT);
-        lv_obj_set_style_text_color(self->list_buttons[i], lv_color_from_rgb565(self->text_color_565), LV_PART_MAIN | LV_STATE_DEFAULT);
-        lv_obj_set_style_text_font(self->list_buttons[i], &lv_font_montserrat_12, LV_PART_MAIN | LV_STATE_DEFAULT);
-        lv_obj_set_style_radius(self->list_buttons[i], 6, LV_PART_MAIN | LV_STATE_DEFAULT);
-        lv_obj_set_style_pad_all(self->list_buttons[i], 12, LV_PART_MAIN | LV_STATE_DEFAULT);
-        lv_obj_set_style_border_width(self->list_buttons[i], 1, LV_PART_MAIN | LV_STATE_DEFAULT);
-        lv_obj_set_style_border_color(self->list_buttons[i], lv_color_from_rgb565(self->border_color_565), LV_PART_MAIN | LV_STATE_DEFAULT);
-        lv_obj_set_style_border_opa(self->list_buttons[i], LV_OPA_30, LV_PART_MAIN | LV_STATE_DEFAULT);
+        // Allocate memory for button array
+        self->list_buttons = lv_malloc(self->item_count * sizeof(lv_obj_t *));
+        if (!self->list_buttons)
+        {
+            mp_raise_msg(&mp_type_MemoryError, MP_ERROR_TEXT("Failed to allocate memory for list buttons"));
+        }
 
-        // Style the button for checked (selected) state
-        lv_obj_set_style_bg_color(self->list_buttons[i], lv_color_from_rgb565(self->selected_color_565), LV_PART_MAIN | LV_STATE_CHECKED);
-        lv_obj_set_style_bg_opa(self->list_buttons[i], LV_OPA_COVER, LV_PART_MAIN | LV_STATE_CHECKED);
-        lv_obj_set_style_border_width(self->list_buttons[i], 2, LV_PART_MAIN | LV_STATE_CHECKED);
-        lv_obj_set_style_border_color(self->list_buttons[i], lv_color_from_rgb565(self->border_color_565), LV_PART_MAIN | LV_STATE_CHECKED);
-        lv_obj_set_style_border_opa(self->list_buttons[i], LV_OPA_COVER, LV_PART_MAIN | LV_STATE_CHECKED);
+        // Add all items to the list
+        for (size_t i = 0; i < self->item_count; i++)
+        {
+            const char *item_text = mp_obj_str_get_str(self->items[i]);
+            self->list_buttons[i] = lv_list_add_button(self->list_widget, NULL, item_text);
+            if (!self->list_buttons[i])
+            {
+                mp_raise_msg(&mp_type_MemoryError, MP_ERROR_TEXT("list button alloc failed"));
+            }
+
+            // Style the button for normal state
+            lv_obj_set_style_bg_color(self->list_buttons[i], lv_color_from_rgb565(self->background_color_565), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_opa(self->list_buttons[i], LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_color(self->list_buttons[i], lv_color_from_rgb565(self->text_color_565), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_font(self->list_buttons[i], &lv_font_montserrat_12, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_radius(self->list_buttons[i], 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_all(self->list_buttons[i], 12, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_border_width(self->list_buttons[i], 1, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_border_color(self->list_buttons[i], lv_color_from_rgb565(self->border_color_565), LV_PART_MAIN | LV_STATE_DEFAULT);
+
+            // Style the button for checked (selected) state
+            lv_obj_set_style_bg_color(self->list_buttons[i], lv_color_from_rgb565(self->selected_color_565), LV_PART_MAIN | LV_STATE_CHECKED);
+            lv_obj_set_style_bg_opa(self->list_buttons[i], LV_OPA_COVER, LV_PART_MAIN | LV_STATE_CHECKED);
+            lv_obj_set_style_radius(self->list_buttons[i], 0, LV_PART_MAIN | LV_STATE_CHECKED);
+            lv_obj_set_style_border_width(self->list_buttons[i], 2, LV_PART_MAIN | LV_STATE_CHECKED);
+            lv_obj_set_style_border_color(self->list_buttons[i], lv_color_from_rgb565(self->border_color_565), LV_PART_MAIN | LV_STATE_CHECKED);
+        }
 
         // Set initial state
-        if ((int)i == self->selected_index)
+        if (self->selected_index >= 0 && (size_t)self->selected_index < self->item_count)
         {
-            lv_obj_add_state(self->list_buttons[i], LV_STATE_CHECKED);
-            // Scroll to selected item
+            lv_obj_add_state(self->list_buttons[self->selected_index], LV_STATE_CHECKED);
             lv_obj_update_layout(self->list_widget);
-            lv_obj_scroll_to_view(self->list_buttons[i], LV_ANIM_OFF);
+            lv_obj_scroll_to_view(self->list_buttons[self->selected_index], LV_ANIM_OFF);
         }
-    }
 
-    // Refresh display
-    lv_refr_now(lvgl_display);
+        lv_refr_now(lvgl_display);
+
+        self->items_changed = false;
+    }
 
     return mp_const_none;
 }

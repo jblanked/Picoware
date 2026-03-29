@@ -32,12 +32,11 @@ extern "C"
         size_t item_count;
         size_t item_capacity;
         bool is_circular;
-        lv_obj_t *screen;
-        lv_obj_t *container;
         lv_obj_t *title_label;
         lv_obj_t *list_widget;
         lv_obj_t **list_buttons; // Array of button pointers
         bool freed;
+        bool items_changed;
     } picoware_lvgl_list_obj_t;
 
     extern const mp_obj_type_t picoware_lvgl_list_type;

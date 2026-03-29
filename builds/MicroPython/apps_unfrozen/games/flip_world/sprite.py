@@ -12,7 +12,7 @@ from picoware.engine.entity import (
 from picoware.system.vector import Vector
 from math import fabs, sqrt
 from picoware.system.buttons import BUTTON_CENTER, BUTTON_NONE
-from picoware.gui.image import Image
+from picoware.engine.image import Image
 from flip_world.assets import (
     enemy_left_ghost_15x15px,
     enemy_right_ghost_15x15px,
@@ -42,7 +42,19 @@ class Sprite(Entity):
     ):
 
         super().__init__(
-            name, entity_type, start_position, Vector(0, 0), None, None, None
+            name,  # name
+            entity_type,  # entity_type
+            start_position,  # position
+            Vector(0, 0),  # size
+            None,  # sprite data (Image)
+            None,  # sprite_left data (Image)
+            None,  # sprite_right data (Image)
+            None,  # start
+            None,  # stop
+            self.update,  # update
+            self.render,  # render
+            self.collision,  # collision
+            True,  # is 8_bit
         )
         # Create copies to avoid reference sharing
         self.start_position = Vector(start_position.x, start_position.y)
@@ -61,59 +73,30 @@ class Sprite(Entity):
         self.cent_box_pos = Vector(0, 0)
         self.cent_box_size = Vector(0, 0)
         self.cent_box_text = Vector(0, 0)
-        if name == "Cyclops":
 
+        if name == "Cyclops":
             self.size = Vector(10, 11)
-            self.sprite = Image()
-            self.sprite.from_byte_array(enemy_left_cyclops_10x11px, self.size, True)
-            #
-            self.sprite_left = Image()
-            self.sprite_left.from_byte_array(
-                enemy_left_cyclops_10x11px, self.size, True
-            )
-            #
-            self.sprite_right = Image()
-            self.sprite_right.from_byte_array(
-                enemy_right_cyclops_10x11px, self.size, True
-            )
+            self.sprite = Image(self.size, True, enemy_left_cyclops_10x11px)
+            self.sprite_left = Image(self.size, True, enemy_left_cyclops_10x11px)
+            self.sprite_right = Image(self.size, True, enemy_right_cyclops_10x11px)
 
         elif name == "Ogre":
-
             self.size = Vector(10, 13)
-            self.sprite = Image()
-            self.sprite.from_byte_array(enemy_left_ogre_10x13px, self.size, True)
-            #
-            self.sprite_left = Image()
-            self.sprite_left.from_byte_array(enemy_left_ogre_10x13px, self.size, True)
-            #
-            self.sprite_right = Image()
-            self.sprite_right.from_byte_array(enemy_right_ogre_10x13px, self.size, True)
+            self.sprite = Image(self.size, True, enemy_left_ogre_10x13px)
+            self.sprite_left = Image(self.size, True, enemy_left_ogre_10x13px)
+            self.sprite_right = Image(self.size, True, enemy_right_ogre_10x13px)
 
         elif name == "Ghost":
-
             self.size = Vector(15, 15)
-            self.sprite = Image()
-            self.sprite.from_byte_array(enemy_left_ghost_15x15px, self.size, True)
-            #
-            self.sprite_left = Image()
-            self.sprite_left.from_byte_array(enemy_left_ghost_15x15px, self.size, True)
-            #
-            self.sprite_right = Image()
-            self.sprite_right.from_byte_array(
-                enemy_right_ghost_15x15px, self.size, True
-            )
+            self.sprite = Image(self.size, True, enemy_left_ghost_15x15px)
+            self.sprite_left = Image(self.size, True, enemy_left_ghost_15x15px)
+            self.sprite_right = Image(self.size, True, enemy_right_ghost_15x15px)
 
         elif name == "Funny NPC":
-
             self.size = Vector(15, 21)
-            self.sprite = Image()
-            self.sprite.from_byte_array(npc_left_funny_15x21px, self.size, True)
-            #
-            self.sprite_left = Image()
-            self.sprite_left.from_byte_array(npc_left_funny_15x21px, self.size, True)
-            #
-            self.sprite_right = Image()
-            self.sprite_right.from_byte_array(npc_right_funny_15x21px, self.size, True)
+            self.sprite = Image(self.size, True, npc_left_funny_15x21px)
+            self.sprite_left = Image(self.size, True, npc_left_funny_15x21px)
+            self.sprite_right = Image(self.size, True, npc_right_funny_15x21px)
 
         else:
             # Default sprite
@@ -142,24 +125,21 @@ class Sprite(Entity):
         enemy_is_facing_player = False
         player_is_facing_enemy = False
 
-        if any(
-            [
-                (self.direction.x == -1 and player_pos.x < enemy_pos.x),
-                (self.direction.x == 1 and player_pos.x > enemy_pos.x),
-                (self.direction.y == -1 and player_pos.y < enemy_pos.y),
-                (self.direction.y == 1 and player_pos.y > enemy_pos.y),
-            ]
+        if (
+            (self.direction.x == -1 and player_pos.x < enemy_pos.x)
+            or (self.direction.x == 1 and player_pos.x > enemy_pos.x)
+            or (self.direction.y == -1 and player_pos.y < enemy_pos.y)
+            or (self.direction.y == 1 and player_pos.y > enemy_pos.y)
         ):
             enemy_is_facing_player = True
 
-        if any(
-            [
-                (other.direction.x == -1 and enemy_pos.x < player_pos.x)
-                or (other.direction.x == 1 and enemy_pos.x > player_pos.x)
-                or (other.direction.y == -1 and enemy_pos.y < player_pos.y)
-                or (other.direction.y == 1 and enemy_pos.y > player_pos.y)
-            ]
+        if (
+            (other.direction.x == -1 and enemy_pos.x < player_pos.x)
+            or (other.direction.x == 1 and enemy_pos.x > player_pos.x)
+            or (other.direction.y == -1 and enemy_pos.y < player_pos.y)
+            or (other.direction.y == 1 and enemy_pos.y > player_pos.y)
         ):
+
             player_is_facing_enemy = True
 
         # Handle Player Attacking Enemy (Press OK, facing enemy, and enemy not facing player)
@@ -323,17 +303,16 @@ class Sprite(Entity):
         if not self.flip_world_run or not self.flip_world_run.player:
             return
 
-        if any(
-            [
-                not self.flip_world_run.is_pve_mode,  # must be pve mode
-                (
-                    host_only
-                    and not self.flip_world_run.is_lobby_host  # only lobby host can sync enemies
-                ),
-                self.flip_world_run.player.ws is None,  # ws must be set
-            ]
+        if (
+            not self.flip_world_run.is_pve_mode  # must be pve mode
+            or (
+                host_only and not self.flip_world_run.is_lobby_host
+            )  # only lobby host can sync enemies
+            or self.flip_world_run.player.ws is None  # ws must be set
         ):
+            self.flip_world_run.player.ws is None,  # ws must be set
             return
+
         # send sprite data to server
         self.flip_world_run.sync_multiplayer_entity(self)
         if other is not None:
@@ -402,26 +381,22 @@ class Sprite(Entity):
             if self.position.x < target_position.x:
                 # ENTITY_RIGHT
                 self._update_direction.x = 1.0
-                self.direction.x = 1
-                self.direction.y = 0
+                self.direction = Vector(1, 0)
 
             elif self.position.x > target_position.x:
                 # ENTITY_LEFT
                 self._update_direction.x = -1.0
-                self.direction.x = -1
-                self.direction.y = 0
+                self.direction = Vector(-1, 0)
 
             elif self.position.y < target_position.y:
                 # ENTITY_DOWN
                 self._update_direction.y = 1.0
-                self.direction.x = 0
-                self.direction.y = 1
+                self.direction = Vector(0, 1)
 
             elif self.position.y > target_position.y:
                 # ENTITY_UP
                 self._update_direction.y = -1.0
-                self.direction.x = 0
-                self.direction.y = -1
+                self.direction = Vector(0, -1)
 
             # Normalize direction vector
             length = sqrt(
@@ -461,7 +436,7 @@ class Sprite(Entity):
             self.position = self._update_new_pos
 
             # Sync multiplayer state
-            if self.has_changed_position:
+            if self.has_changed_position():
                 self.sync_multiplayer_state()
 
             # Check if the enemy has reached or surpassed the target_position

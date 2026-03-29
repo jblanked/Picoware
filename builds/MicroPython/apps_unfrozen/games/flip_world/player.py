@@ -130,14 +130,22 @@ class Player(Entity):
     """Player entity for the FlipWorld game."""
 
     def __init__(self):
+        from picoware.engine.image import Image
+
         super().__init__(
             "Player",
             ENTITY_TYPE_PLAYER,
             Vector(384, 192),
             Vector(15, 11),
-            player_left_sword_15x11px,
-            player_left_sword_15x11px,
-            player_right_sword_15x11px,
+            Image(Vector(15, 11), True, player_left_sword_15x11px),  # sprite
+            Image(Vector(15, 11), True, player_left_sword_15x11px),  # sprite left
+            Image(Vector(15, 11), True, player_right_sword_15x11px),  # sprite right
+            None,  # start
+            None,  # stop
+            self.update,  # update
+            self.render,  # render
+            None,  # collision
+            True,  # is 8_bit
         )
 
         self.ws = None
@@ -209,7 +217,6 @@ class Player(Entity):
         self._img_vec = Vector(0, 0)
         self._img_size = Vector(0, 0)
 
-        self.pix_vec = Vector(1, 1)
         self.cent_box_pos = Vector(0, 0)
         self.cent_box_size = Vector(0, 0)
         self.cent_box_text = Vector(0, 0)
@@ -240,8 +247,6 @@ class Player(Entity):
         self._update_new_pos = None
         del self._update_old_pos
         self._update_old_pos = None
-        del self.pix_vec
-        self.pix_vec = None
         del self.cent_box_pos
         self.cent_box_pos = None
         del self.cent_box_size
@@ -307,7 +312,8 @@ class Player(Entity):
         total_enemies = 0
         dead_enemies = 0
 
-        for entity in current_level.entities:
+        for i in range(current_level.entity_count):
+            entity = current_level.get_entity(i)
             if entity and entity.type == ENTITY_TYPE_ENEMY:
                 total_enemies += 1
                 if entity.state == ENTITY_STATE_DEAD:
@@ -326,7 +332,7 @@ class Player(Entity):
             return
         if self.current_main_view != GAME_VIEW_GAME:
             return
-        if not self.has_changed_position:
+        if not self.has_changed_position():
             return
 
         # Update cooldown timer
@@ -585,21 +591,15 @@ class Player(Entity):
             y = (self.rain_frame * 2 + seed * 7 + i * 23) % height
 
             # Draw star-like droplet with bounds checking
-            self.pix_vec.x = x
-            self.pix_vec.y = y
-            canvas.pixel(self.pix_vec, COLOR_BLACK)
+            canvas._pixel(x, y, COLOR_BLACK)
             if x >= 1:
-                self.pix_vec.x = x - 1
-                canvas.pixel(self.pix_vec, COLOR_BLACK)
+                canvas._pixel(x - 1, y, COLOR_BLACK)
             if x <= width - 2:
-                self.pix_vec.x = x + 1
-                canvas.pixel(self.pix_vec, COLOR_BLACK)
+                canvas._pixel(x + 1, y, COLOR_BLACK)
             if y >= 1:
-                self.pix_vec.y = y - 1
-                canvas.pixel(self.pix_vec, COLOR_BLACK)
+                canvas._pixel(x, y - 1, COLOR_BLACK)
             if y <= height - 2:
-                self.pix_vec.y = y + 1
-                canvas.pixel(self.pix_vec, COLOR_BLACK)
+                canvas._pixel(x, y + 1, COLOR_BLACK)
 
         self.rain_frame += 1
         if self.rain_frame >= width:
@@ -1022,86 +1022,79 @@ class Player(Entity):
         if self.current_main_view == GAME_VIEW_TITLE:
             if current_input == INPUT_KEY_UP:
                 self.current_title_index = TITLE_INDEX_STORY
-                self.flip_world_run.should_debounce = True
+
             elif current_input == INPUT_KEY_DOWN:
                 self.current_title_index = TITLE_INDEX_PVE
-                self.flip_world_run.should_debounce = True
+
             elif current_input == INPUT_KEY_OK:
-                self.flip_world_run.should_debounce = True
+
                 self.current_main_view = GAME_VIEW_LOGIN
                 self.login_status = LOGIN_WAITING
             elif current_input == INPUT_KEY_BACK:
                 self.leave_game = TOGGLE_STATE_ON
-                self.flip_world_run.should_debounce = True
 
         elif self.current_main_view == GAME_VIEW_LOGIN:
             if current_input == INPUT_KEY_BACK:
                 self.current_main_view = GAME_VIEW_TITLE
-                self.flip_world_run.should_debounce = True
+
             elif current_input == INPUT_KEY_OK:
                 if self.login_status == LOGIN_SUCCESS:
                     self.current_main_view = GAME_VIEW_USER_INFO
                     self.user_info_status = USER_INFO_WAITING
-                    self.flip_world_run.should_debounce = True
 
         elif self.current_main_view == GAME_VIEW_REGISTRATION:
             if current_input == INPUT_KEY_BACK:
                 self.current_main_view = GAME_VIEW_TITLE
-                self.flip_world_run.should_debounce = True
+
             elif current_input == INPUT_KEY_OK:
                 if self.registration_status == REGISTRATION_SUCCESS:
                     self.current_main_view = GAME_VIEW_USER_INFO
                     self.user_info_status = USER_INFO_WAITING
-                    self.flip_world_run.should_debounce = True
 
         elif self.current_main_view == GAME_VIEW_USER_INFO:
             if current_input == INPUT_KEY_BACK:
                 self.current_main_view = GAME_VIEW_TITLE
-                self.flip_world_run.should_debounce = True
 
         elif self.current_main_view == GAME_VIEW_LOBBIES:
             if current_input == INPUT_KEY_BACK:
                 self.current_main_view = GAME_VIEW_TITLE
-                self.flip_world_run.should_debounce = True
+
             elif current_input == INPUT_KEY_UP:
                 if self.lobbies_status == LOBBIES_SUCCESS and self.lobby_count > 0:
                     self.current_lobby_index = (
                         self.current_lobby_index - 1 + self.lobby_count
                     ) % self.lobby_count
-                    self.flip_world_run.should_debounce = True
+
             elif current_input == INPUT_KEY_DOWN:
                 if self.lobbies_status == LOBBIES_SUCCESS and self.lobby_count > 0:
                     self.current_lobby_index = (
                         self.current_lobby_index + 1
                     ) % self.lobby_count
-                    self.flip_world_run.should_debounce = True
+
             elif current_input == INPUT_KEY_OK:
                 if self.lobbies_status == LOBBIES_SUCCESS and self.lobby_count > 0:
                     self.current_main_view = GAME_VIEW_JOIN_LOBBY
-                    self.flip_world_run.should_debounce = True
+
                     self.join_lobby_status = JOIN_LOBBY_WAITING
                     self.flip_world_run.set_is_lobby_host(
                         self.lobbies[self.current_lobby_index].player_count == 0
                     )
                 elif self.lobbies_status != LOBBIES_SUCCESS:
                     self.current_main_view = GAME_VIEW_TITLE
-                    self.flip_world_run.should_debounce = True
 
-    def render(self, canvas, game):
+    def render(self, draw, game):
         """Render callback for the player."""
         if self.current_main_view != GAME_VIEW_GAME:
             return
         self.icon_group_render(game)
         self.draw_username(self.position, game)
-        self.draw_user_stats(self.user_stats_pos, canvas)
+        self.draw_user_stats(self.user_stats_pos, canvas=draw)
 
     def sync_multiplayer_state(self):
         """Sync's the sprites data for multiplayer"""
-        if any(
-            [
-                self.flip_world_run is None,  # class must be set
-                self.ws is None,  # ws must be set
-            ]
+        if (
+            self.flip_world_run is None  # class must be set
+            or self.ws is None  # ws must be set
         ):
             return
         # send sprite data to server
@@ -1134,23 +1127,19 @@ class Player(Entity):
 
         if game.input == INPUT_KEY_UP:
             self._update_new_pos.y -= 5
-            self.direction.x = 0
-            self.direction.y = -1
+            self.direction = Vector(0, -1)
             should_set_position = True
         elif game.input == INPUT_KEY_DOWN:
             self._update_new_pos.y += 5
-            self.direction.x = 0
-            self.direction.y = 1
+            self.direction = Vector(0, 1)
             should_set_position = True
         elif game.input == INPUT_KEY_LEFT:
             self._update_new_pos.x -= 5
-            self.direction.x = -1
-            self.direction.y = 0
+            self.direction = Vector(-1, 0)
             should_set_position = True
         elif game.input == INPUT_KEY_RIGHT:
             self._update_new_pos.x += 5
-            self.direction.x = 1
-            self.direction.y = 0
+            self.direction = Vector(1, 0)
             should_set_position = True
 
         game.input = INPUT_KEY_MAX
@@ -1208,8 +1197,9 @@ class Player(Entity):
         camera_x = self.position.x - (viewport_width / 2)
         camera_y = self.position.y - (viewport_height / 2)
 
-        game.position.x = max(0, min(camera_x, game.size.x - viewport_width))
-        game.position.y = max(0, min(camera_y, game.size.y - viewport_height))
+        _pos_x = max(0, min(camera_x, game.size.x - viewport_width))
+        _pos_y = max(0, min(camera_y, game.size.y - viewport_height))
+        game.position = Vector(_pos_x, _pos_y)
 
     def update_stats(self):
         """Update player stats based on XP."""
@@ -1323,7 +1313,7 @@ class Player(Entity):
                     thread_manager=view_manager.thread_manager,
                 )
                 if not self.ws or not self.ws.connect():
-                    print("Failed to start WebSocket")
+                    view_manager.log("Failed to start WebSocket", 2)
                     self.join_lobby_status = JOIN_LOBBY_REQUEST_ERROR
                     del self.ws
                     self.ws = None
@@ -1341,7 +1331,7 @@ class Player(Entity):
                     player_json,
                     headers,
                 ):
-                    print("Failed to save player stats")
+                    view_manager.log("Failed to save player stats", 2)
 
         except Exception:
             if request_type == REQUEST_TYPE_LOGIN:

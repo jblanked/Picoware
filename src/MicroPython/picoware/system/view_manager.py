@@ -24,6 +24,7 @@ class ViewManager:
         from picoware.system.log import Log, LOG_MODE_ALL, LOG_MODE_REPL
         from picoware.system.colors import TFT_BLUE, TFT_BLACK, TFT_WHITE
         from picoware.system.buttons import BUTTON_BACK
+        import json
 
         self._current_view = None
         self._view_count = 0
@@ -99,8 +100,6 @@ class ViewManager:
 
             if len(theme_color_data) > 1:
                 try:
-                    import json
-
                     obj = json.loads(theme_color_data)
                     if "theme_color" in obj:
                         color = int(obj["theme_color"])
@@ -133,8 +132,6 @@ class ViewManager:
             )
             if len(exit_button_data) > 1:
                 try:
-                    import json
-
                     obj = json.loads(exit_button_data)
                     if "exit_button" in obj:
                         _back_button = int(obj["exit_button"])

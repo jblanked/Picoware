@@ -16,6 +16,7 @@ _download_started: bool = False
 _download_complete: bool = False
 _download_error: str = None
 _download_filename: str = None
+_view_manager = None
 
 
 def __reset() -> None:
@@ -36,6 +37,116 @@ def __reset() -> None:
     _download_complete = False
     _download_error = None
     _download_filename = None
+
+
+def __check_for_update_callback(response, state, error):
+    global _view_manager
+    global _update_info
+    if not response or error is not None or state == 2:
+        _view_manager.log("Error checking for update:", error)
+        return
+    _update_info = response.json()
+
+
+def __check_for_update_callback_download(response, state, error):
+    global _view_manager
+    if not response or error is not None or state == 2:
+        _view_manager.log("Error downloading update:", error)
+        return
+    _view_manager.log("Update download completed!")
+
+
+def __check_for_update_start(http_context, view_manager) -> bool:
+    """Start the check for update request"""
+    from picoware.system.system import System
+
+    system = System()
+
+    url = (
+        "https://www.jblanked.com/picoware/api/firmware/check/micropython/"
+        + str(system.version)
+        + "/"
+        + str(system.board_id)
+        + "/"
+    )
+
+    if not http_context.callback:
+        http_context.callback = __check_for_update_callback
+
+    del system
+
+    global _view_manager
+    _view_manager = view_manager
+    return http_context.get_async(
+        url,
+        headers={
+            "User-Agent": "Raspberry Pi Pico W",
+            "Content-Type": "application/json",
+        },
+    )
+
+
+def __check_for_update_is_available(http_context) -> bool:
+    """Return True if an update is available, False otherwise (must call __check_for_update_start first)"""
+    global _view_manager
+    if not http_context.is_request_complete():
+        _view_manager.log("Update check not complete yet")
+        return False
+
+    response = http_context.response
+    if response is None or response.status_code != 200:
+        _view_manager.log(
+            "Error checking for update: invalid response or status code {}".format(
+                response.status_code if response else "No response"
+            )
+        )
+        return False
+
+    json_data = response.json()
+    if not json_data or not json_data.get("success"):
+        _view_manager.log("Error checking for update: success flag not set in response")
+        return False
+
+    return json_data.get("is_update_available", False)
+
+
+def __check_for_update_download_start(http_context, storage) -> bool:
+    """Start the download of the update"""
+    global _view_manager, _update_info
+    if http_context is None:
+        _view_manager.log("Error downloading update: http context is None")
+        return False
+    if _update_info and _update_info.get("download_url"):
+        download_url = _update_info["download_url"]
+        filename = download_url.split("/")[-1]
+
+        # save to uf2loader folder
+        # this allow users to download Picoware
+        # then use uf2loader to flash it easily
+        file_path = ""
+        if "Pico2" in download_url:
+            storage.mkdir("pico2-apps")
+            file_path = f"pico2-apps/{filename}"
+        else:
+            storage.mkdir("pico1-apps")
+            file_path = f"pico1-apps/{filename}"
+
+        if not http_context:
+            _view_manager.log("Error downloading update: http context is None")
+            return False
+        http_context.close()
+        http_context.callback = __check_for_update_callback_download
+
+        return http_context.get_async(
+            download_url,
+            headers={
+                "User-Agent": "Raspberry Pi Pico W",
+                "Content-Type": "application/octet-stream",
+            },
+            storage=storage,
+            save_to_file=file_path,
+        )
+    return False
 
 
 def __loading_start(view_manager, text: str = "Checking...") -> None:
@@ -198,23 +309,9 @@ def start(view_manager) -> bool:
     system = System()
     _current_version = system.version
     _board_id = system.board_id
-
-    url = (
-        "https://www.jblanked.com/picoware/api/firmware/check/micropython/"
-        + str(_current_version)
-        + "/"
-        + str(_board_id)
-        + "/"
-    )
-
     _http = HTTP(thread_manager=view_manager.thread_manager)
-    if not _http.get_async(
-        url,
-        headers={
-            "User-Agent": "Raspberry Pi Pico W",
-            "Content-Type": "application/json",
-        },
-    ):
+
+    if not __check_for_update_start(_http, view_manager):
         view_manager.alert("Failed to check for updates", False)
         return False
 
@@ -251,26 +348,12 @@ def run(view_manager) -> None:
             _loading = None
 
         # Parse the response
-        response = _http.response
-        if response and response.status_code == 200:
-            try:
-                from json import loads
-
-                _update_info = loads(response.text)
-
-                if _update_info.get("success"):
-                    if _update_info.get("is_update_available"):
-                        _app_state = STATE_UPDATE_AVAILABLE
-                        __draw_update_available(view_manager)
-                    else:
-                        _app_state = STATE_NO_UPDATE
-                        __draw_no_update(view_manager)
-                else:
-                    __draw_error(view_manager, "Server returned an error")
-            except Exception as e:
-                __draw_error(view_manager, f"Failed to parse response: {e}")
+        if __check_for_update_is_available(_http):
+            _app_state = STATE_UPDATE_AVAILABLE
+            __draw_update_available(view_manager)
         else:
-            __draw_error(view_manager, "Failed to check for updates")
+            _app_state = STATE_NO_UPDATE
+            __draw_no_update(view_manager)
 
         if _http:
             _http.close()
@@ -279,41 +362,11 @@ def run(view_manager) -> None:
         if button == BUTTON_CENTER:
             inp.reset()
             # Start downloading the firmware
-            if _update_info and _update_info.get("download_url"):
-                download_url = _update_info["download_url"]
-                filename = download_url.split("/")[-1]
-
-                storage = view_manager.storage
-
-                # save to uf2loader folder
-                # this allow users to download Picoware
-                # then use uf2loader to flash it easily
-                file_path = ""
-                if "Pico2" in download_url:
-                    storage.mkdir("pico2-apps")
-                    file_path = f"pico2-apps/{filename}"
-                else:
-                    storage.mkdir("pico1-apps")
-                    file_path = f"pico1-apps/{filename}"
-
-                if _http:
-                    _http.close()
-
-                    if _http.get_async(
-                        download_url,
-                        headers={
-                            "User-Agent": "Raspberry Pi Pico W",
-                            "Content-Type": "application/octet-stream",
-                        },
-                        storage=storage,
-                        save_to_file=file_path,
-                    ):
-                        _app_state = STATE_DOWNLOADING
-                        __loading_start(view_manager, "Downloading firmware...")
-                    else:
-                        __draw_error(view_manager, "Failed to start download")
+            if __check_for_update_download_start(_http, view_manager.storage):
+                _app_state = STATE_DOWNLOADING
+                __loading_start(view_manager, "Downloading firmware...")
             else:
-                __draw_error(view_manager, "No download URL available")
+                __draw_error(view_manager, "Failed to start download")
 
     elif _app_state == STATE_DOWNLOADING:
         # Check if download is complete

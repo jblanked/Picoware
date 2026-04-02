@@ -1086,7 +1086,7 @@ class CustomArticleViewer:
 
         total_pages = max(1, (self.num_lines + self.visible_lines - 1) // self.visible_lines)
         current_page = (self.top_line // self.visible_lines) + 1
-        footer_text = f"Pg {current_page}/{total_pages} | F:Fav D:Save T:ToC R:Rld"
+        footer_text = f"Pg {current_page}/{total_pages} | S:Sz F:Fav D:Save T:ToC R:Rld"
         self.draw.text(Vector(5, footer_y + 4), footer_text, self.bg_color, 0)
 
         self.draw.swap()
@@ -2123,3 +2123,27 @@ def run(view_manager):
         run_help(view_manager)
     elif current_state == STATE_CLEAR_DATA:
         run_clear_data(view_manager)
+
+from picoware.system.view_manager import ViewManager
+from picoware.system.view import View
+
+vm = None
+
+try:
+    vm = ViewManager()
+    vm.add(
+        View(
+            "app_tester",
+            run,
+            start,
+            stop,
+        )
+    )
+    vm.switch_to("app_tester")
+    while True:
+        vm.run()
+except Exception as e:
+    print("Error during testing:", e)
+finally:
+    del vm
+    vm = None

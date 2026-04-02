@@ -5,8 +5,10 @@ Allows searching and reading articles from Wikipedia.
 """
 
 import gc
+import struct
 from json import loads, dumps
 from time import sleep
+from utime import ticks_ms, ticks_diff
 from picoware.system.buttons import (
     BUTTON_UP,
     BUTTON_DOWN,
@@ -71,7 +73,7 @@ _sys_bg = None
 _sys_fg = None
 
 # Settings
-SETTINGS_FILE = "picoware/apps/wikireader/settings.json"
+SETTINGS_FILE = "picoware/wikireader/settings.json"
 settings = {"full_article": False, "language": "en", "default_font_size": 0, "theme": "system", "history": [], "favorites": [], "offline": []}
 
 # GUI Components
@@ -128,8 +130,7 @@ def show_toast(view_manager, message, duration=1):
 
 def change_state(view_manager, new_state):
     """Cleans up old state and sets up the new one."""
-    global current_state, main_menu, search_results_list, article_textbox, settings_menu, clear_data_menu
-    global languages_list, history_list, favorites_list, offline_list, toc_list, toc_data, help_textbox
+    global current_state, main_menu, search_results_list, article_textbox, settings_menu, clear_data_menu, languages_list, history_list, favorites_list, offline_list, toc_list, toc_data, help_textbox, _request_start_time
 
     # Clean up current state's resources
     if current_state == STATE_MAIN_MENU and main_menu:
@@ -161,7 +162,7 @@ def change_state(view_manager, new_state):
     elif current_state == STATE_TOC and toc_list:
         del toc_list
         toc_list = None
-        toc_data.clear()
+        del toc_data[:]
     elif current_state == STATE_HELP and help_textbox:
         del help_textbox
         help_textbox = None
@@ -202,7 +203,6 @@ def change_state(view_manager, new_state):
     elif new_state == STATE_CLEAR_DATA:
         setup_clear_data(view_manager)
     elif new_state == STATE_LOADING:
-        global _request_start_time
         from time import ticks_ms
         _request_start_time = ticks_ms()
         if loading_spinner:
@@ -275,8 +275,8 @@ def _toggle_offline(view_manager):
         return
 
     encoded_title = url_encode(current_article_title)
-    cache_path = f"picoware/apps/wikireader/cache_{current_article_page_id}_{encoded_title}.json"
-    offline_path = f"picoware/apps/wikireader/offline_{current_article_page_id}_{encoded_title}.json"
+    cache_path = f"picoware/wikireader/cache_{current_article_page_id}_{encoded_title}.json"
+    offline_path = f"picoware/wikireader/offline_{current_article_page_id}_{encoded_title}.json"
 
     try:
         if removed:
@@ -304,9 +304,8 @@ def url_encode(s):
     if not isinstance(s, str):
         s = str(s)
 
-    # Guardian RAM Rules: Prevent O(N) heap fragmentation.
-    # A list comprehension joined natively creates exactly one string allocation.
-    return "".join([c if ('a' <= c <= 'z' or 'A' <= c <= 'Z' or '0' <= c <= '9' or c in '-_.~') else '%%%02X' % ord(c) for c in s])
+    # Guardian RAM Rules: Iterate over raw UTF-8 bytes to ensure correct API payload encoding
+    return "".join(chr(b) if (97 <= b <= 122) or (65 <= b <= 90) or (48 <= b <= 57) or b in b'-_.~' else '%%%02X' % b for b in s.encode('utf-8'))
 
 
 def _parse_search_results(vm, query_data):
@@ -353,7 +352,7 @@ def _parse_article_content(vm, query_data):
 
 def _extract_text_from_file(view_manager, file_path):
     """Stream-parses JSON string from file without loading JSON into RAM."""
-    from time import ticks_ms, ticks_diff
+    global loading_spinner
 
     storage = view_manager.storage
     if not storage or not storage.exists(file_path):
@@ -429,7 +428,7 @@ def _extract_text_from_file(view_manager, file_path):
                             i += 4
                         else:
                             # Need more data for unicode, break to next chunk
-                            buffer = b"\\" + buffer[i:]
+                            buffer = buffer[i:]
                             i = len(buffer)
                             escape = True
                             continue
@@ -475,10 +474,12 @@ def _api_callback(response, state, error):
 
     # Safely drop trailing callbacks if the app has already closed and deleted the lock
     if _http_lock:
+        _http_lock.acquire()
         try:
-            with _http_lock:
-                _http_response_data = (response, state, error)
+            _http_response_data = (response, state, error)
         except Exception: pass
+        finally:
+            _http_lock.release()
 
 
 def _extract_metadata_from_file(storage, file_path):
@@ -505,18 +506,22 @@ def _extract_metadata_from_file(storage, file_path):
 
 def _process_http_response(view_manager):
     """Process the HTTP response data in the main thread."""
-    global _http_response_data, search_results, _current_request_type
-    global _target_language, current_article_page_id, current_article_title
+    global _http_response_data, search_results, _current_request_type, _target_language, current_article_page_id, current_article_title
 
-    with _http_lock:
-        if _http_response_data is None:
-            return
-        response, state, error = _http_response_data
-        _http_response_data = None  # Consume the data
+    if _http_lock:
+        _http_lock.acquire()
+        try:
+            if _http_response_data is None:
+                return
+            response, state, error = _http_response_data
+            _http_response_data = None  # Consume the data
+        finally:
+            _http_lock.release()
 
     if error or not response or response.status_code != 200:
         status = response.status_code if response else "No Response"
-        view_manager.alert(f"API Error: {error or f'HTTP {status}'}", back=True)
+        msg = error if error else f"HTTP {status}"
+        view_manager.alert(f"API Error: {msg}", back=True)
         change_state(view_manager, STATE_MAIN_MENU)
         return
 
@@ -557,20 +562,20 @@ def _process_http_response(view_manager):
             loading_spinner.text = "Parsing... 0%"
             loading_spinner.animate()
 
-        pageid, title = _extract_metadata_from_file(view_manager.storage, "picoware/apps/wikireader/temp.json")
+        pageid, title = _extract_metadata_from_file(view_manager.storage, "picoware/wikireader/temp.json")
         if pageid and pageid != -1:
             current_article_page_id = pageid
         if title:
             current_article_title = title
 
-        cache_path = f"picoware/apps/wikireader/cache_{current_article_page_id}_{url_encode(current_article_title)}.json"
+        cache_path = f"picoware/wikireader/cache_{current_article_page_id}_{url_encode(current_article_title)}.json"
         try:
             if view_manager.storage.exists(cache_path):
                 view_manager.storage.remove(cache_path)
-            view_manager.storage.rename("picoware/apps/wikireader/temp.json", cache_path)
+            view_manager.storage.rename("picoware/wikireader/temp.json", cache_path)
         except Exception as e:
             print(f"[ERROR] Failed to rename temp cache: {e}")
-            cache_path = "picoware/apps/wikireader/temp.json"
+            cache_path = "picoware/wikireader/temp.json"
 
         text = _extract_text_from_file(view_manager, cache_path)
         setup_article_view(view_manager, text)
@@ -638,7 +643,7 @@ def clear_cache(view_manager):
     if not view_manager.storage or not view_manager.has_sd_card:
         return
     try:
-        directory = "picoware/apps/wikireader"
+        directory = "picoware/wikireader"
         entries = view_manager.storage.read_directory(directory)
         if entries:
             for entry in entries:
@@ -656,7 +661,7 @@ def enforce_cache_limit(view_manager, limit=10):
     if not view_manager.storage or not view_manager.has_sd_card:
         return
     try:
-        directory = "picoware/apps/wikireader"
+        directory = "picoware/wikireader"
         entries = view_manager.storage.read_directory(directory)
         cache_files = []
         if entries:
@@ -681,7 +686,7 @@ def enforce_cache_limit(view_manager, limit=10):
 
 def fetch_search_results(view_manager, term):
     """Fetch search results from Wikipedia."""
-    global _current_request_type
+    global _current_request_type, http_client, settings
     if not http_client:
         return
     _current_request_type = REQ_SEARCH
@@ -694,25 +699,25 @@ def fetch_search_results(view_manager, term):
 
 def fetch_article(view_manager, page_id):
     """Fetch a single article from Wikipedia."""
-    global _current_request_type
+    global _current_request_type, http_client, settings, current_article_title, article_textbox
 
     cache_path = None
     if view_manager.storage and view_manager.has_sd_card:
         try:
-            entries = view_manager.storage.read_directory("picoware/apps/wikireader")
+            entries = view_manager.storage.read_directory("picoware/wikireader")
             prefix = f"cache_{page_id}_"
             prefix_offline = f"offline_{page_id}_"
             for entry in entries:
                 filename = entry.get("filename", "")
                 if filename.startswith(prefix_offline) and filename.endswith(".json"):
-                    cache_path = f"picoware/apps/wikireader/{filename}"
+                    cache_path = f"picoware/wikireader/{filename}"
                     break
                 elif filename.startswith(prefix) and filename.endswith(".json") and not cache_path:
-                    cache_path = f"picoware/apps/wikireader/{filename}"
+                    cache_path = f"picoware/wikireader/{filename}"
             del entries
             # Fallback for old caches
-            if not cache_path and view_manager.storage.exists(f"picoware/apps/wikireader/cache_{page_id}.json"):
-                cache_path = f"picoware/apps/wikireader/cache_{page_id}.json"
+            if not cache_path and view_manager.storage.exists(f"picoware/wikireader/cache_{page_id}.json"):
+                cache_path = f"picoware/wikireader/cache_{page_id}.json"
         except Exception: pass
 
     # Check local SD cache first to bypass network and save RAM
@@ -737,7 +742,7 @@ def fetch_article(view_manager, page_id):
     if view_manager.storage and view_manager.has_sd_card:
         _current_request_type = REQ_ARTICLE_FILE
         enforce_cache_limit(view_manager, limit=9)
-        http_client.get_async(url, headers=WIKI_HEADERS, save_to_file="picoware/apps/wikireader/temp.json", storage=view_manager.storage)
+        http_client.get_async(url, headers=WIKI_HEADERS, save_to_file="picoware/wikireader/temp.json", storage=view_manager.storage)
     else:
         _current_request_type = REQ_ARTICLE_RAM
         http_client.get_async(url, headers=WIKI_HEADERS)
@@ -745,22 +750,22 @@ def fetch_article(view_manager, page_id):
 
 def fetch_article_by_title(view_manager, title):
     """Fetch a target translated article by exactly matched title."""
-    global _current_request_type, current_article_title, current_article_page_id
+    global _current_request_type, current_article_title, current_article_page_id, http_client, settings, article_textbox, article_origin_state
 
     cache_path = None
     if view_manager.storage and view_manager.has_sd_card:
         encoded_title = url_encode(title)
         try:
-            entries = view_manager.storage.read_directory("picoware/apps/wikireader")
+            entries = view_manager.storage.read_directory("picoware/wikireader")
             suffix = f"_{encoded_title}.json"
             for entry in entries:
                 filename = entry.get("filename", "")
                 if filename.endswith(suffix):
                     if filename.startswith("offline_"):
-                        cache_path = f"picoware/apps/wikireader/{filename}"
+                        cache_path = f"picoware/wikireader/{filename}"
                         break
                     elif filename.startswith("cache_") and not cache_path:
-                        cache_path = f"picoware/apps/wikireader/{filename}"
+                        cache_path = f"picoware/wikireader/{filename}"
             del entries
         except Exception: pass
 
@@ -792,13 +797,14 @@ def fetch_article_by_title(view_manager, title):
     if view_manager.storage and view_manager.has_sd_card:
         _current_request_type = REQ_ARTICLE_FILE_BY_TITLE
         enforce_cache_limit(view_manager, limit=9)
-        http_client.get_async(url, headers=WIKI_HEADERS, save_to_file="picoware/apps/wikireader/temp.json", storage=view_manager.storage)
+        http_client.get_async(url, headers=WIKI_HEADERS, save_to_file="picoware/wikireader/temp.json", storage=view_manager.storage)
     else:
         _current_request_type = REQ_ARTICLE_RAM
         http_client.get_async(url, headers=WIKI_HEADERS)
 
 def save_settings_to_sd(view_manager):
     """Saves the settings dictionary to the SD card."""
+    global settings
     if view_manager.storage:
         gc.collect()
         try:
@@ -913,10 +919,8 @@ class CustomArticleViewer:
 
     def _wrap_text(self):
         """Zero-allocation word wrapping: stores chunk index and offsets in raw bytearrays to prevent fragmentation."""
-        import struct
-
         # Guardian RAM Rules: Clean up previous wrap artifacts before re-allocating
-        self.line_indices.clear()
+        del self.line_indices[:]
         gc.collect()
         self.line_indices = []
         self.num_lines = 0
@@ -934,15 +938,6 @@ class CustomArticleViewer:
         # Reduce max_chars by 2 to add a safety buffer for wide characters in proportional fonts
         max_chars = max(1, (max_w // char_width) - 2 if char_width > 0 else 1)
 
-        def add_line(p, s, e, chunk, offset):
-            struct.pack_into('HHH', chunk, offset, p, s, e)
-            offset += BYTES_PER_LINE
-            self.num_lines += 1
-            if offset >= CHUNK_BYTES:
-                self.line_indices.append(chunk)
-                return bytearray(CHUNK_BYTES), 0
-            return chunk, offset
-
         for p_idx, para in enumerate(self.paragraphs):
             text_len = len(para)
             if text_len == 0:
@@ -951,24 +946,24 @@ class CustomArticleViewer:
             current_line_start = 0
             while current_line_start < text_len:
                 if (text_len - current_line_start) <= max_chars:
-                    curr_chunk, curr_offset = add_line(p_idx, current_line_start, text_len, curr_chunk, curr_offset)
+                    curr_chunk, curr_offset = self._add_line(p_idx, current_line_start, text_len, curr_chunk, curr_offset, CHUNK_BYTES, BYTES_PER_LINE)
                     # Add an empty line for spacing between paragraphs
                     if para.endswith('\n'):
-                        curr_chunk, curr_offset = add_line(p_idx, text_len, text_len, curr_chunk, curr_offset)
+                        curr_chunk, curr_offset = self._add_line(p_idx, text_len, text_len, curr_chunk, curr_offset, CHUNK_BYTES, BYTES_PER_LINE)
                     break
 
                 end_pos = current_line_start + max_chars
                 last_space = para.rfind(' ', current_line_start, end_pos + 1)
 
                 if last_space != -1 and last_space >= current_line_start:
-                    curr_chunk, curr_offset = add_line(p_idx, current_line_start, last_space, curr_chunk, curr_offset)
+                    curr_chunk, curr_offset = self._add_line(p_idx, current_line_start, last_space, curr_chunk, curr_offset, CHUNK_BYTES, BYTES_PER_LINE)
                     current_line_start = last_space + 1
                 else:
                     # Word is too long to fit on one line. Force break and leave room for a hyphen.
                     break_pos = current_line_start + max_chars - 1
                     if break_pos <= current_line_start:
                         break_pos = current_line_start + 1
-                    curr_chunk, curr_offset = add_line(p_idx, current_line_start, break_pos, curr_chunk, curr_offset)
+                    curr_chunk, curr_offset = self._add_line(p_idx, current_line_start, break_pos, curr_chunk, curr_offset, CHUNK_BYTES, BYTES_PER_LINE)
                     current_line_start = break_pos
 
                 while current_line_start < text_len and para[current_line_start] == ' ':
@@ -983,17 +978,25 @@ class CustomArticleViewer:
         del curr_chunk
         gc.collect()
 
+    def _add_line(self, p, s, e, chunk, offset, chunk_bytes, bytes_per_line):
+        chunk[offset:offset+bytes_per_line] = struct.pack('HHH', p, s, e)
+        offset += bytes_per_line
+        self.num_lines += 1
+        if offset >= chunk_bytes:
+            self.line_indices.append(chunk)
+            return bytearray(chunk_bytes), 0
+        return chunk, offset
+
     def generate_toc(self):
         """Scans the loaded paragraphs to build a table of contents mapping to line indices."""
-        import struct
         toc = []
-        seen_p_idx = set()
+        seen_p_idx = {}
         for i in range(self.num_lines):
             chunk = self.line_indices[i // 200]
             offset = (i % 200) * 6
-            p_idx = struct.unpack_from('H', chunk, offset)[0]
+            p_idx = struct.unpack('H', chunk[offset:offset+2])[0]
             if p_idx not in seen_p_idx:
-                seen_p_idx.add(p_idx)
+                seen_p_idx[p_idx] = True
                 para_str = self.paragraphs[p_idx].strip()
                 if para_str.startswith("==") and para_str.endswith("=="):
                     title = para_str.strip("=").strip()
@@ -1012,7 +1015,6 @@ class CustomArticleViewer:
         self.top_line = min(max_top, line_idx)
 
     def draw_viewer(self, title):
-        import struct
         from picoware.system.vector import Vector
 
         self.draw.clear(Vector(0, self.y), Vector(self.draw.size.x, self.height), self.bg_color)
@@ -1055,7 +1057,7 @@ class CustomArticleViewer:
             if line_idx < total_lines:
                 offset = (line_idx % 200) * 6
                 chunk = self.line_indices[line_idx // 200]
-                p_idx, start, end = struct.unpack_from('HHH', chunk, offset)
+                p_idx, start, end = struct.unpack('HHH', chunk[offset:offset+6])
                 if start != end:
                     line_str = self.paragraphs[p_idx][start:end]
                     if line_str.endswith('\n'):
@@ -1211,6 +1213,7 @@ def setup_settings(view_manager):
 
 def _refresh_settings_menu_items(view_manager):
     """Helper to populate the settings menu based on current settings."""
+    global settings_menu, settings
     if not settings_menu: return
     settings_menu.clear()
     settings_menu.add_item(f"Full Article: {'On' if settings['full_article'] else 'Off'}")
@@ -1228,7 +1231,7 @@ def _refresh_settings_menu_items(view_manager):
 
 def setup_clear_data(view_manager):
     """Create the clear data submenu."""
-    global clear_data_menu
+    global clear_data_menu, settings
     from picoware.gui.menu import Menu
     clear_data_menu = Menu(
         view_manager.draw,
@@ -1291,18 +1294,18 @@ def setup_history(view_manager):
     if not history:
         history_list.add_item("History is empty.")
     else:
-        cached_ids = set()
+        cached_ids = {}
         storage = view_manager.storage
         has_sd = view_manager.has_sd_card
         if storage and has_sd:
             try:
-                entries = storage.read_directory("picoware/apps/wikireader")
+                entries = storage.read_directory("picoware/wikireader")
                 for entry in entries:
                     filename = entry.get("filename", "")
                     if filename.endswith(".json") and (filename.startswith("cache_") or filename.startswith("offline_")):
                         parts = filename.replace('.json', '').split('_')
                         if len(parts) >= 2:
-                            cached_ids.add(int(parts[1]))
+                            cached_ids[int(parts[1])] = True
                 del entries
             except Exception: pass
 
@@ -1332,18 +1335,18 @@ def setup_favorites(view_manager):
     if not favorites:
         favorites_list.add_item("Favorites list is empty (0/50).")
     else:
-        cached_ids = set()
+        cached_ids = {}
         storage = view_manager.storage
         has_sd = view_manager.has_sd_card
         if storage and has_sd:
             try:
-                entries = storage.read_directory("picoware/apps/wikireader")
+                entries = storage.read_directory("picoware/wikireader")
                 for entry in entries:
                     filename = entry.get("filename", "")
                     if filename.endswith(".json") and (filename.startswith("cache_") or filename.startswith("offline_")):
                         parts = filename.replace('.json', '').split('_')
                         if len(parts) >= 2:
-                            cached_ids.add(int(parts[1]))
+                            cached_ids[int(parts[1])] = True
                 del entries
             except Exception: pass
 
@@ -1453,6 +1456,7 @@ def setup_help(view_manager):
 
 def run_main_menu(view_manager):
     """Handle input and drawing for the main menu."""
+    global main_menu, settings
     if not main_menu:
         return
     inp = view_manager.input_manager
@@ -1488,6 +1492,7 @@ def run_main_menu(view_manager):
 
 def run_search_keyboard(view_manager):
     """Handle the search input keyboard."""
+    global loading_spinner
     kb = view_manager.keyboard
     if not kb.run():  # run() returns False when BACK is pressed
         change_state(view_manager, STATE_MAIN_MENU)
@@ -1507,8 +1512,7 @@ def run_search_keyboard(view_manager):
 
 def run_loading(view_manager):
     """Display the loading animation."""
-    global http_client, _http_response_data, current_state
-    from time import ticks_ms, ticks_diff
+    global http_client, _http_response_data, current_state, _request_start_time, _http_lock, loading_spinner
 
     _process_http_response(view_manager)
 
@@ -1523,8 +1527,12 @@ def run_loading(view_manager):
             http_client = HTTP(thread_manager=view_manager.thread_manager, chunk_size=8 * 1024)
             http_client.callback = _api_callback
 
-            with _http_lock:
-                _http_response_data = None
+            if _http_lock:
+                _http_lock.acquire()
+                try:
+                    _http_response_data = None
+                finally:
+                    _http_lock.release()
 
             gc.collect()
             view_manager.alert("Request timed out!", back=True)
@@ -1537,7 +1545,7 @@ def run_loading(view_manager):
 
 def run_search_results(view_manager):
     """Handle the search results list."""
-    global current_article_title, current_article_page_id, article_origin_state
+    global current_article_title, current_article_page_id, article_origin_state, search_results_list, search_results, loading_spinner
     if not search_results_list:
         return
     inp = view_manager.input_manager
@@ -1569,6 +1577,7 @@ def run_search_results(view_manager):
 
 def run_view_article(view_manager):
     """Handle the article reading view."""
+    global language_menu_origin_state, article_textbox, current_article_title, current_article_page_id
     if not article_textbox:
         return
     inp = view_manager.input_manager
@@ -1598,7 +1607,6 @@ def run_view_article(view_manager):
         article_textbox.draw_viewer(current_article_title)
         inp.reset()
     elif button == BUTTON_L:
-        global language_menu_origin_state
         language_menu_origin_state = STATE_VIEW_ARTICLE
         change_state(view_manager, STATE_LANGUAGES)
         inp.reset()
@@ -1620,16 +1628,16 @@ def run_view_article(view_manager):
         # Force reload by deleting the cache file first if it exists
         if view_manager.storage and view_manager.has_sd_card:
             try:
-                entries = view_manager.storage.read_directory("picoware/apps/wikireader")
+                entries = view_manager.storage.read_directory("picoware/wikireader")
                 prefix = f"cache_{current_article_page_id}_"
                 for entry in entries:
                     filename = entry.get("filename", "")
                     if filename.startswith(prefix) and filename.endswith(".json"):
-                        try: view_manager.storage.remove(f"picoware/apps/wikireader/{filename}")
+                        try: view_manager.storage.remove(f"picoware/wikireader/{filename}")
                         except Exception: pass
                 del entries
                 # Fallback for old legacy caches
-                try: view_manager.storage.remove(f"picoware/apps/wikireader/cache_{current_article_page_id}.json")
+                try: view_manager.storage.remove(f"picoware/wikireader/cache_{current_article_page_id}.json")
                 except Exception: pass
             except Exception as e:
                 print(f"[ERROR] Failed to delete cache for reload: {e}")
@@ -1640,6 +1648,7 @@ def run_view_article(view_manager):
 
 def run_settings(view_manager):
     """Handle the settings menu."""
+    global language_menu_origin_state, settings_menu, settings
     if not settings_menu:
         return
     inp = view_manager.input_manager
@@ -1662,7 +1671,6 @@ def run_settings(view_manager):
             settings["full_article"] = not settings["full_article"]
             _refresh_settings_menu_items(view_manager)
         elif selected_index == 1:  # Language
-            global language_menu_origin_state
             language_menu_origin_state = STATE_SETTINGS
             change_state(view_manager, STATE_LANGUAGES)
         elif selected_index == 2:  # Font Size
@@ -1690,6 +1698,7 @@ def run_settings(view_manager):
 
 def run_clear_data(view_manager):
     """Handle the clear data submenu."""
+    global clear_data_menu, settings
     if not clear_data_menu:
         return
     inp = view_manager.input_manager
@@ -1730,11 +1739,11 @@ def run_clear_data(view_manager):
         elif selected_index == 3:  # Clear Offline
             if view_manager.storage and view_manager.has_sd_card:
                 try:
-                    entries = view_manager.storage.read_directory("picoware/apps/wikireader")
+                    entries = view_manager.storage.read_directory("picoware/wikireader")
                     for entry in entries:
                         filename = entry.get("filename", "")
                         if filename.startswith("offline_") and filename.endswith(".json"):
-                            try: view_manager.storage.remove(f"picoware/apps/wikireader/{filename}")
+                            try: view_manager.storage.remove(f"picoware/wikireader/{filename}")
                             except Exception: pass
                     del entries
                 except Exception: pass
@@ -1748,11 +1757,11 @@ def run_clear_data(view_manager):
             clear_cache(view_manager)
             if view_manager.storage and view_manager.has_sd_card:
                 try:
-                    entries = view_manager.storage.read_directory("picoware/apps/wikireader")
+                    entries = view_manager.storage.read_directory("picoware/wikireader")
                     for entry in entries:
                         filename = entry.get("filename", "")
                         if filename.startswith("offline_") and filename.endswith(".json"):
-                            try: view_manager.storage.remove(f"picoware/apps/wikireader/{filename}")
+                            try: view_manager.storage.remove(f"picoware/wikireader/{filename}")
                             except Exception: pass
                     del entries
                 except Exception: pass
@@ -1770,6 +1779,7 @@ def run_clear_data(view_manager):
 
 def run_languages(view_manager):
     """Handle the language selection list."""
+    global _target_language, _current_request_type, languages_list, settings, language_menu_origin_state, loading_spinner, http_client, current_article_page_id
     if not languages_list:
         return
     inp = view_manager.input_manager
@@ -1795,13 +1805,11 @@ def run_languages(view_manager):
         old_lang = settings["language"]
         inp.reset()
         if language_menu_origin_state == STATE_VIEW_ARTICLE and new_lang != old_lang:
-            global _target_language
             _target_language = new_lang
             change_state(view_manager, STATE_LOADING)
             if loading_spinner:
                 loading_spinner.text = f"Locating in {new_lang}..."
 
-            global _current_request_type
             _current_request_type = REQ_LANGLINKS
             url = f"{WIKI_API_URL.format(lang=old_lang)}?action=query&prop=langlinks&lllang={new_lang}&pageids={current_article_page_id}&format=json"
             http_client.get_async(url, headers=WIKI_HEADERS)
@@ -1819,7 +1827,7 @@ def run_languages(view_manager):
 
 def run_history(view_manager):
     """Handle the history list."""
-    global current_article_title, current_article_page_id, article_origin_state
+    global current_article_title, current_article_page_id, article_origin_state, history_list, settings, loading_spinner
     if not history_list:
         return
     inp = view_manager.input_manager
@@ -1850,7 +1858,7 @@ def run_history(view_manager):
 
 def run_favorites(view_manager):
     """Handle the favorites list."""
-    global current_article_title, current_article_page_id, article_origin_state
+    global current_article_title, current_article_page_id, article_origin_state, favorites_list, settings, loading_spinner
     if not favorites_list:
         return
     inp = view_manager.input_manager
@@ -1881,7 +1889,7 @@ def run_favorites(view_manager):
 
 def run_offline(view_manager):
     """Handle the offline articles list."""
-    global current_article_title, current_article_page_id, article_origin_state
+    global current_article_title, current_article_page_id, article_origin_state, offline_list, settings, loading_spinner
     if not offline_list:
         return
     inp = view_manager.input_manager
@@ -1912,7 +1920,7 @@ def run_offline(view_manager):
 
 def run_toc(view_manager):
     """Handle the Table of Contents list."""
-    global toc_list, toc_data
+    global toc_list, toc_data, article_textbox, current_article_title
     if not toc_list:
         return
     inp = view_manager.input_manager
@@ -1962,7 +1970,7 @@ def run_help(view_manager):
 
 def start(view_manager):
     """Called when the application is launched."""
-    global http_client, loading_spinner, current_state, _http_lock, _vm_ref
+    global http_client, loading_spinner, current_state, _http_lock, _vm_ref, _sys_bg, _sys_fg
     from picoware.system.http import HTTP
     from picoware.gui.loading import Loading
     from picoware.system.colors import TFT_BLACK, TFT_WHITE
@@ -1972,7 +1980,6 @@ def start(view_manager):
         return False
 
     # Store a reference to view_manager for the async callback
-    global _vm_ref
     _vm_ref = view_manager
 
     _http_lock = _thread.allocate_lock()
@@ -1989,11 +1996,10 @@ def start(view_manager):
 
     # Load settings
     if view_manager.storage:
-        view_manager.storage.mkdir("picoware/apps/wikireader")
+        view_manager.storage.mkdir("picoware/wikireader")
     load_settings_from_sd(view_manager)
 
     # Store OS colors BEFORE applying theme
-    global _sys_bg, _sys_fg
     _sys_bg = view_manager.background_color
     _sys_fg = view_manager.foreground_color
 
@@ -2009,9 +2015,7 @@ def start(view_manager):
 
 def stop(view_manager):
     """Called when the application is closed."""
-    global http_client, loading_spinner, main_menu, search_results_list, settings_menu, settings, language_menu_origin_state, clear_data_menu, _sys_bg, _sys_fg
-    global article_textbox, settings_list, languages_list, _vm_ref, _http_lock
-    global _pending_action, _target_language, history_list, favorites_list, offline_list, toc_list, help_textbox, article_origin_state, _request_start_time
+    global http_client, loading_spinner, main_menu, search_results_list, settings_menu, settings, language_menu_origin_state, clear_data_menu, _sys_bg, _sys_fg, article_textbox, languages_list, _vm_ref, _http_lock, _pending_action, _target_language, history_list, favorites_list, offline_list, toc_list, help_textbox, article_origin_state, _request_start_time
     if http_client:
         http_client.close()
         # Give the background thread a moment to exit
@@ -2067,6 +2071,13 @@ def stop(view_manager):
     language_menu_origin_state = STATE_MAIN_MENU
     _target_language = None
     article_origin_state = STATE_SEARCH_RESULTS
+
+    # Restore the original system colors before wiping the cache
+    if _sys_bg is not None:
+        view_manager.background_color = _sys_bg
+    if _sys_fg is not None:
+        view_manager.foreground_color = _sys_fg
+
     _sys_bg = None
     _sys_fg = None
     _request_start_time = 0

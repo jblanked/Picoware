@@ -154,13 +154,15 @@ _has_wifi = True
 _desktop_update_fetched = False
 _desktop_update_parsed = False
 _desktop_http = None
+_desktop_request_cancelled = False
+_desktop_update_available = False
 
 
 def start(view_manager) -> bool:
     """Start the loading animation."""
     from picoware.gui.desktop import Desktop
 
-    global _desktop, _desktop_picoware, _has_wifi
+    global _desktop, _desktop_picoware, _has_wifi, _desktop_request_cancelled, _desktop_update_fetched, _desktop_update_parsed, _desktop_update_available
 
     if _desktop is None:
         _desktop = Desktop(
@@ -185,6 +187,13 @@ def start(view_manager) -> bool:
     if view_manager.wifi.is_connected() and _time.is_set:
         _time.fetch()
 
+    if _desktop_request_cancelled:
+        _desktop_update_fetched = False
+        _desktop_update_parsed = False
+        _desktop_request_cancelled = False
+
+    _desktop_update_available = False
+
     return _desktop is not None
 
 
@@ -192,7 +201,7 @@ def run(view_manager) -> None:
     """Animate the loading spinner."""
     from picoware.system.buttons import BUTTON_LEFT, BUTTON_CENTER, BUTTON_UP
 
-    global _desktop_time_updated, _desktop_update_fetched, _desktop_update_parsed, _desktop_http
+    global _desktop_time_updated, _desktop_update_fetched, _desktop_update_parsed, _desktop_http, _desktop_update_available
 
     input_manager = view_manager.input_manager
     button: int = input_manager.button
@@ -279,6 +288,7 @@ def run(view_manager) -> None:
             )
 
             if __check_for_update_is_available(_desktop_http):
+                _desktop_update_available = True
                 view_manager.alert(
                     "There's a new Picoware update available!! Press `BACK` to start downloading in the background. Do not leave the desktop to allow the download to complete."
                 )
@@ -291,7 +301,7 @@ def run(view_manager) -> None:
             _desktop_update_parsed = True  # only parse once even on fail...
             return
 
-        if _desktop_update_parsed:
+        if _desktop_update_parsed and _desktop_update_available:
             if _desktop_http is None:
                 return
             if not _desktop_http.is_request_complete():
@@ -313,6 +323,7 @@ def stop(view_manager) -> None:
     global _desktop_picoware
     global _desktop_time_updated
     global _has_wifi
+    global _desktop_request_cancelled
 
     if _desktop:
         del _desktop
@@ -323,5 +334,6 @@ def stop(view_manager) -> None:
 
     _desktop_time_updated = view_manager.time.is_set
     _has_wifi = True
+    _desktop_request_cancelled = _desktop_update_parsed is False
 
     collect()

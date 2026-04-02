@@ -990,22 +990,23 @@ class CustomArticleViewer:
     def generate_toc(self):
         """Scans the loaded paragraphs to build a table of contents mapping to line indices."""
         toc = []
-        seen_p_idx = {}
+        last_p_idx = -1
         for i in range(self.num_lines):
             chunk = self.line_indices[i // 200]
             offset = (i % 200) * 6
             p_idx = struct.unpack('H', chunk[offset:offset+2])[0]
-            if p_idx not in seen_p_idx:
-                seen_p_idx[p_idx] = True
-                para_str = self.paragraphs[p_idx].strip()
-                if para_str.startswith("==") and para_str.endswith("=="):
-                    title = para_str.strip("=").strip()
-                    # Guardian RAM Rules: Count '=' natively without string slicing fragmentation
-                    level = len(para_str) - len(para_str.lstrip("="))
-                    prefix = "  " * (level - 2) if level >= 2 else ""
-                    toc.append((prefix + title, i))
+            if p_idx != last_p_idx:
+                last_p_idx = p_idx
+                para = self.paragraphs[p_idx]
+                if "==" in para[:5]:
+                    para_str = para.strip()
+                    if para_str.startswith("==") and para_str.endswith("=="):
+                        title = para_str.strip("=").strip()
+                        # Guardian RAM Rules: Count '=' natively without string slicing fragmentation
+                        level = len(para_str) - len(para_str.lstrip("="))
+                        prefix = "  " * (level - 2) if level >= 2 else ""
+                        toc.append((prefix + title, i))
 
-        del seen_p_idx
         gc.collect()
         return toc
 
@@ -2122,3 +2123,27 @@ def run(view_manager):
         run_help(view_manager)
     elif current_state == STATE_CLEAR_DATA:
         run_clear_data(view_manager)
+
+from picoware.system.view_manager import ViewManager
+from picoware.system.view import View
+
+vm = None
+
+try:
+    vm = ViewManager()
+    vm.add(
+        View(
+            "app_tester",
+            run,
+            start,
+            stop,
+        )
+    )
+    vm.switch_to("app_tester")
+    while True:
+        vm.run()
+except Exception as e:
+    print("Error during testing:", e)
+finally:
+    del vm
+    vm = None

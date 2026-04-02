@@ -265,8 +265,7 @@ class FileBrowser:
         from picoware.gui.text_editor import TextEditor
 
         self._text_editor = TextEditor(self._vm)
-        data = self._vm.storage.read(path, "r")
-        self._text_editor.set_text(data)
+        self._text_editor.load_file(path)
         del data
 
         return True
@@ -311,8 +310,6 @@ class FileBrowser:
             self._is_viewing_text = True
             self._edit_file = path
 
-            data = self._vm.storage.read(path, "r")
-
             from picoware.gui.textbox import TextBox
 
             draw = self._vm.draw
@@ -323,9 +320,8 @@ class FileBrowser:
                 self._vm.foreground_color,
                 self._vm.background_color,
             )
-            self._text_viewer_box.set_text(data)
+            self._text_viewer_box.load_file(path)
             self._text_viewer_box.refresh()
-            del data
 
             self._needs_redraw = True
         else:

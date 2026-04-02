@@ -5,7 +5,6 @@ Allows searching and reading articles from Wikipedia.
 """
 
 import gc
-import struct
 from json import loads, dumps
 from time import sleep
 from utime import ticks_ms, ticks_diff
@@ -340,7 +339,9 @@ def _parse_article_content(vm, query_data):
             current_article_title = pages[page_id_str]["title"]
         if "extract" in pages[page_id_str]:
             article_text = pages[page_id_str]["extract"]
-            setup_article_view(vm, article_text)
+            if not setup_article_view(vm, article_text):
+                change_state(vm, article_origin_state)
+                return
             _add_to_history(vm)
             change_state(vm, STATE_VIEW_ARTICLE)
             if article_textbox:
@@ -378,15 +379,19 @@ def _extract_text_from_file(view_manager, file_path):
 
     try:
         while offset < file_size:
+            # Check for user cancellation
+            if view_manager.input_manager.button == BUTTON_BACK:
+                view_manager.input_manager.reset()
+                return None
+
             now = ticks_ms()
-            if ticks_diff(now, last_update_time) > 100:  # Update UI every 100ms
+            if ticks_diff(now, last_update_time) > 150:  # Update UI regularly to prevent freeze
                 last_update_time = now
-                percent = int((offset / file_size) * 100)
-                if percent > last_percent:
-                    last_percent = percent
-                    if loading_spinner:
-                        loading_spinner.text = f"Parsing... {percent}%"
-                        loading_spinner.animate()
+                percent = int((offset / max(1, file_size)) * 100)
+                if loading_spinner:
+                    loading_spinner.text = f"Parsing... {percent}%"
+                    loading_spinner.animate()
+                gc.collect()
 
             read_len = min(chunk_size, file_size - offset)
             chunk = storage.file_read(file, offset, read_len, decode=False)
@@ -411,9 +416,13 @@ def _extract_text_from_file(view_manager, file_path):
                     c = buffer[i:i+1]
                     if c == b'n':
                         extracted.extend(b'\n')
-                        # Memory Optimization: Store line-by-line to avoid huge contiguous allocations
-                        paragraphs.append(extracted.decode('utf-8'))
+                        para_str = extracted.decode('utf-8')
+                        if 'ä' in para_str or 'ö' in para_str or 'ü' in para_str or 'Ä' in para_str or 'Ö' in para_str or 'Ü' in para_str or 'ß' in para_str:
+                            para_str = _replace_umlauts(para_str)
+                        paragraphs.append(para_str)
                         extracted = bytearray()
+                        if len(paragraphs) % 20 == 0:
+                            gc.collect()
                     elif c == b'r': extracted.extend(b'\r')
                     elif c == b't': extracted.extend(b'\t')
                     elif c == b'"': extracted.extend(b'"')
@@ -458,7 +467,10 @@ def _extract_text_from_file(view_manager, file_path):
                             i += 1
                         elif buffer[i:i+1] == b'"':
                                 if extracted:
-                                    paragraphs.append(extracted.decode('utf-8'))
+                                    para_str = extracted.decode('utf-8')
+                                    if 'ä' in para_str or 'ö' in para_str or 'ü' in para_str or 'Ä' in para_str or 'Ö' in para_str or 'Ü' in para_str or 'ß' in para_str:
+                                        para_str = _replace_umlauts(para_str)
+                                    paragraphs.append(para_str)
                                 return paragraphs
     finally:
         storage.file_close(file)
@@ -578,7 +590,10 @@ def _process_http_response(view_manager):
             cache_path = "picoware/wikireader/temp.json"
 
         text = _extract_text_from_file(view_manager, cache_path)
-        setup_article_view(view_manager, text)
+        if text is None or not setup_article_view(view_manager, text):
+            change_state(view_manager, article_origin_state)
+            return
+
         _add_to_history(view_manager)
         change_state(view_manager, STATE_VIEW_ARTICLE)
         if article_textbox:
@@ -724,7 +739,10 @@ def fetch_article(view_manager, page_id):
     if cache_path:
         gc.collect()
         text = _extract_text_from_file(view_manager, cache_path)
-        setup_article_view(view_manager, text)
+        if text is None or not setup_article_view(view_manager, text):
+            change_state(view_manager, article_origin_state)
+            return
+
         _add_to_history(view_manager)
         change_state(view_manager, STATE_VIEW_ARTICLE)
         if article_textbox:
@@ -779,7 +797,10 @@ def fetch_article_by_title(view_manager, title):
         current_article_title = title
 
         text = _extract_text_from_file(view_manager, cache_path)
-        setup_article_view(view_manager, text)
+        if text is None or not setup_article_view(view_manager, text):
+            change_state(view_manager, article_origin_state)
+            return
+
         _add_to_history(view_manager)
         change_state(view_manager, STATE_VIEW_ARTICLE)
         if article_textbox:
@@ -884,6 +905,8 @@ class CustomArticleViewer:
         self.top_line = 0
 
         self.font_size = settings.get("default_font_size", 0)
+        if self.font_size > 1:
+            self.font_size = 1
         font = draw.get_font(self.font_size)
         self.line_height = font.height + 2
 
@@ -895,10 +918,11 @@ class CustomArticleViewer:
 
     def cycle_font_size(self):
         """Cycles through available font sizes and re-wraps the text."""
-        self.font_size = (self.font_size + 1) % 3  # Cycle through 3 font sizes (0-2)
+        self.font_size = (self.font_size + 1) % 2  # Cycle through 2 font sizes (0-1)
         font = self.draw.get_font(self.font_size)
         self.line_height = font.height + 2
         self.visible_lines = self.text_area_height // self.line_height
+        gc.collect()
         # Re-wrap text with the new font size
         self._wrap_text()
 
@@ -911,24 +935,21 @@ class CustomArticleViewer:
             if lines[-1]:
                 self.paragraphs.append(lines[-1])
         else:
-            # Modifying the list in-place to prevent Out-Of-Memory list duplication
-            for i in range(len(text_data)):
-                text_data[i] = _replace_umlauts(text_data[i])
             self.paragraphs = text_data
-        self._wrap_text()
+        return self._wrap_text()
 
     def _wrap_text(self):
+        global loading_spinner
         """Zero-allocation word wrapping: stores chunk index and offsets in raw bytearrays to prevent fragmentation."""
         # Guardian RAM Rules: Clean up previous wrap artifacts before re-allocating
         del self.line_indices[:]
         gc.collect()
-        self.line_indices = []
         self.num_lines = 0
 
-        LINES_PER_CHUNK = 200
+        LINES_PER_CHUNK = 10
         BYTES_PER_LINE = 6 # 3 unsigned shorts (H)
         CHUNK_BYTES = LINES_PER_CHUNK * BYTES_PER_LINE
-        # Pre-allocate exactly 1200 bytes natively. Bypasses list creation overhead entirely.
+        # Pre-allocate exactly 60 bytes natively. Bypasses list creation overhead entirely.
         curr_chunk = bytearray(CHUNK_BYTES)
         curr_offset = 0
 
@@ -938,7 +959,25 @@ class CustomArticleViewer:
         # Reduce max_chars by 2 to add a safety buffer for wide characters in proportional fonts
         max_chars = max(1, (max_w // char_width) - 2 if char_width > 0 else 1)
 
+        total_paras = len(self.paragraphs)
+        last_update_time = ticks_ms()
+
         for p_idx, para in enumerate(self.paragraphs):
+            # Check for user cancellation
+            vm = get_view_manager()
+            if vm and vm.input_manager.button == BUTTON_BACK:
+                vm.input_manager.reset()
+                return False
+
+            # UI Feedback to prevent App Freeze
+            now = ticks_ms()
+            if ticks_diff(now, last_update_time) > 150:
+                last_update_time = now
+                if loading_spinner:
+                    loading_spinner.text = f"Formatting... {int((p_idx / max(1, total_paras)) * 100)}%"
+                    loading_spinner.animate()
+                gc.collect()
+
             text_len = len(para)
             if text_len == 0:
                 continue
@@ -977,13 +1016,21 @@ class CustomArticleViewer:
 
         del curr_chunk
         gc.collect()
+        return True
 
     def _add_line(self, p, s, e, chunk, offset, chunk_bytes, bytes_per_line):
-        chunk[offset:offset+bytes_per_line] = struct.pack('HHH', p, s, e)
+        # Zero-allocation manual bitwise packing
+        chunk[offset] = p & 0xFF
+        chunk[offset+1] = (p >> 8) & 0xFF
+        chunk[offset+2] = s & 0xFF
+        chunk[offset+3] = (s >> 8) & 0xFF
+        chunk[offset+4] = e & 0xFF
+        chunk[offset+5] = (e >> 8) & 0xFF
         offset += bytes_per_line
         self.num_lines += 1
         if offset >= chunk_bytes:
             self.line_indices.append(chunk)
+            gc.collect()
             return bytearray(chunk_bytes), 0
         return chunk, offset
 
@@ -992,9 +1039,9 @@ class CustomArticleViewer:
         toc = []
         last_p_idx = -1
         for i in range(self.num_lines):
-            chunk = self.line_indices[i // 200]
-            offset = (i % 200) * 6
-            p_idx = struct.unpack('H', chunk[offset:offset+2])[0]
+            chunk = self.line_indices[i // 10]
+            offset = (i % 10) * 6
+            p_idx = chunk[offset] | (chunk[offset+1] << 8)
             if p_idx != last_p_idx:
                 last_p_idx = p_idx
                 para = self.paragraphs[p_idx]
@@ -1056,9 +1103,11 @@ class CustomArticleViewer:
         for i in range(self.visible_lines):
             line_idx = self.top_line + i
             if line_idx < total_lines:
-                offset = (line_idx % 200) * 6
-                chunk = self.line_indices[line_idx // 200]
-                p_idx, start, end = struct.unpack('HHH', chunk[offset:offset+6])
+                offset = (line_idx % 10) * 6
+                chunk = self.line_indices[line_idx // 10]
+                p_idx = chunk[offset] | (chunk[offset+1] << 8)
+                start = chunk[offset+2] | (chunk[offset+3] << 8)
+                end = chunk[offset+4] | (chunk[offset+5] << 8)
                 if start != end:
                     line_str = self.paragraphs[p_idx][start:end]
                     if line_str.endswith('\n'):
@@ -1178,7 +1227,11 @@ def setup_article_view(view_manager, text):
         view_manager.background_color,
         view_manager.selected_color,
     )
-    article_textbox.set_text(text)
+    if not article_textbox.set_text(text):
+        # Guardian RAM Rules: Explicitly drop the aborted viewer to free fragmented heap bytearrays
+        del article_textbox
+        article_textbox = None
+        return False
 
     # Restore reading progress
     prog = 0
@@ -1193,6 +1246,7 @@ def setup_article_view(view_manager, text):
 
     if prog > 0:
         article_textbox.jump_to_line(prog)
+    return True
 
 
 def setup_settings(view_manager):
@@ -1219,7 +1273,9 @@ def _refresh_settings_menu_items(view_manager):
     settings_menu.clear()
     settings_menu.add_item(f"Full Article: {'On' if settings['full_article'] else 'Off'}")
     settings_menu.add_item(f"Language: {settings['language']}")
-    font_size_str = ["Small", "Medium", "Large"][settings.get("default_font_size", 0)]
+    font_val = settings.get("default_font_size", 0)
+    if font_val > 1: font_val = 1
+    font_size_str = ["Small", "Medium"][font_val]
     settings_menu.add_item(f"Default Font: {font_size_str}")
     theme_str = settings.get('theme', 'system')
     if theme_str == 'dark': theme_str = 'system'
@@ -1675,7 +1731,7 @@ def run_settings(view_manager):
             language_menu_origin_state = STATE_SETTINGS
             change_state(view_manager, STATE_LANGUAGES)
         elif selected_index == 2:  # Font Size
-            settings["default_font_size"] = (settings.get("default_font_size", 0) + 1) % 3
+            settings["default_font_size"] = (settings.get("default_font_size", 0) + 1) % 2
             _refresh_settings_menu_items(view_manager)
         elif selected_index == 3:  # Theme
             current_theme = settings.get('theme', 'system')

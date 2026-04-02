@@ -21,6 +21,7 @@ from picoware.system.buttons import (
     BUTTON_R,
     BUTTON_T,
     BUTTON_D,
+    BUTTON_0,
 )
 import _thread
 
@@ -1135,7 +1136,7 @@ class CustomArticleViewer:
 
         total_pages = max(1, (self.num_lines + self.visible_lines - 1) // self.visible_lines)
         current_page = (self.top_line // self.visible_lines) + 1
-        footer_text = f"Pg {current_page}/{total_pages} | S:Sz F:Fav D:Save T:ToC R:Rld"
+        footer_text = f"Pg {current_page}/{total_pages} | 0:Top S:Sz F:Fav D:Save T:ToC R:Rld"
         self.draw.text(Vector(5, footer_y + 4), footer_text, self.bg_color, 0)
 
         self.draw.swap()
@@ -1637,6 +1638,7 @@ def run_view_article(view_manager):
     global language_menu_origin_state, article_textbox, current_article_title, current_article_page_id
     if not article_textbox:
         return
+
     inp = view_manager.input_manager
     button = inp.button
 
@@ -1659,6 +1661,11 @@ def run_view_article(view_manager):
     elif button == BUTTON_BACK:
         inp.reset()
         change_state(view_manager, article_origin_state)
+    elif button == BUTTON_0:
+        inp.reset()
+        if article_textbox:
+            article_textbox.jump_to_line(0)
+            article_textbox.draw_viewer(current_article_title)
     elif button == BUTTON_S:
         article_textbox.cycle_font_size()
         article_textbox.draw_viewer(current_article_title)

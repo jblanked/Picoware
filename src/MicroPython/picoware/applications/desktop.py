@@ -5,8 +5,6 @@ class PicowareAnimation:
     """Class to draw "Picoware" animation"""
 
     def __init__(self, draw):
-        from picoware.system.vector import Vector
-
         self.display = draw
         self.letter_states = []
         self.animation_complete = False
@@ -18,16 +16,11 @@ class PicowareAnimation:
         self.center_y = self.size.y // 2
         self.frame_counter = 0
 
-        self.text_vec = Vector(0, 0)
-        self.circ_vec = Vector(0, 0)
-
         self._initialize_letter_animation()
 
     def __del__(self):
         del self.letter_states
         self.letter_states = None
-        self.text_vec = None
-        self.circ_vec = None
 
     def _initialize_letter_animation(self) -> None:
         """Initialize the animation state for each letter in 'Picoware'."""
@@ -107,9 +100,9 @@ class PicowareAnimation:
             if (
                 self.frame_counter % max(1, (100 - self.circle_opacity) // 20 + 1)
             ) == 0:
-                self.circ_vec.x = self.center_x
-                self.circ_vec.y = self.center_y
-                self.display.circle(self.circ_vec, self.circle_radius, color)
+                self.display._circle(
+                    self.center_x, self.center_y, self.circle_radius, color
+                )
 
         all_settled = True
 
@@ -141,10 +134,9 @@ class PicowareAnimation:
                 # Use modulo to create a fade pattern
                 # At low opacity, only draw occasionally; at high opacity, always draw
                 if (self.frame_counter % max(1, opacity_threshold // 10 + 1)) == 0:
-                    self.text_vec.x = letter["target_x"]
-                    self.text_vec.y = int(letter["current_y"])
-                    self.display.text(
-                        self.text_vec,
+                    self.display._text(
+                        letter["target_x"],
+                        int(letter["current_y"]),
                         letter["char"],
                         letter["color"],
                     )

@@ -29,6 +29,7 @@ def start(view_manager) -> bool:
         _library.add_item("Python Editor")
         _library.add_item("Screensavers")
         _library.add_item("System")
+        _library.add_item("USB")
         _library.add_item("WiFi")
         _library.set_selected(_library_index)
 
@@ -80,7 +81,8 @@ def run(view_manager) -> None:
             6: "Python Editor",
             7: "Screensavers",
             8: "System",
-            9: "WiFi",
+            9: "USB",
+            10: "WiFi",
         }
 
         if app_map.get(_library_index) == "System":
@@ -175,6 +177,18 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("gameboy")
+        elif app_map.get(_library_index) == "USB":
+            from picoware.applications.usb import usb
+
+            view_manager.add(
+                View(
+                    "usb",
+                    usb.run,
+                    usb.start,
+                    usb.stop,
+                )
+            )
+            view_manager.switch_to("usb")
 
 
 def stop(view_manager) -> None:

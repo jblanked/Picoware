@@ -4,7 +4,7 @@ _initialized = False
 
 def start(view_manager) -> bool:
     """Start the app"""
-    from picoware.system.usb_keyboard import USBKeyboard
+    from picoware.system.usb import USBKeyboard
 
     view_manager.alert(
         "USB Keyboard is about to start.. make sure you have a usb cable connected before clicking `Back`"

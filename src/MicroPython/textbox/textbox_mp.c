@@ -1,11 +1,19 @@
 #include "textbox_mp.h"
 #include "../lcd/lcd_config.h"
 
+#ifndef PRINT
+#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
+#endif
+
 #ifdef LCD_INCLUDE
 #include LCD_INCLUDE
 #endif
 
 const mp_obj_type_t textbox_mp_type;
+
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC)
+#include "../sd/fat32.h"
+#endif
 
 // Grow the line array if needed and append one entry.
 static void textbox_add_line(textbox_mp_obj_t *self, uint32_t start, uint16_t length)
@@ -651,6 +659,56 @@ mp_obj_t textbox_mp_delete_char(mp_obj_t self_in)
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(textbox_mp_delete_char_obj, textbox_mp_delete_char);
 
+mp_obj_t textbox_mp_load_file(mp_obj_t self_in, mp_obj_t filename)
+{
+    textbox_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    const char *fn = mp_obj_str_get_str(filename);
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC)
+    if (!fat32_is_mounted())
+    {
+        fat32_error_t err = fat32_mount();
+        if (err != FAT32_OK)
+        {
+            PRINT("Failed to mount SD card: %s\n", fat32_error_string(err));
+            return mp_const_none;
+        }
+    }
+    fat32_file_t *file = m_new_obj(fat32_file_t);
+    fat32_error_t err = fat32_open(file, fn);
+    if (err != FAT32_OK)
+    {
+        PRINT("Failed to open file for reading: %s\n", fat32_error_string(err));
+        m_free(file);
+        return mp_const_none;
+    }
+    self->edit_buf_capacity = fat32_size(file) + 1;
+    if (!self->edit_buf)
+        self->edit_buf = m_new(char, self->edit_buf_capacity);
+    else
+        self->edit_buf = m_renew(char, self->edit_buf, self->edit_buf_capacity, self->edit_buf_capacity);
+
+    size_t bytes_read = 0;
+    bool status = fat32_read(file, (char *)self->edit_buf, self->edit_buf_capacity - 1, &bytes_read) == FAT32_OK;
+    fat32_close(file);
+    m_free(file);
+    if (status)
+    {
+        self->text_len = bytes_read;
+        self->edit_buf[bytes_read] = '\0';
+        self->text = self->edit_buf;
+        self->cursor_pos = 0;
+        self->cache_valid = false;
+        textbox_wrap(self);
+        textbox_scroll_to_cursor(self);
+        textbox_display(self);
+    }
+#else
+    PRINT("Failed to load %s because file system support is not available\n", fn);
+#endif
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(textbox_mp_load_file_obj, textbox_mp_load_file);
+
 void textbox_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
     textbox_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -740,6 +798,7 @@ static const mp_rom_map_elem_t textbox_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR__cursor_down), MP_ROM_PTR(&textbox_mp_cursor_down_obj)},
     {MP_ROM_QSTR(MP_QSTR__insert_char), MP_ROM_PTR(&textbox_mp_insert_char_obj)},
     {MP_ROM_QSTR(MP_QSTR__delete_char), MP_ROM_PTR(&textbox_mp_delete_char_obj)},
+    {MP_ROM_QSTR(MP_QSTR_load_file), MP_ROM_PTR(&textbox_mp_load_file_obj)},
 };
 static MP_DEFINE_CONST_DICT(textbox_mp_locals_dict, textbox_mp_locals_dict_table);
 

@@ -159,6 +159,9 @@ _desktop = None
 _desktop_picoware = None
 _desktop_time_updated = False
 _has_wifi = True
+_desktop_update_fetched = False
+_desktop_update_parsed = False
+_desktop_http = None
 
 
 def start(view_manager) -> bool:
@@ -197,7 +200,7 @@ def run(view_manager) -> None:
     """Animate the loading spinner."""
     from picoware.system.buttons import BUTTON_LEFT, BUTTON_CENTER, BUTTON_UP
 
-    global _desktop_time_updated
+    global _desktop_time_updated, _desktop_update_fetched, _desktop_update_parsed, _desktop_http
 
     input_manager = view_manager.input_manager
     button: int = input_manager.button
@@ -249,9 +252,65 @@ def run(view_manager) -> None:
             _desktop.set_time(_time.time)
         elif _time.is_set:
             _desktop_time_updated = True
+            if not _desktop_update_fetched:
+                if _desktop_http is None:
+                    from picoware.system.http import HTTP
+
+                    _desktop_http = HTTP(thread_manager=view_manager.thread_manager)
+                    if not _desktop_http:
+                        view_manager.log(
+                            "Failed to create HTTP context for update check", 2
+                        )
+                        return
+
+                from picoware.applications.system.update import (
+                    __check_for_update_start,
+                )
+
+                if not __check_for_update_start(_desktop_http, view_manager):
+                    view_manager.log("Failed to start update check", 2)
+                _desktop_update_fetched = True  # only check once even on fail...
+
         elif not _time.is_fetching:
             _desktop_time_updated = False
             _time.fetch(view_manager.gmt_offset)
+
+        if _desktop_update_fetched and not _desktop_update_parsed:
+            if _desktop_http is None:
+                view_manager.log("Error checking for update: http context is None", 2)
+                return
+            if not _desktop_http.is_request_complete():
+                return
+            from picoware.applications.system.update import (
+                __check_for_update_is_available,
+                __check_for_update_download_start,
+            )
+
+            if __check_for_update_is_available(_desktop_http):
+                view_manager.alert(
+                    "There's a new Picoware update available!! Press `BACK` to start downloading in the background. Do not leave the desktop to allow the download to complete."
+                )
+                if not __check_for_update_download_start(
+                    _desktop_http, view_manager.storage
+                ):
+                    view_manager.alert("Failed to start update download")
+            else:
+                view_manager.log("No update available")
+            _desktop_update_parsed = True  # only parse once even on fail...
+            return
+
+        if _desktop_update_parsed:
+            if _desktop_http is None:
+                return
+            if not _desktop_http.is_request_complete():
+                return
+            if _desktop_http.response and _desktop_http.response.status_code == 200:
+                view_manager.alert("Update download completed!")
+            else:
+                view_manager.alert("There was an error downloading the update")
+            _desktop_http.close()
+            del _desktop_http
+            _desktop_http = None
 
 
 def stop(view_manager) -> None:

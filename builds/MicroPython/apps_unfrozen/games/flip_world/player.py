@@ -216,6 +216,9 @@ class Player(Entity):
         self.user_stats_pos = Vector(0, 0)
         self._img_vec = Vector(0, 0)
         self._img_size = Vector(0, 0)
+        self._sprite_pos = Vector(0, 0)
+        self._data_left = player_left_sword_15x11px
+        self._data_right = player_right_sword_15x11px
 
         self.cent_box_pos = Vector(0, 0)
         self.cent_box_size = Vector(0, 0)
@@ -259,6 +262,9 @@ class Player(Entity):
         self.user_stats_text = None
         del self.user_stats_rect_pos
         self.user_stats_rect_pos = None
+        self._sprite_pos = None
+        self._data_left = None
+        self._data_right = None
 
     @property
     def should_leave_game(self) -> bool:
@@ -1087,8 +1093,25 @@ class Player(Entity):
         if self.current_main_view != GAME_VIEW_GAME:
             return
         self.icon_group_render(game)
+
+        # Draw player sprite explicitly
+        screen_x = int(self.position.x - game.position.x)
+        screen_y = int(self.position.y - game.position.y)
+        if (
+            screen_x + self.size.x >= 0
+            and screen_x < game.draw.size.x
+            and screen_y + self.size.y >= 0
+            and screen_y < game.draw.size.y
+        ):
+            _data = self._data_left if self.direction.x == -1 else self._data_right
+            self._sprite_pos.x = screen_x
+            self._sprite_pos.y = screen_y
+            draw.image_bytearray(self._sprite_pos, self.size, _data)
+
         self.draw_username(self.position, game)
         self.draw_user_stats(self.user_stats_pos, canvas=draw)
+        # Suppress engine auto-draw (sprite already drawn above)
+        self.is_visible = False
 
     def sync_multiplayer_state(self):
         """Sync's the sprites data for multiplayer"""
@@ -1102,10 +1125,6 @@ class Player(Entity):
 
     def update(self, game):
         """Update callback for the player."""
-        if self.system_menu_debounce_timer > 0.0:
-            self.system_menu_debounce_timer -= 1.0 / 120.0
-            self.system_menu_debounce_timer = max(0.0, self.system_menu_debounce_timer)
-
         if self.current_main_view != GAME_VIEW_GAME:
             return
 

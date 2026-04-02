@@ -193,6 +193,7 @@ class FlipWorldRun:
             or not self.engine.game.current_level
         ):
             return False
+        from picoware.engine.image import Image
 
         current_level = self.engine.game.current_level
 
@@ -202,14 +203,17 @@ class FlipWorldRun:
             ENTITY_TYPE_PLAYER,  # type
             Vector(384, 192),  # position
             Vector(15, 11),  # size
-            player_left_sword_15x11px,  # sprite_data
-            player_left_sword_15x11px,  # sprite_left_data
-            player_right_sword_15x11px,  # sprite_right_data
+            Image(Vector(15, 11), True, player_left_sword_15x11px),  # sprite_data
+            Image(Vector(15, 11), True, player_left_sword_15x11px),  # sprite_left_data
+            Image(
+                Vector(15, 11), True, player_right_sword_15x11px
+            ),  # sprite_right_data
             None,  # start
             None,  # stop
             None,  # update
             self.pve_render,  # render callback for PvE mode
             None,  # collision callback
+            True,  # is 8-bit
             SPRITE_3D_NONE,  # no 3D sprite for remote players
         )
 

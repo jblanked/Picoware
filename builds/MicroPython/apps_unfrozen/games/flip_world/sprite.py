@@ -73,30 +73,41 @@ class Sprite(Entity):
         self.cent_box_pos = Vector(0, 0)
         self.cent_box_size = Vector(0, 0)
         self.cent_box_text = Vector(0, 0)
+        self._draw_pos = Vector(0, 0)
+        self._data_left = None
+        self._data_right = None
 
         if name == "Cyclops":
             self.size = Vector(10, 11)
             self.sprite = Image(self.size, True, enemy_left_cyclops_10x11px)
             self.sprite_left = Image(self.size, True, enemy_left_cyclops_10x11px)
             self.sprite_right = Image(self.size, True, enemy_right_cyclops_10x11px)
+            self._data_left = enemy_left_cyclops_10x11px
+            self._data_right = enemy_right_cyclops_10x11px
 
         elif name == "Ogre":
             self.size = Vector(10, 13)
             self.sprite = Image(self.size, True, enemy_left_ogre_10x13px)
             self.sprite_left = Image(self.size, True, enemy_left_ogre_10x13px)
             self.sprite_right = Image(self.size, True, enemy_right_ogre_10x13px)
+            self._data_left = enemy_left_ogre_10x13px
+            self._data_right = enemy_right_ogre_10x13px
 
         elif name == "Ghost":
             self.size = Vector(15, 15)
             self.sprite = Image(self.size, True, enemy_left_ghost_15x15px)
             self.sprite_left = Image(self.size, True, enemy_left_ghost_15x15px)
             self.sprite_right = Image(self.size, True, enemy_right_ghost_15x15px)
+            self._data_left = enemy_left_ghost_15x15px
+            self._data_right = enemy_right_ghost_15x15px
 
         elif name == "Funny NPC":
             self.size = Vector(15, 21)
             self.sprite = Image(self.size, True, npc_left_funny_15x21px)
             self.sprite_left = Image(self.size, True, npc_left_funny_15x21px)
             self.sprite_right = Image(self.size, True, npc_right_funny_15x21px)
+            self._data_left = npc_left_funny_15x21px
+            self._data_right = npc_right_funny_15x21px
 
         else:
             # Default sprite
@@ -111,6 +122,9 @@ class Sprite(Entity):
         self.cent_box_pos = None
         self.cent_box_size = None
         self.cent_box_text = None
+        self._draw_pos = None
+        self._data_left = None
+        self._data_right = None
 
     def collision(self, other, game):
         """Handles collision with another entity."""
@@ -276,27 +290,42 @@ class Sprite(Entity):
     def render(self, draw, game):
         """Renders the sprite on the screen."""
         if self.state == ENTITY_STATE_DEAD:
+            self.is_visible = False
             return
 
         # if not on screen, skip rendering
-        screen_x = self.position.x - game.position.x
-        screen_y = self.position.y - game.position.y
+        screen_x = int(self.position.x - game.position.x)
+        screen_y = int(self.position.y - game.position.y)
         if (
             screen_x + self.size.x < 0
             or screen_x > game.draw.size.x
             or screen_y + self.size.y < 0
             or screen_y > game.draw.size.y
         ):
+            self.is_visible = False
             return
 
-        # Choose sprite based on direction
+        # Choose sprite and data based on direction
         if self.direction.x == -1 and self.direction.y == 0:  # moving left
             self.sprite = self.sprite_left
+            current_data = self._data_left
         elif self.direction.x == 1 and self.direction.y == 0:  # moving right
             self.sprite = self.sprite_right
+            current_data = self._data_right
+        else:
+            current_data = self._data_left  # default
+
+        # Draw sprite explicitly
+        if current_data:
+            self._draw_pos.x = screen_x
+            self._draw_pos.y = screen_y
+            draw.image_bytearray(self._draw_pos, self.size, current_data)
 
         # draw health of enemy
         self.draw_username(self.position, game)
+
+        # Suppress engine auto-draw (sprite already drawn above)
+        self.is_visible = False
 
     def sync_multiplayer_state(self, host_only: bool = True, other: Entity = None):
         """Sync's the sprites data for multiplayer"""

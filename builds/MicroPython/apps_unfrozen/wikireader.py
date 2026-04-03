@@ -2052,9 +2052,9 @@ def start(view_manager):
     # Route background networking to the OS ThreadManager
     http_client = HTTP(thread_manager=view_manager.thread_manager, chunk_size=8 * 1024)
     http_client.callback = _api_callback
-    loading_spinner = Loading(
+    loading_spinner = Loading( 
         view_manager.draw,
-        view_manager.selected_color,
+        view_manager.foreground_color,
         view_manager.background_color,
     )
 

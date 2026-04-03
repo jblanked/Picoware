@@ -22,6 +22,7 @@ from picoware.system.buttons import (
     BUTTON_T,
     BUTTON_D,
     BUTTON_0,
+    BUTTON_9,
     BUTTON_1,
     BUTTON_N,
     BUTTON_C,
@@ -1833,6 +1834,7 @@ def setup_help(view_manager):
         "[UP/DN] : Scroll Line\n"
         "[L/R]   : Scroll Page\n"
         "[0] Key : Jump to Top\n"
+        "[9] Key : Jump to End\n"
         "[1] Key : Find in Page\n"
         "[N] Key : Find Next\n"
         "[C] Key : Clear Search\n"
@@ -2062,6 +2064,11 @@ def run_view_article(view_manager):
         inp.reset()
         if article_textbox:
             article_textbox.jump_to_line(0)
+            article_textbox.draw_viewer(current_article_title)
+    elif button == BUTTON_9:
+        inp.reset()
+        if article_textbox and article_textbox.num_lines > 0:
+            article_textbox.jump_to_line(article_textbox.num_lines - 1)
             article_textbox.draw_viewer(current_article_title)
     elif button == BUTTON_1:
         inp.reset()

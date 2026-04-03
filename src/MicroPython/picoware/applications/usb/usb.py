@@ -26,6 +26,8 @@ def start(view_manager) -> bool:
             2,
         )
         _usb.add_item("Keyboard")
+        _usb.add_item("Media Keys")
+        _usb.add_item("Numpad")
         _usb.set_selected(_usb_index)
 
         _usb.draw()
@@ -79,6 +81,32 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("usb_keyboard")
+        elif _usb_index == 1:
+            # Media Keys
+            from picoware.applications.usb import media_keys
+
+            view_manager.add(
+                View(
+                    "usb_media_keys",
+                    media_keys.run,
+                    media_keys.start,
+                    media_keys.stop,
+                )
+            )
+            view_manager.switch_to("usb_media_keys")
+        elif _usb_index == 2:
+            # Numpad
+            from picoware.applications.usb import numpad
+
+            view_manager.add(
+                View(
+                    "usb_numpad",
+                    numpad.run,
+                    numpad.start,
+                    numpad.stop,
+                )
+            )
+            view_manager.switch_to("usb_numpad")
 
 
 def stop(view_manager) -> None:

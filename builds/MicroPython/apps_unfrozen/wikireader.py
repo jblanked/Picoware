@@ -22,6 +22,12 @@ from picoware.system.buttons import (
     BUTTON_T,
     BUTTON_D,
     BUTTON_0,
+    BUTTON_1,
+    BUTTON_N,
+    BUTTON_C,
+    BUTTON_H,
+    BUTTON_COMMA,
+    BUTTON_PERIOD,
 )
 import _thread
 
@@ -43,6 +49,7 @@ STATE_TOC = 11
 STATE_HELP = 12
 STATE_OFFLINE = 13
 STATE_CLEAR_DATA = 14
+STATE_FIND_KEYBOARD = 15
 
 # Request Types
 REQ_SEARCH = 1
@@ -50,6 +57,7 @@ REQ_ARTICLE_FILE = 2
 REQ_ARTICLE_RAM = 3
 REQ_LANGLINKS = 4
 REQ_ARTICLE_FILE_BY_TITLE = 5
+REQ_RANDOM = 6
 
 current_state = STATE_INIT
 _current_request_type = REQ_SEARCH
@@ -74,7 +82,7 @@ _sys_fg = None
 
 # Settings
 SETTINGS_FILE = "picoware/wikireader/settings.json"
-settings = {"full_article": False, "language": "en", "default_font_size": 0, "theme": "system", "history": [], "favorites": [], "offline": []}
+settings = {"full_article": False, "language": "en", "default_font_size": 0, "theme": "system", "text_margin": 10, "history": [], "favorites": [], "offline": []}
 
 # GUI Components
 main_menu = None
@@ -92,6 +100,7 @@ loading_spinner = None
 clear_data_menu = None
 language_menu_origin_state = STATE_MAIN_MENU
 article_origin_state = STATE_SEARCH_RESULTS
+help_origin_state = STATE_MAIN_MENU
 
 # --- App Globals ---
 _vm_ref = None
@@ -113,6 +122,19 @@ def _replace_umlauts(text):
     return text
 
 
+_BOILERPLATE_ENDINGS = (
+    # English
+    "see also", "references", "external links", "further reading", "notes",
+    # German
+    "weblinks", "einzelnachweise", "literatur", "siehe auch", "quellen", "anmerkungen",
+    # French
+    "voir aussi", "notes et références", "notes et references", "liens externes", "bibliographie", "articles connexes", "références", "references",
+    # Spanish
+    "véase también", "vease tambien", "referencias", "enlaces externos", "bibliografía", "bibliografia", "notas",
+    # Italian
+    "voci correlate", "note", "bibliografia", "collegamenti esterni", "altri progetti", "referenze"
+)
+
 def get_view_manager():
     """Helper to get the view_manager instance, for async callbacks."""
     return _vm_ref
@@ -128,9 +150,26 @@ def show_toast(view_manager, message, duration=1):
     gc.collect()
 
 
+def _save_reading_progress(view_manager):
+    """Saves the current line index to the article's entry in the lists."""
+    global settings, article_textbox, current_article_page_id
+    if not article_textbox or current_article_page_id == -1:
+        return
+    prog = article_textbox.top_line
+    updated = False
+    for lst in ("history", "favorites", "offline"):
+        for item in settings.get(lst, []):
+            if item.get("pageid") == current_article_page_id:
+                if item.get("progress", -1) != prog:
+                    item["progress"] = prog
+                    updated = True
+    if updated:
+        save_settings_to_sd(view_manager)
+
+
 def change_state(view_manager, new_state):
     """Cleans up old state and sets up the new one."""
-    global current_state, main_menu, search_results_list, article_textbox, settings_menu, clear_data_menu, languages_list, history_list, favorites_list, offline_list, toc_list, toc_data, help_textbox, _request_start_time
+    global current_state, main_menu, search_results_list, article_textbox, settings_menu, clear_data_menu, languages_list, history_list, favorites_list, offline_list, toc_list, toc_data, help_textbox, _request_start_time, loading_spinner
 
     # Clean up current state's resources
     if current_state == STATE_MAIN_MENU and main_menu:
@@ -141,7 +180,8 @@ def change_state(view_manager, new_state):
         search_results_list = None
     elif current_state == STATE_VIEW_ARTICLE and article_textbox:
         # Prevent destroying the article when just viewing the ToC overlay
-        if new_state not in (STATE_TOC,):
+        if new_state not in (STATE_TOC, STATE_FIND_KEYBOARD, STATE_HELP):
+            _save_reading_progress(view_manager)
             del article_textbox
             article_textbox = None
     elif current_state == STATE_SETTINGS and settings_menu:
@@ -162,13 +202,16 @@ def change_state(view_manager, new_state):
     elif current_state == STATE_TOC and toc_list:
         del toc_list
         toc_list = None
-        del toc_data[:]
+        toc_data = []
     elif current_state == STATE_HELP and help_textbox:
         del help_textbox
         help_textbox = None
     elif current_state == STATE_CLEAR_DATA and clear_data_menu:
         del clear_data_menu
         clear_data_menu = None
+    elif current_state == STATE_LOADING and loading_spinner:
+        del loading_spinner
+        loading_spinner = None
 
     gc.collect()
 
@@ -202,12 +245,16 @@ def change_state(view_manager, new_state):
         setup_help(view_manager)
     elif new_state == STATE_CLEAR_DATA:
         setup_clear_data(view_manager)
+    elif new_state == STATE_FIND_KEYBOARD:
+        setup_find_keyboard(view_manager)
     elif new_state == STATE_LOADING:
-        from time import ticks_ms
         _request_start_time = ticks_ms()
-        if loading_spinner:
-            loading_spinner.animating = False
-            loading_spinner.time_elapsed = 0
+        from picoware.gui.loading import Loading
+        loading_spinner = Loading(
+            view_manager.draw,
+            view_manager.foreground_color,
+            view_manager.background_color,
+        )
 
     # Push the fully rendered backbuffer to the physical screen
     view_manager.draw.swap()
@@ -287,7 +334,14 @@ def _toggle_offline(view_manager):
             if view_manager.storage.exists(cache_path):
                 view_manager.storage.copy(cache_path, offline_path)
                 offline.insert(0, {"title": current_article_title, "pageid": current_article_page_id})
-                while len(offline) > 50: offline.pop()
+                while len(offline) > 50:
+                    popped = offline.pop()
+                    # Clean up orphaned file on the SD card!
+                    if view_manager.storage and view_manager.has_sd_card:
+                        encoded = url_encode(popped.get("title", ""))
+                        popped_path = f"picoware/wikireader/offline_{popped.get('pageid', -1)}_{encoded}.json"
+                        try: view_manager.storage.remove(popped_path)
+                        except Exception: pass
                 msg = "Saved for Offline"
             else:
                 view_manager.alert("Error: Cache missing.", back=True)
@@ -295,7 +349,6 @@ def _toggle_offline(view_manager):
         save_settings_to_sd(view_manager)
         show_toast(view_manager, msg, 1)
     except Exception as e:
-        print(f"[ERROR] Offline toggle failed: {e}")
         view_manager.alert("Storage Error")
 
 
@@ -420,6 +473,16 @@ def _extract_text_from_file(view_manager, file_path):
                         para_str = extracted.decode('utf-8')
                         if 'ä' in para_str or 'ö' in para_str or 'ü' in para_str or 'Ä' in para_str or 'Ö' in para_str or 'Ü' in para_str or 'ß' in para_str:
                             para_str = _replace_umlauts(para_str)
+
+                        # Filter out boilerplate tail sections
+                        p_strip = para_str.strip()
+                        if p_strip.startswith("==") and p_strip.endswith("=="):
+                            p_title = p_strip.strip("= \t\r\n").lower()
+                            if p_title in _BOILERPLATE_ENDINGS:
+                                extracted = bytearray()
+                                offset = file_size + 1  # Force outer loop exit
+                                break
+
                         paragraphs.append(para_str)
                         extracted = bytearray()
                         if len(paragraphs) % 20 == 0:
@@ -471,6 +534,13 @@ def _extract_text_from_file(view_manager, file_path):
                                     para_str = extracted.decode('utf-8')
                                     if 'ä' in para_str or 'ö' in para_str or 'ü' in para_str or 'Ä' in para_str or 'Ö' in para_str or 'Ü' in para_str or 'ß' in para_str:
                                         para_str = _replace_umlauts(para_str)
+
+                                    p_strip = para_str.strip()
+                                    if p_strip.startswith("==") and p_strip.endswith("=="):
+                                        p_title = p_strip.strip("= \t\r\n").lower()
+                                        if p_title in _BOILERPLATE_ENDINGS:
+                                            return paragraphs
+
                                     paragraphs.append(para_str)
                                 return paragraphs
     finally:
@@ -519,7 +589,7 @@ def _extract_metadata_from_file(storage, file_path):
 
 def _process_http_response(view_manager):
     """Process the HTTP response data in the main thread."""
-    global _http_response_data, search_results, _current_request_type, _target_language, current_article_page_id, current_article_title
+    global _http_response_data, search_results, _current_request_type, _target_language, current_article_page_id, current_article_title, article_origin_state
 
     if _http_lock:
         _http_lock.acquire()
@@ -561,7 +631,6 @@ def _process_http_response(view_manager):
                 if loading_spinner: loading_spinner.text = "Restoring article..."
                 fetch_article(view_manager, current_article_page_id)
         except Exception as e:
-            print(f"[ERROR] Langlinks parsing failed: {e}")
             view_manager.alert("Translation failed", back=True)
             _target_language = None
             change_state(view_manager, STATE_LOADING)
@@ -587,7 +656,6 @@ def _process_http_response(view_manager):
                 view_manager.storage.remove(cache_path)
             view_manager.storage.rename("picoware/wikireader/temp.json", cache_path)
         except Exception as e:
-            print(f"[ERROR] Failed to rename temp cache: {e}")
             cache_path = "picoware/wikireader/temp.json"
 
         text = _extract_text_from_file(view_manager, cache_path)
@@ -640,7 +708,20 @@ def _process_http_response(view_manager):
         gc.collect()
 
         if "query" in data:
-            if "search" in data.get("query", {}):
+            if _current_request_type == REQ_RANDOM:
+                random_list = data.get("query", {}).get("random", [])
+                if random_list:
+                    item = random_list[0]
+                    current_article_page_id = item.get("id", -1)
+                    current_article_title = item.get("title", "Unknown")
+                    article_origin_state = STATE_MAIN_MENU
+                    if loading_spinner:
+                        loading_spinner.text = _replace_umlauts(f"Loading '{current_article_title}'...")
+                    fetch_article(view_manager, current_article_page_id)
+                else:
+                    view_manager.alert("No random article found.", back=True)
+                    change_state(view_manager, STATE_MAIN_MENU)
+            elif "search" in data.get("query", {}):
                 _parse_search_results(view_manager, data["query"])
             elif "pages" in data.get("query", {}):
                 _parse_article_content(view_manager, data["query"])
@@ -649,7 +730,6 @@ def _process_http_response(view_manager):
         del data
         gc.collect()
     except Exception as e:
-        print(f"[ERROR] Failed to parse API response: {e}")
         view_manager.alert("Invalid API Response", back=True)
         change_state(view_manager, STATE_MAIN_MENU)
 
@@ -669,7 +749,7 @@ def clear_cache(view_manager):
             del entries
         gc.collect()
     except Exception as e:
-        print(f"[ERROR] Failed to clear cache: {e}")
+        pass
 
 
 def enforce_cache_limit(view_manager, limit=10):
@@ -697,7 +777,7 @@ def enforce_cache_limit(view_manager, limit=10):
         del cache_files
         gc.collect()
     except Exception as e:
-        print(f"[ERROR] Cache eviction failed: {e}")
+        pass
 
 
 def fetch_search_results(view_manager, term):
@@ -710,7 +790,7 @@ def fetch_search_results(view_manager, term):
     gc.collect()
     lang = settings["language"]
     url = f"{WIKI_API_URL.format(lang=lang)}?action=query&list=search&srlimit=15&srsearch={encoded_term}&format=json"
-    http_client.get_async(url, headers=WIKI_HEADERS)
+    http_client.get_async(url, headers=WIKI_HEADERS, timeout=20)
 
 
 def fetch_article(view_manager, page_id):
@@ -761,10 +841,22 @@ def fetch_article(view_manager, page_id):
     if view_manager.storage and view_manager.has_sd_card:
         _current_request_type = REQ_ARTICLE_FILE
         enforce_cache_limit(view_manager, limit=9)
-        http_client.get_async(url, headers=WIKI_HEADERS, save_to_file="picoware/wikireader/temp.json", storage=view_manager.storage)
+        http_client.get_async(url, headers=WIKI_HEADERS, timeout=20, save_to_file="picoware/wikireader/temp.json", storage=view_manager.storage)
     else:
         _current_request_type = REQ_ARTICLE_RAM
-        http_client.get_async(url, headers=WIKI_HEADERS)
+        http_client.get_async(url, headers=WIKI_HEADERS, timeout=20)
+
+
+def fetch_random_article(view_manager):
+    """Fetch a random article from Wikipedia."""
+    global _current_request_type, http_client, settings
+    if not http_client:
+        return
+    _current_request_type = REQ_RANDOM
+    gc.collect()
+    lang = settings["language"]
+    url = f"{WIKI_API_URL.format(lang=lang)}?action=query&list=random&rnlimit=1&rnnamespace=0&format=json"
+    http_client.get_async(url, headers=WIKI_HEADERS, timeout=20)
 
 
 def fetch_article_by_title(view_manager, title):
@@ -819,10 +911,10 @@ def fetch_article_by_title(view_manager, title):
     if view_manager.storage and view_manager.has_sd_card:
         _current_request_type = REQ_ARTICLE_FILE_BY_TITLE
         enforce_cache_limit(view_manager, limit=9)
-        http_client.get_async(url, headers=WIKI_HEADERS, save_to_file="picoware/wikireader/temp.json", storage=view_manager.storage)
+        http_client.get_async(url, headers=WIKI_HEADERS, timeout=20, save_to_file="picoware/wikireader/temp.json", storage=view_manager.storage)
     else:
         _current_request_type = REQ_ARTICLE_RAM
-        http_client.get_async(url, headers=WIKI_HEADERS)
+        http_client.get_async(url, headers=WIKI_HEADERS, timeout=20)
 
 def save_settings_to_sd(view_manager):
     """Saves the settings dictionary to the SD card."""
@@ -834,7 +926,7 @@ def save_settings_to_sd(view_manager):
             view_manager.storage.write(SETTINGS_FILE, json_str)
             del json_str
         except Exception as e:
-            print(f"[ERROR] Could not save settings: {e}")
+            pass
         finally:
             gc.collect()
 
@@ -852,7 +944,7 @@ def load_settings_from_sd(view_manager):
             del loaded_settings
             gc.collect()
         except Exception as e:
-            print(f"[ERROR] Could not load or parse settings: {e}")
+            pass
 
 
 def _apply_theme(view_manager):
@@ -904,6 +996,9 @@ class CustomArticleViewer:
         self.line_indices = []
         self.num_lines = 0
         self.top_line = 0
+        self.last_search_term = ""
+        self.search_match_count = 0
+        self.cached_toc = []
 
         self.font_size = settings.get("default_font_size", 0)
         if self.font_size > 1:
@@ -932,9 +1027,17 @@ class CustomArticleViewer:
         if isinstance(text_data, str):
             text_data = _replace_umlauts(text_data)
             lines = text_data.split('\n')
-            self.paragraphs = [p + '\n' for p in lines[:-1]]
-            if lines[-1]:
-                self.paragraphs.append(lines[-1])
+            del self.paragraphs[:]
+            for i in range(len(lines)):
+                para_strip = lines[i].strip()
+                if para_strip.startswith("==") and para_strip.endswith("=="):
+                    title = para_strip.strip("= \t\n\r").lower()
+                    if title in _BOILERPLATE_ENDINGS:
+                        break
+                if i < len(lines) - 1:
+                    self.paragraphs.append(lines[i] + '\n')
+                elif lines[i]:
+                    self.paragraphs.append(lines[i])
         else:
             self.paragraphs = text_data
         return self._wrap_text()
@@ -956,7 +1059,8 @@ class CustomArticleViewer:
 
         font = self.draw.get_font(self.font_size)
         char_width = font.width + font.spacing
-        max_w = self.draw.size.x - 10
+        margin = settings.get("text_margin", 10)
+        max_w = self.draw.size.x - margin
         # Reduce max_chars by 2 to add a safety buffer for wide characters in proportional fonts
         max_chars = max(1, (max_w // char_width) - 2 if char_width > 0 else 1)
 
@@ -1016,6 +1120,8 @@ class CustomArticleViewer:
         self.top_line = 0
 
         del curr_chunk
+        # Cache the Table of Contents for instant access and header context
+        self.cached_toc = self.generate_toc()
         gc.collect()
         return True
 
@@ -1063,6 +1169,125 @@ class CustomArticleViewer:
         max_top = max(0, self.num_lines - self.visible_lines)
         self.top_line = min(max_top, line_idx)
 
+    def find_term(self, term):
+        """Searches for a term in the article and jumps to the line."""
+        if not term or not self.paragraphs:
+            return False
+        term_lower = term.lower()
+
+        if self.last_search_term != term:
+            self.search_match_count = 0
+            for p_idx in range(len(self.paragraphs)):
+                self.search_match_count += self.paragraphs[p_idx].lower().count(term_lower)
+                if p_idx % 10 == 0:
+                    gc.collect()
+
+        self.last_search_term = term
+
+        start_p_idx = 0
+        if self.top_line < self.num_lines:
+            chunk = self.line_indices[self.top_line // 10]
+            offset = (self.top_line % 10) * 6
+            start_p_idx = chunk[offset] | (chunk[offset+1] << 8)
+
+        target_p_idx = -1
+        # Search forward
+        for p_idx in range(start_p_idx + 1, len(self.paragraphs)):
+            if term_lower in self.paragraphs[p_idx].lower():
+                target_p_idx = p_idx
+                break
+            if p_idx % 10 == 0:
+                gc.collect()
+
+        # Wrap around
+        if target_p_idx == -1:
+            for p_idx in range(0, start_p_idx + 1):
+                if term_lower in self.paragraphs[p_idx].lower():
+                    target_p_idx = p_idx
+                    break
+                if p_idx % 10 == 0:
+                    gc.collect()
+
+        if target_p_idx == -1:
+            del term_lower
+            gc.collect()
+            return False
+
+        # Find the corresponding line
+        for i in range(self.num_lines):
+            chunk = self.line_indices[i // 10]
+            offset = (i % 10) * 6
+            p_idx = chunk[offset] | (chunk[offset+1] << 8)
+            if p_idx == target_p_idx:
+                self.jump_to_line(i)
+                del term_lower
+                gc.collect()
+                return True
+
+        del term_lower
+        gc.collect()
+        return False
+
+    def next_heading(self):
+        """Jumps to the next major heading in the article."""
+        if self.num_lines == 0 or not self.paragraphs:
+            return False
+
+        chunk = self.line_indices[self.top_line // 10]
+        offset = (self.top_line % 10) * 6
+        current_p_idx = chunk[offset] | (chunk[offset+1] << 8)
+
+        target_p_idx = -1
+        for p_idx in range(current_p_idx + 1, len(self.paragraphs)):
+            para = self.paragraphs[p_idx]
+            if "==" in para[:5]:
+                para_str = para.strip()
+                if para_str.startswith("==") and para_str.endswith("=="):
+                    target_p_idx = p_idx
+                    break
+            if p_idx % 20 == 0:
+                gc.collect()
+
+        if target_p_idx != -1:
+            for i in range(self.top_line, self.num_lines):
+                chunk = self.line_indices[i // 10]
+                offset = (i % 10) * 6
+                p_idx = chunk[offset] | (chunk[offset+1] << 8)
+                if p_idx == target_p_idx:
+                    self.jump_to_line(i)
+                    return True
+        return False
+
+    def prev_heading(self):
+        """Jumps to the previous major heading in the article."""
+        if self.num_lines == 0 or not self.paragraphs:
+            return False
+
+        chunk = self.line_indices[self.top_line // 10]
+        offset = (self.top_line % 10) * 6
+        current_p_idx = chunk[offset] | (chunk[offset+1] << 8)
+
+        target_p_idx = -1
+        for p_idx in range(current_p_idx - 1, -1, -1):
+            para = self.paragraphs[p_idx]
+            if "==" in para[:5]:
+                para_str = para.strip()
+                if para_str.startswith("==") and para_str.endswith("=="):
+                    target_p_idx = p_idx
+                    break
+            if p_idx % 20 == 0:
+                gc.collect()
+
+        if target_p_idx != -1:
+            for i in range(self.num_lines):
+                chunk = self.line_indices[i // 10]
+                offset = (i % 10) * 6
+                p_idx = chunk[offset] | (chunk[offset+1] << 8)
+                if p_idx == target_p_idx:
+                    self.jump_to_line(i)
+                    return True
+        return False
+
     def draw_viewer(self, title):
         from picoware.system.vector import Vector
 
@@ -1088,19 +1313,72 @@ class CustomArticleViewer:
                 bat_pct = str(vm.input_manager.battery)
         except Exception: pass
 
+        # Get true header character width (SDK's draw.len sometimes underestimates spacing)
+        font_0 = self.draw.get_font(0)
+        char_w0 = font_0.width + font_0.spacing
+
         # Draw reading percentage anchored to the right
-        pct_x = self.draw.size.x - self.draw.len(pct_str, 0) - 5
+        pct_x = self.draw.size.x - (len(pct_str) * char_w0) - 5
         self.draw.text(Vector(pct_x, self.y + 4), pct_str, self.bg_color, 0)
 
         # Draw battery anchored to the left of the reading percentage
         bat_str = f"B:{bat_pct}%"
-        bat_x = pct_x - self.draw.len(bat_str, 0) - 15
+        bat_x = pct_x - (len(bat_str) * char_w0) - 15
         self.draw.text(Vector(bat_x, self.y + 4), bat_str, self.bg_color, 0)
 
-        # Safely expand title width now that WiFi icon is gone
-        self.draw.text(Vector(5, self.y + 4), safe_title[:15], self.bg_color, 0)
+        # Draw the "Rabbit Hole" Clock anchored to the left of the battery
+        clock_str = ""
+        try:
+            if vm and hasattr(vm, 'time'):
+                clock_str = vm.time.time[:5]  # Just HH:MM
+        except Exception: pass
+
+        if clock_str:
+            clock_x = bat_x - (len(clock_str) * char_w0) - 15
+            self.draw.text(Vector(clock_x, self.y + 4), clock_str, self.bg_color, 0)
+            avail_w = clock_x - 15
+        else:
+            avail_w = bat_x - 15
+
+        # Determine Current Chapter Context
+        current_heading = ""
+        for t_title, l_idx in self.cached_toc:
+            if l_idx <= self.top_line:
+                current_heading = t_title.strip()
+            else:
+                break
+
+        match_str = ""
+        if self.last_search_term:
+            match_str = f" ({self.search_match_count} matches)"
+
+        heading_str = f" : {current_heading}" if current_heading else ""
+
+        disp_title = safe_title
+        truncated = False
+        # Guardian RAM Rules: Prioritize truncating the article title to protect the dynamic chapter context
+        while len(disp_title) > 0 and ((len(disp_title) + len(heading_str) + len(match_str)) * char_w0) > avail_w:
+            disp_title = disp_title[:-1]
+            truncated = True
+
+        if truncated and len(disp_title) > 3:
+            disp_title = disp_title[:-3] + "..."
+
+        # If it's still too massive (e.g. incredibly long chapter), truncate the chapter
+        truncated = False
+        while len(heading_str) > 0 and ((len(disp_title) + len(heading_str) + len(match_str)) * char_w0) > avail_w:
+            heading_str = heading_str[:-1]
+            truncated = True
+
+        if truncated and len(heading_str) > 3:
+            heading_str = heading_str[:-3] + "..."
+
+        self.draw.text(Vector(5, self.y + 4), disp_title + heading_str + match_str, self.bg_color, 0)
 
         # Text Body
+        font_body = self.draw.get_font(self.font_size)
+        char_w = font_body.width + font_body.spacing
+        start_x = settings.get("text_margin", 10) // 2
         for i in range(self.visible_lines):
             line_idx = self.top_line + i
             if line_idx < total_lines:
@@ -1119,7 +1397,42 @@ class CustomArticleViewer:
                     if end < len(para) and para[end] not in (' ', '\n') and line_str and not line_str.endswith('-'):
                         line_str += "-"
 
-                    self.draw.text(Vector(5, self.text_area_y + (i * self.line_height) + 2), line_str, self.text_color, self.font_size)
+                    y_pos = self.text_area_y + (i * self.line_height) + 2
+
+                    # Visual Highlighting for "Find in Page"
+                    if self.last_search_term and self.last_search_term.lower() in line_str.lower():
+                        term_len = len(self.last_search_term)
+                        lower_line = line_str.lower()
+                        lower_term = self.last_search_term.lower()
+                        start_idx = 0
+                        x_offset = start_x
+
+                        while True:
+                            match_idx = lower_line.find(lower_term, start_idx)
+                            if match_idx == -1:
+                                remainder = line_str[start_idx:]
+                                if remainder:
+                                    self.draw.text(Vector(x_offset, y_pos), remainder, self.text_color, self.font_size)
+                                break
+
+                            before_str = line_str[start_idx:match_idx]
+                            if before_str:
+                                self.draw.text(Vector(x_offset, y_pos), before_str, self.text_color, self.font_size)
+                                x_offset += len(before_str) * char_w
+
+                            match_str = line_str[match_idx:match_idx + term_len]
+                            match_w = len(match_str) * char_w
+                            self.draw.fill_rectangle(Vector(x_offset, y_pos - 1), Vector(match_w, self.line_height - 2), self.theme_color)
+                            self.draw.text(Vector(x_offset, y_pos), match_str, self.bg_color, self.font_size)
+                            x_offset += match_w
+
+                            start_idx = match_idx + term_len
+
+                        # Mandatory Cleanup
+                        del lower_line
+                        del lower_term
+                    else:
+                        self.draw.text(Vector(start_x, y_pos), line_str, self.text_color, self.font_size)
 
         # Scrollbar
         if max_top > 0:
@@ -1136,8 +1449,16 @@ class CustomArticleViewer:
 
         total_pages = max(1, (self.num_lines + self.visible_lines - 1) // self.visible_lines)
         current_page = (self.top_line // self.visible_lines) + 1
-        footer_text = f"Pg {current_page}/{total_pages} | 0:Top S:Sz F:Fav D:Save T:ToC R:Rld"
+        if self.last_search_term:
+            footer_text = f"Pg {current_page}/{total_pages} | N:Next C:Clear"
+        else:
+            footer_text = f"Pg {current_page}/{total_pages} | 1:Find </>:Sec T:ToC H:Help"
         self.draw.text(Vector(5, footer_y + 4), footer_text, self.bg_color, 0)
+
+        # Visual Reading Progress Bar (Absolute Bottom Edge)
+        if max_top > 0:
+            prog_w = int((self.top_line / max_top) * self.draw.size.x)
+            self.draw.fill_rectangle(Vector(0, self.draw.size.y - 2), Vector(prog_w, 2), self.bg_color)
 
         self.draw.swap()
 
@@ -1171,6 +1492,8 @@ def setup_main_menu(view_manager):
         view_manager.selected_color,
     )
     main_menu.add_item("Search")
+    main_menu.add_item("Random Article")
+    main_menu.add_item("On This Day")
     main_menu.add_item("History")
     fav_count = len(settings.get("favorites", []))
     main_menu.add_item(f"Favorites ({fav_count}/50)")
@@ -1192,6 +1515,15 @@ def setup_search_keyboard(view_manager):
     kb.run(force=True)
 
 
+def setup_find_keyboard(view_manager):
+    """Prepare the on-screen keyboard for finding text in page."""
+    kb = view_manager.keyboard
+    kb.reset()
+    kb.title = "Find in page"
+    kb.response = article_textbox.last_search_term if article_textbox and hasattr(article_textbox, 'last_search_term') else ""
+    kb.run(force=True)
+
+
 def setup_search_results(view_manager):
     """Display the list of search results."""
     global search_results_list
@@ -1207,7 +1539,7 @@ def setup_search_results(view_manager):
         view_manager.selected_color,
     )
     if not search_results:
-        search_results_list.add_item("No results found.")
+        search_results_list.add_item("0 Results. [ENT] to retry.")
     else:
         for result in search_results:
             search_results_list.add_item(_replace_umlauts(result["title"]))
@@ -1281,6 +1613,8 @@ def _refresh_settings_menu_items(view_manager):
     theme_str = settings.get('theme', 'system')
     if theme_str == 'dark': theme_str = 'system'
     settings_menu.add_item(f"Theme: {theme_str[0].upper() + theme_str[1:]}")
+    margin_val = settings.get("text_margin", 10)
+    settings_menu.add_item(f"Text Margin: {margin_val}px")
     settings_menu.add_item("Clear Data...")
     settings_menu.add_item("Save and Back")
     settings_menu.draw()
@@ -1458,7 +1792,7 @@ def setup_toc(view_manager):
         view_manager.background_color, view_manager.selected_color
     )
 
-    toc_data = article_textbox.generate_toc() if article_textbox else []
+    toc_data = article_textbox.cached_toc if article_textbox else []
     if not toc_data:
         toc_list.add_item("No sections found.")
     else:
@@ -1481,7 +1815,7 @@ def setup_help(view_manager):
     )
 
     help_text = (
-        "WIKI READER MANUAL\n"
+        "WIKI READER MANUAL v1.5\n"
         "------------------\n\n"
         "PURPOSE:\n"
         "Search, read & translate\n"
@@ -1490,12 +1824,24 @@ def setup_help(view_manager):
         "[UP/DN] : Scroll Menus\n"
         "[ENTER] : Select Option\n"
         "[BACK]  : Go Back / Exit\n\n"
+        "SEARCH TIPS:\n"
+        "- Press [1] on ANY menu to\n"
+        "  instantly search.\n"
+        "- Press [ENT] on 0 Results\n"
+        "  to quickly try again.\n\n"
         "READER CONTROLS:\n"
         "[UP/DN] : Scroll Line\n"
         "[L/R]   : Scroll Page\n"
+        "[0] Key : Jump to Top\n"
+        "[1] Key : Find in Page\n"
+        "[N] Key : Find Next\n"
+        "[C] Key : Clear Search\n"
+        "[,] Key : Prev Heading\n"
+        "[.] Key : Next Heading\n"
         "[S] Key : Font Size\n"
         "[L] Key : Language/Translate\n"
         "[T] Key : Table of Contents\n"
+        "[H] Key : Open Help\n"
         "[D] Key : Save Offline\n"
         "[F] Key : Toggle Favorite\n"
         "[R] Key : Force Reload\n\n"
@@ -1514,7 +1860,7 @@ def setup_help(view_manager):
 
 def run_main_menu(view_manager):
     """Handle input and drawing for the main menu."""
-    global main_menu, settings
+    global main_menu, settings, help_origin_state, article_origin_state
     if not main_menu:
         return
     inp = view_manager.input_manager
@@ -1529,11 +1875,32 @@ def run_main_menu(view_manager):
     elif button == BUTTON_BACK:
         inp.reset()
         change_state(view_manager, STATE_EXIT)
+    elif button == BUTTON_1:
+        inp.reset()
+        change_state(view_manager, STATE_SEARCH_KEYBOARD)
     elif button == BUTTON_CENTER:
         selected = main_menu.current_item
         inp.reset()
         if selected == "Search":
             change_state(view_manager, STATE_SEARCH_KEYBOARD)
+        elif selected == "Random Article":
+            change_state(view_manager, STATE_LOADING)
+            if loading_spinner:
+                loading_spinner.text = "Feeling lucky..."
+            fetch_random_article(view_manager)
+        elif selected == "On This Day":
+            try:
+                date_str = view_manager.time.date
+                m, d, _ = date_str.split('/')
+                months = ("", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+                target_title = f"{months[int(m)]} {d}"
+                article_origin_state = STATE_MAIN_MENU
+                change_state(view_manager, STATE_LOADING)
+                if loading_spinner:
+                    loading_spinner.text = _replace_umlauts(f"Loading '{target_title}'...")
+                fetch_article_by_title(view_manager, target_title)
+            except Exception as e:
+                view_manager.alert("Could not read date.", back=True)
         elif selected == "History":
             change_state(view_manager, STATE_HISTORY)
         elif selected.startswith("Favorites"):
@@ -1543,6 +1910,7 @@ def run_main_menu(view_manager):
         elif selected == "Settings":
             change_state(view_manager, STATE_SETTINGS)
         elif selected == "Help":
+            help_origin_state = STATE_MAIN_MENU
             change_state(view_manager, STATE_HELP)
         elif selected == "Exit":
             change_state(view_manager, STATE_EXIT)
@@ -1552,9 +1920,7 @@ def run_search_keyboard(view_manager):
     """Handle the search input keyboard."""
     global loading_spinner
     kb = view_manager.keyboard
-    if not kb.run():  # run() returns False when BACK is pressed
-        change_state(view_manager, STATE_MAIN_MENU)
-        return
+    is_running = kb.run()
 
     if kb.is_finished:
         search_term = kb.response
@@ -1566,6 +1932,32 @@ def run_search_keyboard(view_manager):
             fetch_search_results(view_manager, search_term)
         else:
             change_state(view_manager, STATE_MAIN_MENU)
+    elif not is_running:
+        change_state(view_manager, STATE_MAIN_MENU)
+
+
+def run_find_keyboard(view_manager):
+    """Handle the find in page input keyboard."""
+    kb = view_manager.keyboard
+    is_running = kb.run()
+
+    if kb.is_finished:
+        term = kb.response
+        kb.reset()
+        change_state(view_manager, STATE_VIEW_ARTICLE)
+        if article_textbox:
+            if term:
+                found = article_textbox.find_term(term)
+                if not found:
+                    show_toast(view_manager, "Text not found", 1)
+            else:
+                article_textbox.last_search_term = ""
+                show_toast(view_manager, "Search cleared", 1)
+            article_textbox.draw_viewer(current_article_title)
+    elif not is_running:
+        change_state(view_manager, STATE_VIEW_ARTICLE)
+        if article_textbox:
+            article_textbox.draw_viewer(current_article_title)
 
 
 def run_loading(view_manager):
@@ -1575,8 +1967,7 @@ def run_loading(view_manager):
     _process_http_response(view_manager)
 
     if current_state == STATE_LOADING:
-        if ticks_diff(ticks_ms(), _request_start_time) > 10000:
-            print("[ERROR] Request timed out after 10 seconds.")
+        if ticks_diff(ticks_ms(), _request_start_time) > 20000:
             if http_client:
                 http_client.close()
                 del http_client
@@ -1618,6 +2009,9 @@ def run_search_results(view_manager):
     elif button == BUTTON_BACK:
         inp.reset()
         change_state(view_manager, STATE_MAIN_MENU)
+    elif button == BUTTON_1:
+        inp.reset()
+        change_state(view_manager, STATE_SEARCH_KEYBOARD)
     elif button == BUTTON_CENTER:
         if search_results:
             selected_index = search_results_list.selected_index
@@ -1631,11 +2025,14 @@ def run_search_results(view_manager):
             if loading_spinner:
                 loading_spinner.text = _replace_umlauts(f"Loading '{current_article_title}'...")
             fetch_article(view_manager, current_article_page_id)
+        else:
+            inp.reset()
+            change_state(view_manager, STATE_SEARCH_KEYBOARD)
 
 
 def run_view_article(view_manager):
     """Handle the article reading view."""
-    global language_menu_origin_state, article_textbox, current_article_title, current_article_page_id
+    global language_menu_origin_state, article_textbox, current_article_title, current_article_page_id, help_origin_state
     if not article_textbox:
         return
 
@@ -1666,10 +2063,43 @@ def run_view_article(view_manager):
         if article_textbox:
             article_textbox.jump_to_line(0)
             article_textbox.draw_viewer(current_article_title)
+    elif button == BUTTON_1:
+        inp.reset()
+        change_state(view_manager, STATE_FIND_KEYBOARD)
+    elif button == BUTTON_N:
+        inp.reset()
+        if article_textbox and article_textbox.last_search_term:
+            if not article_textbox.find_term(article_textbox.last_search_term):
+                show_toast(view_manager, "Text not found", 1)
+            article_textbox.draw_viewer(current_article_title)
+        else:
+            change_state(view_manager, STATE_FIND_KEYBOARD)
+    elif button == BUTTON_C:
+        inp.reset()
+        if article_textbox and article_textbox.last_search_term:
+            article_textbox.last_search_term = ""
+            show_toast(view_manager, "Search cleared", 1)
+            article_textbox.draw_viewer(current_article_title)
+    elif button == BUTTON_COMMA:
+        inp.reset()
+        if article_textbox:
+            if not article_textbox.prev_heading():
+                show_toast(view_manager, "Top of article", 1)
+            article_textbox.draw_viewer(current_article_title)
+    elif button == BUTTON_PERIOD:
+        inp.reset()
+        if article_textbox:
+            if not article_textbox.next_heading():
+                show_toast(view_manager, "Bottom of article", 1)
+            article_textbox.draw_viewer(current_article_title)
     elif button == BUTTON_S:
         article_textbox.cycle_font_size()
         article_textbox.draw_viewer(current_article_title)
         inp.reset()
+    elif button == BUTTON_H:
+        inp.reset()
+        help_origin_state = STATE_VIEW_ARTICLE
+        change_state(view_manager, STATE_HELP)
     elif button == BUTTON_L:
         language_menu_origin_state = STATE_VIEW_ARTICLE
         change_state(view_manager, STATE_LANGUAGES)
@@ -1704,7 +2134,7 @@ def run_view_article(view_manager):
                 try: view_manager.storage.remove(f"picoware/wikireader/cache_{current_article_page_id}.json")
                 except Exception: pass
             except Exception as e:
-                print(f"[ERROR] Failed to delete cache for reload: {e}")
+                pass
         change_state(view_manager, STATE_LOADING)
         if loading_spinner: loading_spinner.text = "Reloading..."
         fetch_article(view_manager, current_article_page_id)
@@ -1753,9 +2183,18 @@ def run_settings(view_manager):
                 settings_menu.set_selected(3)
                 settings_menu.draw()
                 view_manager.draw.swap()
-        elif selected_index == 4:  # Clear Data...
+        elif selected_index == 4:  # Text Margin
+            margins = [10, 20, 30, 40, 50, 60]
+            current_margin = settings.get("text_margin", 10)
+            try:
+                idx = margins.index(current_margin)
+            except ValueError:
+                idx = 0
+            settings["text_margin"] = margins[(idx + 1) % len(margins)]
+            _refresh_settings_menu_items(view_manager)
+        elif selected_index == 5:  # Clear Data...
             change_state(view_manager, STATE_CLEAR_DATA)
-        elif selected_index == 5:  # Save and Back
+        elif selected_index == 6:  # Save and Back
             save_settings_to_sd(view_manager)
             change_state(view_manager, STATE_MAIN_MENU)
 
@@ -1876,7 +2315,7 @@ def run_languages(view_manager):
 
             _current_request_type = REQ_LANGLINKS
             url = f"{WIKI_API_URL.format(lang=old_lang)}?action=query&prop=langlinks&lllang={new_lang}&pageids={current_article_page_id}&format=json"
-            http_client.get_async(url, headers=WIKI_HEADERS)
+            http_client.get_async(url, headers=WIKI_HEADERS, timeout=20)
         elif new_lang != old_lang:
             settings["language"] = new_lang
             change_state(view_manager, language_menu_origin_state)
@@ -1906,6 +2345,9 @@ def run_history(view_manager):
     elif button == BUTTON_BACK:
         inp.reset()
         change_state(view_manager, STATE_MAIN_MENU)
+    elif button == BUTTON_1:
+        inp.reset()
+        change_state(view_manager, STATE_SEARCH_KEYBOARD)
     elif button == BUTTON_CENTER:
         inp.reset()
         history = settings.get("history", [])
@@ -1937,6 +2379,9 @@ def run_favorites(view_manager):
     elif button == BUTTON_BACK:
         inp.reset()
         change_state(view_manager, STATE_MAIN_MENU)
+    elif button == BUTTON_1:
+        inp.reset()
+        change_state(view_manager, STATE_SEARCH_KEYBOARD)
     elif button == BUTTON_CENTER:
         inp.reset()
         favorites = settings.get("favorites", [])
@@ -1968,6 +2413,9 @@ def run_offline(view_manager):
     elif button == BUTTON_BACK:
         inp.reset()
         change_state(view_manager, STATE_MAIN_MENU)
+    elif button == BUTTON_1:
+        inp.reset()
+        change_state(view_manager, STATE_SEARCH_KEYBOARD)
     elif button == BUTTON_CENTER:
         inp.reset()
         offline = settings.get("offline", [])
@@ -2013,7 +2461,7 @@ def run_toc(view_manager):
 
 def run_help(view_manager):
     """Handle the Help screen."""
-    global help_textbox
+    global help_textbox, help_origin_state
     if not help_textbox:
         return
     inp = view_manager.input_manager
@@ -2027,7 +2475,9 @@ def run_help(view_manager):
         inp.reset()
     elif button == BUTTON_BACK:
         inp.reset()
-        change_state(view_manager, STATE_MAIN_MENU)
+        change_state(view_manager, help_origin_state)
+        if help_origin_state == STATE_VIEW_ARTICLE and article_textbox:
+            article_textbox.draw_viewer(current_article_title)
 
 # --- Picoware App Lifecycle ---
 
@@ -2052,11 +2502,6 @@ def start(view_manager):
     # Route background networking to the OS ThreadManager
     http_client = HTTP(thread_manager=view_manager.thread_manager, chunk_size=8 * 1024)
     http_client.callback = _api_callback
-    loading_spinner = Loading( 
-        view_manager.draw,
-        view_manager.foreground_color,
-        view_manager.background_color,
-    )
 
     # Load settings
     if view_manager.storage:
@@ -2079,7 +2524,8 @@ def start(view_manager):
 
 def stop(view_manager):
     """Called when the application is closed."""
-    global http_client, loading_spinner, main_menu, search_results_list, settings_menu, settings, language_menu_origin_state, clear_data_menu, _sys_bg, _sys_fg, article_textbox, languages_list, _vm_ref, _http_lock, _pending_action, _target_language, history_list, favorites_list, offline_list, toc_list, help_textbox, article_origin_state, _request_start_time
+    global http_client, loading_spinner, main_menu, search_results_list, search_results, settings_menu, settings, language_menu_origin_state, clear_data_menu, _sys_bg, _sys_fg, article_textbox, languages_list, _vm_ref, _http_lock, _pending_action, _target_language, history_list, favorites_list, offline_list, toc_list, toc_data, help_textbox, article_origin_state, help_origin_state, _request_start_time
+
     if http_client:
         http_client.close()
         # Give the background thread a moment to exit
@@ -2096,6 +2542,7 @@ def stop(view_manager):
         del search_results_list
         search_results_list = None
     if article_textbox:
+        _save_reading_progress(view_manager)
         del article_textbox
         article_textbox = None
     if settings_menu:
@@ -2123,6 +2570,10 @@ def stop(view_manager):
         del clear_data_menu
         clear_data_menu = None
 
+    # Guardian RAM Rules: Explicitly clear global arrays to release object references
+    search_results = []
+    toc_data = []
+
     # Save settings after cleaning up all large UI objects to prevent MemoryError
     save_settings_to_sd(view_manager)
 
@@ -2135,6 +2586,7 @@ def stop(view_manager):
     language_menu_origin_state = STATE_MAIN_MENU
     _target_language = None
     article_origin_state = STATE_SEARCH_RESULTS
+    help_origin_state = STATE_MAIN_MENU
 
     # Restore the original system colors before wiping the cache
     if _sys_bg is not None:
@@ -2186,3 +2638,5 @@ def run(view_manager):
         run_help(view_manager)
     elif current_state == STATE_CLEAR_DATA:
         run_clear_data(view_manager)
+    elif current_state == STATE_FIND_KEYBOARD:
+        run_find_keyboard(view_manager)

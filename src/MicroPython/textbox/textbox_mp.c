@@ -661,9 +661,9 @@ static MP_DEFINE_CONST_FUN_OBJ_1(textbox_mp_delete_char_obj, textbox_mp_delete_c
 
 mp_obj_t textbox_mp_load_file(mp_obj_t self_in, mp_obj_t filename)
 {
-    textbox_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     const char *fn = mp_obj_str_get_str(filename);
 #if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC)
+    textbox_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     if (!fat32_is_mounted())
     {
         fat32_error_t err = fat32_mount();
@@ -703,6 +703,7 @@ mp_obj_t textbox_mp_load_file(mp_obj_t self_in, mp_obj_t filename)
         textbox_display(self);
     }
 #else
+    (void)self_in;
     PRINT("Failed to load %s because file system support is not available\n", fn);
 #endif
     return mp_const_none;

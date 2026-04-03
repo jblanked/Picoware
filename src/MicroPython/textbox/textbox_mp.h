@@ -82,6 +82,7 @@ extern "C"
     mp_obj_t textbox_mp_cursor_down(mp_obj_t self_in);                     // move cursor down one wrapped line
     mp_obj_t textbox_mp_insert_char(mp_obj_t self_in, mp_obj_t char_in);   // insert char at cursor and advance
     mp_obj_t textbox_mp_delete_char(mp_obj_t self_in);                     // delete char before cursor (backspace)
+    mp_obj_t textbox_mp_load_file(mp_obj_t self_in, mp_obj_t filename);    // load text from a file on SD card into the textbox
 
 #ifdef __cplusplus
 }

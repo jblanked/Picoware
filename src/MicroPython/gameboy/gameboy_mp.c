@@ -20,6 +20,7 @@
 
 #if ENABLE_SOUND
 struct minigb_apu_ctx apu_ctx = {0}; // Game Boy APU context
+#include "../../audio/audio.h"
 #endif
 uint8_t pixels_buffer[FRAME_BUFF_WIDTH] = {0}; // Line buffer for rendering Game Boy LCD output (RGB332, 1 byte per pixel)
 palette_t palette;                             // Current color palette
@@ -379,6 +380,7 @@ mp_obj_t gameboy_mp_stop(mp_obj_t self_in)
     self->running = false;
 #if ENABLE_SOUND
     multicore_reset_core1(); // stop audio loop on core1
+    audio_stop();
 #endif
     struct gb_s *gb = (struct gb_s *)self->gb_context;
     write_cart_ram_file(gb);

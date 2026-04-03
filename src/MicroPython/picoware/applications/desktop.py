@@ -5,8 +5,6 @@ class PicowareAnimation:
     """Class to draw "Picoware" animation"""
 
     def __init__(self, draw):
-        from picoware.system.vector import Vector
-
         self.display = draw
         self.letter_states = []
         self.animation_complete = False
@@ -18,16 +16,11 @@ class PicowareAnimation:
         self.center_y = self.size.y // 2
         self.frame_counter = 0
 
-        self.text_vec = Vector(0, 0)
-        self.circ_vec = Vector(0, 0)
-
         self._initialize_letter_animation()
 
     def __del__(self):
         del self.letter_states
         self.letter_states = None
-        self.text_vec = None
-        self.circ_vec = None
 
     def _initialize_letter_animation(self) -> None:
         """Initialize the animation state for each letter in 'Picoware'."""
@@ -107,9 +100,9 @@ class PicowareAnimation:
             if (
                 self.frame_counter % max(1, (100 - self.circle_opacity) // 20 + 1)
             ) == 0:
-                self.circ_vec.x = self.center_x
-                self.circ_vec.y = self.center_y
-                self.display.circle(self.circ_vec, self.circle_radius, color)
+                self.display._circle(
+                    self.center_x, self.center_y, self.circle_radius, color
+                )
 
         all_settled = True
 
@@ -141,10 +134,9 @@ class PicowareAnimation:
                 # Use modulo to create a fade pattern
                 # At low opacity, only draw occasionally; at high opacity, always draw
                 if (self.frame_counter % max(1, opacity_threshold // 10 + 1)) == 0:
-                    self.text_vec.x = letter["target_x"]
-                    self.text_vec.y = int(letter["current_y"])
-                    self.display.text(
-                        self.text_vec,
+                    self.display._text(
+                        letter["target_x"],
+                        int(letter["current_y"]),
                         letter["char"],
                         letter["color"],
                     )
@@ -159,13 +151,18 @@ _desktop = None
 _desktop_picoware = None
 _desktop_time_updated = False
 _has_wifi = True
+_desktop_update_fetched = False
+_desktop_update_parsed = False
+_desktop_http = None
+_desktop_request_cancelled = False
+_desktop_update_available = False
 
 
 def start(view_manager) -> bool:
     """Start the loading animation."""
     from picoware.gui.desktop import Desktop
 
-    global _desktop, _desktop_picoware, _has_wifi
+    global _desktop, _desktop_picoware, _has_wifi, _desktop_request_cancelled, _desktop_update_fetched, _desktop_update_parsed, _desktop_update_available
 
     if _desktop is None:
         _desktop = Desktop(
@@ -190,6 +187,13 @@ def start(view_manager) -> bool:
     if view_manager.wifi.is_connected() and _time.is_set:
         _time.fetch()
 
+    if _desktop_request_cancelled:
+        _desktop_update_fetched = False
+        _desktop_update_parsed = False
+        _desktop_request_cancelled = False
+
+    _desktop_update_available = False
+
     return _desktop is not None
 
 
@@ -197,7 +201,7 @@ def run(view_manager) -> None:
     """Animate the loading spinner."""
     from picoware.system.buttons import BUTTON_LEFT, BUTTON_CENTER, BUTTON_UP
 
-    global _desktop_time_updated
+    global _desktop_time_updated, _desktop_update_fetched, _desktop_update_parsed, _desktop_http, _desktop_update_available
 
     input_manager = view_manager.input_manager
     button: int = input_manager.button
@@ -249,9 +253,66 @@ def run(view_manager) -> None:
             _desktop.set_time(_time.time)
         elif _time.is_set:
             _desktop_time_updated = True
+            if not _desktop_update_fetched:
+                if _desktop_http is None:
+                    from picoware.system.http import HTTP
+
+                    _desktop_http = HTTP(thread_manager=view_manager.thread_manager)
+                    if not _desktop_http:
+                        view_manager.log(
+                            "Failed to create HTTP context for update check", 2
+                        )
+                        return
+
+                from picoware.applications.system.update import (
+                    __check_for_update_start,
+                )
+
+                if not __check_for_update_start(_desktop_http, view_manager):
+                    view_manager.log("Failed to start update check", 2)
+                _desktop_update_fetched = True  # only check once even on fail...
+
         elif not _time.is_fetching:
             _desktop_time_updated = False
             _time.fetch(view_manager.gmt_offset)
+
+        if _desktop_update_fetched and not _desktop_update_parsed:
+            if _desktop_http is None:
+                view_manager.log("Error checking for update: http context is None", 2)
+                return
+            if not _desktop_http.is_request_complete():
+                return
+            from picoware.applications.system.update import (
+                __check_for_update_is_available,
+                __check_for_update_download_start,
+            )
+
+            if __check_for_update_is_available(_desktop_http):
+                _desktop_update_available = True
+                view_manager.alert(
+                    "There's a new Picoware update available!! Press `BACK` to start downloading in the background. Do not leave the desktop to allow the download to complete."
+                )
+                if not __check_for_update_download_start(
+                    _desktop_http, view_manager.storage
+                ):
+                    view_manager.alert("Failed to start update download")
+            else:
+                view_manager.log("No update available")
+            _desktop_update_parsed = True  # only parse once even on fail...
+            return
+
+        if _desktop_update_parsed and _desktop_update_available:
+            if _desktop_http is None:
+                return
+            if not _desktop_http.is_request_complete():
+                return
+            if _desktop_http.response and _desktop_http.response.status_code == 200:
+                view_manager.alert("Update download completed!")
+            else:
+                view_manager.alert("There was an error downloading the update")
+            _desktop_http.close()
+            del _desktop_http
+            _desktop_http = None
 
 
 def stop(view_manager) -> None:
@@ -262,6 +323,7 @@ def stop(view_manager) -> None:
     global _desktop_picoware
     global _desktop_time_updated
     global _has_wifi
+    global _desktop_request_cancelled
 
     if _desktop:
         del _desktop
@@ -272,5 +334,6 @@ def stop(view_manager) -> None:
 
     _desktop_time_updated = view_manager.time.is_set
     _has_wifi = True
+    _desktop_request_cancelled = _desktop_update_parsed is False
 
     collect()

@@ -115,7 +115,7 @@ def __show_main_menu(view_manager) -> None:
 
     _main_menu.clear()
     _main_menu.add_item("Update Apps")
-    _main_menu.add_item("Current App Info")
+    _main_menu.add_item("Downloaded Apps")
     _main_menu.add_item("View All Apps")
     _main_menu.draw()
     _app_state = STATE_MAIN_MENU
@@ -287,6 +287,30 @@ def __check_single_app_update(view_manager, app_id: int, current_version: str) -
     )
 
 
+def __delete_app(view_manager, app_id: int) -> bool:
+    """Delete an installed app's files and cached data"""
+    storage = view_manager.storage
+    file_path = f"picoware/cache/app_{app_id}.json"
+
+    try:
+        data = storage.read(file_path)
+        if data:
+            from json import loads
+
+            response = loads(data)
+            if response.get("success") and response.get("app"):
+                app_data = response["app"]
+                for f in app_data.get("file_structure", []):
+                    if not storage.remove(f):
+                        view_manager.log(f"Error deleting {f}", 2)
+        if not storage.remove(file_path):
+            view_manager.log(f"Error deleting cache: {file_path}", 2)
+        return True
+    except Exception as e:
+        view_manager.log(f"Error deleting app: {e}", 2)
+        return False
+
+
 def __draw_current_app_details(
     view_manager, app_info: dict, update_info: dict = None
 ) -> None:
@@ -353,8 +377,9 @@ def __draw_current_app_details(
         draw.text(word_vec, "CENTER = Check for Update", fg)
 
     # Instructions at bottom
-    y_pos = 285
-    word_vec.y = y_pos
+    word_vec.y = 278
+    draw.text(word_vec, "LEFT = Delete", fg)
+    word_vec.y = 293
     draw.text(word_vec, "BACK = Return", fg)
 
     draw.swap()
@@ -891,7 +916,38 @@ def run(view_manager) -> None:
 
     elif _app_state == STATE_CURRENT_APP_DETAILS:
         # Handle current app details screen
-        if button == BUTTON_CENTER:
+        if button == BUTTON_LEFT:
+            inp.reset()
+            # Delete the selected app
+            if __delete_app(view_manager, _selected_app_id):
+                view_manager.alert("App deleted!", False)
+                _installed_apps = __get_installed_apps(view_manager)
+                if _installed_apps:
+                    if _app_menu:
+                        del _app_menu
+                    from picoware.gui.menu import Menu
+
+                    draw = view_manager.draw
+                    _app_menu = Menu(
+                        draw,
+                        "Installed Apps",
+                        0,
+                        draw.size.y,
+                        view_manager.foreground_color,
+                        view_manager.background_color,
+                        view_manager.selected_color,
+                        view_manager.foreground_color,
+                    )
+                    _app_menu.clear()
+                    for app in _installed_apps:
+                        _app_menu.add_item(f"{app['title']} v{app['version']}")
+                    _app_state = STATE_CURRENT_APPS_LIST
+                    _app_menu.draw()
+                else:
+                    __show_main_menu(view_manager)
+            else:
+                view_manager.alert("Failed to delete app", False)
+        elif button == BUTTON_CENTER:
             inp.reset()
             # Check for update for this specific app
             app_info = None

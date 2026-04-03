@@ -14,10 +14,8 @@ def __start_text_editor(view_manager) -> None:
         _textbox = TextEditor(
             view_manager,
         )
-
-        storage = view_manager.storage
         if _filename:
-            _textbox.set_text(storage.read(_filename))
+            _textbox.load_file(_filename)
 
     _text_editor_started = True
 

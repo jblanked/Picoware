@@ -2,6 +2,7 @@
 #include "shared.h"
 #if ENABLE_SOUND
 #include "../../../audio/audio.h"
+#include "../ext/minigb_apu/minigb_apu.h"
 #endif
 
 #include <pico/multicore.h>
@@ -14,26 +15,14 @@ static int16_t stream[AUDIO_DMA_BUF_SIZE * 2]; // Audio sample buffer for one fr
 static volatile uint32_t audio_cmd_ring[AUDIO_CMD_RING_SIZE];
 static volatile uint32_t audio_cmd_wr; // written only by core0
 static volatile uint32_t audio_cmd_rd; // written only by core1
-
-// Convert a GB APU square-wave channel's 11-bit period register to Hz.
-// Returns SILENCE if the channel is disabled, unpowered, or has a zero-length period.
-// Formula: 131072 / (2048 - reg)  — derived from DMG_CLOCK_FREQ / 32 / (2048 - reg).
-static uint32_t gb_chan_freq_hz(const struct chan *c)
-{
-    if (!c->enabled || !c->powered)
-        return SILENCE;
-    uint32_t denom = 2048u - (uint32_t)c->freq;
-    if (denom == 0)
-        return SILENCE;
-    return 131072u / denom;
-}
 #endif
 
 void audio_init_thread(void)
 {
 #if ENABLE_SOUND
-    memset(stream, 0, sizeof(stream)); // Clear the audio stream buffer
-    minigb_audio_init(&apu_ctx);       // Initialize the APU emulator state
+    memset(stream, 0, sizeof(stream));     // Clear the audio stream buffer
+    minigb_audio_init(&apu_ctx);           // Initialize the APU emulator state
+    audio_start_stream(AUDIO_SAMPLE_RATE); // Start PCM streaming at GB sample rate
 #endif
 }
 
@@ -57,15 +46,22 @@ void audio_handle_cmd(uint32_t raw_cmd)
     switch ((audio_commands_e)raw_cmd)
     {
     case AUDIO_CMD_PLAYBACK:
-        // Advance APU state and output CH1 (left) / CH2 (right) frequencies via PWM driver
+        // Advance APU state and push mixed PCM samples to the streaming driver
         audio_callback(&apu_ctx, stream);
-        audio_play_sound(gb_chan_freq_hz(&apu_ctx.chans[0]),
-                         gb_chan_freq_hz(&apu_ctx.chans[1]));
+        audio_push_samples(stream, AUDIO_DMA_BUF_SIZE);
         break;
     case AUDIO_CMD_VOLUME_UP:
-    case AUDIO_CMD_VOLUME_DOWN:
-        // Volume control not supported by PWM driver
+    {
+        uint8_t vol = audio_get_volume();
+        audio_set_volume(vol + 10 > 100 ? 100 : vol + 10);
         break;
+    }
+    case AUDIO_CMD_VOLUME_DOWN:
+    {
+        uint8_t vol = audio_get_volume();
+        audio_set_volume(vol < 10 ? 0 : vol - 10);
+        break;
+    }
     default:
         break;
     }

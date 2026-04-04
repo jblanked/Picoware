@@ -429,7 +429,7 @@ class Draw(lcd.LCD):
         """Calculate the pixel width of a text string for a given font size"""
         font = self.get_font(font_size)
         length = len(text)
-        return length * font.width
+        return length * (font.width + font.spacing)
 
     def line(self, position: Vector, size: Vector, color=None):
         """Draw horizontal line"""

@@ -58,7 +58,7 @@ class Menu:
         # Initialize title rendering properties for standard mode
         if not self.use_lvgl:
             _font = self.display.get_font(3)
-            title_width = len(self._title) * _font.width
+            title_width = len(self._title) * (_font.width + _font.spacing)
             title_x = (self.display.size.x - title_width) // 2
             title_y = self.position.y + 15
             underline_y = title_y + _font.height + 5
@@ -149,7 +149,7 @@ class Menu:
         # Update standard rendering title positions
         if not self.use_lvgl:
             _font = self.display.get_font(3)
-            title_width = len(self._title) * _font.width
+            title_width = len(self._title) * (_font.width + _font.spacing)
             title_x = (self.display.size.x - title_width) // 2
             title_y = self.position.y + 15
             underline_y = title_y + _font.height + 5

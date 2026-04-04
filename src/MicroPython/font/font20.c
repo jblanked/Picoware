@@ -4036,7 +4036,7 @@ const FontTable Font20 = {
 	Font20_Table,
 	14, /* Width */
 	20, /* Height */
-	4,	/* Spacing */
+	0,	/* Spacing */
 };
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

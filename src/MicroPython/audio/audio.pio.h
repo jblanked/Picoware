@@ -53,9 +53,9 @@ static inline void audio_pwm_program_init(PIO pio, uint sm, uint offset, uint pi
    sm_config_set_sideset_pins(&c, pin);
    pio_sm_init(pio, sm, offset, &c);
 }
-static inline bool audio_pwm_is_not_silence(uint16_t frequency) {
-    // Check if the frequency is zero or silence
-    return (frequency >= 100 && frequency <= 2000);
+static inline bool audio_pwm_is_not_silence(uint32_t frequency) {
+    // Accept the full range of audible frequencies
+    return (frequency >= 20 && frequency <= 20000);
 }
 // Write `period` to the input shift register
 static inline void audio_pwm_set_frequency(PIO pio, uint sm, uint32_t frequency) {

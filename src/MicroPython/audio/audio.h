@@ -137,3 +137,6 @@ void audio_play_song_blocking(const audio_song_t *song);
 void audio_stop(void);
 bool audio_is_playing(void);
 
+uint8_t audio_get_volume(void);
+void audio_set_volume(uint8_t volume);
+

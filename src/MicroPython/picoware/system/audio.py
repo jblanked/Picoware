@@ -24,6 +24,12 @@ class Audio(audio.Audio):
         SILENCE
     """
 
+    def __setattr__(self, name, value):
+        if name == "volume":
+            self.set_volume(value)
+        else:
+            super().__setattr__(name, value)
+
 
 class AudioNote(audio.AudioNote):
     """

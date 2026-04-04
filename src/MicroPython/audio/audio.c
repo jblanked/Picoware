@@ -20,15 +20,71 @@ PIO pio = pio0;
 
 static bool is_playing = false;
 static alarm_id_t tone_alarm_id = -1;
+static uint8_t audio_volume = 100;
+static uint32_t channel_period[2] = {0, 0};
 
 // Forward declaration for the alarm callback
 static int64_t tone_stop_callback(alarm_id_t id, void *user_data);
 
-// Calculate PWM parameters for a given frequency
+// Set frequency with volume-scaled duty cycle via PIO
 static void set_pwm_frequency(uint8_t channel, uint32_t frequency)
 {
-    audio_pwm_set_frequency(pio, channel, frequency);
+    pio_sm_set_enabled(pio, channel, false);
+    if (audio_pwm_is_not_silence(frequency))
+    {
+        int period = clock_get_hz(clk_sys) / (frequency * 3);
+        channel_period[channel] = period;
+        pio_sm_put_blocking(pio, channel, period & ~1);
+        pio_sm_exec(pio, channel, pio_encode_pull(false, false));
+        pio_sm_exec(pio, channel, pio_encode_out(pio_isr, 32));
+        pio_sm_set_enabled(pio, channel, true);
+        // Scale duty cycle by volume: 100% -> period/2 (50% duty), 0% -> 0
+        uint32_t duty = ((uint32_t)period * audio_volume) / 200;
+        pio_sm_put_blocking(pio, channel, duty);
+    }
+    else
+    {
+        channel_period[channel] = 0;
+    }
     is_playing = true;
+}
+
+static void audio_apply_volume(void)
+{
+    if (!is_playing)
+        return;
+
+    if (audio_volume == 0)
+    {
+        set_pwm_frequency(LEFT_CHANNEL, SILENCE);
+        set_pwm_frequency(RIGHT_CHANNEL, SILENCE);
+        is_playing = false;
+    }
+    else
+    {
+        // Update duty cycle for active channels based on new volume
+        for (int ch = 0; ch < 2; ch++)
+        {
+            if (channel_period[ch] > 0)
+            {
+                uint32_t duty = ((uint32_t)channel_period[ch] * audio_volume) / 200;
+                pio_sm_put(pio, ch, duty);
+            }
+        }
+    }
+}
+
+uint8_t audio_get_volume(void)
+{
+    return audio_volume;
+}
+
+void audio_set_volume(uint8_t volume)
+{
+    if (volume > 100)
+        volume = 100;
+    audio_volume = volume;
+    audio_apply_volume();
 }
 
 // Play a stereo sound for a specific duration (blocking)
@@ -36,6 +92,13 @@ void audio_play_sound_blocking(uint32_t left_frequency, uint32_t right_frequency
 {
     if (!audio_initialised)
     {
+        return;
+    }
+
+    if (audio_volume == 0)
+    {
+        set_pwm_frequency(LEFT_CHANNEL, SILENCE);
+        set_pwm_frequency(RIGHT_CHANNEL, SILENCE);
         return;
     }
 
@@ -82,6 +145,13 @@ void audio_play_sound(uint32_t left_frequency, uint32_t right_frequency)
     {
         cancel_alarm(tone_alarm_id);
         tone_alarm_id = -1;
+    }
+
+    if (audio_volume == 0)
+    {
+        set_pwm_frequency(LEFT_CHANNEL, SILENCE);
+        set_pwm_frequency(RIGHT_CHANNEL, SILENCE);
+        return;
     }
 
     set_pwm_frequency(LEFT_CHANNEL, left_frequency);
@@ -175,4 +245,5 @@ void audio_init(void)
     audio_pwm_program_init(pio, RIGHT_CHANNEL, offset, AUDIO_RIGHT_PIN);
 
     audio_initialised = true;
+    audio_set_volume(100);
 }

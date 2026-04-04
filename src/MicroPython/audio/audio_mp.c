@@ -20,8 +20,11 @@ mp_obj_t audio_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw
     mp_arg_check_num(n_args, n_kw, 0, 0, false);
     audio_mp_obj_t *self = mp_obj_malloc(audio_mp_obj_t, &audio_mp_type);
     self->base.type = &audio_mp_type;
-    audio_init();
-    self->initialized = true;
+    self->initialized = audio_init();
+    if (!self->initialized)
+    {
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("Failed to initialize audio"));
+    }
     return MP_OBJ_FROM_PTR(self);
 }
 
@@ -29,6 +32,7 @@ mp_obj_t audio_mp_del(mp_obj_t self_in)
 {
     audio_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     self->initialized = false;
+    audio_deinit();
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(audio_mp_del_obj, audio_mp_del);

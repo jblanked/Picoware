@@ -952,3 +952,13 @@ void lcd_write_data_16bit(uint16_t data)
     uint8_t bytes[2] = {data >> 8, data & 0xFF};
     lcd_send_cmd_data(last_cmd, bytes, 2);
 }
+
+bool lcd_read_row(uint16_t row, uint8_t *dst)
+{
+    if (row >= LCD_HEIGHT || dst == NULL)
+    {
+        return false;
+    }
+    memcpy(dst, &framebuffer[(uint32_t)row * LCD_WIDTH], LCD_WIDTH);
+    return true;
+}

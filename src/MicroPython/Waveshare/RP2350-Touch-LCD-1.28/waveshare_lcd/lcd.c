@@ -1053,3 +1053,13 @@ void lcd_write_data_16bit(uint16_t data)
     spi_write_blocking(LCD_SPI_PORT, &high_byte, 1);
     spi_write_blocking(LCD_SPI_PORT, &low_byte, 1);
 }
+
+bool lcd_read_row(uint16_t row, uint8_t *dst)
+{
+    if (row >= LCD_HEIGHT || dst == NULL)
+    {
+        return false;
+    }
+    memcpy(dst, &framebuffer[(uint32_t)row * LCD_WIDTH], LCD_WIDTH);
+    return true;
+}

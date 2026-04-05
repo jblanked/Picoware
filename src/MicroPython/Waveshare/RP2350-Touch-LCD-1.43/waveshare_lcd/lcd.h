@@ -144,6 +144,8 @@ extern "C"
     void lcd_write_data(uint8_t data);
     void lcd_write_data_16bit(uint16_t data);
 
+    bool lcd_read_row(uint16_t row, uint8_t *dst);
+
 #ifdef __cplusplus
 }
 #endif

@@ -969,3 +969,27 @@ psram_qspi_inst_t *picoware_get_psram_instance(void)
 {
     return psram_initialized ? &psram_instance : NULL;
 }
+
+bool lcd_read_row(uint16_t row, uint8_t *dst)
+{
+    if (row >= DISPLAY_HEIGHT || !dst)
+        return false;
+    if (lcd_mode == LCD_MODE_HEAP)
+    {
+        if (heap_framebuffer == NULL)
+            return false;
+        memcpy(dst, &heap_framebuffer[(uint32_t)row * DISPLAY_WIDTH], DISPLAY_WIDTH);
+        return true;
+    }
+    // LCD_MODE_PSRAM: read directly from PSRAM framebuffer (1 byte/pixel, RGB332)
+    uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (uint32_t)row * PSRAM_ROW_SIZE;
+    uint32_t remaining = DISPLAY_WIDTH, off = 0;
+    while (remaining > 0)
+    {
+        uint32_t chunk = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
+        psram_qspi_read(&psram_instance, addr + off, dst + off, chunk);
+        off += chunk;
+        remaining -= chunk;
+    }
+    return true;
+}

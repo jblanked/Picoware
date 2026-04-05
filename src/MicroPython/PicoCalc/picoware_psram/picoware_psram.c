@@ -2213,7 +2213,7 @@ void psram_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t k
 {
     (void)kind;
     psram_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    mp_print_str(print, "PSRAM()");
+    mp_print_str(print, "PSRAM(");
     mp_print_str(print, "initialized=");
     mp_obj_print_helper(print, mp_obj_new_bool(self->initialized), PRINT_REPR);
     mp_print_str(print, ")");
@@ -2239,7 +2239,7 @@ static MP_DEFINE_CONST_FUN_OBJ_1(psram_mp_del_obj, psram_mp_del);
 void psram_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
     psram_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (destination[0] != MP_OBJ_NULL)
+    if (destination[0] == MP_OBJ_NULL)
     {
         // Read attributes
         if (attribute == MP_QSTR___del__)

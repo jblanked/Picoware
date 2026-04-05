@@ -44,17 +44,13 @@ def run(view_manager) -> None:
     if not _about:
         return
 
-    input_manager = view_manager.input_manager
-    button: int = input_manager.button
+    button: int = view_manager.button
 
     if button in (BUTTON_LEFT, BUTTON_BACK):
-        input_manager.reset()
         view_manager.back()
     elif button == BUTTON_DOWN:
-        input_manager.reset()
         _about.scroll_down()
     elif button == BUTTON_UP:
-        input_manager.reset()
         _about.scroll_up()
 
 

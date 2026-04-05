@@ -203,14 +203,12 @@ def run(view_manager) -> None:
 
     global _desktop_time_updated, _desktop_update_fetched, _desktop_update_parsed, _desktop_http, _desktop_update_available
 
-    input_manager = view_manager.input_manager
-    button: int = input_manager.button
+    button: int = view_manager.button
 
     if button == BUTTON_LEFT:
         from picoware.applications.system import system_info
         from picoware.system.view import View
 
-        input_manager.reset()
         view_manager.add(
             View("system_info", system_info.run, system_info.start, system_info.stop)
         )
@@ -220,12 +218,11 @@ def run(view_manager) -> None:
         from picoware.applications import library
         from picoware.system.view import View
 
-        input_manager.reset()
         view_manager.add(View("library", library.run, library.start, library.stop))
         view_manager.switch_to("library")
         return
 
-    battery_level: int = input_manager.battery
+    battery_level: int = view_manager.input_manager.battery
     _desktop.set_battery(battery_level)
 
     # Clear and draw header

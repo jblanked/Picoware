@@ -112,17 +112,14 @@ def run(view_manager) -> None:
 
     global _last_update
 
-    input_manager = view_manager.input_manager
-    button: int = input_manager.button
+    button: int = view_manager.button
 
     if button == BUTTON_BACK:
-        input_manager.reset()
         view_manager.back()
         return
 
     # Send test data when center pressed
     if button == BUTTON_CENTER and _state == STATE_CONNECTED:
-        input_manager.reset()
         _bluetooth.send("Hello from Picoware!")
 
     # Update display periodically

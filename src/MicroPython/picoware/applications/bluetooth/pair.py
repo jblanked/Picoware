@@ -19,33 +19,6 @@ STATE_CONNECTED = const(5)
 STATE_PAIRED = const(6)
 
 _state = STATE_IDLE
-_last_update = 0
-
-
-def __alert(view_manager, message: str, back: bool = False) -> None:
-    """Show an alert"""
-    from picoware.gui.alert import Alert
-    from picoware.system.buttons import BUTTON_BACK
-
-    draw = view_manager.draw
-    draw.clear()
-    _alert = Alert(
-        draw,
-        message,
-        view_manager.foreground_color,
-        view_manager.background_color,
-    )
-    _alert.draw("Alert")
-
-    inp = view_manager.input_manager
-    while True:
-        button = inp.button
-        if button == BUTTON_BACK:
-            inp.reset()
-            break
-
-    if back:
-        view_manager.back()
 
 
 def __addr_to_str(addr) -> str:
@@ -154,15 +127,12 @@ def run(view_manager) -> None:
         BUTTON_CENTER,
     )
     from picoware.system.vector import Vector
-    import time
 
-    global _state, _selected_device, _loading, _last_update
+    global _state, _selected_device, _loading
 
-    input_manager = view_manager.input_manager
-    button: int = input_manager.button
+    button: int = view_manager.button
 
     if button == BUTTON_BACK:
-        input_manager.reset()
         if _state in (STATE_CONNECTED, STATE_PAIRED, STATE_DISCOVERING):
             _bluetooth.disconnect()
             _state = STATE_IDLE
@@ -181,10 +151,9 @@ def run(view_manager) -> None:
             _loading.stop()
 
         if _menu.item_count == 0:
-            __alert(view_manager, "No Bluetooth devices found.", back=True)
+            view_manager.alert("No Bluetooth devices found.", back=True)
             return
-        else:
-            _menu.draw()
+        _menu.draw()
         return
 
     # State: Connecting
@@ -224,7 +193,7 @@ def run(view_manager) -> None:
         draw.swap()
 
         if button == BUTTON_CENTER:
-            input_manager.reset()
+
             _bluetooth.pair()
             _state = STATE_PAIRING
         return
@@ -262,13 +231,13 @@ def run(view_manager) -> None:
             return
 
         if button in (BUTTON_UP, BUTTON_LEFT):
-            input_manager.reset()
+
             _menu.scroll_up()
         elif button in (BUTTON_DOWN, BUTTON_RIGHT):
-            input_manager.reset()
+
             _menu.scroll_down()
         elif button == BUTTON_CENTER:
-            input_manager.reset()
+
             idx = _menu.selected_index
             if 0 <= idx < len(_scanned_devices):
                 _selected_device = _scanned_devices[idx]

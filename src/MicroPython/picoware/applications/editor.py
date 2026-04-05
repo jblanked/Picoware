@@ -34,11 +34,9 @@ def run(view_manager) -> None:
     """Run the app"""
     from picoware.system.buttons import BUTTON_BACK
 
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if button == BUTTON_BACK:
-        inp.reset()
         view_manager.back()
 
         
@@ -126,7 +124,6 @@ def _start_editor(view_manager, filename=None, create_template=False):
         view_manager.log(f"[Editor]: Unexpected editor error: {e}", 2)
     finally:
         _editor_state = STATE_KEYBOARD
-        view_manager.input_manager.reset()
         view_manager.back()
 
 
@@ -240,12 +237,10 @@ def run(view_manager) -> None:
     global _filename
     global _keyboard_just_started
 
-    input_manager = view_manager.input_manager
-    button = input_manager.button
+    button = view_manager.button
 
     # Handle back button - return to previous state or exit
     if button == BUTTON_BACK:
-        input_manager.reset()
 
         if _editor_state == STATE_INITIAL_MENU:
             # Exit the app
@@ -288,13 +283,12 @@ def run(view_manager) -> None:
         # Handle menu navigation
         if button == BUTTON_UP:
             _initial_menu.scroll_up()
-            input_manager.reset()
+
         elif button == BUTTON_DOWN:
             _initial_menu.scroll_down()
-            input_manager.reset()
+
         elif button == BUTTON_OK:
             selected_index = _initial_menu.selected_index
-            input_manager.reset()
 
             if selected_index == 0:  # Create New File
                 # Transition to keyboard state
@@ -345,13 +339,12 @@ def run(view_manager) -> None:
         # Handle menu navigation
         if button == BUTTON_UP:
             _file_type_menu.scroll_up()
-            input_manager.reset()
+
         elif button == BUTTON_DOWN:
             _file_type_menu.scroll_down()
-            input_manager.reset()
+
         elif button == BUTTON_OK:
             selected_index = _file_type_menu.selected_index
-            input_manager.reset()
 
             # Transition to editor state
             _editor_state = STATE_EDITOR

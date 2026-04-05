@@ -141,20 +141,15 @@ def run(view_manager) -> None:
     if not _scan:
         return
 
-    input_manager = view_manager.input_manager
-    button: int = input_manager.button
+    button: int = view_manager.button
 
     if button in (BUTTON_UP, BUTTON_LEFT):
-        input_manager.reset()
         _scan.scroll_up()
     elif button in (BUTTON_DOWN, BUTTON_RIGHT):
-        input_manager.reset()
         _scan.scroll_down()
     elif button == BUTTON_BACK:
-        input_manager.reset()
         view_manager.back()
     elif button == BUTTON_CENTER:
-        input_manager.reset()
         if __should_save_choice(view_manager):
             if not __save_ssid(view_manager):
                 view_manager.alert("Failed to save SSID!", True)

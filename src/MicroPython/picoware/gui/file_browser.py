@@ -745,8 +745,7 @@ class FileBrowser:
             KEY_CAPS_LOCK,
         )
 
-        inp = self._vm.input_manager
-        btn = inp.button
+        btn = self._vm.button
 
         if btn is None or btn == BUTTON_NONE:
             if self._needs_redraw:
@@ -756,7 +755,6 @@ class FileBrowser:
         # --- Sub-View: Image Viewer Input ---
         if self._is_viewing_image:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER):
-                inp.reset()
                 self._is_viewing_image = False
                 self._image_path = ""
                 self._needs_redraw = True
@@ -764,7 +762,6 @@ class FileBrowser:
         # --- Sub-View: Text Viewer Input ---
         elif self._is_viewing_text:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER):
-                inp.reset()
                 self._is_viewing_text = False
                 if self._text_viewer_box:
                     self._text_viewer_box.clear()
@@ -772,11 +769,9 @@ class FileBrowser:
                     self._text_viewer_box = None
                 self._needs_redraw = True
             elif btn == BUTTON_UP:
-                inp.reset()
                 if self._text_viewer_box:
                     self._text_viewer_box.scroll_up()
             elif btn == BUTTON_DOWN:
-                inp.reset()
                 if self._text_viewer_box:
                     self._text_viewer_box.scroll_down()
 
@@ -787,7 +782,6 @@ class FileBrowser:
             and self._confirm_menu is None
         ):
             if btn in (BUTTON_BACK, BUTTON_ESCAPE):
-                inp.reset()
                 menu_title = "Unsaved Changes!" if self._edit_unsaved else "Editor Menu"
 
                 self._context_menu = self.__menu_spawn(
@@ -804,7 +798,6 @@ class FileBrowser:
         # --- Sub-View: Information Dialog Input ---
         elif self._show_info:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER):
-                inp.reset()
                 self._show_info = False
                 self._info_data = ""
                 if self._info_box:
@@ -812,24 +805,20 @@ class FileBrowser:
                     self._info_box = None
                 self._needs_redraw = True
             elif btn == BUTTON_UP:
-                inp.reset()
                 if self._info_box:
                     self._info_box.scroll_up()
             elif btn == BUTTON_DOWN:
-                inp.reset()
                 if self._info_box:
                     self._info_box.scroll_down()
 
         # --- Sub-View: Text Entry (Rename/Make Folder) Input ---
         elif self._input_active:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE):
-                inp.reset()
                 self._input_active = False
                 self._is_shift = False
                 self._is_caps = False
                 self._needs_redraw = True
             elif btn == BUTTON_CENTER:
-                inp.reset()
                 new_name = self._input_text.strip()
                 rn = False
 
@@ -887,26 +876,21 @@ class FileBrowser:
                     self._context_target_path = ""
                     self._needs_redraw = True
             elif btn in (BUTTON_SHIFT, KEY_MOD_SHL, KEY_MOD_SHR):
-                inp.reset()
                 self._is_shift = not self._is_shift
                 self._needs_redraw = True
             elif btn in (BUTTON_CAPS_LOCK, KEY_CAPS_LOCK):
-                inp.reset()
                 self._is_caps = not self._is_caps
                 self._is_shift = False
                 self._needs_redraw = True
             elif btn == BUTTON_LEFT:
-                inp.reset()
                 if self._input_cursor > 0:
                     self._input_cursor -= 1
                     self._needs_redraw = True
             elif btn == BUTTON_RIGHT:
-                inp.reset()
                 if self._input_cursor < len(self._input_text):
                     self._input_cursor += 1
                     self._needs_redraw = True
             elif btn == BUTTON_BACKSPACE:
-                inp.reset()
                 if self._input_cursor > 0:
                     self._input_text = (
                         self._input_text[: self._input_cursor - 1]
@@ -915,20 +899,14 @@ class FileBrowser:
                     self._input_cursor -= 1
                     self._needs_redraw = True
             else:
-                is_cap = inp.was_capitalized
-                inp.reset()
-                c = inp.button_to_char(btn)
+                c = self._vm.input_manager.button_to_char(btn)
                 if c and len(self._input_text) < 35:
-                    if is_cap or self._is_shift or self._is_caps:
-                        c = c.upper()
                     self._input_text = (
                         self._input_text[: self._input_cursor]
                         + c
                         + self._input_text[self._input_cursor :]
                     )
                     self._input_cursor += 1
-                    if self._is_shift:
-                        self._is_shift = False
                     self._needs_redraw = True
 
         # --- Main File Browser Input: Marking items ---
@@ -941,7 +919,6 @@ class FileBrowser:
             and not self._input_active
             and not self._show_info
         ):
-            inp.reset()
             if self._mode == FILE_BROWSER_MANAGER:
                 ap = self._app_state["active_pane"]
                 cp = (
@@ -984,7 +961,6 @@ class FileBrowser:
             and self._context_menu is None
             and not self._input_active
         ):
-            inp.reset()
             self._app_state["dir_menu"] = not self._app_state.get("dir_menu", True)
             self._needs_redraw = True
 
@@ -995,7 +971,6 @@ class FileBrowser:
             and not self._input_active
             and not self._show_options
         ):
-            inp.reset()
             self._is_help_screen = not self._is_help_screen
             self._needs_redraw = True
 
@@ -1006,7 +981,6 @@ class FileBrowser:
             and self._context_menu is None
             and not self._input_active
         ):
-            inp.reset()
             self._show_options = True
             self._opt_idx = 0
             self._needs_redraw = True
@@ -1018,7 +992,6 @@ class FileBrowser:
             and self._confirm_menu is None
             and self._context_menu is None
         ):
-            inp.reset()
             if self._mode == FILE_BROWSER_MANAGER:
                 self._input_active = True
                 self._input_mode = self.MODE_MKDIR
@@ -1036,7 +1009,6 @@ class FileBrowser:
             and self._context_menu is None
             and not self._show_info
         ):
-            inp.reset()
             ap = self._app_state["active_pane"]
             cp = (
                 self._app_state["left_path"]
@@ -1083,7 +1055,6 @@ class FileBrowser:
             and self._confirm_menu is None
             and self._context_menu is None
         ):
-            inp.reset()
             if self._mode == FILE_BROWSER_MANAGER:
                 mk = self._app_state["marked"]
                 if len(mk) > 0:
@@ -1124,20 +1095,16 @@ class FileBrowser:
         # --- Sub-View: Options Menu Input ---
         elif self._show_options:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER):
-                inp.reset()
                 self._show_options = False
                 self.__refresh_panes()
                 self._needs_redraw = True
             elif btn == BUTTON_UP:
-                inp.reset()
                 self._opt_idx = (self._opt_idx - 1) % len(self.OPTIONS_LABELS)
                 self._needs_redraw = True
             elif btn == BUTTON_DOWN:
-                inp.reset()
                 self._opt_idx = (self._opt_idx + 1) % len(self.OPTIONS_LABELS)
                 self._needs_redraw = True
             elif btn in (BUTTON_LEFT, BUTTON_RIGHT):
-                inp.reset()
                 self._needs_redraw = True
                 idx = self._opt_idx
                 if idx == 0:
@@ -1152,22 +1119,18 @@ class FileBrowser:
         # --- Sub-View: Confirm Overwrite/Delete Dialog Input ---
         elif self._confirm_menu is not None:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE):
-                inp.reset()
                 del self._confirm_menu
                 self._confirm_menu = None
                 self._pending_action = self.ACT_NONE
                 self._pending_dest_path = ""
                 self._needs_redraw = True
             elif btn == BUTTON_UP:
-                inp.reset()
                 self._confirm_menu.scroll_up()
                 self._needs_redraw = True
             elif btn == BUTTON_DOWN:
-                inp.reset()
                 self._confirm_menu.scroll_down()
                 self._needs_redraw = True
             elif btn == BUTTON_CENTER:
-                inp.reset()
                 sl = self._confirm_menu.current_item
 
                 if sl == "Yes":
@@ -1245,21 +1208,17 @@ class FileBrowser:
         # --- Sub-View: Context Menu Input ---
         elif self._context_menu is not None:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE):
-                inp.reset()
                 del self._context_menu
                 self._context_menu = None
                 self._editor_state = self.MODE_EDITING
                 self._needs_redraw = True
             elif btn == BUTTON_UP:
-                inp.reset()
                 self._context_menu.scroll_up()
                 self._needs_redraw = True
             elif btn == BUTTON_DOWN:
-                inp.reset()
                 self._context_menu.scroll_down()
                 self._needs_redraw = True
             elif btn == BUTTON_CENTER:
-                inp.reset()
                 ac = self._context_menu.current_item
 
                 if self._is_editing:
@@ -1375,7 +1334,6 @@ class FileBrowser:
 
         # --- Main File Browser Input: Navigation and Exiting ---
         elif btn in (BUTTON_BACK, BUTTON_ESCAPE):
-            inp.reset()
             if self._is_help_screen:
                 self._is_help_screen = False
                 self._needs_redraw = True
@@ -1385,17 +1343,14 @@ class FileBrowser:
                 return False
 
         elif btn == BUTTON_LEFT and not self._is_help_screen:
-            inp.reset()
             self._app_state["active_pane"] = self.PANE_LEFT
             self._needs_redraw = True
 
         elif btn == BUTTON_RIGHT and not self._is_help_screen:
-            inp.reset()
             self._app_state["active_pane"] = self.PANE_RIGHT
             self._needs_redraw = True
 
         elif btn == BUTTON_UP and not self._is_help_screen:
-            inp.reset()
             ap = self._app_state["active_pane"]
             fl = (
                 self._app_state["left_files"]
@@ -1417,7 +1372,6 @@ class FileBrowser:
                 self._needs_redraw = True
 
         elif btn == BUTTON_DOWN and not self._is_help_screen:
-            inp.reset()
             ap = self._app_state["active_pane"]
             fl = (
                 self._app_state["left_files"]
@@ -1439,7 +1393,6 @@ class FileBrowser:
                 self._needs_redraw = True
 
         elif btn == BUTTON_CENTER and not self._is_help_screen:
-            inp.reset()
             ap = self._app_state["active_pane"]
             cp = (
                 self._app_state["left_path"]

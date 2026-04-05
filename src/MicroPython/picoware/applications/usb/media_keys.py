@@ -47,11 +47,9 @@ def run(view_manager) -> None:
 
     global _initialized
 
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if button == BUTTON_BACK:
-        inp.reset()
         view_manager.back()
         return
 
@@ -64,7 +62,6 @@ def run(view_manager) -> None:
 
     if button in _key_map:
         _usb.press(_key_map[button])
-        inp.reset()
 
 
 def stop(view_manager) -> None:

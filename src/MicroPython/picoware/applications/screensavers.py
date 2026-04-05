@@ -65,21 +65,16 @@ def run(view_manager) -> None:
     if not _screensavers:
         return
 
-    input_manager = view_manager.input_manager
-    button: int = input_manager.button
+    button: int = view_manager.button
 
     if button in (BUTTON_UP, BUTTON_LEFT):
-        input_manager.reset()
         _screensavers.scroll_up()
     elif button in (BUTTON_DOWN, BUTTON_RIGHT):
-        input_manager.reset()
         _screensavers.scroll_down()
     elif button == BUTTON_BACK:
         _screensavers_index = 0
-        input_manager.reset()
         view_manager.back()
     elif button == BUTTON_CENTER:
-        input_manager.reset()
         _screensavers_index = _screensavers.selected_index
 
         # Get the selected screensaver name

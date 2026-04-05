@@ -58,21 +58,16 @@ def run(view_manager) -> None:
 
     global _bluetooth_index
 
-    input_manager = view_manager.input_manager
-    button: int = input_manager.button
+    button: int = view_manager.button
 
     if button in (BUTTON_UP, BUTTON_LEFT):
-        input_manager.reset()
         _bluetooth.scroll_up()
     elif button in (BUTTON_DOWN, BUTTON_RIGHT):
-        input_manager.reset()
         _bluetooth.scroll_down()
     elif button == BUTTON_BACK:
         _bluetooth_index = 0
-        input_manager.reset()
         view_manager.back()
     elif button == BUTTON_CENTER:
-        input_manager.reset()
         _bluetooth_index = _bluetooth.selected_index
 
         if _bluetooth_index == 0:

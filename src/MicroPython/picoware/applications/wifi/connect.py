@@ -123,21 +123,17 @@ def run(view_manager) -> None:
     global _status_message
     global _connection_start_time
 
-    input_manager = view_manager.input_manager
-    button: int = input_manager.button
+    button: int = view_manager.button
     wifi = view_manager.wifi
 
     if button in (BUTTON_BACK, BUTTON_LEFT):
-        input_manager.reset()
         view_manager.back()
         return
 
     if button == BUTTON_UP:
         wifi.disconnect()
         _status_message = "Disconnected"
-        input_manager.reset()
     elif button == BUTTON_RIGHT:
-        input_manager.reset()
         wifi.reset()
         _status_message = "Starting connection..."
         wifi.callback_connect = __connect_callback

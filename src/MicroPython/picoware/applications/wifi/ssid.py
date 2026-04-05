@@ -57,11 +57,9 @@ def run(view_manager) -> None:
     if not _ssid_is_running:
         return
 
-    input_manager = view_manager.input_manager
-    button = input_manager.button
+    button = view_manager.button
 
     if button == BUTTON_BACK:
-        input_manager.reset()
         _back_hit = True
         _ssid_is_running = False
         view_manager.back()
@@ -96,7 +94,7 @@ def run(view_manager) -> None:
         _keyboard_started = True
     else:
         if not keyboard.run():
-            input_manager.reset()
+
             view_manager.back()
 
 

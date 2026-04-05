@@ -191,6 +191,20 @@ static void swap_float(float *a, float *b)
     *b = t;
 }
 
+static bool picoware_psram_ensure_initialized(void)
+{
+    if (lcd_mode != LCD_MODE_PSRAM)
+    {
+        return false;
+    }
+    if (!psram_initialized)
+    {
+        psram_instance = psram_qspi_init(pio1, -1, 1.0f);
+        psram_initialized = true;
+    }
+    return psram_initialized;
+}
+
 // ---------------------------------------------------------------------------
 // Public API – matches picoware_lcd.h
 // ---------------------------------------------------------------------------
@@ -258,6 +272,9 @@ void picoware_lcd_swap_region(uint16_t x, uint16_t y, uint16_t width, uint16_t h
 
     if (lcd_mode == LCD_MODE_PSRAM)
     {
+        if (module_initialized && !picoware_psram_ensure_initialized())
+            return;
+
         uint8_t psram_row_buffer[DISPLAY_WIDTH];
 
         for (uint16_t row = 0; row < height; row += LCD_CHUNK_LINES)
@@ -968,4 +985,28 @@ bool lcd_psram_read_row(uint32_t addr, uint16_t row, uint16_t width, uint16_t *d
 psram_qspi_inst_t *picoware_get_psram_instance(void)
 {
     return psram_initialized ? &psram_instance : NULL;
+}
+
+bool lcd_read_row(uint16_t row, uint8_t *dst)
+{
+    if (row >= DISPLAY_HEIGHT || !dst)
+        return false;
+    if (lcd_mode == LCD_MODE_HEAP)
+    {
+        if (heap_framebuffer == NULL)
+            return false;
+        memcpy(dst, &heap_framebuffer[(uint32_t)row * DISPLAY_WIDTH], DISPLAY_WIDTH);
+        return true;
+    }
+    // LCD_MODE_PSRAM: read directly from PSRAM framebuffer (1 byte/pixel, RGB332)
+    uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (uint32_t)row * PSRAM_ROW_SIZE;
+    uint32_t remaining = DISPLAY_WIDTH, off = 0;
+    while (remaining > 0)
+    {
+        uint32_t chunk = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
+        psram_qspi_read(&psram_instance, addr + off, dst + off, chunk);
+        off += chunk;
+        remaining -= chunk;
+    }
+    return true;
 }

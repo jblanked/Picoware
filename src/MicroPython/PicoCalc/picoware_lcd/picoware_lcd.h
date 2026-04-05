@@ -48,6 +48,10 @@ extern "C"
     // returns true on success, false if PSRAM is not initialized
     bool lcd_psram_read_row(uint32_t addr, uint16_t row, uint16_t width, uint16_t *dst);
 
+    // reads one row of the display framebuffer (RGB332, 1 byte/pixel) into dst
+    // returns true on success
+    bool lcd_read_row(uint16_t row, uint8_t *dst);
+
     // External PSRAM instance access
     extern psram_qspi_inst_t *picoware_get_psram_instance(void);
 

@@ -23,14 +23,13 @@ def run(view_manager) -> None:
     """Run the app"""
     from picoware.system.buttons import BUTTON_BACK
 
-    global _usb, _initialized
+    global _initialized
 
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if button == BUTTON_BACK:
-        inp.reset()
         view_manager.back()
+        return
 
     if not _usb:
         return
@@ -40,8 +39,7 @@ def run(view_manager) -> None:
         _initialized = True
 
     if button != -1:
-        _usb.type_string(inp.button_to_char(button))
-        inp.reset()
+        _usb.type_string(view_manager.input_manager.button_to_char(button))
 
 
 def stop(view_manager) -> None:

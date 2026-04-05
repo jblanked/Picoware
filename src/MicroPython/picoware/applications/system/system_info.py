@@ -48,11 +48,9 @@ def run(view_manager) -> None:
     """Animate the loading spinner."""
     from picoware.system.buttons import BUTTON_BACK
 
-    input_manager = view_manager.input_manager
-    button: int = input_manager.button
+    button: int = view_manager.button
 
     if button == BUTTON_BACK:
-        input_manager.reset()
         view_manager.back()
 
 

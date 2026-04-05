@@ -140,6 +140,7 @@ class ViewManager:
 
         # Initialize input manager
         self._input_manager = Input(_back_button)
+        self._button = -1
 
         # Initialize keyboard
         self._keyboard = Keyboard(
@@ -240,6 +241,11 @@ class ViewManager:
         from picoware_boards import get_current_name
 
         return get_current_name()
+
+    @property
+    def button(self):
+        """Return the current button state."""
+        return self._button
 
     @property
     def current_view(self):
@@ -554,12 +560,15 @@ class ViewManager:
 
     def run(self):
         """Run the current view."""
-        if self._input_manager.button == 80:  # BUTTON_HOME
+        self._button = self._input_manager.button
+        if self._button == 80:  # BUTTON_HOME
             while self._stack_depth > 0:
                 if self._stack_depth == 1:
                     self.back(should_clear=True, should_start=True)
                 else:
                     self.back(should_clear=False, should_start=False)
+        elif self._button == 87:  # BUTTON_F1
+            self._draw.screenshot("screenshot.bmp")
 
         _data = self._thread_manager.run()
         if _data:
@@ -567,6 +576,10 @@ class ViewManager:
 
         if self._current_view is not None:
             self._current_view.run(self)
+
+        if self._button != -1:
+            self._input_manager.reset()
+            self._button = -1
 
     def set(self, view_name: str):
         """

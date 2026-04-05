@@ -135,12 +135,10 @@ def run(view_manager) -> None:
     global _state, _mode, _bluetooth, _menu, _loading
     global _selected_device, _scanned_devices, _addresses, _last_update
 
-    input_manager = view_manager.input_manager
-    button: int = input_manager.button
+    button: int = view_manager.button
 
     # Handle back button
     if button == BUTTON_BACK:
-        input_manager.reset()
         if _state == STATE_TYPING:
             _state = STATE_CHAT
             view_manager.keyboard.reset()
@@ -163,13 +161,13 @@ def run(view_manager) -> None:
     # State: Mode Selection
     if _state == STATE_MODE_SELECT:
         if button in (BUTTON_UP, BUTTON_LEFT):
-            input_manager.reset()
+
             _menu.scroll_up()
         elif button in (BUTTON_DOWN, BUTTON_RIGHT):
-            input_manager.reset()
+
             _menu.scroll_down()
         elif button == BUTTON_CENTER:
-            input_manager.reset()
+
             from picoware.system.bluetooth import Bluetooth
 
             _bluetooth = Bluetooth()
@@ -238,13 +236,13 @@ def run(view_manager) -> None:
         _menu.draw()
 
         if button in (BUTTON_UP, BUTTON_LEFT):
-            input_manager.reset()
+
             _menu.scroll_up()
         elif button in (BUTTON_DOWN, BUTTON_RIGHT):
-            input_manager.reset()
+
             _menu.scroll_down()
         elif button == BUTTON_CENTER:
-            input_manager.reset()
+
             idx = _menu.selected_index
             if 0 <= idx < len(_scanned_devices):
                 _selected_device = _scanned_devices[idx]
@@ -334,7 +332,7 @@ def run(view_manager) -> None:
         draw.swap()
 
         if button == BUTTON_CENTER:
-            input_manager.reset()
+
             _state = STATE_TYPING
             view_manager.keyboard.run()
         return
@@ -342,7 +340,7 @@ def run(view_manager) -> None:
     # State: Typing
     if _state == STATE_TYPING:
         _keyboard = view_manager.keyboard
-        if not _keyboard.run(input_manager):
+        if not _keyboard.run(view_manager.input_manager):
             _state = STATE_CHAT
             return
         result = _keyboard.response

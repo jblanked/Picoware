@@ -20,8 +20,11 @@ mp_obj_t audio_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw
     mp_arg_check_num(n_args, n_kw, 0, 0, false);
     audio_mp_obj_t *self = mp_obj_malloc(audio_mp_obj_t, &audio_mp_type);
     self->base.type = &audio_mp_type;
-    audio_init();
-    self->initialized = true;
+    self->initialized = audio_init();
+    if (!self->initialized)
+    {
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("Failed to initialize audio"));
+    }
     return MP_OBJ_FROM_PTR(self);
 }
 
@@ -29,20 +32,26 @@ mp_obj_t audio_mp_del(mp_obj_t self_in)
 {
     audio_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     self->initialized = false;
+    audio_deinit();
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(audio_mp_del_obj, audio_mp_del);
 
 void audio_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
-    audio_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     if (destination[0] == MP_OBJ_NULL)
     {
         // Attribute read
         switch (attribute)
         {
         case MP_QSTR_initialized:
+        {
+            audio_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
             destination[0] = mp_obj_new_bool(self->initialized);
+            return;
+        }
+        case MP_QSTR_volume:
+            destination[0] = mp_obj_new_int(audio_get_volume());
             return;
         case MP_QSTR___del__:
             destination[0] = MP_OBJ_FROM_PTR(&audio_mp_del_obj);
@@ -50,6 +59,18 @@ void audio_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
         default:
             return; // Fail
         };
+    }
+    else if (destination[1] != MP_OBJ_NULL)
+    {
+        // Store attributes
+        switch (attribute)
+        {
+        case MP_QSTR_volume:
+            audio_mp_set_volume(self_in, destination[1]);
+            return;
+        default:
+            return; // Fail
+        }
     }
 }
 
@@ -93,10 +114,31 @@ mp_obj_t audio_mp_play_song(mp_obj_t self_in, mp_obj_t song_in)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(audio_mp_play_song_obj, audio_mp_play_song);
 
+mp_obj_t audio_mp_set_volume(mp_obj_t self_in, mp_obj_t volume)
+{
+    audio_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (!self->initialized)
+    {
+        mp_raise_TypeError(MP_ERROR_TEXT("Audio not initialized"));
+    }
+    if (!mp_obj_is_int(volume))
+    {
+        mp_raise_TypeError(MP_ERROR_TEXT("volume must be an integer"));
+    }
+    int vol = mp_obj_get_int(volume);
+    if (vol < 0 || vol > 100)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("volume must be between 0 and 100"));
+    }
+    audio_set_volume((uint8_t)vol);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(audio_mp_set_volume_obj, audio_mp_set_volume);
+
 static const mp_rom_map_elem_t audio_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_play_note), MP_ROM_PTR(&audio_mp_play_note_obj)},
     {MP_ROM_QSTR(MP_QSTR_play_song), MP_ROM_PTR(&audio_mp_play_song_obj)},
-
+    {MP_ROM_QSTR(MP_QSTR_set_volume), MP_ROM_PTR(&audio_mp_set_volume_obj)},
     // octave 3
     {MP_ROM_QSTR(MP_QSTR_PITCH_C3), MP_ROM_INT(PITCH_C3)},
     {MP_ROM_QSTR(MP_QSTR_PITCH_CS3), MP_ROM_INT(PITCH_CS3)},

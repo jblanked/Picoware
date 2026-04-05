@@ -42,11 +42,9 @@ def run(view_manager) -> None:
 
     global _last_update, _beacon_count
 
-    input_manager = view_manager.input_manager
-    button: int = input_manager.button
+    button: int = view_manager.button
 
     if button == BUTTON_BACK:
-        input_manager.reset()
         view_manager.back()
         return
 

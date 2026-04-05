@@ -49,22 +49,17 @@ def run(view_manager) -> None:
         return
     global _system_index
 
-    input_manager = view_manager.input_manager
-    button: int = input_manager.button
+    button: int = view_manager.button
 
     if button in (BUTTON_UP, BUTTON_LEFT):
-        input_manager.reset()
         _system.scroll_up()
     elif button in (BUTTON_DOWN, BUTTON_RIGHT):
-        input_manager.reset()
         _system.scroll_down()
     elif button == BUTTON_BACK:
 
-        input_manager.reset()
         view_manager.back()
         _system_index = 0
     elif button == BUTTON_CENTER:
-        input_manager.reset()
         _system_index = _system.selected_index
         if _system_index == 0:
             from picoware.applications.system import settings
@@ -125,15 +120,15 @@ def run(view_manager) -> None:
             choice.open()
 
             while True:
-                _button = input_manager.button
+                _button = view_manager.button
                 if _button in (BUTTON_LEFT, BUTTON_UP):
-                    input_manager.reset()
+
                     choice.scroll_up()
                 elif _button in (BUTTON_RIGHT, BUTTON_DOWN):
-                    input_manager.reset()
+
                     choice.scroll_down()
                 elif _button == BUTTON_CENTER:
-                    input_manager.reset()
+
                     if choice.is_open():
                         choice.close()
 
@@ -153,7 +148,7 @@ def run(view_manager) -> None:
                 elif _button == BUTTON_BACK:
                     del choice
                     choice = None
-                    input_manager.reset()
+
                     view_manager.draw.clear()
                     _system.draw()
                     break

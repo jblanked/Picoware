@@ -51,21 +51,16 @@ def run(view_manager) -> None:
 
     global _usb_index
 
-    input_manager = view_manager.input_manager
-    button: int = input_manager.button
+    button: int = view_manager.button
 
     if button in (BUTTON_UP, BUTTON_LEFT):
-        input_manager.reset()
         _usb.scroll_up()
     elif button in (BUTTON_DOWN, BUTTON_RIGHT):
-        input_manager.reset()
         _usb.scroll_down()
     elif button == BUTTON_BACK:
         _usb_index = 0
-        input_manager.reset()
         view_manager.back()
     elif button == BUTTON_CENTER:
-        input_manager.reset()
         _usb_index = _usb.selected_index
 
         if _usb_index == 0:

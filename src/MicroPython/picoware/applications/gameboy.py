@@ -58,8 +58,7 @@ def run(view_manager) -> None:
     """Run the app"""
     global gb, _file_browser, _state
 
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if _state == STATE_BROWSER:
         if _file_browser is None:
@@ -95,7 +94,6 @@ def run(view_manager) -> None:
 
     # STATE_PLAYING
     if button == 5:  # back
-        inp.reset()
         if gb is not None:
             gb.stop()
             del gb
@@ -105,8 +103,6 @@ def run(view_manager) -> None:
 
     if gb is not None:
         gb.run(button)
-        if button != -1:
-            inp.reset()
 
 
 def stop(view_manager) -> None:

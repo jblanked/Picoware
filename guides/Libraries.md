@@ -11,12 +11,14 @@ This section provides documentation for the libraries available in Picoware.
 - [System](#system)
   - [picoware.system.app](#picoware-system-app)
   - [picoware.system.app_loader](#picoware-system-app_loader)
+  - [picoware.system.audio](#picoware-system-audio)
   - [picoware.system.auto_complete](#picoware-system-auto_complete)
   - [picoware.system.bluetooth](#picoware-system-bluetooth)
   - [picoware.system.boards](#picoware-system-boards)
   - [picoware.system.buttons](#picoware-system-buttons)
   - [picoware.system.colors](#picoware-system-colors)
   - [picoware.system.font](#picoware-system-font)
+  - [picoware.system.gameboy](#picoware-system-gameboy)
   - [picoware.system.http](#picoware-system-http)
   - [picoware.system.input](#picoware-system-input)
   - [picoware.system.LED](#picoware-system-led)
@@ -28,6 +30,7 @@ This section provides documentation for the libraries available in Picoware.
   - [picoware.system.thread](#picoware-system-thread)
   - [picoware.system.time](#picoware-system-time)
   - [picoware.system.uart](#picoware-system-uart)
+  - [picoware.system.usb](#picoware-system-usb)
   - [picoware.system.vector](#picoware-system-vector)
   - [picoware.system.view](#picoware-system-view)
   - [picoware.system.view_manager](#picoware-system-view_manager)
@@ -47,6 +50,7 @@ This section provides documentation for the libraries available in Picoware.
   - [picoware.gui.loading](#picoware-gui-loading)
   - [picoware.gui.menu](#picoware-gui-menu)
   - [picoware.gui.scrollbar](#picoware-gui-scrollbar)
+  - [picoware.gui.text_editor](#picoware-gui-text_editor)
   - [picoware.gui.textbox](#picoware-gui-textbox)
   - [picoware.gui.toggle](#picoware-gui-toggle)
   - [picoware.gui.toggle_list](#picoware-gui-toggle_list)
@@ -89,6 +93,33 @@ This section provides documentation for the libraries available in Picoware.
     - `start(app_name)`: Stops the current app, loads and starts a new one. Returns True on success.
     - `stop()`: Calls `current_app.stop(view_manager)`.
     - `switch_app(app_name)`: Alias for `start(app_name)`.
+
+#### picoware-system-audio
+- `Audio` class: Manages audio output via the PIO-based buzzer/speaker. Inherits from the C `audio.Audio` module.
+    - `__init__()`: Initializes audio hardware. Raises `RuntimeError` if initialization fails.
+    - `__str__()`: Returns `"Audio(initialized=True/False)"`.
+    - `initialized`: Property (r/o) — True if audio hardware is ready.
+    - `volume`: Property (r/w) — volume level integer (0–100). Setting this calls `set_volume()`.
+    - `play_note(note)`: Play a single `AudioNote` (blocking until the note finishes).
+    - `play_song(song)`: Play an `AudioSong` (blocking until the song finishes).
+    - `set_volume(volume)`: Set the playback volume (0–100).
+    - Pitch constants (Hz): `PITCH_C3`–`PITCH_B6` (all notes in octaves 3–6, including sharps `CS`, `DS`, `FS`, `GS`, `AS`). Special pitches: `SILENCE` (0 Hz), `LOW_BEEP`, `HIGH_BEEP`.
+    - Note-length constants (milliseconds): `NOTE_WHOLE`, `NOTE_HALF`, `NOTE_QUARTER`, `NOTE_EIGHTH`, `NOTE_SIXTEENTH`, `NOTE_THIRTYSECOND`, `NOTE_DOTTED_HALF`, `NOTE_DOTTED_QUARTER`, `NOTE_DOTTED_EIGHTH`.
+- `AudioNote` class: Represents a single musical note. Inherits from the C `audio.AudioNote` module.
+    - `__init__(left_frequency, right_frequency, duration_ms)`: Create a note with separate left/right channel frequencies (Hz) and a duration in milliseconds.
+    - `__str__()`: Returns `"AudioNote(left_frequency=..., right_frequency=..., duration_ms=...)"`.
+    - `left_frequency`: Property (r/w) — left channel frequency in Hz (uint16).
+    - `right_frequency`: Property (r/w) — right channel frequency in Hz (uint16).
+    - `duration_ms`: Property (r/w) — note duration in milliseconds (uint32).
+    - `set_left_frequency(value)`: Set the left channel frequency.
+    - `set_right_frequency(value)`: Set the right channel frequency.
+    - `set_duration_ms(value)`: Set the duration in milliseconds.
+- `AudioSong` class: Represents a sequence of notes. Inherits from the C `audio.AudioSong` module.
+    - `__init__(name, notes, description="")`: Create a song. `notes` is a list or tuple of `AudioNote` objects.
+    - `__str__()`: Returns `"AudioSong(name='...', notes=N, description='...')"`.
+    - `name`: Property (r/o) — song name string.
+    - `description`: Property (r/o) — song description string.
+    - `notes`: Property (r/o) — list of `AudioNote` objects.
 
 #### picoware-system-auto_complete
 - `AutoComplete` class: Wraps the C `auto_complete` module to provide word completion.
@@ -238,6 +269,16 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - `size`: Property — font size index (int).
     - `spacing`: Property — pixel spacing (int).
     - `width`: Property — pixel character width (int).
+
+#### picoware-system-gameboy
+- `GameBoy` class: Game Boy / Game Boy Color emulator. Inherits from the C `gameboy.GameBoy` module. Renders at 2× scale (320×288) with automatic color palette assignment and optional audio on a second core.
+    - `__init__()`: Create a `GameBoy` instance. Does not load a ROM yet.
+    - `__str__()`: Returns `"GameBoy(rom_path='...', running=True/False)"`.
+    - `rom_path`: Property (r/o) — path string of the currently loaded ROM, or empty string if none.
+    - `running`: Property (r/o) — True if the emulator is currently active.
+    - `start(rom_path, save_state_path=None)`: Load and start a ROM from the SD card. Allocates the emulator context, initializes audio on core 1 (if enabled), loads the last saved state if present, and auto-assigns a color palette.
+    - `run(button_pressed)`: Advance emulation by the correct number of frames for the elapsed time (up to 8 catch-up frames) and render the final frame to the display. `button_pressed` is a `BUTTON_*` constant integer. Hotkeys: Select+Up/Down = volume, Select+Left/Right = cycle palette, Select+Start = save & reset, Select+A = toggle fast-forward.
+    - `stop()`: Save RAM and emulator state, stop audio on core 1, and deinitialize the emulator.
 
 #### picoware-system-http
 - `HTTP_IDLE`: Idle state constant (0)
@@ -454,6 +495,25 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - `set_callback(callback)`: Set a UART IRQ callback function.
     - `write(message)`: Write raw bytes to the UART.
 
+#### picoware-system-usb
+- `USBKeyboard` class: Composite CDC + HID keyboard USB device. Presents both the REPL serial port and a HID keyboard to the host simultaneously.
+    - Modifier constants: `MOD_LCTRL` (0x01), `MOD_LSHIFT` (0x02), `MOD_LALT` (0x04), `MOD_LGUI` (0x08), `MOD_RCTRL` (0x10), `MOD_RSHIFT` (0x20), `MOD_RALT` (0x40), `MOD_RGUI` (0x80).
+    - Special key constants: `KEY_ENTER` (0x28), `KEY_ESC` (0x29), `KEY_TAB` (0x2B), `KEY_SPACE` (0x2C), `KEY_DELETE` (0x4C), `KEY_UP` (0x52), `KEY_DOWN` (0x51), `KEY_LEFT` (0x50), `KEY_RIGHT` (0x4F), `KEY_F1`–`KEY_F12` (0x3A–0x45).
+    - `KEYMAP`: Dict mapping printable characters (including shifted variants) to HID usage IDs.
+    - `SHIFT_CHARS`: Set of characters that require the left-shift modifier.
+    - `__init__(manufacturer="MicroPython", product="Picoware Keyboard", serial="000000")`: Create a `USBKeyboard` instance with optional USB descriptor strings.
+    - `init()`: Activate the composite CDC + HID device. Must be called once before sending keys.
+    - `send_key(modifier=0, keycode=0)`: Send a key-down report without releasing.
+    - `release()`: Send an all-zeros report to release all keys.
+    - `press(modifier=0, keycode=0)`: Press and immediately release a key.
+    - `shortcut(modifier, keycode, delay_ms=100)`: Press a key combination and wait `delay_ms` ms after releasing.
+    - `type_string(s, delay_ms=50)`: Type a string character by character. Shift is applied automatically for uppercase and symbol characters.
+- `USBMedia` class: Composite CDC + HID Consumer Control USB device for media key input.
+    - Consumer Control usage constants: `USAGE_PLAY_PAUSE` (0x00CD), `USAGE_NEXT_TRACK` (0x00B5), `USAGE_PREV_TRACK` (0x00B6), `USAGE_STOP` (0x00B7), `USAGE_VOL_UP` (0x00E9), `USAGE_VOL_DOWN` (0x00EA), `USAGE_MUTE` (0x00E2).
+    - `__init__(manufacturer="MicroPython", product="Pico Media", serial="000002")`: Create a `USBMedia` instance.
+    - `init()`: Activate the composite CDC + HID Consumer Control device. Must be called once before sending media keys.
+    - `press(usage)`: Send a Consumer Control key press and immediately release it. Pass a `USAGE_*` constant.
+
 #### picoware-system-vector
 - `Vector` class: A 3D vector wrapping the C `vector.Vector` module.
     - `__init__(x=0, y=0, z=0)`: Initializes the vector. Accepts individual coordinates or, if `x` is a tuple, unpacks it.
@@ -623,6 +683,7 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - `pixel(position, color=None)`: Draw a single pixel.
     - `psram(position, size, addr)`: Draw pixel data directly from a PSRAM address.
     - `rect(position, size, color=None)`: Draw a rectangle outline.
+    - `screenshot(file_path)`: Take a screenshot of the current display and save it as a 24-bit BMP to the SD card at `file_path` (inherited from C `lcd.LCD`).
     - `set_mode(mode)`: Set the LCD rendering mode (inherited from C).
     - `set_scaling(scale_x, scale_y, scale_position=False)`: Set the display scaling factors (inherited from C).
     - `swap()`: Push the back buffer to the display (inherited from C).
@@ -735,8 +796,21 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - `refresh()`: Re-render the current text and scrollbar.
     - `scroll_down()`: Scroll down one line.
     - `scroll_up()`: Scroll up one line.
+    - `load_file(file_path)`: Load the contents of a file into the text box.
     - `set_current_line(line)`: Scroll the view to the specified line number.
     - `set_text(text)`: Set the text content and refresh the display.
+
+#### picoware-gui-text_editor
+- `TextEditor` class: A full-screen interactive text editor. Inherits from the C `textbox.TextBox` module and is driven by a `ViewManager`.
+    - `TYPE_ADD` (0), `TYPE_DELETE` (1): Constants passed as the first argument to the change callback.
+    - `__init__(view_manager, callback=None)`: Initialize the editor. `callback(action_type, char, cursor_pos)` is called on every character insertion or deletion — `action_type` is `TYPE_ADD` or `TYPE_DELETE`, `char` is the inserted character (or `None` on delete), and `cursor_pos` is the cursor position at the time of the change.
+    - `callback`: Property (r/w) — the change callback function.
+    - `current_text`: Property (r/w) — the full text content of the editor.
+    - `cursor`: Property (r/w) — current cursor position integer.
+    - `current_line`: Property (r/w) — current line number.
+    - `refresh()`: Redraw the editor display.
+    - `run()`: Process one input frame. Returns `False` when the user presses BACK, `True` otherwise. Handles UP/DOWN/LEFT/RIGHT cursor movement and character input including backspace.
+    - `set_text(text)`: Set the editor text content.
 
 #### picoware-gui-toggle
 - `Toggle` class: A labeled toggle switch widget with optional LVGL rendering.

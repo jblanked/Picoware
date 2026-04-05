@@ -1,5 +1,14 @@
 #include "lcd_mp.h"
+#include "py/mperrno.h"
 #include LCD_INCLUDE
+
+#ifndef PRINT
+#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
+#endif
+
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC)
+#include "../sd/fat32.h"
+#endif
 
 const mp_obj_type_t lcd_mp_type;
 
@@ -10,6 +19,19 @@ static uint16_t lcd_scale_x(lcd_mp_obj_t *self, uint16_t v)
 static uint16_t lcd_scale_y(lcd_mp_obj_t *self, uint16_t v)
 {
     return self->scale_set ? (uint16_t)(v * self->scale_y) : v;
+}
+static inline int lcd_obj_to_int(mp_obj_t arg)
+{
+    if (mp_obj_is_int(arg))
+    {
+        return mp_obj_get_int(arg);
+    }
+    else if (mp_obj_is_float(arg))
+    {
+        return (int)mp_obj_get_float(arg); // truncates toward zero
+    }
+    mp_raise_ValueError(MP_ERROR_TEXT("expected int or float"));
+    return 0;
 }
 
 void lcd_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
@@ -133,8 +155,8 @@ mp_obj_t lcd_mp_char(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
 
-    uint16_t x = mp_obj_get_int(args[1]);
-    uint16_t y = mp_obj_get_int(args[2]);
+    uint16_t x = lcd_obj_to_int(args[1]);
+    uint16_t y = lcd_obj_to_int(args[2]);
 
     const char *str = mp_obj_str_get_str(args[3]);
     if (strlen(str) != 1)
@@ -175,9 +197,9 @@ mp_obj_t lcd_mp_circle(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
 
-    uint16_t center_x = mp_obj_get_int(args[1]);
-    uint16_t center_y = mp_obj_get_int(args[2]);
-    uint16_t radius = mp_obj_get_int(args[3]);
+    uint16_t center_x = lcd_obj_to_int(args[1]);
+    uint16_t center_y = lcd_obj_to_int(args[2]);
+    uint16_t radius = lcd_obj_to_int(args[3]);
     uint16_t color = mp_obj_get_int(args[4]);
 
     if (self->scale_position)
@@ -223,9 +245,9 @@ mp_obj_t lcd_mp_fill_circle(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
 
-    uint16_t center_x = mp_obj_get_int(args[1]);
-    uint16_t center_y = mp_obj_get_int(args[2]);
-    uint16_t radius = mp_obj_get_int(args[3]);
+    uint16_t center_x = lcd_obj_to_int(args[1]);
+    uint16_t center_y = lcd_obj_to_int(args[2]);
+    uint16_t radius = lcd_obj_to_int(args[3]);
     uint16_t color = mp_obj_get_int(args[4]);
 
     if (self->scale_position)
@@ -257,10 +279,10 @@ mp_obj_t lcd_mp_fill_rectangle(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
 
-    uint16_t x = mp_obj_get_int(args[1]);
-    uint16_t y = mp_obj_get_int(args[2]);
-    uint16_t width = mp_obj_get_int(args[3]);
-    uint16_t height = mp_obj_get_int(args[4]);
+    uint16_t x = lcd_obj_to_int(args[1]);
+    uint16_t y = lcd_obj_to_int(args[2]);
+    uint16_t width = lcd_obj_to_int(args[3]);
+    uint16_t height = lcd_obj_to_int(args[4]);
     uint16_t color = mp_obj_get_int(args[5]);
 
     if (self->scale_position)
@@ -290,11 +312,11 @@ mp_obj_t lcd_mp_fill_round_rectangle(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
 
-    uint16_t x = mp_obj_get_int(args[1]);
-    uint16_t y = mp_obj_get_int(args[2]);
-    uint16_t width = mp_obj_get_int(args[3]);
-    uint16_t height = mp_obj_get_int(args[4]);
-    uint16_t radius = mp_obj_get_int(args[5]);
+    uint16_t x = lcd_obj_to_int(args[1]);
+    uint16_t y = lcd_obj_to_int(args[2]);
+    uint16_t width = lcd_obj_to_int(args[3]);
+    uint16_t height = lcd_obj_to_int(args[4]);
+    uint16_t radius = lcd_obj_to_int(args[5]);
     uint16_t color = mp_obj_get_int(args[6]);
 
     if (self->scale_position)
@@ -328,12 +350,12 @@ mp_obj_t lcd_mp_fill_triangle(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
 
-    uint16_t x1 = mp_obj_get_int(args[1]);
-    uint16_t y1 = mp_obj_get_int(args[2]);
-    uint16_t x2 = mp_obj_get_int(args[3]);
-    uint16_t y2 = mp_obj_get_int(args[4]);
-    uint16_t x3 = mp_obj_get_int(args[5]);
-    uint16_t y3 = mp_obj_get_int(args[6]);
+    uint16_t x1 = lcd_obj_to_int(args[1]);
+    uint16_t y1 = lcd_obj_to_int(args[2]);
+    uint16_t x2 = lcd_obj_to_int(args[3]);
+    uint16_t y2 = lcd_obj_to_int(args[4]);
+    uint16_t x3 = lcd_obj_to_int(args[5]);
+    uint16_t y3 = lcd_obj_to_int(args[6]);
     uint16_t color = mp_obj_get_int(args[7]);
 
     if (self->scale_position)
@@ -365,10 +387,10 @@ mp_obj_t lcd_mp_image_bytearray(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
 
-    uint16_t x = mp_obj_get_int(args[1]);
-    uint16_t y = mp_obj_get_int(args[2]);
-    uint16_t width = mp_obj_get_int(args[3]);
-    uint16_t height = mp_obj_get_int(args[4]);
+    uint16_t x = lcd_obj_to_int(args[1]);
+    uint16_t y = lcd_obj_to_int(args[2]);
+    uint16_t width = lcd_obj_to_int(args[3]);
+    uint16_t height = lcd_obj_to_int(args[4]);
 
     mp_buffer_info_t bufinfo;
     mp_get_buffer_raise(args[5], &bufinfo, MP_BUFFER_READ);
@@ -451,10 +473,10 @@ mp_obj_t lcd_mp_line(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
 
-    uint16_t x1 = mp_obj_get_int(args[1]);
-    uint16_t y1 = mp_obj_get_int(args[2]);
-    uint16_t x2 = mp_obj_get_int(args[3]);
-    uint16_t y2 = mp_obj_get_int(args[4]);
+    uint16_t x1 = lcd_obj_to_int(args[1]);
+    uint16_t y1 = lcd_obj_to_int(args[2]);
+    uint16_t x2 = lcd_obj_to_int(args[3]);
+    uint16_t y2 = lcd_obj_to_int(args[4]);
     uint16_t color = mp_obj_get_int(args[5]);
 
     if (self->scale_position)
@@ -483,8 +505,8 @@ mp_obj_t lcd_mp_pixel(size_t n_args, const mp_obj_t *args)
     {
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
-    uint16_t x_val = mp_obj_get_int(args[1]);
-    uint16_t y_val = mp_obj_get_int(args[2]);
+    uint16_t x_val = lcd_obj_to_int(args[1]);
+    uint16_t y_val = lcd_obj_to_int(args[2]);
     uint16_t color_val = mp_obj_get_int(args[3]);
 
     x_val = lcd_scale_x(self, x_val);
@@ -510,11 +532,11 @@ mp_obj_t lcd_mp_psram(size_t n_args, const mp_obj_t *args)
     }
 
 #ifdef LCD_MP_PSRAM
-    uint16_t x = mp_obj_get_int(args[1]);
-    uint16_t y = mp_obj_get_int(args[2]);
-    uint16_t width = mp_obj_get_int(args[3]);
-    uint16_t height = mp_obj_get_int(args[4]);
-    uint32_t addr = mp_obj_get_int(args[5]);
+    uint16_t x = lcd_obj_to_int(args[1]);
+    uint16_t y = lcd_obj_to_int(args[2]);
+    uint16_t width = lcd_obj_to_int(args[3]);
+    uint16_t height = lcd_obj_to_int(args[4]);
+    uint32_t addr = lcd_obj_to_int(args[5]);
 
     if (!self->scale_set)
     {
@@ -579,10 +601,10 @@ mp_obj_t lcd_mp_rectangle(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
 
-    uint16_t x = mp_obj_get_int(args[1]);
-    uint16_t y = mp_obj_get_int(args[2]);
-    uint16_t width = mp_obj_get_int(args[3]);
-    uint16_t height = mp_obj_get_int(args[4]);
+    uint16_t x = lcd_obj_to_int(args[1]);
+    uint16_t y = lcd_obj_to_int(args[2]);
+    uint16_t width = lcd_obj_to_int(args[3]);
+    uint16_t height = lcd_obj_to_int(args[4]);
     uint16_t color = mp_obj_get_int(args[5]);
 
     if (self->scale_position)
@@ -598,12 +620,120 @@ mp_obj_t lcd_mp_rectangle(size_t n_args, const mp_obj_t *args)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_rectangle_obj, 6, 6, lcd_mp_rectangle);
 
+mp_obj_t lcd_mp_screenshot(mp_obj_t self_in, mp_obj_t file_path)
+{
+    lcd_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (!self->initialized)
+    {
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("LCD object is not initialized"));
+    }
+#ifndef LCD_MP_READ_ROW
+    (void)self;
+    (void)file_path;
+    return mp_const_none;
+#endif
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC)
+    const char *path = mp_obj_str_get_str(file_path);
+    // Mount SD card if not already mounted
+    if (!fat32_is_mounted())
+    {
+        fat32_error_t err = fat32_mount();
+        if (err != FAT32_OK)
+        {
+            PRINT("Failed to mount SD card: %s\n", fat32_error_string(err));
+            return mp_const_none;
+        }
+    }
+    fat32_file_t *file = m_new_obj(fat32_file_t);
+    if (fat32_open(file, path) != FAT32_OK)
+    {
+        if (fat32_create(file, path) != FAT32_OK)
+        {
+            PRINT("Failed to open or create file: %s\n", path);
+            m_del(fat32_file_t, file, 1);
+            mp_raise_OSError(MP_EIO);
+        }
+    }
+
+    // BMP layout parameters
+    uint32_t img_w = (uint32_t)self->width;
+    uint32_t img_h = (uint32_t)self->height;
+    uint32_t row_bytes = img_w * 3U;               // 3 bytes per pixel (BGR888)
+    uint32_t padded_row = (row_bytes + 3U) & ~3U;  // rows must be 4-byte aligned
+    uint32_t file_size = 54U + padded_row * img_h; // 14 (file hdr) + 40 (DIB hdr) + pixel data
+
+    // --- BMP file header (14 bytes) ---
+    uint8_t file_hdr[14];
+    memset(file_hdr, 0, sizeof(file_hdr));
+    file_hdr[0] = 'B';
+    file_hdr[1] = 'M';
+    file_hdr[2] = (uint8_t)(file_size);
+    file_hdr[3] = (uint8_t)(file_size >> 8);
+    file_hdr[4] = (uint8_t)(file_size >> 16);
+    file_hdr[5] = (uint8_t)(file_size >> 24);
+    // reserved: bytes 6-9 remain 0
+    file_hdr[10] = 54; // pixel data offset = 54
+
+    // --- BITMAPINFOHEADER (40 bytes), 24-bit top-down ---
+    uint32_t u_neg_h = (uint32_t)(-(int32_t)img_h); // two's-complement negative height → top-down scan
+    uint8_t dib_hdr[40];
+    memset(dib_hdr, 0, sizeof(dib_hdr));
+    dib_hdr[0] = 40;               // header size
+    dib_hdr[4] = (uint8_t)(img_w); // width (LE)
+    dib_hdr[5] = (uint8_t)(img_w >> 8);
+    dib_hdr[6] = (uint8_t)(img_w >> 16);
+    dib_hdr[7] = (uint8_t)(img_w >> 24);
+    dib_hdr[8] = (uint8_t)(u_neg_h); // height, negative = top-down (LE)
+    dib_hdr[9] = (uint8_t)(u_neg_h >> 8);
+    dib_hdr[10] = (uint8_t)(u_neg_h >> 16);
+    dib_hdr[11] = (uint8_t)(u_neg_h >> 24);
+    dib_hdr[12] = 1;  // color planes
+    dib_hdr[14] = 24; // bits per pixel
+    // compression (BI_RGB=0), image size, pixels/meter, colors: all 0
+
+    size_t written = 0;
+    fat32_write(file, file_hdr, sizeof(file_hdr), &written);
+    fat32_write(file, dib_hdr, sizeof(dib_hdr), &written);
+
+    // --- Write pixel rows ---
+    // Framebuffers are 8-bit RGB332 (R[7:5] G[4:2] B[1:0]).
+    // BMP expects BGR888, rows padded to 4 bytes.
+    uint8_t *pixel_row = m_new(uint8_t, padded_row);
+    memset(pixel_row, 0, padded_row); // zero padding bytes once
+    uint8_t *src_row = m_new(uint8_t, img_w);
+    for (uint32_t ry = 0; ry < img_h; ry++)
+    {
+        LCD_MP_READ_ROW(ry, src_row);
+        for (uint32_t rx = 0; rx < img_w; rx++)
+        {
+            uint8_t p = src_row[rx];
+            uint8_t r3 = (p >> 5) & 0x7U;
+            uint8_t g3 = (p >> 2) & 0x7U;
+            uint8_t b2 = p & 0x3U;
+            pixel_row[rx * 3U + 0U] = (uint8_t)((b2 << 6) | (b2 << 4) | (b2 << 2) | b2); // B
+            pixel_row[rx * 3U + 1U] = (uint8_t)((g3 << 5) | (g3 << 2) | (g3 >> 1));      // G
+            pixel_row[rx * 3U + 2U] = (uint8_t)((r3 << 5) | (r3 << 2) | (r3 >> 1));      // R
+        }
+        fat32_write(file, pixel_row, padded_row, &written);
+    }
+    m_del(uint8_t, src_row, img_w);
+    m_del(uint8_t, pixel_row, padded_row);
+    fat32_close(file);
+    m_del(fat32_file_t, file, 1);
+#else
+    (void)self_in;
+    (void)file_path;
+#endif
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(lcd_mp_screenshot_obj, lcd_mp_screenshot);
+
 mp_obj_t lcd_mp_set_mode(mp_obj_t self_in, mp_obj_t mode)
 {
     lcd_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     if (!self->initialized)
     {
-        mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("LCD object is not initialized"));
     }
     uint8_t mode_val = mp_obj_get_int(mode);
 #ifdef LCD_MP_SET_MODE
@@ -664,8 +794,8 @@ mp_obj_t lcd_mp_text(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
 
-    uint16_t x = mp_obj_get_int(args[1]);
-    uint16_t y = mp_obj_get_int(args[2]);
+    uint16_t x = lcd_obj_to_int(args[1]);
+    uint16_t y = lcd_obj_to_int(args[2]);
     const char *text = mp_obj_str_get_str(args[3]);
     uint16_t color = mp_obj_get_int(args[4]);
     uint8_t font_size = 0; // Default font size
@@ -699,12 +829,12 @@ mp_obj_t lcd_mp_triangle(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
 
-    uint16_t x1 = mp_obj_get_int(args[1]);
-    uint16_t y1 = mp_obj_get_int(args[2]);
-    uint16_t x2 = mp_obj_get_int(args[3]);
-    uint16_t y2 = mp_obj_get_int(args[4]);
-    uint16_t x3 = mp_obj_get_int(args[5]);
-    uint16_t y3 = mp_obj_get_int(args[6]);
+    uint16_t x1 = lcd_obj_to_int(args[1]);
+    uint16_t y1 = lcd_obj_to_int(args[2]);
+    uint16_t x2 = lcd_obj_to_int(args[3]);
+    uint16_t y2 = lcd_obj_to_int(args[4]);
+    uint16_t x3 = lcd_obj_to_int(args[5]);
+    uint16_t y3 = lcd_obj_to_int(args[6]);
     uint16_t color = mp_obj_get_int(args[7]);
 
     if (self->scale_position)
@@ -735,6 +865,7 @@ STATIC const mp_rom_map_elem_t lcd_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR__pixel), MP_ROM_PTR(&lcd_mp_pixel_obj)},                               // self._pixel()
     {MP_ROM_QSTR(MP_QSTR__psram), MP_ROM_PTR(&lcd_mp_psram_obj)},                               // self._psram()
     {MP_ROM_QSTR(MP_QSTR__rectangle), MP_ROM_PTR(&lcd_mp_rectangle_obj)},                       // self._rectangle()
+    {MP_ROM_QSTR(MP_QSTR_screenshot), MP_ROM_PTR(&lcd_mp_screenshot_obj)},                      // self.screenshot()
     {MP_ROM_QSTR(MP_QSTR_set_mode), MP_ROM_PTR(&lcd_mp_set_mode_obj)},                          // self.set_mode()
     {MP_ROM_QSTR(MP_QSTR_set_scaling), MP_ROM_PTR(&lcd_mp_set_scaling_obj)},                    // self.set_scaling()
     {MP_ROM_QSTR(MP_QSTR_swap), MP_ROM_PTR(&lcd_mp_swap_obj)},                                  // self.swap()

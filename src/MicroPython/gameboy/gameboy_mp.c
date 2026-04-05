@@ -318,7 +318,7 @@ mp_obj_t gameboy_mp_start(size_t n_args, const mp_obj_t *args)
 #if ENABLE_SOUND
     audio_init_thread(); // allocate stream + init I2S + APU on core0
     multicore_reset_core1();
-    multicore_launch_core1_with_stack(audio_process_gb, audio_core1_stack, AUDIO_CORE1_STACK_SIZE);
+    multicore_launch_core1_with_stack(audio_process_gb, audio_core1_stack, AUDIO_CORE1_STACK_SIZE * sizeof(uint32_t));
 #endif
 
 #ifdef LCD_CLEAR

@@ -479,21 +479,16 @@ def run(view_manager) -> None:
         BUTTON_CENTER,
     )
 
-    input_manager = view_manager.input_manager
-    button = input_manager.button
+    button = view_manager.button
 
     if _mode == _MODE_MENU:
         if button == BUTTON_BACK:
-            input_manager.reset()
             view_manager.back()
         elif button in (BUTTON_UP, BUTTON_LEFT):
-            input_manager.reset()
             _menu.scroll_up()
         elif button in (BUTTON_DOWN, BUTTON_RIGHT):
-            input_manager.reset()
             _menu.scroll_down()
         elif button == BUTTON_CENTER:
-            input_manager.reset()
             selected = _menu.selected_index
             if selected == STATE_THEME_COLOR:
                 __open_choice()
@@ -506,16 +501,12 @@ def run(view_manager) -> None:
 
     elif _mode == _MODE_TIME_MENU:
         if button == BUTTON_BACK:
-            input_manager.reset()
             __back_to_menu()
         elif button in (BUTTON_UP, BUTTON_LEFT):
-            input_manager.reset()
             _time_menu.scroll_up()
         elif button in (BUTTON_DOWN, BUTTON_RIGHT):
-            input_manager.reset()
             _time_menu.scroll_down()
         elif button == BUTTON_CENTER:
-            input_manager.reset()
             selected = _time_menu.selected_index
             if selected == 0:  # Date & Time
                 __open_date_picker()
@@ -523,7 +514,7 @@ def run(view_manager) -> None:
                 __open_gmt_keyboard()
 
     elif _mode == _MODE_DATE_PICKER:
-        pending = view_manager.input_manager.button
+        pending = view_manager.button
         if not _date_picker.run():
             if pending == BUTTON_CENTER:
                 _saved_time = _date_picker.time
@@ -555,10 +546,8 @@ def run(view_manager) -> None:
 
     elif _mode == _MODE_TOGGLE:
         if button == BUTTON_BACK:
-            input_manager.reset()
             __back_to_menu()
         elif button == BUTTON_CENTER:
-            input_manager.reset()
             new_state = not _toggle.state
             _toggle.state = new_state
             cfg = __config()[_current_setting]
@@ -567,16 +556,12 @@ def run(view_manager) -> None:
 
     elif _mode == _MODE_CHOICE:
         if button == BUTTON_BACK:
-            input_manager.reset()
             __back_to_menu()
         elif button in (BUTTON_UP, BUTTON_LEFT):
-            input_manager.reset()
             _choice.scroll_up()
         elif button in (BUTTON_DOWN, BUTTON_RIGHT):
-            input_manager.reset()
             _choice.scroll_down()
         elif button == BUTTON_CENTER:
-            input_manager.reset()
             if _current_setting == STATE_THEME_COLOR:
                 selected_color = __color_values()[_choice.state]
                 __save_theme_color(selected_color)

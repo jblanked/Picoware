@@ -44,6 +44,7 @@ mp_obj_t lcd_mp_line(size_t n_args, const mp_obj_t *args);                 // dr
 mp_obj_t lcd_mp_pixel(size_t n_args, const mp_obj_t *args);                // draw a pixel on the LCD
 mp_obj_t lcd_mp_psram(size_t n_args, const mp_obj_t *args);                // draw a buffer from PSRAM
 mp_obj_t lcd_mp_rectangle(size_t n_args, const mp_obj_t *args);            // draw a rectangle on the LCD
+mp_obj_t lcd_mp_screenshot(mp_obj_t self_in, mp_obj_t file_path);          // take a screenshot of the LCD and save it to a file
 mp_obj_t lcd_mp_set_mode(mp_obj_t self_in, mp_obj_t mode);                 // set the LCD mode (PSRAM or HEAP)
 mp_obj_t lcd_mp_set_scaling(size_t n_args, const mp_obj_t *args);          // set the LCD scaling parameters
 mp_obj_t lcd_mp_swap(mp_obj_t self_in);                                    // swap function to update the display with the current framebuffer contents

@@ -209,10 +209,8 @@ class Server:
             )
             return
 
-        inp = self.view_manager.input_manager
-        but = inp.button
+        but = self.view_manager.button
         if but == BUTTON_BACK:
-            inp.reset()
             box.current_text += "Connection closed by user.\n"
             box.refresh()
             self.view_manager.log("Connection closed by user.", 2)
@@ -239,9 +237,9 @@ class Server:
 
             while True:
                 try:
-                    but = inp.button
+                    but = self.view_manager.input_manager.button
                     if but == BUTTON_BACK:
-                        inp.reset()
+                        self.view_manager.input_manager.reset()
                         box.current_text += "Connection closed by user.\n"
                         box.refresh()
                         self.view_manager.log("Connection closed by user.", 2)
@@ -817,8 +815,7 @@ def __menu_run(view_manager) -> None:
         BUTTON_RIGHT,
     )
 
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     global menu_state, edit_page_state, current_page_index, current_page_info
 
@@ -826,7 +823,6 @@ def __menu_run(view_manager) -> None:
         __menu_start(view_manager)
 
     if button == BUTTON_BACK:
-        inp.reset()
         if menu_state == STATE_MENU_MAIN:
             view_manager.back()
         elif menu_state in (STATE_RUNNING, STATE_MENU_EDIT):
@@ -857,13 +853,10 @@ def __menu_run(view_manager) -> None:
             __menu_start(view_manager)
 
     elif button in (BUTTON_UP, BUTTON_LEFT):
-        inp.reset()
         menu.scroll_up()
     elif button in (BUTTON_DOWN, BUTTON_RIGHT):
-        inp.reset()
         menu.scroll_down()
     elif button == BUTTON_CENTER:
-        inp.reset()
         selection = menu.selected_index
 
         if menu_state == STATE_RUNNING:

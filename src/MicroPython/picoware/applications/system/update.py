@@ -326,11 +326,9 @@ def run(view_manager) -> None:
 
     global _app_state, _update_info, _loading
 
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if button == BUTTON_BACK:
-        inp.reset()
         view_manager.back()
         return
 
@@ -360,7 +358,7 @@ def run(view_manager) -> None:
 
     elif _app_state == STATE_UPDATE_AVAILABLE:
         if button == BUTTON_CENTER:
-            inp.reset()
+
             # Start downloading the firmware
             if __check_for_update_download_start(_http, view_manager.storage):
                 _app_state = STATE_DOWNLOADING

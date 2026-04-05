@@ -653,12 +653,10 @@ def run(view_manager) -> None:
     global _download_all_mode, _current_app_index, _total_apps_to_download
     global _installed_apps, _update_check_data, _app_menu
 
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     # Handle BUTTON_BACK based on current state
     if button == BUTTON_BACK:
-        inp.reset()
         if _app_state == STATE_MAIN_MENU:
             # Exit app from main menu
             view_manager.back()
@@ -697,15 +695,12 @@ def run(view_manager) -> None:
     # Main menu state
     if _app_state == STATE_MAIN_MENU:
         if button in (BUTTON_UP, BUTTON_LEFT):
-            inp.reset()
             if _main_menu:
                 _main_menu.scroll_up()
         elif button in (BUTTON_DOWN, BUTTON_RIGHT):
-            inp.reset()
             if _main_menu:
                 _main_menu.scroll_down()
         elif button == BUTTON_CENTER:
-            inp.reset()
             if _main_menu:
                 selected_index = _main_menu.selected_index
                 if selected_index == 0:  # Update Apps
@@ -769,15 +764,12 @@ def run(view_manager) -> None:
     elif _app_state == STATE_UPDATES_LIST:
         # Handle updates list navigation
         if button in (BUTTON_UP, BUTTON_LEFT):
-            inp.reset()
             if _app_menu:
                 _app_menu.scroll_up()
         elif button in (BUTTON_DOWN, BUTTON_RIGHT):
-            inp.reset()
             if _app_menu:
                 _app_menu.scroll_down()
         elif button == BUTTON_CENTER:
-            inp.reset()
             if _app_menu and _updates_available:
                 selected_index = _app_menu.selected_index
                 if selected_index == 0:  # Update All
@@ -896,15 +888,12 @@ def run(view_manager) -> None:
     elif _app_state == STATE_CURRENT_APPS_LIST:
         # Handle current apps list navigation
         if button in (BUTTON_UP, BUTTON_LEFT):
-            inp.reset()
             if _app_menu:
                 _app_menu.scroll_up()
         elif button in (BUTTON_DOWN, BUTTON_RIGHT):
-            inp.reset()
             if _app_menu:
                 _app_menu.scroll_down()
         elif button == BUTTON_CENTER:
-            inp.reset()
             if _app_menu and _installed_apps:
                 selected_index = _app_menu.selected_index
                 if 0 <= selected_index < len(_installed_apps):
@@ -917,7 +906,6 @@ def run(view_manager) -> None:
     elif _app_state == STATE_CURRENT_APP_DETAILS:
         # Handle current app details screen
         if button == BUTTON_LEFT:
-            inp.reset()
             # Delete the selected app
             if __delete_app(view_manager, _selected_app_id):
                 view_manager.alert("App deleted!", False)
@@ -948,7 +936,6 @@ def run(view_manager) -> None:
             else:
                 view_manager.alert("Failed to delete app", False)
         elif button == BUTTON_CENTER:
-            inp.reset()
             # Check for update for this specific app
             app_info = None
             for app in _installed_apps:
@@ -1048,15 +1035,12 @@ def run(view_manager) -> None:
     elif _app_state == STATE_APP_LIST:
         # Handle menu navigation
         if button in (BUTTON_UP, BUTTON_LEFT):
-            inp.reset()
             if _app_menu:
                 _app_menu.scroll_up()
         elif button in (BUTTON_DOWN, BUTTON_RIGHT):
-            inp.reset()
             if _app_menu:
                 _app_menu.scroll_down()
         elif button == BUTTON_CENTER:
-            inp.reset()
             # Get selected app ID
             if _app_menu and _apps_data:
                 selected_index = _app_menu.selected_index
@@ -1112,13 +1096,11 @@ def run(view_manager) -> None:
     elif _app_state == STATE_APP_DETAILS:
         # Handle app details screen
         if button == BUTTON_LEFT:
-            inp.reset()
             # Go back to app list
             _app_state = STATE_APP_LIST
             if _app_menu:
                 _app_menu.draw()
         elif button == BUTTON_CENTER:
-            inp.reset()
             # Start downloading
             if _selected_app_details and _selected_app_details.file_downloads:
                 _files_to_download = _selected_app_details.file_downloads

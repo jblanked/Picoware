@@ -21,6 +21,29 @@
 #include "sdcard.h"
 #include "fat32.h"
 
+// RTC access for FAT32 timestamps
+#include <time.h>
+#include "pico/aon_timer.h"
+
+// Reads current RTC time and fills fat_date / fat_time with FAT32-encoded values.
+// Falls back to 2020-01-01 00:00:00 if the RTC has not been set.
+static void fat32_get_fat_datetime(uint16_t *fat_date, uint16_t *fat_time)
+{
+    // Default: 2020-01-01 00:00:00
+    *fat_date = (uint16_t)(((2020 - 1980) << 9) | (1 << 5) | 1);
+    *fat_time = 0;
+    struct tm t = {0};
+    if (aon_timer_get_time_calendar(&t))
+    {
+        int year = t.tm_year + 1900;
+        if (year >= 1980 && year <= 2107)
+        {
+            *fat_date = (uint16_t)(((year - 1980) << 9) | ((t.tm_mon + 1) << 5) | t.tm_mday);
+            *fat_time = (uint16_t)((t.tm_hour << 11) | (t.tm_min << 5) | (t.tm_sec >> 1));
+        }
+    }
+}
+
 #define RETURN_ON_ERROR(expr)        \
     {                                \
         fat32_error_t _res = (expr); \
@@ -1271,17 +1294,20 @@ static fat32_error_t link_entry(fat32_entry_t *entry, const char *path)
     }
 
     // Write 8.3 entry
+    uint16_t fat_date, fat_time;
+    fat32_get_fat_datetime(&fat_date, &fat_time);
+
     fat32_dir_entry_t dir_entry = {0};
     memcpy(dir_entry.shortname, shortname, 11);
     dir_entry.attr = entry->attr; // Normal file
     dir_entry.nt_res = 0;
     dir_entry.crt_time_tenth = 0;
-    dir_entry.crt_time = 0;
-    dir_entry.crt_date = 0;
-    dir_entry.lst_acc_date = 0;
+    dir_entry.crt_time = fat_time;
+    dir_entry.crt_date = fat_date;
+    dir_entry.lst_acc_date = fat_date;
     dir_entry.fst_clus_hi = entry->start_cluster >> 16;
-    dir_entry.wrt_time = 0;
-    dir_entry.wrt_date = 0;
+    dir_entry.wrt_time = fat_time;
+    dir_entry.wrt_date = fat_date;
     dir_entry.fst_clus_lo = entry->start_cluster & 0xFFFF;
     dir_entry.file_size = entry->size;
 
@@ -1764,14 +1790,19 @@ fat32_error_t fat32_write(fat32_file_t *file, const void *buffer, size_t size, s
         }
     }
 
-    // Update directory entry file size on disk
-    // After updating file->file_size:
+    // Update directory entry file size and modification timestamp on disk
     if (file->dir_entry_sector && file->dir_entry_offset < FAT32_SECTOR_SIZE)
     {
         RETURN_ON_ERROR(read_sector(file->dir_entry_sector, sector_buffer));
 
+        uint16_t fat_date, fat_time;
+        fat32_get_fat_datetime(&fat_date, &fat_time);
+
         fat32_dir_entry_t *dir_entry = (fat32_dir_entry_t *)(sector_buffer + file->dir_entry_offset);
         dir_entry->file_size = file->file_size;
+        dir_entry->wrt_date = fat_date;
+        dir_entry->wrt_time = fat_time;
+        dir_entry->lst_acc_date = fat_date;
 
         RETURN_ON_ERROR(write_sector(file->dir_entry_sector, sector_buffer));
     }

@@ -191,6 +191,20 @@ static void swap_float(float *a, float *b)
     *b = t;
 }
 
+static bool picoware_psram_ensure_initialized(void)
+{
+    if (lcd_mode != LCD_MODE_PSRAM)
+    {
+        return false;
+    }
+    if (!psram_initialized)
+    {
+        psram_instance = psram_qspi_init(pio1, -1, 1.0f);
+        psram_initialized = true;
+    }
+    return psram_initialized;
+}
+
 // ---------------------------------------------------------------------------
 // Public API – matches picoware_lcd.h
 // ---------------------------------------------------------------------------
@@ -258,6 +272,9 @@ void picoware_lcd_swap_region(uint16_t x, uint16_t y, uint16_t width, uint16_t h
 
     if (lcd_mode == LCD_MODE_PSRAM)
     {
+        if (module_initialized && !picoware_psram_ensure_initialized())
+            return;
+
         uint8_t psram_row_buffer[DISPLAY_WIDTH];
 
         for (uint16_t row = 0; row < height; row += LCD_CHUNK_LINES)

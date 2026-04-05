@@ -18,6 +18,12 @@ Open-source custom firmware for the PicoCalc, Video Game Module, and other Raspb
 ### Installation
 Follow the instructions in the [Installation Guide](./guides/Installation.md) to install Picoware on your device.
 
+## Connect Online
+- Discord: https://discord.gg/5aN9qwkEc6
+- YouTube: https://www.youtube.com/@jblanked
+- Instagram: https://www.instagram.com/jblanked
+- Other: https://www.jblanked.com/social/
+
 ### Supported boards
 - [Flipper Zero Video Game Module](https://shop.flipperzero.one/products/video-game-module-for-flipper-zero)
 - [PicoCalc Kit](https://www.clockworkpi.com/product-page/picocalc)

@@ -20,6 +20,19 @@ static uint16_t lcd_scale_y(lcd_mp_obj_t *self, uint16_t v)
 {
     return self->scale_set ? (uint16_t)(v * self->scale_y) : v;
 }
+static inline int lcd_obj_to_int(mp_obj_t arg)
+{
+    if (mp_obj_is_int(arg))
+    {
+        return mp_obj_get_int(arg);
+    }
+    else if (mp_obj_is_float(arg))
+    {
+        return (int)mp_obj_get_float(arg); // truncates toward zero
+    }
+    mp_raise_ValueError(MP_ERROR_TEXT("expected int or float"));
+    return 0;
+}
 
 void lcd_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
 {
@@ -142,8 +155,8 @@ mp_obj_t lcd_mp_char(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
 
-    uint16_t x = mp_obj_get_int(args[1]);
-    uint16_t y = mp_obj_get_int(args[2]);
+    uint16_t x = lcd_obj_to_int(args[1]);
+    uint16_t y = lcd_obj_to_int(args[2]);
 
     const char *str = mp_obj_str_get_str(args[3]);
     if (strlen(str) != 1)
@@ -184,9 +197,9 @@ mp_obj_t lcd_mp_circle(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
 
-    uint16_t center_x = mp_obj_get_int(args[1]);
-    uint16_t center_y = mp_obj_get_int(args[2]);
-    uint16_t radius = mp_obj_get_int(args[3]);
+    uint16_t center_x = lcd_obj_to_int(args[1]);
+    uint16_t center_y = lcd_obj_to_int(args[2]);
+    uint16_t radius = lcd_obj_to_int(args[3]);
     uint16_t color = mp_obj_get_int(args[4]);
 
     if (self->scale_position)
@@ -232,9 +245,9 @@ mp_obj_t lcd_mp_fill_circle(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
 
-    uint16_t center_x = mp_obj_get_int(args[1]);
-    uint16_t center_y = mp_obj_get_int(args[2]);
-    uint16_t radius = mp_obj_get_int(args[3]);
+    uint16_t center_x = lcd_obj_to_int(args[1]);
+    uint16_t center_y = lcd_obj_to_int(args[2]);
+    uint16_t radius = lcd_obj_to_int(args[3]);
     uint16_t color = mp_obj_get_int(args[4]);
 
     if (self->scale_position)
@@ -266,10 +279,10 @@ mp_obj_t lcd_mp_fill_rectangle(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
 
-    uint16_t x = mp_obj_get_int(args[1]);
-    uint16_t y = mp_obj_get_int(args[2]);
-    uint16_t width = mp_obj_get_int(args[3]);
-    uint16_t height = mp_obj_get_int(args[4]);
+    uint16_t x = lcd_obj_to_int(args[1]);
+    uint16_t y = lcd_obj_to_int(args[2]);
+    uint16_t width = lcd_obj_to_int(args[3]);
+    uint16_t height = lcd_obj_to_int(args[4]);
     uint16_t color = mp_obj_get_int(args[5]);
 
     if (self->scale_position)
@@ -299,11 +312,11 @@ mp_obj_t lcd_mp_fill_round_rectangle(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
 
-    uint16_t x = mp_obj_get_int(args[1]);
-    uint16_t y = mp_obj_get_int(args[2]);
-    uint16_t width = mp_obj_get_int(args[3]);
-    uint16_t height = mp_obj_get_int(args[4]);
-    uint16_t radius = mp_obj_get_int(args[5]);
+    uint16_t x = lcd_obj_to_int(args[1]);
+    uint16_t y = lcd_obj_to_int(args[2]);
+    uint16_t width = lcd_obj_to_int(args[3]);
+    uint16_t height = lcd_obj_to_int(args[4]);
+    uint16_t radius = lcd_obj_to_int(args[5]);
     uint16_t color = mp_obj_get_int(args[6]);
 
     if (self->scale_position)
@@ -337,12 +350,12 @@ mp_obj_t lcd_mp_fill_triangle(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
 
-    uint16_t x1 = mp_obj_get_int(args[1]);
-    uint16_t y1 = mp_obj_get_int(args[2]);
-    uint16_t x2 = mp_obj_get_int(args[3]);
-    uint16_t y2 = mp_obj_get_int(args[4]);
-    uint16_t x3 = mp_obj_get_int(args[5]);
-    uint16_t y3 = mp_obj_get_int(args[6]);
+    uint16_t x1 = lcd_obj_to_int(args[1]);
+    uint16_t y1 = lcd_obj_to_int(args[2]);
+    uint16_t x2 = lcd_obj_to_int(args[3]);
+    uint16_t y2 = lcd_obj_to_int(args[4]);
+    uint16_t x3 = lcd_obj_to_int(args[5]);
+    uint16_t y3 = lcd_obj_to_int(args[6]);
     uint16_t color = mp_obj_get_int(args[7]);
 
     if (self->scale_position)
@@ -374,10 +387,10 @@ mp_obj_t lcd_mp_image_bytearray(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
 
-    uint16_t x = mp_obj_get_int(args[1]);
-    uint16_t y = mp_obj_get_int(args[2]);
-    uint16_t width = mp_obj_get_int(args[3]);
-    uint16_t height = mp_obj_get_int(args[4]);
+    uint16_t x = lcd_obj_to_int(args[1]);
+    uint16_t y = lcd_obj_to_int(args[2]);
+    uint16_t width = lcd_obj_to_int(args[3]);
+    uint16_t height = lcd_obj_to_int(args[4]);
 
     mp_buffer_info_t bufinfo;
     mp_get_buffer_raise(args[5], &bufinfo, MP_BUFFER_READ);
@@ -460,10 +473,10 @@ mp_obj_t lcd_mp_line(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
 
-    uint16_t x1 = mp_obj_get_int(args[1]);
-    uint16_t y1 = mp_obj_get_int(args[2]);
-    uint16_t x2 = mp_obj_get_int(args[3]);
-    uint16_t y2 = mp_obj_get_int(args[4]);
+    uint16_t x1 = lcd_obj_to_int(args[1]);
+    uint16_t y1 = lcd_obj_to_int(args[2]);
+    uint16_t x2 = lcd_obj_to_int(args[3]);
+    uint16_t y2 = lcd_obj_to_int(args[4]);
     uint16_t color = mp_obj_get_int(args[5]);
 
     if (self->scale_position)
@@ -492,8 +505,8 @@ mp_obj_t lcd_mp_pixel(size_t n_args, const mp_obj_t *args)
     {
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
-    uint16_t x_val = mp_obj_get_int(args[1]);
-    uint16_t y_val = mp_obj_get_int(args[2]);
+    uint16_t x_val = lcd_obj_to_int(args[1]);
+    uint16_t y_val = lcd_obj_to_int(args[2]);
     uint16_t color_val = mp_obj_get_int(args[3]);
 
     x_val = lcd_scale_x(self, x_val);
@@ -519,11 +532,11 @@ mp_obj_t lcd_mp_psram(size_t n_args, const mp_obj_t *args)
     }
 
 #ifdef LCD_MP_PSRAM
-    uint16_t x = mp_obj_get_int(args[1]);
-    uint16_t y = mp_obj_get_int(args[2]);
-    uint16_t width = mp_obj_get_int(args[3]);
-    uint16_t height = mp_obj_get_int(args[4]);
-    uint32_t addr = mp_obj_get_int(args[5]);
+    uint16_t x = lcd_obj_to_int(args[1]);
+    uint16_t y = lcd_obj_to_int(args[2]);
+    uint16_t width = lcd_obj_to_int(args[3]);
+    uint16_t height = lcd_obj_to_int(args[4]);
+    uint32_t addr = lcd_obj_to_int(args[5]);
 
     if (!self->scale_set)
     {
@@ -588,10 +601,10 @@ mp_obj_t lcd_mp_rectangle(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
 
-    uint16_t x = mp_obj_get_int(args[1]);
-    uint16_t y = mp_obj_get_int(args[2]);
-    uint16_t width = mp_obj_get_int(args[3]);
-    uint16_t height = mp_obj_get_int(args[4]);
+    uint16_t x = lcd_obj_to_int(args[1]);
+    uint16_t y = lcd_obj_to_int(args[2]);
+    uint16_t width = lcd_obj_to_int(args[3]);
+    uint16_t height = lcd_obj_to_int(args[4]);
     uint16_t color = mp_obj_get_int(args[5]);
 
     if (self->scale_position)
@@ -781,8 +794,8 @@ mp_obj_t lcd_mp_text(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
 
-    uint16_t x = mp_obj_get_int(args[1]);
-    uint16_t y = mp_obj_get_int(args[2]);
+    uint16_t x = lcd_obj_to_int(args[1]);
+    uint16_t y = lcd_obj_to_int(args[2]);
     const char *text = mp_obj_str_get_str(args[3]);
     uint16_t color = mp_obj_get_int(args[4]);
     uint8_t font_size = 0; // Default font size
@@ -816,12 +829,12 @@ mp_obj_t lcd_mp_triangle(size_t n_args, const mp_obj_t *args)
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
 
-    uint16_t x1 = mp_obj_get_int(args[1]);
-    uint16_t y1 = mp_obj_get_int(args[2]);
-    uint16_t x2 = mp_obj_get_int(args[3]);
-    uint16_t y2 = mp_obj_get_int(args[4]);
-    uint16_t x3 = mp_obj_get_int(args[5]);
-    uint16_t y3 = mp_obj_get_int(args[6]);
+    uint16_t x1 = lcd_obj_to_int(args[1]);
+    uint16_t y1 = lcd_obj_to_int(args[2]);
+    uint16_t x2 = lcd_obj_to_int(args[3]);
+    uint16_t y2 = lcd_obj_to_int(args[4]);
+    uint16_t x3 = lcd_obj_to_int(args[5]);
+    uint16_t y3 = lcd_obj_to_int(args[6]);
     uint16_t color = mp_obj_get_int(args[7]);
 
     if (self->scale_position)

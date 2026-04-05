@@ -22,12 +22,8 @@
 #include "fat32.h"
 
 // RTC access for FAT32 timestamps
-#if PICO_RP2350
 #include <time.h>
 #include "pico/aon_timer.h"
-#else
-#include "hardware/rtc.h"
-#endif
 
 // Reads current RTC time and fills fat_date / fat_time with FAT32-encoded values.
 // Falls back to 2020-01-01 00:00:00 if the RTC has not been set.
@@ -36,7 +32,6 @@ static void fat32_get_fat_datetime(uint16_t *fat_date, uint16_t *fat_time)
     // Default: 2020-01-01 00:00:00
     *fat_date = (uint16_t)(((2020 - 1980) << 9) | (1 << 5) | 1);
     *fat_time = 0;
-#if PICO_RP2350
     struct tm t = {0};
     if (aon_timer_get_time_calendar(&t))
     {
@@ -47,17 +42,6 @@ static void fat32_get_fat_datetime(uint16_t *fat_date, uint16_t *fat_time)
             *fat_time = (uint16_t)((t.tm_hour << 11) | (t.tm_min << 5) | (t.tm_sec >> 1));
         }
     }
-#else
-    datetime_t dt = {0};
-    if (rtc_get_datetime(&dt))
-    {
-        if (dt.year >= 1980 && dt.year <= 2107)
-        {
-            *fat_date = (uint16_t)(((dt.year - 1980) << 9) | (dt.month << 5) | dt.day);
-            *fat_time = (uint16_t)((dt.hour << 11) | (dt.min << 5) | (dt.sec >> 1));
-        }
-    }
-#endif
 }
 
 #define RETURN_ON_ERROR(expr)        \

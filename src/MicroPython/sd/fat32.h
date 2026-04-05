@@ -1,7 +1,7 @@
 /*
-Author: Blair Leduc
-License: MIT License
+Authors: Blair Leduc, JBLanked
 Source: https://github.com/BlairLeduc/picocalc-text-starter
+Source: https://github.com/jblanked/Picoware/blob/main/src/MicroPython/sd/fat32.h
 */
 
 #pragma once

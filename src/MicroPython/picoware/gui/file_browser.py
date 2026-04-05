@@ -266,7 +266,6 @@ class FileBrowser:
 
         self._text_editor = TextEditor(self._vm)
         self._text_editor.load_file(path)
-        del data
 
         return True
 

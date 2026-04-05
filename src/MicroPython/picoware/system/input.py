@@ -89,87 +89,7 @@ class Input:
         self._was_pressed = False
         self._was_capitalized = False
 
-    def __del__(self):
-        """Destructor to clean up resources."""
-        self.reset()
-        if self.pin is not None:
-            self.pin.irq(handler=None)
-            del self.pin
-            self.pin = None
-
-        if self._current_board_id not in (
-            BOARD_WAVESHARE_1_28_RP2350,
-            BOARD_WAVESHARE_1_43_RP2350,
-            BOARD_WAVESHARE_3_49_RP2350,
-        ):
-            from picoware_southbridge import deinit
-
-            deinit()
-
-    @property
-    def battery(self) -> int:
-        """Returns the current battery level as a percentage (0-100)."""
-        if self._current_board_id in (
-            BOARD_WAVESHARE_1_28_RP2350,
-            BOARD_WAVESHARE_1_43_RP2350,
-            BOARD_WAVESHARE_3_49_RP2350,
-        ):
-            from waveshare_battery import get_percentage
-
-            return get_percentage()
-
-        from picoware_southbridge import get_battery_percentage
-
-        return get_battery_percentage()
-
-    @property
-    def button(self) -> int:
-        """Returns the last button pressed."""
-        if self._current_board_id not in (
-            BOARD_WAVESHARE_1_28_RP2350,
-            BOARD_WAVESHARE_1_43_RP2350,
-            BOARD_WAVESHARE_3_49_RP2350,
-        ):
-            # added this since scheduler isnt working yet
-            from picoware_keyboard import poll, key_available
-
-            poll()
-            if key_available():
-                self.on_key_callback()
-        return self._last_button
-
-    @property
-    def gesture(self):
-        """Returns the last touch gesture."""
-        return self._last_gesture
-
-    @property
-    def has_touch_support(self) -> bool:
-        """Returns True if touch input is supported on the current board."""
-        return self._current_board_id in (
-            BOARD_WAVESHARE_1_28_RP2350,
-            BOARD_WAVESHARE_1_43_RP2350,
-            BOARD_WAVESHARE_3_49_RP2350,
-        )
-
-    @property
-    def point(self) -> tuple:
-        """Returns the last touch point as (x, y)."""
-        return self._last_point
-
-    @property
-    def was_capitalized(self) -> bool:
-        """Returns True if the last key pressed was a capital letter."""
-        return self._was_capitalized
-
-    def _key_to_button(self, key) -> int:
-        """Maps a key to a button.
-
-        Args:
-            key: Key code as integer (from C module) or string (for compatibility)
-        """
-
-        button_map = {
+        self._button_map = {
             buttons.KEY_UP: buttons.BUTTON_UP,
             buttons.KEY_DOWN: buttons.BUTTON_DOWN,
             buttons.KEY_LEFT: buttons.BUTTON_LEFT,
@@ -177,6 +97,7 @@ class Input:
             buttons.KEY_ESC: self._key_esc,
             buttons.KEY_HOME: buttons.BUTTON_HOME,
             buttons.KEY_DEL: buttons.BUTTON_BACKSPACE,
+            buttons.KEY_END: buttons.BUTTON_END,
             8: self._key_back,
             9: buttons.BUTTON_TAB,
             13: buttons.BUTTON_CENTER,
@@ -281,12 +202,104 @@ class Input:
             124: buttons.BUTTON_PIPE,  # |
             125: buttons.BUTTON_RIGHT_BRACE,  # }
             126: buttons.BUTTON_TILDE,  # ~
+            # function keys
+            buttons.KEY_F1: buttons.BUTTON_F1,
+            buttons.KEY_F2: buttons.BUTTON_F2,
+            buttons.KEY_F3: buttons.BUTTON_F3,
+            buttons.KEY_F4: buttons.BUTTON_F4,
+            buttons.KEY_F5: buttons.BUTTON_F5,
+            buttons.KEY_F6: buttons.BUTTON_F6,
+            buttons.KEY_F7: buttons.BUTTON_F7,
+            buttons.KEY_F8: buttons.BUTTON_F8,
+            buttons.KEY_F9: buttons.BUTTON_F9,
+            buttons.KEY_F10: buttons.BUTTON_F10,
         }
 
+    def __del__(self):
+        """Destructor to clean up resources."""
+        self.reset()
+        if self.pin is not None:
+            self.pin.irq(handler=None)
+            del self.pin
+            self.pin = None
+
+        if self._current_board_id not in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
+            from picoware_southbridge import deinit
+
+            deinit()
+        del self._button_map
+        self._button_map = None
+
+    @property
+    def battery(self) -> int:
+        """Returns the current battery level as a percentage (0-100)."""
+        if self._current_board_id in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
+            from waveshare_battery import get_percentage
+
+            return get_percentage()
+
+        from picoware_southbridge import get_battery_percentage
+
+        return get_battery_percentage()
+
+    @property
+    def button(self) -> int:
+        """Returns the last button pressed."""
+        if self._current_board_id not in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
+            # added this since scheduler isnt working yet
+            from picoware_keyboard import poll, key_available
+
+            poll()
+            if key_available():
+                self.on_key_callback()
+        return self._last_button
+
+    @property
+    def gesture(self):
+        """Returns the last touch gesture."""
+        return self._last_gesture
+
+    @property
+    def has_touch_support(self) -> bool:
+        """Returns True if touch input is supported on the current board."""
+        return self._current_board_id in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        )
+
+    @property
+    def point(self) -> tuple:
+        """Returns the last touch point as (x, y)."""
+        return self._last_point
+
+    @property
+    def was_capitalized(self) -> bool:
+        """Returns True if the last key pressed was a capital letter."""
+        return self._was_capitalized
+
+    def _key_to_button(self, key) -> int:
+        """Maps a key to a button.
+
+        Args:
+            key: Key code as integer (from C module) or string (for compatibility)
+        """
         if 65 <= key <= 90:
             self._was_capitalized = True
 
-        return button_map.get(key, buttons.BUTTON_NONE)
+        return self._button_map.get(key, buttons.BUTTON_NONE)
 
     def button_to_char(self, button: int) -> str:
         """Converts a button code to its corresponding character.

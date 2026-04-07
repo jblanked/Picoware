@@ -370,14 +370,15 @@ def __open_date_picker() -> None:
 def __open_gmt_keyboard() -> None:
     """Open the keyboard for entering the GMT offset."""
     global _mode, _gmt_save_requested
-    _gmt_save_requested = False
 
     keyboard = _view_manager.keyboard
     keyboard.reset()
     keyboard.title = "GMT Offset"
     keyboard.response = str(__load_gmt_offset())
     keyboard.set_save_callback(__gmt_save_callback)
+    keyboard.input_manager.reset()
     keyboard.run(force=True)
+    _gmt_save_requested = False
     _mode = _MODE_GMT_KEYBOARD
 
 

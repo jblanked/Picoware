@@ -600,5 +600,23 @@ def stop(view_manager) -> None:
         del _menu
         _menu = None
 
+    if view_manager.draw.use_lvgl:
+        # restart with wifi disconnected...
+        if view_manager._wifi is not None:
+            from picoware.system.system import System
+
+            sys = System()
+            sys.hard_reset()
+    else:
+        if view_manager._wifi is None:
+            from picoware.system.system import System
+
+            sys = System()
+            if sys.has_wifi:
+                # wifi was disabled before so just restart...
+                # we probably could just deinit lvgl and continue
+                # but maybe thats something we'll try later...
+                sys.hard_reset()
+
     view_manager.keyboard.reset()
     collect()

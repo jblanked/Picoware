@@ -112,11 +112,13 @@ mp_obj_t picoware_lvgl_init(void)
 {
     if (lvgl_initialized || LV_GLOBAL_DEFAULT()->inited)
     {
-        LV_GLOBAL_DEFAULT()->inited = false;
-        LV_GLOBAL_DEFAULT()->deinit_in_progress = false;
         lvgl_display = NULL;
         lvgl_initialized = false;
+        mp_lv_deinit_gc();
     }
+
+    // Ensure a clean, zero-initialized lv_global_t before lv_init()
+    mp_lv_init_gc();
 
     // Initialize LVGL
     lv_init();

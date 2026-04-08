@@ -168,6 +168,10 @@ class ViewManager:
         if syst.has_audio:
             self._audio = Audio()
 
+        if self._draw.use_lvgl:
+            # disable networking...
+            self._wifi = None
+
         # Clear screen
         self.clear()
 

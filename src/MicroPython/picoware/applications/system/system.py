@@ -102,7 +102,6 @@ def run(view_manager) -> None:
             system = System()
             system.hard_reset()
         elif _system_index == 6:
-
             from picoware.gui.choice import Choice
             from picoware.system.vector import Vector
 
@@ -118,17 +117,18 @@ def run(view_manager) -> None:
             )
             choice.draw()
             choice.open()
-
+            inp = view_manager.input_manager
+            inp.reset()
             while True:
-                _button = view_manager.button
+                _button = inp.button
                 if _button in (BUTTON_LEFT, BUTTON_UP):
-
+                    inp.reset()
                     choice.scroll_up()
                 elif _button in (BUTTON_RIGHT, BUTTON_DOWN):
-
+                    inp.reset()
                     choice.scroll_down()
                 elif _button == BUTTON_CENTER:
-
+                    inp.reset()
                     if choice.is_open():
                         choice.close()
 
@@ -148,7 +148,7 @@ def run(view_manager) -> None:
                 elif _button == BUTTON_BACK:
                     del choice
                     choice = None
-
+                    inp.reset()
                     view_manager.draw.clear()
                     _system.draw()
                     break

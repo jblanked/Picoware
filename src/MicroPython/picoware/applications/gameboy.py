@@ -30,13 +30,13 @@ def start(view_manager) -> bool:
     d.swap()
 
     inp = view_manager.input_manager
+    inp.reset()
     while True:
         but = inp.button
         if but != -1:
             inp.reset()
             if but == 5:  # back
                 return False
-
             break
 
     view_manager.freq(True)  # set to lower frequency

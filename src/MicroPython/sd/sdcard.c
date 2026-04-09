@@ -79,7 +79,7 @@ static void sd_spi_read_buf(uint8_t *dst, size_t len)
 static bool sd_wait_ready(void)
 {
     uint8_t response;
-    uint32_t timeout = 10000; // Add timeout to prevent infinite loop
+    uint32_t timeout = 500000; // ~160 ms at 25 MHz; SD spec allows up to 250 ms for programming
     do
     {
         response = sd_spi_write_read(0xFF);
@@ -197,39 +197,59 @@ sd_error_t sd_read_block(uint32_t block, uint8_t *buffer)
 
 sd_error_t sd_write_block(uint32_t block, const uint8_t *buffer)
 {
-    uint32_t addr = is_sdhc ? block : block * SD_BLOCK_SIZE;
-    uint8_t response = sd_send_command(SD_CMD24, addr);
-    if (response != 0)
+    for (int attempt = 0; attempt < 3; attempt++)
     {
+        // Wait for card to finish any previous programming before issuing CMD24.
+        // If sd_wait_ready times out the card is still busy; retry.
+        sd_cs_select();
+        bool ready = sd_wait_ready();
         sd_cs_deselect();
-        return SD_ERROR_WRITE_FAILED;
+        if (!ready)
+        {
+            continue;
+        }
+
+        uint32_t addr = is_sdhc ? block : block * SD_BLOCK_SIZE;
+        uint8_t response = sd_send_command(SD_CMD24, addr);
+        if (response != 0)
+        {
+            sd_cs_deselect();
+            continue;
+        }
+
+        // Send data token
+        sd_spi_write_read(SD_DATA_START_BLOCK);
+
+        // Send data
+        sd_spi_write_buf(buffer, SD_BLOCK_SIZE);
+
+        // Send dummy CRC
+        sd_spi_write_read(0xFF);
+        sd_spi_write_read(0xFF);
+
+        // Check data response
+        response = sd_spi_write_read(0xFF) & 0x1F;
+        sd_cs_deselect();
+
+        if (response != 0x05)
+        {
+            continue;
+        }
+
+        // Wait for programming to finish; propagate timeout as an error
+        sd_cs_select();
+        ready = sd_wait_ready();
+        sd_cs_deselect();
+
+        if (!ready)
+        {
+            continue;
+        }
+
+        return SD_OK;
     }
 
-    // Send data token
-    sd_spi_write_read(SD_DATA_START_BLOCK);
-
-    // Send data
-    sd_spi_write_buf(buffer, SD_BLOCK_SIZE);
-
-    // Send dummy CRC
-    sd_spi_write_read(0xFF);
-    sd_spi_write_read(0xFF);
-
-    // Check data response
-    response = sd_spi_write_read(0xFF) & 0x1F;
-    sd_cs_deselect();
-
-    if (response != 0x05)
-    {
-        return SD_ERROR_WRITE_FAILED;
-    }
-
-    // Wait for programming to finish
-    sd_cs_select();
-    sd_wait_ready();
-    sd_cs_deselect();
-
-    return SD_OK;
+    return SD_ERROR_WRITE_FAILED;
 }
 
 sd_error_t sd_read_blocks(uint32_t start_block, uint32_t num_blocks, uint8_t *buffer)

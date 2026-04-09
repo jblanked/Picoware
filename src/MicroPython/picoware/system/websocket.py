@@ -496,6 +496,7 @@ class WebSocketAsync:
         timeout: float = 10.0,
         callback: callable = None,  # one-argument function (data: Any)
         thread_manager=None,
+        stack_size: int = 32 * 1024,
     ):
         import _thread
 
@@ -509,6 +510,7 @@ class WebSocketAsync:
         self._lock = _thread.allocate_lock()
         self._thread_manager = thread_manager
         self._current_task = None
+        self._stack_size = stack_size
 
     def __del__(self):
         """Destructor to clean up resources."""
@@ -606,6 +608,7 @@ class WebSocketAsync:
                     "WebSocket",
                     function=_thread_func,
                     args=(),
+                    stack_size=self._stack_size,
                 )
                 self._current_task = task
                 self._thread_manager.add_task(task)

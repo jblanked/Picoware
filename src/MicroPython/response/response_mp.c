@@ -138,7 +138,8 @@ void response_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
             destination[0] = MP_OBJ_FROM_PTR(&response_mp_del_obj);
             break;
         default:
-            return; // Fail
+            destination[1] = MP_OBJ_SENTINEL; // not found here; fall through to locals_dict
+            break;
         };
     }
     else if (destination[1] != MP_OBJ_NULL)

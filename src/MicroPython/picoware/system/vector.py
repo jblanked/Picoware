@@ -10,6 +10,8 @@ class Vector(vector.Vector):
     @param z: The z-coordinate of the vector.
     """
 
+    __slots__ = ("x", "y", "z")
+
     def __init__(self, x=0, y=0, z=0):
         super().__init__(
             x, y, z, isinstance(x, int) and isinstance(y, int) and isinstance(z, int)

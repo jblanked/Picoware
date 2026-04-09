@@ -314,15 +314,7 @@ mp_obj_t level_mp_get_entity(mp_obj_t self_in, mp_obj_t index_obj)
     {
         mp_raise_ValueError(MP_ERROR_TEXT("Entity context is null"));
     }
-    // Wrap the Entity* in a new entity_mp_obj_t
-    entity_mp_obj_t *entity_obj = mp_obj_malloc(entity_mp_obj_t, &entity_mp_type);
-    entity_obj->base.type = &entity_mp_type;
-    entity_obj->context = entity_ctx;
-    entity_obj->freed = false;
-    // we'll come back positions and such later until needed..
-    // right now this is just used in Free Roam which only
-    // needs name and type which are provided by the Entity context
-    return MP_OBJ_FROM_PTR(entity_obj);
+    return MP_OBJ_FROM_PTR(entity_ctx->mp_ctx);
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(level_mp_get_entity_obj, level_mp_get_entity);
 

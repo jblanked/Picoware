@@ -82,8 +82,6 @@ class FreeRoamGame:
         )
         from free_roam.sprite import Sprite
 
-        self.draw.fill_screen(COLOR_WHITE)
-        self.draw.text(Vector(0, 10), "Initializing game...", COLOR_BLACK)
         self.view_manager.log("Initializing Free Roam Game...")
 
         if self.is_game_running or self.engine:
@@ -108,13 +106,24 @@ class FreeRoamGame:
             self.view_manager.log("Failed to create Game object", 2)
             return False
 
-        self.view_manager.log("Game object created successfully")
-
         # Create the player instance if it doesn't exist
         if not self.player:
             from free_roam.player import Player
+            from json import loads as json_loads
 
-            self.player = Player()
+            data: str = self.view_manager.storage.read(
+                "picoware/flip_social/username.json"
+            )
+            player = "Player"
+            if data is not None:
+                try:
+                    obj: dict = json_loads(data)
+                    if "username" in obj:
+                        player = obj["username"]
+                except Exception:
+                    pass
+
+            self.player = Player(player)
             if not self.player:
                 self.view_manager.log("Failed to create Player object", 2)
                 # Failed to create Player object
@@ -126,13 +135,10 @@ class FreeRoamGame:
         self.player.sound_toggle = self.sound_toggle
         self.player.vibration_toggle = self.vibration_toggle
 
-        self.draw.fill_screen(COLOR_WHITE)
-        self.draw.text(Vector(0, 10), "Adding levels and player...", COLOR_BLACK)
-
         # add levels and player to the game
-        level1 = Level("Tutorial", Vector(128, 64), game)
-        level2 = Level("First", Vector(128, 64), game)
-        level3 = Level("Second", Vector(128, 64), game)
+        level1 = Level("Tutorial", self.draw.size, game)
+        level2 = Level("First", self.draw.size, game)
+        level3 = Level("Second", self.draw.size, game)
 
         # we'll clear ourselves and swap afterwards too
         level1.clear_allowed = False
@@ -275,9 +281,195 @@ class FreeRoamGame:
             return False
 
         self.view_manager.log("GameEngine created successfully")
+        self.view_manager.log("Starting Free Roam Game...")
+        self.is_game_running = True  # Set the flag to indicate game is running
+        return True
 
-        self.draw.fill_screen(COLOR_WHITE)
-        self.draw.text(Vector(0, 10), "Starting game engine...", COLOR_BLACK)
+    def start_game_online(self) -> bool:
+        """Start the online multiplayer game"""
+        from math import pi
+        from picoware.engine.engine import GameEngine
+        from picoware.engine.level import Level
+        from picoware.engine.game import Game
+        from picoware.system.vector import Vector
+        from picoware.engine.camera import Camera, CAMERA_THIRD_PERSON
+        from picoware.engine.entity import (
+            SPRITE_3D_HOUSE,
+            SPRITE_3D_TREE,
+        )
+        from free_roam.sprite import Sprite
+
+        self.view_manager.log("Initializing Free Roam Game...")
+
+        if self.is_game_running or self.engine:
+            # Game already running, skipping start
+            self.view_manager.log("Game already running, skipping initialization")
+            return True
+
+        # Create the game instance with 3rd person perspective
+        game = Game(
+            "Free Roam",
+            self.draw.size,
+            self.draw,
+            self.view_manager.input_manager,
+            COLOR_WHITE,  # foreground color (actually black)
+            COLOR_BLACK,  # background color (actually white)
+            Camera(
+                perspective=CAMERA_THIRD_PERSON
+            ),  # Use 3rd person camera perspective
+        )
+        if not game:
+            # Failed to create Game object
+            self.view_manager.log("Failed to create Game object", 2)
+            return False
+
+        # Create the player instance if it doesn't exist
+        if not self.player:
+            from free_roam.player import Player
+            from json import loads as json_loads
+
+            data: str = self.view_manager.storage.read(
+                "picoware/flip_social/username.json"
+            )
+            player = "Player"
+            if data is not None:
+                try:
+                    obj: dict = json_loads(data)
+                    if "username" in obj:
+                        player = obj["username"]
+                except Exception:
+                    pass
+
+            self.player = Player(player)
+            if not self.player:
+                self.view_manager.log("Failed to create Player object", 2)
+                # Failed to create Player object
+                return False
+
+        self.view_manager.log("Player object created successfully")
+
+        # set sound/vibration toggle states
+        self.player.sound_toggle = self.sound_toggle
+        self.player.vibration_toggle = self.vibration_toggle
+
+        self.view_manager.log("Adding levels and player...")
+
+        # add levels and player to the game
+        level_online = Level("Online", self.draw.size, game)
+
+        # we'll clear ourselves and swap afterwards too
+        level_online.clear_allowed = False
+
+        level_online.entity_add(self.player)
+
+        # Town (level 2) - 4 houses spread across the open map
+        house1 = Sprite(
+            "House 1",
+            Vector(14, 13),
+            SPRITE_3D_HOUSE,
+            10.0,
+            10.0,
+            0.0,
+            Vector(-1, -1),
+            0x03EF,
+        )
+        house2 = Sprite(
+            "House 2",
+            Vector(48, 13),
+            SPRITE_3D_HOUSE,
+            10.0,
+            10.0,
+            pi / 2,
+            Vector(-1, -1),
+            0x03EF,
+        )
+        house3 = Sprite(
+            "House 3",
+            Vector(14, 43),
+            SPRITE_3D_HOUSE,
+            10.0,
+            10.0,
+            pi,
+            Vector(-1, -1),
+            0x03EF,
+        )
+        house4 = Sprite(
+            "House 4",
+            Vector(48, 43),
+            SPRITE_3D_HOUSE,
+            10.0,
+            10.0,
+            pi * 1.5,
+            Vector(-1, -1),
+            0x03EF,
+        )
+        level_online.entity_add(house1)
+        level_online.entity_add(house2)
+        level_online.entity_add(house3)
+        level_online.entity_add(house4)
+
+        # Forest (level 3) - trees scattered throughout the open map
+        tree_positions = [
+            Vector(8, 5),
+            Vector(20, 5),
+            Vector(40, 5),
+            Vector(55, 5),
+            Vector(5, 15),
+            Vector(25, 12),
+            Vector(38, 12),
+            Vector(58, 15),
+            Vector(5, 28),
+            Vector(58, 28),
+            Vector(5, 42),
+            Vector(25, 45),
+            Vector(38, 45),
+            Vector(58, 42),
+            Vector(8, 51),
+            Vector(55, 51),
+        ]
+        tree_names = [
+            "OTree 1",
+            "OTree 2",
+            "OTree 3",
+            "OTree 4",
+            "OTree 5",
+            "OTree 6",
+            "OTree 7",
+            "OTree 8",
+            "OTree 9",
+            "OTree 10",
+            "OTree 11",
+            "OTree 12",
+            "OTree 13",
+            "OTree 14",
+            "OTree 15",
+            "OTree 16",
+        ]
+        for i in range(16):
+            level_online.entity_add(
+                Sprite(
+                    tree_names[i],
+                    tree_positions[i],
+                    SPRITE_3D_TREE,
+                    3.0,
+                    1.0,
+                    0.0,
+                    Vector(-1, -1),
+                    0x07E0,
+                )
+            )
+
+        game.level_add(level_online)
+
+        self.view_manager.log("Levels and player added to game successfully")
+
+        self.engine = GameEngine(game, 240)
+        if not self.engine:
+            # Failed to create GameEngine
+            self.view_manager.log("Failed to create GameEngine", 2)
+            return False
+
+        self.view_manager.log("GameEngine created successfully")
         self.view_manager.log("Starting Free Roam Game...")
         self.is_game_running = True  # Set the flag to indicate game is running
         return True
@@ -319,8 +511,21 @@ class FreeRoamGame:
         # Initialize player if not already done
         if not self.player:
             from free_roam.player import Player
+            from json import loads as json_loads
 
-            self.player = Player()
+            data: str = self.view_manager.storage.read(
+                "picoware/flip_social/username.json"
+            )
+            player = "Player"
+            if data is not None:
+                try:
+                    obj: dict = json_loads(data)
+                    if "username" in obj:
+                        player = obj["username"]
+                except Exception:
+                    pass
+
+            self.player = Player(player)
             if self.player:
                 self.player.free_roam_game = self
                 self.player.sound_toggle = self.sound_toggle
@@ -330,11 +535,6 @@ class FreeRoamGame:
         if self.player:
             self.player.draw_current_view(self.draw)
 
-            if self.player.should_leave_game:
-                self.sound_toggle = self.player.sound_toggle
-                self.vibration_toggle = self.player.vibration_toggle
-                self.end_game()  # End the game if the player wants to leave
-
     def update_input(self, key: int):
         """update input for the game"""
         self.last_input = key
@@ -342,7 +542,8 @@ class FreeRoamGame:
         # Only run input_manager when not in an active game to avoid input conflicts
         if not (
             self.player
-            and self.player.current_main_view == GAME_VIEW_GAME_LOCAL
+            and self.player.current_main_view
+            in (GAME_VIEW_GAME_LOCAL, GAME_VIEW_GAME_ONLINE)
             and self.is_game_running
         ):
             self.input_manager()

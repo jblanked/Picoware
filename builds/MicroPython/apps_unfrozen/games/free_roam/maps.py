@@ -78,3 +78,23 @@ def map_tutorial(width: int = 20, height: int = 20):
         dynamic_map.set_tile(width - 1, mid - gap + dy, TILE_TELEPORT)
 
     return dynamic_map
+
+
+def map_online():
+    """Create and return the online map."""
+    from free_roam.dynamic_map import DynamicMap
+
+    # Multiplayer gathering town: 64x57 open area with border walls.
+    # Houses and trees are Sprite3D entities
+    # not tile walls — players can walk around them.
+    dynamic_map = DynamicMap("Online", 64, 57, False)
+
+    # Border walls
+    dynamic_map.add_horizontal_wall(0, 63, 0, WALL_HEIGHT, WALL_DEPTH)  # Top
+    dynamic_map.add_horizontal_wall(0, 63, 56, WALL_HEIGHT, WALL_DEPTH)  # Bottom
+    dynamic_map.add_vertical_wall(0, 0, 56, WALL_HEIGHT, WALL_DEPTH)  # Left
+    dynamic_map.add_vertical_wall(63, 0, 56, WALL_HEIGHT, WALL_DEPTH)  # Right
+
+    # No teleport tiles — online world has no level transitions.
+
+    return dynamic_map

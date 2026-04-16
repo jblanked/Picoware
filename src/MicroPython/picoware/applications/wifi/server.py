@@ -235,6 +235,7 @@ class Server:
 
             buffer = b""  # Initialize an empty buffer for the incoming data
 
+            self.view_manager.input_manager.reset()
             while True:
                 try:
                     but = self.view_manager.input_manager.button
@@ -478,6 +479,7 @@ def __add_page(view_manager) -> bool:
         just_started_editing = False
         keyboard.set_save_callback(__add_page_callback)
         keyboard.response = ""
+        view_manager.input_manager.reset()
         keyboard.run(force=True)
         keyboard.run(force=True)
         return True
@@ -611,6 +613,7 @@ def __edit_page(
         just_started_editing = False
         keyboard.set_save_callback(__callback_edit_save)
         keyboard.response = current_page_info.get(key, "")
+        view_manager.input_manager.reset()
         keyboard.run(force=True)
         keyboard.run(force=True)
         return True
@@ -772,6 +775,7 @@ def __edit_setting(view_manager, setting_key: str) -> bool:
         settings_info = {"key": setting_key, "value": current_value}
         keyboard.set_save_callback(__setting_callback)
         keyboard.response = current_value
+        view_manager.input_manager.reset()
         keyboard.run(force=True)
         keyboard.run(force=True)
         return True
@@ -1019,6 +1023,7 @@ def __menu_start(view_manager) -> None:
         menu.add_item(option)
 
     menu.draw()
+    view_manager.input_manager.reset()
 
 
 def __server_start(view_manager) -> bool:

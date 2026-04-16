@@ -390,6 +390,7 @@ class ViewManager:
 
         # Wait for user to acknowledge
         inp = self._input_manager
+        inp.reset()
         while True:
             button = inp.button
             if button == BUTTON_BACK:

@@ -45,6 +45,8 @@ def __flip_social_user_start(view_manager) -> bool:
     _flip_social_user_save_verified = False
     _flip_social_user_keyboard_ran = False
 
+    view_manager.input_manager.reset()
+
     # Set up save callback that just sets a flag instead of immediately calling back()
     keyboard.on_save_callback = __flip_social_user_callback
 

@@ -1,0 +1,22 @@
+# Build items
+*.o
+*.a
+*.exe
+peanut-sdl*
+peanut-debug
+peanut-minifb
+tags
+build*/
+bin*/
+# Profile items
+*.html
+*.css
+*.gch
+*.gcda
+*.gcno
+# Run items
+*.sav
+*.bmp
+*.gb
+*.gbc
+*.bin

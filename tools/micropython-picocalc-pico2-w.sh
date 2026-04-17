@@ -66,6 +66,9 @@ rm -rf "$micropython_dir"/modules/gameboy
 # remove audio module if it exists
 rm -rf "$micropython_dir"/modules/audio
 
+# remove uf2loader module if it exists
+rm -rf "$micropython_dir"/modules/uf2loader
+
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"
@@ -132,6 +135,9 @@ cp -r "$picoware_dir"/src/MicroPython/gameboy "$micropython_dir"/modules/gameboy
 
 # copy audio module
 cp -r "$picoware_dir"/src/MicroPython/audio "$micropython_dir"/modules/audio
+
+# copy uf2loader module
+cp -r "$picoware_dir"/src/MicroPython/uf2loader "$micropython_dir"/modules/uf2loader
 
 echo "Starting PicoCalc build process..."
 

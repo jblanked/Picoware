@@ -67,6 +67,7 @@ pico_generate_pio_header(usermod_picoware_psram
 target_sources(usermod_picoware_psram INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/picoware_psram/picoware_psram.c
     ${CMAKE_CURRENT_LIST_DIR}/picoware_psram/psram_qspi.c
+    ${CMAKE_CURRENT_LIST_DIR}/picoware_psram/psram_template.cpp
 )
 
 target_include_directories(usermod_picoware_psram INTERFACE

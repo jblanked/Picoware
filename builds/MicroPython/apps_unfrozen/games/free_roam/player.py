@@ -152,12 +152,12 @@ class Player(Entity):
             0x915C,  # 3d color
         )
         # facing east initially (better for 3rd person view)
-        self.set_direction = Vector(1, 0)
-        self.set_plane = Vector(0, 0.66)  # camera plane perpendicular to direction
+        self.direction = Vector(1, 0)
+        self.plane = Vector(0, 0.66)  # camera plane perpendicular to direction
         # Mark this entity as a player (so level doesn't delete it)
         self.is_player = True
-        self.set_end_position = Vector(10, 10)  # Initialize end position
-        self.set_start_position = Vector(10, 10)  # Initialize start position
+        self.end_position = Vector(10, 10)  # Initialize end position
+        self.start_position = Vector(10, 10)  # Initialize start position
         self.player_name = name  # Copy default player name
         self.name = self.player_name  # Point Entity's name to our writable buffer
 

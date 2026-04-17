@@ -6,7 +6,7 @@
 #include "level_mp.h"
 #include "sprite3d_mp.h"
 #include "triangle3d_mp.h"
-#include "engine/engine.hpp"
+#include "pico-game-engine/engine/engine.hpp"
 
 static inline GameEngine *engine_get_context(engine_mp_obj_t *self)
 {

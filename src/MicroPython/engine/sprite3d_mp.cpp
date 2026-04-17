@@ -1,5 +1,5 @@
 #include "sprite3d_mp.h"
-#include "engine/sprite3d.hpp"
+#include "pico-game-engine/engine/sprite3d.hpp"
 
 static inline Sprite3D *sprite3d_get_context(sprite3d_mp_obj_t *self)
 {

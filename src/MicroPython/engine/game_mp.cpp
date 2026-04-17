@@ -1,7 +1,7 @@
 #include "game_mp.h"
 #include "camera_mp.h"
 #include "level_mp.h"
-#include "engine/game.hpp"
+#include "pico-game-engine/engine/game.hpp"
 
 #ifndef PRINT
 #define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)

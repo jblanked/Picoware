@@ -1,5 +1,5 @@
 #include "camera_mp.h"
-#include "engine/camera.hpp"
+#include "pico-game-engine/engine/camera.hpp"
 #include "memory.h"
 
 static inline Camera *camera_get_context(camera_mp_obj_t *self)

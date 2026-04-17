@@ -2,7 +2,7 @@
 #include "game_mp.h"
 #include "engine_mp.h"
 #include "image_mp.h"
-#include "engine/entity.hpp"
+#include "pico-game-engine/engine/entity.hpp"
 //
 #ifndef PRINT
 #define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)

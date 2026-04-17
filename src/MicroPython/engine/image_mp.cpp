@@ -1,5 +1,5 @@
 #include "image_mp.h"
-#include "engine/image.hpp"
+#include "pico-game-engine/engine/image.hpp"
 
 static inline Image *image_get_context(image_mp_obj_t *self)
 {

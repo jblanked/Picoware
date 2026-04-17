@@ -1,8 +1,8 @@
 #include "level_mp.h"
 #include "game_mp.h"
-#include "engine/game.hpp"
-#include "engine/level.hpp"
-#include "engine/entity.hpp"
+#include "pico-game-engine/engine/game.hpp"
+#include "pico-game-engine/engine/level.hpp"
+#include "pico-game-engine/engine/entity.hpp"
 
 static inline Level *level_get_context(level_mp_obj_t *self)
 {

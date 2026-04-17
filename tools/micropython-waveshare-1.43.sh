@@ -108,12 +108,6 @@ cp -r "$picoware_dir"/src/MicroPython/font "$micropython_dir"/modules/font
 # copy lcd module
 cp -r "$picoware_dir"/src/MicroPython/lcd "$micropython_dir"/modules/lcd
 
-# ensure JPEGDEC is installed
-if [ ! -d "$picoware_dir"/src/MicroPython/JPEGDEC ]; then
-    cd "$micropython_dir"/modules
-    git clone https://github.com/bitbank2/JPEGDEC.git
-fi
-
 # copy JPEGDEC module
 cp -r "$picoware_dir"/src/MicroPython/JPEGDEC "$micropython_dir"/modules/JPEGDEC
 

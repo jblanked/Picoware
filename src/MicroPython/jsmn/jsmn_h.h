@@ -12,6 +12,7 @@
 #define JSMN_GET_FREE_MEMORY ({ gc_info_t _i; gc_info(&_i); _i.free; })
 #define JSMN_LOG_INCLUDE "py/runtime.h"
 #define JSMN_LOG_INFO(...) mp_printf(&mp_plat_print, __VA_ARGS__)
+#define JSMN_CHECK_MEMORY false
 
 #ifdef __cplusplus
 extern "C"

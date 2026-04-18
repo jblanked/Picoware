@@ -2282,7 +2282,6 @@ class Player(Entity):
             game.input = INPUT_KEY_MAX
             self.just_started = False
             self.just_switched_levels = False
-            self.is_visible = True
 
         elif game.input == INPUT_KEY_DOWN:
             # Calculate new position
@@ -2309,7 +2308,6 @@ class Player(Entity):
             game.input = INPUT_KEY_MAX
             self.just_started = False
             self.just_switched_levels = False
-            self.is_visible = True
 
         elif game.input == INPUT_KEY_LEFT:
             old_dir_x = self.direction.x
@@ -2333,7 +2331,6 @@ class Player(Entity):
             game.input = INPUT_KEY_MAX
             self.just_started = False
             self.just_switched_levels = False
-            self.is_visible = True
 
         elif game.input == INPUT_KEY_RIGHT:
             old_dir_x = self.direction.x
@@ -2358,7 +2355,6 @@ class Player(Entity):
             game.input = INPUT_KEY_MAX
             self.just_started = False
             self.just_switched_levels = False
-            self.is_visible = True
 
         # Check for teleport tile
         if (

@@ -287,7 +287,7 @@ def run(view_manager) -> None:
             if __check_for_update_is_available(_desktop_http):
                 _desktop_update_available = True
                 _should_download = view_manager.alert(
-                    "There's a new Picoware update available!! Press `BACK` to start downloading in the background. Do not leave the desktop to allow the download to complete."
+                    "There's a new Picoware update available!! Press `Center` to start downloading in the background or `Back` to decline. Do not leave the desktop to allow the download to complete."
                 )
                 if not _should_download:
                     view_manager.log("User declined update download")

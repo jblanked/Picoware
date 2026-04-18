@@ -2340,7 +2340,7 @@ void Player::userRequest(RequestType requestType)
         }
         snprintf(url, 128, "https://www.jblanked.com/flipper/api/user/game-stats/%s/", this->name);
         snprintf(authHeader, 256, "{\"Content-Type\":\"application/json\",\"Username\":\"%s\",\"Password\":\"%s\"}", this->name, this->password);
-        if (!HTTP_SEND_REQUEST(url, "GET", authHeader))
+        if (!HTTP_SEND_REQUEST(url, "GET", authHeader, nullptr))
         {
             userInfoStatus = UserInfoRequestError;
         }
@@ -2386,7 +2386,7 @@ void Player::userRequest(RequestType requestType)
             break;
         }
         snprintf(authHeader, 256, "{\"Content-Type\":\"application/json\",\"Username\":\"%s\",\"Password\":\"%s\"}", this->name, this->password);
-        if (!HTTP_SEND_REQUEST("https://www.jblanked.com/game-server/games/", "GET", authHeader))
+        if (!HTTP_SEND_REQUEST("https://www.jblanked.com/game-server/games/", "GET", authHeader, nullptr))
         {
             lobbyFetched = true;
             lobbyCount = 0;

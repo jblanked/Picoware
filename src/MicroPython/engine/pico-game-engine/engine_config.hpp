@@ -21,7 +21,7 @@
 
 // delay
 #define ENGINE_DELAY_INCLUDE "py/mphal.h"
-#define ENGINE_DELAY_MS(ms) mp_hal_delay_ms(ms)
+#define ENGINE_DELAY_MS(ms) ((void)(ms))
 
 // font
 #if defined(PICOCALC)

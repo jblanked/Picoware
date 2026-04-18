@@ -124,3 +124,19 @@ extern "C"
         },
     };
 }
+
+static const mp_rom_map_elem_t ghouls_mp_globals_table[] = {
+    {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_ghouls)},
+    {MP_ROM_QSTR(MP_QSTR_Ghouls), MP_ROM_PTR(&ghouls_mp_type)},
+};
+static MP_DEFINE_CONST_DICT(ghouls_mp_globals, ghouls_mp_globals_table);
+
+extern "C"
+{
+    extern const mp_obj_module_t ghouls_mp_cmodule = {
+        .base = {&mp_type_module},
+        .globals = (mp_obj_dict_t *)&ghouls_mp_globals,
+    };
+
+    MP_REGISTER_MODULE(MP_QSTR_ghouls, ghouls_mp_cmodule);
+}

@@ -304,7 +304,11 @@ def run(view_manager) -> None:
             if not _desktop_http.is_request_complete():
                 return
             if _desktop_http.response and _desktop_http.response.status_code == 200:
-                view_manager.alert("Update download completed!")
+                from picoware.applications.system.update import (
+                    __draw_download_complete,
+                )
+
+                __draw_download_complete(view_manager)
             else:
                 view_manager.alert("There was an error downloading the update")
             _desktop_http.close()

@@ -311,3 +311,81 @@ target_link_libraries(usermod_uf2loader INTERFACE
     hardware_sync
 )
 target_link_libraries(usermod INTERFACE usermod_uf2loader)
+
+
+
+# Include ghouls module
+add_library(usermod_ghouls INTERFACE)
+
+target_sources(usermod_ghouls INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/ghouls_mp.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/animation.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/dynamic_map.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/enemy.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/game.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/loading.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/player.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/projectile.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/sky.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/sound.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/time.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/weapon.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/pico-game-engine/engine/draw.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/pico-game-engine/engine/entity.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/pico-game-engine/engine/game.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/pico-game-engine/engine/image.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/pico-game-engine/engine/level.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/pico-game-engine/engine/sprite3d.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/pico-game-engine/engine/triangle3d.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/pico-game-engine/engine/vector.cpp
+)
+
+target_include_directories(usermod_ghouls INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/pico-game-engine
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/pico-game-engine/engine
+)
+
+target_link_libraries(usermod INTERFACE usermod_ghouls) 
+
+# Include jsmn module
+add_library(usermod_jsmn INTERFACE)
+
+target_sources(usermod_jsmn INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../jsmn/jsmn_h.c
+    ${CMAKE_CURRENT_LIST_DIR}/../../jsmn/jsmn.c
+    ${CMAKE_CURRENT_LIST_DIR}/../../jsmn/jsmn_mp.c
+)
+
+target_include_directories(usermod_jsmn INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../jsmn
+)
+
+target_link_libraries(usermod INTERFACE usermod_jsmn) 
+
+# Include http module
+add_library(usermod_http INTERFACE)
+
+target_sources(usermod_http INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../http/http_mp.c
+)
+
+target_include_directories(usermod_http INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../http
+)
+
+target_link_libraries(usermod INTERFACE usermod_http) 
+
+# Include websocket module
+add_library(usermod_websocket INTERFACE)
+
+target_sources(usermod_websocket INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../websocket/websocket_mp.c
+)
+
+target_include_directories(usermod_websocket INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../websocket
+)
+
+target_link_libraries(usermod INTERFACE usermod_websocket) 

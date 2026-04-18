@@ -15,7 +15,6 @@ extern "C"
 #include "py/obj.h"
 #include "py/objarray.h"
 #include "py/mphal.h"
-#include "py/nlr.h"
 
     bool http_get_http_response(char *buffer, size_t buffer_size);                                         // retrieves the response of the last
     bool http_is_finished(void);                                                                           // returns true if the current request is finished (either successfully or with an error)

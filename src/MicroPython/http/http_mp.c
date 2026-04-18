@@ -5,6 +5,7 @@ Source: https://github.com/jblanked/Picoware
 */
 
 #include "http_mp.h"
+#include "py/nlr.h"
 #include <stdio.h>
 
 // GC root slots — scanned by the GC on every collection, no runtime
@@ -15,10 +16,6 @@ MP_REGISTER_ROOT_POINTER(mp_obj_t http_mp_instance);
 static mp_obj_t http_mp_class = MP_OBJ_NULL;    // the HTTP class object
 static mp_obj_t http_mp_instance = MP_OBJ_NULL; // live HTTP() instance
 static bool http_mp_initialized = false;
-
-// ---------------------------------------------------------------------------
-// Internal init / deinit
-// ---------------------------------------------------------------------------
 
 static void http_mp_deinit(void)
 {
@@ -71,10 +68,6 @@ static bool http_mp_init(void)
     nlr_pop();
     return true;
 }
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
 
 bool http_send_request(const char *url, const char *method, const char *headers, const char *payload)
 {

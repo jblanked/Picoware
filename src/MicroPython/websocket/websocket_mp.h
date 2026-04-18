@@ -15,7 +15,6 @@ extern "C"
 #include "py/obj.h"
 #include "py/objarray.h"
 #include "py/mphal.h"
-#include "py/nlr.h"
 
     bool http_get_websocket_response(char *buffer, size_t buffer_size); // retrieves the next message from the websocket, returns true if a message was successfully retrieved
     bool http_websocket_is_connected(void);                             // returns true if the websocket is currently connected

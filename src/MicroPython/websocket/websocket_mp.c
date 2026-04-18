@@ -5,6 +5,7 @@ Source: https://github.com/jblanked/Picoware
 */
 
 #include "websocket_mp.h"
+#include "py/nlr.h"
 #include <stdio.h>
 
 // GC root slots — scanned by the GC on every collection, no runtime

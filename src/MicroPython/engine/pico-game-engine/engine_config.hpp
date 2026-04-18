@@ -30,7 +30,7 @@
 #define ENGINE_FONT_INCLUDE "../../../font/font.h"
 #endif
 #define ENGINE_FONT_SIZE FontSize
-#define ENGINE_FONT_DEFAULT FONT_SMALL
+#define ENGINE_FONT_DEFAULT FONT_SIZE_SMALL
 
 // LCD
 #if defined(PICOCALC)

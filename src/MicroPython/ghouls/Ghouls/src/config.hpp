@@ -1,8 +1,6 @@
 #pragma once
 #include <stdint.h>
 #include <string.h>
-#include <string>
-#include <memory>
 #include "engine_config.hpp"
 
 #include ENGINE_MEM_INCLUDE

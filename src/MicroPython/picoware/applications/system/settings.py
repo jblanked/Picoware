@@ -9,6 +9,7 @@ STATE_THEME_COLOR = const(3)  # choice (select from predefined colors)
 STATE_DEBUG = const(4)  # toggle (enable/disable)
 STATE_TIME = const(5)  # menu with date (date picker), GMT offset (keyboard)
 STATE_EXIT_BUTTON = const(6)  # selection to choose which button triggers app exits
+STATE_SERVER_SETTINGS = const(7)  # menu with username and password
 
 # modes
 _MODE_MENU = const(0)
@@ -17,16 +18,21 @@ _MODE_CHOICE = const(2)
 _MODE_TIME_MENU = const(3)
 _MODE_DATE_PICKER = const(4)
 _MODE_GMT_KEYBOARD = const(5)
+_MODE_SERVER_MENU = const(6)
+_MODE_SERVER_KEYBOARD = const(7)
 
 _menu = None
 _toggle = None
 _choice = None
 _time_menu = None
 _date_picker = None
+_server_menu = None
 _view_manager = None
 _mode = _MODE_MENU
 _current_setting = 0
 _gmt_save_requested = False
+_server_save_requested = False
+_server_keyboard_field = 0  # 0 = username, 1 = password
 
 
 def __color_values() -> list[int]:
@@ -82,6 +88,7 @@ def __config() -> tuple:
         ("Debug", "picoware/settings/debug.json", "debug", False),
         ("Time", None, None, None),
         ("Exit Button", None, None, None),
+        ("Server Settings", None, None, None),
     )
 
 
@@ -159,6 +166,48 @@ def __save_exit_button(button: int) -> bool:
     return _view_manager.storage.write(
         "picoware/settings/exit_button.json",
         json.dumps({"exit_button": button}),
+    )
+
+
+def __load_server_username() -> str:
+    """Load the saved server username from storage."""
+    data = _view_manager.storage.read("picoware/settings/server_username.json")
+    if data is not None:
+        try:
+            obj = json.loads(data)
+            if "username" in obj:
+                return str(obj["username"])
+        except Exception:
+            pass
+    return ""
+
+
+def __load_server_password() -> str:
+    """Load the saved server password from storage."""
+    data = _view_manager.storage.read("picoware/settings/server_password.json")
+    if data is not None:
+        try:
+            obj = json.loads(data)
+            if "password" in obj:
+                return str(obj["password"])
+        except Exception:
+            pass
+    return ""
+
+
+def __save_server_username(value: str) -> bool:
+    """Save the server username to storage."""
+    return _view_manager.storage.write(
+        "picoware/settings/server_username.json",
+        json.dumps({"username": value}),
+    )
+
+
+def __save_server_password(value: str) -> bool:
+    """Save the server password to storage."""
+    return _view_manager.storage.write(
+        "picoware/settings/server_password.json",
+        json.dumps({"password": value}),
     )
 
 
@@ -388,9 +437,74 @@ def __gmt_save_callback(result: str) -> None:
     _gmt_save_requested = True
 
 
+def __open_server_menu() -> None:
+    """Open the Server Settings sub-menu (Username / Password)."""
+    global _server_menu, _mode
+    from picoware.gui.menu import Menu
+
+    draw = _view_manager.draw
+    draw.erase()
+    if _server_menu is not None:
+        del _server_menu
+        _server_menu = None
+
+    _server_menu = Menu(
+        draw,
+        "Server Settings",
+        0,
+        draw.size.y,
+        _view_manager.foreground_color,
+        _view_manager.background_color,
+        _view_manager.selected_color,
+        _view_manager.foreground_color,
+        2,
+    )
+    _server_menu.add_item("Username")
+    _server_menu.add_item("Password")
+    _server_menu.draw()
+    _mode = _MODE_SERVER_MENU
+
+
+def __open_server_keyboard(field: int) -> None:
+    """Open the keyboard for entering the server username (0) or password (1)."""
+    global _mode, _server_save_requested, _server_keyboard_field
+
+    _server_keyboard_field = field
+    keyboard = _view_manager.keyboard
+    keyboard.reset()
+    if field == 0:
+        keyboard.title = "Username"
+        keyboard.response = __load_server_username()
+    else:
+        keyboard.title = "Password"
+        keyboard.response = __load_server_password()
+    keyboard.set_save_callback(__server_save_callback)
+    keyboard.input_manager.reset()
+    keyboard.run(force=True)
+    _server_save_requested = False
+    _mode = _MODE_SERVER_KEYBOARD
+
+
+def __server_save_callback(result: str) -> None:
+    """Callback triggered when the server keyboard is saved."""
+    global _server_save_requested
+    _server_save_requested = True
+
+
+def __back_to_server_menu() -> None:
+    """Return to the Server Settings sub-menu."""
+    global _server_save_requested
+
+    keyboard = _view_manager.keyboard
+    keyboard.reset()
+    _server_save_requested = False
+
+    __open_server_menu()
+
+
 def __back_to_menu() -> None:
     """Clean up any sub-view and return to the main menu."""
-    global _toggle, _choice, _time_menu, _date_picker, _mode
+    global _toggle, _choice, _time_menu, _date_picker, _server_menu, _mode
 
     if _toggle is not None:
         del _toggle
@@ -404,6 +518,9 @@ def __back_to_menu() -> None:
     if _date_picker is not None:
         del _date_picker
         _date_picker = None
+    if _server_menu is not None:
+        del _server_menu
+        _server_menu = None
 
     _mode = _MODE_MENU
     _menu.draw()
@@ -432,11 +549,13 @@ def start(view_manager) -> bool:
 
     from picoware.gui.menu import Menu
 
-    global _menu, _view_manager, _mode, _time_menu, _date_picker, _gmt_save_requested
+    global _menu, _view_manager, _mode, _time_menu, _date_picker, _server_menu, _gmt_save_requested, _server_save_requested, _server_keyboard_field
 
     _view_manager = view_manager
     _mode = _MODE_MENU
     _gmt_save_requested = False
+    _server_save_requested = False
+    _server_keyboard_field = 0
 
     if _menu is not None:
         del _menu
@@ -447,6 +566,9 @@ def start(view_manager) -> bool:
     if _date_picker is not None:
         del _date_picker
         _date_picker = None
+    if _server_menu is not None:
+        del _server_menu
+        _server_menu = None
 
     view_manager.storage.mkdir("picoware/settings")
 
@@ -497,6 +619,8 @@ def run(view_manager) -> None:
                 __open_time_menu()
             elif selected == STATE_EXIT_BUTTON:
                 __open_choice_button()
+            elif selected == STATE_SERVER_SETTINGS:
+                __open_server_menu()
             else:
                 __open_toggle(selected)
 
@@ -545,6 +669,31 @@ def run(view_manager) -> None:
             view_manager.keyboard.reset()
             __back_to_time_menu()
 
+    elif _mode == _MODE_SERVER_MENU:
+        if button == BUTTON_BACK:
+            __back_to_menu()
+        elif button in (BUTTON_UP, BUTTON_LEFT):
+            _server_menu.scroll_up()
+        elif button in (BUTTON_DOWN, BUTTON_RIGHT):
+            _server_menu.scroll_down()
+        elif button == BUTTON_CENTER:
+            __open_server_keyboard(_server_menu.selected_index)
+
+    elif _mode == _MODE_SERVER_KEYBOARD:
+        global _server_save_requested
+        if _server_save_requested:
+            _server_save_requested = False
+            value = view_manager.keyboard.response or ""
+            if _server_keyboard_field == 0:
+                __save_server_username(value)
+            else:
+                __save_server_password(value)
+            view_manager.keyboard.reset()
+            __back_to_server_menu()
+        elif not view_manager.keyboard.run():
+            view_manager.keyboard.reset()
+            __back_to_server_menu()
+
     elif _mode == _MODE_TOGGLE:
         if button == BUTTON_BACK:
             __back_to_menu()
@@ -582,7 +731,7 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global _menu, _toggle, _choice, _time_menu, _date_picker
+    global _menu, _toggle, _choice, _time_menu, _date_picker, _server_menu
 
     if _choice is not None:
         del _choice
@@ -596,6 +745,9 @@ def stop(view_manager) -> None:
     if _time_menu is not None:
         del _time_menu
         _time_menu = None
+    if _server_menu is not None:
+        del _server_menu
+        _server_menu = None
     if _menu is not None:
         del _menu
         _menu = None

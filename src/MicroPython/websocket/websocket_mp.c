@@ -103,10 +103,7 @@ bool http_websocket_stop(void)
     mp_obj_t close_method = mp_load_attr(websocket_mp_instance, MP_QSTR_close);
     mp_call_function_0(close_method);
     nlr_pop();
-
-    // Release the instance but keep the class cached for the next connect.
-    // The VM root slot for the instance now holds NULL, which is safe.
-    websocket_mp_instance = MP_STATE_VM(websocket_mp_instance) = MP_OBJ_NULL;
+    websocket_mp_deinit();
     return true;
 }
 

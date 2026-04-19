@@ -169,9 +169,9 @@ def __save_exit_button(button: int) -> bool:
     )
 
 
-def __load_server_username() -> str:
+def __load_server_username(view_manager) -> str:
     """Load the saved server username from storage."""
-    data = _view_manager.storage.read("picoware/settings/server_username.json")
+    data = view_manager.storage.read("picoware/settings/server_username.json")
     if data is not None:
         try:
             obj = json.loads(data)
@@ -182,9 +182,9 @@ def __load_server_username() -> str:
     return ""
 
 
-def __load_server_password() -> str:
+def __load_server_password(view_manager) -> str:
     """Load the saved server password from storage."""
-    data = _view_manager.storage.read("picoware/settings/server_password.json")
+    data = view_manager.storage.read("picoware/settings/server_password.json")
     if data is not None:
         try:
             obj = json.loads(data)
@@ -474,10 +474,10 @@ def __open_server_keyboard(field: int) -> None:
     keyboard.reset()
     if field == 0:
         keyboard.title = "Username"
-        keyboard.response = __load_server_username()
+        keyboard.response = __load_server_username(_view_manager)
     else:
         keyboard.title = "Password"
-        keyboard.response = __load_server_password()
+        keyboard.response = __load_server_password(_view_manager)
     keyboard.set_save_callback(__server_save_callback)
     keyboard.input_manager.reset()
     keyboard.run(force=True)

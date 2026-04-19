@@ -32,8 +32,8 @@ def start(view_manager) -> bool:
     # if settings arent saved, return
     from picoware.applications.system import settings
 
-    username = settings.__load_server_username()
-    password = settings.__load_server_password()
+    username = settings.__load_server_username(view_manager)
+    password = settings.__load_server_password(view_manager)
 
     if not username or not password:
         view_manager.alert(

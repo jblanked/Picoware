@@ -33,6 +33,8 @@ mp_obj_t ghouls_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
         soundEnabled = mp_obj_is_true(args[2]);
     }
     self->game = new GhoulsGame(username, password, soundEnabled);
+    GhoulsGame *ctx = ghouls_get_context(self);
+    ctx->initDraw();
     return MP_OBJ_FROM_PTR(self);
 }
 

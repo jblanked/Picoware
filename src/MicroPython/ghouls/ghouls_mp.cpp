@@ -64,7 +64,12 @@ void ghouls_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
     if (destination[0] == MP_OBJ_NULL)
     {
         // Load attributes
-        if (attribute == MP_QSTR___del__)
+        if (attribute == MP_QSTR_is_active)
+        {
+            GhoulsGame *ctx = ghouls_get_context(self);
+            destination[0] = mp_obj_new_bool(ctx ? ctx->isActive() : false);
+        }
+        else if (attribute == MP_QSTR___del__)
         {
             destination[0] = MP_OBJ_FROM_PTR(&ghouls_mp_del_obj);
         }

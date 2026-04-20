@@ -17,14 +17,10 @@ void ghouls_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t 
 
 mp_obj_t ghouls_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
-    (void)n_kw;
-    ghouls_mp_obj_t *self = static_cast<ghouls_mp_obj_t *>(m_new_obj(ghouls_mp_obj_t));
+    mp_arg_check_num(n_args, n_kw, 2, 3, false);
+    ghouls_mp_obj_t *self = mp_obj_malloc_with_finaliser(ghouls_mp_obj_t, &ghouls_mp_type);
     self->base.type = &ghouls_mp_type;
-
-    if (n_args != 2 && n_args != 3)
-    {
-        mp_raise_TypeError(MP_ERROR_TEXT("GhoulsGame() requires 2 or 3 arguments: username (str), password (str), and optional soundEnabled (bool)"));
-    }
+    self->freed = false;
     const char *username = mp_obj_str_get_str(args[0]);
     const char *password = mp_obj_str_get_str(args[1]);
     bool soundEnabled = true;
@@ -47,7 +43,10 @@ mp_obj_t ghouls_mp_del(mp_obj_t self_in)
     }
     GhoulsGame *ctx = ghouls_get_context(self);
     if (ctx)
+    {
         delete ctx;
+        ctx = nullptr;
+    }
     self->game = nullptr;
     self->freed = true;
     return mp_const_none;

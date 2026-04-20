@@ -51,10 +51,40 @@ static bool uf2loader_family_valid(uint32_t family_id)
 __attribute__((noinline, section(".time_critical.uf2loader"))) static void uf2loader_flash_and_reboot_ram(
     uint32_t flash_offset, const uint8_t *data, uint32_t data_size)
 {
-    save_and_disable_interrupts();
     uint32_t erase_size = (data_size + FLASH_SECTOR_SIZE - 1) & ~(FLASH_SECTOR_SIZE - 1);
-    flash_range_erase(flash_offset, erase_size);
-    flash_range_program(flash_offset, data, data_size);
+
+    // Resolve ROM function pointers BEFORE disabling interrupts.
+    // Using ROM functions (not SDK wrappers) ensures we never call code that
+    // lives in the flash range we are about to erase and overwrite.
+    rom_connect_internal_flash_fn connect_fn =
+        (rom_connect_internal_flash_fn)rom_func_lookup_inline(ROM_FUNC_CONNECT_INTERNAL_FLASH);
+    rom_flash_exit_xip_fn exit_xip_fn =
+        (rom_flash_exit_xip_fn)rom_func_lookup_inline(ROM_FUNC_FLASH_EXIT_XIP);
+    rom_flash_range_erase_fn erase_fn =
+        (rom_flash_range_erase_fn)rom_func_lookup_inline(ROM_FUNC_FLASH_RANGE_ERASE);
+    rom_flash_range_program_fn program_fn =
+        (rom_flash_range_program_fn)rom_func_lookup_inline(ROM_FUNC_FLASH_RANGE_PROGRAM);
+    rom_flash_flush_cache_fn flush_fn =
+        (rom_flash_flush_cache_fn)rom_func_lookup_inline(ROM_FUNC_FLASH_FLUSH_CACHE);
+    rom_flash_enter_cmd_xip_fn enter_xip_fn =
+        (rom_flash_enter_cmd_xip_fn)rom_func_lookup_inline(ROM_FUNC_FLASH_ENTER_CMD_XIP);
+
+    save_and_disable_interrupts();
+
+    // Exit XIP once; stay in raw-flash mode for the full erase+program sequence.
+    connect_fn();
+    exit_xip_fn();
+
+    erase_fn(flash_offset, erase_size, FLASH_BLOCK_SIZE, 0xd8);
+    program_fn(flash_offset, data, data_size);
+
+    // Re-establish XIP before triggering the reset.
+    connect_fn();
+    exit_xip_fn();
+    flush_fn();
+    enter_xip_fn();
+
+    // restarting isnt working so removed for now...
 }
 #endif
 

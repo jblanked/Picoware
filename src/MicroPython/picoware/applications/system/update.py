@@ -16,6 +16,7 @@ _download_started: bool = False
 _download_complete: bool = False
 _download_error: str = None
 _download_filename: str = None
+_download_file_path: str = None
 _view_manager = None
 
 
@@ -112,7 +113,7 @@ def __check_for_update_is_available(http_context) -> bool:
 
 def __check_for_update_download_start(http_context, storage) -> bool:
     """Start the download of the update"""
-    global _view_manager, _update_info
+    global _view_manager, _update_info, _download_file_path
     if http_context is None:
         _view_manager.log("Error downloading update: http context is None")
         return False
@@ -130,6 +131,8 @@ def __check_for_update_download_start(http_context, storage) -> bool:
         else:
             storage.mkdir("pico1-apps")
             file_path = f"pico1-apps/{filename}"
+
+        _download_file_path = file_path
 
         if not http_context:
             _view_manager.log("Error downloading update: http context is None")
@@ -203,11 +206,11 @@ def __draw_update_available(view_manager) -> None:
     text_vec.y += 10
     draw.text(text_vec, "The firmware will be saved to", fg)
     text_vec.y += 15
-    draw.text(text_vec, "your SD card as a .uf2 file.", fg)
+    draw.text(text_vec, f"your SD card at {_download_file_path}", fg)
 
     # Instructions at bottom
     text_vec.y = 270
-    draw.text(text_vec, "CENTER = Download Update", fg)
+    draw.text(text_vec, "CENTER = Download and install update", fg)
     text_vec.y += 15
     draw.text(text_vec, "BACK = Cancel", fg)
 
@@ -245,31 +248,39 @@ def __draw_no_update(view_manager) -> None:
     draw.swap()
 
 
-def __draw_download_complete(view_manager, filename: str) -> None:
+def __draw_download_complete(view_manager) -> None:
     """Draw the download complete screen"""
-    from picoware.system.vector import Vector
 
     draw = view_manager.draw
     fg = view_manager.foreground_color
 
     draw.fill_screen(view_manager.background_color)
 
-    text_vec = Vector(10, 10)
-
     # Title
-    draw.text(text_vec, "Download Complete!", fg)
+    draw._text(10, 10, "Download Complete!", fg)
 
-    text_vec.y = 50
-
-    draw.text(text_vec, "Firmware saved to SD card:", fg)
-    text_vec.y += 20
-    draw.text(text_vec, f"  {filename}", fg)
+    draw._text(10, 50, "Firmware saved to SD card:", fg)
+    draw._text(10, 70, f"  {_download_file_path}", fg)
 
     # Instructions at bottom
-    text_vec.y = 285
-    draw.text(text_vec, "BACK = Return", fg)
+    draw._text(10, 285, "CENTER = Install, BACK = Return", fg)
 
     draw.swap()
+
+    inp = view_manager.input_manager
+    inp.reset()
+    while True:
+        but = inp.button
+        if but != -1:
+            inp.reset()
+            if but == 5:  # back
+                view_manager.back(True)
+            break
+
+    from picoware.system.uf2loader import UF2Loader
+
+    uf2 = UF2Loader()
+    uf2.flash(_download_file_path)
 
 
 def __draw_error(view_manager, message: str) -> None:
@@ -337,7 +348,6 @@ def run(view_manager) -> None:
         if not _http.is_request_complete():
             if _loading:
                 _loading.animate()
-
             return
 
         if _loading:
@@ -382,10 +392,8 @@ def run(view_manager) -> None:
         response = _http.response
         if response and response.status_code == 200:
             # Download successful
-            download_url = _update_info.get("download_url", "")
-            filename = download_url.split("/")[-1]
             _app_state = STATE_COMPLETE
-            __draw_download_complete(view_manager, filename)
+            __draw_download_complete(view_manager)
         else:
             # Download failed
             error_msg = "Download failed"

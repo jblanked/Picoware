@@ -9,7 +9,7 @@
 
 #ifdef FONT_DEFAULT
 #undef FONT_DEFAULT
-#define FONT_DEFAULT FONT_MEDIUM
+#define FONT_DEFAULT FONT_SIZE_MEDIUM
 #endif
 
 #define LCD_HEIGHT 640
@@ -21,7 +21,7 @@ extern uint8_t framebuffer[LCD_WIDTH * LCD_HEIGHT];
 #define LCD_X_OFFSET 0
 
 #define LCD_DEFAULT_BRIGHTNESS 50 // Default brightness (0-100)
-// #define LCD_DEFAULT_FONT_SIZE FONT_MEDIUM
+// #define LCD_DEFAULT_FONT_SIZE FONT_SIZE_MEDIUM
 
 // RGB565 Color definitions
 #ifndef COLOR_WHITE

@@ -16,7 +16,7 @@ extern "C"
 #include "py/objarray.h"
 #include "font.h"
 
-#define FONT_DEFAULT FONT_XTRA_SMALL
+#define FONT_DEFAULT FONT_SIZE_XTRA_SMALL
 
     typedef struct
     {

@@ -40,11 +40,11 @@
 
 typedef enum
 {
-  FONT_XTRA_SMALL = 0, // Extra small (English)
-  FONT_SMALL = 1,      // Small (English)
-  FONT_MEDIUM = 2,     // Medium (English)
-  FONT_LARGE = 3,      // Large (English)
-  FONT_XTRA_LARGE = 4, // Extra large (English)
+  FONT_SIZE_XTRA_SMALL = 0, // Extra small (English)
+  FONT_SIZE_SMALL = 1,      // Small (English)
+  FONT_SIZE_MEDIUM = 2,     // Medium (English)
+  FONT_SIZE_LARGE = 3,      // Large (English)
+  FONT_SIZE_XTRA_LARGE = 4, // Extra large (English)
 } FontSize;
 
 // ASCII

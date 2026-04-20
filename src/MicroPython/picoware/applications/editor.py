@@ -259,6 +259,7 @@ def run(view_manager) -> None:
             keyboard = view_manager.keyboard
             if keyboard:
                 keyboard.reset()
+                view_manager.input_manager.reset()
                 keyboard.response = _filename  # Restore previous filename
                 draw = view_manager.draw
                 draw.clear(color=view_manager.background_color)
@@ -298,6 +299,7 @@ def run(view_manager) -> None:
                     keyboard.set_save_callback(__callback_filename_save)
                     keyboard.response = ""  # Start with empty filename
                     keyboard.title = "Enter filename"
+                    view_manager.input_manager.reset()
                     draw = view_manager.draw
                     draw.clear(color=view_manager.background_color)
                     keyboard.run(force=True)

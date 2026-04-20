@@ -10,7 +10,7 @@
 #include "py/runtime.h"
 
 #ifndef FONT_DEFAULT
-#define FONT_DEFAULT FONT_XTRA_SMALL
+#define FONT_DEFAULT FONT_SIZE_XTRA_SMALL
 #endif
 
 #define LCD_CHUNK_LINES 16

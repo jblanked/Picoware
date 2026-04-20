@@ -31,11 +31,11 @@ def start(view_manager) -> bool:
     _keyboard_started = False
 
     keyboard = view_manager.keyboard
-
     if keyboard is None:
         print("No keyboard available")
         return False
 
+    keyboard.input_manager.reset()
     keyboard.set_save_callback(__callback_save)
     keyboard.response = load_wifi_password(view_manager)
     keyboard.title = "Enter WiFi Password"

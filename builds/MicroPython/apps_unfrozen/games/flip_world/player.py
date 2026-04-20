@@ -279,7 +279,7 @@ class Player(Entity):
         if not self.flip_world_run or not self.flip_world_run.view_manager:
             return ""
         view_manager = self.flip_world_run.view_manager
-        data = view_manager.storage.read("picoware/flip_social/password.json")
+        data = view_manager.storage.read("picoware/settings/server_password.json")
         if data:
             try:
                 obj = json_loads(data)
@@ -298,7 +298,7 @@ class Player(Entity):
         if not self.flip_world_run or not self.flip_world_run.view_manager:
             return ""
         view_manager = self.flip_world_run.view_manager
-        data = view_manager.storage.read("picoware/flip_social/username.json")
+        data = view_manager.storage.read("picoware/settings/server_username.json")
         if data:
             try:
                 obj = json_loads(data)

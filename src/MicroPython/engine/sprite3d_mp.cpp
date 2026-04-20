@@ -1,5 +1,5 @@
 #include "sprite3d_mp.h"
-#include "engine/sprite3d.hpp"
+#include "pico-game-engine/engine/sprite3d.hpp"
 
 static inline Sprite3D *sprite3d_get_context(sprite3d_mp_obj_t *self)
 {
@@ -432,7 +432,7 @@ static const mp_rom_map_elem_t sprite3d_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_set_scale), MP_ROM_PTR(&sprite3d_mp_set_scale_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_active), MP_ROM_PTR(&sprite3d_mp_set_active_obj)},
 
-    {MP_ROM_QSTR(MP_QSTR_MAX_TRIANGLES_PER_SPRITE), MP_ROM_INT(MAX_TRIANGLES_PER_SPRITE)},
+    {MP_ROM_QSTR(MP_QSTR_MAX_TRIANGLES_PER_SPRITE), MP_ROM_INT(ENGINE_MAX_TRIANGLES_PER_SPRITE)},
 
     {MP_ROM_QSTR(MP_QSTR_SPRITE_HUMANOID), MP_ROM_INT(SPRITE_HUMANOID)},
     {MP_ROM_QSTR(MP_QSTR_SPRITE_TREE), MP_ROM_INT(SPRITE_TREE)},

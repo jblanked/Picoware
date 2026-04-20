@@ -496,6 +496,7 @@ class WebSocketAsync:
         timeout: float = 10.0,
         callback: callable = None,  # one-argument function (data: Any)
         thread_manager=None,
+        stack_size: int = 32 * 1024,
     ):
         import _thread
 
@@ -509,6 +510,8 @@ class WebSocketAsync:
         self._lock = _thread.allocate_lock()
         self._thread_manager = thread_manager
         self._current_task = None
+        self._stack_size = stack_size
+        self._last_received = None
 
     def __del__(self):
         """Destructor to clean up resources."""
@@ -546,6 +549,15 @@ class WebSocketAsync:
         """Check if the WebSocket thread is running."""
         return self._running
 
+    @property
+    def last_received(self):
+        """Get the last received data."""
+        return self._last_received
+
+    def clear(self):
+        """Clear the last received data."""
+        self._last_received = None
+
     def close(self):
         """Close the WebSocket connection."""
         self._running = False
@@ -576,6 +588,7 @@ class WebSocketAsync:
                     try:
                         data = self._ws.recv()
                         if data is not None and data != "":
+                            self._last_received = data
                             if self._callback:
                                 self._callback(data)
                     except ConnectionClosed:
@@ -606,6 +619,7 @@ class WebSocketAsync:
                     "WebSocket",
                     function=_thread_func,
                     args=(),
+                    stack_size=self._stack_size,
                 )
                 self._current_task = task
                 self._thread_manager.add_task(task)

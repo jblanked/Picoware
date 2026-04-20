@@ -58,6 +58,7 @@ def run(view_manager) -> None:
     elif button in (BUTTON_DOWN, BUTTON_RIGHT):
         _settings_menu.scroll_down()
     elif button == BUTTON_BACK:
+        _settings_menu_index = 0
         if not _text_visible:
             view_manager.back()
             return

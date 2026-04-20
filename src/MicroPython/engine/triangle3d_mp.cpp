@@ -1,5 +1,5 @@
 #include "triangle3d_mp.h"
-#include "engine/triangle3d.hpp"
+#include "pico-game-engine/engine/triangle3d.hpp"
 
 static inline Triangle3D *triangle3d_get_context(triangle3d_mp_obj_t *self)
 {

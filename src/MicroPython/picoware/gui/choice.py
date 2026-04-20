@@ -210,8 +210,8 @@ class Choice:
                 self.display.text(text_pos, option, text_color)
         else:
             # Draw Title
-            _font = self.display.get_font(3)
-            title_width = len(self.title) * _font.width
+            _font = self.display.get_font(2)
+            title_width = len(self.title) * (_font.width + _font.spacing)
             title_x = self.position.x + (self.size.x - title_width) // 2
             title_y = self.position.y + 5
             self.display.text(
@@ -219,12 +219,11 @@ class Choice:
             )
 
             # Draw options in a 2-column list below the title
-            y_start = title_y + _font.height + 10
+            y_start = title_y + (_font.height * 2) + 10
             x_col1 = self.position.x + 5
             x_col2 = self.position.x + self.size.x // 2 + 5
             line_height = _font.height * 2
 
-            item_pos = Vector(0, 0)
             highlight_pos = Vector(0, 0)
             highlight_size = Vector(0, 0)
             for i, option in enumerate(self.options):
@@ -245,9 +244,7 @@ class Choice:
                     text_color = self.background_color
                 else:
                     text_color = self.foreground_color
-
-                item_pos.x, item_pos.y = x_pos, y_pos
-                self.display.text(item_pos, option, text_color)
+                self.display._text(x_pos, y_pos, option, text_color)
 
         # Update display
         self.display.swap()

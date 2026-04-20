@@ -373,11 +373,19 @@ class ViewManager:
         self._view_count += 1
         return True
 
-    def alert(self, message: str, back: bool = False) -> None:
-        """Show an alert"""
+    def alert(self, message: str, back: bool = False) -> bool:
+        """
+        Show an alert
+
+        Args:
+            message: The message to display in the alert
+            back: Whether to navigate to the previous view after the alert is acknowledged
+        Returns:
+            bool: True if the user confirmed the alert, False otherwise
+        """
 
         from picoware.gui.alert import Alert
-        from picoware.system.buttons import BUTTON_BACK
+        from picoware.system.buttons import BUTTON_BACK, BUTTON_ESCAPE
 
         self._draw.clear()
         _alert = Alert(
@@ -388,16 +396,23 @@ class ViewManager:
         )
         _alert.draw("Alert")
 
+        _denied: bool = False
+
         # Wait for user to acknowledge
         inp = self._input_manager
+        inp.reset()
         while True:
             button = inp.button
-            if button == BUTTON_BACK:
+            if button != -1:
+                _denied = button in (BUTTON_BACK, BUTTON_ESCAPE)
                 inp.reset()
                 break
 
         if back:
             self.back()
+
+        # back/escape button returns false, any other button returns true
+        return not _denied
 
     def back(
         self,

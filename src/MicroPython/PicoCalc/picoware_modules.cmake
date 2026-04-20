@@ -67,6 +67,7 @@ pico_generate_pio_header(usermod_picoware_psram
 target_sources(usermod_picoware_psram INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/picoware_psram/picoware_psram.c
     ${CMAKE_CURRENT_LIST_DIR}/picoware_psram/psram_qspi.c
+    ${CMAKE_CURRENT_LIST_DIR}/picoware_psram/psram_template.cpp
 )
 
 target_include_directories(usermod_picoware_psram INTERFACE
@@ -306,14 +307,14 @@ target_sources(usermod_engine INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/../engine/level_mp.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../engine/sprite3d_mp.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../engine/triangle3d_mp.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/../engine/engine/draw.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/../engine/engine/entity.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/../engine/engine/game.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/../engine/engine/image.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/../engine/engine/level.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/../engine/engine/sprite3d.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/../engine/engine/triangle3d.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/../engine/engine/vector.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/pico-game-engine/engine/draw.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/pico-game-engine/engine/entity.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/pico-game-engine/engine/game.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/pico-game-engine/engine/image.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/pico-game-engine/engine/level.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/pico-game-engine/engine/sprite3d.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/pico-game-engine/engine/triangle3d.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../engine/pico-game-engine/engine/vector.cpp
 )
 
 target_include_directories(usermod_engine INTERFACE
@@ -390,3 +391,120 @@ target_include_directories(usermod_audio INTERFACE
 )
 
 target_link_libraries(usermod INTERFACE usermod_audio) 
+
+
+# Include uf2loader module
+add_library(usermod_uf2loader INTERFACE)
+target_sources(usermod_uf2loader INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../uf2loader/uf2loader_mp.c
+)
+target_include_directories(usermod_uf2loader INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../uf2loader
+)
+target_link_libraries(usermod_uf2loader INTERFACE
+    hardware_flash
+    hardware_watchdog
+    hardware_sync
+)
+target_link_libraries(usermod INTERFACE usermod_uf2loader)
+
+
+# Include ghouls module
+add_library(usermod_ghouls INTERFACE)
+
+target_sources(usermod_ghouls INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../ghouls/ghouls_mp.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../ghouls/Ghouls/src/animation.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../ghouls/Ghouls/src/dynamic_map.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../ghouls/Ghouls/src/enemy.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../ghouls/Ghouls/src/game.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../ghouls/Ghouls/src/loading.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../ghouls/Ghouls/src/player.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../ghouls/Ghouls/src/projectile.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../ghouls/Ghouls/src/sky.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../ghouls/Ghouls/src/sound.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../ghouls/Ghouls/src/time.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../ghouls/Ghouls/src/weapon.cpp
+) 
+
+target_include_directories(usermod_ghouls INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../ghouls
+    ${CMAKE_CURRENT_LIST_DIR}/../ghouls/Ghouls/src
+    ${CMAKE_CURRENT_LIST_DIR}/../ghouls/Ghouls/src/pico-game-engine
+    ${CMAKE_CURRENT_LIST_DIR}/../ghouls/Ghouls/src/pico-game-engine/engine
+)
+
+target_link_libraries(usermod INTERFACE usermod_ghouls)
+
+# ghouls uses pico-game-engine symbols compiled by usermod_engine;
+# im linking here to avoid recompiling the same sources
+target_link_libraries(usermod_ghouls INTERFACE usermod_engine)
+
+# Include jsmn module
+add_library(usermod_jsmn INTERFACE)
+
+target_sources(usermod_jsmn INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../jsmn/jsmn_h.c
+    ${CMAKE_CURRENT_LIST_DIR}/../jsmn/jsmn.c
+    ${CMAKE_CURRENT_LIST_DIR}/../jsmn/jsmn_mp.c
+)
+
+target_include_directories(usermod_jsmn INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../jsmn
+)
+
+target_link_libraries(usermod INTERFACE usermod_jsmn) 
+
+# Include http module
+add_library(usermod_http INTERFACE)
+
+target_sources(usermod_http INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../http/http_mp.c
+)
+
+target_include_directories(usermod_http INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../http
+)
+
+# When lwIP is available (wireless boards), add altcp sources for HTTP/HTTPS
+if(MICROPY_PY_LWIP)
+    target_sources(usermod_http INTERFACE
+        ${PICO_LWIP_PATH}/src/core/altcp.c
+        ${PICO_LWIP_PATH}/src/core/altcp_tcp.c
+        ${MICROPY_DIR}/lib/pico-sdk/src/rp2_common/pico_lwip/altcp_tls_mbedtls.c
+    )
+    target_include_directories(usermod_http INTERFACE
+        ${PICO_LWIP_PATH}/src/include
+        ${PICO_LWIP_PATH}/src/apps/altcp_tls
+    )
+    target_compile_definitions(usermod_http INTERFACE
+        LWIP_ALTCP=1
+        LWIP_ALTCP_TLS=1
+        LWIP_ALTCP_TLS_MBEDTLS=1
+    )
+    # Redirect altcp_alloc/altcp_free (which use uninitialised memp pools)
+    # to our __wrap_ versions that use lwIP's general heap instead.
+    target_link_options(usermod_http INTERFACE
+        -Wl,--wrap=altcp_alloc
+        -Wl,--wrap=altcp_free
+    )
+    set_source_files_properties(
+        ${MICROPY_DIR}/lib/pico-sdk/src/rp2_common/pico_lwip/altcp_tls_mbedtls.c
+        PROPERTIES COMPILE_DEFINITIONS "MBEDTLS_ALLOW_PRIVATE_ACCESS=1"
+    )
+endif()
+
+target_link_libraries(usermod INTERFACE usermod_http) 
+
+# Include websocket module
+add_library(usermod_websocket INTERFACE)
+
+target_sources(usermod_websocket INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../websocket/websocket_mp.c
+)
+
+target_include_directories(usermod_websocket INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../websocket
+)
+
+target_link_libraries(usermod INTERFACE usermod_websocket) 

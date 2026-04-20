@@ -162,8 +162,8 @@ mp_obj_t gameboy_mp_run(mp_obj_t self_in, mp_obj_t button_pressed)
     /*
     - Up: 0
     - Down: 1
-    - Left: 2
-    - Right: 3
+    - Right: 2
+    - Left: 3
     - A: 59 (right bracket)
     - B: 58 (left bracket)
     - Select: 54 (minus)
@@ -171,8 +171,8 @@ mp_obj_t gameboy_mp_run(mp_obj_t self_in, mp_obj_t button_pressed)
     */
     uint8_t BUTTON_UP = button_hit == 0 ? 0 : 1; // Invert button state for Game
     uint8_t BUTTON_DOWN = button_hit == 1 ? 0 : 1;
-    uint8_t BUTTON_LEFT = button_hit == 2 ? 0 : 1;
-    uint8_t BUTTON_RIGHT = button_hit == 3 ? 0 : 1;
+    uint8_t BUTTON_RIGHT = button_hit == 2 ? 0 : 1;
+    uint8_t BUTTON_LEFT = button_hit == 3 ? 0 : 1;
     uint8_t BUTTON_A = button_hit == 59 ? 0 : 1;
     uint8_t BUTTON_B = button_hit == 58 ? 0 : 1;
     uint8_t BUTTON_SELECT = button_hit == 54 ? 0 : 1;

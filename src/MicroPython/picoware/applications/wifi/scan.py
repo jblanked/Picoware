@@ -37,7 +37,7 @@ def __should_save_choice(view_manager) -> bool:
         view_manager.draw,
         Vector(0, 0),
         view_manager.draw.size,
-        f"Save SSID '{_scan.current_item.split(' (')[0]}'?",
+        f"Save '{_scan.current_item.split(' (')[0]}'?",
         ["No", "Yes"],
         0,
         view_manager.foreground_color,
@@ -47,7 +47,7 @@ def __should_save_choice(view_manager) -> bool:
     choice.open()
 
     input_manager = view_manager.input_manager
-
+    input_manager.reset()
     while True:
         _button = input_manager.button
         if _button in (BUTTON_LEFT, BUTTON_UP):

@@ -60,6 +60,21 @@ rm -rf "$micropython_dir"/modules/log
 # remove textbox module if it exists
 rm -rf "$micropython_dir"/modules/textbox
 
+# remove uf2loader module if it exists
+rm -rf "$micropython_dir"/modules/uf2loader
+
+# remove ghouls module if it exists
+rm -rf "$micropython_dir"/modules/ghouls
+
+# remove jsmn module if it exists
+rm -rf "$micropython_dir"/modules/jsmn
+
+# remove http module if it exists
+rm -rf "$micropython_dir"/modules/http
+
+# remove websocket module if it exists
+rm -rf "$micropython_dir"/modules/websocket
+
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"
@@ -106,12 +121,6 @@ cp -r "$picoware_dir"/src/MicroPython/font "$micropython_dir"/modules/font
 # copy lcd module
 cp -r "$picoware_dir"/src/MicroPython/lcd "$micropython_dir"/modules/lcd
 
-# ensure JPEGDEC is installed
-if [ ! -d "$picoware_dir"/src/MicroPython/JPEGDEC ]; then
-    cd "$micropython_dir"/modules
-    git clone https://github.com/bitbank2/JPEGDEC.git
-fi
-
 # copy JPEGDEC module
 cp -r "$picoware_dir"/src/MicroPython/JPEGDEC "$micropython_dir"/modules/JPEGDEC
 
@@ -129,6 +138,21 @@ cp -r "$picoware_dir"/src/MicroPython/log "$micropython_dir"/modules/log
 
 # copy textbox module
 cp -r "$picoware_dir"/src/MicroPython/textbox "$micropython_dir"/modules/textbox
+
+# copy uf2loader module
+cp -r "$picoware_dir"/src/MicroPython/uf2loader "$micropython_dir"/modules/uf2loader
+
+# copy ghouls module
+cp -r "$picoware_dir"/src/MicroPython/ghouls "$micropython_dir"/modules/ghouls
+
+# copy jsmn module
+cp -r "$picoware_dir"/src/MicroPython/jsmn "$micropython_dir"/modules/jsmn
+
+# copy http module
+cp -r "$picoware_dir"/src/MicroPython/http "$micropython_dir"/modules/http
+
+# copy websocket module
+cp -r "$picoware_dir"/src/MicroPython/websocket "$micropython_dir"/modules/websocket
 
 echo "Starting Waveshare 1.28 build process..."
 

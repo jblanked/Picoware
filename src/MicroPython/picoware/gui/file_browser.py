@@ -23,6 +23,7 @@ class FileBrowser:
     ACT_COPY = const(2)
     ACT_MOVE = const(3)
     ACT_RENAME = const(4)
+    ACT_FLASH = const(5)
 
     OPTIONS_LABELS = ("Hidden Files", "Dir Enter")
 
@@ -1194,6 +1195,14 @@ class FileBrowser:
                             )
                         self.__loading_run("Renamed", 1.0)
 
+                    elif self._pending_action == self.ACT_FLASH:
+                        self.__loading_run("Flashing...", 0.5)
+                        from picoware.system.uf2loader import UF2Loader
+
+                        uf2 = UF2Loader()
+                        uf2.flash(self._context_target_path)
+                        self.__loading_run("Done", 1.0)
+
                     if len(mk) > 0:
                         self._app_state["marked"].clear()
                     if self._pending_action != self.ACT_NONE:
@@ -1275,6 +1284,12 @@ class FileBrowser:
                             else "Confirm Delete?"
                         )
                         self._confirm_menu = self.__menu_spawn(msg, ("No", "Yes"))
+                    elif ac == "Flash":
+                        self._pending_action = self.ACT_FLASH
+                        fn = self._context_target_path.split("/")[-1]
+                        self._confirm_menu = self.__menu_spawn(
+                            f"Flash {fn}?", ("No", "Yes")
+                        )
                     elif ac == "Rename":
                         self._input_active = True
                         self._input_text = self._context_target_path.split("/")[-1]
@@ -1485,8 +1500,12 @@ class FileBrowser:
                         if isd:
                             items = ["Open"]
                         else:
-                            is_img = np.lower().endswith((".jpg", ".jpeg", ".bmp"))
-                            items = ["View"] if is_img else ["View", "Edit"]
+                            is_uf2 = np.lower().endswith(".uf2")
+                            if is_uf2:
+                                items = ["Flash"]
+                            else:
+                                is_img = np.lower().endswith((".jpg", ".jpeg", ".bmp"))
+                                items = ["View"] if is_img else ["View", "Edit"]
 
                         if self._mode == FILE_BROWSER_MANAGER:
                             items.extend(["Copy", "Move", "Rename", "Delete"])

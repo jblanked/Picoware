@@ -161,13 +161,10 @@ def run(view_manager) -> None:
     # State: Mode Selection
     if _state == STATE_MODE_SELECT:
         if button in (BUTTON_UP, BUTTON_LEFT):
-
             _menu.scroll_up()
         elif button in (BUTTON_DOWN, BUTTON_RIGHT):
-
             _menu.scroll_down()
         elif button == BUTTON_CENTER:
-
             from picoware.system.bluetooth import Bluetooth
 
             _bluetooth = Bluetooth()
@@ -236,13 +233,10 @@ def run(view_manager) -> None:
         _menu.draw()
 
         if button in (BUTTON_UP, BUTTON_LEFT):
-
             _menu.scroll_up()
         elif button in (BUTTON_DOWN, BUTTON_RIGHT):
-
             _menu.scroll_down()
         elif button == BUTTON_CENTER:
-
             idx = _menu.selected_index
             if 0 <= idx < len(_scanned_devices):
                 _selected_device = _scanned_devices[idx]
@@ -332,7 +326,6 @@ def run(view_manager) -> None:
         draw.swap()
 
         if button == BUTTON_CENTER:
-
             _state = STATE_TYPING
             view_manager.keyboard.run()
         return

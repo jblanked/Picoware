@@ -35,7 +35,7 @@ def start(view_manager) -> bool:
     if keyboard is None:
         view_manager.alert("No keyboard available")
         return False
-
+    keyboard.input_manager.reset()
     keyboard.set_save_callback(__callback_save)
     keyboard.response = load_wifi_ssid(view_manager)
     keyboard.title = "Enter WiFi SSID"
@@ -94,7 +94,6 @@ def run(view_manager) -> None:
         _keyboard_started = True
     else:
         if not keyboard.run():
-
             view_manager.back()
 
 

@@ -31,15 +31,15 @@ const uint8_t *font_get_data(FontSize size)
 {
   switch (size)
   {
-  case FONT_XTRA_SMALL:
+  case FONT_SIZE_XTRA_SMALL:
     return Font8.table;
-  case FONT_SMALL:
+  case FONT_SIZE_SMALL:
     return Font12.table;
-  case FONT_MEDIUM:
+  case FONT_SIZE_MEDIUM:
     return Font16.table;
-  case FONT_LARGE:
+  case FONT_SIZE_LARGE:
     return Font20.table;
-  case FONT_XTRA_LARGE:
+  case FONT_SIZE_XTRA_LARGE:
     return Font24.table;
   default:
     return Font8.table;
@@ -50,15 +50,15 @@ FontTable font_get_table(FontSize size)
 {
   switch (size)
   {
-  case FONT_XTRA_SMALL:
+  case FONT_SIZE_XTRA_SMALL:
     return Font8;
-  case FONT_SMALL:
+  case FONT_SIZE_SMALL:
     return Font12;
-  case FONT_MEDIUM:
+  case FONT_SIZE_MEDIUM:
     return Font16;
-  case FONT_LARGE:
+  case FONT_SIZE_LARGE:
     return Font20;
-  case FONT_XTRA_LARGE:
+  case FONT_SIZE_XTRA_LARGE:
     return Font24;
   default:
     return Font8;
@@ -69,15 +69,15 @@ uint8_t font_get_height(FontSize size)
 {
   switch (size)
   {
-  case FONT_XTRA_SMALL:
+  case FONT_SIZE_XTRA_SMALL:
     return Font8.height;
-  case FONT_SMALL:
+  case FONT_SIZE_SMALL:
     return Font12.height;
-  case FONT_MEDIUM:
+  case FONT_SIZE_MEDIUM:
     return Font16.height;
-  case FONT_LARGE:
+  case FONT_SIZE_LARGE:
     return Font20.height;
-  case FONT_XTRA_LARGE:
+  case FONT_SIZE_XTRA_LARGE:
     return Font24.height;
   default:
     return Font8.height;
@@ -88,15 +88,15 @@ uint8_t font_get_spacing(FontSize size)
 {
   switch (size)
   {
-  case FONT_XTRA_SMALL:
+  case FONT_SIZE_XTRA_SMALL:
     return Font8.spacing;
-  case FONT_SMALL:
+  case FONT_SIZE_SMALL:
     return Font12.spacing;
-  case FONT_MEDIUM:
+  case FONT_SIZE_MEDIUM:
     return Font16.spacing;
-  case FONT_LARGE:
+  case FONT_SIZE_LARGE:
     return Font20.spacing;
-  case FONT_XTRA_LARGE:
+  case FONT_SIZE_XTRA_LARGE:
     return Font24.spacing;
   default:
     return Font8.spacing;
@@ -107,15 +107,15 @@ uint8_t font_get_width(FontSize size)
 {
   switch (size)
   {
-  case FONT_XTRA_SMALL:
+  case FONT_SIZE_XTRA_SMALL:
     return Font8.width;
-  case FONT_SMALL:
+  case FONT_SIZE_SMALL:
     return Font12.width;
-  case FONT_MEDIUM:
+  case FONT_SIZE_MEDIUM:
     return Font16.width;
-  case FONT_LARGE:
+  case FONT_SIZE_LARGE:
     return Font20.width;
-  case FONT_XTRA_LARGE:
+  case FONT_SIZE_XTRA_LARGE:
     return Font24.width;
   default:
     return Font8.width;
@@ -259,20 +259,20 @@ void font_size_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind
   mp_print_str(print, "FontSize(size=");
   switch (self->size)
   {
-  case FONT_XTRA_SMALL:
-    mp_print_str(print, "FONT_XTRA_SMALL");
+  case FONT_SIZE_XTRA_SMALL:
+    mp_print_str(print, "FONT_SIZE_XTRA_SMALL");
     break;
-  case FONT_SMALL:
-    mp_print_str(print, "FONT_SMALL");
+  case FONT_SIZE_SMALL:
+    mp_print_str(print, "FONT_SIZE_SMALL");
     break;
-  case FONT_MEDIUM:
-    mp_print_str(print, "FONT_MEDIUM");
+  case FONT_SIZE_MEDIUM:
+    mp_print_str(print, "FONT_SIZE_MEDIUM");
     break;
-  case FONT_LARGE:
-    mp_print_str(print, "FONT_LARGE");
+  case FONT_SIZE_LARGE:
+    mp_print_str(print, "FONT_SIZE_LARGE");
     break;
-  case FONT_XTRA_LARGE:
-    mp_print_str(print, "FONT_XTRA_LARGE");
+  case FONT_SIZE_XTRA_LARGE:
+    mp_print_str(print, "FONT_SIZE_XTRA_LARGE");
     break;
   default:
     mp_print_str(print, "UNKNOWN");

@@ -1,7 +1,7 @@
 #include "game_mp.h"
 #include "camera_mp.h"
 #include "level_mp.h"
-#include "engine/game.hpp"
+#include "pico-game-engine/engine/game.hpp"
 
 #ifndef PRINT
 #define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
@@ -311,7 +311,8 @@ void game_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
             destination[0] = MP_OBJ_FROM_PTR(&game_mp_del_obj);
             break;
         default:
-            return; // Fail
+            destination[1] = MP_OBJ_SENTINEL; // not found here; fall through to locals_dict
+            break;
         };
     }
     else if (destination[1] != MP_OBJ_NULL)

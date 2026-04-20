@@ -42,6 +42,8 @@ def start(view_manager) -> bool:
     )
     _app_loader = AppLoader(view_manager)
 
+    _games.add_item("Ghouls")  # Add Ghouls as a built-in game
+
     for game in _app_loader.list_available_apps("games"):
         _games.add_item(game)
 
@@ -79,6 +81,22 @@ def run(view_manager) -> None:
         view_manager.back()
     elif button == BUTTON_CENTER:
         _games_index = _games.selected_index
+
+        if _games_index == 0:
+            # Start Ghouls
+            from picoware.applications import ghouls
+
+            ghouls_view_name = "game_ghouls"
+            if view_manager.get_view(ghouls_view_name) is None:
+                ghouls_view = View(
+                    ghouls_view_name,
+                    ghouls.run,
+                    ghouls.start,
+                    ghouls.stop,
+                )
+                view_manager.add(ghouls_view)
+            view_manager.switch_to(ghouls_view_name)
+            return
 
         # Get the selected game name
         selected_game = _games.current_item

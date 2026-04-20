@@ -323,8 +323,7 @@ class FlipWorldRun:
         if entity.health <= 0:
             entity.health = 0
             entity.state = ENTITY_STATE_DEAD
-            entity.position.x = float(-100)
-            entity.position.y = float(-100)
+            entity.position = Vector(-100, -100)
             return True
 
         entity.elapsed_attack_timer = float(eat)
@@ -333,24 +332,19 @@ class FlipWorldRun:
         d_val = int(d)
         if d_val == 0:
             # ENTITY_DIRECTION_LEFT
-            entity.direction.x = -1
-            entity.direction.y = 0
+            entity.direction = Vector(-1, 0)
         elif d_val == 1:
             # ENTITY_DIRECTION_RIGHT
-            entity.direction.x = 1
-            entity.direction.y = 0
+            entity.direction = Vector(1, 0)
         elif d_val == 2:
             # ENTITY_DIRECTION_UP
-            entity.direction.x = 0
-            entity.direction.y = -1
+            entity.direction = Vector(0, -1)
         elif d_val == 3:
             # ENTITY_DIRECTION_DOWN
-            entity.direction.x = 0
-            entity.direction.y = 1
+            entity.direction = Vector(0, 1)
         else:
             # default to right
-            entity.direction.x = 1
-            entity.direction.y = 0
+            entity.direction = Vector(1, 0)
 
         # Set XP and calculate level
         entity.xp = int(xp)
@@ -362,8 +356,7 @@ class FlipWorldRun:
             xp_required = int(xp_required * 1.5)
 
         # Set position
-        entity.position.x = float(x)
-        entity.position.y = float(y)
+        entity.position = Vector(float(x), float(y))
 
         return True
 
@@ -1065,20 +1058,16 @@ class FlipWorldRun:
             d_val = int(d)
             if d_val == 0:
                 # ENTITY_DIRECTION_LEFT
-                entity.direction.x = -1
-                entity.direction.y = 0
+                entity.direction = Vector(-1, 0)
             elif d_val == 1:
                 # ENTITY_DIRECTION_RIGHT
-                entity.direction.x = 1
-                entity.direction.y = 0
+                entity.direction = Vector(1, 0)
             elif d_val == 2:
                 # ENTITY_DIRECTION_UP
-                entity.direction.x = 0
-                entity.direction.y = -1
+                entity.direction = Vector(0, -1)
             elif d_val == 3:
                 # ENTITY_DIRECTION_DOWN
-                entity.direction.x = 0
-                entity.direction.y = 1
+                entity.direction = Vector(0, 1)
 
         # Get state
         s = data.get("s", None)
@@ -1122,8 +1111,7 @@ class FlipWorldRun:
             x = sp.get("x", None)
             y = sp.get("y", None)
             if x is not None and y is not None:
-                entity.position.x = float(x)
-                entity.position.y = float(y)
+                entity.position = Vector(float(x), float(y))
 
         return True
 

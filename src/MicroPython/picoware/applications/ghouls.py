@@ -53,19 +53,20 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run the app"""
+
     if _ghouls is None:
         return
 
     button = view_manager.button
-    try:
-        if not _ghouls.is_active:
-            view_manager.back()
-            return
-        _ghouls.update_draw()
-        if button != -1:
-            _ghouls.update_input(button)
-    except Exception:
+
+    if button != -1:
+        _ghouls.update_input(button)
+
+    _ghouls.update_draw()
+
+    if not _ghouls.is_active:
         view_manager.back()
+        return
 
 
 def stop(view_manager) -> None:
@@ -74,7 +75,8 @@ def stop(view_manager) -> None:
 
     global _ghouls
 
-    del _ghouls
-    _ghouls = None
+    if _ghouls is not None:
+        del _ghouls
+        _ghouls = None
 
     collect()

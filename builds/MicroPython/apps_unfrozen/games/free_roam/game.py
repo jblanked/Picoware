@@ -112,7 +112,7 @@ class FreeRoamGame:
             from json import loads as json_loads
 
             data: str = self.view_manager.storage.read(
-                "picoware/flip_social/username.json"
+                "picoware/settings/server_username.json"
             )
             player = "Player"
             if data is not None:
@@ -329,7 +329,7 @@ class FreeRoamGame:
             from json import loads as json_loads
 
             data: str = self.view_manager.storage.read(
-                "picoware/flip_social/username.json"
+                "picoware/settings/server_username.json"
             )
             player = "Player"
             if data is not None:
@@ -514,7 +514,7 @@ class FreeRoamGame:
             from json import loads as json_loads
 
             data: str = self.view_manager.storage.read(
-                "picoware/flip_social/username.json"
+                "picoware/settings/server_username.json"
             )
             player = "Player"
             if data is not None:

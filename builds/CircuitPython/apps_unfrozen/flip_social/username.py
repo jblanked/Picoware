@@ -9,7 +9,7 @@ _flip_social_user_keyboard_ran: bool = False
 def __flip_social_util_get_username(view_manager) -> str:
     """Get the username from storage, or return empty string"""
     storage = view_manager.storage
-    data: str = storage.read("picoware/flip_social/username.json")
+    data: str = storage.read("picoware/settings/server_username.json")
 
     if data is not None:
         try:
@@ -114,7 +114,7 @@ def __flip_social_user_stop(view_manager) -> None:
                 from ujson import dumps
 
                 obj = {"username": username}
-                storage.write("picoware/flip_social/username.json", dumps(obj))
+                storage.write("picoware/settings/server_username.json", dumps(obj))
             except Exception:
                 pass
 

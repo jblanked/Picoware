@@ -9,7 +9,7 @@ _free_roam_password_keyboard_ran: bool = False
 def __free_roam_util_get_password(view_manager) -> str:
     """Get the password from storage, or return empty string"""
     storage = view_manager.storage
-    data: str = storage.read("picoware/flip_social/password.json")
+    data: str = storage.read("picoware/settings/server_password.json")
 
     if data is not None:
         try:
@@ -115,7 +115,7 @@ def __free_roam_password_stop(view_manager) -> None:
                 from ujson import dumps
 
                 obj = {"password": password}
-                storage.write("picoware/flip_social/password.json", dumps(obj))
+                storage.write("picoware/settings/server_password.json", dumps(obj))
             except Exception:
                 pass
 

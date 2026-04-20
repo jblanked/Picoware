@@ -25,6 +25,7 @@ def start(view_manager) -> bool:
     kb = view_manager.keyboard
     kb.title = "Enter filename to edit:"
     kb.response = ""
+    kb.input_manager.reset()
     kb.run(force=True)
     return True
 
@@ -52,7 +53,9 @@ def run(view_manager) -> None:
             _keyboard_just_started = True
             kb.run(force=True)
         else:
-            kb.run()
+            if not kb.run():
+                inp.reset()
+                view_manager.back()
     else:
         _textbox.run()
 

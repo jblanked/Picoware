@@ -9,7 +9,9 @@
 #endif
 
 #define SKY_HORIZON_HEIGHT (ENGINE_LCD_HEIGHT / 2)
+#ifndef SKY_HORIZON_ROWS
 #define SKY_HORIZON_ROWS 4
+#endif
 
 #define FIXED_POINT_SCALE 256
 
@@ -18,7 +20,9 @@
 #endif
 
 #define GROUND_HORIZON_HEIGHT (ENGINE_LCD_HEIGHT / 2)
+#ifndef GROUND_ROWS
 #define GROUND_ROWS 4
+#endif
 
 #ifndef FIELD_OF_VIEW
 #define FIELD_OF_VIEW 30 // see up to 30 around us

@@ -9,11 +9,15 @@
 #include ENGINE_LOG_INCLUDE
 #endif
 
+#define GROUND_ROWS 160
+#define SKY_HORIZON_ROWS 160
 #define WIREFRAME_ENABLED true
+
+#define TICKS_PER_DAY 1200 // 20 fps * 60 seconds
 
 // time
 #define TIME_INCLUDE "pico/time.h"
-#define TIME_MILLIS to_ms_since_boot(get_absolute_time())
+#define TIME_MILLIS to_ms_since_boot(get_absolute_time()) * 10
 
 // buttons
 #define INPUT_KEY_UP 0

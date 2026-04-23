@@ -324,6 +324,8 @@ target_sources(usermod_ghouls INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/dynamic_map.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/enemy.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/game.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/ground.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/level.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/loading.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/player.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/projectile.cpp

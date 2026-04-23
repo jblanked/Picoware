@@ -268,6 +268,9 @@ void GhoulsGame::makeGhoulsGoHome()
             enemy->state = ENTITY_MOVING_TO_START;
         }
     }
+    ghoulCountCurrent = 0;
+    ghoulCountSpawned = 0;
+    ghoulCountTotal = 0;
 }
 
 void GhoulsGame::makeGhoulsGoToPlayer()
@@ -286,6 +289,18 @@ void GhoulsGame::makeGhoulsGoToPlayer()
             Enemy *enemy = static_cast<Enemy *>(entity);
             enemy->state = ENTITY_MOVING_TO_END;
         }
+    }
+}
+
+void GhoulsGame::onGhoulDied()
+{
+    if (ghoulCountCurrent > 0)
+    {
+        ghoulCountCurrent--;
+    }
+    if (ghoulCountSpawned < ghoulCountTotal)
+    {
+        spawnOneGhoul();
     }
 }
 
@@ -376,27 +391,38 @@ bool GhoulsGame::setSkyType(SkyType skyType)
 }
 #endif
 
-bool GhoulsGame::spawnGhouls()
+bool GhoulsGame::spawnOneGhoul()
 {
     GhoulsLevel *level = getCurrentLevel();
     if (!level)
     {
-        ENGINE_LOG_INFO("[GhoulsGame:spawnGhouls] Current level instance is null");
+        ENGINE_LOG_INFO("[GhoulsGame:spawnOneGhoul] Current level instance is null");
         return false;
     }
-    for (uint16_t i = 0; i < currentRound; i++)
+    Entity *ghoul = ENGINE_MEM_NEW Enemy("Ghoul", getRandomGhoulPosition(level), ENEMY_BULLY, 1.7f, 1.5f, 0.f, player->position);
+    if (!ghoul)
     {
-        if (i >= ENEMY_SPAWN_MAX)
+        ENGINE_LOG_INFO("[GhoulsGame:spawnOneGhoul] Failed to create Enemy instance for Ghoul");
+        return false;
+    }
+    level->entity_add(ghoul);
+    ghoulCountSpawned++;
+    ghoulCountCurrent++;
+    return true;
+}
+
+bool GhoulsGame::spawnGhouls(uint8_t count)
+{
+    ghoulCountTotal = count;
+    ghoulCountSpawned = 0;
+    ghoulCountCurrent = 0;
+    const uint8_t initialSpawn = count < ENEMY_SPAWN_MAX ? count : ENEMY_SPAWN_MAX;
+    for (uint8_t i = 0; i < initialSpawn; i++)
+    {
+        if (!spawnOneGhoul())
         {
-            break;
-        }
-        Entity *ghoul = ENGINE_MEM_NEW Enemy("Ghoul", getRandomGhoulPosition(level), ENEMY_BULLY, 1.7f, 1.5f, 0.f, player->position);
-        if (!ghoul)
-        {
-            ENGINE_LOG_INFO("[GhoulsGame:spawnGhouls] Failed to create Enemy instance for Ghoul");
             return false;
         }
-        level->entity_add(ghoul);
     }
     return true;
 }
@@ -593,7 +619,7 @@ void GhoulsGame::updateDraw()
                 return;
             }
             // spawn new ghouls for the night based on current round
-            if (!spawnGhouls())
+            if (!spawnGhouls(currentRound))
             {
                 ENGINE_LOG_INFO("[GhoulsGame:updateDraw] Failed to spawn ghouls for the night");
                 return;

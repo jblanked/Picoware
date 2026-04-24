@@ -29,27 +29,27 @@ Weapon::Weapon(WeaponType type, float height, Vector position) : Entity("Weapon"
     case WEAPON_RIFLE:
         damage = 15.0f;
         ammo = 30;
-        cooldown_max = SPEED_SCALE(20); // 20 ticks between shots
+        cooldown_max = SPEED_SCALE(10); // 10 ticks between shots
         projectileType = PROJECTILE_BULLET;
         makeRifle(height);
         break;
     case WEAPON_SHOTGUN:
         damage = 20.0f;
         ammo = 10;
-        cooldown_max = SPEED_SCALE(40); // 40 ticks between shots
+        cooldown_max = SPEED_SCALE(20); // 20 ticks between shots
         projectileType = PROJECTILE_SHELL;
         makeShotgun(height);
         break;
     case WEAPON_ROCKET_LAUNCHER:
         damage = 50.0f;
         ammo = 5;
-        cooldown_max = SPEED_SCALE(100); // 100 ticks between shots
+        cooldown_max = SPEED_SCALE(50); // 50 ticks between shots
         projectileType = PROJECTILE_ROCKET;
         makeRocketLauncher(height);
         break;
     case WEAPON_CROSSBOW:
         damage = 35.0f;
-        cooldown_max = SPEED_SCALE(60); // 60 ticks between shots
+        cooldown_max = SPEED_SCALE(30); // 30 ticks between shots
         projectileType = PROJECTILE_ARROW;
         ammo = 15;
         makeCrossbow(height);

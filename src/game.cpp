@@ -267,6 +267,7 @@ void GhoulsGame::inputManager()
     {
         player->setInputKey(lastInput);
         player->processInput();
+        resetInput();
     }
 }
 
@@ -556,6 +557,9 @@ bool GhoulsGame::startGame()
 
     isGameRunning = true; // Set the flag to indicate game is running
     gameTime->reset();    // ensure day starts at 0
+    gameSound->stop();
+    gameSound->playWAV(ASSETS_FOLDER "ambience.wav");
+    player->showAlert("Find weapons before the night..", 120);
     return true;
 }
 
@@ -633,6 +637,8 @@ void GhoulsGame::updateDraw()
 #if GROUND_RENDER_ALLOWED
             setGroundType(GROUND_DIRT);
 #endif
+            gameSound->stop();
+            gameSound->playWAV(ASSETS_FOLDER "ambience.wav");
             player->showAlert("You survived the night.. for now");
         }
     }
@@ -665,6 +671,9 @@ void GhoulsGame::updateDraw()
 #endif
             currentRound++;  // Increment round (for next night)
             refreshPlayer(); // refresh player state to update weapon and health displays after day ends
+            gameSound->stop();
+            gameSound->playWAV(ASSETS_FOLDER "ambience.wav");
+            gameSound->playWAV(ASSETS_FOLDER "ghouls-growling.wav");
             player->showAlert("The ghouls are coming...");
         }
     }

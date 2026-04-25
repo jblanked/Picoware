@@ -121,7 +121,7 @@ Vector GhoulsGame::getRandomGhoulPosition(Level *level)
         Vector(20, 10),
         Vector(21, 3),
         Vector(21, 8),
-        Vector(22, 1),
+        Vector(22, 2),
         Vector(22, 3),
         Vector(22, 10),
     };
@@ -147,7 +147,7 @@ Vector GhoulsGame::getRandomWeaponPosition(Level *level)
         Vector(2, 9),
         Vector(3, 5),
         Vector(7, 6),
-        Vector(8, 1),
+        Vector(8, 2),
         Vector(9, 3),
         Vector(13, 5),
         Vector(13, 11),
@@ -226,9 +226,12 @@ void GhoulsGame::increaseDifficulty()
         if (entity && entity->type == ENTITY_ENEMY)
         {
             Enemy *enemy = static_cast<Enemy *>(entity);
-            enemy->max_health += (ENEMY_HEALTH_INCREMENT * decrement); // increase max health based on current round
-            enemy->health = enemy->max_health;                         // restore health to max when stats are updated
-            enemy->strength += (ENEMY_STRENGTH_INCREMENT * decrement); // increase strength based on current round
+            if (enemy)
+            {
+                enemy->max_health += (ENEMY_HEALTH_INCREMENT * decrement); // increase max health based on current round
+                enemy->health = enemy->max_health;                         // restore health to max when stats are updated
+                enemy->strength += (ENEMY_STRENGTH_INCREMENT * decrement); // increase strength based on current round
+            }
         }
     }
 }
@@ -281,7 +284,10 @@ void GhoulsGame::makeGhoulsGoHome()
         if (entity && entity->type == ENTITY_ENEMY)
         {
             Enemy *enemy = static_cast<Enemy *>(entity);
-            enemy->state = ENTITY_MOVING_TO_START;
+            if (enemy)
+            {
+                enemy->state = ENTITY_MOVING_TO_START;
+            }
         }
     }
     ghoulCountCurrent = 0;
@@ -303,7 +309,10 @@ void GhoulsGame::makeGhoulsGoToPlayer()
         if (entity && entity->type == ENTITY_ENEMY)
         {
             Enemy *enemy = static_cast<Enemy *>(entity);
-            enemy->state = ENTITY_MOVING_TO_END;
+            if (enemy)
+            {
+                enemy->state = ENTITY_MOVING_TO_END;
+            }
         }
     }
 }
@@ -322,6 +331,7 @@ void GhoulsGame::onGhoulDied()
 
 bool GhoulsGame::positionExistsInLevel(Level *level, Vector position)
 {
+    // check entities
     for (int i = 0; i < level->getEntityCount(); i++)
     {
         Entity *entity = level->getEntity(i);
@@ -330,7 +340,9 @@ bool GhoulsGame::positionExistsInLevel(Level *level, Vector position)
             return true;
         }
     }
-    return false;
+    // check trees/houses
+    GhoulsLevel *currentLevel = static_cast<GhoulsLevel *>(level);
+    return currentLevel && !currentLevel->isPositionAvailable(position);
 }
 
 void GhoulsGame::refreshPlayer()

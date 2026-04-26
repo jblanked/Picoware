@@ -42,6 +42,8 @@ def start(view_manager) -> bool:
         )
         return False
 
+    view_manager.freq(True)  # set to lower frequency
+
     global _ghouls
 
     _ghouls = Ghouls(
@@ -78,5 +80,7 @@ def stop(view_manager) -> None:
     if _ghouls is not None:
         del _ghouls
         _ghouls = None
+
+    view_manager.freq()  # set back to higher frequency
 
     collect()

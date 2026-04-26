@@ -13,7 +13,6 @@ Sound::Sound()
 
 Sound::~Sound()
 {
-    stop();
 #ifdef SOUND_DEINIT
     SOUND_DEINIT();
 #endif

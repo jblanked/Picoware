@@ -9,11 +9,15 @@
 #include ENGINE_LOG_INCLUDE
 #endif
 
+#define ASSETS_FOLDER "picoware/apps/games/ghouls/assets/"
+
 #define GROUND_ROWS 160
 #define SKY_HORIZON_ROWS 160
 #define WIREFRAME_ENABLED true
 
-#define TICKS_PER_DAY 1200 // 20 fps * 60 seconds
+#define TICKS_PER_DAY 1400
+#define PLAYER_SPEED_VERTICAL SPEED_SCALE(0.4f)
+#define PLAYER_SPEED_HORIZONTAL SPEED_SCALE(0.07f)
 
 // time
 #define TIME_INCLUDE "pico/time.h"
@@ -49,7 +53,9 @@
 #define JSON_GET_ARRAY_VALUE get_json_array_value // (const char *key, int index, const char *json_str) -> char* (caller must free)
 
 // sound
-// #define SOUND_INCLUDE "../sound.hpp"
+#define SOUND_INCLUDE "../../../audio/audio.h"
 // #define SOUND_PLAY_MONO_FREQUENCY sound_play_mono_frequency     // (int frequency, int duration_ms)
-// #define SOUND_PLAY_STEREO_FREQUENCY sound_play_stereo_frequency // (int left_freq, int right_freq, int duration_ms)
-// #define SOUND_PLAY_PCM sound_play_pcm                           // (const int16_t *samples, int count)
+#define SOUND_PLAY_STEREO_FREQUENCY audio_play_sound_blocking // (int left_freq, int right_freq, int duration_ms)
+#define SOUND_PLAY_PCM audio_push_samples                     // (const int16_t *samples, int count)
+#define SOUND_PLAY_WAV audio_play_wav                         // (const char *path)
+#define SOUND_STOP audio_stop                                 // () -> void

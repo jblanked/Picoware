@@ -139,6 +139,7 @@ extern "C"
     void audio_play_song_blocking(const audio_song_t *song);                                                 // Play a song and block until it finishes
     void audio_play_sound(uint32_t left_frequency, uint32_t right_frequency);                                // Play a sound with the given left and right frequencies
     void audio_play_sound_blocking(uint32_t left_frequency, uint32_t right_frequency, uint32_t duration_ms); // Play a sound with the given left and right frequencies and block until it finishes
+    bool audio_play_wav(const char *filename);                                                               // Play a WAV file from the filesystem (non-blocking, returns true if playback started successfully)
 
     void audio_push_samples(const int16_t *samples, int count); // Push PCM samples to the audio output buffer
     void audio_set_volume(uint8_t volume);                      // Set the audio volume (0-100)

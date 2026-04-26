@@ -24,6 +24,7 @@ class FileBrowser:
     ACT_MOVE = const(3)
     ACT_RENAME = const(4)
     ACT_FLASH = const(5)
+    ACT_AUDIO = const(6)
 
     OPTIONS_LABELS = ("Hidden Files", "Dir Enter")
 
@@ -1203,6 +1204,25 @@ class FileBrowser:
                         uf2.flash(self._context_target_path)
                         self.__loading_run("Done", 1.0)
 
+                    elif self._pending_action == self.ACT_AUDIO:
+                        self.__loading_run("Playing...", 0.5)
+
+                        audio = self._vm.audio
+                        if audio:
+                            if audio.play_wav(self._context_target_path):
+                                inp = self._vm.input_manager
+                                inp.reset()
+                                while audio.is_playing:
+                                    but = inp.button
+                                    if but in (
+                                        BUTTON_BACK,
+                                        BUTTON_ESCAPE,
+                                        BUTTON_CENTER,
+                                    ):
+                                        break
+                                    self.__loading_run("Playing....", 0.5)
+                                audio.stop()
+
                     if len(mk) > 0:
                         self._app_state["marked"].clear()
                     if self._pending_action != self.ACT_NONE:
@@ -1287,9 +1307,11 @@ class FileBrowser:
                     elif ac == "Flash":
                         self._pending_action = self.ACT_FLASH
                         fn = self._context_target_path.split("/")[-1]
-                        self._confirm_menu = self.__menu_spawn(
-                            f"Flash {fn}?", ("No", "Yes")
-                        )
+                        self._confirm_menu = self.__menu_spawn("Flash?", ("No", "Yes"))
+                    elif ac == "Play Audio":
+                        self._pending_action = self.ACT_AUDIO
+                        fn = self._context_target_path.split("/")[-1]
+                        self._confirm_menu = self.__menu_spawn("Play?", ("No", "Yes"))
                     elif ac == "Rename":
                         self._input_active = True
                         self._input_text = self._context_target_path.split("/")[-1]
@@ -1501,8 +1523,11 @@ class FileBrowser:
                             items = ["Open"]
                         else:
                             is_uf2 = np.lower().endswith(".uf2")
+                            is_wav = np.lower().endswith(".wav")
                             if is_uf2:
                                 items = ["Flash"]
+                            elif is_wav:
+                                items = ["Play Audio"]
                             else:
                                 is_img = np.lower().endswith((".jpg", ".jpeg", ".bmp"))
                                 items = ["View"] if is_img else ["View", "Edit"]

@@ -42,10 +42,12 @@ def start(view_manager) -> bool:
         )
         return False
 
+    view_manager.freq(True)  # set to lower frequency
+
     global _ghouls
 
     _ghouls = Ghouls(
-        username, password, False
+        username, password, True
     )  # requires username, password, soundEnabled
 
     return _ghouls is not None
@@ -78,5 +80,7 @@ def stop(view_manager) -> None:
     if _ghouls is not None:
         del _ghouls
         _ghouls = None
+
+    view_manager.freq()  # set back to higher frequency
 
     collect()

@@ -12,6 +12,26 @@
 #include AUDIO_MEMORY_INCLUDE
 #endif
 
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC)
+#include "../sd/fat32.h"
+#define SD_AVAILABLE 1
+#else
+#define SD_AVAILABLE 0
+#endif
+
+#ifndef PICOCALC
+volatile bool user_interrupt = false;
+#endif
+
+#include "py/runtime.h"
+#ifndef PRINT
+#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
+#endif
+
+#include "pico/multicore.h"
+#include "pico/mutex.h"
+#include <string.h>
+
 static bool audio_initialised = false;
 PIO pio = pio0;
 
@@ -39,6 +59,37 @@ static repeating_timer_t stream_timer;
 static bool streaming = false;
 static unsigned int stream_pwm_slice_l = 0;
 static unsigned int stream_pwm_slice_r = 0;
+
+// WAV streaming (up to 4 simultaneous files decoded on core 1)
+#define MAX_WAV_STREAMS 4
+#define WAV_CORE1_STACK_SIZE 2048 // uint32_t units = 8 KB
+#define WAV_MIX_CHUNK 256
+
+// Static buffers
+#if SD_AVAILABLE
+static int16_t mix_buf[WAV_MIX_CHUNK * 2]; // stereo int16 mix
+static uint8_t raw_buf[WAV_MIX_CHUNK * 6]; // worst case: stereo 24-bit
+#endif
+
+typedef struct
+{
+#if SD_AVAILABLE
+    fat32_file_t file;
+#endif
+    bool active;
+    uint32_t data_remaining; // PCM bytes left in the data chunk
+    uint16_t num_channels;
+    uint32_t sample_rate;
+    uint16_t bits_per_sample;
+} wav_stream_t;
+
+static wav_stream_t wav_streams[MAX_WAV_STREAMS];
+#if SD_AVAILABLE
+static uint32_t wav_core1_stack[WAV_CORE1_STACK_SIZE] __attribute__((aligned(4)));
+#endif
+static volatile bool wav_core1_running = false;
+static mutex_t wav_sd_mutex;
+static uint32_t wav_active_sample_rate = 0;
 
 // Forward declarations
 static void set_pwm_frequency(uint8_t channel, uint32_t frequency);
@@ -153,6 +204,12 @@ bool audio_init(void)
     {
         return true; // Already initialized
     }
+
+    // Initialize WAV streaming state
+    memset(wav_streams, 0, sizeof(wav_streams));
+    wav_core1_running = false;
+    wav_active_sample_rate = 0;
+    mutex_init(&wav_sd_mutex);
 
     stream_ring_left = (uint8_t *)AUDIO_MEMORY_MALLOC(AUDIO_STREAM_RING_SIZE);
     stream_ring_right = (uint8_t *)AUDIO_MEMORY_MALLOC(AUDIO_STREAM_RING_SIZE);
@@ -290,6 +347,279 @@ void audio_play_sound_blocking(uint32_t left_frequency, uint32_t right_frequency
     }
 }
 
+#if SD_AVAILABLE
+static bool audio_wav_parse_header(fat32_file_t *file,
+                                   uint16_t *num_channels,
+                                   uint32_t *sample_rate,
+                                   uint16_t *bits_per_sample,
+                                   uint32_t *data_size)
+{
+    uint8_t buf[12];
+    size_t bytes_read;
+
+    if (fat32_read(file, buf, 12, &bytes_read) != FAT32_OK || bytes_read < 12)
+        return false;
+    if (buf[0] != 'R' || buf[1] != 'I' || buf[2] != 'F' || buf[3] != 'F')
+        return false;
+    if (buf[8] != 'W' || buf[9] != 'A' || buf[10] != 'V' || buf[11] != 'E')
+        return false;
+
+    bool found_fmt = false;
+    for (;;)
+    {
+        uint8_t chunk_hdr[8];
+        if (fat32_read(file, chunk_hdr, 8, &bytes_read) != FAT32_OK || bytes_read < 8)
+            return false;
+
+        uint32_t chunk_size = (uint32_t)chunk_hdr[4] | ((uint32_t)chunk_hdr[5] << 8) | ((uint32_t)chunk_hdr[6] << 16) | ((uint32_t)chunk_hdr[7] << 24);
+
+        if (chunk_hdr[0] == 'f' && chunk_hdr[1] == 'm' &&
+            chunk_hdr[2] == 't' && chunk_hdr[3] == ' ')
+        {
+            uint8_t fmt[16];
+            uint32_t to_read = chunk_size < 16 ? chunk_size : 16;
+            if (fat32_read(file, fmt, to_read, &bytes_read) != FAT32_OK || bytes_read < to_read)
+                return false;
+
+            uint16_t audio_format = (uint16_t)fmt[0] | ((uint16_t)fmt[1] << 8);
+            if (audio_format != 1)
+                return false; // Only uncompressed PCM supported
+
+            *num_channels = (uint16_t)fmt[2] | ((uint16_t)fmt[3] << 8);
+            *sample_rate = (uint32_t)fmt[4] | ((uint32_t)fmt[5] << 8) | ((uint32_t)fmt[6] << 16) | ((uint32_t)fmt[7] << 24);
+            *bits_per_sample = (uint16_t)fmt[14] | ((uint16_t)fmt[15] << 8);
+
+            // Skip any extra bytes in the fmt chunk, keep word alignment
+            if (chunk_size > 16)
+                fat32_seek(file, fat32_tell(file) + (chunk_size - 16));
+            if (chunk_size & 1)
+                fat32_seek(file, fat32_tell(file) + 1);
+
+            found_fmt = true;
+        }
+        else if (chunk_hdr[0] == 'd' && chunk_hdr[1] == 'a' &&
+                 chunk_hdr[2] == 't' && chunk_hdr[3] == 'a')
+        {
+            if (!found_fmt)
+                return false;
+            *data_size = chunk_size;
+            return true; // file is now positioned at the start of PCM data
+        }
+        else
+        {
+            // Skip unknown chunk (word-aligned)
+            fat32_seek(file, fat32_tell(file) + chunk_size + (chunk_size & 1));
+        }
+    }
+}
+
+// reads all active WAV streams, mixes them, and pushes to the PCM ring buffer
+
+static void audio_wav_core1_entry(void)
+{
+    multicore_lockout_victim_init();
+
+    while (wav_core1_running)
+    {
+        bool any_active = false;
+        memset(mix_buf, 0, sizeof(mix_buf));
+
+        for (int s = 0; s < MAX_WAV_STREAMS; s++)
+        {
+            if (!wav_streams[s].active)
+                continue;
+
+            uint32_t bytes_per_sample = (wav_streams[s].bits_per_sample + 7) / 8;
+            uint32_t bytes_per_frame = bytes_per_sample * wav_streams[s].num_channels;
+
+            if (wav_streams[s].data_remaining == 0 || bytes_per_frame == 0)
+            {
+                wav_streams[s].active = false;
+                mutex_enter_blocking(&wav_sd_mutex);
+                fat32_close(&wav_streams[s].file);
+                mutex_exit(&wav_sd_mutex);
+                continue;
+            }
+
+            any_active = true;
+
+            uint32_t max_frames = wav_streams[s].data_remaining / bytes_per_frame;
+            uint32_t frames_wanted = WAV_MIX_CHUNK < max_frames ? WAV_MIX_CHUNK : max_frames;
+            uint32_t bytes_to_read = frames_wanted * bytes_per_frame;
+            if (bytes_to_read > sizeof(raw_buf))
+            {
+                bytes_to_read = (sizeof(raw_buf) / bytes_per_frame) * bytes_per_frame;
+                frames_wanted = bytes_to_read / bytes_per_frame;
+            }
+
+            size_t bytes_read = 0;
+            mutex_enter_blocking(&wav_sd_mutex);
+            fat32_read(&wav_streams[s].file, raw_buf, bytes_to_read, &bytes_read);
+            mutex_exit(&wav_sd_mutex);
+
+            uint32_t frames_read = bytes_read / bytes_per_frame;
+            wav_streams[s].data_remaining -= bytes_read;
+
+            for (uint32_t i = 0; i < frames_read; i++)
+            {
+                int16_t l, r;
+                uint32_t off = i * bytes_per_frame;
+                if (wav_streams[s].bits_per_sample == 8)
+                {
+                    // 8-bit WAV is unsigned; shift to int16 range
+                    l = ((int16_t)raw_buf[off] - 128) << 8;
+                    r = (wav_streams[s].num_channels > 1)
+                            ? ((int16_t)raw_buf[off + 1] - 128) << 8
+                            : l;
+                }
+                else if (wav_streams[s].bits_per_sample == 24)
+                {
+                    // 24-bit signed little-endian — sign-extend then keep upper 16 bits
+                    int32_t sl = (int32_t)((uint32_t)raw_buf[off] | ((uint32_t)raw_buf[off + 1] << 8) | ((uint32_t)raw_buf[off + 2] << 16));
+                    if (sl & 0x800000)
+                        sl |= (int32_t)0xFF000000;
+                    l = (int16_t)(sl >> 8);
+                    if (wav_streams[s].num_channels > 1)
+                    {
+                        int32_t sr = (int32_t)((uint32_t)raw_buf[off + 3] | ((uint32_t)raw_buf[off + 4] << 8) | ((uint32_t)raw_buf[off + 5] << 16));
+                        if (sr & 0x800000)
+                            sr |= (int32_t)0xFF000000;
+                        r = (int16_t)(sr >> 8);
+                    }
+                    else
+                    {
+                        r = l;
+                    }
+                }
+                else
+                {
+                    // 16-bit signed little-endian
+                    l = (int16_t)((uint16_t)raw_buf[off] | ((uint16_t)raw_buf[off + 1] << 8));
+                    r = (wav_streams[s].num_channels > 1)
+                            ? (int16_t)((uint16_t)raw_buf[off + 2] | ((uint16_t)raw_buf[off + 3] << 8))
+                            : l;
+                }
+
+                // Saturating-add into mix buffer
+                int32_t ml = (int32_t)mix_buf[i * 2] + l;
+                int32_t mr = (int32_t)mix_buf[i * 2 + 1] + r;
+                mix_buf[i * 2] = (int16_t)(ml > 32767 ? 32767 : (ml < -32768 ? -32768 : ml));
+                mix_buf[i * 2 + 1] = (int16_t)(mr > 32767 ? 32767 : (mr < -32768 ? -32768 : mr));
+            }
+        }
+
+        if (!any_active)
+        {
+            wav_core1_running = false;
+            is_playing = false;
+            break;
+        }
+        else
+        {
+            is_playing = true;
+        }
+
+        // wait until the ring buffer has room for a full chunk
+        while (wav_core1_running)
+        {
+            uint32_t used = stream_ring_write - stream_ring_read;
+            if (used + (uint32_t)WAV_MIX_CHUNK <= AUDIO_STREAM_RING_SIZE)
+                break;
+            tight_loop_contents();
+        }
+
+        if (wav_core1_running)
+            audio_push_samples(mix_buf, WAV_MIX_CHUNK);
+    }
+}
+#endif
+
+bool audio_play_wav(const char *filename)
+{
+#if SD_AVAILABLE
+    if (!audio_initialised || !filename)
+    {
+        PRINT("Audio not initialized or filename is NULL\n");
+        return false;
+    }
+
+    // Find a free slot
+    int slot = -1;
+    for (int i = 0; i < MAX_WAV_STREAMS; i++)
+    {
+        if (!wav_streams[i].active)
+        {
+            slot = i;
+            break;
+        }
+    }
+    if (slot < 0)
+    {
+        PRINT("All WAV slots are busy\n");
+        return false; // all 4 slots busy
+    }
+
+    fat32_file_t *f = &wav_streams[slot].file;
+
+    mutex_enter_blocking(&wav_sd_mutex);
+    bool opened = (fat32_open(f, filename) == FAT32_OK);
+    if (!opened)
+    {
+        mutex_exit(&wav_sd_mutex);
+        PRINT("Failed to open WAV file: %s\n", filename);
+        return false;
+    }
+
+    uint16_t num_channels = 0, bits_per_sample = 0;
+    uint32_t sample_rate = 0, data_size = 0;
+    bool ok = audio_wav_parse_header(f, &num_channels, &sample_rate, &bits_per_sample, &data_size);
+    mutex_exit(&wav_sd_mutex);
+
+    if (!ok || (bits_per_sample != 8 && bits_per_sample != 16 && bits_per_sample != 24))
+    {
+        mutex_enter_blocking(&wav_sd_mutex);
+        fat32_close(f);
+        mutex_exit(&wav_sd_mutex);
+        PRINT("Unsupported WAV format in file: %s\n", filename);
+        return false;
+    }
+
+    wav_streams[slot].num_channels = num_channels;
+    wav_streams[slot].sample_rate = sample_rate;
+    wav_streams[slot].bits_per_sample = bits_per_sample;
+    wav_streams[slot].data_remaining = data_size;
+    __dmb(); // ensure fields are visible to core 1 before active is set
+    wav_streams[slot].active = true;
+
+    // Count active streams to decide whether to (re-)start PWM streaming
+    int active_count = 0;
+    for (int i = 0; i < MAX_WAV_STREAMS; i++)
+        if (wav_streams[i].active)
+            active_count++;
+
+    if (active_count == 1)
+    {
+        // First stream: configure PWM at this file's sample rate
+        wav_active_sample_rate = sample_rate;
+        audio_start_stream(sample_rate);
+    }
+
+    if (!wav_core1_running)
+    {
+        wav_core1_running = true;
+        multicore_reset_core1();
+        multicore_launch_core1_with_stack(audio_wav_core1_entry, wav_core1_stack,
+                                          sizeof(wav_core1_stack));
+    }
+    is_playing = true;
+    return true;
+#else
+    (void)filename;
+    PRINT("WAV playback not supported on this platform\n");
+    return false; // WAV playback not supported on this platform
+#endif
+}
+
 void audio_push_samples(const int16_t *samples, int count)
 {
     if (!stream_ring_left || !stream_ring_right)
@@ -370,6 +700,24 @@ void audio_stop(void)
     {
         return;
     }
+#if SD_AVAILABLE
+    // Stop WAV streaming on core 1
+    if (wav_core1_running)
+    {
+        wav_core1_running = false;
+        multicore_reset_core1();
+        // Reinitialise mutex in case core 1 was killed while holding it
+        mutex_init(&wav_sd_mutex);
+        for (int i = 0; i < MAX_WAV_STREAMS; i++)
+        {
+            if (wav_streams[i].active)
+            {
+                fat32_close(&wav_streams[i].file);
+                wav_streams[i].active = false;
+            }
+        }
+    }
+#endif
 
     // Stop PCM streaming if active
     if (streaming)
@@ -398,5 +746,8 @@ void audio_stop_stream(void)
     pwm_set_gpio_level(AUDIO_RIGHT_PIN, 0);
     pwm_set_enabled(stream_pwm_slice_l, false);
     pwm_set_enabled(stream_pwm_slice_r, false);
+    // Restore pins to PIO function so tone output works after streaming
+    // pio_gpio_init(pio, AUDIO_LEFT_PIN);
+    // pio_gpio_init(pio, AUDIO_RIGHT_PIN);
     streaming = false;
 }

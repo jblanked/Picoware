@@ -32,6 +32,8 @@ mp_obj_t audio_mp_del(mp_obj_t self_in)
 {
     audio_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     self->initialized = false;
+    audio_stop_stream();
+    audio_stop();
     audio_deinit();
     return mp_const_none;
 }
@@ -50,6 +52,9 @@ void audio_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
             destination[0] = mp_obj_new_bool(self->initialized);
             return;
         }
+        case MP_QSTR_is_playing:
+            destination[0] = mp_obj_new_bool(audio_is_playing());
+            return;
         case MP_QSTR_volume:
             destination[0] = mp_obj_new_int(audio_get_volume());
             return;
@@ -114,6 +119,22 @@ mp_obj_t audio_mp_play_song(mp_obj_t self_in, mp_obj_t song_in)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(audio_mp_play_song_obj, audio_mp_play_song);
 
+mp_obj_t audio_mp_play_wav(mp_obj_t self_in, mp_obj_t filename)
+{
+    audio_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (!self->initialized)
+    {
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("Audio not initialized"));
+    }
+    if (!mp_obj_is_str(filename))
+    {
+        mp_raise_TypeError(MP_ERROR_TEXT("filename must be a string"));
+    }
+    const char *fname = mp_obj_str_get_str(filename);
+    return audio_play_wav(fname) ? mp_const_true : mp_const_false;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(audio_mp_play_wav_obj, audio_mp_play_wav);
+
 mp_obj_t audio_mp_set_volume(mp_obj_t self_in, mp_obj_t volume)
 {
     audio_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -135,10 +156,24 @@ mp_obj_t audio_mp_set_volume(mp_obj_t self_in, mp_obj_t volume)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(audio_mp_set_volume_obj, audio_mp_set_volume);
 
+mp_obj_t audio_mp_stop(mp_obj_t self_in)
+{
+    audio_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (!self->initialized)
+    {
+        mp_raise_TypeError(MP_ERROR_TEXT("Audio not initialized"));
+    }
+    audio_stop();
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(audio_mp_stop_obj, audio_mp_stop);
+
 static const mp_rom_map_elem_t audio_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_play_note), MP_ROM_PTR(&audio_mp_play_note_obj)},
     {MP_ROM_QSTR(MP_QSTR_play_song), MP_ROM_PTR(&audio_mp_play_song_obj)},
+    {MP_ROM_QSTR(MP_QSTR_play_wav), MP_ROM_PTR(&audio_mp_play_wav_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_volume), MP_ROM_PTR(&audio_mp_set_volume_obj)},
+    {MP_ROM_QSTR(MP_QSTR_stop), MP_ROM_PTR(&audio_mp_stop_obj)},
     // octave 3
     {MP_ROM_QSTR(MP_QSTR_PITCH_C3), MP_ROM_INT(PITCH_C3)},
     {MP_ROM_QSTR(MP_QSTR_PITCH_CS3), MP_ROM_INT(PITCH_CS3)},

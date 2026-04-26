@@ -297,6 +297,26 @@ target_include_directories(usermod_textbox INTERFACE
 target_link_libraries(usermod INTERFACE usermod_textbox)
 
 
+# Include audio module
+add_library(usermod_audio INTERFACE)
+
+target_sources(usermod_audio INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../audio/audio_mp.c
+    ${CMAKE_CURRENT_LIST_DIR}/../../audio/audio.c
+)
+
+target_include_directories(usermod_audio INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../../audio
+)
+
+target_link_libraries(usermod_audio INTERFACE
+    pico_multicore
+    pico_sync
+)
+
+target_link_libraries(usermod INTERFACE usermod_audio) 
+
+
 # Include uf2loader module
 add_library(usermod_uf2loader INTERFACE)
 target_sources(usermod_uf2loader INTERFACE

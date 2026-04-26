@@ -390,6 +390,11 @@ target_include_directories(usermod_audio INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/../audio
 )
 
+target_link_libraries(usermod_audio INTERFACE
+    pico_multicore
+    pico_sync
+)
+
 target_link_libraries(usermod INTERFACE usermod_audio) 
 
 

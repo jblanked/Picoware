@@ -14,6 +14,13 @@
 
 #if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC)
 #include "../sd/fat32.h"
+#define SD_AVAILABLE 1
+#else
+#define SD_AVAILABLE 0
+#endif
+
+#ifndef PICOCALC
+volatile bool user_interrupt = false;
 #endif
 
 #include "py/runtime.h"
@@ -59,12 +66,16 @@ static unsigned int stream_pwm_slice_r = 0;
 #define WAV_MIX_CHUNK 256
 
 // Static buffers
+#if SD_AVAILABLE
 static int16_t mix_buf[WAV_MIX_CHUNK * 2]; // stereo int16 mix
 static uint8_t raw_buf[WAV_MIX_CHUNK * 6]; // worst case: stereo 24-bit
+#endif
 
 typedef struct
 {
+#if SD_AVAILABLE
     fat32_file_t file;
+#endif
     bool active;
     uint32_t data_remaining; // PCM bytes left in the data chunk
     uint16_t num_channels;
@@ -73,7 +84,9 @@ typedef struct
 } wav_stream_t;
 
 static wav_stream_t wav_streams[MAX_WAV_STREAMS];
+#if SD_AVAILABLE
 static uint32_t wav_core1_stack[WAV_CORE1_STACK_SIZE] __attribute__((aligned(4)));
+#endif
 static volatile bool wav_core1_running = false;
 static mutex_t wav_sd_mutex;
 static uint32_t wav_active_sample_rate = 0;
@@ -334,6 +347,7 @@ void audio_play_sound_blocking(uint32_t left_frequency, uint32_t right_frequency
     }
 }
 
+#if SD_AVAILABLE
 static bool audio_wav_parse_header(fat32_file_t *file,
                                    uint16_t *num_channels,
                                    uint32_t *sample_rate,
@@ -400,6 +414,7 @@ static bool audio_wav_parse_header(fat32_file_t *file,
 }
 
 // reads all active WAV streams, mixes them, and pushes to the PCM ring buffer
+
 static void audio_wav_core1_entry(void)
 {
     multicore_lockout_victim_init();
@@ -517,10 +532,11 @@ static void audio_wav_core1_entry(void)
             audio_push_samples(mix_buf, WAV_MIX_CHUNK);
     }
 }
+#endif
 
 bool audio_play_wav(const char *filename)
 {
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC)
+#if SD_AVAILABLE
     if (!audio_initialised || !filename)
     {
         PRINT("Audio not initialized or filename is NULL\n");
@@ -684,7 +700,7 @@ void audio_stop(void)
     {
         return;
     }
-
+#if SD_AVAILABLE
     // Stop WAV streaming on core 1
     if (wav_core1_running)
     {
@@ -701,6 +717,7 @@ void audio_stop(void)
             }
         }
     }
+#endif
 
     // Stop PCM streaming if active
     if (streaming)

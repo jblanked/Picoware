@@ -47,7 +47,7 @@ def start(view_manager) -> bool:
     global _ghouls
 
     _ghouls = Ghouls(
-        username, password, False
+        username, password, True
     )  # requires username, password, soundEnabled
 
     return _ghouls is not None

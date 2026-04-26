@@ -13,7 +13,9 @@
 #define SKY_HORIZON_ROWS 160
 #define WIREFRAME_ENABLED true
 
-#define TICKS_PER_DAY 1200 // 20 fps * 60 seconds
+#define TICKS_PER_DAY 1700
+#define PLAYER_SPEED_VERTICAL SPEED_SCALE(0.4f)
+#define PLAYER_SPEED_HORIZONTAL SPEED_SCALE(0.07f)
 
 // time
 #define TIME_INCLUDE "pico/time.h"

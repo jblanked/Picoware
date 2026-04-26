@@ -9,6 +9,8 @@
 #include ENGINE_LOG_INCLUDE
 #endif
 
+#define ASSETS_FOLDER "picoware/apps/games/ghouls/assets/"
+
 #define GROUND_ROWS 160
 #define SKY_HORIZON_ROWS 160
 #define WIREFRAME_ENABLED true

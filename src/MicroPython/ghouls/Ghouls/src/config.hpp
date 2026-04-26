@@ -51,9 +51,9 @@
 #define JSON_GET_ARRAY_VALUE get_json_array_value // (const char *key, int index, const char *json_str) -> char* (caller must free)
 
 // sound
-// #define SOUND_INCLUDE "../sound.hpp"
+#define SOUND_INCLUDE "../../../audio/audio.h"
 // #define SOUND_PLAY_MONO_FREQUENCY sound_play_mono_frequency     // (int frequency, int duration_ms)
-// #define SOUND_PLAY_STEREO_FREQUENCY sound_play_stereo_frequency // (int left_freq, int right_freq, int duration_ms)
-// #define SOUND_PLAY_PCM sound_play_pcm                           // (const int16_t *samples, int count)
-// #define SOUND_PLAY_WAV sound_play_wav                           // (const char *path)
-// #define SOUND_STOP sound_stop                                   // () -> void
+#define SOUND_PLAY_STEREO_FREQUENCY audio_play_sound_blocking // (int left_freq, int right_freq, int duration_ms)
+#define SOUND_PLAY_PCM audio_push_samples                     // (const int16_t *samples, int count)
+#define SOUND_PLAY_WAV audio_play_wav                         // (const char *path)
+#define SOUND_STOP audio_stop                                 // () -> void

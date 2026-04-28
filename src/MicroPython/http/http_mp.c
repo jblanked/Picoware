@@ -18,6 +18,13 @@ Source: https://github.com/jblanked/Picoware
 #define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
 #endif
 
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC)
+#include "../sd/fat32.h"
+#define SD_AVAILABLE 1
+#else
+#define SD_AVAILABLE 0
+#endif
+
 #if MICROPY_PY_LWIP && !defined(NO_QSTR)
 
 /* MicroPython lwIP locking (declared in mpconfigport.h) */
@@ -30,6 +37,7 @@ extern void lwip_lock_release(void);
 #include "lwip/altcp_tcp.h"
 #include "lwip/priv/altcp_priv.h"
 #include "lwip/mem.h"
+#include "lwip/sys.h"
 
 #if LWIP_ALTCP_TLS
 #include "lwip/altcp_tls.h"
@@ -168,9 +176,20 @@ typedef struct
     bool connected;
     bool request_sent;
     bool complete;
+    bool file_saved;
     int error;
 
+    u32_t last_recv_ms;
+
     unsigned short port;
+    char *destination_path;
+
+#if SD_AVAILABLE
+    fat32_file_t dl_file;
+    bool dl_file_open;
+    bool dl_headers_done;
+    bool dl_chunked;
+#endif
 } http_state_t;
 
 /*
@@ -242,8 +261,16 @@ static void http_free_state(void)
     }
 #endif
 
+#if SD_AVAILABLE
+    if (s_state->dl_file_open)
+    {
+        fat32_close(&s_state->dl_file);
+        s_state->dl_file_open = false;
+    }
+#endif
     m_free(s_state->hostname);
     m_free(s_state->request_buf);
+    m_free(s_state->destination_path);
     if (s_state->response_pbuf)
     {
         pbuf_free(s_state->response_pbuf);
@@ -423,6 +450,9 @@ static err_t on_connected(void *arg, struct altcp_pcb *pcb, err_t err)
         return err;
 
     st->connected = true;
+    st->last_recv_ms = sys_now();
+
+    altcp_poll(pcb, on_poll, HTTP_POLL_INTERVAL);
 
     err = altcp_write(st->pcb, st->request_buf, st->request_len, TCP_WRITE_FLAG_COPY);
     if (err != ERR_OK)
@@ -454,16 +484,138 @@ static err_t on_recv(void *arg, struct altcp_pcb *pcb, struct pbuf *p, err_t err
         return http_close(st);
     }
 
-    /* chain pbufs — no heap allocation in this callback */
+    st->last_recv_ms = sys_now();
+
+    u16_t recv_len = p->tot_len;
+
+#if SD_AVAILABLE
+    if (st->destination_path)
+    {
+        if (!st->dl_headers_done)
+        {
+            /* Accumulate pbufs until we find \r\n\r\n (end of HTTP headers). */
+            if (st->response_pbuf == NULL)
+                st->response_pbuf = p;
+            else
+                pbuf_cat(st->response_pbuf, p);
+
+            size_t total = st->response_pbuf->tot_len;
+            int32_t body_start = -1;
+
+            for (size_t i = 0; i + 3 < total; i++)
+            {
+                if (pbuf_get_at(st->response_pbuf, (u16_t)i) == '\r' &&
+                    pbuf_get_at(st->response_pbuf, (u16_t)(i + 1)) == '\n' &&
+                    pbuf_get_at(st->response_pbuf, (u16_t)(i + 2)) == '\r' &&
+                    pbuf_get_at(st->response_pbuf, (u16_t)(i + 3)) == '\n')
+                {
+                    body_start = (int32_t)(i + 4);
+                    break;
+                }
+            }
+
+            if (body_start >= 0)
+            {
+                /* Copy header bytes to a local buffer to detect chunked encoding. */
+                char hdr[512];
+                u16_t hdr_copy = ((u16_t)body_start < (u16_t)(sizeof(hdr) - 1))
+                                     ? (u16_t)body_start
+                                     : (u16_t)(sizeof(hdr) - 1);
+                pbuf_copy_partial(st->response_pbuf, hdr, hdr_copy, 0);
+                hdr[hdr_copy] = '\0';
+                st->dl_chunked = header_contains(hdr, hdr_copy,
+                                                 "transfer-encoding: chunked");
+
+                size_t initial_body_len = total - (size_t)body_start;
+
+                if (!st->dl_chunked)
+                {
+                    /* Create and open the destination file. */
+                    fat32_delete(st->destination_path);
+                    fat32_error_t ferr = fat32_create(&st->dl_file, st->destination_path);
+                    if (ferr == FAT32_OK)
+                        ferr = fat32_open(&st->dl_file, st->destination_path);
+
+                    if (ferr != FAT32_OK)
+                    {
+                        PRINT("HTTP: failed to create/open dl file (err %d)\n", (int)ferr);
+                    }
+                    else
+                    {
+                        st->dl_file_open = true;
+
+                        if (initial_body_len > 0)
+                        {
+                            uint8_t tmp[512];
+                            size_t offset = (size_t)body_start;
+                            while (offset < total)
+                            {
+                                u16_t to_copy = ((total - offset) < sizeof(tmp))
+                                                    ? (u16_t)(total - offset)
+                                                    : (u16_t)sizeof(tmp);
+                                pbuf_copy_partial(st->response_pbuf, tmp,
+                                                  to_copy, (u16_t)offset);
+                                size_t written = 0;
+                                fat32_write(&st->dl_file, tmp, to_copy, &written);
+                                offset += to_copy;
+                            }
+                        }
+                    }
+
+                    /* Free the header+initial-body pbuf chain. */
+                    pbuf_free(st->response_pbuf);
+                    st->response_pbuf = NULL;
+                }
+                /* Chunked: leave response_pbuf intact for the decode path. */
+                st->dl_headers_done = true;
+            }
+            /* else: \r\n\r\n not yet seen, keep accumulating. */
+        }
+        else if (!st->dl_chunked)
+        {
+            if (st->dl_file_open)
+            {
+                uint8_t tmp[512];
+                size_t offset = 0;
+                size_t total = p->tot_len;
+                while (offset < total)
+                {
+                    u16_t to_copy = ((total - offset) < sizeof(tmp))
+                                        ? (u16_t)(total - offset)
+                                        : (u16_t)sizeof(tmp);
+                    pbuf_copy_partial(p, tmp, to_copy, (u16_t)offset);
+                    size_t written = 0;
+                    fat32_write(&st->dl_file, tmp, to_copy, &written);
+                    offset += to_copy;
+                }
+            }
+            pbuf_free(p);
+        }
+        else
+        {
+            if (st->response_pbuf == NULL)
+                st->response_pbuf = p;
+            else
+                pbuf_cat(st->response_pbuf, p);
+            PRINT("HTTP: recv %u bytes chunked (total %u)\n",
+                  (unsigned)recv_len,
+                  (unsigned)st->response_pbuf->tot_len);
+        }
+
+        altcp_recved(pcb, recv_len);
+        return ERR_OK;
+    }
+#endif /* SD_AVAILABLE */
+
     if (st->response_pbuf == NULL)
-    {
         st->response_pbuf = p;
-    }
     else
-    {
         pbuf_cat(st->response_pbuf, p);
-    }
-    altcp_recved(pcb, p->tot_len);
+
+    altcp_recved(pcb, recv_len);
+    PRINT("HTTP: recv %u bytes (total %u)\n",
+          (unsigned)recv_len,
+          (unsigned)st->response_pbuf->tot_len);
 
     return ERR_OK;
 }
@@ -471,14 +623,40 @@ static err_t on_recv(void *arg, struct altcp_pcb *pcb, struct pbuf *p, err_t err
 static err_t on_poll(void *arg, struct altcp_pcb *pcb)
 {
     http_state_t *st = (http_state_t *)arg;
-    if (st)
+
+    if (!st || !st->pcb)
+        return ERR_OK;
+
+    PRINT("HTTP: on_poll st=%p pcb=%p complete=%d\n",
+          (void *)st, (void *)st->pcb, (int)st->complete);
+
+#if SD_AVAILABLE
+    if (st->destination_path && st->dl_file_open && !st->dl_chunked)
     {
-        PRINT("HTTP: poll timeout\n");
+        u32_t idle_ms = sys_now() - st->last_recv_ms;
+        u32_t timeout_ms = (u32_t)HTTP_POLL_INTERVAL * 500U;
+        if (idle_ms < timeout_ms)
+        {
+            return ERR_OK;
+        }
+        st->error = ERR_OK;
+        altcp_abort(st->pcb);
+        st->pcb = NULL;
         st->complete = true;
-        st->error = ERR_TIMEOUT;
-        return http_close(st);
+        return ERR_ABRT;
     }
-    return ERR_OK;
+#endif
+
+    u32_t idle_ms = sys_now() - st->last_recv_ms;
+    u32_t timeout_ms = (u32_t)HTTP_POLL_INTERVAL * 500U;
+    if (idle_ms < timeout_ms)
+    {
+        return ERR_OK;
+    }
+    PRINT("HTTP: poll timeout — no data for %u ms\n", (unsigned)idle_ms);
+    st->complete = true;
+    st->error = ERR_TIMEOUT;
+    return http_close(st);
 }
 
 static void on_err(void *arg, err_t err)
@@ -517,7 +695,6 @@ static void on_dns(const char *name, const ip_addr_t *addr, void *arg)
 
     st->server_ip = *addr;
 
-    /* create PCB — TLS or plain TCP */
     if (st->port == 443)
     {
 #if LWIP_ALTCP_TLS
@@ -557,7 +734,6 @@ static void on_dns(const char *name, const ip_addr_t *addr, void *arg)
     altcp_arg(st->pcb, st);
     altcp_err(st->pcb, on_err);
     altcp_recv(st->pcb, on_recv);
-    altcp_poll(st->pcb, on_poll, HTTP_POLL_INTERVAL);
 
     err_t cerr = altcp_connect(st->pcb, addr, st->port, on_connected);
     if (cerr != ERR_OK)
@@ -729,7 +905,112 @@ bool http_is_finished(void)
 {
     if (!s_state)
         return true; /* no request in progress */
-    return s_state->complete;
+    if (!s_state->complete)
+        return false;
+
+#if SD_AVAILABLE
+    if (s_state->destination_path && !s_state->file_saved)
+    {
+        s_state->file_saved = true;
+
+        if (s_state->error != ERR_OK)
+        {
+            PRINT("HTTP: file download error %d\n", s_state->error);
+            http_free_state();
+            return true;
+        }
+
+        if (!s_state->dl_chunked && s_state->dl_file_open)
+        {
+            PRINT("HTTP: file download complete, %u bytes written\n",
+                  (unsigned)s_state->dl_file.position);
+            fat32_close(&s_state->dl_file);
+            s_state->dl_file_open = false;
+            http_free_state();
+            return true;
+        }
+
+        if (!s_state->response_pbuf)
+        {
+            PRINT("HTTP: file download: no response data\n");
+            http_free_state();
+            return true;
+        }
+
+        size_t total_len = s_state->response_pbuf->tot_len;
+        char *raw = (char *)m_malloc(total_len + 1);
+        if (!raw)
+        {
+            PRINT("HTTP: file download alloc failed\n");
+            http_free_state();
+            return true;
+        }
+        pbuf_copy_partial(s_state->response_pbuf, raw, total_len, 0);
+        raw[total_len] = '\0';
+
+        size_t body_len;
+        const char *body = find_body(raw, total_len, &body_len);
+        size_t hdr_len = (size_t)(body - raw);
+        bool chunked = header_contains(raw, hdr_len, "transfer-encoding: chunked");
+
+        const char *write_data = body;
+        size_t write_len = body_len;
+        char *decoded = NULL;
+
+        if (chunked)
+        {
+            size_t decoded_len = 0;
+            decoded = decode_chunked(body, body_len, &decoded_len);
+            if (decoded)
+            {
+                write_data = decoded;
+                write_len = decoded_len;
+            }
+        }
+
+        fat32_delete(s_state->destination_path);
+
+        fat32_file_t file;
+        fat32_error_t ferr = fat32_create(&file, s_state->destination_path);
+        if (ferr != FAT32_OK)
+        {
+            PRINT("HTTP: failed to create file '%s' (err %d)\n",
+                  s_state->destination_path, (int)ferr);
+        }
+        else if ((ferr = fat32_open(&file, s_state->destination_path)) != FAT32_OK)
+        {
+            PRINT("HTTP: failed to open file '%s' after create (err %d)\n",
+                  s_state->destination_path, (int)ferr);
+        }
+        else
+        {
+            size_t written = 0;
+            const size_t chunk_size = (1024 * 4);
+            while (written < write_len)
+            {
+                size_t to_write = write_len - written;
+                if (to_write > chunk_size)
+                    to_write = chunk_size;
+                size_t bytes_written = 0;
+                ferr = fat32_write(&file, write_data + written, to_write, &bytes_written);
+                if (ferr != FAT32_OK || bytes_written == 0)
+                {
+                    PRINT("HTTP: file write error %d at offset %u\n",
+                          (int)ferr, (unsigned)written);
+                    break;
+                }
+                written += bytes_written;
+            }
+            fat32_close(&file);
+        }
+
+        m_free(decoded);
+        m_free(raw);
+        http_free_state();
+    }
+#endif /* SD_AVAILABLE */
+
+    return true;
 }
 
 bool http_get_http_response(char *buffer, size_t buffer_size)
@@ -761,8 +1042,7 @@ bool http_get_http_response(char *buffer, size_t buffer_size)
 
     /* detect chunked transfer-encoding */
     size_t hdr_len = (size_t)(body - raw);
-    bool chunked = header_contains(raw, hdr_len,
-                                   "transfer-encoding: chunked");
+    bool chunked = header_contains(raw, hdr_len, "transfer-encoding: chunked");
 
     if (chunked)
     {
@@ -794,6 +1074,40 @@ bool http_get_http_response(char *buffer, size_t buffer_size)
     return true;
 }
 
+bool http_file_download(const char *url, const char *destination_path)
+{
+#if !SD_AVAILABLE
+    PRINT("HTTP: SD not available, cannot download file\n");
+    (void)url;
+    (void)destination_path;
+    return false;
+#else
+    if (!url || !destination_path)
+        return false;
+
+    if (!http_send_request(url, "GET",
+                           "Accept: application/octet-stream, */*\r\n"
+                           "Content-Type: application/octet-stream\r\n",
+                           NULL))
+    {
+        PRINT("HTTP: file download request failed to start\n");
+        return false;
+    }
+
+    size_t path_len = strlen(destination_path);
+    s_state->destination_path = (char *)m_malloc(path_len + 1);
+    if (!s_state->destination_path)
+    {
+        PRINT("HTTP: destination_path alloc failed\n");
+        http_free_state();
+        return false;
+    }
+    memcpy(s_state->destination_path, destination_path, path_len + 1);
+
+    return true;
+#endif /* SD_AVAILABLE */
+}
+
 #else
 
 bool http_send_request(const char *url, const char *method,
@@ -804,6 +1118,14 @@ bool http_send_request(const char *url, const char *method,
     (void)headers;
     (void)payload;
     PRINT("HTTP: lwIP support not enabled, cannot send request\n");
+    return false;
+}
+
+bool http_file_download(const char *url, const char *destination_path)
+{
+    (void)url;
+    (void)destination_path;
+    PRINT("HTTP: lwIP support not enabled, cannot download file\n");
     return false;
 }
 

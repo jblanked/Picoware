@@ -18,7 +18,7 @@ void audio_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t k
 mp_obj_t audio_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
     mp_arg_check_num(n_args, n_kw, 0, 0, false);
-    audio_mp_obj_t *self = mp_obj_malloc(audio_mp_obj_t, &audio_mp_type);
+    audio_mp_obj_t *self = mp_obj_malloc_with_finaliser(audio_mp_obj_t, &audio_mp_type);
     self->base.type = &audio_mp_type;
     self->initialized = audio_init();
     if (!self->initialized)
@@ -263,7 +263,7 @@ void audio_note_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kin
 mp_obj_t audio_note_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
     mp_arg_check_num(n_args, n_kw, 3, 3, false);
-    audio_note_mp_obj_t *self = mp_obj_malloc(audio_note_mp_obj_t, &audio_note_mp_type);
+    audio_note_mp_obj_t *self = mp_obj_malloc_with_finaliser(audio_note_mp_obj_t, &audio_note_mp_type);
     self->base.type = &audio_note_mp_type;
     self->note.left_frequency = (uint16_t)mp_obj_get_int(args[0]);
     self->note.right_frequency = (uint16_t)mp_obj_get_int(args[1]);
@@ -368,7 +368,7 @@ void audio_song_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kin
 mp_obj_t audio_song_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
     mp_arg_check_num(n_args, n_kw, 2, 3, false);
-    audio_song_mp_obj_t *self = mp_obj_malloc(audio_song_mp_obj_t, &audio_song_mp_type);
+    audio_song_mp_obj_t *self = mp_obj_malloc_with_finaliser(audio_song_mp_obj_t, &audio_song_mp_type);
     self->base.type = &audio_song_mp_type;
 
     // name
@@ -450,7 +450,7 @@ void audio_song_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
             mp_obj_list_t *list_ptr = MP_OBJ_TO_PTR(list);
             for (size_t i = 0; i < self->notes_len; i++)
             {
-                audio_note_mp_obj_t *note_obj = mp_obj_malloc(audio_note_mp_obj_t, &audio_note_mp_type);
+                audio_note_mp_obj_t *note_obj = mp_obj_malloc_with_finaliser(audio_note_mp_obj_t, &audio_note_mp_type);
                 note_obj->base.type = &audio_note_mp_type;
                 note_obj->note = self->song.notes[i];
                 list_ptr->items[i] = MP_OBJ_FROM_PTR(note_obj);

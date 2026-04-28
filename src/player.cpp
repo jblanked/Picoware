@@ -1723,7 +1723,10 @@ void Player::processInput()
             switch (currentMainView)
             {
             case GameViewWelcome:
-            case GameViewTitle:
+            // well we're checking if assets are installed
+            // so we have a double-storage call situation in GameViewTitle
+            // so no sound for now...
+            // case GameViewTitle:
             case GameViewLobbyMenu:
             case GameViewLobbyBrowser:
             case GameViewSystemMenu:

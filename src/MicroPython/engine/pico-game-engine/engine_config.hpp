@@ -4,8 +4,8 @@
 #define ENGINE_MAX_TRIANGLES_PER_SPRITE 64
 
 // logging
-// #define ENGINE_LOG_INCLUDE "example/log.hpp"
-#define ENGINE_LOG_INFO(...)
+#define ENGINE_LOG_INCLUDE "py/runtime.h"
+#define ENGINE_LOG_INFO(...) mp_printf(&mp_plat_print, __VA_ARGS__)
 
 // memory
 #if defined(PICOCALC)

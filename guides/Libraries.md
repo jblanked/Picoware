@@ -21,6 +21,7 @@ This section provides documentation for the libraries available in Picoware.
   - [picoware.system.gameboy](#picoware-system-gameboy)
   - [picoware.system.http](#picoware-system-http)
   - [picoware.system.input](#picoware-system-input)
+  - [picoware.system.jsmn](#picoware-system-jsmn)
   - [picoware.system.LED](#picoware-system-led)
   - [picoware.system.log](#picoware-system-log)
   - [picoware.system.psram](#picoware-system-psram)
@@ -102,7 +103,9 @@ This section provides documentation for the libraries available in Picoware.
     - `volume`: Property (r/w) — volume level integer (0–100). Setting this calls `set_volume()`.
     - `play_note(note)`: Play a single `AudioNote` (blocking until the note finishes).
     - `play_song(song)`: Play an `AudioSong` (blocking until the song finishes).
+    - `play_wav(file_path)`: Start playing a WAV file from the SD card. Returns True if playback started successfully.
     - `set_volume(volume)`: Set the playback volume (0–100).
+    - `stop()`: Stop any currently playing note, song, or WAV file.
     - Pitch constants (Hz): `PITCH_C3`–`PITCH_B6` (all notes in octaves 3–6, including sharps `CS`, `DS`, `FS`, `GS`, `AS`). Special pitches: `SILENCE` (0 Hz), `LOW_BEEP`, `HIGH_BEEP`.
     - Note-length constants (milliseconds): `NOTE_WHOLE`, `NOTE_HALF`, `NOTE_QUARTER`, `NOTE_EIGHTH`, `NOTE_SIXTEENTH`, `NOTE_THIRTYSECOND`, `NOTE_DOTTED_HALF`, `NOTE_DOTTED_QUARTER`, `NOTE_DOTTED_EIGHTH`.
 - `AudioNote` class: Represents a single musical note. Inherits from the C `audio.AudioNote` module.
@@ -327,6 +330,10 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - `read()`: Blocking read — waits until a key is pressed and returns the raw key code integer.
     - `read_non_blocking()`: Non-blocking read — returns the raw key code, or -1 if no key is available.
     - `reset()`: Resets all input state (clears the last button, gesture, and touch point).
+
+#### picoware-system-jsmn
+- `value(key, json_string)`: Get the value for a key from a JSON string. Returns the value as a string, or `None` if the key is not found.
+- `array_value(key, index, json_string)`: Get the value at a specific index from a JSON array for a key. Returns the value as a string, or `None` if the key or index is not found.
 
 #### picoware-system-LED
 - `LED` class: Controls the onboard LED.

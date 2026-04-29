@@ -160,11 +160,11 @@ def run(view_manager) -> None:
         if button != -1:
             _ghouls.update_input(button)
 
-        _ghouls.update_draw()
-
         if not _ghouls.is_active:
             view_manager.back()
             return
+
+        _ghouls.update_draw()
 
     elif _state == STATE_DOWNLOADING:
         if not _http.is_request_complete():

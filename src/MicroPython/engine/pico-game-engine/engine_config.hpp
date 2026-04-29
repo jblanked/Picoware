@@ -20,8 +20,8 @@
 #define ENGINE_MEM_FREE m_free
 
 // delay
-#define ENGINE_DELAY_INCLUDE "py/mphal.h"
-#define ENGINE_DELAY_MS(ms) ((void)(ms))
+#define ENGINE_DELAY_INCLUDE "py/runtime.h"
+#define ENGINE_DELAY_MS(ms) sleep_ms(ms)
 
 // font
 #if defined(PICOCALC)

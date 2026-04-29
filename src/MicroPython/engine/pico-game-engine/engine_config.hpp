@@ -1,7 +1,7 @@
 #pragma once
 
 // general
-#define ENGINE_MAX_TRIANGLES_PER_SPRITE 64
+#define ENGINE_MAX_TRIANGLES_PER_SPRITE 256
 
 // logging
 #define ENGINE_LOG_INCLUDE "py/runtime.h"

@@ -1715,26 +1715,12 @@ void Player::processInput()
     }
 
     // Play menu-click sound for navigation in pre-game menu views
-    if (soundToggle == ToggleOn)
+    if (soundToggle == ToggleOn && ghoulsGame->isRunning() && currentMainView == GameViewSystemMenu)
     {
         Sound *sound = ghoulsGame->getGameSound();
         if (sound)
         {
-            switch (currentMainView)
-            {
-            case GameViewWelcome:
-            // well we're checking if assets are installed
-            // so we have a double-storage call situation in GameViewTitle
-            // so no sound for now...
-            // case GameViewTitle:
-            case GameViewLobbyMenu:
-            case GameViewLobbyBrowser:
-            case GameViewSystemMenu:
-                sound->playWAV(ASSETS_FOLDER "menu-click.wav");
-                break;
-            default:
-                break;
-            }
+            sound->playWAV(ASSETS_FOLDER "menu-click.wav");
         }
     }
 

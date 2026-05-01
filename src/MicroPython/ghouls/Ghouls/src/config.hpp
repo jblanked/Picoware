@@ -19,6 +19,8 @@
 #define PLAYER_SPEED_VERTICAL SPEED_SCALE(0.3f)
 #define PLAYER_SPEED_HORIZONTAL SPEED_SCALE(0.04f)
 
+#define ENEMY_SPAWN_MAX 25
+
 // time
 #define TIME_INCLUDE "pico/time.h"
 #define TIME_MILLIS to_ms_since_boot(get_absolute_time()) * 10

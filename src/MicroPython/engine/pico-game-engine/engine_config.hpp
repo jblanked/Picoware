@@ -129,5 +129,6 @@
 #define ENGINE_STORAGE_INCLUDE "../../../engine/storage.h"
 #endif
 #ifdef ENGINE_STORAGE_INCLUDE
-#define ENGINE_STORAGE_READ storage_read // (const char *file_path, void *buffer, size_t buffer_size)
+#define ENGINE_STORAGE_READ storage_read   // (const char *file_path, void *buffer, size_t buffer_size) -> size_t
+#define ENGINE_STORAGE_WRITE storage_write // (const char *file_path, const void *data, size_t data_size) -> bool
 #endif

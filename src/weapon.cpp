@@ -317,14 +317,14 @@ void Weapon::makeShotgun(float height)
     sprite_3d->createCube(0, 0.42f * s, 0.72f * s, 0.02f * s, 0.03f * s, 0.02f * s, rgb565(0xff4400));
 }
 
-void Weapon::reset(Level *level)
+void Weapon::reset()
 {
     ammo = maxAmmo;
 
     if (currentProjectile)
     {
-        level->entity_remove(currentProjectile);
-        // no need to delete, level already did
+        // set inactive and null our reference
+        currentProjectile->is_active = false;
         currentProjectile = nullptr;
     }
 }
@@ -382,12 +382,8 @@ void Weapon::update(Game *game)
             set3DSpriteRotation(rotation_angle);
         }
     }
-
-    // check for dead projectile
-    if (currentProjectile != nullptr && !currentProjectile->is_active)
+    else if (currentProjectile && !currentProjectile->is_active)
     {
-        currentLevel->entity_remove(currentProjectile);
-        // no need to delete, level already did
         currentProjectile = nullptr;
     }
 }

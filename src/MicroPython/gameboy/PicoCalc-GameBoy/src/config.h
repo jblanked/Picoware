@@ -69,16 +69,16 @@
 #define LCD_CLEAR lcd_clear_gb // () -> clears the LCD to black
 
 // storage methods
-#define SD_INCLUDE "../gameboy/storage.h"
-#define SD_FILE_READ file_read                         // (const char *filename, uint8_t *buffer, size_t buffer_size) -> size_t
-#define SD_FILE_SIZE file_size                         // (const char *filename) -> size_t
-#define SD_FILE_WRITE file_write                       // (const char *filename, const uint8_t *buffer, size_t buffer_size) -> bool
-#define SD_FILE_LIST file_list                         // (const char *pattern, char filenames[][256], uint16_t skip, uint16_t max_count) -> uint16_t
-#define SD_FILE_OPEN file_open                         // (const char *filename) -> void *
-#define SD_FILE_CLOSE file_close                       // (void *handle) -> void
-#define SD_FILE_READ_FILE_CHUNK file_read_file_chunk   // (void *handle, uint8_t *buffer, size_t buffer_size) -> size_t
-#define SD_FILE_WRITE_OPEN file_write_open             // (const char *filename) -> void *
-#define SD_FILE_WRITE_FILE_CHUNK file_write_file_chunk // (void *handle, const uint8_t *data, size_t size) -> bool
+#define SD_INCLUDE "../sd/storage.h"
+#define SD_FILE_READ storage_file_read                         // (const char *filename, void *buffer, size_t buffer_size) -> size_t
+#define SD_FILE_SIZE storage_file_size                         // (const char *filename) -> size_t
+#define SD_FILE_WRITE storage_file_write                       // (const char *filename, const void *buffer, size_t buffer_size) -> bool
+#define SD_FILE_LIST storage_file_list                         // (const char *pattern, char filenames[][256], uint16_t skip, uint16_t max_count) -> uint16_t
+#define SD_FILE_OPEN storage_file_open                         // (const char *filename) -> void *
+#define SD_FILE_CLOSE storage_file_close                       // (void *handle) -> void
+#define SD_FILE_READ_FILE_CHUNK storage_file_read_file_chunk   // (void *handle, void *buffer, size_t buffer_size) -> size_t
+#define SD_FILE_WRITE_OPEN storage_file_write_open             // (const char *filename) -> void *
+#define SD_FILE_WRITE_FILE_CHUNK storage_file_write_file_chunk // (void *handle, const void *data, size_t size) -> bool
 
 // keys
 #define KEY_A 0

@@ -119,6 +119,7 @@ target_sources(usermod_sd INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/../../sd/fat32.c
     ${CMAKE_CURRENT_LIST_DIR}/../../sd/sd_mp.c
     ${CMAKE_CURRENT_LIST_DIR}/../../sd/sdcard.c
+    ${CMAKE_CURRENT_LIST_DIR}/../../sd/storage.c
     ${CMAKE_CURRENT_LIST_DIR}/../../sd/vfs_mp.c
 )
 

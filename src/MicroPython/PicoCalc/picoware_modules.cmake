@@ -146,6 +146,7 @@ target_sources(usermod_sd INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/../sd/fat32.c
     ${CMAKE_CURRENT_LIST_DIR}/../sd/sd_mp.c
     ${CMAKE_CURRENT_LIST_DIR}/../sd/sdcard.c
+    ${CMAKE_CURRENT_LIST_DIR}/../sd/storage.c
     ${CMAKE_CURRENT_LIST_DIR}/../sd/vfs_mp.c
 )
 
@@ -360,7 +361,6 @@ target_sources(usermod_gameboy INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/../gameboy/flash.c
     ${CMAKE_CURRENT_LIST_DIR}/../gameboy/gameboy_mp.c
     ${CMAKE_CURRENT_LIST_DIR}/../gameboy/lcd.c
-    ${CMAKE_CURRENT_LIST_DIR}/../gameboy/storage.c
     ${CMAKE_CURRENT_LIST_DIR}/../gameboy/PicoCalc-GameBoy/src/gb.c
     ${CMAKE_CURRENT_LIST_DIR}/../gameboy/PicoCalc-GameBoy/src/rom.c
     ${CMAKE_CURRENT_LIST_DIR}/../gameboy/PicoCalc-GameBoy/src/state.c

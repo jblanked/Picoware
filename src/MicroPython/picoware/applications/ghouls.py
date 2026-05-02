@@ -14,7 +14,7 @@ _TOTAL_ASSETS = const(11)
 _ghouls = None
 _http = None
 _loading = None
-_asset_index = 1
+_asset_index = 0
 _state = STATE_DOWNLOADING
 _username = None
 _password = None
@@ -30,14 +30,19 @@ def __get_asset_info() -> dict:
     asset_list = [
         "ambience.wav",
         "crossbow.wav",
+        "forest.ghoulsmap",
         "ghouls-growl-loud.wav",
         "ghouls-growl-medium.wav",
         "ghouls-growl-soft.wav",
         "ghouls-grolwing.wav",
+        "graveyard.ghoulsmap",
+        "home.ghoulsmap",
+        "maze.ghoulsmap",
         "menu-click.wav",
         "rifle.wav",
         "rocket-launcher.wav",
         "shotgun.wav",
+        "tron.ghoulsmap",
         "weapon-pickup.wav",
     ]
 
@@ -67,7 +72,9 @@ def __init_ghouls() -> bool:
 def __is_assets_loaded(view_manager) -> bool:
     """Check if at least the first asset is loaded"""
     s = view_manager.storage
-    return s is not None and s.exists("picoware/apps/games/ghouls/assets/ambience.wav")
+    return s is not None and s.exists(
+        "picoware/apps/games/ghouls/assets/home.ghoulsmap"
+    )
 
 
 def start(view_manager) -> bool:
@@ -129,6 +136,11 @@ def start(view_manager) -> bool:
 
         asset_info = __get_asset_info()
 
+        while storage.exists(asset_info["path"]):
+            if _asset_index >= _TOTAL_ASSETS:
+                break
+            asset_info = __get_asset_info()
+
         _loading = Loading(
             view_manager.draw,
             view_manager.foreground_color,
@@ -175,6 +187,10 @@ def run(view_manager) -> None:
         # Current asset download complete — start the next one
         if _asset_index < _TOTAL_ASSETS:
             asset_info = __get_asset_info()
+            while view_manager.storage.exists(asset_info["path"]):
+                if _asset_index >= _TOTAL_ASSETS:
+                    break
+                asset_info = __get_asset_info()
             from picoware.gui.loading import Loading
 
             if not _loading:
@@ -185,7 +201,7 @@ def run(view_manager) -> None:
                 )
             else:
                 _loading.stop()
-            _loading.set_text(f"Downloading {_asset_index}/{_TOTAL_ASSETS}...")
+            _loading.set_text(f"Downloading {_asset_index + 1}/{_TOTAL_ASSETS}...")
             _http.get_async(
                 asset_info["url"],
                 save_to_file=asset_info["path"],

@@ -186,8 +186,40 @@ uint16_t storage_file_list(const char *pattern, char filenames[][256], uint16_t 
             return 0;
         }
     }
+
+    char dir_path[256];
+    const char *name_glob = NULL;
+    if (pattern && pattern[0])
+    {
+        const char *last_slash = strrchr(pattern, '/');
+        if (last_slash)
+        {
+            size_t dir_len = (size_t)(last_slash - pattern) + 1; // include trailing '/'
+            if (dir_len >= sizeof(dir_path))
+                dir_len = sizeof(dir_path) - 1;
+            strncpy(dir_path, pattern, dir_len);
+            dir_path[dir_len] = '\0';
+            // strip trailing slash for fat32_open
+            if (dir_len > 1)
+                dir_path[dir_len - 1] = '\0';
+            name_glob = last_slash + 1;
+        }
+        else
+        {
+            // No directory component — use current dir
+            dir_path[0] = '.';
+            dir_path[1] = '\0';
+            name_glob = pattern;
+        }
+    }
+    else
+    {
+        dir_path[0] = '.';
+        dir_path[1] = '\0';
+    }
+
     fat32_file_t dir;
-    fat32_error_t err = fat32_open(&dir, ".");
+    fat32_error_t err = fat32_open(&dir, dir_path);
     if (err != FAT32_OK)
     {
         PRINT("Failed to open directory: %s\n", fat32_error_string(err));
@@ -200,7 +232,7 @@ uint16_t storage_file_list(const char *pattern, char filenames[][256], uint16_t 
     {
         if (entry.filename[0] == '.' || (entry.attr & FAT32_ATTR_DIRECTORY))
             continue;
-        if (pattern && pattern[0] && !storage_glob_match(pattern, entry.filename))
+        if (name_glob && name_glob[0] && !storage_glob_match(name_glob, entry.filename))
             continue;
         if (skipped < skip)
         {

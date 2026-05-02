@@ -2038,7 +2038,7 @@ fat32_error_t fat32_dir_read(fat32_file_t *dir, fat32_entry_t *dir_entry)
         return mount_status;
     }
 
-    memset(dir_entry, 0, sizeof(fat32_dir_entry_t));
+    memset(dir_entry, 0, sizeof(fat32_entry_t));
 
     if (dir->last_entry_read)
     {

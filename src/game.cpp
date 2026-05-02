@@ -4,6 +4,7 @@
 #include "pico-game-engine/engine/game.hpp"
 #include "pico-game-engine/engine/engine.hpp"
 #include <math.h>
+#include <stdio.h>
 
 GhoulsGame::GhoulsGame(const char *username, const char *password, bool soundEnabled)
 {

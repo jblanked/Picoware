@@ -446,7 +446,8 @@ GhoulsLevel *GhoulsGame::spawnLevel(Game *game)
         return nullptr;
     }
 
-    GhoulsLevel *newLevel = ENGINE_MEM_NEW GhoulsLevel("Level", draw->getDisplaySize(), game, this);
+    GhoulsLevel *newLevel = ENGINE_MEM_NEW GhoulsLevel("Level", draw->getDisplaySize(), game, this,
+                                                       selectedMapFile[0] != '\0' ? selectedMapFile : ASSETS_FOLDER "home.ghoulsmap");
     if (!newLevel)
     {
         ENGINE_LOG_INFO("[GhoulsGame:spawnLevel] Failed to create Level instance\n");
@@ -502,6 +503,18 @@ bool GhoulsGame::spawnWeapons(Level *level)
 bool GhoulsGame::soundAllowed() const
 {
     return player && player->getSoundToggle() == ToggleOn;
+}
+
+void GhoulsGame::setSelectedMapFile(const char *filename)
+{
+    if (filename && filename[0] != '\0')
+    {
+        snprintf(selectedMapFile, sizeof(selectedMapFile) - 1, "%s", filename);
+    }
+    else
+    {
+        selectedMapFile[0] = '\0';
+    }
 }
 
 bool GhoulsGame::startGame()

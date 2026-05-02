@@ -9,7 +9,7 @@ class Ghouls(ghouls.Ghouls):
 STATE_DOWNLOADING = const(0)
 STATE_PLAYING = const(1)
 
-_TOTAL_ASSETS = const(11)
+_TOTAL_ASSETS = const(16)
 
 _ghouls = None
 _http = None
@@ -146,7 +146,7 @@ def start(view_manager) -> bool:
             view_manager.foreground_color,
             view_manager.background_color,
         )
-        _loading.set_text(f"Downloading 1/{_TOTAL_ASSETS}...")
+        _loading.set_text(f"Downloading {_asset_index}/{_TOTAL_ASSETS}...")
 
         return _http.get_async(
             asset_info["url"],
@@ -201,7 +201,7 @@ def run(view_manager) -> None:
                 )
             else:
                 _loading.stop()
-            _loading.set_text(f"Downloading {_asset_index + 1}/{_TOTAL_ASSETS}...")
+            _loading.set_text(f"Downloading {_asset_index}/{_TOTAL_ASSETS}...")
             _http.get_async(
                 asset_info["url"],
                 save_to_file=asset_info["path"],

@@ -22,7 +22,8 @@ typedef enum
     GameViewLogin = 6,        // login view
     GameViewRegistration = 7, // registration view
     GameViewUserInfo = 8,     // user info view
-    GameViewLobbyBrowser = 9  // browse/join online games
+    GameViewLobbyBrowser = 9, // browse/join online games
+    GameViewMapPack = 10      // map pack selection (local game)
 } GameMainView;
 
 typedef enum
@@ -82,6 +83,7 @@ public:
     ToggleState getSoundToggle() const noexcept { return soundToggle; }
     ToggleState getVibrationToggle() const noexcept { return vibrationToggle; }
     void handleMenu(Draw *canvas, Game *game);
+    void increaseWeaponAmmo();
     void increaseXP(uint16_t amount);
     void processInput();
     void render(Draw *canvas, Game *game) override;
@@ -102,35 +104,37 @@ public:
     bool shouldLeaveGame() const noexcept { return alertTimer == 0 && leaveGame == ToggleOn; }
     void showAlert(const char *message, uint16_t ticks = 90);
     void update(Game *game) override;
+    void updateEquippedWeaponPosition();
     void userRequest(RequestType requestType);
 
 private:
-    LobbyMenuIndex currentLobbyMenuIndex = LobbyMenuLocal;     // current lobby menu index (must be in the GameViewLobbyMenu)
-    MenuIndex currentMenuIndex = MenuIndexProfile;             // current menu index (must be in the GameViewSystemMenu)
-    GameMainView currentMainView = GameViewWelcome;            // current main view of the game
-    MenuSettingsIndex currentSettingsIndex = MenuSettingsMain; // current settings index (must be in the GameViewSystemMenu in the Settings tab)
-    TitleIndex currentTitleIndex = TitleIndexStart;            // current title index (must be in the GameViewTitle)
-    GhoulsGame *ghoulsGame = nullptr;                          // Reference to the main game instance
-    GameState gameState = GameStatePlaying;                    // current game state
-    int lastInput = -1;                                        // Last input key
-    ToggleState leaveGame = ToggleOff;                         // leave game toggle state
-    Loading *loading = nullptr;                                // loading animation instance
-    LoginStatus loginStatus = LoginNotStarted;                 // Current login status
-    OnlineGameState onlineGameState = OnlineStateIdle;         // online game connection state
-    char onlineGameId[37] = {0};                               // UUID of the active game session
-    uint16_t onlinePort = 0;                                   // WebSocket port assigned by the server
-    bool pendingStatsUpdate = false;                           // deferred stats update flag
-    // Lobby browser data
-    static const int MAX_LOBBY_ENTRIES = 8;
-    struct LobbyEntry
-    {
-        char game_id[37];
-        char game_name[64];
-    };
-    LobbyEntry lobbyEntries[MAX_LOBBY_ENTRIES];
-    int lobbyCount = 0;
-    int lobbySelectedIndex = 0;
-    bool lobbyFetched = false;
+    LobbyMenuIndex currentLobbyMenuIndex = LobbyMenuLocal;                  // current lobby menu index (must be in the GameViewLobbyMenu)
+    MenuIndex currentMenuIndex = MenuIndexProfile;                          // current menu index (must be in the GameViewSystemMenu)
+    GameMainView currentMainView = GameViewWelcome;                         // current main view of the game
+    MenuSettingsIndex currentSettingsIndex = MenuSettingsMain;              // current settings index (must be in the GameViewSystemMenu in the Settings tab)
+    TitleIndex currentTitleIndex = TitleIndexStart;                         // current title index (must be in the GameViewTitle)
+    static const char *downloadFiles[16];                                   // list of files to download from the server if assets are not found locally
+    int downloadFileIndex = 0;                                              // index of the asset currently being downloaded
+    bool downloadInProgress = false;                                        // true while an async file download is in progress
+    char downloadStatusText[64];                                            // status text to show during asset downloading
+    GhoulsGame *ghoulsGame = nullptr;                                       // Reference to the main game instance
+    GameState gameState = GameStatePlaying;                                 // current game state
+    int lastInput = -1;                                                     // Last input key
+    ToggleState leaveGame = ToggleOff;                                      // leave game toggle state
+    Loading *loading = nullptr;                                             // loading animation instance
+    LoginStatus loginStatus = LoginNotStarted;                              // Current login status
+    OnlineGameState onlineGameState = OnlineStateIdle;                      // online game connection state
+    char onlineGameId[37] = {0};                                            // UUID of the active game session
+    uint16_t onlinePort = 0;                                                // WebSocket port assigned by the server
+    bool pendingStatsUpdate = false;                                        // deferred stats update flag
+    lobby_entry_t lobbyEntries[MAX_LOBBY_ENTRIES];                          // list of available online game sessions loaded for browsing/joining
+    int lobbyCount = 0;                                                     // number of available online game sessions loaded into lobbyEntries
+    int lobbySelectedIndex = 0;                                             // current selected lobby menu index
+    bool lobbyFetched = false;                                              // flag to indicate if the lobby game sessions have been fetched from the server
+    int mapPackCount = 0;                                                   // number of map packs loaded into mapPackFiles
+    char mapPackFiles[MAX_MAP_PACK_FILES][64];                              // list of loaded map pack files
+    int mapPackSelectedIndex = 0;                                           // current selected map pack index
+    bool mapPackLoaded = false;                                             // flag to indicate if the map pack files have been loaded
     char username[64] = {0};                                                // username for login/registeration requests
     char password[64] = {0};                                                // password for login/registration requests (set in constructor)
     uint8_t rainFrame = 0;                                                  // frame counter for rain effect
@@ -148,6 +152,7 @@ private:
     void drawGameOnlineView(Draw *canvas);                                                             // draw the online game view
     void drawLobbyBrowserView(Draw *canvas);                                                           // draw the lobby browser view (list/join online games)
     void drawLobbyMenuView(Draw *canvas);                                                              // draw the lobby menu view
+    void drawMapPackView(Draw *canvas);                                                                // draw the map pack selection view
     void drawLoginView(Draw *canvas);                                                                  // draw the login view
     void drawMenuType1(Draw *canvas, uint8_t selectedIndex, const char *option1, const char *option2); // draw the menu type 1 (used is out-game title, and lobby menu views)
     void drawMenuType2(Draw *canvas, uint8_t selectedIndexMain, uint8_t selectedIndexSettings);        // draw the menu type 2 (used in in-game and out-game system menu views)
@@ -157,5 +162,6 @@ private:
     void drawTitleView(Draw *canvas);                                                                  // draw the title view
     void drawUserInfoView(Draw *canvas);                                                               // draw the user info view
     void drawWelcomeView(Draw *canvas);                                                                // draw the welcome view
+    bool hasAssets() const;                                                                            // check if game assets are available
     void updateEntitiesFromServer(const char *json);                                                   // parse server entity state and update local entity positions
 };

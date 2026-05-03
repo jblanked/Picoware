@@ -705,8 +705,7 @@ void audio_stop(void)
     if (wav_core1_running)
     {
         wav_core1_running = false;
-        multicore_reset_core1();
-        // Reinitialise mutex in case core 1 was killed while holding it
+        //  Reinitialise mutex in case core 1 was killed while holding it
         mutex_init(&wav_sd_mutex);
         for (int i = 0; i < MAX_WAV_STREAMS; i++)
         {

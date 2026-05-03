@@ -118,6 +118,7 @@ target_sources(usermod_sd INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/../../sd/fat32.c
     ${CMAKE_CURRENT_LIST_DIR}/../../sd/sd_mp.c
     ${CMAKE_CURRENT_LIST_DIR}/../../sd/sdcard.c
+    ${CMAKE_CURRENT_LIST_DIR}/../../sd/storage.c
     ${CMAKE_CURRENT_LIST_DIR}/../../sd/vfs_mp.c
 )
 
@@ -347,6 +348,7 @@ target_sources(usermod_ghouls INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/ground.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/level.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/loading.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/map.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/player.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/projectile.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../ghouls/Ghouls/src/sky.cpp

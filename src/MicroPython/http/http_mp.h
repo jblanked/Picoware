@@ -14,6 +14,7 @@ extern "C"
 {
 #endif
 
+    bool http_file_download(const char *url, const char *destination_path);                                // downloads a file from the given URL and saves it to the specified path, returns true if download was started
     bool http_get_http_response(char *buffer, size_t buffer_size);                                         // retrieves the response of the last request
     bool http_is_finished(void);                                                                           // returns true if the current request is finished (either successfully or with an error)
     bool http_send_request(const char *url, const char *method, const char *headers, const char *payload); // sends an HTTP request with the given parameters, returns true if the request was successfully initiated

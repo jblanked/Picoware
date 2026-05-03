@@ -1,11 +1,11 @@
 #pragma once
 
 // general
-#define ENGINE_MAX_TRIANGLES_PER_SPRITE 64
+#define ENGINE_MAX_TRIANGLES_PER_SPRITE 256
 
 // logging
-// #define ENGINE_LOG_INCLUDE "example/log.hpp"
-#define ENGINE_LOG_INFO(...)
+#define ENGINE_LOG_INCLUDE "py/runtime.h"
+#define ENGINE_LOG_INFO(...) mp_printf(&mp_plat_print, __VA_ARGS__)
 
 // memory
 #if defined(PICOCALC)
@@ -20,8 +20,8 @@
 #define ENGINE_MEM_FREE m_free
 
 // delay
-#define ENGINE_DELAY_INCLUDE "py/mphal.h"
-#define ENGINE_DELAY_MS(ms) ((void)(ms))
+#define ENGINE_DELAY_INCLUDE "py/runtime.h"
+#define ENGINE_DELAY_MS(ms) sleep_ms(ms)
 
 // font
 #if defined(PICOCALC)
@@ -124,10 +124,12 @@
 
 // storage
 #if defined(PICOCALC)
-#define ENGINE_STORAGE_INCLUDE "../../engine/storage.h"
+#define ENGINE_STORAGE_INCLUDE "../../sd/storage.h"
 #elif !defined(WAVESHARE_1_28)
-#define ENGINE_STORAGE_INCLUDE "../../../engine/storage.h"
+#define ENGINE_STORAGE_INCLUDE "../../../sd/storage.h"
 #endif
 #ifdef ENGINE_STORAGE_INCLUDE
-#define ENGINE_STORAGE_READ storage_read // (const char *file_path, void *buffer, size_t buffer_size)
+#define ENGINE_STORAGE_READ storage_file_read      // (const char *file_path, void *buffer, size_t buffer_size) -> size_t
+#define ENGINE_STORAGE_WRITE storage_file_write    // (const char *file_path, const void *data, size_t data_size) -> bool
+#define ENGINE_STORAGE_FILE_LIST storage_file_list // (const char *pattern, char filenames[][256], uint16_t skip, uint16_t max_count) -> uint16_t
 #endif

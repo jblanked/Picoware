@@ -1,4 +1,5 @@
 #include "storage.h"
+#include "fat32.h"
 #include <stdlib.h>
 #include <ctype.h>
 #include "py/runtime.h"
@@ -7,11 +8,7 @@
 #define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
 #endif
 
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC)
-#include "../sd/fat32.h"
-#endif
-
-size_t file_read(const char *filename, uint8_t *buffer, size_t buffer_size)
+size_t storage_file_read(const char *filename, void *buffer, size_t buffer_size)
 {
     if (!fat32_is_mounted())
     {
@@ -35,7 +32,7 @@ size_t file_read(const char *filename, uint8_t *buffer, size_t buffer_size)
     return status ? bytes_read : 0;
 }
 
-size_t file_size(const char *filename)
+size_t storage_file_size(const char *filename)
 {
     if (!fat32_is_mounted())
     {
@@ -58,7 +55,7 @@ size_t file_size(const char *filename)
     return size;
 }
 
-bool file_write(const char *filename, const uint8_t *buffer, size_t buffer_size)
+bool storage_file_write(const char *filename, const void *buffer, size_t buffer_size)
 {
     if (!fat32_is_mounted())
     {
@@ -113,7 +110,7 @@ bool file_write(const char *filename, const uint8_t *buffer, size_t buffer_size)
     return status && bytes_written == buffer_size;
 }
 
-size_t file_read_chunk(const char *filename, uint8_t *buffer, size_t buffer_size, size_t offset)
+size_t storage_file_read_chunk(const char *filename, void *buffer, size_t buffer_size, size_t offset)
 {
     if (!fat32_is_mounted())
     {
@@ -147,7 +144,7 @@ size_t file_read_chunk(const char *filename, uint8_t *buffer, size_t buffer_size
     return bytes_read;
 }
 
-static bool glob_match(const char *pattern, const char *str)
+static bool storage_glob_match(const char *pattern, const char *str)
 {
     while (*pattern)
     {
@@ -159,7 +156,7 @@ static bool glob_match(const char *pattern, const char *str)
                 return true;
             while (*str)
             {
-                if (glob_match(pattern, str))
+                if (storage_glob_match(pattern, str))
                     return true;
                 str++;
             }
@@ -178,7 +175,7 @@ static bool glob_match(const char *pattern, const char *str)
     return *str == '\0';
 }
 
-uint16_t file_list(const char *pattern, char filenames[][256], uint16_t skip, uint16_t max_count)
+uint16_t storage_file_list(const char *pattern, char filenames[][256], uint16_t skip, uint16_t max_count)
 {
     if (!fat32_is_mounted())
     {
@@ -189,8 +186,40 @@ uint16_t file_list(const char *pattern, char filenames[][256], uint16_t skip, ui
             return 0;
         }
     }
+
+    char dir_path[256];
+    const char *name_glob = NULL;
+    if (pattern && pattern[0])
+    {
+        const char *last_slash = strrchr(pattern, '/');
+        if (last_slash)
+        {
+            size_t dir_len = (size_t)(last_slash - pattern) + 1; // include trailing '/'
+            if (dir_len >= sizeof(dir_path))
+                dir_len = sizeof(dir_path) - 1;
+            strncpy(dir_path, pattern, dir_len);
+            dir_path[dir_len] = '\0';
+            // strip trailing slash for fat32_open
+            if (dir_len > 1)
+                dir_path[dir_len - 1] = '\0';
+            name_glob = last_slash + 1;
+        }
+        else
+        {
+            // No directory component — use current dir
+            dir_path[0] = '.';
+            dir_path[1] = '\0';
+            name_glob = pattern;
+        }
+    }
+    else
+    {
+        dir_path[0] = '.';
+        dir_path[1] = '\0';
+    }
+
     fat32_file_t dir;
-    fat32_error_t err = fat32_open(&dir, ".");
+    fat32_error_t err = fat32_open(&dir, dir_path);
     if (err != FAT32_OK)
     {
         PRINT("Failed to open directory: %s\n", fat32_error_string(err));
@@ -203,7 +232,7 @@ uint16_t file_list(const char *pattern, char filenames[][256], uint16_t skip, ui
     {
         if (entry.filename[0] == '.' || (entry.attr & FAT32_ATTR_DIRECTORY))
             continue;
-        if (pattern && pattern[0] && !glob_match(pattern, entry.filename))
+        if (name_glob && name_glob[0] && !storage_glob_match(name_glob, entry.filename))
             continue;
         if (skipped < skip)
         {
@@ -220,7 +249,7 @@ uint16_t file_list(const char *pattern, char filenames[][256], uint16_t skip, ui
     return num_files;
 }
 
-void *file_open(const char *filename)
+void *storage_file_open(const char *filename)
 {
     if (!fat32_is_mounted())
     {
@@ -247,7 +276,7 @@ void *file_open(const char *filename)
     return file;
 }
 
-void *file_write_open(const char *filename)
+void *storage_file_write_open(const char *filename)
 {
     if (!fat32_is_mounted())
     {
@@ -283,7 +312,7 @@ void *file_write_open(const char *filename)
     return file;
 }
 
-void file_close(void *handle)
+void storage_file_close(void *handle)
 {
     if (handle)
     {
@@ -293,7 +322,7 @@ void file_close(void *handle)
     }
 }
 
-size_t file_read_file_chunk(void *handle, uint8_t *buffer, size_t buffer_size)
+size_t storage_file_read_file_chunk(void *handle, void *buffer, size_t buffer_size)
 {
     if (!handle)
         return 0;
@@ -302,7 +331,7 @@ size_t file_read_file_chunk(void *handle, uint8_t *buffer, size_t buffer_size)
     return bytes_read;
 }
 
-bool file_write_file_chunk(void *handle, const uint8_t *data, size_t size)
+bool storage_file_write_file_chunk(void *handle, const void *data, size_t size)
 {
     if (!handle)
         return false;

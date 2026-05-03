@@ -13,11 +13,16 @@
 
 #define GROUND_ROWS 160
 #define SKY_HORIZON_ROWS 160
-#define WIREFRAME_ENABLED true
+#define WIREFRAME_ENABLED false
 
-#define TICKS_PER_DAY 1400
+#define TICKS_PER_DAY 900
 #define PLAYER_SPEED_VERTICAL SPEED_SCALE(0.4f)
-#define PLAYER_SPEED_HORIZONTAL SPEED_SCALE(0.07f)
+#define PLAYER_SPEED_HORIZONTAL SPEED_SCALE(0.03f)
+
+#define FIELD_OF_VIEW 50
+#define FIELD_OF_VIEW_SQUARED 2500
+
+#define ENEMY_SPAWN_MAX 25
 
 // time
 #define TIME_INCLUDE "pico/time.h"
@@ -46,6 +51,7 @@
 #define HTTP_WEBSOCKET_STOP http_websocket_stop                 // () -> bool
 #define HTTP_GET_RESPONSE http_get_http_response                // (char *buffer, size_t buffer_size) -> bool
 #define HTTP_GET_WEBSOCKET_RESPONSE http_get_websocket_response // (char *buffer, size_t buffer_size) -> bool
+#define HTTP_FILE_DOWNLOAD http_file_download                   // (const char *url, const char *destination_path) -> bool
 
 // json
 #define JSON_INCLUDE "../../../jsmn/jsmn.h"

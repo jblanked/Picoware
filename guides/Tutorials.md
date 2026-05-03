@@ -26,6 +26,8 @@ Here are some tutorials and reviews to help you get started with Picoware:
 
 ## Developer Tutorials
 - My PicoCalc Workflow: Picoware Debugging With VS Code and Thonny IDE: https://youtu.be/_Yu3Op-nhyc
+- "Ghouls" Game Dev (Bullet Effects): https://www.youtube.com/watch?v=oQ_BqZxvV7E
+- "Ghouls" Game Dev (Sound Effects): https://www.youtube.com/watch?v=9Jff59rEsiI
 - Mastering PicoCalc's PSRAM with MicroPython!: https://youtu.be/fxoTzHKgG4g
 - PicoCalc Picoware App: Master HTTP Requests with Ease!: https://youtu.be/BZAHwCVBdcw
 - PicoCalc Development with Thonny IDE and MicroPython: Your Ideal Duo: https://youtu.be/I8E6u60ePL0

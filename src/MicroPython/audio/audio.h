@@ -135,6 +135,7 @@ extern "C"
     bool audio_init(void);          // Initialize the audio subsystem
     bool audio_is_playing(void);    // Returns true if audio is currently playing, false otherwise
 
+    bool audio_play_mp3(const char *filename);                                                               // Play an MP3 file from the filesystem (non-blocking, returns true if playback started successfully)
     void audio_play_note_blocking(const audio_note_t *note);                                                 // Play a single note and block until it finishes
     void audio_play_song_blocking(const audio_song_t *song);                                                 // Play a song and block until it finishes
     void audio_play_sound(uint32_t left_frequency, uint32_t right_frequency);                                // Play a sound with the given left and right frequencies

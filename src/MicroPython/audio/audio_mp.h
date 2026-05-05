@@ -45,6 +45,7 @@ extern "C"
     mp_obj_t audio_mp_del(mp_obj_t self_in);                                                                 // destructor for the Audio object
     void audio_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination);                             // attribute handler for the Audio object
 
+    mp_obj_t audio_mp_play_mp3(mp_obj_t self_in, mp_obj_t filename);  // method to play an MP3 file (non-blocking)
     mp_obj_t audio_mp_play_note(size_t n_args, const mp_obj_t *args); // method to play a note (blocking)
     mp_obj_t audio_mp_play_song(mp_obj_t self_in, mp_obj_t song_in);  // method to play a song (blocking)
     mp_obj_t audio_mp_play_wav(mp_obj_t self_in, mp_obj_t filename);  // method to play a WAV file (non-blocking)

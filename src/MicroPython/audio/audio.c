@@ -39,8 +39,8 @@ volatile bool user_interrupt = false;
 #define MINIMP3_REALLOC(p, sz) m_realloc(p, sz)
 #define MINIMP3_IMPLEMENTATION
 #define MINIMP3_NO_STDIO
-#define MINIMP3_IO_SIZE (16 * 1024)
-#define MINIMP3_BUF_SIZE (8 * 1024)
+#define MINIMP3_IO_SIZE (8 * 1024)
+#define MINIMP3_BUF_SIZE (4 * 1024)
 #define MP3D_SEEK_TO_BYTE 0
 #define MP3D_SEEK_TO_SAMPLE 1
 #define MINIMP3_PREDECODE_FRAMES 2
@@ -54,7 +54,7 @@ static alarm_id_t tone_alarm_id = -1;
 static uint8_t audio_volume = 100;
 static uint32_t channel_period[2] = {0, 0};
 
-#define AUDIO_STREAM_RING_SIZE 8192 // must be power of 2
+#define AUDIO_STREAM_RING_SIZE 2048 // must be power of 2
 #define AUDIO_STREAM_RING_MASK (AUDIO_STREAM_RING_SIZE - 1)
 #define AUDIO_STREAM_PWM_WRAP 255
 #define STREAM_TIMER_HZ 50000u // base timer rate for WAV/MP3 streaming

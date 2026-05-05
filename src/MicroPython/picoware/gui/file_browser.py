@@ -1209,7 +1209,12 @@ class FileBrowser:
 
                         audio = self._vm.audio
                         if audio:
-                            if audio.play_wav(self._context_target_path):
+                            play_func: callable = (
+                                audio.play_wav
+                                if ".wav" in self._context_target_path.lower()
+                                else audio.play_mp3
+                            )
+                            if play_func(self._context_target_path):
                                 inp = self._vm.input_manager
                                 inp.reset()
                                 while audio.is_playing:
@@ -1522,11 +1527,9 @@ class FileBrowser:
                         if isd:
                             items = ["Open"]
                         else:
-                            is_uf2 = np.lower().endswith(".uf2")
-                            is_wav = np.lower().endswith(".wav")
-                            if is_uf2:
+                            if np.lower().endswith(".uf2"):
                                 items = ["Flash"]
-                            elif is_wav:
+                            elif np.lower().endswith((".wav", ".mp3")):
                                 items = ["Play Audio"]
                             else:
                                 is_img = np.lower().endswith((".jpg", ".jpeg", ".bmp"))

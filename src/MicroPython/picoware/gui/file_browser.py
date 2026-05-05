@@ -1205,7 +1205,8 @@ class FileBrowser:
                         self.__loading_run("Done", 1.0)
 
                     elif self._pending_action == self.ACT_AUDIO:
-                        self._loading.stop()
+                        if self._loading:
+                            self._loading.stop()
                         self.__loading_run("Playing...", 0.5)
 
                         audio = self._vm.audio

@@ -34,7 +34,7 @@ def __get_asset_info() -> dict:
         "ghouls-growl-loud.wav",
         "ghouls-growl-medium.wav",
         "ghouls-growl-soft.wav",
-        "ghouls-grolwing.wav",
+        "ghouls-growling.wav",
         "graveyard.ghoulsmap",
         "home.ghoulsmap",
         "maze.ghoulsmap",

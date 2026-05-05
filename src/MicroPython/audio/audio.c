@@ -32,6 +32,20 @@ volatile bool user_interrupt = false;
 #include "pico/mutex.h"
 #include <string.h>
 
+#include "py/gc.h"
+
+#define MINIMP3_MALLOC(sz) m_malloc(sz)
+#define MINIMP3_FREE(p) m_free(p)
+#define MINIMP3_REALLOC(p, sz) m_realloc(p, sz)
+#define MINIMP3_IMPLEMENTATION
+#define MINIMP3_NO_STDIO
+#define MINIMP3_IO_SIZE (16 * 1024)
+#define MINIMP3_BUF_SIZE (8 * 1024)
+#define MP3D_SEEK_TO_BYTE 0
+#define MP3D_SEEK_TO_SAMPLE 1
+#define MINIMP3_PREDECODE_FRAMES 2
+#include "minimp3/minimp3_ex.h"
+
 static bool audio_initialised = false;
 PIO pio = pio0;
 
@@ -43,6 +57,7 @@ static uint32_t channel_period[2] = {0, 0};
 #define AUDIO_STREAM_RING_SIZE 8192 // must be power of 2
 #define AUDIO_STREAM_RING_MASK (AUDIO_STREAM_RING_SIZE - 1)
 #define AUDIO_STREAM_PWM_WRAP 255
+#define STREAM_TIMER_HZ 50000u // base timer rate for WAV/MP3 streaming
 // stream implementation from https://github.com/jeffory/PicOS/blob/09651310b59ae079a8563aea1d230192a03532d7/src/drivers/audio.c#L190
 #if AUDIO_IS_MICROPYTHON
 MP_REGISTER_ROOT_POINTER(uint8_t *audio_stream_ring_left);
@@ -59,6 +74,8 @@ static repeating_timer_t stream_timer;
 static bool streaming = false;
 static unsigned int stream_pwm_slice_l = 0;
 static unsigned int stream_pwm_slice_r = 0;
+static uint32_t stream_phase_acc = 0;
+static uint32_t stream_phase_step = 0;
 
 // WAV streaming (up to 4 simultaneous files decoded on core 1)
 #define MAX_WAV_STREAMS 4
@@ -90,6 +107,46 @@ static uint32_t wav_core1_stack[WAV_CORE1_STACK_SIZE] __attribute__((aligned(4))
 static volatile bool wav_core1_running = false;
 static mutex_t wav_sd_mutex;
 static uint32_t wav_active_sample_rate = 0;
+
+// MP3 streaming
+#if SD_AVAILABLE
+#define MP3_CORE1_STACK_SIZE 4096 // uint32_t units = 16 KB
+static fat32_file_t mp3_file;
+static mp3dec_ex_t mp3_dec;
+static mp3dec_io_t mp3_io;
+static volatile bool mp3_core1_running = false;
+static uint32_t mp3_core1_stack[MP3_CORE1_STACK_SIZE] __attribute__((aligned(4)));
+static int16_t mp3_stereo_buf[MINIMP3_MAX_SAMPLES_PER_FRAME]; // mono->stereo upmix buffer
+
+// Root pointer so MicroPython GC does not collect the IO buffer allocated
+// inside mp3dec_ex_open_cb via MINIMP3_MALLOC.
+// I think I might switch to PSRAM later..
+#if AUDIO_IS_MICROPYTHON
+MP_REGISTER_ROOT_POINTER(uint8_t *audio_mp3_io_buf);
+#define mp3_io_buf_root_ptr MP_STATE_VM(audio_mp3_io_buf)
+#else
+static uint8_t *mp3_io_buf_root_ptr;
+#endif
+
+static size_t mp3_read_cb(void *buf, size_t size, void *user_data)
+{
+    (void)user_data;
+    size_t bytes_read = 0;
+    mutex_enter_blocking(&wav_sd_mutex);
+    fat32_read(&mp3_file, buf, size, &bytes_read);
+    mutex_exit(&wav_sd_mutex);
+    return bytes_read;
+}
+
+static int mp3_seek_cb(uint64_t position, void *user_data)
+{
+    (void)user_data;
+    mutex_enter_blocking(&wav_sd_mutex);
+    int ret = (fat32_seek(&mp3_file, (uint32_t)position) == FAT32_OK) ? 0 : -1;
+    mutex_exit(&wav_sd_mutex);
+    return ret;
+}
+#endif // SD_AVAILABLE
 
 // Forward declarations
 static void set_pwm_frequency(uint8_t channel, uint32_t frequency);
@@ -145,6 +202,12 @@ static void set_pwm_frequency(uint8_t channel, uint32_t frequency)
 static bool stream_tick_callback(repeating_timer_t *rt)
 {
     (void)rt;
+    // advance phase and only consume a sample when it overflows
+    stream_phase_acc += stream_phase_step;
+    if (stream_phase_acc < 0x10000u)
+        return true;
+    stream_phase_acc -= 0x10000u;
+
     if (!stream_ring_left || !stream_ring_right)
     {
         pwm_set_gpio_level(AUDIO_LEFT_PIN, 128);
@@ -189,6 +252,13 @@ void audio_deinit(void)
         AUDIO_MEMORY_FREE(stream_ring_right);
         stream_ring_right = NULL;
     }
+#if SD_AVAILABLE
+    if (mp3_io_buf_root_ptr)
+    {
+        AUDIO_MEMORY_FREE(mp3_io_buf_root_ptr);
+        mp3_io_buf_root_ptr = NULL;
+    }
+#endif
     audio_initialised = false;
 }
 
@@ -213,12 +283,23 @@ bool audio_init(void)
 
     stream_ring_left = (uint8_t *)AUDIO_MEMORY_MALLOC(AUDIO_STREAM_RING_SIZE);
     stream_ring_right = (uint8_t *)AUDIO_MEMORY_MALLOC(AUDIO_STREAM_RING_SIZE);
-    if (!stream_ring_left || !stream_ring_right)
+#if SD_AVAILABLE
+    mp3_io_buf_root_ptr = (uint8_t *)AUDIO_MEMORY_MALLOC(MINIMP3_IO_SIZE);
+#endif
+    if (!stream_ring_left || !stream_ring_right
+#if SD_AVAILABLE
+        || !mp3_io_buf_root_ptr
+#endif
+    )
     {
         AUDIO_MEMORY_FREE(stream_ring_left);
         stream_ring_left = NULL;
         AUDIO_MEMORY_FREE(stream_ring_right);
         stream_ring_right = NULL;
+#if SD_AVAILABLE
+        AUDIO_MEMORY_FREE(mp3_io_buf_root_ptr);
+        mp3_io_buf_root_ptr = NULL;
+#endif
         return false; // Failed to allocate memory
     }
 
@@ -236,6 +317,148 @@ bool audio_init(void)
 bool audio_is_playing(void)
 {
     return is_playing;
+}
+
+#if SD_AVAILABLE
+static void audio_mp3_core1_entry(void)
+{
+    multicore_lockout_victim_init();
+
+    while (mp3_core1_running)
+    {
+        mp3d_sample_t *pcm;
+        mp3dec_frame_info_t frame_info;
+        size_t samples_out = mp3dec_ex_read_frame(&mp3_dec, &pcm, &frame_info, MINIMP3_MAX_SAMPLES_PER_FRAME);
+
+        if (samples_out == 0)
+        {
+            // End of stream or error
+            mp3_core1_running = false;
+            is_playing = false;
+            break;
+        }
+
+        int channels = frame_info.channels > 0 ? frame_info.channels : 1;
+        int frames = (int)(samples_out / (size_t)channels);
+
+        // Wait until ring buffer has room for this chunk
+        while (mp3_core1_running)
+        {
+            uint32_t used = stream_ring_write - stream_ring_read;
+            if (used + (uint32_t)frames <= AUDIO_STREAM_RING_SIZE)
+                break;
+            tight_loop_contents();
+        }
+
+        if (!mp3_core1_running)
+            break;
+
+        if (channels == 2)
+        {
+            audio_push_samples((int16_t *)pcm, frames);
+        }
+        else
+        {
+            // Mono: duplicate to stereo
+            for (int i = 0; i < frames; i++)
+            {
+                mp3_stereo_buf[i * 2] = ((int16_t *)pcm)[i];
+                mp3_stereo_buf[i * 2 + 1] = ((int16_t *)pcm)[i];
+            }
+            audio_push_samples(mp3_stereo_buf, frames);
+        }
+    }
+}
+#endif // SD_AVAILABLE
+
+// close/release all MP3 decoder resources
+static void audio_mp3_close(void)
+{
+#if SD_AVAILABLE
+    mp3_dec.file.buffer = NULL;
+    mp3dec_ex_close(&mp3_dec);
+    mutex_enter_blocking(&wav_sd_mutex);
+    fat32_close(&mp3_file);
+    mutex_exit(&wav_sd_mutex);
+#endif
+}
+
+bool audio_play_mp3(const char *filename)
+{
+#if SD_AVAILABLE
+    if (!audio_initialised || !filename)
+    {
+        PRINT("Audio not initialized or filename is NULL\n");
+        return false;
+    }
+
+    // stop WAV core1 if running
+    if (wav_core1_running)
+    {
+        wav_core1_running = false;
+        mutex_init(&wav_sd_mutex);
+        for (int i = 0; i < MAX_WAV_STREAMS; i++)
+        {
+            if (wav_streams[i].active)
+            {
+                fat32_close(&wav_streams[i].file);
+                wav_streams[i].active = false;
+            }
+        }
+    }
+
+    // stop MP3 core1 if already running
+    if (mp3_core1_running)
+    {
+        mp3_core1_running = false;
+        mutex_init(&wav_sd_mutex);
+    }
+    // close any previously open MP3 decoder
+    if (mp3_dec.file.buffer)
+        audio_mp3_close();
+
+    if (fat32_open(&mp3_file, filename) != FAT32_OK)
+    {
+        PRINT("Failed to open MP3 file: %s\n", filename);
+        return false;
+    }
+
+    mp3_io.read = mp3_read_cb;
+    mp3_io.read_data = NULL;
+    mp3_io.seek = mp3_seek_cb;
+    mp3_io.seek_data = NULL;
+
+    if (mp3dec_ex_open_cb(&mp3_dec, &mp3_io, MP3D_DO_NOT_SCAN) != 0)
+    {
+        PRINT("Failed to decode MP3 stream: %s\n", filename);
+        mutex_enter_blocking(&wav_sd_mutex);
+        fat32_close(&mp3_file);
+        mutex_exit(&wav_sd_mutex);
+        return false;
+    }
+
+    MINIMP3_FREE((void *)mp3_dec.file.buffer);
+    mp3_dec.file.buffer = mp3_io_buf_root_ptr;
+    mp3_dec.file.size = MINIMP3_IO_SIZE;
+    // input state is already zeroed by memset inside open_cb; the
+    // buffer content is irrelevant... first read_frame refills it.
+
+    uint32_t sample_rate = (uint32_t)mp3_dec.info.hz;
+    if (sample_rate == 0)
+        sample_rate = 44100;
+
+    audio_start_stream(sample_rate);
+
+    mp3_core1_running = true;
+    multicore_reset_core1();
+    multicore_launch_core1_with_stack(audio_mp3_core1_entry, mp3_core1_stack, sizeof(mp3_core1_stack));
+    is_playing = true;
+    return true;
+#else
+    (void)filename;
+    PRINT("MP3 playback not supported on this platform\n");
+    return false;
+#endif
 }
 
 void audio_play_note_blocking(const audio_note_t *note)
@@ -543,6 +766,15 @@ bool audio_play_wav(const char *filename)
         return false;
     }
 
+    // stop MP3 core1 if running
+    if (mp3_core1_running)
+    {
+        mp3_core1_running = false;
+        mutex_init(&wav_sd_mutex);
+    }
+    if (mp3_dec.file.buffer)
+        audio_mp3_close();
+
     // Find a free slot
     int slot = -1;
     for (int i = 0; i < MAX_WAV_STREAMS; i++)
@@ -686,11 +918,13 @@ void audio_start_stream(uint32_t sample_rate)
 
     stream_ring_read = 0;
     stream_ring_write = 0;
+    // step = sample_rate * 65536 / STREAM_TIMER_HZ
+    stream_phase_step = (uint32_t)(((uint64_t)sample_rate << 16) / STREAM_TIMER_HZ);
+    stream_phase_acc = 0;
     streaming = true;
 
-    // Negative period = fixed interval regardless of callback duration
-    int32_t period_us = -(int32_t)(1000000 / sample_rate);
-    add_repeating_timer_us(period_us, stream_tick_callback, NULL, &stream_timer);
+    // fixed base-rate timer (matches sample rate)
+    add_repeating_timer_us(-(int32_t)(1000000u / STREAM_TIMER_HZ), stream_tick_callback, NULL, &stream_timer);
 }
 
 // Stop audio output
@@ -716,6 +950,14 @@ void audio_stop(void)
             }
         }
     }
+    // Stop MP3 streaming on core 1
+    if (mp3_core1_running)
+    {
+        mp3_core1_running = false;
+        mutex_init(&wav_sd_mutex);
+    }
+    if (mp3_dec.file.buffer)
+        audio_mp3_close();
 #endif
 
     // Stop PCM streaming if active

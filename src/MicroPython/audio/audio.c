@@ -79,7 +79,6 @@ static uint32_t stream_phase_step = 0;
 
 // WAV streaming (up to 4 simultaneous files decoded on core 1)
 #define MAX_WAV_STREAMS 4
-#define WAV_CORE1_STACK_SIZE 2048 // uint32_t units = 8 KB
 #define WAV_MIX_CHUNK 256
 
 // Static buffers
@@ -101,21 +100,16 @@ typedef struct
 } wav_stream_t;
 
 static wav_stream_t wav_streams[MAX_WAV_STREAMS];
-#if SD_AVAILABLE
-static uint32_t wav_core1_stack[WAV_CORE1_STACK_SIZE] __attribute__((aligned(4)));
-#endif
 static volatile bool wav_core1_running = false;
 static mutex_t wav_sd_mutex;
 static uint32_t wav_active_sample_rate = 0;
 
 // MP3 streaming
 #if SD_AVAILABLE
-#define MP3_CORE1_STACK_SIZE 4096 // uint32_t units = 16 KB
 static fat32_file_t mp3_file;
 static mp3dec_ex_t mp3_dec;
 static mp3dec_io_t mp3_io;
 static volatile bool mp3_core1_running = false;
-static uint32_t mp3_core1_stack[MP3_CORE1_STACK_SIZE] __attribute__((aligned(4)));
 static int16_t mp3_stereo_buf[MINIMP3_MAX_SAMPLES_PER_FRAME]; // mono->stereo upmix buffer
 
 // Root pointer so MicroPython GC does not collect the IO buffer allocated
@@ -147,6 +141,12 @@ static int mp3_seek_cb(uint64_t position, void *user_data)
     return ret;
 }
 #endif // SD_AVAILABLE
+
+// shared
+#if SD_AVAILABLE
+#define AUDIO_CORE1_STACK_SIZE 4096 // uint32_t units = 16 KB
+static uint32_t audio_core1_stack[AUDIO_CORE1_STACK_SIZE] __attribute__((aligned(4)));
+#endif
 
 // Forward declarations
 static void set_pwm_frequency(uint8_t channel, uint32_t frequency);
@@ -451,7 +451,7 @@ bool audio_play_mp3(const char *filename)
 
     mp3_core1_running = true;
     multicore_reset_core1();
-    multicore_launch_core1_with_stack(audio_mp3_core1_entry, mp3_core1_stack, sizeof(mp3_core1_stack));
+    multicore_launch_core1_with_stack(audio_mp3_core1_entry, audio_core1_stack, sizeof(audio_core1_stack));
     is_playing = true;
     return true;
 #else
@@ -840,8 +840,8 @@ bool audio_play_wav(const char *filename)
     {
         wav_core1_running = true;
         multicore_reset_core1();
-        multicore_launch_core1_with_stack(audio_wav_core1_entry, wav_core1_stack,
-                                          sizeof(wav_core1_stack));
+        multicore_launch_core1_with_stack(audio_wav_core1_entry, audio_core1_stack,
+                                          sizeof(audio_core1_stack));
     }
     is_playing = true;
     return true;

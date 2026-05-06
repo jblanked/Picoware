@@ -23,7 +23,6 @@ int mp_lv_roots_initialized = 0;
 
 void mp_lv_log_cb(lv_log_level_t level, const char *buf)
 {
-
     mp_printf(&mp_plat_print, buf);
 }
 
@@ -31,7 +30,6 @@ void mp_lv_init_gc()
 {
     if (!MP_STATE_VM(mp_lv_roots_initialized))
     {
-        // mp_printf(&mp_plat_print, "[ INIT GC ]");
         mp_lv_roots = MP_STATE_VM(mp_lv_roots) = m_new0(lv_global_t, 1);
         mp_lv_roots_initialized = MP_STATE_VM(mp_lv_roots_initialized) = 1;
     }
@@ -39,8 +37,6 @@ void mp_lv_init_gc()
 
 void mp_lv_deinit_gc()
 {
-
-    // mp_printf(&mp_plat_print, "[ DEINIT GC ]");
     mp_lv_roots = MP_STATE_VM(mp_lv_roots) = NULL;
     mp_lv_roots_initialized = MP_STATE_VM(mp_lv_roots_initialized) = 0;
 }

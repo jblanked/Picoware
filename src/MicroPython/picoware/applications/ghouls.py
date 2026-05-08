@@ -3,7 +3,9 @@ import ghouls
 
 
 class Ghouls(ghouls.Ghouls):
-    pass
+    """Class for the Ghouls game"""
+
+    __slots__ = ("is_active",)
 
 
 STATE_DOWNLOADING = const(0)

@@ -39,6 +39,8 @@ class Storage:
     Class to control the storage on a Raspberry Pi Pico device.
     """
 
+    __slots__ = ("_vfs_mounted",)
+
     def __init__(self):
         """
         Initialize the storage class.

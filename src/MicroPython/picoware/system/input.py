@@ -13,6 +13,23 @@ class Input:
     Handles input from the keyboard.
     """
 
+    __slots__ = (
+        "_current_board_id",
+        "pin",
+        "_last_point",
+        "_last_gesture",
+        "_delay_ms",
+        "_key_esc",
+        "_key_back",
+        "_elapsed_time",
+        "_elapsed_touch_start",
+        "_elapsed_touch_now",
+        "_last_button",
+        "_was_pressed",
+        "_was_capitalized",
+        "_button_map",
+    )
+
     def __init__(self, back_button=buttons.BUTTON_BACK):
         """Initializes the Input class."""
         self._current_board_id = BOARD_ID

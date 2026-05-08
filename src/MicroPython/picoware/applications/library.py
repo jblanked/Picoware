@@ -27,6 +27,7 @@ def start(view_manager) -> bool:
         _library.add_item("GameBoy Emulator")
         _library.add_item("Games")
         _library.add_item("Python Editor")
+        _library.add_item("Python REPL")
         _library.add_item("Screensavers")
         _library.add_item("System")
         _library.add_item("USB")
@@ -74,10 +75,11 @@ def run(view_manager) -> None:
             4: "GameBoy Emulator",
             5: "Games",
             6: "Python Editor",
-            7: "Screensavers",
-            8: "System",
-            9: "USB",
-            10: "WiFi",
+            7: "Python REPL",
+            8: "Screensavers",
+            9: "System",
+            10: "USB",
+            11: "WiFi",
         }
 
         if app_map.get(_library_index) == "System":
@@ -184,6 +186,11 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("usb")
+        elif app_map.get(_library_index) == "Python REPL":
+            from picoware.applications import repl
+
+            view_manager.add(View("repl", repl.run, repl.start, repl.stop))
+            view_manager.switch_to("repl")
 
 
 def stop(view_manager) -> None:

@@ -372,16 +372,16 @@ static void audio_mp3_core1_entry(void)
 #endif // SD_AVAILABLE
 
 // close/release all MP3 decoder resources
+#if SD_AVAILABLE
 static void audio_mp3_close(void)
 {
-#if SD_AVAILABLE
     mp3_dec.file.buffer = NULL;
     mp3dec_ex_close(&mp3_dec);
     mutex_enter_blocking(&wav_sd_mutex);
     fat32_close(&mp3_file);
     mutex_exit(&wav_sd_mutex);
-#endif
 }
+#endif
 
 bool audio_play_mp3(const char *filename)
 {

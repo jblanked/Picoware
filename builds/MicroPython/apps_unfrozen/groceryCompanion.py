@@ -1,28 +1,10 @@
 import sys
-import gc
-import os
 
 # VERSION 2.23
 _app = None
 
 def start(view_manager) -> bool:
     global _app
-
-    # Library Resolution: Priority to /apps, fallback to /apps_unfrozen
-    found_path = None
-    if not view_manager.storage.vfs_mounted:
-        view_manager.storage.mount_vfs("/sd")
-
-    for p in ["/sd/picoware/apps", "/sd/picoware/apps_unfrozen"]:
-        try:
-            os.stat(p + "/grocery_lib")
-            found_path = p
-            break
-        except OSError:
-            pass
-            
-    if found_path and found_path not in sys.path:
-        sys.path.insert(0, found_path)
 
     # Initial Loading Screen
     try:
@@ -55,22 +37,6 @@ def stop(view_manager) -> None:
         try: _app.stop()
         except Exception: pass
         _app = None
-    
-    for mod in list(sys.modules.keys()):
-        if mod.startswith("grocery_lib"):
-            del sys.modules[mod]
-    
-    gc.collect()
 
-if __name__ == "__main__":
-    from picoware.system.view_manager import ViewManager
-    from picoware.system.view import View
-    vm = None
-    try:
-        vm = ViewManager()
-        vm.add(View("grocery", run, start, stop))
-        vm.switch_to("grocery")
-        while True: vm.run()
-    except KeyboardInterrupt: pass
-    finally:
-        if vm: del vm
+    from gc import collect
+    collect()

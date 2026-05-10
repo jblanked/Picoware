@@ -1,0 +1,25 @@
+MENGENRECHNER
+Lohnt sich die Grosspackung?
+
+SO GEHT'S:
+1. Preis eingeben.
+2. Menge eingeben.
+3. Rabatt % eingeben (falls es einen gibt).
+4. Die App zeigt dir den Gesamtpreis.
+
+TASTEN:
+Pfeile: Bewegen.
+Enter: Zahl aendern.
+TAB: Auf der Liste speichern.
+F4: Zur Einkaufsliste springen.
+F3: Hilfe ein/ausblenden.
+BACK: Zurueck.
+
+ZWECK:
+Der Mengenrechner wurde entwickelt, um komplexe Preisszenarien beim Kauf mehrerer Artikel oder grosser Mengen zu vereinfachen. Er hilft dir dabei, die endgueltigen Kosten unter Beruecksichtigung von Einzelpreisen und Mengenrabatten schnell zu ermitteln, damit du dein Einkaufsbudget immer fest im Griff behaelst.
+
+MENGENBERECHNUNG:
+Um ein Mengenangebot zu berechnen, gibst du den Preis pro Einheit und die Gesamtmenge ein, die du kaufen moechtest. Zusaetzlich kannst du einen prozentualen Rabatt hinzufuegen, falls die Artikel im Angebot sind. Das Tool berechnet dann den Gesamtpreis und zeigt dir genau an, was du an der Kasse bezahlen wirst.
+
+ERGEBNISSE UEBERNEHMEN:
+Nach der Berechnung kannst du das Ergebnis ganz einfach durch Druecken der TAB-Taste in deine Einkaufsliste oder Vorratskammer uebernehmen. Dies erspart dir die manuelle Eingabe und stellt sicher, dass deine Liste die korrekten Mengen und rabattierten Preise enthaelt, wie du sie im Geschaeft vorgefunden hast.

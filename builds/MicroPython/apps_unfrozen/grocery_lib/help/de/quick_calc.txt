@@ -1,0 +1,20 @@
+SCHNELLRECHNER
+Ein Taschenrechner fuer zwischendurch.
+
+SO GEHT'S:
+1. Zahl tippen.
+2. Pfeile fuer Mathe (+, -, *, /).
+3. Enter fuer Gleich (=).
+
+TASTEN:
+TAB: Steuer (Tax) dazu/weg.
+Enter (auf '='): Ergebnis speichern.
+F5: Direkt hierher springen.
+F4: Zur Einkaufsliste springen.
+F3: Hilfe ein/ausblenden.
+
+AUF LISTE SPEICHERN:
+Die Funktion "Auf Liste speichern" erlaubt es dir, berechnete Betraege sofort in deine aktive Einkaufsliste zu uebernehmen. Nachdem du einen Preis berechnet hast (zum Beispiel nach Abzug eines Rabatts), druecke einfach die ENTER-Taste, waehrend das "="-Zeichen aktiv ist. Es oeffnet sich ein Dialog, in dem du dem Artikel einen Namen geben und das Hinzufuegen bestaetigen kannst. Ideal fuer spontane Einkaeufe oder korrigierte Preise direkt am Regal. So bleibt deine Liste immer auf dem neuesten Stand, egal welche Sonderangebote du im Laden entdeckst.
+
+STEUER-BERECHNUNG:
+Mit der Steuer-Funktion kannst du die regionale Mehrwertsteuer (oder Sales Tax) mit nur einem Tastendruck zu deiner Berechnung hinzufuegen oder davon abziehen. Durch Druecken der TAB-Taste passt der Rechner den angezeigten Gesamtbetrag automatisch an den in deinen Einstellungen festgelegten Steuersatz an. Dies ist besonders hilfreich, wenn du in Regionen einkaufst, in denen Preise ohne Steuern ausgewiesen werden, oder wenn du den Bruttopreis eines Netto-Artikels ermitteln moechtest. Es erspart dir das manuelle Rechnen mit Prozenten und zeigt dir den tatsaechlichen Endpreis eines Artikels an, bevor du an der Kasse stehst.

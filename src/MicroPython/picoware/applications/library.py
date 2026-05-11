@@ -30,6 +30,7 @@ def start(view_manager) -> bool:
         _library.add_item("Python REPL")
         _library.add_item("Screensavers")
         _library.add_item("System")
+        _library.add_item("Text Editor")
         _library.add_item("USB")
         _library.add_item("WiFi")
         _library.set_selected(_library_index)
@@ -78,8 +79,9 @@ def run(view_manager) -> None:
             7: "Python REPL",
             8: "Screensavers",
             9: "System",
-            10: "USB",
-            11: "WiFi",
+            10: "Text Editor",
+            11: "USB",
+            12: "WiFi",
         }
 
         if app_map.get(_library_index) == "System":
@@ -195,6 +197,18 @@ def run(view_manager) -> None:
 
             view_manager.add(View("repl", repl.run, repl.start, repl.stop))
             view_manager.switch_to("repl")
+        elif app_map.get(_library_index) == "Text Editor":
+            from picoware.applications import text_editor
+
+            view_manager.add(
+                View(
+                    "text_editor",
+                    text_editor.run,
+                    text_editor.start,
+                    text_editor.stop,
+                )
+            )
+            view_manager.switch_to("text_editor")
 
 
 def stop(view_manager) -> None:

@@ -8,7 +8,7 @@ def __start_text_editor(view_manager) -> None:
     """Start the text editor app"""
     from picoware.gui.text_editor import TextEditor
 
-    global _textbox, _text_editor_started, _filename
+    global _textbox, _text_editor_started
 
     if _textbox is None:
         _textbox = TextEditor(
@@ -34,7 +34,7 @@ def run(view_manager) -> None:
     """Run the app"""
     from picoware.system.buttons import BUTTON_BACK
 
-    global _textbox, _text_editor_started, _filename, _keyboard_just_started
+    global _filename, _keyboard_just_started
 
     inp = view_manager.input_manager
     but = inp.button

@@ -105,9 +105,13 @@ def run(view_manager) -> None:
             )
             view_manager.switch_to("screensavers")
         elif app_map.get(_library_index) == "Python Editor":
-            from picoware.applications import editor
+            from picoware.applications import python_editor
 
-            view_manager.add(View("editor", editor.run, editor.start, editor.stop))
+            view_manager.add(
+                View(
+                    "editor", python_editor.run, python_editor.start, python_editor.stop
+                )
+            )
             view_manager.switch_to("editor")
         elif app_map.get(_library_index) == "Applications":
             from picoware.applications import applications

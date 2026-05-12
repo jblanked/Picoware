@@ -117,7 +117,7 @@ def start(view_manager) -> bool:
 
     if __is_assets_loaded(view_manager):
         _state = STATE_PLAYING
-        view_manager.freq(True, 220000000)  # set to 220MHz
+        view_manager.freq(True, 210000000)  # set to 210MHz
         return __init_ghouls()
 
     if view_manager.alert(
@@ -215,7 +215,7 @@ def run(view_manager) -> None:
                 _loading.stop()
                 _loading = None
             _state = STATE_PLAYING
-            view_manager.freq(True, 220000000)  # set to 220MHz
+            view_manager.freq(True, 210000000)  # set to 210MHz
             if not __init_ghouls():
                 view_manager.alert("Failed to initialize Ghouls", False)
                 view_manager.back()

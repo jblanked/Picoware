@@ -230,6 +230,8 @@ class Input:
             buttons.KEY_F8: buttons.BUTTON_F8,
             buttons.KEY_F9: buttons.BUTTON_F9,
             buttons.KEY_F10: buttons.BUTTON_F10,
+            buttons.KEY_CTRL_UP: buttons.BUTTON_CTRL_UP,
+            buttons.KEY_CTRL_DOWN: buttons.BUTTON_CTRL_DOWN,
         }
 
     def __del__(self):

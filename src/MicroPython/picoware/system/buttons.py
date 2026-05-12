@@ -109,6 +109,8 @@ BUTTON_F7 = const(93)
 BUTTON_F8 = const(94)
 BUTTON_F9 = const(95)
 BUTTON_F10 = const(96)
+BUTTON_CTRL_UP = const(97)
+BUTTON_CTRL_DOWN = const(98)
 
 
 KEY_MOD_ALT = const(0xA1)
@@ -116,6 +118,8 @@ KEY_MOD_SHL = const(0xA2)
 KEY_MOD_SHR = const(0xA3)
 KEY_MOD_SYM = const(0xA4)
 KEY_MOD_CTRL = const(0xA5)
+KEY_CTRL_UP = const(0xC2)
+KEY_CTRL_DOWN = const(0xC3)
 
 KEY_ESC = const(0xB1)
 KEY_UP = const(0xB5)

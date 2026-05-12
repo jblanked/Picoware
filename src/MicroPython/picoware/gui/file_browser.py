@@ -1220,30 +1220,42 @@ class FileBrowser:
                         self.__loading_run("Done", 1.0)
 
                     elif self._pending_action == self.ACT_AUDIO:
+                        _is_wav = ".wav" in self._context_target_path.lower()
                         if self._loading:
                             self._loading.stop()
-                        self.__loading_run("Playing...", 0.5)
 
-                        audio = self._vm.audio
-                        if audio:
-                            play_func: callable = (
-                                audio.play_wav
-                                if ".wav" in self._context_target_path.lower()
-                                else audio.play_mp3
-                            )
-                            if play_func(self._context_target_path):
-                                inp = self._vm.input_manager
-                                inp.reset()
-                                while audio.is_playing:
-                                    but = inp.button
-                                    if but in (
-                                        BUTTON_BACK,
-                                        BUTTON_ESCAPE,
-                                        BUTTON_CENTER,
-                                    ):
-                                        break
-                                    self.__loading_run("Playing....", 0.5)
-                                audio.stop()
+                        _should_play = True
+
+                        if not _is_wav:
+                            # don't allow rp2040 for now...
+                            from picoware_boards import get_device_name
+
+                            _device = get_device_name()
+                            if "2" not in _device:
+                                self._vm.alert("MP3 playback requires rp2350")
+                                _should_play = False
+
+                        if _should_play:
+                            self.__loading_run("Playing...", 0.5)
+
+                            audio = self._vm.audio
+                            if audio:
+                                play_func: callable = (
+                                    audio.play_wav if _is_wav else audio.play_mp3
+                                )
+                                if play_func(self._context_target_path):
+                                    inp = self._vm.input_manager
+                                    inp.reset()
+                                    while audio.is_playing:
+                                        but = inp.button
+                                        if but in (
+                                            BUTTON_BACK,
+                                            BUTTON_ESCAPE,
+                                            BUTTON_CENTER,
+                                        ):
+                                            break
+                                        self.__loading_run("Playing....", 0.5)
+                                    audio.stop()
 
                     if len(mk) > 0:
                         self._app_state["marked"].clear()

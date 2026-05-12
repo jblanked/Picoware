@@ -696,7 +696,7 @@ mp_obj_t textbox_mp_load_file(mp_obj_t self_in, mp_obj_t filename)
         self->text_len = bytes_read;
         self->edit_buf[bytes_read] = '\0';
         self->text = self->edit_buf;
-        self->cursor_pos = 0;
+        self->cursor_pos = bytes_read;
         self->cache_valid = false;
         textbox_wrap(self);
         textbox_scroll_to_cursor(self);

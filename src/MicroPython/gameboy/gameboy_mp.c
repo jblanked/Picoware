@@ -144,6 +144,9 @@ void gameboy_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
         case MP_QSTR_running:
             destination[0] = mp_obj_new_bool(self->running);
             break;
+        case MP_QSTR___del__:
+            destination[0] = MP_OBJ_FROM_PTR(&gameboy_mp_del_obj);
+            break;
         default:
             return; // Fail
         };

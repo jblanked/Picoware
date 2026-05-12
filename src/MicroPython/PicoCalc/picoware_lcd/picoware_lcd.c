@@ -19,7 +19,7 @@
 static bool module_initialized = false;
 
 // Line buffer for batch operations (reusable)
-static uint8_t line_buffer[DISPLAY_WIDTH] __attribute__((aligned(64)));
+static uint8_t line_buffer[DISPLAY_WIDTH] __attribute__((aligned(4)));
 
 #define LCD_MODE_PSRAM 0 // PSRAM framebuffer with RGB332 palette
 #define LCD_MODE_HEAP 1  // Heap RAM framebuffer with RGB332 (converted to RGB565 on swap)
@@ -31,7 +31,7 @@ static uint8_t *heap_framebuffer = NULL;
 static bool heap_framebuffer_allocated = false;
 #define HEAP_BUFFER_SIZE (DISPLAY_WIDTH * DISPLAY_HEIGHT)
 
-static uint16_t palette[256] __attribute__((aligned(64)));
+static uint16_t palette[256] __attribute__((aligned(4)));
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -168,7 +168,7 @@ static void clear_psram_framebuffer(uint8_t color_index)
     uint32_t fill_value = ((uint32_t)color_index << 24) | ((uint32_t)color_index << 16) | ((uint32_t)color_index << 8) | color_index;
 
     uint32_t word_count = PSRAM_BUFFER_SIZE / 4;
-    static uint32_t fill32_buffer[PSRAM_CHUNK_SIZE / 4] __attribute__((aligned(64)));
+    static uint32_t fill32_buffer[PSRAM_CHUNK_SIZE / 4] __attribute__((aligned(4)));
 
     for (size_t i = 0; i < PSRAM_CHUNK_SIZE / 4; i++)
         fill32_buffer[i] = fill_value;

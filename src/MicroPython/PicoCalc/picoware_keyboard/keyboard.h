@@ -41,6 +41,8 @@ Source: https://github.com/BlairLeduc/picocalc-text-starter
 #define KEY_PAGE_DOWN (0xD7)
 
 #define KEY_CAPS_LOCK (0xC1)
+#define KEY_CTRL_UP (0xC2)
+#define KEY_CTRL_DOWN (0xC3)
 
 #define KEY_F1 (0x81)
 #define KEY_F2 (0x82)

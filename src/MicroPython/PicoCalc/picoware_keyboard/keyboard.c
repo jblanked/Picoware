@@ -91,6 +91,14 @@ void keyboard_poll()
                         ch &= ~0x20;
                     }
                 }
+                else if (key_control && ch == KEY_UP)
+                {
+                    ch = KEY_CTRL_UP;
+                }
+                else if (key_control && ch == KEY_DOWN)
+                {
+                    ch = KEY_CTRL_DOWN;
+                }
                 else if (ch == KEY_ENTER) // enter key is returned as LF
                 {
                     ch = KEY_RETURN; // convert LF to CR

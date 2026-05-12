@@ -30,6 +30,8 @@ class FileBrowser:
 
     MODE_EDITING = 0
     MODE_MENU = 1
+    MODE_EXIT = 2
+    MODE_SELECT = 3
 
     def __init__(
         self,
@@ -177,6 +179,11 @@ class FileBrowser:
         if _dir.startswith("/sd/"):
             _dir = _dir[3:]
         return _dir
+
+    @property
+    def mode(self) -> int:
+        """Get the current mode of the file browser."""
+        return self._mode
 
     @property
     def path(self) -> str:
@@ -745,6 +752,8 @@ class FileBrowser:
             KEY_MOD_SHL,
             KEY_MOD_SHR,
             KEY_CAPS_LOCK,
+            BUTTON_CTRL_UP,
+            BUTTON_CTRL_DOWN,
         )
 
         btn = self._vm.button
@@ -776,6 +785,12 @@ class FileBrowser:
             elif btn == BUTTON_DOWN:
                 if self._text_viewer_box:
                     self._text_viewer_box.scroll_down()
+            elif btn == BUTTON_CTRL_UP:
+                if self._text_viewer_box:
+                    self._text_viewer_box.jump_to_top()
+            elif btn == BUTTON_CTRL_DOWN:
+                if self._text_viewer_box:
+                    self._text_viewer_box.jump_to_bottom()
 
         # --- Sub-View: Text Editor Input ---
         elif (
@@ -1205,23 +1220,42 @@ class FileBrowser:
                         self.__loading_run("Done", 1.0)
 
                     elif self._pending_action == self.ACT_AUDIO:
-                        self.__loading_run("Playing...", 0.5)
+                        _is_wav = ".wav" in self._context_target_path.lower()
+                        if self._loading:
+                            self._loading.stop()
 
-                        audio = self._vm.audio
-                        if audio:
-                            if audio.play_wav(self._context_target_path):
-                                inp = self._vm.input_manager
-                                inp.reset()
-                                while audio.is_playing:
-                                    but = inp.button
-                                    if but in (
-                                        BUTTON_BACK,
-                                        BUTTON_ESCAPE,
-                                        BUTTON_CENTER,
-                                    ):
-                                        break
-                                    self.__loading_run("Playing....", 0.5)
-                                audio.stop()
+                        _should_play = True
+
+                        if not _is_wav:
+                            # don't allow rp2040 for now...
+                            from picoware_boards import get_device_name
+
+                            _device = get_device_name()
+                            if "2" not in _device:
+                                self._vm.alert("MP3 playback requires rp2350")
+                                _should_play = False
+
+                        if _should_play:
+                            self.__loading_run("Playing...", 0.5)
+
+                            audio = self._vm.audio
+                            if audio:
+                                play_func: callable = (
+                                    audio.play_wav if _is_wav else audio.play_mp3
+                                )
+                                if play_func(self._context_target_path):
+                                    inp = self._vm.input_manager
+                                    inp.reset()
+                                    while audio.is_playing:
+                                        but = inp.button
+                                        if but in (
+                                            BUTTON_BACK,
+                                            BUTTON_ESCAPE,
+                                            BUTTON_CENTER,
+                                        ):
+                                            break
+                                        self.__loading_run("Playing....", 0.5)
+                                    audio.stop()
 
                     if len(mk) > 0:
                         self._app_state["marked"].clear()
@@ -1377,6 +1411,7 @@ class FileBrowser:
             else:
                 self.__save_settings()
                 self._vm.draw.set_scaling(self._scale_og.x, self._scale_og.y, False)
+                self._mode = self.MODE_EXIT
                 return False
 
         elif btn == BUTTON_LEFT and not self._is_help_screen:
@@ -1491,6 +1526,7 @@ class FileBrowser:
                         self._vm.draw.set_scaling(
                             self._scale_og.x, self._scale_og.y, False
                         )
+                        self._mode = self.MODE_SELECT
                         return False
 
                     mk = self._app_state["marked"]
@@ -1522,11 +1558,9 @@ class FileBrowser:
                         if isd:
                             items = ["Open"]
                         else:
-                            is_uf2 = np.lower().endswith(".uf2")
-                            is_wav = np.lower().endswith(".wav")
-                            if is_uf2:
+                            if np.lower().endswith(".uf2"):
                                 items = ["Flash"]
-                            elif is_wav:
+                            elif np.lower().endswith((".wav", ".mp3")):
                                 items = ["Play Audio"]
                             else:
                                 is_img = np.lower().endswith((".jpg", ".jpeg", ".bmp"))

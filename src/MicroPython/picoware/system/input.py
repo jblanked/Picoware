@@ -13,6 +13,23 @@ class Input:
     Handles input from the keyboard.
     """
 
+    __slots__ = (
+        "_current_board_id",
+        "pin",
+        "_last_point",
+        "_last_gesture",
+        "_delay_ms",
+        "_key_esc",
+        "_key_back",
+        "_elapsed_time",
+        "_elapsed_touch_start",
+        "_elapsed_touch_now",
+        "_last_button",
+        "_was_pressed",
+        "_was_capitalized",
+        "_button_map",
+    )
+
     def __init__(self, back_button=buttons.BUTTON_BACK):
         """Initializes the Input class."""
         self._current_board_id = BOARD_ID
@@ -213,6 +230,8 @@ class Input:
             buttons.KEY_F8: buttons.BUTTON_F8,
             buttons.KEY_F9: buttons.BUTTON_F9,
             buttons.KEY_F10: buttons.BUTTON_F10,
+            buttons.KEY_CTRL_UP: buttons.BUTTON_CTRL_UP,
+            buttons.KEY_CTRL_DOWN: buttons.BUTTON_CTRL_DOWN,
         }
 
     def __del__(self):

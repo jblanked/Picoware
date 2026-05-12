@@ -1,0 +1,17 @@
+AT HOME
+See what you already have at home.
+
+SHORTCUTS:
+Any Key: Start searching.
+Arrows: Move around.
+Center: Open Item Info.
+Right: Quick change.
+PLUS (+): Add new item (Name then Price).
+F3: Show/Hide this help.
+F4: Jump to Shopping List.
+
+PURPOSE:
+The Pantry view helps you track the inventory you already have at home. This prevents duplicate purchases and ensures you always know what is in stock before you even leave for the grocery store, helping you save money and reduce food waste by using what you have.
+
+SEARCHING:
+Real-time filtering allows you to search through your entire home inventory instantly. Just start typing to find items by name, allowing for rapid stock checks and planning while you are building your shopping lists. The view automatically refreshes to show only matching items as you type or delete characters.

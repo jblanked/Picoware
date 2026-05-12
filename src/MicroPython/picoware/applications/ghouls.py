@@ -3,7 +3,9 @@ import ghouls
 
 
 class Ghouls(ghouls.Ghouls):
-    pass
+    """Class for the Ghouls game"""
+
+    __slots__ = ("is_active",)
 
 
 STATE_DOWNLOADING = const(0)
@@ -34,7 +36,7 @@ def __get_asset_info() -> dict:
         "ghouls-growl-loud.wav",
         "ghouls-growl-medium.wav",
         "ghouls-growl-soft.wav",
-        "ghouls-grolwing.wav",
+        "ghouls-growling.wav",
         "graveyard.ghoulsmap",
         "home.ghoulsmap",
         "maze.ghoulsmap",
@@ -115,7 +117,7 @@ def start(view_manager) -> bool:
 
     if __is_assets_loaded(view_manager):
         _state = STATE_PLAYING
-        view_manager.freq(True, 220000000)  # set to 220MHz
+        view_manager.freq(True, 210000000)  # set to 210MHz
         return __init_ghouls()
 
     if view_manager.alert(
@@ -213,7 +215,7 @@ def run(view_manager) -> None:
                 _loading.stop()
                 _loading = None
             _state = STATE_PLAYING
-            view_manager.freq(True, 220000000)  # set to 220MHz
+            view_manager.freq(True, 210000000)  # set to 210MHz
             if not __init_ghouls():
                 view_manager.alert("Failed to initialize Ghouls", False)
                 view_manager.back()

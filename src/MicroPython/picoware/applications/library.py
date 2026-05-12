@@ -27,8 +27,10 @@ def start(view_manager) -> bool:
         _library.add_item("GameBoy Emulator")
         _library.add_item("Games")
         _library.add_item("Python Editor")
+        _library.add_item("Python REPL")
         _library.add_item("Screensavers")
         _library.add_item("System")
+        _library.add_item("Text Editor")
         _library.add_item("USB")
         _library.add_item("WiFi")
         _library.set_selected(_library_index)
@@ -74,10 +76,12 @@ def run(view_manager) -> None:
             4: "GameBoy Emulator",
             5: "Games",
             6: "Python Editor",
-            7: "Screensavers",
-            8: "System",
-            9: "USB",
-            10: "WiFi",
+            7: "Python REPL",
+            8: "Screensavers",
+            9: "System",
+            10: "Text Editor",
+            11: "USB",
+            12: "WiFi",
         }
 
         if app_map.get(_library_index) == "System":
@@ -103,9 +107,13 @@ def run(view_manager) -> None:
             )
             view_manager.switch_to("screensavers")
         elif app_map.get(_library_index) == "Python Editor":
-            from picoware.applications import editor
+            from picoware.applications import python_editor
 
-            view_manager.add(View("editor", editor.run, editor.start, editor.stop))
+            view_manager.add(
+                View(
+                    "editor", python_editor.run, python_editor.start, python_editor.stop
+                )
+            )
             view_manager.switch_to("editor")
         elif app_map.get(_library_index) == "Applications":
             from picoware.applications import applications
@@ -184,6 +192,23 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("usb")
+        elif app_map.get(_library_index) == "Python REPL":
+            from picoware.applications import repl
+
+            view_manager.add(View("repl", repl.run, repl.start, repl.stop))
+            view_manager.switch_to("repl")
+        elif app_map.get(_library_index) == "Text Editor":
+            from picoware.applications import text_editor
+
+            view_manager.add(
+                View(
+                    "text_editor",
+                    text_editor.run,
+                    text_editor.start,
+                    text_editor.stop,
+                )
+            )
+            view_manager.switch_to("text_editor")
 
 
 def stop(view_manager) -> None:

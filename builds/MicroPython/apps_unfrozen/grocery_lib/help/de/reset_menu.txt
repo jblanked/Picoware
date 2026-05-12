@@ -1,0 +1,19 @@
+ALLES LOESCHEN
+Loesche deine Daten und fange neu an.
+
+OPTIONEN:
+- Alle Listen: Loescht alle Einkaufslisten.
+- Zu Hause: Loescht deinen ganzen Vorrat.
+
+ACHTUNG:
+Das loescht alles dauerhaft.
+Wir fragen vorher noch "Bist du sicher?".
+
+TASTEN:
+Pfeile: Bewegen.
+Enter: Option waehlen.
+BACK: Zurueck.
+F3: Hilfe ein/ausblenden.
+
+ZWECK:
+Das Reset-Menue bietet eine Moeglichkeit, bestimmte Teile deiner Daten zu loeschen, wenn sie nicht mehr benoetigt werden. Egal, ob du ein neues Einkaufsjahr beginnst oder einfach deinen gesamten Hausvorrat von Grund auf neu organisieren moechtest – diese Optionen ermoeglichen einen sauberen Neuanfang und bieten gleichzeitig Sicherheitsabfragen, um versehentlichen Datenverlust zu verhindern.

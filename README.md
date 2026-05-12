@@ -4,16 +4,24 @@ Open-source custom firmware for the PicoCalc, Video Game Module, and other Raspb
 ![Picoware Demo](./images/desktop-animation.gif)
 
 ### Features
-- Desktop animation
 - On-Device Code Editor
+- On-Device REPL
 - File Manager
 - On-Device App Store
 - OTA Updates
+- UF2 Bootloader
+- MP3/WAV Player
+- JPEG/BMP Viewer
 - WiFi (scanning, captive portal, and more)
+- Desktop animations
+- Multi-core support
 - Bluetooth (scanning, BLE operations, and more)
+- Gameboy Emulator
 - Games (Doom, Tetris, and more)
 - Screensavers (Spiro, Starfield, and more)
 - Social Media Network (connected with Flipper Zero users)
+- AutoComplete for keyboard input
+- PSRAM support (PicoCalc)
 
 ### Installation
 Follow the instructions in the [Installation Guide](./guides/Installation.md) to install Picoware on your device.

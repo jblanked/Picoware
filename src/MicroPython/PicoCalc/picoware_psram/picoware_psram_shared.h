@@ -1,5 +1,8 @@
 #pragma once
 #include "psram_qspi.h"
+#ifdef __cplusplus
+#include "psram_template.hpp"
+#endif
 
 #define PSRAM_SIZE (8 * 1024 * 1024) // 8MB PSRAM
 

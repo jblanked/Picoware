@@ -4,6 +4,16 @@ from utime import ticks_ms
 class Thread:
     """Class representing a thread."""
 
+    __slots__ = (
+        "_args",
+        "_error",
+        "_function",
+        "_lock",
+        "_running",
+        "_stop_requested",
+        "_stack_size",
+    )
+
     def __init__(
         self, function: callable, args: tuple = (), stack_size: int = 0
     ) -> None:
@@ -128,6 +138,8 @@ class ThreadTask:
 
 class ThreadManager:
     """Class to manage multiple threads."""
+
+    __slots__ = ("_id", "_tasks", "_active_thread", "_active_task", "_outgoing")
 
     def __init__(self) -> None:
         self._id = 0

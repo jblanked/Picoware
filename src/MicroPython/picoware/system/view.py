@@ -7,6 +7,8 @@ class View:
     - stop: function(ViewManager) - the function called when the view is destroyed
     """
 
+    __slots__ = ("name", "_run", "_start", "_stop", "active", "should_stop")
+
     def __init__(self, name: str, run: callable, start: callable, stop: callable):
         self.name = name
         self._run = run

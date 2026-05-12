@@ -93,7 +93,13 @@ class TextEditor(textbox.TextBox):
         if but == buttons.BUTTON_BACK:
             inp.reset()
             return False
-        if but == buttons.BUTTON_UP:
+        if but == buttons.BUTTON_CTRL_UP:
+            inp.reset()
+            self.jump_to_top()
+        elif but == buttons.BUTTON_CTRL_DOWN:
+            inp.reset()
+            self.jump_to_bottom()
+        elif but == buttons.BUTTON_UP:
             inp.reset()
             self._cursor_up()
         elif but == buttons.BUTTON_DOWN:
@@ -109,6 +115,14 @@ class TextEditor(textbox.TextBox):
             self.__process_text_input(but)
             inp.reset()
         return True
+
+    def jump_to_top(self) -> None:
+        """Moves the cursor and viewport to the beginning of the text and redraws."""
+        self._set_cursor(0)
+
+    def jump_to_bottom(self) -> None:
+        """Moves the cursor and viewport to the end of the text and redraws."""
+        self.render()
 
     def set_text(self, text: str) -> None:
         """Sets the text content of the text box."""

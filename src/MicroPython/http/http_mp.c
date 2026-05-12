@@ -597,9 +597,6 @@ static err_t on_recv(void *arg, struct altcp_pcb *pcb, struct pbuf *p, err_t err
                 st->response_pbuf = p;
             else
                 pbuf_cat(st->response_pbuf, p);
-            PRINT("HTTP: recv %u bytes chunked (total %u)\n",
-                  (unsigned)recv_len,
-                  (unsigned)st->response_pbuf->tot_len);
         }
 
         altcp_recved(pcb, recv_len);
@@ -613,9 +610,6 @@ static err_t on_recv(void *arg, struct altcp_pcb *pcb, struct pbuf *p, err_t err
         pbuf_cat(st->response_pbuf, p);
 
     altcp_recved(pcb, recv_len);
-    PRINT("HTTP: recv %u bytes (total %u)\n",
-          (unsigned)recv_len,
-          (unsigned)st->response_pbuf->tot_len);
 
     return ERR_OK;
 }

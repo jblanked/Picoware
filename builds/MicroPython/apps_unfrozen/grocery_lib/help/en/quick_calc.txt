@@ -1,0 +1,20 @@
+QUICK MATH
+A fast calculator for when you are in the aisle.
+
+HOW IT WORKS:
+1. Type a number.
+2. Use Arrows for math (+, -, *, /).
+3. Press CENTER for Equals (=).
+
+SHORTCUTS:
+TAB: Add or remove Tax.
+Center (on '='): Save result to list.
+F5: Jump to this calculator.
+F4: Jump to Shopping List.
+F3: Show/Hide this help.
+
+SAVE TO LIST:
+The "Save to List" feature allows you to instantly transfer your calculated total into your active shopping list. After calculating a price (for example, after adding a discount or adjusting a weight), simply press the CENTER button while the "=" operator is active. This will open a dialog where you can name the item and confirm its addition. It is perfect for adding one-off items or corrected prices without leaving the aisle. This ensures your shopping list always reflects the real prices you find in the store.
+
+TAX CALCULATION:
+The Tax feature allows you to quickly apply or remove regional sales tax (VAT) from your calculation with a single button press. By pressing the TAB key, the calculator will automatically adjust the displayed total based on the tax region defined in your settings. This is extremely useful when shopping in regions where prices are shown without tax or when you need to calculate the gross price of a net item. It eliminates the need for manual percentage math, allowing you to see the true final cost of an item before you reach the checkout counter.

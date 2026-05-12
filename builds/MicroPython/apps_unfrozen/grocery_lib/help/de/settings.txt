@@ -1,0 +1,21 @@
+EINSTELLUNGEN
+Pass die App an dich an.
+
+OPTIONEN:
+- Sprache: Englisch oder Deutsch.
+- Waehrung: Dollar oder Euro.
+- Region: Fuer Steuer (DE/US/UK).
+- Dezimal: Punkt (.) oder Komma (,).
+- Gesamtbudget: Dein Ausgabenlimit.
+- Sortierung: Ladenbereiche aendern.
+- Reset: Alle Daten loeschen.
+
+TASTEN:
+Pfeile: Bewegen.
+Enter: Zahl aendern.
+BACK: Zurueck.
+F3: Hilfe ein/ausblenden.
+F4: Zur Einkaufsliste springen.
+
+ZWECK:
+Das Einstellungsmenue ist der Ort, an dem du das Verhalten der Anwendung global an deine persoenlichen und regionalen Vorlieben anpassen kannst. Von Sprache und Waehrung bis hin zu Steuerberechnungen und Datenverwaltung stellen diese Optionen sicher, dass sich der GroceryCompanion personalisiert anfuehlt und perfekt nach deinen spezifischen Einkaufsgewohnheiten und deinem Standort funktioniert.

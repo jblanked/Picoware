@@ -10,6 +10,29 @@ class ViewManager:
     FREQ_RP2350 = 230000000
     FREQ_PIMORONI = 210000000
 
+    __slots__ = (
+        "_current_view",
+        "_view_count",
+        "_selected_color",
+        "_stack_depth",
+        "_current_board_id",
+        "_thread_manager",
+        "_wifi",
+        "_storage",
+        "_background_color",
+        "_foreground_color",
+        "_draw",
+        "_gmt_offset",
+        "_input_manager",
+        "_button",
+        "_keyboard",
+        "_time",
+        "views",
+        "view_stack",
+        "_log",
+        "_audio",
+    )
+
     def __init__(self):
         """Initialize the ViewManager with default settings."""
         from picoware.gui.draw import Draw

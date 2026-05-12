@@ -30,6 +30,8 @@ class FileBrowser:
 
     MODE_EDITING = 0
     MODE_MENU = 1
+    MODE_EXIT = 2
+    MODE_SELECT = 3
 
     def __init__(
         self,
@@ -177,6 +179,11 @@ class FileBrowser:
         if _dir.startswith("/sd/"):
             _dir = _dir[3:]
         return _dir
+
+    @property
+    def mode(self) -> int:
+        """Get the current mode of the file browser."""
+        return self._mode
 
     @property
     def path(self) -> str:
@@ -1384,6 +1391,7 @@ class FileBrowser:
             else:
                 self.__save_settings()
                 self._vm.draw.set_scaling(self._scale_og.x, self._scale_og.y, False)
+                self._mode = self.MODE_EXIT
                 return False
 
         elif btn == BUTTON_LEFT and not self._is_help_screen:
@@ -1498,6 +1506,7 @@ class FileBrowser:
                         self._vm.draw.set_scaling(
                             self._scale_og.x, self._scale_og.y, False
                         )
+                        self._mode = self.MODE_SELECT
                         return False
 
                     mk = self._app_state["marked"]

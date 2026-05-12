@@ -752,6 +752,8 @@ class FileBrowser:
             KEY_MOD_SHL,
             KEY_MOD_SHR,
             KEY_CAPS_LOCK,
+            BUTTON_CTRL_UP,
+            BUTTON_CTRL_DOWN,
         )
 
         btn = self._vm.button
@@ -783,6 +785,12 @@ class FileBrowser:
             elif btn == BUTTON_DOWN:
                 if self._text_viewer_box:
                     self._text_viewer_box.scroll_down()
+            elif btn == BUTTON_CTRL_UP:
+                if self._text_viewer_box:
+                    self._text_viewer_box.jump_to_top()
+            elif btn == BUTTON_CTRL_DOWN:
+                if self._text_viewer_box:
+                    self._text_viewer_box.jump_to_bottom()
 
         # --- Sub-View: Text Editor Input ---
         elif (

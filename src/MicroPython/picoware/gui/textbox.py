@@ -167,3 +167,27 @@ class TextBox(textbox.TextBox):
             return
 
         self._scroll_up()
+
+    def jump_to_top(self):
+        """Moves the cursor and viewport to the beginning of the text and redraws."""
+        if self.use_lvgl and self._lvgl_textbox is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_textbox.set_current_line(0)
+            task_handler()
+            return
+
+        self._set_cursor(0)
+
+    def jump_to_bottom(self):
+        """Moves the cursor and viewport to the end of the text and redraws."""
+        if self.use_lvgl and self._lvgl_textbox is not None:
+            from picoware_lvgl import tick, task_handler
+
+            tick(5)
+            self._lvgl_textbox.set_current_line(0xFFFF)
+            task_handler()
+            return
+
+        self.render()

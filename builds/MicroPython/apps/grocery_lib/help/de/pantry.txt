@@ -1,0 +1,17 @@
+ZU HAUSE
+Was du schon alles hast.
+
+TASTEN:
+Beliebige Taste: Suche starten.
+Pfeile: Bewegen.
+Enter: Eintragsinfo oeffnen.
+Rechts: Schnell aendern.
+PLUS (+): Neues hinzufuegen (Name dann Preis).
+F3: Hilfe ein/ausblenden.
+F4: Zur Einkaufsliste springen.
+
+ZWECK:
+Die Vorratsansicht hilft dir dabei, den Bestand zu verfolgen, den du bereits zu Hause hast. Dies verhindert doppelte Einkaeufe und stellt sicher, dass du immer weisst, was auf Lager ist, noch bevor du zum Lebensmittelgeschaeft aufbrichst. So sparst du Geld und reduzierst Lebensmittelverschwendung, indem du nutzt, was du hast.
+
+SUCHE:
+Die Echtzeit-Filterung ermoeglicht es dir, deinen gesamten Hausvorrat sofort zu durchsuchen. Fang einfach an zu tippen, um Artikel nach Namen zu finden, was schnelle Bestandskontrollen und Planungen waehrend der Erstellung deiner Einkaufslisten ermoeglicht. Die Ansicht aktualisiert sich automatisch, waehrend du Zeichen eingibst oder loeschst.

@@ -1,0 +1,16 @@
+LIST SETUP
+Change the name or budget for this list.
+
+OPTIONS:
+- Rename: Change the list name.
+- Budget: Set a spending limit (0 = none).
+- Delete: Remove this list forever.
+
+SHORTCUTS:
+Arrows: Move around.
+Center: Change or Confirm.
+BACK: Go back.
+F3: Show/Hide this help.
+
+PURPOSE:
+List Setup provides the necessary tools to customize your shopping experience for specific needs. Whether you are renaming a list for a special event or setting a strict budget limit to control your spending, these options give you full control over your shopping data, helping you stay organized and within your financial goals.

@@ -1,0 +1,25 @@
+DEAL FINDER
+Find out which item is the better deal.
+
+HOW IT WORKS:
+1. Enter Price and Size for Item A.
+2. Enter Price and Size for Item B.
+3. The app finds the Price per Unit.
+4. The better deal is highlighted.
+
+SHORTCUTS:
+Arrows: Move around.
+Center: Change a number.
+TAB: Save the winner to your list.
+F4: Jump to Shopping List.
+F3: Show/Hide this help.
+BACK: Go back.
+
+PURPOSE:
+The Price Comparer is designed to help you identify the most cost-effective option when choosing between two different product sizes or brands. It removes the guesswork from shopping by calculating the exact price per unit for both items, ensuring you always get the best value for your money regardless of marketing.
+
+CORRELATION:
+Size and price correlate through the unit price calculation, which standardizes items into a common measurement like grams or liters. A larger package is not always cheaper; sometimes a smaller item on sale has a lower price per unit than the bulk version. This tool compares them directly to find the real winner.
+
+TRANSFERRING DEALS:
+Once you have identified the best deal, you can instantly transfer that item to your shopping list or pantry by pressing the TAB key. This opens a dialog to name the item, preserving the calculated price and quantity. It ensures your records are accurate and that you never forget which specific brand was the bargain.

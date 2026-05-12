@@ -1,0 +1,25 @@
+PREISE VERGLEICHEN
+Finde heraus, was wirklich guenstiger ist.
+
+SO GEHT'S:
+1. Preis und Groesse fuer Produkt A.
+2. Preis und Groesse fuer Produkt B.
+3. Die App rechnet den Grundpreis aus.
+4. Das bessere Angebot wird markiert.
+
+TASTEN:
+Pfeile: Bewegen.
+Enter: Zahl aendern.
+TAB: Den Gewinner auf der Liste speichern.
+F4: Zur Einkaufsliste springen.
+F3: Hilfe ein/ausblenden.
+BACK: Zurueck.
+
+ZWECK:
+Der Preisvergleicher hilft dir dabei, die kosteneffizienteste Option zwischen zwei verschiedenen Produktgroessen oder Marken zu finden. Er nimmt das Raetselraten beim Einkaufen weg, indem er den genauen Grundpreis fuer beide Artikel berechnet. So stellst du sicher, dass du immer den besten Gegenwert fuer dein Geld erhaeltst, ganz unabhaengig von cleveren Marketing-Versprechen.
+
+KORRELATION:
+Groesse und Preis haengen ueber die Grundpreisberechnung zusammen, die Artikel auf ein gemeinsames Mass wie Gramm oder Liter standardisiert. Eine groessere Packung ist nicht immer billiger; manchmal hat ein kleinerer Artikel im Angebot einen niedrigeren Grundpreis als die Vorratspackung. Dieses Tool vergleicht beide direkt, um den echten Gewinner fuer dich zu finden.
+
+DEAL UEBERNEHMEN:
+Sobald du das beste Angebot identifiziert hast, kannst du diesen Artikel sofort in deine Einkaufsliste oder Vorratskammer uebertragen, indem du die TAB-Taste drueckst. Dies oeffnet einen Dialog zur Benennung des Artikels, wobei der berechnete Preis und die Menge uebernommen werden. So bleiben deine Daten genau und du vergisst nie, welche Marke das Schnaeppchen war.

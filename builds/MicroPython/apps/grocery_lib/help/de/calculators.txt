@@ -1,0 +1,17 @@
+PREIS-TOOLS
+Helfer fuer die besten Schnaeppchen.
+
+TOOLS:
+- Preisvergleich: Was ist guenstiger?
+- Mengenrechner: Lohnt sich das Angebot?
+- Schnellrechner: Ein normaler Taschenrechner.
+
+TASTEN:
+Pfeile: Bewegen.
+Enter: Oeffnen.
+BACK: Zurueck.
+F3: Hilfe ein/ausblenden.
+F4: Zur Einkaufsliste springen.
+
+ZWECK:
+Das Menue fuer Preis-Tools bietet spezialisierte Rechner, die speziell fuer die einzigartigen Herausforderungen beim Lebensmitteleinkauf entwickelt wurden. Diese Tools helfen dir, Grundpreise zu vergleichen, Mengenrabatte zu berechnen und schnelle Arithmetik durchzufuehren, waehrend du durch die Ladenbereiche navigierst, um immer die absolut besten Angebote zu finden.

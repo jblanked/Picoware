@@ -1,0 +1,22 @@
+LADENBEREICHE
+Passe die Reihenfolge an deinen Laden an.
+
+SO GEHT'S:
+Deine Liste ist nach Bereichen sortiert.
+Was ganz oben steht, kommt auf der Liste
+zuerst.
+
+AENDERN:
+1. Bereich auswaehlen.
+2. Mit Rechts/Links nach Oben oder Unten
+   verschieben.
+3. Die Liste aktualisiert sich sofort.
+
+TASTEN:
+Oben/Unten: Bewegen.
+Rechts/Links: Bereich verschieben.
+F3: Hilfe ein/ausblenden.
+BACK: Zurueck.
+
+ZWECK:
+Der Editor fuer Ladenbereiche ermoeglicht es dir, die Organisation der Anwendung an das tatsaechliche physische Layout deines bevorzugten Lebensmittelgeschaefts anzupassen. Durch das Umordnen der Kategorien stellst du sicher, dass deine Einkaufsliste deinem natuerlichen Weg durch das Gebaeude folgt, was die Zeit fuer das Zuruecklaufen zu vergessenen Artikeln drastisch reduziert und deine Einkaeufe viel effizienter macht.

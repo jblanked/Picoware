@@ -1,0 +1,22 @@
+MEINE LISTEN
+Waehle eine Liste oder mach eine neue.
+
+SO GEHT'S:
+- Zeigt alle deine Listen.
+- Zeigt, wie viel du schon im Wagen hast.
+- Zeigt dein Limit, falls du eins hast.
+
+TASTEN:
+Beliebige Taste: Suche starten.
+Oben/Unten: Bewegen.
+Enter: Liste oeffnen.
+Rechts: Listen-Optionen oeffnen.
+Home: Zurueck zum Hauptmenue.
+F3: Hilfe ein/ausblenden.
+F4: Zur Einkaufsliste springen.
+
+ZWECK:
+In dieser Ansicht kannst du mehrere Einkaufslisten fuer verschiedene Geschaefte oder Anlaesse verwalten. Du siehst deinen Fortschritt auf einen Blick, einschliesslich der Anzahl der gesammelten Artikel und deines verbleibenden Budgets fuer jeden Einkauf, was es einfach macht, deine Ausgaben bei verschiedenen Einkaufsfahrten im Auge zu behalten.
+
+SUCHE:
+Du kannst deine Listensammlung sofort filtern, indem du auf der Tastatur tipps. Dies ist aeusserst hilfreich, wenn du viele Listen hast und schnell eine bestimmte finden musst, ohne durch die gesamte Ansicht scrollen zu muessen. Die Ergebnisse werden in Echtzeit aktualisiert, waehrend du tipps, was dir eine sofortige visuelle Rueckmeldung gibt.

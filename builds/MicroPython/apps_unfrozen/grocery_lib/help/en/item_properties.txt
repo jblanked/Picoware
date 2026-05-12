@@ -1,0 +1,18 @@
+ITEM INFO
+Change the details for this item.
+
+FIELDS:
+- Name: What is it?
+- Qty: How many do you need?
+- Price: How much does it cost?
+- Aisle: Where is it in the store?
+
+SHORTCUTS:
+Arrows: Move around.
+Center: Change a value.
+DELETE: Remove from list.
+BACK: Save and go back.
+F3: Show/Hide this help.
+
+PURPOSE:
+The Item Info screen allows for granular control over individual product details. You can precisely adjust quantities, set expected prices for budget tracking, and assign items to specific store aisles to ensure your shopping list remains perfectly organized for your favorite local grocery store, making the actual shopping process smooth and predictable.

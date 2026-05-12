@@ -1,0 +1,21 @@
+SETTINGS
+Change how the app works.
+
+OPTIONS:
+- Language: English or German.
+- Currency: Dollar or Euro.
+- Region: For Tax (DE/US/UK).
+- Decimals: Dot (.) or Comma (,).
+- Total Budget: Spending limit.
+- Sort Order: Change Store Aisles.
+- Reset: Delete all data.
+
+SHORTCUTS:
+Arrows: Move around.
+Center: Change value.
+BACK: Go back.
+F3: Show/Hide this help.
+F4: Jump to Shopping List.
+
+PURPOSE:
+The Settings menu is where you can globalize the application's behavior to fit your personal and regional preferences. From language and currency to tax calculations and data management, these options ensure that GroceryCompanion feels personalized and functions perfectly according to your specific shopping habits and physical location anywhere in the world.

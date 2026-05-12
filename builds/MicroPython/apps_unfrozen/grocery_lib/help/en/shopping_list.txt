@@ -1,0 +1,22 @@
+MY LISTS
+Pick a list or make a new one.
+
+HOW IT WORKS:
+- See all your lists.
+- Shows how many items you got so far.
+- Shows budget if you set one.
+
+SHORTCUTS:
+Any Key: Start searching.
+Up/Down: Move around.
+Center: Open list.
+Right: Open List Setup.
+Home: Go back to Main Menu.
+F3: Show/Hide this help.
+F4: Jump to Shopping List.
+
+PURPOSE:
+This view allows you to manage multiple shopping lists for different stores or occasions. You can see your progress at a glance, including the number of items collected and your remaining budget for each run, making it easy to track your spending across different shopping trips.
+
+SEARCHING:
+You can filter your list collection instantly by typing on the keyboard. This is extremely helpful when you have many lists and need to find a specific one quickly without having to scroll through the entire view. The results update in real-time as you type, providing immediate visual feedback.

@@ -3,7 +3,7 @@ SSH Client/Terminal App for Picoware
 Copyright (c) 2026 JBlanked
 GPL-3.0 License
 https://www.github.com/jblanked/Picoware
-Last Updated: 2026-03-12
+Last Updated: 2026-05-13
 """
 
 from micropython import const
@@ -1286,14 +1286,14 @@ def _handle_terminal_input(view_manager) -> None:
     if button == -1:
         return
 
-    inp.reset()
-
     if button == BUTTON_BACK:
+        inp.reset()
         current_view = VIEW_MAIN_MENU
         _menu_start(view_manager)
         return
 
     if button in (BUTTON_ENTER, BUTTON_CENTER):
+        inp.reset()
         cmd = _input_line.strip()
         _input_line = ""
         _history_index = -1
@@ -1317,6 +1317,7 @@ def _handle_terminal_input(view_manager) -> None:
         return
 
     if button == BUTTON_UP:
+        inp.reset()
         if not _history:
             return
         if _history_index == -1:
@@ -1329,6 +1330,7 @@ def _handle_terminal_input(view_manager) -> None:
         return
 
     if button == BUTTON_DOWN:
+        inp.reset()
         if _history_index == -1:
             return
         if _history_index < len(_history) - 1:
@@ -1342,6 +1344,7 @@ def _handle_terminal_input(view_manager) -> None:
         return
 
     if button in (BUTTON_BACKSPACE, BUTTON_DELETE):
+        inp.reset()
         if _input_line:
             _input_line = _input_line[:-1]
             _terminal_dirty = True
@@ -1353,7 +1356,7 @@ def _handle_terminal_input(view_manager) -> None:
         _input_line += char
         _history_index = -1
         _terminal_dirty = True
-
+    inp.reset()
 
 def __load_ssh_credentials(view_manager) -> bool:
     """Load SSH credentials from storage"""

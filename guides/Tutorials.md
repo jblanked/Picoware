@@ -4,6 +4,7 @@ Here are some tutorials and reviews to help you get started with Picoware:
 
 ## Reviews/Application Walkthroughs
 - PicoCalc EPIC May 2026 Update: REPL, MP3/WAV Player, + 3D Gaming!: https://youtu.be/eEb7hG3JhPE
+- PicoCalc's Biggest Update Yet – Here's What's New: https://www.youtube.com/watch?v=360LtEIlVZU
 - PicoCalc Gets a BIG April 2026 Firmware Update!: https://www.youtube.com/watch?v=uOJBeATEk90
 - PicoCalc JUST Got a HUGE Update with Audio Recording and C++ game engine!: https://www.youtube.com/watch?v=MHH927SBowg
 - PicoCalc Custom Firmware Update: March 2026: https://youtu.be/nN-i2cD6q-A
@@ -26,6 +27,8 @@ Here are some tutorials and reviews to help you get started with Picoware:
 
 ## Developer Tutorials
 - My PicoCalc Workflow: Picoware Debugging With VS Code and Thonny IDE: https://youtu.be/_Yu3Op-nhyc
+- "Ghouls" Game Dev (Bullet Effects): https://www.youtube.com/watch?v=oQ_BqZxvV7E
+- "Ghouls" Game Dev (Sound Effects): https://www.youtube.com/watch?v=9Jff59rEsiI
 - Mastering PicoCalc's PSRAM with MicroPython!: https://youtu.be/fxoTzHKgG4g
 - PicoCalc Picoware App: Master HTTP Requests with Ease!: https://youtu.be/BZAHwCVBdcw
 - PicoCalc Development with Thonny IDE and MicroPython: Your Ideal Duo: https://youtu.be/I8E6u60ePL0

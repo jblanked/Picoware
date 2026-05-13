@@ -11,7 +11,8 @@ cp_root_dir="/Users/user/Desktop/Picoware/builds/CircuitPython/"
 echo "=== Compiling for MicroPython ==="
 
 # remove existing apps directory if it exists
-rm -rf "${mp_root_dir}apps"
+rm -rf $(find "${mp_root_dir}apps" -mindepth 1 -maxdepth 1 ! -name 'grocery_lib' -print) && \
+find "${mp_root_dir}apps/grocery_lib" -type f ! -name '*.txt' ! -name '*.json' -delete
 mkdir -p "${mp_root_dir}apps"
 
 # Navigate to the directory containing the Python files

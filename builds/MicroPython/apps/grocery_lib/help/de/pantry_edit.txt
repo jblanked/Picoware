@@ -1,0 +1,17 @@
+ZU HAUSE INFO
+Details zu etwas, das du schon hast.
+
+FELDER:
+- Name: Was ist es?
+- Menge: Wie viele hast du noch?
+- Preis: Ungefaehrer Preis.
+- Bereich: Wo steht es im Laden?
+
+TASTEN:
+Pfeile: Bewegen.
+Enter: Zahl aendern.
+BACK: Speichern und zurueck.
+F3: Hilfe ein/ausblenden.
+
+ZWECK:
+Dieser Bildschirm bietet eine detaillierte Verwaltung fuer Artikel, die in deinem Hausvorrat gespeichert sind. Du kannst Mengen aktualisieren, wenn du Produkte verbrauchst, und Referenzpreise festlegen, die automatisch angewendet werden, wenn du diese Artikel wieder zu einer Einkaufsliste hinzufuegst, um sicherzustellen, dass deine Budgetabschaetzungen konsistent und zuverlaessig bleiben.

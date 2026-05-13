@@ -1,0 +1,25 @@
+MY LIST
+Your current grocery run.
+
+HOW IT WORKS:
+- Items are grouped by Store Aisles.
+- Crossed-off items move to the bottom.
+- Budget totals are at the bottom.
+
+SHORTCUTS:
+Any Key: Start searching.
+Up/Down: Move around.
+Center: Check off / Uncheck.
+Left/Right: Change Qty quickly.
+TAB: Quick Add items.
+DELETE: Remove from list.
+PLUS (+): Add a new item.
+HOME: Go back to all lists.
+F3: Show/Hide this help.
+F4: Jump to Price Tools.
+
+PURPOSE:
+This is your active shopping list where you can manage items as you move through the store. Items are automatically organized by aisle to minimize walking distance, helping you complete your shopping faster and more efficiently than a standard unordered list.
+
+SEARCHING:
+Start typing to filter items by name. This is particularly useful in large lists to quickly find an item that might be tucked away in a different aisle category or to verify if something is already on your list. The filter clears automatically when you finish searching.

@@ -1,0 +1,29 @@
+FAST ADD
+Quickly add items you already have at home.
+
+HOW IT WORKS:
+- LEFT SIDE: At Home.
+- RIGHT SIDE: This List.
+- Press CENTER on an At Home item to add
+  it to your list.
+- Press CENTER on a List item to remove
+  it from the list.
+
+SHORTCUTS:
+Any Key: Start searching.
+Left/Right: Switch sides.
+TAB: Back to List.
+Arrows: Move around.
+Center: Add (Left) or Remove (Right).
+[ ]: Switch lists.
+F3: Show/Hide this help.
+BACK: Go back.
+
+NEW ITEMS:
+When you add a new item or a one-off entry, the app will first ask for the Name and then for the Price. This ensures your budget calculations are always accurate.
+
+PURPOSE:
+The Fast Add view is a powerful split-pane interface designed to rapidly populate your shopping list from your home inventory. It allows you to quickly bridge the gap between what you have and what you need without manually typing every item name, saving you valuable time during planning.
+
+SEARCHING:
+You can search both sides of the screen simultaneously. Typing on the keyboard filters both your home inventory and your current list, making it effortless to find specific items and move them between the two columns with a single button press. This real-time filtering makes large inventories much easier to manage.

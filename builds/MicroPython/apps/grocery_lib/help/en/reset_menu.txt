@@ -1,0 +1,19 @@
+RESET EVERYTHING
+Delete all your data and start over.
+
+OPTIONS:
+- Clear All Lists: Deletes all your lists.
+- Clear Pantry: Deletes everything At Home.
+
+WARNING:
+This deletes things forever.
+We will ask "Are you sure?" first.
+
+SHORTCUTS:
+Arrows: Move around.
+Center: Choose an option.
+BACK: Go back.
+F3: Show/Hide this help.
+
+PURPOSE:
+The Reset menu provides a way to wipe specific parts of your data when they are no longer needed. Whether you are starting a fresh year of shopping or simply want to reorganize your entire home inventory from scratch, these options allow for a clean break while providing safety prompts to prevent accidental data loss.

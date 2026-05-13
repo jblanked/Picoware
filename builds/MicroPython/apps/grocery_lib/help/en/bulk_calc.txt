@@ -1,0 +1,25 @@
+BULK DEALS
+Check if buying in bulk is worth it.
+
+HOW IT WORKS:
+1. Enter Price.
+2. Enter Qty.
+3. Enter Discount % (if there is a sale).
+4. App shows the final Total.
+
+SHORTCUTS:
+Arrows: Move around.
+Center: Change a number.
+TAB: Save to your list.
+F4: Jump to Shopping List.
+F3: Show/Hide this help.
+BACK: Go back.
+
+PURPOSE:
+The Bulk Calculator is designed to simplify complex pricing scenarios when buying multiple items or large quantities. It helps you quickly determine the final cost after accounting for individual unit prices and bulk discounts, ensuring you stay within your shopping budget.
+
+BULK CALCULATION:
+To calculate a bulk deal, enter the price per unit and the total quantity you intend to purchase. You can also apply a percentage discount if the items are on sale. The tool will then calculate the total cost, showing you exactly how much you will pay at the checkout counter.
+
+TRANSFERRING RESULTS:
+After performing your calculation, you can easily save the result to your shopping list or pantry by pressing the TAB key. This saves you the trouble of manual entry and ensures that your list includes the correct quantities and discounted prices as found in the store.

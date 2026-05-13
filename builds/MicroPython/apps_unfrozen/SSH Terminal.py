@@ -135,12 +135,10 @@ def _ssh_mpint(n):
     """Pack integer as SSH mpint (big-endian, sign-extended)"""
     if n == 0:
         return struct.pack(">I", 0)
-    # Convert to big-endian bytes
     hex_s = "%x" % n
     if len(hex_s) & 1:
         hex_s = "0" + hex_s
     b = bytes(int(hex_s[i : i + 2], 16) for i in range(0, len(hex_s), 2))
-    # Prepend zero byte if high bit set (positive number must not look negative)
     if b[0] & 0x80:
         b = b"\x00" + b
     return struct.pack(">I", len(b)) + b
@@ -169,7 +167,6 @@ def _parse_mpint(data, offset):
     val = 0
     for i in range(length):
         val = (val << 8) | data[offset + i]
-    # Two's complement for negative
     if length > 0 and data[offset] & 0x80:
         val -= 1 << (length * 8)
     return val, offset + length
@@ -224,14 +221,13 @@ def _x25519(k_bytes, u_bytes):
     p = _X25519_P
     a24 = _X25519_A24
 
-    # Decode and clamp scalar
     k_list = bytearray(k_bytes)
     k_list[0] &= 248
     k_list[31] &= 127
     k_list[31] |= 64
     scalar = int.from_bytes(bytes(k_list), "little")
     del k_list
-    collect()  # Free k_list immediately
+    collect()
 
     u = int.from_bytes(u_bytes, "little") & ((1 << 255) - 1)
 
@@ -263,7 +259,6 @@ def _x25519(k_bytes, u_bytes):
         x_2 = (AA * BB) % p
         z_2 = (E * ((AA + (a24 * E) % p) % p)) % p
 
-        # GC every 32 iterations to prevent buildup
         if t % 32 == 0:
             collect()
 
@@ -271,7 +266,6 @@ def _x25519(k_bytes, u_bytes):
         x_2, x_3 = x_3, x_2
         z_2, z_3 = z_3, z_2
 
-    # Compute result with immediate cleanup
     result = (x_2 * pow(z_2, p - 2, p)) % p
     del x_2, z_2, x_3, z_3, scalar, u
     collect()
@@ -297,15 +291,13 @@ class _AES_CTR:
             from ucryptolib import aes
         self._native = False
         try:
-            # Mode 6 = CTR in MicroPython's ucryptolib
             self._aes = aes(key, 6, iv[:16])
             self._native = True
         except Exception:
-            # Fallback: manual CTR on top of ECB
-            self._ecb = aes(key, 1)  # mode 1 = ECB
+            self._ecb = aes(key, 1)
             self._ctr = bytearray(iv[:16])
             self._buf = bytearray(16)
-            self._pos = 16  # exhausted so first call generates keystream
+            self._pos = 16
 
     def _inc_counter(self):
         """Increment 128-bit big-endian counter by 1"""
@@ -317,10 +309,8 @@ class _AES_CTR:
     def process(self, data):
         """Encrypt or decrypt data (XOR with AES-CTR keystream)"""
         if self._native:
-            # Native CTR mode handles counter increment internally
             return self._aes.encrypt(data)
 
-        # Manual CTR mode
         out = bytearray(len(data))
         for i in range(len(data)):
             if self._pos >= 16:
@@ -342,7 +332,6 @@ class SSHClient:
 
     _CLIENT_VERSION = "SSH-2.0-Picoware_1.6.9"
 
-    # Supported algorithms in preference order
     _KEX_ALGORITHMS = (
         "curve25519-sha256,"
         "curve25519-sha256@libssh.org,"
@@ -365,13 +354,11 @@ class SSHClient:
         self._lock = _thread.allocate_lock()
         self._output = []
 
-        # Protocol state
         self._server_version = ""
         self._send_seq = 0
         self._recv_seq = 0
         self._session_id = None
 
-        # Encryption state
         self._encrypted = False
         self._enc_cipher = None
         self._dec_cipher = None
@@ -380,7 +367,6 @@ class SSHClient:
         self._mac_len = 0
         self._mac_func = None
 
-        # KEX negotiation results
         self._kex_algorithm = None
         self._cipher_c2s = None
         self._cipher_s2c = None
@@ -389,13 +375,12 @@ class SSHClient:
         self._client_kexinit = None
         self._server_kexinit = None
 
-        # Channel state
         self._channel_id = 0
         self._remote_channel = 0
         self._remote_window = 0
         self._remote_max_pkt = 0
         self._channel_eof = False
-        self._channel_closed = False
+        self._channel_closed = True  # start as closed; no channel open yet
 
     @property
     def is_connected(self) -> bool:
@@ -437,21 +422,17 @@ class SSHClient:
     def _read_packet(self):
         """Read one SSH binary packet, decrypting if encryption is active"""
         if self._encrypted:
-            # Read and decrypt first 4 bytes to get packet length
             raw4 = self._recv_exact(4)
             dec4 = self._dec_cipher.process(raw4)
             pkt_len, _ = _parse_uint32(dec4, 0)
             if pkt_len > 35000:
-                raise Exception("Packet too large")
+                raise Exception("Packet too large (%d)" % pkt_len)
 
-            # Read and decrypt the rest of the packet
             raw_rest = self._recv_exact(pkt_len)
             dec_rest = self._dec_cipher.process(raw_rest)
 
-            # Read MAC
             mac_recv = self._recv_exact(self._mac_len)
 
-            # Verify MAC: HMAC(key, seq_number || unencrypted_packet)
             seq_b = struct.pack(">I", self._recv_seq)
             mac_calc = self._mac_func(self._mac_key_s2c, seq_b + dec4 + dec_rest)
             if mac_calc[: self._mac_len] != mac_recv:
@@ -461,11 +442,10 @@ class SSHClient:
             pad_len = dec_rest[0]
             return bytes(dec_rest[1 : pkt_len - pad_len])
         else:
-            # Unencrypted
             raw4 = self._recv_exact(4)
             pkt_len, _ = _parse_uint32(raw4, 0)
             if pkt_len > 35000:
-                raise Exception("Packet too large")
+                raise Exception("Packet too large (%d)" % pkt_len)
             raw_rest = self._recv_exact(pkt_len)
             self._recv_seq = (self._recv_seq + 1) & 0xFFFFFFFF
             pad_len = raw_rest[0]
@@ -474,7 +454,6 @@ class SSHClient:
     def _send_packet(self, payload):
         """Build, optionally encrypt, and send an SSH binary packet"""
         bs = 16 if self._encrypted else 8
-        # padding_length + payload; total (4 + 1 + payload + padding) must be multiple of bs
         inner = 1 + len(payload)
         pad_len = bs - ((4 + inner) % bs)
         if pad_len < 4:
@@ -485,7 +464,6 @@ class SSHClient:
         packet = struct.pack(">IB", pkt_len, pad_len) + payload + padding
 
         if self._encrypted:
-            # MAC over unencrypted packet
             seq_b = struct.pack(">I", self._send_seq)
             mac = self._mac_func(self._mac_key_c2s, seq_b + packet)
             mac = mac[: self._mac_len]
@@ -524,7 +502,7 @@ class SSHClient:
         """Build our SSH_MSG_KEXINIT payload"""
         p = bytearray()
         p.append(SSH_MSG_KEXINIT)
-        p.extend(os.urandom(16))  # cookie
+        p.extend(os.urandom(16))
         for alg_list in (
             self._KEX_ALGORITHMS,
             self._HOST_KEY_ALGORITHMS,
@@ -534,24 +512,23 @@ class SSHClient:
             self._MACS,
             self._COMPRESSION,
             self._COMPRESSION,
-            "",  # languages c2s
-            "",  # languages s2c
+            "",
+            "",
         ):
             p.extend(_ssh_string(alg_list))
-        p.append(0)  # first_kex_packet_follows
-        p.extend(b"\x00\x00\x00\x00")  # reserved
+        p.append(0)
+        p.extend(b"\x00\x00\x00\x00")
         return bytes(p)
 
     def _negotiate_kexinit(self, server_payload):
         """Parse server KEXINIT and pick algorithms"""
-        off = 17  # skip msg type (1) + cookie (16)
+        off = 17
         s_kex, off = _parse_name_list(server_payload, off)
         s_host, off = _parse_name_list(server_payload, off)
         s_enc_c2s, off = _parse_name_list(server_payload, off)
         s_enc_s2c, off = _parse_name_list(server_payload, off)
         s_mac_c2s, off = _parse_name_list(server_payload, off)
         s_mac_s2c, off = _parse_name_list(server_payload, off)
-        # skip compression and rest
 
         def pick(client_csv, server_list):
             for a in client_csv.split(","):
@@ -597,37 +574,30 @@ class SSHClient:
 
     def _do_curve25519_kex(self):
         """Curve25519 ECDH key exchange"""
-        # Generate ephemeral keypair
         priv = os.urandom(32)
         Q_C = _x25519(priv, _X25519_BASE)
 
-        # Send SSH_MSG_KEX_ECDH_INIT (msg 30) with our public key
         self._send_packet(bytes([SSH_MSG_KEXDH_INIT]) + _ssh_string(Q_C))
 
-        # Receive SSH_MSG_KEX_ECDH_REPLY (msg 31)
         reply = self._read_ssh_packet()
         if reply[0] != SSH_MSG_KEXDH_REPLY:
             raise Exception("Expected ECDH_REPLY, got %d" % reply[0])
 
         off = 1
-        K_S, off = _parse_string(reply, off)  # server host key blob
-        Q_S, off = _parse_string(reply, off)  # server ephemeral public key
-        sig, off = _parse_string(reply, off)  # signature
+        K_S, off = _parse_string(reply, off)
+        Q_S, off = _parse_string(reply, off)
+        sig, off = _parse_string(reply, off)
 
         if len(Q_S) != 32:
             raise Exception("Invalid server ECDH key len=%d" % len(Q_S))
 
-        # Compute shared secret via X25519
         raw_K = _x25519(priv, Q_S)
 
-        # Verify non-zero
         if raw_K == b"\x00" * 32:
             raise Exception("X25519 zero result")
 
-        # Interpret as big-endian integer (SSH convention)
         K = int.from_bytes(raw_K, "big")
 
-        # Exchange hash: SHA-256
         hash_cls = hashlib.sha256
         h = hash_cls()
         h.update(_ssh_string(self._CLIENT_VERSION))
@@ -635,8 +605,8 @@ class SSHClient:
         h.update(_ssh_string(self._client_kexinit))
         h.update(_ssh_string(self._server_kexinit))
         h.update(_ssh_string(K_S))
-        h.update(_ssh_string(Q_C))  # string (not mpint)
-        h.update(_ssh_string(Q_S))  # string (not mpint)
+        h.update(_ssh_string(Q_C))
+        h.update(_ssh_string(Q_S))
         h.update(_ssh_mpint(K))
         H = h.digest()
 
@@ -655,15 +625,13 @@ class SSHClient:
         gex_n = 2048
         gex_max = 4096
 
-        # Send SSH_MSG_KEX_DH_GEX_REQUEST (34)
         req = bytearray()
         req.append(SSH_MSG_KEX_DH_GEX_REQUEST)
         req.extend(struct.pack(">III", gex_min, gex_n, gex_max))
         self._send_packet(bytes(req))
 
-        # Receive SSH_MSG_KEX_DH_GEX_GROUP (31): p, g
         grp = self._read_ssh_packet()
-        if grp[0] != SSH_MSG_KEXDH_REPLY:  # msg 31 reused
+        if grp[0] != SSH_MSG_KEXDH_REPLY:
             raise Exception("Expected GEX_GROUP, got %d" % grp[0])
 
         off = 1
@@ -673,16 +641,11 @@ class SSHClient:
         if p < (1 << (gex_min - 1)):
             raise Exception("Server DH prime too small")
 
-        # Generate private exponent (truncate to 128 bits for speed)
         x = int.from_bytes(os.urandom(16), "big")
-
-        # Compute public value e = g^x mod p
         e = pow(g, x, p)
 
-        # Send SSH_MSG_KEX_DH_GEX_INIT (32)
         self._send_packet(bytes([SSH_MSG_KEX_DH_GEX_INIT]) + _ssh_mpint(e))
 
-        # Receive SSH_MSG_KEX_DH_GEX_REPLY (33)
         reply = self._read_ssh_packet()
         if reply[0] != SSH_MSG_KEX_DH_GEX_REPLY:
             raise Exception("Expected GEX_REPLY, got %d" % reply[0])
@@ -695,10 +658,8 @@ class SSHClient:
         if f < 2 or f >= p - 1:
             raise Exception("Invalid server GEX value")
 
-        # Shared secret
         K = pow(f, x, p)
 
-        # Exchange hash for GEX includes min, n, max, p, g
         hash_cls = hashlib.sha256
         h = hash_cls()
         h.update(_ssh_string(self._CLIENT_VERSION))
@@ -725,38 +686,30 @@ class SSHClient:
 
     def _do_dh_group14_kex(self):
         """Diffie-Hellman Group 14 fixed-group key exchange"""
-        # Use 128-bit exponent for speed (security limited by 2048-bit group)
         x = int.from_bytes(os.urandom(16), "big")
-        # Compute public value e = g^x mod p
         e = pow(_DH_G, x, _DH_P)
 
-        # Send SSH_MSG_KEXDH_INIT
         self._send_packet(bytes([SSH_MSG_KEXDH_INIT]) + _ssh_mpint(e))
 
-        # Receive SSH_MSG_KEXDH_REPLY
         reply = self._read_ssh_packet()
         if reply[0] != SSH_MSG_KEXDH_REPLY:
             raise Exception("Expected KEXDH_REPLY, got %d" % reply[0])
 
         off = 1
-        k_s, off = _parse_string(reply, off)  # server host key blob
-        f, off = _parse_mpint(reply, off)  # server DH public value
-        sig, off = _parse_string(reply, off)  # signature (not verified)
+        k_s, off = _parse_string(reply, off)
+        f, off = _parse_mpint(reply, off)
+        sig, off = _parse_string(reply, off)
 
-        # Validate f
         if f < 2 or f >= _DH_P - 1:
             raise Exception("Invalid server DH value")
 
-        # Shared secret K = f^x mod p
         K = pow(f, x, _DH_P)
 
-        # Pick hash function for this KEX algorithm
         if "sha256" in self._kex_algorithm:
             hash_cls = hashlib.sha256
         else:
             hash_cls = hashlib.sha1
 
-        # Compute exchange hash H
         h = hash_cls()
         h.update(_ssh_string(self._CLIENT_VERSION))
         h.update(_ssh_string(self._server_version))
@@ -768,11 +721,9 @@ class SSHClient:
         h.update(_ssh_mpint(K))
         H = h.digest()
 
-        # First exchange hash becomes session ID
         if self._session_id is None:
             self._session_id = H
 
-        # Free big ints
         del x, e, f
         collect()
 
@@ -797,11 +748,9 @@ class SSHClient:
                 key += h.digest()
             return key[:needed]
 
-        # Key sizes
         c2s_key_len = 32 if self._cipher_c2s == "aes256-ctr" else 16
         s2c_key_len = 32 if self._cipher_s2c == "aes256-ctr" else 16
 
-        # MAC parameters
         if self._mac_c2s == "hmac-sha2-256":
             mac_key_len = 32
             self._mac_len = 32
@@ -840,7 +789,7 @@ class SSHClient:
         p.extend(_ssh_string(username))
         p.extend(_ssh_string("ssh-connection"))
         p.extend(_ssh_string("password"))
-        p.append(0)  # FALSE
+        p.append(0)
         p.extend(_ssh_string(password))
         self._send_packet(bytes(p))
 
@@ -859,8 +808,39 @@ class SSHClient:
 
     # ---- Channel operations ----
 
+    def _drain_channel(self):
+        """Drain all pending packets from the previous channel until fully closed."""
+        if self._channel_closed:
+            return  # nothing to drain
+
+        try:
+            self._sock.settimeout(2.0)
+            while not self._channel_closed:
+                resp = self._read_packet()
+                if not resp:
+                    break
+                t = resp[0]
+                if t == SSH_MSG_CHANNEL_CLOSE:
+                    self._channel_closed = True
+                    # Echo close back to the server
+                    cp = bytearray()
+                    cp.append(SSH_MSG_CHANNEL_CLOSE)
+                    cp.extend(struct.pack(">I", self._remote_channel))
+                    self._send_packet(bytes(cp))
+                    break
+                elif t == SSH_MSG_CHANNEL_EOF:
+                    self._channel_eof = True
+                # Ignore WINDOW_ADJUST, DATA, EXTENDED_DATA, REQUEST, etc.
+        except Exception:
+            pass
+        finally:
+            self._sock.settimeout(15.0)
+
     def _open_session_channel(self):
-        """Open a session channel"""
+        """Open a session channel, draining any previous channel first."""
+        # Always drain leftovers before opening a new channel
+        self._drain_channel()
+
         self._channel_id = 0
         local_win = 0x200000  # 2 MB
         local_max = 0x8000  # 32 KB
@@ -876,7 +856,7 @@ class SSHClient:
             t = resp[0]
             if t == SSH_MSG_CHANNEL_OPEN_CONFIRMATION:
                 off = 1
-                _, off = _parse_uint32(resp, off)  # recipient
+                _, off = _parse_uint32(resp, off)
                 self._remote_channel, off = _parse_uint32(resp, off)
                 self._remote_window, off = _parse_uint32(resp, off)
                 self._remote_max_pkt, off = _parse_uint32(resp, off)
@@ -893,7 +873,7 @@ class SSHClient:
             elif t == SSH_MSG_CHANNEL_WINDOW_ADJUST:
                 continue
             else:
-                continue  # ignore unexpected messages
+                continue
 
     def _send_exec(self, command):
         """Send exec request on the channel"""
@@ -913,7 +893,7 @@ class SSHClient:
         self._send_packet(bytes(p))
 
     def _collect_output(self):
-        """Read channel data until EOF or close, return list of lines"""
+        """Read channel data until EOF or close, return list of lines."""
         lines = []
 
         while not self._channel_closed:
@@ -923,6 +903,13 @@ class SSHClient:
             except Exception as e:
                 s = str(e)
                 if "timed out" in s or "ETIMEDOUT" in s:
+                    try:
+                        cp = bytearray()
+                        cp.append(SSH_MSG_CHANNEL_CLOSE)
+                        cp.extend(struct.pack(">I", self._remote_channel))
+                        self._send_packet(bytes(cp))
+                    except Exception:
+                        pass
                     break
                 raise
 
@@ -961,7 +948,7 @@ class SSHClient:
 
             if t == SSH_MSG_CHANNEL_CLOSE:
                 self._channel_closed = True
-                # Send close back
+                # Echo CLOSE back
                 cp = bytearray()
                 cp.append(SSH_MSG_CHANNEL_CLOSE)
                 cp.extend(struct.pack(">I", self._remote_channel))
@@ -994,6 +981,37 @@ class SSHClient:
 
     # ---- Public API ----
 
+    def _resolve_host(self, host, port):
+        """Resolve host with a practical LAN fallback for mDNS names."""
+        host = (host or "").strip()
+        if not host:
+            raise Exception("Hostname is empty")
+
+        candidates = [host]
+
+        # Many home LAN hosts are only discoverable as <name>.local.
+        if "." not in host and ":" not in host:
+            candidates.append(host + ".local")
+
+        last_err = None
+        for candidate in candidates:
+            try:
+                results = socket.getaddrinfo(candidate, port)
+                if results:
+                    return candidate, results[0]
+            except OSError as e:
+                last_err = e
+
+        if len(candidates) > 1:
+            raise Exception(
+                "DNS lookup failed for '%s' (tried: %s). Use IP or .local"
+                % (host, ", ".join(candidates))
+            ) from last_err
+
+        raise Exception(
+            "DNS lookup failed for '%s': check hostname/WiFi" % host
+        ) from last_err
+
     def connect(self, host, port, username, password):
         """Full SSH-2 connect: version exchange, KEX, auth"""
         with self._lock:
@@ -1002,11 +1020,11 @@ class SSHClient:
                 return False
 
         try:
-            # TCP connect
-            info = socket.getaddrinfo(host, port)[0]
-            self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            _, info = self._resolve_host(host, port)
+            family, socktype, proto, _, sockaddr = info
+            self._sock = socket.socket(family, socktype, proto)
             self._sock.settimeout(15.0)
-            self._sock.connect(info[-1])
+            self._sock.connect(sockaddr)
 
             # --- Version exchange ---
             buf = b""
@@ -1020,47 +1038,38 @@ class SSHClient:
                     if line.startswith("SSH-"):
                         self._server_version = line
                         break
-                    buf = b""  # skip banner lines
+                    buf = b""
                 if len(buf) > 255:
                     raise Exception("Version line too long")
 
             self._sock.send((self._CLIENT_VERSION + "\r\n").encode())
 
             # --- Key exchange ---
-            # Send our KEXINIT
             kexinit = self._build_kexinit()
             self._client_kexinit = kexinit
             self._send_packet(kexinit)
 
-            # Receive server KEXINIT
             s_kex = self._read_ssh_packet()
             if s_kex[0] != SSH_MSG_KEXINIT:
                 raise Exception("Expected KEXINIT, got %d" % s_kex[0])
             self._server_kexinit = s_kex
 
-            # Negotiate algorithms
             self._negotiate_kexinit(s_kex)
 
-            # Perform key exchange
             K, H, hash_cls = self._do_kex()
 
-            # Derive session keys
             self._derive_keys(K, H, hash_cls)
             del K
             collect()
 
-            # Send NEWKEYS
             self._send_packet(bytes([SSH_MSG_NEWKEYS]))
 
-            # Receive NEWKEYS
             nk = self._read_ssh_packet()
             if nk[0] != SSH_MSG_NEWKEYS:
                 raise Exception("Expected NEWKEYS, got %d" % nk[0])
 
-            # Switch to encrypted transport
             self._encrypted = True
 
-            # Free kexinit payloads
             self._client_kexinit = None
             self._server_kexinit = None
             collect()
@@ -1068,6 +1077,9 @@ class SSHClient:
             # --- Authentication ---
             self._request_service("ssh-userauth")
             self._auth_password(username, password)
+
+            # Mark channel as cleanly closed (none open yet)
+            self._channel_closed = True
 
             with self._lock:
                 self._connected = True
@@ -1093,7 +1105,7 @@ class SSHClient:
         try:
             self._sock.settimeout(15.0)
 
-            # Open a new session channel for this command
+            # Open a fresh session channel (drains any previous channel first)
             self._open_session_channel()
 
             # Request exec
@@ -1144,6 +1156,7 @@ class SSHClient:
             self._session_id = None
             self._send_seq = 0
             self._recv_seq = 0
+            self._channel_closed = True
             self._output.clear()
 
         self._close_socket()
@@ -1197,9 +1210,8 @@ def _render_terminal(view_manager) -> None:
     sw = draw.size.x
     sh = draw.size.y
     max_chars = sw // cw
-    max_lines = (sh // ch) - 1  # reserve last row for the input prompt
+    max_lines = (sh // ch) - 1
 
-    # Build wrapped lines as [(text, color)]
     wrapped = []
     if _ssh_client:
         for line in _ssh_client.output:
@@ -1209,13 +1221,11 @@ def _render_terminal(view_manager) -> None:
                 color = TFT_CYAN
             else:
                 color = TFT_WHITE
-            # Word-wrap lines that exceed screen width
             while len(line) > max_chars:
                 wrapped.append((line[:max_chars], color))
                 line = line[max_chars:]
             wrapped.append((line, color))
 
-    # Show only the last max_lines rows of output
     start = max(0, len(wrapped) - max_lines)
     visible = wrapped[start:]
 
@@ -1254,7 +1264,6 @@ def _render_terminal(view_manager) -> None:
     draw.text(pos, ":~$ ", TFT_WHITE)
     x += 4 * cw
 
-    # Truncate input if it overflows the available width
     avail = max(1, (sw - x) // cw - 1)
     disp_input = _input_line[-avail:] if len(_input_line) > avail else _input_line
 
@@ -1301,17 +1310,14 @@ def _handle_terminal_input(view_manager) -> None:
         _terminal_dirty = True
         if not cmd:
             return
-        # Record in history
         _history.append(cmd)
         if len(_history) > _HISTORY_MAX:
             _history.pop(0)
         _save_history(view_manager.storage)
-        # Built-in: clear
         if cmd == "clear":
             if _ssh_client:
                 _ssh_client.clear_output()
             return
-        # Execute on server
         if _ssh_client:
             _ssh_client.execute_command(cmd)
         return
@@ -1350,13 +1356,13 @@ def _handle_terminal_input(view_manager) -> None:
             _terminal_dirty = True
         return
 
-    # Regular character input
     char = inp.button_to_char(button)
     if char is not None:
         _input_line += char
         _history_index = -1
         _terminal_dirty = True
     inp.reset()
+
 
 def __load_ssh_credentials(view_manager) -> bool:
     """Load SSH credentials from storage"""
@@ -1389,7 +1395,6 @@ def _keyboard_save(view_manager) -> bool:
     storage = view_manager.storage
     kb = view_manager.keyboard
 
-    # Determine which file to write to based on current view
     file_path = ""
     if current_view == VIEW_KEYBOARD_HOST:
         file_path = "picoware/ssh/host.txt"
@@ -1415,7 +1420,6 @@ def _keyboard_run(view_manager) -> bool:
 
     kb = view_manager.keyboard
 
-    # Initialize keyboard based on view
     if keyboard_index == KEYBOARD_WAITING:
         kb.reset()
 
@@ -1435,7 +1439,6 @@ def _keyboard_run(view_manager) -> bool:
         keyboard_index = KEYBOARD_ENTERING
         return kb.run(force=True)
 
-    # Run keyboard
     if keyboard_index == KEYBOARD_ENTERING:
         if not kb.run(force=True):
             kb.reset()
@@ -1447,11 +1450,8 @@ def _keyboard_run(view_manager) -> bool:
         if kb.is_finished:
             if _keyboard_save(view_manager):
                 kb.reset()
-
-                # Return to main menu after saving credentials
                 current_view = VIEW_MAIN_MENU
                 _menu_start(view_manager)
-
                 keyboard_index = KEYBOARD_WAITING
                 return True
 
@@ -1493,7 +1493,7 @@ def _menu_start(view_manager) -> None:
     bg = view_manager.background_color
     fg = view_manager.foreground_color
     sel = view_manager.selected_color
-    # Set menu
+
     _menu = Menu(
         draw,
         "SSH Client",
@@ -1505,7 +1505,6 @@ def _menu_start(view_manager) -> None:
         fg,
     )
 
-    # Add items based on connection state
     if connection_state == STATE_DISCONNECTED:
         _menu.add_item("Connect")
         _menu.add_item("Set Host")
@@ -1524,12 +1523,10 @@ def start(view_manager) -> bool:
     """Start the SSH app"""
     wifi = view_manager.wifi
 
-    # if not a wifi device, return
     if not wifi:
         view_manager.alert("WiFi not available...", False)
         return False
 
-    # if wifi isn't connected, return
     if not wifi.is_connected():
         from picoware.applications.wifi.utils import connect_to_saved_wifi
 
@@ -1537,22 +1534,17 @@ def start(view_manager) -> bool:
         connect_to_saved_wifi(view_manager)
         return False
 
-    # Create SSH folder if it doesn't exist
     view_manager.storage.mkdir("picoware/ssh")
 
-    # Load credentials
     __load_ssh_credentials(view_manager)
 
-    # Initialize SSH client
     global _ssh_client, _history, _terminal_dirty
 
     _ssh_client = SSHClient()
 
-    # Load command history from SD card
     _history = _load_history(view_manager.storage)
     _terminal_dirty = True
 
-    # Start menu
     _menu_start(view_manager)
 
     return True
@@ -1611,7 +1603,6 @@ def run(view_manager) -> None:
                     current_view = VIEW_KEYBOARD_PASSWORD
                     keyboard_index = KEYBOARD_WAITING
             else:
-                # Connected menu
                 if selected == 0:  # Return to Terminal
                     current_view = VIEW_TERMINAL
                     _terminal_dirty = True
@@ -1628,6 +1619,9 @@ def run(view_manager) -> None:
         if _ssh_client:
             try:
                 port = int(ssh_port) if ssh_port else 22
+                view_manager.log(
+                    f"Connecting to {ssh_host}:{port} as {ssh_username}..."
+                )
                 success = _ssh_client.connect(
                     ssh_host, port, ssh_username, ssh_password
                 )
@@ -1641,7 +1635,8 @@ def run(view_manager) -> None:
                         _loading = None
                 else:
                     error = _ssh_client.error or "Connection failed"
-                    view_manager.alert(error[:30], False)
+                    view_manager.log(f"[SSH]: {error}")
+                    view_manager.alert(error, False)
                     connection_state = STATE_DISCONNECTED
                     current_view = VIEW_MAIN_MENU
                     _menu_start(view_manager)
@@ -1670,13 +1665,11 @@ def stop(view_manager) -> None:
     global ssh_host, ssh_port, ssh_username, ssh_password
     global _history, _history_index, _history_saved, _input_line, _terminal_dirty
 
-    # Disconnect SSH
     if _ssh_client:
         _ssh_client.disconnect()
         del _ssh_client
         _ssh_client = None
 
-    # Clean up UI elements
     if _menu:
         del _menu
         _menu = None

@@ -1,0 +1,17 @@
+AT HOME ITEM INFO
+Update info for an item you have at home.
+
+FIELDS:
+- Name: What is it?
+- Qty: How many do you have?
+- Price: Reference price.
+- Aisle: Where is it in the store?
+
+SHORTCUTS:
+Arrows: Move around.
+Center: Change a value.
+BACK: Save and go back.
+F3: Show/Hide this help.
+
+PURPOSE:
+This screen provides detailed management for items stored in your home inventory. You can update quantities as you consume products and set reference prices that will be automatically applied whenever you add these items back to a shopping list, ensuring your budget estimates remain consistent and reliable across different shopping sessions.

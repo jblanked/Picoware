@@ -1,0 +1,15 @@
+MAIN MENU
+Choose where to go.
+
+SHORTCUTS:
+Arrows: Move around.
+Center: Open.
+F4: Jump to Shopping List.
+F5: Jump to Quick Math.
+F3: Show/Hide this help.
+BACK: Exit app.
+
+PURPOSE:
+The Main Menu serves as the central hub for GroceryCompanion, providing quick and easy access to your shopping lists, pantry inventory, price tools, and application settings. It is designed specifically for fast navigation while you are busy on your shopping trips, ensuring you can jump between tasks with minimal button presses.
+
+made by Slasher006 with the help of Gemini, Version 2.23, 2026

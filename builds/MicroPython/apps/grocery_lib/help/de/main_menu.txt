@@ -1,0 +1,15 @@
+HAUPTMENUE
+Wohin moechtest du?
+
+TASTEN:
+Pfeile: Bewegen.
+Enter: Oeffnen.
+F4: Zur Einkaufsliste springen.
+F5: Zum Schnellrechner springen.
+F3: Hilfe ein/ausblenden.
+BACK: App beenden.
+
+ZWECK:
+Das Hauptmenue dient als zentraler Knotenpunkt fuer den GroceryCompanion und bietet schnellen und einfachen Zugriff auf deine Einkaufslisten, den Vorrat zu Hause, die Preis-Tools und die Anwendungseinstellungen. Es wurde speziell fuer eine schnelle Navigation waehrend deiner Einkaufstouren entwickelt, damit du mit minimalem Aufwand zwischen den Aufgaben wechseln kannst.
+
+made by Slasher006 with the help of Gemini, Version 2.23, 2026

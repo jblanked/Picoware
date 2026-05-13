@@ -1,0 +1,18 @@
+EINTRAGSINFO
+Details zu diesem Artikel aendern.
+
+FELDER:
+- Name: Was ist es?
+- Menge: Wie viele brauchst du?
+- Preis: Was kostet es ungefaehr?
+- Bereich: Wo steht es im Laden?
+
+TASTEN:
+Pfeile: Bewegen.
+Enter: Zahl aendern.
+DELETE: Von der Liste loeschen.
+BACK: Speichern und zurueck.
+F3: Hilfe ein/ausblenden.
+
+ZWECK:
+Der Info-Bildschirm fuer Artikel ermoeglicht eine detaillierte Kontrolle ueber einzelne Produktdetails. Du kannst Mengen praezise anpassen, erwartete Preise fuer die Budgetverfolgung festlegen und Artikel bestimmten Gaengen zuordnen, um sicherzustellen, dass deine Einkaufsliste perfekt fuer deinen bevorzugten Supermarkt organisiert bleibt, was den eigentlichen Einkaufsprozess reibungslos und vorhersehbar macht.

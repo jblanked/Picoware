@@ -1,0 +1,25 @@
+MEINE LISTE
+Dein aktueller Einkauf.
+
+SO GEHT'S:
+- Sortiert nach Ladenbereichen.
+- Abgehaktes rutscht nach unten.
+- Dein Budget steht ganz unten.
+
+TASTEN:
+Beliebige Taste: Suche starten.
+Oben/Unten: Bewegen.
+Enter: Abhaken / Wieder auf die Liste.
+Links/Rechts: Menge schnell aendern.
+TAB: Artikel schnell hinzufuegen.
+DELETE: Von der Liste loeschen.
+PLUS (+): Neuen Artikel hinzufuegen.
+HOME: Zurueck zu allen Listen.
+F3: Hilfe ein/ausblenden.
+F4: Zu den Preis-Tools springen.
+
+ZWECK:
+Dies ist deine aktive Einkaufsliste, in der du Artikel verwalten kannst, waehrend du dich durch den Laden bewegst. Die Artikel werden automatisch nach Gaengen organisiert, um die Laufwege zu minimieren. So kannst du deinen Einkauf schneller und effizienter erledigen als mit einer standardmaessigen, unsortierten Liste.
+
+SUCHE:
+Fang einfach an zu tippen, um Artikel nach Namen zu filtern. Dies ist besonders nuetzlich bei grossen Listen, um schnell einen Artikel zu finden, der vielleicht in einer anderen Gang-Kategorie versteckt ist, oder um zu ueberpruefen, ob etwas bereits auf deiner Liste steht. Der Filter wird automatisch geloescht, wenn du die Suche beendest.

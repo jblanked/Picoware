@@ -1,0 +1,16 @@
+LISTEN-OPTIONEN
+Name oder Budget fuer diese Liste aendern.
+
+OPTIONEN:
+- Umbenennen: Neuen Namen vergeben.
+- Limit: Ausgabenlimit setzen (0 = keins).
+- Loeschen: Diese Liste dauerhaft loeschen.
+
+TASTEN:
+Pfeile: Bewegen.
+Enter: Zahl aendern oder Bestaetigen.
+BACK: Zurueck.
+F3: Hilfe ein/ausblenden.
+
+ZWECK:
+Das Listen-Setup bietet die notwendigen Werkzeuge, um dein Einkaufserlebnis an spezifische Beduerfnisse anzupassen. Egal, ob du eine Liste fuer ein besonderes Ereignis umbenennst oder ein striktes Budgetlimit festlegst, um deine Ausgaben zu kontrollieren – diese Optionen geben dir die volle Kontrolle ueber deine Einkaufsdaten und helfen dir, organisiert zu bleiben und deine finanziellen Ziele zu erreichen.

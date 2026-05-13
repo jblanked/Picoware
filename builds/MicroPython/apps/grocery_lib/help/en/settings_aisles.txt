@@ -1,0 +1,20 @@
+STORE AISLES
+Change the order of aisles to match your store.
+
+HOW IT WORKS:
+Your list is sorted by "Aisles". 
+Items in the top aisle show up first.
+
+TO REORDER:
+1. Select an Aisle.
+2. Use Right/Left to move it Up or Down.
+3. Your list will instantly update.
+
+SHORTCUTS:
+Up/Down: Move around.
+Right/Left: Move aisle Up/Down.
+F3: Show/Hide this help.
+BACK: Go back.
+
+PURPOSE:
+The Store Aisles editor allows you to match the application's organization with the actual physical layout of your favorite grocery store. By reordering the categories, you ensure that your shopping list follows your natural path through the building, drastically reducing the time spent backtracking for forgotten items and making your trips much more efficient.

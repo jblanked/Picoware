@@ -1,0 +1,28 @@
+SCHNELL EINTRAGEN
+Fuege schnell Dinge hinzu, die du zu Hause hast.
+
+SO GEHT'S:
+- LINKE SEITE: Zu Hause.
+- RECHTE SEITE: Diese Liste.
+- Enter auf der linken Seite fuegt etwas
+  zur Liste hinzu.
+- Enter auf der rechten Seite entfernt es.
+
+TASTEN:
+Beliebige Taste: Suche starten.
+Links/Rechts: Seite wechseln.
+TAB: Zurueck zur Liste.
+Pfeile: Bewegen.
+Enter: Hinzufuegen (L) oder Entfernen (R).
+[ ]: Listen wechseln.
+F3: Hilfe ein/ausblenden.
+BACK: Zurueck.
+
+NEUE EINTRAGE:
+Wenn du einen neuen Artikel oder einen einmaligen Eintrag hinzufuegst, fragt die App zuerst nach dem Namen und dann nach dem Preis. Dies stellt sicher, dass deine Budgetberechnungen immer korrekt sind.
+
+ZWECK:
+Die Schnell-Eintragen-Ansicht ist eine leistungsstarke Split-Pane-Oberflaeche, die darauf ausgelegt ist, deine Einkaufsliste schnell aus deinem Hausvorrat zu fuellen. Sie ermoeglicht es dir, die Luecke zwischen dem, was du hast, und dem, was du brauchst, schnell zu schliessen, ohne jeden Artikelnamen manuell tippen zu muessen, was dir wertvolle Zeit bei der Planung spart.
+
+SUCHE:
+Du kannst beide Seiten des Bildschirms gleichzeitig durchsuchen. Das Tippen auf der Tastatur filtert sowohl deinen Hausvorrat als auch deine aktuelle Liste, was es muehelos macht, bestimmte Artikel zu finden und sie mit einem einzigen Tastendruck zwischen den beiden Spalten zu verschieben. Diese Echtzeit-Filterung erleichtert die Verwaltung grosser Bestaende erheblich.

@@ -1,0 +1,19 @@
+PRICE TOOLS
+Tools to help you find the best deals.
+
+AVAILABLE TOOLS:
+- Deal Finder: Compare two items to see 
+  which is cheaper.
+- Bulk Deals: Check if buying a big pack 
+  is a good idea.
+- Quick Math: A fast calculator.
+
+SHORTCUTS:
+Arrows: Pick a tool.
+Center: Open it.
+BACK: Go back.
+F3: Show/Hide this help.
+F4: Jump to Shopping List.
+
+PURPOSE:
+The Price Tools menu provides specialized calculators designed specifically for the unique challenges of grocery shopping. These tools help you compare unit prices, calculate bulk discounts, and perform quick arithmetic while navigating store aisles, ensuring you always find the absolute best deals available on the shelves today.

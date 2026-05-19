@@ -4,6 +4,7 @@ from picoware.system.boards import (
     BOARD_WAVESHARE_1_28_RP2350,
     BOARD_WAVESHARE_1_43_RP2350,
     BOARD_WAVESHARE_3_49_RP2350,
+    BOARD_CROWPANEL_10_1,
     BOARD_ID,
 )
 
@@ -28,6 +29,7 @@ class Input:
         "_was_pressed",
         "_was_capitalized",
         "_button_map",
+        "_crowpanel_touch",
     )
 
     def __init__(self, back_button=buttons.BUTTON_BACK):
@@ -45,6 +47,7 @@ class Input:
         self._key_back = (
             buttons.BUTTON_BACK if not _back_special else buttons.BUTTON_BACKSPACE
         )
+        self._crowpanel_touch = None
 
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             from waveshare_touch import init, TOUCH_GESTURE_MODE, TOUCH_GESTURE_NONE
@@ -87,6 +90,13 @@ class Input:
             self._last_point = (0, 0)
 
             self._delay_ms = 200
+
+        elif self._current_board_id == BOARD_CROWPANEL_10_1:
+            from touch import Touch
+
+            self._crowpanel_touch = Touch()
+            self._last_point = (0, 0)
+            self._delay_ms = 120
 
         else:
             from picoware_keyboard import (
@@ -242,10 +252,15 @@ class Input:
             del self.pin
             self.pin = None
 
+        if self._crowpanel_touch is not None:
+            del self._crowpanel_touch
+            self._crowpanel_touch = None
+
         if self._current_board_id not in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
+            BOARD_CROWPANEL_10_1,
         ):
             from picoware_southbridge import deinit
 
@@ -265,6 +280,9 @@ class Input:
 
             return get_percentage()
 
+        if self._current_board_id == BOARD_CROWPANEL_10_1:
+            return 100
+
         from picoware_southbridge import get_battery_percentage
 
         return get_battery_percentage()
@@ -277,12 +295,15 @@ class Input:
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            # added this since scheduler isnt working yet
-            from picoware_keyboard import poll, key_available
+            if self._current_board_id == BOARD_CROWPANEL_10_1:
+                self._poll_crowpanel_touch()
+            else:
+                # added this since scheduler isnt working yet
+                from picoware_keyboard import poll, key_available
 
-            poll()
-            if key_available():
-                self.on_key_callback()
+                poll()
+                if key_available():
+                    self.on_key_callback()
         return self._last_button
 
     @property
@@ -297,6 +318,7 @@ class Input:
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
+            BOARD_CROWPANEL_10_1,
         )
 
     @property
@@ -423,6 +445,9 @@ class Input:
             BOARD_WAVESHARE_3_49_RP2350,
         ):
             return self._last_point != (0, 0)
+        if self._current_board_id == BOARD_CROWPANEL_10_1:
+            self._poll_crowpanel_touch()
+            return self._last_point != (0, 0)
         from picoware_keyboard import key_available
 
         return key_available()
@@ -491,6 +516,42 @@ class Input:
             from waveshare_touch import reset_state
 
             reset_state()
+
+    def _poll_crowpanel_touch(self):
+        """Poll the CrowPanel touch controller and map touch areas to button events."""
+        if self._crowpanel_touch is None:
+            return
+
+        if not self._crowpanel_touch.read():
+            self._last_point = (0, 0)
+            self._last_button = buttons.BUTTON_NONE
+            self._was_pressed = False
+            self._elapsed_time = 0
+            return
+
+        x = self._crowpanel_touch.x
+        y = self._crowpanel_touch.y
+
+        self._elapsed_touch_now = int(ticks_ms())
+        if self._elapsed_touch_now - self._elapsed_touch_start < self._delay_ms:
+            return
+
+        self._elapsed_touch_start = self._elapsed_touch_now
+        self._last_point = (x, y)
+
+        if 900 <= x <= 1024 and 160 <= y <= 440:
+            self._last_button = buttons.BUTTON_RIGHT
+        elif 0 <= x <= 124 and 160 <= y <= 440:
+            self._last_button = buttons.BUTTON_LEFT
+        elif 256 <= x <= 768 and 0 <= y <= 120:
+            self._last_button = buttons.BUTTON_UP
+        elif 256 <= x <= 768 and 480 <= y <= 600:
+            self._last_button = buttons.BUTTON_DOWN
+        else:
+            self._last_button = buttons.BUTTON_CENTER
+
+        self._elapsed_time += 1
+        self._was_pressed = True
 
     def __touch_callback(self, pin):
         """Touch interrupt callback function"""

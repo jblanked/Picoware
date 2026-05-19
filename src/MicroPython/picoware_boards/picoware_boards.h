@@ -19,6 +19,7 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_WAVESHARE_1_43_RP2350 5
 #define BOARD_WAVESHARE_3_49_RP2350 6
 #define BOARD_PICOCALC_PIMORONI_2W 7
+#define BOARD_CROWPANEL_10_1 8
 
 #if defined(WAVESHARE_1_28)
 #define BOARD_ID BOARD_WAVESHARE_1_28_RP2350
@@ -49,6 +50,14 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_TOUCH 0 // no touch
 #define BOARD_HAS_WIFI 1  // has wifi
 #define BOARD_HAS_AUDIO 1 // has audio
+#elif defined(CROWPANEL_10_1)
+// CrowPanel 10.1 ESP32-P4
+#define BOARD_ID BOARD_CROWPANEL_10_1
+#define BOARD_HAS_PSRAM 0 // no psram
+#define BOARD_HAS_SD 0    // no sd module in esp32 build yet
+#define BOARD_HAS_TOUCH 1 // has touch
+#define BOARD_HAS_WIFI 0  // disabled... but it does have wifi (ESP-Hosted C6)
+#define BOARD_HAS_AUDIO 0 // no audio module in esp32 build yet
 #elif defined CYW43_WL_GPIO_LED_PIN
 #define BOARD_HAS_PSRAM 1 // has psram
 #define BOARD_HAS_SD 1    // has sd card

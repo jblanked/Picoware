@@ -1,0 +1,90 @@
+# CrowPanel ESP32-P4-WIFI6 SDK Config Defaults
+# This file contains critical configuration overrides for ESP-IDF 5.5.2 compatibility
+# ESP-Hosted WiFi/Bluetooth via external ESP32-C6
+
+# =============================================
+# SIZE OPTIMIZATION - Critical for ESP32-P4
+# =============================================
+# Override base config's -O2 with size optimization
+CONFIG_COMPILER_OPTIMIZATION_SIZE=y
+CONFIG_COMPILER_OPTIMIZATION_PERF=n
+# Keep assertions for debugging - can disable later for production
+# CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_DISABLE=y
+
+# Reduce log verbosity to save space
+CONFIG_LOG_DEFAULT_LEVEL_WARN=y
+CONFIG_LOG_MAXIMUM_LEVEL_INFO=y
+
+# =============================================
+# ESP32-P4 Specific
+# =============================================
+# Skip I2C legacy driver conflict check to allow both old and new I2C drivers to coexist
+CONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=y
+
+# Bluetooth is provided via ESP-Hosted (external ESP32-C6)
+# The sdkconfig.p4_wifi_common enables CONFIG_BT_ENABLED=y with NimBLE
+
+# Disable ethernet (not needed for this board, saves significant space)
+CONFIG_ETH_ENABLED=n
+
+# Disable legacy drivers
+CONFIG_I2C_ENABLE_DEBUG_LOG=n
+
+# =============================================
+# PSRAM Configuration - CRITICAL for ESP32-P4
+# =============================================
+# ESP32-P4 has limited internal SRAM but 32MB PSRAM
+# Move as much as possible to PSRAM
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_200M=y
+CONFIG_SPIRAM_BOOT_INIT=y
+CONFIG_SPIRAM_IGNORE_NOTFOUND=y
+
+# Allow BSS segment in PSRAM to reduce internal RAM usage
+CONFIG_SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY=y
+CONFIG_SPIRAM_ALLOW_NOINIT_SEG_EXTERNAL_MEMORY=y
+
+# Use malloc from PSRAM when internal runs out  
+CONFIG_SPIRAM_USE_MALLOC=y
+CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=4096
+CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL=32768
+
+# Allow stack in PSRAM for WiFi/BT tasks
+CONFIG_SPIRAM_ALLOW_STACK_EXTERNAL_MEMORY=y
+
+# Place WiFi/BT buffers in PSRAM
+CONFIG_ESP32_WIFI_STATIC_RX_BUFFER_NUM=4
+CONFIG_ESP32_WIFI_DYNAMIC_RX_BUFFER_NUM=32
+CONFIG_ESP32_WIFI_DYNAMIC_TX_BUFFER_NUM=32
+
+# Reduce NimBLE memory footprint
+CONFIG_BT_NIMBLE_MEM_ALLOC_MODE_EXTERNAL=y
+
+# =============================================
+# SD Card / FAT filesystem
+# =============================================
+CONFIG_SOC_SDMMC_HOST_SUPPORTED=y
+# Disable ESP-IDF's FatFS - MicroPython uses its own oofatfs to avoid conflicts
+CONFIG_FATFS_VFS_SUPPORT=n
+
+# =============================================
+# MbedTLS configuration (minimal for SSL support)
+# =============================================
+CONFIG_MBEDTLS_HAVE_TIME=y
+CONFIG_MBEDTLS_PLATFORM_TIME_ALT=y
+CONFIG_MBEDTLS_HAVE_TIME_DATE=y
+CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y
+
+# Disable unused TLS features to save space
+CONFIG_MBEDTLS_CLIENT_SSL_SESSION_TICKETS=n
+CONFIG_MBEDTLS_SERVER_SSL_SESSION_TICKETS=n
+
+# =============================================
+# Disable unnecessary components
+# =============================================
+# Disable ADC continuous mode (saves space)  
+CONFIG_ADC_CONTINUOUS_ISR_IRAM_SAFE=n
+
+# Reduce PPP protocol overhead
+CONFIG_LWIP_PPP_SUPPORT=n

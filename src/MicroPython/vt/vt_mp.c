@@ -1,11 +1,6 @@
 #include "vt_mp.h"
 #include <string.h>
-
-#if defined(PICOCALC)
-#include "../../lcd/lcd_config.h"
-#else
-#include "../../../lcd/lcd_config.h"
-#endif
+#include "../lcd/lcd_config.h"
 
 #ifdef LCD_INCLUDE
 #include LCD_INCLUDE

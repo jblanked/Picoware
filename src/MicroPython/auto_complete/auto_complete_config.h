@@ -7,7 +7,7 @@
 #define MEMORY_REALLOC m_realloc
 
 // storage info
-#ifndef WAVESHARE_1_28
+#if !defined(WAVESHARE_1_28) && !defined(CROWPANEL_10_1) && !defined(CARDPUTER)
 #define STORAGE_INCLUDE "storage.h"
 #define STORAGE_READ storage_read
 #define STORAGE_MAX_READ_SIZE 4096

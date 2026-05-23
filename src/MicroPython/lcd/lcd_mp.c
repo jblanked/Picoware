@@ -1,6 +1,9 @@
 #include "lcd_mp.h"
 #include "py/mperrno.h"
+
+#ifdef LCD_INCLUDE
 #include LCD_INCLUDE
+#endif
 
 #ifndef PRINT
 #define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)

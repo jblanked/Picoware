@@ -166,7 +166,7 @@ mp_obj_t lcd_mp_char(size_t n_args, const mp_obj_t *args)
     char c = str[0];
 
     uint16_t color = mp_obj_get_int(args[4]);
-    uint8_t font_size = 0; // Default font size
+    uint8_t font_size = FONT_DEFAULT;
     if (n_args == 6)
     {
         font_size = mp_obj_get_int(args[5]);
@@ -798,7 +798,7 @@ mp_obj_t lcd_mp_text(size_t n_args, const mp_obj_t *args)
     uint16_t y = lcd_obj_to_int(args[2]);
     const char *text = mp_obj_str_get_str(args[3]);
     uint16_t color = mp_obj_get_int(args[4]);
-    uint8_t font_size = 0; // Default font size
+    uint8_t font_size = FONT_DEFAULT;
     if (n_args == 6)
     {
         font_size = mp_obj_get_int(args[5]);

@@ -2,7 +2,9 @@
 #include <stdio.h>
 #include <math.h>
 
-#if defined(PICOCALC) || defined(PIMORONI_PICO_PLUS2W_RP2350)
+#if defined(CARDPUTER)
+#include "../lcd/lcd_config.h"
+#elif defined(PICOCALC) || defined(PIMORONI_PICO_PLUS2W_RP2350)
 #include "../../lcd/lcd_config.h"
 #elif defined(WAVESHARE_1_28) || defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49)
 #include "../../../lcd/lcd_config.h"
@@ -34,6 +36,10 @@ mp_obj_t picoware_boards_get_current_name(void)
     return mp_obj_new_str("Waveshare 1.43", strlen("Waveshare 1.43"));
 #elif defined(WAVESHARE_3_49)
     return mp_obj_new_str("Waveshare 3.49", strlen("Waveshare 3.49"));
+#elif defined(CARDPUTER)
+    return mp_obj_new_str("Cardputer", strlen("Cardputer"));
+#elif defined(CROWPANEL_10_1)
+    return mp_obj_new_str("CrowPanel 10.1", strlen("CrowPanel 10.1"));
 #elif defined(PIMORONI_PICO_PLUS2W_RP2350)
     // PicoCalc - Pimoroni 2 W
     return mp_obj_new_str("PicoCalc - Pimoroni", strlen("PicoCalc - Pimoroni"));
@@ -54,12 +60,18 @@ mp_obj_t picoware_boards_get_current_name(void)
     return mp_obj_new_str("PicoCalc - Pico 2", strlen("PicoCalc - Pico 2"));
 #endif
 #endif
+
+    return mp_obj_new_str("Unknown Board", strlen("Unknown Board"));
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(picoware_boards_get_current_name_obj, picoware_boards_get_current_name);
 
 mp_obj_t picoware_boards_get_device_name(void)
 {
-#ifdef CYW43_WL_GPIO_LED_PIN
+#ifdef CROWPANEL_10_1
+    return mp_obj_new_str("CrowPanel 10.1 ESP32-P4", strlen("CrowPanel 10.1 ESP32-P4"));
+#elif defined(CARDPUTER)
+    return mp_obj_new_str("M5Stack Cardputer", strlen("M5Stack Cardputer"));
+#elif defined(CYW43_WL_GPIO_LED_PIN)
 #ifdef PICO_RP2040
     return mp_obj_new_str("Raspberry Pi Pico W", strlen("Raspberry Pi Pico W"));
 #elif defined(PICO_RP2350)
@@ -72,6 +84,8 @@ mp_obj_t picoware_boards_get_device_name(void)
     return mp_obj_new_str("Raspberry Pi Pico 2", strlen("Raspberry Pi Pico 2"));
 #endif
 #endif
+
+    return mp_obj_new_str("Unknown Device", strlen("Unknown Device"));
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(picoware_boards_get_device_name_obj, picoware_boards_get_device_name);
 
@@ -105,6 +119,12 @@ mp_obj_t picoware_boards_get_name(mp_obj_t board_id_obj)
         break;
     case BOARD_PICOCALC_PIMORONI_2W:
         snprintf(board_name, sizeof(board_name), "PicoCalc - Pimoroni 2 W");
+        break;
+    case BOARD_CROWPANEL_10_1:
+        snprintf(board_name, sizeof(board_name), "CrowPanel 10.1");
+        break;
+    case BOARD_CARDPUTER:
+        snprintf(board_name, sizeof(board_name), "Cardputer");
         break;
     default:
         snprintf(board_name, sizeof(board_name), "Unknown Board");
@@ -142,6 +162,14 @@ mp_obj_t picoware_boards_get_display_size(mp_obj_t board_id_obj)
     case BOARD_WAVESHARE_3_49_RP2350:
         width = 172;
         height = 640;
+        break;
+    case BOARD_CROWPANEL_10_1:
+        width = 1024;
+        height = 600;
+        break;
+    case BOARD_CARDPUTER:
+        width = 240;
+        height = 135;
         break;
     default:
         width = 0;
@@ -213,6 +241,7 @@ mp_obj_t picoware_boards_has_touch(mp_obj_t board_id_obj)
     case BOARD_WAVESHARE_1_28_RP2350:
     case BOARD_WAVESHARE_1_43_RP2350:
     case BOARD_WAVESHARE_3_49_RP2350:
+    case BOARD_CROWPANEL_10_1:
         has_touch = true;
         break;
     default:
@@ -308,25 +337,14 @@ static const mp_rom_map_elem_t picoware_boards_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_BOARD_WAVESHARE_1_43_RP2350), MP_ROM_INT(BOARD_WAVESHARE_1_43_RP2350)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_WAVESHARE_3_49_RP2350), MP_ROM_INT(BOARD_WAVESHARE_3_49_RP2350)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_PICOCALC_PIMORONI_2W), MP_ROM_INT(BOARD_PICOCALC_PIMORONI_2W)},
-//
-#ifdef BOARD_HAS_PSRAM
+    {MP_ROM_QSTR(MP_QSTR_BOARD_CROWPANEL_10_1), MP_ROM_INT(BOARD_CROWPANEL_10_1)},
+    {MP_ROM_QSTR(MP_QSTR_BOARD_CARDPUTER), MP_ROM_INT(BOARD_CARDPUTER)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_PSRAM), MP_ROM_INT(BOARD_HAS_PSRAM)},
-#endif
-#ifdef BOARD_HAS_SD
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_SD), MP_ROM_INT(BOARD_HAS_SD)},
-#endif
-#ifdef BOARD_HAS_WIFI
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_TOUCH), MP_ROM_INT(BOARD_HAS_TOUCH)},
-#endif
-#ifdef BOARD_ID
     {MP_ROM_QSTR(MP_QSTR_BOARD_ID), MP_ROM_INT(BOARD_ID)},
-#endif
-#ifdef BOARD_HAS_WIFI
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_WIFI), MP_ROM_INT(BOARD_HAS_WIFI)},
-#endif
-#ifdef BOARD_HAS_AUDIO
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_AUDIO), MP_ROM_INT(BOARD_HAS_AUDIO)},
-#endif
 };
 static MP_DEFINE_CONST_DICT(picoware_boards_module_globals, picoware_boards_module_globals_table);
 

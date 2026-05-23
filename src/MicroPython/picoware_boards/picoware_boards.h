@@ -20,6 +20,7 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_WAVESHARE_3_49_RP2350 6
 #define BOARD_PICOCALC_PIMORONI_2W 7
 #define BOARD_CROWPANEL_10_1 8
+#define BOARD_CARDPUTER 9
 
 #if defined(WAVESHARE_1_28)
 #define BOARD_ID BOARD_WAVESHARE_1_28_RP2350
@@ -50,6 +51,14 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_TOUCH 0 // no touch
 #define BOARD_HAS_WIFI 1  // has wifi
 #define BOARD_HAS_AUDIO 1 // has audio
+#elif defined(CARDPUTER)
+// Cardputer ESP32-S3
+#define BOARD_ID BOARD_CARDPUTER
+#define BOARD_HAS_PSRAM 0 // no psram module in esp32 build yet
+#define BOARD_HAS_SD 0    // no sd module in esp32 build yet
+#define BOARD_HAS_TOUCH 0 // no touch
+#define BOARD_HAS_WIFI 0  // disabled... but it does have wifi (ESP32-S3)
+#define BOARD_HAS_AUDIO 0 // no audio module in esp32 build yet
 #elif defined(CROWPANEL_10_1)
 // CrowPanel 10.1 ESP32-P4
 #define BOARD_ID BOARD_CROWPANEL_10_1
@@ -84,6 +93,30 @@ Source: https://github.com/jblanked/Picoware
 // PicoCalc - Pico 2
 #define BOARD_ID BOARD_PICOCALC_PICO_2
 #endif
+#endif
+
+#ifndef BOARD_ID
+#define BOARD_ID (-1)
+#endif
+
+#ifndef BOARD_HAS_PSRAM
+#define BOARD_HAS_PSRAM 0
+#endif
+
+#ifndef BOARD_HAS_SD
+#define BOARD_HAS_SD 0
+#endif
+
+#ifndef BOARD_HAS_TOUCH
+#define BOARD_HAS_TOUCH 0
+#endif
+
+#ifndef BOARD_HAS_WIFI
+#define BOARD_HAS_WIFI 0
+#endif
+
+#ifndef BOARD_HAS_AUDIO
+#define BOARD_HAS_AUDIO 0
 #endif
 
 mp_obj_t picoware_boards_get_current_display_size(void);

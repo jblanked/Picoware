@@ -43,7 +43,6 @@ class ViewManager:
         from picoware.system.system import System
         from picoware.system.time import Time
         from picoware.system.thread import ThreadManager
-        from picoware.system.audio import Audio
         from picoware.system.log import Log, LOG_MODE_ALL, LOG_MODE_REPL
         from picoware.system.colors import TFT_BLUE, TFT_BLACK, TFT_WHITE
         from picoware.system.buttons import BUTTON_BACK
@@ -189,6 +188,8 @@ class ViewManager:
         # Initialize audio
         self._audio = None
         if syst.has_audio:
+            from picoware.system.audio import Audio
+
             self._audio = Audio()
 
         if self._draw.use_lvgl:
@@ -519,6 +520,8 @@ class ViewManager:
             BOARD_PICOCALC_PICO,
             BOARD_PICOCALC_PICOW,
             BOARD_PICOCALC_PIMORONI_2W,
+            BOARD_CROWPANEL_10_1,
+            BOARD_CARDPUTER,
         )
 
         if frequency is not None:
@@ -532,6 +535,9 @@ class ViewManager:
 
         if self._current_board_id == BOARD_PICOCALC_PIMORONI_2W:
             return freq(self.FREQ_PIMORONI)
+
+        if self._current_board_id in (BOARD_CROWPANEL_10_1, BOARD_CARDPUTER):
+            return freq(240000000)
 
         return freq(self.FREQ_RP2350)
 

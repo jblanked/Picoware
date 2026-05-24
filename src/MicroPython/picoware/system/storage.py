@@ -2,12 +2,10 @@ from picoware_boards import (
     BOARD_ID,
     BOARD_WAVESHARE_1_28_RP2350,
     BOARD_CROWPANEL_10_1,
-    BOARD_CARDPUTER,
 )
 
 try:
     import sd_mp
-    import vfs_mp
 
     class FAT32File(sd_mp.fat32_file):
         """
@@ -32,7 +30,7 @@ try:
                 super().__setattr__(name, value)
 
 except ImportError:
-    # waveshare 1.28, crowpanel, and cardputer
+    # waveshare 1.28 and crowpanel
     pass
 
 
@@ -53,7 +51,6 @@ class Storage:
         if BOARD_ID in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_CROWPANEL_10_1,
-            BOARD_CARDPUTER,
         ):
             self._has_storage = False
         else:
@@ -282,7 +279,9 @@ class Storage:
             return False  # No SD storage on this board
 
         try:
-            result = vfs_mp.mount(mount_point)
+            from vfs_mp import mount
+
+            result = mount(mount_point)
             if result:
                 self._vfs_mounted = True
             return result
@@ -319,7 +318,9 @@ class Storage:
             return True
 
         try:
-            vfs_mp.umount(mount_point)
+            from vfs_mp import umount
+
+            umount(mount_point)
             self._vfs_mounted = False
             return True
         except ImportError:

@@ -8,6 +8,7 @@ add_compile_definitions(CARDPUTER)
 include(${CMAKE_CURRENT_LIST_DIR}/lcd/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/keyboard/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/battery/micropython.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/sd/micropython.cmake)
 
 # Include Picoware modules
 include(${CMAKE_CURRENT_LIST_DIR}/../auto_complete/micropython.cmake)

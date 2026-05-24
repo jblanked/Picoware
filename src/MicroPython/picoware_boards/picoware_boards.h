@@ -55,7 +55,7 @@ Source: https://github.com/jblanked/Picoware
 // Cardputer ESP32-S3
 #define BOARD_ID BOARD_CARDPUTER
 #define BOARD_HAS_PSRAM 0 // no psram module in esp32 build yet
-#define BOARD_HAS_SD 0    // no sd module in esp32 build yet
+#define BOARD_HAS_SD 1    // has sd card
 #define BOARD_HAS_TOUCH 0 // no touch
 #define BOARD_HAS_WIFI 0  // disabled... but it does have wifi (ESP32-S3)
 #define BOARD_HAS_AUDIO 0 // no audio module in esp32 build yet

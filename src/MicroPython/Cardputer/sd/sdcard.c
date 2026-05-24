@@ -1,102 +1,112 @@
 #include "sdcard.h"
 
 #include "board_config.h"
-#include "driver/gpio.h"
-#include "driver/sdspi_host.h"
-#include "driver/spi_common.h"
 #include "esp_log.h"
-#include "esp_vfs_fat.h"
-#include "sdmmc_cmd.h"
+#include "extmod/vfs.h"
+#include "modmachine.h"
+#include "py/runtime.h"
+
+#include <sys/stat.h>
 
 static const char *TAG = "sdcard";
 
-static sdmmc_card_t *s_card;
-static bool s_bus_initialized;
+#define SDCARD_MOUNT_POINT "/sdcard"
+#define SD_SLOT_SPI2 (2)
 
-bool sdcard_is_mounted(void)
+static mp_obj_t s_sdcard_obj = MP_OBJ_NULL;
+
+static bool sdcard_path_is_mounted(void)
 {
-    return s_card != NULL;
+    struct stat st = {0};
+    return stat(SDCARD_MOUNT_POINT, &st) == 0 && S_ISDIR(st.st_mode);
 }
 
-esp_err_t sdcard_mount(void)
+static void sdcard_try_deinit_obj(void)
 {
-    if (s_card != NULL)
-    {
-        return ESP_OK;
-    }
-
-    gpio_config_t cs_cfg = {
-        .pin_bit_mask = 1ULL << CARDPUTER_SD_CS_GPIO,
-        .mode = GPIO_MODE_OUTPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE,
-    };
-    esp_err_t err = gpio_config(&cs_cfg);
-    if (err != ESP_OK)
-    {
-        return err;
-    }
-    gpio_set_level(CARDPUTER_SD_CS_GPIO, 1);
-
-    spi_bus_config_t bus_cfg = {
-        .mosi_io_num = CARDPUTER_SD_MOSI_GPIO,
-        .miso_io_num = CARDPUTER_SD_MISO_GPIO,
-        .sclk_io_num = CARDPUTER_SD_SCLK_GPIO,
-        .quadwp_io_num = -1,
-        .quadhd_io_num = -1,
-        .max_transfer_sz = 4000,
-    };
-
-    sdmmc_host_t host = SDSPI_HOST_DEFAULT();
-    host.slot = CARDPUTER_SD_HOST;
-
-    err = spi_bus_initialize(host.slot, &bus_cfg, SPI_DMA_CH_AUTO);
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE)
-    {
-        ESP_LOGE(TAG, "spi_bus_initialize failed: %s", esp_err_to_name(err));
-        return err;
-    }
-    s_bus_initialized = true;
-
-    sdspi_device_config_t dev_cfg = SDSPI_DEVICE_CONFIG_DEFAULT();
-    dev_cfg.gpio_cs = CARDPUTER_SD_CS_GPIO;
-    dev_cfg.host_id = host.slot;
-
-    esp_vfs_fat_sdmmc_mount_config_t mount_cfg = {
-        .format_if_mount_failed = false,
-        .max_files = 5,
-        .allocation_unit_size = 16 * 1024,
-    };
-
-    err = esp_vfs_fat_sdspi_mount("/sdcard", &host, &dev_cfg, &mount_cfg, &s_card);
-    if (err != ESP_OK)
-    {
-        ESP_LOGW(TAG, "SD mount failed: %s", esp_err_to_name(err));
-        if (s_bus_initialized)
-        {
-            spi_bus_free(host.slot);
-            s_bus_initialized = false;
-        }
-        return err;
-    }
-
-    sdmmc_card_print_info(stdout, s_card);
-    return ESP_OK;
-}
-
-void sdcard_unmount(void)
-{
-    if (s_card == NULL)
+    if (s_sdcard_obj == MP_OBJ_NULL)
     {
         return;
     }
 
-    esp_vfs_fat_sdcard_unmount("/sdcard", s_card);
-    s_card = NULL;
-    if (s_bus_initialized)
+    nlr_buf_t nlr;
+    if (nlr_push(&nlr) == 0)
     {
-        spi_bus_free(CARDPUTER_SD_HOST);
-        s_bus_initialized = false;
+        mp_obj_t method[2];
+        mp_load_method_maybe(s_sdcard_obj, MP_QSTR_deinit, method);
+        if (method[0] != MP_OBJ_NULL)
+        {
+            mp_call_method_n_kw(0, 0, method);
+        }
+        nlr_pop();
     }
+
+    s_sdcard_obj = MP_OBJ_NULL;
+}
+
+bool sdcard_is_mounted(void)
+{
+    return sdcard_path_is_mounted();
+}
+
+esp_err_t sdcard_mount(void)
+{
+    if (sdcard_path_is_mounted())
+    {
+        return ESP_OK;
+    }
+
+    nlr_buf_t nlr;
+    if (nlr_push(&nlr) == 0)
+    {
+        mp_obj_t ctor_args[] = {
+            MP_OBJ_NEW_QSTR(MP_QSTR_slot),
+            MP_OBJ_NEW_SMALL_INT(SD_SLOT_SPI2),
+            MP_OBJ_NEW_QSTR(MP_QSTR_miso),
+            MP_OBJ_NEW_SMALL_INT(CARDPUTER_SD_MISO_GPIO),
+            MP_OBJ_NEW_QSTR(MP_QSTR_mosi),
+            MP_OBJ_NEW_SMALL_INT(CARDPUTER_SD_MOSI_GPIO),
+            MP_OBJ_NEW_QSTR(MP_QSTR_sck),
+            MP_OBJ_NEW_SMALL_INT(CARDPUTER_SD_SCLK_GPIO),
+            MP_OBJ_NEW_QSTR(MP_QSTR_cs),
+            MP_OBJ_NEW_SMALL_INT(CARDPUTER_SD_CS_GPIO),
+            MP_OBJ_NEW_QSTR(MP_QSTR_freq),
+            MP_OBJ_NEW_SMALL_INT(20000000),
+        };
+
+        mp_obj_t sd_obj = mp_call_function_n_kw(MP_OBJ_FROM_PTR(&machine_sdcard_type), 0, 6, ctor_args);
+        mp_obj_t mount_args[] = {
+            sd_obj,
+            mp_obj_new_str(SDCARD_MOUNT_POINT, sizeof(SDCARD_MOUNT_POINT) - 1),
+        };
+        mp_vfs_mount(2, mount_args, (mp_map_t *)&mp_const_empty_map);
+
+        s_sdcard_obj = sd_obj;
+        nlr_pop();
+        return ESP_OK;
+    }
+
+    sdcard_try_deinit_obj();
+    ESP_LOGW(TAG, "SD mount failed via machine.SDCard/VFS");
+    return ESP_FAIL;
+}
+
+void sdcard_unmount(void)
+{
+    if (!sdcard_path_is_mounted() && s_sdcard_obj == MP_OBJ_NULL)
+    {
+        return;
+    }
+
+    nlr_buf_t nlr;
+    if (nlr_push(&nlr) == 0)
+    {
+        mp_vfs_umount(mp_obj_new_str(SDCARD_MOUNT_POINT, sizeof(SDCARD_MOUNT_POINT) - 1));
+        nlr_pop();
+    }
+    else
+    {
+        ESP_LOGW(TAG, "SD unmount failed");
+    }
+
+    sdcard_try_deinit_obj();
 }

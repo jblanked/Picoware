@@ -158,7 +158,14 @@ class System:
 
         psram = PSRAM()
         return psram.used_heap_size
-
+        
+    @property
+    def mcu_freq(self):
+        """Return MCU frequency."""
+        import machine
+        freq = machine.freq() / 1000000
+        return freq
+        
     @property
     def version(self) -> str:
         """Return the Picoware version."""

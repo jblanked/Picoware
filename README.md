@@ -1,5 +1,5 @@
 ## Picoware
-Open-source custom firmware for the PicoCalc, Video Game Module, and other Raspberry Pi Pico devices. 
+Open-source custom firmware for PicoCalc, Cardputer ADV, Video Game Module, and other ESP32/Raspberry Pi Pico devices.
 
 ![Picoware Demo](./images/desktop-animation.gif)
 

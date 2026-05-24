@@ -4,7 +4,9 @@ echo "Compiling .py files to .mpy files..."
 
 mp_root_dir="/Users/user/Desktop/Picoware/builds/MicroPython/"
 cp_root_dir="/Users/user/Desktop/Picoware/builds/CircuitPython/"
-
+# Path to mpy-cross binaries
+mp_mpy_cross_dir="/Users/user/micropython/mpy-cross/build/"
+cp_mpy_cross_dir="/Users/user/circuitpython/mpy-cross/build/"
 # ============================================
 # MicroPython Compilation
 # ============================================
@@ -31,7 +33,7 @@ find apps_unfrozen -type f -name "*.py" ! -name "__init__.py" | while read -r py
     
     # Compile the file
     echo "Compiling: $py_file -> $mpy_file"
-    mpy-cross "$py_file" -o "$mpy_file"
+    "${mpy_cross_dir}"mpy-cross "$py_file" -o "$mpy_file"
     
     if [ $? -ne 0 ]; then
         echo "Error compiling $py_file for MicroPython"
@@ -84,7 +86,7 @@ find apps_unfrozen -type f -name "*.py" ! -name "__init__.py" | while read -r py
     
     # Compile the file using CircuitPython's mpy-cross
     echo "Compiling: $py_file -> $mpy_file"
-    ~/pico/circuitpython/mpy-cross/build/mpy-cross "$py_file" -o "$mpy_file"
+    "${mpy_cross_dir}"mpy-cross "$py_file" -o "$mpy_file"
     
     if [ $? -ne 0 ]; then
         echo "Error compiling $py_file for CircuitPython"

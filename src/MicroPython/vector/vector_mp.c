@@ -5,7 +5,7 @@ const mp_obj_type_t vector_mp_type;
 
 mp_obj_t vector_mp_init(float x, float y, float z, bool integer)
 {
-    vector_mp_obj_t *vector_obj = mp_obj_malloc_with_finaliser(vector_mp_obj_t, &vector_mp_type);
+    vector_mp_obj_t *vector_obj = mp_obj_malloc(vector_mp_obj_t, &vector_mp_type);
     vector_obj->base.type = &vector_mp_type;
     vector_obj->x = x;
     vector_obj->y = y;
@@ -31,7 +31,7 @@ void vector_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t 
 mp_obj_t vector_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
     mp_arg_check_num(n_args, n_kw, 0, 4, false);
-    vector_mp_obj_t *self = mp_obj_malloc_with_finaliser(vector_mp_obj_t, &vector_mp_type);
+    vector_mp_obj_t *self = mp_obj_malloc(vector_mp_obj_t, &vector_mp_type);
     self->base.type = &vector_mp_type;
     self->x = n_args > 0 ? mp_obj_get_float(args[0]) : 0.0f;
     self->y = n_args > 1 ? mp_obj_get_float(args[1]) : 0.0f;
@@ -102,7 +102,7 @@ mp_obj_t vector_mp_set_x(mp_obj_t self_in, mp_obj_t value_in)
 {
     vector_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     self->x = mp_obj_get_float(value_in);
-    return MP_OBJ_NULL;
+    return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(vector_mp_set_x_obj, vector_mp_set_x);
 
@@ -110,7 +110,7 @@ mp_obj_t vector_mp_set_y(mp_obj_t self_in, mp_obj_t value_in)
 {
     vector_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     self->y = mp_obj_get_float(value_in);
-    return MP_OBJ_NULL;
+    return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(vector_mp_set_y_obj, vector_mp_set_y);
 
@@ -118,7 +118,7 @@ mp_obj_t vector_mp_set_z(mp_obj_t self_in, mp_obj_t value_in)
 {
     vector_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     self->z = mp_obj_get_float(value_in);
-    return MP_OBJ_NULL;
+    return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(vector_mp_set_z_obj, vector_mp_set_z);
 

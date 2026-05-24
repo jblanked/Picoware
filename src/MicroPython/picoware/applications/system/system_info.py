@@ -9,7 +9,9 @@ def __set_text():
         info = f"""
         System Information
         
-        MCU Frequency: {system.freq} MHz
+        Board: {system.board_name}
+        Device: {system.device_name}
+        Frequency: {system.freq} MHz
         
         Free Heap: {system.free_heap} bytes
         Used Heap: {system.used_heap} bytes

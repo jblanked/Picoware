@@ -290,7 +290,12 @@ mp_obj_t textbox_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_
             "TextBox requires 9 args: y, height, display_width, chars_per_line, spacing, fg_color, bg_color, show_scrollbar, show_cursor"));
     }
 
+#if defined(CARDPUTER) || defined(CROWPANEL_10_1)
+    // let gc handle cleanup
+    textbox_mp_obj_t *self = mp_obj_malloc(textbox_mp_obj_t, &textbox_mp_type);
+#else
     textbox_mp_obj_t *self = mp_obj_malloc_with_finaliser(textbox_mp_obj_t, &textbox_mp_type);
+#endif
     self->base.type = &textbox_mp_type;
 
     self->pos_y = (uint16_t)mp_obj_get_int(args[0]);

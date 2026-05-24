@@ -25,6 +25,7 @@ static uint8_t s_framebuffer[LCD_WIDTH * LCD_HEIGHT];
 static uint16_t s_palette[256];
 
 #define LCD_SWAP_LINES 16U
+#define ST7789_CMD_INVOFF 0x20
 static const uint8_t LCD_TEXT_SPACING = 1;
 static const uint8_t LCD_LINE_SPACING = 2;
 static uint16_t s_swap_buffer[LCD_WIDTH * LCD_SWAP_LINES];
@@ -34,29 +35,30 @@ static esp_err_t lcd_swap_internal(void);
 static void lcd_init_palette(void);
 static esp_err_t lcd_wait_for_color_tx_done(void);
 
-static uint16_t lcd_color_to_rgb565(uint8_t color)
+static uint8_t lcd_color565_to_332(uint16_t color)
 {
-    uint16_t red_5 = (uint16_t)((((color >> 5) & 0x07U) * 31U + 3U) / 7U);
-    uint16_t green_6 = (uint16_t)((((color >> 2) & 0x07U) * 63U + 3U) / 7U);
-    uint16_t blue_5 = (uint16_t)(((color & 0x03U) * 31U + 1U) / 3U);
-
-    return (uint16_t)((red_5 << 11) | (green_6 << 5) | blue_5);
+    return ((color & 0xE000) >> 8) | ((color & 0x0700) >> 6) | ((color & 0x0018) >> 3);
 }
 
-static uint8_t lcd_rgb565_to_rgb332(uint16_t color)
+static uint16_t lcd_color332_to_565(uint8_t r, uint8_t g, uint8_t b)
 {
-    uint8_t red_3 = (uint8_t)((((color >> 11) & 0x1FU) * 7U + 15U) / 31U);
-    uint8_t green_3 = (uint8_t)((((color >> 5) & 0x3FU) * 7U + 31U) / 63U);
-    uint8_t blue_2 = (uint8_t)(((color & 0x1FU) * 3U + 15U) / 31U);
-
-    return (uint8_t)((red_3 << 5) | (green_3 << 2) | blue_2);
+    return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
 }
 
 static void lcd_init_palette(void)
 {
-    for (uint16_t index = 0; index < 256U; ++index)
+    for (int i = 0; i < 256; i++)
     {
-        s_palette[index] = lcd_color_to_rgb565((uint8_t)index);
+        uint8_t r3 = (i >> 5) & 0x07;
+        uint8_t g3 = (i >> 2) & 0x07;
+        uint8_t b2 = i & 0x03;
+
+        uint8_t r8 = (r3 * 255) / 7;
+        uint8_t g8 = (g3 * 255) / 7;
+        uint8_t b8 = (b2 * 255) / 3;
+
+        uint16_t pixel = lcd_color332_to_565(r8, g8, b8);
+        s_palette[i] = (uint16_t)((pixel << 8) | (pixel >> 8));
     }
 }
 
@@ -264,7 +266,7 @@ static esp_err_t display_init(void)
 
     lcd_set_font(LCD_DEFAULT_FONT_SIZE);
     lcd_init_palette();
-    lcd_fill(0x00U);
+    lcd_fill(0x0000);
     if (!lcd_set_backlight(100))
     {
         lcd_deinit();
@@ -337,21 +339,22 @@ void lcd_swap(void)
     }
 }
 
-void lcd_draw_pixel(uint16_t x, uint16_t y, uint8_t color)
+void lcd_draw_pixel(uint16_t x, uint16_t y, uint16_t color)
 {
     if (x >= LCD_WIDTH || y >= LCD_HEIGHT)
     {
         return;
     }
 
-    s_framebuffer[lcd_framebuffer_index(x, y)] = color;
+    s_framebuffer[lcd_framebuffer_index(x, y)] = lcd_color565_to_332(color);
 }
 
-void lcd_fill(uint8_t color)
+void lcd_fill(uint16_t color)
 {
+    uint8_t c = lcd_color565_to_332(color);
     for (size_t pixel = 0; pixel < (size_t)LCD_WIDTH * LCD_HEIGHT; ++pixel)
     {
-        s_framebuffer[pixel] = color;
+        s_framebuffer[pixel] = c;
     }
 }
 
@@ -406,7 +409,7 @@ void lcd_blit_16bit(uint16_t x, uint16_t y, uint16_t width, uint16_t height,
 
         for (uint16_t col = 0; col < copy_width; ++col)
         {
-            dst_row[col] = lcd_rgb565_to_rgb332(src_row[col]);
+            dst_row[col] = lcd_color565_to_332(src_row[col]);
         }
     }
 }
@@ -421,7 +424,7 @@ void lcd_read_row(uint16_t y, uint8_t *out_buffer)
     memcpy(out_buffer, &s_framebuffer[lcd_framebuffer_index(0, y)], LCD_WIDTH);
 }
 
-void lcd_draw_line(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint8_t color)
+void lcd_draw_line(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color)
 {
     int32_t current_x = x1;
     int32_t current_y = y1;
@@ -459,20 +462,21 @@ void lcd_draw_line(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint8_t c
     }
 }
 
-void lcd_draw_rect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint8_t color)
+void lcd_draw_rect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color)
 {
     if (width == 0 || height == 0)
     {
         return;
     }
 
-    lcd_draw_hline_clipped(x, y, width, color);
-    lcd_draw_hline_clipped(x, (int32_t)y + height - 1, width, color);
+    uint8_t c = lcd_color565_to_332(color);
+    lcd_draw_hline_clipped(x, y, width, c);
+    lcd_draw_hline_clipped(x, (int32_t)y + height - 1, width, c);
     lcd_draw_line(x, y, x, y + height - 1, color);
     lcd_draw_line(x + width - 1, y, x + width - 1, y + height - 1, color);
 }
 
-void lcd_fill_rect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint8_t color)
+void lcd_fill_rect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color)
 {
     if (x >= LCD_WIDTH || y >= LCD_HEIGHT || width == 0 || height == 0)
     {
@@ -490,13 +494,14 @@ void lcd_fill_rect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint
         fill_height = LCD_HEIGHT - y;
     }
 
+    uint8_t c = lcd_color565_to_332(color);
     for (uint16_t row = 0; row < fill_height; ++row)
     {
-        lcd_draw_hline_clipped(x, y + row, fill_width, color);
+        lcd_draw_hline_clipped(x, y + row, fill_width, c);
     }
 }
 
-void lcd_draw_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint8_t color)
+void lcd_draw_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint16_t color)
 {
     int32_t x = radius;
     int32_t y = 0;
@@ -526,18 +531,19 @@ void lcd_draw_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint
     }
 }
 
-void lcd_fill_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint8_t color)
+void lcd_fill_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint16_t color)
 {
     int32_t x = radius;
     int32_t y = 0;
     int32_t decision = 1 - x;
 
+    uint8_t c = lcd_color565_to_332(color);
     while (x >= y)
     {
-        lcd_draw_hline_clipped((int32_t)center_x - x, center_y + y, 2 * x + 1, color);
-        lcd_draw_hline_clipped((int32_t)center_x - x, center_y - y, 2 * x + 1, color);
-        lcd_draw_hline_clipped((int32_t)center_x - y, center_y + x, 2 * y + 1, color);
-        lcd_draw_hline_clipped((int32_t)center_x - y, center_y - x, 2 * y + 1, color);
+        lcd_draw_hline_clipped((int32_t)center_x - x, center_y + y, 2 * x + 1, c);
+        lcd_draw_hline_clipped((int32_t)center_x - x, center_y - y, 2 * x + 1, c);
+        lcd_draw_hline_clipped((int32_t)center_x - y, center_y + x, 2 * y + 1, c);
+        lcd_draw_hline_clipped((int32_t)center_x - y, center_y - x, 2 * y + 1, c);
 
         ++y;
         if (decision <= 0)
@@ -553,7 +559,7 @@ void lcd_fill_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint
 }
 
 void lcd_fill_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3,
-                       uint16_t y3, uint8_t color)
+                       uint16_t y3, uint16_t color)
 {
     int32_t min_x = x1;
     int32_t max_x = x1;
@@ -561,37 +567,21 @@ void lcd_fill_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint1
     int32_t max_y = y1;
 
     if (x2 < min_x)
-    {
         min_x = x2;
-    }
     if (x3 < min_x)
-    {
         min_x = x3;
-    }
     if (x2 > max_x)
-    {
         max_x = x2;
-    }
     if (x3 > max_x)
-    {
         max_x = x3;
-    }
     if (y2 < min_y)
-    {
         min_y = y2;
-    }
     if (y3 < min_y)
-    {
         min_y = y3;
-    }
     if (y2 > max_y)
-    {
         max_y = y2;
-    }
     if (y3 > max_y)
-    {
         max_y = y3;
-    }
 
     if (max_x < 0 || max_y < 0 || min_x >= LCD_WIDTH || min_y >= LCD_HEIGHT)
     {
@@ -599,21 +589,13 @@ void lcd_fill_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint1
     }
 
     if (min_x < 0)
-    {
         min_x = 0;
-    }
     if (min_y < 0)
-    {
         min_y = 0;
-    }
     if (max_x >= LCD_WIDTH)
-    {
         max_x = LCD_WIDTH - 1;
-    }
     if (max_y >= LCD_HEIGHT)
-    {
         max_y = LCD_HEIGHT - 1;
-    }
 
     int32_t area = lcd_edge_function(x1, y1, x2, y2, x3, y3);
     if (area == 0)
@@ -624,6 +606,7 @@ void lcd_fill_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint1
         return;
     }
 
+    uint8_t c = lcd_color565_to_332(color);
     for (int32_t py = min_y; py <= max_y; ++py)
     {
         for (int32_t px = min_x; px <= max_x; ++px)
@@ -635,14 +618,14 @@ void lcd_fill_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint1
             if ((area > 0 && w0 >= 0 && w1 >= 0 && w2 >= 0) ||
                 (area < 0 && w0 <= 0 && w1 <= 0 && w2 <= 0))
             {
-                lcd_draw_pixel((uint16_t)px, (uint16_t)py, color);
+                s_framebuffer[lcd_framebuffer_index((uint16_t)px, (uint16_t)py)] = c;
             }
         }
     }
 }
 
 void lcd_draw_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3,
-                       uint16_t y3, uint8_t color)
+                       uint16_t y3, uint16_t color)
 {
     lcd_draw_line(x1, y1, x2, y2, color);
     lcd_draw_line(x2, y2, x3, y3, color);
@@ -650,13 +633,13 @@ void lcd_draw_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint1
 }
 
 void lcd_fill_round_rectangle(uint16_t x, uint16_t y, uint16_t width, uint16_t height,
-                              uint16_t radius, uint8_t color)
+                              uint16_t radius, uint16_t color)
 {
     (void)radius;
     lcd_fill_rect(x, y, width, height, color);
 }
 
-void lcd_draw_char(uint16_t x, uint16_t y, char c, uint8_t color)
+void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color)
 {
     const FontTable *font = lcd_get_font();
     uint8_t character = (uint8_t)c;
@@ -669,6 +652,7 @@ void lcd_draw_char(uint16_t x, uint16_t y, char c, uint8_t color)
     size_t glyph_stride = (size_t)font->height * bytes_per_row;
     const uint8_t *glyph = &font->table[(size_t)(character - 32U) * glyph_stride];
 
+    uint8_t c332 = lcd_color565_to_332(color);
     for (uint8_t row = 0; row < font->height; ++row)
     {
         for (uint8_t col = 0; col < font->width; ++col)
@@ -676,13 +660,13 @@ void lcd_draw_char(uint16_t x, uint16_t y, char c, uint8_t color)
             uint8_t glyph_byte = glyph[(size_t)row * bytes_per_row + (col / 8U)];
             if ((glyph_byte & (uint8_t)(0x80U >> (col % 8U))) != 0)
             {
-                lcd_draw_pixel(x + col, y + row, color);
+                s_framebuffer[lcd_framebuffer_index(x + col, y + row)] = c332;
             }
         }
     }
 }
 
-void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint8_t color)
+void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color)
 {
     if (text == NULL)
     {

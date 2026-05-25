@@ -1,5 +1,4 @@
 import jpegdec
-import time
 
 
 class JPEG(jpegdec.JPEGDecoder):
@@ -41,7 +40,7 @@ class JPEG(jpegdec.JPEGDecoder):
         mounted_vfs = False
         try:
             self._init_buffers()
-            if storage and hasattr(storage, "vfs_mounted") and not storage.vfs_mounted:
+            if storage and not storage.vfs_mounted:
                 mounted_vfs = storage.mount_vfs()
             with open(file_path, mode="rb") as fi:
                 fsize = fi.seek(0, 2)  # os.SEEK_END
@@ -109,7 +108,9 @@ class JPEG(jpegdec.JPEGDecoder):
         """Return (scale, (auto_x, auto_y)) so the image fits the display."""
         scale = 0.125
         for fact in (1, 2, 4, 8):
-            if (w + fact - 1) // fact <= self._max_width and (h + fact - 1) // fact <= self._max_height:
+            if (w + fact - 1) // fact <= self._max_width and (
+                h + fact - 1
+            ) // fact <= self._max_height:
                 scale = 1 / fact
                 break
         sw = int(w * scale)
@@ -151,7 +152,6 @@ class JPEG(jpegdec.JPEGDecoder):
         buf = self._buffers[buf_idx]
         self._buffers_pos[buf_idx] = 0
         fi.readinto(buf)
-        time.sleep_ms(2)  # yield SD bus to audio thread
         self._decoder_running = True
         rc = self._start_split(fsize, buf, x, y)
 
@@ -160,7 +160,6 @@ class JPEG(jpegdec.JPEGDecoder):
         self._buffers_pos[1] = pos2
         fi.seek(pos2)
         fi.readinto(buf2)
-        time.sleep_ms(2)  # yield SD bus to audio thread
         _ = self.decode_split_buffer(1, pos2, buf2)
 
         newpos = -1
@@ -189,7 +188,6 @@ class JPEG(jpegdec.JPEGDecoder):
                         self._buffers_pos[i] = pos2
                         fi.seek(pos2)
                         fi.readinto(buf2)
-                        time.sleep_ms(2)  # yield SD bus to audio thread
                         self.decode_split_buffer(i, pos2, buf2)
                 continue
 
@@ -201,7 +199,6 @@ class JPEG(jpegdec.JPEGDecoder):
             self._buffers_pos[buf_idx] = newpos
             fi.seek(newpos)
             fi.readinto(buf)
-            time.sleep_ms(2)  # yield SD bus to audio thread
             _ = self.decode_split_buffer(buf_idx, newpos, buf)
 
             buf_idx += 1
@@ -212,7 +209,6 @@ class JPEG(jpegdec.JPEGDecoder):
             self._buffers_pos[buf_idx] = newpos
             fi.seek(newpos)
             fi.readinto(buf)
-            time.sleep_ms(2)  # yield SD bus to audio thread
             _ = self.decode_split_buffer(buf_idx, newpos, buf)
 
         self._decoder_running = False

@@ -7,6 +7,7 @@ from picoware_boards import (
 
 try:
     import sd_mp
+    import vfs_mp
 
     class FAT32File(sd_mp.fat32_file):
         """
@@ -31,7 +32,7 @@ try:
                 super().__setattr__(name, value)
 
 except ImportError:
-    # waveshare 1.28 and crowpanel
+    # waveshare 1.28, crowpanel, and cardputer
     pass
 
 
@@ -52,6 +53,7 @@ class Storage:
         if BOARD_ID in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_CROWPANEL_10_1,
+            BOARD_CARDPUTER,
         ):
             self._has_storage = False
         else:
@@ -72,17 +74,6 @@ class Storage:
     def vfs_mounted(self) -> bool:
         """Returns True if the VFS is mounted (allows use of open(), __import__, etc.)."""
         return self._vfs_mounted
-
-    @property
-    def vfs_prefix(self) -> str:
-        """Returns the filesystem path prefix for VFS access.
-
-        On Cardputer the SD card is exposed at /sdcard via the C POSIX bridge;
-        on all other boards it is mounted at /sd by mount_vfs().
-        """
-        if BOARD_ID == BOARD_CARDPUTER:
-            return "/sdcard"
-        return "/sd"
 
     def copy(
         self, source_path: str, destination_path: str, bytes_per_chunk: int = 2048
@@ -238,11 +229,7 @@ class Storage:
         if not self._has_storage:
             return []  # Waveshare SD module does not support listdir yet
 
-        try:
-            return sd_mp.list_directory(path)
-        except Exception as e:
-            print(f"Error listing directory {path}: {e}")
-            return []
+        return sd_mp.list_directory(path)
 
     def mkdir(self, path: str) -> bool:
         """Create a new directory."""
@@ -294,14 +281,8 @@ class Storage:
         if not self._has_storage:
             return False  # No SD storage on this board
 
-        if BOARD_ID == BOARD_CARDPUTER:
-            self._vfs_mounted = True
-            return True
-
         try:
-            from vfs_mp import mount
-
-            result = mount(mount_point)
+            result = vfs_mp.mount(mount_point)
             if result:
                 self._vfs_mounted = True
             return result
@@ -334,13 +315,11 @@ class Storage:
         Returns:
             True if unmounted successfully, False otherwise
         """
-        if not self._vfs_mounted or BOARD_ID == BOARD_CARDPUTER:
+        if not self._vfs_mounted:
             return True
 
         try:
-            from vfs_mp import umount
-
-            umount(mount_point)
+            vfs_mp.umount(mount_point)
             self._vfs_mounted = False
             return True
         except ImportError:
@@ -454,11 +433,14 @@ class Storage:
             return False  # No SD storage on this board
 
         try:
-            if mode == "w":
-                return sd_mp.write(file_path, data.encode("utf-8"), True)
-            if mode == "a":
-                return sd_mp.write(file_path, data.encode("utf-8"), False)
-            return sd_mp.write(file_path, data, False)
+            if mode in ("w", "wb"):
+                payload = data.encode("utf-8") if isinstance(data, str) else data
+                return sd_mp.write(file_path, payload, True)
+            if mode in ("a", "ab"):
+                payload = data.encode("utf-8") if isinstance(data, str) else data
+                return sd_mp.write(file_path, payload, False)
+            payload = data.encode("utf-8") if isinstance(data, str) else data
+            return sd_mp.write(file_path, payload, False)
         except Exception as e:
             print(f"Error writing to file {file_path}: {e}")
             return False

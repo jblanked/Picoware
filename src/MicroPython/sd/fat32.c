@@ -17,6 +17,7 @@
 #include "pico/stdlib.h"
 #include "hardware/spi.h"
 #include "pico/sem.h"
+#include "pico/mutex.h"
 
 #include "sdcard.h"
 #include "fat32.h"
@@ -24,6 +25,60 @@
 // RTC access for FAT32 timestamps
 #include <time.h>
 #include "pico/aon_timer.h"
+
+#define fat32_is_ready real_fat32_is_ready
+#define fat32_mount real_fat32_mount
+#define fat32_unmount real_fat32_unmount
+#define fat32_is_mounted real_fat32_is_mounted
+#define fat32_get_status real_fat32_get_status
+#define fat32_get_free_space real_fat32_get_free_space
+#define fat32_get_total_space real_fat32_get_total_space
+#define fat32_get_volume_name real_fat32_get_volume_name
+#define fat32_get_cluster_size real_fat32_get_cluster_size
+#define fat32_open real_fat32_open
+#define fat32_create real_fat32_create
+#define fat32_close real_fat32_close
+#define fat32_read real_fat32_read
+#define fat32_write real_fat32_write
+#define fat32_seek real_fat32_seek
+#define fat32_tell real_fat32_tell
+#define fat32_size real_fat32_size
+#define fat32_eof real_fat32_eof
+#define fat32_delete real_fat32_delete
+#define fat32_rename real_fat32_rename
+#define fat32_set_current_dir real_fat32_set_current_dir
+#define fat32_get_current_dir real_fat32_get_current_dir
+#define fat32_dir_read real_fat32_dir_read
+#define fat32_dir_create real_fat32_dir_create
+#define fat32_init real_fat32_init
+
+// Forward declarations for the internal implementations. The public lock-aware
+// wrappers are defined later in this file and call these renamed symbols.
+bool real_fat32_is_ready(void);
+fat32_error_t real_fat32_mount(void);
+void real_fat32_unmount(void);
+bool real_fat32_is_mounted(void);
+fat32_error_t real_fat32_get_status(void);
+fat32_error_t real_fat32_get_free_space(uint64_t *free_space);
+fat32_error_t real_fat32_get_total_space(uint64_t *total_space);
+fat32_error_t real_fat32_get_volume_name(char *name, size_t name_len);
+uint32_t real_fat32_get_cluster_size(void);
+fat32_error_t real_fat32_open(fat32_file_t *file, const char *path);
+fat32_error_t real_fat32_create(fat32_file_t *file, const char *path);
+fat32_error_t real_fat32_close(fat32_file_t *file);
+fat32_error_t real_fat32_read(fat32_file_t *file, void *buffer, size_t size, size_t *bytes_read);
+fat32_error_t real_fat32_write(fat32_file_t *file, const void *buffer, size_t size, size_t *bytes_written);
+fat32_error_t real_fat32_seek(fat32_file_t *file, uint32_t position);
+uint32_t real_fat32_tell(fat32_file_t *file);
+uint32_t real_fat32_size(fat32_file_t *file);
+bool real_fat32_eof(fat32_file_t *file);
+fat32_error_t real_fat32_delete(const char *path);
+fat32_error_t real_fat32_rename(const char *old_path, const char *new_path);
+fat32_error_t real_fat32_set_current_dir(const char *path);
+fat32_error_t real_fat32_get_current_dir(char *path, size_t path_len);
+fat32_error_t real_fat32_dir_read(fat32_file_t *dir, fat32_entry_t *dir_entry);
+fat32_error_t real_fat32_dir_create(fat32_file_t *dir, const char *path);
+void real_fat32_init(void);
 
 // Reads current RTC time and fills fat_date / fat_time with FAT32-encoded values.
 // Falls back to 2020-01-01 00:00:00 if the RTC has not been set.
@@ -82,10 +137,26 @@ static uint32_t current_dir_cluster = 0; // Current directory cluster
 
 // Working buffers
 static uint8_t sector_buffer[FAT32_SECTOR_SIZE] __attribute__((aligned(4)));
+static uint8_t cached_fat_buffer[FAT32_SECTOR_SIZE] __attribute__((aligned(4)));
+static uint32_t cached_fat_sector = 0xffffffff;
 static fat32_lfn_entry_t lfn_buffer[MAX_LFN_PART]; // Buffer for long file name entries
 
 // Timer for SD card detection
 static repeating_timer_t sd_card_detect_timer;
+
+#ifndef FAT32_DETECT_INTERVAL_MS
+#define FAT32_DETECT_INTERVAL_MS 500
+#endif
+
+#ifndef FAT32_DETECT_ABSENT_THRESHOLD
+#define FAT32_DETECT_ABSENT_THRESHOLD 4
+#endif
+
+// Debounced card-detect state. The timer only updates these flags; actual
+// unmount is deferred and executed under the FAT32 lock in API wrappers.
+static volatile bool sd_unmount_requested = false;
+static volatile uint8_t sd_absent_streak = 0;
+static volatile bool sd_present_sampled = true;
 
 //
 //  Sector-level access functions
@@ -224,9 +295,13 @@ static fat32_error_t read_cluster_fat_entry(uint32_t cluster, uint32_t *value)
     uint32_t entry_offset = fat_offset % FAT32_SECTOR_SIZE;
 
     // Read the FAT sector
-    RETURN_ON_ERROR(read_sector(fat_sector, sector_buffer));
+    if (cached_fat_sector != fat_sector)
+    {
+        RETURN_ON_ERROR(read_sector(fat_sector, cached_fat_buffer));
+        cached_fat_sector = fat_sector;
+    }
 
-    uint32_t entry = *(uint32_t *)(sector_buffer + entry_offset);
+    uint32_t entry = *(uint32_t *)(cached_fat_buffer + entry_offset);
     *value = entry & 0x0FFFFFFF; // Mask out upper 4 bits for FAT32
     return FAT32_OK;
 }
@@ -252,6 +327,9 @@ static fat32_error_t write_cluster_fat_entry(uint32_t cluster, uint32_t value)
 
     // Write the modified sector back
     RETURN_ON_ERROR(write_sector(fat_sector, sector_buffer));
+
+    // Invalidate cached FAT sector
+    cached_fat_sector = 0xffffffff;
 
     return FAT32_OK;
 }
@@ -389,6 +467,8 @@ static fat32_error_t seek_to_cluster(uint32_t start_cluster, uint32_t offset, ui
 
 fat32_error_t fat32_mount(void)
 {
+    fat32_error_t err = FAT32_OK;
+
     if (!sd_card_present())
     {
         fat32_unmount(); // Unmount if card is not present
@@ -400,10 +480,18 @@ fat32_error_t fat32_mount(void)
         return FAT32_OK;
     }
 
-    RETURN_ON_ERROR(sd_card_init());
+    err = sd_card_init();
+    if (err != FAT32_OK)
+    {
+        goto mount_cleanup;
+    }
 
     // Read boot sector
-    RETURN_ON_ERROR(sd_read_block(0, sector_buffer));
+    err = sd_read_block(0, sector_buffer);
+    if (err != FAT32_OK)
+    {
+        goto mount_cleanup;
+    }
 
     // Is this a Master Boot Record (MBR)?
     if (is_sector_mbr(sector_buffer))
@@ -428,13 +516,18 @@ fat32_error_t fat32_mount(void)
                 volume_start_block = partition_entry->start_lba;
 
                 // Read the boot sector from the partition
-                RETURN_ON_ERROR(sd_read_block(volume_start_block, sector_buffer));
+                err = sd_read_block(volume_start_block, sector_buffer);
+                if (err != FAT32_OK)
+                {
+                    goto mount_cleanup;
+                }
                 break;
             }
         }
         if (volume_start_block == 0)
         {
-            return FAT32_ERROR_INVALID_FORMAT; // No valid FAT32 partition found
+            err = FAT32_ERROR_INVALID_FORMAT; // No valid FAT32 partition found
+            goto mount_cleanup;
         }
     }
     else if (is_sector_boot_sector(sector_buffer))
@@ -446,14 +539,19 @@ fat32_error_t fat32_mount(void)
     }
     else
     {
-        return FAT32_ERROR_INVALID_FORMAT; // This is not a valid FAT32 boot sector
+        err = FAT32_ERROR_INVALID_FORMAT; // This is not a valid FAT32 boot sector
+        goto mount_cleanup;
     }
 
     // Copy boot sector data
     memcpy(&boot_sector, sector_buffer, sizeof(fat32_boot_sector_t));
 
     // Validate boot sector
-    RETURN_ON_ERROR(is_valid_fat32_boot_sector(&boot_sector));
+    err = is_valid_fat32_boot_sector(&boot_sector);
+    if (err != FAT32_OK)
+    {
+        goto mount_cleanup;
+    }
 
     // Calculate important sectors/clusters
     bytes_per_cluster = boot_sector.sectors_per_cluster * FAT32_SECTOR_SIZE;
@@ -462,25 +560,36 @@ fat32_error_t fat32_mount(void)
     cluster_count = data_region_sectors / boot_sector.sectors_per_cluster;
     if (cluster_count < 65525)
     {
-        return FAT32_ERROR_INVALID_FORMAT; // This is FAT12 or FAT16, not FAT32!
+        err = FAT32_ERROR_INVALID_FORMAT; // This is FAT12 or FAT16, not FAT32!
+        goto mount_cleanup;
     }
 
     current_dir_cluster = boot_sector.root_cluster; // Start at root directory
 
     // Cache the FSInfo sector
-    RETURN_ON_ERROR(read_sector(boot_sector.fat32_info, sector_buffer));
+    err = read_sector(boot_sector.fat32_info, sector_buffer);
+    if (err != FAT32_OK)
+    {
+        goto mount_cleanup;
+    }
     memcpy(&fsinfo, sector_buffer, sizeof(fat32_fsinfo_t));
 
     if (fsinfo.lead_sig != 0x41615252 ||
         fsinfo.struc_sig != 0x61417272 ||
         fsinfo.trail_sig != 0xAA550000)
     {
-        return FAT32_ERROR_INVALID_FORMAT; // FSInfo is not valid
+        err = FAT32_ERROR_INVALID_FORMAT; // FSInfo is not valid
+        goto mount_cleanup;
     }
 
     fat32_mounted = true;
     mount_status = FAT32_OK; // Successfully mounted
     return FAT32_OK;
+
+mount_cleanup:
+    real_fat32_unmount();
+    mount_status = err;
+    return err;
 }
 
 void fat32_unmount(void)
@@ -493,6 +602,7 @@ void fat32_unmount(void)
     cluster_count = 0;
     bytes_per_cluster = 0;
     current_dir_cluster = 0;
+    cached_fat_sector = 0xffffffff;
 }
 
 bool fat32_is_mounted(void)
@@ -2283,10 +2393,23 @@ static bool on_sd_card_detect(repeating_timer_t *rt)
     // This will cover the case if the SD card is changed as we mount
     // the file system when it is needed.
 
-    if (!sd_card_present() && fat32_is_mounted())
+    (void)rt;
+
+    if (sd_card_present())
     {
-        fat32_unmount();                    // Unmount if card is not present
-        mount_status = FAT32_ERROR_NO_CARD; // Update status
+        sd_present_sampled = true;
+        sd_absent_streak = 0;
+        return true;
+    }
+
+    sd_present_sampled = false;
+    if (sd_absent_streak < 0xFF)
+    {
+        sd_absent_streak++;
+    }
+    if (sd_absent_streak >= FAT32_DETECT_ABSENT_THRESHOLD)
+    {
+        sd_unmount_requested = true;
     }
 
     return true;
@@ -2306,7 +2429,261 @@ void fat32_init(void)
     fat32_unmount(); // Ensure we start unmounted
 
     // Check if a SD card is present
-    add_repeating_timer_ms(500, on_sd_card_detect, NULL, &sd_card_detect_timer);
+    add_repeating_timer_ms(FAT32_DETECT_INTERVAL_MS, on_sd_card_detect, NULL, &sd_card_detect_timer);
 
     fat32_initialised = true;
+}
+
+#undef fat32_is_ready
+#undef fat32_mount
+#undef fat32_unmount
+#undef fat32_is_mounted
+#undef fat32_get_status
+#undef fat32_get_free_space
+#undef fat32_get_total_space
+#undef fat32_get_volume_name
+#undef fat32_get_cluster_size
+#undef fat32_open
+#undef fat32_create
+#undef fat32_close
+#undef fat32_read
+#undef fat32_write
+#undef fat32_seek
+#undef fat32_tell
+#undef fat32_size
+#undef fat32_eof
+#undef fat32_delete
+#undef fat32_rename
+#undef fat32_set_current_dir
+#undef fat32_get_current_dir
+#undef fat32_dir_read
+#undef fat32_dir_create
+#undef fat32_init
+
+auto_init_recursive_mutex(fat32_recursive_mutex);
+
+static inline void service_pending_unmount_locked(void)
+{
+    if (!sd_unmount_requested)
+    {
+        return;
+    }
+
+    if (real_fat32_is_mounted())
+    {
+        real_fat32_unmount();
+    }
+    mount_status = FAT32_ERROR_NO_CARD;
+    sd_unmount_requested = false;
+    sd_absent_streak = 0;
+    sd_present_sampled = sd_card_present();
+}
+
+static inline void lock_fs(void) {
+    recursive_mutex_enter_blocking(&fat32_recursive_mutex);
+}
+
+static inline void unlock_fs(void) {
+    recursive_mutex_exit(&fat32_recursive_mutex);
+}
+
+bool fat32_is_ready(void) {
+    lock_fs();
+    service_pending_unmount_locked();
+    bool res = real_fat32_is_ready();
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_mount(void) {
+    lock_fs();
+    service_pending_unmount_locked();
+    fat32_error_t res = real_fat32_mount();
+    unlock_fs();
+    return res;
+}
+
+void fat32_unmount(void) {
+    lock_fs();
+    sd_unmount_requested = false;
+    sd_absent_streak = 0;
+    real_fat32_unmount();
+    unlock_fs();
+}
+
+bool fat32_is_mounted(void) {
+    lock_fs();
+    service_pending_unmount_locked();
+    bool res = real_fat32_is_mounted();
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_get_status(void) {
+    lock_fs();
+    service_pending_unmount_locked();
+    fat32_error_t res = real_fat32_get_status();
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_get_free_space(uint64_t *free_space) {
+    lock_fs();
+    service_pending_unmount_locked();
+    fat32_error_t res = real_fat32_get_free_space(free_space);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_get_total_space(uint64_t *total_space) {
+    lock_fs();
+    service_pending_unmount_locked();
+    fat32_error_t res = real_fat32_get_total_space(total_space);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_get_volume_name(char *name, size_t name_len) {
+    lock_fs();
+    service_pending_unmount_locked();
+    fat32_error_t res = real_fat32_get_volume_name(name, name_len);
+    unlock_fs();
+    return res;
+}
+
+uint32_t fat32_get_cluster_size(void) {
+    lock_fs();
+    service_pending_unmount_locked();
+    uint32_t res = real_fat32_get_cluster_size();
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_open(fat32_file_t *file, const char *path) {
+    lock_fs();
+    service_pending_unmount_locked();
+    fat32_error_t res = real_fat32_open(file, path);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_create(fat32_file_t *file, const char *path) {
+    lock_fs();
+    service_pending_unmount_locked();
+    fat32_error_t res = real_fat32_create(file, path);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_close(fat32_file_t *file) {
+    lock_fs();
+    service_pending_unmount_locked();
+    fat32_error_t res = real_fat32_close(file);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_read(fat32_file_t *file, void *buffer, size_t size, size_t *bytes_read) {
+    lock_fs();
+    service_pending_unmount_locked();
+    fat32_error_t res = real_fat32_read(file, buffer, size, bytes_read);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_write(fat32_file_t *file, const void *buffer, size_t size, size_t *bytes_written) {
+    lock_fs();
+    service_pending_unmount_locked();
+    fat32_error_t res = real_fat32_write(file, buffer, size, bytes_written);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_seek(fat32_file_t *file, uint32_t position) {
+    lock_fs();
+    service_pending_unmount_locked();
+    fat32_error_t res = real_fat32_seek(file, position);
+    unlock_fs();
+    return res;
+}
+
+uint32_t fat32_tell(fat32_file_t *file) {
+    lock_fs();
+    service_pending_unmount_locked();
+    uint32_t res = real_fat32_tell(file);
+    unlock_fs();
+    return res;
+}
+
+uint32_t fat32_size(fat32_file_t *file) {
+    lock_fs();
+    service_pending_unmount_locked();
+    uint32_t res = real_fat32_size(file);
+    unlock_fs();
+    return res;
+}
+
+bool fat32_eof(fat32_file_t *file) {
+    lock_fs();
+    service_pending_unmount_locked();
+    bool res = real_fat32_eof(file);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_delete(const char *path) {
+    lock_fs();
+    service_pending_unmount_locked();
+    fat32_error_t res = real_fat32_delete(path);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_rename(const char *old_path, const char *new_path) {
+    lock_fs();
+    service_pending_unmount_locked();
+    fat32_error_t res = real_fat32_rename(old_path, new_path);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_set_current_dir(const char *path) {
+    lock_fs();
+    service_pending_unmount_locked();
+    fat32_error_t res = real_fat32_set_current_dir(path);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_get_current_dir(char *path, size_t path_len) {
+    lock_fs();
+    service_pending_unmount_locked();
+    fat32_error_t res = real_fat32_get_current_dir(path, path_len);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_dir_read(fat32_file_t *dir, fat32_entry_t *entry) {
+    lock_fs();
+    service_pending_unmount_locked();
+    fat32_error_t res = real_fat32_dir_read(dir, entry);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_dir_create(fat32_file_t *dir, const char *path) {
+    lock_fs();
+    service_pending_unmount_locked();
+    fat32_error_t res = real_fat32_dir_create(dir, path);
+    unlock_fs();
+    return res;
+}
+
+void fat32_init(void) {
+    lock_fs();
+    sd_unmount_requested = false;
+    sd_absent_streak = 0;
+    sd_present_sampled = sd_card_present();
+    real_fat32_init();
+    unlock_fs();
 }

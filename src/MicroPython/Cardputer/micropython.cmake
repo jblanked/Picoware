@@ -3,6 +3,8 @@
 
 # Identify Cardputer in shared modules (for board ID/capability flags).
 add_compile_definitions(CARDPUTER)
+# Ensure core ESP32 port sources (including shared TinyUSB) also see CARDPUTER.
+list(APPEND MICROPY_DEF_BOARD CARDPUTER)
 
 # Include Cardputer-specific C modules.
 include(${CMAKE_CURRENT_LIST_DIR}/lcd/micropython.cmake)

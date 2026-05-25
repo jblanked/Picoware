@@ -11,6 +11,7 @@ class ViewManager:
     FREQ_PIMORONI = 210000000
 
     __slots__ = (
+        "_active",
         "_current_view",
         "_view_count",
         "_selected_color",
@@ -48,6 +49,7 @@ class ViewManager:
         from picoware.system.buttons import BUTTON_BACK
         import json
 
+        self._active = True
         self._current_view = None
         self._view_count = 0
         self._selected_color = TFT_BLUE
@@ -240,6 +242,16 @@ class ViewManager:
             self._thread_manager = None
 
         collect()
+
+    @property
+    def active(self):
+        """Return whether the ViewManager is active."""
+        return self._active
+
+    @active.setter
+    def active(self, value: bool):
+        """Set the active state of the ViewManager."""
+        self._active = value
 
     @property
     def audio(self):
@@ -606,7 +618,7 @@ class ViewManager:
                 self._view_count -= 1
                 break
 
-    def run(self):
+    def run(self) -> bool:
         """Run the current view."""
         self._button = self._input_manager.button
         if self._button == 80:  # BUTTON_HOME
@@ -628,6 +640,8 @@ class ViewManager:
         if self._button != -1:
             self._input_manager.reset()
             self._button = -1
+
+        return self._active
 
     def set(self, view_name: str):
         """

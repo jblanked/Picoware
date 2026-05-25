@@ -28,8 +28,8 @@ def main():
         vm.switch_to("desktop_view")
 
         # Main loop
-        while True:
-            vm.run()
+        while vm.run():
+            pass
 
     except Exception as e:
         print(f"Error occurred: {e}")

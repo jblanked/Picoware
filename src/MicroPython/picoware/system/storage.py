@@ -226,7 +226,11 @@ class Storage:
         if not self._has_storage:
             return []  # Waveshare SD module does not support listdir yet
 
-        return sd_mp.list_directory(path)
+        try:
+            return sd_mp.list_directory(path)
+        except Exception as e:
+            print(f"Error listing directory {path}: {e}")
+            return []
 
     def mkdir(self, path: str) -> bool:
         """Create a new directory."""

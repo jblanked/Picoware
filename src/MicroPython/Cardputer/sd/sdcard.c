@@ -1,25 +1,24 @@
 #include "sdcard.h"
 
 #include "board_config.h"
-#include "esp_log.h"
+#include "sdcard_vfs_bridge.h"
 #include "extmod/vfs.h"
 #include "modmachine.h"
 #include "py/runtime.h"
 
-#include <sys/stat.h>
+#include <dirent.h>
+#include <errno.h>
+#include <stdio.h>
 
-static const char *TAG = "sdcard";
+#ifndef PRINT
+#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
+#endif
 
 #define SDCARD_MOUNT_POINT "/sdcard"
 #define SD_SLOT_SPI2 (2)
 
 static mp_obj_t s_sdcard_obj = MP_OBJ_NULL;
-
-static bool sdcard_path_is_mounted(void)
-{
-    struct stat st = {0};
-    return stat(SDCARD_MOUNT_POINT, &st) == 0 && S_ISDIR(st.st_mode);
-}
+static bool s_sdcard_mounted = false;
 
 static void sdcard_try_deinit_obj(void)
 {
@@ -45,12 +44,12 @@ static void sdcard_try_deinit_obj(void)
 
 bool sdcard_is_mounted(void)
 {
-    return sdcard_path_is_mounted();
+    return s_sdcard_mounted;
 }
 
 esp_err_t sdcard_mount(void)
 {
-    if (sdcard_path_is_mounted())
+    if (s_sdcard_mounted)
     {
         return ESP_OK;
     }
@@ -80,19 +79,28 @@ esp_err_t sdcard_mount(void)
         };
         mp_vfs_mount(2, mount_args, (mp_map_t *)&mp_const_empty_map);
 
+        esp_err_t bridge_ret = sdcard_vfs_bridge_register();
+        if (bridge_ret != ESP_OK)
+        {
+            // VFS mount succeeded but POSIX bridge failed... MicroPython VFS should still work
+            PRINT("POSIX bridge registration failed: %s", esp_err_to_name(bridge_ret));
+        }
+
         s_sdcard_obj = sd_obj;
+        s_sdcard_mounted = true;
         nlr_pop();
         return ESP_OK;
     }
 
+    s_sdcard_mounted = false;
     sdcard_try_deinit_obj();
-    ESP_LOGW(TAG, "SD mount failed via machine.SDCard/VFS");
+    PRINT("SD mount failed via machine.SDCard/VFS");
     return ESP_FAIL;
 }
 
 void sdcard_unmount(void)
 {
-    if (!sdcard_path_is_mounted() && s_sdcard_obj == MP_OBJ_NULL)
+    if (!s_sdcard_mounted && s_sdcard_obj == MP_OBJ_NULL)
     {
         return;
     }
@@ -105,8 +113,11 @@ void sdcard_unmount(void)
     }
     else
     {
-        ESP_LOGW(TAG, "SD unmount failed");
+        PRINT("SD unmount failed");
     }
 
+    sdcard_vfs_bridge_unregister();
+
+    s_sdcard_mounted = false;
     sdcard_try_deinit_obj();
 }

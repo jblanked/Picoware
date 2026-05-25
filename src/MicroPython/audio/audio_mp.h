@@ -50,7 +50,8 @@ extern "C"
     mp_obj_t audio_mp_play_song(mp_obj_t self_in, mp_obj_t song_in);  // method to play a song (blocking)
     mp_obj_t audio_mp_play_wav(mp_obj_t self_in, mp_obj_t filename);  // method to play a WAV file (non-blocking)
     mp_obj_t audio_mp_set_volume(mp_obj_t self_in, mp_obj_t volume);  // method to set the audio volume
-    mp_obj_t audio_mp_stop(mp_obj_t self_in);                         // method to stop all audio playback
+    mp_obj_t audio_mp_stop(mp_obj_t self_in);                         // method to stop playing audio
+    mp_obj_t audio_mp_seek(mp_obj_t self_in, mp_obj_t target_sample); // method to seek mp3
 
     void audio_note_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind);                    // print function for the Audio Note object
     mp_obj_t audio_note_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args); // constructor for the Audio Note object

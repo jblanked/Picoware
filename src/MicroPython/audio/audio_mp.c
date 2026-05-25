@@ -5,6 +5,12 @@
 const mp_obj_type_t audio_mp_type;
 const mp_obj_type_t audio_note_mp_type;
 const mp_obj_type_t audio_song_mp_type;
+extern const mp_obj_type_t audio_info_mp_type;
+
+typedef struct {
+    mp_obj_base_t base;
+    audio_info_t info;
+} audio_info_mp_obj_t;
 
 void audio_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
 {
@@ -55,9 +61,25 @@ void audio_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
         case MP_QSTR_is_playing:
             destination[0] = mp_obj_new_bool(audio_is_playing());
             return;
+        case MP_QSTR_is_sd_busy:
+            destination[0] = mp_obj_new_bool(audio_is_sd_busy());
+            return;
         case MP_QSTR_volume:
             destination[0] = mp_obj_new_int(audio_get_volume());
             return;
+        case MP_QSTR_info:
+        {
+            audio_info_t info = audio_get_info();
+            if (info.sample_rate == 0) {
+                destination[0] = mp_const_none;
+                return;
+            }
+            audio_info_mp_obj_t *info_obj = mp_obj_malloc(audio_info_mp_obj_t, &audio_info_mp_type);
+            info_obj->base.type = &audio_info_mp_type;
+            info_obj->info = info;
+            destination[0] = MP_OBJ_FROM_PTR(info_obj);
+            return;
+        }
         case MP_QSTR___del__:
             destination[0] = MP_OBJ_FROM_PTR(&audio_mp_del_obj);
             return;
@@ -172,6 +194,61 @@ mp_obj_t audio_mp_set_volume(mp_obj_t self_in, mp_obj_t volume)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(audio_mp_set_volume_obj, audio_mp_set_volume);
 
+mp_obj_t audio_mp_seek(mp_obj_t self_in, mp_obj_t target_sample)
+{
+    audio_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (!self->initialized)
+    {
+        mp_raise_TypeError(MP_ERROR_TEXT("Audio not initialized"));
+    }
+    uint64_t target = mp_obj_get_int_truncated(target_sample);
+    return audio_seek(target) ? mp_const_true : mp_const_false;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(audio_mp_seek_obj, audio_mp_seek);
+
+void audio_info_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
+{
+    (void)kind;
+    audio_info_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    mp_printf(print, "AudioInfo(sample_rate=%u, channels=%u, duration=%llu, position=%llu)",
+              (unsigned int)self->info.sample_rate,
+              (unsigned int)self->info.channels,
+              self->info.duration,
+              self->info.position);
+}
+
+void audio_info_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
+{
+    audio_info_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (destination[0] == MP_OBJ_NULL)
+    {
+        switch (attribute)
+        {
+        case MP_QSTR_sample_rate:
+            destination[0] = mp_obj_new_int(self->info.sample_rate);
+            break;
+        case MP_QSTR_channels:
+            destination[0] = mp_obj_new_int(self->info.channels);
+            break;
+        case MP_QSTR_duration:
+            destination[0] = mp_obj_new_int_from_ull(self->info.duration);
+            break;
+        case MP_QSTR_position:
+            destination[0] = mp_obj_new_int_from_ull(self->info.position);
+            break;
+        default:
+            return;
+        }
+    }
+}
+
+MP_DEFINE_CONST_OBJ_TYPE(
+    audio_info_mp_type,
+    MP_QSTR_AudioInfo,
+    MP_TYPE_FLAG_NONE,
+    print, audio_info_mp_print,
+    attr, audio_info_mp_attr);
+
 mp_obj_t audio_mp_stop(mp_obj_t self_in)
 {
     audio_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -191,6 +268,7 @@ static const mp_rom_map_elem_t audio_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_play_wav), MP_ROM_PTR(&audio_mp_play_wav_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_volume), MP_ROM_PTR(&audio_mp_set_volume_obj)},
     {MP_ROM_QSTR(MP_QSTR_stop), MP_ROM_PTR(&audio_mp_stop_obj)},
+    {MP_ROM_QSTR(MP_QSTR_seek), MP_ROM_PTR(&audio_mp_seek_obj)},
     // octave 3
     {MP_ROM_QSTR(MP_QSTR_PITCH_C3), MP_ROM_INT(PITCH_C3)},
     {MP_ROM_QSTR(MP_QSTR_PITCH_CS3), MP_ROM_INT(PITCH_CS3)},

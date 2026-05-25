@@ -1164,11 +1164,17 @@ mp_obj_t sd_mp_list_directory(mp_obj_t dirpath_obj)
     char path[SD_MP_PATH_MAX];
     DIR *dir = NULL;
     struct dirent *entry = NULL;
+    int read_errno = 0;
     mp_obj_t list = mp_obj_new_list(0, NULL);
 
     if (!sd_mp_normalize_path(mp_obj_str_get_str(dirpath_obj), path, sizeof(path)))
     {
         mp_raise_ValueError(MP_ERROR_TEXT("invalid path"));
+    }
+
+    if (!sd_mp_ensure_mounted())
+    {
+        mp_raise_OSError(MP_EIO);
     }
 
     dir = opendir(path);
@@ -1178,8 +1184,16 @@ mp_obj_t sd_mp_list_directory(mp_obj_t dirpath_obj)
         mp_raise_OSError(MP_ENOENT);
     }
 
-    while ((entry = readdir(dir)) != NULL)
+    while (1)
     {
+        errno = 0;
+        entry = readdir(dir);
+        if (entry == NULL)
+        {
+            read_errno = errno;
+            break;
+        }
+
         if (sd_mp_is_dot_entry(entry->d_name))
         {
             continue;
@@ -1188,6 +1202,13 @@ mp_obj_t sd_mp_list_directory(mp_obj_t dirpath_obj)
     }
 
     closedir(dir);
+
+    if (read_errno != 0)
+    {
+        PRINT("Directory read failed (errno=%d).\n", read_errno);
+        mp_raise_OSError(read_errno);
+    }
+
     return list;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(sd_mp_list_directory_obj, sd_mp_list_directory);

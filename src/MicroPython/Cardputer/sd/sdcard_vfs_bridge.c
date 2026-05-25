@@ -34,7 +34,9 @@ typedef struct
 
 typedef struct
 {
-    mp_obj_t iter_obj;
+    mp_obj_base_t base;
+    mp_obj_t entries_obj;
+    size_t next_index;
     struct dirent de;
 } bridge_dir_t;
 
@@ -50,16 +52,27 @@ static int set_errno_from_nlr(nlr_buf_t *nlr, int fallback)
     {
         mp_obj_t value = mp_obj_exception_get_value(MP_OBJ_FROM_PTR(exc));
         mp_int_t parsed = 0;
-        if (mp_obj_get_int_maybe(value, &parsed))
+        if (!mp_obj_get_int_maybe(value, &parsed))
         {
-            if (parsed < 0)
+            if (mp_obj_is_type(value, &mp_type_tuple) || mp_obj_is_type(value, &mp_type_list))
             {
-                parsed = -parsed;
+                mp_obj_t *items = NULL;
+                size_t items_len = 0;
+                mp_obj_get_array(value, &items_len, &items);
+                if (items_len > 0)
+                {
+                    mp_obj_get_int_maybe(items[0], &parsed);
+                }
             }
-            if (parsed > 0)
-            {
-                err = (int)parsed;
-            }
+        }
+
+        if (parsed < 0)
+        {
+            parsed = -parsed;
+        }
+        if (parsed > 0)
+        {
+            err = (int)parsed;
         }
     }
 
@@ -426,17 +439,19 @@ static DIR *bridge_opendir(const char *path)
         return NULL;
     }
 
-    bridge_dir_t *dir = calloc(1, sizeof(*dir));
+    // Keep this struct on the MicroPython GC heap so iter_obj stays reachable.
+    bridge_dir_t *dir = m_new_obj(bridge_dir_t);
     if (dir == NULL)
     {
         errno = ENOMEM;
         return NULL;
     }
+    memset(dir, 0, sizeof(*dir));
 
     nlr_buf_t nlr;
     if (nlr_push(&nlr) != 0)
     {
-        free(dir);
+        m_del_obj(bridge_dir_t, dir);
         set_errno_from_nlr(&nlr, EIO);
         return NULL;
     }
@@ -444,7 +459,8 @@ static DIR *bridge_opendir(const char *path)
     mp_obj_t ilist_args[] = {
         mp_obj_new_str(abs_path, strlen(abs_path)),
     };
-    dir->iter_obj = mp_vfs_ilistdir(1, ilist_args);
+    dir->entries_obj = mp_vfs_listdir(1, ilist_args);
+    dir->next_index = 0;
     nlr_pop();
 
     return (DIR *)dir;
@@ -467,24 +483,31 @@ static struct dirent *bridge_readdir(DIR *pdir)
         return NULL;
     }
 
-    mp_obj_t next = mp_iternext(dir->iter_obj);
-    if (next == MP_OBJ_STOP_ITERATION)
+    mp_obj_t *entries = NULL;
+    size_t entries_len = 0;
+    mp_obj_get_array(dir->entries_obj, &entries_len, &entries);
+
+    if (dir->next_index >= entries_len)
     {
+        errno = 0;
         nlr_pop();
         return NULL;
     }
 
-    mp_obj_t *tuple_items = NULL;
-    mp_obj_get_array_fixed_n(next, 4, &tuple_items);
-
     size_t name_len = 0;
-    const char *name = mp_obj_str_get_data(tuple_items[0], &name_len);
+    mp_obj_t entry = entries[dir->next_index++];
+    if (!mp_obj_is_str_or_bytes(entry))
+    {
+        errno = EIO;
+        nlr_pop();
+        return NULL;
+    }
+
+    const char *name = mp_obj_str_get_data(entry, &name_len);
 
     memset(&dir->de, 0, sizeof(dir->de));
     memcpy(dir->de.d_name, name, name_len < sizeof(dir->de.d_name) - 1 ? name_len : sizeof(dir->de.d_name) - 1);
-
-    mp_int_t mp_mode = mp_obj_get_int(tuple_items[1]);
-    dir->de.d_type = (mp_mode & MP_S_IFDIR) ? DT_DIR : DT_REG;
+    dir->de.d_type = DT_UNKNOWN;
 
     nlr_pop();
     return &dir->de;
@@ -498,7 +521,7 @@ static int bridge_closedir(DIR *pdir)
         return -1;
     }
 
-    free((bridge_dir_t *)pdir);
+    m_del_obj(bridge_dir_t, (bridge_dir_t *)pdir);
     return 0;
 }
 
@@ -542,7 +565,6 @@ esp_err_t sdcard_vfs_bridge_register(void)
 
     memset(s_file_slots, 0, sizeof(s_file_slots));
     s_bridge_registered = true;
-    PRINT("registered POSIX bridge for %s", SDCARD_MOUNT_POINT);
     return ESP_OK;
 }
 

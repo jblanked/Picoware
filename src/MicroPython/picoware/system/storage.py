@@ -2,6 +2,7 @@ from picoware_boards import (
     BOARD_ID,
     BOARD_WAVESHARE_1_28_RP2350,
     BOARD_CROWPANEL_10_1,
+    BOARD_CARDPUTER,
 )
 
 try:
@@ -71,6 +72,17 @@ class Storage:
     def vfs_mounted(self) -> bool:
         """Returns True if the VFS is mounted (allows use of open(), __import__, etc.)."""
         return self._vfs_mounted
+
+    @property
+    def vfs_prefix(self) -> str:
+        """Returns the filesystem path prefix for VFS access.
+
+        On Cardputer the SD card is exposed at /sdcard via the C POSIX bridge;
+        on all other boards it is mounted at /sd by mount_vfs().
+        """
+        if BOARD_ID == BOARD_CARDPUTER:
+            return "/sdcard"
+        return "/sd"
 
     def copy(
         self, source_path: str, destination_path: str, bytes_per_chunk: int = 2048
@@ -282,6 +294,10 @@ class Storage:
         if not self._has_storage:
             return False  # No SD storage on this board
 
+        if BOARD_ID == BOARD_CARDPUTER:
+            self._vfs_mounted = True
+            return True
+
         try:
             from vfs_mp import mount
 
@@ -318,7 +334,7 @@ class Storage:
         Returns:
             True if unmounted successfully, False otherwise
         """
-        if not self._vfs_mounted:
+        if not self._vfs_mounted or BOARD_ID == BOARD_CARDPUTER:
             return True
 
         try:

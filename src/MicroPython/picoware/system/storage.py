@@ -291,6 +291,9 @@ class Storage:
             sys.path.append("/sd/picoware/apps")
             import myapp  # imports /sd/picoware/apps/myapp.py
         """
+        if self._vfs_mounted:
+            return True  # Already mounted
+
         if not self._has_storage:
             return False  # No SD storage on this board
 

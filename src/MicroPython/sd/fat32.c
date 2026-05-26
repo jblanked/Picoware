@@ -17,9 +17,64 @@
 #include "pico/stdlib.h"
 #include "hardware/spi.h"
 #include "pico/sem.h"
+#include "pico/mutex.h"
 
 #include "sdcard.h"
 #include "fat32.h"
+
+// Rename public FAT32 symbols so we can wrap the existing implementations
+// with a recursive mutex without rewriting the implementation bodies.
+#define fat32_is_ready real_fat32_is_ready
+#define fat32_mount real_fat32_mount
+#define fat32_unmount real_fat32_unmount
+#define fat32_is_mounted real_fat32_is_mounted
+#define fat32_get_status real_fat32_get_status
+#define fat32_get_free_space real_fat32_get_free_space
+#define fat32_get_total_space real_fat32_get_total_space
+#define fat32_get_volume_name real_fat32_get_volume_name
+#define fat32_get_cluster_size real_fat32_get_cluster_size
+#define fat32_open real_fat32_open
+#define fat32_create real_fat32_create
+#define fat32_close real_fat32_close
+#define fat32_read real_fat32_read
+#define fat32_write real_fat32_write
+#define fat32_seek real_fat32_seek
+#define fat32_tell real_fat32_tell
+#define fat32_size real_fat32_size
+#define fat32_eof real_fat32_eof
+#define fat32_delete real_fat32_delete
+#define fat32_rename real_fat32_rename
+#define fat32_set_current_dir real_fat32_set_current_dir
+#define fat32_get_current_dir real_fat32_get_current_dir
+#define fat32_dir_read real_fat32_dir_read
+#define fat32_dir_create real_fat32_dir_create
+#define fat32_init real_fat32_init
+
+bool real_fat32_is_ready(void);
+fat32_error_t real_fat32_mount(void);
+void real_fat32_unmount(void);
+bool real_fat32_is_mounted(void);
+fat32_error_t real_fat32_get_status(void);
+fat32_error_t real_fat32_get_free_space(uint64_t *free_space);
+fat32_error_t real_fat32_get_total_space(uint64_t *total_space);
+fat32_error_t real_fat32_get_volume_name(char *name, size_t name_len);
+uint32_t real_fat32_get_cluster_size(void);
+fat32_error_t real_fat32_open(fat32_file_t *file, const char *path);
+fat32_error_t real_fat32_create(fat32_file_t *file, const char *path);
+fat32_error_t real_fat32_close(fat32_file_t *file);
+fat32_error_t real_fat32_read(fat32_file_t *file, void *buffer, size_t size, size_t *bytes_read);
+fat32_error_t real_fat32_write(fat32_file_t *file, const void *buffer, size_t size, size_t *bytes_written);
+fat32_error_t real_fat32_seek(fat32_file_t *file, uint32_t position);
+uint32_t real_fat32_tell(fat32_file_t *file);
+uint32_t real_fat32_size(fat32_file_t *file);
+bool real_fat32_eof(fat32_file_t *file);
+fat32_error_t real_fat32_delete(const char *path);
+fat32_error_t real_fat32_rename(const char *old_path, const char *new_path);
+fat32_error_t real_fat32_set_current_dir(const char *path);
+fat32_error_t real_fat32_get_current_dir(char *path, size_t path_len);
+fat32_error_t real_fat32_dir_read(fat32_file_t *dir, fat32_entry_t *dir_entry);
+fat32_error_t real_fat32_dir_create(fat32_file_t *dir, const char *path);
+void real_fat32_init(void);
 
 // RTC access for FAT32 timestamps
 #include <time.h>
@@ -2309,4 +2364,240 @@ void fat32_init(void)
     add_repeating_timer_ms(500, on_sd_card_detect, NULL, &sd_card_detect_timer);
 
     fat32_initialised = true;
+}
+
+#undef fat32_is_ready
+#undef fat32_mount
+#undef fat32_unmount
+#undef fat32_is_mounted
+#undef fat32_get_status
+#undef fat32_get_free_space
+#undef fat32_get_total_space
+#undef fat32_get_volume_name
+#undef fat32_get_cluster_size
+#undef fat32_open
+#undef fat32_create
+#undef fat32_close
+#undef fat32_read
+#undef fat32_write
+#undef fat32_seek
+#undef fat32_tell
+#undef fat32_size
+#undef fat32_eof
+#undef fat32_delete
+#undef fat32_rename
+#undef fat32_set_current_dir
+#undef fat32_get_current_dir
+#undef fat32_dir_read
+#undef fat32_dir_create
+#undef fat32_init
+
+auto_init_recursive_mutex(fat32_recursive_mutex);
+
+static inline void lock_fs(void)
+{
+    recursive_mutex_enter_blocking(&fat32_recursive_mutex);
+}
+
+static inline void unlock_fs(void)
+{
+    recursive_mutex_exit(&fat32_recursive_mutex);
+}
+
+bool fat32_is_ready(void)
+{
+    lock_fs();
+    bool res = real_fat32_is_ready();
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_mount(void)
+{
+    lock_fs();
+    fat32_error_t res = real_fat32_mount();
+    unlock_fs();
+    return res;
+}
+
+void fat32_unmount(void)
+{
+    lock_fs();
+    real_fat32_unmount();
+    unlock_fs();
+}
+
+bool fat32_is_mounted(void)
+{
+    lock_fs();
+    bool res = real_fat32_is_mounted();
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_get_status(void)
+{
+    lock_fs();
+    fat32_error_t res = real_fat32_get_status();
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_get_free_space(uint64_t *free_space)
+{
+    lock_fs();
+    fat32_error_t res = real_fat32_get_free_space(free_space);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_get_total_space(uint64_t *total_space)
+{
+    lock_fs();
+    fat32_error_t res = real_fat32_get_total_space(total_space);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_get_volume_name(char *name, size_t name_len)
+{
+    lock_fs();
+    fat32_error_t res = real_fat32_get_volume_name(name, name_len);
+    unlock_fs();
+    return res;
+}
+
+uint32_t fat32_get_cluster_size(void)
+{
+    lock_fs();
+    uint32_t res = real_fat32_get_cluster_size();
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_open(fat32_file_t *file, const char *path)
+{
+    lock_fs();
+    fat32_error_t res = real_fat32_open(file, path);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_create(fat32_file_t *file, const char *path)
+{
+    lock_fs();
+    fat32_error_t res = real_fat32_create(file, path);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_close(fat32_file_t *file)
+{
+    lock_fs();
+    fat32_error_t res = real_fat32_close(file);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_read(fat32_file_t *file, void *buffer, size_t size, size_t *bytes_read)
+{
+    lock_fs();
+    fat32_error_t res = real_fat32_read(file, buffer, size, bytes_read);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_write(fat32_file_t *file, const void *buffer, size_t size, size_t *bytes_written)
+{
+    lock_fs();
+    fat32_error_t res = real_fat32_write(file, buffer, size, bytes_written);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_seek(fat32_file_t *file, uint32_t position)
+{
+    lock_fs();
+    fat32_error_t res = real_fat32_seek(file, position);
+    unlock_fs();
+    return res;
+}
+
+uint32_t fat32_tell(fat32_file_t *file)
+{
+    lock_fs();
+    uint32_t res = real_fat32_tell(file);
+    unlock_fs();
+    return res;
+}
+
+uint32_t fat32_size(fat32_file_t *file)
+{
+    lock_fs();
+    uint32_t res = real_fat32_size(file);
+    unlock_fs();
+    return res;
+}
+
+bool fat32_eof(fat32_file_t *file)
+{
+    lock_fs();
+    bool res = real_fat32_eof(file);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_delete(const char *path)
+{
+    lock_fs();
+    fat32_error_t res = real_fat32_delete(path);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_rename(const char *old_path, const char *new_path)
+{
+    lock_fs();
+    fat32_error_t res = real_fat32_rename(old_path, new_path);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_set_current_dir(const char *path)
+{
+    lock_fs();
+    fat32_error_t res = real_fat32_set_current_dir(path);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_get_current_dir(char *path, size_t path_len)
+{
+    lock_fs();
+    fat32_error_t res = real_fat32_get_current_dir(path, path_len);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_dir_read(fat32_file_t *dir, fat32_entry_t *entry)
+{
+    lock_fs();
+    fat32_error_t res = real_fat32_dir_read(dir, entry);
+    unlock_fs();
+    return res;
+}
+
+fat32_error_t fat32_dir_create(fat32_file_t *dir, const char *path)
+{
+    lock_fs();
+    fat32_error_t res = real_fat32_dir_create(dir, path);
+    unlock_fs();
+    return res;
+}
+
+void fat32_init(void)
+{
+    lock_fs();
+    real_fat32_init();
+    unlock_fs();
 }

@@ -10,18 +10,9 @@ Source: https://github.com/BlairLeduc/picocalc-text-starter
 #include <stdbool.h>
 #include <stddef.h>
 
-#define SD_SPI (spi0)
-
-// Raspberry Pi Pico board GPIO pins
-#define SD_MISO (16)   // master in, slave out (MISO)
-#define SD_CS (17)     // chip select (CS)
-#define SD_SCK (18)    // serial clock (SCK)
-#define SD_MOSI (19)   // master out, slave in (MOSI)
-#define SD_DETECT (22) // card detect (CD)
-
 // SD card interface definitions
 #define SD_INIT_BAUDRATE (400000) // 400 KHz SPI clock speed for initialization
-#define SD_BAUDRATE (12500000)    // 12.5 MHz SPI clock speed (SD spec max for SPI mode)
+#define SD_BAUDRATE (12500000)    // 12.5 MHz SPI clock speed for reliability
 
 // SD card commands
 #define SD_CMD0 (0)    // GO_IDLE_STATE

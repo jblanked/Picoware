@@ -102,6 +102,18 @@ static inline void unlock_fs(void)
     recursive_mutex_exit(&fat32_recursive_mutex);
 }
 
+static inline void fat32_unmount_unlocked(void)
+{
+    fat32_mounted = false;
+    mount_status = FAT32_ERROR_NO_CARD;
+    volume_start_block = 0;
+    first_data_sector = 0;
+    data_region_sectors = 0;
+    cluster_count = 0;
+    bytes_per_cluster = 0;
+    current_dir_cluster = 0;
+}
+
 // Working buffers
 static uint8_t sector_buffer[FAT32_SECTOR_SIZE] __attribute__((aligned(4)));
 static fat32_lfn_entry_t lfn_buffer[MAX_LFN_PART]; // Buffer for long file name entries
@@ -417,7 +429,7 @@ fat32_error_t fat32_mount(void)
 
     if (!sd_card_present())
     {
-        fat32_unmount(); // Unmount if card is not present
+        fat32_unmount_unlocked(); // Unmount if card is not present
         err = FAT32_ERROR_NO_CARD;
         goto out;
     }
@@ -520,16 +532,7 @@ out:
 void fat32_unmount(void)
 {
     lock_fs();
-
-    fat32_mounted = false;
-    mount_status = FAT32_ERROR_NO_CARD;
-    volume_start_block = 0;
-    first_data_sector = 0;
-    data_region_sectors = 0;
-    cluster_count = 0;
-    bytes_per_cluster = 0;
-    current_dir_cluster = 0;
-
+    fat32_unmount_unlocked();
     unlock_fs();
 }
 
@@ -561,7 +564,7 @@ bool fat32_is_ready(void)
     {
         if (fat32_mounted)
         {
-            fat32_unmount(); // Unmount if card is not present
+            fat32_unmount_unlocked(); // Unmount if card is not present
         }
         mount_status = FAT32_ERROR_NO_CARD; // Set status to no card present
     }
@@ -2490,9 +2493,9 @@ static bool on_sd_card_detect(repeating_timer_t *rt)
     // This will cover the case if the SD card is changed as we mount
     // the file system when it is needed.
 
-    if (!sd_card_present() && fat32_is_mounted())
+    if (!sd_card_present() && fat32_mounted)
     {
-        fat32_unmount();                    // Unmount if card is not present
+        fat32_unmount_unlocked();           // Unmount if card is not present
         mount_status = FAT32_ERROR_NO_CARD; // Update status
     }
 
@@ -2512,7 +2515,7 @@ void fat32_init(void)
     sd_init();
 
     // Initialize the file system state
-    fat32_unmount(); // Ensure we start unmounted
+    fat32_unmount_unlocked(); // Ensure we start unmounted
 
     // Check if a SD card is present
     add_repeating_timer_ms(500, on_sd_card_detect, NULL, &sd_card_detect_timer);

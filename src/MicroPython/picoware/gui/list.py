@@ -220,7 +220,7 @@ class List:
             )
 
             # Draw navigation arrows
-            self.text_vec_pos.y = self.menu_y - 7
+            self.text_vec_pos.y = self.menu_y - 16
             if self._selected_index > 0:
                 self.display._text(5, self.text_vec_pos.y, "<", self.border_color)
             if self._selected_index < _len - 1:

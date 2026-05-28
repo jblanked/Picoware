@@ -155,7 +155,7 @@ class List:
             self._lvgl_list.add_item(item)
         self.items.append(item)
 
-    def clear(self) -> None:
+    def clear(self, swap: bool = True) -> None:
         """Clear the list."""
         if self.use_lvgl and self._lvgl_list is not None:
             self._lvgl_list.clear()
@@ -175,9 +175,10 @@ class List:
             self.size.y,
             self.background_color,
         )
-        self.display.swap()
+        if swap:
+            self.display.swap()
 
-    def draw(self) -> None:
+    def draw(self, swap: bool = True) -> None:
         """Draw the list with new style."""
         if self.use_lvgl and self._lvgl_list is not None:
             from picoware_lvgl import tick, task_handler
@@ -337,7 +338,8 @@ class List:
                 self.display._text(text_x, text_y, item_text, self.text_color)
 
         # Swap buffers
-        self.display.swap()
+        if swap:
+            self.display.swap()
 
     def get_item(self, index: int) -> str:
         """Get an item from the list."""
@@ -374,40 +376,40 @@ class List:
         if self._selected_index >= _len:
             self._selected_index = _len - 1 if _len > 0 else 0
 
-    def scroll_down(self) -> None:
+    def scroll_down(self, swap: bool = True) -> None:
         """Scroll the list down by one item."""
         if self.use_lvgl and self._lvgl_list is not None:
             self._lvgl_list.scroll_down()
             self._selected_index = self._lvgl_list.selected_index()
-            self.draw()
+            self.draw(swap)
             return
 
         self._selected_index += 1
         if self._selected_index >= len(self.items):
             self._selected_index = 0
-        self.draw()
+        self.draw(swap)
 
-    def scroll_up(self) -> None:
+    def scroll_up(self, swap: bool = True) -> None:
         """Scroll the list up by one item."""
         if self.use_lvgl and self._lvgl_list is not None:
             self._lvgl_list.scroll_up()
             self._selected_index = self._lvgl_list.selected_index()
-            self.draw()
+            self.draw(swap)
             return
 
         self._selected_index -= 1
         if self._selected_index < 0:
             self._selected_index = len(self.items) - 1
-        self.draw()
+        self.draw(swap)
 
-    def set_selected(self, index: int) -> None:
+    def set_selected(self, index: int, swap: bool = True) -> None:
         """Set the selected item in the list"""
         if self.use_lvgl and self._lvgl_list is not None:
             self._lvgl_list.set_selected(index)
             self._selected_index = index
-            self.draw()
+            self.draw(swap)
             return
 
         if 0 <= index < len(self.items):
             self._selected_index = index
-            self.draw()
+            self.draw(swap)

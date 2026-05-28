@@ -57,11 +57,12 @@ class Menu:
 
         # Initialize title rendering properties for standard mode
         if not self.use_lvgl:
+            self._five = self.display.size.y // 64  # 320 / 64 = 5
             _font = self.display.get_font(3)
             title_width = len(self._title) * (_font.width + _font.spacing)
             title_x = (self.display.size.x - title_width) // 2
-            title_y = self.position.y + 15
-            underline_y = title_y + _font.height + 5
+            title_y = self.position.y + self._five * 3
+            underline_y = title_y + _font.height + self._five
 
             self.title_pos = Vector(title_x, title_y)
             self.line_pos = Vector(self.title_pos.x, underline_y)
@@ -151,8 +152,8 @@ class Menu:
             _font = self.display.get_font(3)
             title_width = len(self._title) * (_font.width + _font.spacing)
             title_x = (self.display.size.x - title_width) // 2
-            title_y = self.position.y + 15
-            underline_y = title_y + _font.height + 5
+            title_y = self.position.y + self._five * 3
+            underline_y = title_y + _font.height + self._five
 
             self.title_pos.x, self.title_pos.y = title_x, title_y
             self.line_pos.x, self.line_pos.y = self.title_pos.x, underline_y

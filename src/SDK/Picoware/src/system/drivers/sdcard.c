@@ -388,6 +388,7 @@ void sd_init(void)
 
     // Initialize GPIO
     gpio_init(SD_MISO);
+    gpio_pull_up(SD_MISO);
     gpio_init(SD_CS);
     gpio_init(SD_SCK);
     gpio_init(SD_MOSI);

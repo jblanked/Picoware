@@ -58,8 +58,12 @@ class List:
             self.size = Vector(draw.size.x, height)
             draw.clear(self.position, self.size, background_color)
 
-            self.lines_per_screen = 14
-            self.item_height = 20
+            # 320 / 64 = 5
+            self._five = Vector(self.display.size.x // 64, self.display.size.y // 64)
+            self._sixteen = self.display.size.y // 20  # 320 / 20 = 16
+            self._three = self.display.size.y // 106  # 320 / 106 = 3
+
+            self.item_height = self._five.y * 4
             self._selected_index = 0
             self.visible_item_count = (
                 self.size.y - 2 * border_width
@@ -71,15 +75,15 @@ class List:
             self._dec_v = Vector(0, 0)
             self._dec_v_b = Vector(0, 0)
 
-            self.rec_vec_pos = Vector(5, 0)
-            self.rec_vec_size = Vector(self.size_x - 10, 0)
-            self.text_vec_pos = Vector(10, 0)
+            self.rec_vec_pos = Vector(self._five.x, 0)
+            self.rec_vec_size = Vector(self.size_x - self._five.x * 2, 0)
+            self.text_vec_pos = Vector(self._five.x * 2, 0)
 
             self.menu_y = int(self.position.y + self.size.y // 4)
             self.box_width = int(self.size_x - int(self.size_x // 6.4))
             self.box_height = int(self.size.y // 8)
             self.box_x = int((self.size_x - self.box_width) // 2)
-            self.dot_size = Vector(10, 10)
+            self.dot_size = Vector(self._five.x * 2, self._five.y * 2)
         else:
             # For LVGL mode, we still need to track items in Python
             self.items = []
@@ -195,7 +199,7 @@ class List:
         _len = len(self.items)
 
         # Draw decorative pattern below underline
-        self._dec_v.y = self.position.y + 5 + (self.display.size.y // 16)
+        self._dec_v.y = self.position.y + self._five.y + (self.display.size.y // 16)
         for i in range(0, self.size_x, 10):
             self.display._pixel(i, self._dec_v.y, self.border_color)
 
@@ -206,7 +210,7 @@ class List:
             # Draw selection box
             self.display._fill_rectangle(
                 self.box_x,
-                self.menu_y - 30,
+                self.menu_y - self._five.y * 6,
                 self.box_width,
                 self.box_height,
                 self.selected_color,
@@ -216,38 +220,47 @@ class List:
             item_width = self.display.len(current_item, 2)
             item_x = (self.size_x - item_width) // 2
             self.display._text(
-                item_x, self.menu_y - 20, current_item, self.text_color, 2
+                item_x,
+                self.menu_y - self._five.y * 4,
+                current_item,
+                self.text_color,
+                2,
             )
 
             # Draw navigation arrows
-            self.text_vec_pos.y = self.menu_y - 16
+            self.text_vec_pos.y = self.menu_y - self._sixteen
             if self._selected_index > 0:
-                self.display._text(5, self.text_vec_pos.y, "<", self.border_color)
+                self.display._text(
+                    self._five.x, self.text_vec_pos.y, "<", self.border_color
+                )
             if self._selected_index < _len - 1:
                 self.display._text(
-                    self.size_x - 15, self.text_vec_pos.y, ">", self.border_color
+                    self.size_x - self._five.x * 3,
+                    self.text_vec_pos.y,
+                    ">",
+                    self.border_color,
                 )
 
             # Draw indicator dots
-            indicator_y = self.menu_y + 20
-            if _len <= 15:
-                dots_spacing = 15
+            indicator_y = self.menu_y + self._five.y * 4
+            if _len <= self._five.x * 3:
+                dots_spacing = self._five.x * 3
                 dots_start_x = (self.size_x - (_len * dots_spacing)) // 2
                 for i in range(_len):
                     if i == self._selected_index:
                         self.display._fill_rectangle(
                             dots_start_x + (i * dots_spacing),
                             indicator_y,
-                            10,
-                            10,
+                            self.dot_size.x,
+                            self.dot_size.y,
                             self.border_color,
                         )
                     else:
                         self.display._rectangle(
                             dots_start_x + (i * dots_spacing),
                             indicator_y,
-                            10,
-                            10,
+                            self.dot_size.x,
+                            self.dot_size.y,
                             self.border_color,
                         )
             else:
@@ -264,12 +277,16 @@ class List:
 
             # Draw decorative bottom pattern
             for i in range(0, self.size_x, 10):
-                self.display._pixel(i, indicator_y + 25, self.border_color)
+                self.display._pixel(
+                    i, indicator_y + self._five.y * 5, self.border_color
+                )
 
             # Draw scrollable list below decorative pattern
-            list_start_y = indicator_y + 40
+            list_start_y = indicator_y + self._five.y * 8
             available_height = (self.position.y + self.size.y) - list_start_y
-            item_height = self.display.font_size.y + 6  # Font height + padding
+            item_height = (
+                self.display.font_size.y + self._three * 2
+            )  # Font height + padding
             max_visible_items = max(1, int(available_height / item_height))
 
             # Calculate which items to show based on selected index
@@ -303,11 +320,11 @@ class List:
                     )
 
                 # Draw item text
-                text_y = item_y + 3
+                text_y = item_y + self._three
                 item_text = self.items[i]
 
                 # Truncate text if too long
-                max_chars = (self.size_x - 20) // self.display.font_size.x
+                max_chars = (self.size_x - self._five.x * 4) // self.display.font_size.x
                 if len(item_text) > max_chars:
                     item_text = item_text[: max_chars - 2] + ".."
 
@@ -316,7 +333,7 @@ class List:
                     text_width = len(item_text) * self.display.font_size.x
                     text_x = (self.size_x - text_width) // 2
                 else:
-                    text_x = 10
+                    text_x = self._five.x * 2
                 self.display._text(text_x, text_y, item_text, self.text_color)
 
         # Swap buffers

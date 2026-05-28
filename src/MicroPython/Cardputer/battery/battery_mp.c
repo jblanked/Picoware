@@ -6,8 +6,8 @@ static bool g_battery_ready = false;
 
 static int cardputer_battery_percent_from_voltage(float voltage_v)
 {
-    const float min_v = 3.2f;
-    const float max_v = 4.2f;
+    const float min_v = 3.30f;
+    const float max_v = 4.10f;
 
     if (voltage_v <= min_v)
     {

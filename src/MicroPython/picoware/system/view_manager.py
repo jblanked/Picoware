@@ -539,6 +539,9 @@ class ViewManager:
             BOARD_CARDPUTER,
         )
 
+        if self._current_board_id in (BOARD_CROWPANEL_10_1, BOARD_CARDPUTER):
+            return freq(240000000)
+
         if frequency is not None:
             return freq(frequency)
 
@@ -550,9 +553,6 @@ class ViewManager:
 
         if self._current_board_id == BOARD_PICOCALC_PIMORONI_2W:
             return freq(self.FREQ_PIMORONI)
-
-        if self._current_board_id in (BOARD_CROWPANEL_10_1, BOARD_CARDPUTER):
-            return freq(240000000)
 
         return freq(self.FREQ_RP2350)
 

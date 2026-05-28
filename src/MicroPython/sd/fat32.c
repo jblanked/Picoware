@@ -417,8 +417,6 @@ static fat32_error_t seek_to_cluster(uint32_t start_cluster, uint32_t offset, ui
 
 static fat32_error_t fat32_mount_unlocked(void)
 {
-    fat32_error_t err;
-
     if (!sd_card_present())
     {
         fat32_unmount_unlocked(); // Unmount if card is not present
@@ -430,18 +428,10 @@ static fat32_error_t fat32_mount_unlocked(void)
         return FAT32_OK;
     }
 
-    err = sd_card_init();
-    if (err != FAT32_OK)
-    {
-        return err;
-    }
+    RETURN_ON_ERROR(sd_card_init());
 
     // Read boot sector
-    err = sd_read_block(0, sector_buffer);
-    if (err != FAT32_OK)
-    {
-        return err;
-    }
+    RETURN_ON_ERROR(sd_read_block(0, sector_buffer));
 
     // Is this a Master Boot Record (MBR)?
     if (is_sector_mbr(sector_buffer))
@@ -466,11 +456,7 @@ static fat32_error_t fat32_mount_unlocked(void)
                 volume_start_block = partition_entry->start_lba;
 
                 // Read the boot sector from the partition
-                err = sd_read_block(volume_start_block, sector_buffer);
-                if (err != FAT32_OK)
-                {
-                    return err;
-                }
+                RETURN_ON_ERROR(sd_read_block(volume_start_block, sector_buffer));
                 break;
             }
         }
@@ -495,11 +481,7 @@ static fat32_error_t fat32_mount_unlocked(void)
     memcpy(&boot_sector, sector_buffer, sizeof(fat32_boot_sector_t));
 
     // Validate boot sector
-    err = is_valid_fat32_boot_sector(&boot_sector);
-    if (err != FAT32_OK)
-    {
-        return err;
-    }
+    RETURN_ON_ERROR(is_valid_fat32_boot_sector(&boot_sector));
 
     // Calculate important sectors/clusters
     bytes_per_cluster = boot_sector.sectors_per_cluster * FAT32_SECTOR_SIZE;
@@ -514,11 +496,7 @@ static fat32_error_t fat32_mount_unlocked(void)
     current_dir_cluster = boot_sector.root_cluster; // Start at root directory
 
     // Cache the FSInfo sector
-    err = read_sector(boot_sector.fat32_info, sector_buffer);
-    if (err != FAT32_OK)
-    {
-        return err;
-    }
+    RETURN_ON_ERROR(read_sector(boot_sector.fat32_info, sector_buffer));
     memcpy(&fsinfo, sector_buffer, sizeof(fat32_fsinfo_t));
 
     if (fsinfo.lead_sig != 0x41615252 ||
@@ -1522,11 +1500,7 @@ static fat32_error_t fat32_open_unlocked(fat32_file_t *file, const char *path)
     memset(file, 0, sizeof(fat32_file_t));
 
     fat32_entry_t entry;
-    fat32_error_t err = find_entry(&entry, path);
-    if (err != FAT32_OK)
-    {
-        return err;
-    }
+    RETURN_ON_ERROR(find_entry(&entry, path));
 
     if (entry.attr & FAT32_ATTR_VOLUME_ID)
     {
@@ -1591,8 +1565,6 @@ fat32_error_t fat32_close(fat32_file_t *file)
 
 static fat32_error_t fat32_read_unlocked(fat32_file_t *file, void *buffer, size_t size, size_t *bytes_read)
 {
-    fat32_error_t err = FAT32_OK;
-
     if (!file || !file->is_open || !buffer)
     {
         return FAT32_ERROR_INVALID_PARAMETER;
@@ -1635,20 +1607,12 @@ static fat32_error_t fat32_read_unlocked(fat32_file_t *file, void *buffer, size_
     {
         // Seek forward from current position (common case for sequential reads)
         uint32_t delta = cluster_offset - file->current_cluster_index;
-        err = seek_to_cluster(file->current_cluster, delta, &cluster);
-        if (err != FAT32_OK)
-        {
-            return err;
-        }
+        RETURN_ON_ERROR(seek_to_cluster(file->current_cluster, delta, &cluster));
     }
     else
     {
         // Seeking backwards, must walk from start
-        err = seek_to_cluster(file->start_cluster, cluster_offset, &cluster);
-        if (err != FAT32_OK)
-        {
-            return err;
-        }
+        RETURN_ON_ERROR(seek_to_cluster(file->start_cluster, cluster_offset, &cluster));
     }
     file->current_cluster = cluster;
     file->current_cluster_index = cluster_offset;
@@ -1668,11 +1632,7 @@ static fat32_error_t fat32_read_unlocked(fat32_file_t *file, void *buffer, size_
         // If we're not aligned to a sector boundary, read partial sector
         if (byte_in_sector != 0)
         {
-            err = read_sector(base_sector + sector_in_cluster, sector_buffer);
-            if (err != FAT32_OK)
-            {
-                return err;
-            }
+            RETURN_ON_ERROR(read_sector(base_sector + sector_in_cluster, sector_buffer));
 
             size_t bytes_to_copy = FAT32_SECTOR_SIZE - byte_in_sector;
             if (bytes_to_copy > size - total_read)
@@ -1699,11 +1659,7 @@ static fat32_error_t fat32_read_unlocked(fat32_file_t *file, void *buffer, size_
         // Read multiple sectors directly into destination buffer
         if (complete_sectors > 0)
         {
-            err = read_sectors(base_sector + sector_in_cluster, complete_sectors, dest + total_read);
-            if (err != FAT32_OK)
-            {
-                return err;
-            }
+            RETURN_ON_ERROR(read_sectors(base_sector + sector_in_cluster, complete_sectors, dest + total_read));
 
             size_t bytes_read_bulk = complete_sectors * FAT32_SECTOR_SIZE;
             total_read += bytes_read_bulk;
@@ -1715,11 +1671,7 @@ static fat32_error_t fat32_read_unlocked(fat32_file_t *file, void *buffer, size_
         bytes_remaining = size - total_read;
         if (bytes_remaining > 0 && sector_in_cluster < sectors_per_cluster)
         {
-            err = read_sector(base_sector + sector_in_cluster, sector_buffer);
-            if (err != FAT32_OK)
-            {
-                return err;
-            }
+            RETURN_ON_ERROR(read_sector(base_sector + sector_in_cluster, sector_buffer));
 
             size_t bytes_to_copy = bytes_remaining;
             if (bytes_to_copy > FAT32_SECTOR_SIZE)
@@ -1736,11 +1688,7 @@ static fat32_error_t fat32_read_unlocked(fat32_file_t *file, void *buffer, size_
         if ((file->position % bytes_per_cluster) == 0 && total_read < size)
         {
             uint32_t next_cluster;
-            err = read_cluster_fat_entry(file->current_cluster, &next_cluster);
-            if (err != FAT32_OK)
-            {
-                return err;
-            }
+            RETURN_ON_ERROR(read_cluster_fat_entry(file->current_cluster, &next_cluster));
             if (next_cluster >= FAT32_FAT_ENTRY_EOC)
             {
                 // End of cluster chain or error
@@ -1755,7 +1703,7 @@ static fat32_error_t fat32_read_unlocked(fat32_file_t *file, void *buffer, size_
     {
         *bytes_read = total_read;
     }
-    return err;
+    return FAT32_OK;
 }
 
 fat32_error_t fat32_read(fat32_file_t *file, void *buffer, size_t size, size_t *bytes_read)
@@ -1771,8 +1719,6 @@ fat32_error_t fat32_read(fat32_file_t *file, void *buffer, size_t size, size_t *
 
 static fat32_error_t fat32_write_unlocked(fat32_file_t *file, const void *buffer, size_t size, size_t *bytes_written)
 {
-    fat32_error_t err = FAT32_OK;
-
     if (!file || !file->is_open || !buffer)
     {
         return FAT32_ERROR_INVALID_PARAMETER;
@@ -1808,20 +1754,12 @@ static fat32_error_t fat32_write_unlocked(fat32_file_t *file, const void *buffer
     for (uint32_t i = start_i; i < cluster_offset; i++)
     {
         uint32_t next_cluster;
-        err = read_cluster_fat_entry(cluster, &next_cluster);
-        if (err != FAT32_OK)
-        {
-            return err;
-        }
+        RETURN_ON_ERROR(read_cluster_fat_entry(cluster, &next_cluster));
         if (next_cluster >= FAT32_FAT_ENTRY_EOC)
         {
             // Allocate a new cluster and link it
             uint32_t new_cluster = 0;
-            err = allocate_and_link_cluster(cluster, &new_cluster);
-            if (err != FAT32_OK)
-            {
-                return err;
-            }
+            RETURN_ON_ERROR(allocate_and_link_cluster(cluster, &new_cluster));
             next_cluster = new_cluster;
         }
         cluster = next_cluster;
@@ -1857,25 +1795,13 @@ static fat32_error_t fat32_write_unlocked(fat32_file_t *file, const void *buffer
 
         if (actual_chain_length > 0 || i > 0)
         {
-            err = allocate_and_link_cluster(last_cluster, &new_cluster);
-            if (err != FAT32_OK)
-            {
-                return err;
-            }
+            RETURN_ON_ERROR(allocate_and_link_cluster(last_cluster, &new_cluster));
         }
         else
         {
             // First cluster for empty file
-            err = get_next_free_cluster(&new_cluster);
-            if (err != FAT32_OK)
-            {
-                return err;
-            }
-            err = write_cluster_fat_entry(new_cluster, FAT32_FAT_ENTRY_EOC);
-            if (err != FAT32_OK)
-            {
-                return err;
-            }
+            RETURN_ON_ERROR(get_next_free_cluster(&new_cluster));
+            RETURN_ON_ERROR(write_cluster_fat_entry(new_cluster, FAT32_FAT_ENTRY_EOC));
 
             if (fsinfo.free_count != 0xFFFFFFFF)
             {
@@ -1897,19 +1823,11 @@ static fat32_error_t fat32_write_unlocked(fat32_file_t *file, const void *buffer
     else if (cluster_offset > file->current_cluster_index)
     {
         uint32_t delta = cluster_offset - file->current_cluster_index;
-        err = seek_to_cluster(file->current_cluster, delta, &cluster);
-        if (err != FAT32_OK)
-        {
-            return err;
-        }
+        RETURN_ON_ERROR(seek_to_cluster(file->current_cluster, delta, &cluster));
     }
     else
     {
-        err = seek_to_cluster(file->start_cluster, cluster_offset, &cluster);
-        if (err != FAT32_OK)
-        {
-            return err;
-        }
+        RETURN_ON_ERROR(seek_to_cluster(file->start_cluster, cluster_offset, &cluster));
     }
     file->current_cluster = cluster;
     file->current_cluster_index = cluster_offset;
@@ -1922,11 +1840,7 @@ static fat32_error_t fat32_write_unlocked(fat32_file_t *file, const void *buffer
         uint32_t byte_in_sector = offset_in_cluster % FAT32_SECTOR_SIZE;
         uint32_t sector = cluster_to_sector(cluster) + sector_in_cluster;
 
-        err = read_sector(sector, sector_buffer);
-        if (err != FAT32_OK)
-        {
-            return err;
-        }
+        RETURN_ON_ERROR(read_sector(sector, sector_buffer));
 
         size_t bytes_to_write = FAT32_SECTOR_SIZE - byte_in_sector;
         if (bytes_to_write > size - total_written)
@@ -1936,11 +1850,7 @@ static fat32_error_t fat32_write_unlocked(fat32_file_t *file, const void *buffer
 
         memcpy(sector_buffer + byte_in_sector, src + total_written, bytes_to_write);
 
-        err = write_sector(sector, sector_buffer);
-        if (err != FAT32_OK)
-        {
-            return err;
-        }
+        RETURN_ON_ERROR(write_sector(sector, sector_buffer));
 
         total_written += bytes_to_write;
         pos_in_file += bytes_to_write;
@@ -2009,11 +1919,7 @@ static fat32_error_t fat32_write_unlocked(fat32_file_t *file, const void *buffer
     // Update directory entry file size and modification timestamp on disk
     if (file->dir_entry_sector && file->dir_entry_offset < FAT32_SECTOR_SIZE)
     {
-        err = read_sector(file->dir_entry_sector, sector_buffer);
-        if (err != FAT32_OK)
-        {
-            return err;
-        }
+        RETURN_ON_ERROR(read_sector(file->dir_entry_sector, sector_buffer));
 
         uint16_t fat_date, fat_time;
         fat32_get_fat_datetime(&fat_date, &fat_time);
@@ -2024,13 +1930,9 @@ static fat32_error_t fat32_write_unlocked(fat32_file_t *file, const void *buffer
         dir_entry->wrt_time = fat_time;
         dir_entry->lst_acc_date = fat_date;
 
-        err = write_sector(file->dir_entry_sector, sector_buffer);
-        if (err != FAT32_OK)
-        {
-            return err;
-        }
+        RETURN_ON_ERROR(write_sector(file->dir_entry_sector, sector_buffer));
     }
-    return err;
+    return FAT32_OK;
 }
 
 fat32_error_t fat32_write(fat32_file_t *file, const void *buffer, size_t size, size_t *bytes_written)
@@ -2304,8 +2206,6 @@ fat32_error_t fat32_get_current_dir(char *path, size_t path_len)
 
 static fat32_error_t fat32_dir_read_unlocked(fat32_file_t *dir, fat32_entry_t *dir_entry)
 {
-    fat32_error_t err = FAT32_OK;
-
     if (!dir || !dir_entry)
     {
         return FAT32_ERROR_INVALID_PARAMETER;
@@ -2411,11 +2311,7 @@ static fat32_error_t fat32_dir_read_unlocked(fat32_file_t *dir, fat32_entry_t *d
         if ((dir->position % bytes_per_cluster) == 0)
         {
             uint32_t next_cluster;
-            err = read_cluster_fat_entry(dir->current_cluster, &next_cluster);
-            if (err != FAT32_OK)
-            {
-                return err;
-            }
+            RETURN_ON_ERROR(read_cluster_fat_entry(dir->current_cluster, &next_cluster));
             if (next_cluster >= FAT32_FAT_ENTRY_EOC)
             {
                 // End of cluster chain
@@ -2426,7 +2322,7 @@ static fat32_error_t fat32_dir_read_unlocked(fat32_file_t *dir, fat32_entry_t *d
         }
     }
 
-    return err; // Successfully read a directory entry
+    return FAT32_OK; // Successfully read a directory entry
 }
 
 fat32_error_t fat32_dir_read(fat32_file_t *dir, fat32_entry_t *dir_entry)
@@ -2442,12 +2338,11 @@ fat32_error_t fat32_dir_read(fat32_file_t *dir, fat32_entry_t *dir_entry)
 
 static fat32_error_t fat32_dir_create_unlocked(fat32_file_t *dir, const char *path)
 {
-    fat32_error_t err;
     fat32_file_t file;
 
     memset(dir, 0, sizeof(fat32_file_t));
 
-    err = new_entry(&file, path, FAT32_ATTR_DIRECTORY);
+    fat32_error_t err = new_entry(&file, path, FAT32_ATTR_DIRECTORY);
     if (err != FAT32_OK)
     {
         return err; // Error creating directory
@@ -2459,11 +2354,7 @@ static fat32_error_t fat32_dir_create_unlocked(fat32_file_t *dir, const char *pa
     dir->current_cluster = dir->start_cluster;
 
     // Clear the directory cluster
-    err = clear_cluster(dir->start_cluster);
-    if (err != FAT32_OK)
-    {
-        return err;
-    }
+    RETURN_ON_ERROR(clear_cluster(dir->start_cluster));
 
     // Find parent directory cluster
     uint32_t parent_cluster = current_dir_cluster;
@@ -2521,20 +2412,12 @@ static fat32_error_t fat32_dir_create_unlocked(fat32_file_t *dir, const char *pa
     dotdot_entry.file_size = 0;
 
     // Write both entries to the first sector of the directory
-    err = read_sector(cluster_to_sector(dir->start_cluster), sector_buffer);
-    if (err != FAT32_OK)
-    {
-        return err;
-    }
+    RETURN_ON_ERROR(read_sector(cluster_to_sector(dir->start_cluster), sector_buffer));
 
     memcpy(sector_buffer, &dot_entry, sizeof(fat32_dir_entry_t));
     memcpy(sector_buffer + 32, &dotdot_entry, sizeof(fat32_dir_entry_t));
 
-    err = write_sector(cluster_to_sector(dir->start_cluster), sector_buffer);
-    if (err != FAT32_OK)
-    {
-        return err;
-    }
+    RETURN_ON_ERROR(write_sector(cluster_to_sector(dir->start_cluster), sector_buffer));
     return FAT32_OK;
 }
 

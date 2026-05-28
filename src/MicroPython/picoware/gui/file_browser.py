@@ -92,6 +92,11 @@ class FileBrowser:
         self._jpeg_vec = Vector(0, 0)
         self._info_box = None
 
+        draw = self._vm.draw
+        self._screen_w = draw.size.x
+        self._screen_h = draw.size.y
+        self._five = max(1, self._screen_h // 64)
+
         _start = start_directory if start_directory else "/"
 
         # Core application state to be saved/loaded
@@ -134,10 +139,6 @@ class FileBrowser:
         self.__refresh_panes()
         self._needs_redraw = True
 
-        draw = self._vm.draw
-        self._scale_og = Vector(draw.scale_x, draw.scale_y)
-        draw.set_scaling(draw.size.x // 320, draw.size.y // 320, True)
-
     def __del__(self):
         """Cleanup resources to prevent RAM build-up."""
         if self._loading:
@@ -166,7 +167,6 @@ class FileBrowser:
         self._info_data = None
 
         del self._jpeg_vec
-        del self._scale_og
 
     @property
     def directory(self) -> str:
@@ -324,7 +324,7 @@ class FileBrowser:
             self._text_viewer_box = TextBox(
                 draw,
                 0,
-                320,
+                self._screen_h,
                 self._vm.foreground_color,
                 self._vm.background_color,
             )
@@ -400,7 +400,7 @@ class FileBrowser:
         bg = self._vm.background_color
         sel = self._vm.selected_color
         draw = self._vm.draw
-        m = Menu(draw, title, 0, 320, fg, bg, sel, bg)
+        m = Menu(draw, title, 0, self._screen_h, fg, bg, sel, bg)
         for i in items:
             m.add_item(i)
         m.set_selected(0)
@@ -431,7 +431,26 @@ class FileBrowser:
     def __render(self) -> None:
         """Draw the UI based on the current state."""
         draw = self._vm.draw
-        sw, sh, mx = 320, 320, 160
+
+        sw, sh = self._screen_w, self._screen_h
+        mx = sw // 2
+        sx = self.__sx
+        sy = self.__sy
+
+        char_h = max(1, draw.font_size.y)
+
+        top_bar_h = max(char_h + sy(4), self._five * 2)
+        bottom_bar_h = top_bar_h
+        pane_header_h = top_bar_h
+        splitter_w = max(1, sx(1))
+        text_pad_x = sx(2)
+        text_line_y = max(0, (top_bar_h - char_h) // 2)
+        path_text_y = top_bar_h + max(0, (pane_header_h - char_h) // 2)
+        # Keep row spacing tied to current font height so visible rows scale by screen height.
+        row_h = max(char_h + sy(4), self._five * 2)
+        first_item_y = top_bar_h + pane_header_h + sy(2)
+
+        char_w = max(1, draw.font_size.x)
         color_fg = self._vm.foreground_color
         color_bg = self._vm.background_color
         color_sel = self._vm.selected_color
@@ -464,11 +483,18 @@ class FileBrowser:
                     if not draw.image_jpeg(
                         self._jpeg_vec, self._image_path, self._vm.storage
                     ):
-                        draw._text(10, 30, "Format not supported", color_fg)
-                        draw._text(10, 45, "or resolution too large.", color_fg)
-                        draw._text(10, 60, "(Must be Baseline JPEG)", color_fg)
-                        draw._fill_rectangle(0, sh - 12, sw, 12, color_sel)
-                        draw._text(2, sh - 10, "BACK : Close Image", color_bg)
+                        draw._text(sx(10), sy(30), "Format not supported", color_fg)
+                        draw._text(sx(10), sy(45), "or resolution too large.", color_fg)
+                        draw._text(sx(10), sy(60), "(Must be Baseline JPEG)", color_fg)
+                        draw._fill_rectangle(
+                            0, sh - bottom_bar_h, sw, bottom_bar_h, color_sel
+                        )
+                        draw._text(
+                            text_pad_x,
+                            sh - bottom_bar_h + text_line_y,
+                            "BACK : Close Image",
+                            color_bg,
+                        )
 
                 draw.swap()
                 self._image_load_state = 6
@@ -480,10 +506,18 @@ class FileBrowser:
 
         # 1.5 Text Viewer Overlay (Read-Only with Word Wrap)
         if self._is_viewing_text:
-            draw._fill_rectangle(0, 0, sw, 20, color_sel)
-            draw._text(5, 4, f"View: {self._edit_file.split('/')[-1]}", color_fg)
-            draw._fill_rectangle(0, sh - 20, sw, 20, color_sel)
-            draw._text(5, sh - 16, "UP/DWN:Scroll   BACK:Close", color_fg)
+            viewer_bar_h = max(sy(20), self._five * 4)
+            draw._fill_rectangle(0, 0, sw, viewer_bar_h, color_sel)
+            draw._text(
+                sx(5), sy(4), f"View: {self._edit_file.split('/')[-1]}", color_fg
+            )
+            draw._fill_rectangle(0, sh - viewer_bar_h, sw, viewer_bar_h, color_sel)
+            draw._text(
+                sx(5),
+                sh - viewer_bar_h + sy(4),
+                "UP/DWN:Scroll   BACK:Close",
+                color_fg,
+            )
 
             if self._text_viewer_box:
                 self._text_viewer_box.refresh()
@@ -506,23 +540,27 @@ class FileBrowser:
 
         # 3. Help Screen Overlay
         if self._is_help_screen:
-            draw._text(10, 5, "--- FILE BROWSER SHORTCUTS ---", color_sel)
-            draw._text(10, 20, "[MAIN BROWSER]", color_sel)
-            draw._text(10, 32, "UP/DWN:Scroll   L/R:Switch Pane", color_fg)
-            draw._text(10, 44, "CENTER:Menu     BACK:Exit App", color_fg)
-            draw._text(10, 56, "SPACE:Mark/Sel  D:Delete Marked", color_fg)
-            draw._text(10, 68, "N:New Folder    I:File Info", color_fg)
-            draw._text(10, 80, "M:Dir Enter Mode", color_fg)
-            draw._text(10, 92, "O:Options       H:Toggle Help", color_fg)
-            draw._text(10, 108, "[TEXT EDITOR]", color_sel)
-            draw._text(10, 120, "Arrows:Cursor   CENTER:Newline", color_fg)
-            draw._text(10, 132, "SHF/CAPS:Upper  BSPC:Delete Char", color_fg)
-            draw._text(10, 144, "BACK:Menu (Save/Exit/Whitespace)", color_fg)
-            draw._text(10, 160, "[TEXT ENTRY & MENUS]", color_sel)
-            draw._text(10, 172, "SHF/CAPS:Case   L/R:Move Cursor", color_fg)
-            draw._text(10, 184, "CENTER:Confirm  BACK:Cancel", color_fg)
-            draw._text(10, 200, "[IMAGE & TEXT VIEWER]", color_sel)
-            draw._text(10, 212, "UP/DWN:Scroll   BACK: Close", color_fg)
+            help_lines = (
+                ("--- FILE BROWSER SHORTCUTS ---", 5, color_sel),
+                ("[MAIN BROWSER]", 20, color_sel),
+                ("UP/DWN:Scroll   L/R:Switch Pane", 32, color_fg),
+                ("CENTER:Menu     BACK:Exit App", 44, color_fg),
+                ("SPACE:Mark/Sel  D:Delete Marked", 56, color_fg),
+                ("N:New Folder    I:File Info", 68, color_fg),
+                ("M:Dir Enter Mode", 80, color_fg),
+                ("O:Options       H:Toggle Help", 92, color_fg),
+                ("[TEXT EDITOR]", 108, color_sel),
+                ("Arrows:Cursor   CENTER:Newline", 120, color_fg),
+                ("SHF/CAPS:Upper  BSPC:Delete Char", 132, color_fg),
+                ("BACK:Menu (Save/Exit/Whitespace)", 144, color_fg),
+                ("[TEXT ENTRY & MENUS]", 160, color_sel),
+                ("SHF/CAPS:Case   L/R:Move Cursor", 172, color_fg),
+                ("CENTER:Confirm  BACK:Cancel", 184, color_fg),
+                ("[IMAGE & TEXT VIEWER]", 200, color_sel),
+                ("UP/DWN:Scroll   BACK: Close", 212, color_fg),
+            )
+            for text, y, color in help_lines:
+                draw._text(sx(10), sy(y), text, color)
 
             draw.swap()
             self._needs_redraw = False
@@ -533,7 +571,7 @@ class FileBrowser:
             if self._info_box is None:
                 from picoware.gui.textbox import TextBox
 
-                self._info_box = TextBox(draw, 0, 320, color_fg, color_bg)
+                self._info_box = TextBox(draw, 0, sh, color_fg, color_bg)
 
             self._info_box.set_text(self._info_data)
             self._info_box.refresh()
@@ -542,34 +580,57 @@ class FileBrowser:
 
         # 5. Options Menu
         if self._show_options:
-            draw._fill_rectangle(10, 10, sw - 20, sh - 20, color_bg)
-            draw._rectangle(10, 10, sw - 20, sh - 20, color_sel)
-            draw._fill_rectangle(10, 10, sw - 20, 20, color_sel)
-            draw._text(15, 14, "OPTIONS MENU", color_sel)
+            margin_x = sx(10)
+            margin_y = sy(10)
+            menu_x = margin_x
+            menu_y = margin_y
+            menu_w = sw - (margin_x * 2)
+            menu_h = sh - (margin_y * 2)
+            menu_header_h = max(sy(20), self._five * 4)
+            draw._fill_rectangle(menu_x, menu_y, menu_w, menu_h, color_bg)
+            draw._rectangle(menu_x, menu_y, menu_w, menu_h, color_sel)
+            draw._fill_rectangle(menu_x, menu_y, menu_w, menu_header_h, color_sel)
+            draw._text(menu_x + sx(5), menu_y + sy(4), "OPTIONS MENU", color_sel)
             for i, l in enumerate(self.OPTIONS_LABELS):
-                yp = 35 + (i * 15)
+                yp = menu_y + sy(25) + (i * sy(15))
                 tc = color_sel if i == self._opt_idx else color_fg
                 if i == self._opt_idx:
-                    draw._fill_rectangle(12, yp - 2, sw - 24, 13, color_bg)
-                draw._text(20, yp, l + ":", tc)
+                    draw._fill_rectangle(
+                        menu_x + sx(2),
+                        yp - sy(2),
+                        menu_w - sx(4),
+                        max(sy(13), self._five * 2 + 1),
+                        color_bg,
+                    )
+                draw._text(menu_x + sx(10), yp, l + ":", tc)
                 v = ""
                 if i == 0:
                     v = "Show" if self._app_state.get("show_hidden", False) else "Hide"
                 elif i == 1:
                     v = "Menu" if self._app_state.get("dir_menu", True) else "Open"
-                draw._text(130, yp, f"< {v} >", tc)
-            draw._fill_rectangle(10, sh - 30, sw - 20, 20, color_sel)
-            draw._text(15, sh - 26, "[L/R] Edit   [BACK/ENT] Save", color_bg)
+                draw._text(sx(130), yp, f"< {v} >", tc)
+            draw._fill_rectangle(menu_x, sh - sy(30), menu_w, menu_header_h, color_sel)
+            draw._text(
+                menu_x + sx(5),
+                sh - sy(26),
+                "[L/R] Edit   [BACK/ENT] Save",
+                color_bg,
+            )
             draw.swap()
             self._needs_redraw = False
             return
 
         # 6. Text Input Overlay (for renaming/creating)
         if self._input_active:
-            by = (sh - 70) // 2
-            draw._fill_rectangle(10, by, sw - 20, 70, color_bg)
-            draw._rectangle(10, by, sw - 20, 70, color_sel)
-            draw._fill_rectangle(10, by, sw - 20, 16, color_sel)
+            box_h = sy(70)
+            box_x = sx(10)
+            box_y = (sh - box_h) // 2
+            box_w = sw - (box_x * 2)
+            title_h = sy(16)
+
+            draw._fill_rectangle(box_x, box_y, box_w, box_h, color_bg)
+            draw._rectangle(box_x, box_y, box_w, box_h, color_sel)
+            draw._fill_rectangle(box_x, box_y, box_w, title_h, color_sel)
 
             ts = (
                 "RENAME"
@@ -578,17 +639,23 @@ class FileBrowser:
             )
             ind = "A" if self._is_caps else ("^" if self._is_shift else "a")
 
-            draw._text(15, by + 2, f"{ts} [{ind}]:", color_bg)
-            draw._text(15, by + 24, self._input_text, color_fg)
+            input_x = box_x + sx(5)
+            draw._text(input_x, box_y + sy(2), "{} [{}]:".format(ts, ind), color_bg)
+            draw._text(input_x, box_y + sy(24), self._input_text, color_fg)
 
             self._cursor_frame = (self._cursor_frame + 1) % 16
             if self._cursor_frame < 8:
+                cursor_w = char_w
                 draw._fill_rectangle(
-                    15 + (self._input_cursor * 6), by + 35, 6, 2, color_fg
+                    input_x + (self._input_cursor * cursor_w),
+                    box_y + sy(35),
+                    cursor_w,
+                    max(1, sy(2)),
+                    color_fg,
                 )
 
             self._needs_redraw = True
-            draw._text(15, by + 48, "ENT:Save BACK:Cancel", color_sel)
+            draw._text(input_x, box_y + sy(48), "ENT:Save BACK:Cancel", color_sel)
             draw.swap()
             return
 
@@ -606,22 +673,34 @@ class FileBrowser:
             return
 
         # 8. Main Dual-Pane Browser View
-        draw._fill_rectangle(0, 0, sw, 12, color_sel)
+        draw._fill_rectangle(0, 0, sw, top_bar_h, color_sel)
         dm = "Menu" if self._app_state.get("dir_menu", True) else "Open"
 
         mk_len = len(self._app_state["marked"])
         mk_str = f" [Sel:{mk_len}]" if mk_len > 0 else ""
 
-        draw._text(2, 2, f"File Browser [Dir:{dm}]{mk_str}", color_fg)
-        draw._fill_rectangle(mx, 12, 1, sh - 24, color_sel)
+        draw._text(
+            text_pad_x, text_line_y, f"File Browser [Dir:{dm}]{mk_str}", color_fg
+        )
+        draw._fill_rectangle(
+            mx,
+            top_bar_h,
+            splitter_w,
+            sh - (top_bar_h + bottom_bar_h),
+            color_sel,
+        )
 
-        c_lim, n_lim, m_itm = (mx - 8) // 6, ((mx - 8) // 6) - 6, (sh - 38) // 12
+        c_lim = max(1, (mx - sx(8)) // char_w)
+        n_lim = max(1, c_lim - 6)
+        list_height = max(0, sh - first_item_y - bottom_bar_h)
+        m_itm = max(1, list_height // row_h)
         ap = self._app_state["active_pane"]
 
         storage = self._vm.storage
         for pn in (self.PANE_LEFT, self.PANE_RIGHT):
             il = pn == self.PANE_LEFT
-            xb = 0 if il else mx + 1
+            xb = 0 if il else mx + splitter_w
+            pane_w = mx if il else sw - mx - splitter_w
             ps = self._app_state["left_path"] if il else self._app_state["right_path"]
             fl = self._app_state["left_files"] if il else self._app_state["right_files"]
             ix = self._app_state["left_index"] if il else self._app_state["right_index"]
@@ -637,10 +716,10 @@ class FileBrowser:
             self._app_state[top_key] = si
 
             if ap == pn:
-                draw._fill_rectangle(xb, 12, mx - (0 if il else 1), 12, color_sel)
-            draw._text(xb + 2, 14, ps[:c_lim], color_fg)
+                draw._fill_rectangle(xb, top_bar_h, pane_w, pane_header_h, color_sel)
+            draw._text(xb + text_pad_x, path_text_y, ps[:c_lim], color_fg)
 
-            yo = 26
+            yo = first_item_y
             for i, fn in enumerate(fl[si : si + m_itm]):
                 ai = i + si
                 fp = f"/{fn}" if ps == "/" else f"{ps}/{fn}"
@@ -661,10 +740,10 @@ class FileBrowser:
                 if ap == pn:
                     if ai == ix:
                         draw._fill_rectangle(
-                            xb + (0 if il else 1),
-                            yo - 1,
-                            mx - (2 if il else 3),
-                            10,
+                            xb + (0 if il else splitter_w),
+                            yo - sy(1),
+                            max(1, pane_w - sx(2)),
+                            max(1, row_h - sy(2)),
                             color_sel,
                         )
 
@@ -681,16 +760,21 @@ class FileBrowser:
                 dn = f"{mk_char}/{fn}" if isd else f"{mk_char}{fn}"
 
                 pl = max(0, c_lim - len(dn[:n_lim]) - len(szs))
-                draw._text(xb + 2, yo, dn[:n_lim] + (" " * pl) + szs, color_fg)
-                yo += 12
+                draw._text(xb + text_pad_x, yo, dn[:n_lim] + (" " * pl) + szs, color_fg)
+                yo += row_h
 
-        draw._fill_rectangle(0, sh - 12, sw, 12, color_sel)
+        draw._fill_rectangle(0, sh - bottom_bar_h, sw, bottom_bar_h, color_sel)
         if self._mode == FILE_BROWSER_SELECTOR:
-            draw._text(2, sh - 10, "ENT:Sel M:DirMode O:Opt", color_fg)
+            draw._text(
+                text_pad_x,
+                sh - bottom_bar_h + text_line_y,
+                "ENT:Sel M:DirMode O:Opt",
+                color_fg,
+            )
         else:
             draw._text(
-                2,
-                sh - 10,
+                text_pad_x,
+                sh - bottom_bar_h + text_line_y,
                 "ENT:Menu SPC:Mark N:New M:DirMode O:Opt H:Help",
                 color_fg,
             )
@@ -723,6 +807,24 @@ class FileBrowser:
         except Exception as e:
             self._vm.log(f"Failed to save settings: {e}", 2)
             return False
+
+    def __sx(self, value: int) -> int:
+        """Scale a width/X coordinate."""
+        if value == 0:
+            return 0
+        scaled = ((value) * self._screen_w) // 320
+        if scaled == 0:
+            scaled = 1
+        return -scaled if value < 0 else scaled
+
+    def __sy(self, value: int) -> int:
+        """Scale a height/Y coordinate."""
+        if value == 0:
+            return 0
+        scaled = ((value) * self._screen_h) // 320
+        if scaled == 0:
+            scaled = 1
+        return -scaled if value < 0 else scaled
 
     def run(self) -> bool:
         """
@@ -917,7 +1019,12 @@ class FileBrowser:
                     self._needs_redraw = True
             else:
                 c = self._vm.input_manager.button_to_char(btn)
-                if c and len(self._input_text) < 35:
+                max_input_chars = max(
+                    1,
+                    (self._screen_w - (self.__sx(20) + self.__sx(10)))
+                    // max(1, self._vm.draw.font_size.x),
+                )
+                if c and len(self._input_text) < max_input_chars:
                     self._input_text = (
                         self._input_text[: self._input_cursor]
                         + c
@@ -1410,7 +1517,6 @@ class FileBrowser:
                 self._needs_redraw = True
             else:
                 self.__save_settings()
-                self._vm.draw.set_scaling(self._scale_og.x, self._scale_og.y, False)
                 self._mode = self.MODE_EXIT
                 return False
 
@@ -1523,9 +1629,6 @@ class FileBrowser:
 
                     if self._mode == FILE_BROWSER_SELECTOR and not isd:
                         self.__save_settings()
-                        self._vm.draw.set_scaling(
-                            self._scale_og.x, self._scale_og.y, False
-                        )
                         self._mode = self.MODE_SELECT
                         return False
 

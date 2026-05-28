@@ -46,7 +46,8 @@ class ViewManager:
         from picoware.system.thread import ThreadManager
         from picoware.system.log import Log, LOG_MODE_ALL, LOG_MODE_REPL
         from picoware.system.colors import TFT_BLUE, TFT_BLACK, TFT_WHITE
-        from picoware.system.buttons import BUTTON_BACK
+        from picoware.system.buttons import BUTTON_BACK, BUTTON_ESCAPE
+        from picoware.system.boards import BOARD_CARDPUTER
         import json
 
         self._active = True
@@ -87,7 +88,9 @@ class ViewManager:
         # load settings
         __debug = False
         self._gmt_offset = 0
-        _back_button = BUTTON_BACK
+        _back_button = (
+            BUTTON_BACK if syst.board_id != BOARD_CARDPUTER else BUTTON_ESCAPE
+        )
         _keyboard_state = False
         if self._storage is not None:
 

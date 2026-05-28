@@ -57,7 +57,7 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_PSRAM 0 // no psram module in esp32 build yet
 #define BOARD_HAS_SD 1    // has sd card
 #define BOARD_HAS_TOUCH 0 // no touch
-#define BOARD_HAS_WIFI 0  // disabled... but it does have wifi (ESP32-S3)
+#define BOARD_HAS_WIFI 1  // has wifi
 #define BOARD_HAS_AUDIO 0 // no audio module in esp32 build yet
 #elif defined(CROWPANEL_10_1)
 // CrowPanel 10.1 ESP32-P4

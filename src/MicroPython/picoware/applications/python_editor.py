@@ -22,8 +22,7 @@ _keyboard_just_started = False
 
 def __template(filename: str) -> str:
     """Return a basic Picoware app template"""
-    return f'''
-# {filename}
+    return f'''# {filename}
 
 def start(view_manager) -> bool:
     """Start the app"""

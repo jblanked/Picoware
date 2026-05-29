@@ -7,6 +7,8 @@ void *JPEGdummy = {readFLASH}; // to avoid compiler error
 
 #if defined(PICOCALC)
 #include "../../lcd/lcd_config.h"
+#elif defined(CARDPUTER)
+#include "../lcd/lcd_config.h"
 #else
 #include "../../../lcd/lcd_config.h"
 #endif

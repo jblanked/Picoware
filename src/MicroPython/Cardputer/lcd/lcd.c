@@ -24,7 +24,7 @@ static const FontTable *s_current_font = &Font16;
 static uint8_t s_framebuffer[LCD_WIDTH * LCD_HEIGHT];
 static uint16_t s_palette[256];
 
-#define LCD_SWAP_LINES 16U
+#define LCD_SWAP_LINES 8U
 #define ST7789_CMD_INVOFF 0x20
 static const uint8_t LCD_TEXT_SPACING = 1;
 static const uint8_t LCD_LINE_SPACING = 2;

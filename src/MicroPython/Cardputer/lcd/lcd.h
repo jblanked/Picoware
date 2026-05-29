@@ -14,6 +14,11 @@
 #define LCD_DEFAULT_BRIGHTNESS 50 // Default brightness (0-100)
 #define LCD_DEFAULT_FONT_SIZE FONT_SIZE_SMALL
 
+#ifdef FONT_DEFAULT
+#undef FONT_DEFAULT
+#define FONT_DEFAULT FONT_SIZE_SMALL
+#endif
+
 #ifdef __cplusplus
 extern "C"
 {

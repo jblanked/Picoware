@@ -639,9 +639,9 @@ void lcd_fill_round_rectangle(uint16_t x, uint16_t y, uint16_t width, uint16_t h
     lcd_fill_rect(x, y, width, height, color);
 }
 
-void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color)
+void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color, FontSize size)
 {
-    const FontTable *font = lcd_get_font();
+    const FontTable *font = lcd_font_from_size(size);
     uint8_t character = (uint8_t)c;
     if (character < 32 || character > 126)
     {
@@ -666,7 +666,7 @@ void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color)
     }
 }
 
-void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color)
+void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color, FontSize size)
 {
     if (text == NULL)
     {
@@ -695,18 +695,18 @@ void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color)
             continue;
         }
 
-        if ((uint32_t)cursor_x + lcd_get_font()->width > LCD_WIDTH)
+        if ((uint32_t)cursor_x + lcd_font_from_size(size)->width > LCD_WIDTH)
         {
             cursor_x = start_x;
             cursor_y = (uint16_t)(cursor_y + lcd_line_advance());
         }
 
-        if ((uint32_t)cursor_y + lcd_get_font()->height > LCD_HEIGHT)
+        if ((uint32_t)cursor_y + lcd_font_from_size(size)->height > LCD_HEIGHT)
         {
             break;
         }
 
-        lcd_draw_char(cursor_x, cursor_y, *cursor, color);
+        lcd_draw_char(cursor_x, cursor_y, *cursor, color, size);
         cursor_x = (uint16_t)(cursor_x + lcd_text_advance());
     }
 }

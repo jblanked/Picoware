@@ -130,7 +130,7 @@
 #define ENGINE_LCD_TEXT lcd_draw_text
 #define ENGINE_LCD_TRIANGLE lcd_draw_triangle
 #elif defined(CARDPUTER)
-#define ENGINE_LCD_INCLUDE "../lcd/lcd_config.h"
+#define ENGINE_LCD_INCLUDE "../cardputer/lcd/lcd.h"
 #define ENGINE_LCD_WIDTH LCD_WIDTH
 #define ENGINE_LCD_HEIGHT LCD_HEIGHT
 #define ENGINE_LCD_CHAR lcd_draw_char

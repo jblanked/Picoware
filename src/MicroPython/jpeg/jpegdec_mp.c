@@ -17,6 +17,13 @@ void *JPEGdummy = {readFLASH}; // to avoid compiler error
 #include LCD_INCLUDE
 #endif
 
+#ifdef CARDPUTER
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/idf_additions.h"
+#define sleep_ms(ms) vTaskDelay(pdMS_TO_TICKS(ms))
+#endif
+
 #ifndef PRINT
 #define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
 #endif
@@ -32,6 +39,90 @@ uint32_t core1_stack[CORE1_STACK_SIZE];
 #define FIFO_CMD_DONE (0xffff0ff0)
 
 uint32_t JPEG_msg_core1;
+
+#ifdef CARDPUTER
+static TaskHandle_t s_jpeg_core1_task = NULL;
+static volatile bool s_jpeg_core1_result_pending = false;
+static volatile uint32_t s_jpeg_core1_result = 0;
+
+static BaseType_t multicore_fifo_pop_timeout_us(uint32_t timeout_us, uint32_t *result)
+{
+    (void)timeout_us;
+    if (result == NULL)
+    {
+        return pdFALSE;
+    }
+    if (s_jpeg_core1_result_pending)
+    {
+        *result = s_jpeg_core1_result;
+        s_jpeg_core1_result_pending = false;
+        return pdTRUE;
+    }
+    return pdFALSE;
+}
+
+static void multicore_lockout_victim_init(void)
+{
+}
+
+static void tight_loop_contents(void)
+{
+    taskYIELD();
+}
+
+static void multicore_reset_core1(void)
+{
+    if (s_jpeg_core1_task != NULL)
+    {
+        vTaskDelete(s_jpeg_core1_task);
+        s_jpeg_core1_task = NULL;
+    }
+    s_jpeg_core1_result_pending = false;
+    core1_running = 0;
+}
+
+typedef void (*jpeg_core1_entry_t)(void);
+
+static void jpeg_core1_task_entry(void *arg)
+{
+    jpeg_core1_entry_t entry = (jpeg_core1_entry_t)arg;
+    if (entry != NULL)
+    {
+        entry();
+    }
+    s_jpeg_core1_task = NULL;
+    vTaskDelete(NULL);
+}
+
+static void multicore_launch_core1_with_stack(void (*entry)(void), uint32_t *stack, uint32_t stack_words)
+{
+    (void)stack;
+    if (entry == NULL)
+    {
+        return;
+    }
+
+    const uint32_t stack_bytes = stack_words * sizeof(uint32_t);
+#if defined(CONFIG_FREERTOS_UNICORE)
+    const BaseType_t target_core = tskNO_AFFINITY;
+#else
+    const BaseType_t target_core = 1;
+#endif
+
+    if (xTaskCreatePinnedToCore(
+            jpeg_core1_task_entry,
+            "jpeg_core1",
+            stack_bytes,
+            (void *)entry,
+            tskIDLE_PRIORITY + 1,
+            &s_jpeg_core1_task,
+            target_core) != pdPASS)
+    {
+        s_jpeg_core1_task = NULL;
+        core1_running = 0;
+    }
+}
+#endif
 
 // decode_split runs with multicore
 #define FBUFFER_MAX (2)
@@ -277,6 +368,11 @@ static void decode_core1_split()
     core1_running = 1;
     docode_result = DecodeJPEG(g_context);
     g_context = NULL;
+    JPEG_msg_core1 = (uint32_t)docode_result;
+#ifdef CARDPUTER
+    s_jpeg_core1_result = JPEG_msg_core1;
+    s_jpeg_core1_result_pending = true;
+#endif
     core1_running = 2;
 }
 
@@ -445,6 +541,7 @@ mp_obj_t jpegdec_decode_core_wait(size_t n_args, const mp_obj_t *args)
         if (Coremode == 1)
         {
             multicore_reset_core1();
+            Coremode = 0;
             core1_running = 0;
             result = 0;
         }
@@ -452,6 +549,7 @@ mp_obj_t jpegdec_decode_core_wait(size_t n_args, const mp_obj_t *args)
     if (core1_running == 2)
     {
         result = docode_result;
+        Coremode = 0;
         core1_running = 0;
     }
     int res3 = (int)core1_running;
@@ -593,6 +691,7 @@ mp_obj_t jpegdec_decode_split(size_t n_args, const mp_obj_t *args)
     result = JPEGInit(self->context);
     if (result == 1)
     {
+        Coremode = 1;
         self->context->iXOffset = ofst_x;
         self->context->iYOffset = ofst_y;
         self->context->iOptions = ioption | JPEG_USES_DMA;
@@ -604,6 +703,10 @@ mp_obj_t jpegdec_decode_split(size_t n_args, const mp_obj_t *args)
         multicore_reset_core1();
         g_context = self->context;
         multicore_launch_core1_with_stack(decode_core1_split, core1_stack, CORE1_STACK_SIZE);
+    }
+    else
+    {
+        Coremode = 0;
     }
 
     mp_obj_t res[4] = {

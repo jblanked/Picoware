@@ -32,12 +32,7 @@
 #define LCD_MP_DEINIT lcd_deinit
 #define LCD_MP_WIDTH LCD_WIDTH
 #define LCD_MP_HEIGHT LCD_HEIGHT
-#define LCD_MP_CHAR(x, y, c, color, font_size) \
-    do                                         \
-    {                                          \
-        lcd_set_font((FontSize)(font_size));   \
-        lcd_draw_char((x), (y), (c), (color)); \
-    } while (0)
+#define LCD_MP_CHAR lcd_draw_char
 #define LCD_MP_CIRCLE lcd_draw_circle
 #define LCD_MP_CLEAR lcd_fill
 #define LCD_MP_FILL_CIRCLE lcd_fill_circle
@@ -51,12 +46,7 @@
 #define LCD_MP_READ_ROW lcd_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
 #define LCD_MP_SWAP lcd_swap
-#define LCD_MP_TEXT(x, y, text, color, font_size) \
-    do                                            \
-    {                                             \
-        lcd_set_font((FontSize)(font_size));      \
-        lcd_draw_text((x), (y), (text), (color)); \
-    } while (0)
+#define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
 #elif defined(WAVESHARE_1_28)
 #define LCD_INCLUDE "../Waveshare/RP2350-Touch-LCD-1.28/waveshare_lcd/lcd.h"

@@ -43,6 +43,7 @@ class FileBrowser:
         """Initialize the file browser."""
         import json
         from picoware.system.vector import Vector
+        from picoware.system.boards import BOARD_ID, BOARD_CARDPUTER
 
         # Link to system managers
         self._vm = view_manager
@@ -96,6 +97,8 @@ class FileBrowser:
         self._screen_w = draw.size.x
         self._screen_h = draw.size.y
         self._five = max(1, self._screen_h // 64)
+
+        self._add_info = BOARD_ID != BOARD_CARDPUTER
 
         _start = start_directory if start_directory else "/"
 
@@ -747,20 +750,28 @@ class FileBrowser:
                             color_sel,
                         )
 
-                if isd:
-                    szs = "<DIR>"
-                elif fz < 1024:
-                    szs = f"{fz}B"
-                elif fz < 1048576:
-                    szs = f"{fz//1024}K"
-                else:
-                    szs = f"{fz//1048576}M"
+                szs = ""
+                if self._add_info:
+                    if isd:
+                        szs = "<DIR>"
+                    elif fz < 1024:
+                        szs = f"{fz}B"
+                    elif fz < 1048576:
+                        szs = f"{fz//1024}K"
+                    else:
+                        szs = f"{fz//1048576}M"
 
                 mk_char = "*" if fp in self._app_state["marked"] else ""
                 dn = f"{mk_char}/{fn}" if isd else f"{mk_char}{fn}"
 
                 pl = max(0, c_lim - len(dn[:n_lim]) - len(szs))
-                draw._text(xb + text_pad_x, yo, dn[:n_lim] + (" " * pl) + szs, color_fg)
+                if self._add_info:
+                    draw._text(
+                        xb + text_pad_x, yo, dn[:n_lim] + (" " * pl) + szs, color_fg
+                    )
+                else:
+                    n_lim = min(c_lim, 14)
+                    draw._text(xb + text_pad_x, yo, dn[:n_lim], color_fg)
                 yo += row_h
 
         draw._fill_rectangle(0, sh - bottom_bar_h, sw, bottom_bar_h, color_sel)

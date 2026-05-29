@@ -13,6 +13,8 @@
 #include "../sd/storage.h"
 #endif
 
+#include "../vector/vector_mp.h"
+
 const mp_obj_type_t lcd_mp_type;
 
 static uint16_t lcd_scale_x(lcd_mp_obj_t *self, uint16_t v)
@@ -141,7 +143,7 @@ mp_obj_t lcd_mp_del(mp_obj_t self_in)
     }
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(lcd_mp_del_obj, lcd_mp_del);
+static MP_DEFINE_CONST_FUN_OBJ_1(lcd_mp_del_obj, lcd_mp_del);
 
 void lcd_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
@@ -473,7 +475,7 @@ mp_obj_t lcd_mp_char(size_t n_args, const mp_obj_t *args)
     LCD_MP_CHAR(x, y, c, color, font_size);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_char_obj, 5, 6, lcd_mp_char);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_char_obj, 5, 6, lcd_mp_char);
 
 mp_obj_t lcd_mp_circle(size_t n_args, const mp_obj_t *args)
 {
@@ -508,7 +510,7 @@ mp_obj_t lcd_mp_circle(size_t n_args, const mp_obj_t *args)
     LCD_MP_CIRCLE(center_x, center_y, radius, color);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_circle_obj, 5, 5, lcd_mp_circle);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_circle_obj, 5, 5, lcd_mp_circle);
 
 mp_obj_t lcd_mp_clear(mp_obj_t self_in, mp_obj_t color)
 {
@@ -521,7 +523,7 @@ mp_obj_t lcd_mp_clear(mp_obj_t self_in, mp_obj_t color)
     LCD_MP_CLEAR(clr);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(lcd_mp_clear_obj, lcd_mp_clear);
+static MP_DEFINE_CONST_FUN_OBJ_2(lcd_mp_clear_obj, lcd_mp_clear);
 
 mp_obj_t lcd_mp_fill_circle(size_t n_args, const mp_obj_t *args)
 {
@@ -555,7 +557,7 @@ mp_obj_t lcd_mp_fill_circle(size_t n_args, const mp_obj_t *args)
     LCD_MP_FILL_CIRCLE(center_x, center_y, radius, color);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_fill_circle_obj, 5, 5, lcd_mp_fill_circle);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_fill_circle_obj, 5, 5, lcd_mp_fill_circle);
 
 mp_obj_t lcd_mp_fill_rectangle(size_t n_args, const mp_obj_t *args)
 {
@@ -588,7 +590,7 @@ mp_obj_t lcd_mp_fill_rectangle(size_t n_args, const mp_obj_t *args)
     LCD_MP_FILL_RECTANGLE(x, y, width, height, color);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_fill_rectangle_obj, 6, 6, lcd_mp_fill_rectangle);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_fill_rectangle_obj, 6, 6, lcd_mp_fill_rectangle);
 
 mp_obj_t lcd_mp_fill_round_rectangle(size_t n_args, const mp_obj_t *args)
 {
@@ -626,7 +628,7 @@ mp_obj_t lcd_mp_fill_round_rectangle(size_t n_args, const mp_obj_t *args)
     LCD_MP_FILL_ROUND_RECTANGLE(x, y, width, height, radius, color);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_fill_round_rectangle_obj, 7, 7, lcd_mp_fill_round_rectangle);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_fill_round_rectangle_obj, 7, 7, lcd_mp_fill_round_rectangle);
 
 mp_obj_t lcd_mp_fill_triangle(size_t n_args, const mp_obj_t *args)
 {
@@ -663,7 +665,7 @@ mp_obj_t lcd_mp_fill_triangle(size_t n_args, const mp_obj_t *args)
     LCD_MP_FILL_TRIANGLE(x1, y1, x2, y2, x3, y3, color);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_fill_triangle_obj, 8, 8, lcd_mp_fill_triangle);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_fill_triangle_obj, 8, 8, lcd_mp_fill_triangle);
 
 mp_obj_t lcd_mp_image_bytearray(size_t n_args, const mp_obj_t *args)
 {
@@ -749,7 +751,7 @@ mp_obj_t lcd_mp_image_bytearray(size_t n_args, const mp_obj_t *args)
     }
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_image_bytearray_obj, 6, 6, lcd_mp_image_bytearray);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_image_bytearray_obj, 6, 6, lcd_mp_image_bytearray);
 
 mp_obj_t lcd_mp_line(size_t n_args, const mp_obj_t *args)
 {
@@ -782,7 +784,7 @@ mp_obj_t lcd_mp_line(size_t n_args, const mp_obj_t *args)
     LCD_MP_LINE(x1, y1, x2, y2, color);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_line_obj, 6, 6, lcd_mp_line);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_line_obj, 6, 6, lcd_mp_line);
 
 mp_obj_t lcd_mp_pixel(size_t n_args, const mp_obj_t *args)
 {
@@ -807,7 +809,7 @@ mp_obj_t lcd_mp_pixel(size_t n_args, const mp_obj_t *args)
     LCD_MP_PIXEL(x_val, y_val, color_val);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_pixel_obj, 4, 4, lcd_mp_pixel);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_pixel_obj, 4, 4, lcd_mp_pixel);
 
 mp_obj_t lcd_mp_psram(size_t n_args, const mp_obj_t *args)
 {
@@ -877,7 +879,7 @@ mp_obj_t lcd_mp_psram(size_t n_args, const mp_obj_t *args)
 #endif
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_psram_obj, 6, 6, lcd_mp_psram);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_psram_obj, 6, 6, lcd_mp_psram);
 
 mp_obj_t lcd_mp_rectangle(size_t n_args, const mp_obj_t *args)
 {
@@ -910,7 +912,7 @@ mp_obj_t lcd_mp_rectangle(size_t n_args, const mp_obj_t *args)
     LCD_MP_RECTANGLE(x, y, width, height, color);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_rectangle_obj, 6, 6, lcd_mp_rectangle);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_rectangle_obj, 6, 6, lcd_mp_rectangle);
 
 mp_obj_t lcd_mp_scale(size_t n_args, const mp_obj_t *args)
 {
@@ -934,7 +936,72 @@ mp_obj_t lcd_mp_scale(size_t n_args, const mp_obj_t *args)
     tuple[1] = scale_y == 0 ? 0 : mp_obj_new_float(scale_y * self->height / height);
     return mp_obj_new_tuple(2, tuple);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_scale_obj, 3, 5, lcd_mp_scale);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_scale_obj, 3, 5, lcd_mp_scale);
+
+mp_obj_t lcd_mp_scale_vector(size_t n_args, const mp_obj_t *args)
+{
+    // Arguments: self, position (Vector), screen_width (optional), screen_height (optional)
+    if (n_args < 2 || n_args > 4)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("scale_vector requires 2 to 4 arguments: self, position, [screen_width, screen_height]"));
+    }
+    lcd_mp_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    if (!self->initialized)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
+    }
+
+    mp_obj_t native_pos = mp_obj_cast_to_native_base(args[1], MP_OBJ_FROM_PTR(&vector_mp_type));
+    if (native_pos == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Vector for position"));
+    vector_mp_obj_t *pos_vec = (vector_mp_obj_t *)(MP_OBJ_TO_PTR(native_pos));
+    float x = pos_vec->x;
+    float y = pos_vec->y;
+    float width = n_args >= 3 ? mp_obj_get_float(args[2]) : 320;  // PicoCalc defaults
+    float height = n_args == 4 ? mp_obj_get_float(args[3]) : 320; // PicoCalc defaults
+
+    mp_obj_t tuple[2];
+    tuple[0] = x == 0 ? mp_obj_new_float(0) : mp_obj_new_float(x * self->width / width);
+    tuple[1] = y == 0 ? mp_obj_new_float(0) : mp_obj_new_float(y * self->height / height);
+    return mp_obj_new_tuple(2, tuple);
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_scale_vector_obj, 2, 4, lcd_mp_scale_vector);
+
+mp_obj_t lcd_mp_scale_x(size_t n_args, const mp_obj_t *args)
+{
+    // Arguments: self, scale_x, screen_width (optional)
+    if (n_args < 2 || n_args > 3)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("scale_x requires 2 or 3 arguments: self, scale_x, [screen_width]"));
+    }
+    lcd_mp_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    if (!self->initialized)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
+    }
+    float scale_x = mp_obj_get_float(args[1]);
+    float width = n_args == 3 ? mp_obj_get_float(args[2]) : 320; // PicoCalc default
+    return mp_obj_new_float(scale_x == 0 ? 0 : scale_x * self->width / width);
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_scale_x_obj, 2, 3, lcd_mp_scale_x);
+
+mp_obj_t lcd_mp_scale_y(size_t n_args, const mp_obj_t *args)
+{
+    // Arguments: self, scale_y, screen_height (optional)
+    if (n_args < 2 || n_args > 3)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("scale_y requires 2 or 3 arguments: self, scale_y, [screen_height]"));
+    }
+    lcd_mp_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    if (!self->initialized)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
+    }
+    float scale_y = mp_obj_get_float(args[1]);
+    float height = n_args == 3 ? mp_obj_get_float(args[2]) : 320; // PicoCalc default
+    return mp_obj_new_float(scale_y == 0 ? 0 : scale_y * self->height / height);
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_scale_y_obj, 2, 3, lcd_mp_scale_y);
 
 mp_obj_t lcd_mp_screenshot(mp_obj_t self_in, mp_obj_t file_path)
 {
@@ -1057,7 +1124,7 @@ mp_obj_t lcd_mp_set_mode(mp_obj_t self_in, mp_obj_t mode)
 #endif
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(lcd_mp_set_mode_obj, lcd_mp_set_mode);
+static MP_DEFINE_CONST_FUN_OBJ_2(lcd_mp_set_mode_obj, lcd_mp_set_mode);
 
 mp_obj_t lcd_mp_set_scaling(size_t n_args, const mp_obj_t *args)
 {
@@ -1080,7 +1147,7 @@ mp_obj_t lcd_mp_set_scaling(size_t n_args, const mp_obj_t *args)
     }
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_set_scaling_obj, 3, 4, lcd_mp_set_scaling);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_set_scaling_obj, 3, 4, lcd_mp_set_scaling);
 
 mp_obj_t lcd_mp_swap(mp_obj_t self_in)
 {
@@ -1092,7 +1159,7 @@ mp_obj_t lcd_mp_swap(mp_obj_t self_in)
     LCD_MP_SWAP();
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(lcd_mp_swap_obj, lcd_mp_swap);
+static MP_DEFINE_CONST_FUN_OBJ_1(lcd_mp_swap_obj, lcd_mp_swap);
 
 mp_obj_t lcd_mp_text(size_t n_args, const mp_obj_t *args)
 {
@@ -1127,7 +1194,7 @@ mp_obj_t lcd_mp_text(size_t n_args, const mp_obj_t *args)
     LCD_MP_TEXT(x, y, text, color, font_size);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_text_obj, 5, 6, lcd_mp_text);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_text_obj, 5, 6, lcd_mp_text);
 
 mp_obj_t lcd_mp_triangle(size_t n_args, const mp_obj_t *args)
 {
@@ -1164,9 +1231,9 @@ mp_obj_t lcd_mp_triangle(size_t n_args, const mp_obj_t *args)
     LCD_MP_TRIANGLE(x1, y1, x2, y2, x3, y3, color);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_triangle_obj, 8, 8, lcd_mp_triangle);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_triangle_obj, 8, 8, lcd_mp_triangle);
 
-STATIC const mp_rom_map_elem_t lcd_mp_locals_dict_table[] = {
+static const mp_rom_map_elem_t lcd_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR__bmp), MP_ROM_PTR(&lcd_mp_bmp_obj)},                                   // self._bmp()
     {MP_ROM_QSTR(MP_QSTR__char), MP_ROM_PTR(&lcd_mp_char_obj)},                                 // self._char()
     {MP_ROM_QSTR(MP_QSTR__circle), MP_ROM_PTR(&lcd_mp_circle_obj)},                             // self._circle()
@@ -1181,6 +1248,9 @@ STATIC const mp_rom_map_elem_t lcd_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR__psram), MP_ROM_PTR(&lcd_mp_psram_obj)},                               // self._psram()
     {MP_ROM_QSTR(MP_QSTR__rectangle), MP_ROM_PTR(&lcd_mp_rectangle_obj)},                       // self._rectangle()
     {MP_ROM_QSTR(MP_QSTR_scale), MP_ROM_PTR(&lcd_mp_scale_obj)},                                // self.scale()
+    {MP_ROM_QSTR(MP_QSTR_scale_vector), MP_ROM_PTR(&lcd_mp_scale_vector_obj)},                  // self.scale_vector()
+    {MP_ROM_QSTR(MP_QSTR_scale_x), MP_ROM_PTR(&lcd_mp_scale_x_obj)},                            // self.scale_x()
+    {MP_ROM_QSTR(MP_QSTR_scale_y), MP_ROM_PTR(&lcd_mp_scale_y_obj)},                            // self.scale_y()
     {MP_ROM_QSTR(MP_QSTR_screenshot), MP_ROM_PTR(&lcd_mp_screenshot_obj)},                      // self.screenshot()
     {MP_ROM_QSTR(MP_QSTR_set_mode), MP_ROM_PTR(&lcd_mp_set_mode_obj)},                          // self.set_mode()
     {MP_ROM_QSTR(MP_QSTR_set_scaling), MP_ROM_PTR(&lcd_mp_set_scaling_obj)},                    // self.set_scaling()
@@ -1190,7 +1260,7 @@ STATIC const mp_rom_map_elem_t lcd_mp_locals_dict_table[] = {
 
     {MP_ROM_QSTR(MP_QSTR_FONT_DEFAULT), MP_ROM_INT(FONT_DEFAULT)},
 };
-STATIC MP_DEFINE_CONST_DICT(lcd_mp_locals_dict, lcd_mp_locals_dict_table);
+static MP_DEFINE_CONST_DICT(lcd_mp_locals_dict, lcd_mp_locals_dict_table);
 
 MP_DEFINE_CONST_OBJ_TYPE(
     lcd_mp_type,
@@ -1202,11 +1272,11 @@ MP_DEFINE_CONST_OBJ_TYPE(
     locals_dict, &lcd_mp_locals_dict);
 
 // Define module globals
-STATIC const mp_rom_map_elem_t lcd_mp_globals_table[] = {
+static const mp_rom_map_elem_t lcd_mp_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_lcd)},
     {MP_ROM_QSTR(MP_QSTR_LCD), MP_ROM_PTR(&lcd_mp_type)},
 };
-STATIC MP_DEFINE_CONST_DICT(lcd_mp_globals, lcd_mp_globals_table);
+static MP_DEFINE_CONST_DICT(lcd_mp_globals, lcd_mp_globals_table);
 
 // Define module
 const mp_obj_module_t lcd_mp_module = {

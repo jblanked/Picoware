@@ -691,7 +691,10 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - `psram(position, size, addr)`: Draw pixel data directly from a PSRAM address.
     - `rect(position, size, color=None)`: Draw a rectangle outline.
     - `screenshot(file_path)`: Take a screenshot of the current display and save it as a 24-bit BMP to the SD card at `file_path` (inherited from C `lcd.LCD`).
-    - `scale(position_x, position_y)`: Get a scaled value based on parameters (inherited from C).
+    - `scale(position_x, position_y)`: Get a scaled value (inherited from C).
+    - `scale_vector(position)`: Get a scaled `Vector` value (inherited from C).
+    - `scale_x(value)`: Get a scaled X value (inherited from C).
+    - `scale_y(value)`: Get a scaled Y value (inherited from C).
     - `set_mode(mode)`: Set the LCD rendering mode (inherited from C).
     - `set_scaling(scale_x, scale_y, scale_position=False)`: Set the display scaling factors (inherited from C).
     - `swap()`: Push the back buffer to the display (inherited from C).

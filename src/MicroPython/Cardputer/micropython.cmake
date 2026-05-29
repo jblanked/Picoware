@@ -12,9 +12,15 @@ include(${CMAKE_CURRENT_LIST_DIR}/keyboard/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/battery/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/sd/micropython.cmake)
 
+# Include JPEGDEC folder
+include_directories(${CMAKE_CURRENT_LIST_DIR}/../JPEGDEC/src)
+
 # Include Picoware modules
 include(${CMAKE_CURRENT_LIST_DIR}/../auto_complete/micropython.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/../engine/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../font/micropython.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/../jpeg/micropython.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/../jsmn/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../lcd/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../log/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../picoware_boards/micropython.cmake)

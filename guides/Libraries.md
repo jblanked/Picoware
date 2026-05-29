@@ -678,7 +678,7 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - `fill_triangle(point1, point2, point3, color=None)`: Draw a filled triangle.
     - `get_font(font_size=0)`: Returns a `FontSize` object for the given font size index.
     - `image(position, img)`: Draw an `Image` object pixel by pixel onto the back buffer.
-    - `image_bmp(position, path, storage=None)`: Draw a 24-bit BMP file. Accepts a `Storage` object or a plain file path.
+    - `image_bmp(position, path)`: Draw a 24-bit BMP file. Accepts a plain file path.
     - `image_bytearray(position, size, byte_data, invert=False)`: Draw from 8-bit pixel data (one byte per pixel).
     - `image_bytearray_1bit(position, size, byte_data)`: Draw from 1-bit packed bitmap data.
     - `image_bytearray_path(position, size, path, storage=None, seek=0, chunk_size=0)`: Draw pixel data loaded from a file.
@@ -691,6 +691,7 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - `psram(position, size, addr)`: Draw pixel data directly from a PSRAM address.
     - `rect(position, size, color=None)`: Draw a rectangle outline.
     - `screenshot(file_path)`: Take a screenshot of the current display and save it as a 24-bit BMP to the SD card at `file_path` (inherited from C `lcd.LCD`).
+    - `scale(position_x, position_y)`: Get a scaled value based on parameters (inherited from C).
     - `set_mode(mode)`: Set the LCD rendering mode (inherited from C).
     - `set_scaling(scale_x, scale_y, scale_position=False)`: Set the display scaling factors (inherited from C).
     - `swap()`: Push the back buffer to the display (inherited from C).

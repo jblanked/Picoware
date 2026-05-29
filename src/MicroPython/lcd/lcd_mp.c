@@ -9,8 +9,8 @@
 #define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
 #endif
 
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC)
-#include "../sd/fat32.h"
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER)
+#include "../sd/storage.h"
 #endif
 
 const mp_obj_type_t lcd_mp_type;
@@ -36,6 +36,59 @@ static inline int lcd_obj_to_int(mp_obj_t arg)
     mp_raise_ValueError(MP_ERROR_TEXT("expected int or float"));
     return 0;
 }
+
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER)
+static inline uint16_t lcd_u16_le(const uint8_t *p)
+{
+    return (uint16_t)(p[0] | ((uint16_t)p[1] << 8));
+}
+
+static inline uint32_t lcd_u32_le(const uint8_t *p)
+{
+    return (uint32_t)p[0] |
+           ((uint32_t)p[1] << 8) |
+           ((uint32_t)p[2] << 16) |
+           ((uint32_t)p[3] << 24);
+}
+
+static bool lcd_storage_read_exact(void *handle, void *buffer, size_t size)
+{
+    return storage_file_read_file_chunk(handle, buffer, size) == size;
+}
+
+static bool lcd_storage_skip(void *handle, size_t size)
+{
+    uint8_t discard[32];
+    while (size > 0)
+    {
+        size_t chunk = size > sizeof(discard) ? sizeof(discard) : size;
+        if (storage_file_read_file_chunk(handle, discard, chunk) != chunk)
+        {
+            return false;
+        }
+        size -= chunk;
+    }
+    return true;
+}
+
+static void lcd_bmp_cleanup(void *file, uint8_t *src_row, size_t src_row_len, uint8_t *batch_buf, size_t batch_buf_len)
+{
+    if (batch_buf)
+    {
+        m_del(uint8_t, batch_buf, batch_buf_len);
+        batch_buf = NULL;
+    }
+    if (src_row)
+    {
+        m_del(uint8_t, src_row, src_row_len);
+        src_row = NULL;
+    }
+    if (file)
+    {
+        storage_file_close(file);
+    }
+}
+#endif
 
 void lcd_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
 {
@@ -143,6 +196,242 @@ void lcd_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
         }
     }
 }
+
+mp_obj_t lcd_mp_bmp(size_t n_args, const mp_obj_t *args)
+{
+    // Arguments: self, x, y, file_path
+    if (n_args != 4)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("bmp requires 4 arguments: self, x, y, file_path"));
+    }
+
+    lcd_mp_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    if (!self->initialized)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
+    }
+
+    uint16_t x = lcd_obj_to_int(args[1]);
+    uint16_t y = lcd_obj_to_int(args[2]);
+    const char *file_path = mp_obj_str_get_str(args[3]);
+
+    if (self->scale_position)
+    {
+        x = lcd_scale_x(self, x);
+        y = lcd_scale_y(self, y);
+    }
+
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER)
+    void *file = storage_file_open(file_path);
+    if (!file)
+    {
+        mp_raise_OSError(MP_ENOENT);
+    }
+
+    uint8_t file_hdr[14];
+    uint8_t dib_size_raw[4];
+    uint8_t dib_info[36];
+
+    uint8_t *src_row = NULL;
+    uint8_t *batch_buf = NULL;
+    size_t src_row_len = 0;
+    size_t batch_buf_len = 0;
+
+    if (!lcd_storage_read_exact(file, file_hdr, sizeof(file_hdr)))
+    {
+        lcd_bmp_cleanup(file, src_row, src_row_len, batch_buf, batch_buf_len);
+        mp_raise_OSError(MP_EIO);
+    }
+    if (file_hdr[0] != 'B' || file_hdr[1] != 'M')
+    {
+        lcd_bmp_cleanup(file, src_row, src_row_len, batch_buf, batch_buf_len);
+        mp_raise_ValueError(MP_ERROR_TEXT("invalid or unsupported BMP file"));
+    }
+
+    uint32_t data_offset = lcd_u32_le(&file_hdr[10]);
+
+    if (!lcd_storage_read_exact(file, dib_size_raw, sizeof(dib_size_raw)))
+    {
+        lcd_bmp_cleanup(file, src_row, src_row_len, batch_buf, batch_buf_len);
+        mp_raise_OSError(MP_EIO);
+    }
+
+    uint32_t dib_size = lcd_u32_le(dib_size_raw);
+    if (dib_size < 40)
+    {
+        lcd_bmp_cleanup(file, src_row, src_row_len, batch_buf, batch_buf_len);
+        mp_raise_ValueError(MP_ERROR_TEXT("invalid or unsupported BMP file"));
+    }
+
+    if (!lcd_storage_read_exact(file, dib_info, sizeof(dib_info)))
+    {
+        lcd_bmp_cleanup(file, src_row, src_row_len, batch_buf, batch_buf_len);
+        mp_raise_OSError(MP_EIO);
+    }
+
+    int32_t bmp_w = (int32_t)lcd_u32_le(&dib_info[0]);
+    int32_t bmp_h = (int32_t)lcd_u32_le(&dib_info[4]);
+    uint16_t planes = lcd_u16_le(&dib_info[8]);
+    uint16_t bits_per_pixel = lcd_u16_le(&dib_info[10]);
+    uint32_t compression = lcd_u32_le(&dib_info[12]);
+
+    if (bmp_w <= 0 || bmp_h == 0 || planes != 1 || bits_per_pixel != 24 || compression != 0)
+    {
+        lcd_bmp_cleanup(file, src_row, src_row_len, batch_buf, batch_buf_len);
+        mp_raise_ValueError(MP_ERROR_TEXT("invalid or unsupported BMP file"));
+    }
+
+    if (dib_size > 40 && !lcd_storage_skip(file, dib_size - 40))
+    {
+        lcd_bmp_cleanup(file, src_row, src_row_len, batch_buf, batch_buf_len);
+        mp_raise_OSError(MP_EIO);
+    }
+
+    uint32_t header_end = 14U + dib_size;
+    if (data_offset < header_end)
+    {
+        lcd_bmp_cleanup(file, src_row, src_row_len, batch_buf, batch_buf_len);
+        mp_raise_ValueError(MP_ERROR_TEXT("invalid or unsupported BMP file"));
+    }
+    if (data_offset > header_end && !lcd_storage_skip(file, data_offset - header_end))
+    {
+        lcd_bmp_cleanup(file, src_row, src_row_len, batch_buf, batch_buf_len);
+        mp_raise_OSError(MP_EIO);
+    }
+
+    int32_t abs_h = bmp_h < 0 ? -bmp_h : bmp_h;
+    bool bottom_up = bmp_h > 0;
+
+    uint32_t row_bytes = (uint32_t)bmp_w * 3U;
+    uint32_t padded_row = (row_bytes + 3U) & ~3U;
+
+    int32_t dst_x0 = (int32_t)x;
+    int32_t src_x0 = 0;
+    int32_t draw_w = bmp_w;
+    if (dst_x0 < 0)
+    {
+        src_x0 = -dst_x0;
+        draw_w -= src_x0;
+        dst_x0 = 0;
+    }
+    if (dst_x0 + draw_w > (int32_t)self->width)
+    {
+        draw_w = (int32_t)self->width - dst_x0;
+    }
+
+    int32_t dst_y0 = (int32_t)y;
+    if (dst_y0 < 0)
+    {
+        dst_y0 = 0;
+    }
+    int32_t dst_y1 = (int32_t)y + abs_h;
+    if (dst_y1 > (int32_t)self->height)
+    {
+        dst_y1 = (int32_t)self->height;
+    }
+    int32_t draw_h = dst_y1 - dst_y0;
+
+    if (draw_w <= 0 || draw_h <= 0)
+    {
+        lcd_bmp_cleanup(file, src_row, src_row_len, batch_buf, batch_buf_len);
+        return mp_const_none;
+    }
+
+    int32_t src_y0 = dst_y0 - (int32_t)y;
+    int32_t src_y1 = src_y0 + draw_h;
+
+    src_row_len = (size_t)padded_row;
+    src_row = m_new(uint8_t, src_row_len);
+
+    const int32_t batch_rows = 16;
+    batch_buf_len = (size_t)draw_w * (size_t)batch_rows;
+    batch_buf = m_new(uint8_t, batch_buf_len);
+
+    int32_t batch_count = 0;
+    int32_t batch_start_y = 0;
+    int32_t batch_end_y = 0;
+
+    for (int32_t file_row = 0; file_row < abs_h; file_row++)
+    {
+        if (!lcd_storage_read_exact(file, src_row, padded_row))
+        {
+            lcd_bmp_cleanup(file, src_row, src_row_len, batch_buf, batch_buf_len);
+            mp_raise_OSError(MP_EIO);
+        }
+
+        int32_t src_y = bottom_up ? (abs_h - 1 - file_row) : file_row;
+        if (src_y < src_y0 || src_y >= src_y1)
+        {
+            continue;
+        }
+
+        int32_t dst_y = (int32_t)y + src_y;
+        uint8_t *dst_row = NULL;
+        if (bottom_up)
+        {
+            dst_row = batch_buf + (size_t)(batch_rows - 1 - batch_count) * (size_t)draw_w;
+        }
+        else
+        {
+            dst_row = batch_buf + (size_t)batch_count * (size_t)draw_w;
+        }
+
+        for (int32_t dx = 0; dx < draw_w; dx++)
+        {
+            uint32_t src_idx = (uint32_t)(src_x0 + dx) * 3U;
+            uint8_t b = src_row[src_idx + 0U];
+            uint8_t g = src_row[src_idx + 1U];
+            uint8_t r = src_row[src_idx + 2U];
+            dst_row[dx] = (uint8_t)((r & 0xE0U) | ((g >> 3) & 0x1CU) | (b >> 6));
+        }
+
+        if (batch_count == 0)
+        {
+            batch_start_y = dst_y;
+            batch_end_y = dst_y;
+        }
+        else
+        {
+            batch_end_y = dst_y;
+        }
+        batch_count++;
+
+        if (batch_count == batch_rows)
+        {
+            if (bottom_up)
+            {
+                LCD_MP_BLIT((uint16_t)dst_x0, (uint16_t)batch_end_y, (uint16_t)draw_w, (uint16_t)batch_count, batch_buf);
+            }
+            else
+            {
+                LCD_MP_BLIT((uint16_t)dst_x0, (uint16_t)batch_start_y, (uint16_t)draw_w, (uint16_t)batch_count, batch_buf);
+            }
+            batch_count = 0;
+        }
+    }
+
+    if (batch_count > 0)
+    {
+        if (bottom_up)
+        {
+            uint8_t *tail = batch_buf + (size_t)(batch_rows - batch_count) * (size_t)draw_w;
+            LCD_MP_BLIT((uint16_t)dst_x0, (uint16_t)batch_end_y, (uint16_t)draw_w, (uint16_t)batch_count, tail);
+        }
+        else
+        {
+            LCD_MP_BLIT((uint16_t)dst_x0, (uint16_t)batch_start_y, (uint16_t)draw_w, (uint16_t)batch_count, batch_buf);
+        }
+    }
+
+    lcd_bmp_cleanup(file, src_row, src_row_len, batch_buf, batch_buf_len);
+#else
+    (void)x;
+    (void)y;
+    (void)file_path;
+#endif
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_bmp_obj, 4, 4, lcd_mp_bmp);
 
 mp_obj_t lcd_mp_char(size_t n_args, const mp_obj_t *args)
 {
@@ -623,6 +912,30 @@ mp_obj_t lcd_mp_rectangle(size_t n_args, const mp_obj_t *args)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_rectangle_obj, 6, 6, lcd_mp_rectangle);
 
+mp_obj_t lcd_mp_scale(size_t n_args, const mp_obj_t *args)
+{
+    // Arguments: self, scale_x, scale_y, screen_width (optional), screen_height (optional)
+    if (n_args < 3 || n_args > 5)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("scale requires 3 to 5 arguments: self, scale_x, scale_y, [screen_width, screen_height]"));
+    }
+    lcd_mp_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    if (!self->initialized)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
+    }
+    float scale_x = mp_obj_get_float(args[1]);
+    float scale_y = mp_obj_get_float(args[2]);
+    float width = n_args >= 4 ? mp_obj_get_float(args[3]) : 320;  // PicoCalc defaults
+    float height = n_args == 5 ? mp_obj_get_float(args[4]) : 320; // PicoCalc defaults
+
+    mp_obj_t tuple[2];
+    tuple[0] = scale_x == 0 ? 0 : mp_obj_new_float(scale_x * self->width / width);
+    tuple[1] = scale_y == 0 ? 0 : mp_obj_new_float(scale_y * self->height / height);
+    return mp_obj_new_tuple(2, tuple);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_scale_obj, 3, 5, lcd_mp_scale);
+
 mp_obj_t lcd_mp_screenshot(mp_obj_t self_in, mp_obj_t file_path)
 {
     lcd_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -635,27 +948,13 @@ mp_obj_t lcd_mp_screenshot(mp_obj_t self_in, mp_obj_t file_path)
     (void)file_path;
     return mp_const_none;
 #endif
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER)
     const char *path = mp_obj_str_get_str(file_path);
-    // Mount SD card if not already mounted
-    if (!fat32_is_mounted())
+    void *file = storage_file_write_open(path);
+    if (!file)
     {
-        fat32_error_t err = fat32_mount();
-        if (err != FAT32_OK)
-        {
-            PRINT("Failed to mount SD card: %s\n", fat32_error_string(err));
-            return mp_const_none;
-        }
-    }
-    fat32_file_t *file = m_new_obj(fat32_file_t);
-    if (fat32_open(file, path) != FAT32_OK)
-    {
-        if (fat32_create(file, path) != FAT32_OK)
-        {
-            PRINT("Failed to open or create file: %s\n", path);
-            m_del(fat32_file_t, file, 1);
-            mp_raise_OSError(MP_EIO);
-        }
+        PRINT("Failed to open file for writing: %s\n", path);
+        mp_raise_OSError(MP_EIO);
     }
 
     // BMP layout parameters
@@ -694,9 +993,12 @@ mp_obj_t lcd_mp_screenshot(mp_obj_t self_in, mp_obj_t file_path)
     dib_hdr[14] = 24; // bits per pixel
     // compression (BI_RGB=0), image size, pixels/meter, colors: all 0
 
-    size_t written = 0;
-    fat32_write(file, file_hdr, sizeof(file_hdr), &written);
-    fat32_write(file, dib_hdr, sizeof(dib_hdr), &written);
+    if (!storage_file_write_file_chunk(file, file_hdr, sizeof(file_hdr)) ||
+        !storage_file_write_file_chunk(file, dib_hdr, sizeof(dib_hdr)))
+    {
+        storage_file_close(file);
+        mp_raise_OSError(MP_EIO);
+    }
 
     // --- Write pixel rows ---
     // Framebuffers are 8-bit RGB332 (R[7:5] G[4:2] B[1:0]).
@@ -704,6 +1006,7 @@ mp_obj_t lcd_mp_screenshot(mp_obj_t self_in, mp_obj_t file_path)
     uint8_t *pixel_row = m_new(uint8_t, padded_row);
     memset(pixel_row, 0, padded_row); // zero padding bytes once
     uint8_t *src_row = m_new(uint8_t, img_w);
+    bool write_error = false;
     for (uint32_t ry = 0; ry < img_h; ry++)
     {
         LCD_MP_READ_ROW(ry, src_row);
@@ -717,12 +1020,20 @@ mp_obj_t lcd_mp_screenshot(mp_obj_t self_in, mp_obj_t file_path)
             pixel_row[rx * 3U + 1U] = (uint8_t)((g3 << 5) | (g3 << 2) | (g3 >> 1));      // G
             pixel_row[rx * 3U + 2U] = (uint8_t)((r3 << 5) | (r3 << 2) | (r3 >> 1));      // R
         }
-        fat32_write(file, pixel_row, padded_row, &written);
+        if (!storage_file_write_file_chunk(file, pixel_row, padded_row))
+        {
+            write_error = true;
+            break;
+        }
     }
     m_del(uint8_t, src_row, img_w);
     m_del(uint8_t, pixel_row, padded_row);
-    fat32_close(file);
-    m_del(fat32_file_t, file, 1);
+    storage_file_close(file);
+
+    if (write_error)
+    {
+        mp_raise_OSError(MP_EIO);
+    }
 #else
     (void)self_in;
     (void)file_path;
@@ -856,6 +1167,7 @@ mp_obj_t lcd_mp_triangle(size_t n_args, const mp_obj_t *args)
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_triangle_obj, 8, 8, lcd_mp_triangle);
 
 STATIC const mp_rom_map_elem_t lcd_mp_locals_dict_table[] = {
+    {MP_ROM_QSTR(MP_QSTR__bmp), MP_ROM_PTR(&lcd_mp_bmp_obj)},                                   // self._bmp()
     {MP_ROM_QSTR(MP_QSTR__char), MP_ROM_PTR(&lcd_mp_char_obj)},                                 // self._char()
     {MP_ROM_QSTR(MP_QSTR__circle), MP_ROM_PTR(&lcd_mp_circle_obj)},                             // self._circle()
     {MP_ROM_QSTR(MP_QSTR__clear), MP_ROM_PTR(&lcd_mp_clear_obj)},                               // self._clear()
@@ -868,6 +1180,7 @@ STATIC const mp_rom_map_elem_t lcd_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR__pixel), MP_ROM_PTR(&lcd_mp_pixel_obj)},                               // self._pixel()
     {MP_ROM_QSTR(MP_QSTR__psram), MP_ROM_PTR(&lcd_mp_psram_obj)},                               // self._psram()
     {MP_ROM_QSTR(MP_QSTR__rectangle), MP_ROM_PTR(&lcd_mp_rectangle_obj)},                       // self._rectangle()
+    {MP_ROM_QSTR(MP_QSTR_scale), MP_ROM_PTR(&lcd_mp_scale_obj)},                                // self.scale()
     {MP_ROM_QSTR(MP_QSTR_screenshot), MP_ROM_PTR(&lcd_mp_screenshot_obj)},                      // self.screenshot()
     {MP_ROM_QSTR(MP_QSTR_set_mode), MP_ROM_PTR(&lcd_mp_set_mode_obj)},                          // self.set_mode()
     {MP_ROM_QSTR(MP_QSTR_set_scaling), MP_ROM_PTR(&lcd_mp_set_scaling_obj)},                    // self.set_scaling()

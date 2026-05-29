@@ -481,7 +481,7 @@ class FileBrowser:
                 draw.erase()
 
                 if self._image_path.lower().endswith("bmp"):
-                    draw.image_bmp(self._jpeg_vec, self._image_path, self._vm.storage)
+                    draw.image_bmp(self._jpeg_vec, self._image_path)
                 else:
                     if not draw.image_jpeg(
                         self._jpeg_vec, self._image_path, self._vm.storage

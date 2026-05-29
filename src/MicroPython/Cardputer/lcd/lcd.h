@@ -12,7 +12,6 @@
 #define LCD_BACKLIGHT_PIN 38 // LCD Backlight Pin
 
 #define LCD_DEFAULT_BRIGHTNESS 50 // Default brightness (0-100)
-#define LCD_DEFAULT_FONT_SIZE FONT_SIZE_SMALL
 
 #ifdef FONT_DEFAULT
 #undef FONT_DEFAULT

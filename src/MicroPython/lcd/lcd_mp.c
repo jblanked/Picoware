@@ -934,6 +934,11 @@ mp_obj_t lcd_mp_scale(size_t n_args, const mp_obj_t *args)
     mp_obj_t tuple[2];
     tuple[0] = scale_x == 0 ? 0 : mp_obj_new_float(scale_x * self->width / width);
     tuple[1] = scale_y == 0 ? 0 : mp_obj_new_float(scale_y * self->height / height);
+    if (mp_obj_is_int(args[1]) && mp_obj_is_int(args[2]))
+    {
+        tuple[0] = mp_obj_new_int(lcd_obj_to_int(tuple[0]));
+        tuple[1] = mp_obj_new_int(lcd_obj_to_int(tuple[1]));
+    }
     return mp_obj_new_tuple(2, tuple);
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_scale_obj, 3, 5, lcd_mp_scale);
@@ -963,6 +968,11 @@ mp_obj_t lcd_mp_scale_vector(size_t n_args, const mp_obj_t *args)
     mp_obj_t tuple[2];
     tuple[0] = x == 0 ? mp_obj_new_float(0) : mp_obj_new_float(x * self->width / width);
     tuple[1] = y == 0 ? mp_obj_new_float(0) : mp_obj_new_float(y * self->height / height);
+    if (pos_vec->integer)
+    {
+        tuple[0] = mp_obj_new_int(lcd_obj_to_int(tuple[0]));
+        tuple[1] = mp_obj_new_int(lcd_obj_to_int(tuple[1]));
+    }
     return mp_obj_new_tuple(2, tuple);
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_scale_vector_obj, 2, 4, lcd_mp_scale_vector);
@@ -981,7 +991,12 @@ mp_obj_t lcd_mp_scale_x(size_t n_args, const mp_obj_t *args)
     }
     float scale_x = mp_obj_get_float(args[1]);
     float width = n_args == 3 ? mp_obj_get_float(args[2]) : 320; // PicoCalc default
-    return mp_obj_new_float(scale_x == 0 ? 0 : scale_x * self->width / width);
+    mp_obj_t scaled = mp_obj_new_float(scale_x == 0 ? 0 : scale_x * self->width / width);
+    if (mp_obj_is_int(args[1]))
+    {
+        return mp_obj_new_int(lcd_obj_to_int(scaled));
+    }
+    return scaled;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_scale_x_obj, 2, 3, lcd_mp_scale_x);
 
@@ -999,7 +1014,12 @@ mp_obj_t lcd_mp_scale_y(size_t n_args, const mp_obj_t *args)
     }
     float scale_y = mp_obj_get_float(args[1]);
     float height = n_args == 3 ? mp_obj_get_float(args[2]) : 320; // PicoCalc default
-    return mp_obj_new_float(scale_y == 0 ? 0 : scale_y * self->height / height);
+    mp_obj_t scaled = mp_obj_new_float(scale_y == 0 ? 0 : scale_y * self->height / height);
+    if (mp_obj_is_int(args[1]))
+    {
+        return mp_obj_new_int(lcd_obj_to_int(scaled));
+    }
+    return scaled;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_scale_y_obj, 2, 3, lcd_mp_scale_y);
 

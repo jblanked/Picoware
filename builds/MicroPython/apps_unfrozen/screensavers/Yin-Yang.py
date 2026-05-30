@@ -2,7 +2,6 @@
 # Authors: Deriv'era
 # BSD License 2.0 Deriv'era(C)2026
 
-from picoware.system.vector import Vector
 from picoware.system.colors import TFT_BLACK
 from picoware.system.buttons import BUTTON_BACK
 from micropython import const
@@ -15,12 +14,13 @@ except ImportError:
 
 # Constants
 FLOAT_SHIFT = const(8)
-FIELD_WIDTH = const(10)
-FIELD_HEIGHT = const(10)
-FIELD_CELL_SIZE = const(32)
+FIELD_WIDTH = 10
+FIELD_HEIGHT = 10
+FIELD_CELL_SIZE_X = 32
+FIELD_CELL_SIZE_Y = 32
 YIN = const(0)
 YANG = const(1)
-BALL_RADIUS = const(16)
+BALL_RADIUS = 16
 
 # Global state
 _yin_yang_data = None
@@ -105,8 +105,10 @@ def process_ball(ball, yin_yang_data, f_speed_factor, screen_width, screen_heigh
     screen_pos_x = ball.pos_x >> FLOAT_SHIFT
     screen_pos_y = ball.pos_y >> FLOAT_SHIFT
 
-    screen_pos_block_x = screen_pos_x // FIELD_CELL_SIZE
-    screen_pos_block_y = screen_pos_y // FIELD_CELL_SIZE
+    screen_pos_block_x = min(max(screen_pos_x // FIELD_CELL_SIZE_X, 0), FIELD_WIDTH - 1)
+    screen_pos_block_y = min(
+        max(screen_pos_y // FIELD_CELL_SIZE_Y, 0), FIELD_HEIGHT - 1
+    )
     check_start_x = max(screen_pos_block_x - 1, 0)
     check_end_x = min(screen_pos_block_x + 1, FIELD_WIDTH - 1)
     check_start_y = max(screen_pos_block_y - 1, 0)
@@ -117,10 +119,10 @@ def process_ball(ball, yin_yang_data, f_speed_factor, screen_width, screen_heigh
     for iy in range(check_start_y, check_end_y + 1):
         if hit:
             break
-        box_center_y = iy * FIELD_CELL_SIZE + FIELD_CELL_SIZE // 2
+        box_center_y = iy * FIELD_CELL_SIZE_Y + FIELD_CELL_SIZE_Y // 2
         diff_y = screen_pos_y - box_center_y
         point_y = box_center_y + max(
-            min(diff_y, FIELD_CELL_SIZE // 2), -FIELD_CELL_SIZE // 2
+            min(diff_y, FIELD_CELL_SIZE_Y // 2), -FIELD_CELL_SIZE_Y // 2
         )
         diff_point_y = screen_pos_y - point_y
 
@@ -128,10 +130,10 @@ def process_ball(ball, yin_yang_data, f_speed_factor, screen_width, screen_heigh
             if hit:
                 break
             if yin_yang_data[iy * FIELD_WIDTH + ix] == ball.type:
-                box_center_x = ix * FIELD_CELL_SIZE + FIELD_CELL_SIZE // 2
+                box_center_x = ix * FIELD_CELL_SIZE_X + FIELD_CELL_SIZE_X // 2
                 diff_x = screen_pos_x - box_center_x
                 point_x = box_center_x + max(
-                    min(diff_x, FIELD_CELL_SIZE // 2), -FIELD_CELL_SIZE // 2
+                    min(diff_x, FIELD_CELL_SIZE_X // 2), -FIELD_CELL_SIZE_X // 2
                 )
                 diff_point_x = screen_pos_x - point_x
 
@@ -205,6 +207,15 @@ def process_ball(ball, yin_yang_data, f_speed_factor, screen_width, screen_heigh
 def start(view_manager) -> bool:
     """Start the app"""
     global _yin_yang_data, _ball_black, _ball_white, _speed, _adder
+    global FIELD_WIDTH, FIELD_HEIGHT, FIELD_CELL_SIZE_X, FIELD_CELL_SIZE_Y, BALL_RADIUS
+
+    d = view_manager.draw
+
+    FIELD_CELL_SIZE_X = max(d.scale_x(32), 1)
+    FIELD_CELL_SIZE_Y = max(d.scale_y(32), 1)
+    FIELD_WIDTH = max(d.size.x // FIELD_CELL_SIZE_X, 2)
+    FIELD_HEIGHT = max(d.size.y // FIELD_CELL_SIZE_Y, 2)
+    BALL_RADIUS = max(min(FIELD_CELL_SIZE_X, FIELD_CELL_SIZE_Y) // 2, 2)
 
     # Initialize yin-yang data
     _yin_yang_data = bytearray(FIELD_WIDTH * FIELD_HEIGHT)
@@ -222,8 +233,8 @@ def start(view_manager) -> bool:
     dir_x, dir_y = i_normalize(dir_x, dir_y)
     _ball_black = Ball(
         YIN,
-        (((FIELD_WIDTH // 4) * 3) * FIELD_CELL_SIZE) * (1 << FLOAT_SHIFT),
-        (((FIELD_HEIGHT * FIELD_CELL_SIZE) // 2)) * (1 << FLOAT_SHIFT),
+        (((FIELD_WIDTH // 4) * 3) * FIELD_CELL_SIZE_X) * (1 << FLOAT_SHIFT),
+        (((FIELD_HEIGHT * FIELD_CELL_SIZE_Y) // 2)) * (1 << FLOAT_SHIFT),
         dir_x,
         dir_y,
     )
@@ -234,8 +245,8 @@ def start(view_manager) -> bool:
     dir_x, dir_y = i_normalize(dir_x, dir_y)
     _ball_white = Ball(
         YANG,
-        ((FIELD_WIDTH // 4) * FIELD_CELL_SIZE) * (1 << FLOAT_SHIFT),
-        ((FIELD_HEIGHT * FIELD_CELL_SIZE) // 2) * (1 << FLOAT_SHIFT),
+        ((FIELD_WIDTH // 4) * FIELD_CELL_SIZE_X) * (1 << FLOAT_SHIFT),
+        ((FIELD_HEIGHT * FIELD_CELL_SIZE_Y) // 2) * (1 << FLOAT_SHIFT),
         dir_x,
         dir_y,
     )
@@ -288,34 +299,27 @@ def run(view_manager) -> None:
     # Rendering
     draw.clear(color=TFT_BLACK)
 
-    pos_vec = Vector(0, 0)
-    size_vec = Vector(FIELD_CELL_SIZE, FIELD_CELL_SIZE)
     for x in range(FIELD_WIDTH):
         for y in range(FIELD_HEIGHT):
             if _yin_yang_data[y * FIELD_WIDTH + x] == YANG:
-                pos_vec.x, pos_vec.y = x * FIELD_CELL_SIZE, y * FIELD_CELL_SIZE
-                draw.fill_rectangle(
-                    pos_vec,
-                    size_vec,
+                draw._fill_rectangle(
+                    x * FIELD_CELL_SIZE_X,
+                    y * FIELD_CELL_SIZE_Y,
+                    FIELD_CELL_SIZE_X,
+                    FIELD_CELL_SIZE_Y,
                     color_white,
                 )
 
     # Draw balls
-    pos_vec.x, pos_vec.y = (
+    draw._fill_circle(
         _ball_black.pos_x >> FLOAT_SHIFT,
         _ball_black.pos_y >> FLOAT_SHIFT,
-    )
-    draw.fill_circle(
-        pos_vec,
         BALL_RADIUS,
         TFT_BLACK,
     )
-    pos_vec.x, pos_vec.y = (
+    draw._fill_circle(
         _ball_white.pos_x >> FLOAT_SHIFT,
         _ball_white.pos_y >> FLOAT_SHIFT,
-    )
-    draw.fill_circle(
-        pos_vec,
         BALL_RADIUS,
         color_white,
     )

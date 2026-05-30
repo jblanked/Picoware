@@ -240,42 +240,33 @@ def draw_sudoku(display):
                 conflicts_cache[(r, c)] = game.get_conflicts(r, c)
 
     # Grid parameters - centered on screen
-    grid_size = 315
-    cell_size = 35
-    grid_x = 2
-    grid_y = 2  # Start at top of screen
+    grid_size = display.scale_x(315)
+    cell_size = display.scale_x(35)
+    grid_x, grid_y = display.scale(2, 2)  # Start at top-left with some padding
 
     # Highlight selected cell's row, column, and box
     sel_row, sel_col = game.cursor_row, game.cursor_col
 
     # Highlight row
     y = grid_y + sel_row * cell_size + 1
-    display.fill_rectangle(
-        Vector(grid_x + 1, y), Vector(grid_size - 2, cell_size - 1), TFT_BLUE
-    )
+    display._fill_rectangle(grid_x + 1, y, grid_size - 2, cell_size - 1, TFT_BLUE)
 
     # Highlight column
     x = grid_x + sel_col * cell_size + 1
-    display.fill_rectangle(
-        Vector(x, grid_y + 1), Vector(cell_size - 1, grid_size - 2), TFT_BLUE
-    )
+    display._fill_rectangle(x, grid_y + 1, cell_size - 1, grid_size - 2, TFT_BLUE)
+
     # Highlight 3x3 box
     box_row, box_col = 3 * (sel_row // 3), 3 * (sel_col // 3)
     bx = grid_x + box_col * cell_size + 1
     by = grid_y + box_row * cell_size + 1
-    display.fill_rectangle(
-        Vector(bx, by), Vector(3 * cell_size - 1, 3 * cell_size - 1), TFT_BLUE
-    )
+    display._fill_rectangle(bx, by, 3 * cell_size - 1, 3 * cell_size - 1, TFT_BLUE)
 
     # Draw numbers
-    text_vec = Vector(0, 0)
+    _scale = display.scale(12, 12)
     for r in range(9):
         for c in range(9):
             num = game.grid[r][c]
             if num != 0:
-                text_vec.x = grid_x + c * cell_size + 12
-                text_vec.y = grid_y + r * cell_size + 12
-
                 # Determine color
                 if game.given[r][c]:
                     color = TFT_WHITE  # Given numbers: light gray/white
@@ -284,13 +275,18 @@ def draw_sudoku(display):
                 else:
                     color = TFT_CYAN  # Player numbers: cyan
 
-                display.text(text_vec, str(num), color)
+                display._text(
+                    grid_x + c * cell_size + _scale[0],
+                    grid_y + r * cell_size + _scale[1],
+                    str(num),
+                    color,
+                )
 
     # Highlight selected cell
     x = grid_x + sel_col * cell_size
     y = grid_y + sel_row * cell_size
-    display.rect(Vector(x + 1, y + 1), Vector(cell_size - 2, cell_size - 2), TFT_YELLOW)
-    display.rect(Vector(x + 2, y + 2), Vector(cell_size - 4, cell_size - 4), TFT_YELLOW)
+    display._rectangle(x + 1, y + 1, cell_size - 2, cell_size - 2, TFT_YELLOW)
+    display._rectangle(x + 2, y + 2, cell_size - 4, cell_size - 4, TFT_YELLOW)
 
     # Draw grid lines
     vline_vec = Vector(0, grid_y)
@@ -307,9 +303,11 @@ def draw_sudoku(display):
             vline_vec.x = x + t
             vline_vec_size.x = x + t
             vline_vec_size.y = grid_y + grid_size
-            display.line_custom(
-                vline_vec,
-                vline_vec_size,
+            display.line(
+                vline_vec.x,
+                vline_vec.y,
+                vline_vec_size.x,
+                vline_vec_size.y,
                 color,
             )
 
@@ -319,14 +317,16 @@ def draw_sudoku(display):
             hline_vec.y = y + t
             hline_vec_size.x = grid_x + grid_size
             hline_vec_size.y = y + t
-            display.line_custom(
-                hline_vec,
-                hline_vec_size,
+            display._line(
+                hline_vec.x,
+                hline_vec.y,
+                hline_vec_size.x,
+                hline_vec_size.y,
                 color,
             )
 
     # Show info below grid
-    info_y = grid_y + grid_size + 2
+    info_y = display.scale_y(grid_y + grid_size + 2)
 
     # Show timer and difficulty on one line
     elapsed = int(time() - game.start_time)
@@ -335,8 +335,8 @@ def draw_sudoku(display):
     timer_text = f"{mins:02d}:{secs:02d}"
     diff_text = f"{game.difficulty[0].upper()}{game.difficulty[1:]}"
 
-    display.text(Vector(4, info_y), diff_text, TFT_CYAN)  # Bright green
-    display.text(Vector(280, info_y), timer_text, TFT_CYAN)  # Bright green
+    display._text(display.scale_x(4), info_y, diff_text, TFT_CYAN)  # Bright green
+    display._text(display.scale_x(280), info_y, timer_text, TFT_CYAN)  # Bright green
 
     display.swap()
 
@@ -353,6 +353,7 @@ def start(view_manager) -> bool:
     from picoware.gui.menu import Menu
 
     inp = view_manager.input_manager
+    inp.reset()
     draw = view_manager.draw
     bg = view_manager.background_color
     fg = view_manager.foreground_color

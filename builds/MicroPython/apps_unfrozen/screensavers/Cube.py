@@ -22,9 +22,6 @@ Xoff = 0
 Yoff = 0
 Zoff = 0
 
-line_1 = None
-line_2 = None
-
 # Define the 12 lines of the cube
 # Each line has two 3D points (x, y, z)
 LINES = [
@@ -84,8 +81,6 @@ def render_image(tft):
         TFT_DARKGREEN,
     )
 
-    global xx, xy, xz, yx, yy, yz, zx, zy, zz, Xoff, Yoff, Zoff
-
     tft.fill_screen(TFT_BLACK)  # clear the screen before drawing the new lines
 
     # Process all lines and convert 3D to 2D
@@ -129,11 +124,7 @@ def render_image(tft):
                 color = TFT_DARKGREEN  # Edge lines (dark green)
             else:
                 color = TFT_BLUE  # Back face (blue)
-            line_1.x = rx1
-            line_1.y = ry1
-            line_2.x = rx2
-            line_2.y = ry2
-            tft.line_custom(line_1, line_2, color)
+            tft._line(rx1, ry1, rx2, ry2, color)
 
     tft.swap()  # swap the buffers to show the new lines
 
@@ -141,9 +132,8 @@ def render_image(tft):
 def start(view_manager) -> bool:
     """Start the app"""
     from picoware.system.colors import TFT_BLACK
-    from picoware.system.vector import Vector
 
-    global fact, Xoff, Yoff, Zoff, Xan, Yan, line_1, line_2
+    global fact, Xoff, Yoff, Zoff, Xan, Yan
 
     draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)
@@ -159,9 +149,6 @@ def start(view_manager) -> bool:
 
     Xan = 0
     Yan = 0
-
-    line_1 = Vector(0, 0)
-    line_2 = Vector(0, 0)
 
     return True
 
@@ -205,7 +192,7 @@ def stop(view_manager) -> None:
     from picoware.system.colors import TFT_BLACK
     from gc import collect
 
-    global inc, xx, xy, xz, yx, yy, yz, zx, zy, zz, fact, Xan, Yan, Xoff, Yoff, Zoff, line_1, line_2
+    global inc, xx, xy, xz, yx, yy, yz, zx, zy, zz, fact, Xan, Yan, Xoff, Yoff, Zoff
 
     inc = -2
 
@@ -225,9 +212,6 @@ def stop(view_manager) -> None:
     Xoff = 0
     Yoff = 0
     Zoff = 0
-
-    line_1 = None
-    line_2 = None
 
     draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)

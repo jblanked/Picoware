@@ -25,11 +25,6 @@ _next_grid = None  # Next state
 _neighbor_counts = None  # Neighbor counts
 
 
-def _grid_index(x, y):
-    """Calculate linear index from x, y coordinates."""
-    return y * GRID_SIZE + x
-
-
 # === Initialize Grid ===
 def random_grid():
     """Fill the grid with random initial state."""
@@ -132,14 +127,21 @@ def draw(display):
             if color != TFT_BLACK:  # Skip drawing black pixels for speed
                 _vec_pos.x = x * CELL_SIZE
                 _vec_pos.y = y * CELL_SIZE
-                display.fill_rectangle(_vec_pos, _vec_size, color)
+                display._fill_rectangle(
+                    _vec_pos.x, _vec_pos.y, _vec_size.x, _vec_size.y, color
+                )
             idx += 1
     display.swap()
 
 
 def start(view_manager) -> bool:
     """Start the app"""
-    global _current_grid, _next_grid, _neighbor_counts, _vec_size, _vec_pos, _COLORS
+    global _current_grid, _next_grid, _neighbor_counts, _vec_size, _vec_pos, _COLORS, GRID_PIXELS, CELL_SIZE, GRID_SIZE, GRID_BYTES
+
+    GRID_PIXELS = view_manager.draw.size.x  # 320 pixels
+    CELL_SIZE = GRID_PIXELS // 53  # 6 pixels per cell (53x53 grid)
+    GRID_SIZE = GRID_PIXELS // CELL_SIZE  # 53x53 grid
+    GRID_BYTES = GRID_SIZE * GRID_SIZE
 
     _vec_size = Vector(CELL_SIZE, CELL_SIZE)
     _vec_pos = Vector(0, 0)

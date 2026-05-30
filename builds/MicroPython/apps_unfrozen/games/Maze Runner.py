@@ -180,10 +180,10 @@ def run(view_manager) -> None:
 
             if maze[y][x] == 1:
                 # Wall
-                draw.fill_rectangle(pos, size, TFT_WHITE)
+                draw._fill_rectangle(pos.x, pos.y, size.x, size.y, TFT_WHITE)
             elif x == exit_x and y == exit_y:
                 # Exit
-                draw.fill_rectangle(pos, size, TFT_GREEN)
+                draw._fill_rectangle(pos.x, pos.y, size.x, size.y, TFT_GREEN)
 
     # Draw player
     player_pos.x, player_pos.y = (
@@ -191,7 +191,9 @@ def run(view_manager) -> None:
         offset_y + player_y * cell_size + 2,
     )
     player_size.x, player_size.y = (cell_size - 4, cell_size - 4)
-    draw.fill_rectangle(player_pos, player_size, TFT_RED)
+    draw._fill_rectangle(
+        player_pos.x, player_pos.y, player_size.x, player_size.y, TFT_RED
+    )
 
     # Draw moves counter
     moves_pos = Vector(5, 5)
@@ -201,7 +203,9 @@ def run(view_manager) -> None:
     if game_won:
         msg_bg_pos = Vector(screen_size.x // 2 - 70, screen_size.y // 2 - 30)
         msg_bg_size = Vector(140, 60)
-        draw.fill_rectangle(msg_bg_pos, msg_bg_size, TFT_BLACK)
+        draw._fill_rectangle(
+            msg_bg_pos.x, msg_bg_pos.y, msg_bg_size.x, msg_bg_size.y, TFT_BLACK
+        )
         draw.rect(msg_bg_pos, msg_bg_size, TFT_WHITE)
 
         msg_pos = Vector(screen_size.x // 2 - 50, screen_size.y // 2 - 20)

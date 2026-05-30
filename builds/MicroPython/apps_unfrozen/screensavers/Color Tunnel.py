@@ -8,12 +8,10 @@ from picoware.system.vector import Vector
 
 screen_size = None
 time_val = 0.0
-pos = None
-tile_vec = None
 palette = None
 
 TILE = const(3)  # pixel size of each rendered tile (square)
-RING_SIZE = const(11)  # radial pixel distance per colour ring
+RING_SIZE = 11  # radial pixel distance per colour ring
 NUM_COLORS = const(32)  # must be a power of 2
 
 
@@ -42,13 +40,12 @@ def _build_palette() -> list:
 
 def start(view_manager) -> bool:
     """Start the app"""
-    global screen_size, time_val, pos, tile_vec, palette
+    global screen_size, time_val, palette, RING_SIZE
 
     draw = view_manager.draw
     screen_size = Vector(draw.size.x, draw.size.y)
+    RING_SIZE = draw.scale_y(11)  # radial pixel distance per colour ring
     time_val = 0.0
-    pos = Vector(0, 0)
-    tile_vec = Vector(TILE, TILE)
     palette = _build_palette()
 
     draw.fill_screen(TFT_BLACK)
@@ -90,10 +87,7 @@ def run(view_manager) -> None:
             # Two-sector checker (diagonal quadrants) adds a rotating twist
             sector = int(dx >= 0) ^ int(dy >= 0)
             color_idx = (ring + sector * (NUM_COLORS >> 1)) & (NUM_COLORS - 1)
-
-            pos.x = x
-            pos.y = y
-            draw.fill_rectangle(pos, tile_vec, palette[color_idx])
+            draw._fill_rectangle(x, y, TILE, TILE, palette[color_idx])
 
     draw.swap()
 
@@ -102,12 +96,10 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global screen_size, time_val, pos, tile_vec, palette
+    global screen_size, time_val, palette
 
     screen_size = None
     time_val = 0.0
-    pos = None
-    tile_vec = None
     palette = None
 
     collect()

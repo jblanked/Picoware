@@ -7,8 +7,6 @@ from picoware.system.vector import Vector
 screen_size = None
 time_offset = 0
 sample_rate = 8
-size = None
-pos = None
 
 
 def plasma_color(value: float) -> int:
@@ -38,13 +36,11 @@ def plasma_color(value: float) -> int:
 
 def start(view_manager) -> bool:
     """Start the app"""
-    global screen_size, time_offset, size, pos
+    global screen_size, time_offset
 
     draw = view_manager.draw
     screen_size = Vector(draw.size.x, draw.size.y)
     time_offset = 0
-    size = Vector(sample_rate, sample_rate)
-    pos = Vector(0, 0)
 
     draw.fill_screen(TFT_BLACK)
     draw.swap()
@@ -54,7 +50,7 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run the app"""
-    global time_offset, pos
+    global time_offset
 
     inp = view_manager.input_manager
     button = inp.button
@@ -85,9 +81,7 @@ def run(view_manager) -> None:
             value /= 4.0
 
             color = plasma_color(value)
-
-            pos.x, pos.y = x, y
-            draw.fill_rectangle(pos, size, color)
+            draw._fill_rectangle(x, y, sample_rate, sample_rate, color)
 
     draw.swap()
 
@@ -96,11 +90,9 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global screen_size, time_offset, size, pos
+    global screen_size, time_offset
 
     screen_size = None
     time_offset = 0
-    size = None
-    pos = None
 
     collect()

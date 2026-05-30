@@ -82,10 +82,8 @@ class Tetris:
     def reset(self, draw):
         from picoware.system.colors import (
             TFT_GREEN,
-            TFT_WHITE,
             TFT_CYAN,
             TFT_YELLOW,
-            TFT_RED,
             TFT_BLUE,
             TFT_VIOLET,
         )
@@ -347,7 +345,15 @@ class Tetris:
 
 def start(view_manager) -> bool:
     """Start the app"""
-    global _game
+    global _game, GRID_W, GRID_H, CELL_SIZE, GRID_X, GRID_Y
+
+    draw = view_manager.draw
+
+    GRID_W = draw.scale_x(10)
+    GRID_H = draw.scale_y(20)
+    CELL_SIZE = draw.scale_x(14)  # Each cell is 14x14px
+    GRID_X = draw.scale_x(20)  # Left margin
+    GRID_Y = draw.scale_y(10)  # Top margin
 
     draw = view_manager.draw
     _game = Tetris(draw)

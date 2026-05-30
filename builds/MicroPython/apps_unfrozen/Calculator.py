@@ -49,8 +49,6 @@ current_operation = None
 new_number = True
 buttons = []
 selected_button_index = 0
-pos_vec = None
-size_vec = None
 font_width = 0
 font_height = 0
 len_buttons = 0
@@ -71,18 +69,22 @@ class CalcButton:
         self.text_pos = text_pos
 
 
-def setup_buttons(screen_width, screen_height):
+def setup_buttons(draw):
     """Setup calculator button layout (iPhone style)"""
     global buttons
     buttons = []
 
+    screen_width, screen_height = draw.size.x, draw.size.y
+
+    _scale = draw.scale(6, 100)
+
     # Button dimensions
     button_width = screen_width // 4 - 8
-    button_height = (screen_height - 100) // 5 - 8
-    padding = 6
+    button_height = (screen_height - _scale[1]) // 5 - 8
+    padding = _scale[0]  # 6 pixels scaled
 
     # Top row starts after display
-    start_y = 100
+    start_y = _scale[1]
 
     # Row 1: C, +/-, %, ÷
     row1_y = start_y
@@ -369,38 +371,38 @@ def setup_buttons(screen_width, screen_height):
 def draw_display(draw, text):
     """Draw the calculator display"""
     # Display background
-    pos_vec.x, pos_vec.y = 0, 0
-    size_vec.x, size_vec.y = draw.size.x, 90
-    draw.fill_rectangle(pos_vec, size_vec, TFT_BLACK)
+    draw._fill_rectangle(0, 0, draw.size.x, draw.scale_y(90), TFT_BLACK)
 
     # Limit display length
     display = text[-15:] if len(text) > 15 else text
 
     text_width = len(display) * font_width
-    x_pos = draw.size.x - text_width - 10
-    y_pos = 90 - font_height - 10
-    pos_vec.x, pos_vec.y = x_pos, y_pos
-    draw.text(pos_vec, display, TFT_WHITE)
+    _scale_10 = draw.scale(10, 10)
+    x_pos = draw.size.x - text_width - _scale_10[0]
+    y_pos = draw.scale_y(90) - font_height - _scale_10[1]
+    draw._text(x_pos, y_pos, display, TFT_WHITE)
 
 
 def draw_button(draw, button: CalcButton, is_selected: bool = False):
     """Draw a calculator button"""
     # Draw button background
-    draw.fill_round_rectangle(button.pos, button.size, 10, button.color)
+    draw._fill_round_rectangle(
+        button.pos.x, button.pos.y, button.size.x, button.size.y, 10, button.color
+    )
 
     # Draw selection highlight border if selected
     if is_selected:
         # Draw thick border by drawing multiple rectangles
         for i in range(3):
-            pos_vec.x, pos_vec.y = button.pos.x - i, button.pos.y - i
-            size_vec.x, size_vec.y = button.size.x + i * 2, button.size.y + i * 2
-            draw.rect(
-                pos_vec,
-                size_vec,
+            draw._rectangle(
+                button.pos.x - i,
+                button.pos.y - i,
+                button.size.x + i * 2,
+                button.size.y + i * 2,
                 TFT_BLUE,
             )
 
-    draw.text(button.text_pos, button.text, button.text_color)
+    draw._text(button.text_pos.x, button.text_pos.y, button.text, button.text_color)
 
 
 def handle_number(digit):
@@ -506,7 +508,7 @@ def find_button_by_action(action: str):
 
 def start(view_manager) -> bool:
     """Start the app"""
-    global display_text, current_value, stored_value, current_operation, new_number, selected_button_index, pos_vec, size_vec, font_width, font_height, len_buttons
+    global display_text, current_value, stored_value, current_operation, new_number, selected_button_index, font_width, font_height, len_buttons
 
     # Reset calculator state
     display_text = "0"
@@ -515,8 +517,6 @@ def start(view_manager) -> bool:
     current_operation = None
     new_number = True
     selected_button_index = 0
-    pos_vec = Vector(0, 0)
-    size_vec = Vector(0, 0)
 
     # Draw initial UI
     draw = view_manager.draw
@@ -526,7 +526,7 @@ def start(view_manager) -> bool:
     font_height = draw.font_size.y
 
     # Setup buttons
-    setup_buttons(draw.size.x, draw.size.y)
+    setup_buttons(draw)
 
     len_buttons = len(buttons)
 
@@ -534,20 +534,27 @@ def start(view_manager) -> bool:
     y_pos = 20
     line_height = draw.font_size.y + 4
 
-    draw.text(Vector(10, y_pos), "CONTROLS:", TFT_YELLOW)
+    _pos = draw.scale(10, y_pos)
+    draw._text(_pos[0], _pos[1], "CONTROLS:", TFT_YELLOW)
     y_pos += line_height
-    draw.text(Vector(10, y_pos), "Arrows: Navigate", TFT_CYAN)
+    _pos = draw.scale(10, y_pos)
+    draw._text(_pos[0], _pos[1], "Arrows: Navigate", TFT_CYAN)
     y_pos += line_height
-    draw.text(Vector(10, y_pos), "Center/Space: Select", TFT_CYAN)
+    _pos = draw.scale(10, y_pos)
+    draw._text(_pos[0], _pos[1], "Center/Space: Select", TFT_CYAN)
     y_pos += line_height
-    draw.text(Vector(10, y_pos), "0-9,+,-,*,/,.: Direct", TFT_CYAN)
+    _pos = draw.scale(10, y_pos)
+    draw._text(_pos[0], _pos[1], "0-9,+,-,*,/,.: Direct", TFT_CYAN)
     y_pos += line_height
-    draw.text(Vector(10, y_pos), "Backspace: Delete", TFT_CYAN)
+    _pos = draw.scale(10, y_pos)
+    draw._text(_pos[0], _pos[1], "Backspace: Delete", TFT_CYAN)
     y_pos += line_height
-    draw.text(Vector(10, y_pos), "Esc: Clear All", TFT_CYAN)
+    _pos = draw.scale(10, y_pos)
+    draw._text(_pos[0], _pos[1], "Esc: Clear All", TFT_CYAN)
 
     draw.swap()
     inp = view_manager.input_manager
+    inp.reset()
     button = inp.button
     while button == -1:
         button = inp.button
@@ -784,7 +791,7 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global buttons, selected_button_index, display_text, current_value, stored_value, current_operation, new_number, pos_vec, size_vec, font_width, font_height, len_buttons
+    global buttons, selected_button_index, display_text, current_value, stored_value, current_operation, new_number, font_width, font_height, len_buttons
 
     buttons = []
     selected_button_index = 0
@@ -793,8 +800,6 @@ def stop(view_manager) -> None:
     stored_value = 0
     current_operation = None
     new_number = True
-    pos_vec = None
-    size_vec = None
     font_width = 0
     font_height = 0
     len_buttons = 0

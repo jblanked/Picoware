@@ -21,7 +21,8 @@ from picoware.system.colors import (
 
 # Game constants
 GRID_SIZE = const(4)
-TILE_SIZE = 0
+TILE_SIZE_X = 0
+TILE_SIZE_Y = 0
 GRID_OFFSET_X = 0
 GRID_OFFSET_Y = 0
 SCREEN_WIDTH = 0
@@ -41,7 +42,6 @@ STATE_WIN = const(1)
 STATE_LOSE = const(2)
 
 grid_vector = None
-text_vector = None
 size_vector = None
 
 color_map = {}
@@ -84,38 +84,35 @@ def draw_grid(fb, grid: list[list[int]], score: int, state: int) -> None:
     for y in range(GRID_SIZE):
         for x in range(GRID_SIZE):
             val = grid[y][x]
-            grid_vector.x = GRID_OFFSET_X + x * TILE_SIZE
-            grid_vector.y = GRID_OFFSET_Y + y * TILE_SIZE
+            grid_vector.x = GRID_OFFSET_X + x * TILE_SIZE_X
+            grid_vector.y = GRID_OFFSET_Y + y * TILE_SIZE_Y
             color = color_map.get(val, TFT_WHITE)
-            fb.fill_rectangle(grid_vector, size_vector, color)
+            fb._fill_rectangle(
+                grid_vector.x, grid_vector.y, size_vector.x, size_vector.y, color
+            )
             if val:
-                text_vector.x = grid_vector.x + TILE_SIZE // 2 - 8
-                text_vector.y = grid_vector.y + TILE_SIZE // 2 - 8
-                fb.text(
-                    text_vector,
+                fb._text(
+                    grid_vector.x + TILE_SIZE_X // 2 - 8,
+                    grid_vector.y + TILE_SIZE_Y // 2 - 8,
                     str(val),
                     COLOR_NUMBER,
                 )
-    text_vector.x = 10
-    text_vector.y = 10
-    fb.text(text_vector, f"Score: {score}", COLOR_TEXT)
+    _x, _y = fb.scale(10, 10)
+    fb._text(_x, _y, f"Score: {score}", COLOR_TEXT)
     if state == STATE_WIN:
-        text_vector.x = 120
-        text_vector.y = 10
-        fb.text(text_vector, "YOU WIN!", COLOR_WIN)
+        _x = fb.scale_x(120)
+        fb._text(_x, _y, "YOU WIN!", COLOR_WIN)
     elif state == STATE_LOSE:
-        text_vector.x = 120
-        text_vector.y = 10
-        fb.text(text_vector, "GAME OVER", COLOR_LOSE)
-    text_vector.x = 10
-    text_vector.y = 300
+        _x = fb.scale_x(120)
+        fb._text(_x, _y, "GAME OVER", COLOR_LOSE)
     if state != STATE_PLAYING:
-        fb.text(text_vector, "Space: Restart", COLOR_TEXT)
-        text_vector.y = 285
-    fb.text(text_vector, "Back: Quit", COLOR_TEXT)
+        _x, _y = fb.scale(10, 300)
+        fb._text(_x, _y, "Space: Restart", COLOR_TEXT)
+    _x, _y = fb.scale(10, 285)
+    fb._text(_x, _y, "Back: Quit", COLOR_TEXT)
     if state == STATE_PLAYING:
-        text_vector.x = 120
-        fb.text(text_vector, "Arrows: Move", COLOR_TEXT)
+        _x, _y = fb.scale(120, 285)
+        fb._text(_x, _y, "Arrows: Move", COLOR_TEXT)
 
 
 def draw_grid_with_offsets(fb, grid, score: int, state: int, offsets=None) -> None:
@@ -127,38 +124,35 @@ def draw_grid_with_offsets(fb, grid, score: int, state: int, offsets=None) -> No
             dx, dy = 0, 0
             if offsets and (y, x) in offsets:
                 dx, dy = offsets[(y, x)]
-            grid_vector.x = GRID_OFFSET_X + x * TILE_SIZE + dx
-            grid_vector.y = GRID_OFFSET_Y + y * TILE_SIZE + dy
+            grid_vector.x = GRID_OFFSET_X + x * TILE_SIZE_X + dx
+            grid_vector.y = GRID_OFFSET_Y + y * TILE_SIZE_Y + dy
             color = color_map.get(val, TFT_WHITE)
-            fb.fill_rectangle(grid_vector, size_vector, color)
+            fb._fill_rectangle(
+                grid_vector.x, grid_vector.y, size_vector.x, size_vector.y, color
+            )
             if val:
-                text_vector.x = grid_vector.x + TILE_SIZE // 2 - 8
-                text_vector.y = grid_vector.y + TILE_SIZE // 2 - 8
-                fb.text(
-                    text_vector,
+                fb._text(
+                    grid_vector.x + TILE_SIZE_X // 2 - 8,
+                    grid_vector.y + TILE_SIZE_Y // 2 - 8,
                     str(val),
                     COLOR_NUMBER,
                 )
-    text_vector.x = 10
-    text_vector.y = 10
-    fb.text(text_vector, f"Score: {score}", COLOR_TEXT)
+    _x, _y = fb.scale(10, 10)
+    fb._text(_x, _y, f"Score: {score}", COLOR_TEXT)
     if state == STATE_WIN:
-        text_vector.x = 120
-        text_vector.y = 10
-        fb.text(text_vector, "YOU WIN!", COLOR_WIN)
+        _x = fb.scale_x(120)
+        fb._text(_x, _y, "YOU WIN!", COLOR_WIN)
     elif state == STATE_LOSE:
-        text_vector.x = 120
-        text_vector.y = 10
-        fb.text(text_vector, "GAME OVER", COLOR_LOSE)
-    text_vector.x = 10
-    text_vector.y = 300
+        _x = fb.scale_x(120)
+        fb._text(_x, _y, "GAME OVER", COLOR_LOSE)
     if state != STATE_PLAYING:
-        fb.text(text_vector, "Space: Restart", COLOR_TEXT)
-        text_vector.y = 285
-    fb.text(text_vector, "Back: Quit", COLOR_TEXT)
+        _x, _y = fb.scale(10, 300)
+        fb._text(_x, _y, "Space: Restart", COLOR_TEXT)
+    _x, _y = fb.scale(10, 285)
+    fb._text(_x, _y, "Back: Quit", COLOR_TEXT)
     if state == STATE_PLAYING:
-        text_vector.x = 120
-        fb.text(text_vector, "Arrows: Move", COLOR_TEXT)
+        _x, _y = fb.scale(120, 285)
+        fb._text(_x, _y, "Arrows: Move", COLOR_TEXT)
 
 
 def main(view_manager):
@@ -240,7 +234,7 @@ def main(view_manager):
                                     if prev_grid[y][x] != grid[y][x]:
                                         # Tile came from below
                                         dy = int(
-                                            (TILE_SIZE) * (frames - frame) / frames
+                                            (TILE_SIZE_Y) * (frames - frame) / frames
                                         )
                                         offsets[(y, x)] = (0, dy)
                     elif button == BUTTON_DOWN:
@@ -249,7 +243,7 @@ def main(view_manager):
                                 if grid[y][x] != 0:
                                     if prev_grid[y][x] != grid[y][x]:
                                         dy = int(
-                                            -(TILE_SIZE) * (frames - frame) / frames
+                                            -(TILE_SIZE_Y) * (frames - frame) / frames
                                         )
                                         offsets[(y, x)] = (0, dy)
                     elif button == BUTTON_LEFT:
@@ -258,7 +252,7 @@ def main(view_manager):
                                 if grid[y][x] != 0:
                                     if prev_grid[y][x] != grid[y][x]:
                                         dx = int(
-                                            (TILE_SIZE) * (frames - frame) / frames
+                                            (TILE_SIZE_X) * (frames - frame) / frames
                                         )
                                         offsets[(y, x)] = (dx, 0)
                     elif button == BUTTON_RIGHT:
@@ -267,7 +261,7 @@ def main(view_manager):
                                 if grid[y][x] != 0:
                                     if prev_grid[y][x] != grid[y][x]:
                                         dx = int(
-                                            -(TILE_SIZE) * (frames - frame) / frames
+                                            -(TILE_SIZE_X) * (frames - frame) / frames
                                         )
                                         offsets[(y, x)] = (dx, 0)
                     draw_grid_with_offsets(fb, grid, score, state, offsets)
@@ -349,16 +343,16 @@ def start(view_manager) -> bool:
     """Start the app"""
     from picoware.system.vector import Vector
 
-    global SCREEN_WIDTH, SCREEN_HEIGHT, GRID_OFFSET_X, GRID_OFFSET_Y, TILE_SIZE, grid_vector, text_vector, size_vector, color_map
+    global SCREEN_WIDTH, SCREEN_HEIGHT, GRID_OFFSET_X, GRID_OFFSET_Y, TILE_SIZE_X, TILE_SIZE_Y, grid_vector, size_vector, color_map
     draw = view_manager.draw
     SCREEN_WIDTH = draw.size.x
     SCREEN_HEIGHT = draw.size.y
     GRID_OFFSET_X = int(SCREEN_WIDTH * 0.0625)  # 20
     GRID_OFFSET_Y = GRID_OFFSET_X * 2  # 40
-    TILE_SIZE = GRID_OFFSET_X * 3  # 60
+    TILE_SIZE_X = GRID_OFFSET_X * 3  # 60
+    TILE_SIZE_Y = int(SCREEN_HEIGHT * 0.0625) * 3  # 60
     grid_vector = Vector(0, 0)
-    text_vector = Vector(0, 0)
-    size_vector = Vector(TILE_SIZE - 4, TILE_SIZE - 4)
+    size_vector = Vector(TILE_SIZE_X - 4, TILE_SIZE_Y - 4)
     color_map = {
         0: TFT_BLACK,
         2: TFT_GREEN,
@@ -385,10 +379,9 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global grid_vector, text_vector, size_vector, color_map
+    global grid_vector, size_vector, color_map
 
     grid_vector = None
-    text_vector = None
     size_vector = None
     color_map = {}
     collect()

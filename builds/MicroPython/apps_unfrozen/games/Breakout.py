@@ -304,21 +304,39 @@ def start(view_manager) -> bool:
     from picoware.system.colors import TFT_BLACK, TFT_CYAN, TFT_WHITE, TFT_YELLOW
     from picoware.system.buttons import BUTTON_BACK, BUTTON_NONE
 
+    global SCREEN_WIDTH, SCREEN_HEIGHT, PADDLE_WIDTH, PADDLE_HEIGHT, PADDLE_Y
+    global BALL_SIZE, BRICK_WIDTH, BRICK_HEIGHT, BRICK_PADDING, BRICK_OFFSET_TOP
+
+    draw = view_manager.draw
+
+    SCREEN_WIDTH, SCREEN_HEIGHT = draw.size.x, draw.size.y
+
+    # Game constants
+    PADDLE_WIDTH, PADDLE_HEIGHT = draw.scale(50, 8)
+    PADDLE_Y = SCREEN_HEIGHT - draw.scale_y(30)
+
+    BALL_SIZE = draw.scale_x(6)
+
+    BRICK_WIDTH, BRICK_HEIGHT = draw.scale(38, 12)
+    BRICK_PADDING = draw.scale_x(2)
+    BRICK_OFFSET_TOP = draw.scale_y(40)
+
     global game
 
     game = Game()
 
-    draw = view_manager.draw
-
     # Title screen
     draw.fill_screen(TFT_BLACK)
-    game.draw_centered_text(draw, "BREAKOUT", 100, TFT_CYAN)
-    game.draw_centered_text(draw, "Use Arrow Keys", 140, TFT_WHITE)
-    game.draw_centered_text(draw, "Press any key to start", 180, TFT_YELLOW)
+    game.draw_centered_text(draw, "BREAKOUT", draw.scale_y(100), TFT_CYAN)
+    game.draw_centered_text(draw, "Use Arrow Keys", draw.scale_y(140), TFT_WHITE)
+    game.draw_centered_text(
+        draw, "Press any key to start", draw.scale_y(180), TFT_YELLOW
+    )
     draw.swap()
 
     # Wait for any key using keyboard.readinto
     inp = view_manager.input_manager
+    inp.reset()
     while True:
         button = inp.button
         if button == BUTTON_BACK:

@@ -16,7 +16,6 @@ sx = []
 sy = []
 sz = []
 
-pixel_vector = None
 screen_size = None
 screen_size_half = None
 
@@ -41,7 +40,7 @@ def start(view_manager) -> bool:
     from picoware.system.colors import TFT_BLACK
     from picoware.system.vector import Vector
 
-    global za, zb, zc, zx, sx, sy, sz, pixel_vector, screen_size, screen_size_half
+    global za, zb, zc, zx, sx, sy, sz, screen_size, screen_size_half
 
     sx = [0] * NSTARS
     sy = [0] * NSTARS
@@ -58,7 +57,6 @@ def start(view_manager) -> bool:
         sy[i] = 0
         sz[i] = 0
 
-    pixel_vector = Vector(0, 0)
     screen_size = view_manager.draw.size
     screen_size_half = Vector(screen_size.x // 2, screen_size.y // 2)
 
@@ -109,9 +107,7 @@ def run(view_manager) -> None:
                     0 <= old_screen_x < screen_size.x
                     and 0 <= old_screen_y < screen_size.y
                 ):
-                    pixel_vector.x = old_screen_x
-                    pixel_vector.y = old_screen_y
-                    tft.pixel(pixel_vector, TFT_BLACK)
+                    tft._pixel(old_screen_x, old_screen_y, TFT_BLACK)
 
                 sz[i] -= 2
                 if sz[i] > 1:
@@ -127,9 +123,7 @@ def run(view_manager) -> None:
                     if 0 <= screen_x < screen_size.x and 0 <= screen_y < screen_size.y:
                         r = g = b = 255 - sz[i]
                         color = color565(r, g, b)
-                        pixel_vector.x = screen_x
-                        pixel_vector.y = screen_y
-                        tft.pixel(pixel_vector, color)
+                        tft._pixel(screen_x, screen_y, color)
                     else:
                         sz[i] = 0
 
@@ -141,7 +135,7 @@ def stop(view_manager) -> None:
     from picoware.system.colors import TFT_BLACK
     from gc import collect
 
-    global sx, sy, sz, pixel_vector, screen_size, screen_size_half
+    global sx, sy, sz, screen_size, screen_size_half
 
     draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)  # Black background
@@ -151,7 +145,6 @@ def stop(view_manager) -> None:
     sy = []
     sz = []
 
-    pixel_vector = None
     screen_size = None
     screen_size_half = None
 

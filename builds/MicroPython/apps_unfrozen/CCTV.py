@@ -509,10 +509,11 @@ def load_tv_list(storage):
 
 def _status(draw, fg, bg, title, *lines):
     """Clear screen and show a status message with optional sub-lines."""
-    draw._fill_rectangle(0, 0, draw.width, 80, bg)
-    draw._text(5, 5, title, fg)
+    _scale_five = draw.scale(5, 5)
+    draw._fill_rectangle(0, 0, draw.width, _scale_five[1] * 16, bg)
+    draw._text(_scale_five[0], _scale_five[1], title, fg)
     for i, line in enumerate(lines):
-        draw._text(5, 25 + i * 20, str(line), fg)
+        draw._text(_scale_five[0], _scale_five[1] * (5 + i * 4), str(line), fg)
     draw.swap()
 
 
@@ -565,6 +566,7 @@ def start(view_manager):
             _psram = PSRAM()
             _frame_addr = _psram.get_next_free()
         except Exception as e:
+            view_manager.log("PSRAM initialization failed: {}".format(e))
             _psram = None
             _frame_addr = 0
 
@@ -688,7 +690,8 @@ def run(view_manager):
             jpeg = JPEG(screen_width=draw.width, screen_height=draw.height)
             jpeg._init_buffers()
             reader = PSRAMReader(_psram, _frame_addr, frame_size)
-            jpeg._decode_split(reader, frame_size, 40, 120)
+            _pos = draw.scale(40, 120)
+            jpeg._decode_split(reader, frame_size, _pos[0], _pos[1])
         except Exception as e:
             _status(
                 draw,
@@ -741,7 +744,8 @@ def run(view_manager):
             "Heap free: {} B".format(mem_free()),
         )
         try:
-            draw.image_jpeg_buffer(Vector(40, 120), frame)
+            _pos = draw.scale(40, 120)
+            draw.image_jpeg_buffer(Vector(_pos[0], _pos[1]), frame)
         except Exception:
             _status(
                 draw,

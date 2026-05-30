@@ -8,15 +8,15 @@ STATE_KEY = const(2)  # set API key
 STATE_SOURCE = const(3)  # set news source
 STATE_INFO = const(4)  # show info about the app and API
 
-_CAL_HDR_H = const(20)  # header bar height
-_CAL_COL_H = const(12)  # column label row height
-_CAL_ROW_H = const(22)  # event row height
-_CAL_START = const(_CAL_HDR_H + _CAL_COL_H)  # y=32
+_CAL_HDR_H = 20  # header bar height
+_CAL_COL_H = 12  # column label row height
+_CAL_ROW_H = 22  # event row height
+_CAL_START = _CAL_HDR_H + _CAL_COL_H  # y=32
 
-_DIV_TIME = const(38)  # x divider after TIME
-_DIV_CUR = const(68)  # x divider after CUR
-_DIV_NAME = const(220)  # x divider after EVENT
-_DIV_AF = const(280)  # x divider after ACT/FOR
+_DIV_TIME = 38  # x divider after TIME
+_DIV_CUR = 68  # x divider after CUR
+_DIV_NAME = 220  # x divider after EVENT
+_DIV_AF = 280  # x divider after ACT/FOR
 
 _state = STATE_MENU
 _menu = None
@@ -110,8 +110,6 @@ def __subtract_hours(date_str: str, hours: int) -> str:
 
 def __parse_news(view_manager) -> list:
     """Load news from storage"""
-    from json import loads
-
     storage = view_manager.storage
     _path = "picoware/JB-News/news.txt"
 
@@ -335,9 +333,7 @@ def __draw_news_view(view_manager):
     draw.text(Vector(_DIV_AF + 2, yc), "OUT", C_LBL, FONT_XTRA_SMALL)
     # dividers in column label row
     for xd in (_DIV_TIME, _DIV_CUR, _DIV_NAME, _DIV_AF):
-        draw.line_custom(
-            Vector(xd, _CAL_HDR_H), Vector(xd, _CAL_HDR_H + _CAL_COL_H - 1), C_DIV
-        )
+        draw._line(xd, _CAL_HDR_H, xd, _CAL_HDR_H + _CAL_COL_H - 1, C_DIV)
 
     # ── event rows ───────────────────────────────────────────────────
     for i in range(visible):
@@ -389,12 +385,10 @@ def __draw_news_view(view_manager):
             draw.text(Vector(_DIV_AF + 12, y + 7), out_sym, out_color, FONT_XTRA_SMALL)
 
         # ---- horizontal divider ----
-        draw.line_custom(
-            Vector(0, y + _CAL_ROW_H - 1), Vector(W, y + _CAL_ROW_H - 1), C_DIV
-        )
+        draw._line(0, y + _CAL_ROW_H - 1, W, y + _CAL_ROW_H - 1, C_DIV)
         # ---- vertical dividers ----
         for xd in (_DIV_TIME, _DIV_CUR, _DIV_NAME, _DIV_AF):
-            draw.line_custom(Vector(xd, y), Vector(xd, y + _CAL_ROW_H - 1), C_DIV)
+            draw._line(xd, y, xd, y + _CAL_ROW_H - 1, C_DIV)
 
     # ── bottom accent line ────────────────────────────────────────────
     bottom_y = _CAL_START + visible * _CAL_ROW_H
@@ -417,7 +411,7 @@ def __draw_info_view(view_manager):
         TFT_DARKGREY,
         TFT_GREEN,
     )
-    from picoware.system.font import FONT_XTRA_SMALL, FONT_SMALL, FONT_LARGE
+    from picoware.system.font import FONT_XTRA_SMALL, FONT_LARGE
     from picoware.system.vector import Vector
 
     draw = view_manager.draw
@@ -513,6 +507,7 @@ def start(view_manager) -> bool:
     storage.mkdir("picoware/JB-News")
 
     global _state, _data_fetched, _data_loaded, _news_data, _news_scroll, _news_view_dirty, _info_view_dirty
+    global _CAL_HDR_H, _CAL_COL_H, _CAL_ROW_H, _CAL_START, _DIV_TIME, _DIV_CUR, _DIV_NAME, _DIV_AF
 
     _state = STATE_MENU
     _data_fetched = False
@@ -521,6 +516,18 @@ def start(view_manager) -> bool:
     _news_scroll = 0
     _news_view_dirty = True
     _info_view_dirty = True
+
+    draw = view_manager.draw
+
+    _CAL_HDR_H = draw.scale_y(20)  # header bar height
+    _CAL_COL_H = draw.scale_y(12)  # column label row height
+    _CAL_ROW_H = draw.scale_y(22)  # event row height
+    _CAL_START = _CAL_HDR_H + _CAL_COL_H  # y=32
+
+    _DIV_TIME = draw.scale_x(38)  # x divider after TIME
+    _DIV_CUR = draw.scale_x(68)  # x divider after CUR
+    _DIV_NAME = draw.scale_x(220)  # x divider after EVENT
+    _DIV_AF = draw.scale_x(280)  # x divider after ACT/FOR
 
     __menu_start(view_manager)
 

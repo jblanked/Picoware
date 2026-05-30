@@ -57,15 +57,13 @@ palette = None
 old_time: int = 0
 fps: str = ""
 
-pixel_vec = None
-
 screen_center_x = 0
 screen_center_y = 0
 
 
 def __reset_values() -> None:
     """Reset global values"""
-    global speed, old_speed, size, x_offset, y_offset, pixel_vec
+    global speed, old_speed, size, x_offset, y_offset
     speed = 0.2
     old_speed = 0.0
     size = 1.0
@@ -190,10 +188,7 @@ def __render(draw) -> None:
 
                 # Calculate color directly
                 color = palette[(i >> 2) * 64 + j]
-
-                pixel_vec.x = screen_x
-                pixel_vec.y = screen_y
-                draw.pixel(pixel_vec, color)
+                draw._pixel(screen_x, screen_y, color)
 
         ang1_start += ANG1INC
         ang2_start += ANG2INC
@@ -204,12 +199,10 @@ def start(view_manager) -> bool:
 
     draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)
-    draw.text(Vector(10, 10), "Bubble Universe by Movie Vertigo", TFT_WHITE)
+    draw._text(10, 10, "Bubble Universe by Movie Vertigo", TFT_WHITE)
     draw.swap()
 
-    global old_time, SCREENWIDTH, SCREENHEIGHT, SCALEMUL, pixel_vec, screen_center_x, screen_center_y
-
-    pixel_vec = Vector(0, 0)
+    global old_time, SCREENWIDTH, SCREENHEIGHT, SCALEMUL, screen_center_x, screen_center_y
 
     SCREENWIDTH = draw.size.x
     SCREENHEIGHT = draw.size.y
@@ -258,11 +251,10 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global sin_table, cos_table, palette, pixel_vec, screen_center_x, screen_center_y
+    global sin_table, cos_table, palette, screen_center_x, screen_center_y
     sin_table = None
     cos_table = None
     palette = None
-    pixel_vec = None
     screen_center_x = 0
     screen_center_y = 0
     __reset_values()

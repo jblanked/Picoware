@@ -97,9 +97,20 @@ def start(view_manager) -> bool:
     """Start the app"""
     global screen_size, player_x, bullets, enemies, enemy_bullets, score, lives, game_over
     global enemy_direction, enemy_move_counter
+    global PLAYER_WIDTH, PLAYER_HEIGHT, BULLET_WIDTH, BULLET_HEIGHT, ENEMY_WIDTH, ENEMY_HEIGHT, ENEMY_ROWS, ENEMY_COLS, ENEMY_SPACING
 
     draw = view_manager.draw
     screen_size = draw.size
+
+    PLAYER_WIDTH = draw.scale_x(12)
+    PLAYER_HEIGHT = draw.scale_y(8)
+    BULLET_WIDTH = draw.scale_x(2)
+    BULLET_HEIGHT = draw.scale_y(6)
+    ENEMY_WIDTH = draw.scale_x(10)
+    ENEMY_HEIGHT = draw.scale_y(8)
+    ENEMY_ROWS = 4
+    ENEMY_COLS = 8
+    ENEMY_SPACING = draw.scale_x(20)
 
     player_x = screen_size.x // 2 - PLAYER_WIDTH // 2
     bullets = []
@@ -112,8 +123,8 @@ def start(view_manager) -> bool:
 
     # Create enemies
     enemies = []
-    start_x = 40
-    start_y = 40
+    start_x = draw.scale_x(40)
+    start_y = draw.scale_y(40)
     for row in range(ENEMY_ROWS):
         for col in range(ENEMY_COLS):
             x = start_x + col * ENEMY_SPACING

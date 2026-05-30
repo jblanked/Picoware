@@ -34,19 +34,22 @@ def py_to_y(py):
 
 
 def draw_axes(fb):
-    from picoware.system.vector import Vector
     from picoware.system.colors import TFT_BLUE
 
     # Draw axes
     # Y axis
     x0 = x_to_px(0)
-    fb.fill_rectangle(Vector(x0, 0), Vector(1, GRAPH_HEIGHT), TFT_BLUE)
+    _x, _y = fb.scale(x0, 1)
+    _w, _h = fb.scale(1, GRAPH_HEIGHT)
+    fb._fill_rectangle(_x, _y, _w, _h, TFT_BLUE)
     # X axis
     y0 = y_to_py(0)
-    fb.fill_rectangle(Vector(0, y0), Vector(SCREEN_WIDTH, 1), TFT_BLUE)
+    _x, _y = fb.scale(1, y0)
+    _w, _h = fb.scale(SCREEN_WIDTH, 1)
+    fb._fill_rectangle(_x, _y, _w, _h, TFT_BLUE)
 
     # Draw border
-    fb.rect(Vector(0, 0), Vector(SCREEN_WIDTH, GRAPH_HEIGHT), TFT_BLUE)
+    fb._rectangle(0, 0, SCREEN_WIDTH, GRAPH_HEIGHT, TFT_BLUE)
 
 
 def draw_input_line(fb, expr, error=None, mode="normal", expr2=None):
@@ -54,17 +57,21 @@ def draw_input_line(fb, expr, error=None, mode="normal", expr2=None):
     from picoware.system.colors import TFT_BLACK, TFT_WHITE, TFT_RED
 
     # Clear input area
-    fb.fill_rectangle(
-        Vector(0, GRAPH_HEIGHT), Vector(SCREEN_WIDTH, INPUT_HEIGHT), TFT_BLACK
-    )
+    _x, _y = fb.scale(0, GRAPH_HEIGHT)
+    _w, _h = fb.scale(SCREEN_WIDTH, INPUT_HEIGHT)
+    fb._fill_rectangle(_x, _y, _w, _h, TFT_BLACK)
     if mode == "param":
-        fb.text(Vector(4, GRAPH_HEIGHT + 4), "x(t)=" + (expr or ""), TFT_WHITE)
+        _x, _y = fb.scale(4, GRAPH_HEIGHT + 4)
+        fb._text(_x, _y, "x(t)=" + (expr or ""), TFT_WHITE)
         if expr2 is not None:
-            fb.text(Vector(4, GRAPH_HEIGHT + 16), "y(t)=" + expr2, TFT_WHITE)
+            _x, _y = fb.scale(4, GRAPH_HEIGHT + 16)
+            fb._text(_x, _y, "y(t)=" + expr2, TFT_WHITE)
     else:
-        fb.text(Vector(4, GRAPH_HEIGHT + 4), "y = " + expr, TFT_WHITE)
+        _x, _y = fb.scale(4, GRAPH_HEIGHT + 4)
+        fb._text(_x, _y, "y = " + expr, TFT_WHITE)
     if error:
-        fb.text(Vector(200, GRAPH_HEIGHT + 4), error, TFT_RED)
+        _x, _y = fb.scale(200, GRAPH_HEIGHT + 4)
+        fb._text(_x, _y, error, TFT_RED)
 
 
 def __exp_list() -> list[tuple[str, object]]:
@@ -139,7 +146,6 @@ def __param_exp_list() -> list[tuple[str, object]]:
 
 def graph_equation(fb, expr):
     import math
-    from picoware.system.vector import Vector
     from picoware.system.colors import TFT_BLACK, TFT_GREEN
 
     fb.fill_screen(TFT_BLACK)
@@ -153,7 +159,6 @@ def graph_equation(fb, expr):
         return
     # Draw graph pixel by pixel
     points = []
-    vec_pixl = Vector(0, 0)
     exp_list = __exp_list()
     for px in range(SCREEN_WIDTH):
         x = px_to_x(px)
@@ -173,16 +178,12 @@ def graph_equation(fb, expr):
         # Draw in batches for animation
         if px % 16 == 0:
             for ppx, ppy in points:
-                vec_pixl.x = ppx
-                vec_pixl.y = ppy
-                fb.pixel(vec_pixl, TFT_GREEN)
+                fb._pixel(ppx, ppy, TFT_GREEN)
             fb.swap()
             points = []
     # Draw any remaining points
     for ppx, ppy in points:
-        vec_pixl.x = ppx
-        vec_pixl.y = ppy
-        fb.pixel(vec_pixl, TFT_GREEN)
+        fb._pixel(ppx, ppy, TFT_GREEN)
     fb.swap()
 
 
@@ -206,7 +207,6 @@ def graph_parametric(fb, expr_x, expr_y):
         return
     points = []
     N = SCREEN_WIDTH  # Number of steps
-    vec_pixl = Vector(0, 0)
     exp_list = __param_exp_list()
     for i in range(N):
         t = TMIN + (TMAX - TMIN) * i / (N - 1)
@@ -229,15 +229,11 @@ def graph_parametric(fb, expr_x, expr_y):
         # Draw in batches for animation
         if i % 16 == 0:
             for ppx, ppy in points:
-                vec_pixl.x = ppx
-                vec_pixl.y = ppy
-                fb.pixel(vec_pixl, TFT_GREEN)
+                fb._pixel(ppx, ppy, TFT_GREEN)
             fb.swap()
             points = []
     for ppx, ppy in points:
-        vec_pixl.x = ppx
-        vec_pixl.y = ppy
-        fb.pixel(vec_pixl, TFT_GREEN)
+        fb._pixel(ppx, ppy, TFT_GREEN)
     fb.swap()
 
 
@@ -253,6 +249,11 @@ cursor2 = 0
 def start(view_manager) -> bool:
     """Start the app"""
     global mode, expr, expr2, input_buffer, input_buffer2, cursor, cursor2
+    global SCREEN_WIDTH, SCREEN_HEIGHT, GRAPH_HEIGHT, INPUT_HEIGHT
+    draw = view_manager.draw
+    SCREEN_WIDTH = draw.size.x
+    SCREEN_HEIGHT = draw.size.y
+    GRAPH_HEIGHT, INPUT_HEIGHT = draw.scale(280, 40)
     mode = "normal"  # 'normal' or 'param'
     expr = "sin(x)*cos(x/2) + exp(-x**2/10)"
     expr2 = "sin(t)"  # default y(t) for parametric
@@ -260,6 +261,7 @@ def start(view_manager) -> bool:
     input_buffer2 = list(expr2)
     cursor = len(input_buffer)
     cursor2 = len(input_buffer2)
+    view_manager.input_manager.reset()
     return True
 
 
@@ -275,7 +277,6 @@ def run(view_manager) -> None:
         BUTTON_NONE,
     )
     from picoware.system.colors import TFT_BLACK, TFT_WHITE
-    from picoware.system.vector import Vector
 
     inp = view_manager.input_manager
     button = inp.button
@@ -386,13 +387,17 @@ def run(view_manager) -> None:
                 # Cursor for x(t) on first line
                 cursor_x = 4 + 6 * len("x(t)=" + "".join(input_buffer[:cursor]))
                 cursor_y = GRAPH_HEIGHT + 4
-            fb.fill_rectangle(cursor_x, cursor_y, 6, 8, TFT_WHITE)
+
+            cursor_x, cursor_y = fb.scale(cursor_x, cursor_y)
+            _w, _h = fb.scale(6, 8)
+            fb._fill_rectangle(cursor_x, cursor_y, _w, _h, TFT_WHITE)
         else:
             draw_input_line(fb, "".join(input_buffer))
             cursor_x = 4 + 6 * len("y = " + "".join(input_buffer[:cursor]))
-            fb.fill_rectangle(
-                Vector(cursor_x, GRAPH_HEIGHT + 4), Vector(6, 8), TFT_WHITE
-            )
+            cursor_y = GRAPH_HEIGHT + 4
+            cursor_x, cursor_y = fb.scale(cursor_x, cursor_y)
+            _w, _h = fb.scale(6, 8)
+            fb._fill_rectangle(cursor_x, cursor_y, _w, _h, TFT_WHITE)
         fb.swap()
     # Graph the equation
     if mode == "param":

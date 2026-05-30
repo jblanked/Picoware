@@ -12,7 +12,7 @@ Source: https://github.com/BlairLeduc/picocalc-text-starter
 
 // SD card interface definitions
 #define SD_INIT_BAUDRATE (400000) // 400 KHz SPI clock speed for initialization
-#define SD_BAUDRATE (25000000)    // 25 MHz SPI clock speed (SD spec max for SPI mode)
+#define SD_BAUDRATE (12500000)    // 12.5 MHz SPI clock speed for reliability
 
 // SD card commands
 #define SD_CMD0 (0)    // GO_IDLE_STATE

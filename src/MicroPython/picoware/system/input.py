@@ -4,6 +4,8 @@ from picoware.system.boards import (
     BOARD_WAVESHARE_1_28_RP2350,
     BOARD_WAVESHARE_1_43_RP2350,
     BOARD_WAVESHARE_3_49_RP2350,
+    BOARD_CROWPANEL_10_1,
+    BOARD_CARDPUTER,
     BOARD_ID,
 )
 
@@ -28,6 +30,7 @@ class Input:
         "_was_pressed",
         "_was_capitalized",
         "_button_map",
+        "_crowpanel_touch",
     )
 
     def __init__(self, back_button=buttons.BUTTON_BACK):
@@ -45,6 +48,7 @@ class Input:
         self._key_back = (
             buttons.BUTTON_BACK if not _back_special else buttons.BUTTON_BACKSPACE
         )
+        self._crowpanel_touch = None
 
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             from waveshare_touch import init, TOUCH_GESTURE_MODE, TOUCH_GESTURE_NONE
@@ -88,6 +92,18 @@ class Input:
 
             self._delay_ms = 200
 
+        elif self._current_board_id == BOARD_CROWPANEL_10_1:
+            from touch import Touch
+
+            self._crowpanel_touch = Touch()
+            self._last_point = (0, 0)
+            self._delay_ms = 120
+
+        elif self._current_board_id == BOARD_CARDPUTER:
+            from cardputer_keyboard import init
+
+            init()
+
         else:
             from picoware_keyboard import (
                 init,
@@ -106,31 +122,20 @@ class Input:
         self._was_pressed = False
         self._was_capitalized = False
 
-        self._button_map = {
-            buttons.KEY_UP: buttons.BUTTON_UP,
-            buttons.KEY_DOWN: buttons.BUTTON_DOWN,
-            buttons.KEY_LEFT: buttons.BUTTON_LEFT,
-            buttons.KEY_RIGHT: buttons.BUTTON_RIGHT,
-            buttons.KEY_ESC: self._key_esc,
-            buttons.KEY_HOME: buttons.BUTTON_HOME,
-            buttons.KEY_DEL: buttons.BUTTON_BACKSPACE,
-            buttons.KEY_END: buttons.BUTTON_END,
-            8: self._key_back,
-            9: buttons.BUTTON_TAB,
-            13: buttons.BUTTON_CENTER,
-            # special keys
+        ansi_button_map = {
+            # printable/symbol keys
             32: buttons.BUTTON_SPACE,
-            33: buttons.BUTTON_EXCLAMATION,  # !
-            34: buttons.BUTTON_DOUBLE_QUOTE,  # "
-            35: buttons.BUTTON_HASH,  # #
-            36: buttons.BUTTON_DOLLAR,  # $
-            37: buttons.BUTTON_PERCENT,  # %
-            38: buttons.BUTTON_AMPERSAND,  # &
-            39: buttons.BUTTON_SINGLE_QUOTE,  # '
-            40: buttons.BUTTON_LEFT_PARENTHESIS,  # (
-            41: buttons.BUTTON_RIGHT_PARENTHESIS,  # )
-            42: buttons.BUTTON_ASTERISK,  # *
-            43: buttons.BUTTON_PLUS,  # +
+            33: buttons.BUTTON_EXCLAMATION,
+            34: buttons.BUTTON_DOUBLE_QUOTE,
+            35: buttons.BUTTON_HASH,
+            36: buttons.BUTTON_DOLLAR,
+            37: buttons.BUTTON_PERCENT,
+            38: buttons.BUTTON_AMPERSAND,
+            39: buttons.BUTTON_SINGLE_QUOTE,
+            40: buttons.BUTTON_LEFT_PARENTHESIS,
+            41: buttons.BUTTON_RIGHT_PARENTHESIS,
+            42: buttons.BUTTON_ASTERISK,
+            43: buttons.BUTTON_PLUS,
             44: buttons.BUTTON_COMMA,
             45: buttons.BUTTON_MINUS,
             46: buttons.BUTTON_PERIOD,
@@ -146,15 +151,15 @@ class Input:
             55: buttons.BUTTON_7,
             56: buttons.BUTTON_8,
             57: buttons.BUTTON_9,
-            # special characters
-            58: buttons.BUTTON_COLON,  # :
+            # punctuation
+            58: buttons.BUTTON_COLON,
             59: buttons.BUTTON_SEMICOLON,
-            60: buttons.BUTTON_LESS_THAN,  # <
+            60: buttons.BUTTON_LESS_THAN,
             61: buttons.BUTTON_EQUAL,
-            62: buttons.BUTTON_GREATER_THAN,  # >
-            63: buttons.BUTTON_QUESTION,  # ?
-            64: buttons.BUTTON_AT,  # @
-            # alphabet keys
+            62: buttons.BUTTON_GREATER_THAN,
+            63: buttons.BUTTON_QUESTION,
+            64: buttons.BUTTON_AT,
+            # uppercase letters
             65: buttons.BUTTON_A,
             66: buttons.BUTTON_B,
             67: buttons.BUTTON_C,
@@ -181,14 +186,14 @@ class Input:
             88: buttons.BUTTON_X,
             89: buttons.BUTTON_Y,
             90: buttons.BUTTON_Z,
-            # special characters
+            # additional punctuation
             91: buttons.BUTTON_LEFT_BRACKET,
             92: buttons.BUTTON_BACKSLASH,
             93: buttons.BUTTON_RIGHT_BRACKET,
-            94: buttons.BUTTON_CARET,  # ^
-            95: buttons.BUTTON_UNDERSCORE,  # _
-            96: buttons.BUTTON_BACK_TICK,  # `
-            # alphabet keys (lowercase)
+            94: buttons.BUTTON_CARET,
+            95: buttons.BUTTON_UNDERSCORE,
+            96: buttons.BUTTON_BACK_TICK,
+            # lowercase letters
             97: buttons.BUTTON_A,
             98: buttons.BUTTON_B,
             99: buttons.BUTTON_C,
@@ -215,24 +220,61 @@ class Input:
             120: buttons.BUTTON_X,
             121: buttons.BUTTON_Y,
             122: buttons.BUTTON_Z,
-            123: buttons.BUTTON_LEFT_BRACE,  # {
-            124: buttons.BUTTON_PIPE,  # |
-            125: buttons.BUTTON_RIGHT_BRACE,  # }
-            126: buttons.BUTTON_TILDE,  # ~
-            # function keys
-            buttons.KEY_F1: buttons.BUTTON_F1,
-            buttons.KEY_F2: buttons.BUTTON_F2,
-            buttons.KEY_F3: buttons.BUTTON_F3,
-            buttons.KEY_F4: buttons.BUTTON_F4,
-            buttons.KEY_F5: buttons.BUTTON_F5,
-            buttons.KEY_F6: buttons.BUTTON_F6,
-            buttons.KEY_F7: buttons.BUTTON_F7,
-            buttons.KEY_F8: buttons.BUTTON_F8,
-            buttons.KEY_F9: buttons.BUTTON_F9,
-            buttons.KEY_F10: buttons.BUTTON_F10,
-            buttons.KEY_CTRL_UP: buttons.BUTTON_CTRL_UP,
-            buttons.KEY_CTRL_DOWN: buttons.BUTTON_CTRL_DOWN,
+            123: buttons.BUTTON_LEFT_BRACE,
+            124: buttons.BUTTON_PIPE,
+            125: buttons.BUTTON_RIGHT_BRACE,
+            126: buttons.BUTTON_TILDE,
         }
+
+        if self._current_board_id == BOARD_CARDPUTER:
+            # Cardputer keyboard module emits ANSI plus special key constants.
+            self._button_map = {
+                buttons.KEY_UP: buttons.BUTTON_UP,
+                buttons.KEY_DOWN: buttons.BUTTON_DOWN,
+                buttons.KEY_LEFT: buttons.BUTTON_LEFT,
+                buttons.KEY_RIGHT: buttons.BUTTON_RIGHT,
+                buttons.KEY_ESC: self._key_esc,
+                buttons.KEY_MOD_CTRL: buttons.BUTTON_CONTROL,
+                buttons.KEY_MOD_ALT: buttons.BUTTON_ALT,
+                buttons.KEY_MOD_SHL: buttons.BUTTON_SHIFT,
+                buttons.KEY_CAPS_LOCK: buttons.BUTTON_CAPS_LOCK,
+                8: self._key_back,
+                9: buttons.BUTTON_TAB,
+                10: buttons.BUTTON_CENTER,
+                13: buttons.BUTTON_CENTER,
+            }
+            self._button_map.update(ansi_button_map)
+        else:
+            self._button_map = {
+                buttons.KEY_UP: buttons.BUTTON_UP,
+                buttons.KEY_DOWN: buttons.BUTTON_DOWN,
+                buttons.KEY_LEFT: buttons.BUTTON_LEFT,
+                buttons.KEY_RIGHT: buttons.BUTTON_RIGHT,
+                buttons.KEY_ESC: self._key_esc,
+                buttons.KEY_HOME: buttons.BUTTON_HOME,
+                buttons.KEY_DEL: buttons.BUTTON_BACKSPACE,
+                buttons.KEY_END: buttons.BUTTON_END,
+                8: self._key_back,
+                9: buttons.BUTTON_TAB,
+                13: buttons.BUTTON_CENTER,
+            }
+            self._button_map.update(ansi_button_map)
+            self._button_map.update(
+                {
+                    buttons.KEY_F1: buttons.BUTTON_F1,
+                    buttons.KEY_F2: buttons.BUTTON_F2,
+                    buttons.KEY_F3: buttons.BUTTON_F3,
+                    buttons.KEY_F4: buttons.BUTTON_F4,
+                    buttons.KEY_F5: buttons.BUTTON_F5,
+                    buttons.KEY_F6: buttons.BUTTON_F6,
+                    buttons.KEY_F7: buttons.BUTTON_F7,
+                    buttons.KEY_F8: buttons.BUTTON_F8,
+                    buttons.KEY_F9: buttons.BUTTON_F9,
+                    buttons.KEY_F10: buttons.BUTTON_F10,
+                    buttons.KEY_CTRL_UP: buttons.BUTTON_CTRL_UP,
+                    buttons.KEY_CTRL_DOWN: buttons.BUTTON_CTRL_DOWN,
+                }
+            )
 
     def __del__(self):
         """Destructor to clean up resources."""
@@ -242,10 +284,19 @@ class Input:
             del self.pin
             self.pin = None
 
-        if self._current_board_id not in (
+        if self._crowpanel_touch is not None:
+            del self._crowpanel_touch
+            self._crowpanel_touch = None
+
+        if self._current_board_id == BOARD_CARDPUTER:
+            from cardputer_keyboard import deinit
+
+            deinit()
+        elif self._current_board_id not in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
+            BOARD_CROWPANEL_10_1,
         ):
             from picoware_southbridge import deinit
 
@@ -265,6 +316,14 @@ class Input:
 
             return get_percentage()
 
+        if self._current_board_id == BOARD_CROWPANEL_10_1:
+            return 100
+
+        if self._current_board_id == BOARD_CARDPUTER:
+            from cardputer_battery import get_percentage
+
+            return get_percentage()
+
         from picoware_southbridge import get_battery_percentage
 
         return get_battery_percentage()
@@ -272,7 +331,15 @@ class Input:
     @property
     def button(self) -> int:
         """Returns the last button pressed."""
-        if self._current_board_id not in (
+        if self._current_board_id == BOARD_CROWPANEL_10_1:
+            self._poll_crowpanel_touch()
+        elif self._current_board_id == BOARD_CARDPUTER:
+            from cardputer_keyboard import poll, key_available
+
+            poll()
+            if key_available():
+                self.on_key_callback()
+        elif self._current_board_id not in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
@@ -297,6 +364,7 @@ class Input:
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
+            BOARD_CROWPANEL_10_1,
         )
 
     @property
@@ -423,6 +491,13 @@ class Input:
             BOARD_WAVESHARE_3_49_RP2350,
         ):
             return self._last_point != (0, 0)
+        if self._current_board_id == BOARD_CROWPANEL_10_1:
+            self._poll_crowpanel_touch()
+            return self._last_point != (0, 0)
+        if self._current_board_id == BOARD_CARDPUTER:
+            from cardputer_keyboard import key_available
+
+            return key_available()
         from picoware_keyboard import key_available
 
         return key_available()
@@ -462,6 +537,11 @@ class Input:
         """
         if self.has_touch_support:
             return -1  # Not applicable for touch input
+        if self._current_board_id == BOARD_CARDPUTER:
+            from cardputer_keyboard import get_key
+
+            return get_key()
+
         from picoware_keyboard import get_key
 
         return get_key()
@@ -470,6 +550,10 @@ class Input:
         """Returns the key code as integer, or -1 if no key is pressed."""
         if self.has_touch_support:
             return -1  # Not applicable for touch input
+        if self._current_board_id == BOARD_CARDPUTER:
+            from cardputer_keyboard import get_key_nonblocking
+
+            return get_key_nonblocking()
         from picoware_keyboard import get_key_nonblocking
 
         key = get_key_nonblocking()
@@ -491,6 +575,42 @@ class Input:
             from waveshare_touch import reset_state
 
             reset_state()
+
+    def _poll_crowpanel_touch(self):
+        """Poll the CrowPanel touch controller and map touch areas to button events."""
+        if self._crowpanel_touch is None:
+            return
+
+        if not self._crowpanel_touch.read():
+            self._last_point = (0, 0)
+            self._last_button = buttons.BUTTON_NONE
+            self._was_pressed = False
+            self._elapsed_time = 0
+            return
+
+        x = self._crowpanel_touch.x
+        y = self._crowpanel_touch.y
+
+        self._elapsed_touch_now = int(ticks_ms())
+        if self._elapsed_touch_now - self._elapsed_touch_start < self._delay_ms:
+            return
+
+        self._elapsed_touch_start = self._elapsed_touch_now
+        self._last_point = (x, y)
+
+        if 900 <= x <= 1024 and 160 <= y <= 440:
+            self._last_button = buttons.BUTTON_RIGHT
+        elif 0 <= x <= 124 and 160 <= y <= 440:
+            self._last_button = buttons.BUTTON_LEFT
+        elif 256 <= x <= 768 and 0 <= y <= 120:
+            self._last_button = buttons.BUTTON_UP
+        elif 256 <= x <= 768 and 480 <= y <= 600:
+            self._last_button = buttons.BUTTON_DOWN
+        else:
+            self._last_button = buttons.BUTTON_CENTER
+
+        self._elapsed_time += 1
+        self._was_pressed = True
 
     def __touch_callback(self, pin):
         """Touch interrupt callback function"""

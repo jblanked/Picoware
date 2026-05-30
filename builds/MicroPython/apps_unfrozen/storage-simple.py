@@ -1,8 +1,8 @@
 _text = ""
 
 
-def start(view_manager):
-
+def start(view_manager) -> bool:
+    """Start the app"""
     global _text
 
     st = view_manager.storage
@@ -15,9 +15,8 @@ def start(view_manager):
 
 
 def run(view_manager):
-
+    """Run the app"""
     from picoware.system.buttons import BUTTON_BACK
-    from picoware.system.vector import Vector
 
     inp = view_manager.input_manager
     draw = view_manager.draw
@@ -27,11 +26,12 @@ def run(view_manager):
         inp.reset()
         view_manager.back()
     else:
-        draw.text(Vector(160, 160), _text)
+        draw._text(draw.size.x // 2, draw.size.y // 2, _text, draw.foreground)
         draw.swap()
 
 
 def stop(view_manager):
+    """Stop the app"""
     from gc import collect
 
     collect()

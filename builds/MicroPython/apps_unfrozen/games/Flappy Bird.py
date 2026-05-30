@@ -343,10 +343,10 @@ FLAPPY_BIRD_HEIGHT = const(16)
 FLAPPY_BIRD_WIDTH = const(20)
 
 FLAPPY_PILAR_MAX = const(15)
-FLAPPY_PILAR_DIST = const(100)
+FLAPPY_PILAR_DIST = 100
 
-FLAPPY_GAB_HEIGHT = const(100)
-FLAPPY_GAB_WIDTH = const(10)
+FLAPPY_GAB_HEIGHT = 100
+FLAPPY_GAB_WIDTH = 10
 
 FLAPPY_GRAVITY_JUMP = -6.0
 FLAPPY_GRAVITY_TICK = 0.7
@@ -396,7 +396,7 @@ class PILAR:
 
 
 class GameState:
-    def __init__(self):
+    def __init__(self, draw):
 
         self.bird: BIRD = BIRD()
         self.points: int = 0
@@ -412,12 +412,14 @@ class GameState:
         self.vec_4 = Vector(FLAPPY_GAB_WIDTH, 0)
         self.lcd_pos = Vector(0, 0)
         self.text_pos = Vector(140, 12)
+        self.text_pos.x, self.text_pos.y = draw.scale(140, 12)
         self.cloud_pos = Vector(0, 0)
         self.gnd_pos = Vector(0, 0)
         self.gnd_size = Vector(0, 0)
         self.grs_pos = Vector(0, 0)
         self.grs_size = Vector(0, 0)
-        self.cloud_y_positions = [20, 50, 80, 110]
+        _pos = draw.scale_y(10)
+        self.cloud_y_positions = [_pos * 2, _pos * 5, _pos * 8, _pos * 11]
 
     def __del__(self):
         if self.bird:
@@ -470,7 +472,7 @@ def __flappy_game_random_pilar() -> None:
     pilar.passed = False
     pilar.visible = 1
 
-    pilar.height = randint(1, FLIPPER_LCD_HEIGHT - FLAPPY_GAB_HEIGHT - 21)
+    pilar.height = randint(1, int(FLIPPER_LCD_HEIGHT - FLAPPY_GAB_HEIGHT - 21))
     pilar.point.y = 0
     pilar.point.y2 = 0
     pilar.point.x = FLIPPER_LCD_WIDTH + FLAPPY_GAB_WIDTH + 1
@@ -480,15 +482,14 @@ def __flappy_game_random_pilar() -> None:
     _game_state.pilars[_game_state.pilars_count % FLAPPY_PILAR_MAX] = pilar
 
 
-def __flappy_game_state_init() -> None:
+def __flappy_game_state_init(draw) -> None:
     """Initialize the game state"""
     global _game_state
 
     bird = BIRD()
     bird.gravity = 0.0
     # Start near left, vertically centered on 240px screen
-    bird.point.x = 15
-    bird.point.x2 = 15
+    bird.point.x, bird.point.x2 = draw.scale(15, 15)
     bird.point.y = FLIPPER_LCD_HEIGHT / 2
     bird.point.y2 = FLIPPER_LCD_HEIGHT / 2
 
@@ -586,7 +587,7 @@ def __player_update(self, game):
 
     if button in (BUTTON_UP, BUTTON_CENTER):
         if _game_state.state == GAME_STATE_GAME_OVER:
-            __flappy_game_state_init()
+            __flappy_game_state_init(game.draw)
         elif _game_state.state == GAME_STATE_LIFE:
             __flappy_game_flap()
         button = -1
@@ -711,7 +712,7 @@ def __player_render(self, draw, game) -> None:
         draw.text(Vector(125, 140), "Press to Retry", TFT_BLACK)
 
 
-def __player_spawn(level):
+def __player_spawn(level, draw):
     """Spawn the player in the level."""
     from picoware.engine.entity import Entity, ENTITY_TYPE_PLAYER, SPRITE_3D_NONE
 
@@ -736,8 +737,8 @@ def __player_spawn(level):
     )
 
     level.entity_add(player)
-    _game_state = GameState()
-    __flappy_game_state_init()
+    _game_state = GameState(draw)
+    __flappy_game_state_init(draw)
 
 
 def start(view_manager) -> bool:
@@ -747,11 +748,14 @@ def start(view_manager) -> bool:
     from picoware.engine.engine import GameEngine
     from picoware.engine.camera import Camera
 
-    global _game_engine, FLIPPER_LCD_WIDTH, FLIPPER_LCD_HEIGHT
+    global _game_engine, FLIPPER_LCD_WIDTH, FLIPPER_LCD_HEIGHT, FLAPPY_PILAR_DIST, FLAPPY_GAB_HEIGHT, FLAPPY_GAB_WIDTH
 
     draw = view_manager.draw
     FLIPPER_LCD_WIDTH = draw.size.x
     FLIPPER_LCD_HEIGHT = draw.size.y
+
+    FLAPPY_GAB_WIDTH, FLAPPY_GAB_HEIGHT = draw.scale(10, 100)
+    FLAPPY_PILAR_DIST = FLAPPY_GAB_HEIGHT
 
     # Create the game instance with its name, start/stop callbacks, and colors.
     game = Game(
@@ -772,7 +776,7 @@ def start(view_manager) -> bool:
     game.level_add(level)
 
     # Add the player entity to the level
-    __player_spawn(level)
+    __player_spawn(level, draw)
 
     # Create the game engine (with 240 frames per second target).
     _game_engine = GameEngine(game, 240)

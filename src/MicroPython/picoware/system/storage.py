@@ -1,11 +1,12 @@
 from picoware_boards import (
     BOARD_ID,
     BOARD_WAVESHARE_1_28_RP2350,
+    BOARD_CROWPANEL_10_1,
+    BOARD_CARDPUTER,
 )
 
 try:
     import sd_mp
-    import vfs_mp
 
     class FAT32File(sd_mp.fat32_file):
         """
@@ -30,7 +31,7 @@ try:
                 super().__setattr__(name, value)
 
 except ImportError:
-    # waveshare 1.28 board
+    # waveshare 1.28 and crowpanel
     pass
 
 
@@ -39,17 +40,22 @@ class Storage:
     Class to control the storage on a Raspberry Pi Pico device.
     """
 
-    __slots__ = ("_vfs_mounted",)
+    __slots__ = ("_vfs_mounted", "_has_storage")
 
     def __init__(self):
         """
         Initialize the storage class.
         """
         self._vfs_mounted = False
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
-            pass  # No SD storage on this board
+        self._has_storage = True
 
-        sd_mp.init()
+        if BOARD_ID in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_CROWPANEL_10_1,
+        ):
+            self._has_storage = False
+        else:
+            sd_mp.init()
 
     def __del__(self):
         """Destructor to ensure SD card is unmounted."""
@@ -58,7 +64,7 @@ class Storage:
     @property
     def active(self) -> bool:
         """Returns True if the storage is active (mounted)."""
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return False  # No SD storage on this board
         return sd_mp.is_initialized()
 
@@ -67,11 +73,22 @@ class Storage:
         """Returns True if the VFS is mounted (allows use of open(), __import__, etc.)."""
         return self._vfs_mounted
 
+    @property
+    def vfs_prefix(self) -> str:
+        """Returns the filesystem path prefix for VFS access.
+
+        On Cardputer the SD card is exposed at /sdcard via the C POSIX bridge;
+        on all other boards it is mounted at /sd by mount_vfs().
+        """
+        if BOARD_ID == BOARD_CARDPUTER:
+            return "/sdcard"
+        return "/sd"
+
     def copy(
         self, source_path: str, destination_path: str, bytes_per_chunk: int = 2048
     ) -> bool:
         """Copy a file or directory from source_path to destination_path."""
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return False  # No SD storage on this board
 
         try:
@@ -85,7 +102,7 @@ class Storage:
         """Deserialize a JSON object and write it to a file."""
         from json import dumps
 
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return
 
         try:
@@ -96,7 +113,7 @@ class Storage:
 
     def execute_script(self, file_path: str = "/") -> None:
         """Run a Python file from the storage."""
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return
 
         script_content = sd_mp.read(file_path, 0, 0).decode("utf-8")
@@ -105,14 +122,14 @@ class Storage:
 
     def exists(self, path: str) -> bool:
         """Check if a file or directory exists."""
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return False  # No SD storage on this board
 
         return sd_mp.exists(path)
 
     def file_close(self, file_obj: FAT32File) -> None:
         """Close the storage and release resources."""
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return  # No SD storage on this board
         sd_mp.file_close(file_obj)
 
@@ -120,7 +137,7 @@ class Storage:
         self, source_file: FAT32File, destination_path: str, bytes_per_chunk: int = 2048
     ) -> bool:
         """Copy an open file to a new location."""
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return False  # No SD storage on this board
 
         try:
@@ -134,7 +151,7 @@ class Storage:
         self, source_file: FAT32File, destination_path: str, bytes_per_chunk: int = 2048
     ) -> bool:
         """Move an open file to a new location."""
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return False  # No SD storage on this board
 
         try:
@@ -146,7 +163,7 @@ class Storage:
 
     def file_open(self, file_path: str) -> FAT32File:
         """Open a file and return the file handle."""
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return None  # No SD storage on this board
 
         try:
@@ -159,7 +176,7 @@ class Storage:
         self, file_obj: FAT32File, index: int = 0, count: int = 0, decode: bool = True
     ):
         """Read from an open file."""
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return ""  # no SD storage on this board
 
         return (
@@ -170,14 +187,14 @@ class Storage:
 
     def file_readinto(self, file_obj: FAT32File, buffer: bytearray) -> int:
         """Read data from an open file into a pre-allocated buffer."""
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return 0  # Waveshare SD module does not support file readinto yet
 
         return sd_mp.file_readinto(file_obj, buffer)
 
     def file_seek(self, file_obj: FAT32File, position: int) -> bool:
         """Seek to a specific position in an open file."""
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return False  # Waveshare SD module does not support file seek yet
 
         try:
@@ -189,7 +206,7 @@ class Storage:
 
     def file_write(self, file_obj: FAT32File, data, mode: str = "w") -> bool:
         """Write data to an open file."""
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return False  # Waveshare SD module does not support file write yet
 
         try:
@@ -204,7 +221,7 @@ class Storage:
 
     def is_directory(self, path: str) -> bool:
         """Check if a path is a directory."""
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return False  # No SD storage on this board
 
         return sd_mp.is_directory(path)
@@ -218,15 +235,19 @@ class Storage:
         Returns:
             List of filenames in the directory
         """
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return []  # Waveshare SD module does not support listdir yet
 
-        return sd_mp.list_directory(path)
+        try:
+            return sd_mp.list_directory(path)
+        except Exception as e:
+            print(f"Error listing directory {path}: {e}")
+            return []
 
     def mkdir(self, path: str) -> bool:
         """Create a new directory."""
         try:
-            if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+            if not self._has_storage:
                 return False  # No SD storage on this board
 
             return sd_mp.create_directory(path)
@@ -236,7 +257,7 @@ class Storage:
 
     def mount(self) -> bool:
         """Mount the SD card."""
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return False  # No SD storage on this board
         try:
             return sd_mp.mount()
@@ -270,11 +291,20 @@ class Storage:
             sys.path.append("/sd/picoware/apps")
             import myapp  # imports /sd/picoware/apps/myapp.py
         """
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if self._vfs_mounted:
+            return True  # Already mounted
+
+        if not self._has_storage:
             return False  # No SD storage on this board
 
+        if BOARD_ID == BOARD_CARDPUTER:
+            self._vfs_mounted = True
+            return True
+
         try:
-            result = vfs_mp.mount(mount_point)
+            from vfs_mp import mount
+
+            result = mount(mount_point)
             if result:
                 self._vfs_mounted = True
             return result
@@ -287,7 +317,7 @@ class Storage:
 
     def move(self, source_path: str, destination_path: str) -> bool:
         """Move a file or directory from source_path to destination_path."""
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return False  # No SD storage on this board
 
         try:
@@ -307,11 +337,13 @@ class Storage:
         Returns:
             True if unmounted successfully, False otherwise
         """
-        if not self._vfs_mounted:
+        if not self._vfs_mounted or BOARD_ID == BOARD_CARDPUTER:
             return True
 
         try:
-            vfs_mp.umount(mount_point)
+            from vfs_mp import umount
+
+            umount(mount_point)
             self._vfs_mounted = False
             return True
         except ImportError:
@@ -322,7 +354,7 @@ class Storage:
 
     def read(self, file_path, mode: str = "r", index: int = 0, count: int = 0):
         """Read and return the contents of a file."""
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return ""  # No SD storage on this board
 
         try:
@@ -335,7 +367,7 @@ class Storage:
 
     def readinto(self, file_path, buffer: bytearray) -> int:
         """Read data from an open file into a pre-allocated buffer."""
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return 0  # No SD storage on this board
 
         return sd_mp.readinto(file_path, buffer)
@@ -349,7 +381,7 @@ class Storage:
         :param int chunk_size: Number of bytes to read from the start position
         :return bytes: The chunk of data read from the file
         """
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return b""  # No SD storage on this board
 
         try:
@@ -369,7 +401,7 @@ class Storage:
             - attributes: The file attributes (e.g., read-only, hidden, system, etc)
             - is_directory: True if the entry is a directory, False if it's a file
         """
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return []  # No SD storage on this board
 
         try:
@@ -380,13 +412,13 @@ class Storage:
 
     def remove(self, file_path: str) -> bool:
         """Remove a file or directory."""
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return False  # No SD storage on this board
         return sd_mp.remove(file_path)
 
     def rename(self, old_path: str, new_path: str) -> bool:
         """Rename a file or directory."""
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return False  # No SD storage on this board
         try:
             return sd_mp.rename(old_path, new_path)
@@ -396,7 +428,7 @@ class Storage:
 
     def rmdir(self, path: str) -> bool:
         """Remove a directory."""
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return False  # No SD storage on this board
         return sd_mp.remove(path)
 
@@ -404,7 +436,7 @@ class Storage:
         """Read a file and return its contents as a JSON object."""
         from json import loads
 
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return {}  # No SD storage on this board
         try:
             file_content = sd_mp.read(file_path, 0, 0).decode("utf-8")
@@ -415,13 +447,13 @@ class Storage:
 
     def size(self, file_path: str) -> int:
         """Get the size of a file or directory in bytes."""
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return 0  # No SD storage on this board
         return sd_mp.get_file_size(file_path)
 
     def write(self, file_path, data: str, mode: str = "w") -> bool:
         """Write data to a file, creating or overwriting as needed."""
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return False  # No SD storage on this board
 
         try:
@@ -437,7 +469,7 @@ class Storage:
     def unmount(self) -> bool:
         """Unmount the SD card (including VFS if mounted)."""
         # Unmount VFS first if it's mounted
-        if BOARD_ID == BOARD_WAVESHARE_1_28_RP2350:
+        if not self._has_storage:
             return False  # No SD storage on this board
         sd_mp.unmount()
         return True

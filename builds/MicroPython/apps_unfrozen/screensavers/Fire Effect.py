@@ -114,10 +114,9 @@ def run(view_manager) -> None:
         for x in range(width):
             value = row[x]
             if value > 0:
-                color = fire_palette[value]
-                pos.x = x * pixel_w
-                pos.y = y_pos
-                draw.fill_rectangle(pos, size, color)
+                draw._fill_rectangle(
+                    x * pixel_w, y_pos, pixel_w, pixel_h, fire_palette[value]
+                )
 
     draw.swap()
 

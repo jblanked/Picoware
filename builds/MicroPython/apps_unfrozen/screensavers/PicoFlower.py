@@ -24,14 +24,20 @@ from picoware.system.colors import (
 NUM_PETALS = const(12)
 CX = 0
 CY = 0
+WIDTH = 0
+HEIGHT = 0
 
 shift = 0
 petal_length = 0
-rec_pos = None
-rec_size = None
-pixel_pos = None
 
 petal_colors = []
+
+ELLIPSE_MASK_FILL = const(0x10)
+ELLIPSE_MASK_ALL = const(0x0F)
+ELLIPSE_MASK_Q1 = const(0x01)
+ELLIPSE_MASK_Q2 = const(0x02)
+ELLIPSE_MASK_Q3 = const(0x04)
+ELLIPSE_MASK_Q4 = const(0x08)
 
 
 def __ellipse(display, cx, cy, xr, yr, color, fill=False, m=None):
@@ -52,59 +58,32 @@ def __ellipse(display, cx, cy, xr, yr, color, fill=False, m=None):
     m: quadrants mask
     """
 
-    ELLIPSE_MASK_FILL = 0x10
-    ELLIPSE_MASK_ALL = 0x0F
-    ELLIPSE_MASK_Q1 = 0x01
-    ELLIPSE_MASK_Q2 = 0x02
-    ELLIPSE_MASK_Q3 = 0x04
-    ELLIPSE_MASK_Q4 = 0x08
-
     def draw_ellipse_points(display, cx, cy, x_counter, y_counter, col, mask):
         if mask & ELLIPSE_MASK_FILL:
             if mask & ELLIPSE_MASK_Q1:
-                rec_pos.x = cx
-                rec_pos.y = cy - y_counter
-                rec_size.x = x_counter + 1
-                rec_size.y = 1
-                display.fill_rectangle(rec_pos, rec_size, col)
+                display._fill_rectangle(cx, cy - y_counter, x_counter + 1, 1, col)
 
             if mask & ELLIPSE_MASK_Q2:
-                rec_pos.x = cx - x_counter
-                rec_pos.y = cy - y_counter
-                rec_size.x = x_counter + 1
-                rec_size.y = 1
-                display.fill_rectangle(rec_pos, rec_size, col)
+                display._fill_rectangle(
+                    cx - x_counter, cy - y_counter, x_counter + 1, 1, col
+                )
 
             if mask & ELLIPSE_MASK_Q3:
-                rec_pos.x = cx - x_counter
-                rec_pos.y = cy + y_counter
-                rec_size.x = x_counter + 1
-                rec_size.y = 1
-                display.fill_rectangle(rec_pos, rec_size, col)
+                display._fill_rectangle(
+                    cx - x_counter, cy + y_counter, x_counter + 1, 1, col
+                )
 
             if mask & ELLIPSE_MASK_Q4:
-                rec_pos.x = cx
-                rec_pos.y = cy + y_counter
-                rec_size.x = x_counter + 1
-                rec_size.y = 1
-                display.fill_rectangle(rec_pos, rec_size, col)
+                display._fill_rectangle(cx, cy + y_counter, x_counter + 1, 1, col)
         else:
             if mask & ELLIPSE_MASK_Q1:
-                pixel_pos.x = cx + x_counter
-                pixel_pos.y = cy - y_counter
-                display.pixel(pixel_pos, col)
+                display._pixel(cx + x_counter, cy - y_counter, col)
             if mask & ELLIPSE_MASK_Q2:
-                pixel_pos.x = cx - x_counter
-                pixel_pos.y = cy - y_counter
-                display.pixel(pixel_pos, col)
+                display._pixel(cx - x_counter, cy - y_counter, col)
             if mask & ELLIPSE_MASK_Q3:
-                pixel_pos.x = cx - x_counter
-                pixel_pos.y = cy + y_counter
-                display.pixel(pixel_pos, col)
+                display._pixel(cx - x_counter, cy + y_counter, col)
             if mask & ELLIPSE_MASK_Q4:
-                pixel_pos.x = cx + x_counter
-                pixel_pos.y = cy + y_counter
-                display.pixel(pixel_pos, col)
+                display._pixel(cx + x_counter, cy + y_counter, col)
 
     mask = ELLIPSE_MASK_FILL if fill else 0
     if m is not None:
@@ -114,9 +93,7 @@ def __ellipse(display, cx, cy, xr, yr, color, fill=False, m=None):
 
     if xr == 0 and yr == 0:
         if mask & ELLIPSE_MASK_ALL:
-            pixel_pos.x = cx
-            pixel_pos.y = cy
-            display.pixel(pixel_pos, color)
+            display._pixel(cx, cy, color)
         return
 
     two_asquare = 2 * xr * xr
@@ -163,17 +140,15 @@ def __ellipse(display, cx, cy, xr, yr, color, fill=False, m=None):
 
 def start(view_manager) -> bool:
     """Start the app"""
-    global CX, CY
+    global CX, CY, WIDTH, HEIGHT
+    global petal_length, petal_colors
+
     draw = view_manager.draw
     CX = draw.size.x // 2
     CY = draw.size.y // 2
+    WIDTH = draw.size.x // 10
+    HEIGHT = draw.size.y // 10
 
-    global rec_pos, rec_size, pixel_pos, petal_length, petal_colors
-    from picoware.system.vector import Vector
-
-    rec_pos = Vector(0, 0)
-    rec_size = Vector(0, 0)
-    pixel_pos = Vector(0, 0)
     petal_length = min(draw.size.x, draw.size.y) // 8
     petal_colors = [
         TFT_RED,
@@ -211,7 +186,7 @@ def run(view_manager) -> None:
     draw.fill_screen(TFT_BLACK)
 
     # Draw center (yellow)
-    __ellipse(draw, CX, CY, 32, 32, TFT_YELLOW, True)
+    __ellipse(draw, CX, CY, WIDTH, HEIGHT, TFT_YELLOW, True)
 
     for i in range(NUM_PETALS):
         angle = i * (2 * pi / NUM_PETALS)
@@ -231,17 +206,8 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global rec_pos, rec_size, pixel_pos, shift, petal_length, petal_colors
+    global shift, petal_length, petal_colors
     shift = 0
     petal_length = 0
-    if rec_pos is not None:
-        del rec_pos
-        rec_pos = None
-    if rec_size is not None:
-        del rec_size
-        rec_size = None
-    if pixel_pos is not None:
-        del pixel_pos
-        pixel_pos = None
     petal_colors = []
     collect()

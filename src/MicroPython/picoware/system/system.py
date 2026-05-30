@@ -46,6 +46,14 @@ class System:
         return mem_free()
 
     @property
+    def freq(self):
+        """Return MCU frequency."""
+        import machine
+
+        freq = machine.freq() / 1000000
+        return freq
+
+    @property
     def has_audio(self) -> bool:
         """Return True if the device has audio capabilities."""
         from picoware_boards import BOARD_HAS_AUDIO
@@ -162,7 +170,7 @@ class System:
     @property
     def version(self) -> str:
         """Return the Picoware version."""
-        return "1.8.3"
+        return "1.8.4"
 
     def bootloader_mode(self):
         """Enter the bootloader mode."""

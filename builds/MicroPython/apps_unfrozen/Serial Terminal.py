@@ -16,7 +16,6 @@ message = ""
 def __box_start(view_manager) -> None:
     """Start the textbox for server output"""
     from picoware.gui.textbox import TextBox
-    from picoware.system.vector import Vector
 
     global _textbox
 
@@ -28,16 +27,17 @@ def __box_start(view_manager) -> None:
 
     draw.fill_screen(bg)
 
+    top = int(height * 0.0625)
+
     msg = f"Listening on GPIO{_uart.rx_pin}"
     display_x = int((size.x - len(msg) * draw.font_size.x) // 2)
-    draw.text(
-        Vector(display_x, int(size.y * 0.0625)),
+    draw._text(
+        display_x,
+        top,
         msg,
         fg,
     )
     draw.swap()
-
-    top = int(height * 0.0625)
 
     if _textbox is None:
         _textbox = TextBox(
@@ -87,11 +87,13 @@ def __set_kb(view_manager, title: str) -> None:
 
 def start(view_manager) -> bool:
     """Start the app"""
+    from picoware.system.buttons import BUTTON_BACK
     from picoware.system.uart import UART
     from picoware.system.boards import (
         BOARD_WAVESHARE_1_28_RP2350,
         BOARD_WAVESHARE_1_43_RP2350,
         BOARD_WAVESHARE_3_49_RP2350,
+        BOARD_CARDPUTER,
     )
 
     global _textbox, _uart, state, _loading
@@ -116,6 +118,8 @@ def start(view_manager) -> bool:
         _uart = UART(uart_id=0, tx_pin=16, rx_pin=17)
     elif board_id in (BOARD_WAVESHARE_1_43_RP2350, BOARD_WAVESHARE_3_49_RP2350):
         _uart = UART(uart_id=1, tx_pin=4, rx_pin=5)
+    elif board_id == BOARD_CARDPUTER:
+        _uart = UART(uart_id=1, tx_pin=1, rx_pin=2)
     else:  # PicoCalc
         _uart = UART(uart_id=0, tx_pin=0, rx_pin=1)
         is_pico_calc = True
@@ -123,20 +127,25 @@ def start(view_manager) -> bool:
     # first show info screen about connection
     d = view_manager.draw
     fg = view_manager.foreground_color
+    sixteen = d.size.y // 20
     d.erase()
     d._text(0, 0, "To connect to the device, use the following settings:", fg)
-    d._text(0, 16, "Baudrate: 115200", fg)
+    d._text(0, sixteen, "Baudrate: 115200", fg)
     if not is_pico_calc:
-        d._text(0, 32, f"TX Pin: GP{_uart.tx_pin if _uart else 'N/A'}", fg)
-        d._text(0, 48, f"RX Pin: GP{_uart.rx_pin if _uart else 'N/A'}", fg)
+        d._text(0, sixteen * 2, f"TX Pin: GP{_uart.tx_pin if _uart else 'N/A'}", fg)
+        d._text(0, sixteen * 3, f"RX Pin: GP{_uart.rx_pin if _uart else 'N/A'}", fg)
     else:
-        d._text(0, 32, "TX Pin: UART0_TX (GP0)", fg)
-        d._text(0, 48, "RX Pin: UART0_RX (GP1)", fg)
-    d._text(0, 64, "Press the any button to continue...", fg)
+        d._text(0, sixteen * 2, "TX Pin: UART0_TX (GP0)", fg)
+        d._text(0, sixteen * 3, "RX Pin: UART0_RX (GP1)", fg)
+    d._text(0, sixteen * 4, "Press the any button to continue...", fg)
     d.swap()
     inp = view_manager.input_manager
+    inp.reset()
     while True:
         but = inp.button
+        if but == BUTTON_BACK:
+            view_manager.back()
+            return False
         if but != -1:
             inp.reset()
             break

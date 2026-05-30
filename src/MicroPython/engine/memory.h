@@ -37,13 +37,4 @@ inline void operator delete[](void *p, std::size_t size) noexcept
         m_del(uint8_t, (uint8_t *)p, size);
 }
 
-// Explicit placement-new helpers using m_new/m_del
-#define m_new_class(cls, ...) new (m_new(cls, 1)) cls(__VA_ARGS__)
-#define m_del_class(cls, ptr) \
-    do                        \
-    {                         \
-        (ptr)->~cls();        \
-        m_del(cls, ptr, 1);   \
-    } while (0)
-
 #endif

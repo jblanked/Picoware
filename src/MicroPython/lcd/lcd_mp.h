@@ -32,6 +32,7 @@ mp_obj_t lcd_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
 mp_obj_t lcd_mp_del(mp_obj_t self_in);                                                                 // destructor for the LCD object
 void lcd_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination);                             // attribute handler for the LCD object (e.g., to access properties like width and height
 
+mp_obj_t lcd_mp_bmp(size_t n_args, const mp_obj_t *args);                  // draw a bitmap on the LCD
 mp_obj_t lcd_mp_char(size_t n_args, const mp_obj_t *args);                 // draw a character on the LCD
 mp_obj_t lcd_mp_circle(size_t n_args, const mp_obj_t *args);               // draw a circle on the LCD
 mp_obj_t lcd_mp_clear(mp_obj_t self_in, mp_obj_t color);                   // clear the LCD framebuffer
@@ -44,6 +45,10 @@ mp_obj_t lcd_mp_line(size_t n_args, const mp_obj_t *args);                 // dr
 mp_obj_t lcd_mp_pixel(size_t n_args, const mp_obj_t *args);                // draw a pixel on the LCD
 mp_obj_t lcd_mp_psram(size_t n_args, const mp_obj_t *args);                // draw a buffer from PSRAM
 mp_obj_t lcd_mp_rectangle(size_t n_args, const mp_obj_t *args);            // draw a rectangle on the LCD
+mp_obj_t lcd_mp_scale(size_t n_args, const mp_obj_t *args);                // get a scaled value based on parameters
+mp_obj_t lcd_mp_scale_vector(size_t n_args, const mp_obj_t *args);         // get a scaled Vector value based on parameters
+mp_obj_t lcd_mp_scale_x(size_t n_args, const mp_obj_t *args);              // get a scaled X value based on parameters
+mp_obj_t lcd_mp_scale_y(size_t n_args, const mp_obj_t *args);              // get a scaled Y value based on parameters
 mp_obj_t lcd_mp_screenshot(mp_obj_t self_in, mp_obj_t file_path);          // take a screenshot of the LCD and save it to a file
 mp_obj_t lcd_mp_set_mode(mp_obj_t self_in, mp_obj_t mode);                 // set the LCD mode (PSRAM or HEAP)
 mp_obj_t lcd_mp_set_scaling(size_t n_args, const mp_obj_t *args);          // set the LCD scaling parameters

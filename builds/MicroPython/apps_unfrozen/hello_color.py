@@ -24,8 +24,8 @@ def start(view_manager) -> bool:
     draw = view_manager.draw
 
     draw.clear()
-
-    draw.text(Vector(130, 160), "Press Enter :D")
+    _pos = draw.scale(130, 160)
+    draw.text(Vector(_pos[0], _pos[1]), "Press Enter :D")
 
     draw.swap()
 
@@ -46,7 +46,8 @@ def run(view_manager):
 
         draw = view_manager.draw
         draw.clear()
-        draw.text(Vector(130, 160), hi, choices.get(clr))
+        _pos = draw.scale(130, 160)
+        draw.text(Vector(_pos[0], _pos[1]), hi, choices.get(clr))
         draw.swap()
 
         clr = randint(0, 4)

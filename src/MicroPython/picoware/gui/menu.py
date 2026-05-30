@@ -15,6 +15,7 @@ class Menu:
     ) -> None:
         from picoware.gui.list import List
         from picoware.system.vector import Vector
+        from picoware.system.boards import BOARD_ID, BOARD_CARDPUTER
 
         self.text_color = text_color
         self.background_color = background_color
@@ -57,11 +58,12 @@ class Menu:
 
         # Initialize title rendering properties for standard mode
         if not self.use_lvgl:
+            self._five = self.display.size.y // 64  # 320 / 64 = 5
             _font = self.display.get_font(3)
             title_width = len(self._title) * (_font.width + _font.spacing)
             title_x = (self.display.size.x - title_width) // 2
-            title_y = self.position.y + 15
-            underline_y = title_y + _font.height + 5
+            title_y = self.position.y + self._five * 3
+            underline_y = title_y + _font.height + self._five
 
             self.title_pos = Vector(title_x, title_y)
             self.line_pos = Vector(self.title_pos.x, underline_y)
@@ -69,6 +71,8 @@ class Menu:
 
             self.clear_position = Vector(0, 0)
             self.clear_size = Vector(self.display.size.x, self._height_offset)
+
+            self._draw_underline = BOARD_ID != BOARD_CARDPUTER
 
             draw.clear(self.position, self.size, self.background_color)
             draw.swap()
@@ -151,8 +155,8 @@ class Menu:
             _font = self.display.get_font(3)
             title_width = len(self._title) * (_font.width + _font.spacing)
             title_x = (self.display.size.x - title_width) // 2
-            title_y = self.position.y + 15
-            underline_y = title_y + _font.height + 5
+            title_y = self.position.y + self._five * 3
+            underline_y = title_y + _font.height + self._five
 
             self.title_pos.x, self.title_pos.y = title_x, title_y
             self.line_pos.x, self.line_pos.y = self.title_pos.x, underline_y
@@ -186,8 +190,8 @@ class Menu:
             self.list.draw()
         else:
             # Standard mode: Draw title then list
+            self.list.draw(False)
             self.draw_title()
-            self.list.draw()
 
     def draw_title(self) -> None:
         """Draw the title (for standard rendering only)."""
@@ -209,13 +213,16 @@ class Menu:
         )
 
         # Draw underline
-        self.display._line(
-            self.line_pos.x,
-            self.line_pos.y,
-            self.line_size.x,
-            self.line_size.y,
-            self.text_color,
-        )
+        if self._draw_underline:
+            self.display._line(
+                self.line_pos.x,
+                self.line_pos.y,
+                self.line_size.x,
+                self.line_size.y,
+                self.text_color,
+            )
+
+        self.list.display.swap()
 
     def get_item(self, index: int) -> str:
         """Get the item at the specified index."""
@@ -230,8 +237,8 @@ class Menu:
         if self.use_lvgl:
             self.list.set_selected(self.list.selected_index)
         else:
+            self.list.set_selected(self.list.selected_index, False)
             self.draw_title()
-            self.list.set_selected(self.list.selected_index)
 
     def remove_item(self, index: int) -> None:
         """Remove an item from the menu."""
@@ -239,18 +246,18 @@ class Menu:
 
     def scroll_down(self) -> None:
         """Scroll down the menu."""
+        self.list.scroll_down(False)
         if not self.use_lvgl:
             self.draw_title()
-        self.list.scroll_down()
 
     def scroll_up(self) -> None:
         """Scroll up the menu."""
+        self.list.scroll_up(False)
         if not self.use_lvgl:
             self.draw_title()
-        self.list.scroll_up()
 
     def set_selected(self, index: int) -> None:
         """Set the selected item."""
+        self.list.set_selected(index, False)
         if not self.use_lvgl:
             self.draw_title()
-        self.list.set_selected(index)

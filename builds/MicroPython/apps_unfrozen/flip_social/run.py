@@ -7,7 +7,6 @@ from picoware.system.colors import TFT_BLACK, TFT_WHITE
 from json import loads as json_loads
 from json import dumps as json_dumps
 
-
 # social view constants
 SOCIAL_VIEW_MENU = const(-1)  # main menu view
 SOCIAL_VIEW_FEED = const(0)  # feed view
@@ -249,20 +248,6 @@ class FlipSocialRun:
         else:
             self.loading.set_text(title)
 
-    def debounce_input(self) -> None:
-        """Debounce input to prevent multiple triggers"""
-        if self.should_debounce:
-            self.__debounce_counter += 1
-
-            self.last_input = -1
-
-            if self.__debounce_counter < 2:
-                return
-
-            self.__debounce_counter = 0
-            self.should_debounce = False
-            self.input_held = False
-
     def draw_comments_view(self, canvas) -> None:
         """Draw the comments view"""
         if self.comments_status == COMMENTS_WAITING:
@@ -293,6 +278,7 @@ class FlipSocialRun:
         elif self.comments_status == COMMENTS_SUCCESS:
             if self.http and self.http.response:
                 text_vec = Vector(0, 10)
+                text_vec.x, text_vec.y = canvas.scale(0, 10)
                 if '"comments":[{' in self.http.response.text:
                     try:
                         obj = self.http.response.json()
@@ -330,15 +316,17 @@ class FlipSocialRun:
 
                                         # Draw navigation arrows if there are multiple comments
                                         if self.comments_index > 0:
-                                            text_vec.x, text_vec.y = 2, 60
+                                            text_vec.x, text_vec.y = canvas.scale(2, 60)
                                             canvas.text(text_vec, "< Prev", TFT_BLACK)
                                         if self.comments_index < total_comments - 1:
-                                            text_vec.x, text_vec.y = 96, 60
+                                            text_vec.x, text_vec.y = canvas.scale(
+                                                96, 60
+                                            )
                                             canvas.text(text_vec, "Next >", TFT_BLACK)
 
                                         # Draw comment counter
                                         counter_text = f"{self.comments_index + 1}/{total_comments}"
-                                        text_vec.x, text_vec.y = 112, 10
+                                        text_vec.x, text_vec.y = canvas.scale(112, 10)
                                         canvas.text(text_vec, counter_text, TFT_BLACK)
                                     else:
                                         self.comments_status = COMMENTS_PARSE_ERROR
@@ -348,13 +336,13 @@ class FlipSocialRun:
                                     if self.comments_index > 0:
                                         self.comments_index -= 1
                             else:
-                                text_vec.x, text_vec.y = 0, 10
+                                text_vec.x, text_vec.y = canvas.scale(0, 10)
                                 canvas.text(
                                     text_vec,
                                     "No comments found for this post.",
                                     TFT_BLACK,
                                 )
-                                text_vec.x, text_vec.y = 0, 60
+                                text_vec.x, text_vec.y = canvas.scale(0, 60)
                                 canvas.text(
                                     text_vec, "Be the first, click DOWN", TFT_BLACK
                                 )
@@ -362,12 +350,13 @@ class FlipSocialRun:
                         print(f"Error parsing comments: {e}")
                         self.comments_status = COMMENTS_PARSE_ERROR
                 else:
-                    text_vec.x, text_vec.y = 0, 10
+                    text_vec.x, text_vec.y = canvas.scale(0, 10)
                     canvas.text(text_vec, "No comments found for this post.", TFT_BLACK)
-                    text_vec.x, text_vec.y = 0, 60
+                    text_vec.x, text_vec.y = canvas.scale(0, 60)
                     canvas.text(text_vec, "Be the first, click DOWN", TFT_BLACK)
         elif self.comments_status == COMMENTS_REQUEST_ERROR:
             text_vec = Vector(0, 10)
+            text_vec.x, text_vec.y = canvas.scale(0, 10)
             canvas.text(text_vec, "Comments request failed!", TFT_BLACK)
             text_vec.y += 10
             canvas.text(text_vec, "Check your network and", TFT_BLACK)
@@ -375,6 +364,7 @@ class FlipSocialRun:
             canvas.text(text_vec, "try again later.", TFT_BLACK)
         elif self.comments_status == COMMENTS_PARSE_ERROR:
             text_vec = Vector(0, 10)
+            text_vec.x, text_vec.y = canvas.scale(0, 10)
             canvas.text(text_vec, "Failed to parse comments!", TFT_BLACK)
             text_vec.y += 10
             canvas.text(text_vec, "Try again...", TFT_BLACK)
@@ -554,43 +544,44 @@ class FlipSocialRun:
         is_admin: bool = username == "JBlanked"
         flip_count: int = int(flips) if flips.isdigit() else 0
         text_vec = Vector(0, 18)
+        text_vec.x, text_vec.y = canvas.scale(0, 18)
         if is_admin:
             # Filled black badge with white username text
             width = __string_width(username) + 4
-            canvas.fill_rectangle(text_vec, Vector(width, 10), TFT_BLACK)
-            canvas.text(text_vec, username, TFT_WHITE)
+            canvas._fill_rectangle(text_vec.x, text_vec.y, width, 10, TFT_BLACK)
+            canvas._text(text_vec.x, text_vec.y, username, TFT_WHITE)
 
         else:
-            canvas.text(text_vec, username, TFT_BLACK)
+            canvas._text(text_vec.x, text_vec.y, username, TFT_BLACK)
         self.draw_feed_message(canvas, message, 0, 30)
         flip_message = "flip" if flip_count == 1 else "flips"
-        text_vec.x, text_vec.y = 0, 150
-        canvas.text(text_vec, f"{flip_count} {flip_message}", TFT_BLACK)
+        text_vec.x, text_vec.y = canvas.scale(0, 150)
+        canvas._text(text_vec.x, text_vec.y, f"{flip_count} {flip_message}", TFT_BLACK)
         flip_status = "Unflip" if is_flipped else "Flip"
-        text_vec.x, text_vec.y = 110 if is_flipped else 115, 150
-        canvas.text(text_vec, flip_status, TFT_BLACK)
+        text_vec.x, text_vec.y = canvas.scale(110 if is_flipped else 115, 150)
+        canvas._text(text_vec.x, text_vec.y, flip_status, TFT_BLACK)
         if not is_comment:  # draw date in top-right corner
             if "minutes ago" in date_created:
-                text_vec.x, text_vec.y = 190, 18
-                canvas.text(text_vec, date_created, TFT_BLACK)
+                text_vec.x, text_vec.y = canvas.scale(190, 18)
+                canvas._text(text_vec.x, text_vec.y, date_created, TFT_BLACK)
             else:
-                text_vec.x, text_vec.y = 180, 18
-                canvas.text(text_vec, date_created, TFT_BLACK)
+                text_vec.x, text_vec.y = canvas.scale(180, 18)
+                canvas._text(text_vec.x, text_vec.y, date_created, TFT_BLACK)
 
             # draw down arrow icon and comment count
-            text_vec.x, text_vec.y = 160, 150
-            canvas.text(text_vec, "Comment", TFT_BLACK)
-            text_vec.x, text_vec.y = 220, 150
-            canvas.text(text_vec, f"({comments})", TFT_BLACK)
+            text_vec.x, text_vec.y = canvas.scale(160, 150)
+            canvas._text(text_vec.x, text_vec.y, "Comment", TFT_BLACK)
+            text_vec.x, text_vec.y = canvas.scale(220, 150)
+            canvas._text(text_vec.x, text_vec.y, f"({comments})", TFT_BLACK)
 
         else:
             # draw in bottom-right corner for comments
             if "minutes ago" in date_created:
-                text_vec.x, text_vec.y = 190, 220
-                canvas.text(text_vec, date_created, TFT_BLACK)
+                text_vec.x, text_vec.y = canvas.scale(190, 220)
+                canvas._text(text_vec.x, text_vec.y, date_created, TFT_BLACK)
             else:
-                text_vec.x, text_vec.y = 180, 220
-                canvas.text(text_vec, date_created, TFT_BLACK)
+                text_vec.x, text_vec.y = canvas.scale(180, 220)
+                canvas._text(text_vec.x, text_vec.y, date_created, TFT_BLACK)
 
     def draw_feed_message(self, canvas, user_message: str, x: int, y: int) -> None:
         """Draw the feed message with wrapping"""
@@ -623,8 +614,8 @@ class FlipSocialRun:
         # Draw each line
         text_vec = Vector(x, y)
         for i, line in enumerate(lines):
-            text_vec.x, text_vec.y = x, y + (i * line_height)
-            canvas.text(text_vec, line, TFT_BLACK)
+            text_vec.x, text_vec.y = canvas.scale(x, y + (i * line_height))
+            canvas._text(text_vec.x, text_vec.y, line, TFT_BLACK)
 
     def draw_feed_view(self, canvas) -> None:
         """Draw the feed view"""
@@ -841,18 +832,19 @@ class FlipSocialRun:
         title = "FlipSocial"
         title_width = __string_width(title)
         title_x = (SCREEN_W - title_width) // 2
-        canvas.text(Vector(title_x, 25), title, TFT_BLACK)
+        _x, _y = canvas.scale(title_x, 25)
+        canvas._text(_x, _y, title, TFT_BLACK)
 
         # Draw underline
-        canvas.line_custom(
-            Vector(title_x, 35), Vector(title_x + title_width, 35), TFT_BLACK
-        )
+        _x, _y = canvas.scale(title_x, 35)
+        canvas._line(_x, _y, _x + title_width, _y, TFT_BLACK)
 
         # Draw decorative pattern
-        dec_pat = Vector(0, 45)
+        _x = 0
+        _y = canvas.scale_y(45)
         for i in range(0, SCREEN_W, 10):
-            dec_pat.x = i
-            canvas.pixel(dec_pat, TFT_BLACK)
+            _x = i
+            canvas._pixel(_x, _y, TFT_BLACK)
 
         # Get current item
         if 0 <= selected_index < len(menu_items):
@@ -863,41 +855,56 @@ class FlipSocialRun:
             box_height = 40
 
             # Draw selection box
-            canvas.fill_rectangle(
-                Vector(25, menu_y - 30), Vector(box_width, box_height), TFT_BLACK
-            )
+            _x, _y = canvas.scale(25, menu_y - 30)
+            _w, _h = canvas.scale(box_width, box_height)
+            canvas._fill_rectangle(_x, _y, _w, _h, TFT_BLACK)
 
             # Draw text centered
             item_width = __string_width(current_item)
             item_x = (SCREEN_W - item_width) // 2
-            canvas.text(Vector(item_x, menu_y - 10), current_item, TFT_WHITE)
+            _x, _y = canvas.scale(item_x, menu_y - 10)
+            canvas._text(_x, _y, current_item, TFT_WHITE)
 
             # Draw navigation arrows
             if selected_index > 0:
-                canvas.text(Vector(5, menu_y - 7), "<", TFT_BLACK)
+                _x, _y = canvas.scale(5, menu_y - 7)
+                canvas._text(_x, _y, "<", TFT_BLACK)
             if selected_index < len(menu_items) - 1:
-                canvas.text(Vector(SCREEN_W - 15, menu_y - 7), ">", TFT_BLACK)
+                _x, _y = canvas.scale(SCREEN_W - 15, menu_y - 7)
+                canvas._text(_x, _y, ">", TFT_BLACK)
 
             # Draw indicator dots
             indicator_y = 130
-            vec_doc_pos = Vector(0, 130)
-            vec_dot_size = Vector(10, 10)
+            _x, _y = 0, 130
+            _w, _h = canvas.scale(10, 10)
             if len(menu_items) <= 15:
                 dots_spacing = 15
                 dots_start_x = (SCREEN_W - (len(menu_items) * dots_spacing)) // 2
                 for i in range(len(menu_items)):
                     dot_x = dots_start_x + (i * dots_spacing)
-                    vec_doc_pos.x, vec_doc_pos.y = dot_x, indicator_y
+                    _x, _y = canvas.scale(dot_x, indicator_y)
                     if i == selected_index:
-                        canvas.fill_rectangle(vec_doc_pos, vec_dot_size, TFT_BLACK)
+                        canvas._fill_rectangle(
+                            _x,
+                            _y,
+                            _w,
+                            _h,
+                            TFT_BLACK,
+                        )
                     else:
-                        canvas.rect(vec_doc_pos, vec_dot_size, TFT_BLACK)
+                        canvas._rectangle(
+                            _x,
+                            _y,
+                            _w,
+                            _h,
+                            TFT_BLACK,
+                        )
 
             # Draw decorative bottom pattern
-            vec_doc_pos.x, vec_doc_pos.y = 0, 145
+            _x, _y = canvas.scale(0, 145)
             for i in range(0, SCREEN_W, 10):
-                vec_doc_pos.x, vec_doc_pos.y = i, 145
-                canvas.pixel(vec_doc_pos, TFT_BLACK)
+                _x, _y = canvas.scale(i, 145)
+                canvas._pixel(_x, _y, TFT_BLACK)
 
     def draw_messages_view(self, canvas) -> None:
         """Draw the messages view"""
@@ -948,20 +955,23 @@ class FlipSocialRun:
                                 title_width = __string_width(sender)
                                 title_x = (SCREEN_W - title_width) // 2
                                 vec = Vector(title_x, 25)
-                                canvas.text(vec, sender, TFT_BLACK)
+                                vec.x, vec.y = canvas.scale(vec.x, vec.y)
+                                canvas._text(vec.x, vec.y, sender, TFT_BLACK)
 
                                 # Draw underline for title
-                                vec.x, vec.y = title_x, 35
-                                canvas.line_custom(
-                                    vec,
-                                    Vector(title_x + title_width, 35),
+                                vec.x, vec.y = canvas.scale(title_x, 35)
+                                canvas._line(
+                                    vec.x,
+                                    vec.y,
+                                    vec.x + title_width,
+                                    vec.y,
                                     TFT_BLACK,
                                 )
 
                                 # Draw decorative horizontal pattern
                                 for i in range(0, SCREEN_W, 10):
-                                    vec.x, vec.y = i, 45
-                                    canvas.pixel(vec, TFT_BLACK)
+                                    vec.x, vec.y = canvas.scale(i, 45)
+                                    canvas._pixel(vec.x, vec.y, TFT_BLACK)
 
                                 menu_y = 100
 
@@ -979,9 +989,13 @@ class FlipSocialRun:
 
                                 # Draw message content box
                                 vec.x, vec.y = 25, menu_y + box_y_offset
-                                canvas.fill_rectangle(
-                                    vec,
-                                    Vector(270, box_height),
+                                vec.x, vec.y = canvas.scale(vec.x, vec.y)
+                                _scale_270 = canvas.scale(270, 0)
+                                canvas._fill_rectangle(
+                                    vec.x,
+                                    vec.y,
+                                    _scale_270[0],
+                                    box_height,
                                     TFT_BLACK,
                                 )
 
@@ -991,8 +1005,8 @@ class FlipSocialRun:
                                     line_width = __string_width(content)
                                     line_x = (SCREEN_W - line_width) // 2
                                     line_y = menu_y + 10 - 20
-                                    vec.x, vec.y = line_x, line_y
-                                    canvas.text(vec, content, TFT_WHITE)
+                                    vec.x, vec.y = canvas.scale(line_x, line_y)
+                                    canvas._text(vec.x, vec.y, content, TFT_WHITE)
                                 else:
                                     # Multi-line - break at word boundaries
                                     break_pos = content.rfind(" ", 0, 30)
@@ -1013,25 +1027,26 @@ class FlipSocialRun:
                                     line1_width = __string_width(line1)
                                     line1_x = (SCREEN_W - line1_width) // 2
                                     line1_y = menu_y + 10 - 30
-                                    vec.x, vec.y = line1_x, line1_y
-                                    canvas.text(vec, line1, TFT_WHITE)
+                                    vec.x, vec.y = canvas.scale(line1_x, line1_y)
+                                    canvas._text(vec.x, vec.y, line1, TFT_WHITE)
 
                                     # Draw second line if it exists
                                     if line2:
                                         line2_width = __string_width(line2)
                                         line2_x = (SCREEN_W - line2_width) // 2
                                         line2_y = menu_y + 10 - 10
-                                        vec.x, vec.y = line2_x, line2_y
-                                        canvas.text(vec, line2, TFT_WHITE)
+                                        vec.x, vec.y = canvas.scale(line2_x, line2_y)
+                                        canvas._text(vec.x, vec.y, line2, TFT_WHITE)
 
                                 # Navigation arrows
                                 if self.messages_index > 0:
                                     vec.x, vec.y = 5, menu_y - 7
-                                    canvas.text(vec, "<", TFT_BLACK)
+                                    canvas._text(vec.x, vec.y, "<", TFT_BLACK)
                                 if self.messages_index < len(convos) - 1:
                                     vec.x, vec.y = SCREEN_W - 15, menu_y - 7
-                                    canvas.text(
-                                        vec,
+                                    canvas._text(
+                                        vec.x,
+                                        vec.y,
                                         ">",
                                         TFT_BLACK,
                                     )
@@ -1044,9 +1059,10 @@ class FlipSocialRun:
                                 )
                                 counter_width = __string_width(message_counter)
                                 counter_x = (SCREEN_W - counter_width) // 2
-                                vec.x, vec.y = counter_x, indicator_y
-                                canvas.text(
-                                    vec,
+                                vec.x, vec.y = canvas.scale(counter_x, indicator_y)
+                                canvas._text(
+                                    vec.x,
+                                    vec.y,
                                     message_counter,
                                     TFT_BLACK,
                                 )
@@ -1055,17 +1071,18 @@ class FlipSocialRun:
                                 reply_text = "Press OK to Reply"
                                 reply_width = __string_width(reply_text)
                                 reply_x = (SCREEN_W - reply_width) // 2
-                                vec.x, vec.y = reply_x, indicator_y + 25
-                                canvas.text(
-                                    vec,
+                                vec.x, vec.y = canvas.scale(reply_x, indicator_y + 25)
+                                canvas._text(
+                                    vec.x,
+                                    vec.y,
                                     reply_text,
                                     TFT_BLACK,
                                 )
 
                                 # Draw decorative bottom pattern
                                 for i in range(0, SCREEN_W, 10):
-                                    vec.x, vec.y = i, 145
-                                    canvas.pixel(vec, TFT_BLACK)
+                                    vec.x, vec.y = canvas.scale(i, 145)
+                                    canvas._pixel(vec.x, vec.y, TFT_BLACK)
 
                 except Exception as e:
                     print(f"Error parsing messages: {e}")
@@ -1272,14 +1289,14 @@ class FlipSocialRun:
         vec = Vector(0, 0)
 
         if not data:
-            vec.x, vec.y = SCREEN_W // 2 - 70, 80
-            canvas.text(vec, "Failed to load user info.", TFT_BLACK)
+            vec.x, vec.y = canvas.scale(SCREEN_W // 2 - 70, 80)
+            canvas._text(vec.x, vec.y, "Failed to load user info.", TFT_BLACK)
             return
 
         username = __flip_social_util_get_username(self.view_manager)
         if not username:
-            vec.x, vec.y = SCREEN_W // 2 - 70, 80
-            canvas.text(vec, "Failed to load username.", TFT_BLACK)
+            vec.x, vec.y = canvas.scale(SCREEN_W // 2 - 70, 80)
+            canvas._text(vec.x, vec.y, "Failed to load username.", TFT_BLACK)
             return
 
         try:
@@ -1291,22 +1308,23 @@ class FlipSocialRun:
             # Draw title
             title_width = __string_width(username)
             title_x = (SCREEN_W - title_width) // 2
-            vec.x, vec.y = title_x, 25
-            canvas.text(vec, username, TFT_BLACK)
+            vec.x, vec.y = canvas.scale(title_x, 25)
+            canvas._text(vec.x, vec.y, username, TFT_BLACK)
 
             # Draw underline
-            vec.x, vec.y = title_x, 35
-            canvas.line_custom(vec, Vector(title_x + title_width, 35), TFT_BLACK)
+            vec.x, vec.y = canvas.scale(title_x, 35)
+            canvas._line(vec.x, vec.y, vec.x + title_width, vec.y, TFT_BLACK)
 
             # Draw decorative pattern
             for i in range(0, SCREEN_W, 10):
-                vec.x, vec.y = i, 45
-                canvas.pixel(vec, TFT_BLACK)
+                vec.x, vec.y = canvas.scale(i, 45)
+                canvas._pixel(vec.x, vec.y, TFT_BLACK)
 
             # Profile elements
             menu_y = 100
-            vec.x, vec.y = 25, menu_y - 30
-            canvas.fill_rectangle(vec, Vector(270, 40), TFT_BLACK)
+            vec.x, vec.y = canvas.scale(25, menu_y - 30)
+            _w, _h = canvas.scale(270, 40)
+            canvas._fill_rectangle(vec.x, vec.y, _w, _h, TFT_BLACK)
 
             # Draw content based on current element
             if self.current_profile_element == PROFILE_ELEMENT_BIO:
@@ -1320,16 +1338,16 @@ class FlipSocialRun:
 
             content_width = __string_width(content)
             content_x = (SCREEN_W - content_width) // 2
-            vec.x, vec.y = content_x, menu_y - 10
-            canvas.text(vec, content, TFT_WHITE)
+            vec.x, vec.y = canvas.scale(content_x, menu_y - 10)
+            canvas._text(vec.x, vec.y, content, TFT_WHITE)
 
             # Navigation arrows
             if self.current_profile_element > 0:
-                vec.x, vec.y = 5, menu_y - 7
-                canvas.text(vec, "<", TFT_BLACK)
+                vec.x, vec.y = canvas.scale(5, menu_y - 7)
+                canvas._text(vec.x, vec.y, "<", TFT_BLACK)
             if self.current_profile_element < PROFILE_ELEMENT_MAX - 1:
-                vec.x, vec.y = SCREEN_W - 15, menu_y - 7
-                canvas.text(vec, ">", TFT_BLACK)
+                vec.x, vec.y = canvas.scale(SCREEN_W - 15, menu_y - 7)
+                canvas._text(vec.x, vec.y, ">", TFT_BLACK)
 
             # Indicator dots
             indicator_y = 130
@@ -1338,21 +1356,23 @@ class FlipSocialRun:
             size_vec = Vector(8, 8)
             for i in range(PROFILE_ELEMENT_MAX):
                 dot_x = dots_start_x + (i * dots_spacing)
-                vec.x, vec.y = dot_x, indicator_y
+                vec.x, vec.y = canvas.scale(dot_x, indicator_y)
                 if i == self.current_profile_element:
-                    canvas.fill_rectangle(vec, size_vec, TFT_BLACK)
+                    canvas._fill_rectangle(
+                        vec.x, vec.y, size_vec.x, size_vec.y, TFT_BLACK
+                    )
                 else:
-                    canvas.rect(vec, size_vec, TFT_BLACK)
+                    canvas._rectangle(vec.x, vec.y, size_vec.x, size_vec.y, TFT_BLACK)
 
             # Draw decorative bottom pattern
             for i in range(0, SCREEN_W, 10):
-                vec.x, vec.y = i, 145
-                canvas.pixel(vec, TFT_BLACK)
+                vec.x, vec.y = canvas.scale(i, 145)
+                canvas._pixel(vec.x, vec.y, TFT_BLACK)
 
         except Exception as e:
             print(f"Error parsing profile: {e}")
-            vec.x, vec.y = 0, 30
-            canvas.text(vec, "Incomplete profile data.", TFT_BLACK)
+            vec.x, vec.y = canvas.scale(0, 30)
+            canvas._text(vec.x, vec.y, "Incomplete profile data.", TFT_BLACK)
 
     def draw_registration_view(self, canvas) -> None:
         """Draw the registration view"""
@@ -1868,8 +1888,8 @@ class FlipSocialRun:
             BUTTON_CENTER,
         )
 
+        self.should_debounce = False
         self.last_input = input_key
-        self.debounce_input()
 
         if self.current_view == SOCIAL_VIEW_MENU:
             if self.last_input == BUTTON_BACK:
@@ -1905,14 +1925,17 @@ class FlipSocialRun:
                 elif self.current_menu_index == SOCIAL_VIEW_POST:
                     self.current_view = SOCIAL_VIEW_POST
                     self.should_debounce = True
+                    self.last_input = -1
                     return
                 elif self.current_menu_index == SOCIAL_VIEW_MESSAGE_USERS:
                     self.current_view = SOCIAL_VIEW_MESSAGE_USERS
                     self.should_debounce = True
+                    self.last_input = -1
                     return
                 elif self.current_menu_index == SOCIAL_VIEW_EXPLORE:
                     self.current_view = SOCIAL_VIEW_EXPLORE
                     self.should_debounce = True
+                    self.last_input = -1
                     return
                 elif self.current_menu_index == SOCIAL_VIEW_PROFILE:
                     if self.user_info_status in (
@@ -1925,6 +1948,7 @@ class FlipSocialRun:
                     elif self.user_info_status == USER_INFO_SUCCESS:
                         self.current_view = SOCIAL_VIEW_PROFILE
                     self.should_debounce = True
+                    self.last_input = -1
                     return
 
         elif self.current_view == SOCIAL_VIEW_FEED:
@@ -2193,3 +2217,5 @@ class FlipSocialRun:
                 self.current_view = SOCIAL_VIEW_LOGIN
                 self.should_return_to_menu = True
                 self.should_debounce = True
+
+        self.last_input = -1

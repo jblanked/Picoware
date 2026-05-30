@@ -14,8 +14,6 @@ x1 = 0
 yy0 = 0
 yy1 = 0
 spiro_elapsed = 10
-vec1 = None
-vec2 = None
 
 
 def rainbow(value: int) -> int:
@@ -69,9 +67,6 @@ def start(view_manager) -> bool:
     """Start the app"""
     from picoware.system.colors import TFT_BLACK
 
-    global vec1, vec2
-    vec1 = Vector(0, 0)
-    vec2 = Vector(0, 0)
     draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)
     draw.swap()
@@ -85,9 +80,9 @@ def run(view_manager) -> None:
     input_button = view_manager.input_manager.button
 
     if input_button in (BUTTON_LEFT, BUTTON_BACK):
-        view_manager.back()
-        spiro_elapsed = 0
         view_manager.input_manager.reset()
+        spiro_elapsed = 0
+        view_manager.back()
         return
 
     if spiro_elapsed > 10:
@@ -107,13 +102,11 @@ def run(view_manager) -> None:
 
             sp_sy = cos(((i % 360) - 90) * DEG2RAD)
             sp_sx = sin(((i % 360) - 90) * DEG2RAD)
-            x1 = int(sp_sx * r + x0)
-            yy1 = int(sp_sy * r + yy0)
+            x1 = int(tft.scale_x(sp_sx * r + x0))
+            yy1 = int(tft.scale_y(sp_sy * r + yy0))
 
             color = rainbow(map_value(i % 360, 0, 360, 0, 127))
-            vec1.x = x1
-            vec1.y = yy1
-            tft.pixel(vec1, color)
+            tft._pixel(x1, yy1, color)
 
         # Second spirograph pattern with different radius
         r = random_range(20, 100)
@@ -125,13 +118,11 @@ def run(view_manager) -> None:
 
             sp_sy = cos(((i % 360) - 90) * DEG2RAD)
             sp_sx = sin(((i % 360) - 90) * DEG2RAD)
-            x1 = int(sp_sx * r + x0)
-            yy1 = int(sp_sy * r + yy0)
+            x1 = int(tft.scale_x(sp_sx * r + x0))
+            yy1 = int(tft.scale_y(sp_sy * r + yy0))
 
             color = rainbow(map_value(i % 360, 0, 360, 0, 127))
-            vec2.x = x1
-            vec2.y = yy1
-            tft.pixel(vec2, color)
+            tft._pixel(x1, yy1, color)
 
         tft.swap()
 
@@ -146,7 +137,7 @@ def stop(view_manager) -> None:
     draw.fill_screen(view_manager.background_color)
     draw.swap()
 
-    global sp_sx, sp_sy, x0, x1, yy0, yy1, spiro_elapsed, vec1, vec2
+    global sp_sx, sp_sy, x0, x1, yy0, yy1, spiro_elapsed
 
     sp_sx = 0.0
     sp_sy = 0.0
@@ -155,7 +146,5 @@ def stop(view_manager) -> None:
     yy0 = 0
     yy1 = 0
     spiro_elapsed = 10
-    vec1 = None
-    vec2 = None
 
     collect()

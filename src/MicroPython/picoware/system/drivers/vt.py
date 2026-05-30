@@ -2,7 +2,6 @@
 # adapted for Picoware system
 
 from collections import deque
-from micropython import const
 
 try:
     import uio
@@ -16,9 +15,6 @@ from picoware.system.vector import Vector
 from picoware.system import buttons
 from picoware.system import colors
 import vt as vt_c
-
-sc_char_width = const(53)
-sc_char_height = const(40)
 
 
 class vt(uio.IOBase):
@@ -315,7 +311,7 @@ class vt(uio.IOBase):
                 self._last_render_time = current_time
 
     def get_screen_size(self):
-        return [sc_char_height, sc_char_width]
+        return [self.screen_height, self.screen_width]
 
     def _convert_key_to_terminal(self, key):
         """Convert Picoware button codes to terminal escape sequences"""

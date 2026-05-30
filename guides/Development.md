@@ -17,17 +17,16 @@ cd micropython
 git submodule update --init
 make -C mpy-cross
 ```
-3. Open up `~/pico/micropython/ports/rp2/boards/RPI_PICO/mpconfigboard.h` and change `#define MICROPY_HW_FLASH_STORAGE_BYTES (1408 * 1024)` to `#define MICROPY_HW_FLASH_STORAGE_BYTES (1024 * 1024)`.
-4. Download this repository as a .zip file (available here: https://github.com/jblanked/Picoware/archive/refs/heads/main.zip) then unzip it once downloaded.
-5. Open the terminal and navigate to the `tools` folder inside the downloaded Picoware repository.
-6. Now you can build the MicroPython firmware with the scripts provided, for example to build for all supported devices:
+3. Download this repository as a .zip file (available here: https://github.com/jblanked/Picoware/archive/refs/heads/main.zip) then unzip it once downloaded.
+4. Open the terminal and navigate to the `tools` folder inside the downloaded Picoware repository.
+5. Now you can build the MicroPython firmware with the scripts provided, for example to build for all supported devices:
 ```shell
 # Build all
 bash tools/micropython-all.sh
 ```
 > [!NOTE]
 > You must change the `micropython_dir` and `picoware_dir` variables in the scripts to point to your local MicroPython SDK and Picoware repository paths respectively.
-7. After building, the firmware files will be located in the `builds/MicroPython` folder inside the Picoware repository.
+6. After building, the firmware files will be located in the `builds/MicroPython` folder inside the Picoware repository.
 
 ### C/C++ SDK
 

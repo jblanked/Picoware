@@ -11,6 +11,7 @@ class ViewManager:
     FREQ_PIMORONI = 210000000
 
     __slots__ = (
+        "_active",
         "_current_view",
         "_view_count",
         "_selected_color",
@@ -43,12 +44,13 @@ class ViewManager:
         from picoware.system.system import System
         from picoware.system.time import Time
         from picoware.system.thread import ThreadManager
-        from picoware.system.audio import Audio
         from picoware.system.log import Log, LOG_MODE_ALL, LOG_MODE_REPL
         from picoware.system.colors import TFT_BLUE, TFT_BLACK, TFT_WHITE
-        from picoware.system.buttons import BUTTON_BACK
+        from picoware.system.buttons import BUTTON_BACK, BUTTON_ESCAPE
+        from picoware.system.boards import BOARD_CARDPUTER
         import json
 
+        self._active = True
         self._current_view = None
         self._view_count = 0
         self._selected_color = TFT_BLUE
@@ -86,7 +88,9 @@ class ViewManager:
         # load settings
         __debug = False
         self._gmt_offset = 0
-        _back_button = BUTTON_BACK
+        _back_button = (
+            BUTTON_BACK if syst.board_id != BOARD_CARDPUTER else BUTTON_ESCAPE
+        )
         _keyboard_state = False
         if self._storage is not None:
 
@@ -189,6 +193,8 @@ class ViewManager:
         # Initialize audio
         self._audio = None
         if syst.has_audio:
+            from picoware.system.audio import Audio
+
             self._audio = Audio()
 
         if self._draw.use_lvgl:
@@ -239,6 +245,16 @@ class ViewManager:
             self._thread_manager = None
 
         collect()
+
+    @property
+    def active(self):
+        """Return whether the ViewManager is active."""
+        return self._active
+
+    @active.setter
+    def active(self, value: bool):
+        """Set the active state of the ViewManager."""
+        self._active = value
 
     @property
     def audio(self):
@@ -519,7 +535,12 @@ class ViewManager:
             BOARD_PICOCALC_PICO,
             BOARD_PICOCALC_PICOW,
             BOARD_PICOCALC_PIMORONI_2W,
+            BOARD_CROWPANEL_10_1,
+            BOARD_CARDPUTER,
         )
+
+        if self._current_board_id in (BOARD_CROWPANEL_10_1, BOARD_CARDPUTER):
+            return freq(240000000)
 
         if frequency is not None:
             return freq(frequency)
@@ -600,7 +621,7 @@ class ViewManager:
                 self._view_count -= 1
                 break
 
-    def run(self):
+    def run(self) -> bool:
         """Run the current view."""
         self._button = self._input_manager.button
         if self._button == 80:  # BUTTON_HOME
@@ -622,6 +643,8 @@ class ViewManager:
         if self._button != -1:
             self._input_manager.reset()
             self._button = -1
+
+        return self._active
 
     def set(self, view_name: str):
         """

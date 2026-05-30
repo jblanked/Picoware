@@ -53,6 +53,7 @@ static bool is_playing = false;
 static alarm_id_t tone_alarm_id = -1;
 static uint8_t audio_volume = 100;
 static uint32_t channel_period[2] = {0, 0};
+static volatile int64_t mp3_pending_seek = -1;
 
 #define AUDIO_STREAM_RING_SIZE 2048 // must be power of 2
 #define AUDIO_STREAM_RING_MASK (AUDIO_STREAM_RING_SIZE - 1)
@@ -110,6 +111,7 @@ static fat32_file_t mp3_file;
 static mp3dec_ex_t mp3_dec;
 static mp3dec_io_t mp3_io;
 static volatile bool mp3_core1_running = false;
+static volatile bool mp3_core1_active = false;
 static int16_t mp3_stereo_buf[MINIMP3_MAX_SAMPLES_PER_FRAME]; // mono->stereo upmix buffer
 
 // Root pointer so MicroPython GC does not collect the IO buffer allocated
@@ -160,7 +162,6 @@ static void audio_apply_volume(void)
     {
         set_pwm_frequency(LEFT_CHANNEL, SILENCE);
         set_pwm_frequency(RIGHT_CHANNEL, SILENCE);
-        is_playing = false;
     }
     else
     {
@@ -322,10 +323,37 @@ bool audio_is_playing(void)
 #if SD_AVAILABLE
 static void audio_mp3_core1_entry(void)
 {
+    mp3_core1_active = true;
     multicore_lockout_victim_init();
 
     while (mp3_core1_running)
     {
+        if (mp3_pending_seek >= 0)
+        {
+            uint64_t target = (uint64_t)mp3_pending_seek;
+            mp3_pending_seek = -1;
+            
+            uint32_t hz = mp3_dec.info.hz > 0 ? mp3_dec.info.hz : 44100;
+            uint32_t channels = mp3_dec.info.channels > 0 ? mp3_dec.info.channels : 2;
+            uint64_t sr_ch = (uint64_t)hz * channels;
+            
+            uint32_t file_size = mp3_file.file_size;
+            uint32_t avg_bitrate = mp3_dec.info.bitrate_kbps;
+            if (avg_bitrate == 0) avg_bitrate = 128;
+            uint64_t total_samples = ((uint64_t)file_size * 8 / avg_bitrate) * sr_ch / 1000;
+            if (mp3_dec.samples > 0) total_samples = mp3_dec.samples;
+            
+            uint64_t target_byte = 0;
+            if (total_samples > 0) {
+                target_byte = (target * file_size) / total_samples;
+            }
+            if (target_byte > file_size) target_byte = file_size;
+            
+            mp3dec_ex_seek(&mp3_dec, target_byte);
+            mp3_dec.cur_sample = target;
+            stream_ring_read = stream_ring_write;
+        }
+
         mp3d_sample_t *pcm;
         mp3dec_frame_info_t frame_info;
         size_t samples_out = mp3dec_ex_read_frame(&mp3_dec, &pcm, &frame_info, MINIMP3_MAX_SAMPLES_PER_FRAME);
@@ -342,7 +370,7 @@ static void audio_mp3_core1_entry(void)
         int frames = (int)(samples_out / (size_t)channels);
 
         // Wait until ring buffer has room for this chunk
-        while (mp3_core1_running)
+        while (mp3_core1_running && mp3_pending_seek < 0)
         {
             uint32_t used = stream_ring_write - stream_ring_read;
             if (used + (uint32_t)frames <= AUDIO_STREAM_RING_SIZE)
@@ -350,8 +378,8 @@ static void audio_mp3_core1_entry(void)
             tight_loop_contents();
         }
 
-        if (!mp3_core1_running)
-            break;
+        if (!mp3_core1_running || mp3_pending_seek >= 0)
+            continue;
 
         if (channels == 2)
         {
@@ -368,6 +396,7 @@ static void audio_mp3_core1_entry(void)
             audio_push_samples(mp3_stereo_buf, frames);
         }
     }
+    mp3_core1_active = false;
 }
 #endif // SD_AVAILABLE
 
@@ -411,6 +440,11 @@ bool audio_play_mp3(const char *filename)
     if (mp3_core1_running)
     {
         mp3_core1_running = false;
+        uint64_t start_time = time_us_64();
+        while (mp3_core1_active && (time_us_64() - start_time < 100000))
+        {
+            sleep_ms(1);
+        }
         mutex_init(&wav_sd_mutex);
     }
     // close any previously open MP3 decoder
@@ -459,6 +493,40 @@ bool audio_play_mp3(const char *filename)
     PRINT("MP3 playback not supported on this platform\n");
     return false;
 #endif
+}
+
+bool audio_is_sd_busy(void)
+{
+#if SD_AVAILABLE
+    return mp3_core1_running;
+#else
+    return false;
+#endif
+}
+
+audio_info_t audio_get_info(void)
+{
+    audio_info_t info = {0, 0, 0, 0};
+#if SD_AVAILABLE
+    if (is_playing && mp3_core1_running) {
+        info.sample_rate = mp3_dec.info.hz;
+        info.channels = mp3_dec.info.channels;
+        info.duration = mp3_dec.samples;
+        info.position = mp3_dec.cur_sample;
+    }
+#endif
+    return info;
+}
+
+bool audio_seek(uint64_t target_sample)
+{
+#if SD_AVAILABLE
+    if (is_playing && mp3_core1_running) {
+        mp3_pending_seek = (int64_t)target_sample;
+        return true;
+    }
+#endif
+    return false;
 }
 
 void audio_play_note_blocking(const audio_note_t *note)
@@ -954,6 +1022,11 @@ void audio_stop(void)
     if (mp3_core1_running)
     {
         mp3_core1_running = false;
+        uint64_t start_time = time_us_64();
+        while (mp3_core1_active && (time_us_64() - start_time < 100000))
+        {
+            sleep_ms(1);
+        }
         mutex_init(&wav_sd_mutex);
     }
     if (mp3_dec.file.buffer)

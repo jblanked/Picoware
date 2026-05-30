@@ -8,9 +8,9 @@ from picoware.system.buttons import BUTTON_BACK
 
 FRAME_START = const(1)
 FRAME_STOP = const(5965)
-FRAME_WIDTH = const(320)
-FRAME_HEIGHT = const(320)
-CHUNK_SIZE = const(FRAME_WIDTH * FRAME_HEIGHT)
+FRAME_WIDTH = 320
+FRAME_HEIGHT = 320
+CHUNK_SIZE = FRAME_WIDTH * FRAME_HEIGHT
 
 current_frame = 0
 position = None
@@ -25,15 +25,22 @@ def start(view_manager) -> bool:
         view_manager.alert("App requires an SD card.", False)
         return False
 
-    # first show info screen about connection
+    global FRAME_WIDTH, FRAME_HEIGHT, CHUNK_SIZE
+
     d = view_manager.draw
+
+    FRAME_WIDTH = d.size.x
+    FRAME_HEIGHT = d.size.y
+    CHUNK_SIZE = FRAME_WIDTH * FRAME_HEIGHT
+
+    # first show info screen about connection
     fg = view_manager.foreground_color
     d.erase()
     info = (
         "Big Buck Bunny\n\n"
         "Follow these steps to get started:\n\n"
         "- download from: http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4\n\n"
-        '- then convert to png frames with:\nmkdir big-buck-bunny && ffmpeg -i ~/Downloads/BigBuckBunny.mp4 -vf "fps=10,scale=320:320:force_original_aspect_ratio=decrease,pad=320:320:(ow-iw)/2:(oh-ih)/2" big-buck-bunny/frame_%04d.png\n\n'
+        '- then convert to png frames with:\nmkdir big-buck-bunny && ffmpeg -i ~/Downloads/BigBuckBunny.mp4 -vf "fps=10,scale={FRAME_WIDTH}:{FRAME_HEIGHT}:force_original_aspect_ratio=decrease,pad={FRAME_WIDTH}:{FRAME_HEIGHT}:(ow-iw)/2:(oh-ih)/2" big-buck-bunny/frame_%04d.png\n\n'
         "- then convert to .bin using the png2fb.py script in tools:\npython png2fb.py <folder> --8bit\n\n"
         "- then rename to  `big-buck-bunny.bin` and copy to the root of your SD card"
     )
@@ -41,6 +48,7 @@ def start(view_manager) -> bool:
     d.swap()
 
     inp = view_manager.input_manager
+    inp.reset()
     while True:
         but = inp.button
         if but != -1:
@@ -91,7 +99,7 @@ def run(view_manager) -> None:
 
         # Draw the frame
         draw = view_manager.draw
-        draw.image_bytearray(position, size, frame_data)
+        draw._bytearray(position.x, position.y, size.x, size.y, frame_data)
         draw.swap()
 
         # Advance to next frame

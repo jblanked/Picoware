@@ -109,8 +109,8 @@ class AppLoader:
                 if not storage.vfs_mounted:
                     raise RuntimeError("Storage VFS not mounted, cannot load apps.")
 
-                # VFS mode: use /sd prefix for mounted filesystem
-                base_apps_path = "/sd/picoware/apps"
+                # Use the board-specific VFS prefix (/sdcard on Cardputer, /sd elsewhere)
+                base_apps_path = f"{storage.vfs_prefix}/picoware/apps"
 
                 import sys
 

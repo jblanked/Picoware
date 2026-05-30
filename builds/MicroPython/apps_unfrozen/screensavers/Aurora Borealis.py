@@ -103,7 +103,6 @@ def run(view_manager) -> None:
     pals = _band_pals
     falloff = _falloff_lut
     nlm1 = _N_LEVELS - 1
-    p = pos
     sv = strip_size
 
     for band in range(NUM_BANDS):
@@ -133,9 +132,7 @@ def run(view_manager) -> None:
                 f = falloff[dy if dy >= 0 else -dy] * pulse
                 if f <= 0.05:
                     continue
-                p.x = x
-                p.y = y
-                draw.fill_rectangle(p, sv, pal[int(f * nlm1)])
+                draw._fill_rectangle(x, y, sv.x, sv.y, pal[int(f * nlm1)])
 
     draw.swap()
 

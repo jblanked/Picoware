@@ -1,5 +1,6 @@
 #include "textbox_mp.h"
 #include "../lcd/lcd_config.h"
+#include "../font/font.h"
 
 #ifndef PRINT
 #define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
@@ -11,8 +12,8 @@
 
 const mp_obj_type_t textbox_mp_type;
 
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC)
-#include "../sd/fat32.h"
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER)
+#include "../sd/storage.h"
 #endif
 
 // Grow the line array if needed and append one entry.
@@ -289,7 +290,12 @@ mp_obj_t textbox_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_
             "TextBox requires 9 args: y, height, display_width, chars_per_line, spacing, fg_color, bg_color, show_scrollbar, show_cursor"));
     }
 
+#if defined(CARDPUTER) || defined(CROWPANEL_10_1)
+    // let gc handle cleanup
+    textbox_mp_obj_t *self = mp_obj_malloc(textbox_mp_obj_t, &textbox_mp_type);
+#else
     textbox_mp_obj_t *self = mp_obj_malloc_with_finaliser(textbox_mp_obj_t, &textbox_mp_type);
+#endif
     self->base.type = &textbox_mp_type;
 
     self->pos_y = (uint16_t)mp_obj_get_int(args[0]);
@@ -662,46 +668,39 @@ static MP_DEFINE_CONST_FUN_OBJ_1(textbox_mp_delete_char_obj, textbox_mp_delete_c
 mp_obj_t textbox_mp_load_file(mp_obj_t self_in, mp_obj_t filename)
 {
     const char *fn = mp_obj_str_get_str(filename);
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER)
     textbox_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (!fat32_is_mounted())
+    size_t file_size = storage_file_size(fn);
+    size_t new_capacity = file_size + 1;
+
+    if (new_capacity < file_size)
     {
-        fat32_error_t err = fat32_mount();
-        if (err != FAT32_OK)
-        {
-            PRINT("Failed to mount SD card: %s\n", fat32_error_string(err));
-            return mp_const_none;
-        }
-    }
-    fat32_file_t *file = m_new_obj(fat32_file_t);
-    fat32_error_t err = fat32_open(file, fn);
-    if (err != FAT32_OK)
-    {
-        PRINT("Failed to open file for reading: %s\n", fat32_error_string(err));
-        m_free(file);
+        PRINT("Failed to load file due to size overflow: %s\n", fn);
         return mp_const_none;
     }
-    self->edit_buf_capacity = fat32_size(file) + 1;
-    if (!self->edit_buf)
-        self->edit_buf = m_new(char, self->edit_buf_capacity);
-    else
-        self->edit_buf = m_renew(char, self->edit_buf, self->edit_buf_capacity, self->edit_buf_capacity);
 
-    size_t bytes_read = 0;
-    bool status = fat32_read(file, (char *)self->edit_buf, self->edit_buf_capacity - 1, &bytes_read) == FAT32_OK;
-    fat32_close(file);
-    m_free(file);
-    if (status)
+    if (!self->edit_buf)
+        self->edit_buf = m_new(char, new_capacity);
+    else
+        self->edit_buf = m_renew(char, self->edit_buf, self->edit_buf_capacity, new_capacity);
+
+    self->edit_buf_capacity = new_capacity;
+
+    size_t bytes_read = (file_size > 0) ? storage_file_read(fn, self->edit_buf, file_size) : 0;
+    if (file_size > 0 && bytes_read == 0)
     {
-        self->text_len = bytes_read;
-        self->edit_buf[bytes_read] = '\0';
-        self->text = self->edit_buf;
-        self->cursor_pos = bytes_read;
-        self->cache_valid = false;
-        textbox_wrap(self);
-        textbox_scroll_to_cursor(self);
-        textbox_display(self);
+        PRINT("Failed to read file: %s\n", fn);
+        return mp_const_none;
     }
+
+    self->text_len = bytes_read;
+    self->edit_buf[bytes_read] = '\0';
+    self->text = self->edit_buf;
+    self->cursor_pos = bytes_read;
+    self->cache_valid = false;
+    textbox_wrap(self);
+    textbox_scroll_to_cursor(self);
+    textbox_display(self);
 #else
     (void)self_in;
     PRINT("Failed to load %s because file system support is not available\n", fn);

@@ -26,6 +26,7 @@ def start(view_manager) -> bool:
         _system.add_item("Bootloader Mode")
         _system.add_item("Restart Device")
         _system.add_item("Shutdown Device")
+        _system.add_item("Stop System")
 
         _system.set_selected(_system_index)
 
@@ -152,6 +153,10 @@ def run(view_manager) -> None:
                     view_manager.draw.clear()
                     _system.draw()
                     break
+        elif _system_index == 7:
+            inp = view_manager.input_manager
+            inp.reset()
+            view_manager.active = False
 
 
 def stop(view_manager) -> None:

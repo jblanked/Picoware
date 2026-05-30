@@ -18,11 +18,12 @@ score_pos_right = None
 pos = None
 size = None
 
-PADDLE_WIDTH = const(8)
-PADDLE_HEIGHT = const(40)
-PADDLE_SPEED = const(8)
-BALL_SIZE = const(6)
+PADDLE_WIDTH = 8
+PADDLE_HEIGHT = 40
+BALL_SIZE = 6
+
 BALL_SPEED = const(4)
+PADDLE_SPEED = const(8)
 AI_SPEED = const(4)
 
 
@@ -111,13 +112,20 @@ class Ball:
 def start(view_manager) -> bool:
     """Start the app"""
     global screen_size, paddle_left, paddle_right, ball, score_left, score_right, game_started, score_pos_left, score_pos_right, pos, size
+    global PADDLE_WIDTH, PADDLE_HEIGHT, BALL_SIZE
 
-    screen_size = view_manager.draw.size
+    draw = view_manager.draw
+    screen_size = draw.size
+
+    PADDLE_WIDTH = draw.scale_x(8)
+    PADDLE_HEIGHT = draw.scale_y(40)
+    BALL_SIZE = draw.scale_x(6)
 
     # Create paddles
-    paddle_left = Paddle(10, screen_size.y // 2 - PADDLE_HEIGHT // 2)
+    paddle_left = Paddle(draw.scale_x(10), screen_size.y // 2 - PADDLE_HEIGHT // 2)
     paddle_right = Paddle(
-        screen_size.x - 10 - PADDLE_WIDTH, screen_size.y // 2 - PADDLE_HEIGHT // 2
+        screen_size.x - draw.scale_x(10) - PADDLE_WIDTH,
+        screen_size.y // 2 - PADDLE_HEIGHT // 2,
     )
 
     # Create ball
@@ -127,11 +135,11 @@ def start(view_manager) -> bool:
     score_right = 0
     game_started = True
 
-    score_pos_left = Vector(screen_size.x // 4, 10)
-    score_pos_right = Vector(screen_size.x * 3 // 4, 10)
+    score_pos_left = Vector(screen_size.x // 4, draw.scale_y(10))
+    score_pos_right = Vector(screen_size.x * 3 // 4, draw.scale_y(10))
 
     pos = Vector(0, 0)
-    size = Vector(4, 10)
+    size = Vector(draw.scale_x(4), draw.scale_y(10))
 
     return True
 

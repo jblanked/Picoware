@@ -6,9 +6,12 @@ def __set_text():
 
     if _system_info:
         system = System()
-        info = f"""
-        System Information
-
+        info = f"""System Information
+        
+        Board: {system.board_name}
+        Device: {system.device_name}
+        Frequency: {system.freq} MHz
+        
         Free Heap: {system.free_heap} bytes
         Used Heap: {system.used_heap} bytes
         Total Heap: {system.total_heap} bytes
@@ -40,18 +43,23 @@ def start(view_manager) -> bool:
         )
 
         __set_text()
+        _system_info._set_cursor(0)
 
     return True
 
 
 def run(view_manager) -> None:
     """Animate the loading spinner."""
-    from picoware.system.buttons import BUTTON_BACK
+    from picoware.system.buttons import BUTTON_BACK, BUTTON_UP, BUTTON_DOWN
 
     button: int = view_manager.button
 
     if button == BUTTON_BACK:
         view_manager.back()
+    elif button == BUTTON_UP:
+        _system_info.scroll_up()
+    elif button == BUTTON_DOWN:
+        _system_info.scroll_down()
 
 
 def stop(view_manager) -> None:

@@ -27,7 +27,7 @@ Open-source custom firmware for PicoCalc, Cardputer ADV, Video Game Module, and 
 Follow the instructions in the [Installation Guide](./guides/Installation.md) to install Picoware on your device.
 
 ## Connect Online
-- Discord: https://discord.gg/5aN9qwkEc6
+- Discord: https://discord.gg/vhSRPdvvc9
 - YouTube: https://www.youtube.com/@jblanked
 - Instagram: https://www.instagram.com/jblanked
 - Other: https://www.jblanked.com/social/
@@ -38,6 +38,9 @@ Follow the instructions in the [Installation Guide](./guides/Installation.md) to
 - [Waveshare RP2350 1.28inch Round Touch LCD](https://www.waveshare.com/rp2350-touch-lcd-1.28.htm?sku=29075)
 - [Waveshare RP2350 1.43inch AMOLED Display Development Board](https://www.waveshare.com/rp2350-touch-amoled-1.43.htm?sku=30737)
 - [Waveshare RP2350 3.49inch Touch LCD](https://www.waveshare.com/rp2350-touch-lcd-3.49.htm?sku=32775)
+- [Elecrow CrowPanel 10.1 inch](https://www.elecrow.com/crowpanel-advanced-10-1inch-esp32-p4-hmi-ai-display-1024x600-ips-touch-screen-wifi-6.html?idd=5)
+- [M5Stack Cardputer ADV](https://shop.m5stack.com/products/m5stack-cardputer-adv-version-esp32-s3)
+
 ### Related Videos
 - JBlanked (PicoCalc Playlist): [https://www.youtube.com/playlist?list=PLSRet1BCVgXhDNONa1T-1OIDoSibsF_ey](https://www.youtube.com/playlist?list=PLSRet1BCVgXhDNONa1T-1OIDoSibsF_ey)
 - A collection of video tutorials for Picoware: https://github.com/jblanked/Picoware/tree/main/guides/Tutorials.md

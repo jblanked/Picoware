@@ -31,7 +31,9 @@
 12. The app will begin flashing Picoware to your Video Game Module. Wait until the process is complete.
 
 **M5Stack Cardputer ADV**
-There are a few options for installing Picoware on the M5Stack Cardputer ADV, but the easiest way is to use the M5Burner tool provided by M5Stack. Here's how to do it:
+There are a few options for installing Picoware on the M5Stack Cardputer ADV.
+
+The recommended way is to use the M5Burner tool provided by M5Stack to install Picoware directly to your Cardputer:
 1. Download, install, and open the M5Burner tool from the official M5Stack website: https://docs.m5stack.com/en/download
 2. Under `Device Type`, select `Cardputer`.
 3. Type in `Picoware` in the search bar, then click `Download` next to the Picoware firmware.
@@ -40,11 +42,24 @@ There are a few options for installing Picoware on the M5Stack Cardputer ADV, bu
 6. Wait until the flashing process is complete, then disconnect your Cardputer from your computer and turn it on. Picoware should now be installed and ready to use!
 
 > [!NOTE]
-> Copy the `apps` folder from `builds/MicroPython` to the `picoware` folder on your SD card. Create a `picoware` folder if it doesn't exist.
+> If the recommended installation method doesn't work for you, follow the instructions below, otherwise proceed with copying the `apps` folder from `builds/MicroPython` to the `picoware` folder on your SD card.
 
-The second option is to just download the `Picoware-Cardputer.bin` file from the `builds/MicroPython` directory and flash it to your Cardputer using your favorite flashing tool.
+The second option is to use M5Burner again but instead of installing Picoware directly to the Cardputer, we're using an app called `M5Launcher` that allows you to flash custom firmware to your Cardputer on-the-fly:
+1. Download, install, and open the M5Burner tool from the official M5Stack website: https://docs.m5stack.com/en/download
+2. Under `Device Type`, select `Cardputer`.
+3. Type in `M5Launcher` in the search bar, then click `Download` next to the M5Launcher firmware.
+4. Turn off your Cardputer, then hold the `Go` button on your Cardputer while connecting it to your computer using a USB-C cable until your computer recognizes a new storage device.
+5. In M5Burner, click `Burn`, then `Continue`, then change the `COM Port` to the one that corresponds to your Cardputer, and click `Start`.
+6. Wait until the flashing process is complete, then disconnect your Cardputer from your computer and turn it on. M5Launcher should now be installed and ready to use!
+7. Download the `Picoware-Cardputer.bin` file from the `builds/MicroPython` directory of this repository and copy it to the root of your SD card.
+8. With your Cardputer off, insert the SD card into your Cardputer, then turn on your device.
+9. Once the app is open, click `SD` then scroll down and select the `Picoware-Cardputer.bin` file, then click `Install`. 
+10. Wait until the installation process is complete and your Cardputer will reboot into Picoware!
 
-The third option is to download (and extract) this repository as a ZIP file, then update the environment variables within the `tools/micropython-cardputer-flash.sh` script to match your setup, and run the script. You need to pass the port that your Cardputer is connected to as an argument when running the script (`--port COM3` for example).
+
+The third option is to just download the `Picoware-Cardputer.bin` file from the `builds/MicroPython` directory and flash it to your Cardputer using your favorite flashing tool.
+
+The fourth option is to download (and extract) this repository as a ZIP file, then update the environment variables within the `tools/micropython-cardputer-flash.sh` script to match your setup, and run the script. You need to pass the port that your Cardputer is connected to as an argument when running the script (`--port COM3` for example).
 
 **Elecrow CrowPanel**
 1. Download this repository as a ZIP file and extract it.

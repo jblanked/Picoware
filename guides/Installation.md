@@ -3,7 +3,7 @@
 > [!WARNING]
 > If you're using PicoCalc, make sure to update your keyboard firmware first: https://github.com/jblanked/awesome-pico-calc/blob/master/GettingStarted.md#updating-the-stm32>
 
-**PicoCalc, Waveshare, and other Raspberry Pi Pico-based boards**
+## PicoCalc, Waveshare, and other Raspberry Pi Pico-based boards
 1. Download the appropiate build from the `builds` directory.
 2. Press and hold the `BOOT` button on your Raspberry Pi Pico/W or Pico 2/2W.
 3. While holding the `BOOT` button, connect the Pico to your computer using a USB cable (that supports data transfer) until your computer recognizes a new storage device.
@@ -16,7 +16,7 @@
 > [!NOTE]
 > If you are installing the CircuitPython version, after installing Picoware, replace the `code.py` file on your Pico with the one from `src/CircuitPython`. Then, copy the `apps` folder from `builds/CircuitPython` to the `picoware` folder on your SD card. Create a `picoware` folder if it doesn't exist.
 
-**Video Game Module (Only)**
+## Video Game Module (Only)
 1. Install the Video Game Module Tool app on your Flipper Zero from the Apps catalog: [Video Game Module Tool](https://lab.flipper.net/apps/video_game_module_tool).
 2. Download the `Picoware-VGM.uf2` from the `builds` directory.
 3. Disconnect your Video Game Module from your Flipper and connect your Flipper to your computer.
@@ -30,7 +30,8 @@
 11. Scroll down and click on the `vgm` folder, then the `Picoware` folder, and finally select the `Picoware-VGM.uf2` file.
 12. The app will begin flashing Picoware to your Video Game Module. Wait until the process is complete.
 
-**M5Stack Cardputer ADV**
+## M5Stack Cardputer ADV
+
 There are a few options for installing Picoware on the M5Stack Cardputer ADV.
 
 The recommended way is to use the M5Burner tool provided by M5Stack to install Picoware directly to your Cardputer:
@@ -61,7 +62,7 @@ The third option is to just download the `Picoware-Cardputer.bin` file from the 
 
 The fourth option is to download (and extract) this repository as a ZIP file, then update the environment variables within the `tools/micropython-cardputer-flash.sh` script to match your setup, and run the script. You need to pass the port that your Cardputer is connected to as an argument when running the script (`--port COM3` for example).
 
-**Elecrow CrowPanel**
+## Elecrow CrowPanel
 1. Download this repository as a ZIP file and extract it.
 2. Update the environment variables within the `tools/micropython-crowpanel-flash.sh` script to match your setup.
 3. Connect a USB-C cable to your `USB 2.0` port on your CrowPanel and connect the other end to a power source. Do not connect the cable to your computer, as the `USB 2.0` port is for power only.

@@ -825,13 +825,10 @@ class FlipSocialRun:
 
     def draw_menu(self, canvas, selected_index: int, menu_items: list) -> None:
         """Generic menu drawer"""
-
-        SCREEN_W = canvas.size.x
-
         # Draw title
         title = "FlipSocial"
         title_width = __string_width(title)
-        title_x = (SCREEN_W - title_width) // 2
+        title_x = (canvas.size.x - title_width) // 2
         _x, _y = canvas.scale(title_x, 25)
         canvas._text(_x, _y, title, TFT_BLACK)
 
@@ -840,10 +837,8 @@ class FlipSocialRun:
         canvas._line(_x, _y, _x + title_width, _y, TFT_BLACK)
 
         # Draw decorative pattern
-        _x = 0
-        _y = canvas.scale_y(45)
-        for i in range(0, SCREEN_W, 10):
-            _x = i
+        for i in range(0, canvas.size.x, 10):
+            _x, _y = canvas.scale(i, 45)
             canvas._pixel(_x, _y, TFT_BLACK)
 
         # Get current item
@@ -861,7 +856,7 @@ class FlipSocialRun:
 
             # Draw text centered
             item_width = __string_width(current_item)
-            item_x = (SCREEN_W - item_width) // 2
+            item_x = (canvas.size.x - item_width) // 2
             _x, _y = canvas.scale(item_x, menu_y - 10)
             canvas._text(_x, _y, current_item, TFT_WHITE)
 
@@ -870,7 +865,7 @@ class FlipSocialRun:
                 _x, _y = canvas.scale(5, menu_y - 7)
                 canvas._text(_x, _y, "<", TFT_BLACK)
             if selected_index < len(menu_items) - 1:
-                _x, _y = canvas.scale(SCREEN_W - 15, menu_y - 7)
+                _x, _y = canvas.scale(canvas.size.x - 15, menu_y - 7)
                 canvas._text(_x, _y, ">", TFT_BLACK)
 
             # Draw indicator dots
@@ -879,7 +874,7 @@ class FlipSocialRun:
             _w, _h = canvas.scale(10, 10)
             if len(menu_items) <= 15:
                 dots_spacing = 15
-                dots_start_x = (SCREEN_W - (len(menu_items) * dots_spacing)) // 2
+                dots_start_x = (canvas.size.x - (len(menu_items) * dots_spacing)) // 2
                 for i in range(len(menu_items)):
                     dot_x = dots_start_x + (i * dots_spacing)
                     _x, _y = canvas.scale(dot_x, indicator_y)
@@ -901,8 +896,7 @@ class FlipSocialRun:
                         )
 
             # Draw decorative bottom pattern
-            _x, _y = canvas.scale(0, 145)
-            for i in range(0, SCREEN_W, 10):
+            for i in range(0, canvas.size.x, 10):
                 _x, _y = canvas.scale(i, 145)
                 canvas._pixel(_x, _y, TFT_BLACK)
 

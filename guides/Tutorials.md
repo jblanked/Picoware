@@ -3,6 +3,7 @@
 Here are some tutorials and reviews to help you get started with Picoware:
 
 ## Reviews/Application Walkthroughs
+- I tried finding Hidden Gems on AliExpress AGAIN! (Part 19): https://www.youtube.com/watch?v=6rlUO5NoYO0&t=466s
 - PicoCalc EPIC May 2026 Update: REPL, MP3/WAV Player, + 3D Gaming!: https://youtu.be/eEb7hG3JhPE
 - PicoCalc's Biggest Update Yet – Here's What's New: https://www.youtube.com/watch?v=360LtEIlVZU
 - PicoCalc Gets a BIG April 2026 Firmware Update!: https://www.youtube.com/watch?v=uOJBeATEk90

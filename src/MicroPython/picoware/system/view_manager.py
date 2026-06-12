@@ -42,13 +42,13 @@ class ViewManager:
         from picoware.system.storage import Storage
         from picoware.system.wifi import WiFi
         from picoware.system.system import System
+        from picoware.system.settings import Settings
         from picoware.system.time import Time
         from picoware.system.thread import ThreadManager
         from picoware.system.log import Log, LOG_MODE_ALL, LOG_MODE_REPL
         from picoware.system.colors import TFT_BLUE, TFT_BLACK, TFT_WHITE
-        from picoware.system.buttons import BUTTON_BACK, BUTTON_ESCAPE
+        from picoware.system.buttons import BUTTON_ESCAPE
         from picoware.system.boards import BOARD_CARDPUTER
-        import json
 
         self._active = True
         self._current_view = None
@@ -70,100 +70,42 @@ class ViewManager:
             self._wifi = WiFi(thread_manager=self._thread_manager)
 
         # Initialize storage
-        self._storage = None
-        if syst.has_sd_card:
-            self._storage = Storage()
-            self._storage.mkdir("picoware")
-            self._storage.mkdir("picoware/settings")
-            self._storage.write("picoware/version.txt", syst.version)
-            self._storage.mkdir("picoware/keyboard")
+        self._storage = Storage()
+        self._storage.mkdir("picoware")
+        self._storage.mkdir("picoware/settings")
+        self._storage.mkdir("picoware/keyboard")
+
+        settings = Settings(self._storage)
+        self._gmt_offset = settings.gmt_offset
 
         # Set up colors
         self._background_color = TFT_BLACK
         self._foreground_color = TFT_WHITE
 
+        # dark mode
+        if not settings.dark_mode:
+            self._background_color = TFT_WHITE
+            self._foreground_color = TFT_BLACK
+
         # Initialize drawing system
         self._draw = Draw(self._foreground_color, self._background_color)
 
-        # load settings
-        __debug = False
-        self._gmt_offset = 0
-        _back_button = (
-            BUTTON_BACK if syst.board_id != BOARD_CARDPUTER else BUTTON_ESCAPE
-        )
-        _keyboard_state = False
-        if self._storage is not None:
+        # on screen keyboard
+        _keyboard_state = settings.onscreen_keyboard
 
-            # dark mode
-            dark_mode_data: str = self._storage.read("picoware/settings/dark_mode.json")
+        # LVGL mode
+        self._draw.use_lvgl = settings.lvgl_mode
 
-            if len(dark_mode_data) > 1:
-                state: bool = "true" in dark_mode_data.lower()
-                if not state:
-                    self._background_color = TFT_WHITE
-                    self._foreground_color = TFT_BLACK
-                    self._draw.background = self._background_color
-                    self._draw.foreground = self._foreground_color
+        # theme color
+        self._selected_color = settings.theme_color
 
-            # on screen keyboard
-            on_screen_keyboard_data: str = self._storage.read(
-                "picoware/settings/onscreen_keyboard.json"
-            )
+        # debug mode
+        __debug = settings.debug
 
-            if len(on_screen_keyboard_data) > 1:
-                _keyboard_state = "true" in on_screen_keyboard_data.lower()
-
-            # LVGL mode
-            lvgl_data: str = self._storage.read("picoware/settings/lvgl_mode.json")
-
-            if len(lvgl_data) > 1:
-                state: bool = "true" in lvgl_data.lower()
-                self._draw.use_lvgl = state
-
-            # theme color
-            theme_color_data: str = self._storage.read(
-                "picoware/settings/theme_color.json"
-            )
-
-            if len(theme_color_data) > 1:
-                try:
-                    obj = json.loads(theme_color_data)
-                    if "theme_color" in obj:
-                        color = int(obj["theme_color"])
-                        self.selected_color = color
-                except Exception:
-                    pass
-
-            # debug mode
-            debug_data: str = self._storage.read("picoware/settings/debug.json")
-
-            if len(debug_data) > 1:
-                __debug = "true" in debug_data.lower()
-
-            # GMT offset
-            gmt_offset_data: str = self._storage.read(
-                "picoware/settings/gmt_offset.json"
-            )
-
-            if len(gmt_offset_data) > 1:
-                try:
-                    obj = json.loads(gmt_offset_data)
-                    if "gmt_offset" in obj:
-                        self._gmt_offset = int(obj["gmt_offset"])
-                except ValueError:
-                    pass
-
-            # exit button
-            exit_button_data: str = self._storage.read(
-                "picoware/settings/exit_button.json"
-            )
-            if len(exit_button_data) > 1:
-                try:
-                    obj = json.loads(exit_button_data)
-                    if "exit_button" in obj:
-                        _back_button = int(obj["exit_button"])
-                except ValueError:
-                    pass
+        # exit button
+        _back_button = settings.exit_button
+        if syst.board_id == BOARD_CARDPUTER:
+            _back_button = BUTTON_ESCAPE
 
         # Initialize input manager
         self._input_manager = Input(_back_button)
@@ -200,6 +142,7 @@ class ViewManager:
         if self._draw.use_lvgl:
             # disable networking...
             self._wifi = None
+            self.log("LVGL mode enabled: WiFi disabled.", 2)
 
         # Clear screen
         self.clear()

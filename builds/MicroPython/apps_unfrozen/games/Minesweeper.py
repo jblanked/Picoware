@@ -10,9 +10,14 @@ from picoware.system.colors import (
 )
 
 CELL_SIZE = 20
-GRID_W = 12  # 12x12 grid
+GRID_W = 12
 GRID_H = 12
 NUM_MINES = 20
+_scale = 1.0
+_offset_x = 0
+_offset_y = 20
+_text_off_x = 6
+_text_off_y = 2
 
 grid = []
 revealed = []
@@ -28,19 +33,16 @@ size_vec = None
 
 
 def draw_cell(draw, value, is_revealed, is_flagged) -> None:
-    """Draw a single cell at (x, y)"""
-    reusable_vec.x = pos_vec.x * CELL_SIZE
-    reusable_vec.y = pos_vec.y * CELL_SIZE + 20
-    # Cell background
+    """Draw a single grid cell."""
+    reusable_vec.x = pos_vec.x * CELL_SIZE + _offset_x
+    reusable_vec.y = pos_vec.y * CELL_SIZE + _offset_y
     if is_revealed:
         draw.fill_rectangle(reusable_vec, size_vec, TFT_ORANGE)
     else:
         draw.fill_rectangle(reusable_vec, size_vec, TFT_BLACK)
-    # Cell border
     draw.rect(reusable_vec, size_vec, TFT_BLUE)
-    # Content
-    reusable_vec.x += 6
-    reusable_vec.y += 2
+    reusable_vec.x += _text_off_x
+    reusable_vec.y += _text_off_y
     if is_revealed:
         if value == -1:
             draw.text(reusable_vec, "*", TFT_RED)
@@ -51,25 +53,23 @@ def draw_cell(draw, value, is_revealed, is_flagged) -> None:
 
 
 def draw_grid(draw) -> None:
-    """Draw the entire grid including the cursor"""
+    """Draw the entire grid with cursor."""
     for y in range(GRID_H):
         for x in range(GRID_W):
             pos_vec.x = x
             pos_vec.y = y
             draw_cell(draw, grid[y][x], revealed[y][x], flagged[y][x])
-    # Draw cursor
     cx, cy = cursor
-    reusable_vec.x = cx * CELL_SIZE
-    reusable_vec.y = cy * CELL_SIZE + 20
+    reusable_vec.x = cx * CELL_SIZE + _offset_x
+    reusable_vec.y = cy * CELL_SIZE + _offset_y
     draw.rect(reusable_vec, size_vec, TFT_GREEN)
     draw.swap()
 
 
 def place_mines(first_x, first_y) -> None:
-    """Place mines on the grid, avoiding the first clicked cell"""
+    """Place mines avoiding the first click cell."""
     from random import randint
 
-    # Place NUM_MINES mines, avoiding (first_x, first_y)
     positions = [
         (x, y)
         for x in range(GRID_W)
@@ -84,7 +84,7 @@ def place_mines(first_x, first_y) -> None:
     for i in range(NUM_MINES):
         x, y = positions[i]
         grid[y][x] = -1
-    # Fill in numbers
+    # Fill numbers
     for y in range(GRID_H):
         for x in range(GRID_W):
             if grid[y][x] == -1:
@@ -100,12 +100,12 @@ def place_mines(first_x, first_y) -> None:
 
 
 def reveal(x, y) -> None:
-    """Reveal cell at (x, y). If it's 0, flood fill to neighbors"""
+    """Reveal cell; flood fill from zeros."""
     if flagged[y][x] or revealed[y][x]:
         return
     revealed[y][x] = True
     if grid[y][x] == 0:
-        # Flood fill
+        # Flood fill neighbors
         for dy in (-1, 0, 1):
             for dx in (-1, 0, 1):
                 nx, ny = x + dx, y + dy
@@ -115,7 +115,7 @@ def reveal(x, y) -> None:
 
 
 def check_win() -> bool:
-    """Check if all non-mine cells are revealed"""
+    """Check all non-mine cells revealed."""
     for y in range(GRID_H):
         for x in range(GRID_W):
             if grid[y][x] != -1 and not revealed[y][x]:
@@ -124,11 +124,26 @@ def check_win() -> bool:
 
 
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app."""
     from picoware.system.vector import Vector
     from picoware.system.colors import TFT_BLACK, TFT_WHITE
 
     global grid, revealed, flagged, reusable_vec, pos_vec, size_vec
+    global _scale, CELL_SIZE, _offset_x, _offset_y, _text_off_x, _text_off_y, NUM_MINES
+
+    draw = view_manager.draw
+    sw, sh = draw.size.x, draw.size.y
+    screen_min = min(sw, sh)
+
+    _scale = screen_min / 320
+    CELL_SIZE = max(6, sw // GRID_W)
+    max_cell_h = (sh - 12) // GRID_H
+    CELL_SIZE = max(6, min(CELL_SIZE, max_cell_h))
+    _offset_y = max(6, int(CELL_SIZE * 0.9))
+    _offset_x = max(0, (sw - GRID_W * CELL_SIZE) // 2)
+    _text_off_x = max(1, int(CELL_SIZE * 0.3))
+    _text_off_y = max(1, int(CELL_SIZE * 0.1))
+    NUM_MINES = max(5, int(20 * _scale))
 
     grid = [[0] * GRID_W for _ in range(GRID_H)]
     revealed = [[False] * GRID_W for _ in range(GRID_H)]
@@ -138,18 +153,15 @@ def start(view_manager) -> bool:
     pos_vec = Vector(0, 0)
     size_vec = Vector(CELL_SIZE, CELL_SIZE)
 
-    draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)
-    draw.text(Vector(90, 2), "MINESWEEPER", TFT_WHITE)
-    draw.text(
-        Vector(10, 300), "Arrows: Move  Space: Reveal  F: Flag  BACK: Quit", TFT_WHITE
-    )
+    title_x = max(0, (sw - len("MINESWEEPER") * draw.font_size.x) // 2)
+    draw.text(Vector(title_x, 2), "MINESWEEPER", TFT_WHITE)
     draw_grid(draw)
     return True
 
 
 def run(view_manager) -> None:
-    """Run the app"""
+    """Run the app."""
     from picoware.system.buttons import (
         BUTTON_BACK,
         BUTTON_UP,
@@ -203,10 +215,10 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app."""
     from gc import collect
 
-    global grid, revealed, flagged, reusable_vec, pos_vec, size_vec
+    global grid, revealed, flagged, reusable_vec, pos_vec, size_vec, _scale
 
     grid = []
     revealed = []
@@ -215,5 +227,6 @@ def stop(view_manager) -> None:
     reusable_vec = None
     pos_vec = None
     size_vec = None
+    _scale = 1.0
 
     collect()

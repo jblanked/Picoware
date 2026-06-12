@@ -353,6 +353,7 @@ FLAPPY_GRAVITY_TICK = 0.7
 
 FLIPPER_LCD_WIDTH = 0
 FLIPPER_LCD_HEIGHT = 0
+_game_scale = 1.0
 
 GAME_STATE_LIFE = const(0)
 GAME_STATE_GAME_OVER = const(1)
@@ -465,7 +466,7 @@ _game_engine = None
 
 
 def __flappy_game_random_pilar() -> None:
-    """Generate a random pilar"""
+    """Generate a random pillar."""
     global _game_state
 
     pilar: PILAR = PILAR()
@@ -483,7 +484,7 @@ def __flappy_game_random_pilar() -> None:
 
 
 def __flappy_game_state_init(draw) -> None:
-    """Initialize the game state"""
+    """Initialize the game state."""
     global _game_state
 
     bird = BIRD()
@@ -502,10 +503,9 @@ def __flappy_game_state_init(draw) -> None:
 
 
 def __flappy_game_tick() -> None:
-    """Advance the game state by one tick"""
+    """Advance game state by one tick."""
     global _game_state
 
-    # save previous bird position
     _game_state.bird.point.x2 = _game_state.bird.point.x
     _game_state.bird.point.y2 = _game_state.bird.point.y
 
@@ -520,66 +520,63 @@ def __flappy_game_tick() -> None:
     if pilar.point.x == (FLIPPER_LCD_WIDTH - FLAPPY_PILAR_DIST) + 3:
         __flappy_game_random_pilar()
 
-    # If the bird's top goes above y=0 => game over
+    # Bird above screen
     if _game_state.bird.point.y <= 0:
         _game_state.bird.point.y = 0
         _game_state.state = GAME_STATE_GAME_OVER
 
-    # If the bird's bottom (y + FLAPPY_BIRD_HEIGHT) goes below screen => game over
+    # Bird below screen
     if _game_state.bird.point.y + FLAPPY_BIRD_HEIGHT >= FLIPPER_LCD_HEIGHT:
         _game_state.bird.point.y = FLIPPER_LCD_HEIGHT - FLAPPY_BIRD_HEIGHT
         _game_state.state = GAME_STATE_GAME_OVER
 
-    # Update existing pillars
+    # Update pillars
     for i in range(FLAPPY_PILAR_MAX):
         p = _game_state.pilars[i]
         if p and p.visible and _game_state.state == GAME_STATE_LIFE:
-            # save previous pillar position
             p.point.x2 = p.point.x
             p.point.y2 = p.point.y
 
             p.point.x -= 4
 
-            # Add a point if bird passes pillar
+            # Score if bird passes pillar
             if (
                 _game_state.bird.point.x >= p.point.x + FLAPPY_GAB_WIDTH
                 and not p.passed
             ):
                 p.passed = True
                 _game_state.points += 1
-            # Pillar goes off the left side
+            # Pillar off left side
             if p.point.x < -FLAPPY_GAB_WIDTH:
                 p.visible = 0
 
-            # Check collision with the top/bottom pipes
-            # if the pillar overlaps the bird horizontally...
+            # Horizontal overlap check
             if (
                 _game_state.bird.point.x + FLAPPY_BIRD_HEIGHT >= p.point.x
                 and _game_state.bird.point.x <= p.point.x + FLAPPY_GAB_WIDTH
             ):
-                # ...then check if the bird is outside the gap vertically
-                # Bottom pipe collision:
+                # Bottom pipe
                 if (
                     _game_state.bird.point.y + FLAPPY_BIRD_WIDTH - 2
                     >= p.height + FLAPPY_GAB_HEIGHT
                 ):
                     _game_state.state = GAME_STATE_GAME_OVER
                     break
-                # Top pipe collision:
+                # Top pipe
                 if _game_state.bird.point.y < p.height:
                     _game_state.state = GAME_STATE_GAME_OVER
                     break
 
 
 def __flappy_game_flap() -> None:
-    """Make the bird flap (jump)"""
+    """Make the bird jump."""
     global _game_state
 
     _game_state.bird.gravity = FLAPPY_GRAVITY_JUMP
 
 
 def __player_update(self, game):
-    """Move the player based on input"""
+    """Move the player based on input."""
 
     global _game_state
 
@@ -596,29 +593,29 @@ def __player_update(self, game):
 
 
 def __player_render(self, draw, game) -> None:
-    """Render the player"""
+    """Render the player."""
 
-    global _game_state
+    global _game_state, _game_scale
 
-    # draw = game.draw
+    s = _game_scale
 
-    # Draw sky background
+    # Sky background
     draw.fill_rectangle(_game_state.lcd_pos, _game_state.lcd_vec, TFT_CYAN)
 
-    # Draw clouds (simple white circles/ovals)
+    # Clouds
     cloud_x_offset = int(_game_state.points * 2) % FLIPPER_LCD_WIDTH
     for i, y in enumerate(_game_state.cloud_y_positions):
-        x = (i * 80 - cloud_x_offset) % (FLIPPER_LCD_WIDTH + 80) - 40
-        if -40 < x < FLIPPER_LCD_WIDTH:
+        x = (i * int(80 * s) - cloud_x_offset) % (FLIPPER_LCD_WIDTH + int(80 * s)) - int(40 * s)
+        if -int(40 * s) < x < FLIPPER_LCD_WIDTH:
             _game_state.cloud_pos.x, _game_state.cloud_pos.y = x, y
-            draw.fill_circle(_game_state.cloud_pos, 12, TFT_WHITE)
-            _game_state.cloud_pos.x, _game_state.cloud_pos.y = x + 10, y - 5
-            draw.fill_circle(_game_state.cloud_pos, 10, TFT_WHITE)
-            _game_state.cloud_pos.x, _game_state.cloud_pos.y = x - 8, y - 3
-            draw.fill_circle(_game_state.cloud_pos, 8, TFT_WHITE)
+            draw.fill_circle(_game_state.cloud_pos, max(3, int(12 * s)), TFT_WHITE)
+            _game_state.cloud_pos.x, _game_state.cloud_pos.y = x + int(10 * s), y - int(5 * s)
+            draw.fill_circle(_game_state.cloud_pos, max(3, int(10 * s)), TFT_WHITE)
+            _game_state.cloud_pos.x, _game_state.cloud_pos.y = x - int(8 * s), y - int(3 * s)
+            draw.fill_circle(_game_state.cloud_pos, max(2, int(8 * s)), TFT_WHITE)
 
-    # Draw ground
-    ground_height = 20
+    # Ground
+    ground_height = max(8, int(20 * s))
     _game_state.gnd_pos.x, _game_state.gnd_pos.y = (
         0,
         FLIPPER_LCD_HEIGHT - ground_height,
@@ -629,15 +626,15 @@ def __player_render(self, draw, game) -> None:
         _game_state.gnd_size,
         TFT_GREEN,
     )
-    # Ground pattern (grass-like)
-    for x in range(0, FLIPPER_LCD_WIDTH, 15):
+    # Grass lines
+    for x in range(0, FLIPPER_LCD_WIDTH, max(5, int(15 * s))):
         _game_state.grs_pos.x, _game_state.grs_pos.y = (
             x,
             FLIPPER_LCD_HEIGHT - ground_height,
         )
         _game_state.grs_size.x, _game_state.grs_size.y = (
             x,
-            FLIPPER_LCD_HEIGHT - ground_height + 5,
+            FLIPPER_LCD_HEIGHT - ground_height + max(2, int(5 * s)),
         )
         draw.line(
             _game_state.grs_pos,
@@ -655,7 +652,7 @@ def __player_render(self, draw, game) -> None:
                 and pilar.point.x >= 0
                 and pilar.point.x < FLIPPER_LCD_WIDTH
             ):
-                # Top pillar - filled with green
+                # Top pillar
                 _game_state.vec_1.x = pilar.point.x
                 _game_state.vec_1.y = pilar.point.y
                 _game_state.vec_2.y = pilar.height
@@ -664,14 +661,13 @@ def __player_render(self, draw, game) -> None:
                     _game_state.vec_2,
                     TFT_GREEN,
                 )
-                # Top pillar border
                 draw.rect(
                     _game_state.vec_1,
                     _game_state.vec_2,
                     TFT_DARKGREEN,
                 )
 
-                # Bottom pillar - filled with green
+                # Bottom pillar
                 _game_state.vec_3.x = pilar.point.x
                 _game_state.vec_3.y = pilar.point.y + pilar.height + FLAPPY_GAB_HEIGHT
                 _game_state.vec_4.y = (
@@ -685,7 +681,6 @@ def __player_render(self, draw, game) -> None:
                         _game_state.vec_4,
                         TFT_GREEN,
                     )
-                    # Bottom pillar border
                     draw.rect(
                         _game_state.vec_3,
                         _game_state.vec_4,
@@ -704,36 +699,40 @@ def __player_render(self, draw, game) -> None:
     elif _game_state.state == GAME_STATE_GAME_OVER:
         self.position = Vector(-100, -100)
 
-        # "Game Over" box with yellow background
-        draw.fill_rectangle(Vector(120, 100), Vector(100, 60), TFT_YELLOW)
-        draw.rect(Vector(120, 100), Vector(100, 60), TFT_BLACK)
-        draw.text(Vector(130, 110), "Game Over!", TFT_BLACK)
-        draw.text(Vector(125, 125), f"Score: {_game_state.points}", TFT_BLACK)
-        draw.text(Vector(125, 140), "Press to Retry", TFT_BLACK)
+        # Game over box
+        bx = int(120 * s)
+        by = int(100 * s)
+        bw = int(100 * s)
+        bh = int(60 * s)
+        draw.fill_rectangle(Vector(bx, by), Vector(bw, bh), TFT_YELLOW)
+        draw.rect(Vector(bx, by), Vector(bw, bh), TFT_BLACK)
+        draw.text(Vector(int(130 * s), int(110 * s)), "Game Over!", TFT_BLACK)
+        draw.text(Vector(int(125 * s), int(125 * s)), f"Score: {_game_state.points}", TFT_BLACK)
+        draw.text(Vector(int(125 * s), int(140 * s)), "Press to Retry", TFT_BLACK)
 
 
 def __player_spawn(level, draw):
-    """Spawn the player in the level."""
+    """Spawn the player entity."""
     from picoware.engine.entity import Entity, ENTITY_TYPE_PLAYER, SPRITE_3D_NONE
 
     global _game_state
 
     player = Entity(
-        "Player",  # name
-        ENTITY_TYPE_PLAYER,  # type
-        Vector(-100, -100),  # position
-        Vector(FLAPPY_BIRD_WIDTH, FLAPPY_BIRD_HEIGHT),  # size
-        None,  # sprite data
-        None,  # sprite data left
-        None,  # sprite data right
-        None,  # start
-        None,  # stop
-        __player_update,  # update
-        __player_render,  # render
-        None,  # collision
-        True,  # is_8bit
-        SPRITE_3D_NONE,  # 3d type
-        0x0000,  # 3d color
+        "Player",
+        ENTITY_TYPE_PLAYER,
+        Vector(-100, -100),
+        Vector(FLAPPY_BIRD_WIDTH, FLAPPY_BIRD_HEIGHT),
+        None,
+        None,
+        None,
+        None,
+        None,
+        __player_update,
+        __player_render,
+        None,
+        True,
+        SPRITE_3D_NONE,
+        0x0000,
     )
 
     level.entity_add(player)
@@ -742,50 +741,45 @@ def __player_spawn(level, draw):
 
 
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app."""
     from picoware.engine.game import Game
     from picoware.engine.level import Level
     from picoware.engine.engine import GameEngine
-    from picoware.engine.camera import Camera
 
-    global _game_engine, FLIPPER_LCD_WIDTH, FLIPPER_LCD_HEIGHT, FLAPPY_PILAR_DIST, FLAPPY_GAB_HEIGHT, FLAPPY_GAB_WIDTH
+    global _game_engine, _game_scale, FLIPPER_LCD_WIDTH, FLIPPER_LCD_HEIGHT, FLAPPY_PILAR_DIST, FLAPPY_GAB_HEIGHT, FLAPPY_GAB_WIDTH
 
     draw = view_manager.draw
     FLIPPER_LCD_WIDTH = draw.size.x
     FLIPPER_LCD_HEIGHT = draw.size.y
+    _game_scale = min(FLIPPER_LCD_WIDTH, FLIPPER_LCD_HEIGHT) / 240
 
-    FLAPPY_GAB_WIDTH, FLAPPY_GAB_HEIGHT = draw.scale(10, 100)
-    FLAPPY_PILAR_DIST = FLAPPY_GAB_HEIGHT
+    FLAPPY_GAB_WIDTH, FLAPPY_GAB_HEIGHT = draw.scale(16, 140)
+    FLAPPY_PILAR_DIST = int(FLIPPER_LCD_WIDTH * 0.35)
 
-    # Create the game instance with its name, start/stop callbacks, and colors.
     game = Game(
-        "Flappy Bird",  # name
-        draw.size,  # size
-        draw,  # draw context
-        view_manager.input_manager,  # input manager
-        0x0000,  # foreground color
-        0xFFFF,  # background color
-        None,  # camera context
-        None,  # start
-        None,  # Stop
+        "Flappy Bird",
+        draw.size,
+        draw,
+        view_manager.input_manager,
+        0x0000,
+        0xFFFF,
+        None,
+        None,
+        None,
     )
 
-    # Create and add a level to the game.
     level = Level("Level", draw.size, game)
 
     game.level_add(level)
 
-    # Add the player entity to the level
     __player_spawn(level, draw)
 
-    # Create the game engine (with 240 frames per second target).
     _game_engine = GameEngine(game, 240)
     return _game_engine is not None
 
 
 def run(view_manager) -> None:
     """Run the app."""
-
     input_manager = view_manager.input_manager
     button: int = input_manager.button
 
@@ -798,15 +792,16 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app."""
     from gc import collect
 
-    global _game_engine, _game_state
+    global _game_engine, _game_state, _game_scale
 
     if _game_engine is not None:
         _game_engine.stop()
         del _game_engine
         _game_engine = None
+    _game_scale = 1.0
 
     if _game_state is not None:
         del _game_state

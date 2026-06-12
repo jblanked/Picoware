@@ -22,14 +22,13 @@ from picoware.system.buttons import (
     BUTTON_BACK,
 )
 
-# Grid size
 GRID_W = 10
 GRID_H = 20
-CELL_SIZE = 14  # Each cell is 14x14px
-GRID_X = 20  # Left margin
-GRID_Y = 10  # Top margin
+CELL_SIZE = 14
+GRID_X = 20
+GRID_Y = 10
+_scale = 1.0
 
-# Global game instance
 _game = None
 
 
@@ -127,7 +126,8 @@ class Tetris:
         self.grid_pos = Vector(GRID_X, GRID_Y)
         self.grid_size = Vector(CELL_SIZE, CELL_SIZE)
 
-        self.text_pos = Vector(180, 20)
+        # Position text panel to the right of the well
+        self.text_pos = Vector(GRID_X + well_width + 8, int(20 * _scale))
 
         self.grid = [[0 for _ in range(GRID_W)] for _ in range(GRID_H)]
         self.score = 0
@@ -148,7 +148,7 @@ class Tetris:
         if not self.collision(self.x, self.y, new_rot):
             self.rotation = new_rot
             return
-        # Simple wall kicks: try shifting left/right if rotation collides
+        # Wall kick left/right
         if not self.collision(self.x - 1, self.y, new_rot):
             self.x -= 1
             self.rotation = new_rot
@@ -226,15 +226,15 @@ class Tetris:
         return max(120, base)
 
     def _get_color(self, piece_idx):
-        """Get color for piece based on index"""
-
+        """Get color for a piece by index."""
         return self.colors[piece_idx % len(self.colors)]
 
     def render(self):
-        """Render the current game state"""
+        """Render the current game state."""
         draw = self.draw
+        s = _scale
+        tx = GRID_X + GRID_W * CELL_SIZE + 8  # Text panel left edge
 
-        # Clear screen
         draw.fill_screen(TFT_BLACK)
 
         # Well outline
@@ -244,7 +244,7 @@ class Tetris:
             TFT_WHITE,
         )
 
-        # Draw grid
+        # Render grid
         for r in range(GRID_H):
             for c in range(GRID_W):
                 val = self.grid[r][c]
@@ -256,7 +256,7 @@ class Tetris:
                     )
                     draw.fill_rectangle(self.grid_pos, self.grid_size, color)
 
-        # Draw current piece
+        # Render current piece
         if self.current is not None:
             shape = self.get_shape(self.current, self.rotation)
             color = self._get_color(self.current)
@@ -269,57 +269,60 @@ class Tetris:
                         )
                         draw.fill_rectangle(self.grid_pos, self.grid_size, color)
 
-        # Draw next piece preview
-        self.text_pos.x, self.text_pos.y = (180, 20)
+        # Next piece preview
+        self.text_pos.x, self.text_pos.y = (tx, int(20 * s))
         draw.text(self.text_pos, "Next:", TFT_WHITE)
         if self.next is not None:
             next_shape = self.get_shape(self.next, 0)
             next_color = self._get_color(self.next)
+            px = tx + int(40 * s)
+            py = int(40 * s)
             for r, row in enumerate(next_shape):
                 for c, val in enumerate(row):
                     if val:
                         self.grid_pos.x, self.grid_pos.y = (
-                            220 + c * CELL_SIZE,
-                            40 + r * CELL_SIZE,
+                            px + c * CELL_SIZE,
+                            py + r * CELL_SIZE,
                         )
                         draw.fill_rectangle(self.grid_pos, self.grid_size, next_color)
 
-        # Draw score/level
-        self.text_pos.x, self.text_pos.y = (180, 120)
+        # Score, level, lines
+        self.text_pos.x, self.text_pos.y = (tx, int(120 * s))
         draw.text(self.text_pos, f"Score: {self.score}", TFT_WHITE)
-        self.text_pos.y += 20
+        self.text_pos.y += int(20 * s)
         draw.text(self.text_pos, f"Level: {self.level}", TFT_WHITE)
-        self.text_pos.y += 20
+        self.text_pos.y += int(20 * s)
         draw.text(self.text_pos, f"Lines: {self.lines}", TFT_WHITE)
 
         # Controls help
-        self.text_pos.x, self.text_pos.y = (170, 180)
+        self.text_pos.x, self.text_pos.y = (tx, int(180 * s))
         draw.text(self.text_pos, "Arrows: move", TFT_WHITE)
-        self.text_pos.y += 14
+        self.text_pos.y += int(14 * s)
         draw.text(self.text_pos, "Up/Center: rotate", TFT_WHITE)
-        self.text_pos.y += 14
+        self.text_pos.y += int(14 * s)
         draw.text(self.text_pos, "Back: quit", TFT_WHITE)
 
         if self.game_over:
-            # Draw game over overlay
-            draw.fill_rectangle(Vector(60, 130), Vector(200, 60), TFT_BLACK)
-            draw.rect(Vector(60, 130), Vector(200, 60), TFT_WHITE)
-            self.text_pos.x, self.text_pos.y = 100, 145
+            bx = int(60 * s)
+            by = int(130 * s)
+            bw = int(200 * s)
+            bh = int(60 * s)
+            draw.fill_rectangle(Vector(bx, by), Vector(bw, bh), TFT_BLACK)
+            draw.rect(Vector(bx, by), Vector(bw, bh), TFT_WHITE)
+            self.text_pos.x, self.text_pos.y = int(100 * s), int(145 * s)
             draw.text(self.text_pos, "GAME OVER", TFT_RED)
-            self.text_pos.x, self.text_pos.y = 80, 165
+            self.text_pos.x, self.text_pos.y = int(80 * s), int(165 * s)
             draw.text(self.text_pos, "Press Center to restart", TFT_WHITE)
 
         draw.swap()
 
     def update(self, input_button):
-        """Non-blocking update - process one frame"""
+        """Non-blocking update per frame."""
         if self.game_over:
-            # Handle restart
             if input_button == BUTTON_CENTER:
                 self.reset(self.draw)
             return
 
-        # Handle input
         if input_button == BUTTON_RIGHT:
             self.move(1)
         elif input_button == BUTTON_LEFT:
@@ -330,42 +333,42 @@ class Tetris:
         elif input_button in (BUTTON_UP, BUTTON_CENTER):
             self.rotate()
 
-        # Auto-fall logic
+        # Auto-fall
         now = ticks_ms()
         interval = self._drop_interval()
         if ticks_diff(now, self.drop_timer) >= interval:
             self.step()
             self.drop_timer = ticks_ms()
 
-        # Redraw at ~20fps
+        # Redraw ~20fps
         if ticks_diff(now, self.last_draw) >= 50:
             self.render()
             self.last_draw = now
 
 
 def start(view_manager) -> bool:
-    """Start the app"""
-    global _game, GRID_W, GRID_H, CELL_SIZE, GRID_X, GRID_Y
+    """Start the app."""
+    global _game, GRID_W, GRID_H, CELL_SIZE, GRID_X, GRID_Y, _scale
 
     draw = view_manager.draw
+    _scale = min(draw.size.x, draw.size.y) / 320
 
-    GRID_W = draw.scale_x(10)
-    GRID_H = draw.scale_y(20)
-    CELL_SIZE = draw.scale_x(14)  # Each cell is 14x14px
-    GRID_X = draw.scale_x(20)  # Left margin
-    GRID_Y = draw.scale_y(10)  # Top margin
+    # Fit well within screen (8px margin each side)
+    cell_by_w = (draw.size.x - 16) // GRID_W
+    cell_by_h = (draw.size.y - 16) // GRID_H
+    CELL_SIZE = max(4, min(cell_by_w, cell_by_h, int(14 * _scale)))
+    GRID_X = max(4, (draw.size.x - GRID_W * CELL_SIZE - 8) // 2)
+    GRID_Y = max(4, (draw.size.y - GRID_H * CELL_SIZE) // 2)
 
     draw = view_manager.draw
     _game = Tetris(draw)
-
-    # Initial render
     _game.render()
 
     return True
 
 
 def run(view_manager) -> None:
-    """Run the app (non-blocking)"""
+    """Run the app (non-blocking)."""
 
     global _game
 
@@ -380,22 +383,21 @@ def run(view_manager) -> None:
         view_manager.back()
         return
 
-    # Update game state with current input
     _game.update(button)
 
-    # Reset button after processing
     if button != -1:
         input_manager.reset()
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app."""
     from gc import collect
 
-    global _game
+    global _game, _scale
 
     if _game is not None:
         del _game
         _game = None
+    _scale = 1.0
 
     collect()

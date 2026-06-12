@@ -25,6 +25,56 @@ class Settings:
         )
 
     @property
+    def debug(self) -> bool:
+        """Return True if debug mode is enabled, False otherwise."""
+        _path = "picoware/settings/debug.json"
+
+        return bool(self.__fetch_setting(_path, "debug", False))
+    
+    @debug.setter
+    def debug(self, value: bool):
+        """Set debug mode."""
+        self.__save_setting(
+            "picoware/settings/debug.json",
+            "debug",
+            value,
+        )
+
+    @property
+    def exit_button(self) -> str:
+        """Return the current exit button setting."""
+        from picoware.system.buttons import BUTTON_BACK
+        
+        _path = "picoware/settings/exit_button.json"
+
+        return int(self.__fetch_setting(_path, "exit_button", BUTTON_BACK))
+    
+    @exit_button.setter
+    def exit_button(self, value: int):
+        """Set the exit button setting."""
+        return self.__save_setting(
+            "picoware/settings/exit_button.json",
+            "exit_button",
+            value,
+        )
+    
+    @property
+    def gmt_offset(self) -> int:
+        """Return the current GMT offset."""
+        _path = "picoware/settings/gmt_offset.json"
+
+        return int(self.__fetch_setting(_path, "gmt_offset", 0))
+    
+    @gmt_offset.setter
+    def gmt_offset(self, value: int):
+        """Set GMT offset."""
+        self.__save_setting(
+            "picoware/settings/gmt_offset.json",
+            "gmt_offset",
+            value,
+        )
+    
+     @property
     def onscreen_keyboard(self) -> bool:
         """Return True if onscreen keyboard is enabled, False otherwise."""
         _path = "picoware/settings/onscreen_keyboard.json"
@@ -57,73 +107,6 @@ class Settings:
         )
 
     @property
-    def theme_color(self) -> int:
-        """Return the current theme color."""
-        _path = "picoware/settings/theme_color.json"
-        
-        return int(self.__fetch_setting(_path, "theme_color", 0x001F))
-            
-    
-    @theme_color.setter
-    def theme_color(self, value: int):
-        """Set the theme color."""
-        self.__save_setting(
-            "picoware/settings/theme_color.json",
-            "theme_color",
-            value,
-        )
-
-    @property
-    def debug(self) -> bool:
-        """Return True if debug mode is enabled, False otherwise."""
-        _path = "picoware/settings/debug.json"
-
-        return bool(self.__fetch_setting(_path, "debug", False))
-    
-    @debug.setter
-    def debug(self, value: bool):
-        """Set debug mode."""
-        self.__save_setting(
-            "picoware/settings/debug.json",
-            "debug",
-            value,
-        )
-
-    @property
-    def gmt_offset(self) -> int:
-        """Return the current GMT offset."""
-        _path = "picoware/settings/gmt_offset.json"
-
-        return int(self.__fetch_setting(_path, "gmt_offset", 0))
-    
-    @gmt_offset.setter
-    def gmt_offset(self, value: int):
-        """Set GMT offset."""
-        self.__save_setting(
-            "picoware/settings/gmt_offset.json",
-            "gmt_offset",
-            value,
-        )
-
-    @property
-    def exit_button(self) -> str:
-        """Return the current exit button setting."""
-        from picoware.system.buttons import BUTTON_BACK
-        
-        _path = "picoware/settings/exit_button.json"
-
-        return int(self.__fetch_setting(_path, "exit_button", BUTTON_BACK))
-    
-    @exit_button.setter
-    def exit_button(self, value: int):
-        """Set the exit button setting."""
-        return self.__save_setting(
-            "picoware/settings/exit_button.json",
-            "exit_button",
-            value,
-        )
-
-    @property
     def server_settings(self) -> dict:
         """Return the current server settings."""
         _user_path = "picoware/settings/server_username.json"
@@ -141,6 +124,25 @@ class Settings:
         password = value.get("password", "")
         self.__save_setting("picoware/settings/server_username.json", "username", username)
         self.__save_setting("picoware/settings/server_password.json", "password", password)
+        
+    @property
+    def theme_color(self) -> int:
+        """Return the current theme color."""
+        _path = "picoware/settings/theme_color.json"
+        
+        return int(self.__fetch_setting(_path, "theme_color", 0x001F))
+            
+    
+    @theme_color.setter
+    def theme_color(self, value: int):
+        """Set the theme color."""
+        self.__save_setting(
+            "picoware/settings/theme_color.json",
+            "theme_color",
+            value,
+        )
+
+
     
     def __fetch_setting(self, path: str, key: str, default=""):
         """Helper method to fetch a setting value from storage."""

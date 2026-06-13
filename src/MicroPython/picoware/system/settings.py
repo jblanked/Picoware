@@ -11,11 +11,13 @@ class Settings:
         self._path = "picoware/settings/picoware.json" 
         self._settings = {
             "dark_mode": True,
+            "deepseek_api_key": "",
             "debug": False,
             "exit_button": BUTTON_BACK,
             "gmt_offset": 0,
-            "onscreen_keyboard": False,
             "lvgl_mode": False,
+            "onscreen_keyboard": False,
+            "openai_api_key": "",
             "server_username": "",
             "server_password": "",
             "theme_color": 0x001F,
@@ -26,16 +28,19 @@ class Settings:
             self._settings = {
                 "dark_mode":  bool(self.__fetch_setting("picoware/settings/dark_mode.json", "dark_mode", True)),
                 "debug": bool(self.__fetch_setting("picoware/settings/debug.json", "debug", False)),
+                "deepseek_api_key": "",
                 "exit_button": int(self.__fetch_setting("picoware/settings/exit_button.json", "exit_button", BUTTON_BACK)),
                 "gmt_offset": int(self.__fetch_setting("picoware/settings/gmt_offset.json", "gmt_offset", 0)),
-                "onscreen_keyboard": bool(self.__fetch_setting("picoware/settings/onscreen_keyboard.json", "onscreen_keyboard", False)),
                 "lvgl_mode": bool(self.__fetch_setting("picoware/settings/lvgl_mode.json", "lvgl_mode", False)),
+                "onscreen_keyboard": bool(self.__fetch_setting("picoware/settings/onscreen_keyboard.json", "onscreen_keyboard", False)),
+                "openai_api_key": "",
                 "server_username": self.__fetch_setting("picoware/settings/server_username.json", "username", ""),
                 "server_password": self.__fetch_setting("picoware/settings/server_password.json", "password", ""),
                 "theme_color": int(self.__fetch_setting("picoware/settings/theme_color.json", "theme_color", 0x001F)),
                 "wifi_ssid": self.__fetch_setting("picoware/wifi/ssid.json", "ssid", ""),
                 "wifi_password": self.__fetch_setting("picoware/wifi/password.json", "password", ""),
             }
+            self.__save_settings()
         else:
             _data = self._storage.read(self._path)
             if _data is not None:
@@ -66,6 +71,17 @@ class Settings:
         """Set debug mode."""
         self._settings["debug"] = value
         self.__save_settings()
+    
+    @property
+    def deepseek_api_key(self) -> str:
+        """Return the current DeepSeek API key."""
+        return self._settings.get("deepseek_api_key", "")
+    
+    @deepseek_api_key.setter
+    def deepseek_api_key(self, value: str):
+        """Set the DeepSeek API key."""
+        self._settings["deepseek_api_key"] = value
+        self.__save_settings()
 
     @property
     def exit_button(self) -> int:
@@ -90,16 +106,6 @@ class Settings:
         self._settings["gmt_offset"] = value
         self.__save_settings()
     
-    @property
-    def onscreen_keyboard(self) -> bool:
-        """Return True if onscreen keyboard is enabled, False otherwise."""
-        return bool(self._settings.get("onscreen_keyboard", False))
-    
-    @onscreen_keyboard.setter
-    def onscreen_keyboard(self, value: bool):
-        """Set onscreen keyboard."""
-        self._settings["onscreen_keyboard"] = value
-        self.__save_settings()
 
     @property
     def lvgl_mode(self) -> bool:
@@ -110,6 +116,28 @@ class Settings:
     def lvgl_mode(self, value: bool):
         """Set LVGL mode."""
         self._settings["lvgl_mode"] = value
+        self.__save_settings()
+
+    @property
+    def onscreen_keyboard(self) -> bool:
+        """Return True if onscreen keyboard is enabled, False otherwise."""
+        return bool(self._settings.get("onscreen_keyboard", False))
+    
+    @onscreen_keyboard.setter
+    def onscreen_keyboard(self, value: bool):
+        """Set onscreen keyboard."""
+        self._settings["onscreen_keyboard"] = value
+        self.__save_settings()
+    
+    @property
+    def openai_api_key(self) -> str:
+        """Return the current OpenAI API key."""
+        return self._settings.get("openai_api_key", "")
+    
+    @openai_api_key.setter
+    def openai_api_key(self, value: str):
+        """Set the OpenAI API key."""
+        self._settings["openai_api_key"] = value
         self.__save_settings()
 
     @property

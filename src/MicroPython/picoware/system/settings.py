@@ -3,117 +3,120 @@ import json
 class Settings:
     """Settings management for Picoware."""
 
-    __slots__ = ["_storage"]
+    __slots__ = ["_storage", "_path", "_settings"]
 
     def __init__(self, storage):
+        from picoware.system.buttons import BUTTON_BACK
         self._storage = storage
+        self._path = "picoware/settings/picoware.json" 
+        self._settings = {
+            "dark_mode": True,
+            "debug": False,
+            "exit_button": BUTTON_BACK,
+            "gmt_offset": 0,
+            "onscreen_keyboard": False,
+            "lvgl_mode": False,
+            "server_username": "",
+            "server_password": "",
+            "theme_color": 0x001F,
+            "wifi_ssid": "",
+            "wifi_password": "",
+        }
+        if not self._storage.exists(self._path):
+            self._settings = {
+                "dark_mode":  bool(self.__fetch_setting("picoware/settings/dark_mode.json", "dark_mode", True)),
+                "debug": bool(self.__fetch_setting("picoware/settings/debug.json", "debug", False)),
+                "exit_button": int(self.__fetch_setting("picoware/settings/exit_button.json", "exit_button", BUTTON_BACK)),
+                "gmt_offset": int(self.__fetch_setting("picoware/settings/gmt_offset.json", "gmt_offset", 0)),
+                "onscreen_keyboard": bool(self.__fetch_setting("picoware/settings/onscreen_keyboard.json", "onscreen_keyboard", False)),
+                "lvgl_mode": bool(self.__fetch_setting("picoware/settings/lvgl_mode.json", "lvgl_mode", False)),
+                "server_username": self.__fetch_setting("picoware/settings/server_username.json", "username", ""),
+                "server_password": self.__fetch_setting("picoware/settings/server_password.json", "password", ""),
+                "theme_color": int(self.__fetch_setting("picoware/settings/theme_color.json", "theme_color", 0x001F)),
+                "wifi_ssid": self.__fetch_setting("picoware/wifi/ssid.json", "ssid", ""),
+                "wifi_password": self.__fetch_setting("picoware/wifi/password.json", "password", ""),
+            }
+        else:
+            _data = self._storage.read(self._path)
+            if _data is not None:
+                try:
+                    obj = json.loads(_data)
+                    self._settings.update(obj)
+                except Exception:
+                    pass
     
     @property
     def dark_mode(self) -> bool:
         """Return True if dark mode is enabled, False otherwise."""
-        _path = "picoware/settings/dark_mode.json"
-
-        return bool(self.__fetch_setting(_path, "dark_mode", True))
+        return bool(self._settings.get("dark_mode", True))
     
     @dark_mode.setter
     def dark_mode(self, value: bool):
         """Set dark mode."""
-        self.__save_setting(
-            "picoware/settings/dark_mode.json",
-            "dark_mode",
-            value,
-        )
+        self._settings["dark_mode"] = value
+        self.__save_settings()
 
     @property
     def debug(self) -> bool:
         """Return True if debug mode is enabled, False otherwise."""
-        _path = "picoware/settings/debug.json"
-
-        return bool(self.__fetch_setting(_path, "debug", False))
+        return bool(self._settings.get("debug", False))
     
     @debug.setter
     def debug(self, value: bool):
         """Set debug mode."""
-        self.__save_setting(
-            "picoware/settings/debug.json",
-            "debug",
-            value,
-        )
+        self._settings["debug"] = value
+        self.__save_settings()
 
     @property
-    def exit_button(self) -> str:
+    def exit_button(self) -> int:
         """Return the current exit button setting."""
         from picoware.system.buttons import BUTTON_BACK
-        
-        _path = "picoware/settings/exit_button.json"
-
-        return int(self.__fetch_setting(_path, "exit_button", BUTTON_BACK))
+        return int(self._settings.get("exit_button", BUTTON_BACK))
     
     @exit_button.setter
     def exit_button(self, value: int):
         """Set the exit button setting."""
-        return self.__save_setting(
-            "picoware/settings/exit_button.json",
-            "exit_button",
-            value,
-        )
-    
+        self._settings["exit_button"] = value
+        self.__save_settings()
+        
     @property
     def gmt_offset(self) -> int:
         """Return the current GMT offset."""
-        _path = "picoware/settings/gmt_offset.json"
-
-        return int(self.__fetch_setting(_path, "gmt_offset", 0))
+        return int(self._settings.get("gmt_offset", 0))
     
     @gmt_offset.setter
     def gmt_offset(self, value: int):
         """Set GMT offset."""
-        self.__save_setting(
-            "picoware/settings/gmt_offset.json",
-            "gmt_offset",
-            value,
-        )
+        self._settings["gmt_offset"] = value
+        self.__save_settings()
     
-     @property
+    @property
     def onscreen_keyboard(self) -> bool:
         """Return True if onscreen keyboard is enabled, False otherwise."""
-        _path = "picoware/settings/onscreen_keyboard.json"
-
-        return bool(self.__fetch_setting(_path, "onscreen_keyboard", False))
+        return bool(self._settings.get("onscreen_keyboard", False))
     
     @onscreen_keyboard.setter
     def onscreen_keyboard(self, value: bool):
         """Set onscreen keyboard."""
-        self.__save_setting(
-            "picoware/settings/onscreen_keyboard.json",
-            "onscreen_keyboard",
-            value,
-        )
+        self._settings["onscreen_keyboard"] = value
+        self.__save_settings()
 
     @property
     def lvgl_mode(self) -> bool:
         """Return True if LVGL mode is enabled, False otherwise."""
-        _path = "picoware/settings/lvgl_mode.json"
-
-        return bool(self.__fetch_setting(_path, "lvgl_mode", False))
+        return bool(self._settings.get("lvgl_mode", False))
     
     @lvgl_mode.setter
     def lvgl_mode(self, value: bool):
         """Set LVGL mode."""
-        self.__save_setting(
-            "picoware/settings/lvgl_mode.json",
-            "lvgl_mode",
-            value,
-        )
+        self._settings["lvgl_mode"] = value
+        self.__save_settings()
 
     @property
     def server_settings(self) -> dict:
         """Return the current server settings."""
-        _user_path = "picoware/settings/server_username.json"
-        _pass_path = "picoware/settings/server_password.json"
-
-        username = self.__fetch_setting(_user_path, "username", "")
-        password = self.__fetch_setting(_pass_path, "password", "")
+        username = self._settings.get("server_username", "") 
+        password = self._settings.get("server_password", "")
 
         return {"username": username, "password": password}
     
@@ -122,27 +125,41 @@ class Settings:
         """Set the server settings."""
         username = value.get("username", "")
         password = value.get("password", "")
-        self.__save_setting("picoware/settings/server_username.json", "username", username)
-        self.__save_setting("picoware/settings/server_password.json", "password", password)
-        
+        self._settings["server_username"] = username
+        self._settings["server_password"] = password
+        self.__save_settings()
+    
+    @property
+    def settings(self) -> dict:
+        """Return all settings as a dictionary."""
+        return self._settings
+
     @property
     def theme_color(self) -> int:
         """Return the current theme color."""
-        _path = "picoware/settings/theme_color.json"
-        
-        return int(self.__fetch_setting(_path, "theme_color", 0x001F))
-            
+        return int(self._settings.get("theme_color", 0x001F))
     
     @theme_color.setter
     def theme_color(self, value: int):
         """Set the theme color."""
-        self.__save_setting(
-            "picoware/settings/theme_color.json",
-            "theme_color",
-            value,
-        )
-
-
+        self._settings["theme_color"] = value
+        self.__save_settings()
+    
+    @property
+    def wifi_settings(self) -> dict:
+        """Return the current WiFi settings."""
+        ssid = self._settings.get("wifi_ssid", "")
+        password = self._settings.get("wifi_password", "")
+        return {"ssid": ssid, "password": password}
+    
+    @wifi_settings.setter
+    def wifi_settings(self, value: dict):
+        """Set the WiFi settings."""
+        ssid = value.get("ssid", "")
+        password = value.get("password", "")
+        self._settings["wifi_ssid"] = ssid
+        self._settings["wifi_password"] = password
+        self.__save_settings()
     
     def __fetch_setting(self, path: str, key: str, default=""):
         """Helper method to fetch a setting value from storage."""
@@ -160,9 +177,9 @@ class Settings:
 
         return default
     
-    def __save_setting(self, path: str, key: str, value) -> bool:
-        """Helper method to save a setting value to storage."""
+    def __save_settings(self) -> bool:
+        """Save settings to storage."""
         return self._storage.write(
-            path,
-            json.dumps({key: value}),
+            self._path,
+            json.dumps(self._settings),
         )

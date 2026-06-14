@@ -807,6 +807,9 @@ class HTTP:
                 assert data is None
                 data = dumps(json_data)
                 s.write(b"Content-Type: application/json\r\n")
+            # Normalize to bytes for non-chunked payloads
+            if data and not chunked_data and isinstance(data, str):
+                data = data.encode()
             if data:
                 if chunked_data:
                     s.write(b"Transfer-Encoding: chunked\r\n")
@@ -821,7 +824,13 @@ class HTTP:
                         s.write(b"\r\n")
                     s.write(b"0\r\n\r\n")
                 else:
-                    s.write(data)
+                    _total = len(data)
+                    _sent = 0
+                    while _sent < _total:
+                        _n = s.write(data[_sent:_sent + self._chunk_size])
+                        if not _n:
+                            break
+                        _sent += _n
 
             # Read the status line
             l = s.readline()

@@ -100,13 +100,15 @@ def start(view_manager) -> bool:
         connect_to_saved_wifi(view_manager)
         return False
 
-    global _state, _asset_index, _ghouls, _http, _username, _password, _loading
+    global _state, _asset_index, _http, _username, _password, _loading
 
     # if settings arent saved, return
-    from picoware.applications.system import settings
+    from picoware.system.settings import Settings
 
-    _username = settings.__load_server_username(view_manager)
-    _password = settings.__load_server_password(view_manager)
+    _settings = Settings(view_manager.storage)
+    server_settings = _settings.server_settings
+    _username = server_settings.get("username")
+    _password = server_settings.get("password")
 
     if not _username or not _password:
         view_manager.alert(

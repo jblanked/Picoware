@@ -20,6 +20,7 @@ def start(view_manager) -> bool:
             view_manager.foreground_color,
             2,
         )
+        _library.add_item("Agent")
         _library.add_item("Applications")
         _library.add_item("App Store")
         _library.add_item("Bluetooth")
@@ -69,19 +70,20 @@ def run(view_manager) -> None:
         _library_index = _library.selected_index
 
         app_map = {
-            0: "Applications",
-            1: "App Store",
-            2: "Bluetooth",
-            3: "File Manager",
-            4: "GameBoy Emulator",
-            5: "Games",
-            6: "Python Editor",
-            7: "Python REPL",
-            8: "Screensavers",
-            9: "System",
-            10: "Text Editor",
-            11: "USB",
-            12: "WiFi",
+            0: "Agent",
+            1: "Applications",
+            2: "App Store",
+            3: "Bluetooth",
+            4: "File Manager",
+            5: "GameBoy Emulator",
+            6: "Games",
+            7: "Python Editor",
+            8: "Python REPL",
+            9: "Screensavers",
+            10: "System",
+            11: "Text Editor",
+            12: "USB",
+            13: "WiFi",
         }
 
         if app_map.get(_library_index) == "System":
@@ -209,6 +211,11 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("text_editor")
+        elif app_map.get(_library_index) == "Agent":
+            from picoware.applications import agent
+
+            view_manager.add(View("agent", agent.run, agent.start, agent.stop))
+            view_manager.switch_to("agent")
 
 
 def stop(view_manager) -> None:

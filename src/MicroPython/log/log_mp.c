@@ -43,7 +43,11 @@ mp_obj_t log_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
 {
     // Arguments: mode (optional, default=LOG_MODE_REPL), file_path (optional, required if mode includes storage), reset (optional)
     mp_arg_check_num(n_args, n_kw, 0, 3, false);
+#if defined(CARDPUTER) || defined(CROWPANEL_10_1)
+    log_mp_obj_t *self = mp_obj_malloc(log_mp_obj_t, &log_mp_type);
+#else
     log_mp_obj_t *self = mp_obj_malloc_with_finaliser(log_mp_obj_t, &log_mp_type);
+#endif
     self->base.type = &log_mp_type;
     self->mode = n_args > 0 ? (LogMode)mp_obj_get_int(args[0]) : LOG_MODE_REPL;
     if ((self->mode == LOG_MODE_STORAGE || self->mode == LOG_MODE_ALL) && n_args > 1)

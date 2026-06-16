@@ -1,0 +1,10 @@
+__pycache__/
+hardware/__pycache__/
+sdcard/*
+!sdcard/.gitkeep
+*.bmp
+*.log
+audio/sdl_audio_player
+audio/sdl_radio_player
+native/sim_frame_sidecar
+viewer/sdl_fb_viewer

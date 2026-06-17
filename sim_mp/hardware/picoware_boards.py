@@ -32,16 +32,20 @@ BOARD_HAS_AUDIO = 1
 
 
 def get_device_name():
-    return "PicoCalc Simulator"
+    """Return the human-readable device name."""
+    return "Simulator"
 
 
 def get_current_name():
-    return "PicoCalc MicroPython Simulator"
+    """Return the full simulator device name."""
+    return "Simulator"
 
 
 def is_circular(board_id):
+    """Return True if the board has a circular display."""
     return False
 
 
 def has_psram(board_id=None):
+    """Return True if the board has PSRAM."""
     return BOARD_HAS_PSRAM == 1

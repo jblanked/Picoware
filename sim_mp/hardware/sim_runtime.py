@@ -346,17 +346,17 @@ def seed_sd(profile="dev"):
             "onscreen_keyboard": False,
             "openai_api_key": "",
             "server_username": "simulator",
-            "server_password": "simulator",
+            "server_password": "",
             "theme_color": 31,
             "wifi_ssid": "Picoware-Sim",
-            "wifi_password": "simulator",
+            "wifi_password": "",
         },
         ("server_username", "server_password", "wifi_ssid", "wifi_password"),
     )
     _write_if_missing(sd_root + "/picoware/settings/server_username.json", '{"username":"simulator"}')
-    _write_if_missing(sd_root + "/picoware/settings/server_password.json", '{"password":"simulator"}')
+    _write_if_missing(sd_root + "/picoware/settings/server_password.json", '{"password":""}')
     _write_if_missing(sd_root + "/picoware/wifi/ssid.json", '{"ssid":"Picoware-Sim"}')
-    _write_if_missing(sd_root + "/picoware/wifi/password.json", '{"password":"simulator"}')
+    _write_if_missing(sd_root + "/picoware/wifi/password.json", '{"password":""}')
     if profile != "clean":
         _write_if_missing(
             sd_root + "/picoware/apps/games/ghouls/assets/home.ghoulsmap",
@@ -367,6 +367,89 @@ def seed_sd(profile="dev"):
         _write_if_missing(sd_root + "/picoware/fixtures/weather.txt", "Clear,+21C,45%\n")
         _write_if_missing(sd_root + "/picoware/fixtures/github.json", '{"message":"Picoware simulator GitHub fixture","items":[]}')
         _write_if_missing(sd_root + "/picoware/wikireader/settings.json", '{"full_article":true,"language":"en","theme":"system","history":[],"favorites":[],"offline":[]}')
+
+    # Symlink app files into simulated SD for __import__
+    _link_app_files()
+
+
+def _link_app_files():
+    """Symlink app files from both apps_unfrozen/ (.py source) and apps/
+    (.mpy compiled) into the simulated SD card at sd_root/picoware/apps/.
+    Recurses into subdirectories so that apps in subfolders (games,
+    flip_social, etc.) are also available.  This is needed because
+    __import__ searches sys.path via the raw VFS, not through sd_mp."""
+    target = sd_root + "/picoware/apps"
+    _link_app_files_into(apps_source, target)
+    # Also link compiled .mpy files from the apps/ directory — subdirectory
+    # apps only exist as .mpy, not as .py in apps_unfrozen/.
+    _compiled = root + "/builds/MicroPython/apps"
+    if _compiled != apps_source:
+        _link_app_files_into(_compiled, target, skip_if_py_exists=True)
+
+
+def _link_app_files_into(src_dir, dst_dir, skip_if_py_exists=False):
+    """Recursively symlink .py/.mpy files from src_dir into dst_dir.
+
+    When *skip_if_py_exists* is True, a .mpy file is skipped if a .py
+    file with the same base name already exists (or is symlinked) in
+    *dst_dir*.  This avoids duplicate app listings when both a source
+    .py and a compiled .mpy are available."""
+    mkdir_p(dst_dir)
+    try:
+        entries = os.listdir(src_dir)
+    except OSError:
+        return
+    for entry in entries:
+        if entry.startswith(".") or entry == "__init__.py":
+            continue
+        src = src_dir + "/" + entry
+        dst = dst_dir + "/" + entry
+        try:
+            st = os.stat(src)
+        except OSError:
+            continue
+        if st[0] & 0x4000:  # directory
+            _link_app_files_into(src, dst, skip_if_py_exists)
+        else:
+            # If we're linking .mpy files and a .py counterpart already
+            # exists in the destination, skip to avoid duplicates.
+            if skip_if_py_exists and entry.endswith(".mpy"):
+                _py_name = entry[:-4] + ".py"
+                _py_dst = dst_dir + "/" + _py_name
+                if _exists(_py_dst):
+                    continue
+            # Remove stale symlink / file before re-creating
+            _rm_f(dst)
+            # Try os.symlink, fall back to ln -sf
+            try:
+                os.symlink(src, dst)
+            except (AttributeError, OSError):
+                status = os.system("ln -sf " + _quote(src) + " " + _quote(dst))
+                if status != 0:
+                    # fallback: copy the file
+                    _copy_file(src, dst)
+
+
+def _rm_f(path):
+    """Remove a file or symlink; ignore errors.  Safe with symlinks
+    (os.remove / unlink removes the symlink node, not its target)."""
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+
+
+def _copy_file(src, dst):
+    """Byte-for-byte file copy (fallback when symlinks aren't available)."""
+    try:
+        with open(src, "rb") as fsrc:
+            data = fsrc.read()
+        parent = dst.rsplit("/", 1)[0] if "/" in dst else "."
+        mkdir_p(parent)
+        with open(dst, "wb") as fdst:
+            fdst.write(data)
+    except OSError:
+        pass
 
 
 def _wav_fixture():
@@ -624,8 +707,7 @@ def run_script_file(path):
             request_game(value)
             delay = max(delay, 80)
         elif command in ("wait", "sleep", "frames"):
-            # The first script version is queue-based. Timed waits are accepted
-            # so scripts can be shared with a future event scheduler.
+            # Queue-based script version. Timed waits pass through.
             pass
         else:
             raise ValueError("Unknown script command: " + command)

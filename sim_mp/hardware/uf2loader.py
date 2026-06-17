@@ -5,6 +5,7 @@ _last_flash = None
 
 
 def _resolve(path):
+    """Map a UF2 path to its host filesystem location."""
     if path is None:
         return None
     text = str(path)
@@ -16,6 +17,7 @@ def _resolve(path):
 
 
 def _write_status(source, ok, message):
+    """Write the last flash status to the simulated SD card."""
     global _last_flash
     _last_flash = {"source": source, "ok": ok, "message": message}
     status_dir = sim_runtime.sd_root + "/picoware/uf2loader"
@@ -27,6 +29,7 @@ def _write_status(source, ok, message):
 
 
 def flash_uf2(filename):
+    """Simulate flashing a UF2 file. Returns True on success."""
     source = _resolve(filename)
     if not source:
         _write_status(filename, False, "missing filename")
@@ -45,6 +48,7 @@ def flash_uf2(filename):
 
 
 def last_flash():
+    """Return the result of the most recent flash operation."""
     return _last_flash
 
 

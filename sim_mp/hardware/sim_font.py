@@ -1,5 +1,5 @@
 # Converted from src/MicroPython/font/font8.c for the host simulator.
-# The original table is a 5x8 printable ASCII bitmap font.
+# 5x8 printable ASCII bitmap font table.
 
 WIDTH = 5
 HEIGHT = 8

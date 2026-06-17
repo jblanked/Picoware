@@ -6,6 +6,7 @@ import sys
 
 
 def _dirname(path):
+    """Return the directory portion of a path."""
     path = path.replace("\\", "/")
     if "/" not in path:
         return "."
@@ -14,6 +15,7 @@ def _dirname(path):
 
 
 def _abspath(path):
+    """Return an absolute path, resolving relative to cwd."""
     if path.startswith("/"):
         return path
     return os.getcwd() + "/" + path
@@ -26,11 +28,13 @@ MICROPYTHON_DIR = ROOT + "/src/MicroPython"
 
 
 def _insert_path(path):
+    """Insert a directory into sys.path if not present."""
     if path not in sys.path:
         sys.path.insert(0, path)
 
 
 def _parse_args(argv):
+    """Parse command-line arguments into an options dict."""
     opts = {
         "headless": True,
         "viewer": False,
@@ -166,6 +170,7 @@ def _parse_args(argv):
 
 
 def _mkdir_p(path):
+    """Create a directory tree, ignoring existing directories."""
     parts = path.replace("\\", "/").split("/")
     current = "/" if path.startswith("/") else ""
     for part in parts:
@@ -179,6 +184,7 @@ def _mkdir_p(path):
 
 
 def _remove_tree(path):
+    """Recursively delete a directory tree."""
     try:
         names = os.listdir(path)
     except OSError:
@@ -207,6 +213,7 @@ def _remove_tree(path):
 
 
 def _safe_reset_sd(path):
+    """Reset the SD card path, with safety guards."""
     target = _abspath(path)
     sim_default = THIS_DIR + "/sdcard"
     allowed = target == sim_default or target.startswith("/tmp/")
@@ -222,6 +229,7 @@ def _safe_reset_sd(path):
 
 
 def _run_main():
+    """Execute the Picoware main.py entry point."""
     namespace = {"__name__": "__sim_picoware_main__", "__file__": MICROPYTHON_DIR + "/main.py"}
     with open(MICROPYTHON_DIR + "/main.py", "r") as handle:
         code = handle.read()
@@ -230,10 +238,12 @@ def _run_main():
 
 
 def _quote(path):
+    """Shell-quote a path string."""
     return "'" + path.replace("'", "'\"'\"'") + "'"
 
 
 def _file_exists(path):
+    """Return True if the given path exists."""
     try:
         os.stat(path)
         return True
@@ -242,6 +252,7 @@ def _file_exists(path):
 
 
 def _is_newer(path, other):
+    """Return True if path was modified after other."""
     try:
         return os.stat(path)[8] > os.stat(other)[8]
     except Exception:
@@ -249,6 +260,7 @@ def _is_newer(path, other):
 
 
 def _json_escape(text):
+    """Escape a string for inclusion in JSON."""
     text = str(text)
     text = text.replace("\\", "\\\\")
     text = text.replace('"', '\\"')
@@ -259,6 +271,7 @@ def _json_escape(text):
 
 
 def _list_py_entries(path):
+    """Return sorted list of .py module names in a directory."""
     try:
         files = os.listdir(path)
     except OSError:
@@ -274,6 +287,7 @@ def _list_py_entries(path):
 
 
 def _write_coverage_report(path, mode, rows):
+    """Write a JSON coverage report to disk."""
     _mkdir_p(_dirname(path))
     passed = 0
     failed = 0
@@ -311,6 +325,7 @@ def _write_coverage_report(path, mode, rows):
 
 
 def _run_coverage(opts):
+    """Run headless coverage sweep over apps and games."""
     mode = opts["coverage"].lower()
     if mode not in ("apps", "games", "all"):
         print("--coverage expects apps, games, or all")
@@ -355,6 +370,7 @@ def _run_coverage(opts):
 
 
 def _build_native(target, check=False):
+    """Build a native simulator helper via build.sh."""
     cmd = "sh " + _quote(THIS_DIR + "/build.sh")
     if check:
         cmd += " --check"
@@ -363,6 +379,7 @@ def _build_native(target, check=False):
 
 
 def _run_sim_check(opts):
+    """Run the simulator self-check suite."""
     commands = (
         "sh "
         + _quote(THIS_DIR + "/build.sh")
@@ -389,6 +406,7 @@ def _run_sim_check(opts):
 
 
 def _write_error_file(path, exc):
+    """Write exception details to an error log file."""
     if not path:
         return
     try:
@@ -413,6 +431,7 @@ def _write_error_file(path, exc):
 
 
 def _wait_for_viewer_close(frame):
+    """Block until the viewer quit signal appears."""
     quit_path = frame + ".quit"
     while True:
         try:
@@ -424,6 +443,7 @@ def _wait_for_viewer_close(frame):
 
 
 def _relaunch_self(reset_sd=False):
+    """Restart the simulator process via micropython."""
     args = []
     for arg in sys.argv:
         args.append(_quote(str(arg)))
@@ -434,6 +454,7 @@ def _relaunch_self(reset_sd=False):
 
 
 def time_sleep(seconds):
+    """Sleep for the given number of seconds."""
     try:
         import time
 
@@ -443,6 +464,7 @@ def time_sleep(seconds):
 
 
 def _start_viewer(opts):
+    """Build and launch the native SDL viewer, returning frame/key paths."""
     frame = opts["sd"] + "/sim_frame.rgb565"
     keys = opts["sd"] + "/sim_keys.txt"
     binary = THIS_DIR + "/viewer/sdl_fb_viewer"
@@ -486,6 +508,7 @@ def _start_viewer(opts):
 
 
 def main():
+    """Picoware simulator entry point."""
     _insert_path(ROOT)
     _insert_path(MICROPYTHON_DIR)
     _insert_path(HARDWARE_DIR)

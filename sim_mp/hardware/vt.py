@@ -2,6 +2,7 @@ import sim_runtime
 
 
 def _get_draw_from_args(args):
+    """Extract an LCD-like draw target from variadic args."""
     for item in args:
         if (hasattr(item, "fill_screen") or hasattr(item, "_clear")) and hasattr(item, "swap"):
             return item
@@ -9,6 +10,7 @@ def _get_draw_from_args(args):
 
 
 def _line_text(row):
+    """Convert a buffer row to a string."""
     try:
         return "".join(row)
     except TypeError:
@@ -84,6 +86,7 @@ def render(buffer, *args):
 
 class TerminalBuffer:
     def __init__(self, cols=40, rows=26):
+        """Initialize a terminal buffer with given dimensions."""
         self.cols = int(cols)
         self.rows = int(rows)
         self.cursor_x = 0
@@ -91,6 +94,7 @@ class TerminalBuffer:
         self.buffer = [[" "] * self.cols for _ in range(self.rows)]
 
     def clear(self):
+        """Clear all cells and reset cursor."""
         for y in range(self.rows):
             for x in range(self.cols):
                 self.buffer[y][x] = " "
@@ -98,6 +102,7 @@ class TerminalBuffer:
         self.cursor_y = 0
 
     def write(self, text):
+        """Write a string into the terminal buffer with scrolling."""
         for ch in str(text):
             if ch == "\n":
                 self.cursor_x = 0

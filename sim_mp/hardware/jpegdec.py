@@ -16,6 +16,7 @@ class JPEGDecoder:
         self._split_option = 0
 
     def _read_path(self, path):
+        """Read raw bytes from a VFS path or host path."""
         try:
             import sd_mp
 
@@ -28,6 +29,7 @@ class JPEGDecoder:
                 return b""
 
     def _detect_size(self, data):
+        """Parse JPEG header for width and height."""
         i = 0
         size = len(data)
         while i + 9 < size:
@@ -39,6 +41,7 @@ class JPEGDecoder:
         return (True, 160, 120)
 
     def open_file(self, path):
+        """Load a JPEG from the given path."""
         data = self._read_path(path)
         if not data:
             return False
@@ -48,17 +51,20 @@ class JPEGDecoder:
         return True
 
     def open_RAM(self, data):
+        """Load JPEG data from a bytes buffer."""
         self._data = bytes(data)
         self._info = self._detect_size(self._data)
         self._opened = True
         return True
 
     def getinfo(self, data=None):
+        """Return (ok, width, height) for the loaded or given JPEG."""
         if data is not None:
             return self._detect_size(bytes(data))
         return self._info
 
     def _draw_placeholder(self, x, y, w=None, h=None):
+        """Draw a checkerboard placeholder when JPEG decode fails."""
         lcd = getattr(sim_runtime, "_lcd", None)
         if lcd is None:
             return True
@@ -80,9 +86,11 @@ class JPEGDecoder:
         return True
 
     def _quote(self, value):
+        """Shell-quote a value for os.system."""
         return "'" + str(value).replace("'", "'\"'\"'") + "'"
 
     def _draw_jpeg_bytes(self, data, x, y, option=0):
+        """Decode JPEG bytes via djpeg and blit to LCD."""
         lcd = getattr(sim_runtime, "_lcd", None)
         if lcd is None:
             return True
@@ -120,9 +128,11 @@ class JPEGDecoder:
                 pass
 
     def decode(self, x, y, flags=0):
+        """Decode the loaded JPEG at screen position (x, y)."""
         return self._draw_jpeg_bytes(self._data, x, y, flags)
 
     def decode_split(self, fsize, buf, offset, callback=None, option=0):
+        """Begin progressive JPEG decode from a partial buffer."""
         self._opened = True
         self._split_running = True
         self._split_offset = offset or (0, 0)
@@ -136,6 +146,7 @@ class JPEGDecoder:
         return (True, self._info[1], self._info[2])
 
     def decode_split_buffer(self, index, position, buf):
+        """Feed a chunk into the progressive JPEG decoder."""
         if self._split_data is not None:
             start = int(position)
             end = min(len(self._split_data), start + len(buf))
@@ -147,6 +158,7 @@ class JPEGDecoder:
         return True
 
     def decode_split_wait(self):
+        """Poll the progressive decoder; returns (state, offset, size)."""
         if self._split_running:
             if self._split_data is not None and self._split_next < len(self._split_data):
                 if self._split_pending is None:
@@ -168,6 +180,7 @@ class JPEGDecoder:
         return (1, -1, 0)
 
     def decode_core_wait(self, timeout=0):
+        """Finalize progressive decode (no-op in simulator)."""
         self._split_running = False
         self._split_data = None
         return True

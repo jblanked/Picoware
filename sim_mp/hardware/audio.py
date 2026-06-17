@@ -2,6 +2,7 @@ import time
 
 
 def _ticks_ms():
+    """Return monotonic milliseconds, falling back to time.time."""
     try:
         return time.ticks_ms()
     except AttributeError:
@@ -9,6 +10,7 @@ def _ticks_ms():
 
 
 def _ticks_diff(a, b):
+    """Return the difference between two tick values in ms."""
     try:
         return time.ticks_diff(a, b)
     except AttributeError:
@@ -16,6 +18,7 @@ def _ticks_diff(a, b):
 
 
 def _quote(path):
+    """Shell-quote a path string for use in os.system calls."""
     return "'" + str(path).replace("'", "'\"'\"'") + "'"
 
 
@@ -291,9 +294,7 @@ class Audio:
                 os.remove(temp)
             except OSError:
                 pass
-            # Use a host downloader as the network/audio bridge. This keeps
-            # Picoware itself on MicroPython while giving VibesMP real stream
-            # bytes for the minimp3 sidecar.
+            # Host downloader bridges network/audio for MicroPython.
             cmd = (
                 "curl -L --silent --show-error --max-time 12 --output "
                 + _quote(temp)
@@ -341,7 +342,7 @@ class Audio:
             host_path = sim_runtime.host_path(path)
             size = os.stat(host_path)[6]
             if size > 0:
-                # Rough 128 kbit/s estimate, clamped to a useful UI range.
+                # Rough 128 kbit/s estimate, clamped.
                 seconds = size * 8 // 128000
                 if seconds < 5:
                     seconds = 5

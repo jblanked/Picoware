@@ -188,7 +188,7 @@ class I2S:
     def readinto(self, buf):
         if not self._active:
             return 0
-        # Deterministic low-amplitude waveform, enough for recorder apps.
+        # Deterministic low-amplitude waveform.
         for i in range(len(buf)):
             self._phase = (self._phase + 1) & 0xFF
             buf[i] = 128 + ((self._phase % 32) - 16)

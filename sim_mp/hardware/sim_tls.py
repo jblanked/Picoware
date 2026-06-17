@@ -21,6 +21,7 @@ except Exception:
 
 class SSLContext:
     def __init__(self, protocol=PROTOCOL_TLS_CLIENT):
+        """Wrap a CPython SSLContext for the simulator."""
         self.protocol = protocol
         self.verify_mode = CERT_REQUIRED
         self._context = None
@@ -31,6 +32,7 @@ class SSLContext:
                 self._context = None
 
     def wrap_socket(self, sock, server_hostname=None):
+        """Wrap a socket with TLS using the underlying context."""
         if getattr(sock, "_sim_fixture", False):
             return sock
         if hasattr(sock, "_sim_real_socket"):
@@ -50,6 +52,7 @@ class SSLContext:
 
 
 def wrap_socket(sock, *args, **kwargs):
+    """Wrap a socket with TLS; no-op for simulator fixtures."""
     if getattr(sock, "_sim_fixture", False):
         return sock
     if hasattr(sock, "_sim_real_socket"):

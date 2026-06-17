@@ -22,14 +22,17 @@ class fat32_file:
 
 
 def _path(path):
+    """Map a VFS path to the host SD root directory."""
     return sim_runtime.host_path(path)
 
 
 def _source_path(path):
+    """Map a VFS path to the apps source directory if applicable."""
     return sim_runtime.app_source_path(path)
 
 
 def _stat(path):
+    """Stat a VFS path, trying source path first then host path."""
     source = _source_path(path)
     if source:
         try:
@@ -41,6 +44,7 @@ def _stat(path):
 
 
 def init():
+    """Initialize the simulated SD card filesystem."""
     global _initialized
     _initialized = True
     sim_runtime.mkdir_p(sim_runtime.sd_root)
@@ -48,18 +52,22 @@ def init():
 
 
 def is_initialized():
+    """Return True if the SD card has been initialized."""
     return _initialized
 
 
 def mount():
+    """Mount the SD card (alias for init)."""
     return init()
 
 
 def unmount():
+    """Unmount the SD card (no-op in simulator)."""
     return True
 
 
 def exists(path):
+    """Return True if the given VFS path exists."""
     try:
         _stat(path)
         return True
@@ -68,6 +76,7 @@ def exists(path):
 
 
 def is_directory(path):
+    """Return True if the VFS path is a directory."""
     try:
         stat, _ = _stat(path)
         return stat[0] & 0x4000 != 0
@@ -76,11 +85,13 @@ def is_directory(path):
 
 
 def create_directory(path):
+    """Create a directory at the given VFS path."""
     sim_runtime.mkdir_p(_path(path))
     return True
 
 
 def list_directory(path=""):
+    """List entries in a VFS directory, merging source and host paths."""
     names = []
     seen = {}
     source = _source_path(path)
@@ -103,6 +114,7 @@ def list_directory(path=""):
 
 
 def read_directory(path=""):
+    """Return directory listing with metadata for each entry."""
     out = []
     for name in list_directory(path):
         full = (path.rstrip("/") + "/" + name) if path else name
@@ -112,6 +124,7 @@ def read_directory(path=""):
 
 
 def read(path, index=0, count=0):
+    """Read raw bytes from a VFS file at the given offset."""
     source = _source_path(path)
     target = _path(path)
     if source:
@@ -128,12 +141,14 @@ def read(path, index=0, count=0):
 
 
 def readinto(path, buffer):
+    """Read file contents into a pre-allocated bytearray."""
     data = read(path, 0, len(buffer))
     buffer[: len(data)] = data
     return len(data)
 
 
 def write(path, data, overwrite=True):
+    """Write data to a VFS path, creating parent directories."""
     target = _path(path)
     parent = target.rsplit("/", 1)[0] if "/" in target else "."
     sim_runtime.mkdir_p(parent)
@@ -143,6 +158,7 @@ def write(path, data, overwrite=True):
 
 
 def remove(path):
+    """Remove a file or directory tree at the VFS path."""
     target = _path(path)
     try:
         if is_directory(path):
@@ -157,21 +173,25 @@ def remove(path):
 
 
 def rename(old_path, new_path):
+    """Rename a VFS file or directory."""
     os.rename(_path(old_path), _path(new_path))
     return True
 
 
 def move(source_path, destination_path):
+    """Move a VFS file or directory (alias for rename)."""
     return rename(source_path, destination_path)
 
 
 def copy(source_path, destination_path, bytes_per_chunk=2048):
+    """Copy a file within the VFS."""
     data = read(source_path, 0, 0)
     write(destination_path, data, True)
     return True
 
 
 def get_file_size(path):
+    """Return the size in bytes of a VFS file."""
     try:
         stat, _ = _stat(path)
         return stat[6]
@@ -180,6 +200,7 @@ def get_file_size(path):
 
 
 def file_open(path):
+    """Open a file on the VFS, creating it if missing."""
     target = _path(path)
     parent = target.rsplit("/", 1)[0] if "/" in target else "."
     sim_runtime.mkdir_p(parent)
@@ -191,11 +212,13 @@ def file_open(path):
 
 
 def file_close(file_obj):
+    """Close an open VFS file handle."""
     file_obj.is_open = False
     return True
 
 
 def file_read(file_obj, index=0, count=0):
+    """Read bytes from an open VFS file handle."""
     pos = index if index else file_obj.position
     data = read(file_obj.path, pos, count)
     file_obj.position = pos + len(data)
@@ -203,17 +226,20 @@ def file_read(file_obj, index=0, count=0):
 
 
 def file_readinto(file_obj, buffer):
+    """Read from an open file into a pre-allocated buffer."""
     data = file_read(file_obj, file_obj.position, len(buffer))
     buffer[: len(data)] = data
     return len(data)
 
 
 def file_seek(file_obj, position):
+    """Seek to a byte position in an open VFS file."""
     file_obj.position = position
     return True
 
 
 def file_write(file_obj, data):
+    """Write data at the current position of an open VFS file."""
     current = b""
     if exists(file_obj.path):
         current = read(file_obj.path, 0, 0)
@@ -227,8 +253,10 @@ def file_write(file_obj, data):
 
 
 def file_copy(source_file, destination_path, bytes_per_chunk=2048):
+    """Copy an open file to a new VFS path."""
     return copy(source_file.path, destination_path, bytes_per_chunk)
 
 
 def file_move(source_file, destination_path, bytes_per_chunk=2048):
+    """Move an open file to a new VFS path."""
     return move(source_file.path, destination_path)

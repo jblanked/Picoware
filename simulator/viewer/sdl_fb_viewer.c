@@ -29,12 +29,32 @@ static int map_key(SDL_Keycode key)
         return 13;
     case SDLK_TAB:
         return 9;
+    case SDLK_LALT:
+    case SDLK_RALT:
+        return 0xA1;
+    case SDLK_LSHIFT:
+        return 0xA2;
+    case SDLK_RSHIFT:
+        return 0xA3;
+    case SDLK_LCTRL:
+    case SDLK_RCTRL:
+        return 0xA5;
+    case SDLK_CAPSLOCK:
+        return 0xC1;
+    case SDLK_PAUSE:
+        return 0xD0;
+    case SDLK_INSERT:
+        return 0xD1;
     case SDLK_HOME:
         return 0xD2;
     case SDLK_DELETE:
         return 0xD4;
     case SDLK_END:
         return 0xD5;
+    case SDLK_PAGEUP:
+        return 0xD6;
+    case SDLK_PAGEDOWN:
+        return 0xD7;
     case SDLK_F1:
         return 0x81;
     case SDLK_F2:
@@ -428,6 +448,16 @@ int main(int argc, char **argv)
                 }
                 if (event.key.keysym.mod & KMOD_CTRL)
                 {
+                    if (event.key.keysym.sym == SDLK_UP)
+                    {
+                        append_key(input_path, 0xC2);
+                        continue;
+                    }
+                    if (event.key.keysym.sym == SDLK_DOWN)
+                    {
+                        append_key(input_path, 0xC3);
+                        continue;
+                    }
                     int new_scale = 0;
                     if (event.key.keysym.sym == SDLK_1)
                         new_scale = 1;

@@ -71,10 +71,28 @@ KEY_NAMES = {
     "enter": 13,
     "center": 13,
     "newline": 13,
+    "space": 32,
     "tab": 9,
+    "alt": 0xA1,
+    "shift": 0xA2,
+    "left_shift": 0xA2,
+    "right_shift": 0xA3,
+    "sym": 0xA4,
+    "ctrl": 0xA5,
+    "control": 0xA5,
+    "caps_lock": 0xC1,
+    "capslock": 0xC1,
+    "ctrl_up": 0xC2,
+    "ctrl_down": 0xC3,
+    "break": 0xD0,
+    "insert": 0xD1,
     "home": 0xD2,
     "delete": 0xD4,
     "end": 0xD5,
+    "page_up": 0xD6,
+    "pageup": 0xD6,
+    "page_down": 0xD7,
+    "pagedown": 0xD7,
     "f1": 0x81,
     "f2": 0x82,
     "f3": 0x83,
@@ -85,6 +103,27 @@ KEY_NAMES = {
     "f8": 0x88,
     "f9": 0x89,
     "f10": 0x90,
+    "comma": 44,
+    "period": 46,
+    "dot": 46,
+    "slash": 47,
+    "backslash": 92,
+    "minus": 45,
+    "dash": 45,
+    "equal": 61,
+    "equals": 61,
+    "semicolon": 59,
+    "quote": 39,
+    "apostrophe": 39,
+    "double_quote": 34,
+    "left_bracket": 91,
+    "right_bracket": 93,
+    "left_brace": 123,
+    "right_brace": 125,
+    "backtick": 96,
+    "grave": 96,
+    "tilde": 126,
+    "pipe": 124,
 }
 
 LIBRARY_ITEMS = {
@@ -339,10 +378,12 @@ def seed_sd(profile="dev"):
         {
             "dark_mode": True,
             "debug": False,
+            "deepseek_api_key": "",
             "exit_button": 177,
             "gmt_offset": 0,
             "lvgl_mode": False,
             "onscreen_keyboard": False,
+            "openai_api_key": "",
             "theme_color": 31,
             "wifi_ssid": "Picoware-Sim",
         },
@@ -774,7 +815,7 @@ def request_game(name):
         print("[sim] game not found:", name)
         return
     keys = []
-    for _ in range(index + (1 if index > 0 else 0)):
+    for _ in range(index):
         keys.append("down")
     keys.append("enter")
     schedule_key_names(80, ",".join(keys))

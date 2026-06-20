@@ -5,11 +5,9 @@
 
 #include "../../font/font_mp.h"
 
-#define LCD_WIDTH 240    // Horizontal resolution
-#define LCD_HEIGHT 135   // Vertical resolution
-#define BITS_PER_PIXEL 8 // Number of image display bits of the display screen
-
-#define LCD_BACKLIGHT_PIN 38 // LCD Backlight Pin
+#define LCD_WIDTH 410    // Horizontal resolution
+#define LCD_HEIGHT 502   // Vertical resolution
+#define BITS_PER_PIXEL 16 // Number of image display bits of the display screen
 
 #define LCD_DEFAULT_BRIGHTNESS 50 // Default brightness (0-100)
 
@@ -31,9 +29,7 @@ extern "C"
     // Framebuffer drawing functions
     void lcd_draw_pixel(uint16_t x, uint16_t y, uint16_t color);                                          // Draw a single pixel at (x, y) with specified RGB332 color
     void lcd_fill(uint16_t color);                                                                        // Fill the entire frame buffer with a solid RGB332 color
-    void lcd_blit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint8_t *buffer);        // Copy an external 8-bit image buffer into the frame buffer at specified position
-    void lcd_blit_16bit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint16_t *buffer); // Copy a 16-bit RGB565 image buffer into the frame buffer
-    void lcd_read_row(uint16_t y, uint8_t *out_buffer);                                                   // Copy a framebuffer row to out_buffer
+    void lcd_blit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint8_t *buffer);        // Copy an external image buffer into the frame buffer at specified position
 
     // Shape drawing functions
     void lcd_draw_line(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color);                                  // Draw a line from (x1, y1) to (x2, y2) with specified RGB332 color

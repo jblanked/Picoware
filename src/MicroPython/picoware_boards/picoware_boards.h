@@ -63,7 +63,7 @@ Source: https://github.com/jblanked/Picoware
 #elif defined(WAVESHARE_AMOLED_2_06_ESP32_S3)
 // Waveshare ESP32-S3-Touch-AMOLED-2.06
 #define BOARD_ID BOARD_WAVESHARE_AMOLED_2_06_ESP32_S3
-#define BOARD_HAS_PSRAM 1 // has psram
+#define BOARD_HAS_PSRAM 0 // has psram
 #define BOARD_HAS_SD 1    // has sd card
 #define BOARD_HAS_TOUCH 1 // has touch
 #define BOARD_HAS_WIFI 1  // has wifi

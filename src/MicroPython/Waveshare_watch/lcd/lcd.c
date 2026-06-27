@@ -9,13 +9,12 @@
 #include "esp_lcd_panel_ops.h"
 #include "esp_lcd_panel_vendor.h"
 #include "esp_log.h"
-#include "esp_attr.h"          // ESP32 attribute macros (PSRAM)
-
-#include "esp_lcd_co5300.h"
 
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "esp_lcd_co5300.h"
 
 static const char *TAG = "display";
 
@@ -23,15 +22,45 @@ static esp_lcd_panel_io_handle_t s_panel_io;
 static esp_lcd_panel_handle_t s_panel;
 static bool s_spi_bus_owned;
 static const FontTable *s_current_font = &Font16;
+static uint8_t s_framebuffer[LCD_WIDTH * LCD_HEIGHT];
+static uint16_t s_palette[256];
 
-/* Static frame buffer in PSRAM - LCD_WIDTH * LCD_HEIGHT * 2 bytes (16bpp RGB565) */
-static EXT_RAM_BSS_ATTR uint16_t frame_buffer[LCD_WIDTH * LCD_HEIGHT]; // Frame buffer in external PSRAM
-
+#define LCD_SWAP_LINES 8U
 static const uint8_t LCD_TEXT_SPACING = 1;
 static const uint8_t LCD_LINE_SPACING = 2;
+static uint16_t s_swap_buffer[LCD_WIDTH * LCD_SWAP_LINES];
 
 static esp_err_t display_init(void);
+static esp_err_t lcd_swap_internal(void);
+static void lcd_init_palette(void);
 static esp_err_t lcd_wait_for_color_tx_done(void);
+
+static uint8_t lcd_color565_to_332(uint16_t color)
+{
+    return ((color & 0xE000) >> 8) | ((color & 0x0700) >> 6) | ((color & 0x0018) >> 3);
+}
+
+static uint16_t lcd_color332_to_565(uint8_t r, uint8_t g, uint8_t b)
+{
+    return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
+}
+
+static void lcd_init_palette(void)
+{
+    for (int i = 0; i < 256; i++)
+    {
+        uint8_t r3 = (i >> 5) & 0x07;
+        uint8_t g3 = (i >> 2) & 0x07;
+        uint8_t b2 = i & 0x03;
+
+        uint8_t r8 = (r3 * 255) / 7;
+        uint8_t g8 = (g3 * 255) / 7;
+        uint8_t b8 = (b2 * 255) / 3;
+
+        uint16_t pixel = lcd_color332_to_565(r8, g8, b8);
+        s_palette[i] = (uint16_t)((pixel << 8) | (pixel >> 8));
+    }
+}
 
 static esp_err_t lcd_wait_for_color_tx_done(void)
 {
@@ -74,6 +103,36 @@ static uint16_t lcd_line_advance(void)
 static size_t lcd_framebuffer_index(uint16_t x, uint16_t y)
 {
     return (size_t)y * LCD_WIDTH + x;
+}
+
+static void lcd_draw_hline_clipped(int32_t x, int32_t y, int32_t length, uint8_t color)
+{
+    if (y < 0 || y >= LCD_HEIGHT || length <= 0)
+    {
+        return;
+    }
+
+    if (x < 0)
+    {
+        length += x;
+        x = 0;
+    }
+
+    if (x >= LCD_WIDTH || length <= 0)
+    {
+        return;
+    }
+
+    if (x + length > LCD_WIDTH)
+    {
+        length = LCD_WIDTH - x;
+    }
+
+    uint8_t *row = &s_framebuffer[lcd_framebuffer_index((uint16_t)x, (uint16_t)y)];
+    for (int32_t pixel = 0; pixel < length; ++pixel)
+    {
+        row[pixel] = color;
+    }
 }
 
 static int32_t lcd_edge_function(int32_t ax, int32_t ay, int32_t bx, int32_t by, int32_t px,
@@ -132,6 +191,49 @@ static esp_err_t display_setup_panel(void)
     return ESP_OK;
 }
 
+
+static esp_err_t lcd_swap_internal(void)
+{
+    if (s_panel == NULL)
+    {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    for (uint16_t y = 0; y < LCD_HEIGHT; y += LCD_SWAP_LINES)
+    {
+        uint16_t chunk_height = LCD_SWAP_LINES;
+        if (y + chunk_height > LCD_HEIGHT)
+        {
+            chunk_height = LCD_HEIGHT - y;
+        }
+
+        for (uint16_t row = 0; row < chunk_height; ++row)
+        {
+            size_t src_offset = lcd_framebuffer_index(0, (uint16_t)(y + row));
+            size_t dst_offset = (size_t)row * LCD_WIDTH;
+            for (uint16_t x = 0; x < LCD_WIDTH; ++x)
+            {
+                s_swap_buffer[dst_offset + x] = s_palette[s_framebuffer[src_offset + x]];
+            }
+        }
+
+        esp_err_t err = esp_lcd_panel_draw_bitmap(s_panel, 0, y, LCD_WIDTH, y + chunk_height,
+                                                  s_swap_buffer);
+        if (err != ESP_OK)
+        {
+            return err;
+        }
+
+        err = lcd_wait_for_color_tx_done();
+        if (err != ESP_OK)
+        {
+            return err;
+        }
+    }
+
+    return ESP_OK;
+}
+
 static esp_err_t display_init(void)
 {
     if (s_panel != NULL)
@@ -154,6 +256,13 @@ static esp_err_t display_init(void)
         lcd_deinit();
         return ESP_FAIL;
     }
+
+    err = lcd_swap_internal();
+    if (err != ESP_OK)
+    {
+        lcd_deinit();
+        return err;
+    }
     return ESP_OK;
 }
 
@@ -164,12 +273,6 @@ bool lcd_init(void)
 
 void lcd_deinit(void)
 {
-    if (s_backlight_ready)
-    {
-        lcd_set_backlight(0);
-        s_backlight_ready = false;
-    }
-
     if (s_panel != NULL)
     {
         esp_lcd_panel_disp_on_off(s_panel, false);
@@ -198,13 +301,11 @@ bool lcd_set_backlight(uint32_t brightness)
         return false;
     }
 
-    if (brightness_percent < 0 || brightness_percent > 100)
+    if (brightness < 0 || brightness > 100)
     {
         ESP_LOGE(TAG, "Invalid brightness percentage. Should be between 0 and 100.");
         return false;
     }
-
-    brightness = (uint8_t)(brightness_percent * 255 / 100);
 
     uint32_t lcd_cmd = 0x51;
     lcd_cmd &= 0xff;
@@ -216,192 +317,231 @@ bool lcd_set_backlight(uint32_t brightness)
     return true;
 }
 
+
 void lcd_swap(void)
 {
-    if (!lcd_initialized || panel_handle == NULL) // Check if LCD is initialized
-    {
-        printf("lcd: LCD not initialized\n");
-        return;
-    }
-
-    // Push the full frame buffer to the panel over DMA
-    static esp_err_t err;
-    err = esp_lcd_panel_draw_bitmap(panel_handle, 0, 0, LCD_WIDTH, LCD_HEIGHT, frame_buffer);
+    esp_err_t err = lcd_swap_internal();
     if (err != ESP_OK)
     {
-        printf("lcd: Failed to draw bitmap to panel, %s\n", esp_err_to_name(err));
+        ESP_LOGW(TAG, "lcd_swap failed: %s", esp_err_to_name(err));
     }
 }
 
 void lcd_draw_pixel(uint16_t x, uint16_t y, uint16_t color)
 {
-    if (!lcd_initialized) // Check if LCD is initialized
+    if (x >= LCD_WIDTH || y >= LCD_HEIGHT)
     {
-        printf("lcd: LCD not initialized\n");
         return;
     }
 
-    if (x >= LCD_WIDTH || y >= LCD_HEIGHT) // Bounds check
-    {
-        printf("lcd: Pixel coordinates out of bounds\n");
-        return;
-    }
-
-    frame_buffer[y * LCD_WIDTH + x] = color; // Write pixel color into frame buffer
+    s_framebuffer[lcd_framebuffer_index(x, y)] = lcd_color565_to_332(color);
 }
 
 void lcd_fill(uint16_t color)
 {
-    for (uint32_t i = 0; i < LCD_HEIGHT * LCD_WIDTH; i++)
+    uint8_t c = lcd_color565_to_332(color);
+    for (size_t pixel = 0; pixel < (size_t)LCD_WIDTH * LCD_HEIGHT; ++pixel)
     {
-        frame_buffer[i] = color;
+        s_framebuffer[pixel] = c;
     }
 }
 
 void lcd_blit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint8_t *buffer)
 {
-    for (uint16_t j = 0; j < height; j++)
+    if (buffer == NULL || x >= LCD_WIDTH || y >= LCD_HEIGHT || width == 0 || height == 0)
     {
-        for (uint16_t i = 0; i < width; i++)
+        return;
+    }
+
+    uint16_t copy_width = width;
+    uint16_t copy_height = height;
+    if (x + copy_width > LCD_WIDTH)
+    {
+        copy_width = LCD_WIDTH - x;
+    }
+    if (y + copy_height > LCD_HEIGHT)
+    {
+        copy_height = LCD_HEIGHT - y;
+    }
+
+    for (uint16_t row = 0; row < copy_height; ++row)
+    {
+        memcpy(&s_framebuffer[lcd_framebuffer_index(x, y + row)], &buffer[(size_t)row * width],
+               copy_width * sizeof(uint8_t));
+    }
+}
+
+void lcd_blit_16bit(uint16_t x, uint16_t y, uint16_t width, uint16_t height,
+                    const uint16_t *buffer)
+{
+    if (buffer == NULL || x >= LCD_WIDTH || y >= LCD_HEIGHT || width == 0 || height == 0)
+    {
+        return;
+    }
+
+    uint16_t copy_width = width;
+    uint16_t copy_height = height;
+    if (x + copy_width > LCD_WIDTH)
+    {
+        copy_width = LCD_WIDTH - x;
+    }
+    if (y + copy_height > LCD_HEIGHT)
+    {
+        copy_height = LCD_HEIGHT - y;
+    }
+
+    for (uint16_t row = 0; row < copy_height; ++row)
+    {
+        const uint16_t *src_row = &buffer[(size_t)row * width];
+        uint8_t *dst_row = &s_framebuffer[lcd_framebuffer_index(x, y + row)];
+
+        for (uint16_t col = 0; col < copy_width; ++col)
         {
-            if ((x + i) < LCD_WIDTH && (y + j) < LCD_HEIGHT)
-            {
-                frame_buffer[(y + j) * LCD_WIDTH + (x + i)] = buffer[j * width + i];
-            }
+            dst_row[col] = lcd_color565_to_332(src_row[col]);
         }
     }
 }
 
+void lcd_read_row(uint16_t y, uint8_t *out_buffer)
+{
+    if (out_buffer == NULL || y >= LCD_HEIGHT)
+    {
+        return;
+    }
+
+    memcpy(out_buffer, &s_framebuffer[lcd_framebuffer_index(0, y)], LCD_WIDTH);
+}
+
 void lcd_draw_line(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color)
 {
-    int dx = abs((int)x2 - (int)x1);
-    int dy = abs((int)y2 - (int)y1);
-    int sx = (x1 < x2) ? 1 : -1;
-    int sy = (y1 < y2) ? 1 : -1;
-    int err = dx - dy;
+    int32_t current_x = x1;
+    int32_t current_y = y1;
+    const int32_t target_x = x2;
+    const int32_t target_y = y2;
+    const int32_t delta_x = abs(target_x - current_x);
+    const int32_t step_x = current_x < target_x ? 1 : -1;
+    const int32_t delta_y = -abs(target_y - current_y);
+    const int32_t step_y = current_y < target_y ? 1 : -1;
+    int32_t error = delta_x + delta_y;
+
     while (true)
     {
-        // Draw pixel if within bounds
-        if (x1 < LCD_WIDTH && y1 < LCD_HEIGHT)
+        if (current_x >= 0 && current_x < LCD_WIDTH && current_y >= 0 && current_y < LCD_HEIGHT)
         {
-            frame_buffer[y1 * LCD_WIDTH + x1] = color;
+            lcd_draw_pixel((uint16_t)current_x, (uint16_t)current_y, color);
         }
 
-        // Check if we've reached the end point
-        if (x1 == x2 && y1 == y2)
+        if (current_x == target_x && current_y == target_y)
+        {
             break;
-
-        int e2 = 2 * err;
-        if (e2 > -dy)
-        {
-            err -= dy;
-            x1 += sx;
         }
-        if (e2 < dx)
+
+        int32_t twice_error = error * 2;
+        if (twice_error >= delta_y)
         {
-            err += dx;
-            y1 += sy;
+            error += delta_y;
+            current_x += step_x;
+        }
+        if (twice_error <= delta_x)
+        {
+            error += delta_x;
+            current_y += step_y;
         }
     }
 }
 
 void lcd_draw_rect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color)
 {
-    // Draw four lines to form rectangle
-    lcd_draw_line(x, y, x + width - 1, y, color);                           // Top
-    lcd_draw_line(x, y + height - 1, x + width - 1, y + height - 1, color); // Bottom
-    lcd_draw_line(x, y, x, y + height - 1, color);                          // Left
-    lcd_draw_line(x + width - 1, y, x + width - 1, y + height - 1, color);  // Right
+    if (width == 0 || height == 0)
+    {
+        return;
+    }
+
+    uint8_t c = lcd_color565_to_332(color);
+    lcd_draw_hline_clipped(x, y, width, c);
+    lcd_draw_hline_clipped(x, (int32_t)y + height - 1, width, c);
+    lcd_draw_line(x, y, x, y + height - 1, color);
+    lcd_draw_line(x + width - 1, y, x + width - 1, y + height - 1, color);
 }
 
 void lcd_fill_rect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color)
 {
-    // Bounds clipping
-    if (x >= LCD_WIDTH || y >= LCD_HEIGHT)
-        return;
-
-    if (x + width > LCD_WIDTH)
-        width = LCD_WIDTH - x;
-    if (y + height > LCD_HEIGHT)
-        height = LCD_HEIGHT - y;
-
-    // Fast fill using optimized loops
-    for (uint16_t py = y; py < y + height; py++)
+    if (x >= LCD_WIDTH || y >= LCD_HEIGHT || width == 0 || height == 0)
     {
-        for (uint16_t px = x; px < x + width; px++)
-        {
-            frame_buffer[py * LCD_WIDTH + px] = color;
-        }
+        return;
+    }
+
+    uint16_t fill_width = width;
+    uint16_t fill_height = height;
+    if (x + fill_width > LCD_WIDTH)
+    {
+        fill_width = LCD_WIDTH - x;
+    }
+    if (y + fill_height > LCD_HEIGHT)
+    {
+        fill_height = LCD_HEIGHT - y;
+    }
+
+    uint8_t c = lcd_color565_to_332(color);
+    for (uint16_t row = 0; row < fill_height; ++row)
+    {
+        lcd_draw_hline_clipped(x, y + row, fill_width, c);
     }
 }
 
 void lcd_draw_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint16_t color)
 {
-    if (radius == 0 || radius > 100)
-        return;
+    int32_t x = radius;
+    int32_t y = 0;
+    int32_t decision = 1 - x;
 
-    int x = 0;
-    int y = radius;
-    int d = 3 - 2 * radius;
-    while (x <= y)
+    while (x >= y)
     {
-        // Draw 8 symmetric points
-        if (center_x + x < LCD_WIDTH && center_y + y < LCD_HEIGHT)
-            frame_buffer[(center_y + y) * LCD_WIDTH + (center_x + x)] = color;
-        if (center_x - x < LCD_WIDTH && center_y + y < LCD_HEIGHT)
-            frame_buffer[(center_y + y) * LCD_WIDTH + (center_x - x)] = color;
-        if (center_x + x < LCD_WIDTH && center_y - y < LCD_HEIGHT)
-            frame_buffer[(center_y - y) * LCD_WIDTH + (center_x + x)] = color;
-        if (center_x - x < LCD_WIDTH && center_y - y < LCD_HEIGHT)
-            frame_buffer[(center_y - y) * LCD_WIDTH + (center_x - x)] = color;
-        if (center_x + y < LCD_WIDTH && center_y + x < LCD_HEIGHT)
-            frame_buffer[(center_y + x) * LCD_WIDTH + (center_x + y)] = color;
-        if (center_x - y < LCD_WIDTH && center_y + x < LCD_HEIGHT)
-            frame_buffer[(center_y + x) * LCD_WIDTH + (center_x - y)] = color;
-        if (center_x + y < LCD_WIDTH && center_y - x < LCD_HEIGHT)
-            frame_buffer[(center_y - x) * LCD_WIDTH + (center_x + y)] = color;
-        if (center_x - y < LCD_WIDTH && center_y - x < LCD_HEIGHT)
-            frame_buffer[(center_y - x) * LCD_WIDTH + (center_x - y)] = color;
+        lcd_draw_pixel(center_x + x, center_y + y, color);
+        lcd_draw_pixel(center_x + y, center_y + x, color);
+        lcd_draw_pixel(center_x - y, center_y + x, color);
+        lcd_draw_pixel(center_x - x, center_y + y, color);
+        lcd_draw_pixel(center_x - x, center_y - y, color);
+        lcd_draw_pixel(center_x - y, center_y - x, color);
+        lcd_draw_pixel(center_x + y, center_y - x, color);
+        lcd_draw_pixel(center_x + x, center_y - y, color);
 
-        if (d < 0)
-            d += 4 * x + 6;
+        ++y;
+        if (decision <= 0)
+        {
+            decision += 2 * y + 1;
+        }
         else
         {
-            d += 4 * (x - y) + 10;
-            y--;
+            --x;
+            decision += 2 * (y - x) + 1;
         }
-        x++;
     }
 }
 
 void lcd_fill_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint16_t color)
 {
-    if (radius == 0 || radius > 100)
-        return;
+    int32_t x = radius;
+    int32_t y = 0;
+    int32_t decision = 1 - x;
 
-    int radius_squared = radius * radius;
-
-    // Calculate bounding box
-    int start_x = (center_x > radius) ? (center_x - radius) : 0;
-    int end_x = (center_x + radius < LCD_WIDTH) ? (center_x + radius) : (LCD_WIDTH - 1);
-    int start_y = (center_y > radius) ? (center_y - radius) : 0;
-    int end_y = (center_y + radius < LCD_HEIGHT) ? (center_y + radius) : (LCD_HEIGHT - 1);
-
-    // Fill using distance check
-    for (int y = start_y; y <= end_y; y++)
+    uint8_t c = lcd_color565_to_332(color);
+    while (x >= y)
     {
-        int dy = y - center_y;
-        int dy_squared = dy * dy;
+        lcd_draw_hline_clipped((int32_t)center_x - x, center_y + y, 2 * x + 1, c);
+        lcd_draw_hline_clipped((int32_t)center_x - x, center_y - y, 2 * x + 1, c);
+        lcd_draw_hline_clipped((int32_t)center_x - y, center_y + x, 2 * y + 1, c);
+        lcd_draw_hline_clipped((int32_t)center_x - y, center_y - x, 2 * y + 1, c);
 
-        for (int x = start_x; x <= end_x; x++)
+        ++y;
+        if (decision <= 0)
         {
-            int dx = x - center_x;
-            int distance_squared = dx * dx + dy_squared;
-
-            if (distance_squared <= radius_squared)
-            {
-                frame_buffer[y * LCD_WIDTH + x] = color;
-            }
+            decision += 2 * y + 1;
+        }
+        else
+        {
+            --x;
+            decision += 2 * (y - x) + 1;
         }
     }
 }
@@ -409,90 +549,65 @@ void lcd_fill_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint
 void lcd_fill_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3,
                        uint16_t y3, uint16_t color)
 {
-    // Sort vertices by Y coordinate (y1 <= y2 <= y3)
-    if (y1 > y2)
-    {
-        uint16_t temp = x1;
-        x1 = x2;
-        x2 = temp;
-        temp = y1;
-        y1 = y2;
-        y2 = temp;
-    }
-    if (y2 > y3)
-    {
-        uint16_t temp = x2;
-        x2 = x3;
-        x3 = temp;
-        temp = y2;
-        y2 = y3;
-        y3 = temp;
-    }
-    if (y1 > y2)
-    {
-        uint16_t temp = x1;
-        x1 = x2;
-        x2 = temp;
-        temp = y1;
-        y1 = y2;
-        y2 = temp;
-    }
+    int32_t min_x = x1;
+    int32_t max_x = x1;
+    int32_t min_y = y1;
+    int32_t max_y = y1;
 
-    // Handle degenerate case
-    if (y1 == y3)
+    if (x2 < min_x)
+        min_x = x2;
+    if (x3 < min_x)
+        min_x = x3;
+    if (x2 > max_x)
+        max_x = x2;
+    if (x3 > max_x)
+        max_x = x3;
+    if (y2 < min_y)
+        min_y = y2;
+    if (y3 < min_y)
+        min_y = y3;
+    if (y2 > max_y)
+        max_y = y2;
+    if (y3 > max_y)
+        max_y = y3;
+
+    if (max_x < 0 || max_y < 0 || min_x >= LCD_WIDTH || min_y >= LCD_HEIGHT)
+    {
         return;
+    }
 
-    // Fill the triangle using horizontal scanlines
-    for (uint16_t y = y1; y <= y3; y++)
+    if (min_x < 0)
+        min_x = 0;
+    if (min_y < 0)
+        min_y = 0;
+    if (max_x >= LCD_WIDTH)
+        max_x = LCD_WIDTH - 1;
+    if (max_y >= LCD_HEIGHT)
+        max_y = LCD_HEIGHT - 1;
+
+    int32_t area = lcd_edge_function(x1, y1, x2, y2, x3, y3);
+    if (area == 0)
     {
-        if (y >= LCD_HEIGHT)
-            break;
+        lcd_draw_line(x1, y1, x2, y2, color);
+        lcd_draw_line(x2, y2, x3, y3, color);
+        lcd_draw_line(x3, y3, x1, y1, color);
+        return;
+    }
 
-        int x_left, x_right;
-        bool has_intersection = false;
-
-        // Find left edge intersection
-        if (y3 != y1)
+    uint8_t c = lcd_color565_to_332(color);
+    for (int32_t py = min_y; py <= max_y; ++py)
+    {
+        for (int32_t px = min_x; px <= max_x; ++px)
         {
-            x_left = x1 + (int)((x3 - x1) * (int)(y - y1)) / (int)(y3 - y1);
-            has_intersection = true;
-        }
+            int32_t w0 = lcd_edge_function(x2, y2, x3, y3, px, py);
+            int32_t w1 = lcd_edge_function(x3, y3, x1, y1, px, py);
+            int32_t w2 = lcd_edge_function(x1, y1, x2, y2, px, py);
 
-        // Find right edge intersection
-        if (y <= y2 && y2 != y1)
-        {
-            x_right = x1 + (int)((x2 - x1) * (int)(y - y1)) / (int)(y2 - y1);
-        }
-        else if (y > y2 && y3 != y2)
-        {
-            x_right = x2 + (int)((x3 - x2) * (int)(y - y2)) / (int)(y3 - y2);
-        }
-        else
-        {
-            x_right = x_left;
-        }
-
-        if (!has_intersection)
-            continue;
-
-        // Ensure x_left <= x_right
-        if (x_left > x_right)
-        {
-            int temp = x_left;
-            x_left = x_right;
-            x_right = temp;
-        }
-
-        // Clamp to screen bounds
-        if (x_left < 0)
-            x_left = 0;
-        if (x_right >= LCD_WIDTH)
-            x_right = LCD_WIDTH - 1;
-
-        // Draw horizontal line
-        for (int x = x_left; x <= x_right; x++)
-        {
-            frame_buffer[y * LCD_WIDTH + x] = color;
+            if ((area > 0 && w0 >= 0 && w1 >= 0 && w2 >= 0) ||
+                (area < 0 && w0 <= 0 && w1 <= 0 && w2 <= 0))
+            {
+                s_framebuffer[lcd_framebuffer_index((uint16_t)px, (uint16_t)py)] = c;
+            }
         }
     }
 }
@@ -514,25 +629,27 @@ void lcd_fill_round_rectangle(uint16_t x, uint16_t y, uint16_t width, uint16_t h
 
 void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color, FontSize size)
 {
-    if (current_font == NULL || c < 32 || c > 126)
-        return; // invalid font or character
-
-    // Calculate bytes per row (width rounded up to nearest byte boundary)
-    uint8_t bytes_per_row = (current_font->width + 7) / 8;
-    const uint8_t *char_data = &current_font->table[(c - 32) * current_font->height * bytes_per_row];
-
-    for (uint8_t row = 0; row < current_font->height; row++)
+    lcd_set_font(size);
+    const FontTable *font = lcd_get_font();
+    uint8_t character = (uint8_t)c;
+    if (character < 32 || character > 126)
     {
-        const uint8_t *row_data = &char_data[row * bytes_per_row];
+        character = '?';
+    }
 
-        for (uint8_t col = 0; col < current_font->width; col++)
+    uint8_t bytes_per_row = (uint8_t)((font->width + 7U) / 8U);
+    size_t glyph_stride = (size_t)font->height * bytes_per_row;
+    const uint8_t *glyph = &font->table[(size_t)(character - 32U) * glyph_stride];
+
+    uint8_t c332 = lcd_color565_to_332(color);
+    for (uint8_t row = 0; row < font->height; ++row)
+    {
+        for (uint8_t col = 0; col < font->width; ++col)
         {
-            uint8_t byte_index = col / 8;
-            uint8_t bit_index = 7 - (col % 8);
-
-            if (row_data[byte_index] & (1 << bit_index))
+            uint8_t glyph_byte = glyph[(size_t)row * bytes_per_row + (col / 8U)];
+            if ((glyph_byte & (uint8_t)(0x80U >> (col % 8U))) != 0)
             {
-                lcd_draw_pixel(x + col, y + row, color);
+                s_framebuffer[lcd_framebuffer_index(x + col, y + row)] = c332;
             }
         }
     }
@@ -540,45 +657,48 @@ void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color, FontSize size
 
 void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color, FontSize size)
 {
-    if (current_font == NULL)
-        return; // invalid font
+    if (text == NULL)
+    {
+        return;
+    }
+
+    lcd_set_font(size);
 
     uint16_t cursor_x = x;
     uint16_t cursor_y = y;
+    uint16_t start_x = x;
 
-    while (*text)
+    for (const char *cursor = text; *cursor != '\0'; ++cursor)
     {
-        char ch = *text;
+        if (*cursor == '\r')
+        {
+            continue;
+        }
 
-        if (ch == '\n')
+        if (*cursor == '\n')
         {
-            cursor_x = x;                     // Reset to start of line
-            cursor_y += current_font->height; // Move down one line
-        }
-        else if (ch == ' ')
-        {
-            // Handle space - just advance position without drawing
-            cursor_x += current_font->width;
-        }
-        else
-        {
-            // Check if character would exceed screen width
-            if (cursor_x + current_font->width > LCD_WIDTH)
+            cursor_x = start_x;
+            cursor_y = (uint16_t)(cursor_y + lcd_line_advance());
+            if (cursor_y >= LCD_HEIGHT)
             {
-                // Wrap to next line
-                cursor_x = x;
-                cursor_y += current_font->height;
+                break;
             }
-
-            // Check if we're still within screen height
-            if (cursor_y + current_font->height <= LCD_HEIGHT)
-            {
-                lcd_draw_char(cursor_x, cursor_y, ch, color);
-            }
-
-            cursor_x += current_font->width;
+            continue;
         }
-        text++;
+
+        if ((uint32_t)cursor_x + lcd_get_font()->width > LCD_WIDTH)
+        {
+            cursor_x = start_x;
+            cursor_y = (uint16_t)(cursor_y + lcd_line_advance());
+        }
+
+        if ((uint32_t)cursor_y + lcd_get_font()->height > LCD_HEIGHT)
+        {
+            break;
+        }
+
+        lcd_draw_char(cursor_x, cursor_y, *cursor, color, size);
+        cursor_x = (uint16_t)(cursor_x + lcd_text_advance());
     }
 }
 

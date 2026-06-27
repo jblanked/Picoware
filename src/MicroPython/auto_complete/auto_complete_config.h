@@ -11,6 +11,10 @@
 #define STORAGE_INCLUDE "../cardputer/sd/storage.h"
 #define STORAGE_READ storage_file_read
 #define STORAGE_MAX_READ_SIZE 4096
+#elif defined(WAVESHARE_AMOLED_2_06_ESP32_S3)
+#define STORAGE_INCLUDE "../Waveshare_watch/sd/storage.h"
+#define STORAGE_READ storage_file_read
+#define STORAGE_MAX_READ_SIZE 4096
 #elif !defined(WAVESHARE_1_28) && !defined(CROWPANEL_10_1)
 #define STORAGE_INCLUDE "storage.h"
 #define STORAGE_READ storage_read

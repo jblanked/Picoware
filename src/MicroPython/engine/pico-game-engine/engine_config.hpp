@@ -172,7 +172,7 @@
 // storage
 #if defined(PICOCALC)
 #define ENGINE_STORAGE_INCLUDE "../../sd/storage.h"
-#elif defined(CARDPUTER)
+#elif defined(CARDPUTER) || defined(WAVESHARE_AMOLED_2_06_ESP32_S3)
 #define ENGINE_STORAGE_INCLUDE "../sd/storage.h"
 #elif !defined(WAVESHARE_1_28)
 #define ENGINE_STORAGE_INCLUDE "../../../sd/storage.h"

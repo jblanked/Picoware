@@ -132,7 +132,7 @@ private:
     int lobbySelectedIndex = 0;                                             // current selected lobby menu index
     bool lobbyFetched = false;                                              // flag to indicate if the lobby game sessions have been fetched from the server
     int mapPackCount = 0;                                                   // number of map packs loaded into mapPackFiles
-    char mapPackFiles[MAX_MAP_PACK_FILES][64];                              // list of loaded map pack files
+    char mapPackFiles[MAX_MAP_PACK_FILES][256];                             // list of loaded map pack files
     int mapPackSelectedIndex = 0;                                           // current selected map pack index
     bool mapPackLoaded = false;                                             // flag to indicate if the map pack files have been loaded
     char username[64] = {0};                                                // username for login/registeration requests

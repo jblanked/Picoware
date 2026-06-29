@@ -46,7 +46,7 @@ public:
     Vector getPosition() const { return position; }
     float getRotation() const { return rotation_y; }
     float getScale() const { return scale_factor; }
-    Triangle3D getTransformedTriangle(uint16_t index, const Vector &camera_pos) const;
+    bool getTransformedTriangle(uint16_t index, const Vector &camera_pos, Triangle3D &out) const;
     uint16_t getTriangleCount() const { return triangle_count; }
     SpriteType getType() const { return type; }
     bool initializeAsHouse(Vector pos, float width, float height, float rot, uint16_t color = 0x0000, bool wireframe = true);

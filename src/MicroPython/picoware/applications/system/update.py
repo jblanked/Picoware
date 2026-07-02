@@ -275,6 +275,7 @@ def __draw_download_complete(view_manager) -> None:
             inp.reset()
             if but == 5:  # back
                 view_manager.back(True)
+                return
             break
 
     from picoware.system.uf2loader import UF2Loader

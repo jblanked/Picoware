@@ -74,8 +74,10 @@ extern "C"
     mp_obj_t audio_song_mp_del(mp_obj_t self_in);                                                                 // destructor for the Audio Song object
     void audio_song_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination);                             // attribute handler for the Audio Song object
 
-    void audio_info_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind); // print function for the Audio Info object
-    void audio_info_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination);          // attribute handler for the Audio Info object
+    void audio_info_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind);                    // print function for the Audio Info object
+    mp_obj_t audio_info_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args); // constructor for the Audio Info object
+    mp_obj_t audio_info_mp_del(mp_obj_t self_in);                                                                 // destructor for the Audio Info object
+    void audio_info_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination);                             // attribute handler for the Audio Info object
 
 #ifdef __cplusplus
 }

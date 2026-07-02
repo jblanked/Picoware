@@ -213,6 +213,23 @@ void audio_info_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kin
               self->info.position);
 }
 
+mp_obj_t audio_info_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
+{
+    mp_arg_check_num(n_args, n_kw, 0, 0, false);
+    audio_info_mp_obj_t *self = mp_obj_malloc_with_finaliser(audio_info_mp_obj_t, &audio_info_mp_type);
+    self->base.type = &audio_info_mp_type;
+    self->info = audio_get_info();
+    return MP_OBJ_FROM_PTR(self);
+}
+
+mp_obj_t audio_info_mp_del(mp_obj_t self_in)
+{
+    audio_info_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    memset(&self->info, 0, sizeof(self->info));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(audio_info_mp_del_obj, audio_info_mp_del);
+
 void audio_info_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
     audio_info_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -231,6 +248,9 @@ void audio_info_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
             break;
         case MP_QSTR_position:
             destination[0] = mp_obj_new_int_from_ull(self->info.position);
+            break;
+        case MP_QSTR___del__:
+            destination[0] = MP_OBJ_FROM_PTR(&audio_info_mp_del_obj);
             break;
         default:
             return;
@@ -579,8 +599,9 @@ MP_DEFINE_CONST_OBJ_TYPE(
 MP_DEFINE_CONST_OBJ_TYPE(
     audio_info_mp_type,
     MP_QSTR_AudioInfo,
-    MP_TYPE_FLAG_NONE,
+    MP_TYPE_FLAG_HAS_SPECIAL_ACCESSORS,
     print, audio_info_mp_print,
+    make_new, audio_info_mp_make_new,
     attr, audio_info_mp_attr);
 
 static const mp_rom_map_elem_t audio_module_globals_table[] = {

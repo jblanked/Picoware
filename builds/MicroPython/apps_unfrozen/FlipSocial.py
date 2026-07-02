@@ -191,30 +191,4 @@ def stop(view_manager) -> None:
         _flip_social_run_instance = None
 
     collect()
-
-
-
-from picoware.system.view_manager import ViewManager
-from picoware.system.view import View
-from picoware.system.app_loader import AppLoader
-
-vm = None
-
-try:
-    vm = ViewManager()
-    al = AppLoader(vm)
-    al.load_module("/picoware/apps")
-    vm.add(
-        View(
-            "app_tester",
-            run,
-            start,
-            stop,
-        )
-    )
-    vm.switch_to("app_tester")
-    while True:
-        vm.run()
-finally:
-    del vm
-    vm = None
+    

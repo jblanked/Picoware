@@ -348,7 +348,7 @@ def run(view_manager) -> None:
         # Show loading animation while checking for updates
         if not _http.is_request_complete():
             if _loading:
-                _loading.animate()
+                _loading.animate(http=_http)
             return
 
         if _loading:
@@ -381,7 +381,7 @@ def run(view_manager) -> None:
         # Check if download is complete
         if not _http.is_request_complete():
             if _loading:
-                _loading.animate()
+                _loading.animate(http=_http)
             return
 
         if _loading:

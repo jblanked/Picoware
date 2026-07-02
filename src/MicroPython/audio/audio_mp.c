@@ -5,12 +5,7 @@
 const mp_obj_type_t audio_mp_type;
 const mp_obj_type_t audio_note_mp_type;
 const mp_obj_type_t audio_song_mp_type;
-extern const mp_obj_type_t audio_info_mp_type;
-
-typedef struct {
-    mp_obj_base_t base;
-    audio_info_t info;
-} audio_info_mp_obj_t;
+const mp_obj_type_t audio_info_mp_type;
 
 void audio_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
 {
@@ -70,7 +65,8 @@ void audio_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
         case MP_QSTR_info:
         {
             audio_info_t info = audio_get_info();
-            if (info.sample_rate == 0) {
+            if (info.sample_rate == 0)
+            {
                 destination[0] = mp_const_none;
                 return;
             }
@@ -241,13 +237,6 @@ void audio_info_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
         }
     }
 }
-
-MP_DEFINE_CONST_OBJ_TYPE(
-    audio_info_mp_type,
-    MP_QSTR_AudioInfo,
-    MP_TYPE_FLAG_NONE,
-    print, audio_info_mp_print,
-    attr, audio_info_mp_attr);
 
 mp_obj_t audio_mp_stop(mp_obj_t self_in)
 {
@@ -587,11 +576,19 @@ MP_DEFINE_CONST_OBJ_TYPE(
     make_new, audio_song_mp_make_new,
     attr, audio_song_mp_attr);
 
+MP_DEFINE_CONST_OBJ_TYPE(
+    audio_info_mp_type,
+    MP_QSTR_AudioInfo,
+    MP_TYPE_FLAG_NONE,
+    print, audio_info_mp_print,
+    attr, audio_info_mp_attr);
+
 static const mp_rom_map_elem_t audio_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_audio)},
     {MP_ROM_QSTR(MP_QSTR_Audio), MP_ROM_PTR(&audio_mp_type)},
     {MP_ROM_QSTR(MP_QSTR_AudioNote), MP_ROM_PTR(&audio_note_mp_type)},
     {MP_ROM_QSTR(MP_QSTR_AudioSong), MP_ROM_PTR(&audio_song_mp_type)},
+    {MP_ROM_QSTR(MP_QSTR_AudioInfo), MP_ROM_PTR(&audio_info_mp_type)},
 };
 static MP_DEFINE_CONST_DICT(audio_module_globals, audio_module_globals_table);
 

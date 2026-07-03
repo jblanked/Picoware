@@ -11,6 +11,7 @@ STATE_EXIT_BUTTON = const(6)  # selection to choose which button triggers app ex
 STATE_SERVER_SETTINGS = const(7)  # menu with username and password
 STATE_OPENAI_API_KEY = const(8)  # keyboard input for OpenAI API key
 STATE_DEEPSEEK_API_KEY = const(9)  # keyboard input for DeepSeek API key
+STATE_USB_STREAM = const(10)  # toggle (enable/disable USB stream)
 
 # modes
 _MODE_MENU = const(0)
@@ -23,6 +24,7 @@ _MODE_SERVER_MENU = const(6)
 _MODE_SERVER_KEYBOARD = const(7)
 _MODE_OPENAI_KEYBOARD = const(8)
 _MODE_DEEPSEEK_KEYBOARD = const(9)
+_MODE_USB_STREAM_TOGGLE = const(10)
 
 _settings = None
 _menu = None
@@ -97,6 +99,7 @@ def __config() -> tuple:
         ("Server Settings", None, None, None),
         ("OpenAI API Key", "picoware/settings/openai_api_key.json", "openai_api_key", ""),
         ("DeepSeek API Key", "picoware/settings/deepseek_api_key.json", "deepseek_api_key", ""),
+        ("USB Stream", "picoware/settings/usb_stream.json", "usb_stream", False),
     )
 
 
@@ -141,6 +144,8 @@ def __apply_toggle_setting(index: int, state: bool) -> None:
         _view_manager.keyboard.show_keyboard = state
     elif index == STATE_LVGL_MODE:
         _view_manager.draw.use_lvgl = state
+    elif index == STATE_USB_STREAM:
+        pass # will assign here later
 
 
 def __open_toggle(setting_index: int) -> None:

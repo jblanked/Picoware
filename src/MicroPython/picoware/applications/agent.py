@@ -215,6 +215,25 @@ def _show_thinking(view_manager):
 
 def start(view_manager) -> bool:
     """Build main menu. Return True on success."""
+    if not view_manager.has_sd_card:
+        view_manager.alert("Agent app requires an SD card", False)
+        return False
+
+    wifi = view_manager.wifi
+
+    # if not a wifi device, return
+    if not wifi:
+        view_manager.alert("WiFi not available...", False)
+        return False
+
+    # if wifi isn't connected, return
+    if not wifi.is_connected():
+        from picoware.applications.wifi.utils import connect_to_saved_wifi
+
+        view_manager.alert("WiFi not connected", False)
+        connect_to_saved_wifi(view_manager)
+        return False
+    
     from picoware.system.boards import BOARD_CARDPUTER, BOARD_CROWPANEL_10_1
     if view_manager.board_id not in (BOARD_CARDPUTER, BOARD_CROWPANEL_10_1):
         view_manager.freq(True)

@@ -141,7 +141,7 @@ mp_obj_t lcd_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
 mp_obj_t lcd_mp_del(mp_obj_t self_in)
 {
     lcd_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (self->initialized)
+    if (self && self->initialized)
     {
 #ifdef LCD_MP_DEINIT
         LCD_MP_DEINIT();

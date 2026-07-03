@@ -53,7 +53,8 @@ mp_obj_t mp_fat32_file_make_new(const mp_obj_type_t *type, size_t n_args, size_t
 mp_obj_t mp_fat32_file_del(mp_obj_t self_in)
 {
     mp_fat32_file_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    fat32_close(&self->file);
+    if (self)
+        fat32_close(&self->file);
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(mp_fat32_file_del_obj, mp_fat32_file_del);

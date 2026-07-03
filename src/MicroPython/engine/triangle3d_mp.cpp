@@ -64,6 +64,8 @@ mp_obj_t triangle3d_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t
 mp_obj_t triangle3d_mp_del(mp_obj_t self_in)
 {
     triangle3d_mp_obj_t *self = static_cast<triangle3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (!self)
+        return mp_const_none;
     if (self->freed)
     {
         return mp_const_none;

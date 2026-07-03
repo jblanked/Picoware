@@ -225,6 +225,8 @@ mp_obj_t audio_info_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t
 mp_obj_t audio_info_mp_del(mp_obj_t self_in)
 {
     audio_info_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (!self)
+        return mp_const_none;
     memset(&self->info, 0, sizeof(self->info));
     return mp_const_none;
 }

@@ -101,7 +101,7 @@ mp_obj_t usb_video_stream_mp_make_new(const mp_obj_type_t *type, size_t n_args, 
 mp_obj_t usb_video_stream_mp_del(mp_obj_t self_in)
 {
     usb_video_stream_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (self->active)
+    if (self && self->active)
     {
         self->active = false;
         usb_video_set_swap_callback(NULL);

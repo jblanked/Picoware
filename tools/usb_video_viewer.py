@@ -236,17 +236,6 @@ def main():
                 surface.blit(img, (0, 0))
                 scaled = pygame.transform.scale(surface, (width * scale, height * scale))
                 window.blit(scaled, (0, 0))
-
-                fps_counter += 1
-                now = time.monotonic()
-                if now - last_fps_time >= 1.0:
-                    current_fps = fps_counter
-                    fps_counter = 0
-                    last_fps_time = now
-                frame_count += 1
-                hud = font.render(f"Frame {frame_count}  {current_fps} FPS  {width}x{height}", True, (200, 200, 200))
-                window.blit(hud, (6, 6))
-
                 pygame.display.flip()
 
             del buf[:frame_size]

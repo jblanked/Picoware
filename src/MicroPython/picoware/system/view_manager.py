@@ -32,6 +32,7 @@ class ViewManager:
         "view_stack",
         "_log",
         "_audio",
+        "_usb_video_stream",
     )
 
     def __init__(self):
@@ -49,6 +50,7 @@ class ViewManager:
         from picoware.system.colors import TFT_BLUE, TFT_BLACK, TFT_WHITE
         from picoware.system.buttons import BUTTON_ESCAPE
         from picoware.system.boards import BOARD_CARDPUTER
+        from picoware.system.usb import USBVideoStream
 
         self._active = True
         self._current_view = None
@@ -143,6 +145,11 @@ class ViewManager:
             # disable networking...
             self._wifi = None
             self.log("LVGL mode enabled: WiFi disabled.", 2)
+        
+        # Initialize video stream
+        self._usb_video_stream = USBVideoStream()
+        if settings.usb_stream:
+            self._usb_video_stream.start()
 
         # Clear screen
         self.clear()
@@ -327,6 +334,11 @@ class ViewManager:
     def thread_manager(self):
         """Return the ThreadManager instance."""
         return self._thread_manager
+    
+    @property
+    def usb_video_stream(self):
+        """Return the USBVideoStream instance."""
+        return self._usb_video_stream
 
     @property
     def view_count(self):

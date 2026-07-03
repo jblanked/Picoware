@@ -15,6 +15,13 @@
 
 #include "../vector/vector_mp.h"
 
+static bool (*_lcd_usb_video_cb)(void) = NULL; // USB video streaming callback, set by usb_video module
+
+void lcd_mp_set_usb_video_callback(bool (*cb)(void))
+{
+    _lcd_usb_video_cb = cb;
+}
+
 const mp_obj_type_t lcd_mp_type;
 
 static uint16_t lcd_scale_x(lcd_mp_obj_t *self, uint16_t v)
@@ -1159,6 +1166,11 @@ mp_obj_t lcd_mp_swap(mp_obj_t self_in)
         mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
     }
     LCD_MP_SWAP();
+    // Stream framebuffer over USB if active
+    if (_lcd_usb_video_cb)
+    {
+        _lcd_usb_video_cb();
+    }
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(lcd_mp_swap_obj, lcd_mp_swap);

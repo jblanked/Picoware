@@ -4,6 +4,7 @@
 
 from machine import USBDevice
 import struct, time
+import usb_video_mp
 
 
 class USBKeyboard:
@@ -581,3 +582,17 @@ class USBMedia:
         self._wait()
         self._xfer_done = False
         self._usbdev.submit_xfer(0x83, bytes([0, 0]))
+
+class USBVideoStream(usb_video_mp.USBVideoStream):
+    """USB Video Stream, sends the current framebuffer over USB.
+
+    Methods:
+        - send_frame(): Send the current framebuffer over USB (returns True if sent, False if not active)
+        - start(): Start streaming the framebuffer over USB. (then Draw.swap() will send the framebuffer automatically)
+        - stop(): Stop streaming.
+    
+    Attributes:
+        - active: True if streaming is active, False otherwise.
+        - pixel_format: Pixel format of the framebuffer (0=RGB332, 1=RGB565).
+    
+    """

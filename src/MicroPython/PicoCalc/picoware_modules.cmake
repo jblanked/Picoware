@@ -414,6 +414,20 @@ target_link_libraries(usermod_uf2loader INTERFACE
 target_link_libraries(usermod INTERFACE usermod_uf2loader)
 
 
+# Include usb_video module
+add_compile_definitions(CFG_TUD_CDC_TX_BUFSIZE=8192)
+add_library(usermod_usb_video INTERFACE)
+target_sources(usermod_usb_video INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../usb_video/usb_video_mp.c
+)
+target_include_directories(usermod_usb_video INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../usb_video
+    ${CMAKE_CURRENT_LIST_DIR}/../lcd
+)
+target_link_libraries(usermod INTERFACE usermod_usb_video)
+target_link_libraries(usermod_usb_video INTERFACE tinyusb_common)
+
+
 # Include ghouls module
 add_library(usermod_ghouls INTERFACE)
 

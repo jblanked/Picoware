@@ -145,6 +145,7 @@ class ViewManager:
             # disable networking...
             self._wifi = None
             self.log("LVGL mode enabled: WiFi disabled.", 2)
+            self.freq(True)
         
         # Initialize video stream
         self._usb_video_stream = USBVideoStream()

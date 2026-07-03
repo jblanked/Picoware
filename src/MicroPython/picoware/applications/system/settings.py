@@ -81,24 +81,23 @@ def __color_values() -> list[int]:
 
 def __config() -> tuple:
     """Get the configuration tuple for the current setting."""
-    # (menu label, filename, json key, default value)
+    # (menu label, json key, default value)
     return (
-        ("Dark Mode", "picoware/settings/dark_mode.json", "dark_mode", True),
+        ("Dark Mode", "dark_mode", True),
         (
             "Onscreen Keyboard",
-            "picoware/settings/onscreen_keyboard.json",
             "onscreen_keyboard",
             True,
         ),
-        ("Use LVGL", "picoware/settings/lvgl_mode.json", "lvgl_mode", False),
-        ("Theme Color", None, None, None),
-        ("Debug", "picoware/settings/debug.json", "debug", False),
-        ("Time", None, None, None),
-        ("Exit Button", None, None, None),
-        ("Server Settings", None, None, None),
-        ("OpenAI API Key", "picoware/settings/openai_api_key.json", "openai_api_key", ""),
-        ("DeepSeek API Key", "picoware/settings/deepseek_api_key.json", "deepseek_api_key", ""),
-        ("USB Stream", "picoware/settings/usb_stream.json", "usb_stream", False),
+        ("Use LVGL", "lvgl_mode", False),
+        ("Theme Color", "theme_color", None),
+        ("Debug", "debug", False),
+        ("Time", "time", None),
+        ("Exit Button", "exit_button", None),
+        ("Server Settings", "server_settings", None),
+        ("OpenAI API Key", "openai_api_key", ""),
+        ("DeepSeek API Key", "deepseek_api_key", ""),
+        ("USB Stream", "usb_stream", False),
     )
 
 
@@ -158,7 +157,7 @@ def __open_toggle(setting_index: int) -> None:
 
     _current_setting = setting_index
     cfg = __config()[setting_index]
-    current_state = _settings.__fetch_setting(cfg[1], cfg[2], cfg[3])
+    current_state = _settings._settings[cfg[1]]
 
     draw = _view_manager.draw
     draw.erase()
@@ -680,7 +679,7 @@ def run(view_manager) -> None:
             new_state = not _toggle.state
             _toggle.state = new_state
             cfg = __config()[_current_setting]
-            _settings._settings[cfg[2]] = new_state
+            _settings._settings[cfg[1]] = new_state
             _settings.__save_settings()
             __apply_toggle_setting(_current_setting, new_state)
 

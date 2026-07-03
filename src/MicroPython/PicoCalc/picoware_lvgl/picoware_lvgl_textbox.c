@@ -116,6 +116,10 @@ mp_obj_t picoware_lvgl_textbox_make_new(const mp_obj_type_t *type, size_t n_args
 mp_obj_t picoware_lvgl_textbox_del(mp_obj_t self_in)
 {
     picoware_lvgl_textbox_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (!self)
+    {
+        return mp_const_none; // Already freed
+    }
 
     // Clean up LVGL objects
     if (self->textarea && lvgl_display)

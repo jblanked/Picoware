@@ -110,7 +110,7 @@ mp_obj_t gameboy_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_
 mp_obj_t gameboy_mp_del(mp_obj_t self_in)
 {
     gameboy_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (self->freed)
+    if (!self || self->freed)
     {
         return mp_const_none; // Already freed, do nothing
     }

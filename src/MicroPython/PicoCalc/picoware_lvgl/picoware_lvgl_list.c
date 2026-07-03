@@ -91,7 +91,7 @@ mp_obj_t picoware_lvgl_list_make_new(const mp_obj_type_t *type, size_t n_args, s
 mp_obj_t picoware_lvgl_list_del(mp_obj_t self_in)
 {
     picoware_lvgl_list_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (self->freed)
+    if (!self || self->freed)
     {
         return mp_const_none;
     }

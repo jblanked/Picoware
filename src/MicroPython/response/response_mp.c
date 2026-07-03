@@ -72,12 +72,8 @@ mp_obj_t response_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n
 mp_obj_t response_mp_del(mp_obj_t self_in)
 {
     response_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (!self)
+    if (!self || self->freed)
         return mp_const_none;
-    if (self->freed)
-    {
-        return mp_const_none;
-    }
     if (self->content)
     {
         m_free(self->content);

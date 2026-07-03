@@ -96,7 +96,7 @@ mp_obj_t picoware_lvgl_loading_make_new(const mp_obj_type_t *type, size_t n_args
 mp_obj_t picoware_lvgl_loading_del(mp_obj_t self_in)
 {
     picoware_lvgl_loading_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (self->freed)
+    if (!self || self->freed)
     {
         return mp_const_none;
     }

@@ -42,113 +42,28 @@
 #define ENGINE_FONT_DEFAULT FONT_SIZE_SMALL
 
 // LCD
-#if defined(PICOCALC)
-#define ENGINE_LCD_INCLUDE "../PicoCalc/picoware_lcd/picoware_lcd.h"
-// #define ENGINE_LCD_INIT picocalc_lcd_init
-// #define ENGINE_LCD_DEINIT lcd_deinit
-#define ENGINE_LCD_WIDTH DISPLAY_WIDTH
-#define ENGINE_LCD_HEIGHT DISPLAY_HEIGHT
-#define ENGINE_LCD_CHAR lcd_draw_char
-#define ENGINE_LCD_CIRCLE lcd_draw_circle
-#define ENGINE_LCD_CLEAR lcd_fill
-#define ENGINE_LCD_FILL_CIRCLE lcd_fill_circle
-#define ENGINE_LCD_FILL_RECTANGLE lcd_fill_rect
-#define ENGINE_LCD_FILL_ROUND_RECTANGLE lcd_fill_round_rectangle
-#define ENGINE_LCD_FILL_TRIANGLE lcd_fill_triangle
-#define ENGINE_LCD_BLIT picocalc_lcd_blit
-#define ENGINE_LCD_BLIT_16BIT lcd_blit_16bit
-#define ENGINE_LCD_LINE lcd_draw_line
-#define ENGINE_LCD_PIXEL lcd_draw_pixel
-#define ENGINE_LCD_PSRAM lcd_psram
-#define ENGINE_LCD_PSRAM_READ_ROW lcd_psram_read_row
-#define ENGINE_LCD_RECTANGLE lcd_draw_rect
-#define ENGINE_LCD_SET_MODE lcd_set_mode
-#define ENGINE_LCD_SWAP lcd_swap
-#define ENGINE_LCD_TEXT lcd_draw_text
-#define ENGINE_LCD_TRIANGLE lcd_draw_triangle
-#elif defined(WAVESHARE_1_28)
-#define ENGINE_LCD_INCLUDE "../Waveshare/RP2350-Touch-LCD-1.28/waveshare_lcd/lcd.h"
-// #define ENGINE_LCD_INIT lcd_init
-// #define ENGINE_LCD_DEINIT lcd_reset
-#define ENGINE_LCD_WIDTH LCD_WIDTH
-#define ENGINE_LCD_HEIGHT LCD_HEIGHT
-#define ENGINE_LCD_CHAR lcd_draw_char
-#define ENGINE_LCD_CIRCLE lcd_draw_circle
-#define ENGINE_LCD_CLEAR lcd_fill
-#define ENGINE_LCD_FILL_CIRCLE lcd_fill_circle
-#define ENGINE_LCD_FILL_RECTANGLE lcd_fill_rect
-#define ENGINE_LCD_FILL_ROUND_RECTANGLE lcd_fill_round_rectangle
-#define ENGINE_LCD_FILL_TRIANGLE lcd_fill_triangle
-#define ENGINE_LCD_BLIT lcd_blit
-#define ENGINE_LCD_BLIT_16BIT lcd_blit_16bit
-#define ENGINE_LCD_LINE lcd_draw_line
-#define ENGINE_LCD_PIXEL lcd_draw_pixel
-#define ENGINE_LCD_RECTANGLE lcd_draw_rect
-#define ENGINE_LCD_SWAP lcd_swap
-#define ENGINE_LCD_TEXT lcd_draw_text
-#define ENGINE_LCD_TRIANGLE lcd_draw_triangle
-#elif defined(WAVESHARE_1_43)
-#define ENGINE_LCD_INCLUDE "../Waveshare/RP2350-Touch-LCD-1.43/waveshare_lcd/lcd.h"
-// #define ENGINE_LCD_INIT lcd_init
-// #define ENGINE_LCD_DEINIT lcd_reset
-#define ENGINE_LCD_WIDTH LCD_WIDTH
-#define ENGINE_LCD_HEIGHT LCD_HEIGHT
-#define ENGINE_LCD_CHAR lcd_draw_char
-#define ENGINE_LCD_CIRCLE lcd_draw_circle
-#define ENGINE_LCD_CLEAR lcd_fill
-#define ENGINE_LCD_FILL_CIRCLE lcd_fill_circle
-#define ENGINE_LCD_FILL_RECTANGLE lcd_fill_rect
-#define ENGINE_LCD_FILL_ROUND_RECTANGLE lcd_fill_round_rectangle
-#define ENGINE_LCD_FILL_TRIANGLE lcd_fill_triangle
-#define ENGINE_LCD_BLIT lcd_blit
-#define ENGINE_LCD_BLIT_16BIT lcd_blit_16bit
-#define ENGINE_LCD_LINE lcd_draw_line
-#define ENGINE_LCD_PIXEL lcd_draw_pixel
-#define ENGINE_LCD_RECTANGLE lcd_draw_rect
-#define ENGINE_LCD_SWAP lcd_swap
-#define ENGINE_LCD_TEXT lcd_draw_text
-#define ENGINE_LCD_TRIANGLE lcd_draw_triangle
-#elif defined(WAVESHARE_3_49)
-#define ENGINE_LCD_INCLUDE "../Waveshare/RP2350-Touch-LCD-3.49/waveshare_lcd/lcd.h"
-// #define ENGINE_LCD_INIT lcd_init
-//  #define ENGINE_LCD_DEINIT
-#define ENGINE_LCD_WIDTH LCD_WIDTH
-#define ENGINE_LCD_HEIGHT LCD_HEIGHT
-#define ENGINE_LCD_CHAR lcd_draw_char
-#define ENGINE_LCD_CIRCLE lcd_draw_circle
-#define ENGINE_LCD_CLEAR lcd_fill
-#define ENGINE_LCD_FILL_CIRCLE lcd_fill_circle
-#define ENGINE_LCD_FILL_RECTANGLE lcd_fill_rect
-#define ENGINE_LCD_FILL_ROUND_RECTANGLE lcd_fill_round_rectangle
-#define ENGINE_LCD_FILL_TRIANGLE lcd_fill_triangle
-#define ENGINE_LCD_BLIT lcd_blit
-#define ENGINE_LCD_BLIT_16BIT lcd_blit_16bit
-#define ENGINE_LCD_LINE lcd_draw_line
-#define ENGINE_LCD_PIXEL lcd_draw_pixel
-#define ENGINE_LCD_RECTANGLE lcd_draw_rect
-#define ENGINE_LCD_SWAP lcd_swap
-#define ENGINE_LCD_TEXT lcd_draw_text
-#define ENGINE_LCD_TRIANGLE lcd_draw_triangle
-#elif defined(CARDPUTER)
-#define ENGINE_LCD_INCLUDE "../cardputer/lcd/lcd.h"
-#define ENGINE_LCD_WIDTH LCD_WIDTH
-#define ENGINE_LCD_HEIGHT LCD_HEIGHT
-#define ENGINE_LCD_CHAR lcd_draw_char
-#define ENGINE_LCD_CIRCLE lcd_draw_circle
-#define ENGINE_LCD_CLEAR lcd_fill
-#define ENGINE_LCD_FILL_CIRCLE lcd_fill_circle
-#define ENGINE_LCD_FILL_RECTANGLE lcd_fill_rect
-#define ENGINE_LCD_FILL_ROUND_RECTANGLE lcd_fill_round_rectangle
-#define ENGINE_LCD_FILL_TRIANGLE lcd_fill_triangle
-#define ENGINE_LCD_BLIT lcd_blit
-#define ENGINE_LCD_BLIT_16BIT lcd_blit_16bit
-#define ENGINE_LCD_LINE lcd_draw_line
-#define ENGINE_LCD_PIXEL lcd_draw_pixel
-#define ENGINE_LCD_RECTANGLE lcd_draw_rect
-#define ENGINE_LCD_SWAP lcd_swap
-#define ENGINE_LCD_TEXT lcd_draw_text
-#define ENGINE_LCD_TRIANGLE lcd_draw_triangle
-#endif
+#include "../lcd/lcd_config.h"
+#define ENGINE_LCD_INCLUDE LCD_INCLUDE
+#define ENGINE_LCD_WIDTH LCD_MP_WIDTH
+#define ENGINE_LCD_HEIGHT LCD_MP_HEIGHT
+#define ENGINE_LCD_CHAR LCD_MP_CHAR
+#define ENGINE_LCD_CIRCLE LCD_MP_CIRCLE
+#define ENGINE_LCD_CLEAR LCD_MP_CLEAR
+#define ENGINE_LCD_FILL_CIRCLE LCD_MP_FILL_CIRCLE
+#define ENGINE_LCD_FILL_RECTANGLE LCD_MP_FILL_RECTANGLE
+#define ENGINE_LCD_FILL_ROUND_RECTANGLE LCD_MP_FILL_ROUND_RECTANGLE
+#define ENGINE_LCD_FILL_TRIANGLE LCD_MP_FILL_TRIANGLE
+#define ENGINE_LCD_BLIT LCD_MP_BLIT
+#define ENGINE_LCD_BLIT_16BIT LCD_MP_BLIT_16BIT
+#define ENGINE_LCD_LINE LCD_MP_LINE
+#define ENGINE_LCD_PIXEL LCD_MP_PIXEL
+#define ENGINE_LCD_PSRAM LCD_MP_PSRAM
+#define ENGINE_LCD_PSRAM_READ_ROW LCD_MP_PSRAM_READ_ROW
+#define ENGINE_LCD_RECTANGLE LCD_MP_RECTANGLE
+#define ENGINE_LCD_SET_MODE LCD_MP_SET_MODE
+#define ENGINE_LCD_SWAP LCD_MP_SWAP
+#define ENGINE_LCD_TEXT LCD_MP_TEXT
+#define ENGINE_LCD_TRIANGLE LCD_MP_TRIANGLE
 
 // storage
 #if defined(PICOCALC)

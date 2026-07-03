@@ -2,6 +2,7 @@
 
 #include "board_config.h"
 #include "sdcard_vfs_bridge.h"
+#include "extmod/modmachine.h"
 #include "extmod/vfs.h"
 #include "modmachine.h"
 #include "py/runtime.h"

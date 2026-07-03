@@ -11,6 +11,12 @@ Source: https://github.com/jblanked/Picoware
 
 #include LCD_INCLUDE
 #include "tusb.h"
+#include "shared/tinyusb/mp_usbd_cdc.h"
+#include "shared/tinyusb/mp_usbd.h"
+
+#ifndef USB_VIDEO_ROWS_PER_CHUNK
+#define USB_VIDEO_ROWS_PER_CHUNK 16
+#endif
 
 const mp_obj_type_t usb_video_stream_type;
 
@@ -35,6 +41,7 @@ static bool _send_frame(void)
     uint16_t w = LCD_MP_WIDTH;
     uint16_t h = LCD_MP_HEIGHT;
 
+    // Send header
     uint8_t hdr[USB_VIDEO_HDR_SIZE];
     hdr[0] = (uint8_t)(USB_VIDEO_MAGIC >> 0);
     hdr[1] = (uint8_t)(USB_VIDEO_MAGIC >> 8);
@@ -46,14 +53,20 @@ static bool _send_frame(void)
     hdr[7] = (uint8_t)(h >> 8);
     hdr[8] = USB_VIDEO_FORMAT_RGB332;
     hdr[9] = 0;
+    mp_usbd_cdc_tx_strn((const char *)hdr, USB_VIDEO_HDR_SIZE);
+    mp_usbd_task();
 
-    mp_hal_stdout_tx_strn((const char *)hdr, USB_VIDEO_HDR_SIZE);
-
-    uint8_t row_buf[LCD_MP_WIDTH];
-    for (uint16_t ry = 0; ry < h; ry++)
+    // Stream pixel rows, drain FIFO after each chunk
+    uint8_t chunk[USB_VIDEO_ROWS_PER_CHUNK * LCD_MP_WIDTH];
+    for (uint16_t ry = 0; ry < h; ry += USB_VIDEO_ROWS_PER_CHUNK)
     {
-        LCD_MP_READ_ROW(ry, row_buf);
-        mp_hal_stdout_tx_strn((const char *)row_buf, w);
+        uint16_t rows = (h - ry < USB_VIDEO_ROWS_PER_CHUNK) ? (h - ry) : USB_VIDEO_ROWS_PER_CHUNK;
+        for (uint16_t r = 0; r < rows; r++)
+        {
+            LCD_MP_READ_ROW(ry + r, chunk + r * w);
+        }
+        mp_usbd_cdc_tx_strn((const char *)chunk, (uint32_t)rows * w);
+        mp_usbd_task();
     }
     return true;
 }

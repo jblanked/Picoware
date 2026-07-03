@@ -27,14 +27,14 @@ try:
 except ImportError:
     serial = None
 
-# Wire protocol constants 
 USB_VIDEO_MAGIC = 0x50494356
+USB_VIDEO_MAGIC_BYTES = struct.pack("<I", USB_VIDEO_MAGIC)
 USB_VIDEO_HDR_SIZE = 10
 USB_VIDEO_FORMAT_RGB332 = 0
 USB_VIDEO_FORMAT_RGB565 = 1
 
 # Pre-computed RGB332 to RGB888 lookup table
-# Index by RGB332 byte, yields 3 consecutive RGB888 bytes (R, G, B)
+# RGB332-to-RGB888 lookup table, indexed by pixel byte
 _RGB332_TO_RGB888 = bytes(
     v
     for r3 in range(8)
@@ -46,17 +46,6 @@ _RGB332_TO_RGB888 = bytes(
         ((b2 << 6) | (b2 << 4) | (b2 << 2) | b2),  # B
     )
 )
-
-
-def rgb332_to_rgb888(pixel):
-    """Convert a single RGB332 byte to (R, G, B) tuple."""
-    r3 = (pixel >> 5) & 0x07
-    g3 = (pixel >> 2) & 0x07
-    b2 = pixel & 0x03
-    r = (r3 * 255 + 3) // 7
-    g = (g3 * 255 + 3) // 7
-    b = (b2 * 255 + 1) // 3
-    return r, g, b
 
 
 def decode_frame(data, width, height, fmt):
@@ -130,12 +119,18 @@ def find_picoware_port():
 
 
 def main():
+    """Run the USB video viewer event loop.
+
+    Opens a serial port, ingests framed video data, and renders decoded
+    frames in a pygame window until the user exits.
+    """
     parser = argparse.ArgumentParser(description="Picoware USB Video Viewer")
     parser.add_argument("--port", "-p", default=None, help="USB serial port (e.g. /dev/ttyACM0)")
     parser.add_argument("--scale", "-s", type=int, default=2, help="Window scale factor (default: 2)")
     parser.add_argument("--list", "-l", action="store_true", help="List available serial ports")
-    parser.add_argument("--baud", "-b", type=int, default=115200, help="Serial baud rate (default: 115200)")
-    parser.add_argument("--fps", type=int, default=30, help="Target render FPS (default: 30)")
+    parser.add_argument("--baud", "-b", type=int, default=2000000, help="Serial line coding (default: 2000000)")
+    parser.add_argument("--fps", type=int, default=0, help="Render cap; 0 means uncapped")
+    parser.add_argument("--read-chunk", type=int, default=65536, help="Max bytes to read per loop")
     args = parser.parse_args()
 
     if args.list:
@@ -155,7 +150,7 @@ def main():
         sys.exit(1)
 
     print(f"Connecting to {port} at {args.baud} baud...")
-    ser = serial.Serial(port, args.baud, timeout=2)
+    ser = serial.Serial(port, args.baud, timeout=0)
     ser.reset_input_buffer()
     print("Connected. Waiting for frames...")
 
@@ -196,28 +191,41 @@ def main():
                     scale = 4
                     window = pygame.display.set_mode((width * scale, height * scale))
 
-        remaining = ser.in_waiting
-        if remaining:
-            buf.extend(ser.read(remaining))
+        chunk = ser.read(max(1, args.read_chunk))
+        if chunk:
+            buf.extend(chunk)
+        elif args.fps <= 0:
+            time.sleep(0.001)
 
-        while len(buf) >= USB_VIDEO_HDR_SIZE:
-            magic = struct.unpack_from("<I", buf, 0)[0]
-            if magic != USB_VIDEO_MAGIC:
-                buf.pop(0)
-                continue
+        while True:
+            if len(buf) < USB_VIDEO_HDR_SIZE:
+                break
+
+            start = buf.find(USB_VIDEO_MAGIC_BYTES)
+            if start < 0:
+                keep = len(USB_VIDEO_MAGIC_BYTES) - 1
+                if len(buf) > keep:
+                    del buf[:-keep]
+                break
+            if start > 0:
+                del buf[:start]
+            if len(buf) < USB_VIDEO_HDR_SIZE:
+                break
 
             w = struct.unpack_from("<H", buf, 4)[0]
             h = struct.unpack_from("<H", buf, 6)[0]
             fmt = buf[8]
 
+            if w == 0 or h == 0 or w > 1024 or h > 1024:
+                del buf[0]
+                continue
+
             pixel_size = w * h if fmt == USB_VIDEO_FORMAT_RGB332 else w * h * 2
             frame_size = USB_VIDEO_HDR_SIZE + pixel_size
-
             if len(buf) < frame_size:
                 break
 
-            # Decode and render
-            frame_data = decode_frame(buf[USB_VIDEO_HDR_SIZE:frame_size], w, h, fmt)
+            frame_data = decode_frame(memoryview(buf)[USB_VIDEO_HDR_SIZE:frame_size], w, h, fmt)
             if frame_data:
                 if w != width or h != height:
                     width, height = w, h
@@ -241,9 +249,10 @@ def main():
 
                 pygame.display.flip()
 
-            buf = buf[frame_size:]
+            del buf[:frame_size]
 
-        clock.tick(args.fps)
+        if args.fps > 0:
+            clock.tick(args.fps)
 
     ser.close()
     pygame.quit()

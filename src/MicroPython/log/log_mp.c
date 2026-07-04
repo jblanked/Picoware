@@ -21,7 +21,7 @@ bool log_message(const char *message)
     char *full_message = (char *)m_malloc(strlen(log_type_str) + strlen(message) + 2); // +2 for newline and null terminator
     if (!full_message)
     {
-        mp_print(&mp_plat_print, "Log: memory allocation failed for log message\n");
+        mp_printf(&mp_plat_print, "Log: memory allocation failed for log message\n");
         return false;
     }
     snprintf(full_message, strlen(log_type_str) + strlen(message) + 2, "%s%s\n", log_type_str, message);
@@ -194,7 +194,7 @@ mp_obj_t log_mp_log(size_t n_args, const mp_obj_t *args)
     char *full_message = (char *)m_malloc(strlen(log_type_str) + strlen(message) + 2); // +2 for newline and null terminator
     if (!full_message)
     {
-        mp_print(&mp_plat_print, "Log: memory allocation failed for log message\n");
+        mp_printf(&mp_plat_print, "Log: memory allocation failed for log message\n");
         return mp_const_false;
     }
     snprintf(full_message, strlen(log_type_str) + strlen(message) + 2, "%s%s\n", log_type_str, message);

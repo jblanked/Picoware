@@ -14,6 +14,26 @@
 
 const mp_obj_type_t log_mp_type;
 
+bool log_message(const char *message)
+{
+    // Prepend log type to message
+    const char *log_type_str = "[DEBUG]";
+    char *full_message = (char *)m_malloc(strlen(log_type_str) + strlen(message) + 2); // +2 for newline and null terminator
+    if (!full_message)
+    {
+        mp_print(&mp_plat_print, "Log: memory allocation failed for log message\n");
+        return false;
+    }
+    snprintf(full_message, strlen(log_type_str) + strlen(message) + 2, "%s%s\n", log_type_str, message);
+    bool success = true;
+    mp_printf(&mp_plat_print, "%s", full_message);
+#ifdef LOG_STORAGE_WRITE
+    success = LOG_STORAGE_WRITE("picoware/log.txt", full_message, strlen(full_message), false);
+#endif
+    m_free(full_message);
+    return success;
+}
+
 void log_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
 {
     (void)kind;
@@ -172,6 +192,11 @@ mp_obj_t log_mp_log(size_t n_args, const mp_obj_t *args)
         break;
     };
     char *full_message = (char *)m_malloc(strlen(log_type_str) + strlen(message) + 2); // +2 for newline and null terminator
+    if (!full_message)
+    {
+        mp_print(&mp_plat_print, "Log: memory allocation failed for log message\n");
+        return mp_const_false;
+    }
     snprintf(full_message, strlen(log_type_str) + strlen(message) + 2, "%s%s\n", log_type_str, message);
     bool success = true;
     if (self->mode == LOG_MODE_REPL || self->mode == LOG_MODE_ALL)

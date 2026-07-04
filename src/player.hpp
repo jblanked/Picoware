@@ -113,7 +113,7 @@ private:
     GameMainView currentMainView = GameViewWelcome;                         // current main view of the game
     MenuSettingsIndex currentSettingsIndex = MenuSettingsMain;              // current settings index (must be in the GameViewSystemMenu in the Settings tab)
     TitleIndex currentTitleIndex = TitleIndexStart;                         // current title index (must be in the GameViewTitle)
-    static const char *downloadFiles[16];                                   // list of files to download from the server if assets are not found locally
+    static const char *downloadFiles[27];                                   // list of files to download from the server if assets are not found locally
     int downloadFileIndex = 0;                                              // index of the asset currently being downloaded
     bool downloadInProgress = false;                                        // true while an async file download is in progress
     char downloadStatusText[64];                                            // status text to show during asset downloading

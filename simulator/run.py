@@ -237,6 +237,72 @@ def _run_main():
     namespace["main"]()
 
 
+def _install_view_tracking():
+    """Report ViewManager transitions to the simulator harness."""
+    try:
+        import sim_runtime
+        from picoware.system.view_manager import ViewManager
+    except Exception:
+        return
+
+    if getattr(ViewManager, "_sim_view_tracking_installed", False):
+        return
+
+    def current_name(manager):
+        view = getattr(manager, "_current_view", None)
+        return getattr(view, "name", "")
+
+    def note(manager):
+        try:
+            name = current_name(manager)
+            if name != getattr(sim_runtime, "_current_view_name", ""):
+                sim_runtime.note_view(name)
+        except Exception:
+            pass
+
+    def note_name(name):
+        try:
+            if str(name or "") != getattr(sim_runtime, "_current_view_name", ""):
+                sim_runtime.note_view(name)
+        except Exception:
+            pass
+
+    original_set = ViewManager.set
+    original_switch_to = ViewManager.switch_to
+    original_back = ViewManager.back
+    original_remove = ViewManager.remove
+
+    def tracked_set(self, *args, **kwargs):
+        if args:
+            note_name(args[0])
+        result = original_set(self, *args, **kwargs)
+        note(self)
+        return result
+
+    def tracked_switch_to(self, *args, **kwargs):
+        if args:
+            note_name(args[0])
+        result = original_switch_to(self, *args, **kwargs)
+        note(self)
+        return result
+
+    def tracked_back(self, *args, **kwargs):
+        result = original_back(self, *args, **kwargs)
+        note(self)
+        return result
+
+    def tracked_remove(self, *args, **kwargs):
+        result = original_remove(self, *args, **kwargs)
+        note(self)
+        return result
+
+    ViewManager.set = tracked_set
+    ViewManager.switch_to = tracked_switch_to
+    ViewManager.back = tracked_back
+    ViewManager.remove = tracked_remove
+    ViewManager._sim_view_tracking_installed = True
+
+
 def _quote(path):
     """Shell-quote a path string."""
     return "'" + path.replace("'", "'\"'\"'") + "'"
@@ -572,6 +638,7 @@ def main():
     if opts["capabilities"]:
         sim_runtime.print_capabilities()
         return
+    _install_view_tracking()
     try:
         if opts["open"]:
             sim_runtime.request_open(opts["open"])

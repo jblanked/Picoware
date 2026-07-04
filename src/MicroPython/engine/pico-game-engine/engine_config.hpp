@@ -77,4 +77,5 @@
 #define ENGINE_STORAGE_READ storage_file_read      // (const char *file_path, void *buffer, size_t buffer_size) -> size_t
 #define ENGINE_STORAGE_WRITE storage_file_write    // (const char *file_path, const void *data, size_t data_size) -> bool
 #define ENGINE_STORAGE_FILE_LIST storage_file_list // (const char *pattern, char filenames[][256], uint16_t skip, uint16_t max_count) -> uint16_t
+#define ENGINE_STORAGE_SIZE storage_file_size      // (const char *file_path) -> size_t
 #endif

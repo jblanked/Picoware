@@ -1,11 +1,11 @@
 #pragma once
 
 // general
-#define ENGINE_MAX_TRIANGLES_PER_SPRITE 256
+#define ENGINE_MAX_TRIANGLES_PER_SPRITE 2048
 
 // logging
-#define ENGINE_LOG_INCLUDE "py/runtime.h"
-#define ENGINE_LOG_INFO(...) mp_printf(&mp_plat_print, __VA_ARGS__)
+#define ENGINE_LOG_INCLUDE "../log/log_mp.h"
+#define ENGINE_LOG_INFO(...) LOG_MESSAGE(__VA_ARGS__)
 
 // memory
 #if defined(PICOCALC)

@@ -4,10 +4,11 @@
 #include <stdio.h>
 #include <pico/stdio.h>
 #include "py/runtime.h"
+#include "../../../log/log_mp.h"
 
 #if ENABLE_DEBUG
 #define DBG_INIT()
-#define DBG_INFO(...) mp_printf(&mp_plat_print, __VA_ARGS__)
+#define DBG_INFO(...) LOG_MESSAGE(__VA_ARGS__)
 #else
 #define DBG_INIT()
 #define DBG_INFO(...)

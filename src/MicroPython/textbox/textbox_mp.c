@@ -1,9 +1,10 @@
 #include "textbox_mp.h"
 #include "../lcd/lcd_config.h"
 #include "../font/font.h"
+#include "../log/log_mp.h"
 
 #ifndef PRINT
-#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
+#define PRINT(...) LOG_MESSAGE(__VA_ARGS__)
 #endif
 
 #ifdef LCD_INCLUDE

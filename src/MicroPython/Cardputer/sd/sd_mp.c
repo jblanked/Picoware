@@ -11,11 +11,13 @@
 #include <time.h>
 #include <unistd.h>
 
-const mp_obj_type_t mp_fat32_file_type;
+#include "../../log/log_mp.h"
 
 #ifndef PRINT
-#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
+#define PRINT(...) LOG_MESSAGE(__VA_ARGS__)
 #endif
+
+const mp_obj_type_t mp_fat32_file_type;
 
 #define SD_MP_ROOT "/sdcard"
 #define SD_MP_PATH_MAX (512)

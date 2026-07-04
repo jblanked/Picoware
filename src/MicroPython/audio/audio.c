@@ -4,6 +4,11 @@
 #include "hardware/gpio.h"
 #include "hardware/pwm.h"
 #include "pico/time.h"
+#include "../log/log_mp.h"
+
+#ifndef PRINT
+#define PRINT(...) LOG_MESSAGE(__VA_ARGS__)
+#endif
 
 #include "audio.h"
 #include "audio.pio.h"
@@ -21,11 +26,6 @@
 
 #ifndef PICOCALC
 volatile bool user_interrupt = false;
-#endif
-
-#include "py/runtime.h"
-#ifndef PRINT
-#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
 #endif
 
 #include "pico/multicore.h"
@@ -332,23 +332,27 @@ static void audio_mp3_core1_entry(void)
         {
             uint64_t target = (uint64_t)mp3_pending_seek;
             mp3_pending_seek = -1;
-            
+
             uint32_t hz = mp3_dec.info.hz > 0 ? mp3_dec.info.hz : 44100;
             uint32_t channels = mp3_dec.info.channels > 0 ? mp3_dec.info.channels : 2;
             uint64_t sr_ch = (uint64_t)hz * channels;
-            
+
             uint32_t file_size = mp3_file.file_size;
             uint32_t avg_bitrate = mp3_dec.info.bitrate_kbps;
-            if (avg_bitrate == 0) avg_bitrate = 128;
+            if (avg_bitrate == 0)
+                avg_bitrate = 128;
             uint64_t total_samples = ((uint64_t)file_size * 8 / avg_bitrate) * sr_ch / 1000;
-            if (mp3_dec.samples > 0) total_samples = mp3_dec.samples;
-            
+            if (mp3_dec.samples > 0)
+                total_samples = mp3_dec.samples;
+
             uint64_t target_byte = 0;
-            if (total_samples > 0) {
+            if (total_samples > 0)
+            {
                 target_byte = (target * file_size) / total_samples;
             }
-            if (target_byte > file_size) target_byte = file_size;
-            
+            if (target_byte > file_size)
+                target_byte = file_size;
+
             mp3dec_ex_seek(&mp3_dec, target_byte);
             mp3_dec.cur_sample = target;
             stream_ring_read = stream_ring_write;
@@ -508,7 +512,8 @@ audio_info_t audio_get_info(void)
 {
     audio_info_t info = {0, 0, 0, 0};
 #if SD_AVAILABLE
-    if (is_playing && mp3_core1_running) {
+    if (is_playing && mp3_core1_running)
+    {
         info.sample_rate = mp3_dec.info.hz;
         info.channels = mp3_dec.info.channels;
         info.duration = mp3_dec.samples;
@@ -521,7 +526,8 @@ audio_info_t audio_get_info(void)
 bool audio_seek(uint64_t target_sample)
 {
 #if SD_AVAILABLE
-    if (is_playing && mp3_core1_running) {
+    if (is_playing && mp3_core1_running)
+    {
         mp3_pending_seek = (int64_t)target_sample;
         return true;
     }

@@ -37,7 +37,7 @@ void read_cart_ram_file(struct gb_s *gb)
             }
             SD_FILE_CLOSE(fh);
         }
-        DBG_INFO("I read_cart_ram_file(%s) COMPLETE (%lu bytes)\n", filename, save_size);
+        DBG_INFO("I read_cart_ram_file(%s) COMPLETE (%u bytes)\n", filename, save_size);
     }
     else
     {
@@ -69,7 +69,7 @@ void write_cart_ram_file(struct gb_s *gb)
             }
             SD_FILE_CLOSE(fh);
         }
-        DBG_INFO("I write_cart_ram_file(%s) COMPLETE (%lu bytes)\n", filename, save_size);
+        DBG_INFO("I write_cart_ram_file(%s) COMPLETE (%u bytes)\n", filename, save_size);
     }
     else
     {

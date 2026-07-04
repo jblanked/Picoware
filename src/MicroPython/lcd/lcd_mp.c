@@ -1,19 +1,19 @@
 #include "lcd_mp.h"
 #include "py/mperrno.h"
+#include "../vector/vector_mp.h"
+#include "../log/log_mp.h"
+
+#ifndef PRINT
+#define PRINT(...) LOG_MESSAGE(__VA_ARGS__)
+#endif
 
 #ifdef LCD_INCLUDE
 #include LCD_INCLUDE
 #endif
 
-#ifndef PRINT
-#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
-#endif
-
 #if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER)
 #include "../sd/storage.h"
 #endif
-
-#include "../vector/vector_mp.h"
 
 bool (*_lcd_usb_video_cb)(void) = NULL; // USB video streaming callback, set by usb_video module
 

@@ -8,12 +8,13 @@
 #include "stdio.h"
 #include <stdlib.h>
 #include <string.h>
-
-const mp_obj_type_t mp_fat32_file_type;
+#include "../log/log_mp.h"
 
 #ifndef PRINT
-#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
+#define PRINT(...) LOG_MESSAGE(__VA_ARGS__)
 #endif
+
+const mp_obj_type_t mp_fat32_file_type;
 
 void mp_fat32_file_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
 {

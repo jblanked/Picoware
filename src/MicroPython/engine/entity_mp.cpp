@@ -3,10 +3,7 @@
 #include "engine_mp.h"
 #include "image_mp.h"
 #include "pico-game-engine/engine/entity.hpp"
-//
-#ifndef PRINT
-#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
-#endif
+#include ENGINE_LOG_INCLUDE
 
 static inline Entity *entity_get_context(entity_mp_obj_t *self)
 {
@@ -156,7 +153,7 @@ static void entity_start_trampoline(Entity *e, Game *g, void *ctx)
     mp_obj_t current_game = engine_mp_get_current_game();
     if (current_game == MP_OBJ_NULL || current_game == mp_const_none)
     {
-        PRINT("Warning: entity_start_trampoline called but no current game context\n");
+        ENGINE_LOG_INFO("Warning: entity_start_trampoline called but no current game context\n");
         return;
     }
 
@@ -182,7 +179,7 @@ static void entity_stop_trampoline(Entity *e, Game *g, void *ctx)
     mp_obj_t current_game = engine_mp_get_current_game();
     if (current_game == MP_OBJ_NULL || current_game == mp_const_none)
     {
-        PRINT("Warning: entity_stop_trampoline called but no current game context\n");
+        ENGINE_LOG_INFO("Warning: entity_stop_trampoline called but no current game context\n");
         return;
     }
 
@@ -210,7 +207,7 @@ static void entity_update_trampoline(Entity *e, Game *g, void *ctx)
     mp_obj_t current_game = engine_mp_get_current_game();
     if (current_game == MP_OBJ_NULL || current_game == mp_const_none)
     {
-        PRINT("Warning: entity_update_trampoline called but no current game context\n");
+        ENGINE_LOG_INFO("Warning: entity_update_trampoline called but no current game context\n");
         return;
     }
 
@@ -238,20 +235,20 @@ static void entity_render_trampoline(Entity *e, Draw *d, Game *g, void *ctx)
     mp_obj_t current_game = engine_mp_get_current_game();
     if (current_game == MP_OBJ_NULL || current_game == mp_const_none)
     {
-        PRINT("Warning: entity_render_trampoline called but no current game context\n");
+        ENGINE_LOG_INFO("Warning: entity_render_trampoline called but no current game context\n");
         return;
     }
     mp_obj_t native_game = mp_obj_cast_to_native_base(current_game, MP_OBJ_FROM_PTR(&game_mp_type));
     if (native_game == MP_OBJ_NULL)
     {
-        PRINT("Warning: entity_render_trampoline could not resolve native game base\n");
+        ENGINE_LOG_INFO("Warning: entity_render_trampoline could not resolve native game base\n");
         return;
     }
     game_mp_obj_t *game_ptr = static_cast<game_mp_obj_t *>(MP_OBJ_TO_PTR(native_game));
     mp_obj_t draw_obj = game_ptr->draw;
     if (draw_obj == MP_OBJ_NULL || draw_obj == mp_const_none)
     {
-        PRINT("Warning: entity_render_trampoline called but game has no draw object\n");
+        ENGINE_LOG_INFO("Warning: entity_render_trampoline called but game has no draw object\n");
         return;
     }
 
@@ -277,7 +274,7 @@ static void entity_collision_trampoline(Entity *e, Entity *other, Game *g, void 
     mp_obj_t current_game = engine_mp_get_current_game();
     if (current_game == MP_OBJ_NULL || current_game == mp_const_none)
     {
-        PRINT("Warning: entity_collision_trampoline called but no current game context\n");
+        ENGINE_LOG_INFO("Warning: entity_collision_trampoline called but no current game context\n");
         return;
     }
 

@@ -86,12 +86,7 @@ void usb_video_stream_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_pri
 mp_obj_t usb_video_stream_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
     mp_arg_check_num(n_args, n_kw, 0, 2, false);
-#if defined(CARDPUTER) || defined(CROWPANEL_10_1)
-    // let gc handle cleanup
-    usb_video_stream_obj_t *self = mp_obj_malloc(usb_video_stream_obj_t, &usb_video_stream_type);
-#else
     usb_video_stream_obj_t *self = mp_obj_malloc_with_finaliser(usb_video_stream_obj_t, &usb_video_stream_type);
-#endif
     self->base.type = &usb_video_stream_type;
     self->active = false;
     self->pixel_format = USB_VIDEO_FORMAT_RGB332;

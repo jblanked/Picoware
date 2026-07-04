@@ -11,6 +11,7 @@ extern "C"
 {
 #endif
 
+#include <stdio.h>
 #include "py/runtime.h"
 #include "py/obj.h"
 #include "py/objarray.h"

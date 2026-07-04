@@ -409,3 +409,7 @@ target_include_directories(usermod_websocket INTERFACE
 )
 
 target_link_libraries(usermod INTERFACE usermod_websocket) 
+
+
+# Include mjs module
+include(${CMAKE_CURRENT_LIST_DIR}/../../mjs/micropython.cmake)

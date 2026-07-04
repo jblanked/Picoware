@@ -81,6 +81,9 @@ rm -rf "$micropython_dir"/modules/usb_video
 # remove websocket module if it exists
 rm -rf "$micropython_dir"/modules/websocket
 
+# remove mjs module if it exists
+rm -rf "$micropython_dir"/modules/mjs
+
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"
@@ -166,6 +169,9 @@ cp -r "$picoware_dir"/src/MicroPython/usb_video "$micropython_dir"/modules/usb_v
 
 # copy websocket module
 cp -r "$picoware_dir"/src/MicroPython/websocket "$micropython_dir"/modules/websocket
+
+# copy mjs module
+cp -r "$picoware_dir"/src/MicroPython/mjs "$micropython_dir"/modules/mjs
 
 echo "Starting Waveshare 3.49 build process..."
 

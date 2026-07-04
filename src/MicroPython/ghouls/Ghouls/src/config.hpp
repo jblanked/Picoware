@@ -25,8 +25,14 @@
 #define ENEMY_SPAWN_MAX 25
 
 // time
+#if defined(CARDPUTER)
+#include "esp_timer.h"
+#define TIME_INCLUDE "esp_timer.h"
+#define TIME_MILLIS esp_timer_get_time() / 100
+#else
 #define TIME_INCLUDE "pico/time.h"
 #define TIME_MILLIS to_ms_since_boot(get_absolute_time()) * 10
+#endif
 
 // buttons
 #define INPUT_KEY_UP 0
@@ -58,10 +64,12 @@
 #define JSON_GET_VALUE get_json_value             // (const char *key, const char *json_str) -> char* (caller must free)
 #define JSON_GET_ARRAY_VALUE get_json_array_value // (const char *key, int index, const char *json_str) -> char* (caller must free)
 
-// sound
+// sound (disabled on Cardputer — no audio hardware abstraction)
+#ifndef CARDPUTER
 #define SOUND_INCLUDE "../../../audio/audio.h"
 // #define SOUND_PLAY_MONO_FREQUENCY sound_play_mono_frequency     // (int frequency, int duration_ms)
 #define SOUND_PLAY_STEREO_FREQUENCY audio_play_sound_blocking // (int left_freq, int right_freq, int duration_ms)
 #define SOUND_PLAY_PCM audio_push_samples                     // (const int16_t *samples, int count)
 #define SOUND_PLAY_WAV audio_play_wav                         // (const char *path)
 #define SOUND_STOP audio_stop                                 // () -> void
+#endif

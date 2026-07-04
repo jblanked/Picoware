@@ -716,7 +716,7 @@ void Player::drawMapPackView(Draw *canvas)
         mapPackCount = 0;
         for (uint16_t i = 0; i < count && mapPackCount < MAX_MAP_PACK_FILES; i++)
         {
-            snprintf(mapPackFiles[mapPackCount], sizeof(mapPackFiles[mapPackCount]), "%s", rawFiles[i]);
+            snprintf(mapPackFiles[mapPackCount], sizeof(mapPackFiles[mapPackCount]), "%.63s", rawFiles[i]);
             mapPackCount++;
         }
 #endif

@@ -34,6 +34,44 @@ bool log_message(const char *message)
     return success;
 }
 
+bool log_message_with_type(LogType type, const char *message)
+{
+    // Prepend log type to message
+    const char *log_type_str;
+    switch (type)
+    {
+    case LOG_TYPE_INFO:
+        log_type_str = "[INFO]";
+        break;
+    case LOG_TYPE_WARN:
+        log_type_str = "[WARN]";
+        break;
+    case LOG_TYPE_ERROR:
+        log_type_str = "[ERROR]";
+        break;
+    case LOG_TYPE_DEBUG:
+        log_type_str = "[DEBUG]";
+        break;
+    default:
+        log_type_str = "";
+        break;
+    };
+    char *full_message = (char *)m_malloc(strlen(log_type_str) + strlen(message) + 2); // +2 for newline and null terminator
+    if (!full_message)
+    {
+        mp_printf(&mp_plat_print, "Log: memory allocation failed for log message\n");
+        return false;
+    }
+    snprintf(full_message, strlen(log_type_str) + strlen(message) + 2, "%s%s\n", log_type_str, message);
+    bool success = true;
+    mp_printf(&mp_plat_print, "%s", full_message);
+#ifdef LOG_STORAGE_WRITE
+    success = LOG_STORAGE_WRITE("picoware/log.txt", full_message, strlen(full_message), false);
+#endif
+    m_free(full_message);
+    return success;
+}
+
 void log_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
 {
     (void)kind;

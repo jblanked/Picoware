@@ -1,4 +1,6 @@
-# Floating Orbs screensaver
+from picoware.system.buttons import BUTTON_BACK
+from picoware.system.colors import  TFT_WHITE
+from math import sin as _sin
 
 _orbs = []
 _colors = []
@@ -55,21 +57,12 @@ def start(view_manager):
 
 def run(view_manager):
     '''Run the screensaver'''
-    from picoware.system.buttons import (
-        BUTTON_BACK, BUTTON_BACKSPACE, BUTTON_ESCAPE,
-        BUTTON_CENTER, BUTTON_START,
-    )
-    from picoware.system.vector import Vector
-    from picoware.system.colors import TFT_BLACK, TFT_WHITE
-    from math import sin as _sin
 
     global _frame
 
     button = view_manager.button
 
-    exit_buttons = [BUTTON_BACK, BUTTON_BACKSPACE, BUTTON_ESCAPE,
-                    BUTTON_CENTER, BUTTON_START]
-    if button in exit_buttons:
+    if button == BUTTON_BACK:
         view_manager.back()
         return
 
@@ -78,7 +71,7 @@ def run(view_manager):
 
     _frame += 1
 
-    draw.clear(color=TFT_BLACK)
+    draw.erase()
 
     for i, orb in enumerate(_orbs):
         v = _velocities[i]
@@ -111,15 +104,14 @@ def run(view_manager):
             gc = _fade_color(color, fade // 4)
             gr = glow_radius - g * 2
             if gr > 0:
-                draw.fill_circle(Vector(int(orb.x), int(orb.y), 0), gr, color=gc)
+                draw._fill_circle(int(orb.x), int(orb.y), gr, gc)
 
-        draw.fill_circle(Vector(int(orb.x), int(orb.y), 0), r, color=color)
+        draw._fill_circle(int(orb.x), int(orb.y), r, color)
 
         hr = r // 3
         if hr < 2:
             hr = 2
-        draw.fill_circle(Vector(int(orb.x) - hr // 2, int(orb.y) - hr // 2, 0),
-                         hr, color=_fade_color(color, 200))
+        draw._fill_circle(int(orb.x) - hr // 2, int(orb.y) - hr // 2, hr, _fade_color(color, 200))
 
         if _frame % 15 == 0:
             for j in range(i + 1, len(_orbs)):
@@ -130,10 +122,10 @@ def run(view_manager):
                 if dist < 80:
                     alpha = int(80 * (1.0 - dist / 80.0))
                     line_color = _fade_color(TFT_WHITE, alpha)
-                    draw.line_custom(
-                        Vector(int(orb.x), int(orb.y), 0),
-                        Vector(int(other.x), int(other.y), 0),
-                        color=line_color,
+                    draw._line(
+                        int(orb.x), int(orb.y),
+                        int(other.x), int(other.y),
+                        line_color,
                     )
 
     draw.swap()

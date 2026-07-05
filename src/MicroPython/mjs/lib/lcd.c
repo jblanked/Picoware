@@ -9,114 +9,7 @@ static uint16_t arg_u16(struct mjs *mjs, int idx)
     return (uint16_t)mjs_get_int(mjs, mjs_arg(mjs, idx));
 }
 
-static void lcd_mp_clear(struct mjs *mjs)
-{
-    uint16_t color = arg_u16(mjs, 0);
-    LCD_MP_CLEAR(color);
-    mjs_return(mjs, mjs_mk_undefined());
-}
-
-static void lcd_mp_pixel(struct mjs *mjs)
-{
-    uint16_t x = arg_u16(mjs, 0);
-    uint16_t y = arg_u16(mjs, 1);
-    uint16_t color = arg_u16(mjs, 2);
-    LCD_MP_PIXEL(x, y, color);
-    mjs_return(mjs, mjs_mk_undefined());
-}
-
-static void lcd_mp_line(struct mjs *mjs)
-{
-    uint16_t x1 = arg_u16(mjs, 0);
-    uint16_t y1 = arg_u16(mjs, 1);
-    uint16_t x2 = arg_u16(mjs, 2);
-    uint16_t y2 = arg_u16(mjs, 3);
-    uint16_t color = arg_u16(mjs, 4);
-    LCD_MP_LINE(x1, y1, x2, y2, color);
-    mjs_return(mjs, mjs_mk_undefined());
-}
-
-static void lcd_mp_rectangle(struct mjs *mjs)
-{
-    uint16_t x = arg_u16(mjs, 0);
-    uint16_t y = arg_u16(mjs, 1);
-    uint16_t w = arg_u16(mjs, 2);
-    uint16_t h = arg_u16(mjs, 3);
-    uint16_t color = arg_u16(mjs, 4);
-    LCD_MP_RECTANGLE(x, y, w, h, color);
-    mjs_return(mjs, mjs_mk_undefined());
-}
-
-static void lcd_mp_fill_rectangle(struct mjs *mjs)
-{
-    uint16_t x = arg_u16(mjs, 0);
-    uint16_t y = arg_u16(mjs, 1);
-    uint16_t w = arg_u16(mjs, 2);
-    uint16_t h = arg_u16(mjs, 3);
-    uint16_t color = arg_u16(mjs, 4);
-    LCD_MP_FILL_RECTANGLE(x, y, w, h, color);
-    mjs_return(mjs, mjs_mk_undefined());
-}
-
-static void lcd_mp_fill_round_rectangle(struct mjs *mjs)
-{
-    uint16_t x = arg_u16(mjs, 0);
-    uint16_t y = arg_u16(mjs, 1);
-    uint16_t w = arg_u16(mjs, 2);
-    uint16_t h = arg_u16(mjs, 3);
-    uint16_t r = arg_u16(mjs, 4);
-    uint16_t color = arg_u16(mjs, 5);
-    LCD_MP_FILL_ROUND_RECTANGLE(x, y, w, h, r, color);
-    mjs_return(mjs, mjs_mk_undefined());
-}
-
-static void lcd_mp_circle(struct mjs *mjs)
-{
-    uint16_t cx = arg_u16(mjs, 0);
-    uint16_t cy = arg_u16(mjs, 1);
-    uint16_t radius = arg_u16(mjs, 2);
-    uint16_t color = arg_u16(mjs, 3);
-    LCD_MP_CIRCLE(cx, cy, radius, color);
-    mjs_return(mjs, mjs_mk_undefined());
-}
-
-static void lcd_mp_fill_circle(struct mjs *mjs)
-{
-    uint16_t cx = arg_u16(mjs, 0);
-    uint16_t cy = arg_u16(mjs, 1);
-    uint16_t radius = arg_u16(mjs, 2);
-    uint16_t color = arg_u16(mjs, 3);
-    LCD_MP_FILL_CIRCLE(cx, cy, radius, color);
-    mjs_return(mjs, mjs_mk_undefined());
-}
-
-static void lcd_mp_triangle(struct mjs *mjs)
-{
-    uint16_t x1 = arg_u16(mjs, 0);
-    uint16_t y1 = arg_u16(mjs, 1);
-    uint16_t x2 = arg_u16(mjs, 2);
-    uint16_t y2 = arg_u16(mjs, 3);
-    uint16_t x3 = arg_u16(mjs, 4);
-    uint16_t y3 = arg_u16(mjs, 5);
-    uint16_t color = arg_u16(mjs, 6);
-    LCD_MP_TRIANGLE(x1, y1, x2, y2, x3, y3, color);
-    mjs_return(mjs, mjs_mk_undefined());
-}
-
-static void lcd_mp_fill_triangle(struct mjs *mjs)
-{
-    uint16_t x1 = arg_u16(mjs, 0);
-    uint16_t y1 = arg_u16(mjs, 1);
-    uint16_t x2 = arg_u16(mjs, 2);
-    uint16_t y2 = arg_u16(mjs, 3);
-    uint16_t x3 = arg_u16(mjs, 4);
-    uint16_t y3 = arg_u16(mjs, 5);
-    uint16_t color = arg_u16(mjs, 6);
-    LCD_MP_FILL_TRIANGLE(x1, y1, x2, y2, x3, y3, color);
-    mjs_return(mjs, mjs_mk_undefined());
-}
-
-static void lcd_mp_char(struct mjs *mjs)
+void lcd_mp_char(struct mjs *mjs)
 {
     uint16_t x = arg_u16(mjs, 0);
     uint16_t y = arg_u16(mjs, 1);
@@ -141,7 +34,101 @@ static void lcd_mp_char(struct mjs *mjs)
     mjs_return(mjs, mjs_mk_undefined());
 }
 
-static void lcd_mp_text(struct mjs *mjs)
+void lcd_mp_circle(struct mjs *mjs)
+{
+    uint16_t cx = arg_u16(mjs, 0);
+    uint16_t cy = arg_u16(mjs, 1);
+    uint16_t radius = arg_u16(mjs, 2);
+    uint16_t color = arg_u16(mjs, 3);
+    LCD_MP_CIRCLE(cx, cy, radius, color);
+    mjs_return(mjs, mjs_mk_undefined());
+}
+
+void lcd_mp_clear(struct mjs *mjs)
+{
+    uint16_t color = arg_u16(mjs, 0);
+    LCD_MP_CLEAR(color);
+    mjs_return(mjs, mjs_mk_undefined());
+}
+
+void lcd_mp_fill_circle(struct mjs *mjs)
+{
+    uint16_t cx = arg_u16(mjs, 0);
+    uint16_t cy = arg_u16(mjs, 1);
+    uint16_t radius = arg_u16(mjs, 2);
+    uint16_t color = arg_u16(mjs, 3);
+    LCD_MP_FILL_CIRCLE(cx, cy, radius, color);
+    mjs_return(mjs, mjs_mk_undefined());
+}
+
+void lcd_mp_fill_rectangle(struct mjs *mjs)
+{
+    uint16_t x = arg_u16(mjs, 0);
+    uint16_t y = arg_u16(mjs, 1);
+    uint16_t w = arg_u16(mjs, 2);
+    uint16_t h = arg_u16(mjs, 3);
+    uint16_t color = arg_u16(mjs, 4);
+    LCD_MP_FILL_RECTANGLE(x, y, w, h, color);
+    mjs_return(mjs, mjs_mk_undefined());
+}
+
+void lcd_mp_fill_round_rectangle(struct mjs *mjs)
+{
+    uint16_t x = arg_u16(mjs, 0);
+    uint16_t y = arg_u16(mjs, 1);
+    uint16_t w = arg_u16(mjs, 2);
+    uint16_t h = arg_u16(mjs, 3);
+    uint16_t r = arg_u16(mjs, 4);
+    uint16_t color = arg_u16(mjs, 5);
+    LCD_MP_FILL_ROUND_RECTANGLE(x, y, w, h, r, color);
+    mjs_return(mjs, mjs_mk_undefined());
+}
+
+void lcd_mp_fill_triangle(struct mjs *mjs)
+{
+    uint16_t x1 = arg_u16(mjs, 0);
+    uint16_t y1 = arg_u16(mjs, 1);
+    uint16_t x2 = arg_u16(mjs, 2);
+    uint16_t y2 = arg_u16(mjs, 3);
+    uint16_t x3 = arg_u16(mjs, 4);
+    uint16_t y3 = arg_u16(mjs, 5);
+    uint16_t color = arg_u16(mjs, 6);
+    LCD_MP_FILL_TRIANGLE(x1, y1, x2, y2, x3, y3, color);
+    mjs_return(mjs, mjs_mk_undefined());
+}
+
+void lcd_mp_line(struct mjs *mjs)
+{
+    uint16_t x1 = arg_u16(mjs, 0);
+    uint16_t y1 = arg_u16(mjs, 1);
+    uint16_t x2 = arg_u16(mjs, 2);
+    uint16_t y2 = arg_u16(mjs, 3);
+    uint16_t color = arg_u16(mjs, 4);
+    LCD_MP_LINE(x1, y1, x2, y2, color);
+    mjs_return(mjs, mjs_mk_undefined());
+}
+
+void lcd_mp_pixel(struct mjs *mjs)
+{
+    uint16_t x = arg_u16(mjs, 0);
+    uint16_t y = arg_u16(mjs, 1);
+    uint16_t color = arg_u16(mjs, 2);
+    LCD_MP_PIXEL(x, y, color);
+    mjs_return(mjs, mjs_mk_undefined());
+}
+
+void lcd_mp_rectangle(struct mjs *mjs)
+{
+    uint16_t x = arg_u16(mjs, 0);
+    uint16_t y = arg_u16(mjs, 1);
+    uint16_t w = arg_u16(mjs, 2);
+    uint16_t h = arg_u16(mjs, 3);
+    uint16_t color = arg_u16(mjs, 4);
+    LCD_MP_RECTANGLE(x, y, w, h, color);
+    mjs_return(mjs, mjs_mk_undefined());
+}
+
+void lcd_mp_text(struct mjs *mjs)
 {
     uint16_t x = arg_u16(mjs, 0);
     uint16_t y = arg_u16(mjs, 1);
@@ -156,7 +143,20 @@ static void lcd_mp_text(struct mjs *mjs)
     mjs_return(mjs, mjs_mk_undefined());
 }
 
-static void lcd_mp_swap(struct mjs *mjs)
+void lcd_mp_triangle(struct mjs *mjs)
+{
+    uint16_t x1 = arg_u16(mjs, 0);
+    uint16_t y1 = arg_u16(mjs, 1);
+    uint16_t x2 = arg_u16(mjs, 2);
+    uint16_t y2 = arg_u16(mjs, 3);
+    uint16_t x3 = arg_u16(mjs, 4);
+    uint16_t y3 = arg_u16(mjs, 5);
+    uint16_t color = arg_u16(mjs, 6);
+    LCD_MP_TRIANGLE(x1, y1, x2, y2, x3, y3, color);
+    mjs_return(mjs, mjs_mk_undefined());
+}
+
+void lcd_mp_swap(struct mjs *mjs)
 {
     LCD_SWAP();
     mjs_return(mjs, mjs_mk_undefined());

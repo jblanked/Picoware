@@ -1,6 +1,7 @@
 #include <string.h>
 #include "mjs_mp.h"
 #include "mjs/mjs.h"
+#include "lib/lib.h"
 
 #if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER)
 #include "../sd/storage.h"
@@ -29,6 +30,7 @@ mp_obj_t mjs_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
     {
         mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("failed to create MJS engine"));
     }
+    lib_register(self->mjs);
     self->is_initialized = true;
     return MP_OBJ_FROM_PTR(self);
 }

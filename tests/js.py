@@ -1,6 +1,8 @@
+from picoware.system.view_manager import ViewManager
 from picoware.system.js import JS
 
-js = JS()
+vm = ViewManager()
+js = JS(vm)
 
 # Define a counter function
 js.run("""

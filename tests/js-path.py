@@ -1,6 +1,8 @@
+from picoware.system.view_manager import ViewManager
 from picoware.system.js import JS
 
-js = JS()
+vm = ViewManager()
+js = JS(vm)
 
 # function factorial(n) {
 #     if (n <= 1) return 1;

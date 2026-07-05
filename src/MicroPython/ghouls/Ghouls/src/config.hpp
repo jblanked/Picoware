@@ -25,13 +25,14 @@
 #define ENEMY_SPAWN_MAX 25
 
 // time
-#if defined(CARDPUTER)
+#if defined(CARDPUTER) || defined(ESP32) || defined(CROWPANEL_10_1)
 #include "esp_timer.h"
 #define TIME_INCLUDE "esp_timer.h"
-#define TIME_MILLIS esp_timer_get_time() / 100
+#define TIME_MILLIS esp_timer_get_time() / 1000
 #else
+#include "pico/time.h"
 #define TIME_INCLUDE "pico/time.h"
-#define TIME_MILLIS to_ms_since_boot(get_absolute_time()) * 10
+#define TIME_MILLIS to_ms_since_boot(get_absolute_time())
 #endif
 
 // buttons

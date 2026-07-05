@@ -3,6 +3,7 @@
 #include "lcd.h"
 #include "log.h"
 #include "math.h"
+#include "time.h"
 
 static inline void lib_register(struct mjs *mjs)
 {
@@ -10,4 +11,5 @@ static inline void lib_register(struct mjs *mjs)
     lcd_register(mjs);
     log_register(mjs);
     math_register(mjs);
+    time_register(mjs);
 }

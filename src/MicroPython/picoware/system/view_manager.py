@@ -580,24 +580,24 @@ class ViewManager:
 
     def run(self) -> bool:
         """Run the current view."""
-        self._button = self._input_manager.button
-        if self._button == 80:  # BUTTON_HOME
+        button = self._input_manager.button
+        self._button = button
+        if button == 80:  # BUTTON_HOME
             while self._stack_depth > 0:
                 if self._stack_depth == 1:
                     self.back(should_clear=True, should_start=True)
                 else:
                     self.back(should_clear=False, should_start=False)
-        elif self._button == 87:  # BUTTON_F1
+        elif button == 87:  # BUTTON_F1
             self._draw.screenshot("screenshot.bmp")
 
-        _data = self._thread_manager.run()
-        if _data:
-            self.log(_data)
+        if self._thread_manager.run():
+            self.log(self._thread_manager._outgoing)
 
         if self._current_view is not None:
             self._current_view.run(self)
 
-        if self._button != -1:
+        if button != -1:
             self._input_manager.reset()
             self._button = -1
 

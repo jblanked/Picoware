@@ -69,4 +69,13 @@ class JS(mjs.MJS):
                 lcd_triangle(x1, y1, x2, y2, x3, y3, parseColor(color));
             },
         };
+        let math = {
+            ceil: function(x) { return math_ceil(x); },
+            cos: function(x) { return math_cos(x); },
+            floor: function(x) { return math_floor(x); },
+            pow: function(x, y) { return math_pow(x, y); },
+            random: function() { return math_random(); },
+            sin: function(x) { return math_sin(x); },
+            sqrt: function(x) { return math_sqrt(x); },
+        };
         """)

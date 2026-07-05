@@ -6,6 +6,7 @@ target_sources(usermod_mjs INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/lib/color.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/lcd.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/log.c
+    ${CMAKE_CURRENT_LIST_DIR}/lib/math.c
 )
 
 target_include_directories(usermod_mjs INTERFACE

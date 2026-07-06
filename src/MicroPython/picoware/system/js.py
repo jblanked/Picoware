@@ -78,6 +78,12 @@ class JS(mjs.MJS):
             sin: function(x) {{ return math_sin(x); }},
             sqrt: function(x) {{ return math_sqrt(x); }},
         }};
+        let storage = {{
+            read: function(path) {{ return storage_read(path); }},
+            readChunk: function(path, offset, length) {{ return storage_read_chunk(path, offset, length); }},
+            size: function(path) {{ return storage_size(path); }},
+            write: function(path, data) {{ return storage_write(path, data); }},
+        }};
         let time = {{
             ticksDiff: function(a, b) {{ return ticks_diff(a, b); }},
             ticksMs: function() {{ return ticks_ms(); }},

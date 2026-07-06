@@ -1,0 +1,75 @@
+#include "storage.h"
+#include <string.h>
+#include "py/runtime.h"
+#include "../../sd/storage.h"
+#include "../../log/log_mp.h"
+
+static const char *storage_get_string(struct mjs *mjs, uint8_t arg)
+{
+    mjs_val_t t_arg = mjs_arg(mjs, arg);
+    size_t len;
+    return mjs_get_string(mjs, &t_arg, &len);
+}
+
+void storage_read(struct mjs *mjs)
+{
+    const char *filename = storage_get_string(mjs, 0);
+    const size_t file_size = storage_file_size(filename);
+    char *buffer = (char *)m_malloc(file_size);
+    if (buffer == NULL)
+    {
+        LOG_MESSAGE("Failed to allocate buffer for file read");
+        mjs_return(mjs, mjs_mk_undefined());
+        return;
+    }
+    const size_t bytes_read = storage_file_read(filename, buffer, file_size);
+    mjs_return(mjs, mjs_mk_string(mjs, buffer, bytes_read, 1));
+    m_free(buffer);
+}
+
+void storage_read_chunk(struct mjs *mjs)
+{
+    const char *filename = storage_get_string(mjs, 0);
+    const size_t offset = (size_t)mjs_get_int(mjs, mjs_arg(mjs, 1));
+    const size_t chunk_size = (size_t)mjs_get_int(mjs, mjs_arg(mjs, 2));
+    char *buffer = (char *)m_malloc(chunk_size);
+    if (buffer == NULL)
+    {
+        LOG_MESSAGE("Failed to allocate buffer for file read");
+        mjs_return(mjs, mjs_mk_undefined());
+        return;
+    }
+    const size_t bytes_read = storage_file_read(filename, buffer + offset, chunk_size);
+    mjs_return(mjs, mjs_mk_string(mjs, buffer + offset, bytes_read, 1));
+    m_free(buffer);
+}
+
+void storage_size(struct mjs *mjs)
+{
+    const char *filename = storage_get_string(mjs, 0);
+    const size_t file_size = storage_file_size(filename);
+    mjs_return(mjs, mjs_mk_number(mjs, file_size));
+}
+
+void storage_write(struct mjs *mjs)
+{
+    const char *filename = storage_get_string(mjs, 0);
+    const char *data = storage_get_string(mjs, 1);
+    const size_t data_len = strlen(data);
+    const size_t bytes_written = storage_file_write(filename, data, data_len);
+    mjs_return(mjs, mjs_mk_number(mjs, bytes_written));
+}
+
+void storage_register(struct mjs *mjs)
+{
+    mjs_val_t global = mjs_get_global(mjs);
+
+    mjs_set(mjs, global, "storage_read", ~0,
+            mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)storage_read));
+    mjs_set(mjs, global, "storage_read_chunk", ~0,
+            mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)storage_read_chunk));
+    mjs_set(mjs, global, "storage_size", ~0,
+            mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)storage_size));
+    mjs_set(mjs, global, "storage_write", ~0,
+            mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)storage_write));
+}

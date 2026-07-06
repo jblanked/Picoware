@@ -22,7 +22,7 @@
 #define ENGINE_MEM_FREE m_free
 
 // delay
-#if defined(CARDPUTER)
+#if defined(CARDPUTER) || defined(ESP32) || defined(CROWPANEL_10_1)
 #define ENGINE_DELAY_INCLUDE "freertos/FreeRTOS.h"
 #define ENGINE_DELAY_MS(ms) vTaskDelay(pdMS_TO_TICKS(ms))
 #else

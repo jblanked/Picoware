@@ -69,6 +69,12 @@ class JS(mjs.MJS):
                 lcd_triangle(x1, y1, x2, y2, x3, y3, parseColor(color));
             }},
         }};
+        let http = {{
+            isFinished: function() {{ return http_js_is_finished(); }},
+            getResponse: function() {{ return http_js_get_response(); }},
+            request: function(url, method, headers, body) {{ return http_js_request(url, method, headers, body); }},
+            requestStart: function(url, method, headers, body) {{ return http_js_request_start(url, method, headers, body); }},
+        }};
         let math = {{
             ceil: function(x) {{ return math_ceil(x); }},
             cos: function(x) {{ return math_cos(x); }},

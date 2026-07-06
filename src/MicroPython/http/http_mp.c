@@ -196,6 +196,124 @@ static bool header_contains(const char *headers, size_t hdr_len, const char *nee
     return false;
 }
 #endif
+
+static bool header_name_is(const char *name, size_t len, const char *needle)
+{
+    size_t nlen = strlen(needle);
+    return len == nlen && strncasecmp(name, needle, nlen) == 0;
+}
+
+static bool append_header_line(char *buf, size_t cap, int *off,
+                               const char *key, size_t key_len,
+                               const char *value, size_t value_len)
+{
+    if (!buf || !off || !key || !value || *off < 0 || (size_t)*off >= cap || key_len == 0)
+        return false;
+
+    int n = snprintf(buf + *off, cap - (size_t)*off,
+                     "%.*s: %.*s\r\n",
+                     (int)key_len, key,
+                     (int)value_len, value);
+    if (n < 0 || (size_t)n >= cap - (size_t)*off)
+        return false;
+
+    *off += n;
+    return true;
+}
+
+/* Parse JSON-style header object */
+static int append_json_object_headers(const char *headers,
+                                      char *buf, size_t cap, int off,
+                                      bool *has_ua, bool *has_accept,
+                                      bool *has_ctype, bool *has_clen,
+                                      bool *has_setting)
+{
+    if (!headers)
+        return off;
+
+    const char *p = headers;
+    while (*p && isspace((unsigned char)*p))
+        p++;
+    if (*p != '{')
+        return -1;
+    p++;
+
+    while (*p)
+    {
+        while (*p && isspace((unsigned char)*p))
+            p++;
+
+        if (*p == '}')
+            return off;
+
+        if (*p != '"')
+            return -1;
+        const char *key = ++p;
+        while (*p && *p != '"')
+        {
+            if (*p == '\\' && p[1] != '\0')
+                p += 2;
+            else
+                p++;
+        }
+        if (*p != '"')
+            return -1;
+        size_t key_len = (size_t)(p - key);
+        p++;
+
+        while (*p && isspace((unsigned char)*p))
+            p++;
+        if (*p != ':')
+            return -1;
+        p++;
+
+        while (*p && isspace((unsigned char)*p))
+            p++;
+        if (*p != '"')
+            return -1;
+        const char *value = ++p;
+        while (*p && *p != '"')
+        {
+            if (*p == '\\' && p[1] != '\0')
+                p += 2;
+            else
+                p++;
+        }
+        if (*p != '"')
+            return -1;
+        size_t value_len = (size_t)(p - value);
+        p++;
+
+        if (buf && !append_header_line(buf, cap, &off, key, key_len, value, value_len))
+            return -1;
+
+        if (has_ua && header_name_is(key, key_len, "User-Agent"))
+            *has_ua = true;
+        if (has_accept && header_name_is(key, key_len, "Accept"))
+            *has_accept = true;
+        if (has_ctype && header_name_is(key, key_len, "Content-Type"))
+            *has_ctype = true;
+        if (has_clen && header_name_is(key, key_len, "Content-Length"))
+            *has_clen = true;
+        if (has_setting && header_name_is(key, key_len, "Setting"))
+            *has_setting = true;
+
+        while (*p && isspace((unsigned char)*p))
+            p++;
+        if (*p == ',')
+        {
+            p++;
+            continue;
+        }
+        if (*p == '}')
+            return off;
+
+        return -1;
+    }
+
+    return -1;
+}
+
 /* lwIP altcp implementation (RP2040 / Waveshare) */
 #if MICROPY_PY_LWIP && !defined(NO_QSTR)
 
@@ -806,13 +924,54 @@ bool http_send_request(const char *url, const char *method,
                        method, path, hostname);
     m_free(path);
 
+    /* Detect JSON object headers */
+    bool headers_is_json_object = false;
+    if (headers_len > 0)
+    {
+        const char *h = headers;
+        while (*h && isspace((unsigned char)*h))
+            h++;
+        headers_is_json_object = (*h == '{');
+    }
+
     /* Default headers unless caller provides */
-    bool has_ua = headers_len > 0 && header_contains(headers, headers_len, "User-Agent:");
-    bool has_accept = headers_len > 0 && header_contains(headers, headers_len, "Accept:");
-    bool has_ctype = headers_len > 0 && header_contains(headers, headers_len, "Content-Type:");
-    bool has_clen = headers_len > 0 && header_contains(headers, headers_len, "Content-Length:");
-    bool has_http_ua = headers_len > 0 && header_contains(headers, headers_len, "HTTP_USER_AGENT:");
-    bool has_setting = headers_len > 0 && header_contains(headers, headers_len, "Setting:");
+    bool has_ua = false;
+    bool has_accept = false;
+    bool has_ctype = false;
+    bool has_clen = false;
+    bool has_setting = false;
+
+    if (headers_len > 0)
+    {
+        if (headers_is_json_object)
+        {
+            int parse_ret = append_json_object_headers(headers,
+                                                       NULL,
+                                                       0,
+                                                       0,
+                                                       &has_ua,
+                                                       &has_accept,
+                                                       &has_ctype,
+                                                       &has_clen,
+                                                       &has_setting);
+            if (parse_ret < 0)
+            {
+                has_ua = header_contains(headers, headers_len, "User-Agent:");
+                has_accept = header_contains(headers, headers_len, "Accept:");
+                has_ctype = header_contains(headers, headers_len, "Content-Type:");
+                has_clen = header_contains(headers, headers_len, "Content-Length:");
+                has_setting = header_contains(headers, headers_len, "Setting:");
+            }
+        }
+        else
+        {
+            has_ua = header_contains(headers, headers_len, "User-Agent:");
+            has_accept = header_contains(headers, headers_len, "Accept:");
+            has_ctype = header_contains(headers, headers_len, "Content-Type:");
+            has_clen = header_contains(headers, headers_len, "Content-Length:");
+            has_setting = header_contains(headers, headers_len, "Setting:");
+        }
+    }
 
     if (!has_ua)
         off += snprintf(s_state->request_buf + off, req_cap - off,
@@ -820,23 +979,51 @@ bool http_send_request(const char *url, const char *method,
     if (!has_accept)
         off += snprintf(s_state->request_buf + off, req_cap - off,
                         "Accept: application/json, text/plain, */*\r\n");
-    if (!has_http_ua)
-        off += snprintf(s_state->request_buf + off, req_cap - off,
-                        "HTTP_USER_AGENT: Pico\r\n");
     if (!has_setting)
         off += snprintf(s_state->request_buf + off, req_cap - off,
                         "Setting: X-Flipper-Redirect\r\n");
 
     if (headers_len > 0)
     {
-        memcpy(s_state->request_buf + off, headers, headers_len);
-        off += (int)headers_len;
-        /* Ensure \r\n termination */
-        if (off >= 2 &&
-            !(s_state->request_buf[off - 2] == '\r' &&
-              s_state->request_buf[off - 1] == '\n'))
+        if (headers_is_json_object)
         {
-            off += snprintf(s_state->request_buf + off, req_cap - off, "\r\n");
+            int parsed_off = append_json_object_headers(headers,
+                                                        s_state->request_buf,
+                                                        req_cap,
+                                                        off,
+                                                        NULL,
+                                                        NULL,
+                                                        NULL,
+                                                        NULL,
+                                                        NULL);
+            if (parsed_off >= 0)
+            {
+                off = parsed_off;
+            }
+            else
+            {
+                PRINT("HTTP: invalid JSON-style headers, using raw headers\n");
+                memcpy(s_state->request_buf + off, headers, headers_len);
+                off += (int)headers_len;
+                if (off >= 2 &&
+                    !(s_state->request_buf[off - 2] == '\r' &&
+                      s_state->request_buf[off - 1] == '\n'))
+                {
+                    off += snprintf(s_state->request_buf + off, req_cap - off, "\r\n");
+                }
+            }
+        }
+        else
+        {
+            memcpy(s_state->request_buf + off, headers, headers_len);
+            off += (int)headers_len;
+            /* Ensure \r\n termination */
+            if (off >= 2 &&
+                !(s_state->request_buf[off - 2] == '\r' &&
+                  s_state->request_buf[off - 1] == '\n'))
+            {
+                off += snprintf(s_state->request_buf + off, req_cap - off, "\r\n");
+            }
         }
     }
 
@@ -1186,30 +1373,6 @@ static void http_tls_cleanup(http_state_cardputer_t *st)
     st->tls_ctx = NULL;
 }
 
-static bool header_name_is(const char *name, size_t len, const char *needle)
-{
-    size_t nlen = strlen(needle);
-    return len == nlen && strncasecmp(name, needle, nlen) == 0;
-}
-
-static bool append_header_line(char *buf, size_t cap, int *off,
-                               const char *key, size_t key_len,
-                               const char *value, size_t value_len)
-{
-    if (!buf || !off || !key || !value || *off < 0 || (size_t)*off >= cap || key_len == 0)
-        return false;
-
-    int n = snprintf(buf + *off, cap - (size_t)*off,
-                     "%.*s: %.*s\r\n",
-                     (int)key_len, key,
-                     (int)value_len, value);
-    if (n < 0 || (size_t)n >= cap - (size_t)*off)
-        return false;
-
-    *off += n;
-    return true;
-}
-
 static bool http_alloc_response_buffer(http_state_cardputer_t *st)
 {
     if (!st)
@@ -1280,101 +1443,6 @@ static bool http_resolve_ipv4(const char *hostname, unsigned short port,
     if (err_out)
         *err_out = ret;
     return false;
-}
-
-/* Parse JSON-style header object */
-static int append_json_object_headers(const char *headers,
-                                      char *buf, size_t cap, int off,
-                                      bool *has_ua, bool *has_accept,
-                                      bool *has_ctype, bool *has_clen,
-                                      bool *has_http_ua, bool *has_setting)
-{
-    if (!headers)
-        return off;
-
-    const char *p = headers;
-    while (*p && isspace((unsigned char)*p))
-        p++;
-    if (*p != '{')
-        return -1;
-    p++;
-
-    while (*p)
-    {
-        while (*p && isspace((unsigned char)*p))
-            p++;
-
-        if (*p == '}')
-            return off;
-
-        if (*p != '"')
-            return -1;
-        const char *key = ++p;
-        while (*p && *p != '"')
-        {
-            if (*p == '\\' && p[1] != '\0')
-                p += 2;
-            else
-                p++;
-        }
-        if (*p != '"')
-            return -1;
-        size_t key_len = (size_t)(p - key);
-        p++;
-
-        while (*p && isspace((unsigned char)*p))
-            p++;
-        if (*p != ':')
-            return -1;
-        p++;
-
-        while (*p && isspace((unsigned char)*p))
-            p++;
-        if (*p != '"')
-            return -1;
-        const char *value = ++p;
-        while (*p && *p != '"')
-        {
-            if (*p == '\\' && p[1] != '\0')
-                p += 2;
-            else
-                p++;
-        }
-        if (*p != '"')
-            return -1;
-        size_t value_len = (size_t)(p - value);
-        p++;
-
-        if (buf && !append_header_line(buf, cap, &off, key, key_len, value, value_len))
-            return -1;
-
-        if (has_ua && header_name_is(key, key_len, "User-Agent"))
-            *has_ua = true;
-        if (has_accept && header_name_is(key, key_len, "Accept"))
-            *has_accept = true;
-        if (has_ctype && header_name_is(key, key_len, "Content-Type"))
-            *has_ctype = true;
-        if (has_clen && header_name_is(key, key_len, "Content-Length"))
-            *has_clen = true;
-        if (has_http_ua && header_name_is(key, key_len, "HTTP_USER_AGENT"))
-            *has_http_ua = true;
-        if (has_setting && header_name_is(key, key_len, "Setting"))
-            *has_setting = true;
-
-        while (*p && isspace((unsigned char)*p))
-            p++;
-        if (*p == ',')
-        {
-            p++;
-            continue;
-        }
-        if (*p == '}')
-            return off;
-
-        return -1;
-    }
-
-    return -1;
 }
 
 /* FreeRTOS blocking I/O task */
@@ -1858,7 +1926,6 @@ bool http_send_request(const char *url, const char *method,
     bool has_accept = false;
     bool has_ctype = false;
     bool has_clen = false;
-    bool has_http_ua = false;
     bool has_setting = false;
 
     if (headers_len > 0)
@@ -1873,7 +1940,6 @@ bool http_send_request(const char *url, const char *method,
                                                        &has_accept,
                                                        &has_ctype,
                                                        &has_clen,
-                                                       &has_http_ua,
                                                        &has_setting);
             if (parse_ret < 0)
             {
@@ -1881,7 +1947,6 @@ bool http_send_request(const char *url, const char *method,
                 has_accept = header_contains(headers, headers_len, "Accept:");
                 has_ctype = header_contains(headers, headers_len, "Content-Type:");
                 has_clen = header_contains(headers, headers_len, "Content-Length:");
-                has_http_ua = header_contains(headers, headers_len, "HTTP_USER_AGENT:");
                 has_setting = header_contains(headers, headers_len, "Setting:");
             }
         }
@@ -1891,7 +1956,6 @@ bool http_send_request(const char *url, const char *method,
             has_accept = header_contains(headers, headers_len, "Accept:");
             has_ctype = header_contains(headers, headers_len, "Content-Type:");
             has_clen = header_contains(headers, headers_len, "Content-Length:");
-            has_http_ua = header_contains(headers, headers_len, "HTTP_USER_AGENT:");
             has_setting = header_contains(headers, headers_len, "Setting:");
         }
     }
@@ -1902,9 +1966,6 @@ bool http_send_request(const char *url, const char *method,
     if (!has_accept)
         off += snprintf(s_state->request_buf + off, req_cap - off,
                         "Accept: application/json, text/plain, */*\r\n");
-    if (!has_http_ua)
-        off += snprintf(s_state->request_buf + off, req_cap - off,
-                        "HTTP_USER_AGENT: Pico\r\n");
     if (!has_setting)
         off += snprintf(s_state->request_buf + off, req_cap - off,
                         "Setting: X-Flipper-Redirect\r\n");
@@ -1917,7 +1978,6 @@ bool http_send_request(const char *url, const char *method,
                                                         s_state->request_buf,
                                                         req_cap,
                                                         off,
-                                                        NULL,
                                                         NULL,
                                                         NULL,
                                                         NULL,

@@ -4,7 +4,7 @@ def start(view_manager) -> bool:
     """Start the app"""
     from picoware.system.js import JS
     global js
-    js = JS(view_manager)
+    js = JS()
     js.run(f"""
         let width = {view_manager.draw.size.x};
         let height = {view_manager.draw.size.y};

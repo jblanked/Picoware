@@ -46,20 +46,22 @@ void math_sqrt(struct mjs *mjs)
 
 void math_register(struct mjs *mjs)
 {
-    mjs_val_t global = mjs_get_global(mjs);
+    mjs_val_t math_obj = mjs_mk_object(mjs);
 
-    mjs_set(mjs, global, "math_ceil", ~0,
+    mjs_set(mjs, math_obj, "ceil", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)math_ceil));
-    mjs_set(mjs, global, "math_cos", ~0,
+    mjs_set(mjs, math_obj, "cos", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)math_cos));
-    mjs_set(mjs, global, "math_floor", ~0,
+    mjs_set(mjs, math_obj, "floor", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)math_floor));
-    mjs_set(mjs, global, "math_pow", ~0,
+    mjs_set(mjs, math_obj, "pow", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)math_pow));
-    mjs_set(mjs, global, "math_random", ~0,
+    mjs_set(mjs, math_obj, "random", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)math_random));
-    mjs_set(mjs, global, "math_sin", ~0,
+    mjs_set(mjs, math_obj, "sin", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)math_sin));
-    mjs_set(mjs, global, "math_sqrt", ~0,
+    mjs_set(mjs, math_obj, "sqrt", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)math_sqrt));
+
+    mjs_set(mjs, mjs_get_global(mjs), "math", ~0, math_obj);
 }

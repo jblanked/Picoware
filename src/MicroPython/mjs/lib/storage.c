@@ -72,8 +72,7 @@ void storage_write(struct mjs *mjs)
         mjs_return(mjs, MJS_UNDEFINED);
         return;
     }
-    const size_t bytes_written = storage_file_write(filename, buf, len);
-    mjs_return(mjs, mjs_mk_number(mjs, bytes_written));
+    mjs_return(mjs, mjs_mk_boolean(mjs, storage_file_write(filename, buf, len)));
 }
 
 void storage_register(struct mjs *mjs)

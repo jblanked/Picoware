@@ -92,5 +92,5 @@ void http_register(struct mjs *mjs)
     mjs_set(mjs, http_obj, "requestStart", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)http_js_request_start));
 
-    mjs_set(mjs, http_obj, "http", ~0, http_obj);
+    mjs_set(mjs, mjs_get_global(mjs), "http", ~0, http_obj);
 }

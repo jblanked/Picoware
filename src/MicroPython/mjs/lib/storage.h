@@ -1,5 +1,5 @@
 #pragma once
-#include "../mjs/mjs.h"
+#include "mjs.h"
 
 void storage_read(struct mjs *mjs);
 void storage_read_chunk(struct mjs *mjs);

@@ -8,7 +8,7 @@ void log_message_str(struct mjs *mjs)
     size_t len;
     const char *message = mjs_get_string(mjs, &arg, &len);
     LOG_MESSAGE(message);
-    mjs_return(mjs, mjs_mk_undefined());
+    mjs_return(mjs, MJS_UNDEFINED);
 }
 
 void log_register(struct mjs *mjs)

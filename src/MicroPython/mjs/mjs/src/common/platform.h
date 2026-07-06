@@ -122,19 +122,41 @@
 #endif
 #endif
 
+#ifndef NORETURN
 #ifdef __GNUC__
 #define NORETURN __attribute__((noreturn))
-#define NOINLINE __attribute__((noinline))
-#define WARN_UNUSED_RESULT __attribute__((warn_unused_result))
-#define NOINSTR __attribute__((no_instrument_function))
-#define DO_NOT_WARN_UNUSED __attribute__((unused))
 #else
 #define NORETURN
+#endif
+#endif /* NORETURN */
+#ifndef NOINLINE
+#ifdef __GNUC__
+#define NOINLINE __attribute__((noinline))
+#else
 #define NOINLINE
+#endif
+#endif /* NOINLINE */
+#ifndef WARN_UNUSED_RESULT
+#ifdef __GNUC__
+#define WARN_UNUSED_RESULT __attribute__((warn_unused_result))
+#else
 #define WARN_UNUSED_RESULT
+#endif
+#endif /* WARN_UNUSED_RESULT */
+#ifndef NOINSTR
+#ifdef __GNUC__
+#define NOINSTR __attribute__((no_instrument_function))
+#else
 #define NOINSTR
+#endif
+#endif /* NOINSTR */
+#ifndef DO_NOT_WARN_UNUSED
+#ifdef __GNUC__
+#define DO_NOT_WARN_UNUSED __attribute__((unused))
+#else
 #define DO_NOT_WARN_UNUSED
-#endif /* __GNUC__ */
+#endif
+#endif /* DO_NOT_WARN_UNUSED */
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))

@@ -3,6 +3,7 @@ add_library(usermod_mjs INTERFACE)
 
 target_sources(usermod_mjs INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/mjs_module.c
+    ${CMAKE_CURRENT_LIST_DIR}/lib/array_buf.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/color.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/http.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/lcd.c

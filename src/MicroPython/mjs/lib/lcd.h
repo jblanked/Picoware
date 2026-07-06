@@ -1,5 +1,5 @@
 #pragma once
-#include "../mjs/mjs.h"
+#include "mjs.h"
 
 void lcd_js_char(struct mjs *mjs);
 void lcd_js_circle(struct mjs *mjs);

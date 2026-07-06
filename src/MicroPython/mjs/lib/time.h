@@ -1,5 +1,5 @@
 #pragma once
-#include "../mjs/mjs.h"
+#include "mjs.h"
 
 void time_js_delay_ms(struct mjs *mjs);
 void time_js_ticks_diff(struct mjs *mjs);

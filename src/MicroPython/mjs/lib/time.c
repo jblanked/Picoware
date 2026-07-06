@@ -18,7 +18,7 @@ void time_js_delay_ms(struct mjs *mjs)
     double d = mjs_get_double(mjs, mjs_arg(mjs, 0));
     uint32_t ms = (uint32_t)d;
     TIME_SLEEP(ms);
-    mjs_return(mjs, mjs_mk_undefined());
+    mjs_return(mjs, MJS_UNDEFINED);
 }
 
 void time_js_ticks_diff(struct mjs *mjs)

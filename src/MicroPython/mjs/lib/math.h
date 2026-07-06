@@ -1,5 +1,5 @@
 #pragma once
-#include "../mjs/mjs.h"
+#include "mjs.h"
 
 void math_ceil(struct mjs *mjs);
 void math_cos(struct mjs *mjs);

@@ -1,6 +1,7 @@
 #include "storage.h"
 #include <string.h>
 #include "py/runtime.h"
+#include "array_buf.h"
 #include "../../sd/storage.h"
 #include "../../log/log_mp.h"
 
@@ -19,7 +20,7 @@ void storage_read(struct mjs *mjs)
     if (buffer == NULL)
     {
         LOG_MESSAGE("Failed to allocate buffer for file read");
-        mjs_return(mjs, mjs_mk_undefined());
+        mjs_return(mjs, MJS_UNDEFINED);
         return;
     }
     const size_t bytes_read = storage_file_read(filename, buffer, file_size);
@@ -36,7 +37,7 @@ void storage_read_chunk(struct mjs *mjs)
     if (buffer == NULL)
     {
         LOG_MESSAGE("Failed to allocate buffer for file read");
-        mjs_return(mjs, mjs_mk_undefined());
+        mjs_return(mjs, MJS_UNDEFINED);
         return;
     }
     const size_t bytes_read = storage_file_read(filename, buffer + offset, chunk_size);
@@ -54,9 +55,24 @@ void storage_size(struct mjs *mjs)
 void storage_write(struct mjs *mjs)
 {
     const char *filename = storage_get_string(mjs, 0);
-    const char *data = storage_get_string(mjs, 1);
-    const size_t data_len = strlen(data);
-    const size_t bytes_written = storage_file_write(filename, data, data_len);
+    mjs_val_t data = mjs_arg(mjs, 1);
+    const void *buf;
+    size_t len;
+    if (mjs_is_string(data))
+    {
+        buf = mjs_get_string(mjs, &data, &len);
+    }
+    else if (mjs_is_array_buf(data))
+    {
+        buf = mjs_array_buf_get_ptr(mjs, data, &len);
+    }
+    else
+    {
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "argument 1: expected string or ArrayBuffer");
+        mjs_return(mjs, MJS_UNDEFINED);
+        return;
+    }
+    const size_t bytes_written = storage_file_write(filename, buf, len);
     mjs_return(mjs, mjs_mk_number(mjs, bytes_written));
 }
 

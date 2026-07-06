@@ -53,7 +53,7 @@ void lcd_js_char(struct mjs *mjs)
     uint16_t color = lcd_js_get_color(mjs, 3, 0xFFFF);
     FontSize size = lcd_js_get_font_size(mjs, 4);
     LCD_MP_CHAR(x, y, c, color, size);
-    mjs_return(mjs, mjs_mk_undefined());
+    mjs_return(mjs, MJS_UNDEFINED);
 }
 
 void lcd_js_circle(struct mjs *mjs)
@@ -63,14 +63,14 @@ void lcd_js_circle(struct mjs *mjs)
     uint16_t radius = arg_u16(mjs, 2);
     uint16_t color = lcd_js_get_color(mjs, 3, 0xFFFF);
     LCD_MP_CIRCLE(cx, cy, radius, color);
-    mjs_return(mjs, mjs_mk_undefined());
+    mjs_return(mjs, MJS_UNDEFINED);
 }
 
 void lcd_js_clear(struct mjs *mjs)
 {
     uint16_t color = lcd_js_get_color(mjs, 0, 0x0000);
     LCD_MP_CLEAR(color);
-    mjs_return(mjs, mjs_mk_undefined());
+    mjs_return(mjs, MJS_UNDEFINED);
 }
 
 void lcd_js_fill_circle(struct mjs *mjs)
@@ -80,7 +80,7 @@ void lcd_js_fill_circle(struct mjs *mjs)
     uint16_t radius = arg_u16(mjs, 2);
     uint16_t color = lcd_js_get_color(mjs, 3, 0xFFFF);
     LCD_MP_FILL_CIRCLE(cx, cy, radius, color);
-    mjs_return(mjs, mjs_mk_undefined());
+    mjs_return(mjs, MJS_UNDEFINED);
 }
 
 void lcd_js_fill_rectangle(struct mjs *mjs)
@@ -91,7 +91,7 @@ void lcd_js_fill_rectangle(struct mjs *mjs)
     uint16_t h = arg_u16(mjs, 3);
     uint16_t color = lcd_js_get_color(mjs, 4, 0xFFFF);
     LCD_MP_FILL_RECTANGLE(x, y, w, h, color);
-    mjs_return(mjs, mjs_mk_undefined());
+    mjs_return(mjs, MJS_UNDEFINED);
 }
 
 void lcd_js_fill_round_rectangle(struct mjs *mjs)
@@ -103,7 +103,7 @@ void lcd_js_fill_round_rectangle(struct mjs *mjs)
     uint16_t r = arg_u16(mjs, 4);
     uint16_t color = lcd_js_get_color(mjs, 5, 0xFFFF);
     LCD_MP_FILL_ROUND_RECTANGLE(x, y, w, h, r, color);
-    mjs_return(mjs, mjs_mk_undefined());
+    mjs_return(mjs, MJS_UNDEFINED);
 }
 
 void lcd_js_fill_triangle(struct mjs *mjs)
@@ -116,7 +116,7 @@ void lcd_js_fill_triangle(struct mjs *mjs)
     uint16_t y3 = arg_u16(mjs, 5);
     uint16_t color = lcd_js_get_color(mjs, 6, 0xFFFF);
     LCD_MP_FILL_TRIANGLE(x1, y1, x2, y2, x3, y3, color);
-    mjs_return(mjs, mjs_mk_undefined());
+    mjs_return(mjs, MJS_UNDEFINED);
 }
 
 void lcd_js_line(struct mjs *mjs)
@@ -127,7 +127,7 @@ void lcd_js_line(struct mjs *mjs)
     uint16_t y2 = arg_u16(mjs, 3);
     uint16_t color = lcd_js_get_color(mjs, 4, 0xFFFF);
     LCD_MP_LINE(x1, y1, x2, y2, color);
-    mjs_return(mjs, mjs_mk_undefined());
+    mjs_return(mjs, MJS_UNDEFINED);
 }
 
 void lcd_js_pixel(struct mjs *mjs)
@@ -136,7 +136,7 @@ void lcd_js_pixel(struct mjs *mjs)
     uint16_t y = arg_u16(mjs, 1);
     uint16_t color = lcd_js_get_color(mjs, 2, 0xFFFF);
     LCD_MP_PIXEL(x, y, color);
-    mjs_return(mjs, mjs_mk_undefined());
+    mjs_return(mjs, MJS_UNDEFINED);
 }
 
 void lcd_js_rectangle(struct mjs *mjs)
@@ -147,7 +147,7 @@ void lcd_js_rectangle(struct mjs *mjs)
     uint16_t h = arg_u16(mjs, 3);
     uint16_t color = lcd_js_get_color(mjs, 4, 0xFFFF);
     LCD_MP_RECTANGLE(x, y, w, h, color);
-    mjs_return(mjs, mjs_mk_undefined());
+    mjs_return(mjs, MJS_UNDEFINED);
 }
 
 void lcd_js_text(struct mjs *mjs)
@@ -162,7 +162,7 @@ void lcd_js_text(struct mjs *mjs)
     uint16_t color = lcd_js_get_color(mjs, 3, 0xFFFF);
     FontSize size = lcd_js_get_font_size(mjs, 4);
     LCD_MP_TEXT(x, y, text, color, size);
-    mjs_return(mjs, mjs_mk_undefined());
+    mjs_return(mjs, MJS_UNDEFINED);
 }
 
 void lcd_js_triangle(struct mjs *mjs)
@@ -175,13 +175,13 @@ void lcd_js_triangle(struct mjs *mjs)
     uint16_t y3 = arg_u16(mjs, 5);
     uint16_t color = lcd_js_get_color(mjs, 6, 0xFFFF);
     LCD_MP_TRIANGLE(x1, y1, x2, y2, x3, y3, color);
-    mjs_return(mjs, mjs_mk_undefined());
+    mjs_return(mjs, MJS_UNDEFINED);
 }
 
 void lcd_js_swap(struct mjs *mjs)
 {
     LCD_SWAP();
-    mjs_return(mjs, mjs_mk_undefined());
+    mjs_return(mjs, MJS_UNDEFINED);
 }
 
 void lcd_register(struct mjs *mjs)

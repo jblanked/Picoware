@@ -1,5 +1,5 @@
 #pragma once
-#include "../mjs/mjs.h"
+#include "mjs.h"
 
 void http_js_get_response(struct mjs *mjs);
 void http_js_is_finished(struct mjs *mjs);

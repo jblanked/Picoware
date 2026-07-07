@@ -154,18 +154,16 @@ void http_js_request_start(struct mjs *mjs)
     mjs_return(mjs, mjs_mk_boolean(mjs, started));
 }
 
-void http_register(struct mjs *mjs)
+void http_create(struct mjs *mjs, mjs_val_t *http_obj)
 {
-    mjs_val_t http_obj = mjs_mk_object(mjs);
+    *http_obj = mjs_mk_object(mjs);
 
-    mjs_set(mjs, http_obj, "getResponse", ~0,
+    mjs_set(mjs, *http_obj, "getResponse", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)http_js_get_response));
-    mjs_set(mjs, http_obj, "isFinished", ~0,
+    mjs_set(mjs, *http_obj, "isFinished", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)http_js_is_finished));
-    mjs_set(mjs, http_obj, "request", ~0,
+    mjs_set(mjs, *http_obj, "request", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)http_js_request));
-    mjs_set(mjs, http_obj, "requestStart", ~0,
+    mjs_set(mjs, *http_obj, "requestStart", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)http_js_request_start));
-
-    mjs_set(mjs, mjs_get_global(mjs), "http", ~0, http_obj);
 }

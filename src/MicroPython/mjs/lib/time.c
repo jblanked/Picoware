@@ -37,16 +37,14 @@ void time_js_ticks_ms(struct mjs *mjs)
     mjs_return(mjs, mjs_mk_number(mjs, (double)TIME_MILLIS));
 }
 
-void time_register(struct mjs *mjs)
+void time_create(struct mjs *mjs, mjs_val_t *time_obj)
 {
-    mjs_val_t time_obj = mjs_mk_object(mjs);
+    *time_obj = mjs_mk_object(mjs);
 
-    mjs_set(mjs, time_obj, "ticksMs", ~0,
+    mjs_set(mjs, *time_obj, "ticksMs", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)time_js_ticks_ms));
-    mjs_set(mjs, time_obj, "ticksDiff", ~0,
+    mjs_set(mjs, *time_obj, "ticksDiff", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)time_js_ticks_diff));
-    mjs_set(mjs, time_obj, "sleepMs", ~0,
+    mjs_set(mjs, *time_obj, "sleepMs", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)time_js_delay_ms));
-
-    mjs_set(mjs, mjs_get_global(mjs), "time", ~0, time_obj);
 }

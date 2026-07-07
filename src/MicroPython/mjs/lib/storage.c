@@ -103,18 +103,16 @@ void storage_write(struct mjs *mjs)
     m_free(filename_copy);
 }
 
-void storage_register(struct mjs *mjs)
+void storage_create(struct mjs *mjs, mjs_val_t *storage_obj)
 {
-    mjs_val_t storage_obj = mjs_mk_object(mjs);
+    *storage_obj = mjs_mk_object(mjs);
 
-    mjs_set(mjs, storage_obj, "read", ~0,
+    mjs_set(mjs, *storage_obj, "read", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)storage_read));
-    mjs_set(mjs, storage_obj, "readChunk", ~0,
+    mjs_set(mjs, *storage_obj, "readChunk", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)storage_read_chunk));
-    mjs_set(mjs, storage_obj, "size", ~0,
+    mjs_set(mjs, *storage_obj, "size", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)storage_size));
-    mjs_set(mjs, storage_obj, "write", ~0,
+    mjs_set(mjs, *storage_obj, "write", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)storage_write));
-
-    mjs_set(mjs, mjs_get_global(mjs), "storage", ~0, storage_obj);
 }

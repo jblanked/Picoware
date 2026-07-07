@@ -2,7 +2,7 @@ from picoware.system.js import JS
 
 js = JS()
 
-result = js.run("time.ticksMs();")
+result = js.run("let time = import('time'); let ticks = time.ticksMs();")
 print(result)
 
 del js

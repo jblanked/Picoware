@@ -30,7 +30,7 @@ mp_obj_t mjs_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
     {
         mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("failed to create MJS engine"));
     }
-    lib_register(self->mjs);
+    lib_register_globals(self->mjs);
     self->is_initialized = true;
     return MP_OBJ_FROM_PTR(self);
 }

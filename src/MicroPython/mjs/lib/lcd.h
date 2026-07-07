@@ -15,4 +15,4 @@ void lcd_js_text(struct mjs *mjs);
 void lcd_js_triangle(struct mjs *mjs);
 void lcd_js_swap(struct mjs *mjs);
 //
-void lcd_register(struct mjs *mjs);
+void lcd_create(struct mjs *mjs, mjs_val_t *lcd_obj);

@@ -184,36 +184,34 @@ void lcd_js_swap(struct mjs *mjs)
     mjs_return(mjs, MJS_UNDEFINED);
 }
 
-void lcd_register(struct mjs *mjs)
+void lcd_create(struct mjs *mjs, mjs_val_t *lcd_obj)
 {
-    mjs_val_t draw_obj = mjs_mk_object(mjs);
+    *lcd_obj = mjs_mk_object(mjs);
 
-    mjs_set(mjs, draw_obj, "clear", ~0,
+    mjs_set(mjs, *lcd_obj, "clear", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lcd_js_clear));
-    mjs_set(mjs, draw_obj, "pixel", ~0,
+    mjs_set(mjs, *lcd_obj, "pixel", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lcd_js_pixel));
-    mjs_set(mjs, draw_obj, "line", ~0,
+    mjs_set(mjs, *lcd_obj, "line", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lcd_js_line));
-    mjs_set(mjs, draw_obj, "rectangle", ~0,
+    mjs_set(mjs, *lcd_obj, "rectangle", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lcd_js_rectangle));
-    mjs_set(mjs, draw_obj, "fillRectangle", ~0,
+    mjs_set(mjs, *lcd_obj, "fillRectangle", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lcd_js_fill_rectangle));
-    mjs_set(mjs, draw_obj, "fillRoundRectangle", ~0,
+    mjs_set(mjs, *lcd_obj, "fillRoundRectangle", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lcd_js_fill_round_rectangle));
-    mjs_set(mjs, draw_obj, "circle", ~0,
+    mjs_set(mjs, *lcd_obj, "circle", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lcd_js_circle));
-    mjs_set(mjs, draw_obj, "fillCircle", ~0,
+    mjs_set(mjs, *lcd_obj, "fillCircle", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lcd_js_fill_circle));
-    mjs_set(mjs, draw_obj, "triangle", ~0,
+    mjs_set(mjs, *lcd_obj, "triangle", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lcd_js_triangle));
-    mjs_set(mjs, draw_obj, "fillTriangle", ~0,
+    mjs_set(mjs, *lcd_obj, "fillTriangle", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lcd_js_fill_triangle));
-    mjs_set(mjs, draw_obj, "char", ~0,
+    mjs_set(mjs, *lcd_obj, "char", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lcd_js_char));
-    mjs_set(mjs, draw_obj, "text", ~0,
+    mjs_set(mjs, *lcd_obj, "text", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lcd_js_text));
-    mjs_set(mjs, draw_obj, "swap", ~0,
+    mjs_set(mjs, *lcd_obj, "swap", ~0,
             mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)lcd_js_swap));
-
-    mjs_set(mjs, mjs_get_global(mjs), "draw", ~0, draw_obj);
 }

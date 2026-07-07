@@ -1,4 +1,6 @@
 #pragma once
+#include <stdbool.h>
+#include <string.h>
 #include "color.h"
 #include "http.h"
 #include "lcd.h"
@@ -7,13 +9,16 @@
 #include "storage.h"
 #include "time.h"
 
-static inline void lib_register(struct mjs *mjs)
+typedef enum
 {
-    color_register(mjs);
-    http_register(mjs);
-    lcd_register(mjs);
-    log_register(mjs);
-    math_register(mjs);
-    storage_register(mjs);
-    time_register(mjs);
-}
+    LIB_MODULE_NONE = 0,
+    LIB_MODULE_HTTP,
+    LIB_MODULE_DRAW,
+    LIB_MODULE_MATH,
+    LIB_MODULE_STORAGE,
+    LIB_MODULE_TIME,
+} lib_module_t;
+
+void lib_load_module(struct mjs *mjs);
+lib_module_t lib_module_from_str(const char *str);
+void lib_register_globals(struct mjs *mjs);

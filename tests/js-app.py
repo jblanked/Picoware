@@ -8,6 +8,9 @@ def start(view_manager) -> bool:
     global js
     js = JS()
     js.run(f"""
+        let draw = import('draw');
+        let time = import('time');
+        let math = import('math');
         let width = {view_manager.draw.size.x};
         let height = {view_manager.draw.size.y};
         draw.clear();

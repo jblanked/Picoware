@@ -4,6 +4,7 @@ js = JS()
 
 # Test math functions
 result = js.run("""
+let math = import('math');
 let a = math.floor(3.7);
 let b = math.ceil(3.2);
 let c = math.sqrt(144);

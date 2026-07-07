@@ -1,5 +1,7 @@
+import micropython
 js = None
 
+@micropython.native
 def start(view_manager) -> bool:
     """Start the app"""
     from picoware.system.js import JS
@@ -28,7 +30,7 @@ def start(view_manager) -> bool:
     """)
     return True
 
-
+@micropython.native
 def run(view_manager) -> None:
     """Run the app"""
     from picoware.system.buttons import BUTTON_BACK
@@ -43,6 +45,7 @@ def run(view_manager) -> None:
 
     js.run("frameUpdate();")
 
+@micropython.native
 def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect

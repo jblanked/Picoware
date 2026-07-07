@@ -17,14 +17,16 @@
 #endif
 
 #define FAIL_ERR(p, code)                                                      \
-  do {                                                                         \
+  do                                                                           \
+  {                                                                            \
     mjs_set_errorf(p->mjs, code, "parse error at line %d: [%.*s]", p->line_no, \
                    10, p->tok.ptr);                                            \
     return code;                                                               \
   } while (0)
 
 #define pnext1(p)                                    \
-  do {                                               \
+  do                                                 \
+  {                                                  \
     LOG(LL_VERBOSE_DEBUG, ("  PNEXT %d", __LINE__)); \
     pnext(p);                                        \
   } while (0)
@@ -40,7 +42,15 @@
 static mjs_err_t parse_statement(struct pstate *p);
 static mjs_err_t parse_expr(struct pstate *p);
 
-static int ptest(struct pstate *p) {
+/* Fast-local helpers forward declarations */
+static int add_fast_local(struct pstate *p, const char *name, size_t name_len);
+static int find_fast_local(struct pstate *p, const char *name, size_t name_len);
+static void fl_enter_scope(struct pstate *p);
+static void fl_exit_scope(struct pstate *p);
+static void emit_sync_scope(struct pstate *p, const char *name, size_t name_len);
+
+static int ptest(struct pstate *p)
+{
   struct pstate saved = *p;
   int tok = pnext(p);
   *p = saved;
@@ -53,21 +63,128 @@ static int s_comparison_ops[] = {TOK_LT, TOK_LE, TOK_GT, TOK_GE, TOK_EOF};
 static int s_postfix_ops[] = {TOK_PLUS_PLUS, TOK_MINUS_MINUS, TOK_EOF};
 static int s_equality_ops[] = {TOK_EQ, TOK_NE, TOK_EQ_EQ, TOK_NE_NE, TOK_EOF};
 static int s_assign_ops[] = {
-    TOK_ASSIGN,         TOK_PLUS_ASSIGN, TOK_MINUS_ASSIGN,  TOK_MUL_ASSIGN,
-    TOK_DIV_ASSIGN,     TOK_REM_ASSIGN,  TOK_LSHIFT_ASSIGN, TOK_RSHIFT_ASSIGN,
-    TOK_URSHIFT_ASSIGN, TOK_AND_ASSIGN,  TOK_XOR_ASSIGN,    TOK_OR_ASSIGN,
+    TOK_ASSIGN, TOK_PLUS_ASSIGN, TOK_MINUS_ASSIGN, TOK_MUL_ASSIGN,
+    TOK_DIV_ASSIGN, TOK_REM_ASSIGN, TOK_LSHIFT_ASSIGN, TOK_RSHIFT_ASSIGN,
+    TOK_URSHIFT_ASSIGN, TOK_AND_ASSIGN, TOK_XOR_ASSIGN, TOK_OR_ASSIGN,
     TOK_EOF};
 
-static int findtok(int *toks, int tok) {
+static int findtok(int *toks, int tok)
+{
   int i = 0;
-  while (tok != toks[i] && toks[i] != TOK_EOF) i++;
+  while (tok != toks[i] && toks[i] != TOK_EOF)
+    i++;
   return toks[i];
 }
 
-static void emit_op(struct pstate *pstate, int tok) {
+static void emit_op(struct pstate *pstate, int tok)
+{
+  int is_assign_op;
   assert(tok >= 0 && tok <= 255);
+  /* Only clear fast_local_assign_idx for actual assignment operators.
+   * Non-assignment ops (e.g. TOK_PLUS in "x = a + b") must NOT consume
+   * the flag set by the LHS identifier. */
+  switch (tok)
+  {
+  case TOK_ASSIGN:
+  case TOK_PLUS_ASSIGN:
+  case TOK_MINUS_ASSIGN:
+  case TOK_MUL_ASSIGN:
+  case TOK_DIV_ASSIGN:
+  case TOK_REM_ASSIGN:
+  case TOK_AND_ASSIGN:
+  case TOK_OR_ASSIGN:
+  case TOK_XOR_ASSIGN:
+  case TOK_LSHIFT_ASSIGN:
+  case TOK_RSHIFT_ASSIGN:
+  case TOK_URSHIFT_ASSIGN:
+    is_assign_op = 1;
+    break;
+  default:
+    is_assign_op = 0;
+    break;
+  }
+  if (is_assign_op && pstate->fast_local_assign_idx >= 0)
+  {
+    int idx = pstate->fast_local_assign_idx;
+    int arith_op = TOK_EOF;
+    pstate->fast_local_assign_idx = -1;
+    if (tok == TOK_ASSIGN)
+    {
+      /* Stack: [..., old_val, rhs_val] -- drop old_val, store rhs_val */
+      emit_byte(pstate, OP_SWAP);
+      emit_byte(pstate, OP_DROP);
+      emit_byte(pstate, OP_STORE_FAST);
+      emit_int(pstate, idx);
+      /* Sync global scope */
+      if (pstate->fast_local_assign_name != NULL)
+      {
+        const char *n = pstate->fast_local_assign_name;
+        size_t nl = pstate->fast_local_assign_name_len;
+        pstate->fast_local_assign_name = NULL;
+        emit_sync_scope(pstate, n, nl);
+      }
+      return;
+    }
+    /* Compound assignment: old_val op rhs_val, then store */
+    switch (tok)
+    {
+    case TOK_PLUS_ASSIGN:
+      arith_op = TOK_PLUS;
+      break;
+    case TOK_MINUS_ASSIGN:
+      arith_op = TOK_MINUS;
+      break;
+    case TOK_MUL_ASSIGN:
+      arith_op = TOK_MUL;
+      break;
+    case TOK_DIV_ASSIGN:
+      arith_op = TOK_DIV;
+      break;
+    case TOK_REM_ASSIGN:
+      arith_op = TOK_REM;
+      break;
+    case TOK_AND_ASSIGN:
+      arith_op = TOK_AND;
+      break;
+    case TOK_OR_ASSIGN:
+      arith_op = TOK_OR;
+      break;
+    case TOK_XOR_ASSIGN:
+      arith_op = TOK_XOR;
+      break;
+    case TOK_LSHIFT_ASSIGN:
+      arith_op = TOK_LSHIFT;
+      break;
+    case TOK_RSHIFT_ASSIGN:
+      arith_op = TOK_RSHIFT;
+      break;
+    case TOK_URSHIFT_ASSIGN:
+      arith_op = TOK_URSHIFT;
+      break;
+    default:
+      break;
+    }
+    if (arith_op != TOK_EOF)
+    {
+      /* Stack: [..., old_val, rhs_val] -> compute -> store */
+      emit_byte(pstate, OP_EXPR);
+      emit_byte(pstate, (uint8_t)arith_op);
+      emit_byte(pstate, OP_STORE_FAST);
+      emit_int(pstate, idx);
+      /* Sync global scope */
+      if (pstate->fast_local_assign_name != NULL)
+      {
+        const char *n = pstate->fast_local_assign_name;
+        size_t nl = pstate->fast_local_assign_name_len;
+        pstate->fast_local_assign_name = NULL;
+        emit_sync_scope(pstate, n, nl);
+      }
+      return;
+    }
+    /* Unknown compound: fall through to generic handling (will likely error) */
+  }
   emit_byte(pstate, OP_EXPR);
-  emit_byte(pstate, (uint8_t) tok);
+  emit_byte(pstate, (uint8_t)tok);
 }
 
 #define BINOP_STACK_FRAME_SIZE 16
@@ -76,21 +193,27 @@ static void emit_op(struct pstate *pstate, int tok) {
 // Intentionally left as macro rather than a function, to let the
 // compiler to inline calls and mimimize runtime stack usage.
 #define PARSE_LTR_BINOP(p, f1, f2, ops, prev_op)                               \
-  do {                                                                         \
+  do                                                                           \
+  {                                                                            \
     mjs_err_t res = MJS_OK;                                                    \
     p->depth++;                                                                \
-    if (p->depth > (STACK_LIMIT / BINOP_STACK_FRAME_SIZE)) {                   \
+    if (p->depth > (STACK_LIMIT / BINOP_STACK_FRAME_SIZE))                     \
+    {                                                                          \
       mjs_set_errorf(p->mjs, MJS_SYNTAX_ERROR, "parser stack overflow");       \
       res = MJS_SYNTAX_ERROR;                                                  \
       goto binop_clean;                                                        \
     }                                                                          \
-    if ((res = f1(p, TOK_EOF)) != MJS_OK) goto binop_clean;                    \
-    if (prev_op != TOK_EOF) emit_op(p, prev_op);                               \
-    if (findtok(ops, p->tok.tok) != TOK_EOF) {                                 \
+    if ((res = f1(p, TOK_EOF)) != MJS_OK)                                      \
+      goto binop_clean;                                                        \
+    if (prev_op != TOK_EOF)                                                    \
+      emit_op(p, prev_op);                                                     \
+    if (findtok(ops, p->tok.tok) != TOK_EOF)                                   \
+    {                                                                          \
       int op = p->tok.tok;                                                     \
       size_t off_if = 0;                                                       \
       /* For AND/OR, implement short-circuit evaluation */                     \
-      if (ops[0] == TOK_LOGICAL_AND || ops[0] == TOK_LOGICAL_OR) {             \
+      if (ops[0] == TOK_LOGICAL_AND || ops[0] == TOK_LOGICAL_OR)               \
+      {                                                                        \
         emit_byte(p,                                                           \
                   (uint8_t)(ops[0] == TOK_LOGICAL_AND ? OP_JMP_NEUTRAL_FALSE   \
                                                       : OP_JMP_NEUTRAL_TRUE)); \
@@ -98,13 +221,15 @@ static void emit_op(struct pstate *pstate, int tok) {
         emit_init_offset(p);                                                   \
         /* No need to emit TOK_LOGICAL_AND and TOK_LOGICAL_OR: */              \
         /* Just drop the first value, and evaluate the second one. */          \
-        emit_byte(p, (uint8_t) OP_DROP);                                       \
+        emit_byte(p, (uint8_t)OP_DROP);                                        \
         op = TOK_EOF;                                                          \
       }                                                                        \
       pnext1(p);                                                               \
-      if ((res = f2(p, op)) != MJS_OK) goto binop_clean;                       \
+      if ((res = f2(p, op)) != MJS_OK)                                         \
+        goto binop_clean;                                                      \
                                                                                \
-      if (off_if != 0) {                                                       \
+      if (off_if != 0)                                                         \
+      {                                                                        \
         mjs_bcode_insert_offset(p, p->mjs, off_if,                             \
                                 p->cur_idx - off_if - MJS_INIT_OFFSET_SIZE);   \
       }                                                                        \
@@ -114,71 +239,94 @@ static void emit_op(struct pstate *pstate, int tok) {
     return res;                                                                \
   } while (0)
 
-#define PARSE_RTL_BINOP(p, f1, f2, ops, prev_op)        \
-  do {                                                  \
-    mjs_err_t res = MJS_OK;                             \
-    (void) prev_op;                                     \
-    if ((res = f1(p, TOK_EOF)) != MJS_OK) return res;   \
-    if (findtok(ops, p->tok.tok) != TOK_EOF) {          \
-      int op = p->tok.tok;                              \
-      pnext1(p);                                        \
-      if ((res = f2(p, TOK_EOF)) != MJS_OK) return res; \
-      emit_op(p, op);                                   \
-    }                                                   \
-    return res;                                         \
+#define PARSE_RTL_BINOP(p, f1, f2, ops, prev_op) \
+  do                                             \
+  {                                              \
+    mjs_err_t res = MJS_OK;                      \
+    (void)prev_op;                               \
+    if ((res = f1(p, TOK_EOF)) != MJS_OK)        \
+      return res;                                \
+    if (findtok(ops, p->tok.tok) != TOK_EOF)     \
+    {                                            \
+      int op = p->tok.tok;                       \
+      pnext1(p);                                 \
+      if ((res = f2(p, TOK_EOF)) != MJS_OK)      \
+        return res;                              \
+      emit_op(p, op);                            \
+    }                                            \
+    return res;                                  \
   } while (0)
 
 #if MJS_INIT_OFFSET_SIZE > 0
-static void emit_init_offset(struct pstate *p) {
+static void emit_init_offset(struct pstate *p)
+{
   size_t i;
-  for (i = 0; i < MJS_INIT_OFFSET_SIZE; i++) {
+  for (i = 0; i < MJS_INIT_OFFSET_SIZE; i++)
+  {
     emit_byte(p, 0);
   }
 }
 #else
-static void emit_init_offset(struct pstate *p) {
-  (void) p;
+static void emit_init_offset(struct pstate *p)
+{
+  (void)p;
 }
 #endif
 
-static mjs_err_t parse_statement_list(struct pstate *p, int et) {
+static mjs_err_t parse_statement_list(struct pstate *p, int et)
+{
   mjs_err_t res = MJS_OK;
   int drop = 0;
   pnext1(p);
-  while (res == MJS_OK && p->tok.tok != TOK_EOF && p->tok.tok != et) {
-    if (drop) emit_byte(p, OP_DROP);
+  while (res == MJS_OK && p->tok.tok != TOK_EOF && p->tok.tok != et)
+  {
+    if (drop)
+      emit_byte(p, OP_DROP);
     res = parse_statement(p);
     drop = 1;
-    while (p->tok.tok == TOK_SEMICOLON) pnext1(p);
+    while (p->tok.tok == TOK_SEMICOLON)
+      pnext1(p);
   }
 
   /*
    * Client code expects statement list to contain a value, so if the statement
    * list was empty, push `undefined`.
    */
-  if (!drop) {
+  if (!drop)
+  {
     emit_byte(p, OP_PUSH_UNDEF);
   }
   return res;
 }
 
-static mjs_err_t parse_block(struct pstate *p, int mkscope) {
+static mjs_err_t parse_block(struct pstate *p, int mkscope)
+{
   mjs_err_t res = MJS_OK;
   p->depth++;
-  if (p->depth > (STACK_LIMIT / BINOP_STACK_FRAME_SIZE)) {
+  if (p->depth > (STACK_LIMIT / BINOP_STACK_FRAME_SIZE))
+  {
     mjs_set_errorf(p->mjs, MJS_SYNTAX_ERROR, "parser stack overflow");
     res = MJS_SYNTAX_ERROR;
     return res;
   }
   LOG(LL_VERBOSE_DEBUG, ("[%.*s]", 10, p->tok.ptr));
-  if (mkscope) emit_byte(p, OP_NEW_SCOPE);
+  if (mkscope)
+  {
+    emit_byte(p, OP_NEW_SCOPE);
+    fl_enter_scope(p);
+  }
   res = parse_statement_list(p, TOK_CLOSE_CURLY);
   EXPECT(p, TOK_CLOSE_CURLY);
-  if (mkscope) emit_byte(p, OP_DEL_SCOPE);
+  if (mkscope)
+  {
+    fl_exit_scope(p);
+    emit_byte(p, OP_DEL_SCOPE);
+  }
   return res;
 }
 
-static mjs_err_t parse_function(struct pstate *p) {
+static mjs_err_t parse_function(struct pstate *p)
+{
   size_t prologue, off;
   int arg_no = 0;
   int name_provided = 0;
@@ -186,7 +334,8 @@ static mjs_err_t parse_function(struct pstate *p) {
 
   EXPECT(p, TOK_KEYWORD_FUNCTION);
 
-  if (p->tok.tok == TOK_IDENT) {
+  if (p->tok.tok == TOK_IDENT)
+  {
     /* Function name was provided */
     struct tok tmp = p->tok;
     name_provided = 1;
@@ -208,264 +357,396 @@ static mjs_err_t parse_function(struct pstate *p) {
 
   EXPECT(p, TOK_OPEN_PAREN);
   emit_byte(p, OP_NEW_SCOPE);
+  fl_enter_scope(p);
   // Emit names of function arguments
-  while (p->tok.tok != TOK_CLOSE_PAREN) {
-    if (p->tok.tok != TOK_IDENT) SYNTAX_ERROR(p);
+  while (p->tok.tok != TOK_CLOSE_PAREN)
+  {
+    if (p->tok.tok != TOK_IDENT)
+      SYNTAX_ERROR(p);
     emit_byte(p, OP_SET_ARG);
     emit_int(p, arg_no);
     arg_no++;
     emit_str(p, p->tok.ptr, p->tok.len);
-    if (ptest(p) == TOK_COMMA) pnext1(p);
+    if (ptest(p) == TOK_COMMA)
+      pnext1(p);
     pnext1(p);
   }
   EXPECT(p, TOK_CLOSE_PAREN);
-  if ((res = parse_block(p, 0)) != MJS_OK) return res;
+  if ((res = parse_block(p, 0)) != MJS_OK)
+    return res;
+  fl_exit_scope(p);
   emit_byte(p, OP_RETURN);
   prologue += mjs_bcode_insert_offset(p, p->mjs, off,
                                       p->cur_idx - off - MJS_INIT_OFFSET_SIZE);
   emit_byte(p, OP_PUSH_FUNC);
   emit_int(p, p->cur_idx - 1 /* OP_PUSH_FUNC */ - prologue);
-  if (name_provided) {
+  if (name_provided)
+  {
     emit_op(p, TOK_ASSIGN);
   }
 
   return res;
 }
 
-static mjs_err_t parse_object_literal(struct pstate *p) {
+static mjs_err_t parse_object_literal(struct pstate *p)
+{
   mjs_err_t res = MJS_OK;
   EXPECT(p, TOK_OPEN_CURLY);
   emit_byte(p, OP_PUSH_OBJ);
-  while (p->tok.tok != TOK_CLOSE_CURLY) {
-    if (p->tok.tok != TOK_IDENT && p->tok.tok != TOK_STR) SYNTAX_ERROR(p);
+  while (p->tok.tok != TOK_CLOSE_CURLY)
+  {
+    if (p->tok.tok != TOK_IDENT && p->tok.tok != TOK_STR)
+      SYNTAX_ERROR(p);
     emit_byte(p, OP_DUP);
     emit_byte(p, OP_PUSH_STR);
     emit_str(p, p->tok.ptr, p->tok.len);
     emit_byte(p, OP_SWAP);
     pnext1(p);
     EXPECT(p, TOK_COLON);
-    if ((res = parse_expr(p)) != MJS_OK) return res;
+    if ((res = parse_expr(p)) != MJS_OK)
+      return res;
     emit_op(p, TOK_ASSIGN);
     emit_byte(p, OP_DROP);
-    if (p->tok.tok == TOK_COMMA) {
+    if (p->tok.tok == TOK_COMMA)
+    {
       pnext1(p);
-    } else if (p->tok.tok != TOK_CLOSE_CURLY) {
+    }
+    else if (p->tok.tok != TOK_CLOSE_CURLY)
+    {
       SYNTAX_ERROR(p);
     }
   }
   return res;
 }
 
-static mjs_err_t parse_array_literal(struct pstate *p) {
+static mjs_err_t parse_array_literal(struct pstate *p)
+{
   mjs_err_t res = MJS_OK;
   EXPECT(p, TOK_OPEN_BRACKET);
   emit_byte(p, OP_PUSH_ARRAY);
-  while (p->tok.tok != TOK_CLOSE_BRACKET) {
+  while (p->tok.tok != TOK_CLOSE_BRACKET)
+  {
     emit_byte(p, OP_DUP);
-    if ((res = parse_expr(p)) != MJS_OK) return res;
+    if ((res = parse_expr(p)) != MJS_OK)
+      return res;
     emit_byte(p, OP_APPEND);
-    if (p->tok.tok == TOK_COMMA) pnext1(p);
+    if (p->tok.tok == TOK_COMMA)
+      pnext1(p);
   }
   return res;
 }
 
-static enum mjs_err parse_literal(struct pstate *p, const struct tok *t) {
+static enum mjs_err parse_literal(struct pstate *p, const struct tok *t)
+{
   struct mbuf *bcode_gen = &p->mjs->bcode_gen;
   enum mjs_err res = MJS_OK;
   int tok = t->tok;
-  LOG(LL_VERBOSE_DEBUG, ("[%.*s] %p", p->tok.len, p->tok.ptr, (void *) &t));
-  switch (t->tok) {
-    case TOK_KEYWORD_FALSE:
-      emit_byte(p, OP_PUSH_FALSE);
-      break;
-    case TOK_KEYWORD_TRUE:
-      emit_byte(p, OP_PUSH_TRUE);
-      break;
-    case TOK_KEYWORD_UNDEFINED:
-      emit_byte(p, OP_PUSH_UNDEF);
-      break;
-    case TOK_KEYWORD_NULL:
-      emit_byte(p, OP_PUSH_NULL);
-      break;
-    case TOK_IDENT: {
-      int prev_tok = p->prev_tok;
-      int next_tok = ptest(p);
+  LOG(LL_VERBOSE_DEBUG, ("[%.*s] %p", p->tok.len, p->tok.ptr, (void *)&t));
+  switch (t->tok)
+  {
+  case TOK_KEYWORD_FALSE:
+    emit_byte(p, OP_PUSH_FALSE);
+    break;
+  case TOK_KEYWORD_TRUE:
+    emit_byte(p, OP_PUSH_TRUE);
+    break;
+  case TOK_KEYWORD_UNDEFINED:
+    emit_byte(p, OP_PUSH_UNDEF);
+    break;
+  case TOK_KEYWORD_NULL:
+    emit_byte(p, OP_PUSH_NULL);
+    break;
+  case TOK_IDENT:
+  {
+    int prev_tok = p->prev_tok;
+    int next_tok = ptest(p);
+    int fl_idx;
+    int is_postfix, is_assign;
+    p->fast_local_last_idx = -1;
+    /*
+     * NOTE: do NOT reset fast_local_assign_idx here -- it may have been
+     * set by a previous identifier in an assignment LHS, and clearing it
+     * here would break assignment handling when the RHS contains identifiers
+     * (e.g. "data = storage.read(...)"). Only emit_op() should consume it.
+     */
+    fl_idx = (prev_tok != TOK_DOT) ? find_fast_local(p, t->ptr, t->len) : -1;
+    if (fl_idx >= 0)
+    {
+      /* Fast local: use direct array access */
+      is_postfix = findtok(s_postfix_ops, next_tok);
+      is_assign = findtok(s_assign_ops, next_tok);
+      if (is_postfix)
+      {
+        /* Postfix ++/--: don't emit anything; postfix handler does OP_INC_FAST */
+        p->fast_local_last_idx = fl_idx;
+        p->fast_local_assign_name = t->ptr;
+        p->fast_local_assign_name_len = t->len;
+      }
+      else if (is_assign)
+      {
+        /* Assignment: push current value (for compound ops), set flag */
+        emit_byte(p, OP_LOAD_FAST);
+        emit_int(p, fl_idx);
+        p->fast_local_assign_idx = fl_idx;
+        p->fast_local_assign_name = t->ptr;
+        p->fast_local_assign_name_len = t->len;
+      }
+      else
+      {
+        /* Plain read: emit OP_LOAD_FAST */
+        emit_byte(p, OP_LOAD_FAST);
+        emit_int(p, fl_idx);
+      }
+    }
+    else
+    {
+      /* Original scope-based handling */
       emit_byte(p, OP_PUSH_STR);
       emit_str(p, t->ptr, t->len);
       emit_byte(p, (uint8_t)(prev_tok == TOK_DOT ? OP_SWAP : OP_FIND_SCOPE));
       if (!findtok(s_assign_ops, next_tok) &&
           !findtok(s_postfix_ops, next_tok) &&
-          /* TODO(dfrank): fix: it doesn't work for prefix ops */
-          !findtok(s_postfix_ops, prev_tok)) {
+          !findtok(s_postfix_ops, prev_tok))
+      {
         emit_byte(p, OP_GET);
       }
-      break;
     }
-    case TOK_NUM: {
-      double iv, d = strtod(t->ptr, NULL);
-      unsigned long uv = strtoul(t->ptr + 2, NULL, 16);
-      if (t->ptr[0] == '0' && t->ptr[1] == 'x') d = uv;
-      if (modf(d, &iv) == 0) {
-        emit_byte(p, OP_PUSH_INT);
-        emit_int(p, (int64_t) d);
-      } else {
-        emit_byte(p, OP_PUSH_DBL);
-        emit_str(p, t->ptr, t->len);
-      }
-      break;
-    }
-    case TOK_STR: {
-      size_t oldlen;
-      emit_byte(p, OP_PUSH_STR);
-      oldlen = bcode_gen->len;
-      embed_string(bcode_gen, p->cur_idx, t->ptr, t->len, EMBSTR_UNESCAPE);
-      p->cur_idx += bcode_gen->len - oldlen;
-    } break;
-    case TOK_OPEN_BRACKET:
-      res = parse_array_literal(p);
-      break;
-    case TOK_OPEN_CURLY:
-      res = parse_object_literal(p);
-      break;
-    case TOK_OPEN_PAREN:
-      pnext1(p);
-      res = parse_expr(p);
-      if (p->tok.tok != TOK_CLOSE_PAREN) SYNTAX_ERROR(p);
-      break;
-    case TOK_KEYWORD_FUNCTION:
-      res = parse_function(p);
-      break;
-    case TOK_KEYWORD_THIS:
-      emit_byte(p, OP_PUSH_THIS);
-      break;
-    default:
-      SYNTAX_ERROR(p);
+    break;
   }
-  if (tok != TOK_KEYWORD_FUNCTION) pnext1(p);
+  case TOK_NUM:
+  {
+    double iv, d = strtod(t->ptr, NULL);
+    unsigned long uv = strtoul(t->ptr + 2, NULL, 16);
+    if (t->ptr[0] == '0' && t->ptr[1] == 'x')
+      d = uv;
+    if (modf(d, &iv) == 0)
+    {
+      emit_byte(p, OP_PUSH_INT);
+      emit_int(p, (int64_t)d);
+    }
+    else
+    {
+      emit_byte(p, OP_PUSH_DBL);
+      emit_str(p, t->ptr, t->len);
+    }
+    break;
+  }
+  case TOK_STR:
+  {
+    size_t oldlen;
+    emit_byte(p, OP_PUSH_STR);
+    oldlen = bcode_gen->len;
+    embed_string(bcode_gen, p->cur_idx, t->ptr, t->len, EMBSTR_UNESCAPE);
+    p->cur_idx += bcode_gen->len - oldlen;
+  }
+  break;
+  case TOK_OPEN_BRACKET:
+    res = parse_array_literal(p);
+    break;
+  case TOK_OPEN_CURLY:
+    res = parse_object_literal(p);
+    break;
+  case TOK_OPEN_PAREN:
+    pnext1(p);
+    res = parse_expr(p);
+    if (p->tok.tok != TOK_CLOSE_PAREN)
+      SYNTAX_ERROR(p);
+    break;
+  case TOK_KEYWORD_FUNCTION:
+    res = parse_function(p);
+    break;
+  case TOK_KEYWORD_THIS:
+    emit_byte(p, OP_PUSH_THIS);
+    break;
+  default:
+    SYNTAX_ERROR(p);
+  }
+  if (tok != TOK_KEYWORD_FUNCTION)
+    pnext1(p);
   return res;
 }
 
-static mjs_err_t parse_call_dot_mem(struct pstate *p, int prev_op) {
+static mjs_err_t parse_call_dot_mem(struct pstate *p, int prev_op)
+{
   int ops[] = {TOK_DOT, TOK_OPEN_PAREN, TOK_OPEN_BRACKET, TOK_EOF};
   mjs_err_t res = MJS_OK;
-  if ((res = parse_literal(p, &p->tok)) != MJS_OK) return res;
-  while (findtok(ops, p->tok.tok) != TOK_EOF) {
-    if (p->tok.tok == TOK_OPEN_BRACKET) {
+  if ((res = parse_literal(p, &p->tok)) != MJS_OK)
+    return res;
+  while (findtok(ops, p->tok.tok) != TOK_EOF)
+  {
+    if (p->tok.tok == TOK_OPEN_BRACKET)
+    {
       int prev_tok = p->prev_tok;
       EXPECT(p, TOK_OPEN_BRACKET);
-      if ((res = parse_expr(p)) != MJS_OK) return res;
+      if ((res = parse_expr(p)) != MJS_OK)
+        return res;
       emit_byte(p, OP_SWAP);
       EXPECT(p, TOK_CLOSE_BRACKET);
       if (!findtok(s_assign_ops, p->tok.tok) &&
           !findtok(s_postfix_ops, p->tok.tok) &&
           /* TODO(dfrank): fix: it doesn't work for prefix ops */
-          !findtok(s_postfix_ops, prev_tok)) {
+          !findtok(s_postfix_ops, prev_tok))
+      {
         emit_byte(p, OP_GET);
       }
-    } else if (p->tok.tok == TOK_OPEN_PAREN) {
+    }
+    else if (p->tok.tok == TOK_OPEN_PAREN)
+    {
       EXPECT(p, TOK_OPEN_PAREN);
       emit_byte(p, OP_ARGS);
-      while (p->tok.tok != TOK_CLOSE_PAREN) {
-        if ((res = parse_expr(p)) != MJS_OK) return res;
-        if (p->tok.tok == TOK_COMMA) pnext1(p);
+      while (p->tok.tok != TOK_CLOSE_PAREN)
+      {
+        if ((res = parse_expr(p)) != MJS_OK)
+          return res;
+        if (p->tok.tok == TOK_COMMA)
+          pnext1(p);
       }
       emit_byte(p, OP_CALL);
       EXPECT(p, TOK_CLOSE_PAREN);
-    } else if (p->tok.tok == TOK_DOT) {
+    }
+    else if (p->tok.tok == TOK_DOT)
+    {
       EXPECT(p, TOK_DOT);
-      if ((res = parse_call_dot_mem(p, TOK_DOT)) != MJS_OK) return res;
+      if ((res = parse_call_dot_mem(p, TOK_DOT)) != MJS_OK)
+        return res;
     }
   }
-  (void) prev_op;
+  (void)prev_op;
   return res;
 }
 
-static mjs_err_t parse_postfix(struct pstate *p, int prev_op) {
+static mjs_err_t parse_postfix(struct pstate *p, int prev_op)
+{
   mjs_err_t res = MJS_OK;
-  if ((res = parse_call_dot_mem(p, prev_op)) != MJS_OK) return res;
-  if (p->tok.tok == TOK_PLUS_PLUS || p->tok.tok == TOK_MINUS_MINUS) {
-    int op = p->tok.tok == TOK_PLUS_PLUS ? TOK_POSTFIX_PLUS : TOK_POSTFIX_MINUS;
-    emit_op(p, op);
+  if ((res = parse_call_dot_mem(p, prev_op)) != MJS_OK)
+    return res;
+  if (p->tok.tok == TOK_PLUS_PLUS || p->tok.tok == TOK_MINUS_MINUS)
+  {
+    if (p->fast_local_last_idx >= 0)
+    {
+      /* Fast local postfix increment/decrement */
+      int idx = p->fast_local_last_idx;
+      uint8_t op = (p->tok.tok == TOK_PLUS_PLUS) ? OP_INC_FAST : OP_DEC_FAST;
+      emit_byte(p, op);
+      emit_int(p, idx);
+      /* Sync global scope for cross-call access */
+      if (p->fast_local_assign_name != NULL)
+      {
+        const char *n = p->fast_local_assign_name;
+        size_t nl = p->fast_local_assign_name_len;
+        p->fast_local_assign_name = NULL;
+        emit_sync_scope(p, n, nl);
+      }
+      p->fast_local_last_idx = -1;
+    }
+    else
+    {
+      int op = p->tok.tok == TOK_PLUS_PLUS ? TOK_POSTFIX_PLUS : TOK_POSTFIX_MINUS;
+      emit_op(p, op);
+    }
     pnext1(p);
   }
   return res;
 }
 
-static mjs_err_t parse_unary(struct pstate *p, int prev_op) {
+static mjs_err_t parse_unary(struct pstate *p, int prev_op)
+{
   mjs_err_t res = MJS_OK;
   int op = TOK_EOF;
-  if (findtok(s_unary_ops, p->tok.tok) != TOK_EOF) {
+  if (findtok(s_unary_ops, p->tok.tok) != TOK_EOF)
+  {
     op = p->tok.tok;
     pnext1(p);
   }
-  if (findtok(s_unary_ops, p->tok.tok) != TOK_EOF) {
+  if (findtok(s_unary_ops, p->tok.tok) != TOK_EOF)
+  {
     res = parse_unary(p, prev_op);
-  } else {
+  }
+  else
+  {
     res = parse_postfix(p, prev_op);
   }
-  if (res != MJS_OK) return res;
-  if (op != TOK_EOF) {
-    if (op == TOK_MINUS) op = TOK_UNARY_MINUS;
-    if (op == TOK_PLUS) op = TOK_UNARY_PLUS;
+  if (res != MJS_OK)
+    return res;
+  if (op != TOK_EOF)
+  {
+    if (op == TOK_MINUS)
+      op = TOK_UNARY_MINUS;
+    if (op == TOK_PLUS)
+      op = TOK_UNARY_PLUS;
     emit_op(p, op);
   }
   return res;
 }
 
-static mjs_err_t parse_mul_div_rem(struct pstate *p, int prev_op) {
+static mjs_err_t parse_mul_div_rem(struct pstate *p, int prev_op)
+{
   int ops[] = {TOK_MUL, TOK_DIV, TOK_REM, TOK_EOF};
   PARSE_LTR_BINOP(p, parse_unary, parse_mul_div_rem, ops, prev_op);
 }
 
-static mjs_err_t parse_plus_minus(struct pstate *p, int prev_op) {
+static mjs_err_t parse_plus_minus(struct pstate *p, int prev_op)
+{
   int ops[] = {TOK_PLUS, TOK_MINUS, TOK_EOF};
   PARSE_LTR_BINOP(p, parse_mul_div_rem, parse_plus_minus, ops, prev_op);
 }
 
-static mjs_err_t parse_shifts(struct pstate *p, int prev_op) {
+static mjs_err_t parse_shifts(struct pstate *p, int prev_op)
+{
   int ops[] = {TOK_LSHIFT, TOK_RSHIFT, TOK_URSHIFT, TOK_EOF};
   PARSE_LTR_BINOP(p, parse_plus_minus, parse_shifts, ops, prev_op);
 }
 
-static mjs_err_t parse_comparison(struct pstate *p, int prev_op) {
+static mjs_err_t parse_comparison(struct pstate *p, int prev_op)
+{
   PARSE_LTR_BINOP(p, parse_shifts, parse_comparison, s_comparison_ops, prev_op);
 }
 
-static mjs_err_t parse_equality(struct pstate *p, int prev_op) {
+static mjs_err_t parse_equality(struct pstate *p, int prev_op)
+{
   PARSE_LTR_BINOP(p, parse_comparison, parse_equality, s_equality_ops, prev_op);
 }
 
-static mjs_err_t parse_bitwise_and(struct pstate *p, int prev_op) {
+static mjs_err_t parse_bitwise_and(struct pstate *p, int prev_op)
+{
   int ops[] = {TOK_AND, TOK_EOF};
   PARSE_LTR_BINOP(p, parse_equality, parse_bitwise_and, ops, prev_op);
 }
 
-static mjs_err_t parse_bitwise_xor(struct pstate *p, int prev_op) {
+static mjs_err_t parse_bitwise_xor(struct pstate *p, int prev_op)
+{
   int ops[] = {TOK_XOR, TOK_EOF};
   PARSE_LTR_BINOP(p, parse_bitwise_and, parse_bitwise_xor, ops, prev_op);
 }
 
-static mjs_err_t parse_bitwise_or(struct pstate *p, int prev_op) {
+static mjs_err_t parse_bitwise_or(struct pstate *p, int prev_op)
+{
   int ops[] = {TOK_OR, TOK_EOF};
   PARSE_LTR_BINOP(p, parse_bitwise_xor, parse_bitwise_or, ops, prev_op);
 }
 
-static mjs_err_t parse_logical_and(struct pstate *p, int prev_op) {
+static mjs_err_t parse_logical_and(struct pstate *p, int prev_op)
+{
   int ops[] = {TOK_LOGICAL_AND, TOK_EOF};
   PARSE_LTR_BINOP(p, parse_bitwise_or, parse_logical_and, ops, prev_op);
 }
 
-static mjs_err_t parse_logical_or(struct pstate *p, int prev_op) {
+static mjs_err_t parse_logical_or(struct pstate *p, int prev_op)
+{
   int ops[] = {TOK_LOGICAL_OR, TOK_EOF};
   PARSE_LTR_BINOP(p, parse_logical_and, parse_logical_or, ops, prev_op);
 }
 
-static mjs_err_t parse_ternary(struct pstate *p, int prev_op) {
+static mjs_err_t parse_ternary(struct pstate *p, int prev_op)
+{
   mjs_err_t res = MJS_OK;
-  if ((res = parse_logical_or(p, TOK_EOF)) != MJS_OK) return res;
-  if (prev_op != TOK_EOF) emit_op(p, prev_op);
+  if ((res = parse_logical_or(p, TOK_EOF)) != MJS_OK)
+    return res;
+  if (prev_op != TOK_EOF)
+    emit_op(p, prev_op);
 
-  if (p->tok.tok == TOK_QUESTION) {
+  if (p->tok.tok == TOK_QUESTION)
+  {
     size_t off_if, off_endif, off_else;
     EXPECT(p, TOK_QUESTION);
 
@@ -473,7 +754,8 @@ static mjs_err_t parse_ternary(struct pstate *p, int prev_op) {
     off_if = p->cur_idx;
     emit_init_offset(p);
 
-    if ((res = parse_ternary(p, TOK_EOF)) != MJS_OK) return res;
+    if ((res = parse_ternary(p, TOK_EOF)) != MJS_OK)
+      return res;
 
     emit_byte(p, OP_JMP);
     off_else = p->cur_idx;
@@ -483,7 +765,8 @@ static mjs_err_t parse_ternary(struct pstate *p, int prev_op) {
     emit_byte(p, OP_DROP);
 
     EXPECT(p, TOK_COLON);
-    if ((res = parse_ternary(p, TOK_EOF)) != MJS_OK) return res;
+    if ((res = parse_ternary(p, TOK_EOF)) != MJS_OK)
+      return res;
 
     /*
      * NOTE: if inserting offset causes the code to move, off_endif needs to be
@@ -499,55 +782,154 @@ static mjs_err_t parse_ternary(struct pstate *p, int prev_op) {
   return res;
 }
 
-static mjs_err_t parse_assignment(struct pstate *p, int prev_op) {
+static mjs_err_t parse_assignment(struct pstate *p, int prev_op)
+{
   PARSE_RTL_BINOP(p, parse_ternary, parse_assignment, s_assign_ops, prev_op);
 }
 
-static mjs_err_t parse_expr(struct pstate *p) {
+static mjs_err_t parse_expr(struct pstate *p)
+{
   return parse_assignment(p, TOK_EOF);
 }
 
-static mjs_err_t parse_let(struct pstate *p) {
+/* Add a name->index mapping for fast locals. Returns absolute index. */
+static int add_fast_local(struct pstate *p, const char *name, size_t name_len)
+{
+  int idx;
+  if (p->fast_locals_cnt >= MJS_FL_MAX)
+    return -1;
+  idx = p->fast_locals_uid; /* globally unique absolute index */
+  p->fast_locals_uid++;
+  p->fast_locals[p->fast_locals_cnt].name = name;
+  p->fast_locals[p->fast_locals_cnt].name_len = name_len;
+  p->fast_locals[p->fast_locals_cnt].idx = idx; /* absolute index = idx */
+  p->fast_locals_cnt++;
+  return idx;
+}
+
+/* Look up a fast local by name. Returns index or -1 if not found. */
+static int find_fast_local(struct pstate *p, const char *name, size_t name_len)
+{
+  int j;
+  for (j = p->fast_locals_cnt - 1; j >= 0; j--)
+  {
+    if (p->fast_locals[j].name_len == name_len &&
+        memcmp(p->fast_locals[j].name, name, name_len) == 0)
+    {
+      return p->fast_locals[j].idx;
+    }
+  }
+  return -1;
+}
+
+static mjs_err_t parse_let(struct pstate *p)
+{
   mjs_err_t res = MJS_OK;
   LOG(LL_VERBOSE_DEBUG, ("[%.*s]", 10, p->tok.ptr));
   EXPECT(p, TOK_KEYWORD_LET);
-  for (;;) {
+  for (;;)
+  {
     struct tok tmp = p->tok;
+    int fl_idx;
     EXPECT(p, TOK_IDENT);
 
-    emit_byte(p, OP_PUSH_STR);
-    emit_str(p, tmp.ptr, tmp.len);
-    emit_byte(p, OP_PUSH_SCOPE);
-    emit_byte(p, OP_CREATE);
-
-    if (p->tok.tok == TOK_ASSIGN) {
-      pnext1(p);
+    fl_idx = add_fast_local(p, tmp.ptr, tmp.len);
+    if (fl_idx >= 0)
+    {
+      /* Fast path: variable lives in fast_locals array only */
+      if (p->tok.tok == TOK_ASSIGN)
+      {
+        pnext1(p);
+        if ((res = parse_expr(p)) != MJS_OK)
+          return res;
+      }
+      else
+      {
+        emit_byte(p, OP_PUSH_UNDEF);
+      }
+      emit_byte(p, OP_STORE_FAST);
+      emit_int(p, fl_idx);
+      emit_sync_scope(p, tmp.ptr, tmp.len);
+    }
+    else
+    {
+      /* Slow path: scope-based (table full) */
       emit_byte(p, OP_PUSH_STR);
       emit_str(p, tmp.ptr, tmp.len);
-      emit_byte(p, OP_FIND_SCOPE);
-      if ((res = parse_expr(p)) != MJS_OK) return res;
-      emit_op(p, TOK_ASSIGN);
-    } else {
-      emit_byte(p, OP_PUSH_UNDEF);
+      emit_byte(p, OP_PUSH_SCOPE);
+      emit_byte(p, OP_CREATE);
+      if (p->tok.tok == TOK_ASSIGN)
+      {
+        pnext1(p);
+        emit_byte(p, OP_PUSH_STR);
+        emit_str(p, tmp.ptr, tmp.len);
+        emit_byte(p, OP_FIND_SCOPE);
+        if ((res = parse_expr(p)) != MJS_OK)
+          return res;
+        emit_op(p, TOK_ASSIGN);
+      }
+      else
+      {
+        emit_byte(p, OP_PUSH_UNDEF);
+      }
     }
-    if (p->tok.tok == TOK_COMMA) {
+    if (p->tok.tok == TOK_COMMA)
+    {
       emit_byte(p, OP_DROP);
       pnext1(p);
     }
-    if (p->tok.tok == TOK_SEMICOLON || p->tok.tok == TOK_EOF) break;
+    if (p->tok.tok == TOK_SEMICOLON || p->tok.tok == TOK_EOF)
+      break;
   }
   return res;
 }
 
-static mjs_err_t parse_block_or_stmt(struct pstate *p, int cs) {
-  if (ptest(p) == TOK_OPEN_CURLY) {
+/* Emit SYNC_SCOPE opcode for global fast locals */
+static void emit_sync_scope(struct pstate *p, const char *name, size_t name_len)
+{
+  if (p->fast_locals_frame_depth <= 1)
+  {
+    emit_byte(p, OP_SYNC_SCOPE);
+    emit_str(p, name, name_len);
+  }
+}
+
+/* Enter a new fast-locals scope: push frame marker and save entry count */
+static void fl_enter_scope(struct pstate *p)
+{
+  if (p->fast_locals_frame_depth < 8)
+  {
+    p->fast_locals_frame_stack[p->fast_locals_frame_depth] = p->fast_locals_cnt;
+    p->fast_locals_frame_depth++;
+  }
+  emit_byte(p, OP_ENTER_FAST);
+}
+
+/* Exit the current fast-locals scope: restore entry count */
+static void fl_exit_scope(struct pstate *p)
+{
+  emit_byte(p, OP_EXIT_FAST);
+  if (p->fast_locals_frame_depth > 1)
+  {
+    p->fast_locals_frame_depth--;
+    p->fast_locals_cnt = p->fast_locals_frame_stack[p->fast_locals_frame_depth];
+  }
+}
+
+static mjs_err_t parse_block_or_stmt(struct pstate *p, int cs)
+{
+  if (ptest(p) == TOK_OPEN_CURLY)
+  {
     return parse_block(p, cs);
-  } else {
+  }
+  else
+  {
     return parse_statement(p);
   }
 }
 
-static mjs_err_t parse_for_in(struct pstate *p) {
+static mjs_err_t parse_for_in(struct pstate *p)
+{
   mjs_err_t res = MJS_OK;
   size_t off_b, off_check_end;
 
@@ -555,7 +937,8 @@ static mjs_err_t parse_for_in(struct pstate *p) {
   emit_byte(p, OP_NEW_SCOPE);
 
   /* Put iterator variable name to the stack */
-  if (p->tok.tok == TOK_KEYWORD_LET) {
+  if (p->tok.tok == TOK_KEYWORD_LET)
+  {
     EXPECT(p, TOK_KEYWORD_LET);
     emit_byte(p, OP_PUSH_STR);
     emit_str(p, p->tok.ptr, p->tok.len);
@@ -586,11 +969,16 @@ static mjs_err_t parse_for_in(struct pstate *p) {
   emit_init_offset(p);
 
   // Parse loop body
-  if (p->tok.tok == TOK_OPEN_CURLY) {
-    if ((res = parse_statement_list(p, TOK_CLOSE_CURLY)) != MJS_OK) return res;
+  if (p->tok.tok == TOK_OPEN_CURLY)
+  {
+    if ((res = parse_statement_list(p, TOK_CLOSE_CURLY)) != MJS_OK)
+      return res;
     pnext1(p);
-  } else {
-    if ((res = parse_statement(p)) != MJS_OK) return res;
+  }
+  else
+  {
+    if ((res = parse_statement(p)) != MJS_OK)
+      return res;
   }
   emit_byte(p, OP_DROP);
   emit_byte(p, OP_CONTINUE);
@@ -615,19 +1003,24 @@ static mjs_err_t parse_for_in(struct pstate *p) {
   return res;
 }
 
-static int check_for_in(struct pstate *p) {
+static int check_for_in(struct pstate *p)
+{
   struct pstate saved = *p;
   int forin = 0;
-  if (p->tok.tok == TOK_KEYWORD_LET) pnext1(p);
-  if (p->tok.tok == TOK_IDENT) {
+  if (p->tok.tok == TOK_KEYWORD_LET)
     pnext1(p);
-    if (p->tok.tok == TOK_KEYWORD_IN) forin = 1;
+  if (p->tok.tok == TOK_IDENT)
+  {
+    pnext1(p);
+    if (p->tok.tok == TOK_KEYWORD_IN)
+      forin = 1;
   }
   *p = saved;
   return forin;
 }
 
-static mjs_err_t parse_for(struct pstate *p) {
+static mjs_err_t parse_for(struct pstate *p)
+{
   mjs_err_t res = MJS_OK;
   size_t off_b, off_c, off_init_end;
   size_t off_incr_begin, off_cond_begin, off_cond_end;
@@ -638,7 +1031,8 @@ static mjs_err_t parse_for(struct pstate *p) {
   EXPECT(p, TOK_OPEN_PAREN);
 
   /* Look forward - is it for..in ? */
-  if (check_for_in(p)) return parse_for_in(p);
+  if (check_for_in(p))
+    return parse_for_in(p);
 
   /*
    * BC is a break+continue offsets (a part of OP_LOOP opcode)
@@ -659,6 +1053,7 @@ static mjs_err_t parse_for(struct pstate *p) {
 
   /* new scope should be pushed before OP_LOOP instruction */
   emit_byte(p, OP_NEW_SCOPE);
+  fl_enter_scope(p);
 
   /* Before parsing condition statement, push break/continue offsets  */
   emit_byte(p, OP_LOOP);
@@ -668,10 +1063,15 @@ static mjs_err_t parse_for(struct pstate *p) {
   emit_init_offset(p);
 
   /* Parse init statement */
-  if (p->tok.tok == TOK_KEYWORD_LET) {
-    if ((res = parse_let(p)) != MJS_OK) return res;
-  } else {
-    if ((res = parse_expr(p)) != MJS_OK) return res;
+  if (p->tok.tok == TOK_KEYWORD_LET)
+  {
+    if ((res = parse_let(p)) != MJS_OK)
+      return res;
+  }
+  else
+  {
+    if ((res = parse_expr(p)) != MJS_OK)
+      return res;
   }
   EXPECT(p, TOK_SEMICOLON);
   emit_byte(p, OP_DROP);
@@ -684,7 +1084,8 @@ static mjs_err_t parse_for(struct pstate *p) {
   off_cond_begin = p->cur_idx;
 
   /* Parse cond statement */
-  if ((res = parse_expr(p)) != MJS_OK) return res;
+  if ((res = parse_expr(p)) != MJS_OK)
+    return res;
   EXPECT(p, TOK_SEMICOLON);
 
   /* Parse incr statement */
@@ -692,7 +1093,8 @@ static mjs_err_t parse_for(struct pstate *p) {
   buf_cur_idx = p->cur_idx;
   p->cur_idx = off_incr_begin;
 
-  if ((res = parse_expr(p)) != MJS_OK) return res;
+  if ((res = parse_expr(p)) != MJS_OK)
+    return res;
   EXPECT(p, TOK_CLOSE_PAREN);
   emit_byte(p, OP_DROP);
 
@@ -713,11 +1115,16 @@ static mjs_err_t parse_for(struct pstate *p) {
   emit_init_offset(p);
 
   /* Parse loop body */
-  if (p->tok.tok == TOK_OPEN_CURLY) {
-    if ((res = parse_statement_list(p, TOK_CLOSE_CURLY)) != MJS_OK) return res;
+  if (p->tok.tok == TOK_OPEN_CURLY)
+  {
+    if ((res = parse_statement_list(p, TOK_CLOSE_CURLY)) != MJS_OK)
+      return res;
     pnext1(p);
-  } else {
-    if ((res = parse_statement(p)) != MJS_OK) return res;
+  }
+  else
+  {
+    if ((res = parse_statement(p)) != MJS_OK)
+      return res;
   }
   emit_byte(p, OP_DROP);
   emit_byte(p, OP_CONTINUE);
@@ -743,12 +1150,14 @@ static mjs_err_t parse_for(struct pstate *p) {
   mjs_bcode_insert_offset(p, p->mjs, off_b,
                           p->cur_idx - off_b - MJS_INIT_OFFSET_SIZE);
 
+  fl_exit_scope(p);
   emit_byte(p, OP_DEL_SCOPE);
 
   return res;
 }
 
-static mjs_err_t parse_while(struct pstate *p) {
+static mjs_err_t parse_while(struct pstate *p)
+{
   size_t off_cond_end, off_b;
   mjs_err_t res = MJS_OK;
 
@@ -780,7 +1189,8 @@ static mjs_err_t parse_while(struct pstate *p) {
   emit_byte(p, 0); /* Point OP_CONTINUE to the next instruction */
 
   // parse condition statement
-  if ((res = parse_expr(p)) != MJS_OK) return res;
+  if ((res = parse_expr(p)) != MJS_OK)
+    return res;
   EXPECT(p, TOK_CLOSE_PAREN);
 
   // Exit the loop if false
@@ -789,11 +1199,16 @@ static mjs_err_t parse_while(struct pstate *p) {
   emit_init_offset(p);
 
   // Parse loop body
-  if (p->tok.tok == TOK_OPEN_CURLY) {
-    if ((res = parse_statement_list(p, TOK_CLOSE_CURLY)) != MJS_OK) return res;
+  if (p->tok.tok == TOK_OPEN_CURLY)
+  {
+    if ((res = parse_statement_list(p, TOK_CLOSE_CURLY)) != MJS_OK)
+      return res;
     pnext1(p);
-  } else {
-    if ((res = parse_statement(p)) != MJS_OK) return res;
+  }
+  else
+  {
+    if ((res = parse_statement(p)) != MJS_OK)
+      return res;
   }
   emit_byte(p, OP_DROP);
   emit_byte(p, OP_CONTINUE);
@@ -814,22 +1229,27 @@ static mjs_err_t parse_while(struct pstate *p) {
   return res;
 }
 
-static mjs_err_t parse_if(struct pstate *p) {
+static mjs_err_t parse_if(struct pstate *p)
+{
   size_t off_if, off_endif;
   mjs_err_t res = MJS_OK;
   LOG(LL_VERBOSE_DEBUG, ("[%.*s]", 10, p->tok.ptr));
   EXPECT(p, TOK_KEYWORD_IF);
   EXPECT(p, TOK_OPEN_PAREN);
-  if ((res = parse_expr(p)) != MJS_OK) return res;
+  p->fast_local_assign_idx = -1; /* reset for condition expression */
+  if ((res = parse_expr(p)) != MJS_OK)
+    return res;
 
   emit_byte(p, OP_JMP_FALSE);
   off_if = p->cur_idx;
   emit_init_offset(p);
 
   EXPECT(p, TOK_CLOSE_PAREN);
-  if ((res = parse_block_or_stmt(p, 1)) != MJS_OK) return res;
+  if ((res = parse_block_or_stmt(p, 1)) != MJS_OK)
+    return res;
 
-  if (p->tok.tok == TOK_KEYWORD_ELSE) {
+  if (p->tok.tok == TOK_KEYWORD_ELSE)
+  {
     /*
      * Else clause is present, so, if the condition is not true, the jump
      * target (off_endif) should be not the current offset, but the offset
@@ -843,7 +1263,8 @@ static mjs_err_t parse_if(struct pstate *p) {
     off_endif = p->cur_idx;
 
     emit_byte(p, OP_DROP);
-    if ((res = parse_block_or_stmt(p, 1)) != MJS_OK) return res;
+    if ((res = parse_block_or_stmt(p, 1)) != MJS_OK)
+      return res;
     off_endelse = p->cur_idx;
 
     /*
@@ -852,7 +1273,9 @@ static mjs_err_t parse_if(struct pstate *p) {
      */
     off_endif += mjs_bcode_insert_offset(
         p, p->mjs, off_else, off_endelse - off_else - MJS_INIT_OFFSET_SIZE);
-  } else {
+  }
+  else
+  {
     /* Else clause is not present, so, current offset is a jump target
      * (off_endif) */
     off_endif = p->cur_idx;
@@ -865,7 +1288,8 @@ static mjs_err_t parse_if(struct pstate *p) {
 }
 
 static void pstate_revert(struct pstate *p, struct pstate *old,
-                          int old_bcode_gen_len) {
+                          int old_bcode_gen_len)
+{
   p->pos = old->pos;
   p->line_no = old->line_no;
   p->last_emitted_line_no = old->last_emitted_line_no;
@@ -877,13 +1301,15 @@ static void pstate_revert(struct pstate *p, struct pstate *old,
   p->depth = old->depth;
 }
 
-static mjs_err_t parse_return(struct pstate *p) {
+static mjs_err_t parse_return(struct pstate *p)
+{
   int old_bcode_gen_len;
   struct pstate p_saved;
   EXPECT(p, TOK_KEYWORD_RETURN);
   p_saved = *p;
   old_bcode_gen_len = p->mjs->bcode_gen.len;
-  if (parse_expr(p) != MJS_OK) {
+  if (parse_expr(p) != MJS_OK)
+  {
     /*
      * Failed to parse an expression to return, so return the parser to the
      * prior state and push undefined.
@@ -896,64 +1322,72 @@ static mjs_err_t parse_return(struct pstate *p) {
   return MJS_OK;
 }
 
-static mjs_err_t parse_statement(struct pstate *p) {
+static mjs_err_t parse_statement(struct pstate *p)
+{
   LOG(LL_VERBOSE_DEBUG, ("[%.*s]", 10, p->tok.ptr));
-  switch (p->tok.tok) {
-    case TOK_SEMICOLON:
-      emit_byte(p, OP_PUSH_UNDEF);
+  switch (p->tok.tok)
+  {
+  case TOK_SEMICOLON:
+    emit_byte(p, OP_PUSH_UNDEF);
+    pnext1(p);
+    return MJS_OK;
+  case TOK_KEYWORD_LET:
+    return parse_let(p);
+  case TOK_OPEN_CURLY:
+    return parse_block(p, 1);
+  case TOK_KEYWORD_RETURN:
+    return parse_return(p);
+  case TOK_KEYWORD_FOR:
+    return parse_for(p);
+  case TOK_KEYWORD_WHILE:
+    return parse_while(p);
+  case TOK_KEYWORD_BREAK:
+    emit_byte(p, OP_PUSH_UNDEF);
+    emit_byte(p, OP_BREAK);
+    pnext1(p);
+    return MJS_OK;
+  case TOK_KEYWORD_CONTINUE:
+    emit_byte(p, OP_CONTINUE);
+    pnext1(p);
+    return MJS_OK;
+  case TOK_KEYWORD_IF:
+    return parse_if(p);
+  case TOK_KEYWORD_CASE:
+  case TOK_KEYWORD_CATCH:
+  case TOK_KEYWORD_DELETE:
+  case TOK_KEYWORD_DO:
+  case TOK_KEYWORD_INSTANCEOF:
+  case TOK_KEYWORD_NEW:
+  case TOK_KEYWORD_SWITCH:
+  case TOK_KEYWORD_THROW:
+  case TOK_KEYWORD_TRY:
+  case TOK_KEYWORD_VAR:
+  case TOK_KEYWORD_VOID:
+  case TOK_KEYWORD_WITH:
+    mjs_set_errorf(p->mjs, MJS_SYNTAX_ERROR, "[%.*s] is not implemented",
+                   p->tok.len, p->tok.ptr);
+    return MJS_SYNTAX_ERROR;
+  default:
+  {
+    mjs_err_t res = MJS_OK;
+    p->fast_local_assign_idx = -1; /* reset for new expression statement */
+    for (;;)
+    {
+      if ((res = parse_expr(p)) != MJS_OK)
+        return res;
+      if (p->tok.tok != TOK_COMMA)
+        break;
+      emit_byte(p, OP_DROP);
       pnext1(p);
-      return MJS_OK;
-    case TOK_KEYWORD_LET:
-      return parse_let(p);
-    case TOK_OPEN_CURLY:
-      return parse_block(p, 1);
-    case TOK_KEYWORD_RETURN:
-      return parse_return(p);
-    case TOK_KEYWORD_FOR:
-      return parse_for(p);
-    case TOK_KEYWORD_WHILE:
-      return parse_while(p);
-    case TOK_KEYWORD_BREAK:
-      emit_byte(p, OP_PUSH_UNDEF);
-      emit_byte(p, OP_BREAK);
-      pnext1(p);
-      return MJS_OK;
-    case TOK_KEYWORD_CONTINUE:
-      emit_byte(p, OP_CONTINUE);
-      pnext1(p);
-      return MJS_OK;
-    case TOK_KEYWORD_IF:
-      return parse_if(p);
-    case TOK_KEYWORD_CASE:
-    case TOK_KEYWORD_CATCH:
-    case TOK_KEYWORD_DELETE:
-    case TOK_KEYWORD_DO:
-    case TOK_KEYWORD_INSTANCEOF:
-    case TOK_KEYWORD_NEW:
-    case TOK_KEYWORD_SWITCH:
-    case TOK_KEYWORD_THROW:
-    case TOK_KEYWORD_TRY:
-    case TOK_KEYWORD_VAR:
-    case TOK_KEYWORD_VOID:
-    case TOK_KEYWORD_WITH:
-      mjs_set_errorf(p->mjs, MJS_SYNTAX_ERROR, "[%.*s] is not implemented",
-                     p->tok.len, p->tok.ptr);
-      return MJS_SYNTAX_ERROR;
-    default: {
-      mjs_err_t res = MJS_OK;
-      for (;;) {
-        if ((res = parse_expr(p)) != MJS_OK) return res;
-        if (p->tok.tok != TOK_COMMA) break;
-        emit_byte(p, OP_DROP);
-        pnext1(p);
-      }
-      return res;
     }
+    return res;
+  }
   }
 }
 
 MJS_PRIVATE mjs_err_t
-mjs_parse(const char *path, const char *buf, struct mjs *mjs) {
+mjs_parse(const char *path, const char *buf, struct mjs *mjs)
+{
   mjs_err_t res = MJS_OK;
   struct pstate p;
   size_t start_idx, llen;
@@ -962,6 +1396,13 @@ mjs_parse(const char *path, const char *buf, struct mjs *mjs) {
 
   pinit(path, buf, &p);
   p.mjs = mjs;
+  p.fast_local_last_idx = -1;
+  p.fast_local_assign_idx = -1;
+  p.fast_local_assign_name = NULL;
+  p.fast_local_assign_name_len = 0;
+  p.fast_locals_uid = 0;
+  p.fast_locals_frame_stack[0] = 0;
+  p.fast_locals_frame_depth = 1;
   p.cur_idx = p.mjs->bcode_gen.len;
   emit_byte(&p, OP_BCODE_HEADER);
 
@@ -986,7 +1427,11 @@ mjs_parse(const char *path, const char *buf, struct mjs *mjs) {
   p.start_bcode_idx = p.mjs->bcode_gen.len;
   p.cur_idx = p.mjs->bcode_gen.len;
 
+  /* Global scope does NOT use OP_ENTER_FAST/OP_EXIT_FAST:
+   * global fast-locals must persist across js.run() calls for closures
+   * to work correctly. Only function/block scopes get frame markers. */
   res = parse_statement_list(&p, TOK_EOF);
+
   emit_byte(&p, OP_EXIT);
 
   /* remember map offset */
@@ -1000,7 +1445,7 @@ mjs_parse(const char *path, const char *buf, struct mjs *mjs) {
   llen = cs_varint_llen(map_len);
   mbuf_resize(&p.mjs->bcode_gen, p.mjs->bcode_gen.size + llen);
   cs_varint_encode(
-      map_len, (uint8_t *) p.mjs->bcode_gen.buf + p.mjs->bcode_gen.len, llen);
+      map_len, (uint8_t *)p.mjs->bcode_gen.buf + p.mjs->bcode_gen.len, llen);
   p.mjs->bcode_gen.len += llen;
 
   /* put the map itself */
@@ -1018,9 +1463,12 @@ mjs_parse(const char *path, const char *buf, struct mjs *mjs) {
    * If parsing was successful, commit the bcode; otherwise drop generated
    * bcode
    */
-  if (res == MJS_OK) {
+  if (res == MJS_OK)
+  {
     mjs_bcode_commit(mjs);
-  } else {
+  }
+  else
+  {
     mbuf_free(&mjs->bcode_gen);
   }
 

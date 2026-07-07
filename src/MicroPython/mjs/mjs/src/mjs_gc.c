@@ -19,18 +19,18 @@
 /*
  * Macros for marking reachable things: use bit 0.
  */
-#define MARK(p) (((struct gc_cell *) (p))->head.word |= 1)
-#define UNMARK(p) (((struct gc_cell *) (p))->head.word &= ~1)
-#define MARKED(p) (((struct gc_cell *) (p))->head.word & 1)
+#define MARK(p) (((struct gc_cell *)(p))->head.word |= 1)
+#define UNMARK(p) (((struct gc_cell *)(p))->head.word &= ~1)
+#define MARKED(p) (((struct gc_cell *)(p))->head.word & 1)
 
 /*
  * Similar to `MARK()` / `UNMARK()` / `MARKED()`, but `.._FREE` counterparts
  * are intended to mark free cells (as opposed to used ones), so they use
  * bit 1.
  */
-#define MARK_FREE(p) (((struct gc_cell *) (p))->head.word |= 2)
-#define UNMARK_FREE(p) (((struct gc_cell *) (p))->head.word &= ~2)
-#define MARKED_FREE(p) (((struct gc_cell *) (p))->head.word & 2)
+#define MARK_FREE(p) (((struct gc_cell *)(p))->head.word |= 2)
+#define UNMARK_FREE(p) (((struct gc_cell *)(p))->head.word &= ~2)
+#define MARKED_FREE(p) (((struct gc_cell *)(p))->head.word & 2)
 
 /*
  * When each arena has that or less free cells, GC will be scheduled
@@ -41,21 +41,25 @@ static struct gc_block *gc_new_block(struct gc_arena *a, size_t size);
 static void gc_free_block(struct gc_block *b);
 static void gc_mark_mbuf_pt(struct mjs *mjs, const struct mbuf *mbuf);
 
-MJS_PRIVATE struct mjs_object *new_object(struct mjs *mjs) {
-  return (struct mjs_object *) gc_alloc_cell(mjs, &mjs->object_arena);
+MJS_PRIVATE struct mjs_object *new_object(struct mjs *mjs)
+{
+  return (struct mjs_object *)gc_alloc_cell(mjs, &mjs->object_arena);
 }
 
-MJS_PRIVATE struct mjs_property *new_property(struct mjs *mjs) {
-  return (struct mjs_property *) gc_alloc_cell(mjs, &mjs->property_arena);
+MJS_PRIVATE struct mjs_property *new_property(struct mjs *mjs)
+{
+  return (struct mjs_property *)gc_alloc_cell(mjs, &mjs->property_arena);
 }
 
-MJS_PRIVATE struct mjs_ffi_sig *new_ffi_sig(struct mjs *mjs) {
-  return (struct mjs_ffi_sig *) gc_alloc_cell(mjs, &mjs->ffi_sig_arena);
+MJS_PRIVATE struct mjs_ffi_sig *new_ffi_sig(struct mjs *mjs)
+{
+  return (struct mjs_ffi_sig *)gc_alloc_cell(mjs, &mjs->ffi_sig_arena);
 }
 
 /* Initializes a new arena. */
 MJS_PRIVATE void gc_arena_init(struct gc_arena *a, size_t cell_size,
-                               size_t initial_size, size_t size_increment) {
+                               size_t initial_size, size_t size_increment)
+{
   assert(cell_size >= sizeof(uintptr_t));
 
   memset(a, 0, sizeof(*a));
@@ -64,12 +68,15 @@ MJS_PRIVATE void gc_arena_init(struct gc_arena *a, size_t cell_size,
   a->blocks = gc_new_block(a, initial_size);
 }
 
-MJS_PRIVATE void gc_arena_destroy(struct mjs *mjs, struct gc_arena *a) {
+MJS_PRIVATE void gc_arena_destroy(struct mjs *mjs, struct gc_arena *a)
+{
   struct gc_block *b;
 
-  if (a->blocks != NULL) {
+  if (a->blocks != NULL)
+  {
     gc_sweep(mjs, a, 0);
-    for (b = a->blocks; b != NULL;) {
+    for (b = a->blocks; b != NULL;)
+    {
       struct gc_block *tmp;
       tmp = b;
       b = b->next;
@@ -78,25 +85,30 @@ MJS_PRIVATE void gc_arena_destroy(struct mjs *mjs, struct gc_arena *a) {
   }
 }
 
-static void gc_free_block(struct gc_block *b) {
+static void gc_free_block(struct gc_block *b)
+{
   free(b->base);
   free(b);
 }
 
-static struct gc_block *gc_new_block(struct gc_arena *a, size_t size) {
+static struct gc_block *gc_new_block(struct gc_arena *a, size_t size)
+{
   struct gc_cell *cur;
   struct gc_block *b;
 
-  b = (struct gc_block *) calloc(1, sizeof(*b));
-  if (b == NULL) abort();
+  b = (struct gc_block *)calloc(1, sizeof(*b));
+  if (b == NULL)
+    abort();
 
   b->size = size;
-  b->base = (struct gc_cell *) calloc(a->cell_size, b->size);
-  if (b->base == NULL) abort();
+  b->base = (struct gc_cell *)calloc(a->cell_size, b->size);
+  if (b->base == NULL)
+    abort();
 
   for (cur = GC_CELL_OP(a, b->base, +, 0);
        cur < GC_CELL_OP(a, b->base, +, b->size);
-       cur = GC_CELL_OP(a, cur, +, 1)) {
+       cur = GC_CELL_OP(a, cur, +, 1))
+  {
     cur->head.link = a->free;
     a->free = cur;
   }
@@ -108,12 +120,15 @@ static struct gc_block *gc_new_block(struct gc_arena *a, size_t size) {
  * Returns whether the given arena has GC_ARENA_CELLS_RESERVE or less free
  * cells
  */
-static int gc_arena_is_gc_needed(struct gc_arena *a) {
+static int gc_arena_is_gc_needed(struct gc_arena *a)
+{
   struct gc_cell *r = a->free;
   int i;
 
-  for (i = 0; i <= GC_ARENA_CELLS_RESERVE; i++, r = r->head.link) {
-    if (r == NULL) {
+  for (i = 0; i <= GC_ARENA_CELLS_RESERVE; i++, r = r->head.link)
+  {
+    if (r == NULL)
+    {
       return 1;
     }
   }
@@ -121,15 +136,18 @@ static int gc_arena_is_gc_needed(struct gc_arena *a) {
   return 0;
 }
 
-MJS_PRIVATE int gc_strings_is_gc_needed(struct mjs *mjs) {
+MJS_PRIVATE int gc_strings_is_gc_needed(struct mjs *mjs)
+{
   struct mbuf *m = &mjs->owned_strings;
-  return (double) m->len / (double) m->size > 0.9;
+  return (double)m->len / (double)m->size > 0.9;
 }
 
-MJS_PRIVATE void *gc_alloc_cell(struct mjs *mjs, struct gc_arena *a) {
+MJS_PRIVATE void *gc_alloc_cell(struct mjs *mjs, struct gc_arena *a)
+{
   struct gc_cell *r;
 
-  if (a->free == NULL) {
+  if (a->free == NULL)
+  {
     struct gc_block *b = gc_new_block(a, a->size_increment);
     b->next = a->blocks;
     a->blocks = b;
@@ -146,7 +164,8 @@ MJS_PRIVATE void *gc_alloc_cell(struct mjs *mjs, struct gc_arena *a) {
 #endif
 
   /* Schedule GC if needed */
-  if (gc_arena_is_gc_needed(a)) {
+  if (gc_arena_is_gc_needed(a))
+  {
     mjs->need_gc = 1;
   }
 
@@ -155,7 +174,7 @@ MJS_PRIVATE void *gc_alloc_cell(struct mjs *mjs, struct gc_arena *a) {
    * are overwritten downstream, but not worth the yak shave time
    * when fields are added to GC-able structures */
   memset(r, 0, a->cell_size);
-  return (void *) r;
+  return (void *)r;
 }
 
 /*
@@ -164,7 +183,8 @@ MJS_PRIVATE void *gc_alloc_cell(struct mjs *mjs, struct gc_arena *a) {
  * Empty blocks get deallocated. The head of the free list will contais cells
  * from the last (oldest) block. Cells will thus be allocated in block order.
  */
-void gc_sweep(struct mjs *mjs, struct gc_arena *a, size_t start) {
+void gc_sweep(struct mjs *mjs, struct gc_arena *a, size_t start)
+{
   struct gc_block *b;
   struct gc_cell *cur;
   struct gc_block **prevp = &a->blocks;
@@ -178,7 +198,8 @@ void gc_sweep(struct mjs *mjs, struct gc_arena *a, size_t start) {
    */
   {
     struct gc_cell *next;
-    for (cur = a->free; cur != NULL; cur = next) {
+    for (cur = a->free; cur != NULL; cur = next)
+    {
       next = cur->head.link;
       MARK_FREE(cur);
     }
@@ -189,7 +210,8 @@ void gc_sweep(struct mjs *mjs, struct gc_arena *a, size_t start) {
    */
   a->free = NULL;
 
-  for (b = a->blocks; b != NULL;) {
+  for (b = a->blocks; b != NULL;)
+  {
     size_t freed_in_block = 0;
     /*
      * if it turns out that this block is 100% garbage
@@ -200,29 +222,37 @@ void gc_sweep(struct mjs *mjs, struct gc_arena *a, size_t start) {
 
     for (cur = GC_CELL_OP(a, b->base, +, start);
          cur < GC_CELL_OP(a, b->base, +, b->size);
-         cur = GC_CELL_OP(a, cur, +, 1)) {
-      if (MARKED(cur)) {
+         cur = GC_CELL_OP(a, cur, +, 1))
+    {
+      if (MARKED(cur))
+      {
         /* The cell is used and marked  */
         UNMARK(cur);
 #if MJS_MEMORY_STATS
         a->alive++;
 #endif
-      } else {
+      }
+      else
+      {
         /*
          * The cell is either:
          * - free
          * - garbage that's about to be freed
          */
 
-        if (MARKED_FREE(cur)) {
+        if (MARKED_FREE(cur))
+        {
           /* The cell is free, so, just unmark it */
           UNMARK_FREE(cur);
-        } else {
+        }
+        else
+        {
           /*
            * The cell is used and should be freed: call the destructor and
            * reset the memory
            */
-          if (a->destructor != NULL) {
+          if (a->destructor != NULL)
+          {
             a->destructor(mjs, cur);
           }
           memset(cur, 0, a->cell_size);
@@ -243,12 +273,15 @@ void gc_sweep(struct mjs *mjs, struct gc_arena *a, size_t start) {
      * because it has a special size aimed at reducing waste
      * and simplifying initial startup. TODO(mkm): improve
      * */
-    if (b->next != NULL && freed_in_block == b->size) {
+    if (b->next != NULL && freed_in_block == b->size)
+    {
       *prevp = b->next;
       gc_free_block(b);
       b = *prevp;
       a->free = prev_free;
-    } else {
+    }
+    else
+    {
       prevp = &b->next;
       b = b->next;
     }
@@ -256,7 +289,8 @@ void gc_sweep(struct mjs *mjs, struct gc_arena *a, size_t start) {
 }
 
 /* Mark an FFI signature */
-static void gc_mark_ffi_sig(struct mjs *mjs, mjs_val_t *v) {
+static void gc_mark_ffi_sig(struct mjs *mjs, mjs_val_t *v)
+{
   struct mjs_ffi_sig *psig;
 
   assert(mjs_is_ffi_sig(*v));
@@ -267,17 +301,20 @@ static void gc_mark_ffi_sig(struct mjs *mjs, mjs_val_t *v) {
    * we treat all object like things like objects but they might be functions,
    * gc_check_val checks the appropriate arena per actual value type.
    */
-  if (!gc_check_val(mjs, *v)) {
+  if (!gc_check_val(mjs, *v))
+  {
     abort();
   }
 
-  if (MARKED(psig)) return;
+  if (MARKED(psig))
+    return;
 
   MARK(psig);
 }
 
 /* Mark an object */
-static void gc_mark_object(struct mjs *mjs, mjs_val_t *v) {
+static void gc_mark_object(struct mjs *mjs, mjs_val_t *v)
+{
   struct mjs_object *obj_base;
   struct mjs_property *prop;
   struct mjs_property *next;
@@ -290,16 +327,20 @@ static void gc_mark_object(struct mjs *mjs, mjs_val_t *v) {
    * we treat all object like things like objects but they might be functions,
    * gc_check_val checks the appropriate arena per actual value type.
    */
-  if (!gc_check_val(mjs, *v)) {
+  if (!gc_check_val(mjs, *v))
+  {
     abort();
   }
 
-  if (MARKED(obj_base)) return;
+  if (MARKED(obj_base))
+    return;
 
   /* mark object itself, and its properties */
   for ((prop = obj_base->properties), MARK(obj_base); prop != NULL;
-       prop = next) {
-    if (!gc_check_ptr(&mjs->property_arena, prop)) {
+       prop = next)
+  {
+    if (!gc_check_ptr(&mjs->property_arena, prop))
+    {
       abort();
     }
 
@@ -319,7 +360,8 @@ static void gc_mark_object(struct mjs *mjs, mjs_val_t *v) {
 }
 
 /* Mark a string value */
-static void gc_mark_string(struct mjs *mjs, mjs_val_t *v) {
+static void gc_mark_string(struct mjs *mjs, mjs_val_t *v)
+{
   mjs_val_t h, tmp = 0;
   char *s;
 
@@ -352,47 +394,59 @@ static void gc_mark_string(struct mjs *mjs, mjs_val_t *v) {
 
   s = mjs->owned_strings.buf + gc_string_mjs_val_to_offset(*v);
   assert(s < mjs->owned_strings.buf + mjs->owned_strings.len);
-  if (s[-1] == '\0') {
+  if (s[-1] == '\0')
+  {
     memcpy(&tmp, s, sizeof(tmp) - 2);
     tmp |= MJS_TAG_STRING_C;
-  } else {
+  }
+  else
+  {
     memcpy(&tmp, s, sizeof(tmp) - 2);
     tmp |= MJS_TAG_FOREIGN;
   }
 
-  h = (mjs_val_t)(uintptr_t) v;
+  h = (mjs_val_t)(uintptr_t)v;
   s[-1] = 1;
   memcpy(s, &h, sizeof(h) - 2);
   memcpy(v, &tmp, sizeof(tmp));
 }
 
-MJS_PRIVATE void gc_mark(struct mjs *mjs, mjs_val_t *v) {
-  if (mjs_is_object(*v)) {
+MJS_PRIVATE void gc_mark(struct mjs *mjs, mjs_val_t *v)
+{
+  if (mjs_is_object(*v))
+  {
     gc_mark_object(mjs, v);
   }
-  if (mjs_is_ffi_sig(*v)) {
+  if (mjs_is_ffi_sig(*v))
+  {
     gc_mark_ffi_sig(mjs, v);
   }
-  if ((*v & MJS_TAG_MASK) == MJS_TAG_STRING_O) {
+  if ((*v & MJS_TAG_MASK) == MJS_TAG_STRING_O)
+  {
     gc_mark_string(mjs, v);
   }
 }
 
-MJS_PRIVATE uint64_t gc_string_mjs_val_to_offset(mjs_val_t v) {
-  return (((uint64_t)(uintptr_t) get_ptr(v)) & ~MJS_TAG_MASK);
+MJS_PRIVATE uint64_t gc_string_mjs_val_to_offset(mjs_val_t v)
+{
+  return (((uint64_t)(uintptr_t)get_ptr(v)) & ~MJS_TAG_MASK);
 }
 
-MJS_PRIVATE mjs_val_t gc_string_val_from_offset(uint64_t s) {
+MJS_PRIVATE mjs_val_t gc_string_val_from_offset(uint64_t s)
+{
   return s | MJS_TAG_STRING_O;
 }
 
-void gc_compact_strings(struct mjs *mjs) {
+void gc_compact_strings(struct mjs *mjs)
+{
   char *p = mjs->owned_strings.buf + 1;
   uint64_t h, next, head = 1;
   int len, llen;
 
-  while (p < mjs->owned_strings.buf + mjs->owned_strings.len) {
-    if (p[-1] == '\1') {
+  while (p < mjs->owned_strings.buf + mjs->owned_strings.len)
+  {
+    if (p[-1] == '\1')
+    {
       /* relocate and update ptrs */
       h = 0;
       memcpy(&h, p, sizeof(h) - 2);
@@ -402,11 +456,12 @@ void gc_compact_strings(struct mjs *mjs) {
        * The tail is marked with MJS_TAG_STRING_C,
        * while mjs_val_t link pointers are tagged with MJS_TAG_FOREIGN
        */
-      for (; (h & MJS_TAG_MASK) != MJS_TAG_STRING_C; h = next) {
+      for (; (h & MJS_TAG_MASK) != MJS_TAG_STRING_C; h = next)
+      {
         h &= ~MJS_TAG_MASK;
-        memcpy(&next, (char *) (uintptr_t) h, sizeof(h));
+        memcpy(&next, (char *)(uintptr_t)h, sizeof(h));
 
-        *(mjs_val_t *) (uintptr_t) h = gc_string_val_from_offset(head);
+        *(mjs_val_t *)(uintptr_t)h = gc_string_val_from_offset(head);
       }
       h &= ~MJS_TAG_MASK;
 
@@ -414,7 +469,7 @@ void gc_compact_strings(struct mjs *mjs) {
        * the tail contains the first 6 bytes we stole from
        * the actual string.
        */
-      len = cs_varint_decode_unsafe((unsigned char *) &h, &llen);
+      len = cs_varint_decode_unsafe((unsigned char *)&h, &llen);
       len += llen + 1;
 
       /*
@@ -430,8 +485,10 @@ void gc_compact_strings(struct mjs *mjs) {
       mjs->owned_strings.buf[head - 1] = 0x0;
       p += len;
       head += len;
-    } else {
-      len = cs_varint_decode_unsafe((unsigned char *) p, &llen);
+    }
+    else
+    {
+      len = cs_varint_decode_unsafe((unsigned char *)p, &llen);
       len += llen + 1;
 
       p += len;
@@ -441,8 +498,10 @@ void gc_compact_strings(struct mjs *mjs) {
   mjs->owned_strings.len = head;
 }
 
-MJS_PRIVATE int maybe_gc(struct mjs *mjs) {
-  if (!mjs->inhibit_gc) {
+MJS_PRIVATE int maybe_gc(struct mjs *mjs)
+{
+  if (!mjs->inhibit_gc)
+  {
     mjs_gc(mjs, 0);
     return 1;
   }
@@ -452,9 +511,11 @@ MJS_PRIVATE int maybe_gc(struct mjs *mjs) {
 /*
  * mark an array of `mjs_val_t` values (*not pointers* to them)
  */
-static void gc_mark_val_array(struct mjs *mjs, mjs_val_t *vals, size_t len) {
+static void gc_mark_val_array(struct mjs *mjs, mjs_val_t *vals, size_t len)
+{
   mjs_val_t *vp;
-  for (vp = vals; vp < vals + len; vp++) {
+  for (vp = vals; vp < vals + len; vp++)
+  {
     gc_mark(mjs, vp);
   }
 }
@@ -462,10 +523,12 @@ static void gc_mark_val_array(struct mjs *mjs, mjs_val_t *vals, size_t len) {
 /*
  * mark an mbuf containing *pointers* to `mjs_val_t` values
  */
-static void gc_mark_mbuf_pt(struct mjs *mjs, const struct mbuf *mbuf) {
+static void gc_mark_mbuf_pt(struct mjs *mjs, const struct mbuf *mbuf)
+{
   mjs_val_t **vp;
-  for (vp = (mjs_val_t **) mbuf->buf; (char *) vp < mbuf->buf + mbuf->len;
-       vp++) {
+  for (vp = (mjs_val_t **)mbuf->buf; (char *)vp < mbuf->buf + mbuf->len;
+       vp++)
+  {
     gc_mark(mjs, *vp);
   }
 }
@@ -473,27 +536,32 @@ static void gc_mark_mbuf_pt(struct mjs *mjs, const struct mbuf *mbuf) {
 /*
  * mark an mbuf containing `mjs_val_t` values (*not pointers* to them)
  */
-static void gc_mark_mbuf_val(struct mjs *mjs, const struct mbuf *mbuf) {
-  gc_mark_val_array(mjs, (mjs_val_t *) mbuf->buf,
+static void gc_mark_mbuf_val(struct mjs *mjs, const struct mbuf *mbuf)
+{
+  gc_mark_val_array(mjs, (mjs_val_t *)mbuf->buf,
                     mbuf->len / sizeof(mjs_val_t));
 }
 
-static void gc_mark_ffi_cbargs_list(struct mjs *mjs, ffi_cb_args_t *cbargs) {
-  for (; cbargs != NULL; cbargs = cbargs->next) {
+static void gc_mark_ffi_cbargs_list(struct mjs *mjs, ffi_cb_args_t *cbargs)
+{
+  for (; cbargs != NULL; cbargs = cbargs->next)
+  {
     gc_mark(mjs, &cbargs->func);
     gc_mark(mjs, &cbargs->userdata);
   }
 }
 
 /* Perform garbage collection */
-void mjs_gc(struct mjs *mjs, int full) {
-  gc_mark_val_array(mjs, (mjs_val_t *) &mjs->vals,
+void mjs_gc(struct mjs *mjs, int full)
+{
+  gc_mark_val_array(mjs, (mjs_val_t *)&mjs->vals,
                     sizeof(mjs->vals) / sizeof(mjs_val_t));
 
   gc_mark_mbuf_pt(mjs, &mjs->owned_values);
   gc_mark_mbuf_val(mjs, &mjs->scopes);
   gc_mark_mbuf_val(mjs, &mjs->stack);
   gc_mark_mbuf_val(mjs, &mjs->call_stack);
+  gc_mark_mbuf_val(mjs, &mjs->fast_locals);
 
   gc_mark_ffi_cbargs_list(mjs, mjs->ffi_cb_args);
 
@@ -503,34 +571,42 @@ void mjs_gc(struct mjs *mjs, int full) {
   gc_sweep(mjs, &mjs->property_arena, 0);
   gc_sweep(mjs, &mjs->ffi_sig_arena, 0);
 
-  if (full) {
+  if (full)
+  {
     /*
      * In case of full GC, we also resize strings buffer, but we still leave
      * some extra space (at most, `_MJS_STRING_BUF_RESERVE`) in order to avoid
      * frequent reallocations
      */
     size_t trimmed_size = mjs->owned_strings.len + _MJS_STRING_BUF_RESERVE;
-    if (trimmed_size < mjs->owned_strings.size) {
+    if (trimmed_size < mjs->owned_strings.size)
+    {
       mbuf_resize(&mjs->owned_strings, trimmed_size);
     }
   }
 }
 
-MJS_PRIVATE int gc_check_val(struct mjs *mjs, mjs_val_t v) {
-  if (mjs_is_object(v)) {
+MJS_PRIVATE int gc_check_val(struct mjs *mjs, mjs_val_t v)
+{
+  if (mjs_is_object(v))
+  {
     return gc_check_ptr(&mjs->object_arena, get_object_struct(v));
   }
-  if (mjs_is_ffi_sig(v)) {
+  if (mjs_is_ffi_sig(v))
+  {
     return gc_check_ptr(&mjs->ffi_sig_arena, mjs_get_ffi_sig_struct(v));
   }
   return 1;
 }
 
-MJS_PRIVATE int gc_check_ptr(const struct gc_arena *a, const void *ptr) {
-  const struct gc_cell *p = (const struct gc_cell *) ptr;
+MJS_PRIVATE int gc_check_ptr(const struct gc_arena *a, const void *ptr)
+{
+  const struct gc_cell *p = (const struct gc_cell *)ptr;
   struct gc_block *b;
-  for (b = a->blocks; b != NULL; b = b->next) {
-    if (p >= b->base && p < GC_CELL_OP(a, b->base, +, b->size)) {
+  for (b = a->blocks; b != NULL; b = b->next)
+  {
+    if (p >= b->base && p < GC_CELL_OP(a, b->base, +, b->size))
+    {
       return 1;
     }
   }

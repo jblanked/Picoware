@@ -30,4 +30,20 @@
 #endif
 #endif
 
+/*
+ * MJS_OPT_COMPUTED_GOTO: if enabled, the MJS bytecode executor uses
+ * computed goto dispatch (GNU C extension) instead of a switch statement.
+ * This significantly improves execution speed on GCC/Clang by reducing
+ * branch mispredictions in the opcode dispatch loop.
+ *
+ * Only available on compilers that support labels as values (GCC, Clang).
+ */
+#if !defined(MJS_OPT_COMPUTED_GOTO)
+#if defined(__GNUC__) || defined(__clang__)
+#define MJS_OPT_COMPUTED_GOTO 1
+#else
+#define MJS_OPT_COMPUTED_GOTO 0
+#endif
+#endif
+
 #endif /* MJS_FEATURES_H_ */

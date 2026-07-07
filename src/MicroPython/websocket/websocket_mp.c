@@ -41,11 +41,12 @@ static bool websocket_mp_init(void)
         return false;
     }
 
-    // import picoware.system.websocket  →  get the WebSocketAsync class
-    mp_obj_t picoware = mp_import_name(MP_QSTR_picoware, mp_const_none, MP_OBJ_NEW_SMALL_INT(0));
-    mp_obj_t system = mp_load_attr(picoware, MP_QSTR_system);
-    mp_obj_t websocket = mp_load_attr(system, MP_QSTR_websocket);
-    websocket_mp_class = MP_STATE_VM(websocket_mp_class) = mp_load_attr(websocket, MP_QSTR_WebSocketAsync);
+    // from picoware.system.websocket import WebSocketAsync
+    mp_obj_t import_name = mp_obj_new_str("picoware.system.websocket", strlen("picoware.system.websocket"));
+    mp_obj_t import_fromlist = mp_obj_new_list(1, NULL);
+    mp_obj_list_append(import_fromlist, MP_OBJ_NEW_QSTR(MP_QSTR_WebSocketAsync));
+    mp_obj_t websocket_mod = mp_import_name(mp_obj_str_get_qstr(import_name), import_fromlist, MP_OBJ_NEW_SMALL_INT(0));
+    websocket_mp_class = MP_STATE_VM(websocket_mp_class) = mp_load_attr(websocket_mod, MP_QSTR_WebSocketAsync);
 
     websocket_mp_initialized = true;
     nlr_pop();

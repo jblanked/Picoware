@@ -1,8 +1,10 @@
 from utime import ticks_ms, ticks_diff
+import micropython
 
 start_time = None
 last_time = None
 
+@micropython.viper
 def start(view_manager) -> bool:
     """Start the app"""
     global start_time, last_time
@@ -10,7 +12,7 @@ def start(view_manager) -> bool:
     last_time = start_time
     return True
 
-
+@micropython.native
 def run(view_manager) -> None:
     """Run the app"""
     from picoware.system.buttons import BUTTON_BACK
@@ -34,6 +36,7 @@ def run(view_manager) -> None:
     d._text(10, 20, f"Frames per second: {fps:.2f}", 0xFFFF)
     d.swap()
 
+@micropython.native
 def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect

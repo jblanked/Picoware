@@ -4,6 +4,7 @@
 #if defined(CARDPUTER) || defined(ESP32) || defined(CROWPANEL_10_1)
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #define TIME_MILLIS esp_timer_get_time() / 1000
 #define TIME_SLEEP(ms) vTaskDelay(pdMS_TO_TICKS(ms))
 #else

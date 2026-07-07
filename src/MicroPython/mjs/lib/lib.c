@@ -1,11 +1,11 @@
 #include "lib.h"
 
-static lib_module_t lib_loaded_modules[5] = {0};
+static lib_module_t lib_loaded_modules[LIB_MODULE_COUNT] = {0};
 static uint8_t lib_loaded_modules_count = 0;
 
 static bool lib_is_module_loaded(lib_module_t module)
 {
-    for (size_t i = 0; i < sizeof(lib_loaded_modules) / sizeof(lib_loaded_modules[0]); i++)
+    for (size_t i = 0; i < LIB_MODULE_COUNT; i++)
     {
         if (lib_loaded_modules[i] == module)
         {
@@ -17,7 +17,7 @@ static bool lib_is_module_loaded(lib_module_t module)
 
 static void lib_unload_modules()
 {
-    for (size_t i = 0; i < sizeof(lib_loaded_modules) / sizeof(lib_loaded_modules[0]); i++)
+    for (size_t i = 0; i < LIB_MODULE_COUNT; i++)
     {
         lib_loaded_modules[i] = 0;
     }
@@ -55,6 +55,10 @@ void lib_load_module(struct mjs *mjs)
         storage_create(mjs, &object);
         is_module_loaded = true;
         break;
+    case LIB_MODULE_SYSTEM:
+        system_create(mjs, &object);
+        is_module_loaded = true;
+        break;
     case LIB_MODULE_TIME:
         time_create(mjs, &object);
         is_module_loaded = true;
@@ -65,7 +69,7 @@ void lib_load_module(struct mjs *mjs)
     }
     if (is_module_loaded)
     {
-        if (lib_loaded_modules_count < sizeof(lib_loaded_modules) / sizeof(lib_loaded_modules[0]))
+        if (lib_loaded_modules_count < LIB_MODULE_COUNT)
         {
             lib_loaded_modules[lib_loaded_modules_count++] = module;
         }
@@ -90,6 +94,10 @@ lib_module_t lib_module_from_str(const char *str)
     else if (strcmp(str, "storage") == 0)
     {
         return LIB_MODULE_STORAGE;
+    }
+    else if (strcmp(str, "system") == 0)
+    {
+        return LIB_MODULE_SYSTEM;
     }
     else if (strcmp(str, "time") == 0)
     {

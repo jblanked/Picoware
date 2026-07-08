@@ -24,7 +24,7 @@ print(f"Used Heap: {j.run('system.used_heap;')}")
 print(f"Used PSRAM: {j.run('system.used_psram;')}")
 print(f"Version: {j.run('system.version;')}")
 
-# not callable yet...
+# uncomment to call any of these
 # j.run('system.soft_reset();')
 # j.run('system.hard_reset();')
 # j.run('system.bootloader_mode();')

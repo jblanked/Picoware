@@ -1,15 +1,37 @@
 #include "system.h"
 #include <string.h>
-#include "../../picoware_boards/picoware_boards.h"
+#include "py/runtime.h"
 
-static mjs_func_ptr_t system_func(mp_obj_t base, qstr attr)
+static mp_obj_t system_mp_instance;
+
+static void system_bootloader_mode(struct mjs *mjs)
 {
-    mp_obj_t func = mp_load_attr(base, attr);
-    if (func == MP_OBJ_NULL)
+    mp_obj_t func = mp_load_attr(system_mp_instance, MP_QSTR_bootloader_mode);
+    if (func != MP_OBJ_NULL && mp_obj_is_callable(func))
     {
-        return NULL;
+        mp_call_function_0(func);
     }
-    return (mjs_func_ptr_t)MP_OBJ_TO_PTR(func);
+    mjs_return(mjs, MJS_UNDEFINED);
+}
+
+static void system_hard_reset(struct mjs *mjs)
+{
+    mp_obj_t func = mp_load_attr(system_mp_instance, MP_QSTR_hard_reset);
+    if (func != MP_OBJ_NULL && mp_obj_is_callable(func))
+    {
+        mp_call_function_0(func);
+    }
+    mjs_return(mjs, MJS_UNDEFINED);
+}
+
+static void system_soft_reset(struct mjs *mjs)
+{
+    mp_obj_t func = mp_load_attr(system_mp_instance, MP_QSTR_soft_reset);
+    if (func != MP_OBJ_NULL && mp_obj_is_callable(func))
+    {
+        mp_call_function_0(func);
+    }
+    mjs_return(mjs, MJS_UNDEFINED);
 }
 
 static mjs_val_t system_string(struct mjs *mjs, mp_obj_t base, qstr attr)
@@ -28,7 +50,7 @@ static mjs_val_t system_int(struct mjs *mjs, mp_obj_t base, qstr attr)
     mp_obj_t value = mp_load_attr(base, attr);
     if (value == MP_OBJ_NULL)
     {
-        return 0;
+        return mjs_mk_number(mjs, 0);
     }
     return mjs_mk_number(mjs, mp_obj_is_float(value) ? (double)mp_obj_get_float(value) : (double)mp_obj_get_int(value));
 }
@@ -36,9 +58,9 @@ static mjs_val_t system_int(struct mjs *mjs, mp_obj_t base, qstr attr)
 static mjs_val_t system_bool(struct mjs *mjs, mp_obj_t base, qstr attr)
 {
     mp_obj_t value = mp_load_attr(base, attr);
-    if (value == MP_OBJ_NULL)
+    if (value == MP_OBJ_NULL || !mp_obj_is_bool(value))
     {
-        return 0;
+        return mjs_mk_boolean(mjs, false);
     }
     return mjs_mk_boolean(mjs, mp_obj_is_true(value));
 }
@@ -58,7 +80,7 @@ void system_create(struct mjs *mjs, mjs_val_t *system_obj)
     mp_obj_list_append(import_fromlist, MP_OBJ_NEW_QSTR(MP_QSTR_System));
     mp_obj_t system_mod = mp_import_name(mp_obj_str_get_qstr(import_name), import_fromlist, MP_OBJ_NEW_SMALL_INT(0));
     mp_obj_t system_mp_class = mp_load_attr(system_mod, MP_QSTR_System);
-    mp_obj_t system_mp_instance = mp_call_function_0(system_mp_class);
+    system_mp_instance = mp_call_function_0(system_mp_class);
 
     *system_obj = mjs_mk_object(mjs);
 
@@ -82,9 +104,14 @@ void system_create(struct mjs *mjs, mjs_val_t *system_obj)
     mjs_set(mjs, *system_obj, "used_psram", ~0, system_int(mjs, system_mp_instance, MP_QSTR_used_psram));
     mjs_set(mjs, *system_obj, "version", ~0, system_string(mjs, system_mp_instance, MP_QSTR_version));
     //
-    mjs_set(mjs, *system_obj, "bootloader_mode", ~0, mjs_mk_foreign_func(mjs, system_func(system_mp_instance, MP_QSTR_bootloader_mode)));
-    mjs_set(mjs, *system_obj, "hard_reset", ~0, mjs_mk_foreign_func(mjs, system_func(system_mp_instance, MP_QSTR_hard_reset)));
-    mjs_set(mjs, *system_obj, "soft_reset", ~0, mjs_mk_foreign_func(mjs, system_func(system_mp_instance, MP_QSTR_soft_reset)));
+    mjs_set(mjs, *system_obj, "bootloader_mode", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)system_bootloader_mode));
+    mjs_set(mjs, *system_obj, "hard_reset", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)system_hard_reset));
+    mjs_set(mjs, *system_obj, "soft_reset", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)system_soft_reset));
 
     nlr_pop();
+}
+
+void system_destroy()
+{
+    system_mp_instance = MP_OBJ_NULL;
 }

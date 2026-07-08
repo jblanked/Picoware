@@ -95,7 +95,7 @@ void storage_write(struct mjs *mjs)
     else
     {
         mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "argument 1: expected string or ArrayBuffer");
-        mjs_return(mjs, MJS_UNDEFINED);
+        mjs_return(mjs, mjs_mk_boolean(mjs, false));
         m_free(filename_copy);
         return;
     }

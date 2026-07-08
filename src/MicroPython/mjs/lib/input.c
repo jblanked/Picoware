@@ -4,16 +4,6 @@
 
 static mp_obj_t input_mp_instance;
 
-static mjs_val_t input_bool(struct mjs *mjs, mp_obj_t base, qstr attr)
-{
-    mp_obj_t value = mp_load_attr(base, attr);
-    if (value == MP_OBJ_NULL || !mp_obj_is_bool(value))
-    {
-        return mjs_mk_boolean(mjs, false);
-    }
-    return mjs_mk_boolean(mjs, mp_obj_is_true(value));
-}
-
 static void input_button_to_char(struct mjs *mjs)
 {
     mjs_val_t arg = mjs_arg(mjs, 0);
@@ -68,16 +58,6 @@ static void input_reset(struct mjs *mjs)
     mjs_return(mjs, MJS_UNDEFINED);
 }
 
-static mjs_val_t input_int(struct mjs *mjs, mp_obj_t base, qstr attr)
-{
-    mp_obj_t value = mp_load_attr(base, attr);
-    if (value == MP_OBJ_NULL)
-    {
-        return mjs_mk_number(mjs, 0);
-    }
-    return mjs_mk_number(mjs, mp_obj_is_float(value) ? (double)mp_obj_get_float(value) : (double)mp_obj_get_int(value));
-}
-
 void input_create(struct mjs *mjs, mjs_val_t *input_obj)
 {
     nlr_buf_t nlr;
@@ -97,9 +77,9 @@ void input_create(struct mjs *mjs, mjs_val_t *input_obj)
 
     *input_obj = mjs_mk_object(mjs);
 
-    mjs_set(mjs, *input_obj, "battery", ~0, input_int(mjs, input_mp_instance, MP_QSTR_battery));
-    mjs_set(mjs, *input_obj, "button", ~0, input_int(mjs, input_mp_instance, MP_QSTR_button));
-    mjs_set(mjs, *input_obj, "wasCapitalized", ~0, input_bool(mjs, input_mp_instance, MP_QSTR_was_capitalized));
+    mjs_set(mjs, *input_obj, "battery", ~0, mjs_val_from_attr(mjs, input_mp_instance, MP_QSTR_battery));
+    mjs_set(mjs, *input_obj, "button", ~0, mjs_val_from_attr(mjs, input_mp_instance, MP_QSTR_button));
+    mjs_set(mjs, *input_obj, "wasCapitalized", ~0, mjs_val_from_attr(mjs, input_mp_instance, MP_QSTR_was_capitalized));
 
     mjs_set(mjs, *input_obj, "buttonToChar", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)input_button_to_char));
     mjs_set(mjs, *input_obj, "read", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)input_read));

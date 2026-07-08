@@ -5,27 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-static char *http_js_copy_string_arg(struct mjs *mjs, uint8_t arg)
-{
-    mjs_val_t t_arg = mjs_arg(mjs, arg);
-    if (!mjs_is_undefined(t_arg) && !mjs_is_null(t_arg))
-    {
-        size_t len;
-        const char *str = mjs_get_string(mjs, &t_arg, &len);
-        if (str != NULL)
-        {
-            char *copy = (char *)m_malloc(len + 1);
-            if (copy)
-            {
-                memcpy(copy, str, len);
-                copy[len] = '\0';
-                return copy;
-            }
-        }
-    }
-    return NULL;
-}
-
 void http_js_get_response(struct mjs *mjs)
 {
     size_t buffer_size = (size_t)mjs_get_int(mjs, mjs_arg(mjs, 0));
@@ -45,10 +24,10 @@ void http_js_is_finished(struct mjs *mjs)
 
 void http_js_request(struct mjs *mjs)
 {
-    char *url_copy = http_js_copy_string_arg(mjs, 0);
-    char *method_copy = http_js_copy_string_arg(mjs, 1);
-    char *headers_copy = http_js_copy_string_arg(mjs, 2);
-    char *payload_copy = http_js_copy_string_arg(mjs, 3);
+    char *url_copy = mjs_copy_string_arg(mjs, 0);
+    char *method_copy = mjs_copy_string_arg(mjs, 1);
+    char *headers_copy = mjs_copy_string_arg(mjs, 2);
+    char *payload_copy = mjs_copy_string_arg(mjs, 3);
 
     const char *url = url_copy ? url_copy : "";
     const char *method = method_copy ? method_copy : "GET";
@@ -113,10 +92,10 @@ void http_js_request(struct mjs *mjs)
 
 void http_js_request_start(struct mjs *mjs)
 {
-    char *url_copy = http_js_copy_string_arg(mjs, 0);
-    char *method_copy = http_js_copy_string_arg(mjs, 1);
-    char *headers_copy = http_js_copy_string_arg(mjs, 2);
-    char *payload_copy = http_js_copy_string_arg(mjs, 3);
+    char *url_copy = mjs_copy_string_arg(mjs, 0);
+    char *method_copy = mjs_copy_string_arg(mjs, 1);
+    char *headers_copy = mjs_copy_string_arg(mjs, 2);
+    char *payload_copy = mjs_copy_string_arg(mjs, 3);
 
     const char *url = url_copy ? url_copy : "";
     const char *method = method_copy ? method_copy : "GET";

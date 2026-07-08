@@ -4,34 +4,9 @@
 #include "array_buf.h"
 #include "../../sd/storage.h"
 
-static char *storage_get_string(struct mjs *mjs, uint8_t arg)
-{
-    mjs_val_t t_arg = mjs_arg(mjs, arg);
-    if (!mjs_is_undefined(t_arg) && !mjs_is_null(t_arg))
-    {
-        size_t len;
-        const char *str = mjs_get_string(mjs, &t_arg, &len);
-        if (str != NULL)
-        {
-            char *copy = (char *)m_malloc(len + 1);
-            if (copy)
-            {
-                memcpy(copy, str, len);
-                copy[len] = '\0';
-                return copy;
-            }
-            else
-            {
-                mjs_prepend_errorf(mjs, MJS_OUT_OF_MEMORY, "Failed to allocate buffer for string copy");
-            }
-        }
-    }
-    return NULL;
-}
-
 void storage_read(struct mjs *mjs)
 {
-    char *filename_copy = storage_get_string(mjs, 0);
+    char *filename_copy = mjs_copy_string_arg(mjs, 0);
     const char *filename = filename_copy ? filename_copy : "";
     const size_t file_size = storage_file_size(filename);
     char *buffer = (char *)m_malloc(file_size);
@@ -50,7 +25,7 @@ void storage_read(struct mjs *mjs)
 
 void storage_read_chunk(struct mjs *mjs)
 {
-    char *filename_copy = storage_get_string(mjs, 0);
+    char *filename_copy = mjs_copy_string_arg(mjs, 0);
     const char *filename = filename_copy ? filename_copy : "";
     const size_t offset = (size_t)mjs_get_int(mjs, mjs_arg(mjs, 1));
     const size_t chunk_size = (size_t)mjs_get_int(mjs, mjs_arg(mjs, 2));
@@ -70,7 +45,7 @@ void storage_read_chunk(struct mjs *mjs)
 
 void storage_size(struct mjs *mjs)
 {
-    char *filename_copy = storage_get_string(mjs, 0);
+    char *filename_copy = mjs_copy_string_arg(mjs, 0);
     const char *filename = filename_copy ? filename_copy : "";
     const size_t file_size = storage_file_size(filename);
     mjs_return(mjs, mjs_mk_number(mjs, file_size));
@@ -79,7 +54,7 @@ void storage_size(struct mjs *mjs)
 
 void storage_write(struct mjs *mjs)
 {
-    char *filename_copy = storage_get_string(mjs, 0);
+    char *filename_copy = mjs_copy_string_arg(mjs, 0);
     const char *filename = filename_copy ? filename_copy : "";
     mjs_val_t data = mjs_arg(mjs, 1);
     const void *buf;

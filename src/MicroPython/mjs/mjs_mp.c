@@ -51,42 +51,6 @@ mp_obj_t mjs_mp_del(mp_obj_t self_in)
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(mjs_mp_del_obj, mjs_mp_del);
 
-// Convert mjs_val_t to mp_obj_t
-static mp_obj_t mjs_val_to_mp_obj(struct mjs *mjs, mjs_val_t val)
-{
-    if (mjs_is_null(val) || mjs_is_undefined(val))
-    {
-        return mp_const_none;
-    }
-    if (mjs_is_boolean(val))
-    {
-        return mp_obj_new_bool(mjs_get_bool(mjs, val));
-    }
-    if (mjs_is_number(val))
-    {
-        double d = mjs_get_double(mjs, val);
-        if (d == (double)(int)d)
-        {
-            return mp_obj_new_int((int)d);
-        }
-        return mp_obj_new_float(d);
-    }
-    if (mjs_is_string(val))
-    {
-        size_t len;
-        const char *str = mjs_get_string(mjs, &val, &len);
-        if (str != NULL)
-        {
-            return mp_obj_new_str(str, len);
-        }
-        return mp_const_none;
-    }
-    // Fallback: string representation
-    char buf[256];
-    mjs_sprintf(val, mjs, buf, sizeof(buf));
-    return mp_obj_new_str(buf, strlen(buf));
-}
-
 mp_obj_t mjs_mp_exec(mp_obj_t self_in, mp_obj_t path)
 {
     mjs_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);

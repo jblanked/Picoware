@@ -11,6 +11,7 @@ target_sources(usermod_mjs INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/lib/lcd.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/log.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/math.c
+    ${CMAKE_CURRENT_LIST_DIR}/lib/mjs.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/storage.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/system.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/time.c

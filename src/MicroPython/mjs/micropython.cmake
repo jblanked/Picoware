@@ -6,11 +6,13 @@ target_sources(usermod_mjs INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/lib/array_buf.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/color.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/http.c
+    ${CMAKE_CURRENT_LIST_DIR}/lib/input.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/lib.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/lcd.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/log.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/math.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/storage.c
+    ${CMAKE_CURRENT_LIST_DIR}/lib/system.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/time.c
 )
 

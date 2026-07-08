@@ -7,6 +7,7 @@
 #include "lcd.h"
 #include "log.h"
 #include "math.h"
+#include "pin.h"
 #include "storage.h"
 #include "system.h"
 #include "time.h"
@@ -18,12 +19,13 @@ typedef enum
     LIB_MODULE_HTTP,
     LIB_MODULE_INPUT,
     LIB_MODULE_MATH,
+    LIB_MODULE_PIN,
     LIB_MODULE_STORAGE,
     LIB_MODULE_SYSTEM,
     LIB_MODULE_TIME,
 } lib_module_t;
 
-#define LIB_MODULE_COUNT 7
+#define LIB_MODULE_COUNT 8
 
 void lib_load_module(struct mjs *mjs);
 lib_module_t lib_module_from_str(const char *str);

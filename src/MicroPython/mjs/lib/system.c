@@ -167,29 +167,29 @@ void system_create(struct mjs *mjs, mjs_val_t *system_obj)
 
     *system_obj = mjs_mk_object(mjs);
 
-    mjs_set_getter(mjs, *system_obj, "board_id", ~0, system_board_id);
-    mjs_set_getter(mjs, *system_obj, "board_name", ~0, system_board_name);
-    mjs_set_getter(mjs, *system_obj, "device_name", ~0, system_device_name);
-    mjs_set_getter(mjs, *system_obj, "free_psram", ~0, system_free_psram);
-    mjs_set_getter(mjs, *system_obj, "free_heap", ~0, system_free_heap);
+    mjs_set_getter(mjs, *system_obj, "boardId", ~0, system_board_id);
+    mjs_set_getter(mjs, *system_obj, "boardName", ~0, system_board_name);
+    mjs_set_getter(mjs, *system_obj, "deviceName", ~0, system_device_name);
+    mjs_set_getter(mjs, *system_obj, "freePsram", ~0, system_free_psram);
+    mjs_set_getter(mjs, *system_obj, "freeHeap", ~0, system_free_heap);
     mjs_set_getter(mjs, *system_obj, "freq", ~0, system_freq);
-    mjs_set_getter(mjs, *system_obj, "has_audio", ~0, system_has_audio);
-    mjs_set_getter(mjs, *system_obj, "has_psram", ~0, system_has_psram);
-    mjs_set_getter(mjs, *system_obj, "has_sd_card", ~0, system_has_sd_card);
-    mjs_set_getter(mjs, *system_obj, "has_touch", ~0, system_has_touch);
-    mjs_set_getter(mjs, *system_obj, "has_wifi", ~0, system_has_wifi);
-    mjs_set_getter(mjs, *system_obj, "is_circular", ~0, system_is_circular);
-    mjs_set_getter(mjs, *system_obj, "free_flash", ~0, system_free_flash);
-    mjs_set_getter(mjs, *system_obj, "total_flash", ~0, system_total_flash);
-    mjs_set_getter(mjs, *system_obj, "total_heap", ~0, system_total_heap);
-    mjs_set_getter(mjs, *system_obj, "total_psram", ~0, system_total_psram);
-    mjs_set_getter(mjs, *system_obj, "used_heap", ~0, system_used_heap);
-    mjs_set_getter(mjs, *system_obj, "used_psram", ~0, system_used_psram);
+    mjs_set_getter(mjs, *system_obj, "hasAudio", ~0, system_has_audio);
+    mjs_set_getter(mjs, *system_obj, "hasPsram", ~0, system_has_psram);
+    mjs_set_getter(mjs, *system_obj, "hasSdCard", ~0, system_has_sd_card);
+    mjs_set_getter(mjs, *system_obj, "hasTouch", ~0, system_has_touch);
+    mjs_set_getter(mjs, *system_obj, "hasWifi", ~0, system_has_wifi);
+    mjs_set_getter(mjs, *system_obj, "isCircular", ~0, system_is_circular);
+    mjs_set_getter(mjs, *system_obj, "freeFlash", ~0, system_free_flash);
+    mjs_set_getter(mjs, *system_obj, "totalFlash", ~0, system_total_flash);
+    mjs_set_getter(mjs, *system_obj, "totalHeap", ~0, system_total_heap);
+    mjs_set_getter(mjs, *system_obj, "totalPsram", ~0, system_total_psram);
+    mjs_set_getter(mjs, *system_obj, "usedHeap", ~0, system_used_heap);
+    mjs_set_getter(mjs, *system_obj, "usedPsram", ~0, system_used_psram);
     mjs_set_getter(mjs, *system_obj, "version", ~0, system_version);
     //
-    mjs_set(mjs, *system_obj, "bootloader_mode", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)system_bootloader_mode));
-    mjs_set(mjs, *system_obj, "hard_reset", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)system_hard_reset));
-    mjs_set(mjs, *system_obj, "soft_reset", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)system_soft_reset));
+    mjs_set(mjs, *system_obj, "bootloaderMode", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)system_bootloader_mode));
+    mjs_set(mjs, *system_obj, "hardReset", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)system_hard_reset));
+    mjs_set(mjs, *system_obj, "softReset", ~0, mjs_mk_foreign_func(mjs, (mjs_func_ptr_t)system_soft_reset));
 
     nlr_pop();
 }

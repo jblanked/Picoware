@@ -167,6 +167,7 @@ MP_DEFINE_CONST_OBJ_TYPE(
 
 STATIC const mp_rom_map_elem_t touch_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_touch)},
+    {MP_ROM_QSTR(MP_QSTR_read), MP_ROM_PTR(&touch_mp_read_obj)},
     {MP_ROM_QSTR(MP_QSTR_GPIO_INT), MP_ROM_INT(WATCH_TOUCH_INT_GPIO)},
     {MP_ROM_QSTR(MP_QSTR_Touch), MP_ROM_PTR(&touch_mp_type)},
 };

@@ -104,6 +104,7 @@ for module_path in \
     main.py \
     picoware \
     picoware_boards \
+    cardputer \
     Waveshare_watch \
     engine \
     lcd \

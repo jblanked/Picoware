@@ -13,8 +13,15 @@ extern "C"
 #define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
 #endif
 
-#if defined(CARDPUTER) || defined(WAVESHARE_AMOLED_2_06_ESP32_S3)
+#if defined(CARDPUTER)
 #include "../cardputer/sd/storage.h"
+#define storage_read storage_file_read
+    static inline bool storage_write(const char *file_path, const void *data, size_t data_size, bool overwrite)
+    {
+        return storage_file_write(file_path, data, data_size);
+    }
+#elif defined(WAVESHARE_AMOLED_2_06_ESP32_S3)
+#include "../Waveshare_watch/sd/storage.h"
 #define storage_read storage_file_read
     static inline bool storage_write(const char *file_path, const void *data, size_t data_size, bool overwrite)
     {

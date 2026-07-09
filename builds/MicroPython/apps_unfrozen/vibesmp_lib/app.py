@@ -404,6 +404,8 @@ class VibesApp:
         self._last_seek_time = now
         if not self.player:
             return False
+        if self.player.is_busy:
+            return False
         if not self.player.seek(seconds):
             self.seek_msg = "Seek N/A"
             self.seek_timer = now

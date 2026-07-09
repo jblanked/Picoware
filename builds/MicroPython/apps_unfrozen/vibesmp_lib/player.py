@@ -124,6 +124,9 @@ class Player:
             return False
 
     def _execute_play(self, file_path, start_pos, skip_meta=False, is_seconds=False):
+        if not self.seek_supported:
+            start_pos = 0
+
         sd_path = file_path
         if sd_path.startswith("/sd/"):
             sd_path = sd_path[4:]
@@ -237,7 +240,8 @@ class Player:
                     try:
                         self._audio_call("stop")
                         time.sleep_ms(20)
-                        self._execute_play(self.current_track, start_pos=curr_pos, skip_meta=True)
+                        start_pos = curr_pos if self.seek_supported else 0
+                        self._execute_play(self.current_track, start_pos=start_pos, skip_meta=True)
                     finally:
                         self._recovering = False
                     return False
@@ -305,10 +309,15 @@ class Player:
         if self.current_track and not self.is_playing:
             pos = self._paused_pos
             is_sec = False
+            if not self.seek_supported:
+                pos = 0
             if pos == 0 and self._paused_pos_resume > 0:
                 pos = self._paused_pos_resume
                 is_sec = True
                 self._paused_pos_resume = 0
+                if not self.seek_supported:
+                    pos = 0
+                    is_sec = False
 
             meta = self.current_id3 if isinstance(self.current_id3, dict) else {}
             has_meta = bool(meta.get("title") or meta.get("artist") or meta.get("cover"))
@@ -360,6 +369,9 @@ class Player:
         if self._seeking:
             return False
 
+        if not self.seek_supported:
+            return False
+
         if self.is_paused():
             if self._sr_ch <= 0:
                 self._sr_ch = 88200
@@ -390,9 +402,6 @@ class Player:
             target_sample = 0
         if dur_samples > 0 and target_sample >= dur_samples:
             target_sample = int(dur_samples - (self._sr_ch // 10))
-
-        if not self.seek_supported:
-            return self._restart_seek_sample(target_sample)
 
         self._seeking = True
         try:

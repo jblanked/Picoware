@@ -287,6 +287,7 @@ class VibesApp:
         self.save_timer = 0; self._last_marquee_time = 0
         self._last_input_time = time.ticks_ms()
         self.seek_msg = ""; self.seek_timer = 0; self._last_seek_time = 0
+        self._seek_cooldown_ms = 700
         self.playlist_sel_idx = 0  # Cursor for VIEW_PLAYLIST_SELECTOR
         self._playback_state_pending = False
         self.needs_refresh = True
@@ -399,13 +400,13 @@ class VibesApp:
 
     def _player_seek_delta(self, seconds, label):
         now = time.ticks_ms()
-        if time.ticks_diff(now, self._last_seek_time) <= 300:
+        if time.ticks_diff(now, self._last_seek_time) < self._seek_cooldown_ms:
             return False
-        self._last_seek_time = now
         if not self.player:
             return False
         if self.player.is_busy:
             return False
+        self._last_seek_time = now
         if not self.player.seek(seconds):
             self.seek_msg = "Seek N/A"
             self.seek_timer = now
@@ -1074,8 +1075,8 @@ class VibesApp:
                         self.needs_refresh = True
             else:
                 seek_len = self.settings.config.get("seek_length", 5)
-                self._player_seek_delta(-seek_len, "FB <<")
-                self.needs_refresh = True
+                if self._player_seek_delta(-seek_len, "FB <<"):
+                    self.needs_refresh = True
             return True
         if button == BUTTON_RIGHT_BRACKET:
             if self.ui.focus == 1 and self.ui.active_col == 1:
@@ -1086,8 +1087,8 @@ class VibesApp:
                         self.needs_refresh = True
             else:
                 seek_len = self.settings.config.get("seek_length", 5)
-                self._player_seek_delta(seek_len, "FF >>")
-                self.needs_refresh = True
+                if self._player_seek_delta(seek_len, "FF >>"):
+                    self.needs_refresh = True
             return True
 
         # Track Switch (< / >)

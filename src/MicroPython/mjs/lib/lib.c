@@ -49,6 +49,10 @@ void lib_load_module(struct mjs *mjs)
     case LIB_MODULE_PIN:
         is_module_loaded = pin_create(mjs, &object);
         break;
+    case LIB_MODULE_SETTINGS:
+        settings_create(mjs, &object);
+        is_module_loaded = true;
+        break;
     case LIB_MODULE_STORAGE:
         storage_create(mjs, &object);
         is_module_loaded = true;
@@ -100,6 +104,10 @@ lib_module_t lib_module_from_str(const char *str)
     else if (strcmp(str, "pin") == 0)
     {
         return LIB_MODULE_PIN;
+    }
+    else if (strcmp(str, "settings") == 0)
+    {
+        return LIB_MODULE_SETTINGS;
     }
     else if (strcmp(str, "storage") == 0)
     {

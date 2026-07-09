@@ -197,6 +197,9 @@ static bool header_contains(const char *headers, size_t hdr_len, const char *nee
 }
 #endif
 
+/* lwIP altcp implementation (RP2040 / Waveshare) */
+#if MICROPY_PY_LWIP && !defined(NO_QSTR)
+
 static bool header_name_is(const char *name, size_t len, const char *needle)
 {
     size_t nlen = strlen(needle);
@@ -313,9 +316,6 @@ static int append_json_object_headers(const char *headers,
 
     return -1;
 }
-
-/* lwIP altcp implementation (RP2040 / Waveshare) */
-#if MICROPY_PY_LWIP && !defined(NO_QSTR)
 
 /* lwIP locking from mpconfigport.h */
 extern void lwip_lock_acquire(void);

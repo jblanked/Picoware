@@ -1,1 +1,0 @@
-Welcome to VibesMP! To begin your musical journey, please perform an initial scan of your SD card to index all available MP3 files. If you add new tracks to your collection later, simply use the "Scan Library" option in the main menu to refresh your database and ensure all new music is correctly detected and displayed within the application.

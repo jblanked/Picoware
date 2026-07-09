@@ -1,9 +1,0 @@
-VibesMP is a dedicated MicroPython audio application engineered for RP2350 microcontrollers. It provides high-fidelity MP3 playback leveraging hardware-accelerated decoding capabilities while maintaining a low memory footprint and high responsiveness during concurrent SD card file operations and user interface rendering tasks on embedded hardware platforms.
-
-The application implements ID3v2 tag parsing for metadata extraction, real-time JPEG and BMP album art scaling and display, gapless playback transition logic, dynamic playlist management including creation and modification, and a three-column navigational system for efficient library browsing, track selection, and playlist switching across various storage directories.
-
-Available configuration parameters include auto-play toggle for sequential track advancement, shuffle and loop mode selection, language localization for English, German, French, and Spanish, visual theme presets using RGB565 palettes, adjustable seek intervals from one to fifteen seconds, focus timeout management, and persistent storage of all preferences.
-
-Navigational controls utilize the standard D-Pad mapping: Up and Down for vertical list scrolling, Left and Right for column switching and volume adjustment, Center button for selection confirmation and play and pause toggling, Back button for view regression or application termination, and specialized alphanumeric mapping for naming.
-
-Made by Slasher006 with the help of Gemini, 2026. This project showcases advanced MicroPython implementation techniques, efficient memory management strategies for resource-constrained embedded systems, and collaborative software development between human engineers and artificial intelligence to deliver a superior multimedia experience on the RP2350 microcontroller platform.

@@ -373,14 +373,8 @@ HELP_TEXT = {'en.txt': 'VibesMP is a dedicated MicroPython audio application eng
 _translations = {}
 _fallback = LANG_DATA.get("en", {})
 _current_lang = ""
-_storage = None
-DEBUG_I18N = False
 
-def set_storage(storage):
-    global _storage
-    _storage = storage
-
-def load_language(lang="en"):
+def load_language():
     global _translations, _fallback, _current_lang
     _fallback = LANG_DATA.get("en", {})
     _translations = _fallback
@@ -392,10 +386,9 @@ def t(key):
         return res
     return _fallback.get(key, key)
 
-def get_help_text(lang="en", first_start=False):
+def get_help_text(first_start=False):
     prefix = "first_start_" if first_start else ""
-    name = prefix + lang + ".txt"
-    return HELP_TEXT.get(name) or HELP_TEXT.get(prefix + "en.txt") or ""
+    return HELP_TEXT.get(prefix + "en.txt") or ""
 
 # ---- settings_view.py ----
 
@@ -509,7 +502,7 @@ def handle_main_menu_input(app, button):
         elif sel == 3:
             import vibesmp_lib.resources as d
             from vibesmp_lib.resources import get_help_text, t
-            help_text = get_help_text("en")
+            help_text = get_help_text()
             d.open_alert(app, t("menu_help"), help_text)
         app.needs_refresh = True
     return True

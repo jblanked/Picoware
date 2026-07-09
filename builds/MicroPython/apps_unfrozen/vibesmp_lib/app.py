@@ -22,7 +22,7 @@ from vibesmp_lib.ui_utils import (
 )
 from vibesmp_lib.ui_utils import IconList
 from vibesmp_lib.settings import Settings
-from vibesmp_lib.resources import load_language, t, set_storage
+from vibesmp_lib.resources import load_language, t
 from vibesmp_lib.utils import mkdir_p
 from vibesmp_lib.resources import THEMES
 from vibesmp_lib.resources import switch_view, handle_main_menu_input
@@ -245,7 +245,6 @@ class VibesApp:
         self.storage_manager = StorageManager()
         self.storage_manager.set_storage(view_manager.storage)
         self.storage_manager.set_audio(view_manager.audio)
-        set_storage(view_manager.storage)
 
         # Deferred loading
         self.settings = None; self.player = None; self.playlist = None
@@ -605,7 +604,6 @@ class VibesApp:
             if loading: loading.set_text("Creating directories..."); loading.animate()
             from vibesmp_lib.utils import mkdir_p
             mkdir_p(self.view_manager.storage, "picoware/vibesmp/playlists/")
-            mkdir_p(self.view_manager.storage, "picoware/vibesmp/lang/")
             mkdir_p(self.view_manager.storage, "picoware/vibesmp/library/meta/")
             mkdir_p(self.view_manager.storage, "picoware/vibesmp/library/covers/")
 
@@ -638,8 +636,7 @@ class VibesApp:
             self.settings = Settings(self.view_manager.storage)
             if not self.view_manager.storage.exists("picoware/vibesmp/settings.json"): self.settings.save()
             self.debug_perf = DEBUG_PERF or bool(self.settings.config.get("debug_perf", False))
-            set_storage(self.view_manager.storage)
-            load_language("en")
+            load_language()
 
         if not self.player:
             self.player = Player(self.view_manager.audio, self.view_manager.storage)

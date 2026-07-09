@@ -623,4 +623,3 @@ def render_now_playing(ui, track_name, is_playing, loop_mode, playlist=None, pla
         _perf_inc(ui, "swaps")
         ui.draw.swap()
     return True
-

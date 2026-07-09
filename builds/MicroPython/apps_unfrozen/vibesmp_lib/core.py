@@ -2356,7 +2356,7 @@ def update_settings_menu(app):
     app.settings_menu.add_item(t("back"))
     if curr_idx < len(app.settings_menu.items): app.settings_menu.set_selected(curr_idx)
 
-def handle_input(app, button):
+def handle_settings_input(app, button):
     from vibesmp_lib.ui import VIEW_MENU
     from picoware.system.buttons import BUTTON_BACK
     if button == BUTTON_BACK:
@@ -2386,7 +2386,7 @@ def handle_input(app, button):
         elif sel == 9: app._switch_view(VIEW_MENU)
         app.needs_refresh = True
 
-def render(app, ui, force_full=False):
+def render_settings(app, ui, force_full=False):
     ui.render_menu(app.settings_menu, t("menu_settings"), force_full=force_full)
 
 
@@ -2495,7 +2495,7 @@ def _show(app):
     app._switch_view(view)
     app.needs_refresh = True
 
-def handle_input(app, button):
+def handle_dialog_input(app, button):
     from picoware.system.buttons import BUTTON_UP, BUTTON_DOWN
     from vibesmp_lib.ui import VIEW_INPUT_MODAL, VIEW_CONFIRM, VIEW_ALERT
     if button == BUTTON_BACK:
@@ -2567,7 +2567,7 @@ def handle_input(app, button):
         return True
     return False
 
-def render(app, ui):
+def render_dialog(app, ui):
     if app.dialog_type == "confirm":
         ui.render_confirm(app.dialog_title, app.dialog_message, app.dialog_selected_idx, app.dialog_scroll_idx)
     elif app.dialog_type == "alert":

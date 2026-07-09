@@ -1,12 +1,14 @@
 from utime import ticks_ms
+
 from picoware.system import buttons
 from picoware.system.boards import (
+    BOARD_CARDPUTER,
+    BOARD_CROWPANEL_10_1,
+    BOARD_ID,
     BOARD_WAVESHARE_1_28_RP2350,
     BOARD_WAVESHARE_1_43_RP2350,
     BOARD_WAVESHARE_3_49_RP2350,
-    BOARD_CROWPANEL_10_1,
-    BOARD_CARDPUTER,
-    BOARD_ID,
+    BOARD_WAVESHARE_AMOLED_2_06_ESP32_S3,
 )
 
 
@@ -51,8 +53,8 @@ class Input:
         self._crowpanel_touch = None
 
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
-            from waveshare_touch import init, TOUCH_GESTURE_MODE, TOUCH_GESTURE_NONE
             from machine import Pin
+            from waveshare_touch import TOUCH_GESTURE_MODE, TOUCH_GESTURE_NONE, init
 
             # Initialize touch in gesture mode
             init(TOUCH_GESTURE_MODE)
@@ -64,8 +66,8 @@ class Input:
             self._last_point = (0, 0)
             self._last_gesture = TOUCH_GESTURE_NONE
         elif self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:
-            from waveshare_touch import init
             from machine import Pin
+            from waveshare_touch import init
 
             # Initialize touch in gesture mode
             init()
@@ -76,8 +78,8 @@ class Input:
 
             self._last_point = (0, 0)
         elif self._current_board_id == BOARD_WAVESHARE_3_49_RP2350:
-            from waveshare_touch import init
             from machine import Pin
+            from waveshare_touch import init
 
             # Initialize touch in gesture mode
             init()
@@ -93,6 +95,13 @@ class Input:
             self._delay_ms = 200
 
         elif self._current_board_id == BOARD_CROWPANEL_10_1:
+            from touch import Touch
+
+            self._crowpanel_touch = Touch()
+            self._last_point = (0, 0)
+            self._delay_ms = 120
+
+        elif self._current_board_id == BOARD_WAVESHARE_AMOLED_2_06_ESP32_S3:
             from touch import Touch
 
             self._crowpanel_touch = Touch()
@@ -331,10 +340,13 @@ class Input:
     @property
     def button(self) -> int:
         """Returns the last button pressed."""
-        if self._current_board_id == BOARD_CROWPANEL_10_1:
+        if self._current_board_id in (
+            BOARD_CROWPANEL_10_1,
+            BOARD_WAVESHARE_AMOLED_2_06_ESP32_S3,
+        ):
             self._poll_crowpanel_touch()
         elif self._current_board_id == BOARD_CARDPUTER:
-            from cardputer_keyboard import poll, key_available
+            from cardputer_keyboard import key_available, poll
 
             poll()
             if key_available():
@@ -345,7 +357,7 @@ class Input:
             BOARD_WAVESHARE_3_49_RP2350,
         ):
             # added this since scheduler isnt working yet
-            from picoware_keyboard import poll, key_available
+            from picoware_keyboard import key_available, poll
 
             poll()
             if key_available():
@@ -365,6 +377,7 @@ class Input:
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
             BOARD_CROWPANEL_10_1,
+            BOARD_WAVESHARE_AMOLED_2_06_ESP32_S3,
         )
 
     @property
@@ -491,7 +504,10 @@ class Input:
             BOARD_WAVESHARE_3_49_RP2350,
         ):
             return self._last_point != (0, 0)
-        if self._current_board_id == BOARD_CROWPANEL_10_1:
+        if self._current_board_id in (
+            BOARD_CROWPANEL_10_1,
+            BOARD_WAVESHARE_AMOLED_2_06_ESP32_S3,
+        ):
             self._poll_crowpanel_touch()
             return self._last_point != (0, 0)
         if self._current_board_id == BOARD_CARDPUTER:
@@ -616,20 +632,19 @@ class Input:
         """Touch interrupt callback function"""
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             from waveshare_touch import (
-                get_gesture,
-                TOUCH_GESTURE_NONE,
-                TOUCH_GESTURE_UP,
+                TOUCH_GESTURE_CLICK,
                 TOUCH_GESTURE_DOWN,
                 TOUCH_GESTURE_LEFT,
-                TOUCH_GESTURE_RIGHT,
                 TOUCH_GESTURE_LONG_PRESS,
-                TOUCH_GESTURE_CLICK,
+                TOUCH_GESTURE_NONE,
+                TOUCH_GESTURE_RIGHT,
+                TOUCH_GESTURE_UP,
+                get_gesture,
                 get_touch_point,
             )
 
             self._last_gesture = get_gesture()
             if self._last_gesture != TOUCH_GESTURE_NONE:
-
                 self._elapsed_touch_now = int(ticks_ms())
 
                 if self._elapsed_touch_now - self._elapsed_touch_start < self._delay_ms:

@@ -1,5 +1,4 @@
 import sys
-import time
 
 _app = None
 
@@ -90,36 +89,3 @@ def create_view(view_manager, callback, *args):
 
     view = View("vibesmp", callback, *args)
     return view
-
-
-if __name__ == "__main__":
-    # Create the main view manager
-    vm = None
-    try:
-        from picoware.system.view_manager import ViewManager
-        from picoware.system.view import View
-
-        vm = ViewManager()
-
-        # Add a view with our custom callback
-        vm.add(
-            View("vibesmp", run, start, stop),
-            storage=vm.storage,
-            audio=vm.audio
-        )
-
-        # Switch to the "vibesmp" view
-        vm.switch_to("vibesmp")
-
-        print("[INFO] VibesMP started at ~50fps (20ms sleep)")
-
-        while True:
-            vm.run()
-            time.sleep_ms(20)  # Throttling to save CPU/SD bus
-    finally:
-        if vm and hasattr(vm, 'storage'):
-            try:
-                del vm.storage
-                del vm.audio
-            except Exception:
-                pass

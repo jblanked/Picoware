@@ -1,10 +1,11 @@
 #!/bin/sh
 # Script to build and install the MicroPython version of Picoware 
+set -e
 echo "Building MicroPython Picoware firmware for PicoCalc Pico 2W..."
 
 # set your locations
-micropython_dir="/Users/user/pico/micropython/ports/rp2"
-picoware_dir="/Users/user/Desktop/Picoware"
+micropython_dir="${MICROPYTHON_RP2_PORT:-/Users/user/pico/micropython/ports/rp2}"
+picoware_dir="${PICOWARE_DIR:-/Users/user/Desktop/Picoware}"
 
 echo "Using MicroPython directory: $micropython_dir"
 echo "Using Picoware directory: $picoware_dir"

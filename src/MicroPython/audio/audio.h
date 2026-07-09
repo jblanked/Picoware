@@ -139,6 +139,60 @@ extern "C"
         uint64_t position;
     } audio_info_t;
 
+    typedef struct
+    {
+        bool http11;
+        bool icy_metadata;
+        const char *user_agent;
+        uint32_t timeout_ms;
+        int max_redirects;
+        bool allow_http_fallback;
+    } audio_radio_options_t;
+
+    typedef struct
+    {
+        bool ok;
+        char url[768];
+        char final_url[768];
+        int status;
+        char location[256];
+        char content_type[96];
+        int icy_metaint;
+        bool chunked;
+        bool tls;
+        int error;
+        uint32_t elapsed_ms;
+    } audio_radio_result_t;
+
+    typedef enum
+    {
+        AUDIO_RADIO_STATE_STOPPED = 0,
+        AUDIO_RADIO_STATE_STARTUP_BUFFERING = 1,
+        AUDIO_RADIO_STATE_PLAYING = 2,
+        AUDIO_RADIO_STATE_BUFFERING = 3,
+    } audio_radio_state_t;
+
+    typedef struct
+    {
+        uint32_t underruns;
+        uint32_t rebuffer_count;
+        int last_fatal_error;
+        audio_radio_state_t last_fatal_state;
+        uint32_t min_pcm_ring_fill;
+        uint32_t max_compressed_fifo_fill;
+        uint32_t current_pcm_ring_fill;
+        uint32_t current_compressed_fifo_fill;
+        uint32_t compressed_fifo_size;
+        uint32_t compressed_fifo_backend;
+        uint32_t pcm_low_watermark;
+        uint32_t pcm_resume_target;
+        uint32_t startup_compressed_target;
+        uint32_t compressed_low_watermark;
+        uint32_t compressed_resume_target;
+        uint32_t decode_no_data_count;
+        uint32_t network_no_data_count;
+    } audio_radio_diag_t;
+
     void audio_deinit(void);        // Deinitialize the audio subsystem
     uint8_t audio_get_volume(void); // Get the current audio volume (0-100)
     audio_info_t audio_get_info(void); // Get current audio info
@@ -146,6 +200,12 @@ extern "C"
     bool audio_is_playing(void);    // Returns true if audio is currently playing, false otherwise
     bool audio_is_sd_busy(void);    // Returns true if Core 1 is actively reading from SD (MP3 decode in progress)
     bool audio_play_mp3(const char *filename);                                                               // Play an MP3 file from the filesystem (non-blocking, returns true if playback started successfully)
+    bool audio_play_mp3_url(const char *url);                                                                // Play an MP3 HTTP radio stream (non-blocking, returns true if playback started successfully)
+    bool audio_play_mp3_url_ex(const char *url, const audio_radio_options_t *options);                       // Play an MP3 HTTP radio stream with explicit runtime transport options
+    bool audio_radio_probe(const char *url, const audio_radio_options_t *options, audio_radio_result_t *result); // Probe an MP3 HTTP radio stream without starting playback
+    void audio_poll_radio(void); // Service radio networking without allocating Python-visible status objects
+    audio_radio_state_t audio_get_radio_state(void); // Returns the current radio streaming state
+    audio_radio_diag_t audio_get_radio_diag(void); // Returns fixed-size radio streaming diagnostics
     bool audio_seek(uint64_t target_sample); // Seek to a specific sample
     void audio_play_note_blocking(const audio_note_t *note);                                                 // Play a single note and block until it finishes
     void audio_play_song_blocking(const audio_song_t *song);                                                 // Play a song and block until it finishes

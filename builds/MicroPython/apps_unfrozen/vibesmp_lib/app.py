@@ -34,7 +34,7 @@ class VibesApp:
     def __init__(self, view_manager, loading_screen=None):
         self.view_manager = view_manager
         self.loading_screen = loading_screen
-        from vibesmp_lib.storage_manager import StorageManager
+        from vibesmp_lib.settings import StorageManager
         self.storage_manager = StorageManager()
         self.storage_manager.set_storage(view_manager.storage)
         self.storage_manager.set_audio(view_manager.audio)

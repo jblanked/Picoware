@@ -8,7 +8,7 @@ def start(view_manager):
     global _app
 
     try:
-        from vibesmp_lib.resources import MusicLoader
+        from vibesmp_lib.loading import MusicLoader
         _loading = MusicLoader(view_manager.draw, "VibesMP...", view_manager.selected_color)
         _loading.animate()
     except Exception as e:

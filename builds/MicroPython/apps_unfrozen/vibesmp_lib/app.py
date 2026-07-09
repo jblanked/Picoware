@@ -12,19 +12,19 @@ import json
 from picoware.gui.list import List
 from picoware.gui.file_browser import FileBrowser, FILE_BROWSER_SELECTOR
 from picoware.gui.loading import Loading
-from vibesmp_lib.library import get_filename, get_parent_path
+from vibesmp_lib.utils import get_filename, get_parent_path
 from vibesmp_lib.player import Player
-from vibesmp_lib.library import Playlist
+from vibesmp_lib.playlist import Playlist
 from vibesmp_lib.ui import (
     UI, VIEW_MENU, VIEW_NOW_PLAYING,
     VIEW_SETTINGS, VIEW_LIBRARY, VIEW_MODAL, VIEW_KEYBOARD,
     VIEW_PLAYLIST_SELECTOR, VIEW_PLAYLIST_EDITOR, VIEW_INPUT_MODAL, VIEW_CONFIRM, VIEW_ALERT
 )
-from vibesmp_lib.ui import IconList
-from vibesmp_lib.storage import Settings
+from vibesmp_lib.ui_utils import IconList
+from vibesmp_lib.settings import Settings
 from vibesmp_lib.resources import load_language, t, set_storage
-from vibesmp_lib.library import mkdir_p
-from vibesmp_lib.resources import THEMES
+from vibesmp_lib.utils import mkdir_p
+from vibesmp_lib.themes import THEMES
 from vibesmp_lib.resources import switch_view, handle_main_menu_input
 import vibesmp_lib.resources as d
 
@@ -34,7 +34,7 @@ class VibesApp:
     def __init__(self, view_manager, loading_screen=None):
         self.view_manager = view_manager
         self.loading_screen = loading_screen
-        from vibesmp_lib.storage import StorageManager
+        from vibesmp_lib.storage_manager import StorageManager
         self.storage_manager = StorageManager()
         self.storage_manager.set_storage(view_manager.storage)
         self.storage_manager.set_audio(view_manager.audio)
@@ -393,7 +393,7 @@ class VibesApp:
         if self._menus_initialized: return
         try:
             if loading: loading.set_text("Creating directories..."); loading.animate()
-            from vibesmp_lib.library import mkdir_p
+            from vibesmp_lib.utils import mkdir_p
             mkdir_p(self.view_manager.storage, "picoware/vibesmp/playlists/")
             mkdir_p(self.view_manager.storage, "picoware/vibesmp/lang/")
             mkdir_p(self.view_manager.storage, "picoware/vibesmp/library/meta/")
@@ -406,7 +406,7 @@ class VibesApp:
             menu_h = self.view_manager.draw.size.y - 60
             theme = self.ui.theme
             tc, bg, ac, pc = theme["text_c"], theme["bg_c"], theme["accent_c"], theme["panel_c"]
-            from vibesmp_lib.ui import IconList
+            from vibesmp_lib.ui_utils import IconList
             self.main_menu = IconList(self.view_manager.draw, 30, menu_h, tc, bg, ac, pc)
             self.settings_menu = IconList(self.view_manager.draw, 30, menu_h, tc, bg, ac, pc)
             self.library_menu = IconList(self.view_manager.draw, 30, menu_h, tc, bg, ac, pc)
@@ -443,10 +443,10 @@ class VibesApp:
             if not self.view_manager.storage.exists("picoware/vibesmp/playlists/default.json"): self.playlist.save(force=True)
 
         if not self.ui:
-            from vibesmp_lib.resources import load_theme
+            from vibesmp_lib.themes import load_theme
             self.ui = UI(self.view_manager.draw, load_theme(self.settings), self.view_manager, self.settings)
-            from vibesmp_lib.metadata import set_perf_counters as set_cover_perf_counters
-            from vibesmp_lib.metadata import set_perf_counters as set_id3_perf_counters
+            from vibesmp_lib.metadata_engine import set_perf_counters as set_cover_perf_counters
+            from vibesmp_lib.id3 import set_perf_counters as set_id3_perf_counters
             if self.debug_perf:
                 self.ui.perf_counters = self.perf_counters
                 set_cover_perf_counters(self.perf_counters)
@@ -491,7 +491,7 @@ class VibesApp:
                 self.playlist.load(storage_manager=self.storage_manager)
             self._playlist_loaded = True
         if not self._library_loaded:
-            from vibesmp_lib.library import Library
+            from vibesmp_lib.vibes_library import Library
             self.library = Library(self.view_manager.storage)
             self._library_loaded = True
         if self.library and hasattr(self.library, "set_perf_counters"):
@@ -503,7 +503,7 @@ class VibesApp:
             if not self.ui or self.ui.current_view != VIEW_NOW_PLAYING:
                 return False
 
-            from vibesmp_lib.metadata import _id3_cache
+            from vibesmp_lib.id3 import _id3_cache
             metadata = _id3_cache.get(file_path)
             if metadata:
                 self.player.current_id3 = metadata
@@ -1724,8 +1724,8 @@ class VibesApp:
                 self.playlist._index_dirty = True
 
     def stop(self, view_manager):
-        from vibesmp_lib.metadata import cleanup_engine, set_perf_counters as set_cover_perf_counters
-        from vibesmp_lib.metadata import set_perf_counters as set_id3_perf_counters
+        from vibesmp_lib.metadata_engine import cleanup_engine, set_perf_counters as set_cover_perf_counters
+        from vibesmp_lib.id3 import set_perf_counters as set_id3_perf_counters
         set_cover_perf_counters(None)
         set_id3_perf_counters(None)
         cleanup_engine()
@@ -1840,11 +1840,11 @@ class VibesApp:
                 nav_fast=nav_fast,
             )
         elif v == VIEW_PLAYLIST_SELECTOR:
-            from vibesmp_lib.ui import render_playlist_selector
+            from vibesmp_lib.ui_playlist import render_playlist_selector
             playlists = self.ui_playlists[1:] if self.ui_playlists else []  # Skip '+ New' entry
             render_playlist_selector(self.ui, playlists, self.playlist_sel_idx, force_full=(self.needs_refresh and not nav_fast), nav_fast=nav_fast)
         elif v == VIEW_PLAYLIST_EDITOR:
-            from vibesmp_lib.ui import render_playlist_editor
+            from vibesmp_lib.ui_playlist import render_playlist_editor
             items = self.library.tracks if self.library else []
             render_playlist_editor(self.ui, items, self.playlist, force_full=(self.needs_refresh and not nav_fast), nav_fast=nav_fast)
 

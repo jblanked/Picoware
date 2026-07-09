@@ -1,8 +1,8 @@
 from gc import collect
 import time
 import sys
-from vibesmp_lib.metadata import parse_id3
-from vibesmp_lib.library import format_time
+from vibesmp_lib.id3 import parse_id3
+from vibesmp_lib.utils import format_time
 
 
 class Player:
@@ -108,7 +108,7 @@ class Player:
                 res = self._execute_play(file_path, start_pos, skip_meta=skip_meta)
             return res
         except MemoryError:
-            from vibesmp_lib.metadata import clear_cache
+            from vibesmp_lib.id3 import clear_cache
             clear_cache()
             collect()
             try:
@@ -132,13 +132,13 @@ class Player:
         if not sd_path.startswith("/"):
             sd_path = "/" + sd_path
 
-        from vibesmp_lib.metadata import _id3_cache
+        from vibesmp_lib.id3 import _id3_cache
         if file_path in _id3_cache:
             self.current_id3 = _id3_cache[file_path]
             self._meta_pending = False
         elif not skip_meta:
             self._meta_pending = True
-            from vibesmp_lib.library import get_filename
+            from vibesmp_lib.utils import get_filename
             self.current_id3 = {"title": get_filename(file_path), "artist": "Loading...", "cover": None}
             self._dur_str_cache = "--:--"
 
@@ -253,7 +253,7 @@ class Player:
         collect()
         file_path = self.current_track
         try:
-            from vibesmp_lib.metadata import get_track_hash
+            from vibesmp_lib.metadata_engine import get_track_hash
             file_hash = get_track_hash(file_path)
             meta_path = "picoware/vibesmp/library/meta/" + file_hash + ".json"
 
@@ -268,7 +268,7 @@ class Player:
 
             if temp_meta:
                 self.current_id3 = temp_meta
-                from vibesmp_lib.metadata import _id3_cache
+                from vibesmp_lib.id3 import _id3_cache
                 if len(_id3_cache) > 50:
                     _id3_cache.clear()
                 _id3_cache[file_path] = temp_meta

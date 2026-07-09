@@ -4,10 +4,10 @@
 
 from picoware.system.vector import Vector
 from picoware.system.colors import TFT_BLACK, TFT_WHITE, TFT_GREEN
-from vibesmp_lib.library import get_filename, format_time
+from vibesmp_lib.utils import get_filename, format_time
 from vibesmp_lib.resources import t
-from vibesmp_lib.metadata import draw_cover
-from vibesmp_lib.ui import draw_digit, draw_marquee, draw_player_button, draw_player_column, draw_progress_bar
+from vibesmp_lib.metadata_engine import draw_cover
+from vibesmp_lib.ui_utils import draw_digit, draw_marquee, draw_player_button, draw_player_column, draw_progress_bar
 import time
 
 _inf_cache = {"str": "", "v_str": "", "info_track": "", "info_tuple": None, "info_retry_after": 0}

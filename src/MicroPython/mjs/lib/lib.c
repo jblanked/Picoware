@@ -61,6 +61,10 @@ void lib_load_module(struct mjs *mjs)
         time_create(mjs, &object);
         is_module_loaded = true;
         break;
+    case LIB_MODULE_WIFI:
+        wifi_create(mjs, &object);
+        is_module_loaded = true;
+        break;
     default:
         is_module_loaded = false;
         break;
@@ -109,9 +113,13 @@ lib_module_t lib_module_from_str(const char *str)
     {
         return LIB_MODULE_TIME;
     }
+    else if (strcmp(str, "wifi") == 0)
+    {
+        return LIB_MODULE_WIFI;
+    }
     else
     {
-        return -1; // Invalid module
+        return LIB_MODULE_NONE;
     }
 }
 
@@ -139,6 +147,10 @@ void lib_unload_modules()
         else if (lib_loaded_modules[i] == LIB_MODULE_SYSTEM)
         {
             system_destroy();
+        }
+        else if (lib_loaded_modules[i] == LIB_MODULE_WIFI)
+        {
+            wifi_destroy();
         }
         lib_loaded_modules[i] = LIB_MODULE_NONE;
     }

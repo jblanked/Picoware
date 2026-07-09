@@ -76,11 +76,60 @@ void audio_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
             destination[0] = MP_OBJ_FROM_PTR(info_obj);
             return;
         }
+        case MP_QSTR_radio_state:
+        {
+            audio_radio_state_t state = audio_get_radio_state();
+            const char *state_str = "stopped";
+            switch (state)
+            {
+            case AUDIO_RADIO_STATE_STARTUP_BUFFERING:
+                state_str = "startup_buffering";
+                break;
+            case AUDIO_RADIO_STATE_PLAYING:
+                state_str = "playing";
+                break;
+            case AUDIO_RADIO_STATE_BUFFERING:
+                state_str = "buffering";
+                break;
+            case AUDIO_RADIO_STATE_STOPPED:
+            default:
+                state_str = "stopped";
+                break;
+            }
+            destination[0] = mp_obj_new_str(state_str, strlen(state_str));
+            return;
+        }
+        case MP_QSTR_radio_diag:
+        {
+            audio_radio_diag_t diag = audio_get_radio_diag();
+            mp_obj_t tuple[17] = {
+                mp_obj_new_int_from_uint(diag.underruns),
+                mp_obj_new_int_from_uint(diag.rebuffer_count),
+                mp_obj_new_int(diag.last_fatal_error),
+                mp_obj_new_int((int)diag.last_fatal_state),
+                mp_obj_new_int_from_uint(diag.min_pcm_ring_fill),
+                mp_obj_new_int_from_uint(diag.max_compressed_fifo_fill),
+                mp_obj_new_int_from_uint(diag.current_pcm_ring_fill),
+                mp_obj_new_int_from_uint(diag.current_compressed_fifo_fill),
+                mp_obj_new_int_from_uint(diag.compressed_fifo_size),
+                mp_obj_new_int_from_uint(diag.compressed_fifo_backend),
+                mp_obj_new_int_from_uint(diag.pcm_low_watermark),
+                mp_obj_new_int_from_uint(diag.pcm_resume_target),
+                mp_obj_new_int_from_uint(diag.startup_compressed_target),
+                mp_obj_new_int_from_uint(diag.compressed_low_watermark),
+                mp_obj_new_int_from_uint(diag.compressed_resume_target),
+                mp_obj_new_int_from_uint(diag.decode_no_data_count),
+                mp_obj_new_int_from_uint(diag.network_no_data_count),
+            };
+            destination[0] = mp_obj_new_tuple(17, tuple);
+            return;
+        }
         case MP_QSTR___del__:
             destination[0] = MP_OBJ_FROM_PTR(&audio_mp_del_obj);
             return;
         default:
-            return; // Fail
+            destination[1] = MP_OBJ_SENTINEL; // not found here; fall through to locals_dict
+            return;
         };
     }
     else if (destination[1] != MP_OBJ_NULL)
@@ -112,6 +161,134 @@ mp_obj_t audio_mp_play_mp3(mp_obj_t self_in, mp_obj_t filename)
     return audio_play_mp3(fname) ? mp_const_true : mp_const_false;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(audio_mp_play_mp3_obj, audio_mp_play_mp3);
+
+static void audio_mp_read_radio_options(mp_obj_t options_obj, audio_radio_options_t *options)
+{
+    options->http11 = true;
+    options->icy_metadata = false;
+    options->user_agent = "VibesMP/1.0";
+    options->timeout_ms = 10000;
+    options->max_redirects = 3;
+    options->allow_http_fallback = false;
+
+    if (options_obj == mp_const_none)
+        return;
+    if (!mp_obj_is_type(options_obj, &mp_type_dict))
+    {
+        mp_raise_TypeError(MP_ERROR_TEXT("options must be a dict"));
+    }
+
+    mp_obj_dict_t *dict = MP_OBJ_TO_PTR(options_obj);
+    for (size_t i = 0; i < dict->map.alloc; i++)
+    {
+        if (!mp_map_slot_is_filled(&dict->map, i))
+            continue;
+        mp_obj_t key_obj = dict->map.table[i].key;
+        mp_obj_t value = dict->map.table[i].value;
+        if (!mp_obj_is_str(key_obj))
+            continue;
+        const char *key = mp_obj_str_get_str(key_obj);
+
+        if (strcmp(key, "http_version") == 0)
+        {
+            const char *version = mp_obj_str_get_str(value);
+            options->http11 = strcmp(version, "1.0") != 0;
+        }
+        else if (strcmp(key, "icy") == 0)
+        {
+            options->icy_metadata = mp_obj_is_true(value);
+        }
+        else if (strcmp(key, "user_agent") == 0)
+        {
+            options->user_agent = mp_obj_str_get_str(value);
+        }
+        else if (strcmp(key, "timeout_ms") == 0)
+        {
+            int timeout = mp_obj_get_int(value);
+            options->timeout_ms = timeout > 0 ? (uint32_t)timeout : 10000;
+        }
+        else if (strcmp(key, "max_redirects") == 0)
+        {
+            options->max_redirects = mp_obj_get_int(value);
+        }
+        else if (strcmp(key, "allow_http_fallback") == 0)
+        {
+            options->allow_http_fallback = mp_obj_is_true(value);
+        }
+    }
+}
+
+static mp_obj_t audio_mp_radio_result_dict(const audio_radio_result_t *result)
+{
+    mp_obj_t dict = mp_obj_new_dict(11);
+    mp_obj_dict_store(dict, MP_OBJ_NEW_QSTR(MP_QSTR_ok), mp_obj_new_bool(result->ok));
+    mp_obj_dict_store(dict, MP_OBJ_NEW_QSTR(MP_QSTR_url), mp_obj_new_str(result->url, strlen(result->url)));
+    mp_obj_dict_store(dict, MP_OBJ_NEW_QSTR(MP_QSTR_final_url), mp_obj_new_str(result->final_url, strlen(result->final_url)));
+    mp_obj_dict_store(dict, MP_OBJ_NEW_QSTR(MP_QSTR_status), mp_obj_new_int(result->status));
+    mp_obj_dict_store(dict, MP_OBJ_NEW_QSTR(MP_QSTR_location), mp_obj_new_str(result->location, strlen(result->location)));
+    mp_obj_dict_store(dict, MP_OBJ_NEW_QSTR(MP_QSTR_content_type), mp_obj_new_str(result->content_type, strlen(result->content_type)));
+    mp_obj_dict_store(dict, MP_OBJ_NEW_QSTR(MP_QSTR_icy_metaint), mp_obj_new_int(result->icy_metaint));
+    mp_obj_dict_store(dict, MP_OBJ_NEW_QSTR(MP_QSTR_chunked), mp_obj_new_bool(result->chunked));
+    mp_obj_dict_store(dict, MP_OBJ_NEW_QSTR(MP_QSTR_tls), mp_obj_new_bool(result->tls));
+    mp_obj_dict_store(dict, MP_OBJ_NEW_QSTR(MP_QSTR_error), mp_obj_new_int(result->error));
+    mp_obj_dict_store(dict, MP_OBJ_NEW_QSTR(MP_QSTR_elapsed_ms), mp_obj_new_int_from_uint(result->elapsed_ms));
+    return dict;
+}
+
+mp_obj_t audio_mp_play_mp3_url(size_t n_args, const mp_obj_t *args)
+{
+    audio_mp_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    if (!self->initialized)
+    {
+        mp_raise_TypeError(MP_ERROR_TEXT("Audio not initialized"));
+    }
+    if (!mp_obj_is_str(args[1]))
+    {
+        mp_raise_TypeError(MP_ERROR_TEXT("url must be a string"));
+    }
+    const char *stream_url = mp_obj_str_get_str(args[1]);
+    if (n_args >= 3)
+    {
+        audio_radio_options_t options;
+        audio_mp_read_radio_options(args[2], &options);
+        return audio_play_mp3_url_ex(stream_url, &options) ? mp_const_true : mp_const_false;
+    }
+    return audio_play_mp3_url(stream_url) ? mp_const_true : mp_const_false;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(audio_mp_play_mp3_url_obj, 2, 3, audio_mp_play_mp3_url);
+
+mp_obj_t audio_mp_radio_probe(size_t n_args, const mp_obj_t *args)
+{
+    audio_mp_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    if (!self->initialized)
+    {
+        mp_raise_TypeError(MP_ERROR_TEXT("Audio not initialized"));
+    }
+    if (!mp_obj_is_str(args[1]))
+    {
+        mp_raise_TypeError(MP_ERROR_TEXT("url must be a string"));
+    }
+
+    audio_radio_options_t options;
+    audio_mp_read_radio_options(n_args >= 3 ? args[2] : mp_const_none, &options);
+    audio_radio_result_t result;
+    const char *stream_url = mp_obj_str_get_str(args[1]);
+    audio_radio_probe(stream_url, &options, &result);
+    return audio_mp_radio_result_dict(&result);
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(audio_mp_radio_probe_obj, 2, 3, audio_mp_radio_probe);
+
+mp_obj_t audio_mp_radio_service(mp_obj_t self_in)
+{
+    audio_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (!self->initialized)
+    {
+        mp_raise_TypeError(MP_ERROR_TEXT("Audio not initialized"));
+    }
+    audio_poll_radio();
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(audio_mp_radio_service_obj, audio_mp_radio_service);
 
 mp_obj_t audio_mp_play_note(size_t n_args, const mp_obj_t *args)
 {
@@ -274,6 +451,9 @@ static MP_DEFINE_CONST_FUN_OBJ_1(audio_mp_stop_obj, audio_mp_stop);
 
 static const mp_rom_map_elem_t audio_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_play_mp3), MP_ROM_PTR(&audio_mp_play_mp3_obj)},
+    {MP_ROM_QSTR(MP_QSTR_play_mp3_url), MP_ROM_PTR(&audio_mp_play_mp3_url_obj)},
+    {MP_ROM_QSTR(MP_QSTR_radio_probe), MP_ROM_PTR(&audio_mp_radio_probe_obj)},
+    {MP_ROM_QSTR(MP_QSTR_radio_service), MP_ROM_PTR(&audio_mp_radio_service_obj)},
     {MP_ROM_QSTR(MP_QSTR_play_note), MP_ROM_PTR(&audio_mp_play_note_obj)},
     {MP_ROM_QSTR(MP_QSTR_play_song), MP_ROM_PTR(&audio_mp_play_song_obj)},
     {MP_ROM_QSTR(MP_QSTR_play_wav), MP_ROM_PTR(&audio_mp_play_wav_obj)},

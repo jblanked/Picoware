@@ -301,8 +301,7 @@ build_radio_player() {
         "radio-player" \
         "$sim_dir/audio/sdl_radio_player" \
         "sdl" \
-        "$sim_dir/audio/sdl_radio_player.c" \
-        "$root_dir"/src/MicroPython/audio/minimp3/*.h
+        "$sim_dir/audio/sdl_radio_player.c"
 }
 
 build_jpeg() {

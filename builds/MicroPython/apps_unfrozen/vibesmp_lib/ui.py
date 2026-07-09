@@ -198,17 +198,17 @@ class UI:
         render_now_playing(self, track_name, is_playing, loop_mode, playlist, player, shuffle, force_full, seek_msg, focus, btn_idx, playlists, playlist_idx, library_items, l_idx, active_col, swap, self.settings, library, list_tick, nav_fast)
 
     def render_confirm(self, title, message, selected_idx, scroll_idx=0):
-        from vibesmp_lib.ui_dialogs import render_confirm
+        from vibesmp_lib.ui_playlist import render_confirm
         render_confirm(self, title, message, selected_idx, scroll_idx)
 
     def render_modal(self, title, message, button_text="OK", scroll_idx=0):
-        from vibesmp_lib.ui_dialogs import render_modal
+        from vibesmp_lib.ui_playlist import render_modal
         render_modal(self, title, message, button_text, scroll_idx)
 
     def render_progress_modal(self, title, current_item, count):
-        from vibesmp_lib.ui_dialogs import render_progress_modal
+        from vibesmp_lib.ui_playlist import render_progress_modal
         render_progress_modal(self, title, current_item, count)
 
     def render_input_dialog(self, title, text, cursor_pos=0, force_full=False):
-        from vibesmp_lib.ui_dialogs import render_input_dialog
+        from vibesmp_lib.ui_playlist import render_input_dialog
         render_input_dialog(self, title, text, cursor_pos, force_full)

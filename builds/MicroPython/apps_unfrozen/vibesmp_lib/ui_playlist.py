@@ -17,17 +17,34 @@ from vibesmp_lib.ui_utils import (
 
 def _wrap_text(text, limit):
     res = []
-    # Handle both actual newlines and escaped newlines
     lines = text.replace("\\n", "\n").split("\n")
-    for l in lines:
-        if not l:
+    for raw in lines:
+        words = raw.split(" ")
+        if not words:
             res.append("")
             continue
-        for i in range(0, len(l), limit):
-            res.append(l[i:i+limit])
+        line = ""
+        for word in words:
+            if not word:
+                continue
+            while len(word) > limit:
+                if line:
+                    res.append(line)
+                    line = ""
+                res.append(word[:limit])
+                word = word[limit:]
+            if not line:
+                line = word
+            elif len(line) + 1 + len(word) <= limit:
+                line += " " + word
+            else:
+                res.append(line)
+                line = word
+        if line:
+            res.append(line)
     return res
 
-def _dialog_text_limit(width_px, inner_padding=20, scrollbar_w=8, char_w=6):
+def _dialog_text_limit(width_px, inner_padding=24, scrollbar_w=12, char_w=8):
     usable_w = max(0, width_px - inner_padding - scrollbar_w)
     return max(1, usable_w // char_w)
 

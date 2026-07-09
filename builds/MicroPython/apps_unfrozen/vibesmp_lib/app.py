@@ -864,7 +864,7 @@ class VibesApp:
                 # Priority 1: Modal Dialogs
                 if v in (VIEW_INPUT_MODAL, VIEW_CONFIRM, VIEW_ALERT):
                     import vibesmp_lib.resources as d
-                    handled = d.handle_input(self, btn)
+                    handled = d.handle_dialog_input(self, btn)
 
                 # Priority 2: Views
                 elif v == VIEW_MENU:
@@ -2009,7 +2009,7 @@ class VibesApp:
         # Pre-importing for performance (cached in sys.modules anyway)
         if v in (VIEW_INPUT_MODAL, VIEW_CONFIRM, VIEW_ALERT):
             import vibesmp_lib.resources as d
-            d.render(self, self.ui)
+            d.render_dialog(self, self.ui)
             self.ui.last_view = v
             self.needs_refresh = False
             self._list_marquee_tick = False

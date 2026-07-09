@@ -27,6 +27,7 @@ def scan(library, path=None, loading=None, progress_callback=None, quick=False, 
         library.tracks = []
     library._tree_structure = None
     library._flat_tree_cache = None
+    library._flat_tree_cache_auto_expand = None
     library._count = 0
     library._scan_dirs = 0
     library._scan_last_path = scan_path
@@ -151,6 +152,7 @@ class Library:
         self.expanded_paths = set(["/sd/"]) # Root expanded by default
         self._tree_structure = None # Internal structure
         self._flat_tree_cache = None # Final list of tuples
+        self._flat_tree_cache_auto_expand = None
         self._title_cache = {} # path -> ID3 title string
         self._meta_cache = {} # path -> parsed metadata dict
         self._category_cache = {}
@@ -179,6 +181,7 @@ class Library:
         self.tracks = []
         self._tree_structure = None
         self._flat_tree_cache = None
+        self._flat_tree_cache_auto_expand = None
         self._title_cache = {}
         self._meta_cache = {}
         self._category_cache = {}
@@ -316,6 +319,7 @@ class Library:
             del data
             self._tree_structure = None
             self._flat_tree_cache = None
+            self._flat_tree_cache_auto_expand = None
             self._title_cache = {}
             self._meta_cache = {}
             self._invalidate_display_cache()
@@ -734,6 +738,7 @@ class Library:
             self.save_state()
             self._tree_structure = None
             self._flat_tree_cache = None
+            self._flat_tree_cache_auto_expand = None
             self._invalidate_display_cache()
         return removed
 
@@ -888,6 +893,7 @@ class Library:
             self.expanded_paths.add(path)
 
         self._flat_tree_cache = None # Invalidate flat view cache
+        self._flat_tree_cache_auto_expand = None
         self._invalidate_display_cache()
 
     def _build_internal_tree(self):
@@ -932,6 +938,9 @@ class Library:
         # 3) Create nodes and attach to compressed parents.
         nodes = {}
         for d_path in mp3_dirs:
+            if d_path == "/sd/":
+                self._tree_structure["files"] = files_by_dir.get(d_path, [])
+                continue
             name = d_path.rstrip("/").split("/")[-1]
             nodes[d_path] = {
                 "folders": {},
@@ -942,7 +951,7 @@ class Library:
 
         for d_path, node in nodes.items():
             p_path = parent_map.get(d_path, "/sd/")
-            if p_path in nodes:
+            if p_path in nodes and p_path != d_path:
                 nodes[p_path]["folders"][node["name"]] = node
             else:
                 self._tree_structure["folders"][node["name"]] = node
@@ -950,7 +959,8 @@ class Library:
 
     def get_tree_view(self, auto_expand=True):
         """Return a list of (path, depth, is_dir, is_expanded, name) for the tree."""
-        if self._flat_tree_cache is not None:
+        auto_expand = bool(auto_expand)
+        if self._flat_tree_cache is not None and self._flat_tree_cache_auto_expand == auto_expand:
             return self._flat_tree_cache
 
         from gc import collect
@@ -960,11 +970,18 @@ class Library:
             self._build_internal_tree()
 
         root_node = self._tree_structure
-        visible_expanded = set(self.expanded_paths)
+        visible_expanded = None if auto_expand else set(self.expanded_paths)
 
         self._flat_tree_cache = []
+        self._flat_tree_cache_auto_expand = auto_expand
         # Show only MP3-containing folders as top-level entries (no SD/picoware chain).
         stack = []
+        for f_name in sorted(root_node["files"], reverse=True):
+            full_path = root_node["path"] + f_name
+            display_name = f_name
+            if display_name.lower().endswith(".mp3"):
+                display_name = display_name[:-4]
+            stack.append((False, display_name, full_path, 0))
         for f_name in sorted(root_node["folders"].keys(), reverse=True):
             stack.append((True, f_name, root_node["folders"][f_name], 0))
 
@@ -976,7 +993,7 @@ class Library:
 
             node = data
             path = node.get("path")
-            is_expanded = path in visible_expanded
+            is_expanded = auto_expand or path in visible_expanded
             self._flat_tree_cache.append((path, depth, True, is_expanded, name))
 
             if is_expanded:

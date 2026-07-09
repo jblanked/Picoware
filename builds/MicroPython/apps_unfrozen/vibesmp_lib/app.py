@@ -1498,12 +1498,17 @@ class VibesApp:
                 switch_view(self, VIEW_MENU)
             return True
         if button == BUTTON_UP:
-            level["idx"] = max(0, level.get("idx", 0) - 1)
+            if items:
+                level["idx"] = (level.get("idx", 0) - 1) % len(items)
+            else:
+                level["idx"] = 0
             self.needs_refresh = True
             return True
         if button == BUTTON_DOWN:
-            if items and level.get("idx", 0) < len(items) - 1:
-                level["idx"] = level.get("idx", 0) + 1
+            if items:
+                level["idx"] = (level.get("idx", 0) + 1) % len(items)
+            else:
+                level["idx"] = 0
             self.needs_refresh = True
             return True
         if button in (BUTTON_LEFT, BUTTON_RIGHT):

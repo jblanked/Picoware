@@ -639,7 +639,7 @@ class VibesApp:
             if not self.view_manager.storage.exists("picoware/vibesmp/settings.json"): self.settings.save()
             self.debug_perf = DEBUG_PERF or bool(self.settings.config.get("debug_perf", False))
             set_storage(self.view_manager.storage)
-            load_language(self.settings.config["language"])
+            load_language("en")
 
         if not self.player:
             self.player = Player(self.view_manager.audio, self.view_manager.storage)

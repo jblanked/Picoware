@@ -245,9 +245,129 @@ def render_header_extras(ui, sw, bar_h):
             except Exception as e:
                 print(f"[DEBUG] Header Time Error: {e}")
 
-LANG_DATA = {'de': {'menu_player': 'Player', 'menu_playlist': 'Wiedergabeliste', 'menu_play_file': 'Datei abspielen', 'menu_library': 'Bibliothek', 'menu_editor': 'Editor', 'menu_settings': 'Einstellungen', 'menu_help': 'Hilfe', 'menu_playlist_manager': 'Listen-Manager', 'now_playing': 'Wird abgespielt', 'no_track': 'Kein Titel', 'playing': 'Play', 'paused': 'Pause', 'stopped': 'Stop', 'loop_none': 'Wiederholung: Aus', 'loop_one': 'Wiederholung: Eins', 'loop_all': 'Wiederholung: Alle', 'editor_color': 'Farbe aendern', 'editor_bg': 'Hintergrund', 'editor_save': 'Speichern', 'set_autoplay': 'Auto-Play', 'set_shuffle': 'Zufall', 'set_auto_expand': 'Bibl. auto-ausklappen', 'set_lang': 'Sprache', 'set_volume': 'Lautstaerke', 'set_seek': 'Sprungweite', 'set_focus_timeout': 'Fokus Timeout', 'refresh_library': 'Bibl. aktualisieren', 'back': 'Zurueck', 'on': 'AN', 'off': 'AUS', 'menu_playlist_editor': 'Listen-Editor', 'menu_playlists': 'Wiedergabelisten', 'library': 'Bibliothek', 'playlist': 'Titel', 'playlists': 'Listen', 'new_playlist': '+ Neue Liste', 'playlist_new': 'Neue Liste', 'playlist_del': 'Liste loeschen', 'playlist_selector': 'Liste waehlen', 'playlist_editor': 'Listen-Editor', 'hint_np_controls': 'TAB:Listen P:Pause ESC:Stop [/:Seek <>:Titel L:Loop S:Mix V:.,', 'hint_np_lib': 'TAB:Player UD:Scroll LR:Bereich OK:Add/Auf', 'hint_np_trk': 'TAB:Player UD:Scroll LR:Bereich OK:Play DEL:Entf', 'hint_np_pls': 'TAB:Player UD:Scroll LR:Bereich OK:Laden N:Neu DEL:Loesch', 'hint_playlist_sel': 'UD:Scroll OK:Laden DEL:Loeschen BACK:Menue', 'hint_playlist_ed': 'LR:Bereich UD:Wahl OK:Add/Entf BACK:Menue', 'hint_continue': 'ENT:Weiter', 'hint_confirm': 'LR:Waehlen ENT:Bestaetigen', 'confirm': 'Bestaetigen', 'delete': 'Loeschen'}, 'en': {'app_name': 'VibesMP', 'menu_player': 'Player', 'menu_playlist': 'Playlist', 'menu_play_file': 'Play File', 'menu_library': 'Library', 'menu_editor': 'Editor', 'menu_settings': 'Settings', 'menu_help': 'Help', 'first_run_title': 'VibesMP', 'first_run_msg': 'Scan SD card for music now?', 'scanning_title': 'Scanning SD Card...', 'scan_complete_title': 'Scan Complete', 'scan_complete_msg': 'Found {} MP3 files.', 'menu_playlist_manager': 'Playlist Manager', 'now_playing': 'Now Playing', 'no_track': 'No Track', 'playing': 'Playing', 'paused': 'Paused', 'stopped': 'Stopped', 'loop_none': 'Loop: No', 'loop_one': 'Loop: One', 'loop_all': 'Loop: All', 'editor_color': 'Change Color', 'editor_bg': 'Background', 'editor_save': 'Save', 'set_autoplay': 'Auto-Play Next', 'set_shuffle': 'Shuffle', 'set_auto_expand': 'Auto-Expand Lib', 'set_lang': 'Language', 'set_volume': 'Volume', 'set_seek': 'Seek Step', 'set_focus_timeout': 'Focus Timeout', 'refresh_library': 'Refresh Library', 'lib_all_songs': 'All Songs', 'lib_artists': 'Artists', 'lib_albums': 'Albums', 'lib_folders': 'Folders', 'lib_genres': 'Genres', 'lib_recently_added': 'Recently Added', 'lib_favorites': 'Favorites', 'lib_search': 'Search', 'lib_scan_options': 'Scan Options', 'lib_sort': 'Sort', 'lib_filters': 'Filters', 'lib_stats': 'Library Stats', 'lib_cleanup': 'Cleanup', 'lib_scan': 'Scan Library', 'lib_actions': 'Actions', 'lib_action_play_now': 'Play Now', 'lib_action_play_next': 'Play Next', 'lib_action_add_current': 'Add to Current Playlist', 'lib_action_create_playlist': 'Create Playlist', 'lib_action_remove_library': 'Remove from Library', 'lib_action_add_favorite': 'Add Favorite', 'lib_action_remove_favorite': 'Remove Favorite', 'lib_action_show_info': 'Show Info', 'lib_info': 'Track Info', 'lib_tracks': 'Tracks', 'lib_scan_total': 'Total', 'lib_scan_added': 'Added', 'lib_scan_removed': 'Removed', 'lib_scan_unchanged': 'Unchanged', 'lib_scan_found': 'Found', 'lib_scan_failed': 'Failed', 'lib_removed': 'Removed', 'lib_favorites_cleared': 'Favorites cleared', 'hint_library': 'UD:Scroll LR:Folder OK:Open/Action BACK:Back', 'back': 'Back', 'on': 'ON', 'off': 'OFF', 'menu_playlist_editor': 'Playlist Editor', 'menu_playlists': 'Playlists', 'library': 'Library', 'playlist': 'Tracks', 'playlists': 'Playlists', 'new_playlist': '+ New Playlist', 'playlist_new': 'New Playlist', 'playlist_del': 'Delete Playlist', 'playlist_selector': 'Select Playlist', 'playlist_editor': 'Playlist Editor', 'hint_np_controls': 'TAB:Lists P:Pause ESC:Stop [/:Seek <>:Trk L:Loop S:Shuf V:.,', 'hint_np_lib': 'TAB:Player UD:Scroll LR:Panels OK:Add/Expand', 'hint_np_trk': 'TAB:Player UD:Scroll LR:Panels OK:Play DEL:Rem', 'hint_np_pls': 'TAB:Player UD:Scroll LR:Panels OK:Load N:New DEL:Del', 'hint_playlist_sel': 'UD:Scroll OK:Load DEL:Delete BACK:Menu', 'hint_playlist_ed': 'LR:Panel UD:Sel OK:Add/Rem BACK:Menu', 'hint_continue': 'ENT:Continue', 'hint_confirm': 'LR:Choose ENT:Confirm', 'confirm': 'Confirm', 'delete': 'Delete'}, 'es': {'menu_player': 'Reproductor', 'menu_playlist': 'Lista', 'menu_play_file': 'Reproducir archivo', 'menu_library': 'Biblioteca', 'menu_editor': 'Editor', 'menu_settings': 'Ajustes', 'menu_help': 'Ayuda', 'menu_playlist_manager': 'Gestor de listas', 'now_playing': 'Reproduciendo', 'no_track': 'Sin pista', 'playing': 'Reproduciendo', 'paused': 'Pausa', 'stopped': 'Detenido', 'loop_none': 'Bucle: No', 'loop_one': 'Bucle: Uno', 'loop_all': 'Bucle: Todo', 'editor_color': 'Cambiar color', 'editor_bg': 'Fondo', 'editor_save': 'Guardar', 'set_autoplay': 'Auto-reproducir', 'set_shuffle': 'Aleatorio', 'set_auto_expand': 'Auto-expandir bibl.', 'set_lang': 'Idioma', 'set_volume': 'Volumen', 'set_seek': 'Salto', 'set_focus_timeout': 'Tiempo Foco', 'refresh_library': 'Actualizar bibl.', 'back': 'Atrás', 'on': 'ON', 'off': 'OFF', 'menu_playlist_editor': 'Editor de listas', 'menu_playlists': 'Listas', 'library': 'Biblioteca', 'playlist': 'Pistas', 'playlists': 'Listas', 'new_playlist': '+ Nueva lista', 'playlist_new': 'Nueva lista', 'playlist_del': 'Borrar lista', 'playlist_selector': 'Seleccionar lista', 'playlist_editor': 'Editor de listas', 'hint_np_controls': 'TAB:Listas P:Pause ESC:Stop [/:Seek <>:Pista L:Loop S:Shuf V:.,', 'hint_np_lib': 'TAB:Repro UD:Scroll LR:Panel OK:Add/Abrir', 'hint_np_trk': 'TAB:Repro UD:Scroll LR:Panel OK:Repro DEL:Borrar', 'hint_np_pls': 'TAB:Repro UD:Scroll LR:Panel OK:Cargar N:Nueva DEL:Borrar', 'hint_playlist_sel': 'UD:Scroll OK:Cargar DEL:Borrar BACK:Menu', 'hint_playlist_ed': 'LR:Panel UD:Sel OK:Add/Rem BACK:Menu', 'hint_continue': 'ENT:Continuar', 'hint_confirm': 'LR:Elegir ENT:Confirmar', 'confirm': 'Confirmar', 'delete': 'Borrar'}, 'fr': {'menu_player': 'Lecteur', 'menu_playlist': 'Liste', 'menu_play_file': 'Lire fichier', 'menu_library': 'Bibliothèque', 'menu_editor': 'Éditeur', 'menu_settings': 'Réglages', 'menu_help': 'Aide', 'menu_playlist_manager': 'Gestionnaire', 'now_playing': 'En lecture', 'no_track': 'Aucun titre', 'playing': 'Lecture', 'paused': 'Pause', 'stopped': 'Arrêté', 'loop_none': 'Boucle: Non', 'loop_one': 'Boucle: Un', 'loop_all': 'Boucle: Tout', 'editor_color': 'Changer couleur', 'editor_bg': 'Fond', 'editor_save': 'Enregistrer', 'set_autoplay': 'Lecture auto', 'set_shuffle': 'Aléatoire', 'set_auto_expand': 'Auto-développer bibl.', 'set_lang': 'Langue', 'set_volume': 'Volume std', 'set_seek': 'Saut', 'set_focus_timeout': 'Delai Focus', 'refresh_library': 'Actualiser bibl.', 'back': 'Retour', 'on': 'ON', 'off': 'OFF', 'menu_playlist_editor': 'Éditeur de listes', 'menu_playlists': 'Listes', 'library': 'Bibliothèque', 'playlist': 'Titres', 'playlists': 'Listes', 'new_playlist': '+ Nouvelle liste', 'playlist_new': 'Nouvelle liste', 'playlist_del': 'Supprimer liste', 'playlist_selector': 'Choisir liste', 'playlist_editor': 'Éditeur de listes', 'hint_np_controls': 'TAB:Listes P:Pause ESC:Stop [/:Seek <>:Titre L:Boucle S:Rand V:.,', 'hint_np_lib': 'TAB:Lect UD:Scroll LR:Panneau OK:Add/Ouvr', 'hint_np_trk': 'TAB:Lect UD:Scroll LR:Panneau OK:Lire DEL:Suppr', 'hint_np_pls': 'TAB:Lect UD:Scroll LR:Panneau OK:Charg N:Nouv DEL:Suppr', 'hint_playlist_sel': 'UD:Scroll OK:Charger DEL:Suppr BACK:Menu', 'hint_playlist_ed': 'LR:Panneau UD:Sel OK:Add/Suppr BACK:Menu', 'hint_continue': 'ENT:Continuer', 'hint_confirm': 'LR:Choisir ENT:Confirmer', 'confirm': 'Confirmer', 'delete': 'Supprimer'}}
+LANG_DATA = {'en': {'app_name': 'VibesMP',
+        'back': 'Back',
+        'confirm': 'Confirm',
+        'delete': 'Delete',
+        'editor_bg': 'Background',
+        'editor_color': 'Change Color',
+        'editor_save': 'Save',
+        'first_run_msg': 'Scan SD card for music now?',
+        'first_run_title': 'VibesMP',
+        'hint_confirm': 'LR:Choose ENT:Confirm',
+        'hint_continue': 'ENT:Continue',
+        'hint_library': 'UD:Scroll LR:Folder OK:Open/Action BACK:Back',
+        'hint_np_controls': 'TAB:Lists P:Pause ESC:Stop [/:Seek <>:Trk L:Loop S:Shuf V:.,',
+        'hint_np_lib': 'TAB:Player UD:Scroll LR:Panels OK:Add/Expand',
+        'hint_np_pls': 'TAB:Player UD:Scroll LR:Panels OK:Load N:New DEL:Del',
+        'hint_np_trk': 'TAB:Player UD:Scroll LR:Panels OK:Play DEL:Rem',
+        'hint_playlist_ed': 'LR:Panel UD:Sel OK:Add/Rem BACK:Menu',
+        'hint_playlist_sel': 'UD:Scroll OK:Load DEL:Delete BACK:Menu',
+        'lib_action_add_current': 'Add to Current Playlist',
+        'lib_action_add_favorite': 'Add Favorite',
+        'lib_action_create_playlist': 'Create Playlist',
+        'lib_action_play_next': 'Play Next',
+        'lib_action_play_now': 'Play Now',
+        'lib_action_remove_favorite': 'Remove Favorite',
+        'lib_action_remove_library': 'Remove from Library',
+        'lib_action_show_info': 'Show Info',
+        'lib_actions': 'Actions',
+        'lib_albums': 'Albums',
+        'lib_all_songs': 'All Songs',
+        'lib_artists': 'Artists',
+        'lib_cleanup': 'Cleanup',
+        'lib_favorites': 'Favorites',
+        'lib_favorites_cleared': 'Favorites cleared',
+        'lib_filters': 'Filters',
+        'lib_folders': 'Folders',
+        'lib_genres': 'Genres',
+        'lib_info': 'Track Info',
+        'lib_recently_added': 'Recently Added',
+        'lib_removed': 'Removed',
+        'lib_scan': 'Scan Library',
+        'lib_scan_added': 'Added',
+        'lib_scan_failed': 'Failed',
+        'lib_scan_found': 'Found',
+        'lib_scan_options': 'Scan Options',
+        'lib_scan_removed': 'Removed',
+        'lib_scan_total': 'Total',
+        'lib_scan_unchanged': 'Unchanged',
+        'lib_search': 'Search',
+        'lib_sort': 'Sort',
+        'lib_stats': 'Library Stats',
+        'lib_tracks': 'Tracks',
+        'library': 'Library',
+        'loop_all': 'Loop: All',
+        'loop_none': 'Loop: No',
+        'loop_one': 'Loop: One',
+        'menu_editor': 'Editor',
+        'menu_help': 'Help',
+        'menu_library': 'Library',
+        'menu_play_file': 'Play File',
+        'menu_player': 'Player',
+        'menu_playlist': 'Playlist',
+        'menu_playlist_editor': 'Playlist Editor',
+        'menu_playlist_manager': 'Playlist Manager',
+        'menu_playlists': 'Playlists',
+        'menu_settings': 'Settings',
+        'new_playlist': '+ New Playlist',
+        'no_track': 'No Track',
+        'now_playing': 'Now Playing',
+        'off': 'OFF',
+        'on': 'ON',
+        'paused': 'Paused',
+        'playing': 'Playing',
+        'playlist': 'Tracks',
+        'playlist_del': 'Delete Playlist',
+        'playlist_editor': 'Playlist Editor',
+        'playlist_new': 'New Playlist',
+        'playlist_selector': 'Select Playlist',
+        'playlists': 'Playlists',
+        'refresh_library': 'Refresh Library',
+        'scan_complete_msg': 'Found {} MP3 files.',
+        'scan_complete_title': 'Scan Complete',
+        'scanning_title': 'Scanning SD Card...',
+        'set_auto_expand': 'Auto-Expand Lib',
+        'set_autoplay': 'Auto-Play Next',
+        'set_focus_timeout': 'Focus Timeout',
+        'set_seek': 'Seek Step',
+        'set_shuffle': 'Shuffle',
+        'set_volume': 'Volume',
+        'stopped': 'Stopped'}}
 
-HELP_TEXT = {'de.txt': 'VibesMP ist eine spezialisierte MicroPython-Audioanwendung, die für RP2350-Mikrocontroller entwickelt wurde. Sie bietet hochpräzise MP3-Wiedergabe unter Nutzung hardwarebeschleunigter Dekodierungsfunktionen bei gleichzeitig geringem Speicherverbrauch und hoher Reaktionsfähigkeit während gleichzeitiger SD-Karten-Dateioperationen und Benutzeroberflächen-Rendering-Aufgaben auf eingebetteten Hardwareplattformen.\n\nDie Anwendung implementiert ID3v2-Tag-Parsing zur Metadaten-Extraktion, Echtzeit-Skalierung und Anzeige von JPEG- und BMP-Albumcovern, lückenlose Wiedergabe-Übergangslogik, dynamische Playlist-Verwaltung einschließlich Erstellung und Modifikation sowie ein Drei-Spalten-Navigationssystem für effizientes Durchsuchen der Bibliothek, Titelauswahl und Playlist-Wechsel über verschiedene Speicherverzeichnisse.\n\nVerfügbare Konfigurationsparameter umfassen Auto-Play-Umschaltung für sequenzielles Vorrücken der Titel, Auswahl von Shuffle- und Loop-Modi, Sprachlokalisierung für Englisch, Deutsch, Französisch und Spanisch, visuelle Themen-Voreinstellungen unter Verwendung von RGB565-Paletten, einstellbare Suchintervalle von einer bis fünfzehn Sekunden, Fokus-Timeout-Management und persistente Speicherung aller Präferenzen.\n\nNavigationssteuerungen nutzen das Standard-D-Pad-Mapping: Auf und Ab für vertikales Listen-Scrollen, Links und Rechts für Spaltenwechsel und Lautstärkeeinstellung, Mitteltaste für Auswahlbestätigung und Wiedergabe-Pause-Umschaltung, Zurück-Taste für Ansichts-Regression oder Beendigung der Anwendung und spezialisierte alphanumerische Zuweisung für die Playlist-Benennung.\n\nErstellt von Slasher006 mit der Hilfe von Gemini, 2026. Dieses Projekt zeigt fortschrittliche MicroPython-Implementierungstechniken, effiziente Strategien für die Speicherverwaltung für ressourcenbeschränkte eingebettete Systeme und die kollaborative Softwareentwicklung zwischen menschlichen Ingenieuren und künstlicher Intelligenz zur Bereitstellung eines überlegenen Multimedia-Erlebnisses auf der RP2350-Plattform.\n', 'en.txt': 'VibesMP is a dedicated MicroPython audio application engineered for RP2350 microcontrollers. It provides high-fidelity MP3 playback leveraging hardware-accelerated decoding capabilities while maintaining a low memory footprint and high responsiveness during concurrent SD card file operations and user interface rendering tasks on embedded hardware platforms.\n\nThe application implements ID3v2 tag parsing for metadata extraction, real-time JPEG and BMP album art scaling and display, gapless playback transition logic, dynamic playlist management including creation and modification, and a three-column navigational system for efficient library browsing, track selection, and playlist switching across various storage directories.\n\nAvailable configuration parameters include auto-play toggle for sequential track advancement, shuffle and loop mode selection, language localization for English, German, French, and Spanish, visual theme presets using RGB565 palettes, adjustable seek intervals from one to fifteen seconds, focus timeout management, and persistent storage of all preferences.\n\nNavigational controls utilize the standard D-Pad mapping: Up and Down for vertical list scrolling, Left and Right for column switching and volume adjustment, Center button for selection confirmation and play and pause toggling, Back button for view regression or application termination, and specialized alphanumeric mapping for naming.\n\nMade by Slasher006 with the help of Gemini, 2026. This project showcases advanced MicroPython implementation techniques, efficient memory management strategies for resource-constrained embedded systems, and collaborative software development between human engineers and artificial intelligence to deliver a superior multimedia experience on the RP2350 microcontroller platform.\n', 'es.txt': 'VibesMP es una aplicación de audio MicroPython dedicada, diseñada para microcontroladores RP2350. Proporciona una reproducción de MP3 de alta fidelidad aprovechando las capacidades de decodificación acelerada por hardware, manteniendo una baja huella de memoria y una alta capacidad de respuesta durante las operaciones simultáneas de archivos en la tarjeta SD y las tareas de renderizado de la interfaz de usuario en plataformas de hardware integradas.\n\nLa aplicación implementa el análisis de etiquetas ID3v2 para la extracción de metadatos, el escalado y la visualización en tiempo real de portadas de álbumes en formato JPEG y BMP, la lógica de transición de reproducción sin interrupciones, la gestión dinámica de listas de reproducción incluyendo creación y modificación, y un sistema de navegación de tres columnas para la exploración eficiente de la biblioteca, la selección de pistas y el cambio de lista de reproducción a través de diversos directorios de almacenamiento.\n\nLos parámetros de configuración disponibles incluyen la alternancia de reproducción automática para el avance secuencial de pistas, la selección de modos de reproducción aleatoria y en bucle, la localización de idiomas para inglés, alemán, francés y español, ajustes visuales preestablecidos mediante paletas RGB565, intervalos de búsqueda ajustables de uno a quince segundos, gestión del tiempo de espera de enfoque y almacenamiento persistente de todas las preferencias.\n\nLos controles de navegación utilizan el mapeo estándar del D-Pad: arriba y abajo para el desplazamiento vertical de la lista, izquierda y derecha para el cambio de columna y el ajuste de volumen, el botón central para la confirmación de la selección y la alternancia de reproducción y pausa, el botón de retroceso para la regresión de vista o la terminación de la aplicación, y un mapeo alfanumérico especializado para el nombramiento.\n\nRealizado por Slasher006 con la ayuda de Gemini, 2026. Este proyecto muestra técnicas avanzadas de implementación de MicroPython, estrategias eficientes de gestión de memoria para sistemas integrados con recursos limitados y el desarrollo colaborativo de software entre ingenieros humanos e inteligencia artificial para ofrecer una experiencia multimedia superior en la plataforma del microcontrolador RP2350.\n', 'first_start_de.txt': 'Willkommen bei VibesMP! Um Ihre musikalische Reise zu beginnen, führen Sie bitte einen ersten Scan Ihrer SD-Karte durch, um alle verfügbaren MP3-Dateien zu indizieren. Wenn Sie später neue Titel hinzufügen, verwenden Sie einfach die Option "Bibliothek scannen" im Hauptmenü, um Ihre Datenbank zu aktualisieren und sicherzustellen, dass alle neuen Tracks korrekt erkannt und in der Anwendung angezeigt werden.\n', 'first_start_en.txt': 'Welcome to VibesMP! To begin your musical journey, please perform an initial scan of your SD card to index all available MP3 files. If you add new tracks to your collection later, simply use the "Scan Library" option in the main menu to refresh your database and ensure all new music is correctly detected and displayed within the application.\n', 'first_start_es.txt': '¡Bienvenido a VibesMP! Para comenzar su viaje musical, realice un escaneo inicial de su tarjeta SD para indexar todos los archivos MP3 disponibles. Si agrega pistas nuevas más tarde, simplemente use la opción "Escanear biblioteca" en el menú principal para actualizar su base de datos y asegurarse de que toda la música nueva se detecte y se muestre correctamente dentro de la aplicación.\n', 'first_start_fr.txt': 'Bienvenue sur VibesMP ! Pour commencer votre voyage musical, veuillez effectuer un premier scan de votre carte SD pour indexer tous les fichiers MP3 disponibles. Si vous ajoutez de nouvelles pistes plus tard, utilisez simplement l\'option "Scanner la bibliothèque" dans le menu principal pour actualiser votre base de données et garantir que toute nouvelle musique est correctement détectée et affichée dans l\'application.\n', 'fr.txt': "VibesMP est une application audio MicroPython dédiée, conçue pour les microcontrôleurs RP2350. Elle offre une lecture MP3 haute fidélité en exploitant les capacités de décodage accélérées par le matériel, tout en maintenant une faible empreinte mémoire et une grande réactivité lors des opérations simultanées sur les fichiers de la carte SD et des tâches de rendu de l'interface utilisateur sur les plateformes matérielles embarquées.\n\nL'application implémente l'analyse des balises ID3v2 pour l'extraction des métadonnées, la mise à l'échelle et l'affichage en temps réel des pochettes d'album au format JPEG et BMP, la logique de transition pour la lecture sans interruption, la gestion dynamique des listes de lecture comprenant la création et la modification, et un système de navigation à trois colonnes pour l'exploration efficace de la bibliothèque, la sélection des pistes et le changement de liste de lecture à travers divers répertoires de stockage.\n\nLes paramètres de configuration disponibles incluent l'activation de la lecture automatique pour l'avancement séquentiel des pistes, la sélection du mode aléatoire ou en boucle, la localisation linguistique pour l'anglais, l'allemand, le français et l'espagnol, les thèmes visuels prédéfinis utilisant des palettes RGB565, des intervalles de recherche réglables de une à quinze secondes, la gestion du délai de mise au point et le stockage persistant de toutes les préférences.\n\nLes commandes de navigation utilisent le mappage standard du D-Pad : haut et bas pour le défilement vertical des listes, gauche et droite pour le changement de colonne et le réglage du volume, le bouton central pour la confirmation de la sélection et le basculement lecture et pause, le bouton retour pour le retour à la vue précédente ou l'arrêt de l'application, et un mappage alphanumérique spécialisé pour le nommage.\n\nRéalisé par Slasher006 avec l'aide de Gemini, 2026. Ce projet met en évidence des techniques avancées d'implémentation MicroPython, des stratégies de gestion de mémoire efficaces pour les systèmes embarqués à ressources limitées, et un développement logiciel collaboratif entre des ingénieurs humains et l'intelligence artificielle pour offrir une expérience multimédia supérieure sur la plateforme du microcontrôleur RP2350.\n"}
+HELP_TEXT = {'en.txt': 'VibesMP is a dedicated MicroPython audio application engineered for RP2350 '
+           'microcontrollers. It provides high-fidelity MP3 playback leveraging '
+           'hardware-accelerated decoding capabilities while maintaining a low memory footprint '
+           'and high responsiveness during concurrent SD card file operations and user interface '
+           'rendering tasks on embedded hardware platforms.\n'
+           '\n'
+           'The application implements ID3v2 tag parsing for metadata extraction, real-time JPEG '
+           'and BMP album art scaling and display, gapless playback transition logic, dynamic '
+           'playlist management including creation and modification, and a three-column '
+           'navigational system for efficient library browsing, track selection, and playlist '
+           'switching across various storage directories.\n'
+           '\n'
+           'Available configuration parameters include auto-play toggle for sequential track '
+           'advancement, shuffle and loop mode selection, visual theme presets using RGB565 '
+           'palettes, adjustable seek intervals from one to fifteen seconds, focus timeout '
+           'management, and persistent storage of all preferences.\n'
+           '\n'
+           'Navigational controls utilize the standard D-Pad mapping: Up and Down for vertical '
+           'list scrolling, Left and Right for column switching and volume adjustment, Center '
+           'button for selection confirmation and play and pause toggling, Back button for view '
+           'regression or application termination, and specialized alphanumeric mapping for '
+           'naming.\n'
+           '\n'
+           'Made by Slasher006 with the help of Gemini, 2026. This project showcases advanced '
+           'MicroPython implementation techniques, efficient memory management strategies for '
+           'resource-constrained embedded systems, and collaborative software development between '
+           'human engineers and artificial intelligence to deliver a superior multimedia '
+           'experience on the RP2350 microcontroller platform.\n',
+ 'first_start_en.txt': 'Welcome to VibesMP! To begin your musical journey, please perform an '
+                       'initial scan of your SD card to index all available MP3 files. If you add '
+                       'new tracks to your collection later, simply use the "Scan Library" option '
+                       'in the main menu to refresh your database and ensure all new music is '
+                       'correctly detected and displayed within the application.\n'}
 
 
 _translations = {}
@@ -263,8 +383,8 @@ def set_storage(storage):
 def load_language(lang="en"):
     global _translations, _fallback, _current_lang
     _fallback = LANG_DATA.get("en", {})
-    _translations = LANG_DATA.get(lang, _fallback)
-    _current_lang = lang
+    _translations = _fallback
+    _current_lang = "en"
 
 def t(key):
     res = _translations.get(key)
@@ -299,7 +419,6 @@ def update_settings_menu(app):
     app.settings_menu.add_item(f"{t('set_autoplay')}: {t('on') if app.settings.config['auto_play_next'] else t('off')}")
     app.settings_menu.add_item(f"{t('set_shuffle')}: {t('on') if app.settings.config['shuffle'] else t('off')}")
     app.settings_menu.add_item(f"{t('set_auto_expand')}: {t('on') if app.settings.config.get('auto_expand_library', True) else t('off')}")
-    app.settings_menu.add_item(f"{t('set_lang')}: {app.settings.config['language'].upper()}")
     # Format theme name for display: replace underscore with space and uppercase
     display_theme = app.settings.config['theme'].replace('_', ' ').upper()
     app.settings_menu.add_item(f"Theme: {display_theme}")
@@ -324,20 +443,15 @@ def handle_settings_input(app, button):
         elif sel == 1: app.settings.toggle("shuffle"); update_settings_menu(app)
         elif sel == 2: app.settings.toggle("auto_expand_library"); update_settings_menu(app)
         elif sel == 3:
-            app.settings.next_lang()
-            load_language(app.settings.config["language"])
-            app.update_menus()
-            update_settings_menu(app)
-        elif sel == 4:
             app.settings.next_theme()
             # load_theme is provided by consolidated core
             app.ui.theme = load_theme(app.settings)
             update_settings_menu(app)
-        elif sel == 5: app.settings.next_time_format(); update_settings_menu(app)
-        elif sel == 6: app.settings.next_volume(); update_settings_menu(app)
-        elif sel == 7: app.settings.next_seek_length(); update_settings_menu(app)
-        elif sel == 8: app.settings.next_focus_timeout(); update_settings_menu(app)
-        elif sel == 9: app._switch_view(VIEW_MENU)
+        elif sel == 4: app.settings.next_time_format(); update_settings_menu(app)
+        elif sel == 5: app.settings.next_volume(); update_settings_menu(app)
+        elif sel == 6: app.settings.next_seek_length(); update_settings_menu(app)
+        elif sel == 7: app.settings.next_focus_timeout(); update_settings_menu(app)
+        elif sel == 8: app._switch_view(VIEW_MENU)
         app.needs_refresh = True
 
 def render_settings(app, ui, force_full=False):
@@ -395,8 +509,7 @@ def handle_main_menu_input(app, button):
         elif sel == 3:
             import vibesmp_lib.resources as d
             from vibesmp_lib.resources import get_help_text, t
-            lang = app.settings.config.get("language", "en")
-            help_text = get_help_text(lang)
+            help_text = get_help_text("en")
             d.open_alert(app, t("menu_help"), help_text)
         app.needs_refresh = True
     return True

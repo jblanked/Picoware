@@ -163,7 +163,6 @@ class Settings:
         self.config = {
             "auto_play_next": True,
             "shuffle": False,
-            "language": "en",
             "theme": "dark",
             "volume": 100,
             "seek_length": 5,
@@ -234,53 +233,13 @@ class Settings:
                 from gc import collect
                 collect()
                 self.config.update(saved)
+                if "language" in self.config:
+                    self.config.pop("language", None)
+                    self._is_dirty = True
         except (OSError, ValueError) as e:
             import sys
             print("[ERROR] load_settings:", e)
             sys.print_exception(e)
-        self.discover_languages()
-
-    def discover_languages(self):
-        self.available_langs = []
-        paths = ["picoware/vibesmp/lang/", "picoware/apps/vibesmp_lib/lang/", "vibesmp_lib/lang/"]
-        for p in paths:
-            try:
-                check_path = p[:-1] if p.endswith("/") else p
-                if hasattr(self.storage, "exists") and not self.storage.exists(check_path):
-                    continue
-                files = self.storage.listdir(check_path)
-                for f in files:
-                    if f.endswith(".json"):
-                        lang = f[:-5]
-                        if lang not in self.available_langs:
-                            self.available_langs.append(lang)
-            except OSError:
-                continue
-
-        if not self.available_langs:
-            self.available_langs = ["en"]
-        if "en" not in self.available_langs:
-            self.available_langs.append("en")
-        self.available_langs.sort()
-
-    def next_lang(self):
-        if not self.available_langs:
-            self.available_langs = ["en"]
-            self.config["language"] = "en"
-            self._is_dirty = True
-            return
-        try:
-            curr = self.config.get("language", self.available_langs[0])
-            if curr not in self.available_langs:
-                idx = 0
-            else:
-                idx = self.available_langs.index(curr)
-                idx = (idx + 1) % len(self.available_langs)
-            self.config["language"] = self.available_langs[idx]
-            self._is_dirty = True
-        except (ValueError, IndexError):
-            self.config["language"] = self.available_langs[0]
-            self._is_dirty = True
 
     def next_theme(self):
         # THEMES is provided by consolidated core

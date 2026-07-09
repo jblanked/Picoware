@@ -24,7 +24,7 @@ from vibesmp_lib.ui_utils import IconList
 from vibesmp_lib.settings import Settings
 from vibesmp_lib.resources import load_language, t, set_storage
 from vibesmp_lib.utils import mkdir_p
-from vibesmp_lib.themes import THEMES
+from vibesmp_lib.resources import THEMES
 from vibesmp_lib.resources import switch_view, handle_main_menu_input
 import vibesmp_lib.resources as d
 
@@ -443,7 +443,7 @@ class VibesApp:
             if not self.view_manager.storage.exists("picoware/vibesmp/playlists/default.json"): self.playlist.save(force=True)
 
         if not self.ui:
-            from vibesmp_lib.themes import load_theme
+            from vibesmp_lib.resources import load_theme
             self.ui = UI(self.view_manager.draw, load_theme(self.settings), self.view_manager, self.settings)
             from vibesmp_lib.metadata_engine import set_perf_counters as set_cover_perf_counters
             from vibesmp_lib.id3 import set_perf_counters as set_id3_perf_counters

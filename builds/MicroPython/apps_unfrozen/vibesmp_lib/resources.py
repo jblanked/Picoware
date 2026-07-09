@@ -1,5 +1,249 @@
 import json
-from vibesmp_lib.themes import load_theme
+
+# ---- theme resources ----
+
+from micropython import const
+
+# VibesMP Theme Presets (RGB565 via RGB888 conversion)
+# Calculated using: ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
+
+THEMES = {
+    "dark": { # Classic Refined
+        "bg_c": const(0x18E3),      # rgb(24, 28, 24)
+        "well": const(0x0821),      # Black
+        "text_c": const(0xDEFB),    # rgb(220, 220, 220)
+        "accent_c": const(0xFC00),  # rgb(255, 128, 0)
+        "highlight_c": const(0x07FF), # Cyan
+        "panel_c": const(0x2965),   # rgb(40, 44, 40)
+        "footer_bg": const(0xFC00), # Orange
+        "footer_text": const(0x0821) # Black
+    },
+    "midnight": { # OLED Black + Neon Blue
+        "bg_c": const(0x0821),      # Near Black
+        "well": const(0x1082),      # rgb(20, 20, 20)
+        "text_c": const(0xDEFB),    # Muted White
+        "accent_c": const(0x05FF),  # rgb(0, 191, 255)
+        "highlight_c": const(0xF81F), # Magenta
+        "panel_c": const(0x0841),   # rgb(15, 15, 15)
+        "footer_bg": const(0x05FF), # Neon Blue
+        "footer_text": const(0x0821) # Black
+    },
+    "nord": { # Frosty Arctic
+        "bg_c": const(0x2AD6),      # rgb(46, 52, 64)
+        "well": const(0x3A32),      # rgb(59, 66, 82)
+        "text_c": const(0xEF79),    # rgb(236, 239, 244)
+        "accent_c": const(0x8E38),  # rgb(136, 192, 208)
+        "highlight_c": const(0x8318), # rgb(129, 161, 193)
+        "panel_c": const(0x426B),   # rgb(67, 76, 94)
+        "footer_bg": const(0x8E38), # Frost Blue
+        "footer_text": const(0x2AD6) # Darker Blue
+    },
+    "forest": { # Deep Moss + Brass
+        "bg_c": const(0x10E2),      # rgb(20, 30, 20)
+        "well": const(0x0841),      # rgb(10, 15, 10)
+        "text_c": const(0xD75A),    # rgb(210, 230, 210)
+        "accent_c": const(0xB50A),  # rgb(180, 160, 80)
+        "highlight_c": const(0x07E0), # Green
+        "panel_c": const(0x1B63),   # rgb(30, 45, 30)
+        "footer_bg": const(0xB50A), # Brass
+        "footer_text": const(0x10E2) # Deep Green
+    },
+    "solarized": { # Official Solarized Dark
+        "bg_c": const(0x0166),      # base03
+        "well": const(0x01AA),      # base02
+        "text_c": const(0x84B2),    # base0
+        "accent_c": const(0xB440),  # Yellow
+        "highlight_c": const(0x245A), # Blue
+        "panel_c": const(0x01AA),   # base02
+        "footer_bg": const(0xB440), # Yellow
+        "footer_text": const(0x0166) # base03
+    },
+    "apocalypse": { # Rust & Ash
+        "bg_c": const(0x2104),      # Charcoal
+        "well": const(0x1082),      # Deep Gray
+        "text_c": const(0xBDD7),    # Ash Gray
+        "accent_c": const(0xA145),  # Rust Red
+        "highlight_c": const(0x8200), # Blood Red
+        "panel_c": const(0x3186),   # Medium Gray
+        "footer_bg": const(0xA145), # Rust
+        "footer_text": const(0x2104) # Charcoal
+    },
+    "toxic_green": { # Matrix Glow
+        "bg_c": const(0x0000),      # Pure Black
+        "well": const(0x0040),      # Dark Emerald
+        "text_c": const(0x07E0),    # Bright Green
+        "accent_c": const(0xAD60),  # Acid Yellow-Green
+        "highlight_c": const(0xFFFF), # White
+        "panel_c": const(0x0821),   # Dark Gray
+        "footer_bg": const(0xAD60), # Acid
+        "footer_text": const(0x0000) # Black
+    },
+    "romance": { # Velvet & Wine
+        "bg_c": const(0x4008),      # Deep Plum
+        "well": const(0x600C),      # Muted Wine
+        "text_c": const(0xFDB8),    # Rose Pink
+        "accent_c": const(0xF80F),  # Hot Pink
+        "highlight_c": const(0xFFFF), # White
+        "panel_c": const(0x8010),   # Berry
+        "footer_bg": const(0xF80F), # Rose
+        "footer_text": const(0x4008) # Plum
+    },
+    "silent_forest": { # Misty Pine
+        "bg_c": const(0x0104),      # Foggy Blue-Green
+        "well": const(0x1106),      # Deep Moss
+        "text_c": const(0xBDF7),    # Mist Gray
+        "accent_c": const(0x4410),  # Dark Pine
+        "highlight_c": const(0x07E0), # Vivid Green
+        "panel_c": const(0x2208),   # Forest Floor
+        "footer_bg": const(0x4410), # Pine
+        "footer_text": const(0x0104) # Fog
+    },
+    "rainy_forest": { # Wet Slate & Teal
+        "bg_c": const(0x0841),      # Wet Rock
+        "well": const(0x0020),      # Deep Water
+        "text_c": const(0x94B2),    # Rainy Sky
+        "accent_c": const(0x2410),  # Wet Teal
+        "highlight_c": const(0x041F), # Storm Blue
+        "panel_c": const(0x10A2),   # Wet Pine
+        "footer_bg": const(0x2410), # Teal
+        "footer_text": const(0x0841) # Slate
+    },
+    "mellow_green": { # Sage & Cream
+        "bg_c": const(0x6420),      # Sage Green
+        "well": const(0x4380),      # Deep Sage
+        "text_c": const(0xFFFF),    # Pure White
+        "accent_c": const(0xB50A),  # Brass
+        "highlight_c": const(0xE73F), # Rich Cream
+        "panel_c": const(0x84E4),   # Soft Leaf
+        "footer_bg": const(0xB50A), # Brass
+        "footer_text": const(0x6420) # Sage
+    },
+    "orange_terminal": { # Retro CRT
+        "bg_c": const(0x0000),      # Black
+        "well": const(0x0821),      # Scanline Gray
+        "text_c": const(0xFC00),    # Amber Orange
+        "accent_c": const(0xFD40),  # Bright Amber
+        "highlight_c": const(0xFFFF), # White Glow
+        "panel_c": const(0x0821),   # Dark Gray
+        "footer_bg": const(0xFC00), # Amber
+        "footer_text": const(0x0000) # Black
+    },
+    "candy": { # Neon Pop
+        "bg_c": const(0x4010),      # Deep Candy Blue
+        "well": const(0x0210),      # Midnight Blue
+        "text_c": const(0xFFFF),    # White
+        "accent_c": const(0xF81F),  # Bubblegum
+        "highlight_c": const(0x07FF), # Electric Cyan
+        "panel_c": const(0x801F),   # Grape
+        "footer_bg": const(0xF81F), # Bubblegum
+        "footer_text": const(0xFFFF) # White
+    },
+    "psycho": { # Chaos Theory
+        "bg_c": const(0x0000),      # Void
+        "well": const(0x8000),      # Maroon
+        "text_c": const(0x07E0),    # Toxic Green
+        "accent_c": const(0xF81F),  # Hot Magenta
+        "highlight_c": const(0xFFE0), # Acid Yellow
+        "panel_c": const(0x001F),   # Electric Blue
+        "footer_bg": const(0xF81F), # Magenta
+        "footer_text": const(0x0000) # Void
+    },
+    "strawberry_cheesecake": { # Pastry Shop
+        "bg_c": const(0xF79E),      # Biscuit
+        "well": const(0xE71C),      # Dark Crust
+        "text_c": const(0x4208),    # Cocoa Brown
+        "accent_c": const(0xF800),  # Strawberry Red
+        "highlight_c": const(0xFB24), # Whipped Pink
+        "panel_c": const(0xFFF0),   # Cream Yellow
+        "footer_bg": const(0xF800), # Strawberry
+        "footer_text": const(0xFFFF) # White
+    },
+    "cannabis": { # High Grade
+        "bg_c": const(0x0100),      # Skunk Black
+        "well": const(0x0841),      # Pine Bark
+        "text_c": const(0xBDD7),    # Silver Leaf
+        "accent_c": const(0x07E0),  # Sticky Green
+        "highlight_c": const(0x8010), # Purple Punch
+        "panel_c": const(0x2304),   # Soil Brown
+        "footer_bg": const(0x07E0), # Sticky Green
+        "footer_text": const(0x0100) # Black
+    }
+}
+
+# ---- theme_manager.py ----
+
+from picoware.system.vector import Vector
+
+def load_theme(settings):
+    """Resolve and return the current theme dictionary."""
+    # Handle case-insensitivity and provide a safe fallback
+    theme_name = settings.config.get("theme", "dark").lower().replace(" ", "_")
+
+    if theme_name in THEMES:
+        return THEMES[theme_name]
+
+    # Fallback to standard dark theme if key is missing
+    return THEMES["dark"]
+
+def draw_battery_icon(draw, pos, percent, color):
+    """Draw a small battery icon with fill level."""
+    w, h = 16, 8
+    draw.rect(pos, Vector(w, h), color)
+    draw.fill_rectangle(Vector(pos.x + w, pos.y + 2), Vector(2, 4), color)
+    if percent > 0:
+        fill_w = max(1, int((percent / 100) * (w - 4)))
+        draw.fill_rectangle(Vector(pos.x + 2, pos.y + 2), Vector(fill_w, 4), color)
+
+def draw_clock_icon(draw, pos, color):
+    """Draw a small clock icon."""
+    draw.rect(pos, Vector(8, 8), color)
+    draw.fill_rectangle(Vector(pos.x + 3, pos.y + 1), Vector(1, 4), color)
+    draw.fill_rectangle(Vector(pos.x + 3, pos.y + 4), Vector(4, 1), color)
+
+_last_fetch_attempt = 0
+
+def render_header_extras(ui, sw, bar_h):
+    """Draw battery and time in the header area."""
+    global _last_fetch_attempt
+    curr_x = sw - 10
+
+    # Battery
+    if ui.view_manager and ui.view_manager.input_manager:
+        try:
+            bat = ui.view_manager.input_manager.battery
+            bat_str = f"{bat}%"
+            curr_x -= (len(bat_str) * 6 + 2)
+            ui.draw.text(Vector(curr_x, (bar_h - 12) // 2 + 1), bat_str, ui.theme["footer_text"])
+            curr_x -= 20
+            draw_battery_icon(ui.draw, Vector(curr_x, (bar_h - 8) // 2), bat, ui.theme["footer_text"])
+        except Exception as e:
+            print(f"[DEBUG] Header Battery Error: {e}")
+
+    # Time
+    if ui.view_manager and ui.view_manager.time:
+        t_obj = ui.view_manager.time
+
+        # Auto-fetch if WiFi is connected but time has not been set yet
+        if not t_obj.is_set and not t_obj.is_fetching:
+            import time
+            now = time.ticks_ms()
+            if time.ticks_diff(now, _last_fetch_attempt) > 15000:
+                _last_fetch_attempt = now
+                try:
+                    if ui.view_manager.wifi and ui.view_manager.wifi.is_connected():
+                        t_obj.fetch(ui.view_manager.gmt_offset)
+                except Exception:
+                    pass
+
+        if t_obj.is_set:
+            try:
+                date = t_obj.rtc.datetime()
+                time_str = f"{date[4]:02d}:{date[5]:02d}"
+                curr_x -= (len(time_str) * 6 + 15)
+                ui.draw.text(Vector(curr_x + 12, (bar_h - 12) // 2 + 1), time_str, ui.theme["footer_text"])
+                draw_clock_icon(ui.draw, Vector(curr_x, (bar_h - 8) // 2), ui.theme["footer_text"])
+            except Exception as e:
+                print(f"[DEBUG] Header Time Error: {e}")
 
 LANG_DATA = {'de': {'menu_player': 'Player', 'menu_playlist': 'Wiedergabeliste', 'menu_play_file': 'Datei abspielen', 'menu_library': 'Bibliothek', 'menu_editor': 'Editor', 'menu_settings': 'Einstellungen', 'menu_help': 'Hilfe', 'menu_playlist_manager': 'Listen-Manager', 'now_playing': 'Wird abgespielt', 'no_track': 'Kein Titel', 'playing': 'Play', 'paused': 'Pause', 'stopped': 'Stop', 'loop_none': 'Wiederholung: Aus', 'loop_one': 'Wiederholung: Eins', 'loop_all': 'Wiederholung: Alle', 'editor_color': 'Farbe aendern', 'editor_bg': 'Hintergrund', 'editor_save': 'Speichern', 'set_autoplay': 'Auto-Play', 'set_shuffle': 'Zufall', 'set_auto_expand': 'Bibl. auto-ausklappen', 'set_lang': 'Sprache', 'set_volume': 'Lautstaerke', 'set_seek': 'Sprungweite', 'set_focus_timeout': 'Fokus Timeout', 'refresh_library': 'Bibl. aktualisieren', 'back': 'Zurueck', 'on': 'AN', 'off': 'AUS', 'menu_playlist_editor': 'Listen-Editor', 'menu_playlists': 'Wiedergabelisten', 'library': 'Bibliothek', 'playlist': 'Titel', 'playlists': 'Listen', 'new_playlist': '+ Neue Liste', 'playlist_new': 'Neue Liste', 'playlist_del': 'Liste loeschen', 'playlist_selector': 'Liste waehlen', 'playlist_editor': 'Listen-Editor', 'hint_np_controls': 'TAB:Listen P:Pause ESC:Stop [/:Seek <>:Titel L:Loop S:Mix V:.,', 'hint_np_lib': 'TAB:Player UD:Scroll LR:Bereich OK:Add/Auf', 'hint_np_trk': 'TAB:Player UD:Scroll LR:Bereich OK:Play DEL:Entf', 'hint_np_pls': 'TAB:Player UD:Scroll LR:Bereich OK:Laden N:Neu DEL:Loesch', 'hint_playlist_sel': 'UD:Scroll OK:Laden DEL:Loeschen BACK:Menue', 'hint_playlist_ed': 'LR:Bereich UD:Wahl OK:Add/Entf BACK:Menue', 'hint_continue': 'ENT:Weiter', 'hint_confirm': 'LR:Waehlen ENT:Bestaetigen', 'confirm': 'Bestaetigen', 'delete': 'Loeschen'}, 'en': {'app_name': 'VibesMP', 'menu_player': 'Player', 'menu_playlist': 'Playlist', 'menu_play_file': 'Play File', 'menu_library': 'Library', 'menu_editor': 'Editor', 'menu_settings': 'Settings', 'menu_help': 'Help', 'first_run_title': 'VibesMP', 'first_run_msg': 'Scan SD card for music now?', 'scanning_title': 'Scanning SD Card...', 'scan_complete_title': 'Scan Complete', 'scan_complete_msg': 'Found {} MP3 files.', 'menu_playlist_manager': 'Playlist Manager', 'now_playing': 'Now Playing', 'no_track': 'No Track', 'playing': 'Playing', 'paused': 'Paused', 'stopped': 'Stopped', 'loop_none': 'Loop: No', 'loop_one': 'Loop: One', 'loop_all': 'Loop: All', 'editor_color': 'Change Color', 'editor_bg': 'Background', 'editor_save': 'Save', 'set_autoplay': 'Auto-Play Next', 'set_shuffle': 'Shuffle', 'set_auto_expand': 'Auto-Expand Lib', 'set_lang': 'Language', 'set_volume': 'Volume', 'set_seek': 'Seek Step', 'set_focus_timeout': 'Focus Timeout', 'refresh_library': 'Refresh Library', 'lib_all_songs': 'All Songs', 'lib_artists': 'Artists', 'lib_albums': 'Albums', 'lib_folders': 'Folders', 'lib_genres': 'Genres', 'lib_recently_added': 'Recently Added', 'lib_favorites': 'Favorites', 'lib_search': 'Search', 'lib_scan_options': 'Scan Options', 'lib_sort': 'Sort', 'lib_filters': 'Filters', 'lib_stats': 'Library Stats', 'lib_cleanup': 'Cleanup', 'lib_scan': 'Scan Library', 'lib_actions': 'Actions', 'lib_action_play_now': 'Play Now', 'lib_action_play_next': 'Play Next', 'lib_action_add_current': 'Add to Current Playlist', 'lib_action_create_playlist': 'Create Playlist', 'lib_action_remove_library': 'Remove from Library', 'lib_action_add_favorite': 'Add Favorite', 'lib_action_remove_favorite': 'Remove Favorite', 'lib_action_show_info': 'Show Info', 'lib_info': 'Track Info', 'lib_tracks': 'Tracks', 'lib_scan_total': 'Total', 'lib_scan_added': 'Added', 'lib_scan_removed': 'Removed', 'lib_scan_unchanged': 'Unchanged', 'lib_scan_found': 'Found', 'lib_scan_failed': 'Failed', 'lib_removed': 'Removed', 'lib_favorites_cleared': 'Favorites cleared', 'hint_library': 'UD:Scroll LR:Folder OK:Open/Action BACK:Back', 'back': 'Back', 'on': 'ON', 'off': 'OFF', 'menu_playlist_editor': 'Playlist Editor', 'menu_playlists': 'Playlists', 'library': 'Library', 'playlist': 'Tracks', 'playlists': 'Playlists', 'new_playlist': '+ New Playlist', 'playlist_new': 'New Playlist', 'playlist_del': 'Delete Playlist', 'playlist_selector': 'Select Playlist', 'playlist_editor': 'Playlist Editor', 'hint_np_controls': 'TAB:Lists P:Pause ESC:Stop [/:Seek <>:Trk L:Loop S:Shuf V:.,', 'hint_np_lib': 'TAB:Player UD:Scroll LR:Panels OK:Add/Expand', 'hint_np_trk': 'TAB:Player UD:Scroll LR:Panels OK:Play DEL:Rem', 'hint_np_pls': 'TAB:Player UD:Scroll LR:Panels OK:Load N:New DEL:Del', 'hint_playlist_sel': 'UD:Scroll OK:Load DEL:Delete BACK:Menu', 'hint_playlist_ed': 'LR:Panel UD:Sel OK:Add/Rem BACK:Menu', 'hint_continue': 'ENT:Continue', 'hint_confirm': 'LR:Choose ENT:Confirm', 'confirm': 'Confirm', 'delete': 'Delete'}, 'es': {'menu_player': 'Reproductor', 'menu_playlist': 'Lista', 'menu_play_file': 'Reproducir archivo', 'menu_library': 'Biblioteca', 'menu_editor': 'Editor', 'menu_settings': 'Ajustes', 'menu_help': 'Ayuda', 'menu_playlist_manager': 'Gestor de listas', 'now_playing': 'Reproduciendo', 'no_track': 'Sin pista', 'playing': 'Reproduciendo', 'paused': 'Pausa', 'stopped': 'Detenido', 'loop_none': 'Bucle: No', 'loop_one': 'Bucle: Uno', 'loop_all': 'Bucle: Todo', 'editor_color': 'Cambiar color', 'editor_bg': 'Fondo', 'editor_save': 'Guardar', 'set_autoplay': 'Auto-reproducir', 'set_shuffle': 'Aleatorio', 'set_auto_expand': 'Auto-expandir bibl.', 'set_lang': 'Idioma', 'set_volume': 'Volumen', 'set_seek': 'Salto', 'set_focus_timeout': 'Tiempo Foco', 'refresh_library': 'Actualizar bibl.', 'back': 'Atrás', 'on': 'ON', 'off': 'OFF', 'menu_playlist_editor': 'Editor de listas', 'menu_playlists': 'Listas', 'library': 'Biblioteca', 'playlist': 'Pistas', 'playlists': 'Listas', 'new_playlist': '+ Nueva lista', 'playlist_new': 'Nueva lista', 'playlist_del': 'Borrar lista', 'playlist_selector': 'Seleccionar lista', 'playlist_editor': 'Editor de listas', 'hint_np_controls': 'TAB:Listas P:Pause ESC:Stop [/:Seek <>:Pista L:Loop S:Shuf V:.,', 'hint_np_lib': 'TAB:Repro UD:Scroll LR:Panel OK:Add/Abrir', 'hint_np_trk': 'TAB:Repro UD:Scroll LR:Panel OK:Repro DEL:Borrar', 'hint_np_pls': 'TAB:Repro UD:Scroll LR:Panel OK:Cargar N:Nueva DEL:Borrar', 'hint_playlist_sel': 'UD:Scroll OK:Cargar DEL:Borrar BACK:Menu', 'hint_playlist_ed': 'LR:Panel UD:Sel OK:Add/Rem BACK:Menu', 'hint_continue': 'ENT:Continuar', 'hint_confirm': 'LR:Elegir ENT:Confirmar', 'confirm': 'Confirmar', 'delete': 'Borrar'}, 'fr': {'menu_player': 'Lecteur', 'menu_playlist': 'Liste', 'menu_play_file': 'Lire fichier', 'menu_library': 'Bibliothèque', 'menu_editor': 'Éditeur', 'menu_settings': 'Réglages', 'menu_help': 'Aide', 'menu_playlist_manager': 'Gestionnaire', 'now_playing': 'En lecture', 'no_track': 'Aucun titre', 'playing': 'Lecture', 'paused': 'Pause', 'stopped': 'Arrêté', 'loop_none': 'Boucle: Non', 'loop_one': 'Boucle: Un', 'loop_all': 'Boucle: Tout', 'editor_color': 'Changer couleur', 'editor_bg': 'Fond', 'editor_save': 'Enregistrer', 'set_autoplay': 'Lecture auto', 'set_shuffle': 'Aléatoire', 'set_auto_expand': 'Auto-développer bibl.', 'set_lang': 'Langue', 'set_volume': 'Volume std', 'set_seek': 'Saut', 'set_focus_timeout': 'Delai Focus', 'refresh_library': 'Actualiser bibl.', 'back': 'Retour', 'on': 'ON', 'off': 'OFF', 'menu_playlist_editor': 'Éditeur de listes', 'menu_playlists': 'Listes', 'library': 'Bibliothèque', 'playlist': 'Titres', 'playlists': 'Listes', 'new_playlist': '+ Nouvelle liste', 'playlist_new': 'Nouvelle liste', 'playlist_del': 'Supprimer liste', 'playlist_selector': 'Choisir liste', 'playlist_editor': 'Éditeur de listes', 'hint_np_controls': 'TAB:Listes P:Pause ESC:Stop [/:Seek <>:Titre L:Boucle S:Rand V:.,', 'hint_np_lib': 'TAB:Lect UD:Scroll LR:Panneau OK:Add/Ouvr', 'hint_np_trk': 'TAB:Lect UD:Scroll LR:Panneau OK:Lire DEL:Suppr', 'hint_np_pls': 'TAB:Lect UD:Scroll LR:Panneau OK:Charg N:Nouv DEL:Suppr', 'hint_playlist_sel': 'UD:Scroll OK:Charger DEL:Suppr BACK:Menu', 'hint_playlist_ed': 'LR:Panneau UD:Sel OK:Add/Suppr BACK:Menu', 'hint_continue': 'ENT:Continuer', 'hint_confirm': 'LR:Choisir ENT:Confirmer', 'confirm': 'Confirmer', 'delete': 'Supprimer'}}
 

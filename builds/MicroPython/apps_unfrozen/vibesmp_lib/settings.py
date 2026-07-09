@@ -4,7 +4,7 @@
 
 import json
 import time
-from vibesmp_lib.themes import THEMES
+from vibesmp_lib.resources import THEMES
 
 class StorageManager:
     """Singleton manager for background storage operations."""

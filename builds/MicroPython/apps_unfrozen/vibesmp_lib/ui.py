@@ -159,7 +159,7 @@ class UI:
         self.draw.clear(color=self.theme["bg_c"])
 
     def render_header_footer(self, title):
-        from vibesmp_lib.themes import render_header_extras
+        from vibesmp_lib.resources import render_header_extras
         sw, sh = self.draw.size.x, self.draw.size.y
         bar_h = 20
         # Header

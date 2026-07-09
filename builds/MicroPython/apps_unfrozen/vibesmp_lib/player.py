@@ -52,7 +52,7 @@ class Player:
         self.pre_play_callback = None
         self.perf_counters = None
         self._perf_enabled = False
-        self.seek_supported = sys.platform != "rp2"
+        self.seek_supported = self._audio_has_method("seek")
 
     def set_perf_counters(self, counters):
         self.perf_counters = counters
@@ -124,9 +124,6 @@ class Player:
             return False
 
     def _execute_play(self, file_path, start_pos, skip_meta=False, is_seconds=False):
-        if not self.seek_supported:
-            start_pos = 0
-
         sd_path = file_path
         if sd_path.startswith("/sd/"):
             sd_path = sd_path[4:]
@@ -240,8 +237,7 @@ class Player:
                     try:
                         self._audio_call("stop")
                         time.sleep_ms(20)
-                        start_pos = curr_pos if self.seek_supported else 0
-                        self._execute_play(self.current_track, start_pos=start_pos, skip_meta=True)
+                        self._execute_play(self.current_track, start_pos=curr_pos, skip_meta=True)
                     finally:
                         self._recovering = False
                     return False
@@ -309,15 +305,10 @@ class Player:
         if self.current_track and not self.is_playing:
             pos = self._paused_pos
             is_sec = False
-            if not self.seek_supported:
-                pos = 0
             if pos == 0 and self._paused_pos_resume > 0:
                 pos = self._paused_pos_resume
                 is_sec = True
                 self._paused_pos_resume = 0
-                if not self.seek_supported:
-                    pos = 0
-                    is_sec = False
 
             meta = self.current_id3 if isinstance(self.current_id3, dict) else {}
             has_meta = bool(meta.get("title") or meta.get("artist") or meta.get("cover"))
@@ -405,10 +396,8 @@ class Player:
 
         self._seeking = True
         try:
-            self._audio_call("set_volume", 0)
             res = self._audio_call("seek", target_sample)
         finally:
-            self._audio_call("set_volume", self._volume)
             self._seeking = False
         if res:
             self._play_busy_until = time.ticks_add(time.ticks_ms(), 300)

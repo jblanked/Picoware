@@ -803,8 +803,10 @@ def run_script_file(path):
             request_game(value)
             delay = max(delay, 180)
         elif command in ("wait", "sleep", "frames"):
-            # Queue-based script version. Timed waits pass through.
-            pass
+            try:
+                delay += int(value or "1")
+            except ValueError:
+                delay += 1
         else:
             raise ValueError("Unknown script command: " + command)
 

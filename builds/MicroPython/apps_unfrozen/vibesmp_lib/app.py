@@ -190,6 +190,22 @@ class VibesApp:
         self._perf_play_result("resume_press_to_return", start, ok)
         return ok
 
+    def _player_seek_delta(self, seconds, label):
+        now = time.ticks_ms()
+        if time.ticks_diff(now, self._last_seek_time) <= 300:
+            return False
+        self._last_seek_time = now
+        if not self.player:
+            return False
+        if not self.player.seek(seconds):
+            self.seek_msg = "Seek N/A"
+            self.seek_timer = now
+            return False
+        if self.player.is_playing or self.player.is_paused():
+            self.seek_msg = "{} {}s".format(label, abs(seconds))
+            self.seek_timer = now
+        return True
+
     def _player_previous(self):
         if not self.playlist:
             return False
@@ -848,14 +864,9 @@ class VibesApp:
                         self.playlist.editor_playlist_idx = idx - 1
                         self.needs_refresh = True
             else:
-                now = time.ticks_ms()
-                if time.ticks_diff(now, self._last_seek_time) > 300:
-                    self.player.seek(-self.settings.config.get("seek_length", 5))
-                    if self.player.is_playing or self.player.is_paused():
-                        self.seek_msg = "FB << {}s".format(self.settings.config.get("seek_length", 5))
-                        self.seek_timer = now
-                    self._last_seek_time = now
-                    self.needs_refresh = True
+                seek_len = self.settings.config.get("seek_length", 5)
+                self._player_seek_delta(-seek_len, "FB <<")
+                self.needs_refresh = True
             return True
         if button == BUTTON_RIGHT_BRACKET:
             if self.ui.focus == 1 and self.ui.active_col == 1:
@@ -865,14 +876,9 @@ class VibesApp:
                         self.playlist.editor_playlist_idx = idx + 1
                         self.needs_refresh = True
             else:
-                now = time.ticks_ms()
-                if time.ticks_diff(now, self._last_seek_time) > 300:
-                    self.player.seek(self.settings.config.get("seek_length", 5))
-                    if self.player.is_playing or self.player.is_paused():
-                        self.seek_msg = "FF >> {}s".format(self.settings.config.get("seek_length", 5))
-                        self.seek_timer = now
-                    self._last_seek_time = now
-                    self.needs_refresh = True
+                seek_len = self.settings.config.get("seek_length", 5)
+                self._player_seek_delta(seek_len, "FF >>")
+                self.needs_refresh = True
             return True
 
         # Track Switch (< / >)
@@ -957,13 +963,8 @@ class VibesApp:
                 elif idx == 1: # Prev
                     self._player_previous()
                 elif idx == 2: # FB
-                    now = time.ticks_ms()
-                    if time.ticks_diff(now, self._last_seek_time) > 300:
-                        self.player.seek(-self.settings.config.get("seek_length", 5))
-                        if self.player.is_playing or self.player.is_paused():
-                            self.seek_msg = "FB << {}s".format(self.settings.config.get("seek_length", 5))
-                            self.seek_timer = now
-                        self._last_seek_time = now
+                    seek_len = self.settings.config.get("seek_length", 5)
+                    self._player_seek_delta(-seek_len, "FB <<")
                 elif idx == 3: # Play/Pause
                     if self.player.is_playing: self.player.pause()
                     else:
@@ -974,13 +975,8 @@ class VibesApp:
                 elif idx == 4: # Stop
                     if self.player: self.player.stop()
                 elif idx == 5: # FF
-                    now = time.ticks_ms()
-                    if time.ticks_diff(now, self._last_seek_time) > 300:
-                        self.player.seek(self.settings.config.get("seek_length", 5))
-                        if self.player.is_playing or self.player.is_paused():
-                            self.seek_msg = "FF >> {}s".format(self.settings.config.get("seek_length", 5))
-                            self.seek_timer = now
-                        self._last_seek_time = now
+                    seek_len = self.settings.config.get("seek_length", 5)
+                    self._player_seek_delta(seek_len, "FF >>")
                 elif idx == 6: # Next
                     self._player_next()
                 elif idx == 7: # Loop Mode

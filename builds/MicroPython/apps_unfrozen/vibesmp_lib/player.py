@@ -1,5 +1,6 @@
 from gc import collect
 import time
+import sys
 from vibesmp_lib.id3 import parse_id3
 from vibesmp_lib.utils import format_time
 
@@ -51,6 +52,7 @@ class Player:
         self.pre_play_callback = None
         self.perf_counters = None
         self._perf_enabled = False
+        self.seek_supported = sys.platform != "rp2"
 
     def set_perf_counters(self, counters):
         self.perf_counters = counters
@@ -355,6 +357,9 @@ class Player:
         return False
 
     def seek(self, seconds):
+        if not self.seek_supported:
+            return False
+
         if self._seeking:
             return False
 

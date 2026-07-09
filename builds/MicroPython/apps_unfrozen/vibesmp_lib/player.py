@@ -357,9 +357,6 @@ class Player:
         return False
 
     def seek(self, seconds):
-        if not self.seek_supported:
-            return False
-
         if self._seeking:
             return False
 
@@ -386,15 +383,48 @@ class Player:
 
         self._sr_ch = (info.sample_rate or 44100) * (info.channels or 1)
         current_sec = info.position / self._sr_ch
+        target_sample = int((current_sec + seconds) * self._sr_ch)
+        dur_samples = info.duration
+
+        if target_sample < 0:
+            target_sample = 0
+        if dur_samples > 0 and target_sample >= dur_samples:
+            target_sample = int(dur_samples - (self._sr_ch // 10))
+
+        if not self.seek_supported:
+            return self._restart_seek_sample(target_sample)
+
         self._seeking = True
         try:
             self._audio_call("set_volume", 0)
-            res = self.seek_absolute(current_sec + seconds)
+            res = self._audio_call("seek", target_sample)
         finally:
             self._audio_call("set_volume", self._volume)
             self._seeking = False
         if res:
             self._play_busy_until = time.ticks_add(time.ticks_ms(), 300)
+        return res
+
+    def _restart_seek_sample(self, target_sample):
+        if not self.current_track:
+            return False
+        self._seeking = True
+        try:
+            self._audio_call("set_volume", 0)
+            self._audio_call("stop")
+            time.sleep_ms(25)
+            res = self._execute_play(self.current_track, target_sample, skip_meta=True)
+        except (OSError, ValueError) as e:
+            print(f"[ERROR] Player._restart_seek_sample: {e}")
+            res = False
+        finally:
+            try:
+                self._audio_call("set_volume", self._volume)
+            except (OSError, AttributeError):
+                pass
+            self._seeking = False
+        if res:
+            self._play_busy_until = time.ticks_add(time.ticks_ms(), 500)
         return res
 
     def seek_absolute(self, seconds):

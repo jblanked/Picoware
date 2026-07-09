@@ -1,6 +1,6 @@
 from vibesmp_lib.ui import (
     VIEW_MENU, VIEW_NOW_PLAYING, VIEW_SETTINGS, VIEW_LIBRARY,
-    VIEW_PLAYLIST_SELECTOR, VIEW_PLAYLIST_EDITOR, VIEW_INPUT_MODAL, VIEW_CONFIRM, VIEW_ALERT, VIEW_RADIO
+    VIEW_PLAYLIST_SELECTOR, VIEW_PLAYLIST_EDITOR, VIEW_INPUT_MODAL, VIEW_CONFIRM, VIEW_ALERT
 )
 
 def _move_menu_selection(menu, delta):
@@ -17,11 +17,8 @@ def _move_menu_selection(menu, delta):
 
 def switch_view(app, view_id):
     """Unified view switcher for VibesApp."""
-    prev_view = app.ui.current_view
     app.ui.current_view = view_id
     app.needs_refresh = True
-    if prev_view == VIEW_RADIO and view_id != VIEW_RADIO and hasattr(app, "_last_radio_snapshot"):
-        app._last_radio_snapshot = None
     # View-specific reset logic
     if view_id == VIEW_MENU:
         if hasattr(app, "main_menu") and app.main_menu:
@@ -31,9 +28,6 @@ def switch_view(app, view_id):
         update_settings_menu(app)
     elif view_id == VIEW_PLAYLIST_SELECTOR:
         app.refresh_playlists()
-    elif view_id == VIEW_RADIO:
-        if hasattr(app, "refresh_radio"):
-            app.refresh_radio()
     elif view_id == VIEW_NOW_PLAYING:
         if hasattr(app, "_prime_now_playing_lists"):
             app._prime_now_playing_lists()
@@ -52,9 +46,8 @@ def handle_main_menu_input(app, button):
         sel = app.main_menu.selected_index
         if sel == 0: switch_view(app, VIEW_NOW_PLAYING)
         elif sel == 1: switch_view(app, VIEW_LIBRARY)
-        elif sel == 2: switch_view(app, VIEW_RADIO)
-        elif sel == 3: switch_view(app, VIEW_SETTINGS)
-        elif sel == 4:
+        elif sel == 2: switch_view(app, VIEW_SETTINGS)
+        elif sel == 3:
             import vibesmp_lib.dialogs as d
             from vibesmp_lib.utils import get_path
             from vibesmp_lib.i18n import t

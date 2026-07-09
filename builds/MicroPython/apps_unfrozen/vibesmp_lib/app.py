@@ -18,7 +18,7 @@ from vibesmp_lib.playlist import Playlist
 from vibesmp_lib.ui import (
     UI, VIEW_MENU, VIEW_NOW_PLAYING,
     VIEW_SETTINGS, VIEW_LIBRARY, VIEW_MODAL, VIEW_KEYBOARD,
-    VIEW_PLAYLIST_SELECTOR, VIEW_PLAYLIST_EDITOR, VIEW_INPUT_MODAL, VIEW_CONFIRM, VIEW_ALERT, VIEW_RADIO
+    VIEW_PLAYLIST_SELECTOR, VIEW_PLAYLIST_EDITOR, VIEW_INPUT_MODAL, VIEW_CONFIRM, VIEW_ALERT
 )
 from vibesmp_lib.ui_utils import IconList
 from vibesmp_lib.settings import Settings
@@ -43,20 +43,6 @@ class VibesApp:
         # Deferred loading
         self.settings = None; self.player = None; self.playlist = None
         self.ui = None; self.library = None
-        self.radio = None
-        self.radio_idx = 0
-        self.radio_mode = "list"
-        self.radio_action_idx = 0
-        self.radio_player_btn_idx = 1
-        self.radio_station_idx = -1
-        self._radio_last_render_mode = None
-        self._pending_station_name = ""
-        self._pending_station_edit_idx = -1
-        self._radio_action_items = None
-        self._radio_list_actions = None
-        self._radio_label_cache_key = None
-        self._radio_render_items = None
-        self._radio_render_cache_key = None
         self.dialog_type = None
         self.dialog_title = ""
         self.dialog_message = ""
@@ -127,7 +113,6 @@ class VibesApp:
         self._last_header_render = 0
         self._last_player_busy = False
         self._last_np_snapshot = None
-        self._last_radio_snapshot = None
         self._header_render_pending = False
         self._np_timed_render_pending = False
         self._last_storage_tick = 0
@@ -155,44 +140,6 @@ class VibesApp:
         self._np_library_tree_cache = None
         self._np_library_tree_key = None
         self._handled_no_render = False
-
-    def _radio_label_key(self):
-        return self.settings.config.get("language", "en") if self.settings else "en"
-
-    def _radio_cached_actions(self):
-        key = self._radio_label_key()
-        if self._radio_label_cache_key != key:
-            self._radio_action_items = [
-                {"kind": "action", "action": "play", "label": t("radio_play")},
-                {"kind": "action", "action": "edit", "label": t("radio_edit_station")},
-                {"kind": "action", "action": "delete", "label": t("radio_delete_station")},
-                {"kind": "action", "action": "back", "label": t("back")},
-            ]
-            self._radio_list_actions = [
-                {"kind": "action", "action": "add", "label": t("radio_add_station")},
-                {"kind": "action", "action": "stop", "label": t("radio_stop")},
-            ]
-            self._radio_label_cache_key = key
-            self._radio_render_cache_key = None
-        return self._radio_action_items, self._radio_list_actions
-
-    def _radio_render_list_items(self):
-        stations = self.radio.stations if self.radio else []
-        _, list_actions = self._radio_cached_actions()
-        key = (
-            id(stations),
-            len(stations),
-            self._radio_label_cache_key,
-        )
-        if self._radio_render_cache_key != key:
-            items = []
-            for st in stations:
-                items.append(st)
-            for action in list_actions:
-                items.append(action)
-            self._radio_render_items = items
-            self._radio_render_cache_key = key
-        return self._radio_render_items
 
     def _perf_inc(self, name):
         if self.debug_perf:
@@ -279,13 +226,6 @@ class VibesApp:
                 return True
         return self._player_play(t_path)
 
-    def _set_radio_mode(self, mode):
-        if self.radio_mode != mode:
-            self.radio_mode = mode
-            self._last_radio_snapshot = None
-            self._radio_last_render_mode = None
-            self.needs_refresh = True
-
     def _now_playing_tree_key(self):
         if not self.library or not self.settings:
             return None
@@ -359,10 +299,6 @@ class VibesApp:
             "render",
             "play_press_to_return",
             "resume_press_to_return",
-            "radio_press_to_return",
-            "radio_play_mp3_url_return",
-            "radio_start_to_buffering",
-            "radio_start_to_playing",
         ):
             count = self.perf_counters.get(prefix + "_count", 0)
             total = self.perf_counters.get(prefix + "_total_ms", 0)
@@ -386,9 +322,6 @@ class VibesApp:
             playlist.editor_playlist_idx if playlist else -1,
             len(playlist.tracks) if playlist and playlist.tracks else 0,
             player.current_track if player else "",
-            player.radio_mode if player else False,
-            player.radio_name if player else "",
-            player.radio_status if player else "",
             is_playing,
             is_paused,
             settings.config.get("shuffle", False) if settings else False,
@@ -400,7 +333,6 @@ class VibesApp:
     def _timed_render_due(self, now, is_playing, is_busy, is_paused):
         due = False
         np_due = False
-        radio_due = False
         header_due = False
         if not self.ui:
             return due
@@ -428,19 +360,6 @@ class VibesApp:
                 self._last_player_busy = is_busy
                 np_due = True
 
-        if self.ui.current_view == VIEW_RADIO:
-            snapshot = (
-                self.player.radio_mode if self.player else False,
-                self.player.radio_status if self.player else "",
-                self.player.radio_status_changed_ms if self.player else 0,
-                self.player.radio_retry_count if self.player else 0,
-                self.player.radio_name if self.player else "",
-            )
-            if snapshot != self._last_radio_snapshot:
-                self._last_radio_snapshot = snapshot
-                self.needs_refresh = True
-                radio_due = True
-
         if self.ui.current_view not in (VIEW_INPUT_MODAL, VIEW_CONFIRM, VIEW_ALERT):
             if time.ticks_diff(now, self._last_header_render) >= 1000:
                 self._last_header_render = now
@@ -448,8 +367,6 @@ class VibesApp:
 
         if np_due:
             self._np_timed_render_pending = True
-            due = True
-        if radio_due:
             due = True
         if header_due:
             self._header_render_pending = True
@@ -465,7 +382,6 @@ class VibesApp:
             mkdir_p(self.view_manager.storage, "picoware/vibesmp/lang/")
             mkdir_p(self.view_manager.storage, "picoware/vibesmp/library/meta/")
             mkdir_p(self.view_manager.storage, "picoware/vibesmp/library/covers/")
-            mkdir_p(self.view_manager.storage, "picoware/vibesmp/radio/")
 
             if loading: loading.set_text("Starting systems..."); loading.animate()
             self._init_core_systems()
@@ -482,8 +398,6 @@ class VibesApp:
 
             if loading: loading.set_text("Loading library..."); loading.animate()
             self._handle_first_run_flow()
-            if self.debug_perf and self.settings.config.get("debug_start_view") == "radio":
-                switch_view(self, VIEW_RADIO)
             self._reset_library_browser()
             self._menus_initialized = True
         except (OSError, ValueError, KeyError) as e:
@@ -566,9 +480,6 @@ class VibesApp:
             self._library_loaded = True
         if self.library and hasattr(self.library, "set_perf_counters"):
             self.library.set_perf_counters(self.perf_counters if self.debug_perf else None)
-        if not self.radio:
-            from vibesmp_lib.radio import RadioStations
-            self.radio = RadioStations(self.view_manager.storage)
 
     def _pre_play_render(self, file_path):
         """Prime cheap track state before playback; defer metadata and cover IO."""
@@ -663,7 +574,7 @@ class VibesApp:
     def _is_fast_nav_button(self, view_id, button):
         if button not in (BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT):
             return False
-        if view_id in (VIEW_MENU, VIEW_SETTINGS, VIEW_LIBRARY, VIEW_RADIO):
+        if view_id in (VIEW_MENU, VIEW_SETTINGS, VIEW_LIBRARY):
             return button in (BUTTON_UP, BUTTON_DOWN)
         if view_id == VIEW_PLAYLIST_SELECTOR:
             return button in (BUTTON_UP, BUTTON_DOWN)
@@ -684,8 +595,6 @@ class VibesApp:
         if not self.settings or not self.ui:
             return render_due
         now = time.ticks_ms()
-        if self.player:
-            self.player.service_radio()
         _player_busy = bool(self.player and self.player.is_busy)
         _is_playing = bool(self.player and self.player.is_playing)
         _is_paused = bool(self.player and self.player.is_paused(_is_playing))
@@ -762,9 +671,6 @@ class VibesApp:
                 elif v == VIEW_LIBRARY:
                     handled = self._handle_library_input(btn, inp)
 
-                elif v == VIEW_RADIO:
-                    handled = self._handle_radio_input(btn, inp)
-
                 elif v == VIEW_PLAYLIST_SELECTOR:
                     handled = self._handle_playlist_selector_input(btn, inp)
 
@@ -803,8 +709,7 @@ class VibesApp:
                     if can_load and not self.ui.last_np_state.get("can_load", False):
                         self.needs_refresh = True
 
-                monitor_ms = 100 if self.player.radio_mode else 250
-                if time.ticks_diff(now, self._last_player_monitor_tick) >= monitor_ms:
+                if time.ticks_diff(now, self._last_player_monitor_tick) >= 250:
                     self.player.monitor_and_heal()
                     self._last_player_monitor_tick = now
 
@@ -821,7 +726,6 @@ class VibesApp:
 
                 if (
                     self.settings.config.get("auto_play_next", True)
-                    and not self.player.radio_mode
                     and time.ticks_diff(now, self._last_player_end_tick) >= 500
                 ):
                     self._last_player_end_tick = now
@@ -929,7 +833,7 @@ class VibesApp:
             return True
 
         if button == BUTTON_ESCAPE:
-            if self.player and (self.player.is_playing or self.player.current_track or self.player.radio_mode):
+            if self.player and (self.player.is_playing or self.player.current_track):
                 self.player.stop()
                 self.needs_refresh = True
                 return True
@@ -1679,263 +1583,6 @@ class VibesApp:
             return True
         return True
 
-    def refresh_radio(self):
-        if not self.radio:
-            from vibesmp_lib.radio import RadioStations
-            self.radio = RadioStations(self.view_manager.storage)
-        else:
-            self.radio.load()
-        self._radio_render_cache_key = None
-        if not self.radio.stations:
-            self.radio_idx = 0
-            return
-        max_idx = len(self.radio.stations) + 1
-        if self.radio_idx > max_idx:
-            self.radio_idx = max_idx
-
-    def _radio_items(self):
-        if self.radio_mode == "actions":
-            action_items, _ = self._radio_cached_actions()
-            return action_items
-        return None
-
-    def _radio_player_station(self):
-        if self.radio:
-            active_id = self.player.radio_active_id if self.player and self.player.radio_mode else None
-            if isinstance(active_id, int) and 0 <= active_id < len(self.radio.stations):
-                return self.radio.stations[active_id]
-            if 0 <= self.radio_station_idx < len(self.radio.stations):
-                return self.radio.stations[self.radio_station_idx]
-        if self.player and (self.player.radio_name or self.player.radio_url):
-            return {"name": self.player.radio_name, "url": self.player.radio_url}
-        return None
-
-    def _radio_status(self):
-        if self.player and self.player.radio_mode:
-            key_map = {
-                "Stopped": "radio_stopped",
-                "Connecting": "radio_connecting",
-                "Buffering": "radio_buffering",
-                "Playing": "radio_playing",
-                "Retrying": "radio_retrying",
-                "Disconnected": "radio_disconnected",
-                "Unsupported Stream": "radio_unsupported",
-            }
-            key = key_map.get(self.player.radio_status)
-            if key:
-                return t(key)
-            return self.player.radio_status
-        return t("radio_stopped")
-
-    def _radio_active_name(self):
-        if self.player and self.player.radio_mode:
-            return self.player.radio_name
-        return ""
-
-    def _radio_selected_station(self):
-        if not self.radio or not (0 <= self.radio_station_idx < len(self.radio.stations)):
-            return None
-        return self.radio.stations[self.radio_station_idx]
-
-    def _radio_validate_url(self, url):
-        if self.player and hasattr(self.player, "_radio_normalize_url"):
-            return self.player._radio_normalize_url(url)
-        if not isinstance(url, str):
-            return ""
-        url = url.strip()
-        lower = url.lower()
-        if lower.startswith("http://"):
-            rest = url[7:]
-        elif lower.startswith("https://"):
-            rest = url[8:]
-        else:
-            return ""
-        if not rest or rest.startswith("/") or rest.startswith("?") or rest.startswith("#"):
-            return ""
-        host = rest.split("/", 1)[0].split("?", 1)[0].split("#", 1)[0]
-        if not host or any(ch.isspace() for ch in host):
-            return ""
-        if host == "." or host == ".." or host.startswith(".") or host.endswith("."):
-            return ""
-        return url
-
-    def _radio_add_name(self, name):
-        self._pending_station_name = name or "Station"
-        import vibesmp_lib.dialogs as d
-        d.open_input(self, t("radio_stream_url"), "https://", self._radio_add_url, max_len=120)
-
-    def _radio_add_url(self, url):
-        url = self._radio_validate_url(url)
-        if not url:
-            import vibesmp_lib.dialogs as d
-            d.open_alert(self, t("radio_unsupported"), t("radio_http_only"))
-            return
-        self.radio.add(self._pending_station_name, url)
-        self.refresh_radio()
-        self.needs_refresh = True
-
-    def _radio_edit_name(self, name):
-        self._pending_station_name = name or "Station"
-        st = self._radio_selected_station()
-        initial = st.get("url", "https://") if st else "https://"
-        import vibesmp_lib.dialogs as d
-        d.open_input(self, t("radio_stream_url"), initial, self._radio_edit_url, max_len=120)
-
-    def _radio_edit_url(self, url):
-        url = self._radio_validate_url(url)
-        if not url:
-            import vibesmp_lib.dialogs as d
-            d.open_alert(self, t("radio_unsupported"), t("radio_http_only"))
-            return
-        was_active = (
-            self.player and self.player.radio_mode
-            and self.player.radio_active_id == self._pending_station_edit_idx
-        )
-        self.radio.update(self._pending_station_edit_idx, self._pending_station_name, url)
-        if was_active:
-            self.player.radio_name = self._pending_station_name or url
-            self.player.radio_active_id = self._pending_station_edit_idx
-            if self.player.current_id3:
-                self.player.current_id3["title"] = self.player.radio_name
-        self.refresh_radio()
-        self._set_radio_mode("list")
-
-    def _radio_confirm_delete(self):
-        idx = self.radio_station_idx
-        if self.radio and self.radio.delete(idx):
-            if (
-                self.player and self.player.radio_mode
-                and self.player.radio_active_id == idx
-            ):
-                self.player.stop_radio()
-                self._last_radio_snapshot = None
-            elif (
-                self.player and self.player.radio_mode
-                and isinstance(self.player.radio_active_id, int)
-                and self.player.radio_active_id > idx
-            ):
-                self.player.radio_active_id -= 1
-            self._set_radio_mode("list")
-            self.radio_idx = min(self.radio_idx, max(0, len(self.radio.stations) - 1))
-            self._radio_render_cache_key = None
-            self.needs_refresh = True
-
-    def _radio_play_station(self, idx):
-        if not self.radio or not (0 <= idx < len(self.radio.stations)):
-            return False
-        self.radio_station_idx = idx
-        st = self.radio.stations[idx]
-        start = time.ticks_ms() if self.debug_perf else 0
-        ok = self.player.play_radio(st.get("name", ""), st.get("url", ""), active_id=idx)
-        self._perf_play_result("radio_press_to_return", start, ok)
-        self._set_radio_mode("player")
-        self.radio_player_btn_idx = 1 if ok else 0
-        self.needs_refresh = True
-        return ok
-
-    def _radio_player_action(self):
-        if self.radio_player_btn_idx == 0:
-            station = self._radio_player_station()
-            idx = self.radio_station_idx
-            if (
-                self.player
-                and self.player.radio_mode
-                and isinstance(self.player.radio_active_id, int)
-            ):
-                idx = self.player.radio_active_id
-            if self.radio and isinstance(idx, int) and 0 <= idx < len(self.radio.stations):
-                return self._radio_play_station(idx)
-            if station and self.player:
-                ok = self.player.play_radio(station.get("name", ""), station.get("url", ""), active_id=idx)
-                self.radio_player_btn_idx = 1 if ok else 0
-                self.needs_refresh = True
-                return ok
-            return False
-        if self.player:
-            self.player.stop_radio()
-            self._last_radio_snapshot = None
-        self.radio_player_btn_idx = 0
-        self.needs_refresh = True
-        return True
-
-    def _handle_radio_input(self, button, inp):
-        if not self.radio:
-            self.refresh_radio()
-
-        if button == BUTTON_BACK:
-            if self.radio_mode == "actions":
-                self._set_radio_mode("list")
-                self.needs_refresh = True
-            elif self.radio_mode == "player":
-                self._set_radio_mode("list")
-                self.needs_refresh = True
-            else:
-                self._last_radio_snapshot = None
-                switch_view(self, VIEW_MENU)
-            return True
-
-        if self.radio_mode == "player":
-            if button in (BUTTON_LEFT, BUTTON_UP):
-                self.radio_player_btn_idx = 0
-                self.needs_refresh = True
-                return True
-            if button in (BUTTON_RIGHT, BUTTON_DOWN):
-                self.radio_player_btn_idx = 1
-                self.needs_refresh = True
-                return True
-            if button in (BUTTON_CENTER, BUTTON_ENTER):
-                self._radio_player_action()
-                return True
-            return False
-
-        items = self._radio_items()
-        total = len(items) if items is not None else (len(self.radio.stations) + 2)
-        idx_name = "radio_action_idx" if items is not None else "radio_idx"
-
-        if button == BUTTON_UP:
-            setattr(self, idx_name, max(0, getattr(self, idx_name) - 1))
-            self.needs_refresh = True
-            return True
-        if button == BUTTON_DOWN:
-            if getattr(self, idx_name) < total - 1:
-                setattr(self, idx_name, getattr(self, idx_name) + 1)
-            self.needs_refresh = True
-            return True
-        if button not in (BUTTON_CENTER, BUTTON_ENTER):
-            return False
-
-        if self.radio_mode == "actions":
-            action = items[self.radio_action_idx].get("action")
-            st = self._radio_selected_station()
-            if action == "play" and st:
-                self._radio_play_station(self.radio_station_idx)
-            elif action == "edit" and st:
-                self._pending_station_edit_idx = self.radio_station_idx
-                import vibesmp_lib.dialogs as d
-                d.open_input(self, t("radio_station_name"), st.get("name", ""), self._radio_edit_name, max_len=40)
-            elif action == "delete" and st:
-                import vibesmp_lib.dialogs as d
-                d.open_confirm(self, t("confirm"), "{}?".format(st.get("name", "")), self._radio_confirm_delete)
-            elif action == "back":
-                self._set_radio_mode("list")
-            self.needs_refresh = True
-            return True
-
-        station_count = len(self.radio.stations)
-        if self.radio_idx < station_count:
-            self.radio_station_idx = self.radio_idx
-            self.radio_action_idx = 0
-            self._set_radio_mode("actions")
-        elif self.radio_idx == station_count:
-            import vibesmp_lib.dialogs as d
-            d.open_input(self, t("radio_station_name"), "Station", self._radio_add_name, max_len=40)
-        else:
-            if self.player:
-                self.player.stop_radio()
-                self._last_radio_snapshot = None
-        self.needs_refresh = True
-        return True
-
     def _handle_playlist_selector_input(self, button, inp):
         playlists = self.ui_playlists[1:] if self.ui_playlists else []  # Skip the '+ New' entry
         max_idx = len(playlists) - 1
@@ -2024,7 +1671,6 @@ class VibesApp:
         self.main_menu.clear()
         self.main_menu.add_item(t("menu_player"), "player")
         self.main_menu.add_item(t("menu_library"), "library")
-        self.main_menu.add_item(t("menu_radio"), "radio")
         self.main_menu.add_item(t("menu_settings"), "settings")
         self.main_menu.add_item(t("menu_help"))
 
@@ -2138,8 +1784,6 @@ class VibesApp:
             title = t("app_name") if t("app_name") != "app_name" else "VibesMP"
             if v == VIEW_SETTINGS:
                 title = t("menu_settings")
-            elif v == VIEW_RADIO:
-                title = t("menu_radio")
             if self.ui.check_header_update(title):
                 if self.ui.perf_counters is not None:
                     self.ui.perf_counters["swaps"] = self.ui.perf_counters.get("swaps", 0) + 1
@@ -2170,8 +1814,6 @@ class VibesApp:
             self.ui.render_menu(self.main_menu, force_full=self.needs_refresh)
         elif v == VIEW_NOW_PLAYING:
             track = self.player.current_track if self.player else None
-            if self.player and self.player.radio_mode:
-                track = self.player.radio_url or self.player.radio_name
             is_playing = self._loop_is_playing if self.player else False
             library_tree = self._prime_now_playing_lists()
             np_force_full = (
@@ -2196,32 +1838,6 @@ class VibesApp:
                 force_full=(self.needs_refresh and not nav_fast),
                 nav_fast=nav_fast,
             )
-        elif v == VIEW_RADIO:
-            from vibesmp_lib.ui_radio import render_radio, render_radio_player
-            radio_mode_changed = self._radio_last_render_mode != self.radio_mode
-            radio_force_full = (self.needs_refresh and not nav_fast) or radio_mode_changed
-            if self.radio_mode == "player":
-                render_radio_player(
-                    self.ui,
-                    self._radio_player_station(),
-                    self._radio_status(),
-                    self.radio_player_btn_idx,
-                    force_full=radio_force_full,
-                )
-            else:
-                radio_items = self._radio_items()
-                if radio_items is None:
-                    radio_items = self._radio_render_list_items()
-                render_radio(
-                    self.ui,
-                    self.radio.stations if self.radio else [],
-                    self.radio_action_idx if self.radio_mode == "actions" else self.radio_idx,
-                    self._radio_status(),
-                    active_name=self._radio_active_name(),
-                    force_full=radio_force_full,
-                    items=radio_items,
-                )
-            self._radio_last_render_mode = self.radio_mode
         elif v == VIEW_PLAYLIST_SELECTOR:
             from vibesmp_lib.ui_playlist import render_playlist_selector
             playlists = self.ui_playlists[1:] if self.ui_playlists else []  # Skip '+ New' entry

@@ -336,11 +336,6 @@ class IconList(List):
                         oy = iy + 8 if j % 2 == 0 else iy + 2
                         self.display.fill_rectangle(Vector(ox, oy), Vector(w, h), self.text_color)
                 elif it == "library": self.display.rect(Vector(10, iy + 4), Vector(18, 12), self.text_color)
-                elif it == "radio":
-                    self.display.rect(Vector(10, iy + 6), Vector(18, 12), self.text_color)
-                    self.display.line(Vector(14, iy + 6), Vector(24, iy + 1), self.text_color)
-                    self.display.fill_rectangle(Vector(14, iy + 14), Vector(3, 3), self.text_color)
-                    self.display.fill_rectangle(Vector(22, iy + 14), Vector(3, 3), self.text_color)
                 tx = 35
             self.display.text(Vector(tx, iy + 4), self.items[i], self.text_color)
         if swap:

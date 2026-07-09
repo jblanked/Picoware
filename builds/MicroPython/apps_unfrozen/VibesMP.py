@@ -45,12 +45,7 @@ def run(view_manager):
             app = _app
             render_due = app.run(view_manager)
             if render_due and _app is app and hasattr(app, "render"):
-                player = getattr(app, "player", None)
-                if player:
-                    player.service_radio(force=True)
                 _app.render(view_manager)
-                if player:
-                    player.service_radio(force=True)
     except Exception as e:
         print(f"[ERROR] VibesApp.run() failed: {e}")
         sys.print_exception(e)

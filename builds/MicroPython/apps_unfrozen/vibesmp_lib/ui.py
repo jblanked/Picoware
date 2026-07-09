@@ -14,7 +14,6 @@ VIEW_KEYBOARD = 10
 VIEW_INPUT_MODAL = 11
 VIEW_CONFIRM = 12
 VIEW_ALERT = 13
-VIEW_RADIO = 14
 
 class UI:
     def __init__(self, draw, theme, view_manager=None, settings=None):

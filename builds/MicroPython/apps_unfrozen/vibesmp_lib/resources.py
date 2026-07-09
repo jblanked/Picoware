@@ -311,7 +311,7 @@ def update_settings_menu(app):
     if curr_idx < len(app.settings_menu.items): app.settings_menu.set_selected(curr_idx)
 
 def handle_settings_input(app, button):
-    from vibesmp_lib.ui import VIEW_MENU
+    from vibesmp_lib.ui_utils import VIEW_MENU
     from picoware.system.buttons import BUTTON_BACK
     if button == BUTTON_BACK:
         app._switch_view(VIEW_MENU)
@@ -359,7 +359,7 @@ def _move_menu_selection(menu, delta):
     menu._selected_index = (menu._selected_index + delta) % count
 
 def switch_view(app, view_id):
-    from vibesmp_lib.ui import VIEW_MENU, VIEW_SETTINGS, VIEW_PLAYLIST_SELECTOR, VIEW_NOW_PLAYING
+    from vibesmp_lib.ui_utils import VIEW_MENU, VIEW_SETTINGS, VIEW_PLAYLIST_SELECTOR, VIEW_NOW_PLAYING
     """Unified view switcher for VibesApp."""
     app.ui.current_view = view_id
     app.needs_refresh = True
@@ -379,7 +379,7 @@ def switch_view(app, view_id):
 
 def handle_main_menu_input(app, button):
     from picoware.system.buttons import BUTTON_UP, BUTTON_DOWN, BUTTON_CENTER, BUTTON_BACK
-    from vibesmp_lib.ui import VIEW_NOW_PLAYING, VIEW_LIBRARY, VIEW_SETTINGS
+    from vibesmp_lib.ui_utils import VIEW_NOW_PLAYING, VIEW_LIBRARY, VIEW_SETTINGS
     if button == BUTTON_BACK:
         app.view_manager.back()
         return True
@@ -436,7 +436,7 @@ def open_input(app, title, initial_text, callback, max_len=20):
     _show(app)
 
 def _show(app):
-    from vibesmp_lib.ui import VIEW_INPUT_MODAL, VIEW_CONFIRM, VIEW_ALERT
+    from vibesmp_lib.ui_utils import VIEW_INPUT_MODAL, VIEW_CONFIRM, VIEW_ALERT
     # Only save last view if we are not already in a modal dialog
     # This ensures chained dialogs (Confirm -> Alert) return to the original view
     curr = app.ui.current_view
@@ -449,7 +449,7 @@ def _show(app):
 
 def handle_dialog_input(app, button):
     from picoware.system.buttons import BUTTON_UP, BUTTON_DOWN
-    from vibesmp_lib.ui import VIEW_INPUT_MODAL, VIEW_CONFIRM, VIEW_ALERT
+    from vibesmp_lib.ui_utils import VIEW_INPUT_MODAL, VIEW_CONFIRM, VIEW_ALERT
     if button == BUTTON_BACK:
         app._switch_view(app.dialog_last_view)
         app.needs_refresh = True

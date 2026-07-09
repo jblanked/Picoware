@@ -15,7 +15,7 @@ from picoware.gui.loading import Loading
 from vibesmp_lib.utils import get_filename, get_parent_path
 from vibesmp_lib.player import Player
 from vibesmp_lib.playlist import Playlist
-from vibesmp_lib.ui import (
+from vibesmp_lib.ui_utils import (
     UI, VIEW_MENU, VIEW_NOW_PLAYING,
     VIEW_SETTINGS, VIEW_LIBRARY, VIEW_MODAL, VIEW_KEYBOARD,
     VIEW_PLAYLIST_SELECTOR, VIEW_PLAYLIST_EDITOR, VIEW_INPUT_MODAL, VIEW_CONFIRM, VIEW_ALERT
@@ -1829,7 +1829,7 @@ class VibesApp:
             from vibesmp_lib.resources import render_settings
             render_settings(self, self.ui, force_full=self.needs_refresh)
         elif v == VIEW_LIBRARY:
-            from vibesmp_lib.ui import render_library_browser
+            from vibesmp_lib.ui_utils import render_library_browser
             level = self._library_current_level()
             render_library_browser(
                 self.ui,

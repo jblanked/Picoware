@@ -111,6 +111,8 @@ class Audio:
         self._player_status_file = ""
         self._player_status = {}
         self._player_active = False
+        self._player_proc = None
+        self._player_log = None
         self._paused = False
         self._radio_temp_path = ""
 
@@ -153,14 +155,76 @@ class Audio:
         if not self._player_cmd_file:
             return
         try:
+            for _ in range(20):
+                try:
+                    open(self._player_cmd_file, "r").close()
+                except OSError:
+                    break
+                time.sleep(0.01)
             with open(self._player_cmd_file, "w") as handle:
                 handle.write(str(command) + "\n")
         except OSError:
             pass
 
-    def _stop_player(self):
+    def _stop_player(self, wait=False):
         self._send_player_command("stop")
+        proc = self._player_proc
+        if proc:
+            try:
+                timeout = 0.3 if wait else 0.05
+                proc.wait(timeout=timeout)
+            except Exception:
+                try:
+                    proc.terminate()
+                except Exception:
+                    pass
+                try:
+                    proc.wait(timeout=0.2)
+                except Exception:
+                    try:
+                        proc.kill()
+                    except Exception:
+                        pass
+            self._player_proc = None
+        if self._player_log:
+            try:
+                self._player_log.close()
+            except Exception:
+                pass
+            self._player_log = None
         self._player_active = False
+
+    def _launch_player_process(self, binary, source, cmd_file, status_file, log_path):
+        try:
+            import subprocess
+
+            self._player_log = open(log_path, "ab")
+            self._player_proc = subprocess.Popen(
+                [binary, source, cmd_file, status_file],
+                stdout=self._player_log,
+                stderr=self._player_log,
+            )
+            return True
+        except ImportError:
+            try:
+                import os
+
+                cmd = (
+                    _quote(binary)
+                    + " "
+                    + _quote(source)
+                    + " "
+                    + _quote(cmd_file)
+                    + " "
+                    + _quote(status_file)
+                    + " >>"
+                    + _quote(log_path)
+                    + " 2>&1 &"
+                )
+                return os.system(cmd) == 0
+            except Exception as e:
+                print("[sim:audio] player launch failed:", e)
+                return False
 
     def _read_player_status(self):
         if not self._player_status_file:
@@ -212,7 +276,7 @@ class Audio:
             import sim_runtime
             import os
 
-            if sim_runtime.audio_mode != "real" or sim_runtime.headless:
+            if sim_runtime.audio_mode != "real" or (sim_runtime.headless and not sim_runtime.viewer):
                 return False
             if source.startswith("http://") or source.startswith("https://"):
                 return False
@@ -224,7 +288,7 @@ class Audio:
             binary = self._build_player()
             if not binary:
                 return False
-            self._stop_player()
+            self._stop_player(wait=True)
             cmd_file = sim_runtime.sd_root + "/sim_audio.cmd"
             status_file = sim_runtime.sd_root + "/sim_audio.status"
             for path in (cmd_file, status_file):
@@ -234,8 +298,8 @@ class Audio:
                     pass
             self._player_cmd_file = cmd_file
             self._player_status_file = status_file
-            cmd = _quote(binary) + " " + _quote(host_path) + " " + _quote(cmd_file) + " " + _quote(status_file) + " >/tmp/picoware-sim-audio.log 2>&1 &"
-            os.system(cmd)
+            if not self._launch_player_process(binary, host_path, cmd_file, status_file, "/tmp/picoware-sim-audio.log"):
+                return False
             self._player_active = True
             for _ in range(8):
                 time.sleep(0.05)
@@ -251,12 +315,12 @@ class Audio:
             import sim_runtime
             import os
 
-            if sim_runtime.audio_mode != "real" or sim_runtime.headless:
+            if sim_runtime.audio_mode != "real" or (sim_runtime.headless and not sim_runtime.viewer):
                 return False
             binary = self._build_radio_player()
             if not binary:
                 return False
-            self._stop_player()
+            self._stop_player(wait=True)
             cmd_file = sim_runtime.sd_root + "/sim_audio.cmd"
             status_file = sim_runtime.sd_root + "/sim_audio.status"
             for path in (cmd_file, status_file):
@@ -266,8 +330,8 @@ class Audio:
                     pass
             self._player_cmd_file = cmd_file
             self._player_status_file = status_file
-            cmd = _quote(binary) + " " + _quote(url) + " " + _quote(cmd_file) + " " + _quote(status_file) + " >/tmp/picoware-sim-radio.log 2>&1 &"
-            os.system(cmd)
+            if not self._launch_player_process(binary, url, cmd_file, status_file, "/tmp/picoware-sim-radio.log"):
+                return False
             self._player_active = True
             self._radio_state = "startup_buffering"
             for _ in range(12):
@@ -285,7 +349,7 @@ class Audio:
             import sim_runtime
             import os
 
-            if sim_runtime.audio_mode != "real" or sim_runtime.headless:
+            if sim_runtime.audio_mode != "real" or (sim_runtime.headless and not sim_runtime.viewer):
                 return ""
             temp = sim_runtime.sd_root + "/sim_radio_stream.mp3"
             try:

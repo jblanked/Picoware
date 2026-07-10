@@ -2,6 +2,11 @@
 // JPEGDEC from https://github.com/bitbank2/JPEGDEC
 // modified for Picoware by @jblanked
 #include "jpegdec_mp.h"
+#include "../log/log_mp.h"
+
+#ifndef PRINT
+#define PRINT(...) LOG_MESSAGE(__VA_ARGS__)
+#endif
 
 void *JPEGdummy = {readFLASH}; // to avoid compiler error
 
@@ -22,10 +27,6 @@ void *JPEGdummy = {readFLASH}; // to avoid compiler error
 #include "freertos/task.h"
 #include "freertos/idf_additions.h"
 #define sleep_ms(ms) vTaskDelay(pdMS_TO_TICKS(ms))
-#endif
-
-#ifndef PRINT
-#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
 #endif
 
 volatile uint8_t core1_running = 0; // 0: stop, 1: run, 2: done
@@ -406,7 +407,7 @@ mp_obj_t jpegdec_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_
 mp_obj_t jpegdec_mp_del(mp_obj_t self_in)
 {
     jpegdec_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (!self->freed)
+    if (self && !self->freed)
     {
         m_free(self->context);
         self->context = NULL;

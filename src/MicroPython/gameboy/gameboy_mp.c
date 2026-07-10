@@ -26,7 +26,7 @@ uint8_t pixels_buffer[FRAME_BUFF_WIDTH] = {0}; // Line buffer for rendering Game
 palette_t palette;                             // Current color palette
 uint8_t manual_palette_selected = 0;           // Index of manually selected palette
 
-#define AUDIO_CORE1_STACK_SIZE 1024 * 2
+#define AUDIO_CORE1_STACK_SIZE 1024
 uint32_t audio_core1_stack[AUDIO_CORE1_STACK_SIZE];
 
 const mp_obj_type_t gameboy_mp_type;
@@ -110,7 +110,7 @@ mp_obj_t gameboy_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_
 mp_obj_t gameboy_mp_del(mp_obj_t self_in)
 {
     gameboy_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (self->freed)
+    if (!self || self->freed)
     {
         return mp_const_none; // Already freed, do nothing
     }

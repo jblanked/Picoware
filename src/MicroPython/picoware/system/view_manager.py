@@ -32,6 +32,7 @@ class ViewManager:
         "view_stack",
         "_log",
         "_audio",
+        "_usb_video_stream",
     )
 
     def __init__(self):
@@ -49,6 +50,7 @@ class ViewManager:
         from picoware.system.colors import TFT_BLUE, TFT_BLACK, TFT_WHITE
         from picoware.system.buttons import BUTTON_ESCAPE
         from picoware.system.boards import BOARD_CARDPUTER
+        from picoware.system.usb import USBVideoStream
 
         self._active = True
         self._current_view = None
@@ -143,6 +145,12 @@ class ViewManager:
             # disable networking...
             self._wifi = None
             self.log("LVGL mode enabled: WiFi disabled.", 2)
+            self.freq(True)
+        
+        # Initialize video stream
+        self._usb_video_stream = USBVideoStream()
+        if settings.usb_stream:
+            self._usb_video_stream.start()
 
         # Clear screen
         self.clear()
@@ -327,6 +335,11 @@ class ViewManager:
     def thread_manager(self):
         """Return the ThreadManager instance."""
         return self._thread_manager
+    
+    @property
+    def usb_video_stream(self):
+        """Return the USBVideoStream instance."""
+        return self._usb_video_stream
 
     @property
     def view_count(self):
@@ -521,7 +534,7 @@ class ViewManager:
                 )
         return None
 
-    def log(self, message: str, log_type: int = 3) -> bool:
+    def log(self, message: str, log_type: int = -1) -> bool:
         """
         Log a message with an optional log type.
 
@@ -567,24 +580,24 @@ class ViewManager:
 
     def run(self) -> bool:
         """Run the current view."""
-        self._button = self._input_manager.button
-        if self._button == 80:  # BUTTON_HOME
+        button = self._input_manager.button
+        self._button = button
+        if button == 80:  # BUTTON_HOME
             while self._stack_depth > 0:
                 if self._stack_depth == 1:
                     self.back(should_clear=True, should_start=True)
                 else:
                     self.back(should_clear=False, should_start=False)
-        elif self._button == 87:  # BUTTON_F1
+        elif button == 87:  # BUTTON_F1
             self._draw.screenshot("screenshot.bmp")
 
-        _data = self._thread_manager.run()
-        if _data:
-            self.log(_data)
+        if self._thread_manager.run():
+            self.log(self._thread_manager._outgoing)
 
         if self._current_view is not None:
             self._current_view.run(self)
 
-        if self._button != -1:
+        if button != -1:
             self._input_manager.reset()
             self._button = -1
 

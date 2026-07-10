@@ -191,3 +191,4 @@ def stop(view_manager) -> None:
         _flip_social_run_instance = None
 
     collect()
+    

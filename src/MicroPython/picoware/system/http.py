@@ -3,14 +3,20 @@ from micropython import const
 import tls
 
 try:
-    from utime import sleep_ms
+    from utime import sleep_ms, ticks_ms, ticks_diff
     import usocket
 except ImportError:
-    from time import sleep
+    from time import sleep, time
     import socket as usocket
 
     def sleep_ms(ms):
         sleep(ms / 1000)
+
+    def ticks_ms():
+        return int(time() * 1000)
+
+    def ticks_diff(a, b):
+        return a - b
 
 
 from picoware.system.response import Response
@@ -36,6 +42,10 @@ class HTTP:
         "_chunk_size",
         "_thread_manager",
         "_current_task",
+        "_content_length",
+        "_download_speed",
+        "_downloaded_bytes",
+        "_download_start_ticks",
     ]
 
     def __init__(self, chunk_size: int = (1024 * 4), thread_manager=None) -> None:
@@ -54,6 +64,10 @@ class HTTP:
         self._chunk_size = chunk_size
         self._thread_manager = thread_manager
         self._current_task = None
+        self._content_length = 0
+        self._download_speed = 0
+        self._downloaded_bytes = 0
+        self._download_start_ticks = 0
 
     def __del__(self):
         """Destructor to clean up resources."""
@@ -78,6 +92,24 @@ class HTTP:
         """
         with self._lock:
             self._async_callback = value
+    
+    @property
+    def content_length(self) -> int:
+        """Get the content length of the current request."""
+        with self._lock:
+            return self._content_length
+    
+    @property
+    def downloaded_bytes(self) -> int:
+        """Get the number of bytes downloaded so far."""
+        with self._lock:
+            return self._downloaded_bytes
+
+    @property
+    def download_speed(self) -> int:
+        """Get the download speed of the current request."""
+        with self._lock:
+            return self._download_speed
 
     @property
     def error(self):
@@ -128,6 +160,14 @@ class HTTP:
                 return self._running and not self._current_task.should_stop
             return self._running
 
+    def _update_speed(self, bytes_downloaded: int) -> None:
+        """Update the download speed based on bytes downloaded and elapsed time."""
+        with self._lock:
+            self._downloaded_bytes += bytes_downloaded
+            elapsed_time = ticks_diff(ticks_ms(), self._download_start_ticks)
+            if elapsed_time > 0:
+                self._download_speed = int(self._downloaded_bytes / (elapsed_time / 1000))
+
     def close(self):
         """Close the async thread, clear the async response, reset state."""
         if self._current_task:
@@ -148,6 +188,10 @@ class HTTP:
             self._async_request_in_progress = False
             self._async_error = None
             self._state = HTTP_IDLE
+            self._content_length = 0
+            self._download_speed = 0
+            self._downloaded_bytes = 0
+            self._download_start_ticks = 0
 
     def delete(
         self, url, headers=None, timeout: float = 10.0, save_to_file=None, storage=None
@@ -572,6 +616,7 @@ class HTTP:
                     break
                 # Read the chunk data
                 chunk = s.read(chunk_size)
+                self._update_speed(len(chunk))
                 if uart:
                     uart.write(chunk)
                     uart.flush()
@@ -776,7 +821,7 @@ class HTTP:
             if len(l) > 2:
                 reason = l[2].rstrip()
             transfer_encoding = None
-            content_length = None
+            self._content_length = None
             while True:
                 if not self._should_continue():
                     s.close()
@@ -788,7 +833,7 @@ class HTTP:
                     if b"chunked" in l:
                         transfer_encoding = "chunked"
                 elif l.startswith(b"Content-Length:"):
-                    content_length = int(l.split(b":", 1)[1].strip())
+                    self._content_length = int(l.split(b":", 1)[1].strip())
                 elif l.startswith(b"Location:") and not 200 <= status <= 299:
                     if status in [301, 302, 303, 307, 308]:
                         redirect = str(l[10:-2], "utf-8")
@@ -810,14 +855,18 @@ class HTTP:
                 return
 
             # Read body
+            self._download_start_ticks = ticks_ms()
+            self._downloaded_bytes = 0
             if transfer_encoding == "chunked":
                 body = self.read_chunked(s, uart, method, save_to_file, storage)
-            elif content_length is not None:
+            elif self._content_length is not None:
                 if not uart and not save_to_file:
-                    body = s.read(content_length)
+                    body = s.read(self._content_length)
+                    self._downloaded_bytes = len(body)
                 elif save_to_file and storage:
                     # Save directly to file
                     file = storage.file_open(save_to_file)
+                    content_length = self._content_length
                     while content_length > 0:
                         if not self._should_continue():
                             s.close()
@@ -831,6 +880,7 @@ class HTTP:
                             actual_len = len(chunk)
                         except Exception:
                             actual_len = chunk_size
+                        self._update_speed(actual_len)
                         # Write with retry
                         retries = 10
                         while retries > 0:
@@ -849,6 +899,7 @@ class HTTP:
                 else:
                     # Read and write in fixed-size chunks to UART
                     uart.write(f"[{method}/SUCCESS] {method} request successful.\n")
+                    content_length = self._content_length
                     while content_length > 0:
                         if not self._should_continue():
                             s.close()
@@ -862,6 +913,7 @@ class HTTP:
                             actual_len = len(chunk)
                         except Exception:
                             actual_len = chunk_size
+                        self._update_speed(actual_len)
                         uart.write(chunk)
                         uart.flush()
                         content_length -= actual_len
@@ -872,6 +924,7 @@ class HTTP:
                 # Read until the socket is closed
                 if not uart and not save_to_file:
                     body = s.read()
+                    self._downloaded_bytes = len(body)
                 elif save_to_file and storage:
                     # Save directly to file
                     file = storage.file_open(save_to_file)
@@ -882,6 +935,7 @@ class HTTP:
                         chunk = s.read(self._chunk_size)
                         if not chunk:
                             break
+                        self._update_speed(len(chunk))
                         # Write with retry
                         retries = 10
                         while retries > 0:
@@ -904,11 +958,14 @@ class HTTP:
                         chunk = s.read(self._chunk_size)
                         if not chunk:
                             break
+                        self._update_speed(len(chunk))
                         uart.write(chunk)
                         uart.flush()
                     uart.flush()
                     uart.write("\n")
                     uart.write(f"[{method}/END]")
+
+            self._update_speed(0)
 
             if redirect:
                 s.close()

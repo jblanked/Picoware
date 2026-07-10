@@ -1422,6 +1422,14 @@ class FileBrowser:
                         self.__file_view(self._context_target_path)
                     elif ac == "Edit":
                         self.__file_edit(self._context_target_path)
+                    elif ac == "Run":
+                        from picoware.system.js import JS
+                        mjs = JS()
+                        result = mjs.exec(self._context_target_path)
+                        if result:
+                            self._vm.log(f'JS Result: {result}', -1)
+                        del mjs
+                        mjs = None
                     elif ac == "Delete":
                         self._pending_action = self.ACT_DELETE
                         mk = self._app_state["marked"]
@@ -1651,6 +1659,8 @@ class FileBrowser:
                                 items = ["Flash"]
                             elif np.lower().endswith((".wav", ".mp3")):
                                 items = ["Play Audio"]
+                            elif np.lower().endswith(".js"):
+                                items = ["Run", "View", "Edit"]
                             else:
                                 is_img = np.lower().endswith((".jpg", ".jpeg", ".bmp"))
                                 items = ["View"] if is_img else ["View", "Edit"]
@@ -1662,7 +1672,7 @@ class FileBrowser:
                         if (
                             self._context_menu is not None
                             and not isd
-                            and not np.lower().endswith((".jpg", ".jpeg", ".bmp"))
+                            and not np.lower().endswith((".jpg", ".jpeg", ".bmp", ".uf2", ".wav", ".mp3", ".js"))
                             and "." in sf
                             and sf.split(".")[-1].lower()
                             in self.TEXT_EDITABLE_EXTENSIONS

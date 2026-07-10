@@ -357,10 +357,14 @@ def run(view_manager) -> None:
             draw.text(Vector(10, 10), "Starting editor...")
             draw.swap()
 
+            if _filename is not None and ".py" not in _filename:
+                _filename += ".py"
+
             # Start editor with or without template
             if selected_index == 0:  # Picoware App
+                true_path = f"picoware/apps/{_filename}" if _filename else None
                 _start_editor(
-                    view_manager, _filename if _filename else None, create_template=True
+                    view_manager, true_path, create_template=True
                 )
             else:  # Python Script
                 _start_editor(

@@ -11,10 +11,21 @@ extern "C"
 {
 #endif
 
+#include <stdio.h>
 #include "py/runtime.h"
 #include "py/obj.h"
 #include "py/objarray.h"
 #include "py/mphal.h"
+
+#ifndef LOG_MESSAGE
+#define LOG_MESSAGE(...)                         \
+    do                                           \
+    {                                            \
+        char buf[256];                           \
+        snprintf(buf, sizeof(buf), __VA_ARGS__); \
+        log_message(buf);                        \
+    } while (0)
+#endif
 
     typedef enum
     {
@@ -40,6 +51,9 @@ extern "C"
     } log_mp_obj_t;
 
     extern const mp_obj_type_t log_mp_type;
+
+    bool log_message(const char *message);                         // Log a message to the REPL and/or storage based on the current mode
+    bool log_message_with_type(LogType type, const char *message); // Log a message with a specified type
 
     void log_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind);                    // print function for the Log object
     mp_obj_t log_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args); // constructor for the Log object

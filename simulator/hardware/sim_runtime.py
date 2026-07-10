@@ -417,20 +417,23 @@ def _link_app_files():
         _link_app_files_into(_compiled, target, skip_if_py_exists=True)
 
 
-def _link_app_files_into(src_dir, dst_dir, skip_if_py_exists=False):
+def _link_app_files_into(src_dir, dst_dir, skip_if_py_exists=False, include_init=False):
     """Recursively symlink .py/.mpy files from src_dir into dst_dir.
 
     When *skip_if_py_exists* is True, a .mpy file is skipped if a .py
     file with the same base name already exists (or is symlinked) in
     *dst_dir*.  This avoids duplicate app listings when both a source
-    .py and a compiled .mpy are available."""
+    .py and a compiled .mpy are available.  Package __init__.py files
+    are included below the app root so libraries remain importable."""
     mkdir_p(dst_dir)
     try:
         entries = os.listdir(src_dir)
     except OSError:
         return
     for entry in entries:
-        if entry.startswith(".") or entry == "__init__.py":
+        if entry.startswith("."):
+            continue
+        if entry == "__init__.py" and not include_init:
             continue
         src = src_dir + "/" + entry
         dst = dst_dir + "/" + entry
@@ -439,7 +442,7 @@ def _link_app_files_into(src_dir, dst_dir, skip_if_py_exists=False):
         except OSError:
             continue
         if st[0] & 0x4000:  # directory
-            _link_app_files_into(src, dst, skip_if_py_exists)
+            _link_app_files_into(src, dst, skip_if_py_exists, True)
         else:
             # Skip .mpy if .py exists
             if skip_if_py_exists and entry.endswith(".mpy"):
@@ -800,8 +803,10 @@ def run_script_file(path):
             request_game(value)
             delay = max(delay, 180)
         elif command in ("wait", "sleep", "frames"):
-            # Queue-based script version. Timed waits pass through.
-            pass
+            try:
+                delay += int(value or "1")
+            except ValueError:
+                delay += 1
         else:
             raise ValueError("Unknown script command: " + command)
 

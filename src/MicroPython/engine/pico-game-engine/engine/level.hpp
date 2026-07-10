@@ -29,9 +29,10 @@ public:
     bool has_collided(Entity *entity) const;
     bool isClearAllowed() const noexcept { return clearAllowed; }
     bool is_collision(const Entity *a, const Entity *b) const;
-    void project3DTo2D(Vector vertex, Vector player_pos, Vector player_dir, float view_height, Vector screen_size, Vector &result);
+    void project3DTo2D(const Vector &vertex, const Vector &player_pos, const Vector &player_dir, float view_height, const Vector &screen_size, Vector &result);
     virtual void render(Game *game);
-    void render3DSprite(const Sprite3D *sprite3d, Draw *draw, Vector player_pos, Vector player_dir, float view_height, bool clamp = false);
+    void render3DSprite(const Sprite3D *sprite3d, Draw *draw, const Vector &player_pos, const Vector &player_dir, float view_height, bool clamp = false);
+    void render3DSprite(const char *path, Draw *draw, const Vector &player_pos, const Vector &player_dir, float view_height, bool clamp = false, bool wireframe = true);
     void setClearAllowed(bool status) { clearAllowed = status; }
     virtual void start();
     virtual void stop();

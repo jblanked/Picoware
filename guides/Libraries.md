@@ -123,6 +123,13 @@ This section provides documentation for the libraries available in Picoware.
     - `name`: Property (r/o) — song name string.
     - `description`: Property (r/o) — song description string.
     - `notes`: Property (r/o) — list of `AudioNote` objects.
+- `AudioInfo` class: Represents audio information. Inherits from the C `audio.AudioInfo` module.
+    - `__init__()`: Initializes an empty AudioInfo object.
+    - `__str__()`: Returns `"AudioInfo(sample_rate=..., channels=..., duration=..., position=...)"`.
+    - `sample_rate`: Property (r/o) — sample rate in Hz (int).
+    - `channels`: Property (r/o) — number of audio channels (int).
+    - `duration`: Property (r/o) — duration in milliseconds (int).
+    - `position`: Property (r/o) — current playback position in milliseconds (int).
 
 #### picoware-system-auto_complete
 - `AutoComplete` class: Wraps the C `auto_complete` module to provide word completion.

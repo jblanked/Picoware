@@ -21,6 +21,7 @@ class Settings:
             "server_username": "",
             "server_password": "",
             "theme_color": 0x001F,
+            "usb_stream": False,
             "wifi_ssid": "",
             "wifi_password": "",
         }
@@ -37,6 +38,7 @@ class Settings:
                 "server_username": self.__fetch_setting("picoware/settings/server_username.json", "username", ""),
                 "server_password": self.__fetch_setting("picoware/settings/server_password.json", "password", ""),
                 "theme_color": int(self.__fetch_setting("picoware/settings/theme_color.json", "theme_color", 0x001F)),
+                "usb_stream": bool(self.__fetch_setting("picoware/settings/usb_stream.json", "usb_stream", False)),
                 "wifi_ssid": self.__fetch_setting("picoware/wifi/ssid.json", "ssid", ""),
                 "wifi_password": self.__fetch_setting("picoware/wifi/password.json", "password", ""),
             }
@@ -171,6 +173,17 @@ class Settings:
     def theme_color(self, value: int):
         """Set the theme color."""
         self._settings["theme_color"] = value
+        self.__save_settings()
+    
+    @property
+    def usb_stream(self) -> bool:
+        """Return True if USB streaming is enabled, False otherwise."""
+        return bool(self._settings.get("usb_stream", False))
+    
+    @usb_stream.setter
+    def usb_stream(self, value: bool):
+        """Set USB streaming."""
+        self._settings["usb_stream"] = value
         self.__save_settings()
     
     @property

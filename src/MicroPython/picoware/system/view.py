@@ -7,7 +7,7 @@ class View:
     - stop: function(ViewManager) - the function called when the view is destroyed
     """
 
-    __slots__ = ("name", "_run", "_start", "_stop", "active", "should_stop")
+    __slots__ = ("name", "_run", "_start", "_stop", "active")
 
     def __init__(self, name: str, run: callable, start: callable, stop: callable):
         self.name = name
@@ -15,7 +15,6 @@ class View:
         self._start = start
         self._stop = stop
         self.active = False
-        self.should_stop = False
 
     def __alert(self, exception, view_manager) -> None:
         """Display an alert message."""
@@ -29,7 +28,6 @@ class View:
 
     def start(self, view_manager) -> bool:
         """Called when the view is created."""
-        self.should_stop = False
         if self._start:
             try:
                 if self._start(view_manager):
@@ -49,18 +47,13 @@ class View:
             except Exception as e:
                 self.__alert(f"Error stopping view: {e}", view_manager)
         self.active = False
-        self.should_stop = True
 
     def run(self, view_manager):
         """Called every frame."""
-        if self.should_stop:
-            self.stop(view_manager)
-            self.should_stop = False
-        elif self._run and self.active:
+        if self._run and self.active:
             try:
                 self._run(view_manager)
             except Exception as e:
                 self.__alert(f"Error running view: {e}", view_manager)
                 self.active = False
-                self.should_stop = True
                 view_manager.back()

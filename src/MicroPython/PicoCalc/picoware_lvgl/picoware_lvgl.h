@@ -21,6 +21,11 @@ extern "C"
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include "../log/log_mp.h"
+
+#ifndef PRINT
+#define PRINT(...) LOG_MESSAGE(__VA_ARGS__)
+#endif
 
 // LVGL includes
 #include "lv_conf.h"
@@ -54,10 +59,6 @@ extern "C"
 
 #ifndef LVGL_LINE_HEIGHT
 #define LVGL_LINE_HEIGHT (LVGL_FONT_HEIGHT + LVGL_SPACING)
-#endif
-
-#ifndef PRINT
-#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
 #endif
 
 // convert uint16_t color to lv_color_t

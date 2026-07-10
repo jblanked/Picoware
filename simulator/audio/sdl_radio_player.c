@@ -3,12 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MINIMP3_IMPLEMENTATION
-#include "../../src/MicroPython/audio/minimp3/minimp3.h"
-
-#define INPUT_CAP (256 * 1024)
 #define READ_CHUNK 4096
+#define START_QUEUE_MS 500
 #define MAX_QUEUE_MS 1800
+#define RING_MS 3000
 
 typedef struct {
     int playing;
@@ -21,11 +19,70 @@ typedef struct {
     char error[128];
 } radio_state_t;
 
+typedef struct {
+    radio_state_t *state;
+    Uint8 *buf;
+    size_t cap;
+    size_t read_pos;
+    size_t write_pos;
+    size_t fill;
+} radio_audio_t;
+
+static size_t ring_space(const radio_audio_t *audio) {
+    return audio->cap > audio->fill ? audio->cap - audio->fill : 0;
+}
+
+static size_t ring_write(radio_audio_t *audio, const Uint8 *src, size_t len) {
+    size_t space = ring_space(audio);
+    if (len > space) len = space;
+    size_t first = len;
+    if (first > audio->cap - audio->write_pos) first = audio->cap - audio->write_pos;
+    memcpy(audio->buf + audio->write_pos, src, first);
+    if (len > first) memcpy(audio->buf, src + first, len - first);
+    audio->write_pos = (audio->write_pos + len) % audio->cap;
+    audio->fill += len;
+    return len;
+}
+
+static size_t ring_read(radio_audio_t *audio, Uint8 *dst, size_t len) {
+    if (len > audio->fill) len = audio->fill;
+    size_t first = len;
+    if (first > audio->cap - audio->read_pos) first = audio->cap - audio->read_pos;
+    memcpy(dst, audio->buf + audio->read_pos, first);
+    if (len > first) memcpy(dst + first, audio->buf, len - first);
+    audio->read_pos = (audio->read_pos + len) % audio->cap;
+    audio->fill -= len;
+    return len;
+}
+
+static void audio_cb(void *userdata, Uint8 *stream, int len) {
+    radio_audio_t *audio = (radio_audio_t *)userdata;
+    radio_state_t *st = audio->state;
+    memset(stream, 0, (size_t)len);
+    if (!st->playing || st->stop || !audio->buf || audio->fill == 0) {
+        return;
+    }
+    size_t got = ring_read(audio, stream, (size_t)len);
+    if (st->volume < 100) {
+        Sint16 *pcm = (Sint16 *)stream;
+        int samples = (int)(got / sizeof(Sint16));
+        for (int i = 0; i < samples; i++) {
+            pcm[i] = (Sint16)(((int)pcm[i] * st->volume) / 100);
+        }
+    }
+    st->position += (unsigned long long)(got / sizeof(Sint16));
+}
+
 static int file_exists(const char *path) {
     FILE *f = fopen(path, "rb");
     if (!f) return 0;
     fclose(f);
     return 1;
+}
+
+static int starts_with(const char *text, const char *prefix) {
+    size_t n = strlen(prefix);
+    return strncmp(text, prefix, n) == 0;
 }
 
 static char *shell_quote(const char *text) {
@@ -78,22 +135,21 @@ static int read_command(const char *path, char *buf, size_t buflen) {
     return n > 0;
 }
 
-static void apply_command(SDL_AudioDeviceID dev, radio_state_t *st, const char *cmd) {
+static void apply_command(SDL_AudioDeviceID dev, radio_state_t *st, radio_audio_t *audio, const char *cmd) {
     if (!cmd || !cmd[0]) return;
+    if (dev) SDL_LockAudioDevice(dev);
     if (strcmp(cmd, "stop") == 0) {
         st->stop = 1;
         st->playing = 0;
         strcpy(st->state, "stopped");
-        if (dev) SDL_ClearQueuedAudio(dev);
+        if (audio) audio->fill = 0;
     } else if (strcmp(cmd, "pause") == 0) {
         st->playing = 0;
         strcpy(st->state, "paused");
-        if (dev) SDL_PauseAudioDevice(dev, 1);
     } else if (strcmp(cmd, "resume") == 0) {
         if (!st->stop) {
             st->playing = 1;
             strcpy(st->state, "playing");
-            if (dev) SDL_PauseAudioDevice(dev, 0);
         }
     } else if (strncmp(cmd, "volume ", 7) == 0) {
         int vol = atoi(cmd + 7);
@@ -101,33 +157,28 @@ static void apply_command(SDL_AudioDeviceID dev, radio_state_t *st, const char *
         if (vol > 100) vol = 100;
         st->volume = vol;
     }
+    if (dev) SDL_UnlockAudioDevice(dev);
 }
 
-static void poll_command(SDL_AudioDeviceID dev, radio_state_t *st, const char *cmd_path) {
+static void poll_command(SDL_AudioDeviceID dev, radio_state_t *st, radio_audio_t *audio, const char *cmd_path) {
     char cmd[128] = "";
     if (file_exists(cmd_path) && read_command(cmd_path, cmd, sizeof(cmd))) {
-        apply_command(dev, st, cmd);
+        apply_command(dev, st, audio, cmd);
     }
 }
 
-static SDL_AudioDeviceID open_device(int hz, int channels) {
+static SDL_AudioDeviceID open_device(int hz, int channels, radio_audio_t *audio, int paused) {
     SDL_AudioSpec want;
     memset(&want, 0, sizeof(want));
     want.freq = hz;
     want.format = AUDIO_S16SYS;
     want.channels = (Uint8)channels;
     want.samples = 2048;
-    want.callback = NULL;
+    want.callback = audio_cb;
+    want.userdata = audio;
     SDL_AudioDeviceID dev = SDL_OpenAudioDevice(NULL, 0, &want, NULL, 0);
-    if (dev) SDL_PauseAudioDevice(dev, 0);
+    if (dev) SDL_PauseAudioDevice(dev, paused ? 1 : 0);
     return dev;
-}
-
-static void apply_volume(mp3d_sample_t *pcm, int count, int volume) {
-    if (volume >= 100) return;
-    for (int i = 0; i < count; i++) {
-        pcm[i] = (mp3d_sample_t)(((int)pcm[i] * volume) / 100);
-    }
 }
 
 int main(int argc, char **argv) {
@@ -163,9 +214,9 @@ int main(int argc, char **argv) {
         SDL_Quit();
         return 3;
     }
-    size_t cmd_len = strlen(quoted) + 128;
-    char *curl_cmd = (char *)malloc(cmd_len);
-    if (!curl_cmd) {
+    size_t cmd_len = strlen(quoted) + 256;
+    char *decode_cmd = (char *)malloc(cmd_len);
+    if (!decode_cmd) {
         free(quoted);
         strcpy(st.error, "out of memory");
         strcpy(st.state, "error");
@@ -173,102 +224,106 @@ int main(int argc, char **argv) {
         SDL_Quit();
         return 3;
     }
-    snprintf(curl_cmd, cmd_len, "curl -L --no-buffer --silent --show-error %s", quoted);
+    const char *reconnect_opts = (starts_with(url, "http://") || starts_with(url, "https://"))
+        ? "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 2 "
+        : "";
+    snprintf(
+        decode_cmd,
+        cmd_len,
+        "ffmpeg -hide_banner -nostdin -loglevel error %s"
+        "-i %s -vn -f s16le -acodec pcm_s16le -ar 44100 -ac 2 -",
+        reconnect_opts,
+        quoted
+    );
     free(quoted);
 
-    FILE *pipe = popen(curl_cmd, "r");
-    free(curl_cmd);
+    FILE *pipe = popen(decode_cmd, "r");
+    free(decode_cmd);
     if (!pipe) {
-        strcpy(st.error, "could not start curl");
+        strcpy(st.error, "could not start ffmpeg");
         strcpy(st.state, "error");
         write_status(status_path, &st);
         SDL_Quit();
         return 4;
     }
 
-    mp3dec_t dec;
-    mp3dec_init(&dec);
-    unsigned char *input = (unsigned char *)malloc(INPUT_CAP);
-    if (!input) {
-        strcpy(st.error, "input buffer alloc failed");
+    Uint32 bytes_per_ms = (Uint32)(st.sample_rate * st.channels * sizeof(Sint16) / 1000);
+    radio_audio_t audio;
+    memset(&audio, 0, sizeof(audio));
+    audio.state = &st;
+    audio.cap = (size_t)bytes_per_ms * RING_MS;
+    audio.buf = (Uint8 *)malloc(audio.cap);
+    if (!audio.buf) {
+        strcpy(st.error, "ring buffer alloc failed");
         strcpy(st.state, "error");
-        write_status(status_path, &st);
         pclose(pipe);
+        write_status(status_path, &st);
         SDL_Quit();
         return 5;
     }
-    size_t used = 0;
-    mp3d_sample_t pcm[MINIMP3_MAX_SAMPLES_PER_FRAME];
-    SDL_AudioDeviceID dev = 0;
+
+    SDL_AudioDeviceID dev = open_device(st.sample_rate, st.channels, &audio, 1);
+    if (!dev) {
+        snprintf(st.error, sizeof(st.error), "SDL_OpenAudioDevice: %s", SDL_GetError());
+        strcpy(st.state, "error");
+        free(audio.buf);
+        pclose(pipe);
+        write_status(status_path, &st);
+        SDL_Quit();
+        return 5;
+    }
+
+    int output_started = 0;
+    unsigned char input[READ_CHUNK];
     st.playing = 1;
-    strcpy(st.state, "startup_buffering");
+    strcpy(st.state, "buffering");
     write_status(status_path, &st);
 
     while (!st.stop) {
-        poll_command(dev, &st, cmd_path);
+        poll_command(dev, &st, &audio, cmd_path);
         if (st.stop) break;
 
-        if (dev && st.playing) {
-            Uint32 queued = SDL_GetQueuedAudioSize(dev);
-            Uint32 bytes_per_ms = (Uint32)(st.sample_rate * st.channels * sizeof(Sint16) / 1000);
-            if (bytes_per_ms && queued > bytes_per_ms * MAX_QUEUE_MS) {
-                write_status(status_path, &st);
-                SDL_Delay(25);
-                continue;
-            }
-        } else if (dev && !st.playing) {
+        SDL_LockAudioDevice(dev);
+        size_t buffered = audio.fill;
+        size_t space = ring_space(&audio);
+        SDL_UnlockAudioDevice(dev);
+
+        if (st.playing && bytes_per_ms && buffered > (size_t)bytes_per_ms * MAX_QUEUE_MS) {
+            write_status(status_path, &st);
+            SDL_Delay(20);
+            continue;
+        }
+        if (!st.playing) {
             write_status(status_path, &st);
             SDL_Delay(50);
             continue;
         }
-
-        if (used + READ_CHUNK > INPUT_CAP) {
-            size_t keep = used > 16384 ? 16384 : used;
-            memmove(input, input + used - keep, keep);
-            used = keep;
+        if (space < READ_CHUNK) {
+            write_status(status_path, &st);
+            SDL_Delay(10);
+            continue;
         }
 
-        size_t n = fread(input + used, 1, READ_CHUNK, pipe);
+        size_t n = fread(input, 1, READ_CHUNK, pipe);
         if (n == 0) {
             if (feof(pipe)) break;
             SDL_Delay(20);
             continue;
         }
-        used += n;
 
-        while (used > 0 && !st.stop) {
-            mp3dec_frame_info_t info;
-            memset(&info, 0, sizeof(info));
-            int samples = mp3dec_decode_frame(&dec, input, (int)used, pcm, &info);
-            if (info.frame_bytes == 0) break;
-            if (samples > 0 && info.hz > 0 && info.channels > 0) {
-                if (!dev) {
-                    st.sample_rate = info.hz;
-                    st.channels = info.channels;
-                    dev = open_device(st.sample_rate, st.channels);
-                    if (!dev) {
-                        snprintf(st.error, sizeof(st.error), "SDL_OpenAudioDevice: %s", SDL_GetError());
-                        strcpy(st.state, "error");
-                        st.playing = 0;
-                        st.stop = 1;
-                        break;
-                    }
-                    strcpy(st.state, "playing");
-                }
-                int total = samples * info.channels;
-                apply_volume(pcm, total, st.volume);
-                SDL_QueueAudio(dev, pcm, (Uint32)(total * sizeof(mp3d_sample_t)));
-                st.position += (unsigned long long)total;
+        SDL_LockAudioDevice(dev);
+        ring_write(&audio, input, n - (n % sizeof(Sint16)));
+        buffered = audio.fill;
+        SDL_UnlockAudioDevice(dev);
+
+        if (!output_started) {
+            if (bytes_per_ms && buffered >= (size_t)bytes_per_ms * START_QUEUE_MS) {
+                output_started = 1;
+                strcpy(st.state, "playing");
+                SDL_PauseAudioDevice(dev, 0);
             }
-            size_t consumed = (size_t)info.frame_bytes;
-            if (consumed >= used) {
-                used = 0;
-            } else {
-                memmove(input, input + consumed, used - consumed);
-                used -= consumed;
-            }
-            poll_command(dev, &st, cmd_path);
         }
+        poll_command(dev, &st, &audio, cmd_path);
         write_status(status_path, &st);
     }
 
@@ -276,15 +331,34 @@ int main(int argc, char **argv) {
     if (!st.error[0] && !st.stop) strcpy(st.state, "eof");
     write_status(status_path, &st);
     if (dev) {
-        while (!st.stop && SDL_GetQueuedAudioSize(dev) > 0) {
-            poll_command(dev, &st, cmd_path);
+        SDL_LockAudioDevice(dev);
+        size_t buffered = audio.fill;
+        SDL_UnlockAudioDevice(dev);
+        if (!output_started && buffered > 0) {
+            output_started = 1;
+            strcpy(st.state, "playing");
+            st.playing = 1;
+            SDL_PauseAudioDevice(dev, 0);
+        }
+        while (!st.stop) {
+            SDL_LockAudioDevice(dev);
+            buffered = audio.fill;
+            SDL_UnlockAudioDevice(dev);
+            if (!buffered) break;
+            poll_command(dev, &st, &audio, cmd_path);
             write_status(status_path, &st);
             SDL_Delay(50);
         }
+        st.playing = 0;
         SDL_CloseAudioDevice(dev);
     }
-    free(input);
-    pclose(pipe);
+    free(audio.buf);
+    int pipe_status = pclose(pipe);
+    if (!st.stop && !st.error[0] && st.position == 0) {
+        snprintf(st.error, sizeof(st.error), "ffmpeg produced no audio: %d", pipe_status);
+        strcpy(st.state, "error");
+        write_status(status_path, &st);
+    }
     SDL_Quit();
     return st.error[0] ? 6 : 0;
 }

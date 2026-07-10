@@ -11,10 +11,6 @@ Source: https://github.com/jblanked/Picoware
 #include "py/mphal.h"
 #include "lcd_config.h"
 
-#ifndef STATIC
-#define STATIC static
-#endif
-
 typedef struct
 {
     mp_obj_base_t base;
@@ -26,6 +22,8 @@ typedef struct
     bool scale_set;
     bool scale_position;
 } lcd_mp_obj_t;
+
+void lcd_mp_set_usb_video_callback(bool (*cb)(void)); // Register USB video stream callback, NULL to disable
 
 void lcd_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind);                    // print function for the LCD object
 mp_obj_t lcd_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args); // constructor for the LCD object

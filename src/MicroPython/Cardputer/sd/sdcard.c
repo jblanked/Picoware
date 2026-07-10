@@ -2,6 +2,7 @@
 
 #include "board_config.h"
 #include "sdcard_vfs_bridge.h"
+#include "extmod/modmachine.h"
 #include "extmod/vfs.h"
 #include "modmachine.h"
 #include "py/runtime.h"
@@ -10,8 +11,10 @@
 #include <errno.h>
 #include <stdio.h>
 
+#include "../../log/log_mp.h"
+
 #ifndef PRINT
-#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
+#define PRINT(...) LOG_MESSAGE(__VA_ARGS__)
 #endif
 
 #define SDCARD_MOUNT_POINT "/sdcard"

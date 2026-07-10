@@ -203,7 +203,7 @@ def run(view_manager) -> None:
     elif _state == STATE_DOWNLOADING:
         if not _http.is_request_complete():
             if _loading:
-                _loading.animate()
+                _loading.animate(http=_http)
             return
 
         # Current asset download complete — start the next one

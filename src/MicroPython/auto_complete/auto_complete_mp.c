@@ -45,7 +45,7 @@ mp_obj_t auto_complete_mp_make_new(const mp_obj_type_t *type, size_t n_args, siz
 mp_obj_t auto_complete_mp_del(mp_obj_t self_in)
 {
     auto_complete_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (!self->freed)
+    if (self && !self->freed)
     {
         auto_complete_free(&self->context);
         self->freed = true;

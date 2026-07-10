@@ -1,14 +1,11 @@
 # Picoware MicroPython Simulator
-
-Run Picoware on your desktop. The simulator uses a native SDL2 window for
-display and input, while Picoware itself runs inside MicroPython.
+Run Picoware on your desktop. The simulator uses a native SDL2 window for display and input, while Picoware itself runs inside MicroPython.
 
 ## Features
-
 - Full Picoware UI with framebuffer and keyboard input
 - Scripted/viewer touch input for supported touch-board profiles
 - Real network access via host DNS/TCP/TLS (or `--network offline` for fixtures)
-- Audio playback for WAV/MP3 files and HTTP radio streams
+- Audio playback for WAV/MP3 files and HTTP MP3 radio streams
 - Simulated SD card at `simulator/sdcard` (auto-seeded on first run)
 - Headless mode for automated testing (`--headless`)
 
@@ -17,20 +14,20 @@ display and input, while Picoware itself runs inside MicroPython.
 ### macOS
 
 ```sh
-brew install micropython sdl2
+brew install micropython sdl2 ffmpeg
 ```
 
 ### Linux
 
 ```sh
 # Debian / Ubuntu
-sudo apt install micropython libsdl2-dev
+sudo apt install micropython libsdl2-dev ffmpeg
 
 # Fedora
-sudo dnf install micropython SDL2-devel
+sudo dnf install micropython SDL2-devel ffmpeg
 
 # Arch
-sudo pacman -S micropython sdl2
+sudo pacman -S micropython sdl2 ffmpeg
 ```
 
 ### Windows
@@ -86,6 +83,12 @@ micropython run.py --viewer --apps-source /path/to/apps
 
 # Run as a touch board
 micropython run.py --viewer --board waveshare-1.43-rp2350
+
+# Capture a screenshot at exit
+micropython run.py --headless --frames 120 --screenshot /tmp/picoware.bmp
+
+# Record simulator framebuffer frames
+micropython run.py --viewer --record /tmp/picoware.frames
 ```
 
 Useful board names include `picocalc-pico2w`, `waveshare-1.28-rp2350`,
@@ -124,6 +127,10 @@ battery 42
 controller. `battery N` sets the battery percentage reported by simulator board
 shims.
 
+`wait`, `sleep`, or `frames` in a script delays later queued input. This is useful
+when launching directly into an app and waiting for lazy imports or loading
+screens before sending keys.
+
 ### Rebuilding
 
 Native binaries are built automatically on first use. To rebuild manually:
@@ -133,13 +140,11 @@ cd simulator
 
 ./build.sh --force    # rebuild all
 ./build.sh --clean    # remove binaries
+./build.sh --check    # report missing/stale binaries without rebuilding
 ./build.sh viewer     # rebuild only the viewer
+./build.sh audio      # rebuild local audio and radio helpers
+./build.sh audio-player
+./build.sh radio-player
+./build.sh jpeg
 ./build.sh gameboy    # rebuild only the Game Boy helper
 ```
-
-## Notes
-- HTTP radio supports MP3 streams only.
-- GameBoy is playable when the native helper builds successfully.
-- Ghouls uses a deterministic simulator scene unless a native sidecar is added.
-- Bluetooth and USB are virtual simulator models; they do not attach to the
-  host Bluetooth radio or create a host USB HID device.

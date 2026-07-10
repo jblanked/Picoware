@@ -65,11 +65,14 @@ You can test your application in the Thonny IDE by simulating the `view_manager`
 # add this at the bottom of your app for testing
 from picoware.system.view_manager import ViewManager
 from picoware.system.view import View
+from picoware.system.app_loader import AppLoader
 
 vm = None
 
 try:
     vm = ViewManager()
+    loader = AppLoader(vm)
+    loader.load_module("/picoware/apps")
     vm.add(
         View(
             "app_tester",
@@ -81,8 +84,6 @@ try:
     vm.switch_to("app_tester")
     while True:
         vm.run()
-except Exception as e:
-    print("Error during testing:", e)
 finally:
     del vm
     vm = None

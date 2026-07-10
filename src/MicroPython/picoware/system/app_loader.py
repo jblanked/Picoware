@@ -84,6 +84,43 @@ class AppLoader:
         """List all loaded apps"""
         return list(self.loaded_apps.keys())
 
+    def load_module(self, module_path: str) -> bool:
+        """
+        Mount the SD card and add a VFS path to sys.path so modules can be
+        imported directly with a bare ``import`` statement. Useful for testing
+        in Thonny or when you need to manually import from a specific location.
+
+        Args:
+            module_path: Path relative to the VFS root, e.g. ``"/picoware/apps"``
+                or ``"/picoware/apps/games"``.
+
+        Returns:
+            True if the path was successfully added to ``sys.path``, False otherwise.
+        """
+        try:
+            storage = self.view_manager.storage
+            storage.mount()
+
+            if not storage.vfs_mounted:
+                self.view_manager.log("[AppLoader]: VFS not mounted, cannot add path", 2)
+                return False
+
+            full_path = f"{storage.vfs_prefix}{module_path}"
+
+            if full_path not in sys.path:
+                sys.path.append(full_path)
+
+            self.view_manager.log(
+                f"[AppLoader]: Added {full_path} to sys.path, free memory: {mem_free()} bytes"
+            )
+            return True
+
+        except Exception as e:
+            self.view_manager.log(
+                f"[AppLoader]: Error adding path {module_path}: {type(e).__name__}: {e}", 2
+            )
+            return False
+
     def load_app(self, app_name, subdirectory=""):
         """
         Load an app module dynamically

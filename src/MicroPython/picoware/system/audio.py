@@ -61,3 +61,14 @@ class AudioSong(audio.AudioSong):
         - notes: Tuple of AudioNote objects representing the notes in the song
         - description: Optional description of the song
     """
+
+class AudioInfo(audio.AudioInfo):
+    """
+    Class to represent audio information
+
+    Attributes:
+        - sample_rate: Sample rate of the audio in Hz
+        - channels: Number of audio channels
+        - duration: Duration of the audio in milliseconds
+        - position: Current playback position in milliseconds
+    """

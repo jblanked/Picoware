@@ -28,19 +28,19 @@ class Loading:
         self.time_start = 0
         self.animating = False
         self.current_text = "Loading..."
-        self.radius = 20  # spinner radius
+        self.radius = draw.scale_x(20)  # spinner radius
         self.span = 280  # degrees of arc
         self.step = 5  # degrees between segments (280/5 = 56 segments)
         self.vec_line = Vector(0, 0)
         self.vec_line_end = Vector(0, 0)
         self.text_vec = Vector(0, int(draw.size.y * 0.0625))
-        self.text_vec_2 = Vector(0, draw.size.y - 15)
+        self.text_vec_2 = Vector(0, draw.size.y - draw.scale_y(15))
         self.rad = (3.14159265358979323846) / 180.0
-
+        self.twenty_y = draw.scale_y(20)
         self.font_size_x = self.display.font_size.x
 
         # Calculate centered text position
-        text_width = len(self.current_text) * self.font_size_x
+        text_width = self.display.len(self.current_text)
         self.text_vec.x = (self.display.size.x - text_width) // 2
 
         self.use_lvgl = draw.use_lvgl
@@ -85,7 +85,7 @@ class Loading:
         self.text_vec_2 = None
         self.rad = 0.0
         self.font_size_x = 0
-
+    
     @property
     def text(self) -> str:
         """Get the current loading text."""
@@ -104,10 +104,10 @@ class Loading:
             return
 
         # Calculate centered text position
-        text_width = len(self.current_text) * self.font_size_x
+        text_width = self.display.len(self.current_text)
         self.text_vec.x = (self.display.size.x - text_width) // 2
 
-    def animate(self, swap: bool = True) -> None:
+    def animate(self, swap: bool = True, http=None) -> None:
         """Animate the loading spinner."""
         if self.use_lvgl and self._lvgl_loading is not None:
             from picoware_lvgl import tick, task_handler
@@ -156,6 +156,17 @@ class Loading:
             self.spinner_color,
         )
 
+        if http is not None:
+            # Draw download text below the main text
+            _download_text = f"{http.downloaded_bytes / 1024:.1f} KB downloaded at {http.download_speed / 1024:.1f} KB/s"
+            download_text_x = (screen_size.x - self.display.len(_download_text)) // 2
+            self.display._text(
+                download_text_x,
+                self.text_vec.y + self.twenty_y,
+                _download_text,
+                self.spinner_color,
+            )
+
         # draw time elapsed in seconds
         time_str = ""
         seconds = self.time_elapsed / 1000
@@ -164,7 +175,7 @@ class Loading:
                 time_str = f"{int(seconds)} second"
             else:
                 time_str = f"{int(seconds)} seconds"
-            self.text_vec_2.x = (screen_size.x - len(time_str) * self.font_size_x) // 2
+            self.text_vec_2.x = (screen_size.x - self.display.len(time_str)) // 2
             self.display._text(
                 self.text_vec_2.x, self.text_vec_2.y, time_str, self.spinner_color
             )
@@ -172,7 +183,7 @@ class Loading:
             minutes = seconds / 60
             remaining_seconds = seconds % 60
             time_str = f"{int(minutes)}:{int(remaining_seconds):02} minutes"
-            self.text_vec_2.x = (screen_size.x - len(time_str) * self.font_size_x) // 2
+            self.text_vec_2.x = (screen_size.x - self.display.len(time_str)) // 2
             self.display._text(
                 self.text_vec_2.x, self.text_vec_2.y, time_str, self.spinner_color
             )
@@ -205,7 +216,7 @@ class Loading:
             return
 
         # Calculate centered text position
-        text_width = len(self.current_text) * self.font_size_x
+        text_width = self.display.len(self.current_text)
         self.text_vec.x = (self.display.size.x - text_width) // 2
 
     def stop(self) -> None:

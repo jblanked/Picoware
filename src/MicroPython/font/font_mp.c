@@ -203,11 +203,7 @@ void font_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t ki
 }
 mp_obj_t font_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
-#if defined(CARDPUTER) || defined(CROWPANEL_10_1)
-  font_mp_obj_t *self = mp_obj_malloc(font_mp_obj_t, &font_mp_type);
-#else
   font_mp_obj_t *self = mp_obj_malloc_with_finaliser(font_mp_obj_t, &font_mp_type);
-#endif
   self->base.type = &font_mp_type;
   self->initialized = true;
   return MP_OBJ_FROM_PTR(self);
@@ -216,6 +212,8 @@ mp_obj_t font_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw,
 mp_obj_t font_mp_del(mp_obj_t self_in)
 {
   font_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+  if (!self)
+    return mp_const_none;
   self->initialized = false; // Mark the font as uninitialized
   return mp_const_none;
 }
@@ -316,10 +314,13 @@ mp_obj_t font_size_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t 
 mp_obj_t font_size_mp_del(mp_obj_t self_in)
 {
   font_size_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-  self->size = FONT_DEFAULT;
-  self->width = 0;
-  self->height = 0;
-  self->spacing = 0;
+  if (self)
+  {
+    self->size = FONT_DEFAULT;
+    self->width = 0;
+    self->height = 0;
+    self->spacing = 0;
+  }
   return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(font_size_mp_del_obj, font_size_mp_del);

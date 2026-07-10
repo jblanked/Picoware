@@ -78,8 +78,14 @@ rm -rf "$micropython_dir"/modules/jsmn
 # remove http module if it exists
 rm -rf "$micropython_dir"/modules/http
 
+# remove usb_video module if it exists
+rm -rf "$micropython_dir"/modules/usb_video
+
 # remove websocket module if it exists
 rm -rf "$micropython_dir"/modules/websocket
+
+# remove mjs module if it exists
+rm -rf "$micropython_dir"/modules/mjs
 
 # Clean previous builds
 echo "Cleaning previous builds..."
@@ -159,8 +165,14 @@ cp -r "$picoware_dir"/src/MicroPython/jsmn "$micropython_dir"/modules/jsmn
 # copy http module
 cp -r "$picoware_dir"/src/MicroPython/http "$micropython_dir"/modules/http
 
+# copy usb_video module
+cp -r "$picoware_dir"/src/MicroPython/usb_video "$micropython_dir"/modules/usb_video
+
 # copy websocket module
 cp -r "$picoware_dir"/src/MicroPython/websocket "$micropython_dir"/modules/websocket
+
+# copy mjs module
+cp -r "$picoware_dir"/src/MicroPython/mjs "$micropython_dir"/modules/mjs
 
 echo "Starting PicoCalc build process..."
 
@@ -168,6 +180,6 @@ echo "Starting PicoCalc build process..."
 cd "$micropython_dir"
 
 # PicoCalc - Pico W
-make -j BOARD=RPI_PICO_W USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake MICROPY_HW_FLASH_STORAGE_BYTES=442368 CFLAGS_EXTRA="-DPICOCALC"
+make -j BOARD=RPI_PICO_W USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake MICROPY_HW_FLASH_STORAGE_BYTES=319488 CFLAGS_EXTRA="-DPICOCALC"
 cp "$micropython_dir"/build-RPI_PICO_W/firmware.uf2 "$picoware_dir"/builds/MicroPython/Picoware-PicoCalcPicoW.uf2
 echo "PicoCalc - Pico W build complete."

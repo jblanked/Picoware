@@ -22,7 +22,9 @@ Open-source custom firmware for PicoCalc, Cardputer ADV, Video Game Module, and 
 - Social Media Network (connected with Flipper Zero users)
 - AutoComplete for keyboard input
 - PSRAM support (PicoCalc)
-- Desktop Simulator (runs Picoware on Windows/Mac/Linux with SDL2)
+- Desktop Simulator (runs Picoware on Mac/Linux with SDL2)
+- USB Video Stream (stream Picoware display to your computer)
+- Javascript support (run JS code in Picoware's MicroPython environment)
 
 ### Installation
 Follow the instructions in the [Installation Guide](./guides/Installation.md) to install Picoware on your device.

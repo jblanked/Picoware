@@ -11,10 +11,6 @@ static uint8_t g_key_queue[CARDPUTER_KEYBOARD_QUEUE_SIZE];
 static uint8_t g_key_head = 0;
 static uint8_t g_key_tail = 0;
 
-#ifndef PRINT
-#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
-#endif
-
 static bool cardputer_keyboard_queue_empty(void)
 {
     return g_key_head == g_key_tail;

@@ -224,9 +224,9 @@ if factory_size is None:
     print("ERROR: partitions.csv is missing a factory app partition.", file=sys.stderr)
     sys.exit(1)
 
-if max_end != 0x800000:
+if max_end != 0x2000000:
     print(
-        f"ERROR: partitions.csv ends at 0x{max_end:X}; expected 0x800000 for full 8MB flash.",
+        f"ERROR: partitions.csv ends at 0x{max_end:X}; expected 0x2000000 for full 32MB flash.",
         file=sys.stderr,
     )
     sys.exit(1)
@@ -306,20 +306,20 @@ make BOARD=ESP32_GENERIC_S3 \
     clean
 
 effective_sdkconfig="$build_dir/sdkconfig"
-if ! grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y$' "$micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board" \
+if ! grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE_32MB=y$' "$micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board" \
     || ! grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"$' "$micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board" \
     || ! grep -q '^CONFIG_SPIRAM_USE_MALLOC=y$' "$micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board"; then
     echo "ERROR: Cardputer sdkconfig defaults are missing expected flash/partition settings."
-    echo "Expected CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y, CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions.csv\", and CONFIG_SPIRAM_USE_MALLOC=y in $micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board"
+    echo "Expected CONFIG_ESPTOOLPY_FLASHSIZE_32MB=y, CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions.csv\", and CONFIG_SPIRAM_USE_MALLOC=y in $micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board"
     exit 1
 fi
 
 if [ -f "$effective_sdkconfig" ]; then
-    if ! grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y$' "$effective_sdkconfig" \
+    if ! grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE_32MB=y$' "$effective_sdkconfig" \
         || ! grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"$' "$effective_sdkconfig" \
         || ! grep -q '^CONFIG_SPIRAM_USE_MALLOC=y$' "$effective_sdkconfig"; then
         echo "ERROR: Cardputer flash/partition overrides were not applied."
-        echo "Expected CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y, CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions.csv\", and CONFIG_SPIRAM_USE_MALLOC=y in $effective_sdkconfig"
+        echo "Expected CONFIG_ESPTOOLPY_FLASHSIZE_32MB=y, CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions.csv\", and CONFIG_SPIRAM_USE_MALLOC=y in $effective_sdkconfig"
         echo "Current effective values:"
         grep -E 'CONFIG_ESPTOOLPY_FLASHSIZE|CONFIG_PARTITION_TABLE_CUSTOM_FILENAME|CONFIG_PARTITION_TABLE_FILENAME|CONFIG_SPIRAM_USE_MALLOC' "$effective_sdkconfig" || true
         exit 1

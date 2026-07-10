@@ -171,7 +171,7 @@ esptool_args+=(
     --after hard_reset
     write_flash
     --flash_mode dio
-    --flash_size 8MB
+    --flash_size 32MB
     --flash_freq 80m
     0x0 "$bootloader_bin"
     0x8000 "$partition_bin"
@@ -190,7 +190,7 @@ if [ "$do_verify" -eq 1 ]; then
         -b "$baud"
         verify_flash
         --flash_mode dio
-        --flash_size 8MB
+        --flash_size 32MB
         --flash_freq 80m
         0x0 "$bootloader_bin"
         0x8000 "$partition_bin"

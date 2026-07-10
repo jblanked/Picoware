@@ -148,7 +148,8 @@ void picoware_lvgl_alert_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destin
             destination[0] = MP_OBJ_FROM_PTR(&picoware_lvgl_alert_del_obj);
             break;
         default:
-            return; // Fail
+            destination[1] = MP_OBJ_SENTINEL;
+            return;
         };
     }
     else if (destination[1] != MP_OBJ_NULL)

@@ -132,7 +132,8 @@ void mjs_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
             destination[0] = MP_OBJ_FROM_PTR(&mjs_mp_del_obj);
             break;
         default:
-            return; // Fail
+            destination[1] = MP_OBJ_SENTINEL;
+            return;
         };
     }
 }

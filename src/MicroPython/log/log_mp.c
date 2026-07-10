@@ -178,7 +178,8 @@ void log_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
             destination[0] = MP_OBJ_FROM_PTR(&log_mp_del_obj);
             break;
         default:
-            return; // Fail
+            destination[1] = MP_OBJ_SENTINEL;
+            return;
         };
     }
     else if (destination[1] != MP_OBJ_NULL)

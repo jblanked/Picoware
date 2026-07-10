@@ -1,10 +1,7 @@
 # Picoware MicroPython Simulator
-
-Run Picoware on your desktop. The simulator uses a native SDL2 window for
-display and input, while Picoware itself runs inside MicroPython.
+Run Picoware on your desktop. The simulator uses a native SDL2 window for display and input, while Picoware itself runs inside MicroPython.
 
 ## Features
-
 - Full Picoware UI with framebuffer and keyboard input
 - Scripted/viewer touch input for supported touch-board profiles
 - Real network access via host DNS/TCP/TLS (or `--network offline` for fixtures)
@@ -134,23 +131,6 @@ shims.
 when launching directly into an app and waiting for lazy imports or loading
 screens before sending keys.
 
-### Audio and radio
-
-The simulator has two native audio sidecars:
-
-- `audio-player`: local WAV/MP3 playback with seek/pause/resume support
-- `radio-player`: HTTP radio playback for VibesMP/web-radio testing
-
-Local MP3 playback is decoded by the simulator helper. HTTP radio playback is
-decoded by host `ffmpeg` into 44.1 kHz stereo PCM and then played through SDL
-with a callback ring buffer. Because of that, `ffmpeg` is a required host
-dependency for simulator web radio even though it is not needed on the Pico.
-
-Radio testing is meant to stay close to the device constraints: use plain
-`http://` MP3 streams when possible. AAC, HTTPS-heavy streams, ICY metadata, and
-recording features may work on desktop tools but are not treated as Pico 2W
-parity targets.
-
 ### Rebuilding
 
 Native binaries are built automatically on first use. To rebuild manually:
@@ -168,12 +148,3 @@ cd simulator
 ./build.sh jpeg
 ./build.sh gameboy    # rebuild only the Game Boy helper
 ```
-
-## Notes
-- VibesMP HTTP radio support is intended for MP3 streams only.
-- Simulator web radio requires host `ffmpeg`; if radio starts and immediately
-  stops, confirm `ffmpeg` is installed and visible in `PATH`.
-- GameBoy is playable when the native helper builds successfully.
-- Ghouls uses a deterministic simulator scene unless a native sidecar is added.
-- Bluetooth and USB are virtual simulator models; they do not attach to the
-  host Bluetooth radio or create a host USB HID device.

@@ -534,7 +534,7 @@ class ViewManager:
                 )
         return None
 
-    def log(self, message: str, log_type: int = 3) -> bool:
+    def log(self, message: str, log_type: int = -1) -> bool:
         """
         Log a message with an optional log type.
 

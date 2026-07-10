@@ -60,6 +60,8 @@ Projectile::~Projectile()
 
 void Projectile::collision(Entity *other, Game *game)
 {
+    if (!inMotion)
+        return;
     switch (other->type)
     {
     case ENTITY_PLAYER:
@@ -213,6 +215,11 @@ void Projectile::setDamage(float damage)
 void Projectile::setMotion(bool inMotion)
 {
     this->inMotion = inMotion;
+    if (inMotion)
+    {
+        collisionCount = 0;
+        is_visible = true;
+    }
 }
 
 void Projectile::setProjectileType(ProjectileType type)
@@ -232,7 +239,6 @@ void Projectile::update(Game *game)
     {
         if (hitTimer > 0 && --hitTimer == 0)
         {
-            is_active = false;
             is_visible = false;
         }
         return;
@@ -254,7 +260,6 @@ void Projectile::update(Game *game)
     {
         this->position_set(-100, -100);
         inMotion = false;
-        is_active = false;
         is_visible = false;
         return;
     }
@@ -264,7 +269,6 @@ void Projectile::update(Game *game)
     {
         this->position_set(-100, -100);
         inMotion = false;
-        is_active = false;
         is_visible = false;
         return;
     }
@@ -276,7 +280,6 @@ void Projectile::update(Game *game)
     {
         this->position_set(-100, -100);
         inMotion = false;
-        is_active = false;
         is_visible = false;
         return;
     }

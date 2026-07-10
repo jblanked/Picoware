@@ -98,18 +98,28 @@ bool Weapon::canFire() const
 
 bool Weapon::fire(Level *level)
 {
-    if (!level || !canFire() || currentProjectile)
+    if (!level || !canFire())
     {
         return false;
     }
-    // create and add projectile to level
-    currentProjectile = ENGINE_MEM_NEW Projectile(projectileType);
+    // don't fire if a projectile is already in flight
+    if (currentProjectile && currentProjectile->isInMotion())
+    {
+        return false;
+    }
+    // create projectile on first fire
     if (!currentProjectile)
     {
-        ENGINE_LOG_INFO("[Weapon:fire] Failed to create projectile for weapon: %s\n", name);
-        return false;
+        currentProjectile = ENGINE_MEM_NEW Projectile(projectileType);
+        if (!currentProjectile)
+        {
+            ENGINE_LOG_INFO("[Weapon:fire] Failed to create projectile for weapon: %s\n", name);
+            return false;
+        }
+        currentProjectile->setDamage(damage);
+        level->entity_add(currentProjectile);
     }
-    currentProjectile->setDamage(damage);
+
     currentProjectile->direction = this->direction;
     currentProjectile->start_position = this->position;
     currentProjectile->position = this->position;
@@ -119,7 +129,6 @@ bool Weapon::fire(Level *level)
         currentProjectile->update3DSpritePosition();
         currentProjectile->set3DSpriteRotation(this->sprite_rotation);
     }
-    level->entity_add(currentProjectile);
     ammo--;
     return true;
 }
@@ -240,9 +249,5 @@ void Weapon::update(Game *game)
             float rotation_angle = atan2f(direction.y, direction.x) + M_PI_2;
             set3DSpriteRotation(rotation_angle);
         }
-    }
-    else if (currentProjectile && !currentProjectile->is_active)
-    {
-        currentProjectile = nullptr;
     }
 }

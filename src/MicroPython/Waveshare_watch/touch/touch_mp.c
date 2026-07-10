@@ -62,6 +62,24 @@ STATIC mp_obj_t touch_mp_make_new(const mp_obj_type_t *type, size_t n_args, size
     return MP_OBJ_FROM_PTR(self);
 }
 
+STATIC mp_obj_t touch_mp_read(mp_obj_t self_in)
+{
+    touch_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (!touch_read())
+    {
+        PRINT("Failed to read touch data\n");
+        return mp_obj_new_bool(false);
+    }
+    TouchPoint point = touch_get_point();
+    self->x = point.x;
+    self->y = point.y;
+    self->strength = point.strength;
+    self->touch_count = point.touch_count;
+    self->pressed = point.pressed;
+    return mp_obj_new_bool(self->pressed);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(touch_mp_read_obj, touch_mp_read);
+
 STATIC mp_obj_t touch_mp_del(mp_obj_t self_in)
 {
     touch_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -96,6 +114,11 @@ STATIC void touch_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destinatio
         else if (attribute == MP_QSTR_pressed)
         {
             destination[0] = mp_obj_new_bool(self->pressed);
+        }
+        else if (attribute == MP_QSTR_read)
+        {
+            destination[0] = MP_OBJ_FROM_PTR(&touch_mp_read_obj);
+            destination[1] = self_in;   // binds it as touch.read() rather than Touch.read(touch)
         }
         else if (attribute == MP_QSTR___del__)
         {
@@ -132,24 +155,6 @@ STATIC void touch_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destinatio
         }
     }
 }
-
-STATIC mp_obj_t touch_mp_read(mp_obj_t self_in)
-{
-    touch_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (!touch_read())
-    {
-        PRINT("Failed to read touch data\n");
-        return mp_obj_new_bool(false);
-    }
-    TouchPoint point = touch_get_point();
-    self->x = point.x;
-    self->y = point.y;
-    self->strength = point.strength;
-    self->touch_count = point.touch_count;
-    self->pressed = point.pressed;
-    return mp_obj_new_bool(self->pressed);
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(touch_mp_read_obj, touch_mp_read);
 
 STATIC const mp_rom_map_elem_t touch_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_read), MP_ROM_PTR(&touch_mp_read_obj)},

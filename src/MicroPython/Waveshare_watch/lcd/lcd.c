@@ -268,7 +268,7 @@ static esp_err_t display_init(void)
 
     lcd_set_font(FONT_DEFAULT);
     lcd_init_palette();
-    lcd_fill(0xf800);
+    lcd_fill(0x0000);
 
     err = lcd_swap_internal();
     if (err != ESP_OK)

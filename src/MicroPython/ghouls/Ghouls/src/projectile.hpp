@@ -18,6 +18,7 @@ public:
     ~Projectile();
     void collision(Entity *other, Game *game) override;
     Entity *getEnemy(Game *game, uint8_t shift = 0) const; // Helper to get an enemy entity from the game
+    bool isInMotion() const { return inMotion; }           // Check if the projectile is currently in motion
     Entity *getPlayer(Game *game) const;                   // Helper to get player entity from the game
     void render(Draw *draw, Game *game) override;          // Draw hit flash when active
     void setDamage(float damage);                          // Set the damage this projectile will deal on collision

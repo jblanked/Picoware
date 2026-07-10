@@ -7,7 +7,7 @@
 #include "../log/log_mp.h"
 
 #ifndef PRINT
-#define PRINT(...) LOG_MESSAGE(__VA_ARGS__)
+#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
 #endif
 
 #include "audio.h"

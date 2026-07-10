@@ -12,6 +12,7 @@
 #include "storage.h"
 #include "system.h"
 #include "time.h"
+#include "uart.h"
 #include "wifi.h"
 
 typedef enum
@@ -26,10 +27,11 @@ typedef enum
     LIB_MODULE_STORAGE,
     LIB_MODULE_SYSTEM,
     LIB_MODULE_TIME,
+    LIB_MODULE_UART,
     LIB_MODULE_WIFI,
 } lib_module_t;
 
-#define LIB_MODULE_COUNT 10
+#define LIB_MODULE_COUNT 11
 
 void lib_load_module(struct mjs *mjs);
 lib_module_t lib_module_from_str(const char *str);

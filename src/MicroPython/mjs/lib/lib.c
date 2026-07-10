@@ -65,6 +65,10 @@ void lib_load_module(struct mjs *mjs)
         time_create(mjs, &object);
         is_module_loaded = true;
         break;
+    case LIB_MODULE_UART:
+        uart_create(mjs, &object);
+        is_module_loaded = true;
+        break;
     case LIB_MODULE_WIFI:
         wifi_create(mjs, &object);
         is_module_loaded = true;
@@ -121,6 +125,10 @@ lib_module_t lib_module_from_str(const char *str)
     {
         return LIB_MODULE_TIME;
     }
+    else if (strcmp(str, "uart") == 0)
+    {
+        return LIB_MODULE_UART;
+    }
     else if (strcmp(str, "wifi") == 0)
     {
         return LIB_MODULE_WIFI;
@@ -155,6 +163,10 @@ void lib_unload_modules()
         else if (lib_loaded_modules[i] == LIB_MODULE_SYSTEM)
         {
             system_destroy();
+        }
+        else if (lib_loaded_modules[i] == LIB_MODULE_UART)
+        {
+            uart_destroy();
         }
         else if (lib_loaded_modules[i] == LIB_MODULE_WIFI)
         {

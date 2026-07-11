@@ -12,12 +12,55 @@ def _perf_set(library, name, value):
     if counters is not None:
         counters[name] = value
 
+def _normalize_scan_path(path):
+    if not path:
+        return ""
+    path = str(path).replace("\\", "/").strip()
+    while "//" in path:
+        path = path.replace("//", "/")
+    if path in ("/", "/sd", "/sd/", "/sdcard", "/sdcard/"):
+        return ""
+    if path.startswith("/sd/"):
+        path = path[4:]
+    elif path.startswith("/sdcard/"):
+        path = path[8:]
+    elif path.startswith("/"):
+        path = path[1:]
+    if path.startswith("sd/"):
+        path = path[3:]
+    elif path.startswith("sdcard/"):
+        path = path[7:]
+    return path.strip("/")
+
+def _scan_skip_dir(path):
+    path = _normalize_scan_path(path)
+    if not path:
+        return False
+    parts = path.split("/")
+    name = parts[-1]
+    if name.startswith(".") or name in ("__pycache__", "System Volume Information"):
+        return True
+    if len(parts) == 1 and name in ("sd", "sdcard"):
+        return True
+    skip_prefixes = (
+        "picoware/apps",
+        "picoware/vibesmp",
+        "picoware/settings",
+        "picoware/wifi",
+        "picoware/bluetooth",
+        "picoware/keyboard",
+    )
+    for prefix in skip_prefixes:
+        if path == prefix or path.startswith(prefix + "/"):
+            return True
+    return False
+
 def scan(library, path=None, loading=None, progress_callback=None, quick=False, remove_missing=False):
     from gc import collect
     import time
     collect()
     start = time.ticks_ms()
-    scan_path = ""
+    scan_path = _normalize_scan_path(path)
     print(f"[DEBUG] library: scanning SD root")
     old_tracks = [library._normalize_track_path(p) for p in getattr(library, "tracks", [])]
     old_set = set(old_tracks)
@@ -88,11 +131,15 @@ def scan(library, path=None, loading=None, progress_callback=None, quick=False, 
 
 def _recursive_scan(library, start_path, loading=None, progress_callback=None, found=None, old_set=None, added=None, quick=False):
     from gc import collect
-    stack = [start_path]
-    skip_dirs = ("__pycache__", ".git", "System Volume Information", "picoware/apps/vibesmp_lib")
+    stack = [_normalize_scan_path(start_path)]
+    visited_dirs = set()
+    found_set = set()
 
     while stack:
-        path = stack.pop()
+        path = _normalize_scan_path(stack.pop())
+        if path in visited_dirs or _scan_skip_dir(path):
+            continue
+        visited_dirs.add(path)
         library._scan_dirs += 1
         library._scan_last_path = path
         if progress_callback: progress_callback(path, library._count)
@@ -104,23 +151,29 @@ def _recursive_scan(library, start_path, loading=None, progress_callback=None, f
             for entry in entries:
                 if loading: loading.animate()
                 item = entry.get("filename")
-                if not item or item.startswith(".") or item in skip_dirs:
+                if not item or item.startswith("."):
                     continue
 
                 if not path:
                     full_path = item
                 else:
                     full_path = path.rstrip("/") + "/" + item
+                full_path = _normalize_scan_path(full_path)
 
                 if entry.get("is_directory"):
-                    if full_path not in skip_dirs:
+                    if not _scan_skip_dir(full_path):
                         stack.append(full_path)
                 elif item.lower().endswith(".mp3"):
+                    if _scan_skip_dir(path):
+                        continue
+                    save_path = "/sd/" + full_path
+                    if save_path in found_set:
+                        continue
+                    found_set.add(save_path)
                     library._count += 1
                     library._scan_last_path = full_path
                     if progress_callback: progress_callback(full_path, library._count)
 
-                    save_path = "/sd/" + full_path
                     if found is not None:
                         found.append(save_path)
                     if quick:

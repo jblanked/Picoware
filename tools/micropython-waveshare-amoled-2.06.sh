@@ -65,7 +65,7 @@ stage_optional_module_dir() {
     fi
 }
 
-echo "Initializing and preparing Cardputer build environment..."
+echo "Initializing and preparing Waveshare ESP32-S3-Touch-AMOLED-2.06 build environment..."
 echo "Using Picoware directory: $picoware_dir"
 echo "Using MicroPython ESP32 port: $micropython_dir"
 echo "Using MicroPython root: $micropython_root"
@@ -131,7 +131,7 @@ for module_path in \
     rm -rf "$micropython_dir/modules/$module_path"
 done
 
-echo "Installing Picoware and Cardputer modules into MicroPython ports/esp32/modules..."
+echo "Installing Picoware and Waveshare ESP32-S3-Touch-AMOLED-2.06 modules into MicroPython ports/esp32/modules..."
 cp "$picoware_dir/src/MicroPython/main.py" "$micropython_dir/modules/main.py"
 
 stage_required_module_dir "picoware"
@@ -144,7 +144,7 @@ cp -r "$watch_src_dir/battery" "$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUC
 cp -r "$watch_src_dir/sd" "$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/sd"
 cp -r "$watch_src_dir/touch" "$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/touch"
 
-echo "Staging shared C modules referenced by Cardputer CMake..."
+echo "Staging shared C modules referenced by Waveshare ESP32-S3-Touch-AMOLED-2.06 CMake..."
 shared_c_modules="$(sed -nE '
     s#^[[:space:]]*include\(\$\{CMAKE_CURRENT_LIST_DIR\}/\.\./([^/]+)/micropython\.cmake\).*#\1#p
     s#^[[:space:]]*include_directories\(\$\{CMAKE_CURRENT_LIST_DIR\}/\.\./([^/]+)(/[^)]*)?\).*#\1#p
@@ -184,17 +184,17 @@ mv "$tmp_component_yml" "$idf_component_yml"
 grep -v "esp_lcd_sh8601" "$idf_component_yml" | grep -v "esp_lcd_touch_ft5x06" > "$tmp_component_yml"
 mv "$tmp_component_yml" "$idf_component_yml"
 
-echo "Configuring ESP-IDF managed dependencies for Waveshare modules..."
+echo "Configuring ESP-IDF managed dependencies for Waveshare ESP32-S3-Touch-AMOLED-2.06 modules..."
 
 printf '%s\n' '  waveshare/esp_lcd_sh8601: "*"' >> "$idf_component_yml"
 printf '%s\n' '  espressif/esp_lcd_touch_ft5x06: "^1.1.0~1"' >> "$idf_component_yml"
 
-echo "Copying Cardputer flash/partition configuration overrides..."
+echo "Copying Waveshare ESP32-S3-Touch-AMOLED-2.06 flash/partition configuration overrides..."
 cp "$watch_src_dir/partitions.csv" "$micropython_dir/partitions.csv"
 cp "$watch_src_dir/sdkconfig.defaults" "$micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board"
 cp "$watch_src_dir/mpconfigboard.h" "$micropython_dir/boards/ESP32_GENERIC_S3/mpconfigboard.h"
 
-echo "Validating Cardputer partition table layout..."
+echo "Validating Waveshare ESP32-S3-Touch-AMOLED-2.06 partition table layout..."
 partition_validation="$(python3 - "$watch_src_dir/partitions.csv" <<'PY'
 import csv
 import sys
@@ -247,10 +247,10 @@ board_mpconfig_cmake="$micropython_dir/boards/ESP32_GENERIC_S3/mpconfigboard.cma
 require_file "$board_mpconfig_cmake"
 
 if ! grep -q "boards/ESP32_GENERIC_S3/sdkconfig.board" "$board_mpconfig_cmake"; then
-    echo "Patching ESP32_GENERIC_S3 board CMake to include Cardputer sdkconfig overrides..."
+    echo "Patching ESP32_GENERIC_S3 board CMake to include Waveshare ESP32-S3-Touch-AMOLED-2.06 sdkconfig overrides..."
     cat >> "$board_mpconfig_cmake" <<'EOF'
 
-# Cardputer override injected by Picoware build script.
+# Waveshare ESP32-S3-Touch-AMOLED-2.06 override injected by Picoware build script.
 list(APPEND SDKCONFIG_DEFAULTS
     boards/ESP32_GENERIC_S3/sdkconfig.board)
 EOF
@@ -294,7 +294,7 @@ fi
 # shellcheck source=/dev/null
 source "$esp_idf_dir/export.sh"
 
-echo "Starting Cardputer firmware build..."
+echo "Starting Waveshare ESP32-S3-Touch-AMOLED-2.06 firmware build..."
 cd "$micropython_dir"
 
 # Keep ESP-IDF warnings from failing the build, keep legacy I2C API checks permissive,
@@ -351,7 +351,7 @@ if [ -f "$build_dir/partition_table/partition-table.bin" ]; then
     cp "$build_dir/partition_table/partition-table.bin" "$output_dir/Picoware-Waveshare-amoled-2.06-partition-table.bin"
 fi
 
-echo "Waveshare watch build complete."
+echo "Waveshare ESP32-S3-Touch-AMOLED-2.06 build complete."
 echo "Artifacts:"
 echo "  $output_dir/Picoware-Waveshare-amoled-2.06.bin"
 if [ -f "$output_dir/Picoware-Waveshare-amoled-2.06-bootloader.bin" ]; then

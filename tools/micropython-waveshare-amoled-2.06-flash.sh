@@ -91,7 +91,7 @@ if [ -z "$port" ]; then
     echo "ERROR: No serial port provided."
     echo "Pass --port /dev/cu.usbmodemXXXX or set WATCH_PORT."
     echo
-    echo "Hint (macOS): unplug WATCH, run 'ls /dev/cu.*', plug it back in, run again to find the new port."
+    echo "Hint (macOS): unplug Waveshare ESP32-S3-Touch-AMOLED-2.06, run 'ls /dev/cu.*', plug it back in, run again to find the new port."
     exit 1
 fi
 
@@ -105,7 +105,7 @@ partition_bin="$build_dir/Picoware-Waveshare-amoled-2.06-partition-table.bin"
 firmware_bin="$build_dir/Picoware-Waveshare-amoled-2.06.bin"
 
 if [ ! -f "$bootloader_bin" ] || [ ! -f "$partition_bin" ] || [ ! -f "$firmware_bin" ]; then
-    echo "ERROR: WATCH flash artifacts were not found in $build_dir"
+    echo "ERROR: Waveshare ESP32-S3-Touch-AMOLED-2.06 flash artifacts were not found in $build_dir"
     echo "Expected files:"
     echo "  - $bootloader_bin"
     echo "  - $partition_bin"
@@ -178,7 +178,7 @@ esptool_args+=(
     0x20000 "$firmware_bin"
 )
 
-echo "Flashing WATCH firmware..."
+echo "Flashing Waveshare ESP32-S3-Touch-AMOLED-2.06 firmware..."
 run_esptool "${esptool_args[@]}"
 
 if [ "$do_verify" -eq 1 ]; then
@@ -200,4 +200,4 @@ if [ "$do_verify" -eq 1 ]; then
     run_esptool "${verify_args[@]}"
 fi
 
-echo "WATCH flash complete."
+echo "Waveshare ESP32-S3-Touch-AMOLED-2.06 flash complete."

@@ -27,7 +27,7 @@ if(_picoware_idf_path)
 endif()
 
 target_compile_definitions(usermod_lcd INTERFACE
-  WAVESHARE_AMOLED_2_06_ESP32_S3
+  WAVESHARE_2_06
 )
 
 target_link_libraries(usermod INTERFACE usermod_touch)

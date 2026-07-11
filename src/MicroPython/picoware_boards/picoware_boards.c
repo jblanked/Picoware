@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <math.h>
 
-#if defined(CARDPUTER) || defined(WAVESHARE_AMOLED_2_06_ESP32_S3)
+#if defined(CARDPUTER) || defined(WAVESHARE_2_06)
 #include "../lcd/lcd_config.h"
 #elif defined(PICOCALC) || defined(PIMORONI_PICO_PLUS2W_RP2350)
 #include "../../lcd/lcd_config.h"
@@ -38,7 +38,7 @@ mp_obj_t picoware_boards_get_current_name(void)
     return mp_obj_new_str("Waveshare 3.49", strlen("Waveshare 3.49"));
 #elif defined(CARDPUTER)
     return mp_obj_new_str("Cardputer", strlen("Cardputer"));
-#elif defined(WAVESHARE_AMOLED_2_06_ESP32_S3)
+#elif defined(WAVESHARE_2_06)
     return mp_obj_new_str("Waveshare watch", strlen("Waveshare watch"));
 #elif defined(CROWPANEL_10_1)
     return mp_obj_new_str("CrowPanel 10.1", strlen("CrowPanel 10.1"));
@@ -73,7 +73,7 @@ mp_obj_t picoware_boards_get_device_name(void)
     return mp_obj_new_str("CrowPanel 10.1 ESP32-P4", strlen("CrowPanel 10.1 ESP32-P4"));
 #elif defined(CARDPUTER)
     return mp_obj_new_str("M5Stack Cardputer", strlen("M5Stack Cardputer"));
-#elif defined(WAVESHARE_AMOLED_2_06_ESP32_S3)
+#elif defined(WAVESHARE_2_06)
     return mp_obj_new_str("Waveshare ESP32-S3-Touch-AMOLED-2.06", strlen("Waveshare ESP32-S3-Touch-AMOLED-2.06"));
 #elif defined(CYW43_WL_GPIO_LED_PIN)
 #ifdef PICO_RP2040

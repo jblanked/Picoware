@@ -21,13 +21,13 @@ extern "C"
     {
         return storage_file_write(file_path, data, data_size);
     }
-#elif defined(WAVESHARE_AMOLED_2_06_ESP32_S3)
+#elif defined(WAVESHARE_2_06)
 #include "../WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/sd/storage.h"
 #define storage_read storage_file_read
-    static inline bool storage_write(const char *file_path, const void *data, size_t data_size, bool overwrite)
-    {
-        return storage_file_write(file_path, data, data_size);
-    }
+static inline bool storage_write(const char *file_path, const void *data, size_t data_size, bool overwrite)
+{
+    return storage_file_write(file_path, data, data_size);
+}
 #else
 
 #if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC)

@@ -130,7 +130,7 @@ mp_obj_t picoware_boards_get_name(mp_obj_t board_id_obj)
     case BOARD_CARDPUTER:
         snprintf(board_name, sizeof(board_name), "Cardputer");
         break;
-    case BOARD_WAVESHARE_AMOLED_2_06_ESP32_S3:
+    case BOARD_WAVESHARE_2_06_ESP32S3:
         snprintf(board_name, sizeof(board_name), "Waveshare watch");
         break;
     default:
@@ -178,7 +178,7 @@ mp_obj_t picoware_boards_get_display_size(mp_obj_t board_id_obj)
         width = 240;
         height = 135;
         break;
-    case BOARD_WAVESHARE_AMOLED_2_06_ESP32_S3:
+    case BOARD_WAVESHARE_2_06_ESP32S3:
         width = 410;
         height = 502;
         break;
@@ -252,7 +252,7 @@ mp_obj_t picoware_boards_has_touch(mp_obj_t board_id_obj)
     case BOARD_WAVESHARE_1_28_RP2350:
     case BOARD_WAVESHARE_1_43_RP2350:
     case BOARD_WAVESHARE_3_49_RP2350:
-    case BOARD_WAVESHARE_AMOLED_2_06_ESP32_S3:
+    case BOARD_WAVESHARE_2_06_ESP32S3:
     case BOARD_CROWPANEL_10_1:
         has_touch = true;
         break;
@@ -351,7 +351,7 @@ static const mp_rom_map_elem_t picoware_boards_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_BOARD_PICOCALC_PIMORONI_2W), MP_ROM_INT(BOARD_PICOCALC_PIMORONI_2W)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_CROWPANEL_10_1), MP_ROM_INT(BOARD_CROWPANEL_10_1)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_CARDPUTER), MP_ROM_INT(BOARD_CARDPUTER)},
-    {MP_ROM_QSTR(MP_QSTR_BOARD_WAVESHARE_AMOLED_2_06_ESP32_S3), MP_ROM_INT(BOARD_WAVESHARE_AMOLED_2_06_ESP32_S3)},
+    {MP_ROM_QSTR(MP_QSTR_BOARD_WAVESHARE_2_06_ESP32S3), MP_ROM_INT(BOARD_WAVESHARE_2_06_ESP32S3)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_PSRAM), MP_ROM_INT(BOARD_HAS_PSRAM)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_SD), MP_ROM_INT(BOARD_HAS_SD)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_TOUCH), MP_ROM_INT(BOARD_HAS_TOUCH)},

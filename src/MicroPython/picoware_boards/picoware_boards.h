@@ -21,7 +21,7 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_PICOCALC_PIMORONI_2W 7
 #define BOARD_CROWPANEL_10_1 8
 #define BOARD_CARDPUTER 9
-#define BOARD_WAVESHARE_AMOLED_2_06_ESP32_S3 10
+#define BOARD_WAVESHARE_2_06_ESP32S3 10
 
 #if defined(WAVESHARE_1_28)
 #define BOARD_ID BOARD_WAVESHARE_1_28_RP2350
@@ -62,7 +62,7 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_AUDIO 0 // no audio module in esp32 build yet
 #elif defined(WAVESHARE_AMOLED_2_06_ESP32_S3)
 // Waveshare ESP32-S3-Touch-AMOLED-2.06
-#define BOARD_ID BOARD_WAVESHARE_AMOLED_2_06_ESP32_S3
+#define BOARD_ID BOARD_WAVESHARE_2_06_ESP32S3
 #define BOARD_HAS_PSRAM 0 // has psram
 #define BOARD_HAS_SD 1    // has sd card
 #define BOARD_HAS_TOUCH 1 // has touch

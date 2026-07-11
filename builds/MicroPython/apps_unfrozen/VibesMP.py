@@ -1,10 +1,28 @@
 import sys
 
 _app = None
+_clock_lowered = False
+
+
+def _lower_frequency(view_manager):
+    global _clock_lowered
+
+    view_manager.freq(True)
+    _clock_lowered = True
+
+
+def _restore_frequency(view_manager):
+    global _clock_lowered
+
+    if _clock_lowered:
+        view_manager.freq()
+        _clock_lowered = False
 
 def start(view_manager):
     """Initialize the VibesApp instance."""
     global _app
+
+    _lower_frequency(view_manager)
 
     try:
         from vibesmp_lib.loading import MusicLoader
@@ -23,12 +41,14 @@ def start(view_manager):
         sys.print_exception(e)
         if _loading:
             _loading.stop()
+        _restore_frequency(view_manager)
         return False
     except OSError as e:
         print(f"[ERROR] Initialization failed: {e}")
         sys.print_exception(e)
         if _loading:
             _loading.stop()
+        _restore_frequency(view_manager)
         return False
 
 
@@ -80,6 +100,7 @@ def stop(view_manager):
         print(f"[ERROR] Stop failed: {e}")
         sys.print_exception(e)
     finally:
+        _restore_frequency(view_manager)
         _app = None
 
 

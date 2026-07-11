@@ -68,7 +68,7 @@
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
-#define LCD_MP_SWAP lcd_swap
+#define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
 #elif defined(WAVESHARE_1_28)

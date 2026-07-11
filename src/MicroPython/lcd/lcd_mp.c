@@ -1,19 +1,26 @@
 #include "lcd_mp.h"
 #include "py/mperrno.h"
+#include "../vector/vector_mp.h"
+#include "../log/log_mp.h"
+
+#ifndef PRINT
+#define PRINT(...) LOG_MESSAGE(__VA_ARGS__)
+#endif
 
 #ifdef LCD_INCLUDE
 #include LCD_INCLUDE
-#endif
-
-#ifndef PRINT
-#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
 #endif
 
 #if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_AMOLED_2_06_ESP32_S3)
 #include "../sd/storage.h"
 #endif
 
-#include "../vector/vector_mp.h"
+bool (*_lcd_usb_video_cb)(void) = NULL; // USB video streaming callback, set by usb_video module
+
+void lcd_mp_set_usb_video_callback(bool (*cb)(void))
+{
+    _lcd_usb_video_cb = cb;
+}
 
 const mp_obj_type_t lcd_mp_type;
 
@@ -27,7 +34,7 @@ static uint16_t lcd_scale_y(lcd_mp_obj_t *self, uint16_t v)
 }
 static inline int lcd_obj_to_int(mp_obj_t arg)
 {
-    if (mp_obj_is_int(arg))
+    if (mp_obj_is_int(arg) || mp_obj_is_exact_type(arg, &mp_type_bool))
     {
         return mp_obj_get_int(arg);
     }
@@ -134,7 +141,7 @@ mp_obj_t lcd_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
 mp_obj_t lcd_mp_del(mp_obj_t self_in)
 {
     lcd_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (self->initialized)
+    if (self && self->initialized)
     {
 #ifdef LCD_MP_DEINIT
         LCD_MP_DEINIT();

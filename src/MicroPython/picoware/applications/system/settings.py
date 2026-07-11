@@ -1,4 +1,3 @@
-import json
 from micropython import const
 
 # states
@@ -10,6 +9,9 @@ STATE_DEBUG = const(4)  # toggle (enable/disable)
 STATE_TIME = const(5)  # menu with date (date picker), GMT offset (keyboard)
 STATE_EXIT_BUTTON = const(6)  # selection to choose which button triggers app exits
 STATE_SERVER_SETTINGS = const(7)  # menu with username and password
+STATE_OPENAI_API_KEY = const(8)  # keyboard input for OpenAI API key
+STATE_DEEPSEEK_API_KEY = const(9)  # keyboard input for DeepSeek API key
+STATE_USB_STREAM = const(10)  # toggle (enable/disable USB stream)
 
 # modes
 _MODE_MENU = const(0)
@@ -20,7 +22,10 @@ _MODE_DATE_PICKER = const(4)
 _MODE_GMT_KEYBOARD = const(5)
 _MODE_SERVER_MENU = const(6)
 _MODE_SERVER_KEYBOARD = const(7)
+_MODE_OPENAI_KEYBOARD = const(8)
+_MODE_DEEPSEEK_KEYBOARD = const(9)
 
+_settings = None
 _menu = None
 _toggle = None
 _choice = None
@@ -33,6 +38,8 @@ _current_setting = 0
 _gmt_save_requested = False
 _server_save_requested = False
 _server_keyboard_field = 0  # 0 = username, 1 = password
+_openai_save_requested = False
+_deepseek_save_requested = False
 
 
 def __color_values() -> list[int]:
@@ -74,21 +81,23 @@ def __color_values() -> list[int]:
 
 def __config() -> tuple:
     """Get the configuration tuple for the current setting."""
-    # (menu label, filename, json key, default value)
+    # (menu label, json key, default value)
     return (
-        ("Dark Mode", "picoware/settings/dark_mode.json", "dark_mode", True),
+        ("Dark Mode", "dark_mode", True),
         (
             "Onscreen Keyboard",
-            "picoware/settings/onscreen_keyboard.json",
             "onscreen_keyboard",
             True,
         ),
-        ("Use LVGL", "picoware/settings/lvgl_mode.json", "lvgl_mode", False),
-        ("Theme Color", None, None, None),
-        ("Debug", "picoware/settings/debug.json", "debug", False),
-        ("Time", None, None, None),
-        ("Exit Button", None, None, None),
-        ("Server Settings", None, None, None),
+        ("Use LVGL", "lvgl_mode", False),
+        ("Theme Color", "theme_color", None),
+        ("Debug", "debug", False),
+        ("Time", "time", None),
+        ("Exit Button", "exit_button", None),
+        ("Server Settings", "server_settings", None),
+        ("OpenAI API Key", "openai_api_key", ""),
+        ("DeepSeek API Key", "deepseek_api_key", ""),
+        ("USB Stream", "usb_stream", False),
     )
 
 
@@ -105,111 +114,20 @@ def __exit_button_mapping() -> dict[int, str]:
     }
 
 
-def __load_state(filename: str, key: str, default: bool = False) -> bool:
-    """Load a boolean setting from storage."""
-    data = _view_manager.storage.read(filename)
-    if data is not None:
-        try:
-            obj = json.loads(data)
-            if key in obj:
-                return bool(obj[key])
-        except Exception:
-            pass
-    return default
-
-
-def __save_state(filename: str, key: str, state: bool) -> bool:
-    """Save a boolean setting to storage."""
-    return _view_manager.storage.write(filename, json.dumps({key: state}))
-
-
-def __load_theme_color() -> int:
-    """Load the saved theme color from storage."""
-    data = _view_manager.storage.read("picoware/settings/theme_color.json")
-    if data is not None:
-        try:
-            obj = json.loads(data)
-            if "theme_color" in obj:
-                return int(obj["theme_color"])
-        except Exception:
-            pass
-
-    return 0x001F  # TFT_BLUE
-
-
-def __load_exit_button() -> int:
-    """Load the saved exit button from storage."""
-    from picoware.system.buttons import BUTTON_BACK
-
-    data = _view_manager.storage.read("picoware/settings/exit_button.json")
-    if data is not None:
-        try:
-            obj = json.loads(data)
-            if "exit_button" in obj:
-                return int(obj["exit_button"])
-        except Exception:
-            pass
-
-    return BUTTON_BACK
-
-
-def __save_theme_color(color: int) -> bool:
-    """Save the theme color to storage."""
-    return _view_manager.storage.write(
-        "picoware/settings/theme_color.json",
-        json.dumps({"theme_color": color}),
-    )
-
-
-def __save_exit_button(button: int) -> bool:
-    """Save the exit button to storage."""
-    return _view_manager.storage.write(
-        "picoware/settings/exit_button.json",
-        json.dumps({"exit_button": button}),
-    )
-
-
-def __load_server_username(view_manager) -> str:
-    """Load the saved server username from storage."""
-    data = view_manager.storage.read("picoware/settings/server_username.json")
-    if data is not None:
-        try:
-            obj = json.loads(data)
-            if "username" in obj:
-                return str(obj["username"])
-        except Exception:
-            pass
-    return ""
-
-
-def __load_server_password(view_manager) -> str:
-    """Load the saved server password from storage."""
-    data = view_manager.storage.read("picoware/settings/server_password.json")
-    if data is not None:
-        try:
-            obj = json.loads(data)
-            if "password" in obj:
-                return str(obj["password"])
-        except Exception:
-            pass
-    return ""
-
-
 def __save_server_username(value: str) -> bool:
     """Save the server username to storage."""
-    return _view_manager.storage.write(
-        "picoware/settings/server_username.json",
-        json.dumps({"username": value}),
-    )
+    _current_settings = _settings.server_settings
+    _current_settings["username"] = value
+    _settings.server_settings = _current_settings
+    return True
 
 
 def __save_server_password(value: str) -> bool:
     """Save the server password to storage."""
-    return _view_manager.storage.write(
-        "picoware/settings/server_password.json",
-        json.dumps({"password": value}),
-    )
-
+    _current_settings = _settings.server_settings
+    _current_settings["password"] = value
+    _settings.server_settings = _current_settings
+    return True
 
 def __apply_toggle_setting(index: int, state: bool) -> None:
     """Apply a toggle setting change to the view manager."""
@@ -224,6 +142,11 @@ def __apply_toggle_setting(index: int, state: bool) -> None:
         _view_manager.keyboard.show_keyboard = state
     elif index == STATE_LVGL_MODE:
         _view_manager.draw.use_lvgl = state
+    elif index == STATE_USB_STREAM:
+        if state:
+            _view_manager.usb_video_stream.start()
+        else:
+            _view_manager.usb_video_stream.stop()
 
 
 def __open_toggle(setting_index: int) -> None:
@@ -234,7 +157,7 @@ def __open_toggle(setting_index: int) -> None:
 
     _current_setting = setting_index
     cfg = __config()[setting_index]
-    current_state = __load_state(cfg[1], cfg[2], cfg[3])
+    current_state = _settings._settings[cfg[1]]
 
     draw = _view_manager.draw
     draw.erase()
@@ -265,7 +188,7 @@ def __open_choice() -> None:
     from picoware.system.vector import Vector
 
     _current_setting = STATE_THEME_COLOR
-    current_color = __load_theme_color()
+    current_color = _settings.theme_color
     try:
         initial_index = __color_values().index(current_color)
     except ValueError:
@@ -315,7 +238,7 @@ def __open_choice_button() -> None:
     from picoware.system.vector import Vector
 
     _current_setting = STATE_EXIT_BUTTON
-    current_button = __load_exit_button()
+    current_button = _settings.exit_button
     str_buttons = list(__exit_button_mapping().values())
     initial_index = 0
     button_mapping = __exit_button_mapping()
@@ -342,27 +265,6 @@ def __open_choice_button() -> None:
     )
     _choice.draw()
     _mode = _MODE_CHOICE
-
-
-def __load_gmt_offset() -> int:
-    """Load the saved GMT offset from storage."""
-    data = _view_manager.storage.read("picoware/settings/gmt_offset.json")
-    if data is not None:
-        try:
-            obj = json.loads(data)
-            if "gmt_offset" in obj:
-                return int(obj["gmt_offset"])
-        except Exception:
-            pass
-    return 0
-
-
-def __save_gmt_offset(offset: int) -> bool:
-    """Save the GMT offset to storage."""
-    return _view_manager.storage.write(
-        "picoware/settings/gmt_offset.json",
-        json.dumps({"gmt_offset": offset}),
-    )
 
 
 def __open_time_menu() -> None:
@@ -423,7 +325,7 @@ def __open_gmt_keyboard() -> None:
     keyboard = _view_manager.keyboard
     keyboard.reset()
     keyboard.title = "GMT Offset"
-    keyboard.response = str(__load_gmt_offset())
+    keyboard.response = str(_settings.gmt_offset)
     keyboard.set_save_callback(__gmt_save_callback)
     keyboard.input_manager.reset()
     keyboard.run(force=True)
@@ -474,10 +376,10 @@ def __open_server_keyboard(field: int) -> None:
     keyboard.reset()
     if field == 0:
         keyboard.title = "Username"
-        keyboard.response = __load_server_username(_view_manager)
+        keyboard.response = _settings.server_settings.get("username", "")
     else:
         keyboard.title = "Password"
-        keyboard.response = __load_server_password(_view_manager)
+        keyboard.response = _settings.server_settings.get("password", "")
     keyboard.set_save_callback(__server_save_callback)
     keyboard.input_manager.reset()
     keyboard.run(force=True)
@@ -489,6 +391,48 @@ def __server_save_callback(result: str) -> None:
     """Callback triggered when the server keyboard is saved."""
     global _server_save_requested
     _server_save_requested = True
+
+
+def __open_openai_keyboard() -> None:
+    """Open the keyboard for entering the OpenAI API key."""
+    global _mode, _openai_save_requested
+
+    keyboard = _view_manager.keyboard
+    keyboard.reset()
+    keyboard.title = "OpenAI API Key"
+    keyboard.response = _settings.openai_api_key
+    keyboard.set_save_callback(__openai_save_callback)
+    keyboard.input_manager.reset()
+    keyboard.run(force=True)
+    _openai_save_requested = False
+    _mode = _MODE_OPENAI_KEYBOARD
+
+
+def __openai_save_callback(result: str) -> None:
+    """Callback triggered when the OpenAI API key keyboard is saved."""
+    global _openai_save_requested
+    _openai_save_requested = True
+
+
+def __open_deepseek_keyboard() -> None:
+    """Open the keyboard for entering the DeepSeek API key."""
+    global _mode, _deepseek_save_requested
+
+    keyboard = _view_manager.keyboard
+    keyboard.reset()
+    keyboard.title = "DeepSeek API Key"
+    keyboard.response = _settings.deepseek_api_key
+    keyboard.set_save_callback(__deepseek_save_callback)
+    keyboard.input_manager.reset()
+    keyboard.run(force=True)
+    _deepseek_save_requested = False
+    _mode = _MODE_DEEPSEEK_KEYBOARD
+
+
+def __deepseek_save_callback(result: str) -> None:
+    """Callback triggered when the DeepSeek API key keyboard is saved."""
+    global _deepseek_save_requested
+    _deepseek_save_requested = True
 
 
 def __back_to_server_menu() -> None:
@@ -548,15 +492,21 @@ def start(view_manager) -> bool:
         return False
 
     from picoware.gui.menu import Menu
+    from picoware.system.settings import Settings
 
-    global _menu, _view_manager, _mode, _time_menu, _date_picker, _server_menu, _gmt_save_requested, _server_save_requested, _server_keyboard_field
+    global _settings, _menu, _view_manager, _mode, _time_menu, _date_picker, _server_menu, _gmt_save_requested, _server_save_requested, _server_keyboard_field, _openai_save_requested, _deepseek_save_requested
 
     _view_manager = view_manager
     _mode = _MODE_MENU
     _gmt_save_requested = False
     _server_save_requested = False
     _server_keyboard_field = 0
+    _openai_save_requested = False
+    _deepseek_save_requested = False
 
+    if _settings is not None:
+        del _settings
+        _settings = None
     if _menu is not None:
         del _menu
         _menu = None
@@ -571,6 +521,8 @@ def start(view_manager) -> bool:
         _server_menu = None
 
     view_manager.storage.mkdir("picoware/settings")
+
+    _settings = Settings(view_manager.storage)
 
     _menu = Menu(
         view_manager.draw,
@@ -621,6 +573,10 @@ def run(view_manager) -> None:
                 __open_choice_button()
             elif selected == STATE_SERVER_SETTINGS:
                 __open_server_menu()
+            elif selected == STATE_OPENAI_API_KEY:
+                __open_openai_keyboard()
+            elif selected == STATE_DEEPSEEK_API_KEY:
+                __open_deepseek_keyboard()
             else:
                 __open_toggle(selected)
 
@@ -661,7 +617,7 @@ def run(view_manager) -> None:
                 offset = int(view_manager.keyboard.response)
             except (ValueError, TypeError):
                 offset = 0
-            __save_gmt_offset(offset)
+            _settings.gmt_offset = offset
             view_manager.keyboard.reset()
             __back_to_time_menu()
         elif not view_manager.keyboard.run():
@@ -694,6 +650,28 @@ def run(view_manager) -> None:
             view_manager.keyboard.reset()
             __back_to_server_menu()
 
+    elif _mode == _MODE_OPENAI_KEYBOARD:
+        global _openai_save_requested
+        if _openai_save_requested:
+            _openai_save_requested = False
+            _settings.openai_api_key = view_manager.keyboard.response or ""
+            view_manager.keyboard.reset()
+            __back_to_menu()
+        elif not view_manager.keyboard.run():
+            view_manager.keyboard.reset()
+            __back_to_menu()
+
+    elif _mode == _MODE_DEEPSEEK_KEYBOARD:
+        global _deepseek_save_requested
+        if _deepseek_save_requested:
+            _deepseek_save_requested = False
+            _settings.deepseek_api_key = view_manager.keyboard.response or ""
+            view_manager.keyboard.reset()
+            __back_to_menu()
+        elif not view_manager.keyboard.run():
+            view_manager.keyboard.reset()
+            __back_to_menu()
+
     elif _mode == _MODE_TOGGLE:
         if button == BUTTON_BACK:
             __back_to_menu()
@@ -701,7 +679,8 @@ def run(view_manager) -> None:
             new_state = not _toggle.state
             _toggle.state = new_state
             cfg = __config()[_current_setting]
-            __save_state(cfg[1], cfg[2], new_state)
+            _settings._settings[cfg[1]] = new_state
+            _settings.__save_settings()
             __apply_toggle_setting(_current_setting, new_state)
 
     elif _mode == _MODE_CHOICE:
@@ -714,12 +693,12 @@ def run(view_manager) -> None:
         elif button == BUTTON_CENTER:
             if _current_setting == STATE_THEME_COLOR:
                 selected_color = __color_values()[_choice.state]
-                __save_theme_color(selected_color)
+                _settings.theme_color = selected_color
                 _view_manager.selected_color = selected_color
             elif _current_setting == STATE_EXIT_BUTTON:
                 button_mapping = __exit_button_mapping()
                 selected_button_value = list(button_mapping.keys())[_choice.state]
-                __save_exit_button(selected_button_value)
+                _settings.exit_button = selected_button_value
                 from picoware.system.system import System
 
                 s = System()
@@ -731,8 +710,11 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global _menu, _toggle, _choice, _time_menu, _date_picker, _server_menu
+    global _settings, _menu, _toggle, _choice, _time_menu, _date_picker, _server_menu
 
+    if _settings is not None:
+        del _settings
+        _settings = None
     if _choice is not None:
         del _choice
         _choice = None

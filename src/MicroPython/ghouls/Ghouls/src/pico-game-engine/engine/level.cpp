@@ -210,16 +210,16 @@ bool Level::is_collision(const Entity *a, const Entity *b) const
            a->position.y + a->size.y > b->position.y;
 }
 
-void Level::project3DTo2D(Vector vertex, Vector player_pos, Vector player_dir, float view_height, Vector screen_size, Vector &result)
+void Level::project3DTo2D(const Vector &vertex, const Vector &player_pos, const Vector &player_dir, float view_height, const Vector &screen_size, Vector &result)
 {
     // Transform world coordinates to camera coordinates
-    float world_dx = vertex.x - player_pos.x;
-    float world_dz = vertex.z - player_pos.y; // player_pos.y is actually the Z coordinate in world space
-    float world_dy = vertex.y - view_height;  // Height difference from camera
+    const float world_dx = vertex.x - player_pos.x;
+    const float world_dz = vertex.z - player_pos.y; // player_pos.y is actually the Z coordinate in world space
+    const float world_dy = vertex.y - view_height;  // Height difference from camera
 
     // Transform to camera space with camera coordinate system
-    float camera_x = world_dx * -player_dir.y + world_dz * player_dir.x;
-    float camera_z = world_dx * player_dir.x + world_dz * player_dir.y;
+    const float camera_x = world_dx * -player_dir.y + world_dz * player_dir.x;
+    const float camera_z = world_dx * player_dir.x + world_dz * player_dir.y;
 
     // Prevent division by zero and reject points behind camera
     if (camera_z <= 0.1f)
@@ -231,8 +231,9 @@ void Level::project3DTo2D(Vector vertex, Vector player_pos, Vector player_dir, f
     }
 
     // Project to screen coordinates - scale based on screen size
-    result.x = (camera_x / camera_z) * screen_size.y + (screen_size.x / 2.0f);
-    result.y = (-world_dy / camera_z) * screen_size.y + (screen_size.y / 2.0f);
+    const float inv_camera_z = 1.0f / camera_z;
+    result.x = camera_x * inv_camera_z * screen_size.y + (screen_size.x * 0.5f);
+    result.y = -world_dy * inv_camera_z * screen_size.y + (screen_size.y * 0.5f);
     result.z = camera_z; // Store depth
 }
 
@@ -398,100 +399,214 @@ void Level::render(Game *game)
     }
 }
 
-void Level::render3DSprite(const Sprite3D *sprite3d, Draw *draw, Vector player_pos, Vector player_dir, float view_height, bool clamp)
+void Level::render3DSprite(const Sprite3D *sprite3d, Draw *draw, const Vector &player_pos, const Vector &player_dir, float view_height, bool clamp)
 {
     if (!sprite3d)
         return;
 
-    // Get triangles from the 3D sprite and render them
-    // changed from static because it gave us size issues
-    // with compiling in micropython
-    Vector screen_points[3];
-    Vector vertex;
-    Triangle3D triangle;
     const Vector screenSize = draw->getDisplaySize();
-    //
+    const float half_sx = screenSize.x * 0.5f;
+    const float half_sy = screenSize.y * 0.5f;
+    const float screen_y = (float)screenSize.y;
+
+    const float camA = -player_dir.y; // world_dx -> camera_x coefficient
+    const float camB = player_dir.x;  // world_dz -> camera_x coefficient
+    const float camC = player_dir.x;  // world_dx -> camera_z coefficient
+    const float camD = player_dir.y;  // world_dz -> camera_z coefficient
+
     const uint16_t triangle_count = sprite3d->getTriangleCount();
     for (uint16_t i = 0; i < triangle_count; i++)
     {
-        triangle = sprite3d->getTransformedTriangle(i, player_pos);
-        if (!triangle.set)
+        Triangle3D triangle;
+        if (!sprite3d->getTransformedTriangle(i, player_pos, triangle))
             continue;
 
-        // Project 3D vertices to 2D screen coordinates
-        bool any_visible = false;
-        bool has_behind = false;
+        // Inline projection for all 3 vertices (avoids function call overhead + Vector copies)
+        float sx[3], sy[3];
+        uint8_t visible_count = 0;
 
-        for (uint8_t j = 0; j < 3; j++)
+        // Vertex 0
         {
-            switch (j)
+            const float wx = triangle.x1 - player_pos.x;
+            const float wy = triangle.y1 - view_height;
+            const float wz = triangle.z1 - player_pos.y;
+            const float cz = wx * camC + wz * camD;
+            if (cz > 0.1f)
             {
-            case 0:
-                vertex.x = triangle.x1;
-                vertex.y = triangle.y1;
-                vertex.z = triangle.z1;
-                break;
-            case 1:
-                vertex.x = triangle.x2;
-                vertex.y = triangle.y2;
-                vertex.z = triangle.z2;
-                break;
-            case 2:
-                vertex.x = triangle.x3;
-                vertex.y = triangle.y3;
-                vertex.z = triangle.z3;
-                break;
-            default:
-                vertex.x = 0;
-                vertex.y = 0;
-                vertex.z = 0;
-                break;
-            };
-
-            project3DTo2D(vertex, player_pos, player_dir, view_height, screenSize, screen_points[j]);
-
-            // Check if behind camera
-            if (screen_points[j].x == -1 && screen_points[j].y == -1)
-            {
-                has_behind = true;
+                const float inv_cz = 1.0f / cz;
+                const float cx = wx * camA + wz * camB;
+                sx[0] = cx * inv_cz * screen_y + half_sx;
+                sy[0] = -wy * inv_cz * screen_y + half_sy;
+                visible_count++;
             }
             else
             {
-                any_visible = true;
+                sx[0] = -1.0f;
+                sy[0] = -1.0f;
             }
         }
 
-        if (any_visible && !has_behind)
+        // Vertex 1
         {
-            if (clamp)
+            const float wx = triangle.x2 - player_pos.x;
+            const float wy = triangle.y2 - view_height;
+            const float wz = triangle.z2 - player_pos.y;
+            const float cz = wx * camC + wz * camD;
+            if (cz > 0.1f)
             {
-                for (uint8_t k = 0; k < 3; k++)
-                {
-                    if (screen_points[k].x < 0)
-                        screen_points[k].x = 0;
-                    if (screen_points[k].y < 0)
-                        screen_points[k].y = 0;
-                    if (screen_points[k].x > screenSize.x)
-                        screen_points[k].x = screenSize.x;
-                    if (screen_points[k].y > screenSize.y)
-                        screen_points[k].y = screenSize.y;
-                }
+                const float inv_cz = 1.0f / cz;
+                const float cx = wx * camA + wz * camB;
+                sx[1] = cx * inv_cz * screen_y + half_sx;
+                sy[1] = -wy * inv_cz * screen_y + half_sy;
+                visible_count++;
             }
-            draw->fillTriangle(screen_points[0].x, screen_points[0].y, screen_points[1].x, screen_points[1].y, screen_points[2].x, screen_points[2].y, triangle.color);
-            if (triangle.wireframe)
+            else
             {
-                // Compute a lighter outline color from the fill color
-                uint8_t r = (uint8_t)((triangle.color >> 11) & 0x1F);
-                uint8_t g = (uint8_t)((triangle.color >> 5) & 0x3F);
-                uint8_t b = (uint8_t)(triangle.color & 0x1F);
-                r = r + ((0x1F - r) >> 1);
-                g = g + ((0x3F - g) >> 1);
-                b = b + ((0x1F - b) >> 1);
-                const uint16_t outline_color = ((uint16_t)r << 11) | ((uint16_t)g << 5) | b;
-                draw->triangle(screen_points[0].x, screen_points[0].y, screen_points[1].x, screen_points[1].y, screen_points[2].x, screen_points[2].y, outline_color);
+                sx[1] = -1.0f;
+                sy[1] = -1.0f;
             }
         }
+
+        // Vertex 2
+        {
+            const float wx = triangle.x3 - player_pos.x;
+            const float wy = triangle.y3 - view_height;
+            const float wz = triangle.z3 - player_pos.y;
+            const float cz = wx * camC + wz * camD;
+            if (cz > 0.1f)
+            {
+                const float inv_cz = 1.0f / cz;
+                const float cx = wx * camA + wz * camB;
+                sx[2] = cx * inv_cz * screen_y + half_sx;
+                sy[2] = -wy * inv_cz * screen_y + half_sy;
+                visible_count++;
+            }
+            else
+            {
+                sx[2] = -1.0f;
+                sy[2] = -1.0f;
+            }
+        }
+
+        // Reject triangles with any vertex behind the camera plane
+        if (visible_count < 3)
+            continue;
+
+        // reject triangles completely off-screen
+        if (!clamp)
+        {
+            // All points left of screen
+            if (sx[0] < 0.0f && sx[1] < 0.0f && sx[2] < 0.0f)
+                continue;
+            // All points right of screen
+            if (sx[0] > screenSize.x && sx[1] > screenSize.x && sx[2] > screenSize.x)
+                continue;
+            // All points above screen
+            if (sy[0] < 0.0f && sy[1] < 0.0f && sy[2] < 0.0f)
+                continue;
+            // All points below screen
+            if (sy[0] > screenSize.y && sy[1] > screenSize.y && sy[2] > screenSize.y)
+                continue;
+        }
+
+        // Convert to integer screen coordinates
+        uint16_t ix0, iy0, ix1, iy1, ix2, iy2;
+
+        if (clamp)
+        {
+            // Clamp to screen bounds
+            if (sx[0] < 0.0f)
+                ix0 = 0;
+            else if (sx[0] > screenSize.x)
+                ix0 = (uint16_t)screenSize.x;
+            else
+                ix0 = (uint16_t)sx[0];
+
+            if (sy[0] < 0.0f)
+                iy0 = 0;
+            else if (sy[0] > screenSize.y)
+                iy0 = (uint16_t)screenSize.y;
+            else
+                iy0 = (uint16_t)sy[0];
+
+            if (sx[1] < 0.0f)
+                ix1 = 0;
+            else if (sx[1] > screenSize.x)
+                ix1 = (uint16_t)screenSize.x;
+            else
+                ix1 = (uint16_t)sx[1];
+
+            if (sy[1] < 0.0f)
+                iy1 = 0;
+            else if (sy[1] > screenSize.y)
+                iy1 = (uint16_t)screenSize.y;
+            else
+                iy1 = (uint16_t)sy[1];
+
+            if (sx[2] < 0.0f)
+                ix2 = 0;
+            else if (sx[2] > screenSize.x)
+                ix2 = (uint16_t)screenSize.x;
+            else
+                ix2 = (uint16_t)sx[2];
+
+            if (sy[2] < 0.0f)
+                iy2 = 0;
+            else if (sy[2] > screenSize.y)
+                iy2 = (uint16_t)screenSize.y;
+            else
+                iy2 = (uint16_t)sy[2];
+        }
+        else
+        {
+            ix0 = (uint16_t)sx[0];
+            iy0 = (uint16_t)sy[0];
+            ix1 = (uint16_t)sx[1];
+            iy1 = (uint16_t)sy[1];
+            ix2 = (uint16_t)sx[2];
+            iy2 = (uint16_t)sy[2];
+        }
+
+        draw->fillTriangle(ix0, iy0, ix1, iy1, ix2, iy2, triangle.color);
+
+        if (triangle.wireframe)
+        {
+            // Compute a lighter outline color from the fill color
+            uint8_t r = (uint8_t)((triangle.color >> 11) & 0x1F);
+            uint8_t g = (uint8_t)((triangle.color >> 5) & 0x3F);
+            uint8_t b = (uint8_t)(triangle.color & 0x1F);
+            r = r + ((0x1F - r) >> 1);
+            g = g + ((0x3F - g) >> 1);
+            b = b + ((0x1F - b) >> 1);
+            const uint16_t outline_color = ((uint16_t)r << 11) | ((uint16_t)g << 5) | b;
+            draw->triangle(ix0, iy0, ix1, iy1, ix2, iy2, outline_color);
+        }
     }
+}
+
+void Level::render3DSprite(const char *path, Draw *draw, const Vector &player_pos, const Vector &player_dir, float view_height, bool clamp, bool wireframe)
+{
+    if (!path)
+        return;
+
+    Sprite3D *sprite3d = ENGINE_MEM_NEW Sprite3D();
+    if (!sprite3d)
+    {
+        ENGINE_LOG_INFO("Level::render3DSprite failed to allocate memory for Sprite3D\n");
+        return;
+    }
+    if (!sprite3d->fromPath(path, wireframe))
+    {
+        ENGINE_LOG_INFO("Level::render3DSprite failed to load Sprite3D from path: %s\n", path);
+        ENGINE_MEM_DELETE sprite3d;
+        sprite3d = nullptr;
+        return;
+    }
+
+    render3DSprite(sprite3d, draw, player_pos, player_dir, view_height, clamp);
+
+    ENGINE_MEM_DELETE sprite3d;
+    sprite3d = nullptr;
 }
 
 // Start the level

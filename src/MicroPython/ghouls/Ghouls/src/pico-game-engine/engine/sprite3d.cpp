@@ -1,5 +1,13 @@
 #include "sprite3d.hpp"
 
+#ifdef ENGINE_STORAGE_INCLUDE
+#include ENGINE_STORAGE_INCLUDE
+#endif
+
+#ifdef ENGINE_LOG_INCLUDE
+#include ENGINE_LOG_INCLUDE
+#endif
+
 // Shade an RGB565 color by a factor (< 1.0 darkens, > 1.0 lightens)
 static uint16_t shadeColor565(uint16_t color, float factor)
 {
@@ -396,60 +404,112 @@ bool Sprite3D::createWall(float x, float y, float z, float width, float height, 
     return true;
 }
 
-Triangle3D Sprite3D::getTransformedTriangle(uint16_t index, const Vector &camera_pos) const
+bool Sprite3D::fromPath(const char *path, bool wireframe)
+{
+#ifdef ENGINE_STORAGE_READ
+    clearTriangles();
+    Triangle3D *buf = ENGINE_MEM_NEW Triangle3D[ENGINE_MAX_TRIANGLES_PER_SPRITE];
+    if (!buf)
+    {
+        ENGINE_LOG_INFO("Sprite3D::fromPath failed to allocate memory for triangle data\n");
+        return false;
+    }
+    size_t bytes = ENGINE_STORAGE_READ(path, buf, sizeof(Triangle3D) * ENGINE_MAX_TRIANGLES_PER_SPRITE);
+    if (bytes == 0)
+    {
+        ENGINE_MEM_DELETE[] buf;
+        ENGINE_LOG_INFO("Sprite3D::fromPath failed to read triangle data from path: %s\n", path);
+        return false;
+    }
+    uint16_t count = bytes / sizeof(Triangle3D);
+    for (uint16_t i = 0; i < count; i++)
+    {
+        buf[i].wireframe = wireframe;
+        if (!addTriangle(buf[i]))
+        {
+            ENGINE_MEM_DELETE[] buf;
+            return false;
+        }
+    }
+    ENGINE_MEM_DELETE[] buf;
+    return true;
+#else
+    return false;
+#endif
+}
+
+bool Sprite3D::getTransformedTriangle(uint16_t index, const Vector &camera_pos, Triangle3D &out) const
 {
     if (index >= triangle_count)
-        return Triangle3D();
+        return false;
 
-    Triangle3D t = *triangles[index];
+    out = *triangles[index];
 
     // compute sin/cos once for all three vertices
     const float cos_a = cosf(rotation_y);
     const float sin_a = sinf(rotation_y);
 
     // Vertex 1
-    t.x1 *= scale_factor;
-    t.y1 *= scale_factor;
-    t.z1 *= scale_factor;
-    float ox = t.x1;
-    t.x1 = ox * cos_a - t.z1 * sin_a;
-    t.z1 = ox * sin_a + t.z1 * cos_a;
-    t.x1 += position.x;
-    t.y1 += position.z;
-    t.z1 += position.y;
+    out.x1 *= scale_factor;
+    out.y1 *= scale_factor;
+    out.z1 *= scale_factor;
+    float ox = out.x1;
+    out.x1 = ox * cos_a - out.z1 * sin_a;
+    out.z1 = ox * sin_a + out.z1 * cos_a;
+    out.x1 += position.x;
+    out.y1 += position.z;
+    out.z1 += position.y;
 
     // Vertex 2
-    t.x2 *= scale_factor;
-    t.y2 *= scale_factor;
-    t.z2 *= scale_factor;
-    ox = t.x2;
-    t.x2 = ox * cos_a - t.z2 * sin_a;
-    t.z2 = ox * sin_a + t.z2 * cos_a;
-    t.x2 += position.x;
-    t.y2 += position.z;
-    t.z2 += position.y;
+    out.x2 *= scale_factor;
+    out.y2 *= scale_factor;
+    out.z2 *= scale_factor;
+    ox = out.x2;
+    out.x2 = ox * cos_a - out.z2 * sin_a;
+    out.z2 = ox * sin_a + out.z2 * cos_a;
+    out.x2 += position.x;
+    out.y2 += position.z;
+    out.z2 += position.y;
 
     // Vertex 3
-    t.x3 *= scale_factor;
-    t.y3 *= scale_factor;
-    t.z3 *= scale_factor;
-    ox = t.x3;
-    t.x3 = ox * cos_a - t.z3 * sin_a;
-    t.z3 = ox * sin_a + t.z3 * cos_a;
-    t.x3 += position.x;
-    t.y3 += position.z;
-    t.z3 += position.y;
+    out.x3 *= scale_factor;
+    out.y3 *= scale_factor;
+    out.z3 *= scale_factor;
+    ox = out.x3;
+    out.x3 = ox * cos_a - out.z3 * sin_a;
+    out.z3 = ox * sin_a + out.z3 * cos_a;
+    out.x3 += position.x;
+    out.y3 += position.z;
+    out.z3 += position.y;
 
-    // set flag and return
-    t.set = t.isFacingCamera(camera_pos);
-    if (t.set)
+    // Back-face culling: check if triangle faces the camera
     {
-        Vector center = t.getCenter();
-        float dx = center.x - camera_pos.x;
-        float dz = center.z - camera_pos.y;
-        t.distance = sqrtf(dx * dx + dz * dz);
+        // Calculate triangle normal using cross product of two edge vectors
+        const float e1x = out.x2 - out.x1;
+        const float e1y = out.y2 - out.y1;
+        const float e1z = out.z2 - out.z1;
+        const float e2x = out.x3 - out.x1;
+        const float e2y = out.y3 - out.y1;
+        const float e2z = out.z3 - out.z1;
+
+        // Cross product: normal = e1 × e2
+        const float nx = e1y * e2z - e1z * e2y;
+        const float ny = e1z * e2x - e1x * e2z;
+        const float nz = e1x * e2y - e1y * e2x;
+
+        // Vector from triangle center to camera
+        const float cx = (out.x1 + out.x2 + out.x3) * (1.0f / 3.0f);
+        const float cy = (out.y1 + out.y2 + out.y3) * (1.0f / 3.0f);
+        const float cz = (out.z1 + out.z2 + out.z3) * (1.0f / 3.0f);
+
+        const float tox = camera_pos.x - cx;
+        const float toy = 0.5f - cy;         // Camera height offset
+        const float toz = camera_pos.y - cz; // camera_pos.y is Z in world space
+
+        // Dot product: if positive, triangle faces camera
+        out.set = (nx * tox + ny * toy + nz * toz) > 0.0f;
     }
-    return t;
+    return out.set;
 }
 
 bool Sprite3D::initializeAsHouse(Vector pos, float width, float height, float rot, uint16_t color, bool wireframe)
@@ -501,4 +561,24 @@ void Sprite3D::setWireframe(bool wireframe)
             triangles[i]->wireframe = wireframe;
         }
     }
+}
+
+bool Sprite3D::toPath(const char *path) const
+{
+#ifdef ENGINE_STORAGE_WRITE
+    if (triangle_count == 0)
+        return false;
+    if (triangle_count == ENGINE_MAX_TRIANGLES_PER_SPRITE)
+        return ENGINE_STORAGE_WRITE(path, triangles, sizeof(Triangle3D) * triangle_count);
+    Triangle3D *buf = ENGINE_MEM_NEW Triangle3D[triangle_count];
+    if (!buf)
+        return false;
+    for (uint16_t i = 0; i < triangle_count; i++)
+        buf[i] = *triangles[i];
+    const bool ok = ENGINE_STORAGE_WRITE(path, buf, sizeof(Triangle3D) * triangle_count);
+    ENGINE_MEM_DELETE[] buf;
+    return ok;
+#else
+    return false;
+#endif
 }

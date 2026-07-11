@@ -69,6 +69,7 @@ WIKI_API_URL = "https://{lang}.wikipedia.org/w/api.php"
 # Guardian RAM Rules: Force server to close socket immediately to free CYW43 hardware buffers
 WIKI_HEADERS = {
     "User-Agent": f"Picoware-WikiReader/{_VERSION} (RP2350)",
+    "Accept-Encoding": "identity",
     "Connection": "close"
 }
 _http_lock = None

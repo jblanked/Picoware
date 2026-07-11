@@ -11,6 +11,8 @@ def __callback(result: str):
 def start(view_manager) -> bool:
     """Start the app"""
 
+    view_manager.input_manager.reset()  # reset input manager to clear any previous input state
+
     kb = view_manager.keyboard
 
     # optional set a callback
@@ -28,12 +30,14 @@ def run(view_manager) -> None:
     """Run the app"""
     from picoware.system.buttons import BUTTON_BACK
 
-    inp = view_manager.input_manager
-    but = inp.button
+    button = view_manager.button
     kb = view_manager.keyboard
 
-    if but == BUTTON_BACK or not kb.run():
-        inp.reset()
+    if button == BUTTON_BACK or not kb.run():
+        view_manager.back()
+    elif kb.is_finished:
+        result: str = kb.response
+        print("Final result:", result)
         view_manager.back()
 
 
@@ -43,10 +47,6 @@ def stop(view_manager) -> None:
     from gc import collect
 
     kb = view_manager.keyboard
-
-    # do something with the response optionally
-    # if no callback is set
-    result: str = kb.response
 
     # reset for next use
     kb.reset()

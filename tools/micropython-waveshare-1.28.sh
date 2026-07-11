@@ -75,8 +75,14 @@ rm -rf "$micropython_dir"/modules/jsmn
 # remove http module if it exists
 rm -rf "$micropython_dir"/modules/http
 
+# remove usb_video module if it exists
+rm -rf "$micropython_dir"/modules/usb_video
+
 # remove websocket module if it exists
 rm -rf "$micropython_dir"/modules/websocket
+
+# remove mjs module if it exists
+rm -rf "$micropython_dir"/modules/mjs
 
 # Clean previous builds
 echo "Cleaning previous builds..."
@@ -101,7 +107,6 @@ mkdir -p "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.28
 
 # copy waveshare 1.28 modules file to micropython modules directory
 cp "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.28/waveshare_modules.cmake "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.28/waveshare_modules.cmake
-cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.28/picoware_game "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.28/picoware_game
 cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.28/waveshare_battery "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.28/waveshare_battery
 cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.28/waveshare_lcd "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.28/waveshare_lcd
 cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.28/waveshare_touch "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.28/waveshare_touch
@@ -157,8 +162,14 @@ cp -r "$picoware_dir"/src/MicroPython/jsmn "$micropython_dir"/modules/jsmn
 # copy http module
 cp -r "$picoware_dir"/src/MicroPython/http "$micropython_dir"/modules/http
 
+# copy usb_video module
+cp -r "$picoware_dir"/src/MicroPython/usb_video "$micropython_dir"/modules/usb_video
+
 # copy websocket module
 cp -r "$picoware_dir"/src/MicroPython/websocket "$micropython_dir"/modules/websocket
+
+# copy mjs module
+cp -r "$picoware_dir"/src/MicroPython/mjs "$micropython_dir"/modules/mjs
 
 echo "Starting Waveshare 1.28 build process..."
 

@@ -4,6 +4,11 @@
 #include "hardware/gpio.h"
 #include "hardware/pwm.h"
 #include "pico/time.h"
+#include "../log/log_mp.h"
+
+#ifndef PRINT
+#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
+#endif
 
 #include "audio.h"
 #include "audio.pio.h"
@@ -21,11 +26,6 @@
 
 #ifndef PICOCALC
 volatile bool user_interrupt = false;
-#endif
-
-#include "py/runtime.h"
-#ifndef PRINT
-#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
 #endif
 
 #include "pico/multicore.h"
@@ -54,6 +54,9 @@ static alarm_id_t tone_alarm_id = -1;
 static uint8_t audio_volume = 100;
 static uint32_t channel_period[2] = {0, 0};
 static volatile int64_t mp3_pending_seek = -1;
+static volatile uint32_t mp3_pending_seek_serial = 0;
+static volatile uint32_t mp3_seek_done_serial = 0;
+static volatile int mp3_seek_status = 0;
 
 #define AUDIO_STREAM_RING_SIZE 2048 // must be power of 2
 #define AUDIO_STREAM_RING_MASK (AUDIO_STREAM_RING_SIZE - 1)
@@ -328,30 +331,59 @@ static void audio_mp3_core1_entry(void)
 
     while (mp3_core1_running)
     {
+        bool seek_waiting_for_frame = false;
+        uint32_t seek_serial = 0;
+
         if (mp3_pending_seek >= 0)
         {
             uint64_t target = (uint64_t)mp3_pending_seek;
+            seek_serial = mp3_pending_seek_serial;
             mp3_pending_seek = -1;
-            
+
             uint32_t hz = mp3_dec.info.hz > 0 ? mp3_dec.info.hz : 44100;
             uint32_t channels = mp3_dec.info.channels > 0 ? mp3_dec.info.channels : 2;
-            uint64_t sr_ch = (uint64_t)hz * channels;
-            
+            uint64_t sr_ch = (uint64_t)hz * (uint64_t)channels;
+
             uint32_t file_size = mp3_file.file_size;
+            uint32_t data_start = mp3_dec.start_offset < file_size ? (uint32_t)mp3_dec.start_offset : 0;
+            uint32_t data_size = file_size > data_start ? file_size - data_start : file_size;
             uint32_t avg_bitrate = mp3_dec.info.bitrate_kbps;
-            if (avg_bitrate == 0) avg_bitrate = 128;
-            uint64_t total_samples = ((uint64_t)file_size * 8 / avg_bitrate) * sr_ch / 1000;
-            if (mp3_dec.samples > 0) total_samples = mp3_dec.samples;
-            
-            uint64_t target_byte = 0;
-            if (total_samples > 0) {
-                target_byte = (target * file_size) / total_samples;
+            if (avg_bitrate == 0)
+                avg_bitrate = 128;
+
+            uint64_t total_samples = mp3_dec.samples;
+            if (total_samples == 0 && avg_bitrate > 0)
+                total_samples = ((uint64_t)data_size * 8u * sr_ch) / ((uint64_t)avg_bitrate * 1000u);
+            if (mp3_dec.samples > 0)
+                total_samples = mp3_dec.samples;
+
+            uint64_t preroll_samples = sr_ch;
+            if (preroll_samples > target)
+                preroll_samples = target;
+            uint64_t seek_sample = target - preroll_samples;
+
+            uint64_t target_byte = data_start;
+            if (total_samples > 0 && data_size > 0)
+                target_byte = (uint64_t)data_start + ((seek_sample * (uint64_t)data_size) / total_samples);
+            if (target_byte >= file_size && file_size > 0)
+                target_byte = file_size - 1;
+
+            stream_ring_write = stream_ring_read;
+            stream_phase_acc = 0;
+
+            int seek_result = mp3dec_ex_seek(&mp3_dec, target_byte);
+            if (seek_result == 0)
+            {
+                mp3_dec.cur_sample = seek_sample;
+                uint64_t to_skip = target - seek_sample;
+                mp3_dec.to_skip = to_skip > (uint64_t)INT_MAX ? INT_MAX : (int)to_skip;
+                seek_waiting_for_frame = true;
             }
-            if (target_byte > file_size) target_byte = file_size;
-            
-            mp3dec_ex_seek(&mp3_dec, target_byte);
-            mp3_dec.cur_sample = target;
-            stream_ring_read = stream_ring_write;
+            else
+            {
+                mp3_seek_status = seek_result;
+                mp3_seek_done_serial = seek_serial;
+            }
         }
 
         mp3d_sample_t *pcm;
@@ -360,6 +392,11 @@ static void audio_mp3_core1_entry(void)
 
         if (samples_out == 0)
         {
+            if (seek_waiting_for_frame)
+            {
+                mp3_seek_status = mp3_dec.last_error ? mp3_dec.last_error : -1;
+                mp3_seek_done_serial = seek_serial;
+            }
             // End of stream or error
             mp3_core1_running = false;
             is_playing = false;
@@ -373,6 +410,11 @@ static void audio_mp3_core1_entry(void)
         while (mp3_core1_running && mp3_pending_seek < 0)
         {
             uint32_t used = stream_ring_write - stream_ring_read;
+            if (used > AUDIO_STREAM_RING_SIZE)
+            {
+                stream_ring_write = stream_ring_read;
+                used = 0;
+            }
             if (used + (uint32_t)frames <= AUDIO_STREAM_RING_SIZE)
                 break;
             tight_loop_contents();
@@ -394,6 +436,12 @@ static void audio_mp3_core1_entry(void)
                 mp3_stereo_buf[i * 2 + 1] = ((int16_t *)pcm)[i];
             }
             audio_push_samples(mp3_stereo_buf, frames);
+        }
+
+        if (seek_waiting_for_frame)
+        {
+            mp3_seek_status = 1;
+            mp3_seek_done_serial = seek_serial;
         }
     }
     mp3_core1_active = false;
@@ -508,7 +556,8 @@ audio_info_t audio_get_info(void)
 {
     audio_info_t info = {0, 0, 0, 0};
 #if SD_AVAILABLE
-    if (is_playing && mp3_core1_running) {
+    if (is_playing && mp3_core1_running)
+    {
         info.sample_rate = mp3_dec.info.hz;
         info.channels = mp3_dec.info.channels;
         info.duration = mp3_dec.samples;
@@ -521,9 +570,26 @@ audio_info_t audio_get_info(void)
 bool audio_seek(uint64_t target_sample)
 {
 #if SD_AVAILABLE
-    if (is_playing && mp3_core1_running) {
+    if (is_playing && mp3_core1_running)
+    {
+        if (mp3_pending_seek >= 0)
+            return false;
+        uint32_t serial = mp3_pending_seek_serial + 1;
+        if (serial == 0)
+            serial = 1;
+        mp3_seek_status = 0;
+        mp3_seek_done_serial = 0;
+        mp3_pending_seek_serial = serial;
         mp3_pending_seek = (int64_t)target_sample;
-        return true;
+
+        uint64_t start_us = time_us_64();
+        while (mp3_core1_running && mp3_seek_done_serial != serial)
+        {
+            if ((time_us_64() - start_us) > 1500000ULL)
+                return false;
+            sleep_us(1000);
+        }
+        return mp3_seek_done_serial == serial && mp3_seek_status > 0;
     }
 #endif
     return false;

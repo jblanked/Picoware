@@ -134,7 +134,8 @@ class WiFi:
         # sync
         if _mode == STA_IF:
             # check if already connected
-            if self.wlan.isconnected() and self.ssid == self.wlan.config("ssid"):
+            if self.wlan.isconnected() and ssid == self.ssid:
+                self._state = WIFI_STATE_CONNECTED
                 return True
             try:
                 self._thread_running = True
@@ -196,6 +197,11 @@ class WiFi:
         :param sta_mode: If True, use station mode (STA_IF), otherwise use access point mode (AP_IF).
         """
         try:
+            if self.wlan.isconnected() and ssid == self.ssid:
+                self._state = WIFI_STATE_CONNECTED
+                return True
+
+            self._state = WIFI_STATE_CONNECTING
             if self._thread_manager:
                 # Use ThreadManager
                 from picoware.system.thread import ThreadTask
@@ -219,6 +225,7 @@ class WiFi:
             return True
         except Exception as e:
             self.error = f"Failed to start WiFi connection thread: {e}"
+            self._state = WIFI_STATE_ISSUE
             return False
 
     def disconnect(self):

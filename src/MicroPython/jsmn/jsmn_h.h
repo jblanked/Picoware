@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include "../log/log_mp.h"
 
 #define JSMN_MALLOC_INCLUDE "py/runtime.h"
 #define JSMN_MALLOC m_malloc
@@ -11,7 +12,7 @@
 #define JSMN_MEMORY_INCLUDE "py/gc.h"
 #define JSMN_GET_FREE_MEMORY ({ gc_info_t _i; gc_info(&_i); _i.free; })
 #define JSMN_LOG_INCLUDE "py/runtime.h"
-#define JSMN_LOG_INFO(...) mp_printf(&mp_plat_print, __VA_ARGS__)
+#define JSMN_LOG_INFO(tag, ...) LOG_MESSAGE(__VA_ARGS__)
 #define JSMN_CHECK_MEMORY false
 
 #ifdef __cplusplus

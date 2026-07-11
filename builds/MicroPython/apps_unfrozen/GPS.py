@@ -181,7 +181,7 @@ def run(view_manager) -> None:
                 draw.clear(Vector(0, 0), draw.size, view_manager.background_color)
                 error_msg = "Failed to get location data."
                 if _gps_http.state == 2:  # HTTP_ISSUE
-                    error_msg += "\nNetwork error or timeout."
+                    error_msg += f"\nNetwork error or timeout: {_gps_http.error}"
                 view_manager.alert(error_msg, True)
                 return
         else:

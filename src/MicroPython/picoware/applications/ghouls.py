@@ -11,7 +11,7 @@ class Ghouls(ghouls.Ghouls):
 STATE_DOWNLOADING = const(0)
 STATE_PLAYING = const(1)
 
-_TOTAL_ASSETS = const(16)
+_TOTAL_ASSETS = const(27)
 
 _ghouls = None
 _http = None
@@ -26,27 +26,10 @@ def __get_asset_info() -> dict:
     """Get the asset name, download link, and save path for the current asset index"""
     global _asset_index
 
-    base_url = "https://raw.githubusercontent.com/jblanked/Ghouls/dev/src/assets/"
+    base_url = "https://raw.githubusercontent.com/pico-game-engine/Ghouls/dev/src/assets/"
     base_path = "picoware/apps/games/ghouls/assets/"
 
-    asset_list = [
-        "ambience.wav",
-        "crossbow.wav",
-        "forest.ghoulsmap",
-        "ghouls-growl-loud.wav",
-        "ghouls-growl-medium.wav",
-        "ghouls-growl-soft.wav",
-        "ghouls-growling.wav",
-        "graveyard.ghoulsmap",
-        "home.ghoulsmap",
-        "maze.ghoulsmap",
-        "menu-click.wav",
-        "rifle.wav",
-        "rocket-launcher.wav",
-        "shotgun.wav",
-        "tron.ghoulsmap",
-        "weapon-pickup.wav",
-    ]
+    asset_list = __get_asset_list()
 
     current = asset_list[_asset_index]
 
@@ -60,6 +43,37 @@ def __get_asset_info() -> dict:
 
     return _data
 
+def __get_asset_list() -> list:
+    """Get the list of assets to download"""
+    return [
+        "weapon-pickup.wav",
+        "tron.ghoulsmap",
+        "shotgun.wav",
+        "shotgun.sprite3d",
+        "rocket.sprite3d",
+        "shell.sprite3d",
+        "rocket-launcher.wav",
+        "rocket-launcher.sprite3d",
+        "rifle.wav",
+        "rifle.sprite3d",
+        "punk.sprite3d",
+        "menu-click.wav",
+        "maze.ghoulsmap",
+        "home.ghoulsmap",
+        "graveyard.ghoulsmap",
+        "ghouls-growling.wav",
+        "ghouls-growl-soft.wav",
+        "ghouls-growl-medium.wav",
+        "ghouls-growl-loud.wav",
+        "forest.ghoulsmap",
+        "crossbow.wav",
+        "crossbow.sprite3d",
+        "creeper.sprite3d",
+        "bully.sprite3d",
+        "bullet.sprite3d",
+        "arrow.sprite3d",
+        "ambience.wav"
+    ]
 
 def __init_ghouls() -> bool:
     """'Initialize the Ghouls game"""
@@ -74,9 +88,14 @@ def __init_ghouls() -> bool:
 def __is_assets_loaded(view_manager) -> bool:
     """Check if at least the first asset is loaded"""
     s = view_manager.storage
-    return s is not None and s.exists(
-        "picoware/apps/games/ghouls/assets/home.ghoulsmap"
-    )
+    if s is None:
+        return False
+    asset_list = __get_asset_list()
+    root_path = "picoware/apps/games/ghouls/assets/"
+    for asset in asset_list:
+        if not s.exists(root_path + asset):
+            return False
+    return True
 
 
 def start(view_manager) -> bool:
@@ -100,13 +119,15 @@ def start(view_manager) -> bool:
         connect_to_saved_wifi(view_manager)
         return False
 
-    global _state, _asset_index, _ghouls, _http, _username, _password, _loading
+    global _state, _asset_index, _http, _username, _password, _loading
 
     # if settings arent saved, return
-    from picoware.applications.system import settings
+    from picoware.system.settings import Settings
 
-    _username = settings.__load_server_username(view_manager)
-    _password = settings.__load_server_password(view_manager)
+    _settings = Settings(view_manager.storage)
+    server_settings = _settings.server_settings
+    _username = server_settings.get("username")
+    _password = server_settings.get("password")
 
     if not _username or not _password:
         view_manager.alert(
@@ -182,7 +203,7 @@ def run(view_manager) -> None:
     elif _state == STATE_DOWNLOADING:
         if not _http.is_request_complete():
             if _loading:
-                _loading.animate()
+                _loading.animate(http=_http)
             return
 
         # Current asset download complete — start the next one

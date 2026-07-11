@@ -36,9 +36,16 @@ extern "C"
         size_t notes_len;
     } audio_song_mp_obj_t;
 
+    typedef struct
+    {
+        mp_obj_base_t base;
+        audio_info_t info;
+    } audio_info_mp_obj_t;
+
     extern const mp_obj_type_t audio_mp_type;
     extern const mp_obj_type_t audio_note_mp_type;
     extern const mp_obj_type_t audio_song_mp_type;
+    extern const mp_obj_type_t audio_info_mp_type;
 
     void audio_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind);                    // print function for the Audio object
     mp_obj_t audio_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args); // constructor for the Audio object
@@ -66,6 +73,11 @@ extern "C"
     mp_obj_t audio_song_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args); // constructor for the Audio Song object
     mp_obj_t audio_song_mp_del(mp_obj_t self_in);                                                                 // destructor for the Audio Song object
     void audio_song_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination);                             // attribute handler for the Audio Song object
+
+    void audio_info_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind);                    // print function for the Audio Info object
+    mp_obj_t audio_info_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args); // constructor for the Audio Info object
+    mp_obj_t audio_info_mp_del(mp_obj_t self_in);                                                                 // destructor for the Audio Info object
+    void audio_info_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination);                             // attribute handler for the Audio Info object
 
 #ifdef __cplusplus
 }

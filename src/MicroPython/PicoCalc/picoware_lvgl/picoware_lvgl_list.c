@@ -91,7 +91,7 @@ mp_obj_t picoware_lvgl_list_make_new(const mp_obj_type_t *type, size_t n_args, s
 mp_obj_t picoware_lvgl_list_del(mp_obj_t self_in)
 {
     picoware_lvgl_list_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (self->freed)
+    if (!self || self->freed)
     {
         return mp_const_none;
     }
@@ -172,7 +172,8 @@ void picoware_lvgl_list_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destina
             destination[0] = MP_OBJ_FROM_PTR(&picoware_lvgl_list_del_obj);
             break;
         default:
-            return; // Fail
+            destination[1] = MP_OBJ_SENTINEL;
+            return;
         };
     }
     else if (destination[1] != MP_OBJ_NULL)

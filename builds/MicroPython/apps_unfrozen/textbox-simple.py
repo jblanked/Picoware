@@ -22,17 +22,13 @@ def run(view_manager):
     """Run the app"""
     from picoware.system.buttons import BUTTON_UP, BUTTON_DOWN, BUTTON_BACK
 
-    inp = view_manager.input_manager
-    button = inp.button
+    button = view_manager.button
 
     if button == BUTTON_UP:
-        inp.reset()
         _textbox.scroll_up()
     elif button == BUTTON_DOWN:
-        inp.reset()
         _textbox.scroll_down()
     elif button == BUTTON_BACK:
-        inp.reset()
         view_manager.back()
 
 

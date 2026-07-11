@@ -290,7 +290,7 @@ cd "$micropython_dir"
 
 # Keep ESP-IDF warnings from failing the build, keep legacy I2C API checks permissive,
 # and force the Cardputer board define for preprocess-only qstr generation paths.
-export EXTRA_CFLAGS="-Wno-maybe-uninitialized -Wno-error=maybe-uninitialized -DCONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=1 -DCARDPUTER"
+export EXTRA_CFLAGS="-Wno-maybe-uninitialized -Wno-error=maybe-uninitialized -DCONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=1 -DCARDPUTER -DPBUF_POOL_SIZE=10"
 
 make BOARD=ESP32_GENERIC_S3 \
     USER_C_MODULES="$micropython_dir/modules/cardputer/micropython.cmake" \
@@ -298,19 +298,17 @@ make BOARD=ESP32_GENERIC_S3 \
 
 effective_sdkconfig="$build_dir/sdkconfig"
 if ! grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y$' "$micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board" \
-    || ! grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"$' "$micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board" \
-    || ! grep -q '^CONFIG_SPIRAM_USE_MALLOC=y$' "$micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board"; then
+    || ! grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"$' "$micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board"; then
     echo "ERROR: Cardputer sdkconfig defaults are missing expected flash/partition settings."
-    echo "Expected CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y, CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions.csv\", and CONFIG_SPIRAM_USE_MALLOC=y in $micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board"
+    echo "Expected CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y and CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions.csv\" in $micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board"
     exit 1
 fi
 
 if [ -f "$effective_sdkconfig" ]; then
     if ! grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y$' "$effective_sdkconfig" \
-        || ! grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"$' "$effective_sdkconfig" \
-        || ! grep -q '^CONFIG_SPIRAM_USE_MALLOC=y$' "$effective_sdkconfig"; then
+        || ! grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"$' "$effective_sdkconfig"; then
         echo "ERROR: Cardputer flash/partition overrides were not applied."
-        echo "Expected CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y, CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions.csv\", and CONFIG_SPIRAM_USE_MALLOC=y in $effective_sdkconfig"
+        echo "Expected CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y and CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions.csv\" in $effective_sdkconfig"
         echo "Current effective values:"
         grep -E 'CONFIG_ESPTOOLPY_FLASHSIZE|CONFIG_PARTITION_TABLE_CUSTOM_FILENAME|CONFIG_PARTITION_TABLE_FILENAME|CONFIG_SPIRAM_USE_MALLOC' "$effective_sdkconfig" || true
         exit 1

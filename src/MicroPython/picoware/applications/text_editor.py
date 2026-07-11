@@ -14,6 +14,14 @@ _keyboard_just_started = False
 _file_selected = False
 
 
+def __is_editable_file(path: str) -> bool:
+    """Return whether the text editor app should open this path."""
+    from picoware.gui.file_browser import FileBrowser
+
+    ext = path.split(".")[-1].lower() if "." in path else ""
+    return ext in FileBrowser.TEXT_EDITABLE_EXTENSIONS
+
+
 def __start_menu(view_manager) -> None:
     """Build and draw the main menu."""
     from picoware.gui.menu import Menu
@@ -51,6 +59,7 @@ def __start_browse(view_manager) -> None:
             view_manager,
             mode=FILE_BROWSER_SELECTOR,
             start_directory="/",
+            allowed_extensions=list(FileBrowser.TEXT_EDITABLE_EXTENSIONS),
         )
 
 
@@ -84,12 +93,20 @@ def __start_edit(view_manager) -> None:
     """Open the TextEditor for the current filename."""
     from picoware.gui.text_editor import TextEditor
 
-    global _textbox
+    global _state, _textbox
 
     if _textbox is None:
+        if _filename and not __is_editable_file(_filename):
+            view_manager.alert("Unsupported file format.")
+            _state = STATE_MENU
+            view_manager.draw.clear(color=view_manager.background_color)
+            __start_menu(view_manager)
+            return
         _textbox = TextEditor(view_manager)
         if _filename:
             _textbox.load_file(_filename)
+        _textbox.refresh()
+        view_manager.input_manager.reset()
 
 
 def __save_and_return_to_menu(view_manager) -> None:
@@ -179,6 +196,12 @@ def run(view_manager) -> None:
             _file_browser = None
 
             if selected_path and not is_exit:
+                if not __is_editable_file(selected_path):
+                    view_manager.alert("Unsupported file format.")
+                    _state = STATE_MENU
+                    view_manager.draw.clear(color=view_manager.background_color)
+                    __start_menu(view_manager)
+                    return
                 _filename = selected_path
                 _state = STATE_EDIT
                 view_manager.draw.clear(color=view_manager.background_color)

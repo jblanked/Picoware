@@ -13,7 +13,7 @@
 #define FONT_DEFAULT FONT_SIZE_XTRA_SMALL
 #endif
 
-#define LCD_CHUNK_LINES 16
+#define LCD_CHUNK_LINES 32
 
 // Module state
 static bool module_initialized = false;

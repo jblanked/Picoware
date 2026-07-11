@@ -10,6 +10,36 @@ class FileBrowser:
     Class to handle file browsing, text editing, and image viewing within Picoware.
     """
 
+    TEXT_EDITABLE_EXTENSIONS = (
+        "txt",
+        "py",
+        "json",
+        "csv",
+        "md",
+        "ini",
+        "log",
+        "xml",
+        "html",
+        "conf",
+        "sh",
+        "bat",
+        "yml",
+        "yaml",
+        "toml",
+        "cfg",
+        "css",
+        "js",
+        "h",
+        "c",
+        "cpp",
+        "php",
+        "env",
+        "gitignore",
+        "lua",
+        "bas",
+        "",
+    )
+
     PANE_LEFT = const(0)
     PANE_RIGHT = const(1)
 
@@ -233,35 +263,7 @@ class FileBrowser:
     def __file_edit(self, path) -> bool:
         """Start editing a text file."""
         ext = path.split(".")[-1].lower() if "." in path else ""
-        if ext not in (
-            "txt",
-            "py",
-            "json",
-            "csv",
-            "md",
-            "ini",
-            "log",
-            "xml",
-            "html",
-            "conf",
-            "sh",
-            "bat",
-            "yml",
-            "yaml",
-            "toml",
-            "cfg",
-            "css",
-            "js",
-            "h",
-            "c",
-            "cpp",
-            "php",
-            "env",
-            "gitignore",
-            "lua",
-            "bas",
-            "",
-        ):
+        if ext not in self.TEXT_EDITABLE_EXTENSIONS:
             self._vm.alert("Unsupported file format.")
             self._needs_redraw = True
             return False
@@ -289,35 +291,7 @@ class FileBrowser:
             self._image_load_state = 0
             self._image_path = path
             self._needs_redraw = True
-        elif ext in (
-            "txt",
-            "py",
-            "json",
-            "csv",
-            "md",
-            "ini",
-            "log",
-            "xml",
-            "html",
-            "conf",
-            "sh",
-            "bat",
-            "yml",
-            "yaml",
-            "toml",
-            "cfg",
-            "css",
-            "js",
-            "h",
-            "c",
-            "cpp",
-            "php",
-            "env",
-            "gitignore",
-            "lua",
-            "bas",
-            "",
-        ):
+        elif ext in self.TEXT_EDITABLE_EXTENSIONS:
             self._is_viewing_text = True
             self._edit_file = path
 
@@ -1408,7 +1382,8 @@ class FileBrowser:
 
                         data = self._text_editor.current_text
 
-                        if self._vm.storage.write(self._edit_file, data, "w"):
+                        result = self._vm.storage.write(self._edit_file, data, "w")
+                        if result:
                             self._edit_unsaved = False
                         del data  # Plug memory leak right after save
                         self.__loading_run("Saved", 1.0)
@@ -1447,6 +1422,14 @@ class FileBrowser:
                         self.__file_view(self._context_target_path)
                     elif ac == "Edit":
                         self.__file_edit(self._context_target_path)
+                    elif ac == "Run":
+                        from picoware.system.js import JS
+                        mjs = JS()
+                        result = mjs.exec(self._context_target_path)
+                        if result:
+                            self._vm.log(f'JS Result: {result}', -1)
+                        del mjs
+                        mjs = None
                     elif ac == "Delete":
                         self._pending_action = self.ACT_DELETE
                         mk = self._app_state["marked"]
@@ -1676,6 +1659,8 @@ class FileBrowser:
                                 items = ["Flash"]
                             elif np.lower().endswith((".wav", ".mp3")):
                                 items = ["Play Audio"]
+                            elif np.lower().endswith(".js"):
+                                items = ["Run", "View", "Edit"]
                             else:
                                 is_img = np.lower().endswith((".jpg", ".jpeg", ".bmp"))
                                 items = ["View"] if is_img else ["View", "Edit"]
@@ -1684,6 +1669,16 @@ class FileBrowser:
                             items.extend(["Copy", "Move", "Rename", "Delete"])
                         items.append("Cancel")
                         self._context_menu = self.__menu_spawn(sf[:14], items)
+                        if (
+                            self._context_menu is not None
+                            and not isd
+                            and not np.lower().endswith((".jpg", ".jpeg", ".bmp", ".uf2", ".wav", ".mp3", ".js"))
+                            and "." in sf
+                            and sf.split(".")[-1].lower()
+                            in self.TEXT_EDITABLE_EXTENSIONS
+                            and self._context_menu.item_exists("Edit")
+                        ):
+                            self._context_menu.set_selected(1)
                 self._needs_redraw = True
 
         if self._needs_redraw:

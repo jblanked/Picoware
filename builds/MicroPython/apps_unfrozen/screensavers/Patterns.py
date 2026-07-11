@@ -20,18 +20,20 @@ from picoware.system.colors import (
 
 _demo_state = 0
 _frame_count = 0
+_scale = 1.0
 colors = []
 
 
 def start(view_manager) -> bool:
     """Initialize the screensaver."""
-    global _demo_state, _frame_count, colors
+    global _demo_state, _frame_count, _scale, colors
 
     draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)
 
     _demo_state = 0
     _frame_count = 0
+    _scale = min(draw.size.x, draw.size.y) / 320
 
     colors = [
         TFT_RED,
@@ -43,7 +45,7 @@ def start(view_manager) -> bool:
         TFT_WHITE,
     ]
 
-    # tell user to press center to advance
+    # Prompt to advance
     size = len("Press Center") * draw.font_size.x
     draw.text(
         Vector(draw.size.x // 2 - size // 2, draw.size.y // 2),
@@ -58,163 +60,166 @@ def start(view_manager) -> bool:
 
 def _draw_pattern(draw):
     """Draw the current pattern to the display."""
-    global _demo_state
+    global _demo_state, _scale
+    import math
 
     # Clear screen
     draw.fill_screen(TFT_BLACK)
 
-    if _demo_state == 0:
-        # Pattern 1: Lines radiating from center
-        import math
+    s = _scale
+    sw, sh = draw.size.x, draw.size.y
+    cx, cy = sw // 2, sh // 2
+    screen_min = min(sw, sh)
 
-        cx, cy = draw.size.x // 2, draw.size.y // 2
+    if _demo_state == 0:
+        # Radiating lines
         line_vec = Vector(cx, cy)
-        size_vec = Vector(0, -150)
+        size_vec = Vector(0, 0)
+        r = int(150 * s)
         for i in range(0, 360, 10):
             angle = math.radians(i)
-            size_vec.x = int(cx + 150 * math.cos(angle))
-            size_vec.y = int(cy + 150 * math.sin(angle))
+            size_vec.x = int(cx + r * math.cos(angle))
+            size_vec.y = int(cy + r * math.sin(angle))
             draw.line_custom(line_vec, size_vec, colors[i // 10 % len(colors)])
 
     elif _demo_state == 1:
-        # Pattern 2: Concentric circles
-        size_vec = Vector(draw.size.x // 2, draw.size.y // 2)
-        for i, r in enumerate(range(10, 160, 15)):
-            draw.circle(size_vec, r, colors[i % len(colors)])
+        # Concentric circles
+        max_r = int(screen_min * 0.45)
+        step = max(5, int(15 * s))
+        for i, r in enumerate(range(10, max_r, step)):
+            draw.circle(Vector(cx, cy), r, colors[i % len(colors)])
 
     elif _demo_state == 2:
-        # Pattern 3: Filled circles in corners
-        draw.fill_circle(Vector(80, 80), 60, TFT_RED)
-        draw.fill_circle(Vector(240, 80), 60, TFT_GREEN)
-        draw.fill_circle(Vector(80, 240), 60, TFT_BLUE)
-        draw.fill_circle(Vector(240, 240), 60, TFT_YELLOW)
-        draw.fill_circle(Vector(160, 160), 50, TFT_WHITE)
+        # Corner circles
+        off = int(screen_min * 0.25)
+        r = max(8, int(60 * s))
+        draw.fill_circle(Vector(off, off), r, TFT_RED)
+        draw.fill_circle(Vector(sw - off, off), r, TFT_GREEN)
+        draw.fill_circle(Vector(off, sh - off), r, TFT_BLUE)
+        draw.fill_circle(Vector(sw - off, sh - off), r, TFT_YELLOW)
+        draw.fill_circle(Vector(cx, cy), max(6, int(50 * s)), TFT_WHITE)
 
     elif _demo_state == 3:
-        # Pattern 4: Nested rectangles
-        rec_pos = Vector(20, 20)
-        rec_size = Vector(280, 280)
+        # Nested rectangles
+        pad = int(20 * s)
+        init_size = screen_min - pad * 2
+        step = max(5, int(15 * s))
+        size_step = max(10, int(30 * s))
+        rec_pos = Vector(pad, pad)
+        rec_size = Vector(init_size, init_size)
         for i in range(6):
-            rec_pos.x = 20 + i * 15
-            rec_pos.y = 20 + i * 15
-            rec_size.x = 280 - i * 30
-            rec_size.y = 280 - i * 30
+            rec_pos.x = pad + i * step
+            rec_pos.y = pad + i * step
+            rec_size.x = init_size - i * size_step
+            rec_size.y = init_size - i * size_step
             draw.rect(rec_pos, rec_size, colors[i])
 
     elif _demo_state == 4:
-        # Pattern 5: Overlapping filled rectangles
-        draw.fill_rectangle(Vector(40, 40), Vector(120, 120), TFT_RED)
-        draw.fill_rectangle(Vector(100, 100), Vector(120, 120), TFT_GREEN)
-        draw.fill_rectangle(Vector(160, 160), Vector(120, 120), TFT_BLUE)
+        # Overlapping rects
+        size = max(20, int(120 * s))
+        pos1 = int(40 * s)
+        pos2 = int(100 * s)
+        pos3 = int(160 * s)
+        draw.fill_rectangle(Vector(pos1, pos1), Vector(size, size), TFT_RED)
+        draw.fill_rectangle(Vector(pos2, pos2), Vector(size, size), TFT_GREEN)
+        draw.fill_rectangle(Vector(pos3, pos3), Vector(size, size), TFT_BLUE)
 
     elif _demo_state == 5:
-        # Pattern 6: Triangles
-        point_1 = Vector(160, 20)
-        point_2 = Vector(40, 280)
-        point_3 = Vector(280, 280)
+        # Triangles
+        mid_x = int(160 * s)
+        top_y = int(20 * s)
+        bottom_y = screen_min - int(40 * s)
+        left_x = int(40 * s)
+        right_x = int(280 * s)
+        pt1 = Vector(mid_x, top_y)
+        pt2 = Vector(left_x, bottom_y)
+        pt3 = Vector(right_x, bottom_y)
         for i in range(6):
-            offset = i * 25
-            point_1.x = 160
-            point_1.y = 20 + offset
-            point_2.x = 40 + offset
-            point_2.y = 280 - offset
-            point_3.x = 280 - offset
-            point_3.y = 280 - offset
-            draw.triangle(
-                point_1,
-                point_2,
-                point_3,
-                colors[i],
-            )
+            off = i * int(25 * s)
+            pt1.x = mid_x
+            pt1.y = top_y + off
+            pt2.x = left_x + off
+            pt2.y = bottom_y - off
+            pt3.x = right_x - off
+            pt3.y = bottom_y - off
+            draw.triangle(pt1, pt2, pt3, colors[i])
 
     elif _demo_state == 6:
-        # Pattern 7: Checkerboard
-        rec_size = Vector(18, 18)
+        # Checkerboard
+        grid = max(8, int(20 * s))
+        cell = grid - 2
+        rec_size = Vector(cell, cell)
         rec_pos = Vector(0, 0)
-        for y in range(0, 320, 20):
-            for x in range(0, 320, 20):
+        for y in range(0, sh, grid):
+            for x in range(0, sw, grid):
                 rec_pos.x = x
                 rec_pos.y = y
-                if (x // 20 + y // 20) % 2 == 0:
+                if (x // grid + y // grid) % 2 == 0:
                     draw.fill_rectangle(rec_pos, rec_size, TFT_RED)
                 else:
                     draw.fill_rectangle(rec_pos, rec_size, TFT_BLUE)
 
     elif _demo_state == 7:
-        # Pattern 8: Spiral of circles
-        import math
-
-        circ_pos = Vector(draw.size.x // 2, draw.size.y // 2)
+        # Spiral circles
         for i in range(60):
             angle = math.radians(i * 15)
-            r = 10 + i * 2
-            circ_pos.x = int(160 + r * math.cos(angle))
-            circ_pos.y = int(160 + r * math.sin(angle))
-            radius = int(5 + i // 10)
-            draw.circle(circ_pos, radius, colors[i % len(colors)])
+            r = int((10 + i * 2) * s)
+            x = int(cx + r * math.cos(angle))
+            y = int(cy + r * math.sin(angle))
+            radius = max(2, int((5 + i // 10) * s))
+            draw.circle(Vector(x, y), radius, colors[i % len(colors)])
 
     elif _demo_state == 8:
-        # Pattern 10: Starburst lines
-        lin_pos = Vector(draw.size.x // 2, draw.size.y // 2)
+        # Starburst lines
+        inner = int(50 * s)
+        outer = int(150 * s)
+        lin_pos = Vector(cx, cy)
         lin_size = Vector(0, 0)
         for i in range(0, 360, 5):
-            import math
-
             angle = math.radians(i)
-            lin_pos.x = int(160 + 50 * math.cos(angle))
-            lin_pos.y = int(160 + 50 * math.sin(angle))
-            lin_size.x = int(160 + 150 * math.cos(angle))
-            lin_size.y = int(160 + 150 * math.sin(angle))
+            lin_pos.x = int(cx + inner * math.cos(angle))
+            lin_pos.y = int(cy + inner * math.sin(angle))
+            lin_size.x = int(cx + outer * math.cos(angle))
+            lin_size.y = int(cy + outer * math.sin(angle))
             draw.line_custom(lin_pos, lin_size, colors[i // 5 % len(colors)])
 
     elif _demo_state == 9:
-        # Pattern 11: Diamond grid
-        point_1 = Vector(0, 0)
-        point_2 = Vector(0, 0)
-        point_3 = Vector(0, 0)
-        for y in range(0, draw.size.y, 40):
-            for x in range(0, draw.size.x, 40):
-                cx = x + 20
-                cy = y + 20
-                point_1.x = cx
-                point_1.y = cy - 15
-                point_2.x = cx - 15
-                point_2.y = cy
-                point_3.x = cx
-                point_3.y = cy + 15
-                draw.triangle(
-                    point_1,
-                    point_2,
-                    point_3,
-                    colors[(x // 40 + y // 40) % len(colors)],
-                )
-                point_1.x = cx
-                point_1.y = cy - 15
-                point_2.x = cx + 15
-                point_2.y = cy
-                point_3.x = cx
-                point_3.y = cy + 15
-                draw.triangle(
-                    point_1,
-                    point_2,
-                    point_3,
-                    colors[(x // 40 + y // 40) % len(colors)],
-                )
+        # Diamond grid
+        step = max(20, int(40 * s))
+        half = max(5, int(15 * s))
+        pt1 = Vector(0, 0)
+        pt2 = Vector(0, 0)
+        pt3 = Vector(0, 0)
+        for y in range(0, sh, step):
+            for x in range(0, sw, step):
+                gx = x + step // 2
+                gy = y + step // 2
+                pt1.x = gx
+                pt1.y = gy - half
+                pt2.x = gx - half
+                pt2.y = gy
+                pt3.x = gx
+                pt3.y = gy + half
+                c = colors[(x // step + y // step) % len(colors)]
+                draw.triangle(pt1, pt2, pt3, c)
+                pt1.x = gx
+                pt1.y = gy - half
+                pt2.x = gx + half
+                pt2.y = gy
+                pt3.x = gx
+                pt3.y = gy + half
+                draw.triangle(pt1, pt2, pt3, c)
 
     elif _demo_state == 10:
-        # Pattern 12: Concentric squares
-        rec_pos = Vector(0, 0)
-        rec_size = Vector(0, 0)
+        # Concentric squares
+        init_size = screen_min - int(20 * s)
         for i in range(15):
-            size = 300 - i * 20
-            offset = i * 10
-            rec_pos.x = 10 + offset
-            rec_pos.y = 10 + offset
-            rec_size.x = size
-            rec_size.y = size
+            size = init_size - i * int(20 * s)
+            offset = i * int(10 * s)
+            p = int(10 * s) + offset
             draw.rect(
-                rec_pos,
-                rec_size,
+                Vector(p, p),
+                Vector(size, size),
                 colors[i % len(colors)],
             )
 
@@ -226,7 +231,7 @@ def run(view_manager) -> None:
     inp = view_manager.input_manager
     draw = view_manager.draw
 
-    # Exit on any button press
+    # Exit on button
     if inp.button == BUTTON_BACK:
         inp.reset()
         view_manager.back()
@@ -241,7 +246,8 @@ def stop(view_manager) -> None:
     """Cleanup."""
     from gc import collect
 
-    global colors
+    global colors, _scale
     colors = []
+    _scale = 1.0
 
     collect()

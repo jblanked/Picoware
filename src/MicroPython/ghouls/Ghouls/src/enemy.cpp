@@ -1,5 +1,6 @@
 #include "enemy.hpp"
 #include <math.h>
+#include <cstdio>
 #include "general.hpp"
 #include "level.hpp"
 
@@ -23,19 +24,19 @@ Enemy::Enemy(const char *name, Vector position, EnemyType enemyType, float heigh
     switch (enemyType)
     {
     case ENEMY_BULLY:
-        this->makeBully(height);
+        this->name = "bully";
         this->strength = 10.0f;
         this->speed = SPEED_SCALE(0.2f);
         this->attack_timer = SPEED_SCALE(200.0f);
         break;
     case ENEMY_CREEPER:
-        this->makeCreeper(height);
+        this->name = "creeper";
         this->strength = 20.0f;
         this->speed = SPEED_SCALE(0.1f);
         this->attack_timer = SPEED_SCALE(320.0f);
         break;
     case ENEMY_PUNK:
-        this->makePunk(height);
+        this->name = "punk";
         this->strength = 15.0f;
         this->speed = SPEED_SCALE(0.14f);
         this->attack_timer = SPEED_SCALE(240.0f);
@@ -43,6 +44,9 @@ Enemy::Enemy(const char *name, Vector position, EnemyType enemyType, float heigh
     default:
         break;
     }
+    char path[256];
+    snprintf(path, sizeof(path), "%s%s.sprite3d", ASSETS_FOLDER, this->name);
+    sprite_3d->fromPath(path);
     set3DSpriteRotation(rotation);
     start_position = position;
     end_position = endPosition == Vector(-1, -1) ? position : endPosition;
@@ -112,130 +116,6 @@ Vector Enemy::getPlayerPosition(Game *game)
         }
     }
     return this->end_position;
-}
-
-void Enemy::makeBully(float height)
-{
-    if (!sprite_3d)
-    {
-        ENGINE_LOG_INFO("[Enemy:makeBully] Sprite3D instance is null for enemy: %s\n", this->name);
-        return;
-    }
-    const float hr = height * 0.12f, tw = height * 0.20f, th = height * 0.35f;
-    const float lh = height * 0.45f, al = height * 0.25f;
-    const float lw = tw * 0.45f, aw = tw * 0.35f;
-    const uint16_t skin = rgb565(0x6b8c4a);
-    const uint16_t shirt = rgb565(0x3a3a5a);
-    const uint16_t pants = rgb565(0x2a2a40);
-    const uint16_t shoe = rgb565(0x1a1a1a);
-    const uint16_t eye = rgb565(0xff2200);
-
-    // head
-    sprite_3d->createSphere(0, height - hr, 0, hr, 4, skin);
-
-    // torso
-    sprite_3d->createCube(0, lh + th / 2, 0, tw, th, tw * 0.8f, shirt);
-
-    // arms — rotated outward (reaching forward): shift Z forward
-    sprite_3d->createCube(-tw * 0.8f, lh + th / 2, al * 0.6f, aw, aw, al, skin);
-    sprite_3d->createCube(tw * 0.8f, lh + th / 2, al * 0.6f, aw, aw, al, skin);
-
-    // legs
-    sprite_3d->createCube(-lw * 0.7f, lh / 2, 0, lw, lh, lw, pants);
-    sprite_3d->createCube(lw * 0.7f, lh / 2, 0, lw, lh, lw, pants);
-
-    // shoes
-    sprite_3d->createCube(-lw * 0.7f, lw * 0.15f, lw * 0.2f, lw * 1.1f, lw * 0.3f, lw * 1.4f, shoe);
-    sprite_3d->createCube(lw * 0.7f, lw * 0.15f, lw * 0.2f, lw * 1.1f, lw * 0.3f, lw * 1.4f, shoe);
-
-    // red eyes on face
-    sprite_3d->createCube(-hr * 0.35f, height - hr * 0.85f, hr * 0.88f, hr * 0.28f, hr * 0.2f, hr * 0.1f, eye);
-    sprite_3d->createCube(hr * 0.35f, height - hr * 0.85f, hr * 0.88f, hr * 0.28f, hr * 0.2f, hr * 0.1f, eye);
-}
-
-void Enemy::makePunk(float height)
-{
-    if (!sprite_3d)
-    {
-        ENGINE_LOG_INFO("[Enemy:makeBully] Sprite3D instance is null for enemy: %s\n", this->name);
-        return;
-    }
-    const float hr = height * 0.13f, tw = height * 0.22f, th = height * 0.28f;
-    const float lh = height * 0.35f, al = height * 0.30f;
-    const float lw = tw * 0.45f, aw = tw * 0.35f;
-    const uint16_t skin = rgb565(0x5a7a3a);
-    const uint16_t shirt = rgb565(0x5a3a2a);
-    const uint16_t pants = rgb565(0x2a1a10);
-    const uint16_t shoe = rgb565(0x111111);
-    const uint16_t eye = rgb565(0xddeeaa);
-
-    // Head pitched forward (Z offset)
-    sprite_3d->createSphere(0, lh + th + hr * 0.6f, hr * 0.9f, hr, 4, skin);
-
-    // Torso — hunched, pushed forward
-    sprite_3d->createCube(0, lh + th * 0.4f, th * 0.15f, tw, th, tw * 0.85f, shirt);
-
-    // Left arm — hanging low (dragging)
-    sprite_3d->createCube(-tw * 0.85f, lh * 0.3f, al * 0.1f, aw, al * 1.3f, aw, skin);
-
-    // Right arm — raised and reaching
-    sprite_3d->createCube(tw * 0.85f, lh + th * 0.6f, al * 0.3f, aw, al, aw, skin);
-
-    // Legs — wide squat
-    sprite_3d->createCube(-lw * 0.85f, lh * 0.45f, lw * 0.2f, lw, lh * 0.9f, lw, pants);
-    sprite_3d->createCube(lw * 0.85f, lh * 0.45f, lw * 0.2f, lw, lh * 0.9f, lw, pants);
-
-    // Shoes
-    sprite_3d->createCube(-lw * 0.85f, lw * 0.15f, lw * 0.4f, lw * 1.1f, lw * 0.3f, lw * 1.3f, shoe);
-    sprite_3d->createCube(lw * 0.85f, lw * 0.15f, lw * 0.4f, lw * 1.1f, lw * 0.3f, lw * 1.3f, shoe);
-
-    // Glazed white-yellow eyes
-    sprite_3d->createCube(-hr * 0.32f, lh + th + hr * 0.55f, hr * 1.05f, hr * 0.25f, hr * 0.18f, hr * 0.1f, eye);
-    sprite_3d->createCube(hr * 0.32f, lh + th + hr * 0.55f, hr * 1.05f, hr * 0.25f, hr * 0.18f, hr * 0.1f, eye);
-}
-
-void Enemy::makeCreeper(float height)
-{
-    if (!sprite_3d)
-    {
-        ENGINE_LOG_INFO("[Enemy:makeBully] Sprite3D instance is null for enemy: %s\n", this->name);
-        return;
-    }
-    const float hr = height * 0.10f, tw = height * 0.18f, th = height * 0.38f;
-    const float lh = height * 0.50f, al = height * 0.32f;
-    const float lw = tw * 0.40f, aw = tw * 0.30f;
-    const uint16_t skin = rgb565(0x7a9a5a);
-    const uint16_t coat = rgb565(0x1e2e1e);
-    const uint16_t pants = rgb565(0x151f28);
-    const uint16_t shoe = rgb565(0x0a0a0a);
-    const uint16_t eyeC = rgb565(0xff6600);
-    const uint16_t hat = rgb565(0x111111);
-
-    // Head
-    sprite_3d->createSphere(0, height - hr, 0, hr, 4, skin);
-
-    // Top hat: wide flat brim + tall crown
-    sprite_3d->createCube(0, height - hr * 0.1f, 0, tw * 1.6f, hr * 0.18f, tw * 1.6f, hat);
-    sprite_3d->createCube(0, height + hr * 0.85f, 0, tw * 0.9f, hr * 1.40f, tw * 0.9f, hat);
-
-    // Long coat torso
-    sprite_3d->createCube(0, lh + th / 2, 0, tw, th, tw * 0.75f, coat);
-
-    // Arms — one high (raised), one low (dangling)
-    sprite_3d->createCube(-tw * 0.8f, lh + th * 0.75f, 0, aw, al, aw, skin);
-    sprite_3d->createCube(tw * 0.8f, lh + th * 0.25f, 0, aw, al, aw, skin);
-
-    // Long legs
-    sprite_3d->createCube(-lw * 0.65f, lh / 2, 0, lw, lh, lw, pants);
-    sprite_3d->createCube(lw * 0.65f, lh / 2, 0, lw, lh, lw, pants);
-
-    // Shoes (long, pointy)
-    sprite_3d->createCube(-lw * 0.65f, lw * 0.15f, lw * 0.2f, lw * 1.0f, lw * 0.3f, lw * 1.5f, shoe);
-    sprite_3d->createCube(lw * 0.65f, lw * 0.15f, lw * 0.2f, lw * 1.0f, lw * 0.3f, lw * 1.5f, shoe);
-
-    // Orange glowing eyes
-    sprite_3d->createCube(-hr * 0.32f, height - hr * 0.82f, hr * 0.9f, hr * 0.26f, hr * 0.19f, hr * 0.1f, eyeC);
-    sprite_3d->createCube(hr * 0.32f, height - hr * 0.82f, hr * 0.9f, hr * 0.26f, hr * 0.19f, hr * 0.1f, eyeC);
 }
 
 void Enemy::update(Game *game)

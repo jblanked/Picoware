@@ -15,7 +15,7 @@ Source: https://github.com/BlairLeduc/picocalc-text-starter
 #define SB_SCL (7)
 
 // Keyboard interface definitions
-#define SB_BAUDRATE (10000)
+#define SB_BAUDRATE (100000)
 #define SB_ADDR (0x1F)
 #define SB_I2C_TIMEOUT_US (10000)
 

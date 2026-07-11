@@ -14,6 +14,7 @@ extern "C"
 #endif
 
 #if defined(CARDPUTER)
+#define STORAGE_DOES_EXIST 1
 #include "../cardputer/sd/storage.h"
 #define storage_read storage_file_read
     static inline bool storage_write(const char *file_path, const void *data, size_t data_size, bool overwrite)
@@ -30,11 +31,13 @@ extern "C"
 #else
 
 #if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC)
+#define STORAGE_DOES_EXIST 1
 #include "../sd/fat32.h"
 #endif
 
 static inline size_t storage_file_size(const char *file_path)
 {
+#if STORAGE_DOES_EXIST
     if (!fat32_is_mounted())
     {
         fat32_error_t err = fat32_mount();
@@ -54,10 +57,14 @@ static inline size_t storage_file_size(const char *file_path)
     const uint32_t size = (file.attributes & FAT32_ATTR_DIRECTORY) ? 0 : fat32_size(&file);
     fat32_close(&file);
     return size;
+#else
+    return 0;
+#endif
 }
 
 static inline size_t storage_read(const char *file_path, char *buffer, size_t buffer_size)
 {
+#if STORAGE_DOES_EXIST
     if (!fat32_is_mounted())
     {
         fat32_error_t err = fat32_mount();
@@ -79,10 +86,14 @@ static inline size_t storage_read(const char *file_path, char *buffer, size_t bu
     buffer[bytes_read] = '\0'; // Null-terminate the buffer
     fat32_close(&file);
     return status ? bytes_read : 0;
+#else
+    return 0;
+#endif
 }
 
 static inline bool storage_write(const char *file_path, const void *data, size_t data_size, bool overwrite)
 {
+#if STORAGE_DOES_EXIST
     if (!fat32_is_mounted())
     {
         fat32_error_t err = fat32_mount();
@@ -133,6 +144,9 @@ static inline bool storage_write(const char *file_path, const void *data, size_t
     bool status = fat32_write(&file, data, data_size, &bytes_written) == FAT32_OK;
     fat32_close(&file);
     return status && bytes_written == data_size;
+#else
+    return false;
+#endif
 }
 
 #endif

@@ -1,11 +1,3 @@
-from micropython import const
-from json import loads, dumps
-
-WIFI_SETTINGS_PATH = const(b"picoware/wifi/settings.json")
-WIFI_SSID_PATH = const(b"picoware/wifi/ssid.json")
-WIFI_PASSWORD_PATH = const(b"picoware/wifi/password.json")
-
-
 def connect_to_saved_wifi(view_manager) -> bool:
     """Attempt to connect to the saved WiFi network."""
     wifi = view_manager.wifi
@@ -27,91 +19,67 @@ def connect_to_saved_wifi(view_manager) -> bool:
 
 def load_wifi_settings(view_manager) -> dict:
     """Load the saved WiFi settings from storage."""
-
+    from picoware.system.settings import Settings
     storage = view_manager.storage
-    data = storage.read(WIFI_SETTINGS_PATH, "r")
-    if not data:
-        return {}
-    try:
-        return loads(data)
-    except Exception as e:
-        view_manager.log(f"[WiFi:utils]: Error loading WiFi settings: {e}", 2)
-        return {}
+    settings = Settings(storage)
+    return settings.wifi_settings
 
 
 def load_wifi_ssid(view_manager) -> str:
     """Load the saved WiFi SSID from storage."""
+    from picoware.system.settings import Settings
     storage = view_manager.storage
-    data = storage.read(WIFI_SSID_PATH, "r")
-    if not data:
-        return ""
-    try:
-        return loads(data).get("ssid", "")
-    except Exception as e:
-        view_manager.log(f"[WiFi:utils]: Error loading WiFi SSID: {e}", 2)
-        return ""
+    settings = Settings(storage)
+    return settings.wifi_settings.get("ssid", "")
 
 
 def load_wifi_password(view_manager) -> str:
     """Load the saved WiFi password from storage."""
+    from picoware.system.settings import Settings
     storage = view_manager.storage
-    data = storage.read(WIFI_PASSWORD_PATH, "r")
-
-    if not data:
-        return ""
-    try:
-        return loads(data).get("password", "")
-    except Exception as e:
-        view_manager.log(f"[WiFi:utils]: Error loading WiFi password: {e}", 2)
-        return ""
+    settings = Settings(storage)
+    return settings.wifi_settings.get("password", "")
 
 
 def save_wifi_settings(storage, ssid: str, password: str = "") -> bool:
     """Save the WiFi settings to storage."""
+    from picoware.system.settings import Settings
 
-    if not ssid:
-        print("SSID cannot be empty")
+    if not ssid or not password:
+        print("SSID or password cannot be empty")
         return False
     settings = {"ssid": ssid, "password": password}
-    try:
-        if not storage.write(WIFI_SETTINGS_PATH, dumps(settings)):
-            print("Error writing WiFi settings")
-            return False
-        if not storage.write(WIFI_SSID_PATH, dumps({"ssid": ssid})):
-            print("Error writing WiFi SSID")
-            return False
-        if not storage.write(WIFI_PASSWORD_PATH, dumps({"password": password})):
-            print("Error writing WiFi password")
-            return False
-        return True
-    except Exception as e:
-        print("Error saving WiFi settings:", e)
-        return False
+    _set = Settings(storage)
+    _set.wifi_settings = settings
+    return True
+    
 
 
 def save_wifi_ssid(storage, ssid: str) -> bool:
     """Save the WiFi SSID to storage."""
+    from picoware.system.settings import Settings
 
     if not ssid:
         print("SSID cannot be empty")
         return False
 
-    try:
-        return storage.write(WIFI_SSID_PATH, dumps({"ssid": ssid}))
-    except Exception as e:
-        print("Error saving WiFi SSID:", e)
-        return False
+    settings = Settings(storage)
+    current_settings = settings.wifi_settings
+    current_settings["ssid"] = ssid
+    settings.wifi_settings = current_settings
+    return True
 
 
 def save_wifi_password(storage, password: str) -> bool:
     """Save the WiFi password to storage."""
+    from picoware.system.settings import Settings
 
     if not password:
         print("Password cannot be empty")
         return False
 
-    try:
-        return storage.write(WIFI_PASSWORD_PATH, dumps({"password": password}))
-    except Exception as e:
-        print("Error saving WiFi password:", e)
-        return False
+    settings = Settings(storage)
+    current_settings = settings.wifi_settings
+    current_settings["password"] = password
+    settings.wifi_settings = current_settings
+    return True

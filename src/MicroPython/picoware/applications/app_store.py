@@ -416,6 +416,10 @@ def __parse_app_list(view_manager) -> bool:
     storage = view_manager.storage
     file_path = f"picoware/cache/app_list_{_current_list_index}.json"
 
+    if not storage.exists(file_path):
+        view_manager.log(f"App list file not found: {file_path}", 2)
+        return False
+
     try:
         data = storage.read(file_path)
         if not data:
@@ -746,7 +750,7 @@ def run(view_manager) -> None:
         # Show loading animation while checking for updates
         if not _http.is_request_complete():
             if _loading:
-                _loading.animate()
+                _loading.animate(http=_http)
             return
 
         if _loading:
@@ -802,7 +806,7 @@ def run(view_manager) -> None:
         # Loading update details
         if not _http.is_request_complete():
             if _loading:
-                _loading.animate()
+                _loading.animate(http=_http)
             return
 
         if _loading:
@@ -835,11 +839,11 @@ def run(view_manager) -> None:
             if _app_menu:
                 _app_menu.draw()
 
-    elif _app_state == STATE_DOWNLOADING_UPDATES:
+    elif _app_state == STATE_DOWNLOADING_UPDATES: 
         # Handle update file downloads
         if not _http.is_request_complete():
             if _loading:
-                _loading.animate()
+                _loading.animate(http=_http)
             return
 
         # Move to next file
@@ -966,7 +970,7 @@ def run(view_manager) -> None:
         # Checking single app update
         if not _http.is_request_complete():
             if _loading:
-                _loading.animate()
+                _loading.animate(http=_http)
             return
 
         if _loading:
@@ -1016,7 +1020,7 @@ def run(view_manager) -> None:
         # Show loading animation while fetching app list
         if not _http.is_request_complete():
             if _loading:
-                _loading.animate()
+                _loading.animate(http=_http)
             return
 
         if _loading:
@@ -1077,7 +1081,7 @@ def run(view_manager) -> None:
         # Show loading animation while fetching app details
         if not _http.is_request_complete():
             if _loading:
-                _loading.animate()
+                _loading.animate(http=_http)
             return
 
         if _loading:
@@ -1120,7 +1124,7 @@ def run(view_manager) -> None:
         # Handle file downloads
         if not _http.is_request_complete():
             if _loading:
-                _loading.animate()
+                _loading.animate(http=_http)
             return
 
         # Move to next file
@@ -1175,7 +1179,7 @@ def run(view_manager) -> None:
         # Loading next app details in download all mode
         if not _http.is_request_complete():
             if _loading:
-                _loading.animate()
+                _loading.animate(http=_http)
             return
 
         # Parse app details and start downloading

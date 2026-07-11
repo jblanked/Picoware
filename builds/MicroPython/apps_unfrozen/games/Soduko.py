@@ -240,9 +240,11 @@ def draw_sudoku(display):
                 conflicts_cache[(r, c)] = game.get_conflicts(r, c)
 
     # Grid parameters - centered on screen
-    grid_size = display.scale_x(315)
-    cell_size = display.scale_x(35)
-    grid_x, grid_y = display.scale(2, 2)  # Start at top-left with some padding
+    screen_min = min(display.size.x, display.size.y)
+    cell_size = max(12, int(screen_min * 0.88) // 9)
+    grid_size = cell_size * 9
+    grid_x = (display.size.x - grid_size) // 2
+    grid_y = max(2, (display.size.y - grid_size - 16) // 2)
 
     # Highlight selected cell's row, column, and box
     sel_row, sel_col = game.cursor_row, game.cursor_col
@@ -262,22 +264,22 @@ def draw_sudoku(display):
     display._fill_rectangle(bx, by, 3 * cell_size - 1, 3 * cell_size - 1, TFT_BLUE)
 
     # Draw numbers
-    _scale = display.scale(12, 12)
+    tx_off = max(2, (cell_size - display.font_size.x) // 2)
+    ty_off = max(1, (cell_size - display.font_size.y) // 2)
     for r in range(9):
         for c in range(9):
             num = game.grid[r][c]
             if num != 0:
-                # Determine color
                 if game.given[r][c]:
-                    color = TFT_WHITE  # Given numbers: light gray/white
+                    color = TFT_WHITE
                 elif conflicts_cache.get((r, c)):
-                    color = TFT_RED  # Conflicts: red
+                    color = TFT_RED
                 else:
-                    color = TFT_CYAN  # Player numbers: cyan
+                    color = TFT_CYAN
 
                 display._text(
-                    grid_x + c * cell_size + _scale[0],
-                    grid_y + r * cell_size + _scale[1],
+                    grid_x + c * cell_size + tx_off,
+                    grid_y + r * cell_size + ty_off,
                     str(num),
                     color,
                 )
@@ -303,7 +305,7 @@ def draw_sudoku(display):
             vline_vec.x = x + t
             vline_vec_size.x = x + t
             vline_vec_size.y = grid_y + grid_size
-            display.line(
+            display._line(
                 vline_vec.x,
                 vline_vec.y,
                 vline_vec_size.x,
@@ -335,8 +337,8 @@ def draw_sudoku(display):
     timer_text = f"{mins:02d}:{secs:02d}"
     diff_text = f"{game.difficulty[0].upper()}{game.difficulty[1:]}"
 
-    display._text(display.scale_x(4), info_y, diff_text, TFT_CYAN)  # Bright green
-    display._text(display.scale_x(280), info_y, timer_text, TFT_CYAN)  # Bright green
+    display._text(4, info_y, diff_text, TFT_CYAN)
+    display._text(display.size.x - len(timer_text) * display.font_size.x - 4, info_y, timer_text, TFT_CYAN)
 
     display.swap()
 

@@ -1,0 +1,39 @@
+#pragma once
+#include <stdbool.h>
+#include <string.h>
+#include "color.h"
+#include "http.h"
+#include "input.h"
+#include "lcd.h"
+#include "log.h"
+#include "math.h"
+#include "pin.h"
+#include "settings.h"
+#include "storage.h"
+#include "system.h"
+#include "time.h"
+#include "uart.h"
+#include "wifi.h"
+
+typedef enum
+{
+    LIB_MODULE_NONE = 0,
+    LIB_MODULE_DRAW,
+    LIB_MODULE_HTTP,
+    LIB_MODULE_INPUT,
+    LIB_MODULE_MATH,
+    LIB_MODULE_PIN,
+    LIB_MODULE_SETTINGS,
+    LIB_MODULE_STORAGE,
+    LIB_MODULE_SYSTEM,
+    LIB_MODULE_TIME,
+    LIB_MODULE_UART,
+    LIB_MODULE_WIFI,
+} lib_module_t;
+
+#define LIB_MODULE_COUNT 11
+
+void lib_load_module(struct mjs *mjs);
+lib_module_t lib_module_from_str(const char *str);
+void lib_register_globals(struct mjs *mjs);
+void lib_unload_modules();

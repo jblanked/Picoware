@@ -52,11 +52,6 @@ class PSRAM(picoware_psram.PSRAM):
         return self.mem_free()
 
     @property
-    def is_ready(self) -> bool:
-        """Check if PSRAM is ready for use."""
-        return self.is_ready()
-
-    @property
     def next_free_addr(self) -> int:
         """Get the next free PSRAM memory address."""
         return self.get_next_free()
@@ -82,7 +77,7 @@ class PSRAM(picoware_psram.PSRAM):
             bytes_read = storage.file_readinto(file, buffer)
             if bytes_read <= 0:
                 break
-            self.write(_addr, buffer)
+            self.write(_addr, buffer[:bytes_read])
             _addr += bytes_read
             if bytes_read < chunk_size:
                 break

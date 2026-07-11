@@ -78,8 +78,14 @@ rm -rf "$micropython_dir"/modules/jsmn
 # remove http module if it exists
 rm -rf "$micropython_dir"/modules/http
 
+# remove usb_video module if it exists
+rm -rf "$micropython_dir"/modules/usb_video
+
 # remove websocket module if it exists
 rm -rf "$micropython_dir"/modules/websocket
+
+# remove mjs module if it exists
+rm -rf "$micropython_dir"/modules/mjs
 
 # Clean previous builds
 echo "Cleaning previous builds..."
@@ -97,11 +103,10 @@ mkdir -p "$micropython_dir"/modules/PicoCalc
 
 # copy picoware modules file to micropython modules directory
 cp "$picoware_dir"/src/MicroPython/PicoCalc/picoware_modules.cmake "$micropython_dir"/modules/PicoCalc/picoware_modules.cmake
-cp -r "$picoware_dir"/src/MicroPython/PicoCalc/picoware_game "$micropython_dir"/modules/PicoCalc/picoware_game
 cp -r "$picoware_dir"/src/MicroPython/PicoCalc/picoware_keyboard "$micropython_dir"/modules/PicoCalc/picoware_keyboard
 cp -r "$picoware_dir"/src/MicroPython/PicoCalc/picoware_lcd "$micropython_dir"/modules/PicoCalc/picoware_lcd
-cp -r "$picoware_dir"/src/MicroPython/PicoCalc/picoware_psram "$micropython_dir"/modules/PicoCalc/picoware_psram
 cp -r "$picoware_dir"/src/MicroPython/PicoCalc/picoware_lvgl "$micropython_dir"/modules/PicoCalc/picoware_lvgl
+cp -r "$picoware_dir"/src/MicroPython/PicoCalc/picoware_psram "$micropython_dir"/modules/PicoCalc/picoware_psram
 
 # copy sd module
 cp -r "$picoware_dir"/src/MicroPython/sd "$micropython_dir"/modules/sd
@@ -160,8 +165,14 @@ cp -r "$picoware_dir"/src/MicroPython/jsmn "$micropython_dir"/modules/jsmn
 # copy http module
 cp -r "$picoware_dir"/src/MicroPython/http "$micropython_dir"/modules/http
 
+# copy usb_video module
+cp -r "$picoware_dir"/src/MicroPython/usb_video "$micropython_dir"/modules/usb_video
+
 # copy websocket module
 cp -r "$picoware_dir"/src/MicroPython/websocket "$micropython_dir"/modules/websocket
+
+# copy mjs module
+cp -r "$picoware_dir"/src/MicroPython/mjs "$micropython_dir"/modules/mjs
 
 echo "Starting PicoCalc build process..."
 
@@ -169,6 +180,6 @@ echo "Starting PicoCalc build process..."
 cd "$micropython_dir"
 
 # PicoCalc - Pico
-make -j BOARD=RPI_PICO USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake MICROPY_HW_FLASH_STORAGE_BYTES=1048576 CFLAGS_EXTRA="-DPICOCALC"
+make -j BOARD=RPI_PICO USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake MICROPY_HW_FLASH_STORAGE_BYTES=868352 CFLAGS_EXTRA="-DPICOCALC"
 cp "$micropython_dir"/build-RPI_PICO/firmware.uf2 "$picoware_dir"/builds/MicroPython/Picoware-PicoCalcPico.uf2
 echo "PicoCalc - Pico build complete."

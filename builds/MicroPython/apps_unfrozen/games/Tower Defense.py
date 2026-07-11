@@ -22,7 +22,7 @@ MOB_REWARD = const(15)
 
 
 class Mob:
-    """Class representing a mob"""
+    """Enemy that follows a path."""
 
     def __init__(self, wave_num, path):
         self.path = path
@@ -37,13 +37,13 @@ class Mob:
         self.reached_end = False
 
     def get_position(self):
-        """Get current grid position"""
+        """Get current grid position."""
         if self.path_idx >= len(self.path):
             return self.path[-1]
         return self.path[self.path_idx]
 
     def update(self):
-        """Move along the path"""
+        """Move along the path."""
         if not self.alive:
             return
 
@@ -57,7 +57,7 @@ class Mob:
             self.alive = False
 
     def take_damage(self, damage):
-        """Apply damage to mob"""
+        """Apply damage to mob."""
         self.hp -= damage
         if self.hp <= 0:
             self.alive = False
@@ -66,7 +66,7 @@ class Mob:
 
 
 class Tower:
-    """Class representing a tower"""
+    """Defensive tower that shoots mobs."""
 
     def __init__(self, x, y, tower_type):
         self.x = x
@@ -80,12 +80,12 @@ class Tower:
         self.cooldown = 0
 
     def update(self):
-        """Update tower cooldown"""
+        """Decrement cooldown timer."""
         if self.cooldown > 0:
             self.cooldown -= 1
 
     def can_fire(self):
-        """Check if tower can fire"""
+        """Check cooldown ready."""
         return self.cooldown == 0
 
     def fire(self, target):
@@ -94,7 +94,7 @@ class Tower:
         return self.damage
 
     def in_range(self, target_x, target_y):
-        """Check if target is in range"""
+        """Check distance to target."""
         dx = target_x - self.x
         dy = target_y - self.y
         dist = (dx * dx + dy * dy) ** 0.5
@@ -102,7 +102,7 @@ class Tower:
 
 
 class Game:
-    """Class representing the Tower Defense game"""
+    """Tower Defense game logic and rendering."""
 
     def __init__(self, width=320, height=320):
         from picoware.system.vector import Vector
@@ -154,7 +154,7 @@ class Game:
             self.occupied[y][x] = True
 
     def __del__(self):
-        """Cleanup"""
+        """Cleanup."""
         del self.towers
         self.towers = None
         del self.mobs
@@ -177,7 +177,7 @@ class Game:
         self.tower_size = None
 
     def create_path(self):
-        """Create a snake-like path for mobs"""
+        """Create a snake-like mob path."""
         path = []
         # Start from left edge
         x, y = 0, 2
@@ -211,7 +211,7 @@ class Game:
         return path
 
     def start_wave(self):
-        """Start a new wave"""
+        """Start a new wave."""
         if self.wave_active:
             return
 
@@ -222,17 +222,16 @@ class Game:
         self.spawn_timer = 0
 
     def spawn_mob(self):
-        """Spawn a new mob"""
+        """Spawn a new mob."""
         mob = Mob(self.wave, self.path)
         self.mobs.append(mob)
         self.mobs_spawned += 1
 
     def update(self):
-        """Update game state"""
+        """Update game state."""
         if self.game_over or self.won:
             return
 
-        # Check for wave completion
         if not self.wave_active and len(self.mobs) == 0:
             if self.wave >= 10:
                 self.won = True
@@ -242,7 +241,7 @@ class Game:
         if self.wave_active:
             if self.mobs_spawned < self.mobs_to_spawn:
                 self.spawn_timer += 1
-                if self.spawn_timer >= 30:  # Spawn every 30 frames
+                if self.spawn_timer >= 30:  # Every 30 frames
                     self.spawn_mob()
                     self.spawn_timer = 0
             elif len(self.mobs) == 0:
@@ -252,7 +251,6 @@ class Game:
         for tower in self.towers:
             tower.update()
 
-            # Find target and fire
             if tower.can_fire():
                 target = None
                 for mob in self.mobs:
@@ -265,7 +263,6 @@ class Game:
                 if target:
                     damage = tower.fire(target)
 
-                    # Apply damage
                     if tower.type == TOWER_SPLASH:
                         # Splash damage to nearby mobs
                         tx, ty = target.get_position()
@@ -297,20 +294,17 @@ class Game:
                 self.mobs.remove(mob)
 
     def place_tower(self, x, y, tower_type):
-        """Try to place a tower at (x, y)"""
-        # Check if valid position
+        """Place a tower at grid position."""
         if x < 0 or x >= self.grid_width or y < 0 or y >= self.grid_height:
             return False
 
         if self.occupied[y][x]:
             return False
 
-        # Check if can afford
         cost = TOWER_PROPS[tower_type][0]
         if self.money < cost:
             return False
 
-        # Place tower
         tower = Tower(x, y, tower_type)
         self.towers.append(tower)
         self.occupied[y][x] = True
@@ -318,7 +312,7 @@ class Game:
         return True
 
     def handle_input(self, key: int) -> bool:
-        """Handle keyboard input"""
+        """Handle keyboard input."""
         from picoware.system.buttons import (
             BUTTON_UP,
             BUTTON_DOWN,
@@ -329,26 +323,26 @@ class Game:
             BUTTON_SPACE,
         )
 
-        if key == BUTTON_UP:  # A - Up
+        if key == BUTTON_UP:
             self.cursor_y = max(0, self.cursor_y - 1)
-        elif key == BUTTON_DOWN:  # B - Down
+        elif key == BUTTON_DOWN:
             self.cursor_y = min(self.grid_height - 1, self.cursor_y + 1)
-        elif key == BUTTON_RIGHT:  # C - Right
+        elif key == BUTTON_RIGHT:
             self.cursor_x = min(self.grid_width - 1, self.cursor_x + 1)
-        elif key == BUTTON_LEFT:  # D - Left
+        elif key == BUTTON_LEFT:
             self.cursor_x = max(0, self.cursor_x - 1)
-        elif key == BUTTON_CENTER:  # Enter
+        elif key == BUTTON_CENTER:
             self.place_tower(self.cursor_x, self.cursor_y, self.selected_tower_type)
-        elif key == BUTTON_TAB:  # Tab - cycle tower type
+        elif key == BUTTON_TAB:
             self.selected_tower_type = (self.selected_tower_type + 1) % 3
-        elif key == BUTTON_SPACE:  # Space - start wave
+        elif key == BUTTON_SPACE:
             self.start_wave()
         else:
-            return False  # Unhandled key
-        return True  # Key handled
+            return False
+        return True
 
     def draw(self, fb):
-        """Draw the game"""
+        """Render the game."""
         from picoware.system.vector import Vector
         from picoware.system.colors import (
             TFT_BLACK,
@@ -450,16 +444,17 @@ game = None
 
 
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app."""
     global game
 
-    game = Game()
+    draw = view_manager.draw
+    game = Game(draw.size.x, draw.size.y)
 
     return True
 
 
 def run(view_manager) -> None:
-    """Run the app"""
+    """Run the app."""
     from picoware.system.buttons import BUTTON_BACK
 
     inp = view_manager.input_manager
@@ -471,19 +466,14 @@ def run(view_manager) -> None:
         return
 
     if game:
-        # Handle input
         if game.handle_input(button):
             inp.reset()
-
-        # Update game
         game.update()
-
-        # Draw
         game.draw(view_manager.draw)
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app."""
     from gc import collect
 
     global game

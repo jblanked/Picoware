@@ -123,23 +123,34 @@ void Player::collision(Entity *other, Game *game)
 }
 
 // clang-format off
-const char *Player::downloadFiles[16] = {
-    "ambience.wav",
-    "crossbow.wav",
+const char *Player::downloadFiles[27] = {
+    "weapon-pickup.wav",
+    "tron.ghoulsmap",
+    "shotgun.wav",
+    "shotgun.sprite3d",
+    "rocket.sprite3d",
+    "shell.sprite3d",
+    "rocket-launcher.wav",
+    "rocket-launcher.sprite3d",
+    "rifle.wav",
+    "rifle.sprite3d",
+    "punk.sprite3d",
+    "menu-click.wav",
+    "maze.ghoulsmap",
+    "home.ghoulsmap",
+    "graveyard.ghoulsmap",
+    "ghouls-growling.wav",
+    "ghouls-growl-soft.wav",
+    "ghouls-growl-medium.wav",
     "ghouls-growl-loud.wav",
     "forest.ghoulsmap",
-    "ghouls-growl-medium.wav",
-    "ghouls-growl-soft.wav",
-    "ghouls-growling.wav",
-    "graveyard.ghoulsmap",
-    "home.ghoulsmap",
-    "maze.ghoulsmap",
-    "menu-click.wav",
-    "rifle.wav",
-    "rocket-launcher.wav",
-    "shotgun.wav",
-    "tron.ghoulsmap",
-    "weapon-pickup.wav",
+    "crossbow.wav",
+    "crossbow.sprite3d",
+    "creeper.sprite3d",
+    "bully.sprite3d",
+    "bullet.sprite3d",
+    "arrow.sprite3d",
+    "ambience.wav"
 };
 // clang-format on
 
@@ -231,6 +242,14 @@ void Player::drawGameLocalView(Draw *canvas)
         if (gameStarted && ghoulsGame->getEngine())
         {
             ghoulsGame->getEngine()->runAsync(false); // Run the game engine immediately
+        }
+        else
+        {
+            canvas->fillScreen(0xFFFF);
+            canvas->setFont(FONT_SIZE_MEDIUM);
+            canvas->text(sw * 10 / 128, sh * 30 / 64, "Failed to start game!", 0x0000);
+            canvas->setFont(FONT_SIZE_SMALL);
+            canvas->text(sw * 10 / 128, sh * 50 / 64, "Press BACK to return.", 0x0000);
         }
     }
 }
@@ -716,14 +735,14 @@ void Player::drawMapPackView(Draw *canvas)
         mapPackCount = 0;
         for (uint16_t i = 0; i < count && mapPackCount < MAX_MAP_PACK_FILES; i++)
         {
-            snprintf(mapPackFiles[mapPackCount], 64, "%s", rawFiles[i]);
+            snprintf(mapPackFiles[mapPackCount], sizeof(mapPackFiles[mapPackCount]), "%.63s", rawFiles[i]);
             mapPackCount++;
         }
 #endif
         if (mapPackCount == 0)
         {
             // use default map
-            snprintf(mapPackFiles[0], 64, "%s", "home.ghoulsmap");
+            snprintf(mapPackFiles[0], sizeof(mapPackFiles[0]), "%s", "home.ghoulsmap");
             mapPackCount = 1;
         }
         mapPackSelectedIndex = 0;
@@ -760,8 +779,8 @@ void Player::drawMapPackView(Draw *canvas)
         }
 
         // strip extension
-        char displayName[64];
-        snprintf(displayName, 64, "%s", mapPackFiles[i]);
+        char displayName[256];
+        snprintf(displayName, sizeof(displayName), "%s", mapPackFiles[i]);
         char *dot = strrchr(displayName, '.');
         if (dot)
             *dot = '\0';
@@ -1416,17 +1435,15 @@ void Player::drawUserInfoView(Draw *canvas)
 
                 // no online right now
                 // just jump into a local game
-                // if (currentLobbyMenuIndex == LobbyMenuLocal)
-                // {
-                currentMainView = GameViewGameLocal; // Switch to local game view
-                ghoulsGame->startGame();
-                // }
-                // else if (currentLobbyMenuIndex == LobbyMenuOnline)
-                // {
-                //     lobbyFetched = false; // Reset so browser fetches fresh data
-                //     lobbySelectedIndex = 0;
-                //     currentMainView = GameViewLobbyBrowser; // Show lobby browser instead of creating directly
-                // }
+                if (ghoulsGame->startGame())
+                {
+                    currentMainView = GameViewGameLocal; // Switch to local game view
+                }
+                else
+                {
+                    ENGINE_LOG_INFO("[Player:drawUserInfoView] Failed to start the game\n");
+                    userInfoStatus = UserInfoRequestError;
+                }
                 return;
             }
             else
@@ -1922,7 +1939,7 @@ void Player::processInput()
             // Store selected map file then load user stats
             if (ghoulsGame && mapPackCount > 0)
             {
-                char fullPath[128];
+                char fullPath[320];
                 snprintf(fullPath, sizeof(fullPath), ASSETS_FOLDER "%s", mapPackFiles[mapPackSelectedIndex]);
                 ghoulsGame->setSelectedMapFile(fullPath);
             }

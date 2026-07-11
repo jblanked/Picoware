@@ -1,4 +1,5 @@
 #pragma once
+#include <stdbool.h>
 
 #if defined(PICOCALC)
 #define LCD_INCLUDE "../PicoCalc/picoware_lcd/picoware_lcd.h"
@@ -22,7 +23,7 @@
 #define LCD_MP_READ_ROW lcd_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
 #define LCD_MP_SET_MODE lcd_set_mode
-#define LCD_MP_SWAP lcd_swap
+#define LCD_SWAP lcd_swap
 #define LCD_MP_SWAP_REGION picoware_lcd_swap_region
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
@@ -45,7 +46,7 @@
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
-#define LCD_MP_SWAP lcd_swap
+#define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
 #elif defined(WAVESHARE_AMOLED_2_06_ESP32_S3)
@@ -89,7 +90,7 @@
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
-#define LCD_MP_SWAP lcd_swap
+#define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
 #elif defined(WAVESHARE_1_43)
@@ -111,7 +112,7 @@
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
-#define LCD_MP_SWAP lcd_swap
+#define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
 #elif defined(WAVESHARE_3_49)
@@ -133,7 +134,18 @@
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
-#define LCD_MP_SWAP lcd_swap
+#define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
 #endif
+
+// Common USB video callback — set by lcd_mp_set_usb_video_callback()
+extern bool (*_lcd_usb_video_cb)(void);
+
+#define LCD_MP_SWAP()            \
+    do                           \
+    {                            \
+        LCD_SWAP();              \
+        if (_lcd_usb_video_cb)   \
+            _lcd_usb_video_cb(); \
+    } while (0)

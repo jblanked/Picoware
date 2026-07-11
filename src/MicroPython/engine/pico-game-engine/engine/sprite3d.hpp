@@ -42,20 +42,22 @@ public:
     bool createCylinder(float x, float y, float z, float radius, float height, uint8_t segments, uint16_t color = 0x0000, bool wireframe = true);
     bool createSphere(float x, float y, float z, float radius, uint8_t segments, uint16_t color = 0x0000, bool wireframe = true);
     bool createTriangularPrism(float x, float y, float z, float width, float height, float depth, uint16_t color = 0x0000, bool wireframe = true);
+    bool fromPath(const char *path, bool wireframe = true);
     Vector getPosition() const { return position; }
     float getRotation() const { return rotation_y; }
     float getScale() const { return scale_factor; }
-    Triangle3D getTransformedTriangle(uint16_t index, const Vector &camera_pos) const;
+    bool getTransformedTriangle(uint16_t index, const Vector &camera_pos, Triangle3D &out) const;
     uint16_t getTriangleCount() const { return triangle_count; }
     SpriteType getType() const { return type; }
+    bool initializeAsHouse(Vector pos, float width, float height, float rot, uint16_t color = 0x0000, bool wireframe = true);
+    bool initializeAsHumanoid(Vector pos, float height, float rot, uint16_t color = 0x0000, bool wireframe = true);
+    bool initializeAsPillar(Vector pos, float height, float radius, uint16_t color = 0x0000, bool wireframe = true);
+    bool initializeAsTree(Vector pos, float height, uint16_t color = 0x0000, bool wireframe = true);
     bool isActive() const { return active; }
     void setActive(bool state) { active = state; }
     void setPosition(Vector pos) { position = pos; }
     void setRotation(float rot) { rotation_y = rot; }
     void setScale(float scale) { scale_factor = scale; }
     void setWireframe(bool wireframe);
-    bool initializeAsHouse(Vector pos, float width, float height, float rot, uint16_t color = 0x0000, bool wireframe = true);
-    bool initializeAsHumanoid(Vector pos, float height, float rot, uint16_t color = 0x0000, bool wireframe = true);
-    bool initializeAsPillar(Vector pos, float height, float radius, uint16_t color = 0x0000, bool wireframe = true);
-    bool initializeAsTree(Vector pos, float height, uint16_t color = 0x0000, bool wireframe = true);
+    bool toPath(const char *path) const;
 };

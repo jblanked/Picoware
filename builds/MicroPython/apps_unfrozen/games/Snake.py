@@ -34,14 +34,14 @@ class Snake:
 
     def update(self):
         """Update snake position. Returns False if collision occurs."""
-        # Update direction (prevent 180-degree turns)
+        # No 180-degree turns
         if (
             self.next_direction[0] != -self.direction[0]
             or self.next_direction[1] != -self.direction[1]
         ):
             self.direction = self.next_direction
 
-        # Calculate new head position
+        # New head position
         head = self.body[0]
         new_head = (head[0] + self.direction[0], head[1] + self.direction[1])
 
@@ -70,16 +70,16 @@ class Snake:
         return True
 
     def grow(self):
-        """Make the snake grow on the next update"""
+        """Make snake grow on next update."""
         self.growing = True
 
     def set_direction(self, direction):
-        """Set the next direction of the snake"""
+        """Set the next movement direction."""
         self.next_direction = direction
 
 
 class Game:
-    """Class representing the Snake game""" ""
+    """Snake game logic and state."""
 
     def __init__(self, display):
         self.display = display
@@ -95,7 +95,7 @@ class Game:
         self.food = None
 
     def spawn_food(self):
-        """Spawn food at a random position not occupied by the snake"""
+        """Place food in a random unoccupied cell."""
         while True:
             x = randint(0, GRID_WIDTH - 1)
             y = randint(0, GRID_HEIGHT - 1)
@@ -112,14 +112,14 @@ class Game:
             self.game_over = True
             return
 
-        # Check if snake ate food
+        # Check food collision
         if self.snake.body[0] == self.food:
             self.snake.grow()
             self.score += 10
             self.food = self.spawn_food()
 
     def draw(self):
-        """Draw the game state on the display"""
+        """Render the current game state."""
         from picoware.system.vector import Vector
         from picoware.system.colors import TFT_BLACK, TFT_GREEN, TFT_RED, TFT_WHITE
 
@@ -168,7 +168,7 @@ class Game:
 
 
 def main(view_manager):
-    """Main function to run the Snake game"""
+    """Run the Snake game loop."""
     try:
         from utime import ticks_ms, ticks_diff
     except ImportError:
@@ -217,14 +217,14 @@ def main(view_manager):
             inp.reset()
             game.snake.set_direction((-1, 0))
 
-        # Update game at fixed interval
+        # Fixed-interval update
         if ticks_diff(current_time, last_update) >= update_interval:
             game.update()
             game.draw()
             draw.swap()
             last_update = current_time
 
-            # Speed up as score increases
+            # Speed up with score
             update_interval = max(80, 150 - (game.score // 50) * 10)
 
 

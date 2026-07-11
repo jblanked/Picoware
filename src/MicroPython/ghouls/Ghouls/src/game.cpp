@@ -105,6 +105,12 @@ Vector GhoulsGame::getRandomGhoulPosition(Level *level)
     GhoulsLevel *ghoulsLevel = static_cast<GhoulsLevel *>(level);
     map_data_t *mapData = ghoulsLevel->getMapData();
 
+    if (mapData->ghoulCount == 0)
+    {
+        ENGINE_LOG_INFO("[GhoulsGame:getRandomGhoulPosition] No ghoul spawn points in map\n");
+        return Vector(4, 20); // fallback near player start
+    }
+
     uint8_t attempts = 0;
     uint8_t randomIndex = 0;
     do
@@ -126,6 +132,12 @@ Vector GhoulsGame::getRandomWeaponPosition(Level *level)
 {
     GhoulsLevel *ghoulsLevel = static_cast<GhoulsLevel *>(level);
     map_data_t *mapData = ghoulsLevel->getMapData();
+
+    if (mapData->weaponCount == 0)
+    {
+        ENGINE_LOG_INFO("[GhoulsGame:getRandomWeaponPosition] No weapon spawn points in map\n");
+        return Vector(4, 20); // fallback near player start
+    }
 
     uint8_t attempts = 0;
     Vector candidate;

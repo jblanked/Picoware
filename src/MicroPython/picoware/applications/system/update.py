@@ -275,6 +275,7 @@ def __draw_download_complete(view_manager) -> None:
             inp.reset()
             if but == 5:  # back
                 view_manager.back(True)
+                return
             break
 
     from picoware.system.uf2loader import UF2Loader
@@ -347,7 +348,7 @@ def run(view_manager) -> None:
         # Show loading animation while checking for updates
         if not _http.is_request_complete():
             if _loading:
-                _loading.animate()
+                _loading.animate(http=_http)
             return
 
         if _loading:
@@ -380,7 +381,7 @@ def run(view_manager) -> None:
         # Check if download is complete
         if not _http.is_request_complete():
             if _loading:
-                _loading.animate()
+                _loading.animate(http=_http)
             return
 
         if _loading:

@@ -60,9 +60,5 @@ private:
     ProjectileType projectileType;
     Projectile *currentProjectile;
 
-    bool canFire() const;                  // Check if the weapon can fire based on ammo
-    void makeCrossbow(float height);       // create a 3D crossbow sprite with the specified height
-    void makeRifle(float height);          // create a 3D rifle sprite with the specified height
-    void makeRocketLauncher(float height); // create a 3D rocket launcher sprite with the specified height
-    void makeShotgun(float height);        // create a 3D shotgun sprite with the specified height
+    bool canFire() const; // Check if the weapon can fire based on ammo
 };

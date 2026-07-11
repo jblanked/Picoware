@@ -37,7 +37,7 @@ mp_obj_t ghouls_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
 mp_obj_t ghouls_mp_del(mp_obj_t self_in)
 {
     ghouls_mp_obj_t *self = static_cast<ghouls_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
-    if (self->freed)
+    if (!self || self->freed)
     {
         return mp_const_none;
     }

@@ -49,7 +49,7 @@
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
 #elif defined(WAVESHARE_AMOLED_2_06_ESP32_S3)
-#define LCD_INCLUDE "../Waveshare_watch/lcd/lcd.h"
+#define LCD_INCLUDE "../WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/lcd/lcd.h"
 #define LCD_MP_INIT lcd_init
 #define LCD_MP_DEINIT lcd_deinit
 #define LCD_MP_WIDTH LCD_WIDTH

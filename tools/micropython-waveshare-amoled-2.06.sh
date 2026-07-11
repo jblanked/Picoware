@@ -22,7 +22,7 @@ micropython_root="${MICROPYTHON_ROOT:-/Users/user/pico/micropython}"
 esp_idf_dir="${ESP_IDF_DIR:-/Users/user/.espressif/v5.5.2/esp-idf}"
 idf_tools_dir="${IDF_TOOLS_PATH:-$HOME/.espressif}"
 
-watch_src_dir="$picoware_dir/src/MicroPython/Waveshare_watch"
+watch_src_dir="$picoware_dir/src/MicroPython/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06"
 output_dir="$picoware_dir/builds/MicroPython"
 build_dir="$micropython_dir/build-ESP32_GENERIC_S3"
 
@@ -94,9 +94,9 @@ fi
 mkdir -p "$output_dir"
 
 echo "Cleaning previous Waveshare outputs and build directory..."
-rm -f "$output_dir"/Picoware-Watch.bin
-rm -f "$output_dir"/Picoware-Watch-bootloader.bin
-rm -f "$output_dir"/Picoware-Watch-partition-table.bin
+rm -f "$output_dir"/Picoware-Waveshare-amoled-2.06.bin
+rm -f "$output_dir"/Picoware-Waveshare-amoled-2.06-bootloader.bin
+rm -f "$output_dir"/Picoware-Waveshare-amoled-2.06-partition-table.bin
 rm -rf "$build_dir"
 
 echo "Cleaning staged MicroPython modules..."
@@ -136,13 +136,13 @@ cp "$picoware_dir/src/MicroPython/main.py" "$micropython_dir/modules/main.py"
 
 stage_required_module_dir "picoware"
 
-mkdir -p "$micropython_dir/modules/Waveshare_watch"
-cp "$watch_src_dir/micropython.cmake" "$micropython_dir/modules/Waveshare_watch/micropython.cmake"
-cp "$watch_src_dir/board_config.h" "$micropython_dir/modules/Waveshare_watch/board_config.h"
-cp -r "$watch_src_dir/lcd" "$micropython_dir/modules/Waveshare_watch/lcd"
-cp -r "$watch_src_dir/battery" "$micropython_dir/modules/Waveshare_watch/battery"
-cp -r "$watch_src_dir/sd" "$micropython_dir/modules/Waveshare_watch/sd"
-cp -r "$watch_src_dir/touch" "$micropython_dir/modules/Waveshare_watch/touch"
+mkdir -p "$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06"
+cp "$watch_src_dir/micropython.cmake" "$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/micropython.cmake"
+cp "$watch_src_dir/board_config.h" "$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/board_config.h"
+cp -r "$watch_src_dir/lcd" "$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/lcd"
+cp -r "$watch_src_dir/battery" "$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/battery"
+cp -r "$watch_src_dir/sd" "$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/sd"
+cp -r "$watch_src_dir/touch" "$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/touch"
 
 echo "Staging shared C modules referenced by Cardputer CMake..."
 shared_c_modules="$(sed -nE '
@@ -302,7 +302,7 @@ cd "$micropython_dir"
 export EXTRA_CFLAGS="-Wno-maybe-uninitialized -Wno-error=maybe-uninitialized -DCONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=1 -DWATCH"
 
 make BOARD=ESP32_GENERIC_S3 \
-    USER_C_MODULES="$micropython_dir/modules/watch/micropython.cmake" \
+    USER_C_MODULES="$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/micropython.cmake" \
     clean
 
 effective_sdkconfig="$build_dir/sdkconfig"
@@ -329,7 +329,7 @@ else
 fi
 
 make -j BOARD=ESP32_GENERIC_S3 \
-    USER_C_MODULES="$micropython_dir/modules/Waveshare_watch/micropython.cmake"
+    USER_C_MODULES="$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/micropython.cmake"
 
 app_bin="$build_dir/micropython.bin"
 require_file "$app_bin"
@@ -341,22 +341,22 @@ fi
 
 printf 'Firmware size check: %d / %d bytes used in factory app partition.\n' "$app_size_bytes" "$factory_partition_size"
 
-cp "$build_dir/micropython.bin" "$output_dir/Picoware-Watch.bin"
+cp "$build_dir/micropython.bin" "$output_dir/Picoware-Waveshare-amoled-2.06.bin"
 
 if [ -f "$build_dir/bootloader/bootloader.bin" ]; then
-    cp "$build_dir/bootloader/bootloader.bin" "$output_dir/Picoware-Watch-bootloader.bin"
+    cp "$build_dir/bootloader/bootloader.bin" "$output_dir/Picoware-Waveshare-amoled-2.06-bootloader.bin"
 fi
 
 if [ -f "$build_dir/partition_table/partition-table.bin" ]; then
-    cp "$build_dir/partition_table/partition-table.bin" "$output_dir/Picoware-Watch-partition-table.bin"
+    cp "$build_dir/partition_table/partition-table.bin" "$output_dir/Picoware-Waveshare-amoled-2.06-partition-table.bin"
 fi
 
 echo "Waveshare watch build complete."
 echo "Artifacts:"
-echo "  $output_dir/Picoware-Watch.bin"
-if [ -f "$output_dir/Picoware-Watch-bootloader.bin" ]; then
-    echo "  $output_dir/Picoware-Watch-bootloader.bin"
+echo "  $output_dir/Picoware-Waveshare-amoled-2.06.bin"
+if [ -f "$output_dir/Picoware-Waveshare-amoled-2.06-bootloader.bin" ]; then
+    echo "  $output_dir/Picoware-Waveshare-amoled-2.06-bootloader.bin"
 fi
-if [ -f "$output_dir/Picoware-Watch-partition-table.bin" ]; then
-    echo "  $output_dir/Picoware-Watch-partition-table.bin"
+if [ -f "$output_dir/Picoware-Waveshare-amoled-2.06-partition-table.bin" ]; then
+    echo "  $output_dir/Picoware-Waveshare-amoled-2.06-partition-table.bin"
 fi

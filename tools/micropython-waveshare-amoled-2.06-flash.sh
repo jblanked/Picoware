@@ -6,7 +6,7 @@ set -euo pipefail
 usage() {
     cat <<'EOF'
 Usage:
-    bash tools/micropython-WATCH-flash.sh [--port PORT] [--baud BAUD] [--no-erase] [--no-verify]
+    bash tools/micropython-waveshare-amoled-2.06-flash.sh [--port PORT] [--baud BAUD] [--no-erase] [--no-verify]
 
 Options:
     --port, -p      Serial port (example: /dev/cu.usbmodem11401)
@@ -100,9 +100,9 @@ require_dir "$esp_idf_dir"
 require_dir "$build_dir"
 require_file "$esp_idf_dir/export.sh"
 
-bootloader_bin="$build_dir/Picoware-Watch-bootloader.bin"
-partition_bin="$build_dir/Picoware-Watch-partition-table.bin"
-firmware_bin="$build_dir/Picoware-Watch.bin"
+bootloader_bin="$build_dir/Picoware-Waveshare-amoled-2.06-bootloader.bin"
+partition_bin="$build_dir/Picoware-Waveshare-amoled-2.06-partition-table.bin"
+firmware_bin="$build_dir/Picoware-Waveshare-amoled-2.06.bin"
 
 if [ ! -f "$bootloader_bin" ] || [ ! -f "$partition_bin" ] || [ ! -f "$firmware_bin" ]; then
     echo "ERROR: WATCH flash artifacts were not found in $build_dir"
@@ -111,7 +111,7 @@ if [ ! -f "$bootloader_bin" ] || [ ! -f "$partition_bin" ] || [ ! -f "$firmware_
     echo "  - $partition_bin"
     echo "  - $firmware_bin"
     echo "Build first:"
-    echo "  bash tools/micropython-Waveshare... .sh"
+    echo "  bash tools/micropython-waveshare... .sh"
     exit 1
 fi
 

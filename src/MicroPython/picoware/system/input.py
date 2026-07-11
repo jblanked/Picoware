@@ -638,6 +638,8 @@ class Input:
                 self._last_button = buttons.BUTTON_UP
             elif 100 <= x <= 310 and 382 <= y <= 502:
                 self._last_button = buttons.BUTTON_DOWN
+            elif 310 <= x <= 410 and 382 <= y <= 502:
+                self._last_button = buttons.BUTTON_BACK
             else:
                 self._last_button = buttons.BUTTON_CENTER
 

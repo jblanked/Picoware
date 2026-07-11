@@ -149,7 +149,7 @@
 #define ENGINE_LCD_TEXT lcd_draw_text
 #define ENGINE_LCD_TRIANGLE lcd_draw_triangle
 #elif defined(WAVESHARE_AMOLED_2_06_ESP32_S3)
-#define ENGINE_LCD_INCLUDE "../Waveshare_watch/lcd/lcd.h"
+#define ENGINE_LCD_INCLUDE "../WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/lcd/lcd.h"
 #define ENGINE_LCD_WIDTH LCD_WIDTH
 #define ENGINE_LCD_HEIGHT LCD_HEIGHT
 #define ENGINE_LCD_CHAR lcd_draw_char

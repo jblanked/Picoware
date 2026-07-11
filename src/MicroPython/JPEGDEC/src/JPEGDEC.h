@@ -13,7 +13,7 @@
 //
 #ifndef __JPEGDEC__
 #define __JPEGDEC__
-#if defined( __MACH__ ) || defined( __LINUX__ ) || defined( __MCUXPRESSO ) || defined( ESP_PLATFORM ) || defined(_WIN64) || defined(CARDPUTER)
+#if defined( __MACH__ ) || defined( __LINUX__ ) || defined( __MCUXPRESSO ) || defined( ESP_PLATFORM ) || defined(_WIN64) || defined(CARDPUTER) || defined(WAVESHARE_AMOLED_2_06_ESP32_S3)
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -47,7 +47,7 @@
 // JPEG Decoder
 // Written by Larry Bank
 // Copyright (c) 2020 BitBank Software, Inc.
-// 
+//
 // Designed to decode baseline JPEG images (8 or 24-bpp)
 // using less than 22K of RAM
 //

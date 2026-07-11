@@ -1,14 +1,14 @@
 #!/bin/bash
-# Script to build Picoware MicroPython firmware for Cardputer (ESP32-S3)
+# Script to build Picoware MicroPython firmware for Waveshare ESP32-S3-Touch-AMOLED-2.06
 
 set -euo pipefail
 
 # Optional Rosetta mode for legacy x86_64-only ESP-IDF toolchains.
-# Default is native architecture; set CARDPUTER_USE_ROSETTA=1 to force re-exec.
-if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ] && [ "${CARDPUTER_USE_ROSETTA:-0}" = "1" ] && [ "${CARDPUTER_ROSETTA_REEXEC:-0}" != "1" ]; then
+# Default is native architecture; set WATCH_USE_ROSETTA=1 to force re-exec.
+if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ] && [ "${WATCH_USE_ROSETTA:-0}" = "1" ] && [ "${WATCH_ROSETTA_REEXEC:-0}" != "1" ]; then
     if command -v arch >/dev/null 2>&1; then
-        echo "Re-running build script under Rosetta (x86_64) because CARDPUTER_USE_ROSETTA=1..."
-        export CARDPUTER_ROSETTA_REEXEC=1
+        echo "Re-running build script under Rosetta (x86_64) because WATCH_USE_ROSETTA=1..."
+        export WATCH_ROSETTA_REEXEC=1
         exec arch -x86_64 /bin/bash "$0" "$@"
     fi
 fi
@@ -22,7 +22,7 @@ micropython_root="${MICROPYTHON_ROOT:-/Users/user/pico/micropython}"
 esp_idf_dir="${ESP_IDF_DIR:-/Users/user/.espressif/v5.5.2/esp-idf}"
 idf_tools_dir="${IDF_TOOLS_PATH:-$HOME/.espressif}"
 
-cardputer_src_dir="$picoware_dir/src/MicroPython/Cardputer"
+watch_src_dir="$picoware_dir/src/MicroPython/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06"
 output_dir="$picoware_dir/builds/MicroPython"
 build_dir="$micropython_dir/build-ESP32_GENERIC_S3"
 
@@ -65,23 +65,23 @@ stage_optional_module_dir() {
     fi
 }
 
-echo "Initializing and preparing Cardputer build environment..."
+echo "Initializing and preparing Waveshare ESP32-S3-Touch-AMOLED-2.06 build environment..."
 echo "Using Picoware directory: $picoware_dir"
 echo "Using MicroPython ESP32 port: $micropython_dir"
 echo "Using MicroPython root: $micropython_root"
 echo "Using ESP-IDF directory: $esp_idf_dir"
 
 require_dir "$picoware_dir"
-require_dir "$cardputer_src_dir"
+require_dir "$watch_src_dir"
 require_dir "$micropython_dir"
 require_dir "$micropython_root"
 require_dir "$esp_idf_dir"
 require_file "$esp_idf_dir/export.sh"
 require_file "$picoware_dir/src/MicroPython/main.py"
-require_file "$cardputer_src_dir/micropython.cmake"
-require_file "$cardputer_src_dir/mpconfigboard.h"
-require_file "$cardputer_src_dir/partitions.csv"
-require_file "$cardputer_src_dir/sdkconfig.defaults"
+require_file "$watch_src_dir/micropython.cmake"
+require_file "$watch_src_dir/mpconfigboard.h"
+require_file "$watch_src_dir/partitions.csv"
+require_file "$watch_src_dir/sdkconfig.defaults"
 
 # Some ESP-IDF 5.5.2 installations ship a port CMakeLists that references an
 # esp32s3 include directory that may be missing. Create it if absent.
@@ -93,10 +93,10 @@ fi
 
 mkdir -p "$output_dir"
 
-echo "Cleaning previous Cardputer outputs and build directory..."
-rm -f "$output_dir"/Picoware-Cardputer.bin
-rm -f "$output_dir"/Picoware-Cardputer-bootloader.bin
-rm -f "$output_dir"/Picoware-Cardputer-partition-table.bin
+echo "Cleaning previous Waveshare outputs and build directory..."
+rm -f "$output_dir"/Picoware-Waveshare-amoled-2.06.bin
+rm -f "$output_dir"/Picoware-Waveshare-amoled-2.06-bootloader.bin
+rm -f "$output_dir"/Picoware-Waveshare-amoled-2.06-partition-table.bin
 rm -rf "$build_dir"
 
 echo "Cleaning staged MicroPython modules..."
@@ -105,6 +105,7 @@ for module_path in \
     picoware \
     picoware_boards \
     cardputer \
+    Waveshare_watch \
     engine \
     lcd \
     vector \
@@ -130,27 +131,27 @@ for module_path in \
     rm -rf "$micropython_dir/modules/$module_path"
 done
 
-echo "Installing Picoware and Cardputer modules into MicroPython ports/esp32/modules..."
+echo "Installing Picoware and Waveshare ESP32-S3-Touch-AMOLED-2.06 modules into MicroPython ports/esp32/modules..."
 cp "$picoware_dir/src/MicroPython/main.py" "$micropython_dir/modules/main.py"
 
 stage_required_module_dir "picoware"
 
-mkdir -p "$micropython_dir/modules/cardputer"
-cp "$cardputer_src_dir/micropython.cmake" "$micropython_dir/modules/cardputer/micropython.cmake"
-cp "$cardputer_src_dir/board_config.h" "$micropython_dir/modules/cardputer/board_config.h"
-cp -r "$cardputer_src_dir/lcd" "$micropython_dir/modules/cardputer/lcd"
-cp -r "$cardputer_src_dir/keyboard" "$micropython_dir/modules/cardputer/keyboard"
-cp -r "$cardputer_src_dir/battery" "$micropython_dir/modules/cardputer/battery"
-cp -r "$cardputer_src_dir/sd" "$micropython_dir/modules/cardputer/sd"
+mkdir -p "$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06"
+cp "$watch_src_dir/micropython.cmake" "$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/micropython.cmake"
+cp "$watch_src_dir/board_config.h" "$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/board_config.h"
+cp -r "$watch_src_dir/lcd" "$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/lcd"
+cp -r "$watch_src_dir/battery" "$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/battery"
+cp -r "$watch_src_dir/sd" "$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/sd"
+cp -r "$watch_src_dir/touch" "$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/touch"
 
-echo "Staging shared C modules referenced by Cardputer CMake..."
+echo "Staging shared C modules referenced by Waveshare ESP32-S3-Touch-AMOLED-2.06 CMake..."
 shared_c_modules="$(sed -nE '
     s#^[[:space:]]*include\(\$\{CMAKE_CURRENT_LIST_DIR\}/\.\./([^/]+)/micropython\.cmake\).*#\1#p
     s#^[[:space:]]*include_directories\(\$\{CMAKE_CURRENT_LIST_DIR\}/\.\./([^/]+)(/[^)]*)?\).*#\1#p
-' "$cardputer_src_dir/micropython.cmake" | sort -u)"
+' "$watch_src_dir/micropython.cmake" | sort -u)"
 
 if [ -z "$shared_c_modules" ]; then
-    echo "ERROR: No shared C modules found in $cardputer_src_dir/micropython.cmake"
+    echo "ERROR: No shared C modules found in $watch_src_dir/micropython.cmake"
     exit 1
 fi
 
@@ -180,13 +181,21 @@ tmp_component_yml="$idf_component_yml.tmp"
 grep -v "esp_lcd_ek79007" "$idf_component_yml" | grep -v "esp_lcd_touch_gt911" > "$tmp_component_yml"
 mv "$tmp_component_yml" "$idf_component_yml"
 
-echo "Copying Cardputer flash/partition configuration overrides..."
-cp "$cardputer_src_dir/partitions.csv" "$micropython_dir/partitions.csv"
-cp "$cardputer_src_dir/sdkconfig.defaults" "$micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board"
-cp "$cardputer_src_dir/mpconfigboard.h" "$micropython_dir/boards/ESP32_GENERIC_S3/mpconfigboard.h"
+grep -v "esp_lcd_sh8601" "$idf_component_yml" | grep -v "esp_lcd_touch_ft5x06" > "$tmp_component_yml"
+mv "$tmp_component_yml" "$idf_component_yml"
 
-echo "Validating Cardputer partition table layout..."
-partition_validation="$(python3 - "$cardputer_src_dir/partitions.csv" <<'PY'
+echo "Configuring ESP-IDF managed dependencies for Waveshare ESP32-S3-Touch-AMOLED-2.06 modules..."
+
+printf '%s\n' '  waveshare/esp_lcd_sh8601: "*"' >> "$idf_component_yml"
+printf '%s\n' '  espressif/esp_lcd_touch_ft5x06: "^1.1.0~1"' >> "$idf_component_yml"
+
+echo "Copying Waveshare ESP32-S3-Touch-AMOLED-2.06 flash/partition configuration overrides..."
+cp "$watch_src_dir/partitions.csv" "$micropython_dir/partitions.csv"
+cp "$watch_src_dir/sdkconfig.defaults" "$micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board"
+cp "$watch_src_dir/mpconfigboard.h" "$micropython_dir/boards/ESP32_GENERIC_S3/mpconfigboard.h"
+
+echo "Validating Waveshare ESP32-S3-Touch-AMOLED-2.06 partition table layout..."
+partition_validation="$(python3 - "$watch_src_dir/partitions.csv" <<'PY'
 import csv
 import sys
 
@@ -215,9 +224,9 @@ if factory_size is None:
     print("ERROR: partitions.csv is missing a factory app partition.", file=sys.stderr)
     sys.exit(1)
 
-if max_end != 0x800000:
+if max_end != 0x2000000:
     print(
-        f"ERROR: partitions.csv ends at 0x{max_end:X}; expected 0x800000 for full 8MB flash.",
+        f"ERROR: partitions.csv ends at 0x{max_end:X}; expected 0x2000000 for full 32MB flash.",
         file=sys.stderr,
     )
     sys.exit(1)
@@ -227,7 +236,7 @@ PY
 )"
 
 if [ -z "$partition_validation" ]; then
-    echo "ERROR: Failed to parse factory partition size from $cardputer_src_dir/partitions.csv"
+    echo "ERROR: Failed to parse factory partition size from $watch_src_dir/partitions.csv"
     exit 1
 fi
 
@@ -238,10 +247,10 @@ board_mpconfig_cmake="$micropython_dir/boards/ESP32_GENERIC_S3/mpconfigboard.cma
 require_file "$board_mpconfig_cmake"
 
 if ! grep -q "boards/ESP32_GENERIC_S3/sdkconfig.board" "$board_mpconfig_cmake"; then
-    echo "Patching ESP32_GENERIC_S3 board CMake to include Cardputer sdkconfig overrides..."
+    echo "Patching ESP32_GENERIC_S3 board CMake to include Waveshare ESP32-S3-Touch-AMOLED-2.06 sdkconfig overrides..."
     cat >> "$board_mpconfig_cmake" <<'EOF'
 
-# Cardputer override injected by Picoware build script.
+# Waveshare ESP32-S3-Touch-AMOLED-2.06 override injected by Picoware build script.
 list(APPEND SDKCONFIG_DEFAULTS
     boards/ESP32_GENERIC_S3/sdkconfig.board)
 EOF
@@ -285,30 +294,32 @@ fi
 # shellcheck source=/dev/null
 source "$esp_idf_dir/export.sh"
 
-echo "Starting Cardputer firmware build..."
+echo "Starting Waveshare ESP32-S3-Touch-AMOLED-2.06 firmware build..."
 cd "$micropython_dir"
 
 # Keep ESP-IDF warnings from failing the build, keep legacy I2C API checks permissive,
 # and force the Cardputer board define for preprocess-only qstr generation paths.
-export EXTRA_CFLAGS="-Wno-maybe-uninitialized -Wno-error=maybe-uninitialized -DCONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=1 -DCARDPUTER -DPBUF_POOL_SIZE=10"
+export EXTRA_CFLAGS="-Wno-maybe-uninitialized -Wno-error=maybe-uninitialized -DCONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=1 -DWATCH"
 
 make BOARD=ESP32_GENERIC_S3 \
-    USER_C_MODULES="$micropython_dir/modules/cardputer/micropython.cmake" \
+    USER_C_MODULES="$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/micropython.cmake" \
     clean
 
 effective_sdkconfig="$build_dir/sdkconfig"
-if ! grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y$' "$micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board" \
-    || ! grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"$' "$micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board"; then
+if ! grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE_32MB=y$' "$micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board" \
+    || ! grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"$' "$micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board" \
+    || ! grep -q '^CONFIG_SPIRAM_USE_MALLOC=y$' "$micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board"; then
     echo "ERROR: Cardputer sdkconfig defaults are missing expected flash/partition settings."
-    echo "Expected CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y and CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions.csv\" in $micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board"
+    echo "Expected CONFIG_ESPTOOLPY_FLASHSIZE_32MB=y, CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions.csv\", and CONFIG_SPIRAM_USE_MALLOC=y in $micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board"
     exit 1
 fi
 
 if [ -f "$effective_sdkconfig" ]; then
-    if ! grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y$' "$effective_sdkconfig" \
-        || ! grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"$' "$effective_sdkconfig"; then
+    if ! grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE_32MB=y$' "$effective_sdkconfig" \
+        || ! grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"$' "$effective_sdkconfig" \
+        || ! grep -q '^CONFIG_SPIRAM_USE_MALLOC=y$' "$effective_sdkconfig"; then
         echo "ERROR: Cardputer flash/partition overrides were not applied."
-        echo "Expected CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y and CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions.csv\" in $effective_sdkconfig"
+        echo "Expected CONFIG_ESPTOOLPY_FLASHSIZE_32MB=y, CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions.csv\", and CONFIG_SPIRAM_USE_MALLOC=y in $effective_sdkconfig"
         echo "Current effective values:"
         grep -E 'CONFIG_ESPTOOLPY_FLASHSIZE|CONFIG_PARTITION_TABLE_CUSTOM_FILENAME|CONFIG_PARTITION_TABLE_FILENAME|CONFIG_SPIRAM_USE_MALLOC' "$effective_sdkconfig" || true
         exit 1
@@ -318,11 +329,11 @@ else
 fi
 
 make -j BOARD=ESP32_GENERIC_S3 \
-    USER_C_MODULES="$micropython_dir/modules/cardputer/micropython.cmake"
+    USER_C_MODULES="$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/micropython.cmake"
 
 app_bin="$build_dir/micropython.bin"
 require_file "$app_bin"
-app_size_bytes="$(stat -f%z "$app_bin")"
+app_size_bytes="$(stat -c%s "$app_bin")"
 if [ "$app_size_bytes" -ge "$factory_partition_size" ]; then
     printf 'ERROR: firmware binary (%d bytes) does not fit factory partition (%d bytes).\n' "$app_size_bytes" "$factory_partition_size"
     exit 1
@@ -330,22 +341,22 @@ fi
 
 printf 'Firmware size check: %d / %d bytes used in factory app partition.\n' "$app_size_bytes" "$factory_partition_size"
 
-cp "$build_dir/micropython.bin" "$output_dir/Picoware-Cardputer.bin"
+cp "$build_dir/micropython.bin" "$output_dir/Picoware-Waveshare-amoled-2.06.bin"
 
 if [ -f "$build_dir/bootloader/bootloader.bin" ]; then
-    cp "$build_dir/bootloader/bootloader.bin" "$output_dir/Picoware-Cardputer-bootloader.bin"
+    cp "$build_dir/bootloader/bootloader.bin" "$output_dir/Picoware-Waveshare-amoled-2.06-bootloader.bin"
 fi
 
 if [ -f "$build_dir/partition_table/partition-table.bin" ]; then
-    cp "$build_dir/partition_table/partition-table.bin" "$output_dir/Picoware-Cardputer-partition-table.bin"
+    cp "$build_dir/partition_table/partition-table.bin" "$output_dir/Picoware-Waveshare-amoled-2.06-partition-table.bin"
 fi
 
-echo "Cardputer build complete."
+echo "Waveshare ESP32-S3-Touch-AMOLED-2.06 build complete."
 echo "Artifacts:"
-echo "  $output_dir/Picoware-Cardputer.bin"
-if [ -f "$output_dir/Picoware-Cardputer-bootloader.bin" ]; then
-    echo "  $output_dir/Picoware-Cardputer-bootloader.bin"
+echo "  $output_dir/Picoware-Waveshare-amoled-2.06.bin"
+if [ -f "$output_dir/Picoware-Waveshare-amoled-2.06-bootloader.bin" ]; then
+    echo "  $output_dir/Picoware-Waveshare-amoled-2.06-bootloader.bin"
 fi
-if [ -f "$output_dir/Picoware-Cardputer-partition-table.bin" ]; then
-    echo "  $output_dir/Picoware-Cardputer-partition-table.bin"
+if [ -f "$output_dir/Picoware-Waveshare-amoled-2.06-partition-table.bin" ]; then
+    echo "  $output_dir/Picoware-Waveshare-amoled-2.06-partition-table.bin"
 fi

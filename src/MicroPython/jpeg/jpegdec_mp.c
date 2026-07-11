@@ -12,7 +12,7 @@ void *JPEGdummy = {readFLASH}; // to avoid compiler error
 
 #if defined(PICOCALC)
 #include "../../lcd/lcd_config.h"
-#elif defined(CARDPUTER)
+#elif defined(CARDPUTER) || defined(WAVESHARE_AMOLED_2_06_ESP32_S3)
 #include "../lcd/lcd_config.h"
 #else
 #include "../../../lcd/lcd_config.h"
@@ -22,7 +22,7 @@ void *JPEGdummy = {readFLASH}; // to avoid compiler error
 #include LCD_INCLUDE
 #endif
 
-#ifdef CARDPUTER
+#if defined(CARDPUTER) || defined(WAVESHARE_AMOLED_2_06_ESP32_S3)
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/idf_additions.h"
@@ -41,7 +41,7 @@ uint32_t core1_stack[CORE1_STACK_SIZE];
 
 uint32_t JPEG_msg_core1;
 
-#ifdef CARDPUTER
+#if defined(CARDPUTER) || defined(WAVESHARE_AMOLED_2_06_ESP32_S3)
 static TaskHandle_t s_jpeg_core1_task = NULL;
 static volatile bool s_jpeg_core1_result_pending = false;
 static volatile uint32_t s_jpeg_core1_result = 0;

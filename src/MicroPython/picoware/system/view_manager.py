@@ -494,9 +494,10 @@ class ViewManager:
             BOARD_PICOCALC_PIMORONI_2W,
             BOARD_CROWPANEL_10_1,
             BOARD_CARDPUTER,
+            BOARD_WAVESHARE_AMOLED_2_06_ESP32_S3,
         )
 
-        if self._current_board_id in (BOARD_CROWPANEL_10_1, BOARD_CARDPUTER):
+        if self._current_board_id in (BOARD_CROWPANEL_10_1, BOARD_CARDPUTER, BOARD_WAVESHARE_AMOLED_2_06_ESP32_S3):
             return freq(240000000)
 
         if frequency is not None:

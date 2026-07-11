@@ -14,7 +14,7 @@ Source: https://github.com/jblanked/Picoware
 #if defined(PICOCALC)
 #include "../../JPEGDEC/src/JPEGDEC.h"
 #include "../../JPEGDEC/src/jpeg.inl"
-#elif defined(CARDPUTER)
+#elif defined(CARDPUTER) || defined(WAVESHARE_AMOLED_2_06_ESP32_S3)
 #include "../JPEGDEC/src/JPEGDEC.h"
 #include "../JPEGDEC/src/jpeg.inl"
 #else

@@ -13,7 +13,7 @@
 
 const mp_obj_type_t textbox_mp_type;
 
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_AMOLED_2_06_ESP32_S3)
 #include "../sd/storage.h"
 #endif
 

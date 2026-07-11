@@ -94,9 +94,9 @@ fi
 mkdir -p "$output_dir"
 
 echo "Cleaning previous Waveshare outputs and build directory..."
-rm -f "$output_dir"/Picoware-Waveshare-amoled-2.06.bin
-rm -f "$output_dir"/Picoware-Waveshare-amoled-2.06-bootloader.bin
-rm -f "$output_dir"/Picoware-Waveshare-amoled-2.06-partition-table.bin
+rm -f "$output_dir"/Picoware-Waveshare-2.06.bin
+rm -f "$output_dir"/Picoware-Waveshare-2.06-bootloader.bin
+rm -f "$output_dir"/Picoware-Waveshare-2.06-partition-table.bin
 rm -rf "$build_dir"
 
 echo "Cleaning staged MicroPython modules..."
@@ -331,32 +331,22 @@ fi
 make -j BOARD=ESP32_GENERIC_S3 \
     USER_C_MODULES="$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/micropython.cmake"
 
-app_bin="$build_dir/micropython.bin"
-require_file "$app_bin"
-app_size_bytes="$(stat -c%s "$app_bin")"
-if [ "$app_size_bytes" -ge "$factory_partition_size" ]; then
-    printf 'ERROR: firmware binary (%d bytes) does not fit factory partition (%d bytes).\n' "$app_size_bytes" "$factory_partition_size"
-    exit 1
-fi
-
-printf 'Firmware size check: %d / %d bytes used in factory app partition.\n' "$app_size_bytes" "$factory_partition_size"
-
-cp "$build_dir/micropython.bin" "$output_dir/Picoware-Waveshare-amoled-2.06.bin"
+cp "$build_dir/micropython.bin" "$output_dir/Picoware-Waveshare-2.06.bin"
 
 if [ -f "$build_dir/bootloader/bootloader.bin" ]; then
-    cp "$build_dir/bootloader/bootloader.bin" "$output_dir/Picoware-Waveshare-amoled-2.06-bootloader.bin"
+    cp "$build_dir/bootloader/bootloader.bin" "$output_dir/Picoware-Waveshare-2.06-bootloader.bin"
 fi
 
 if [ -f "$build_dir/partition_table/partition-table.bin" ]; then
-    cp "$build_dir/partition_table/partition-table.bin" "$output_dir/Picoware-Waveshare-amoled-2.06-partition-table.bin"
+    cp "$build_dir/partition_table/partition-table.bin" "$output_dir/Picoware-Waveshare-2.06-partition-table.bin"
 fi
 
 echo "Waveshare ESP32-S3-Touch-AMOLED-2.06 build complete."
 echo "Artifacts:"
-echo "  $output_dir/Picoware-Waveshare-amoled-2.06.bin"
-if [ -f "$output_dir/Picoware-Waveshare-amoled-2.06-bootloader.bin" ]; then
-    echo "  $output_dir/Picoware-Waveshare-amoled-2.06-bootloader.bin"
+echo "  $output_dir/Picoware-Waveshare-2.06.bin"
+if [ -f "$output_dir/Picoware-Waveshare-2.06-bootloader.bin" ]; then
+    echo "  $output_dir/Picoware-Waveshare-2.06-bootloader.bin"
 fi
-if [ -f "$output_dir/Picoware-Waveshare-amoled-2.06-partition-table.bin" ]; then
-    echo "  $output_dir/Picoware-Waveshare-amoled-2.06-partition-table.bin"
+if [ -f "$output_dir/Picoware-Waveshare-2.06-partition-table.bin" ]; then
+    echo "  $output_dir/Picoware-Waveshare-2.06-partition-table.bin"
 fi

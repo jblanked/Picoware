@@ -325,13 +325,13 @@ class Input:
 
             return get_percentage()
 
-        if self._current_board_id in (
-            BOARD_CROWPANEL_10_1,
-            BOARD_WAVESHARE_AMOLED_2_06_ESP32_S3,
-        ):
+        if self._current_board_id == BOARD_CROWPANEL_10_1:
             return 100
 
-        if self._current_board_id == BOARD_CARDPUTER:
+        if self._current_board_id in (
+            BOARD_CARDPUTER,
+            BOARD_WAVESHARE_AMOLED_2_06_ESP32_S3,
+        ):
             from cardputer_battery import get_percentage
 
             return get_percentage()
@@ -618,7 +618,6 @@ class Input:
         self._last_point = (x, y)
 
         if self._current_board_id == BOARD_CROWPANEL_10_1:
-
             if 900 <= x <= 1024 and 160 <= y <= 440:
                 self._last_button = buttons.BUTTON_RIGHT
             elif 0 <= x <= 124 and 160 <= y <= 440:
@@ -631,7 +630,6 @@ class Input:
                 self._last_button = buttons.BUTTON_CENTER
 
         elif self._current_board_id == BOARD_WAVESHARE_AMOLED_2_06_ESP32_S3:
-
             if 310 <= x <= 410 and 120 <= y <= 382:
                 self._last_button = buttons.BUTTON_RIGHT
             elif 0 <= x <= 50 and 120 <= y <= 382:

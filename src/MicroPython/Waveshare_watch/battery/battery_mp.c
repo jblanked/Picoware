@@ -4,24 +4,6 @@
 
 static bool g_battery_ready = false;
 
-static int cardputer_battery_percent_from_voltage(float voltage_v)
-{
-    const float min_v = 3.30f;
-    const float max_v = 4.10f;
-
-    if (voltage_v <= min_v)
-    {
-        return 0;
-    }
-    if (voltage_v >= max_v)
-    {
-        return 100;
-    }
-
-    float scaled = ((voltage_v - min_v) * 100.0f) / (max_v - min_v);
-    return (int)(scaled + 0.5f);
-}
-
 static esp_err_t cardputer_battery_ensure_init(void)
 {
     if (g_battery_ready)
@@ -72,20 +54,20 @@ static MP_DEFINE_CONST_FUN_OBJ_0(cardputer_battery_get_voltage_obj,
 
 mp_obj_t cardputer_battery_get_percentage(void)
 {
-    float voltage_v = 0.0f;
+    int percentage = 0;
     esp_err_t err = cardputer_battery_ensure_init();
     if (err == ESP_OK)
     {
-        err = battery_read_voltage(&voltage_v);
+        err = battery_read_percentage(&percentage);
     }
 
     if (err != ESP_OK)
     {
         mp_raise_msg_varg(&mp_type_RuntimeError,
-                          MP_ERROR_TEXT("battery_read_voltage failed: %d"), err);
+                          MP_ERROR_TEXT("battery_read_percentage failed: %d"), err);
     }
 
-    return mp_obj_new_int(cardputer_battery_percent_from_voltage(voltage_v));
+    return mp_obj_new_int(percentage);
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(cardputer_battery_get_percentage_obj,
                                  cardputer_battery_get_percentage);

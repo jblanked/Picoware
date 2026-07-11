@@ -140,7 +140,7 @@ mkdir -p "$micropython_dir/modules/Waveshare_watch"
 cp "$watch_src_dir/micropython.cmake" "$micropython_dir/modules/Waveshare_watch/micropython.cmake"
 cp "$watch_src_dir/board_config.h" "$micropython_dir/modules/Waveshare_watch/board_config.h"
 cp -r "$watch_src_dir/lcd" "$micropython_dir/modules/Waveshare_watch/lcd"
-# cp -r "$watch_src_dir/battery" "$micropython_dir/modules/Waveshare_watch/battery"
+cp -r "$watch_src_dir/battery" "$micropython_dir/modules/Waveshare_watch/battery"
 cp -r "$watch_src_dir/sd" "$micropython_dir/modules/Waveshare_watch/sd"
 cp -r "$watch_src_dir/touch" "$micropython_dir/modules/Waveshare_watch/touch"
 

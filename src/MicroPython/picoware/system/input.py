@@ -95,10 +95,7 @@ class Input:
             self._delay_ms = 200
 
         elif self._current_board_id == BOARD_CROWPANEL_10_1:
-            import touch
-            
-            class Touch(touch.Touch):
-                pass
+            from touch import Touch
 
             self._crowpanel_touch = Touch()
             self._last_point = (0, 0)

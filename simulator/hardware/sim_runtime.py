@@ -1,6 +1,5 @@
 import json
 import os
-import subprocess
 import time
 
 
@@ -277,11 +276,27 @@ def _quote(path):
     return "'" + str(path).replace("'", "'\"'\"'") + "'"
 
 
+def _safe_sd_path(base, filename):
+    parts = []
+    for component in base.replace("\\", "/").split("/"):
+        if component == "..":
+            if parts:
+                parts.pop()
+        elif component and component != ".":
+            parts.append(component)
+    normalized = "/".join(parts)
+    return (normalized + "/" + filename) if normalized else filename
+
+
 def build_native(target):
     script = root + "/simulator/build.sh"
     if not _exists(script):
         script = root + "/sim_mp/build.sh"
-    status = subprocess.run(["sh", script, target]).returncode
+    try:
+        import subprocess
+        status = subprocess.run(["sh", script, target]).returncode
+    except ImportError:
+        status = os.system("sh " + _quote(script) + " " + _quote(target))
     return status == 0
 
 
@@ -968,7 +983,7 @@ def poll_viewer_controls():
                     _log_event("screenshot failed " + str(e))
         elif command == "mute":
             audio_muted = not audio_muted
-            cmd = os.path.realpath(os.path.join(sd_root, "sim_audio.cmd"))
+            cmd = _safe_sd_path(sd_root, "sim_audio.cmd")
             try:
                 with open(cmd, "w") as handle:
                     handle.write("volume " + ("0" if audio_muted else "100") + "\n")

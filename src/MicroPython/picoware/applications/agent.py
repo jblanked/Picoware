@@ -12,11 +12,11 @@ STATE_TYPE = const(2)
 _agent          = None
 _menu           = None
 _state          = STATE_MENU
-_conversation   = None       
-_mode_label     = ""       
+_conversation   = None
+_mode_label     = ""
 _agent_mode     = None
-_scroll_offset  = 0      
-_max_scroll     = 0 
+_scroll_offset  = 0
+_max_scroll     = 0
 
 
 def _wrap_text(text, max_chars):
@@ -233,9 +233,9 @@ def start(view_manager) -> bool:
         view_manager.alert("WiFi not connected", False)
         connect_to_saved_wifi(view_manager)
         return False
-    
-    from picoware.system.boards import BOARD_CARDPUTER, BOARD_CROWPANEL_10_1
-    if view_manager.board_id not in (BOARD_CARDPUTER, BOARD_CROWPANEL_10_1):
+
+    from picoware.system.boards import BOARD_CARDPUTER, BOARD_CROWPANEL_10_1, BOARD_WAVESHARE_2_06_ESP32S3
+    if view_manager.board_id not in (BOARD_CARDPUTER, BOARD_CROWPANEL_10_1, BOARD_WAVESHARE_2_06_ESP32S3):
         view_manager.freq(True)
 
     from picoware.gui.menu import Menu
@@ -315,13 +315,13 @@ def run(view_manager) -> None:
             _menu.draw()
 
     elif _state == STATE_TYPE:
-        kb = view_manager.keyboard 
+        kb = view_manager.keyboard
         if not kb.run():
             # exit back to chat
             _state = STATE_CHAT
             _render_chat(view_manager)
             return
-        
+
         if not kb.is_finished:
             return
 
@@ -354,7 +354,7 @@ def run(view_manager) -> None:
 
 def stop(view_manager) -> None:
     """Tear down widgets and agent, reset state."""
-    from picoware.system.boards import BOARD_CARDPUTER, BOARD_CROWPANEL_10_1
+    from picoware.system.boards import BOARD_CARDPUTER, BOARD_CROWPANEL_10_1, BOARD_WAVESHARE_2_06_ESP32S3
     from gc import collect
     global _agent, _menu, _conversation, _scroll_offset, _max_scroll
 
@@ -368,8 +368,8 @@ def stop(view_manager) -> None:
     if _menu is not None:
         del _menu
         _menu = None
-    
-    if view_manager.board_id not in (BOARD_CARDPUTER, BOARD_CROWPANEL_10_1):
+
+    if view_manager.board_id not in (BOARD_CARDPUTER, BOARD_CROWPANEL_10_1, BOARD_WAVESHARE_2_06_ESP32S3):
         view_manager.freq(False)
 
     collect()

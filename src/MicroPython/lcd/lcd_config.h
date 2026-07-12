@@ -49,7 +49,7 @@
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
-#elif defined(WAVESHARE_2_06)
+#elif defined(WAVESHARE_2_06_ESP32S3)
 #define LCD_INCLUDE "../Waveshare/ESP32S3-Touch-LCD-2.06/lcd/lcd.h"
 #define LCD_MP_INIT lcd_init
 #define LCD_MP_DEINIT lcd_deinit

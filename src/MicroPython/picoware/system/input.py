@@ -306,6 +306,7 @@ class Input:
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
             BOARD_CROWPANEL_10_1,
+            BOARD_WAVESHARE_2_06_ESP32S3
         ):
             from picoware_southbridge import deinit
 

@@ -21,7 +21,8 @@ extern "C"
     {
         return storage_file_write(file_path, data, data_size);
     }
-#elif defined(WAVESHARE_2_06)
+#elif defined(WAVESHARE_2_06_ESP32S3)
+#define STORAGE_DOES_EXIST 1
 #include "../Waveshare/ESP32S3-Touch-LCD-2.06/sd/storage.h"
 #define storage_read storage_file_read
 static inline bool storage_write(const char *file_path, const void *data, size_t data_size, bool overwrite)

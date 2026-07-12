@@ -39,7 +39,7 @@ mp_obj_t picoware_boards_get_current_name(void)
 #elif defined(CARDPUTER)
     return mp_obj_new_str("Cardputer", strlen("Cardputer"));
 #elif defined(WAVESHARE_2_06)
-    return mp_obj_new_str("Waveshare watch", strlen("Waveshare watch"));
+    return mp_obj_new_str("Waveshare 2.06", strlen("Waveshare 2.06"));
 #elif defined(CROWPANEL_10_1)
     return mp_obj_new_str("CrowPanel 10.1", strlen("CrowPanel 10.1"));
 #elif defined(PIMORONI_PICO_PLUS2W_RP2350)
@@ -71,10 +71,8 @@ mp_obj_t picoware_boards_get_device_name(void)
 {
 #ifdef CROWPANEL_10_1
     return mp_obj_new_str("CrowPanel 10.1 ESP32-P4", strlen("CrowPanel 10.1 ESP32-P4"));
-#elif defined(CARDPUTER)
-    return mp_obj_new_str("M5Stack Cardputer", strlen("M5Stack Cardputer"));
-#elif defined(WAVESHARE_2_06)
-    return mp_obj_new_str("Waveshare ESP32-S3-Touch-AMOLED-2.06", strlen("Waveshare ESP32-S3-Touch-AMOLED-2.06"));
+#elif defined(CARDPUTER) || defined(WAVESHARE_2_06)
+    return mp_obj_new_str("ESP32-S3", strlen("ESP32-S3"));
 #elif defined(CYW43_WL_GPIO_LED_PIN)
 #ifdef PICO_RP2040
     return mp_obj_new_str("Raspberry Pi Pico W", strlen("Raspberry Pi Pico W"));
@@ -131,7 +129,7 @@ mp_obj_t picoware_boards_get_name(mp_obj_t board_id_obj)
         snprintf(board_name, sizeof(board_name), "Cardputer");
         break;
     case BOARD_WAVESHARE_2_06_ESP32S3:
-        snprintf(board_name, sizeof(board_name), "Waveshare watch");
+        snprintf(board_name, sizeof(board_name), "Waveshare 2.06");
         break;
     default:
         snprintf(board_name, sizeof(board_name), "Unknown Board");
@@ -231,6 +229,8 @@ mp_obj_t picoware_boards_has_sd_card(mp_obj_t board_id_obj)
     case BOARD_WAVESHARE_1_43_RP2350:
     case BOARD_WAVESHARE_3_49_RP2350:
     case BOARD_PICOCALC_PIMORONI_2W:
+    case BOARD_CARDPUTER:
+    case BOARD_WAVESHARE_2_06_ESP32S3:
         has_sd_card = true;
         break;
     default:
@@ -316,6 +316,7 @@ mp_obj_t picoware_boards_is_circular(mp_obj_t board_id_obj)
     {
     case BOARD_WAVESHARE_1_28_RP2350:
     case BOARD_WAVESHARE_1_43_RP2350:
+    case BOARD_WAVESHARE_2_06_ESP32S3:
         is_circular = true;
         break;
     default:

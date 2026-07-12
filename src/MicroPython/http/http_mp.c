@@ -30,7 +30,7 @@ Source: https://github.com/jblanked/Picoware
 #define SD_AVAILABLE 0
 #endif
 
-#if defined(CARDPUTER) || (MICROPY_PY_LWIP && !defined(NO_QSTR)) || defined(WAVESHARE_2_06_ESP32S3)
+#if defined(CARDPUTER) || (MICROPY_PY_LWIP && !defined(NO_QSTR)) || defined(WAVESHARE_2_06)
 /* URL / HTTP parsing helpers */
 
 static bool parse_url(const char *url,
@@ -197,7 +197,7 @@ static bool header_contains(const char *headers, size_t hdr_len, const char *nee
 }
 #endif
 
-#if (MICROPY_PY_LWIP && !defined(NO_QSTR)) || defined(CARDPUTER) || defined(WAVESHARE_2_06_ESP32S3)
+#if (MICROPY_PY_LWIP && !defined(NO_QSTR)) || defined(CARDPUTER) || defined(WAVESHARE_2_06)
 
 static bool header_name_is(const char *name, size_t len, const char *needle)
 {

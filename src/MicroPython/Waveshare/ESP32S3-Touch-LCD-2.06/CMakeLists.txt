@@ -9,8 +9,8 @@ set(waveshare_watch_src_sources
     "ir/ir.c"
 )
 
-if(DEFINED BOARD_WAVESHARE_2_06_ESP32S3_APP_MAIN)
-  list(APPEND waveshare_watch_src_sources "${BOARD_WAVESHARE_2_06_ESP32S3_APP_MAIN}")
+if(DEFINED BOARD_WAVESHARE_2_06_APP_MAIN)
+  list(APPEND waveshare_watch_src_sources "${BOARD_WAVESHARE_2_06_APP_MAIN}")
 endif()
 
 idf_component_register(

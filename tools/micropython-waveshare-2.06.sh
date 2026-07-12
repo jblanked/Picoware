@@ -22,7 +22,7 @@ micropython_root="${MICROPYTHON_ROOT:-/Users/user/pico/micropython}"
 esp_idf_dir="${ESP_IDF_DIR:-/Users/user/.espressif/v5.5.2/esp-idf}"
 idf_tools_dir="${IDF_TOOLS_PATH:-$HOME/.espressif}"
 
-watch_src_dir="$picoware_dir/src/MicroPython/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06"
+watch_src_dir="$picoware_dir/src/MicroPython/Waveshare/ESP32S3-Touch-LCD-2.06"
 output_dir="$picoware_dir/builds/MicroPython"
 build_dir="$micropython_dir/build-ESP32_GENERIC_S3"
 
@@ -136,18 +136,18 @@ cp "$picoware_dir/src/MicroPython/main.py" "$micropython_dir/modules/main.py"
 
 stage_required_module_dir "picoware"
 
-mkdir -p "$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06"
-cp "$watch_src_dir/micropython.cmake" "$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/micropython.cmake"
-cp "$watch_src_dir/board_config.h" "$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/board_config.h"
-cp -r "$watch_src_dir/lcd" "$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/lcd"
-cp -r "$watch_src_dir/battery" "$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/battery"
-cp -r "$watch_src_dir/sd" "$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/sd"
-cp -r "$watch_src_dir/touch" "$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/touch"
+mkdir -p "$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06"
+cp "$watch_src_dir/micropython.cmake" "$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06/micropython.cmake"
+cp "$watch_src_dir/board_config.h" "$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06/board_config.h"
+cp -r "$watch_src_dir/lcd" "$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06/lcd"
+cp -r "$watch_src_dir/battery" "$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06/battery"
+cp -r "$watch_src_dir/sd" "$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06/sd"
+cp -r "$watch_src_dir/touch" "$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06/touch"
 
 echo "Staging shared C modules referenced by Waveshare ESP32-S3-Touch-AMOLED-2.06 CMake..."
 shared_c_modules="$(sed -nE '
-    s#^[[:space:]]*include\(\$\{CMAKE_CURRENT_LIST_DIR\}/\.\./([^/]+)/micropython\.cmake\).*#\1#p
-    s#^[[:space:]]*include_directories\(\$\{CMAKE_CURRENT_LIST_DIR\}/\.\./([^/]+)(/[^)]*)?\).*#\1#p
+    s#^[[:space:]]*include\(\$\{CMAKE_CURRENT_LIST_DIR\}/\.\./\.\./([^/]+)/micropython\.cmake\).*#\1#p
+    s#^[[:space:]]*include_directories\(\$\{CMAKE_CURRENT_LIST_DIR\}/\.\./\.\./([^/]+)(/[^)]*)?\).*#\1#p
 ' "$watch_src_dir/micropython.cmake" | sort -u)"
 
 if [ -z "$shared_c_modules" ]; then
@@ -302,7 +302,7 @@ cd "$micropython_dir"
 export EXTRA_CFLAGS="-Wno-maybe-uninitialized -Wno-error=maybe-uninitialized -DCONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=1 -DWATCH"
 
 make BOARD=ESP32_GENERIC_S3 \
-    USER_C_MODULES="$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/micropython.cmake" \
+    USER_C_MODULES="$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06/micropython.cmake" \
     clean
 
 effective_sdkconfig="$build_dir/sdkconfig"
@@ -329,7 +329,7 @@ else
 fi
 
 make -j BOARD=ESP32_GENERIC_S3 \
-    USER_C_MODULES="$micropython_dir/modules/WAVESHARE_ESP32_S3_TOUCH_AMOLED_2_06/micropython.cmake"
+    USER_C_MODULES="$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06/micropython.cmake"
 
 cp "$build_dir/micropython.bin" "$output_dir/Picoware-Waveshare-2.06.bin"
 

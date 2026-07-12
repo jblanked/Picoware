@@ -9,7 +9,7 @@ target_sources(usermod_lcd INTERFACE
 target_include_directories(usermod_lcd INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}
     ${CMAKE_CURRENT_LIST_DIR}/..
-    ${CMAKE_CURRENT_LIST_DIR}/../../lcd
+    ${CMAKE_CURRENT_LIST_DIR}/../../../lcd
 )
 
 set(_picoware_idf_path "")

@@ -299,7 +299,7 @@ cd "$micropython_dir"
 
 # Keep ESP-IDF warnings from failing the build, keep legacy I2C API checks permissive,
 # and force the Cardputer board define for preprocess-only qstr generation paths.
-export EXTRA_CFLAGS="-Wno-maybe-uninitialized -Wno-error=maybe-uninitialized -DCONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=1 -DWATCH"
+export EXTRA_CFLAGS="-Wno-maybe-uninitialized -Wno-error=maybe-uninitialized -DCONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=1 -DWAVESHARE_2_06"
 
 make BOARD=ESP32_GENERIC_S3 \
     USER_C_MODULES="$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06/micropython.cmake" \
@@ -309,7 +309,7 @@ effective_sdkconfig="$build_dir/sdkconfig"
 if ! grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE_32MB=y$' "$micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board" \
     || ! grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"$' "$micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board" \
     || ! grep -q '^CONFIG_SPIRAM_USE_MALLOC=y$' "$micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board"; then
-    echo "ERROR: Cardputer sdkconfig defaults are missing expected flash/partition settings."
+    echo "ERROR: ESP32-S3 sdkconfig defaults are missing expected flash/partition settings."
     echo "Expected CONFIG_ESPTOOLPY_FLASHSIZE_32MB=y, CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions.csv\", and CONFIG_SPIRAM_USE_MALLOC=y in $micropython_dir/boards/ESP32_GENERIC_S3/sdkconfig.board"
     exit 1
 fi
@@ -318,7 +318,7 @@ if [ -f "$effective_sdkconfig" ]; then
     if ! grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE_32MB=y$' "$effective_sdkconfig" \
         || ! grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"$' "$effective_sdkconfig" \
         || ! grep -q '^CONFIG_SPIRAM_USE_MALLOC=y$' "$effective_sdkconfig"; then
-        echo "ERROR: Cardputer flash/partition overrides were not applied."
+        echo "ERROR: ESP32-S3 flash/partition overrides were not applied."
         echo "Expected CONFIG_ESPTOOLPY_FLASHSIZE_32MB=y, CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions.csv\", and CONFIG_SPIRAM_USE_MALLOC=y in $effective_sdkconfig"
         echo "Current effective values:"
         grep -E 'CONFIG_ESPTOOLPY_FLASHSIZE|CONFIG_PARTITION_TABLE_CUSTOM_FILENAME|CONFIG_PARTITION_TABLE_FILENAME|CONFIG_SPIRAM_USE_MALLOC' "$effective_sdkconfig" || true

@@ -30,6 +30,10 @@ void lib_load_module(struct mjs *mjs)
     }
     switch (module)
     {
+    case LIB_MODULE_BUTTONS:
+        buttons_create(mjs, &object);
+        is_module_loaded = true;
+        break;
     case LIB_MODULE_DRAW:
         lcd_create(mjs, &object);
         is_module_loaded = true;
@@ -89,7 +93,11 @@ void lib_load_module(struct mjs *mjs)
 
 lib_module_t lib_module_from_str(const char *str)
 {
-    if (strcmp(str, "draw") == 0)
+    if (strcmp(str, "buttons") == 0)
+    {
+        return LIB_MODULE_BUTTONS;
+    }
+    else if (strcmp(str, "draw") == 0)
     {
         return LIB_MODULE_DRAW;
     }

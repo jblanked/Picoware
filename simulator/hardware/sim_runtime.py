@@ -1,5 +1,6 @@
 import json
 import os
+import subprocess
 import time
 
 
@@ -280,7 +281,7 @@ def build_native(target):
     script = root + "/simulator/build.sh"
     if not _exists(script):
         script = root + "/sim_mp/build.sh"
-    status = os.system("sh " + _quote(script) + " " + _quote(target))
+    status = subprocess.run(["sh", script, target]).returncode
     return status == 0
 
 
@@ -967,7 +968,7 @@ def poll_viewer_controls():
                     _log_event("screenshot failed " + str(e))
         elif command == "mute":
             audio_muted = not audio_muted
-            cmd = sd_root + "/sim_audio.cmd"
+            cmd = os.path.realpath(os.path.join(sd_root, "sim_audio.cmd"))
             try:
                 with open(cmd, "w") as handle:
                     handle.write("volume " + ("0" if audio_muted else "100") + "\n")

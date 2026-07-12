@@ -8,7 +8,7 @@ from picoware.system.boards import (
     BOARD_WAVESHARE_1_28_RP2350,
     BOARD_WAVESHARE_1_43_RP2350,
     BOARD_WAVESHARE_3_49_RP2350,
-    BOARD_WAVESHARE_2_06_ESP32S3,
+    BOARD_WAVESHARE_2_06,
 )
 
 
@@ -101,7 +101,7 @@ class Input:
             self._last_point = (0, 0)
             self._delay_ms = 120
 
-        elif self._current_board_id == BOARD_WAVESHARE_2_06_ESP32S3:
+        elif self._current_board_id == BOARD_WAVESHARE_2_06:
             from touch import Touch
 
             self._crowpanel_touch = Touch()
@@ -306,6 +306,7 @@ class Input:
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
             BOARD_CROWPANEL_10_1,
+            BOARD_WAVESHARE_2_06
         ):
             from picoware_southbridge import deinit
 
@@ -330,7 +331,7 @@ class Input:
 
         if self._current_board_id in (
             BOARD_CARDPUTER,
-            BOARD_WAVESHARE_2_06_ESP32S3,
+            BOARD_WAVESHARE_2_06,
         ):
             from cardputer_battery import get_percentage
 
@@ -345,7 +346,7 @@ class Input:
         """Returns the last button pressed."""
         if self._current_board_id in (
             BOARD_CROWPANEL_10_1,
-            BOARD_WAVESHARE_2_06_ESP32S3,
+            BOARD_WAVESHARE_2_06,
         ):
             self._poll_crowpanel_touch()
         elif self._current_board_id == BOARD_CARDPUTER:
@@ -380,7 +381,7 @@ class Input:
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
             BOARD_CROWPANEL_10_1,
-            BOARD_WAVESHARE_2_06_ESP32S3,
+            BOARD_WAVESHARE_2_06,
         )
 
     @property
@@ -509,7 +510,7 @@ class Input:
             return self._last_point != (0, 0)
         if self._current_board_id in (
             BOARD_CROWPANEL_10_1,
-            BOARD_WAVESHARE_2_06_ESP32S3,
+            BOARD_WAVESHARE_2_06,
         ):
             self._poll_crowpanel_touch()
             return self._last_point != (0, 0)
@@ -629,7 +630,7 @@ class Input:
             else:
                 self._last_button = buttons.BUTTON_CENTER
 
-        elif self._current_board_id == BOARD_WAVESHARE_2_06_ESP32S3:
+        elif self._current_board_id == BOARD_WAVESHARE_2_06:
             if 310 <= x <= 410 and 120 <= y <= 382:
                 self._last_button = buttons.BUTTON_RIGHT
             elif 0 <= x <= 50 and 120 <= y <= 382:

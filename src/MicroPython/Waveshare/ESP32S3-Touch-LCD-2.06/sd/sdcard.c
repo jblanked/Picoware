@@ -11,12 +11,14 @@
 #include <errno.h>
 #include <stdio.h>
 
+#include "../../../log/log_mp.h"
+
 #ifndef PRINT
-#define PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
+#define PRINT(...) LOG_MESSAGE(__VA_ARGS__)
 #endif
 
 #define SDCARD_MOUNT_POINT "/sdcard"
-#define SD_SLOT_SPI2 (2)
+#define SD_SLOT_SPI2 (3)
 
 static mp_obj_t s_sdcard_obj = MP_OBJ_NULL;
 static bool s_sdcard_mounted = false;

@@ -43,6 +43,7 @@ Follow the instructions in the [Installation Guide](./guides/Installation.md) to
 - [Waveshare RP2350 3.49inch Touch LCD](https://www.waveshare.com/rp2350-touch-lcd-3.49.htm?sku=32775)
 - [Elecrow CrowPanel 10.1 inch](https://www.elecrow.com/crowpanel-advanced-10-1inch-esp32-p4-hmi-ai-display-1024x600-ips-touch-screen-wifi-6.html?idd=5)
 - [M5Stack Cardputer ADV](https://shop.m5stack.com/products/m5stack-cardputer-adv-version-esp32-s3)
+- [Waveshare ESP32 2.06inch Touch Watch](https://www.waveshare.com/esp32-s3-touch-amoled-2.06.htm)
 
 ### Related Videos
 - JBlanked (PicoCalc Playlist): [https://www.youtube.com/playlist?list=PLSRet1BCVgXhDNONa1T-1OIDoSibsF_ey](https://www.youtube.com/playlist?list=PLSRet1BCVgXhDNONa1T-1OIDoSibsF_ey)

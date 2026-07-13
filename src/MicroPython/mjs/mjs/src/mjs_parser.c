@@ -515,11 +515,11 @@ static enum mjs_err parse_literal(struct pstate *p, const struct tok *t)
   }
   case TOK_NUM:
   {
-    double iv, d = strtod(t->ptr, NULL);
+    double d = strtod(t->ptr, NULL);
     unsigned long uv = strtoul(t->ptr + 2, NULL, 16);
     if (t->ptr[0] == '0' && t->ptr[1] == 'x')
       d = uv;
-    if (modf(d, &iv) == 0)
+    if (d == (double)(int64_t)d && !isinf(d))
     {
       emit_byte(p, OP_PUSH_INT);
       emit_int(p, (int64_t)d);

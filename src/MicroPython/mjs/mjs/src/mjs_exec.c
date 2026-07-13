@@ -633,6 +633,34 @@ static int getprop_builtin(struct mjs *mjs, mjs_val_t val, mjs_val_t name,
   int need_free = 0;
   int handled = 0;
 
+  if (mjs_is_number(name))
+  {
+    double d = mjs_get_double(mjs, name);
+    if (d >= 0 && d == (double)(int64_t)d)
+    {
+      int idx = (int)d;
+      if (mjs_is_string(val))
+      {
+        size_t val_len;
+        const char *str = mjs_get_string(mjs, &val, &val_len);
+        if (idx >= 0 && idx < (int)val_len)
+        {
+          *res = mjs_mk_string(mjs, str + idx, 1, 1);
+        }
+        else
+        {
+          *res = MJS_UNDEFINED;
+        }
+        return 1;
+      }
+      if (mjs_is_array(val))
+      {
+        *res = mjs_array_get(mjs, val, (unsigned long)idx);
+        return 1;
+      }
+    }
+  }
+
   mjs_err_t err = mjs_to_string(mjs, &name, &s, &n, &need_free);
 
   if (err == MJS_OK)

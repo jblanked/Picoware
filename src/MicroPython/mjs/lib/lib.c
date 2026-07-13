@@ -30,6 +30,10 @@ void lib_load_module(struct mjs *mjs)
     }
     switch (module)
     {
+    case LIB_MODULE_BLUETOOTH:
+        bluetooth_create(mjs, &object);
+        is_module_loaded = true;
+        break;
     case LIB_MODULE_BUTTONS:
         buttons_create(mjs, &object);
         is_module_loaded = true;
@@ -93,7 +97,11 @@ void lib_load_module(struct mjs *mjs)
 
 lib_module_t lib_module_from_str(const char *str)
 {
-    if (strcmp(str, "buttons") == 0)
+    if (strcmp(str, "bluetooth") == 0)
+    {
+        return LIB_MODULE_BLUETOOTH;
+    }
+    else if (strcmp(str, "buttons") == 0)
     {
         return LIB_MODULE_BUTTONS;
     }
@@ -160,7 +168,11 @@ void lib_unload_modules()
 {
     for (size_t i = 0; i < LIB_MODULE_COUNT; i++)
     {
-        if (lib_loaded_modules[i] == LIB_MODULE_INPUT)
+        if (lib_loaded_modules[i] == LIB_MODULE_BLUETOOTH)
+        {
+            bluetooth_destroy();
+        }
+        else if (lib_loaded_modules[i] == LIB_MODULE_INPUT)
         {
             input_destroy();
         }

@@ -1,6 +1,7 @@
 #pragma once
 #include <stdbool.h>
 #include <string.h>
+#include "bluetooth.h"
 #include "buttons.h"
 #include "color.h"
 #include "http.h"
@@ -19,6 +20,7 @@
 typedef enum
 {
     LIB_MODULE_NONE = 0,
+    LIB_MODULE_BLUETOOTH,
     LIB_MODULE_BUTTONS,
     LIB_MODULE_DRAW,
     LIB_MODULE_HTTP,
@@ -33,7 +35,7 @@ typedef enum
     LIB_MODULE_WIFI,
 } lib_module_t;
 
-#define LIB_MODULE_COUNT 12
+#define LIB_MODULE_COUNT 13
 
 void lib_load_module(struct mjs *mjs);
 lib_module_t lib_module_from_str(const char *str);

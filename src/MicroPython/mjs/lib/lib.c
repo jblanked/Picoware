@@ -57,6 +57,10 @@ void lib_load_module(struct mjs *mjs)
     case LIB_MODULE_PIN:
         is_module_loaded = pin_create(mjs, &object);
         break;
+    case LIB_MODULE_PSRAM:
+        psram_create(mjs, &object);
+        is_module_loaded = true;
+        break;
     case LIB_MODULE_SETTINGS:
         settings_create(mjs, &object);
         is_module_loaded = true;
@@ -125,6 +129,10 @@ lib_module_t lib_module_from_str(const char *str)
     {
         return LIB_MODULE_PIN;
     }
+    else if (strcmp(str, "psram") == 0)
+    {
+        return LIB_MODULE_PSRAM;
+    }
     else if (strcmp(str, "settings") == 0)
     {
         return LIB_MODULE_SETTINGS;
@@ -179,6 +187,10 @@ void lib_unload_modules()
         else if (lib_loaded_modules[i] == LIB_MODULE_PIN)
         {
             pin_destroy();
+        }
+        else if (lib_loaded_modules[i] == LIB_MODULE_PSRAM)
+        {
+            psram_destroy();
         }
         else if (lib_loaded_modules[i] == LIB_MODULE_SYSTEM)
         {

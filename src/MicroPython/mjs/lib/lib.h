@@ -10,6 +10,7 @@
 #include "log.h"
 #include "math.h"
 #include "pin.h"
+#include "psram.h"
 #include "settings.h"
 #include "storage.h"
 #include "system.h"
@@ -27,6 +28,7 @@ typedef enum
     LIB_MODULE_INPUT,
     LIB_MODULE_MATH,
     LIB_MODULE_PIN,
+    LIB_MODULE_PSRAM,
     LIB_MODULE_SETTINGS,
     LIB_MODULE_STORAGE,
     LIB_MODULE_SYSTEM,
@@ -35,7 +37,7 @@ typedef enum
     LIB_MODULE_WIFI,
 } lib_module_t;
 
-#define LIB_MODULE_COUNT 13
+#define LIB_MODULE_COUNT 14
 
 void lib_load_module(struct mjs *mjs);
 lib_module_t lib_module_from_str(const char *str);

@@ -9,6 +9,8 @@ A desktop application for interacting with Picoware-compatible boards.
 ## Installation
 Run the following commands:
 
+### 1. Close the repository and setup a virtual environment:
+
 Mac/Linux
 ```bash
 git clone https://github.com/jblanked/Picoware.git
@@ -16,8 +18,6 @@ cd Picoware/app
 python3 -m venv venv 
 source venv/bin/activate 
 pip install -r requirements.txt
-pyinstaller PicowareApp.spec
-./dist/Picoware/Picoware
 ```
 
 Windows (via Windows PowerShell)
@@ -25,10 +25,23 @@ Windows (via Windows PowerShell)
 git clone https://github.com/jblanked/Picoware.git
 cd Picoware/app
 python -m venv venv
-./venv/Scripts/activate
 pip install -r requirements.txt
+./venv/Scripts/activate
+```
+
+### 2. Build and run the application:
+
+Either install the application using PyInstaller:
+```bash
 pyinstaller PicowareApp.spec
 ./dist/Picoware/Picoware
 ```
 
-Afterwards, you can navigate to the `~/Picoware/app/dist` directory and run the executable or application directly.
+Or run the application directly using Python:
+```bash
+python app.py
+```
+
+### 3. Run the application:
+
+Afterwards, you can navigate to the `~/Picoware/app/dist` directory and run the executable or application directly if you compiled it with PyInstaller. Otherwise, you can run the application directly using `python app.py` as shown above.

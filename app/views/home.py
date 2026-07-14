@@ -69,12 +69,11 @@ def decode_frame(data: bytes, width: int, height: int, fmt: int) -> bytes | None
 
 
 def find_picoware_port() -> str | None:
-    """Auto-detect a Picoware / RP2040 device by USB VID/PID."""
-    for p in serial.tools.list_ports.comports():
-        # RP2040 / RP2350 CDC
+    """Auto-detect a Picoware / RP2040 device by USB VID/PID or port path."""
+    ports = list(serial.tools.list_ports.comports())
+    for p in ports:
         if p.vid == 0x2E8A and p.pid in (0x0005, 0x000A, 0x000C):
             return p.device
-        # Fallbacks
         if p.vid == 0x2E8A:
             return p.device
         desc = p.description or ""
@@ -85,6 +84,11 @@ def find_picoware_port() -> str | None:
         product = p.product or ""
         if "Pico" in product:
             return p.device
+        dev = p.device or ""
+        if any(x in dev for x in ("usbmodem", "ttyACM", "ttyUSB", "usbserial")):
+            return p.device
+    if len(ports) == 1:
+        return ports[0].device
     return None
 
 

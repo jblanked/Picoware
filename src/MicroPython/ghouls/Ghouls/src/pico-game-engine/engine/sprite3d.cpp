@@ -408,30 +408,46 @@ bool Sprite3D::fromPath(const char *path, bool wireframe)
 {
 #ifdef ENGINE_STORAGE_READ
     clearTriangles();
-    Triangle3D *buf = ENGINE_MEM_NEW Triangle3D[ENGINE_MAX_TRIANGLES_PER_SPRITE];
-    if (!buf)
+
+    size_t file_size = ENGINE_STORAGE_SIZE(path);
+    if (file_size == 0)
     {
-        ENGINE_LOG_INFO("Sprite3D::fromPath failed to allocate memory for triangle data\n");
-        return false;
-    }
-    size_t bytes = ENGINE_STORAGE_READ(path, buf, sizeof(Triangle3D) * ENGINE_MAX_TRIANGLES_PER_SPRITE);
-    if (bytes == 0)
-    {
-        ENGINE_MEM_DELETE[] buf;
         ENGINE_LOG_INFO("Sprite3D::fromPath failed to read triangle data from path: %s\n", path);
         return false;
     }
+
+    uint16_t max_triangles = file_size / sizeof(Triangle3D);
+    if (max_triangles > ENGINE_MAX_TRIANGLES_PER_SPRITE)
+    {
+        max_triangles = ENGINE_MAX_TRIANGLES_PER_SPRITE;
+    }
+
+    Triangle3D *buf = (Triangle3D *)ENGINE_MEM_MALLOC(max_triangles * sizeof(Triangle3D));
+    if (!buf)
+    {
+        ENGINE_LOG_INFO("Sprite3D::fromPath failed to allocate memory for %u triangles\n", max_triangles);
+        return false;
+    }
+
+    size_t bytes = ENGINE_STORAGE_READ(path, buf, max_triangles * sizeof(Triangle3D));
+    if (bytes == 0)
+    {
+        ENGINE_MEM_FREE(buf);
+        ENGINE_LOG_INFO("Sprite3D::fromPath failed to read triangle data from path: %s\n", path);
+        return false;
+    }
+
     uint16_t count = bytes / sizeof(Triangle3D);
     for (uint16_t i = 0; i < count; i++)
     {
         buf[i].wireframe = wireframe;
         if (!addTriangle(buf[i]))
         {
-            ENGINE_MEM_DELETE[] buf;
+            ENGINE_MEM_FREE(buf);
             return false;
         }
     }
-    ENGINE_MEM_DELETE[] buf;
+    ENGINE_MEM_FREE(buf);
     return true;
 #else
     return false;

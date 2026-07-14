@@ -26,6 +26,8 @@ public:
     void entity_remove(Entity *entity);
     Entity *getEntity(int index) const { return entities[index]; }
     int getEntityCount() const { return entity_count; }
+    const Vector &getLightDirection() const { return lightDirection; }
+    uint16_t getShadowColor() const { return shadowColor; }
     bool has_collided(Entity *entity) const;
     bool isClearAllowed() const noexcept { return clearAllowed; }
     bool is_collision(const Entity *a, const Entity *b) const;
@@ -34,6 +36,8 @@ public:
     void render3DSprite(const Sprite3D *sprite3d, Draw *draw, const Vector &player_pos, const Vector &player_dir, float view_height, bool clamp = false);
     void render3DSprite(const char *path, Draw *draw, const Vector &player_pos, const Vector &player_dir, float view_height, bool clamp = false, bool wireframe = true);
     void setClearAllowed(bool status) { clearAllowed = status; }
+    void setLightDirection(float x, float y, float z);
+    void setShadowColor(uint16_t color) { shadowColor = color; }
     virtual void start();
     virtual void stop();
     virtual void update(Game *game);
@@ -46,7 +50,9 @@ private:
     Game *gameRef;
     int entity_count;
     Entity **entities;
+    Vector lightDirection;
     int *renderOrder;
+    uint16_t shadowColor;
     // Callback Functions
     CallbackLevel _start;
     CallbackLevel _stop;

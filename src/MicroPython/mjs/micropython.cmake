@@ -20,8 +20,9 @@ target_sources(usermod_mjs INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/lib/storage.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/system.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/time.c
-    ${CMAKE_CURRENT_LIST_DIR}/lib/wifi.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/uart.c
+    ${CMAKE_CURRENT_LIST_DIR}/lib/wifi.c
+    ${CMAKE_CURRENT_LIST_DIR}/lib/websocket.c
 )
 
 target_include_directories(usermod_mjs INTERFACE

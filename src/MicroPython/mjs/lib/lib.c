@@ -81,6 +81,10 @@ void lib_load_module(struct mjs *mjs)
         uart_create(mjs, &object);
         is_module_loaded = true;
         break;
+    case LIB_MODULE_WEBSOCKET:
+        websocket_create(mjs, &object);
+        is_module_loaded = true;
+        break;
     case LIB_MODULE_WIFI:
         wifi_create(mjs, &object);
         is_module_loaded = true;
@@ -152,6 +156,10 @@ lib_module_t lib_module_from_str(const char *str)
     else if (strcmp(str, "uart") == 0)
     {
         return LIB_MODULE_UART;
+    }
+    else if (strcmp(str, "websocket") == 0)
+    {
+        return LIB_MODULE_WEBSOCKET;
     }
     else if (strcmp(str, "wifi") == 0)
     {

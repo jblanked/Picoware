@@ -667,20 +667,32 @@ void lcd_fill_triangle_alpha(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,
     if (y1 > y2)
     {
         uint16_t t;
-        t = x1; x1 = x2; x2 = t;
-        t = y1; y1 = y2; y2 = t;
+        t = x1;
+        x1 = x2;
+        x2 = t;
+        t = y1;
+        y1 = y2;
+        y2 = t;
     }
     if (y1 > y3)
     {
         uint16_t t;
-        t = x1; x1 = x3; x3 = t;
-        t = y1; y1 = y3; y3 = t;
+        t = x1;
+        x1 = x3;
+        x3 = t;
+        t = y1;
+        y1 = y3;
+        y3 = t;
     }
     if (y2 > y3)
     {
         uint16_t t;
-        t = x2; x2 = x3; x3 = t;
-        t = y2; y2 = y3; y3 = t;
+        t = x2;
+        x2 = x3;
+        x3 = t;
+        t = y2;
+        y2 = y3;
+        y3 = t;
     }
 
     uint16_t total_h = y3 - y1;

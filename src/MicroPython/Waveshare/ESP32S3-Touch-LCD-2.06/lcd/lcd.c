@@ -9,7 +9,7 @@
 #include "esp_lcd_panel_ops.h"
 #include "esp_lcd_panel_vendor.h"
 #include "esp_log.h"
-#include "esp_attr.h"          // ESP32 attribute macros (PSRAM)
+#include "esp_attr.h" // ESP32 attribute macros (PSRAM)
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -159,11 +159,11 @@ static int32_t lcd_edge_function(int32_t ax, int32_t ay, int32_t bx, int32_t by,
 static esp_err_t display_setup_panel(void)
 {
     const spi_bus_config_t bus_cfg = SH8601_PANEL_BUS_QSPI_CONFIG(WATCH_LCD_SCLK_GPIO,
-                                                                 WATCH_LCD_DATA0_GPIO,
-                                                                 WATCH_LCD_DATA1_GPIO,
-                                                                 WATCH_LCD_DATA2_GPIO,
-                                                                 WATCH_LCD_DATA3_GPIO,
-                                                                 LCD_WIDTH * LCD_HEIGHT * BITS_PER_PIXEL / 8);
+                                                                  WATCH_LCD_DATA0_GPIO,
+                                                                  WATCH_LCD_DATA1_GPIO,
+                                                                  WATCH_LCD_DATA2_GPIO,
+                                                                  WATCH_LCD_DATA3_GPIO,
+                                                                  LCD_WIDTH * LCD_HEIGHT * BITS_PER_PIXEL / 8);
 
     esp_err_t err = spi_bus_initialize(WATCH_LCD_HOST, &bus_cfg, SPI_DMA_CH_AUTO);
     if (err != ESP_OK && err != ESP_ERR_INVALID_STATE)
@@ -645,20 +645,32 @@ void lcd_fill_triangle_alpha(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,
     if (y1 > y2)
     {
         uint16_t t;
-        t = x1; x1 = x2; x2 = t;
-        t = y1; y1 = y2; y2 = t;
+        t = x1;
+        x1 = x2;
+        x2 = t;
+        t = y1;
+        y1 = y2;
+        y2 = t;
     }
     if (y1 > y3)
     {
         uint16_t t;
-        t = x1; x1 = x3; x3 = t;
-        t = y1; y1 = y3; y3 = t;
+        t = x1;
+        x1 = x3;
+        x3 = t;
+        t = y1;
+        y1 = y3;
+        y3 = t;
     }
     if (y2 > y3)
     {
         uint16_t t;
-        t = x2; x2 = x3; x3 = t;
-        t = y2; y2 = y3; y3 = t;
+        t = x2;
+        x2 = x3;
+        x3 = t;
+        t = y2;
+        y2 = y3;
+        y3 = t;
     }
 
     uint16_t total_h = y3 - y1;

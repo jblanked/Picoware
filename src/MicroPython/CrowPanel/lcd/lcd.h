@@ -37,12 +37,12 @@ extern "C"
     void lcd_blit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint16_t *buffer); // Copy an external image buffer into the frame buffer at specified position
 
     // Shape drawing functions
-    void lcd_draw_line(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color);                               // Draw a line from (x1, y1) to (x2, y2) with specified color
-    void lcd_draw_rect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color);                          // Draw a rectangle outline at (x, y) with specified width, height and color
-    void lcd_fill_rect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color);                          // Fill a rectangle at (x, y) with specified width, height and color
-    void lcd_draw_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint16_t color);                          // Draw a circle outline with center at (center_x, center_y) and specified radius and color
-    void lcd_fill_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint16_t color);                          // Draw a filled circle with center at (center_x, center_y) and specified radius and color
-    void lcd_fill_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color); // Draw a filled triangle with vertices at (x1, y1), (x2, y2), (x3, y3) and specified color
+    void lcd_draw_line(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color);                                                    // Draw a line from (x1, y1) to (x2, y2) with specified color
+    void lcd_draw_rect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color);                                               // Draw a rectangle outline at (x, y) with specified width, height and color
+    void lcd_fill_rect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color);                                               // Fill a rectangle at (x, y) with specified width, height and color
+    void lcd_draw_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint16_t color);                                               // Draw a circle outline with center at (center_x, center_y) and specified radius and color
+    void lcd_fill_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint16_t color);                                               // Draw a filled circle with center at (center_x, center_y) and specified radius and color
+    void lcd_fill_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color);                      // Draw a filled triangle with vertices at (x1, y1), (x2, y2), (x3, y3) and specified color
     void lcd_fill_triangle_alpha(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color, uint8_t alpha); // Draw a filled triangle with alpha blending
 
     // Text rendering functions

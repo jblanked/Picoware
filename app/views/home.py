@@ -140,6 +140,26 @@ class HomeView(ctk.CTkFrame):
         )
         self.connect_btn.grid(row=0, column=2, sticky="e", padx=(10, 0))
 
+        port_row = ctk.CTkFrame(self, fg_color="transparent")
+        port_row.pack(fill="x", padx=10, pady=(0, 5))
+
+        ctk.CTkLabel(port_row, text="Port:", fg_color="transparent").pack(
+            side="left", padx=(0, 5)
+        )
+
+        self.port_var = ctk.StringVar(value="Auto-detect")
+        self.port_combo = ctk.CTkComboBox(
+            port_row, values=["Auto-detect"], variable=self.port_var, width=220
+        )
+        self.port_combo.pack(side="left")
+
+        refresh_btn = ctk.CTkButton(
+            port_row, text="Refresh", command=self._refresh_ports, width=70
+        )
+        refresh_btn.pack(side="left", padx=(5, 0))
+
+        self._refresh_ports()
+
         self.video_frame = ctk.CTkFrame(self, fg_color="black")
         self.video_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
@@ -162,6 +182,13 @@ class HomeView(ctk.CTkFrame):
 
         self.after(33, self._display_loop)  # ~30 fps
 
+    def _refresh_ports(self) -> None:
+        """Scan for serial ports and populate the dropdown."""
+        ports = ["Auto-detect"]
+        for p in serial.tools.list_ports.comports():
+            ports.append(p.device)
+        self.port_combo.configure(values=ports)
+
     def _toggle_connection(self) -> None:
         """Button handler: connect or disconnect."""
         if self._running:
@@ -177,7 +204,8 @@ class HomeView(ctk.CTkFrame):
 
     def _connect_thread(self) -> None:
         """Background: find device, open serial port, then read frames."""
-        port = find_picoware_port()
+        selected = self.port_var.get()
+        port = find_picoware_port() if selected == "Auto-detect" else selected
         if not port:
             self.after(0, lambda: self._on_connect_fail("No device found"))
             return

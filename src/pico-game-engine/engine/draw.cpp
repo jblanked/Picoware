@@ -65,6 +65,15 @@ void Draw::fillTriangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint
     ENGINE_LCD_FILL_TRIANGLE(x1, y1, x2, y2, x3, y3, color);
 }
 
+void Draw::fillTriangleAlpha(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color, uint8_t alpha)
+{
+#ifdef ENGINE_LCD_FILL_TRIANGLE_ALPHA
+    ENGINE_LCD_FILL_TRIANGLE_ALPHA(x1, y1, x2, y2, x3, y3, color, alpha);
+#else
+    ENGINE_LCD_FILL_TRIANGLE(x1, y1, x2, y2, x3, y3, color);
+#endif
+}
+
 void Draw::image(Vector position, const uint8_t *bitmap, Vector size)
 {
     ENGINE_LCD_BLIT(position.x, position.y, size.x, size.y, bitmap);

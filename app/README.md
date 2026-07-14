@@ -23,5 +23,7 @@ pyinstaller PicowareApp.spec
 Then run the application with:
 
 ```bash
-./dist/PicowareApp/PicowareApp
+./dist/Picoware/Picoware
 ```
+
+Or navigate to the `dist/Picoware` directory and run the executable directly.

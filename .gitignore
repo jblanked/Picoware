@@ -4,6 +4,7 @@
 __pycache__/
 venv/
 build/
+dist/
 simulator/sdcard/*
 simulator/audio/sdl_audio_player
 simulator/audio/sdl_radio_player

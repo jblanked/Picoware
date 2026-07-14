@@ -14,6 +14,7 @@
 #define LCD_MP_FILL_RECTANGLE lcd_fill_rect
 #define LCD_MP_FILL_ROUND_RECTANGLE lcd_fill_round_rectangle
 #define LCD_MP_FILL_TRIANGLE lcd_fill_triangle
+#define LCD_MP_FILL_TRIANGLE_ALPHA lcd_fill_triangle_alpha
 #define LCD_MP_BLIT picocalc_lcd_blit
 #define LCD_MP_BLIT_16BIT lcd_blit_16bit
 #define LCD_MP_LINE lcd_draw_line
@@ -40,6 +41,7 @@
 #define LCD_MP_FILL_RECTANGLE lcd_fill_rect
 #define LCD_MP_FILL_ROUND_RECTANGLE lcd_fill_round_rectangle
 #define LCD_MP_FILL_TRIANGLE lcd_fill_triangle
+#define LCD_MP_FILL_TRIANGLE_ALPHA lcd_fill_triangle_alpha
 #define LCD_MP_BLIT lcd_blit
 #define LCD_MP_BLIT_16BIT lcd_blit_16bit
 #define LCD_MP_LINE lcd_draw_line
@@ -62,6 +64,7 @@
 #define LCD_MP_FILL_RECTANGLE lcd_fill_rect
 #define LCD_MP_FILL_ROUND_RECTANGLE lcd_fill_round_rectangle
 #define LCD_MP_FILL_TRIANGLE lcd_fill_triangle
+#define LCD_MP_FILL_TRIANGLE_ALPHA lcd_fill_triangle_alpha
 #define LCD_MP_BLIT lcd_blit
 #define LCD_MP_BLIT_16BIT lcd_blit_16bit
 #define LCD_MP_LINE lcd_draw_line
@@ -84,6 +87,7 @@
 #define LCD_MP_FILL_RECTANGLE lcd_fill_rect
 #define LCD_MP_FILL_ROUND_RECTANGLE lcd_fill_round_rectangle
 #define LCD_MP_FILL_TRIANGLE lcd_fill_triangle
+#define LCD_MP_FILL_TRIANGLE_ALPHA lcd_fill_triangle_alpha
 #define LCD_MP_BLIT lcd_blit
 #define LCD_MP_BLIT_16BIT lcd_blit_16bit
 #define LCD_MP_LINE lcd_draw_line
@@ -106,6 +110,7 @@
 #define LCD_MP_FILL_RECTANGLE lcd_fill_rect
 #define LCD_MP_FILL_ROUND_RECTANGLE lcd_fill_round_rectangle
 #define LCD_MP_FILL_TRIANGLE lcd_fill_triangle
+#define LCD_MP_FILL_TRIANGLE_ALPHA lcd_fill_triangle_alpha
 #define LCD_MP_BLIT lcd_blit
 #define LCD_MP_BLIT_16BIT lcd_blit_16bit
 #define LCD_MP_LINE lcd_draw_line
@@ -128,6 +133,7 @@
 #define LCD_MP_FILL_RECTANGLE lcd_fill_rect
 #define LCD_MP_FILL_ROUND_RECTANGLE lcd_fill_round_rectangle
 #define LCD_MP_FILL_TRIANGLE lcd_fill_triangle
+#define LCD_MP_FILL_TRIANGLE_ALPHA lcd_fill_triangle_alpha
 #define LCD_MP_BLIT lcd_blit
 #define LCD_MP_BLIT_16BIT lcd_blit_16bit
 #define LCD_MP_LINE lcd_draw_line

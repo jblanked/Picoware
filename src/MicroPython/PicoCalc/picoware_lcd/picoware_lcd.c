@@ -682,6 +682,141 @@ void lcd_fill_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,
     }
 }
 
+void lcd_fill_triangle_alpha(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color, uint8_t alpha)
+{
+    if (alpha == 0)
+        return;
+
+    if (alpha == 255)
+    {
+        lcd_fill_triangle(x1, y1, x2, y2, x3, y3, color);
+        return;
+    }
+
+    // Extract source RGB565 components
+    uint8_t sr = (color >> 11) & 0x1F;
+    uint8_t sg = (color >> 5) & 0x3F;
+    uint8_t sb = color & 0x1F;
+    uint8_t inv_alpha = 255 - alpha;
+
+    // Sort vertices by Y (p1 top, p3 bottom)
+    if (y1 > y2)
+    {
+        uint16_t t;
+        t = x1; x1 = x2; x2 = t;
+        t = y1; y1 = y2; y2 = t;
+    }
+    if (y1 > y3)
+    {
+        uint16_t t;
+        t = x1; x1 = x3; x3 = t;
+        t = y1; y1 = y3; y3 = t;
+    }
+    if (y2 > y3)
+    {
+        uint16_t t;
+        t = x2; x2 = x3; x3 = t;
+        t = y2; y2 = y3; y3 = t;
+    }
+
+    uint16_t total_h = y3 - y1;
+    if (total_h == 0)
+        return;
+
+    for (uint16_t i = 0; i < total_h; i++)
+    {
+        bool second_half = i > y2 - y1 || y2 == y1;
+        uint16_t seg_h = second_half ? y3 - y2 : y2 - y1;
+        float t = (float)i / total_h;
+        float beta = (float)(i - (second_half ? y2 - y1 : 0)) / seg_h;
+
+        int ax = (int)(x1 + (float)((int)x3 - (int)x1) * t);
+        int bx = second_half
+                     ? (int)(x2 + (float)((int)x3 - (int)x2) * beta)
+                     : (int)(x1 + (float)((int)x2 - (int)x1) * beta);
+
+        if (ax > bx)
+        {
+            int tmp = ax;
+            ax = bx;
+            bx = tmp;
+        }
+
+        int cur_y = y1 + i;
+        if (cur_y < 0 || cur_y >= DISPLAY_HEIGHT)
+            continue;
+
+        // Clip to screen bounds
+        if (ax < 0)
+            ax = 0;
+        if (bx >= DISPLAY_WIDTH)
+            bx = DISPLAY_WIDTH - 1;
+        int seg_width = bx - ax + 1;
+        if (seg_width <= 0)
+            continue;
+
+        if (lcd_mode == LCD_MODE_PSRAM)
+        {
+            uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (cur_y * PSRAM_ROW_SIZE) + ax;
+
+            // Read segment into line buffer
+            uint32_t remaining = seg_width, offset = 0;
+            while (remaining > 0)
+            {
+                uint32_t chunk = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
+                psram_qspi_read(&psram_instance, addr + offset, line_buffer + offset, chunk);
+                offset += chunk;
+                remaining -= chunk;
+            }
+
+            // Alpha blend each pixel in place
+            for (int j = 0; j < seg_width; j++)
+            {
+                uint16_t dst_color = palette[line_buffer[j]];
+                uint8_t dr = (dst_color >> 11) & 0x1F;
+                uint8_t dg = (dst_color >> 5) & 0x3F;
+                uint8_t db = dst_color & 0x1F;
+
+                uint8_t br = (uint8_t)((sr * alpha + dr * inv_alpha) / 255);
+                uint8_t bg = (uint8_t)((sg * alpha + dg * inv_alpha) / 255);
+                uint8_t bb = (uint8_t)((sb * alpha + db * inv_alpha) / 255);
+
+                uint16_t blended = ((uint16_t)br << 11) | ((uint16_t)bg << 5) | bb;
+                line_buffer[j] = color565_to_332(blended);
+            }
+
+            // Write segment back
+            remaining = seg_width;
+            offset = 0;
+            while (remaining > 0)
+            {
+                uint32_t chunk = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
+                psram_qspi_write(&psram_instance, addr + offset, line_buffer + offset, chunk);
+                offset += chunk;
+                remaining -= chunk;
+            }
+        }
+        else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
+        {
+            uint8_t *row = &heap_framebuffer[cur_y * DISPLAY_WIDTH + ax];
+            for (int j = 0; j < seg_width; j++)
+            {
+                uint16_t dst_color = palette[row[j]];
+                uint8_t dr = (dst_color >> 11) & 0x1F;
+                uint8_t dg = (dst_color >> 5) & 0x3F;
+                uint8_t db = dst_color & 0x1F;
+
+                uint8_t br = (uint8_t)((sr * alpha + dr * inv_alpha) / 255);
+                uint8_t bg = (uint8_t)((sg * alpha + dg * inv_alpha) / 255);
+                uint8_t bb = (uint8_t)((sb * alpha + db * inv_alpha) / 255);
+
+                uint16_t blended = ((uint16_t)br << 11) | ((uint16_t)bg << 5) | bb;
+                row[j] = color565_to_332(blended);
+            }
+        }
+    }
+}
+
 void lcd_draw_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,
                        uint16_t x3, uint16_t y3, uint16_t color)
 {

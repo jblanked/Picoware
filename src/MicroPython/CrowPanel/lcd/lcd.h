@@ -43,6 +43,7 @@ extern "C"
     void lcd_draw_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint16_t color);                          // Draw a circle outline with center at (center_x, center_y) and specified radius and color
     void lcd_fill_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint16_t color);                          // Draw a filled circle with center at (center_x, center_y) and specified radius and color
     void lcd_fill_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color); // Draw a filled triangle with vertices at (x1, y1), (x2, y2), (x3, y3) and specified color
+    void lcd_fill_triangle_alpha(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color, uint8_t alpha); // Draw a filled triangle with alpha blending
 
     // Text rendering functions
     void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color);           // Draw a single character at (x, y) with specified color using current font

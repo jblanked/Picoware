@@ -455,9 +455,10 @@ void Level::render3DSprite(const Sprite3D *sprite3d, Draw *draw, const Vector &p
                 }
             }
             if (sv == 3)
-                draw->fillTriangle((uint16_t)ssx[0], (uint16_t)ssy[0],
-                                   (uint16_t)ssx[1], (uint16_t)ssy[1],
-                                   (uint16_t)ssx[2], (uint16_t)ssy[2], shadowColor);
+                draw->fillTriangleAlpha((uint16_t)ssx[0], (uint16_t)ssy[0],
+                                        (uint16_t)ssx[1], (uint16_t)ssy[1],
+                                        (uint16_t)ssx[2], (uint16_t)ssy[2],
+                                        shadowColor, 128);
         }
 
         float sx[3], sy[3];

@@ -17,7 +17,9 @@ Level::Level()
       gameRef(nullptr),
       entity_count(0),
       entities(nullptr),
+      lightDirection(Vector(0.577f, 0.577f, 0.577f)),
       renderOrder(nullptr),
+      shadowColor(0),
       _start{},
       _stop{}
 {
@@ -31,7 +33,9 @@ Level::Level(const char *name, const Vector &size, Game *game, CallbackLevel sta
       gameRef(game),
       entity_count(0),
       entities(nullptr),
+      lightDirection(Vector(0.577f, 0.577f, 0.577f)),
       renderOrder(nullptr),
+      shadowColor(0),
       _start(start),
       _stop(stop)
 {
@@ -414,6 +418,11 @@ void Level::render3DSprite(const Sprite3D *sprite3d, Draw *draw, const Vector &p
     const float camC = player_dir.x;  // world_dx -> camera_z coefficient
     const float camD = player_dir.y;  // world_dz -> camera_z coefficient
 
+    // light-projection coefficients
+    const bool doShadow = (shadowColor != 0 && lightDirection.y > 0.01f);
+    const float slx = doShadow ? lightDirection.x / lightDirection.y : 0.0f;
+    const float slz = doShadow ? lightDirection.z / lightDirection.y : 0.0f;
+
     const uint16_t triangle_count = sprite3d->getTriangleCount();
     for (uint16_t i = 0; i < triangle_count; i++)
     {
@@ -421,7 +430,36 @@ void Level::render3DSprite(const Sprite3D *sprite3d, Draw *draw, const Vector &p
         if (!sprite3d->getTransformedTriangle(i, player_pos, triangle))
             continue;
 
-        // Inline projection for all 3 vertices (avoids function call overhead + Vector copies)
+        // Shadow pass
+        if (doShadow)
+        {
+            float ssx[3], ssy[3];
+            uint8_t sv = 0;
+            for (int j = 0; j < 3; j++)
+            {
+                float vy = (j == 0) ? triangle.y1 : (j == 1) ? triangle.y2
+                                                             : triangle.y3;
+                float wx = ((j == 0) ? triangle.x1 : (j == 1) ? triangle.x2
+                                                              : triangle.x3) -
+                           vy * slx - player_pos.x;
+                float wz = ((j == 0) ? triangle.z1 : (j == 1) ? triangle.z2
+                                                              : triangle.z3) -
+                           vy * slz - player_pos.y;
+                float cz = wx * camC + wz * camD;
+                if (cz > 0.1f)
+                {
+                    float inv = 1.0f / cz;
+                    ssx[j] = (wx * camA + wz * camB) * inv * screen_y + half_sx;
+                    ssy[j] = view_height * inv * screen_y + half_sy;
+                    sv++;
+                }
+            }
+            if (sv == 3)
+                draw->fillTriangle((uint16_t)ssx[0], (uint16_t)ssy[0],
+                                   (uint16_t)ssx[1], (uint16_t)ssy[1],
+                                   (uint16_t)ssx[2], (uint16_t)ssy[2], shadowColor);
+        }
+
         float sx[3], sy[3];
         uint8_t visible_count = 0;
 
@@ -607,6 +645,17 @@ void Level::render3DSprite(const char *path, Draw *draw, const Vector &player_po
 
     ENGINE_MEM_DELETE sprite3d;
     sprite3d = nullptr;
+}
+
+void Level::setLightDirection(float x, float y, float z)
+{
+    float len = sqrtf(x * x + y * y + z * z);
+    if (len > 0.0001f)
+    {
+        lightDirection.x = x / len;
+        lightDirection.y = y / len;
+        lightDirection.z = z / len;
+    }
 }
 
 // Start the level

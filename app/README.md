@@ -7,23 +7,28 @@ A desktop application for interacting with Picoware-compatible boards.
 - Any Picoware-compatible board flashed with Picoware firmware
 
 ## Installation
-Use the provided installer for your operating system, or clone the repository and install dependencies manually.
+Run the following commands:
 
-To clone the repository, install dependencies and compile the application, run the following commands:
-
+Mac/Linux
 ```bash
 git clone https://github.com/jblanked/Picoware.git
 cd Picoware/app
-python3 -m venv venv # on Windows use `python -m venv venv`
-source venv/bin/activate # on Windows use `./venv/Scripts/activate`
+python3 -m venv venv 
+source venv/bin/activate 
 pip install -r requirements.txt
 pyinstaller PicowareApp.spec
-```
-
-Then run the application with:
-
-```bash
 ./dist/Picoware/Picoware
 ```
 
-Or navigate to the `dist/Picoware` directory and run the executable directly.
+Windows (via Windows PowerShell)
+```bash
+git clone https://github.com/jblanked/Picoware.git
+cd Picoware/app
+python -m venv venv
+./venv/Scripts/activate
+pip install -r requirements.txt
+pyinstaller PicowareApp.spec
+./dist/Picoware/Picoware
+```
+
+Afterwards, you can navigate to the `~/Picoware/app/dist` directory and run the executable or application directly.

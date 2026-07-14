@@ -262,7 +262,7 @@ class HomeView(ctk.CTkFrame):
 
     def _on_connect_fail(self, reason: str) -> None:
         """Reset UI after a failed connection attempt."""
-        self.status_label.configure(text="Not Connected")
+        self.status_label.configure(text=f"Not Connected — {reason}")
         self.connect_btn.configure(text="Connect", state="normal")
 
     def _on_disconnected(self) -> None:

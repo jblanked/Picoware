@@ -30,6 +30,10 @@ void lib_load_module(struct mjs *mjs)
     }
     switch (module)
     {
+    case LIB_MODULE_AUDIO:
+        audio_create(mjs, &object);
+        is_module_loaded = true;
+        break;
     case LIB_MODULE_BLUETOOTH:
         bluetooth_create(mjs, &object);
         is_module_loaded = true;
@@ -105,7 +109,11 @@ void lib_load_module(struct mjs *mjs)
 
 lib_module_t lib_module_from_str(const char *str)
 {
-    if (strcmp(str, "bluetooth") == 0)
+    if (strcmp(str, "audio") == 0)
+    {
+        return LIB_MODULE_AUDIO;
+    }
+    else if (strcmp(str, "bluetooth") == 0)
     {
         return LIB_MODULE_BLUETOOTH;
     }

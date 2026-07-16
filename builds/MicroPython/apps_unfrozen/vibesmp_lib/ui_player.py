@@ -354,7 +354,7 @@ def _draw_player_controls(ui, player, is_playing, loop_mode, shuffle, focus, btn
 
 def _draw_player_lists(ui, library_tree, l_idx, playlist, pl_idx, e_idx, playlists, playlist_idx, focus, active_col, sw, sh, lib_state, trk_state, pls_state, library=None, list_tick=False, nav_fast=False, force_full=False):
     col_w = (sw - 10) // 3
-    max_chars = col_w // 6
+    max_chars = col_w // max(1, ui.draw.font_size.x)
     list_y = 142
     list_h = sh - 162
     track_list = playlist.tracks if playlist else []
@@ -432,7 +432,8 @@ def render_now_playing(ui, track_name, is_playing, loop_mode, playlist=None, pla
     norm_track = track_name.lstrip("/") if track_name else ""
 
     scroll_changed = False
-    text_x = 90; max_c = (sw - text_x - 10) // 6
+    text_x = 90
+    max_c = (sw - text_x - 10) // max(1, ui.draw.font_size.x)
     name = track_name.rsplit("/", 1)[-1] if track_name else ""
     meta_title = ""
     meta_artist = ""

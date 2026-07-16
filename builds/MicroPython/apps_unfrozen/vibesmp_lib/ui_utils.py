@@ -264,7 +264,11 @@ def draw_scrollable_list(draw, pos, size, items, sel_idx, focused, theme, format
                 row_cache[ck] = text
         else:
             text = format_fn(i, items[i])
-        max_chars = max(1, (w - 8) // 6)
+        # Match the active draw font. The old fixed 6 px estimate was narrower
+        # than the actual default font on some boards, so long labels could be
+        # drawn beyond the right edge even after character truncation.
+        char_w = max(1, draw.font_size.x)
+        max_chars = max(1, (w - 8) // char_w)
         if is_sel and focused and len(text) > max_chars:
             # Focused-row ping-pong marquee with start delay.
             period = 320

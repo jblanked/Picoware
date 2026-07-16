@@ -387,7 +387,7 @@ def _draw_player_lists(ui, library_tree, l_idx, playlist, pl_idx, e_idx, playlis
             repaint_mode = "viewport_only"
         draw_player_column(
             ui, 2, t("menu_playlist_manager").upper() if t("menu_playlist_manager") != "menu_playlist_manager" else "LISTS", playlists, pls_state["selected_idx"], focus, active_col, list_y, list_h, col_w, max_chars,
-            type="plist", active_pl=playlist.filename if playlist else "",
+            type="plist", active_pl=get_filename(playlist.filename) if playlist else "",
             repaint_mode=repaint_mode,
             redraw_indices=(pls_state["selected_idx"],),
             view_state=pls_state["viewport"],
@@ -428,6 +428,7 @@ def render_now_playing(ui, track_name, is_playing, loop_mode, playlist=None, pla
         playlist_idx = max(0, min(playlist_idx, len(playlists) - 1))
     else:
         playlist_idx = 0
+    active_playlist = get_filename(playlist.filename) if playlist else ""
 
     norm_track = track_name.lstrip("/") if track_name else ""
 
@@ -526,13 +527,24 @@ def render_now_playing(ui, track_name, is_playing, loop_mode, playlist=None, pla
     pls_state = _column_state("pls", playlist_idx, len(playlists) if playlists else 0, list_view_h, item_h, focus == 1 and active_col == 2, last_state, view_policy, scroll_offset)
     lib_changed = force_full or last_state.get("l_idx") != l_idx or (nav_changed and (active_col == 0 or last_col == 0))
     trk_changed = force_full or e_idx != last_state.get("e_idx") or pl_idx != last_state.get("pl_idx") or track_count != last_state.get("trk_count") or (nav_changed and (active_col == 1 or last_col == 1))
-    pls_changed = force_full or last_state.get("plist_idx") != playlist_idx or (nav_changed and (active_col == 2 or last_col == 2))
+    active_playlist_changed = last_state.get("active_playlist") != active_playlist
+    pls_changed = force_full or last_state.get("plist_idx") != playlist_idx or active_playlist_changed or (nav_changed and (active_col == 2 or last_col == 2))
+    if list_tick and focus == 1:
+        if active_col == 0:
+            lib_changed = True
+        elif active_col == 1:
+            trk_changed = True
+        elif active_col == 2:
+            pls_changed = True
     lib_state["changed"] = lib_changed
     trk_state["changed"] = trk_changed
     pls_state["changed"] = pls_changed
     lib_state["repaint_mode"] = _choose_repaint_mode(last_state, "lib", lib_state, force_full=force_full, list_tick=(list_tick and focus == 1 and active_col == 0))
     trk_state["repaint_mode"] = _choose_repaint_mode(last_state, "trk", trk_state, force_full=force_full, list_tick=(list_tick and focus == 1 and active_col == 1))
     pls_state["repaint_mode"] = _choose_repaint_mode(last_state, "pls", pls_state, force_full=force_full, list_tick=(list_tick and focus == 1 and active_col == 2))
+    if active_playlist_changed and not force_full:
+        # Both the old and new active markers may be visible.
+        pls_state["repaint_mode"] = "viewport_only"
     nav_chrome_fast = False
     if nav_changed and not force_full:
         # Fast path for section switch: only active/inactive columns' chrome + selected rows.
@@ -542,13 +554,6 @@ def render_now_playing(ui, track_name, is_playing, loop_mode, playlist=None, pla
             last_state.get("plist_idx") == playlist_idx
         )
         nav_chrome_fast = same_rows
-    if list_tick and focus == 1:
-        if active_col == 0:
-            lib_changed = True
-        elif active_col == 1:
-            trk_changed = True
-        elif active_col == 2:
-            pls_changed = True
     pl_changed = lib_changed or trk_changed or pls_changed or (nav_changed)
 
     header_title = t("app_name") if t("app_name") != "app_name" else "VibesMP"
@@ -565,7 +570,8 @@ def render_now_playing(ui, track_name, is_playing, loop_mode, playlist=None, pla
     state = {
         "track": norm_track, "playing": is_playing, "sec": curr_sec, "tot": total_sec,
         "pl_idx": pl_idx, "seek": seek_msg, "focus": focus, "btn": btn_idx, "vol": vol, "shuf": shuffle,
-        "plist_idx": playlist_idx, "e_idx": e_idx, "l_idx": l_idx, "active_col": active_col,
+        "plist_idx": playlist_idx, "active_playlist": active_playlist,
+        "e_idx": e_idx, "l_idx": l_idx, "active_col": active_col,
         "blink": blink_state, "loop": loop_mode, "last_cover": cover_path, "can_load": can_load,
         "marquee": needs_scroll or needs_scroll2, "meta_sig": meta_sig,
         "trk_count": track_count, "lib_count": len(library_tree), "plist_count": len(playlists) if playlists else 0,

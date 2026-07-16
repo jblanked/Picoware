@@ -17,6 +17,7 @@ void audio_js_is_playing(struct mjs *mjs)
 
 void audio_js_play_mp3(struct mjs *mjs)
 {
+#ifdef AUDIO_JS_ENABLED
     mjs_val_t filename_val = mjs_arg(mjs, 0);
     if (!mjs_is_string(filename_val))
     {
@@ -26,7 +27,6 @@ void audio_js_play_mp3(struct mjs *mjs)
     }
     size_t filename_len;
     const char *filename = mjs_get_string(mjs, &filename_val, &filename_len);
-#ifdef AUDIO_JS_ENABLED
     mjs_return(mjs, mjs_mk_boolean(mjs, audio_play_mp3(filename)));
 #else
     mjs_return(mjs, mjs_mk_boolean(mjs, false));
@@ -35,6 +35,7 @@ void audio_js_play_mp3(struct mjs *mjs)
 
 void audio_js_play_sound(struct mjs *mjs)
 {
+#ifdef AUDIO_JS_ENABLED
     mjs_val_t sound_obj = mjs_arg(mjs, 0);
     if (!mjs_is_object(sound_obj))
     {
@@ -71,7 +72,6 @@ void audio_js_play_sound(struct mjs *mjs)
             duration = color_parse_str(mjs_get_string(mjs, &value, &value_len));
         }
     }
-#ifdef AUDIO_JS_ENABLED
     audio_play_sound_blocking(left_frequency, right_frequency, duration);
 #endif
     mjs_return(mjs, MJS_UNDEFINED);
@@ -79,6 +79,7 @@ void audio_js_play_sound(struct mjs *mjs)
 
 void audio_js_play_wav(struct mjs *mjs)
 {
+#ifdef AUDIO_JS_ENABLED
     mjs_val_t filename_val = mjs_arg(mjs, 0);
     if (!mjs_is_string(filename_val))
     {
@@ -88,7 +89,6 @@ void audio_js_play_wav(struct mjs *mjs)
     }
     size_t filename_len;
     const char *filename = mjs_get_string(mjs, &filename_val, &filename_len);
-#ifdef AUDIO_JS_ENABLED
     mjs_return(mjs, mjs_mk_boolean(mjs, audio_play_wav(filename)));
 #else
     mjs_return(mjs, mjs_mk_boolean(mjs, false));

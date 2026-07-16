@@ -279,16 +279,9 @@ class Player(Entity):
         if not self.flip_world_run or not self.flip_world_run.view_manager:
             return ""
         view_manager = self.flip_world_run.view_manager
-        data = view_manager.storage.read("picoware/settings/server_password.json")
-        if data:
-            try:
-                obj = json_loads(data)
-                if "password" in obj:
-                    self.loaded_password = obj["password"]
-                    return self.loaded_password
-            except Exception:
-                pass
-        return ""
+        from picoware.system.settings import Settings
+        settings = Settings(view_manager.storage)
+        return settings.server_settings.get("password", "")
 
     @property
     def username(self) -> str:
@@ -298,16 +291,9 @@ class Player(Entity):
         if not self.flip_world_run or not self.flip_world_run.view_manager:
             return ""
         view_manager = self.flip_world_run.view_manager
-        data = view_manager.storage.read("picoware/settings/server_username.json")
-        if data:
-            try:
-                obj = json_loads(data)
-                if "username" in obj:
-                    self.loaded_username = obj["username"]
-                    return self.loaded_username
-            except Exception:
-                pass
-        return ""
+        from picoware.system.settings import Settings
+        settings = Settings(view_manager.storage)
+        return settings.server_settings.get("username", "")
 
     def are_all_enemies_dead(self, game) -> bool:
         """Check if all enemies in the current level are dead."""

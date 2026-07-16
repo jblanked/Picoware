@@ -109,19 +109,10 @@ class FreeRoamGame:
         # Create the player instance if it doesn't exist
         if not self.player:
             from free_roam.player import Player
-            from json import loads as json_loads
+            from picoware.system.settings import Settings
 
-            data: str = self.view_manager.storage.read(
-                "picoware/settings/server_username.json"
-            )
-            player = "Player"
-            if data is not None:
-                try:
-                    obj: dict = json_loads(data)
-                    if "username" in obj:
-                        player = obj["username"]
-                except Exception:
-                    pass
+            settings = Settings(self.view_manager.storage)
+            player = settings.server_settings.get("username", "Player")
 
             self.player = Player(player)
             if not self.player:
@@ -326,19 +317,10 @@ class FreeRoamGame:
         # Create the player instance if it doesn't exist
         if not self.player:
             from free_roam.player import Player
-            from json import loads as json_loads
 
-            data: str = self.view_manager.storage.read(
-                "picoware/settings/server_username.json"
-            )
-            player = "Player"
-            if data is not None:
-                try:
-                    obj: dict = json_loads(data)
-                    if "username" in obj:
-                        player = obj["username"]
-                except Exception:
-                    pass
+            from picoware.system.settings import Settings
+            settings = Settings(self.view_manager.storage)
+            player = settings.server_settings.get("username", "Player")
 
             self.player = Player(player)
             if not self.player:
@@ -511,19 +493,9 @@ class FreeRoamGame:
         # Initialize player if not already done
         if not self.player:
             from free_roam.player import Player
-            from json import loads as json_loads
-
-            data: str = self.view_manager.storage.read(
-                "picoware/settings/server_username.json"
-            )
-            player = "Player"
-            if data is not None:
-                try:
-                    obj: dict = json_loads(data)
-                    if "username" in obj:
-                        player = obj["username"]
-                except Exception:
-                    pass
+            from picoware.system.settings import Settings
+            settings = Settings(self.view_manager.storage)
+            player = settings.server_settings.get("username", "Player")
 
             self.player = Player(player)
             if self.player:

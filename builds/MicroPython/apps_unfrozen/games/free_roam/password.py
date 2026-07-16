@@ -8,20 +8,9 @@ _free_roam_password_keyboard_ran: bool = False
 
 def __free_roam_util_get_password(view_manager) -> str:
     """Get the password from storage, or return empty string"""
-    storage = view_manager.storage
-    data: str = storage.read("picoware/settings/server_password.json")
-
-    if data is not None:
-        try:
-            from ujson import loads
-
-            obj: dict = loads(data)
-            if "password" in obj:
-                return obj["password"]
-        except Exception:
-            pass
-
-    return ""
+    from picoware.system.settings import Settings
+    settings = Settings(view_manager.storage)
+    return settings.server_settings.get("password", "")
 
 
 def __free_roam_password_callback(response: str) -> None:
@@ -111,13 +100,11 @@ def __free_roam_password_stop(view_manager) -> None:
         if _free_roam_password_save_verified:
             storage = view_manager.storage
             password = view_manager.keyboard.response
-            try:
-                from ujson import dumps
-
-                obj = {"password": password}
-                storage.write("picoware/settings/server_password.json", dumps(obj))
-            except Exception:
-                pass
+            from picoware.system.settings import Settings
+            settings = Settings(storage)
+            _server_settings = settings.server_settings
+            _server_settings["password"] = password
+            settings.server_settings = _server_settings
 
         keyboard.reset()
 

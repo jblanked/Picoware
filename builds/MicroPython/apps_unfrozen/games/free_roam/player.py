@@ -256,19 +256,9 @@ class Player(Entity):
         if not self.free_roam_game or not self.free_roam_game.view_manager:
             return ""
         view_manager = self.free_roam_game.view_manager
-        data: str = view_manager.storage.read("picoware/settings/server_password.json")
-
-        if data is not None:
-            try:
-
-                obj: dict = json_loads(data)
-                if "password" in obj:
-                    self.loaded_password = obj["password"]
-                    return self.loaded_password
-            except Exception:
-                pass
-
-        return ""
+        from picoware.system.settings import Settings
+        settings = Settings(view_manager.storage)
+        return settings.server_settings.get("password", "")
 
     @property
     def username(self) -> str:
@@ -277,20 +267,10 @@ class Player(Entity):
             return self.loaded_username
         if not self.free_roam_game or not self.free_roam_game.view_manager:
             return ""
-        view_manager = self.free_roam_game.view_manager
-        data: str = view_manager.storage.read("picoware/settings/server_username.json")
-
-        if data is not None:
-            try:
-
-                obj: dict = json_loads(data)
-                if "username" in obj:
-                    self.loaded_username = obj["username"]
-                    return self.loaded_username
-            except Exception:
-                pass
-
-        return ""
+    
+        from picoware.system.settings import Settings
+        settings = Settings(self.free_roam_game.view_manager.storage)
+        return settings.server_settings.get("username", "")
 
     def collision_map_check(self, new_position: Vector) -> bool:
         """Check if the new position collides with any walls in the map."""

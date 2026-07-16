@@ -12,6 +12,8 @@ STATE_SERVER_SETTINGS = const(7)  # menu with username and password
 STATE_OPENAI_API_KEY = const(8)  # keyboard input for OpenAI API key
 STATE_DEEPSEEK_API_KEY = const(9)  # keyboard input for DeepSeek API key
 STATE_USB_STREAM = const(10)  # toggle (enable/disable USB stream)
+STATE_ANTHROPIC_API_KEY = const(11)  # keyboard input for Anthropic API key
+STATE_GEMINI_API_KEY = const(12)  # keyboard input for Gemini API key
 
 # modes
 _MODE_MENU = const(0)
@@ -24,6 +26,8 @@ _MODE_SERVER_MENU = const(6)
 _MODE_SERVER_KEYBOARD = const(7)
 _MODE_OPENAI_KEYBOARD = const(8)
 _MODE_DEEPSEEK_KEYBOARD = const(9)
+_MODE_ANTHROPIC_KEYBOARD = const(10)
+_MODE_GEMINI_KEYBOARD = const(11)
 
 _settings = None
 _menu = None
@@ -40,6 +44,8 @@ _server_save_requested = False
 _server_keyboard_field = 0  # 0 = username, 1 = password
 _openai_save_requested = False
 _deepseek_save_requested = False
+_anthropic_save_requested = False
+_gemini_save_requested = False
 
 
 def __color_values() -> list[int]:
@@ -98,6 +104,8 @@ def __config() -> tuple:
         ("OpenAI API Key", "openai_api_key", ""),
         ("DeepSeek API Key", "deepseek_api_key", ""),
         ("USB Stream", "usb_stream", False),
+        ("Anthropic API Key", "anthropic_api_key", ""),
+        ("Gemini API Key", "gemini_api_key", "")
     )
 
 
@@ -434,6 +442,43 @@ def __deepseek_save_callback(result: str) -> None:
     global _deepseek_save_requested
     _deepseek_save_requested = True
 
+def __open_anthropic_keyboard() -> None:
+    """Open the keyboard for entering the Anthropic API key."""
+    global _mode, _anthropic_save_requested
+
+    keyboard = _view_manager.keyboard
+    keyboard.reset()
+    keyboard.title = "Anthropic API Key"
+    keyboard.response = _settings.anthropic_api_key
+    keyboard.set_save_callback(__anthropic_save_callback)
+    keyboard.input_manager.reset()
+    keyboard.run(force=True)
+    _anthropic_save_requested = False
+    _mode = _MODE_ANTHROPIC_KEYBOARD
+
+def __anthropic_save_callback(result: str) -> None:
+    """Callback triggered when the Anthropic API key keyboard is saved."""
+    global _anthropic_save_requested
+    _anthropic_save_requested = True
+
+def __open_gemini_keyboard() -> None:
+    """Open the keyboard for entering the Gemini API key."""
+    global _mode, _gemini_save_requested
+
+    keyboard = _view_manager.keyboard
+    keyboard.reset()
+    keyboard.title = "Gemini API Key"
+    keyboard.response = _settings.gemini_api_key
+    keyboard.set_save_callback(__gemini_save_callback)
+    keyboard.input_manager.reset()
+    keyboard.run(force=True)
+    _gemini_save_requested = False
+    _mode = _MODE_GEMINI_KEYBOARD
+
+def __gemini_save_callback(result: str) -> None:
+    """Callback triggered when the Gemini API key keyboard is saved."""
+    global _gemini_save_requested
+    _gemini_save_requested = True
 
 def __back_to_server_menu() -> None:
     """Return to the Server Settings sub-menu."""
@@ -494,7 +539,7 @@ def start(view_manager) -> bool:
     from picoware.gui.menu import Menu
     from picoware.system.settings import Settings
 
-    global _settings, _menu, _view_manager, _mode, _time_menu, _date_picker, _server_menu, _gmt_save_requested, _server_save_requested, _server_keyboard_field, _openai_save_requested, _deepseek_save_requested
+    global _settings, _menu, _view_manager, _mode, _time_menu, _date_picker, _server_menu, _gmt_save_requested, _server_save_requested, _server_keyboard_field, _openai_save_requested, _deepseek_save_requested, _anthropic_save_requested, _gemini_save_requested
 
     _view_manager = view_manager
     _mode = _MODE_MENU
@@ -503,6 +548,8 @@ def start(view_manager) -> bool:
     _server_keyboard_field = 0
     _openai_save_requested = False
     _deepseek_save_requested = False
+    _anthropic_save_requested = False
+    _gemini_save_requested = False
 
     if _settings is not None:
         del _settings
@@ -577,6 +624,10 @@ def run(view_manager) -> None:
                 __open_openai_keyboard()
             elif selected == STATE_DEEPSEEK_API_KEY:
                 __open_deepseek_keyboard()
+            elif selected == STATE_ANTHROPIC_API_KEY:
+                __open_anthropic_keyboard()
+            elif selected == STATE_GEMINI_API_KEY:
+                __open_gemini_keyboard()
             else:
                 __open_toggle(selected)
 
@@ -666,6 +717,28 @@ def run(view_manager) -> None:
         if _deepseek_save_requested:
             _deepseek_save_requested = False
             _settings.deepseek_api_key = view_manager.keyboard.response or ""
+            view_manager.keyboard.reset()
+            __back_to_menu()
+        elif not view_manager.keyboard.run():
+            view_manager.keyboard.reset()
+            __back_to_menu()
+    
+    elif _mode == _MODE_ANTHROPIC_KEYBOARD:
+        global _anthropic_save_requested
+        if _anthropic_save_requested:
+            _anthropic_save_requested = False
+            _settings.anthropic_api_key = view_manager.keyboard.response or ""
+            view_manager.keyboard.reset()
+            __back_to_menu()
+        elif not view_manager.keyboard.run():
+            view_manager.keyboard.reset()
+            __back_to_menu()
+    
+    elif _mode == _MODE_GEMINI_KEYBOARD:
+        global _gemini_save_requested
+        if _gemini_save_requested:
+            _gemini_save_requested = False
+            _settings.gemini_api_key = view_manager.keyboard.response or ""
             view_manager.keyboard.reset()
             __back_to_menu()
         elif not view_manager.keyboard.run():

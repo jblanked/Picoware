@@ -10,10 +10,12 @@ class Settings:
         self._storage = storage
         self._path = "picoware/settings/picoware.json" 
         self._settings = {
+            "anthropic_api_key": "",
             "dark_mode": True,
             "deepseek_api_key": "",
             "debug": False,
             "exit_button": BUTTON_BACK,
+            "gemini_api_key": "",
             "gmt_offset": 0,
             "lvgl_mode": False,
             "onscreen_keyboard": False,
@@ -27,10 +29,12 @@ class Settings:
         }
         if not self._storage.exists(self._path):
             self._settings = {
+                "anthropic_api_key": "",
                 "dark_mode":  bool(self.__fetch_setting("picoware/settings/dark_mode.json", "dark_mode", True)),
                 "debug": bool(self.__fetch_setting("picoware/settings/debug.json", "debug", False)),
                 "deepseek_api_key": "",
                 "exit_button": int(self.__fetch_setting("picoware/settings/exit_button.json", "exit_button", BUTTON_BACK)),
+                "gemini_api_key": "",
                 "gmt_offset": int(self.__fetch_setting("picoware/settings/gmt_offset.json", "gmt_offset", 0)),
                 "lvgl_mode": bool(self.__fetch_setting("picoware/settings/lvgl_mode.json", "lvgl_mode", False)),
                 "onscreen_keyboard": bool(self.__fetch_setting("picoware/settings/onscreen_keyboard.json", "onscreen_keyboard", False)),
@@ -51,6 +55,16 @@ class Settings:
                     self._settings.update(obj)
                 except Exception:
                     pass
+    @property
+    def anthropic_api_key(self) -> str:
+        """Return the current Anthropic API key."""
+        return self._settings.get("anthropic_api_key", "")
+    
+    @anthropic_api_key.setter
+    def anthropic_api_key(self, value: str):
+        """Set the Anthropic API key."""
+        self._settings["anthropic_api_key"] = value
+        self.__save_settings()
     
     @property
     def dark_mode(self) -> bool:
@@ -95,6 +109,17 @@ class Settings:
     def exit_button(self, value: int):
         """Set the exit button setting."""
         self._settings["exit_button"] = value
+        self.__save_settings()
+    
+    @property
+    def gemini_api_key(self) -> str:
+        """Return the current Gemini API key."""
+        return self._settings.get("gemini_api_key", "")
+    
+    @gemini_api_key.setter
+    def gemini_api_key(self, value: str):
+        """Set the Gemini API key."""
+        self._settings["gemini_api_key"] = value
         self.__save_settings()
         
     @property

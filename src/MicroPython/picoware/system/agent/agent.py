@@ -1,25 +1,26 @@
 import json
 from micropython import const
 from picoware.system.agent.tools import dispatch
-from picoware.system.agent.llm import LLM, DEEPSEEK
-from picoware.system.agent.context import app_creator, device_manager
+from picoware.system.agent.llm import LLM, DEEPSEEK, ANTHROPIC
+from picoware.system.agent.context import chat, app_creator, device_manager
 
-MODE_APP_CREATOR = const(0) # creates/edits Picoware apps
-MODE_DEVICE_MANAGER = const(1) # manages files, has network access, can run commands, etc.
+MODE_CHAT = const(0) # general chat mode
+MODE_APP_CREATOR = const(1) # creates/edits Picoware apps
+MODE_DEVICE_MANAGER = const(2) # manages files, has network access, can run commands, etc.
 
 MAX_TOOL_ITERATIONS = const(50)
 MAX_CONVERSATION_MESSAGES = const(20)
 
 class Agent:
     """Agent that can perform tasks using tools and LLMs."""
-    __slots__ = ["mode", "tools", "llm_provider", "view_manager", "http", "_file_path", "_conv_path", "_mem_path", "_msg_path"]
+    __slots__ = ["mode", "tools", "llm", "view_manager", "http", "_file_path", "_conv_path", "_mem_path", "_msg_path"]
 
-    def __init__(self, view_manager, mode: int, llm_id: int = DEEPSEEK, file_path: str = "picoware/settings/agent_request.json"):
+    def __init__(self, view_manager, mode: int = MODE_CHAT, llm: LLM = None, file_path: str = "picoware/settings/agent_request.json"):
         from picoware.system.http import HTTP
         self.view_manager = view_manager
         self.mode = mode
         self.tools = []
-        self.llm_provider = LLM(view_manager.storage, llm_id)
+        self.llm = llm if llm is not None else LLM(view_manager.storage, DEEPSEEK)
         self.http = HTTP(thread_manager=view_manager.thread_manager)
         self._file_path = file_path
         self._conv_path = "picoware/settings/agent_conv.json"
@@ -34,7 +35,7 @@ class Agent:
     def __del__(self):
         """Cleanup resources on deletion."""
         self.tools.clear()
-        self.llm_provider = None
+        self.llm = None
         self.http = None
     
     @property
@@ -137,7 +138,7 @@ class Agent:
         # Preamble: model + messages open
         storage.write(
             self._file_path,
-            '{"model":"' + self.llm_provider.model + '","messages":[',
+            '{"model":"' + self.llm.model + '","messages":[',
             mode="w",
         )
 
@@ -163,21 +164,19 @@ class Agent:
 
     def _run_loop(self) -> str:
         """Run the model/tool loop and return assistant text."""
-        tools = [tool.json_openai for tool in dispatch.get_tool_list()]
+        if self.llm.id == ANTHROPIC:
+            tools = [tool.json_anthropic for tool in dispatch.get_tool_list()]
+        else:
+            tools = [tool.json_openai for tool in dispatch.get_tool_list()]
         storage = self.view_manager.storage
 
         for _ in range(MAX_TOOL_ITERATIONS):
             # Build request from conversation
             self._build_request(tools)
 
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.llm_provider.api_key}",
-            }
-
             response = self.http.post(
-                self.llm_provider.url,
-                headers=headers,
+                self.llm.url,
+                headers=self.llm.headers,
                 payload=None,
                 timeout=120,
                 storage=storage,
@@ -289,7 +288,14 @@ class Agent:
             f = s.file_open(self._mem_path)
             if f is not None:
                 try:
-                    if self.mode == MODE_APP_CREATOR:
+                    if self.mode == MODE_CHAT:
+                        s.file_write(f, chat.PROMPT, mode="b")
+                        s.file_write(f, b"\n", mode="b")
+                        s.file_write(f, chat.WORKFLOW, mode="b")
+                        s.file_write(f, b"\n", mode="b")
+                        s.file_write(f, chat.CONTEXT, mode="b")
+                        s.file_write(f, b"\n", mode="b")
+                    elif self.mode == MODE_APP_CREATOR:
                         s.file_write(f, app_creator.PROMPT, mode="b")
                         s.file_write(f, b"\n", mode="b")
                         s.file_write(f, app_creator.WORKFLOW, mode="b")

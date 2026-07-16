@@ -1,13 +1,13 @@
 """Picoware Agent -- LLM-powered assistant with chat GUI."""
-from micropython import const
+import micropython
 from picoware.system.buttons import (
     BUTTON_UP, BUTTON_DOWN, BUTTON_CENTER, BUTTON_BACK,
 )
 from picoware.system.colors import TFT_WHITE, TFT_DARKGREY, TFT_LIGHTGREY
 
-STATE_MENU = const(0)
-STATE_CHAT = const(1)
-STATE_TYPE = const(2)
+STATE_MENU = micropython.const(0)
+STATE_CHAT = micropython.const(1)
+STATE_TYPE = micropython.const(2)
 
 _agent          = None
 _menu           = None
@@ -19,7 +19,8 @@ _scroll_offset  = 0
 _max_scroll     = 0
 
 
-def _wrap_text(text, max_chars):
+@micropython.native
+def _wrap_text(text: str, max_chars: int):
     """Wrap text to max_chars per line, preserving words."""
     if not text:
         return [""]
@@ -67,6 +68,7 @@ def _chat_layout(view_manager):
     return header_h, prompt_h, chat_y, chat_h, max_chars, font, bubble_w, pad
 
 
+@micropython.native
 def _draw_bubble(draw, x, y, w, text_lines, font, bg_color, text_color, pad,
                   clip_top=0):
     """Draw a rounded-rect bubble clipped to screen bounds."""
@@ -99,7 +101,7 @@ def _draw_bubble(draw, x, y, w, text_lines, font, bg_color, text_color, pad,
 
     return y + bubble_h + 4
 
-
+@micropython.native
 def _render_chat(view_manager):
     """Draw conversation as chat bubbles with scroll and prompt bar."""
     draw = view_manager.draw
@@ -255,6 +257,7 @@ def start(view_manager) -> bool:
         background_color=view_manager.background_color,
         selected_color=view_manager.selected_color,
     )
+    _menu.add_item("Chat")
     _menu.add_item("App Creator")
     _menu.add_item("Device Manager")
     _menu.draw()
@@ -276,9 +279,12 @@ def run(view_manager) -> None:
         elif btn == BUTTON_DOWN:
             _menu.scroll_down()
         elif btn == BUTTON_CENTER:
-            from picoware.system.agent.agent import Agent, MODE_APP_CREATOR, MODE_DEVICE_MANAGER
+            from picoware.system.agent.agent import Agent, MODE_CHAT, MODE_APP_CREATOR, MODE_DEVICE_MANAGER
             idx = _menu.selected_index
             if idx == 0:
+                _agent_mode = MODE_CHAT
+                _mode_label = "Chat"
+            elif idx == 1:
                 _agent_mode = MODE_APP_CREATOR
                 _mode_label = "App Creator"
             else:

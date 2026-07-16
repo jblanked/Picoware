@@ -2,7 +2,7 @@ def main():
     """Main function to run the application"""
     from gc import collect, threshold, mem_free, mem_alloc
     from time import sleep
-    from picoware_boards import BOARD_ID, BOARD_CROWPANEL_10_1, BOARD_CARDPUTER, BOARD_WAVESHARE_2_06
+    from picoware.system.boards import BOARD_ID, BOARD_CROWPANEL_10_1, BOARD_CARDPUTER, BOARD_WAVESHARE_2_06
 
     if BOARD_ID in (BOARD_CROWPANEL_10_1, BOARD_CARDPUTER, BOARD_WAVESHARE_2_06):
         # added this for ThonnyIDE connecting/stopping

@@ -97,9 +97,18 @@ class MJS:
 class _Module(dict):
     def __getattr__(self, name):
         try:
-            return self[name]
+            value = self[name]
+            return value.get() if isinstance(value, _DynamicProperty) else value
         except KeyError:
             raise AttributeError(name)
+
+
+class _DynamicProperty:
+    def __init__(self, getter):
+        self._getter = getter
+
+    def get(self):
+        return self._getter()
 
 
 class _Pin:
@@ -316,6 +325,8 @@ def _parse_literal(expr):
 
 
 def _get_member(value, attr):
+    if isinstance(value, _Module):
+        return getattr(value, attr)
     if isinstance(value, dict):
         if attr in value:
             return value[attr]
@@ -341,22 +352,105 @@ def _is_identifier_char(char):
 
 def _import_module(name, args):
     factories = {
+        "audio": _audio_module,
+        "bluetooth": _bluetooth_module,
         "buttons": _buttons_module,
         "draw": _draw_module,
         "http": _http_module,
         "input": _input_module,
         "math": _math_module,
         "pin": _pin_module,
+        "psram": _psram_module,
         "settings": _settings_module,
         "storage": _storage_module,
         "system": _system_module,
         "time": _time_module,
         "uart": _uart_module,
+        "websocket": _websocket_module,
         "wifi": _wifi_module,
     }
     if name not in factories:
         raise ImportError("simulator mjs module not implemented: " + str(name))
     return factories[name](*args)
+
+
+def _audio_module():
+    from audio import Audio, AudioNote
+
+    player = Audio()
+
+    def play_sound(sound):
+        if not isinstance(sound, dict):
+            raise TypeError("audio.playSound expects an object")
+        note = AudioNote(
+            _int_value(sound.get("leftFrequency", 0)),
+            _int_value(sound.get("rightFrequency", 0)),
+            _int_value(sound.get("duration", 0)),
+        )
+        player.play_note(note)
+
+    return _Module(
+        {
+            "isPlaying": lambda: player.is_playing,
+            "playMP3": player.play_mp3,
+            "playSound": play_sound,
+            "playWAV": player.play_wav,
+            "stop": player.stop,
+        }
+    )
+
+
+def _bluetooth_module():
+    from picoware.system.bluetooth import Bluetooth
+
+    bluetooth = Bluetooth()
+
+    def connect(addr_type, addr, timeout_ms=10000, auto_discover=True):
+        if isinstance(addr, str):
+            compact = addr.replace(":", "").replace("-", "")
+            addr = bytes(int(compact[i : i + 2], 16) for i in range(0, len(compact), 2))
+        return bluetooth.connect(int(addr_type), addr, int(timeout_ms), bool(auto_discover))
+
+    return _Module(
+        {
+            "macAddress": _DynamicProperty(lambda: bluetooth.mac_address),
+            "connectedAddress": _DynamicProperty(lambda: bluetooth.connected_address),
+            "isPairing": _DynamicProperty(lambda: bluetooth.is_pairing),
+            "isScanning": _DynamicProperty(lambda: bluetooth.is_scanning),
+            "isConnected": _DynamicProperty(lambda: bluetooth.is_connected),
+            "isPeripheralConnected": _DynamicProperty(lambda: bluetooth.is_peripheral_connected),
+            "passkey": _DynamicProperty(lambda: bluetooth.passkey),
+            "services": _DynamicProperty(lambda: bluetooth.services),
+            "characteristics": _DynamicProperty(lambda: bluetooth.characteristics),
+            "advertise": bluetooth.advertise,
+            "connect": connect,
+            "decodeName": bluetooth.decode_name,
+            "decodeServices": bluetooth.decode_services,
+            "disconnect": bluetooth.disconnect,
+            "discoverCharacteristics": bluetooth.discover_characteristics,
+            "discoverServices": bluetooth.discover_services,
+            "isDevicePaired": bluetooth.is_device_paired,
+            "isUartReady": bluetooth.is_uart_ready,
+            "loadPairedDevices": bluetooth.load_paired_devices,
+            "onNotify": bluetooth.on_notify,
+            "onScan": bluetooth.on_scan,
+            "onWrite": bluetooth.on_write,
+            "pair": bluetooth.pair,
+            "passkeyReply": bluetooth.passkey_reply,
+            "read": bluetooth.read,
+            "register": bluetooth.register,
+            "removePairedDevice": bluetooth.remove_paired_device,
+            "savePairedDevice": bluetooth.save_paired_device,
+            "scan": bluetooth.scan,
+            "scanForUartDevices": bluetooth.scan_for_uart_devices,
+            "scanStop": bluetooth.scan_stop,
+            "send": bluetooth.send,
+            "startPeripheral": bluetooth.start_peripheral,
+            "stopPeripheral": bluetooth.stop_peripheral,
+            "subscribe": bluetooth.subscribe,
+            "write": bluetooth.write,
+        }
+    )
 
 
 def _buttons_module():
@@ -464,6 +558,49 @@ def _pin_module(pin_id=None, direction=None, pull=None):
     return _Pin(pin_id, direction, pull)
 
 
+def _psram_module():
+    from picoware_psram import PSRAM
+
+    psram = PSRAM()
+
+    def read(addr, length):
+        return psram.read(_int_value(addr), _int_value(length))
+
+    def write(addr, data):
+        return psram.write(_int_value(addr), data)
+
+    return _Module(
+        {
+            "freeHeapSize": _DynamicProperty(psram.mem_free),
+            "nextFreeAddr": _DynamicProperty(psram.get_next_free),
+            "totalHeapSize": _DynamicProperty(psram.size),
+            "usedHeapSize": _DynamicProperty(lambda: psram.size() - psram.mem_free()),
+            "isReady": psram.is_ready,
+            "size": psram.size,
+            "test": psram.test,
+            "read8": lambda addr: psram.read8(_int_value(addr)),
+            "read16": lambda addr: psram.read16(_int_value(addr)),
+            "read32": lambda addr: psram.read32(_int_value(addr)),
+            "read": read,
+            "read32Bulk": lambda addr, count: psram.read32_bulk(_int_value(addr), _int_value(count)),
+            "write8": lambda addr, value: psram.write8(_int_value(addr), _int_value(value)),
+            "write16": lambda addr, value: psram.write16(_int_value(addr), _int_value(value)),
+            "write32": lambda addr, value: psram.write32(_int_value(addr), _int_value(value)),
+            "write": write,
+            "write32Bulk": lambda addr, values: psram.write32_bulk(_int_value(addr), values),
+            "fill": lambda addr, value, length: psram.fill(_int_value(addr), _int_value(value), _int_value(length)),
+            "memset": lambda addr, value, length: psram.memset(_int_value(addr), _int_value(value), _int_value(length)),
+            "copy": lambda src, dst, length: psram.copy(_int_value(src), _int_value(dst), _int_value(length)),
+            "memcpy": lambda dst, src, length: psram.memcpy(_int_value(dst), _int_value(src), _int_value(length)),
+            "malloc": psram.malloc,
+            "allocObject": psram.alloc_object,
+            "collect": psram.collect,
+            "getNextFree": psram.get_next_free,
+            "memFree": psram.mem_free,
+        }
+    )
+
+
 def _settings_module():
     defaults = {
         "darkMode": False,
@@ -558,8 +695,28 @@ def _uart_module(uart_id=0, tx_pin=0, rx_pin=1, baud_rate=115000, timeout=2000):
     return _UART(uart_id, tx_pin, rx_pin, baud_rate, timeout)
 
 
+def _websocket_module():
+    import websocket
+
+    return _Module(
+        {
+            "start": websocket.http_websocket_start,
+            "stop": websocket.http_websocket_stop,
+            "isConnected": websocket.http_websocket_is_connected,
+            "send": websocket.http_websocket_send,
+            "getResponse": lambda buffer_size=2048: websocket.http_get_websocket_response(None, buffer_size),
+        }
+    )
+
+
 def _wifi_module():
     return _WiFi()
+
+
+def _int_value(value):
+    if isinstance(value, str):
+        return int(value, 0)
+    return int(value)
 
 
 def _camel_name(name):

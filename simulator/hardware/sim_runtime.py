@@ -128,11 +128,12 @@ LIBRARY_ITEMS = {
     "python repl": 8,
     "repl": 8,
     "screensavers": 9,
-    "system": 10,
-    "text editor": 11,
-    "texteditor": 11,
-    "usb": 12,
-    "wifi": 13,
+    "scripts": 10,
+    "system": 11,
+    "text editor": 12,
+    "texteditor": 12,
+    "usb": 13,
+    "wifi": 14,
 }
 
 

@@ -10,16 +10,16 @@ CONTEXT = const(b"""
 
 ## Tone and Style
 - No emojis in code comments, docstrings, or tkinter/customtkinter apps.
-- No long decorative separators unless specifically needed for MQL code structure.
+- No long decorative separators.
 - If comments are used, they should be 3 to 5 words max. 
-- Instead of `# -- Header --` do `# Header`     
+- No header comments (e.g... # Test section, # Main, etc.).
 - Always use function docstrings when creating or editing functions. Docstrings should be concise, describing the function's purpose and all parameters/returns in 1-3 sentences.
 - All user-facing messages should be concise and practical, without flowery language or emojis.
 - Do not touch code that is not directly related to the task at hand, even if it seems like it could be improved. Focus on the specific changes needed for the current task. 
                 
 ## Guidelines
-- Prefer the ViewManager's objects (e.g. `view_manager.draw`, `view_manager.wifi`, `view_manager.keyboard`, `view_manager.storage`, etc.) over creating new instances of those objects directly, to ensure better integration with the system and other apps.
-- Unless specified, always use the screen dimensions from `view_manager.draw.size` for coordinates and sizing to ensure compatibility with different screen sizes.
+- Use the ViewManager's objects (e.g. `view_manager.draw`, `view_manager.wifi`, `view_manager.keyboard`, `view_manager.storage`, etc.) when available instead of creating new instances of those objects directly, to ensure better integration with the system and other apps.
+- Always use the screen dimensions from `view_manager.draw.size` for coordinates and sizing to ensure compatibility with different screen sizes.
 
 ## Application Structure
 Each application should be structured in a specific way to ensure compatibility with Picoware. It must contains the following methods:

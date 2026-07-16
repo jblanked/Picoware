@@ -462,13 +462,50 @@ def _run_sim_check(opts):
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
+        "micropython "
+        + _quote(THIS_DIR + "/run.py")
+        + " --headless --open Agent --wait-view agent --frames 220 --audio silent --network offline --sd "
+        + _quote(opts["sd"])
+        + " --apps-source "
+        + _quote(opts["apps_source"]),
+        "micropython "
+        + _quote(THIS_DIR + "/run.py")
+        + " --headless --open System --wait-view system --frames 220 --audio silent --network offline --sd "
+        + _quote(opts["sd"])
+        + " --apps-source "
+        + _quote(opts["apps_source"]),
     )
     for cmd in commands:
         status = os.system(cmd)
         if status != 0:
             print("[sim-check:fail]", cmd, status)
             raise SystemExit
+    _run_mjs_check()
     print("[sim-check:pass]")
+
+
+def _run_mjs_check():
+    """Smoke-test the JavaScript modules supplied by the simulator shim."""
+    import mjs
+
+    js = mjs.MJS()
+    js.run('let audio = import("audio");')
+    if js.run("audio.isPlaying();") is not False:
+        raise RuntimeError("simulator mjs audio state mismatch")
+
+    js.run('let psram = import("psram");')
+    js.run('psram.write32("0x20", "0x12345678");')
+    if js.run('psram.read32("0x20");') != 0x12345678:
+        raise RuntimeError("simulator mjs psram round-trip failed")
+
+    js.run('let bluetooth = import("bluetooth");')
+    if not js.run("bluetooth.register();"):
+        raise RuntimeError("simulator mjs bluetooth registration failed")
+
+    js.run('let websocket = import("websocket");')
+    if js.run("websocket.isConnected();") is not False:
+        raise RuntimeError("simulator mjs websocket state mismatch")
+    print("[sim-check:ok] mjs audio bluetooth psram websocket")
 
 
 def _write_error_file(path, exc):

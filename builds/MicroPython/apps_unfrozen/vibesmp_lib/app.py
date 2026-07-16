@@ -1865,6 +1865,22 @@ class VibesApp:
             mkdir_p(self.view_manager.storage, vpath)
             items = self.view_manager.storage.read_directory(vpath)
             self.playlists = [i["filename"] for i in items if not i["is_directory"] and i["filename"].endswith(".json")]
+
+            # A newly created playlist may still be queued in StorageManager
+            # when this immediate refresh runs. Include pending playlist writes
+            # so the UI updates now instead of only after an app restart.
+            pending = getattr(self.storage_manager, "pending_writes", {})
+            prefix = self.playlist.base_dir
+            for path in pending:
+                if not path.startswith(prefix):
+                    continue
+                filename = path[len(prefix):]
+                if (
+                    "/" not in filename
+                    and filename.endswith(".json")
+                    and filename not in self.playlists
+                ):
+                    self.playlists.append(filename)
         except OSError as e:
             import sys
             print(f"[ERROR] refresh_playlists: {e}")

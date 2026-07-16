@@ -9,6 +9,7 @@ from picoware.system.boards import (
     BOARD_WAVESHARE_1_43_RP2350,
     BOARD_WAVESHARE_3_49_RP2350,
     BOARD_WAVESHARE_2_06,
+    BOARD_PANCAKE,
 )
 
 
@@ -102,6 +103,13 @@ class Input:
             self._delay_ms = 120
 
         elif self._current_board_id == BOARD_WAVESHARE_2_06:
+            from touch import Touch
+
+            self._crowpanel_touch = Touch()
+            self._last_point = (0, 0)
+            self._delay_ms = 120
+
+        elif self._current_board_id == BOARD_PANCAKE:
             from touch import Touch
 
             self._crowpanel_touch = Touch()
@@ -306,7 +314,8 @@ class Input:
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
             BOARD_CROWPANEL_10_1,
-            BOARD_WAVESHARE_2_06
+            BOARD_WAVESHARE_2_06,
+            BOARD_PANCAKE,
         ):
             from picoware_southbridge import deinit
 
@@ -337,6 +346,11 @@ class Input:
 
             return get_percentage()
 
+        if self._current_board_id == BOARD_PANCAKE:
+            from pancake_battery import get_percentage
+
+            return get_percentage()
+
         from picoware_southbridge import get_battery_percentage
 
         return get_battery_percentage()
@@ -347,6 +361,7 @@ class Input:
         if self._current_board_id in (
             BOARD_CROWPANEL_10_1,
             BOARD_WAVESHARE_2_06,
+            BOARD_PANCAKE,
         ):
             self._poll_crowpanel_touch()
         elif self._current_board_id == BOARD_CARDPUTER:
@@ -382,6 +397,7 @@ class Input:
             BOARD_WAVESHARE_3_49_RP2350,
             BOARD_CROWPANEL_10_1,
             BOARD_WAVESHARE_2_06,
+            BOARD_PANCAKE,
         )
 
     @property
@@ -511,6 +527,7 @@ class Input:
         if self._current_board_id in (
             BOARD_CROWPANEL_10_1,
             BOARD_WAVESHARE_2_06,
+            BOARD_PANCAKE,
         ):
             self._poll_crowpanel_touch()
             return self._last_point != (0, 0)
@@ -641,6 +658,21 @@ class Input:
                 self._last_button = buttons.BUTTON_DOWN
             elif 310 <= x <= 410 and 382 <= y <= 502:
                 self._last_button = buttons.BUTTON_BACK
+            else:
+                self._last_button = buttons.BUTTON_CENTER
+
+        elif self._current_board_id == BOARD_PANCAKE:
+            # 320x480 portrait; top-left corner is back.
+            if 0 <= x <= 70 and 0 <= y <= 70:
+                self._last_button = buttons.BUTTON_BACK
+            elif 280 <= x <= 320 and 130 <= y <= 350:
+                self._last_button = buttons.BUTTON_RIGHT
+            elif 0 <= x <= 40 and 130 <= y <= 350:
+                self._last_button = buttons.BUTTON_LEFT
+            elif 80 <= x <= 240 and 0 <= y <= 96:
+                self._last_button = buttons.BUTTON_UP
+            elif 80 <= x <= 240 and 384 <= y <= 480:
+                self._last_button = buttons.BUTTON_DOWN
             else:
                 self._last_button = buttons.BUTTON_CENTER
 

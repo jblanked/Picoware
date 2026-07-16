@@ -22,6 +22,7 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_CROWPANEL_10_1 8
 #define BOARD_CARDPUTER 9
 #define BOARD_WAVESHARE_2_06 10
+#define BOARD_PANCAKE 11
 
 #if defined(WAVESHARE_1_28)
 #define BOARD_ID BOARD_WAVESHARE_1_28_RP2350
@@ -64,6 +65,14 @@ Source: https://github.com/jblanked/Picoware
 // Waveshare ESP32-S3-Touch-AMOLED-2.06
 #define BOARD_ID BOARD_WAVESHARE_2_06
 #define BOARD_HAS_PSRAM 0 // has psram
+#define BOARD_HAS_SD 1    // has sd card
+#define BOARD_HAS_TOUCH 1 // has touch
+#define BOARD_HAS_WIFI 1  // has wifi
+#define BOARD_HAS_AUDIO 0 // no audio module in esp32 build yet
+#elif defined(PANCAKE)
+// Marauder Pancake ESP32-C5
+#define BOARD_ID BOARD_PANCAKE
+#define BOARD_HAS_PSRAM 1 // has psram (required: the framebuffer lives there)
 #define BOARD_HAS_SD 1    // has sd card
 #define BOARD_HAS_TOUCH 1 // has touch
 #define BOARD_HAS_WIFI 1  // has wifi

@@ -3,7 +3,7 @@
 #include "mjs/mjs.h"
 #include "lib/lib.h"
 
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
 #include "../sd/storage.h"
 #endif
 
@@ -62,7 +62,7 @@ mp_obj_t mjs_mp_exec(mp_obj_t self_in, mp_obj_t path)
     }
 
     mjs_val_t result = mjs_mk_undefined();
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
     size_t fsize = storage_file_size(bufinfo.buf);
     if (fsize == 0)
     {

@@ -50,7 +50,7 @@
 #define CS_PLATFORM CS_P_NXP_KINETIS
 #elif defined(PIC32)
 #define CS_PLATFORM CS_P_PIC32
-#elif defined(ESP_PLATFORM) || defined(CARDPUTER) || defined(ESP32) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06)
+#elif defined(ESP_PLATFORM) || defined(CARDPUTER) || defined(PANCAKE) || defined(ESP32) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06)
 #define CS_PLATFORM CS_P_ESP32
 #elif defined(ICACHE_FLASH)
 #define CS_PLATFORM CS_P_ESP8266

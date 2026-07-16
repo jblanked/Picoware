@@ -36,19 +36,6 @@ static void psram_call_0(struct mjs *mjs, const char *attr)
     mjs_return(mjs, MJS_UNDEFINED);
 }
 
-static void psram_call_1(struct mjs *mjs, const char *attr)
-{
-    mp_obj_t func = mp_load_attr(psram_mp_instance, mp_obj_str_get_qstr(mp_obj_new_str(attr, strlen(attr))));
-    if (func != MP_OBJ_NULL && mp_obj_is_callable(func))
-    {
-        mp_obj_t arg = psram_parse_mp_int(mjs, mjs_arg(mjs, 0));
-        mp_obj_t result = mp_call_function_1(func, arg);
-        mjs_return(mjs, mjs_val_from_mp_obj(mjs, result));
-        return;
-    }
-    mjs_return(mjs, MJS_UNDEFINED);
-}
-
 static mjs_val_t psram_free_heap_size(struct mjs *mjs)
 {
     (void)mjs;

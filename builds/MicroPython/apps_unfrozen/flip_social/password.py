@@ -8,20 +8,14 @@ _flip_social_password_keyboard_ran: bool = False
 
 def __flip_social_util_get_password(view_manager) -> str:
     """Get the password from storage, or return empty string"""
-    storage = view_manager.storage
-    data: str = storage.read("picoware/settings/server_password.json")
+    from picoware.system.settings import Settings
 
-    if data is not None:
-        try:
-            from ujson import loads
+    _settings = Settings(view_manager.storage)
+    server_settings = _settings.server_settings
+    _password = server_settings.get("password")
 
-            obj: dict = loads(data)
-            if "password" in obj:
-                return obj["password"]
-        except Exception:
-            pass
+    return _password
 
-    return ""
 
 
 def __flip_social_password_callback(response: str) -> None:
@@ -109,15 +103,13 @@ def __flip_social_password_stop(view_manager) -> None:
     if keyboard:
         # if we need to save, do it now instead of in the callback
         if _flip_social_password_save_verified:
-            storage = view_manager.storage
+            from picoware.system.settings import Settings
+            
             password = view_manager.keyboard.response
-            try:
-                from ujson import dumps
-
-                obj = {"password": password}
-                storage.write("picoware/settings/server_password.json", dumps(obj))
-            except Exception:
-                pass
+            _settings = Settings(view_manager.storage)
+            server_settings = _settings.server_settings
+            server_settings["password"] = password
+            _settings.server_settings = server_settings
 
         keyboard.reset()
 

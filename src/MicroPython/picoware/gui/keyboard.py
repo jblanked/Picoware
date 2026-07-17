@@ -1,3 +1,4 @@
+import micropython
 from picoware.system.buttons import (
     BUTTON_UP,
     BUTTON_DOWN,
@@ -168,7 +169,7 @@ class Keyboard:
     KEY_WIDTH = 22
     KEY_HEIGHT = 35
     KEY_SPACING = 1
-    KEY_MARGIN = 4  # screen edge gap when keys are sized for touch
+    KEY_MARGIN = 4 
     TEXTBOX_HEIGHT = 45
 
     def __init__(
@@ -536,6 +537,7 @@ class Keyboard:
             "Picoware",
         ]
 
+    @micropython.native
     def _size_keys_to_screen(self) -> None:
         """Fit the key grid to the panel."""
         widest_row = 0
@@ -559,6 +561,7 @@ class Keyboard:
         self.KEY_WIDTH = max(key_width, Keyboard.KEY_WIDTH)
         self.KEY_HEIGHT = max(key_height, Keyboard.KEY_HEIGHT)
 
+    @micropython.native
     def _key_row_geometry(self, row: int) -> tuple:
         """Return (start_x, y) for a key row, as _draw_key places it."""
         total_row_width = 0
@@ -572,6 +575,7 @@ class Keyboard:
         )
         return start_x, y
 
+    @micropython.native
     def _key_at_point(self, x: int, y: int):
         """Return the (row, col) under a touch point, or None."""
         for row in range(self.NUM_ROWS):
@@ -593,6 +597,7 @@ class Keyboard:
                     return row, col
         return None
 
+    @micropython.native
     def _handle_touch_input(self) -> bool:
         """Press the key under the touch point. True if the touch was used."""
         point = self.input_manager.point
@@ -615,6 +620,7 @@ class Keyboard:
             self.is_manual_shift = True
         return True
 
+    @micropython.native
     def _draw_key(self, row: int, col: int, is_selected: bool) -> None:
         """Draws a specific key on the keyboard"""
         if row >= self.NUM_ROWS or col >= self.ROW_SIZES[row]:
@@ -713,6 +719,7 @@ class Keyboard:
                 is_selected = row == self.cursor_row and col == self.cursor_col
                 self._draw_key(row, col, is_selected)
 
+    @micropython.native
     def _draw_textbox(self) -> None:
         """Draws the text box that displays the current saved response"""
         # Draw textbox border (highlight if in textbox mode)
@@ -774,6 +781,7 @@ class Keyboard:
             self.cursor.y = 8 + display_line * 10
             self.draw._text(self.cursor.x, self.cursor.y, "_", self.text_color)
 
+    @micropython.native
     def _draw_suggestions(self):
         """Draws auto-complete suggestions based on keyboard visibility"""
         suggestions = self._auto_complete_suggestions()

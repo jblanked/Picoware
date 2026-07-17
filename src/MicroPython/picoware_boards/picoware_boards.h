@@ -137,6 +137,24 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_AUDIO 0
 #endif
 
+#ifdef PICO_RP2040
+#define BOARD_HAS_RP2040 1
+#else
+#define BOARD_HAS_RP2040 0
+#endif
+
+#ifdef PICO_RP2350
+#define BOARD_HAS_RP2350 1
+#else
+#define BOARD_HAS_RP2350 0
+#endif
+
+#if defined(CARDPUTER) || defined(BOARD_CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE)
+#define BOARD_HAS_ESP32 1
+#else
+#define BOARD_HAS_ESP32 0
+#endif
+
 mp_obj_t picoware_boards_get_current_display_size(void);
 mp_obj_t picoware_boards_get_current_name(void);
 mp_obj_t picoware_boards_get_device_name(void);

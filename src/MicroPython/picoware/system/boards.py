@@ -19,3 +19,6 @@ BOARD_HAS_SD = picoware_boards.BOARD_HAS_SD
 BOARD_HAS_TOUCH = picoware_boards.BOARD_HAS_TOUCH
 BOARD_HAS_WIFI = picoware_boards.BOARD_HAS_WIFI
 BOARD_HAS_AUDIO = picoware_boards.BOARD_HAS_AUDIO
+BOARD_HAS_RP2040 = picoware_boards.BOARD_HAS_RP2040
+BOARD_HAS_RP2350 = picoware_boards.BOARD_HAS_RP2350
+BOARD_HAS_ESP32 = picoware_boards.BOARD_HAS_ESP32

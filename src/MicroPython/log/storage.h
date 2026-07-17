@@ -37,6 +37,14 @@ static inline bool storage_write(const char *file_path, const void *data, size_t
 {
     return storage_file_write(file_path, data, data_size);
 }
+#elif defined(V8)
+#define STORAGE_DOES_EXIST 1
+#include "../v8/sd/storage.h"
+#define storage_read storage_file_read
+static inline bool storage_write(const char *file_path, const void *data, size_t data_size, bool overwrite)
+{
+    return storage_file_write(file_path, data, data_size);
+}
 #else
 
 #if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC)

@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <math.h>
 
-#if defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
+#if defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
 #include "../lcd/lcd_config.h"
 #elif defined(PICOCALC) || defined(PIMORONI_PICO_PLUS2W_RP2350)
 #include "../../lcd/lcd_config.h"
@@ -42,6 +42,8 @@ mp_obj_t picoware_boards_get_current_name(void)
     return mp_obj_new_str("Waveshare 2.06", strlen("Waveshare 2.06"));
 #elif defined(PANCAKE)
     return mp_obj_new_str("Pancake", strlen("Pancake"));
+#elif defined(V8)
+    return mp_obj_new_str("V8", strlen("V8"));
 #elif defined(CROWPANEL_10_1)
     return mp_obj_new_str("CrowPanel 10.1", strlen("CrowPanel 10.1"));
 #elif defined(PIMORONI_PICO_PLUS2W_RP2350)
@@ -74,6 +76,8 @@ mp_obj_t picoware_boards_get_device_name(void)
 #ifdef CROWPANEL_10_1
     return mp_obj_new_str("CrowPanel 10.1 ESP32-P4", strlen("CrowPanel 10.1 ESP32-P4"));
 #elif defined(PANCAKE)
+    return mp_obj_new_str("ESP32-C5", strlen("ESP32-C5"));
+#elif defined(V8)
     return mp_obj_new_str("ESP32-C5", strlen("ESP32-C5"));
 #elif defined(CARDPUTER) || defined(WAVESHARE_2_06)
     return mp_obj_new_str("ESP32-S3", strlen("ESP32-S3"));
@@ -138,6 +142,9 @@ mp_obj_t picoware_boards_get_name(mp_obj_t board_id_obj)
     case BOARD_PANCAKE:
         snprintf(board_name, sizeof(board_name), "Pancake");
         break;
+    case BOARD_V8:
+        snprintf(board_name, sizeof(board_name), "V8");
+        break;
     default:
         snprintf(board_name, sizeof(board_name), "Unknown Board");
         break;
@@ -182,6 +189,10 @@ mp_obj_t picoware_boards_get_display_size(mp_obj_t board_id_obj)
     case BOARD_PANCAKE:
         width = 320;
         height = 480;
+        break;
+    case BOARD_V8:
+        width = 240;
+        height = 320;
         break;
     case BOARD_CARDPUTER:
         width = 240;
@@ -243,6 +254,7 @@ mp_obj_t picoware_boards_has_sd_card(mp_obj_t board_id_obj)
     case BOARD_CARDPUTER:
     case BOARD_WAVESHARE_2_06:
     case BOARD_PANCAKE:
+    case BOARD_V8:
         has_sd_card = true;
         break;
     default:
@@ -267,6 +279,7 @@ mp_obj_t picoware_boards_has_touch(mp_obj_t board_id_obj)
     case BOARD_WAVESHARE_2_06:
     case BOARD_CROWPANEL_10_1:
     case BOARD_PANCAKE:
+    case BOARD_V8:
         has_touch = true;
         break;
     default:
@@ -289,6 +302,7 @@ mp_obj_t picoware_boards_has_wifi(mp_obj_t board_id_obj)
     case BOARD_PICOCALC_PICO_2W:
     case BOARD_PICOCALC_PIMORONI_2W:
     case BOARD_PANCAKE:
+    case BOARD_V8:
         has_wifi = true;
         break;
     default:
@@ -368,6 +382,7 @@ static const mp_rom_map_elem_t picoware_boards_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_BOARD_CARDPUTER), MP_ROM_INT(BOARD_CARDPUTER)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_WAVESHARE_2_06), MP_ROM_INT(BOARD_WAVESHARE_2_06)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_PANCAKE), MP_ROM_INT(BOARD_PANCAKE)},
+    {MP_ROM_QSTR(MP_QSTR_BOARD_V8), MP_ROM_INT(BOARD_V8)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_PSRAM), MP_ROM_INT(BOARD_HAS_PSRAM)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_SD), MP_ROM_INT(BOARD_HAS_SD)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_TOUCH), MP_ROM_INT(BOARD_HAS_TOUCH)},

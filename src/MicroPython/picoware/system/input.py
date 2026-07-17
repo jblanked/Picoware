@@ -10,6 +10,7 @@ from picoware.system.boards import (
     BOARD_WAVESHARE_3_49_RP2350,
     BOARD_WAVESHARE_2_06,
     BOARD_PANCAKE,
+    BOARD_V8,
     BOARD_HAS_TOUCH
 )
 
@@ -96,7 +97,7 @@ class Input:
 
             self._delay_ms = 200
 
-        elif self._current_board_id in (BOARD_CROWPANEL_10_1, BOARD_WAVESHARE_2_06, BOARD_PANCAKE):
+        elif self._current_board_id in (BOARD_CROWPANEL_10_1, BOARD_WAVESHARE_2_06, BOARD_PANCAKE, BOARD_V8):
             from touch import Touch
 
             self._crowpanel_touch = Touch()
@@ -303,6 +304,7 @@ class Input:
             BOARD_CROWPANEL_10_1,
             BOARD_WAVESHARE_2_06,
             BOARD_PANCAKE,
+            BOARD_V8,
         ):
             from picoware_southbridge import deinit
 
@@ -338,6 +340,11 @@ class Input:
 
             return get_percentage()
 
+        if self._current_board_id == BOARD_V8:
+            from v8_battery import get_percentage
+
+            return get_percentage()
+
         from picoware_southbridge import get_battery_percentage
 
         return get_battery_percentage()
@@ -349,6 +356,7 @@ class Input:
             BOARD_CROWPANEL_10_1,
             BOARD_WAVESHARE_2_06,
             BOARD_PANCAKE,
+            BOARD_V8,
         ):
             self._poll_crowpanel_touch()
         elif self._current_board_id == BOARD_CARDPUTER:
@@ -508,6 +516,7 @@ class Input:
             BOARD_CROWPANEL_10_1,
             BOARD_WAVESHARE_2_06,
             BOARD_PANCAKE,
+            BOARD_V8,
         ):
             self._poll_crowpanel_touch()
             return self._last_point != (0, 0)
@@ -652,6 +661,21 @@ class Input:
             elif 80 <= x <= 240 and 0 <= y <= 96:
                 self._last_button = buttons.BUTTON_UP
             elif 80 <= x <= 240 and 384 <= y <= 480:
+                self._last_button = buttons.BUTTON_DOWN
+            else:
+                self._last_button = buttons.BUTTON_CENTER
+
+        elif self._current_board_id == BOARD_V8:
+            # 240x320 portrait; top-left corner is back.
+            if 0 <= x <= 52 and 0 <= y <= 47:
+                self._last_button = buttons.BUTTON_BACK
+            elif 210 <= x <= 240 and 87 <= y <= 233:
+                self._last_button = buttons.BUTTON_RIGHT
+            elif 0 <= x <= 30 and 87 <= y <= 233:
+                self._last_button = buttons.BUTTON_LEFT
+            elif 60 <= x <= 180 and 0 <= y <= 64:
+                self._last_button = buttons.BUTTON_UP
+            elif 60 <= x <= 180 and 256 <= y <= 320:
                 self._last_button = buttons.BUTTON_DOWN
             else:
                 self._last_button = buttons.BUTTON_CENTER

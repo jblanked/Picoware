@@ -492,18 +492,10 @@ class ViewManager:
             BOARD_PICOCALC_PICO,
             BOARD_PICOCALC_PICOW,
             BOARD_PICOCALC_PIMORONI_2W,
-            BOARD_CROWPANEL_10_1,
-            BOARD_CARDPUTER,
-            BOARD_WAVESHARE_2_06,
-            BOARD_PANCAKE,
+            BOARD_HAS_ESP32,
         )
 
-        if self._current_board_id in (
-            BOARD_CROWPANEL_10_1,
-            BOARD_CARDPUTER,
-            BOARD_WAVESHARE_2_06,
-            BOARD_PANCAKE,
-        ):
+        if BOARD_HAS_ESP32 == 1:
             return freq(240000000)
 
         if frequency is not None:

@@ -1,10 +1,8 @@
 from picoware_boards import (
-    BOARD_CARDPUTER,
     BOARD_CROWPANEL_10_1,
     BOARD_ID,
     BOARD_WAVESHARE_1_28_RP2350,
-    BOARD_WAVESHARE_2_06,
-    BOARD_PANCAKE,
+    BOARD_HAS_ESP32
 )
 
 try:
@@ -82,11 +80,7 @@ class Storage:
         On Cardputer the SD card is exposed at /sdcard via the C POSIX bridge;
         on all other boards it is mounted at /sd by mount_vfs().
         """
-        if BOARD_ID in (
-            BOARD_CARDPUTER,
-            BOARD_WAVESHARE_2_06,
-            BOARD_PANCAKE,
-        ):
+        if BOARD_HAS_ESP32 == 1:
             return "/sdcard"
         return "/sd"
 
@@ -303,11 +297,7 @@ class Storage:
         if not self._has_storage:
             return False  # No SD storage on this board
 
-        if BOARD_ID in (
-            BOARD_CARDPUTER,
-            BOARD_WAVESHARE_2_06,
-            BOARD_PANCAKE,
-        ):
+        if BOARD_HAS_ESP32 == 1:
             self._vfs_mounted = True
             return True
 
@@ -347,11 +337,7 @@ class Storage:
         Returns:
             True if unmounted successfully, False otherwise
         """
-        if not self._vfs_mounted or BOARD_ID in (
-            BOARD_CARDPUTER,
-            BOARD_WAVESHARE_2_06,
-            BOARD_PANCAKE,
-        ):
+        if not self._vfs_mounted or BOARD_HAS_ESP32 == 1:
             return True
 
         try:

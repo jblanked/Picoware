@@ -62,6 +62,16 @@ The third option is to just download the `Picoware-Cardputer.bin` file from the 
 
 The fourth option is to download (and extract) this repository as a ZIP file, then update the environment variables within the `tools/micropython-cardputer-flash.sh` script to match your setup, and run the script. You need to pass the port that your Cardputer is connected to as an argument when running the script (`--port COM3` for example).
 
+## Marauder Pancake
+1. Download this repository as a ZIP file and extract it.
+2. Update the environment variables within the `tools/micropython-pancake-flash.sh` script to match your setup.
+3. Connect the Pancake to your computer over USB.
+4. Run the `tools/micropython-pancake-flash.sh` script, passing the port your board is on (`--port /dev/ttyUSB0` for example).
+
+Optionally, you can also download the `Picoware-Pancake.bin` file from the `builds/MicroPython` directory and flash it with your favorite flashing tool. The ESP32-C5 expects the bootloader at `0x2000`, the partition table at `0x8000`, and the firmware at `0x20000`.
+
+See the [Pancake guide](https://github.com/jblanked/Picoware/tree/main/guides/Pancake.md) for build instructions.
+
 ## Elecrow CrowPanel
 1. Download this repository as a ZIP file and extract it.
 2. Update the environment variables within the `tools/micropython-crowpanel-flash.sh` script to match your setup.

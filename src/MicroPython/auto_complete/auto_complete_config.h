@@ -15,6 +15,10 @@
 #define STORAGE_INCLUDE "../Waveshare/ESP32S3-Touch-LCD-2.06/sd/storage.h"
 #define STORAGE_READ storage_file_read
 #define STORAGE_MAX_READ_SIZE 4096
+#elif defined(PANCAKE)
+#define STORAGE_INCLUDE "../pancake/sd/storage.h"
+#define STORAGE_READ storage_file_read
+#define STORAGE_MAX_READ_SIZE 4096
 #elif !defined(WAVESHARE_1_28) && !defined(CROWPANEL_10_1)
 #define STORAGE_INCLUDE "storage.h"
 #define STORAGE_READ storage_read

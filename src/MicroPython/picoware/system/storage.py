@@ -4,6 +4,7 @@ from picoware_boards import (
     BOARD_ID,
     BOARD_WAVESHARE_1_28_RP2350,
     BOARD_WAVESHARE_2_06,
+    BOARD_PANCAKE,
 )
 
 try:
@@ -84,6 +85,7 @@ class Storage:
         if BOARD_ID in (
             BOARD_CARDPUTER,
             BOARD_WAVESHARE_2_06,
+            BOARD_PANCAKE,
         ):
             return "/sdcard"
         return "/sd"
@@ -304,6 +306,7 @@ class Storage:
         if BOARD_ID in (
             BOARD_CARDPUTER,
             BOARD_WAVESHARE_2_06,
+            BOARD_PANCAKE,
         ):
             self._vfs_mounted = True
             return True
@@ -347,6 +350,7 @@ class Storage:
         if not self._vfs_mounted or BOARD_ID in (
             BOARD_CARDPUTER,
             BOARD_WAVESHARE_2_06,
+            BOARD_PANCAKE,
         ):
             return True
 

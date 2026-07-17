@@ -22,15 +22,15 @@ Source: https://github.com/jblanked/Picoware
 #if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC)
 #include "../sd/fat32.h"
 #define SD_AVAILABLE 1
-#elif defined(CARDPUTER)
-/* Cardputer uses POSIX VFS */
+#elif defined(CARDPUTER) || defined(PANCAKE)
+/* Cardputer and Pancake use POSIX VFS */
 #include <stdio.h>
 #define SD_AVAILABLE 1
 #else
 #define SD_AVAILABLE 0
 #endif
 
-#if defined(CARDPUTER) || (MICROPY_PY_LWIP && !defined(NO_QSTR)) || defined(WAVESHARE_2_06)
+#if defined(CARDPUTER) || (MICROPY_PY_LWIP && !defined(NO_QSTR)) || defined(WAVESHARE_2_06) || defined(PANCAKE)
 /* URL / HTTP parsing helpers */
 
 static bool parse_url(const char *url,
@@ -197,7 +197,7 @@ static bool header_contains(const char *headers, size_t hdr_len, const char *nee
 }
 #endif
 
-#if (MICROPY_PY_LWIP && !defined(NO_QSTR)) || defined(CARDPUTER) || defined(WAVESHARE_2_06)
+#if (MICROPY_PY_LWIP && !defined(NO_QSTR)) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
 
 static bool header_name_is(const char *name, size_t len, const char *needle)
 {
@@ -1279,8 +1279,8 @@ bool http_file_download(const char *url, const char *destination_path)
 #endif /* SD_AVAILABLE */
 }
 
-/* Cardputer BSD sockets + FreeRTOS */
-#elif defined(CARDPUTER)
+/* Cardputer and Pancake BSD sockets + FreeRTOS */
+#elif defined(CARDPUTER) || defined(PANCAKE)
 
 #include "lwip/sockets.h"
 #include "lwip/netdb.h"

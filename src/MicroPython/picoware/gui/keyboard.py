@@ -221,11 +221,7 @@ class Keyboard:
         self.text_cursor_position = 0
         self.selected_suggestion_index = -1  # -1 means no suggestion selected
 
-        # Boards driven by touch get keys sized to the panel: the fixed 22x35
-        # is a comfortable target for a d-pad cursor but a poor one for a
-        # fingertip, and it leaves most of a large screen unused. Boards with
-        # real keys keep the original metrics.
-        self._touch_enabled = bool(getattr(input_manager, "has_touch_support", False))
+        self._touch_enabled = input_manager.has_touch_support
         if self._touch_enabled:
             self._size_keys_to_screen()
 
@@ -541,7 +537,7 @@ class Keyboard:
         ]
 
     def _size_keys_to_screen(self) -> None:
-        """Fits the key grid to the panel, for touch input."""
+        """Fit the key grid to the panel."""
         widest_row = 0
         for row in range(self.NUM_ROWS):
             units = 0
@@ -549,41 +545,35 @@ class Keyboard:
                 units += self.ROWS[row][col].width
             widest_row = max(widest_row, units)
 
-        # Width: the widest row spans the screen, less a small margin.
         usable_x = self.draw.size.x - 2 * self.KEY_MARGIN
         key_width = (usable_x - (widest_row - 1) * self.KEY_SPACING) // widest_row
 
-        # Height: share what is left below the textbox between the rows, but do
-        # not let a key grow taller than it is wide - on a tall panel that just
-        # wastes the space the textbox and suggestions need.
-        usable_y = self.draw.size.y - self.TEXTBOX_HEIGHT - 20 - self.KEY_MARGIN
-        key_height = usable_y // self.NUM_ROWS - self.KEY_SPACING
-        key_height = min(key_height, key_width)
+        usable_y = (
+            self.draw.size.y
+            - self.TEXTBOX_HEIGHT
+            - self.draw.scale_y(13.33)
+            - self.KEY_MARGIN
+        )
+        key_height = min(usable_y // self.NUM_ROWS - self.KEY_SPACING, key_width)
 
-        # Never end up smaller than the d-pad layout would have been.
         self.KEY_WIDTH = max(key_width, Keyboard.KEY_WIDTH)
         self.KEY_HEIGHT = max(key_height, Keyboard.KEY_HEIGHT)
 
     def _key_row_geometry(self, row: int) -> tuple:
-        """Returns (start_x, y) for a row, matching _draw_key's placement."""
+        """Return (start_x, y) for a key row, as _draw_key places it."""
         total_row_width = 0
         for i in range(self.ROW_SIZES[row]):
             total_row_width += self.ROWS[row][i].width * self.KEY_WIDTH + (
                 self.KEY_SPACING if i > 0 else 0
             )
         start_x = (self.draw.size.x - total_row_width) // 2
-        y = self.TEXTBOX_HEIGHT + 20 + row * (self.KEY_HEIGHT + self.KEY_SPACING)
+        y = self.TEXTBOX_HEIGHT + self.draw.scale_y(13.33) + row * (
+            self.KEY_HEIGHT + self.KEY_SPACING
+        )
         return start_x, y
 
     def _key_at_point(self, x: int, y: int):
-        """Returns the (row, col) under a touch point, or None.
-
-        Key starts advance by width*KEY_WIDTH + KEY_SPACING while a key is drawn
-        width*KEY_WIDTH + (width-1)*KEY_SPACING wide, so a multi-unit key (the
-        space bar) is drawn slightly over the key after it. Both are mirrored
-        from _draw_key, and columns are walked in reverse so that where two keys
-        overlap the hit matches the one drawn on top.
-        """
+        """Return the (row, col) under a touch point, or None."""
         for row in range(self.NUM_ROWS):
             start_x, row_y = self._key_row_geometry(row)
             if not row_y <= y < row_y + self.KEY_HEIGHT:
@@ -595,6 +585,7 @@ class Keyboard:
                 starts.append(x_pos)
                 x_pos += self.ROWS[row][col].width * self.KEY_WIDTH + self.KEY_SPACING
 
+            # reversed: a multi-unit key is drawn over the key after it
             for col in range(self.ROW_SIZES[row] - 1, -1, -1):
                 key = self.ROWS[row][col]
                 width = key.width * self.KEY_WIDTH + (key.width - 1) * self.KEY_SPACING
@@ -603,13 +594,7 @@ class Keyboard:
         return None
 
     def _handle_touch_input(self) -> bool:
-        """Presses the key under the touch point. True if the touch was consumed.
-
-        Boards with no keys map screen areas onto d-pad buttons, so a tap already
-        arrives as BUTTON_CENTER/UP/etc. Reading the raw point instead turns the
-        same tap into a direct key press; anything outside the grid is left to
-        the button path, so the back area still works.
-        """
+        """Press the key under the touch point. True if the touch was used."""
         point = self.input_manager.point
         if not point or point == (0, 0):
             return False
@@ -621,7 +606,13 @@ class Keyboard:
         self.cursor_row, self.cursor_col = hit
         self.is_in_textbox = False
         self.selected_suggestion_index = -1
+        # a tap is a centre press: the zone it lands in would otherwise report
+        # UP/DOWN/LEFT/RIGHT, which suppresses the shift reset
+        self.dpad_input = BUTTON_CENTER
         self._process_key_press()
+
+        if self.ROWS[self.cursor_row][self.cursor_col].normal == "":
+            self.is_manual_shift = True
         return True
 
     def _draw_key(self, row: int, col: int, is_selected: bool) -> None:
@@ -645,7 +636,9 @@ class Keyboard:
         x_pos = start_x
         for i in range(col):
             x_pos += self.ROWS[row][i].width * self.KEY_WIDTH + self.KEY_SPACING
-        y_pos = self.TEXTBOX_HEIGHT + 20 + row * (self.KEY_HEIGHT + self.KEY_SPACING)
+        y_pos = self.TEXTBOX_HEIGHT + self.draw.scale_y(13.33) + row * (
+            self.KEY_HEIGHT + self.KEY_SPACING
+        )
 
         # Calculate key size
         width = key.width * self.KEY_WIDTH + (key.width - 1) * self.KEY_SPACING

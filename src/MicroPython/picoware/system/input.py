@@ -10,6 +10,7 @@ from picoware.system.boards import (
     BOARD_WAVESHARE_3_49_RP2350,
     BOARD_WAVESHARE_2_06,
     BOARD_PANCAKE,
+    BOARD_HAS_TOUCH
 )
 
 
@@ -95,21 +96,7 @@ class Input:
 
             self._delay_ms = 200
 
-        elif self._current_board_id == BOARD_CROWPANEL_10_1:
-            from touch import Touch
-
-            self._crowpanel_touch = Touch()
-            self._last_point = (0, 0)
-            self._delay_ms = 120
-
-        elif self._current_board_id == BOARD_WAVESHARE_2_06:
-            from touch import Touch
-
-            self._crowpanel_touch = Touch()
-            self._last_point = (0, 0)
-            self._delay_ms = 120
-
-        elif self._current_board_id == BOARD_PANCAKE:
+        elif self._current_board_id in (BOARD_CROWPANEL_10_1, BOARD_WAVESHARE_2_06, BOARD_PANCAKE):
             from touch import Touch
 
             self._crowpanel_touch = Touch()
@@ -391,14 +378,7 @@ class Input:
     @property
     def has_touch_support(self) -> bool:
         """Returns True if touch input is supported on the current board."""
-        return self._current_board_id in (
-            BOARD_WAVESHARE_1_28_RP2350,
-            BOARD_WAVESHARE_1_43_RP2350,
-            BOARD_WAVESHARE_3_49_RP2350,
-            BOARD_CROWPANEL_10_1,
-            BOARD_WAVESHARE_2_06,
-            BOARD_PANCAKE,
-        )
+        return BOARD_HAS_TOUCH == 1
 
     @property
     def point(self) -> tuple:

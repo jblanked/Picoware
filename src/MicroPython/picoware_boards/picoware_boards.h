@@ -72,7 +72,7 @@ Source: https://github.com/jblanked/Picoware
 #elif defined(PANCAKE)
 // Marauder Pancake ESP32-C5
 #define BOARD_ID BOARD_PANCAKE
-#define BOARD_HAS_PSRAM 1 // has psram (required: the framebuffer lives there)
+#define BOARD_HAS_PSRAM 0 // no psram
 #define BOARD_HAS_SD 1    // has sd card
 #define BOARD_HAS_TOUCH 1 // has touch
 #define BOARD_HAS_WIFI 1  // has wifi

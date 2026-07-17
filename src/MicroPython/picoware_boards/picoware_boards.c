@@ -74,7 +74,7 @@ mp_obj_t picoware_boards_get_device_name(void)
 #ifdef CROWPANEL_10_1
     return mp_obj_new_str("CrowPanel 10.1 ESP32-P4", strlen("CrowPanel 10.1 ESP32-P4"));
 #elif defined(PANCAKE)
-    return mp_obj_new_str("Marauder Pancake", strlen("Marauder Pancake"));
+    return mp_obj_new_str("ESP32-C5", strlen("ESP32-C5"));
 #elif defined(CARDPUTER) || defined(WAVESHARE_2_06)
     return mp_obj_new_str("ESP32-S3", strlen("ESP32-S3"));
 #elif defined(CYW43_WL_GPIO_LED_PIN)
@@ -215,7 +215,6 @@ mp_obj_t picoware_boards_has_psram(mp_obj_t board_id_obj)
     case BOARD_PICOCALC_PICO_2:
     case BOARD_PICOCALC_PICO_2W:
     case BOARD_PICOCALC_PIMORONI_2W:
-    case BOARD_PANCAKE:
         has_psram = true;
         break;
     default:

@@ -558,10 +558,7 @@ class Keyboard:
         )
         key_height = min(usable_y // self.NUM_ROWS - self.KEY_SPACING, key_width)
 
-        # Fit to the panel: the computed width is what makes 13 keys span the
-        # screen, so it must not be clamped back up to the class default (that
-        # overflows a narrow 240 px panel). Height keeps a sensible touch floor.
-        self.KEY_WIDTH = key_width
+        self.KEY_WIDTH = max(key_width, Keyboard.KEY_WIDTH)
         self.KEY_HEIGHT = max(key_height, Keyboard.KEY_HEIGHT)
 
     @micropython.native

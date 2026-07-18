@@ -1106,11 +1106,7 @@ class Desktop:
         self.name_pos = Vector(0, 0)
         self.time_pos = Vector(int(self.size.x * 0.4375), 5)
         self.bluetooth_pos = Vector(0, 0)
-        # Right-side cluster is anchored a fixed distance from the right edge, not
-        # a fraction of width: the icons are fixed-size, so fractional placement
-        # tuned for 320 px overflows/overlaps on the narrower 240 px panel. These
-        # offsets reproduce the 320 px positions exactly (252 / 280 / 299).
-        self.battery_pos = Vector(self.size.x - 68, 5)
+        self.battery_pos = Vector(int(self.size.x * 0.7875), 5)
 
         if self.is_circular:
             # wifi icon
@@ -1128,16 +1124,16 @@ class Desktop:
                 int(self.size.y / 20) + 25,
             )
         else:
-            # wifi icon (19 px wide, 2 px right margin)
+            # wifi icon
             self.wifi_pos.x, self.wifi_pos.y = (
-                self.size.x - 21,
+                int(self.size.x * (1 - 21 / 320)),
                 2,
             )
             # board name
             self.name_pos.x, self.name_pos.y = 2, 5
-            # bluetooth icon (14 px wide, sits left of the wifi icon)
+            # bluetooth icon
             self.bluetooth_pos.x, self.bluetooth_pos.y = (
-                self.size.x - 40,
+                int(self.size.x * 0.875),
                 2,
             )
 

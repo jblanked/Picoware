@@ -50,8 +50,12 @@ class System:
         """Return MCU frequency."""
         import machine
 
-        freq = machine.freq() / 1000000
-        return freq
+        try:
+            freq = machine.freq() / 1000000
+        except Exception:
+            # unpack tuple
+            freq = machine.freq()[0] / 100000
+        return int(freq)
 
     @property
     def has_audio(self) -> bool:

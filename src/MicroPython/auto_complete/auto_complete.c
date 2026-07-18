@@ -4,7 +4,10 @@
 // Get index for character (a-z maps to 0-25, space maps to 26)
 static int char_to_index(char c)
 {
-    c = tolower(c);
+    if (c >= 'A' && c <= 'Z')
+    {
+        c = c - 'A' + 'a';
+    }
     if (c >= 'a' && c <= 'z')
     {
         return c - 'a';

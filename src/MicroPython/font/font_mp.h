@@ -27,9 +27,14 @@ extern "C"
     const uint8_t *font_get_character(FontSize size, char c); // Get the bitmap data for a specific character in the specified font size
     const uint8_t *font_get_data(FontSize size);              // Get the font data pointer for a given font size
     FontTable font_get_table(FontSize size);                  // Get the FontTable structure for a given font size
-    uint8_t font_get_height(FontSize size);                   // Get the height of a font in pixels
-    uint8_t font_get_spacing(FontSize size);                  // Get the spacing of a font in pixels
-    uint8_t font_get_width(FontSize size);                    // Get the width of a font in pixels
+    uint8_t font_get_height(FontSize size);
+    uint8_t font_get_spacing(FontSize size);
+    uint8_t font_get_width(FontSize size);
+
+    void font_mp_set_scale(uint8_t num, uint8_t den);
+    uint8_t font_get_scaled_width(FontSize size);
+    uint8_t font_get_scaled_height(FontSize size);
+    uint8_t font_get_scaled_spacing(FontSize size);
 
     mp_obj_t font_mp_get_character(mp_obj_t self_in, mp_obj_t size, mp_obj_t char_obj); // Get the bitmap data for a specific character in the specified font size
     mp_obj_t font_mp_get_data(mp_obj_t self_in, mp_obj_t size);                         // Get the font data pointer for a given font size

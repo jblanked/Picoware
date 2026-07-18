@@ -1,7 +1,6 @@
 from utime import ticks_ms
 from gc import collect
 
-
 class Thread:
     """Class representing a thread."""
 
@@ -18,12 +17,16 @@ class Thread:
     def __init__(
         self, function: callable, args: tuple = (), stack_size: int = 0
     ) -> None:
-        from _thread import allocate_lock
+        self._lock = None
+        try:
+            import _thread
+            self._lock = _thread.allocate_lock()
+        except ImportError:
+            pass
 
         self._args = args
         self._error = None
         self._function = function
-        self._lock = allocate_lock()
         self._running = False
         self._stop_requested = False
         self._stack_size = stack_size
@@ -37,18 +40,27 @@ class Thread:
     @property
     def error(self):
         """Get the error if any occurred during thread execution."""
+        if self._lock is None:
+            return None
+        
         with self._lock:
             return self._error
 
     @property
     def is_running(self) -> bool:
         """Check if the thread is running."""
+        if self._lock is None:
+            return False
+        
         with self._lock:
             return self._running
 
     @property
     def should_stop(self) -> bool:
         """Check if stop was requested."""
+        if self._lock is None:
+            return False
+
         with self._lock:
             return self._stop_requested
 
@@ -59,18 +71,22 @@ class Thread:
             with self._lock:
                 self._error = e
         finally:
+            if self._lock is None:
+                return
             with self._lock:
                 self._running = False
                 self._stop_requested = False
 
     def run(self) -> bool:
         """Run the thread."""
-        import _thread
-
+        if self._lock is None:
+            return False
+            
         with self._lock:
             if self._running:
                 return False
             try:
+                import _thread
                 self._running = True
                 self._stop_requested = False
                 if self._stack_size > 0:
@@ -84,6 +100,9 @@ class Thread:
 
     def stop(self) -> None:
         """Request the thread to stop."""
+        if self._lock is None:
+            return
+        
         with self._lock:
             self._stop_requested = True
 

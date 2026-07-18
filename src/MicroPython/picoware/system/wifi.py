@@ -21,7 +21,13 @@ class WiFi:
             timeout: Connection timeout in seconds.
         """
         from network import STA_IF, WLAN
-        from _thread import allocate_lock
+
+        self._thread_lock = None
+        try:
+            from _thread import allocate_lock
+            self._thread_lock = allocate_lock()
+        except ImportError:
+            pass
 
         self.ssid = ""
         self.password = ""
@@ -33,8 +39,7 @@ class WiFi:
         self.error = ""
         #
         self._thread = None
-        self._thread_running = False
-        self._thread_lock = allocate_lock()
+        self._thread_running = False 
         self._thread_manager = thread_manager
         self._current_task = None
         #
@@ -55,12 +60,17 @@ class WiFi:
         if self._current_task:
             self._current_task.stop()
             self._current_task = None
+        if self._thread_lock is None:
+            return
         with self._thread_lock:
             self._thread_running = False
             self._thread = None
 
     def _should_continue(self) -> bool:
         """Check if the operation should continue running."""
+        if self._thread_lock is None:
+            return False
+        
         with self._thread_lock:
             if self._thread_manager is not None and self._current_task is not None:
                 return self._thread_running and not self._current_task.should_stop
@@ -69,6 +79,9 @@ class WiFi:
     @property
     def callback_connect(self) -> callable:
         """Get the connection callback function."""
+        if self._thread_lock is None:
+            return None
+        
         with self._thread_lock:
             return self._callback_connect
 
@@ -79,24 +92,36 @@ class WiFi:
 
         The callback function should accept two arguments: the Wi-Fi state and an error message (if any).
         """
+        if self._thread_lock is None:
+            return
+        
         with self._thread_lock:
             self._callback_connect = func
 
     @property
     def device_ip(self):
         """Get the current device IP address."""
+        if self._thread_lock is None:
+            return ""
+        
         with self._thread_lock:
             return self.wlan.ifconfig()[0] if self.wlan else ""
 
     @property
     def last_error(self) -> str:
         """Get the last connection error message."""
+        if self._thread_lock is None:
+            return ""
+        
         with self._thread_lock:
             return self.error
 
     @property
     def mac_address(self) -> str:
         """Get the MAC address of the Wi-Fi interface."""
+        if self._thread_lock is None:
+            return ""
+        
         with self._thread_lock:
             mac = self.wlan.config("mac")
             return ":".join("{:02x}".format(b) for b in mac)
@@ -104,18 +129,27 @@ class WiFi:
     @property
     def state(self) -> int:
         """Get the current Wi-Fi state."""
+        if self._thread_lock is None:
+            return WIFI_STATE_INACTIVE
+        
         with self._thread_lock:
             return self._state
 
     @property
     def timeout(self) -> int:
         """Get the connection timeout in seconds."""
+        if self._thread_lock is None:
+            return 0
+        
         with self._thread_lock:
             return self.connection_timeout
 
     @timeout.setter
     def timeout(self, seconds: int) -> None:
         """Set the connection timeout in seconds."""
+        if self._thread_lock is None:
+            return
+        
         with self._thread_lock:
             self.connection_timeout = seconds
 
@@ -215,14 +249,19 @@ class WiFi:
                 self._thread_manager.add_task(task)
                 return True
 
-            import _thread
+            if self._thread_lock is not None:
+                import _thread
 
-            # Start the request in a separate thread
-            self._thread = _thread.start_new_thread(
-                self.connect,
-                (ssid, password, sta_mode),
-            )
-            return True
+                # Start the request in a separate thread
+                self._thread = _thread.start_new_thread(
+                    self.connect,
+                    (ssid, password, sta_mode),
+                )
+                return True
+
+            self.error = "Threading not available."
+            self._state = WIFI_STATE_ISSUE
+            return False
         except Exception as e:
             self.error = f"Failed to start WiFi connection thread: {e}"
             self._state = WIFI_STATE_ISSUE
@@ -230,12 +269,16 @@ class WiFi:
 
     def disconnect(self):
         """Disconnect from the Wi-Fi network."""
+        if self._thread_lock is None:
+            return
         with self._thread_lock:
             self._thread_running = False
             self.wlan.disconnect()
 
     def is_connected(self):
         """Check if the device is connected to a Wi-Fi network."""
+        if self._thread_lock is None:
+            return False
         with self._thread_lock:
             return self.wlan.isconnected()
 
@@ -255,6 +298,9 @@ class WiFi:
             STAT_CONNECT_FAIL,
         )
 
+        if self._thread_lock is None:
+            return WIFI_STATE_INACTIVE
+        
         with self._thread_lock:
             status = self.wlan.status()
             if status == STAT_IDLE:
@@ -279,6 +325,8 @@ class WiFi:
 
     def reset(self):
         """Reset the Wi-Fi configuration."""
+        if self._thread_lock is None:
+            return
         with self._thread_lock:
             self.wlan.active(False)
             self.ssid = ""

@@ -165,13 +165,6 @@ class Keyboard:
     ROW_SIZES = [13, 13, 13, 13, 2]
     NUM_ROWS = 5
 
-    # Key dimensions
-    KEY_WIDTH = 22
-    KEY_HEIGHT = 35
-    KEY_SPACING = 1
-    KEY_MARGIN = 4 
-    TEXTBOX_HEIGHT = 45
-
     def __init__(
         self,
         draw,
@@ -221,6 +214,10 @@ class Keyboard:
         self.is_in_textbox = False
         self.text_cursor_position = 0
         self.selected_suggestion_index = -1  # -1 means no suggestion selected
+
+        self.KEY_WIDTH, self.KEY_HEIGHT = draw.scale(22, 35)
+        self.KEY_MARGIN, self.TEXTBOX_HEIGHT = draw.scale(4, 45) 
+        self.KEY_SPACING = 1
 
         self._touch_enabled = input_manager.has_touch_support
         if self._touch_enabled:

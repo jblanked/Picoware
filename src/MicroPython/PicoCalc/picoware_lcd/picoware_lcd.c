@@ -13,6 +13,8 @@
 #define FONT_DEFAULT FONT_SIZE_XTRA_SMALL
 #endif
 
+#include "../../log/log_mp.h"
+
 #define LCD_CHUNK_LINES 32
 
 // Module state
@@ -144,7 +146,7 @@ static bool allocate_heap_framebuffer(void)
 {
     if (heap_framebuffer == NULL)
     {
-        heap_framebuffer = (uint8_t *)m_malloc(HEAP_BUFFER_SIZE);
+        heap_framebuffer = (uint8_t *)m_tracked_calloc(1, HEAP_BUFFER_SIZE);
         if (heap_framebuffer == NULL)
             return false;
         memset(heap_framebuffer, 0, HEAP_BUFFER_SIZE);
@@ -157,7 +159,7 @@ static void free_heap_framebuffer(void)
 {
     if (heap_framebuffer != NULL && heap_framebuffer_allocated)
     {
-        m_free(heap_framebuffer);
+        m_tracked_free(heap_framebuffer);
         heap_framebuffer = NULL;
         heap_framebuffer_allocated = false;
     }
@@ -234,15 +236,16 @@ void picocalc_lcd_init(void)
         module_initialized = true;
     }
 
-    lcd_mode = LCD_MODE_PSRAM;
-
-    if (!psram_initialized)
-    {
-        psram_instance = psram_qspi_init(pio1, -1, 1.0f);
-        psram_initialized = true;
-    }
-
     free_heap_framebuffer();
+
+    if (lcd_mode == LCD_MODE_PSRAM)
+    {
+        picoware_psram_ensure_initialized();
+    }
+    else if (!allocate_heap_framebuffer())
+    {
+        LOG_MESSAGE("Failed to allocate heap framebuffer");
+    }
 }
 
 void lcd_deinit(void)

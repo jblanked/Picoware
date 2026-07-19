@@ -8,13 +8,20 @@
 void http_js_get_response(struct mjs *mjs)
 {
     size_t buffer_size = (size_t)mjs_get_int(mjs, mjs_arg(mjs, 0));
-    char *buffer = (char *)m_malloc0(buffer_size); // let gc clean up
+    char *buffer = (char *)m_malloc(buffer_size);
     if (buffer == NULL || !http_get_http_response(buffer, buffer_size))
     {
         mjs_return(mjs, MJS_UNDEFINED);
+        if (buffer != NULL)
+        {
+            m_free(buffer);
+            buffer = NULL;
+        }
         return;
     }
     mjs_return(mjs, mjs_mk_string(mjs, buffer, strlen(buffer), 1));
+    m_free(buffer);
+    buffer = NULL;
 }
 
 void http_js_is_finished(struct mjs *mjs)
@@ -67,7 +74,7 @@ void http_js_request(struct mjs *mjs)
         {
             // Wait for the request to finish
         }
-        char *response_buffer = (char *)m_malloc0(buffer_size); // let gc clean up
+        char *response_buffer = (char *)m_malloc(buffer_size);
         if (response_buffer == NULL)
         {
             mjs_return(mjs, MJS_UNDEFINED);
@@ -76,8 +83,10 @@ void http_js_request(struct mjs *mjs)
         if (http_get_http_response(response_buffer, buffer_size))
         {
             mjs_return(mjs, mjs_mk_string(mjs, response_buffer, strlen(response_buffer), 0));
+            m_free(response_buffer);
             return;
         }
+        m_free(response_buffer);
         mjs_return(mjs, MJS_UNDEFINED);
         return;
     }

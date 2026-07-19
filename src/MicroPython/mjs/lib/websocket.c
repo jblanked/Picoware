@@ -9,14 +9,20 @@ void websocket_js_get_response(struct mjs *mjs)
 {
     mjs_val_t arg = mjs_arg(mjs, 0);
     size_t buffer_size = mjs_is_null(arg) || mjs_is_undefined(arg) ? 2048 : (size_t)mjs_get_int(mjs, arg);
-    char *buffer = (char *)m_malloc0(buffer_size);
+    char *buffer = (char *)m_malloc(buffer_size);
     if (buffer == NULL || !http_get_websocket_response(buffer, buffer_size))
     {
         mjs_return(mjs, MJS_UNDEFINED);
-        buffer = NULL;
+        if (buffer != NULL)
+        {
+            m_free(buffer);
+            buffer = NULL;
+        }
         return;
     }
     mjs_return(mjs, mjs_mk_string(mjs, buffer, strlen(buffer), 1));
+    m_free(buffer);
+    buffer = NULL;
 }
 
 void websocket_js_is_connected(struct mjs *mjs)

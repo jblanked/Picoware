@@ -80,3 +80,14 @@ See the [Pancake guide](https://github.com/jblanked/Picoware/tree/main/guides/Pa
 5. Run the `tools/micropython-crowpanel-flash.sh` script.
 
 Optionally, you can also download the `Picoware-CrowPanel-10.1.bin` file from the `builds/MicroPython` directory and flash it to your CrowPanel using your favorite flashing tool.
+
+## Flipper Zero
+1. Download this repository as a ZIP file and extract it.
+2. Turn off your Flipper Zero, take out the SD card, then insert it into your computer.
+3. Create a `picoware` folder on your SD card and copy the contents of the `builds/MicroPython/apps` folder on the ZIP file into it.
+4. Eject the SD card from your computer and insert it into your Flipper Zero.
+5. Hold the `Center + Back` buttons for 25 seconds.
+6. Connect your Flipper Zero to your computer via USB-C data cable.
+7. Open up qFlipper (download from [here](https://flipper.net/pages/downloads/) if you don't have it installed).
+8. Click `Install from file` and select the `Picoware-FlipperZero.dfu` within the `builds/MicroPython` directory of the ZIP file you downloaded.
+9. Wait for the flashing process to complete and then disconnect your Flipper Zero from your computer once you see the Picoware logo on the device.

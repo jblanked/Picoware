@@ -13,6 +13,7 @@ class List:
         border_width: int = 2,
     ):
         from picoware.system.system import System
+        from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
         from picoware.system.vector import Vector
 
         syst = System()
@@ -63,7 +64,7 @@ class List:
             self._sixteen = self.display.size.y // 20  # 320 / 20 = 16
             self._three = self.display.size.y // 106  # 320 / 106 = 3
 
-            self.item_height = self._five.y * 4
+            self.item_height = draw.scale_y(20)
             self._selected_index = 0
             self.visible_item_count = (
                 self.size.y - 2 * border_width
@@ -80,10 +81,11 @@ class List:
             self.text_vec_pos = Vector(self._five.x * 2, 0)
 
             self.menu_y = int(self.position.y + self.size.y // 4)
-            self.box_width = int(self.size_x - int(self.size_x // 6.4))
-            self.box_height = int(self.size.y // 8)
+            self.box_width = int(self.size_x - int(self.size_x // draw.font_size.x))
+            self.box_height = int(self.size.y // draw.font_size.y)
             self.box_x = int((self.size_x - self.box_width) // 2)
             self.dot_size = Vector(self._five.x * 2, self._five.y * 2)
+            self._draw_count = BOARD_ID != BOARD_FLIPPER_ZERO
         else:
             # For LVGL mode, we still need to track items in Python
             self.items = []
@@ -218,14 +220,15 @@ class List:
             )
 
             # Draw text centered
-            item_width = self.display.len(current_item, 2)
+            font_size = 2 if self._draw_count else 1
+            item_width = self.display.len(current_item, font_size)
             item_x = (self.size_x - item_width) // 2
             self.display._text(
                 item_x,
                 self.menu_y - self._five.y * 4,
                 current_item,
                 self.text_color,
-                2,
+                font_size,
             )
 
             # Draw navigation arrows
@@ -264,7 +267,7 @@ class List:
                             self.dot_size.y,
                             self.border_color,
                         )
-            else:
+            elif self._draw_count:
                 # show the current selected item index and total count
                 index_text = "{}/{}".format(self._selected_index + 1, _len)
                 index_text_width = len(index_text) * self.display.font_size.x

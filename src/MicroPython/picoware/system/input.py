@@ -10,7 +10,8 @@ from picoware.system.boards import (
     BOARD_WAVESHARE_3_49_RP2350,
     BOARD_WAVESHARE_2_06,
     BOARD_PANCAKE,
-    BOARD_HAS_TOUCH
+    BOARD_HAS_TOUCH,
+    BOARD_FLIPPER_ZERO
 )
 
 
@@ -107,6 +108,12 @@ class Input:
             from cardputer_keyboard import init
 
             init()
+        elif self._current_board_id == BOARD_FLIPPER_ZERO:
+            from flipper_battery import init as battery_init
+            from flipper_input import init as input_init
+
+            battery_init()
+            input_init()
 
         else:
             from picoware_keyboard import (
@@ -296,6 +303,10 @@ class Input:
             from cardputer_keyboard import deinit
 
             deinit()
+        elif self._current_board_id == BOARD_FLIPPER_ZERO:
+            from flipper_input import deinit
+            deinit()
+
         elif self._current_board_id not in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
@@ -338,6 +349,11 @@ class Input:
 
             return get_percentage()
 
+        if self._current_board_id == BOARD_FLIPPER_ZERO:
+            from flipper_battery import get_percentage
+
+            return get_percentage()
+
         from picoware_southbridge import get_battery_percentage
 
         return get_battery_percentage()
@@ -353,6 +369,12 @@ class Input:
             self._poll_crowpanel_touch()
         elif self._current_board_id == BOARD_CARDPUTER:
             from cardputer_keyboard import key_available, poll
+
+            poll()
+            if key_available():
+                self.on_key_callback()
+        elif self._current_board_id == BOARD_FLIPPER_ZERO:
+            from flipper_input import key_available, poll
 
             poll()
             if key_available():
@@ -515,6 +537,10 @@ class Input:
             from cardputer_keyboard import key_available
 
             return key_available()
+        elif self._current_board_id == BOARD_FLIPPER_ZERO:
+            from flipper_input import key_available
+
+            return key_available()
         from picoware_keyboard import key_available
 
         return key_available()
@@ -558,6 +584,10 @@ class Input:
             from cardputer_keyboard import get_key
 
             return get_key()
+        elif self._current_board_id == BOARD_FLIPPER_ZERO:
+            from flipper_input import get_key
+
+            return get_key()
 
         from picoware_keyboard import get_key
 
@@ -569,6 +599,10 @@ class Input:
             return -1  # Not applicable for touch input
         if self._current_board_id == BOARD_CARDPUTER:
             from cardputer_keyboard import get_key_nonblocking
+
+            return get_key_nonblocking()
+        elif self._current_board_id == BOARD_FLIPPER_ZERO:
+            from flipper_input import get_key_nonblocking
 
             return get_key_nonblocking()
         from picoware_keyboard import get_key_nonblocking

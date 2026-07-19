@@ -15,7 +15,7 @@ class Menu:
     ) -> None:
         from picoware.gui.list import List
         from picoware.system.vector import Vector
-        from picoware.system.boards import BOARD_ID, BOARD_CARDPUTER
+        from picoware.system.boards import BOARD_ID, BOARD_CARDPUTER, BOARD_FLIPPER_ZERO
 
         self.text_color = text_color
         self.background_color = background_color
@@ -72,7 +72,8 @@ class Menu:
             self.clear_position = Vector(0, 0)
             self.clear_size = Vector(self.display.size.x, self._height_offset)
 
-            self._draw_underline = BOARD_ID != BOARD_CARDPUTER
+            self._draw_underline = BOARD_ID not in (BOARD_CARDPUTER, BOARD_FLIPPER_ZERO)
+            self._draw_title = BOARD_ID not in (BOARD_FLIPPER_ZERO,)
 
             draw.clear(self.position, self.size, self.background_color)
             draw.swap()
@@ -195,32 +196,34 @@ class Menu:
 
     def draw_title(self) -> None:
         """Draw the title (for standard rendering only)."""
+        
         if self.use_lvgl:
             return  # Title is handled by LVGL list
 
-        # clear title area
-        self.display._fill_rectangle(
-            self.clear_position.x,
-            self.clear_position.y,
-            self.clear_size.x,
-            self.clear_size.y,
-            self.background_color,
-        )
-
-        # Draw title centered
-        self.display._text(
-            self.title_pos.x, self.title_pos.y, self._title, self.text_color, 3
-        )
-
-        # Draw underline
-        if self._draw_underline:
-            self.display._line(
-                self.line_pos.x,
-                self.line_pos.y,
-                self.line_size.x,
-                self.line_size.y,
-                self.text_color,
+        if self._draw_title:
+            # clear title area
+            self.display._fill_rectangle(
+                self.clear_position.x,
+                self.clear_position.y,
+                self.clear_size.x,
+                self.clear_size.y,
+                self.background_color,
             )
+
+            # Draw title centered
+            self.display._text(
+                self.title_pos.x, self.title_pos.y, self._title, self.text_color, 3
+            )
+
+            # Draw underline
+            if self._draw_underline:
+                self.display._line(
+                    self.line_pos.x,
+                    self.line_pos.y,
+                    self.line_size.x,
+                    self.line_size.y,
+                    self.text_color,
+                )
 
         self.list.display.swap()
 

@@ -49,7 +49,7 @@ class ViewManager:
         from picoware.system.log import Log, LOG_MODE_ALL, LOG_MODE_REPL
         from picoware.system.colors import TFT_BLUE, TFT_BLACK, TFT_WHITE
         from picoware.system.buttons import BUTTON_ESCAPE
-        from picoware.system.boards import BOARD_CARDPUTER
+        from picoware.system.boards import BOARD_CARDPUTER, BOARD_FLIPPER_ZERO
         from picoware.system.usb import USBVideoStream
 
         self._active = True
@@ -106,7 +106,7 @@ class ViewManager:
 
         # exit button
         _back_button = settings.exit_button
-        if syst.board_id == BOARD_CARDPUTER:
+        if syst.board_id in (BOARD_CARDPUTER, BOARD_FLIPPER_ZERO):
             _back_button = BUTTON_ESCAPE
 
         # Initialize input manager
@@ -493,7 +493,10 @@ class ViewManager:
             BOARD_PICOCALC_PICOW,
             BOARD_PICOCALC_PIMORONI_2W,
             BOARD_HAS_ESP32,
+            BOARD_FLIPPER_ZERO
         )
+        if self._current_board_id == BOARD_FLIPPER_ZERO:
+            return
 
         if BOARD_HAS_ESP32 == 1:
             return freq(240000000)

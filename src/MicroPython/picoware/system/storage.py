@@ -2,7 +2,8 @@ from picoware_boards import (
     BOARD_CROWPANEL_10_1,
     BOARD_ID,
     BOARD_WAVESHARE_1_28_RP2350,
-    BOARD_HAS_ESP32
+    BOARD_HAS_ESP32,
+    BOARD_FLIPPER_ZERO,
 )
 
 try:
@@ -59,7 +60,10 @@ class Storage:
 
     def __del__(self):
         """Destructor to ensure SD card is unmounted."""
-        self.unmount()
+        try:
+            self.unmount()
+        except Exception:
+            pass
 
     @property
     def active(self) -> bool:
@@ -301,6 +305,12 @@ class Storage:
             self._vfs_mounted = True
             return True
 
+        if BOARD_FLIPPER_ZERO:
+            result = self.mount()
+            if result:
+                self._vfs_mounted = True
+            return result
+
         try:
             from vfs_mp import mount
 
@@ -338,6 +348,11 @@ class Storage:
             True if unmounted successfully, False otherwise
         """
         if not self._vfs_mounted or BOARD_HAS_ESP32 == 1:
+            return True
+
+        if BOARD_FLIPPER_ZERO:
+            self.unmount()
+            self._vfs_mounted = False
             return True
 
         try:
@@ -414,7 +429,11 @@ class Storage:
         """Remove a file or directory."""
         if not self._has_storage:
             return False  # No SD storage on this board
-        return sd_mp.remove(file_path)
+        try:
+            return sd_mp.remove(file_path)
+        except Exception as e:
+            print(f"Error removing {file_path}: {e}")
+            return False
 
     def rename(self, old_path: str, new_path: str) -> bool:
         """Rename a file or directory."""
@@ -468,8 +487,11 @@ class Storage:
 
     def unmount(self) -> bool:
         """Unmount the SD card (including VFS if mounted)."""
-        # Unmount VFS first if it's mounted
         if not self._has_storage:
             return False  # No SD storage on this board
-        sd_mp.unmount()
+        try:
+            sd_mp.unmount()
+        except Exception as e:
+            print(f"Error unmounting SD: {e}")
+            return False
         return True

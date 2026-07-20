@@ -256,20 +256,23 @@ void lcd_blit(uint16_t *pixels, uint16_t x, uint16_t y, uint16_t width, uint16_t
     {
         // Adjust y for vertical scroll offset and wrap within memory height
         uint16_t y_virtual = (lcd_y_offset + y) % lcd_memory_scroll_height;
-        uint16_t y_end = lcd_scroll_top + y_virtual + height - 1;
-        if (y_end >= lcd_scroll_top + lcd_memory_scroll_height)
+        uint16_t y_start = lcd_scroll_top + y_virtual;
+        uint16_t y_end = y_start + height - 1;
+        uint16_t y_limit = lcd_scroll_top + lcd_memory_scroll_height - 1;
+        if (y_end >= y_limit)
         {
-            y_end = lcd_scroll_top + lcd_memory_scroll_height - 1;
+            y_end = y_limit;
         }
-        lcd_set_window(x, lcd_scroll_top + y_virtual, x + width - 1, y_end);
+        uint16_t actual_height = y_end - y_start + 1;
+        lcd_set_window(x, y_start, x + width - 1, y_end);
+        lcd_write16_buf((uint16_t *)pixels, (size_t)width * actual_height);
     }
     else
     {
         // No vertical scrolling, use the actual y-coordinate
         lcd_set_window(x, y, x + width - 1, y + height - 1);
+        lcd_write16_buf((uint16_t *)pixels, (size_t)width * height);
     }
-
-    lcd_write16_buf((uint16_t *)pixels, width * height);
     lcd_release();
 }
 
@@ -480,6 +483,12 @@ void lcd_init()
     lcd_pio_offset = pio_add_program(LCD_PIO, &st7789_lcd_program);
     lcd_pio_sm = pio_claim_unused_sm(LCD_PIO, true);
 
+    // Set clock (SCL) and data (SDI) to 8 mA fast slew.
+    gpio_set_drive_strength(LCD_SCL, GPIO_DRIVE_STRENGTH_8MA);
+    gpio_set_drive_strength(LCD_SDI, GPIO_DRIVE_STRENGTH_8MA);
+    gpio_set_slew_rate(LCD_SCL, GPIO_SLEW_RATE_FAST);
+    gpio_set_slew_rate(LCD_SDI, GPIO_SLEW_RATE_FAST);
+
     // Calculate clock divider - target ~75MHz SPI clock
     // PIO runs at 2 instructions per bit, so we need sys_clk / (75MHz * 2)
     float clkdiv = (float)clock_get_hz(clk_sys) / (float)(LCD_BAUDRATE * 2);
@@ -516,6 +525,7 @@ void lcd_init()
                    0x01, 0x40, // scroll area height of 320 pixels
                    0x00, 0x00  // bottom fixed area of 0 pixels
     );
+    lcd_memory_scroll_height = 320;
 
     lcd_write_cmd(LCD_CMD_SLPOUT); // sleep out
     sleep_ms(10);                  // required to wait at least 5ms

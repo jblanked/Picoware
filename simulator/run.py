@@ -26,11 +26,39 @@ ROOT = _dirname(THIS_DIR)
 HARDWARE_DIR = THIS_DIR + "/hardware"
 MICROPYTHON_DIR = ROOT + "/src/MicroPython"
 
+_BOARD_DISPLAY_SIZES = {
+    "picocalc-pico": (320, 320),
+    "picocalc-picow": (320, 320),
+    "picocalc-pico2": (320, 320),
+    "picocalc-pico2w": (320, 320),
+    "picocalc-pimoroni-2w": (320, 320),
+    "pimoroni-2w": (320, 320),
+    "waveshare-1.28-rp2350": (240, 240),
+    "waveshare-1.43-rp2350": (466, 466),
+    "waveshare-3.49-rp2350": (172, 640),
+    "crowpanel-10.1": (1024, 600),
+    "crowpanel": (1024, 600),
+    "cardputer": (240, 135),
+    "waveshare-2.06": (410, 502),
+    "waveshare-2.06-esp32s3": (410, 502),
+    "pancake": (320, 480),
+    "flipper-zero": (128, 64),
+    "flipper": (128, 64),
+}
+
 
 def _insert_path(path):
     """Insert a directory into sys.path if not present."""
     if path not in sys.path:
         sys.path.insert(0, path)
+
+
+def _simulator_display_size(board_name):
+    """Return a framebuffer size that fits the default Unix MicroPython heap."""
+    width, height = _BOARD_DISPLAY_SIZES.get(board_name, (320, 320))
+    if width * height > 320 * 480:
+        return 320, 320
+    return width, height
 
 
 def _parse_args(argv):
@@ -234,7 +262,8 @@ def _run_main():
     with open(MICROPYTHON_DIR + "/main.py", "r") as handle:
         code = handle.read()
     exec(code, namespace)
-    namespace["main"]()
+    if namespace["main"]() is False:
+        raise RuntimeError("Picoware main reported a fatal error")
 
 
 def _install_view_tracking():
@@ -421,6 +450,8 @@ def _run_coverage(opts):
             + _quote(opts["apps_source"])
             + (" --app " if kind == "app" else " --game ")
             + _quote(name)
+            + " --wait-view "
+            + _quote(("app_" if kind == "app" else "game_") + name)
             + " >"
             + _quote(log_path)
             + " 2>&1"
@@ -433,6 +464,8 @@ def _run_coverage(opts):
             rows.append((kind, name, "fail", "child run exited " + str(status), log_path))
             print("[coverage:fail]", kind, name, status)
     _write_coverage_report(report_dir + "/coverage-" + mode + ".json", mode, rows)
+    if any(row[2] == "fail" for row in rows):
+        raise SystemExit(1)
 
 
 def _build_native(target, check=False):
@@ -452,13 +485,13 @@ def _run_sim_check(opts):
         + " --check",
         "micropython "
         + _quote(THIS_DIR + "/run.py")
-        + " --headless --frames 30 --audio silent --network offline --sd "
+        + " --headless --frames 30 --wait-view desktop_view --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
         "micropython "
         + _quote(THIS_DIR + "/run.py")
-        + " --headless --app Calculator --frames 120 --audio silent --network offline --sd "
+        + " --headless --app Calculator --wait-view app_Calculator --frames 160 --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
@@ -474,12 +507,24 @@ def _run_sim_check(opts):
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
+        "micropython "
+        + _quote(THIS_DIR + "/run.py")
+        + " --headless --board pancake --app keyboard-simple --frames 40 --wait-view app_keyboard-simple --audio silent --network offline --sd "
+        + _quote(opts["sd"])
+        + " --apps-source "
+        + _quote(opts["apps_source"]),
+        "micropython "
+        + _quote(THIS_DIR + "/run.py")
+        + " --headless --board flipper-zero --app Calculator --frames 40 --wait-view app_Calculator --audio silent --network offline --sd "
+        + _quote(opts["sd"])
+        + " --apps-source "
+        + _quote(opts["apps_source"]),
     )
     for cmd in commands:
         status = os.system(cmd)
         if status != 0:
             print("[sim-check:fail]", cmd, status)
-            raise SystemExit
+            raise SystemExit(1)
     _run_mjs_check()
     print("[sim-check:pass]")
 
@@ -605,7 +650,22 @@ def _start_viewer(opts):
     except OSError:
         pass
 
-    cmd = _quote(binary) + " " + _quote(frame) + " " + _quote(keys) + " " + str(opts["scale"]) + " >/tmp/picoware-sim-viewer.log 2>&1 &"
+    board_name = str(opts["board"]).lower().replace("_", "-")
+    width, height = _simulator_display_size(board_name)
+    cmd = (
+        _quote(binary)
+        + " "
+        + _quote(frame)
+        + " "
+        + _quote(keys)
+        + " "
+        + str(opts["scale"])
+        + " "
+        + str(width)
+        + " "
+        + str(height)
+        + " >/tmp/picoware-sim-viewer.log 2>&1 &"
+    )
     os.system(cmd)
     return frame, keys
 

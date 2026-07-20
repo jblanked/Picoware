@@ -4,9 +4,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define FB_WIDTH 320
-#define FB_HEIGHT 320
+#define FB_WIDTH g_fb_width
+#define FB_HEIGHT g_fb_height
 #define FB_BYTES (FB_WIDTH * FB_HEIGHT * 2)
+
+static int g_fb_width = 320;
+static int g_fb_height = 320;
 
 static int map_key(SDL_Keycode key)
 {
@@ -370,7 +373,7 @@ int main(int argc, char **argv)
 {
     if (argc < 3)
     {
-        fprintf(stderr, "usage: %s FRAME_FILE INPUT_FILE [SCALE]\n", argv[0]);
+        fprintf(stderr, "usage: %s FRAME_FILE INPUT_FILE [SCALE] [WIDTH] [HEIGHT]\n", argv[0]);
         return 2;
     }
 
@@ -391,6 +394,16 @@ int main(int argc, char **argv)
     int scale = argc >= 4 ? atoi(argv[3]) : 2;
     if (scale < 1)
         scale = 1;
+    if (argc >= 6)
+    {
+        int width = atoi(argv[4]);
+        int height = atoi(argv[5]);
+        if (width > 0 && height > 0)
+        {
+            g_fb_width = width;
+            g_fb_height = height;
+        }
+    }
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0)
     {

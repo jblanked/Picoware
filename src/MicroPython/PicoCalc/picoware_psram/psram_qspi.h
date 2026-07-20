@@ -5,6 +5,7 @@
  * Provides high-speed 4-wire transfers with DMA support
  *
  * Copyright © 2023 Ian Scott (original SPI implementation)
+ * Copyright © 2025 JBlanked (QSPI implementation)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal

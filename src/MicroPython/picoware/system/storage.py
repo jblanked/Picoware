@@ -305,7 +305,7 @@ class Storage:
             self._vfs_mounted = True
             return True
 
-        if BOARD_FLIPPER_ZERO:
+        if BOARD_ID == BOARD_FLIPPER_ZERO:
             result = self.mount()
             if result:
                 self._vfs_mounted = True
@@ -350,7 +350,7 @@ class Storage:
         if not self._vfs_mounted or BOARD_HAS_ESP32 == 1:
             return True
 
-        if BOARD_FLIPPER_ZERO:
+        if BOARD_ID == BOARD_FLIPPER_ZERO:
             self.unmount()
             self._vfs_mounted = False
             return True

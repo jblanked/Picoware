@@ -1,5 +1,4 @@
 from picoware.applications.wifi.utils import connect_to_saved_wifi
-import micropython
 
 
 class PicowareAnimation:
@@ -26,7 +25,6 @@ class PicowareAnimation:
         del self.letter_states
         self.letter_states = None
 
-    @micropython.native
     def _initialize_letter_animation(self) -> None:
         """Initialize the animation state for each letter in 'Picoware'."""
         from picoware.system.boards import BOARD_FLIPPER_ZERO, BOARD_ID
@@ -83,7 +81,6 @@ class PicowareAnimation:
             }
             self.letter_states.append(letter_state)
 
-    @micropython.native
     def draw(self) -> None:
         """Draw the animated 'Picoware' text."""
 

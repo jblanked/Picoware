@@ -7,7 +7,7 @@ class ViewManager:
     MAX_STACK_SIZE = 10
     FREQ_DEFAULT = 200000000
     FREQ_RP2040 = 200000000  # was 210 but users had issues
-    FREQ_RP2350 = 230000000
+    FREQ_RP2350 = 240000000
     FREQ_PIMORONI = 210000000
 
     __slots__ = (

@@ -38,15 +38,12 @@ def main():
                 vm.alert(f"Critical Error:\n{e}\nPlease restart.")
             except Exception:
                 pass
-        return False
     finally:
         del vm
         vm = None
         # Final cleanup
         collect()
         threshold(mem_free() // 4 + mem_alloc())
-    return True
-
 
 # run the main function
 if __name__ == "__main__":

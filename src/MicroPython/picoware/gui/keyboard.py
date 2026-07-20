@@ -220,8 +220,6 @@ class Keyboard:
         self.KEY_SPACING = 1
 
         self._touch_enabled = input_manager.has_touch_support
-        if self._touch_enabled:
-            self._size_keys_to_screen()
 
         self.max_chars_per_line = (self.draw.size.x - 10) // self.draw.font_size.x
         self.max_lines = (self.TEXTBOX_HEIGHT - 10) // self.draw.font_size.y
@@ -533,32 +531,6 @@ class Keyboard:
             "awesome",
             "Picoware",
         ]
-
-    @micropython.native
-    def _size_keys_to_screen(self) -> None:
-        """Fit the key grid to the panel."""
-        minimum_key_width = self.KEY_WIDTH
-        minimum_key_height = self.KEY_HEIGHT
-        widest_row = 0
-        for row in range(self.NUM_ROWS):
-            units = 0
-            for col in range(self.ROW_SIZES[row]):
-                units += self.ROWS[row][col].width
-            widest_row = max(widest_row, units)
-
-        usable_x = self.draw.size.x - 2 * self.KEY_MARGIN
-        key_width = (usable_x - (widest_row - 1) * self.KEY_SPACING) // widest_row
-
-        usable_y = (
-            self.draw.size.y
-            - self.TEXTBOX_HEIGHT
-            - self.draw.scale_y(13.33)
-            - self.KEY_MARGIN
-        )
-        key_height = min(usable_y // self.NUM_ROWS - self.KEY_SPACING, key_width)
-
-        self.KEY_WIDTH = max(key_width, minimum_key_width)
-        self.KEY_HEIGHT = max(key_height, minimum_key_height)
 
     @micropython.native
     def _key_row_geometry(self, row: int) -> tuple:

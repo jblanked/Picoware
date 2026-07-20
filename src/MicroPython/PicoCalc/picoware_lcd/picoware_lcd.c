@@ -15,7 +15,7 @@
 
 #include "../../log/log_mp.h"
 
-#define LCD_CHUNK_LINES 32
+#define LCD_CHUNK_LINES 16
 
 // Module state
 static bool module_initialized = false;
@@ -34,6 +34,7 @@ static bool heap_framebuffer_allocated = false;
 #define HEAP_BUFFER_SIZE (DISPLAY_WIDTH * DISPLAY_HEIGHT)
 
 static uint16_t palette[256] __attribute__((aligned(4)));
+static uint16_t lcd_line_buffer[DISPLAY_WIDTH * LCD_CHUNK_LINES] __attribute__((aligned(4)));
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -271,8 +272,6 @@ void lcd_swap(void)
 
 void picoware_lcd_swap_region(uint16_t x, uint16_t y, uint16_t width, uint16_t height)
 {
-    uint16_t lcd_line_buffer[DISPLAY_WIDTH * LCD_CHUNK_LINES];
-
     if (lcd_mode == LCD_MODE_PSRAM)
     {
         if (module_initialized && !picoware_psram_ensure_initialized())

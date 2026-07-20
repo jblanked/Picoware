@@ -26,6 +26,14 @@ class LCD:
     MODE_PSRAM = 1
 
     def __init__(self, scale_x=1.0, scale_y=1.0, scale_position=False):
+        try:
+            import picoware_boards
+
+            self.width, self.height = picoware_boards.get_current_display_size()
+            if self.width * self.height > 320 * 480:
+                self.width, self.height = 320, 320
+        except Exception:
+            self.width, self.height = 320, 320
         self._scale_x_factor = scale_x
         self._scale_y_factor = scale_y
         self.scale_position = scale_position

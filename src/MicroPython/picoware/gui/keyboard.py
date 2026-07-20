@@ -537,6 +537,8 @@ class Keyboard:
     @micropython.native
     def _size_keys_to_screen(self) -> None:
         """Fit the key grid to the panel."""
+        minimum_key_width = self.KEY_WIDTH
+        minimum_key_height = self.KEY_HEIGHT
         widest_row = 0
         for row in range(self.NUM_ROWS):
             units = 0
@@ -555,8 +557,8 @@ class Keyboard:
         )
         key_height = min(usable_y // self.NUM_ROWS - self.KEY_SPACING, key_width)
 
-        self.KEY_WIDTH = max(key_width, Keyboard.KEY_WIDTH)
-        self.KEY_HEIGHT = max(key_height, Keyboard.KEY_HEIGHT)
+        self.KEY_WIDTH = max(key_width, minimum_key_width)
+        self.KEY_HEIGHT = max(key_height, minimum_key_height)
 
     @micropython.native
     def _key_row_geometry(self, row: int) -> tuple:

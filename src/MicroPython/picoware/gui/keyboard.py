@@ -447,7 +447,12 @@ class Keyboard:
             return False
 
         self.dpad_input = self.input_manager.button
-        if self.dpad_input != -1 or force:
+        has_touch_point = (
+            self._touch_enabled
+            and self.input_manager.point
+            and self.input_manager.point != (0, 0)
+        )
+        if self.dpad_input != -1 or force or has_touch_point:
             if self.dpad_input == BUTTON_BACK:
                 # Exit keyboard without saving
                 self.just_stopped = True

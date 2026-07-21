@@ -646,62 +646,18 @@ class Input:
         
         _button = buttons.BUTTON_NONE
         
-        if self._current_board_id == BOARD_CROWPANEL_10_1:
-            if 900 <= x <= 1024 and 160 <= y <= 440:
-                _button = buttons.BUTTON_RIGHT
-            elif 0 <= x <= 124 and 160 <= y <= 440:
-                _button = buttons.BUTTON_LEFT
-            elif 256 <= x <= 768 and 0 <= y <= 120:
-                _button = buttons.BUTTON_UP
-            elif 256 <= x <= 768 and 480 <= y <= 600:
-                _button = buttons.BUTTON_DOWN
-
-        elif self._current_board_id == BOARD_WAVESHARE_2_06:
-            if 310 <= x <= 410 and 120 <= y <= 382:
-                _button = buttons.BUTTON_RIGHT
-            elif 0 <= x <= 50 and 120 <= y <= 382:
-                _button = buttons.BUTTON_LEFT
-            elif 100 <= x <= 310 and 0 <= y <= 120:
-                _button = buttons.BUTTON_UP
-            elif 100 <= x <= 310 and 382 <= y <= 502:
-                _button = buttons.BUTTON_DOWN
-            elif 310 <= x <= 410 and 382 <= y <= 502:
-                _button = buttons.BUTTON_BACK
-
-        elif self._current_board_id == BOARD_PANCAKE:
-            # 320x480 portrait; top-left corner is back.
-            if 0 <= x <= 70 and 0 <= y <= 70:
-                _button = buttons.BUTTON_BACK
-            elif 280 <= x <= 320 and 130 <= y <= 350:
-                _button = buttons.BUTTON_RIGHT
-            elif 0 <= x <= 40 and 130 <= y <= 350:
-                _button = buttons.BUTTON_LEFT
-            elif 80 <= x <= 240 and 0 <= y <= 96:
-                _button = buttons.BUTTON_UP
-            elif 80 <= x <= 240 and 384 <= y <= 480:
-                _button = buttons.BUTTON_DOWN
-        
-        elif self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:  # 466x466
-            if 430 <= x <= 466 and 150 <= y <= 350:
-                _button = buttons.BUTTON_RIGHT
-            elif 0 <= x <= 36 and 150 <= y <= 350:
-                _button = buttons.BUTTON_LEFT
-            elif 150 <= x <= 300 and 0 <= y <= 36:
-                _button = buttons.BUTTON_UP
-            elif 150 <= x <= 300 and 430 <= y <= 466:
-                _button = buttons.BUTTON_DOWN
-
-        elif self._current_board_id == BOARD_WAVESHARE_3_49_RP2350:  # 172x640
-            if 112 <= x <= 172 and 200 <= y <= 440:
-                _button = buttons.BUTTON_RIGHT
-            elif 0 <= x <= 60 and 200 <= y <= 440:
-                _button = buttons.BUTTON_LEFT
-            elif 0 <= x <= 172 and 0 <= y <= 175:
-                _button = buttons.BUTTON_UP
-            elif 0 <= x <= 172 and 540 <= y <= 640:
-                _button = buttons.BUTTON_DOWN
-            elif 60 < x < 112 and 175 < y < 540:
-                _button = buttons.BUTTON_CENTER
+        if 0 <= x <= self._screen_size[0] * 0.1 and 0 <= y <= self._screen_size[1] * 0.1:
+            _button = buttons.BUTTON_BACK
+        elif self._screen_size[0] * 0.9 <= x <= self._screen_size[0] and self._screen_size[1] * 0.3 <= y <= self._screen_size[1] * 0.7:
+            _button = buttons.BUTTON_RIGHT
+        elif 0 <= x <= self._screen_size[0] * 0.1 and self._screen_size[1] * 0.3 <= y <= self._screen_size[1] * 0.7:
+            _button = buttons.BUTTON_LEFT
+        elif self._screen_size[0] * 0.2 <= x <= self._screen_size[0] * 0.8 and 0 <= y <= self._screen_size[1] * 0.2:
+            _button = buttons.BUTTON_UP
+        elif self._screen_size[0] * 0.2 <= x <= self._screen_size[0] * 0.8 and self._screen_size[1] * 0.8 <= y <= self._screen_size[1]:
+            _button = buttons.BUTTON_DOWN
+        elif self._screen_size[0] * 0.4 <= x <= self._screen_size[0] * 0.6 and self._screen_size[1] * 0.4 <= y <= self._screen_size[1] * 0.6:
+            _button = buttons.BUTTON_CENTER
 
         return _button
 

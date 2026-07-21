@@ -642,7 +642,7 @@ class Input:
         """
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             # gesture support
-            return
+            return buttons.BUTTON_NONE
         
         _button = buttons.BUTTON_NONE
         

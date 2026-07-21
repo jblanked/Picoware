@@ -2,6 +2,9 @@
 #include "py/mperrno.h"
 #include "../vector/vector_mp.h"
 #include "../log/log_mp.h"
+#include "../engine/memory.h"
+
+bool mp_engine_gc_ready = false;
 
 #ifndef PRINT
 #define PRINT(...) LOG_MESSAGE(__VA_ARGS__)
@@ -125,6 +128,7 @@ mp_obj_t lcd_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
     {
         mp_raise_TypeError(MP_ERROR_TEXT("LCD constructor takes at most 3 arguments: scale_x, scale_y, and scale_position"));
     }
+    mp_engine_gc_ready = true;
     lcd_mp_obj_t *self = mp_obj_malloc_with_finaliser(lcd_mp_obj_t, &lcd_mp_type);
     self->base.type = &lcd_mp_type;
     self->width = LCD_MP_WIDTH;

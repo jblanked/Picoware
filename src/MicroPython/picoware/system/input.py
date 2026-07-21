@@ -644,71 +644,66 @@ class Input:
             # gesture support
             return
         
+        _button = buttons.BUTTON_NONE
+        
         if self._current_board_id == BOARD_CROWPANEL_10_1:
             if 900 <= x <= 1024 and 160 <= y <= 440:
-                self._last_button = buttons.BUTTON_RIGHT
+                _button = buttons.BUTTON_RIGHT
             elif 0 <= x <= 124 and 160 <= y <= 440:
-                self._last_button = buttons.BUTTON_LEFT
+                _button = buttons.BUTTON_LEFT
             elif 256 <= x <= 768 and 0 <= y <= 120:
-                self._last_button = buttons.BUTTON_UP
+                _button = buttons.BUTTON_UP
             elif 256 <= x <= 768 and 480 <= y <= 600:
-                self._last_button = buttons.BUTTON_DOWN
-            else:
-                self._last_button = buttons.BUTTON_CENTER
+                _button = buttons.BUTTON_DOWN
 
         elif self._current_board_id == BOARD_WAVESHARE_2_06:
             if 310 <= x <= 410 and 120 <= y <= 382:
-                self._last_button = buttons.BUTTON_RIGHT
+                _button = buttons.BUTTON_RIGHT
             elif 0 <= x <= 50 and 120 <= y <= 382:
-                self._last_button = buttons.BUTTON_LEFT
+                _button = buttons.BUTTON_LEFT
             elif 100 <= x <= 310 and 0 <= y <= 120:
-                self._last_button = buttons.BUTTON_UP
+                _button = buttons.BUTTON_UP
             elif 100 <= x <= 310 and 382 <= y <= 502:
-                self._last_button = buttons.BUTTON_DOWN
+                _button = buttons.BUTTON_DOWN
             elif 310 <= x <= 410 and 382 <= y <= 502:
-                self._last_button = buttons.BUTTON_BACK
-            else:
-                self._last_button = buttons.BUTTON_CENTER
+                _button = buttons.BUTTON_BACK
 
         elif self._current_board_id == BOARD_PANCAKE:
             # 320x480 portrait; top-left corner is back.
             if 0 <= x <= 70 and 0 <= y <= 70:
-                self._last_button = buttons.BUTTON_BACK
+                _button = buttons.BUTTON_BACK
             elif 280 <= x <= 320 and 130 <= y <= 350:
-                self._last_button = buttons.BUTTON_RIGHT
+                _button = buttons.BUTTON_RIGHT
             elif 0 <= x <= 40 and 130 <= y <= 350:
-                self._last_button = buttons.BUTTON_LEFT
+                _button = buttons.BUTTON_LEFT
             elif 80 <= x <= 240 and 0 <= y <= 96:
-                self._last_button = buttons.BUTTON_UP
+                _button = buttons.BUTTON_UP
             elif 80 <= x <= 240 and 384 <= y <= 480:
-                self._last_button = buttons.BUTTON_DOWN
-            else:
-                self._last_button = buttons.BUTTON_CENTER
+                _button = buttons.BUTTON_DOWN
         
         elif self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:  # 466x466
             if 430 <= x <= 466 and 150 <= y <= 350:
-                self._last_button = buttons.BUTTON_RIGHT
+                _button = buttons.BUTTON_RIGHT
             elif 0 <= x <= 36 and 150 <= y <= 350:
-                self._last_button = buttons.BUTTON_LEFT
+                _button = buttons.BUTTON_LEFT
             elif 150 <= x <= 300 and 0 <= y <= 36:
-                self._last_button = buttons.BUTTON_UP
+                _button = buttons.BUTTON_UP
             elif 150 <= x <= 300 and 430 <= y <= 466:
-                self._last_button = buttons.BUTTON_DOWN
-            else:
-                self._last_button = buttons.BUTTON_CENTER
+                _button = buttons.BUTTON_DOWN
+
         elif self._current_board_id == BOARD_WAVESHARE_3_49_RP2350:  # 172x640
             if 112 <= x <= 172 and 200 <= y <= 440:
-                self._last_button = buttons.BUTTON_RIGHT
+                _button = buttons.BUTTON_RIGHT
             elif 0 <= x <= 60 and 200 <= y <= 440:
-                self._last_button = buttons.BUTTON_LEFT
+                _button = buttons.BUTTON_LEFT
             elif 0 <= x <= 172 and 0 <= y <= 175:
-                self._last_button = buttons.BUTTON_UP
+                _button = buttons.BUTTON_UP
             elif 0 <= x <= 172 and 540 <= y <= 640:
-                self._last_button = buttons.BUTTON_DOWN
+                _button = buttons.BUTTON_DOWN
             elif 60 < x < 112 and 175 < y < 540:
-                self._last_button = buttons.BUTTON_CENTER
+                _button = buttons.BUTTON_CENTER
 
-        return buttons.BUTTON_NONE
+        return _button
 
     def _poll_touch(self):
         """Poll the touch controller and map touch areas to button events."""

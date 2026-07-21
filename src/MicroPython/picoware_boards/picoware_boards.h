@@ -158,7 +158,7 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_RP2350 0
 #endif
 
-#if defined(CARDPUTER) || defined(BOARD_CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE)
+#if defined(CARDPUTER) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE)
 #define BOARD_HAS_ESP32 1
 #else
 #define BOARD_HAS_ESP32 0

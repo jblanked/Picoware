@@ -35,11 +35,13 @@ class Input:
         "_was_pressed",
         "_was_capitalized",
         "_button_map",
+        "_screen_size",
         "_touch",
     )
 
     def __init__(self, back_button=buttons.BUTTON_BACK):
         """Initializes the Input class."""
+        from picoware_boards import get_display_size
         self._current_board_id = BOARD_ID
         self.pin = None
         self._last_point = (0, 0)
@@ -54,6 +56,7 @@ class Input:
             buttons.BUTTON_BACK if not _back_special else buttons.BUTTON_BACKSPACE
         )
         self._touch = None
+        self._screen_size: tuple = get_display_size()
 
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             from machine import Pin
@@ -626,29 +629,21 @@ class Input:
             from waveshare_touch import reset_state
 
             reset_state()
+    
+    def touch_to_button(self, x: int, y: int) -> int:
+        """Converts touch coordinates to a corresponding button code.
 
-    def _poll_touch(self):
-        """Poll the CrowPanel touch controller and map touch areas to button events."""
-        if self._touch is None:
+        Args:
+            x (int): X coordinate of the touch point.
+            y (int): Y coordinate of the touch point.
+
+        Returns:
+            int: Button code corresponding to the touch area.
+        """
+        if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
+            # gesture support
             return
-
-        if not self._touch.read():
-            self._last_point = (0, 0)
-            self._last_button = buttons.BUTTON_NONE
-            self._was_pressed = False
-            self._elapsed_time = 0
-            return
-
-        x = self._touch.x
-        y = self._touch.y
-
-        self._elapsed_touch_now = int(ticks_ms())
-        if self._elapsed_touch_now - self._elapsed_touch_start < self._delay_ms:
-            return
-
-        self._elapsed_touch_start = self._elapsed_touch_now
-        self._last_point = (x, y)
-
+        
         if self._current_board_id == BOARD_CROWPANEL_10_1:
             if 900 <= x <= 1024 and 160 <= y <= 440:
                 self._last_button = buttons.BUTTON_RIGHT
@@ -689,7 +684,54 @@ class Input:
                 self._last_button = buttons.BUTTON_DOWN
             else:
                 self._last_button = buttons.BUTTON_CENTER
+        
+        elif self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:  # 466x466
+            if 430 <= x <= 466 and 150 <= y <= 350:
+                self._last_button = buttons.BUTTON_RIGHT
+            elif 0 <= x <= 36 and 150 <= y <= 350:
+                self._last_button = buttons.BUTTON_LEFT
+            elif 150 <= x <= 300 and 0 <= y <= 36:
+                self._last_button = buttons.BUTTON_UP
+            elif 150 <= x <= 300 and 430 <= y <= 466:
+                self._last_button = buttons.BUTTON_DOWN
+            else:
+                self._last_button = buttons.BUTTON_CENTER
+        elif self._current_board_id == BOARD_WAVESHARE_3_49_RP2350:  # 172x640
+            if 112 <= x <= 172 and 200 <= y <= 440:
+                self._last_button = buttons.BUTTON_RIGHT
+            elif 0 <= x <= 60 and 200 <= y <= 440:
+                self._last_button = buttons.BUTTON_LEFT
+            elif 0 <= x <= 172 and 0 <= y <= 175:
+                self._last_button = buttons.BUTTON_UP
+            elif 0 <= x <= 172 and 540 <= y <= 640:
+                self._last_button = buttons.BUTTON_DOWN
+            elif 60 < x < 112 and 175 < y < 540:
+                self._last_button = buttons.BUTTON_CENTER
 
+        return buttons.BUTTON_NONE
+
+    def _poll_touch(self):
+        """Poll the touch controller and map touch areas to button events."""
+        if self._touch is None:
+            return
+
+        if not self._touch.read():
+            self._last_point = (0, 0)
+            self._last_button = buttons.BUTTON_NONE
+            self._was_pressed = False
+            self._elapsed_time = 0
+            return
+
+        x = self._touch.x
+        y = self._touch.y
+
+        self._elapsed_touch_now = int(ticks_ms())
+        if self._elapsed_touch_now - self._elapsed_touch_start < self._delay_ms:
+            return
+
+        self._elapsed_touch_start = self._elapsed_touch_now
+        self._last_point = (x, y)
+        self._last_button = self.touch_to_button(x, y)
         self._elapsed_time += 1
         self._was_pressed = True
 
@@ -757,48 +799,8 @@ class Input:
 
             self._elapsed_touch_start = self._elapsed_touch_now
             self._last_point = point
-
             x, y = point
-
-            # Right:
-            # x: 430-466
-            # y: 150-350
-
-            # Left:
-            # x: 0 - 36
-            # y: 150-350
-
-            # Up:
-            # x: 150-300
-            # y: 0-36
-
-            # Down:
-            # x: 150-300
-            # y: 430-466
-
-            if self._current_board_id == BOARD_WAVESHARE_1_43_RP2350:  # 466x466
-                if 430 <= x <= 466 and 150 <= y <= 350:
-                    self._last_button = buttons.BUTTON_RIGHT
-                elif 0 <= x <= 36 and 150 <= y <= 350:
-                    self._last_button = buttons.BUTTON_LEFT
-                elif 150 <= x <= 300 and 0 <= y <= 36:
-                    self._last_button = buttons.BUTTON_UP
-                elif 150 <= x <= 300 and 430 <= y <= 466:
-                    self._last_button = buttons.BUTTON_DOWN
-                else:
-                    self._last_button = buttons.BUTTON_CENTER
-            else:  # BOARD_WAVESHARE_3_49_RP2350 172x640
-                if 112 <= x <= 172 and 200 <= y <= 440:
-                    self._last_button = buttons.BUTTON_RIGHT
-                elif 0 <= x <= 60 and 200 <= y <= 440:
-                    self._last_button = buttons.BUTTON_LEFT
-                elif 0 <= x <= 172 and 0 <= y <= 175:
-                    self._last_button = buttons.BUTTON_UP
-                elif 0 <= x <= 172 and 540 <= y <= 640:
-                    self._last_button = buttons.BUTTON_DOWN
-                elif 60 < x < 112 and 175 < y < 540:
-                    self._last_button = buttons.BUTTON_CENTER
-
+            self._last_button = self.touch_to_button(x, y)
             self._elapsed_time += 1
             self._was_pressed = True
             reset_state()

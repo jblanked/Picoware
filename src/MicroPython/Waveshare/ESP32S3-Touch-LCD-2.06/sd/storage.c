@@ -251,7 +251,6 @@ uint16_t storage_file_list(const char *pattern, char filenames[][256], uint16_t 
     {
         char entry_path[STORAGE_PATH_MAX];
         struct stat entry_stat = {0};
-        const char *relative_dir = NULL;
 
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
         {
@@ -281,40 +280,14 @@ uint16_t storage_file_list(const char *pattern, char filenames[][256], uint16_t 
             continue;
         }
 
-        relative_dir = directory_path;
-        if (strncmp(relative_dir, STORAGE_ROOT, strlen(STORAGE_ROOT)) == 0)
+        size_t entry_name_len = strlen(entry->d_name);
+
+        if (entry_name_len >= STORAGE_NAME_MAX_LEN)
         {
-            relative_dir += strlen(STORAGE_ROOT);
+            continue;
         }
 
-        if (*relative_dir == '\0')
-        {
-            size_t entry_name_len = strlen(entry->d_name);
-
-            if (entry_name_len >= STORAGE_NAME_MAX_LEN)
-            {
-                continue;
-            }
-
-            memcpy(filenames[count], entry->d_name, entry_name_len + 1);
-        }
-        else
-        {
-            const char *relative_name = relative_dir[0] == '/' ? relative_dir + 1 : relative_dir;
-            size_t relative_name_len = strlen(relative_name);
-            size_t entry_name_len = strlen(entry->d_name);
-            size_t required_len = relative_name_len + 1 + entry_name_len + 1;
-
-            if (required_len > STORAGE_NAME_MAX_LEN)
-            {
-                continue;
-            }
-
-            memcpy(filenames[count], relative_name, relative_name_len);
-            filenames[count][relative_name_len] = '/';
-            memcpy(&filenames[count][relative_name_len + 1], entry->d_name, entry_name_len);
-            filenames[count][required_len - 1] = '\0';
-        }
+        memcpy(filenames[count], entry->d_name, entry_name_len + 1);
 
         ++count;
         if (count >= max_count)

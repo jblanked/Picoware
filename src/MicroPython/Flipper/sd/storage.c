@@ -285,20 +285,11 @@ uint16_t storage_file_list(const char *pattern,
     }
     *last_slash = '\0';
 
-    const char *dir_to_list =
-        directory_path[0] != '\0' ? directory_path : STORAGE_ROOT;
-
-    const char *relative_dir = dir_to_list;
-    if (strncmp(relative_dir, STORAGE_ROOT, strlen(STORAGE_ROOT)) == 0)
-    {
-        relative_dir += strlen(STORAGE_ROOT);
-    }
-    bool has_rel_prefix = (*relative_dir != '\0');
-
     nlr_buf_t nlr;
     if (nlr_push(&nlr) == 0)
     {
-        mp_obj_t dir_obj = mp_obj_new_str(dir_to_list, strlen(dir_to_list));
+        const char *list_dir = directory_path[0] != '\0' ? directory_path : STORAGE_ROOT;
+        mp_obj_t dir_obj = mp_obj_new_str(list_dir, strlen(list_dir));
         mp_obj_t ilist_args[1] = {dir_obj};
         mp_obj_t iter = mp_vfs_ilistdir(1, ilist_args);
 
@@ -346,33 +337,11 @@ uint16_t storage_file_list(const char *pattern,
 
                 size_t entry_name_len = strlen(entry_name);
 
-                if (!has_rel_prefix)
+                if (entry_name_len >= STORAGE_NAME_MAX_LEN)
                 {
-                    if (entry_name_len >= STORAGE_NAME_MAX_LEN)
-                    {
-                        continue;
-                    }
-                    memcpy(filenames[count], entry_name, entry_name_len + 1);
+                    continue;
                 }
-                else
-                {
-                    const char *rel = (*relative_dir == '/')
-                                          ? relative_dir + 1
-                                          : relative_dir;
-                    size_t rel_len = strlen(rel);
-                    size_t required = rel_len + 1 + entry_name_len + 1;
-
-                    if (required > STORAGE_NAME_MAX_LEN)
-                    {
-                        continue;
-                    }
-
-                    memcpy(filenames[count], rel, rel_len);
-                    filenames[count][rel_len] = '/';
-                    memcpy(&filenames[count][rel_len + 1], entry_name,
-                           entry_name_len);
-                    filenames[count][required - 1] = '\0';
-                }
+                memcpy(filenames[count], entry_name, entry_name_len + 1);
 
                 ++count;
                 if (count >= max_count)

@@ -37,7 +37,11 @@ static uint16_t lcd_scale_y(lcd_mp_obj_t *self, uint16_t v)
 }
 static inline int lcd_obj_to_int(mp_obj_t arg)
 {
-    if (mp_obj_is_int(arg) || mp_obj_is_exact_type(arg, &mp_type_bool))
+    if (mp_obj_is_exact_type(arg, &mp_type_bool))
+    {
+        return mp_obj_is_true(arg) ? 1 : 0;
+    }
+    else if (mp_obj_is_int(arg))
     {
         return mp_obj_get_int(arg);
     }
@@ -45,7 +49,7 @@ static inline int lcd_obj_to_int(mp_obj_t arg)
     {
         return (int)mp_obj_get_float(arg); // truncates toward zero
     }
-    mp_raise_ValueError(MP_ERROR_TEXT("expected int or float"));
+    LOG_MESSAGE("lcd_obj_to_int: expected int, float, or bool but got %s", mp_obj_get_type_str(arg));
     return 0;
 }
 
@@ -925,13 +929,10 @@ mp_obj_t lcd_mp_scale(size_t n_args, const mp_obj_t *args)
     float height = n_args == 5 ? mp_obj_get_float(args[4]) : 320; // PicoCalc defaults
 
     mp_obj_t tuple[2];
-    tuple[0] = scale_x == 0 ? 0 : mp_obj_new_float(scale_x * self->width / width);
-    tuple[1] = scale_y == 0 ? 0 : mp_obj_new_float(scale_y * self->height / height);
-    if (mp_obj_is_int(args[1]) && mp_obj_is_int(args[2]))
-    {
-        tuple[0] = mp_obj_new_int(lcd_obj_to_int(tuple[0]));
-        tuple[1] = mp_obj_new_int(lcd_obj_to_int(tuple[1]));
-    }
+    tuple[0] = scale_x == 0 ? mp_obj_new_int(0) : mp_obj_new_float(scale_x * self->width / width);
+    tuple[1] = scale_y == 0 ? mp_obj_new_int(0) : mp_obj_new_float(scale_y * self->height / height);
+    tuple[0] = mp_obj_new_int(lcd_obj_to_int(tuple[0]));
+    tuple[1] = mp_obj_new_int(lcd_obj_to_int(tuple[1]));
     return mp_obj_new_tuple(2, tuple);
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_scale_obj, 3, 5, lcd_mp_scale);

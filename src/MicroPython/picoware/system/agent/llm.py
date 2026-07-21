@@ -94,4 +94,7 @@ class LLM:
         
         if self._current_model is None:
             self._current_model = self._models[0]
+        else:
+            if self._current_model not in self._models:
+                self._models.append(self._current_model)
         

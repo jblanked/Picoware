@@ -35,7 +35,7 @@ class Input:
         "_was_pressed",
         "_was_capitalized",
         "_button_map",
-        "_crowpanel_touch",
+        "_touch",
     )
 
     def __init__(self, back_button=buttons.BUTTON_BACK):
@@ -53,7 +53,7 @@ class Input:
         self._key_back = (
             buttons.BUTTON_BACK if not _back_special else buttons.BUTTON_BACKSPACE
         )
-        self._crowpanel_touch = None
+        self._touch = None
 
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             from machine import Pin
@@ -100,7 +100,7 @@ class Input:
         elif self._current_board_id in (BOARD_CROWPANEL_10_1, BOARD_WAVESHARE_2_06, BOARD_PANCAKE):
             from touch import Touch
 
-            self._crowpanel_touch = Touch()
+            self._touch = Touch()
             self._last_point = (0, 0)
             self._delay_ms = 120
 
@@ -295,9 +295,9 @@ class Input:
             del self.pin
             self.pin = None
 
-        if self._crowpanel_touch is not None:
-            del self._crowpanel_touch
-            self._crowpanel_touch = None
+        if self._touch is not None:
+            del self._touch
+            self._touch = None
 
         if self._current_board_id == BOARD_CARDPUTER:
             from cardputer_keyboard import deinit
@@ -366,7 +366,7 @@ class Input:
             BOARD_WAVESHARE_2_06,
             BOARD_PANCAKE,
         ):
-            self._poll_crowpanel_touch()
+            self._poll_touch()
         elif self._current_board_id == BOARD_CARDPUTER:
             from cardputer_keyboard import key_available, poll
 
@@ -531,7 +531,7 @@ class Input:
             BOARD_WAVESHARE_2_06,
             BOARD_PANCAKE,
         ):
-            self._poll_crowpanel_touch()
+            self._poll_touch()
             return self._last_point != (0, 0)
         if self._current_board_id == BOARD_CARDPUTER:
             from cardputer_keyboard import key_available
@@ -627,20 +627,20 @@ class Input:
 
             reset_state()
 
-    def _poll_crowpanel_touch(self):
+    def _poll_touch(self):
         """Poll the CrowPanel touch controller and map touch areas to button events."""
-        if self._crowpanel_touch is None:
+        if self._touch is None:
             return
 
-        if not self._crowpanel_touch.read():
+        if not self._touch.read():
             self._last_point = (0, 0)
             self._last_button = buttons.BUTTON_NONE
             self._was_pressed = False
             self._elapsed_time = 0
             return
 
-        x = self._crowpanel_touch.x
-        y = self._crowpanel_touch.y
+        x = self._touch.x
+        y = self._touch.y
 
         self._elapsed_touch_now = int(ticks_ms())
         if self._elapsed_touch_now - self._elapsed_touch_start < self._delay_ms:

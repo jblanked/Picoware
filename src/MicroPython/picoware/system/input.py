@@ -56,7 +56,7 @@ class Input:
             buttons.BUTTON_BACK if not _back_special else buttons.BUTTON_BACKSPACE
         )
         self._touch = None
-        self._screen_size: tuple = get_display_size()
+        self._screen_size: tuple = get_display_size(BOARD_ID)
 
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             from machine import Pin

@@ -17,6 +17,14 @@ void flipper_board_early_init(void);
 #define MICROPY_HW_ENABLE_USB (1)
 #define MICROPY_HW_HAS_SWITCH (1)
 
+// PLLQ=48MHz USB clock
+// HSE 32M, PLLM/2, PLLN*12, PLLQ/4
+#define MICROPY_HW_CLK_PLLM (2)
+#define MICROPY_HW_CLK_PLLN (12)
+#define MICROPY_HW_CLK_PLLP (2)
+#define MICROPY_HW_CLK_PLLQ (4)
+#define MICROPY_HW_CLK_PLLR (3) // SYSCLK = 192/3 = 64 MHz
+
 #define RTC_ASYNCH_PREDIV (0)
 #define RTC_SYNCH_PREDIV (0x7fff)
 #define MICROPY_HW_RTC_USE_LSE (1)
@@ -46,5 +54,8 @@ void flipper_board_early_init(void);
 #define MICROPY_HW_LED_OFF(pin) (mp_hal_pin_low(pin))
 
 #define MICROPY_HW_USB_FS (1)
-#define MICROPY_HW_USB_CDC_RX_DATA_SIZE (512)
-#define MICROPY_HW_USB_CDC_TX_DATA_SIZE (512)
+// 256B CDC for USB SRAM
+#define MICROPY_HW_USB_CDC_RX_DATA_SIZE (256)
+#define MICROPY_HW_USB_CDC_TX_DATA_SIZE (256)
+// No USB MSC
+#define MICROPY_HW_USB_MSC (0)

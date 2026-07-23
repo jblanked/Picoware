@@ -39,6 +39,17 @@ mp_obj_t flipper_battery_mp_init(void)
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(flipper_battery_mp_init_obj, flipper_battery_mp_init);
 
+mp_obj_t flipper_battery_mp_deinit(void)
+{
+    if (!g_battery_ready)
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("battery not initialized"));
+
+    flipper_battery_deinit();
+    g_battery_ready = false;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(flipper_battery_mp_deinit_obj, flipper_battery_mp_deinit);
+
 mp_obj_t flipper_battery_mp_get_voltage_mv(void)
 {
     if (!g_battery_ready)
@@ -59,11 +70,24 @@ mp_obj_t flipper_battery_mp_get_percentage(void)
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(flipper_battery_mp_get_percentage_obj, flipper_battery_mp_get_percentage);
 
+mp_obj_t flipper_battery_mp_shutdown(void)
+{
+    if (!g_battery_ready)
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("battery not initialized"));
+
+    flipper_battery_shutdown();
+    g_battery_ready = false;
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(flipper_battery_mp_shutdown_obj, flipper_battery_mp_shutdown);
+
 static const mp_rom_map_elem_t flipper_battery_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_flipper_battery)},
     {MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&flipper_battery_mp_init_obj)},
+    {MP_ROM_QSTR(MP_QSTR_deinit), MP_ROM_PTR(&flipper_battery_mp_deinit_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_voltage_mv), MP_ROM_PTR(&flipper_battery_mp_get_voltage_mv_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_percentage), MP_ROM_PTR(&flipper_battery_mp_get_percentage_obj)},
+    {MP_ROM_QSTR(MP_QSTR_shutdown), MP_ROM_PTR(&flipper_battery_mp_shutdown_obj)},
 };
 static MP_DEFINE_CONST_DICT(flipper_battery_module_globals,
                             flipper_battery_module_globals_table);

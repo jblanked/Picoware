@@ -10,11 +10,15 @@
 #define BQ25896_I2C_ADDR_7BIT 0x6B
 #define BQ25896_REG_VBAT 0x0E
 #define BQ25896_REG_CONV 0x02
+#define BQ25896_REG_CTRL 0x09
 #define BQ25896_I2C_TIMEOUT 50
 
 /* REG02 bits */
 #define BQ25896_CONV_START (1 << 0)
 #define BQ25896_CONV_RATE_1S (1 << 1)
+
+/* REG09 bits */
+#define BQ25896_HIZ_EN (1 << 5)
 
 /* 100 kHz I2C timing */
 #define I2C_TIMING_100K_64MHZ 0x10707DBC
@@ -99,4 +103,21 @@ uint16_t flipper_battery_read_mv(void)
     uint16_t mv = (uint16_t)batv * 20 + 2304;
 
     return mv;
+}
+
+void flipper_battery_shutdown(void)
+{
+    bq25896_write_reg(BQ25896_REG_CONV, 0);
+
+    bq25896_write_reg(BQ25896_REG_CTRL, BQ25896_HIZ_EN);
+
+    HAL_GPIO_WritePin(FLIPPER_PERIPH_POWER_GPIO, FLIPPER_PERIPH_POWER_PIN, GPIO_PIN_RESET);
+
+    HAL_I2C_DeInit(&s_i2c);
+
+    HAL_SuspendTick();
+    HAL_PWR_EnterSTANDBYMode();
+
+    while (1)
+        ;
 }

@@ -307,8 +307,10 @@ class Input:
 
             deinit()
         elif self._current_board_id == BOARD_FLIPPER_ZERO:
-            from flipper_input import deinit
-            deinit()
+            from flipper_input import deinit as flipper_input_deinit
+            from flipper_battery import deinit as flipper_battery_deinit
+            flipper_input_deinit()
+            flipper_battery_deinit()
 
         elif self._current_board_id not in (
             BOARD_WAVESHARE_1_28_RP2350,

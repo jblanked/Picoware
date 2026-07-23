@@ -190,7 +190,12 @@ class System:
 
     def shutdown_device(self, view_manager=None):
         """Shutdown the device."""
-        from picoware_boards import BOARD_HAS_PSRAM
+        from picoware_boards import BOARD_HAS_PSRAM, BOARD_ID, BOARD_FLIPPER_ZERO
+
+        if BOARD_ID == BOARD_FLIPPER_ZERO:
+            from flipper_battery import shutdown
+            shutdown()
+            return
 
         if BOARD_HAS_PSRAM == 0:
             return

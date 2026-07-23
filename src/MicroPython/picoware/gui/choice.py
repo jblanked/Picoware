@@ -143,6 +143,7 @@ class Choice:
             return
 
         from picoware.system.vector import Vector
+        from picoware_boards import BOARD_ID, BOARD_FLIPPER_ZERO
 
         font_size = self.display.font_size
 
@@ -210,7 +211,7 @@ class Choice:
                 self.display.text(text_pos, option, text_color)
         else:
             # Draw Title
-            _font = self.display.get_font(2)
+            _font = self.display.get_font(1 if BOARD_ID == BOARD_FLIPPER_ZERO else 2)
             title_width = len(self.title) * (_font.width + _font.spacing)
             title_x = self.position.x + (self.size.x - title_width) // 2
             title_y = self.position.y + 5

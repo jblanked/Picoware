@@ -6,6 +6,9 @@
 
 #include "stm32wbxx_hal.h"
 
+// fPCLK/16 for LCD
+#define SPI_BR_DIV16 0x3
+
 static SPI_HandleTypeDef s_spi;
 static bool s_spi_initialized = false;
 static I2C_HandleTypeDef s_i2c;
@@ -254,6 +257,11 @@ static uint8_t color_to_mono(uint16_t color)
 
 void lcd_swap(void)
 {
+    // Restore LCD SPI speed
+    uint32_t cr1 = SPI2->CR1;
+    cr1 = (cr1 & ~SPI_CR1_BR) | (SPI_BR_DIV16 << SPI_CR1_BR_Pos);
+    SPI2->CR1 = cr1;
+
     for (int page = 0; page < 8; page++)
     {
         HAL_GPIO_WritePin(FLIPPER_LCD_CS_GPIO, FLIPPER_LCD_CS_PIN, GPIO_PIN_RESET);

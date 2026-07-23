@@ -57,6 +57,7 @@ class Storage:
             self._has_storage = False
         else:
             sd_mp.init()
+            sd_mp.mount()
 
     def __del__(self):
         """Destructor to ensure SD card is unmounted."""

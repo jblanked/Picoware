@@ -384,7 +384,7 @@ void *storage_file_open(const char *filename)
                                         (mp_map_t *)&mp_const_empty_map);
         nlr_pop();
 
-        handle = (storage_file_handle_t *)malloc(sizeof(storage_file_handle_t));
+        handle = (storage_file_handle_t *)m_malloc0(sizeof(storage_file_handle_t));
         if (handle != NULL)
         {
             handle->file_obj = file_obj;
@@ -420,7 +420,7 @@ void *storage_file_write_open(const char *filename)
                                         (mp_map_t *)&mp_const_empty_map);
         nlr_pop();
 
-        handle = (storage_file_handle_t *)malloc(sizeof(storage_file_handle_t));
+        handle = (storage_file_handle_t *)m_malloc0(sizeof(storage_file_handle_t));
         if (handle != NULL)
         {
             handle->file_obj = file_obj;
@@ -441,7 +441,7 @@ void storage_file_close(void *handle)
 
     storage_file_handle_t *h = (storage_file_handle_t *)handle;
     mp_stream_close(h->file_obj);
-    free(h);
+    m_free(h);
 }
 
 size_t storage_file_read_file_chunk(void *handle, void *buffer,

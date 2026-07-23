@@ -37,6 +37,10 @@ static inline bool storage_write(const char *file_path, const void *data, size_t
 {
     return storage_file_write(file_path, data, data_size);
 }
+#elif defined(FLIPPER_ZERO)
+#define STORAGE_DOES_EXIST 1
+#include "../Flipper/sd/storage.h"
+#define storage_read storage_file_read
 #else
 
 #if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC)

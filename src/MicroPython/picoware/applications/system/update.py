@@ -291,9 +291,6 @@ def __draw_error(view_manager, message: str) -> None:
 
 def start(view_manager) -> bool:
     """Start the app"""
-    from picoware.system.http import HTTP
-    from picoware.system.system import System
-
     global _http, _app_state, _current_version, _board_id
 
     # Check for SD card (needed to save firmware)
@@ -315,6 +312,9 @@ def start(view_manager) -> bool:
         view_manager.alert("WiFi not connected", False)
         connect_to_saved_wifi(view_manager)
         return False
+    
+    from picoware.system.http import HTTP
+    from picoware.system.system import System
 
     __reset()
 

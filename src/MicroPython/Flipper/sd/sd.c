@@ -7,6 +7,19 @@
 static SPI_HandleTypeDef s_spi;
 static bool s_spi_ready = false;
 
+// SPI2 BR prescaler values
+#define SPI_BR_DIV2 0x0   // fPCLK/2: SD data
+#define SPI_BR_DIV16 0x3  // fPCLK/16: LCD
+#define SPI_BR_DIV128 0x6 // fPCLK/128: SD init
+
+// Restore LCD speed after ops
+static void sd_spi_set_br(uint32_t br)
+{
+    uint32_t cr1 = SPI2->CR1;
+    cr1 = (cr1 & ~SPI_CR1_BR) | ((br & 0x7) << SPI_CR1_BR_Pos);
+    SPI2->CR1 = cr1;
+}
+
 static inline void sd_cs_low(void)
 {
     HAL_GPIO_WritePin(FLIPPER_SD_CS_GPIO, FLIPPER_SD_CS_PIN, GPIO_PIN_RESET);
@@ -113,6 +126,9 @@ bool spi_sdcard_init(spi_sdcard_t *card)
     __HAL_RCC_GPIOB_CLK_ENABLE();
     __HAL_RCC_GPIOD_CLK_ENABLE();
 
+    // Set SD init speed
+    sd_spi_set_br(SPI_BR_DIV128);
+
     // Configure CS pin
     GPIO_InitTypeDef gpio = {0};
     gpio.Pin = FLIPPER_SD_CS_PIN;
@@ -122,10 +138,10 @@ bool spi_sdcard_init(spi_sdcard_t *card)
     HAL_GPIO_Init(FLIPPER_SD_CS_GPIO, &gpio);
     sd_cs_high();
 
-    // CD pin (card detect)
+    // CD pin (card detect, active-low with external pull-up or floating high)
     gpio.Pin = FLIPPER_SD_CD_PIN;
     gpio.Mode = GPIO_MODE_INPUT;
-    gpio.Pull = GPIO_NOPULL;
+    gpio.Pull = GPIO_PULLUP;
     gpio.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(FLIPPER_SD_CD_GPIO, &gpio);
 
@@ -300,11 +316,14 @@ bool spi_sdcard_init(spi_sdcard_t *card)
         card->capacity_blocks = (c_size + 1) * (1UL << (c_size_mult + 2)) * (1UL << (read_bl_len - 9));
     }
 
-    s_spi.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2; // ~32 MHz
+    s_spi.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2; // ~32 MHz for data
     HAL_SPI_Init(&s_spi);
 
     card->block_size = 512;
     card->initialized = true;
+
+    // Restore LCD speed
+    sd_spi_set_br(SPI_BR_DIV16);
 
     return true;
 }
@@ -337,6 +356,11 @@ int spi_sdcard_read_blocks(spi_sdcard_t *card, uint8_t *buf, uint32_t block_num,
     if (!card->initialized)
         return -1;
 
+    // Set SD data speed
+    sd_spi_set_br(SPI_BR_DIV2);
+
+    int ret = -1;
+
     for (uint32_t b = 0; b < num_blocks; b++)
     {
         uint32_t addr = block_num + b;
@@ -354,7 +378,8 @@ int spi_sdcard_read_blocks(spi_sdcard_t *card, uint8_t *buf, uint32_t block_num,
         if (r1 != 0x00)
         {
             sd_cs_high();
-            return -1;
+            sd_spi_set_br(SPI_BR_DIV16);
+            return ret;
         }
 
         // Wait for data token 0xFE
@@ -367,7 +392,8 @@ int spi_sdcard_read_blocks(spi_sdcard_t *card, uint8_t *buf, uint32_t block_num,
         if (token != 0xFE)
         {
             sd_cs_high();
-            return -1;
+            sd_spi_set_br(SPI_BR_DIV16);
+            return ret;
         }
 
         // Read 512 bytes + 2-byte CRC
@@ -386,7 +412,11 @@ int spi_sdcard_read_blocks(spi_sdcard_t *card, uint8_t *buf, uint32_t block_num,
         sd_cs_high();
     }
 
-    return 0;
+    ret = 0;
+
+    // Restore LCD speed
+    sd_spi_set_br(SPI_BR_DIV16);
+    return ret;
 }
 
 int spi_sdcard_write_blocks(spi_sdcard_t *card, const uint8_t *buf,
@@ -394,6 +424,11 @@ int spi_sdcard_write_blocks(spi_sdcard_t *card, const uint8_t *buf,
 {
     if (!card->initialized)
         return -1;
+
+    // Set SD data speed
+    sd_spi_set_br(SPI_BR_DIV2);
+
+    int ret = -1;
 
     for (uint32_t b = 0; b < num_blocks; b++)
     {
@@ -419,7 +454,8 @@ int spi_sdcard_write_blocks(spi_sdcard_t *card, const uint8_t *buf,
         if (r1 != 0x00)
         {
             sd_cs_high();
-            return -1;
+            sd_spi_set_br(SPI_BR_DIV16);
+            return ret;
         }
 
         // Send data start token
@@ -435,7 +471,8 @@ int spi_sdcard_write_blocks(spi_sdcard_t *card, const uint8_t *buf,
         if ((resp & 0x1F) != 0x05)
         {
             sd_cs_high();
-            return -1;
+            sd_spi_set_br(SPI_BR_DIV16);
+            return ret;
         }
 
         // Wait for write to complete (card pulls line low while busy)
@@ -446,7 +483,8 @@ int spi_sdcard_write_blocks(spi_sdcard_t *card, const uint8_t *buf,
         if (max_wait <= 0)
         {
             sd_cs_high();
-            return -1;
+            sd_spi_set_br(SPI_BR_DIV16);
+            return ret;
         }
         sd_cs_high();
     }
@@ -464,7 +502,9 @@ int spi_sdcard_write_blocks(spi_sdcard_t *card, const uint8_t *buf,
         sd_cs_high();
     }
 
-    return 0;
+    ret = 0;
+    sd_spi_set_br(SPI_BR_DIV16);
+    return ret;
 }
 
 bool spi_sdcard_card_present(void)

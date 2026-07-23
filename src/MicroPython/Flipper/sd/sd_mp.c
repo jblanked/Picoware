@@ -25,10 +25,20 @@ static bool s_vfs_mounted = false;
 static const char *sd_path(const char *user_path)
 {
     static char buf[256];
-    if (user_path[0] == '/')
+    size_t root_len = strlen(SD_MOUNT_POINT);
+
+    // Has /sd prefix
+    if (strncmp(user_path, SD_MOUNT_POINT, root_len) == 0)
     {
-        return user_path;
+        if (user_path[root_len] == '/' || user_path[root_len] == '\0')
+        {
+            return user_path;
+        }
     }
+
+    // Strip '/', prepend /sd/
+    while (*user_path == '/')
+        user_path++;
     snprintf(buf, sizeof(buf), SD_MOUNT_POINT "/%s", user_path);
     return buf;
 }
@@ -224,9 +234,7 @@ MP_DEFINE_CONST_OBJ_TYPE(
 
 mp_obj_t sd_mp_init(void)
 {
-    if (s_card_initialised)
-        return mp_const_none;
-
+    // Re-init after soft reboot
     if (!spi_sdcard_card_present())
     {
         PRINT("SD card not present\n");
@@ -248,16 +256,28 @@ mp_obj_t sd_mp_mount(void)
 {
     if (!s_card_initialised)
         return mp_const_false;
+    // Verify VFS state, not flag
     if (s_vfs_mounted)
-        return mp_const_true;
+    {
+        nlr_buf_t nlr;
+        if (nlr_push(&nlr) == 0)
+        {
+            mp_obj_t mount_point = mp_obj_new_str(SD_MOUNT_POINT, strlen(SD_MOUNT_POINT));
+            mp_vfs_stat(mount_point);
+            nlr_pop();
+            return mp_const_true;
+        }
+        nlr_pop();
+        s_vfs_mounted = false;
+    }
 
-    // Create block device wrapping the SPI SD card
+    // Create SD block device
     mp_obj_t bdev = mp_call_function_n_kw(
         MP_OBJ_FROM_PTR(&flipper_sd_blockdev_type), 0, 0, NULL);
     flipper_sd_blockdev_set_card(bdev, &s_sd_card,
                                  s_sd_card.capacity_blocks, 512);
 
-    // Wrap in MicroPython built-in VfsFat
+    // Wrap in VfsFat
     nlr_buf_t nlr;
     mp_obj_t vfs_fat = MP_OBJ_NULL;
     if (nlr_push(&nlr) == 0)
@@ -279,7 +299,7 @@ mp_obj_t sd_mp_mount(void)
         return mp_const_false;
     }
 
-    // Register at /sd
+    // Mount at /sd
     mp_obj_t mount_point = mp_obj_new_str(SD_MOUNT_POINT, strlen(SD_MOUNT_POINT));
     if (nlr_push(&nlr) == 0)
     {
@@ -302,17 +322,33 @@ static MP_DEFINE_CONST_FUN_OBJ_0(sd_mp_mount_obj, sd_mp_mount);
 
 bool sd_storage_mount_if_needed(void)
 {
-    if (s_card_initialised && s_vfs_mounted)
-        return true;
-
-    if (!s_card_initialised)
+    // Verify VFS after reboot
+    if (s_vfs_mounted)
     {
-        if (!spi_sdcard_card_present())
-            return false;
-        if (!spi_sdcard_init(&s_sd_card))
-            return false;
-        s_card_initialised = true;
+        nlr_buf_t nlr;
+        if (nlr_push(&nlr) == 0)
+        {
+            mp_obj_t mount_point = mp_obj_new_str(SD_MOUNT_POINT, strlen(SD_MOUNT_POINT));
+            mp_vfs_stat(mount_point);
+            nlr_pop();
+            // Genuinely mounted
+            if (s_card_initialised)
+                return true;
+        }
+        else
+        {
+            nlr_pop();
+        }
+        // Reset stale flag
+        s_vfs_mounted = false;
     }
+
+    // Always re-init HW
+    if (!spi_sdcard_card_present())
+        return false;
+    if (!spi_sdcard_init(&s_sd_card))
+        return false;
+    s_card_initialised = true;
 
     if (!s_vfs_mounted)
     {

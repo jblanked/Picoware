@@ -110,7 +110,7 @@ def run(view_manager) -> None:
                 view_manager.draw,
                 Vector(0, 0),
                 view_manager.draw.size,
-                "Shutdown Device?",
+                "Shutdown?",
                 ["No", "Yes"],
                 0,
                 view_manager.foreground_color,

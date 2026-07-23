@@ -90,14 +90,7 @@ static bool is_dot_entry(const char *name)
     return (strcmp(name, ".") == 0) || (strcmp(name, "..") == 0);
 }
 
-typedef struct
-{
-    mp_obj_base_t base;
-    fat32_file_t file;
-    mp_obj_t vfs_file;
-} mp_flipper_file_obj_t;
-
-const mp_obj_type_t mp_fat32_file_type;
+const mp_obj_type_t mp_flipper_file_type;
 
 static inline mp_flipper_file_obj_t *file_from_obj(mp_obj_t self_in)
 {
@@ -120,8 +113,8 @@ mp_obj_t mp_fat32_file_make_new(const mp_obj_type_t *type, size_t n_args,
     (void)n_kw;
     (void)args;
     mp_flipper_file_obj_t *self = mp_obj_malloc_with_finaliser(
-        mp_flipper_file_obj_t, &mp_fat32_file_type);
-    self->base.type = &mp_fat32_file_type;
+        mp_flipper_file_obj_t, &mp_flipper_file_type);
+    self->base.type = &mp_flipper_file_type;
     memset(&self->file, 0, sizeof(fat32_file_t));
     self->vfs_file = MP_OBJ_NULL;
     return MP_OBJ_FROM_PTR(self);
@@ -221,7 +214,7 @@ static const mp_rom_map_elem_t mp_fat32_file_locals_dict_table[] = {
 static MP_DEFINE_CONST_DICT(mp_fat32_file_locals_dict, mp_fat32_file_locals_dict_table);
 
 MP_DEFINE_CONST_OBJ_TYPE(
-    mp_fat32_file_type,
+    mp_flipper_file_type,
     MP_QSTR_fat32_file,
     MP_TYPE_FLAG_HAS_SPECIAL_ACCESSORS,
     print, mp_fat32_file_print,
@@ -546,8 +539,8 @@ static MP_DEFINE_CONST_FUN_OBJ_1(sd_mp_read_directory_obj, sd_mp_read_directory)
 mp_obj_t sd_mp_file_open(mp_obj_t filepath_obj)
 {
     mp_flipper_file_obj_t *self = mp_obj_malloc_with_finaliser(
-        mp_flipper_file_obj_t, &mp_fat32_file_type);
-    self->base.type = &mp_fat32_file_type;
+        mp_flipper_file_obj_t, &mp_flipper_file_type);
+    self->base.type = &mp_flipper_file_type;
     memset(&self->file, 0, sizeof(fat32_file_t));
 
     uint32_t mode, size;
@@ -862,7 +855,7 @@ static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sd_mp_move_obj, 2, 2, sd_mp_move);
 
 static const mp_rom_map_elem_t sd_mp_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_sd_mp)},
-    {MP_ROM_QSTR(MP_QSTR_fat32_file), MP_ROM_PTR(&mp_fat32_file_type)},
+    {MP_ROM_QSTR(MP_QSTR_fat32_file), MP_ROM_PTR(&mp_flipper_file_type)},
     {MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&sd_mp_init_obj)},
     {MP_ROM_QSTR(MP_QSTR_mount), MP_ROM_PTR(&sd_mp_mount_obj)},
     {MP_ROM_QSTR(MP_QSTR_unmount), MP_ROM_PTR(&sd_mp_unmount_obj)},

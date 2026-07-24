@@ -31,8 +31,6 @@ class Loading:
         self.radius = draw.scale_x(20)  # spinner radius
         self.span = 280  # degrees of arc
         self.step = 5  # degrees between segments (280/5 = 56 segments)
-        self.vec_line = Vector(0, 0)
-        self.vec_line_end = Vector(0, 0)
         self.text_vec = Vector(0, int(draw.size.y * 0.0625))
         self.text_vec_2 = Vector(0, draw.size.y - draw.scale_y(15))
         self.rad = (3.14159265358979323846) / 180.0
@@ -79,8 +77,6 @@ class Loading:
         self.time_elapsed = 0
         self.time_start = 0
         self.spinner_position = 0
-        self.vec_line = None
-        self.vec_line_end = None
         self.text_vec = None
         self.text_vec_2 = None
         self.rad = 0.0

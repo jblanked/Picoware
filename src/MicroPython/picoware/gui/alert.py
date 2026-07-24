@@ -117,7 +117,7 @@ class Alert:
             # Calculate text area constraints for circular display
             text_start_y = int(center_y - radius * 0.6)
             max_radius_at_y = int(radius * 0.8)
-            chars_per_line = (max_radius_at_y * 2) // (font_size.x + 1)
+            chars_per_line = ((max_radius_at_y * 2) // (font_size.x)) - 1
 
             # Wrap text manually based on character count
             line: int = 0
@@ -176,7 +176,7 @@ class Alert:
             text_start_x = int(size.x * 0.09375)
             text_start_y = border_top + 2
             text_max_width = size.x - (2 * text_start_x)  # Leave padding from border
-            chars_per_line = int(text_max_width // (font_size.x + 1))
+            chars_per_line = (text_max_width // font_size.x) - 1
 
             # Wrap text manually based on character count
             line: int = 0

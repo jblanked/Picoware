@@ -182,7 +182,7 @@ class Choice:
                     opt_center_x = center_x
                     opt_center_y = opt_y + option_height // 2
                     opt_radius = max(text_width // 2 + 10, option_height // 2 + 5)
-                    self.display.__fill_circle(
+                    self.display._fill_circle(
                         opt_center_x, opt_center_y,
                         opt_radius,
                         self.foreground_color,
@@ -193,7 +193,7 @@ class Choice:
                     opt_center_x = center_x
                     opt_center_y = opt_y + option_height // 2
                     opt_radius = max(text_width // 2 + 10, option_height // 2 + 5)
-                    self.display.__circle(
+                    self.display._circle(
                         opt_center_x, opt_center_y,
                         opt_radius,
                         self.foreground_color,

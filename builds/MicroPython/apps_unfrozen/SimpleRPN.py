@@ -7,6 +7,8 @@ from picoware.system.vector import Vector
 from picoware.system.font import FONT_XTRA_SMALL, FONT_SMALL, FONT_MEDIUM
 from picoware.system.colors import TFT_WHITE
 from picoware.system.buttons import (
+    BUTTON_A,
+    BUTTON_Z,
     BUTTON_BACK,
     BUTTON_UP,
     BUTTON_DOWN,
@@ -24,16 +26,24 @@ from picoware.system.buttons import (
     BUTTON_EQUAL,
     BUTTON_PERCENT,
     BUTTON_BACKSPACE,
+    BUTTON_DELETE,
     BUTTON_SPACE,
     BUTTON_ESCAPE,
     BUTTON_C,
     BUTTON_D,
     BUTTON_H,
+    BUTTON_I,
+    BUTTON_J,
+    BUTTON_K,
+    BUTTON_L,
     BUTTON_N,
     BUTTON_P,
     BUTTON_Q,
     BUTTON_R,
     BUTTON_S,
+    BUTTON_T,
+    BUTTON_U,
+    BUTTON_V,
     BUTTON_X,
 )
 
@@ -83,6 +93,10 @@ KEYS = (
     ("0", "0", "number"),
     (".", "decimal", "number"),
     ("SWAP", "swap", "function"),
+    ("STO", "store", "memory"),
+    ("RCL", "recall", "memory"),
+    ("VARS", "variables", "memory"),
+    ("HELP", "help", "function"),
 )
 
 ACTION_INDEX = {}
@@ -111,7 +125,16 @@ def format_number(value):
 class RPNStack:
     """Four-level T/Z/Y/X stack with an editable X register."""
 
-    __slots__ = ("stack", "entry", "entering", "lift_on_entry", "error", "status")
+    __slots__ = (
+        "stack",
+        "entry",
+        "entering",
+        "lift_on_entry",
+        "error",
+        "status",
+        "variables",
+        "variable_set",
+    )
 
     def __init__(self):
         self.stack = [0.0, 0.0, 0.0, 0.0]  # X, Y, Z, T
@@ -120,6 +143,8 @@ class RPNStack:
         self.lift_on_entry = False
         self.error = ""
         self.status = "READY"
+        self.variables = [0.0] * 26
+        self.variable_set = [False] * 26
 
     def clear(self):
         self.stack[0] = 0.0
@@ -205,8 +230,9 @@ class RPNStack:
             self.status = "X CLEARED"
             return
         self.entry = self.entry[:-1]
-        if self.entry == "-":
+        if self.entry in ("", "-"):
             self.entry = ""
+            self.entering = False
         self._sync_entry()
         self.status = "EDIT X"
 
@@ -323,6 +349,37 @@ class RPNStack:
         self.lift_on_entry = True
         self.status = label
 
+    def store(self, index):
+        """Store X in the named variable without changing the stack."""
+        self._dismiss_error()
+        self._commit_entry()
+        self.variables[index] = self.stack[0]
+        self.variable_set[index] = True
+        self.lift_on_entry = True
+        self.status = "STO " + chr(ord("A") + index)
+
+    def recall(self, index):
+        """Lift the stack and recall the named variable into X."""
+        self._dismiss_error()
+        name = chr(ord("A") + index)
+        if not self.variable_set[index]:
+            self.status = "RCL " + name + ": EMPTY"
+            return False
+        self._commit_entry()
+        self._lift()
+        self.stack[0] = self.variables[index]
+        self.entry = ""
+        self.entering = False
+        self.lift_on_entry = True
+        self.status = "RCL " + name
+        return True
+
+    def clear_variable(self, index):
+        """Clear one named variable without affecting the stack."""
+        self.variables[index] = 0.0
+        self.variable_set[index] = False
+        self.status = "CLEARED " + chr(ord("A") + index)
+
     def display(self, level):
         if level == 0 and self.entering:
             return self.entry if self.entry not in ("", "-") else "0"
@@ -332,6 +389,9 @@ class RPNStack:
 calculator = None
 selected_index = ENTER_INDEX
 help_visible = False
+help_page = 0
+variable_view_mode = None
+selected_variable = 0
 escape_armed = False
 flash_index = -1
 flash_until = 0
@@ -381,10 +441,11 @@ def _key_geometry(draw):
     keypad_y = 145
     gap = 3
     margin = 5
+    rows = (len(KEYS) + 3) // 4
     key_width = (width - margin * 2 - gap * 3) // 4
-    key_height = (height - keypad_y - 5 - gap * 5) // 6
-    if key_height < 13:
-        key_height = 13
+    key_height = (height - keypad_y - 5 - gap * (rows - 1)) // rows
+    if key_height < 9:
+        key_height = 9
     return keypad_y, gap, margin, key_width, key_height
 
 
@@ -407,7 +468,7 @@ def _draw_key(draw, index, selected, flashed=False):
         color = COLOR_AMBER
     elif key_type in ("operator", "enter"):
         color = COLOR_KEY_OP
-    elif key_type == "function":
+    elif key_type in ("function", "memory"):
         color = COLOR_KEY_FN
     else:
         color = COLOR_KEY
@@ -447,6 +508,86 @@ def _redraw(view_manager):
     draw.swap()
 
 
+def _draw_variable_viewer(view_manager):
+    draw = view_manager.draw
+    width = draw.size.x
+    height = draw.size.y
+    draw.clear(color=COLOR_BG)
+
+    if variable_view_mode == "store":
+        title = "STO VARIABLE"
+    elif variable_view_mode == "recall":
+        title = "RCL VARIABLE"
+    else:
+        title = "VARIABLE VIEWER"
+
+    footer_space = 53
+    rows_per_column = (height - 29 - footer_space) // 18
+    if rows_per_column < 3:
+        rows_per_column = 3
+    elif rows_per_column > 13:
+        rows_per_column = 13
+    page_size = rows_per_column * 2
+    page_start = (selected_variable // page_size) * page_size
+    page_end = page_start + page_size
+    if page_end > 26:
+        page_end = 26
+
+    draw.fill_rectangle(Vector(0, 0), Vector(width, 23), COLOR_KEY_OP)
+    draw.text(Vector(7, 5), title, TFT_WHITE, FONT_SMALL)
+    range_text = chr(ord("A") + page_start) + "-" + chr(ord("A") + page_end - 1)
+    draw.text(
+        Vector(width - draw.len(range_text, FONT_XTRA_SMALL) - 7, 8),
+        range_text,
+        COLOR_AMBER,
+        FONT_XTRA_SMALL,
+    )
+
+    cell_width = (width - 14) // 2
+    for index in range(page_start, page_end):
+        offset = index - page_start
+        column = offset // rows_per_column
+        row = offset % rows_per_column
+        x = 5 + column * (cell_width + 4)
+        y = 29 + row * 18
+        selected = index == selected_variable
+        text_color = COLOR_LCD_DARK if selected else TFT_WHITE
+        value_color = COLOR_LCD_DARK if selected else COLOR_MUTED
+
+        if selected:
+            draw.fill_rectangle(Vector(x, y), Vector(cell_width, 16), COLOR_AMBER)
+        else:
+            draw.rect(Vector(x, y), Vector(cell_width, 16), COLOR_KEY)
+
+        name = chr(ord("A") + index)
+        value = format_number(calculator.variables[index])
+        if not calculator.variable_set[index]:
+            value = "--"
+        draw.text(Vector(x + 4, y + 2), name, text_color, FONT_SMALL)
+        _right_text(
+            draw,
+            x + cell_width - 4,
+            y + 4,
+            value,
+            value_color,
+            FONT_XTRA_SMALL,
+        )
+
+    status = calculator.status
+    if len(status) > 38:
+        status = status[:38]
+    draw.text(Vector(7, height - 43), status, COLOR_AMBER, FONT_XTRA_SMALL)
+    if variable_view_mode in ("store", "recall"):
+        control_line = "A-Z ACT  CENTER/=/SPACE CONFIRM"
+        close_line = "ARROWS SELECT  ESC/BACK CANCEL"
+    else:
+        control_line = "CENTER/= RCL  SPACE STO  BS/DEL CLR"
+        close_line = "ARROWS/A-Z SELECT  ESC/BACK CLOSE"
+    draw.text(Vector(7, height - 27), control_line, COLOR_MUTED, FONT_XTRA_SMALL)
+    draw.text(Vector(7, height - 14), close_line, COLOR_MUTED, FONT_XTRA_SMALL)
+    draw.swap()
+
+
 def _draw_help(view_manager):
     draw = view_manager.draw
     width = draw.size.x
@@ -454,32 +595,132 @@ def _draw_help(view_manager):
 
     draw.fill_rectangle(Vector(0, 0), Vector(width, 23), COLOR_KEY_OP)
     draw.text(Vector(7, 5), "SimpleRPN HELP", TFT_WHITE, FONT_SMALL)
+    draw.text(
+        Vector(width - 94, 8),
+        str(help_page + 1) + "/2",
+        COLOR_MUTED,
+        FONT_XTRA_SMALL,
+    )
     draw.text(Vector(width - 58, 8), "H CLOSE", COLOR_AMBER, FONT_XTRA_SMALL)
 
-    lines = (
-        ("FAST INPUT", COLOR_AMBER),
-        ("RETURN   enter / lift stack", TFT_WHITE),
-        ("SPACE    use highlighted key", TFT_WHITE),
-        ("0-9 . +-*/%  direct input", TFT_WHITE),
-        ("ARROWS   move cursor only", TFT_WHITE),
-        ("BS/DEL   edit current X", TFT_WHITE),
-        ("ESC      clear X; again: all", TFT_WHITE),
-        ("", TFT_WHITE),
-        ("SHORTCUTS", COLOR_AMBER),
-        ("D drop   S swap   N sign", TFT_WHITE),
-        ("Q sqrt   X square R 1/x", TFT_WHITE),
-        ("C clear all       H help", TFT_WHITE),
-        ("", TFT_WHITE),
-        ("PERCENT", COLOR_AMBER),
-        ("Tax/tip: 200 RET 15 % +", TFT_WHITE),
-        ("Discount: 200 RET 15 % -", TFT_WHITE),
-        ("Y stays as the base after %", COLOR_MUTED),
-    )
+    if help_page == 0:
+        lines = (
+            ("FAST INPUT", COLOR_AMBER),
+            ("RETURN / SPACE / TOUCH  use key", TFT_WHITE),
+            ("=             always enter / lift", TFT_WHITE),
+            ("ARROWS       move keypad cursor", TFT_WHITE),
+            ("0-9 . + - * / \\  direct input", TFT_WHITE),
+            ("% or P       percent of Y", TFT_WHITE),
+            ("BS / DEL     edit entry / clear X", TFT_WHITE),
+            ("ESC          clear X; again: all", TFT_WHITE),
+            ("BACK         edit entry; else exit", TFT_WHITE),
+            ("OPERATOR SHORTCUTS", COLOR_AMBER),
+            ("U divide          I multiply", TFT_WHITE),
+            ("J subtract        K add", TFT_WHITE),
+            ("OTHER SHORTCUTS", COLOR_AMBER),
+            ("C clear  D drop  S swap  N sign", TFT_WHITE),
+            ("Q sqrt  X square  R reciprocal", TFT_WHITE),
+            ("T store  L recall  V vars  H help", TFT_WHITE),
+            ("H / ESC / BACK  close help", COLOR_MUTED),
+            ("LEFT / RIGHT  change help page", COLOR_MUTED),
+        )
+    else:
+        lines = (
+            ("MEMORY", COLOR_AMBER),
+            ("T / STO    choose variable A-Z", TFT_WHITE),
+            ("L / RCL    choose variable A-Z", TFT_WHITE),
+            ("V / VARS   open variable viewer", TFT_WHITE),
+            ("STO copies X; RCL lifts into X", COLOR_MUTED),
+            ("VARIABLE VIEWER", COLOR_AMBER),
+            ("A-Z         select variable", TFT_WHITE),
+            ("ARROWS      move selection", TFT_WHITE),
+            ("RET / TOUCH / =  recall selected", TFT_WHITE),
+            ("SPACE       store X to selected", TFT_WHITE),
+            ("BS / DEL    clear selected", TFT_WHITE),
+            ("ESC / BACK  close viewer", TFT_WHITE),
+            ("Pending: A-Z acts immediately", COLOR_MUTED),
+            ("RET / TOUCH / = / SPACE confirms", COLOR_MUTED),
+            ("PERCENT", COLOR_AMBER),
+            ("200 RET 15 % + = 230", TFT_WHITE),
+            ("Y remains base after % for + / -", COLOR_MUTED),
+            ("H/ESC/BACK close; LEFT/RIGHT page", COLOR_MUTED),
+        )
+    help_font = FONT_SMALL if draw.size.y >= 300 else FONT_XTRA_SMALL
+    line_step = 15 if draw.size.y >= 300 else 11
     y = 29
     for text, color in lines:
-        draw.text(Vector(8, y), text, color, FONT_SMALL)
-        y += 16
+        draw.text(Vector(8, y), text, color, help_font)
+        y += line_step
     draw.swap()
+
+
+def _open_variable_viewer(view_manager, mode):
+    global variable_view_mode, flash_index, escape_armed
+    variable_view_mode = mode
+    flash_index = -1
+    escape_armed = False
+    if mode == "store":
+        calculator.status = "STO: CHOOSE A-Z"
+    elif mode == "recall":
+        calculator.status = "RCL: CHOOSE A-Z"
+    else:
+        calculator.status = "BROWSE A-Z"
+    _draw_variable_viewer(view_manager)
+
+
+def _close_variable_viewer(view_manager):
+    global variable_view_mode, flash_index, escape_armed
+    variable_view_mode = None
+    flash_index = -1
+    escape_armed = False
+    _redraw(view_manager)
+
+
+def _complete_variable_action(view_manager, index, action=None):
+    """Apply a viewer action, returning True when the viewer closes."""
+    global variable_view_mode, selected_variable
+    selected_variable = index
+    action = action or variable_view_mode
+
+    if action == "store":
+        calculator.store(index)
+        if variable_view_mode == "view":
+            _draw_variable_viewer(view_manager)
+            return False
+        variable_view_mode = None
+        _redraw(view_manager)
+        return True
+
+    if action == "recall":
+        if not calculator.recall(index):
+            _draw_variable_viewer(view_manager)
+            return False
+        variable_view_mode = None
+        _redraw(view_manager)
+        return True
+
+    return False
+
+
+def _move_variable_selection(view_manager, button):
+    global selected_variable
+    rows_per_column = (view_manager.draw.size.y - 29 - 53) // 18
+    if rows_per_column < 3:
+        rows_per_column = 3
+    elif rows_per_column > 13:
+        rows_per_column = 13
+    if button == BUTTON_UP:
+        selected_variable = (selected_variable - 1) % 26
+    elif button == BUTTON_DOWN:
+        selected_variable = (selected_variable + 1) % 26
+    elif button == BUTTON_LEFT:
+        candidate = selected_variable - rows_per_column
+        if candidate >= 0:
+            selected_variable = candidate
+    elif button == BUTTON_RIGHT:
+        candidate = selected_variable + rows_per_column
+        if candidate < 26:
+            selected_variable = candidate
 
 
 def _refresh_stack(view_manager, swap=True):
@@ -514,6 +755,41 @@ def _finish_flash(view_manager):
     draw.swap()
 
 
+def _run_variable_viewer(view_manager, button):
+    global selected_variable
+    if button in (BUTTON_BACK, BUTTON_ESCAPE):
+        _close_variable_viewer(view_manager)
+        return
+
+    if button in (BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT):
+        _move_variable_selection(view_manager, button)
+        _draw_variable_viewer(view_manager)
+        return
+
+    if BUTTON_A <= button <= BUTTON_Z:
+        index = button - BUTTON_A
+        if variable_view_mode in ("store", "recall"):
+            _complete_variable_action(view_manager, index)
+        else:
+            selected_variable = index
+            _draw_variable_viewer(view_manager)
+        return
+
+    if button in (BUTTON_BACKSPACE, BUTTON_DELETE):
+        calculator.clear_variable(selected_variable)
+        _draw_variable_viewer(view_manager)
+        return
+
+    if button in (BUTTON_CENTER, BUTTON_EQUAL):
+        action = variable_view_mode if variable_view_mode != "view" else "recall"
+        _complete_variable_action(view_manager, selected_variable, action)
+        return
+
+    if button == BUTTON_SPACE:
+        action = variable_view_mode if variable_view_mode != "view" else "store"
+        _complete_variable_action(view_manager, selected_variable, action)
+
+
 def _perform(action):
     if action and action[0] >= "0" and action[0] <= "9" and len(action) == 1:
         calculator.digit(action)
@@ -538,10 +814,14 @@ def _perform(action):
 
 
 def start(view_manager):
-    global calculator, selected_index, help_visible, escape_armed, flash_index
+    global calculator, selected_index, help_visible, help_page, variable_view_mode
+    global selected_variable, escape_armed, flash_index
     calculator = RPNStack()
     selected_index = ENTER_INDEX
     help_visible = False
+    help_page = 0
+    variable_view_mode = None
+    selected_variable = 0
     escape_armed = False
     flash_index = -1
     view_manager.input_manager.reset()
@@ -550,12 +830,17 @@ def start(view_manager):
 
 
 def run(view_manager):
-    global selected_index, help_visible, escape_armed, flash_index
+    global selected_index, help_visible, help_page, escape_armed, flash_index
     inp = view_manager.input_manager
     button = inp.button
     if button == -1:
-        if not help_visible:
+        if not help_visible and variable_view_mode is None:
             _finish_flash(view_manager)
+        return
+
+    if variable_view_mode is not None:
+        _run_variable_viewer(view_manager, button)
+        inp.reset()
         return
 
     if help_visible:
@@ -565,11 +850,22 @@ def run(view_manager):
             inp.reset()
             _redraw(view_manager)
             return
+        if button == BUTTON_LEFT:
+            help_page = (help_page - 1) % 2
+            inp.reset()
+            _draw_help(view_manager)
+            return
+        if button == BUTTON_RIGHT:
+            help_page = (help_page + 1) % 2
+            inp.reset()
+            _draw_help(view_manager)
+            return
         inp.reset()
         return
 
     if button == BUTTON_H:
         help_visible = True
+        help_page = 0
         escape_armed = False
         flash_index = -1
         inp.reset()
@@ -599,11 +895,7 @@ def run(view_manager):
     elif button == BUTTON_DOWN:
         selected_index = (selected_index + 4) % len(KEYS)
     elif button == BUTTON_CENTER:
-        if inp.has_touch_support:
-            action = KEYS[selected_index][1]
-        else:
-            action = "enter"
-            direct_action = True
+        action = KEYS[selected_index][1]
     elif button == BUTTON_SPACE:
         action = KEYS[selected_index][1]
     elif BUTTON_0 <= button <= BUTTON_9:
@@ -630,7 +922,7 @@ def run(view_manager):
     elif button == BUTTON_PERCENT:
         action = "percent"
         direct_action = True
-    elif button == BUTTON_BACKSPACE:
+    elif button in (BUTTON_BACKSPACE, BUTTON_DELETE):
         calculator.backspace()
         escape_armed = False
         _refresh_stack(view_manager)
@@ -648,6 +940,18 @@ def run(view_manager):
     elif button == BUTTON_D:
         action = "drop"
         direct_action = True
+    elif button == BUTTON_I:
+        action = "multiply"
+        direct_action = True
+    elif button == BUTTON_J:
+        action = "subtract"
+        direct_action = True
+    elif button == BUTTON_K:
+        action = "add"
+        direct_action = True
+    elif button == BUTTON_L:
+        action = "recall"
+        direct_action = True
     elif button == BUTTON_N:
         action = "negate"
         direct_action = True
@@ -663,12 +967,33 @@ def run(view_manager):
     elif button == BUTTON_S:
         action = "swap"
         direct_action = True
+    elif button == BUTTON_T:
+        action = "store"
+        direct_action = True
+    elif button == BUTTON_U:
+        action = "divide"
+        direct_action = True
+    elif button == BUTTON_V:
+        action = "variables"
+        direct_action = True
     elif button == BUTTON_X:
         action = "square"
         direct_action = True
 
     if action is not None:
         escape_armed = False
+        if action == "help":
+            help_visible = True
+            help_page = 0
+            flash_index = -1
+            inp.reset()
+            _draw_help(view_manager)
+            return
+        if action in ("store", "recall", "variables"):
+            mode = action if action != "variables" else "view"
+            inp.reset()
+            _open_variable_viewer(view_manager, mode)
+            return
         _perform(action)
         if direct_action:
             _refresh_stack(view_manager, False)
@@ -690,10 +1015,14 @@ def run(view_manager):
 
 
 def stop(view_manager):
-    global calculator, selected_index, help_visible, escape_armed, flash_index
+    global calculator, selected_index, help_visible, help_page, variable_view_mode
+    global selected_variable, escape_armed, flash_index
     calculator = None
     selected_index = ENTER_INDEX
     help_visible = False
+    help_page = 0
+    variable_view_mode = None
+    selected_variable = 0
     escape_armed = False
     flash_index = -1
     from gc import collect

@@ -172,7 +172,7 @@ class Choice:
             start_y = center_y - (
                 (num_options * option_height + (num_options - 1) * total_spacing) // 2
             )
-
+            _five_x, _five_y = self.display.scale(5, 5)
             for i, option in enumerate(self.options):
                 opt_y = start_y + i * (option_height + total_spacing)
                 text_width = self.display.len(option)
@@ -181,7 +181,7 @@ class Choice:
                     # Highlighted option - draw filled rounded area
                     opt_center_x = center_x
                     opt_center_y = opt_y + option_height // 2
-                    opt_radius = max(text_width // 2 + 10, option_height // 2 + 5)
+                    opt_radius = max(text_width // 2 + (_five_x * 2), option_height // 2 + _five_y)
                     self.display._fill_circle(
                         opt_center_x, opt_center_y,
                         opt_radius,
@@ -192,7 +192,7 @@ class Choice:
                     # Non-selected option - draw circle outline
                     opt_center_x = center_x
                     opt_center_y = opt_y + option_height // 2
-                    opt_radius = max(text_width // 2 + 10, option_height // 2 + 5)
+                    opt_radius = max(text_width // 2 + (_five_x * 2), option_height // 2 + _five_y)
                     self.display._circle(
                         opt_center_x, opt_center_y,
                         opt_radius,

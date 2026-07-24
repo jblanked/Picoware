@@ -35,7 +35,6 @@ class Loading:
         self.text_vec_2 = Vector(0, draw.size.y - draw.scale_y(15))
         self.rad = (3.14159265358979323846) / 180.0
         self.twenty_y = draw.scale_y(20)
-        self.font_size_x = self.display.font_size.x
 
         # Calculate centered text position
         text_width = self.display.len(self.current_text)
@@ -80,7 +79,6 @@ class Loading:
         self.text_vec = None
         self.text_vec_2 = None
         self.rad = 0.0
-        self.font_size_x = 0
     
     @property
     def text(self) -> str:

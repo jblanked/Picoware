@@ -74,7 +74,7 @@ class LLM:
         elif self._id == ANTHROPIC:
             self._name = "Anthropic"
             self._url = "https://api.anthropic.com/v1/messages"
-            self._models = ["claude-sonnet-5", "claude-sonnet-4-6", "claude-opus-4-8", "claude-fable-5", "claude-haiku-4-5-20251001"]
+            self._models = ["claude-sonnet-5", "claude-sonnet-4-6", "claude-opus-4-8", "claude-opus-5", "claude-fable-5", "claude-haiku-4-5-20251001"]
             self._api_key = settings.anthropic_api_key
         elif self._id == GEMINI:
             self._name = "Gemini"

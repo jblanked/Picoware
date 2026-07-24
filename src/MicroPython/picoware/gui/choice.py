@@ -206,12 +206,13 @@ class Choice:
                 self.display._text(text_x, text_y, option, text_color)
         else:
             # Draw Title
-            _font = self.display.get_font(1 if BOARD_ID == BOARD_FLIPPER_ZERO else 2)
-            title_width = self.display.len(self.title)
-            title_x = self.position.x + (self.size.x - title_width) // 2
+            title_font_int = 1 if BOARD_ID == BOARD_FLIPPER_ZERO else 3
+            _font = self.display.get_font(title_font_int)
+            title_width = self.display.len(self.title, title_font_int)
+            title_x = self.position.x + (self.size.x // 2) - (title_width // 2)
             title_y = self.position.y + self.display.scale_y(5)
             self.display._text(
-                title_x, title_y, self.title, self.foreground_color, 2 if BOARD_ID == BOARD_FLIPPER_ZERO else 3
+                title_x, title_y, self.title, self.foreground_color, title_font_int
             )
 
             # Draw options in a 2-column list below the title

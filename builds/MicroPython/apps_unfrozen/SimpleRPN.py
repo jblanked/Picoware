@@ -1,7 +1,8 @@
 """SimpleRPN: a compact four-level RPN calculator for Picoware."""
 
+import ujson as json
 from math import sqrt
-from utime import ticks_diff, ticks_ms
+from utime import ticks_add, ticks_diff, ticks_ms
 
 from picoware.system.vector import Vector
 from picoware.system.font import FONT_XTRA_SMALL, FONT_SMALL, FONT_MEDIUM
@@ -66,6 +67,10 @@ COLOR_KEY_OP = _rgb565(139, 84, 30)
 COLOR_AMBER = _rgb565(245, 166, 57)
 COLOR_MUTED = _rgb565(161, 168, 164)
 COLOR_ERROR = _rgb565(244, 102, 83)
+
+STATE_FILE = "picoware/settings/srpn.json"
+STATE_VERSION = 1
+SAVE_DELAY_MS = 1000
 
 
 KEYS = (
@@ -395,6 +400,104 @@ selected_variable = 0
 escape_armed = False
 flash_index = -1
 flash_until = 0
+storage = None
+state_dirty = False
+save_due = 0
+last_saved_state = ""
+
+
+def _state_json():
+    """Serialize the complete calculator memory for the next app cycle."""
+    return json.dumps(
+        {
+            "version": STATE_VERSION,
+            "stack": calculator.stack,
+            "entry": calculator.entry,
+            "entering": calculator.entering,
+            "lift_on_entry": calculator.lift_on_entry,
+            "variables": calculator.variables,
+            "variable_set": calculator.variable_set,
+        }
+    )
+
+
+def _load_state():
+    """Restore calculator memory, ignoring incomplete or incompatible files."""
+    global last_saved_state
+    if storage is None or not storage.exists(STATE_FILE):
+        return False
+    try:
+        raw = storage.read(STATE_FILE, "r")
+        saved = json.loads(raw)
+        if saved.get("version") != STATE_VERSION:
+            return False
+
+        saved_stack = saved.get("stack")
+        saved_variables = saved.get("variables")
+        saved_variable_set = saved.get("variable_set")
+        if (
+            not isinstance(saved_stack, list)
+            or len(saved_stack) != 4
+            or not isinstance(saved_variables, list)
+            or len(saved_variables) != 26
+            or not isinstance(saved_variable_set, list)
+            or len(saved_variable_set) != 26
+        ):
+            return False
+
+        restored_stack = [float(value) for value in saved_stack]
+        restored_variables = [float(value) for value in saved_variables]
+        restored_variable_set = [bool(value) for value in saved_variable_set]
+        entry = saved.get("entry", "")
+        entering = bool(saved.get("entering", False))
+        if not isinstance(entry, str) or len(entry) > 15:
+            return False
+        if entering and entry not in ("", "-", ".", "-."):
+            float(entry)
+        elif not entering:
+            entry = ""
+
+        calculator.stack = restored_stack
+        calculator.variables = restored_variables
+        calculator.variable_set = restored_variable_set
+        calculator.entry = entry
+        calculator.entering = entering
+        calculator.lift_on_entry = bool(saved.get("lift_on_entry", False))
+        calculator.error = ""
+        calculator.status = "MEMORY RESTORED"
+        last_saved_state = _state_json()
+        return True
+    except (AttributeError, KeyError, TypeError, ValueError, OSError):
+        return False
+
+
+def _queue_save():
+    """Defer state writes briefly so rapid key entry does not wear the SD card."""
+    global state_dirty, save_due
+    state_dirty = True
+    save_due = ticks_add(ticks_ms(), SAVE_DELAY_MS)
+
+
+def _save_state(force=False):
+    """Write changed calculator memory to Picoware's SD settings folder."""
+    global state_dirty, last_saved_state
+    if storage is None or calculator is None or (not force and not state_dirty):
+        return False
+    try:
+        serialized = _state_json()
+        if serialized == last_saved_state:
+            state_dirty = False
+            return True
+        if not storage.write(STATE_FILE, serialized, "w"):
+            return False
+        if not storage.exists(STATE_FILE) or storage.size(STATE_FILE) != len(serialized):
+            return False
+        last_saved_state = serialized
+        state_dirty = False
+        return True
+    except (OSError, TypeError, ValueError):
+        # Keep the dirty flag set so a later idle cycle or stop can retry.
+        return False
 
 
 def _right_text(draw, right, y, text, color, font_size):
@@ -684,6 +787,7 @@ def _complete_variable_action(view_manager, index, action=None):
 
     if action == "store":
         calculator.store(index)
+        _queue_save()
         if variable_view_mode == "view":
             _draw_variable_viewer(view_manager)
             return False
@@ -695,6 +799,7 @@ def _complete_variable_action(view_manager, index, action=None):
         if not calculator.recall(index):
             _draw_variable_viewer(view_manager)
             return False
+        _queue_save()
         variable_view_mode = None
         _redraw(view_manager)
         return True
@@ -777,6 +882,7 @@ def _run_variable_viewer(view_manager, button):
 
     if button in (BUTTON_BACKSPACE, BUTTON_DELETE):
         calculator.clear_variable(selected_variable)
+        _queue_save()
         _draw_variable_viewer(view_manager)
         return
 
@@ -811,12 +917,21 @@ def _perform(action):
         calculator.unary(action)
     elif action in ("add", "subtract", "multiply", "divide"):
         calculator.binary(action)
+    else:
+        return
+    _queue_save()
 
 
 def start(view_manager):
     global calculator, selected_index, help_visible, help_page, variable_view_mode
-    global selected_variable, escape_armed, flash_index
+    global selected_variable, escape_armed, flash_index, storage, state_dirty
+    global save_due, last_saved_state
     calculator = RPNStack()
+    storage = view_manager.storage
+    state_dirty = False
+    save_due = 0
+    last_saved_state = ""
+    _load_state()
     selected_index = ENTER_INDEX
     help_visible = False
     help_page = 0
@@ -834,6 +949,8 @@ def run(view_manager):
     inp = view_manager.input_manager
     button = inp.button
     if button == -1:
+        if state_dirty and ticks_diff(ticks_ms(), save_due) >= 0:
+            _save_state()
         if not help_visible and variable_view_mode is None:
             _finish_flash(view_manager)
         return
@@ -875,10 +992,12 @@ def run(view_manager):
     if button == BUTTON_BACK:
         if calculator.entering:
             calculator.backspace()
+            _queue_save()
             escape_armed = False
             inp.reset()
             _refresh_stack(view_manager)
             return
+        _save_state(force=True)
         inp.reset()
         view_manager.back()
         return
@@ -924,6 +1043,7 @@ def run(view_manager):
         direct_action = True
     elif button in (BUTTON_BACKSPACE, BUTTON_DELETE):
         calculator.backspace()
+        _queue_save()
         escape_armed = False
         _refresh_stack(view_manager)
     elif button == BUTTON_ESCAPE:
@@ -932,6 +1052,7 @@ def run(view_manager):
         else:
             calculator.clear_x()
             escape_armed = True
+        _queue_save()
         _refresh_stack(view_manager, False)
         _flash_action(view_manager, "clear")
     elif button == BUTTON_C:
@@ -1016,8 +1137,14 @@ def run(view_manager):
 
 def stop(view_manager):
     global calculator, selected_index, help_visible, help_page, variable_view_mode
-    global selected_variable, escape_armed, flash_index
+    global selected_variable, escape_armed, flash_index, storage, state_dirty
+    global save_due, last_saved_state
+    _save_state(force=True)
     calculator = None
+    storage = None
+    state_dirty = False
+    save_due = 0
+    last_saved_state = ""
     selected_index = ENTER_INDEX
     help_visible = False
     help_page = 0

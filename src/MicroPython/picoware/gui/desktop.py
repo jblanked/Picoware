@@ -1104,9 +1104,9 @@ class Desktop:
         self.bluetooth_size = Vector(14, 16)
         self.wifi_pos = Vector(0, 0)
         self.name_pos = Vector(0, 0)
-        self.time_pos = Vector(int(self.size.x * 0.4375), 5)
+        self.time_pos = Vector(int(self.size.x * 0.4375), self.display.scale_y(5))
         self.bluetooth_pos = Vector(0, 0)
-        self.battery_pos = Vector(int(self.size.x * 0.7875), 5)
+        self.battery_pos = Vector(int(self.size.x * 0.7875), self.display.scale_y(5))
 
         if self.is_circular:
             # wifi icon
@@ -1216,7 +1216,7 @@ class Desktop:
             battery_x = (self.size.x - battery_width) // 2
             self.battery_pos.x, self.battery_pos.y = (
                 battery_x,
-                int(self.size.y / 20) + 32,
+                int(self.size.y / 20) + self.display.scale_y(32),
             )
 
     def set_time(self, time_str: str) -> None:
@@ -1226,4 +1226,4 @@ class Desktop:
         if self.is_circular:
             time_width = self.display.len(self.time_str)
             time_x = (self.size.x - time_width) // 2
-            self.time_pos.x, self.time_pos.y = time_x, int(self.size.y / 20) + 10
+            self.time_pos.x, self.time_pos.y = time_x, int(self.size.y / 20) + self.display.scale_y(10)

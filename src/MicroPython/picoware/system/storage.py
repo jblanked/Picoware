@@ -103,18 +103,19 @@ class Storage:
             print(f"Error copying from {source_path} to {destination_path}: {e}")
             return False
 
-    def deserialize(self, json_dict: dict, file_path: str) -> None:
+    def deserialize(self, json_dict: dict, file_path: str) -> bool:
         """Deserialize a JSON object and write it to a file."""
         from json import dumps
 
         if not self._has_storage:
-            return
+            return False
 
         try:
             json_str = dumps(json_dict)
-            sd_mp.write(file_path, json_str.encode("utf-8"), True)
+            return sd_mp.write(file_path, json_str.encode("utf-8"), True)
         except Exception as e:
             print(f"Error writing JSON to file {file_path}: {e}")
+            return False
 
     def execute_script(self, file_path: str = "/") -> None:
         """Run a Python file from the storage."""

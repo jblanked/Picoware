@@ -20,6 +20,18 @@ class Leaderboard:
         self.entries = []
         self.load()
 
+    def _ensure_mounted(self):
+        """Make raw SD access available after the app loader unmounts it."""
+        if self.storage is None:
+            return False
+        mount = getattr(self.storage, "mount", None)
+        if mount is None:
+            return True
+        try:
+            return bool(mount())
+        except Exception:
+            return False
+
     @staticmethod
     def _valid_entry(entry):
         return (
@@ -75,7 +87,7 @@ class Leaderboard:
 
     def load(self):
         self.entries = []
-        if self.storage is None:
+        if not self._ensure_mounted():
             return self.entries
         try:
             if not self.storage.exists(LEADERBOARD_PATH):
@@ -112,6 +124,8 @@ class Leaderboard:
             return False
         if self.storage is None:
             return True
+        if not self._ensure_mounted():
+            return False
         try:
             return bool(self.storage.write(LEADERBOARD_PATH, current, "w"))
         except Exception:

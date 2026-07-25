@@ -330,13 +330,13 @@ class Renderer:
         draw._text(text_x, text_y, display_name, TFT_GREEN, text_size)
 
         self._center_text(
-            "TYPE A-Z / 0-9  BACKSPACE",
+            "TYPE A-Z / 0-9  BACK ERASE",
             min(self.height - 34, y + box_h + 18),
             TFT_LIGHTGREY,
             0,
         )
         self._center_text(
-            "ENTER SAVE   BACK DEFAULT",
+            "ENTER SAVE  EMPTY = PLAYER",
             min(self.height - 16, y + box_h + 36),
             TFT_CYAN,
             0,

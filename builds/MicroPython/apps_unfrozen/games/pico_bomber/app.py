@@ -37,6 +37,7 @@ _leaderboard = None
 _next_frame = 0
 _score_saved = False
 _frequency_changed = False
+_frequency_pending = False
 _mode_start_pending = False
 FRAME_MS = 50
 GAME_CPU_FREQUENCY = 230000000
@@ -45,7 +46,27 @@ GAME_CPU_FREQUENCY = 230000000
 def _thread_idle(view_manager):
     """Return whether changing the global CPU clock is currently safe."""
     thread_manager = getattr(view_manager, "thread_manager", None)
-    return thread_manager is None or thread_manager.thread is None
+    if thread_manager is None:
+        return True
+    public_idle = getattr(thread_manager, "is_idle", None)
+    if public_idle is not None:
+        return bool(public_idle)
+    return (
+        getattr(thread_manager, "thread", None) is None
+        and not getattr(thread_manager, "_tasks", ())
+    )
+
+
+def _try_game_frequency(view_manager):
+    """Apply the game clock once inherited background work has drained."""
+    global _frequency_changed, _frequency_pending
+
+    if not _frequency_pending or not _thread_idle(view_manager):
+        return False
+    view_manager.freq(False, GAME_CPU_FREQUENCY)
+    _frequency_changed = True
+    _frequency_pending = False
+    return True
 
 
 def _log_mode_start_error(view_manager, phase, error):
@@ -78,15 +99,17 @@ def _submit_name(name):
 
 def _handle_name_input(input_manager, button):
     """Edit a short arcade name using the physical keyboard."""
-    if button == BUTTON_BACK:
-        _submit_name(DEFAULT_NAME)
-        return True
+    if button < 0:
+        return False
     if button in (BUTTON_CENTER, BUTTON_ENTER):
         _submit_name(_game.player_name)
         return True
-    if button in (BUTTON_BACKSPACE, BUTTON_DELETE):
+    if button in (BUTTON_BACK, BUTTON_BACKSPACE, BUTTON_DELETE):
         if _game.player_name:
             _game.player_name = _game.player_name[:-1]
+            return True
+        if button == BUTTON_BACK:
+            _submit_name(DEFAULT_NAME)
             return True
         return False
     if len(_game.player_name) >= MAX_NAME_LENGTH:
@@ -106,13 +129,12 @@ def _handle_name_input(input_manager, button):
 def start(view_manager):
     """Create a fresh Pico Bomber title screen."""
     global _game, _renderer, _leaderboard, _next_frame, _score_saved
-    global _frequency_changed, _mode_start_pending
+    global _frequency_changed, _frequency_pending, _mode_start_pending
 
     _frequency_changed = False
+    _frequency_pending = True
     _mode_start_pending = False
-    if _thread_idle(view_manager):
-        view_manager.freq(False, GAME_CPU_FREQUENCY)
-        _frequency_changed = True
+    _try_game_frequency(view_manager)
     _game = GameModel()
     _renderer = Renderer(view_manager.draw)
     _leaderboard = Leaderboard(view_manager.storage)
@@ -130,15 +152,17 @@ def run(view_manager):
     if _game is None or _renderer is None:
         return
 
+    _try_game_frequency(view_manager)
     input_manager = view_manager.input_manager
     button = view_manager.button
     now = ticks_ms()
     changed = False
 
     if _game.state == STATE_NAME_ENTRY:
+        if button < 0:
+            return
         changed = _handle_name_input(input_manager, button)
-        if button >= 0:
-            input_manager.reset()
+        input_manager.reset()
         if changed:
             _renderer.draw_frame(_game)
         return
@@ -228,15 +252,16 @@ def run(view_manager):
 def stop(view_manager):
     """Release the game state when leaving the Picoware view."""
     global _game, _renderer, _leaderboard, _next_frame, _score_saved
-    global _frequency_changed, _mode_start_pending
+    global _frequency_changed, _frequency_pending, _mode_start_pending
 
     _game = None
     _renderer = None
     _leaderboard = None
     _next_frame = 0
     _score_saved = False
+    _frequency_pending = False
     _mode_start_pending = False
-    if _frequency_changed and _thread_idle(view_manager):
+    if _frequency_changed:
         view_manager.freq()
     _frequency_changed = False
     collect()

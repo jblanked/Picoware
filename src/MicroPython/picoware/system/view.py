@@ -16,15 +16,26 @@ class View:
         self._stop = stop
         self.active = False
 
-    def __alert(self, exception, view_manager) -> None:
+    def __alert(self, action, exception, view_manager) -> None:
         """Display an alert message."""
         import sys
         import io
 
-        buf = io.StringIO()
-        sys.print_exception(exception, buf)
-        traceback_str = buf.getvalue()
-        view_manager.alert(f"{traceback_str}", False) 
+        prefix = "Error {} view '{}':".format(action, self.name)
+        try:
+            buf = io.StringIO()
+            sys.print_exception(exception, buf)
+            message = "{}\n{}".format(prefix, buf.getvalue())
+        except Exception:
+            print(prefix)
+            sys.print_exception(exception)
+            message = "{}\n{}".format(prefix, exception)
+
+        print(message)
+        try:
+            view_manager.alert(message, False)
+        except Exception as alert_error:
+            print("Unable to display view exception alert:", alert_error)
 
     def start(self, view_manager) -> bool:
         """Called when the view is created."""
@@ -34,7 +45,7 @@ class View:
                     self.active = True
                     return True
             except Exception as e:
-                self.__alert(f"Error starting view: {e}", view_manager)
+                self.__alert("starting", e, view_manager)
                 self.active = False
                 return False
         return False
@@ -45,7 +56,7 @@ class View:
             try:
                 self._stop(view_manager)
             except Exception as e:
-                self.__alert(f"Error stopping view: {e}", view_manager)
+                self.__alert("stopping", e, view_manager)
         self.active = False
 
     def run(self, view_manager):
@@ -54,6 +65,6 @@ class View:
             try:
                 self._run(view_manager)
             except Exception as e:
-                self.__alert(f"Error running view: {e}", view_manager)
+                self.__alert("running", e, view_manager)
                 self.active = False
                 view_manager.back()

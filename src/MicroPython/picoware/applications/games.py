@@ -1,6 +1,68 @@
 _games = None
 _games_index = 0
 _app_loader = None
+_pending_game = None
+
+
+def _thread_idle(view_manager):
+    """Return whether an SD import can run without a background worker."""
+    thread_manager = getattr(view_manager, "thread_manager", None)
+    return thread_manager is None or thread_manager.is_idle
+
+
+def _launch_game(view_manager, game_index, selected_game):
+    """Load and switch to a selected game after background work drains."""
+    from picoware.system.view import View
+
+    if game_index == 0:
+        from picoware.applications import ghouls
+
+        ghouls_view_name = "game_ghouls"
+        if view_manager.get_view(ghouls_view_name) is None:
+            ghouls_view = View(
+                ghouls_view_name,
+                ghouls.run,
+                ghouls.start,
+                ghouls.stop,
+            )
+            view_manager.add(ghouls_view)
+        view_manager.switch_to(ghouls_view_name)
+        return
+
+    if not selected_game or not _app_loader:
+        return
+
+    game_module = _app_loader.load_app(selected_game, "games")
+    if game_module is None:
+        view_manager.alert('Failed to load game "{}".'.format(selected_game))
+        return
+
+    game_view_name = "game_{}".format(selected_game)
+    from utime import ticks_ms
+
+    start_time = ticks_ms()
+    if view_manager.get_view(game_view_name) is None:
+        game_view = View(
+            game_view_name,
+            game_module.run,
+            game_module.start,
+            game_module.stop,
+        )
+        view_manager.log(
+            "[Games]: Created view for app {} after {} ms".format(
+                selected_game,
+                ticks_ms() - start_time,
+            ),
+        )
+        view_manager.add(game_view)
+
+    view_manager.switch_to(game_view_name)
+    view_manager.log(
+        '[Games]: Switched to view for app "{}" after {} ms'.format(
+            selected_game,
+            ticks_ms() - start_time,
+        ),
+    )
 
 
 def start(view_manager) -> bool:
@@ -20,6 +82,9 @@ def start(view_manager) -> bool:
 
     global _games
     global _app_loader
+    global _pending_game
+
+    _pending_game = None
 
     if _app_loader:
         del _app_loader
@@ -55,7 +120,6 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run the games app."""
-    from picoware.system.view import View
     from picoware.system.buttons import (
         BUTTON_BACK,
         BUTTON_UP,
@@ -66,11 +130,24 @@ def run(view_manager) -> None:
     )
 
     global _games_index
+    global _pending_game
 
     if not _games:
         return
 
     button: int = view_manager.button
+
+    if _pending_game is not None:
+        if button == BUTTON_BACK:
+            _pending_game = None
+            _games_index = 0
+            view_manager.back()
+            return
+        if _thread_idle(view_manager):
+            pending = _pending_game
+            _pending_game = None
+            _launch_game(view_manager, pending[0], pending[1])
+        return
 
     if button in (BUTTON_UP, BUTTON_LEFT):
         _games.scroll_up()
@@ -81,54 +158,15 @@ def run(view_manager) -> None:
         view_manager.back()
     elif button == BUTTON_CENTER:
         _games_index = _games.selected_index
-
-        if _games_index == 0:
-            # Start Ghouls
-            from picoware.applications import ghouls
-
-            ghouls_view_name = "game_ghouls"
-            if view_manager.get_view(ghouls_view_name) is None:
-                ghouls_view = View(
-                    ghouls_view_name,
-                    ghouls.run,
-                    ghouls.start,
-                    ghouls.stop,
-                )
-                view_manager.add(ghouls_view)
-            view_manager.switch_to(ghouls_view_name)
-            return
-
-        # Get the selected game name
         selected_game = _games.current_item
-
-        if selected_game and _app_loader:
-            # Try to load the game
-            game_module = _app_loader.load_app(selected_game, "games")
-            if game_module is None:
-                view_manager.alert(f'Failed to load game "{selected_game}".')
-                return
-            # Create a view for the game and switch to it
-            game_view_name = f"game_{selected_game}"
-            from utime import ticks_ms
-
-            start_time = ticks_ms()
-
-            # Check if view already exists
-            if view_manager.get_view(game_view_name) is None:
-                game_view = View(
-                    game_view_name,
-                    game_module.run,
-                    game_module.start,
-                    game_module.stop,
-                )
-                view_manager.log(
-                    f"[Games]: Created view for app {selected_game} after {ticks_ms() - start_time} ms",
-                )
-                view_manager.add(game_view)
-
-            view_manager.switch_to(game_view_name)
+        if _thread_idle(view_manager):
+            _launch_game(view_manager, _games_index, selected_game)
+        else:
+            _pending_game = (_games_index, selected_game)
             view_manager.log(
-                f'[Games]: Switched to view for app "{selected_game}" after {ticks_ms() - start_time} ms',
+                '[Games]: Waiting for background work before loading "{}".'.format(
+                    selected_game,
+                ),
             )
 
 
@@ -136,7 +174,8 @@ def stop(view_manager) -> None:
     """Stop the games app"""
     from gc import collect
 
-    global _games, _app_loader
+    global _games, _app_loader, _pending_game
+    _pending_game = None
     if _games is not None:
         del _games
         _games = None

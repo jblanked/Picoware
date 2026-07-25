@@ -528,21 +528,23 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - Slots: `args`, `error`, `function`, `_id`, `name`, `result`, `should_stop`, `start_time`, `timeout`.
 - `ThreadManager` class: Manages a queue of `ThreadTask` objects, running them sequentially.
     - `__init__()`: Initializes the task queue.
+    - `is_idle`: Property - True when no task is queued or active.
+    - `pending_count`: Property - number of queued tasks, excluding the active task.
     - `task`: Property - the currently active `ThreadTask`.
     - `thread`: Property - the underlying `Thread` object.
-    - `add_task(task)`: Add a `ThreadTask` to the queue.
-    - `remove_task(task_id)`: Remove a task from the queue by ID.
+    - `add_task(task)`: Add a `ThreadTask` to the queue and return its task ID.
+    - `remove_task(task_id)`: Cooperatively stop and remove a queued task by ID. Returns True when removed.
     - `run()`: Process the task queue - starts the next queued task if no task is running. Returns a log string.
 
 #### picoware-system-time
 - `Time` class: Manages the device RTC and optional NTP time synchronization.
     - `__init__(thread_manager=None)`: Creates a `machine.RTC()` instance. Accepts an optional `ThreadManager` for async NTP fetch.
     - `date`: Property - current date as a `"M/D/Y"` formatted string.
-    - `is_fetching`: Property - True if an NTP sync is currently in progress.
+    - `is_fetching`: Property - True if an NTP sync is queued or currently in progress.
     - `is_set`: Property - True if the time has been set (manually or via NTP).
     - `rtc`: Property - the underlying `machine.RTC` object.
     - `time`: Property - current time as an `"H:MM:SS"` formatted string.
-    - `fetch(offset=0)`: Synchronize the RTC with NTP (`pool.ntp.org`). `offset` is the UTC offset in hours. Uses `ThreadManager` if available. Returns True if started/successful.
+    - `fetch(offset=0)`: Synchronize the RTC with NTP (`pool.ntp.org`). `offset` is the UTC offset in hours. Uses `ThreadManager` if available. Returns True if started/successful. Failed requests use a 30-second retry cooldown.
     - `set(year, month, day, hour, minute, second)`: Manually set the RTC time.
 
 #### picoware-system-uart

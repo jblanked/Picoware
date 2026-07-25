@@ -1,3 +1,18 @@
+from time import gmtime
+import ustruct as struct
+from utime import ticks_add, ticks_diff, ticks_ms
+
+from picoware.system.thread import ThreadTask
+
+try:
+    import usocket as socket
+except ImportError:
+    socket = None
+
+
+NTP_RETRY_MS = 30000
+
+
 class Time:
     """Handles time-related functions."""
 
@@ -6,6 +21,8 @@ class Time:
         "_is_set",
         "_thread_manager",
         "_current_task",
+        "_pending",
+        "_retry_after",
         "_running",
         "_lock",
     )
@@ -24,6 +41,8 @@ class Time:
         self._is_set = False
         self._thread_manager = thread_manager
         self._current_task = None
+        self._pending = False
+        self._retry_after = 0
         self._running = False
 
     def __del__(self):
@@ -34,7 +53,23 @@ class Time:
         if self._current_task:
             self._current_task.stop()
             self._current_task = None
+        self._pending = False
+        self._retry_after = 0
+        self._running = False
         self._lock = None
+
+    def _recover_orphaned_fetch(self):
+        """Clear a queued fetch that no longer exists in ThreadManager."""
+        if (
+            self._pending
+            and not self._running
+            and self._current_task is not None
+            and self._thread_manager is not None
+            and getattr(self._thread_manager, "is_idle", False)
+        ):
+            self._pending = False
+            self._current_task = None
+            self._retry_after = ticks_add(ticks_ms(), NTP_RETRY_MS)
 
     @property
     def date(self) -> str:
@@ -47,11 +82,12 @@ class Time:
 
     @property
     def is_fetching(self) -> bool:
-        """Return whether the time is currently being fetched."""
+        """Return whether a time fetch is queued or currently running."""
         if self._lock is None:
             return False
         with self._lock:
-            return self._running
+            self._recover_orphaned_fetch()
+            return self._pending or self._running
 
     @property
     def is_set(self) -> bool:
@@ -91,79 +127,95 @@ class Time:
         """
         if self._lock is None:
             return False
-        
+        if socket is None:
+            return False
+
         try:
             with self._lock:
-                if self._running:
+                self._recover_orphaned_fetch()
+                if self._pending or self._running:
                     return False
                 if self._is_set:
                     return True
+                if (
+                    self._retry_after
+                    and ticks_diff(ticks_ms(), self._retry_after) < 0
+                ):
+                    return False
+                self._pending = True
 
             def fetch_ntp_time() -> None:
                 """Fetch the current time from an NTP server and set the RTC accordingly."""
-                from time import gmtime
-                import usocket as socket
-                import ustruct as struct
-
                 with self._lock:
                     self._is_set = False
+                    self._pending = False
                     self._running = True
-                NTP_QUERY = bytearray(48)
-                NTP_QUERY[0] = 0x1B
-                host = "pool.ntp.org"
-                timeout = 1
-                addr = socket.getaddrinfo(host, 123)[0][-1]
-                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 try:
-                    s.settimeout(timeout)
-                    s.sendto(NTP_QUERY, addr)
-                    msg = s.recv(48)
-                finally:
-                    s.close()
-                val = struct.unpack("!I", msg[40:44])[0]
+                    NTP_QUERY = bytearray(48)
+                    NTP_QUERY[0] = 0x1B
+                    host = "pool.ntp.org"
+                    timeout = 1
+                    addr = socket.getaddrinfo(host, 123)[0][-1]
+                    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                    try:
+                        s.settimeout(timeout)
+                        s.sendto(NTP_QUERY, addr)
+                        msg = s.recv(48)
+                    finally:
+                        s.close()
+                    val = struct.unpack("!I", msg[40:44])[0]
 
-                # 2024-01-01 00:00:00 converted to an NTP timestamp
-                MIN_NTP_TIMESTAMP = 3913056000
-                if val < MIN_NTP_TIMESTAMP:
-                    val += 0x100000000
+                    # 2024-01-01 00:00:00 converted to an NTP timestamp
+                    MIN_NTP_TIMESTAMP = 3913056000
+                    if val < MIN_NTP_TIMESTAMP:
+                        val += 0x100000000
 
-                # Convert timestamp from NTP format to our internal format
-                EPOCH_YEAR = gmtime(0)[0]
-                if EPOCH_YEAR == 2000:
-                    # (date(2000, 1, 1) - date(1900, 1, 1)).days * 24*60*60
-                    NTP_DELTA = 3155673600
-                elif EPOCH_YEAR == 1970:
-                    # (date(1970, 1, 1) - date(1900, 1, 1)).days * 24*60*60
-                    NTP_DELTA = 2208988800
-                else:
-                    print("Unsupported epoch: {}".format(EPOCH_YEAR))
-                    with self._lock:
-                        self._running = False
-                        self._is_set = False
-                    return
-
-                t = val - NTP_DELTA + int(offset * 3600)  # Apply timezone offset
-                tm = gmtime(t)
-                with self._lock:
-                    self._rtc.datetime(
-                        (
-                            tm[0],  # year
-                            tm[1],  # month
-                            tm[2],  # day of the month
-                            tm[6] + 1,  # weekday
-                            tm[3],  # hour
-                            tm[4],  # minute
-                            tm[5],  # second
-                            0,  # subseconds
+                    # Convert timestamp from NTP format to our internal format
+                    EPOCH_YEAR = gmtime(0)[0]
+                    if EPOCH_YEAR == 2000:
+                        # (date(2000, 1, 1) - date(1900, 1, 1)).days * 24*60*60
+                        NTP_DELTA = 3155673600
+                    elif EPOCH_YEAR == 1970:
+                        # (date(1970, 1, 1) - date(1900, 1, 1)).days * 24*60*60
+                        NTP_DELTA = 2208988800
+                    else:
+                        raise ValueError(
+                            "Unsupported epoch: {}".format(EPOCH_YEAR)
                         )
-                    )
-                    self._is_set = True
-                    self._running = False
+
+                    t = val - NTP_DELTA + int(offset * 3600)  # Apply timezone offset
+                    tm = gmtime(t)
+                    with self._lock:
+                        self._rtc.datetime(
+                            (
+                                tm[0],  # year
+                                tm[1],  # month
+                                tm[2],  # day of the month
+                                tm[6] + 1,  # weekday
+                                tm[3],  # hour
+                                tm[4],  # minute
+                                tm[5],  # second
+                                0,  # subseconds
+                            )
+                        )
+                        self._is_set = True
+                        self._retry_after = 0
+                except Exception:
+                    with self._lock:
+                        self._is_set = False
+                        self._retry_after = ticks_add(
+                            ticks_ms(),
+                            NTP_RETRY_MS,
+                        )
+                    raise
+                finally:
+                    with self._lock:
+                        self._pending = False
+                        self._running = False
+                        self._current_task = None
 
             if not self._thread_manager:
                 return fetch_ntp_time()
-
-            from picoware.system.thread import ThreadTask
 
             task = ThreadTask("Time", function=fetch_ntp_time)
             self._current_task = task
@@ -172,8 +224,11 @@ class Time:
         except Exception as e:
             print(f"Failed to fetch time: {e}")
             with self._lock:
+                self._pending = False
                 self._running = False
+                self._current_task = None
                 self._is_set = False
+                self._retry_after = ticks_add(ticks_ms(), NTP_RETRY_MS)
             return False
 
     def set(self, year, month, day, hour, minute, second) -> None:
@@ -195,3 +250,4 @@ class Time:
                 )
             )
             self._is_set = True
+            self._retry_after = 0

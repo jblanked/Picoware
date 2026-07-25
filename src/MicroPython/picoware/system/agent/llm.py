@@ -54,6 +54,26 @@ class LLM:
         """Return the URL of the LLM."""
         return self._url
 
+    @staticmethod
+    def providers() -> list:
+        """Return a list of available LLM providers."""
+        return [OPENAI, DEEPSEEK, ANTHROPIC, GEMINI, LOCAL]
+
+    @staticmethod
+    def provider_name(provider_id: int) -> str:
+        """Return the name of the LLM provider given its ID."""
+        if provider_id == OPENAI:
+            return "OpenAI"
+        if provider_id == DEEPSEEK:
+            return "DeepSeek"
+        if provider_id == ANTHROPIC:
+            return "Anthropic"
+        if provider_id == GEMINI:
+            return "Gemini"
+        if provider_id == LOCAL:
+            return "Local"
+        return "Unknown"
+
     def __set(self, storage):
         """Set model name, url, and headers based on model_id."""
         from picoware.system.settings import Settings

@@ -83,7 +83,7 @@ class LLM:
             self._api_key = settings.gemini_api_key
         elif self._id == LOCAL:
             self._name = "Local"
-            self._url = "http://127.0.0.1:8080/v1/chat/completions"
+            self._url = settings.local_url
             self._models = ["local-model"]
         
         if self._id == ANTHROPIC:

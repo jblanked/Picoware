@@ -19,6 +19,7 @@ class Settings:
             "exit_button": BUTTON_BACK,
             "gemini_api_key": "",
             "gmt_offset": 0,
+            "local_url": "http://127.0.0.1:8080/v1/chat/completions",
             "lvgl_mode": False,
             "onscreen_keyboard": BOARD_HAS_TOUCH == 1,
             "openai_api_key": "",
@@ -38,6 +39,7 @@ class Settings:
                 "exit_button": int(self.__fetch_setting("picoware/settings/exit_button.json", "exit_button", BUTTON_BACK)),
                 "gemini_api_key": "",
                 "gmt_offset": int(self.__fetch_setting("picoware/settings/gmt_offset.json", "gmt_offset", 0)),
+                "local_url": "http://127.0.0.1:8080/v1/chat/completions",
                 "lvgl_mode": bool(self.__fetch_setting("picoware/settings/lvgl_mode.json", "lvgl_mode", False)),
                 "onscreen_keyboard": bool(self.__fetch_setting("picoware/settings/onscreen_keyboard.json", "onscreen_keyboard", BOARD_HAS_TOUCH == 1)),
                 "openai_api_key": "",
@@ -134,7 +136,17 @@ class Settings:
         """Set GMT offset."""
         self._settings["gmt_offset"] = value
         self.__save_settings()
-    
+
+    @property
+    def local_url(self) -> str:
+        """Return the current local URL."""
+        return self._settings.get("local_url", "")
+
+    @local_url.setter
+    def local_url(self, value: str):
+        """Set the local URL."""
+        self._settings["local_url"] = value
+        self.__save_settings()
 
     @property
     def lvgl_mode(self) -> bool:

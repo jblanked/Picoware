@@ -32,15 +32,26 @@ _renderer = None
 _leaderboard = None
 _next_frame = 0
 _score_saved = False
+_frequency_changed = False
 FRAME_MS = 50
 GAME_CPU_FREQUENCY = 230000000
+
+
+def _thread_idle(view_manager):
+    """Return whether changing the global CPU clock is currently safe."""
+    thread_manager = getattr(view_manager, "thread_manager", None)
+    return thread_manager is None or thread_manager.thread is None
 
 
 def start(view_manager):
     """Create a fresh Pico Bomber title screen."""
     global _game, _renderer, _leaderboard, _next_frame, _score_saved
+    global _frequency_changed
 
-    view_manager.freq(False, GAME_CPU_FREQUENCY)
+    _frequency_changed = False
+    if _thread_idle(view_manager):
+        view_manager.freq(False, GAME_CPU_FREQUENCY)
+        _frequency_changed = True
     _game = GameModel()
     _renderer = Renderer(view_manager.draw)
     _leaderboard = Leaderboard(view_manager.storage)
@@ -126,11 +137,14 @@ def run(view_manager):
 def stop(view_manager):
     """Release the game state when leaving the Picoware view."""
     global _game, _renderer, _leaderboard, _next_frame, _score_saved
+    global _frequency_changed
 
     _game = None
     _renderer = None
     _leaderboard = None
     _next_frame = 0
     _score_saved = False
-    view_manager.freq()
+    if _frequency_changed and _thread_idle(view_manager):
+        view_manager.freq()
+    _frequency_changed = False
     collect()

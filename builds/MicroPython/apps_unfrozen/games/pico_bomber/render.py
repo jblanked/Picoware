@@ -41,6 +41,11 @@ from .model import (
     STATE_STAGE_CLEAR,
     STATE_STAGE_INTRO,
     STATE_TITLE,
+    THEME_BEACH,
+    THEME_CANYON,
+    THEME_CLOUD,
+    THEME_FOREST,
+    THEME_HELL,
     THEME_INDUSTRIAL,
     THEME_NAMES,
     THEME_NATURE,
@@ -81,6 +86,36 @@ COLOR_COOLANT = 0x36DF
 COLOR_RUST = 0xA2C2
 COLOR_FOAM = 0xBFFF
 COLOR_GOLD = 0xF5E0
+
+COLOR_SAND = 0xE6A4
+COLOR_SAND_LIGHT = 0xFF0B
+COLOR_SHELL = 0xFCD3
+COLOR_BEACH_ROCK = 0x8C10
+COLOR_PALM = 0x64A2
+
+COLOR_BASALT = 0x20C2
+COLOR_OBSIDIAN = 0x1822
+COLOR_LAVA = 0xF940
+COLOR_LAVA_LIGHT = 0xFDE0
+COLOR_BRIMSTONE = 0xD4A0
+
+COLOR_SKY = 0x65DF
+COLOR_SKY_LIGHT = 0xA69F
+COLOR_CLOUD = 0xEF7D
+COLOR_CLOUD_SHADE = 0xBDF7
+COLOR_STORM = 0x5AEB
+
+COLOR_FOREST_FLOOR = 0x0B62
+COLOR_FOREST_LIGHT = 0x25C4
+COLOR_LEAF = 0x3545
+COLOR_BARK = 0x71E3
+COLOR_BARK_DARK = 0x38E1
+
+COLOR_CANYON = 0xB282
+COLOR_CANYON_LIGHT = 0xE3C7
+COLOR_CANYON_DARK = 0x7902
+COLOR_SANDSTONE = 0xD4A5
+COLOR_DUST = 0xF5EA
 
 PARTICLE_DIRECTIONS = (
     (-1, -1),
@@ -342,6 +377,38 @@ class Renderer:
             0,
         )
 
+    @staticmethod
+    def _theme_color(theme):
+        if theme in (THEME_NATURE, THEME_FOREST):
+            return TFT_GREEN
+        if theme in (THEME_INDUSTRIAL, THEME_CLOUD):
+            return TFT_YELLOW
+        if theme == THEME_WATER:
+            return TFT_CYAN
+        if theme == THEME_BEACH:
+            return COLOR_SAND_LIGHT
+        if theme == THEME_HELL:
+            return COLOR_LAVA_LIGHT
+        return COLOR_DUST
+
+    @staticmethod
+    def _theme_background(theme):
+        if theme == THEME_NATURE:
+            return COLOR_GRASS
+        if theme == THEME_INDUSTRIAL:
+            return COLOR_FACTORY_FLOOR
+        if theme == THEME_WATER:
+            return COLOR_WATER_DARK
+        if theme == THEME_BEACH:
+            return COLOR_SAND
+        if theme == THEME_HELL:
+            return COLOR_BASALT
+        if theme == THEME_CLOUD:
+            return COLOR_SKY
+        if theme == THEME_FOREST:
+            return COLOR_FOREST_FLOOR
+        return COLOR_CANYON
+
     def _draw_hud(self, game):
         draw = self.draw
         draw._fill_rectangle(0, 0, self.width, self.hud_height, TFT_BLACK)
@@ -368,30 +435,26 @@ class Renderer:
         score_text = "%06d" % game.score
         score_x = max(4, self.width - draw.len(score_text, 0) - 4)
         draw._text(score_x, 15, score_text, TFT_WHITE, 0)
-        theme_color = (
-            TFT_GREEN
-            if game.theme == THEME_NATURE
-            else TFT_YELLOW
-            if game.theme == THEME_INDUSTRIAL
-            else TFT_CYAN
+        draw._text(
+            4,
+            15,
+            THEME_NAMES[game.theme],
+            self._theme_color(game.theme),
+            0,
         )
-        draw._text(4, 15, THEME_NAMES[game.theme], theme_color, 0)
 
     def _draw_floor(self, px, py, x, y, theme, animation_time):
         inset = 1 if self.cell >= 5 else 0
-        if theme == THEME_NATURE:
-            color = COLOR_GRASS
-        elif theme == THEME_INDUSTRIAL:
-            color = COLOR_FACTORY_FLOOR
-        else:
-            color = COLOR_WATER
-        self.draw._fill_rectangle(
-            px + inset,
-            py + inset,
-            self.cell - inset,
-            self.cell - inset,
-            color,
-        )
+        # Most floors match the full-frame background. Water uses a lighter
+        # inner tile so the moving ripples remain readable.
+        if theme == THEME_WATER:
+            self.draw._fill_rectangle(
+                px + inset,
+                py + inset,
+                self.cell - inset,
+                self.cell - inset,
+                COLOR_WATER,
+            )
 
         if self.cell < 8:
             return
@@ -446,7 +509,7 @@ class Renderer:
                     2,
                     TFT_RED,
                 )
-        else:
+        elif theme == THEME_WATER:
             wave_y = py + 4 + (
                 animation_time // 180 + x * 2 + y
             ) % max(2, self.cell - 8)
@@ -468,6 +531,96 @@ class Renderer:
                 bubble_x = px + self.cell - 5
                 bubble_y = py + 3
                 self.draw._circle(bubble_x, bubble_y, 2, COLOR_FOAM)
+        elif theme == THEME_BEACH:
+            grain = (x * 5 + y * 9) % max(2, self.cell - 5)
+            self.draw._fill_rectangle(
+                px + 2 + grain,
+                py + 3 + (grain % 4),
+                2,
+                1,
+                COLOR_SAND_LIGHT,
+            )
+            if (x * 7 + y * 13) % 19 == 0:
+                shell_x = px + self.cell - 6
+                shell_y = py + self.cell - 5
+                self.draw._circle(shell_x, shell_y, 2, COLOR_SHELL)
+                self.draw._line(
+                    shell_x - 1,
+                    shell_y,
+                    shell_x + 1,
+                    shell_y,
+                    COLOR_CORAL,
+                )
+        elif theme == THEME_HELL:
+            crack = (x * 7 + y * 5) % max(3, self.cell - 6)
+            self.draw._line(
+                px + 2,
+                py + 3 + crack,
+                px + self.cell // 2,
+                py + 2 + crack,
+                COLOR_LAVA,
+            )
+            if (x * 11 + y * 3) % 17 == 0:
+                self.draw._fill_rectangle(
+                    px + self.cell - 5,
+                    py + 3,
+                    2,
+                    2,
+                    COLOR_LAVA_LIGHT,
+                )
+        elif theme == THEME_CLOUD:
+            drift = (
+                animation_time // 240 + x * 3 + y * 2
+            ) % max(2, self.cell - 7)
+            self.draw._line(
+                px + 2 + drift,
+                py + 4,
+                px + min(self.cell - 3, 6 + drift),
+                py + 4,
+                COLOR_SKY_LIGHT,
+            )
+            if (x * 13 + y * 5) % 23 == 0:
+                self.draw._fill_circle(
+                    px + self.cell - 5,
+                    py + self.cell - 5,
+                    2,
+                    COLOR_CLOUD,
+                )
+        elif theme == THEME_FOREST:
+            leaf_x = px + 2 + (x * 7 + y * 3) % max(2, self.cell - 5)
+            leaf_y = py + 2 + (x * 3 + y * 5) % max(2, self.cell - 5)
+            self.draw._fill_rectangle(
+                leaf_x,
+                leaf_y,
+                2,
+                2,
+                COLOR_FOREST_LIGHT if (x + y) % 2 else COLOR_LEAF,
+            )
+            if (x * 5 + y * 11) % 29 == 0:
+                self.draw._line(
+                    px + 3,
+                    py + self.cell - 4,
+                    px + self.cell - 4,
+                    py + 3,
+                    COLOR_BARK_DARK,
+                )
+        else:
+            stratum = py + 3 + (x * 3 + y * 7) % max(2, self.cell - 7)
+            self.draw._line(
+                px + 2,
+                stratum,
+                px + self.cell - 3,
+                stratum,
+                COLOR_CANYON_LIGHT,
+            )
+            if (x * 11 + y * 7) % 19 == 0:
+                self.draw._fill_rectangle(
+                    px + self.cell - 5,
+                    py + self.cell - 5,
+                    2,
+                    2,
+                    COLOR_DUST,
+                )
 
     def _draw_solid(self, px, py, x, y, theme):
         if theme == THEME_NATURE:
@@ -512,7 +665,7 @@ class Renderer:
                     rivet,
                     TFT_DARKGREY,
                 )
-        else:
+        elif theme == THEME_WATER:
             self.draw._fill_rectangle(px, py, self.cell, self.cell, COLOR_WATER_DARK)
             if self.cell >= 7:
                 self.draw._fill_rectangle(
@@ -536,6 +689,125 @@ class Renderer:
                         2,
                         TFT_CYAN,
                     )
+        elif theme == THEME_BEACH:
+            self.draw._fill_rectangle(px, py, self.cell, self.cell, COLOR_BEACH_ROCK)
+            if self.cell >= 7:
+                self.draw._fill_rectangle(
+                    px + 2,
+                    py + 3,
+                    self.cell - 4,
+                    self.cell - 6,
+                    COLOR_SANDSTONE,
+                )
+                self.draw._line(
+                    px + 2,
+                    py + 3,
+                    px + self.cell - 3,
+                    py + 3,
+                    COLOR_FOAM,
+                )
+                self.draw._fill_rectangle(
+                    px + 3,
+                    py + self.cell - 5,
+                    3,
+                    2,
+                    COLOR_SHELL,
+                )
+        elif theme == THEME_HELL:
+            self.draw._fill_rectangle(px, py, self.cell, self.cell, COLOR_OBSIDIAN)
+            if self.cell >= 7:
+                self.draw._rectangle(
+                    px + 2,
+                    py + 2,
+                    self.cell - 5,
+                    self.cell - 5,
+                    COLOR_BASALT,
+                )
+                self.draw._line(
+                    px + 3,
+                    py + self.cell - 4,
+                    px + self.cell // 2,
+                    py + self.cell // 2,
+                    COLOR_LAVA,
+                )
+                self.draw._line(
+                    px + self.cell // 2,
+                    py + self.cell // 2,
+                    px + self.cell - 4,
+                    py + 3,
+                    COLOR_LAVA_LIGHT,
+                )
+        elif theme == THEME_CLOUD:
+            self.draw._fill_rectangle(px, py, self.cell, self.cell, COLOR_CLOUD_SHADE)
+            if self.cell >= 7:
+                radius = max(2, self.cell // 4)
+                self.draw._fill_circle(
+                    px + self.cell // 3,
+                    py + self.cell // 2,
+                    radius,
+                    COLOR_CLOUD,
+                )
+                self.draw._fill_circle(
+                    px + self.cell * 2 // 3,
+                    py + self.cell // 2,
+                    radius,
+                    TFT_WHITE,
+                )
+                self.draw._line(
+                    px + 3,
+                    py + self.cell - 4,
+                    px + self.cell - 4,
+                    py + self.cell - 4,
+                    COLOR_SKY_LIGHT,
+                )
+        elif theme == THEME_FOREST:
+            self.draw._fill_rectangle(px, py, self.cell, self.cell, COLOR_BARK_DARK)
+            if self.cell >= 7:
+                self.draw._fill_rectangle(
+                    px + 2,
+                    py + 2,
+                    self.cell - 4,
+                    self.cell - 4,
+                    COLOR_LEAF,
+                )
+                self.draw._rectangle(
+                    px + 3,
+                    py + 3,
+                    self.cell - 7,
+                    self.cell - 7,
+                    COLOR_FOREST_LIGHT,
+                )
+                self.draw._fill_rectangle(
+                    px + 2,
+                    py + 2,
+                    max(2, self.cell // 2),
+                    2,
+                    COLOR_MOSS,
+                )
+        else:
+            self.draw._fill_rectangle(px, py, self.cell, self.cell, COLOR_CANYON_DARK)
+            if self.cell >= 7:
+                self.draw._fill_rectangle(
+                    px + 2,
+                    py + 2,
+                    self.cell - 4,
+                    self.cell - 4,
+                    COLOR_SANDSTONE,
+                )
+                self.draw._line(
+                    px + 2,
+                    py + self.cell // 3,
+                    px + self.cell - 3,
+                    py + self.cell // 3,
+                    COLOR_CANYON_LIGHT,
+                )
+                self.draw._line(
+                    px + 3,
+                    py + self.cell * 2 // 3,
+                    px + self.cell - 4,
+                    py + self.cell * 2 // 3,
+                    COLOR_CANYON,
+                )
 
     def _draw_brick(self, px, py, x, y, theme):
         if theme == THEME_NATURE:
@@ -607,7 +879,7 @@ class Renderer:
                     self.cell - 3,
                     TFT_DARKGREY,
                 )
-        else:
+        elif theme == THEME_WATER:
             self.draw._fill_rectangle(px, py, self.cell, self.cell, COLOR_WATER)
             if self.cell >= 6:
                 center = px + self.cell // 2
@@ -640,6 +912,132 @@ class Renderer:
                     px + self.cell - 4,
                     base,
                     COLOR_REEF,
+                )
+        elif theme == THEME_BEACH:
+            self.draw._fill_rectangle(px, py, self.cell, self.cell, COLOR_PALM)
+            if self.cell >= 6:
+                self.draw._rectangle(
+                    px + 2,
+                    py + 2,
+                    self.cell - 5,
+                    self.cell - 5,
+                    COLOR_BARK_DARK,
+                )
+                self.draw._line(
+                    px + 3,
+                    py + 3,
+                    px + self.cell - 4,
+                    py + self.cell - 4,
+                    COLOR_SAND_LIGHT,
+                )
+                self.draw._fill_rectangle(
+                    px + self.cell // 2 - 1,
+                    py + 2,
+                    2,
+                    self.cell - 4,
+                    COLOR_BARK,
+                )
+        elif theme == THEME_HELL:
+            self.draw._fill_rectangle(px, py, self.cell, self.cell, COLOR_BRIMSTONE)
+            if self.cell >= 6:
+                self.draw._fill_rectangle(
+                    px + 2,
+                    py + 2,
+                    self.cell - 4,
+                    self.cell - 4,
+                    COLOR_BASALT,
+                )
+                self.draw._line(
+                    px + 3,
+                    py + 3,
+                    px + self.cell - 4,
+                    py + self.cell - 4,
+                    COLOR_LAVA,
+                )
+                self.draw._line(
+                    px + self.cell - 4,
+                    py + 3,
+                    px + 3,
+                    py + self.cell - 4,
+                    COLOR_LAVA_LIGHT,
+                )
+        elif theme == THEME_CLOUD:
+            self.draw._fill_rectangle(px, py, self.cell, self.cell, COLOR_STORM)
+            if self.cell >= 6:
+                self.draw._fill_circle(
+                    px + self.cell // 3,
+                    py + self.cell // 3,
+                    max(2, self.cell // 4),
+                    COLOR_CLOUD_SHADE,
+                )
+                self.draw._fill_circle(
+                    px + self.cell * 2 // 3,
+                    py + self.cell // 3,
+                    max(2, self.cell // 4),
+                    COLOR_CLOUD,
+                )
+                bolt_x = px + self.cell // 2
+                self.draw._line(
+                    bolt_x,
+                    py + self.cell // 2,
+                    bolt_x - 2,
+                    py + self.cell - 4,
+                    TFT_YELLOW,
+                )
+                self.draw._line(
+                    bolt_x - 2,
+                    py + self.cell - 4,
+                    bolt_x + 3,
+                    py + self.cell - 6,
+                    TFT_YELLOW,
+                )
+        elif theme == THEME_FOREST:
+            self.draw._fill_rectangle(px, py, self.cell, self.cell, COLOR_BARK)
+            if self.cell >= 6:
+                self.draw._rectangle(
+                    px + 2,
+                    py + 2,
+                    self.cell - 5,
+                    self.cell - 5,
+                    COLOR_BARK_DARK,
+                )
+                self.draw._line(
+                    px + self.cell // 3,
+                    py + 2,
+                    px + self.cell // 3,
+                    py + self.cell - 3,
+                    COLOR_FOREST_LIGHT,
+                )
+                self.draw._line(
+                    px + self.cell * 2 // 3,
+                    py + 2,
+                    px + self.cell * 2 // 3,
+                    py + self.cell - 3,
+                    COLOR_BARK_DARK,
+                )
+        else:
+            self.draw._fill_rectangle(px, py, self.cell, self.cell, COLOR_CANYON_LIGHT)
+            if self.cell >= 6:
+                self.draw._fill_rectangle(
+                    px + 2,
+                    py + 2,
+                    self.cell - 4,
+                    self.cell - 4,
+                    COLOR_CANYON,
+                )
+                self.draw._line(
+                    px + 2,
+                    py + self.cell // 3,
+                    px + self.cell - 3,
+                    py + self.cell // 3,
+                    COLOR_DUST,
+                )
+                self.draw._line(
+                    px + self.cell // 2,
+                    py + self.cell // 3,
+                    px + self.cell - 4,
+                    py + self.cell - 4,
+                    COLOR_CANYON_DARK,
                 )
 
     def _draw_powerup(self, powerup):
@@ -824,25 +1222,54 @@ class Renderer:
         if elite:
             return COLOR_GOLD, TFT_WHITE
         if kind == ENEMY_BOMBER:
-            accent = (
-                COLOR_MOSS
-                if theme == THEME_NATURE
-                else COLOR_STEEL_LIGHT
-                if theme == THEME_INDUSTRIAL
-                else TFT_CYAN
-            )
+            if theme == THEME_NATURE:
+                accent = COLOR_MOSS
+            elif theme == THEME_INDUSTRIAL:
+                accent = COLOR_STEEL_LIGHT
+            elif theme == THEME_WATER:
+                accent = TFT_CYAN
+            elif theme == THEME_BEACH:
+                accent = COLOR_SAND_LIGHT
+            elif theme == THEME_HELL:
+                accent = COLOR_LAVA_LIGHT
+            elif theme == THEME_CLOUD:
+                accent = COLOR_CLOUD
+            elif theme == THEME_FOREST:
+                accent = COLOR_LEAF
+            else:
+                accent = COLOR_DUST
             return TFT_RED, accent
         if kind == 0:
             if theme == THEME_NATURE:
                 return COLOR_PURPLE, COLOR_GRASS_LIGHT
             if theme == THEME_INDUSTRIAL:
                 return COLOR_COOLANT, TFT_CYAN
-            return COLOR_INK, COLOR_WAVE
+            if theme == THEME_WATER:
+                return COLOR_INK, COLOR_WAVE
+            if theme == THEME_BEACH:
+                return COLOR_CORAL, COLOR_SHELL
+            if theme == THEME_HELL:
+                return COLOR_BRIMSTONE, COLOR_LAVA
+            if theme == THEME_CLOUD:
+                return COLOR_CLOUD, COLOR_STORM
+            if theme == THEME_FOREST:
+                return COLOR_LEAF, COLOR_FOREST_LIGHT
+            return COLOR_RUST, COLOR_DUST
         if theme == THEME_NATURE:
             return TFT_YELLOW, TFT_ORANGE
         if theme == THEME_INDUSTRIAL:
             return COLOR_RUST, TFT_LIGHTGREY
-        return COLOR_FOAM, TFT_CYAN
+        if theme == THEME_WATER:
+            return COLOR_FOAM, TFT_CYAN
+        if theme == THEME_BEACH:
+            return TFT_CYAN, COLOR_CORAL
+        if theme == THEME_HELL:
+            return COLOR_LAVA, COLOR_LAVA_LIGHT
+        if theme == THEME_CLOUD:
+            return TFT_WHITE, COLOR_SKY_LIGHT
+        if theme == THEME_FOREST:
+            return TFT_YELLOW, COLOR_LEAF
+        return TFT_ORANGE, COLOR_DUST
 
     def _draw_blob_enemy(self, px, py, frame, theme, elite):
         color, accent = self._enemy_colors(0, theme, elite)
@@ -1077,12 +1504,26 @@ class Renderer:
         radius = max(2, self.cell // 4)
 
         if kind == DECAL_SCORCH:
-            color = (
-                COLOR_WOOD_DARK
-                if theme == THEME_NATURE
-                else TFT_BLACK
-                if theme == THEME_INDUSTRIAL
-                else COLOR_WATER_DARK
+            if theme in (THEME_NATURE, THEME_FOREST):
+                color = COLOR_WOOD_DARK
+            elif theme in (THEME_INDUSTRIAL, THEME_HELL):
+                color = TFT_BLACK
+            elif theme == THEME_WATER:
+                color = COLOR_WATER_DARK
+            elif theme == THEME_BEACH:
+                color = COLOR_BEACH_ROCK
+            elif theme == THEME_CLOUD:
+                color = COLOR_STORM
+            else:
+                color = COLOR_CANYON_DARK
+            accent = (
+                COLOR_WAVE
+                if theme == THEME_WATER
+                else COLOR_LAVA
+                if theme == THEME_HELL
+                else COLOR_CLOUD_SHADE
+                if theme == THEME_CLOUD
+                else TFT_DARKGREY
             )
             self.draw._fill_circle(cx, cy, radius + variant % 2, color)
             self.draw._line(
@@ -1090,25 +1531,27 @@ class Renderer:
                 cy + variant % 3 - 1,
                 cx + radius,
                 cy - variant % 2,
-                TFT_DARKGREY if theme != THEME_WATER else COLOR_WAVE,
+                accent,
             )
             return
 
         if kind == DECAL_DEBRIS:
-            color = (
-                COLOR_WOOD
-                if theme == THEME_NATURE
-                else COLOR_STEEL_LIGHT
-                if theme == THEME_INDUSTRIAL
-                else COLOR_CORAL
-            )
-            accent = (
-                COLOR_WOOD_DARK
-                if theme == THEME_NATURE
-                else COLOR_RUST
-                if theme == THEME_INDUSTRIAL
-                else COLOR_REEF
-            )
+            if theme == THEME_NATURE:
+                color, accent = COLOR_WOOD, COLOR_WOOD_DARK
+            elif theme == THEME_INDUSTRIAL:
+                color, accent = COLOR_STEEL_LIGHT, COLOR_RUST
+            elif theme == THEME_WATER:
+                color, accent = COLOR_CORAL, COLOR_REEF
+            elif theme == THEME_BEACH:
+                color, accent = COLOR_PALM, COLOR_SHELL
+            elif theme == THEME_HELL:
+                color, accent = COLOR_BRIMSTONE, COLOR_LAVA
+            elif theme == THEME_CLOUD:
+                color, accent = COLOR_CLOUD, COLOR_STORM
+            elif theme == THEME_FOREST:
+                color, accent = COLOR_BARK, COLOR_LEAF
+            else:
+                color, accent = COLOR_SANDSTONE, COLOR_CANYON_DARK
             self.draw._fill_rectangle(px + 3, cy - 1, 4, 2, color)
             self.draw._fill_rectangle(cx + 2, py + 4, 3, 3, accent)
             self.draw._line(
@@ -1128,20 +1571,7 @@ class Renderer:
             return
 
         if kind == DECAL_BLOB:
-            color = (
-                COLOR_PURPLE
-                if theme == THEME_NATURE
-                else COLOR_COOLANT
-                if theme == THEME_INDUSTRIAL
-                else COLOR_INK
-            )
-            accent = (
-                COLOR_GRASS_LIGHT
-                if theme == THEME_NATURE
-                else TFT_CYAN
-                if theme == THEME_INDUSTRIAL
-                else COLOR_WAVE
-            )
+            color, accent = self._enemy_colors(0, theme, False)
             self.draw._fill_circle(cx, cy, radius + variant % 2, color)
             self.draw._fill_circle(cx - radius, cy + 2, max(1, radius // 2), color)
             self.draw._fill_circle(cx + radius, cy - 1, max(1, radius // 2), color)
@@ -1167,20 +1597,7 @@ class Renderer:
             )
             return
 
-        color = (
-            TFT_ORANGE
-            if theme == THEME_NATURE
-            else COLOR_RUST
-            if theme == THEME_INDUSTRIAL
-            else COLOR_FOAM
-        )
-        accent = (
-            COLOR_MOSS
-            if theme == THEME_NATURE
-            else TFT_LIGHTGREY
-            if theme == THEME_INDUSTRIAL
-            else TFT_CYAN
-        )
+        color, accent = self._enemy_colors(1, theme, False)
         self.draw._circle(cx, cy, radius + 1, color)
         self.draw._circle(cx, cy, max(1, radius - 2), accent)
         self.draw._fill_rectangle(cx - radius - 2, cy - 1, 3, 2, color)
@@ -1280,14 +1697,7 @@ class Renderer:
             self.draw.swap()
             return
 
-        background = (
-            COLOR_GRASS
-            if game.theme == THEME_NATURE
-            else COLOR_FACTORY_FLOOR
-            if game.theme == THEME_INDUSTRIAL
-            else COLOR_WATER_DARK
-        )
-        self.draw.fill_screen(background)
+        self.draw.fill_screen(self._theme_background(game.theme))
         self._draw_hud(game)
 
         for y in range(GRID_HEIGHT):
@@ -1324,17 +1734,10 @@ class Renderer:
             self._draw_death(effect, game.animation_time, game.theme)
 
         if game.state == STATE_STAGE_INTRO:
-            theme_color = (
-                TFT_GREEN
-                if game.theme == THEME_NATURE
-                else TFT_YELLOW
-                if game.theme == THEME_INDUSTRIAL
-                else TFT_CYAN
-            )
             self._draw_overlay(
                 THEME_NAMES[game.theme],
                 "STAGE %d - %s" % (game.stage, MODE_NAMES[game.mode]),
-                theme_color,
+                self._theme_color(game.theme),
             )
         elif game.state == STATE_STAGE_CLEAR:
             self._draw_overlay("STAGE CLEAR", "+250 BONUS", TFT_GREEN)

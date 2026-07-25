@@ -528,10 +528,12 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - Slots: `args`, `error`, `function`, `_id`, `name`, `result`, `should_stop`, `start_time`, `timeout`.
 - `ThreadManager` class: Manages a queue of `ThreadTask` objects, running them sequentially.
     - `__init__()`: Initializes the task queue.
+    - `is_idle`: Property - True when no task is queued or active.
+    - `pending_count`: Property - number of queued tasks, excluding the active task.
     - `task`: Property - the currently active `ThreadTask`.
     - `thread`: Property - the underlying `Thread` object.
-    - `add_task(task)`: Add a `ThreadTask` to the queue.
-    - `remove_task(task_id)`: Remove a task from the queue by ID.
+    - `add_task(task)`: Add a `ThreadTask` to the queue and return its task ID.
+    - `remove_task(task_id)`: Cooperatively stop and remove a queued task by ID. Returns True when removed.
     - `run()`: Process the task queue - starts the next queued task if no task is running. Returns a log string.
 
 #### picoware-system-time

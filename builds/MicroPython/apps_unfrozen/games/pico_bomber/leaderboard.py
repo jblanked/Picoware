@@ -8,6 +8,8 @@ except ImportError:
 
 LEADERBOARD_PATH = "/picoware/settings/pico_bomber_scores.json"
 MAX_SCORES = 5
+MAX_NAME_LENGTH = 10
+DEFAULT_NAME = "PLAYER"
 
 
 class Leaderboard:
@@ -32,10 +34,33 @@ class Leaderboard:
         )
 
     @staticmethod
+    def clean_name(name):
+        """Return a short arcade-safe leaderboard name."""
+        if not isinstance(name, str):
+            return DEFAULT_NAME
+        cleaned = ""
+        for char in name.strip().upper():
+            if (
+                "A" <= char <= "Z"
+                or "0" <= char <= "9"
+                or char in (" ", "-", "_")
+            ):
+                cleaned += char
+                if len(cleaned) >= MAX_NAME_LENGTH:
+                    break
+        return cleaned or DEFAULT_NAME
+
+    @staticmethod
     def _rank(entries):
         ranked = []
         for entry in entries:
-            item = [int(entry[0]), int(entry[1]), int(entry[2])]
+            name = entry[3] if len(entry) >= 4 else DEFAULT_NAME
+            item = [
+                int(entry[0]),
+                int(entry[1]),
+                int(entry[2]),
+                Leaderboard.clean_name(name),
+            ]
             inserted = False
             for index in range(len(ranked)):
                 if item[0] > ranked[index][0]:
@@ -66,8 +91,18 @@ class Leaderboard:
             self.entries = []
         return self.entries
 
-    def submit(self, score, stage, mode):
-        entry = [max(0, int(score)), max(1, int(stage)), int(mode)]
+    def qualifies(self, score):
+        """Return whether a score would enter the local top five."""
+        score = max(0, int(score))
+        return len(self.entries) < MAX_SCORES or score > self.entries[-1][0]
+
+    def submit(self, score, stage, mode, name=DEFAULT_NAME):
+        entry = [
+            max(0, int(score)),
+            max(1, int(stage)),
+            int(mode),
+            self.clean_name(name),
+        ]
         if not self._valid_entry(entry):
             return False
         previous = json.dumps(self.entries)

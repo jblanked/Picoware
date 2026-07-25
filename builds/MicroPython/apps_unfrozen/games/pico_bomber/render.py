@@ -36,6 +36,7 @@ from .model import (
     STATE_GAME_OVER,
     STATE_LEADERBOARD,
     STATE_MODE_SELECT,
+    STATE_NAME_ENTRY,
     STATE_PLAYER_DYING,
     STATE_STAGE_CLEAR,
     STATE_STAGE_INTRO,
@@ -252,33 +253,32 @@ class Renderer:
                     TFT_YELLOW if index == 0 else TFT_DARKGREY,
                 )
                 mode = "GHOST" if entry[2] == 0 else "RIVALS"
+                name = entry[3] if len(entry) >= 4 else "PLAYER"
                 if compact:
                     text_y = y + max(2, (row_h - 8) // 2)
-                    draw._text(x + 5, text_y, "#%d" % (index + 1), TFT_YELLOW, 0)
-                    draw._text(x + 28, text_y, str(entry[0]), TFT_WHITE, 0)
-                    right = "%s S%d" % (
-                        "G" if entry[2] == 0 else "R",
-                        entry[1],
-                    )
+                    left = "#%d %s" % (index + 1, name[:5])
+                    draw._text(x + 5, text_y, left, TFT_YELLOW, 0)
+                    score = str(entry[0])
                     draw._text(
-                        x + box_w - draw.len(right, 0) - 5,
+                        x + box_w - draw.len(score, 0) - 5,
                         text_y,
-                        right,
-                        TFT_CYAN,
+                        score,
+                        TFT_WHITE,
                         0,
                     )
                 else:
                     draw._text(x + 8, y + 8, "#%d" % (index + 1), TFT_YELLOW, 1)
+                    draw._text(x + 42, y + 4, name, TFT_CYAN, 0)
                     draw._text(
                         x + 42,
-                        y + 8,
+                        y + 17,
                         "%06d" % entry[0],
                         TFT_WHITE,
-                        1,
+                        0,
                     )
-                    draw._text(x + 126, y + 5, mode, TFT_CYAN, 0)
+                    draw._text(x + 150, y + 5, mode, TFT_CYAN, 0)
                     draw._text(
-                        x + 126,
+                        x + 150,
                         y + 19,
                         "STAGE %d" % entry[1],
                         TFT_GREEN,
@@ -288,6 +288,57 @@ class Renderer:
             "CENTER/BACK  MODES",
             self.height - 16,
             TFT_LIGHTGREY,
+            0,
+        )
+
+    def _draw_name_entry(self, game):
+        draw = self.draw
+        draw.fill_screen(COLOR_ARENA)
+        compact = self.height < 200
+        self._center_text(
+            "NEW HIGH SCORE",
+            8 if compact else 22,
+            TFT_YELLOW,
+            1 if compact else 2,
+        )
+        self._center_text(
+            "%06d  STAGE %d" % (game.score, game.stage),
+            30 if compact else 62,
+            TFT_CYAN,
+            0 if compact else 1,
+        )
+        self._center_text(
+            "ENTER YOUR NAME",
+            48 if compact else 96,
+            TFT_WHITE,
+            0 if compact else 1,
+        )
+
+        box_w = min(self.width - 24, 260)
+        box_h = 32 if compact else 54
+        x = (self.width - box_w) // 2
+        y = 65 if compact else 128
+        draw._fill_rectangle(x, y, box_w, box_h, TFT_BLACK)
+        draw._rectangle(x, y, box_w, box_h, TFT_YELLOW)
+        name = game.player_name
+        display_name = name + ("_" if len(name) < 10 else "")
+        if not display_name:
+            display_name = "_"
+        text_size = 1 if compact else 2
+        text_x = max(x + 6, x + (box_w - draw.len(display_name, text_size)) // 2)
+        text_y = y + (8 if compact else 14)
+        draw._text(text_x, text_y, display_name, TFT_GREEN, text_size)
+
+        self._center_text(
+            "TYPE A-Z / 0-9  BACKSPACE",
+            min(self.height - 34, y + box_h + 18),
+            TFT_LIGHTGREY,
+            0,
+        )
+        self._center_text(
+            "ENTER SAVE   BACK DEFAULT",
+            min(self.height - 16, y + box_h + 36),
+            TFT_CYAN,
             0,
         )
 
@@ -1222,6 +1273,10 @@ class Renderer:
             return
         if game.state == STATE_LEADERBOARD:
             self._draw_leaderboard(game)
+            self.draw.swap()
+            return
+        if game.state == STATE_NAME_ENTRY:
+            self._draw_name_entry(game)
             self.draw.swap()
             return
 

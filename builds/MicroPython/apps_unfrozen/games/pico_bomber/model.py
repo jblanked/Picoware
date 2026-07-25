@@ -50,6 +50,7 @@ STATE_PLAYER_DYING = 4
 STATE_STAGE_INTRO = 5
 STATE_MODE_SELECT = 6
 STATE_LEADERBOARD = 7
+STATE_NAME_ENTRY = 8
 
 DEATH_PLAYER = 0
 DEATH_ENEMY_BLOB = 1
@@ -109,6 +110,7 @@ class GameModel:
         self.decals = []
         self.death_effects = []
         self.leaderboard = []
+        self.player_name = ""
         self.state = STATE_TITLE
         self.state_until = 0
         self.invulnerable_until = 0
@@ -141,6 +143,7 @@ class GameModel:
         self.lives = 3
         self.score = 0
         self.stage = 1
+        self.player_name = ""
         self.flame_range = 2
         self.bomb_limit = 1
         self._build_stage(now)

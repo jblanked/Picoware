@@ -4,6 +4,9 @@ from gc import collect
 from utime import ticks_add, ticks_diff, ticks_ms
 
 from picoware.system.buttons import (
+    BUTTON_0,
+    BUTTON_9,
+    BUTTON_A,
     BUTTON_BACK,
     BUTTON_BACKSPACE,
     BUTTON_CENTER,
@@ -11,9 +14,12 @@ from picoware.system.buttons import (
     BUTTON_DOWN,
     BUTTON_ENTER,
     BUTTON_LEFT,
+    BUTTON_MINUS,
     BUTTON_RIGHT,
     BUTTON_SPACE,
+    BUTTON_UNDERSCORE,
     BUTTON_UP,
+    BUTTON_Z,
 )
 
 from .leaderboard import DEFAULT_NAME, MAX_NAME_LENGTH, Leaderboard
@@ -97,7 +103,7 @@ def _submit_name(name):
     _score_saved = True
 
 
-def _handle_name_input(input_manager, button):
+def _handle_name_input(_input_manager, button):
     """Edit a short arcade name using the physical keyboard."""
     if button < 0:
         return False
@@ -115,12 +121,20 @@ def _handle_name_input(input_manager, button):
     if len(_game.player_name) >= MAX_NAME_LENGTH:
         return False
 
-    char = input_manager.button_to_char(button).upper()
-    if len(char) == 1 and (
-        "A" <= char <= "Z"
-        or "0" <= char <= "9"
-        or char in (" ", "-", "_")
-    ):
+    if BUTTON_A <= button <= BUTTON_Z:
+        char = chr(65 + button - BUTTON_A)
+    elif BUTTON_0 <= button <= BUTTON_9:
+        char = chr(48 + button - BUTTON_0)
+    elif button == BUTTON_SPACE:
+        char = " "
+    elif button == BUTTON_MINUS:
+        char = "-"
+    elif button == BUTTON_UNDERSCORE:
+        char = "_"
+    else:
+        return False
+
+    if char:
         _game.player_name += char
         return True
     return False
@@ -206,6 +220,9 @@ def run(view_manager):
                 _mode_start_pending = True
                 try:
                     _game.new_game(now, _game.menu_selection)
+                    # Release the stage builder's temporary candidate tuples
+                    # before the first full arena frame.
+                    collect()
                 except Exception as error:
                     _log_mode_start_error(view_manager, "stage-build", error)
                     _mode_start_pending = False

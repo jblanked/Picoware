@@ -385,13 +385,16 @@ class Renderer:
             color = COLOR_FACTORY_FLOOR
         else:
             color = COLOR_WATER
-        self.draw._fill_rectangle(
-            px + inset,
-            py + inset,
-            self.cell - inset,
-            self.cell - inset,
-            color,
-        )
+        # Nature and industrial floors already match the full-frame
+        # background. Only water needs a different base tile color.
+        if theme == THEME_WATER:
+            self.draw._fill_rectangle(
+                px + inset,
+                py + inset,
+                self.cell - inset,
+                self.cell - inset,
+                color,
+            )
 
         if self.cell < 8:
             return
@@ -581,25 +584,21 @@ class Renderer:
                     band,
                     COLOR_HAZARD,
                 )
-                stripe = max(3, self.cell // 4)
-                offset = 1
-                while offset < self.cell:
-                    self.draw._fill_rectangle(
-                        px + offset,
-                        py,
-                        min(2, self.cell - offset),
-                        band,
-                        TFT_BLACK,
-                    )
-                    lower_x = min(self.cell - 1, offset + stripe // 2)
-                    self.draw._fill_rectangle(
-                        px + lower_x,
-                        py + self.cell - band,
-                        min(2, self.cell - lower_x),
-                        band,
-                        TFT_BLACK,
-                    )
-                    offset += stripe
+                stripe = max(2, self.cell // 5)
+                self.draw._fill_rectangle(
+                    px + 3,
+                    py,
+                    stripe,
+                    band,
+                    TFT_BLACK,
+                )
+                self.draw._fill_rectangle(
+                    px + self.cell - stripe - 3,
+                    py + self.cell - band,
+                    stripe,
+                    band,
+                    TFT_BLACK,
+                )
                 self.draw._rectangle(
                     px + 1,
                     py + 1,
@@ -1290,9 +1289,10 @@ class Renderer:
         self.draw.fill_screen(background)
         self._draw_hud(game)
 
+        py = self.origin_y
         for y in range(GRID_HEIGHT):
+            px = self.origin_x
             for x in range(GRID_WIDTH):
-                px, py = self._tile_box(x, y)
                 tile = game.grid[y][x]
                 if tile == TILE_SOLID:
                     self._draw_solid(px, py, x, y, game.theme)
@@ -1307,6 +1307,8 @@ class Renderer:
                         game.theme,
                         game.animation_time,
                     )
+                px += self.cell
+            py += self.cell
 
         for decal in game.decals:
             self._draw_decal(decal)

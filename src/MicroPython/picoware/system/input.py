@@ -121,13 +121,13 @@ class Input:
         else:
             from picoware_keyboard import (
                 init,
-                # set_background_poll,
-                # set_key_available_callback,
+                set_background_poll,
+                set_key_available_callback,
             )
 
             init()
-            # set_background_poll(True)
-            # set_key_available_callback(self.on_key_callback)
+            set_background_poll(True)
+            set_key_available_callback(self.on_key_callback)
 
         self._elapsed_time = 0
         self._elapsed_touch_start = 0
@@ -389,10 +389,8 @@ class Input:
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            # added this since scheduler isnt working yet
-            from picoware_keyboard import key_available, poll
+            from picoware_keyboard import key_available
 
-            poll()
             if key_available():
                 self.on_key_callback()
         return self._last_button

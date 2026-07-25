@@ -178,14 +178,31 @@ class ThreadManager:
         """Get the currently active thread."""
         return self._active_thread
 
-    def add_task(self, task: ThreadTask) -> None:
-        """Add a task to the manager."""
-        self._tasks.append(task)
+    @property
+    def is_idle(self) -> bool:
+        """Return whether no task is queued or active."""
+        return self._active_thread is None and not self._tasks
 
-    def remove_task(self, task_id: int) -> None:
-        """Remove a task from the manager."""
-        if task_id in self._tasks:
-            self._tasks.remove(task_id)
+    @property
+    def pending_count(self) -> int:
+        """Return the number of queued tasks, excluding the active task."""
+        return len(self._tasks)
+
+    def add_task(self, task: ThreadTask) -> int:
+        """Add a task to the manager."""
+        task.id = self._id
+        self._id += 1
+        self._tasks.append(task)
+        return task.id
+
+    def remove_task(self, task_id: int) -> bool:
+        """Stop and remove a queued task by ID."""
+        for index, task in enumerate(self._tasks):
+            if task.id == task_id:
+                task.stop()
+                self._tasks.pop(index)
+                return True
+        return False
 
     def run(self) -> str:
         """Run tasks one-by-one, waiting for each to complete before starting the next."""
@@ -196,14 +213,17 @@ class ThreadManager:
                 if self._active_task is not None:
                     self._outgoing = f"[ThreadManager] Task {self._active_task.id} ({self._active_task.name}) finished after {ticks_ms() - self._active_task.start_time} ms.\n"
                     # Task finished, capture error if any
-                    self._active_task.error = self._active_thread.error
+                    thread_error = self._active_thread.error
+                    if thread_error is not None:
+                        self._active_task.error = thread_error
                     collect()  
                 self._active_thread = None
                 self._active_task = None
             elif self._active_task is not None and self._active_task.should_stop:
                 # Stop was requested, stop the thread
                 self._active_thread.stop()
-                self._active_task.error = Exception("Thread task was stopped.")
+                if self._active_task.error is None:
+                    self._active_task.error = Exception("Thread task was stopped.")
             elif (
                 self._active_task is not None
                 and self._active_task.timeout > 0
@@ -211,6 +231,7 @@ class ThreadManager:
                 > self._active_task.timeout
             ):
                 # Task timed out, stop it
+                self._active_task.stop()
                 self._active_thread.stop()
                 self._active_task.error = Exception("Thread task timed out.")
             return self._outgoing
@@ -224,8 +245,6 @@ class ThreadManager:
             thread = Thread(task.function, task.args, task.stack_size)
             if thread.run():
                 task.start_time = ticks_ms()
-                task.id = self._id
-                self._id += 1
                 self._outgoing = (
                     f"[ThreadManager] Task {task.id} ({task.name}) started."
                 )

@@ -104,7 +104,7 @@ class LLM:
         elif self._id == LOCAL:
             self._name = "Local"
             self._url = settings.local_url
-            self._models = ["local-model"]
+            self._models = ["qwen3.5:4b", "qwen3.5:0.8b", "qwen3.5:2b", "llama3.2:3b", "llama3.2:1b"]
         
         if self._id == ANTHROPIC:
             self._headers["x-api-key"] = self._api_key

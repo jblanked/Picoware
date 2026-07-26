@@ -98,67 +98,71 @@ class Time:
                     return False
                 if self._is_set:
                     return True
+                # Reserve the fetch before queueing it so the main loop cannot
+                # enqueue duplicates while the worker is waiting to start.
+                self._is_set = False
+                self._running = True
 
             def fetch_ntp_time() -> None:
                 """Fetch the current time from an NTP server and set the RTC accordingly."""
-                from time import gmtime
-                import usocket as socket
-                import ustruct as struct
-
-                with self._lock:
-                    self._is_set = False
-                    self._running = True
-                NTP_QUERY = bytearray(48)
-                NTP_QUERY[0] = 0x1B
-                host = "pool.ntp.org"
-                timeout = 1
-                addr = socket.getaddrinfo(host, 123)[0][-1]
-                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 try:
-                    s.settimeout(timeout)
-                    s.sendto(NTP_QUERY, addr)
-                    msg = s.recv(48)
+                    from time import gmtime
+                    import usocket as socket
+                    import ustruct as struct
+
+                    NTP_QUERY = bytearray(48)
+                    NTP_QUERY[0] = 0x1B
+                    host = "pool.ntp.org"
+                    timeout = 1
+                    addr = socket.getaddrinfo(host, 123)[0][-1]
+                    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                    try:
+                        s.settimeout(timeout)
+                        s.sendto(NTP_QUERY, addr)
+                        msg = s.recv(48)
+                    finally:
+                        s.close()
+                    val = struct.unpack("!I", msg[40:44])[0]
+
+                    # 2024-01-01 00:00:00 converted to an NTP timestamp
+                    MIN_NTP_TIMESTAMP = 3913056000
+                    if val < MIN_NTP_TIMESTAMP:
+                        val += 0x100000000
+
+                    # Convert timestamp from NTP format to our internal format
+                    EPOCH_YEAR = gmtime(0)[0]
+                    if EPOCH_YEAR == 2000:
+                        # (date(2000, 1, 1) - date(1900, 1, 1)).days * 24*60*60
+                        NTP_DELTA = 3155673600
+                    elif EPOCH_YEAR == 1970:
+                        # (date(1970, 1, 1) - date(1900, 1, 1)).days * 24*60*60
+                        NTP_DELTA = 2208988800
+                    else:
+                        print("Unsupported epoch: {}".format(EPOCH_YEAR))
+                        with self._lock:
+                            self._is_set = False
+                        return False
+
+                    t = val - NTP_DELTA + int(offset * 3600)  # Apply timezone offset
+                    tm = gmtime(t)
+                    with self._lock:
+                        self._rtc.datetime(
+                            (
+                                tm[0],  # year
+                                tm[1],  # month
+                                tm[2],  # day of the month
+                                tm[6] + 1,  # weekday
+                                tm[3],  # hour
+                                tm[4],  # minute
+                                tm[5],  # second
+                                0,  # subseconds
+                            )
+                        )
+                        self._is_set = True
+                    return True
                 finally:
-                    s.close()
-                val = struct.unpack("!I", msg[40:44])[0]
-
-                # 2024-01-01 00:00:00 converted to an NTP timestamp
-                MIN_NTP_TIMESTAMP = 3913056000
-                if val < MIN_NTP_TIMESTAMP:
-                    val += 0x100000000
-
-                # Convert timestamp from NTP format to our internal format
-                EPOCH_YEAR = gmtime(0)[0]
-                if EPOCH_YEAR == 2000:
-                    # (date(2000, 1, 1) - date(1900, 1, 1)).days * 24*60*60
-                    NTP_DELTA = 3155673600
-                elif EPOCH_YEAR == 1970:
-                    # (date(1970, 1, 1) - date(1900, 1, 1)).days * 24*60*60
-                    NTP_DELTA = 2208988800
-                else:
-                    print("Unsupported epoch: {}".format(EPOCH_YEAR))
                     with self._lock:
                         self._running = False
-                        self._is_set = False
-                    return
-
-                t = val - NTP_DELTA + int(offset * 3600)  # Apply timezone offset
-                tm = gmtime(t)
-                with self._lock:
-                    self._rtc.datetime(
-                        (
-                            tm[0],  # year
-                            tm[1],  # month
-                            tm[2],  # day of the month
-                            tm[6] + 1,  # weekday
-                            tm[3],  # hour
-                            tm[4],  # minute
-                            tm[5],  # second
-                            0,  # subseconds
-                        )
-                    )
-                    self._is_set = True
-                    self._running = False
 
             if not self._thread_manager:
                 return fetch_ntp_time()

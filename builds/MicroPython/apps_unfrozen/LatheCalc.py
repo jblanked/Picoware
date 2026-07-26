@@ -2,7 +2,53 @@ from micropython import const
 import json
 import gc
 import math
+from utime import ticks_diff, ticks_ms
 from picoware.system.vector import Vector
+
+APP_CPU_FREQUENCY = 220000000
+FREQUENCY_SETTLE_MS = 100
+_clock_changed = False
+_startup_pending = False
+_frequency_idle_since = 0
+
+
+def _thread_manager_is_idle(view_manager):
+    thread_manager = view_manager.thread_manager
+    return thread_manager is None or thread_manager.is_idle
+
+
+def _prepare_app_frequency(view_manager):
+    global _clock_changed, _frequency_idle_since
+
+    now = ticks_ms()
+    if not _thread_manager_is_idle(view_manager):
+        _frequency_idle_since = 0
+        return False
+    if _frequency_idle_since == 0:
+        _frequency_idle_since = now
+        return False
+    if ticks_diff(now, _frequency_idle_since) < FREQUENCY_SETTLE_MS:
+        return False
+    view_manager.freq(False, APP_CPU_FREQUENCY)
+    _clock_changed = True
+    _frequency_idle_since = 0
+    return True
+
+
+def _restore_frequency(view_manager):
+    global _clock_changed
+
+    if not _clock_changed:
+        return
+    if _thread_manager_is_idle(view_manager):
+        view_manager.freq()
+        _clock_changed = False
+    else:
+        view_manager.log(
+            "[LatheCalc] Keeping 220 MHz because background work is active.",
+            2,
+        )
+
 KC_MAP = (700, 600, 1600, 2000, 1100, 200, 1800, 700, 1800, 2200, 2600)
 N_GRADES = (0.025, 0.05, 0.1, 0.2, 0.4, 0.8, 1.6, 3.2, 6.3, 12.5, 25.0, 50.0)
 SCREEN_CALC = const(0)
@@ -1220,7 +1266,7 @@ def _calculate():
     elif cur == SCREEN_TOOL_MGR: _calc_tool_mgr(s)
 
 
-def start(view_manager):
+def _finish_start(view_manager):
     global state, storage
     state = AppState()
     storage = view_manager.storage
@@ -1229,6 +1275,15 @@ def start(view_manager):
     _apply_theme()
     _calculate()
     _draw_ui(view_manager)
+    return True
+
+
+def start(view_manager):
+    global state, storage, _startup_pending, _frequency_idle_since
+    state = None
+    storage = None
+    _startup_pending = True
+    _frequency_idle_since = 0
     return True
 
 
@@ -1844,7 +1899,18 @@ def _draw_calc(view_manager):
 
 
 def run(view_manager):
-    global dirty_save, save_timer
+    global dirty_save, save_timer, _startup_pending
+    if _startup_pending:
+        if not _prepare_app_frequency(view_manager):
+            return
+        _startup_pending = False
+        try:
+            _finish_start(view_manager)
+        except Exception:
+            _restore_frequency(view_manager)
+            raise
+        return
+
     s = state
     from picoware.system.buttons import BUTTON_BACK, BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_CENTER
     _im = view_manager.input_manager
@@ -2873,6 +2939,13 @@ def stop(view_manager):
     """Stop the app, execute a final save, and clear memory"""
     from gc import collect
     global state, storage, dirty_save, save_timer, _last_saved_json
+    global _startup_pending, _frequency_idle_since
+    was_pending = _startup_pending
+    _startup_pending = False
+    _frequency_idle_since = 0
+    if was_pending:
+        _restore_frequency(view_manager)
+        return
     save_settings(view_manager, force=True)
     if view_manager.keyboard:
         view_manager.keyboard.reset()
@@ -2883,3 +2956,4 @@ def stop(view_manager):
     save_timer = 0
     _last_saved_json = ''
     collect()
+    _restore_frequency(view_manager)

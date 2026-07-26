@@ -258,22 +258,17 @@ def _finish_start(view_manager):
 
 
 def start(view_manager):
-    """Create a fresh title screen at Picoware's managed low clock."""
+    """Create a fresh Pico Bomber startup splash."""
     global _mode_start_pending, _redraw_pending, _mode_idle_since
 
-    view_manager.freq(True)
     _mode_start_pending = False
     _redraw_pending = False
     _mode_idle_since = 0
     _write_start_marker(view_manager, "entered")
-    try:
-        _set_key_repeat(view_manager, False, True)
-        _write_start_marker(view_manager, "repeat-off")
-        _finish_start(view_manager)
-        return True
-    except Exception:
-        view_manager.freq()
-        raise
+    _set_key_repeat(view_manager, False, True)
+    _write_start_marker(view_manager, "repeat-off")
+    _finish_start(view_manager)
+    return True
 
 
 def _run_once(view_manager):
@@ -497,4 +492,3 @@ def stop(view_manager):
     _redraw_pending = False
     _mode_idle_since = 0
     collect()
-    view_manager.freq()

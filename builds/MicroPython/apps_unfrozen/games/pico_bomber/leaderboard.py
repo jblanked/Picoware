@@ -6,29 +6,37 @@ except ImportError:
     import json
 
 
-LEADERBOARD_PATH = "/picoware/settings/pico_bomber_scores.json"
+LEADERBOARD_PATH = "picoware/settings/pico_bomber.json"
 MAX_SCORES = 5
 MAX_NAME_LENGTH = 10
+MAX_SCORE_FILE_SIZE = 512
 DEFAULT_NAME = "PLAYER"
 
 
 class Leaderboard:
     """Load, rank, and save local score entries."""
 
+    __slots__ = ("storage", "entries", "_mounted")
+
     def __init__(self, storage=None):
         self.storage = storage
         self.entries = []
+        self._mounted = False
         self.load()
 
     def _ensure_mounted(self):
         """Make raw SD access available after the app loader unmounts it."""
         if self.storage is None:
             return False
+        if self._mounted:
+            return True
         mount = getattr(self.storage, "mount", None)
         if mount is None:
+            self._mounted = True
             return True
         try:
-            return bool(mount())
+            self._mounted = bool(mount())
+            return self._mounted
         except Exception:
             return False
 
@@ -92,7 +100,20 @@ class Leaderboard:
         try:
             if not self.storage.exists(LEADERBOARD_PATH):
                 return self.entries
-            loaded = json.loads(self.storage.read(LEADERBOARD_PATH, "r"))
+            size = getattr(self.storage, "size", None)
+            if size is None:
+                raw = self.storage.read(LEADERBOARD_PATH, "r")
+            else:
+                file_size = int(size(LEADERBOARD_PATH))
+                if file_size < 2 or file_size > MAX_SCORE_FILE_SIZE:
+                    return self.entries
+                raw = self.storage.read(
+                    LEADERBOARD_PATH,
+                    "r",
+                    0,
+                    file_size,
+                )
+            loaded = json.loads(raw)
             if isinstance(loaded, list):
                 valid = []
                 for entry in loaded:
@@ -127,6 +148,11 @@ class Leaderboard:
         if not self._ensure_mounted():
             return False
         try:
-            return bool(self.storage.write(LEADERBOARD_PATH, current, "w"))
+            if not self.storage.write(LEADERBOARD_PATH, current, "w"):
+                return False
+            if not self.storage.exists(LEADERBOARD_PATH):
+                return False
+            size = getattr(self.storage, "size", None)
+            return size is None or int(size(LEADERBOARD_PATH)) == len(current)
         except Exception:
             return False

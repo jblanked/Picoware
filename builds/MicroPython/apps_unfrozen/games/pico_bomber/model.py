@@ -30,7 +30,21 @@ POWER_BOMB = 2
 THEME_NATURE = 0
 THEME_INDUSTRIAL = 1
 THEME_WATER = 2
-THEME_NAMES = ("NATURE", "INDUSTRIAL", "WATER")
+THEME_BEACH = 3
+THEME_HELL = 4
+THEME_CLOUD = 5
+THEME_FOREST = 6
+THEME_CANYON = 7
+THEME_NAMES = (
+    "NATURE",
+    "INDUSTRIAL",
+    "WATER",
+    "BEACH",
+    "HELL",
+    "CLOUD",
+    "FOREST",
+    "CANYON",
+)
 
 MODE_GHOST_HUNT = 0
 MODE_BLAST_RIVALS = 1
@@ -51,6 +65,7 @@ STATE_STAGE_INTRO = 5
 STATE_MODE_SELECT = 6
 STATE_LEADERBOARD = 7
 STATE_NAME_ENTRY = 8
+STATE_PAUSED = 9
 
 DEATH_PLAYER = 0
 DEATH_ENEMY_BLOB = 1
@@ -72,9 +87,16 @@ STAGE_CLEAR_MS = 1300
 DEATH_ANIMATION_MS = 720
 PLAYER_MOVE_ANIMATION_MS = 150
 ENEMY_MOVE_ANIMATION_MS = 190
+ENEMY_ESCAPE_PLAN_STEPS = 4
+DEMO_ACTION_MS = 260
+DEMO_ESCAPE_PLAN_STEPS = 4
 STAGE_INTRO_MS = 900
 POSITION_SCALE = 256
+PLAYER_MOVE_QUEUE_THRESHOLD = POSITION_SCALE // 3
 MAX_DECALS = 12
+DECAL_SCORCH_MS = 3200
+DECAL_DEBRIS_MS = 1800
+DECAL_ENEMY_MS = 2400
 
 DIRECTIONS = ((0, -1), (0, 1), (-1, 0), (1, 0))
 SAFE_TILES = (
@@ -120,11 +142,60 @@ class GameModel:
         self.player_facing = 0
         self.player_draw_x = POSITION_SCALE
         self.player_draw_y = POSITION_SCALE
+        self.paused_at = 0
+        self.build_phase = 0
+        self.build_x = -1
+        self.build_y = -1
+        self.build_items = 0
+        self.demo_mode = False
+        self.demo_next_action = 0
+        self.demo_countdown = 30
 
     def open_mode_menu(self):
         """Open the mode chooser with the current mode highlighted."""
         self.menu_selection = self.mode
+        self.paused_at = 0
+        self.demo_mode = False
+        self.demo_next_action = 0
+        self.demo_countdown = 30
         self.state = STATE_MODE_SELECT
+
+    def pause(self, now):
+        """Freeze active gameplay until the player resumes."""
+        if self.state != STATE_PLAYING:
+            return False
+        self.paused_at = now
+        self.state = STATE_PAUSED
+        return True
+
+    def resume(self, now):
+        """Resume gameplay without advancing any active timers."""
+        if self.state != STATE_PAUSED:
+            return False
+
+        paused_for = max(0, ticks_diff(now, self.paused_at))
+        self.invulnerable_until = ticks_add(
+            self.invulnerable_until,
+            paused_for,
+        )
+        for bomb in self.bombs:
+            bomb[2] = ticks_add(bomb[2], paused_for)
+        for flame in self.explosions:
+            flame[2] = ticks_add(flame[2], paused_for)
+        for enemy in self.enemies:
+            enemy[2] = ticks_add(enemy[2], paused_for)
+            enemy[9] = ticks_add(enemy[9], paused_for)
+        for decal in self.decals:
+            if len(decal) >= 6:
+                decal[5] = ticks_add(decal[5], paused_for)
+        for effect in self.death_effects:
+            effect[3] = ticks_add(effect[3], paused_for)
+            effect[4] = ticks_add(effect[4], paused_for)
+
+        self.animation_last = now
+        self.paused_at = 0
+        self.state = STATE_PLAYING
+        return True
 
     def select_mode(self, direction):
         """Move the mode chooser selection."""
@@ -146,15 +217,33 @@ class GameModel:
         self.player_name = ""
         self.flame_range = 2
         self.bomb_limit = 1
+        self.paused_at = 0
+        self.demo_mode = False
+        self.demo_next_action = 0
+        self.demo_countdown = 0
         self._build_stage(now)
+
+    def start_demo(self, now, mode):
+        """Start an autonomous attract-mode run without leaderboard scoring."""
+        self.new_game(now, mode)
+        self.demo_mode = True
+        self.demo_next_action = ticks_add(now, STAGE_INTRO_MS)
+        self.demo_countdown = 0
 
     def _build_stage(self, now):
         """Create a procedural arena with a guaranteed safe starting pocket."""
+        self.build_phase = 1
+        self.build_x = -1
+        self.build_y = -1
+        self.build_items = 0
         self.theme = self._choose_theme()
         self.grid = []
+        self.build_phase = 2
         for y in range(GRID_HEIGHT):
+            self.build_y = y
             row = []
             for x in range(GRID_WIDTH):
+                self.build_x = x
                 if (
                     x == 0
                     or y == 0
@@ -171,6 +260,9 @@ class GameModel:
                     row.append(TILE_EMPTY)
             self.grid.append(row)
 
+        self.build_phase = 3
+        self.build_x = -1
+        self.build_y = -1
         self.player_x = 1
         self.player_y = 1
         self.player_draw_x = POSITION_SCALE
@@ -190,15 +282,23 @@ class GameModel:
         self.state_until = ticks_add(now, STAGE_INTRO_MS)
 
         candidates = []
+        self.build_phase = 4
         for y in range(GRID_HEIGHT - 2, 0, -1):
+            self.build_y = y
             for x in range(GRID_WIDTH - 2, 0, -1):
+                self.build_x = x
                 if self.grid[y][x] != TILE_SOLID and x + y > 10:
                     candidates.append((x, y))
+                    self.build_items = len(candidates)
 
         enemy_count = min(2 + self.stage, 7)
+        self.build_phase = 5
         while candidates and len(self.enemies) < enemy_count:
+            self.build_items = len(candidates)
             index = randint(0, len(candidates) - 1)
             x, y = candidates.pop(index)
+            self.build_x = x
+            self.build_y = y
             too_close = False
             for enemy in self.enemies:
                 if abs(enemy[0] - x) + abs(enemy[1] - y) < 2:
@@ -227,10 +327,12 @@ class GameModel:
                     y * POSITION_SCALE,
                     elite,
                     ticks_add(now, randint(1600, 3000)),
+                    randint(-70, 100),
                 ]
             )
 
         # This is a fallback for an exceptionally crowded random map.
+        self.build_phase = 6
         if not self.enemies:
             self.grid[GRID_HEIGHT - 2][GRID_WIDTH - 2] = TILE_EMPTY
             self.enemies.append(
@@ -247,8 +349,13 @@ class GameModel:
                     (GRID_HEIGHT - 2) * POSITION_SCALE,
                     0,
                     ticks_add(now, 2200),
+                    randint(-70, 100),
                 ]
             )
+        self.build_phase = 7
+        self.build_x = -1
+        self.build_y = -1
+        self.build_items = len(self.enemies)
 
     def _choose_theme(self):
         theme = randint(0, len(THEME_NAMES) - 1)
@@ -302,10 +409,19 @@ class GameModel:
         return True
 
     def move_player(self, dx, dy, now):
-        """Attempt to move the player by one grid tile."""
+        """Attempt to queue one grid tile of player movement."""
         if self.state != STATE_PLAYING:
             return False
         self.player_facing = self._facing_for_direction(dx, dy)
+        target_draw_x = self.player_x * POSITION_SCALE
+        target_draw_y = self.player_y * POSITION_SCALE
+        if (
+            abs(self.player_draw_x - target_draw_x)
+            > PLAYER_MOVE_QUEUE_THRESHOLD
+            or abs(self.player_draw_y - target_draw_y)
+            > PLAYER_MOVE_QUEUE_THRESHOLD
+        ):
+            return False
         x = self.player_x + dx
         y = self.player_y + dy
         if not self._can_enter(x, y):
@@ -359,8 +475,8 @@ class GameModel:
                 return True
         return False
 
-    def _add_explosion(self, x, y, expires, owner=0):
-        self._scorch_decals_at(x, y)
+    def _add_explosion(self, x, y, expires, now, owner=0):
+        self._scorch_decals_at(x, y, now)
         for flame in self.explosions:
             if flame[0] == x and flame[1] == y:
                 flame[2] = expires
@@ -379,9 +495,18 @@ class GameModel:
         kind = POWER_FLAME if randint(0, 1) == 0 else POWER_BOMB
         self.powerups.append([x, y, kind])
 
-    def _add_decal(self, draw_x, draw_y, kind):
+    @staticmethod
+    def _decal_lifetime(kind):
+        if kind == DECAL_SCORCH:
+            return DECAL_SCORCH_MS
+        if kind == DECAL_DEBRIS:
+            return DECAL_DEBRIS_MS
+        return DECAL_ENEMY_MS
+
+    def _add_decal(self, draw_x, draw_y, kind, now):
         tile_x = (draw_x + POSITION_SCALE // 2) // POSITION_SCALE
         tile_y = (draw_y + POSITION_SCALE // 2) // POSITION_SCALE
+        expires = ticks_add(now, self._decal_lifetime(kind))
         if kind == DECAL_SCORCH:
             for decal in self.decals:
                 decal_x = (decal[0] + POSITION_SCALE // 2) // POSITION_SCALE
@@ -390,6 +515,10 @@ class GameModel:
                     decal[2] = DECAL_SCORCH
                     decal[3] = self.theme
                     decal[4] = randint(0, 3)
+                    if len(decal) >= 6:
+                        decal[5] = expires
+                    else:
+                        decal.append(expires)
                     return
         if len(self.decals) >= MAX_DECALS:
             replace_index = -1
@@ -410,16 +539,30 @@ class GameModel:
                 kind,
                 self.theme,
                 randint(0, 3),
+                expires,
             ]
         )
 
-    def _scorch_decals_at(self, x, y):
+    def _scorch_decals_at(self, x, y, now):
+        expires = ticks_add(now, DECAL_SCORCH_MS)
         for decal in self.decals:
             decal_x = (decal[0] + POSITION_SCALE // 2) // POSITION_SCALE
             decal_y = (decal[1] + POSITION_SCALE // 2) // POSITION_SCALE
             if decal_x == x and decal_y == y:
                 decal[2] = DECAL_SCORCH
                 decal[3] = self.theme
+                if len(decal) >= 6:
+                    decal[5] = expires
+                else:
+                    decal.append(expires)
+
+    def _cleanup_decals(self, now):
+        changed = False
+        for decal in self.decals[:]:
+            if len(decal) >= 6 and ticks_diff(now, decal[5]) >= 0:
+                self.decals.remove(decal)
+                changed = True
+        return changed
 
     def _detonate(self, bomb, now):
         """Turn one bomb into blast tiles and arm bombs caught in the blast."""
@@ -428,11 +571,12 @@ class GameModel:
         self.bombs.remove(bomb)
         expires = ticks_add(now, EXPLOSION_MS)
         owner = bomb[4] if len(bomb) >= 5 else 0
-        self._add_explosion(bomb[0], bomb[1], expires, owner)
+        self._add_explosion(bomb[0], bomb[1], expires, now, owner)
         self._add_decal(
             bomb[0] * POSITION_SCALE,
             bomb[1] * POSITION_SCALE,
             DECAL_SCORCH,
+            now,
         )
 
         for dx, dy in DIRECTIONS:
@@ -442,7 +586,7 @@ class GameModel:
                 tile = self.grid[y][x]
                 if tile == TILE_SOLID:
                     break
-                self._add_explosion(x, y, expires, owner)
+                self._add_explosion(x, y, expires, now, owner)
 
                 chained = None
                 for other in self.bombs:
@@ -460,6 +604,7 @@ class GameModel:
                         x * POSITION_SCALE,
                         y * POSITION_SCALE,
                         DECAL_DEBRIS,
+                        now,
                     )
                     self._reveal_powerup(x, y)
                     break
@@ -475,9 +620,6 @@ class GameModel:
         enemy_y = self._draw_tile(enemy[7])
         for flame in self.explosions:
             if flame[0] != enemy_x or flame[1] != enemy_y:
-                continue
-            owner = flame[3] if len(flame) >= 4 else 0
-            if enemy[3] == ENEMY_BOMBER and owner == 1:
                 continue
             return True
         return False
@@ -508,6 +650,7 @@ class GameModel:
                 enemy[6],
                 enemy[7],
                 decal_kind,
+                now,
             )
             self.score += 250 if enemy[8] else 100
 
@@ -605,6 +748,149 @@ class GameModel:
                 return True
         return False
 
+    def _tile_is_dangerous(self, x, y):
+        return self._is_flame(x, y) or self._tile_in_bomb_danger(x, y)
+
+    def _enemy_escape_step(self, enemy, max_steps=0):
+        """Find the first step on the shortest route to a safe tile."""
+        start_x = enemy[0]
+        start_y = enemy[1]
+        queue = [[start_x, start_y, 0, 0, 0]]
+        visited = [False] * (GRID_WIDTH * GRID_HEIGHT)
+        visited[start_y * GRID_WIDTH + start_x] = True
+        cursor = 0
+
+        while cursor < len(queue):
+            x, y, first_dx, first_dy, steps = queue[cursor]
+            cursor += 1
+            if steps and not self._tile_is_dangerous(x, y):
+                return (
+                    start_x + first_dx,
+                    start_y + first_dy,
+                    first_dx,
+                    first_dy,
+                    steps,
+                )
+            if max_steps and steps >= max_steps:
+                continue
+
+            for dx, dy in DIRECTIONS:
+                next_x = x + dx
+                next_y = y + dy
+                if (
+                    next_x < 0
+                    or next_y < 0
+                    or next_x >= GRID_WIDTH
+                    or next_y >= GRID_HEIGHT
+                ):
+                    continue
+                key = next_y * GRID_WIDTH + next_x
+                if visited[key] or not self._can_enter(
+                    next_x,
+                    next_y,
+                    True,
+                    enemy,
+                ):
+                    continue
+                visited[key] = True
+                queue.append(
+                    [
+                        next_x,
+                        next_y,
+                        dx if steps == 0 else first_dx,
+                        dy if steps == 0 else first_dy,
+                        steps + 1,
+                    ]
+                )
+        return None
+
+    def _demo_bomb_plan(self, now):
+        """Return a safe simulated player bomb, or None when escape is unclear."""
+        if self.bombs_available() <= 0 or self._has_bomb(
+            self.player_x,
+            self.player_y,
+        ):
+            return None
+        planned_bomb = [
+            self.player_x,
+            self.player_y,
+            ticks_add(now, BOMB_FUSE_MS),
+            self.flame_range,
+            0,
+        ]
+        self.bombs.append(planned_bomb)
+        escape = self._enemy_escape_step(
+            [self.player_x, self.player_y],
+            DEMO_ESCAPE_PLAN_STEPS,
+        )
+        self.bombs.pop()
+        return planned_bomb if escape is not None else None
+
+    def _demo_should_bomb(self, planned_bomb):
+        """Prefer bombs that pressure an enemy or open a nearby brick."""
+        for dx, dy in DIRECTIONS:
+            x = self.player_x + dx
+            y = self.player_y + dy
+            if self.grid[y][x] == TILE_BRICK:
+                return True
+        for enemy in self.enemies:
+            if self._bomb_reaches(planned_bomb, enemy[0], enemy[1]):
+                return True
+        return randint(0, 99) < 12
+
+    def update_demo(self, now):
+        """Choose one fallible but danger-aware action for attract mode."""
+        if (
+            not self.demo_mode
+            or self.state != STATE_PLAYING
+            or ticks_diff(now, self.demo_next_action) < 0
+        ):
+            return False
+        self.demo_next_action = ticks_add(now, DEMO_ACTION_MS)
+
+        actor = [self.player_x, self.player_y]
+        if self._tile_is_dangerous(self.player_x, self.player_y):
+            escape = self._enemy_escape_step(actor)
+            if escape is not None:
+                return self.move_player(escape[2], escape[3], now)
+
+        planned_bomb = self._demo_bomb_plan(now)
+        if planned_bomb is not None and self._demo_should_bomb(planned_bomb):
+            return self.place_bomb(now)
+
+        candidates = []
+        risky = []
+        for dx, dy in DIRECTIONS:
+            x = self.player_x + dx
+            y = self.player_y + dy
+            if not self._can_enter(x, y) or self._enemy_at(x, y):
+                continue
+            item = (x, y, dx, dy)
+            risky.append(item)
+            if not self._tile_is_dangerous(x, y):
+                candidates.append(item)
+
+        # Usually stay safe, but retain enough fallibility for a real demo.
+        choices = candidates if candidates and randint(0, 99) < 92 else risky
+        if not choices:
+            return False
+
+        chosen = None
+        if self.enemies and randint(0, 99) < 78:
+            best_distance = 999
+            for x, y, dx, dy in choices:
+                distance = 999
+                for enemy in self.enemies:
+                    candidate = abs(enemy[0] - x) + abs(enemy[1] - y)
+                    if candidate < distance:
+                        distance = candidate
+                if distance < best_distance:
+                    chosen = (x, y, dx, dy)
+                    best_distance = distance
+        if chosen is None:
+            chosen = choices[randint(0, len(choices) - 1)]
+        return self.move_player(chosen[2], chosen[3], now)
+
     def _enemy_escape_score(self, x, y):
         nearest = 999
         for bomb in self.bombs:
@@ -627,17 +913,29 @@ class GameModel:
             chosen = None
             if (
                 enemy[3] == ENEMY_BOMBER
-                and self._tile_in_bomb_danger(enemy[0], enemy[1])
+                and self._tile_is_dangerous(enemy[0], enemy[1])
             ):
-                best_score = -1
-                for x, y, dx, dy in candidates:
-                    score = self._enemy_escape_score(x, y)
-                    if score > best_score:
-                        chosen = (x, y, dx, dy)
-                        best_score = score
-            elif enemy[3] in (ENEMY_CHASER, ENEMY_BOMBER) or randint(0, 99) < 55:
+                escape = self._enemy_escape_step(enemy)
+                if escape is not None:
+                    chosen = escape[:4]
+                else:
+                    best_score = -1
+                    for x, y, dx, dy in candidates:
+                        score = self._enemy_escape_score(x, y)
+                        if score > best_score:
+                            chosen = (x, y, dx, dy)
+                            best_score = score
+            elif (
+                enemy[3] in (ENEMY_CHASER, ENEMY_BOMBER)
+                or randint(0, 99) < 55
+            ):
                 best_distance = 999
                 for x, y, dx, dy in candidates:
+                    if (
+                        enemy[3] == ENEMY_BOMBER
+                        and self._tile_is_dangerous(x, y)
+                    ):
+                        continue
                     distance = abs(self.player_x - x) + abs(self.player_y - y)
                     if distance < best_distance:
                         chosen = (x, y, dx, dy)
@@ -648,10 +946,19 @@ class GameModel:
             enemy[4] = (enemy[4] + 1) % 4
             enemy[5] = self._facing_for_direction(chosen[2], chosen[3])
 
-        interval = max(190, 520 - self.stage * 24)
+        pace = enemy[10] if len(enemy) >= 11 else 0
+        interval = max(190, 520 - self.stage * 24 + pace)
         if enemy[8]:
             interval = max(150, interval * 3 // 4)
-        enemy[2] = ticks_add(now, interval + randint(0, 100))
+        enemy[2] = ticks_add(now, interval + randint(20, 120))
+
+    def _stagger_enemy_moves(self, now):
+        """Give every enemy a fresh, visibly separate first move deadline."""
+        for index, enemy in enumerate(self.enemies):
+            enemy[2] = ticks_add(
+                now,
+                80 + index * 105 + randint(0, 55),
+            )
 
     def _enemy_try_bomb(self, enemy, now):
         if (
@@ -669,11 +976,25 @@ class GameModel:
                 enemy_bombs += 1
         enemy_limit = min(4, 1 + self.stage // 2)
         distance = abs(self.player_x - enemy[0]) + abs(self.player_y - enemy[1])
+        flame_range = min(4, 2 + self.stage // 4)
         can_escape = False
-        for dx, dy in DIRECTIONS:
-            if self._can_enter(enemy[0] + dx, enemy[1] + dy, True, enemy):
-                can_escape = True
-                break
+        if not self._tile_is_dangerous(enemy[0], enemy[1]):
+            planned_bomb = [
+                enemy[0],
+                enemy[1],
+                ticks_add(now, BOMB_FUSE_MS + 300),
+                flame_range,
+                1,
+            ]
+            self.bombs.append(planned_bomb)
+            can_escape = (
+                self._enemy_escape_step(
+                    enemy,
+                    ENEMY_ESCAPE_PLAN_STEPS,
+                )
+                is not None
+            )
+            self.bombs.pop()
 
         placed = False
         if (
@@ -687,10 +1008,11 @@ class GameModel:
                     enemy[0],
                     enemy[1],
                     ticks_add(now, BOMB_FUSE_MS + 300),
-                    min(4, 2 + self.stage // 4),
+                    flame_range,
                     1,
                 ]
             )
+            enemy[2] = now
             placed = True
         enemy[9] = ticks_add(now, randint(2600, 4200))
         return placed
@@ -763,11 +1085,14 @@ class GameModel:
 
         if self._cleanup_death_effects(now):
             changed = True
+        if self._cleanup_decals(now):
+            changed = True
 
         if self.state == STATE_STAGE_INTRO:
             if ticks_diff(now, self.state_until) >= 0:
                 self.state = STATE_PLAYING
                 self.state_until = 0
+                self._stagger_enemy_moves(now)
                 return True
             return changed
 

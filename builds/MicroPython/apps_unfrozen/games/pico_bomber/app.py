@@ -36,74 +36,8 @@ _renderer = None
 _leaderboard = None
 _next_frame = 0
 _score_saved = False
-_frequency_changed = False
-_startup_pending = False
-_frequency_idle_since = 0
 _mode_start_pending = False
 FRAME_MS = 50
-GAME_CPU_FREQUENCY = 220000000
-FREQUENCY_SETTLE_MS = 100
-
-
-def _thread_manager_is_idle(view_manager):
-    """Return whether it is safe to change the RP2350 system clock."""
-    thread_manager = view_manager.thread_manager
-    return thread_manager is None or thread_manager.is_idle
-
-
-def _write_start_marker(view_manager, phase):
-    """Persist the last completed startup step for hard-freeze diagnosis."""
-    try:
-        from gc import mem_free
-        from machine import freq
-
-        thread_manager = view_manager.thread_manager
-        thread = None if thread_manager is None else thread_manager.thread
-        thread_running = (
-            1
-            if thread is not None and thread.is_running
-            else 0
-        )
-        queued_tasks = (
-            0
-            if thread_manager is None
-            else thread_manager.pending_count
-        )
-        view_manager.storage.write(
-            "picoware/pico_bomber_start.log",
-            "phase=%s freq=%d free=%d thread=%d queued=%d\n"
-            % (
-                phase,
-                freq(),
-                mem_free(),
-                thread_running,
-                queued_tasks,
-            ),
-            "w",
-        )
-    except Exception:
-        pass
-
-
-def _prepare_game_frequency(view_manager, now):
-    """Change clocks only after core 1 has remained idle long enough to settle."""
-    global _frequency_changed, _frequency_idle_since
-
-    if not _thread_manager_is_idle(view_manager):
-        _frequency_idle_since = 0
-        return False
-    if _frequency_idle_since == 0:
-        _frequency_idle_since = now
-        return False
-    if ticks_diff(now, _frequency_idle_since) < FREQUENCY_SETTLE_MS:
-        return False
-
-    _write_start_marker(view_manager, "frequency-before")
-    view_manager.freq(False, GAME_CPU_FREQUENCY)
-    _frequency_changed = True
-    _frequency_idle_since = 0
-    _write_start_marker(view_manager, "frequency-game")
-    return True
 
 
 def _log_mode_start_error(view_manager, phase, error):
@@ -163,45 +97,30 @@ def _handle_name_input(input_manager, button):
     return False
 
 
-def _finish_start(view_manager):
-    """Create the game only after the safe clock transition has completed."""
-    global _game, _renderer, _leaderboard, _next_frame, _score_saved
-
-    _game = GameModel()
-    _write_start_marker(view_manager, "model")
-    _renderer = Renderer(view_manager.draw)
-    _write_start_marker(view_manager, "renderer")
-    _leaderboard = Leaderboard(view_manager.storage)
-    _write_start_marker(view_manager, "leaderboard")
-    _game.leaderboard = _leaderboard.entries
-    _score_saved = False
-    _renderer.draw_frame(_game)
-    _write_start_marker(view_manager, "title-render")
-    _next_frame = ticks_add(ticks_ms(), FRAME_MS)
-    _write_start_marker(view_manager, "complete")
-
-
 def start(view_manager):
-    """Wait for a safe clock boundary before creating a fresh title screen."""
-    global _mode_start_pending, _startup_pending, _frequency_idle_since
+    """Create a fresh Pico Bomber title screen at the portable low clock."""
+    global _game, _renderer, _leaderboard, _next_frame, _score_saved
+    global _mode_start_pending
 
+    view_manager.freq(True)
     _mode_start_pending = False
-    _startup_pending = True
-    _frequency_idle_since = 0
-    _write_start_marker(view_manager, "frequency-wait")
-    return True
+    try:
+        _game = GameModel()
+        _renderer = Renderer(view_manager.draw)
+        _leaderboard = Leaderboard(view_manager.storage)
+        _game.leaderboard = _leaderboard.entries
+        _score_saved = False
+        _renderer.draw_frame(_game)
+        _next_frame = ticks_add(ticks_ms(), FRAME_MS)
+        return True
+    except Exception:
+        view_manager.freq()
+        raise
 
 
 def run(view_manager):
     """Handle one Picoware input/update/render cycle."""
-    global _next_frame, _score_saved, _mode_start_pending, _startup_pending
-
-    if _startup_pending:
-        if not _prepare_game_frequency(view_manager, ticks_ms()):
-            return
-        _startup_pending = False
-        _finish_start(view_manager)
-        return
+    global _next_frame, _score_saved, _mode_start_pending
 
     if _game is None or _renderer is None:
         return
@@ -305,24 +224,13 @@ def run(view_manager):
 def stop(view_manager):
     """Release the game state when leaving the Picoware view."""
     global _game, _renderer, _leaderboard, _next_frame, _score_saved
-    global _frequency_changed, _frequency_idle_since, _mode_start_pending
-    global _startup_pending
+    global _mode_start_pending
 
     _game = None
     _renderer = None
     _leaderboard = None
     _next_frame = 0
     _score_saved = False
-    _startup_pending = False
-    _frequency_idle_since = 0
     _mode_start_pending = False
     collect()
-    if _frequency_changed:
-        if _thread_manager_is_idle(view_manager):
-            view_manager.freq()
-            _frequency_changed = False
-        else:
-            view_manager.log(
-                "[Pico Bomber] Keeping 220 MHz because background work is active.",
-                2,
-            )
+    view_manager.freq()

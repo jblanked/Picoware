@@ -48,6 +48,50 @@ from picoware.system.buttons import (
     BUTTON_X,
 )
 
+APP_CPU_FREQUENCY = 220000000
+FREQUENCY_SETTLE_MS = 100
+_clock_changed = False
+_startup_pending = False
+_frequency_idle_since = 0
+
+
+def _thread_manager_is_idle(view_manager):
+    thread_manager = view_manager.thread_manager
+    return thread_manager is None or thread_manager.is_idle
+
+
+def _prepare_app_frequency(view_manager):
+    global _clock_changed, _frequency_idle_since
+
+    now = ticks_ms()
+    if not _thread_manager_is_idle(view_manager):
+        _frequency_idle_since = 0
+        return False
+    if _frequency_idle_since == 0:
+        _frequency_idle_since = now
+        return False
+    if ticks_diff(now, _frequency_idle_since) < FREQUENCY_SETTLE_MS:
+        return False
+    view_manager.freq(False, APP_CPU_FREQUENCY)
+    _clock_changed = True
+    _frequency_idle_since = 0
+    return True
+
+
+def _restore_frequency(view_manager):
+    global _clock_changed
+
+    if not _clock_changed:
+        return
+    if _thread_manager_is_idle(view_manager):
+        view_manager.freq()
+        _clock_changed = False
+    else:
+        view_manager.log(
+            "[SimpleRPN] Keeping 220 MHz because background work is active.",
+            2,
+        )
+
 
 def _rgb565(red, green, blue):
     return ((red & 0xF8) << 8) | ((green & 0xFC) << 3) | (blue >> 3)
@@ -922,7 +966,7 @@ def _perform(action):
     _queue_save()
 
 
-def start(view_manager):
+def _finish_start(view_manager):
     global calculator, selected_index, help_visible, help_page, variable_view_mode
     global selected_variable, escape_armed, flash_index, storage, state_dirty
     global save_due, last_saved_state
@@ -944,8 +988,29 @@ def start(view_manager):
     return True
 
 
+def start(view_manager):
+    global calculator, storage, _startup_pending, _frequency_idle_since
+    calculator = None
+    storage = None
+    _startup_pending = True
+    _frequency_idle_since = 0
+    return True
+
+
 def run(view_manager):
     global selected_index, help_visible, help_page, escape_armed, flash_index
+    global _startup_pending
+    if _startup_pending:
+        if not _prepare_app_frequency(view_manager):
+            return
+        _startup_pending = False
+        try:
+            _finish_start(view_manager)
+        except Exception:
+            _restore_frequency(view_manager)
+            raise
+        return
+
     inp = view_manager.input_manager
     button = inp.button
     if button == -1:
@@ -1138,7 +1203,13 @@ def run(view_manager):
 def stop(view_manager):
     global calculator, selected_index, help_visible, help_page, variable_view_mode
     global selected_variable, escape_armed, flash_index, storage, state_dirty
-    global save_due, last_saved_state
+    global save_due, last_saved_state, _startup_pending, _frequency_idle_since
+    was_pending = _startup_pending
+    _startup_pending = False
+    _frequency_idle_since = 0
+    if was_pending:
+        _restore_frequency(view_manager)
+        return
     _save_state(force=True)
     calculator = None
     storage = None
@@ -1155,3 +1226,4 @@ def stop(view_manager):
     from gc import collect
 
     collect()
+    _restore_frequency(view_manager)

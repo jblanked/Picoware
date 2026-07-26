@@ -51,6 +51,7 @@ STATE_STAGE_INTRO = 5
 STATE_MODE_SELECT = 6
 STATE_LEADERBOARD = 7
 STATE_NAME_ENTRY = 8
+STATE_PAUSED = 9
 
 DEATH_PLAYER = 0
 DEATH_ENEMY_BLOB = 1
@@ -74,7 +75,11 @@ PLAYER_MOVE_ANIMATION_MS = 150
 ENEMY_MOVE_ANIMATION_MS = 190
 STAGE_INTRO_MS = 900
 POSITION_SCALE = 256
+PLAYER_MOVE_QUEUE_THRESHOLD = POSITION_SCALE // 3
 MAX_DECALS = 12
+DECAL_SCORCH_MS = 12000
+DECAL_DEBRIS_MS = 8000
+DECAL_ENEMY_MS = 10000
 
 DIRECTIONS = ((0, -1), (0, 1), (-1, 0), (1, 0))
 SAFE_TILES = (
@@ -120,11 +125,50 @@ class GameModel:
         self.player_facing = 0
         self.player_draw_x = POSITION_SCALE
         self.player_draw_y = POSITION_SCALE
+        self.paused_at = 0
 
     def open_mode_menu(self):
         """Open the mode chooser with the current mode highlighted."""
         self.menu_selection = self.mode
+        self.paused_at = 0
         self.state = STATE_MODE_SELECT
+
+    def pause(self, now):
+        """Freeze active gameplay until the player resumes."""
+        if self.state != STATE_PLAYING:
+            return False
+        self.paused_at = now
+        self.state = STATE_PAUSED
+        return True
+
+    def resume(self, now):
+        """Resume gameplay without advancing any active timers."""
+        if self.state != STATE_PAUSED:
+            return False
+
+        paused_for = max(0, ticks_diff(now, self.paused_at))
+        self.invulnerable_until = ticks_add(
+            self.invulnerable_until,
+            paused_for,
+        )
+        for bomb in self.bombs:
+            bomb[2] = ticks_add(bomb[2], paused_for)
+        for flame in self.explosions:
+            flame[2] = ticks_add(flame[2], paused_for)
+        for enemy in self.enemies:
+            enemy[2] = ticks_add(enemy[2], paused_for)
+            enemy[9] = ticks_add(enemy[9], paused_for)
+        for decal in self.decals:
+            if len(decal) >= 6:
+                decal[5] = ticks_add(decal[5], paused_for)
+        for effect in self.death_effects:
+            effect[3] = ticks_add(effect[3], paused_for)
+            effect[4] = ticks_add(effect[4], paused_for)
+
+        self.animation_last = now
+        self.paused_at = 0
+        self.state = STATE_PLAYING
+        return True
 
     def select_mode(self, direction):
         """Move the mode chooser selection."""
@@ -146,6 +190,7 @@ class GameModel:
         self.player_name = ""
         self.flame_range = 2
         self.bomb_limit = 1
+        self.paused_at = 0
         self._build_stage(now)
 
     def _build_stage(self, now):
@@ -227,6 +272,7 @@ class GameModel:
                     y * POSITION_SCALE,
                     elite,
                     ticks_add(now, randint(1600, 3000)),
+                    randint(-70, 100),
                 ]
             )
 
@@ -247,9 +293,9 @@ class GameModel:
                     (GRID_HEIGHT - 2) * POSITION_SCALE,
                     0,
                     ticks_add(now, 2200),
+                    randint(-70, 100),
                 ]
             )
-
     def _choose_theme(self):
         theme = randint(0, len(THEME_NAMES) - 1)
         if theme == self.theme:
@@ -302,10 +348,19 @@ class GameModel:
         return True
 
     def move_player(self, dx, dy, now):
-        """Attempt to move the player by one grid tile."""
+        """Attempt to queue one grid tile of player movement."""
         if self.state != STATE_PLAYING:
             return False
         self.player_facing = self._facing_for_direction(dx, dy)
+        target_draw_x = self.player_x * POSITION_SCALE
+        target_draw_y = self.player_y * POSITION_SCALE
+        if (
+            abs(self.player_draw_x - target_draw_x)
+            > PLAYER_MOVE_QUEUE_THRESHOLD
+            or abs(self.player_draw_y - target_draw_y)
+            > PLAYER_MOVE_QUEUE_THRESHOLD
+        ):
+            return False
         x = self.player_x + dx
         y = self.player_y + dy
         if not self._can_enter(x, y):
@@ -359,8 +414,8 @@ class GameModel:
                 return True
         return False
 
-    def _add_explosion(self, x, y, expires, owner=0):
-        self._scorch_decals_at(x, y)
+    def _add_explosion(self, x, y, expires, now, owner=0):
+        self._scorch_decals_at(x, y, now)
         for flame in self.explosions:
             if flame[0] == x and flame[1] == y:
                 flame[2] = expires
@@ -379,9 +434,18 @@ class GameModel:
         kind = POWER_FLAME if randint(0, 1) == 0 else POWER_BOMB
         self.powerups.append([x, y, kind])
 
-    def _add_decal(self, draw_x, draw_y, kind):
+    @staticmethod
+    def _decal_lifetime(kind):
+        if kind == DECAL_SCORCH:
+            return DECAL_SCORCH_MS
+        if kind == DECAL_DEBRIS:
+            return DECAL_DEBRIS_MS
+        return DECAL_ENEMY_MS
+
+    def _add_decal(self, draw_x, draw_y, kind, now):
         tile_x = (draw_x + POSITION_SCALE // 2) // POSITION_SCALE
         tile_y = (draw_y + POSITION_SCALE // 2) // POSITION_SCALE
+        expires = ticks_add(now, self._decal_lifetime(kind))
         if kind == DECAL_SCORCH:
             for decal in self.decals:
                 decal_x = (decal[0] + POSITION_SCALE // 2) // POSITION_SCALE
@@ -390,6 +454,10 @@ class GameModel:
                     decal[2] = DECAL_SCORCH
                     decal[3] = self.theme
                     decal[4] = randint(0, 3)
+                    if len(decal) >= 6:
+                        decal[5] = expires
+                    else:
+                        decal.append(expires)
                     return
         if len(self.decals) >= MAX_DECALS:
             replace_index = -1
@@ -410,16 +478,30 @@ class GameModel:
                 kind,
                 self.theme,
                 randint(0, 3),
+                expires,
             ]
         )
 
-    def _scorch_decals_at(self, x, y):
+    def _scorch_decals_at(self, x, y, now):
+        expires = ticks_add(now, DECAL_SCORCH_MS)
         for decal in self.decals:
             decal_x = (decal[0] + POSITION_SCALE // 2) // POSITION_SCALE
             decal_y = (decal[1] + POSITION_SCALE // 2) // POSITION_SCALE
             if decal_x == x and decal_y == y:
                 decal[2] = DECAL_SCORCH
                 decal[3] = self.theme
+                if len(decal) >= 6:
+                    decal[5] = expires
+                else:
+                    decal.append(expires)
+
+    def _cleanup_decals(self, now):
+        changed = False
+        for decal in self.decals[:]:
+            if len(decal) >= 6 and ticks_diff(now, decal[5]) >= 0:
+                self.decals.remove(decal)
+                changed = True
+        return changed
 
     def _detonate(self, bomb, now):
         """Turn one bomb into blast tiles and arm bombs caught in the blast."""
@@ -428,11 +510,12 @@ class GameModel:
         self.bombs.remove(bomb)
         expires = ticks_add(now, EXPLOSION_MS)
         owner = bomb[4] if len(bomb) >= 5 else 0
-        self._add_explosion(bomb[0], bomb[1], expires, owner)
+        self._add_explosion(bomb[0], bomb[1], expires, now, owner)
         self._add_decal(
             bomb[0] * POSITION_SCALE,
             bomb[1] * POSITION_SCALE,
             DECAL_SCORCH,
+            now,
         )
 
         for dx, dy in DIRECTIONS:
@@ -442,7 +525,7 @@ class GameModel:
                 tile = self.grid[y][x]
                 if tile == TILE_SOLID:
                     break
-                self._add_explosion(x, y, expires, owner)
+                self._add_explosion(x, y, expires, now, owner)
 
                 chained = None
                 for other in self.bombs:
@@ -460,6 +543,7 @@ class GameModel:
                         x * POSITION_SCALE,
                         y * POSITION_SCALE,
                         DECAL_DEBRIS,
+                        now,
                     )
                     self._reveal_powerup(x, y)
                     break
@@ -508,6 +592,7 @@ class GameModel:
                 enemy[6],
                 enemy[7],
                 decal_kind,
+                now,
             )
             self.score += 250 if enemy[8] else 100
 
@@ -648,10 +733,19 @@ class GameModel:
             enemy[4] = (enemy[4] + 1) % 4
             enemy[5] = self._facing_for_direction(chosen[2], chosen[3])
 
-        interval = max(190, 520 - self.stage * 24)
+        pace = enemy[10] if len(enemy) >= 11 else 0
+        interval = max(190, 520 - self.stage * 24 + pace)
         if enemy[8]:
             interval = max(150, interval * 3 // 4)
-        enemy[2] = ticks_add(now, interval + randint(0, 100))
+        enemy[2] = ticks_add(now, interval + randint(20, 120))
+
+    def _stagger_enemy_moves(self, now):
+        """Give every enemy a fresh, visibly separate first move deadline."""
+        for index, enemy in enumerate(self.enemies):
+            enemy[2] = ticks_add(
+                now,
+                80 + index * 105 + randint(0, 55),
+            )
 
     def _enemy_try_bomb(self, enemy, now):
         if (
@@ -763,11 +857,14 @@ class GameModel:
 
         if self._cleanup_death_effects(now):
             changed = True
+        if self._cleanup_decals(now):
+            changed = True
 
         if self.state == STATE_STAGE_INTRO:
             if ticks_diff(now, self.state_until) >= 0:
                 self.state = STATE_PLAYING
                 self.state_until = 0
+                self._stagger_enemy_moves(now)
                 return True
             return changed
 

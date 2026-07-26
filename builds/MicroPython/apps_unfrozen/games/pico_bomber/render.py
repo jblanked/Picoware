@@ -37,6 +37,7 @@ from .model import (
     STATE_LEADERBOARD,
     STATE_MODE_SELECT,
     STATE_NAME_ENTRY,
+    STATE_PAUSED,
     STATE_PLAYER_DYING,
     STATE_STAGE_CLEAR,
     STATE_STAGE_INTRO,
@@ -209,7 +210,7 @@ class Renderer:
                     0,
                 )
         if not compact:
-            self._center_text("BACK  TITLE", self.height - 16, TFT_LIGHTGREY, 0)
+            self._center_text("BACK  EXIT", self.height - 16, TFT_LIGHTGREY, 0)
 
     def _draw_leaderboard(self, game):
         draw = self.draw
@@ -1340,5 +1341,7 @@ class Renderer:
             self._draw_overlay("STAGE CLEAR", "+250 BONUS", TFT_GREEN)
         elif game.state == STATE_GAME_OVER:
             self._draw_overlay("GAME OVER", "CENTER FOR MODES", TFT_RED)
+        elif game.state == STATE_PAUSED:
+            self._draw_overlay("PAUSED", "P RESUME - BACK MODES", TFT_YELLOW)
 
         self.draw.swap()

@@ -1,6 +1,7 @@
 import json
 import gc
 import os
+from utime import ticks_diff, ticks_ms
 
 from picoware.system.system import System
 from picoware.system.vector import Vector
@@ -17,6 +18,50 @@ from picoware.system.buttons import (
     BUTTON_C, BUTTON_F, BUTTON_T, BUTTON_V, BUTTON_H, BUTTON_ESCAPE,
     BUTTON_M, BUTTON_O
 )
+
+APP_CPU_FREQUENCY = 220000000
+FREQUENCY_SETTLE_MS = 100
+_clock_changed = False
+_startup_pending = False
+_frequency_idle_since = 0
+
+
+def _thread_manager_is_idle(view_manager):
+    thread_manager = view_manager.thread_manager
+    return thread_manager is None or thread_manager.is_idle
+
+
+def _prepare_app_frequency(view_manager):
+    global _clock_changed, _frequency_idle_since
+
+    now = ticks_ms()
+    if not _thread_manager_is_idle(view_manager):
+        _frequency_idle_since = 0
+        return False
+    if _frequency_idle_since == 0:
+        _frequency_idle_since = now
+        return False
+    if ticks_diff(now, _frequency_idle_since) < FREQUENCY_SETTLE_MS:
+        return False
+    view_manager.freq(False, APP_CPU_FREQUENCY)
+    _clock_changed = True
+    _frequency_idle_since = 0
+    return True
+
+
+def _restore_frequency(view_manager):
+    global _clock_changed
+
+    if not _clock_changed:
+        return
+    if _thread_manager_is_idle(view_manager):
+        view_manager.freq()
+        _clock_changed = False
+    else:
+        view_manager.log(
+            "[UnitConverter] Keeping 220 MHz because background work is active.",
+            2,
+        )
 
 _SETTINGS_FILE = "/picoware/settings/unit_converter_settings.json" 
 _VERSION = "1.96a"
@@ -473,7 +518,7 @@ VIEW_DISPATCH = {
     MODE_TYPING: draw_main
 }
 
-def start(view_manager):
+def _finish_start(view_manager):
     global conv_result, storage, dirty_ui, current_mode
     current_mode = MODE_MAIN
     storage = view_manager.storage
@@ -484,8 +529,28 @@ def start(view_manager):
     dirty_ui = True
     return True
 
+
+def start(view_manager):
+    global storage, _startup_pending, _frequency_idle_since
+    storage = None
+    _startup_pending = True
+    _frequency_idle_since = 0
+    return True
+
+
 def run(view_manager):
     global conv_result, current_mode, dirty_ui, blink_counter, cursor_visible, pending_save, save_timer
+    global _startup_pending
+    if _startup_pending:
+        if not _prepare_app_frequency(view_manager):
+            return
+        _startup_pending = False
+        try:
+            _finish_start(view_manager)
+        except Exception:
+            _restore_frequency(view_manager)
+            raise
+        return
     
     draw = view_manager.draw; input_mgr = view_manager.input_manager; button = input_mgr.button
     screen_w = draw.size.x; screen_h = draw.size.y
@@ -531,6 +596,14 @@ def stop(view_manager):
     global INPUT_DISPATCH, VIEW_DISPATCH
     global conv_result, storage, current_mode
     global dirty_ui, blink_counter, cursor_visible, pending_save, save_timer, help_scroll
+    global _startup_pending, _frequency_idle_since
+
+    was_pending = _startup_pending
+    _startup_pending = False
+    _frequency_idle_since = 0
+    if was_pending:
+        _restore_frequency(view_manager)
+        return
     
     save_settings()
     
@@ -554,3 +627,4 @@ def stop(view_manager):
     cursor_visible = True
     
     gc.collect()
+    _restore_frequency(view_manager)

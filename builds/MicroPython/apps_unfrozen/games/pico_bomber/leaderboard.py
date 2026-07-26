@@ -6,7 +6,7 @@ except ImportError:
     import json
 
 
-LEADERBOARD_PATH = "picoware/pbscores.dat"
+LEADERBOARD_PATH = "picoware/settings/pico_bomber.json"
 MAX_SCORES = 5
 MAX_NAME_LENGTH = 10
 MAX_SCORE_FILE_SIZE = 512

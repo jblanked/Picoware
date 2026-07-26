@@ -30,50 +30,6 @@ except Exception:
 show_options = False
 help_scroll = 0
 _last_saved_json = ""
-APP_CPU_FREQUENCY = 220000000
-FREQUENCY_SETTLE_MS = 100
-_clock_changed = False
-_startup_pending = False
-_frequency_idle_since = 0
-
-
-def _thread_manager_is_idle(view_manager):
-    thread_manager = view_manager.thread_manager
-    return thread_manager is None or thread_manager.is_idle
-
-
-def _prepare_app_frequency(view_manager):
-    global _clock_changed, _frequency_idle_since
-
-    now = time.ticks_ms()
-    if not _thread_manager_is_idle(view_manager):
-        _frequency_idle_since = 0
-        return False
-    if _frequency_idle_since == 0:
-        _frequency_idle_since = now
-        return False
-    if time.ticks_diff(now, _frequency_idle_since) < FREQUENCY_SETTLE_MS:
-        return False
-    view_manager.freq(False, APP_CPU_FREQUENCY)
-    _clock_changed = True
-    _frequency_idle_since = 0
-    return True
-
-
-def _restore_frequency(view_manager):
-    global _clock_changed
-
-    if not _clock_changed:
-        return
-    if _thread_manager_is_idle(view_manager):
-        view_manager.freq()
-        _clock_changed = False
-    else:
-        view_manager.log(
-            "[EggTimer] Keeping 220 MHz because background work is active.",
-            2,
-        )
-
 _SETTINGS_FILE = "picoware/settings/eggtimer_settings.json"
 
 _THEMES = (
@@ -906,27 +862,18 @@ def _finish_start(view_manager):
 
 
 def start(view_manager):
-    global storage, _startup_pending, _frequency_idle_since
+    global storage
     storage = None
-    _startup_pending = True
-    _frequency_idle_since = 0
-    return True
+    view_manager.freq(True)
+    try:
+        return _finish_start(view_manager)
+    except Exception:
+        view_manager.freq()
+        raise
 
 
 def run(view_manager):
     global settings, dirty_ui, dirty_save, save_timer, sys_time
-    global _startup_pending
-    if _startup_pending:
-        if not _prepare_app_frequency(view_manager):
-            return
-        _startup_pending = False
-        try:
-            _finish_start(view_manager)
-        except Exception:
-            _restore_frequency(view_manager)
-            raise
-        return
-    
     draw = view_manager.draw; input_mgr = view_manager.input_manager; button = input_mgr.button
     t = time.localtime(); c_sec = time.time()
     
@@ -960,15 +907,6 @@ def stop(view_manager): # Function to halt the app and return memory to the Pico
     global dirty_ui, dirty_save, save_timer, cursor_idx, options_cursor_idx, date_cursor, cd_cursor # Global cursors
     global last_s, last_trig_m, ringing_idx, ring_flash, snooze_idx, snooze_count, edit_idx # Global trackers
     global tmp_daily, tmp_y, tmp_mo, tmp_d, tmp_h, tmp_m, tmp_audible, del_confirm_yes, clear_confirm_yes # Editor globals
-    global _startup_pending, _frequency_idle_since
-
-    was_pending = _startup_pending
-    _startup_pending = False
-    _frequency_idle_since = 0
-    if was_pending:
-        _restore_frequency(view_manager)
-        return
-    
     save_settings() # Trigger one final save evaluation before exiting
     handle_audio_silence() # Force hardware buzzers to mute
     
@@ -1002,4 +940,4 @@ def stop(view_manager): # Function to halt the app and return memory to the Pico
     VIEW_DISPATCH = None # Destroy the view rendering dictionary
     
     gc.collect() # Force a deep garbage collection sweep using the global gc import
-    _restore_frequency(view_manager)
+    view_manager.freq()

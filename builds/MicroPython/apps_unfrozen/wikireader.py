@@ -35,49 +35,6 @@ import _thread
 
 # --- App Globals ---
 _VERSION = "1.5_b"
-APP_CPU_FREQUENCY = 220000000
-FREQUENCY_SETTLE_MS = 100
-_clock_changed = False
-_startup_pending = False
-_frequency_idle_since = 0
-
-
-def _thread_manager_is_idle(view_manager):
-    thread_manager = view_manager.thread_manager
-    return thread_manager is None or thread_manager.is_idle
-
-
-def _prepare_app_frequency(view_manager):
-    global _clock_changed, _frequency_idle_since
-
-    now = ticks_ms()
-    if not _thread_manager_is_idle(view_manager):
-        _frequency_idle_since = 0
-        return False
-    if _frequency_idle_since == 0:
-        _frequency_idle_since = now
-        return False
-    if ticks_diff(now, _frequency_idle_since) < FREQUENCY_SETTLE_MS:
-        return False
-    view_manager.freq(False, APP_CPU_FREQUENCY)
-    _clock_changed = True
-    _frequency_idle_since = 0
-    return True
-
-
-def _restore_frequency(view_manager):
-    global _clock_changed
-
-    if not _clock_changed:
-        return
-    if _thread_manager_is_idle(view_manager):
-        view_manager.freq()
-        _clock_changed = False
-    else:
-        view_manager.log(
-            "[WikiReader] Keeping 220 MHz because background work is active.",
-            2,
-        )
 
 # State management
 STATE_EXIT = -1
@@ -3242,29 +3199,23 @@ def _finish_start(view_manager):
 
 
 def start(view_manager):
-    """Check prerequisites, then wait for a safe clock boundary."""
-    global _startup_pending, _frequency_idle_since
+    """Check prerequisites, then initialize at the portable low clock."""
 
     if not view_manager.wifi or not view_manager.wifi.is_connected():
         view_manager.alert("WiFi not connected!", back=True)
         return False
-    _startup_pending = True
-    _frequency_idle_since = 0
-    return True
+    view_manager.freq(True)
+    try:
+        return _finish_start(view_manager)
+    except Exception as error:
+        view_manager.log("[WikiReader] Startup failed: %s" % error, 2)
+        view_manager.freq()
+        return False
 
 
 def stop(view_manager):
     """Called when the application is closed."""
     global http_client, loading_spinner, active_ui, search_results, settings, language_menu_origin_state, _sys_bg, _sys_fg, article_textbox, _vm_ref, _http_lock, _target_language, article_origin_state, help_origin_state, _request_start_time, article_nav_stack, links_data, _is_random_article, _last_header_status, current_list_type
-    global _startup_pending, _frequency_idle_since
-
-    was_pending = _startup_pending
-    _startup_pending = False
-    _frequency_idle_since = 0
-    if was_pending:
-        _restore_frequency(view_manager)
-        return
-
     if http_client:
         http_client.callback = None
         http_client.close()
@@ -3319,27 +3270,14 @@ def stop(view_manager):
 
     # Guarantee the heap is swept clean for the next app
     gc.collect()
-    _restore_frequency(view_manager)
+    view_manager.freq()
 
 
 
 def run(view_manager):
     """Called repeatedly while the application is running."""
     global current_state, _toast_msg, _toast_end_time, _last_header_status, active_view
-    global _startup_pending
     from utime import ticks_ms, ticks_diff
-    if _startup_pending:
-        if not _prepare_app_frequency(view_manager):
-            return
-        _startup_pending = False
-        try:
-            _finish_start(view_manager)
-        except Exception as error:
-            view_manager.log("[WikiReader] Startup failed: %s" % error, 2)
-            _restore_frequency(view_manager)
-            view_manager.back()
-        return
-
     if current_state == STATE_EXIT:
         current_state = STATE_INIT  # Prevent infinite loop of back() calls
         view_manager.back(True, False, True)  # Exit without clearing screen to black

@@ -36,6 +36,76 @@ static volatile char rx_buffer[KBD_BUFFER_SIZE];
 static volatile uint16_t rx_head = 0;
 static volatile uint16_t rx_tail = 0;
 static repeating_timer_t key_timer;
+static uint8_t repeating_key_code = 0;
+static uint32_t next_repeat_ms = 0;
+static bool hardware_hold_seen = false;
+static bool key_repeat_enabled = false;
+
+#define KEYBOARD_INITIAL_REPEAT_DELAY_MS (100)
+#define KEYBOARD_REPEAT_INTERVAL_MS (50)
+
+static bool keyboard_key_repeats(uint8_t key_code)
+{
+    switch (key_code)
+    {
+    case KEY_BACKSPACE:
+    case KEY_UP:
+    case KEY_DOWN:
+    case KEY_LEFT:
+    case KEY_RIGHT:
+    case KEY_INSERT:
+    case KEY_HOME:
+    case KEY_DEL:
+    case KEY_END:
+    case KEY_PAGE_UP:
+    case KEY_PAGE_DOWN:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static void keyboard_buffer_key(uint8_t key_code)
+{
+    uint8_t ch = key_code;
+    if (ch >= 'a' && ch <= 'z') // Ctrl and Shift handling
+    {
+        if (key_control)
+        {
+            ch &= 0x1F; // convert to control character
+        }
+        if (key_shift)
+        {
+            ch &= ~0x20;
+        }
+    }
+    else if (key_control && ch == KEY_UP)
+    {
+        ch = KEY_CTRL_UP;
+    }
+    else if (key_control && ch == KEY_DOWN)
+    {
+        ch = KEY_CTRL_DOWN;
+    }
+    else if (ch == KEY_ENTER) // enter key is returned as LF
+    {
+        ch = KEY_RETURN; // convert LF to CR
+    }
+
+    uint16_t next_head = (rx_head + 1) & (KBD_BUFFER_SIZE - 1);
+    if (next_head == rx_tail)
+    {
+        return; // Buffer full: preserve unread key events.
+    }
+    rx_buffer[rx_head] = ch;
+    rx_head = next_head;
+
+    // Notify that characters are available
+    if (keyboard_key_available_callback)
+    {
+        keyboard_key_available_callback();
+    }
+}
 
 //
 //  Keyboard Driver
@@ -50,10 +120,11 @@ void keyboard_poll()
     uint16_t key = sb_read_keyboard();
     uint8_t key_state = (key >> 8) & 0xFF;
     uint8_t key_code = key & 0xFF;
+    uint32_t now_ms = (uint32_t)(time_us_64() / 1000);
 
     if (key_state != 0)
     {
-        if (key_state == KEY_STATE_PRESSED)
+        if (key_state == KEY_STATE_PRESSED || key_state == KEY_STATE_HOLD)
         {
             if (key_code == KEY_MOD_CTRL)
             {
@@ -77,41 +148,36 @@ void keyboard_poll()
             }
             else
             {
-                // If a key is released, we return the key code
-                // This allows us to handle the key release in the main loop
-                uint8_t ch = key_code;
-                if (ch >= 'a' && ch <= 'z') // Ctrl and Shift handling
+                bool repeats = keyboard_key_repeats(key_code);
+                if (
+                    key_repeat_enabled &&
+                    key_state == KEY_STATE_PRESSED &&
+                    repeats
+                )
                 {
-                    if (key_control)
-                    {
-                        ch &= 0x1F; // convert to control character
-                    }
-                    if (key_shift)
-                    {
-                        ch &= ~0x20;
-                    }
+                    repeating_key_code = key_code;
+                    next_repeat_ms =
+                        now_ms + KEYBOARD_INITIAL_REPEAT_DELAY_MS;
+                    hardware_hold_seen = false;
                 }
-                else if (key_control && ch == KEY_UP)
+                else if (
+                    key_repeat_enabled &&
+                    key_state == KEY_STATE_HOLD &&
+                    repeats
+                )
                 {
-                    ch = KEY_CTRL_UP;
-                }
-                else if (key_control && ch == KEY_DOWN)
-                {
-                    ch = KEY_CTRL_DOWN;
-                }
-                else if (ch == KEY_ENTER) // enter key is returned as LF
-                {
-                    ch = KEY_RETURN; // convert LF to CR
+                    repeating_key_code = key_code;
+                    hardware_hold_seen = true;
                 }
 
-                uint16_t next_head = (rx_head + 1) & (KBD_BUFFER_SIZE - 1);
-                rx_buffer[rx_head] = ch;
-                rx_head = next_head;
-
-                // Notify that characters are available
-                if (keyboard_key_available_callback)
+                // HOLD repeats only navigation/editing keys. Enter, Space,
+                // and other actions remain one-shot physical key presses.
+                if (
+                    key_state == KEY_STATE_PRESSED ||
+                    (key_repeat_enabled && repeats)
+                )
                 {
-                    keyboard_key_available_callback();
+                    keyboard_buffer_key(key_code);
                 }
             }
         }
@@ -125,7 +191,30 @@ void keyboard_poll()
             {
                 key_shift = false;
             }
+            else if (key_code == KEY_MOD_ALT)
+            {
+                key_alt = false;
+            }
+            if (key_code == repeating_key_code)
+            {
+                repeating_key_code = 0;
+                hardware_hold_seen = false;
+            }
         }
+    }
+
+    // The PicoCalc keyboard pauses before its first HOLD event. Bridge that
+    // initial gap so directional movement starts continuously, then defer to
+    // the keyboard's own HOLD cadence as soon as it appears.
+    if (
+        key_repeat_enabled &&
+        repeating_key_code != 0 &&
+        !hardware_hold_seen &&
+        (int32_t)(now_ms - next_repeat_ms) >= 0
+    )
+    {
+        keyboard_buffer_key(repeating_key_code);
+        next_repeat_ms = now_ms + KEYBOARD_REPEAT_INTERVAL_MS;
     }
 }
 
@@ -183,6 +272,16 @@ void keyboard_set_background_poll(bool enable)
     {
         // Stop the repeating timer
         cancel_repeating_timer(&key_timer);
+    }
+}
+
+void keyboard_set_key_repeat(bool enable)
+{
+    key_repeat_enabled = enable;
+    if (!enable)
+    {
+        repeating_key_code = 0;
+        hardware_hold_seen = false;
     }
 }
 

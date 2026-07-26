@@ -73,6 +73,14 @@ STATIC mp_obj_t picoware_keyboard_set_background_poll(mp_obj_t enable_obj)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(picoware_keyboard_set_background_poll_obj, picoware_keyboard_set_background_poll);
 
+// set_key_repeat(enable) - Enable/disable navigation key repeats
+STATIC mp_obj_t picoware_keyboard_set_key_repeat(mp_obj_t enable_obj)
+{
+    keyboard_set_key_repeat(mp_obj_is_true(enable_obj));
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(picoware_keyboard_set_key_repeat_obj, picoware_keyboard_set_key_repeat);
+
 // poll() - Poll the keyboard
 STATIC mp_obj_t picoware_keyboard_poll(void)
 {
@@ -117,6 +125,7 @@ STATIC const mp_rom_map_elem_t picoware_keyboard_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&picoware_keyboard_init_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_key_available_callback), MP_ROM_PTR(&picoware_keyboard_set_key_available_callback_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_background_poll), MP_ROM_PTR(&picoware_keyboard_set_background_poll_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_key_repeat), MP_ROM_PTR(&picoware_keyboard_set_key_repeat_obj)},
     {MP_ROM_QSTR(MP_QSTR_poll), MP_ROM_PTR(&picoware_keyboard_poll_obj)},
     {MP_ROM_QSTR(MP_QSTR_key_available), MP_ROM_PTR(&picoware_keyboard_key_available_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_key), MP_ROM_PTR(&picoware_keyboard_get_key_obj)},

@@ -76,6 +76,7 @@ extern "C"
     void keyboard_init(void);
     void keyboard_set_key_available_callback(keyboard_key_available_callback_t callback);
     void keyboard_set_background_poll(bool enable);
+    void keyboard_set_key_repeat(bool enable);
     void keyboard_poll(void);
     bool keyboard_key_available(void);
     char keyboard_get_key(void);

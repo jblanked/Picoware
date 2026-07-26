@@ -554,6 +554,16 @@ class Input:
         """Returns True if the last button was held for the specified duration."""
         return self._was_pressed and self._elapsed_time >= duration
 
+    def set_key_repeat(self, enable: bool = False) -> bool:
+        """Enable navigation-key repeat for the active app when supported."""
+        try:
+            from picoware_keyboard import set_key_repeat
+        except (ImportError, AttributeError):
+            return False
+
+        set_key_repeat(bool(enable))
+        return True
+
     def on_key_callback(self, _=None) -> None:
         """Callback invoked when a key becomes available.
 

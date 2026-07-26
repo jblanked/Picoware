@@ -4,6 +4,9 @@ from gc import collect
 from utime import ticks_add, ticks_diff, ticks_ms
 
 from picoware.system.buttons import (
+    BUTTON_0,
+    BUTTON_9,
+    BUTTON_A,
     BUTTON_BACK,
     BUTTON_BACKSPACE,
     BUTTON_CENTER,
@@ -11,9 +14,13 @@ from picoware.system.buttons import (
     BUTTON_DOWN,
     BUTTON_ENTER,
     BUTTON_LEFT,
+    BUTTON_MINUS,
+    BUTTON_P,
     BUTTON_RIGHT,
     BUTTON_SPACE,
+    BUTTON_UNDERSCORE,
     BUTTON_UP,
+    BUTTON_Z,
 )
 
 from .leaderboard import DEFAULT_NAME, MAX_NAME_LENGTH, Leaderboard
@@ -23,8 +30,11 @@ from .model import (
     STATE_LEADERBOARD,
     STATE_MODE_SELECT,
     STATE_NAME_ENTRY,
+    STATE_PAUSED,
     STATE_PLAYER_DYING,
     STATE_PLAYING,
+    STATE_STAGE_CLEAR,
+    STATE_STAGE_INTRO,
     STATE_TITLE,
     GameModel,
 )
@@ -36,37 +46,16 @@ _renderer = None
 _leaderboard = None
 _next_frame = 0
 _score_saved = False
-_frequency_changed = False
-_frequency_pending = False
 _mode_start_pending = False
+_redraw_pending = False
+_key_repeat_enabled = False
+_runtime_phase = "idle"
+_last_button = -1
+_run_count = 0
 FRAME_MS = 50
-GAME_CPU_FREQUENCY = 230000000
-
-
-def _thread_idle(view_manager):
-    """Return whether changing the global CPU clock is currently safe."""
-    thread_manager = getattr(view_manager, "thread_manager", None)
-    if thread_manager is None:
-        return True
-    public_idle = getattr(thread_manager, "is_idle", None)
-    if public_idle is not None:
-        return bool(public_idle)
-    return (
-        getattr(thread_manager, "thread", None) is None
-        and not getattr(thread_manager, "_tasks", ())
-    )
-
-
-def _try_game_frequency(view_manager):
-    """Apply the game clock once inherited background work has drained."""
-    global _frequency_changed, _frequency_pending
-
-    if not _frequency_pending or not _thread_idle(view_manager):
-        return False
-    view_manager.freq(False, GAME_CPU_FREQUENCY)
-    _frequency_changed = True
-    _frequency_pending = False
-    return True
+STARTUP_SPLASH_MS = 2000
+MODE_DEMO_IDLE_MS = 30000
+_mode_idle_since = 0
 
 
 def _log_mode_start_error(view_manager, phase, error):
@@ -75,6 +64,108 @@ def _log_mode_start_error(view_manager, phase, error):
         view_manager.log(
             "[Pico Bomber] mode-start %s: %r" % (phase, error),
             2,
+        )
+    except Exception:
+        pass
+
+
+def _set_key_repeat(view_manager, enable, force=False):
+    """Use opt-in navigation repeat when the active firmware supports it."""
+    global _key_repeat_enabled
+
+    enable = bool(enable)
+    if not force and enable == _key_repeat_enabled:
+        return
+    setter = getattr(view_manager.input_manager, "set_key_repeat", None)
+    if setter is not None:
+        setter(enable)
+    _key_repeat_enabled = enable
+
+
+def _write_crash_log(view_manager, error):
+    """Persist enough state to identify the corrupt-bytecode boundary."""
+    try:
+        import io
+        import sys
+        from gc import mem_free
+
+        trace = io.StringIO()
+        sys.print_exception(error, trace)
+        renderer_phase = -1 if _renderer is None else _renderer.phase
+        tile_x = -1 if _renderer is None else _renderer.tile_x
+        tile_y = -1 if _renderer is None else _renderer.tile_y
+        item_index = -1 if _renderer is None else _renderer.item_index
+        game_state = -1 if _game is None else _game.state
+        game_theme = -1 if _game is None else _game.theme
+        build_phase = -1 if _game is None else _game.build_phase
+        build_x = -1 if _game is None else _game.build_x
+        build_y = -1 if _game is None else _game.build_y
+        build_items = -1 if _game is None else _game.build_items
+        text = (
+            "phase=%s renderer=%d tile=%d,%d item=%d "
+            "state=%d theme=%d build=%d at=%d,%d items=%d "
+            "button=%d run=%d free=%d\n%s"
+        ) % (
+            _runtime_phase,
+            renderer_phase,
+            tile_x,
+            tile_y,
+            item_index,
+            game_state,
+            game_theme,
+            build_phase,
+            build_x,
+            build_y,
+            build_items,
+            _last_button,
+            _run_count,
+            mem_free(),
+            trace.getvalue(),
+        )
+        view_manager.storage.write(
+            "picoware/pico_bomber_crash.log",
+            "\n---\n" + text,
+            "a",
+        )
+    except Exception as log_error:
+        try:
+            view_manager.log(
+                "[Pico Bomber] crash-log failure: %r" % (log_error,),
+                2,
+            )
+        except Exception:
+            pass
+
+
+def _write_start_marker(view_manager, phase):
+    """Persist the last completed startup step for hard-freeze diagnosis."""
+    try:
+        from gc import mem_free
+        from machine import freq
+
+        thread_manager = view_manager.thread_manager
+        thread = None if thread_manager is None else thread_manager.thread
+        thread_running = (
+            1
+            if thread is not None and thread.is_running
+            else 0
+        )
+        queued_tasks = (
+            0
+            if thread_manager is None
+            else len(thread_manager._tasks)
+        )
+        view_manager.storage.write(
+            "picoware/pico_bomber_start.log",
+            "phase=%s freq=%d free=%d thread=%d queued=%d\n"
+            % (
+                phase,
+                freq(),
+                mem_free(),
+                thread_running,
+                queued_tasks,
+            ),
+            "w",
         )
     except Exception:
         pass
@@ -97,7 +188,15 @@ def _submit_name(name):
     _score_saved = True
 
 
-def _handle_name_input(input_manager, button):
+def _open_mode_menu(now):
+    """Open mode selection and restart its attract-mode idle timer."""
+    global _mode_idle_since
+
+    _game.open_mode_menu()
+    _mode_idle_since = now
+
+
+def _handle_name_input(_input_manager, button):
     """Edit a short arcade name using the physical keyboard."""
     if button < 0:
         return False
@@ -115,69 +214,163 @@ def _handle_name_input(input_manager, button):
     if len(_game.player_name) >= MAX_NAME_LENGTH:
         return False
 
-    char = input_manager.button_to_char(button).upper()
-    if len(char) == 1 and (
-        "A" <= char <= "Z"
-        or "0" <= char <= "9"
-        or char in (" ", "-", "_")
-    ):
+    if BUTTON_A <= button <= BUTTON_Z:
+        char = chr(65 + button - BUTTON_A)
+    elif BUTTON_0 <= button <= BUTTON_9:
+        char = chr(48 + button - BUTTON_0)
+    elif button == BUTTON_SPACE:
+        char = " "
+    elif button == BUTTON_MINUS:
+        char = "-"
+    elif button == BUTTON_UNDERSCORE:
+        char = "_"
+    else:
+        return False
+
+    if char:
         _game.player_name += char
         return True
     return False
 
 
-def start(view_manager):
-    """Create a fresh Pico Bomber title screen."""
+def _finish_start(view_manager):
+    """Create a fresh Pico Bomber startup splash."""
     global _game, _renderer, _leaderboard, _next_frame, _score_saved
-    global _frequency_changed, _frequency_pending, _mode_start_pending
+    global _mode_start_pending, _redraw_pending
 
-    _frequency_changed = False
-    _frequency_pending = True
-    _mode_start_pending = False
-    _try_game_frequency(view_manager)
     _game = GameModel()
-    _renderer = Renderer(view_manager.draw)
+    _write_start_marker(view_manager, "model")
+    _renderer = Renderer(view_manager.draw, view_manager.storage)
+    _write_start_marker(view_manager, "renderer")
     _leaderboard = Leaderboard(view_manager.storage)
+    _write_start_marker(view_manager, "leaderboard")
     _game.leaderboard = _leaderboard.entries
     _score_saved = False
-    _next_frame = ticks_ms()
     _renderer.draw_frame(_game)
-    return True
+    # The raw splash buffer is temporary; reclaim it before the timed screen
+    # and later demo/game allocations begin.
+    collect()
+    now = ticks_ms()
+    _game.state_until = ticks_add(now, STARTUP_SPLASH_MS)
+    _write_start_marker(view_manager, "title-render")
+    _next_frame = ticks_add(now, FRAME_MS)
+    _write_start_marker(view_manager, "complete")
 
 
-def run(view_manager):
+def start(view_manager):
+    """Create a fresh title screen at Picoware's managed low clock."""
+    global _mode_start_pending, _redraw_pending, _mode_idle_since
+
+    view_manager.freq(True)
+    _mode_start_pending = False
+    _redraw_pending = False
+    _mode_idle_since = 0
+    _write_start_marker(view_manager, "entered")
+    try:
+        _set_key_repeat(view_manager, False, True)
+        _write_start_marker(view_manager, "repeat-off")
+        _finish_start(view_manager)
+        return True
+    except Exception:
+        view_manager.freq()
+        raise
+
+
+def _run_once(view_manager):
     """Handle one Picoware input/update/render cycle."""
-    global _next_frame, _score_saved, _mode_start_pending
+    global _next_frame, _score_saved, _mode_start_pending, _redraw_pending
+    global _runtime_phase, _last_button, _mode_idle_since
 
     if _game is None or _renderer is None:
         return
 
-    _try_game_frequency(view_manager)
+    _runtime_phase = "repeat"
+    _set_key_repeat(view_manager, _game.state == STATE_PLAYING)
     input_manager = view_manager.input_manager
     button = view_manager.button
+    _last_button = button
     now = ticks_ms()
     changed = False
 
-    if _game.state == STATE_NAME_ENTRY:
-        if button < 0:
-            return
-        changed = _handle_name_input(input_manager, button)
-        input_manager.reset()
-        if changed:
+    if _game.state == STATE_TITLE:
+        if button >= 0:
+            input_manager.reset()
+        if ticks_diff(now, _game.state_until) >= 0:
+            _open_mode_menu(now)
             _renderer.draw_frame(_game)
+            _next_frame = ticks_add(now, FRAME_MS)
         return
 
+    if _game.demo_mode and button >= 0:
+        input_manager.reset()
+        _open_mode_menu(now)
+        button = -1
+        changed = True
+
+    if _game.state == STATE_MODE_SELECT:
+        if _mode_idle_since == 0 or button >= 0:
+            _mode_idle_since = now
+        idle_elapsed = max(0, ticks_diff(now, _mode_idle_since))
+        remaining = max(
+            0,
+            (MODE_DEMO_IDLE_MS - idle_elapsed + 999) // 1000,
+        )
+        if remaining != _game.demo_countdown:
+            _game.demo_countdown = remaining
+            changed = True
+        if button < 0 and idle_elapsed >= MODE_DEMO_IDLE_MS:
+            demo_mode = (
+                _game.menu_selection
+                if _game.menu_selection < MENU_LEADERBOARD
+                else _game.mode
+            )
+            _runtime_phase = "demo-build"
+            _game.start_demo(now, demo_mode)
+            collect()
+            _score_saved = True
+            _mode_start_pending = True
+            changed = True
+
+    if _game.state == STATE_NAME_ENTRY:
+        _runtime_phase = "name-input"
+        if button >= 0:
+            changed = _handle_name_input(input_manager, button)
+            input_manager.reset()
+        if changed:
+            _redraw_pending = True
+        if _redraw_pending and ticks_diff(now, _next_frame) >= 0:
+            _runtime_phase = "name-render"
+            _renderer.draw_frame(_game)
+            _redraw_pending = False
+            _next_frame = ticks_add(now, FRAME_MS)
+        return
+
+    _runtime_phase = "input"
     if button == BUTTON_BACK:
         input_manager.reset()
         if _game.state == STATE_LEADERBOARD:
-            _game.open_mode_menu()
+            _open_mode_menu(now)
+            changed = True
+        elif _game.state in (
+            STATE_PLAYING,
+            STATE_PAUSED,
+            STATE_PLAYER_DYING,
+            STATE_GAME_OVER,
+        ):
+            _open_mode_menu(now)
+            _mode_start_pending = False
             changed = True
         elif _game.state == STATE_MODE_SELECT:
-            _game.state = STATE_TITLE
-            changed = True
+            view_manager.back()
+            return
         else:
             view_manager.back()
             return
+    if button == BUTTON_P:
+        if _game.state == STATE_PLAYING:
+            changed = _game.pause(now)
+        elif _game.state == STATE_PAUSED:
+            changed = _game.resume(now)
     if button == BUTTON_UP:
         if _game.state == STATE_MODE_SELECT:
             changed = _game.select_mode(-1)
@@ -193,11 +386,11 @@ def run(view_manager):
     elif button == BUTTON_RIGHT:
         changed = _game.move_player(1, 0, now)
     elif button in (BUTTON_CENTER, BUTTON_SPACE):
-        if _game.state in (STATE_TITLE, STATE_GAME_OVER):
-            _game.open_mode_menu()
+        if _game.state == STATE_GAME_OVER:
+            _open_mode_menu(now)
             changed = True
         elif _game.state == STATE_LEADERBOARD:
-            _game.open_mode_menu()
+            _open_mode_menu(now)
             changed = True
         elif _game.state == STATE_MODE_SELECT:
             if _game.menu_selection == MENU_LEADERBOARD:
@@ -205,7 +398,11 @@ def run(view_manager):
             else:
                 _mode_start_pending = True
                 try:
+                    _runtime_phase = "stage-build"
                     _game.new_game(now, _game.menu_selection)
+                    # Release the stage builder's temporary candidate tuples
+                    # before the first full arena frame.
+                    collect()
                 except Exception as error:
                     _log_mode_start_error(view_manager, "stage-build", error)
                     _mode_start_pending = False
@@ -218,17 +415,32 @@ def run(view_manager):
     if button >= 0:
         input_manager.reset()
 
-    try:
-        updated = _game.update(now)
-    except Exception as error:
-        if _mode_start_pending:
-            _log_mode_start_error(view_manager, "first-update", error)
-            _mode_start_pending = False
-        raise
+    updated = False
+    if _game.update_demo(now):
+        changed = True
+    if _game.state in (
+        STATE_PLAYING,
+        STATE_PLAYER_DYING,
+        STATE_STAGE_CLEAR,
+        STATE_STAGE_INTRO,
+    ):
+        _runtime_phase = "update"
+        try:
+            updated = _game.update(now)
+        except Exception as error:
+            if _mode_start_pending:
+                _log_mode_start_error(view_manager, "first-update", error)
+                _mode_start_pending = False
+            raise
     if updated:
         changed = True
 
-    if _game.state == STATE_GAME_OVER and not _score_saved:
+    _runtime_phase = "score"
+    if _game.state == STATE_GAME_OVER and _game.demo_mode:
+        _open_mode_menu(now)
+        _score_saved = True
+        changed = True
+    elif _game.state == STATE_GAME_OVER and not _score_saved:
         if _leaderboard.qualifies(_game.score):
             _game.player_name = ""
             _game.state = STATE_NAME_ENTRY
@@ -236,32 +448,53 @@ def run(view_manager):
             _score_saved = True
         changed = True
 
+    _set_key_repeat(view_manager, _game.state == STATE_PLAYING)
     animated = _game.state in (STATE_PLAYING, STATE_PLAYER_DYING)
-    if changed or (animated and ticks_diff(now, _next_frame) >= 0):
+    if changed:
+        _redraw_pending = True
+    if (
+        ticks_diff(now, _next_frame) >= 0
+        and (_redraw_pending or animated)
+    ):
         try:
+            _runtime_phase = "render"
             _renderer.draw_frame(_game)
         except Exception as error:
             if _mode_start_pending:
                 _log_mode_start_error(view_manager, "first-render", error)
                 _mode_start_pending = False
             raise
+        _redraw_pending = False
         _mode_start_pending = False
         _next_frame = ticks_add(now, FRAME_MS)
+    _runtime_phase = "idle"
+
+
+def run(view_manager):
+    """Run one guarded cycle and persist the original crash traceback."""
+    global _run_count
+
+    _run_count += 1
+    try:
+        _run_once(view_manager)
+    except Exception as error:
+        _write_crash_log(view_manager, error)
+        raise
 
 
 def stop(view_manager):
     """Release the game state when leaving the Picoware view."""
     global _game, _renderer, _leaderboard, _next_frame, _score_saved
-    global _frequency_changed, _frequency_pending, _mode_start_pending
+    global _mode_start_pending, _redraw_pending, _mode_idle_since
 
+    _set_key_repeat(view_manager, False, True)
     _game = None
     _renderer = None
     _leaderboard = None
     _next_frame = 0
     _score_saved = False
-    _frequency_pending = False
     _mode_start_pending = False
-    if _frequency_changed:
-        view_manager.freq()
-    _frequency_changed = False
+    _redraw_pending = False
+    _mode_idle_since = 0
     collect()
+    view_manager.freq()

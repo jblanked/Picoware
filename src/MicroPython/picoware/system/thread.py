@@ -71,11 +71,10 @@ class Thread:
             with self._lock:
                 self._error = e
         finally:
-            if self._lock is None:
-                return
-            with self._lock:
-                self._running = False
-                self._stop_requested = False
+            if self._lock is not None:
+                with self._lock:
+                    self._running = False
+                    self._stop_requested = False
 
     def run(self) -> bool:
         """Run the thread."""

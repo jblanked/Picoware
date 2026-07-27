@@ -4,26 +4,26 @@ Open-source custom firmware for PicoCalc, Cardputer ADV, Flipper Zero, and other
 ![Picoware Demo](./images/desktop-animation.gif)
 
 ### Features
+- [Desktop Companion App](./app/README.md) with USB Video Stream and App Store
+- Desktop Simulator (runs Picoware on Mac/Linux with SDL2)
 - On-Device Code Editor
 - On-Device REPL
 - File Manager
 - On-Device App Store
 - OTA Updates
-- UF2 Bootloader
+- UF2 Bootloader (PicoCalc only)
 - MP3/WAV Player
 - JPEG/BMP Viewer
 - WiFi (scanning, captive portal, and more)
-- Desktop animations
-- Multi-core support
 - Bluetooth (scanning, BLE operations, and more)
-- Gameboy Emulator
-- Games (Doom, Tetris, and more)
-- Screensavers (Spiro, Starfield, and more)
-- Social Media Network (connected with Flipper Zero users)
+- Gameboy Emulator (GameBoy and GameBoy Color)
+- Games (2048, Ghouls, Tetris, Pico Bomber, and more)
+- Screensavers (Yin-Yang, Floating Orbs, and more)
+- Social Media Network (FlipSocial)
+- Desktop animations
 - AutoComplete for keyboard input
-- PSRAM support (PicoCalc)
-- Desktop Simulator (runs Picoware on Mac/Linux with SDL2)
-- USB Video Stream (stream Picoware display to your computer)
+- Multi-core support
+- PSRAM support
 - Javascript support (run JS code in Picoware's MicroPython environment)
 
 ### Installation
@@ -49,3 +49,6 @@ Follow the instructions in the [Installation Guide](./guides/Installation.md) to
 ### Related Videos
 - JBlanked (PicoCalc Playlist): [https://www.youtube.com/playlist?list=PLSRet1BCVgXhDNONa1T-1OIDoSibsF_ey](https://www.youtube.com/playlist?list=PLSRet1BCVgXhDNONa1T-1OIDoSibsF_ey)
 - A collection of video tutorials for Picoware: https://github.com/jblanked/Picoware/tree/main/guides/Tutorials.md
+
+### Contributing
+If you would like to contribute to Picoware, please follow the guidelines in the [Contributing Guide](./guides/Contributing.md). All contributions are welcome, including bug reports, feature requests, documentation improvements, and code contributions.

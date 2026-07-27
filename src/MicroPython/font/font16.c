@@ -3279,7 +3279,7 @@ const FontTable Font16 = {
 	Font16_Table,
 	11, /* Width */
 	16, /* Height */
-	0,	/* Spacing */
+	1,	/* Spacing */
 };
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

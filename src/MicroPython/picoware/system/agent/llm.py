@@ -146,7 +146,7 @@ class LLM:
             self._api_key = settings.deepseek_api_key
         elif self._id == ANTHROPIC:
             self._name = "Anthropic"
-            self._url = "https://api.anthropic.com/v1/messages"
+            self._url = "https://api.anthropic.com/v1/chat/completions"
             self._models = ["claude-sonnet-5", "claude-sonnet-4-6", "claude-opus-4-8", "claude-opus-5", "claude-fable-5", "claude-haiku-4-5-20251001"]
             self._api_key = settings.anthropic_api_key
         elif self._id == GEMINI:
@@ -159,10 +159,7 @@ class LLM:
             self._url = settings.local_url
             self._models = ["qwen3.5:4b", "qwen3.5:0.8b", "qwen3.5:2b", "llama3.2:3b", "llama3.2:1b"]
         
-        if self._id == ANTHROPIC:
-            self._headers["x-api-key"] = self._api_key
-            self._headers["anthropic-version"] = "2023-06-01"
-        elif self._id != LOCAL:
+        if self._id != LOCAL:
             self._headers["Authorization"] = f"Bearer {self._api_key}"
         
         if self._current_model is None:

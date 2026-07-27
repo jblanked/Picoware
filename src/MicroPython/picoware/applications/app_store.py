@@ -278,7 +278,7 @@ def __parse_update_check(view_manager) -> bool:
             draw = view_manager.draw
             _app_menu = Menu(
                 draw,
-                "Available Updates",
+                "Available",
                 0,
                 draw.size.y,
                 view_manager.foreground_color,

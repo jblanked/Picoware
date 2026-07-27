@@ -485,8 +485,8 @@ def __parse_app_list(view_manager) -> bool:
 
         # Clear and populate menu
         _app_menu.clear()
-        # Add "Download All Apps" option at the top
-        _app_menu.add_item("[Download All Apps]")
+        # Add "Download All" option at the top
+        _app_menu.add_item("[Download All]")
         for app in _apps_data["apps"]:
             title = app.get("title", "Unknown App")
             _app_menu.add_item(title)

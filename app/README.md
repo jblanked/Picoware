@@ -9,7 +9,7 @@ A desktop application for interacting with Picoware-compatible boards.
 ## Installation
 Run the following commands:
 
-### 1. Close the repository and setup a virtual environment:
+### 1. Clone the repository and setup a virtual environment:
 
 Mac/Linux
 ```bash

@@ -127,8 +127,8 @@ class Input:
             )
 
             init()
-            set_background_poll(True)
             set_key_available_callback(self.on_key_callback)
+            set_background_poll(True)
 
         self._elapsed_time = 0
         self._elapsed_touch_start = 0
@@ -459,15 +459,6 @@ class Input:
             from flipper_input import key_available, poll
 
             poll()
-            if key_available():
-                self.on_key_callback()
-        elif self._current_board_id not in (
-            BOARD_WAVESHARE_1_28_RP2350,
-            BOARD_WAVESHARE_1_43_RP2350,
-            BOARD_WAVESHARE_3_49_RP2350,
-        ):
-            from picoware_keyboard import key_available
-
             if key_available():
                 self.on_key_callback()
         return self._last_button

@@ -8,10 +8,14 @@ LOCAL = const(4)
 
 class LLM:
     """LLM config"""
-    __slots__ = ["_api_key", "_current_model", "_id", "_name", "_url", "_models", "_headers"]
-    def __init__(self, storage, llm_id: int, model: str = None):
+    __slots__ = ["_api_key", "_current_model", "_id", "_name", "_url", "_models", "_headers", "_thinking"]
+    def __init__(self, storage, llm_id: int, model: str = None, thinking: str = "none"):
         self._api_key = ""
         self._current_model = model
+        if thinking not in ("none", "low", "medium", "high", "max") or thinking is None:
+            self._thinking = "none"
+        else:
+            self._thinking = thinking
         self._id = llm_id
         self._name = ""
         self._url = ""
@@ -43,6 +47,55 @@ class LLM:
     def models(self) -> list:
         """Return the list of models for the LLM."""
         return self._models
+
+    @property
+    def payload(self) -> dict:
+        """Return a payload for the chat agent based on the provider."""
+        _payload = {
+            "model": self._current_model,
+            "stream": False,
+        }
+        _payload.update(self.thinking_payload)
+
+        return _payload
+
+    @property
+    def thinking(self) -> str:
+        """Return the current thinking setting for the LLM."""
+        return self._thinking
+
+    @property
+    def thinking_payload(self) -> dict:
+        """Return the thinking-related payload for the LLM."""
+        _payload = {}
+        if self._thinking != "none":
+            if self._id == DEEPSEEK:
+                _payload["thinking"] = {"type": "enabled"}
+                _payload["reasoning_effort"] = self._thinking
+            elif self._id == LOCAL:
+                _payload["think"] = True
+            elif self._id in (OPENAI, GEMINI):
+                _payload["reasoning_effort"] = self._thinking
+            elif self._id == ANTHROPIC:
+                _payload["thinking"] = {
+                    "type": "enabled"
+                }
+            elif self._id == GEMINI:
+                _payload["generation_config"] = {
+                    "thinking_level": self._thinking
+                }
+        else:
+            if self._id == DEEPSEEK:
+                _payload["thinking"] = {"type": "disabled"}
+            elif self._id == LOCAL:
+                _payload["think"] = False
+            elif self._id in (OPENAI, GEMINI):
+                _payload["reasoning_effort"] = self._thinking
+            elif self._id == ANTHROPIC:
+                _payload["thinking"] = {
+                    "type": "disabled"
+                }
+        return _payload
     
     @property
     def name(self) -> str:

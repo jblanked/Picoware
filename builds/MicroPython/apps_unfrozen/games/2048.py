@@ -35,6 +35,7 @@ COLOR_NUMBER = TFT_BLACK
 COLOR_EMPTY = TFT_BLUE
 COLOR_WIN = TFT_YELLOW
 COLOR_LOSE = TFT_RED
+is_flipper = False
 
 # State constants
 STATE_PLAYING = const(0)
@@ -342,8 +343,12 @@ def move_grid(grid, direction: int):
 def start(view_manager) -> bool:
     """Start the app"""
     from picoware.system.vector import Vector
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
 
-    global SCREEN_WIDTH, SCREEN_HEIGHT, GRID_OFFSET_X, GRID_OFFSET_Y, TILE_SIZE_X, TILE_SIZE_Y, grid_vector, size_vector, color_map
+    global SCREEN_WIDTH, SCREEN_HEIGHT, GRID_OFFSET_X, GRID_OFFSET_Y, TILE_SIZE_X, TILE_SIZE_Y, grid_vector, size_vector, color_map, is_flipper, COLOR_EMPTY, COLOR_WIN, COLOR_LOSE
+
+    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
+
     draw = view_manager.draw
     SCREEN_WIDTH = draw.size.x
     SCREEN_HEIGHT = draw.size.y
@@ -367,6 +372,13 @@ def start(view_manager) -> bool:
         1024: TFT_PINK,
         2048: TFT_LIGHTGREY,
     }
+    if is_flipper:
+        for k in color_map:
+            if color_map[k] != TFT_BLACK:
+                color_map[k] = 0xFFFF
+        COLOR_EMPTY = 0xFFFF if COLOR_EMPTY != TFT_BLACK else TFT_BLACK
+        COLOR_WIN = 0xFFFF if COLOR_WIN != TFT_BLACK else TFT_BLACK
+        COLOR_LOSE = 0xFFFF if COLOR_LOSE != TFT_BLACK else TFT_BLACK
     return True
 
 

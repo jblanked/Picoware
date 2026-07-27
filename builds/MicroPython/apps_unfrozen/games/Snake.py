@@ -1,6 +1,8 @@
 # translated from https://github.com/lazerduck/PicoCalc_Dashboard/blob/main/snake/snake.py
 from random import randint
 
+is_flipper = False
+
 # Display setup
 SCREEN_WIDTH = 0
 SCREEN_HEIGHT = 0
@@ -124,18 +126,19 @@ class Game:
         from picoware.system.colors import TFT_BLACK, TFT_GREEN, TFT_RED, TFT_WHITE
 
         self.display.fill_screen(TFT_BLACK)
-        # Draw boundary wall
-        wall_color = 1  # Blue
-        x0 = 0
-        y0 = OFFSET_Y
-        x1 = GRID_WIDTH * GRID_SIZE
-        y1 = OFFSET_Y + GRID_HEIGHT * GRID_SIZE
-        # Top and bottom
-        self.display.fill_rectangle(Vector(x0, y0), Vector(x1, y0 + 2), wall_color)
-        self.display.fill_rectangle(Vector(x0, y1 - 2), Vector(x1, y1), wall_color)
-        # Left and right
-        self.display.fill_rectangle(Vector(x0, y0), Vector(x0 + 2, y1), wall_color)
-        self.display.fill_rectangle(Vector(x1 - 2, y0), Vector(x1, y1), wall_color)
+        # Draw boundary wall (skip on Flipper — would blend with snake/food)
+        if not is_flipper:
+            wall_color = 1  # Blue
+            x0 = 0
+            y0 = OFFSET_Y
+            x1 = GRID_WIDTH * GRID_SIZE
+            y1 = OFFSET_Y + GRID_HEIGHT * GRID_SIZE
+            # Top and bottom
+            self.display.fill_rectangle(Vector(x0, y0), Vector(x1, y0 + 2), wall_color)
+            self.display.fill_rectangle(Vector(x0, y1 - 2), Vector(x1, y1), wall_color)
+            # Left and right
+            self.display.fill_rectangle(Vector(x0, y0), Vector(x0 + 2, y1), wall_color)
+            self.display.fill_rectangle(Vector(x1 - 2, y0), Vector(x1, y1), wall_color)
 
         # Draw score
         self.display.text(
@@ -155,16 +158,22 @@ class Game:
 
         # Draw snake
         snake_vector = Vector(0, 0)
+        snake_color = 0xFFFF if is_flipper else TFT_GREEN
         for segment in self.snake.body:
             snake_vector.x = segment[0] * GRID_SIZE
             snake_vector.y = segment[1] * GRID_SIZE + OFFSET_Y
-            self.display.fill_rectangle(snake_vector, _size_vector, TFT_GREEN)
+            self.display.fill_rectangle(snake_vector, _size_vector, snake_color)
 
-        # Draw food
+        # Draw food (filled on color, outline on Flipper so it differs from snake)
         food_vector = Vector(
             self.food[0] * GRID_SIZE, self.food[1] * GRID_SIZE + OFFSET_Y
         )
-        self.display.fill_rectangle(food_vector, _size_vector, TFT_RED)
+        food_color = 0xFFFF if is_flipper else TFT_RED
+        if is_flipper:
+            # Draw food as outline rect so it's distinct from filled snake body
+            self.display.rect(food_vector, _size_vector, food_color)
+        else:
+            self.display.fill_rectangle(food_vector, _size_vector, food_color)
 
 
 def main(view_manager):
@@ -230,8 +239,11 @@ def main(view_manager):
 
 def start(view_manager) -> bool:
     """Start the app"""
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
 
-    global SCREEN_WIDTH, SCREEN_HEIGHT, GRID_SIZE, GRID_WIDTH, GRID_HEIGHT, OFFSET_Y
+    global SCREEN_WIDTH, SCREEN_HEIGHT, GRID_SIZE, GRID_WIDTH, GRID_HEIGHT, OFFSET_Y, is_flipper
+
+    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
     draw = view_manager.draw
 

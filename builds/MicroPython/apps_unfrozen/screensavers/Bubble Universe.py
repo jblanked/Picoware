@@ -9,7 +9,6 @@ except ImportError:
 
 from micropython import const
 from array import array
-from picoware.system.vector import Vector
 from picoware.system.colors import TFT_WHITE, TFT_BLACK
 from picoware.system.buttons import (
     BUTTON_HOME,
@@ -56,6 +55,7 @@ palette = None
 
 old_time: int = 0
 fps: str = ""
+is_flipper = None
 
 screen_center_x = 0
 screen_center_y = 0
@@ -196,6 +196,10 @@ def __render(draw) -> None:
 
 def start(view_manager) -> bool:
     """Start the app"""
+    global is_flipper
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+
+    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
     draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)
@@ -213,6 +217,10 @@ def start(view_manager) -> bool:
     screen_center_y = SCREENHEIGHT // 2
 
     __create_sin_table()
+    if is_flipper:
+        for i in range(len(palette)):
+            if palette[i] != TFT_BLACK:
+                palette[i] = TFT_WHITE
     __reset_values()
     old_time = ticks_ms()
 
@@ -251,12 +259,13 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global sin_table, cos_table, palette, screen_center_x, screen_center_y
+    global sin_table, cos_table, palette, screen_center_x, screen_center_y, is_flipper
     sin_table = None
     cos_table = None
     palette = None
     screen_center_x = 0
     screen_center_y = 0
+    is_flipper = None
     __reset_values()
 
     collect()

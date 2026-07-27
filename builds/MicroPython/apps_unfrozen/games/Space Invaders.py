@@ -9,6 +9,8 @@ from picoware.system.buttons import (
 from picoware.system.colors import TFT_BLACK, TFT_WHITE, TFT_GREEN, TFT_RED, TFT_YELLOW
 from picoware.system.vector import Vector
 
+is_flipper = False
+
 # Game state
 screen_size = None
 player_x = 0
@@ -85,7 +87,7 @@ class Enemy:
         """Draw the enemy"""
         if self.active:
             self.pos.x, self.pos.y = int(self.x), int(self.y)
-            draw.fill_rectangle(self.pos, self.size, TFT_GREEN)
+            draw.fill_rectangle(self.pos, self.size, 0xFFFF if is_flipper else TFT_GREEN)
             # Draw eyes
             self.eye_pos.x, self.eye_pos.y = int(self.x) + 2, int(self.y) + 2
             draw.pixel(self.eye_pos, TFT_BLACK)
@@ -96,8 +98,11 @@ class Enemy:
 def start(view_manager) -> bool:
     """Start the app"""
     global screen_size, player_x, bullets, enemies, enemy_bullets, score, lives, game_over
-    global enemy_direction, enemy_move_counter
+    global enemy_direction, enemy_move_counter, is_flipper
     global PLAYER_WIDTH, PLAYER_HEIGHT, BULLET_WIDTH, BULLET_HEIGHT, ENEMY_WIDTH, ENEMY_HEIGHT, ENEMY_ROWS, ENEMY_COLS, ENEMY_SPACING
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+
+    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
     draw = view_manager.draw
     screen_size = draw.size

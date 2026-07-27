@@ -6,6 +6,7 @@ _orbs = []
 _colors = []
 _velocities = []
 _frame = 0
+is_flipper = None
 
 
 def start(view_manager):
@@ -16,10 +17,13 @@ def start(view_manager):
         TFT_CYAN, TFT_MAGENTA, TFT_ORANGE, TFT_PINK,
         TFT_WHITE, TFT_SKYBLUE, TFT_VIOLET,
     )
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
     from random import randint, choice, seed
     from time import ticks_ms
 
-    global _orbs, _colors, _velocities, _frame
+    global _orbs, _colors, _velocities, _frame, is_flipper
+
+    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
     seed(ticks_ms())
     _frame = 0
@@ -36,6 +40,10 @@ def start(view_manager):
         TFT_CYAN, TFT_MAGENTA, TFT_ORANGE, TFT_PINK,
         TFT_WHITE, TFT_SKYBLUE, TFT_VIOLET,
     ]
+    if is_flipper:
+        for i in range(len(palette)):
+            if palette[i] != TFT_BLACK:
+                palette[i] = TFT_WHITE
 
     orb_count = 20
     for _ in range(orb_count):
@@ -135,7 +143,7 @@ def stop(view_manager):
     '''Stop the screensaver'''
     from gc import collect
 
-    global _orbs, _colors, _velocities, _frame
+    global _orbs, _colors, _velocities, _frame, is_flipper
 
     if _orbs:
         _orbs.clear()
@@ -144,6 +152,7 @@ def stop(view_manager):
     if _velocities:
         _velocities.clear()
     _frame = 0
+    is_flipper = None
 
     collect()
 

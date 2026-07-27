@@ -9,6 +9,8 @@ from picoware.system.buttons import (
     BUTTON_CENTER,
 )
 from picoware.system.colors import TFT_BLACK, TFT_WHITE, TFT_GREEN, TFT_RED, TFT_YELLOW
+
+is_flipper = False
 from picoware.system.vector import Vector
 
 # Game state
@@ -92,7 +94,10 @@ def start(view_manager) -> bool:
     """Start the app"""
     global screen_size, maze, player_x, player_y, exit_x, exit_y, cell_size
     global maze_width, maze_height, moves, game_won, offset_x, offset_y
-    global pos, size, player_pos, player_size
+    global pos, size, player_pos, player_size, is_flipper
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+
+    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
     draw = view_manager.draw
     screen_size = draw.size
@@ -183,7 +188,7 @@ def run(view_manager) -> None:
                 draw._fill_rectangle(pos.x, pos.y, size.x, size.y, TFT_WHITE)
             elif x == exit_x and y == exit_y:
                 # Exit
-                draw._fill_rectangle(pos.x, pos.y, size.x, size.y, TFT_GREEN)
+                draw._fill_rectangle(pos.x, pos.y, size.x, size.y, 0xFFFF if is_flipper else TFT_GREEN)
 
     # Draw player
     player_pos.x, player_pos.y = (
@@ -192,12 +197,12 @@ def run(view_manager) -> None:
     )
     player_size.x, player_size.y = (cell_size - 4, cell_size - 4)
     draw._fill_rectangle(
-        player_pos.x, player_pos.y, player_size.x, player_size.y, TFT_RED
+        player_pos.x, player_pos.y, player_size.x, player_size.y, 0xFFFF if is_flipper else TFT_RED
     )
 
     # Draw moves counter
     moves_pos = Vector(5, 5)
-    draw.text(moves_pos, f"Moves:{moves}", TFT_YELLOW)
+    draw.text(moves_pos, f"Moves:{moves}", 0xFFFF if is_flipper else TFT_YELLOW)
 
     # Draw win message
     if game_won:
@@ -209,11 +214,11 @@ def run(view_manager) -> None:
         draw.rect(msg_bg_pos, msg_bg_size, TFT_WHITE)
 
         msg_pos = Vector(screen_size.x // 2 - 50, screen_size.y // 2 - 20)
-        draw.text(msg_pos, "YOU WIN!", TFT_GREEN)
+        draw.text(msg_pos, "YOU WIN!", 0xFFFF if is_flipper else TFT_GREEN)
         moves_msg_pos = Vector(screen_size.x // 2 - 40, screen_size.y // 2 - 5)
         draw.text(moves_msg_pos, f"Moves:{moves}", TFT_WHITE)
         restart_msg_pos = Vector(screen_size.x // 2 - 60, screen_size.y // 2 + 10)
-        draw.text(restart_msg_pos, "Press to Enter play", TFT_YELLOW)
+        draw.text(restart_msg_pos, "Press to Enter play", 0xFFFF if is_flipper else TFT_YELLOW)
 
     draw.swap()
 

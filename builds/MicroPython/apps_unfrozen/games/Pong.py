@@ -5,6 +5,8 @@ from picoware.system.colors import TFT_BLACK, TFT_WHITE, TFT_GREEN, TFT_RED
 from picoware.system.vector import Vector
 from micropython import const
 
+is_flipper = False
+
 # Game state
 screen_size = None
 paddle_left = None
@@ -112,7 +114,10 @@ class Ball:
 def start(view_manager) -> bool:
     """Start the app"""
     global screen_size, paddle_left, paddle_right, ball, score_left, score_right, game_started, score_pos_left, score_pos_right, pos, size
-    global PADDLE_WIDTH, PADDLE_HEIGHT, BALL_SIZE
+    global PADDLE_WIDTH, PADDLE_HEIGHT, BALL_SIZE, is_flipper
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+
+    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
     draw = view_manager.draw
     screen_size = draw.size
@@ -197,8 +202,8 @@ def run(view_manager) -> None:
         draw.fill_rectangle(pos, size, TFT_WHITE)
 
     # Draw paddles
-    paddle_left.draw(draw, TFT_GREEN)
-    paddle_right.draw(draw, TFT_RED)
+    paddle_left.draw(draw, 0xFFFF if is_flipper else TFT_GREEN)
+    paddle_right.draw(draw, 0xFFFF if is_flipper else TFT_RED)
 
     # Draw ball
     ball.draw(draw)

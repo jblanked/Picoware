@@ -9,6 +9,7 @@ from picoware.system.vector import Vector
 screen_size = None
 time_val = 0.0
 palette = None
+is_flipper = None
 
 TILE = const(3)  # pixel size of each rendered tile (square)
 RING_SIZE = 11  # radial pixel distance per colour ring
@@ -40,13 +41,20 @@ def _build_palette() -> list:
 
 def start(view_manager) -> bool:
     """Start the app"""
-    global screen_size, time_val, palette, RING_SIZE
+    global screen_size, time_val, palette, RING_SIZE, is_flipper
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+
+    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
     draw = view_manager.draw
     screen_size = Vector(draw.size.x, draw.size.y)
     RING_SIZE = draw.scale_y(11)  # radial pixel distance per colour ring
     time_val = 0.0
     palette = _build_palette()
+    if is_flipper:
+        for i in range(len(palette)):
+            if palette[i] != TFT_BLACK:
+                palette[i] = 0xFFFF
 
     draw.fill_screen(TFT_BLACK)
     draw.swap()
@@ -96,10 +104,11 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global screen_size, time_val, palette
+    global screen_size, time_val, palette, is_flipper
 
     screen_size = None
     time_val = 0.0
     palette = None
+    is_flipper = None
 
     collect()

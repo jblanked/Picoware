@@ -7,10 +7,13 @@ from picoware.system.vector import Vector
 screen_size = None
 time_offset = 0
 sample_rate = 8
+is_flipper = None
 
 
 def plasma_color(value: float) -> int:
     """Convert plasma value (-1 to 1) to RGB565 color"""
+    if is_flipper:
+        return 0xFFFF  # Always white on Flipper (plasma values are never black)
     # Map value to 0-255
     val = int((value + 1.0) * 127.5)
 
@@ -36,7 +39,10 @@ def plasma_color(value: float) -> int:
 
 def start(view_manager) -> bool:
     """Start the app"""
-    global screen_size, time_offset
+    global screen_size, time_offset, is_flipper
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+
+    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
     draw = view_manager.draw
     screen_size = Vector(draw.size.x, draw.size.y)
@@ -90,9 +96,10 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global screen_size, time_offset
+    global screen_size, time_offset, is_flipper
 
     screen_size = None
     time_offset = 0
+    is_flipper = None
 
     collect()

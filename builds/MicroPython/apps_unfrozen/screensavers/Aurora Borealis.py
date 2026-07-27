@@ -19,6 +19,7 @@ screen_size = None
 time_val = 0.0
 pos = None
 strip_size = None
+is_flipper = None
 _sin_lut = None  # array('f', 1024) -- shared sin lookup table
 _band_pals = None  # list of 8 x array('H', 64) -- per-band RGB565 palettes
 _falloff_lut = None  # array('f', band_h+1) -- falloff[abs_dy] pre-computed
@@ -66,7 +67,10 @@ def _build_tables(band_h: int) -> None:
 
 def start(view_manager) -> bool:
     """Start the app"""
-    global screen_size, time_val, pos, strip_size
+    global screen_size, time_val, pos, strip_size, is_flipper
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+
+    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
     draw = view_manager.draw
     screen_size = Vector(draw.size.x, draw.size.y)
@@ -75,6 +79,11 @@ def start(view_manager) -> bool:
     strip_size = Vector(COL_W, 1)
 
     _build_tables(screen_size.y >> 3)  # band_h = h // 8
+    if is_flipper:
+        for pal in _band_pals:
+            for i in range(len(pal)):
+                if pal[i] != TFT_BLACK:
+                    pal[i] = 0xFFFF
 
     draw.fill_screen(TFT_BLACK)
     draw.swap()
@@ -141,12 +150,13 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global screen_size, time_val, pos, strip_size, _sin_lut, _band_pals, _falloff_lut
+    global screen_size, time_val, pos, strip_size, _sin_lut, _band_pals, _falloff_lut, is_flipper
 
     screen_size = None
     time_val = 0.0
     pos = None
     strip_size = None
+    is_flipper = None
     _sin_lut = None
     _band_pals = None
     _falloff_lut = None

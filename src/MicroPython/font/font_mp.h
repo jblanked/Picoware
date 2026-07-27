@@ -16,7 +16,13 @@ extern "C"
 #include "py/objarray.h"
 #include "font.h"
 
+#if defined(CARDPUTER) || defined(WAVESHARE_2_06)
+#define FONT_DEFAULT FONT_SIZE_SMALL
+#elif defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49)
+#define FONT_DEFAULT FONT_SIZE_MEDIUM
+#else
 #define FONT_DEFAULT FONT_SIZE_XTRA_SMALL
+#endif
 
     typedef struct
     {

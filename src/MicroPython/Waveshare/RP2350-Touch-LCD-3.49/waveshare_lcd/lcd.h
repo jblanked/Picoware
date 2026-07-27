@@ -7,11 +7,6 @@
 #include "pico/stdlib.h"
 #include "../../../font/font_mp.h"
 
-#ifdef FONT_DEFAULT
-#undef FONT_DEFAULT
-#define FONT_DEFAULT FONT_SIZE_MEDIUM
-#endif
-
 #define LCD_HEIGHT 640
 #define LCD_WIDTH 172
 

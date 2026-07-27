@@ -8,11 +8,6 @@
 
 #include "../../../font/font_mp.h"
 
-#ifdef FONT_DEFAULT
-#undef FONT_DEFAULT
-#define FONT_DEFAULT FONT_SIZE_MEDIUM
-#endif
-
 #define LCD_HEIGHT 466
 #define LCD_WIDTH 466
 

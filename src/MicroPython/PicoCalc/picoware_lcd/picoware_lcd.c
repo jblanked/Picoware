@@ -9,10 +9,6 @@
 #include "../picoware_psram/picoware_psram_shared.h"
 #include "py/runtime.h"
 
-#ifndef FONT_DEFAULT
-#define FONT_DEFAULT FONT_SIZE_XTRA_SMALL
-#endif
-
 #include "../../log/log_mp.h"
 
 #define LCD_CHUNK_LINES 16

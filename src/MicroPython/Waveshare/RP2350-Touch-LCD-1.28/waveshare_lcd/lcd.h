@@ -10,11 +10,6 @@
 
 #include "../../../font/font_mp.h"
 
-#ifdef FONT_DEFAULT
-#undef FONT_DEFAULT
-#define FONT_DEFAULT FONT_SIZE_XTRA_SMALL
-#endif
-
 #define LCD_HEIGHT 240
 #define LCD_WIDTH 240
 

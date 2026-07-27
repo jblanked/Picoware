@@ -11,7 +11,7 @@
 5. Once the file transfer is complete, the Pico will eject itself. Disconnect the USB cable from your Pico.
 
 > [!NOTE]
-> If you are installing the MicroPython version, copy the `apps` folder from `builds/MicroPython` to the `picoware` folder on your SD card. Create a `picoware` folder if it doesn't exist.
+> If you are installing the MicroPython version, copy the `apps` folder from `builds/MicroPython` to the `picoware` folder on your SD card. Create a `picoware` folder if it doesn't exist. Then do the same for the `scripts` folder from `builds/MicroPython` into that same `picoware` folder.
 
 > [!NOTE]
 > If you are installing the CircuitPython version, after installing Picoware, replace the `code.py` file on your Pico with the one from `src/CircuitPython`. Then, copy the `apps` folder from `builds/CircuitPython` to the `picoware` folder on your SD card. Create a `picoware` folder if it doesn't exist.
@@ -47,7 +47,7 @@ The recommended way is to use M5Burner to install an app called `M5Launcher` tha
 10. Wait until the installation process is complete and your Cardputer will reboot into Picoware!
 
 > [!NOTE]
-> If the recommended installation method doesn't work for you, follow the instructions below, otherwise proceed with copying the `apps` folder from `builds/MicroPython` to the `picoware` folder on your SD card.
+> If the recommended installation method doesn't work for you, follow the instructions below, otherwise proceed with copying the `apps` folder from `builds/MicroPython` to the `picoware` folder on your SD card. Then do the same for the `scripts` folder from `builds/MicroPython` into that same `picoware` folder.
 
 The second option is to use the M5Burner tool provided by M5Stack to install Picoware directly to your Cardputer:
 1. Download, install, and open the M5Burner tool from the official M5Stack website: https://docs.m5stack.com/en/download

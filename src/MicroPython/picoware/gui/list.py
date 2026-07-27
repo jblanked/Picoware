@@ -210,22 +210,32 @@ class List:
         if 0 <= self._selected_index < _len:
             current_item = self.items[self._selected_index]
 
+            # text dimensions for centering
+            font_size = 2 if self._draw_count else 1
+            item_width = self.display.len(current_item, font_size)
+            item_x = (self.size_x - item_width) // 2
+            text_y = self.menu_y - self._five.y * 4
+
             # Draw selection box
+            padding_x = self._five.x * 2
+            padding_y = self._three
+            box_width = item_width + 2 * padding_x
+            box_x = (self.size_x - box_width) // 2
+            text_font_height = self.display.font_size.y * font_size
+            box_height = text_font_height + 2 * padding_y
+            box_y = text_y - padding_y
             self.display._fill_rectangle(
-                self.box_x,
-                self.menu_y - self._five.y * 6,
-                self.box_width,
-                self.box_height,
+                box_x,
+                box_y,
+                box_width,
+                box_height,
                 self.selected_color,
             )
 
             # Draw text centered
-            font_size = 2 if self._draw_count else 1
-            item_width = self.display.len(current_item, font_size)
-            item_x = (self.size_x - item_width) // 2
             self.display._text(
                 item_x,
-                self.menu_y - self._five.y * 4,
+                text_y,
                 current_item,
                 self.text_color,
                 font_size,

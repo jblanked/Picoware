@@ -690,6 +690,8 @@ class Level(_Native):
         self.entities = []
         self.clear_allowed = True
         self.is_active = True
+        self.light_direction = self._vector(0.577, 0.577, 0.577)
+        self.shadow_color = 0
 
     @property
     def entity_count(self):
@@ -779,6 +781,162 @@ class Level(_Native):
         Engine(game, 0).draw()
         return True
 
+    def set_light_direction(self, x, y, z):
+        x = float(x)
+        y = float(y)
+        z = float(z)
+        length = sqrt(x * x + y * y + z * z)
+        if length > 0.0001:
+            self.light_direction = self._vector(
+                x / length, y / length, z / length
+            )
+        return None
+
+    def set_shadow_color(self, color):
+        self.shadow_color = int(color) & 0xFFFF
+        return None
+
+    def render_3d_sprite(
+        self, path, view_height=0.0, clamp=False, wireframe=True
+    ):
+        game = getattr(self, "game", None)
+        draw = getattr(game, "draw", None) if game is not None else None
+        if draw is None:
+            raise ValueError("Draw context is null")
+
+        player = None
+        for entity in self.entities:
+            if getattr(entity, "is_player", False):
+                player = entity
+                break
+        if player is None:
+            return None
+
+        sprite = Sprite3D()
+        if not sprite.from_path(path, wireframe):
+            return None
+        self._draw_sprite_triangles(
+            draw,
+            sprite,
+            getattr(player, "position", None),
+            getattr(player, "direction", None),
+            float(view_height),
+            bool(clamp),
+        )
+        return None
+
+    def _draw_sprite_triangles(
+        self, draw, sprite, player_position, player_direction, view_height, clamp
+    ):
+        player_position = player_position or self._vector(0, 0, 0)
+        player_direction = player_direction or self._vector(1, 0, 0)
+        direction_x = float(getattr(player_direction, "x", 1) or 0)
+        direction_y = float(getattr(player_direction, "y", 0) or 0)
+        direction_length = sqrt(
+            direction_x * direction_x + direction_y * direction_y
+        )
+        if direction_length <= 0.0001:
+            direction_x, direction_y, direction_length = 1.0, 0.0, 1.0
+        direction_x /= direction_length
+        direction_y /= direction_length
+
+        width = int(
+            getattr(draw, "width", getattr(getattr(draw, "size", None), "x", 320))
+        )
+        height = int(
+            getattr(
+                draw, "height", getattr(getattr(draw, "size", None), "y", 320)
+            )
+        )
+        half_width = width * 0.5
+        half_height = height * 0.5
+        camera_a = -direction_y
+        camera_b = direction_x
+        camera_c = direction_x
+        camera_d = direction_y
+
+        for triangle in sprite.triangles:
+            points = sprite.transformed_points(triangle)
+            projected = []
+            for x, y, z in points:
+                world_x = x - float(getattr(player_position, "x", 0) or 0)
+                world_y = y - view_height
+                world_z = z - float(getattr(player_position, "y", 0) or 0)
+                camera_z = world_x * camera_c + world_z * camera_d
+                if camera_z <= 0.1:
+                    projected = []
+                    break
+                inverse_z = 1.0 / camera_z
+                screen_x = (
+                    (world_x * camera_a + world_z * camera_b)
+                    * inverse_z
+                    * height
+                    + half_width
+                )
+                screen_y = -world_y * inverse_z * height + half_height
+                projected.append((screen_x, screen_y))
+            if len(projected) != 3:
+                continue
+
+            if not clamp:
+                if (
+                    all(point[0] < 0 for point in projected)
+                    or all(point[0] > width for point in projected)
+                    or all(point[1] < 0 for point in projected)
+                    or all(point[1] > height for point in projected)
+                ):
+                    continue
+            else:
+                projected = [
+                    (
+                        max(0, min(width, point[0])),
+                        max(0, min(height, point[1])),
+                    )
+                    for point in projected
+                ]
+
+            coords = []
+            for point in projected:
+                coords.extend((int(point[0]), int(point[1])))
+            draw._fill_triangle(
+                coords[0],
+                coords[1],
+                coords[2],
+                coords[3],
+                coords[4],
+                coords[5],
+                int(getattr(triangle, "color", 0)) & 0xFFFF,
+            )
+            if getattr(triangle, "wireframe", True):
+                draw._triangle(
+                    coords[0],
+                    coords[1],
+                    coords[2],
+                    coords[3],
+                    coords[4],
+                    coords[5],
+                    self._outline_color(int(getattr(triangle, "color", 0))),
+                )
+
+    def _outline_color(self, color):
+        red = (color >> 11) & 0x1F
+        green = (color >> 5) & 0x3F
+        blue = color & 0x1F
+        red += (0x1F - red) >> 1
+        green += (0x3F - green) >> 1
+        blue += (0x1F - blue) >> 1
+        return (red << 11) | (green << 5) | blue
+
+    def _vector(self, x, y, z):
+        class V:
+            pass
+
+        value = V()
+        value.x = x
+        value.y = y
+        value.z = z
+        return value
+
     def _call_callback(self, callback, *args):
         for count in range(len(args), -1, -1):
             try:
@@ -829,6 +987,10 @@ class Image(_Native):
 
 
 class Sprite3D(_Native):
+    MAX_TRIANGLES_PER_SPRITE = 2048
+    _TRIANGLE_FORMAT = "<9fB3xfBxHB3x"
+    _TRIANGLE_SIZE = 52
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if len(args) >= 6:
@@ -866,6 +1028,105 @@ class Sprite3D(_Native):
         fields["scale"] = value
         return None
 
+    def set_wireframe(self, wireframe):
+        state = bool(wireframe)
+        for triangle in self.triangles:
+            triangle.wireframe = state
+        return None
+
+    def from_path(self, path, wireframe=True):
+        import sd_mp
+        import ustruct
+
+        self.triangles = []
+        try:
+            data = sd_mp.read(path)
+        except Exception:
+            return False
+        count = min(
+            len(data) // self._TRIANGLE_SIZE, self.MAX_TRIANGLES_PER_SPRITE
+        )
+        for index in range(count):
+            values = ustruct.unpack_from(
+                self._TRIANGLE_FORMAT, data, index * self._TRIANGLE_SIZE
+            )
+            triangle = Triangle3D(
+                values[0],
+                values[1],
+                values[2],
+                values[3],
+                values[4],
+                values[5],
+                values[6],
+                values[7],
+                values[8],
+                values[12],
+                bool(values[9]),
+                values[10],
+            )
+            triangle.set = bool(values[11])
+            triangle.wireframe = bool(wireframe)
+            self.triangles.append(triangle)
+        return count > 0
+
+    def to_path(self, path):
+        import sd_mp
+        import ustruct
+
+        if not self.triangles:
+            return False
+        data = bytearray()
+        for triangle in self.triangles[: self.MAX_TRIANGLES_PER_SPRITE]:
+            data.extend(
+                ustruct.pack(
+                    self._TRIANGLE_FORMAT,
+                    float(triangle.x1),
+                    float(triangle.y1),
+                    float(triangle.z1),
+                    float(triangle.x2),
+                    float(triangle.y2),
+                    float(triangle.z2),
+                    float(triangle.x3),
+                    float(triangle.y3),
+                    float(triangle.z3),
+                    1 if getattr(triangle, "visible", True) else 0,
+                    float(getattr(triangle, "distance", 0)),
+                    1 if getattr(triangle, "set", True) else 0,
+                    int(getattr(triangle, "color", 0)) & 0xFFFF,
+                    1 if getattr(triangle, "wireframe", True) else 0,
+                )
+            )
+        try:
+            return bool(sd_mp.write(path, data, True))
+        except Exception:
+            return False
+
+    def transformed_points(self, triangle):
+        scale = float(self.scale_factor)
+        rotation = float(self.rotation_y)
+        cosine = cos(rotation) if cos is not None else 1.0
+        sine = sin(rotation) if sin is not None else 0.0
+        position = self.position
+        position_x = float(getattr(position, "x", 0) or 0)
+        position_y = float(getattr(position, "y", 0) or 0)
+        position_z = float(getattr(position, "z", 0) or 0)
+        output = []
+        for x, y, z in (
+            (triangle.x1, triangle.y1, triangle.z1),
+            (triangle.x2, triangle.y2, triangle.z2),
+            (triangle.x3, triangle.y3, triangle.z3),
+        ):
+            x = float(x) * scale
+            y = float(y) * scale
+            z = float(z) * scale
+            original_x = x
+            x = original_x * cosine - z * sine
+            z = original_x * sine + z * cosine
+            output.append(
+                (x + position_x, y + position_z, z + position_y)
+            )
+        return output
+
     def create_wall(self, x=0, y=0, z=0, length=1.0, height=1.0, depth=0.2, color=0x7BEF):
         self.wall_length = float(length)
         self.wall_height = float(height)
@@ -893,3 +1154,5 @@ class Triangle3D(_Native):
         self.color = color
         self.visible = visible
         self.distance = distance
+        self.set = True
+        self.wireframe = True

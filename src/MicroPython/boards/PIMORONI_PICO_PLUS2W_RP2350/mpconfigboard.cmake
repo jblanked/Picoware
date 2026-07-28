@@ -6,6 +6,9 @@ set(PICO_NUM_GPIOS 48)
 
 set(MICROPY_C_HEAP_SIZE 4096)
 
+# Set flash size for the linker script (16MB)
+set(PICO_FLASH_SIZE_BYTES 16777216)
+
 # Links micropy_lib_lwip and sets MICROPY_PY_LWIP = 1
 # Picked up and expanded upon in mpconfigboard.h
 set(MICROPY_PY_LWIP ON)

@@ -10,9 +10,15 @@ Source: https://github.com/jblanked/Picoware
 #include "lcd_config.h"
 
 #include LCD_INCLUDE
+
+#if defined(FLIPPER_ZERO) || defined(PANCAKE)
+#define USB_VIDEO_SUPPORTED 0
+#else
+#define USB_VIDEO_SUPPORTED 1
 #include "tusb.h"
 #include "shared/tinyusb/mp_usbd_cdc.h"
 #include "shared/tinyusb/mp_usbd.h"
+#endif
 
 #ifndef USB_VIDEO_ROWS_PER_CHUNK
 #define USB_VIDEO_ROWS_PER_CHUNK 16
@@ -27,12 +33,12 @@ void usb_video_set_swap_callback(bool (*cb)(void))
 
 static bool _send_frame(void)
 {
-#ifndef LCD_MP_READ_ROW
+#if !defined(LCD_MP_READ_ROW) || !defined(LCD_MP_WIDTH) || !defined(LCD_MP_HEIGHT)
     return false;
 #endif
-#if !defined(LCD_MP_WIDTH) || !defined(LCD_MP_HEIGHT)
+#if !USB_VIDEO_SUPPORTED
     return false;
-#endif
+#else
     if (!tud_cdc_connected())
     {
         return false;
@@ -69,6 +75,7 @@ static bool _send_frame(void)
         mp_usbd_task();
     }
     return true;
+#endif
 }
 
 void usb_video_stream_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)

@@ -2,66 +2,169 @@ from micropython import const
 
 OPENAI = const(0)
 DEEPSEEK = const(1)
+ANTHROPIC = const(2)
+GEMINI = const(3)
+LOCAL = const(4)
 
 class LLM:
-    """LLM provider config with endpoint URL, model name, and API key."""
-    __slots__ = ["provider_id", "id", "label", "model", "url", "api_key"]
+    """LLM config"""
+    __slots__ = ["_api_key", "_current_model", "_id", "_name", "_url", "_models", "_headers", "_thinking"]
+    def __init__(self, storage, llm_id: int, model: str = None, thinking: str = "none"):
+        self._api_key = ""
+        self._current_model = model
+        if thinking not in ("none", "low", "medium", "high", "max") or thinking is None:
+            self._thinking = "none"
+        else:
+            self._thinking = thinking
+        self._id = llm_id
+        self._name = ""
+        self._url = ""
+        self._models = []
+        self._headers = {}
+        self.__set(storage)
+    
+    @property
+    def api_key(self) -> str:
+        """Return the current API key."""
+        return self._api_key
+    
+    @property
+    def headers(self) -> dict:
+        """Return the headers for the LLM."""
+        return self._headers
+    
+    @property
+    def id(self) -> int:
+        """Return the ID of the LLM."""
+        return self._id
+    
+    @property
+    def model(self) -> str:
+        """Return the current model."""
+        return self._current_model
+    
+    @property
+    def models(self) -> list:
+        """Return the list of models for the LLM."""
+        return self._models
 
-    def __init__(self, storage, provider_id: int = DEEPSEEK):
-        self.provider_id = provider_id
+    @property
+    def payload(self) -> dict:
+        """Return a payload for the chat agent based on the provider."""
+        _payload = {
+            "model": self._current_model,
+            "stream": False,
+        }
+        _payload.update(self.thinking_payload)
 
-        self.api_key = ""
-        self.id = ""
-        self.label = ""
-        self.model = ""
-        self.url = ""
+        return _payload
 
+    @property
+    def thinking(self) -> str:
+        """Return the current thinking setting for the LLM."""
+        return self._thinking
+
+    @property
+    def thinking_payload(self) -> dict:
+        """Return the thinking-related payload for the LLM."""
+        _payload = {}
+        if self._thinking != "none":
+            if self._id == DEEPSEEK:
+                _payload["thinking"] = {"type": "enabled"}
+                _payload["reasoning_effort"] = self._thinking
+            elif self._id == LOCAL:
+                _payload["think"] = True
+            elif self._id in (OPENAI, GEMINI):
+                _payload["reasoning_effort"] = self._thinking
+            elif self._id == ANTHROPIC:
+                _payload["thinking"] = {
+                    "type": "enabled"
+                }
+            elif self._id == GEMINI:
+                _payload["generation_config"] = {
+                    "thinking_level": self._thinking
+                }
+        else:
+            if self._id == DEEPSEEK:
+                _payload["thinking"] = {"type": "disabled"}
+            elif self._id == LOCAL:
+                _payload["think"] = False
+            elif self._id in (OPENAI, GEMINI):
+                _payload["reasoning_effort"] = self._thinking
+            elif self._id == ANTHROPIC:
+                _payload["thinking"] = {
+                    "type": "disabled"
+                }
+        return _payload
+    
+    @property
+    def name(self) -> str:
+        """Return the name of the LLM."""
+        return self._name
+    
+    @property
+    def url(self) -> str:
+        """Return the URL of the LLM."""
+        return self._url
+
+    @staticmethod
+    def providers() -> list:
+        """Return a list of available LLM providers."""
+        return [OPENAI, DEEPSEEK, ANTHROPIC, GEMINI, LOCAL]
+
+    @staticmethod
+    def provider_name(provider_id: int) -> str:
+        """Return the name of the LLM provider given its ID."""
+        if provider_id == OPENAI:
+            return "OpenAI"
+        if provider_id == DEEPSEEK:
+            return "DeepSeek"
+        if provider_id == ANTHROPIC:
+            return "Anthropic"
+        if provider_id == GEMINI:
+            return "Gemini"
+        if provider_id == LOCAL:
+            return "Local"
+        return "Unknown"
+
+    def __set(self, storage):
+        """Set model name, url, and headers based on model_id."""
         from picoware.system.settings import Settings
 
         settings = Settings(storage)
+        self._headers = {"Content-Type": "application/json"}
 
-        o_len = len(settings.openai_api_key)
-        d_len = len(settings.deepseek_api_key)
-
-
-        if o_len < 3 and d_len < 3:
-            raise ValueError("No API key set in settings for OpenAI or DeepSeek.")
+        if self._id == OPENAI:
+            self._name = "OpenAI"
+            self._url = "https://api.openai.com/v1/chat/completions"
+            self._models = ["gpt-5.4-mini", "gpt-5.4-nano", "gpt-5.4", "gpt-5.5", "gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]
+            self._api_key = settings.openai_api_key
+        elif self._id == DEEPSEEK:
+            self._name = "DeepSeek"
+            self._url = "https://api.deepseek.com/chat/completions"
+            self._models = ["deepseek-v4-flash", "deepseek-v4-pro"]
+            self._api_key = settings.deepseek_api_key
+        elif self._id == ANTHROPIC:
+            self._name = "Anthropic"
+            self._url = "https://api.anthropic.com/v1/chat/completions"
+            self._models = ["claude-sonnet-5", "claude-sonnet-4-6", "claude-opus-4-8", "claude-opus-5", "claude-fable-5", "claude-haiku-4-5-20251001"]
+            self._api_key = settings.anthropic_api_key
+        elif self._id == GEMINI:
+            self._name = "Gemini"
+            self._url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+            self._models = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview"]
+            self._api_key = settings.gemini_api_key
+        elif self._id == LOCAL:
+            self._name = "Local"
+            self._url = settings.local_url
+            self._models = ["qwen3.5:4b", "qwen3.5:0.8b", "qwen3.5:2b", "llama3.2:3b", "llama3.2:1b"]
         
-        try_other = False
-
-        if self.provider_id == OPENAI:
-            if o_len < 3:
-                try_other = True
-            else:
-                self.id = "openai"
-                self.label = "OpenAI"
-                self.model = "gpt-5.4-mini"
-                self.url = "https://api.openai.com/v1/chat/completions"
-            self.api_key = settings.openai_api_key
-        elif self.provider_id == DEEPSEEK:
-            if d_len < 3:
-                try_other = True
-            else:
-                self.id = "deepseek"
-                self.label = "DeepSeek"
-                self.model = "deepseek-v4-flash"
-                self.url = "https://api.deepseek.com/chat/completions"
-                self.api_key = settings.deepseek_api_key
+        if self._id != LOCAL:
+            self._headers["Authorization"] = f"Bearer {self._api_key}"
         
-        if try_other:
-            if self.provider_id == OPENAI and d_len >= 3:
-                self.provider_id = DEEPSEEK
-                self.id = "deepseek"
-                self.label = "DeepSeek"
-                self.model = "deepseek-v4-flash"
-                self.url = "https://api.deepseek.com/chat/completions"
-                self.api_key = settings.deepseek_api_key
-            elif self.provider_id == DEEPSEEK and o_len >= 3:
-                self.provider_id = OPENAI
-                self.id = "openai"
-                self.label = "OpenAI"
-                self.model = "gpt-5.4-mini"
-                self.url = "https://api.openai.com/v1/chat/completions"
-                self.api_key = settings.openai_api_key
-            else:
-                raise ValueError("No valid API key found for the selected provider.")
+        if self._current_model is None:
+            self._current_model = self._models[0]
+        else:
+            if self._current_model not in self._models:
+                self._models.append(self._current_model)
+        

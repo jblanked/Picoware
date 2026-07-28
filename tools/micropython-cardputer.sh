@@ -349,4 +349,3 @@ fi
 if [ -f "$output_dir/Picoware-Cardputer-partition-table.bin" ]; then
     echo "  $output_dir/Picoware-Cardputer-partition-table.bin"
 fi
-

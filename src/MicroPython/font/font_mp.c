@@ -3,6 +3,9 @@
 const mp_obj_type_t font_mp_type;
 const mp_obj_type_t font_size_mp_type;
 
+static uint8_t s_scale_num = 1;
+static uint8_t s_scale_den = 1;
+
 const uint8_t *font_get_character(FontSize size, char c)
 {
   const uint8_t *font_data = font_get_data(size);
@@ -122,6 +125,34 @@ uint8_t font_get_width(FontSize size)
   }
 }
 
+void font_mp_set_scale(uint8_t num, uint8_t den)
+{
+  if (den == 0)
+    den = 1;
+  if (num == 0)
+    num = 1;
+  s_scale_num = num;
+  s_scale_den = den;
+}
+
+uint8_t font_get_scaled_width(FontSize size)
+{
+  uint16_t raw = font_get_width(size);
+  return (uint8_t)((raw * s_scale_num + s_scale_den - 1) / s_scale_den);
+}
+
+uint8_t font_get_scaled_height(FontSize size)
+{
+  uint16_t raw = font_get_height(size);
+  return (uint8_t)((raw * s_scale_num + s_scale_den - 1) / s_scale_den);
+}
+
+uint8_t font_get_scaled_spacing(FontSize size)
+{
+  uint16_t raw = font_get_spacing(size);
+  return (uint8_t)((raw * s_scale_num + s_scale_den - 1) / s_scale_den);
+}
+
 mp_obj_t font_mp_get_character(mp_obj_t self_in, mp_obj_t size, mp_obj_t char_obj)
 {
   font_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -162,8 +193,8 @@ mp_obj_t font_mp_get_height(mp_obj_t self_in, mp_obj_t size)
     return mp_const_none; // Font not initialized
   }
   FontSize font_size = mp_obj_get_int(size);
-  uint8_t height = font_get_height(font_size);
-  return mp_obj_new_int(height); // Return the height of the font in pixels
+  uint8_t height = font_get_scaled_height(font_size);
+  return mp_obj_new_int(height);
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(font_mp_get_height_obj, font_mp_get_height);
 
@@ -175,8 +206,8 @@ mp_obj_t font_mp_get_spacing(mp_obj_t self_in, mp_obj_t size)
     return mp_const_none; // Font not initialized
   }
   FontSize font_size = mp_obj_get_int(size);
-  uint8_t spacing = font_get_spacing(font_size);
-  return mp_obj_new_int(spacing); // Return the spacing of the font in pixels
+  uint8_t spacing = font_get_scaled_spacing(font_size);
+  return mp_obj_new_int(spacing);
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(font_mp_get_spacing_obj, font_mp_get_spacing);
 
@@ -188,8 +219,8 @@ mp_obj_t font_mp_get_width(mp_obj_t self_in, mp_obj_t size)
     return mp_const_none; // Font not initialized
   }
   FontSize font_size = mp_obj_get_int(size);
-  uint8_t width = font_get_width(font_size);
-  return mp_obj_new_int(width); // Return the width of the font in pixels
+  uint8_t width = font_get_scaled_width(font_size);
+  return mp_obj_new_int(width);
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(font_mp_get_width_obj, font_mp_get_width);
 
@@ -297,16 +328,16 @@ mp_obj_t font_size_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t 
   {
     FontSize size = mp_obj_get_int(args[0]);
     self->size = size;
-    self->width = font_get_width(size);
-    self->height = font_get_height(size);
-    self->spacing = font_get_spacing(size);
+    self->width = font_get_scaled_width(size);
+    self->height = font_get_scaled_height(size);
+    self->spacing = font_get_scaled_spacing(size);
   }
   else
   {
     self->size = FONT_DEFAULT;
-    self->width = font_get_width(FONT_DEFAULT);
-    self->height = font_get_height(FONT_DEFAULT);
-    self->spacing = font_get_spacing(FONT_DEFAULT);
+    self->width = font_get_scaled_width(FONT_DEFAULT);
+    self->height = font_get_scaled_height(FONT_DEFAULT);
+    self->spacing = font_get_scaled_spacing(FONT_DEFAULT);
   }
   return MP_OBJ_FROM_PTR(self);
 }
@@ -359,9 +390,9 @@ void font_size_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
     {
       FontSize new_size = mp_obj_get_int(destination[1]);
       self->size = new_size;
-      self->width = font_get_width(new_size);
-      self->height = font_get_height(new_size);
-      self->spacing = font_get_spacing(new_size);
+      self->width = font_get_scaled_width(new_size);
+      self->height = font_get_scaled_height(new_size);
+      self->spacing = font_get_scaled_spacing(new_size);
       destination[0] = MP_OBJ_NULL; // Indicate that the attribute was set successfully
     }
   }
@@ -372,9 +403,9 @@ mp_obj_t font_size_mp_set_size(mp_obj_t self_in, mp_obj_t size_obj)
   font_size_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
   FontSize new_size = mp_obj_get_int(size_obj);
   self->size = new_size;
-  self->width = font_get_width(new_size);
-  self->height = font_get_height(new_size);
-  self->spacing = font_get_spacing(new_size);
+  self->width = font_get_scaled_width(new_size);
+  self->height = font_get_scaled_height(new_size);
+  self->spacing = font_get_scaled_spacing(new_size);
   return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(font_size_mp_set_size_obj, font_size_mp_set_size);

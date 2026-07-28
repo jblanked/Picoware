@@ -13,7 +13,7 @@
 
 const mp_obj_type_t textbox_mp_type;
 
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
 #include "../sd/storage.h"
 #endif
 
@@ -663,7 +663,7 @@ static MP_DEFINE_CONST_FUN_OBJ_1(textbox_mp_delete_char_obj, textbox_mp_delete_c
 mp_obj_t textbox_mp_load_file(mp_obj_t self_in, mp_obj_t filename)
 {
     const char *fn = mp_obj_str_get_str(filename);
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(PANCAKE)
     textbox_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     size_t file_size = storage_file_size(fn);
     size_t new_capacity = file_size + 1;

@@ -164,12 +164,6 @@ class Keyboard:
     ROW_SIZES = [13, 13, 13, 13, 2]
     NUM_ROWS = 5
 
-    # Key dimensions
-    KEY_WIDTH = 22
-    KEY_HEIGHT = 35
-    KEY_SPACING = 1
-    TEXTBOX_HEIGHT = 45
-
     def __init__(
         self,
         draw,
@@ -220,6 +214,12 @@ class Keyboard:
         self.text_cursor_position = 0
         self.selected_suggestion_index = -1  # -1 means no suggestion selected
 
+        self.KEY_WIDTH, self.KEY_HEIGHT = draw.scale(22, 35)
+        self.KEY_MARGIN, self.TEXTBOX_HEIGHT = draw.scale(4, 45) 
+        self.KEY_SPACING = 1
+
+        self._touch_enabled = input_manager.has_touch_support
+
         self.max_chars_per_line = (self.draw.size.x - 10) // self.draw.font_size.x
         self.max_lines = (self.TEXTBOX_HEIGHT - 10) // self.draw.font_size.y
 
@@ -232,17 +232,12 @@ class Keyboard:
         self.text_box_pos_vec = Vector(0, self.TEXTBOX_HEIGHT)
         self.text_box_pos_size = Vector(self.draw.size.x, self.keyboard_height + 10)
 
-        self.textbox_pos = Vector(0, 0)
-        self.textbox_size = Vector(self.draw.size.x, self.TEXTBOX_HEIGHT)
-
         self.text_border_pos = Vector(2, 2)
         self.text_border_size = Vector(self.draw.size.x - 4, self.TEXTBOX_HEIGHT - 4)
 
         self.title_vec = Vector(
             self.draw.size.x // 2 - len(self.current_title) * 3, self.TEXTBOX_HEIGHT + 5
         )
-        self.highlight_pos = Vector(0, 0)
-        self.highlight_size = Vector(0, 0)
 
         self.manual_keys = {
             BUTTON_PERIOD: ".",
@@ -337,13 +332,9 @@ class Keyboard:
         self.cursor = None
         self.text_box_pos_vec = None
         self.text_box_pos_size = None
-        self.textbox_pos = None
-        self.textbox_size = None
         self.text_border_pos = None
         self.text_border_size = None
         self.title_vec = None
-        self.highlight_pos = None
-        self.highlight_size = None
         self.manual_keys = {}
         self.key_mappings = {}
         self.d_pad = {}
@@ -447,7 +438,12 @@ class Keyboard:
             return False
 
         self.dpad_input = self.input_manager.button
-        if self.dpad_input != -1 or force:
+        has_touch_point = (
+            self._touch_enabled
+            and self.input_manager.point
+            and self.input_manager.point != (0, 0)
+        )
+        if self.dpad_input != -1 or force or has_touch_point:
             if self.dpad_input == BUTTON_BACK:
                 # Exit keyboard without saving
                 self.just_stopped = True
@@ -469,8 +465,8 @@ class Keyboard:
             if self._show_keyboard:
                 self._draw_keyboard()
 
-            self.draw.text(
-                self.title_vec,
+            self.draw._text(
+                self.title_vec.x, self.title_vec.y,
                 self.current_title,
                 self.text_color,
             )
@@ -531,6 +527,62 @@ class Keyboard:
             "Picoware",
         ]
 
+    def _key_row_geometry(self, row: int) -> tuple:
+        """Return (start_x, y) for a key row, as _draw_key places it."""
+        total_row_width = 0
+        for i in range(self.ROW_SIZES[row]):
+            total_row_width += self.ROWS[row][i].width * self.KEY_WIDTH + (
+                self.KEY_SPACING if i > 0 else 0
+            )
+        start_x = (self.draw.size.x - total_row_width) // 2
+        y = self.TEXTBOX_HEIGHT + self.draw.scale_y(13.33) + row * (
+            self.KEY_HEIGHT + self.KEY_SPACING
+        )
+        return start_x, y
+
+    def _key_at_point(self, x: int, y: int):
+        """Return the (row, col) under a touch point, or None."""
+        for row in range(self.NUM_ROWS):
+            start_x, row_y = self._key_row_geometry(row)
+            if not row_y <= y < row_y + self.KEY_HEIGHT:
+                continue
+
+            x_pos = start_x
+            starts = []
+            for col in range(self.ROW_SIZES[row]):
+                starts.append(x_pos)
+                x_pos += self.ROWS[row][col].width * self.KEY_WIDTH + self.KEY_SPACING
+
+            # reversed: a multi-unit key is drawn over the key after it
+            for col in range(self.ROW_SIZES[row] - 1, -1, -1):
+                key = self.ROWS[row][col]
+                width = key.width * self.KEY_WIDTH + (key.width - 1) * self.KEY_SPACING
+                if starts[col] <= x < starts[col] + width:
+                    return row, col
+        return None
+
+    def _handle_touch_input(self) -> bool:
+        """Press the key under the touch point. True if the touch was used."""
+        point = self.input_manager.point
+        if not point or point == (0, 0):
+            return False
+
+        hit = self._key_at_point(point[0], point[1])
+        if hit is None:
+            return False
+
+        self.cursor_row, self.cursor_col = hit
+        self.is_in_textbox = False
+        self.selected_suggestion_index = -1
+        # a tap is a centre press: the zone it lands in would otherwise report
+        # UP/DOWN/LEFT/RIGHT, which suppresses the shift reset
+        self.dpad_input = BUTTON_CENTER
+        self._process_key_press()
+
+        if self.ROWS[self.cursor_row][self.cursor_col].normal == "":
+            self.is_manual_shift = True
+        return True
+
     def _draw_key(self, row: int, col: int, is_selected: bool) -> None:
         """Draws a specific key on the keyboard"""
         if row >= self.NUM_ROWS or col >= self.ROW_SIZES[row]:
@@ -552,7 +604,9 @@ class Keyboard:
         x_pos = start_x
         for i in range(col):
             x_pos += self.ROWS[row][i].width * self.KEY_WIDTH + self.KEY_SPACING
-        y_pos = self.TEXTBOX_HEIGHT + 20 + row * (self.KEY_HEIGHT + self.KEY_SPACING)
+        y_pos = self.TEXTBOX_HEIGHT + self.draw.scale_y(13.33) + row * (
+            self.KEY_HEIGHT + self.KEY_SPACING
+        )
 
         # Calculate key size
         width = key.width * self.KEY_WIDTH + (key.width - 1) * self.KEY_SPACING
@@ -665,8 +719,10 @@ class Keyboard:
         # Show only the last few lines that fit
         start_line = max(0, len(lines) - self.max_lines)
 
+        _start_y = self.draw.scale_y(8)
+        _distance = self.draw.font_size.y + 1
         for i in range(start_line, len(lines)):
-            self.text_vec.y = 8 + (i - start_line) * 10
+            self.text_vec.y = _start_y + (i - start_line) * _distance
             self.draw._text(self.text_vec.x, self.text_vec.y, lines[i], self.text_color)
 
         # Draw cursor at the current position
@@ -684,8 +740,8 @@ class Keyboard:
         # Only draw cursor if the line is visible
         if cursor_line >= start_line:
             display_line = cursor_line - start_line
-            self.cursor.x = 5 + cursor_col * 6
-            self.cursor.y = 8 + display_line * 10
+            self.cursor.x = self.draw.scale_x(5) + cursor_col * self.draw.font_size.x
+            self.cursor.y = _start_y + display_line * _distance
             self.draw._text(self.cursor.x, self.cursor.y, "_", self.text_color)
 
     def _draw_suggestions(self):
@@ -696,15 +752,15 @@ class Keyboard:
         if self._show_keyboard:
             # Show only one suggestion below the keyboard area
             suggestion = suggestions[0]
-            y_pos = self.TEXTBOX_HEIGHT + 20 + self.keyboard_height + 5
+            y_pos = self.TEXTBOX_HEIGHT + self.draw.scale_y(20) + self.keyboard_height + self.draw.scale_y(5)
             text = f"Suggestion: {suggestion}"
-            x_pos = (self.draw.size.x - len(text) * self.draw.font_size.x) // 2
+            x_pos = (self.draw.size.x - self.draw.len(text)) // 2
             self.draw._text(x_pos, y_pos, text, self.text_color)
         else:
             # Show all suggestions in 2-column list below the title
-            y_start = self.TEXTBOX_HEIGHT + 20
-            x_col1 = 5
-            x_col2 = self.draw.size.x // 2 + 5
+            y_start = self.TEXTBOX_HEIGHT + self.draw.scale_y(20)
+            x_col1 = self.draw.scale_x(5)
+            x_col2 = self.draw.size.x // 2 + self.draw.scale_x(5)
             line_height = self.draw.font_size.y * 2
 
             for i, suggestion in enumerate(suggestions):
@@ -719,7 +775,7 @@ class Keyboard:
                     self.draw._fill_rectangle(
                         x_pos - 2,
                         y_pos - 2,
-                        len(suggestion) * 6 + 4,
+                        self.draw.len(suggestion) + self.draw.scale_x(4),
                         line_height - 2,
                         self.selected_color,
                     )
@@ -751,6 +807,9 @@ class Keyboard:
 
     def _handle_input(self) -> None:
         """Handles directional input and key selection"""
+        if self._touch_enabled and self._handle_touch_input():
+            return
+
         suggestions = self._auto_complete_suggestions()
 
         # Handle directional navigation and direct key access

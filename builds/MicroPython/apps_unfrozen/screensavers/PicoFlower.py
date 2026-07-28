@@ -141,7 +141,10 @@ def __ellipse(display, cx, cy, xr, yr, color, fill=False, m=None):
 def start(view_manager) -> bool:
     """Start the app"""
     global CX, CY, WIDTH, HEIGHT
-    global petal_length, petal_colors
+    global petal_length, petal_colors, is_flipper
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+
+    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
     draw = view_manager.draw
     CX = draw.size.x // 2
@@ -166,11 +169,17 @@ def start(view_manager) -> bool:
         TFT_RED,
         TFT_GREEN,
     ]
+    if is_flipper:
+        for i in range(len(petal_colors)):
+            if petal_colors[i] != TFT_BLACK:
+                petal_colors[i] = 0xFFFF
     return True
 
 
 def run(view_manager) -> None:
     """Run the app"""
+    global shift
+
     input_manager = view_manager.input_manager
     input_button = input_manager.button
 
@@ -179,19 +188,19 @@ def run(view_manager) -> None:
         view_manager.back()
         return
 
-    global shift
-
     draw = view_manager.draw
 
     draw.fill_screen(TFT_BLACK)
 
-    # Draw center (yellow)
-    __ellipse(draw, CX, CY, WIDTH, HEIGHT, TFT_YELLOW, True)
+    # Draw center (yellow, or white on Flipper)
+    center_color = 0xFFFF if is_flipper else TFT_YELLOW
+    __ellipse(draw, CX, CY, WIDTH, HEIGHT, center_color, True)
 
+    _hundred_x, _hundred_y = draw.scale(100, 100)
     for i in range(NUM_PETALS):
         angle = i * (2 * pi / NUM_PETALS)
-        px = int(CX + 100 * cos(angle))
-        py = int(CY + 100 * sin(angle))
+        px = int(CX + _hundred_x * cos(angle))
+        py = int(CY + _hundred_y * sin(angle))
         color = petal_colors[(i + shift) % len(petal_colors)]
 
         # Draw filled circle for the petal

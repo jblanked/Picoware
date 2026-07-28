@@ -74,16 +74,10 @@ def run(view_manager) -> None:
         ssid = keyboard.response
         from picoware.applications.wifi.utils import (
             save_wifi_ssid,
-            load_wifi_password,
-            save_wifi_settings,
         )
 
         if not save_wifi_ssid(view_manager.storage, ssid):
             view_manager.alert("Failed to save WiFi SSID")
-        if not save_wifi_settings(
-            view_manager.storage, ssid, load_wifi_password(view_manager)
-        ):
-            view_manager.alert("Failed to save WiFi settings")
         keyboard.reset()
         _ssid_is_running = False
         view_manager.back()

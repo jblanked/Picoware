@@ -21,6 +21,9 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_PICOCALC_PIMORONI_2W 7
 #define BOARD_CROWPANEL_10_1 8
 #define BOARD_CARDPUTER 9
+#define BOARD_WAVESHARE_2_06 10
+#define BOARD_PANCAKE 11
+#define BOARD_FLIPPER_ZERO 12
 
 #if defined(WAVESHARE_1_28)
 #define BOARD_ID BOARD_WAVESHARE_1_28_RP2350
@@ -59,6 +62,30 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_TOUCH 0 // no touch
 #define BOARD_HAS_WIFI 1  // has wifi
 #define BOARD_HAS_AUDIO 0 // no audio module in esp32 build yet
+#elif defined(WAVESHARE_2_06)
+// Waveshare ESP32-S3-Touch-AMOLED-2.06
+#define BOARD_ID BOARD_WAVESHARE_2_06
+#define BOARD_HAS_PSRAM 0 // has psram
+#define BOARD_HAS_SD 1    // has sd card
+#define BOARD_HAS_TOUCH 1 // has touch
+#define BOARD_HAS_WIFI 1  // has wifi
+#define BOARD_HAS_AUDIO 0 // no audio module in esp32 build yet
+#elif defined(PANCAKE)
+// Marauder Pancake ESP32-C5
+#define BOARD_ID BOARD_PANCAKE
+#define BOARD_HAS_PSRAM 0 // no psram
+#define BOARD_HAS_SD 1    // has sd card
+#define BOARD_HAS_TOUCH 1 // has touch
+#define BOARD_HAS_WIFI 1  // has wifi
+#define BOARD_HAS_AUDIO 0 // no audio module in esp32 build yet
+#elif defined(FLIPPER_ZERO)
+// Flipper Zero (STM32WB55RG)
+#define BOARD_ID BOARD_FLIPPER_ZERO
+#define BOARD_HAS_PSRAM 0
+#define BOARD_HAS_SD 1
+#define BOARD_HAS_TOUCH 0
+#define BOARD_HAS_WIFI 0
+#define BOARD_HAS_AUDIO 0
 #elif defined(CROWPANEL_10_1)
 // CrowPanel 10.1 ESP32-P4
 #define BOARD_ID BOARD_CROWPANEL_10_1
@@ -117,6 +144,24 @@ Source: https://github.com/jblanked/Picoware
 
 #ifndef BOARD_HAS_AUDIO
 #define BOARD_HAS_AUDIO 0
+#endif
+
+#ifdef PICO_RP2040
+#define BOARD_HAS_RP2040 1
+#else
+#define BOARD_HAS_RP2040 0
+#endif
+
+#ifdef PICO_RP2350
+#define BOARD_HAS_RP2350 1
+#else
+#define BOARD_HAS_RP2350 0
+#endif
+
+#if defined(CARDPUTER) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE)
+#define BOARD_HAS_ESP32 1
+#else
+#define BOARD_HAS_ESP32 0
 #endif
 
 mp_obj_t picoware_boards_get_current_display_size(void);

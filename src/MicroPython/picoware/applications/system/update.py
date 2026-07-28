@@ -60,6 +60,7 @@ def __check_for_update_callback_download(response, state, error):
 def __check_for_update_start(http_context, view_manager) -> bool:
     """Start the check for update request"""
     from picoware.system.system import System
+    from picoware_boards import BOARD_HAS_ESP32
 
     system = System()
 
@@ -81,7 +82,7 @@ def __check_for_update_start(http_context, view_manager) -> bool:
     return http_context.get_async(
         url,
         headers={
-            "User-Agent": "Raspberry Pi Pico W",
+            "User-Agent": "Raspberry Pi Pico W" if BOARD_HAS_ESP32 == 0 else "ESP32HTTPClient",
             "Content-Type": "application/json",
         },
     )
@@ -113,6 +114,7 @@ def __check_for_update_is_available(http_context) -> bool:
 
 def __check_for_update_download_start(http_context, storage) -> bool:
     """Start the download of the update"""
+    from picoware_boards import BOARD_HAS_ESP32
     global _view_manager, _update_info, _download_file_path
     if http_context is None:
         _view_manager.log("Error downloading update: http context is None")
@@ -121,16 +123,19 @@ def __check_for_update_download_start(http_context, storage) -> bool:
         download_url = _update_info["download_url"]
         filename = download_url.split("/")[-1]
 
-        # save to uf2loader folder
-        # this allow users to download Picoware
-        # then use uf2loader to flash it easily
         file_path = ""
-        if "Pico2" in download_url:
-            storage.mkdir("pico2-apps")
-            file_path = f"pico2-apps/{filename}"
+        if BOARD_HAS_ESP32 == 0:
+            # save to uf2loader folder
+            # this allow users to download Picoware
+            # then use uf2loader to flash it easily
+            if "Pico2" in download_url:
+                storage.mkdir("pico2-apps")
+                file_path = f"pico2-apps/{filename}"
+            else:
+                storage.mkdir("pico1-apps")
+                file_path = f"pico1-apps/{filename}"
         else:
-            storage.mkdir("pico1-apps")
-            file_path = f"pico1-apps/{filename}"
+            file_path = filename # save on root
 
         _download_file_path = file_path
 
@@ -143,7 +148,7 @@ def __check_for_update_download_start(http_context, storage) -> bool:
         return http_context.get_async(
             download_url,
             headers={
-                "User-Agent": "Raspberry Pi Pico W",
+                "User-Agent": "Raspberry Pi Pico W" if BOARD_HAS_ESP32 == 0 else "ESP32HTTPClient",
                 "Content-Type": "application/octet-stream",
             },
             storage=storage,
@@ -167,83 +172,79 @@ def __loading_start(view_manager, text: str = "Checking...") -> None:
 
 def __draw_update_available(view_manager) -> None:
     """Draw the update available screen"""
-    from picoware.system.vector import Vector
-
+    if not _update_info:
+        return
+    
     draw = view_manager.draw
     fg = view_manager.foreground_color
 
-    draw.fill_screen(view_manager.background_color)
+    draw.erase()
 
-    if not _update_info:
-        return
-
-    text_vec = Vector(10, 10)
+    text_vec_x, text_vec_y = draw.scale(10, 10)
 
     # Title
-    draw.text(text_vec, "Firmware Update Available!", fg)
+    draw._text(text_vec_x, text_vec_y, "Firmware Update Available!", fg)
 
-    text_vec.y = 40
+    text_vec_y = draw.scale_y(40)
 
     # Current version
     current = _update_info.get("current_version", _current_version)
-    draw.text(text_vec, f"Current Version: {current}", fg)
-    text_vec.y += 20
+    draw._text(text_vec_x, text_vec_y, f"Current Version: {current}", fg)
+    text_vec_y += draw.scale_y(20)
 
     # Latest version
     latest = _update_info.get("latest_version", "Unknown")
-    draw.text(text_vec, f"Latest Version:  {latest}", fg)
-    text_vec.y += 30
+    draw._text(text_vec_x, text_vec_y, f"Latest Version:  {latest}", fg)
+    text_vec_y += draw.scale_y(30)
 
     # Last updated
     last_updated = _update_info.get("last_updated", "")
     if last_updated:
         # Format: 2024-06-01T12:00:00Z -> 2024-06-01
         date_only = last_updated.split("T")[0] if "T" in last_updated else last_updated
-        draw.text(text_vec, f"Released: {date_only}", fg)
-        text_vec.y += 30
+        draw._text(text_vec_x, text_vec_y, f"Released: {date_only}", fg)
+        text_vec_y += draw.scale_y(30)
 
     # Download info
-    text_vec.y += 10
-    draw.text(text_vec, "The firmware will be saved to", fg)
-    text_vec.y += 15
-    draw.text(text_vec, f"your SD card at {_download_file_path}", fg)
+    text_vec_y += draw.scale_y(10)
+    draw._text(text_vec_x, text_vec_y, "The firmware will be saved to", fg)
+    text_vec_y += draw.scale_y(15)
+    draw._text(text_vec_x, text_vec_y, f"your SD card at {_download_file_path}", fg)
 
     # Instructions at bottom
-    text_vec.y = 270
-    draw.text(text_vec, "CENTER = Download and install update", fg)
-    text_vec.y += 15
-    draw.text(text_vec, "BACK = Cancel", fg)
+    text_vec_y = draw.scale_y(270)
+    draw._text(text_vec_x, text_vec_y, "CENTER = Download and install update", fg)
+    text_vec_y += draw.scale_y(15)
+    draw._text(text_vec_x, text_vec_y, "BACK = Cancel", fg)
 
     draw.swap()
 
 
 def __draw_no_update(view_manager) -> None:
     """Draw the no update available screen"""
-    from picoware.system.vector import Vector
-
     draw = view_manager.draw
     fg = view_manager.foreground_color
 
     draw.fill_screen(view_manager.background_color)
 
-    text_vec = Vector(10, 10)
+    text_vec = draw.scale(10, 10)
 
     # Title
-    draw.text(text_vec, "Firmware Up to Date!", fg)
+    draw._text(text_vec[0], text_vec[1], "Firmware Up to Date!", fg)
 
-    text_vec.y = 50
+    text_vec[1] = draw.scale_y(50)
 
     # Current version
-    draw.text(text_vec, f"Current Version: {_current_version}", fg)
-    text_vec.y += 30
+    draw._text(text_vec[0], text_vec[1], f"Current Version: {_current_version}", fg)
+    text_vec[1] += draw.scale_y(30)
 
-    draw.text(text_vec, "You are running the latest", fg)
-    text_vec.y += 15
-    draw.text(text_vec, "version of Picoware.", fg)
+    draw._text(text_vec[0], text_vec[1], "You are running the latest", fg)
+    text_vec[1] += draw.scale_y(15)
+    draw._text(text_vec[0], text_vec[1], "version of Picoware.", fg)
 
     # Instructions at bottom
-    text_vec.y = 285
-    draw.text(text_vec, "BACK = Return", fg)
+    text_vec[1] = draw.scale_y(285)
+    draw._text(text_vec[0], text_vec[1], "BACK = Return", fg)
 
     draw.swap()
 
@@ -256,14 +257,16 @@ def __draw_download_complete(view_manager) -> None:
 
     draw.fill_screen(view_manager.background_color)
 
-    # Title
-    draw._text(10, 10, "Download Complete!", fg)
+    text_vec = draw.scale(10, 10)
 
-    draw._text(10, 50, "Firmware saved to SD card:", fg)
-    draw._text(10, 70, f"  {_download_file_path}", fg)
+    # Title
+    draw._text(text_vec[0], text_vec[1], "Download Complete!", fg)
+
+    draw._text(text_vec[0], text_vec[1] + draw.scale_y(40), "Firmware saved to SD card:", fg)
+    draw._text(text_vec[0], text_vec[1] + draw.scale_y(60), f"  {_download_file_path}", fg)
 
     # Instructions at bottom
-    draw._text(10, 285, "CENTER = Install, BACK = Return", fg)
+    draw._text(text_vec[0], draw.scale_y(285), "CENTER = Install, BACK = Return", fg)
 
     draw.swap()
 
@@ -291,9 +294,6 @@ def __draw_error(view_manager, message: str) -> None:
 
 def start(view_manager) -> bool:
     """Start the app"""
-    from picoware.system.http import HTTP
-    from picoware.system.system import System
-
     global _http, _app_state, _current_version, _board_id
 
     # Check for SD card (needed to save firmware)
@@ -315,6 +315,9 @@ def start(view_manager) -> bool:
         view_manager.alert("WiFi not connected", False)
         connect_to_saved_wifi(view_manager)
         return False
+    
+    from picoware.system.http import HTTP
+    from picoware.system.system import System
 
     __reset()
 

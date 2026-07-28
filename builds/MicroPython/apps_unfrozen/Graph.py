@@ -39,12 +39,22 @@ def draw_axes(fb):
     # Draw axes
     # Y axis
     x0 = x_to_px(0)
-    _x, _y = fb.scale(x0, 1)
+    if x0 != 0:
+        _x = fb.scale_x(x0)
+        _y = 1
+    else:
+        _x = 0
+        _y = 1
     _w, _h = fb.scale(1, GRAPH_HEIGHT)
     fb._fill_rectangle(_x, _y, _w, _h, TFT_BLUE)
     # X axis
     y0 = y_to_py(0)
-    _x, _y = fb.scale(1, y0)
+    if y0 != 0:
+        _x = 1
+        _y = fb.scale_y(y0)
+    else:
+        _x = 1
+        _y = 0
     _w, _h = fb.scale(SCREEN_WIDTH, 1)
     fb._fill_rectangle(_x, _y, _w, _h, TFT_BLUE)
 
@@ -53,11 +63,11 @@ def draw_axes(fb):
 
 
 def draw_input_line(fb, expr, error=None, mode="normal", expr2=None):
-    from picoware.system.vector import Vector
     from picoware.system.colors import TFT_BLACK, TFT_WHITE, TFT_RED
 
     # Clear input area
-    _x, _y = fb.scale(0, GRAPH_HEIGHT)
+    _x = 0
+    _y = fb.scale_y(GRAPH_HEIGHT)
     _w, _h = fb.scale(SCREEN_WIDTH, INPUT_HEIGHT)
     fb._fill_rectangle(_x, _y, _w, _h, TFT_BLACK)
     if mode == "param":
@@ -192,7 +202,6 @@ def graph_parametric(fb, expr_x, expr_y):
     Graph parametric equations x(t), y(t)
     """
     import math
-    from picoware.system.vector import Vector
     from picoware.system.colors import TFT_BLACK, TFT_GREEN
 
     fb.fill_screen(TFT_BLACK)

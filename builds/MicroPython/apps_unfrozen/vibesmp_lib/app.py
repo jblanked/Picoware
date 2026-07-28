@@ -479,6 +479,17 @@ class VibesApp:
     def _idle_for(self, now, delay_ms):
         return time.ticks_diff(now, self._last_input_time) >= delay_ms
 
+    def _capture_player_state(self):
+        player = self.player
+        player_busy = bool(player and player.is_busy)
+        is_playing = bool(player and player.is_playing)
+        is_paused = bool(player and player.is_paused(is_playing))
+        is_sd_busy = bool(player and player.is_sd_busy)
+        self._loop_is_busy = player_busy
+        self._loop_is_playing = is_playing
+        self._loop_is_paused = is_paused
+        return player_busy, is_playing, is_paused, is_sd_busy
+
     def _deferred_saves(self, now, player_busy, is_playing):
         if player_busy or is_playing:
             return
@@ -818,12 +829,7 @@ class VibesApp:
         if not self.settings or not self.ui:
             return render_due
         now = time.ticks_ms()
-        _player_busy = bool(self.player and self.player.is_busy)
-        _is_playing = bool(self.player and self.player.is_playing)
-        _is_paused = bool(self.player and self.player.is_paused(_is_playing))
-        self._loop_is_busy = _player_busy
-        self._loop_is_playing = _is_playing
-        self._loop_is_paused = _is_paused
+        _player_busy, _is_playing, _is_paused, _sd_busy = self._capture_player_state()
         inp = view_manager.input_manager
         btn = inp.button if inp else -1
         v = self.ui.current_view
@@ -914,11 +920,30 @@ class VibesApp:
             self.needs_refresh = True
 
         if not self._nav_fast_frame:
+            # Input handling may have started playback after the state sample
+            # above.  Refresh before any background SD work.
+            _player_busy, _is_playing, _is_paused, _sd_busy = self._capture_player_state()
+
+            # Handle EOF before storage/metadata work.  A successful loop or
+            # auto-advance starts Core 1 again, so refresh the local snapshot
+            # immediately to keep later stopped-only work out of this frame.
+            if (
+                self.player
+                and not _sd_busy
+                and self.settings.config.get("auto_play_next", True)
+                and time.ticks_diff(now, self._last_player_end_tick) >= 500
+            ):
+                self._last_player_end_tick = now
+                if self.player.check_end(self.playlist, self.settings.config.get("shuffle", False)):
+                    self.needs_refresh = True
+                    _player_busy, _is_playing, _is_paused, _sd_busy = self._capture_player_state()
+
             # Storage Background Writer Tick — deferred during playback, SD bus belongs to Core 1
             if (
                 hasattr(self, "storage_manager")
                 and not _player_busy
                 and not _is_playing
+                and not _sd_busy
                 and time.ticks_diff(now, self._last_storage_tick) >= 250
             ):
                 self.storage_manager.tick()
@@ -939,7 +964,8 @@ class VibesApp:
                 if _player_busy:
                     self.needs_refresh = True
                 elif (
-                    time.ticks_diff(now, self._last_player_meta_tick) >= 500
+                    not _sd_busy
+                    and time.ticks_diff(now, self._last_player_meta_tick) >= 500
                     and self.player.load_pending_meta()
                 ):
                     self._last_player_meta_tick = now
@@ -947,20 +973,13 @@ class VibesApp:
                 elif time.ticks_diff(now, self._last_player_meta_tick) >= 500:
                     self._last_player_meta_tick = now
 
-                if (
-                    self.settings.config.get("auto_play_next", True)
-                    and time.ticks_diff(now, self._last_player_end_tick) >= 500
-                ):
-                    self._last_player_end_tick = now
-                    if self.player.check_end(self.playlist, self.settings.config.get("shuffle", False)):
-                        self.needs_refresh = True
-
             # Background metadata pre-fetcher
             if (
                 self.library
                 and self.playlist
                 and not _player_busy
                 and not _is_playing
+                and not _sd_busy
                 and time.ticks_diff(now, self._last_meta_prefetch_tick) >= 750
             ):
                 if not self._prefetch_library_visible_metadata() and self.playlist.tracks:
@@ -981,6 +1000,7 @@ class VibesApp:
                 and self.ui.current_view == VIEW_MENU
                 and not _player_busy
                 and not _is_playing
+                and not _sd_busy
                 and self._idle_for(now, 500)
                 and self._np_library_tree_key != self._now_playing_tree_key()
             ):
@@ -990,6 +1010,7 @@ class VibesApp:
                 self.library
                 and not _player_busy
                 and not _is_playing
+                and not _sd_busy
                 and self._idle_for(now, 2000)
                 and time.ticks_diff(now, self._last_metadata_extract_tick) >= 2500
                 and hasattr(self.library, "metadata_queue_pending")
@@ -1865,6 +1886,22 @@ class VibesApp:
             mkdir_p(self.view_manager.storage, vpath)
             items = self.view_manager.storage.read_directory(vpath)
             self.playlists = [i["filename"] for i in items if not i["is_directory"] and i["filename"].endswith(".json")]
+
+            # A newly created playlist may still be queued in StorageManager
+            # when this immediate refresh runs. Include pending playlist writes
+            # so the UI updates now instead of only after an app restart.
+            pending = getattr(self.storage_manager, "pending_writes", {})
+            prefix = self.playlist.base_dir
+            for path in pending:
+                if not path.startswith(prefix):
+                    continue
+                filename = path[len(prefix):]
+                if (
+                    "/" not in filename
+                    and filename.endswith(".json")
+                    and filename not in self.playlists
+                ):
+                    self.playlists.append(filename)
         except OSError as e:
             import sys
             print(f"[ERROR] refresh_playlists: {e}")

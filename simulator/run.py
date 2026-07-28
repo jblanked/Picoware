@@ -1,5 +1,6 @@
 """MicroPython-only Picoware simulator entrypoint."""
 
+import builtins
 import gc
 import os
 import sys
@@ -26,11 +27,39 @@ ROOT = _dirname(THIS_DIR)
 HARDWARE_DIR = THIS_DIR + "/hardware"
 MICROPYTHON_DIR = ROOT + "/src/MicroPython"
 
+_BOARD_DISPLAY_SIZES = {
+    "picocalc-pico": (320, 320),
+    "picocalc-picow": (320, 320),
+    "picocalc-pico2": (320, 320),
+    "picocalc-pico2w": (320, 320),
+    "picocalc-pimoroni-2w": (320, 320),
+    "pimoroni-2w": (320, 320),
+    "waveshare-1.28-rp2350": (240, 240),
+    "waveshare-1.43-rp2350": (466, 466),
+    "waveshare-3.49-rp2350": (172, 640),
+    "crowpanel-10.1": (1024, 600),
+    "crowpanel": (1024, 600),
+    "cardputer": (240, 135),
+    "waveshare-2.06": (410, 502),
+    "waveshare-2.06-esp32s3": (410, 502),
+    "pancake": (320, 480),
+    "flipper-zero": (128, 64),
+    "flipper": (128, 64),
+}
+
 
 def _insert_path(path):
     """Insert a directory into sys.path if not present."""
     if path not in sys.path:
         sys.path.insert(0, path)
+
+
+def _simulator_display_size(board_name):
+    """Return a framebuffer size that fits the default Unix MicroPython heap."""
+    width, height = _BOARD_DISPLAY_SIZES.get(board_name, (320, 320))
+    if width * height > 320 * 480:
+        return 320, 320
+    return width, height
 
 
 def _parse_args(argv):
@@ -230,17 +259,44 @@ def _safe_reset_sd(path):
 
 def _run_main():
     """Execute the Picoware main.py entry point."""
-    namespace = {"__name__": "__sim_picoware_main__", "__file__": MICROPYTHON_DIR + "/main.py"}
+    fatal_errors = []
+
+    def main_print(*args, **kwargs):
+        separator = kwargs.get("sep", " ")
+        message = separator.join(str(arg) for arg in args)
+        if message.startswith("Error occurred:"):
+            fatal_errors.append(message)
+        builtins.print(*args, **kwargs)
+
+    namespace = {
+        "__name__": "__sim_picoware_main__",
+        "__file__": MICROPYTHON_DIR + "/main.py",
+        "print": main_print,
+    }
     with open(MICROPYTHON_DIR + "/main.py", "r") as handle:
         code = handle.read()
     exec(code, namespace)
-    namespace["main"]()
+    try:
+        result = namespace["main"]()
+    except BaseException:
+        if fatal_errors:
+            raise RuntimeError(
+                "Picoware main reported a fatal error: " + fatal_errors[-1]
+            )
+        raise
+    if result is False:
+        raise RuntimeError("Picoware main reported a fatal error")
+    if fatal_errors:
+        raise RuntimeError(
+            "Picoware main reported a fatal error: " + fatal_errors[-1]
+        )
 
 
 def _install_view_tracking():
     """Report ViewManager transitions to the simulator harness."""
     try:
         import sim_runtime
+        from picoware.system.input import Input
         from picoware.system.view_manager import ViewManager
     except Exception:
         return
@@ -296,10 +352,41 @@ def _install_view_tracking():
         note(self)
         return result
 
+    def tracked_input_button(self):
+        from picoware.system.boards import (
+            BOARD_CARDPUTER,
+            BOARD_CROWPANEL_10_1,
+            BOARD_FLIPPER_ZERO,
+            BOARD_PANCAKE,
+            BOARD_WAVESHARE_2_06,
+        )
+
+        sim_runtime.input_polled()
+        if self._current_board_id in (
+            BOARD_CROWPANEL_10_1,
+            BOARD_WAVESHARE_2_06,
+            BOARD_PANCAKE,
+        ):
+            self._poll_touch()
+        elif self._current_board_id == BOARD_CARDPUTER:
+            from cardputer_keyboard import key_available, poll
+
+            poll()
+            if key_available():
+                self.on_key_callback()
+        elif self._current_board_id == BOARD_FLIPPER_ZERO:
+            from flipper_input import key_available, poll
+
+            poll()
+            if key_available():
+                self.on_key_callback()
+        return self._last_button
+
     ViewManager.set = tracked_set
     ViewManager.switch_to = tracked_switch_to
     ViewManager.back = tracked_back
     ViewManager.remove = tracked_remove
+    Input.button = property(tracked_input_button)
     ViewManager._sim_view_tracking_installed = True
 
 
@@ -421,6 +508,8 @@ def _run_coverage(opts):
             + _quote(opts["apps_source"])
             + (" --app " if kind == "app" else " --game ")
             + _quote(name)
+            + " --wait-view "
+            + _quote(("app_" if kind == "app" else "game_") + name)
             + " >"
             + _quote(log_path)
             + " 2>&1"
@@ -433,6 +522,8 @@ def _run_coverage(opts):
             rows.append((kind, name, "fail", "child run exited " + str(status), log_path))
             print("[coverage:fail]", kind, name, status)
     _write_coverage_report(report_dir + "/coverage-" + mode + ".json", mode, rows)
+    if any(row[2] == "fail" for row in rows):
+        raise SystemExit(1)
 
 
 def _build_native(target, check=False):
@@ -452,13 +543,49 @@ def _run_sim_check(opts):
         + " --check",
         "micropython "
         + _quote(THIS_DIR + "/run.py")
-        + " --headless --frames 30 --audio silent --network offline --sd "
+        + " --headless --frames 30 --wait-view desktop_view --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
         "micropython "
         + _quote(THIS_DIR + "/run.py")
-        + " --headless --app Calculator --frames 120 --audio silent --network offline --sd "
+        + " --headless --app Calculator --wait-view app_Calculator --frames 160 --audio silent --network offline --sd "
+        + _quote(opts["sd"])
+        + " --apps-source "
+        + _quote(opts["apps_source"]),
+        "micropython "
+        + _quote(THIS_DIR + "/run.py")
+        + " --headless --open Agent --wait-view agent --frames 220 --audio silent --network offline --sd "
+        + _quote(opts["sd"])
+        + " --apps-source "
+        + _quote(opts["apps_source"]),
+        "micropython "
+        + _quote(THIS_DIR + "/run.py")
+        + " --headless --open System --wait-view system --frames 220 --audio silent --network offline --sd "
+        + _quote(opts["sd"])
+        + " --apps-source "
+        + _quote(opts["apps_source"]),
+        "micropython "
+        + _quote(THIS_DIR + "/run.py")
+        + " --headless --board pancake --app keyboard-simple --frames 40 --wait-view app_keyboard-simple --audio silent --network offline --sd "
+        + _quote(opts["sd"])
+        + " --apps-source "
+        + _quote(opts["apps_source"]),
+        "micropython "
+        + _quote(THIS_DIR + "/run.py")
+        + " --headless --board waveshare-2.06 --frames 30 --wait-view desktop_view --audio silent --network offline --sd "
+        + _quote(opts["sd"])
+        + " --apps-source "
+        + _quote(opts["apps_source"]),
+        "micropython "
+        + _quote(THIS_DIR + "/run.py")
+        + " --headless --board crowpanel --frames 30 --wait-view desktop_view --audio silent --network offline --sd "
+        + _quote(opts["sd"])
+        + " --apps-source "
+        + _quote(opts["apps_source"]),
+        "micropython "
+        + _quote(THIS_DIR + "/run.py")
+        + " --headless --board flipper-zero --app Calculator --frames 40 --wait-view app_Calculator --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
@@ -467,8 +594,400 @@ def _run_sim_check(opts):
         status = os.system(cmd)
         if status != 0:
             print("[sim-check:fail]", cmd, status)
-            raise SystemExit
+            raise SystemExit(1)
+    _run_keyboard_background_check()
+    _run_engine_parity_check()
+    _run_font_parity_check()
+    _run_scripts_fixture_check(opts)
+    _run_touch_check()
+    _run_flipper_battery_check()
+    _run_log_storage_check(opts)
+    _run_circular_choice_check()
+    _run_fatal_exit_check(opts)
+    _run_mjs_check()
     print("[sim-check:pass]")
+
+
+def _run_keyboard_background_check():
+    """Exercise the PicoCalc background-poll callback contract."""
+    import picoware_keyboard
+    import sim_runtime
+
+    received = []
+
+    def on_key(_):
+        received.append(picoware_keyboard.get_key_nonblocking())
+
+    sim_runtime._keys = []
+    picoware_keyboard.init()
+    picoware_keyboard.set_key_available_callback(on_key)
+    picoware_keyboard.set_background_poll(True)
+    sim_runtime.push_key(ord("a"))
+    sim_runtime.push_key(ord("b"))
+    sim_runtime.input_polled()
+    if received != [ord("a")]:
+        raise RuntimeError("simulator background keyboard dispatched wrong first key")
+    sim_runtime.input_polled()
+    if received != [ord("a"), ord("b")]:
+        raise RuntimeError("simulator background keyboard did not dispatch queued keys")
+
+    picoware_keyboard.set_background_poll(False)
+    sim_runtime.push_key(ord("c"))
+    sim_runtime.input_polled()
+    if received != [ord("a"), ord("b")]:
+        raise RuntimeError("simulator background keyboard ignored disabled state")
+    if sim_runtime.pop_key() != ord("c"):
+        raise RuntimeError("simulator disabled background keyboard consumed a key")
+    picoware_keyboard.deinit()
+    print("[sim-check:ok] picocalc background keyboard callbacks")
+
+
+def _run_engine_parity_check():
+    """Exercise the latest Level and Sprite3D native API additions."""
+    import sd_mp
+    import sim_runtime
+    from engine import Level, Sprite3D, Triangle3D
+    from picoware.gui.draw import Draw
+    from picoware.system.vector import Vector
+
+    path = "sim_reports/engine-roundtrip.sprite3d"
+    sprite = Sprite3D()
+    triangle = Triangle3D(
+        2.0,
+        -0.5,
+        -0.5,
+        2.0,
+        0.5,
+        0.0,
+        2.0,
+        -0.5,
+        0.5,
+        0x07E0,
+        True,
+        0,
+    )
+    triangle.wireframe = False
+    sprite.triangles.append(triangle)
+    if not sprite.to_path(path):
+        raise RuntimeError("simulator Sprite3D.to_path failed")
+
+    loaded = Sprite3D()
+    if not loaded.from_path(path, False) or len(loaded.triangles) != 1:
+        raise RuntimeError("simulator Sprite3D.from_path failed")
+    loaded_triangle = loaded.triangles[0]
+    if loaded_triangle.color != 0x07E0 or loaded_triangle.wireframe:
+        raise RuntimeError("simulator Sprite3D round-trip data mismatch")
+    loaded.set_wireframe(True)
+    if not loaded_triangle.wireframe:
+        raise RuntimeError("simulator Sprite3D.set_wireframe failed")
+
+    class GameProbe:
+        pass
+
+    class PlayerProbe:
+        pass
+
+    original_headless = sim_runtime.headless
+    draw = None
+    try:
+        sim_runtime.headless = True
+        draw = Draw()
+        game = GameProbe()
+        game.draw = draw
+        player = PlayerProbe()
+        player.is_player = True
+        player.position = Vector(0, 0, 0)
+        player.direction = Vector(1, 0, 0)
+        level = Level(game=game)
+        level.entities.append(player)
+        if abs(level.light_direction.x - 0.577) > 0.001:
+            raise RuntimeError("simulator Level default light direction mismatch")
+        level.set_light_direction(0, 3, 4)
+        if (
+            abs(level.light_direction.y - 0.6) > 0.001
+            or abs(level.light_direction.z - 0.8) > 0.001
+        ):
+            raise RuntimeError("simulator Level.set_light_direction failed")
+        level.set_shadow_color(0x39E7)
+        if level.shadow_color != 0x39E7:
+            raise RuntimeError("simulator Level.set_shadow_color failed")
+        level.render_3d_sprite(path, 0.0, False, True)
+        if not any(draw._buffer):
+            raise RuntimeError("simulator Level.render_3d_sprite drew no pixels")
+    finally:
+        draw = None
+        sim_runtime.set_lcd(None)
+        sim_runtime.headless = original_headless
+        sd_mp.remove(path)
+        gc.collect()
+    print("[sim-check:ok] engine Level and Sprite3D parity")
+
+
+def _run_font_parity_check():
+    """Verify board-default fonts and the corrected Font16 spacing."""
+    import lcd
+    import picoware_boards as boards
+    from font import FontSize
+
+    small = (boards.BOARD_CARDPUTER, boards.BOARD_WAVESHARE_2_06)
+    medium = (
+        boards.BOARD_WAVESHARE_1_43_RP2350,
+        boards.BOARD_WAVESHARE_3_49_RP2350,
+    )
+    for board_id in range(boards.BOARD_FLIPPER_ZERO + 1):
+        expected = 1 if board_id in small else 2 if board_id in medium else 0
+        if lcd.default_font_for_board(board_id, boards) != expected:
+            raise RuntimeError("simulator board default font mismatch")
+    if FontSize(2).spacing != 1:
+        raise RuntimeError("simulator Font16 spacing mismatch")
+    print("[sim-check:ok] board default fonts and Font16 spacing")
+
+
+def _run_scripts_fixture_check(opts):
+    """Verify bundled JavaScript files are linked into the simulated SD."""
+    path = opts["sd"].rstrip("/") + "/picoware/scripts/hello.js"
+    try:
+        with open(path, "r") as handle:
+            contents = handle.read()
+    except OSError:
+        contents = ""
+    if 'draw.text(0, 10, "Hello From JavaScript")' not in contents:
+        raise RuntimeError("simulator bundled scripts fixture is missing")
+    print("[sim-check:ok] bundled JavaScript scripts fixture")
+
+
+def _run_touch_check():
+    """Verify scripted keys land in the shared percentage-based touch zones."""
+    import picoware_boards
+    import sim_runtime
+    from touch import Touch
+
+    profiles = (
+        ("crowpanel", picoware_boards.BOARD_CROWPANEL_10_1),
+        ("waveshare-2.06", picoware_boards.BOARD_WAVESHARE_2_06),
+        ("pancake", picoware_boards.BOARD_PANCAKE),
+    )
+    expected = (
+        (sim_runtime.KEY_NAMES["up"], "up"),
+        (sim_runtime.KEY_NAMES["down"], "down"),
+        (sim_runtime.KEY_NAMES["left"], "left"),
+        (sim_runtime.KEY_NAMES["right"], "right"),
+        (sim_runtime.KEY_NAMES["back"], "back"),
+        (sim_runtime.KEY_NAMES["enter"], "center"),
+    )
+
+    def zone(point, size):
+        x, y = point
+        width, height = size
+        if 0 <= x <= width * 0.1 and 0 <= y <= height * 0.1:
+            return "back"
+        if width * 0.9 <= x <= width and height * 0.3 <= y <= height * 0.7:
+            return "right"
+        if 0 <= x <= width * 0.1 and height * 0.3 <= y <= height * 0.7:
+            return "left"
+        if width * 0.2 <= x <= width * 0.8 and 0 <= y <= height * 0.2:
+            return "up"
+        if width * 0.2 <= x <= width * 0.8 and height * 0.8 <= y <= height:
+            return "down"
+        if width * 0.4 <= x <= width * 0.6 and height * 0.4 <= y <= height * 0.6:
+            return "center"
+        return "none"
+
+    original_board = sim_runtime.board
+    try:
+        touch = Touch()
+        for board, board_id in profiles:
+            size = picoware_boards.get_display_size(board_id)
+            sim_runtime.board = board
+            for key, expected_zone in expected:
+                point = touch._point_for_key(key)
+                actual_zone = zone(point, size)
+                if actual_zone != expected_zone:
+                    raise RuntimeError(
+                        "simulator touch key mismatch: "
+                        + board
+                        + " "
+                        + expected_zone
+                        + " -> "
+                        + str(point)
+                        + " ("
+                        + actual_zone
+                        + ")"
+                    )
+    finally:
+        sim_runtime.board = original_board
+    print("[sim-check:ok] touch layout crowpanel waveshare-2.06 pancake")
+
+
+def _run_flipper_battery_check():
+    """Exercise the Flipper battery shim lifecycle and simulated shutdown."""
+    import flipper_battery
+    import sim_runtime
+
+    if flipper_battery.deinit() is not True:
+        raise RuntimeError("simulator Flipper battery deinit failed")
+    if flipper_battery.is_initialized():
+        raise RuntimeError("simulator Flipper battery stayed initialized")
+
+    for getter in (flipper_battery.get_percentage, flipper_battery.get_voltage_mv):
+        try:
+            getter()
+        except RuntimeError:
+            pass
+        else:
+            raise RuntimeError("simulator Flipper battery getter worked before init")
+
+    if flipper_battery.init() is not True or not flipper_battery.is_initialized():
+        raise RuntimeError("simulator Flipper battery init failed")
+    percentage = flipper_battery.get_percentage()
+    voltage = flipper_battery.get_voltage_mv()
+    if percentage < 0 or percentage > 100 or voltage <= 0:
+        raise RuntimeError("simulator Flipper battery reading is invalid")
+
+    if flipper_battery.deinit() is not True or flipper_battery.is_initialized():
+        raise RuntimeError("simulator Flipper battery lifecycle mismatch")
+    if flipper_battery.deinit() is not True:
+        raise RuntimeError("simulator Flipper battery deinit is not idempotent")
+
+    flipper_battery.init()
+    try:
+        flipper_battery.shutdown()
+    except sim_runtime.StopSimulation:
+        pass
+    else:
+        raise RuntimeError("simulator Flipper shutdown did not stop the simulation")
+    if flipper_battery.is_initialized():
+        raise RuntimeError("simulator Flipper shutdown did not deinitialize battery")
+    print("[sim-check:ok] flipper battery lifecycle shutdown")
+
+
+def _run_log_storage_check(opts):
+    """Verify storage-mode logs persist under the selected simulated SD root."""
+    import log
+    import sim_runtime
+
+    original_sd_root = sim_runtime.sd_root
+    relative_path = "sim_reports/log-parity.txt"
+    try:
+        sim_runtime.sd_root = opts["sd"]
+        logger = log.Log(log.Log.LOG_MODE_STORAGE, relative_path, True)
+        if logger.log("stored", log.Log.LOG_TYPE_INFO) is not True:
+            raise RuntimeError("simulator storage log write failed")
+
+        path = sim_runtime.host_path(relative_path)
+        try:
+            with open(path, "r") as handle:
+                contents = handle.read()
+        except OSError:
+            contents = ""
+        if contents != "[INFO]stored\n":
+            raise RuntimeError("simulator storage log contents mismatch")
+        if logger.logs != ["[INFO]stored"]:
+            raise RuntimeError("simulator in-memory log contents mismatch")
+
+        if logger.reset() is not True or logger.logs:
+            raise RuntimeError("simulator storage log reset failed")
+        with open(path, "r") as handle:
+            if handle.read():
+                raise RuntimeError("simulator storage log file was not reset")
+    finally:
+        sim_runtime.sd_root = original_sd_root
+    print("[sim-check:ok] storage log persistence reset")
+
+
+def _run_circular_choice_check():
+    """Render the native circular Choice path without board-module reloading."""
+    import sim_runtime
+    from picoware.gui.choice import Choice
+    from picoware.gui.draw import Draw
+    from picoware.system.vector import Vector
+
+    original_headless = sim_runtime.headless
+    draw = None
+    choice = None
+    start_text = len(getattr(sim_runtime, "_recent_text", []))
+    try:
+        sim_runtime.headless = True
+        draw = Draw()
+        choice = Choice(
+            draw,
+            Vector(0, 0),
+            draw.size,
+            "Circular choice",
+            ["No", "Yes"],
+        )
+        choice.is_circular = True
+        choice.draw()
+        rendered = getattr(sim_runtime, "_recent_text", [])[start_text:]
+        for text in ("Circular choice", "No", "Yes"):
+            if text not in rendered:
+                raise RuntimeError(
+                    "simulator circular Choice did not render text: " + text
+                )
+    finally:
+        choice = None
+        draw = None
+        sim_runtime.set_lcd(None)
+        sim_runtime.headless = original_headless
+        gc.collect()
+    print("[sim-check:ok] circular Choice render")
+
+
+def _run_fatal_exit_check(opts):
+    """Prove a main.py-caught assertion still makes the child exit nonzero."""
+    probe_sd = "/tmp/picoware-sim-fatal-probe-sd"
+    probe_log = "/tmp/picoware-sim-fatal-probe.log"
+    missing_text = "__PICOWARE_SIM_EXPECTED_MISSING_TEXT__"
+    cmd = (
+        "micropython "
+        + _quote(THIS_DIR + "/run.py")
+        + " --headless --frames 1 --assert-text "
+        + _quote(missing_text)
+        + " --audio silent --network offline --reset-sd --sd "
+        + _quote(probe_sd)
+        + " --apps-source "
+        + _quote(opts["apps_source"])
+        + " >"
+        + _quote(probe_log)
+        + " 2>&1"
+    )
+    status = os.system(cmd)
+    try:
+        with open(probe_log, "r") as handle:
+            output = handle.read()
+    except OSError:
+        output = ""
+    if status == 0:
+        raise RuntimeError("simulator fatal-error probe unexpectedly exited zero")
+    if "assert-text not seen: " + missing_text not in output:
+        raise RuntimeError("simulator fatal-error probe missed assertion evidence")
+    if "Picoware main reported a fatal error" not in output:
+        raise RuntimeError("simulator fatal-error probe missed propagated failure")
+    print("[sim-check:ok] fatal main errors exit nonzero")
+
+
+def _run_mjs_check():
+    """Smoke-test the JavaScript modules supplied by the simulator shim."""
+    import mjs
+
+    js = mjs.MJS()
+    js.run('let audio = import("audio");')
+    if js.run("audio.isPlaying();") is not False:
+        raise RuntimeError("simulator mjs audio state mismatch")
+
+    js.run('let psram = import("psram");')
+    js.run('psram.write32("0x20", "0x12345678");')
+    if js.run('psram.read32("0x20");') != 0x12345678:
+        raise RuntimeError("simulator mjs psram round-trip failed")
+
+    js.run('let bluetooth = import("bluetooth");')
+    if not js.run("bluetooth.register();"):
+        raise RuntimeError("simulator mjs bluetooth registration failed")
+
+    js.run('let websocket = import("websocket");')
+    if js.run("websocket.isConnected();") is not False:
+        raise RuntimeError("simulator mjs websocket state mismatch")
+    print("[sim-check:ok] mjs audio bluetooth psram websocket")
 
 
 def _write_error_file(path, exc):
@@ -568,7 +1087,22 @@ def _start_viewer(opts):
     except OSError:
         pass
 
-    cmd = _quote(binary) + " " + _quote(frame) + " " + _quote(keys) + " " + str(opts["scale"]) + " >/tmp/picoware-sim-viewer.log 2>&1 &"
+    board_name = str(opts["board"]).lower().replace("_", "-")
+    width, height = _simulator_display_size(board_name)
+    cmd = (
+        _quote(binary)
+        + " "
+        + _quote(frame)
+        + " "
+        + _quote(keys)
+        + " "
+        + str(opts["scale"])
+        + " "
+        + str(width)
+        + " "
+        + str(height)
+        + " >/tmp/picoware-sim-viewer.log 2>&1 &"
+    )
     os.system(cmd)
     return frame, keys
 

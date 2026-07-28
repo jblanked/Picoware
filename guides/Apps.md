@@ -56,38 +56,7 @@ def stop(view_manager):
 ```
 
 ## Testing in Thonny IDE
-You can test your application in the Thonny IDE by simulating the `view_manager` object. Here's a simple way to create a mock `view_manager` for testing purposes:
-
-```python
-
-# your start, run, stop functions here
-
-# add this at the bottom of your app for testing
-from picoware.system.view_manager import ViewManager
-from picoware.system.view import View
-from picoware.system.app_loader import AppLoader
-
-vm = None
-
-try:
-    vm = ViewManager()
-    loader = AppLoader(vm)
-    loader.load_module("/picoware/apps")
-    vm.add(
-        View(
-            "app_tester",
-            run,
-            start,
-            stop,
-        )
-    )
-    vm.switch_to("app_tester")
-    while True:
-        vm.run()
-finally:
-    del vm
-    vm = None
-```
+Although apps can be created and tested on-device, developers can also use Thonny IDE to test and debug their applications. Follow our guide on [ThonnyIDE](ThonnyIDE.md) for more information on how to set up and use Thonny IDE for Picoware development.
 
 ## Best Practices
 

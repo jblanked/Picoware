@@ -4,6 +4,9 @@ add_library(usermod_mjs INTERFACE)
 target_sources(usermod_mjs INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/mjs_module.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/array_buf.c
+    ${CMAKE_CURRENT_LIST_DIR}/lib/audio.c
+    ${CMAKE_CURRENT_LIST_DIR}/lib/bluetooth.c
+    ${CMAKE_CURRENT_LIST_DIR}/lib/buttons.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/color.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/http.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/input.c
@@ -13,12 +16,14 @@ target_sources(usermod_mjs INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/lib/math.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/mjs.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/pin.c
+    ${CMAKE_CURRENT_LIST_DIR}/lib/psram.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/settings.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/storage.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/system.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/time.c
-    ${CMAKE_CURRENT_LIST_DIR}/lib/wifi.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/uart.c
+    ${CMAKE_CURRENT_LIST_DIR}/lib/wifi.c
+    ${CMAKE_CURRENT_LIST_DIR}/lib/websocket.c
 )
 
 target_include_directories(usermod_mjs INTERFACE

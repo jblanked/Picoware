@@ -25,7 +25,7 @@
 #define ENEMY_SPAWN_MAX 25
 
 // time
-#if defined(CARDPUTER) || defined(ESP32) || defined(CROWPANEL_10_1)
+#if defined(CARDPUTER) || defined(ESP32) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE)
 #include "esp_timer.h"
 #define TIME_INCLUDE "esp_timer.h"
 #define TIME_MILLIS esp_timer_get_time() / 1000
@@ -66,7 +66,7 @@
 #define JSON_GET_ARRAY_VALUE get_json_array_value // (const char *key, int index, const char *json_str) -> char* (caller must free)
 
 // sound (disabled on Cardputer — no audio hardware abstraction)
-#ifndef CARDPUTER
+#if !defined(CARDPUTER) && !defined(WAVESHARE_2_06) && !defined(PANCAKE)
 #define SOUND_INCLUDE "../../../audio/audio.h"
 // #define SOUND_PLAY_MONO_FREQUENCY sound_play_mono_frequency     // (int frequency, int duration_ms)
 #define SOUND_PLAY_STEREO_FREQUENCY audio_play_sound_blocking // (int left_freq, int right_freq, int duration_ms)

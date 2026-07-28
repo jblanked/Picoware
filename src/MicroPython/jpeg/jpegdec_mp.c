@@ -12,7 +12,7 @@ void *JPEGdummy = {readFLASH}; // to avoid compiler error
 
 #if defined(PICOCALC)
 #include "../../lcd/lcd_config.h"
-#elif defined(CARDPUTER)
+#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
 #include "../lcd/lcd_config.h"
 #else
 #include "../../../lcd/lcd_config.h"
@@ -22,7 +22,7 @@ void *JPEGdummy = {readFLASH}; // to avoid compiler error
 #include LCD_INCLUDE
 #endif
 
-#ifdef CARDPUTER
+#if defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/idf_additions.h"
@@ -41,7 +41,7 @@ uint32_t core1_stack[CORE1_STACK_SIZE];
 
 uint32_t JPEG_msg_core1;
 
-#ifdef CARDPUTER
+#if defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
 static TaskHandle_t s_jpeg_core1_task = NULL;
 static volatile bool s_jpeg_core1_result_pending = false;
 static volatile uint32_t s_jpeg_core1_result = 0;
@@ -370,7 +370,7 @@ static void decode_core1_split()
     docode_result = DecodeJPEG(g_context);
     g_context = NULL;
     JPEG_msg_core1 = (uint32_t)docode_result;
-#ifdef CARDPUTER
+#if defined(CARDPUTER) || defined(PANCAKE)
     s_jpeg_core1_result = JPEG_msg_core1;
     s_jpeg_core1_result_pending = true;
 #endif

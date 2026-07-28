@@ -13,7 +13,7 @@ class FontSize:
         elif size == 2:
             object.__setattr__(self, "width", 11)
             object.__setattr__(self, "height", 16)
-            object.__setattr__(self, "spacing", 0)
+            object.__setattr__(self, "spacing", 1)
         elif size == 3:
             object.__setattr__(self, "width", 14)
             object.__setattr__(self, "height", 20)

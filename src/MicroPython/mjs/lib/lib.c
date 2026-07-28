@@ -30,6 +30,18 @@ void lib_load_module(struct mjs *mjs)
     }
     switch (module)
     {
+    case LIB_MODULE_AUDIO:
+        audio_create(mjs, &object);
+        is_module_loaded = true;
+        break;
+    case LIB_MODULE_BLUETOOTH:
+        bluetooth_create(mjs, &object);
+        is_module_loaded = true;
+        break;
+    case LIB_MODULE_BUTTONS:
+        buttons_create(mjs, &object);
+        is_module_loaded = true;
+        break;
     case LIB_MODULE_DRAW:
         lcd_create(mjs, &object);
         is_module_loaded = true;
@@ -49,6 +61,10 @@ void lib_load_module(struct mjs *mjs)
     case LIB_MODULE_PIN:
         is_module_loaded = pin_create(mjs, &object);
         break;
+    case LIB_MODULE_PSRAM:
+        psram_create(mjs, &object);
+        is_module_loaded = true;
+        break;
     case LIB_MODULE_SETTINGS:
         settings_create(mjs, &object);
         is_module_loaded = true;
@@ -67,6 +83,10 @@ void lib_load_module(struct mjs *mjs)
         break;
     case LIB_MODULE_UART:
         uart_create(mjs, &object);
+        is_module_loaded = true;
+        break;
+    case LIB_MODULE_WEBSOCKET:
+        websocket_create(mjs, &object);
         is_module_loaded = true;
         break;
     case LIB_MODULE_WIFI:
@@ -89,7 +109,19 @@ void lib_load_module(struct mjs *mjs)
 
 lib_module_t lib_module_from_str(const char *str)
 {
-    if (strcmp(str, "draw") == 0)
+    if (strcmp(str, "audio") == 0)
+    {
+        return LIB_MODULE_AUDIO;
+    }
+    else if (strcmp(str, "bluetooth") == 0)
+    {
+        return LIB_MODULE_BLUETOOTH;
+    }
+    else if (strcmp(str, "buttons") == 0)
+    {
+        return LIB_MODULE_BUTTONS;
+    }
+    else if (strcmp(str, "draw") == 0)
     {
         return LIB_MODULE_DRAW;
     }
@@ -108,6 +140,10 @@ lib_module_t lib_module_from_str(const char *str)
     else if (strcmp(str, "pin") == 0)
     {
         return LIB_MODULE_PIN;
+    }
+    else if (strcmp(str, "psram") == 0)
+    {
+        return LIB_MODULE_PSRAM;
     }
     else if (strcmp(str, "settings") == 0)
     {
@@ -128,6 +164,10 @@ lib_module_t lib_module_from_str(const char *str)
     else if (strcmp(str, "uart") == 0)
     {
         return LIB_MODULE_UART;
+    }
+    else if (strcmp(str, "websocket") == 0)
+    {
+        return LIB_MODULE_WEBSOCKET;
     }
     else if (strcmp(str, "wifi") == 0)
     {
@@ -152,13 +192,21 @@ void lib_unload_modules()
 {
     for (size_t i = 0; i < LIB_MODULE_COUNT; i++)
     {
-        if (lib_loaded_modules[i] == LIB_MODULE_INPUT)
+        if (lib_loaded_modules[i] == LIB_MODULE_BLUETOOTH)
+        {
+            bluetooth_destroy();
+        }
+        else if (lib_loaded_modules[i] == LIB_MODULE_INPUT)
         {
             input_destroy();
         }
         else if (lib_loaded_modules[i] == LIB_MODULE_PIN)
         {
             pin_destroy();
+        }
+        else if (lib_loaded_modules[i] == LIB_MODULE_PSRAM)
+        {
+            psram_destroy();
         }
         else if (lib_loaded_modules[i] == LIB_MODULE_SYSTEM)
         {

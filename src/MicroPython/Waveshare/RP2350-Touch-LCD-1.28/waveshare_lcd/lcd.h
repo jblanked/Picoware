@@ -10,11 +10,6 @@
 
 #include "../../../font/font_mp.h"
 
-#ifdef FONT_DEFAULT
-#undef FONT_DEFAULT
-#define FONT_DEFAULT FONT_SIZE_XTRA_SMALL
-#endif
-
 #define LCD_HEIGHT 240
 #define LCD_WIDTH 240
 
@@ -126,6 +121,7 @@ extern "C"
     void lcd_draw_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint16_t color);
     void lcd_fill_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint16_t color);
     void lcd_fill_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color);
+    void lcd_fill_triangle_alpha(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color, uint8_t alpha);
     void lcd_fill_round_rectangle(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t radius, uint16_t color);
     void lcd_draw_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color);
 

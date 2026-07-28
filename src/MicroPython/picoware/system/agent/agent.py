@@ -1,32 +1,41 @@
 import json
 from micropython import const
 from picoware.system.agent.tools import dispatch
-from picoware.system.agent.llm import LLM, DEEPSEEK
+from picoware.system.agent.llm import LLM, DEEPSEEK, ANTHROPIC
+from picoware.system.agent.context import chat, app_creator, device_manager
 
-MODE_APP_CREATOR = const(0) # creates/edits Picoware apps
-MODE_DEVICE_MANAGER = const(1) # manages files, has network access, can run commands, etc.
+MODE_CHAT = const(0) # general chat mode
+MODE_APP_CREATOR = const(1) # creates/edits Picoware apps
+MODE_DEVICE_MANAGER = const(2) # manages files, has network access, can run commands, etc.
 
 MAX_TOOL_ITERATIONS = const(50)
 MAX_CONVERSATION_MESSAGES = const(20)
 
 class Agent:
     """Agent that can perform tasks using tools and LLMs."""
-    __slots__ = ["mode", "tools", "llm_provider", "view_manager", "http", "_file_path", "_conv_path"]
+    __slots__ = ["mode", "tools", "llm", "view_manager", "http", "_file_path", "_conv_path", "_mem_path", "_msg_path"]
 
-    def __init__(self, view_manager, mode: int, llm_id: int = DEEPSEEK, file_path: str = "picoware/settings/agent_request.json"):
+    def __init__(self, view_manager, mode: int = MODE_CHAT, llm: LLM = None, file_path: str = "picoware/settings/agent_request.json"):
         from picoware.system.http import HTTP
         self.view_manager = view_manager
         self.mode = mode
         self.tools = []
-        self.llm_provider = LLM(view_manager.storage, llm_id)
+        self.llm = llm if llm is not None else LLM(view_manager.storage, DEEPSEEK)
         self.http = HTTP(thread_manager=view_manager.thread_manager)
         self._file_path = file_path
         self._conv_path = "picoware/settings/agent_conv.json"
+        self._mem_path = "picoware/settings/agent_mem.json"
+        self._msg_path = "picoware/settings/agent_msg.json"
+
+        s = self.view_manager.storage
+        s.remove(self._conv_path)
+        s.remove(self._mem_path)
+        s.remove(self._msg_path)
     
     def __del__(self):
         """Cleanup resources on deletion."""
         self.tools.clear()
-        self.llm_provider = None
+        self.llm = None
         self.http = None
     
     @property
@@ -61,12 +70,14 @@ class Agent:
                 return {}
 
     def _conv_write_initial(self, messages: list[dict]) -> None:
-        """Write initial messages to the conversation file as comma-separated JSON."""
         storage = self.view_manager.storage
 
         for i, msg in enumerate(messages):
             if i == 0:
-                storage.write(self._conv_path, json.dumps(msg), mode="w")
+                if msg.get("role") == "system":
+                    self._write_system_message(storage)
+                else:
+                    storage.write(self._conv_path, json.dumps(msg), mode="w")
             else:
                 storage.write(self._conv_path, ',' + json.dumps(msg), mode="a")
 
@@ -79,6 +90,47 @@ class Agent:
         else:
             storage.write(self._conv_path, ',' + json.dumps(message), mode="a")
 
+    @staticmethod
+    def _json_escape(text: str) -> str:
+        return (text
+            .replace('\\', '\\\\')
+            .replace('"', '\\"')
+            .replace('\n', '\\n')
+            .replace('\r', '\\r')
+            .replace('\t', '\\t'))
+
+    @staticmethod
+    def _stream_file_json_escaped(storage, src_path: str, dst_path: str) -> None:
+        src = storage.file_open(src_path)
+        if src is None:
+            return
+        try:
+            buf = bytearray(2048)
+            carry = ""
+            while True:
+                n = storage.file_readinto(src, buf)
+                if not n:
+                    break
+                chunk = carry + buf[:n].decode('utf-8')
+                if chunk.endswith('\\'):
+                    carry = '\\'
+                    chunk = chunk[:-1]
+                else:
+                    carry = ""
+                if not chunk:
+                    continue
+                storage.write(dst_path, Agent._json_escape(chunk), mode="a")
+            if carry:
+                storage.write(dst_path, '\\\\', mode="a")
+        finally:
+            storage.file_close(src)
+
+    def _write_system_message(self, storage) -> None:
+        storage.write(self._conv_path, '{"role":"system","content":"', mode="w")
+        if storage.exists(self._mem_path):
+            self._stream_file_json_escaped(storage, self._mem_path, self._conv_path)
+        storage.write(self._conv_path, '"}', mode="a")
+
     def _build_request(self, tools: list[dict]) -> None:
         """Stream conversation file + metadata into the API request file."""
         storage = self.view_manager.storage
@@ -86,7 +138,7 @@ class Agent:
         # Preamble: model + messages open
         storage.write(
             self._file_path,
-            '{"model":"' + self.llm_provider.model + '","messages":[',
+            '{"model":"' + self.llm.model + '","messages":[',
             mode="w",
         )
 
@@ -99,34 +151,43 @@ class Agent:
                     n = storage.file_readinto(conv_file, buf)
                     if not n:
                         break
-                    storage.write(self._file_path, buf[:n], mode="wb")
+                    storage.write(self._file_path, buf[:n], mode="b")
             finally:
                 storage.file_close(conv_file)
 
-        # Suffix: tools + close
+        # tools
         storage.write(
             self._file_path,
-            '],"tools":' + json.dumps(tools) + ',"tool_choice":"auto"}',
+            '],"tools":' + json.dumps(tools) + ',"tool_choice":"auto",',
             mode="a",
         )
 
+        # thinking 
+        _payload = self.llm.thinking_payload
+        _payload_str = json.dumps(_payload)
+        # strip { }
+        _payload_str = _payload_str[1:-1]
+        storage.write(self._file_path, _payload_str, mode="a")
+
+        # close
+        storage.write(self._file_path, "}", mode="a")
+
+
     def _run_loop(self) -> str:
         """Run the model/tool loop and return assistant text."""
-        tools = [tool.json_openai for tool in dispatch.get_tool_list()]
+        if self.llm.id == ANTHROPIC:
+            tools = [tool.json_anthropic for tool in dispatch.get_tool_list()]
+        else:
+            tools = [tool.json_openai for tool in dispatch.get_tool_list()]
         storage = self.view_manager.storage
 
         for _ in range(MAX_TOOL_ITERATIONS):
             # Build request from conversation
             self._build_request(tools)
 
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.llm_provider.api_key}",
-            }
-
             response = self.http.post(
-                self.llm_provider.url,
-                headers=headers,
+                self.llm.url,
+                headers=self.llm.headers,
                 payload=None,
                 timeout=120,
                 storage=storage,
@@ -227,25 +288,48 @@ class Agent:
 
     def run(self,topic: str, conversation: list[dict] | None = None, context=None) -> str:
         """Run the agent for an Agent Builder prompt."""
-        system_content = context.strip() if context else ""
-        if context is None:
-            if self.mode == MODE_APP_CREATOR:
-                from picoware.system.agent.context.app_creator import PROMPT, CONTEXT, WORKFLOW
-                system_content = f"{PROMPT.decode()}\n\n{WORKFLOW.decode()}\n\n{CONTEXT.decode()}"
-            elif self.mode == MODE_DEVICE_MANAGER:
-                from picoware.system.agent.context.device_manager import PROMPT, CONTEXT, WORKFLOW
-                system_content = f"{PROMPT.decode()}\n\n{WORKFLOW.decode()}\n\n{CONTEXT.decode()}"
         user_message = topic.strip()
         if not user_message:
             return "No message provided."
+        
+        s = self.view_manager.storage
+        if context is not None:
+            s.write(self._mem_path, f"{context.strip()}\n", mode="a")
+        else:
+            f = s.file_open(self._mem_path)
+            if f is not None:
+                try:
+                    if self.mode == MODE_CHAT:
+                        s.file_write(f, chat.PROMPT, mode="b")
+                        s.file_write(f, b"\n", mode="b")
+                        s.file_write(f, chat.WORKFLOW, mode="b")
+                        s.file_write(f, b"\n", mode="b")
+                        s.file_write(f, chat.CONTEXT, mode="b")
+                        s.file_write(f, b"\n", mode="b")
+                    elif self.mode == MODE_APP_CREATOR:
+                        s.file_write(f, app_creator.PROMPT, mode="b")
+                        s.file_write(f, b"\n", mode="b")
+                        s.file_write(f, app_creator.WORKFLOW, mode="b")
+                        s.file_write(f, b"\n", mode="b")
+                        s.file_write(f, app_creator.CONTEXT, mode="b")
+                        s.file_write(f, b"\n", mode="b")
+                    elif self.mode == MODE_DEVICE_MANAGER:
+                        s.file_write(f, device_manager.PROMPT, mode="b")
+                        s.file_write(f, b"\n", mode="b")
+                        s.file_write(f, device_manager.WORKFLOW, mode="b")
+                        s.file_write(f, b"\n", mode="b")
+                        s.file_write(f, device_manager.CONTEXT, mode="b")
+                        s.file_write(f, b"\n", mode="b")
+                finally:
+                    s.file_close(f)
 
         # Write initial messages to storage
-        messages = [{"role": "system", "content": system_content}]
+        messages = [{"role": "system", "content": ""}]
         messages.extend(self._sanitize_conversation(conversation))
         messages.append({"role": "user", "content": user_message})
-        self._conv_write_initial(messages)
 
         try:
+            self._conv_write_initial(messages)
             return self._run_loop()
         except Exception as exc:
             return f"An error occurred during processing: {exc}"

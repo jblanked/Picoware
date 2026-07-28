@@ -10,7 +10,7 @@
 // memory
 #if defined(PICOCALC)
 #define ENGINE_MEM_INCLUDE "../../engine/memory.h"
-#elif defined(CARDPUTER)
+#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
 #define ENGINE_MEM_INCLUDE "../engine/memory.h"
 #else
 #define ENGINE_MEM_INCLUDE "../../../engine/memory.h"
@@ -22,7 +22,7 @@
 #define ENGINE_MEM_FREE m_free
 
 // delay
-#if defined(CARDPUTER) || defined(ESP32) || defined(CROWPANEL_10_1)
+#if defined(CARDPUTER) || defined(ESP32) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE)
 #define ENGINE_DELAY_INCLUDE "freertos/FreeRTOS.h"
 #define ENGINE_DELAY_MS(ms) vTaskDelay(pdMS_TO_TICKS(ms))
 #else
@@ -33,7 +33,7 @@
 // font
 #if defined(PICOCALC)
 #define ENGINE_FONT_INCLUDE "../../font/font.h"
-#elif defined(CARDPUTER)
+#elif defined(CARDPUTER) || defined(PANCAKE)
 #define ENGINE_FONT_INCLUDE "../font/font.h"
 #else
 #define ENGINE_FONT_INCLUDE "../../../font/font.h"
@@ -53,6 +53,7 @@
 #define ENGINE_LCD_FILL_RECTANGLE LCD_MP_FILL_RECTANGLE
 #define ENGINE_LCD_FILL_ROUND_RECTANGLE LCD_MP_FILL_ROUND_RECTANGLE
 #define ENGINE_LCD_FILL_TRIANGLE LCD_MP_FILL_TRIANGLE
+#define ENGINE_LCD_FILL_TRIANGLE_ALPHA LCD_MP_FILL_TRIANGLE_ALPHA
 #define ENGINE_LCD_BLIT LCD_MP_BLIT
 #define ENGINE_LCD_BLIT_16BIT LCD_MP_BLIT_16BIT
 #define ENGINE_LCD_LINE LCD_MP_LINE
@@ -68,7 +69,7 @@
 // storage
 #if defined(PICOCALC)
 #define ENGINE_STORAGE_INCLUDE "../../sd/storage.h"
-#elif defined(CARDPUTER)
+#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
 #define ENGINE_STORAGE_INCLUDE "../sd/storage.h"
 #elif !defined(WAVESHARE_1_28)
 #define ENGINE_STORAGE_INCLUDE "../../../sd/storage.h"

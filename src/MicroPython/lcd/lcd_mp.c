@@ -2,6 +2,9 @@
 #include "py/mperrno.h"
 #include "../vector/vector_mp.h"
 #include "../log/log_mp.h"
+#include "../engine/memory.h"
+
+bool mp_engine_gc_ready = false;
 
 #ifndef PRINT
 #define PRINT(...) LOG_MESSAGE(__VA_ARGS__)
@@ -11,7 +14,7 @@
 #include LCD_INCLUDE
 #endif
 
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
 #include "../sd/storage.h"
 #endif
 
@@ -34,7 +37,11 @@ static uint16_t lcd_scale_y(lcd_mp_obj_t *self, uint16_t v)
 }
 static inline int lcd_obj_to_int(mp_obj_t arg)
 {
-    if (mp_obj_is_int(arg) || mp_obj_is_exact_type(arg, &mp_type_bool))
+    if (mp_obj_is_exact_type(arg, &mp_type_bool))
+    {
+        return mp_obj_is_true(arg) ? 1 : 0;
+    }
+    else if (mp_obj_is_int(arg))
     {
         return mp_obj_get_int(arg);
     }
@@ -42,11 +49,11 @@ static inline int lcd_obj_to_int(mp_obj_t arg)
     {
         return (int)mp_obj_get_float(arg); // truncates toward zero
     }
-    mp_raise_ValueError(MP_ERROR_TEXT("expected int or float"));
+    LOG_MESSAGE("lcd_obj_to_int: expected int, float, or bool but got %s", mp_obj_get_type_str(arg));
     return 0;
 }
 
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
 static inline uint16_t lcd_u16_le(const uint8_t *p)
 {
     return (uint16_t)(p[0] | ((uint16_t)p[1] << 8));
@@ -125,6 +132,7 @@ mp_obj_t lcd_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
     {
         mp_raise_TypeError(MP_ERROR_TEXT("LCD constructor takes at most 3 arguments: scale_x, scale_y, and scale_position"));
     }
+    mp_engine_gc_ready = true;
     lcd_mp_obj_t *self = mp_obj_malloc_with_finaliser(lcd_mp_obj_t, &lcd_mp_type);
     self->base.type = &lcd_mp_type;
     self->width = LCD_MP_WIDTH;
@@ -212,7 +220,7 @@ mp_obj_t lcd_mp_bmp(size_t n_args, const mp_obj_t *args)
         y = lcd_scale_y(self, y);
     }
 
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
     void *file = storage_file_open(file_path);
     if (!file)
     {
@@ -921,13 +929,10 @@ mp_obj_t lcd_mp_scale(size_t n_args, const mp_obj_t *args)
     float height = n_args == 5 ? mp_obj_get_float(args[4]) : 320; // PicoCalc defaults
 
     mp_obj_t tuple[2];
-    tuple[0] = scale_x == 0 ? 0 : mp_obj_new_float(scale_x * self->width / width);
-    tuple[1] = scale_y == 0 ? 0 : mp_obj_new_float(scale_y * self->height / height);
-    if (mp_obj_is_int(args[1]) && mp_obj_is_int(args[2]))
-    {
-        tuple[0] = mp_obj_new_int(lcd_obj_to_int(tuple[0]));
-        tuple[1] = mp_obj_new_int(lcd_obj_to_int(tuple[1]));
-    }
+    tuple[0] = scale_x == 0 ? mp_obj_new_int(0) : mp_obj_new_float(scale_x * self->width / width);
+    tuple[1] = scale_y == 0 ? mp_obj_new_int(0) : mp_obj_new_float(scale_y * self->height / height);
+    tuple[0] = mp_obj_new_int(lcd_obj_to_int(tuple[0]));
+    tuple[1] = mp_obj_new_int(lcd_obj_to_int(tuple[1]));
     return mp_obj_new_tuple(2, tuple);
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_scale_obj, 3, 5, lcd_mp_scale);
@@ -1024,7 +1029,7 @@ mp_obj_t lcd_mp_screenshot(mp_obj_t self_in, mp_obj_t file_path)
     (void)file_path;
     return mp_const_none;
 #endif
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
     const char *path = mp_obj_str_get_str(file_path);
     void *file = storage_file_write_open(path);
     if (!file)

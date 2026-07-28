@@ -5,6 +5,7 @@
  * Provides high-speed 4-wire transfers with DMA support
  *
  * Copyright © 2023 Ian Scott (original SPI implementation)
+ * Copyright © 2025 JBlanked (QSPI implementation)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -134,7 +135,7 @@ extern "C"
     /**
      * @brief Write data to PIO TX FIFO using DMA (blocking)
      */
-    __force_inline static void __time_critical_func(qspi_write_dma_blocking)(
+    static void __time_critical_func(qspi_write_dma_blocking)(
         psram_qspi_inst_t *qspi,
         const uint8_t *src, size_t len)
     {
@@ -159,7 +160,7 @@ extern "C"
     /**
      * @brief Write and read data using DMA (blocking)
      */
-    __force_inline static void __time_critical_func(qspi_write_read_dma_blocking)(
+    static void __time_critical_func(qspi_write_read_dma_blocking)(
         psram_qspi_inst_t *qspi,
         const uint8_t *src, size_t src_len,
         uint8_t *dst, size_t dst_len)
@@ -204,7 +205,7 @@ extern "C"
  * @brief Async write using DMA (non-blocking)
  */
 #if defined(PSRAM_QSPI_ASYNC)
-    __force_inline static void __time_critical_func(qspi_write_async)(
+    static void __time_critical_func(qspi_write_async)(
         psram_qspi_inst_t *qspi,
         const uint8_t *src, size_t len)
     {

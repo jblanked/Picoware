@@ -29,3 +29,5 @@ else:
     print(f"Failed to remove {_dir}")
 
 print(f"Apps: {s.listdir('picoware/apps')}")
+
+s.unmount()

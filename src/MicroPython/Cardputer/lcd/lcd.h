@@ -13,11 +13,6 @@
 
 #define LCD_DEFAULT_BRIGHTNESS 50 // Default brightness (0-100)
 
-#ifdef FONT_DEFAULT
-#undef FONT_DEFAULT
-#define FONT_DEFAULT FONT_SIZE_SMALL
-#endif
-
 #ifdef __cplusplus
 extern "C"
 {
@@ -36,14 +31,15 @@ extern "C"
     void lcd_read_row(uint16_t y, uint8_t *out_buffer);                                                   // Copy a framebuffer row to out_buffer
 
     // Shape drawing functions
-    void lcd_draw_line(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color);                                  // Draw a line from (x1, y1) to (x2, y2) with specified RGB332 color
-    void lcd_draw_rect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color);                             // Draw a rectangle outline at (x, y) with specified width, height and color
-    void lcd_fill_rect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color);                             // Fill a rectangle at (x, y) with specified width, height and color
-    void lcd_fill_round_rectangle(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t radius, uint16_t color); // Fill a rounded rectangle (radius is currently a compatibility no-op)
-    void lcd_draw_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint16_t color);                             // Draw a circle outline with center at (center_x, center_y) and specified radius and color
-    void lcd_fill_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint16_t color);                             // Draw a filled circle with center at (center_x, center_y) and specified radius and color
-    void lcd_draw_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color);    // Draw a triangle outline with vertices at (x1, y1), (x2, y2), (x3, y3)
-    void lcd_fill_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color);    // Draw a filled triangle with vertices at (x1, y1), (x2, y2), (x3, y3) and specified color
+    void lcd_draw_line(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color);                                                    // Draw a line from (x1, y1) to (x2, y2) with specified RGB332 color
+    void lcd_draw_rect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color);                                               // Draw a rectangle outline at (x, y) with specified width, height and color
+    void lcd_fill_rect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color);                                               // Fill a rectangle at (x, y) with specified width, height and color
+    void lcd_fill_round_rectangle(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t radius, uint16_t color);                   // Fill a rounded rectangle (radius is currently a compatibility no-op)
+    void lcd_draw_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint16_t color);                                               // Draw a circle outline with center at (center_x, center_y) and specified radius and color
+    void lcd_fill_circle(uint16_t center_x, uint16_t center_y, uint16_t radius, uint16_t color);                                               // Draw a filled circle with center at (center_x, center_y) and specified radius and color
+    void lcd_draw_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color);                      // Draw a triangle outline with vertices at (x1, y1), (x2, y2), (x3, y3)
+    void lcd_fill_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color);                      // Draw a filled triangle with vertices at (x1, y1), (x2, y2), (x3, y3) and specified color
+    void lcd_fill_triangle_alpha(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color, uint8_t alpha); // Draw a filled triangle with alpha blending
 
     // Text rendering functions
     void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color, FontSize size);           // Draw a single character at (x, y) with specified RGB332 color using current font

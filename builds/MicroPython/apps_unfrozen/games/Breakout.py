@@ -24,10 +24,13 @@ BRICK_OFFSET_TOP = 40
 
 
 # Game state
+is_flipper = False
+
+
 class Game:
     """Class to hold game state and logic"""
 
-    def __init__(self):
+    def __init__(self, is_flipper=False):
         """Initialize game state"""
         from picoware.system.colors import (
             TFT_RED,
@@ -36,6 +39,8 @@ class Game:
             TFT_GREEN,
             TFT_CYAN,
         )
+
+        self.is_flipper = is_flipper
 
         self.paddle_x = SCREEN_WIDTH // 2 - PADDLE_WIDTH // 2
         self.ball_x = SCREEN_WIDTH // 2
@@ -61,6 +66,9 @@ class Game:
         # Create bricks - list of (x, y, color, active)
         self.bricks = []
         colors = [TFT_RED, TFT_VIOLET, TFT_YELLOW, TFT_GREEN, TFT_CYAN]
+        if self.is_flipper:
+            for i in range(len(colors)):
+                colors[i] = 0xFFFF
 
         for row in range(BRICK_ROWS):
             for col in range(BRICK_COLS):
@@ -290,10 +298,8 @@ class Game:
 
     def draw_centered_text(self, draw, text, y, color):
         """Draw text centered on screen"""
-        from picoware.system.vector import Vector
-
-        x = (SCREEN_WIDTH - len(text) * draw.font_size.x) // 2
-        draw.text(Vector(x, y), text, color)
+        x = (SCREEN_WIDTH - draw.len(text)) // 2
+        draw._text(x, y, text, color)
 
 
 game = None
@@ -303,9 +309,12 @@ def start(view_manager) -> bool:
     """Start the app"""
     from picoware.system.colors import TFT_BLACK, TFT_CYAN, TFT_WHITE, TFT_YELLOW
     from picoware.system.buttons import BUTTON_BACK, BUTTON_NONE
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
 
     global SCREEN_WIDTH, SCREEN_HEIGHT, PADDLE_WIDTH, PADDLE_HEIGHT, PADDLE_Y
-    global BALL_SIZE, BRICK_WIDTH, BRICK_HEIGHT, BRICK_PADDING, BRICK_OFFSET_TOP
+    global BALL_SIZE, BRICK_WIDTH, BRICK_HEIGHT, BRICK_PADDING, BRICK_OFFSET_TOP, is_flipper
+
+    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
     draw = view_manager.draw
 
@@ -323,7 +332,7 @@ def start(view_manager) -> bool:
 
     global game
 
-    game = Game()
+    game = Game(is_flipper)
 
     # Title screen
     draw.fill_screen(TFT_BLACK)

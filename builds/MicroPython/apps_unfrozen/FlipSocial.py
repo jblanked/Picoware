@@ -17,38 +17,16 @@ _flip_social_run_instance = None
 
 def __flip_social_util_get_username(view_manager) -> str:
     """Get the username from storage, or return empty string"""
-    storage = view_manager.storage
-    data: str = storage.read("picoware/settings/server_username.json")
-
-    if data is not None:
-        try:
-            from ujson import loads
-
-            obj: dict = loads(data)
-            if "username" in obj:
-                return obj["username"]
-        except Exception:
-            pass
-
-    return ""
+    from picoware.system.settings import Settings
+    settings = Settings(view_manager.storage)
+    return settings.server_settings.get("username", "")
 
 
 def __flip_social_util_get_password(view_manager) -> str:
     """Get the password from storage, or return empty string"""
-    storage = view_manager.storage
-    data: str = storage.read("picoware/settings/server_password.json")
-
-    if data is not None:
-        try:
-            from ujson import loads
-
-            obj: dict = loads(data)
-            if "password" in obj:
-                return obj["password"]
-        except Exception:
-            pass
-
-    return ""
+    from picoware.system.settings import Settings
+    settings = Settings(view_manager.storage)
+    return settings.server_settings.get("password", "")
 
 
 def start(view_manager) -> bool:

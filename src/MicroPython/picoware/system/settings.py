@@ -7,16 +7,21 @@ class Settings:
 
     def __init__(self, storage):
         from picoware.system.buttons import BUTTON_BACK
+        from picoware.system.boards import BOARD_HAS_TOUCH
+
         self._storage = storage
         self._path = "picoware/settings/picoware.json" 
         self._settings = {
+            "anthropic_api_key": "",
             "dark_mode": True,
             "deepseek_api_key": "",
             "debug": False,
             "exit_button": BUTTON_BACK,
+            "gemini_api_key": "",
             "gmt_offset": 0,
+            "local_url": "http://127.0.0.1:8080/v1/chat/completions",
             "lvgl_mode": False,
-            "onscreen_keyboard": False,
+            "onscreen_keyboard": BOARD_HAS_TOUCH == 1,
             "openai_api_key": "",
             "server_username": "",
             "server_password": "",
@@ -27,13 +32,16 @@ class Settings:
         }
         if not self._storage.exists(self._path):
             self._settings = {
+                "anthropic_api_key": "",
                 "dark_mode":  bool(self.__fetch_setting("picoware/settings/dark_mode.json", "dark_mode", True)),
                 "debug": bool(self.__fetch_setting("picoware/settings/debug.json", "debug", False)),
                 "deepseek_api_key": "",
                 "exit_button": int(self.__fetch_setting("picoware/settings/exit_button.json", "exit_button", BUTTON_BACK)),
+                "gemini_api_key": "",
                 "gmt_offset": int(self.__fetch_setting("picoware/settings/gmt_offset.json", "gmt_offset", 0)),
+                "local_url": "http://127.0.0.1:8080/v1/chat/completions",
                 "lvgl_mode": bool(self.__fetch_setting("picoware/settings/lvgl_mode.json", "lvgl_mode", False)),
-                "onscreen_keyboard": bool(self.__fetch_setting("picoware/settings/onscreen_keyboard.json", "onscreen_keyboard", False)),
+                "onscreen_keyboard": bool(self.__fetch_setting("picoware/settings/onscreen_keyboard.json", "onscreen_keyboard", BOARD_HAS_TOUCH == 1)),
                 "openai_api_key": "",
                 "server_username": self.__fetch_setting("picoware/settings/server_username.json", "username", ""),
                 "server_password": self.__fetch_setting("picoware/settings/server_password.json", "password", ""),
@@ -51,6 +59,16 @@ class Settings:
                     self._settings.update(obj)
                 except Exception:
                     pass
+    @property
+    def anthropic_api_key(self) -> str:
+        """Return the current Anthropic API key."""
+        return self._settings.get("anthropic_api_key", "")
+    
+    @anthropic_api_key.setter
+    def anthropic_api_key(self, value: str):
+        """Set the Anthropic API key."""
+        self._settings["anthropic_api_key"] = value
+        self.__save_settings()
     
     @property
     def dark_mode(self) -> bool:
@@ -96,6 +114,17 @@ class Settings:
         """Set the exit button setting."""
         self._settings["exit_button"] = value
         self.__save_settings()
+    
+    @property
+    def gemini_api_key(self) -> str:
+        """Return the current Gemini API key."""
+        return self._settings.get("gemini_api_key", "")
+    
+    @gemini_api_key.setter
+    def gemini_api_key(self, value: str):
+        """Set the Gemini API key."""
+        self._settings["gemini_api_key"] = value
+        self.__save_settings()
         
     @property
     def gmt_offset(self) -> int:
@@ -107,7 +136,17 @@ class Settings:
         """Set GMT offset."""
         self._settings["gmt_offset"] = value
         self.__save_settings()
-    
+
+    @property
+    def local_url(self) -> str:
+        """Return the current local URL."""
+        return self._settings.get("local_url", "")
+
+    @local_url.setter
+    def local_url(self, value: str):
+        """Set the local URL."""
+        self._settings["local_url"] = value
+        self.__save_settings()
 
     @property
     def lvgl_mode(self) -> bool:

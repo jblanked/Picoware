@@ -13,7 +13,7 @@
 //
 #ifndef __JPEGDEC__
 #define __JPEGDEC__
-#if defined( __MACH__ ) || defined( __LINUX__ ) || defined( __MCUXPRESSO ) || defined( ESP_PLATFORM ) || defined(_WIN64) || defined(CARDPUTER)
+#if defined(__MACH__) || defined(__LINUX__) || defined(__MCUXPRESSO) || defined(ESP_PLATFORM) || defined(_WIN64) || defined(CARDPUTER) || defined(PANCAKE) || defined(WAVESHARE_2_06)
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -28,18 +28,18 @@
 #define memcpy_P memcpy
 #define PROGMEM
 #endif
-#ifdef _M_X64 //MSVC
+#ifdef _M_X64 // MSVC
 #define __x86_64__
 #define __builtin_bswap16 _byteswap_ushort
 #define __builtin_bswap64 _byteswap_uint64
 #define __builtin_bswap32 _byteswap_ulong
 #endif
 // Cortex-M4/M7 allow unaligned access to SRAM
-#if defined(HAL_ESP32_HAL_H_) || defined(TEENSYDUINO) || defined(ARM_MATH_CM4) || defined(ARM_MATH_CM7) || defined (__x86_64__) || defined(TEENSYDUINO)
+#if defined(HAL_ESP32_HAL_H_) || defined(TEENSYDUINO) || defined(ARM_MATH_CM4) || defined(ARM_MATH_CM7) || defined(__x86_64__) || defined(TEENSYDUINO)
 #define ALLOWS_UNALIGNED
 #endif
 
-#if defined (__aarch64__) || defined (__arm64__)
+#if defined(__aarch64__) || defined(__arm64__)
 #define HAS_NEON
 #define ALLOWS_UNALIGNED
 #endif // __aarch64
@@ -47,7 +47,7 @@
 // JPEG Decoder
 // Written by Larry Bank
 // Copyright (c) 2020 BitBank Software, Inc.
-// 
+//
 // Designed to decode baseline JPEG images (8 or 24-bpp)
 // using less than 22K of RAM
 //
@@ -55,8 +55,8 @@
 /* Defines and variables */
 #define FILE_HIGHWATER 1536
 #define JPEG_FILE_BUF_SIZE 2048
-#define HUFF_TABLEN  273
-#define HUFF11SIZE (1<<11)
+#define HUFF_TABLEN 273
+#define HUFF11SIZE (1 << 11)
 #define DC_TABLE_SIZE 1024
 #define DCTSIZE 64
 #define MAX_MCU_COUNT 6
@@ -81,7 +81,7 @@
 #define MCU4 (DCTSIZE * 4)
 #define MCU5 (DCTSIZE * 5)
 
-#if defined(__arm64__) || defined(__aarch64__) || defined (__x86_64__)
+#if defined(__arm64__) || defined(__aarch64__) || defined(__x86_64__)
 #define REGISTER_WIDTH 64
 typedef uint64_t my_ulong;
 typedef int64_t my_long;
@@ -92,14 +92,16 @@ typedef int32_t my_long;
 #endif
 
 // Supported decode modes
-enum {
+enum
+{
     JPEG_MODE_BASELINE = 0,
     JPEG_MODE_PROGRESSIVE,
     JPEG_MODE_INVALID
 };
 
 // Pixel types (defaults to little endian RGB565)
-enum {
+enum
+{
     RGB565_LITTLE_ENDIAN = 0,
     RGB565_BIG_ENDIAN,
     RGB8888,
@@ -110,13 +112,15 @@ enum {
     INVALID_PIXEL_TYPE
 };
 
-enum {
-    JPEG_MEM_RAM=0,
+enum
+{
+    JPEG_MEM_RAM = 0,
     JPEG_MEM_FLASH
 };
 
 // Error codes returned by getLastError()
-enum {
+enum
+{
     JPEG_SUCCESS = 0,
     JPEG_INVALID_PARAMETER,
     JPEG_DECODE_ERROR,
@@ -127,70 +131,70 @@ enum {
 
 typedef struct buffered_bits
 {
-unsigned char *pBuf; // buffer pointer
-my_ulong ulBits; // buffered bits
-uint32_t ulBitOff; // current bit offset
+    unsigned char *pBuf; // buffer pointer
+    my_ulong ulBits;     // buffered bits
+    uint32_t ulBitOff;   // current bit offset
 } BUFFERED_BITS;
 
 typedef struct jpeg_file_tag
 {
-  int32_t iPos; // current file position
-  int32_t iSize; // file size
-  uint8_t *pData; // memory file pointer
-  void * fHandle; // class pointer to File/SdFat or whatever you want
+    int32_t iPos;   // current file position
+    int32_t iSize;  // file size
+    uint8_t *pData; // memory file pointer
+    void *fHandle;  // class pointer to File/SdFat or whatever you want
 } JPEGFILE;
 
 typedef struct jpeg_draw_tag
 {
-    int x, y; // upper left corner of current MCU
+    int x, y;            // upper left corner of current MCU
     int iWidth, iHeight; // size of this pixel block
-    int iWidthUsed; // clipped size for odd/edges
-    int iBpp; // bit depth of the pixels (8 or 16)
-    uint16_t *pPixels; // 16-bit pixels
+    int iWidthUsed;      // clipped size for odd/edges
+    int iBpp;            // bit depth of the pixels (8 or 16)
+    uint16_t *pPixels;   // 16-bit pixels
     void *pUser;
 } JPEGDRAW;
 
 // Callback function prototypes
-typedef int32_t (JPEG_READ_CALLBACK)(JPEGFILE *pFile, uint8_t *pBuf, int32_t iLen);
-typedef int32_t (JPEG_SEEK_CALLBACK)(JPEGFILE *pFile, int32_t iPosition);
-typedef int (JPEG_DRAW_CALLBACK)(JPEGDRAW *pDraw);
-typedef void * (JPEG_OPEN_CALLBACK)(const char *szFilename, int32_t *pFileSize);
-typedef void (JPEG_CLOSE_CALLBACK)(void *pHandle);
+typedef int32_t(JPEG_READ_CALLBACK)(JPEGFILE *pFile, uint8_t *pBuf, int32_t iLen);
+typedef int32_t(JPEG_SEEK_CALLBACK)(JPEGFILE *pFile, int32_t iPosition);
+typedef int(JPEG_DRAW_CALLBACK)(JPEGDRAW *pDraw);
+typedef void *(JPEG_OPEN_CALLBACK)(const char *szFilename, int32_t *pFileSize);
+typedef void(JPEG_CLOSE_CALLBACK)(void *pHandle);
 
 /* JPEG color component info */
 typedef struct _jpegcompinfo
 {
-// These values are fixed over the whole image
-// For compression, they must be supplied by the user interface
-// for decompression, they are read from the SOF marker.
-unsigned char component_needed;  /*  do we need the value of this component? */
-unsigned char component_id;     /* identifier for this component (0..255) */
-unsigned char component_index;  /* its index in SOF or cinfo->comp_info[] */
-//unsigned char h_samp_factor;    /* horizontal sampling factor (1..4) */
-//unsigned char v_samp_factor;    /* vertical sampling factor (1..4) */
-unsigned char quant_tbl_no;     /* quantization table selector (0..3) */
-// These values may vary between scans
-// For compression, they must be supplied by the user interface
-// for decompression, they are read from the SOS marker.
-unsigned char dc_tbl_no;        /* DC entropy table selector (0..3) */
-unsigned char ac_tbl_no;        /* AC entropy table selector (0..3) */
-// These values are computed during compression or decompression startup
-//int true_comp_width;  /* component's image width in samples */
-//int true_comp_height; /* component's image height in samples */
-// the above are the logical dimensions of the downsampled image
-// These values are computed before starting a scan of the component
-//int MCU_width;        /* number of blocks per MCU, horizontally */
-//int MCU_height;       /* number of blocks per MCU, vertically */
-//int MCU_blocks;       /* MCU_width * MCU_height */
-//int downsampled_width; /* image width in samples, after expansion */
-//int downsampled_height; /* image height in samples, after expansion */
-// the above are the true_comp_xxx values rounded up to multiples of
-// the MCU dimensions; these are the working dimensions of the array
-// as it is passed through the DCT or IDCT step.  NOTE: these values
-// differ depending on whether the component is interleaved or not!!
-// This flag is used only for decompression.  In cases where some of the
-// components will be ignored (eg grayscale output from YCbCr image),
-// we can skip IDCT etc. computations for the unused components.
+    // These values are fixed over the whole image
+    // For compression, they must be supplied by the user interface
+    // for decompression, they are read from the SOF marker.
+    unsigned char component_needed; /*  do we need the value of this component? */
+    unsigned char component_id;     /* identifier for this component (0..255) */
+    unsigned char component_index;  /* its index in SOF or cinfo->comp_info[] */
+    // unsigned char h_samp_factor;    /* horizontal sampling factor (1..4) */
+    // unsigned char v_samp_factor;    /* vertical sampling factor (1..4) */
+    unsigned char quant_tbl_no; /* quantization table selector (0..3) */
+    // These values may vary between scans
+    // For compression, they must be supplied by the user interface
+    // for decompression, they are read from the SOS marker.
+    unsigned char dc_tbl_no; /* DC entropy table selector (0..3) */
+    unsigned char ac_tbl_no; /* AC entropy table selector (0..3) */
+    // These values are computed during compression or decompression startup
+    // int true_comp_width;  /* component's image width in samples */
+    // int true_comp_height; /* component's image height in samples */
+    // the above are the logical dimensions of the downsampled image
+    // These values are computed before starting a scan of the component
+    // int MCU_width;        /* number of blocks per MCU, horizontally */
+    // int MCU_height;       /* number of blocks per MCU, vertically */
+    // int MCU_blocks;       /* MCU_width * MCU_height */
+    // int downsampled_width; /* image width in samples, after expansion */
+    // int downsampled_height; /* image height in samples, after expansion */
+    // the above are the true_comp_xxx values rounded up to multiples of
+    // the MCU dimensions; these are the working dimensions of the array
+    // as it is passed through the DCT or IDCT step.  NOTE: these values
+    // differ depending on whether the component is interleaved or not!!
+    // This flag is used only for decompression.  In cases where some of the
+    // components will be ignored (eg grayscale output from YCbCr image),
+    // we can skip IDCT etc. computations for the unused components.
 } JPEGCOMPINFO;
 
 //
@@ -198,10 +202,10 @@ unsigned char ac_tbl_no;        /* AC entropy table selector (0..3) */
 //
 typedef struct jpeg_image_tag
 {
-    int iWidth, iHeight; // image size
-    int iThumbWidth, iThumbHeight; // thumbnail size (if present)
-    int iThumbData; // offset to image data
-    int iXOffset, iYOffset; // placement on the display
+    int iWidth, iHeight;                  // image size
+    int iThumbWidth, iThumbHeight;        // thumbnail size (if present)
+    int iThumbData;                       // offset to image data
+    int iXOffset, iYOffset;               // placement on the display
     int iCropX, iCropY, iCropCX, iCropCY; // crop area
     uint8_t ucBpp, ucSubSample, ucHuffTableUsed;
     uint8_t ucMode, ucOrientation, ucHasThumb, b11Bit;
@@ -213,10 +217,10 @@ typedef struct jpeg_image_tag
     int iEXIF; // Offset to EXIF 'TIFF' file
     int iError;
     int iOptions;
-    int iVLCOff; // current VLC data offset
-    int iVLCSize; // current quantity of data in the VLC buffer
+    int iVLCOff;                 // current VLC data offset
+    int iVLCSize;                // current quantity of data in the VLC buffer
     int iResInterval, iResCount; // restart interval
-    int iMaxMCUs; // max MCUs of pixels per JPEGDraw call
+    int iMaxMCUs;                // max MCUs of pixels per JPEGDraw call
     JPEG_READ_CALLBACK *pfnRead;
     JPEG_SEEK_CALLBACK *pfnSeek;
     JPEG_DRAW_CALLBACK *pfnDraw;
@@ -227,14 +231,14 @@ typedef struct jpeg_image_tag
     BUFFERED_BITS bb;
     void *pUser;
     uint8_t *pDitherBuffer; // provided externally to do Floyd-Steinberg dithering
-    uint16_t *usPixels; // needs to be 16-byte aligned for S3 SIMD
-    uint16_t usUnalignedPixels[MAX_BUFFERED_PIXELS+8];
-    int16_t *sMCUs; // needs to be 16-byte aligned for S3 SIMD
-    int16_t sUnalignedMCUs[8+(DCTSIZE * MAX_MCU_COUNT)]; // 4:2:0 needs 6 DCT blocks per MCU
+    uint16_t *usPixels;     // needs to be 16-byte aligned for S3 SIMD
+    uint16_t usUnalignedPixels[MAX_BUFFERED_PIXELS + 8];
+    int16_t *sMCUs;                                        // needs to be 16-byte aligned for S3 SIMD
+    int16_t sUnalignedMCUs[8 + (DCTSIZE * MAX_MCU_COUNT)]; // 4:2:0 needs 6 DCT blocks per MCU
     void *pFramebuffer;
-    int16_t sQuantTable[DCTSIZE*4]; // quantization tables
+    int16_t sQuantTable[DCTSIZE * 4];      // quantization tables
     uint8_t ucFileBuf[JPEG_FILE_BUF_SIZE]; // holds temp data and pixel stack
-    uint8_t ucHuffDC[DC_TABLE_SIZE * 2]; // up to 2 'short' tables
+    uint8_t ucHuffDC[DC_TABLE_SIZE * 2];   // up to 2 'short' tables
     uint16_t usHuffAC[HUFF11SIZE * 2];
 } JPEGIMAGE;
 
@@ -248,7 +252,7 @@ typedef struct jpeg_image_tag
 //
 class JPEGDEC
 {
-  public:
+public:
     int openRAM(uint8_t *pData, int iDataSize, JPEG_DRAW_CALLBACK *pfnDraw);
     int openFLASH(const uint8_t *pData, int iDataSize, JPEG_DRAW_CALLBACK *pfnDraw);
     int open(const char *szFilename, JPEG_OPEN_CALLBACK *pfnOpen, JPEG_CLOSE_CALLBACK *pfnClose, JPEG_READ_CALLBACK *pfnRead, JPEG_SEEK_CALLBACK *pfnSeek, JPEG_DRAW_CALLBACK *pfnDraw);
@@ -282,7 +286,7 @@ class JPEGDEC
     int getPixelType();
     void setMaxOutputSize(int iMaxMCUs);
 
-  private:
+private:
     JPEGIMAGE _jpeg;
 };
 #else
@@ -320,10 +324,10 @@ void JPEG_setMaxOutputSize(JPEGIMAGE *pJPEG, int iMaxMCUs);
 #endif
 #else
 // Due to unaligned memory causing an exception, we have to do these macros the slow way
-#define INTELSHORT(p) ((*p) + (*(p+1)<<8))
-#define INTELLONG(p) ((*p) + (*(p+1)<<8) + (*(p+2)<<16) + (*(p+3)<<24))
-#define MOTOSHORT(p) (((*(p))<<8) + (*(p+1)))
-#define MOTOLONG(p) (((*p)<<24) + ((*(p+1))<<16) + ((*(p+2))<<8) + (*(p+3)))
+#define INTELSHORT(p) ((*p) + (*(p + 1) << 8))
+#define INTELLONG(p) ((*p) + (*(p + 1) << 8) + (*(p + 2) << 16) + (*(p + 3) << 24))
+#define MOTOSHORT(p) (((*(p)) << 8) + (*(p + 1)))
+#define MOTOLONG(p) (((*p) << 24) + ((*(p + 1)) << 16) + ((*(p + 2)) << 8) + (*(p + 3)))
 #endif // ALLOWS_UNALIGNED
 
 #endif // __JPEGDEC__

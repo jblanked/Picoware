@@ -8,20 +8,13 @@ _flip_social_user_keyboard_ran: bool = False
 
 def __flip_social_util_get_username(view_manager) -> str:
     """Get the username from storage, or return empty string"""
-    storage = view_manager.storage
-    data: str = storage.read("picoware/settings/server_username.json")
+    from picoware.system.settings import Settings
 
-    if data is not None:
-        try:
-            from ujson import loads
+    _settings = Settings(view_manager.storage)
+    server_settings = _settings.server_settings
+    _username = server_settings.get("username")
 
-            obj: dict = loads(data)
-            if "username" in obj:
-                return obj["username"]
-        except Exception:
-            pass
-
-    return ""
+    return _username
 
 
 def __flip_social_user_callback(response: str) -> None:
@@ -110,15 +103,13 @@ def __flip_social_user_stop(view_manager) -> None:
     if keyboard:
         # if we need to save, do it now instead of in the callback
         if _flip_social_user_save_verified:
-            storage = view_manager.storage
+            from picoware.system.settings import Settings
+            
             username = view_manager.keyboard.response
-            try:
-                from ujson import dumps
-
-                obj = {"username": username}
-                storage.write("picoware/settings/server_username.json", dumps(obj))
-            except Exception:
-                pass
+            _settings = Settings(view_manager.storage)
+            server_settings = _settings.server_settings
+            server_settings["username"] = username
+            _settings.server_settings = server_settings
 
         keyboard.reset()
 

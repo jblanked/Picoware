@@ -103,21 +103,21 @@ class Alert:
             radius = min(size.x, size.y) // 2
 
             # Draw Title at top center
-            title_width = len(title) * font_size.x
+            title_width = self.display.len(title)
             title_x = center_x - (title_width // 2)
             title_y = int(center_y - radius * 0.85)
-            self.display.text(Vector(title_x, title_y), title, self.text_color)
+            self.display._text(title_x, title_y, title, self.text_color)
 
             # Draw circular border
             border_radius = int(radius * 0.9)
-            self.display.circle(
-                Vector(center_x, center_y), border_radius, self.text_color
+            self.display._circle(
+                center_x, center_y, border_radius, self.text_color
             )
 
             # Calculate text area constraints for circular display
             text_start_y = int(center_y - radius * 0.6)
             max_radius_at_y = int(radius * 0.8)
-            chars_per_line = (max_radius_at_y * 2) // (font_size.x + 1)
+            chars_per_line = ((max_radius_at_y * 2) // (font_size.x)) - 1
 
             # Wrap text manually based on character count
             line: int = 0
@@ -126,59 +126,57 @@ class Alert:
             words = self._text.split()
             current_line = ""
 
-            text_vector = Vector(0, text_start_y)
+            distance = font_size.y + 1
             for word in words:
                 test_line = current_line + (" " if current_line else "") + word
+                current_y = text_start_y + line * distance
+
+                if current_y + distance > size.y:
+                    break
 
                 if len(test_line) <= chars_per_line:
                     current_line = test_line
                 else:
                     if current_line:
-                        line_width = len(current_line) * font_size.x
-                        text_vector.x = center_x - (line_width // 2)
-                        text_vector.y = text_start_y + line * 16
-                        self.display.text(text_vector, current_line, self.text_color)
+                        line_width = self.display.len(current_line)
+                        self.display._text(center_x - (line_width // 2), current_y, current_line, self.text_color)
                         line += 1
 
                     if len(word) > chars_per_line:
                         for i in range(0, len(word), chars_per_line):
                             chunk = word[i : i + chars_per_line]
-                            chunk_width = len(chunk) * font_size.x
-                            text_vector.x = int(center_x - (chunk_width // 2))
-                            text_vector.y = int(text_start_y + line * 16)
-                            self.display.text(text_vector, chunk, self.text_color)
+                            chunk_width = self.display.len(chunk)
+                            self.display._text(center_x - (chunk_width // 2), current_y, chunk, self.text_color)
                             line += 1
                         current_line = ""
                     else:
                         current_line = word
 
             if current_line:
-                line_width = len(current_line) * font_size.x
-                text_vector.x = center_x - (line_width // 2)
-                text_vector.y = text_start_y + line * 16
-                self.display.text(text_vector, current_line, self.text_color)
+                line_width = self.display.len(current_line)
+                self.display._text(center_x - (line_width // 2), current_y, current_line, self.text_color)
         else:
             # Draw Title
-            title_width = len(title) * font_size.x
+            title_width = self.display.len(title)
             title_x = (size.x - title_width) // 2
-            self.display.text(Vector(title_x, 0), title, self.text_color)
+            self.display._text(title_x, 0, title, self.text_color)
 
             # Draw Border
             border_left = int(size.x * 0.0625)
-            border_top = int(size.y * 0.0625)
+            border_top = self.display.font_size.y + 1
             border_width = int(size.x - (2 * border_left))
-            border_height = int(size.y - (2 * border_top))
-            self.display.rect(
-                Vector(border_left, border_top),
-                Vector(border_width, border_height),
+            border_height = (size.y - self.display.scale_y(5)) - border_top
+            self.display._rectangle(
+                border_left, border_top,
+                border_width, border_height,
                 self.text_color,
             )
 
             # Calculate text area constraints
             text_start_x = int(size.x * 0.09375)
-            text_start_y = int(size.y * 0.09375)
+            text_start_y = border_top + 2
             text_max_width = size.x - (2 * text_start_x)  # Leave padding from border
-            chars_per_line = int(text_max_width // (font_size.x + 1))
+            chars_per_line = (text_max_width // font_size.x) - 1
 
             # Wrap text manually based on character count
             line: int = 0
@@ -188,20 +186,23 @@ class Alert:
             words = self._text.split()
             current_line = ""
 
-            text_vector = Vector(text_start_x, text_start_y)
+            distance = self.display.font_size.y + 1
             for word in words:
                 # Check if adding this word would exceed the line width
                 test_line = current_line + (" " if current_line else "") + word
+                current_y = text_start_y + line * distance
+
+                if current_y + distance > border_height:
+                    break
 
                 if len(test_line) <= chars_per_line:
                     current_line = test_line
                 else:
                     # Draw the current line and start a new one
                     if current_line:
-                        text_vector.x = text_start_x
-                        text_vector.y = text_start_y + line * 18
-                        self.display.text(
-                            text_vector,
+                        self.display._text(
+                            text_start_x,
+                            current_y,
                             current_line,
                             self.text_color,
                         )
@@ -211,10 +212,9 @@ class Alert:
                     if len(word) > chars_per_line:
                         for i in range(0, len(word), chars_per_line):
                             chunk = word[i : i + chars_per_line]
-                            text_vector.x = text_start_x
-                            text_vector.y = text_start_y + line * 18
-                            self.display.text(
-                                text_vector,
+                            self.display._text(
+                                text_start_x,
+                                current_y,
                                 chunk,
                                 self.text_color,
                             )
@@ -225,10 +225,9 @@ class Alert:
 
             # Draw any remaining text
             if current_line:
-                text_vector.x = text_start_x
-                text_vector.y = text_start_y + line * 18
-                self.display.text(
-                    text_vector,
+                self.display._text(
+                    text_start_x,
+                    text_start_y + line * distance,
                     current_line,
                     self.text_color,
                 )

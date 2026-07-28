@@ -1104,24 +1104,24 @@ class Desktop:
         self.bluetooth_size = Vector(14, 16)
         self.wifi_pos = Vector(0, 0)
         self.name_pos = Vector(0, 0)
-        self.time_pos = Vector(int(self.size.x * 0.4375), 5)
+        self.time_pos = Vector(int(self.size.x * 0.4375), self.display.scale_y(5))
         self.bluetooth_pos = Vector(0, 0)
-        self.battery_pos = Vector(int(self.size.x * 0.7875), 5)
+        self.battery_pos = Vector(int(self.size.x * 0.7875), self.display.scale_y(5))
 
         if self.is_circular:
             # wifi icon
             self.wifi_pos.x, self.wifi_pos.y = (
                 int(self.size.x * 0.65),
-                int(self.size.y / 20) + 25,
+                int(self.size.y / 20) + draw.scale_y(25),
             )
             # board name
-            name_width = len(self.name) * self.font_size_x
+            name_width = self.display.len(self.name)
             name_x = (self.size.x - name_width) // 2
             self.name_pos.x, self.name_pos.y = name_x, int(self.size.y / 20)
             # bluetooth icon
             self.bluetooth_pos.x, self.bluetooth_pos.y = (
                 int(self.size.x * 0.30),
-                int(self.size.y / 20) + 25,
+                int(self.size.y / 20) + draw.scale_y(25),
             )
         else:
             # wifi icon
@@ -1212,11 +1212,11 @@ class Desktop:
 
         if self.is_circular:
             # Center the battery level below time
-            battery_width = len(self.battery_level_str) * (self.font_size_x + 1)
+            battery_width = self.display.len(self.battery_level_str)
             battery_x = (self.size.x - battery_width) // 2
             self.battery_pos.x, self.battery_pos.y = (
                 battery_x,
-                int(self.size.y / 20) + 32,
+                int(self.size.y / 20) + self.display.scale_y(32),
             )
 
     def set_time(self, time_str: str) -> None:
@@ -1224,6 +1224,6 @@ class Desktop:
         self.time_str = time_str
 
         if self.is_circular:
-            time_width = len(self.time_str) * self.font_size_x
+            time_width = self.display.len(self.time_str)
             time_x = (self.size.x - time_width) // 2
-            self.time_pos.x, self.time_pos.y = time_x, int(self.size.y / 20) + 10
+            self.time_pos.x, self.time_pos.y = time_x, int(self.size.y / 20) + self.display.scale_y(10)

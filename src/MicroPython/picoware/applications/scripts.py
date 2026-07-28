@@ -87,6 +87,7 @@ def run(view_manager) -> None:
             view_manager.log(
                 f"[Script]: {selected_app} finished after {ticks_ms() - start_time} ms"
             )
+            _scripts.draw()
 
 
 

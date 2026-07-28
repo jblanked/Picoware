@@ -41,20 +41,6 @@ def load_wifi_password(view_manager) -> str:
     return settings.wifi_settings.get("password", "")
 
 
-def save_wifi_settings(storage, ssid: str, password: str = "") -> bool:
-    """Save the WiFi settings to storage."""
-    from picoware.system.settings import Settings
-
-    if not ssid or not password:
-        print("SSID or password cannot be empty")
-        return False
-    settings = {"ssid": ssid, "password": password}
-    _set = Settings(storage)
-    _set.wifi_settings = settings
-    return True
-    
-
-
 def save_wifi_ssid(storage, ssid: str) -> bool:
     """Save the WiFi SSID to storage."""
     from picoware.system.settings import Settings

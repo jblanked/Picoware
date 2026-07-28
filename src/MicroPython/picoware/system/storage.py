@@ -1,8 +1,9 @@
 from picoware_boards import (
+    BOARD_CROWPANEL_10_1,
     BOARD_ID,
     BOARD_WAVESHARE_1_28_RP2350,
-    BOARD_CROWPANEL_10_1,
-    BOARD_CARDPUTER,
+    BOARD_HAS_ESP32,
+    BOARD_FLIPPER_ZERO,
 )
 
 try:
@@ -56,10 +57,14 @@ class Storage:
             self._has_storage = False
         else:
             sd_mp.init()
+            sd_mp.mount()
 
     def __del__(self):
         """Destructor to ensure SD card is unmounted."""
-        self.unmount()
+        try:
+            self.unmount()
+        except Exception:
+            pass
 
     @property
     def active(self) -> bool:
@@ -80,7 +85,7 @@ class Storage:
         On Cardputer the SD card is exposed at /sdcard via the C POSIX bridge;
         on all other boards it is mounted at /sd by mount_vfs().
         """
-        if BOARD_ID == BOARD_CARDPUTER:
+        if BOARD_HAS_ESP32 == 1:
             return "/sdcard"
         return "/sd"
 
@@ -98,18 +103,19 @@ class Storage:
             print(f"Error copying from {source_path} to {destination_path}: {e}")
             return False
 
-    def deserialize(self, json_dict: dict, file_path: str) -> None:
+    def deserialize(self, json_dict: dict, file_path: str) -> bool:
         """Deserialize a JSON object and write it to a file."""
         from json import dumps
 
         if not self._has_storage:
-            return
+            return False
 
         try:
             json_str = dumps(json_dict)
-            sd_mp.write(file_path, json_str.encode("utf-8"), True)
+            return sd_mp.write(file_path, json_str.encode("utf-8"), True)
         except Exception as e:
             print(f"Error writing JSON to file {file_path}: {e}")
+            return False
 
     def execute_script(self, file_path: str = "/") -> None:
         """Run a Python file from the storage."""
@@ -297,9 +303,15 @@ class Storage:
         if not self._has_storage:
             return False  # No SD storage on this board
 
-        if BOARD_ID == BOARD_CARDPUTER:
+        if BOARD_HAS_ESP32 == 1:
             self._vfs_mounted = True
             return True
+
+        if BOARD_ID == BOARD_FLIPPER_ZERO:
+            result = self.mount()
+            if result:
+                self._vfs_mounted = True
+            return result
 
         try:
             from vfs_mp import mount
@@ -337,7 +349,12 @@ class Storage:
         Returns:
             True if unmounted successfully, False otherwise
         """
-        if not self._vfs_mounted or BOARD_ID == BOARD_CARDPUTER:
+        if not self._vfs_mounted or BOARD_HAS_ESP32 == 1:
+            return True
+
+        if BOARD_ID == BOARD_FLIPPER_ZERO:
+            self.unmount()
+            self._vfs_mounted = False
             return True
 
         try:
@@ -414,7 +431,11 @@ class Storage:
         """Remove a file or directory."""
         if not self._has_storage:
             return False  # No SD storage on this board
-        return sd_mp.remove(file_path)
+        try:
+            return sd_mp.remove(file_path)
+        except Exception as e:
+            print(f"Error removing {file_path}: {e}")
+            return False
 
     def rename(self, old_path: str, new_path: str) -> bool:
         """Rename a file or directory."""
@@ -468,8 +489,11 @@ class Storage:
 
     def unmount(self) -> bool:
         """Unmount the SD card (including VFS if mounted)."""
-        # Unmount VFS first if it's mounted
         if not self._has_storage:
             return False  # No SD storage on this board
-        sd_mp.unmount()
+        try:
+            sd_mp.unmount()
+        except Exception as e:
+            print(f"Error unmounting SD: {e}")
+            return False
         return True

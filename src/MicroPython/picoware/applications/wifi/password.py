@@ -75,16 +75,10 @@ def run(view_manager) -> None:
         password = keyboard.response
         from picoware.applications.wifi.utils import (
             save_wifi_password,
-            save_wifi_settings,
-            load_wifi_ssid,
         )
 
         if not save_wifi_password(view_manager.storage, password):
             view_manager.alert("Failed to save WiFi password")
-        if not save_wifi_settings(
-            view_manager.storage, load_wifi_ssid(view_manager), password
-        ):
-            view_manager.alert("Failed to save WiFi settings")
         keyboard.reset()
         _password_is_running = False
         view_manager.back()

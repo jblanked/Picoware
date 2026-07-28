@@ -1,0 +1,61 @@
+#define MICROPY_HW_HSE_VALUE (32000000)
+#define MICROPY_HW_LSE_VALUE (32768)
+
+#define MICROPY_HW_BOARD_NAME "Flipper Zero"
+#define MICROPY_HW_MCU_NAME "STM32WB55RGV6"
+
+#define MICROPY_PY_PYB_LEGACY (0)
+
+// Disable BLE, hold M0+ in reset for v1 port
+#define MICROPY_HW_STM32WB_FLASH_SYNCRONISATION (0)
+void flipper_board_early_init(void);
+#define MICROPY_BOARD_EARLY_INIT flipper_board_early_init
+
+#define MICROPY_HW_HAS_FLASH (1)
+#define MICROPY_HW_ENABLE_RTC (1)
+#define MICROPY_HW_ENABLE_RNG (1)
+#define MICROPY_HW_ENABLE_USB (1)
+#define MICROPY_HW_HAS_SWITCH (1)
+
+// PLLQ=48MHz USB clock
+// HSE 32M, PLLM/2, PLLN*12, PLLQ/4
+#define MICROPY_HW_CLK_PLLM (2)
+#define MICROPY_HW_CLK_PLLN (12)
+#define MICROPY_HW_CLK_PLLP (2)
+#define MICROPY_HW_CLK_PLLQ (4)
+#define MICROPY_HW_CLK_PLLR (3) // SYSCLK = 192/3 = 64 MHz
+
+#define RTC_ASYNCH_PREDIV (0)
+#define RTC_SYNCH_PREDIV (0x7fff)
+#define MICROPY_HW_RTC_USE_LSE (1)
+#define MICROPY_HW_RTC_USE_US (1)
+
+#define MICROPY_HW_UART1_TX (pin_B6)
+#define MICROPY_HW_UART1_RX (pin_B7)
+#define MICROPY_HW_LPUART1_TX (pin_A2)
+#define MICROPY_HW_LPUART1_RX (pin_A3)
+#define MICROPY_HW_UART_REPL PYB_UART_1
+#define MICROPY_HW_UART_REPL_BAUD 115200
+
+#define MICROPY_HW_I2C1_SCL (pin_A9)
+#define MICROPY_HW_I2C1_SDA (pin_A10)
+
+#define MICROPY_HW_SPI2_SCK (pin_D1)
+#define MICROPY_HW_SPI2_MISO (pin_C2)
+#define MICROPY_HW_SPI2_MOSI (pin_B15)
+
+#define MICROPY_HW_USRSW_PIN (pin_C13)
+#define MICROPY_HW_USRSW_PULL (GPIO_PULLUP)
+#define MICROPY_HW_USRSW_EXTI_MODE (GPIO_MODE_IT_FALLING)
+#define MICROPY_HW_USRSW_PRESSED (0)
+
+#define MICROPY_HW_LED1 (pin_B8)
+#define MICROPY_HW_LED_ON(pin) (mp_hal_pin_high(pin))
+#define MICROPY_HW_LED_OFF(pin) (mp_hal_pin_low(pin))
+
+#define MICROPY_HW_USB_FS (1)
+// 256B CDC for USB SRAM
+#define MICROPY_HW_USB_CDC_RX_DATA_SIZE (256)
+#define MICROPY_HW_USB_CDC_TX_DATA_SIZE (256)
+// No USB MSC
+#define MICROPY_HW_USB_MSC (0)

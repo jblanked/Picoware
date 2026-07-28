@@ -8,6 +8,7 @@ from picoware.system.vector import Vector
 rain_columns = []
 screen_size = None
 font_size = None
+is_flipper = None
 
 
 class RainColumn:
@@ -45,7 +46,9 @@ class RainColumn:
                 self.pos.x = self.x
                 self.pos.y = char_y
                 # Brightest at head, darker towards tail
-                if i == 0:
+                if is_flipper:
+                    color = 0xFFFF  # White on Flipper
+                elif i == 0:
                     color = 0x07E0  # Bright green
                 elif i < 3:
                     color = 0x05C0  # Medium green
@@ -60,7 +63,10 @@ class RainColumn:
 
 def start(view_manager) -> bool:
     """Start the app"""
-    global rain_columns, screen_size, font_size
+    global rain_columns, screen_size, font_size, is_flipper
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+
+    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
     draw = view_manager.draw
     screen_size = Vector(draw.size.x, draw.size.y)
@@ -116,10 +122,11 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global rain_columns, screen_size, font_size
+    global rain_columns, screen_size, font_size, is_flipper
 
     rain_columns = []
     screen_size = None
     font_size = None
+    is_flipper = None
 
     collect()

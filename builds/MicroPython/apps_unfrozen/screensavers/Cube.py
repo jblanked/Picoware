@@ -29,6 +29,7 @@ focal = 256
 
 # Generated in start()
 LINES = []
+is_flipper = None
 
 
 def _make_lines(s):
@@ -129,7 +130,9 @@ def render_image(tft):
 
         if Ok == 1:
             # Color by line index
-            if i < 4:
+            if is_flipper:
+                color = 0xFFFF
+            elif i < 4:
                 color = TFT_RED  # Front face (red/cyan)
             elif i > 7:
                 color = TFT_DARKGREEN  # Edge lines (dark green)
@@ -143,8 +146,11 @@ def render_image(tft):
 def start(view_manager) -> bool:
     """Start the app"""
     from picoware.system.colors import TFT_BLACK
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
 
-    global fact, Xoff, Yoff, Zoff, Xan, Yan, scale, cube_size, focal, LINES
+    global fact, Xoff, Yoff, Zoff, Xan, Yan, scale, cube_size, focal, LINES, is_flipper
+
+    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
     draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)
@@ -213,7 +219,7 @@ def stop(view_manager) -> None:
     from gc import collect
 
     global inc, xx, xy, xz, yx, yy, yz, zx, zy, zz, fact, Xan, Yan, Xoff, Yoff, Zoff
-    global scale, cube_size, focal, LINES
+    global scale, cube_size, focal, LINES, is_flipper
 
     inc = -2
 
@@ -238,6 +244,7 @@ def stop(view_manager) -> None:
     cube_size = 50
     focal = 256
     LINES = []
+    is_flipper = None
 
     draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)

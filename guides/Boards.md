@@ -13,5 +13,8 @@ A custom Raspberry Pi Pico setup with a SPI interface that uses the ILI9341 driv
 ## Cardputer ADV
 This device by M5Stack has a SPI interface and uses an ST7789V2 driver. More details [here](https://github.com/jblanked/Picoware/tree/main/guides/Cardputer.md).
 
+## Marauder Pancake
+An ESP32-C5 handheld with a 320x480 touch display and no keyboard. More details [here](https://github.com/jblanked/Picoware/tree/main/guides/Pancake.md).
+
 ## CrowPanel
 An esp32 "tablet" by Elecrow. More details [here](https://github.com/jblanked/Picoware/tree/main/guides/CrowPanel.md).

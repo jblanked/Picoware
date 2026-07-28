@@ -8,20 +8,9 @@ _free_roam_user_keyboard_ran: bool = False
 
 def __free_roam_util_get_username(view_manager) -> str:
     """Get the username from storage, or return empty string"""
-    storage = view_manager.storage
-    data: str = storage.read("picoware/settings/server_username.json")
-
-    if data is not None:
-        try:
-            from ujson import loads
-
-            obj: dict = loads(data)
-            if "username" in obj:
-                return obj["username"]
-        except Exception:
-            pass
-
-    return ""
+    from picoware.system.settings import Settings
+    settings = Settings(view_manager.storage)
+    return settings.server_settings.get("username", "")
 
 
 def __free_roam_user_callback(response: str) -> None:
@@ -107,15 +96,12 @@ def __free_roam_user_stop(view_manager) -> None:
     if keyboard:
         # if we need to save, do it now instead of in the callback
         if _free_roam_user_save_verified:
-            storage = view_manager.storage
             username = view_manager.keyboard.response
-            try:
-                from ujson import dumps
-
-                obj = {"username": username}
-                storage.write("picoware/settings/server_username.json", dumps(obj))
-            except Exception:
-                pass
+            from picoware.system.settings import Settings
+            settings = Settings(view_manager.storage)
+            _server_settings = settings.server_settings
+            _server_settings["username"] = username
+            settings.server_settings = _server_settings
 
         keyboard.reset()
 

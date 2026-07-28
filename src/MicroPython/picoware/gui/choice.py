@@ -142,7 +142,7 @@ class Choice:
             self._state = self._lvgl_choice.get_state()
             return
 
-        from picoware.system.vector import Vector
+        from picoware_boards import BOARD_ID, BOARD_FLIPPER_ZERO
 
         font_size = self.display.font_size
 
@@ -159,11 +159,11 @@ class Choice:
             radius = min(self.display.size.x, self.display.size.y) // 2
 
             # Draw Title at top
-            title_width = len(self.title) * font_size.x
+            title_width = self.display.len(self.title)
             title_x = center_x - (title_width // 2)
             title_y = int(center_y - radius * 0.7)
-            self.display.text(
-                Vector(title_x, title_y), self.title, self.foreground_color
+            self.display._text(
+               title_x, title_y, self.title, self.foreground_color
             )
 
             # arrange options vertically in center
@@ -172,20 +172,18 @@ class Choice:
             start_y = center_y - (
                 (num_options * option_height + (num_options - 1) * total_spacing) // 2
             )
-            text_pos = Vector(0, 0)
-            circ_pos = Vector(0, 0)
+            _five_x, _five_y = self.display.scale(5, 5)
             for i, option in enumerate(self.options):
                 opt_y = start_y + i * (option_height + total_spacing)
-                text_width = len(option) * font_size.x
+                text_width = self.display.len(option)
 
                 if i == self._state:
                     # Highlighted option - draw filled rounded area
                     opt_center_x = center_x
                     opt_center_y = opt_y + option_height // 2
-                    opt_radius = max(text_width // 2 + 10, option_height // 2 + 5)
-                    circ_pos.x, circ_pos.y = opt_center_x, opt_center_y
-                    self.display.fill_circle(
-                        circ_pos,
+                    opt_radius = max(text_width // 2 + (_five_x * 2), option_height // 2 + _five_y)
+                    self.display._fill_circle(
+                        opt_center_x, opt_center_y,
                         opt_radius,
                         self.foreground_color,
                     )
@@ -194,10 +192,9 @@ class Choice:
                     # Non-selected option - draw circle outline
                     opt_center_x = center_x
                     opt_center_y = opt_y + option_height // 2
-                    opt_radius = max(text_width // 2 + 10, option_height // 2 + 5)
-                    circ_pos.x, circ_pos.y = opt_center_x, opt_center_y
-                    self.display.circle(
-                        circ_pos,
+                    opt_radius = max(text_width // 2 + (_five_x * 2), option_height // 2 + _five_y)
+                    self.display._circle(
+                        opt_center_x, opt_center_y,
                         opt_radius,
                         self.foreground_color,
                     )
@@ -206,26 +203,24 @@ class Choice:
                 # Draw option text centered
                 text_x = center_x - (text_width // 2)
                 text_y = opt_y + (option_height - font_size.y) // 2
-                text_pos.x, text_pos.y = text_x, text_y
-                self.display.text(text_pos, option, text_color)
+                self.display._text(text_x, text_y, option, text_color)
         else:
             # Draw Title
-            _font = self.display.get_font(2)
-            title_width = len(self.title) * (_font.width + _font.spacing)
-            title_x = self.position.x + (self.size.x - title_width) // 2
-            title_y = self.position.y + 5
-            self.display.text(
-                Vector(title_x, title_y), self.title, self.foreground_color, 3
+            title_font_int = 1 if BOARD_ID == BOARD_FLIPPER_ZERO else 3
+            _font = self.display.get_font(title_font_int)
+            title_width = self.display.len(self.title, title_font_int)
+            title_x = self.position.x + (self.size.x // 2) - (title_width // 2)
+            title_y = self.position.y + self.display.scale_y(5)
+            self.display._text(
+                title_x, title_y, self.title, self.foreground_color, title_font_int
             )
 
             # Draw options in a 2-column list below the title
-            y_start = title_y + (_font.height * 2) + 10
-            x_col1 = self.position.x + 5
-            x_col2 = self.position.x + self.size.x // 2 + 5
-            line_height = _font.height * 2
+            y_start = title_y + (_font.height * 2) + self.display.scale_y(10)
+            x_col1 = self.position.x + self.display.scale_x(5)
+            x_col2 = self.position.x + self.size.x // 2 + self.display.scale_x(5)
+            line_height = _font.height * self.display.scale_y(2)
 
-            highlight_pos = Vector(0, 0)
-            highlight_size = Vector(0, 0)
             for i, option in enumerate(self.options):
                 row = i // 2
                 col = i % 2
@@ -234,12 +229,8 @@ class Choice:
 
                 if i == self._state:
                     # Draw background highlight for selected option
-                    highlight_pos.x = x_pos - 2
-                    highlight_pos.y = y_pos - 2
-                    highlight_size.x = len(option) * font_size.x + 4
-                    highlight_size.y = line_height - 2
-                    self.display.fill_rectangle(
-                        highlight_pos, highlight_size, self.foreground_color
+                    self.display._fill_rectangle(
+                        x_pos - self.display.scale_x(2), y_pos - self.display.scale_y(2), self.display.len(option) + self.display.scale_x(4), line_height - self.display.scale_y(2), self.foreground_color
                     )
                     text_color = self.background_color
                 else:

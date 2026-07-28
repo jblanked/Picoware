@@ -3,6 +3,20 @@ import sim_font
 import ustruct
 
 
+def default_font_for_board(board_id, boards=None):
+    """Return the firmware's compile-time default font for a board."""
+    if boards is None:
+        import picoware_boards as boards
+    if board_id in (boards.BOARD_CARDPUTER, boards.BOARD_WAVESHARE_2_06):
+        return 1
+    if board_id in (
+        boards.BOARD_WAVESHARE_1_43_RP2350,
+        boards.BOARD_WAVESHARE_3_49_RP2350,
+    ):
+        return 2
+    return 0
+
+
 def _rgb565_to_rgb(color):
     color = int(color) & 0xFFFF
     r = ((color >> 11) & 31) * 255 // 31
@@ -15,7 +29,7 @@ class LCD:
     width = 320
     height = 320
 
-    FONT_DEFAULT = 1
+    FONT_DEFAULT = 0
     FONT_XTRA_SMALL = 0
     FONT_SMALL = 1
     FONT_MEDIUM = 2
@@ -30,6 +44,9 @@ class LCD:
             import picoware_boards
 
             self.width, self.height = picoware_boards.get_current_display_size()
+            self.FONT_DEFAULT = default_font_for_board(
+                picoware_boards.BOARD_ID, picoware_boards
+            )
             if self.width * self.height > 320 * 480:
                 self.width, self.height = 320, 320
         except Exception:
@@ -199,10 +216,12 @@ class LCD:
         self._fill_rectangle(x, y, w, h, color)
 
     def _font_metrics(self, font_size):
+        if font_size is None:
+            font_size = self.FONT_DEFAULT
         if font_size == 0:
             return 5, 8, 1
         if font_size == 2:
-            return 11, 16, 0
+            return 11, 16, 1
         if font_size == 3:
             return 14, 20, 0
         if font_size == 4:

@@ -296,6 +296,7 @@ def _install_view_tracking():
     """Report ViewManager transitions to the simulator harness."""
     try:
         import sim_runtime
+        from picoware.system.input import Input
         from picoware.system.view_manager import ViewManager
     except Exception:
         return
@@ -351,10 +352,41 @@ def _install_view_tracking():
         note(self)
         return result
 
+    def tracked_input_button(self):
+        from picoware.system.boards import (
+            BOARD_CARDPUTER,
+            BOARD_CROWPANEL_10_1,
+            BOARD_FLIPPER_ZERO,
+            BOARD_PANCAKE,
+            BOARD_WAVESHARE_2_06,
+        )
+
+        sim_runtime.input_polled()
+        if self._current_board_id in (
+            BOARD_CROWPANEL_10_1,
+            BOARD_WAVESHARE_2_06,
+            BOARD_PANCAKE,
+        ):
+            self._poll_touch()
+        elif self._current_board_id == BOARD_CARDPUTER:
+            from cardputer_keyboard import key_available, poll
+
+            poll()
+            if key_available():
+                self.on_key_callback()
+        elif self._current_board_id == BOARD_FLIPPER_ZERO:
+            from flipper_input import key_available, poll
+
+            poll()
+            if key_available():
+                self.on_key_callback()
+        return self._last_button
+
     ViewManager.set = tracked_set
     ViewManager.switch_to = tracked_switch_to
     ViewManager.back = tracked_back
     ViewManager.remove = tracked_remove
+    Input.button = property(tracked_input_button)
     ViewManager._sim_view_tracking_installed = True
 
 
@@ -563,6 +595,10 @@ def _run_sim_check(opts):
         if status != 0:
             print("[sim-check:fail]", cmd, status)
             raise SystemExit(1)
+    _run_keyboard_background_check()
+    _run_engine_parity_check()
+    _run_font_parity_check()
+    _run_scripts_fixture_check(opts)
     _run_touch_check()
     _run_flipper_battery_check()
     _run_log_storage_check(opts)
@@ -570,6 +606,154 @@ def _run_sim_check(opts):
     _run_fatal_exit_check(opts)
     _run_mjs_check()
     print("[sim-check:pass]")
+
+
+def _run_keyboard_background_check():
+    """Exercise the PicoCalc background-poll callback contract."""
+    import picoware_keyboard
+    import sim_runtime
+
+    received = []
+
+    def on_key(_):
+        received.append(picoware_keyboard.get_key_nonblocking())
+
+    sim_runtime._keys = []
+    picoware_keyboard.init()
+    picoware_keyboard.set_key_available_callback(on_key)
+    picoware_keyboard.set_background_poll(True)
+    sim_runtime.push_key(ord("a"))
+    sim_runtime.push_key(ord("b"))
+    sim_runtime.input_polled()
+    if received != [ord("a")]:
+        raise RuntimeError("simulator background keyboard dispatched wrong first key")
+    sim_runtime.input_polled()
+    if received != [ord("a"), ord("b")]:
+        raise RuntimeError("simulator background keyboard did not dispatch queued keys")
+
+    picoware_keyboard.set_background_poll(False)
+    sim_runtime.push_key(ord("c"))
+    sim_runtime.input_polled()
+    if received != [ord("a"), ord("b")]:
+        raise RuntimeError("simulator background keyboard ignored disabled state")
+    if sim_runtime.pop_key() != ord("c"):
+        raise RuntimeError("simulator disabled background keyboard consumed a key")
+    picoware_keyboard.deinit()
+    print("[sim-check:ok] picocalc background keyboard callbacks")
+
+
+def _run_engine_parity_check():
+    """Exercise the latest Level and Sprite3D native API additions."""
+    import sd_mp
+    import sim_runtime
+    from engine import Level, Sprite3D, Triangle3D
+    from picoware.gui.draw import Draw
+    from picoware.system.vector import Vector
+
+    path = "sim_reports/engine-roundtrip.sprite3d"
+    sprite = Sprite3D()
+    triangle = Triangle3D(
+        2.0,
+        -0.5,
+        -0.5,
+        2.0,
+        0.5,
+        0.0,
+        2.0,
+        -0.5,
+        0.5,
+        0x07E0,
+        True,
+        0,
+    )
+    triangle.wireframe = False
+    sprite.triangles.append(triangle)
+    if not sprite.to_path(path):
+        raise RuntimeError("simulator Sprite3D.to_path failed")
+
+    loaded = Sprite3D()
+    if not loaded.from_path(path, False) or len(loaded.triangles) != 1:
+        raise RuntimeError("simulator Sprite3D.from_path failed")
+    loaded_triangle = loaded.triangles[0]
+    if loaded_triangle.color != 0x07E0 or loaded_triangle.wireframe:
+        raise RuntimeError("simulator Sprite3D round-trip data mismatch")
+    loaded.set_wireframe(True)
+    if not loaded_triangle.wireframe:
+        raise RuntimeError("simulator Sprite3D.set_wireframe failed")
+
+    class GameProbe:
+        pass
+
+    class PlayerProbe:
+        pass
+
+    original_headless = sim_runtime.headless
+    draw = None
+    try:
+        sim_runtime.headless = True
+        draw = Draw()
+        game = GameProbe()
+        game.draw = draw
+        player = PlayerProbe()
+        player.is_player = True
+        player.position = Vector(0, 0, 0)
+        player.direction = Vector(1, 0, 0)
+        level = Level(game=game)
+        level.entities.append(player)
+        if abs(level.light_direction.x - 0.577) > 0.001:
+            raise RuntimeError("simulator Level default light direction mismatch")
+        level.set_light_direction(0, 3, 4)
+        if (
+            abs(level.light_direction.y - 0.6) > 0.001
+            or abs(level.light_direction.z - 0.8) > 0.001
+        ):
+            raise RuntimeError("simulator Level.set_light_direction failed")
+        level.set_shadow_color(0x39E7)
+        if level.shadow_color != 0x39E7:
+            raise RuntimeError("simulator Level.set_shadow_color failed")
+        level.render_3d_sprite(path, 0.0, False, True)
+        if not any(draw._buffer):
+            raise RuntimeError("simulator Level.render_3d_sprite drew no pixels")
+    finally:
+        draw = None
+        sim_runtime.set_lcd(None)
+        sim_runtime.headless = original_headless
+        sd_mp.remove(path)
+        gc.collect()
+    print("[sim-check:ok] engine Level and Sprite3D parity")
+
+
+def _run_font_parity_check():
+    """Verify board-default fonts and the corrected Font16 spacing."""
+    import lcd
+    import picoware_boards as boards
+    from font import FontSize
+
+    small = (boards.BOARD_CARDPUTER, boards.BOARD_WAVESHARE_2_06)
+    medium = (
+        boards.BOARD_WAVESHARE_1_43_RP2350,
+        boards.BOARD_WAVESHARE_3_49_RP2350,
+    )
+    for board_id in range(boards.BOARD_FLIPPER_ZERO + 1):
+        expected = 1 if board_id in small else 2 if board_id in medium else 0
+        if lcd.default_font_for_board(board_id, boards) != expected:
+            raise RuntimeError("simulator board default font mismatch")
+    if FontSize(2).spacing != 1:
+        raise RuntimeError("simulator Font16 spacing mismatch")
+    print("[sim-check:ok] board default fonts and Font16 spacing")
+
+
+def _run_scripts_fixture_check(opts):
+    """Verify bundled JavaScript files are linked into the simulated SD."""
+    path = opts["sd"].rstrip("/") + "/picoware/scripts/hello.js"
+    try:
+        with open(path, "r") as handle:
+            contents = handle.read()
+    except OSError:
+        contents = ""
+    if 'draw.text(0, 10, "Hello From JavaScript")' not in contents:
+        raise RuntimeError("simulator bundled scripts fixture is missing")
+    print("[sim-check:ok] bundled JavaScript scripts fixture")
 
 
 def _run_touch_check():

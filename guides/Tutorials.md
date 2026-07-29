@@ -3,6 +3,7 @@
 Here are some tutorials and reviews to help you get started with Picoware:
 
 ## Reviews/Application Walkthroughs
+- Cardputer, Flipper Zero, & PicoCalc Get an EPIC Firmware Update!: https://www.youtube.com/watch?v=DiZ3TNUoONo
 - Cardputer AND PicoCalc Just Got a MASSIVE Upgrade (You Need This): https://www.youtube.com/watch?v=2cQUJM0ClZo
 - I tried finding Hidden Gems on AliExpress AGAIN! (Part 19): https://www.youtube.com/watch?v=6rlUO5NoYO0&t=466s
 - Cardputer ADV: I Built Custom Firmware for This Thing: https://www.youtube.com/watch?v=cR9WLkDjU2k

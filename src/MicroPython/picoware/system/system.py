@@ -54,7 +54,7 @@ class System:
             freq = machine.freq() / 1000000
         except Exception:
             # unpack tuple
-            freq = machine.freq()[0] / 100000
+            freq = machine.freq()[0] / 1000000
         return int(freq)
 
     @property

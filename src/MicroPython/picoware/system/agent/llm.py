@@ -8,10 +8,14 @@ LOCAL = const(4)
 
 class LLM:
     """LLM config"""
-    __slots__ = ["_api_key", "_current_model", "_id", "_name", "_url", "_models", "_headers"]
-    def __init__(self, storage, llm_id: int, model: str = None):
+    __slots__ = ["_api_key", "_current_model", "_id", "_name", "_url", "_models", "_headers", "_thinking"]
+    def __init__(self, storage, llm_id: int, model: str = None, thinking: str = "none"):
         self._api_key = ""
         self._current_model = model
+        if thinking not in ("none", "low", "medium", "high", "max") or thinking is None:
+            self._thinking = "none"
+        else:
+            self._thinking = thinking
         self._id = llm_id
         self._name = ""
         self._url = ""
@@ -43,6 +47,55 @@ class LLM:
     def models(self) -> list:
         """Return the list of models for the LLM."""
         return self._models
+
+    @property
+    def payload(self) -> dict:
+        """Return a payload for the chat agent based on the provider."""
+        _payload = {
+            "model": self._current_model,
+            "stream": False,
+        }
+        _payload.update(self.thinking_payload)
+
+        return _payload
+
+    @property
+    def thinking(self) -> str:
+        """Return the current thinking setting for the LLM."""
+        return self._thinking
+
+    @property
+    def thinking_payload(self) -> dict:
+        """Return the thinking-related payload for the LLM."""
+        _payload = {}
+        if self._thinking != "none":
+            if self._id == DEEPSEEK:
+                _payload["thinking"] = {"type": "enabled"}
+                _payload["reasoning_effort"] = self._thinking
+            elif self._id == LOCAL:
+                _payload["think"] = True
+            elif self._id in (OPENAI, GEMINI):
+                _payload["reasoning_effort"] = self._thinking
+            elif self._id == ANTHROPIC:
+                _payload["thinking"] = {
+                    "type": "enabled"
+                }
+            elif self._id == GEMINI:
+                _payload["generation_config"] = {
+                    "thinking_level": self._thinking
+                }
+        else:
+            if self._id == DEEPSEEK:
+                _payload["thinking"] = {"type": "disabled"}
+            elif self._id == LOCAL:
+                _payload["think"] = False
+            elif self._id in (OPENAI, GEMINI):
+                _payload["reasoning_effort"] = self._thinking
+            elif self._id == ANTHROPIC:
+                _payload["thinking"] = {
+                    "type": "disabled"
+                }
+        return _payload
     
     @property
     def name(self) -> str:
@@ -53,6 +106,26 @@ class LLM:
     def url(self) -> str:
         """Return the URL of the LLM."""
         return self._url
+
+    @staticmethod
+    def providers() -> list:
+        """Return a list of available LLM providers."""
+        return [OPENAI, DEEPSEEK, ANTHROPIC, GEMINI, LOCAL]
+
+    @staticmethod
+    def provider_name(provider_id: int) -> str:
+        """Return the name of the LLM provider given its ID."""
+        if provider_id == OPENAI:
+            return "OpenAI"
+        if provider_id == DEEPSEEK:
+            return "DeepSeek"
+        if provider_id == ANTHROPIC:
+            return "Anthropic"
+        if provider_id == GEMINI:
+            return "Gemini"
+        if provider_id == LOCAL:
+            return "Local"
+        return "Unknown"
 
     def __set(self, storage):
         """Set model name, url, and headers based on model_id."""
@@ -73,25 +146,25 @@ class LLM:
             self._api_key = settings.deepseek_api_key
         elif self._id == ANTHROPIC:
             self._name = "Anthropic"
-            self._url = "https://api.anthropic.com/v1/messages"
-            self._models = ["claude-sonnet-5", "claude-sonnet-4-6", "claude-opus-4-8", "claude-fable-5", "claude-haiku-4-5-20251001"]
+            self._url = "https://api.anthropic.com/v1/chat/completions"
+            self._models = ["claude-sonnet-5", "claude-sonnet-4-6", "claude-opus-4-8", "claude-opus-5", "claude-fable-5", "claude-haiku-4-5-20251001"]
             self._api_key = settings.anthropic_api_key
         elif self._id == GEMINI:
             self._name = "Gemini"
             self._url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
-            self._models = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview"]
+            self._models = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview"]
             self._api_key = settings.gemini_api_key
         elif self._id == LOCAL:
             self._name = "Local"
-            self._url = "http://127.0.0.1:8080/v1/chat/completions"
-            self._models = ["local-model"]
+            self._url = settings.local_url
+            self._models = ["qwen3.5:4b", "qwen3.5:0.8b", "qwen3.5:2b", "llama3.2:3b", "llama3.2:1b"]
         
-        if self._id == ANTHROPIC:
-            self._headers["x-api-key"] = self._api_key
-            self._headers["anthropic-version"] = "2023-06-01"
-        elif self._id != LOCAL:
+        if self._id != LOCAL:
             self._headers["Authorization"] = f"Bearer {self._api_key}"
         
         if self._current_model is None:
             self._current_model = self._models[0]
+        else:
+            if self._current_model not in self._models:
+                self._models.append(self._current_model)
         

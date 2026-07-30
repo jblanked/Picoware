@@ -50,7 +50,12 @@ class HTTP:
 
     def __init__(self, chunk_size: int = (1024 * 4), thread_manager=None) -> None:
         """Initialize the HTTP class."""
-        from _thread import allocate_lock
+        self._lock = None
+        try:
+            from _thread import allocate_lock
+            self._lock = allocate_lock()
+        except ImportError:
+            pass
 
         self._async_request_complete = False
         self._async_request_in_progress = False
@@ -59,7 +64,6 @@ class HTTP:
         self._async_error = None
         self._async_callback: callable = None
         self._async_result: Response = None
-        self._lock = allocate_lock()
         self._running = False
         self._chunk_size = chunk_size
         self._thread_manager = thread_manager
@@ -77,6 +81,9 @@ class HTTP:
     @property
     def callback(self) -> callable:
         """Get the async callback function."""
+        if self._lock is None:
+            return None
+        
         with self._lock:
             return self._async_callback
 
@@ -90,60 +97,80 @@ class HTTP:
             - state: The current HTTP state (HTTP_IDLE, HTTP_LOADING, HTTP_ISSUE)
             - error: The error message if any, otherwise None
         """
+        if self._lock is None:
+            return
         with self._lock:
             self._async_callback = value
     
     @property
     def content_length(self) -> int:
         """Get the content length of the current request."""
+        if self._lock is None:
+            return 0
         with self._lock:
             return self._content_length
     
     @property
     def downloaded_bytes(self) -> int:
         """Get the number of bytes downloaded so far."""
+        if self._lock is None:
+            return 0
         with self._lock:
             return self._downloaded_bytes
 
     @property
     def download_speed(self) -> int:
         """Get the download speed of the current request."""
+        if self._lock is None:
+            return 0
         with self._lock:
             return self._download_speed
 
     @property
     def error(self):
         """Get the async error message, if any."""
+        if self._lock is None:
+            return ""
         with self._lock:
             return self._async_error if self._async_error else ""
 
     @property
     def in_progress(self) -> bool:
         """Check if the async request is in progress."""
+        if self._lock is None:
+            return False
         with self._lock:
             return self._async_request_in_progress
 
     @property
     def is_finished(self) -> bool:
         """Check if the async request is finished."""
+        if self._lock is None:
+            return False
         with self._lock:
             return self._async_request_complete
 
     @property
     def is_successful(self) -> bool:
         """Check if the async request was successful."""
+        if self._lock is None:
+            return False
         with self._lock:
             return self._async_request_complete and self._async_error is None
 
     @property
     def response(self):
         """Get the async Response object."""
+        if self._lock is None:
+            return None
         with self._lock:
             return self._async_result
 
     @property
     def state(self) -> int:
         """Get the current HTTP state."""
+        if self._lock is None:
+            return HTTP_IDLE
         with self._lock:
             return self._state
     
@@ -155,6 +182,8 @@ class HTTP:
 
     def _should_continue(self) -> bool:
         """Check if the request should continue running."""
+        if self._lock is None:
+            return False
         with self._lock:
             if self._thread_manager is not None and self._current_task is not None:
                 return self._running and not self._current_task.should_stop
@@ -162,6 +191,8 @@ class HTTP:
 
     def _update_speed(self, bytes_downloaded: int) -> None:
         """Update the download speed based on bytes downloaded and elapsed time."""
+        if self._lock is None:
+            return
         with self._lock:
             self._downloaded_bytes += bytes_downloaded
             elapsed_time = ticks_diff(ticks_ms(), self._download_start_ticks)
@@ -174,6 +205,9 @@ class HTTP:
             self._current_task.stop()
             self._current_task = None
 
+        if self._lock is None:
+            return
+        
         with self._lock:
             self._running = False
             if self._async_result is not None:
@@ -680,6 +714,9 @@ class HTTP:
             storage: Storage object for file operations
             send_file: File path to send as request body (requires storage)
         """
+        if self._lock is None:
+            return None
+        
         with self._lock:
             self._running = True
 
@@ -1063,7 +1100,7 @@ class HTTP:
                         storage,
                         send_file,
                     ),
-                    timeout=timeout,
+                    timeout=int(timeout * 1000),
                     stack_size=(
                         _stack_size
                         if self._chunk_size < _stack_size
@@ -1073,6 +1110,9 @@ class HTTP:
                 self._current_task = task
                 self._thread_manager.add_task(task)
                 return True
+            
+            if self._lock is None:
+                return False
 
             import _thread
 
@@ -1186,34 +1226,37 @@ class HTTP:
                     send_file=send_file
                 )
 
-            with self._lock:
-                if result:
-                    self._async_result = result
-                    self._state = HTTP_IDLE
-                    self._async_error = None
-                else:
-                    self._async_result = None
-                    self._state = HTTP_ISSUE
+            if self._lock is not None:
+                with self._lock:
+                    if result:
+                        self._async_result = result
+                        self._state = HTTP_IDLE
+                        self._async_error = None
+                    else:
+                        self._async_result = None
+                        self._state = HTTP_ISSUE
 
             return result
         except Exception as e:
-            with self._lock:
-                self._async_error = None if e is None else str(e)
-                self._async_result = None
-                self._state = HTTP_ISSUE
+            if self._lock is not None:
+                with self._lock:
+                    self._async_error = None if e is None else str(e)
+                    self._async_result = None
+                    self._state = HTTP_ISSUE
         finally:
-            with self._lock:
-                self._async_request_complete = True
-                self._async_request_in_progress = False
-                self._async_thread_id = None
-                self._running = False
+            if self._lock is not None:
+                with self._lock:
+                    self._async_request_complete = True
+                    self._async_request_in_progress = False
+                    self._async_thread_id = None
+                    self._running = False
 
-            if self._async_callback:
-                try:
-                    self._async_callback(
-                        response=self._async_result,
-                        state=self._state,
-                        error=self._async_error,
-                    )
-                except Exception:
-                    pass
+                if self._async_callback:
+                    try:
+                        self._async_callback(
+                            response=self._async_result,
+                            state=self._state,
+                            error=self._async_error,
+                        )
+                    except Exception:
+                        pass

@@ -1,0 +1,11 @@
+{
+    "deploy": [],
+    "docs": "",
+    "features": [],
+    "images": [],
+    "mcu": "stm32wb",
+    "product": "Flipper Zero",
+    "thumbnail": "",
+    "url": "",
+    "vendor": "Flipper Devices Inc."
+}

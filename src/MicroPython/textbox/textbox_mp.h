@@ -18,7 +18,7 @@ extern "C"
 #include <string.h>
 
 #define TEXTBOX_INITIAL_LINE_CAPACITY 64
-#define TEXTBOX_SCROLLBAR_WIDTH 6
+#define TEXTBOX_SCROLLBAR_WIDTH 4
 #define TEXTBOX_INITIAL_EDIT_CAPACITY 256
 
     // Stores the start byte-offset and character count of one wrapped line

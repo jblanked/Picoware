@@ -9,6 +9,7 @@ from picoware.system.vector import Vector
 DEG2RAD = const(0.0174532925)  # Convert angles in degrees to radians
 sp_sx = 0.0
 sp_sy = 0.0
+is_flipper = None
 x0 = 0
 x1 = 0
 yy0 = 0
@@ -21,6 +22,8 @@ def rainbow(value: int) -> int:
     Convert a value (0-127) to a spectrum color from blue through to red.
     Returns a 16-bit color value.
     """
+    if is_flipper:
+        return 0xFFFF
     # Value is expected to be in range 0-127
     # The value is converted to a spectrum colour from 0 = blue through to red = blue
     red = 0  # Red is the top 5 bits of a 16-bit colour value
@@ -66,6 +69,10 @@ def map_value(x: int, in_min: int, in_max: int, out_min: int, out_max: int) -> i
 def start(view_manager) -> bool:
     """Start the app"""
     from picoware.system.colors import TFT_BLACK
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+    global is_flipper
+
+    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
     draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)
@@ -137,10 +144,11 @@ def stop(view_manager) -> None:
     draw.fill_screen(view_manager.background_color)
     draw.swap()
 
-    global sp_sx, sp_sy, x0, x1, yy0, yy1, spiro_elapsed
+    global sp_sx, sp_sy, x0, x1, yy0, yy1, spiro_elapsed, is_flipper
 
     sp_sx = 0.0
     sp_sy = 0.0
+    is_flipper = None
     x0 = 0
     x1 = 0
     yy0 = 0

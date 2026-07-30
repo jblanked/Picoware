@@ -55,6 +55,10 @@ extern "C"
     mp_obj_t sprite3d_mp_set_rotation_y(mp_obj_t self_in, mp_obj_t rotation_obj);
     mp_obj_t sprite3d_mp_set_scale(mp_obj_t self_in, mp_obj_t scale_obj);
     mp_obj_t sprite3d_mp_set_active(mp_obj_t self_in, mp_obj_t active_obj);
+    mp_obj_t sprite3d_mp_set_wireframe(mp_obj_t self_in, mp_obj_t wireframe_obj);
+
+    mp_obj_t sprite3d_mp_from_path(size_t n_args, const mp_obj_t *args);
+    mp_obj_t sprite3d_mp_to_path(mp_obj_t self_in, mp_obj_t path_obj);
 
 #ifdef __cplusplus
 }

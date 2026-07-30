@@ -45,7 +45,6 @@ def main():
         collect()
         threshold(mem_free() // 4 + mem_alloc())
 
-
 # run the main function
 if __name__ == "__main__":
     main()

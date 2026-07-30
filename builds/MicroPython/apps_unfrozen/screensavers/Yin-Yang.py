@@ -28,6 +28,7 @@ _ball_black = None
 _ball_white = None
 _speed = 256
 _adder = 4
+is_flipper = None
 
 
 class Ball:
@@ -206,8 +207,11 @@ def process_ball(ball, yin_yang_data, f_speed_factor, screen_width, screen_heigh
 
 def start(view_manager) -> bool:
     """Start the app"""
-    global _yin_yang_data, _ball_black, _ball_white, _speed, _adder
+    global _yin_yang_data, _ball_black, _ball_white, _speed, _adder, is_flipper
     global FIELD_WIDTH, FIELD_HEIGHT, FIELD_CELL_SIZE_X, FIELD_CELL_SIZE_Y, BALL_RADIUS
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+
+    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
     d = view_manager.draw
 
@@ -284,7 +288,10 @@ def run(view_manager) -> None:
     _speed += _adder
 
     color_minus = max(min((_speed - 10000) >> 10, 15), 0)
-    color_white = 0b111111111111 - ((color_minus << 8) + (color_minus << 4))
+    if is_flipper:
+        color_white = 0xFFFF
+    else:
+        color_white = 0b111111111111 - ((color_minus << 8) + (color_minus << 4))
 
     repeats = _speed // 1024
     for _ in range(repeats):
@@ -331,13 +338,14 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global _yin_yang_data, _ball_black, _ball_white, _speed, _adder
+    global _yin_yang_data, _ball_black, _ball_white, _speed, _adder, is_flipper
 
     _yin_yang_data = None
     _ball_black = None
     _ball_white = None
     _speed = 256
     _adder = 4
+    is_flipper = None
 
     view_manager.freq()  # set to default frequency
 

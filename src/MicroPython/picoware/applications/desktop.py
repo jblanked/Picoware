@@ -5,6 +5,7 @@ class PicowareAnimation:
     """Class to draw "Picoware" animation"""
 
     def __init__(self, draw):
+        from picoware.system.boards import BOARD_FLIPPER_ZERO, BOARD_ID
         self.display = draw
         self.letter_states = []
         self.animation_complete = False
@@ -16,6 +17,8 @@ class PicowareAnimation:
         self.center_y = self.size.y // 2
         self.frame_counter = 0
 
+        self._color = 0xFFFF if BOARD_ID == BOARD_FLIPPER_ZERO else 0x4208
+
         self._initialize_letter_animation()
 
     def __del__(self):
@@ -24,6 +27,7 @@ class PicowareAnimation:
 
     def _initialize_letter_animation(self) -> None:
         """Initialize the animation state for each letter in 'Picoware'."""
+        from picoware.system.boards import BOARD_FLIPPER_ZERO, BOARD_ID
         from picoware.system.colors import (
             TFT_RED,
             TFT_GREEN,
@@ -73,7 +77,7 @@ class PicowareAnimation:
                 "delay": i * 3,  # Staggered start times
                 "frame": 0,
                 "opacity": 0,  # Start invisible (0-100 scale)
-                "color": choice(colors),  # Random color for each letter
+                "color": 0xFFFF if BOARD_ID == BOARD_FLIPPER_ZERO else choice(colors),  # Random color for each letter (white for Flipper Zero)
             }
             self.letter_states.append(letter_state)
 
@@ -94,14 +98,13 @@ class PicowareAnimation:
 
         # Draw circle with fade effect
         if self.circle_opacity > 20:  # Only draw if visible enough
-            color = 0x4208
 
             # Draw if opacity threshold is met
             if (
                 self.frame_counter % max(1, (100 - self.circle_opacity) // 20 + 1)
             ) == 0:
                 self.display._circle(
-                    self.center_x, self.center_y, self.circle_radius, color
+                    self.center_x, self.center_y, self.circle_radius, self._color
                 )
 
         all_settled = True

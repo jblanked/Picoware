@@ -4,6 +4,8 @@
 #include "pico-game-engine/engine/level.hpp"
 #include "pico-game-engine/engine/entity.hpp"
 
+static Draw *g_draw_ctx = nullptr;
+
 static inline Level *level_get_context(level_mp_obj_t *self)
 {
     return static_cast<Level *>(self->context);
@@ -96,6 +98,9 @@ mp_obj_t level_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw
     game_mp_obj_t *game_mp = static_cast<game_mp_obj_t *>(MP_OBJ_TO_PTR(native_game));
     Game *game_ctx = static_cast<Game *>(game_mp->context);
 
+    if (g_draw_ctx == nullptr)
+        g_draw_ctx = game_ctx->draw;
+
     // pointers to start and stop functions (optional)
     self->start = mp_const_none;
     self->stop = mp_const_none;
@@ -148,6 +153,12 @@ mp_obj_t level_mp_del(mp_obj_t self_in)
     self->start = mp_const_none;
     self->stop = mp_const_none;
     self->size_obj = MP_OBJ_NULL;
+    if (g_draw_ctx)
+    {
+        // just set to null
+        // game deletes this
+        g_draw_ctx = nullptr;
+    }
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(level_mp_del_obj, level_mp_del);
@@ -303,6 +314,30 @@ mp_obj_t level_mp_set_clear_allowed(mp_obj_t self_in, mp_obj_t clear_allowed_obj
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(level_mp_set_clear_allowed_obj, level_mp_set_clear_allowed);
 
+mp_obj_t level_mp_set_light_direction(size_t n_args, const mp_obj_t *args)
+{
+    // Arguments: self, x, y, z
+    level_mp_obj_t *self = static_cast<level_mp_obj_t *>(MP_OBJ_TO_PTR(args[0]));
+    Level *ctx = level_get_context(self);
+    float x = mp_obj_get_float(args[1]);
+    float y = mp_obj_get_float(args[2]);
+    float z = mp_obj_get_float(args[3]);
+    ctx->setLightDirection(x, y, z);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(level_mp_set_light_direction_obj, 4, 4, level_mp_set_light_direction);
+
+mp_obj_t level_mp_set_shadow_color(mp_obj_t self_in, mp_obj_t color_obj)
+{
+    // Arguments: self, color (int)
+    level_mp_obj_t *self = static_cast<level_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Level *ctx = level_get_context(self);
+    mp_int_t color = mp_obj_get_int(color_obj);
+    ctx->setShadowColor(color);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(level_mp_set_shadow_color_obj, level_mp_set_shadow_color);
+
 mp_obj_t level_mp_get_entity(mp_obj_t self_in, mp_obj_t index_obj)
 {
     level_mp_obj_t *self = static_cast<level_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
@@ -321,6 +356,44 @@ mp_obj_t level_mp_get_entity(mp_obj_t self_in, mp_obj_t index_obj)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(level_mp_get_entity_obj, level_mp_get_entity);
 
+mp_obj_t level_mp_render_3d_sprite(size_t n_args, const mp_obj_t *args)
+{
+    if (g_draw_ctx == nullptr)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("Draw context is null"));
+    }
+    // Arguments: self, path (char *), view_height (float - optional), clamp (bool - optional), wireframe (bool - optional)
+    level_mp_obj_t *self = static_cast<level_mp_obj_t *>(MP_OBJ_TO_PTR(args[0]));
+    Level *ctx = level_get_context(self);
+    const char *path = mp_obj_str_get_str(args[1]);
+    float view_height = 0.0f;
+    bool clamp = false;
+    bool wireframe = true;
+    if (n_args > 2)
+    {
+        view_height = mp_obj_get_float(args[2]);
+    }
+    if (n_args > 3)
+    {
+        clamp = mp_obj_is_true(args[3]);
+    }
+    if (n_args > 4)
+    {
+        wireframe = mp_obj_is_true(args[4]);
+    }
+    for (int i = 0; i < ctx->getEntityCount(); i++)
+    {
+        Entity *entity_ctx = ctx->getEntity(i);
+        if (entity_ctx != nullptr && entity_ctx->is_player)
+        {
+            ctx->render3DSprite(path, g_draw_ctx, entity_ctx->position, entity_ctx->direction, view_height, clamp, wireframe);
+            break;
+        }
+    }
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(level_mp_render_3d_sprite_obj, 2, 5, level_mp_render_3d_sprite);
+
 static const mp_rom_map_elem_t level_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_clear), MP_ROM_PTR(&level_mp_clear_obj)},
     {MP_ROM_QSTR(MP_QSTR_entity_add), MP_ROM_PTR(&level_mp_entity_add_obj)},
@@ -328,7 +401,10 @@ static const mp_rom_map_elem_t level_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_set_name), MP_ROM_PTR(&level_mp_set_name_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_size), MP_ROM_PTR(&level_mp_set_size_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_clear_allowed), MP_ROM_PTR(&level_mp_set_clear_allowed_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_light_direction), MP_ROM_PTR(&level_mp_set_light_direction_obj)},
+    {MP_ROM_QSTR(MP_QSTR_set_shadow_color), MP_ROM_PTR(&level_mp_set_shadow_color_obj)},
     {MP_ROM_QSTR(MP_QSTR_get_entity), MP_ROM_PTR(&level_mp_get_entity_obj)},
+    {MP_ROM_QSTR(MP_QSTR_render_3d_sprite), MP_ROM_PTR(&level_mp_render_3d_sprite_obj)},
 };
 static MP_DEFINE_CONST_DICT(level_mp_locals_dict, level_mp_locals_dict_table);
 

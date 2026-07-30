@@ -17,6 +17,7 @@ _SIN_SCALE = _SIN_SIZE / _TWO_PI  # radians -> LUT index
 screen_size = None
 phase = 0.0
 color_phase = 0.0
+is_flipper = None
 a_freq = 3
 b_freq = 2
 morph_timer = 0
@@ -79,8 +80,11 @@ def _build_y_coords(b: int, cy: int, ry: int) -> None:
 
 
 def start(view_manager) -> bool:
-    global screen_size, phase, color_phase, a_freq, b_freq, morph_timer, p1, p2
+    global screen_size, phase, color_phase, a_freq, b_freq, morph_timer, p1, p2, is_flipper
     global _last_a, _last_b
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+
+    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
     draw = view_manager.draw
     screen_size = Vector(draw.size.x, draw.size.y)
@@ -96,6 +100,10 @@ def start(view_manager) -> bool:
 
     _build_sin_lut()
     _build_color_pal()
+    if is_flipper:
+        for i in range(len(_color_pal)):
+            if _color_pal[i] != TFT_BLACK:
+                _color_pal[i] = 0xFFFF
 
     # Build x/y tables for initial frequencies
     cx = screen_size.x >> 1
@@ -168,12 +176,13 @@ def run(view_manager) -> None:
 def stop(view_manager) -> None:
     from gc import collect
 
-    global screen_size, phase, color_phase, a_freq, b_freq, morph_timer, p1, p2
+    global screen_size, phase, color_phase, a_freq, b_freq, morph_timer, p1, p2, is_flipper
     global _sin_lut, _color_pal, _x_base, _y_coords, _last_a, _last_b
 
     screen_size = None
     phase = 0.0
     color_phase = 0.0
+    is_flipper = None
     a_freq = 3
     b_freq = 2
     morph_timer = 0

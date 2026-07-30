@@ -6,6 +6,7 @@
 
 #include "log_mp.h"
 #include "log_config.h"
+#include <string.h>
 #ifdef LOG_STORAGE_INCLUDE
 #include LOG_STORAGE_INCLUDE
 #else
@@ -61,6 +62,25 @@ bool log_message_with_type(LogType type, const char *message)
     m_free(full_message);
     return success;
 }
+
+#ifdef LOG_STORAGE_READ
+static char *log_strtok(char *str, const char *delim)
+{
+    static char *next;
+    if (str)
+        next = str;
+    if (!next)
+        return NULL;
+    next += strspn(next, delim);
+    if (*next == '\0')
+        return NULL;
+    char *token = next;
+    next += strcspn(next, delim);
+    if (*next)
+        *next++ = '\0';
+    return token;
+}
+#endif
 
 void log_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
 {
@@ -152,11 +172,11 @@ void log_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
                 size_t bytes_read = LOG_STORAGE_READ(self->file_path, buffer, file_size);
                 buffer[bytes_read] = '\0'; // Null-terminate the buffer
                 // return as a list of log entries split by newlines
-                char *line = strtok(buffer, "\n");
+                char *line = log_strtok(buffer, "\n");
                 while (line)
                 {
                     mp_obj_list_append(log_list, mp_obj_new_str(line, strlen(line)));
-                    line = strtok(NULL, "\n");
+                    line = log_strtok(NULL, "\n");
                 }
                 m_free(buffer);
 #endif

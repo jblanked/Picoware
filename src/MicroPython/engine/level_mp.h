@@ -42,8 +42,12 @@ extern "C"
     mp_obj_t level_mp_set_name(mp_obj_t self_in, mp_obj_t name_obj);
     mp_obj_t level_mp_set_size(mp_obj_t self_in, mp_obj_t size_obj);
     mp_obj_t level_mp_set_clear_allowed(mp_obj_t self_in, mp_obj_t clear_allowed_obj);
+    mp_obj_t level_mp_set_light_direction(size_t n_args, const mp_obj_t *args);
+    mp_obj_t level_mp_set_shadow_color(mp_obj_t self_in, mp_obj_t color_obj);
 
     mp_obj_t level_mp_get_entity(mp_obj_t self_in, mp_obj_t index_obj);
+
+    mp_obj_t level_mp_render_3d_sprite(size_t n_args, const mp_obj_t *args);
 
 #ifdef __cplusplus
 }

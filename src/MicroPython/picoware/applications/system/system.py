@@ -20,13 +20,13 @@ def start(view_manager) -> bool:
             2,
         )
         _system.add_item("Settings")
-        _system.add_item("Check for Updates")
-        _system.add_item("About Picoware")
+        _system.add_item("Update")
+        _system.add_item("About")
         _system.add_item("System Info")
-        _system.add_item("Bootloader Mode")
-        _system.add_item("Restart Device")
-        _system.add_item("Shutdown Device")
-        _system.add_item("Stop System")
+        _system.add_item("Bootloader")
+        _system.add_item("Restart")
+        _system.add_item("Shutdown")
+        _system.add_item("Stop")
 
         _system.set_selected(_system_index)
 
@@ -110,7 +110,7 @@ def run(view_manager) -> None:
                 view_manager.draw,
                 Vector(0, 0),
                 view_manager.draw.size,
-                "Shutdown Device?",
+                "Shutdown?",
                 ["No", "Yes"],
                 0,
                 view_manager.foreground_color,

@@ -9,6 +9,8 @@ from picoware.system.colors import (
     TFT_GREEN,
 )
 
+is_flipper = False
+
 CELL_SIZE = 20
 GRID_W = 12
 GRID_H = 12
@@ -37,19 +39,23 @@ def draw_cell(draw, value, is_revealed, is_flagged) -> None:
     reusable_vec.x = pos_vec.x * CELL_SIZE + _offset_x
     reusable_vec.y = pos_vec.y * CELL_SIZE + _offset_y
     if is_revealed:
-        draw.fill_rectangle(reusable_vec, size_vec, TFT_ORANGE)
+        draw.fill_rectangle(reusable_vec, size_vec, 0xFFFF if is_flipper else TFT_ORANGE)
     else:
         draw.fill_rectangle(reusable_vec, size_vec, TFT_BLACK)
-    draw.rect(reusable_vec, size_vec, TFT_BLUE)
+    # On Flipper, use black border on revealed cells (white border invisible on white)
+    border_color = TFT_BLACK if (is_flipper and is_revealed) else (0xFFFF if is_flipper else TFT_BLUE)
+    draw.rect(reusable_vec, size_vec, border_color)
     reusable_vec.x += _text_off_x
     reusable_vec.y += _text_off_y
     if is_revealed:
+        # On Flipper, use black text on white revealed background for visibility
+        text_color = TFT_BLACK if is_flipper else (TFT_RED if value == -1 else TFT_WHITE)
         if value == -1:
-            draw.text(reusable_vec, "*", TFT_RED)
+            draw.text(reusable_vec, "*", text_color)
         elif value > 0:
-            draw.text(reusable_vec, str(value), TFT_WHITE)
+            draw.text(reusable_vec, str(value), text_color)
     elif is_flagged:
-        draw.text(reusable_vec, "F", TFT_GREEN)
+        draw.text(reusable_vec, "F", 0xFFFF if is_flipper else TFT_GREEN)
 
 
 def draw_grid(draw) -> None:
@@ -62,7 +68,7 @@ def draw_grid(draw) -> None:
     cx, cy = cursor
     reusable_vec.x = cx * CELL_SIZE + _offset_x
     reusable_vec.y = cy * CELL_SIZE + _offset_y
-    draw.rect(reusable_vec, size_vec, TFT_GREEN)
+    draw.rect(reusable_vec, size_vec, 0xFFFF if is_flipper else TFT_GREEN)
     draw.swap()
 
 
@@ -127,9 +133,12 @@ def start(view_manager) -> bool:
     """Start the app."""
     from picoware.system.vector import Vector
     from picoware.system.colors import TFT_BLACK, TFT_WHITE
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
 
-    global grid, revealed, flagged, reusable_vec, pos_vec, size_vec
+    global grid, revealed, flagged, reusable_vec, pos_vec, size_vec, is_flipper
     global _scale, CELL_SIZE, _offset_x, _offset_y, _text_off_x, _text_off_y, NUM_MINES
+
+    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
     draw = view_manager.draw
     sw, sh = draw.size.x, draw.size.y

@@ -2,7 +2,11 @@
 # License: GPL-3.0 License
 # Source: https://github.com/jblanked/Picoware
 
-from machine import USBDevice
+try:
+    from machine import USBDevice
+except ImportError:
+    pass
+
 import struct, time
 import usb_video_mp
 

@@ -21,7 +21,7 @@ class TextBox(textbox.TextBox):
             y,
             height,
             draw.size.x,
-            int(draw.size.x // draw.font_size.x),  # chars per line
+            int(draw.size.x // draw.font_size.x) - 1,  # chars per line
             draw.font_size.y + 2,  # spacing
             foreground_color,
             background_color,

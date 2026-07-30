@@ -155,12 +155,23 @@ class Agent:
             finally:
                 storage.file_close(conv_file)
 
-        # Suffix: tools + close
+        # tools
         storage.write(
             self._file_path,
-            '],"tools":' + json.dumps(tools) + ',"tool_choice":"auto"}',
+            '],"tools":' + json.dumps(tools) + ',"tool_choice":"auto",',
             mode="a",
         )
+
+        # thinking 
+        _payload = self.llm.thinking_payload
+        _payload_str = json.dumps(_payload)
+        # strip { }
+        _payload_str = _payload_str[1:-1]
+        storage.write(self._file_path, _payload_str, mode="a")
+
+        # close
+        storage.write(self._file_path, "}", mode="a")
+
 
     def _run_loop(self) -> str:
         """Run the model/tool loop and return assistant text."""

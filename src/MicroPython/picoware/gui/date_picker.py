@@ -73,33 +73,23 @@ class DatePicker:
         val_font,
     ) -> None:
         """Draw a single 3-column drum-roll band."""
-        from picoware.system.vector import Vector
-
         w = col_w * 3
         center_y = band_y + band_h // 2
-        sel_pad = 4
+        sel_pad = draw.scale_y(4)
+        _six_x, _six_y = draw.scale(6, 6)
         line_top = center_y - val_h // 2 - sel_pad
         line_bot = center_y + val_h // 2 + sel_pad
 
         # Horizontal border lines
-        hr = Vector(start_x, line_top)
-        hr_sz = Vector(w, 1)
-        draw.fill_rectangle(hr, hr_sz, fg)
-        hr.y = line_bot
-        draw.fill_rectangle(hr, hr_sz, fg)
+        draw._fill_rectangle(start_x, line_top, w, 1, fg)
+        draw._fill_rectangle(start_x, line_bot, w, 1, fg)
 
         # Vertical column dividers
-        div_top = band_y + lbl_h + 6
-        div_bot = band_y + band_h - 2
-        vd = Vector(0, div_top)
-        vd_sz = Vector(1, max(1, div_bot - div_top))
+        div_top = band_y + lbl_h + _six_y
+        div_bot = band_y + band_h - draw.scale_y(2)
+        vd_sz_y = max(1, div_bot - div_top)
         for i in range(1, 3):
-            vd.x = start_x + col_w * i
-            draw.fill_rectangle(vd, vd_sz, fg)
-
-        tile_pos = Vector(0, 0)
-        tile_sz = Vector(0, 0)
-        txt = Vector(0, 0)
+            draw._fill_rectangle(start_x + col_w * i, div_top, 1, vd_sz_y, fg)
 
         for i in range(3):
             col_x = start_x + col_w * i
@@ -110,33 +100,20 @@ class DatePicker:
 
             # Highlight active column
             if i == active_col:
-                tile_pos.x = col_x + 3
-                tile_pos.y = line_top + 1
-                tile_sz.x = col_w - 6
-                tile_sz.y = line_bot - line_top - 1
-                draw.fill_round_rectangle(tile_pos, tile_sz, 8, sel)
+                draw._fill_round_rectangle(col_x + (_six_x // 2), line_top + 1, col_w - _six_x, line_bot - line_top - 1, draw.scale_x(8), sel)
 
             # Value — centered in band
             val_pw = draw.len(val, val_font)
-            txt.x = col_cx - val_pw // 2
-            txt.y = center_y - val_h // 2
-            draw.text(txt, val, bg if i == active_col else fg, val_font)
+            draw._text(col_cx - val_pw // 2, center_y - val_h // 2, val, bg if i == active_col else fg, val_font)
 
             # Field label at top of band
             lbl_pw = len(label) * lbl_cw
-            txt.x = col_cx - lbl_pw // 2
-            txt.y = band_y + 4
-            draw.text(txt, label, fg)
+            draw._text(col_cx - lbl_pw // 2, band_y + draw.scale_y(4), label, fg)
 
             # ^ / v arrows for the active column only
             if i == active_col:
-                arrow_x = col_cx - lbl_cw // 2
-                txt.x = arrow_x
-                txt.y = line_top - lbl_h - 2
-                draw.text(txt, "^", fg)
-                txt.x = arrow_x
-                txt.y = line_bot + 3
-                draw.text(txt, "v", fg)
+                draw._text(col_cx - lbl_cw // 2, line_top - lbl_h - draw.scale_y(2), "^", fg)
+                draw._text(col_cx - lbl_cw // 2, line_bot + draw.scale_y(3), "v", fg)
 
     def __draw(self) -> None:
         """Render the date+time picker on the display."""

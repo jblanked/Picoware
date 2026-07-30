@@ -6,10 +6,15 @@ A desktop application for interacting with Picoware-compatible boards.
 - Windows, macOS, or Linux
 - Any Picoware-compatible board flashed with Picoware firmware
 
-## Installation
+## On-Device Installation
+To enable USB streaming on your device:
+1. Navigate to `Library` -> `System` -> `Settings` -> `USB Stream` and toggle it on.
+2. Connect a USB cable from the device to your computer.
+
+## Desktop Installation
 Run the following commands:
 
-### 1. Close the repository and setup a virtual environment:
+### 1. Clone the repository and setup a virtual environment:
 
 Mac/Linux
 ```bash

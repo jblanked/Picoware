@@ -8,6 +8,9 @@ from picoware.system.colors import TFT_WHITE, TFT_DARKGREY, TFT_LIGHTGREY
 STATE_MENU = micropython.const(0)
 STATE_CHAT = micropython.const(1)
 STATE_TYPE = micropython.const(2)
+STATE_SETTINGS = micropython.const(3)
+STATE_SETTINGS_PROVIDER = micropython.const(4)
+STATE_SETTINGS_MODEL = micropython.const(5)
 
 _agent          = None
 _menu           = None
@@ -17,6 +20,9 @@ _mode_label     = ""
 _agent_mode     = None
 _scroll_offset  = 0
 _max_scroll     = 0
+_settings_menu  = None
+_settings       = None
+_choice         = None
 
 
 @micropython.native
@@ -214,6 +220,139 @@ def _show_thinking(view_manager):
                view_manager.foreground_color, draw.font)
     draw.swap()
 
+def _set_settings(view_manager):
+    global _settings
+    s = view_manager.storage
+    if not s.exists("picoware/settings/current_agent.json"):
+        from picoware.system.agent.llm import DEEPSEEK, LLM
+        _settings = {
+            "model": LLM(view_manager.storage, DEEPSEEK).model,
+            "provider": DEEPSEEK
+        }
+        _save_settings(view_manager)
+    else:
+        _settings = s.serialize("picoware/settings/current_agent.json")
+
+def _save_settings(view_manager) -> bool:
+    if _settings is None:
+        return False
+    s = view_manager.storage
+    return s.deserialize(_settings, "picoware/settings/current_agent.json")
+
+def _get_llm_providers() -> list:
+    """Return a list of available LLM providers."""
+    from picoware.system.agent.llm import LLM
+    return LLM.providers()
+
+def _get_llm_models(view_manager, llm_id: int) -> list:
+    """Return a list of models for the specified LLM provider."""
+    from picoware.system.agent.llm import LLM
+    return LLM(view_manager.storage, llm_id).models
+
+def _start_settings_menu(view_manager):
+    from picoware.gui.menu import Menu
+    global _state, _settings_menu
+    _state = STATE_SETTINGS
+    if _settings_menu is not None:
+        _settings_menu.draw()
+        return
+    _settings_menu = Menu(
+        view_manager.draw,
+        "Settings",
+        0,
+        view_manager.draw.size.y,
+        text_color=view_manager.foreground_color,
+        background_color=view_manager.background_color,
+        selected_color=view_manager.selected_color,
+    )
+    _settings_menu.add_item("Agent Provider")
+    _settings_menu.add_item("Agent Model")
+    _settings_menu.draw()
+
+
+def _open_provider_choice(view_manager):
+    """Open a Choice sub-view for selecting the LLM provider."""
+    global _state, _choice
+    from picoware.gui.choice import Choice
+    from picoware.system.vector import Vector
+    from picoware.system.agent.llm import LLM
+
+    draw = view_manager.draw
+    draw.fill_screen(view_manager.background_color)
+    if _choice is not None:
+        del _choice
+        _choice = None
+
+    provider_ids = _get_llm_providers()
+    provider_names = [LLM.provider_name(pid) for pid in provider_ids]
+    current_provider = _settings["provider"]
+    try:
+        initial_idx = provider_ids.index(current_provider)
+    except ValueError:
+        initial_idx = 0
+
+    _choice = Choice(
+        draw,
+        Vector(0, 0),
+        draw.size,
+        "Agent Provider",
+        provider_names,
+        initial_idx,
+        view_manager.foreground_color,
+        view_manager.background_color,
+    )
+    _choice.draw()
+    _state = STATE_SETTINGS_PROVIDER
+
+
+def _open_model_choice(view_manager):
+    """Open a Choice sub-view for selecting the LLM model."""
+    global _state, _choice
+    from picoware.gui.choice import Choice
+    from picoware.system.vector import Vector
+
+    draw = view_manager.draw
+    draw.fill_screen(view_manager.background_color)
+    if _choice is not None:
+        del _choice
+        _choice = None
+
+    models = _get_llm_models(view_manager, _settings["provider"])
+    current_model = _settings["model"]
+    try:
+        initial_idx = models.index(current_model)
+    except ValueError:
+        initial_idx = 0
+
+    _choice = Choice(
+        draw,
+        Vector(0, 0),
+        draw.size,
+        "Agent Model",
+        models,
+        initial_idx,
+        view_manager.foreground_color,
+        view_manager.background_color,
+    )
+    _choice.draw()
+    _state = STATE_SETTINGS_MODEL
+
+
+def _back_to_settings_menu(view_manager):
+    """Clean up the Choice sub-view and return to the settings menu."""
+    global _state, _choice
+
+    draw = view_manager.draw
+    draw.fill_screen(view_manager.background_color)
+
+    if _choice is not None:
+        del _choice
+        _choice = None
+
+    _state = STATE_SETTINGS
+    if _settings_menu is not None:
+        _settings_menu.draw()
+
 
 def start(view_manager) -> bool:
     """Build main menu. Return True on success."""
@@ -260,9 +399,12 @@ def start(view_manager) -> bool:
     _menu.add_item("Chat")
     _menu.add_item("App Creator")
     _menu.add_item("Device Manager")
+    _menu.add_item("Settings")
     _menu.draw()
 
     view_manager.input_manager.reset()
+
+    _set_settings(view_manager)
     return True
 
 
@@ -279,19 +421,28 @@ def run(view_manager) -> None:
         elif btn == BUTTON_DOWN:
             _menu.scroll_down()
         elif btn == BUTTON_CENTER:
-            from picoware.system.agent.agent import Agent, MODE_CHAT, MODE_APP_CREATOR, MODE_DEVICE_MANAGER
             idx = _menu.selected_index
+            if idx == 3:
+                _start_settings_menu(view_manager)
+                return
+            from picoware.system.agent.agent import Agent, MODE_CHAT, MODE_APP_CREATOR, MODE_DEVICE_MANAGER
+            from picoware.system.agent.llm import LLM
             if idx == 0:
                 _agent_mode = MODE_CHAT
                 _mode_label = "Chat"
             elif idx == 1:
                 _agent_mode = MODE_APP_CREATOR
                 _mode_label = "App Creator"
-            else:
+            elif idx == 2:
                 _agent_mode = MODE_DEVICE_MANAGER
                 _mode_label = "Device Manager"
-
-            _agent = Agent(view_manager, mode=_agent_mode)
+            else:
+                view_manager.alert("Invalid selection", False)
+                _state = STATE_MENU
+                _menu.draw()
+                return
+            
+            _agent = Agent(view_manager, _agent_mode,LLM(view_manager.storage, _settings["provider"], _settings["model"]))
             _conversation = []
             _scroll_offset = 0
             _max_scroll = 0
@@ -299,6 +450,52 @@ def run(view_manager) -> None:
             _render_chat(view_manager)
         elif btn == BUTTON_BACK:
             view_manager.back()
+
+    elif _state == STATE_SETTINGS:
+        if btn == BUTTON_BACK:
+            _back_to_settings_menu(view_manager)
+            _state = STATE_MENU
+            _menu.draw()
+        elif btn == BUTTON_UP:
+            _settings_menu.scroll_up()
+        elif btn == BUTTON_DOWN:
+            _settings_menu.scroll_down()
+        elif btn == BUTTON_CENTER:
+            idx = _settings_menu.selected_index
+            if idx == 0:
+                _open_provider_choice(view_manager)
+            elif idx == 1:
+                _open_model_choice(view_manager)
+
+    elif _state == STATE_SETTINGS_PROVIDER:
+        if btn == BUTTON_BACK:
+            _back_to_settings_menu(view_manager)
+        elif btn == BUTTON_UP:
+            _choice.scroll_up()
+        elif btn == BUTTON_DOWN:
+            _choice.scroll_down()
+        elif btn == BUTTON_CENTER:
+            provider_ids = _get_llm_providers()
+            selected_provider = provider_ids[_choice.state]
+            _settings["provider"] = selected_provider
+            from picoware.system.agent.llm import LLM
+            llm = LLM(view_manager.storage, selected_provider)
+            _settings["model"] = llm.model
+            _save_settings(view_manager)
+            _back_to_settings_menu(view_manager)
+
+    elif _state == STATE_SETTINGS_MODEL:
+        if btn == BUTTON_BACK:
+            _back_to_settings_menu(view_manager)
+        elif btn == BUTTON_UP:
+            _choice.scroll_up()
+        elif btn == BUTTON_DOWN:
+            _choice.scroll_down()
+        elif btn == BUTTON_CENTER:
+            models = _get_llm_models(view_manager, _settings["provider"])
+            _settings["model"] = models[_choice.state]
+            _save_settings(view_manager)
+            _back_to_settings_menu(view_manager)
 
     elif _state == STATE_CHAT:
         if btn == BUTTON_UP:
@@ -362,7 +559,9 @@ def stop(view_manager) -> None:
     """Tear down widgets and agent, reset state."""
     from picoware.system.boards import BOARD_HAS_ESP32
     from gc import collect
-    global _agent, _menu, _conversation, _scroll_offset, _max_scroll
+    global _agent, _menu, _conversation, _scroll_offset, _max_scroll, _settings_menu, _settings, _choice
+
+    _save_settings(view_manager)
 
     _conversation = None
     _scroll_offset = 0
@@ -374,8 +573,18 @@ def stop(view_manager) -> None:
     if _menu is not None:
         del _menu
         _menu = None
+    if _settings_menu is not None:
+        del _settings_menu
+        _settings_menu = None
+    if _choice is not None:
+        del _choice
+        _choice = None
+    if _settings is not None:
+        del _settings
+        _settings = None
 
     if BOARD_HAS_ESP32 == 0:
         view_manager.freq(False)
 
     collect()
+ 

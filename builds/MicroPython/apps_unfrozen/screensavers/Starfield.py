@@ -6,6 +6,7 @@ from picoware.system.buttons import BUTTON_LEFT, BUTTON_BACK
 from picoware.system.colors import TFT_BLACK
 
 NSTARS = const(256)  # Number of stars
+is_flipper = None
 
 za: int = -1
 zb: int = -1
@@ -31,6 +32,8 @@ def __rng() -> int:
 
 def color565(r: int, g: int, b: int) -> int:
     """Convert RGB888 to RGB565 color format"""
+    if is_flipper:
+        return 0xFFFF  # Always white on Flipper (stars are never black)
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
 
 
@@ -39,8 +42,11 @@ def start(view_manager) -> bool:
     import random
     from picoware.system.colors import TFT_BLACK
     from picoware.system.vector import Vector
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
 
-    global za, zb, zc, zx, sx, sy, sz, screen_size, screen_size_half
+    global za, zb, zc, zx, sx, sy, sz, screen_size, screen_size_half, is_flipper
+
+    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
     sx = [0] * NSTARS
     sy = [0] * NSTARS
@@ -135,7 +141,7 @@ def stop(view_manager) -> None:
     from picoware.system.colors import TFT_BLACK
     from gc import collect
 
-    global sx, sy, sz, screen_size, screen_size_half
+    global sx, sy, sz, screen_size, screen_size_half, is_flipper
 
     draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)  # Black background
@@ -147,5 +153,6 @@ def stop(view_manager) -> None:
 
     screen_size = None
     screen_size_half = None
+    is_flipper = None
 
     collect()

@@ -23,7 +23,7 @@
 #define STORAGE_INCLUDE "../v8/sd/storage.h"
 #define STORAGE_READ storage_file_read
 #define STORAGE_MAX_READ_SIZE 4096
-#elif !defined(WAVESHARE_1_28) && !defined(CROWPANEL_10_1)
+#elif !defined(WAVESHARE_1_28) && !defined(CROWPANEL_10_1) && !defined(FLIPPER_ZERO)
 #define STORAGE_INCLUDE "storage.h"
 #define STORAGE_READ storage_read
 #define STORAGE_MAX_READ_SIZE 4096

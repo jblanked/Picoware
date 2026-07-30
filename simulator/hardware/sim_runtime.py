@@ -65,6 +65,9 @@ _record_text = ""
 _touch_point = (0, 0)
 _touch_gesture = 0
 _touch_callbacks = []
+_key_callback = None
+_background_key_poll = False
+_notifying_key = False
 _battery_percentage = 87
 
 
@@ -146,6 +149,7 @@ def configure(_root, _sd_root, _apps_source, _scale, _board, _max_frames, _headl
     global frame_count, loop_count, open_target, _keys, _delayed_keys, _held_keys, _lcd
     global _wait_view, _assert_text, _seen_wait_view, _seen_assert_text, _current_view_name, _recent_text
     global _recent_input, _record_text
+    global _key_callback, _background_key_poll, _notifying_key
     root = _root
     sd_root = _sd_root
     apps_source = _apps_source
@@ -192,6 +196,9 @@ def configure(_root, _sd_root, _apps_source, _scale, _board, _max_frames, _headl
     _recent_text = []
     _recent_input = []
     _record_text = ""
+    _key_callback = None
+    _background_key_poll = False
+    _notifying_key = False
     if record_path:
         parent = record_path.rsplit("/", 1)[0] if "/" in record_path else "."
         mkdir_p(parent)
@@ -339,6 +346,7 @@ def seed_sd(profile="dev"):
         "picoware/apps/games/ghouls",
         "picoware/apps/games/ghouls/assets",
         "picoware/bluetooth",
+        "picoware/scripts",
     )
     media_dirs = dev_dirs + (
         "picoware/vibesmp",
@@ -406,6 +414,8 @@ def seed_sd(profile="dev"):
 
     # Symlink apps for __import__
     _link_app_files()
+    if profile != "clean":
+        _link_script_files()
 
 
 def _link_app_files():
@@ -416,6 +426,13 @@ def _link_app_files():
     _compiled = root + "/builds/MicroPython/apps"
     if _compiled != apps_source:
         _link_app_files_into(_compiled, target, skip_if_py_exists=True)
+
+
+def _link_script_files():
+    """Symlink bundled JavaScript examples into the simulated SD card."""
+    source = root + "/builds/MicroPython/scripts"
+    target = sd_root + "/picoware/scripts"
+    _link_app_files_into(source, target)
 
 
 def _link_app_files_into(src_dir, dst_dir, skip_if_py_exists=False, include_init=False):
@@ -576,6 +593,35 @@ def push_key(code):
         print("[sim:key]", code)
     _keys.append(code)
     _remember_input(code)
+
+
+def register_key_callback(callback):
+    """Register the callback used by native background keyboard polling."""
+    global _key_callback
+    _key_callback = callback
+
+
+def set_background_key_poll(enable):
+    """Enable or disable simulated background keyboard polling."""
+    global _background_key_poll
+    _background_key_poll = bool(enable)
+
+
+def _dispatch_key_callback():
+    """Deliver at most one queued key per simulated hardware poll."""
+    global _notifying_key
+    if (
+        _notifying_key
+        or not _background_key_poll
+        or _key_callback is None
+        or not _keys
+    ):
+        return
+    _notifying_key = True
+    try:
+        _key_callback(None)
+    finally:
+        _notifying_key = False
 
 
 def _remember_input(code):
@@ -1040,6 +1086,18 @@ def frame_swapped():
     if screenshot_path and _lcd is not None:
         _lcd.screenshot(screenshot_path)
     if max_frames and frame_count >= max_frames:
+        _check_expectations(True)
+        raise StopSimulation()
+
+
+def input_polled():
+    """Advance background hardware when Picoware observes its input state."""
+    global loop_count
+    loop_count += 1
+    poll_events()
+    _dispatch_key_callback()
+    _write_status(False)
+    if max_frames and loop_count >= max_frames * 200:
         _check_expectations(True)
         raise StopSimulation()
 

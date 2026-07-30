@@ -23,7 +23,8 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_CARDPUTER 9
 #define BOARD_WAVESHARE_2_06 10
 #define BOARD_PANCAKE 11
-#define BOARD_V8 12
+#define BOARD_FLIPPER_ZERO 12
+#define BOARD_V8 13
 
 #if defined(WAVESHARE_1_28)
 #define BOARD_ID BOARD_WAVESHARE_1_28_RP2350
@@ -86,6 +87,14 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_TOUCH 1 // has touch
 #define BOARD_HAS_WIFI 1  // has wifi
 #define BOARD_HAS_AUDIO 0 // no audio module in esp32 build yet
+#elif defined(FLIPPER_ZERO)
+// Flipper Zero (STM32WB55RG)
+#define BOARD_ID BOARD_FLIPPER_ZERO
+#define BOARD_HAS_PSRAM 0
+#define BOARD_HAS_SD 1
+#define BOARD_HAS_TOUCH 0
+#define BOARD_HAS_WIFI 0
+#define BOARD_HAS_AUDIO 0
 #elif defined(CROWPANEL_10_1)
 // CrowPanel 10.1 ESP32-P4
 #define BOARD_ID BOARD_CROWPANEL_10_1
@@ -158,7 +167,7 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_RP2350 0
 #endif
 
-#if defined(CARDPUTER) || defined(BOARD_CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
+#if defined(CARDPUTER) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
 #define BOARD_HAS_ESP32 1
 #else
 #define BOARD_HAS_ESP32 0

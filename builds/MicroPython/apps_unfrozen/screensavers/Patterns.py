@@ -22,11 +22,15 @@ _demo_state = 0
 _frame_count = 0
 _scale = 1.0
 colors = []
+is_flipper = None
 
 
 def start(view_manager) -> bool:
     """Initialize the screensaver."""
-    global _demo_state, _frame_count, _scale, colors
+    global _demo_state, _frame_count, _scale, colors, is_flipper
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+
+    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
     draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)
@@ -44,6 +48,10 @@ def start(view_manager) -> bool:
         TFT_VIOLET,
         TFT_WHITE,
     ]
+    if is_flipper:
+        for i in range(len(colors)):
+            if colors[i] != TFT_BLACK:
+                colors[i] = TFT_WHITE
 
     # Prompt to advance
     size = len("Press Center") * draw.font_size.x

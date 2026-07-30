@@ -50,8 +50,12 @@ class System:
         """Return MCU frequency."""
         import machine
 
-        freq = machine.freq() / 1000000
-        return freq
+        try:
+            freq = machine.freq() / 1000000
+        except Exception:
+            # unpack tuple
+            freq = machine.freq()[0] / 1000000
+        return int(freq)
 
     @property
     def has_audio(self) -> bool:
@@ -170,7 +174,7 @@ class System:
     @property
     def version(self) -> str:
         """Return the Picoware version."""
-        return "2.0.1"
+        return "2.2.0"
 
     def bootloader_mode(self):
         """Enter the bootloader mode."""
@@ -186,7 +190,12 @@ class System:
 
     def shutdown_device(self, view_manager=None):
         """Shutdown the device."""
-        from picoware_boards import BOARD_HAS_PSRAM
+        from picoware_boards import BOARD_HAS_PSRAM, BOARD_ID, BOARD_FLIPPER_ZERO
+
+        if BOARD_ID == BOARD_FLIPPER_ZERO:
+            from flipper_battery import shutdown
+            shutdown()
+            return
 
         if BOARD_HAS_PSRAM == 0:
             return

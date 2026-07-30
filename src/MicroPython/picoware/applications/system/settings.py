@@ -14,6 +14,7 @@ STATE_DEEPSEEK_API_KEY = const(9)  # keyboard input for DeepSeek API key
 STATE_USB_STREAM = const(10)  # toggle (enable/disable USB stream)
 STATE_ANTHROPIC_API_KEY = const(11)  # keyboard input for Anthropic API key
 STATE_GEMINI_API_KEY = const(12)  # keyboard input for Gemini API key
+STATE_LOCAL_URL = const(13)  # keyboard input for Local URL
 
 # modes
 _MODE_MENU = const(0)
@@ -28,6 +29,8 @@ _MODE_OPENAI_KEYBOARD = const(8)
 _MODE_DEEPSEEK_KEYBOARD = const(9)
 _MODE_ANTHROPIC_KEYBOARD = const(10)
 _MODE_GEMINI_KEYBOARD = const(11)
+_MODE_LOCAL_URL_KEYBOARD = const(12)
+
 
 _settings = None
 _menu = None
@@ -46,6 +49,7 @@ _openai_save_requested = False
 _deepseek_save_requested = False
 _anthropic_save_requested = False
 _gemini_save_requested = False
+_local_url_save_requested = False
 
 
 def __color_values() -> list[int]:
@@ -105,7 +109,8 @@ def __config() -> tuple:
         ("DeepSeek API Key", "deepseek_api_key", ""),
         ("USB Stream", "usb_stream", False),
         ("Anthropic API Key", "anthropic_api_key", ""),
-        ("Gemini API Key", "gemini_api_key", "")
+        ("Gemini API Key", "gemini_api_key", ""),
+        ("Local URL", "local_url", "http://127.0.0.1:8080/v1/chat/completions"),
     )
 
 
@@ -480,6 +485,25 @@ def __gemini_save_callback(result: str) -> None:
     global _gemini_save_requested
     _gemini_save_requested = True
 
+def __open_local_url_keyboard() -> None:
+    """Open the keyboard for entering the Local URL."""
+    global _mode, _local_url_save_requested
+
+    keyboard = _view_manager.keyboard
+    keyboard.reset()
+    keyboard.title = "Local URL"
+    keyboard.response = _settings.local_url
+    keyboard.set_save_callback(__local_url_save_callback)
+    keyboard.input_manager.reset()
+    keyboard.run(force=True)
+    _local_url_save_requested = False
+    _mode = _MODE_LOCAL_URL_KEYBOARD
+
+def __local_url_save_callback(result: str) -> None:
+    """Callback triggered when the Local URL keyboard is saved."""
+    global _local_url_save_requested
+    _local_url_save_requested = True
+
 def __back_to_server_menu() -> None:
     """Return to the Server Settings sub-menu."""
     global _server_save_requested
@@ -628,6 +652,8 @@ def run(view_manager) -> None:
                 __open_anthropic_keyboard()
             elif selected == STATE_GEMINI_API_KEY:
                 __open_gemini_keyboard()
+            elif selected == STATE_LOCAL_URL:
+                __open_local_url_keyboard()
             else:
                 __open_toggle(selected)
 
@@ -739,6 +765,17 @@ def run(view_manager) -> None:
         if _gemini_save_requested:
             _gemini_save_requested = False
             _settings.gemini_api_key = view_manager.keyboard.response or ""
+            view_manager.keyboard.reset()
+            __back_to_menu()
+        elif not view_manager.keyboard.run():
+            view_manager.keyboard.reset()
+            __back_to_menu()
+
+    elif _mode == _MODE_LOCAL_URL_KEYBOARD:
+        global _local_url_save_requested
+        if _local_url_save_requested:
+            _local_url_save_requested = False
+            _settings.local_url = view_manager.keyboard.response or ""
             view_manager.keyboard.reset()
             __back_to_menu()
         elif not view_manager.keyboard.run():

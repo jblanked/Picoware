@@ -8,18 +8,25 @@ class Time:
         "_current_task",
         "_running",
         "_lock",
+        "_requested",
     )
 
     def __init__(self, thread_manager=None):
         from machine import RTC
-        from _thread import allocate_lock
+
+        self._lock = None
+        try:
+            from _thread import allocate_lock
+            self._lock = allocate_lock()
+        except ImportError:
+            pass
 
         self._rtc = RTC()
         self._is_set = False
         self._thread_manager = thread_manager
         self._current_task = None
         self._running = False
-        self._lock = allocate_lock()
+        self._requested = False
 
     def __del__(self):
         self._rtc.deinit()
@@ -34,6 +41,8 @@ class Time:
     @property
     def date(self) -> str:
         """Return the current date only as string"""
+        if self._lock is None:
+            return ""
         with self._lock:
             date = self._rtc.datetime()
             return f"{date[1]}/{date[2]}/{date[0]}"
@@ -41,24 +50,40 @@ class Time:
     @property
     def is_fetching(self) -> bool:
         """Return whether the time is currently being fetched."""
+        if self._lock is None:
+            return False
+        with self._lock:
+            return self._requested
+
+    @property
+    def is_running(self) -> bool:
+        """Return whether the time fetching process is currently running."""
+        if self._lock is None:
+            return False
         with self._lock:
             return self._running
 
     @property
     def is_set(self) -> bool:
         """Return whether the time has been set."""
+        if self._lock is None:
+            return False
         with self._lock:
             return self._is_set
 
     @property
     def rtc(self):
         """Return the RTC object."""
+        if self._lock is None:
+            return None
         with self._lock:
             return self._rtc
 
     @property
     def time(self) -> str:
         """Return the current time only as string"""
+        if self._lock is None:
+            return ""
         with self._lock:
             date = self._rtc.datetime()
             _seconds = date[6]
@@ -74,9 +99,12 @@ class Time:
         Fetch the current date and time from ntp.
         Originated from: https://github.com/micropython/micropython-lib/blob/master/micropython/net/ntptime/ntptime.py
         """
+        if self._lock is None:
+            return False
+        
         try:
             with self._lock:
-                if self._running:
+                if self._requested or self._running:
                     return False
                 if self._is_set:
                     return True
@@ -122,6 +150,7 @@ class Time:
                     with self._lock:
                         self._running = False
                         self._is_set = False
+                        self._requested = False
                     return
 
                 t = val - NTP_DELTA + int(offset * 3600)  # Apply timezone offset
@@ -141,6 +170,10 @@ class Time:
                     )
                     self._is_set = True
                     self._running = False
+                    self._requested = False
+
+            with self._lock:
+                self._requested = True
 
             if not self._thread_manager:
                 return fetch_ntp_time()
@@ -156,10 +189,14 @@ class Time:
             with self._lock:
                 self._running = False
                 self._is_set = False
+                self._requested = False
             return False
 
     def set(self, year, month, day, hour, minute, second) -> None:
         """Set the current date and time."""
+        if self._lock is None:
+            return
+
         with self._lock:
             self._rtc.datetime(
                 (

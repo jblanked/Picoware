@@ -13,6 +13,7 @@ BOARD_CARDPUTER = picoware_boards.BOARD_CARDPUTER
 BOARD_WAVESHARE_2_06 = picoware_boards.BOARD_WAVESHARE_2_06
 BOARD_PANCAKE = picoware_boards.BOARD_PANCAKE
 BOARD_V8 = picoware_boards.BOARD_V8
+BOARD_FLIPPER_ZERO = picoware_boards.BOARD_FLIPPER_ZERO
 
 BOARD_ID = picoware_boards.BOARD_ID
 BOARD_HAS_PSRAM = picoware_boards.BOARD_HAS_PSRAM

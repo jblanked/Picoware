@@ -347,6 +347,9 @@ class Player:
             return False
 
         if not self.is_playing:
+            if self.is_sd_busy:
+                return False
+            time.sleep_ms(10)
             curr = playlist.get_current()
             if curr:
                 if self.current_track != curr:
@@ -501,6 +504,13 @@ class Player:
     @property
     def is_playing(self):
         return self.audio.is_playing
+
+    @property
+    def is_sd_busy(self):
+        try:
+            return bool(self.audio.is_sd_busy)
+        except AttributeError:
+            return False
 
     def is_paused(self, is_playing=None):
         if self._paused:

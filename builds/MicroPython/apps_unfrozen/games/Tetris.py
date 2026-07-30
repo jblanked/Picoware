@@ -22,6 +22,8 @@ from picoware.system.buttons import (
     BUTTON_BACK,
 )
 
+is_flipper = False
+
 GRID_W = 10
 GRID_H = 20
 CELL_SIZE = 14
@@ -96,6 +98,8 @@ class Tetris:
             TFT_BLUE,
             TFT_VIOLET,
         )
+        if is_flipper:
+            self.colors = tuple(0xFFFF if c != TFT_BLACK else c for c in self.colors)
 
         # Tetromino shapes (4x4 matrices)
         self.tetrominos = [
@@ -348,7 +352,10 @@ class Tetris:
 
 def start(view_manager) -> bool:
     """Start the app."""
-    global _game, GRID_W, GRID_H, CELL_SIZE, GRID_X, GRID_Y, _scale
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+    global _game, GRID_W, GRID_H, CELL_SIZE, GRID_X, GRID_Y, _scale, is_flipper
+
+    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
     draw = view_manager.draw
     _scale = min(draw.size.x, draw.size.y) / 320

@@ -48,6 +48,16 @@ def init():
     global _initialized
     _initialized = True
     sim_runtime.mkdir_p(sim_runtime.sd_root)
+    try:
+        import picoware_boards
+        import vfs_mp
+
+        if picoware_boards.BOARD_HAS_ESP32 == 1:
+            vfs_mp.mount("/sdcard")
+        elif picoware_boards.BOARD_ID == picoware_boards.BOARD_FLIPPER_ZERO:
+            vfs_mp.mount("/sd")
+    except Exception:
+        pass
     return True
 
 

@@ -14,7 +14,7 @@ bool mp_engine_gc_ready = false;
 #include LCD_INCLUDE
 #endif
 
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
 #include "../sd/storage.h"
 #endif
 
@@ -53,7 +53,7 @@ static inline int lcd_obj_to_int(mp_obj_t arg)
     return 0;
 }
 
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
 static inline uint16_t lcd_u16_le(const uint8_t *p)
 {
     return (uint16_t)(p[0] | ((uint16_t)p[1] << 8));
@@ -220,7 +220,7 @@ mp_obj_t lcd_mp_bmp(size_t n_args, const mp_obj_t *args)
         y = lcd_scale_y(self, y);
     }
 
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
     void *file = storage_file_open(file_path);
     if (!file)
     {
@@ -1029,7 +1029,7 @@ mp_obj_t lcd_mp_screenshot(mp_obj_t self_in, mp_obj_t file_path)
     (void)file_path;
     return mp_const_none;
 #endif
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
     const char *path = mp_obj_str_get_str(file_path);
     void *file = storage_file_write_open(path);
     if (!file)

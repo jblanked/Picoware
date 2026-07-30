@@ -10,6 +10,7 @@ from picoware.system.boards import (
     BOARD_WAVESHARE_3_49_RP2350,
     BOARD_WAVESHARE_2_06,
     BOARD_PANCAKE,
+    BOARD_V8,
     BOARD_HAS_TOUCH,
     BOARD_FLIPPER_ZERO
 )
@@ -101,7 +102,7 @@ class Input:
 
             self._delay_ms = 200
 
-        elif self._current_board_id in (BOARD_CROWPANEL_10_1, BOARD_WAVESHARE_2_06, BOARD_PANCAKE):
+        elif self._current_board_id in (BOARD_CROWPANEL_10_1, BOARD_WAVESHARE_2_06, BOARD_PANCAKE, BOARD_V8):
             from touch import Touch
 
             self._touch = Touch()
@@ -396,6 +397,7 @@ class Input:
             BOARD_CROWPANEL_10_1,
             BOARD_WAVESHARE_2_06,
             BOARD_PANCAKE,
+            BOARD_V8,
         ):
             from picoware_southbridge import deinit
 
@@ -431,6 +433,11 @@ class Input:
 
             return get_percentage()
 
+        if self._current_board_id == BOARD_V8:
+            from v8_battery import get_percentage
+
+            return get_percentage()
+
         if self._current_board_id == BOARD_FLIPPER_ZERO:
             from flipper_battery import get_percentage
 
@@ -447,6 +454,7 @@ class Input:
             BOARD_CROWPANEL_10_1,
             BOARD_WAVESHARE_2_06,
             BOARD_PANCAKE,
+            BOARD_V8,
         ):
             self._poll_touch()
         elif self._current_board_id == BOARD_CARDPUTER:
@@ -524,6 +532,7 @@ class Input:
             BOARD_CROWPANEL_10_1,
             BOARD_WAVESHARE_2_06,
             BOARD_PANCAKE,
+            BOARD_V8,
         ):
             self._poll_touch()
             return self._last_point != (0, 0)

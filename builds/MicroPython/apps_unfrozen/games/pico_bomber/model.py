@@ -150,6 +150,12 @@ class GameModel:
         self.demo_mode = False
         self.demo_next_action = 0
         self.demo_countdown = 30
+        # Demo and bomber AI run this search many times per minute. Reusing a
+        # packed queue and visit map avoids steadily churning hundreds of
+        # short-lived lists on MicroPython's constrained heap.
+        self._escape_queue = [0] * (GRID_WIDTH * GRID_HEIGHT)
+        self._escape_visited = bytearray(GRID_WIDTH * GRID_HEIGHT)
+        self._escape_visit_generation = 0
 
     def open_mode_menu(self):
         """Open the mode chooser with the current mode highlighted."""
@@ -752,18 +758,36 @@ class GameModel:
         return self._is_flame(x, y) or self._tile_in_bomb_danger(x, y)
 
     def _enemy_escape_step(self, enemy, max_steps=0):
-        """Find the first step on the shortest route to a safe tile."""
+        """Find a safe first step using a compact reusable breadth-first search."""
         start_x = enemy[0]
         start_y = enemy[1]
-        queue = [[start_x, start_y, 0, 0, 0]]
-        visited = [False] * (GRID_WIDTH * GRID_HEIGHT)
-        visited[start_y * GRID_WIDTH + start_x] = True
-        cursor = 0
+        queue = self._escape_queue
+        visited = self._escape_visited
+        generation = self._escape_visit_generation + 1
+        if generation > 255:
+            for index in range(len(visited)):
+                visited[index] = 0
+            generation = 1
+        self._escape_visit_generation = generation
 
-        while cursor < len(queue):
-            x, y, first_dx, first_dy, steps = queue[cursor]
+        start_key = start_y * GRID_WIDTH + start_x
+        # Packed node layout: tile key (8 bits), first direction (3 bits),
+        # then step count. Direction 4 marks the root node.
+        queue[0] = start_key | (4 << 8)
+        visited[start_key] = generation
+        cursor = 0
+        queue_end = 1
+
+        while cursor < queue_end:
+            node = queue[cursor]
             cursor += 1
+            key = node & 0xFF
+            first_direction = (node >> 8) & 0x07
+            steps = node >> 11
+            x = key % GRID_WIDTH
+            y = key // GRID_WIDTH
             if steps and not self._tile_is_dangerous(x, y):
+                first_dx, first_dy = DIRECTIONS[first_direction]
                 return (
                     start_x + first_dx,
                     start_y + first_dy,
@@ -774,7 +798,8 @@ class GameModel:
             if max_steps and steps >= max_steps:
                 continue
 
-            for dx, dy in DIRECTIONS:
+            for direction in range(len(DIRECTIONS)):
+                dx, dy = DIRECTIONS[direction]
                 next_x = x + dx
                 next_y = y + dy
                 if (
@@ -785,23 +810,23 @@ class GameModel:
                 ):
                     continue
                 key = next_y * GRID_WIDTH + next_x
-                if visited[key] or not self._can_enter(
+                if visited[key] == generation or not self._can_enter(
                     next_x,
                     next_y,
                     True,
                     enemy,
                 ):
                     continue
-                visited[key] = True
-                queue.append(
-                    [
-                        next_x,
-                        next_y,
-                        dx if steps == 0 else first_dx,
-                        dy if steps == 0 else first_dy,
-                        steps + 1,
-                    ]
+                visited[key] = generation
+                next_first_direction = (
+                    direction if steps == 0 else first_direction
                 )
+                queue[queue_end] = (
+                    key
+                    | (next_first_direction << 8)
+                    | ((steps + 1) << 11)
+                )
+                queue_end += 1
         return None
 
     def _demo_bomb_plan(self, now):

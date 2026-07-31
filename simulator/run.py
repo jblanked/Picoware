@@ -43,6 +43,7 @@ _BOARD_DISPLAY_SIZES = {
     "waveshare-2.06": (410, 502),
     "waveshare-2.06-esp32s3": (410, 502),
     "pancake": (320, 480),
+    "v8": (240, 320),
     "flipper-zero": (128, 64),
     "flipper": (128, 64),
 }
@@ -585,6 +586,12 @@ def _run_sim_check(opts):
         + _quote(opts["apps_source"]),
         "micropython "
         + _quote(THIS_DIR + "/run.py")
+        + " --headless --board v8 --frames 30 --wait-view desktop_view --audio silent --network offline --sd "
+        + _quote(opts["sd"])
+        + " --apps-source "
+        + _quote(opts["apps_source"]),
+        "micropython "
+        + _quote(THIS_DIR + "/run.py")
         + " --headless --board flipper-zero --app Calculator --frames 40 --wait-view app_Calculator --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
@@ -597,9 +604,11 @@ def _run_sim_check(opts):
             raise SystemExit(1)
     _run_keyboard_background_check()
     _run_engine_parity_check()
+    _run_board_parity_check()
     _run_font_parity_check()
     _run_scripts_fixture_check(opts)
     _run_touch_check()
+    _run_v8_battery_check()
     _run_flipper_battery_check()
     _run_log_storage_check(opts)
     _run_circular_choice_check()
@@ -734,7 +743,7 @@ def _run_font_parity_check():
         boards.BOARD_WAVESHARE_1_43_RP2350,
         boards.BOARD_WAVESHARE_3_49_RP2350,
     )
-    for board_id in range(boards.BOARD_FLIPPER_ZERO + 1):
+    for board_id in range(boards.BOARD_V8 + 1):
         expected = 1 if board_id in small else 2 if board_id in medium else 0
         if lcd.default_font_for_board(board_id, boards) != expected:
             raise RuntimeError("simulator board default font mismatch")
@@ -756,6 +765,27 @@ def _run_scripts_fixture_check(opts):
     print("[sim-check:ok] bundled JavaScript scripts fixture")
 
 
+def _run_board_parity_check():
+    """Verify the latest board profile and capability helpers."""
+    import picoware_boards as boards
+
+    if boards.get_name(boards.BOARD_V8) != "V8":
+        raise RuntimeError("simulator V8 board name mismatch")
+    if boards.get_display_size(boards.BOARD_V8) != (240, 320):
+        raise RuntimeError("simulator V8 display size mismatch")
+    if not boards.has_sd_card(boards.BOARD_V8):
+        raise RuntimeError("simulator V8 SD capability mismatch")
+    if not boards.has_touch(boards.BOARD_V8):
+        raise RuntimeError("simulator V8 touch capability mismatch")
+    if not boards.has_wifi(boards.BOARD_V8):
+        raise RuntimeError("simulator V8 WiFi capability mismatch")
+    if boards.has_audio(boards.BOARD_V8):
+        raise RuntimeError("simulator V8 audio capability mismatch")
+    if boards.has_psram(boards.BOARD_V8):
+        raise RuntimeError("simulator V8 PSRAM capability mismatch")
+    print("[sim-check:ok] V8 board profile and capabilities")
+
+
 def _run_touch_check():
     """Verify scripted keys land in the shared percentage-based touch zones."""
     import picoware_boards
@@ -766,6 +796,7 @@ def _run_touch_check():
         ("crowpanel", picoware_boards.BOARD_CROWPANEL_10_1),
         ("waveshare-2.06", picoware_boards.BOARD_WAVESHARE_2_06),
         ("pancake", picoware_boards.BOARD_PANCAKE),
+        ("v8", picoware_boards.BOARD_V8),
     )
     expected = (
         (sim_runtime.KEY_NAMES["up"], "up"),
@@ -816,7 +847,27 @@ def _run_touch_check():
                     )
     finally:
         sim_runtime.board = original_board
-    print("[sim-check:ok] touch layout crowpanel waveshare-2.06 pancake")
+    print("[sim-check:ok] touch layout crowpanel waveshare-2.06 pancake v8")
+
+
+def _run_v8_battery_check():
+    """Exercise the V8 battery shim used by the desktop."""
+    import sim_runtime
+    import v8_battery
+
+    original_percentage = sim_runtime.battery_percentage()
+    try:
+        if v8_battery.init() is not None:
+            raise RuntimeError("simulator V8 battery init return mismatch")
+        sim_runtime.set_battery_percentage(64)
+        if v8_battery.get_percentage() != 64:
+            raise RuntimeError("simulator V8 battery percentage mismatch")
+        voltage = v8_battery.get_voltage()
+        if voltage < 3.0 or voltage > 5.0:
+            raise RuntimeError("simulator V8 battery voltage mismatch")
+    finally:
+        sim_runtime.set_battery_percentage(original_percentage)
+    print("[sim-check:ok] V8 battery percentage and voltage")
 
 
 def _run_flipper_battery_check():

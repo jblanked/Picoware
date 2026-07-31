@@ -102,7 +102,7 @@ def get_device_name():
         return "Flipper Zero STM32WB55RG"
     if BOARD_ID == BOARD_CROWPANEL_10_1:
         return "CrowPanel 10.1 ESP32-P4"
-    if BOARD_ID == BOARD_PANCAKE:
+    if BOARD_ID in (BOARD_PANCAKE, BOARD_V8):
         return "ESP32-C5"
     if BOARD_ID in (BOARD_CARDPUTER, BOARD_WAVESHARE_2_06):
         return "ESP32-S3"
@@ -169,6 +169,7 @@ def has_touch(board_id):
         BOARD_CROWPANEL_10_1,
         BOARD_WAVESHARE_2_06,
         BOARD_PANCAKE,
+        BOARD_V8,
     )
 
 
@@ -181,6 +182,7 @@ def has_wifi(board_id):
         BOARD_CARDPUTER,
         BOARD_WAVESHARE_2_06,
         BOARD_PANCAKE,
+        BOARD_V8,
     )
 
 

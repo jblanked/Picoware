@@ -5,6 +5,7 @@ DEEPSEEK = const(1)
 ANTHROPIC = const(2)
 GEMINI = const(3)
 LOCAL = const(4)
+XAI = const(5)
 
 class LLM:
     """LLM config"""
@@ -110,7 +111,7 @@ class LLM:
     @staticmethod
     def providers() -> list:
         """Return a list of available LLM providers."""
-        return [OPENAI, DEEPSEEK, ANTHROPIC, GEMINI, LOCAL]
+        return [OPENAI, DEEPSEEK, ANTHROPIC, GEMINI, LOCAL, XAI]
 
     @staticmethod
     def provider_name(provider_id: int) -> str:
@@ -125,6 +126,8 @@ class LLM:
             return "Gemini"
         if provider_id == LOCAL:
             return "Local"
+        if provider_id == XAI:
+            return "xAI"
         return "Unknown"
 
     def __set(self, storage):
@@ -158,6 +161,11 @@ class LLM:
             self._name = "Local"
             self._url = settings.local_url
             self._models = ["qwen3.5:4b", "qwen3.5:0.8b", "qwen3.5:2b", "llama3.2:3b", "llama3.2:1b"]
+        elif self._id == XAI:
+            self._name = "xAI"
+            self._url = "https://api.x.ai/v1"
+            self._models = ["grok-4.5", "grok-4.3", "grok-build-0.1", "grok-4.20", "grok-4.20-non-reasoning"]
+            self._api_key = settings.xai_api_key
         
         if self._id != LOCAL:
             self._headers["Authorization"] = f"Bearer {self._api_key}"

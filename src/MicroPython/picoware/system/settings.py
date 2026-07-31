@@ -29,6 +29,7 @@ class Settings:
             "usb_stream": False,
             "wifi_ssid": "",
             "wifi_password": "",
+            "xai_api_key": ""
         }
         if not self._storage.exists(self._path):
             self._settings = {
@@ -49,6 +50,7 @@ class Settings:
                 "usb_stream": bool(self.__fetch_setting("picoware/settings/usb_stream.json", "usb_stream", False)),
                 "wifi_ssid": self.__fetch_setting("picoware/wifi/ssid.json", "ssid", ""),
                 "wifi_password": self.__fetch_setting("picoware/wifi/password.json", "password", ""),
+                "xai_api_key": "",
             }
             self.__save_settings()
         else:
@@ -239,6 +241,17 @@ class Settings:
         password = value.get("password", "")
         self._settings["wifi_ssid"] = ssid
         self._settings["wifi_password"] = password
+        self.__save_settings()
+
+    @property
+    def xai_api_key(self) -> str:
+        """Return the xAI API key."""
+        return self._settings.get("xai_api_key", "")
+
+    @xai_api_key.setter
+    def xai_api_key(self, value: str):
+        """Set the xAI API key."""
+        self._settings["xai_api_key"] = value
         self.__save_settings()
     
     def __fetch_setting(self, path: str, key: str, default=""):

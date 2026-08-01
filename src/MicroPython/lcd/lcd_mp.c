@@ -1123,6 +1123,23 @@ mp_obj_t lcd_mp_screenshot(mp_obj_t self_in, mp_obj_t file_path)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(lcd_mp_screenshot_obj, lcd_mp_screenshot);
 
+mp_obj_t lcd_mp_set_brightness(mp_obj_t self_in, mp_obj_t brightness)
+{
+    lcd_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (!self->initialized)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
+    }
+    uint8_t brightness_val = mp_obj_get_int(brightness);
+#ifdef LCD_MP_SET_BRIGHTNESS
+    LCD_MP_SET_BRIGHTNESS(brightness_val);
+#else
+    (void)brightness_val;
+#endif
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(lcd_mp_set_brightness_obj, lcd_mp_set_brightness);
+
 mp_obj_t lcd_mp_set_mode(mp_obj_t self_in, mp_obj_t mode)
 {
     lcd_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -1266,6 +1283,7 @@ static const mp_rom_map_elem_t lcd_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_scale_x), MP_ROM_PTR(&lcd_mp_scale_x_obj)},                            // self.scale_x()
     {MP_ROM_QSTR(MP_QSTR_scale_y), MP_ROM_PTR(&lcd_mp_scale_y_obj)},                            // self.scale_y()
     {MP_ROM_QSTR(MP_QSTR_screenshot), MP_ROM_PTR(&lcd_mp_screenshot_obj)},                      // self.screenshot()
+    {MP_ROM_QSTR(MP_QSTR_set_brightness), MP_ROM_PTR(&lcd_mp_set_brightness_obj)},              // self.set_brightness()
     {MP_ROM_QSTR(MP_QSTR_set_mode), MP_ROM_PTR(&lcd_mp_set_mode_obj)},                          // self.set_mode()
     {MP_ROM_QSTR(MP_QSTR_set_scaling), MP_ROM_PTR(&lcd_mp_set_scaling_obj)},                    // self.set_scaling()
     {MP_ROM_QSTR(MP_QSTR_swap), MP_ROM_PTR(&lcd_mp_swap_obj)},                                  // self.swap()

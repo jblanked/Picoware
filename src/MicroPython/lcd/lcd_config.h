@@ -23,6 +23,8 @@
 #define LCD_MP_PSRAM_READ_ROW lcd_psram_read_row
 #define LCD_MP_READ_ROW lcd_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
+#include "../PicoCalc/picoware_keyboard/southbridge.h"
+#define LCD_MP_SET_BRIGHTNESS sb_write_lcd_backlight
 #define LCD_MP_SET_MODE lcd_set_mode
 #define LCD_SWAP lcd_swap
 #define LCD_MP_SWAP_REGION picoware_lcd_swap_region
@@ -48,6 +50,7 @@
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
+#define LCD_MP_SET_BRIGHTNESS lcd_set_backlight
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
@@ -209,6 +212,7 @@
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
+#define LCD_MP_SET_BRIGHTNESS lcd_set_backlight
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle

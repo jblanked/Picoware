@@ -15,6 +15,8 @@ const mp_obj_type_t textbox_mp_type;
 
 #if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
 #include "../sd/storage.h"
+#elif defined(FLIPPER_ZERO)
+#include "../Flipper/sd/storage.h"
 #endif
 
 // Grow the line array if needed and append one entry.

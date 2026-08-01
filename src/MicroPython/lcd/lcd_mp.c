@@ -666,10 +666,10 @@ static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_fill_triangle_obj, 8, 8, lcd_m
 
 mp_obj_t lcd_mp_image_bytearray(size_t n_args, const mp_obj_t *args)
 {
-    // Arguments: self, x, y, width, height, buffer
-    if (n_args != 6)
+    // Arguments: self, x, y, width, height, buffer, invert (optional)
+    if (n_args != 6 && n_args != 7)
     {
-        mp_raise_ValueError(MP_ERROR_TEXT("blit requires 6 arguments: self, x, y, width, height, buffer"));
+        mp_raise_ValueError(MP_ERROR_TEXT("blit requires 6 or 7 arguments: self, x, y, width, height, buffer, invert (optional)"));
     }
 
     lcd_mp_obj_t *self = MP_OBJ_TO_PTR(args[0]);
@@ -695,13 +695,44 @@ mp_obj_t lcd_mp_image_bytearray(size_t n_args, const mp_obj_t *args)
     }
 
     bool is_16bit = (bufinfo.len >= expected_size_16bit);
+    bool invert = n_args == 7 ? mp_obj_is_true(args[6]) : false;
 
     if (!self->scale_set)
     {
-        if (is_16bit)
-            LCD_MP_BLIT_16BIT(x, y, width, height, (uint16_t *)bufinfo.buf);
+        if (invert)
+        {
+            if (is_16bit)
+            {
+                uint16_t *buf16 = (uint16_t *)bufinfo.buf;
+                for (size_t i = 0; i < width * height; i++)
+                {
+                    if (buf16[i] == 0xFFFF)
+                        buf16[i] = 0x0000;
+                    else if (buf16[i] == 0x0000)
+                        buf16[i] = 0xFFFF;
+                }
+                LCD_MP_BLIT_16BIT(x, y, width, height, buf16);
+            }
+            else
+            {
+                uint8_t *buf = (uint8_t *)bufinfo.buf;
+                for (size_t i = 0; i < width * height; i++)
+                {
+                    if (buf[i] == 0xFF)
+                        buf[i] = 0x00;
+                    else if (buf[i] == 0x00)
+                        buf[i] = 0xFF;
+                }
+                LCD_MP_BLIT(x, y, width, height, buf);
+            }
+        }
         else
-            LCD_MP_BLIT(x, y, width, height, (uint8_t *)bufinfo.buf);
+        {
+            if (is_16bit)
+                LCD_MP_BLIT_16BIT(x, y, width, height, (uint16_t *)bufinfo.buf);
+            else
+                LCD_MP_BLIT(x, y, width, height, (uint8_t *)bufinfo.buf);
+        }
     }
     else
     {
@@ -723,7 +754,19 @@ mp_obj_t lcd_mp_image_bytearray(size_t n_args, const mp_obj_t *args)
                 const uint16_t *src_row = &src[sy * width];
                 for (uint16_t dx = 0; dx < dst_w; dx++)
                 {
-                    row_buf[dx] = src_row[(uint32_t)dx * width / dst_w];
+                    if (invert)
+                    {
+                        uint16_t pixel = src_row[(uint32_t)dx * width / dst_w];
+                        if (pixel == 0xFFFF)
+                            pixel = 0x0000;
+                        else if (pixel == 0x0000)
+                            pixel = 0xFFFF;
+                        row_buf[dx] = pixel;
+                    }
+                    else
+                    {
+                        row_buf[dx] = src_row[(uint32_t)dx * width / dst_w];
+                    }
                 }
                 LCD_MP_BLIT_16BIT(dst_x, dst_y + dy, dst_w, 1, row_buf);
             }
@@ -739,7 +782,19 @@ mp_obj_t lcd_mp_image_bytearray(size_t n_args, const mp_obj_t *args)
                 const uint8_t *src_row = &src[sy * width];
                 for (uint16_t dx = 0; dx < dst_w; dx++)
                 {
-                    row_buf[dx] = src_row[(uint32_t)dx * width / dst_w];
+                    if (invert)
+                    {
+                        uint8_t pixel = src_row[(uint32_t)dx * width / dst_w];
+                        if (pixel == 0xFF)
+                            pixel = 0x00;
+                        else if (pixel == 0x00)
+                            pixel = 0xFF;
+                        row_buf[dx] = pixel;
+                    }
+                    else
+                    {
+                        row_buf[dx] = src_row[(uint32_t)dx * width / dst_w];
+                    }
                 }
                 LCD_MP_BLIT(dst_x, dst_y + dy, dst_w, 1, row_buf);
             }
@@ -748,7 +803,7 @@ mp_obj_t lcd_mp_image_bytearray(size_t n_args, const mp_obj_t *args)
     }
     return mp_const_none;
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_image_bytearray_obj, 6, 6, lcd_mp_image_bytearray);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_image_bytearray_obj, 6, 7, lcd_mp_image_bytearray);
 
 mp_obj_t lcd_mp_line(size_t n_args, const mp_obj_t *args)
 {

@@ -267,9 +267,9 @@ class Draw(lcd.LCD):
         self, position: Vector, size: Vector, byte_data, invert: bool = False
     ):
         """Draw an image from 8-bit byte data (bytes or bytearray)"""
-        self._bytearray(position.x, position.y, size.x, size.y, byte_data)
+        self._bytearray(position.x, position.y, size.x, size.y, byte_data, invert)
 
-    def image_bytearray_1bit(self, position: Vector, size: Vector, byte_data) -> None:
+    def image_bytearray_1bit(self, position: Vector, size: Vector, byte_data, invert: bool = False) -> None:
         """Draw a 1-bit bitmap from packed byte_data (8 pixels per byte, row-aligned)"""
         width, height = size.x, size.y
         bytes_per_row = (width + 7) // 8  # Each row is padded to byte boundary
@@ -288,7 +288,7 @@ class Draw(lcd.LCD):
                     if bit_value:  # Only write if bit is 1
                         unpacked[y * width + x] = 255
 
-        self._bytearray(position.x, position.y, size.x, size.y, unpacked)
+        self._bytearray(position.x, position.y, size.x, size.y, unpacked, invert)
 
     def image_bytearray_path(
         self,
@@ -298,6 +298,7 @@ class Draw(lcd.LCD):
         storage=None,
         seek=0,
         chunk_size=0,
+        invert=False,
     ):
         """Draw an image from an 8-bit bytearray file stored on disk"""
         try:
@@ -307,7 +308,7 @@ class Draw(lcd.LCD):
                     print(f"File not found: {path}")
                     return
                 byte_array = storage.file_read(file, seek, chunk_size, decode=False)
-                self._bytearray(position.x, position.y, size.x, size.y, byte_array)
+                self._bytearray(position.x, position.y, size.x, size.y, byte_array, invert)
                 storage.file_close(file)
 
         except Exception as e:

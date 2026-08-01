@@ -215,28 +215,30 @@ class Keyboard:
         self.selected_suggestion_index = -1  # -1 means no suggestion selected
 
         self.KEY_WIDTH, self.KEY_HEIGHT = draw.scale(22, 35)
-        self.KEY_MARGIN, self.TEXTBOX_HEIGHT = draw.scale(4, 45) 
+        self.KEY_MARGIN, self.TEXTBOX_HEIGHT = draw.scale(4, 45)
         self.KEY_SPACING = 1
 
         self._touch_enabled = input_manager.has_touch_support
 
-        self.max_chars_per_line = (self.draw.size.x - 10) // self.draw.font_size.x
-        self.max_lines = (self.TEXTBOX_HEIGHT - 10) // self.draw.font_size.y
+        _ten_x, _ten_y = draw.scale(10, 10)
 
-        self.keyboard_height = self.NUM_ROWS * (self.KEY_HEIGHT + self.KEY_SPACING) + 20
+        self.max_chars_per_line = (self.draw.size.x - _ten_x) // self.draw.font_size.x
+        self.max_lines = (self.TEXTBOX_HEIGHT - _ten_y) // self.draw.font_size.y
+
+        self.keyboard_height = self.NUM_ROWS * (self.KEY_HEIGHT + self.KEY_SPACING) + (_ten_y * 2)
         self.key_vec = Vector(0, 0)
         self.size_vec = Vector(0, 0)
-        self.text_vec = Vector(5, 8)
+        self.text_vec = Vector(draw.scale_x(5), draw.scale_y(8))
         self.cursor = Vector(0, 0)
 
         self.text_box_pos_vec = Vector(0, self.TEXTBOX_HEIGHT)
-        self.text_box_pos_size = Vector(self.draw.size.x, self.keyboard_height + 10)
+        self.text_box_pos_size = Vector(self.draw.size.x, self.keyboard_height + _ten_y)
 
-        self.text_border_pos = Vector(2, 2)
-        self.text_border_size = Vector(self.draw.size.x - 4, self.TEXTBOX_HEIGHT - 4)
+        self.text_border_pos = Vector(draw.scale_x(2), draw.scale_y(2))
+        self.text_border_size = Vector(self.draw.size.x - draw.scale_x(4), self.TEXTBOX_HEIGHT - draw.scale_y(4))
 
         self.title_vec = Vector(
-            self.draw.size.x // 2 - len(self.current_title) * 3, self.TEXTBOX_HEIGHT + 5
+            self.draw.size.x // 2 - draw.len(self.current_title) // 2, self.TEXTBOX_HEIGHT + draw.scale_y(5)
         )
 
         self.manual_keys = {
@@ -384,7 +386,7 @@ class Keyboard:
 
         self.current_title = value
         self.title_vec = Vector(
-            self.draw.size.x // 2 - len(value) * 3, self.TEXTBOX_HEIGHT + 5
+            self.draw.size.x // 2 - self.draw.len(value) // 2, self.TEXTBOX_HEIGHT + self.draw.scale_y(5)
         )
 
     @property

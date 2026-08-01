@@ -10,7 +10,7 @@ class Settings:
         from picoware.system.boards import BOARD_HAS_TOUCH
 
         self._storage = storage
-        self._path = "picoware/settings/picoware.json" 
+        self._path = "picoware/settings/picoware.json"
         self._settings = {
             "anthropic_api_key": "",
             "dark_mode": True,
@@ -23,6 +23,7 @@ class Settings:
             "lvgl_mode": False,
             "onscreen_keyboard": BOARD_HAS_TOUCH == 1,
             "openai_api_key": "",
+            "screen_brightness": 100,
             "server_username": "",
             "server_password": "",
             "theme_color": 0x001F,
@@ -44,6 +45,7 @@ class Settings:
                 "lvgl_mode": bool(self.__fetch_setting("picoware/settings/lvgl_mode.json", "lvgl_mode", False)),
                 "onscreen_keyboard": bool(self.__fetch_setting("picoware/settings/onscreen_keyboard.json", "onscreen_keyboard", BOARD_HAS_TOUCH == 1)),
                 "openai_api_key": "",
+                "screen_brightness": 100,
                 "server_username": self.__fetch_setting("picoware/settings/server_username.json", "username", ""),
                 "server_password": self.__fetch_setting("picoware/settings/server_password.json", "password", ""),
                 "theme_color": int(self.__fetch_setting("picoware/settings/theme_color.json", "theme_color", 0x001F)),
@@ -181,6 +183,17 @@ class Settings:
     def openai_api_key(self, value: str):
         """Set the OpenAI API key."""
         self._settings["openai_api_key"] = value
+        self.__save_settings()
+
+    @property
+    def screen_brightness(self) -> int:
+        """Return the current screen brightness."""
+        return int(self._settings.get("screen_brightness", 100))
+
+    @screen_brightness.setter
+    def screen_brightness(self, value: int):
+        """Set the screen brightness."""
+        self._settings["screen_brightness"] = value
         self.__save_settings()
 
     @property

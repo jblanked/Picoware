@@ -155,6 +155,9 @@ class ViewManager:
         # Clear screen
         self.clear()
 
+        # Screen brightness
+        self._draw.set_brightness(settings.screen_brightness)
+
     def __del__(self):
         """Destructor to clean up resources."""
         from gc import collect

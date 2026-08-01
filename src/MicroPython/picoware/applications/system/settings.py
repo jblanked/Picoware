@@ -16,6 +16,7 @@ STATE_ANTHROPIC_API_KEY = const(11)  # keyboard input for Anthropic API key
 STATE_GEMINI_API_KEY = const(12)  # keyboard input for Gemini API key
 STATE_LOCAL_URL = const(13)  # keyboard input for Local URL
 STATE_XAI_API_KEY = const(14)  # keyboard input for xAI API key
+STATE_SCREEN_BRIGHTNESS = const(15)  # choice (10 - 100)
 
 # modes
 _MODE_MENU = const(0)
@@ -115,6 +116,7 @@ def __config() -> tuple:
         ("Gemini API Key", "gemini_api_key", ""),
         ("Local URL", "local_url", "http://127.0.0.1:8080/v1/chat/completions"),
         ("xAI API Key", "xai_api_key", ""),
+        ("Screen Brightness", "screen_brightness", 100),
     )
 
 
@@ -276,6 +278,40 @@ def __open_choice_button() -> None:
         draw.size,
         "Button to Exit",
         str_buttons,
+        initial_index,
+        _view_manager.foreground_color,
+        _view_manager.background_color,
+    )
+    _choice.draw()
+    _mode = _MODE_CHOICE
+
+
+def __open_choice_brightness() -> None:
+    """Open a Choice sub-view for the screen brightness setting."""
+    global _choice, _mode, _current_setting
+    from picoware.gui.choice import Choice
+    from picoware.system.vector import Vector
+
+    _current_setting = STATE_SCREEN_BRIGHTNESS
+    _brightness_options = [str(i) for i in range(10, 101, 10)]
+    current_brightness = _settings.screen_brightness
+    try:
+        initial_index = _brightness_options.index(str(current_brightness))
+    except ValueError:
+        initial_index = len(_brightness_options) - 1
+
+    draw = _view_manager.draw
+    draw.erase()
+    if _choice is not None:
+        del _choice
+        _choice = None
+
+    _choice = Choice(
+        draw,
+        Vector(0, 0),
+        draw.size,
+        "Screen Brightness",
+        _brightness_options,
         initial_index,
         _view_manager.foreground_color,
         _view_manager.background_color,
@@ -680,6 +716,8 @@ def run(view_manager) -> None:
                 __open_local_url_keyboard()
             elif selected == STATE_XAI_API_KEY:
                 __open_xai_keyboard()
+            elif selected == STATE_SCREEN_BRIGHTNESS:
+                __open_choice_brightness()
             else:
                 __open_toggle(selected)
 
@@ -850,6 +888,10 @@ def run(view_manager) -> None:
 
                 s = System()
                 s.hard_reset()
+            elif _current_setting == STATE_SCREEN_BRIGHTNESS:
+                selected_value = int(_choice.options[_choice.state])
+                _settings.screen_brightness = selected_value
+                _view_manager.draw.set_brightness(selected_value)
             __back_to_menu()
 
 

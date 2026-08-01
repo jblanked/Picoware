@@ -74,6 +74,7 @@
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
+#define LCD_MP_SET_BRIGHTNESS lcd_set_backlight
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
@@ -97,6 +98,7 @@
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
+#define LCD_MP_SET_BRIGHTNESS lcd_set_backlight
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
@@ -120,6 +122,7 @@
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
+#define LCD_MP_SET_BRIGHTNESS lcd_set_backlight
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
@@ -143,6 +146,7 @@
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
+#define LCD_MP_SET_BRIGHTNESS lcd_set_backlight_level
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
@@ -166,6 +170,7 @@
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
+#define LCD_MP_SET_BRIGHTNESS lcd_set_backlight_level
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
@@ -189,6 +194,7 @@
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
+#define LCD_MP_SET_BRIGHTNESS lcd_set_backlight_level
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle

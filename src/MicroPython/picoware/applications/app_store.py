@@ -634,7 +634,11 @@ def __download_next_file(view_manager) -> bool:
 
     # Create necessary directories
     dir_path = "/".join(file_path.split("/")[:-1])
-    storage.mkdir(dir_path)
+    if not storage.exists(dir_path):
+        storage.mkdir(dir_path)
+
+    if storage.exists(file_path):
+        storage.remove(file_path)
 
     return _http.get_async(
         file_url,

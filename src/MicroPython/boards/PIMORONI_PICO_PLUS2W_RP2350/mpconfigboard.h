@@ -26,6 +26,4 @@ int mp_hal_is_pin_reserved(int n);
 #define MICROPY_HW_PIN_RESERVED(i) mp_hal_is_pin_reserved(i)
 
 // PSRAM Settings
-#define MICROPY_HW_ENABLE_PSRAM                 (1)
-#define MICROPY_HW_PSRAM_CS_PIN                 PIMORONI_PICO_PLUS2_PSRAM_CS_PIN
 #define MICROPY_GC_SPLIT_HEAP                   (1)

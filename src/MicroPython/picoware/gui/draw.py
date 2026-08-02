@@ -38,6 +38,7 @@ class Draw(lcd.LCD):
         psram(position, size, addr): Draw pixel data directly from PSRAM at the specified address and length
         rect(position, size, color=None): Draw a rectangle outline
         screenshot(file_path): Take a screenshot of the current display and save it to the specified file path (.bmp)
+        set_brightness(level): Set the display brightness (0-100)
         set_mode(mode): Set the LCD mode (PSRAM or HEAP)
         set_scaling(scale_x, scale_y, scale_position=False): Set the LCD scaling parameters
         swap(): Update the display with the current framebuffer contents

@@ -704,6 +704,7 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - `scale_vector(position)`: Get a scaled `Vector` value (inherited from C).
     - `scale_x(value)`: Get a scaled X value (inherited from C).
     - `scale_y(value)`: Get a scaled Y value (inherited from C).
+    - `set_brightness(level)`: Set the display brightness (inherited from C).
     - `set_mode(mode)`: Set the LCD rendering mode (inherited from C).
     - `set_scaling(scale_x, scale_y, scale_position=False)`: Set the display scaling factors (inherited from C).
     - `swap()`: Push the back buffer to the display (inherited from C).

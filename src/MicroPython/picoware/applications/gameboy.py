@@ -1,4 +1,5 @@
 from micropython import const
+from picoware.system.decorator import storage_required, psram_required
 
 STATE_BROWSER = const(0)
 STATE_PLAYING = const(1)
@@ -8,12 +9,10 @@ gb = None
 _file_browser = None
 
 
+@storage_required
+@psram_required
 def start(view_manager) -> bool:
     """Start the app"""
-    if not view_manager.has_psram:
-        view_manager.alert("PSRAM not available...")
-        return False
-
     # first show info screen about connection
     d = view_manager.draw
     fg = view_manager.foreground_color

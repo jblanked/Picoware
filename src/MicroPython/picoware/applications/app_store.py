@@ -1,4 +1,5 @@
 from micropython import const
+from json import loads, dumps
 
 # Main menu states
 STATE_MAIN_MENU = const(0)
@@ -168,8 +169,6 @@ def __get_installed_apps(view_manager) -> list:
         if not cache_files:
             return []
 
-        from json import loads
-
         for filename in cache_files:
             # Look for app_<id>.json files (not app_list_*.json)
             if (
@@ -217,8 +216,6 @@ def __check_updates_async(view_manager) -> bool:
         _http = HTTP(thread_manager=view_manager.thread_manager)
 
     # Build POST data for bulk update check
-    from json import dumps
-
     apps_list = [
         {"app_id": app["id"], "current_version": app["version"]}
         for app in _installed_apps
@@ -331,8 +328,6 @@ def __delete_app(view_manager, app_id: int) -> bool:
     try:
         data = storage.read(file_path)
         if data:
-            from json import loads
-
             response = loads(data)
             if response.get("success") and response.get("app"):
                 app_data = response["app"]
@@ -360,14 +355,14 @@ def __draw_current_app_details(
     word_vec_x, word_vec_y = draw.scale(10, 5)
     title = app_info.get("title", "Unknown")
     version = app_info.get("version", "1.0.0")
-    draw._text(word_vec_x, word_vec_y, f"{title[:35]} v{version}", fg)
+    draw._text(word_vec_x, word_vec_y, f"{title[:draw.scale_x(35)]} v{version}", fg)
 
     # Description section
     description = app_info.get("description", "No description available")
-    y_pos = 30
+    y_pos = draw.scale_y(30)
 
     # Word wrap the description
-    max_chars = 100
+    max_chars = (draw.size.x // draw.font_size.x) - word_vec_x - 1
     words = description.split()
     current_line = ""
 
@@ -460,8 +455,6 @@ def __parse_app_list(view_manager) -> bool:
         if not data:
             return False
 
-        from json import loads
-
         _apps_data = loads(data)
 
         if not _apps_data.get("success") or not _apps_data.get("apps"):
@@ -529,7 +522,6 @@ def __parse_app_details(view_manager, app_id: int) -> bool:
         if not data:
             return False
 
-        from json import loads
         from picoware.system.app import App
 
         response = loads(data)
@@ -665,8 +657,6 @@ def __load_settings(view_manager) -> None:
         if storage.exists(_path):
             data = storage.read(_path)
             if data:
-                from json import loads
-
                 obj = loads(data)
                 _submitter_name = obj.get("submitter_name", "")
                 _submitter_email = obj.get("submitter_email", "")
@@ -680,8 +670,6 @@ def __save_settings(view_manager) -> None:
 
     storage = view_manager.storage
     storage.mkdir("picoware/settings")
-
-    from json import dumps
 
     data = dumps(
         {
@@ -808,8 +796,6 @@ def __submit_app(view_manager) -> bool:
 
         _http = HTTP(thread_manager=view_manager.thread_manager)
 
-    from json import dumps
-
     payload = dumps(
         {
             "app_name": _submit_app_name,
@@ -875,8 +861,6 @@ def __parse_submissions(view_manager) -> bool:
         data = storage.read(file_path)
         if not data:
             return False
-
-        from json import loads
 
         response = loads(data)
 
@@ -946,8 +930,6 @@ def __parse_submission_details(view_manager, submission_id: int) -> bool:
         if not data:
             return False
 
-        from json import loads
-
         response = loads(data)
 
         if not response.get("success") or not response.get("submission"):
@@ -973,7 +955,7 @@ def __draw_submission_details(view_manager) -> None:
     vec_x, vec_y = draw.scale(10, 5)
     name = _submission_details.get("app_name", "Unknown")
     version = _submission_details.get("app_version", "?")
-    draw._text(vec_x, vec_y, f"{name[:30]} v{version}", fg)
+    draw._text(vec_x, vec_y, f"{name[:draw.scale_x(30)]} v{version}", fg)
 
     vec_y = draw.scale_y(25)
     status = _submission_details.get("status", "?")
@@ -981,15 +963,15 @@ def __draw_submission_details(view_manager) -> None:
 
     vec_y = draw.scale_y(40)
     sub_name = _submission_details.get("submitter_name", "")
-    draw._text(vec_x, vec_y, f"Submitter: {sub_name[:30]}", fg)
+    draw._text(vec_x, vec_y, f"Submitter: {sub_name[:draw.scale_x(30)]}", fg)
 
     vec_y = draw.scale_y(55)
     sub_email = _submission_details.get("submitter_email", "")
-    draw._text(vec_x, vec_y, f"Email: {sub_email[:30]}", fg)
+    draw._text(vec_x, vec_y, f"Email: {sub_email[:draw.scale_x(30)]}", fg)
 
     vec_y = draw.scale_y(70)
     submitted_at = _submission_details.get("submitted_at", "")
-    draw._text(vec_x, vec_y, f"Submitted: {submitted_at[:25]}", fg)
+    draw._text(vec_x, vec_y, f"Submitted: {submitted_at[:draw.scale_x(25)]}", fg)
 
     # App content / file structure
     content = _submission_details.get("app_content", [])
@@ -1059,8 +1041,8 @@ def run(view_manager) -> None:
     global _installed_apps, _update_check_data, _app_menu
     global _submitter_name, _submitter_email
     global _submit_app_name, _submit_app_version, _submit_app_path
-    global _submissions_data, _submission_details
-    global _input_mode, _file_browser, _keyboard_just_started
+    global _submission_details
+    global  _file_browser, _keyboard_just_started
 
     button = view_manager.button
 
@@ -1441,8 +1423,6 @@ def run(view_manager) -> None:
         try:
             data = storage.read(file_path)
             if data:
-                from json import loads
-
                 _update_check_data = loads(data)
 
                 # Find the app info

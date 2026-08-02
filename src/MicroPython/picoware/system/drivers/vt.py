@@ -56,10 +56,6 @@ class vt(uio.IOBase):
         self.scroll_bottom = self.screen_height - 1
         self.input_enabled = False  # Start with input disabled
 
-        self.pos_vector = Vector(0, 0)
-        self.char_vec = Vector(self.char_width, 2)
-        self.cursor_pos = Vector(0, 0)
-
         # Direct keyword → TFT color map for C module syntax highlighting
         # (skips ANSI escape code intermediate step entirely)
         self._syntax_map = [
@@ -281,8 +277,8 @@ class vt(uio.IOBase):
             self.cursor_visible,
             self.cursor_x * self.char_width,
             self.cursor_y * self.char_height,
-            self.char_vec.x,
-            self.char_vec.y,
+            self.char_width,
+            2,
             self.draw.foreground,
             self._syntax_map,
             self._string_color,

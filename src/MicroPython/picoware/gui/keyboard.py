@@ -226,7 +226,6 @@ class Keyboard:
         self.max_lines = (self.TEXTBOX_HEIGHT - _ten_y) // self.draw.font_size.y
 
         self.keyboard_height = self.NUM_ROWS * (self.KEY_HEIGHT + self.KEY_SPACING) + (_ten_y * 2)
-        self.key_vec = Vector(0, 0)
         self.size_vec = Vector(0, 0)
         self.text_vec = Vector(draw.scale_x(5), draw.scale_y(8))
         self.cursor = Vector(0, 0)
@@ -328,7 +327,6 @@ class Keyboard:
     def __del__(self) -> None:
         self.reset()
         self.current_title = ""
-        self.key_vec = None
         self.size_vec = None
         self.text_vec = None
         self.cursor = None
@@ -662,9 +660,9 @@ class Keyboard:
             key_label = display_char
 
         # Center the text
-        self.key_vec.x = x_pos + width // 2 - len(key_label) * 3
-        self.key_vec.y = y_pos + self.KEY_HEIGHT // 2 - 4
-        self.draw._text(self.key_vec.x, self.key_vec.y, key_label, self.text_color)
+        _key_x = x_pos + width // 2 - len(key_label) * 3
+        _key_y = y_pos + self.KEY_HEIGHT // 2 - self.draw.scale_y(4)
+        self.draw._text(_key_x, _key_y, key_label, self.text_color)
 
     def _draw_keyboard(self) -> None:
         """Draws the entire keyboard"""

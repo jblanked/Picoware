@@ -160,7 +160,7 @@ class LLM:
         elif self._id == LOCAL:
             self._name = "Local"
             self._url = settings.local_url
-            self._models = ["qwen3.5:4b", "qwen3.5:0.8b", "qwen3.5:2b", "llama3.2:3b", "llama3.2:1b"]
+            self._models = ["qwen3.5:9b", "qwen3.5:4b", "qwen3.5:0.8b", "qwen3.5:2b", "llama3.2:3b", "llama3.2:1b"]
         elif self._id == XAI:
             self._name = "xAI"
             self._url = "https://api.x.ai/v1"

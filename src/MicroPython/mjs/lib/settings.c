@@ -54,6 +54,11 @@ static mjs_val_t settings_mp_read(struct mjs *mjs, const char *key)
 #endif
 }
 
+static mjs_val_t settings_anthropic_api_key(struct mjs *mjs)
+{
+    return settings_mp_read(mjs, "anthropic_api_key");
+}
+
 static mjs_val_t settings_dark_mode(struct mjs *mjs)
 {
     return settings_mp_read(mjs, "dark_mode");
@@ -74,9 +79,19 @@ static mjs_val_t settings_exit_button(struct mjs *mjs)
     return settings_mp_read(mjs, "exit_button");
 }
 
+static mjs_val_t settings_gemini_api_key(struct mjs *mjs)
+{
+    return settings_mp_read(mjs, "gemini_api_key");
+}
+
 static mjs_val_t settings_gmt_offset(struct mjs *mjs)
 {
     return settings_mp_read(mjs, "gmt_offset");
+}
+
+static mjs_val_t settings_local_url(struct mjs *mjs)
+{
+    return settings_mp_read(mjs, "local_url");
 }
 
 static mjs_val_t settings_lvgl_mode(struct mjs *mjs)
@@ -92,6 +107,11 @@ static mjs_val_t settings_onscreen_keyboard(struct mjs *mjs)
 static mjs_val_t settings_openai_api_key(struct mjs *mjs)
 {
     return settings_mp_read(mjs, "openai_api_key");
+}
+
+static mjs_val_t settings_screen_brightness(struct mjs *mjs)
+{
+    return settings_mp_read(mjs, "screen_brightness");
 }
 
 static mjs_val_t settings_server_settings(struct mjs *mjs)
@@ -114,6 +134,11 @@ static mjs_val_t settings_wifi_settings(struct mjs *mjs)
     return settings_mp_read(mjs, "wifiSettings");
 }
 
+static mjs_val_t settings_xai_api_key(struct mjs *mjs)
+{
+    return settings_mp_read(mjs, "xai_api_key");
+}
+
 void settings_create(struct mjs *mjs, mjs_val_t *settings_obj)
 {
     nlr_buf_t nlr;
@@ -125,18 +150,23 @@ void settings_create(struct mjs *mjs, mjs_val_t *settings_obj)
 
     *settings_obj = mjs_mk_object(mjs);
 
+    mjs_set_getter(mjs, *settings_obj, "anthropicApiKey", ~0, settings_anthropic_api_key);
     mjs_set_getter(mjs, *settings_obj, "darkMode", ~0, settings_dark_mode);
     mjs_set_getter(mjs, *settings_obj, "debug", ~0, settings_debug);
     mjs_set_getter(mjs, *settings_obj, "deepseekApiKey", ~0, settings_deepseek_api_key);
     mjs_set_getter(mjs, *settings_obj, "exitButton", ~0, settings_exit_button);
+    mjs_set_getter(mjs, *settings_obj, "geminiApiKey", ~0, settings_gemini_api_key);
     mjs_set_getter(mjs, *settings_obj, "gmtOffset", ~0, settings_gmt_offset);
+    mjs_set_getter(mjs, *settings_obj, "localUrl", ~0, settings_local_url);
     mjs_set_getter(mjs, *settings_obj, "lvglMode", ~0, settings_lvgl_mode);
     mjs_set_getter(mjs, *settings_obj, "onscreenKeyboard", ~0, settings_onscreen_keyboard);
     mjs_set_getter(mjs, *settings_obj, "openaiApiKey", ~0, settings_openai_api_key);
+    mjs_set_getter(mjs, *settings_obj, "screenBrightness", ~0, settings_screen_brightness);
     mjs_set_getter(mjs, *settings_obj, "serverSettings", ~0, settings_server_settings);
     mjs_set_getter(mjs, *settings_obj, "themeColor", ~0, settings_theme_color);
     mjs_set_getter(mjs, *settings_obj, "usbStream", ~0, settings_usb_stream);
     mjs_set_getter(mjs, *settings_obj, "wifiSettings", ~0, settings_wifi_settings);
+    mjs_set_getter(mjs, *settings_obj, "xaiApiKey", ~0, settings_xai_api_key);
 
     nlr_pop();
 }

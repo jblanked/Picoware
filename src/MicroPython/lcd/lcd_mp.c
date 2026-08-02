@@ -664,6 +664,44 @@ mp_obj_t lcd_mp_fill_triangle(size_t n_args, const mp_obj_t *args)
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_fill_triangle_obj, 8, 8, lcd_mp_fill_triangle);
 
+mp_obj_t lcd_mp_fill_triangle_alpha(size_t n_args, const mp_obj_t *args)
+{
+    // Arguments: self, x1, y1, x2, y2, x3, y3, color, alpha
+    if (n_args != 9)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("fill_triangle_alpha requires 9 arguments: self, x1, y1, x2, y2, x3, y3, color, alpha"));
+    }
+
+    lcd_mp_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    if (!self->initialized)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
+    }
+
+    uint16_t x1 = lcd_obj_to_int(args[1]);
+    uint16_t y1 = lcd_obj_to_int(args[2]);
+    uint16_t x2 = lcd_obj_to_int(args[3]);
+    uint16_t y2 = lcd_obj_to_int(args[4]);
+    uint16_t x3 = lcd_obj_to_int(args[5]);
+    uint16_t y3 = lcd_obj_to_int(args[6]);
+    uint16_t color = mp_obj_get_int(args[7]);
+    uint8_t alpha = (uint8_t)lcd_obj_to_int(args[8]);
+
+    if (self->scale_position)
+    {
+        x1 = lcd_scale_x(self, x1);
+        y1 = lcd_scale_y(self, y1);
+        x2 = lcd_scale_x(self, x2);
+        y2 = lcd_scale_y(self, y2);
+        x3 = lcd_scale_x(self, x3);
+        y3 = lcd_scale_y(self, y3);
+    }
+
+    LCD_MP_FILL_TRIANGLE_ALPHA(x1, y1, x2, y2, x3, y3, color, alpha);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_fill_triangle_alpha_obj, 9, 9, lcd_mp_fill_triangle_alpha);
+
 mp_obj_t lcd_mp_image_bytearray(size_t n_args, const mp_obj_t *args)
 {
     // Arguments: self, x, y, width, height, buffer, invert (optional)
@@ -1328,6 +1366,7 @@ static const mp_rom_map_elem_t lcd_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR__fill_rectangle), MP_ROM_PTR(&lcd_mp_fill_rectangle_obj)},             // self._fill_rectangle()
     {MP_ROM_QSTR(MP_QSTR__fill_round_rectangle), MP_ROM_PTR(&lcd_mp_fill_round_rectangle_obj)}, // self._fill_round_rectangle()
     {MP_ROM_QSTR(MP_QSTR__fill_triangle), MP_ROM_PTR(&lcd_mp_fill_triangle_obj)},               // self._fill_triangle()
+    {MP_ROM_QSTR(MP_QSTR__fill_triangle_alpha), MP_ROM_PTR(&lcd_mp_fill_triangle_alpha_obj)},   // self._fill_triangle_alpha()
     {MP_ROM_QSTR(MP_QSTR__bytearray), MP_ROM_PTR(&lcd_mp_image_bytearray_obj)},                 // self._bytearray()
     {MP_ROM_QSTR(MP_QSTR__line), MP_ROM_PTR(&lcd_mp_line_obj)},                                 // self._line()
     {MP_ROM_QSTR(MP_QSTR__pixel), MP_ROM_PTR(&lcd_mp_pixel_obj)},                               // self._pixel()

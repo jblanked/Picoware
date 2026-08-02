@@ -23,6 +23,7 @@ class Draw(lcd.LCD):
         fill_round_rectangle(position, size, radius, color=None): Draw a filled rounded rectangle
         fill_screen(color=None): Fill the entire screen with a color
         fill_triangle(point1, point2, point3, color=None): Draw a filled triangle
+        fill_triangle_alpha(point1, point2, point3, color=None, alpha=255): Draw a filled triangle with alpha blending
         get_font(font_size=0): Get the FontSize object for a given font size
         image(position, img): Draw an image object to the back buffer
         image_bmp(position, path, storage=None): Draw a 24-bit BMP image from a file path
@@ -220,6 +221,22 @@ class Draw(lcd.LCD):
             point3.x,
             point3.y,
             _color,
+        )
+
+    def fill_triangle_alpha(
+        self, point1: Vector, point2: Vector, point3: Vector, color=None, alpha: int = 255
+    ):
+        """Draw a filled triangle with alpha blending"""
+        _color = color if color is not None else self._foreground
+        self._fill_triangle_alpha(
+            point1.x,
+            point1.y,
+            point2.x,
+            point2.y,
+            point3.x,
+            point3.y,
+            _color,
+            alpha,
         )
 
     def get_font(self, font_size: int = 0):

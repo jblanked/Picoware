@@ -38,6 +38,7 @@ mp_obj_t lcd_mp_fill_circle(size_t n_args, const mp_obj_t *args);          // fi
 mp_obj_t lcd_mp_fill_rectangle(size_t n_args, const mp_obj_t *args);       // fill a rectangle on the LCD
 mp_obj_t lcd_mp_fill_round_rectangle(size_t n_args, const mp_obj_t *args); // fill a rounded rectangle on the LCD
 mp_obj_t lcd_mp_fill_triangle(size_t n_args, const mp_obj_t *args);        // fill a triangle
+mp_obj_t lcd_mp_fill_triangle_alpha(size_t n_args, const mp_obj_t *args);  // fill a triangle with alpha blending
 mp_obj_t lcd_mp_image_bytearray(size_t n_args, const mp_obj_t *args);      // draw an image from a bytearray on the LCD
 mp_obj_t lcd_mp_line(size_t n_args, const mp_obj_t *args);                 // draw a line on the LCD
 mp_obj_t lcd_mp_pixel(size_t n_args, const mp_obj_t *args);                // draw a pixel on the LCD

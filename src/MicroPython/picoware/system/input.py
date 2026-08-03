@@ -114,11 +114,9 @@ class Input:
 
             init()
         elif self._current_board_id == BOARD_FLIPPER_ZERO:
-            from flipper_battery import init as battery_init
-            from flipper_input import init as input_init
+            from flipper_input import init 
 
-            battery_init()
-            input_init()
+            init()
 
         else:
             from picoware_keyboard import (
@@ -385,10 +383,8 @@ class Input:
 
             deinit()
         elif self._current_board_id == BOARD_FLIPPER_ZERO:
-            from flipper_input import deinit as flipper_input_deinit
-            from flipper_battery import deinit as flipper_battery_deinit
-            flipper_input_deinit()
-            flipper_battery_deinit()
+            from flipper_input import deinit
+            deinit()
 
         elif self._current_board_id not in (
             BOARD_WAVESHARE_1_28_RP2350,
@@ -404,48 +400,6 @@ class Input:
             deinit()
         del self._button_map
         self._button_map = None
-
-    @property
-    def battery(self) -> int:
-        """Returns the current battery level as a percentage (0-100)."""
-        if self._current_board_id in (
-            BOARD_WAVESHARE_1_28_RP2350,
-            BOARD_WAVESHARE_1_43_RP2350,
-            BOARD_WAVESHARE_3_49_RP2350,
-        ):
-            from waveshare_battery import get_percentage
-
-            return get_percentage()
-
-        if self._current_board_id == BOARD_CROWPANEL_10_1:
-            return 100
-
-        if self._current_board_id in (
-            BOARD_CARDPUTER,
-            BOARD_WAVESHARE_2_06,
-        ):
-            from cardputer_battery import get_percentage
-
-            return get_percentage()
-
-        if self._current_board_id == BOARD_PANCAKE:
-            from pancake_battery import get_percentage
-
-            return get_percentage()
-
-        if self._current_board_id == BOARD_V8:
-            from v8_battery import get_percentage
-
-            return get_percentage()
-
-        if self._current_board_id == BOARD_FLIPPER_ZERO:
-            from flipper_battery import get_percentage
-
-            return get_percentage()
-
-        from picoware_southbridge import get_battery_percentage
-
-        return get_battery_percentage()
 
     @property
     def button(self) -> int:

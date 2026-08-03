@@ -12,6 +12,7 @@ class ViewManager:
 
     __slots__ = (
         "_active",
+        "_battery",
         "_current_view",
         "_view_count",
         "_selected_color",
@@ -40,6 +41,7 @@ class ViewManager:
         from picoware.gui.draw import Draw
         from picoware.gui.keyboard import Keyboard
         from picoware.system.input import Input
+        from picoware.system.battery import Battery
         from picoware.system.storage import Storage
         from picoware.system.wifi import WiFi
         from picoware.system.system import System
@@ -112,6 +114,9 @@ class ViewManager:
         # Initialize input manager
         self._input_manager = Input(_back_button)
         self._button = -1
+
+        # Initialize battery
+        self._battery = Battery()
 
         # Initialize keyboard
         self._keyboard = Keyboard(
@@ -226,6 +231,11 @@ class ViewManager:
         self._background_color = color
         self._draw.background = color
         self._keyboard.background_color = color
+
+    @property
+    def battery(self):
+        """Return the Battery instance."""
+        return self._battery
 
     @property
     def board_id(self):

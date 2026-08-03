@@ -66,3 +66,39 @@ class Battery:
         from picoware_southbridge import get_battery_percentage
 
         return get_battery_percentage()
+
+    def voltage(self) -> float:
+        """Returns the current battery voltage in millivolts."""
+        if BOARD_ID in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+        ):
+            from waveshare_battery import get_voltage
+
+            return get_voltage()
+
+        if BOARD_ID in (
+            BOARD_CARDPUTER,
+            BOARD_WAVESHARE_2_06,
+        ):
+            from cardputer_battery import get_voltage
+
+            return get_voltage()
+
+        if BOARD_ID == BOARD_PANCAKE:
+            from pancake_battery import get_voltage
+
+            return get_voltage()
+
+        if BOARD_ID == BOARD_V8:
+            from v8_battery import get_voltage
+
+            return get_voltage()
+
+        if BOARD_ID == BOARD_FLIPPER_ZERO:
+            from flipper_battery import get_voltage_mv
+
+            return get_voltage_mv()
+
+        return 4200

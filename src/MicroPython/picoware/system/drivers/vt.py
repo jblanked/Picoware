@@ -10,8 +10,6 @@ except ImportError:
     import io as uio
     from supervisor import ticks_ms
 
-
-from picoware.system.vector import Vector
 from picoware.system import buttons
 from picoware.system import colors
 import vt as vt_c

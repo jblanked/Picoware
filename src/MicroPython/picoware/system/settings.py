@@ -7,7 +7,7 @@ class Settings:
 
     def __init__(self, storage):
         from picoware.system.buttons import BUTTON_BACK
-        from picoware.system.boards import BOARD_HAS_TOUCH
+        from picoware.system.boards import BOARD_HAS_TOUCH, BOARD_ID, BOARD_FLIPPER_ZERO
 
         self._storage = storage
         self._path = "picoware/settings/picoware.json"
@@ -21,7 +21,7 @@ class Settings:
             "gmt_offset": 0,
             "local_url": "http://127.0.0.1:8080/v1/chat/completions",
             "lvgl_mode": False,
-            "onscreen_keyboard": BOARD_HAS_TOUCH == 1,
+            "onscreen_keyboard": BOARD_HAS_TOUCH == 1 or BOARD_ID == BOARD_FLIPPER_ZERO,
             "openai_api_key": "",
             "screen_brightness": 100,
             "server_username": "",

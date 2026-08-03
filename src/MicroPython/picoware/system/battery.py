@@ -27,6 +27,20 @@ class Battery:
             deinit()
 
     @property
+    def has_voltage(self) -> bool:
+        """Returns True if the battery voltage can be read, False otherwise."""
+        return BOARD_ID in (
+            BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_3_49_RP2350,
+            BOARD_CARDPUTER,
+            BOARD_WAVESHARE_2_06,
+            BOARD_PANCAKE,
+            BOARD_V8,
+            BOARD_FLIPPER_ZERO
+        )
+
+    @property
     def percentage(self) -> int:
         """Returns the current battery level as a percentage (0-100)."""
         if BOARD_ID in (

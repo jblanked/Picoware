@@ -175,10 +175,7 @@ class Agent:
 
     def _run_loop(self) -> str:
         """Run the model/tool loop and return assistant text."""
-        if self.llm.id == ANTHROPIC:
-            tools = [tool.json_anthropic for tool in dispatch.get_tool_list()]
-        else:
-            tools = [tool.json_openai for tool in dispatch.get_tool_list()]
+        tools = [tool.json_openai for tool in dispatch.get_tool_list()]
         storage = self.view_manager.storage
 
         for _ in range(MAX_TOOL_ITERATIONS):

@@ -55,6 +55,7 @@ class LCD:
         self._scale_y_factor = scale_y
         self.scale_position = scale_position
         self._mode = self.MODE_HEAP
+        self._brightness = 100
         self._buffer = bytearray(self.width * self.height * 2)
         self._sdl = None
         self._window = 0
@@ -115,6 +116,14 @@ class LCD:
             color = int(color) & 0xFFFF
             self._buffer[off] = color & 0xFF
             self._buffer[off + 1] = (color >> 8) & 0xFF
+
+    def _get_pixel(self, x, y):
+        x = int(x)
+        y = int(y)
+        if not (0 <= x < self.width and 0 <= y < self.height):
+            return 0
+        off = self._offset(x, y)
+        return self._buffer[off] | (self._buffer[off + 1] << 8)
 
     def _clear(self, color=0):
         color = int(color) & 0xFFFF
@@ -210,7 +219,67 @@ class LCD:
         self._line(x3, y3, x1, y1, color)
 
     def _fill_triangle(self, x1, y1, x2, y2, x3, y3, color):
-        self._triangle(x1, y1, x2, y2, x3, y3, color)
+        self._fill_triangle_alpha(x1, y1, x2, y2, x3, y3, color, 255)
+
+    def _fill_triangle_alpha(self, x1, y1, x2, y2, x3, y3, color, alpha):
+        points = (
+            [int(x1), int(y1)],
+            [int(x2), int(y2)],
+            [int(x3), int(y3)],
+        )
+        if self.scale_position:
+            for point in points:
+                point[0] = self.scale_x(point[0])
+                point[1] = self.scale_y(point[1])
+
+        alpha = int(alpha) & 0xFF
+        if alpha == 0:
+            return
+
+        x1, y1 = points[0]
+        x2, y2 = points[1]
+        x3, y3 = points[2]
+        area = self._triangle_edge(x1, y1, x2, y2, x3, y3)
+        if area == 0:
+            return
+
+        min_x = max(0, min(x1, x2, x3))
+        max_x = min(self.width - 1, max(x1, x2, x3))
+        min_y = max(0, min(y1, y2, y3))
+        max_y = min(self.height - 1, max(y1, y2, y3))
+        positive = area > 0
+        color = int(color) & 0xFFFF
+
+        for y in range(min_y, max_y + 1):
+            for x in range(min_x, max_x + 1):
+                e1 = self._triangle_edge(x1, y1, x2, y2, x, y)
+                e2 = self._triangle_edge(x2, y2, x3, y3, x, y)
+                e3 = self._triangle_edge(x3, y3, x1, y1, x, y)
+                inside = e1 >= 0 and e2 >= 0 and e3 >= 0
+                if not positive:
+                    inside = e1 <= 0 and e2 <= 0 and e3 <= 0
+                if inside:
+                    if alpha == 255:
+                        blended = color
+                    else:
+                        blended = self._blend_rgb565(color, self._get_pixel(x, y), alpha)
+                    self._set_pixel(x, y, blended)
+
+    def _triangle_edge(self, ax, ay, bx, by, px, py):
+        return (px - ax) * (by - ay) - (py - ay) * (bx - ax)
+
+    def _blend_rgb565(self, source, destination, alpha):
+        inverse = 255 - alpha
+        sr = (source >> 11) & 0x1F
+        sg = (source >> 5) & 0x3F
+        sb = source & 0x1F
+        dr = (destination >> 11) & 0x1F
+        dg = (destination >> 5) & 0x3F
+        db = destination & 0x1F
+        red = (sr * alpha + dr * inverse) // 255
+        green = (sg * alpha + dg * inverse) // 255
+        blue = (sb * alpha + db * inverse) // 255
+        return (red << 11) | (green << 5) | blue
 
     def _fill_round_rectangle(self, x, y, w, h, radius, color):
         self._fill_rectangle(x, y, w, h, color)
@@ -258,16 +327,46 @@ class LCD:
     def _char(self, x, y, char, color, font_size=None):
         self._text(x, y, char, color, font_size)
 
-    def _bytearray(self, x, y, w, h, data):
-        idx = 0
-        for yy in range(int(h)):
-            for xx in range(int(w)):
-                if idx >= len(data):
-                    return
-                value = data[idx]
-                if value:
-                    self._set_pixel(int(x) + xx, int(y) + yy, self._rgb332_to_565(value))
-                idx += 1
+    def _bytearray(self, x, y, w, h, data, invert=False):
+        width = int(w)
+        height = int(h)
+        pixel_count = width * height
+        data_len = len(data)
+        if data_len < pixel_count:
+            raise ValueError("buffer too small for blit operation")
+
+        is_16bit = data_len >= pixel_count * 2
+        scaled = self._scale_x_factor != 1.0 or self._scale_y_factor != 1.0
+        dst_x = self.scale_x(x) if scaled and self.scale_position else int(x)
+        dst_y = self.scale_y(y) if scaled and self.scale_position else int(y)
+        dst_w = self.scale_x(width) if scaled else width
+        dst_h = self.scale_y(height) if scaled else height
+        if dst_w <= 0 or dst_h <= 0:
+            return
+
+        for dy in range(dst_h):
+            sy = dy * height // dst_h
+            for dx in range(dst_w):
+                sx = dx * width // dst_w
+                index = sy * width + sx
+                if is_16bit:
+                    offset = index * 2
+                    value = int(data[offset]) | (int(data[offset + 1]) << 8)
+                    if invert:
+                        if value == 0xFFFF:
+                            value = 0x0000
+                        elif value == 0x0000:
+                            value = 0xFFFF
+                    color = value
+                else:
+                    value = int(data[index])
+                    if invert:
+                        if value == 0xFF:
+                            value = 0x00
+                        elif value == 0x00:
+                            value = 0xFF
+                    color = self._rgb332_to_565(value)
+                self._set_pixel(dst_x + dx, dst_y + dy, color)
 
     def _rgb332_to_565(self, value):
         value = int(value) & 0xFF
@@ -415,6 +514,9 @@ class LCD:
 
     def set_mode(self, mode):
         self._mode = mode
+
+    def set_brightness(self, level):
+        self._brightness = max(0, min(100, int(level)))
 
     def set_scaling(self, scale_x, scale_y, scale_position=False):
         self._scale_x_factor = scale_x

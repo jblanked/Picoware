@@ -465,6 +465,7 @@ def _buttons_module():
 
 def _draw_module():
     import lcd
+    import sim_runtime
 
     module = _Module()
     passthrough = (
@@ -487,6 +488,23 @@ def _draw_module():
             module[js_name] = getattr(lcd, name)
         else:
             module[js_name] = lambda *args, **kwargs: None
+
+    def text_len(text, font_size=None):
+        display = sim_runtime.get_lcd()
+        if display is not None:
+            width, _, spacing = display._font_metrics(font_size)
+        else:
+            width, spacing = (5, 1) if font_size in (None, 0) else (7, 0)
+        return len(str(text)) * (width + spacing)
+
+    def screenshot(path):
+        display = sim_runtime.get_lcd()
+        if display is None:
+            display = lcd.LCD()
+        return display.screenshot(sim_runtime.host_path(path))
+
+    module["len"] = text_len
+    module["screenshot"] = screenshot
     module["swap"] = getattr(lcd, "swap", lambda: None)
     return module
 
@@ -603,19 +621,24 @@ def _psram_module():
 
 def _settings_module():
     defaults = {
+        "anthropicApiKey": "",
         "darkMode": False,
         "debug": False,
         "deepseekApiKey": "",
         "exitButton": 5,
+        "geminiApiKey": "",
         "gmtOffset": 0,
+        "localUrl": "http://127.0.0.1:8080/v1/chat/completions",
         "lvglMode": False,
         "onscreenKeyboard": False,
         "openaiApiKey": "",
         "openApiKey": "",
+        "screenBrightness": 100,
         "serverSettings": {"username": "", "password": ""},
         "themeColor": 0,
         "usbStream": False,
         "wifiSettings": {"ssid": "", "password": ""},
+        "xaiApiKey": "",
     }
     return _Module(defaults)
 

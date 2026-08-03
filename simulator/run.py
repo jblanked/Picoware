@@ -603,6 +603,7 @@ def _run_sim_check(opts):
             print("[sim-check:fail]", cmd, status)
             raise SystemExit(1)
     _run_keyboard_background_check()
+    _run_lcd_parity_check()
     _run_engine_parity_check()
     _run_board_parity_check()
     _run_font_parity_check()
@@ -649,6 +650,28 @@ def _run_keyboard_background_check():
         raise RuntimeError("simulator disabled background keyboard consumed a key")
     picoware_keyboard.deinit()
     print("[sim-check:ok] picocalc background keyboard callbacks")
+
+
+def _run_lcd_parity_check():
+    """Verify LCD APIs added by the current Picoware runtime."""
+    import lcd
+
+    display = lcd.LCD()
+    display.set_brightness(37)
+    if display._brightness != 37:
+        raise RuntimeError("simulator LCD brightness state mismatch")
+
+    display._clear(0)
+    display._bytearray(0, 0, 2, 1, bytearray((0x00, 0xFF)), True)
+    if display._get_pixel(0, 0) != 0xFFFF or display._get_pixel(1, 0) != 0x0000:
+        raise RuntimeError("simulator LCD bytearray inversion mismatch")
+
+    display._clear(0x001F)
+    display._fill_triangle_alpha(1, 1, 5, 1, 1, 5, 0xF800, 128)
+    blended = display._get_pixel(2, 2)
+    if blended in (0x001F, 0xF800):
+        raise RuntimeError("simulator LCD alpha triangle mismatch")
+    print("[sim-check:ok] lcd brightness bytearray inversion alpha triangle")
 
 
 def _run_engine_parity_check():
@@ -1020,6 +1043,7 @@ def _run_fatal_exit_check(opts):
 def _run_mjs_check():
     """Smoke-test the JavaScript modules supplied by the simulator shim."""
     import mjs
+    import sim_runtime
 
     js = mjs.MJS()
     js.run('let audio = import("audio");')
@@ -1038,7 +1062,31 @@ def _run_mjs_check():
     js.run('let websocket = import("websocket");')
     if js.run("websocket.isConnected();") is not False:
         raise RuntimeError("simulator mjs websocket state mismatch")
-    print("[sim-check:ok] mjs audio bluetooth psram websocket")
+
+    js.run('let draw = import("draw");')
+    if js.run('draw.len("Hello World");') != 66:
+        raise RuntimeError("simulator mjs draw length mismatch")
+    screenshot_path = sim_runtime.host_path("sim_reports/mjs.bmp")
+    _mkdir_p(_dirname(screenshot_path))
+    js.run('draw.screenshot("sim_reports/mjs.bmp");')
+    try:
+        if os.stat(screenshot_path)[6] <= 54:
+            raise RuntimeError("simulator mjs screenshot is empty")
+    except OSError:
+        raise RuntimeError("simulator mjs screenshot missing")
+
+    js.run('let settings = import("settings");')
+    expected_settings = (
+        ("settings.anthropicApiKey", ""),
+        ("settings.geminiApiKey", ""),
+        ("settings.localUrl", "http://127.0.0.1:8080/v1/chat/completions"),
+        ("settings.screenBrightness", 100),
+        ("settings.xaiApiKey", ""),
+    )
+    for expression, expected in expected_settings:
+        if js.run(expression + ";") != expected:
+            raise RuntimeError("simulator mjs setting mismatch: " + expression)
+    print("[sim-check:ok] mjs draw settings audio bluetooth psram websocket")
 
 
 def _write_error_file(path, exc):

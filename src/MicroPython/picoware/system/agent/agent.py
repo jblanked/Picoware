@@ -1,7 +1,7 @@
 import json
 from micropython import const
 from picoware.system.agent.tools import dispatch
-from picoware.system.agent.llm import LLM, DEEPSEEK, ANTHROPIC
+from picoware.system.agent.llm import LLM, DEEPSEEK
 from picoware.system.agent.context import chat, app_creator, device_manager
 
 MODE_CHAT = const(0) # general chat mode

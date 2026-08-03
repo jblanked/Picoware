@@ -26,6 +26,7 @@ class Battery:
             from flipper_battery import deinit 
             deinit()
 
+    @property
     def percentage(self) -> int:
         """Returns the current battery level as a percentage (0-100)."""
         if BOARD_ID in (
@@ -67,6 +68,7 @@ class Battery:
 
         return get_battery_percentage()
 
+    @property
     def voltage(self) -> float:
         """Returns the current battery voltage in millivolts."""
         if BOARD_ID in (

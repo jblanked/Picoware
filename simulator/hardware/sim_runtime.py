@@ -1120,6 +1120,65 @@ def finish_recording():
     _flush_record_text()
 
 
+def _audio_sidecar_status_paths():
+    """Return status files belonging to simulator-owned audio helpers."""
+    try:
+        names = os.listdir(sd_root)
+    except OSError:
+        return []
+    paths = []
+    for name in names:
+        if name == "sim_audio.status" or (
+            name.startswith("sim_audio_mix_") and name.endswith(".status")
+        ):
+            paths.append(sd_root.rstrip("/") + "/" + name)
+    return paths
+
+
+def _audio_sidecar_stopped(status_path):
+    try:
+        with open(status_path, "r") as handle:
+            for line in handle.read().split("\n"):
+                if line.strip() == "playing=0":
+                    return True
+    except OSError:
+        return True
+    return False
+
+
+def _send_audio_sidecar_stop(status_path):
+    command_path = status_path[:-7] + ".cmd"
+    try:
+        # Do not overwrite a command that the helper has not consumed yet.
+        for _ in range(20):
+            if not _exists(command_path):
+                break
+            time.sleep(0.01)
+        with open(command_path, "w") as handle:
+            handle.write("stop\n")
+        return True
+    except OSError:
+        return False
+
+
+def shutdown_audio_sidecars(timeout_ms=1000):
+    """Stop audio helpers before the simulator process releases ownership."""
+    pending = []
+    for status_path in _audio_sidecar_status_paths():
+        if not _audio_sidecar_stopped(status_path):
+            pending.append(status_path)
+            _send_audio_sidecar_stop(status_path)
+    if not pending:
+        return True
+
+    started = _ticks_ms()
+    while _ticks_diff(_ticks_ms(), started) < max(0, int(timeout_ms)):
+        if all(_audio_sidecar_stopped(path) for path in pending):
+            return True
+        time.sleep(0.01)
+    return all(_audio_sidecar_stopped(path) for path in pending)
+
+
 def _write_status(force=False):
     global _last_status_ms
     if not status_path:

@@ -30,11 +30,25 @@ from .model import (
     DEATH_ENEMY_ELITE,
     DEATH_PLAYER,
     ENEMY_BOMBER,
+    ENEMY_KAMIKAZE,
+    ENEMY_SLIME,
+    ENEMY_SMALL_SLIME,
+    ENEMY_TURRET,
     GRID_HEIGHT,
     GRID_WIDTH,
+    MODE_BOMB_COURIER,
+    MODE_HOT_POTATO,
     MODE_NAMES,
+    MODE_TREASURE_HUNT,
     POSITION_SCALE,
     POWER_BOMB,
+    POWER_FLAME_SUIT,
+    POWER_LIFE,
+    POWER_MAGNET,
+    POWER_SHIELD,
+    POWER_SPEED,
+    SPIKE_ACTIVE_MS,
+    SPIKE_CYCLE_MS,
     STATE_GAME_OVER,
     STATE_LEADERBOARD,
     STATE_MODE_SELECT,
@@ -94,6 +108,13 @@ COLOR_ENEMY_CHASER = 0xFFE0
 COLOR_DESTRUCTIBLE_EDGE = 0xFFE0
 SPLASH_IMAGE_PATH = "picoware/apps/games/pico_bomber/picobomber.rgb332"
 SPLASH_IMAGE_BYTES = 320 * 320
+LEADERBOARD_MODE_LABELS = (
+    "GHOST",
+    "RIVALS",
+    "TREASURE",
+    "COURIER",
+    "POTATO",
+)
 
 COLOR_SAND = 0xE6A4
 COLOR_SAND_LIGHT = 0xFF0B
@@ -225,29 +246,49 @@ class Renderer:
         title_y = 10 if self.height >= 160 else 4
         self._center_text("CHOOSE MODE", title_y, TFT_YELLOW, 2)
         self._center_text(
-            "UP/DOWN + CENTER",
+            (
+                "UP/DOWN MODE + CENTER"
+                if getattr(game, "audio_files_missing", False)
+                else "UP/DOWN MODE  LEFT/RIGHT MUSIC"
+            ),
             title_y + (26 if self.height >= 160 else 18),
             TFT_CYAN,
             0,
         )
 
         compact = self.height < 200
-        gap = 6 if compact else 10
-        top = title_y + (44 if compact else 54)
-        card_h = (
-            max(24, (self.height - top - 4 - gap * 2) // 3)
-            if compact
-            else 64
-        )
+        gap = 2 if compact else 3
+        top = title_y + (38 if compact else 50)
         box_w = min(self.width - 24, 270)
         x = (self.width - box_w) // 2
         items = MODE_NAMES + ("LEADERBOARD",)
         descriptions = (
-            "HUNT CREATURES",
-            "BOMBERS FIGHT BACK",
-            "TOP 5 LOCAL SCORES",
+            "DEFEAT EVERY CREATURE",
+            "ENEMY BOMBERS PLACE BOMBS TOO",
+            "BREAK BLOCKS, COLLECT ALL TREASURE",
+            "DELIVER THE BOMB BEFORE IT BLOWS",
+            "TOUCH ENEMIES TO PASS THE LIVE BOMB",
+            "VIEW THE FIVE BEST LOCAL SCORES",
         )
-        colors = (COLOR_PURPLE, TFT_RED, TFT_GREEN)
+        colors = (
+            COLOR_PURPLE,
+            TFT_RED,
+            COLOR_GOLD,
+            TFT_ORANGE,
+            TFT_MAGENTA,
+            TFT_GREEN,
+        )
+        bottom_reserved = 18 if compact else 74
+        card_h = max(
+            10 if compact else 17,
+            (
+                self.height
+                - top
+                - bottom_reserved
+                - gap * (len(items) - 1)
+            )
+            // len(items),
+        )
         for index in range(len(items)):
             y = top + index * (card_h + gap)
             selected = index == game.menu_selection
@@ -263,26 +304,64 @@ class Renderer:
             marker = ">" if selected else " "
             draw._text(
                 x + 10,
-                y + (7 if compact else 10),
+                y + max(2, (card_h - 8) // 2),
                 marker + " " + items[index],
                 colors[index],
-                1,
+                0 if card_h < 28 else 1,
             )
-            if not compact:
-                draw._text(
-                    x + 28,
-                    y + 37,
-                    descriptions[index],
-                    TFT_WHITE,
-                    0,
-                )
-        if not compact:
+        selected_description = descriptions[game.menu_selection]
+        if compact:
             self._center_text(
-                "DEMO IN %02d" % game.demo_countdown,
-                self.height - 30,
-                TFT_MAGENTA,
+                (
+                    "AUDIO PACK MISSING"
+                    if getattr(game, "audio_files_missing", False)
+                    else selected_description
+                ),
+                self.height - 12,
+                (
+                    TFT_ORANGE
+                    if getattr(game, "audio_files_missing", False)
+                    else TFT_WHITE
+                ),
                 0,
             )
+        else:
+            self._center_text(
+                selected_description,
+                self.height - 62,
+                TFT_WHITE,
+                0,
+            )
+            if getattr(game, "audio_files_missing", False):
+                self._center_text(
+                    "AUDIO PACK MISSING - DOWNLOAD MANUALLY",
+                    self.height - 46,
+                    TFT_ORANGE,
+                    0,
+                )
+                self._center_text(
+                    "COPY TO picoware/apps/games/pico_bomber/audio",
+                    self.height - 30,
+                    TFT_LIGHTGREY,
+                    0,
+                )
+            else:
+                self._center_text(
+                    "<  MUSIC %d/5: %s  >"
+                    % (
+                        getattr(game, "music_selection", 0) + 1,
+                        getattr(game, "music_name", "NEON FUSE"),
+                    ),
+                    self.height - 46,
+                    TFT_CYAN,
+                    0,
+                )
+                self._center_text(
+                    "DEMO IN %02d" % game.demo_countdown,
+                    self.height - 30,
+                    TFT_MAGENTA,
+                    0,
+                )
             self._center_text("BACK  EXIT", self.height - 16, TFT_LIGHTGREY, 0)
 
     def _draw_leaderboard(self, game):
@@ -326,7 +405,11 @@ class Renderer:
                     row_h,
                     TFT_YELLOW if index == 0 else TFT_DARKGREY,
                 )
-                mode = "GHOST" if entry[2] == 0 else "RIVALS"
+                mode = (
+                    LEADERBOARD_MODE_LABELS[entry[2]]
+                    if 0 <= entry[2] < len(LEADERBOARD_MODE_LABELS)
+                    else "MODE"
+                )
                 name = entry[3] if len(entry) >= 4 else "PLAYER"
                 if compact:
                     text_y = y + max(2, (row_h - 8) // 2)
@@ -486,6 +569,56 @@ class Renderer:
             self._theme_color(game.theme),
             0,
         )
+        effect_x = 112
+        objective = None
+        if game.mode == MODE_TREASURE_HUNT:
+            remaining = max(
+                0,
+                (ticks_diff(game.objective_until, game.animation_time) + 999)
+                // 1000,
+            )
+            objective = "T:%d/%d %d" % (
+                game.treasure_collected,
+                game.treasure_target,
+                remaining,
+            )
+        elif game.mode == MODE_BOMB_COURIER:
+            if game.courier_carrying:
+                remaining = max(
+                    0,
+                    (
+                        ticks_diff(
+                            game.courier_fuse_until,
+                            game.animation_time,
+                        )
+                        + 999
+                    )
+                    // 1000,
+                )
+                objective = "DELIVER %d" % remaining
+            else:
+                objective = "GET BOMB"
+        elif game.mode == MODE_HOT_POTATO:
+            remaining = max(
+                0,
+                (ticks_diff(game.hot_potato_until, game.animation_time) + 999)
+                // 1000,
+            )
+            objective = "PASS %d" % remaining
+        if objective is not None:
+            draw._text(effect_x, 15, objective, TFT_YELLOW, 0)
+            effect_x += draw.len(objective, 0) + 6
+        if ticks_diff(game.magnet_until, game.animation_time) > 0:
+            draw._text(effect_x, 15, "M", TFT_MAGENTA, 0)
+            effect_x += 10
+        if ticks_diff(game.flame_suit_until, game.animation_time) > 0:
+            draw._text(effect_x, 15, "F", TFT_ORANGE, 0)
+            effect_x += 10
+        if ticks_diff(game.speed_until, game.animation_time) > 0:
+            draw._text(effect_x, 15, ">", TFT_GREEN, 0)
+            effect_x += 10
+        if game.shield_hits > 0:
+            draw._text(effect_x, 15, "S", TFT_CYAN, 0)
         if game.demo_mode:
             exit_text = "ANY KEY EXITS"
             exit_x = (self.width - draw.len(exit_text, 0)) // 2
@@ -508,8 +641,9 @@ class Renderer:
             return
         if theme == THEME_NATURE:
             seed = (x * 7 + y * 11) % max(2, self.cell - 4)
+            sway = (animation_time // 260 + x + y) % 3 - 1
             self.draw._fill_rectangle(
-                px + 2 + seed,
+                px + 2 + seed + sway,
                 py + 3 + (seed % 3),
                 2,
                 2,
@@ -555,8 +689,20 @@ class Renderer:
                     pipe_y - 2,
                     2,
                     2,
-                    TFT_RED,
+                    TFT_RED
+                    if (animation_time // 240 + x + y) % 2
+                    else TFT_YELLOW,
                 )
+            belt_x = px + 3 + (
+                animation_time // 170 + x * 2 + y
+            ) % max(2, self.cell - 7)
+            self.draw._fill_rectangle(
+                belt_x,
+                py + self.cell // 2,
+                2,
+                2,
+                COLOR_STEEL_LIGHT,
+            )
         elif theme == THEME_WATER:
             wave_y = py + 4 + (
                 animation_time // 180 + x * 2 + y
@@ -600,13 +746,16 @@ class Renderer:
                     COLOR_CORAL,
                 )
         elif theme == THEME_HELL:
-            crack = (x * 7 + y * 5) % max(3, self.cell - 6)
+            pulse = (animation_time // 190 + x + y) % 3
+            crack = (
+                x * 7 + y * 5 + pulse
+            ) % max(3, self.cell - 6)
             self.draw._line(
                 px + 2,
                 py + 3 + crack,
                 px + self.cell // 2,
                 py + 2 + crack,
-                COLOR_LAVA,
+                COLOR_LAVA_LIGHT if pulse == 2 else COLOR_LAVA,
             )
             if (x * 11 + y * 3) % 17 == 0:
                 self.draw._fill_rectangle(
@@ -1107,33 +1256,115 @@ class Renderer:
     def _draw_powerup(self, powerup):
         px, py = self._tile_box(powerup[0], powerup[1])
         pad = max(2, self.cell // 5)
+        kind = powerup[2]
+        is_life = kind == POWER_LIFE
+        background = (
+            TFT_WHITE
+            if is_life
+            else TFT_RED
+            if kind == POWER_MAGNET
+            else TFT_ORANGE
+            if kind == POWER_FLAME_SUIT
+            else TFT_GREEN
+            if kind == POWER_SPEED
+            else TFT_CYAN
+            if kind == POWER_SHIELD
+            else COLOR_POWER
+        )
         self.draw._fill_rectangle(
             px + pad,
             py + pad,
             self.cell - pad * 2,
             self.cell - pad * 2,
-            COLOR_POWER,
+            background,
         )
+        if is_life:
+            cx = px + self.cell // 2
+            top = py + pad + max(1, self.cell // 8)
+            radius = max(1, (self.cell - pad * 2) // 5)
+            self.draw._fill_circle(cx - radius, top + radius, radius, TFT_RED)
+            self.draw._fill_circle(cx + radius, top + radius, radius, TFT_RED)
+            point_y = min(py + self.cell - pad - 1, top + radius * 4)
+            body_top = top + radius
+            body_height = max(1, point_y - body_top)
+            for row in range(body_height + 1):
+                half_width = radius * 2 * (body_height - row) // body_height
+                self.draw._line(
+                    cx - half_width,
+                    body_top + row,
+                    cx + half_width,
+                    body_top + row,
+                    TFT_RED,
+                )
+            return
+        cx = px + self.cell // 2
+        cy = py + self.cell // 2
+        radius = max(2, (self.cell - pad * 2) // 3)
+        if kind == POWER_MAGNET:
+            self.draw._line(cx - radius, cy - radius, cx - radius, cy + radius, TFT_WHITE)
+            self.draw._line(cx + radius, cy - radius, cx + radius, cy + radius, TFT_WHITE)
+            self.draw._line(cx - radius, cy + radius, cx + radius, cy + radius, TFT_WHITE)
+            self.draw._fill_rectangle(cx - radius - 1, cy - radius, 3, 3, TFT_CYAN)
+            self.draw._fill_rectangle(cx + radius - 1, cy - radius, 3, 3, TFT_CYAN)
+            return
+        if kind == POWER_FLAME_SUIT:
+            self.draw._fill_circle(cx, cy + 2, radius, TFT_YELLOW)
+            self.draw._line(cx, cy - radius - 2, cx - radius, cy + 2, TFT_WHITE)
+            self.draw._line(cx, cy - radius - 2, cx + radius, cy + 2, TFT_WHITE)
+            return
+        if kind == POWER_SPEED:
+            self.draw._line(cx - radius, cy - radius, cx + radius, cy, TFT_WHITE)
+            self.draw._line(cx + radius, cy, cx - radius, cy + radius, TFT_WHITE)
+            self.draw._line(cx - radius - 2, cy, cx + radius - 2, cy, TFT_WHITE)
+            return
+        if kind == POWER_SHIELD:
+            self.draw._circle(cx, cy, radius + 1, TFT_WHITE)
+            self.draw._line(cx - radius, cy - 1, cx, cy + radius + 1, TFT_WHITE)
+            self.draw._line(cx + radius, cy - 1, cx, cy + radius + 1, TFT_WHITE)
+            return
         if self.cell >= 12:
-            label = "B" if powerup[2] == POWER_BOMB else "F"
+            label = "B" if kind == POWER_BOMB else "F"
             tx = px + (self.cell - self.draw.len(label, 0)) // 2
             ty = py + (self.cell - 8) // 2
             self.draw._text(tx, ty, label, TFT_BLACK, 0)
 
-    def _draw_bomb(self, bomb, animation_time):
+    def _draw_bomb(self, bomb, animation_time, theme):
         px, py = self._tile_box(bomb[0], bomb[1])
         cx = px + self.cell // 2
         cy = py + self.cell // 2 + 1
         frame = (animation_time // 120) % 4
         radius = max(1, self.cell // 3 + (1 if frame in (1, 2) else 0))
-        self.draw._fill_circle(cx, cy, radius, TFT_BLACK)
+        enemy_bomb = len(bomb) >= 5 and bomb[4] == 1
+        bomb_kind = bomb[5] if len(bomb) >= 6 else 0
+        if bomb_kind:
+            body_color = COLOR_RUST
+            accent = TFT_YELLOW
+        elif enemy_bomb:
+            body_color = TFT_BLACK
+            accent = TFT_RED
+        elif theme == THEME_NATURE:
+            body_color, accent = COLOR_WOOD_DARK, COLOR_MOSS
+        elif theme == THEME_INDUSTRIAL:
+            body_color, accent = COLOR_STEEL, COLOR_HAZARD
+        elif theme == THEME_WATER:
+            body_color, accent = COLOR_PURPLE, COLOR_FOAM
+        elif theme == THEME_BEACH:
+            body_color, accent = COLOR_CORAL, COLOR_SAND_LIGHT
+        elif theme == THEME_HELL:
+            body_color, accent = COLOR_OBSIDIAN, COLOR_LAVA_LIGHT
+        elif theme == THEME_CLOUD:
+            body_color, accent = COLOR_STORM, TFT_YELLOW
+        elif theme == THEME_FOREST:
+            body_color, accent = COLOR_BARK_DARK, COLOR_LEAF
+        else:
+            body_color, accent = COLOR_RUST, COLOR_DUST
+        self.draw._fill_circle(cx, cy, radius, body_color)
         if self.cell >= 8:
-            enemy_bomb = len(bomb) >= 5 and bomb[4] == 1
             self.draw._circle(
                 cx,
                 cy,
                 radius,
-                TFT_RED if enemy_bomb else TFT_DARKGREY,
+                accent,
             )
             self.draw._fill_circle(
                 cx - max(1, radius // 3),
@@ -1149,8 +1380,204 @@ class Renderer:
                 spark_y,
                 2,
                 2,
-                TFT_RED if enemy_bomb else TFT_YELLOW,
+                TFT_RED if enemy_bomb else accent,
             )
+
+    def _draw_barrel(self, barrel):
+        px, py = self._tile_box(barrel[0], barrel[1])
+        pad = max(2, self.cell // 6)
+        self.draw._fill_rectangle(
+            px + pad,
+            py + 2,
+            self.cell - pad * 2,
+            self.cell - 4,
+            COLOR_RUST,
+        )
+        self.draw._rectangle(
+            px + pad,
+            py + 2,
+            self.cell - pad * 2,
+            self.cell - 4,
+            TFT_BLACK,
+        )
+        self.draw._line(px + pad, py + 6, px + self.cell - pad, py + 6, TFT_YELLOW)
+        self.draw._line(
+            px + pad,
+            py + self.cell - 6,
+            px + self.cell - pad,
+            py + self.cell - 6,
+            TFT_YELLOW,
+        )
+        if self.cell >= 12:
+            self.draw._text(px + self.cell // 2 - 3, py + self.cell // 2 - 4, "!", TFT_WHITE, 0)
+
+    def _draw_teleporter(self, pad, animation_time):
+        px, py = self._tile_box(pad[0], pad[1])
+        cx = px + self.cell // 2
+        cy = py + self.cell // 2
+        pulse = (animation_time // 140) % 3
+        radius = max(2, self.cell // 3 - pulse)
+        self.draw._circle(cx, cy, radius + 2, TFT_MAGENTA)
+        self.draw._circle(cx, cy, radius, TFT_CYAN)
+        self.draw._fill_circle(cx, cy, max(1, radius // 3), TFT_WHITE)
+
+    def _draw_spike_trap(self, trap, animation_time):
+        px, py = self._tile_box(trap[0], trap[1])
+        active = (
+            (animation_time + trap[2]) % SPIKE_CYCLE_MS
+            >= SPIKE_CYCLE_MS - SPIKE_ACTIVE_MS
+        )
+        color = TFT_WHITE if active else TFT_DARKGREY
+        base_y = py + self.cell - 4
+        for offset in (3, self.cell // 2, self.cell - 4):
+            height = self.cell // 2 if active else 3
+            self.draw._line(px + offset, base_y, px + offset, base_y - height, color)
+            self.draw._line(px + offset - 2, base_y - height + 2, px + offset, base_y - height, color)
+            self.draw._line(px + offset + 2, base_y - height + 2, px + offset, base_y - height, color)
+
+    def _draw_mine(self, mine, animation_time):
+        px, py = self._tile_box(mine[0], mine[1])
+        cx = px + self.cell // 2
+        cy = py + self.cell // 2
+        blink = (animation_time // 180) % 2
+        radius = max(2, self.cell // 4)
+        self.draw._fill_circle(cx, cy, radius, TFT_BLACK)
+        self.draw._circle(cx, cy, radius, COLOR_STEEL_LIGHT)
+        self.draw._fill_circle(cx, cy, 2, TFT_RED if blink else TFT_YELLOW)
+
+    def _draw_emitter(self, emitter, animation_time):
+        px, py = self._tile_box(emitter[0], emitter[1])
+        cx = px + self.cell // 2
+        cy = py + self.cell // 2
+        dx, dy = ((0, -1), (0, 1), (-1, 0), (1, 0))[emitter[2]]
+        self.draw._fill_circle(cx, cy, max(2, self.cell // 4), COLOR_STEEL)
+        self.draw._line(cx, cy, cx + dx * self.cell // 3, cy + dy * self.cell // 3, TFT_ORANGE)
+        if emitter[4] and ticks_diff(emitter[4], animation_time) > 0:
+            self.draw._circle(cx, cy, max(3, self.cell // 3), TFT_YELLOW)
+
+    def _draw_cannon(self, cannon, animation_time):
+        px, py = self._tile_box(cannon[0], cannon[1])
+        cx = px + self.cell // 2
+        cy = py + self.cell // 2
+        self.draw._fill_circle(cx, cy, max(2, self.cell // 3), COLOR_STEEL)
+        self.draw._line(
+            cx,
+            cy,
+            cx + cannon[2] * self.cell // 2,
+            cy + cannon[3] * self.cell // 2,
+            TFT_BLACK,
+        )
+        if cannon[5] and ticks_diff(cannon[5], animation_time) > 0:
+            self.draw._circle(cx, cy, max(3, self.cell // 3), TFT_RED)
+
+    def _draw_projectile(self, projectile):
+        px, py = self._tile_box(projectile[0], projectile[1])
+        cx = px + self.cell // 2
+        cy = py + self.cell // 2
+        color = TFT_RED if projectile[5] == 0 else TFT_YELLOW
+        self.draw._fill_circle(cx, cy, max(2, self.cell // 6), color)
+        self.draw._line(
+            cx - projectile[2] * self.cell // 3,
+            cy - projectile[3] * self.cell // 3,
+            cx,
+            cy,
+            TFT_WHITE,
+        )
+
+    def _draw_background_creature(self, creature, animation_time, theme):
+        px, py = self._tile_box(creature[0], creature[1])
+        panicked = ticks_diff(creature[3], animation_time) > 0
+        bob = (animation_time // (80 if panicked else 260)) % 2
+        color = COLOR_FOAM if theme in (THEME_WATER, THEME_CLOUD) else COLOR_LEAF
+        cx = px + self.cell // 2 + (creature[4] * 2 if panicked else 0)
+        cy = py + self.cell - 4 - bob
+        if creature[2] == 0:
+            self.draw._fill_circle(cx, cy, max(1, self.cell // 8), color)
+            self.draw._fill_rectangle(cx - 1, cy - 1, 1, 1, TFT_BLACK)
+        else:
+            wing = 3 if panicked else 2
+            self.draw._line(cx - wing, cy - bob, cx, cy, color)
+            self.draw._line(cx, cy, cx + wing, cy - bob, color)
+            self.draw._fill_rectangle(cx, cy, 1, 2, TFT_BLACK)
+
+    def _draw_treasure(self, treasure, animation_time):
+        px, py = self._tile_box(treasure[0], treasure[1])
+        pad = max(2, self.cell // 6)
+        pulse = (animation_time // 180) % 2
+        self.draw._fill_rectangle(
+            px + pad,
+            py + self.cell // 3,
+            self.cell - pad * 2,
+            self.cell // 2,
+            COLOR_WOOD,
+        )
+        self.draw._rectangle(
+            px + pad,
+            py + self.cell // 3,
+            self.cell - pad * 2,
+            self.cell // 2,
+            COLOR_GOLD,
+        )
+        self.draw._fill_rectangle(
+            px + self.cell // 2 - 2,
+            py + self.cell // 2,
+            4,
+            4,
+            TFT_YELLOW if pulse else COLOR_GOLD,
+        )
+
+    def _draw_courier_exit(self, game):
+        if game.courier_exit_x < 0:
+            return
+        px, py = self._tile_box(game.courier_exit_x, game.courier_exit_y)
+        inset = 2 + (game.animation_time // 180) % 2
+        self.draw._rectangle(
+            px + inset,
+            py + inset,
+            self.cell - inset * 2,
+            self.cell - inset * 2,
+            TFT_GREEN,
+        )
+        self.draw._line(
+            px + self.cell // 3,
+            py + self.cell // 2,
+            px + self.cell * 2 // 3,
+            py + self.cell // 2,
+            TFT_WHITE,
+        )
+
+    def _draw_objective_bomb(self, draw_x, draw_y, deadline, animation_time):
+        px, py = self._fixed_box(draw_x, draw_y)
+        remaining = (
+            ticks_diff(deadline, animation_time)
+            if deadline
+            else 9999
+        )
+        pulse = (animation_time // (80 if remaining < 1600 else 170)) % 2
+        cx = px + self.cell // 2
+        cy = py + self.cell // 3
+        radius = max(2, self.cell // 5 + pulse)
+        self.draw._fill_circle(cx, cy, radius, TFT_BLACK)
+        self.draw._circle(
+            cx,
+            cy,
+            radius,
+            TFT_RED if remaining < 1600 else COLOR_GOLD,
+        )
+        self.draw._line(
+            cx + radius // 2,
+            cy - radius,
+            cx + radius + 2,
+            cy - radius - 2,
+            TFT_ORANGE,
+        )
+        self.draw._fill_rectangle(
+            cx + radius + 1,
+            cy - radius - 3,
+            2,
+            2,
+            TFT_WHITE if pulse else TFT_YELLOW,
+        )
 
     def _draw_flame(self, flame):
         px, py = self._tile_box(flame[0], flame[1])
@@ -1183,6 +1610,28 @@ class Renderer:
             and frame % 2
         ):
             color = TFT_WHITE
+
+        cx = px + self.cell // 2
+        cy = py + self.cell // 2
+        if ticks_diff(game.speed_until, game.animation_time) > 0:
+            self.draw._line(px, cy - 3, px + self.cell // 3, cy - 3, TFT_GREEN)
+            self.draw._line(px - 2, cy + 2, px + self.cell // 4, cy + 2, TFT_GREEN)
+        if ticks_diff(game.magnet_until, game.animation_time) > 0:
+            self.draw._circle(cx, cy, max(3, self.cell // 2 - 2), TFT_MAGENTA)
+        if ticks_diff(game.flame_suit_until, game.animation_time) > 0:
+            self.draw._rectangle(px + 1, py + 1, self.cell - 2, self.cell - 2, TFT_ORANGE)
+        if game.shield_hits > 0 or ticks_diff(
+            game.shield_flash_until,
+            game.animation_time,
+        ) > 0:
+            self.draw._circle(
+                cx,
+                cy,
+                max(3, self.cell // 2 - 1),
+                TFT_WHITE
+                if ticks_diff(game.shield_flash_until, game.animation_time) > 0
+                else TFT_CYAN,
+            )
 
         if self.cell < 12:
             pad = max(1, self.cell // 6)
@@ -1287,9 +1736,76 @@ class Renderer:
             return COLOR_GOLD, TFT_WHITE
         if kind == ENEMY_BOMBER:
             return TFT_RED, TFT_CYAN
+        if kind in (ENEMY_SLIME, ENEMY_SMALL_SLIME):
+            return TFT_GREEN, TFT_MAGENTA
+        if kind == ENEMY_KAMIKAZE:
+            return TFT_ORANGE, TFT_RED
+        if kind == ENEMY_TURRET:
+            return COLOR_STEEL_LIGHT, TFT_RED
         if kind == 0:
             return COLOR_ENEMY_BLOB, TFT_WHITE
         return COLOR_ENEMY_CHASER, TFT_BLACK
+
+    def _draw_slime_enemy(self, px, py, frame, small, elite):
+        color, accent = self._enemy_colors(ENEMY_SLIME, 0, elite)
+        radius = max(2, self.cell // (5 if small else 3))
+        cx = px + self.cell // 2
+        cy = py + self.cell // 2 + (1 if frame in (1, 3) else 0)
+        self.draw._fill_circle(cx, cy, radius, color)
+        self.draw._fill_rectangle(cx - radius, cy, radius * 2 + 1, radius, color)
+        self.draw._fill_rectangle(cx - radius // 2, cy - 1, 2, 2, TFT_WHITE)
+        self.draw._fill_rectangle(cx + radius // 2, cy - 1, 2, 2, TFT_WHITE)
+        self.draw._line(cx - radius, cy + radius, cx + radius, cy + radius, accent)
+        if elite:
+            self._draw_elite_mark(px, py)
+
+    def _draw_kamikaze_enemy(self, px, py, frame, facing, elite):
+        color, accent = self._enemy_colors(ENEMY_KAMIKAZE, 0, elite)
+        cx = px + self.cell // 2
+        cy = py + self.cell // 2
+        radius = max(3, self.cell // 3)
+        self.draw._fill_circle(cx, cy, radius, color)
+        self.draw._circle(cx, cy, radius, TFT_BLACK)
+        eye_dx, eye_dy = self._direction_for_facing(facing)
+        self.draw._fill_circle(cx + eye_dx * 2, cy + eye_dy * 2, 2, TFT_WHITE)
+        # The live bomb is visibly strapped to its back at all times.
+        self.draw._fill_circle(cx - eye_dx * radius, cy - eye_dy * radius, max(2, radius // 2), TFT_BLACK)
+        spark = 1 + frame % 2
+        self.draw._fill_rectangle(cx - eye_dx * radius + spark, cy - eye_dy * radius - spark, 2, 2, accent)
+        if elite:
+            self._draw_elite_mark(px, py)
+
+    @staticmethod
+    def _direction_for_facing(facing):
+        if facing == 1:
+            return -1, 0
+        if facing == 2:
+            return 1, 0
+        if facing == 3:
+            return 0, -1
+        return 0, 1
+
+    def _draw_turret_enemy(self, px, py, facing):
+        cx = px + self.cell // 2
+        cy = py + self.cell // 2
+        pad = max(2, self.cell // 5)
+        dx, dy = self._direction_for_facing(facing)
+        self.draw._fill_rectangle(
+            px + pad,
+            py + pad,
+            self.cell - pad * 2,
+            self.cell - pad * 2,
+            COLOR_STEEL,
+        )
+        self.draw._rectangle(
+            px + pad,
+            py + pad,
+            self.cell - pad * 2,
+            self.cell - pad * 2,
+            COLOR_STEEL_LIGHT,
+        )
+        self.draw._fill_circle(cx, cy, max(2, self.cell // 6), TFT_RED)
+        self.draw._line(cx, cy, cx + dx * self.cell // 2, cy + dy * self.cell // 2, TFT_BLACK)
 
     def _draw_blob_enemy(self, px, py, frame, theme, elite):
         color, accent = self._enemy_colors(0, theme, elite)
@@ -1499,6 +2015,18 @@ class Renderer:
                 self.cell - pad * 2,
                 accent,
             )
+        elif enemy[3] == ENEMY_TURRET:
+            self._draw_turret_enemy(px, py, enemy[5])
+        elif enemy[3] == ENEMY_KAMIKAZE:
+            self._draw_kamikaze_enemy(px, py, frame, enemy[5], elite)
+        elif enemy[3] in (ENEMY_SLIME, ENEMY_SMALL_SLIME):
+            self._draw_slime_enemy(
+                px,
+                py,
+                frame,
+                enemy[3] == ENEMY_SMALL_SLIME,
+                elite,
+            )
         elif enemy[3] == ENEMY_BOMBER:
             self._draw_rival_enemy(
                 px,
@@ -1512,6 +2040,14 @@ class Renderer:
             self._draw_blob_enemy(px, py, frame, theme, elite)
         else:
             self._draw_chaser_enemy(px, py, frame, enemy[5], theme, elite)
+        if len(enemy) >= 12 and enemy[11] and ticks_diff(
+            enemy[11],
+            animation_time,
+        ) > 0:
+            icon_x = px + self.cell - 6
+            icon_y = py + 1
+            self.draw._fill_circle(icon_x, icon_y + 3, 4, TFT_YELLOW)
+            self.draw._text(icon_x - 2, icon_y - 1, "!", TFT_BLACK, 0)
 
     def _draw_decal(self, decal):
         px, py = self._fixed_box(decal[0], decal[1])
@@ -1732,6 +2268,14 @@ class Renderer:
         self.phase = 11
         self._draw_hud(game)
 
+        base_origin_x = self.origin_x
+        base_origin_y = self.origin_y
+        if ticks_diff(game.shake_until, game.animation_time) > 0:
+            shake = max(1, min(3, game.chain_strength))
+            shake_frame = (game.animation_time // 45) % 4
+            self.origin_x += (-shake, shake, 0, -shake)[shake_frame]
+            self.origin_y += (0, -shake, shake, shake)[shake_frame]
+
         self.phase = 12
         py = self.origin_y
         for y in range(GRID_HEIGHT):
@@ -1758,18 +2302,62 @@ class Renderer:
 
         self.phase = 13
         self.item_index = 0
+        if game.mode == MODE_BOMB_COURIER:
+            self._draw_courier_exit(game)
+        for creature in game.background_creatures:
+            self._draw_background_creature(
+                creature,
+                game.animation_time,
+                game.theme,
+            )
+            self.item_index += 1
+        for pad in game.teleporters:
+            self._draw_teleporter(pad, game.animation_time)
+            self.item_index += 1
+        for trap in game.spike_traps:
+            self._draw_spike_trap(trap, game.animation_time)
+            self.item_index += 1
+        for mine in game.mines:
+            self._draw_mine(mine, game.animation_time)
+            self.item_index += 1
+        for emitter in game.flame_emitters:
+            self._draw_emitter(emitter, game.animation_time)
+            self.item_index += 1
+        for cannon in game.cannons:
+            self._draw_cannon(cannon, game.animation_time)
+            self.item_index += 1
         for decal in game.decals:
             self._draw_decal(decal)
             self.item_index += 1
         self.phase = 14
         self.item_index = 0
+        for treasure in game.treasures:
+            self._draw_treasure(treasure, game.animation_time)
+            self.item_index += 1
+        if (
+            game.mode == MODE_BOMB_COURIER
+            and not game.courier_carrying
+            and game.courier_bomb_x >= 0
+        ):
+            self._draw_objective_bomb(
+                game.courier_bomb_x * POSITION_SCALE,
+                game.courier_bomb_y * POSITION_SCALE,
+                0,
+                game.animation_time,
+            )
         for powerup in game.powerups:
             self._draw_powerup(powerup)
+            self.item_index += 1
+        for barrel in game.barrels:
+            self._draw_barrel(barrel)
             self.item_index += 1
         self.phase = 15
         self.item_index = 0
         for bomb in game.bombs:
-            self._draw_bomb(bomb, game.animation_time)
+            self._draw_bomb(bomb, game.animation_time, game.theme)
+            self.item_index += 1
+        for projectile in game.projectiles:
+            self._draw_projectile(projectile)
             self.item_index += 1
         self.phase = 16
         self.item_index = 0
@@ -1779,6 +2367,28 @@ class Renderer:
         self.phase = 17
         if game.state not in (STATE_PLAYER_DYING, STATE_GAME_OVER):
             self._draw_player(game)
+        if game.mode == MODE_BOMB_COURIER and game.courier_carrying:
+            self._draw_objective_bomb(
+                game.player_draw_x,
+                game.player_draw_y,
+                game.courier_fuse_until,
+                game.animation_time,
+            )
+        elif game.mode == MODE_HOT_POTATO:
+            if game.hot_potato_player:
+                self._draw_objective_bomb(
+                    game.player_draw_x,
+                    game.player_draw_y,
+                    game.hot_potato_until,
+                    game.animation_time,
+                )
+            elif game.hot_potato_enemy is not None:
+                self._draw_objective_bomb(
+                    game.hot_potato_enemy[6],
+                    game.hot_potato_enemy[7],
+                    game.hot_potato_until,
+                    game.animation_time,
+                )
         self.phase = 18
         self.item_index = 0
         for flame in game.explosions:
@@ -1790,6 +2400,20 @@ class Renderer:
             self._draw_death(effect, game.animation_time, game.theme)
             self.item_index += 1
 
+        self.origin_x = base_origin_x
+        self.origin_y = base_origin_y
+        if ticks_diff(game.flash_until, game.animation_time) > 0:
+            flash_color = TFT_WHITE if game.chain_strength >= 3 else TFT_YELLOW
+            border = max(1, game.chain_strength)
+            for inset in range(border):
+                self.draw._rectangle(
+                    inset,
+                    self.hud_height + inset,
+                    self.width - inset * 2,
+                    self.height - self.hud_height - inset * 2,
+                    flash_color,
+                )
+
         self.phase = 20
         if game.state == STATE_STAGE_INTRO:
             self._draw_overlay(
@@ -1798,7 +2422,15 @@ class Renderer:
                 self._theme_color(game.theme),
             )
         elif game.state == STATE_STAGE_CLEAR:
-            self._draw_overlay("STAGE CLEAR", "+250 BONUS", TFT_GREEN)
+            if game.mode == MODE_TREASURE_HUNT:
+                title = "TREASURE FOUND"
+            elif game.mode == MODE_BOMB_COURIER:
+                title = "DELIVERED"
+            elif game.mode == MODE_HOT_POTATO:
+                title = "POTATO CLEARED"
+            else:
+                title = "STAGE CLEAR"
+            self._draw_overlay(title, "+250 BONUS", TFT_GREEN)
         elif game.state == STATE_GAME_OVER:
             self._draw_overlay("GAME OVER", "CENTER FOR MODES", TFT_RED)
         elif game.state == STATE_PAUSED:

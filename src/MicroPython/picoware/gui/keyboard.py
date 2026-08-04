@@ -686,7 +686,7 @@ class Keyboard:
             key_label = display_char
 
         # Center the text
-        _key_x = x_pos + width // 2 - len(key_label) * 3
+        _key_x = x_pos + width // 2 - self.draw.len(key_label) // 2
         _key_y = y_pos + self.KEY_HEIGHT // 2 - self.draw.scale_y(4)
         if self._is_flipper:
             # Draw key label with background color for selected key

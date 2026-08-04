@@ -186,6 +186,8 @@ class Keyboard:
         """
         from picoware.system.vector import Vector
         from picoware.system.auto_complete import AutoComplete
+        from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+        self._is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
         self.draw = draw
         self.input_manager = input_manager
@@ -224,6 +226,14 @@ class Keyboard:
 
         self.max_chars_per_line = (self.draw.size.x - _ten_x) // self.draw.font_size.x
         self.max_lines = (self.TEXTBOX_HEIGHT - _ten_y) // self.draw.font_size.y
+
+        self.max_lines = max(1, self.max_lines)
+        _min_textbox_height = (
+            _ten_y
+            + self.max_lines * self.draw.font_size.y
+            + (self.max_lines - 1) * self.KEY_SPACING
+        )
+        self.TEXTBOX_HEIGHT = max(self.TEXTBOX_HEIGHT, _min_textbox_height)
 
         self.keyboard_height = self.NUM_ROWS * (self.KEY_HEIGHT + self.KEY_SPACING) + (_ten_y * 2)
         self.size_vec = Vector(0, 0)
@@ -465,11 +475,12 @@ class Keyboard:
             if self._show_keyboard:
                 self._draw_keyboard()
 
-            self.draw._text(
-                self.title_vec.x, self.title_vec.y,
-                self.current_title,
-                self.text_color,
-            )
+            if not self._is_flipper:
+                self.draw._text(
+                    self.title_vec.x, self.title_vec.y,
+                    self.current_title,
+                    self.text_color,
+                )
 
             # Draw auto-complete suggestions after keyboard/title
             self._draw_suggestions()
@@ -613,20 +624,35 @@ class Keyboard:
         self.size_vec.x = width
         self.size_vec.y = self.KEY_HEIGHT
 
-        # Draw key background
-        bg_color = self.selected_color if is_selected else self.background_color
-        self.draw._fill_rectangle(
-            x_pos, y_pos, self.size_vec.x, self.size_vec.y, bg_color
-        )
+        if self._is_flipper:
+            if is_selected:
+                # draw key background
+                self.draw._fill_rectangle(
+                    x_pos, y_pos, self.size_vec.x, self.size_vec.y, self.text_color
+                )
+                # draw key boarder
+                self.draw._rectangle(
+                    x_pos,
+                    y_pos,
+                    self.size_vec.x,
+                    self.size_vec.y,
+                    self.background_color,
+                )
+        else:
+            # Draw key background
+            bg_color = self.selected_color if is_selected else self.background_color
+            self.draw._fill_rectangle(
+                x_pos, y_pos, self.size_vec.x, self.size_vec.y, bg_color
+            )
 
-        # Draw key border
-        self.draw._rectangle(
-            x_pos,
-            y_pos,
-            self.size_vec.x,
-            self.size_vec.y,
-            self.text_color,
-        )
+            # Draw key border
+            self.draw._rectangle(
+                x_pos,
+                y_pos,
+                self.size_vec.x,
+                self.size_vec.y,
+                self.text_color,
+            )
 
         # Determine what character to display
         display_char = key.normal
@@ -662,7 +688,12 @@ class Keyboard:
         # Center the text
         _key_x = x_pos + width // 2 - len(key_label) * 3
         _key_y = y_pos + self.KEY_HEIGHT // 2 - self.draw.scale_y(4)
-        self.draw._text(_key_x, _key_y, key_label, self.text_color)
+        if self._is_flipper:
+            # Draw key label with background color for selected key
+            text_color = self.background_color if is_selected else self.text_color
+            self.draw._text(_key_x, _key_y, key_label, text_color)
+        else:
+            self.draw._text(_key_x, _key_y, key_label, self.text_color)
 
     def _draw_keyboard(self) -> None:
         """Draws the entire keyboard"""

@@ -609,19 +609,19 @@ class Keyboard:
         self.size_vec.y = height
 
         if self._is_flipper:
-            if is_selected:
-                # draw key background
-                self.draw._fill_rectangle(
-                    x_pos, y_pos, self.size_vec.x, self.size_vec.y, self.text_color
-                )
-                # draw key boarder
-                self.draw._rectangle(
-                    x_pos,
-                    y_pos,
-                    self.size_vec.x,
-                    self.size_vec.y,
-                    self.background_color,
-                )
+            # draw key background
+            self.draw._fill_rectangle(
+                x_pos, y_pos, self.size_vec.x, self.size_vec.y, self.text_color if is_selected else self.background_color
+            )
+            # draw key boarder
+            self.draw._rectangle(
+                x_pos,
+                y_pos,
+                self.size_vec.x,
+                self.size_vec.y,
+                self.background_color if is_selected else self.text_color,
+            )
+
         else:
             # Draw key background
             bg_color = self.selected_color if is_selected else self.background_color

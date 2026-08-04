@@ -250,6 +250,8 @@ class Keyboard:
             self.draw.size.x // 2 - draw.len(self.current_title) // 2, self.TEXTBOX_HEIGHT + draw.scale_y(2)
         )
 
+        self._key_rects = self._build_key_rects()
+
         self.manual_keys = {
             BUTTON_PERIOD: ".",
             BUTTON_COMMA: ",",
@@ -345,6 +347,7 @@ class Keyboard:
         self.text_border_pos = None
         self.text_border_size = None
         self.title_vec = None
+        self._key_rects = None
         self.manual_keys = {}
         self.key_mappings = {}
         self.d_pad = {}
@@ -538,37 +541,37 @@ class Keyboard:
             "Picoware",
         ]
 
-    def _key_row_geometry(self, row: int) -> tuple:
-        """Return (start_x, y) for a key row, as _draw_key places it."""
-        total_row_width = 0
-        for i in range(self.ROW_SIZES[row]):
-            total_row_width += self.ROWS[row][i].width * self.KEY_WIDTH + (
-                self.KEY_SPACING if i > 0 else 0
+    def _build_key_rects(self) -> list:
+        """Set each key's (x, y, width, height) rectangle."""
+        rects = []
+        for row in range(self.NUM_ROWS):
+            total_row_width = 0
+            for i in range(self.ROW_SIZES[row]):
+                total_row_width += self.ROWS[row][i].width * self.KEY_WIDTH + (
+                    self.KEY_SPACING if i > 0 else 0
+                )
+            start_x = (self.draw.size.x - total_row_width) // 2
+            y = self.TEXTBOX_HEIGHT + self.draw.scale_y(13.33) + row * (
+                self.KEY_HEIGHT + self.KEY_SPACING
             )
-        start_x = (self.draw.size.x - total_row_width) // 2
-        y = self.TEXTBOX_HEIGHT + self.draw.scale_y(13.33) + row * (
-            self.KEY_HEIGHT + self.KEY_SPACING
-        )
-        return start_x, y
+
+            row_rects = []
+            x_pos = start_x
+            for col in range(self.ROW_SIZES[row]):
+                key = self.ROWS[row][col]
+                width = key.width * self.KEY_WIDTH + (key.width - 1) * self.KEY_SPACING
+                row_rects.append((x_pos - 1, y, width + 2, self.KEY_HEIGHT))
+                x_pos += key.width * self.KEY_WIDTH + self.KEY_SPACING
+            rects.append(row_rects)
+        return rects
 
     def _key_at_point(self, x: int, y: int):
         """Return the (row, col) under a touch point, or None."""
         for row in range(self.NUM_ROWS):
-            start_x, row_y = self._key_row_geometry(row)
-            if not row_y <= y < row_y + self.KEY_HEIGHT:
-                continue
-
-            x_pos = start_x
-            starts = []
-            for col in range(self.ROW_SIZES[row]):
-                starts.append(x_pos)
-                x_pos += self.ROWS[row][col].width * self.KEY_WIDTH + self.KEY_SPACING
-
             # reversed: a multi-unit key is drawn over the key after it
             for col in range(self.ROW_SIZES[row] - 1, -1, -1):
-                key = self.ROWS[row][col]
-                width = key.width * self.KEY_WIDTH + (key.width - 1) * self.KEY_SPACING
-                if starts[col] <= x < starts[col] + width:
+                rx, ry, rw, rh = self._key_rects[row][col]
+                if rx <= x < rx + rw and ry <= y < ry + rh:
                     return row, col
         return None
 
@@ -601,28 +604,9 @@ class Keyboard:
 
         key = self.ROWS[row][col]
 
-        # Calculate total row width for centering
-        total_row_width = 0
-        for i in range(self.ROW_SIZES[row]):
-            total_row_width += self.ROWS[row][i].width * self.KEY_WIDTH + (
-                self.KEY_SPACING if i > 0 else 0
-            )
-
-        # Calculate starting X position for centering
-        start_x = (self.draw.size.x - total_row_width) // 2
-
-        # Calculate key position
-        x_pos = start_x
-        for i in range(col):
-            x_pos += self.ROWS[row][i].width * self.KEY_WIDTH + self.KEY_SPACING
-        y_pos = self.TEXTBOX_HEIGHT + self.draw.scale_y(13.33) + row * (
-            self.KEY_HEIGHT + self.KEY_SPACING
-        )
-
-        # Calculate key size
-        width = key.width * self.KEY_WIDTH + (key.width - 1) * self.KEY_SPACING
+        x_pos, y_pos, width, height = self._key_rects[row][col]
         self.size_vec.x = width
-        self.size_vec.y = self.KEY_HEIGHT
+        self.size_vec.y = height
 
         if self._is_flipper:
             if is_selected:

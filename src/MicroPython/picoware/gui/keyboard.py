@@ -216,7 +216,7 @@ class Keyboard:
         self.text_cursor_position = 0
         self.selected_suggestion_index = -1  # -1 means no suggestion selected
 
-        self.KEY_WIDTH, self.KEY_HEIGHT = draw.scale(22, 35)
+        self.KEY_WIDTH, self.KEY_HEIGHT = draw.scale(22, 48)
         self.KEY_MARGIN, self.TEXTBOX_HEIGHT = draw.scale(4, 45)
         self.KEY_SPACING = 1
 
@@ -559,8 +559,8 @@ class Keyboard:
             x_pos = start_x
             for col in range(self.ROW_SIZES[row]):
                 key = self.ROWS[row][col]
-                width = key.width * self.KEY_WIDTH + (key.width - 1) * self.KEY_SPACING
-                row_rects.append((x_pos - 1, y, width + 2, self.KEY_HEIGHT))
+                width = key.width * self.KEY_WIDTH + (key.width - 2) * self.KEY_SPACING
+                row_rects.append((x_pos - 2, y, width + 4, self.KEY_HEIGHT))
                 x_pos += key.width * self.KEY_WIDTH + self.KEY_SPACING
             rects.append(row_rects)
         return rects
@@ -613,15 +613,6 @@ class Keyboard:
             self.draw._fill_rectangle(
                 x_pos, y_pos, self.size_vec.x, self.size_vec.y, self.text_color if is_selected else self.background_color
             )
-            # draw key boarder
-            self.draw._rectangle(
-                x_pos,
-                y_pos,
-                self.size_vec.x,
-                self.size_vec.y,
-                self.background_color if is_selected else self.text_color,
-            )
-
         else:
             # Draw key background
             bg_color = self.selected_color if is_selected else self.background_color

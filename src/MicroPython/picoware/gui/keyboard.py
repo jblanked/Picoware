@@ -247,7 +247,7 @@ class Keyboard:
         self.text_border_size = Vector(self.draw.size.x - draw.scale_x(4), self.TEXTBOX_HEIGHT - draw.scale_y(4))
 
         self.title_vec = Vector(
-            self.draw.size.x // 2 - draw.len(self.current_title) // 2, self.TEXTBOX_HEIGHT + draw.scale_y(5)
+            self.draw.size.x // 2 - draw.len(self.current_title) // 2, self.TEXTBOX_HEIGHT + draw.scale_y(2)
         )
 
         self.manual_keys = {

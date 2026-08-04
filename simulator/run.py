@@ -612,6 +612,7 @@ def _run_sim_check(opts):
     _run_v8_battery_check()
     _run_flipper_battery_check()
     _run_log_storage_check(opts)
+    _run_audio_shutdown_check()
     _run_circular_choice_check()
     _run_fatal_exit_check(opts)
     _run_mjs_check()
@@ -969,6 +970,56 @@ def _run_log_storage_check(opts):
     print("[sim-check:ok] storage log persistence reset")
 
 
+def _run_audio_shutdown_check():
+    """Verify shutdown signals every active simulator audio helper."""
+    import sim_runtime
+
+    probe_root = "/tmp/picoware-sim-audio-shutdown-check"
+    filenames = (
+        "sim_audio.status",
+        "sim_audio.cmd",
+        "sim_audio_mix_1.status",
+        "sim_audio_mix_1.cmd",
+        "unrelated.status",
+    )
+    original_sd_root = sim_runtime.sd_root
+    _mkdir_p(probe_root)
+    try:
+        for name in filenames:
+            try:
+                os.remove(probe_root + "/" + name)
+            except OSError:
+                pass
+        with open(probe_root + "/sim_audio.status", "w") as handle:
+            handle.write("playing=1\n")
+        with open(probe_root + "/sim_audio_mix_1.status", "w") as handle:
+            handle.write("playing=1\n")
+        with open(probe_root + "/unrelated.status", "w") as handle:
+            handle.write("playing=1\n")
+
+        sim_runtime.sd_root = probe_root
+        if sim_runtime.shutdown_audio_sidecars(0):
+            raise RuntimeError("simulator audio shutdown ignored active helpers")
+        for name in ("sim_audio.cmd", "sim_audio_mix_1.cmd"):
+            with open(probe_root + "/" + name, "r") as handle:
+                if handle.read() != "stop\n":
+                    raise RuntimeError("simulator audio shutdown command mismatch")
+        if sim_runtime._exists(probe_root + "/unrelated.cmd"):
+            raise RuntimeError("simulator audio shutdown signaled an unrelated helper")
+    finally:
+        sim_runtime.sd_root = original_sd_root
+        for name in filenames + ("unrelated.cmd",):
+            try:
+                os.remove(probe_root + "/" + name)
+            except OSError:
+                pass
+        try:
+            os.rmdir(probe_root)
+        except OSError:
+            pass
+    print("[sim-check:ok] audio sidecar shutdown")
+
+
 def _run_circular_choice_check():
     """Render the native circular Choice path without board-module reloading."""
     import sim_runtime
@@ -1319,6 +1370,10 @@ def main():
             _write_error_file(opts["sd"] + "/sim_error.txt", e)
         raise SystemExit(1)
     finally:
+        try:
+            sim_runtime.shutdown_audio_sidecars()
+        except Exception:
+            pass
         try:
             sim_runtime.finish_recording()
         except Exception:

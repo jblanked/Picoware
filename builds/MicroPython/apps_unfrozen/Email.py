@@ -1,11 +1,14 @@
-# Complete project details: https://RandomNerdTutorials.com/raspberry-pi-pico-w-send-email-micropython/
+# SMTP project details: https://RandomNerdTutorials.com/raspberry-pi-pico-w-send-email-micropython/
 # uMail (MicroMail) for MicroPython: https://github.com/shawwwn/uMail/blob/master/umail.py
-# Copyright (c) 2018 Shawwwn <shawwwn1@gmail.com>
-# License: MIT
+# Copyright (c) 2018 Shawwwn <shawwwn1@gmail.com> (SMTP client)
+# Copyright (c) 2026 JBlanked <jblanked@jblanked.com> (IMAP4 and async wrapper)
+# License: GPLv3
 from micropython import const
 import socket
 from ssl import wrap_socket as ssl_wrap_socket
 import _thread
+import binascii
+import re
 
 DEFAULT_TIMEOUT = const(10)  # sec
 LOCAL_DOMAIN = "127.0.0.1"
@@ -172,6 +175,590 @@ class SMTPAsync:
             self._thread = _thread.start_new_thread(send_thread, ())
 
 
+IMAP_DEFAULT_TIMEOUT = const(30)  # sec
+MAX_BODY_LENGTH = const(48 * 1024)  # cap stored body bytes
+
+
+class IMAP4:
+    """A minimal IMAP4 client for MicroPython."""
+
+    def __init__(self, host, port=993):
+        """Connect to an IMAP server over SSL."""
+        self._sock = None
+        self._tag = 0
+        addr = socket.getaddrinfo(host, port)[0][-1]
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(IMAP_DEFAULT_TIMEOUT)
+        sock.connect(addr)
+        sock = ssl_wrap_socket(sock)
+        self._sock = sock
+        line = self._read_line().strip()
+        if not line.startswith(b"* OK"):
+            self._sock.close()
+            raise OSError("IMAP: bad greeting %r" % line)
+
+    def _read_line(self):
+        """Read a single line from the socket."""
+        line = self._sock.readline()
+        if not line:
+            raise OSError("IMAP: connection closed")
+        return line
+
+    def _read_exact(self, n):
+        """Read exactly n bytes from the socket."""
+        buf = b""
+        while len(buf) < n:
+            chunk = self._sock.read(n - len(buf))
+            if not chunk:
+                break
+            buf += chunk
+        return buf
+
+    def _read_literal(self, size, max_literal=0):
+        """Read a literal, keeping only the first max_literal bytes."""
+        if max_literal and size > max_literal:
+            literal = self._read_exact(max_literal)
+            remaining = size - max_literal
+            while remaining > 0:
+                chunk = self._sock.read(min(2048, remaining))
+                if not chunk:
+                    break
+                remaining -= len(chunk)
+        else:
+            literal = self._read_exact(size)
+        self._read_line()  # consume trailing CRLF
+        return literal
+
+    def _response(self, tag, max_literal=0):
+        """Read responses until the tagged response for `tag`.
+        Returns (status, data); literals are stored as ('literal', bytes)."""
+        data = []
+        while True:
+            line = self._read_line().rstrip(b"\r\n")
+            if line.startswith(b"*"):
+                if line.endswith(b"}"):
+                    b = line.rfind(b"{")
+                    if b > 0:
+                        try:
+                            size = int(line[b + 1:-1].decode("ascii"))
+                        except (ValueError, TypeError):
+                            size = -1
+                        if size >= 0:
+                            data.append(line[:b])
+                            data.append(
+                                ("literal", self._read_literal(size, max_literal))
+                            )
+                            continue
+                data.append(line)
+                continue
+            if line.startswith(tag + b" "):
+                rest = line[len(tag) + 1:]
+                status = rest.split(b" ", 1)[0]
+                return status, data
+
+    def _cmd(self, command):
+        """Send a tagged IMAP command and return its tag."""
+        self._tag += 1
+        tag = b"a%03d" % self._tag
+        self._sock.write(tag + b" " + command.encode("utf-8") + b"\r\n")
+        return tag
+
+    def login(self, username, password):
+        """Authenticate with the server. Returns True on success."""
+        user = username.replace("\\", "\\\\").replace('"', '\\"')
+        pwd = password.replace("\\", "\\\\").replace('"', '\\"')
+        tag = self._cmd('LOGIN "%s" "%s"' % (user, pwd))
+        status, _ = self._response(tag)
+        return status == b"OK"
+
+    def select(self, mailbox="INBOX"):
+        """Select a mailbox. Returns (ok, response data)."""
+        tag = self._cmd("SELECT %s" % mailbox)
+        status, data = self._response(tag)
+        return status == b"OK", data
+
+    def uid_search(self, criteria="UNSEEN"):
+        """Search by UID. Returns a list of UID strings."""
+        tag = self._cmd("UID SEARCH %s" % criteria)
+        status, data = self._response(tag)
+        ids = []
+        if status == b"OK":
+            for item in data:
+                if isinstance(item, bytes) and item.startswith(b"* SEARCH"):
+                    for x in item.split(b" ")[2:]:
+                        ids.append(x.decode("ascii"))
+                    break
+        return ids
+
+    def uid_fetch(self, uid, parts, max_literal=0):
+        """Fetch a body part by UID. Returns literal bytes or None."""
+        tag = self._cmd("UID FETCH %s %s" % (uid, parts))
+        status, data = self._response(tag, max_literal=max_literal)
+        if status != b"OK":
+            return None
+        for item in data:
+            if isinstance(item, tuple) and item[0] == "literal":
+                return item[1]
+        return None
+
+    def uid_store(self, uid, flags="(\\Seen)"):
+        """Set flags on a message by UID. Returns True on success."""
+        tag = self._cmd("UID STORE %s +FLAGS %s" % (uid, flags))
+        status, _ = self._response(tag)
+        return status == b"OK"
+
+    def logout(self):
+        """Close the IMAP session."""
+        try:
+            tag = self._cmd("LOGOUT")
+            self._response(tag)
+        except Exception:
+            pass
+        try:
+            self._sock.close()
+        except Exception:
+            pass
+        self._sock = None
+
+
+def _b64decode(data):
+    """Decode base64 bytes, tolerating whitespace and missing padding."""
+    if isinstance(data, str):
+        data = data.encode("ascii")
+    data = data.replace(b"\r\n", b"").replace(b"\n", b"").replace(b" ", b"")
+    rem = len(data) % 4
+    if rem:
+        data += b"=" * (4 - rem)
+    return binascii.a2b_base64(data)
+
+
+def _q_decode(s):
+    """Decode an RFC 2047 Q-encoded string into unicode."""
+    out = bytearray()
+    i = 0
+    n = len(s)
+    while i < n:
+        c = s[i]
+        if c == "=" and i + 2 < n:
+            try:
+                out.append(int(s[i + 1:i + 3], 16))
+                i += 3
+                continue
+            except ValueError:
+                pass
+        if c == "_":
+            out.append(0x20)
+        else:
+            out.extend(c.encode("utf-8"))
+        i += 1
+    return bytes(out).decode("utf-8", "ignore")
+
+
+def _decode_encoded_words(raw):
+    """Decode RFC 2047 encoded-words in a header value."""
+    if not raw or "=?" not in raw:
+        return raw
+    out = []
+    i = 0
+    n = len(raw)
+    while i < n:
+        sidx = raw.find("=?", i)
+        if sidx < 0:
+            out.append(raw[i:])
+            break
+        end = raw.find("?=", sidx + 2)
+        if end < 0:
+            out.append(raw[i:])
+            break
+        out.append(raw[i:sidx])
+        token = raw[sidx + 2:end]
+        parts = token.split("?")
+        if len(parts) >= 3 and parts[0]:
+            encoding = parts[1].upper()
+            payload = parts[2]
+            try:
+                if encoding == "B":
+                    decoded = _b64decode(payload).decode("utf-8", "ignore")
+                elif encoding == "Q":
+                    decoded = _q_decode(payload)
+                else:
+                    decoded = payload
+            except Exception:
+                decoded = payload
+            out.append(decoded)
+            i = end + 2
+        else:
+            out.append(raw[i:])
+            break
+    return "".join(out)
+
+
+def _qp_decode_bytes(data):
+    """Decode a quoted-printable byte string."""
+    out = bytearray()
+    i = 0
+    n = len(data)
+    while i < n:
+        c = data[i]
+        if c == 0x3D:  # '='
+            if i + 2 < n and data[i + 1] != 0x0A:
+                try:
+                    out.append(int(data[i + 1:i + 3].decode("ascii"), 16))
+                    i += 3
+                    continue
+                except ValueError:
+                    pass
+            if i + 2 < n and data[i + 1] == 0x0D and data[i + 2] == 0x0A:
+                i += 3  # soft line break =\r\n
+                continue
+            if i + 1 < n and data[i + 1] == 0x0A:
+                i += 2  # soft line break =\n
+                continue
+        out.append(c)
+        i += 1
+    return bytes(out)
+
+
+def _parse_headers(header_blob):
+    """Parse a raw header block into a dict of name -> [values]."""
+    if isinstance(header_blob, bytes):
+        text = header_blob.decode("utf-8", "ignore")
+    else:
+        text = header_blob
+    headers = {}
+    if "\r\n" in text:
+        lines = text.split("\r\n")
+    else:
+        lines = text.split("\n")
+    current = None
+    for line in lines:
+        if line.startswith(" ") or line.startswith("\t"):
+            if current is not None and headers[current]:
+                headers[current][-1] += " " + line.strip()
+        elif ":" in line:
+            name, _, value = line.partition(":")
+            current = name.strip().lower()
+            headers.setdefault(current, []).append(value.strip())
+        else:
+            current = None
+    return headers
+
+
+def _first_header(headers, name):
+    """Get the first value for a header name."""
+    if name in headers and headers[name]:
+        return headers[name][0]
+    return ""
+
+
+def _header_param(header_value, param):
+    """Get a parameter value from a header value."""
+    if not header_value:
+        return None
+    for part in header_value.split(";")[1:]:
+        part = part.strip()
+        if "=" in part:
+            k, _, v = part.partition("=")
+            if k.strip().lower() == param:
+                return v.strip().strip('"').strip("'")
+    return None
+
+
+def _decode_body_part(data, cte, charset=None):
+    """Decode a MIME body part into a unicode string."""
+    if not data:
+        return ""
+    cte = (cte or "").strip().lower()
+    try:
+        if cte == "base64":
+            data = _b64decode(data)
+        elif cte == "quoted-printable":
+            data = _qp_decode_bytes(data)
+    except Exception:
+        pass
+    try:
+        text = data.decode(charset or "utf-8", "ignore")
+    except Exception:
+        text = data.decode("utf-8", "ignore")
+    return text.replace("\r\n", "\n").rstrip()
+
+
+def _walk_multipart(body_blob, boundary):
+    """Walk a multipart body and return concatenated text/plain parts."""
+    marker = ("--" + boundary).encode("utf-8")
+    parts = body_blob.split(marker)
+    texts = []
+    for part in parts[1:]:
+        part = part.lstrip(b"\r\n")
+        if part.startswith(b"--"):
+            break  # closing delimiter
+        sep = part.find(b"\r\n\r\n")
+        if sep < 0:
+            sep = part.find(b"\n\n")
+            if sep < 0:
+                continue
+            hdr_blob = part[:sep]
+            part_body = part[sep + 2:]
+        else:
+            hdr_blob = part[:sep]
+            part_body = part[sep + 4:]
+        sub_headers = _parse_headers(hdr_blob)
+        ctype_header = _first_header(sub_headers, "content-type")
+        sub_ctype = (
+            ctype_header.split(";")[0].strip().lower()
+            if ctype_header else "text/plain"
+        )
+        cte = _first_header(sub_headers, "content-transfer-encoding")
+        charset = _header_param(ctype_header, "charset")
+        if sub_ctype.startswith("multipart/"):
+            sub_boundary = _header_param(ctype_header, "boundary")
+            if sub_boundary:
+                nested = _walk_multipart(part_body, sub_boundary)
+                if nested:
+                    texts.append(nested)
+        elif sub_ctype == "text/plain":
+            texts.append(_decode_body_part(part_body, cte, charset))
+    return "\n".join(texts)
+
+
+def _extract_plain_text(body_blob, headers):
+    """Extract the plain-text body from a raw MIME body + headers dict."""
+    ctype_header = _first_header(headers, "content-type")
+    ctype = (
+        ctype_header.split(";")[0].strip().lower()
+        if ctype_header else "text/plain"
+    )
+    cte = _first_header(headers, "content-transfer-encoding")
+    charset = _header_param(ctype_header, "charset")
+    if ctype.startswith("multipart/"):
+        boundary = _header_param(ctype_header, "boundary")
+        if not boundary:
+            return _decode_body_part(body_blob, cte, charset)
+        return _walk_multipart(body_blob, boundary)
+    return _decode_body_part(body_blob, cte, charset)
+
+
+def _split_message(literal):
+    """Split an RFC822 message into (header_blob, body_blob)."""
+    sep = literal.find(b"\r\n\r\n")
+    if sep < 0:
+        sep = literal.find(b"\n\n")
+        if sep < 0:
+            return literal, b""
+        return literal[:sep], literal[sep + 2:]
+    return literal[:sep], literal[sep + 4:]
+
+
+def _extract_email_address(header):
+    """Extract the email address from a From/To header value."""
+    if not header:
+        return ""
+    try:
+        match = re.search(r"[\w.+-]+@[\w-]+(\.[\w-]+)+", header)
+        return match.group(0) if match else header.strip()
+    except Exception:
+        return header.strip()
+
+
+def imap_fetch_unread_emails(from_email, from_pass, limit=10):
+    """Fetch summaries of the most recent `limit` unread emails.
+    Returns uid/subject/from/to/date dicts (newest first).
+    Raises on connection or auth errors; emails stay unread."""
+    results = []
+    mail = None
+    try:
+        mail = IMAP4("imap.gmail.com", 993)
+        if not mail.login(from_email, from_pass):
+            raise OSError("IMAP login failed")
+        ok, _ = mail.select("INBOX")
+        if not ok:
+            raise OSError("IMAP SELECT failed")
+        ids = mail.uid_search("UNSEEN")[-limit:]
+        for uid in reversed(ids):
+            literal = mail.uid_fetch(
+                uid,
+                "(BODY.PEEK[HEADER.FIELDS (SUBJECT FROM TO DATE)])",
+                max_literal=8192,
+            )
+            if literal is None:
+                continue
+            headers = _parse_headers(literal)
+            results.append(
+                {
+                    "uid": str(uid),
+                    "subject": _decode_encoded_words(
+                        _first_header(headers, "subject")
+                    ),
+                    "from": _decode_encoded_words(
+                        _first_header(headers, "from")
+                    ),
+                    "to": _decode_encoded_words(
+                        _first_header(headers, "to")
+                    ),
+                    "date": _decode_encoded_words(
+                        _first_header(headers, "date")
+                    ),
+                }
+            )
+    finally:
+        if mail is not None:
+            mail.logout()
+    return results
+
+
+def imap_fetch_email_by_uid(from_email, from_pass, uid, mark_seen=False):
+    """Fetch a single email by IMAP UID. Returns a dict or None.
+    Uses BODY.PEEK unless mark_seen=True; raises on connection errors."""
+    mail = None
+    try:
+        mail = IMAP4("imap.gmail.com", 993)
+        if not mail.login(from_email, from_pass):
+            raise OSError("IMAP login failed")
+        ok, _ = mail.select("INBOX")
+        if not ok:
+            raise OSError("IMAP SELECT failed")
+
+        if mark_seen:
+            literal = mail.uid_fetch(uid, "(RFC822)", max_literal=MAX_BODY_LENGTH)
+            if literal is None:
+                return None
+            hdr_blob, body_blob = _split_message(literal)
+            headers = _parse_headers(hdr_blob)
+            body = _extract_plain_text(body_blob, headers)
+        else:
+            hdr_literal = mail.uid_fetch(
+                uid,
+                "(BODY.PEEK[HEADER.FIELDS (SUBJECT FROM TO DATE CONTENT-TYPE CONTENT-TRANSFER-ENCODING)])",
+                max_literal=8192,
+            )
+            if hdr_literal is None:
+                return None
+            headers = _parse_headers(hdr_literal)
+            body_literal = mail.uid_fetch(
+                uid, "(BODY.PEEK[TEXT])", max_literal=MAX_BODY_LENGTH
+            )
+            if body_literal is None:
+                return None
+            body = _extract_plain_text(body_literal, headers)
+
+        return {
+            "uid": str(uid),
+            "subject": _decode_encoded_words(_first_header(headers, "subject")),
+            "from": _decode_encoded_words(_first_header(headers, "from")),
+            "to": _decode_encoded_words(_first_header(headers, "to")),
+            "date": _decode_encoded_words(_first_header(headers, "date")),
+            "body": body,
+        }
+    finally:
+        if mail is not None:
+            mail.logout()
+
+
+def imap_mark_seen(from_email, from_pass, uid):
+    """Mark an email as seen by IMAP UID. Returns True on success."""
+    mail = None
+    try:
+        mail = IMAP4("imap.gmail.com", 993)
+        if not mail.login(from_email, from_pass):
+            return False
+        ok, _ = mail.select("INBOX")
+        if not ok:
+            return False
+        return mail.uid_store(str(uid), "(\\Seen)")
+    finally:
+        if mail is not None:
+            mail.logout()
+
+
+class IMAPAsync:
+    """Threaded IMAP helper so network fetches don't block the UI."""
+
+    def __init__(self):
+        self._lock = _thread.allocate_lock()
+        self._thread = None
+        self._running = False
+        self._finished = False
+        self._result = None
+        self._error = ""
+
+    def __del__(self):
+        """Destructor to clean up resources."""
+        self.close()
+
+    @property
+    def is_running(self) -> bool:
+        return self._running
+
+    @property
+    def is_finished(self) -> bool:
+        return self._finished
+
+    @property
+    def result(self):
+        return self._result
+
+    @property
+    def error(self) -> str:
+        return self._error
+
+    def close(self):
+        """Reset the helper and release the worker thread."""
+        with self._lock:
+            self._running = False
+            self._finished = True
+            self._result = None
+            self._error = ""
+            self._thread = None
+
+    def _start(self, func) -> bool:
+        """Run a function in a background thread if idle."""
+        def thread_fn():
+            try:
+                result = func()
+                with self._lock:
+                    self._result = result
+            except Exception as e:
+                print("IMAPAsync error:", e)
+                with self._lock:
+                    self._error = str(e)
+            finally:
+                with self._lock:
+                    self._finished = True
+                    self._running = False
+                self._thread = None
+
+        with self._lock:
+            if self._thread is not None:
+                return False
+            self._finished = False
+            self._running = True
+            self._error = ""
+            self._result = None
+            self._thread = _thread.start_new_thread(thread_fn, ())
+        return True
+
+    def fetch_unread_emails(self, from_email, from_pass, limit=10) -> bool:
+        """Fetch unread email summaries in the background."""
+        return self._start(
+            lambda: imap_fetch_unread_emails(from_email, from_pass, limit)
+        )
+
+    def fetch_email_by_uid(self, from_email, from_pass, uid, mark_seen=False) -> bool:
+        """Fetch one email body in the background."""
+        return self._start(
+            lambda: imap_fetch_email_by_uid(from_email, from_pass, uid, mark_seen)
+        )
+
+    def mark_seen_and_refresh(self, from_email, from_pass, uid) -> bool:
+        """Mark one email seen, then refetch the unread list in one thread."""
+
+        def task():
+            imap_mark_seen(from_email, from_pass, uid)
+            return imap_fetch_unread_emails(from_email, from_pass)
+
+        return self._start(task)
+
+
 # view constants
 VIEW_MAIN_MENU = const(0)  # Main menu view
 VIEW_SENDING_MESSAGE = const(1)  # Sending message view
@@ -180,17 +767,26 @@ VIEW_KEYBOARD_EMAIL = const(3)  # viewing the keyboard to enter email
 VIEW_KEYBOARD_PASSWORD = const(4)  # viewing the keyboard to enter password
 VIEW_KEYBOARD_NAME = const(5)  # viewing the keyboard to enter name
 VIEW_KEYBOARD_SUBJECT = const(6)  # viewing the keyboard to enter subject
+VIEW_EMAIL_LIST = const(7)  # viewing the list of unread emails
+VIEW_EMAIL_VIEW = const(8)  # viewing a single email body
 
 # menu constatnts
 MENU_ITEM_SEND_MESSAGE = const(0)  # Menu item to send a message
-MENU_ITEM_SET_EMAIL = const(1)  # Menu item to set email
-MENU_ITEM_SET_PASSWORD = const(2)  # Menu item to set password
-MENU_ITEM_SET_NAME = const(3)  # Menu item to set sender name
+MENU_ITEM_READ_EMAILS = const(1)  # Menu item to read emails
+MENU_ITEM_SET_EMAIL = const(2)  # Menu item to set email
+MENU_ITEM_SET_PASSWORD = const(3)  # Menu item to set password
+MENU_ITEM_SET_NAME = const(4)  # Menu item to set sender name
 
 # sending constants
 SENDING_WAITING = const(-1)  # Waiting to send
 SENDING_KEYBOARD = const(0)  # Keyboard for message input
 SENDING_SENDING = const(1)  # Sending the message
+
+# email reading constants
+EMAIL_LIST_FETCHING = const(0)  # Fetching the unread email list
+EMAIL_LIST_READY = const(1)  # Email list is ready
+EMAIL_VIEW_FETCHING = const(0)  # Fetching an email body
+EMAIL_VIEW_READY = const(1)  # Email body is ready
 
 # bot token/chat ID constants
 KEYBOARD_WAITING = const(-1)  # Waiting for keyboard input
@@ -205,7 +801,16 @@ keyboard_index = KEYBOARD_WAITING
 _menu = None
 _loading = None
 smtp = None
+_imap = None
 _message_to_send = ""
+
+# email reading globals
+_email_list = None
+_email_textbox = None
+_unread_emails = []
+_current_email = None
+_email_list_state = EMAIL_LIST_FETCHING
+_email_view_state = EMAIL_VIEW_FETCHING
 
 # Email details
 sender_email = ""
@@ -474,12 +1079,210 @@ def _menu_start(view_manager) -> None:
 
     # add items
     _menu.add_item("Send Message")
+    _menu.add_item("Read Emails")
     _menu.add_item("Set Email")
     _menu.add_item("Set Password")
     _menu.add_item("Set Name")
 
     _menu.set_selected(menu_index)
     _menu.set_selected(menu_index)
+
+
+def _reset_email_list() -> None:
+    """Clear the email list state."""
+    global _email_list, _unread_emails, _current_email, _email_list_state
+    _email_list = None
+    _unread_emails = []
+    _current_email = None
+    _email_list_state = EMAIL_LIST_FETCHING
+
+
+def _build_email_list(view_manager) -> None:
+    """Build the List widget from the fetched unread emails."""
+    from picoware.gui.list import List
+
+    global _email_list
+    draw = view_manager.draw
+    bg = view_manager.background_color
+    fg = view_manager.foreground_color
+
+    _email_list = List(
+        draw,
+        0,
+        draw.size.y,
+        fg,
+        bg,
+        selected_color=view_manager.selected_color,
+        border_color=fg,
+    )
+    for email in _unread_emails:
+        subject = email.get("subject") or "(no subject)"
+        _email_list.add_item(subject)
+    _email_list.set_selected(0)
+    _email_list.draw()
+
+
+def _open_email(view_manager, summary) -> None:
+    """Open a single email: fetch its body and show it."""
+    global current_view, _current_email, _email_view_state
+    _current_email = summary
+    _email_view_state = EMAIL_VIEW_FETCHING
+    current_view = VIEW_EMAIL_VIEW
+    if not __load_email_credentials(view_manager):
+        view_manager.alert("Email credentials not set!", False)
+        _back_to_email_list(view_manager)
+        return
+    _imap.fetch_email_by_uid(sender_email, sender_app_password, summary["uid"])
+
+
+def _show_email(view_manager, data) -> None:
+    """Render a fetched email in a scrollable text box."""
+    from picoware.gui.textbox import TextBox
+
+    global _email_textbox
+    draw = view_manager.draw
+    bg = view_manager.background_color
+    fg = view_manager.foreground_color
+
+    _email_textbox = TextBox(draw, 0, draw.size.y, fg, bg)
+    body = data.get("body") or "(no body)"
+    text = "From: %s\nTo: %s\nDate: %s\nSubject: %s\n\n%s" % (
+        data.get("from", ""),
+        data.get("to", ""),
+        data.get("date", ""),
+        data.get("subject", ""),
+        body,
+    )
+    _email_textbox.set_text(text)
+
+
+def _back_to_email_list(view_manager) -> None:
+    """Return from viewing an email to the email list."""
+    global current_view, _email_view_state, _email_textbox
+    _email_view_state = EMAIL_VIEW_FETCHING
+    _email_textbox = None
+    current_view = VIEW_EMAIL_LIST
+    if _email_list is not None:
+        _email_list.draw()
+
+
+def _email_list_run(view_manager) -> bool:
+    """Run the email list view. Returns False when leaving it."""
+    from picoware.system.buttons import (
+        BUTTON_BACK,
+        BUTTON_UP,
+        BUTTON_LEFT,
+        BUTTON_DOWN,
+        BUTTON_RIGHT,
+        BUTTON_CENTER,
+    )
+
+    global current_view, _email_list_state, _unread_emails
+
+    if _email_list_state == EMAIL_LIST_FETCHING:
+        if _imap.is_running:
+            _loading_run(view_manager, "Fetching emails...")
+            return True
+        if _imap.error or _imap.result is None:
+            err = _imap.error or "no data"
+            view_manager.alert("Fetch failed: " + err[:36], False)
+            _reset_email_list()
+            current_view = VIEW_MAIN_MENU
+            _menu_start(view_manager)
+            return False
+        _unread_emails = _imap.result
+        if not _unread_emails:
+            view_manager.alert("No unread emails!", False)
+            _reset_email_list()
+            current_view = VIEW_MAIN_MENU
+            _menu_start(view_manager)
+            return False
+        _build_email_list(view_manager)
+        _email_list_state = EMAIL_LIST_READY
+        return True
+
+    # EMAIL_LIST_READY
+    inp = view_manager.input_manager
+    button = inp.button
+    if button == BUTTON_BACK:
+        inp.reset()
+        _reset_email_list()
+        current_view = VIEW_MAIN_MENU
+        _menu_start(view_manager)
+        return False
+    if button in (BUTTON_UP, BUTTON_LEFT):
+        inp.reset()
+        _email_list.scroll_up()
+    elif button in (BUTTON_DOWN, BUTTON_RIGHT):
+        inp.reset()
+        _email_list.scroll_down()
+    elif button == BUTTON_CENTER:
+        inp.reset()
+        idx = _email_list.selected_index
+        if 0 <= idx < len(_unread_emails):
+            _open_email(view_manager, _unread_emails[idx])
+    return True
+
+
+def _email_view_run(view_manager) -> bool:
+    """Run the single-email view. Returns False when leaving it."""
+    from picoware.system.buttons import (
+        BUTTON_BACK,
+        BUTTON_UP,
+        BUTTON_LEFT,
+        BUTTON_DOWN,
+        BUTTON_RIGHT,
+        BUTTON_CENTER,
+    )
+
+    global _email_view_state
+
+    if _email_view_state == EMAIL_VIEW_FETCHING:
+        if _imap.is_running:
+            _loading_run(view_manager, "Loading email...")
+            return True
+        if _imap.error or _imap.result is None:
+            err = _imap.error or "no data"
+            view_manager.alert("Load failed: " + err[:36], False)
+            _back_to_email_list(view_manager)
+            return False
+        _show_email(view_manager, _imap.result)
+        _email_view_state = EMAIL_VIEW_READY
+        return True
+
+    # EMAIL_VIEW_READY
+    inp = view_manager.input_manager
+    button = inp.button
+    if button == BUTTON_BACK:
+        inp.reset()
+        _back_to_email_list(view_manager)
+        return False
+    if button in (BUTTON_UP, BUTTON_LEFT):
+        inp.reset()
+        _email_textbox.scroll_up()
+    elif button in (BUTTON_DOWN, BUTTON_RIGHT):
+        inp.reset()
+        _email_textbox.scroll_down()
+    elif button == BUTTON_CENTER:
+        inp.reset()
+        _mark_seen_and_refresh(view_manager)
+        return False
+    return True
+
+
+def _mark_seen_and_refresh(view_manager) -> None:
+    """Mark the current email as seen, then refresh the unread list."""
+    global current_view, _email_textbox, _email_view_state, _email_list_state
+    _email_view_state = EMAIL_VIEW_FETCHING
+    _email_textbox = None
+    if not __load_email_credentials(view_manager):
+        _back_to_email_list(view_manager)
+        return
+    current_view = VIEW_EMAIL_LIST
+    _email_list_state = EMAIL_LIST_FETCHING
+    _imap.mark_seen_and_refresh(
+        sender_email, sender_app_password, _current_email["uid"]
+    )
 
 
 def start(view_manager) -> bool:
@@ -512,9 +1315,10 @@ def start(view_manager) -> bool:
 
     _menu_start(view_manager)
 
-    global smtp
+    global smtp, _imap
 
     smtp = SMTPAsync("smtp.gmail.com", 465, ssl=True)  # Gmail's SSL port
+    _imap = IMAPAsync()  # IMAP client for reading emails
 
     __load_email_credentials(view_manager)
 
@@ -554,6 +1358,17 @@ def run(view_manager) -> None:
                 current_view = VIEW_KEYBOARD_SUBJECT
                 if not _keyboard_run(view_manager):
                     view_manager.back()
+            elif menu_index == MENU_ITEM_READ_EMAILS:
+                current_view = VIEW_EMAIL_LIST
+                _email_list_state = EMAIL_LIST_FETCHING
+                if not __load_email_credentials(view_manager):
+                    view_manager.alert("Email credentials not set!", False)
+                    current_view = VIEW_MAIN_MENU
+                    _menu_start(view_manager)
+                else:
+                    _imap.fetch_unread_emails(
+                        sender_email, sender_app_password
+                    )
             elif menu_index == MENU_ITEM_SET_EMAIL:
                 current_view = VIEW_KEYBOARD_EMAIL
                 if not _keyboard_run(view_manager):
@@ -591,6 +1406,10 @@ def run(view_manager) -> None:
                 _menu_start(view_manager)
         elif sending_index == SENDING_SENDING:
             __await_send(view_manager)
+    elif current_view == VIEW_EMAIL_LIST:
+        _email_list_run(view_manager)
+    elif current_view == VIEW_EMAIL_VIEW:
+        _email_view_run(view_manager)
     elif current_view in (
         VIEW_KEYBOARD_EMAIL,
         VIEW_KEYBOARD_PASSWORD,
@@ -607,12 +1426,22 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global smtp, _menu, _loading
+    global smtp, _menu, _loading, _imap
+    global _email_list, _email_textbox, _unread_emails, _current_email
     del smtp
     smtp = None
     del _menu
     _menu = None
     del _loading
     _loading = None
+
+    if _imap is not None:
+        _imap.close()
+    _imap = None
+    _email_list = None
+    _email_textbox = None
+    _unread_emails = []
+    _current_email = None
+
     view_manager.keyboard.reset()
     collect()

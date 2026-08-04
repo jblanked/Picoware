@@ -540,6 +540,10 @@ def set_lcd(lcd):
     _lcd = lcd
 
 
+def get_lcd():
+    return _lcd
+
+
 def set_script_expectations(wait_view="", assert_text=""):
     global _wait_view, _assert_text, _seen_wait_view, _seen_assert_text
     _wait_view = str(wait_view or "")

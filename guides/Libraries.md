@@ -50,6 +50,7 @@ This section provides documentation for the libraries available in Picoware.
   - [picoware.gui.list](#picoware-gui-list)
   - [picoware.gui.loading](#picoware-gui-loading)
   - [picoware.gui.menu](#picoware-gui-menu)
+  - [picoware.gui.search_bar](#picoware-gui-search_bar)
   - [picoware.gui.scrollbar](#picoware-gui-scrollbar)
   - [picoware.gui.text_editor](#picoware-gui-text_editor)
   - [picoware.gui.textbox](#picoware-gui-textbox)
@@ -800,6 +801,16 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - `scroll_down()`: Scroll down one item.
     - `scroll_up()`: Scroll up one item.
     - `set_selected(index)`: Set the selected item.
+
+#### picoware-gui-search_bar
+- `SearchBar` class: A search bar widget with text input and live item filtering.
+    - `__init__(view_manager, items, size=None, text_color=0xFFFF, background_color=0x0000, selected_color=0x001F)`: Initialize with a view manager, the list of items to search, and optional styling. `size` defaults to the screen size.
+    - `is_finished`: Property (r/o) — True once an item has been selected.
+    - `results`: Property (r/o) — list of items matching the current search text.
+    - `selected_item`: Property (r/o) — the currently highlighted (or clicked) item, or None.
+    - `text`: Property (r/o) — the current search text string.
+    - `reset()`: Reset the search text and selection state.
+    - `run(swap=True, force=False)`: Process one input frame and redraw if needed. Returns False when input is complete (item selected or back pressed).
 
 #### picoware-gui-scrollbar
 - `ScrollBar` class: A simple scrollbar indicator widget.

@@ -39,11 +39,13 @@ from .model import (
     GameModel,
 )
 from .render import Renderer
+from .sound import SoundController
 
 
 _game = None
 _renderer = None
 _leaderboard = None
+_sound = None
 _next_frame = 0
 _score_saved = False
 _mode_start_pending = False
@@ -235,7 +237,7 @@ def _handle_name_input(_input_manager, button):
 
 def _finish_start(view_manager):
     """Create a fresh Pico Bomber startup splash."""
-    global _game, _renderer, _leaderboard, _next_frame, _score_saved
+    global _game, _renderer, _leaderboard, _sound, _next_frame, _score_saved
     global _mode_start_pending, _redraw_pending
 
     _game = GameModel()
@@ -244,6 +246,10 @@ def _finish_start(view_manager):
     _write_start_marker(view_manager, "renderer")
     _leaderboard = Leaderboard(view_manager.storage)
     _write_start_marker(view_manager, "leaderboard")
+    _sound = SoundController(view_manager.audio, view_manager.storage)
+    _game.music_selection = _sound.selection
+    _game.music_name = _sound.track_name
+    _write_start_marker(view_manager, "sound")
     _game.leaderboard = _leaderboard.entries
     _score_saved = False
     _renderer.draw_frame(_game)
@@ -252,6 +258,7 @@ def _finish_start(view_manager):
     collect()
     now = ticks_ms()
     _game.state_until = ticks_add(now, STARTUP_SPLASH_MS)
+    _sound.update(_game, now)
     _write_start_marker(view_manager, "title-render")
     _next_frame = ticks_add(now, FRAME_MS)
     _write_start_marker(view_manager, "complete")
@@ -294,6 +301,7 @@ def _run_once(view_manager):
             _open_mode_menu(now)
             _renderer.draw_frame(_game)
             _next_frame = ticks_add(now, FRAME_MS)
+        _sound.update(_game, now)
         return
 
     if _game.demo_mode and button >= 0:
@@ -338,6 +346,7 @@ def _run_once(view_manager):
             _renderer.draw_frame(_game)
             _redraw_pending = False
             _next_frame = ticks_add(now, FRAME_MS)
+        _sound.update(_game, now)
         return
 
     _runtime_phase = "input"
@@ -377,9 +386,15 @@ def _run_once(view_manager):
         else:
             changed = _game.move_player(0, 1, now)
     elif button == BUTTON_LEFT:
-        changed = _game.move_player(-1, 0, now)
+        if _game.state == STATE_MODE_SELECT:
+            changed = _sound.select_music(-1, _game, now)
+        else:
+            changed = _game.move_player(-1, 0, now)
     elif button == BUTTON_RIGHT:
-        changed = _game.move_player(1, 0, now)
+        if _game.state == STATE_MODE_SELECT:
+            changed = _sound.select_music(1, _game, now)
+        else:
+            changed = _game.move_player(1, 0, now)
     elif button in (BUTTON_CENTER, BUTTON_SPACE):
         if _game.state == STATE_GAME_OVER:
             _open_mode_menu(now)
@@ -443,6 +458,9 @@ def _run_once(view_manager):
             _score_saved = True
         changed = True
 
+    _runtime_phase = "sound"
+    _sound.update(_game, now)
+
     _set_key_repeat(view_manager, _game.state == STATE_PLAYING)
     animated = _game.state in (STATE_PLAYING, STATE_PLAYER_DYING)
     if changed:
@@ -479,13 +497,16 @@ def run(view_manager):
 
 def stop(view_manager):
     """Release the game state when leaving the Picoware view."""
-    global _game, _renderer, _leaderboard, _next_frame, _score_saved
+    global _game, _renderer, _leaderboard, _sound, _next_frame, _score_saved
     global _mode_start_pending, _redraw_pending, _mode_idle_since
 
     _set_key_repeat(view_manager, False, True)
+    if _sound is not None:
+        _sound.stop()
     _game = None
     _renderer = None
     _leaderboard = None
+    _sound = None
     _next_frame = 0
     _score_saved = False
     _mode_start_pending = False

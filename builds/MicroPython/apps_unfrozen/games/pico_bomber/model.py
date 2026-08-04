@@ -26,6 +26,11 @@ TILE_BRICK = 2
 
 POWER_FLAME = 1
 POWER_BOMB = 2
+POWER_LIFE = 3
+POWER_MAGNET = 4
+POWER_FLAME_SUIT = 5
+POWER_SPEED = 6
+POWER_SHIELD = 7
 
 THEME_NATURE = 0
 THEME_INDUSTRIAL = 1
@@ -48,13 +53,42 @@ THEME_NAMES = (
 
 MODE_GHOST_HUNT = 0
 MODE_BLAST_RIVALS = 1
-MODE_NAMES = ("GHOST HUNT", "BLAST RIVALS")
-MENU_LEADERBOARD = 2
-MENU_ITEM_COUNT = 3
+MODE_TREASURE_HUNT = 2
+MODE_BOMB_COURIER = 3
+MODE_HOT_POTATO = 4
+MODE_NAMES = (
+    "GHOST HUNT",
+    "BLAST RIVALS",
+    "TREASURE HUNT",
+    "BOMB COURIER",
+    "HOT POTATO",
+)
+MENU_LEADERBOARD = 5
+MENU_ITEM_COUNT = 6
+
+EVENT_BOMB_PLACED = 1
+EVENT_EXPLOSION = 2
+EVENT_CHAIN_REACTION = 4
+EVENT_BRICK_BROKEN = 8
+EVENT_PICKUP = 16
+EVENT_EXTRA_LIFE = 32
+EVENT_SHIELD_BLOCK = 64
+EVENT_TELEPORT = 128
+EVENT_ENEMY_DOWN = 256
+EVENT_SLIME_SPLIT = 512
+EVENT_TREASURE = 1024
+EVENT_COURIER = 2048
+EVENT_HOT_POTATO = 4096
+EVENT_WARNING = 8192
+EVENT_PLAYER_HIT = 16384
 
 ENEMY_BLOB = 0
 ENEMY_CHASER = 1
 ENEMY_BOMBER = 2
+ENEMY_SLIME = 3
+ENEMY_SMALL_SLIME = 4
+ENEMY_KAMIKAZE = 5
+ENEMY_TURRET = 6
 
 STATE_TITLE = 0
 STATE_PLAYING = 1
@@ -83,6 +117,20 @@ DECAL_BOMBER = 5
 BOMB_FUSE_MS = 2100
 EXPLOSION_MS = 480
 PLAYER_INVULNERABLE_MS = 1400
+MAGNET_MS = 10000
+FLAME_SUIT_MS = 9000
+SPEED_MS = 9000
+SHIELD_INVULNERABLE_MS = 700
+MAGNET_STEP_MS = 180
+TELEPORT_LOCK_MS = 450
+SPECIAL_WARNING_MS = 700
+SPIKE_CYCLE_MS = 2400
+SPIKE_ACTIVE_MS = 700
+PROJECTILE_STEP_MS = 120
+TREASURE_STAGE_MS = 75000
+COURIER_FUSE_MS = 25000
+HOT_POTATO_FUSE_MS = 5500
+HOT_POTATO_TRANSFER_MS = 650
 STAGE_CLEAR_MS = 1300
 DEATH_ANIMATION_MS = 720
 PLAYER_MOVE_ANIMATION_MS = 150
@@ -129,6 +177,41 @@ class GameModel:
         self.explosions = []
         self.enemies = []
         self.powerups = []
+        self.life_powerup_x = -1
+        self.life_powerup_y = -1
+        self.magnet_until = 0
+        self.flame_suit_until = 0
+        self.speed_until = 0
+        self.shield_hits = 0
+        self.shield_flash_until = 0
+        self.magnet_next = 0
+        self.teleport_lock_until = 0
+        self.barrels = []
+        self.teleporters = []
+        self.spike_traps = []
+        self.flame_emitters = []
+        self.cannons = []
+        self.mines = []
+        self.projectiles = []
+        self.background_creatures = []
+        self.shake_until = 0
+        self.flash_until = 0
+        self.chain_strength = 0
+        self.treasure_hidden = []
+        self.treasures = []
+        self.treasure_collected = 0
+        self.treasure_target = 0
+        self.objective_until = 0
+        self.courier_bomb_x = -1
+        self.courier_bomb_y = -1
+        self.courier_exit_x = -1
+        self.courier_exit_y = -1
+        self.courier_carrying = False
+        self.courier_fuse_until = 0
+        self.hot_potato_player = False
+        self.hot_potato_enemy = None
+        self.hot_potato_until = 0
+        self.hot_potato_transfer_until = 0
         self.decals = []
         self.death_effects = []
         self.leaderboard = []
@@ -150,6 +233,7 @@ class GameModel:
         self.demo_mode = False
         self.demo_next_action = 0
         self.demo_countdown = 30
+        self.pending_events = 0
         # Demo and bomber AI run this search many times per minute. Reusing a
         # packed queue and visit map avoids steadily churning hundreds of
         # short-lived lists on MicroPython's constrained heap.
@@ -184,6 +268,40 @@ class GameModel:
             self.invulnerable_until,
             paused_for,
         )
+        self.magnet_until = ticks_add(self.magnet_until, paused_for)
+        self.flame_suit_until = ticks_add(self.flame_suit_until, paused_for)
+        self.speed_until = ticks_add(self.speed_until, paused_for)
+        self.shield_flash_until = ticks_add(
+            self.shield_flash_until,
+            paused_for,
+        )
+        self.magnet_next = ticks_add(self.magnet_next, paused_for)
+        self.teleport_lock_until = ticks_add(
+            self.teleport_lock_until,
+            paused_for,
+        )
+        self.shake_until = ticks_add(self.shake_until, paused_for)
+        self.flash_until = ticks_add(self.flash_until, paused_for)
+        if self.objective_until:
+            self.objective_until = ticks_add(
+                self.objective_until,
+                paused_for,
+            )
+        if self.courier_fuse_until:
+            self.courier_fuse_until = ticks_add(
+                self.courier_fuse_until,
+                paused_for,
+            )
+        if self.hot_potato_until:
+            self.hot_potato_until = ticks_add(
+                self.hot_potato_until,
+                paused_for,
+            )
+        if self.hot_potato_transfer_until:
+            self.hot_potato_transfer_until = ticks_add(
+                self.hot_potato_transfer_until,
+                paused_for,
+            )
         for bomb in self.bombs:
             bomb[2] = ticks_add(bomb[2], paused_for)
         for flame in self.explosions:
@@ -191,6 +309,27 @@ class GameModel:
         for enemy in self.enemies:
             enemy[2] = ticks_add(enemy[2], paused_for)
             enemy[9] = ticks_add(enemy[9], paused_for)
+            if len(enemy) >= 13:
+                if enemy[11]:
+                    enemy[11] = ticks_add(enemy[11], paused_for)
+                enemy[12] = ticks_add(enemy[12], paused_for)
+            if len(enemy) >= 14 and enemy[13]:
+                enemy[13] = ticks_add(enemy[13], paused_for)
+        for emitter in self.flame_emitters:
+            emitter[3] = ticks_add(emitter[3], paused_for)
+            if emitter[4]:
+                emitter[4] = ticks_add(emitter[4], paused_for)
+        for cannon in self.cannons:
+            cannon[4] = ticks_add(cannon[4], paused_for)
+            if cannon[5]:
+                cannon[5] = ticks_add(cannon[5], paused_for)
+        for mine in self.mines:
+            mine[2] = ticks_add(mine[2], paused_for)
+            mine[3] = ticks_add(mine[3], paused_for)
+        for projectile in self.projectiles:
+            projectile[4] = ticks_add(projectile[4], paused_for)
+        for creature in self.background_creatures:
+            creature[3] = ticks_add(creature[3], paused_for)
         for decal in self.decals:
             if len(decal) >= 6:
                 decal[5] = ticks_add(decal[5], paused_for)
@@ -223,10 +362,25 @@ class GameModel:
         self.player_name = ""
         self.flame_range = 2
         self.bomb_limit = 1
+        self.magnet_until = 0
+        self.flame_suit_until = 0
+        self.speed_until = 0
+        self.shield_hits = 0
+        self.shield_flash_until = 0
+        self.treasure_collected = 0
+        self.treasure_target = 0
+        self.objective_until = 0
+        self.courier_carrying = False
+        self.courier_fuse_until = 0
+        self.hot_potato_player = False
+        self.hot_potato_enemy = None
+        self.hot_potato_until = 0
+        self.hot_potato_transfer_until = 0
         self.paused_at = 0
         self.demo_mode = False
         self.demo_next_action = 0
         self.demo_countdown = 0
+        self.pending_events = 0
         self._build_stage(now)
 
     def start_demo(self, now, mode):
@@ -276,6 +430,35 @@ class GameModel:
         self.bombs = []
         self.explosions = []
         self.powerups = []
+        self.barrels = []
+        self.teleporters = []
+        self.spike_traps = []
+        self.flame_emitters = []
+        self.cannons = []
+        self.mines = []
+        self.projectiles = []
+        self.background_creatures = []
+        self.shake_until = 0
+        self.flash_until = 0
+        self.chain_strength = 0
+        self.treasure_hidden = []
+        self.treasures = []
+        self.treasure_collected = 0
+        self.treasure_target = 0
+        self.objective_until = 0
+        self.courier_bomb_x = -1
+        self.courier_bomb_y = -1
+        self.courier_exit_x = -1
+        self.courier_exit_y = -1
+        self.courier_carrying = False
+        self.courier_fuse_until = 0
+        self.hot_potato_player = False
+        self.hot_potato_enemy = None
+        self.hot_potato_until = 0
+        self.hot_potato_transfer_until = 0
+        self.pending_events = 0
+        self.magnet_next = ticks_add(now, MAGNET_STEP_MS)
+        self.teleport_lock_until = 0
         self.decals = []
         self.enemies = []
         self.death_effects = []
@@ -314,54 +497,374 @@ class GameModel:
                 continue
             self.grid[y][x] = TILE_EMPTY
             delay = randint(100, 350)
-            kind = (
-                ENEMY_BOMBER
-                if self.mode == MODE_BLAST_RIVALS
-                else randint(ENEMY_BLOB, ENEMY_CHASER)
-            )
+            kind = self._choose_enemy_kind()
             elite_chance = min(35, 8 + self.stage * 3)
-            elite = 1 if self.stage >= 3 and randint(0, 99) < elite_chance else 0
-            self.enemies.append(
-                [
-                    x,
-                    y,
-                    ticks_add(now, delay),
-                    kind,
-                    randint(0, 3),
-                    0,
-                    x * POSITION_SCALE,
-                    y * POSITION_SCALE,
-                    elite,
-                    ticks_add(now, randint(1600, 3000)),
-                    randint(-70, 100),
-                ]
+            elite = (
+                1
+                if kind not in (ENEMY_SMALL_SLIME, ENEMY_TURRET)
+                and self.stage >= 3
+                and randint(0, 99) < elite_chance
+                else 0
             )
+            self.enemies.append(self._make_enemy(x, y, now, kind, elite, delay))
 
         # This is a fallback for an exceptionally crowded random map.
         self.build_phase = 6
         if not self.enemies:
             self.grid[GRID_HEIGHT - 2][GRID_WIDTH - 2] = TILE_EMPTY
             self.enemies.append(
-                [
+                self._make_enemy(
                     GRID_WIDTH - 2,
                     GRID_HEIGHT - 2,
-                    ticks_add(now, 250),
+                    now,
                     ENEMY_BOMBER
                     if self.mode == MODE_BLAST_RIVALS
                     else ENEMY_BLOB,
                     0,
-                    0,
-                    (GRID_WIDTH - 2) * POSITION_SCALE,
-                    (GRID_HEIGHT - 2) * POSITION_SCALE,
-                    0,
-                    ticks_add(now, 2200),
-                    randint(-70, 100),
-                ]
+                    250,
+                )
             )
+        self._hide_stage_life()
+        self._spawn_stage_assets(now)
+        self._setup_mode_objective(now)
         self.build_phase = 7
         self.build_x = -1
         self.build_y = -1
         self.build_items = len(self.enemies)
+
+    def _choose_enemy_kind(self):
+        roll = randint(0, 99)
+        if self.stage >= 4 and roll < 12:
+            return ENEMY_TURRET
+        if self.stage >= 3 and roll < 28:
+            return ENEMY_KAMIKAZE
+        if self.stage >= 2 and roll < 48:
+            return ENEMY_SLIME
+        if self.mode == MODE_BLAST_RIVALS:
+            return ENEMY_BOMBER
+        return ENEMY_BLOB if randint(0, 1) == 0 else ENEMY_CHASER
+
+    def _make_enemy(self, x, y, now, kind, elite=0, delay=0):
+        return [
+            x,
+            y,
+            ticks_add(now, delay),
+            kind,
+            randint(0, 3),
+            0,
+            x * POSITION_SCALE,
+            y * POSITION_SCALE,
+            elite,
+            ticks_add(now, randint(1600, 3000)),
+            randint(-70, 100),
+            0,
+            ticks_add(now, randint(900, 1900)),
+            0,
+        ]
+
+    def _hide_stage_life(self):
+        """Hide exactly one extra-life pickup in a brick for this stage."""
+        self.life_powerup_x = -1
+        self.life_powerup_y = -1
+        brick_count = 0
+        for y in range(1, GRID_HEIGHT - 1):
+            for x in range(1, GRID_WIDTH - 1):
+                if self.grid[y][x] != TILE_BRICK:
+                    continue
+                brick_count += 1
+                # Reservoir sampling keeps the placement random without
+                # allocating another stage-sized coordinate list.
+                if randint(1, brick_count) == 1:
+                    self.life_powerup_x = x
+                    self.life_powerup_y = y
+
+        if self.life_powerup_x >= 0:
+            return
+
+        # A brick-free random arena is extremely unlikely, but the one-life
+        # promise must still hold. Add a distant brick on an unoccupied tile.
+        for y in range(GRID_HEIGHT - 2, 0, -1):
+            for x in range(GRID_WIDTH - 2, 0, -1):
+                if (
+                    self.grid[y][x] == TILE_EMPTY
+                    and (x, y) not in SAFE_TILES
+                    and not self._enemy_at(x, y)
+                ):
+                    self.grid[y][x] = TILE_BRICK
+                    self.life_powerup_x = x
+                    self.life_powerup_y = y
+                    return
+
+    def _asset_at(self, x, y):
+        for item in self.barrels:
+            if item[0] == x and item[1] == y:
+                return True
+        for item in self.teleporters:
+            if item[0] == x and item[1] == y:
+                return True
+        for item in self.spike_traps:
+            if item[0] == x and item[1] == y:
+                return True
+        for item in self.mines:
+            if item[0] == x and item[1] == y:
+                return True
+        for item in self.background_creatures:
+            if item[0] == x and item[1] == y:
+                return True
+        if self.courier_bomb_x == x and self.courier_bomb_y == y:
+            return True
+        if self.courier_exit_x == x and self.courier_exit_y == y:
+            return True
+        return False
+
+    def _random_open_tile(self, min_distance=0):
+        """Choose an unoccupied floor tile without allocating candidates."""
+        chosen_x = -1
+        chosen_y = -1
+        count = 0
+        for y in range(1, GRID_HEIGHT - 1):
+            for x in range(1, GRID_WIDTH - 1):
+                if (
+                    self.grid[y][x] != TILE_EMPTY
+                    or (x, y) in SAFE_TILES
+                    or x + y < min_distance
+                    or self._enemy_at(x, y)
+                    or self._asset_at(x, y)
+                ):
+                    continue
+                count += 1
+                if randint(1, count) == 1:
+                    chosen_x = x
+                    chosen_y = y
+        return chosen_x, chosen_y
+
+    def _random_reachable_tile(self, start_x, start_y, min_distance=0):
+        """Choose an objective tile reachable without placing another bomb."""
+        if start_x < 0 or start_y < 0:
+            return -1, -1
+        queue = self._escape_queue
+        visited = self._escape_visited
+        generation = self._escape_visit_generation + 1
+        if generation > 255:
+            for index in range(len(visited)):
+                visited[index] = 0
+            generation = 1
+        self._escape_visit_generation = generation
+
+        start_key = start_y * GRID_WIDTH + start_x
+        queue[0] = start_key
+        visited[start_key] = generation
+        cursor = 0
+        queue_end = 1
+        chosen_x = -1
+        chosen_y = -1
+        count = 0
+        while cursor < queue_end:
+            key = queue[cursor]
+            cursor += 1
+            x = key % GRID_WIDTH
+            y = key // GRID_WIDTH
+            if (
+                (x != start_x or y != start_y)
+                and abs(x - start_x) + abs(y - start_y) >= min_distance
+                and not self._asset_at(x, y)
+                and not self._enemy_at(x, y)
+                and (x, y) not in SAFE_TILES
+            ):
+                count += 1
+                if randint(1, count) == 1:
+                    chosen_x = x
+                    chosen_y = y
+            for dx, dy in DIRECTIONS:
+                next_x = x + dx
+                next_y = y + dy
+                if (
+                    next_x < 0
+                    or next_y < 0
+                    or next_x >= GRID_WIDTH
+                    or next_y >= GRID_HEIGHT
+                ):
+                    continue
+                next_key = next_y * GRID_WIDTH + next_x
+                if visited[next_key] == generation or not self._can_enter(
+                    next_x,
+                    next_y,
+                ):
+                    continue
+                visited[next_key] = generation
+                queue[queue_end] = next_key
+                queue_end += 1
+        return chosen_x, chosen_y
+
+    def _spawn_stage_assets(self, now):
+        """Populate bounded interactive scenery and hazards for one stage."""
+        barrel_count = min(3, 1 + self.stage // 3)
+        for _ in range(barrel_count):
+            x, y = self._random_open_tile(8)
+            if x >= 0:
+                self.barrels.append([x, y])
+
+        # Teleporters always appear as one clearly paired set.
+        for _ in range(2):
+            x, y = self._random_open_tile(6)
+            if x >= 0:
+                self.teleporters.append([x, y])
+        if len(self.teleporters) != 2:
+            self.teleporters = []
+
+        for index in range(min(3, 1 + self.stage // 3)):
+            x, y = self._random_open_tile(7)
+            if x >= 0:
+                self.spike_traps.append(
+                    [x, y, (index * 730 + randint(0, 500)) % SPIKE_CYCLE_MS]
+                )
+
+        if self.stage >= 2:
+            for _ in range(min(2, 1 + self.stage // 5)):
+                x, y = self._random_open_tile(8)
+                if x >= 0:
+                    self.mines.append(
+                        [
+                            x,
+                            y,
+                            ticks_add(now, 1100),
+                            ticks_add(now, randint(5200, 7600)),
+                        ]
+                    )
+
+            # Emitters sit on existing permanent pillars, so they never alter
+            # route connectivity or consume another floor allocation.
+            emitter_count = 2 if self.stage >= 6 else 1
+            for index in range(emitter_count):
+                pillar_x = 2 + 2 * randint(0, (GRID_WIDTH - 4) // 2)
+                pillar_y = 2 + 2 * randint(0, (GRID_HEIGHT - 4) // 2)
+                duplicate = False
+                for emitter in self.flame_emitters:
+                    if emitter[0] == pillar_x and emitter[1] == pillar_y:
+                        duplicate = True
+                        break
+                if not duplicate:
+                    self.flame_emitters.append(
+                        [
+                            pillar_x,
+                            pillar_y,
+                            randint(0, 3),
+                            ticks_add(now, 1500 + index * 600),
+                            0,
+                        ]
+                    )
+
+            cannon_y = 1 + randint(0, (GRID_HEIGHT - 3) // 2) * 2
+            if randint(0, 1) == 0:
+                self.cannons.append(
+                    [0, cannon_y, 1, 0, ticks_add(now, 1900), 0]
+                )
+            else:
+                self.cannons.append(
+                    [
+                        GRID_WIDTH - 1,
+                        cannon_y,
+                        -1,
+                        0,
+                        ticks_add(now, 1900),
+                        0,
+                    ]
+                )
+
+        for index in range(2):
+            x, y = self._random_open_tile(4)
+            if x >= 0:
+                self.background_creatures.append(
+                    [x, y, index % 2, 0, 0, 1]
+                )
+
+    def _treasure_hidden_at(self, x, y):
+        for treasure in self.treasure_hidden:
+            if treasure[0] == x and treasure[1] == y:
+                return treasure
+        return None
+
+    def _setup_mode_objective(self, now):
+        if self.mode == MODE_TREASURE_HUNT:
+            wanted = min(5, 2 + (self.stage - 1) // 2)
+            while len(self.treasure_hidden) < wanted:
+                chosen_x = -1
+                chosen_y = -1
+                count = 0
+                for y in range(1, GRID_HEIGHT - 1):
+                    for x in range(1, GRID_WIDTH - 1):
+                        if (
+                            self.grid[y][x] != TILE_BRICK
+                            or (
+                                x == self.life_powerup_x
+                                and y == self.life_powerup_y
+                            )
+                            or self._treasure_hidden_at(x, y) is not None
+                        ):
+                            continue
+                        count += 1
+                        if randint(1, count) == 1:
+                            chosen_x = x
+                            chosen_y = y
+                if chosen_x < 0:
+                    break
+                self.treasure_hidden.append([chosen_x, chosen_y])
+
+            self.treasure_target = len(self.treasure_hidden)
+            if self.treasure_target == 0:
+                x, y = self._random_open_tile(7)
+                if x < 0:
+                    x, y = self._random_open_tile(0)
+                if x >= 0:
+                    self.treasures.append([x, y])
+                    self.treasure_target = 1
+            self.objective_until = ticks_add(
+                now,
+                STAGE_INTRO_MS + TREASURE_STAGE_MS,
+            )
+            return
+
+        if self.mode == MODE_BOMB_COURIER:
+            self.courier_bomb_x, self.courier_bomb_y = (
+                self._random_open_tile(7)
+            )
+            if self.courier_bomb_x < 0:
+                self.courier_bomb_x, self.courier_bomb_y = (
+                    self._random_open_tile(0)
+                )
+            self.courier_exit_x, self.courier_exit_y = (
+                self._random_reachable_tile(
+                    self.courier_bomb_x,
+                    self.courier_bomb_y,
+                    6,
+                )
+            )
+            if self.courier_exit_x < 0:
+                self.courier_exit_x, self.courier_exit_y = (
+                    self._random_reachable_tile(
+                        self.courier_bomb_x,
+                        self.courier_bomb_y,
+                        0,
+                    )
+                )
+            if self.courier_exit_x < 0:
+                # Reaching the pickup necessarily opens a route back to the
+                # starting pocket, making this a safe last-resort destination.
+                self.courier_exit_x = 1
+                self.courier_exit_y = 1
+            return
+
+        if self.mode == MODE_HOT_POTATO:
+            self.hot_potato_player = True
+            self.hot_potato_enemy = None
+            self.hot_potato_until = ticks_add(
+                now,
+                STAGE_INTRO_MS + HOT_POTATO_FUSE_MS,
+            )
+            self.hot_potato_transfer_until = ticks_add(
+                now,
+                STAGE_INTRO_MS,
+            )
 
     def _choose_theme(self):
         theme = randint(0, len(THEME_NAMES) - 1)
@@ -370,6 +873,16 @@ class GameModel:
                 THEME_NAMES
             )
         return theme
+
+    def _emit(self, event):
+        """Record a bounded gameplay event for optional presentation layers."""
+        self.pending_events |= event
+
+    def take_events(self):
+        """Return and clear gameplay events accumulated since the last frame."""
+        events = self.pending_events
+        self.pending_events = 0
+        return events
 
     def bombs_available(self):
         """Return how many additional bombs the player may place."""
@@ -385,6 +898,18 @@ class GameModel:
                 return True
         return False
 
+    def _barrel_at(self, x, y):
+        for barrel in self.barrels:
+            if barrel[0] == x and barrel[1] == y:
+                return barrel
+        return None
+
+    def _mine_at(self, x, y):
+        for mine in self.mines:
+            if mine[0] == x and mine[1] == y:
+                return mine
+        return None
+
     def _enemy_at(self, x, y, ignored=None):
         for enemy in self.enemies:
             if enemy is not ignored and enemy[0] == x and enemy[1] == y:
@@ -395,20 +920,27 @@ class GameModel:
     def _draw_tile(value):
         return (value + POSITION_SCALE // 2) // POSITION_SCALE
 
-    def _enemy_touches_player(self):
+    def _enemy_touching_player(self):
         contact_distance = POSITION_SCALE * 3 // 5
         for enemy in self.enemies:
             if (
                 abs(enemy[6] - self.player_draw_x) <= contact_distance
                 and abs(enemy[7] - self.player_draw_y) <= contact_distance
             ):
-                return True
-        return False
+                return enemy
+        return None
+
+    def _enemy_touches_player(self):
+        return self._enemy_touching_player() is not None
 
     def _can_enter(self, x, y, block_enemies=False, ignored_enemy=None):
         if x < 0 or y < 0 or x >= GRID_WIDTH or y >= GRID_HEIGHT:
             return False
-        if self.grid[y][x] != TILE_EMPTY or self._has_bomb(x, y):
+        if (
+            self.grid[y][x] != TILE_EMPTY
+            or self._has_bomb(x, y)
+            or self._barrel_at(x, y) is not None
+        ):
             return False
         if block_enemies and self._enemy_at(x, y, ignored_enemy):
             return False
@@ -435,9 +967,112 @@ class GameModel:
         self.player_x = x
         self.player_y = y
         self.player_frame = (self.player_frame + 1) % 4
-        self._collect_powerup()
-        if self._enemy_touches_player():
+        self._collect_powerup(now)
+        self._collect_mode_objective(now)
+        self._teleport_player(now)
+        self._collect_powerup(now)
+        self._collect_mode_objective(now)
+        touching = self._enemy_touching_player()
+        if touching is not None and not self._hot_potato_contact(
+            touching,
+            now,
+        ):
             self._lose_life(now)
+        return True
+
+    def _collect_mode_objective(self, now):
+        if self.mode == MODE_TREASURE_HUNT:
+            for treasure in self.treasures:
+                if (
+                    treasure[0] == self.player_x
+                    and treasure[1] == self.player_y
+                ):
+                    self.treasures.remove(treasure)
+                    self.treasure_collected += 1
+                    self.score += 200
+                    self._emit(EVENT_TREASURE)
+                    return True
+            return False
+
+        if self.mode != MODE_BOMB_COURIER:
+            return False
+        if (
+            not self.courier_carrying
+            and self.player_x == self.courier_bomb_x
+            and self.player_y == self.courier_bomb_y
+        ):
+            self.courier_carrying = True
+            self.courier_bomb_x = -1
+            self.courier_bomb_y = -1
+            self.courier_fuse_until = ticks_add(now, COURIER_FUSE_MS)
+            self.score += 50
+            self._emit(EVENT_COURIER)
+            return True
+        if (
+            self.courier_carrying
+            and self.player_x == self.courier_exit_x
+            and self.player_y == self.courier_exit_y
+        ):
+            self.courier_carrying = False
+            self.courier_fuse_until = 0
+            self.score += 500
+            self.state = STATE_STAGE_CLEAR
+            self.state_until = ticks_add(now, STAGE_CLEAR_MS)
+            self._emit(EVENT_COURIER)
+            return True
+        return False
+
+    def _hot_potato_contact(self, enemy, now):
+        if self.mode != MODE_HOT_POTATO:
+            return False
+        if ticks_diff(now, self.hot_potato_transfer_until) < 0:
+            return True
+        if self.hot_potato_player:
+            self.hot_potato_player = False
+            self.hot_potato_enemy = enemy
+            self.hot_potato_transfer_until = ticks_add(
+                now,
+                HOT_POTATO_TRANSFER_MS,
+            )
+            self.score += 25
+            self._emit(EVENT_HOT_POTATO)
+            return True
+        if self.hot_potato_enemy is enemy:
+            self.hot_potato_player = True
+            self.hot_potato_enemy = None
+            self.hot_potato_transfer_until = ticks_add(
+                now,
+                HOT_POTATO_TRANSFER_MS,
+            )
+            self._emit(EVENT_HOT_POTATO)
+            return True
+        return False
+
+    def _teleport_player(self, now):
+        if (
+            len(self.teleporters) != 2
+            or ticks_diff(now, self.teleport_lock_until) < 0
+        ):
+            return False
+        source = -1
+        for index, pad in enumerate(self.teleporters):
+            if pad[0] == self.player_x and pad[1] == self.player_y:
+                source = index
+                break
+        if source < 0:
+            return False
+        target = self.teleporters[1 - source]
+        if self._has_bomb(target[0], target[1]) or self._enemy_at(
+            target[0],
+            target[1],
+        ):
+            return False
+        self.player_x = target[0]
+        self.player_y = target[1]
+        self.player_draw_x = target[0] * POSITION_SCALE
+        self.player_draw_y = target[1] * POSITION_SCALE
+        self.teleport_lock_until = ticks_add(now, TELEPORT_LOCK_MS)
+        self._emit(EVENT_TELEPORT)
         return True
 
     @staticmethod
@@ -454,6 +1089,10 @@ class GameModel:
         """Place a bomb on the player's current tile if capacity allows."""
         if (
             self.state != STATE_PLAYING
+            or (
+                self.mode == MODE_BOMB_COURIER
+                and self.courier_carrying
+            )
             or self.bombs_available() <= 0
             or self._has_bomb(self.player_x, self.player_y)
         ):
@@ -467,19 +1106,72 @@ class GameModel:
                 0,
             ]
         )
+        self._emit(EVENT_BOMB_PLACED)
         return True
 
-    def _collect_powerup(self):
+    def _collect_powerup(self, now=None):
+        if now is None:
+            now = self.animation_time
         for powerup in self.powerups:
             if powerup[0] == self.player_x and powerup[1] == self.player_y:
                 if powerup[2] == POWER_FLAME:
                     self.flame_range = min(6, self.flame_range + 1)
-                else:
+                elif powerup[2] == POWER_BOMB:
                     self.bomb_limit = min(5, self.bomb_limit + 1)
+                elif powerup[2] == POWER_LIFE:
+                    self.lives += 1
+                elif powerup[2] == POWER_MAGNET:
+                    self.magnet_until = ticks_add(now, MAGNET_MS)
+                    self.magnet_next = now
+                elif powerup[2] == POWER_FLAME_SUIT:
+                    self.flame_suit_until = ticks_add(now, FLAME_SUIT_MS)
+                elif powerup[2] == POWER_SPEED:
+                    self.speed_until = ticks_add(now, SPEED_MS)
+                elif powerup[2] == POWER_SHIELD:
+                    self.shield_hits = min(2, self.shield_hits + 1)
                 self.score += 25
+                self._emit(
+                    EVENT_EXTRA_LIFE
+                    if powerup[2] == POWER_LIFE
+                    else EVENT_PICKUP
+                )
                 self.powerups.remove(powerup)
                 return True
         return False
+
+    def _update_magnet(self, now):
+        if (
+            ticks_diff(self.magnet_until, now) <= 0
+            or ticks_diff(now, self.magnet_next) < 0
+        ):
+            return False
+        self.magnet_next = ticks_add(now, MAGNET_STEP_MS)
+        moved = False
+        for powerup in self.powerups:
+            dx = self.player_x - powerup[0]
+            dy = self.player_y - powerup[1]
+            if abs(dx) + abs(dy) > 4:
+                continue
+            step_x = 0
+            step_y = 0
+            if abs(dx) >= abs(dy) and dx:
+                step_x = 1 if dx > 0 else -1
+            elif dy:
+                step_y = 1 if dy > 0 else -1
+            next_x = powerup[0] + step_x
+            next_y = powerup[1] + step_y
+            if (
+                self.grid[next_y][next_x] != TILE_EMPTY
+                or self._has_bomb(next_x, next_y)
+                or self._barrel_at(next_x, next_y) is not None
+            ):
+                continue
+            powerup[0] = next_x
+            powerup[1] = next_y
+            moved = True
+        if self._collect_powerup(now):
+            moved = True
+        return moved
 
     def _add_explosion(self, x, y, expires, now, owner=0):
         self._scorch_decals_at(x, y, now)
@@ -496,9 +1188,31 @@ class GameModel:
         self.explosions.append([x, y, expires, owner])
 
     def _reveal_powerup(self, x, y):
+        hidden_treasure = self._treasure_hidden_at(x, y)
+        if hidden_treasure is not None:
+            self.treasure_hidden.remove(hidden_treasure)
+            self.treasures.append([x, y])
+            return
+        if x == self.life_powerup_x and y == self.life_powerup_y:
+            self.powerups.append([x, y, POWER_LIFE])
+            self.life_powerup_x = -1
+            self.life_powerup_y = -1
+            return
         if randint(0, 99) >= 24:
             return
-        kind = POWER_FLAME if randint(0, 1) == 0 else POWER_BOMB
+        roll = randint(0, 11)
+        if roll < 3:
+            kind = POWER_FLAME
+        elif roll < 6:
+            kind = POWER_BOMB
+        elif roll < 8:
+            kind = POWER_MAGNET
+        elif roll < 10:
+            kind = POWER_SPEED
+        elif roll == 10:
+            kind = POWER_FLAME_SUIT
+        else:
+            kind = POWER_SHIELD
         self.powerups.append([x, y, kind])
 
     @staticmethod
@@ -570,6 +1284,33 @@ class GameModel:
                 changed = True
         return changed
 
+    def _trigger_barrel(self, barrel, now, owner):
+        if barrel not in self.barrels:
+            return False
+        self.barrels.remove(barrel)
+        self.bombs.append([barrel[0], barrel[1], now, 3, owner, 1])
+        return True
+
+    def _trigger_mine(self, mine, now):
+        if mine not in self.mines:
+            return False
+        mine[3] = now
+        return True
+
+    def _react_background_creatures(self, x, y, now):
+        for creature in self.background_creatures:
+            dx = creature[0] - x
+            dy = creature[1] - y
+            if abs(dx) + abs(dy) > 4:
+                continue
+            creature[3] = ticks_add(now, 1100)
+            if abs(dx) >= abs(dy):
+                creature[4] = 1 if dx >= 0 else -1
+                creature[5] = 0
+            else:
+                creature[4] = 0
+                creature[5] = 1 if dy >= 0 else -1
+
     def _detonate(self, bomb, now):
         """Turn one bomb into blast tiles and arm bombs caught in the blast."""
         if bomb not in self.bombs:
@@ -577,6 +1318,15 @@ class GameModel:
         self.bombs.remove(bomb)
         expires = ticks_add(now, EXPLOSION_MS)
         owner = bomb[4] if len(bomb) >= 5 else 0
+        bomb_kind = bomb[5] if len(bomb) >= 6 else 0
+        if self.explosions or bomb_kind:
+            self._emit(EVENT_CHAIN_REACTION)
+            self.chain_strength = min(3, self.chain_strength + 1)
+            self.flash_until = ticks_add(now, 120 + self.chain_strength * 35)
+            self.shake_until = ticks_add(now, 150 + self.chain_strength * 55)
+        else:
+            self.chain_strength = 1
+            self._emit(EVENT_EXPLOSION)
         self._add_explosion(bomb[0], bomb[1], expires, now, owner)
         self._add_decal(
             bomb[0] * POSITION_SCALE,
@@ -602,8 +1352,18 @@ class GameModel:
                 if chained is not None:
                     chained[2] = now
 
+                barrel = self._barrel_at(x, y)
+                if barrel is not None:
+                    self._trigger_barrel(barrel, now, owner)
+                    break
+
+                mine = self._mine_at(x, y)
+                if mine is not None:
+                    self._trigger_mine(mine, now)
+
                 if tile == TILE_BRICK:
                     self.grid[y][x] = TILE_EMPTY
+                    self._emit(EVENT_BRICK_BROKEN)
                     if owner == 0:
                         self.score += 5
                     self._add_decal(
@@ -614,6 +1374,7 @@ class GameModel:
                     )
                     self._reveal_powerup(x, y)
                     break
+        self._react_background_creatures(bomb[0], bomb[1], now)
 
     def _is_flame(self, x, y):
         for flame in self.explosions:
@@ -637,15 +1398,38 @@ class GameModel:
                 killed.append(enemy)
         for enemy in killed:
             self.enemies.remove(enemy)
+            self._emit(EVENT_ENEMY_DOWN)
+            if enemy is self.hot_potato_enemy:
+                self.hot_potato_enemy = None
+                self.hot_potato_player = True
+                self.hot_potato_until = ticks_add(
+                    now,
+                    HOT_POTATO_FUSE_MS,
+                )
+                self.hot_potato_transfer_until = ticks_add(
+                    now,
+                    HOT_POTATO_TRANSFER_MS,
+                )
             if enemy[8]:
                 death_kind = DEATH_ENEMY_ELITE
                 decal_kind = DECAL_ELITE
-            elif enemy[3] == ENEMY_BOMBER:
+            elif enemy[3] in (ENEMY_BOMBER, ENEMY_KAMIKAZE):
                 death_kind = DEATH_ENEMY_BOMBER
                 decal_kind = DECAL_BOMBER
+            elif enemy[3] == ENEMY_TURRET:
+                death_kind = DEATH_ENEMY_CHASER
+                decal_kind = DECAL_CHASER
             else:
-                death_kind = DEATH_ENEMY_BLOB + enemy[3]
-                decal_kind = DECAL_BLOB + enemy[3]
+                death_kind = (
+                    DEATH_ENEMY_BLOB
+                    if enemy[3] in (ENEMY_BLOB, ENEMY_SLIME, ENEMY_SMALL_SLIME)
+                    else DEATH_ENEMY_CHASER
+                )
+                decal_kind = (
+                    DECAL_BLOB
+                    if enemy[3] in (ENEMY_BLOB, ENEMY_SLIME, ENEMY_SMALL_SLIME)
+                    else DECAL_CHASER
+                )
             self._add_death_effect(
                 enemy[6],
                 enemy[7],
@@ -659,11 +1443,46 @@ class GameModel:
                 now,
             )
             self.score += 250 if enemy[8] else 100
+            if enemy[3] == ENEMY_SLIME:
+                self._emit(EVENT_SLIME_SPLIT)
+                self._split_slime(enemy, now)
+            elif enemy[3] == ENEMY_KAMIKAZE:
+                carried_bomb = [
+                    enemy[0],
+                    enemy[1],
+                    now,
+                    2,
+                    1,
+                    1,
+                ]
+                self.bombs.append(carried_bomb)
+                self._detonate(carried_bomb, now)
 
         player_x = self._draw_tile(self.player_draw_x)
         player_y = self._draw_tile(self.player_draw_y)
         if self._is_flame(player_x, player_y):
-            self._lose_life(now)
+            self._lose_life(now, True)
+
+    def _split_slime(self, enemy, now):
+        spawned = 0
+        for dx, dy in DIRECTIONS:
+            x = enemy[0] + dx
+            y = enemy[1] + dy
+            if not self._can_enter(x, y, True):
+                continue
+            child = self._make_enemy(
+                x,
+                y,
+                now,
+                ENEMY_SMALL_SLIME,
+                0,
+                180 + spawned * 80,
+            )
+            child[10] = -110
+            self.enemies.append(child)
+            spawned += 1
+            if spawned >= 2:
+                break
 
     def _add_death_effect(self, draw_x, draw_y, kind, now):
         self.death_effects.append(
@@ -684,12 +1503,37 @@ class GameModel:
                 changed = True
         return changed
 
-    def _lose_life(self, now):
+    def _drop_courier_bomb(self):
+        if not self.courier_carrying:
+            return False
+        self.courier_carrying = False
+        self.courier_bomb_x = self.player_x
+        self.courier_bomb_y = self.player_y
+        self.courier_fuse_until = 0
+        return True
+
+    def _lose_life(self, now, flame_damage=False):
         if (
             self.state != STATE_PLAYING
             or ticks_diff(now, self.invulnerable_until) < 0
         ):
             return False
+
+        if flame_damage and ticks_diff(self.flame_suit_until, now) > 0:
+            return False
+        if self.shield_hits > 0:
+            self.shield_hits -= 1
+            self._emit(EVENT_SHIELD_BLOCK)
+            self.shield_flash_until = ticks_add(now, SHIELD_INVULNERABLE_MS)
+            self.invulnerable_until = self.shield_flash_until
+            return True
+
+        if self.mode == MODE_BOMB_COURIER:
+            self._drop_courier_bomb()
+        if self.mode == MODE_HOT_POTATO and self.hot_potato_player:
+            self.hot_potato_player = False
+            self.hot_potato_enemy = None
+            self.hot_potato_until = 0
 
         self._add_death_effect(
             self.player_draw_x,
@@ -698,6 +1542,7 @@ class GameModel:
             now,
         )
         self.lives -= 1
+        self._emit(EVENT_PLAYER_HIT)
         self.bombs = []
         self.state = STATE_PLAYER_DYING
         self.state_until = ticks_add(now, DEATH_ANIMATION_MS)
@@ -719,6 +1564,18 @@ class GameModel:
         for x, y in SAFE_TILES:
             self.grid[y][x] = TILE_EMPTY
         self.invulnerable_until = ticks_add(now, PLAYER_INVULNERABLE_MS)
+
+        if (
+            self.mode == MODE_HOT_POTATO
+            and not self.hot_potato_player
+            and self.hot_potato_enemy is None
+        ):
+            self.hot_potato_player = True
+            self.hot_potato_until = ticks_add(now, HOT_POTATO_FUSE_MS)
+            self.hot_potato_transfer_until = ticks_add(
+                now,
+                HOT_POTATO_TRANSFER_MS,
+            )
 
         # Keep surviving enemies out of the respawn pocket.
         for enemy in self.enemies:
@@ -755,7 +1612,18 @@ class GameModel:
         return False
 
     def _tile_is_dangerous(self, x, y):
-        return self._is_flame(x, y) or self._tile_in_bomb_danger(x, y)
+        if self._is_flame(x, y) or self._tile_in_bomb_danger(x, y):
+            return True
+        for trap in self.spike_traps:
+            if trap[0] == x and trap[1] == y and self._spike_active(
+                trap,
+                self.animation_time,
+            ):
+                return True
+        for mine in self.mines:
+            if mine[0] == x and mine[1] == y:
+                return True
+        return False
 
     def _enemy_escape_step(self, enemy, max_steps=0):
         """Find a safe first step using a compact reusable breadth-first search."""
@@ -831,9 +1699,16 @@ class GameModel:
 
     def _demo_bomb_plan(self, now):
         """Return a safe simulated player bomb, or None when escape is unclear."""
-        if self.bombs_available() <= 0 or self._has_bomb(
+        if (
+            (
+                self.mode == MODE_BOMB_COURIER
+                and self.courier_carrying
+            )
+            or self.bombs_available() <= 0
+            or self._has_bomb(
             self.player_x,
             self.player_y,
+            )
         ):
             return None
         planned_bomb = [
@@ -852,7 +1727,7 @@ class GameModel:
         return planned_bomb if escape is not None else None
 
     def _demo_should_bomb(self, planned_bomb):
-        """Prefer bombs that pressure an enemy or open a nearby brick."""
+        """Prefer bombs that pressure enemies or exploit arena assets."""
         for dx, dy in DIRECTIONS:
             x = self.player_x + dx
             y = self.player_y + dy
@@ -861,7 +1736,72 @@ class GameModel:
         for enemy in self.enemies:
             if self._bomb_reaches(planned_bomb, enemy[0], enemy[1]):
                 return True
+        for barrel in self.barrels:
+            if self._bomb_reaches(planned_bomb, barrel[0], barrel[1]):
+                return True
+        for mine in self.mines:
+            if self._bomb_reaches(planned_bomb, mine[0], mine[1]):
+                return True
         return randint(0, 99) < 12
+
+    def _demo_powerup_target(self):
+        """Choose a useful visible pickup without abandoning urgent goals."""
+        if (
+            (self.mode == MODE_BOMB_COURIER and self.courier_carrying)
+            or (self.mode == MODE_HOT_POTATO and self.hot_potato_player)
+        ):
+            return None
+
+        best = None
+        best_score = 999
+        for powerup in self.powerups:
+            kind = powerup[2]
+            distance = abs(powerup[0] - self.player_x) + abs(
+                powerup[1] - self.player_y
+            )
+            if kind == POWER_LIFE:
+                value = 0
+            elif kind == POWER_SHIELD and self.shield_hits == 0:
+                value = 1
+            elif kind == POWER_BOMB and self.bomb_limit < 4:
+                value = 2
+            elif kind == POWER_FLAME and self.flame_range < 5:
+                value = 2
+            elif kind in (POWER_MAGNET, POWER_FLAME_SUIT, POWER_SPEED):
+                value = 3
+            else:
+                value = 6
+            score = value * 12 + distance
+            if score < best_score:
+                best = powerup
+                best_score = score
+
+        if best is None:
+            return None
+        distance = abs(best[0] - self.player_x) + abs(
+            best[1] - self.player_y
+        )
+        if self.mode == MODE_TREASURE_HUNT and distance > 5:
+            return None
+        return best[0], best[1]
+
+    def _asset_route_distance(self, x, y, target_x, target_y):
+        """Score a route using either direct travel or a teleporter shortcut."""
+        best = abs(target_x - x) + abs(target_y - y)
+        if len(self.teleporters) != 2:
+            return best
+        for source_index in range(2):
+            source = self.teleporters[source_index]
+            destination = self.teleporters[1 - source_index]
+            via = (
+                abs(source[0] - x)
+                + abs(source[1] - y)
+                + abs(target_x - destination[0])
+                + abs(target_y - destination[1])
+            )
+            if via < best:
+                best = via
+        return best
 
     def update_demo(self, now):
         """Choose one fallible but danger-aware action for attract mode."""
@@ -901,7 +1841,51 @@ class GameModel:
             return False
 
         chosen = None
-        if self.enemies and randint(0, 99) < 78:
+        target_x = -1
+        target_y = -1
+        powerup_target = self._demo_powerup_target()
+        if powerup_target is not None:
+            target_x, target_y = powerup_target
+        elif self.mode == MODE_TREASURE_HUNT and self.treasures:
+            target_x = self.treasures[0][0]
+            target_y = self.treasures[0][1]
+        elif self.mode == MODE_BOMB_COURIER:
+            if self.courier_carrying:
+                target_x = self.courier_exit_x
+                target_y = self.courier_exit_y
+            else:
+                target_x = self.courier_bomb_x
+                target_y = self.courier_bomb_y
+        elif self.mode == MODE_HOT_POTATO and self.hot_potato_player:
+            if self.enemies:
+                target_x = self.enemies[0][0]
+                target_y = self.enemies[0][1]
+
+        if target_x >= 0:
+            best_distance = 999
+            for x, y, dx, dy in choices:
+                distance = self._asset_route_distance(
+                    x,
+                    y,
+                    target_x,
+                    target_y,
+                )
+                if distance < best_distance:
+                    chosen = (x, y, dx, dy)
+                    best_distance = distance
+        elif (
+            self.mode == MODE_HOT_POTATO
+            and self.hot_potato_enemy is not None
+        ):
+            best_distance = -1
+            for x, y, dx, dy in choices:
+                distance = abs(self.hot_potato_enemy[0] - x) + abs(
+                    self.hot_potato_enemy[1] - y
+                )
+                if distance > best_distance:
+                    chosen = (x, y, dx, dy)
+                    best_distance = distance
+        elif self.enemies and randint(0, 99) < 78:
             best_distance = 999
             for x, y, dx, dy in choices:
                 distance = 999
@@ -926,7 +1910,45 @@ class GameModel:
             return 1000 + nearest
         return nearest
 
+    def _teleport_enemy(self, enemy, now):
+        """Let mobile enemies intentionally use an unoccupied teleporter."""
+        if len(self.teleporters) != 2:
+            return False
+        if len(enemy) < 14:
+            enemy.append(0)
+        if ticks_diff(now, enemy[13]) < 0:
+            return False
+
+        source = -1
+        for index, pad in enumerate(self.teleporters):
+            if enemy[0] == pad[0] and enemy[1] == pad[1]:
+                source = index
+                break
+        if source < 0:
+            return False
+
+        target = self.teleporters[1 - source]
+        if (
+            self._has_bomb(target[0], target[1])
+            or self._enemy_at(target[0], target[1], enemy)
+            or (
+                self.player_x == target[0]
+                and self.player_y == target[1]
+            )
+        ):
+            return False
+        enemy[0] = target[0]
+        enemy[1] = target[1]
+        enemy[6] = target[0] * POSITION_SCALE
+        enemy[7] = target[1] * POSITION_SCALE
+        enemy[13] = ticks_add(now, TELEPORT_LOCK_MS)
+        self._emit(EVENT_TELEPORT)
+        return True
+
     def _move_enemy(self, enemy, now):
+        if enemy[3] == ENEMY_TURRET:
+            enemy[2] = ticks_add(now, 500)
+            return
         candidates = []
         for dx, dy in DIRECTIONS:
             x = enemy[0] + dx
@@ -951,7 +1973,7 @@ class GameModel:
                             chosen = (x, y, dx, dy)
                             best_score = score
             elif (
-                enemy[3] in (ENEMY_CHASER, ENEMY_BOMBER)
+                enemy[3] in (ENEMY_CHASER, ENEMY_BOMBER, ENEMY_KAMIKAZE)
                 or randint(0, 99) < 55
             ):
                 best_distance = 999
@@ -961,7 +1983,12 @@ class GameModel:
                         and self._tile_is_dangerous(x, y)
                     ):
                         continue
-                    distance = abs(self.player_x - x) + abs(self.player_y - y)
+                    distance = self._asset_route_distance(
+                        x,
+                        y,
+                        self.player_x,
+                        self.player_y,
+                    )
                     if distance < best_distance:
                         chosen = (x, y, dx, dy)
                         best_distance = distance
@@ -970,6 +1997,7 @@ class GameModel:
             enemy[0], enemy[1] = chosen[0], chosen[1]
             enemy[4] = (enemy[4] + 1) % 4
             enemy[5] = self._facing_for_direction(chosen[2], chosen[3])
+            self._teleport_enemy(enemy, now)
 
         pace = enemy[10] if len(enemy) >= 11 else 0
         interval = max(190, 520 - self.stage * 24 + pace)
@@ -1003,6 +2031,7 @@ class GameModel:
         distance = abs(self.player_x - enemy[0]) + abs(self.player_y - enemy[1])
         flame_range = min(4, 2 + self.stage // 4)
         can_escape = False
+        asset_pressure = False
         if not self._tile_is_dangerous(enemy[0], enemy[1]):
             planned_bomb = [
                 enemy[0],
@@ -1019,6 +2048,23 @@ class GameModel:
                 )
                 is not None
             )
+            for barrel in self.barrels:
+                if self._bomb_reaches(
+                    planned_bomb,
+                    barrel[0],
+                    barrel[1],
+                ):
+                    asset_pressure = True
+                    break
+            if not asset_pressure:
+                for mine in self.mines:
+                    if self._bomb_reaches(
+                        planned_bomb,
+                        mine[0],
+                        mine[1],
+                    ):
+                        asset_pressure = True
+                        break
             self.bombs.pop()
 
         placed = False
@@ -1026,7 +2072,11 @@ class GameModel:
             enemy_bombs < enemy_limit
             and not self._has_bomb(enemy[0], enemy[1])
             and can_escape
-            and (distance <= 6 or randint(0, 99) < 35)
+            and (
+                distance <= 6
+                or asset_pressure
+                or randint(0, 99) < 35
+            )
         ):
             self.bombs.append(
                 [
@@ -1043,6 +2093,204 @@ class GameModel:
         return placed
 
     @staticmethod
+    def _direction_for_facing(facing):
+        if facing == 1:
+            return -1, 0
+        if facing == 2:
+            return 1, 0
+        if facing == 3:
+            return 0, -1
+        return 0, 1
+
+    def _aim_enemy_at_player(self, enemy):
+        dx = self.player_x - enemy[0]
+        dy = self.player_y - enemy[1]
+        if abs(dx) >= abs(dy):
+            step_x = 1 if dx >= 0 else -1
+            step_y = 0
+        else:
+            step_x = 0
+            step_y = 1 if dy >= 0 else -1
+        enemy[5] = self._facing_for_direction(step_x, step_y)
+        return step_x, step_y
+
+    def _spawn_projectile(self, x, y, dx, dy, now, kind):
+        self.projectiles.append(
+            [x, y, dx, dy, ticks_add(now, PROJECTILE_STEP_MS), kind]
+        )
+
+    def _update_enemy_specials(self, now):
+        changed = False
+        for enemy in self.enemies[:]:
+            kind = enemy[3]
+            if kind not in (ENEMY_KAMIKAZE, ENEMY_TURRET):
+                continue
+            warning_until = enemy[11]
+            if warning_until:
+                if ticks_diff(now, warning_until) < 0:
+                    continue
+                enemy[11] = 0
+                if kind == ENEMY_KAMIKAZE:
+                    if enemy not in self.enemies:
+                        continue
+                    self.enemies.remove(enemy)
+                    self._add_death_effect(
+                        enemy[6],
+                        enemy[7],
+                        DEATH_ENEMY_BOMBER,
+                        now,
+                    )
+                    carried_bomb = [
+                        enemy[0],
+                        enemy[1],
+                        now,
+                        3 if enemy[8] else 2,
+                        1,
+                        1,
+                    ]
+                    self.bombs.append(carried_bomb)
+                    self._detonate(carried_bomb, now)
+                else:
+                    dx, dy = self._direction_for_facing(enemy[5])
+                    self._spawn_projectile(
+                        enemy[0], enemy[1], dx, dy, now, 0
+                    )
+                    enemy[12] = ticks_add(now, randint(2100, 3000))
+                changed = True
+                continue
+
+            if ticks_diff(now, enemy[12]) < 0:
+                continue
+            distance = abs(self.player_x - enemy[0]) + abs(
+                self.player_y - enemy[1]
+            )
+            if kind == ENEMY_KAMIKAZE and distance > 3:
+                enemy[12] = ticks_add(now, 400)
+                continue
+            self._aim_enemy_at_player(enemy)
+            enemy[11] = ticks_add(now, SPECIAL_WARNING_MS)
+            self._emit(EVENT_WARNING)
+            changed = True
+        return changed
+
+    @staticmethod
+    def _spike_active(trap, now):
+        phase = (now + trap[2]) % SPIKE_CYCLE_MS
+        return phase >= SPIKE_CYCLE_MS - SPIKE_ACTIVE_MS
+
+    def _fire_emitter(self, emitter, now):
+        dx, dy = DIRECTIONS[emitter[2]]
+        expires = ticks_add(now, EXPLOSION_MS + 180)
+        for distance in range(1, 5):
+            x = emitter[0] + dx * distance
+            y = emitter[1] + dy * distance
+            if x < 0 or y < 0 or x >= GRID_WIDTH or y >= GRID_HEIGHT:
+                break
+            if self.grid[y][x] == TILE_SOLID:
+                break
+            self._add_explosion(x, y, expires, now, 3)
+            barrel = self._barrel_at(x, y)
+            if barrel is not None:
+                self._trigger_barrel(barrel, now, 3)
+                break
+            mine = self._mine_at(x, y)
+            if mine is not None:
+                self._trigger_mine(mine, now)
+            if self.grid[y][x] == TILE_BRICK:
+                break
+        self._react_background_creatures(emitter[0], emitter[1], now)
+
+    def _update_projectiles(self, now):
+        changed = False
+        for projectile in self.projectiles[:]:
+            if ticks_diff(now, projectile[4]) < 0:
+                continue
+            x = projectile[0] + projectile[2]
+            y = projectile[1] + projectile[3]
+            if (
+                x < 0
+                or y < 0
+                or x >= GRID_WIDTH
+                or y >= GRID_HEIGHT
+                or self.grid[y][x] != TILE_EMPTY
+            ):
+                self.projectiles.remove(projectile)
+                changed = True
+                continue
+            projectile[0] = x
+            projectile[1] = y
+            projectile[4] = ticks_add(now, PROJECTILE_STEP_MS)
+            barrel = self._barrel_at(x, y)
+            mine = self._mine_at(x, y)
+            if barrel is not None:
+                self._trigger_barrel(barrel, now, 3)
+                self.projectiles.remove(projectile)
+            elif mine is not None:
+                self._trigger_mine(mine, now)
+                self.projectiles.remove(projectile)
+            elif x == self.player_x and y == self.player_y:
+                self._lose_life(now)
+                self.projectiles.remove(projectile)
+            changed = True
+        return changed
+
+    def _update_hazards(self, now):
+        changed = False
+        for trap in self.spike_traps:
+            if (
+                trap[0] == self.player_x
+                and trap[1] == self.player_y
+                and self._spike_active(trap, now)
+            ):
+                if self._lose_life(now):
+                    changed = True
+
+        for mine in self.mines[:]:
+            if ticks_diff(now, mine[3]) < 0:
+                continue
+            self.mines.remove(mine)
+            mine_bomb = [mine[0], mine[1], now, 2, 3, 2]
+            self.bombs.append(mine_bomb)
+            self._detonate(mine_bomb, now)
+            changed = True
+
+        for emitter in self.flame_emitters:
+            if emitter[4]:
+                if ticks_diff(now, emitter[4]) >= 0:
+                    self._fire_emitter(emitter, now)
+                    emitter[2] = (emitter[2] + 1) % len(DIRECTIONS)
+                    emitter[3] = ticks_add(now, 2400)
+                    emitter[4] = 0
+                    changed = True
+            elif ticks_diff(now, emitter[3]) >= 0:
+                emitter[4] = ticks_add(now, 550)
+                self._emit(EVENT_WARNING)
+                changed = True
+
+        for cannon in self.cannons:
+            if cannon[5]:
+                if ticks_diff(now, cannon[5]) >= 0:
+                    self._spawn_projectile(
+                        cannon[0],
+                        cannon[1],
+                        cannon[2],
+                        cannon[3],
+                        now,
+                        1,
+                    )
+                    cannon[4] = ticks_add(now, 2800)
+                    cannon[5] = 0
+                    changed = True
+            elif ticks_diff(now, cannon[4]) >= 0:
+                cannon[5] = ticks_add(now, 650)
+                self._emit(EVENT_WARNING)
+                changed = True
+
+        if self._update_projectiles(now):
+            changed = True
+        return changed
+
+    @staticmethod
     def _approach(value, target, step):
         if value < target:
             return min(target, value + step)
@@ -1056,15 +2304,20 @@ class GameModel:
         if delta <= 0:
             return False
         delta = min(delta, ENEMY_MOVE_ANIMATION_MS)
-        player_delta = min(delta, PLAYER_MOVE_ANIMATION_MS)
+        speed_active = ticks_diff(self.speed_until, now) > 0
+        if self.mode == MODE_BOMB_COURIER and self.courier_carrying:
+            player_move_ms = 135 if speed_active else 215
+        else:
+            player_move_ms = 90 if speed_active else PLAYER_MOVE_ANIMATION_MS
+        player_delta = min(delta, player_move_ms)
         player_step = max(
             1,
             (
                 POSITION_SCALE * player_delta
-                + PLAYER_MOVE_ANIMATION_MS
+                + player_move_ms
                 - 1
             )
-            // PLAYER_MOVE_ANIMATION_MS,
+            // player_move_ms,
         )
         enemy_step = max(
             1,
@@ -1099,7 +2352,84 @@ class GameModel:
             if ticks_diff(now, flame[2]) >= 0:
                 self.explosions.remove(flame)
                 changed = True
+        if not self.explosions:
+            self.chain_strength = 0
         return changed
+
+    def _update_mode_objective(self, now):
+        if self.mode == MODE_TREASURE_HUNT:
+            if (
+                self.treasure_target > 0
+                and self.treasure_collected >= self.treasure_target
+            ):
+                self.score += 300
+                self.state = STATE_STAGE_CLEAR
+                self.state_until = ticks_add(now, STAGE_CLEAR_MS)
+                return True
+            if ticks_diff(now, self.objective_until) >= 0:
+                self.objective_until = ticks_add(now, 30000)
+                self._lose_life(now)
+                return True
+            return False
+
+        if self.mode == MODE_BOMB_COURIER:
+            if (
+                self.courier_carrying
+                and ticks_diff(now, self.courier_fuse_until) >= 0
+            ):
+                x = self.player_x
+                y = self.player_y
+                self._drop_courier_bomb()
+                unstable_bomb = [x, y, now, 3, 0, 1]
+                self.bombs.append(unstable_bomb)
+                self._detonate(unstable_bomb, now)
+                return True
+            return False
+
+        if self.mode != MODE_HOT_POTATO:
+            return False
+        if (
+            self.hot_potato_enemy is not None
+            and self.hot_potato_enemy not in self.enemies
+        ):
+            self.hot_potato_enemy = None
+            self.hot_potato_player = True
+            self.hot_potato_until = ticks_add(now, HOT_POTATO_FUSE_MS)
+            return True
+        if ticks_diff(now, self.hot_potato_until) < 0:
+            return False
+
+        if self.hot_potato_player:
+            x = self.player_x
+            y = self.player_y
+        elif self.hot_potato_enemy is not None:
+            holder = self.hot_potato_enemy
+            x = holder[0]
+            y = holder[1]
+            if holder in self.enemies:
+                self.enemies.remove(holder)
+                self._add_death_effect(
+                    holder[6],
+                    holder[7],
+                    DEATH_ENEMY_BOMBER,
+                    now,
+                )
+                self.score += 200
+        else:
+            x = self.player_x
+            y = self.player_y
+
+        self.hot_potato_enemy = None
+        self.hot_potato_player = True
+        self.hot_potato_until = ticks_add(now, HOT_POTATO_FUSE_MS)
+        self.hot_potato_transfer_until = ticks_add(
+            now,
+            HOT_POTATO_TRANSFER_MS,
+        )
+        potato_bomb = [x, y, now, 2, 3, 1]
+        self.bombs.append(potato_bomb)
+        self._detonate(potato_bomb, now)
+        return True
 
     def update(self, now):
         """Advance timers, bombs, enemies, damage, and stage transitions."""
@@ -1143,6 +2473,14 @@ class GameModel:
         if self._cleanup_explosions(now):
             changed = True
 
+        if self._update_magnet(now):
+            changed = True
+
+        if self._update_mode_objective(now):
+            changed = True
+        if self.state != STATE_PLAYING:
+            return True
+
         while True:
             due = None
             for bomb in self.bombs:
@@ -1153,6 +2491,13 @@ class GameModel:
                 break
             self._detonate(due, now)
             changed = True
+
+        if self._update_enemy_specials(now):
+            changed = True
+        if self._update_hazards(now):
+            changed = True
+        if self.state != STATE_PLAYING:
+            return True
 
         if self.explosions:
             previous_lives = self.lives
@@ -1170,13 +2515,21 @@ class GameModel:
             if self._enemy_try_bomb(enemy, now):
                 changed = True
 
-        if self._enemy_touches_player():
-            if self._lose_life(now):
+        touching = self._enemy_touching_player()
+        if touching is not None:
+            if self._hot_potato_contact(touching, now):
+                changed = True
+            elif self._lose_life(now):
                 changed = True
             if self.state != STATE_PLAYING:
                 return True
 
-        if not self.enemies and not self.death_effects:
+        enemies_cleared = not self.enemies and not self.death_effects
+        if (
+            enemies_cleared
+            and self.mode
+            not in (MODE_TREASURE_HUNT, MODE_BOMB_COURIER)
+        ):
             self.state = STATE_STAGE_CLEAR
             self.state_until = ticks_add(now, STAGE_CLEAR_MS)
             changed = True

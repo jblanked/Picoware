@@ -4,6 +4,7 @@
 # Copyright (c) 2026 JBlanked <jblanked@jblanked.com> (IMAP4 and async wrapper)
 # License: GPLv3
 from micropython import const
+from picoware.system.decorator import storage_required, wifi_required
 import socket
 from ssl import wrap_socket as ssl_wrap_socket
 import _thread
@@ -18,6 +19,69 @@ CMD_AUTH = "AUTH"
 CMD_MAIL = "MAIL"
 AUTH_PLAIN = "PLAIN"
 AUTH_LOGIN = "LOGIN"
+
+IMAP_DEFAULT_TIMEOUT = const(30)  # sec
+MAX_BODY_LENGTH = const(48 * 1024)  # cap stored body bytes
+
+# view constants
+VIEW_MAIN_MENU = const(0)  # Main menu view
+VIEW_SENDING_MESSAGE = const(1)  # Sending message view
+VIEW_KEYBOARD_RECIPIENT = const(2)  # viewing the keyboard to enter recipient email
+VIEW_KEYBOARD_EMAIL = const(3)  # viewing the keyboard to enter email
+VIEW_KEYBOARD_PASSWORD = const(4)  # viewing the keyboard to enter password
+VIEW_KEYBOARD_NAME = const(5)  # viewing the keyboard to enter name
+VIEW_KEYBOARD_SUBJECT = const(6)  # viewing the keyboard to enter subject
+VIEW_EMAIL_LIST = const(7)  # viewing the list of unread emails
+VIEW_EMAIL_VIEW = const(8)  # viewing a single email body
+
+# menu constatnts
+MENU_ITEM_SEND_MESSAGE = const(0)  # Menu item to send a message
+MENU_ITEM_READ_EMAILS = const(1)  # Menu item to read emails
+MENU_ITEM_SET_EMAIL = const(2)  # Menu item to set email
+MENU_ITEM_SET_PASSWORD = const(3)  # Menu item to set password
+MENU_ITEM_SET_NAME = const(4)  # Menu item to set sender name
+
+# sending constants
+SENDING_WAITING = const(-1)  # Waiting to send
+SENDING_KEYBOARD = const(0)  # Keyboard for message input
+SENDING_SENDING = const(1)  # Sending the message
+
+# email reading constants
+EMAIL_LIST_FETCHING = const(0)  # Fetching the unread email list
+EMAIL_LIST_READY = const(1)  # Email list is ready
+EMAIL_VIEW_FETCHING = const(0)  # Fetching an email body
+EMAIL_VIEW_READY = const(1)  # Email body is ready
+
+# bot token/chat ID constants
+KEYBOARD_WAITING = const(-1)  # Waiting for keyboard input
+KEYBOARD_ENTERING = const(0)  # Entering via keyboard
+
+# globals
+current_view = VIEW_MAIN_MENU
+menu_index = MENU_ITEM_SEND_MESSAGE
+sending_index = SENDING_WAITING
+keyboard_index = KEYBOARD_WAITING
+
+_menu = None
+_loading = None
+smtp = None
+_imap = None
+_message_to_send = ""
+
+# email reading globals
+_email_list = None
+_email_textbox = None
+_unread_emails = []
+_current_email = None
+_email_list_state = EMAIL_LIST_FETCHING
+_email_view_state = EMAIL_VIEW_FETCHING
+
+# Email details
+sender_email = ""
+sender_app_password = ""
+sender_name = "Picoware"
+recipient_email = "REPLACE_WITH_THE_RECIPIENT_EMAIL"
+email_subject = "Hello from RPi Pico W"
 
 
 class SMTP:
@@ -173,11 +237,6 @@ class SMTPAsync:
 
         if self._thread is None:
             self._thread = _thread.start_new_thread(send_thread, ())
-
-
-IMAP_DEFAULT_TIMEOUT = const(30)  # sec
-MAX_BODY_LENGTH = const(48 * 1024)  # cap stored body bytes
-
 
 class IMAP4:
     """A minimal IMAP4 client for MicroPython."""
@@ -758,68 +817,6 @@ class IMAPAsync:
 
         return self._start(task)
 
-
-# view constants
-VIEW_MAIN_MENU = const(0)  # Main menu view
-VIEW_SENDING_MESSAGE = const(1)  # Sending message view
-VIEW_KEYBOARD_RECIPIENT = const(2)  # viewing the keyboard to enter recipient email
-VIEW_KEYBOARD_EMAIL = const(3)  # viewing the keyboard to enter email
-VIEW_KEYBOARD_PASSWORD = const(4)  # viewing the keyboard to enter password
-VIEW_KEYBOARD_NAME = const(5)  # viewing the keyboard to enter name
-VIEW_KEYBOARD_SUBJECT = const(6)  # viewing the keyboard to enter subject
-VIEW_EMAIL_LIST = const(7)  # viewing the list of unread emails
-VIEW_EMAIL_VIEW = const(8)  # viewing a single email body
-
-# menu constatnts
-MENU_ITEM_SEND_MESSAGE = const(0)  # Menu item to send a message
-MENU_ITEM_READ_EMAILS = const(1)  # Menu item to read emails
-MENU_ITEM_SET_EMAIL = const(2)  # Menu item to set email
-MENU_ITEM_SET_PASSWORD = const(3)  # Menu item to set password
-MENU_ITEM_SET_NAME = const(4)  # Menu item to set sender name
-
-# sending constants
-SENDING_WAITING = const(-1)  # Waiting to send
-SENDING_KEYBOARD = const(0)  # Keyboard for message input
-SENDING_SENDING = const(1)  # Sending the message
-
-# email reading constants
-EMAIL_LIST_FETCHING = const(0)  # Fetching the unread email list
-EMAIL_LIST_READY = const(1)  # Email list is ready
-EMAIL_VIEW_FETCHING = const(0)  # Fetching an email body
-EMAIL_VIEW_READY = const(1)  # Email body is ready
-
-# bot token/chat ID constants
-KEYBOARD_WAITING = const(-1)  # Waiting for keyboard input
-KEYBOARD_ENTERING = const(0)  # Entering via keyboard
-
-# globals
-current_view = VIEW_MAIN_MENU
-menu_index = MENU_ITEM_SEND_MESSAGE
-sending_index = SENDING_WAITING
-keyboard_index = KEYBOARD_WAITING
-
-_menu = None
-_loading = None
-smtp = None
-_imap = None
-_message_to_send = ""
-
-# email reading globals
-_email_list = None
-_email_textbox = None
-_unread_emails = []
-_current_email = None
-_email_list_state = EMAIL_LIST_FETCHING
-_email_view_state = EMAIL_VIEW_FETCHING
-
-# Email details
-sender_email = ""
-sender_app_password = ""
-sender_name = "Picoware"
-recipient_email = "REPLACE_WITH_THE_RECIPIENT_EMAIL"
-email_subject = "Hello from RPi Pico W"
-
-
 def __await_send(view_manager) -> None:
     """Thread function to wait for email sending to complete"""
     global sending_index, current_view
@@ -1099,15 +1096,16 @@ def _reset_email_list() -> None:
 
 def _build_email_list(view_manager) -> None:
     """Build the List widget from the fetched unread emails."""
-    from picoware.gui.list import List
+    from picoware.gui.menu import Menu
 
     global _email_list
     draw = view_manager.draw
     bg = view_manager.background_color
     fg = view_manager.foreground_color
 
-    _email_list = List(
+    _email_list = Menu(
         draw,
+        "Unread Emails",
         0,
         draw.size.y,
         fg,
@@ -1284,31 +1282,10 @@ def _mark_seen_and_refresh(view_manager) -> None:
         sender_email, sender_app_password, _current_email["uid"]
     )
 
-
+@storage_required
+@wifi_required
 def start(view_manager) -> bool:
     """Start the app"""
-    if not view_manager.has_sd_card:
-        view_manager.alert(
-            "Email app requires an SD card.",
-            False,
-        )
-        return False
-
-    if not view_manager.has_wifi:
-        view_manager.alert(
-            "Email app requires WiFi.",
-            False,
-        )
-        return False
-
-    if not view_manager.wifi.is_connected:
-        from picoware.applications.wifi.utils import connect_to_saved_wifi
-
-        view_manager.alert("WiFi not connected...", False)
-
-        connect_to_saved_wifi(view_manager)
-
-        return False
 
     # create email folder if it doesn't exist
     view_manager.storage.mkdir("picoware/email")
@@ -1428,8 +1405,11 @@ def stop(view_manager) -> None:
 
     global smtp, _menu, _loading, _imap
     global _email_list, _email_textbox, _unread_emails, _current_email
-    del smtp
-    smtp = None
+    if smtp is not None:
+        smtp.close()
+        del smtp
+        smtp = None
+
     del _menu
     _menu = None
     del _loading
@@ -1437,7 +1417,8 @@ def stop(view_manager) -> None:
 
     if _imap is not None:
         _imap.close()
-    _imap = None
+        del _imap
+        _imap = None
     _email_list = None
     _email_textbox = None
     _unread_emails = []

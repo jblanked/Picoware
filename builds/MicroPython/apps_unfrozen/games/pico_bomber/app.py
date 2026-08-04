@@ -249,6 +249,7 @@ def _finish_start(view_manager):
     _sound = SoundController(view_manager.audio, view_manager.storage)
     _game.music_selection = _sound.selection
     _game.music_name = _sound.track_name
+    _game.audio_files_missing = not _sound.assets_complete
     _write_start_marker(view_manager, "sound")
     _game.leaderboard = _leaderboard.entries
     _score_saved = False

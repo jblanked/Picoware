@@ -233,6 +233,7 @@ class GameModel:
         self.demo_mode = False
         self.demo_next_action = 0
         self.demo_countdown = 30
+        self.audio_files_missing = True
         self.pending_events = 0
         # Demo and bomber AI run this search many times per minute. Reusing a
         # packed queue and visit map avoids steadily churning hundreds of

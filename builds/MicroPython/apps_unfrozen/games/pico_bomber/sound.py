@@ -62,6 +62,14 @@ EFFECTS = (
     (EVENT_BOMB_PLACED, "bomb_place.wav"),
 )
 
+REQUIRED_AUDIO_FILES = (
+    MUSIC_MENU,
+    "stage_clear.wav",
+    "game_over.wav",
+) + tuple(track[1] for track in MUSIC_TRACKS) + tuple(
+    effect[1] for effect in EFFECTS
+)
+
 
 class SoundController:
     """Own music state and translate model events into bounded WAV playback."""
@@ -69,7 +77,8 @@ class SoundController:
     def __init__(self, audio, storage=None):
         self.audio = audio
         self.storage = storage
-        self.enabled = audio is not None
+        self.assets_complete = self._assets_complete()
+        self.enabled = audio is not None and self.assets_complete
         self.music_name = ""
         self.music_until = 0
         self.last_state = -1
@@ -77,13 +86,20 @@ class SoundController:
         self.last_effect_at = 0
         self.selection = 0
         self.previewing = False
-        if self.enabled and storage is not None:
-            try:
-                self.enabled = storage.exists(STORAGE_ROOT + MUSIC_MENU)
-            except Exception:
-                self.enabled = False
         if self.enabled:
             self.selection = self._load_selection()
+
+    def _assets_complete(self):
+        """Return whether the complete optional audio pack is on the SD card."""
+        if self.storage is None:
+            return False
+        try:
+            for name in REQUIRED_AUDIO_FILES:
+                if not self.storage.exists(STORAGE_ROOT + name):
+                    return False
+        except Exception:
+            return False
+        return True
 
     def _load_selection(self):
         if self.storage is None:

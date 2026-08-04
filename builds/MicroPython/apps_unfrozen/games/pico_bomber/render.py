@@ -246,7 +246,11 @@ class Renderer:
         title_y = 10 if self.height >= 160 else 4
         self._center_text("CHOOSE MODE", title_y, TFT_YELLOW, 2)
         self._center_text(
-            "UP/DOWN MODE  LEFT/RIGHT MUSIC",
+            (
+                "UP/DOWN MODE + CENTER"
+                if getattr(game, "audio_files_missing", False)
+                else "UP/DOWN MODE  LEFT/RIGHT MUSIC"
+            ),
             title_y + (26 if self.height >= 160 else 18),
             TFT_CYAN,
             0,
@@ -308,9 +312,17 @@ class Renderer:
         selected_description = descriptions[game.menu_selection]
         if compact:
             self._center_text(
-                selected_description,
+                (
+                    "AUDIO PACK MISSING"
+                    if getattr(game, "audio_files_missing", False)
+                    else selected_description
+                ),
                 self.height - 12,
-                TFT_WHITE,
+                (
+                    TFT_ORANGE
+                    if getattr(game, "audio_files_missing", False)
+                    else TFT_WHITE
+                ),
                 0,
             )
         else:
@@ -320,22 +332,36 @@ class Renderer:
                 TFT_WHITE,
                 0,
             )
-            self._center_text(
-                "<  MUSIC %d/5: %s  >"
-                % (
-                    getattr(game, "music_selection", 0) + 1,
-                    getattr(game, "music_name", "NEON FUSE"),
-                ),
-                self.height - 46,
-                TFT_CYAN,
-                0,
-            )
-            self._center_text(
-                "DEMO IN %02d" % game.demo_countdown,
-                self.height - 30,
-                TFT_MAGENTA,
-                0,
-            )
+            if getattr(game, "audio_files_missing", False):
+                self._center_text(
+                    "AUDIO PACK MISSING - DOWNLOAD MANUALLY",
+                    self.height - 46,
+                    TFT_ORANGE,
+                    0,
+                )
+                self._center_text(
+                    "COPY TO picoware/apps/games/pico_bomber/audio",
+                    self.height - 30,
+                    TFT_LIGHTGREY,
+                    0,
+                )
+            else:
+                self._center_text(
+                    "<  MUSIC %d/5: %s  >"
+                    % (
+                        getattr(game, "music_selection", 0) + 1,
+                        getattr(game, "music_name", "NEON FUSE"),
+                    ),
+                    self.height - 46,
+                    TFT_CYAN,
+                    0,
+                )
+                self._center_text(
+                    "DEMO IN %02d" % game.demo_countdown,
+                    self.height - 30,
+                    TFT_MAGENTA,
+                    0,
+                )
             self._center_text("BACK  EXIT", self.height - 16, TFT_LIGHTGREY, 0)
 
     def _draw_leaderboard(self, game):

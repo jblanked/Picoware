@@ -329,5 +329,8 @@ bash "$picoware_dir"/tools/micropython-pancake.sh
 echo "Starting Flipper Zero build process..."
 bash "$picoware_dir"/tools/micropython-flipper.sh
 
+echo "Starting Marauder v8 build process..."
+bash "$picoware_dir"/tools/micropython-v8.sh
+
 echo "---------------------------------------"
 echo "All MicroPython Picoware builds completed successfully!"

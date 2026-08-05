@@ -29,6 +29,7 @@ from picoware.system.buttons import (
     BUTTON_BACKSPACE,
     BUTTON_DELETE,
     BUTTON_SPACE,
+    BUTTON_TAB,
     BUTTON_ESCAPE,
     BUTTON_C,
     BUTTON_D,
@@ -168,7 +169,7 @@ class RPNStack:
         self.entering = False
         self.lift_on_entry = False
         self.error = ""
-        self.status = "X CLEARED - ESC AGAIN: ALL"
+        self.status = "X CLEARED - C/ESC AGAIN: ALL"
 
     def _dismiss_error(self):
         self.error = ""
@@ -397,7 +398,10 @@ help_visible = False
 help_page = 0
 variable_view_mode = None
 selected_variable = 0
+variable_confirm_action = None
+variable_confirm_index = -1
 escape_armed = False
+back_exit_armed = False
 flash_index = -1
 flash_until = 0
 storage = None
@@ -681,11 +685,11 @@ def _draw_variable_viewer(view_manager):
         status = status[:38]
     draw.text(Vector(7, height - 43), status, COLOR_AMBER, FONT_XTRA_SMALL)
     if variable_view_mode in ("store", "recall"):
-        control_line = "A-Z ACT  CENTER/=/SPACE CONFIRM"
-        close_line = "ARROWS SELECT  ESC/BACK CANCEL"
+        control_line = "A-Z SELECT  ENTER/=/SPACE ACT"
+        close_line = "ARROWS SELECT  ESC/BACK/DEL CANCEL"
     else:
-        control_line = "CENTER/= RCL  SPACE STO  BS/DEL CLR"
-        close_line = "ARROWS/A-Z SELECT  ESC/BACK CLOSE"
+        control_line = "ENTER/= RCL  SPACE STORE?"
+        close_line = "DEL CLEAR?  ESC/BACK CLOSE"
     draw.text(Vector(7, height - 27), control_line, COLOR_MUTED, FONT_XTRA_SMALL)
     draw.text(Vector(7, height - 14), close_line, COLOR_MUTED, FONT_XTRA_SMALL)
     draw.swap()
@@ -709,19 +713,19 @@ def _draw_help(view_manager):
     if help_page == 0:
         lines = (
             ("FAST INPUT", COLOR_AMBER),
-            ("RETURN / =   enter / lift", TFT_WHITE),
-            ("SPACE / TOUCH  use selected key", TFT_WHITE),
+            ("RETURN / SPACE / =  enter / lift", TFT_WHITE),
+            ("TAB / TOUCH  use selected key", TFT_WHITE),
             ("ARROWS       move keypad cursor", TFT_WHITE),
             ("0-9 . + - * / \\  direct input", TFT_WHITE),
             ("% or P       percent of Y", TFT_WHITE),
             ("BS / DEL     edit entry / clear X", TFT_WHITE),
-            ("ESC          clear X; again: all", TFT_WHITE),
-            ("BACK         edit entry; else exit", TFT_WHITE),
+            ("C / ESC      clear X; again: all", TFT_WHITE),
+            ("SYSTEM BACK x2  exit app", TFT_WHITE),
             ("OPERATOR SHORTCUTS", COLOR_AMBER),
             ("U divide          I multiply", TFT_WHITE),
             ("J subtract        K add", TFT_WHITE),
             ("OTHER SHORTCUTS", COLOR_AMBER),
-            ("C clear  D drop  S swap  N sign", TFT_WHITE),
+            ("C clear X  D drop  S swap  N sign", TFT_WHITE),
             ("Q sqrt  X square  R reciprocal", TFT_WHITE),
             ("T store  L recall  V vars  H help", TFT_WHITE),
             ("H / ESC / BACK  close help", COLOR_MUTED),
@@ -735,13 +739,13 @@ def _draw_help(view_manager):
             ("V / VARS   open variable viewer", TFT_WHITE),
             ("STO copies X; RCL lifts into X", COLOR_MUTED),
             ("VARIABLE VIEWER", COLOR_AMBER),
-            ("A-Z         select variable", TFT_WHITE),
-            ("ARROWS      move selection", TFT_WHITE),
+            ("A-Z / ARROWS  select variable", TFT_WHITE),
             ("RET / TOUCH / =  recall selected", TFT_WHITE),
-            ("SPACE       store X to selected", TFT_WHITE),
-            ("BS / DEL    clear selected", TFT_WHITE),
-            ("ESC / BACK  close viewer", TFT_WHITE),
-            ("Pending: A-Z acts immediately", COLOR_MUTED),
+            ("SPACE       arm store X", TFT_WHITE),
+            ("DEL         arm variable clear", TFT_WHITE),
+            ("RET / =     confirm armed action", TFT_WHITE),
+            ("ESC / BACK  cancel / close", TFT_WHITE),
+            ("Pending STO/RCL: A-Z selects", COLOR_MUTED),
             ("RET / TOUCH / = / SPACE confirms", COLOR_MUTED),
             ("PERCENT", COLOR_AMBER),
             ("200 RET 15 % + = 230", TFT_WHITE),
@@ -757,9 +761,58 @@ def _draw_help(view_manager):
     draw.swap()
 
 
+def _reset_variable_confirmation():
+    global variable_confirm_action, variable_confirm_index
+    variable_confirm_action = None
+    variable_confirm_index = -1
+
+
+def _set_variable_selection_status():
+    name = chr(ord("A") + selected_variable)
+    if variable_view_mode == "store":
+        calculator.status = "STO " + name + ": ENTER TO CONFIRM"
+    elif variable_view_mode == "recall":
+        calculator.status = "RCL " + name + ": ENTER TO CONFIRM"
+    else:
+        calculator.status = "SELECTED " + name
+
+
+def _arm_variable_confirmation(action):
+    global variable_confirm_action, variable_confirm_index
+    variable_confirm_action = action
+    variable_confirm_index = selected_variable
+    name = chr(ord("A") + selected_variable)
+    if action == "store":
+        if calculator.variable_set[selected_variable]:
+            calculator.status = "OVERWRITE " + name + "? ENTER YES"
+        else:
+            calculator.status = "STORE X TO " + name + "? ENTER YES"
+    elif calculator.variable_set[selected_variable]:
+        calculator.status = "DELETE " + name + "? ENTER/DEL YES"
+    else:
+        calculator.status = name + " IS ALREADY EMPTY"
+        _reset_variable_confirmation()
+
+
+def _confirm_variable_action(view_manager):
+    action = variable_confirm_action
+    index = variable_confirm_index
+    _reset_variable_confirmation()
+    if action == "store" and index >= 0:
+        _complete_variable_action(view_manager, index, "store")
+        return True
+    if action == "delete" and index >= 0:
+        calculator.clear_variable(index)
+        _queue_save()
+        _draw_variable_viewer(view_manager)
+        return True
+    return False
+
+
 def _open_variable_viewer(view_manager, mode):
     global variable_view_mode, flash_index, escape_armed
     variable_view_mode = mode
+    _reset_variable_confirmation()
     flash_index = -1
     escape_armed = False
     if mode == "store":
@@ -774,6 +827,7 @@ def _open_variable_viewer(view_manager, mode):
 def _close_variable_viewer(view_manager):
     global variable_view_mode, flash_index, escape_armed
     variable_view_mode = None
+    _reset_variable_confirmation()
     flash_index = -1
     escape_armed = False
     _redraw(view_manager)
@@ -783,6 +837,7 @@ def _complete_variable_action(view_manager, index, action=None):
     """Apply a viewer action, returning True when the viewer closes."""
     global variable_view_mode, selected_variable
     selected_variable = index
+    _reset_variable_confirmation()
     action = action or variable_view_mode
 
     if action == "store":
@@ -863,37 +918,69 @@ def _finish_flash(view_manager):
 def _run_variable_viewer(view_manager, button):
     global selected_variable
     if button in (BUTTON_BACK, BUTTON_ESCAPE):
+        if variable_confirm_action is not None:
+            _reset_variable_confirmation()
+            calculator.status = "ACTION CANCELLED"
+            _draw_variable_viewer(view_manager)
+            return
         _close_variable_viewer(view_manager)
         return
 
     if button in (BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT):
+        _reset_variable_confirmation()
         _move_variable_selection(view_manager, button)
+        _set_variable_selection_status()
         _draw_variable_viewer(view_manager)
         return
 
     if BUTTON_A <= button <= BUTTON_Z:
+        _reset_variable_confirmation()
         index = button - BUTTON_A
-        if variable_view_mode in ("store", "recall"):
-            _complete_variable_action(view_manager, index)
-        else:
-            selected_variable = index
-            _draw_variable_viewer(view_manager)
+        selected_variable = index
+        _set_variable_selection_status()
+        _draw_variable_viewer(view_manager)
         return
 
     if button in (BUTTON_BACKSPACE, BUTTON_DELETE):
-        calculator.clear_variable(selected_variable)
-        _queue_save()
+        if variable_view_mode in ("store", "recall"):
+            calculator.status = variable_view_mode.upper() + " CANCELLED"
+            _close_variable_viewer(view_manager)
+            return
+        if (
+            variable_confirm_action == "delete"
+            and variable_confirm_index == selected_variable
+        ):
+            _confirm_variable_action(view_manager)
+            return
+        _arm_variable_confirmation("delete")
         _draw_variable_viewer(view_manager)
         return
 
     if button in (BUTTON_CENTER, BUTTON_EQUAL):
+        if variable_confirm_action is not None:
+            _confirm_variable_action(view_manager)
+            return
         action = variable_view_mode if variable_view_mode != "view" else "recall"
         _complete_variable_action(view_manager, selected_variable, action)
         return
 
     if button == BUTTON_SPACE:
-        action = variable_view_mode if variable_view_mode != "view" else "store"
-        _complete_variable_action(view_manager, selected_variable, action)
+        if variable_view_mode != "view":
+            _complete_variable_action(view_manager, selected_variable, variable_view_mode)
+            return
+        _arm_variable_confirmation("store")
+        _draw_variable_viewer(view_manager)
+
+
+def _perform_clear():
+    global escape_armed
+    if escape_armed:
+        calculator.clear()
+        escape_armed = False
+    else:
+        calculator.clear_x()
+        escape_armed = True
+    _queue_save()
 
 
 def _perform(action):
@@ -904,7 +991,8 @@ def _perform(action):
     elif action == "enter":
         calculator.enter()
     elif action == "clear":
-        calculator.clear()
+        _perform_clear()
+        return
     elif action == "drop":
         calculator.drop()
     elif action == "swap":
@@ -924,7 +1012,8 @@ def _perform(action):
 
 def start(view_manager):
     global calculator, selected_index, help_visible, help_page, variable_view_mode
-    global selected_variable, escape_armed, flash_index, storage, state_dirty
+    global selected_variable, variable_confirm_action, variable_confirm_index
+    global escape_armed, back_exit_armed, flash_index, storage, state_dirty
     global save_due, last_saved_state
     calculator = RPNStack()
     storage = view_manager.storage
@@ -937,7 +1026,10 @@ def start(view_manager):
     help_page = 0
     variable_view_mode = None
     selected_variable = 0
+    variable_confirm_action = None
+    variable_confirm_index = -1
     escape_armed = False
+    back_exit_armed = False
     flash_index = -1
     view_manager.input_manager.reset()
     _redraw(view_manager)
@@ -945,7 +1037,8 @@ def start(view_manager):
 
 
 def run(view_manager):
-    global selected_index, help_visible, help_page, escape_armed, flash_index
+    global selected_index, help_visible, help_page, escape_armed, back_exit_armed
+    global flash_index
     inp = view_manager.input_manager
     button = inp.button
     if button == -1:
@@ -954,6 +1047,9 @@ def run(view_manager):
         if not help_visible and variable_view_mode is None:
             _finish_flash(view_manager)
         return
+
+    if button != BUTTON_BACK:
+        back_exit_armed = False
 
     if variable_view_mode is not None:
         _run_variable_viewer(view_manager, button)
@@ -990,13 +1086,22 @@ def run(view_manager):
         return
 
     if button == BUTTON_BACK:
+        escape_armed = False
         if calculator.entering:
             calculator.backspace()
             _queue_save()
+            back_exit_armed = False
             escape_armed = False
             inp.reset()
             _refresh_stack(view_manager)
             return
+        if not back_exit_armed:
+            back_exit_armed = True
+            calculator.status = "BACK AGAIN: EXIT"
+            inp.reset()
+            _refresh_stack(view_manager)
+            return
+        back_exit_armed = False
         _save_state(force=True)
         inp.reset()
         view_manager.back()
@@ -1021,6 +1126,9 @@ def run(view_manager):
             action = "enter"
             direct_action = True
     elif button == BUTTON_SPACE:
+        action = "enter"
+        direct_action = True
+    elif button == BUTTON_TAB:
         action = KEYS[selected_index][1]
     elif BUTTON_0 <= button <= BUTTON_9:
         action = str(button - BUTTON_0)
@@ -1052,12 +1160,7 @@ def run(view_manager):
         escape_armed = False
         _refresh_stack(view_manager)
     elif button == BUTTON_ESCAPE:
-        if escape_armed:
-            calculator.clear()
-        else:
-            calculator.clear_x()
-            escape_armed = True
-        _queue_save()
+        _perform_clear()
         _refresh_stack(view_manager, False)
         _flash_action(view_manager, "clear")
     elif button == BUTTON_C:
@@ -1107,7 +1210,8 @@ def run(view_manager):
         direct_action = True
 
     if action is not None:
-        escape_armed = False
+        if action != "clear":
+            escape_armed = False
         if action == "help":
             help_visible = True
             help_page = 0
@@ -1142,7 +1246,8 @@ def run(view_manager):
 
 def stop(view_manager):
     global calculator, selected_index, help_visible, help_page, variable_view_mode
-    global selected_variable, escape_armed, flash_index, storage, state_dirty
+    global selected_variable, variable_confirm_action, variable_confirm_index
+    global escape_armed, back_exit_armed, flash_index, storage, state_dirty
     global save_due, last_saved_state
     _save_state(force=True)
     calculator = None
@@ -1155,7 +1260,10 @@ def stop(view_manager):
     help_page = 0
     variable_view_mode = None
     selected_variable = 0
+    variable_confirm_action = None
+    variable_confirm_index = -1
     escape_armed = False
+    back_exit_armed = False
     flash_index = -1
     from gc import collect
 

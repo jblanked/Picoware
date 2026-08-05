@@ -405,6 +405,7 @@ static const mp_rom_map_elem_t picoware_boards_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_RP2040), MP_ROM_INT(BOARD_HAS_RP2040)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_RP2350), MP_ROM_INT(BOARD_HAS_RP2350)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_ESP32), MP_ROM_INT(BOARD_HAS_ESP32)},
+    {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_PICOCALC), MP_ROM_INT(BOARD_HAS_PICOCALC)},
 };
 static MP_DEFINE_CONST_DICT(picoware_boards_module_globals, picoware_boards_module_globals_table);
 

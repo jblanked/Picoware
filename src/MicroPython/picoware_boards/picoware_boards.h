@@ -173,6 +173,12 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_ESP32 0
 #endif
 
+#ifndef PICOCALC
+#define BOARD_HAS_PICOCALC 0
+#else
+#define BOARD_HAS_PICOCALC 1
+#endif
+
 mp_obj_t picoware_boards_get_current_display_size(void);
 mp_obj_t picoware_boards_get_current_name(void);
 mp_obj_t picoware_boards_get_device_name(void);

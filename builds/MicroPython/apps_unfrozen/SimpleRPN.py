@@ -762,15 +762,15 @@ def _draw_help(view_manager):
             ("Operators calculate Y op X", COLOR_AMBER),
             ("Example: 8 RET 2 / -> 4", TFT_WHITE),
             ("No final equals is needed", COLOR_MUTED),
-            ("RETURN / SPACE / = enters X", TFT_WHITE),
+            ("RETURN / = enters X", TFT_WHITE),
             ("H / ESC / BACK  close help", COLOR_MUTED),
             ("LEFT / RIGHT  change help page", COLOR_MUTED),
         )
     elif help_page == 1:
         lines = (
             ("KEYBOARD", COLOR_AMBER),
-            ("RETURN / SPACE / =  enter / lift", TFT_WHITE),
-            ("TAB / TOUCH  use selected key", TFT_WHITE),
+            ("RETURN / =  enter / lift", TFT_WHITE),
+            ("SPACE / TOUCH  use selected key", TFT_WHITE),
             ("ARROWS       move keypad cursor", TFT_WHITE),
             ("0-9 . + - * / \\  direct input", TFT_WHITE),
             ("BS / DEL     edit entry / clear X", TFT_WHITE),
@@ -1200,7 +1200,7 @@ def run(view_manager):
             action = "enter"
             direct_action = True
     elif button == BUTTON_SPACE:
-        action = "enter"
+        action = KEYS[selected_index][1]
         direct_action = True
     elif button == BUTTON_TAB:
         action = KEYS[selected_index][1]
@@ -1310,7 +1310,7 @@ def run(view_manager):
 
     if old_selected_index != selected_index:
         escape_armed = False
-        calculator.status = KEYS[selected_index][0] + ": TAB USES; RET ENTERS"
+        calculator.status = KEYS[selected_index][0] + ": SPACE USES; RET ENTERS"
         _refresh_stack(view_manager, False)
         draw = view_manager.draw
         if flash_index >= 0:

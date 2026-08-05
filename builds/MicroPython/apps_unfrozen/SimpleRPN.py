@@ -709,8 +709,8 @@ def _draw_help(view_manager):
     if help_page == 0:
         lines = (
             ("FAST INPUT", COLOR_AMBER),
-            ("RETURN / SPACE / TOUCH  use key", TFT_WHITE),
-            ("=             always enter / lift", TFT_WHITE),
+            ("RETURN / =   enter / lift", TFT_WHITE),
+            ("SPACE / TOUCH  use selected key", TFT_WHITE),
             ("ARROWS       move keypad cursor", TFT_WHITE),
             ("0-9 . + - * / \\  direct input", TFT_WHITE),
             ("% or P       percent of Y", TFT_WHITE),
@@ -1014,7 +1014,12 @@ def run(view_manager):
     elif button == BUTTON_DOWN:
         selected_index = (selected_index + 4) % len(KEYS)
     elif button == BUTTON_CENTER:
-        action = KEYS[selected_index][1]
+        # PicoCalc Return arrives as CENTER; touch CENTER selects the UI key.
+        if inp.has_touch_support:
+            action = KEYS[selected_index][1]
+        else:
+            action = "enter"
+            direct_action = True
     elif button == BUTTON_SPACE:
         action = KEYS[selected_index][1]
     elif BUTTON_0 <= button <= BUTTON_9:

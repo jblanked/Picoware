@@ -3,15 +3,31 @@ class UART:
 
     def __init__(
         self,
-        uart_id: int = 0,
-        tx_pin: int = 0,
-        rx_pin: int = 1,
+        uart_id: int = None,
+        tx_pin: int = None,
+        rx_pin: int = None,
         baud_rate: int = 115200,
         timeout: int = 2000,
     ) -> None:
         """Initialize the UART interface."""
+        from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_WAVESHARE_1_28_RP2350, BOARD_WAVESHARE_1_43_RP2350, BOARD_WAVESHARE_3_49_RP2350, BOARD_CARDPUTER
         from machine import UART as MachineUART
         from machine import Pin
+
+        _map = {
+            BOARD_FLIPPER_ZERO: (1, Pin.cpu.B6, Pin.cpu.B7),
+            BOARD_WAVESHARE_1_28_RP2350: (0, 16, 17),
+            BOARD_WAVESHARE_1_43_RP2350: (1, 4, 5),
+            BOARD_WAVESHARE_3_49_RP2350: (1, 4, 5),
+            BOARD_CARDPUTER: (1, 1, 2),
+        }
+        _config = _map.get(BOARD_ID, (0, 0, 1))  # Default to PicoCalc if board not recognized
+        if uart_id is None:
+            uart_id = _config[0]
+        if tx_pin is None:
+            tx_pin = _config[1]
+        if rx_pin is None:
+            rx_pin = _config[2]
 
         self._uart_id = uart_id
         self._tx_pin = tx_pin

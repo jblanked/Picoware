@@ -22,6 +22,7 @@ extern "C"
     void lcd_deinit(void);
     bool lcd_init(void);
     bool lcd_set_backlight(uint32_t brightness);
+    bool lcd_set_rgb_led(uint8_t red, uint8_t green, uint8_t blue);
     void lcd_swap(void);
 
     void lcd_draw_pixel(uint16_t x, uint16_t y, uint16_t color);

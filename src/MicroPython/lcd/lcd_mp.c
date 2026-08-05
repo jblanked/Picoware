@@ -1235,6 +1235,32 @@ mp_obj_t lcd_mp_set_brightness(mp_obj_t self_in, mp_obj_t brightness)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(lcd_mp_set_brightness_obj, lcd_mp_set_brightness);
 
+mp_obj_t lcd_mp_set_rgb_led(size_t n_args, const mp_obj_t *args)
+{
+    // Arguments: self, red, green, blue
+    if (n_args != 4)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("set_rgb_led requires 4 arguments: self, red, green, blue"));
+    }
+    lcd_mp_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    if (!self->initialized)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
+    }
+    uint8_t red_val = lcd_obj_to_int(args[1]);
+    uint8_t green_val = lcd_obj_to_int(args[2]);
+    uint8_t blue_val = lcd_obj_to_int(args[3]);
+#ifdef LCD_MP_SET_RGB_LED
+    LCD_MP_SET_RGB_LED(red_val, green_val, blue_val);
+#else
+    (void)red_val;
+    (void)green_val;
+    (void)blue_val;
+#endif
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_set_rgb_led_obj, 4, 4, lcd_mp_set_rgb_led);
+
 mp_obj_t lcd_mp_set_mode(mp_obj_t self_in, mp_obj_t mode)
 {
     lcd_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -1380,6 +1406,7 @@ static const mp_rom_map_elem_t lcd_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_scale_y), MP_ROM_PTR(&lcd_mp_scale_y_obj)},                            // self.scale_y()
     {MP_ROM_QSTR(MP_QSTR_screenshot), MP_ROM_PTR(&lcd_mp_screenshot_obj)},                      // self.screenshot()
     {MP_ROM_QSTR(MP_QSTR_set_brightness), MP_ROM_PTR(&lcd_mp_set_brightness_obj)},              // self.set_brightness()
+    {MP_ROM_QSTR(MP_QSTR_set_rgb_led), MP_ROM_PTR(&lcd_mp_set_rgb_led_obj)},                    // self.set_rgb_led()
     {MP_ROM_QSTR(MP_QSTR_set_mode), MP_ROM_PTR(&lcd_mp_set_mode_obj)},                          // self.set_mode()
     {MP_ROM_QSTR(MP_QSTR_set_scaling), MP_ROM_PTR(&lcd_mp_set_scaling_obj)},                    // self.set_scaling()
     {MP_ROM_QSTR(MP_QSTR_swap), MP_ROM_PTR(&lcd_mp_swap_obj)},                                  // self.swap()

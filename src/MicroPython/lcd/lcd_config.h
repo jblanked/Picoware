@@ -202,6 +202,7 @@
 #define LCD_INCLUDE "../Flipper/lcd/lcd.h"
 #define LCD_MP_INIT lcd_init
 #define LCD_MP_DEINIT lcd_deinit
+#define LCD_MP_SET_RGB_LED lcd_set_rgb_led
 #define LCD_MP_WIDTH LCD_WIDTH
 #define LCD_MP_HEIGHT LCD_HEIGHT
 #define LCD_MP_CHAR lcd_draw_char

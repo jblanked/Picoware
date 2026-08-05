@@ -72,10 +72,11 @@ COLOR_ERROR = _rgb565(244, 102, 83)
 STATE_FILE = "picoware/settings/srpn.json"
 STATE_VERSION = 1
 SAVE_DELAY_MS = 1000
+HELP_PAGE_COUNT = 3
 
 
 KEYS = (
-    ("CLR", "clear", "function"),
+    ("CLX", "clear", "function"),
     ("+/-", "negate", "function"),
     ("%", "percent", "function"),
     ("/", "divide", "operator"),
@@ -101,7 +102,7 @@ KEYS = (
     ("SWAP", "swap", "function"),
     ("STO", "store", "memory"),
     ("RCL", "recall", "memory"),
-    ("VARS", "variables", "memory"),
+    ("UNDO", "undo", "function"),
     ("HELP", "help", "function"),
 )
 
@@ -118,7 +119,7 @@ def format_number(value):
         return "NAN"
     if abs(value) == float("inf"):
         return "OVERFLOW"
-    if abs(value) < 1e-12:
+    if value == 0.0:
         value = 0.0
     if abs(value) < 1000000000000.0 and value == int(value):
         return str(int(value))
@@ -140,6 +141,8 @@ class RPNStack:
         "status",
         "variables",
         "variable_set",
+        "undo_state",
+        "undo_label",
     )
 
     def __init__(self):
@@ -151,6 +154,41 @@ class RPNStack:
         self.status = "READY"
         self.variables = [0.0] * 26
         self.variable_set = [False] * 26
+        self.undo_state = None
+        self.undo_label = ""
+
+    def remember_undo(self, label):
+        """Remember one complete pre-action state for mistake recovery."""
+        self.undo_state = (
+            self.stack[:],
+            self.entry,
+            self.entering,
+            self.lift_on_entry,
+            self.error,
+            self.variables[:],
+            self.variable_set[:],
+        )
+        self.undo_label = label
+
+    def undo(self):
+        """Restore and consume the most recently remembered state."""
+        if self.undo_state is None:
+            self.error = ""
+            self.status = "NOTHING TO UNDO"
+            return False
+        state = self.undo_state
+        label = self.undo_label
+        self.undo_state = None
+        self.undo_label = ""
+        self.stack = state[0]
+        self.entry = state[1]
+        self.entering = state[2]
+        self.lift_on_entry = state[3]
+        self.error = state[4]
+        self.status = "UNDID " + label
+        self.variables = state[5]
+        self.variable_set = state[6]
+        return True
 
     def clear(self):
         self.stack[0] = 0.0
@@ -704,7 +742,7 @@ def _draw_help(view_manager):
     draw.text(Vector(7, 5), "SimpleRPN HELP", TFT_WHITE, FONT_SMALL)
     draw.text(
         Vector(width - 94, 8),
-        str(help_page + 1) + "/2",
+        str(help_page + 1) + "/" + str(HELP_PAGE_COUNT),
         COLOR_MUTED,
         FONT_XTRA_SMALL,
     )
@@ -712,24 +750,41 @@ def _draw_help(view_manager):
 
     if help_page == 0:
         lines = (
-            ("FAST INPUT", COLOR_AMBER),
+            ("RPN QUICK START", COLOR_AMBER),
+            ("1  Type first value: 2", TFT_WHITE),
+            ("2  Press RETURN", TFT_WHITE),
+            ("3  Type next value: 3", TFT_WHITE),
+            ("4  Press +       result: 5", TFT_WHITE),
+            ("THE STACK", COLOR_AMBER),
+            ("X  current value / input", TFT_WHITE),
+            ("Y  previous value", TFT_WHITE),
+            ("Z/T older values", TFT_WHITE),
+            ("Operators calculate Y op X", COLOR_AMBER),
+            ("Example: 8 RET 2 / -> 4", TFT_WHITE),
+            ("No final equals is needed", COLOR_MUTED),
+            ("RETURN / SPACE / = enters X", TFT_WHITE),
+            ("H / ESC / BACK  close help", COLOR_MUTED),
+            ("LEFT / RIGHT  change help page", COLOR_MUTED),
+        )
+    elif help_page == 1:
+        lines = (
+            ("KEYBOARD", COLOR_AMBER),
             ("RETURN / SPACE / =  enter / lift", TFT_WHITE),
             ("TAB / TOUCH  use selected key", TFT_WHITE),
             ("ARROWS       move keypad cursor", TFT_WHITE),
             ("0-9 . + - * / \\  direct input", TFT_WHITE),
-            ("% or P       percent of Y", TFT_WHITE),
             ("BS / DEL     edit entry / clear X", TFT_WHITE),
             ("C / ESC      clear X; again: all", TFT_WHITE),
-            ("SYSTEM BACK x2  exit app", TFT_WHITE),
-            ("OPERATOR SHORTCUTS", COLOR_AMBER),
+            ("SYSTEM EXIT KEY x2  exit app", TFT_WHITE),
+            ("STACK TOOLS", COLOR_AMBER),
+            ("D drop     S swap     Z undo", TFT_WHITE),
+            ("N sign     Q sqrt     X square", TFT_WHITE),
+            ("R reciprocal       P percent", TFT_WHITE),
+            ("FAST OPERATORS", COLOR_AMBER),
             ("U divide          I multiply", TFT_WHITE),
             ("J subtract        K add", TFT_WHITE),
-            ("OTHER SHORTCUTS", COLOR_AMBER),
-            ("C clear X  D drop  S swap  N sign", TFT_WHITE),
-            ("Q sqrt  X square  R reciprocal", TFT_WHITE),
             ("T store  L recall  V vars  H help", TFT_WHITE),
-            ("H / ESC / BACK  close help", COLOR_MUTED),
-            ("LEFT / RIGHT  change help page", COLOR_MUTED),
+            ("H/ESC/BACK close; LEFT/RIGHT page", COLOR_MUTED),
         )
     else:
         lines = (
@@ -748,7 +803,7 @@ def _draw_help(view_manager):
             ("Pending STO/RCL: A-Z selects", COLOR_MUTED),
             ("RET / TOUCH / = / SPACE confirms", COLOR_MUTED),
             ("PERCENT", COLOR_AMBER),
-            ("200 RET 15 % + = 230", TFT_WHITE),
+            ("200 RET 15 % + -> 230", TFT_WHITE),
             ("Y remains base after % for + / -", COLOR_MUTED),
             ("H/ESC/BACK close; LEFT/RIGHT page", COLOR_MUTED),
         )
@@ -802,6 +857,7 @@ def _confirm_variable_action(view_manager):
         _complete_variable_action(view_manager, index, "store")
         return True
     if action == "delete" and index >= 0:
+        calculator.remember_undo("DELETE " + chr(ord("A") + index))
         calculator.clear_variable(index)
         _queue_save()
         _draw_variable_viewer(view_manager)
@@ -841,6 +897,7 @@ def _complete_variable_action(view_manager, index, action=None):
     action = action or variable_view_mode
 
     if action == "store":
+        calculator.remember_undo("STO " + chr(ord("A") + index))
         calculator.store(index)
         _queue_save()
         if variable_view_mode == "view":
@@ -851,6 +908,11 @@ def _complete_variable_action(view_manager, index, action=None):
         return True
 
     if action == "recall":
+        if not calculator.variable_set[index]:
+            calculator.recall(index)
+            _draw_variable_viewer(view_manager)
+            return False
+        calculator.remember_undo("RCL " + chr(ord("A") + index))
         if not calculator.recall(index):
             _draw_variable_viewer(view_manager)
             return False
@@ -978,6 +1040,7 @@ def _perform_clear():
         calculator.clear()
         escape_armed = False
     else:
+        calculator.remember_undo("CLEAR")
         calculator.clear_x()
         escape_armed = True
     _queue_save()
@@ -989,21 +1052,30 @@ def _perform(action):
     elif action == "decimal":
         calculator.decimal()
     elif action == "enter":
+        calculator.remember_undo("ENTER")
         calculator.enter()
+    elif action == "undo":
+        calculator.undo()
     elif action == "clear":
         _perform_clear()
         return
     elif action == "drop":
+        calculator.remember_undo("DROP")
         calculator.drop()
     elif action == "swap":
+        calculator.remember_undo("SWAP")
         calculator.swap()
     elif action == "negate":
+        calculator.remember_undo("SIGN")
         calculator.negate()
     elif action == "percent":
+        calculator.remember_undo("PERCENT")
         calculator.percent()
     elif action in ("square", "sqrt", "reciprocal"):
+        calculator.remember_undo(action.upper())
         calculator.unary(action)
     elif action in ("add", "subtract", "multiply", "divide"):
+        calculator.remember_undo(action.upper())
         calculator.binary(action)
     else:
         return
@@ -1020,7 +1092,9 @@ def start(view_manager):
     state_dirty = False
     save_due = 0
     last_saved_state = ""
-    _load_state()
+    restored = _load_state()
+    if not restored:
+        calculator.status = "TRY: 2 RET 3 + -> 5"
     selected_index = ENTER_INDEX
     help_visible = False
     help_page = 0
@@ -1064,12 +1138,12 @@ def run(view_manager):
             _redraw(view_manager)
             return
         if button == BUTTON_LEFT:
-            help_page = (help_page - 1) % 2
+            help_page = (help_page - 1) % HELP_PAGE_COUNT
             inp.reset()
             _draw_help(view_manager)
             return
         if button == BUTTON_RIGHT:
-            help_page = (help_page + 1) % 2
+            help_page = (help_page + 1) % HELP_PAGE_COUNT
             inp.reset()
             _draw_help(view_manager)
             return
@@ -1208,6 +1282,9 @@ def run(view_manager):
     elif button == BUTTON_X:
         action = "square"
         direct_action = True
+    elif button == BUTTON_Z:
+        action = "undo"
+        direct_action = True
 
     if action is not None:
         if action != "clear":
@@ -1233,6 +1310,8 @@ def run(view_manager):
 
     if old_selected_index != selected_index:
         escape_armed = False
+        calculator.status = KEYS[selected_index][0] + ": TAB USES; RET ENTERS"
+        _refresh_stack(view_manager, False)
         draw = view_manager.draw
         if flash_index >= 0:
             _draw_key(draw, flash_index, flash_index == old_selected_index)

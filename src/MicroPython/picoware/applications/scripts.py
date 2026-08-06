@@ -1,12 +1,20 @@
+from gc import collect
 _scripts = None
 _scripts_index = 0
 _js = None
 
+def _set_scripts() -> bool:
+    from picoware.system.js import JS
+    global _js
+    del _js
+    _js = None
+    collect()
+    _js = JS()
+    return _js is not None
 
 def start(view_manager) -> bool:
     """Start the app"""
     from picoware.gui.menu import Menu
-    from picoware.system.js import JS
 
     if not view_manager.has_sd_card:
         view_manager.alert(
@@ -19,7 +27,6 @@ def start(view_manager) -> bool:
     view_manager.storage.mkdir("picoware/scripts")
 
     global _scripts
-    global _js
 
     _scripts = Menu(
         view_manager.draw,
@@ -33,7 +40,6 @@ def start(view_manager) -> bool:
         2,
     )
 
-    _js = JS()
     file_list = view_manager.storage.listdir("picoware/scripts")
     for app in file_list:
         if app.startswith("."):
@@ -78,7 +84,11 @@ def run(view_manager) -> None:
         # Get the selected app name
         selected_app = _scripts.current_item
 
-        if selected_app and _js:
+        if selected_app:
+            if not _set_scripts():
+                view_manager.alert("\n[Script] Failed to initialize JS engine\n")
+                return
+            
             from utime import ticks_ms
 
             start_time = ticks_ms()
@@ -93,8 +103,6 @@ def run(view_manager) -> None:
 
 def stop(view_manager) -> None:
     """Stop the app"""
-    from gc import collect
-
     global _scripts, _js
     if _scripts is not None:
         del _scripts

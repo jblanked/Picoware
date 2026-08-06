@@ -22,6 +22,11 @@ def bootloader():
     raise SystemExit
 
 
+class _PinCPU:
+    B6 = "B6"
+    B7 = "B7"
+
+
 class Pin:
     IN = 0
     OUT = 1
@@ -29,6 +34,7 @@ class Pin:
     PULL_DOWN = 1
     IRQ_FALLING = 4
     IRQ_RISING = 8
+    cpu = _PinCPU()
 
     def __init__(self, *args, **kwargs):
         self.id = args[0] if args else kwargs.get("id", None)

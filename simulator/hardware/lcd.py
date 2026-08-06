@@ -56,6 +56,7 @@ class LCD:
         self.scale_position = scale_position
         self._mode = self.MODE_HEAP
         self._brightness = 100
+        self._rgb_led = (0, 0, 0)
         self._buffer = bytearray(self.width * self.height * 2)
         self._sdl = None
         self._window = 0
@@ -517,6 +518,13 @@ class LCD:
 
     def set_brightness(self, level):
         self._brightness = max(0, min(100, int(level)))
+
+    def set_rgb_led(self, red, green, blue):
+        self._rgb_led = (
+            int(red) & 0xFF,
+            int(green) & 0xFF,
+            int(blue) & 0xFF,
+        )
 
     def set_scaling(self, scale_x, scale_y, scale_position=False):
         self._scale_x_factor = scale_x

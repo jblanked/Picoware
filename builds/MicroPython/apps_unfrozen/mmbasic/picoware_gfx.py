@@ -265,7 +265,7 @@ class NullGraphics:
         self.draw = draw
         self.display_active = False
 
-    def cls(self):
+    def cls(self, color=None):
         pass
 
     def pixel(self, *a):

@@ -1435,6 +1435,8 @@ class FileBrowser:
                             from picoware.system.mmbasic import MMBasic
                             bs = MMBasic(self._vm)
                             bs.start(path=self._context_target_path)
+                            inp = self._vm.input_manager
+                            inp.reset()
                             while bs.run():
                                 pass
                             del bs

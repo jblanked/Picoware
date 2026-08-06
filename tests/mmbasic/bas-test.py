@@ -191,7 +191,7 @@ else:
     loader = None
 
 # ---------------------------------------------------------------------------
-# 3) The mmbasic interpreter classes
+# 3) The mmbasic_runtime interpreter classes
 # ---------------------------------------------------------------------------
 if not _HAVE_PICOWARE:
     import os
@@ -199,8 +199,8 @@ if not _HAVE_PICOWARE:
     if _APPS not in sys.path:
         sys.path.insert(0, _APPS)
 
-import mmbasic
-from mmbasic import (
+import mmbasic_runtime
+from mmbasic_runtime import (
     MMBasicEngine,
     PicowareConsole,
     PicowareGraphics,
@@ -214,15 +214,15 @@ console = PicowareConsole(vm)
 console.footer = "BAS-TEST"
 gfx = PicowareGraphics(counting_draw, vm)
 
-# --- which mmbasic is actually loaded? --------------------------------------
+# --- which mmbasic_runtime is actually loaded? ------------------------------
 try:
-    print("mmbasic loaded from:", mmbasic.__file__)
+    print("mmbasic_runtime loaded from:", mmbasic_runtime.__file__)
 except Exception:
-    print("mmbasic loaded from: (no __file__ - frozen/builtin?)")
+    print("mmbasic_runtime loaded from: (no __file__ - frozen/builtin?)")
 try:
     # Note: .mpy files are the frozen (compiled) current source, which is the
     # normal on-device layout - not stale.
-    _pkg_dir = mmbasic.__file__.rsplit("/", 1)[0]
+    _pkg_dir = mmbasic_runtime.__file__.rsplit("/", 1)[0]
     _items = list(os.listdir(_pkg_dir))
     _n_mpy = 0
     _n_py = 0
@@ -231,22 +231,22 @@ try:
             _n_mpy += 1
         elif _f.endswith(".py"):
             _n_py += 1
-    print("mmbasic pkg: %d .py files, %d .mpy files" % (_n_py, _n_mpy))
+    print("mmbasic_runtime pkg: %d .py files, %d .mpy files" % (_n_py, _n_mpy))
 except Exception as _e:
-    print("(could not inspect mmbasic dir: %r)" % (_e,))
+    print("(could not inspect mmbasic_runtime dir: %r)" % (_e,))
 
 
 def run_bas(label, src, max_ticks=500):
     """Parse + run an embedded BASIC program through the real engine."""
     engine = MMBasicEngine(console=console, gfx=gfx)
     try:
-        engine.load(src)          # mmbasic class does the parsing here
+        engine.load(src)          # mmbasic_runtime class does the parsing here
     except Exception as e:
         print("PARSE FAIL [%s]: %r" % (label, e))
         if "recursion" in str(e).lower():
-            print("  HINT: the loaded mmbasic is stale (check the path above).")
-            print("  Delete ALL *.mpy under /sd/picoware/apps/mmbasic/, then")
-            print("  copy builds/MicroPython/apps_unfrozen/mmbasic/ (.py) and")
+            print("  HINT: the loaded mmbasic_runtime is stale (check the path above).")
+            print("  Delete ALL *.mpy under /sd/picoware/apps/mmbasic_runtime/, then")
+            print("  copy builds/MicroPython/apps_unfrozen/mmbasic_runtime/ (.py) and")
             print("  MMBasic.py to /sd/picoware/apps/. Re-run.")
         return "parse-error"
     interp = engine.interpreter

@@ -1,7 +1,7 @@
 """
 MMBasic - MBASIC 5.21 interpreter for Picoware.
 
-Runs the `mmbasic` package (lexer/parser/interpreter) on the device, using
+Runs the `mmbasic_runtime` package (lexer/parser/interpreter) on the device, using
 the Picoware screen for PRINT output and the buttons for INPUT/INKEY$.
 
 To run your own program, drop a text file at /picoware/mmbasic.bas on the SD
@@ -55,7 +55,7 @@ def start(view_manager) -> bool:
     global _app
 
     try:
-        from mmbasic import MMBasicEngine, PicowareConsole, PicowareGraphics
+        from mmbasic_runtime import MMBasicEngine, PicowareConsole, PicowareGraphics
 
         console = PicowareConsole(view_manager)
         console.footer = "BACK=exit"

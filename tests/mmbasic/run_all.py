@@ -68,7 +68,7 @@ except ImportError:
 
 # On the device (Thonny/PicoCalc) we build the real Picoware VM and let the
 # AppLoader mount the SD card and add /picoware/apps to sys.path so `import
-# mmbasic` resolves to the on-SD package. On a host without picoware we fall
+# mmbasic_runtime` resolves to the on-SD package. On a host without picoware we fall
 # back to importing the source tree under builds/MicroPython/apps_unfrozen.
 try:
     from picoware.system.view_manager import ViewManager
@@ -91,7 +91,7 @@ else:
     if _APPS not in sys.path:
         sys.path.insert(0, _APPS)
 
-from mmbasic import MMBasicEngine, PicowareGraphics, InterpreterState
+from mmbasic_runtime import MMBasicEngine, PicowareGraphics, InterpreterState
 
 
 def _exc_summary():

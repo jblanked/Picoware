@@ -604,6 +604,7 @@ def _run_sim_check(opts):
             raise SystemExit(1)
     _run_keyboard_background_check()
     _run_lcd_parity_check()
+    _run_uart_parity_check()
     _run_engine_parity_check()
     _run_board_parity_check()
     _run_font_parity_check()
@@ -661,6 +662,9 @@ def _run_lcd_parity_check():
     display.set_brightness(37)
     if display._brightness != 37:
         raise RuntimeError("simulator LCD brightness state mismatch")
+    display.set_rgb_led(17, 34, 51)
+    if display._rgb_led != (17, 34, 51):
+        raise RuntimeError("simulator LCD RGB LED state mismatch")
 
     display._clear(0)
     display._bytearray(0, 0, 2, 1, bytearray((0x00, 0xFF)), True)
@@ -672,7 +676,39 @@ def _run_lcd_parity_check():
     blended = display._get_pixel(2, 2)
     if blended in (0x001F, 0xF800):
         raise RuntimeError("simulator LCD alpha triangle mismatch")
-    print("[sim-check:ok] lcd brightness bytearray inversion alpha triangle")
+    print("[sim-check:ok] lcd brightness RGB LED bytearray inversion alpha triangle")
+
+
+def _run_uart_parity_check():
+    """Verify board-default UART pins, including STM32 CPU pin names."""
+    from machine import Pin
+    from picoware.system import boards
+    from picoware.system.uart import UART
+
+    original_board_id = boards.BOARD_ID
+    port = None
+    try:
+        port = UART()
+        if (port._uart_id, port.tx_pin, port.rx_pin) != (0, 0, 1):
+            raise RuntimeError("simulator PicoCalc UART defaults mismatch")
+        del port
+        port = None
+        gc.collect()
+
+        boards.BOARD_ID = boards.BOARD_FLIPPER_ZERO
+        port = UART()
+        if (port._uart_id, port.tx_pin, port.rx_pin) != (
+            1,
+            Pin.cpu.B6,
+            Pin.cpu.B7,
+        ):
+            raise RuntimeError("simulator Flipper UART defaults mismatch")
+    finally:
+        boards.BOARD_ID = original_board_id
+        if port is not None:
+            del port
+        gc.collect()
+    print("[sim-check:ok] PicoCalc and Flipper UART defaults")
 
 
 def _run_engine_parity_check():
@@ -793,6 +829,8 @@ def _run_board_parity_check():
     """Verify the latest board profile and capability helpers."""
     import picoware_boards as boards
 
+    if boards.BOARD_HAS_PICOCALC != 1:
+        raise RuntimeError("simulator PicoCalc capability mismatch")
     if boards.get_name(boards.BOARD_V8) != "V8":
         raise RuntimeError("simulator V8 board name mismatch")
     if boards.get_display_size(boards.BOARD_V8) != (240, 320):

@@ -64,7 +64,7 @@ class MMBasic:
         self._console.render()
         return True
 
-    def run(self):
+    def run(self) -> bool:
         """Poll buttons, tick the interpreter, redraw the console."""
         button = self._view_manager.button
 

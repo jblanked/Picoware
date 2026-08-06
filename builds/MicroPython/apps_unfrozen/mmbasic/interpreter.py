@@ -1143,6 +1143,10 @@ class Interpreter:
         return "NORMAL"
 
     def execute_cls(self, stmt):
+        if self.gfx is not None and getattr(self.gfx, "display_active", False):
+            color = self.eval_expr(stmt.color) if stmt.color is not None else None
+            self.gfx.cls(color)
+            return "NORMAL"
         if stmt.color is not None:
             # Maximite `CLS colour`: clear the graphics screen with a colour.
             if self.gfx is not None:

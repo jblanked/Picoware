@@ -139,7 +139,11 @@ def run(view_manager) -> None:
     else:
         console.set_input_active(interp.is_input_pending())
 
-    console.render()
+    # FRAMEBUFFER programs own the display until FRAMEBUFFER CLOSE. Rendering
+    # the text console here would immediately erase their presented frame.
+    graphics_active = bool(getattr(engine.gfx, "display_active", False))
+    if state.status == "error" or not graphics_active:
+        console.render()
 
 
 def stop(view_manager) -> None:

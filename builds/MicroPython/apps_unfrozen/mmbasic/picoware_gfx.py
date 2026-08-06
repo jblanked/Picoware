@@ -68,6 +68,7 @@ class PicowareGraphics:
         self._h = 240
         self._bg = 0
         self._fs = 8
+        self.display_active = False
         if draw is not None:
             try:
                 self._w = draw.size.x
@@ -177,12 +178,18 @@ class PicowareGraphics:
         """Handle FRAMEBUFFER; the draw layer is already double-buffered."""
         sub = str(sub).lower()
         if sub == "create":
+            self.display_active = True
             self.cls()
+        elif sub == "write":
+            self.display_active = True
         elif sub == "copy":
             # MMBasic's `FRAMEBUFFER COPY f,n` presents the completed frame.
             # Picoware already draws into a back buffer, so a swap is the
             # equivalent operation and avoids an unnecessary memory copy.
+            self.display_active = True
             self.swap()
+        elif sub == "close":
+            self.display_active = False
         return True
 
     def swap(self):
@@ -256,6 +263,7 @@ class NullGraphics:
 
     def __init__(self, draw=None, view_manager=None):
         self.draw = draw
+        self.display_active = False
 
     def cls(self):
         pass
@@ -281,8 +289,12 @@ class NullGraphics:
     def text(self, *a):
         pass
 
-    def framebuffer(self, *a):
-        pass
+    def framebuffer(self, sub, args):
+        sub = str(sub).lower()
+        if sub in ("create", "write", "copy"):
+            self.display_active = True
+        elif sub == "close":
+            self.display_active = False
 
     def swap(self):
         pass

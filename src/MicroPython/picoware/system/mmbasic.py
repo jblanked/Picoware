@@ -66,7 +66,7 @@ class MMBasic:
 
     def run(self) -> bool:
         """Poll buttons, tick the interpreter, redraw the console."""
-        button = self._view_manager.button
+        button = self._view_manager.input_manager.button
 
         if button != -1:
             self._view_manager.input_manager.reset()

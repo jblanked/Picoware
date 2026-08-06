@@ -1,11 +1,3 @@
-"""
-AST node definitions for MBASIC 5.21.
-
-MicroPython port: plain classes instead of dataclasses. Every node carries
-(line_num, column) position info for error messages and the debugger.
-"""
-
-
 class _Node:
     """Base class: carries source position."""
 

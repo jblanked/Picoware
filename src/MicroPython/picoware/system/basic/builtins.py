@@ -1,11 +1,3 @@
-"""
-Built-in functions for Microsoft BASIC-80 (from BASIC-80 Reference Manual
-Version 5.21), plus TAB/SPC markers and a PRINT USING formatter.
-
-MicroPython port: plain classes, no typing. `io_provider` is a callable that
-returns the console object used by INKEY$/INPUT$ and POS.
-"""
-
 import math
 import gc
 import struct
@@ -298,12 +290,12 @@ class BuiltinFunctions:
         return self.runtime.rnd.next(self._num(x))
 
     def CINT(self, x):
-        from .number_format import to_integer
+        from .number import to_integer
         v = to_integer(self._num(x))
         return (v + 0x8000) % 0x10000 - 0x8000  # wrap to signed 16-bit
 
     def CSNG(self, x):
-        from .number_format import to_single
+        from .number import to_single
         return to_single(self._num(x))
 
     def CDBL(self, x):
@@ -417,7 +409,7 @@ class BuiltinFunctions:
         return " " * n
 
     def STR(self, x):
-        from .number_format import format_number, SINGLE_DIGITS
+        from .number import format_number, SINGLE_DIGITS
         text = format_number(self._num(x), SINGLE_DIGITS)
         if not text.startswith("-"):
             text = " " + text

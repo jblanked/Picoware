@@ -1,12 +1,3 @@
-"""
-Graphics backend for the MMBasic interpreter.
-
-Renders MMBasic graphics through the Picoware draw layer's C methods
-(`_pixel`, `_line`, `_rectangle`, ...) with 24-bit colours converted to
-16-bit 565. Includes a minimal turtle engine and treats FRAMEBUFFER as a
-single double-buffered layer.
-"""
-
 import math
 
 # Named colours for RGB(NAME) - 24-bit 0xRRGGBB values.
@@ -101,20 +92,19 @@ class PicowareGraphics:
 
     def pixel(self, x, y, color=None):
         """Draw a single pixel."""
-        self.draw._pixel(int(x), int(y), self._c(color))
+        self.draw._pixel(x, y, self._c(color))
 
     def line(self, x1, y1, x2, y2, thickness=1, color=None):
         """Draw a line, with optional thickness."""
         col = self._c(color)
-        if thickness and int(thickness) > 1:
-            self._thick_line(int(x1), int(y1), int(x2), int(y2),
-                             int(thickness), col)
+        if thickness and (thickness) > 1:
+            self._thick_line(x1, y1, x2, y2,
+                             (thickness), col)
         else:
-            self.draw._line(int(x1), int(y1), int(x2), int(y2), col)
+            self.draw._line((x1), (y1), (x2), (y2), col)
 
     def box(self, x, y, w, h, thickness=1, outline=None, fill=None):
         """Draw a box outline and/or fill."""
-        x, y, w, h = int(x), int(y), int(w), int(h)
         if fill is not None:
             self.draw._fill_rectangle(x, y, w, h, self._c(fill))
         if outline is not None:
@@ -124,7 +114,6 @@ class PicowareGraphics:
 
     def circle(self, x, y, r, *extra):
         """Draw a circle, treating trailing args as outline/fill."""
-        x, y, r = int(x), int(y), int(r)
         args = list(extra)
         outline = None
         fill = None
@@ -148,7 +137,7 @@ class PicowareGraphics:
         pts = []
         n = min(len(xs), len(ys))
         for i in range(n):
-            pts.append((int(xs[i]), int(ys[i])))
+            pts.append((xs[i], ys[i]))
         if len(pts) < 3:
             return
         if fill is not None and fill != 0:
@@ -172,7 +161,7 @@ class PicowareGraphics:
 
     def text(self, x, y, s):
         """Draw a string at the given position."""
-        self.draw._text(int(x), int(y), str(s), self._c(None), self._fs)
+        self.draw._text(x, y, s, self._c(None), self._fs)
 
     def framebuffer(self, sub, args):
         """Handle FRAMEBUFFER; the draw layer is already double-buffered."""
@@ -183,9 +172,6 @@ class PicowareGraphics:
         elif sub == "write":
             self.display_active = True
         elif sub == "copy":
-            # MMBasic's `FRAMEBUFFER COPY f,n` presents the completed frame.
-            # Picoware already draws into a back buffer, so a swap is the
-            # equivalent operation and avoids an unnecessary memory copy.
             self.display_active = True
             self.swap()
         elif sub == "close":
@@ -194,14 +180,7 @@ class PicowareGraphics:
 
     def swap(self):
         """Present the back buffer."""
-        try:
-            swap = getattr(self.draw, "swap", None)
-            if swap is not None:
-                swap()
-            else:
-                self.draw._swap()
-        except Exception:
-            pass
+        self.draw.swap()
 
     def save_image(self, filename):
         """Save the framebuffer; unsupported on the device for now."""
@@ -241,8 +220,7 @@ class PicowareGraphics:
         nx = self.tx + dist * math.cos(rad)
         ny = self.ty - dist * math.sin(rad)
         if self.pen_down:
-            self.draw._line(int(self.tx), int(self.ty), int(nx), int(ny),
-                            self._c(None))
+            self.draw._line(self.tx, self.ty, nx, ny, self._c(None))
         self.tx = nx
         self.ty = ny
 
@@ -256,51 +234,3 @@ class PicowareGraphics:
                                       abs(x2 - x1) + 1, thick, col)
         else:
             self.draw._line(x1, y1, x2, y2, col)
-
-
-class NullGraphics:
-    """No-op graphics backend for host use."""
-
-    def __init__(self, draw=None, view_manager=None):
-        self.draw = draw
-        self.display_active = False
-
-    def cls(self, color=None):
-        pass
-
-    def pixel(self, *a):
-        pass
-
-    def line(self, *a):
-        pass
-
-    def box(self, *a):
-        pass
-
-    def circle(self, *a):
-        pass
-
-    def polygon(self, *a):
-        pass
-
-    def color(self, *a):
-        pass
-
-    def text(self, *a):
-        pass
-
-    def framebuffer(self, sub, args):
-        sub = str(sub).lower()
-        if sub in ("create", "write", "copy"):
-            self.display_active = True
-        elif sub == "close":
-            self.display_active = False
-
-    def swap(self):
-        pass
-
-    def save_image(self, *a):
-        pass
-
-    def turtle(self, *a):
-        pass

@@ -1,29 +1,10 @@
-"""
-MBASIC 5.21 Interpreter - executes BASIC ASTs.
-
-MicroPython port: a cooperative, tick-based executor. Each `tick()` runs up
-to `max_statements` statements and then yields, so the Picoware app can poll
-buttons and redraw the screen between ticks. Input (INPUT / LINE INPUT /
-INPUT$) parks execution instead of blocking, and resumes when the app feeds
-characters in via feed_char().
-"""
-
-from .tokens import TokenType
-from . import ast_nodes as nodes
-from .runtime import Runtime, RuntimeError_
-from .number_format import (
+from . import nodes as nodes
+from .runtime import RuntimeError_
+from .number import (
     format_for_print, INTEGER_DIGITS, SINGLE_DIGITS, DOUBLE_DIGITS,
 )
-from .basic_builtins import BuiltinFunctions, TabMarker, SpcMarker, KeyInputPending
-from .picoware_gfx import NAMED_COLORS
-
-
-class BreakException(Exception):
-    pass
-
-
-class ChainException(Exception):
-    pass
+from .builtins import BuiltinFunctions, TabMarker, SpcMarker, KeyInputPending
+from .gfx import NAMED_COLORS
 
 
 class _FunctionReturn(Exception):
@@ -58,10 +39,8 @@ class Interpreter:
 
     def __init__(self, runtime, console=None, builtins=None, gfx=None):
         self.runtime = runtime
-        self.console = console  # must expose output(text), newline(), echo(),
-                                # backspace()
-        from .picoware_gfx import NullGraphics
-        self.gfx = gfx if gfx is not None else NullGraphics()
+        self.console = console
+        self.gfx = gfx
         self.builtins = builtins or BuiltinFunctions(
             runtime, io_provider=lambda: self)
 
@@ -405,7 +384,7 @@ class Interpreter:
         values = [self.eval_expr(e) for e in stmt.expressions]
         if not fmt:
             raise RuntimeError_("Illegal function call", 5, stmt.line_num)
-        from .basic_builtins import UsingFormatter
+        from .builtins import UsingFormatter
         formatter = UsingFormatter(fmt)
         output = formatter.format_values(values)
         if self.console is not None:

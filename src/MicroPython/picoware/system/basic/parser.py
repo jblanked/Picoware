@@ -1,15 +1,6 @@
-"""
-Recursive-descent parser for MBASIC 5.21 (CP/M era MBASIC-80).
-
-Builds an AST (see ast_nodes.py) from a token stream (see lexer.py).
-
-MicroPython port: no typing/dataclasses. Mirrors the upstream module/class
-names so the project stays recognizable as the same interpreter.
-"""
-
 import math
 from .tokens import TokenType
-from . import ast_nodes as nodes
+from . import nodes as nodes
 
 
 class ParseError(Exception):

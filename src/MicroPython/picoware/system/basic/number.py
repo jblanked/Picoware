@@ -1,37 +1,12 @@
-"""
-How MBASIC 5.21 represents and prints a number.
-
-Derived from the real binary under cpmemu rather than from the manual. The
-rules, with the value rounded to `digits` significant figures first (6 for
-single precision, 16 for double):
-
-* A number is always followed by a space, and preceded by one if it is not
-  negative. PRINT 1;2;-3 gives " 1  2 -3 ".
-* There is no leading zero: .5, not 0.5.
-* Trailing zeros are dropped, and so is a trailing point.
-* Unscaled while it fits, scaled when it does not:
-
-      value >= 1     unscaled while the integer part needs no more than
-                     `digits` digits.  999999 prints as 999999 and 1000000
-                     as 1E+06.
-      value < 1      unscaled while the zeros after the point plus the
-                     significant digits come to no more than digits + 1.
-
-* The exponent is at least two digits and always signed: 1E+06, 1E-08.
-  Double precision uses D where single uses E: 1.234567890123457D+16.
-
-MicroPython port: the upstream uses the `decimal` module; here everything is
-done with float math (round-half-away-from-zero) so it runs on MicroPython.
-"""
-
+from micropython import const
 import math
 import struct
 
 #: Significant figures MBASIC keeps for each precision. None means the value
 #: is INTEGER-typed and prints as a plain whole number.
-INTEGER_DIGITS = None
-SINGLE_DIGITS = 6
-DOUBLE_DIGITS = 16
+INTEGER_DIGITS = const(None)
+SINGLE_DIGITS = const(6)
+DOUBLE_DIGITS = const(16)
 
 def _round_half_away(x):
     """Round a float to the nearest integer, halves away from zero."""

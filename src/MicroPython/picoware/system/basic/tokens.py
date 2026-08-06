@@ -1,13 +1,3 @@
-"""
-Token definitions for MBASIC 5.21 (CP/M era MBASIC-80)
-Based on BASIC-80 Reference Manual Version 5.21.
-
-MicroPython port: plain string constants instead of enum.Enum, and a plain
-Token class instead of a dataclass, so this runs on both CPython and
-MicroPython without any stdlib that MicroPython lacks.
-"""
-
-
 class TokenType:
     """Token type constants.
 
@@ -329,7 +319,7 @@ KEYWORDS = {
     "play": TokenType.PLAY, "pause": TokenType.PAUSE,
     "turtle": TokenType.TURTLE, "framebuffer": TokenType.FRAMEBUFFER,
     "layer": TokenType.LAYER, "create": TokenType.CREATE,
-    "copy": TokenType.COPY, "merge": TokenType.MERGE,
+    "copy": TokenType.COPY,
     "image": TokenType.IMAGE, "pixel": TokenType.PIXEL,
     "box": TokenType.BOX, "circle": TokenType.CIRCLE,
     "polygon": TokenType.POLYGON, "color": TokenType.COLOR,

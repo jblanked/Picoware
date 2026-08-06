@@ -1,25 +1,17 @@
-"""
-Runtime state management for the MBASIC interpreter.
-
-MicroPython port: a flat statement list with a program counter replaces the
-upstream's PC/StatementTable machinery, keeping the model simple enough to
-run on-device while still supporting line numbers, GOTO/GOSUB, FOR/NEXT and
-WHILE/WEND.
-"""
-
-from .number_format import coerce_to_type, to_integer
-from .mbasic_rnd import MbasicRandom
-from .ast_nodes import (
+from micropython import const
+from .number import coerce_to_type, to_integer
+from .rnd import MbasicRandom
+from .nodes import (
     EndSubStatementNode, EndFunctionStatementNode,
-    DoStatementNode, LoopStatementNode, VariableNode,
+    DoStatementNode, LoopStatementNode
 )
 
 #: Largest implicit array index when a variable is used as an array without
 #: DIM. MBASIC defaults every array to 10 elements per dimension.
-IMPLICIT_DIM = 10
+IMPLICIT_DIM = const(10)
 
 _TYPE_BY_DEF = {"integer": "%", "single": "!", "double": "#", "string": "$"}
-_SUFFIXES = "$%!#"
+_SUFFIXES = const("$%!#")
 
 
 def split_variable_name_and_suffix(full_name):

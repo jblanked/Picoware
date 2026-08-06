@@ -1,17 +1,3 @@
-"""
-Picoware console bridge for the MBASIC interpreter.
-
-Turns the device screen into a scrolling text console:
-    * PRINT output is appended to a line buffer and rendered with draw._text
-    * the current in-progress line stays open until a newline arrives (so
-      `PRINT "a";` works), and INPUT echoes typed characters onto it
-    * POS() reports the current column; logging goes through view_manager.log
-
-The app (MMBasic.py) feeds button presses to the interpreter via
-Interpreter.feed_char(); this console is only the display half.
-"""
-
-
 class PicowareConsole:
     def __init__(self, view_manager):
         self.vm = view_manager
@@ -100,8 +86,7 @@ class PicowareConsole:
 
         display = list(self.lines) + [self.cur]
         text_rows = self.rows - (1 if self.footer else 0)
-        if text_rows < 1:
-            text_rows = 1
+        text_rows = max(text_rows, 1)
         tail = display[-text_rows:]
 
         y = 0
@@ -117,7 +102,4 @@ class PicowareConsole:
 
 
     def log(self, message, level=-1):
-        try:
-            self.vm.log(message, level)
-        except Exception:
-            pass
+        self.vm.log(message, level)

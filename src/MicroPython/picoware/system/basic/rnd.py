@@ -1,43 +1,4 @@
-"""MBASIC 5.21's random number generator, reproduced exactly.
-
-Read out of `com/mbasic.com` rather than guessed at, and checked against the
-binary running under cpmemu: 200 consecutive values, the three argument forms,
-and RANDOMIZE all match digit for digit.
-
-It is not the RND from the 6502 Microsoft BASICs, and the constants published
-for those (11879546.0 and 3.92767778E-8) do not appear in this image. The
-routine lives at 0x37DD and works like this:
-
-    seed = seed * MULTIPLIERS[i8] + ADDENDS[i3]      in single precision
-
-then it takes the three mantissa bytes of that product and puts them back in a
-different order, exclusive-ORing one of them:
-
-    high' = low ^ 0x4F        low' = high (as stored, sign bit and all)
-
-sets the exponent so the value lies in [0.5,1), clears the sign, and
-normalises. The byte the normaliser shifts in from below - the guard byte - is
-the *old exponent* (`MOV B,M` at 0x3824), which is what makes the low bits
-come out the way they do; getting that wrong is a two-digit error, and it is
-the one thing here nobody would guess.
-
-Two indices walk the constant tables: `i8` counts 0..7 and picks the
-multiplier, `i3` cycles 1,2,3 and picks the addend. A third counter runs to
-171 and then perturbs three bytes once, which is why a sequence has to be
-checked well past 171 values before it can be believed.
-
-Addresses, for anyone reading the image:
-
-    0x37DD  the routine          0x3846  the 171-counter
-    0x3847  i3                   0x3848  i8
-    0x3849  the eight multipliers, four bytes each
-    0x3869  the seed             0x386D  the three addends
-    0x37C8  the seed RUN starts from
-    0x24AD  RANDOMIZE            0x25DA  the normaliser
-
-A single is stored low byte first: low, mid, high-with-sign, exponent.
-"""
-
+from micropython import const
 import math
 import struct
 
@@ -59,13 +20,13 @@ ADDENDS = (
 #: The seed RUN copies from 0x37C8. Every run of a program starts here, which
 #: is why MBASIC gives the same "random" numbers every time unless the program
 #: says RANDOMIZE.
-INITIAL_SEED = 0.8116351366043091
+INITIAL_SEED = const(0.8116351366043091)
 
 #: The byte the scramble exclusive-ORs into the high mantissa byte.
-SCRAMBLE_XOR = 0x4F
+SCRAMBLE_XOR = const(0x4F)
 
 #: The count at which the third counter wraps and perturbs the result.
-PERTURB_AT = 0xAB
+PERTURB_AT = const(0xAB)
 
 
 def _single(value):

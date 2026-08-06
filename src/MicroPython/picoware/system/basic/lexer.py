@@ -1,21 +1,8 @@
-"""
-Lexer for MBASIC 5.21 (CP/M era MBASIC-80)
-Based on BASIC-80 Reference Manual Version 5.21.
-
-MicroPython port: no typing/settings imports; a trivial no-op keyword-case
-manager keeps the API of the upstream project while the lexer stays pure.
-"""
-
 from .tokens import Token, TokenType, KEYWORDS, FILE_IO_KEYWORDS
 
 
 class SimpleKeywordCase:
-    """Minimal keyword-case handler.
-
-    The full project styles keywords according to a settings policy. On the
-    device we preserve whatever case the source used, which keeps LIST output
-    readable without carrying the whole settings subsystem.
-    """
+    """Minimal keyword-case handler. """
 
     def __init__(self, policy="force_lower"):
         self.policy = policy

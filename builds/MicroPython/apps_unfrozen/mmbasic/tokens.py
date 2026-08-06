@@ -213,6 +213,7 @@ class TokenType:
     SPACE = "SPACE"            # SPACE$
     STR = "STR"                # STR$
     STRING_FUNC = "STRING_FUNC"  # STRING$ function
+    TIME = "TIME"              # TIME$ current local time
     VAL = "VAL"
 
     EOF_FUNC = "EOF_FUNC"      # EOF
@@ -357,7 +358,8 @@ KEYWORDS = {
     "mid$": TokenType.MID, "mkd$": TokenType.MKD, "mki$": TokenType.MKI,
     "mks$": TokenType.MKS, "oct$": TokenType.OCT, "right$": TokenType.RIGHT,
     "space$": TokenType.SPACE, "str$": TokenType.STR,
-    "string$": TokenType.STRING_FUNC, "val": TokenType.VAL,
+    "string$": TokenType.STRING_FUNC, "time$": TokenType.TIME,
+    "val": TokenType.VAL,
 
     "eof": TokenType.EOF_FUNC, "inp": TokenType.INP, "loc": TokenType.LOC,
     "lof": TokenType.LOF, "peek": TokenType.PEEK, "pos": TokenType.POS,

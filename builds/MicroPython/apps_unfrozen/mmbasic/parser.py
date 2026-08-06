@@ -52,7 +52,8 @@ BUILTIN_FUNCTIONS = {
     TokenType.MKI: ("mki$", True), TokenType.MKS: ("mks$", True),
     TokenType.OCT: ("oct$", True), TokenType.RIGHT: ("right$", True),
     TokenType.SPACE: ("space$", True), TokenType.STR: ("str$", True),
-    TokenType.STRING_FUNC: ("string$", True), TokenType.VAL: ("val", False),
+    TokenType.STRING_FUNC: ("string$", True), TokenType.TIME: ("time$", True),
+    TokenType.VAL: ("val", False),
     TokenType.TAB: ("tab", False), TokenType.SPC: ("spc", False),
     TokenType.RGB: ("rgb", False), TokenType.CHOICE: ("choice", False),
 }
@@ -61,6 +62,7 @@ BUILTIN_FUNCTIONS = {
 _ZERO_ARG_FUNCS = frozenset((
     TokenType.INKEY, TokenType.RND, TokenType.ERR, TokenType.ERL,
     TokenType.FRE, TokenType.POS, TokenType.USR, TokenType.EOF_FUNC,
+    TokenType.TIME,
 ))
 
 
@@ -1264,6 +1266,9 @@ class Parser:
             do_cond = self.parse_expression()
             do_until = True
 
+        # MMBasic permits an empty inline body (`DO WHILE condition: LOOP`).
+        # Consume that statement separator before locating the LOOP marker.
+        self.match(TokenType.COLON)
         body = self._collect_block((TokenType.LOOP,))
         self.expect(TokenType.LOOP)
         loop_cond = None

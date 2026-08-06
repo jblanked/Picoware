@@ -175,14 +175,24 @@ class PicowareGraphics:
 
     def framebuffer(self, sub, args):
         """Handle FRAMEBUFFER; the draw layer is already double-buffered."""
+        sub = str(sub).lower()
         if sub == "create":
             self.cls()
+        elif sub == "copy":
+            # MMBasic's `FRAMEBUFFER COPY f,n` presents the completed frame.
+            # Picoware already draws into a back buffer, so a swap is the
+            # equivalent operation and avoids an unnecessary memory copy.
+            self.swap()
         return True
 
     def swap(self):
         """Present the back buffer."""
         try:
-            self.draw._swap()
+            swap = getattr(self.draw, "swap", None)
+            if swap is not None:
+                swap()
+            else:
+                self.draw._swap()
         except Exception:
             pass
 

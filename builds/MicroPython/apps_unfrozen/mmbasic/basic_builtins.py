@@ -431,6 +431,13 @@ class BuiltinFunctions:
             c = chr(int(self._num(char)) & 0xFF)
         return c * n
 
+    def TIME(self):
+        """Return the local RTC time in MMBasic's HH:MM:SS form."""
+        import time
+
+        now = time.localtime()
+        return "%02d:%02d:%02d" % (now[3], now[4], now[5])
+
     def VAL(self, s):
         s = str(s).strip()
         if not s:

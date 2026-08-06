@@ -76,6 +76,7 @@ class Interpreter:
         self._continuations = []  # clause continuations: (stmts, index, after_pc)
         self._resume_index = None  # for RESUME (no arg)
         self._fatal = None
+        self._tick_timers = {}     # SETTICK slot -> periodic SUB callback
 
         # Input state
         self._pending = None      # None | 'input' | 'key'
@@ -101,6 +102,7 @@ class Interpreter:
         self._continuations = []
         self._resume_index = None
         self._fatal = None
+        self._tick_timers = {}
         return InterpreterState("running")
 
     def tick(self, max_statements=200):
@@ -118,6 +120,10 @@ class Interpreter:
                 self._pending = None  # re-execute the INPUT$ statement
             else:
                 return self._state("input")
+
+        # SETTICK callbacks are dispatched only at Picoware's cooperative
+        # frame boundary. Never interrupt a running SUB or inline clause.
+        self._dispatch_tick_timer()
 
         count = 0
         while count < max_statements and self.runtime.running:
@@ -661,6 +667,8 @@ class Interpreter:
         return "NORMAL"
 
     def execute_sub_call(self, stmt):
+        if stmt.name == "settick":
+            return self.execute_settick(stmt)
         sub = self.runtime.sub_defs.get(stmt.name)
         if sub is None:
             raise RuntimeError_("Undefined SUB '%s'" % stmt.name, 18,
@@ -679,6 +687,82 @@ class Interpreter:
         self.runtime.sub_stack.append(frame)
         self.runtime.pc = sub["start"] + 1
         return "JUMP"
+
+    def execute_settick(self, stmt):
+        """Configure `SETTICK period_ms, callback [, slot]`."""
+        if len(stmt.args) < 2 or len(stmt.args) > 3:
+            raise RuntimeError_("Wrong number of arguments to 'settick'", 5,
+                                stmt.line_num)
+        period = int(self.eval_expr(stmt.args[0]))
+        callback_node = stmt.args[1]
+        callback = getattr(callback_node, "name", "")
+        if not callback:
+            callback = str(self.eval_expr(callback_node)).lower()
+        slot = int(self.eval_expr(stmt.args[2])) if len(stmt.args) == 3 else 1
+
+        if period <= 0:
+            self._tick_timers.pop(slot, None)
+            return "NORMAL"
+        if callback not in self.runtime.sub_defs:
+            raise RuntimeError_("Undefined SUB '%s'" % callback, 18,
+                                stmt.line_num)
+        now = self._now_ms()
+        self._tick_timers[slot] = {
+            "period": period,
+            "callback": callback,
+            "due": self._ticks_add(now, period),
+        }
+        return "NORMAL"
+
+    def _dispatch_tick_timer(self):
+        if self.runtime.sub_stack or self._continuations or not self._tick_timers:
+            return False
+        now = self._now_ms()
+        for slot in sorted(self._tick_timers):
+            timer = self._tick_timers.get(slot)
+            if timer is None or self._ticks_diff(now, timer["due"]) < 0:
+                continue
+            sub = self.runtime.sub_defs.get(timer["callback"])
+            if sub is None:
+                self._tick_timers.pop(slot, None)
+                continue
+            timer["due"] = self._ticks_add(now, timer["period"])
+            self.runtime.sub_stack.append({
+                "return_index": self.runtime.pc,
+                "saved": {},
+                "tick_slot": slot,
+            })
+            self.runtime.pc = sub["start"] + 1
+            return True
+        return False
+
+    @staticmethod
+    def _now_ms():
+        import time
+
+        ticks_ms = getattr(time, "ticks_ms", None)
+        if ticks_ms is not None:
+            return ticks_ms()
+        monotonic = getattr(time, "monotonic", None)
+        if monotonic is not None:
+            return int(monotonic() * 1000)
+        return int(time.time() * 1000)
+
+    @staticmethod
+    def _ticks_add(value, delta):
+        import time
+
+        ticks_add = getattr(time, "ticks_add", None)
+        return ticks_add(value, delta) if ticks_add is not None else value + delta
+
+    @staticmethod
+    def _ticks_diff(value, reference):
+        import time
+
+        ticks_diff = getattr(time, "ticks_diff", None)
+        if ticks_diff is not None:
+            return ticks_diff(value, reference)
+        return value - reference
 
     def _restore_sub_frame(self, frame):
         for name, saved in frame["saved"].items():

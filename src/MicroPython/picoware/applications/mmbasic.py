@@ -1,4 +1,7 @@
 from micropython import const
+from gc import collect
+from picoware.system.decorator import storage_required
+from picoware.system.mmbasic import MMBasic
 
 STATE_MENU = const(0)
 STATE_RUNNING = const(1)
@@ -8,23 +11,22 @@ _mmbasic_index = 0
 _mmbasic = None
 _state = STATE_MENU
 
+def _set_mmbasic(vm) -> bool:
+    global _mmbasic
+    del _mmbasic
+    _mmbasic = None
+    collect()
+    _mmbasic = MMBasic(vm)
+    return _mmbasic is not None
 
+@storage_required
 def start(view_manager) -> bool:
     """Start the app"""
     from picoware.gui.menu import Menu
-    from picoware.system.mmbasic import MMBasic
-
-    if not view_manager.has_sd_card:
-        view_manager.alert(
-            "Applications app requires an SD card.",
-            False,
-        )
-        return False
 
     # create mmbasic folder if it doesn't exist
     view_manager.storage.mkdir("picoware/mmbasic")
 
-    global _mmbasic
     global _menu
     global _state
 
@@ -42,7 +44,6 @@ def start(view_manager) -> bool:
         2,
     )
 
-    _mmbasic = MMBasic(view_manager)
     file_list = view_manager.storage.listdir("picoware/mmbasic")
     for app in file_list:
         if app.startswith("."):
@@ -67,15 +68,12 @@ def run(view_manager) -> None:
         BUTTON_RIGHT,
     )
 
-    global _mmbasic_index, _state
-
-    if not _mmbasic:
-        return
+    global _mmbasic_index, _state, _mmbasic, _menu
 
     button: int = view_manager.button
 
     if _state == STATE_RUNNING:
-        if not _mmbasic.run():
+        if _mmbasic is None or not _mmbasic.run():
             _state = STATE_MENU
             _menu.draw()
         return
@@ -93,7 +91,11 @@ def run(view_manager) -> None:
         # Get the selected app name
         selected_app = _menu.current_item
 
-        if selected_app and _mmbasic:
+        if selected_app:
+            if not _set_mmbasic(view_manager):
+                view_manager.alert("\n[MMBasic] Failed to initialize MMBasic\n")
+                return False
+            
             if not _mmbasic.start(source=view_manager.storage.read(f'picoware/mmbasic/{selected_app}.bas')):
                 view_manager.alert(f"\n[MMBasic] {selected_app} failed to start\n")
                 return
@@ -103,8 +105,6 @@ def run(view_manager) -> None:
 
 def stop(view_manager) -> None:
     """Stop the app"""
-    from gc import collect
-
     global _mmbasic, _menu
     if _mmbasic is not None:
         del _mmbasic

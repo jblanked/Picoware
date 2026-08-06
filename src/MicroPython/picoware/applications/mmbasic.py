@@ -77,6 +77,7 @@ def run(view_manager) -> None:
     if _state == STATE_RUNNING:
         if not _mmbasic.run():
             _state = STATE_MENU
+            _menu.draw()
         return
 
     if button in (BUTTON_UP, BUTTON_LEFT):

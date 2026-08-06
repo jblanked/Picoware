@@ -28,6 +28,7 @@ def start(view_manager) -> bool:
         _library.add_item("File Manager")
         _library.add_item("GameBoy Emulator")
         _library.add_item("Games")
+        _library.add_item("MMBasic")
         _library.add_item("Python Editor")
         _library.add_item("Python REPL")
         _library.add_item("Screensavers")
@@ -80,14 +81,15 @@ def run(view_manager) -> None:
             5: "File Manager",
             6: "GameBoy Emulator",
             7: "Games",
-            8: "Python Editor",
-            9: "Python REPL",
-            10: "Screensavers",
-            11: "Scripts",
-            12: "System",
-            13: "Text Editor",
-            14: "USB",
-            15: "WiFi",
+            8: "MMBasic",
+            9: "Python Editor",
+            10: "Python REPL",
+            11: "Screensavers",
+            12: "Scripts",
+            13: "System",
+            14: "Text Editor",
+            15: "USB",
+            16: "WiFi",
         }
 
         if app_map.get(_library_index) == "System":
@@ -244,6 +246,18 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("email")
+        elif app_map.get(_library_index) == "MMBasic":
+            from picoware.applications import mmbasic
+
+            view_manager.add(
+                View(
+                    "mmbasic",
+                    mmbasic.run,
+                    mmbasic.start,
+                    mmbasic.stop,
+                )
+            )
+            view_manager.switch_to("mmbasic")
 
 
 def stop(view_manager) -> None:

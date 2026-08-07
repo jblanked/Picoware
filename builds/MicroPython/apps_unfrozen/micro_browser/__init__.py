@@ -1,0 +1,1 @@
+"""MicroBrowser application package."""

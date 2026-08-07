@@ -17,7 +17,7 @@ class MMBasic:
         self._view_manager = view_manager
         self._console = io.PicowareConsole(view_manager)
         self._console.footer = "BACK=exit"
-        self._gfx = gfx.PicowareGraphics(view_manager.draw, view_manager)
+        self._gfx = gfx.PicowareGraphics(view_manager)
         self._interpreter = None
         self._script = None
         self._error = None

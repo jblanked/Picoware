@@ -62,9 +62,8 @@ class PicowareGraphics:
         "has_drawn",
     )
 
-    def __init__(self, draw, view_manager=None):
+    def __init__(self, view_manager):
         """Bind the draw layer and capture screen, background and font."""
-        self.draw = draw
         self.vm = view_manager
         self.cur_color = 0xFFFFFF
         self.pen_down = True
@@ -77,16 +76,21 @@ class PicowareGraphics:
         self._fs = 8
         self.display_active = False
         self.has_drawn = False
+        draw = view_manager.draw
         if draw is not None:
             self._w = draw.size.x
             self._h = draw.size.y
             self._bg = draw._background
             self._fs = draw._font_default.size
 
+    def __del__(self):
+        """Cleanup"""
+        self.vm = None
+
     def present(self):
         """Present the back buffer so drawn graphics become visible."""
-        if self.draw is not None and self.has_drawn:
-            self.draw.swap()
+        if self.vm.draw is not None and self.has_drawn:
+            self.vm.draw.swap()
 
     def _c(self, color):
         """Return the 565 colour for an MMBasic colour."""
@@ -100,14 +104,14 @@ class PicowareGraphics:
         """Clear the screen with a colour, or the background."""
         self.has_drawn = True
         if color is not None:
-            self.draw._clear(self._c(color))
+            self.vm.draw._clear(self._c(color))
             return
-        self.draw._clear(self._bg)
+        self.vm.draw._clear(self._bg)
 
     def pixel(self, x, y, color=None):
         """Draw a single pixel."""
         self.has_drawn = True
-        self.draw._pixel(x, y, self._c(color))
+        self.vm.draw._pixel(x, y, self._c(color))
 
     def line(self, x1, y1, x2, y2, thickness=1, color=None):
         """Draw a line, with optional thickness."""
@@ -117,17 +121,17 @@ class PicowareGraphics:
             self._thick_line(x1, y1, x2, y2,
                              (thickness), col)
         else:
-            self.draw._line((x1), (y1), (x2), (y2), col)
+            self.vm.draw._line((x1), (y1), (x2), (y2), col)
 
     def box(self, x, y, w, h, thickness=1, outline=None, fill=None):
         """Draw a box outline and/or fill."""
         self.has_drawn = True
         if fill is not None:
-            self.draw._fill_rectangle(x, y, w, h, self._c(fill))
+            self.vm.draw._fill_rectangle(x, y, w, h, self._c(fill))
         if outline is not None:
-            self.draw._rectangle(x, y, w, h, self._c(outline))
+            self.vm.draw._rectangle(x, y, w, h, self._c(outline))
         elif fill is None:
-            self.draw._rectangle(x, y, w, h, self._c(None))
+            self.vm.draw._rectangle(x, y, w, h, self._c(None))
 
     def circle(self, x, y, r, *extra):
         """Draw a circle, treating trailing args as outline/fill."""
@@ -144,11 +148,11 @@ class PicowareGraphics:
             elif outline is None:
                 outline = v
         if fill is not None and fill != 0:
-            self.draw._fill_circle(x, y, r, self._c(fill))
+            self.vm.draw._fill_circle(x, y, r, self._c(fill))
         if outline is not None and outline != 0:
-            self.draw._circle(x, y, r, self._c(outline))
+            self.vm.draw._circle(x, y, r, self._c(outline))
         elif fill is None:
-            self.draw._circle(x, y, r, self._c(None))
+            self.vm.draw._circle(x, y, r, self._c(None))
 
     def polygon(self, xs, ys, outline=None, fill=None):
         """Draw a polygon outline and/or fill from coordinate arrays."""
@@ -165,13 +169,13 @@ class PicowareGraphics:
             for i in range(1, len(pts) - 1):
                 x2, y2 = pts[i]
                 x3, y3 = pts[i + 1]
-                self.draw._fill_triangle(x1, y1, x2, y2, x3, y3, col)
+                self.vm.draw._fill_triangle(x1, y1, x2, y2, x3, y3, col)
         if outline is not None and outline != 0:
             col = self._c(outline)
             for i in range(len(pts)):
                 x1, y1 = pts[i]
                 x2, y2 = pts[(i + 1) % len(pts)]
-                self.draw._line(x1, y1, x2, y2, col)
+                self.vm.draw._line(x1, y1, x2, y2, col)
 
     def color(self, fg, bg=None):
         """Set the current MMBasic foreground (and optional background)."""
@@ -191,7 +195,7 @@ class PicowareGraphics:
     def text(self, x, y, s):
         """Draw a string at the given position."""
         self.has_drawn = True
-        self.draw._text(x, y, s, self._c(None), self._fs)
+        self.vm.draw._text(x, y, s, self._c(None), self._fs)
 
     def framebuffer(self, sub, args):
         """Handle FRAMEBUFFER; the draw layer is already double-buffered."""
@@ -213,7 +217,7 @@ class PicowareGraphics:
 
     def swap(self):
         """Present the back buffer."""
-        self.draw.swap()
+        self.vm.draw.swap()
 
     def save_image(self, filename):
         """Save the framebuffer; unsupported on the device for now."""
@@ -253,17 +257,17 @@ class PicowareGraphics:
         nx = self.tx + dist * math.cos(rad)
         ny = self.ty - dist * math.sin(rad)
         if self.pen_down:
-            self.draw._line(self.tx, self.ty, nx, ny, self._c(None))
+            self.vm.draw._line(self.tx, self.ty, nx, ny, self._c(None))
         self.tx = nx
         self.ty = ny
 
     def _thick_line(self, x1, y1, x2, y2, thick, col):
         """Draw a thick line as a filled rectangle."""
         if x1 == x2:
-            self.draw._fill_rectangle(x1 - thick // 2, min(y1, y2),
+            self.vm.draw._fill_rectangle(x1 - thick // 2, min(y1, y2),
                                       thick, abs(y2 - y1) + 1, col)
         elif y1 == y2:
-            self.draw._fill_rectangle(min(x1, x2), y1 - thick // 2,
+            self.vm.draw._fill_rectangle(min(x1, x2), y1 - thick // 2,
                                       abs(x2 - x1) + 1, thick, col)
         else:
-            self.draw._line(x1, y1, x2, y2, col)
+            self.vm.draw._line(x1, y1, x2, y2, col)

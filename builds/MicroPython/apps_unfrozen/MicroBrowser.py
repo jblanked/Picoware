@@ -5,34 +5,6 @@ MicroBrowser launcher for Picoware.
 _app = None
 
 
-def _add_app_path():
-    import sys
-
-    candidates = (
-        "/sd/picoware/micro_browser",
-        "/picoware/micro_browser",
-        "picoware/micro_browser",
-    )
-
-    for path in candidates:
-        for filename in ("micro_browser_app.mpy", "micro_browser_app.py"):
-            try:
-                import os
-                os.stat(path + "/" + filename)
-
-                if path not in sys.path:
-                    sys.path.insert(0, path)
-
-                return path
-            except OSError:
-                pass
-
-    raise ImportError(
-        "micro_browser_app module not found in "
-        "/sd/picoware/micro_browser"
-    )
-
-
 def start(view_manager) -> bool:
     global _app
 
@@ -49,9 +21,7 @@ def start(view_manager) -> bool:
         connect_to_saved_wifi(view_manager)
         return False
 
-    _add_app_path()
-
-    from micro_browser_app import MicroBrowserApp
+    from micro_browser.micro_browser_app import MicroBrowserApp
 
     _app = MicroBrowserApp(view_manager)
     return _app.start()

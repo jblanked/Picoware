@@ -2,51 +2,55 @@
 
 from gc import collect
 from micropython import const
-from config import HOME_URL, HTTP_HEADERS, SEARCH_URL, TEMP_FILE, MAX_PAGE_BYTES, MAX_CACHE_PAGE_BYTES, READ_CHUNK_SIZE, TEXT_MARGIN, HEADER_HEIGHT, FOOTER_HEIGHT, LINE_GAP
-from htmlparser import StreamingHTMLParser, StreamingFeedParser, looks_like_feed
-from urltools import resolve_url, unwrap_search_redirect
-from browser_store import PageCache, FeedStore
+from .config import BrowserConfig
+from .htmlparser import StreamingHTMLParser, StreamingFeedParser, looks_like_feed
+from .urltools import resolve_url, unwrap_search_redirect
+from .browser_store import PageCache, FeedStore
 
 STATE_VIEW=const(0); STATE_KEYBOARD=const(1); STATE_LOADING=const(2); STATE_START_MENU=const(3); STATE_RSS_MENU=const(4); STATE_FEED_LIST=const(5); STATE_MODIFY_MENU=const(6); STATE_ITEM_MENU=const(7); STATE_CONFIRM=const(8)
 PURPOSE_URL=const(0); PURPOSE_SEARCH=const(1); PURPOSE_FEED_NAME=const(2); PURPOSE_FEED_URL=const(3); PURPOSE_EDIT_NAME=const(4); PURPOSE_EDIT_URL=const(5)
 STYLE_NORMAL=const(0); STYLE_H1=const(1); STYLE_H2=const(2); STYLE_QUOTE=const(3); STYLE_RULE=const(4)
 
-_HTTP_PATCHED=False
-_HTTP_ORIGINAL_REQUEST=None
-_HTTP_BASE_URL=""
-
-
 class ParseCancelled(Exception):
     pass
 
 
-def install_relative_redirect_fix(http_class):
-    """Resolve relative redirects before older frozen HTTP clients parse them."""
-    global _HTTP_PATCHED,_HTTP_ORIGINAL_REQUEST
-    if _HTTP_PATCHED: return
-    _HTTP_ORIGINAL_REQUEST=http_class.request
-    def request(client,method,url,*args,**kwargs):
-        global _HTTP_BASE_URL
-        if url.startswith("http://") or url.startswith("https://"): _HTTP_BASE_URL=url
-        elif _HTTP_BASE_URL: url=resolve_url(_HTTP_BASE_URL,url)
-        return _HTTP_ORIGINAL_REQUEST(client,method,url,*args,**kwargs)
-    http_class.request=request
-    _HTTP_PATCHED=True
+class RelativeRedirectFix:
+    """Instance-owned compatibility patch that is restored on app exit."""
+
+    def __init__(self):
+        self.http_class=None; self.original_request=None; self.base_url=""
+
+    def install(self,http_class):
+        if self.http_class: return
+        self.http_class=http_class; self.original_request=http_class.request
+        owner=self
+        def request(client,method,url,*args,**kwargs):
+            if url.startswith("http://") or url.startswith("https://"): owner.base_url=url
+            elif owner.base_url: url=resolve_url(owner.base_url,url)
+            return owner.original_request(client,method,url,*args,**kwargs)
+        http_class.request=request
+
+    def clear(self):
+        if self.http_class and self.original_request:
+            self.http_class.request=self.original_request
+        self.http_class=None; self.original_request=None; self.base_url=""
 
 class MicroBrowserApp:
     def __init__(self, view_manager):
+        self.config=BrowserConfig(); self.redirect_fix=RelativeRedirectFix()
         self.vm=view_manager; self.http=None; self.loading=None; self.page=None; self.menu=None
         self.lines=[]; self.line_links=[]; self.line_styles=[]; self.top_line=0; self.selected_link=0
-        self.current_url=HOME_URL; self.pending_url=None; self.pending_add_history=True; self.history=[]; self.www_retry=False
+        self.current_url=self.config.home_url; self.pending_url=None; self.pending_add_history=True; self.history=[]; self.www_retry=False
         self.state=STATE_VIEW; self.keyboard_purpose=PURPOSE_URL; self.keyboard_return_state=STATE_VIEW
-        self.cache=None; self.feeds=None; self.menu_items=[]; self.pending_feed_name=""; self.edit_index=-1; self.source_path=TEMP_FILE
+        self.cache=None; self.feeds=None; self.menu_items=[]; self.pending_feed_name=""; self.edit_index=-1; self.source_path=self.config.temp_file
         self.return_menu="main"; self.discover_feed=False
 
     def start(self):
         self.vm.freq(True); storage=self.vm.storage
         if not storage: self.vm.alert("SD storage required",False); return False
         storage.mkdir("picoware/micro_browser"); storage.mkdir("picoware/micro_browser/cache")
-        self.cache=PageCache(storage); self.feeds=FeedStore(storage)
+        self.cache=PageCache(storage,self.config); self.feeds=FeedStore(storage,self.config)
         self._show_start_menu(); return True
 
     def stop(self):
@@ -56,10 +60,11 @@ class MicroBrowserApp:
         storage=self.vm.storage
         if self.cache: self.cache.clear()
         try:
-            if storage and storage.exists(TEMP_FILE): storage.remove(TEMP_FILE)
+            if storage and storage.exists(self.config.temp_file): storage.remove(self.config.temp_file)
         except Exception: pass
         self.http=None; self.loading=None; self.menu=None; self.feeds=None; self.cache=None; self.menu_items=[]; self.history=[]; self.vm.keyboard.reset(); self.vm.freq()
-        self.page=None; self.lines=[]; self.line_links=[]; self.line_styles=[]; self.current_url=HOME_URL; self.pending_url=None; collect()
+        self.page=None; self.lines=[]; self.line_links=[]; self.line_styles=[]; self.current_url=""; self.pending_url=None
+        self.redirect_fix.clear(); self.redirect_fix=None; self.config.clear(); self.config=None; collect()
 
     def run(self):
         if self.state in (STATE_START_MENU,STATE_RSS_MENU,STATE_FEED_LIST,STATE_MODIFY_MENU,STATE_ITEM_MENU,STATE_CONFIRM): self._run_menu(); return
@@ -176,18 +181,19 @@ class MicroBrowserApp:
                 except Exception: pass
         from picoware.system.http import HTTP
         from picoware.gui.loading import Loading
-        install_relative_redirect_fix(HTTP)
+        self.redirect_fix.install(HTTP)
         if self.http:
             try: self.http.close()
             except Exception: pass
         self._release_page()
         self.http=HTTP(thread_manager=self.vm.thread_manager); self.loading=Loading(self.vm.draw,self.vm.foreground_color,self.vm.background_color); self.loading.set_text("Loading...")
-        self.pending_url=url; self.pending_add_history=add_history; self.source_path=TEMP_FILE; self.www_retry=www_retry; self.discover_feed=discover_feed
+        temp_file=self.config.temp_file
+        self.pending_url=url; self.pending_add_history=add_history; self.source_path=temp_file; self.www_retry=www_retry; self.discover_feed=discover_feed
         storage=self.vm.storage
         try:
-            if storage.exists(TEMP_FILE): storage.remove(TEMP_FILE)
+            if storage.exists(temp_file): storage.remove(temp_file)
         except Exception: pass
-        if not self.http.get_async(url,save_to_file=TEMP_FILE,storage=storage,headers=HTTP_HEADERS,timeout=20):
+        if not self.http.get_async(url,save_to_file=temp_file,storage=storage,headers=self.config.http_headers,timeout=20):
             self._show_error("Failed to start request"); return False
         self.state=STATE_LOADING; return True
 
@@ -208,15 +214,16 @@ class MicroBrowserApp:
             successful=self.http.is_successful if self.http else False
             if self.http: self.http.close()
             storage=self.vm.storage
-            empty=not storage.exists(TEMP_FILE) or storage.size(TEMP_FILE)<=0
+            temp_file=self.config.temp_file
+            empty=not storage.exists(temp_file) or storage.size(temp_file)<=0
             if empty:
                 fallback=self._www_fallback(self.pending_url)
                 if fallback and not self.www_retry:
                     self.open_url(fallback,self.pending_add_history,False,True,self.discover_feed); return
                 raise Exception(error or ("Request failed" if not successful else "Empty response"))
-            self.page=self._parse_file(TEMP_FILE)
+            self.page=self._parse_file(temp_file)
             if self._open_discovered_feed(): return
-            if self.cache and storage.size(TEMP_FILE)<=MAX_CACHE_PAGE_BYTES: self.cache.put(self.pending_url,TEMP_FILE)
+            if self.cache and storage.size(temp_file)<=self.config.max_cache_page_bytes: self.cache.put(self.pending_url,temp_file)
             self._finish_open()
         except ParseCancelled: self._cancel_to_menu()
         except Exception as error: self._show_error(str(error))
@@ -252,11 +259,11 @@ class MicroBrowserApp:
         if not storage.exists(path): raise Exception("Page file not found")
         size=storage.size(path)
         if size<=0: raise Exception("Empty response")
-        if size>MAX_PAGE_BYTES: raise Exception("Page too large: {} KB".format(size//1024))
+        if size>self.config.max_page_bytes: raise Exception("Page too large: {} KB".format(size//1024))
         file=storage.file_open(path)
         if not file: raise Exception("Could not open page")
-        buffer=bytearray(READ_CHUNK_SIZE); first=storage.file_readinto(file,buffer)
-        parser=StreamingFeedParser() if first>0 and looks_like_feed(buffer[:first]) else StreamingHTMLParser(); done=0
+        buffer=bytearray(self.config.read_chunk_size); first=storage.file_readinto(file,buffer)
+        parser=StreamingFeedParser(self.config) if first>0 and looks_like_feed(buffer[:first]) else StreamingHTMLParser(self.config); done=0
         try:
             if first>0: parser.feed(buffer[:first]); done=first
             while True:
@@ -280,19 +287,19 @@ class MicroBrowserApp:
         draw=self.vm.draw; draw.fill_screen(self.vm.background_color)
         title=self.page.title if self.page else "MicroBrowser"
         if len(title)>draw.scale_x(38): title=title[:draw.scale_x(35)]+"..."
-        draw._text(TEXT_MARGIN,2,title,self.vm.foreground_color)
-        font=draw.get_font(0); line_height=font.height+LINE_GAP; y=HEADER_HEIGHT; visible=self._visible_count(); end=min(len(self.lines),self.top_line+visible)
+        draw._text(self.config.text_margin,2,title,self.vm.foreground_color)
+        font=draw.get_font(0); line_height=font.height+self.config.line_gap; y=self.config.header_height; visible=self._visible_count(); end=min(len(self.lines),self.top_line+visible)
         for index in range(self.top_line,end):
             selected=self.selected_link>0 and self.line_links[index]==self.selected_link
             style=self.line_styles[index]
             color=self.vm.selected_color if selected else (self.vm.foreground_color)
-            draw._text(TEXT_MARGIN,y,self.lines[index],color); y += line_height
+            draw._text(self.config.text_margin,y,self.lines[index],color); y += line_height
         footer="{}/{} L{}/{}".format(min(self.top_line+1,max(1,len(self.lines))),max(1,len(self.lines)),self.selected_link,len(self.page.links) if self.page else 0)
         if self.page and self.page.truncated: footer="TRUNC "+footer
-        draw._text(TEXT_MARGIN,draw.size.y-FOOTER_HEIGHT,footer[:draw.scale_x(42)],self.vm.foreground_color); draw.swap()
+        draw._text(self.config.text_margin,draw.size.y-self.config.footer_height,footer[:draw.scale_x(42)],self.vm.foreground_color); draw.swap()
 
     def _layout(self):
-        draw=self.vm.draw; width=max(12,(draw.size.x-(TEXT_MARGIN*2))//max(1,draw.len("M")))
+        draw=self.vm.draw; width=max(12,(draw.size.x-(self.config.text_margin*2))//max(1,draw.len("M")))
         self.lines=[]; self.line_links=[]; self.line_styles=[]
         for block in self.page.blocks:
             style,text=self._style_block(block); link=self._link_number(text)
@@ -330,7 +337,7 @@ class MicroBrowserApp:
         except Exception: return 0
 
     def _visible_count(self):
-        font=self.vm.draw.get_font(0); return max(1,(self.vm.draw.size.y-HEADER_HEIGHT-FOOTER_HEIGHT)//(font.height+LINE_GAP))
+        font=self.vm.draw.get_font(0); return max(1,(self.vm.draw.size.y-self.config.header_height-self.config.footer_height)//(font.height+self.config.line_gap))
     def _scroll(self,amount):
         self.top_line=min(max(0,len(self.lines)-self._visible_count()),max(0,self.top_line+amount)); self.draw()
     def _select_link(self,amount):
@@ -368,7 +375,7 @@ class MicroBrowserApp:
             if self.keyboard_purpose==PURPOSE_SEARCH:
                 if value:
                     self.return_menu="main"; self.history=[]; self.menu=None
-                    self.open_url(SEARCH_URL.format(self._quote_plus(value)),False,False)
+                    self.open_url(self.config.search_url.format(self._quote_plus(value)),False,False)
                 else: self._show_start_menu()
             elif self.keyboard_purpose==PURPOSE_FEED_NAME:
                 if value:

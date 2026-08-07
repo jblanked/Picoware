@@ -1,7 +1,6 @@
 """Streaming HTML parser for Picoware MicroBrowser."""
 
-from config import MAX_BLOCKS, MAX_LINKS, MAX_TEXT_CHARS, MAX_TAG_CHARS, MAX_TEXT_NODE_CHARS, MAX_FEED_ITEMS, MAX_FEED_SUMMARY_CHARS, CHARACTER_MODE
-from textcodec import UTF8StreamDecoder, display_text
+from .textcodec import UTF8StreamDecoder, display_text
 
 _ENTITIES = {"amp":"&", "lt":"<", "gt":">", "quot":'"', "apos":"'", "nbsp":" ", "middot":"-"}
 
@@ -119,7 +118,8 @@ class StreamingHTMLParser:
                   "blockquote":"> ", "h1":"# ", "h2":"## ", "h3":"### ",
                   "h4":"#### ", "h5":"##### ", "h6":"###### "}
 
-    def __init__(self):
+    def __init__(self, config):
+        self.config=config
         self.page=ParsedPage(); self._text=[]; self._tag=[]; self._in_tag=False; self._quote=None; self._discard_tag=False
         self._prefix=""; self._href=None; self._anchor_link_number=0; self._ignore_anchor=False; self._in_title=False; self._in_pre=False; self._skip_tag=None; self._skip_depth=0; self._raw_tail=""
         self._text_chars=0; self._decoder=UTF8StreamDecoder(); self._list_stack=[]
@@ -144,13 +144,13 @@ class StreamingHTMLParser:
                 elif ch in ("'", '"'): self._quote=ch; self._tag.append(ch)
                 elif ch == ">": self._handle_tag("".join(self._tag).strip()); self._tag=[]; self._in_tag=False
                 else: self._tag.append(ch)
-                if not self._discard_tag and len(self._tag)>=MAX_TAG_CHARS:
+                if not self._discard_tag and len(self._tag)>=self.config.max_tag_chars:
                     self._handle_oversized_tag()
                     self._tag=[]; self._quote=None; self._discard_tag=True
             elif ch == "<": self._flush_text(); self._in_tag=True; self._tag=[]
             elif self._skip_tag is None and not self._ignore_anchor:
                 self._text.append(ch)
-                if len(self._text)>=MAX_TEXT_NODE_CHARS: self._flush_text()
+                if len(self._text)>=self.config.max_text_node_chars: self._flush_text()
 
     def finish(self):
         tail=self._decoder.finish()
@@ -161,7 +161,7 @@ class StreamingHTMLParser:
         return self.page
 
     def _add_block(self, value):
-        if len(self.page.blocks) >= MAX_BLOCKS: self.page.truncated=True; return
+        if len(self.page.blocks) >= self.config.max_blocks: self.page.truncated=True; return
         self.page.blocks.append(value)
 
     def _handle_oversized_tag(self):
@@ -176,13 +176,13 @@ class StreamingHTMLParser:
         value="".join(self._text); self._text=[]
         if self._skip_tag is not None: return
         if not self._in_pre: value=collapse_spaces(value)
-        value=display_text(decode_entities(value), CHARACTER_MODE)
+        value=display_text(decode_entities(value), self.config.character_mode)
         if not value: return
         if value.strip().lower() in _NOISE_TEXT: return
         self._text_chars += len(value)
-        if self._text_chars > MAX_TEXT_CHARS: self.page.truncated=True; return
+        if self._text_chars > self.config.max_text_chars: self.page.truncated=True; return
         if self._in_title: self.page.title=(self.page.title+" "+value).strip(); return
-        if self._href and len(self.page.links) < MAX_LINKS:
+        if self._href and len(self.page.links) < self.config.max_links:
             if is_readable_link(self._href,value):
                 if not self._anchor_link_number:
                     self._anchor_link_number=len(self.page.links)+1
@@ -248,8 +248,8 @@ class StreamingHTMLParser:
                 found=False
                 for target,label in self.page.links:
                     if target==href: found=True; break
-                if not found and len(self.page.links)<MAX_LINKS:
-                    label=display_text(decode_entities(feed_title),CHARACTER_MODE)
+                if not found and len(self.page.links)<self.config.max_links:
+                    label=display_text(decode_entities(feed_title),self.config.character_mode)
                     number=len(self.page.links)+1; self.page.links.append((href,label)); self._add_block("[{}] {}".format(number,label))
         elif name == "pre": self._in_pre=True; self._prefix=""
         elif name == "br": self._add_block("")
@@ -276,7 +276,8 @@ class StreamingFeedParser:
     """Bounded streaming parser for RSS 2.0, Atom, and RSS/RDF feeds."""
     FIELDS=("title","link","description","summary","content","pubdate","published","updated")
 
-    def __init__(self):
+    def __init__(self, config):
+        self.config=config
         self.page=ParsedPage(); self._decoder=UTF8StreamDecoder(); self._tag=[]; self._text=[]
         self._in_tag=False; self._quote=None; self._discard_tag=False; self._in_item=False
         self._field=None; self._item={}; self._feed_title=""; self._items=0
@@ -294,12 +295,12 @@ class StreamingFeedParser:
                 elif ch in ("'",'"'): self._quote=ch; self._tag.append(ch)
                 elif ch==">": self._handle_tag("".join(self._tag).strip()); self._tag=[]; self._in_tag=False
                 else: self._tag.append(ch)
-                if not self._discard_tag and len(self._tag)>=MAX_TAG_CHARS:
+                if not self._discard_tag and len(self._tag)>=self.config.max_tag_chars:
                     self._tag=[]; self._quote=None; self._discard_tag=True
             elif ch=="<": self._flush_text(); self._in_tag=True; self._tag=[]
             elif self._field:
                 self._text.append(ch)
-                if len(self._text)>=MAX_TEXT_NODE_CHARS: self._flush_text()
+                if len(self._text)>=self.config.max_text_node_chars: self._flush_text()
 
     def finish(self):
         tail=self._decoder.finish()
@@ -312,11 +313,11 @@ class StreamingFeedParser:
 
     def _flush_text(self):
         if not self._text: return
-        value=display_text(decode_entities(collapse_spaces("".join(self._text))),CHARACTER_MODE).replace("]]>",""); self._text=[]
+        value=display_text(decode_entities(collapse_spaces("".join(self._text))),self.config.character_mode).replace("]]>",""); self._text=[]
         if not value or not self._field: return
         if self._in_item:
             old=self._item.get(self._field,"")
-            limit=MAX_FEED_SUMMARY_CHARS if self._field in ("description","summary","content") else 1024
+            limit=self.config.max_feed_summary_chars if self._field in ("description","summary","content") else 1024
             if len(old)<limit: self._item[self._field]=(old+" "+value).strip()[:limit]
         elif self._field=="title" and not self._feed_title: self._feed_title=value[:160]
 
@@ -340,11 +341,11 @@ class StreamingFeedParser:
 
     def _finish_item(self):
         self._flush_text(); self._in_item=False; self._field=None
-        if self._items>=MAX_FEED_ITEMS: self.page.truncated=True; self._item={}; return
+        if self._items>=self.config.max_feed_items: self.page.truncated=True; self._item={}; return
         title=self._item.get("title","").strip() or "Untitled entry"; link=self._item.get("link","").strip()
         date=(self._item.get("pubdate","") or self._item.get("published","") or self._item.get("updated","")).strip()
         summary=(self._item.get("description","") or self._item.get("summary","") or self._item.get("content","")).strip()
-        if link and is_readable_link(link,title) and len(self.page.links)<MAX_LINKS:
+        if link and is_readable_link(link,title) and len(self.page.links)<self.config.max_links:
             number=len(self.page.links)+1; self.page.links.append((link,title)); self.page.blocks.append("## [{}] {}".format(number,title))
         else: self.page.blocks.append("## "+title)
         if date: self.page.blocks.append(date)

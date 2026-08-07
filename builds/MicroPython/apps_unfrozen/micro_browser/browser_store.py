@@ -1,7 +1,6 @@
 """Small SD-card page cache and persistent RSS/Atom feed store."""
 
 from json import loads, dumps
-from config import CACHE_DIR, CACHE_INDEX_FILE, CUSTOM_FEEDS_FILE, MAX_CACHE_FILES, MAX_CUSTOM_FEEDS, START_FEEDS
 
 
 def fnv1a(text):
@@ -13,13 +12,14 @@ def fnv1a(text):
 
 
 class PageCache:
-    def __init__(self, storage):
+    def __init__(self, storage, config):
         self.storage = storage
-        self.storage.mkdir(CACHE_DIR)
-        self.index = self._read_json(CACHE_INDEX_FILE, [])
+        self.config = config
+        self.storage.mkdir(config.cache_dir)
+        self.index = self._read_json(config.cache_index_file, [])
 
     def path_for(self, url):
-        return CACHE_DIR + "/" + fnv1a(url) + ".html"
+        return self.config.cache_dir + "/" + fnv1a(url) + ".html"
 
     def get(self, url):
         path = self.path_for(url)
@@ -36,7 +36,7 @@ class PageCache:
             self.storage.copy(source_path, path)
             self._touch(url, path)
             self._trim()
-            self._write_json(CACHE_INDEX_FILE, self.index)
+            self._write_json(self.config.cache_index_file, self.index)
             return path
         except Exception:
             return None
@@ -49,7 +49,7 @@ class PageCache:
             except Exception: pass
         self.index=[]
         try:
-            if self.storage.exists(CACHE_INDEX_FILE): self.storage.remove(CACHE_INDEX_FILE)
+            if self.storage.exists(self.config.cache_index_file): self.storage.remove(self.config.cache_index_file)
         except Exception: pass
 
     def _touch(self, url, path):
@@ -59,7 +59,7 @@ class PageCache:
         self.index.insert(0, [url, path])
 
     def _trim(self):
-        while len(self.index) > MAX_CACHE_FILES:
+        while len(self.index) > self.config.max_cache_files:
             old = self.index.pop()
             try:
                 if self.storage.exists(old[1]):
@@ -84,8 +84,8 @@ class PageCache:
 
 class FeedStore:
     """Persistent, fully user-managed RSS/Atom feed list."""
-    def __init__(self,storage):
-        self.storage=storage; self.items=self._load()
+    def __init__(self,storage,config):
+        self.storage=storage; self.config=config; self.items=self._load()
 
     def add(self,name,url):
         name=name.strip(); url=url.strip()
@@ -94,7 +94,7 @@ class FeedStore:
         for index in range(len(self.items)-1,-1,-1):
             if self.items[index][1]==url: del self.items[index]
         self.items.append([name[:40],url])
-        while len(self.items)>MAX_CUSTOM_FEEDS: del self.items[0]
+        while len(self.items)>self.config.max_custom_feeds: del self.items[0]
         return self._save()
 
     def remove(self,index):
@@ -115,17 +115,17 @@ class FeedStore:
 
     def _load(self):
         try:
-            if self.storage.exists(CUSTOM_FEEDS_FILE):
-                value=loads(self.storage.read(CUSTOM_FEEDS_FILE))
-                if isinstance(value,dict) and value.get("initialized"): return value.get("items",[])[:MAX_CUSTOM_FEEDS]
+            if self.storage.exists(self.config.custom_feeds_file):
+                value=loads(self.storage.read(self.config.custom_feeds_file))
+                if isinstance(value,dict) and value.get("initialized"): return value.get("items",[])[:self.config.max_custom_feeds]
                 if isinstance(value,list):
-                    items=[[name,url] for name,url in START_FEEDS]
+                    items=[[name,url] for name,url in self.config.start_feeds]
                     for item in value:
                         if isinstance(item,list) and len(item)>=2: items.append(item[:2])
-                    self.items=items[:MAX_CUSTOM_FEEDS]; self._save(); return self.items
+                    self.items=items[:self.config.max_custom_feeds]; self._save(); return self.items
         except Exception: pass
-        self.items=[[name,url] for name,url in START_FEEDS]; self._save(); return self.items
+        self.items=[[name,url] for name,url in self.config.start_feeds]; self._save(); return self.items
 
     def _save(self):
-        try: return bool(self.storage.write(CUSTOM_FEEDS_FILE,dumps({"initialized":True,"items":self.items})))
+        try: return bool(self.storage.write(self.config.custom_feeds_file,dumps({"initialized":True,"items":self.items})))
         except Exception: return False

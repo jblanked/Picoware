@@ -24,6 +24,20 @@ class MMBasic:
         self._def_type_map = definition_type_map
         self._over = False
 
+    def __del__(self):
+        """Cleanup"""
+        self._view_manager = None
+        del self._console
+        self._console = None
+        del self._gfx
+        self._gfx = None
+        del self._interpreter
+        self._interpreter = None
+        self._script = None
+        self._error = None
+        self._def_type_map = None
+        self._over = False
+
     def is_over(self) -> bool:
         """True when the program has reached a terminal state (END/STOP)."""
         return self._over

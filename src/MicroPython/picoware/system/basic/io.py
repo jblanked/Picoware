@@ -19,11 +19,22 @@ class PicowareConsole:
         self.footer = "BACK=exit"
         self.dirty = True
         self._input_active = False
+        self._pos = None     # (row, col) from PRINT @(col,row[,size])
+        self._fs = 8         # font size for PRINT @(col,row,size)
 
+    def goto(self, col, row, size=None):
+        """Position the text cursor at a character cell for PRINT @(...)."""
+        self._pos = [max(int(row), 0), max(int(col), 0)]
+        if size is not None and int(size) > 0:
+            self._fs = int(size)
+        self.dirty = True
 
     def output(self, text):
         """Append text; '\\n' flushes lines, a trailing newline opens a fresh
         line, and no trailing newline leaves the line open (PRINT ...;)."""
+        if self._pos is not None:
+            self._output_at(text)
+            return
         parts = text.split("\n")
         for i, part in enumerate(parts):
             self.cur += part
@@ -31,6 +42,34 @@ class PicowareConsole:
                 self._flush_line()
             else:
                 self._wrap_cur()
+        self.dirty = True
+
+    def _output_at(self, text):
+        """Write text at the current PRINT @(col,row) position, then advance
+        the cursor past what was written (so trailing `;` prints continue)."""
+        row, col = self._pos
+        while len(self.lines) <= row:
+            self.lines.append("")
+        i = 0
+        n = len(text)
+        while i < n:
+            ch = text[i]
+            if ch == "\n":
+                row += 1
+                col = 0
+                while len(self.lines) <= row:
+                    self.lines.append("")
+                i += 1
+                continue
+            line = self.lines[row]
+            if len(line) < col:
+                line = line + " " * (col - len(line))
+            line = line[:col] + ch + line[col + 1:]
+            self.lines[row] = line
+            col += 1
+            i += 1
+        self._pos = [row, col]
+        self._trim()
         self.dirty = True
 
     def newline(self):
@@ -95,8 +134,7 @@ class PicowareConsole:
             y += self.font_h
         if self.footer:
             draw._text(0, self.screen_h - self.font_h, self.footer,
-                       self.vm.selected_color if hasattr(self.vm, "selected_color")
-                       else self.fg)
+                       self.vm.selected_color)
         draw.swap()
         self.dirty = False
 

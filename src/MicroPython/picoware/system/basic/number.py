@@ -76,7 +76,7 @@ def format_number(value, digits=SINGLE_DIGITS):
         return str(int(value))
 
     try:
-        if value != value or value in (float("inf"), float("-inf")):
+        if value in (float("inf"), float("-inf")):
             return str(value)
     except (TypeError, ValueError):
         return str(value)

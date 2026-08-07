@@ -21,6 +21,7 @@ class ParseError(Exception):
 #: TokenType -> (function name, is_string_return)
 BUILTIN_FUNCTIONS = {
     TokenType.ABS: ("abs", False), TokenType.ATN: ("atn", False),
+    TokenType.ATAN2: ("atan2", False),
     TokenType.CDBL: ("cdbl", False), TokenType.CINT: ("cint", False),
     TokenType.COS: ("cos", False), TokenType.CSNG: ("csng", False),
     TokenType.CVD: ("cvd", False), TokenType.CVI: ("cvi", False),
@@ -36,6 +37,7 @@ BUILTIN_FUNCTIONS = {
     TokenType.EOF_FUNC: ("eof", False), TokenType.USR: ("usr", False),
     TokenType.VARPTR: ("varptr", False),
     TokenType.ASC: ("asc", False), TokenType.CHR: ("chr$", True),
+    TokenType.EVAL: ("eval", False),
     TokenType.HEX: ("hex$", True), TokenType.INKEY: ("inkey$", True),
     TokenType.INPUT_FUNC: ("input$", True), TokenType.INSTR: ("instr", False),
     TokenType.LEFT: ("left$", True), TokenType.LEN: ("len", False),
@@ -55,6 +57,21 @@ _ZERO_ARG_FUNCS = frozenset((
     TokenType.FRE, TokenType.POS, TokenType.USR, TokenType.EOF_FUNC,
     TokenType.TIME,
 ))
+
+
+#: Builtin functions that lex as plain IDENTIFIERs (not keyword tokens).
+#: key = identifier (lowercase, without a trailing '$'); value = call name.
+IDENTIFIER_FUNCTIONS = {
+    "ucase": "ucase$",
+    "lcase": "lcase$",
+    "dir": "dir$",
+    "inputstring": "inputstring$",
+    "epoch": "epoch",
+    "datetime": "datetime$",
+    "day": "day$",
+    "now": "now",
+    "today": "today$",
+}
 
 
 #: Editor/immediate-mode commands that make no sense on a handheld, but which
@@ -77,6 +94,10 @@ def create_default_def_type_map():
 class Parser:
     """Parses a token stream into a ProgramNode AST."""
 
+    __slots__ = ("tokens", "pos", "source", "def_type_map", "keyword_case_manager",
+                 "line_index", "_source_lines", "_in_print_items",
+                 "_user_functions")
+
     def __init__(self, tokens, def_type_map=None, source="", keyword_case_manager=None):
         self.tokens = tokens
         self.pos = 0
@@ -84,6 +105,17 @@ class Parser:
         self.def_type_map = def_type_map or create_default_def_type_map()
         self.keyword_case_manager = keyword_case_manager
         self.line_index = {}  # line_num -> LineNode (filled by parse_program)
+        self._source_lines = None
+        self._in_print_items = False  # suppresses implicit multiplication in PRINT
+        self._user_functions = set()
+        for i, t in enumerate(tokens):
+            if t.type == TokenType.FUNCTION:
+                j = i + 1
+                while j < len(tokens) and tokens[j].type in (
+                        TokenType.NEWLINE, TokenType.COLON, TokenType.EOF):
+                    j += 1
+                if j < len(tokens) and isinstance(tokens[j].value, str):
+                    self._user_functions.add(tokens[j].value.lower())
 
 
     def current(self):
@@ -173,9 +205,10 @@ class Parser:
         if not self.source:
             return ""
         try:
-            lines = self.source.split("\n")
-            if 1 <= line_num <= len(lines):
-                return lines[line_num - 1].strip()
+            if self._source_lines is None:
+                self._source_lines = self.source.split("\n")
+            if 1 <= line_num <= len(self._source_lines):
+                return self._source_lines[line_num - 1].strip()
         except Exception:
             pass
         return ""
@@ -200,14 +233,23 @@ class Parser:
         if type_ == TokenType.LINE_INPUT:
             if self.peek().type == TokenType.INPUT:
                 return self.parse_line_input(self.advance())
+            if self.peek().type == TokenType.EQUAL:
+                # `line` used as a variable name (PicoCalc BASIC files)
+                return self.parse_assignment(self.advance())
             return self.parse_draw_line(self.advance())
+        if type_ == TokenType.SORT:
+            return self.parse_sort(self.advance())
         if type_ == TokenType.LET:
             return self.parse_assignment(self.advance())
         if type_ == TokenType.IDENTIFIER:
             return self.parse_identifier_statement(token)
         if type_ == TokenType.MID:
             return self.parse_assignment(token)
-        if type_ in (TokenType.ENDIF, TokenType.ENDSELECT):
+        if type_ in (TokenType.ANGLE, TokenType.BASE) and \
+                self.peek().type == TokenType.EQUAL:
+            # `angle = ...` / `base = ...` (keywords used as variables)
+            return self.parse_assignment(token)
+        if type_ == TokenType.ENDIF:
             # stray terminator (some programs have unbalanced EndIf): no-op
             self.advance()
             return nodes.EndIfStatementNode(token=token)
@@ -247,6 +289,20 @@ class Parser:
         if type_ == TokenType.RESTORE:
             return self.parse_restore(self.advance())
         if type_ == TokenType.END:
+            # Handle END IF / END SELECT / END SUB / END FUNCTION before plain
+            # END so `End If` isn't split into END + IF.
+            nxt = self.peek().type
+            if nxt in (TokenType.IF, TokenType.SELECT, TokenType.SUB,
+                       TokenType.FUNCTION):
+                self.advance()
+                self.advance()
+                if nxt == TokenType.IF:
+                    return nodes.EndIfStatementNode(token=token)
+                if nxt == TokenType.SELECT:
+                    return nodes.EndSelectStatementNode(token=token)
+                if nxt == TokenType.SUB:
+                    return nodes.EndSubStatementNode(token=token)
+                return nodes.EndFunctionStatementNode(token=token)
             self.advance()
             return nodes.EndStatementNode(token=token)
         if type_ == TokenType.STOP:
@@ -274,7 +330,14 @@ class Parser:
             color = None
             if not self.at_statement_end():
                 color = self.parse_expression()
+                if self.match(TokenType.COMMA):
+                    # tolerate `CLS fg, bg` (some adapted programs)
+                    self.parse_expression()
             return nodes.ClsStatementNode(color=color, token=token)
+        if type_ == TokenType.FONT:
+            self.advance()
+            size = self.parse_expression() if not self.at_statement_end() else None
+            return nodes.FontStatementNode(size, token=token)
         if type_ == TokenType.OPTION:
             return self.parse_option(self.advance())
         if type_ == TokenType.WIDTH:
@@ -299,6 +362,10 @@ class Parser:
             return self.parse_close(self.advance())
         if type_ == TokenType.KILL:
             return self.parse_kill(self.advance())
+        if type_ == TokenType.MKDIR:
+            return self.parse_mkdir(self.advance())
+        if type_ == TokenType.CHDIR:
+            return self.parse_chdir(self.advance())
         if type_ == TokenType.NAME:
             return self.parse_name(self.advance())
         if type_ == TokenType.RESET:
@@ -345,6 +412,8 @@ class Parser:
             return self.parse_layer(self.advance())
         if type_ == TokenType.TURTLE:
             return self.parse_turtle(self.advance())
+        if type_ == TokenType.COPY:
+            return self.parse_copy(self.advance())
         if type_ == TokenType.PIXEL:
             return self.parse_pixel(self.advance())
         if type_ == TokenType.BOX:
@@ -362,6 +431,9 @@ class Parser:
                 self.advance()
                 self.advance()
                 filename = self.parse_expression()
+                # SAVE IMAGE file$ [, x1, y1, x2, y2]
+                while self.match(TokenType.COMMA):
+                    self.parse_expression()
                 return nodes.SaveImageStatementNode(filename, token=token)
             self.advance()
             text = self._consume_rest_of_statement()
@@ -377,6 +449,20 @@ class Parser:
                 self.advance()
                 self.advance()
                 return nodes.EndSelectStatementNode(token=token)
+
+        # LOAD IMAGE/JPG/BMP "file" [,x,y] is a graphics command; no-op.
+        if type_ == TokenType.LOAD:
+            nxt = self.peek()
+            if nxt.type == TokenType.IMAGE or (
+                    nxt.type == TokenType.IDENTIFIER and
+                    nxt.value.lower() in ("jpg", "bmp", "png", "gif")):
+                self.advance()
+                self.advance()
+                while not self.at_statement_end():
+                    self.parse_expression()
+                    if not self.match(TokenType.COMMA):
+                        break
+                return nodes.RemarkStatementNode("", token=token)
 
         if type_ in UNSUPPORTED_STATEMENTS:
             name = UNSUPPORTED_STATEMENTS[type_]
@@ -395,11 +481,25 @@ class Parser:
 
 
     def parse_print(self, print_token):
-        """PRINT [USING fmt;] [expr {;|, expr}...]  (also handles PRINT#)"""
+        """PRINT [@(col,row[,size])] [USING fmt;] [expr {;|, expr}...]"""
         file_number = None
+        position = None
         if self.match(TokenType.HASH):
             file_number = self.parse_expression()
             self.match(TokenType.COMMA)
+
+        # MMBasic 6.x: PRINT @(col, row[, size]) positions the text cursor
+        # (in character cells) before the output.
+        if self.match(TokenType.AT):
+            self.expect(TokenType.LPAREN)
+            col = self.parse_expression()
+            self.expect(TokenType.COMMA)
+            row = self.parse_expression()
+            size = None
+            if self.match(TokenType.COMMA):
+                size = self.parse_expression()
+            self.expect(TokenType.RPAREN)
+            position = (col, row, size)
 
         if self.match(TokenType.USING):
             format_expr = self.parse_expression()
@@ -410,7 +510,7 @@ class Parser:
 
         expressions, separators = self._parse_print_items()
         return nodes.PrintStatementNode(expressions, separators, file_number,
-                                        None, token=print_token)
+                                        position, token=print_token)
 
     def parse_play(self, play_token):
         # PLAY TONE / PLAY STOP / PAUSE: audio is not wired up yet; no-op.
@@ -424,23 +524,47 @@ class Parser:
     def _parse_print_items(self):
         expressions = []
         separators = []
+        # Tolerate a leading separator: `PRINT @(x,y);`  /  `PRINT ;`  just
+        # position the cursor with no output.
+        while self.at_any((TokenType.SEMICOLON, TokenType.COMMA)):
+            self.advance()
         if self.at_statement_end():
             return expressions, separators
-        while True:
-            expressions.append(self.parse_expression())
-            if self.at(TokenType.SEMICOLON):
-                sep = ";"
-            elif self.at(TokenType.COMMA):
-                sep = ","
-            else:
-                sep = "\n"
-            separators.append(sep)
-            if sep == "\n":
-                break
-            self.advance()  # consume ';' or ','
-            if self.at_statement_end():
-                break
+        # In a PRINT list an adjacent value means an implicit `;` separator,
+        # NOT multiplication, so disable implicit `*` while parsing items
+        # (`PRINT TAB(5) X$` must not become TAB(5)*X$).
+        saved = self._in_print_items
+        self._in_print_items = True
+        try:
+            while True:
+                expressions.append(self.parse_expression())
+                if self.at(TokenType.SEMICOLON):
+                    sep = ";"
+                    self.advance()
+                elif self.at(TokenType.COMMA):
+                    sep = ","
+                    self.advance()
+                elif self._implicit_print_sep():
+                    sep = ";"
+                else:
+                    sep = "\n"
+                separators.append(sep)
+                if sep == "\n":
+                    break
+                # Tolerate doubled separators: `PRINT a;;b`
+                while self.at_any((TokenType.SEMICOLON, TokenType.COMMA)):
+                    self.advance()
+                if self.at_statement_end():
+                    break
+        finally:
+            self._in_print_items = saved
         return expressions, separators
+
+    def _implicit_print_sep(self):
+        t = self.current().type
+        return (t in (TokenType.STRING, TokenType.NUMBER, TokenType.IDENTIFIER,
+                      TokenType.PI, TokenType.LPAREN, TokenType.AT) or
+                t in BUILTIN_FUNCTIONS)
 
     def parse_lprint(self, lprint_token):
         expressions, separators = self._parse_print_items()
@@ -472,6 +596,8 @@ class Parser:
 
     def parse_line_input(self, line_token):
         """LINE INPUT [;] [prompt;] var$   or   LINE INPUT# file, var$"""
+        # The caller consumed the LINE keyword; consume the INPUT keyword.
+        self.match(TokenType.INPUT)
         file_number = None
         if self.match(TokenType.HASH):
             file_number = self.parse_expression()
@@ -507,11 +633,31 @@ class Parser:
 
         var = self.parse_variable_reference()
         self.expect(TokenType.EQUAL, "Expected '=' in assignment")
+        chain = [var]
+        # Chained assignment: `A = B = C = expr` (PicoCalc BASIC sets all).
+        while self._at_chained_var():
+            chain.append(self.parse_variable_reference())
+            self.expect(TokenType.EQUAL)
         expr = self.parse_expression()
+        if len(chain) > 1:
+            return nodes.ChainedAssignmentStatementNode(chain, expr,
+                                                        token=start_token)
         return nodes.LetStatementNode(var, expr, token=start_token)
+
+    def _at_chained_var(self):
+        """True when the current token is a variable name followed by '='."""
+        t = self.current().type
+        if t not in (TokenType.IDENTIFIER, TokenType.FN, TokenType.LINE_INPUT,
+                     TokenType.BASE, TokenType.ANGLE):
+            return False
+        return self.peek().type == TokenType.EQUAL
 
     def parse_if(self, if_token):
         condition = self.parse_expression()
+
+        # tolerate a stray trailing ')' in some adapted programs
+        while self.at(TokenType.RPAREN):
+            self.advance()
 
         if not self.at(TokenType.THEN):
             if self.match(TokenType.GOTO):
@@ -560,11 +706,15 @@ class Parser:
                     self.peek().type == TokenType.IF) or \
                    self.at(TokenType.ENDIF)
 
-        stops = (TokenType.ELSEIF, TokenType.ELSE, TokenType.ENDIF)
+        stops = (TokenType.ELSEIF, TokenType.ELSE, TokenType.ENDIF,
+                 TokenType.LOOP)
         branches = [(first_cond, self._collect_block(stops, _at_end_if))]
         while True:
             if self.at(TokenType.ELSEIF):
                 self.advance()
+                # tolerate a duplicated keyword: `ELSEIF if cond THEN`
+                while self.at(TokenType.IF):
+                    self.advance()
                 cond = self.parse_expression()
                 self.expect(TokenType.THEN)
                 body = self._collect_block(stops, _at_end_if)
@@ -576,6 +726,9 @@ class Parser:
                 if self.peek().type == TokenType.IF:
                     self.advance()  # ELSE
                     self.advance()  # IF
+                    # tolerate a duplicated keyword: `ELSE IF if cond THEN`
+                    while self.at(TokenType.IF):
+                        self.advance()
                     cond = self.parse_expression()
                     self.expect(TokenType.THEN)
                     body = self._collect_block(stops, _at_end_if)
@@ -585,6 +738,8 @@ class Parser:
                 body = self._collect_block(stops, _at_end_if)
                 branches.append((None, body))
                 continue
+            if self.at(TokenType.LOOP):
+                break  # implicitly closed by the enclosing DO's Loop
             if self.at(TokenType.END):
                 self.advance()
                 self.expect(TokenType.IF)
@@ -595,6 +750,8 @@ class Parser:
 
     def _parse_line_target(self):
         """A GOTO/GOSUB target: a line number, a label name, or an expression."""
+        while self.at_any((TokenType.GOTO, TokenType.GOSUB)):
+            self.advance()
         if self.at(TokenType.IDENTIFIER):
             tok = self.advance()
             return nodes.LabelRefNode(tok.value, token=tok)
@@ -616,6 +773,9 @@ class Parser:
 
     def parse_for(self, for_token):
         var = self.parse_variable_reference()
+        # MMBasic 6.x: FOR var AS type = start TO end
+        if self.match(TokenType.AS):
+            self._take_name("type name")
         self.expect(TokenType.EQUAL)
         start = self.parse_expression()
         self.expect(TokenType.TO)
@@ -649,9 +809,25 @@ class Parser:
 
     def parse_on(self, on_token):
         if self.match(TokenType.ERROR):
-            self.expect(TokenType.GOTO)
-            target = self._parse_line_target()
-            return nodes.OnErrorStatementNode(target, token=on_token)
+            if self.match(TokenType.GOTO):
+                target = self._parse_line_target()
+                return nodes.OnErrorStatementNode(target, token=on_token)
+            # MMBasic 6.x: ON ERROR IGNORE [n] / SKIP [n] / FIXED / CRITICAL
+            # / ABORT
+            if self.at(TokenType.IDENTIFIER) and \
+                    self.current().value in ("ignore", "skip", "fixed",
+                                             "critical", "abort"):
+                mode = self.advance().value
+                count = None
+                if mode in ("ignore", "skip") and self.at(TokenType.NUMBER):
+                    count = self.advance().value
+                if mode in ("ignore", "skip"):
+                    target = "IGNORE1" if count else "IGNORE"
+                else:
+                    target = None  # FIXED / CRITICAL / ABORT reset to default
+                return nodes.OnErrorStatementNode(target, token=on_token)
+            raise ParseError("Expected GOTO or IGNORE after ON ERROR",
+                             self.current())
         expr = self.parse_expression()
         if self.match(TokenType.GOTO):
             targets = self._parse_line_number_list()
@@ -677,6 +853,12 @@ class Parser:
         if self.at(TokenType.IDENTIFIER) and \
                 self.current().value.lower() in self._TYPE_WORDS:
             stmt_type = self.advance().value.lower()
+        # MMBasic 6.x: DIM AS <type> var, var
+        if self.match(TokenType.AS):
+            if self.at(TokenType.IDENTIFIER):
+                stmt_type = self.advance().value.lower()
+            else:
+                stmt_type = "single"
         while True:
             name_tok = self.expect(TokenType.IDENTIFIER)
             dims = None
@@ -688,26 +870,36 @@ class Parser:
                 while self.match(TokenType.COMMA):
                     dims.append(self.parse_expression())
                 self.expect(TokenType.RPAREN)
-                if self.match(TokenType.EQUAL):
-                    self.expect(TokenType.LPAREN)
+            # MMBasic 6.x: per-variable `AS <type>` (each decl may have its own).
+            if self.match(TokenType.AS):
+                if self.at(TokenType.IDENTIFIER):
+                    decl_type = self.advance().value.lower()
+                else:
+                    decl_type = "single"
+            if self.match(TokenType.EQUAL):
+                if dims is not None and self.at(TokenType.LPAREN):
+                    # array initializer list: DIM a(5) = (1,2,3,4,5)
+                    self.advance()
                     init_list = [self.parse_expression()]
                     while self.match(TokenType.COMMA):
                         init_list.append(self.parse_expression())
                     self.expect(TokenType.RPAREN)
-            elif self.match(TokenType.EQUAL):
-                init = self.parse_expression()
+                else:
+                    init = self.parse_expression()
             declarations.append(nodes.DimDeclNode(name_tok.value, dims, init,
                                                   init_list, decl_type,
                                                   token=name_tok))
+            # MMBasic 6.x: `DIM a(10) LENGTH n` (fixed-length string arrays).
+            # `length` lexes as an IDENTIFIER; consume the clause and ignore.
+            if self.at(TokenType.IDENTIFIER) and \
+                    self.current().value.lower() == "length":
+                self.advance()
+                if not self.at_statement_end():
+                    self.parse_expression()
+            # tolerate a stray trailing ')' in some adapted programs
+            self.match(TokenType.RPAREN)
             if not self.match(TokenType.COMMA):
                 break
-        if self.match(TokenType.AS):
-            if self.at(TokenType.IDENTIFIER):
-                type_name = self.advance().value.lower()
-            else:
-                type_name = "single"
-            for d in declarations:
-                d.type_name = type_name
         return nodes.DimStatementNode(declarations, token=dim_token)
 
     def parse_erase(self, erase_token):
@@ -794,7 +986,12 @@ class Parser:
                 tok = self.expect(TokenType.NUMBER)
                 values.append((tok.value, False))
             else:
-                raise ParseError("Expected DATA value", self.current())
+                # Unquoted string data (e.g. `bucket of water`): collect the
+                # words up to the next comma / end of statement as a string.
+                parts = [str(self.advance().value)]
+                while not self.at(TokenType.COMMA) and not self.at_statement_end():
+                    parts.append(str(self.advance().value))
+                values.append((" ".join(parts), True))
             if not self.match(TokenType.COMMA):
                 break
         return nodes.DataStatementNode(values, token=data_token)
@@ -868,7 +1065,9 @@ class Parser:
         return nodes.WidthStatementNode(w, token=width_token)
 
     def parse_error(self, error_token):
-        code = self.parse_expression()
+        code = None
+        if not self.at_statement_end():
+            code = self.parse_expression()
         return nodes.ErrorStatementNode(code, token=error_token)
 
     def parse_resume(self, resume_token):
@@ -977,6 +1176,14 @@ class Parser:
         filename = self.parse_expression()
         return nodes.KillStatementNode(filename, token=kill_token)
 
+    def parse_mkdir(self, mkdir_token):
+        path = self.parse_expression()
+        return nodes.MkdirStatementNode(path, token=mkdir_token)
+
+    def parse_chdir(self, chdir_token):
+        path = self.parse_expression()
+        return nodes.ChdirStatementNode(path, token=chdir_token)
+
     def parse_name(self, name_token):
         old_name = self.parse_expression()
         self.expect(TokenType.AS)
@@ -1061,12 +1268,26 @@ class Parser:
 
 
     def parse_identifier_statement(self, token):
-        """A statement that begins with an identifier.
-
-        Dispatches between an assignment, a label, an array assignment and a
-        SUB call (with or without parentheses).
-        """
+        """A statement that begins with an identifier."""
         name = token.value
+
+        # CENTER / DRIVE commands (PicoCalc MMBasic extensions).
+        if name.lower() == "center":
+            self.advance()
+            text = None
+            if not self.at_statement_end():
+                text = self.parse_expression()
+                # tolerate `CENTER text, flags` (some adapted programs)
+                while self.match(TokenType.COMMA):
+                    self.parse_expression()
+            return nodes.CenterStatementNode(text, token=token)
+        if name.lower() == "drive":
+            self.advance()
+            path = None
+            if not self.at_statement_end():
+                path = self.parse_expression()
+            return nodes.DriveStatementNode(path, token=token)
+
         nxt = self.peek().type
 
         if nxt == TokenType.COLON:
@@ -1075,12 +1296,24 @@ class Parser:
             return nodes.LabelNode(name, token=token)
         if nxt == TokenType.EQUAL:
             return self.parse_assignment(token)
+        if nxt in (TokenType.PLUS_EQUAL, TokenType.MINUS_EQUAL):
+            return self.parse_compound_assignment(token)
         if nxt == TokenType.LPAREN:
             if self._paren_followed_by_equals():
                 return self.parse_assignment(token)   # A(1)=5
             return self.parse_sub_call(token, paren=True)
         # bare identifier: SUB call without parentheses (Tree a, b) or no args
         return self.parse_sub_call(token, paren=False)
+
+    def parse_compound_assignment(self, token):
+        """`a += expr` / `a -= expr` (PicoCalc BASIC extension)."""
+        var = self.parse_variable_reference()
+        op_tok = self.advance()  # PLUS_EQUAL / MINUS_EQUAL
+        expr = self.parse_expression()
+        op = "+" if op_tok.type == TokenType.PLUS_EQUAL else "-"
+        return nodes.LetStatementNode(
+            var, nodes.BinaryOpNode(nodes.VariableNode(var.name), op, expr),
+            token=token)
 
     def _paren_followed_by_equals(self):
         """True if the paren group starting at peek() closes right before '='."""
@@ -1108,20 +1341,22 @@ class Parser:
         if paren:
             self.expect(TokenType.LPAREN)
             if not self.at(TokenType.RPAREN):
-                args.append(self.parse_expression())
+                args.append(self._arg_expression())
                 while self.match(TokenType.COMMA):
-                    args.append(self.parse_expression())
+                    args.append(self._arg_expression())
             self.expect(TokenType.RPAREN)
         else:
             while not self.at_statement_end():
-                args.append(self.parse_expression())
+                args.append(self._arg_expression())
                 if not self.match(TokenType.COMMA):
                     break
         return nodes.SubCallStatementNode(name, args, token=token)
 
     def _skip_newlines(self):
-        while self.at(TokenType.NEWLINE):
+        while self.at(TokenType.NEWLINE) or self.at(TokenType.APOSTROPHE):
             self.advance()
+            if self.at(TokenType.NEWLINE):
+                self.advance()
 
     def _collect_block(self, stop_types, stop_pred=None):
         """Collect statements until a stop token. Returns a list.
@@ -1151,21 +1386,31 @@ class Parser:
                     self.advance()
                 continue
 
+    def _parse_param_list(self):
+        """Parse `(a, b As type, ...)` - returns a list of VariableNodes."""
+        params = []
+        if not self.match(TokenType.LPAREN):
+            while not self.at_statement_end():
+                params.append(self.parse_variable_reference())
+                if self.match(TokenType.AS):
+                    self._take_name("type name")
+                if not self.match(TokenType.COMMA):
+                    break
+            return params
+        if not self.at(TokenType.RPAREN):
+            while True:
+                params.append(self.parse_variable_reference())
+                if self.match(TokenType.AS):
+                    self._take_name("type name")
+                if not self.match(TokenType.COMMA):
+                    break
+        self.expect(TokenType.RPAREN)
+        return params
+
     def parse_sub(self, sub_token):
         name_token = self.expect(TokenType.IDENTIFIER)
         name = name_token.value
-        params = []
-        if self.match(TokenType.LPAREN):
-            if not self.at(TokenType.RPAREN):
-                params.append(self.parse_variable_reference())
-                while self.match(TokenType.COMMA):
-                    params.append(self.parse_variable_reference())
-            self.expect(TokenType.RPAREN)
-        else:
-            while not self.at_statement_end():
-                params.append(self.parse_variable_reference())
-                if not self.match(TokenType.COMMA):
-                    break
+        params = self._parse_param_list()
 
         def _at_endsub():
             return (self.at(TokenType.END) and
@@ -1186,17 +1431,12 @@ class Parser:
     def parse_function(self, fn_token):
         name_token = self._take_name("FUNCTION name")
         name = name_token.value
-        params = []
-        if self.match(TokenType.LPAREN):
-            if not self.at(TokenType.RPAREN):
-                params.append(self.parse_variable_reference())
-                while self.match(TokenType.COMMA):
-                    params.append(self.parse_variable_reference())
-            self.expect(TokenType.RPAREN)
+        params = self._parse_param_list()
         # optional AS <type>
+        return_type = None
         if self.match(TokenType.AS):
             if self.at(TokenType.IDENTIFIER):
-                self.advance()
+                return_type = self.advance().value.lower()
         self.match(TokenType.COLON)
 
         def _at_endfn():
@@ -1211,17 +1451,27 @@ class Parser:
             self.expect(TokenType.FUNCTION)
         else:
             self.advance()
-        return nodes.FunctionStatementNode(name, params, body, token=fn_token)
+        return nodes.FunctionStatementNode(name, params, body, token=fn_token,
+                                           return_type=return_type)
 
     def parse_local(self, local_token):
         names = []
+        inits = []
+        # MMBasic 6.x: LOCAL <type> a = expr, b
+        if self.at(TokenType.IDENTIFIER) and \
+                self.current().value.lower() in self._TYPE_WORDS:
+            self.advance()
         if not self.at_statement_end():
-            var = self.parse_variable_reference()
-            names.append(var.name)
-            while self.match(TokenType.COMMA):
+            while True:
                 var = self.parse_variable_reference()
                 names.append(var.name)
-        return nodes.LocalStatementNode(names, token=local_token)
+                init = None
+                if self.match(TokenType.EQUAL):
+                    init = self.parse_expression()
+                inits.append(init)
+                if not self.match(TokenType.COMMA):
+                    break
+        return nodes.LocalStatementNode(names, inits, token=local_token)
 
     def parse_const(self, const_token):
         entries = []
@@ -1275,6 +1525,8 @@ class Parser:
     def parse_select(self, select_token):
         self.expect(TokenType.CASE)
         expr = self.parse_expression()
+        # tolerate a stray trailing ')' in some adapted programs
+        self.match(TokenType.RPAREN)
         cases = []
 
         def _at_end():
@@ -1291,7 +1543,7 @@ class Parser:
                 if self.match(TokenType.ELSE):
                     self.match(TokenType.COLON)
                     stmts = self._collect_block(
-                        (TokenType.CASE, TokenType.ENDSELECT),
+                        (TokenType.CASE, TokenType.ENDSELECT, TokenType.LOOP),
                         stop_pred=_at_end)
                     cases.append(nodes.CaseClauseNode([], True, stmts,
                                                       token=select_token))
@@ -1310,12 +1562,14 @@ class Parser:
                 # `CASE value, value2: statements` (optional colon separator).
                 self.match(TokenType.COLON)
                 stmts = self._collect_block(
-                    (TokenType.CASE, TokenType.ENDSELECT),
+                    (TokenType.CASE, TokenType.ENDSELECT, TokenType.LOOP),
                     stop_pred=_at_end)
                 cases.append(nodes.CaseClauseNode(values, False, stmts,
                                                   ranges=ranges,
                                                   token=select_token))
                 continue
+            if self.at(TokenType.LOOP):
+                break  # implicitly closed by the enclosing DO's Loop
             if self.at(TokenType.END) and self.peek().type == TokenType.SELECT:
                 self.advance()
                 self.advance()
@@ -1347,6 +1601,7 @@ class Parser:
         x1 = self.parse_expression()
         self.expect(TokenType.COMMA)
         y1 = self.parse_expression()
+        self.match(TokenType.RPAREN)
         self.expect(TokenType.COMMA)
         x2 = self.parse_expression()
         self.expect(TokenType.COMMA)
@@ -1416,16 +1671,23 @@ class Parser:
 
     def parse_color(self, color_token):
         color = self.parse_expression()
-        return nodes.ColorStatementNode(color, token=color_token)
+        background = None
+        if self.match(TokenType.COMMA):
+            background = self.parse_expression()
+        return nodes.ColorStatementNode(color, background, token=color_token)
 
     def parse_text(self, text_token):
         x = self.parse_expression()
+        self.match(TokenType.RPAREN)
         self.expect(TokenType.COMMA)
         y = self.parse_expression()
+        self.match(TokenType.RPAREN)
         self.expect(TokenType.COMMA)
         text = self.parse_expression()
+        self.match(TokenType.RPAREN)
         while self.match(TokenType.COMMA):
             self._parse_optional_arg()
+        self.match(TokenType.RPAREN)
         return nodes.TextStatementNode(x, y, text, token=text_token)
 
     def parse_framebuffer(self, fb_token):
@@ -1456,6 +1718,25 @@ class Parser:
             if not self.match(TokenType.COMMA):
                 break
         return nodes.TurtleStatementNode(sub, args, token=turtle_token)
+
+    def parse_copy(self, copy_token):
+        """COPY source$ TO dest$  (MMBasic file copy; no-op on Picoware)."""
+        source = self.parse_expression()
+        self.match(TokenType.TO)
+        dest = self.parse_expression()
+        return nodes.CopyStatementNode(source, dest, token=copy_token)
+
+    def parse_sort(self, sort_token):
+        """SORT array() [, start [, end]]  (MMBasic sort; no-op on Picoware).
+        Tolerates empty comma slots like `SORT a(),,,,(n)`."""
+        array = self.parse_array_reference()
+        args = []
+        while self.match(TokenType.COMMA):
+            if self.at(TokenType.COMMA) or self.at_statement_end():
+                args.append(None)
+            else:
+                args.append(self.parse_expression())
+        return nodes.SortStatementNode(array, args, token=sort_token)
 
 
     def parse_expression(self):
@@ -1502,7 +1783,7 @@ class Parser:
                 saw_rel = tok.type in self._RELATIONAL
                 continue
             saw_rel = False
-            if min_prec <= 8 and self._implicit_mul():
+            if min_prec <= 8 and not self._in_print_items and self._implicit_mul():
                 # adapted programs rely on 2x == 2*x  and  a b == a*b
                 right = self.parse_binary(9)
                 left = nodes.BinaryOpNode(left, "*", right)
@@ -1539,6 +1820,13 @@ class Parser:
         token = self.current()
         type_ = token.type
 
+        if type_ == TokenType.AT:
+            self.advance()
+            return self.parse_primary()
+        if type_ == TokenType.HASH:
+            # `#n` is a file-number reference in expressions (EOF(#1) etc.).
+            self.advance()
+            return self.parse_primary()
         if type_ == TokenType.NUMBER:
             self.advance()
             lit = token.literal_text or ""
@@ -1555,15 +1843,37 @@ class Parser:
             return nodes.StringNode(token.value, token=token)
         if type_ == TokenType.LPAREN:
             self.advance()
-            expr = self.parse_expression()
+            # Inside parentheses implicit multiplication stays active even
+            # within a PRINT list (`MM.Info(modified file$(sel))`).
+            saved = self._in_print_items
+            self._in_print_items = False
+            try:
+                expr = self.parse_expression()
+            finally:
+                self._in_print_items = saved
             self.expect(TokenType.RPAREN)
             return expr
         if type_ == TokenType.IDENTIFIER:
             if token.value.startswith("fn"):
                 return self._parse_fn_identifier(token)
+            if self.peek().type == TokenType.LPAREN:
+                low = token.value.lower().rstrip("$")
+                if low in IDENTIFIER_FUNCTIONS and low not in self._user_functions:
+                    return self.parse_identifier_function(token)
             return self.parse_variable_reference()
         if type_ == TokenType.FN:
-            return self.parse_fn_call()
+            if self.peek().type == TokenType.IDENTIFIER:
+                return self.parse_fn_call()
+            self.advance()
+            return nodes.VariableNode("fn", [], token=token)
+        if type_ == TokenType.LINE_INPUT:
+            # `line` used as a variable name (PicoCalc BASIC files).
+            self.advance()
+            return nodes.VariableNode("line", [], token=token)
+        if type_ in (TokenType.BASE, TokenType.ANGLE):
+            # Keywords (OPTION BASE / OPTION ANGLE) used as variables.
+            self.advance()
+            return nodes.VariableNode(type_.lower(), [], token=token)
         if type_ in BUILTIN_FUNCTIONS:
             if self.peek().type == TokenType.LPAREN or type_ in _ZERO_ARG_FUNCS:
                 return self.parse_builtin_function()
@@ -1579,7 +1889,7 @@ class Parser:
                  TokenType.BACKSLASH, TokenType.SEMICOLON, TokenType.HASH,
                  TokenType.NEWLINE, TokenType.GREATER_THAN, TokenType.LESS_THAN,
                  TokenType.GREATER_EQUAL, TokenType.LESS_EQUAL,
-                 TokenType.NOT_EQUAL)
+                 TokenType.NOT_EQUAL, TokenType.AT)
 
     def _take_name(self, what="identifier"):
         """Consume the current token as a name (identifier or keyword)."""
@@ -1589,6 +1899,15 @@ class Parser:
         self.advance()
         return token
 
+    def _arg_expression(self):
+        """Parse a sub-expression inside parens / call arguments"""
+        saved = self._in_print_items
+        self._in_print_items = False
+        try:
+            return self.parse_expression()
+        finally:
+            self._in_print_items = saved
+
     def parse_variable_reference(self):
         token = self._take_name()
         name = token.value
@@ -1597,9 +1916,9 @@ class Parser:
             if self.at(TokenType.RPAREN):
                 self.advance()
                 return nodes.ArrayRefNode(name, token=token)
-            indices.append(self.parse_expression())
+            indices.append(self._arg_expression())
             while self.match(TokenType.COMMA):
-                indices.append(self.parse_expression())
+                indices.append(self._arg_expression())
             self.expect(TokenType.RPAREN)
         return nodes.VariableNode(name, indices, token=token)
 
@@ -1611,9 +1930,9 @@ class Parser:
         args = []
         if self.match(TokenType.LPAREN):
             if not self.at(TokenType.RPAREN):
-                args.append(self.parse_expression())
+                args.append(self._arg_expression())
                 while self.match(TokenType.COMMA):
-                    args.append(self.parse_expression())
+                    args.append(self._arg_expression())
             self.expect(TokenType.RPAREN)
         return nodes.FunctionCallNode(name, args, is_string, token=token)
 
@@ -1625,11 +1944,29 @@ class Parser:
         args = []
         if self.match(TokenType.LPAREN):
             if not self.at(TokenType.RPAREN):
-                args.append(self.parse_expression())
+                args.append(self._arg_expression())
                 while self.match(TokenType.COMMA):
-                    args.append(self.parse_expression())
+                    args.append(self._arg_expression())
             self.expect(TokenType.RPAREN)
         return nodes.FunctionCallNode(name, args, is_string, token=fn_token)
+
+    def parse_identifier_function(self, token):
+        """A builtin function that lexes as an identifier (UCASE$, DIR$...).
+
+        Only reached when the identifier is followed by '(' and matches an
+        entry in IDENTIFIER_FUNCTIONS.
+        """
+        call_name = IDENTIFIER_FUNCTIONS[token.value.lower().rstrip("$")]
+        is_string = call_name.endswith("$")
+        self.advance()  # consume the identifier
+        args = []
+        self.expect(TokenType.LPAREN)
+        if not self.at(TokenType.RPAREN):
+            args.append(self._arg_expression())
+            while self.match(TokenType.COMMA):
+                args.append(self._arg_expression())
+        self.expect(TokenType.RPAREN)
+        return nodes.FunctionCallNode(call_name, args, is_string, token=token)
 
     def parse_builtin_function(self):
         token = self.advance()
@@ -1637,9 +1974,9 @@ class Parser:
         args = []
         if self.match(TokenType.LPAREN):
             if not self.at(TokenType.RPAREN):
-                args.append(self.parse_expression())
+                args.append(self._arg_expression())
                 while self.match(TokenType.COMMA):
-                    args.append(self.parse_expression())
+                    args.append(self._arg_expression())
             self.expect(TokenType.RPAREN)
         return nodes.FunctionCallNode(name, args, is_string, token=token)
 

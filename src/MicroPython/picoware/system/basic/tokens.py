@@ -32,6 +32,8 @@ class TokenType:
     KILL = "KILL"
     LINE_INPUT = "LINE_INPUT"  # LINE INPUT
     LSET = "LSET"
+    MKDIR = "MKDIR"
+    CHDIR = "CHDIR"
     NAME = "NAME"
     OPEN = "OPEN"
     OUTPUT = "OUTPUT"          # OUTPUT (used in OPEN FOR OUTPUT)
@@ -45,6 +47,7 @@ class TokenType:
     ELSE = "ELSE"
     END = "END"
     FOR = "FOR"
+    FONT = "FONT"              # FONT n (set text font size)
     GOSUB = "GOSUB"
     GOTO = "GOTO"
     IF = "IF"
@@ -125,6 +128,8 @@ class TokenType:
     RGB = "RGB"
     CHOICE = "CHOICE"
     PI = "PI"
+    AT = "AT"                  # @ (PRINT @(x,y) positioning / @var ref)
+    ATAN2 = "ATAN2"
 
     SHR = "SHR"              # >>
     SHL = "SHL"              # <<
@@ -137,6 +142,7 @@ class TokenType:
     RANDOMIZE = "RANDOMIZE"
     REM = "REM"
     REMARK = "REMARK"          # Synonym for REM
+    SORT = "SORT"
     SWAP = "SWAP"
     TRON = "TRON"
     TROFF = "TROFF"
@@ -146,6 +152,8 @@ class TokenType:
 
     PLUS = "PLUS"              # +
     MINUS = "MINUS"            # -
+    PLUS_EQUAL = "PLUS_EQUAL"  # += (compound assignment)
+    MINUS_EQUAL = "MINUS_EQUAL"  # -= (compound assignment)
     MULTIPLY = "MULTIPLY"      # *
     DIVIDE = "DIVIDE"          # /
     POWER = "POWER"            # ^
@@ -188,6 +196,7 @@ class TokenType:
 
     ASC = "ASC"
     CHR = "CHR"                # CHR$
+    EVAL = "EVAL"              # EVAL(expression$)
     HEX = "HEX"                # HEX$
     INKEY = "INKEY"            # INKEY$
     INPUT_FUNC = "INPUT_FUNC"  # INPUT$ (different from INPUT statement)
@@ -239,36 +248,23 @@ class Token:
         value: Normalized value (lowercase for identifiers/keywords)
         line: Line number where the token appears
         column: Column number where the token starts
-        original_case: Original case for user identifiers before normalization
-        original_case_keyword: Display case for keywords
         literal_text: Source text of a NUMBER token, suffix included
     """
 
     __slots__ = (
-        "type", "value", "line", "column",
-        "original_case", "original_case_keyword", "literal_text",
+        "type", "value", "line", "column", "literal_text",
     )
 
-    def __init__(self, type_, value, line, column,
-                 original_case=None, original_case_keyword=None, literal_text=None):
+    def __init__(self, type_, value, line, column, literal_text=None):
         self.type = type_
         self.value = value
         self.line = line
         self.column = column
-        self.original_case = original_case
-        self.original_case_keyword = original_case_keyword
         self.literal_text = literal_text
 
     def __repr__(self):
-        extras = []
-        if self.original_case and self.original_case != self.value:
-            extras.append("id:%r" % self.original_case)
-        if self.original_case_keyword and self.original_case_keyword != self.value:
-            extras.append("kw:%r" % self.original_case_keyword)
-        if extras:
-            return "Token(%s, %r [%s], %d:%d)" % (
-                self.type, self.value, ", ".join(extras), self.line, self.column)
-        return "Token(%s, %r, %d:%d)" % (self.type, self.value, self.line, self.column)
+        return "Token(%s, %r, %d:%d)" % (
+            self.type, self.value, self.line, self.column)
 
 
 # Keywords mapping (case-insensitive; lexer normalizes to lowercase).
@@ -284,11 +280,14 @@ KEYWORDS = {
     "get": TokenType.GET, "input": TokenType.INPUT, "kill": TokenType.KILL,
     "line": TokenType.LINE_INPUT,  # special handling for "LINE INPUT"
     "lset": TokenType.LSET, "name": TokenType.NAME, "open": TokenType.OPEN,
+    "mkdir": TokenType.MKDIR, "chdir": TokenType.CHDIR,
+    "rename": TokenType.NAME,
     "output": TokenType.OUTPUT, "put": TokenType.PUT, "reset": TokenType.RESET,
     "rset": TokenType.RSET,
 
     "all": TokenType.ALL, "call": TokenType.CALL, "chain": TokenType.CHAIN,
     "else": TokenType.ELSE, "end": TokenType.END, "for": TokenType.FOR,
+    "font": TokenType.FONT,
     "gosub": TokenType.GOSUB, "goto": TokenType.GOTO, "if": TokenType.IF,
     "next": TokenType.NEXT, "on": TokenType.ON, "resume": TokenType.RESUME,
     "return": TokenType.RETURN, "step": TokenType.STEP, "stop": TokenType.STOP,
@@ -327,7 +326,7 @@ KEYWORDS = {
     "choice": TokenType.CHOICE, "pi": TokenType.PI,
     "fre": TokenType.FRE, "help": TokenType.HELP, "out": TokenType.OUT,
     "poke": TokenType.POKE, "randomize": TokenType.RANDOMIZE, "rem": TokenType.REM,
-    "remark": TokenType.REMARK, "swap": TokenType.SWAP, "tron": TokenType.TRON,
+    "remark": TokenType.REMARK, "sort": TokenType.SORT, "swap": TokenType.SWAP, "tron": TokenType.TRON,
     "troff": TokenType.TROFF, "using": TokenType.USING, "wait": TokenType.WAIT,
     "width": TokenType.WIDTH,
 
@@ -335,7 +334,8 @@ KEYWORDS = {
     "or": TokenType.OR, "xor": TokenType.XOR, "eqv": TokenType.EQV,
     "imp": TokenType.IMP,
 
-    "abs": TokenType.ABS, "atn": TokenType.ATN, "cdbl": TokenType.CDBL,
+    "abs": TokenType.ABS, "atn": TokenType.ATN, "atan2": TokenType.ATAN2,
+    "cdbl": TokenType.CDBL,
     "cint": TokenType.CINT, "cos": TokenType.COS, "csng": TokenType.CSNG,
     "cvd": TokenType.CVD, "cvi": TokenType.CVI, "cvs": TokenType.CVS,
     "exp": TokenType.EXP, "fix": TokenType.FIX, "int": TokenType.INT,
@@ -343,6 +343,7 @@ KEYWORDS = {
     "sin": TokenType.SIN, "sqr": TokenType.SQR, "tan": TokenType.TAN,
 
     "asc": TokenType.ASC, "chr$": TokenType.CHR, "hex$": TokenType.HEX,
+    "eval": TokenType.EVAL,
     "inkey$": TokenType.INKEY, "input$": TokenType.INPUT_FUNC,
     "instr": TokenType.INSTR, "left$": TokenType.LEFT, "len": TokenType.LEN,
     "mid$": TokenType.MID, "mkd$": TokenType.MKD, "mki$": TokenType.MKI,

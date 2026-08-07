@@ -5,6 +5,7 @@ from picoware.system.mmbasic import MMBasic
 
 STATE_MENU = const(0)
 STATE_RUNNING = const(1)
+STATE_FINISHED = const(2)
 
 _menu = None
 _mmbasic_index = 0
@@ -74,6 +75,15 @@ def run(view_manager) -> None:
 
     if _state == STATE_RUNNING:
         if _mmbasic is None or not _mmbasic.run():
+            if _mmbasic is not None and _mmbasic.is_over() and _mmbasic.has_graphics():
+                _state = STATE_FINISHED
+            else:
+                _state = STATE_MENU
+                _menu.draw()
+        return
+
+    if _state == STATE_FINISHED:
+        if button == BUTTON_BACK:
             _state = STATE_MENU
             _menu.draw()
         return

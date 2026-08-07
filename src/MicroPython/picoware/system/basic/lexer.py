@@ -27,30 +27,50 @@ class LexerError(Exception):
 class Lexer:
     """Tokenizes MBASIC 5.21 source code."""
 
+    __slots__ = (
+        "source",
+        "_b",
+        "_n",
+        "pos",
+        "line",
+        "column",
+        "tokens",
+        "_font_data",
+        "keyword_case_manager",
+    )
+
     def __init__(self, source, keyword_case_manager=None):
+        if source[:1] == "\ufeff":
+            source = source[1:]
         self.source = source
+        try:
+            self._b = source.encode("latin-1")
+        except Exception:
+            self._b = source.encode("utf-8")
+        self._n = len(self._b)
         self.pos = 0
         self.line = 1
         self.column = 1
         self.tokens = []
+        self._font_data = False
         self.keyword_case_manager = keyword_case_manager or SimpleKeywordCase(policy="force_lower")
 
 
     def current_char(self):
-        if self.pos >= len(self.source):
+        if self.pos >= self._n:
             return None
-        return self.source[self.pos]
+        return chr(self._b[self.pos])
 
     def peek_char(self, offset=1):
         pos = self.pos + offset
-        if pos >= len(self.source):
+        if pos >= self._n:
             return None
-        return self.source[pos]
+        return chr(self._b[pos])
 
     def advance(self):
-        if self.pos >= len(self.source):
+        if self.pos >= self._n:
             return None
-        char = self.source[self.pos]
+        char = chr(self._b[self.pos])
         self.pos += 1
         if char == "\n":
             self.line += 1
@@ -176,19 +196,19 @@ class Lexer:
         start_line = self.line
         start_column = self.column
         self.advance()  # Skip opening quote
-        string_val = ""
+        string_val = []
 
-        while self.current_char() is not None and self.current_char() != '"':
+        while self.current_char() is not None:
             char = self.current_char()
-            if char == "\n":
-                raise LexerError("Unterminated string", self.line, self.column)
-            string_val += self.advance()
+            if char == '"':
+                self.advance()
+                break
+            if char == "\n" or char == "\r":
+                break  # unclosed string runs to end of line
+            string_val.append(self.advance())
 
-        if self.current_char() is None:
-            raise LexerError("Unterminated string", start_line, start_column)
-
-        self.advance()  # Skip closing quote
-        return Token(TokenType.STRING, string_val, start_line, start_column)
+        return Token(TokenType.STRING, "".join(string_val),
+                     start_line, start_column)
 
     def read_identifier(self):
         """Read an identifier or keyword.
@@ -217,10 +237,10 @@ class Lexer:
 
         ident_lower = ident.lower()
         if ident_lower in KEYWORDS:
-            token = Token(KEYWORDS[ident_lower], ident_lower, start_line, start_column)
-            token.original_case_keyword = self.keyword_case_manager.register_keyword(
+            self.keyword_case_manager.register_keyword(
                 ident_lower, ident, start_line, start_column)
-            return token
+            return Token(KEYWORDS[ident_lower], ident_lower, start_line,
+                         start_column)
 
         # File I/O keywords followed by # with no space (PRINT#1, INPUT#1, ...)
         if ident_lower.endswith("#") and ident_lower[:-1] in KEYWORDS:
@@ -229,15 +249,12 @@ class Lexer:
                 # Put the # back so it is tokenized separately
                 self.pos -= 1
                 self.column -= 1
-                token = Token(KEYWORDS[keyword_part], keyword_part,
-                              start_line, start_column)
-                token.original_case_keyword = self.keyword_case_manager.register_keyword(
+                self.keyword_case_manager.register_keyword(
                     keyword_part, ident[:-1], start_line, start_column)
-                return token
+                return Token(KEYWORDS[keyword_part], keyword_part,
+                             start_line, start_column)
 
-        token = Token(TokenType.IDENTIFIER, ident_lower, start_line, start_column)
-        token.original_case = ident
-        return token
+        return Token(TokenType.IDENTIFIER, ident_lower, start_line, start_column)
 
     def read_line_number(self):
         """Read a line number at the start of a line (0-65529)."""
@@ -261,11 +278,47 @@ class Lexer:
         return "".join(comment_text).strip()
 
 
+    def _line_starts_with(self, word):
+        """True if the current line (from `self.pos`, leading whitespace
+        already skipped) begins with `word` as a whole identifier
+        (case-insensitive)."""
+        b = self._b
+        n = self._n
+        i = self.pos
+        wlen = len(word)
+        if i + wlen > n:
+            return False
+        for k in range(wlen):
+            c = b[i + k]
+            if not (65 <= c <= 90 or 97 <= c <= 122):
+                return False
+            wc = word[k]
+            if c != ord(wc) and c != ord(wc) - 32:
+                return False
+        # word boundary: the next char must not be a letter
+        if i + wlen < n and (65 <= b[i + wlen] <= 90 or 97 <= b[i + wlen] <= 122):
+            return False
+        return True
+
+    def _skip_line(self):
+        """Consume the rest of the current line (leading whitespace already
+        skipped) including its trailing newline, updating line/column."""
+        while self.pos < self._n:
+            c = self._b[self.pos]
+            if c == 0x0A or c == 0x0D:
+                self.advance()
+                if self.pos < self._n and (self._b[self.pos] == 0x0A or
+                                           self._b[self.pos] == 0x0D):
+                    if self._b[self.pos] != c:
+                        self.advance()
+                return
+            self.advance()
+
     def tokenize(self):
         self.tokens = []
         at_line_start = True
 
-        while self.pos < len(self.source):
+        while self.pos < self._n:
             self.skip_whitespace(skip_newlines=False)
 
             char = self.current_char()
@@ -274,6 +327,22 @@ class Lexer:
 
             start_line = self.line
             start_column = self.column
+
+            # DefineFont ... End DefineFont blocks carry raw bitmap data on
+            # the following lines (hex words that would otherwise look like
+            # huge line numbers). Skip the whole block.
+            if at_line_start:
+                if self._font_data:
+                    if self._line_starts_with("end"):
+                        self._font_data = False
+                    self._skip_line()
+                    at_line_start = True
+                    continue
+                if self._line_starts_with("definefont"):
+                    self._font_data = True
+                    self._skip_line()
+                    at_line_start = True
+                    continue
 
             # Line number at start of line
             if at_line_start and char.isdigit():
@@ -330,11 +399,23 @@ class Lexer:
                 continue
 
             if char == "+":
-                self.tokens.append(Token(TokenType.PLUS, "+", start_line, start_column))
                 self.advance()
+                if self.current_char() == "=":
+                    self.advance()
+                    self.tokens.append(Token(TokenType.PLUS_EQUAL, "+=",
+                                             start_line, start_column))
+                else:
+                    self.tokens.append(Token(TokenType.PLUS, "+",
+                                             start_line, start_column))
             elif char == "-":
-                self.tokens.append(Token(TokenType.MINUS, "-", start_line, start_column))
                 self.advance()
+                if self.current_char() == "=":
+                    self.advance()
+                    self.tokens.append(Token(TokenType.MINUS_EQUAL, "-=",
+                                             start_line, start_column))
+                else:
+                    self.tokens.append(Token(TokenType.MINUS, "-",
+                                             start_line, start_column))
             elif char == "*":
                 self.tokens.append(Token(TokenType.MULTIPLY, "*", start_line, start_column))
                 self.advance()
@@ -348,8 +429,19 @@ class Lexer:
                 self.tokens.append(Token(TokenType.BACKSLASH, "\\", start_line, start_column))
                 self.advance()
             elif char == "=":
-                self.tokens.append(Token(TokenType.EQUAL, "=", start_line, start_column))
                 self.advance()
+                next_char = self.current_char()
+                if next_char == "<":
+                    self.tokens.append(Token(TokenType.LESS_EQUAL, "=<",
+                                             start_line, start_column))
+                    self.advance()
+                elif next_char == ">":
+                    self.tokens.append(Token(TokenType.GREATER_EQUAL, "=>",
+                                             start_line, start_column))
+                    self.advance()
+                else:
+                    self.tokens.append(Token(TokenType.EQUAL, "=",
+                                             start_line, start_column))
             elif char == "<":
                 self.advance()
                 next_char = self.current_char()
@@ -363,7 +455,14 @@ class Lexer:
                     self.tokens.append(Token(TokenType.SHL, "<<", start_line, start_column))
                     self.advance()
                 else:
-                    self.tokens.append(Token(TokenType.LESS_THAN, "<", start_line, start_column))
+                    # tolerate `< >` (spaced) as NOT_EQUAL (PicoCalc files)
+                    while self.current_char() in (" ", "\t"):
+                        self.advance()
+                    if self.current_char() == ">":
+                        self.tokens.append(Token(TokenType.NOT_EQUAL, "<>", start_line, start_column))
+                        self.advance()
+                    else:
+                        self.tokens.append(Token(TokenType.LESS_THAN, "<", start_line, start_column))
             elif char == ">":
                 self.advance()
                 next_char = self.current_char()
@@ -377,7 +476,14 @@ class Lexer:
                     self.tokens.append(Token(TokenType.SHR, ">>", start_line, start_column))
                     self.advance()
                 else:
-                    self.tokens.append(Token(TokenType.GREATER_THAN, ">", start_line, start_column))
+                    # tolerate `> <` (spaced) as NOT_EQUAL (PicoCalc files)
+                    while self.current_char() in (" ", "\t"):
+                        self.advance()
+                    if self.current_char() == "<":
+                        self.tokens.append(Token(TokenType.NOT_EQUAL, "><", start_line, start_column))
+                        self.advance()
+                    else:
+                        self.tokens.append(Token(TokenType.GREATER_THAN, ">", start_line, start_column))
             elif char == "(":
                 self.tokens.append(Token(TokenType.LPAREN, "(", start_line, start_column))
                 self.advance()
@@ -402,6 +508,9 @@ class Lexer:
                 self.advance()
             elif char == "&":
                 self.tokens.append(Token(TokenType.AMPERSAND, "&", start_line, start_column))
+                self.advance()
+            elif char == "@":
+                self.tokens.append(Token(TokenType.AT, "@", start_line, start_column))
                 self.advance()
             else:
                 # Skip control characters gracefully

@@ -124,6 +124,7 @@ class Runtime:
                 "start": idx,
                 "end": len(self.statements) - 1,
                 "params": stmt.params,
+                "return_type": getattr(stmt, "return_type", None),
             }
             return
         if name == "DoLoopStatementNode":
@@ -216,10 +217,29 @@ class Runtime:
             return self.screen_w
         if name == "mm.vres":
             return self.screen_h
+        if name.startswith("mm."):
+            return self._mm_value(name)
         if name in self._variables:
             return self._variables[name]
         suffix = self._resolve_type(name)
         return "" if suffix == "$" else 0
+
+    def _mm_value(self, name):
+        """MMBasic 6.x MM.* system values (minimal Picoware subset)."""
+        key = name[3:]
+        if key == "hres":
+            return self.screen_w
+        if key == "vres":
+            return self.screen_h
+        if key == "ver":
+            return 6.03
+        if key == "errno":
+            return 0
+        if key == "persistent":
+            return 0
+        if key == "errmsg$" or key.endswith("$"):
+            return ""
+        return 0
 
     def get_whole_array(self, name):
         arr = self._arrays.get(name)

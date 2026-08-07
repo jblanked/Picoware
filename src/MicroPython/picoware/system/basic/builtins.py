@@ -2,6 +2,8 @@ import math
 import gc
 import struct
 
+from .runtime import RuntimeError_
+
 
 class TabMarker:
     """TAB(n) marker returned by the TAB() function in a PRINT list."""
@@ -41,6 +43,8 @@ class UsingFormatter:
         _      next character is literal
     Overflow prints a leading '%' like MBASIC.
     """
+
+    __slots__ = ("format_string", "fields")
 
     def __init__(self, format_string):
         self.format_string = format_string
@@ -240,6 +244,8 @@ class KeyInputPending(Exception):
 class BuiltinFunctions:
     """MBASIC 5.21 built-in functions."""
 
+    __slots__ = ("runtime", "_io_provider")
+
     def __init__(self, runtime, io_provider=None):
         self.runtime = runtime
         self._io_provider = io_provider  # callable returning the console
@@ -255,6 +261,10 @@ class BuiltinFunctions:
 
     def ATN(self, x):
         return math.atan(self._num(x))
+
+    def ATAN2(self, y, x):
+        """Arctangent of y/x with the correct quadrant, in radians."""
+        return math.atan2(self._num(y), self._num(x))
 
     def COS(self, x):
         return math.cos(self._num(x))
@@ -346,8 +356,33 @@ class BuiltinFunctions:
     def ASC(self, s):
         s = str(s)
         if not s:
-            raise ValueError("Illegal function call")
+            return 0  # MMBasic: ASC("") returns 0 (key-polling idiom)
         return ord(s[0])
+
+    def EVAL(self, s):
+        """Evaluate a BASIC expression held in a string, in the current
+        variable context (MMBasic 6.x EVAL)."""
+        from .lexer import Lexer
+        from .parser import Parser
+        from .tokens import Token, TokenType
+
+        s = str(s)
+        if not s.strip():
+            return 0
+        lexer = Lexer(s)
+        tokens = lexer.tokenize()
+        # A leading digit at the start of a "line" lexes as a LINE_NUMBER;
+        # EVAL takes an expression, so treat it as an ordinary NUMBER.
+        if tokens and tokens[0].type == TokenType.LINE_NUMBER:
+            t = tokens[0]
+            tokens[0] = Token(TokenType.NUMBER, t.value, t.line, t.column,
+                              literal_text=str(t.value))
+        parser = Parser(tokens)
+        node = parser.parse_expression()
+        io = self._io()
+        if io is not None and hasattr(io, "eval_expr"):
+            return io.eval_expr(node)
+        raise RuntimeError_("EVAL is unavailable", 5, 0)
 
     def CHR(self, x):
         return chr(int(self._num(x)) & 0xFF)
@@ -430,6 +465,47 @@ class BuiltinFunctions:
         now = time.localtime()
         return "%02d:%02d:%02d" % (now[3], now[4], now[5])
 
+    def NOW(self):
+        """Return the current Unix epoch (seconds)."""
+        import time
+
+        return int(time.time())
+
+    def EPOCH(self, n=0):
+        """Return the Unix epoch for a date (best effort: identity)."""
+        return int(self._num(n))
+
+    def TODAY(self):
+        """Return MMBasic's TODAY$ (DD/MM/YYYY HH:MM:SS) for month parsing."""
+        import time
+
+        now = time.localtime()
+        return "%02d/%02d/%04d %02d:%02d:%02d" % (
+            now[2], now[1], now[0], now[3], now[4], now[5])
+
+    def DATETIME(self, n=0):
+        """Return a human-readable date string for DAY$ to prefix."""
+        import time
+
+        weekdays = ("Monday", "Tuesday", "Wednesday", "Thursday",
+                    "Friday", "Saturday", "Sunday")
+        months = ("January", "February", "March", "April", "May", "June",
+                  "July", "August", "September", "October", "November",
+                  "December")
+        try:
+            t = time.localtime(int(self._num(n)))
+        except Exception:
+            t = time.localtime()
+        return "%s %d %s %d" % (weekdays[t[6] % 7], t[2], months[t[1] - 1],
+                                t[0])
+
+    def DAY(self, s):
+        """DAY$(date$): the leading day name of a DATETIME$ string."""
+        text = str(s).strip()
+        if text and text.split():
+            return text.split()[0]
+        return ""
+
     def VAL(self, s):
         s = str(s).strip()
         if not s:
@@ -507,6 +583,19 @@ class BuiltinFunctions:
         if io is None or not hasattr(io, "read_key"):
             return ""
         return io.read_key()
+
+    def UCASE(self, s):
+        return str(s).upper()
+
+    def LCASE(self, s):
+        return str(s).lower()
+
+    def DIR(self, pattern, kind=0):
+        return ""
+
+    def INPUTSTRING(self, prompt=""):
+        """INPUTSTRING$(prompt): pop-up string input. Returns '' (no dialog)."""
+        return ""
 
     def INPUT(self, num, file_num=None):
         io = self._io()

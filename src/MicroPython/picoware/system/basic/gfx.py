@@ -46,6 +46,22 @@ def rgb_to_565(color):
 class PicowareGraphics:
     """Renders MMBasic graphics via the draw layer's C methods."""
 
+    __slots__ = (
+        "draw",
+        "vm",
+        "cur_color",
+        "pen_down",
+        "tx",
+        "ty",
+        "thead",
+        "_w",
+        "_h",
+        "_bg",
+        "_fs",
+        "display_active",
+        "has_drawn",
+    )
+
     def __init__(self, draw, view_manager=None):
         """Bind the draw layer and capture screen, background and font."""
         self.draw = draw
@@ -60,20 +76,17 @@ class PicowareGraphics:
         self._bg = 0
         self._fs = 8
         self.display_active = False
+        self.has_drawn = False
         if draw is not None:
-            try:
-                self._w = draw.size.x
-                self._h = draw.size.y
-            except Exception:
-                pass
-            try:
-                self._bg = draw._background
-            except Exception:
-                pass
-            try:
-                self._fs = draw._font_default.size
-            except Exception:
-                pass
+            self._w = draw.size.x
+            self._h = draw.size.y
+            self._bg = draw._background
+            self._fs = draw._font_default.size
+
+    def present(self):
+        """Present the back buffer so drawn graphics become visible."""
+        if self.draw is not None and self.has_drawn:
+            self.draw.swap()
 
     def _c(self, color):
         """Return the 565 colour for an MMBasic colour."""
@@ -85,6 +98,7 @@ class PicowareGraphics:
 
     def cls(self, color=None):
         """Clear the screen with a colour, or the background."""
+        self.has_drawn = True
         if color is not None:
             self.draw._clear(self._c(color))
             return
@@ -92,10 +106,12 @@ class PicowareGraphics:
 
     def pixel(self, x, y, color=None):
         """Draw a single pixel."""
+        self.has_drawn = True
         self.draw._pixel(x, y, self._c(color))
 
     def line(self, x1, y1, x2, y2, thickness=1, color=None):
         """Draw a line, with optional thickness."""
+        self.has_drawn = True
         col = self._c(color)
         if thickness and (thickness) > 1:
             self._thick_line(x1, y1, x2, y2,
@@ -105,6 +121,7 @@ class PicowareGraphics:
 
     def box(self, x, y, w, h, thickness=1, outline=None, fill=None):
         """Draw a box outline and/or fill."""
+        self.has_drawn = True
         if fill is not None:
             self.draw._fill_rectangle(x, y, w, h, self._c(fill))
         if outline is not None:
@@ -114,6 +131,7 @@ class PicowareGraphics:
 
     def circle(self, x, y, r, *extra):
         """Draw a circle, treating trailing args as outline/fill."""
+        self.has_drawn = True
         args = list(extra)
         outline = None
         fill = None
@@ -134,6 +152,7 @@ class PicowareGraphics:
 
     def polygon(self, xs, ys, outline=None, fill=None):
         """Draw a polygon outline and/or fill from coordinate arrays."""
+        self.has_drawn = True
         pts = []
         n = min(len(xs), len(ys))
         for i in range(n):
@@ -154,13 +173,24 @@ class PicowareGraphics:
                 x2, y2 = pts[(i + 1) % len(pts)]
                 self.draw._line(x1, y1, x2, y2, col)
 
-    def color(self, color):
-        """Set the current MMBasic colour."""
-        if color is not None:
-            self.cur_color = color
+    def color(self, fg, bg=None):
+        """Set the current MMBasic foreground (and optional background)."""
+        if fg is not None:
+            self.cur_color = fg
+        if bg is not None:
+            self._bg = bg
+
+    def set_font_size(self, size):
+        """MMBasic FONT n: 0-4 are font numbers; map to a pixel height."""
+        sizes = {0: 8, 1: 8, 2: 12, 3: 16, 4: 20}
+        try:
+            self._fs = sizes.get(int(size), 8)
+        except (TypeError, ValueError):
+            self._fs = 8
 
     def text(self, x, y, s):
         """Draw a string at the given position."""
+        self.has_drawn = True
         self.draw._text(x, y, s, self._c(None), self._fs)
 
     def framebuffer(self, sub, args):
@@ -168,11 +198,14 @@ class PicowareGraphics:
         sub = str(sub).lower()
         if sub == "create":
             self.display_active = True
+            self.has_drawn = True
             self.cls()
         elif sub == "write":
             self.display_active = True
+            self.has_drawn = True
         elif sub == "copy":
             self.display_active = True
+            self.has_drawn = True
             self.swap()
         elif sub == "close":
             self.display_active = False

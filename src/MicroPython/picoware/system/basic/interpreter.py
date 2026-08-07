@@ -1,4 +1,5 @@
 from . import nodes as nodes
+import time
 from .runtime import RuntimeError_
 from .number import (
     format_for_print, INTEGER_DIGITS, SINGLE_DIGITS, DOUBLE_DIGITS,
@@ -13,6 +14,10 @@ class _FunctionReturn(Exception):
     def __init__(self, value):
         super().__init__("function return")
         self.value = value
+
+
+class _DoExit(Exception):
+    """Internal: EXIT DO fired inside an inline (clause-body) DO...LOOP."""
 
 
 #: Sentinel for "parameter was not bound before" in DEF FN.
@@ -37,6 +42,12 @@ class InterpreterState:
 class Interpreter:
     """Execute MBASIC AST with cooperative tick-based execution."""
 
+    __slots__ = ("runtime", "console", "gfx", "builtins",
+                 "_pending", "_key_buffer", "_key_want", "_input_vars",
+                 "_input_line", "_input_ready", "_input_line_mode",
+                 "_continuations", "_resume_index", "_fatal", "_tick_timers",
+                 "_in_function_call", "_inline_do_depth")
+
     def __init__(self, runtime, console=None, builtins=None, gfx=None):
         self.runtime = runtime
         self.console = console
@@ -56,6 +67,8 @@ class Interpreter:
         self._resume_index = None  # for RESUME (no arg)
         self._fatal = None
         self._tick_timers = {}     # SETTICK slot -> periodic SUB callback
+        self._in_function_call = 0  # nested FUNCTION body depth (for INPUT)
+        self._inline_do_depth = 0   # inline DO...LOOP nesting (for EXIT DO)
 
         # Input state
         self._pending = None      # None | 'input' | 'key'
@@ -82,9 +95,23 @@ class Interpreter:
         self._resume_index = None
         self._fatal = None
         self._tick_timers = {}
+        self._in_function_call = 0
+        self._inline_do_depth = 0
         return InterpreterState("running")
 
-    def tick(self, max_statements=200):
+    def tick(self, max_statements=0, max_time_ms=0):
+        """Execute the program cooperatively.
+
+        max_statements: statement budget per call. 0 (the default) means no
+        statement cap - execution runs until it yields naturally (END/STOP/
+        ERROR, an INPUT/INPUT$ park, a BREAK) or until `max_time_ms` elapses.
+
+        max_time_ms: wall-clock budget per call, in milliseconds. 0 (the
+        default) means no time cap. The MMBasic engine passes a small value so
+        interactive programs (INKEY$ polling, SETTICK timers, drawing) are
+        still serviced between ticks; a fixed *statement* count would throttle
+        fast programs for no reason, so the engine no longer uses one.
+        """
         if not self.runtime.running:
             return self._state("ended")
 
@@ -105,6 +132,11 @@ class Interpreter:
         self._dispatch_tick_timer()
 
         count = 0
+        if max_statements <= 0:
+            max_statements = 1 << 30  # effectively unlimited
+        t0 = None
+        if max_time_ms > 0:
+            t0 = time.ticks_ms()
         while count < max_statements and self.runtime.running:
             if self.runtime.break_requested:
                 self.runtime.running = False
@@ -123,6 +155,9 @@ class Interpreter:
             if result == "ERROR":
                 return self._fatal_state()
             count += 1
+            if t0 is not None and (count & 15) == 0 and \
+                    time.ticks_diff(time.ticks_ms(), t0) >= max_time_ms:
+                break
         return self._state("running")
 
 
@@ -130,7 +165,7 @@ class Interpreter:
         # Resume a clause continuation (GOSUB inside THEN/ELSE).
         if self._continuations:
             stmts, i, after_pc = self._continuations.pop()
-            return self._run_statement_list(stmts, i, after_pc)
+            return self._run_statement_list(stmts, i, after_pc, is_resume=True)
 
         if self.runtime.pc >= len(self.runtime.statements):
             self.runtime.running = False
@@ -158,16 +193,19 @@ class Interpreter:
         self.runtime.pc += 1
         return "NORMAL"
 
-    def _run_statement_list(self, statements, start=0, after_pc=None):
-        """Execute a THEN/ELSE clause inline.
+    def _run_statement_list(self, statements, start=0, after_pc=None,
+                            is_resume=False):
+        """Execute a THEN/ELSE/block-IF/CASE clause inline.
 
         A GOSUB inside a clause pushes a continuation frame so RETURN comes
         back to the rest of the clause, then to `after_pc`.
         """
         i = start
+        local_for = []  # list of {'var','limit','step','body_i'} frames
         while i < len(statements):
             stmt = statements[i]
-            if type(stmt).__name__ == "GosubStatementNode":
+            name = type(stmt).__name__
+            if name == "GosubStatementNode":
                 target = self.eval_expr(stmt.target)
                 idx = self.runtime.resolve_line(target)
                 if idx is None:
@@ -175,13 +213,105 @@ class Interpreter:
                 self.runtime.push_gosub(("clause", statements, i + 1, after_pc))
                 self.runtime.pc = idx
                 return "JUMP"
+            if name == "ForStatementNode":
+                frame = self._make_for_frame(stmt)
+                frame["body_i"] = i + 1
+                local_for.append(frame)
+                i += 1
+                continue
+            if name == "NextStatementNode":
+                if local_for:
+                    if self._exec_next_inline(stmt, local_for):
+                        i = local_for[-1]["body_i"]
+                        continue
+                    local_for.pop()
+                    i += 1
+                    continue
+            if name == "DoLoopStatementNode":
+                result = self._exec_do_inline(stmt, after_pc)
+                if result in ("JUMP", "END", "STOP", "ERROR", "INPUT_WAIT"):
+                    return result
+                i += 1
+                continue
+            if name == "ExitDoStatementNode" and self._inline_do_depth > 0:
+                # Inside a nested inline DO...LOOP: signal it to stop.
+                raise _DoExit()
             result = self._exec_statement(stmt)
             if result in ("JUMP", "END", "STOP", "ERROR", "INPUT_WAIT"):
                 return result
             i += 1
-        if after_pc is not None:
+        if is_resume and after_pc is not None:
+            # Resumed after a GOSUB-in-clause returned: restore the flat pc so
+            # execution continues after the enclosing construct. pc is already
+            # positioned, so tell _step not to advance again.
             self.runtime.pc = after_pc
+            return "JUMP"
         return "NORMAL"
+
+    def _exec_do_inline(self, stmt, after_pc):
+        """Run an inline DO...LOOP (body is a nested statement list).
+
+        Returns "NORMAL" when the loop completes, or propagates a clause
+        result (JUMP/END/STOP/ERROR/INPUT_WAIT) out of the whole loop.
+        """
+        while True:
+            # Top condition (DO WHILE / DO UNTIL): exit before entering body.
+            if stmt.do_cond is not None:
+                truthy = self._truthy(self.eval_expr(stmt.do_cond))
+                if truthy if stmt.do_until else not truthy:
+                    return "NORMAL"
+            # Run the body once. _DoExit (from EXIT DO) stops the loop.
+            self._inline_do_depth += 1
+            try:
+                result = self._run_statement_list(stmt.body, after_pc=after_pc)
+            except _DoExit:
+                return "NORMAL"
+            finally:
+                self._inline_do_depth -= 1
+            if result in ("JUMP", "END", "STOP", "ERROR", "INPUT_WAIT"):
+                return result
+            # Bottom condition (LOOP WHILE / LOOP UNTIL).
+            if stmt.loop_cond is not None:
+                truthy = self._truthy(self.eval_expr(stmt.loop_cond))
+                if stmt.loop_until:
+                    if truthy:
+                        return "NORMAL"
+                else:
+                    if not truthy:
+                        return "NORMAL"
+            # Otherwise loop again (checks the top condition again too).
+            if stmt.do_cond is None and stmt.loop_cond is None:
+                # DO...LOOP with no condition: keep looping until EXIT DO.
+                continue
+
+    def _make_for_frame(self, stmt):
+        """Evaluate a FOR header and return its loop frame."""
+        var = stmt.variable
+        start = self.eval_expr(stmt.start)
+        end = self.eval_expr(stmt.end)
+        step = self.eval_expr(stmt.step)
+        self._assign_var(var, start)
+        return {
+            "var": var.name,
+            "limit": end,
+            "step": step,
+        }
+
+    def _exec_next_inline(self, stmt, local_for):
+        """Step an inline (clause) FOR loop; True = loop again, False = done."""
+        if not local_for:
+            return False
+        frame = local_for[-1]
+        varname = frame["var"]
+        if stmt.variables and stmt.variables[0].name != varname:
+            raise RuntimeError_("NEXT without FOR", 1, stmt.line_num)
+        var_node = nodes.VariableNode(varname)
+        cur = self.runtime.get_variable(var_node)
+        step = frame["step"]
+        limit = frame["limit"]
+        newval = cur + step
+        self.runtime.set_variable(var_node, newval)
+        return (step >= 0 and newval <= limit) or (step < 0 and newval >= limit)
 
     def _handle_error(self, e, line_num):
         if isinstance(e, RuntimeError_):
@@ -193,8 +323,17 @@ class Interpreter:
         self.runtime.last_error_code = code
         self.runtime.last_error_line = line_num
 
-        if self.runtime.error_handler is not None and not self.runtime.error_active:
-            idx = self.runtime.resolve_line(self.runtime.error_handler)
+        handler = self.runtime.error_handler
+        if handler is not None and not self.runtime.error_active:
+            if handler == "IGNORE":
+                # Continue with the statement after the one that failed.
+                self.runtime.pc += 1
+                return "NORMAL"
+            if handler == "IGNORE1":
+                # Skip the rest of the offending line.
+                self._skip_line()
+                return "NORMAL"
+            idx = self.runtime.resolve_line(handler)
             if idx is not None:
                 self.runtime.error_active = True
                 self._resume_index = self.runtime.pc
@@ -203,6 +342,15 @@ class Interpreter:
         self.runtime.running = False
         self._fatal = RuntimeError_(message, code, line_num)
         return "ERROR"
+
+    def _skip_line(self):
+        """Advance pc past the remainder of the current source line."""
+        if self.runtime.pc >= len(self.runtime.statements):
+            return
+        ln = self.runtime.line_for_index(self.runtime.pc)
+        while self.runtime.pc < len(self.runtime.statements) and \
+                self.runtime.line_for_index(self.runtime.pc) == ln:
+            self.runtime.pc += 1
 
     def _fatal_state(self):
         e = self._fatal
@@ -374,6 +522,14 @@ class Interpreter:
         if stmt.file_number is not None:
             self._print_to_file(stmt)
             return "NORMAL"
+        if stmt.position is not None and self.console is not None:
+            col_expr, row_expr, size_expr = stmt.position
+            col = int(self.eval_expr(col_expr))
+            row = int(self.eval_expr(row_expr))
+            size = None
+            if size_expr is not None:
+                size = int(self.eval_expr(size_expr))
+            self.console.goto(col, row, size)
         out = self._print_output(stmt.expressions, stmt.separators)
         if self.console is not None:
             self.console.output(out)
@@ -432,6 +588,13 @@ class Interpreter:
             prompt = str(self.eval_expr(stmt.prompt))
         if self.console is not None:
             self.console.output(prompt + "? ")
+        if self._in_function_call:
+            # INPUT inside a FUNCTION can't suspend in the cooperative model;
+            # complete it immediately with an empty line (best effort).
+            self._input_vars = list(stmt.variables)
+            self._input_line_mode = False
+            self._assign_input_line("")
+            return "NORMAL"
         self._pending = "input"
         self._input_vars = list(stmt.variables)
         self._input_line_mode = False
@@ -448,6 +611,11 @@ class Interpreter:
             prompt = str(self.eval_expr(stmt.prompt))
         if self.console is not None:
             self.console.output(prompt)
+        if self._in_function_call:
+            self._input_vars = [stmt.variable]
+            self._input_line_mode = True
+            self._assign_input_line("")
+            return "NORMAL"
         self._pending = "input"
         self._input_vars = [stmt.variable]
         self._input_line_mode = True
@@ -459,6 +627,12 @@ class Interpreter:
     def execute_let(self, stmt):
         value = self.eval_expr(stmt.expression)
         self._assign_var(stmt.variable, value)
+        return "NORMAL"
+
+    def execute_chained_assignment(self, stmt):
+        value = self.eval_expr(stmt.expression)
+        for var in stmt.variables:
+            self._assign_var(var, value)
         return "NORMAL"
 
     def execute_mid_assignment(self, stmt):
@@ -516,16 +690,19 @@ class Interpreter:
 
     def execute_if(self, stmt):
         cond = self.eval_expr(stmt.condition)
+        after_pc = self.runtime.pc + 1
         if self._truthy(cond):
             if stmt.then_line is not None:
                 return self._goto_line(stmt.then_line)
             if stmt.then_statements:
-                return self._run_statement_list(stmt.then_statements)
+                return self._run_statement_list(stmt.then_statements,
+                                                after_pc=after_pc)
             return "NORMAL"
         if stmt.else_line is not None:
             return self._goto_line(stmt.else_line)
         if stmt.else_statements:
-            return self._run_statement_list(stmt.else_statements)
+            return self._run_statement_list(stmt.else_statements,
+                                            after_pc=after_pc)
         return "NORMAL"
 
     def _goto_line(self, target):
@@ -558,18 +735,17 @@ class Interpreter:
         return "JUMP"
 
     def execute_for(self, stmt):
-        var = stmt.variable
-        start = self.eval_expr(stmt.start)
-        end = self.eval_expr(stmt.end)
-        step = self.eval_expr(stmt.step)
-        self._assign_var(var, start)
-        self.runtime._for_stack.append({
-            "var": var.name,
-            "limit": end,
-            "step": step,
-            "body_pc": self.runtime.pc + 1,
-            "line": stmt.line_num,
-        })
+        frame = self._make_for_frame(stmt)
+        frame["body_pc"] = self.runtime.pc + 1
+        var = frame["var"]
+        start_val = self.runtime.get_variable(nodes.VariableNode(var))
+        step = frame["step"]
+        limit = frame["limit"]
+        # MMBasic: a FOR whose start is already past the limit runs zero times.
+        if (step >= 0 and start_val > limit) or (step < 0 and start_val < limit):
+            self.runtime.pc = self._skip_for_after(self.runtime.pc)
+            return "JUMP"
+        self.runtime._for_stack.append(frame)
         return "NORMAL"
 
     def execute_next(self, stmt):
@@ -769,10 +945,14 @@ class Interpreter:
     def execute_local(self, stmt):
         if self.runtime.sub_stack:
             frame = self.runtime.sub_stack[-1]
-            for name in stmt.names:
+            for idx, name in enumerate(stmt.names):
                 if name not in frame["saved"]:
                     frame["saved"][name] = self.runtime._variables.get(
                         name, _UNBOUND)
+                init = stmt.inits[idx] if idx < len(stmt.inits) else None
+                if init is not None:
+                    self.runtime.set_variable(nodes.VariableNode(name),
+                                              self.eval_expr(init))
         return "NORMAL"
 
 
@@ -792,6 +972,11 @@ class Interpreter:
         if len(args) != len(params):
             raise RuntimeError_("Wrong number of arguments to '%s'" % name,
                                 5, 0)
+        # Declared return type (e.g. `FUNCTION F$() AS STRING`): make the
+        # function-name variable string-typed so `F$ = "..."` works inside.
+        ret_type = fn.get("return_type")
+        if ret_type in ("string", "str"):
+            self.runtime.var_types[name] = "string"
         saved_pc = self.runtime.pc
         saved_fn = getattr(self.runtime, "_current_function", None)
         saved = {}
@@ -804,6 +989,7 @@ class Interpreter:
         self.runtime._current_function = name
         self.runtime.pc = fn["start"] + 1
         value = 0
+        self._in_function_call += 1
         try:
             for _ in range(500000):
                 if self.runtime.pc >= len(self.runtime.statements):
@@ -818,6 +1004,7 @@ class Interpreter:
             else:
                 value = self.runtime._variables.get(name, 0)
         finally:
+            self._in_function_call -= 1
             for p in params:
                 if saved[p.name] is _UNBOUND:
                     self.runtime._variables.pop(p.name, None)
@@ -932,7 +1119,8 @@ class Interpreter:
         if matched is None:
             return "NORMAL"
         if matched.statements:
-            return self._run_statement_list(matched.statements)
+            return self._run_statement_list(matched.statements,
+                                            after_pc=self.runtime.pc + 1)
         return "NORMAL"
 
     @staticmethod
@@ -945,10 +1133,11 @@ class Interpreter:
             return a == b
 
     def execute_block_if(self, stmt):
+        after_pc = self.runtime.pc + 1
         for cond, body in stmt.branches:
             if cond is None or self._truthy(self.eval_expr(cond)):
                 if body:
-                    return self._run_statement_list(body)
+                    return self._run_statement_list(body, after_pc=after_pc)
                 return "NORMAL"
         return "NORMAL"
 
@@ -1033,7 +1222,10 @@ class Interpreter:
         return "NORMAL"
 
     def execute_color(self, stmt):
-        self.gfx.color(self.eval_expr(stmt.color))
+        bg = None
+        if stmt.background is not None:
+            bg = self.eval_expr(stmt.background)
+        self.gfx.color(self.eval_expr(stmt.color), bg)
         return "NORMAL"
 
     def execute_text(self, stmt):
@@ -1122,17 +1314,33 @@ class Interpreter:
         return "NORMAL"
 
     def execute_cls(self, stmt):
-        if self.gfx is not None and getattr(self.gfx, "display_active", False):
-            color = self.eval_expr(stmt.color) if stmt.color is not None else None
+        color = self.eval_expr(stmt.color) if stmt.color is not None else None
+        if self.gfx is not None:
             self.gfx.cls(color)
-            return "NORMAL"
-        if stmt.color is not None:
-            # Maximite `CLS colour`: clear the graphics screen with a colour.
-            if self.gfx is not None:
-                self.gfx.cls(self.eval_expr(stmt.color))
-                return "NORMAL"
         if self.console is not None and hasattr(self.console, "clear"):
             self.console.clear()
+        return "NORMAL"
+
+    def execute_font(self, stmt):
+        if stmt.size is not None:
+            size = int(self.eval_expr(stmt.size))
+            if self.gfx is not None:
+                self.gfx.set_font_size(size)
+        return "NORMAL"
+
+    def execute_center(self, stmt):
+        if self.console is None:
+            return "NORMAL"
+        text = ""
+        if stmt.text is not None:
+            text = str(self.eval_expr(stmt.text))
+        cols = getattr(self.console, "columns", 60)
+        pad = max((cols - len(text)) // 2, 0)
+        self.console.output(" " * pad + text + "\n")
+        return "NORMAL"
+
+    def execute_drive(self, stmt):
+        # Drive selection is a no-op on Picoware (single storage volume).
         return "NORMAL"
 
     def execute_common(self, stmt):
@@ -1140,14 +1348,21 @@ class Interpreter:
 
 
     def execute_error(self, stmt):
-        code = int(self.eval_expr(stmt.code))
+        if stmt.code is None:
+            code = getattr(self.runtime, "last_error_code", 0) or 0
+        else:
+            code = int(self.eval_expr(stmt.code))
         raise RuntimeError_("User error %d" % code, code, stmt.line_num)
 
     def execute_on_error(self, stmt):
-        if isinstance(stmt.target, nodes.NumberNode) and stmt.target.value == 0:
+        target = stmt.target
+        if target in ("IGNORE", "IGNORE1"):
+            self.runtime.error_handler = target
+            return "NORMAL"
+        if isinstance(target, nodes.NumberNode) and target.value == 0:
             self.runtime.error_handler = None
         else:
-            self.runtime.error_handler = int(self.eval_expr(stmt.target))
+            self.runtime.error_handler = int(self.eval_expr(target))
         return "NORMAL"
 
     def execute_resume(self, stmt):
@@ -1335,6 +1550,27 @@ class Interpreter:
     def _read_var(self, node):
         if node.indices:
             # A parenthesised name that matches a FUNCTION is a function call.
+            if node.name.startswith("mm."):
+                # MMBasic system values (MM.Info(...), MM.HRES()...) are not
+                # fully supported on Picoware; return benign defaults so
+                # programs can load and run without hard-crashing.
+                if node.name[3:].startswith("info"):
+                    arg = node.indices[0] if node.indices else None
+                    argname = ""
+                    if isinstance(arg, nodes.VariableNode):
+                        argname = arg.name.lower()
+                    # MM.Info(DRIVE) is a string ("A:" / "B:").
+                    if argname in ("drive", "drives"):
+                        return "A:"
+                    # MM.Info(VERSION) is a string.
+                    if argname in ("version", "ver"):
+                        return "6.03"
+                    return 100  # MM.Info(BATTERY) reports 100%
+                if node.name[3:].startswith("hres"):
+                    return self.runtime.screen_w
+                if node.name[3:].startswith("vres"):
+                    return self.runtime.screen_h
+                return 0
             if node.name in self.runtime.function_defs:
                 args = [self.eval_expr(d) for d in node.indices]
                 return self._call_function(node.name, args)
@@ -1374,7 +1610,11 @@ class Interpreter:
         left = self.eval_expr(node.left)
         right = self.eval_expr(node.right)
 
-        if op in ("=", "<>", "><", "<", ">", "<=", ">="):
+        if op in ("=", "<>", "><", "<", ">", "<=", ">=", "=<", "=>"):
+            if op == "=<":
+                op = "<="
+            elif op == "=>":
+                op = ">="
             return -1 if self._compare(op, left, right) else 0
 
         if isinstance(left, str) or isinstance(right, str):
@@ -1389,10 +1629,16 @@ class Interpreter:
         if op == "*":
             return left * right
         if op == "/":
+            if right == 0:
+                return 0.0  # MMBasic-tolerant: x/0 -> 0, not a hard crash
             return left / right
         if op == "\\":
+            if right == 0:
+                return 0
             return int(left) // int(right)
         if opu == "MOD":
+            if right == 0:
+                return 0
             return int(left) % int(right)
         if op == "^":
             return left ** right
@@ -1473,6 +1719,12 @@ class Interpreter:
     def _eval_function(self, node):
         name = node.name
         if name.startswith("fn"):
+            # A name like `fnr` (lexed lowercase) may be a FUNCTION defined
+            # with `FUNCTION FNR(...)` rather than a DEF FN. FUNCTION wins;
+            # fall back to DEF FN (def_functions) if it's not one.
+            if name in self.runtime.function_defs:
+                args = [self.eval_expr(a) for a in node.args]
+                return self._call_function(name, args)
             return self._call_user_fn(node)
         if name == "rgb":
             return self._eval_rgb(node)
@@ -1535,6 +1787,7 @@ def _make_handlers():
         "InputStatementNode": Interpreter.execute_input,
         "LineInputStatementNode": Interpreter.execute_line_input,
         "LetStatementNode": Interpreter.execute_let,
+        "ChainedAssignmentStatementNode": Interpreter.execute_chained_assignment,
         "MidAssignmentStatementNode": Interpreter.execute_mid_assignment,
         "SwapStatementNode": Interpreter.execute_swap,
         "GotoStatementNode": Interpreter.execute_goto,
@@ -1560,6 +1813,9 @@ def _make_handlers():
         "RestoreStatementNode": Interpreter.execute_restore,
         "ClearStatementNode": Interpreter.execute_clear,
         "ClsStatementNode": Interpreter.execute_cls,
+        "FontStatementNode": Interpreter.execute_font,
+        "CenterStatementNode": Interpreter.execute_center,
+        "DriveStatementNode": Interpreter.execute_drive,
         "CommonStatementNode": Interpreter.execute_common,
         "ErrorStatementNode": Interpreter.execute_error,
         "OnErrorStatementNode": Interpreter.execute_on_error,
@@ -1607,6 +1863,10 @@ def _make_handlers():
         "TurtleStatementNode": Interpreter.execute_turtle,
         "SaveImageStatementNode": Interpreter.execute_save_image,
         "LayerStatementNode": Interpreter.execute_layer,
+        "CopyStatementNode": _noop,
+        "SortStatementNode": _noop,
+        "MkdirStatementNode": _noop,
+        "ChdirStatementNode": _noop,
         # Statements that parse but do nothing meaningful on a handheld.
         "LsetStatementNode": _noop,
         "RsetStatementNode": _noop,

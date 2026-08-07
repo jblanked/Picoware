@@ -9,6 +9,8 @@ from picoware.system.basic.parser import parse_source, create_default_def_type_m
 
 class MMBasic:
     """MMBasic interpreter"""
+    __slots__ = ("_view_manager", "_console", "_gfx", "_interpreter",
+                 "_script", "_error", "_def_type_map", "_over")
     def __init__(self, view_manager, definition_type_map=None):
         from picoware.system.basic import io, gfx
 
@@ -20,6 +22,15 @@ class MMBasic:
         self._script = None
         self._error = None
         self._def_type_map = definition_type_map
+        self._over = False
+
+    def is_over(self) -> bool:
+        """True when the program has reached a terminal state (END/STOP)."""
+        return self._over
+
+    def has_graphics(self) -> bool:
+        """True once the program has drawn to the graphics screen."""
+        return self._gfx is not None and self._gfx.has_drawn
 
     def _feed_button(self, button: int):
         """Route a button press into the interpreter as input."""
@@ -43,6 +54,7 @@ class MMBasic:
                             create_default_def_type_map())
         self._interpreter = Interpreter(runtime, console=self._console, gfx=self._gfx)
         self._error = None
+        self._over = False
         return self
 
     def start(self, source: str = None, path: str = None) -> bool:
@@ -57,15 +69,22 @@ class MMBasic:
                 return False
             self._load(s.read(path))
 
+        self._over = False
         self._interpreter.start()
-        self._console.output("MMBasic 5.21  (Picoware)")
+        self._console.footer = "BACK=exit"
+        self._console.output("MMBasic 6.03  (Picoware)")
         self._console.output("-----------------------")
         self._console.output("")
         self._console.render()
         return True
 
     def run(self) -> bool:
-        """Poll buttons, tick the interpreter, redraw the console."""
+        """Poll buttons, tick the interpreter, redraw the console/graphics.
+
+        Returns False when the program is over (END/STOP) or the user pressed
+        BACK, so the host app can return to the menu. Graphics programs keep
+        their final image on screen (the app shows it until BACK is pressed).
+        """
         button = self._view_manager.input_manager.button
 
         if button != -1:
@@ -74,20 +93,34 @@ class MMBasic:
                 return False
             self._feed_button(button)
 
-        state = self._interpreter.tick(120)
+        state = self._interpreter.tick(max_statements=0, max_time_ms=5)
 
         if state.status == "error":
             self._console.output("")
             self._console.output("? " + state.message + " (line " + str(state.line) + ")")
             self._console.footer = "Back to exit"
-        elif state.status == "ended":
-            self._console.footer = "Program ended - back to exit"
-        elif state.status == "stopped":
-            self._console.footer = "Break - back to exit"
-        else:
-            self._console.set_input_active(self._interpreter.is_input_pending())
-
-        if state.status == "error" or not self._gfx.display_active:
             self._console.render()
+            return True
+        if state.status == "ended":
+            self._over = True
+            self._console.footer = "Program ended - back to exit"
+            if self._gfx.has_drawn:
+                self._gfx.present()
+            else:
+                self._console.render()
+            return False
+        if state.status == "stopped":
+            self._over = True
+            self._console.footer = "Break - back to exit"
+            if self._gfx.has_drawn:
+                self._gfx.present()
+            else:
+                self._console.render()
+            return False
 
+        self._console.set_input_active(self._interpreter.is_input_pending())
+        if self._gfx.has_drawn:
+            self._gfx.present()
+        else:
+            self._console.render()
         return True

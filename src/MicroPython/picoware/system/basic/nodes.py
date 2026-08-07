@@ -59,15 +59,17 @@ class StatementNode(_Node):
 
 
 class PrintStatementNode(StatementNode):
-    __slots__ = ("expressions", "separators", "file_number", "using_format")
+    __slots__ = ("expressions", "separators", "file_number", "using_format",
+                 "position")
 
     def __init__(self, expressions, separators, file_number=None,
-                 using_format=None, token=None):
+                 position=None, using_format=None, token=None):
         super().__init__(token=token)
         self.expressions = expressions
         self.separators = separators
         self.file_number = file_number
         self.using_format = using_format
+        self.position = position  # (col, row, size) from PRINT @(col,row[,size])
 
 
 class PrintUsingStatementNode(StatementNode):
@@ -127,6 +129,17 @@ class LetStatementNode(StatementNode):
     def __init__(self, variable, expression, token=None):
         super().__init__(token=token)
         self.variable = variable
+        self.expression = expression
+
+
+class ChainedAssignmentStatementNode(StatementNode):
+    """`A = B = C = expr` - assign expr to every listed variable."""
+
+    __slots__ = ("variables", "expression")
+
+    def __init__(self, variables, expression, token=None):
+        super().__init__(token=token)
+        self.variables = variables
         self.expression = expression
 
 
@@ -341,6 +354,14 @@ class ClearStatementNode(StatementNode):
     __slots__ = ()
 
 
+class FontStatementNode(StatementNode):
+    __slots__ = ("size",)
+
+    def __init__(self, size, token=None):
+        super().__init__(token=token)
+        self.size = size
+
+
 class ClsStatementNode(StatementNode):
     """CLS [colour]: clear the text console, or (Maximite) clear the
     graphics screen with an optional colour."""
@@ -350,6 +371,26 @@ class ClsStatementNode(StatementNode):
     def __init__(self, color=None, token=None):
         super().__init__(token=token)
         self.color = color
+
+
+class CenterStatementNode(StatementNode):
+    """CENTER text$: print text centred on the text console."""
+
+    __slots__ = ("text",)
+
+    def __init__(self, text, token=None):
+        super().__init__(token=token)
+        self.text = text
+
+
+class DriveStatementNode(StatementNode):
+    """DRIVE "A:"...: select the default drive. No-op on Picoware."""
+
+    __slots__ = ("path",)
+
+    def __init__(self, path=None, token=None):
+        super().__init__(token=token)
+        self.path = path
 
 
 class OptionBaseStatementNode(StatementNode):
@@ -579,13 +620,15 @@ class EndSubStatementNode(StatementNode):
 class FunctionStatementNode(StatementNode):
     """A FUNCTION definition; body is flattened into the program."""
 
-    __slots__ = ("name", "params", "body")
+    __slots__ = ("name", "params", "body", "return_type")
 
-    def __init__(self, name, params, body=None, token=None):
+    def __init__(self, name, params, body=None, token=None,
+                 return_type=None):
         super().__init__(token=token)
         self.name = name
         self.params = params
         self.body = body if body is not None else []
+        self.return_type = return_type
 
 
 class EndFunctionStatementNode(StatementNode):
@@ -610,11 +653,12 @@ class SubCallStatementNode(StatementNode):
 
 
 class LocalStatementNode(StatementNode):
-    __slots__ = ("names",)
+    __slots__ = ("names", "inits")
 
-    def __init__(self, names, token=None):
+    def __init__(self, names, inits=None, token=None):
         super().__init__(token=token)
         self.names = names
+        self.inits = inits if inits is not None else [None] * len(names)
 
 
 class DoLoopStatementNode(StatementNode):
@@ -798,12 +842,47 @@ class PolygonStatementNode(StatementNode):
         self.fill = fill
 
 
-class ColorStatementNode(StatementNode):
-    __slots__ = ("color",)
+class CopyStatementNode(StatementNode):
+    __slots__ = ("source", "dest")
 
-    def __init__(self, color, token=None):
+    def __init__(self, source, dest, token=None):
+        super().__init__(token=token)
+        self.source = source
+        self.dest = dest
+
+
+class SortStatementNode(StatementNode):
+    __slots__ = ("array", "args")
+
+    def __init__(self, array, args=None, token=None):
+        super().__init__(token=token)
+        self.array = array
+        self.args = args if args is not None else []
+
+
+class MkdirStatementNode(StatementNode):
+    __slots__ = ("path",)
+
+    def __init__(self, path, token=None):
+        super().__init__(token=token)
+        self.path = path
+
+
+class ChdirStatementNode(StatementNode):
+    __slots__ = ("path",)
+
+    def __init__(self, path, token=None):
+        super().__init__(token=token)
+        self.path = path
+
+
+class ColorStatementNode(StatementNode):
+    __slots__ = ("color", "background")
+
+    def __init__(self, color, background=None, token=None):
         super().__init__(token=token)
         self.color = color
+        self.background = background
 
 
 class TextStatementNode(StatementNode):

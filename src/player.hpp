@@ -131,6 +131,9 @@ private:
     int lobbyCount = 0;                                                     // number of available online game sessions loaded into lobbyEntries
     int lobbySelectedIndex = 0;                                             // current selected lobby menu index
     bool lobbyFetched = false;                                              // flag to indicate if the lobby game sessions have been fetched from the server
+    static const uint8_t MAX_REMOTE_ENTITY_NAMES = 12;                      // max server-spawned entity names
+    char remoteEntityNamePool[MAX_REMOTE_ENTITY_NAMES][64];                 // stable names for server-spawned entities
+    uint8_t remoteEntityNameIndex = 0;                                      // round-robin index into remoteEntityNamePool
     int mapPackCount = 0;                                                   // number of map packs loaded into mapPackFiles
     char mapPackFiles[MAX_MAP_PACK_FILES][64];                              // list of loaded map pack files
     int mapPackSelectedIndex = 0;                                           // current selected map pack index
@@ -163,5 +166,7 @@ private:
     void drawUserInfoView(Draw *canvas);                                                               // draw the user info view
     void drawWelcomeView(Draw *canvas);                                                                // draw the welcome view
     bool hasAssets() const;                                                                            // check if game assets are available
+    const char *storeRemoteEntityName(const char *entityName);                                         // store server entity name
     void updateEntitiesFromServer(const char *json);                                                   // parse server entity state and update local entity positions
+    void updateEntityFromServerLine(Level *currentLevel, const char *line);                            // process one server entity line
 };

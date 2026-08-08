@@ -61,8 +61,7 @@ def save_wifi_password(storage, password: str) -> bool:
     from picoware.system.settings import Settings
 
     if not password:
-        print("Password cannot be empty")
-        return False
+        print("Password is empty")
 
     settings = Settings(storage)
     current_settings = settings.wifi_settings

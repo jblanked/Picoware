@@ -24,7 +24,8 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_WAVESHARE_2_06 10
 #define BOARD_PANCAKE 11
 #define BOARD_FLIPPER_ZERO 12
-#define BOARD_WAVESHARE_1_69_RP2350 13
+#define BOARD_V8 13
+#define BOARD_WAVESHARE_1_69_RP2350 14
 
 #if defined(WAVESHARE_1_28)
 #define BOARD_ID BOARD_WAVESHARE_1_28_RP2350
@@ -81,6 +82,14 @@ Source: https://github.com/jblanked/Picoware
 #elif defined(PANCAKE)
 // Marauder Pancake ESP32-C5
 #define BOARD_ID BOARD_PANCAKE
+#define BOARD_HAS_PSRAM 0 // no psram
+#define BOARD_HAS_SD 1    // has sd card
+#define BOARD_HAS_TOUCH 1 // has touch
+#define BOARD_HAS_WIFI 1  // has wifi
+#define BOARD_HAS_AUDIO 0 // no audio module in esp32 build yet
+#elif defined(V8)
+// Marauder V8 ESP32-C5
+#define BOARD_ID BOARD_V8
 #define BOARD_HAS_PSRAM 0 // no psram
 #define BOARD_HAS_SD 1    // has sd card
 #define BOARD_HAS_TOUCH 1 // has touch
@@ -166,10 +175,16 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_RP2350 0
 #endif
 
-#if defined(CARDPUTER) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE)
+#if defined(CARDPUTER) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
 #define BOARD_HAS_ESP32 1
 #else
 #define BOARD_HAS_ESP32 0
+#endif
+
+#ifndef PICOCALC
+#define BOARD_HAS_PICOCALC 0
+#else
+#define BOARD_HAS_PICOCALC 1
 #endif
 
 mp_obj_t picoware_boards_get_current_display_size(void);

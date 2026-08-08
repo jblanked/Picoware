@@ -24,9 +24,11 @@ def start(view_manager) -> bool:
         _library.add_item("Applications")
         _library.add_item("App Store")
         _library.add_item("Bluetooth")
+        _library.add_item("Email")
         _library.add_item("File Manager")
         _library.add_item("GameBoy Emulator")
         _library.add_item("Games")
+        _library.add_item("MMBasic")
         _library.add_item("Python Editor")
         _library.add_item("Python REPL")
         _library.add_item("Screensavers")
@@ -75,17 +77,19 @@ def run(view_manager) -> None:
             1: "Applications",
             2: "App Store",
             3: "Bluetooth",
-            4: "File Manager",
-            5: "GameBoy Emulator",
-            6: "Games",
-            7: "Python Editor",
-            8: "Python REPL",
-            9: "Screensavers",
-            10: "Scripts",
-            11: "System",
-            12: "Text Editor",
-            13: "USB",
-            14: "WiFi",
+            4: "Email",
+            5: "File Manager",
+            6: "GameBoy Emulator",
+            7: "Games",
+            8: "MMBasic",
+            9: "Python Editor",
+            10: "Python REPL",
+            11: "Screensavers",
+            12: "Scripts",
+            13: "System",
+            14: "Text Editor",
+            15: "USB",
+            16: "WiFi",
         }
 
         if app_map.get(_library_index) == "System":
@@ -230,6 +234,30 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("scripts")
+        elif app_map.get(_library_index) == "Email":
+            from picoware.applications import email
+
+            view_manager.add(
+                View(
+                    "email",
+                    email.run,
+                    email.start,
+                    email.stop,
+                )
+            )
+            view_manager.switch_to("email")
+        elif app_map.get(_library_index) == "MMBasic":
+            from picoware.applications import mmbasic
+
+            view_manager.add(
+                View(
+                    "mmbasic",
+                    mmbasic.run,
+                    mmbasic.start,
+                    mmbasic.stop,
+                )
+            )
+            view_manager.switch_to("mmbasic")
 
 
 def stop(view_manager) -> None:

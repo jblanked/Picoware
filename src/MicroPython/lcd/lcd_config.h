@@ -23,6 +23,8 @@
 #define LCD_MP_PSRAM_READ_ROW lcd_psram_read_row
 #define LCD_MP_READ_ROW lcd_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
+#include "../PicoCalc/picoware_keyboard/southbridge.h"
+#define LCD_MP_SET_BRIGHTNESS sb_write_lcd_backlight
 #define LCD_MP_SET_MODE lcd_set_mode
 #define LCD_SWAP lcd_swap
 #define LCD_MP_SWAP_REGION picoware_lcd_swap_region
@@ -48,6 +50,7 @@
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
+#define LCD_MP_SET_BRIGHTNESS lcd_set_backlight
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
@@ -71,6 +74,7 @@
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
+#define LCD_MP_SET_BRIGHTNESS lcd_set_backlight
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
@@ -94,6 +98,31 @@
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
+#define LCD_MP_SET_BRIGHTNESS lcd_set_backlight
+#define LCD_SWAP lcd_swap
+#define LCD_MP_TEXT lcd_draw_text
+#define LCD_MP_TRIANGLE lcd_draw_triangle
+#elif defined(V8)
+#define LCD_INCLUDE "../v8/lcd/lcd.h"
+#define LCD_MP_INIT lcd_init
+#define LCD_MP_DEINIT lcd_deinit
+#define LCD_MP_WIDTH LCD_WIDTH
+#define LCD_MP_HEIGHT LCD_HEIGHT
+#define LCD_MP_CHAR lcd_draw_char
+#define LCD_MP_CIRCLE lcd_draw_circle
+#define LCD_MP_CLEAR lcd_fill
+#define LCD_MP_FILL_CIRCLE lcd_fill_circle
+#define LCD_MP_FILL_RECTANGLE lcd_fill_rect
+#define LCD_MP_FILL_ROUND_RECTANGLE lcd_fill_round_rectangle
+#define LCD_MP_FILL_TRIANGLE lcd_fill_triangle
+#define LCD_MP_FILL_TRIANGLE_ALPHA lcd_fill_triangle_alpha
+#define LCD_MP_BLIT lcd_blit
+#define LCD_MP_BLIT_16BIT lcd_blit_16bit
+#define LCD_MP_LINE lcd_draw_line
+#define LCD_MP_PIXEL lcd_draw_pixel
+#define LCD_MP_READ_ROW lcd_read_row
+#define LCD_MP_RECTANGLE lcd_draw_rect
+#define LCD_MP_SET_BRIGHTNESS lcd_set_backlight
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
@@ -117,6 +146,7 @@
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
+#define LCD_MP_SET_BRIGHTNESS lcd_set_backlight_level
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
@@ -163,6 +193,7 @@
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
+#define LCD_MP_SET_BRIGHTNESS lcd_set_backlight_level
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
@@ -186,6 +217,7 @@
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
+#define LCD_MP_SET_BRIGHTNESS lcd_set_backlight_level
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
@@ -193,6 +225,7 @@
 #define LCD_INCLUDE "../Flipper/lcd/lcd.h"
 #define LCD_MP_INIT lcd_init
 #define LCD_MP_DEINIT lcd_deinit
+#define LCD_MP_SET_RGB_LED lcd_set_rgb_led
 #define LCD_MP_WIDTH LCD_WIDTH
 #define LCD_MP_HEIGHT LCD_HEIGHT
 #define LCD_MP_CHAR lcd_draw_char
@@ -209,6 +242,7 @@
 #define LCD_MP_PIXEL lcd_draw_pixel
 #define LCD_MP_READ_ROW lcd_read_row
 #define LCD_MP_RECTANGLE lcd_draw_rect
+#define LCD_MP_SET_BRIGHTNESS lcd_set_backlight
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle

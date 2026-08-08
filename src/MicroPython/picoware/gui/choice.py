@@ -206,7 +206,7 @@ class Choice:
                 self.display._text(text_x, text_y, option, text_color)
         else:
             # Draw Title
-            title_font_int = 1 if BOARD_ID == BOARD_FLIPPER_ZERO else 3
+            title_font_int = 1 if BOARD_ID == BOARD_FLIPPER_ZERO else 2
             _font = self.display.get_font(title_font_int)
             title_width = self.display.len(self.title, title_font_int)
             title_x = self.position.x + (self.size.x // 2) - (title_width // 2)
@@ -219,7 +219,7 @@ class Choice:
             y_start = title_y + (_font.height * 2) + self.display.scale_y(10)
             x_col1 = self.position.x + self.display.scale_x(5)
             x_col2 = self.position.x + self.size.x // 2 + self.display.scale_x(5)
-            line_height = _font.height * self.display.scale_y(2)
+            line_height = _font.height + 2
 
             for i, option in enumerate(self.options):
                 row = i // 2

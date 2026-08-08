@@ -1,7 +1,7 @@
 _system_info = None
 
 
-def __set_text():
+def __set_text(view_manager):
     from picoware.system.system import System
 
     if _system_info:
@@ -23,7 +23,12 @@ def __set_text():
         Free Flash: {system.free_flash} bytes
         Used Flash: {system.used_flash} bytes
         Total Flash: {system.total_flash} bytes
+
+        Battery Level: {view_manager.battery.percentage}%
         """
+        if view_manager.battery.has_voltage:
+            info += f"Battery voltage: {view_manager.battery.voltage} mV\n"
+        
         _system_info.set_text(info)
 
 
@@ -42,7 +47,7 @@ def start(view_manager) -> bool:
             view_manager.background_color,
         )
 
-        __set_text()
+        __set_text(view_manager)
         _system_info._set_cursor(0)
 
     return True

@@ -1084,6 +1084,7 @@ class Desktop:
         self, draw, text_color: int = 0xFFFF, background_color: int = 0x0000
     ) -> None:
         from picoware.system.system import System
+        from picoware.system.boards import BOARD_FLIPPER_ZERO
 
         system = System()
         self.name = system.device_name
@@ -1095,6 +1096,7 @@ class Desktop:
         self.is_dark_mode = text_color == 0xFFFF and background_color == 0x0000
         self.battery_level_str = ""
         self.is_circular = system.is_circular
+        self.draw_icons = system.board_id != BOARD_FLIPPER_ZERO
 
         self.size = self.display.size
         self.font_size_x = self.display.font_size.x
@@ -1130,7 +1132,7 @@ class Desktop:
                 2,
             )
             # board name
-            self.name_pos.x, self.name_pos.y = 2, 5
+            self.name_pos.x, self.name_pos.y = 2, draw.scale_y(5)
             # bluetooth icon
             self.bluetooth_pos.x, self.bluetooth_pos.y = (
                 int(self.size.x * 0.875),
@@ -1183,21 +1185,22 @@ class Desktop:
                 self.text_color,
             )
 
-        # draw wifi icon
-        self.display.image_bytearray(
-            self.wifi_pos,
-            self.wifi_size,
-            _WIFI_ON_BLACK if self.has_wifi and wifi_is_connected else _WIFI_OFF_BLACK,
-            invert=not self.is_dark_mode,
-        )
+        if self.draw_icons:
+            # draw wifi icon
+            self.display.image_bytearray(
+                self.wifi_pos,
+                self.wifi_size,
+                _WIFI_ON_BLACK if self.has_wifi and wifi_is_connected else _WIFI_OFF_BLACK,
+                invert=not self.is_dark_mode,
+            )
 
-        # draw bluetooth icon
-        self.display.image_bytearray(
-            self.bluetooth_pos,
-            self.bluetooth_size,
-            (_BLUETOOTH_ON_BLACK if self.has_wifi else _BLUETOOTH_OFF_BLACK),
-            invert=not self.is_dark_mode,
-        )
+            # draw bluetooth icon
+            self.display.image_bytearray(
+                self.bluetooth_pos,
+                self.bluetooth_size,
+                (_BLUETOOTH_ON_BLACK if self.has_wifi else _BLUETOOTH_OFF_BLACK),
+                invert=not self.is_dark_mode,
+            )
 
         # draw battery level
         self.display.text(

@@ -28,7 +28,16 @@ class Touch:
         import sim_runtime
 
         name = str(sim_runtime.board).lower().replace("_", "-")
-        if name == "pancake":
+        if name == "v8":
+            points = {
+                0xB5: (120, 32),
+                0xB6: (120, 288),
+                0xB4: (12, 160),
+                0xB7: (228, 160),
+                0xB1: (12, 16),
+                13: (120, 160),
+            }
+        elif name == "pancake":
             points = {
                 0xB5: (160, 48),
                 0xB6: (160, 432),

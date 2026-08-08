@@ -116,6 +116,11 @@ static bool flipper_backlight_init(void)
 
     lp5562_write_reg(LP5562_REG_W_CURRENT, 0x96); /* ~15 mA */
 
+    /* RGB channels, ~12.8 mA each (0x80 = 128/255 of 25.5 mA) */
+    lp5562_write_reg(LP5562_REG_R_CURRENT, 0x80);
+    lp5562_write_reg(LP5562_REG_G_CURRENT, 0x80);
+    lp5562_write_reg(LP5562_REG_B_CURRENT, 0x80);
+
     lp5562_write_reg(LP5562_REG_W_PWM, 0xFF); /* full brightness */
 
     return true;
@@ -244,6 +249,16 @@ bool lcd_set_backlight(uint32_t brightness)
         return false;
     uint8_t pwm = (uint8_t)((brightness * 255) / 100);
     return lp5562_write_reg(LP5562_REG_W_PWM, pwm);
+}
+
+bool lcd_set_rgb_led(uint8_t red, uint8_t green, uint8_t blue)
+{
+    if (!s_i2c_initialized)
+        return false;
+    lp5562_write_reg(LP5562_REG_R_PWM, red);
+    lp5562_write_reg(LP5562_REG_G_PWM, green);
+    lp5562_write_reg(LP5562_REG_B_PWM, blue);
+    return true;
 }
 
 static uint8_t color_to_mono(uint16_t color)

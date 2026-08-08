@@ -835,7 +835,7 @@ class HTTP:
                     while True:
                         if not self._should_continue():
                             s.close()
-                            break
+                            return
                         bytes_read = storage.file_readinto(file_obj, frame_buffer)
                         if not bytes_read:
                             break
@@ -862,7 +862,7 @@ class HTTP:
             while True:
                 if not self._should_continue():
                     s.close()
-                    break
+                    return
                 l = s.readline()
                 if not l or l == b"\r\n":
                     break
@@ -907,7 +907,7 @@ class HTTP:
                     while content_length > 0:
                         if not self._should_continue():
                             s.close()
-                            break
+                            return
                         chunk_size = min(self._chunk_size, content_length)
                         chunk = s.read(chunk_size)
                         if not chunk:
@@ -940,7 +940,7 @@ class HTTP:
                     while content_length > 0:
                         if not self._should_continue():
                             s.close()
-                            break
+                            return
                         chunk_size = min(self._chunk_size, content_length)
                         chunk = s.read(chunk_size)
                         if not chunk:
@@ -968,7 +968,7 @@ class HTTP:
                     while True:
                         if not self._should_continue():
                             s.close()
-                            break
+                            return
                         chunk = s.read(self._chunk_size)
                         if not chunk:
                             break
@@ -991,7 +991,7 @@ class HTTP:
                     while True:
                         if not self._should_continue():
                             s.close()
-                            break
+                            return
                         chunk = s.read(self._chunk_size)
                         if not chunk:
                             break

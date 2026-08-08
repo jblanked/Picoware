@@ -86,7 +86,6 @@ target_link_libraries(usermod_picoware_psram INTERFACE
     hardware_pio
     hardware_dma
     hardware_gpio
-    hardware_psram
 )
 
 # Include picoware_southbridge module (direct southbridge hardware access)

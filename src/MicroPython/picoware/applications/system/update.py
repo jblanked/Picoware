@@ -227,24 +227,24 @@ def __draw_no_update(view_manager) -> None:
 
     draw.fill_screen(view_manager.background_color)
 
-    text_vec = draw.scale(10, 10)
+    text_vec_x, text_vec_y = draw.scale(10, 10)
 
     # Title
-    draw._text(text_vec[0], text_vec[1], "Firmware Up to Date!", fg)
+    draw._text(text_vec_x, text_vec_y, "Firmware Up to Date!", fg)
 
-    text_vec[1] = draw.scale_y(50)
+    text_vec_y = draw.scale_y(50)
 
     # Current version
-    draw._text(text_vec[0], text_vec[1], f"Current Version: {_current_version}", fg)
-    text_vec[1] += draw.scale_y(30)
+    draw._text(text_vec_x, text_vec_y, f"Current Version: {_current_version}", fg)
+    text_vec_y += draw.scale_y(30)
 
-    draw._text(text_vec[0], text_vec[1], "You are running the latest", fg)
-    text_vec[1] += draw.scale_y(15)
-    draw._text(text_vec[0], text_vec[1], "version of Picoware.", fg)
+    draw._text(text_vec_x, text_vec_y, "You are running the latest", fg)
+    text_vec_y += draw.scale_y(15)
+    draw._text(text_vec_x, text_vec_y, "version of Picoware.", fg)
 
     # Instructions at bottom
-    text_vec[1] = draw.scale_y(285)
-    draw._text(text_vec[0], text_vec[1], "BACK = Return", fg)
+    text_vec_y = draw.scale_y(285)
+    draw._text(text_vec_x, text_vec_y, "BACK = Return", fg)
 
     draw.swap()
 
@@ -257,16 +257,16 @@ def __draw_download_complete(view_manager) -> None:
 
     draw.fill_screen(view_manager.background_color)
 
-    text_vec = draw.scale(10, 10)
+    text_vec_x, text_vec_y = draw.scale(10, 10)
 
     # Title
-    draw._text(text_vec[0], text_vec[1], "Download Complete!", fg)
+    draw._text(text_vec_x, text_vec_y, "Download Complete!", fg)
 
-    draw._text(text_vec[0], text_vec[1] + draw.scale_y(40), "Firmware saved to SD card:", fg)
-    draw._text(text_vec[0], text_vec[1] + draw.scale_y(60), f"  {_download_file_path}", fg)
+    draw._text(text_vec_x, text_vec_y + draw.scale_y(40), "Firmware saved to SD card:", fg)
+    draw._text(text_vec_x, text_vec_y + draw.scale_y(60), f"  {_download_file_path}", fg)
 
     # Instructions at bottom
-    draw._text(text_vec[0], draw.scale_y(285), "CENTER = Install, BACK = Return", fg)
+    draw._text(text_vec_x, draw.scale_y(285), "CENTER = Install, BACK = Return", fg)
 
     draw.swap()
 

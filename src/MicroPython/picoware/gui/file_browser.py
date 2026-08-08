@@ -1423,13 +1423,24 @@ class FileBrowser:
                     elif ac == "Edit":
                         self.__file_edit(self._context_target_path)
                     elif ac == "Run":
-                        from picoware.system.js import JS
-                        mjs = JS()
-                        result = mjs.exec(self._context_target_path)
-                        if result:
-                            self._vm.log(f'JS Result: {result}', -1)
-                        del mjs
-                        mjs = None
+                        if self._context_target_path.endswith("js"):
+                            from picoware.system.js import JS
+                            mjs = JS()
+                            result = mjs.exec(self._context_target_path)
+                            if result:
+                                self._vm.log(f'JS Result: {result}', -1)
+                            del mjs
+                            mjs = None
+                        else: # basic
+                            from picoware.system.mmbasic import MMBasic
+                            bs = MMBasic(self._vm)
+                            bs.start(path=self._context_target_path)
+                            inp = self._vm.input_manager
+                            inp.reset()
+                            while bs.run():
+                                pass
+                            del bs
+                            bs = None
                     elif ac == "Delete":
                         self._pending_action = self.ACT_DELETE
                         mk = self._app_state["marked"]
@@ -1659,7 +1670,7 @@ class FileBrowser:
                                 items = ["Flash"]
                             elif np.lower().endswith((".wav", ".mp3")):
                                 items = ["Play Audio"]
-                            elif np.lower().endswith(".js"):
+                            elif np.lower().endswith((".js", ".mjs", ".bas")):
                                 items = ["Run", "View", "Edit"]
                             else:
                                 is_img = np.lower().endswith((".jpg", ".jpeg", ".bmp"))

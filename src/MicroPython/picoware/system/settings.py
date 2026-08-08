@@ -7,10 +7,10 @@ class Settings:
 
     def __init__(self, storage):
         from picoware.system.buttons import BUTTON_BACK
-        from picoware.system.boards import BOARD_HAS_TOUCH
+        from picoware.system.boards import BOARD_HAS_TOUCH, BOARD_ID, BOARD_FLIPPER_ZERO
 
         self._storage = storage
-        self._path = "picoware/settings/picoware.json" 
+        self._path = "picoware/settings/picoware.json"
         self._settings = {
             "anthropic_api_key": "",
             "dark_mode": True,
@@ -21,14 +21,16 @@ class Settings:
             "gmt_offset": 0,
             "local_url": "http://127.0.0.1:8080/v1/chat/completions",
             "lvgl_mode": False,
-            "onscreen_keyboard": BOARD_HAS_TOUCH == 1,
+            "onscreen_keyboard": BOARD_HAS_TOUCH == 1 or BOARD_ID == BOARD_FLIPPER_ZERO,
             "openai_api_key": "",
+            "screen_brightness": 100,
             "server_username": "",
             "server_password": "",
             "theme_color": 0x001F,
             "usb_stream": False,
             "wifi_ssid": "",
             "wifi_password": "",
+            "xai_api_key": ""
         }
         if not self._storage.exists(self._path):
             self._settings = {
@@ -43,12 +45,14 @@ class Settings:
                 "lvgl_mode": bool(self.__fetch_setting("picoware/settings/lvgl_mode.json", "lvgl_mode", False)),
                 "onscreen_keyboard": bool(self.__fetch_setting("picoware/settings/onscreen_keyboard.json", "onscreen_keyboard", BOARD_HAS_TOUCH == 1)),
                 "openai_api_key": "",
+                "screen_brightness": 100,
                 "server_username": self.__fetch_setting("picoware/settings/server_username.json", "username", ""),
                 "server_password": self.__fetch_setting("picoware/settings/server_password.json", "password", ""),
                 "theme_color": int(self.__fetch_setting("picoware/settings/theme_color.json", "theme_color", 0x001F)),
                 "usb_stream": bool(self.__fetch_setting("picoware/settings/usb_stream.json", "usb_stream", False)),
                 "wifi_ssid": self.__fetch_setting("picoware/wifi/ssid.json", "ssid", ""),
                 "wifi_password": self.__fetch_setting("picoware/wifi/password.json", "password", ""),
+                "xai_api_key": "",
             }
             self.__save_settings()
         else:
@@ -182,6 +186,17 @@ class Settings:
         self.__save_settings()
 
     @property
+    def screen_brightness(self) -> int:
+        """Return the current screen brightness."""
+        return int(self._settings.get("screen_brightness", 100))
+
+    @screen_brightness.setter
+    def screen_brightness(self, value: int):
+        """Set the screen brightness."""
+        self._settings["screen_brightness"] = value
+        self.__save_settings()
+
+    @property
     def server_settings(self) -> dict:
         """Return the current server settings."""
         username = self._settings.get("server_username", "") 
@@ -239,6 +254,17 @@ class Settings:
         password = value.get("password", "")
         self._settings["wifi_ssid"] = ssid
         self._settings["wifi_password"] = password
+        self.__save_settings()
+
+    @property
+    def xai_api_key(self) -> str:
+        """Return the xAI API key."""
+        return self._settings.get("xai_api_key", "")
+
+    @xai_api_key.setter
+    def xai_api_key(self, value: str):
+        """Set the xAI API key."""
+        self._settings["xai_api_key"] = value
         self.__save_settings()
     
     def __fetch_setting(self, path: str, key: str, default=""):

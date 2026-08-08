@@ -225,7 +225,7 @@ def run(view_manager) -> None:
         view_manager.switch_to("library")
         return
 
-    battery_level: int = view_manager.input_manager.battery
+    battery_level: int = view_manager.battery.percentage
     _desktop.set_battery(battery_level)
 
     # Clear and draw header

@@ -5,37 +5,31 @@ static mp_obj_t uart_mp_instance;
 
 static mjs_val_t uart_baud_rate(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, uart_mp_instance, MP_QSTR_baud_rate);
 }
 
 static mjs_val_t uart_has_data(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, uart_mp_instance, MP_QSTR_has_data);
 }
 
 static mjs_val_t uart_is_sending(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, uart_mp_instance, MP_QSTR_is_sending);
 }
 
 static mjs_val_t uart_rx_pin(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, uart_mp_instance, MP_QSTR_rx_pin);
 }
 
 static mjs_val_t uart_timeout(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, uart_mp_instance, MP_QSTR_timeout);
 }
 
 static mjs_val_t uart_tx_pin(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, uart_mp_instance, MP_QSTR_tx_pin);
 }
 

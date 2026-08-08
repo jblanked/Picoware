@@ -186,6 +186,8 @@ class Keyboard:
         """
         from picoware.system.vector import Vector
         from picoware.system.auto_complete import AutoComplete
+        from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+        self._is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
         self.draw = draw
         self.input_manager = input_manager
@@ -214,30 +216,41 @@ class Keyboard:
         self.text_cursor_position = 0
         self.selected_suggestion_index = -1  # -1 means no suggestion selected
 
-        self.KEY_WIDTH, self.KEY_HEIGHT = draw.scale(22, 35)
-        self.KEY_MARGIN, self.TEXTBOX_HEIGHT = draw.scale(4, 45) 
+        self.KEY_WIDTH, self.KEY_HEIGHT = draw.scale(22, 48)
+        self.KEY_MARGIN, self.TEXTBOX_HEIGHT = draw.scale(4, 45)
         self.KEY_SPACING = 1
 
         self._touch_enabled = input_manager.has_touch_support
 
-        self.max_chars_per_line = (self.draw.size.x - 10) // self.draw.font_size.x
-        self.max_lines = (self.TEXTBOX_HEIGHT - 10) // self.draw.font_size.y
+        _ten_x, _ten_y = draw.scale(10, 10)
 
-        self.keyboard_height = self.NUM_ROWS * (self.KEY_HEIGHT + self.KEY_SPACING) + 20
-        self.key_vec = Vector(0, 0)
+        self.max_chars_per_line = (self.draw.size.x - _ten_x) // self.draw.font_size.x
+        self.max_lines = (self.TEXTBOX_HEIGHT - _ten_y) // self.draw.font_size.y
+
+        self.max_lines = max(1, self.max_lines)
+        _min_textbox_height = (
+            _ten_y
+            + self.max_lines * self.draw.font_size.y
+            + (self.max_lines - 1) * self.KEY_SPACING
+        )
+        self.TEXTBOX_HEIGHT = max(self.TEXTBOX_HEIGHT, _min_textbox_height)
+
+        self.keyboard_height = self.NUM_ROWS * (self.KEY_HEIGHT + self.KEY_SPACING) + (_ten_y * 2)
         self.size_vec = Vector(0, 0)
-        self.text_vec = Vector(5, 8)
+        self.text_vec = Vector(draw.scale_x(5), draw.scale_y(8))
         self.cursor = Vector(0, 0)
 
         self.text_box_pos_vec = Vector(0, self.TEXTBOX_HEIGHT)
-        self.text_box_pos_size = Vector(self.draw.size.x, self.keyboard_height + 10)
+        self.text_box_pos_size = Vector(self.draw.size.x, self.keyboard_height + _ten_y)
 
-        self.text_border_pos = Vector(2, 2)
-        self.text_border_size = Vector(self.draw.size.x - 4, self.TEXTBOX_HEIGHT - 4)
+        self.text_border_pos = Vector(draw.scale_x(2), draw.scale_y(2))
+        self.text_border_size = Vector(self.draw.size.x - draw.scale_x(4), self.TEXTBOX_HEIGHT - draw.scale_y(4))
 
         self.title_vec = Vector(
-            self.draw.size.x // 2 - len(self.current_title) * 3, self.TEXTBOX_HEIGHT + 5
+            self.draw.size.x // 2 - draw.len(self.current_title) // 2, self.TEXTBOX_HEIGHT + draw.scale_y(2)
         )
+
+        self._key_rects = self._build_key_rects()
 
         self.manual_keys = {
             BUTTON_PERIOD: ".",
@@ -326,7 +339,6 @@ class Keyboard:
     def __del__(self) -> None:
         self.reset()
         self.current_title = ""
-        self.key_vec = None
         self.size_vec = None
         self.text_vec = None
         self.cursor = None
@@ -335,6 +347,7 @@ class Keyboard:
         self.text_border_pos = None
         self.text_border_size = None
         self.title_vec = None
+        self._key_rects = None
         self.manual_keys = {}
         self.key_mappings = {}
         self.d_pad = {}
@@ -384,7 +397,7 @@ class Keyboard:
 
         self.current_title = value
         self.title_vec = Vector(
-            self.draw.size.x // 2 - len(value) * 3, self.TEXTBOX_HEIGHT + 5
+            self.draw.size.x // 2 - self.draw.len(value) // 2, self.TEXTBOX_HEIGHT + self.draw.scale_y(5)
         )
 
     @property
@@ -465,11 +478,12 @@ class Keyboard:
             if self._show_keyboard:
                 self._draw_keyboard()
 
-            self.draw._text(
-                self.title_vec.x, self.title_vec.y,
-                self.current_title,
-                self.text_color,
-            )
+            if not self._is_flipper:
+                self.draw._text(
+                    self.title_vec.x, self.title_vec.y,
+                    self.current_title,
+                    self.text_color,
+                )
 
             # Draw auto-complete suggestions after keyboard/title
             self._draw_suggestions()
@@ -527,37 +541,37 @@ class Keyboard:
             "Picoware",
         ]
 
-    def _key_row_geometry(self, row: int) -> tuple:
-        """Return (start_x, y) for a key row, as _draw_key places it."""
-        total_row_width = 0
-        for i in range(self.ROW_SIZES[row]):
-            total_row_width += self.ROWS[row][i].width * self.KEY_WIDTH + (
-                self.KEY_SPACING if i > 0 else 0
+    def _build_key_rects(self) -> list:
+        """Set each key's (x, y, width, height) rectangle."""
+        rects = []
+        for row in range(self.NUM_ROWS):
+            total_row_width = 0
+            for i in range(self.ROW_SIZES[row]):
+                total_row_width += self.ROWS[row][i].width * self.KEY_WIDTH + (
+                    self.KEY_SPACING if i > 0 else 0
+                )
+            start_x = (self.draw.size.x - total_row_width) // 2
+            y = self.TEXTBOX_HEIGHT + self.draw.scale_y(13.33) + row * (
+                self.KEY_HEIGHT + self.KEY_SPACING
             )
-        start_x = (self.draw.size.x - total_row_width) // 2
-        y = self.TEXTBOX_HEIGHT + self.draw.scale_y(13.33) + row * (
-            self.KEY_HEIGHT + self.KEY_SPACING
-        )
-        return start_x, y
+
+            row_rects = []
+            x_pos = start_x
+            for col in range(self.ROW_SIZES[row]):
+                key = self.ROWS[row][col]
+                width = key.width * self.KEY_WIDTH + (key.width - 2) * self.KEY_SPACING
+                row_rects.append((x_pos - 2, y, width + 4, self.KEY_HEIGHT))
+                x_pos += key.width * self.KEY_WIDTH + self.KEY_SPACING
+            rects.append(row_rects)
+        return rects
 
     def _key_at_point(self, x: int, y: int):
         """Return the (row, col) under a touch point, or None."""
         for row in range(self.NUM_ROWS):
-            start_x, row_y = self._key_row_geometry(row)
-            if not row_y <= y < row_y + self.KEY_HEIGHT:
-                continue
-
-            x_pos = start_x
-            starts = []
-            for col in range(self.ROW_SIZES[row]):
-                starts.append(x_pos)
-                x_pos += self.ROWS[row][col].width * self.KEY_WIDTH + self.KEY_SPACING
-
             # reversed: a multi-unit key is drawn over the key after it
             for col in range(self.ROW_SIZES[row] - 1, -1, -1):
-                key = self.ROWS[row][col]
-                width = key.width * self.KEY_WIDTH + (key.width - 1) * self.KEY_SPACING
-                if starts[col] <= x < starts[col] + width:
+                rx, ry, rw, rh = self._key_rects[row][col]
+                if rx <= x < rx + rw and ry <= y < ry + rh:
                     return row, col
         return None
 
@@ -590,43 +604,30 @@ class Keyboard:
 
         key = self.ROWS[row][col]
 
-        # Calculate total row width for centering
-        total_row_width = 0
-        for i in range(self.ROW_SIZES[row]):
-            total_row_width += self.ROWS[row][i].width * self.KEY_WIDTH + (
-                self.KEY_SPACING if i > 0 else 0
+        x_pos, y_pos, width, height = self._key_rects[row][col]
+        self.size_vec.x = width
+        self.size_vec.y = height
+
+        if self._is_flipper:
+            # draw key background
+            self.draw._fill_rectangle(
+                x_pos, y_pos, self.size_vec.x, self.size_vec.y, self.text_color if is_selected else self.background_color
+            )
+        else:
+            # Draw key background
+            bg_color = self.selected_color if is_selected else self.background_color
+            self.draw._fill_rectangle(
+                x_pos, y_pos, self.size_vec.x, self.size_vec.y, bg_color
             )
 
-        # Calculate starting X position for centering
-        start_x = (self.draw.size.x - total_row_width) // 2
-
-        # Calculate key position
-        x_pos = start_x
-        for i in range(col):
-            x_pos += self.ROWS[row][i].width * self.KEY_WIDTH + self.KEY_SPACING
-        y_pos = self.TEXTBOX_HEIGHT + self.draw.scale_y(13.33) + row * (
-            self.KEY_HEIGHT + self.KEY_SPACING
-        )
-
-        # Calculate key size
-        width = key.width * self.KEY_WIDTH + (key.width - 1) * self.KEY_SPACING
-        self.size_vec.x = width
-        self.size_vec.y = self.KEY_HEIGHT
-
-        # Draw key background
-        bg_color = self.selected_color if is_selected else self.background_color
-        self.draw._fill_rectangle(
-            x_pos, y_pos, self.size_vec.x, self.size_vec.y, bg_color
-        )
-
-        # Draw key border
-        self.draw._rectangle(
-            x_pos,
-            y_pos,
-            self.size_vec.x,
-            self.size_vec.y,
-            self.text_color,
-        )
+            # Draw key border
+            self.draw._rectangle(
+                x_pos,
+                y_pos,
+                self.size_vec.x,
+                self.size_vec.y,
+                self.text_color,
+            )
 
         # Determine what character to display
         display_char = key.normal
@@ -660,9 +661,14 @@ class Keyboard:
             key_label = display_char
 
         # Center the text
-        self.key_vec.x = x_pos + width // 2 - len(key_label) * 3
-        self.key_vec.y = y_pos + self.KEY_HEIGHT // 2 - 4
-        self.draw._text(self.key_vec.x, self.key_vec.y, key_label, self.text_color)
+        _key_x = x_pos + width // 2 - self.draw.len(key_label) // 2
+        _key_y = y_pos + self.KEY_HEIGHT // 2 - self.draw.font_size.y // 2
+        if self._is_flipper:
+            # Draw key label with background color for selected key
+            text_color = self.background_color if is_selected else self.text_color
+            self.draw._text(_key_x, _key_y, key_label, text_color)
+        else:
+            self.draw._text(_key_x, _key_y, key_label, self.text_color)
 
     def _draw_keyboard(self) -> None:
         """Draws the entire keyboard"""

@@ -1,7 +1,7 @@
 import json
 from micropython import const
 from picoware.system.agent.tools import dispatch
-from picoware.system.agent.llm import LLM, DEEPSEEK, ANTHROPIC
+from picoware.system.agent.llm import LLM, DEEPSEEK
 from picoware.system.agent.context import chat, app_creator, device_manager
 
 MODE_CHAT = const(0) # general chat mode
@@ -175,10 +175,7 @@ class Agent:
 
     def _run_loop(self) -> str:
         """Run the model/tool loop and return assistant text."""
-        if self.llm.id == ANTHROPIC:
-            tools = [tool.json_anthropic for tool in dispatch.get_tool_list()]
-        else:
-            tools = [tool.json_openai for tool in dispatch.get_tool_list()]
+        tools = [tool.json_openai for tool in dispatch.get_tool_list()]
         storage = self.view_manager.storage
 
         for _ in range(MAX_TOOL_ITERATIONS):

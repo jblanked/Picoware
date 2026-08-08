@@ -52,4 +52,4 @@ Follow the instructions in the [Installation Guide](./guides/Installation.md) to
 - A collection of video tutorials for Picoware: https://github.com/jblanked/Picoware/tree/main/guides/Tutorials.md
 
 ### Contributing
-If you would like to contribute to Picoware, please follow the guidelines in the [Contributing Guide](./guides/Contributing.md). All contributions are welcome, including bug reports, feature requests, documentation improvements, and code contributions.
+If you would like to contribute to Picoware, please follow the guidelines in the [Contributing Guide](./guides/CONTRIBUTING.md). All contributions are welcome, including bug reports, feature requests, documentation improvements, and code contributions.

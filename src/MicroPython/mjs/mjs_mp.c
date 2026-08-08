@@ -3,8 +3,10 @@
 #include "mjs/mjs.h"
 #include "lib/lib.h"
 
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
 #include "../sd/storage.h"
+#elif defined(FLIPPER_ZERO)
+#include "../Flippper/sd/storage.h"
 #endif
 
 const mp_obj_type_t mjs_mp_type;
@@ -62,7 +64,7 @@ mp_obj_t mjs_mp_exec(mp_obj_t self_in, mp_obj_t path)
     }
 
     mjs_val_t result = mjs_mk_undefined();
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO)
     size_t fsize = storage_file_size(bufinfo.buf);
     if (fsize == 0)
     {

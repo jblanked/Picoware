@@ -8,7 +8,7 @@ A desktop application for interacting with Picoware-compatible boards.
 
 ## On-Device Installation
 To enable USB streaming on your device:
-1. Navigate to `Library` -> `Settings` -> `USB Stream` and toggle it on.
+1. Navigate to `Library` -> `System` -> `Settings` -> `USB Stream` and toggle it on.
 2. Connect a USB cable from the device to your computer.
 
 ## Desktop Installation

@@ -6,115 +6,96 @@ static mp_obj_t system_mp_instance;
 
 static mjs_val_t system_board_id(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, system_mp_instance, MP_QSTR_board_id);
 }
 
 static mjs_val_t system_board_name(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, system_mp_instance, MP_QSTR_board_name);
 }
 
 static mjs_val_t system_device_name(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, system_mp_instance, MP_QSTR_device_name);
 }
 
 static mjs_val_t system_free_psram(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, system_mp_instance, MP_QSTR_free_psram);
 }
 
 static mjs_val_t system_free_heap(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, system_mp_instance, MP_QSTR_free_heap);
 }
 
 static mjs_val_t system_freq(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, system_mp_instance, MP_QSTR_freq);
 }
 
 static mjs_val_t system_has_audio(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, system_mp_instance, MP_QSTR_has_audio);
 }
 
 static mjs_val_t system_has_psram(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, system_mp_instance, MP_QSTR_has_psram);
 }
 
 static mjs_val_t system_has_sd_card(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, system_mp_instance, MP_QSTR_has_sd_card);
 }
 
 static mjs_val_t system_has_touch(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, system_mp_instance, MP_QSTR_has_touch);
 }
 
 static mjs_val_t system_has_wifi(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, system_mp_instance, MP_QSTR_has_wifi);
 }
 
 static mjs_val_t system_is_circular(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, system_mp_instance, MP_QSTR_is_circular);
 }
 
 static mjs_val_t system_free_flash(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, system_mp_instance, MP_QSTR_free_flash);
 }
 
 static mjs_val_t system_total_flash(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, system_mp_instance, MP_QSTR_total_flash);
 }
 
 static mjs_val_t system_total_heap(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, system_mp_instance, MP_QSTR_total_heap);
 }
 
 static mjs_val_t system_total_psram(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, system_mp_instance, MP_QSTR_total_psram);
 }
 
 static mjs_val_t system_used_heap(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, system_mp_instance, MP_QSTR_used_heap);
 }
 
 static mjs_val_t system_used_psram(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, system_mp_instance, MP_QSTR_used_psram);
 }
 
 static mjs_val_t system_version(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, system_mp_instance, MP_QSTR_version);
 }
 

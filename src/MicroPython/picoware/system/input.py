@@ -11,6 +11,7 @@ from picoware.system.boards import (
     BOARD_WAVESHARE_3_49_RP2350,
     BOARD_WAVESHARE_2_06,
     BOARD_PANCAKE,
+    BOARD_V8,
     BOARD_HAS_TOUCH,
     BOARD_FLIPPER_ZERO
 )
@@ -133,7 +134,7 @@ class Input:
 
             self._delay_ms = 200
 
-        elif self._current_board_id in (BOARD_CROWPANEL_10_1, BOARD_WAVESHARE_2_06, BOARD_PANCAKE):
+        elif self._current_board_id in (BOARD_CROWPANEL_10_1, BOARD_WAVESHARE_2_06, BOARD_PANCAKE, BOARD_V8):
             from touch import Touch
 
             self._touch = Touch()
@@ -145,11 +146,9 @@ class Input:
 
             init()
         elif self._current_board_id == BOARD_FLIPPER_ZERO:
-            from flipper_battery import init as battery_init
-            from flipper_input import init as input_init
+            from flipper_input import init 
 
-            battery_init()
-            input_init()
+            init()
 
         else:
             from picoware_keyboard import (
@@ -416,10 +415,8 @@ class Input:
 
             deinit()
         elif self._current_board_id == BOARD_FLIPPER_ZERO:
-            from flipper_input import deinit as flipper_input_deinit
-            from flipper_battery import deinit as flipper_battery_deinit
-            flipper_input_deinit()
-            flipper_battery_deinit()
+            from flipper_input import deinit
+            deinit()
 
         elif self._current_board_id not in (
             BOARD_WAVESHARE_1_28_RP2350,
@@ -429,6 +426,7 @@ class Input:
             BOARD_CROWPANEL_10_1,
             BOARD_WAVESHARE_2_06,
             BOARD_PANCAKE,
+            BOARD_V8,
         ):
             from picoware_southbridge import deinit
 
@@ -481,6 +479,7 @@ class Input:
             BOARD_CROWPANEL_10_1,
             BOARD_WAVESHARE_2_06,
             BOARD_PANCAKE,
+            BOARD_V8,
         ):
             self._poll_touch()
         elif self._current_board_id == BOARD_WAVESHARE_1_69_RP2350:
@@ -561,6 +560,7 @@ class Input:
             BOARD_CROWPANEL_10_1,
             BOARD_WAVESHARE_2_06,
             BOARD_PANCAKE,
+            BOARD_V8,
         ):
             self._poll_touch()
             return self._last_point != (0, 0)

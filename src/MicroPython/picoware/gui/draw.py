@@ -23,6 +23,7 @@ class Draw(lcd.LCD):
         fill_round_rectangle(position, size, radius, color=None): Draw a filled rounded rectangle
         fill_screen(color=None): Fill the entire screen with a color
         fill_triangle(point1, point2, point3, color=None): Draw a filled triangle
+        fill_triangle_alpha(point1, point2, point3, color=None, alpha=255): Draw a filled triangle with alpha blending
         get_font(font_size=0): Get the FontSize object for a given font size
         image(position, img): Draw an image object to the back buffer
         image_bmp(position, path, storage=None): Draw a 24-bit BMP image from a file path
@@ -38,6 +39,7 @@ class Draw(lcd.LCD):
         psram(position, size, addr): Draw pixel data directly from PSRAM at the specified address and length
         rect(position, size, color=None): Draw a rectangle outline
         screenshot(file_path): Take a screenshot of the current display and save it to the specified file path (.bmp)
+        set_brightness(level): Set the display brightness (0-100)
         set_mode(mode): Set the LCD mode (PSRAM or HEAP)
         set_scaling(scale_x, scale_y, scale_position=False): Set the LCD scaling parameters
         swap(): Update the display with the current framebuffer contents
@@ -221,6 +223,22 @@ class Draw(lcd.LCD):
             _color,
         )
 
+    def fill_triangle_alpha(
+        self, point1: Vector, point2: Vector, point3: Vector, color=None, alpha: int = 255
+    ):
+        """Draw a filled triangle with alpha blending"""
+        _color = color if color is not None else self._foreground
+        self._fill_triangle_alpha(
+            point1.x,
+            point1.y,
+            point2.x,
+            point2.y,
+            point3.x,
+            point3.y,
+            _color,
+            alpha,
+        )
+
     def get_font(self, font_size: int = 0):
         """Get the FontSize object for the specified font size"""
         from picoware.system.font import FontSize
@@ -267,9 +285,9 @@ class Draw(lcd.LCD):
         self, position: Vector, size: Vector, byte_data, invert: bool = False
     ):
         """Draw an image from 8-bit byte data (bytes or bytearray)"""
-        self._bytearray(position.x, position.y, size.x, size.y, byte_data)
+        self._bytearray(position.x, position.y, size.x, size.y, byte_data, invert)
 
-    def image_bytearray_1bit(self, position: Vector, size: Vector, byte_data) -> None:
+    def image_bytearray_1bit(self, position: Vector, size: Vector, byte_data, invert: bool = False) -> None:
         """Draw a 1-bit bitmap from packed byte_data (8 pixels per byte, row-aligned)"""
         width, height = size.x, size.y
         bytes_per_row = (width + 7) // 8  # Each row is padded to byte boundary
@@ -288,7 +306,7 @@ class Draw(lcd.LCD):
                     if bit_value:  # Only write if bit is 1
                         unpacked[y * width + x] = 255
 
-        self._bytearray(position.x, position.y, size.x, size.y, unpacked)
+        self._bytearray(position.x, position.y, size.x, size.y, unpacked, invert)
 
     def image_bytearray_path(
         self,
@@ -298,6 +316,7 @@ class Draw(lcd.LCD):
         storage=None,
         seek=0,
         chunk_size=0,
+        invert=False,
     ):
         """Draw an image from an 8-bit bytearray file stored on disk"""
         try:
@@ -307,7 +326,7 @@ class Draw(lcd.LCD):
                     print(f"File not found: {path}")
                     return
                 byte_array = storage.file_read(file, seek, chunk_size, decode=False)
-                self._bytearray(position.x, position.y, size.x, size.y, byte_array)
+                self._bytearray(position.x, position.y, size.x, size.y, byte_array, invert)
                 storage.file_close(file)
 
         except Exception as e:

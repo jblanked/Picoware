@@ -6,7 +6,7 @@ Data providers require no account or API key:
 """
 
 from micropython import const
-from picoware.system.decorators import wifi_required, storage_required
+from picoware.system.decorator import wifi_required, storage_required
 
 
 # Non-blocking network operation states.

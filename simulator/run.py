@@ -538,6 +538,7 @@ def _build_native(target, check=False):
 
 def _run_sim_check(opts):
     """Run the simulator self-check suite."""
+    _run_library_route_check()
     commands = (
         "sh "
         + _quote(THIS_DIR + "/build.sh")
@@ -563,6 +564,26 @@ def _run_sim_check(opts):
         "micropython "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --open System --wait-view system --frames 220 --audio silent --network offline --sd "
+        + _quote(opts["sd"])
+        + " --apps-source "
+        + _quote(opts["apps_source"]),
+        "micropython "
+        + _quote(THIS_DIR + "/run.py")
+        + " --headless --open MMBasic --wait-view mmbasic --keys enter --assert-text "
+        + _quote("MMBasic 6.03")
+        + " --frames 300 --audio silent --network offline --sd "
+        + _quote(opts["sd"])
+        + " --apps-source "
+        + _quote(opts["apps_source"]),
+        "micropython "
+        + _quote(THIS_DIR + "/run.py")
+        + " --headless --app Forecast --wait-view app_Forecast --frames 220 --audio silent --network offline --sd "
+        + _quote(opts["sd"])
+        + " --apps-source "
+        + _quote(opts["apps_source"]),
+        "micropython "
+        + _quote(THIS_DIR + "/run.py")
+        + " --headless --app MicroBrowser --wait-view app_MicroBrowser --frames 220 --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
@@ -618,6 +639,39 @@ def _run_sim_check(opts):
     _run_fatal_exit_check(opts)
     _run_mjs_check()
     print("[sim-check:pass]")
+
+
+def _run_library_route_check():
+    """Keep simulator --open routes synchronized with the Library menu."""
+    import sim_runtime
+
+    source = MICROPYTHON_DIR + "/picoware/applications/library.py"
+    marker = '_library.add_item("'
+    items = []
+    with open(source, "r") as handle:
+        for line in handle:
+            if marker not in line:
+                continue
+            label = line.split(marker, 1)[1].split('"', 1)[0]
+            items.append(label)
+
+    if not items:
+        raise RuntimeError("simulator Library route check found no menu items")
+    for index, label in enumerate(items):
+        actual = sim_runtime.LIBRARY_ITEMS.get(label.lower())
+        if actual != index:
+            raise RuntimeError(
+                "simulator Library route mismatch for "
+                + label
+                + ": expected "
+                + str(index)
+                + ", got "
+                + str(actual)
+            )
+    indices = sorted(set(sim_runtime.LIBRARY_ITEMS.values()))
+    if indices != list(range(len(items))):
+        raise RuntimeError("simulator Library route indices are not contiguous")
+    print("[sim-check:ok] Library routes synchronized (" + str(len(items)) + " items)")
 
 
 def _run_keyboard_background_check():

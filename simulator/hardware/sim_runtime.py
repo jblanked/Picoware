@@ -127,17 +127,18 @@ LIBRARY_ITEMS = {
     "gameboy emulator": 6,
     "gameboy": 6,
     "games": 7,
-    "python editor": 8,
-    "pythoneditor": 8,
-    "python repl": 9,
-    "repl": 9,
-    "screensavers": 10,
-    "scripts": 11,
-    "system": 12,
-    "text editor": 13,
-    "texteditor": 13,
-    "usb": 14,
-    "wifi": 15,
+    "mmbasic": 8,
+    "python editor": 9,
+    "pythoneditor": 9,
+    "python repl": 10,
+    "repl": 10,
+    "screensavers": 11,
+    "scripts": 12,
+    "system": 13,
+    "text editor": 14,
+    "texteditor": 14,
+    "usb": 15,
+    "wifi": 16,
 }
 
 
@@ -417,6 +418,7 @@ def seed_sd(profile="dev"):
     _link_app_files()
     if profile != "clean":
         _link_script_files()
+        _link_mmbasic_files()
 
 
 def _link_app_files():
@@ -433,6 +435,13 @@ def _link_script_files():
     """Symlink bundled JavaScript examples into the simulated SD card."""
     source = root + "/builds/MicroPython/scripts"
     target = sd_root + "/picoware/scripts"
+    _link_app_files_into(source, target)
+
+
+def _link_mmbasic_files():
+    """Symlink bundled MMBasic examples into the simulated SD card."""
+    source = root + "/builds/MicroPython/mmbasic"
+    target = sd_root + "/picoware/mmbasic"
     _link_app_files_into(source, target)
 
 

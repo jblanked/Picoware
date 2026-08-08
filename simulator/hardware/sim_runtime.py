@@ -127,17 +127,18 @@ LIBRARY_ITEMS = {
     "gameboy emulator": 6,
     "gameboy": 6,
     "games": 7,
-    "python editor": 8,
-    "pythoneditor": 8,
-    "python repl": 9,
-    "repl": 9,
-    "screensavers": 10,
-    "scripts": 11,
-    "system": 12,
-    "text editor": 13,
-    "texteditor": 13,
-    "usb": 14,
-    "wifi": 15,
+    "mmbasic": 8,
+    "python editor": 9,
+    "pythoneditor": 9,
+    "python repl": 10,
+    "repl": 10,
+    "screensavers": 11,
+    "scripts": 12,
+    "system": 13,
+    "text editor": 14,
+    "texteditor": 14,
+    "usb": 15,
+    "wifi": 16,
 }
 
 
@@ -417,6 +418,7 @@ def seed_sd(profile="dev"):
     _link_app_files()
     if profile != "clean":
         _link_script_files()
+        _link_mmbasic_files()
 
 
 def _link_app_files():
@@ -436,26 +438,48 @@ def _link_script_files():
     _link_app_files_into(source, target)
 
 
+def _link_mmbasic_files():
+    """Symlink bundled MMBasic examples into the simulated SD card."""
+    source = root + "/builds/MicroPython/mmbasic"
+    target = sd_root + "/picoware/mmbasic"
+    _link_app_files_into(source, target)
+
+
 def _link_app_files_into(src_dir, dst_dir, skip_if_py_exists=False, include_init=False):
-    """Recursively symlink .py/.mpy files from src_dir into dst_dir.
+    """Recursively symlink bundled files from src_dir into dst_dir.
 
     When *skip_if_py_exists* is True, a .mpy file is skipped if a .py
     file with the same base name already exists (or is symlinked) in
     *dst_dir*.  This avoids duplicate app listings when both a source
     .py and a compiled .mpy are available.  Package __init__.py files
-    are included below the app root so libraries remain importable."""
+    are included below the app root so libraries remain importable.
+    Broken links from bundled files removed by later commits are pruned,
+    while regular user-installed files are preserved."""
     mkdir_p(dst_dir)
+    _prune_stale_links(dst_dir)
     try:
         entries = os.listdir(src_dir)
     except OSError:
         return
+    entries.sort()
+    seen_names = {}
     for entry in entries:
         if entry.startswith("."):
+            continue
+        if entry == "__pycache__" or entry.endswith((".pyc", ".pyo")):
             continue
         if entry == "__init__.py" and not include_init:
             continue
         src = src_dir + "/" + entry
         dst = dst_dir + "/" + entry
+        normalized = entry.lower()
+        if normalized in seen_names:
+            # The simulated SD represents FAT, where names differing only by
+            # case cannot coexist.  Remove only the duplicate managed link.
+            if _same_file(dst, src):
+                _rm_f(dst)
+            continue
+        seen_names[normalized] = True
         try:
             st = os.stat(src)
         except OSError:
@@ -468,6 +492,11 @@ def _link_app_files_into(src_dir, dst_dir, skip_if_py_exists=False, include_init
                 _py_name = entry[:-4] + ".py"
                 _py_dst = dst_dir + "/" + _py_name
                 if _exists(_py_dst):
+                    # A previous simulator run may have linked the compiled
+                    # app before its source became available.  Remove only
+                    # that managed link; preserve regular user SD files.
+                    if _same_file(dst, src):
+                        _rm_f(dst)
                     continue
             # Remove stale symlink first
             _rm_f(dst)
@@ -481,6 +510,26 @@ def _link_app_files_into(src_dir, dst_dir, skip_if_py_exists=False, include_init
                     _copy_file(src, dst)
 
 
+def _prune_stale_links(path):
+    """Remove broken simulator links without touching regular SD files."""
+    try:
+        entries = os.listdir(path)
+    except OSError:
+        return
+    for entry in entries:
+        child = path.rstrip("/") + "/" + entry
+        try:
+            st = os.stat(child)
+        except OSError:
+            # A listed entry that cannot be stat'ed is a broken symlink on
+            # the simulator host.  FAT-backed user files cannot have this
+            # state, so removing it is safe and restores the SD view.
+            _rm_f(child)
+            continue
+        if st[0] & 0x4000:
+            _prune_stale_links(child)
+
+
 def _rm_f(path):
     """Remove a file or symlink; ignore errors.  Safe with symlinks
     (os.remove / unlink removes the symlink node, not its target)."""
@@ -488,6 +537,16 @@ def _rm_f(path):
         os.remove(path)
     except OSError:
         pass
+
+
+def _same_file(left, right):
+    """Return True when two host paths resolve to the same file."""
+    try:
+        left_stat = os.stat(left)
+        right_stat = os.stat(right)
+        return left_stat[1] == right_stat[1] and left_stat[2] == right_stat[2]
+    except OSError:
+        return False
 
 
 def _copy_file(src, dst):

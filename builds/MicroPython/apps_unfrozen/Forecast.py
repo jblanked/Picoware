@@ -6,11 +6,10 @@ Data providers require no account or API key:
 """
 
 from micropython import const
+from picoware.system.decorators import wifi_required, storage_required
 
 
-# Non-blocking application states. Network operations get their own states so
-# run() can keep animating and accepting Picoware lifecycle events while a
-# background request is active.
+# Non-blocking network operation states.
 STATE_MAIN = const(0)
 STATE_SAVED = const(1)
 STATE_MANAGE = const(2)
@@ -25,37 +24,32 @@ CONFIG_PATH = "picoware/forecast.json"
 PAGE_DAYS = const(4)
 MAX_LOCATIONS = const(12)
 
-# Forecast-screen vertical layout (pixels on the 320 x 320 PicoCalc display).
-# Keeping these values together makes future physical-display tuning simple.
-TITLE_Y = const(4)         # Small-font, single-line saved location heading.
-STATUS_Y = const(34)       # Provider/unit/page, clear of graph temperatures.
-GRAPH_TOP = const(58)      # Top edge of the temperature plot.
-GRAPH_BOTTOM = const(166)  # Shorter plot leaves space for weekday and date.
-WEEKDAY_Y = const(179)     # Full weekday name above its calendar date.
-DATE_Y = const(196)        # Date row, moved slightly down from the old layout.
-ICON_Y = const(225)        # Center line for sun/cloud/rain symbols.
-CONDITION_Y = const(251)   # Sunny, cloudy, rain, snow, etc.
-RAIN_Y = const(268)        # Daily precipitation probability.
-WIND_Y = const(285)        # Daily maximum wind speed.
+TITLE_Y = None        # Small-font, single-line saved location heading.
+STATUS_Y = None      # Provider/unit/page, clear of graph temperatures.
+GRAPH_TOP = None      # Top edge of the temperature plot.
+GRAPH_BOTTOM = None  # Shorter plot leaves space for weekday and date.
+WEEKDAY_Y = None     # Full weekday name above its calendar date.
+DATE_Y = None        # Date row, moved slightly down from the old layout.
+ICON_Y = None        # Center line for sun/cloud/rain symbols.
+CONDITION_Y = None   # Sunny, cloudy, rain, snow, etc.
+RAIN_Y = None        # Daily precipitation probability.
+WIND_Y = None        # Daily maximum wind speed.
 
-# Fonts built into Picoware. The title deliberately uses the smaller font so a
-# long administrative location name has substantially more horizontal room.
+# Smaller font for long titles.
 TITLE_FONT = const(1)
 
-# Runtime UI/network objects are created lazily to conserve Pico 2 W memory.
+# Lazy objects conserve memory.
 _state = STATE_MAIN
 _menu = None
 _http = None
 _loading = None
-# Persistent/user data and normalized forecast data. Locations are stored as
-# name/latitude/longitude dictionaries; days use one provider-neutral schema.
+# Locations and normalized forecast data.
 _locations = []
 _search_results = []
 _days = []
 _selected_location = None
 _page = 0
-# User preferences. These defaults also migrate older configuration files that
-# do not yet contain the newer unit/date/provider keys.
+# Preferences migrate older configs.
 _provider = "Open-Meteo"
 _temperature_unit = "Celsius"
 _wind_unit = "km/h"
@@ -65,6 +59,7 @@ _pending_query = ""
 
 
 def _new_menu(view_manager, title):
+    """Create a menu spanning the full display height."""
     from picoware.gui.menu import Menu
 
     draw = view_manager.draw
@@ -76,6 +71,7 @@ def _new_menu(view_manager, title):
 
 
 def _set_menu(view_manager, title, items, state):
+    """Replace the current menu and enter its state."""
     global _menu, _state
     view_manager.draw.erase()
     _menu = _new_menu(view_manager, title)
@@ -86,13 +82,13 @@ def _set_menu(view_manager, title, items, state):
 
 
 def _show_main(view_manager):
+    """Show the top-level Forecast menu."""
     _set_menu(view_manager, "Forecast",
               ("Saved locations", "Add/Remove location", "Settings"), STATE_MAIN)
 
 
 def _show_saved(view_manager):
-    # Fold names here as a final guard for configurations created by an older
-    # Forecast version before location transliteration was introduced.
+    """Show the saved locations menu."""
     items = [_latin_text(loc["name"]) for loc in _locations]
     if not items:
         items = ["No saved locations"]
@@ -100,6 +96,7 @@ def _show_saved(view_manager):
 
 
 def _show_manage(view_manager):
+    """Show the add/remove locations menu."""
     items = ["Add location"]
     for loc in _locations:
         items.append("Remove: " + _latin_text(loc["name"]))
@@ -107,6 +104,7 @@ def _show_manage(view_manager):
 
 
 def _show_settings(view_manager):
+    """Show the user preferences menu."""
     _set_menu(view_manager, "Settings", (
         "Source: " + _provider,
         "Temperature: " + ("C" if _temperature_unit == "Celsius" else "F"),
@@ -114,11 +112,11 @@ def _show_settings(view_manager):
         "Date: " + _date_format,
     ), STATE_SETTINGS)
 
-
 def _save(view_manager):
     """Persist preferences and saved coordinates as JSON on the SD card."""
     view_manager.storage.mkdir("picoware")
     view_manager.storage.deserialize({
+
         "provider": _provider, "temperature_unit": _temperature_unit,
         "wind_unit": _wind_unit, "date_format": _date_format,
         "locations": _locations,
@@ -128,6 +126,19 @@ def _save(view_manager):
 def _load(view_manager):
     """Load configuration defensively, preserving defaults for missing keys."""
     global _locations, _provider, _temperature_unit, _wind_unit, _date_format
+    global TITLE_Y, STATUS_Y, GRAPH_TOP, GRAPH_BOTTOM, WEEKDAY_Y, DATE_Y, ICON_Y
+    global CONDITION_Y, RAIN_Y, WIND_Y
+    d = view_manager.draw
+    TITLE_Y = d.scale_y(4)        
+    STATUS_Y = d.scale_y(34)     
+    GRAPH_TOP = d.scale_y(58)    
+    GRAPH_BOTTOM = d.scale_y(166) 
+    WEEKDAY_Y = d.scale_y(179)   
+    DATE_Y = d.scale_y(196)      
+    ICON_Y = d.scale_y(225)      
+    CONDITION_Y = d.scale_y(251) 
+    RAIN_Y = d.scale_y(268)    
+    WIND_Y = d.scale_y(285)  
     if not view_manager.storage.exists(CONFIG_PATH):
         return
     data = view_manager.storage.serialize(CONFIG_PATH)
@@ -138,8 +149,7 @@ def _load(view_manager):
             for item in locations:
                 if (isinstance(item, dict) and "name" in item and
                         "lat" in item and "lon" in item):
-                    # Normalize previously saved Unicode names as they enter
-                    # memory, so every menu and forecast screen sees safe text.
+                    # Normalize saved Unicode names.
                     _locations.append({
                         "name": _latin_text(str(item["name"])),
                         "lat": item["lat"], "lon": item["lon"],
@@ -178,12 +188,12 @@ def _url_encode(text):
 def _start_request(view_manager, url, label, next_state):
     """Start one asynchronous HTTP request and its loading animation."""
     global _http, _loading, _state
-    from picoware.system.http import HTTP
-    from picoware.gui.loading import Loading
 
     if _http is None:
-        _http = HTTP(chunk_size=4096, thread_manager=view_manager.thread_manager)
+        from picoware.system.http import HTTP
+        _http = HTTP(thread_manager=view_manager.thread_manager)
     if _loading is None:
+        from picoware.gui.loading import Loading
         _loading = Loading(view_manager.draw, view_manager.foreground_color, view_manager.background_color)
     else:
         _loading.stop()
@@ -241,6 +251,7 @@ def _weather_name(code):
 
 
 def _is_leap(year):
+    """Return whether a year is a leap year."""
     return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
 
 
@@ -275,8 +286,7 @@ def _format_date(date_text):
 
 def _weekday(date_text):
     """Return an English weekday for YYYY-MM-DD without importing datetime."""
-    # Sakamoto's Gregorian-calendar algorithm: Sunday is index zero. It keeps
-    # the app lightweight and works on MicroPython builds without datetime.
+    # Sakamoto weekday algorithm.
     names = ("Sunday", "Monday", "Tuesday", "Wednesday",
              "Thursday", "Friday", "Saturday")
     offsets = (0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4)
@@ -287,14 +297,13 @@ def _weekday(date_text):
                  adjusted_year // 400 + offsets[month - 1] + day) % 7
         return names[index]
     except Exception:
-        # A provider without a valid ISO date should not break the whole page.
+        # Invalid ISO date tolerated.
         return ""
 
 
 def _latin_text(text):
     """Fold common European accented characters into LCD-safe Latin text."""
-    # Picoware's bitmap fonts do not contain every Unicode glyph. This explicit
-    # map covers common German, Romanian, Romance, Nordic, and Slavic names.
+    # Map European accents to Latin.
     replacements = {
         "ä": "a", "á": "a", "à": "a", "â": "a", "ã": "a", "å": "a",
         "ă": "a", "ą": "a", "æ": "ae", "Ä": "A", "Á": "A", "À": "A",
@@ -362,7 +371,7 @@ def _parse_open_meteo(data):
             "rain": round(rain[i]) if i < len(rain) and rain[i] is not None else 0,
             "wind": round(wind[i]) if i < len(wind) else 0,
             "weather": _weather_name(codes[i]),
-            # Open-Meteo daily data starts with the local current date.
+            # Current local day first.
             "today": i == 0,
         })
     return result
@@ -375,9 +384,9 @@ def _parse_7timer(data):
     init = str(data.get("init", ""))
     base_date = (init[0:4] + "-" + init[4:6] + "-" + init[6:8]) if len(init) >= 8 else ""
     init_hour = int(init[8:10]) if len(init) >= 10 else 0
-    # 7Timer reports Beaufort-like categories; use representative km/h values.
+    # Representative wind categories.
     wind_kmh = (0, 3, 8, 15, 24, 34, 44, 55, 68, 82)
-    # 7Timer steps are three hours. Group each eight steps as one compact day.
+    # Group eight steps daily.
     for start in range(0, len(series), 8):
         group = series[start:start + 8]
         if not group:
@@ -409,7 +418,7 @@ def _parse_7timer(data):
             "date": group_date,
             "high": max(temps), "low": min(temps),
             "rain": round(rainy * 100 / len(group)), "wind": max(winds), "weather": weather,
-            # The downloaded initialization date is 7Timer's current date.
+            # Init date is today.
             "today": bool(base_date) and group_date == base_date,
         })
     return result
@@ -433,8 +442,7 @@ def _request_done(view_manager, kind):
                 name = item.get("name", "Unknown")
                 area = item.get("admin1") or item.get("country") or ""
                 label = name + (", " + area if area and area != name else "")
-                # Normalize immediately so search results, saved names, and the
-                # forecast header all use the same LCD-supported characters.
+                # Normalize to LCD-safe text.
                 label = _latin_text(label)
                 _search_results.append({"name": label, "lat": item["latitude"], "lon": item["longitude"]})
             if not _search_results:
@@ -449,29 +457,31 @@ def _request_done(view_manager, kind):
     except Exception as exc:
         view_manager.log("[Forecast] " + str(exc), 2)
         view_manager.alert("Forecast error: " + str(exc), False)
-        _show_saved(view_manager) if kind == "forecast" else _show_manage(view_manager)
+        if kind == "forecast":
+            _show_saved(view_manager)
+        else:
+            _show_manage(view_manager)
         return True
 
 
 def _draw_weather_icon(draw, x, y, weather, rain_color, cloud_color, sun_color):
     """Draw the condition symbol centered on its day's vertical axis."""
-    from picoware.system.vector import Vector
     if weather == "Sunny":
-        # A filled disc is the compact sunny/clear-sky symbol.
-        draw.fill_circle(Vector(x, y), 7, sun_color)
+        # Filled disc for sun.
+        draw._fill_circle(x, y, draw.scale_x(7), sun_color)
     else:
-        # Two overlapping circles and a base form the cloud silhouette.
-        draw.fill_circle(Vector(x - 5, y + 2), 6, cloud_color)
-        draw.fill_circle(Vector(x + 3, y), 8, cloud_color)
-        draw.fill_rectangle(Vector(x - 10, y + 2), Vector(21, 8), cloud_color)
+        # Overlapping circles form cloud.
+        draw._fill_circle(x - draw.scale_x(5), y + draw.scale_y(2), draw.scale_x(6), cloud_color)
+        draw._fill_circle(x + draw.scale_x(3), y, draw.scale_x(8), cloud_color)
+        draw._fill_rectangle(x - draw.scale_x(10), y + draw.scale_y(2), draw.scale_x(21), draw.scale_y(8), cloud_color)
         if weather in ("Rain", "Storm", "Drizzle"):
-            # Two short diagonal strokes below the cloud indicate precipitation.
-            draw.line_custom(Vector(x - 5, y + 13), Vector(x - 8, y + 20), rain_color)
-            draw.line_custom(Vector(x + 5, y + 13), Vector(x + 2, y + 20), rain_color)
+            # Diagonal strokes for rain.
+            draw._line(x - draw.scale_x(5), y + draw.scale_y(13), x - draw.scale_x(8), y + draw.scale_y(20), rain_color)
+            draw._line(x + draw.scale_x(5), y + draw.scale_y(13), x + draw.scale_x(2), y + draw.scale_y(20), rain_color)
 
 
 def _is_dark(color):
-    # Approximate RGB565 luminance; supports custom Picoware themes too.
+    """Return whether a RGB565 color is dark."""
     red, green, blue = (color >> 11) & 31, (color >> 5) & 63, color & 31
     return red * 2 + green * 3 + blue < 126
 
@@ -486,16 +496,15 @@ def _center_text(draw, center, y, text, color, font_size=0, bold=False):
     x = center - draw.len(text, font_size) // 2
     draw._text(x, y, text, color, font_size)
     if bold:
-        # Picoware has no separate bold face; a one-pixel duplicate thickens it.
+        # One-pixel faux bold.
         draw._text(x + 1, y, text, color, font_size)
 
 
-def _thick_line(draw, start, end, color):
+def _thick_line(draw, start_x: int, start_y: int, end_x: int, end_y: int, color):
     """Draw a clearly visible three-pixel temperature segment."""
-    from picoware.system.vector import Vector
-    draw.line_custom(Vector(start.x, start.y - 1), Vector(end.x, end.y - 1), color)
-    draw.line_custom(start, end, color)
-    draw.line_custom(Vector(start.x, start.y + 1), Vector(end.x, end.y + 1), color)
+    draw._line(start_x, start_y - 1, end_x, end_y - 1, color)
+    draw._line(start_x, start_y, end_x, end_y, color)
+    draw._line(start_x, start_y + 1, end_x, end_y + 1, color)
 
 
 def _low_label_y(point_y, graph_bottom):
@@ -505,8 +514,7 @@ def _low_label_y(point_y, graph_bottom):
 
 def _high_label_y(point_y, graph_top):
     """Keep a high-temperature number clear of the status text above."""
-    # This mirrors _low_label_y: labels normally sit above a high point, but
-    # flip below it inside the top 18 pixels of the graph.
+    # Mirror _low_label_y placement.
     return point_y + 5 if point_y < graph_top + 18 else point_y - 13
 
 
@@ -516,10 +524,9 @@ def _draw_forecast(view_manager):
     from picoware.system.colors import (TFT_BLUE, TFT_CYAN, TFT_DARKGREEN,
                                          TFT_DARKGREY, TFT_GREEN, TFT_LIGHTGREY,
                                          TFT_ORANGE, TFT_RED, TFT_YELLOW)
-    from picoware.system.vector import Vector
 
     draw = view_manager.draw
-    # Clear the old page before selecting accessible theme-dependent colors.
+    # Clear for theme colors.
     draw.erase()
     dark = _is_dark(view_manager.background_color)
     cool_color = TFT_CYAN if dark else TFT_BLUE
@@ -528,101 +535,97 @@ def _draw_forecast(view_manager):
     cloud_color = TFT_LIGHTGREY if dark else TFT_DARKGREY
     width, height = draw.size.x, draw.size.y
 
-    # Header: fold unsupported accents, then truncate by actual rendered width.
-    # The smaller font and ellipsis keep even long administrative names on one
-    # line rather than allowing them to cover the status row.
+    # Truncate folded header.
     title = _fit_text(draw, _latin_text(_selected_location["name"]),
-                      width - 16, TITLE_FONT)
-    draw._text(8, TITLE_Y, title, view_manager.foreground_color, TITLE_FONT)
+                      width - draw.scale_x(16), TITLE_FONT)
+    draw._text(draw.scale_x(8), TITLE_Y, title, view_manager.foreground_color, TITLE_FONT)
 
-    # Status sits lower and closer to the graph, leaving a clean gap below the
-    # location. It identifies source, temperature unit, and the visible page.
+    # Status below location.
     unit = "F" if _temperature_unit == "Fahrenheit" else "C"
-    draw._text(8, STATUS_Y, _provider + "  " + unit + "  " + str(_page + 1) + "/" + str((len(_days) + PAGE_DAYS - 1) // PAGE_DAYS), cool_color)
+    draw._text(draw.scale_x(8), STATUS_Y, _provider + "  " + unit + "  " + str(_page + 1) + "/" + str((len(_days) + PAGE_DAYS - 1) // PAGE_DAYS), cool_color)
 
-    # Graph frame: equal ten-pixel left/right margins and fixed vertical bounds.
+    # Fixed ten-pixel margins.
     shown = _days[_page * PAGE_DAYS:(_page + 1) * PAGE_DAYS]
-    # Equal ten-pixel margins. Points use the exact same column centers as all
-    # weather details below, keeping every day's information vertically aligned.
-    graph_left, graph_top = 10, GRAPH_TOP
-    graph_right, graph_bottom = width - 10, GRAPH_BOTTOM
+    # Shared column centers.
+    graph_left, graph_top = draw.scale_x(10), GRAPH_TOP
+    graph_right, graph_bottom = width - draw.scale_x(10), GRAPH_BOTTOM
 
-    # Establish a shared scale covering every high and low on this page.
+    # Shared high/low scale.
     all_temps = []
     for day in shown:
         all_temps.extend((_display_temp(day["low"]), _display_temp(day["high"])))
     t_min, t_max = min(all_temps), max(all_temps)
     if t_max == t_min:
         t_max += 1
-    draw.rect(Vector(graph_left, graph_top), Vector(graph_right - graph_left, graph_bottom - graph_top), TFT_DARKGREY)
+    draw._rectangle(graph_left, graph_top, graph_right - graph_left, graph_bottom - graph_top, TFT_DARKGREY)
 
-    # Curves: red is the daily high; blue/cyan is the daily low. Both use
-    # three-pixel segments, round points, and a numeric label at every point.
-    previous_high = None
-    previous_low = None
+    # Red highs, blue lows.
+    previous_high_x = None
+    previous_high_y = None
+    previous_low_x = None
+    previous_low_y = None
     for i, day in enumerate(shown):
         high, low = _display_temp(day["high"]), _display_temp(day["low"])
         x = _column_center(width, i)
         yh = graph_bottom - int((high - t_min) * (graph_bottom - graph_top) / (t_max - t_min))
         yl = graph_bottom - int((low - t_min) * (graph_bottom - graph_top) / (t_max - t_min))
-        if previous_high:
-            _thick_line(draw, previous_high, Vector(x, yh), TFT_RED)
-            _thick_line(draw, previous_low, Vector(x, yl), cool_color)
-        draw.fill_circle(Vector(x, yh), 3, TFT_RED)
-        draw.fill_circle(Vector(x, yl), 3, cool_color)
-        # Near the top border, put the high value below its point. This avoids
-        # collisions with the source/unit/page text immediately above the plot.
-        high_label_y = _high_label_y(yh, graph_top)
+        if previous_high_x is not None:
+            _thick_line(draw, previous_high_x, previous_high_y, x, yh, TFT_RED)
+            _thick_line(draw, previous_low_x, previous_low_y, x, yl, cool_color)
+        draw._fill_circle(x, yh, draw.scale_x(3), TFT_RED)
+        draw._fill_circle(x, yl, draw.scale_x(3), cool_color)
+        # Avoid top text collision.
+        high_label_y = draw.scale_y(_high_label_y(yh, graph_top))
         _center_text(draw, x, high_label_y, str(high), TFT_RED)
-        # Near the bottom border, put the low value above its point. This keeps
-        # cold/minimum values away from the frame and the date immediately below.
-        low_label_y = _low_label_y(yl, graph_bottom)
+        # Avoid bottom frame collision.
+        low_label_y = draw.scale_y(_low_label_y(yl, graph_bottom))
         _center_text(draw, x, low_label_y, str(low), cool_color)
-        previous_high, previous_low = Vector(x, yh), Vector(x, yl)
+        previous_high_x, previous_high_y = x, yh
+        previous_low_x, previous_low_y = x, yl
 
-    # Daily detail columns. Every row shares the same x center as its two graph
-    # points: weekday, date, icon, condition, rain probability, then wind.
+    # Daily detail columns.
     for i, day in enumerate(shown):
         center = _column_center(width, i)
         weekday = _weekday(day["date"])
         date = _format_date(day["date"])
-        condition = day["weather"][:10]
+        condition = day["weather"][:draw.scale_x(10)]
         rain = "Rain " + str(day["rain"]) + "%"
         wind_suffix = "k/h" if _wind_unit == "km/h" else ("kt" if _wind_unit == "knots" else "m/s")
         wind = "W:" + str(_display_wind(day["wind"])) + wind_suffix
 
-        # Weekends use thick red text. Weekdays retain the active theme color.
+        # Weekend red text.
         weekend = weekday in ("Saturday", "Sunday")
         calendar_color = TFT_RED if weekend else view_manager.foreground_color
         _center_text(draw, center, WEEKDAY_Y, weekday, calendar_color,
                      bold=weekend)
         _center_text(draw, center, DATE_Y, date, calendar_color, bold=weekend)
 
-        # The provider marks the current local day. A red outline groups its
-        # weekday and date without changing weekday/weekend text semantics.
+        # Red today outline.
         if day.get("today", False):
-            box_width = width // PAGE_DAYS - 6
-            draw.rect(Vector(center - box_width // 2, WEEKDAY_Y - 3),
-                      Vector(box_width, DATE_Y - WEEKDAY_Y + 15), TFT_RED)
+            box_width = width // PAGE_DAYS - draw.scale_x(6)
+            draw._rectangle(center - box_width // 2, WEEKDAY_Y - draw.scale_y(3),
+                            box_width, DATE_Y - WEEKDAY_Y + draw.scale_y(15), TFT_RED)
 
-        # Weather symbol and metrics continue down the same vertical axis.
+        # Details share axis.
         _draw_weather_icon(draw, center, ICON_Y, day["weather"], cool_color, cloud_color, warm_color)
         _center_text(draw, center, CONDITION_Y, condition, warm_color)
         _center_text(draw, center, RAIN_Y, rain, cool_color)
         _center_text(draw, center, WIND_Y, wind, wind_color)
 
-    # Footer documents page navigation, manual refresh, and returning to menus.
-    draw._text(6, height - 14, "LEFT/RIGHT pan   CENTER refresh   BACK", view_manager.foreground_color)
+    # Footer navigation hints.
+    draw._text(draw.scale_x(6), height - draw.scale_y(14), "LEFT/RIGHT pan   CENTER refresh   BACK", view_manager.foreground_color)
     draw.swap()
     _state = STATE_FORECAST
 
 
 def _keyboard_saved(text):
+    """Record the keyboard's submitted location query."""
     global _pending_query
     _pending_query = text.strip()
 
 
 def _start_input(view_manager):
+    """Open the location search keyboard."""
     global _state, _input_started, _pending_query
     _pending_query = ""
     kb = view_manager.keyboard
@@ -635,7 +638,8 @@ def _start_input(view_manager):
     _input_started = True
     _state = STATE_INPUT
 
-
+@wifi_required
+@storage_required
 def start(view_manager):
     """Load saved locations and open the Forecast main menu."""
     _load(view_manager)

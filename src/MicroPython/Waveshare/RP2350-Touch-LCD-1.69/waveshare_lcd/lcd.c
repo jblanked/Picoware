@@ -764,6 +764,11 @@ void lcd_init(void)
     // Hardware reset
     lcd_reset();
 
+    // Software reset over SPI as well -- confirmed required by a known-working
+    // ST7789 driver for this exact board (hardware RST pulse alone was not enough)
+    lcd_write_cmd(0x01); // software reset
+    sleep_ms(150);       // datasheet: >=120ms after SWRESET
+
     // ST7789V2 init sequence, from the Waveshare RP2350-Touch-LCD-1.69 demo
 
     // Set the read / write scan direction of the frame memory
@@ -771,7 +776,7 @@ void lcd_init(void)
     lcd_write_data(0x00);
 
     lcd_write_cmd(0x3A); // 16 bits per pixel (RGB565)
-    lcd_write_data(0x05);
+    lcd_write_data(0x55);
 
     lcd_write_cmd(0xB2); // porch control
     lcd_write_data(0x0B);
@@ -887,7 +892,7 @@ void lcd_reset(void)
     gpio_put(LCD_RST_PIN, 0);
     sleep_ms(100);
     gpio_put(LCD_RST_PIN, 1);
-    gpio_put(LCD_CS_PIN, 0);
+    gpio_put(LCD_CS_PIN, 1); // idle high; each transfer asserts CS itself
     sleep_ms(100);
 }
 
@@ -944,6 +949,7 @@ void lcd_swap(void)
     lcd_write_cmd(0X2C);
 
     gpio_put(LCD_DC_PIN, 1);
+    gpio_put(LCD_CS_PIN, 0); // one CS-bracketed burst for the whole frame
 
     // Convert 8-bit palette indices to 16-bit RGB565 and send
     for (uint32_t i = 0; i < LCD_WIDTH * LCD_HEIGHT; i++)
@@ -955,6 +961,7 @@ void lcd_swap(void)
         uint8_t data[2] = {high_byte, low_byte};
         spi_write_blocking(LCD_SPI_PORT, data, 2);
     }
+    gpio_put(LCD_CS_PIN, 1);
 }
 
 /******************************************************************************
@@ -984,7 +991,9 @@ note: Low-level function used internally for LCD communication
 void lcd_write_cmd(uint8_t cmd)
 {
     gpio_put(LCD_DC_PIN, 0);
+    gpio_put(LCD_CS_PIN, 0);
     spi_write_blocking(LCD_SPI_PORT, &cmd, 1);
+    gpio_put(LCD_CS_PIN, 1);
 }
 
 /******************************************************************************
@@ -997,7 +1006,9 @@ note: Low-level function used internally for LCD communication
 void lcd_write_data(uint8_t data)
 {
     gpio_put(LCD_DC_PIN, 1);
+    gpio_put(LCD_CS_PIN, 0);
     spi_write_blocking(LCD_SPI_PORT, &data, 1);
+    gpio_put(LCD_CS_PIN, 1);
 }
 
 /******************************************************************************
@@ -1010,10 +1021,12 @@ note: Low-level function used internally for LCD communication
 void lcd_write_data_16bit(uint16_t data)
 {
     gpio_put(LCD_DC_PIN, 1);
+    gpio_put(LCD_CS_PIN, 0);
     uint8_t high_byte = data >> 8;
     uint8_t low_byte = data & 0xFF;
     spi_write_blocking(LCD_SPI_PORT, &high_byte, 1);
     spi_write_blocking(LCD_SPI_PORT, &low_byte, 1);
+    gpio_put(LCD_CS_PIN, 1);
 }
 
 bool lcd_read_row(uint16_t row, uint8_t *dst)

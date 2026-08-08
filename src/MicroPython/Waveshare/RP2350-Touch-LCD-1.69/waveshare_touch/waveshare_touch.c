@@ -29,6 +29,20 @@ STATIC mp_obj_t waveshare_touch_get_touch_point(void)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(waveshare_touch_get_touch_point_obj, waveshare_touch_get_touch_point);
 
+// Returns the last cached touch point without triggering a new I2C read.
+// NOT safe to call from a hard IRQ (it allocates a tuple) -- pair with
+// read_data(), which IS hard-IRQ-safe, to refresh the cache from an ISR
+// and then fetch the result later from normal (soft) context.
+STATIC mp_obj_t waveshare_touch_get_cached_point(void)
+{
+    TouchVector point = touch_get_cached_point();
+    mp_obj_t tuple[2];
+    tuple[0] = mp_obj_new_int(point.x);
+    tuple[1] = mp_obj_new_int(point.y);
+    return mp_obj_new_tuple(2, tuple);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(waveshare_touch_get_cached_point_obj, waveshare_touch_get_cached_point);
+
 // Function to initialize the touch
 STATIC mp_obj_t waveshare_touch_init(void)
 {
@@ -66,6 +80,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_0(waveshare_touch_reset_state_obj, waveshare_touc
 STATIC const mp_rom_map_elem_t waveshare_touch_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_waveshare_touch)},
     {MP_ROM_QSTR(MP_QSTR_get_touch_point), MP_ROM_PTR(&waveshare_touch_get_touch_point_obj)},
+    {MP_ROM_QSTR(MP_QSTR_get_cached_point), MP_ROM_PTR(&waveshare_touch_get_cached_point_obj)},
     {MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&waveshare_touch_init_obj)},
     {MP_ROM_QSTR(MP_QSTR_read_data), MP_ROM_PTR(&waveshare_touch_read_data_obj)},
     {MP_ROM_QSTR(MP_QSTR_reset), MP_ROM_PTR(&waveshare_touch_reset_obj)},

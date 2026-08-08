@@ -3,8 +3,8 @@
 echo "Building MicroPython Picoware firmware for Waveshare 1.69..."
 
 # set your locations
-micropython_dir="/mnt/c/Users/aful018/projects/c/micropython/ports/rp2"
-picoware_dir="/mnt/c/Users/aful018/projects/c/Picoware"
+micropython_dir="/home/aful018/projects/micropython/ports/rp2"
+picoware_dir="/home/aful018/projects/Picoware"
 
 echo "Using MicroPython directory: $micropython_dir"
 echo "Using Picoware directory: $picoware_dir"

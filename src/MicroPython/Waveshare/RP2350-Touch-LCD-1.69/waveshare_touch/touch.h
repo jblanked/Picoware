@@ -72,6 +72,7 @@ extern "C"
 #endif
 
 	TouchVector touch_get_point();
+	TouchVector touch_get_cached_point(void);
 	bool touch_init(void);
 
 	uint8_t touch_read(uint8_t reg);

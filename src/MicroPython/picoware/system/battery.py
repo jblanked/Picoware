@@ -4,6 +4,7 @@ from picoware.system.boards import (
     BOARD_ID,
     BOARD_WAVESHARE_1_28_RP2350,
     BOARD_WAVESHARE_1_43_RP2350,
+    BOARD_WAVESHARE_1_69_RP2350,
     BOARD_WAVESHARE_3_49_RP2350,
     BOARD_WAVESHARE_2_06,
     BOARD_PANCAKE,
@@ -32,6 +33,7 @@ class Battery:
         return BOARD_ID in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_1_69_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
             BOARD_CARDPUTER,
             BOARD_WAVESHARE_2_06,
@@ -46,6 +48,7 @@ class Battery:
         if BOARD_ID in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_1_69_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
             from waveshare_battery import get_percentage
@@ -88,6 +91,7 @@ class Battery:
         if BOARD_ID in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_1_69_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
             from waveshare_battery import get_voltage

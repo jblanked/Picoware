@@ -100,21 +100,7 @@ class Input:
             self.pin = Pin(21, Pin.IN, Pin.PULL_UP)
             self._touch_read_data_fast = read_data
 
-            # This MUST be a hard IRQ (true hardware interrupt, no
-            # MicroPython scheduling delay). The touch chip's data
-            # registers are only valid for a very brief window after the
-            # interrupt fires; the default *soft* (scheduled) callback adds
-            # enough latency that the window had always closed by the time
-            # we read -- every touch reported (0, 0), and a single physical
-            # touch fired several interrupts (the chip re-scanning before
-            # anything serviced the previous one). A hard IRQ can't safely
-            # allocate Python objects, so this handler ONLY refreshes the
-            # C-side cache (read_data == touch_read_data(true), pure C/I2C,
-            # no allocation). The actual point/button processing happens in
-            # _poll_touch_1_69(), called from the button property, which
-            # runs in normal (allocation-safe) context and reads that cache
-            # via get_cached_point() instead of triggering another I2C read.
-            self.pin.irq(handler=self.__touch_irq_1_69_fast, trigger=Pin.IRQ_FALLING, hard=True)
+            self.pin.irq(handler=self._touch_read_data_fast, trigger=Pin.IRQ_FALLING, hard=True)
 
             self._last_point = (0, 0)
         elif self._current_board_id == BOARD_WAVESHARE_3_49_RP2350:
@@ -435,44 +421,6 @@ class Input:
         self._button_map = None
 
     @property
-    def battery(self) -> int:
-        """Returns the current battery level as a percentage (0-100)."""
-        if self._current_board_id in (
-            BOARD_WAVESHARE_1_28_RP2350,
-            BOARD_WAVESHARE_1_43_RP2350,
-            BOARD_WAVESHARE_1_69_RP2350,
-            BOARD_WAVESHARE_3_49_RP2350,
-        ):
-            from waveshare_battery import get_percentage
-
-            return get_percentage()
-
-        if self._current_board_id == BOARD_CROWPANEL_10_1:
-            return 100
-
-        if self._current_board_id in (
-            BOARD_CARDPUTER,
-            BOARD_WAVESHARE_2_06,
-        ):
-            from cardputer_battery import get_percentage
-
-            return get_percentage()
-
-        if self._current_board_id == BOARD_PANCAKE:
-            from pancake_battery import get_percentage
-
-            return get_percentage()
-
-        if self._current_board_id == BOARD_FLIPPER_ZERO:
-            from flipper_battery import get_percentage
-
-            return get_percentage()
-
-        from picoware_southbridge import get_battery_percentage
-
-        return get_battery_percentage()
-
-    @property
     def button(self) -> int:
         """Returns the last button pressed."""
         if self._current_board_id in (
@@ -690,33 +638,8 @@ class Input:
 
         return _button
 
-    def __touch_irq_1_69_fast(self, pin):
-        """Hard IRQ handler for the Waveshare 1.69 touch panel.
-
-        Must stay allocation-free (see the comment in __init__ for why this
-        needs to be a hard IRQ at all). Only refreshes the C-side touch
-        cache; _poll_touch_1_69() does the actual point/button processing
-        later, from a safe context.
-        """
-        self._touch_read_data_fast()
-
     def _poll_touch_1_69(self):
-        """Poll the cached touch data (refreshed by __touch_irq_1_69_fast)
-        and map it to a button event. Mirrors the 1.43/3.49 branch of
-        __touch_callback, but reads get_cached_point() instead of
-        get_touch_point() -- the latter would trigger a second, redundant
-        I2C read from here, racing the same way the original bug did.
-
-        Edge-triggered, not time-debounced: the chip re-fires its interrupt
-        repeatedly for as long as a finger stays down (not just once on
-        contact), so a plain time-based cooldown still let one physical tap
-        generate several independent button events -- and if the finger
-        drifted even slightly between those re-scans, each one could land in
-        a different touch_to_button() region, which looked like "random"
-        navigation. Firing only on the down-edge and ignoring everything
-        else until the point returns to (0, 0) makes each physical tap
-        produce exactly one button event, using the coordinate from the very
-        first contact rather than whatever the last re-scan happened to read.
+        """Poll the touch data and map it to a button event.
         """
         from waveshare_touch import get_cached_point, reset_state
 
@@ -730,7 +653,6 @@ class Input:
             return
 
         if self._touch_down_1_69:
-            # still the same physical touch -- already fired, ignore re-scans
             reset_state()
             return
 
@@ -813,8 +735,6 @@ class Input:
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
-            # NOTE: BOARD_WAVESHARE_1_69_RP2350 deliberately not handled here --
-            # see _poll_touch_1_69() and __touch_irq_1_69_fast() instead.
             from waveshare_touch import get_touch_point, reset_state
 
             point = get_touch_point()

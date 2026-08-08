@@ -461,6 +461,8 @@ def _link_app_files_into(src_dir, dst_dir, skip_if_py_exists=False, include_init
         entries = os.listdir(src_dir)
     except OSError:
         return
+    entries.sort()
+    seen_names = {}
     for entry in entries:
         if entry.startswith("."):
             continue
@@ -470,6 +472,14 @@ def _link_app_files_into(src_dir, dst_dir, skip_if_py_exists=False, include_init
             continue
         src = src_dir + "/" + entry
         dst = dst_dir + "/" + entry
+        normalized = entry.lower()
+        if normalized in seen_names:
+            # The simulated SD represents FAT, where names differing only by
+            # case cannot coexist.  Remove only the duplicate managed link.
+            if _same_file(dst, src):
+                _rm_f(dst)
+            continue
+        seen_names[normalized] = True
         try:
             st = os.stat(src)
         except OSError:
@@ -482,6 +492,11 @@ def _link_app_files_into(src_dir, dst_dir, skip_if_py_exists=False, include_init
                 _py_name = entry[:-4] + ".py"
                 _py_dst = dst_dir + "/" + _py_name
                 if _exists(_py_dst):
+                    # A previous simulator run may have linked the compiled
+                    # app before its source became available.  Remove only
+                    # that managed link; preserve regular user SD files.
+                    if _same_file(dst, src):
+                        _rm_f(dst)
                     continue
             # Remove stale symlink first
             _rm_f(dst)
@@ -522,6 +537,16 @@ def _rm_f(path):
         os.remove(path)
     except OSError:
         pass
+
+
+def _same_file(left, right):
+    """Return True when two host paths resolve to the same file."""
+    try:
+        left_stat = os.stat(left)
+        right_stat = os.stat(right)
+        return left_stat[1] == right_stat[1] and left_stat[2] == right_stat[2]
+    except OSError:
+        return False
 
 
 def _copy_file(src, dst):

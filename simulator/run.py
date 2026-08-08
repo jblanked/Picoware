@@ -546,6 +546,7 @@ def _run_sim_check(opts):
     """Run the simulator self-check suite."""
     _run_library_route_check()
     _run_stale_app_link_check(opts)
+    _run_duplicate_app_link_check(opts)
     commands = (
         "sh "
         + _quote(THIS_DIR + "/build.sh")
@@ -710,6 +711,84 @@ def _run_stale_app_link_check(opts):
         raise RuntimeError("simulator stale-link cleanup removed a local app")
     _remove_tree(probe)
     print("[sim-check:ok] stale app links pruned, local apps preserved")
+
+
+def _run_duplicate_app_link_check(opts):
+    """Remove managed .mpy duplicates while preserving regular SD files."""
+    import sd_mp
+    import sim_runtime
+
+    probe = opts["sd"] + "/sim-duplicate-link-check"
+    source_py = probe + "/source-py"
+    source_mpy = probe + "/source-mpy"
+    destination = probe + "/apps"
+    _mkdir_p(source_py)
+    _mkdir_p(source_mpy)
+    _mkdir_p(destination)
+    with open(source_py + "/ManagedApp.py", "w") as handle:
+        handle.write("# managed source app\n")
+    with open(source_py + "/CaseApp.py", "w") as handle:
+        handle.write("# canonical case app\n")
+    with open(source_py + "/caseApp.py", "w") as handle:
+        handle.write("# duplicate case app\n")
+    with open(source_mpy + "/ManagedApp.mpy", "w") as handle:
+        handle.write("managed compiled app\n")
+    with open(source_mpy + "/LocalApp.mpy", "w") as handle:
+        handle.write("compiled source placeholder\n")
+    with open(destination + "/LocalApp.py", "w") as handle:
+        handle.write("# local source app\n")
+    with open(destination + "/LocalApp.mpy", "w") as handle:
+        handle.write("local compiled app\n")
+
+    status = os.system(
+        "ln -sf "
+        + _quote(source_py + "/caseApp.py")
+        + " "
+        + _quote(destination + "/caseApp.py")
+    )
+    if status != 0:
+        _remove_tree(probe)
+        raise RuntimeError("simulator case-duplicate fixture setup failed")
+    sim_runtime._link_app_files_into(source_py, destination)
+    case_entries = [name for name in os.listdir(destination)
+                    if name.lower() == "caseapp.py"]
+    if case_entries != ["CaseApp.py"]:
+        _remove_tree(probe)
+        raise RuntimeError("simulator case-insensitive app duplicate was not removed")
+    merged_names = []
+    seen_names = {}
+    sd_mp._append_unique_names(
+        merged_names, seen_names, ["caseApp.py", "CaseApp.py"]
+    )
+    if merged_names != ["CaseApp.py"]:
+        _remove_tree(probe)
+        raise RuntimeError("simulator FAT directory view exposed case duplicates")
+    status = os.system(
+        "ln -sf "
+        + _quote(source_mpy + "/ManagedApp.mpy")
+        + " "
+        + _quote(destination + "/ManagedApp.mpy")
+    )
+    if status != 0:
+        _remove_tree(probe)
+        raise RuntimeError("simulator duplicate-link fixture setup failed")
+    sim_runtime._link_app_files_into(
+        source_mpy, destination, skip_if_py_exists=True
+    )
+    entries = os.listdir(destination)
+    if "ManagedApp.mpy" in entries:
+        _remove_tree(probe)
+        raise RuntimeError("simulator managed .mpy duplicate was not removed")
+    try:
+        with open(destination + "/LocalApp.mpy", "r") as handle:
+            local_contents = handle.read()
+    except OSError:
+        local_contents = ""
+    if local_contents != "local compiled app\n":
+        _remove_tree(probe)
+        raise RuntimeError("simulator duplicate cleanup removed a local .mpy app")
+    _remove_tree(probe)
+    print("[sim-check:ok] duplicate managed apps pruned, local .mpy preserved")
 
 
 def _run_keyboard_background_check():

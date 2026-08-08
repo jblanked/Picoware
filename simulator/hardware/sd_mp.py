@@ -107,20 +107,24 @@ def list_directory(path=""):
     source = _source_path(path)
     if source:
         try:
-            for name in os.listdir(source):
-                if name not in seen:
-                    names.append(name)
-                    seen[name] = True
+            _append_unique_names(names, seen, os.listdir(source))
         except OSError:
             pass
     try:
-        for name in os.listdir(_path(path)):
-            if name not in seen:
-                names.append(name)
-                seen[name] = True
+        _append_unique_names(names, seen, os.listdir(_path(path)))
     except OSError:
         pass
     return names
+
+
+def _append_unique_names(names, seen, entries):
+    """Merge directory entries using FAT-style case-insensitive names."""
+    entries.sort()
+    for name in entries:
+        normalized = name.lower()
+        if normalized not in seen:
+            names.append(name)
+            seen[normalized] = True
 
 
 def read_directory(path=""):

@@ -30,6 +30,7 @@ private:
     uint16_t ghoulCountSpawned = 0;                                    // number of ghouls spawned so far for the current night
     uint16_t ghoulCountTotal = 0;                                      // total number of ghouls for the current night
     bool isGameRunning = false;                                        // Flag to check if the game is running
+    bool isOnline = false;                                             // Flag to indicate the game is a server-authoritative online session
     int lastInput = -1;                                                // Last input key pressed
     Player *player = nullptr;                                          // Player instance
     bool shouldExit = false;                                           // Flag to signal exit the game
@@ -55,10 +56,10 @@ private:
     bool setSkyType(TimeOfDay timeOfDay); // set the sky instance for day/night cycle
 #endif
 
-    bool spawnGhouls(uint8_t count);     // Spawn ghouls into the current level for the current round
-    bool spawnOneGhoul();                // Spawn a single ghoul and update counters
-    GhoulsLevel *spawnLevel(Game *game); // spawn a new level based on index
-    bool spawnWeapons(Level *level);     // spawn all the weapons into the level
+    bool spawnGhouls(uint8_t count);                                                           // Spawn ghouls into the current level for the current round
+    bool spawnOneGhoul();                                                                      // Spawn a single ghoul and update counters
+    GhoulsLevel *spawnLevel(Game *game, const char *levelName = "Level", bool online = false); // spawn a new level based on index
+    bool spawnWeapons(Level *level);                                                           // spawn all the weapons into the level
 
 public:
     //

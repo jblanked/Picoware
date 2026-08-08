@@ -71,7 +71,7 @@
 #define ENGINE_STORAGE_INCLUDE "../../sd/storage.h"
 #elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
 #define ENGINE_STORAGE_INCLUDE "../sd/storage.h"
-#elif !defined(WAVESHARE_1_28)
+#elif !defined(WAVESHARE_1_28) && !defined(WAVESHARE_1_69)
 #define ENGINE_STORAGE_INCLUDE "../../../sd/storage.h"
 #endif
 #ifdef ENGINE_STORAGE_INCLUDE

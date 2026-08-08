@@ -246,10 +246,44 @@ echo "Waveshare - 1.28 build complete."
 
 echo "MicroPython Picoware Waveshare 1.28 build completed successfully!"
 echo "---------------------------------------"
-echo "Cleaning Waveshare 1.28 modules to prepare for Waveshare 1.43..."
+echo "Cleaning Waveshare 1.28 modules to prepare for Waveshare 1.69..."
 
 # remove existing Waveshare 1.28 modules directory if it exists
-rm -rf "$micropython_dir"/modules/Waveshare 
+rm -rf "$micropython_dir"/modules/Waveshare
+
+# ensure Waveshare 1.69 modules directory exists
+mkdir -p "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.69
+
+# copy waveshare 1.69 modules file to micropython modules directory
+cp "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.69/waveshare_modules.cmake "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.69/waveshare_modules.cmake
+cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.69/waveshare_battery "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.69/waveshare_battery
+cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.69/waveshare_lcd "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.69/waveshare_lcd
+cp -r "$picoware_dir"/src/MicroPython/Waveshare/RP2350-Touch-LCD-1.69/waveshare_touch "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.69/waveshare_touch
+
+# copy waveshare_rp2350_touch_lcd_1.69 boards folder to micropython boards directory
+cp -r "$picoware_dir"/src/MicroPython/boards/WAVESHARE_RP2350_TOUCH_LCD_1_69 "$micropython_dir"/boards
+
+# copy waveshare_rp2350_touch_lcd_1.69.h to PicoSDK boards include directory
+cp "$picoware_dir"/src/MicroPython/boards/WAVESHARE_RP2350_TOUCH_LCD_1_69/waveshare_rp2350_touch_lcd_1.69.h "$micropython_dir"/../../lib/pico-sdk/src/boards/include/boards/
+
+# Clean previous builds
+echo "Cleaning previous builds..."
+cd "$micropython_dir"
+rm -rf build-WAVESHARE_RP2350_TOUCH_LCD_1_69
+
+echo "Starting Waveshare 1.69 build process..."
+
+# Waveshare - 1.69
+make -j BOARD=WAVESHARE_RP2350_TOUCH_LCD_1_69 USER_C_MODULES="$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.69/waveshare_modules.cmake CFLAGS_EXTRA="-DWAVESHARE_1_69"
+cp "$micropython_dir"/build-WAVESHARE_RP2350_TOUCH_LCD_1_69/firmware.uf2 "$picoware_dir"/builds/MicroPython/Picoware-Waveshare-1.69.uf2
+echo "Waveshare - 1.69 build complete."
+
+echo "MicroPython Picoware Waveshare 1.69 build completed successfully!"
+echo "---------------------------------------"
+echo "Cleaning Waveshare 1.69 modules to prepare for Waveshare 1.43..."
+
+# remove existing Waveshare 1.69 modules directory if it exists
+rm -rf "$micropython_dir"/modules/Waveshare
 
 # ensure Waveshare 1.43 modules directory exists
 mkdir -p "$micropython_dir"/modules/Waveshare/RP2350-Touch-LCD-1.43

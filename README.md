@@ -41,6 +41,7 @@ Follow the instructions in the [Installation Guide](./guides/Installation.md) to
 - [Flipper Zero](https://flipper.net/products/flipper-zero)
 - [Waveshare RP2350 1.28inch Round Touch LCD](https://www.waveshare.com/rp2350-touch-lcd-1.28.htm?sku=29075)
 - [Waveshare RP2350 1.43inch AMOLED Display Development Board](https://www.waveshare.com/rp2350-touch-amoled-1.43.htm?sku=30737)
+- [Waveshare RP2350 1.69inch Touch LCD](https://www.waveshare.com/rp2350-touch-lcd-1.69.htm)
 - [Waveshare RP2350 3.49inch Touch LCD](https://www.waveshare.com/rp2350-touch-lcd-3.49.htm?sku=32775)
 - [Elecrow CrowPanel 10.1 inch](https://www.elecrow.com/crowpanel-advanced-10-1inch-esp32-p4-hmi-ai-display-1024x600-ips-touch-screen-wifi-6.html?idd=5)
 - [Marauder Pancake (ESP32-C5)](https://github.com/jblanked/Picoware/tree/main/guides/Pancake.md)

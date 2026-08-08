@@ -92,8 +92,8 @@ micropython run.py --viewer --record /tmp/picoware.frames
 ```
 
 Useful board names include `picocalc-pico2w`, `waveshare-1.28-rp2350`,
-`waveshare-1.43-rp2350`, `waveshare-3.49-rp2350`, `crowpanel-10.1`, and
-`cardputer`.
+`waveshare-1.43-rp2350`, `waveshare-1.69-rp2350`, `waveshare-3.49-rp2350`,
+`crowpanel-10.1`, and `cardputer`.
 
 ### Game Boy controls
 

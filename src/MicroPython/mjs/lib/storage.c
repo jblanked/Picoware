@@ -3,7 +3,7 @@
 #include "py/runtime.h"
 #include "array_buf.h"
 
-#if defined(WAVESHARE_1_28)
+#if defined(WAVESHARE_1_28) || defined(WAVESHARE_1_69)
 #define STORAGE_NOT_AVAILABLE 1
 #else
 #include "../../sd/storage.h"

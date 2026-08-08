@@ -57,6 +57,16 @@ typedef unsigned _int64 uint64_t;
 #include <inttypes.h>
 #endif /* _WIN32 */
 
+/* Some newlib/arm-none-eabi setups pull in the GCC-bundled freestanding
+ * stdint.h ahead of newlib's own, which never runs the bookkeeping that
+ * inttypes.h needs to define these on 32-bit targets. */
+#ifndef PRId64
+#define PRId64 "lld"
+#endif
+#ifndef PRIu64
+#define PRIu64 "llu"
+#endif
+
 #ifndef INT64_FMT
 #define INT64_FMT PRId64
 #endif

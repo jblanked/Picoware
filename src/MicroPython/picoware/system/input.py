@@ -7,6 +7,7 @@ from picoware.system.boards import (
     BOARD_ID,
     BOARD_WAVESHARE_1_28_RP2350,
     BOARD_WAVESHARE_1_43_RP2350,
+    BOARD_WAVESHARE_1_69_RP2350,
     BOARD_WAVESHARE_3_49_RP2350,
     BOARD_WAVESHARE_2_06,
     BOARD_PANCAKE,
@@ -80,6 +81,18 @@ class Input:
             init()
             # set pin
             self.pin = Pin(20, Pin.IN, Pin.PULL_UP)
+            # set callback
+            self.pin.irq(handler=self.__touch_callback, trigger=Pin.IRQ_FALLING)
+
+            self._last_point = (0, 0)
+        elif self._current_board_id == BOARD_WAVESHARE_1_69_RP2350:
+            from machine import Pin
+            from waveshare_touch import init
+
+            # Initialize touch in point mode
+            init()
+            # set pin
+            self.pin = Pin(21, Pin.IN, Pin.PULL_UP)
             # set callback
             self.pin.irq(handler=self.__touch_callback, trigger=Pin.IRQ_FALLING)
 
@@ -392,6 +405,7 @@ class Input:
         elif self._current_board_id not in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_1_69_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
             BOARD_CROWPANEL_10_1,
             BOARD_WAVESHARE_2_06,
@@ -409,6 +423,7 @@ class Input:
         if self._current_board_id in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_1_69_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
             from waveshare_battery import get_percentage
@@ -517,6 +532,7 @@ class Input:
             return self._last_gesture != 0  # 0 is TOUCH_GESTURE_NONE
         if self._current_board_id in (
             BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_1_69_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
             return self._last_point != (0, 0)
@@ -615,6 +631,7 @@ class Input:
 
         if self._current_board_id in (
             BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_1_69_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
             from waveshare_touch import reset_state
@@ -720,6 +737,7 @@ class Input:
 
         elif self._current_board_id in (
             BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_1_69_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
             from waveshare_touch import get_touch_point, reset_state

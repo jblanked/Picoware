@@ -2,6 +2,7 @@ from picoware_boards import (
     BOARD_CROWPANEL_10_1,
     BOARD_ID,
     BOARD_WAVESHARE_1_28_RP2350,
+    BOARD_WAVESHARE_1_69_RP2350,
     BOARD_HAS_ESP32,
     BOARD_FLIPPER_ZERO,
 )
@@ -32,7 +33,7 @@ try:
                 super().__setattr__(name, value)
 
 except ImportError:
-    # waveshare 1.28 and crowpanel
+    # waveshare 1.28, waveshare 1.69, and crowpanel
     pass
 
 
@@ -52,6 +53,7 @@ class Storage:
 
         if BOARD_ID in (
             BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_69_RP2350,
             BOARD_CROWPANEL_10_1,
         ):
             self._has_storage = False

@@ -6,7 +6,7 @@
 #include "../lcd/lcd_config.h"
 #elif defined(PICOCALC) || defined(PIMORONI_PICO_PLUS2W_RP2350)
 #include "../../lcd/lcd_config.h"
-#elif defined(WAVESHARE_1_28) || defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49)
+#elif defined(WAVESHARE_1_28) || defined(WAVESHARE_1_43) || defined(WAVESHARE_1_69) || defined(WAVESHARE_3_49)
 #include "../../../lcd/lcd_config.h"
 #endif
 
@@ -34,6 +34,8 @@ mp_obj_t picoware_boards_get_current_name(void)
     return mp_obj_new_str("Waveshare 1.28", strlen("Waveshare 1.28"));
 #elif defined(WAVESHARE_1_43)
     return mp_obj_new_str("Waveshare 1.43", strlen("Waveshare 1.43"));
+#elif defined(WAVESHARE_1_69)
+    return mp_obj_new_str("Waveshare 1.69", strlen("Waveshare 1.69"));
 #elif defined(WAVESHARE_3_49)
     return mp_obj_new_str("Waveshare 3.49", strlen("Waveshare 3.49"));
 #elif defined(CARDPUTER)
@@ -124,6 +126,9 @@ mp_obj_t picoware_boards_get_name(mp_obj_t board_id_obj)
     case BOARD_WAVESHARE_1_43_RP2350:
         snprintf(board_name, sizeof(board_name), "Waveshare 1.43");
         break;
+    case BOARD_WAVESHARE_1_69_RP2350:
+        snprintf(board_name, sizeof(board_name), "Waveshare 1.69");
+        break;
     case BOARD_WAVESHARE_3_49_RP2350:
         snprintf(board_name, sizeof(board_name), "Waveshare 3.49");
         break;
@@ -177,6 +182,10 @@ mp_obj_t picoware_boards_get_display_size(mp_obj_t board_id_obj)
     case BOARD_WAVESHARE_1_43_RP2350:
         width = 466;
         height = 466;
+        break;
+    case BOARD_WAVESHARE_1_69_RP2350:
+        width = 240;
+        height = 280;
         break;
     case BOARD_WAVESHARE_3_49_RP2350:
         width = 172;
@@ -275,6 +284,7 @@ mp_obj_t picoware_boards_has_touch(mp_obj_t board_id_obj)
     {
     case BOARD_WAVESHARE_1_28_RP2350:
     case BOARD_WAVESHARE_1_43_RP2350:
+    case BOARD_WAVESHARE_1_69_RP2350:
     case BOARD_WAVESHARE_3_49_RP2350:
     case BOARD_WAVESHARE_2_06:
     case BOARD_CROWPANEL_10_1:
@@ -381,6 +391,7 @@ static const mp_rom_map_elem_t picoware_boards_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_BOARD_WAVESHARE_2_06), MP_ROM_INT(BOARD_WAVESHARE_2_06)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_PANCAKE), MP_ROM_INT(BOARD_PANCAKE)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_FLIPPER_ZERO), MP_ROM_INT(BOARD_FLIPPER_ZERO)},
+    {MP_ROM_QSTR(MP_QSTR_BOARD_WAVESHARE_1_69_RP2350), MP_ROM_INT(BOARD_WAVESHARE_1_69_RP2350)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_PSRAM), MP_ROM_INT(BOARD_HAS_PSRAM)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_SD), MP_ROM_INT(BOARD_HAS_SD)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_TOUCH), MP_ROM_INT(BOARD_HAS_TOUCH)},

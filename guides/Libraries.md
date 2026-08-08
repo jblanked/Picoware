@@ -211,6 +211,7 @@ This section provides documentation for the libraries available in Picoware.
 - `BOARD_PICOCALC_PICO_2W`: Board ID for PicoCalc with Pico 2W.
 - `BOARD_WAVESHARE_1_28_RP2350`: Board ID for Waveshare 1.28" RP2350.
 - `BOARD_WAVESHARE_1_43_RP2350`: Board ID for Waveshare 1.43" RP2350.
+- `BOARD_WAVESHARE_1_69_RP2350`: Board ID for Waveshare 1.69" RP2350.
 - `BOARD_WAVESHARE_3_49_RP2350`: Board ID for Waveshare 3.49" RP2350.
 - `BOARD_PICOCALC_PIMORONI_2W`: Board ID for PicoCalc with Pimoroni Pico Plus 2W.
 - `BOARD_ID`: The current board ID integer (read from C module at import time).

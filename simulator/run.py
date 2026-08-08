@@ -36,6 +36,7 @@ _BOARD_DISPLAY_SIZES = {
     "pimoroni-2w": (320, 320),
     "waveshare-1.28-rp2350": (240, 240),
     "waveshare-1.43-rp2350": (466, 466),
+    "waveshare-1.69-rp2350": (240, 280),
     "waveshare-3.49-rp2350": (172, 640),
     "crowpanel-10.1": (1024, 600),
     "crowpanel": (1024, 600),

@@ -228,6 +228,12 @@ def _remove_tree(path):
         try:
             mode = os.stat(child)[0]
         except OSError:
+            # os.stat() fails for a broken symlink.  Remove the link node so
+            # --reset-sd can actually clear persistent simulator fixtures.
+            try:
+                os.remove(child)
+            except OSError:
+                pass
             continue
         if mode & 0x4000:
             _remove_tree(child)
@@ -539,6 +545,7 @@ def _build_native(target, check=False):
 def _run_sim_check(opts):
     """Run the simulator self-check suite."""
     _run_library_route_check()
+    _run_stale_app_link_check(opts)
     commands = (
         "sh "
         + _quote(THIS_DIR + "/build.sh")
@@ -672,6 +679,37 @@ def _run_library_route_check():
     if indices != list(range(len(items))):
         raise RuntimeError("simulator Library route indices are not contiguous")
     print("[sim-check:ok] Library routes synchronized (" + str(len(items)) + " items)")
+
+
+def _run_stale_app_link_check(opts):
+    """Verify persistent SD cleanup removes only broken managed links."""
+    import sim_runtime
+
+    probe = opts["sd"] + "/sim-stale-link-check"
+    broken = probe + "/RemovedApp.py"
+    local = probe + "/LocalApp.py"
+    _mkdir_p(probe)
+    with open(local, "w") as handle:
+        handle.write("# user-installed simulator app\n")
+    status = os.system(
+        "ln -sf "
+        + _quote(ROOT + "/builds/MicroPython/apps_unfrozen/RemovedApp.py")
+        + " "
+        + _quote(broken)
+    )
+    if status != 0 or "RemovedApp.py" not in os.listdir(probe):
+        _remove_tree(probe)
+        raise RuntimeError("simulator stale-link fixture setup failed")
+    sim_runtime._prune_stale_links(probe)
+    entries = os.listdir(probe)
+    if "RemovedApp.py" in entries:
+        _remove_tree(probe)
+        raise RuntimeError("simulator stale app link was not removed")
+    if "LocalApp.py" not in entries:
+        _remove_tree(probe)
+        raise RuntimeError("simulator stale-link cleanup removed a local app")
+    _remove_tree(probe)
+    print("[sim-check:ok] stale app links pruned, local apps preserved")
 
 
 def _run_keyboard_background_check():

@@ -5,6 +5,7 @@
 #include "pico-game-engine/engine/engine.hpp"
 #include <math.h>
 #include <stdio.h>
+#include HTTP_INCLUDE
 
 GhoulsGame::GhoulsGame(const char *username, const char *password, bool soundEnabled)
 {
@@ -74,6 +75,10 @@ void GhoulsGame::endGame()
 {
     shouldExit = true;
     isGameRunning = false;
+    if (isOnline)
+    {
+        HTTP_WEBSOCKET_STOP();
+    }
     isOnline = false; // reset for next game
 }
 

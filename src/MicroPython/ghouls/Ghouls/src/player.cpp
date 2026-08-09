@@ -443,11 +443,11 @@ void Player::drawGameOnlineView(Draw *canvas)
                     */
                     snprintf(inputMsg, sizeof(inputMsg), "{\"username\": \"%s\", \"input\": %d}", this->name, currentInput);
                     HTTP_WEBSOCKET_SEND(inputMsg);
-                    // Prevent the local engine from also moving the player — the server
-                    // position update below is the authoritative source.
+                    // Predict locally, reconcile on echo.
+                    lastPredictionTick = TIME_MILLIS;
                     if (ghoulsGame->getEngine())
                     {
-                        ghoulsGame->getEngine()->updateGameInput(-1);
+                        ghoulsGame->getEngine()->updateGameInput(currentInput);
                     }
                 }
                 else // menu
@@ -2625,16 +2625,20 @@ void Player::updateEntityFromServerLine(Level *currentLevel, const char *line)
     // Server-authoritative player position
     if (strcmp(entity_name, this->name) == 0)
     {
-        position_set(ex, ey, ez);
-        direction.x = e_dir_x;
-        direction.y = e_dir_y;
-        plane.x = e_pl_x;
-        plane.y = e_pl_y;
-        if (has3DSprite())
+        // Reconcile only when idle.
+        if (TIME_MILLIS - lastPredictionTick > PREDICTION_RESYNC_TICKS)
         {
-            float rotation_angle = atan2f(direction.y, direction.x) + M_PI_2;
-            set3DSpriteRotation(rotation_angle);
-            update3DSpritePosition();
+            position_set(ex, ey, ez);
+            direction.x = e_dir_x;
+            direction.y = e_dir_y;
+            plane.x = e_pl_x;
+            plane.y = e_pl_y;
+            if (has3DSprite())
+            {
+                float rotation_angle = atan2f(direction.y, direction.x) + M_PI_2;
+                set3DSpriteRotation(rotation_angle);
+                update3DSpritePosition();
+            }
         }
         return;
     }

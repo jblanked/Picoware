@@ -43,10 +43,12 @@ class Pin:
         self._mode = args[1] if len(args) > 1 else kwargs.get("mode", self.IN)
         self._pull = args[2] if len(args) > 2 else kwargs.get("pull", None)
         self._irq_trigger = None
+        self._irq_hard = False
 
-    def irq(self, handler=None, trigger=None):
+    def irq(self, handler=None, trigger=None, hard=False):
         self._handler = handler
         self._irq_trigger = trigger
+        self._irq_hard = bool(hard)
         if self.id in (11, 20, 21):
             try:
                 import sim_runtime

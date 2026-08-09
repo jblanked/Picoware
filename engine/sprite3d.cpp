@@ -461,42 +461,58 @@ bool Sprite3D::getTransformedTriangle(uint16_t index, const Vector &camera_pos, 
 
     out = *triangles[index];
 
-    // compute sin/cos once for all three vertices
-    const float cos_a = cosf(rotation_y);
-    const float sin_a = sinf(rotation_y);
+    // Fast path: identity rotation/scale (static scenery) -> translate only
+    if (rotation_y == 0.0f && scale_factor == 1.0f)
+    {
+        out.x1 += position.x;
+        out.y1 += position.z;
+        out.z1 += position.y;
+        out.x2 += position.x;
+        out.y2 += position.z;
+        out.z2 += position.y;
+        out.x3 += position.x;
+        out.y3 += position.z;
+        out.z3 += position.y;
+    }
+    else
+    {
+        // compute sin/cos once for all three vertices
+        const float cos_a = cosf(rotation_y);
+        const float sin_a = sinf(rotation_y);
 
-    // Vertex 1
-    out.x1 *= scale_factor;
-    out.y1 *= scale_factor;
-    out.z1 *= scale_factor;
-    float ox = out.x1;
-    out.x1 = ox * cos_a - out.z1 * sin_a;
-    out.z1 = ox * sin_a + out.z1 * cos_a;
-    out.x1 += position.x;
-    out.y1 += position.z;
-    out.z1 += position.y;
+        // Vertex 1
+        out.x1 *= scale_factor;
+        out.y1 *= scale_factor;
+        out.z1 *= scale_factor;
+        float ox = out.x1;
+        out.x1 = ox * cos_a - out.z1 * sin_a;
+        out.z1 = ox * sin_a + out.z1 * cos_a;
+        out.x1 += position.x;
+        out.y1 += position.z;
+        out.z1 += position.y;
 
-    // Vertex 2
-    out.x2 *= scale_factor;
-    out.y2 *= scale_factor;
-    out.z2 *= scale_factor;
-    ox = out.x2;
-    out.x2 = ox * cos_a - out.z2 * sin_a;
-    out.z2 = ox * sin_a + out.z2 * cos_a;
-    out.x2 += position.x;
-    out.y2 += position.z;
-    out.z2 += position.y;
+        // Vertex 2
+        out.x2 *= scale_factor;
+        out.y2 *= scale_factor;
+        out.z2 *= scale_factor;
+        ox = out.x2;
+        out.x2 = ox * cos_a - out.z2 * sin_a;
+        out.z2 = ox * sin_a + out.z2 * cos_a;
+        out.x2 += position.x;
+        out.y2 += position.z;
+        out.z2 += position.y;
 
-    // Vertex 3
-    out.x3 *= scale_factor;
-    out.y3 *= scale_factor;
-    out.z3 *= scale_factor;
-    ox = out.x3;
-    out.x3 = ox * cos_a - out.z3 * sin_a;
-    out.z3 = ox * sin_a + out.z3 * cos_a;
-    out.x3 += position.x;
-    out.y3 += position.z;
-    out.z3 += position.y;
+        // Vertex 3
+        out.x3 *= scale_factor;
+        out.y3 *= scale_factor;
+        out.z3 *= scale_factor;
+        ox = out.x3;
+        out.x3 = ox * cos_a - out.z3 * sin_a;
+        out.z3 = ox * sin_a + out.z3 * cos_a;
+        out.x3 += position.x;
+        out.y3 += position.z;
+        out.z3 += position.y;
+    }
 
     // Back-face culling: check if triangle faces the camera
     {
@@ -577,6 +593,46 @@ void Sprite3D::setWireframe(bool wireframe)
             triangles[i]->wireframe = wireframe;
         }
     }
+}
+
+bool Sprite3D::bakeTransform()
+{
+    if (rotation_y == 0.0f && scale_factor == 1.0f)
+        return true;
+
+    const float cos_a = cosf(rotation_y);
+    const float sin_a = sinf(rotation_y);
+
+    for (uint16_t i = 0; i < triangle_count; i++)
+    {
+        Triangle3D *t = triangles[i];
+        if (!t)
+            continue;
+
+        t->x1 *= scale_factor;
+        t->y1 *= scale_factor;
+        t->z1 *= scale_factor;
+        t->x2 *= scale_factor;
+        t->y2 *= scale_factor;
+        t->z2 *= scale_factor;
+        t->x3 *= scale_factor;
+        t->y3 *= scale_factor;
+        t->z3 *= scale_factor;
+
+        float ox = t->x1;
+        t->x1 = ox * cos_a - t->z1 * sin_a;
+        t->z1 = ox * sin_a + t->z1 * cos_a;
+        ox = t->x2;
+        t->x2 = ox * cos_a - t->z2 * sin_a;
+        t->z2 = ox * sin_a + t->z2 * cos_a;
+        ox = t->x3;
+        t->x3 = ox * cos_a - t->z3 * sin_a;
+        t->z3 = ox * sin_a + t->z3 * cos_a;
+    }
+
+    rotation_y = 0.0f;
+    scale_factor = 1.0f;
+    return true;
 }
 
 bool Sprite3D::toPath(const char *path) const

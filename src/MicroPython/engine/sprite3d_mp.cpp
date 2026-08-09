@@ -446,6 +446,15 @@ mp_obj_t sprite3d_mp_to_path(mp_obj_t self_in, mp_obj_t path_obj)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(sprite3d_mp_to_path_obj, sprite3d_mp_to_path);
 
+mp_obj_t sprite3d_mp_bake_transform(mp_obj_t self_in)
+{
+    sprite3d_mp_obj_t *self = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Sprite3D *ctx = sprite3d_get_context(self);
+    ctx->bakeTransform();
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(sprite3d_mp_bake_transform_obj, sprite3d_mp_bake_transform);
+
 static const mp_rom_map_elem_t sprite3d_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_add_triangle), MP_ROM_PTR(&sprite3d_mp_add_triangle_obj)},
     {MP_ROM_QSTR(MP_QSTR_clear_triangles), MP_ROM_PTR(&sprite3d_mp_clear_triangles_obj)},
@@ -470,6 +479,7 @@ static const mp_rom_map_elem_t sprite3d_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_set_wireframe), MP_ROM_PTR(&sprite3d_mp_set_wireframe_obj)},
     {MP_ROM_QSTR(MP_QSTR_from_path), MP_ROM_PTR(&sprite3d_mp_from_path_obj)},
     {MP_ROM_QSTR(MP_QSTR_to_path), MP_ROM_PTR(&sprite3d_mp_to_path_obj)},
+    {MP_ROM_QSTR(MP_QSTR_bake_transform), MP_ROM_PTR(&sprite3d_mp_bake_transform_obj)},
 
     {MP_ROM_QSTR(MP_QSTR_MAX_TRIANGLES_PER_SPRITE), MP_ROM_INT(ENGINE_MAX_TRIANGLES_PER_SPRITE)},
 

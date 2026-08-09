@@ -138,6 +138,7 @@ bool GhoulsLevel::initializeSprites()
         return false;
     }
     houseSprite->initializeAsHouse(Vector(), 3.0f, 3.0f, 0.0f, mapData.houseColor, WIREFRAME_ENABLED);
+    houseSprite->bakeTransform();
 
     // tree
     treeSprite = ENGINE_MEM_NEW Sprite3D();
@@ -147,6 +148,7 @@ bool GhoulsLevel::initializeSprites()
         return false;
     }
     treeSprite->initializeAsTree(Vector(), 4.0f, mapData.treeColor, WIREFRAME_ENABLED);
+    treeSprite->bakeTransform();
 
     // horizontal wall (top/bottom borders: len = MAP_WIDTH, rotation = 0)
     wallSprite = ENGINE_MEM_NEW Sprite3D();
@@ -159,6 +161,7 @@ bool GhoulsLevel::initializeSprites()
     wallSprite->setRotation(0.0f);
     wallSprite->createWall(0, 0.75f, 0, (float)MAP_WALL_LENGTH, MAP_WALL_HEIGHT, MAP_WALL_DEPTH, mapData.wallColor, WIREFRAME_ENABLED);
     wallSprite->setActive(true);
+    wallSprite->bakeTransform();
 
     // vertical wall (left/right borders: segment width = 8, rotation = pi/2)
     vWallSprite = ENGINE_MEM_NEW Sprite3D();
@@ -171,6 +174,7 @@ bool GhoulsLevel::initializeSprites()
     vWallSprite->setRotation((float)(M_PI / 2.0));
     vWallSprite->createWall(0, 0.75f, 0, (float)MAP_WALL_LENGTH, MAP_WALL_HEIGHT, MAP_WALL_DEPTH, mapData.wallColor, WIREFRAME_ENABLED);
     vWallSprite->setActive(true);
+    vWallSprite->bakeTransform();
 
     return true;
 }

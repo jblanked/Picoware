@@ -10,25 +10,20 @@ Sky::~Sky()
     // nothing to do...
 }
 
-void Sky::drawGradientSky(Draw *draw,
-                          uint8_t topR, uint8_t topG, uint8_t topB,
-                          uint8_t horizR, uint8_t horizG, uint8_t horizB)
+void Sky::computeBands()
 {
-    const int drdy = ((horizR - topR) * FIXED_POINT_SCALE) / SKY_HORIZON_HEIGHT;
-    const int dgdy = ((horizG - topG) * FIXED_POINT_SCALE) / SKY_HORIZON_HEIGHT;
-    const int dbdy = ((horizB - topB) * FIXED_POINT_SCALE) / SKY_HORIZON_HEIGHT;
+    const int drdy = ((gradient.horizR - gradient.layerR) * FIXED_POINT_SCALE) / SKY_HORIZON_HEIGHT;
+    const int dgdy = ((gradient.horizG - gradient.layerG) * FIXED_POINT_SCALE) / SKY_HORIZON_HEIGHT;
+    const int dbdy = ((gradient.horizB - gradient.layerB) * FIXED_POINT_SCALE) / SKY_HORIZON_HEIGHT;
 
-    int r = topR * FIXED_POINT_SCALE;
-    int g = topG * FIXED_POINT_SCALE;
-    int b = topB * FIXED_POINT_SCALE;
+    int r = gradient.layerR * FIXED_POINT_SCALE;
+    int g = gradient.layerG * FIXED_POINT_SCALE;
+    int b = gradient.layerB * FIXED_POINT_SCALE;
 
+    bandCount = 0;
     for (int y = 0; y < SKY_HORIZON_HEIGHT; y += SKY_HORIZON_ROWS)
     {
-        uint16_t color = makeRGB565(r >> 8, g >> 8, b >> 8);
-
-        // Draw SKY_HORIZON_ROWS rows with the same color
-        int height = (y + SKY_HORIZON_ROWS < SKY_HORIZON_HEIGHT) ? SKY_HORIZON_ROWS : SKY_HORIZON_HEIGHT - y;
-        draw->fillRectangle(0, y, ENGINE_LCD_WIDTH, height, color);
+        bandColors[bandCount++] = makeRGB565(r >> 8, g >> 8, b >> 8);
 
         r += drdy * SKY_HORIZON_ROWS;
         g += dgdy * SKY_HORIZON_ROWS;
@@ -43,14 +38,20 @@ uint16_t Sky::makeRGB565(uint8_t r, uint8_t g, uint8_t b)
 
 void Sky::render(Draw *draw)
 {
-    drawGradientSky(draw,
-                    gradient.layerR, gradient.layerG, gradient.layerB,
-                    gradient.horizR, gradient.horizG, gradient.horizB);
+    if (bandCount == 0)
+        computeBands();
+
+    for (int y = 0, i = 0; i < bandCount; i++, y += SKY_HORIZON_ROWS)
+    {
+        int height = (y + SKY_HORIZON_ROWS < SKY_HORIZON_HEIGHT) ? SKY_HORIZON_ROWS : SKY_HORIZON_HEIGHT - y;
+        draw->fillRectangle(0, y, ENGINE_LCD_WIDTH, height, bandColors[i]);
+    }
 }
 
 void Sky::setSky(gradient_color_t skyGradient)
 {
     this->gradient = skyGradient;
+    computeBands();
 }
 
 void Sky::setSkyType(SkyType skyType)
@@ -90,6 +91,7 @@ void Sky::setSkyType(SkyType skyType)
     default:
         break;
     };
+    computeBands();
 }
 
 void Sky::tick()

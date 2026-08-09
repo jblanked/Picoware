@@ -23,9 +23,9 @@ public:
 private:
     gradient_color_t gradient;
     uint32_t time;
+    uint16_t bandColors[GROUND_MAX_BANDS]; // cached gradient band colors
+    uint8_t bandCount = 0;                 // number of cached bands
 
-    void drawGradientGround(Draw *draw,
-                            uint8_t horizR, uint8_t horizG, uint8_t horizB,
-                            uint8_t botR, uint8_t botG, uint8_t botB);
+    void computeBands(); // cache the gradient band colors
     uint16_t makeRGB565(uint8_t r, uint8_t g, uint8_t b);
 };

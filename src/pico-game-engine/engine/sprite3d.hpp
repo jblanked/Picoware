@@ -59,5 +59,6 @@ public:
     void setRotation(float rot) { rotation_y = rot; }
     void setScale(float scale) { scale_factor = scale; }
     void setWireframe(bool wireframe);
+    bool bakeTransform(); // bake rotation/scale into stored triangles
     bool toPath(const char *path) const;
 };

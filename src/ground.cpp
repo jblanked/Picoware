@@ -10,26 +10,22 @@ Ground::~Ground()
     // nothing to do...
 }
 
-void Ground::drawGradientGround(Draw *draw,
-                                uint8_t horizR, uint8_t horizG, uint8_t horizB,
-                                uint8_t botR, uint8_t botG, uint8_t botB)
+void Ground::computeBands()
 {
-    const uint16_t groundHeight = (uint16_t)draw->getDisplaySize().y - GROUND_HORIZON_HEIGHT;
+    const uint16_t groundHeight = (uint16_t)ENGINE_LCD_HEIGHT - GROUND_HORIZON_HEIGHT;
 
-    const int drdy = ((botR - horizR) * FIXED_POINT_SCALE) / groundHeight;
-    const int dgdy = ((botG - horizG) * FIXED_POINT_SCALE) / groundHeight;
-    const int dbdy = ((botB - horizB) * FIXED_POINT_SCALE) / groundHeight;
+    const int drdy = ((gradient.layerR - gradient.horizR) * FIXED_POINT_SCALE) / groundHeight;
+    const int dgdy = ((gradient.layerG - gradient.horizG) * FIXED_POINT_SCALE) / groundHeight;
+    const int dbdy = ((gradient.layerB - gradient.horizB) * FIXED_POINT_SCALE) / groundHeight;
 
-    int r = horizR * FIXED_POINT_SCALE;
-    int g = horizG * FIXED_POINT_SCALE;
-    int b = horizB * FIXED_POINT_SCALE;
+    int r = gradient.horizR * FIXED_POINT_SCALE;
+    int g = gradient.horizG * FIXED_POINT_SCALE;
+    int b = gradient.horizB * FIXED_POINT_SCALE;
 
+    bandCount = 0;
     for (int y = 0; y < groundHeight; y += GROUND_ROWS)
     {
-        uint16_t color = makeRGB565(r >> 8, g >> 8, b >> 8);
-
-        int height = (y + GROUND_ROWS < groundHeight) ? GROUND_ROWS : groundHeight - y;
-        draw->fillRectangle(0, GROUND_HORIZON_HEIGHT + y, ENGINE_LCD_WIDTH, height, color);
+        bandColors[bandCount++] = makeRGB565(r >> 8, g >> 8, b >> 8);
 
         r += drdy * GROUND_ROWS;
         g += dgdy * GROUND_ROWS;
@@ -44,14 +40,21 @@ uint16_t Ground::makeRGB565(uint8_t r, uint8_t g, uint8_t b)
 
 void Ground::render(Draw *draw)
 {
-    drawGradientGround(draw,
-                       gradient.horizR, gradient.horizG, gradient.horizB,
-                       gradient.layerR, gradient.layerG, gradient.layerB);
+    if (bandCount == 0)
+        computeBands();
+
+    const uint16_t groundHeight = (uint16_t)ENGINE_LCD_HEIGHT - GROUND_HORIZON_HEIGHT;
+    for (int y = 0, i = 0; i < bandCount; i++, y += GROUND_ROWS)
+    {
+        int height = (y + GROUND_ROWS < groundHeight) ? GROUND_ROWS : groundHeight - y;
+        draw->fillRectangle(0, GROUND_HORIZON_HEIGHT + y, ENGINE_LCD_WIDTH, height, bandColors[i]);
+    }
 }
 
 void Ground::setGround(gradient_color_t groundGradient)
 {
     this->gradient = groundGradient;
+    computeBands();
 }
 
 void Ground::setGroundType(GroundType groundType)
@@ -91,6 +94,7 @@ void Ground::setGroundType(GroundType groundType)
     default:
         break;
     };
+    computeBands();
 }
 
 void Ground::tick()

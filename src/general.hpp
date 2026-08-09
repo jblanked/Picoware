@@ -61,6 +61,9 @@
 #define GROUND_ROWS 4
 #endif
 
+#define SKY_MAX_BANDS (SKY_HORIZON_HEIGHT / SKY_HORIZON_ROWS + 1)  // max cached sky gradient bands
+#define GROUND_MAX_BANDS (GROUND_HORIZON_HEIGHT / GROUND_ROWS + 1) // max cached ground gradient bands
+
 #ifndef FIELD_OF_VIEW
 #define FIELD_OF_VIEW 30 // see up to 30 around us
 #define FIELD_OF_VIEW_SQUARED 900

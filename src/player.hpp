@@ -126,6 +126,8 @@ private:
     OnlineGameState onlineGameState = OnlineStateIdle;                      // online game connection state
     char onlineGameId[37] = {0};                                            // UUID of the active game session
     uint16_t onlinePort = 0;                                                // WebSocket port assigned by the server
+    static const uint32_t PREDICTION_RESYNC_TICKS = 5000;                   // prediction resync threshold in ticks
+    uint32_t lastPredictionTick = 0;                                        // tick of last predicted input
     bool pendingStatsUpdate = false;                                        // deferred stats update flag
     lobby_entry_t lobbyEntries[MAX_LOBBY_ENTRIES];                          // list of available online game sessions loaded for browsing/joining
     int lobbyCount = 0;                                                     // number of available online game sessions loaded into lobbyEntries

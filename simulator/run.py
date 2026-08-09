@@ -604,6 +604,12 @@ def _run_sim_check(opts):
         + _quote(opts["apps_source"]),
         "micropython "
         + _quote(THIS_DIR + "/run.py")
+        + " --headless --board waveshare-1.69-rp2350 --frames 30 --wait-view desktop_view --audio silent --network offline --sd "
+        + _quote(opts["sd"])
+        + " --apps-source "
+        + _quote(opts["apps_source"]),
+        "micropython "
+        + _quote(THIS_DIR + "/run.py")
         + " --headless --board waveshare-2.06 --frames 30 --wait-view desktop_view --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
@@ -640,6 +646,7 @@ def _run_sim_check(opts):
     _run_font_parity_check()
     _run_scripts_fixture_check(opts)
     _run_touch_check()
+    _run_waveshare_169_check()
     _run_v8_battery_check()
     _run_flipper_battery_check()
     _run_log_storage_check(opts)
@@ -1017,7 +1024,21 @@ def _run_board_parity_check():
         raise RuntimeError("simulator V8 audio capability mismatch")
     if boards.has_psram(boards.BOARD_V8):
         raise RuntimeError("simulator V8 PSRAM capability mismatch")
-    print("[sim-check:ok] V8 board profile and capabilities")
+    if boards.get_name(boards.BOARD_WAVESHARE_1_69_RP2350) != "Waveshare 1.69":
+        raise RuntimeError("simulator Waveshare 1.69 board name mismatch")
+    if boards.get_display_size(boards.BOARD_WAVESHARE_1_69_RP2350) != (240, 280):
+        raise RuntimeError("simulator Waveshare 1.69 display size mismatch")
+    if boards.has_sd_card(boards.BOARD_WAVESHARE_1_69_RP2350):
+        raise RuntimeError("simulator Waveshare 1.69 SD capability mismatch")
+    if not boards.has_touch(boards.BOARD_WAVESHARE_1_69_RP2350):
+        raise RuntimeError("simulator Waveshare 1.69 touch capability mismatch")
+    if boards.has_wifi(boards.BOARD_WAVESHARE_1_69_RP2350):
+        raise RuntimeError("simulator Waveshare 1.69 WiFi capability mismatch")
+    if boards.has_audio(boards.BOARD_WAVESHARE_1_69_RP2350):
+        raise RuntimeError("simulator Waveshare 1.69 audio capability mismatch")
+    if boards.has_psram(boards.BOARD_WAVESHARE_1_69_RP2350):
+        raise RuntimeError("simulator Waveshare 1.69 PSRAM capability mismatch")
+    print("[sim-check:ok] V8 and Waveshare 1.69 board profiles and capabilities")
 
 
 def _run_touch_check():
@@ -1102,6 +1123,49 @@ def _run_v8_battery_check():
     finally:
         sim_runtime.set_battery_percentage(original_percentage)
     print("[sim-check:ok] V8 battery percentage and voltage")
+
+
+def _run_waveshare_169_check():
+    """Exercise the Waveshare 1.69 hard-IRQ touch and battery shims."""
+    from machine import Pin
+    import sim_runtime
+    import waveshare_battery
+    import waveshare_touch
+
+    original_percentage = sim_runtime.battery_percentage()
+    pin = Pin(21, Pin.IN, Pin.PULL_UP)
+    try:
+        waveshare_touch.reset_state()
+        pin.irq(
+            handler=waveshare_touch.read_data,
+            trigger=Pin.IRQ_FALLING,
+            hard=True,
+        )
+        waveshare_touch.set_touch_point(120, 140)
+        if waveshare_touch.get_cached_point() != (120, 140):
+            raise RuntimeError("simulator Waveshare 1.69 cached touch mismatch")
+        if not pin._irq_hard:
+            raise RuntimeError("simulator Waveshare 1.69 hard IRQ flag mismatch")
+        waveshare_touch.reset()
+        if waveshare_touch.get_cached_point() != (0, 0):
+            raise RuntimeError("simulator Waveshare 1.69 touch reset mismatch")
+
+        if waveshare_battery.init() is not None:
+            raise RuntimeError("simulator Waveshare battery init return mismatch")
+        sim_runtime.set_battery_percentage(64)
+        if waveshare_battery.get_percentage() != 64:
+            raise RuntimeError("simulator Waveshare battery percentage mismatch")
+        voltage = waveshare_battery.get_voltage()
+        if voltage < 3.0 or voltage > 5.0:
+            raise RuntimeError("simulator Waveshare battery voltage mismatch")
+        raw = waveshare_battery.read()
+        if raw < 0 or raw > 4095:
+            raise RuntimeError("simulator Waveshare battery ADC mismatch")
+    finally:
+        pin.irq(handler=None)
+        waveshare_touch.reset_state()
+        sim_runtime.set_battery_percentage(original_percentage)
+    print("[sim-check:ok] Waveshare 1.69 hard IRQ touch and battery")
 
 
 def _run_flipper_battery_check():

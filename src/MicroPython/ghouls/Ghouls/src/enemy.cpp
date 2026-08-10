@@ -106,16 +106,26 @@ bool Enemy::moveWithAvoidance(Game *game, float move_x, float move_y)
 
 Vector Enemy::getPlayerPosition(Game *game)
 {
-    // Find the player entity in the current level
+    // Target the nearest player entity (multiplayer-aware).
+    Vector best = this->end_position;
+    float bestDistSq = -1.0f;
     for (int i = 0; i < game->current_level->getEntityCount(); i++)
     {
         Entity *entity = game->current_level->getEntity(i);
-        if (entity->is_player)
+        if (!entity || !entity->is_player)
         {
-            return entity->position;
+            continue;
+        }
+        const float dx = entity->position.x - this->position.x;
+        const float dy = entity->position.y - this->position.y;
+        const float d = dx * dx + dy * dy;
+        if (bestDistSq < 0.0f || d < bestDistSq)
+        {
+            bestDistSq = d;
+            best = entity->position;
         }
     }
-    return this->end_position;
+    return best;
 }
 
 void Enemy::update(Game *game)

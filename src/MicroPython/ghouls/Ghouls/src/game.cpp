@@ -298,11 +298,16 @@ void GhoulsGame::makeGhoulsGoToPlayer()
     }
 }
 
-void GhoulsGame::onGhoulDied()
+void GhoulsGame::onGhoulDied(const char *ghoulName)
 {
     if (isOnline)
     {
-        return; // online ghouls are server-managed
+        // Tell the server to remove the locally-killed ghoul.
+        if (player)
+        {
+            player->addPendingGhoulKill(ghoulName);
+        }
+        return;
     }
     if (ghoulCountCurrent > 0)
     {
@@ -612,6 +617,10 @@ bool GhoulsGame::startGameOnline()
 
     // Online level; entities come from the server.
     isOnline = true;
+    if (player)
+    {
+        player->clearPendingGhoulKills();
+    }
     Level *initialLevel = spawnLevel(game, "Online", true);
     if (!initialLevel)
     {

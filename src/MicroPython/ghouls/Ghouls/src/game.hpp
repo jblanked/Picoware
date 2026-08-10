@@ -79,7 +79,8 @@ public:
     bool isActive() const { return shouldExit == false; } // Check if the game is active
     bool isDay() const;                                   // Check if it's currently day time in the game
     bool isRunning() const { return isGameRunning; }      // Check if the game engine is running
-    void onGhoulDied();                                   // Called when a ghoul dies; spawns a replacement if round total not yet reached
+    bool isOnlineGame() const { return isOnline; }        // Check if the game is online
+    void onGhoulDied(const char *ghoulName = nullptr);    // Called when a ghoul dies; spawns a replacement if round total not yet reached
     void resetInput() { lastInput = -1; }                 // Reset input after processing
     void setSelectedMapFile(const char *filename);        // set the map file to use when starting the next local game
     bool soundAllowed() const;                            // Check if sound is allowed based on player settings

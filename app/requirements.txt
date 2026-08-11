@@ -8,3 +8,4 @@ pygame==2.6.1
 pyinstaller==6.21.0
 pyinstaller-hooks-contrib==2026.6
 pyserial==3.5
+mpremote==1.28.0

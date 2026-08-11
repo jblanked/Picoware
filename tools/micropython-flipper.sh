@@ -72,6 +72,7 @@ for module_path in \
     sd \
     jsmn \
     mjs \
+    mmbasic \
     vt \
     textbox \
     usb_video \
@@ -112,6 +113,7 @@ stage_module_dir "response"
 stage_module_dir "picoware_boards"
 stage_module_dir "jsmn"
 stage_module_dir "mjs"
+stage_module_dir "mmbasic"
 stage_module_dir "engine"
 stage_module_dir "textbox"
 stage_module_dir "usb_video"

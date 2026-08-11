@@ -1,0 +1,13 @@
+#pragma once
+#include "mbs_util.h"
+#include "mbs_num.h"
+#include "mbs_rnd.h"
+#include "mbs_host.h"
+#include "mbs_lexer.h"
+#include "mbs_nodes.h"
+#include "mbs_parser.h"
+#include "mbs_console.h"
+#include "mbs_gfx.h"
+#include "mbs_runtime.h"
+#include "mbs_builtins.h"
+#include "mbs_interp.h"

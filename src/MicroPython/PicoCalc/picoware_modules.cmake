@@ -533,3 +533,32 @@ target_link_libraries(usermod INTERFACE usermod_websocket)
 
 # Include mjs module
 include(${CMAKE_CURRENT_LIST_DIR}/../mjs/micropython.cmake)
+
+# Include mmbasic module (MBASIC interpreter)
+add_library(usermod_mmbasic INTERFACE)
+
+target_sources(usermod_mmbasic INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../mmbasic/mmbasic_mp.c
+    ${CMAKE_CURRENT_LIST_DIR}/../mmbasic/lib/mbs_util.c
+    ${CMAKE_CURRENT_LIST_DIR}/../mmbasic/lib/mbs_num.c
+    ${CMAKE_CURRENT_LIST_DIR}/../mmbasic/lib/mbs_rnd.c
+    ${CMAKE_CURRENT_LIST_DIR}/../mmbasic/lib/mbs_lexer.c
+    ${CMAKE_CURRENT_LIST_DIR}/../mmbasic/lib/mbs_nodes.c
+    ${CMAKE_CURRENT_LIST_DIR}/../mmbasic/lib/mbs_parser.c
+    ${CMAKE_CURRENT_LIST_DIR}/../mmbasic/lib/mbs_runtime.c
+    ${CMAKE_CURRENT_LIST_DIR}/../mmbasic/lib/mbs_builtins.c
+    ${CMAKE_CURRENT_LIST_DIR}/../mmbasic/lib/mbs_console.c
+    ${CMAKE_CURRENT_LIST_DIR}/../mmbasic/lib/mbs_gfx.c
+    ${CMAKE_CURRENT_LIST_DIR}/../mmbasic/lib/mbs_interp.c
+)
+
+target_include_directories(usermod_mmbasic INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/../mmbasic
+    ${CMAKE_CURRENT_LIST_DIR}/../mmbasic/lib
+    ${CMAKE_CURRENT_LIST_DIR}/../lcd
+    ${CMAKE_CURRENT_LIST_DIR}/../log
+    ${CMAKE_CURRENT_LIST_DIR}/../sd
+)
+
+target_link_libraries(usermod INTERFACE usermod_mmbasic)
+target_link_libraries(usermod_mmbasic INTERFACE usermod_lcd usermod_log usermod_sd)

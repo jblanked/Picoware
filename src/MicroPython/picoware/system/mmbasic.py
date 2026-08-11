@@ -1,96 +1,57 @@
-from picoware.system.buttons import (
-    BUTTON_BACK,
-    BUTTON_CENTER,
-    BUTTON_BACKSPACE,
-)
-from picoware.system.basic.interpreter import Interpreter
-from picoware.system.basic.runtime import Runtime
-from picoware.system.basic.parser import parse_source, create_default_def_type_map
+from micropython import const
+from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER, BUTTON_BACKSPACE
+import mmbasic
 
-class MMBasic:
-    """MMBasic interpreter"""
-    __slots__ = ("_view_manager", "_console", "_gfx", "_interpreter",
-                 "_script", "_error", "_def_type_map", "_over")
-    def __init__(self, view_manager, definition_type_map=None):
-        from picoware.system.basic import io, gfx
+_STATUS_ENDED = const(1)
+_STATUS_STOPPED = const(2)
+_STATUS_ERROR = const(4)
 
+class MMBasic(mmbasic.MMBasic):
+    """A class representing the MMBasic interpreter for Picoware."""
+
+    __slots__ = ("_engine", "_view_manager", "_over", "_present_countdown", "_present_ticks")
+
+    def __init__(self, view_manager, present_ticks:int=20):
+        """
+        Parameters
+        ----------
+        view_manager : ViewManager
+            The ViewManager instance for the app.
+        present_ticks : int, optional
+            The number of ticks between graphics screen updates (default is 20). Lower values make graphics more responsive but may reduce performance.
+        """
         self._view_manager = view_manager
-        self._console = io.PicowareConsole(view_manager)
-        self._console.footer = "BACK=exit"
-        self._gfx = gfx.PicowareGraphics(view_manager)
-        self._interpreter = None
-        self._script = None
-        self._error = None
-        self._def_type_map = definition_type_map
+        draw = view_manager.draw
+        super().__init__(
+            view_manager.foreground_color,
+            view_manager.background_color,
+            view_manager.selected_color,
+            draw.size.x,
+            draw.size.y,
+            draw.font_size.x,
+            draw.font_size.y,
+            draw._background,
+            draw._font_default.size,
+        )
         self._over = False
+        self._present_countdown = 1
+        self._present_ticks = present_ticks
 
-    def __del__(self):
-        """Cleanup"""
-        self._view_manager = None
-        del self._console
-        self._console = None
-        del self._gfx
-        self._gfx = None
-        del self._interpreter
-        self._interpreter = None
-        self._script = None
-        self._error = None
-        self._def_type_map = None
-        self._over = False
-
+    @property
     def is_over(self) -> bool:
         """True when the program has reached a terminal state (END/STOP)."""
         return self._over
 
-    def has_graphics(self) -> bool:
-        """True once the program has drawn to the graphics screen."""
-        return self._gfx is not None and self._gfx.has_drawn
-
-    def _feed_button(self, button: int):
-        """Route a button press into the interpreter as input."""
-        interp = self._interpreter
-
+    def _feed_button(self, button):
         if button == BUTTON_BACKSPACE:
-            interp.feed_char("\b")
+            self.feed_char("\b")
             return
         if button == BUTTON_CENTER:
-            interp.feed_char("\n")
+            self.feed_char("\n")
             return
         char = self._view_manager.input_manager.button_to_char(button)
         if char:
-            interp.feed_char(char)
-
-    def _load(self, source):
-        """Parse the source; raises ParseError/LexerError on bad input."""
-        self._script = source
-        program = parse_source(source, def_type_map=self._def_type_map)
-        runtime = Runtime(program, def_type_map=self._def_type_map or
-                            create_default_def_type_map())
-        self._interpreter = Interpreter(runtime, console=self._console, gfx=self._gfx)
-        self._error = None
-        self._over = False
-        return self
-
-    def start(self, source: str = None, path: str = None) -> bool:
-        """Run the provided MMBasic source code."""
-        if source is None and path is None:
-            return False
-        if source is not None:
-            self._load(source)
-        elif path is not None:
-            s = self._view_manager.storage
-            if not s or not s.exists(path):
-                return False
-            self._load(s.read(path))
-
-        self._over = False
-        self._interpreter.start()
-        self._console.footer = "BACK=exit"
-        self._console.output("MMBasic 6.03  (Picoware)")
-        self._console.output("-----------------------")
-        self._console.output("")
-        self._console.render()
-        return True
+            self.feed_char(char)
 
     def run(self) -> bool:
         """Poll buttons, tick the interpreter, redraw the console/graphics.
@@ -100,41 +61,43 @@ class MMBasic:
         their final image on screen (the app shows it until BACK is pressed).
         """
         button = self._view_manager.input_manager.button
-
         if button != -1:
             self._view_manager.input_manager.reset()
             if button == BUTTON_BACK:
                 return False
             self._feed_button(button)
 
-        state = self._interpreter.tick(max_statements=0, max_time_ms=5)
+        status, message, line = self.tick(5)
 
-        if state.status == "error":
-            self._console.output("")
-            self._console.output("? " + state.message + " (line " + str(state.line) + ")")
-            self._console.footer = "Back to exit"
-            self._console.render()
+        if status == _STATUS_ERROR:
+            self.console_output("")
+            self.console_output("? %s (line %d)" % (message, line))
+            self.set_footer("Back to exit")
+            self.render(True)
             return True
-        if state.status == "ended":
+        if status == _STATUS_ENDED:
             self._over = True
-            self._console.footer = "Program ended - back to exit"
-            if self._gfx.has_drawn:
-                self._gfx.present()
-            else:
-                self._console.render()
+            self.set_footer("Program ended - back to exit")
+            self.render(True)
             return False
-        if state.status == "stopped":
+        if status == _STATUS_STOPPED:
             self._over = True
-            self._console.footer = "Break - back to exit"
-            if self._gfx.has_drawn:
-                self._gfx.present()
-            else:
-                self._console.render()
+            self.set_footer("Break - back to exit")
+            self.render(True)
             return False
-
-        self._console.set_input_active(self._interpreter.is_input_pending())
-        if self._gfx.has_drawn:
-            self._gfx.present()
+        if self.has_graphics:
+            self._present_countdown -= 1
+            if self._present_countdown <= 0:
+                self.render(False)
+                self._present_countdown = self._present_ticks
         else:
-            self._console.render()
+            self.render(False)  # console text needs every-loop render
         return True
+
+    def start(self, source=None, path=None) -> bool:
+        """Run the provided MMBasic source code."""
+        if self._start(source=source, path=path):
+            self._over = False
+            return True
+        self._over = True
+        return False

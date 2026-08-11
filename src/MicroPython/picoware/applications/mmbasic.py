@@ -75,7 +75,7 @@ def run(view_manager) -> None:
 
     if _state == STATE_RUNNING:
         if _mmbasic is None or not _mmbasic.run():
-            if _mmbasic is not None and _mmbasic.is_over() and _mmbasic.has_graphics():
+            if _mmbasic is not None and _mmbasic.is_over and _mmbasic.has_graphics:
                 _state = STATE_FINISHED
             else:
                 _state = STATE_MENU

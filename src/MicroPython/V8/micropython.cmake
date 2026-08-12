@@ -32,6 +32,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/../mmbasic/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../picoware_boards/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../response/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../textbox/micropython.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/../usb_video/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../vector/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../vt/micropython.cmake)
 

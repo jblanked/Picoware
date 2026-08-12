@@ -11,7 +11,7 @@ Source: https://github.com/jblanked/Picoware
 
 #include LCD_INCLUDE
 
-#if defined(FLIPPER_ZERO) || defined(PANCAKE)
+#if defined(FLIPPER_ZERO) || defined(PANCAKE) || defined(V8)
 #define USB_VIDEO_SUPPORTED 0
 #else
 #define USB_VIDEO_SUPPORTED 1

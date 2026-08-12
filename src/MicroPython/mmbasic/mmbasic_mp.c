@@ -5,7 +5,6 @@
 #include "py/objstr.h"
 #include "py/objtuple.h"
 #include "py/misc.h"
-#include "pico/aon_timer.h"
 #include "lib/mbs.h"
 #include "lcd_config.h"
 #ifdef LCD_INCLUDE
@@ -13,6 +12,21 @@
 #endif
 #include "log_mp.h"
 #include "storage.h"
+
+#if defined(PANCAKE) || defined(WAVESHARE_2_06) || defined(V8) || defined(CARDPUTER)
+static time_t host_rtc_now(void)
+{
+    return time(NULL);
+}
+#else
+#include "pico/aon_timer.h"
+static time_t host_rtc_now(void)
+{
+    struct timespec ts;
+    aon_timer_get_time(&ts);
+    return (time_t)ts.tv_sec;
+}
+#endif
 
 #define MMBASIC_PRESENT_MS 33
 
@@ -143,9 +157,7 @@ static int32_t host_ticks_diff(void *h, uint32_t a, uint32_t b)
 static void host_get_time(void *h, int out[6])
 {
     (void)h;
-    struct timespec ts;
-    aon_timer_get_time(&ts);
-    time_t t = (time_t)ts.tv_sec;
+    time_t t = host_rtc_now();
     struct tm tm;
     localtime_r(&t, &tm);
     out[0] = tm.tm_year + 1900; /* year */
@@ -158,9 +170,7 @@ static void host_get_time(void *h, int out[6])
 static long host_epoch_now(void *h)
 {
     (void)h;
-    struct timespec ts;
-    aon_timer_get_time(&ts);
-    return (long)ts.tv_sec;
+    return (long)host_rtc_now();
 }
 
 int mmbasic_load(mmbasic_obj_t *self, const char *source, size_t len)

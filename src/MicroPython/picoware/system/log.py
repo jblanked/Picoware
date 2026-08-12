@@ -15,13 +15,12 @@ LOG_TYPE_DEBUG = const(3)
 
 
 class Log(log.Log):
-    """
-    Log class for Picoware
+    """Log class for Picoware.
 
     Methods:
         - log(self, message: str, log_type: int = LOG_TYPE_NONE)
         - reset(self)
-    Properties:
+    Attributes:
         - mode: int (getter and setter for log mode)
         - logs: list (getter for stored logs)
     """
@@ -32,9 +31,22 @@ class Log(log.Log):
         file_path: str = "picoware/log.txt",
         reset: bool = False,
     ):
+        """Initialize the log.
+
+        Args:
+            mode (int): Log mode. Defaults to LOG_MODE_REPL.
+            file_path (str): Path of the log file. Defaults to "picoware/log.txt".
+            reset (bool): Whether to reset the log on start. Defaults to False.
+        """
         super().__init__(mode, file_path, reset)
 
     def __setattr__(self, name, value):
+        """Set a log attribute, routing mode and file_path to setters.
+
+        Args:
+            name (str): Attribute name to set.
+            value (object): New value for the attribute.
+        """
         if name == "mode":
             self.set_mode(value)
         elif name == "file_path":

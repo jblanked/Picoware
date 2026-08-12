@@ -10,15 +10,24 @@ WIFI_STATE_TIMEOUT = const(4)
 
 
 class WiFi:
-    """Class to manage WiFi functionality on a MicroPython device."""
+    """Class to manage WiFi functionality on a MicroPython device.
+    
+    Attributes:
+        ssid (str): The SSID of the WiFi network.
+        password (str): The password for the WiFi network.
+        mode (int): The WiFi mode (STA_IF or AP_IF).
+        wlan (network.WLAN): The WLAN object for managing WiFi connections.
+        connection_start_time (int): The timestamp when the connection attempt started.
+        connection_timeout (int): The timeout duration for WiFi connections in seconds.
+        error (str): The last error message encountered during WiFi operations.
+    """
 
     def __init__(self, thread_manager=None, timeout: int = 10) -> None:
-        """
-        Initialize the WiFi class.
+        """Initialize the WiFi class.
 
         Args:
-            thread_manager: Optional ThreadManager instance for managed threading.
-            timeout: Connection timeout in seconds.
+            thread_manager (ThreadManager): Optional ThreadManager instance for managed threading. Defaults to None.
+            timeout (int): Connection timeout in seconds. Defaults to 10.
         """
         from network import STA_IF, WLAN
 
@@ -87,10 +96,12 @@ class WiFi:
 
     @callback_connect.setter
     def callback_connect(self, func: callable) -> None:
-        """
-        Set the connection callback function.
+        """Set the connection callback function.
 
-        The callback function should accept two arguments: the Wi-Fi state and an error message (if any).
+        The callback receives the Wi-Fi state and an error message (if any).
+
+        Args:
+            func (callable): The callback function to set.
         """
         if self._thread_lock is None:
             return
@@ -146,7 +157,11 @@ class WiFi:
 
     @timeout.setter
     def timeout(self, seconds: int) -> None:
-        """Set the connection timeout in seconds."""
+        """Set the connection timeout in seconds.
+
+        Args:
+            seconds (int): The timeout in seconds.
+        """
         if self._thread_lock is None:
             return
         
@@ -154,12 +169,15 @@ class WiFi:
             self.connection_timeout = seconds
 
     def connect(self, ssid: str, password: str = "", sta_mode: bool = True) -> bool:
-        """
-        Connect to a Wi-Fi network.
+        """Connect to a Wi-Fi network.
 
-        :param ssid: SSID of the Wi-Fi network.
-        :param password: Password for the Wi-Fi network.
-        :param sta_mode: If True, use station mode (STA_IF), otherwise use access point mode (AP_IF).
+        Args:
+            ssid (str): SSID of the Wi-Fi network.
+            password (str): Password for the Wi-Fi network. Defaults to "".
+            sta_mode (bool): True for station mode (STA_IF), False for access point mode (AP_IF). Defaults to True.
+
+        Returns:
+            bool: True if the connection succeeded, False otherwise.
         """
         from network import STA_IF, AP_IF
 
@@ -223,12 +241,15 @@ class WiFi:
     def connect_async(
         self, ssid: str, password: str = "", sta_mode: bool = True
     ) -> bool:
-        """
-        Connect to a Wi-Fi network asynchronously.
+        """Connect to a Wi-Fi network asynchronously.
 
-        :param ssid: SSID of the Wi-Fi network.
-        :param password: Password for the Wi-Fi network.
-        :param sta_mode: If True, use station mode (STA_IF), otherwise use access point mode (AP_IF).
+        Args:
+            ssid (str): SSID of the Wi-Fi network.
+            password (str): Password for the Wi-Fi network. Defaults to "".
+            sta_mode (bool): True for station mode (STA_IF), False for access point mode (AP_IF). Defaults to True.
+
+        Returns:
+            bool: True if the connection was started.
         """
         try:
             if self.wlan.isconnected() and ssid == self.ssid:

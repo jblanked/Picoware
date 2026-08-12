@@ -4,7 +4,14 @@ _app_loader = None
 
 
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True on success.
+    """
     from picoware.gui.menu import Menu
     from picoware.system.app_loader import AppLoader
 
@@ -52,7 +59,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app."""
+    """Run the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from picoware.system.view import View
     from picoware.system.buttons import (
         BUTTON_BACK,
@@ -113,7 +124,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from gc import collect
 
     global _applications, _app_loader

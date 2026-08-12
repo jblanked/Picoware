@@ -16,7 +16,12 @@ _state = STATE_IDLE
 
 
 def bluetooth_callback(event, data):
-    """Bluetooth callback function for connection events"""
+    """Handle Bluetooth connection and disconnection events.
+
+    Args:
+        event (int): Bluetooth event code.
+        data (tuple): Event payload with connection handle and address.
+    """
     global _connections, _state
 
     if event == 1:  # _IRQ_CENTRAL_CONNECT
@@ -33,7 +38,11 @@ def bluetooth_callback(event, data):
 
 
 def on_data_received(data):
-    """Handle data received from connected central"""
+    """Store data received from the connected central.
+
+    Args:
+        data (bytes): Raw data received over BLE.
+    """
     global _received_data
     try:
         text = data.decode("utf-8")
@@ -46,7 +55,14 @@ def on_data_received(data):
 
 
 def start(view_manager) -> bool:
-    """Start the app - advertise this device so others can find and connect to it"""
+    """Start the app and advertise this device for connections.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if advertising started, False on failure.
+    """
     from picoware.system.bluetooth import Bluetooth
 
     global _bluetooth, _advertising, _connections, _received_data, _state
@@ -79,7 +95,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app"""
+    """Run the app and update the display.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
     from utime import ticks_ms, ticks_diff
 
@@ -144,7 +164,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app and clean up the BLE connection.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from gc import collect
 
     global _bluetooth, _advertising, _connections, _received_data, _state

@@ -3,15 +3,7 @@ from picoware.system.vector import Vector
 
 
 class Draw(lcd.LCD):
-    """
-    Class for drawing shapes and text on the display
-
-    Args:
-        foreground (int): The default color for drawing (default: 0xFFFF)
-        background (int): The default color for clearing (default: 0x0000)
-        scale_x (float): Optional horizontal scaling factor for all drawing operations (default: 1.0)
-        scale_y (float): Optional vertical scaling factor for all drawing operations (default: 1.0)
-        scale_position (bool): If True, also scale the position of drawn elements
+    """Class for drawing shapes and text on the display.
 
     Methods:
         char(position, char, color=None, font_size=-1): Draw a single character
@@ -45,7 +37,6 @@ class Draw(lcd.LCD):
         swap(): Update the display with the current framebuffer contents
         text(position, text, color=None, font_size=-1): Draw text on the display
         triangle(point1, point2, point3, color=None): Draw a triangle outline
-
     """
 
     def __init__(
@@ -56,6 +47,15 @@ class Draw(lcd.LCD):
         scale_y: float = 1.0,
         scale_position: bool = False,
     ) -> None:
+        """Initialize the drawing context with colors and scaling.
+
+        Args:
+            foreground (int): The default color for drawing. Defaults to 0xFFFF.
+            background (int): The default color for clearing. Defaults to 0x0000.
+            scale_x (float): Horizontal scaling factor for drawing operations. Defaults to 1.0.
+            scale_y (float): Vertical scaling factor for drawing operations. Defaults to 1.0.
+            scale_position (bool): Whether to scale drawn element positions. Defaults to False.
+        """
         super().__init__(scale_x, scale_y, scale_position)
 
         from picoware.system.font import FontSize
@@ -82,7 +82,11 @@ class Draw(lcd.LCD):
 
     @background.setter
     def background(self, color: int):
-        """Set the current background color"""
+        """Set the current background color.
+
+        Args:
+            color (int): The new background color.
+        """
         self._background = color
 
     @property
@@ -92,7 +96,11 @@ class Draw(lcd.LCD):
 
     @font.setter
     def font(self, font_size: int):
-        """Set the default font size"""
+        """Set the default font size.
+
+        Args:
+            font_size (int): The new default font size.
+        """
         from picoware.system.font import FontSize
 
         self._font_default = FontSize(font_size)
@@ -113,7 +121,11 @@ class Draw(lcd.LCD):
 
     @foreground.setter
     def foreground(self, color: int):
-        """Set the current foreground color"""
+        """Set the current foreground color.
+
+        Args:
+            color (int): The new foreground color.
+        """
         self._foreground = color
 
     @property
@@ -128,7 +140,11 @@ class Draw(lcd.LCD):
 
     @use_lvgl.setter
     def use_lvgl(self, state: bool):
-        """Set whether to use LVGL mode for drawing"""
+        """Set whether to use LVGL mode for drawing.
+
+        Args:
+            state (bool): True to enable LVGL mode.
+        """
         self._use_lvgl = state
 
     def __del__(self):
@@ -139,13 +155,26 @@ class Draw(lcd.LCD):
         self._font_size = None
 
     def char(self, position: Vector, char: str, color=None, font_size: int = -1):
-        """Draw a single character on the display"""
+        """Draw a single character on the display.
+
+        Args:
+            position (Vector): The position to draw the character.
+            char (str): The character to draw.
+            color (int): The color to use. Defaults to None (foreground).
+            font_size (int): The font size to use. Defaults to -1 (default font).
+        """
         _color = color if color is not None else self._foreground
         _font_size = font_size if font_size >= 0 else self._font_default.size
         self._char(position.x, position.y, char, _color, _font_size)
 
     def circle(self, position: Vector, radius: int, color: int = None):
-        """Draw a circle outline"""
+        """Draw a circle outline.
+
+        Args:
+            position (Vector): The center position of the circle.
+            radius (int): The radius of the circle.
+            color (int): The color to use. Defaults to None (foreground).
+        """
         _color = color if color is not None else self._foreground
         self._circle(position.x, position.y, radius, _color)
 
@@ -155,7 +184,13 @@ class Draw(lcd.LCD):
         size: Vector = Vector(320, 320),
         color=None,
     ):
-        """Fill a rectangular area with a color"""
+        """Fill a rectangular area with a color.
+
+        Args:
+            position (Vector): The top-left corner of the area. Defaults to Vector(0, 0).
+            size (Vector): The size of the area. Defaults to Vector(320, 320).
+            color (int): The fill color. Defaults to None (background).
+        """
         _color = color if color is not None else self._background
         if (
             position.x == 0
@@ -172,12 +207,24 @@ class Draw(lcd.LCD):
         self._clear(self._background)
 
     def fill_circle(self, position: Vector, radius: int, color=None):
-        """Draw a filled circle"""
+        """Draw a filled circle.
+
+        Args:
+            position (Vector): The center position of the circle.
+            radius (int): The radius of the circle.
+            color (int): The fill color. Defaults to None (foreground).
+        """
         _color = color if color is not None else self._foreground
         self._fill_circle(position.x, position.y, radius, _color)
 
     def fill_rectangle(self, position: Vector, size: Vector, color=None):
-        """Draw a filled rectangle"""
+        """Draw a filled rectangle.
+
+        Args:
+            position (Vector): The top-left corner of the rectangle.
+            size (Vector): The size of the rectangle.
+            color (int): The fill color. Defaults to None (foreground).
+        """
         _color = color if color is not None else self._foreground
         self._fill_rectangle(
             position.x,
@@ -190,7 +237,14 @@ class Draw(lcd.LCD):
     def fill_round_rectangle(
         self, position: Vector, size: Vector, radius: int, color=None
     ):
-        """Draw a filled rounded rectangle on the display"""
+        """Draw a filled rounded rectangle on the display.
+
+        Args:
+            position (Vector): The top-left corner of the rectangle.
+            size (Vector): The size of the rectangle.
+            radius (int): The corner radius.
+            color (int): The fill color. Defaults to None (foreground).
+        """
         if size.x <= 0 or size.y <= 0 or radius <= 0:
             return
 
@@ -206,12 +260,23 @@ class Draw(lcd.LCD):
         )
 
     def fill_screen(self, color=None):
-        """Fill the entire screen with a color"""
+        """Fill the entire screen with a color.
+
+        Args:
+            color (int): The fill color. Defaults to None (background).
+        """
         _color = color if color is not None else self._background
         self._clear(_color)
 
     def fill_triangle(self, point1: Vector, point2: Vector, point3: Vector, color=None):
-        """Draw a filled triangle"""
+        """Draw a filled triangle.
+
+        Args:
+            point1 (Vector): First vertex of the triangle.
+            point2 (Vector): Second vertex of the triangle.
+            point3 (Vector): Third vertex of the triangle.
+            color (int): The fill color. Defaults to None (foreground).
+        """
         _color = color if color is not None else self._foreground
         self._fill_triangle(
             point1.x,
@@ -226,7 +291,15 @@ class Draw(lcd.LCD):
     def fill_triangle_alpha(
         self, point1: Vector, point2: Vector, point3: Vector, color=None, alpha: int = 255
     ):
-        """Draw a filled triangle with alpha blending"""
+        """Draw a filled triangle with alpha blending.
+
+        Args:
+            point1 (Vector): First vertex of the triangle.
+            point2 (Vector): Second vertex of the triangle.
+            point3 (Vector): Third vertex of the triangle.
+            color (int): The fill color. Defaults to None (foreground).
+            alpha (int): The alpha value for blending. Defaults to 255.
+        """
         _color = color if color is not None else self._foreground
         self._fill_triangle_alpha(
             point1.x,
@@ -240,27 +313,53 @@ class Draw(lcd.LCD):
         )
 
     def get_font(self, font_size: int = 0):
-        """Get the FontSize object for the specified font size"""
+        """Get the FontSize object for the specified font size.
+
+        Args:
+            font_size (int): The font size to look up. Defaults to 0.
+
+        Returns:
+            FontSize: The FontSize object for the given size.
+        """
         from picoware.system.font import FontSize
 
         return FontSize(font_size)
 
     def image(self, position: Vector, img):
-        """Draw an image object to the back buffer"""
+        """Draw an image object to the back buffer.
+
+        Args:
+            position (Vector): The top-left position to draw the image.
+            img (Image): The image object to draw.
+        """
         for y in range(img.size.y):
             for x in range(img.size.x):
                 color = img.get_pixel(x, y)
                 self._pixel(position.x + x, position.y + y, color)
 
     def image_bmp(self, position: Vector, path: str):
-        """Draw a 24-bit BMP image"""
+        """Draw a 24-bit BMP image.
+
+        Args:
+            position (Vector): The top-left position to draw the image.
+            path (str): The path to the BMP file.
+        """
         try:
             self._bmp(position.x, position.y, path)
         except Exception as e:
             print(f"Error loading BMP: {e}")
 
     def image_jpeg(self, position: Vector, path: str, storage=None) -> bool:
-        """Draw a JPEG image from a file path"""
+        """Draw a JPEG image from a file path.
+
+        Args:
+            position (Vector): The top-left position to draw the image.
+            path (str): The path to the JPEG file.
+            storage: Storage instance for file access. Defaults to None.
+
+        Returns:
+            bool: True on success, False on failure.
+        """
         from picoware.gui.jpeg import JPEG
 
         try:
@@ -271,7 +370,15 @@ class Draw(lcd.LCD):
             return False
 
     def image_jpeg_buffer(self, position: Vector, buf) -> bool:
-        """Draw a JPEG image from bytes data into a BytesIO buffer."""
+        """Draw a JPEG image from bytes data into a BytesIO buffer.
+
+        Args:
+            position (Vector): The top-left position to draw the image.
+            buf: Bytes data containing the JPEG image.
+
+        Returns:
+            bool: True on success, False on failure.
+        """
         from picoware.gui.jpeg import JPEG
 
         try:
@@ -284,11 +391,25 @@ class Draw(lcd.LCD):
     def image_bytearray(
         self, position: Vector, size: Vector, byte_data, invert: bool = False
     ):
-        """Draw an image from 8-bit byte data (bytes or bytearray)"""
+        """Draw an image from 8-bit byte data (bytes or bytearray).
+
+        Args:
+            position (Vector): The top-left position to draw the image.
+            size (Vector): The size of the image.
+            byte_data: The pixel data as bytes or bytearray.
+            invert (bool): Whether to invert the pixel values. Defaults to False.
+        """
         self._bytearray(position.x, position.y, size.x, size.y, byte_data, invert)
 
     def image_bytearray_1bit(self, position: Vector, size: Vector, byte_data, invert: bool = False) -> None:
-        """Draw a 1-bit bitmap from packed byte_data (8 pixels per byte, row-aligned)"""
+        """Draw a 1-bit bitmap from packed byte_data (8 pixels per byte, row-aligned).
+
+        Args:
+            position (Vector): The top-left position to draw the image.
+            size (Vector): The size of the image.
+            byte_data: Packed 1-bit pixel data.
+            invert (bool): Whether to invert the pixel values. Defaults to False.
+        """
         width, height = size.x, size.y
         bytes_per_row = (width + 7) // 8  # Each row is padded to byte boundary
 
@@ -318,7 +439,17 @@ class Draw(lcd.LCD):
         chunk_size=0,
         invert=False,
     ):
-        """Draw an image from an 8-bit bytearray file stored on disk"""
+        """Draw an image from an 8-bit bytearray file stored on disk.
+
+        Args:
+            position (Vector): The top-left position to draw the image.
+            size (Vector): The size of the image.
+            path (str): The path to the bytearray file.
+            storage: Storage instance for file access. Defaults to None.
+            seek (int): Byte offset to start reading from. Defaults to 0.
+            chunk_size (int): Number of bytes to read per chunk. Defaults to 0 (read all).
+            invert (bool): Whether to invert the pixel values. Defaults to False.
+        """
         try:
             if storage:
                 file = storage.file_open(path)
@@ -333,18 +464,38 @@ class Draw(lcd.LCD):
             print(f"Error loading bytearray image: {e}")
 
     def len(self, text: str, font_size: int = 0) -> int:
-        """Calculate the pixel width of a text string for a given font size"""
+        """Calculate the pixel width of a text string for a given font size.
+
+        Args:
+            text (str): The text to measure.
+            font_size (int): The font size to use. Defaults to 0.
+
+        Returns:
+            int: The pixel width of the text.
+        """
         font = self.get_font(font_size)
         length = len(text)
         return length * (font.width + font.spacing)
 
     def line(self, position: Vector, size: Vector, color=None):
-        """Draw horizontal line"""
+        """Draw horizontal line.
+
+        Args:
+            position (Vector): The starting position of the line.
+            size (Vector): The size of the line.
+            color (int): The line color. Defaults to None (foreground).
+        """
         _color = color if color is not None else self._foreground
         self._line(position.x, position.y, size.x, size.y, _color)
 
     def line_custom(self, point_1: Vector, point_2: Vector, color=None):
-        """Draw line between two points"""
+        """Draw line between two points.
+
+        Args:
+            point_1 (Vector): The first point.
+            point_2 (Vector): The second point.
+            color (int): The line color. Defaults to None (foreground).
+        """
         _color = color if color is not None else self._foreground
         self._line(
             point_1.x,
@@ -355,16 +506,33 @@ class Draw(lcd.LCD):
         )
 
     def pixel(self, position: Vector, color=None):
-        """Draw a pixel"""
+        """Draw a pixel.
+
+        Args:
+            position (Vector): The position of the pixel.
+            color (int): The pixel color. Defaults to None (foreground).
+        """
         _color = color if color is not None else self._foreground
         self._pixel(position.x, position.y, _color)
 
     def psram(self, position: Vector, size: Vector, addr: int):
-        """Draw pixel data directly from PSRAM at the specified address and length"""
+        """Draw pixel data directly from PSRAM at the specified address and length.
+
+        Args:
+            position (Vector): The top-left position to draw the data.
+            size (Vector): The size of the image data.
+            addr (int): The PSRAM address to read from.
+        """
         self._psram(position.x, position.y, size.x, size.y, addr)
 
     def rect(self, position: Vector, size: Vector, color=None):
-        """Draw a rectangle outline on the display"""
+        """Draw a rectangle outline on the display.
+
+        Args:
+            position (Vector): The top-left corner of the rectangle.
+            size (Vector): The size of the rectangle.
+            color (int): The outline color. Defaults to None (foreground).
+        """
         if size.x <= 0 or size.y <= 0:
             return
 
@@ -378,13 +546,27 @@ class Draw(lcd.LCD):
         )
 
     def text(self, position: Vector, text: str, color=None, font_size: int = -1):
-        """Draw text on the display"""
+        """Draw text on the display.
+
+        Args:
+            position (Vector): The position to draw the text.
+            text (str): The text to draw.
+            color (int): The text color. Defaults to None (foreground).
+            font_size (int): The font size to use. Defaults to -1 (default font).
+        """
         _color = color if color is not None else self._foreground
         _font_size = font_size if font_size >= 0 else self._font_default.size
         self._text(position.x, position.y, text, _color, _font_size)
 
     def triangle(self, point1: Vector, point2: Vector, point3: Vector, color=None):
-        """Draw a triangle outline"""
+        """Draw a triangle outline.
+
+        Args:
+            point1 (Vector): First vertex of the triangle.
+            point2 (Vector): Second vertex of the triangle.
+            point3 (Vector): Third vertex of the triangle.
+            color (int): The outline color. Defaults to None (foreground).
+        """
         _color = color if color is not None else self._foreground
         self._triangle(
             point1.x,

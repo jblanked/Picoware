@@ -3,7 +3,14 @@ _initialized = False
 
 
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app and warn before initializing USB.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if the app started.
+    """
     from picoware.system.usb import USBKeyboard
 
     view_manager.alert(
@@ -20,7 +27,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app"""
+    """Run the app and send typed characters over USB.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from picoware.system.buttons import BUTTON_BACK
 
     global _initialized
@@ -43,7 +54,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app and clean up.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from gc import collect
 
     global _usb, _initialized

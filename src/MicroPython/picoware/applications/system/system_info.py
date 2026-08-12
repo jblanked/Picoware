@@ -2,6 +2,11 @@ _system_info = None
 
 
 def __set_text(view_manager):
+    """Populate the system information text box.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from picoware.system.system import System
 
     if _system_info:
@@ -33,7 +38,14 @@ def __set_text(view_manager):
 
 
 def start(view_manager) -> bool:
-    """Start the loading animation."""
+    """Start the app and show system information.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if the app started.
+    """
     from picoware.gui.textbox import TextBox
 
     global _system_info
@@ -54,7 +66,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Animate the loading spinner."""
+    """Run the app and handle scrolling input.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from picoware.system.buttons import BUTTON_BACK, BUTTON_UP, BUTTON_DOWN
 
     button: int = view_manager.button
@@ -68,7 +84,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the loading animation."""
+    """Stop the app and clean up.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from gc import collect
 
     global _system_info

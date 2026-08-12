@@ -9,7 +9,18 @@ class UART:
         baud_rate: int = 115200,
         timeout: int = 2000,
     ) -> None:
-        """Initialize the UART interface."""
+        """Initialize the UART interface.
+
+        Args:
+            uart_id (int or None): UART peripheral ID, or None for the board default. Defaults to None.
+            tx_pin (int or None): TX pin number, or None for the board default. Defaults to None.
+            rx_pin (int or None): RX pin number, or None for the board default. Defaults to None.
+            baud_rate (int): Baud rate for the interface. Defaults to 115200.
+            timeout (int): Read timeout in milliseconds. Defaults to 2000.
+
+        Raises:
+            Exception: If the UART peripheral could not be initialized.
+        """
         from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_WAVESHARE_1_28_RP2350, BOARD_WAVESHARE_1_43_RP2350, BOARD_WAVESHARE_3_49_RP2350, BOARD_CARDPUTER
         from machine import UART as MachineUART
         from machine import Pin
@@ -78,7 +89,11 @@ class UART:
 
     @timeout.setter
     def timeout(self, value: int) -> None:
-        """Set the timeout value in milliseconds."""
+        """Set the timeout value in milliseconds.
+
+        Args:
+            value (int): The timeout value in milliseconds.
+        """
         self._timeout = value
 
     @property
@@ -101,15 +116,30 @@ class UART:
         self._uart.flush()
 
     def println(self, message: str) -> None:
-        """Write a message followed by a newline to the UART interface."""
+        """Write a message followed by a newline to the UART interface.
+
+        Args:
+            message (str): The message to write.
+        """
         self._uart.write(message + "\n")
 
     def read_into(self, buffer: bytearray) -> int:
-        """Read data from the UART interface into a buffer."""
+        """Read data from the UART interface into a buffer.
+
+        Args:
+            buffer (bytearray): The buffer to read data into.
+
+        Returns:
+            int: The number of bytes read.
+        """
         return self._uart.readinto(buffer)
 
     def read_line(self) -> str:
-        """Read a line from the UART interface with timeout handling."""
+        """Read a line from the UART interface with timeout handling.
+
+        Returns:
+            str or None: The line read without a trailing newline, or None on timeout.
+        """
         from time import ticks_ms
 
         start_time = ticks_ms()
@@ -134,7 +164,11 @@ class UART:
         return None
 
     def read_serial_line(self) -> str:
-        """Read a line from the UART interface."""
+        """Read a line from the UART interface.
+
+        Returns:
+            str: The decoded data read, or an empty string if none.
+        """
         data = ""
         try:
             raw_data = self._uart.read()
@@ -145,9 +179,17 @@ class UART:
         return data
 
     def set_callback(self, callback) -> None:
-        """Set an interrupt handler to be called when a UART event occurs."""
+        """Set an interrupt handler to be called when a UART event occurs.
+
+        Args:
+            callback (callable): The interrupt handler function.
+        """
         self._uart.irq(handler=callback)
 
     def write(self, message: bytes) -> None:
-        """Write a message to the UART interface."""
+        """Write a message to the UART interface.
+
+        Args:
+            message (bytes): The bytes to write.
+        """
         self._uart.write(message)

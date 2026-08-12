@@ -57,7 +57,11 @@ _xai_save_requested = False
 
 
 def __color_values() -> list[int]:
-    """Get the list of color values corresponding to the color names."""
+    """Get the list of color values corresponding to the color names.
+
+    Returns:
+        list[int]: The color values matching the theme color names.
+    """
     from picoware.system.colors import (
         TFT_BLUE,
         TFT_RED,
@@ -94,7 +98,11 @@ def __color_values() -> list[int]:
 
 
 def __config() -> tuple:
-    """Get the configuration tuple for the current setting."""
+    """Get the configuration tuple for the current setting.
+
+    Returns:
+        tuple: The (menu label, json key, default value) tuples.
+    """
     # (menu label, json key, default value)
     return (
         ("Dark Mode", "dark_mode", True),
@@ -121,7 +129,11 @@ def __config() -> tuple:
 
 
 def __exit_button_mapping() -> dict[int, str]:
-    """Get the mapping of button values to their names for the exit button setting."""
+    """Get the mapping of button values to their names for the exit button setting.
+
+    Returns:
+        dict[int, str]: The button value to name mapping.
+    """
     from picoware.system.buttons import (
         BUTTON_BACK,
         BUTTON_ESCAPE,
@@ -134,7 +146,14 @@ def __exit_button_mapping() -> dict[int, str]:
 
 
 def __save_server_username(value: str) -> bool:
-    """Save the server username to storage."""
+    """Save the server username to storage.
+
+    Args:
+        value (str): The username to save.
+
+    Returns:
+        bool: True on success.
+    """
     _current_settings = _settings.server_settings
     _current_settings["username"] = value
     _settings.server_settings = _current_settings
@@ -142,14 +161,26 @@ def __save_server_username(value: str) -> bool:
 
 
 def __save_server_password(value: str) -> bool:
-    """Save the server password to storage."""
+    """Save the server password to storage.
+
+    Args:
+        value (str): The password to save.
+
+    Returns:
+        bool: True on success.
+    """
     _current_settings = _settings.server_settings
     _current_settings["password"] = value
     _settings.server_settings = _current_settings
     return True
 
 def __apply_toggle_setting(index: int, state: bool) -> None:
-    """Apply a toggle setting change to the view manager."""
+    """Apply a toggle setting change to the view manager.
+
+    Args:
+        index (int): The setting index to apply.
+        state (bool): The new toggle state.
+    """
     if index == STATE_DARK_MODE:
         if state:
             _view_manager.background_color = 0x0000
@@ -169,7 +200,11 @@ def __apply_toggle_setting(index: int, state: bool) -> None:
 
 
 def __open_toggle(setting_index: int) -> None:
-    """Open a Toggle sub-view for the given setting index."""
+    """Open a Toggle sub-view for the given setting index.
+
+    Args:
+        setting_index (int): The setting index to toggle.
+    """
     global _toggle, _mode, _current_setting
     from picoware.gui.toggle import Toggle
     from picoware.system.vector import Vector
@@ -387,7 +422,11 @@ def __open_gmt_keyboard() -> None:
 
 
 def __gmt_save_callback(result: str) -> None:
-    """Callback triggered when the GMT offset keyboard is saved."""
+    """Callback triggered when the GMT offset keyboard is saved.
+
+    Args:
+        result (str): The saved keyboard value.
+    """
     global _gmt_save_requested
     _gmt_save_requested = True
 
@@ -421,7 +460,11 @@ def __open_server_menu() -> None:
 
 
 def __open_server_keyboard(field: int) -> None:
-    """Open the keyboard for entering the server username (0) or password (1)."""
+    """Open the keyboard for entering the server username or password.
+
+    Args:
+        field (int): 0 for username, 1 for password.
+    """
     global _mode, _server_save_requested, _server_keyboard_field
 
     _server_keyboard_field = field
@@ -441,7 +484,11 @@ def __open_server_keyboard(field: int) -> None:
 
 
 def __server_save_callback(result: str) -> None:
-    """Callback triggered when the server keyboard is saved."""
+    """Callback triggered when the server keyboard is saved.
+
+    Args:
+        result (str): The saved keyboard value.
+    """
     global _server_save_requested
     _server_save_requested = True
 
@@ -462,7 +509,11 @@ def __open_openai_keyboard() -> None:
 
 
 def __openai_save_callback(result: str) -> None:
-    """Callback triggered when the OpenAI API key keyboard is saved."""
+    """Callback triggered when the OpenAI API key keyboard is saved.
+
+    Args:
+        result (str): The saved keyboard value.
+    """
     global _openai_save_requested
     _openai_save_requested = True
 
@@ -483,7 +534,11 @@ def __open_deepseek_keyboard() -> None:
 
 
 def __deepseek_save_callback(result: str) -> None:
-    """Callback triggered when the DeepSeek API key keyboard is saved."""
+    """Callback triggered when the DeepSeek API key keyboard is saved.
+
+    Args:
+        result (str): The saved keyboard value.
+    """
     global _deepseek_save_requested
     _deepseek_save_requested = True
 
@@ -502,7 +557,11 @@ def __open_anthropic_keyboard() -> None:
     _mode = _MODE_ANTHROPIC_KEYBOARD
 
 def __anthropic_save_callback(result: str) -> None:
-    """Callback triggered when the Anthropic API key keyboard is saved."""
+    """Callback triggered when the Anthropic API key keyboard is saved.
+
+    Args:
+        result (str): The saved keyboard value.
+    """
     global _anthropic_save_requested
     _anthropic_save_requested = True
 
@@ -521,7 +580,11 @@ def __open_gemini_keyboard() -> None:
     _mode = _MODE_GEMINI_KEYBOARD
 
 def __gemini_save_callback(result: str) -> None:
-    """Callback triggered when the Gemini API key keyboard is saved."""
+    """Callback triggered when the Gemini API key keyboard is saved.
+
+    Args:
+        result (str): The saved keyboard value.
+    """
     global _gemini_save_requested
     _gemini_save_requested = True
 
@@ -540,7 +603,11 @@ def __open_local_url_keyboard() -> None:
     _mode = _MODE_LOCAL_URL_KEYBOARD
 
 def __local_url_save_callback(result: str) -> None:
-    """Callback triggered when the Local URL keyboard is saved."""
+    """Callback triggered when the Local URL keyboard is saved.
+
+    Args:
+        result (str): The saved keyboard value.
+    """
     global _local_url_save_requested
     _local_url_save_requested = True
 
@@ -559,7 +626,11 @@ def __open_xai_keyboard() -> None:
     _mode = _MODE_XAI_KEYBOARD
 
 def __xai_save_callback(result: str) -> None:
-    """Callback triggered when the xAI API key keyboard is saved."""
+    """Callback triggered when the xAI API key keyboard is saved.
+
+    Args:
+        result (str): The saved keyboard value.
+    """
     global _xai_save_requested
     _xai_save_requested = True
 
@@ -614,7 +685,14 @@ def __back_to_time_menu() -> None:
 
 
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app and build the settings menu.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if the app started, False if no SD card is present.
+    """
     if not view_manager.has_sd_card:
         print("Settings app requires an SD card")
         return False
@@ -675,7 +753,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app"""
+    """Run the app and handle setting input.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from picoware.system.buttons import (
         BUTTON_BACK,
         BUTTON_UP,
@@ -896,7 +978,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app and clean up.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from gc import collect
 
     global _settings, _menu, _toggle, _choice, _time_menu, _date_picker, _server_menu

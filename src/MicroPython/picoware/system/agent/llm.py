@@ -11,6 +11,14 @@ class LLM:
     """LLM config"""
     __slots__ = ["_api_key", "_current_model", "_id", "_name", "_url", "_models", "_headers", "_thinking"]
     def __init__(self, storage, llm_id: int, model: str = None, thinking: str = "none"):
+        """Initialize the LLM config for the given provider ID.
+
+        Args:
+            storage (Storage): The storage interface for settings.
+            llm_id (int): The provider ID constant.
+            model (str): The model name to use. Defaults to None.
+            thinking (str): The thinking level. Defaults to "none".
+        """
         self._api_key = ""
         self._current_model = model
         if thinking not in ("none", "low", "medium", "high", "max") or thinking is None:
@@ -115,7 +123,14 @@ class LLM:
 
     @staticmethod
     def provider_name(provider_id: int) -> str:
-        """Return the name of the LLM provider given its ID."""
+        """Return the name of the LLM provider given its ID.
+
+        Args:
+            provider_id (int): The provider ID constant.
+
+        Returns:
+            str: The provider name, or "Unknown" if not recognized.
+        """
         if provider_id == OPENAI:
             return "OpenAI"
         if provider_id == DEEPSEEK:
@@ -131,7 +146,11 @@ class LLM:
         return "Unknown"
 
     def __set(self, storage):
-        """Set model name, url, and headers based on model_id."""
+        """Set model name, url, and headers based on the provider ID.
+
+        Args:
+            storage (Storage): The storage interface for settings.
+        """
         from picoware.system.settings import Settings
 
         settings = Settings(storage)

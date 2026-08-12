@@ -15,5 +15,12 @@ class AutoComplete(ac.AutoComplete):
         return self.context[0]
 
     def add_words(self, words: list[str]) -> int:
-        """Add multiple words."""
+        """Add multiple words.
+
+        Args:
+            words (list[str]): Words to add to the auto-complete dictionary.
+
+        Returns:
+            int: The number of words successfully added.
+        """
         return sum(1 for word in words if self.add_word(word))

@@ -12,6 +12,12 @@ class Sprite3D(engine.Sprite3D):
     """3D sprite class for rendering 3D objects"""
 
     def __setattr__(self, name, value):
+        """Set a sprite attribute, routing to the matching setter.
+
+        Args:
+            name (str): Attribute name to set.
+            value (object): New value for the attribute.
+        """
         if name == "position":
             self.set_position(value)
         elif name == "rotation_y":

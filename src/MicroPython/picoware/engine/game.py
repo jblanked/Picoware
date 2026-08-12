@@ -2,9 +2,7 @@ import engine
 
 
 class Game(engine.Game):
-    """
-    Represents a game.
-    """
+    """Represents a game."""
 
     def __init__(
         self,
@@ -18,17 +16,18 @@ class Game(engine.Game):
         start=None,
         stop=None,
     ) -> None:
-        """
-        Initializes the game.
-        :param name: str - the name of the game
-        :param size: Vector - the size of the game
-        :param draw: Draw - the draw context used to render the game
-        :param input_manager: InputManager - the input manager used to handle input
-        :param foreground_color: int - the foreground color of the game
-        :param background_color: int - the background color of the game
-        :param camera_context: Camera - the camera context used to render the game
-        :param start: function(Game) - the function called when the game is started
-        :param stop: function(Game) - the function called when the game is stopped
+        """Initialize the game.
+
+        Args:
+            name (str): Name of the game.
+            size (Vector): Size of the game.
+            draw (Draw): Draw context used to render the game.
+            input_manager (InputManager): Input manager used to handle input.
+            foreground_color (int): Foreground color of the game. Defaults to 0xFFFF.
+            background_color (int): Background color of the game. Defaults to 0x0000.
+            camera_context (Camera or None): Camera context used to render the game. Defaults to None.
+            start (callable): Function called when the game is started. Defaults to None.
+            stop (callable): Function called when the game is stopped. Defaults to None.
         """
         from picoware.engine.camera import Camera
 
@@ -46,6 +45,12 @@ class Game(engine.Game):
         self.input_manager = input_manager
 
     def __setattr__(self, name, value):
+        """Set a game attribute, routing to the matching setter.
+
+        Args:
+            name (str): Attribute name to set.
+            value (object): New value for the attribute.
+        """
         if name == "name":
             self.set_name(value)
         elif name == "size":

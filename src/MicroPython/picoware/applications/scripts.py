@@ -4,6 +4,11 @@ _scripts_index = 0
 _js = None
 
 def _set_scripts() -> bool:
+    """Create a new JS engine instance.
+
+    Returns:
+        bool: True on success.
+    """
     from picoware.system.js import JS
     global _js
     del _js
@@ -13,7 +18,14 @@ def _set_scripts() -> bool:
     return _js is not None
 
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True on success.
+    """
     from picoware.gui.menu import Menu
 
     if not view_manager.has_sd_card:
@@ -54,7 +66,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app."""
+    """Run the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from picoware.system.buttons import (
         BUTTON_BACK,
         BUTTON_UP,
@@ -102,7 +118,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     global _scripts, _js
     if _scripts is not None:
         del _scripts

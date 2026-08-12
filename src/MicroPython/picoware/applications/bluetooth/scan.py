@@ -8,7 +8,12 @@ _scanned_devices = []  # List of (addr_type, addr_bytes, name, rssi)
 
 
 def bluetooth_callback(event, data):
-    """Bluetooth callback function for scan results"""
+    """Handle Bluetooth scan result events.
+
+    Args:
+        event (int): Bluetooth event code.
+        data (tuple): Event payload with address and RSSI.
+    """
     global _scanned_devices
 
     if event == 5:  # _IRQ_SCAN_RESULT
@@ -46,7 +51,14 @@ def bluetooth_callback(event, data):
 
 
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app and begin scanning for devices.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if the app started, False on failure.
+    """
     from picoware.gui.loading import Loading
     from picoware.gui.menu import Menu
     from picoware.system.bluetooth import Bluetooth
@@ -97,7 +109,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app"""
+    """Run the app and handle scan results.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from picoware.system.buttons import (
         BUTTON_BACK,
         BUTTON_UP,
@@ -167,7 +183,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app and clean up.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from gc import collect
 
     global _menu, _bluetooth, _loading, _addresses, _scanned_devices

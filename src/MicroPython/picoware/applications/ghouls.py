@@ -23,7 +23,11 @@ _password = None
 
 
 def __get_asset_info() -> dict:
-    """Get the asset name, download link, and save path for the current asset index"""
+    """Get the asset name, download link, and save path.
+
+    Returns:
+        dict: Asset info with name, url, and path keys.
+    """
     global _asset_index
 
     base_url = "https://raw.githubusercontent.com/pico-game-engine/Ghouls/dev/src/assets/"
@@ -44,7 +48,11 @@ def __get_asset_info() -> dict:
     return _data
 
 def __get_asset_list() -> list:
-    """Get the list of assets to download"""
+    """Get the list of assets to download.
+
+    Returns:
+        list: Asset filenames to download.
+    """
     return [
         "weapon-pickup.wav",
         "tron.ghoulsmap",
@@ -76,7 +84,11 @@ def __get_asset_list() -> list:
     ]
 
 def __init_ghouls() -> bool:
-    """'Initialize the Ghouls game"""
+    """Initialize the Ghouls game.
+
+    Returns:
+        bool: True on success.
+    """
     global _ghouls
 
     # requires username, password, soundEnabled
@@ -86,7 +98,14 @@ def __init_ghouls() -> bool:
 
 
 def __is_assets_loaded(view_manager) -> bool:
-    """Check if at least the first asset is loaded"""
+    """Check if at least the first asset is loaded.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True if all assets exist.
+    """
     s = view_manager.storage
     if s is None:
         return False
@@ -99,7 +118,14 @@ def __is_assets_loaded(view_manager) -> bool:
 
 
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True on success.
+    """
     if not view_manager.has_sd_card:
         view_manager.alert("App Store app requires an SD card", False)
         return False
@@ -181,7 +207,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app"""
+    """Run the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
 
     global _state, _ghouls, _loading
 
@@ -243,7 +273,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from gc import collect
 
     global _ghouls, _http, _loading, _asset_index, _state, _username, _password

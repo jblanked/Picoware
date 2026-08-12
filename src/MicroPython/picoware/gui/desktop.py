@@ -1083,6 +1083,13 @@ class Desktop:
     def __init__(
         self, draw, text_color: int = 0xFFFF, background_color: int = 0x0000
     ) -> None:
+        """Initialize the desktop environment.
+
+        Args:
+            draw (Draw): The drawing context.
+            text_color (int): The text color. Defaults to 0xFFFF.
+            background_color (int): The background color. Defaults to 0x0000.
+        """
         from picoware.system.system import System
         from picoware.system.boards import BOARD_FLIPPER_ZERO
 
@@ -1161,7 +1168,13 @@ class Desktop:
     def draw(
         self, animiation_frame, animation_size: Vector, position: Vector = Vector(0, 20)
     ) -> None:
-        """Draw the desktop environment with a BMP image from disk."""
+        """Draw the desktop environment with a BMP image from disk.
+
+        Args:
+            animiation_frame: The animation frame pixel data to draw.
+            animation_size (Vector): The size of the animation frame.
+            position (Vector): The position to draw the frame. Defaults to Vector(0, 20).
+        """
         self.display.clear(self.position, self.size, self.background_color)
         self.draw_header()
         self.display.image_bytearray(
@@ -1173,7 +1186,11 @@ class Desktop:
         self.display.swap()
 
     def draw_header(self, wifi_is_connected: bool = True) -> None:
-        """Draw the header with the board name and Wi-Fi status."""
+        """Draw the header with the board name and Wi-Fi status.
+
+        Args:
+            wifi_is_connected (bool): Whether Wi-Fi is connected. Defaults to True.
+        """
         # draw board name
         self.display.text(self.name_pos, self.name, self.text_color)
 
@@ -1210,7 +1227,11 @@ class Desktop:
         )
 
     def set_battery(self, battery_level: int) -> None:
-        """Set the battery level on the header."""
+        """Set the battery level on the header.
+
+        Args:
+            battery_level (int): The battery level as a percentage.
+        """
         self.battery_level_str = f"{battery_level}%"
 
         if self.is_circular:
@@ -1223,7 +1244,11 @@ class Desktop:
             )
 
     def set_time(self, time_str: str) -> None:
-        """Set the time on the header."""
+        """Set the time on the header.
+
+        Args:
+            time_str (str): The time string to display.
+        """
         self.time_str = time_str
 
         if self.is_circular:

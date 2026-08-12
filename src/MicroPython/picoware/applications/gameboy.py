@@ -12,7 +12,14 @@ _file_browser = None
 @storage_required
 @psram_required
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True on success.
+    """
     # first show info screen about connection
     d = view_manager.draw
     fg = view_manager.foreground_color
@@ -56,7 +63,11 @@ Minus sign is the Select key
 
 
 def run(view_manager) -> None:
-    """Run the app"""
+    """Run the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     global gb, _file_browser, _state
 
     button = view_manager.button
@@ -107,7 +118,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from gc import collect
 
     global gb, _file_browser, _state

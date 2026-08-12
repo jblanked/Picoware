@@ -2,7 +2,14 @@ _file_browser = None
 
 
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True on success.
+    """
     if not view_manager.has_sd_card:
         view_manager.alert("File Browser app requires an SD card")
         return False
@@ -18,14 +25,22 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app"""
+    """Run the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
 
     if not _file_browser.run():
         view_manager.back()
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from gc import collect
 
     global _file_browser

@@ -11,12 +11,12 @@ class Loading:
         spinner_color: int = 0xFFFF,
         background_color: int = 0x0000,
     ) -> None:
-        """
-        Initialize the Loading spinner with drawing context and styling.
+        """Initialize the Loading spinner with drawing context and styling.
 
-        :param draw: The drawing context to render the loading spinner.
-        :param spinner_color: The color of the spinner.
-        :param background_color: The background color.
+        Args:
+            draw (Draw): The drawing context to render the loading spinner.
+            spinner_color (int): The color of the spinner. Defaults to 0xFFFF.
+            background_color (int): The background color. Defaults to 0x0000.
         """
         from picoware.system.vector import Vector
 
@@ -51,7 +51,15 @@ class Loading:
                 init()
 
                 class LVGLLoadingWrapper(LVGLLoading):
+                    """Wrapper that forwards text assignment to LVGL."""
+
                     def __setattr__(self, name, value):
+                        """Forward text assignment to the LVGL loading spinner.
+
+                        Args:
+                            name (str): The attribute name.
+                            value: The attribute value.
+                        """
                         if name == "text":
                             self.set_text(value)
                         else:
@@ -65,6 +73,7 @@ class Loading:
                 self.use_lvgl = False
 
     def __del__(self) -> None:
+        """Clean up resources and deinitialize LVGL."""
         if self._lvgl_loading is not None:
             from picoware_lvgl import deinit
 
@@ -89,7 +98,11 @@ class Loading:
 
     @text.setter
     def text(self, value: str) -> None:
-        """Set the current loading text."""
+        """Set the current loading text.
+
+        Args:
+            value (str): The new loading text.
+        """
         self.current_text = value
 
         # Update LVGL Loading if using it
@@ -102,7 +115,12 @@ class Loading:
         self.text_vec.x = (self.display.size.x - text_width) // 2
 
     def animate(self, swap: bool = True, http=None) -> None:
-        """Animate the loading spinner."""
+        """Animate the loading spinner.
+
+        Args:
+            swap (bool): Whether to swap the display buffer. Defaults to True.
+            http: Optional HTTP client for download progress display. Defaults to None.
+        """
         if self.use_lvgl and self._lvgl_loading is not None:
             from picoware_lvgl import tick, task_handler
 
@@ -189,7 +207,15 @@ class Loading:
             self.display.swap()
 
     def fade_color(self, color: int, opacity: int) -> int:
-        """Fast color fading."""
+        """Fade a color by applying an opacity value.
+
+        Args:
+            color (int): The RGB565 color to fade.
+            opacity (int): The opacity from 0 to 255.
+
+        Returns:
+            int: The faded RGB565 color.
+        """
         if opacity >= 255:
             return color
 
@@ -201,7 +227,11 @@ class Loading:
         return (r << 11) | (g << 5) | b
 
     def set_text(self, text: str) -> None:
-        """Set the loading text."""
+        """Set the loading text.
+
+        Args:
+            text (str): The new loading text.
+        """
         self.current_text = text
 
         # Update LVGL Loading if using it

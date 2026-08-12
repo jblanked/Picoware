@@ -5,7 +5,14 @@ _text_visible = False
 
 
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app and build the WiFi settings menu.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if the app started.
+    """
     from picoware.gui.menu import Menu
 
     global _settings_menu
@@ -32,7 +39,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app."""
+    """Run the app and handle menu input.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from picoware.system.view import View
     from picoware.system.buttons import (
         BUTTON_BACK,
@@ -120,7 +131,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app and clean up.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from gc import collect
 
     global _settings_menu

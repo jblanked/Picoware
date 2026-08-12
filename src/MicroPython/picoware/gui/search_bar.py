@@ -22,10 +22,17 @@ class SearchBar:
         background_color: int = 0x0000,
         selected_color: int = 0x001F,
     ) -> None:
-        """
-        Initialize the SearchBar with a view manager, search items, and styling.
+        """Initialize the SearchBar with a view manager, search items, and styling.
 
         Positions and sizes derive from the screen size when size is None.
+
+        Args:
+            view_manager (ViewManager): The view manager context.
+            items (list): The items to search through.
+            size (Vector): The size of the search bar. Defaults to None (screen size).
+            text_color (int): The text color. Defaults to 0xFFFF.
+            background_color (int): The background color. Defaults to 0x0000.
+            selected_color (int): The selected item color. Defaults to 0x001F.
         """
         from picoware.system.vector import Vector
 
@@ -113,11 +120,14 @@ class SearchBar:
         self._compute_item_rects()
 
     def run(self, swap: bool = True, force: bool = False) -> bool:
-        """
-        Runs the input manager, handles input, and draws the search bar.
+        """Run the input manager, handle input, and draw the search bar.
 
-        Returns True while the search bar is running, or False when it is
-        done (either an item was clicked/saved or back was pressed).
+        Args:
+            swap (bool): Whether to swap the display buffer. Defaults to True.
+            force (bool): Whether to force a redraw. Defaults to False.
+
+        Returns:
+            bool: True while running, False when done.
         """
         if self.just_stopped or self.is_save_pressed:
             return False
@@ -206,14 +216,26 @@ class SearchBar:
         return False
 
     def _item_at_point(self, x: int, y: int):
-        """Return the index of the item under a touch point, or None."""
+        """Return the index of the item under a touch point, or None.
+
+        Args:
+            x (int): The touch X coordinate.
+            y (int): The touch Y coordinate.
+
+        Returns:
+            int or None: The index of the item, or None if not on an item.
+        """
         for i, (rx, ry, rw, rh) in enumerate(self._item_rects):
             if rx <= x < rx + rw and ry <= y < ry + rh:
                 return i
         return None
 
     def _type_char(self, char: str) -> None:
-        """Insert a character at the cursor position and re-filter the items."""
+        """Insert a character at the cursor position and re-filter the items.
+
+        Args:
+            char (str): The character to insert.
+        """
         self._current_text = (
             self._current_text[: self._cursor]
             + char
@@ -233,11 +255,19 @@ class SearchBar:
             self._update_filter()
 
     def _move_cursor(self, delta: int) -> None:
-        """Move the text cursor left or right."""
+        """Move the text cursor left or right.
+
+        Args:
+            delta (int): The number of positions to move.
+        """
         self._cursor = max(0, min(self._cursor + delta, len(self._current_text)))
 
     def _move_selection(self, delta: int) -> None:
-        """Move the item highlight up or down."""
+        """Move the item highlight up or down.
+
+        Args:
+            delta (int): The number of positions to move.
+        """
         if not self._filtered_items:
             return
         index = self._selected_index + delta
@@ -245,7 +275,11 @@ class SearchBar:
             self._selected_index = index
 
     def _select_item(self, index: int) -> None:
-        """Click an item: set the save flag and signal that we are done."""
+        """Click an item: set the save flag and signal that we are done.
+
+        Args:
+            index (int): The index of the item to select.
+        """
         if not self._filtered_items:
             return
         if index < 0 or index >= len(self._filtered_items):

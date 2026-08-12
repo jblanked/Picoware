@@ -14,18 +14,16 @@ class ToggleList:
         border_width: int = 1,
         callback: callable = None,  # (index: int, state: bool)
     ):
-        """
-        Initialize the Toggle switch with drawing context and styling.
+        """Initialize the ToggleList with styling and an optional callback.
 
-        :param view_manager: The view manager to render the toggle and handle input.
-        :param position: Vector position of the toggle.
-        :param size: Vector size of the toggle.
-        :param foreground_color: The color of the text.
-        :param background_color: The background color.
-        :param on_color: The color when toggle is on.
-        :param border_color: The color of the border.
-        :param border_width: The width of the border.
-        :param callback: Optional callback function when a toggle is changed.
+        Args:
+            view_manager (ViewManager): The view manager to render and handle input.
+            foreground_color (int): The color of the text. Defaults to 0xFFFF.
+            background_color (int): The background color. Defaults to 0x0000.
+            on_color (int): The color when a toggle is on. Defaults to 0x001F.
+            border_color (int): The color of the border. Defaults to 0xFFFF.
+            border_width (int): The width of the border. Defaults to 1.
+            callback (callable): Optional callback called when a toggle changes. Defaults to None.
         """
         from picoware.system.vector import Vector
 
@@ -53,6 +51,7 @@ class ToggleList:
         self.clear()
 
     def __del__(self):
+        """Clean up resources."""
         if self.position:
             del self.position
             self.position = None
@@ -101,8 +100,9 @@ class ToggleList:
     def add_toggle(self, text: str, initial_state: bool = False) -> None:
         """Add a new toggle to the list.
 
-        :param text: The label text for the toggle.
-        :param initial_state: Initial state of the toggle (True/False).
+        Args:
+            text (str): The label text for the toggle.
+            initial_state (bool): Initial state of the toggle. Defaults to False.
         """
         from picoware.gui.toggle import Toggle
         from picoware.system.vector import Vector
@@ -140,7 +140,14 @@ class ToggleList:
         display.swap()
 
     def remove_toggle(self, index: int) -> bool:
-        """Remove a toggle from the list by index."""
+        """Remove a toggle from the list by index.
+
+        Args:
+            index (int): The index of the toggle to remove.
+
+        Returns:
+            bool: True if removed, False otherwise.
+        """
         if 0 <= index < len(self.toggle_list):
             for i in range(index, len(self.toggle_list) - 1):
                 self.toggle_list[i] = self.toggle_list[i + 1]
@@ -152,7 +159,11 @@ class ToggleList:
         return False
 
     def run(self) -> bool:
-        """Handle input to navigate and toggle items in the list. Returns False if the user wants to exit."""
+        """Handle input to navigate and toggle items in the list.
+
+        Returns:
+            bool: False if the user wants to exit.
+        """
         if self._just_started:
             self._just_started = False
             self.__draw()
@@ -175,7 +186,16 @@ class ToggleList:
         return True
 
     def update_toggle(self, index: int, text: str, state: bool) -> bool:
-        """Update the text and state of a specific toggle in the list."""
+        """Update the text and state of a specific toggle in the list.
+
+        Args:
+            index (int): The index of the toggle to update.
+            text (str): The new toggle text.
+            state (bool): The new toggle state.
+
+        Returns:
+            bool: True if updated, False otherwise.
+        """
         if 0 <= index < len(self.toggle_list):
             toggle = self.toggle_list[index]
             toggle.update(text, state)

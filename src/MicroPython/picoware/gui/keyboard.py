@@ -82,6 +82,13 @@ class KeyLayout:
     __slots__ = ("normal", "shifted", "width")
 
     def __init__(self, normal: str, shifted: str, width: int = 1) -> None:
+        """Initialize a key layout entry.
+
+        Args:
+            normal (str): The character for the normal state.
+            shifted (str): The character for the shifted state.
+            width (int): The key width in units. Defaults to 1.
+        """
         self.normal = normal
         self.shifted = shifted
         self.width = width  # Width in units (1 = normal key, 2 = double width, etc.)
@@ -173,16 +180,15 @@ class Keyboard:
         selected_color: int = 0x001F,
         on_save_callback: callable = None,
     ) -> None:
-        """
-        Initializes the keyboard with drawing context and input manager.
+        """Initialize the keyboard with drawing context and input manager.
 
         Args:
-            draw: Drawing context for rendering the keyboard.
+            draw (Draw): Drawing context for rendering the keyboard.
             input_manager: Input manager to handle button presses.
-            text_color: Color for the text on keys and textbox.
-            background_color: Background color for keys and textbox.
-            selected_color: Color for the selected key highlight.
-            on_save_callback: Optional callback function to call when "Save" is pressed. (must accept one argument: the current response string)
+            text_color (int): Color for the text on keys and textbox. Defaults to 0xFFFF.
+            background_color (int): Background color for keys and textbox. Defaults to 0x0000.
+            selected_color (int): Color for the selected key highlight. Defaults to 0x001F.
+            on_save_callback (callable): Optional callback called when "Save" is pressed. Defaults to None.
         """
         from picoware.system.vector import Vector
         from picoware.system.auto_complete import AutoComplete
@@ -337,6 +343,7 @@ class Keyboard:
         self._auto_complete_words = []
 
     def __del__(self) -> None:
+        """Clean up keyboard resources."""
         self.reset()
         self.current_title = ""
         self.size_vec = None
@@ -362,7 +369,11 @@ class Keyboard:
 
     @callback.setter
     def callback(self, value: callable) -> None:
-        """Sets the current save callback function"""
+        """Set the current save callback function.
+
+        Args:
+            value (callable): The new callback function.
+        """
         self.on_save_callback = value
 
     @property
@@ -382,7 +393,11 @@ class Keyboard:
 
     @show_keyboard.setter
     def show_keyboard(self, value: bool) -> None:
-        """Sets whether the on-screen keyboard is shown"""
+        """Set whether the on-screen keyboard is shown.
+
+        Args:
+            value (bool): True to show the keyboard.
+        """
         self._show_keyboard = value
 
     @property
@@ -392,7 +407,11 @@ class Keyboard:
 
     @title.setter
     def title(self, value: str) -> None:
-        """Sets the current title of the keyboard"""
+        """Set the current title of the keyboard.
+
+        Args:
+            value (str): The new title.
+        """
         from picoware.system.vector import Vector
 
         self.current_title = value
@@ -407,7 +426,11 @@ class Keyboard:
 
     @response.setter
     def response(self, value: str) -> None:
-        """Sets the response string"""
+        """Set the response string.
+
+        Args:
+            value (str): The new response string.
+        """
         self._response = value
         self.text_cursor_position = len(value)
 
@@ -418,12 +441,20 @@ class Keyboard:
 
     @auto_complete_words.setter
     def auto_complete_words(self, value: list[str]) -> None:
-        """Sets the list of words for auto-completion"""
+        """Set the list of words for auto-completion.
+
+        Args:
+            value (list[str]): The new word list.
+        """
         self._auto_complete_words = value
         self._auto_complete_words_set = False
 
     def set_save_callback(self, callback: callable) -> None:
-        """Sets the save callback function"""
+        """Set the save callback function.
+
+        Args:
+            callback (callable): The callback to call on save.
+        """
         self.on_save_callback = callback
 
     def reset(self) -> None:
@@ -446,7 +477,15 @@ class Keyboard:
         self._auto_complete_words.clear()
 
     def run(self, swap: bool = True, force: bool = False) -> bool:
-        """Runs the input manager, handles input, and draws the keyboard"""
+        """Run the input manager, handle input, and draw the keyboard.
+
+        Args:
+            swap (bool): Whether to swap the display buffer. Defaults to True.
+            force (bool): Whether to force a redraw. Defaults to False.
+
+        Returns:
+            bool: True while running, False when stopped.
+        """
         if self.just_stopped:
             return False
 
@@ -566,7 +605,15 @@ class Keyboard:
         return rects
 
     def _key_at_point(self, x: int, y: int):
-        """Return the (row, col) under a touch point, or None."""
+        """Return the (row, col) under a touch point, or None.
+
+        Args:
+            x (int): The touch X coordinate.
+            y (int): The touch Y coordinate.
+
+        Returns:
+            tuple or None: The (row, col) of the key, or None if not on a key.
+        """
         for row in range(self.NUM_ROWS):
             # reversed: a multi-unit key is drawn over the key after it
             for col in range(self.ROW_SIZES[row] - 1, -1, -1):
@@ -598,7 +645,13 @@ class Keyboard:
         return True
 
     def _draw_key(self, row: int, col: int, is_selected: bool) -> None:
-        """Draws a specific key on the keyboard"""
+        """Draw a specific key on the keyboard.
+
+        Args:
+            row (int): The key row index.
+            col (int): The key column index.
+            is_selected (bool): Whether the key is currently selected.
+        """
         if row >= self.NUM_ROWS or col >= self.ROW_SIZES[row]:
             return
 
@@ -789,7 +842,11 @@ class Keyboard:
                 self.draw._text(x_pos, y_pos, suggestion, self.text_color)
 
     def _apply_suggestion(self, suggestion_text: str) -> None:
-        """Applies an auto-complete suggestion to the current response"""
+        """Apply an auto-complete suggestion to the current response.
+
+        Args:
+            suggestion_text (str): The suggestion to apply.
+        """
         if not suggestion_text or not self._response:
             return
 
@@ -1024,7 +1081,12 @@ class Keyboard:
                 self.is_manual_shift = False
 
     def _set_cursor_position(self, row: int, col: int) -> None:
-        """Sets the cursor position on the keyboard"""
+        """Set the cursor position on the keyboard.
+
+        Args:
+            row (int): The row to move to.
+            col (int): The column to move to.
+        """
         if row < self.NUM_ROWS and col < self.ROW_SIZES[row]:
             self.cursor_row = row
             self.cursor_col = col

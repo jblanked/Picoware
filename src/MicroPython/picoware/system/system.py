@@ -2,6 +2,7 @@ class System:
     """Handle basic system operations."""
 
     def __init__(self):
+        """Initialize the System helper."""
         pass
 
     @property
@@ -189,7 +190,11 @@ class System:
         reset()
 
     def shutdown_device(self, view_manager=None):
-        """Shutdown the device."""
+        """Shut down the device.
+
+        Args:
+            view_manager (ViewManager): Optional manager to show a shutdown alert. Defaults to None.
+        """
         from picoware_boards import BOARD_HAS_PSRAM, BOARD_ID, BOARD_FLIPPER_ZERO
 
         if BOARD_ID == BOARD_FLIPPER_ZERO:

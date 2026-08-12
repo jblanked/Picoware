@@ -12,6 +12,18 @@ class List:
         border_color: int = 0xFFFF,
         border_width: int = 2,
     ):
+        """Initialize the list with drawing context and styling.
+
+        Args:
+            draw (Draw): The drawing context to render the list.
+            y (int): The top Y position of the list.
+            height (int): The height of the list.
+            text_color (int): The text color. Defaults to 0xFFFF.
+            background_color (int): The background color. Defaults to 0x0000.
+            selected_color (int): The selected item color. Defaults to 0x001F.
+            border_color (int): The border color. Defaults to 0xFFFF.
+            border_width (int): The border width. Defaults to 2.
+        """
         from picoware.system.system import System
         from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
         from picoware.system.vector import Vector
@@ -38,6 +50,7 @@ class List:
                 init()
 
                 class LVGLListWrapper(LVGLList):
+                    """Wrapper for the LVGL list instance."""
                     pass
 
                 # Create LVGL List instance
@@ -152,13 +165,21 @@ class List:
         return self._selected_index
 
     def add_item(self, item: str) -> None:
-        """Add an item to the list."""
+        """Add an item to the list.
+
+        Args:
+            item (str): The item to add.
+        """
         if self.use_lvgl and self._lvgl_list is not None:
             self._lvgl_list.add_item(item)
         self.items.append(item)
 
     def clear(self, swap: bool = True) -> None:
-        """Clear the list."""
+        """Clear the list.
+
+        Args:
+            swap (bool): Whether to swap the display buffer. Defaults to True.
+        """
         if self.use_lvgl and self._lvgl_list is not None:
             self._lvgl_list.clear()
             self.items = []
@@ -181,7 +202,11 @@ class List:
             self.display.swap()
 
     def draw(self, swap: bool = True) -> None:
-        """Draw the list with new style."""
+        """Draw the list.
+
+        Args:
+            swap (bool): Whether to swap the display buffer. Defaults to True.
+        """
         if self.use_lvgl and self._lvgl_list is not None:
             from picoware_lvgl import tick, task_handler
 
@@ -355,7 +380,14 @@ class List:
             self.display.swap()
 
     def get_item(self, index: int) -> str:
-        """Get an item from the list."""
+        """Get an item from the list.
+
+        Args:
+            index (int): The index of the item.
+
+        Returns:
+            str: The item string, or "" if not found.
+        """
         if self.use_lvgl and self._lvgl_list is not None:
             item = self._lvgl_list.get_item(index)
             return item if item is not None else ""
@@ -366,13 +398,24 @@ class List:
         return ""
 
     def item_exists(self, item: str) -> bool:
-        """Check if an item exists in the list."""
+        """Check if an item exists in the list.
+
+        Args:
+            item (str): The item to look for.
+
+        Returns:
+            bool: True if the item exists.
+        """
         if self.use_lvgl and self._lvgl_list is not None:
             return self._lvgl_list.item_exists(item)
         return item in self.items
 
     def remove_item(self, index: int) -> None:
-        """Remove an item from the list and update the display."""
+        """Remove an item from the list and update the display.
+
+        Args:
+            index (int): The index of the item to remove.
+        """
         _len = len(self.items)
         if self.use_lvgl and self._lvgl_list is not None:
             self._lvgl_list.remove_item(index)
@@ -390,7 +433,11 @@ class List:
             self._selected_index = _len - 1 if _len > 0 else 0
 
     def scroll_down(self, swap: bool = True) -> None:
-        """Scroll the list down by one item."""
+        """Scroll the list down by one item.
+
+        Args:
+            swap (bool): Whether to swap the display buffer. Defaults to True.
+        """
         if self.use_lvgl and self._lvgl_list is not None:
             self._lvgl_list.scroll_down()
             self._selected_index = self._lvgl_list.selected_index()
@@ -403,7 +450,11 @@ class List:
         self.draw(swap)
 
     def scroll_up(self, swap: bool = True) -> None:
-        """Scroll the list up by one item."""
+        """Scroll the list up by one item.
+
+        Args:
+            swap (bool): Whether to swap the display buffer. Defaults to True.
+        """
         if self.use_lvgl and self._lvgl_list is not None:
             self._lvgl_list.scroll_up()
             self._selected_index = self._lvgl_list.selected_index()
@@ -416,7 +467,12 @@ class List:
         self.draw(swap)
 
     def set_selected(self, index: int, swap: bool = True) -> None:
-        """Set the selected item in the list"""
+        """Set the selected item in the list.
+
+        Args:
+            index (int): The index of the item to select.
+            swap (bool): Whether to swap the display buffer. Defaults to True.
+        """
         if self.use_lvgl and self._lvgl_list is not None:
             self._lvgl_list.set_selected(index)
             self._selected_index = index

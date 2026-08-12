@@ -21,7 +21,14 @@ _keyboard_just_started = False
 
 
 def __template(filename: str) -> str:
-    """Return a basic Picoware app template"""
+    """Return a basic Picoware app template.
+
+    Args:
+        filename (str): The app filename.
+
+    Returns:
+        str: The template source.
+    """
     return f'''# {filename}
 
 def start(view_manager) -> bool:
@@ -49,7 +56,11 @@ def stop(view_manager) -> None:
 
 
 def __callback_filename_save(result: str) -> None:
-    """Callback for when the filename is saved"""
+    """Callback for when the filename is saved.
+
+    Args:
+        result (str): The typed filename.
+    """
     global _editor_state
     global _filename
 
@@ -61,7 +72,13 @@ def __callback_filename_save(result: str) -> None:
 
 
 def _start_editor(view_manager, filename=None, create_template=False):
-    """Start the pye editor with the specified filename"""
+    """Start the pye editor with the specified filename.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+        filename (str): The file to edit. Defaults to None.
+        create_template (bool): Create a template if the file is empty. Defaults to False.
+    """
     from picoware.system.drivers.vt import vt
 
     global _editor_state
@@ -127,7 +144,11 @@ def _start_editor(view_manager, filename=None, create_template=False):
 
 
 def _start_initial_menu(view_manager) -> None:
-    """Start the initial menu to choose between new file or edit existing."""
+    """Start the initial menu to choose between new file or edit existing.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from picoware.gui.menu import Menu
 
     global _initial_menu
@@ -152,7 +173,11 @@ def _start_initial_menu(view_manager) -> None:
 
 
 def _start_file_type_menu(view_manager) -> None:
-    """Start the file type menu."""
+    """Start the file type menu.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from picoware.gui.menu import Menu
 
     global _file_type_menu
@@ -177,7 +202,11 @@ def _start_file_type_menu(view_manager) -> None:
 
 
 def _start_file_browser(view_manager) -> None:
-    """Start the file browser for selecting an existing app."""
+    """Start the file browser for selecting an existing app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from picoware.gui.file_browser import FileBrowser, FILE_BROWSER_SELECTOR
 
     global _file_browser
@@ -193,7 +222,14 @@ def _start_file_browser(view_manager) -> None:
 
 
 def start(view_manager) -> bool:
-    """Start the app."""
+    """Start the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True on success.
+    """
     if not view_manager.has_sd_card:
         view_manager.alert("Editor app requires an SD card")
         return False
@@ -221,14 +257,16 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """
-    Run the app.
+    """Run the app.
 
     State 0 (INITIAL_MENU): Choose between creating new file or editing existing app
     State 1 (KEYBOARD): Get filename input from user via keyboard (for new files)
     State 2 (FILE_TYPE_MENU): Show menu to select file type (Picoware App or Python Script)
     State 3 (FILE_BROWSER): Show file browser to select existing app to edit
     State 4 (EDITOR): Launch pye editor with the specified filename
+
+    Args:
+        view_manager (ViewManager): The view manager context.
     """
     from picoware.system.buttons import BUTTON_BACK, BUTTON_OK, BUTTON_UP, BUTTON_DOWN
 
@@ -417,7 +455,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app."""
+    """Stop the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from gc import collect
 
     global _filename

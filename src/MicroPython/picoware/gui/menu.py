@@ -13,6 +13,19 @@ class Menu:
         border_color: int = 0xFFFF,
         border_width: int = 2,
     ) -> None:
+        """Initialize the menu with a title and an embedded list.
+
+        Args:
+            draw (Draw): The drawing context to render the menu.
+            title (str): The menu title.
+            y (int): The top Y position of the menu.
+            height (int): The height of the menu.
+            text_color (int): The text color. Defaults to 0xFFFF.
+            background_color (int): The background color. Defaults to 0x0000.
+            selected_color (int): The selected item color. Defaults to 0x001F.
+            border_color (int): The border color. Defaults to 0xFFFF.
+            border_width (int): The border width. Defaults to 2.
+        """
         from picoware.gui.list import List
         from picoware.system.vector import Vector
         from picoware.system.boards import BOARD_ID, BOARD_CARDPUTER, BOARD_FLIPPER_ZERO
@@ -86,6 +99,7 @@ class Menu:
             self.clear_size = None
 
     def __del__(self):
+        """Clean up resources."""
         if self.list:
             del self.list
             self.list = None
@@ -139,7 +153,11 @@ class Menu:
 
     @title.setter
     def title(self, value: str) -> None:
-        """Set the menu title."""
+        """Set the menu title.
+
+        Args:
+            value (str): The new title.
+        """
         self._title = value
 
         # Update LVGL list title if using LVGL
@@ -167,7 +185,11 @@ class Menu:
             )
 
     def add_item(self, item: str) -> None:
-        """Add an item to the menu."""
+        """Add an item to the menu.
+
+        Args:
+            item (str): The item to add.
+        """
         self.list.add_item(item)
 
     def clear(self) -> None:
@@ -228,11 +250,25 @@ class Menu:
         self.list.display.swap()
 
     def get_item(self, index: int) -> str:
-        """Get the item at the specified index."""
+        """Get the item at the specified index.
+
+        Args:
+            index (int): The index of the item.
+
+        Returns:
+            str: The item string, or "" if not found.
+        """
         return self.list.get_item(index)
 
     def item_exists(self, item: str) -> bool:
-        """Check if an item exists in the menu."""
+        """Check if an item exists in the menu.
+
+        Args:
+            item (str): The item to look for.
+
+        Returns:
+            bool: True if the item exists.
+        """
         return self.list.item_exists(item)
 
     def refresh(self) -> None:
@@ -244,7 +280,11 @@ class Menu:
             self.draw_title()
 
     def remove_item(self, index: int) -> None:
-        """Remove an item from the menu."""
+        """Remove an item from the menu.
+
+        Args:
+            index (int): The index of the item to remove.
+        """
         self.list.remove_item(index)
 
     def scroll_down(self) -> None:
@@ -260,7 +300,11 @@ class Menu:
             self.draw_title()
 
     def set_selected(self, index: int) -> None:
-        """Set the selected item."""
+        """Set the selected item.
+
+        Args:
+            index (int): The index of the item to select.
+        """
         self.list.set_selected(index, False)
         if not self.use_lvgl:
             self.draw_title()

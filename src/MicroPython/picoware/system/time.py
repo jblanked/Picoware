@@ -12,6 +12,11 @@ class Time:
     )
 
     def __init__(self, thread_manager=None):
+        """Initialize the time manager.
+
+        Args:
+            thread_manager (object or None): Manager for running the NTP fetch in a thread. Defaults to None.
+        """
         from machine import RTC
 
         self._lock = None
@@ -29,6 +34,7 @@ class Time:
         self._requested = False
 
     def __del__(self):
+        """Deinitialize the RTC and stop any running time task."""
         self._rtc.deinit()
         del self._rtc
         self._rtc = None
@@ -95,9 +101,15 @@ class Time:
             return f"{date[4]}:{_minutes}:{_seconds}"
 
     def fetch(self, offset: int = 0) -> bool:
-        """
-        Fetch the current date and time from ntp.
+        """Fetch the current date and time from NTP.
+
         Originated from: https://github.com/micropython/micropython-lib/blob/master/micropython/net/ntptime/ntptime.py
+
+        Args:
+            offset (int): Timezone offset in hours to apply. Defaults to 0.
+
+        Returns:
+            bool: True if the fetch was started or time was already set, False otherwise.
         """
         if self._lock is None:
             return False
@@ -193,7 +205,16 @@ class Time:
             return False
 
     def set(self, year, month, day, hour, minute, second) -> None:
-        """Set the current date and time."""
+        """Set the current date and time.
+
+        Args:
+            year (int): Year.
+            month (int): Month.
+            day (int): Day of the month.
+            hour (int): Hour.
+            minute (int): Minute.
+            second (int): Second.
+        """
         if self._lock is None:
             return
 

@@ -5,7 +5,11 @@ _keyboard_started = False
 
 
 def __callback_save(result: str) -> None:
-    """Callback for when the Password is saved"""
+    """Callback for when the Password is saved.
+
+    Args:
+        result (str): The saved password value.
+    """
 
     global _password_is_running
     global _password_save_requested
@@ -17,7 +21,14 @@ def __callback_save(result: str) -> None:
 
 
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app and open the password keyboard.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if the keyboard started, False on failure.
+    """
     from picoware.applications.wifi.utils import load_wifi_password
 
     global _password_is_running
@@ -44,7 +55,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app."""
+    """Run the app and handle keyboard input.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     keyboard = view_manager.keyboard
     if not keyboard:
         return
@@ -93,7 +108,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app."""
+    """Stop the app and reset state.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from gc import collect
 
     global _password_is_running

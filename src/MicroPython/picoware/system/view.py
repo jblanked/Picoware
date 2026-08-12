@@ -1,15 +1,25 @@
 class View:
-    """
-    A class representing a view in the system.
-    - name: str - the name of the view
-    - run: function(ViewManager) - the function called every frame
-    - start: function(ViewManager) - the function called when the view is created
-    - stop: function(ViewManager) - the function called when the view is destroyed
+    """A view managed by the ViewManager.
+
+    Attributes:
+        name (str): The name of the view.
+        run (callable): Function called every frame.
+        start (callable): Function called when the view is created.
+        stop (callable): Function called when the view is destroyed.
+        active (bool): Whether the view is currently active.
     """
 
     __slots__ = ("name", "_run", "_start", "_stop", "active")
 
     def __init__(self, name: str, run: callable, start: callable, stop: callable):
+        """Initialize the view with its name and callbacks.
+
+        Args:
+            name (str): The name of the view.
+            run (callable): Function called every frame.
+            start (callable): Function called when the view is created.
+            stop (callable): Function called when the view is destroyed.
+        """
         self.name = name
         self._run = run
         self._start = start
@@ -17,7 +27,12 @@ class View:
         self.active = False
 
     def __alert(self, exception, view_manager) -> None:
-        """Display an alert message."""
+        """Display an alert message.
+
+        Args:
+            exception (Exception): The exception to display.
+            view_manager (ViewManager): The manager to show the alert on.
+        """
         import sys
         import io
 
@@ -27,7 +42,14 @@ class View:
         view_manager.alert(f"{traceback_str}", False) 
 
     def start(self, view_manager) -> bool:
-        """Called when the view is created."""
+        """Start the view and mark it active.
+
+        Args:
+            view_manager (ViewManager): The manager that owns this view.
+
+        Returns:
+            bool: True if the view started successfully, False otherwise.
+        """
         if self._start:
             try:
                 if self._start(view_manager):
@@ -40,7 +62,11 @@ class View:
         return False
 
     def stop(self, view_manager):
-        """Called when the view is destroyed."""
+        """Stop the view and mark it inactive.
+
+        Args:
+            view_manager (ViewManager): The manager that owns this view.
+        """
         if self._stop:
             try:
                 self._stop(view_manager)
@@ -49,7 +75,11 @@ class View:
         self.active = False
 
     def run(self, view_manager):
-        """Called every frame."""
+        """Run the view's per-frame callback.
+
+        Args:
+            view_manager (ViewManager): The manager that owns this view.
+        """
         if self._run and self.active:
             try:
                 self._run(view_manager)

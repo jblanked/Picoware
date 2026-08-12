@@ -21,6 +21,14 @@ else:
     is_micropython = False
 
     def const(x):
+        """Return the argument unchanged.
+
+        Args:
+            x (object): The value to return.
+
+        Returns:
+            object: The unchanged value.
+        """
         return x
 
     import os
@@ -93,6 +101,7 @@ KEY_UNDO_YANK = const(0xFFDF)
 
 
 class Editor:
+    """A MicroPython text editor running on a virtual terminal."""
     KEYMAP = {
         "\x1b[A": KEY_UP,
         "\x1b[1;2A": KEY_SHIFT_UP,
@@ -197,6 +206,14 @@ class Editor:
     max_places = 20
 
     def __init__(self, tab_size, undo_limit, io_device, storage=None):
+        """Initialize the editor state.
+
+        Args:
+            tab_size (int): The tab width in spaces.
+            undo_limit (int): The maximum number of undo entries.
+            io_device: The virtual terminal device.
+            storage (Storage or None): The storage interface. Defaults to None.
+        """
         self.top_line = self.cur_line = self.row = self.vcol = self.col = (
             self.margin
         ) = 0
@@ -221,15 +238,32 @@ class Editor:
             self.key_max = max(self.key_max, len(_))
 
     def goto(self, row, col):
+        """Move the cursor to the given position.
+
+        Args:
+            row (int): The zero-based row.
+            col (int): The zero-based column.
+        """
         self.wr(Editor.TERMCMD[0].format(row=row + 1, col=col + 1))
 
     def clear_to_eol(self):
+        """Clear the line from the cursor to the end."""
         self.wr(Editor.TERMCMD[1])
 
     def cursor(self, onoff):
+        """Show or hide the terminal cursor.
+
+        Args:
+            onoff (bool): True to show the cursor, False to hide it.
+        """
         self.wr(Editor.TERMCMD[2] if onoff else Editor.TERMCMD[3])
 
     def hilite(self, mode):
+        """Set the terminal highlight mode.
+
+        Args:
+            mode (int): The highlight mode (0 normal, 1 status, 2 inverse).
+        """
         if mode == 1:
             self.wr(Editor.TERMCMD[5])
         elif mode == 2:
@@ -238,12 +272,27 @@ class Editor:
             self.wr(Editor.TERMCMD[4])
 
     def mouse_reporting(self, onoff):
+        """Enable or disable terminal mouse reporting.
+
+        Args:
+            onoff (bool): True to enable, False to disable.
+        """
         self.wr(Editor.TERMCMD[7] if onoff else Editor.TERMCMD[8])
 
     def scroll_region(self, stop):
+        """Set or clear the terminal scroll region.
+
+        Args:
+            stop (int or None): The last scroll line, or None to reset.
+        """
         self.wr(Editor.TERMCMD[11].format(stop=stop) if stop else Editor.TERMCMD[12])
 
     def scroll_up(self, scrolling):
+        """Scroll the terminal up by the given number of lines.
+
+        Args:
+            scrolling (int): The number of lines to scroll.
+        """
         if Editor.TERMCMD[9]:
             self.goto(0, 0)
             self.wr(Editor.TERMCMD[9] * scrolling)
@@ -251,6 +300,11 @@ class Editor:
         Editor.scrbuf = [(False, "\x00")] * Editor.height
 
     def scroll_down(self, scrolling):
+        """Scroll the terminal down by the given number of lines.
+
+        Args:
+            scrolling (int): The number of lines to scroll.
+        """
         if Editor.TERMCMD[10]:
             self.goto(Editor.height - 1, 0)
             self.wr(Editor.TERMCMD[10] * scrolling)
@@ -258,6 +312,11 @@ class Editor:
         Editor.scrbuf = [(False, "\x00")] * Editor.height
 
     def redraw(self, flag):
+        """Redraw the editor screen.
+
+        Args:
+            flag (bool): Whether to show the version banner.
+        """
         self.io_device.start_batch()
 
         self.cursor(False)
@@ -280,6 +339,11 @@ class Editor:
     def get_input(
         self,
     ):
+        """Read and decode one key press from the terminal.
+
+        Returns:
+            tuple: The key code and optional character data.
+        """
         while True:
             in_buffer = self.io_device.rd()
             if in_buffer[0] == "\x1b":
@@ -314,6 +378,7 @@ class Editor:
                 return KEY_NONE, in_buffer
 
     def display_window(self):
+        """Render the current editor window to the terminal."""
         self.io_device.start_batch()
 
         self.cur_line = min(self.total_lines - 1, max(self.cur_line, 0))
@@ -410,6 +475,15 @@ class Editor:
         self.io_device.end_batch()
 
     def spaces(self, line, pos=None):
+        """Count leading spaces in a line up to a position.
+
+        Args:
+            line (str): The line text.
+            pos (int or None): The position to measure up to. Defaults to None.
+
+        Returns:
+            int: The number of leading spaces.
+        """
         return (
             len(line) - len(line.lstrip(" "))
             if pos is None
@@ -417,20 +491,54 @@ class Editor:
         )
 
     def mark_range(self):
+        """Return the normalized selection range.
+
+        Returns:
+            tuple: The start line, start column, end line, and end column.
+        """
         if self.mark_order(self.cur_line, self.col) >= 0:
             return (self.mark[0], self.mark[1], self.cur_line + 1, self.col)
         else:
             return (self.cur_line, self.col, self.mark[0] + 1, self.mark[1])
 
     def mark_order(self, line, col):
+        """Return the ordering of a position relative to the mark.
+
+        Args:
+            line (int): The line to compare.
+            col (int): The column to compare.
+
+        Returns:
+            int: The difference in line or column order.
+        """
         return col - self.mark[1] if self.mark[0] == line else line - self.mark[0]
 
     def line_range(self):
+        """Return the selected line range.
+
+        Returns:
+            tuple: The start and end lines.
+        """
         res = self.mark_range()
         return (res[0], res[2]) if res[3] > 0 else (res[0], res[2] - 1)
 
     def line_edit(self, prompt, default, zap=None):
+        """Edit a single line of input at the status line.
+
+        Args:
+            prompt (str): The prompt text.
+            default (str): The default value.
+            zap (str or None): Characters treated as symbol characters. Defaults to None.
+
+        Returns:
+            str or None: The entered value, or None if cancelled.
+        """
         def push_msg(msg):
+            """Write a message and erase it afterwards.
+
+            Args:
+                msg (str): The message to display.
+            """
             self.wr(msg + Editor.TERMCMD[13] * len(msg))
 
         self.goto(Editor.height, 0)
@@ -514,6 +622,16 @@ class Editor:
             del_all = False
 
     def getsymbol(self, s, pos, zap):
+        """Return the symbol around the given position.
+
+        Args:
+            s (str): The line text.
+            pos (int): The cursor position.
+            zap (str or None): Symbol characters.
+
+        Returns:
+            str: The symbol text, or an empty string.
+        """
         if pos < len(s) and zap is not None:
             start = self.skip_while(s, pos, zap, -1)
             stop = self.skip_while(s, pos, zap, 1)
@@ -522,21 +640,53 @@ class Editor:
             return ""
 
     def issymbol(self, c, zap):
+        """Check if a character is a symbol character.
+
+        Args:
+            c (str): The character to check.
+            zap (str): Symbol characters.
+
+        Returns:
+            bool: True if the character is a symbol.
+        """
         return c.isalpha() or c.isdigit() or c in zap
 
     def skip_until(self, s, pos, zap, way):
+        """Skip non-symbol characters in a direction.
+
+        Args:
+            s (str): The line text.
+            pos (int): The starting position.
+            zap (str): Symbol characters.
+            way (int): The direction, -1 or 1.
+
+        Returns:
+            int: The position after skipping.
+        """
         stop = -1 if way < 0 else len(s)
         while pos != stop and not self.issymbol(s[pos], zap):
             pos += way
         return pos
 
     def skip_while(self, s, pos, zap, way):
+        """Skip symbol characters in a direction.
+
+        Args:
+            s (str): The line text.
+            pos (int): The starting position.
+            zap (str): Symbol characters.
+            way (int): The direction, -1 or 1.
+
+        Returns:
+            int: The position after skipping.
+        """
         stop = -1 if way < 0 else len(s)
         while pos != stop and self.issymbol(s[pos], zap):
             pos += way
         return pos
 
     def move_up(self):
+        """Move the cursor up one line."""
         # print("move_up cur line %d top_line %d",self.cur_line,self.top_line)
         if self.cur_line > 0:
             self.cur_line -= 1
@@ -545,6 +695,11 @@ class Editor:
                 self.scroll_up(1)
 
     def skip_up(self):
+        """Move up when the cursor is at the start of a line.
+
+        Returns:
+            bool: True if the cursor moved up.
+        """
         if self.col == 0 and self.cur_line > 0:
             self.col = len(self.content[self.cur_line - 1])
             self.move_up()
@@ -553,11 +708,13 @@ class Editor:
             return False
 
     def move_left(self):
+        """Move the cursor left one column."""
         self.col = self.vcol
         if not self.skip_up():
             self.col -= 1
 
     def move_down(self):
+        """Move the cursor down one line."""
         # print("move_down cur line %d top_line %d",self.cur_line,self.top_line)
         if self.cur_line < self.total_lines - 1:
             self.cur_line += 1
@@ -566,6 +723,14 @@ class Editor:
                 self.scroll_down(1)
 
     def skip_down(self, l):
+        """Move down when the cursor is at the end of a line.
+
+        Args:
+            l (str): The current line text.
+
+        Returns:
+            bool: True if the cursor moved down.
+        """
         if self.col >= len(l) and self.cur_line < self.total_lines - 1:
             self.col = 0
             self.move_down()
@@ -574,10 +739,25 @@ class Editor:
             return False
 
     def move_right(self, l):
+        """Move the cursor right one column.
+
+        Args:
+            l (str): The current line text.
+        """
         if not self.skip_down(l):
             self.col += 1
 
     def find_in_file(self, pattern, col, end):
+        """Find a pattern in the file starting from a position.
+
+        Args:
+            pattern (str): The search pattern.
+            col (int): The starting column.
+            end (int): The end line.
+
+        Returns:
+            int or None: The match length, or None if not found.
+        """
         Editor.find_pattern = pattern
         if Editor.case != "y":
             pattern = pattern.lower()
@@ -607,6 +787,15 @@ class Editor:
             return None
 
     def undo_add(self, lnum, text, key, span=1, chain=False):
+        """Add an edit action to the undo stack.
+
+        Args:
+            lnum (int): The affected line number.
+            text (list): The affected line contents.
+            key (int): The key that caused the edit.
+            span (int): The number of affected lines. Defaults to 1.
+            chain (bool): Whether to chain with the next action. Defaults to False.
+        """
         if (
             len(self.undo) == 0
             or key == KEY_NONE
@@ -620,6 +809,12 @@ class Editor:
             self.redo = []
 
     def undo_redo(self, undo, redo):
+        """Move actions between the undo and redo stacks.
+
+        Args:
+            undo (list): The source stack.
+            redo (list): The destination stack.
+        """
         chain = True
         redo_start = len(redo)
         while len(undo) > 0 and chain:
@@ -658,29 +853,42 @@ class Editor:
             self.clear_mark()
 
     def set_mark(self, flag=999999999):
+        """Set the selection mark.
+
+        Args:
+            flag (int): The mark priority. Defaults to 999999999.
+        """
         if self.mark is None:
             self.mark = (self.cur_line, self.col)
         if self.mark_flag < flag:
             self.mark_flag = flag
 
     def check_mark(self):
+        """Decrement the mark priority and clear it when expired."""
         if self.mark is not None:
             self.mark_flag -= 1
             if self.mark_flag <= 0:
                 self.clear_mark()
 
     def clear_mark(self):
+        """Clear the selection mark state."""
         self.mark = None
         self.mark_flag = 0
         self.mouse_last = (0, 0, 0)
 
     def yank_mark(self):
+        """Copy the selected text into the yank buffer."""
         start_row, start_col, end_row, end_col = self.mark_range()
         Editor.yank_buffer = self.content[start_row:end_row]
         Editor.yank_buffer[-1] = Editor.yank_buffer[-1][:end_col]
         Editor.yank_buffer[0] = Editor.yank_buffer[0][start_col:]
 
     def delete_mark(self, yank):
+        """Delete the selected text, optionally yanking it first.
+
+        Args:
+            yank (bool): True to copy the selection before deleting.
+        """
         if yank:
             self.yank_mark()
         start_row, start_col, end_row, end_col = self.mark_range()
@@ -699,6 +907,15 @@ class Editor:
         self.clear_mark()
 
     def handle_edit_keys(self, key, char):
+        """Handle a decoded key and apply the corresponding edit.
+
+        Args:
+            key (int): The key code.
+            char (str or None): The character for text input.
+
+        Returns:
+            int or Editor: The resulting key or a target editor.
+        """
         l = self.content[self.cur_line]
         if key == KEY_NONE:
             self.col = self.vcol
@@ -1239,6 +1456,11 @@ class Editor:
         return key
 
     def edit_loop(self):
+        """Run the main editor loop until quit or a handoff key.
+
+        Returns:
+            int or Editor: The quit key, handoff key, or target editor.
+        """
         if not self.content:
             self.content = [""]
         self.total_lines = len(self.content)
@@ -1301,6 +1523,14 @@ class Editor:
                 return key
 
     def packtabs(self, s):
+        """Pack runs of spaces into tab characters.
+
+        Args:
+            s (str): The text to pack.
+
+        Returns:
+            str: The packed text.
+        """
         sb = StringIO()
         for i in range(0, len(s), 8):
             c = s[i : i + 8]
@@ -1312,12 +1542,22 @@ class Editor:
         return sb.getvalue()
 
     def hash_buffer(self):
+        """Compute a hash of the current buffer content.
+
+        Returns:
+            int: The buffer hash.
+        """
         res = 0
         for line in self.content:
             res = ((res * 227 + 1) ^ hash(line)) & 0x3FFFFFFF
         return res
 
     def get_file(self, fname):
+        """Load a file or directory listing into the editor.
+
+        Args:
+            fname (str): The file or directory path.
+        """
         if fname:
             self.fname = fname
 
@@ -1375,6 +1615,14 @@ class Editor:
         self.hash = self.hash_buffer()
 
     def put_file(self, fname):
+        """Save the buffer to a file.
+
+        Args:
+            fname (str): The destination file path.
+
+        Raises:
+            OSError: If the file cannot be written.
+        """
         if self.storage:
             try:
                 # Build file content as a single string
@@ -1430,6 +1678,14 @@ class Editor:
             os.rename(tmpfile, fname)
 
     def expandtabs(self, s):
+        """Expand tab characters into spaces.
+
+        Args:
+            s (str): The text to expand.
+
+        Returns:
+            str: The expanded text.
+        """
         if "\t" in s:
             self.write_tabs = True
             sb = StringIO()
@@ -1447,6 +1703,18 @@ class Editor:
 
 
 def pye_edit(content, tab_size=4, undo=50, io_device=None, storage=None):
+    """Edit files in the terminal and return the edited content.
+
+    Args:
+        content (list): The file names or content to edit.
+        tab_size (int): The tab width in spaces. Defaults to 4.
+        undo (int): The undo limit. Defaults to 50.
+        io_device: The virtual terminal device. Defaults to None.
+        storage (Storage or None): The storage interface. Defaults to None.
+
+    Returns:
+        str or list: The saved file name or edited content.
+    """
     if io_device is None:
         print("IO device not defined")
         return

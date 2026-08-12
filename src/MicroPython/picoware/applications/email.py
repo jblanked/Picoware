@@ -85,7 +85,17 @@ email_subject = "Hello from RPi Pico W"
 
 
 class SMTP:
+    """A minimal SMTP client for MicroPython."""
+
     def cmd(self, cmd_str):
+        """Send a command and read the multi-line response.
+
+        Args:
+            cmd_str (str): The SMTP command to send.
+
+        Returns:
+            tuple: (code, response lines).
+        """
         sock = self._sock
         sock.write("%s\r\n" % cmd_str)
         resp = []
@@ -97,6 +107,15 @@ class SMTP:
         return int(code), resp
 
     def __init__(self, host, port, ssl=False, username=None, password=None):
+        """Connect to an SMTP server.
+
+        Args:
+            host (str): The server hostname.
+            port (int): The server port.
+            ssl (bool): Use SSL/TLS. Defaults to False.
+            username (str): The login username. Defaults to None.
+            password (str): The login password. Defaults to None.
+        """
         self.username = username
         addr = socket.getaddrinfo(host, port)[0][-1]
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -120,6 +139,15 @@ class SMTP:
             self.login(username, password)
 
     def login(self, username, password):
+        """Authenticate with the SMTP server.
+
+        Args:
+            username (str): The login username.
+            password (str): The login password.
+
+        Returns:
+            tuple: (code, response lines).
+        """
         self.username = username
         code, resp = self.cmd(CMD_EHLO + " " + LOCAL_DOMAIN)
         assert code == 250, "%d, %s" % (code, resp)
@@ -148,6 +176,15 @@ class SMTP:
         return code, resp
 
     def to(self, addrs, mail_from=None):
+        """Set the mail recipients and start the DATA phase.
+
+        Args:
+            addrs (str or list): Recipient address(es).
+            mail_from (str): The sender address. Defaults to None.
+
+        Returns:
+            tuple: (code, response lines).
+        """
         mail_from = self.username if mail_from == None else mail_from
         code, resp = self.cmd("MAIL FROM: <%s>" % mail_from)
         assert code == 250, "sender refused %d, %s" % (code, resp)
@@ -167,9 +204,22 @@ class SMTP:
         return code, resp
 
     def write(self, content):
+        """Write raw content to the SMTP socket.
+
+        Args:
+            content (str or bytes): The content to write.
+        """
         self._sock.write(content)
 
     def send(self, content=""):
+        """Send the message body and termination sequence.
+
+        Args:
+            content (str): The message body. Defaults to "".
+
+        Returns:
+            tuple: (code, response text).
+        """
         if content:
             self.write(content)
         self._sock.write("\r\n.\r\n")  # the five letter sequence marked for ending
@@ -177,6 +227,7 @@ class SMTP:
         return (int(line[:3]), line[4:].strip().decode())
 
     def quit(self):
+        """Send QUIT and close the connection."""
         self.cmd("QUIT")
         self._sock.close()
 
@@ -185,6 +236,15 @@ class SMTPAsync:
     '''Threaded version of SMTP for sending emails "asynchronously"'''
 
     def __init__(self, host, port, ssl=False, username=None, password=None):
+        """Initialize the async SMTP wrapper.
+
+        Args:
+            host (str): The server hostname.
+            port (int): The server port.
+            ssl (bool): Use SSL/TLS. Defaults to False.
+            username (str): The login username. Defaults to None.
+            password (str): The login password. Defaults to None.
+        """
         self.smtp = SMTP(host, port, ssl, username, password)
         self._is_running: bool = False
         self._thread = None
@@ -218,9 +278,18 @@ class SMTPAsync:
             self.__close_thread()
 
     def send_email(self, from_email, from_password, to_email, subject, message):
-        """Send an email asynchronously."""
+        """Send an email asynchronously.
+
+        Args:
+            from_email (str): The sender email.
+            from_password (str): The sender app password.
+            to_email (str): The recipient email.
+            subject (str): The email subject.
+            message (str): The email body.
+        """
 
         def send_thread():
+            """Run the send operation in a worker thread."""
             try:
                 self._is_running = True
                 self.smtp.login(from_email, from_password)
@@ -242,7 +311,12 @@ class IMAP4:
     """A minimal IMAP4 client for MicroPython."""
 
     def __init__(self, host, port=993):
-        """Connect to an IMAP server over SSL."""
+        """Connect to an IMAP server over SSL.
+
+        Args:
+            host (str): The server hostname.
+            port (int): The server port. Defaults to 993.
+        """
         self._sock = None
         self._tag = 0
         addr = socket.getaddrinfo(host, port)[0][-1]
@@ -264,7 +338,14 @@ class IMAP4:
         return line
 
     def _read_exact(self, n):
-        """Read exactly n bytes from the socket."""
+        """Read exactly n bytes from the socket.
+
+        Args:
+            n (int): The number of bytes to read.
+
+        Returns:
+            bytes: The bytes read.
+        """
         buf = b""
         while len(buf) < n:
             chunk = self._sock.read(n - len(buf))
@@ -274,7 +355,15 @@ class IMAP4:
         return buf
 
     def _read_literal(self, size, max_literal=0):
-        """Read a literal, keeping only the first max_literal bytes."""
+        """Read a literal, keeping only the first max_literal bytes.
+
+        Args:
+            size (int): The literal size.
+            max_literal (int): Maximum bytes to keep. Defaults to 0.
+
+        Returns:
+            bytes: The literal bytes.
+        """
         if max_literal and size > max_literal:
             literal = self._read_exact(max_literal)
             remaining = size - max_literal
@@ -290,7 +379,14 @@ class IMAP4:
 
     def _response(self, tag, max_literal=0):
         """Read responses until the tagged response for `tag`.
-        Returns (status, data); literals are stored as ('literal', bytes)."""
+
+        Args:
+            tag (bytes): The command tag.
+            max_literal (int): Maximum literal bytes to keep. Defaults to 0.
+
+        Returns:
+            tuple: (status, data); literals are stored as ('literal', bytes).
+        """
         data = []
         while True:
             line = self._read_line().rstrip(b"\r\n")
@@ -316,14 +412,29 @@ class IMAP4:
                 return status, data
 
     def _cmd(self, command):
-        """Send a tagged IMAP command and return its tag."""
+        """Send a tagged IMAP command and return its tag.
+
+        Args:
+            command (str): The IMAP command.
+
+        Returns:
+            bytes: The command tag.
+        """
         self._tag += 1
         tag = b"a%03d" % self._tag
         self._sock.write(tag + b" " + command.encode("utf-8") + b"\r\n")
         return tag
 
     def login(self, username, password):
-        """Authenticate with the server. Returns True on success."""
+        """Authenticate with the server.
+
+        Args:
+            username (str): The login username.
+            password (str): The login password.
+
+        Returns:
+            bool: True on success.
+        """
         user = username.replace("\\", "\\\\").replace('"', '\\"')
         pwd = password.replace("\\", "\\\\").replace('"', '\\"')
         tag = self._cmd('LOGIN "%s" "%s"' % (user, pwd))
@@ -331,13 +442,27 @@ class IMAP4:
         return status == b"OK"
 
     def select(self, mailbox="INBOX"):
-        """Select a mailbox. Returns (ok, response data)."""
+        """Select a mailbox.
+
+        Args:
+            mailbox (str): The mailbox name. Defaults to "INBOX".
+
+        Returns:
+            tuple: (ok, response data).
+        """
         tag = self._cmd("SELECT %s" % mailbox)
         status, data = self._response(tag)
         return status == b"OK", data
 
     def uid_search(self, criteria="UNSEEN"):
-        """Search by UID. Returns a list of UID strings."""
+        """Search by UID.
+
+        Args:
+            criteria (str): The search criteria. Defaults to "UNSEEN".
+
+        Returns:
+            list: UID strings.
+        """
         tag = self._cmd("UID SEARCH %s" % criteria)
         status, data = self._response(tag)
         ids = []
@@ -350,7 +475,16 @@ class IMAP4:
         return ids
 
     def uid_fetch(self, uid, parts, max_literal=0):
-        """Fetch a body part by UID. Returns literal bytes or None."""
+        """Fetch a body part by UID.
+
+        Args:
+            uid (str): The message UID.
+            parts (str): The body part specifier.
+            max_literal (int): Maximum literal bytes to keep. Defaults to 0.
+
+        Returns:
+            bytes or None: The literal bytes.
+        """
         tag = self._cmd("UID FETCH %s %s" % (uid, parts))
         status, data = self._response(tag, max_literal=max_literal)
         if status != b"OK":
@@ -361,7 +495,15 @@ class IMAP4:
         return None
 
     def uid_store(self, uid, flags="(\\Seen)"):
-        """Set flags on a message by UID. Returns True on success."""
+        """Set flags on a message by UID.
+
+        Args:
+            uid (str): The message UID.
+            flags (str): The flags to set. Defaults to "(\\Seen)".
+
+        Returns:
+            bool: True on success.
+        """
         tag = self._cmd("UID STORE %s +FLAGS %s" % (uid, flags))
         status, _ = self._response(tag)
         return status == b"OK"
@@ -381,7 +523,14 @@ class IMAP4:
 
 
 def _b64decode(data):
-    """Decode base64 bytes, tolerating whitespace and missing padding."""
+    """Decode base64 bytes, tolerating whitespace and missing padding.
+
+    Args:
+        data (bytes or str): The base64 data.
+
+    Returns:
+        bytes: The decoded bytes.
+    """
     if isinstance(data, str):
         data = data.encode("ascii")
     data = data.replace(b"\r\n", b"").replace(b"\n", b"").replace(b" ", b"")
@@ -392,7 +541,14 @@ def _b64decode(data):
 
 
 def _q_decode(s):
-    """Decode an RFC 2047 Q-encoded string into unicode."""
+    """Decode an RFC 2047 Q-encoded string into unicode.
+
+    Args:
+        s (str): The Q-encoded string.
+
+    Returns:
+        str: The decoded string.
+    """
     out = bytearray()
     i = 0
     n = len(s)
@@ -414,7 +570,14 @@ def _q_decode(s):
 
 
 def _decode_encoded_words(raw):
-    """Decode RFC 2047 encoded-words in a header value."""
+    """Decode RFC 2047 encoded-words in a header value.
+
+    Args:
+        raw (str): The header value.
+
+    Returns:
+        str: The decoded value.
+    """
     if not raw or "=?" not in raw:
         return raw
     out = []
@@ -453,7 +616,14 @@ def _decode_encoded_words(raw):
 
 
 def _qp_decode_bytes(data):
-    """Decode a quoted-printable byte string."""
+    """Decode a quoted-printable byte string.
+
+    Args:
+        data (bytes): The quoted-printable data.
+
+    Returns:
+        bytes: The decoded bytes.
+    """
     out = bytearray()
     i = 0
     n = len(data)
@@ -479,7 +649,14 @@ def _qp_decode_bytes(data):
 
 
 def _parse_headers(header_blob):
-    """Parse a raw header block into a dict of name -> [values]."""
+    """Parse a raw header block into a dict of name -> [values].
+
+    Args:
+        header_blob (bytes or str): The raw header block.
+
+    Returns:
+        dict: Header names mapped to value lists.
+    """
     if isinstance(header_blob, bytes):
         text = header_blob.decode("utf-8", "ignore")
     else:
@@ -504,14 +681,30 @@ def _parse_headers(header_blob):
 
 
 def _first_header(headers, name):
-    """Get the first value for a header name."""
+    """Get the first value for a header name.
+
+    Args:
+        headers (dict): Parsed headers.
+        name (str): The header name.
+
+    Returns:
+        str: The first value, or "".
+    """
     if name in headers and headers[name]:
         return headers[name][0]
     return ""
 
 
 def _header_param(header_value, param):
-    """Get a parameter value from a header value."""
+    """Get a parameter value from a header value.
+
+    Args:
+        header_value (str): The header value.
+        param (str): The parameter name.
+
+    Returns:
+        str or None: The parameter value.
+    """
     if not header_value:
         return None
     for part in header_value.split(";")[1:]:
@@ -524,7 +717,16 @@ def _header_param(header_value, param):
 
 
 def _decode_body_part(data, cte, charset=None):
-    """Decode a MIME body part into a unicode string."""
+    """Decode a MIME body part into a unicode string.
+
+    Args:
+        data (bytes): The body part data.
+        cte (str): The content transfer encoding.
+        charset (str): The character set. Defaults to None.
+
+    Returns:
+        str: The decoded text.
+    """
     if not data:
         return ""
     cte = (cte or "").strip().lower()
@@ -543,7 +745,15 @@ def _decode_body_part(data, cte, charset=None):
 
 
 def _walk_multipart(body_blob, boundary):
-    """Walk a multipart body and return concatenated text/plain parts."""
+    """Walk a multipart body and return concatenated text/plain parts.
+
+    Args:
+        body_blob (bytes): The multipart body.
+        boundary (str): The MIME boundary.
+
+    Returns:
+        str: The concatenated plain-text parts.
+    """
     marker = ("--" + boundary).encode("utf-8")
     parts = body_blob.split(marker)
     texts = []
@@ -581,7 +791,15 @@ def _walk_multipart(body_blob, boundary):
 
 
 def _extract_plain_text(body_blob, headers):
-    """Extract the plain-text body from a raw MIME body + headers dict."""
+    """Extract the plain-text body from a raw MIME body + headers dict.
+
+    Args:
+        body_blob (bytes): The message body.
+        headers (dict): Parsed headers.
+
+    Returns:
+        str: The plain-text body.
+    """
     ctype_header = _first_header(headers, "content-type")
     ctype = (
         ctype_header.split(";")[0].strip().lower()
@@ -598,7 +816,14 @@ def _extract_plain_text(body_blob, headers):
 
 
 def _split_message(literal):
-    """Split an RFC822 message into (header_blob, body_blob)."""
+    """Split an RFC822 message into (header_blob, body_blob).
+
+    Args:
+        literal (bytes): The raw message.
+
+    Returns:
+        tuple: (header_blob, body_blob).
+    """
     sep = literal.find(b"\r\n\r\n")
     if sep < 0:
         sep = literal.find(b"\n\n")
@@ -609,7 +834,14 @@ def _split_message(literal):
 
 
 def _extract_email_address(header):
-    """Extract the email address from a From/To header value."""
+    """Extract the email address from a From/To header value.
+
+    Args:
+        header (str): The header value.
+
+    Returns:
+        str: The email address.
+    """
     if not header:
         return ""
     try:
@@ -620,9 +852,19 @@ def _extract_email_address(header):
 
 
 def imap_fetch_unread_emails(from_email, from_pass, limit=10):
-    """Fetch summaries of the most recent `limit` unread emails.
-    Returns uid/subject/from/to/date dicts (newest first).
-    Raises on connection or auth errors; emails stay unread."""
+    """Fetch summaries of the most recent unread emails.
+
+    Args:
+        from_email (str): The sender email.
+        from_pass (str): The sender app password.
+        limit (int): Maximum number of emails. Defaults to 10.
+
+    Returns:
+        list: uid/subject/from/to/date dicts (newest first).
+
+    Raises:
+        OSError: On connection or auth errors.
+    """
     results = []
     mail = None
     try:
@@ -666,8 +908,20 @@ def imap_fetch_unread_emails(from_email, from_pass, limit=10):
 
 
 def imap_fetch_email_by_uid(from_email, from_pass, uid, mark_seen=False):
-    """Fetch a single email by IMAP UID. Returns a dict or None.
-    Uses BODY.PEEK unless mark_seen=True; raises on connection errors."""
+    """Fetch a single email by IMAP UID.
+
+    Args:
+        from_email (str): The sender email.
+        from_pass (str): The sender app password.
+        uid (str): The message UID.
+        mark_seen (bool): Mark the email as seen. Defaults to False.
+
+    Returns:
+        dict or None: The email details.
+
+    Raises:
+        OSError: On connection errors.
+    """
     mail = None
     try:
         mail = IMAP4("imap.gmail.com", 993)
@@ -714,7 +968,16 @@ def imap_fetch_email_by_uid(from_email, from_pass, uid, mark_seen=False):
 
 
 def imap_mark_seen(from_email, from_pass, uid):
-    """Mark an email as seen by IMAP UID. Returns True on success."""
+    """Mark an email as seen by IMAP UID.
+
+    Args:
+        from_email (str): The sender email.
+        from_pass (str): The sender app password.
+        uid (str): The message UID.
+
+    Returns:
+        bool: True on success.
+    """
     mail = None
     try:
         mail = IMAP4("imap.gmail.com", 993)
@@ -733,6 +996,7 @@ class IMAPAsync:
     """Threaded IMAP helper so network fetches don't block the UI."""
 
     def __init__(self):
+        """Initialize the async IMAP helper."""
         self._lock = _thread.allocate_lock()
         self._thread = None
         self._running = False
@@ -746,18 +1010,22 @@ class IMAPAsync:
 
     @property
     def is_running(self) -> bool:
+        """Return whether a fetch is running."""
         return self._running
 
     @property
     def is_finished(self) -> bool:
+        """Return whether the fetch has finished."""
         return self._finished
 
     @property
     def result(self):
+        """Return the fetch result."""
         return self._result
 
     @property
     def error(self) -> str:
+        """Return the last error message."""
         return self._error
 
     def close(self):
@@ -770,8 +1038,16 @@ class IMAPAsync:
             self._thread = None
 
     def _start(self, func) -> bool:
-        """Run a function in a background thread if idle."""
+        """Run a function in a background thread if idle.
+
+        Args:
+            func (callable): The function to run.
+
+        Returns:
+            bool: True if the thread was started.
+        """
         def thread_fn():
+            """Execute the fetch and store its result."""
             try:
                 result = func()
                 with self._lock:
@@ -797,28 +1073,61 @@ class IMAPAsync:
         return True
 
     def fetch_unread_emails(self, from_email, from_pass, limit=10) -> bool:
-        """Fetch unread email summaries in the background."""
+        """Fetch unread email summaries in the background.
+
+        Args:
+            from_email (str): The sender email.
+            from_pass (str): The sender app password.
+            limit (int): Maximum number of emails. Defaults to 10.
+
+        Returns:
+            bool: True if the thread was started.
+        """
         return self._start(
             lambda: imap_fetch_unread_emails(from_email, from_pass, limit)
         )
 
     def fetch_email_by_uid(self, from_email, from_pass, uid, mark_seen=False) -> bool:
-        """Fetch one email body in the background."""
+        """Fetch one email body in the background.
+
+        Args:
+            from_email (str): The sender email.
+            from_pass (str): The sender app password.
+            uid (str): The message UID.
+            mark_seen (bool): Mark the email as seen. Defaults to False.
+
+        Returns:
+            bool: True if the thread was started.
+        """
         return self._start(
             lambda: imap_fetch_email_by_uid(from_email, from_pass, uid, mark_seen)
         )
 
     def mark_seen_and_refresh(self, from_email, from_pass, uid) -> bool:
-        """Mark one email seen, then refetch the unread list in one thread."""
+        """Mark one email seen, then refetch the unread list in one thread.
+
+        Args:
+            from_email (str): The sender email.
+            from_pass (str): The sender app password.
+            uid (str): The message UID.
+
+        Returns:
+            bool: True if the thread was started.
+        """
 
         def task():
+            """Mark seen and refetch the unread list."""
             imap_mark_seen(from_email, from_pass, uid)
             return imap_fetch_unread_emails(from_email, from_pass)
 
         return self._start(task)
 
 def __await_send(view_manager) -> None:
-    """Thread function to wait for email sending to complete"""
+    """Wait for email sending to complete.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     global sending_index, current_view
     if smtp.is_running:
         _loading_run(view_manager, "Sending...")
@@ -829,7 +1138,14 @@ def __await_send(view_manager) -> None:
 
 
 def __load_email_credentials(view_manager) -> bool:
-    """Load email credentials from storage"""
+    """Load email credentials from storage.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True if credentials are set.
+    """
     global sender_email, sender_app_password, sender_name, email_subject
     storage = view_manager.storage
     stored_email = storage.read("picoware/email/email.txt")
@@ -845,7 +1161,14 @@ def __load_email_credentials(view_manager) -> bool:
 
 
 def _keyboard_save(view_manager) -> bool:
-    """Keyboard callback function"""
+    """Keyboard callback to save the entered value.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True on success.
+    """
     global _message_to_send, recipient_email, email_subject
     storage = view_manager.storage
     kb = view_manager.keyboard
@@ -874,7 +1197,14 @@ def _keyboard_save(view_manager) -> bool:
 
 
 def _keyboard_run(view_manager) -> bool:
-    """Start the keyboard view"""
+    """Start the keyboard view.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True while the keyboard is active.
+    """
     global current_view, sending_index, keyboard_index
 
     # Initialize keyboard for subject (part of send flow)
@@ -1031,7 +1361,12 @@ def _keyboard_run(view_manager) -> bool:
 
 
 def _loading_run(view_manager, message: str = "Sending...") -> None:
-    """Start the loading view"""
+    """Start the loading view.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+        message (str): The loading message. Defaults to "Sending...".
+    """
     from picoware.gui.loading import Loading
 
     global _loading
@@ -1049,7 +1384,11 @@ def _loading_run(view_manager, message: str = "Sending...") -> None:
 
 
 def _menu_start(view_manager) -> None:
-    """Start the menu view"""
+    """Start the menu view.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from picoware.gui.menu import Menu
 
     global _menu
@@ -1095,7 +1434,11 @@ def _reset_email_list() -> None:
 
 
 def _build_email_list(view_manager) -> None:
-    """Build the List widget from the fetched unread emails."""
+    """Build the List widget from the fetched unread emails.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from picoware.gui.menu import Menu
 
     global _email_list
@@ -1121,7 +1464,12 @@ def _build_email_list(view_manager) -> None:
 
 
 def _open_email(view_manager, summary) -> None:
-    """Open a single email: fetch its body and show it."""
+    """Open a single email: fetch its body and show it.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+        summary (dict): The email summary.
+    """
     global current_view, _current_email, _email_view_state
     _current_email = summary
     _email_view_state = EMAIL_VIEW_FETCHING
@@ -1134,7 +1482,12 @@ def _open_email(view_manager, summary) -> None:
 
 
 def _show_email(view_manager, data) -> None:
-    """Render a fetched email in a scrollable text box."""
+    """Render a fetched email in a scrollable text box.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+        data (dict): The email details.
+    """
     from picoware.gui.textbox import TextBox
 
     global _email_textbox
@@ -1155,7 +1508,11 @@ def _show_email(view_manager, data) -> None:
 
 
 def _back_to_email_list(view_manager) -> None:
-    """Return from viewing an email to the email list."""
+    """Return from viewing an email to the email list.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     global current_view, _email_view_state, _email_textbox
     _email_view_state = EMAIL_VIEW_FETCHING
     _email_textbox = None
@@ -1165,7 +1522,14 @@ def _back_to_email_list(view_manager) -> None:
 
 
 def _email_list_run(view_manager) -> bool:
-    """Run the email list view. Returns False when leaving it."""
+    """Run the email list view.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: False when leaving the view.
+    """
     from picoware.system.buttons import (
         BUTTON_BACK,
         BUTTON_UP,
@@ -1223,7 +1587,14 @@ def _email_list_run(view_manager) -> bool:
 
 
 def _email_view_run(view_manager) -> bool:
-    """Run the single-email view. Returns False when leaving it."""
+    """Run the single-email view.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: False when leaving the view.
+    """
     from picoware.system.buttons import (
         BUTTON_BACK,
         BUTTON_UP,
@@ -1269,7 +1640,11 @@ def _email_view_run(view_manager) -> bool:
 
 
 def _mark_seen_and_refresh(view_manager) -> None:
-    """Mark the current email as seen, then refresh the unread list."""
+    """Mark the current email as seen, then refresh the unread list.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     global current_view, _email_textbox, _email_view_state, _email_list_state
     _email_view_state = EMAIL_VIEW_FETCHING
     _email_textbox = None
@@ -1285,7 +1660,14 @@ def _mark_seen_and_refresh(view_manager) -> None:
 @storage_required
 @wifi_required
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True on success.
+    """
 
     # create email folder if it doesn't exist
     view_manager.storage.mkdir("picoware/email")
@@ -1303,7 +1685,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app"""
+    """Run the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from picoware.system.buttons import (
         BUTTON_BACK,
         BUTTON_UP,
@@ -1400,7 +1786,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from gc import collect
 
     global smtp, _menu, _loading, _imap

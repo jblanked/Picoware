@@ -41,6 +41,13 @@ def __reset() -> None:
 
 
 def __check_for_update_callback(response, state, error):
+    """Handle the update check response.
+
+    Args:
+        response (HTTPResponse): The HTTP response.
+        state (int): The request state.
+        error (str or None): The request error, if any.
+    """
     global _view_manager
     global _update_info
     if not response or error is not None or state == 2:
@@ -50,6 +57,13 @@ def __check_for_update_callback(response, state, error):
 
 
 def __check_for_update_callback_download(response, state, error):
+    """Handle the firmware download response.
+
+    Args:
+        response (HTTPResponse): The HTTP response.
+        state (int): The request state.
+        error (str or None): The request error, if any.
+    """
     global _view_manager
     if not response or error is not None or state == 2:
         _view_manager.log("Error downloading update:", error)
@@ -58,7 +72,15 @@ def __check_for_update_callback_download(response, state, error):
 
 
 def __check_for_update_start(http_context, view_manager) -> bool:
-    """Start the check for update request"""
+    """Start the check for update request.
+
+    Args:
+        http_context (HTTP): The HTTP context for the request.
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if the request started, False otherwise.
+    """
     from picoware.system.system import System
     from picoware_boards import BOARD_HAS_ESP32
 
@@ -89,7 +111,16 @@ def __check_for_update_start(http_context, view_manager) -> bool:
 
 
 def __check_for_update_is_available(http_context) -> bool:
-    """Return True if an update is available, False otherwise (must call __check_for_update_start first)"""
+    """Check whether an update is available.
+
+    Must call __check_for_update_start first.
+
+    Args:
+        http_context (HTTP): The HTTP context for the request.
+
+    Returns:
+        bool: True if an update is available, False otherwise.
+    """
     global _view_manager
     if not http_context.is_request_complete():
         _view_manager.log("Update check not complete yet")
@@ -113,7 +144,15 @@ def __check_for_update_is_available(http_context) -> bool:
 
 
 def __check_for_update_download_start(http_context, storage) -> bool:
-    """Start the download of the update"""
+    """Start the download of the update.
+
+    Args:
+        http_context (HTTP): The HTTP context for the request.
+        storage (Storage): The storage to save the firmware to.
+
+    Returns:
+        bool: True if the download started, False otherwise.
+    """
     from picoware_boards import BOARD_HAS_ESP32
     global _view_manager, _update_info, _download_file_path
     if http_context is None:
@@ -158,7 +197,12 @@ def __check_for_update_download_start(http_context, storage) -> bool:
 
 
 def __loading_start(view_manager, text: str = "Checking...") -> None:
-    """Start loading animation"""
+    """Start the loading animation.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+        text (str): The loading text. Defaults to "Checking...".
+    """
     from picoware.gui.loading import Loading
 
     global _loading
@@ -171,7 +215,11 @@ def __loading_start(view_manager, text: str = "Checking...") -> None:
 
 
 def __draw_update_available(view_manager) -> None:
-    """Draw the update available screen"""
+    """Draw the update available screen.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     if not _update_info:
         return
     
@@ -221,7 +269,11 @@ def __draw_update_available(view_manager) -> None:
 
 
 def __draw_no_update(view_manager) -> None:
-    """Draw the no update available screen"""
+    """Draw the no update available screen.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     draw = view_manager.draw
     fg = view_manager.foreground_color
 
@@ -250,7 +302,11 @@ def __draw_no_update(view_manager) -> None:
 
 
 def __draw_download_complete(view_manager) -> None:
-    """Draw the download complete screen"""
+    """Draw the download complete screen.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
 
     draw = view_manager.draw
     fg = view_manager.foreground_color
@@ -288,12 +344,24 @@ def __draw_download_complete(view_manager) -> None:
 
 
 def __draw_error(view_manager, message: str) -> None:
-    """Draw an error screen"""
+    """Draw an error screen.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+        message (str): The error message to show.
+    """
     view_manager.alert(f"Update Error:\n{message}", True)
 
 
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app and check for updates.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if the update check started, False on failure.
+    """
     global _http, _app_state, _current_version, _board_id
 
     # Check for SD card (needed to save firmware)
@@ -336,7 +404,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app"""
+    """Run the app and handle the update state machine.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
 
     global _app_state, _update_info, _loading
@@ -410,7 +482,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app and reset the update state.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from gc import collect
 
     __reset()

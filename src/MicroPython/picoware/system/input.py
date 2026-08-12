@@ -18,9 +18,7 @@ from picoware.system.boards import (
 
 
 class Input:
-    """
-    Handles input from the keyboard.
-    """
+    """Handles input from the keyboard."""
 
     __slots__ = (
         "_current_board_id",
@@ -45,7 +43,11 @@ class Input:
     )
 
     def __init__(self, back_button=buttons.BUTTON_BACK):
-        """Initializes the Input class."""
+        """Initialize the input manager for the current board.
+
+        Args:
+            back_button (int): The button code used as back. Defaults to buttons.BUTTON_BACK.
+        """
         from picoware_boards import get_display_size
         self._current_board_id = BOARD_ID
         self.pin = None
@@ -467,10 +469,13 @@ class Input:
         return self._was_capitalized
 
     def _key_to_button(self, key) -> int:
-        """Maps a key to a button.
+        """Map a key to a button.
 
         Args:
-            key: Key code as integer (from C module) or string (for compatibility)
+            key (int or str): Key code from the C module or a string.
+
+        Returns:
+            int: The mapped button code, or BUTTON_NONE if unmapped.
         """
         if 65 <= key <= 90:
             self._was_capitalized = True
@@ -478,13 +483,13 @@ class Input:
         return self._button_map.get(key, buttons.BUTTON_NONE)
 
     def button_to_char(self, button: int) -> str:
-        """Converts a button code to its corresponding character.
+        """Convert a button code to its corresponding character.
 
         Args:
             button (int): Button code.
 
         Returns:
-            str: Corresponding character or empty string if no mapping exists.
+            str: The corresponding character or empty string if unmapped.
         """
         if button in self._character_map:
             char_to_add = self._character_map[button]
@@ -525,14 +530,21 @@ class Input:
         return key_available()
 
     def is_held(self, duration: int = 3) -> bool:
-        """Returns True if the last button was held for the specified duration."""
+        """Return True if the last button was held for the specified duration.
+
+        Args:
+            duration (int): Number of polls the button must be held. Defaults to 3.
+
+        Returns:
+            bool: True if the button is held for the duration.
+        """
         return self._was_pressed and self._elapsed_time >= duration
 
     def on_key_callback(self, _=None) -> None:
         """Callback invoked when a key becomes available.
 
         Args:
-            _: Unused argument (required by mp_sched_schedule)
+            _ (None): Unused argument required by mp_sched_schedule.
         """
         try:
             __button = self.read_non_blocking()
@@ -608,14 +620,14 @@ class Input:
             reset_state()
     
     def touch_to_button(self, x: int, y: int) -> int:
-        """Converts touch coordinates to a corresponding button code.
+        """Convert touch coordinates to a corresponding button code.
 
         Args:
             x (int): X coordinate of the touch point.
             y (int): Y coordinate of the touch point.
 
         Returns:
-            int: Button code corresponding to the touch area.
+            int: The button code corresponding to the touch area.
         """
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             # gesture support
@@ -691,7 +703,11 @@ class Input:
         self._was_pressed = True
 
     def __touch_callback(self, pin):
-        """Touch interrupt callback function"""
+        """Handle a touch interrupt and map it to a button event.
+
+        Args:
+            pin (Pin): The pin that triggered the interrupt.
+        """
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             from waveshare_touch import (
                 TOUCH_GESTURE_CLICK,

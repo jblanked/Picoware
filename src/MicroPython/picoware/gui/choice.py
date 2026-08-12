@@ -12,17 +12,17 @@ class Choice:
         foreground_color: int = 0xFFFF,
         background_color: int = 0x0000,
     ):
-        """
-        Initialize the Choice switch with drawing context and styling.
+        """Initialize the Choice switch with drawing context and styling.
 
-        :param draw: The drawing context to render the choice.
-        :param position: Vector position of the choice.
-        :param size: Vector size of the choice.
-        :param title: The label title for the choices.
-        :param options: List of option strings.
-        :param initial_state: Initial state of the choice.
-        :param foreground_color: The color of the text.
-        :param background_color: The background color.
+        Args:
+            draw (Draw): The drawing context to render the choice.
+            position (Vector): Vector position of the choice.
+            size (Vector): Vector size of the choice.
+            title (str): The label title for the choices.
+            options (list[str]): List of option strings.
+            initial_state (int): Initial state of the choice. Defaults to 0.
+            foreground_color (int): The color of the text. Defaults to 0xFFFF.
+            background_color (int): The background color. Defaults to 0x0000.
         """
         from picoware.system.system import System
 
@@ -49,7 +49,15 @@ class Choice:
                 init()
 
                 class LVGLChoiceWrapper(LVGLChoice):
+                    """Wrapper that forwards state assignment to LVGL."""
+
                     def __setattr__(self, name, value):
+                        """Forward state assignment to the LVGL choice.
+
+                        Args:
+                            name (str): The attribute name.
+                            value: The attribute value.
+                        """
                         if name == "state":
                             self.set_state(value)
                         else:
@@ -73,6 +81,7 @@ class Choice:
             self.clear()
 
     def __del__(self):
+        """Clean up resources and deinitialize LVGL."""
         if self._lvgl_choice is not None:
             from picoware_lvgl import deinit
 
@@ -99,7 +108,11 @@ class Choice:
 
     @state.setter
     def state(self, value: int) -> None:
-        """Set the current state of the choice."""
+        """Set the current state of the choice.
+
+        Args:
+            value (int): The new state index.
+        """
         self._state = value
 
         if self.use_lvgl and self._lvgl_choice is not None:

@@ -12,13 +12,11 @@ class MMBasic(mmbasic.MMBasic):
     __slots__ = ("_engine", "_view_manager", "_over", "_present_countdown", "_present_ticks")
 
     def __init__(self, view_manager, present_ticks:int=20):
-        """
-        Parameters
-        ----------
-        view_manager : ViewManager
-            The ViewManager instance for the app.
-        present_ticks : int, optional
-            The number of ticks between graphics screen updates (default is 20). Lower values make graphics more responsive but may reduce performance.
+        """Initialize the MMBasic interpreter with view manager colors.
+
+        Args:
+            view_manager (ViewManager): The ViewManager instance for the app.
+            present_ticks (int): Ticks between graphics screen updates. Defaults to 20.
         """
         self._view_manager = view_manager
         draw = view_manager.draw
@@ -43,6 +41,11 @@ class MMBasic(mmbasic.MMBasic):
         return self._over
 
     def _feed_button(self, button):
+        """Feed a button press into the interpreter as a character.
+
+        Args:
+            button (int): The button code to feed.
+        """
         if button == BUTTON_BACKSPACE:
             self.feed_char("\b")
             return
@@ -95,7 +98,15 @@ class MMBasic(mmbasic.MMBasic):
         return True
 
     def start(self, source=None, path=None) -> bool:
-        """Run the provided MMBasic source code."""
+        """Run the provided MMBasic source code.
+
+        Args:
+            source (str): The MMBasic source code to run. Defaults to None.
+            path (str): Path to a file containing MMBasic source. Defaults to None.
+
+        Returns:
+            bool: True if the program started successfully.
+        """
         if self._start(source=source, path=path):
             self._over = False
             return True

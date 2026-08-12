@@ -1,7 +1,5 @@
 class ViewManager:
-    """
-    ViewManager class that manages multiple views and provides navigation capabilities.
-    """
+    """Manage multiple views and provide navigation capabilities."""
 
     MAX_VIEWS = 10
     MAX_STACK_SIZE = 10
@@ -212,7 +210,11 @@ class ViewManager:
 
     @active.setter
     def active(self, value: bool):
-        """Set the active state of the ViewManager."""
+        """Set the active state of the ViewManager.
+
+        Args:
+            value (bool): True to keep the manager running.
+        """
         self._active = value
 
     @property
@@ -227,7 +229,11 @@ class ViewManager:
 
     @background_color.setter
     def background_color(self, color):
-        """Set the background color."""
+        """Set the background color.
+
+        Args:
+            color (int): The background color value.
+        """
         self._background_color = color
         self._draw.background = color
         self._keyboard.background_color = color
@@ -271,7 +277,11 @@ class ViewManager:
 
     @foreground_color.setter
     def foreground_color(self, color):
-        """Set the foreground color."""
+        """Set the foreground color.
+
+        Args:
+            color (int): The foreground color value.
+        """
         self._foreground_color = color
         self._draw.foreground = color
         self._keyboard.text_color = color
@@ -325,7 +335,11 @@ class ViewManager:
 
     @selected_color.setter
     def selected_color(self, color):
-        """Set the selected color."""
+        """Set the selected color.
+
+        Args:
+            color (int): The selected color value.
+        """
         self._selected_color = color
         self._keyboard.selected_color = color
 
@@ -365,14 +379,13 @@ class ViewManager:
         return self._wifi
 
     def add(self, view):
-        """
-        Add a view to the manager.
+        """Add a view to the manager.
 
         Args:
-            view: The View object to add
+            view (View): The View object to add.
 
         Returns:
-            bool: True if successfully added, False if max views reached
+            bool: True if successfully added, False if max views reached.
         """
         if self._view_count >= self.MAX_VIEWS:
             return False
@@ -382,14 +395,14 @@ class ViewManager:
         return True
 
     def alert(self, message: str, back: bool = False) -> bool:
-        """
-        Show an alert
+        """Show an alert and wait for the user to acknowledge it.
 
         Args:
-            message: The message to display in the alert
-            back: Whether to navigate to the previous view after the alert is acknowledged
+            message (str): The message to display in the alert.
+            back (bool): Whether to navigate back after the alert is acknowledged. Defaults to False.
+
         Returns:
-            bool: True if the user confirmed the alert, False otherwise
+            bool: True if the user confirmed the alert, False otherwise.
         """
 
         from picoware.gui.alert import Alert
@@ -429,11 +442,12 @@ class ViewManager:
         should_clear: bool = True,
         should_start: bool = True,
     ):
-        """
-        Navigate back to the previous view in the stack.
+        """Navigate back to the previous view in the stack.
 
         Args:
-            remove_current_view: Whether to remove the current view from the manager
+            remove_current_view (bool): Whether to remove the current view from the manager. Defaults to True.
+            should_clear (bool): Whether to clear the screen. Defaults to True.
+            should_start (bool): Whether to start the previous view. Defaults to True.
         """
         if self._stack_depth > 0:
             view_to_remove = None
@@ -497,8 +511,14 @@ class ViewManager:
         self._stack_depth = 0
 
     def freq(self, use_default: bool = False, frequency: int = None) -> int:
-        """
-        Set the CPU frequency.
+        """Set the CPU frequency.
+
+        Args:
+            use_default (bool): Whether to use the default frequency. Defaults to False.
+            frequency (int): Explicit frequency in Hz. Defaults to None.
+
+        Returns:
+            int: The new CPU frequency.
         """
         from machine import freq
         from picoware.system.boards import (
@@ -529,14 +549,13 @@ class ViewManager:
         return freq(self.FREQ_RP2350)
 
     def get_view(self, view_name: str):
-        """
-        Get a view by name.
+        """Get a view by name.
 
         Args:
-            view_name: The name of the view to find
+            view_name (str): The name of the view to find.
 
         Returns:
-            View object if found, None otherwise
+            View: The view object if found, None otherwise.
         """
         for i in range(self._view_count):
             if self.views[i] is not None:
@@ -550,21 +569,22 @@ class ViewManager:
         return None
 
     def log(self, message: str, log_type: int = -1) -> bool:
-        """
-        Log a message with an optional log type.
+        """Log a message with an optional log type.
 
         Args:
-            message (str): The message to log
-            log_type (int): The type of log (e.g., LOG_TYPE_INFO, LOG_TYPE_WARN, LOG_TYPE_ERROR, LOG_TYPE_DEBUG)
+            message (str): The message to log.
+            log_type (int): The type of log. Defaults to -1.
+
+        Returns:
+            bool: True if the message was logged.
         """
         return self._log.log(message, log_type)
 
     def remove(self, view_name: str):
-        """
-        Remove a view by name.
+        """Remove a view by name.
 
         Args:
-            view_name: The name of the view to remove
+            view_name (str): The name of the view to remove.
         """
         for i in range(self._view_count):
             if self.views[i] and self.views[i].name == view_name:
@@ -619,11 +639,10 @@ class ViewManager:
         return self._active
 
     def set(self, view_name: str):
-        """
-        Set the current view by name, clearing the stack.
+        """Set the current view by name, clearing the stack.
 
         Args:
-            view_name: The name of the view to set as current
+            view_name (str): The name of the view to set as current.
         """
         if self._current_view is not None:
             self._current_view.stop(self)
@@ -638,13 +657,12 @@ class ViewManager:
         self.clear_stack()
 
     def switch_to(self, view_name: str, clear_stack=False, push_view=True):
-        """
-        Switch to a view by name with options for stack management.
+        """Switch to a view by name with options for stack management.
 
         Args:
-            view_name: The name of the view to switch to
-            clear_stack: Whether to clear the navigation stack
-            push_view: Whether to push the current view to the stack
+            view_name (str): The name of the view to switch to.
+            clear_stack (bool): Whether to clear the navigation stack. Defaults to False.
+            push_view (bool): Whether to push the current view to the stack. Defaults to True.
         """
         view = self.get_view(view_name)
         if view is None:
@@ -665,22 +683,20 @@ class ViewManager:
             self.back()
 
     def _push_view(self, view):
-        """
-        Internal method to push a view to the stack.
+        """Push a view onto the navigation stack.
 
         Args:
-            view: The view to push
+            view (View): The view to push.
         """
         if self._stack_depth < self.MAX_STACK_SIZE and view is not None:
             self.view_stack[self._stack_depth] = view
             self._stack_depth += 1
 
     def push_view(self, view_name: str):
-        """
-        Push a view to the stack by name.
+        """Push a view to the stack by name.
 
         Args:
-            view_name: The name of the view to push
+            view_name (str): The name of the view to push.
         """
         view = self.get_view(view_name)
         if view is not None:

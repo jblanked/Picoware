@@ -27,7 +27,15 @@ _choice         = None
 
 @micropython.native
 def _wrap_text(text: str, max_chars: int):
-    """Wrap text to max_chars per line, preserving words."""
+    """Wrap text to max_chars per line, preserving words.
+
+    Args:
+        text (str): The text to wrap.
+        max_chars (int): Maximum characters per line.
+
+    Returns:
+        list: Wrapped lines of text.
+    """
     if not text:
         return [""]
     lines = []
@@ -54,7 +62,14 @@ def _wrap_text(text: str, max_chars: int):
 
 
 def _chat_layout(view_manager):
-    """Return layout metrics derived from screen size and default font."""
+    """Return layout metrics derived from screen size and default font.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        tuple: Header/prompt/chat geometry and font metrics.
+    """
     draw = view_manager.draw
     w, h = draw.size.x, draw.size.y
 
@@ -77,7 +92,23 @@ def _chat_layout(view_manager):
 @micropython.native
 def _draw_bubble(draw, x, y, w, text_lines, font, bg_color, text_color, pad,
                   clip_top=0):
-    """Draw a rounded-rect bubble clipped to screen bounds."""
+    """Draw a rounded-rect bubble clipped to screen bounds.
+
+    Args:
+        draw (Draw): The drawing context.
+        x (int): Left position of the bubble.
+        y (int): Top position of the bubble.
+        w (int): Width of the bubble.
+        text_lines (list): Lines of text to draw.
+        font (Font): The font to use.
+        bg_color (int): Bubble background color.
+        text_color (int): Text color.
+        pad (int): Inner padding in pixels.
+        clip_top (int): Y position to clip lines above. Defaults to 0.
+
+    Returns:
+        int: The next Y position after the bubble.
+    """
     line_h = font.height + 3
     screen_h = draw.size.y
 
@@ -109,7 +140,11 @@ def _draw_bubble(draw, x, y, w, text_lines, font, bg_color, text_color, pad,
 
 @micropython.native
 def _render_chat(view_manager):
-    """Draw conversation as chat bubbles with scroll and prompt bar."""
+    """Draw conversation as chat bubbles with scroll and prompt bar.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     draw = view_manager.draw
     w, h = draw.size.x, draw.size.y
     bg  = view_manager.background_color
@@ -207,7 +242,11 @@ def _render_chat(view_manager):
 
 
 def _show_thinking(view_manager):
-    """Clear screen and display a centred thinking indicator."""
+    """Clear screen and display a centred thinking indicator.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     draw = view_manager.draw
     w, h = draw.size.x, draw.size.y
     bg = view_manager.background_color
@@ -221,6 +260,11 @@ def _show_thinking(view_manager):
     draw.swap()
 
 def _set_settings(view_manager):
+    """Load or create the agent settings.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     global _settings
     s = view_manager.storage
     if not s.exists("picoware/settings/current_agent.json"):
@@ -234,6 +278,14 @@ def _set_settings(view_manager):
         _settings = s.serialize("picoware/settings/current_agent.json")
 
 def _save_settings(view_manager) -> bool:
+    """Persist the current agent settings to storage.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True on success.
+    """
     if _settings is None:
         return False
     s = view_manager.storage
@@ -245,11 +297,24 @@ def _get_llm_providers() -> list:
     return LLM.providers()
 
 def _get_llm_models(view_manager, llm_id: int) -> list:
-    """Return a list of models for the specified LLM provider."""
+    """Return a list of models for the specified LLM provider.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+        llm_id (int): The provider ID.
+
+    Returns:
+        list: Available model names.
+    """
     from picoware.system.agent.llm import LLM
     return LLM(view_manager.storage, llm_id).models
 
 def _start_settings_menu(view_manager):
+    """Show the agent settings menu.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from picoware.gui.menu import Menu
     global _state, _settings_menu
     _state = STATE_SETTINGS
@@ -271,7 +336,11 @@ def _start_settings_menu(view_manager):
 
 
 def _open_provider_choice(view_manager):
-    """Open a Choice sub-view for selecting the LLM provider."""
+    """Open a Choice sub-view for selecting the LLM provider.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     global _state, _choice
     from picoware.gui.choice import Choice
     from picoware.system.vector import Vector
@@ -306,7 +375,11 @@ def _open_provider_choice(view_manager):
 
 
 def _open_model_choice(view_manager):
-    """Open a Choice sub-view for selecting the LLM model."""
+    """Open a Choice sub-view for selecting the LLM model.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     global _state, _choice
     from picoware.gui.choice import Choice
     from picoware.system.vector import Vector
@@ -339,7 +412,11 @@ def _open_model_choice(view_manager):
 
 
 def _back_to_settings_menu(view_manager):
-    """Clean up the Choice sub-view and return to the settings menu."""
+    """Clean up the Choice sub-view and return to the settings menu.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     global _state, _choice
 
     draw = view_manager.draw
@@ -355,7 +432,14 @@ def _back_to_settings_menu(view_manager):
 
 
 def start(view_manager) -> bool:
-    """Build main menu. Return True on success."""
+    """Build main menu. Return True on success.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True on success.
+    """
     if not view_manager.has_sd_card:
         view_manager.alert("Agent app requires an SD card", False)
         return False
@@ -409,7 +493,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Main frame handler, delegates to current state."""
+    """Main frame handler, delegates to current state.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     global _state, _agent, _agent_mode, _mode_label, _conversation
     global _scroll_offset, _max_scroll
 
@@ -556,7 +644,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Tear down widgets and agent, reset state."""
+    """Tear down widgets and agent, reset state.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from picoware.system.boards import BOARD_HAS_ESP32
     from gc import collect
     global _agent, _menu, _conversation, _scroll_offset, _max_scroll, _settings_menu, _settings, _choice

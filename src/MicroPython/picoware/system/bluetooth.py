@@ -88,7 +88,7 @@ class Bluetooth:
         """Initialize Bluetooth.
 
         Args:
-            storage: Storage instance for saving paired device keys
+            storage (Storage): Storage instance for saving paired device keys. Defaults to None.
         """
         from ubluetooth import BLE
 
@@ -167,6 +167,9 @@ class Bluetooth:
         """Set the Bluetooth callback function.
 
         The callback receives (event, data) where event is one of the _IRQ_* constants.
+
+        Args:
+            func (callable): The callback function to set.
         """
         self._callback = func
 
@@ -224,7 +227,12 @@ class Bluetooth:
         return self._services
 
     def __irq(self, event, data):
-        """Handle Bluetooth IRQ events for both central and peripheral modes."""
+        """Handle Bluetooth IRQ events for both central and peripheral modes.
+
+        Args:
+            event (int): The IRQ event constant.
+            data (tuple): Event-specific data.
+        """
         _data = None
 
         # ===== PERIPHERAL MODE EVENTS (when acting as GATT server) =====
@@ -368,18 +376,24 @@ class Bluetooth:
         """Generate advertising payload.
 
         Args:
-            name: Device name to advertise
-            services: List of service UUIDs to advertise
-            appearance: Device appearance code
+            name (str): Device name to advertise. Defaults to None.
+            services (list): List of service UUIDs to advertise. Defaults to None.
+            appearance (int): Device appearance code. Defaults to 0.
 
         Returns:
-            bytearray: Advertising payload
+            bytearray: The advertising payload.
         """
         from ubluetooth import UUID
 
         payload = bytearray()
 
         def _append(adv_type, value):
+            """Append an advertising data structure to the payload.
+
+            Args:
+                adv_type (int): The advertising data type.
+                value (bytes): The payload value.
+            """
             nonlocal payload
             payload += struct.pack("BB", len(value) + 1, adv_type) + value
 
@@ -409,7 +423,11 @@ class Bluetooth:
         return payload
 
     def _start_advertising(self, interval_us=500000):
-        """Internal method to start advertising with registered payload."""
+        """Start advertising with the registered payload.
+
+        Args:
+            interval_us (int): Advertising interval in microseconds. Defaults to 500000.
+        """
         if hasattr(self, "_adv_payload") and self._adv_payload:
             self._ble.gap_advertise(interval_us, adv_data=self._adv_payload)
 
@@ -417,11 +435,11 @@ class Bluetooth:
         """Start or stop BLE advertising to make this device discoverable.
 
         Args:
-            interval_us: Advertising interval in microseconds (None to stop advertising)
-            name: Device name to advertise
+            interval_us (int): Advertising interval in microseconds. None stops advertising. Defaults to None.
+            name (str): Device name to advertise. Defaults to "Picoware".
 
         Returns:
-            bool: True if advertising started/stopped successfully
+            bool: True if advertising started or stopped successfully.
         """
 
         try:
@@ -443,13 +461,13 @@ class Bluetooth:
         """Connect to a BLE peripheral device (central mode).
 
         Args:
-            addr_type: Address type (0 = public, 1 = random)
-            addr: Device address as bytes
-            timeout_ms: Connection timeout in milliseconds
-            auto_discover: If True, automatically discover services after connection
+            addr_type (int): Address type (0 = public, 1 = random).
+            addr (bytes): Device address as bytes.
+            timeout_ms (int): Connection timeout in milliseconds. Defaults to 10000.
+            auto_discover (bool): Whether to automatically discover services. Defaults to True.
 
         Returns:
-            bool: True if connection initiated successfully
+            bool: True if the connection was initiated successfully.
         """
         if self._connected:
             return False
@@ -473,10 +491,10 @@ class Bluetooth:
         """Decode device name from advertising data.
 
         Args:
-            adv_data: Raw advertising data bytes
+            adv_data (bytes): Raw advertising data bytes.
 
         Returns:
-            str: Device name or empty string if not found
+            str: The device name or empty string if not found.
         """
         i = 0
         while i + 1 < len(adv_data):
@@ -501,7 +519,7 @@ class Bluetooth:
         - Peripheral mode: Disconnects a specific central if conn_handle provided
 
         Args:
-            conn_handle: Connection handle to disconnect (uses current peripheral connection if None)
+            conn_handle (int): Connection handle to disconnect. Uses the current connection if None. Defaults to None.
         """
         handle = conn_handle if conn_handle is not None else self._conn_handle
         if handle is not None:
@@ -524,11 +542,14 @@ class Bluetooth:
     def discover_characteristics(self, start_handle, end_handle):
         """Discover characteristics for a service.
 
-        Args:
-            start_handle: Service start handle
-            end_handle: Service end handle
+        Results are delivered via callback with _IRQ_GATTC_CHARACTERISTIC_RESULT events.
 
-        Results will be delivered via callback with _IRQ_GATTC_CHARACTERISTIC_RESULT events.
+        Args:
+            start_handle (int): Service start handle.
+            end_handle (int): Service end handle.
+
+        Returns:
+            bool: True if discovery was initiated.
         """
         if not self._connected or self._conn_handle is None:
             return False
@@ -560,7 +581,14 @@ class Bluetooth:
             return False
 
     def is_device_paired(self, addr: str) -> bool:
-        """Check if a device address is in the paired devices list."""
+        """Check if a device address is in the paired devices list.
+
+        Args:
+            addr (str): The device address to check.
+
+        Returns:
+            bool: True if the device is paired.
+        """
         devices = self.load_paired_devices()
         return addr in devices
 
@@ -606,8 +634,8 @@ class Bluetooth:
         """Reply to a passkey request during pairing.
 
         Args:
-            accept: Whether to accept the pairing
-            passkey: The passkey to use (for input actions)
+            accept (bool): Whether to accept the pairing. Defaults to True.
+            passkey (int): The passkey to use for input actions. Defaults to None.
         """
         if self._conn_handle is None:
             return
@@ -623,10 +651,13 @@ class Bluetooth:
     def read(self, handle):
         """Read data from a characteristic.
 
-        Args:
-            handle: Characteristic handle to read from
+        Result is delivered via callback with _IRQ_GATTC_READ_RESULT event.
 
-        Result will be delivered via callback with _IRQ_GATTC_READ_RESULT event.
+        Args:
+            handle (int): Characteristic handle to read from.
+
+        Returns:
+            bool: True if the read was initiated.
         """
         if not self._connected or self._conn_handle is None:
             return False
@@ -642,7 +673,10 @@ class Bluetooth:
         """Remove a paired device from storage.
 
         Args:
-            addr: Device address string to remove
+            addr (str): Device address string to remove.
+
+        Returns:
+            bool: True if the device was removed.
         """
         if self._storage is None:
             return False
@@ -664,8 +698,11 @@ class Bluetooth:
         """Save a paired device to storage.
 
         Args:
-            addr: Device address string
-            name: Device name (optional)
+            addr (str): Device address string.
+            name (str): Device name. Defaults to "".
+
+        Returns:
+            bool: True if the device was saved.
         """
         if self._storage is None:
             return False
@@ -698,14 +735,14 @@ class Bluetooth:
         """Start scanning for BLE devices (central mode).
 
         Args:
-            duration_ms: How long to scan in milliseconds (default 5 seconds, set to 0 for continuous)
-            interval_us: Scan interval in microseconds
-            window_us: Scan window in microseconds
-            active: If True, request scan response data for device names (default True)
-            callback: Optional callback for scan results (addr_type, addr, name, rssi, adv_data)
+            duration_ms (int): How long to scan in milliseconds. Defaults to 5000; 0 scans continuously.
+            interval_us (int): Scan interval in microseconds. Defaults to 30000.
+            window_us (int): Scan window in microseconds. Defaults to 30000.
+            active (bool): Whether to request scan response data. Defaults to True.
+            callback (callable): Optional callback for scan results (addr_type, addr, name, rssi, adv_data). Defaults to None.
 
         Returns:
-            bool: True if scan started successfully
+            bool: True if the scan started successfully.
         """
         if callback:
             self._scan_callback = callback
@@ -773,15 +810,15 @@ class Bluetooth:
     def start_peripheral(self, name="Picoware", interval_us=500000):
         """Start as a BLE peripheral (GATT server) with UART service.
 
-        This registers the UART service and starts advertising.
-        Central devices can then connect and communicate.
+        Registers the UART service and starts advertising so central devices
+        can connect and communicate.
 
         Args:
-            name: Device name to advertise
-            interval_us: Advertising interval in microseconds
+            name (str): Device name to advertise. Defaults to "Picoware".
+            interval_us (int): Advertising interval in microseconds. Defaults to 500000.
 
         Returns:
-            bool: True if started successfully
+            bool: True if started successfully.
         """
         if not self.register():
             return False
@@ -798,13 +835,13 @@ class Bluetooth:
     def send(self, data):
         """Send data to all connected central devices (peripheral mode).
 
-        This sends a notification to all connected centrals.
+        Sends a notification to all connected centrals.
 
         Args:
-            data: Data to send (bytes or str)
+            data (bytes or str): Data to send.
 
         Returns:
-            bool: True if sent to at least one central
+            bool: True if sent to at least one central.
         """
         if not self._central_connections or self._tx_handle is None:
             return False
@@ -828,7 +865,7 @@ class Bluetooth:
         The callback receives the data bytes as its argument.
 
         Args:
-            callback: Function to call with received data, e.g., lambda data: print(data)
+            callback (callable): Function to call with received data.
         """
         self._write_callback = callback
 
@@ -840,17 +877,17 @@ class Bluetooth:
         The callback receives the data bytes as its argument.
 
         Args:
-            callback: Function to call with received data, e.g., lambda data: print(data)
+            callback (callable): Function to call with received data.
         """
         self._notify_callback = callback
 
     def on_scan(self, callback):
         """Set callback for scan results (central mode).
 
-        The callback receives (addr_type, addr, name, rssi, adv_data) for each device found.
+        The callback receives (addr_type, addr, name, rssi, adv_data) per device.
 
         Args:
-            callback: Function to call for each scan result
+            callback (callable): Function to call for each scan result.
         """
         self._scan_callback = callback
 
@@ -858,11 +895,11 @@ class Bluetooth:
         """Subscribe to notifications from a characteristic (central mode).
 
         Args:
-            handle: Characteristic value handle (uses UART TX handle if None)
-            notify: True for notifications, False to unsubscribe
+            handle (int): Characteristic value handle. Uses the UART TX handle if None. Defaults to None.
+            notify (bool): True for notifications, False to unsubscribe. Defaults to True.
 
         Returns:
-            bool: True if subscription request sent successfully
+            bool: True if the subscription request was sent.
         """
         if not self._connected or self._conn_handle is None:
             return False
@@ -889,12 +926,12 @@ class Bluetooth:
         """Write data to the connected peripheral (central mode).
 
         Args:
-            data: Data to write (bytes or str)
-            handle: Characteristic handle to write to (uses UART RX handle if None)
-            response: Whether to request a write response
+            data (bytes or str): Data to write.
+            handle (int): Characteristic handle to write to. Uses the UART RX handle if None. Defaults to None.
+            response (bool): Whether to request a write response. Defaults to False.
 
         Returns:
-            bool: True if write was initiated
+            bool: True if the write was initiated.
         """
         if not self._connected or self._conn_handle is None:
             return False
@@ -929,14 +966,14 @@ class Bluetooth:
         )
 
     def scan_for_uart_devices(self, callback, duration_ms=5000):
-        """Scan specifically for devices advertising the UART service (central mode).
+        """Scan for devices advertising the UART service (central mode).
 
         Args:
-            callback: Function called with (addr_type, addr, name) when UART device found
-            duration_ms: Scan duration in milliseconds
+            callback (callable): Function called with (addr_type, addr, name) per UART device found.
+            duration_ms (int): Scan duration in milliseconds. Defaults to 5000.
 
         Returns:
-            bool: True if scan started
+            bool: True if the scan started.
         """
         from ubluetooth import UUID
 
@@ -944,6 +981,15 @@ class Bluetooth:
         found_devices = []
 
         def _scan_filter(addr_type, addr, name, rssi, adv_data):
+            """Filter scan results for UART service devices.
+
+            Args:
+                addr_type (int): Address type of the device.
+                addr (bytes): Device address.
+                name (str): Advertised device name.
+                rssi (int): Signal strength.
+                adv_data (bytes): Raw advertising data.
+            """
             # Check if UART service UUID is in the advertising data
             services = self.decode_services(adv_data)
             for svc in services:
@@ -961,10 +1007,10 @@ class Bluetooth:
         """Decode service UUIDs from advertising data.
 
         Args:
-            adv_data: Raw advertising data bytes
+            adv_data (bytes): Raw advertising data bytes.
 
         Returns:
-            list: List of UUID objects found in advertising data
+            list: List of UUID objects found in the advertising data.
         """
         from ubluetooth import UUID
 

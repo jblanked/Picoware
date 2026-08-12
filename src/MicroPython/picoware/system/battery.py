@@ -16,6 +16,7 @@ from picoware.system.boards import (
 class Battery:
     """Class for battery information and management."""
     def __init__(self):
+        """Initialize the battery interface for the current board."""
         if BOARD_ID == BOARD_FLIPPER_ZERO:
             from flipper_battery import init 
 

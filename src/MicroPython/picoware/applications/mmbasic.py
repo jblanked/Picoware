@@ -13,6 +13,14 @@ _mmbasic = None
 _state = STATE_MENU
 
 def _set_mmbasic(vm) -> bool:
+    """Create a new MMBasic instance.
+
+    Args:
+        vm (ViewManager): The view manager context.
+
+    Returns:
+        bool: True on success.
+    """
     global _mmbasic
     del _mmbasic
     _mmbasic = None
@@ -22,7 +30,14 @@ def _set_mmbasic(vm) -> bool:
 
 @storage_required
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True on success.
+    """
     from picoware.gui.menu import Menu
 
     # create mmbasic folder if it doesn't exist
@@ -59,7 +74,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app."""
+    """Run the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from picoware.system.buttons import (
         BUTTON_BACK,
         BUTTON_UP,
@@ -114,7 +133,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     global _mmbasic, _menu
     if _mmbasic is not None:
         del _mmbasic

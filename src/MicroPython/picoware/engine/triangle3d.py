@@ -5,6 +5,12 @@ class Triangle3D(engine.Triangle3D):
     """3D triangle structure"""
 
     def __setattr__(self, name, value):
+        """Set a triangle attribute, routing to the matching setter.
+
+        Args:
+            name (str): Attribute name to set.
+            value (object): New value for the attribute.
+        """
         if name == "x1":
             self.set_x1(value)
         elif name == "y1":

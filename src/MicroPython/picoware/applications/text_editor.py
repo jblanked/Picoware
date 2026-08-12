@@ -15,7 +15,14 @@ _file_selected = False
 
 
 def __is_editable_file(path: str) -> bool:
-    """Return whether the text editor app should open this path."""
+    """Return whether the text editor app should open this path.
+
+    Args:
+        path (str): The file path to check.
+
+    Returns:
+        bool: True if the file is editable.
+    """
     from picoware.gui.file_browser import FileBrowser
 
     ext = path.split(".")[-1].lower() if "." in path else ""
@@ -23,7 +30,11 @@ def __is_editable_file(path: str) -> bool:
 
 
 def __start_menu(view_manager) -> None:
-    """Build and draw the main menu."""
+    """Build and draw the main menu.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from picoware.gui.menu import Menu
 
     global _menu
@@ -49,7 +60,11 @@ def __start_menu(view_manager) -> None:
 
 
 def __start_browse(view_manager) -> None:
-    """Start the file browser in selector mode."""
+    """Start the file browser in selector mode.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from picoware.gui.file_browser import FileBrowser, FILE_BROWSER_SELECTOR
 
     global _file_browser
@@ -64,7 +79,11 @@ def __start_browse(view_manager) -> None:
 
 
 def __callback_keyboard_save(result: str) -> None:
-    """Called by the keyboard when the user presses Save."""
+    """Called by the keyboard when the user presses Save.
+
+    Args:
+        result (str): The typed filename.
+    """
     global _state, _filename
 
     if _state != STATE_KEYBOARD:
@@ -76,7 +95,11 @@ def __callback_keyboard_save(result: str) -> None:
 
 
 def __start_keyboard(view_manager) -> None:
-    """Activate the on-screen keyboard for filename entry."""
+    """Activate the on-screen keyboard for filename entry.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     global _keyboard_just_started
 
     kb = view_manager.keyboard
@@ -90,7 +113,11 @@ def __start_keyboard(view_manager) -> None:
 
 
 def __start_edit(view_manager) -> None:
-    """Open the TextEditor for the current filename."""
+    """Open the TextEditor for the current filename.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from picoware.gui.text_editor import TextEditor
 
     global _state, _textbox
@@ -110,7 +137,11 @@ def __start_edit(view_manager) -> None:
 
 
 def __save_and_return_to_menu(view_manager) -> None:
-    """Save the current file and transition back to the menu state."""
+    """Save the current file and transition back to the menu state.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     global _state, _textbox, _filename
 
     if _textbox is not None and _filename:
@@ -127,7 +158,14 @@ def __save_and_return_to_menu(view_manager) -> None:
 
 
 def start(view_manager) -> bool:
-    """Start the app."""
+    """Start the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True on success.
+    """
     global _state, _filename, _menu, _file_browser, _textbox, _keyboard_just_started, _file_selected
 
     _state = STATE_MENU
@@ -143,7 +181,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app."""
+    """Run the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from picoware.system.buttons import BUTTON_BACK, BUTTON_UP, BUTTON_DOWN, BUTTON_OK
 
     global _state, _filename, _file_browser, _keyboard_just_started
@@ -254,7 +296,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app."""
+    """Stop the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from gc import collect
 
     global _state, _filename, _menu, _file_browser, _textbox, _keyboard_just_started

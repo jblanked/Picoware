@@ -15,7 +15,7 @@ extern "C"
 #include "py/obj.h"
 #include "py/objarray.h"
 #include "py/mphal.h"
-#include "mbs.h"
+#include "lib/mbs.h"
 
     typedef struct _mmbasic_obj_t
     {

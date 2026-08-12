@@ -6,7 +6,7 @@
 #include "py/objtuple.h"
 #include "py/misc.h"
 #include "pico/aon_timer.h"
-#include "mbs.h"
+#include "lib/mbs.h"
 #include "lcd_config.h"
 #ifdef LCD_INCLUDE
 #include LCD_INCLUDE

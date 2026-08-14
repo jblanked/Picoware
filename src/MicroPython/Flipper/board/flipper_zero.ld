@@ -1,12 +1,12 @@
 /*
     Custom linker script for Flipper Zero (STM32WB55RG).
-    No BLE radio stack needed, so the app gets 768K of flash.
+    Top 256K (RADIO) is reserved for FUS + wireless stack.
 */
 
 MEMORY
 {
     FLASH (rx)      : ORIGIN = 0x08000000, LENGTH = 768K
-    FLASH_FS (r)    : ORIGIN = 0x080C0000, LENGTH = 256K
+    RADIO (r)       : ORIGIN = 0x080C0000, LENGTH = 256K /* FUS + WS */
     RAM (xrw)       : ORIGIN = 0x20000000, LENGTH = 192K /* SRAM1 */
     RAM2A (xrw)     : ORIGIN = 0x20030000, LENGTH = 10K  /* SRAM2A */
     RAM2B (xrw)     : ORIGIN = 0x20038000, LENGTH = 10K  /* SRAM2B */
@@ -18,17 +18,11 @@ _minimum_heap_size = 16K;
 _ram_start = ORIGIN(RAM);
 _ram_end = ORIGIN(RAM) + LENGTH(RAM);
 
-_micropy_hw_internal_flash_storage_ram_cache_end = ORIGIN(RAM) + LENGTH(RAM);
-_micropy_hw_internal_flash_storage_ram_cache_start = _micropy_hw_internal_flash_storage_ram_cache_end - 4K;
-
-_estack = _micropy_hw_internal_flash_storage_ram_cache_start - _estack_reserve;
+_estack = ORIGIN(RAM) + LENGTH(RAM) - _estack_reserve;
 _sstack = _estack - 16K;
 
 _heap_start = _ebss;
 _heap_end = _sstack;
-
-_micropy_hw_internal_flash_storage_start = ORIGIN(FLASH_FS);
-_micropy_hw_internal_flash_storage_end   = ORIGIN(FLASH_FS) + LENGTH(FLASH_FS);
 
 SECTIONS
 {

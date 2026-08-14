@@ -47,6 +47,8 @@ _BOARD_DISPLAY_SIZES = {
     "v8": (240, 320),
     "flipper-zero": (128, 64),
     "flipper": (128, 64),
+    "desktop": (320, 320),
+    "unix": (320, 320),
 }
 
 
@@ -403,6 +405,12 @@ def _quote(path):
     return "'" + path.replace("'", "'\"'\"'") + "'"
 
 
+def _interpreter_command():
+    """Return the current MicroPython executable for child simulator runs."""
+    executable = getattr(sys, "executable", "")
+    return _quote(executable if executable else "micropython")
+
+
 def _file_exists(path):
     """Return True if the given path exists."""
     try:
@@ -508,7 +516,8 @@ def _run_coverage(opts):
         safe = (kind + "-" + name).replace("/", "_").replace(" ", "_")
         log_path = report_dir + "/" + safe + ".log"
         cmd = (
-            "micropython "
+            _interpreter_command()
+            + " "
             + _quote(THIS_DIR + "/run.py")
             + " --headless --frames 220 --audio silent --network offline --sd "
             + _quote(opts["sd"])
@@ -545,6 +554,7 @@ def _build_native(target, check=False):
 
 def _run_sim_check(opts):
     """Run the simulator self-check suite."""
+    _run_desktop_native_check(opts)
     _run_library_route_check()
     _run_stale_app_link_check(opts)
     _run_duplicate_app_link_check(opts)
@@ -552,31 +562,36 @@ def _run_sim_check(opts):
         "sh "
         + _quote(THIS_DIR + "/build.sh")
         + " --check",
-        "micropython "
+        _interpreter_command()
+        + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --frames 30 --wait-view desktop_view --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
-        "micropython "
+        _interpreter_command()
+        + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --app Calculator --wait-view app_Calculator --frames 160 --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
-        "micropython "
+        _interpreter_command()
+        + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --open Agent --wait-view agent --frames 220 --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
-        "micropython "
+        _interpreter_command()
+        + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --open System --wait-view system --frames 220 --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
-        "micropython "
+        _interpreter_command()
+        + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --open MMBasic --wait-view mmbasic --keys enter --assert-text "
         + _quote("MMBasic 6.03")
@@ -584,49 +599,57 @@ def _run_sim_check(opts):
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
-        "micropython "
+        _interpreter_command()
+        + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --app Forecast --wait-view app_Forecast --frames 220 --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
-        "micropython "
+        _interpreter_command()
+        + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --app MicroBrowser --wait-view app_MicroBrowser --frames 220 --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
-        "micropython "
+        _interpreter_command()
+        + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --board pancake --app keyboard-simple --frames 40 --wait-view app_keyboard-simple --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
-        "micropython "
+        _interpreter_command()
+        + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --board waveshare-1.69-rp2350 --frames 30 --wait-view desktop_view --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
-        "micropython "
+        _interpreter_command()
+        + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --board waveshare-2.06 --frames 30 --wait-view desktop_view --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
-        "micropython "
+        _interpreter_command()
+        + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --board crowpanel --frames 30 --wait-view desktop_view --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
-        "micropython "
+        _interpreter_command()
+        + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --board v8 --frames 30 --wait-view desktop_view --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
-        "micropython "
+        _interpreter_command()
+        + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --board flipper-zero --app Calculator --frames 40 --wait-view app_Calculator --audio silent --network offline --sd "
         + _quote(opts["sd"])
@@ -655,6 +678,89 @@ def _run_sim_check(opts):
     _run_fatal_exit_check(opts)
     _run_mjs_check()
     print("[sim-check:pass]")
+
+
+def _run_desktop_native_check(opts):
+    """Exercise the compiled Desktop MMBasic module and its host bridge."""
+    try:
+        import picoware_desktop
+    except ImportError:
+        raise RuntimeError(
+            "sim-check requires the Desktop interpreter; "
+            "run sh tools/run-micropython-desktop.sh --sim-check"
+        )
+
+    if picoware_desktop.BOARD_ID != 15:
+        raise RuntimeError("Desktop interpreter board ID mismatch")
+    expected_modules = ("auto_complete", "font", "mmbasic", "response", "vector")
+    if picoware_desktop.native_modules() != expected_modules:
+        raise RuntimeError("Desktop interpreter native module set mismatch")
+
+    import auto_complete
+    import font
+    import lcd
+    import mmbasic
+    import response
+    import sd_mp
+    import sim_runtime
+    import vector
+
+    completion = auto_complete.AutoComplete()
+    if not completion.add_word("desktop"):
+        raise RuntimeError("native AutoComplete rejected a word")
+    if completion.search("desk") != ("desktop",):
+        raise RuntimeError("native AutoComplete search mismatch")
+    font_size = font.FontSize(2)
+    if font_size.spacing != 1:
+        raise RuntimeError("native FontSize spacing mismatch")
+    font_size.set_size(0)
+    if font_size.size != 0:
+        raise RuntimeError("native FontSize setter mismatch")
+    native_response = response.Response()
+    native_response.set_status_code(200)
+    native_response.set_content(b"ok")
+    if native_response.status_code != 200 or native_response.content != b"ok":
+        raise RuntimeError("native Response state mismatch")
+    native_vector = vector.Vector(1, 2, 3, True)
+    if (native_vector.x, native_vector.y, native_vector.z) != (1, 2, 3):
+        raise RuntimeError("native Vector state mismatch")
+
+    original_headless = sim_runtime.headless
+    original_lcd = sim_runtime.get_lcd()
+    original_sd_root = sim_runtime.sd_root
+    path = "sim_reports/mmbasic-native.bas"
+    try:
+        sim_runtime.headless = True
+        sim_runtime.sd_root = opts["sd"]
+        lcd.LCD()
+
+        engine = mmbasic.MMBasic(0xFFFF, 0, 0x07E0, 320, 320, 8, 8, 0, 0)
+        if engine._start():
+            raise RuntimeError("native MMBasic accepted an empty start")
+        if not engine._start(source='PRINT "Desktop native"\nEND'):
+            raise RuntimeError("native MMBasic rejected source input")
+        if engine.has_graphics:
+            raise RuntimeError("native MMBasic misclassified console source")
+        if engine.tick(5) != (1, "", 0):
+            raise RuntimeError("native MMBasic END status mismatch")
+
+        sd_mp.write(path, b'CLS\nDO WHILE INKEY$ = "": LOOP\n')
+        engine = mmbasic.MMBasic(0xFFFF, 0, 0x07E0, 320, 320, 8, 8, 0, 0)
+        if not engine._start(path=path):
+            raise RuntimeError("native MMBasic rejected simulated SD input")
+        if engine.tick(5) != (0, "", 0) or not engine.has_graphics:
+            raise RuntimeError("native MMBasic graphics/input state mismatch")
+        engine.feed_char("x")
+        if engine.tick(5) != (1, "", 0):
+            raise RuntimeError("native MMBasic input completion mismatch")
+        engine.render(True)
+    finally:
+        sd_mp.remove(path)
+        sim_runtime.set_lcd(original_lcd)
+        sim_runtime.sd_root = original_sd_root
+        sim_runtime.headless = original_headless
+        gc.collect()
+    print("[sim-check:ok] Desktop native logic and MMBasic hardware bridge")
 
 
 def _run_library_route_check():
@@ -982,7 +1088,7 @@ def _run_font_parity_check():
         boards.BOARD_WAVESHARE_1_43_RP2350,
         boards.BOARD_WAVESHARE_3_49_RP2350,
     )
-    for board_id in range(boards.BOARD_V8 + 1):
+    for board_id in range(boards.BOARD_DESKTOP + 1):
         expected = 1 if board_id in small else 2 if board_id in medium else 0
         if lcd.default_font_for_board(board_id, boards) != expected:
             raise RuntimeError("simulator board default font mismatch")
@@ -1008,7 +1114,14 @@ def _run_board_parity_check():
     """Verify the latest board profile and capability helpers."""
     import picoware_boards as boards
 
-    if boards.BOARD_HAS_PICOCALC != 1:
+    picocalc_ids = (
+        boards.BOARD_PICOCALC_PICO,
+        boards.BOARD_PICOCALC_PICOW,
+        boards.BOARD_PICOCALC_PICO_2,
+        boards.BOARD_PICOCALC_PICO_2W,
+        boards.BOARD_PICOCALC_PIMORONI_2W,
+    )
+    if boards.BOARD_HAS_PICOCALC != int(boards.BOARD_ID in picocalc_ids):
         raise RuntimeError("simulator PicoCalc capability mismatch")
     if boards.get_name(boards.BOARD_V8) != "V8":
         raise RuntimeError("simulator V8 board name mismatch")
@@ -1038,7 +1151,21 @@ def _run_board_parity_check():
         raise RuntimeError("simulator Waveshare 1.69 audio capability mismatch")
     if boards.has_psram(boards.BOARD_WAVESHARE_1_69_RP2350):
         raise RuntimeError("simulator Waveshare 1.69 PSRAM capability mismatch")
-    print("[sim-check:ok] V8 and Waveshare 1.69 board profiles and capabilities")
+    if boards.get_name(boards.BOARD_DESKTOP) != "Desktop":
+        raise RuntimeError("simulator Desktop board name mismatch")
+    if boards.get_display_size(boards.BOARD_DESKTOP) != (320, 320):
+        raise RuntimeError("simulator Desktop display size mismatch")
+    if not boards.has_sd_card(boards.BOARD_DESKTOP):
+        raise RuntimeError("simulator Desktop SD capability mismatch")
+    if boards.has_touch(boards.BOARD_DESKTOP):
+        raise RuntimeError("simulator Desktop touch capability mismatch")
+    if not boards.has_wifi(boards.BOARD_DESKTOP):
+        raise RuntimeError("simulator Desktop WiFi capability mismatch")
+    if not boards.has_audio(boards.BOARD_DESKTOP):
+        raise RuntimeError("simulator Desktop audio capability mismatch")
+    if boards.has_psram(boards.BOARD_DESKTOP):
+        raise RuntimeError("simulator Desktop PSRAM capability mismatch")
+    print("[sim-check:ok] V8, Waveshare 1.69, and Desktop board profiles")
 
 
 def _run_touch_check():
@@ -1338,7 +1465,8 @@ def _run_fatal_exit_check(opts):
     probe_log = "/tmp/picoware-sim-fatal-probe.log"
     missing_text = "__PICOWARE_SIM_EXPECTED_MISSING_TEXT__"
     cmd = (
-        "micropython "
+        _interpreter_command()
+        + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --frames 1 --assert-text "
         + _quote(missing_text)
@@ -1458,7 +1586,7 @@ def _relaunch_self(reset_sd=False):
         args.append(_quote(str(arg)))
     if reset_sd and "--reset-sd" not in sys.argv:
         args.append("--reset-sd")
-    cmd = "micropython " + " ".join(args) + " >/tmp/picoware-sim-restart.log 2>&1 &"
+    cmd = _interpreter_command() + " " + " ".join(args) + " >/tmp/picoware-sim-restart.log 2>&1 &"
     os.system(cmd)
 
 

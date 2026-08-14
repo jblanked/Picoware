@@ -6,14 +6,33 @@
 #include "py/objtuple.h"
 #include "py/misc.h"
 #include "lib/mbs.h"
+#ifdef DESKTOP
+#include "desktop_bridge.h"
+#define LCD_MP_CLEAR desktop_lcd_clear
+#define LCD_MP_PIXEL desktop_lcd_pixel
+#define LCD_MP_LINE desktop_lcd_line
+#define LCD_MP_RECTANGLE desktop_lcd_rectangle
+#define LCD_MP_FILL_RECTANGLE desktop_lcd_fill_rectangle
+#define LCD_MP_CIRCLE desktop_lcd_circle
+#define LCD_MP_FILL_CIRCLE desktop_lcd_fill_circle
+#define LCD_MP_FILL_TRIANGLE desktop_lcd_fill_triangle
+#define LCD_MP_TEXT desktop_lcd_text
+#define LCD_MP_SWAP desktop_lcd_swap
+#define FONT_DEFAULT 0
+#define log_message desktop_log_message
+#define storage_file_size desktop_storage_file_size
+#define storage_file_read desktop_storage_file_read
+typedef int FontSize;
+#else
 #include "lcd_config.h"
 #ifdef LCD_INCLUDE
 #include LCD_INCLUDE
 #endif
 #include "log_mp.h"
 #include "storage.h"
+#endif
 
-#if defined(PANCAKE) || defined(WAVESHARE_2_06) || defined(V8) || defined(CARDPUTER)
+#if defined(DESKTOP) || defined(PANCAKE) || defined(WAVESHARE_2_06) || defined(V8) || defined(CARDPUTER)
 static time_t host_rtc_now(void)
 {
     return time(NULL);
@@ -312,13 +331,6 @@ mp_obj_t mmbasic_console_output(mp_obj_t self_in, mp_obj_t text)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(mmbasic_console_output_obj, mmbasic_console_output);
 
-mp_obj_t mmbasic_has_graphics(mp_obj_t self_in)
-{
-    mmbasic_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    return mp_obj_new_bool(self->gfx.has_drawn);
-}
-static MP_DEFINE_CONST_FUN_OBJ_1(mmbasic_has_graphics_obj, mmbasic_has_graphics);
-
 mp_obj_t mmbasic_del(mp_obj_t self_in)
 {
     mmbasic_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -338,13 +350,13 @@ static MP_DEFINE_CONST_FUN_OBJ_1(mmbasic_del_obj, mmbasic_del);
 
 void mmbasic_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
-    (void)self_in;
+    mmbasic_obj_t *self = MP_OBJ_TO_PTR(self_in);
     if (destination[0] == MP_OBJ_NULL)
     {
         switch (attribute)
         {
         case MP_QSTR_has_graphics:
-            destination[0] = MP_OBJ_FROM_PTR(&mmbasic_has_graphics_obj);
+            destination[0] = mp_obj_new_bool(self->gfx.has_drawn);
             return;
         case MP_QSTR___del__:
             destination[0] = MP_OBJ_FROM_PTR(&mmbasic_del_obj);
@@ -381,6 +393,7 @@ mp_obj_t mmbasic_make_new(const mp_obj_type_t *type, size_t n_args,
     int fdef_size = mp_obj_get_int(args[8]);
     mmbasic_obj_t *self = mp_obj_malloc_with_finaliser(mmbasic_obj_t, &mmbasic_type);
     self->base.type = &mmbasic_type;
+    self->program = NULL;
     self->last_present_ms = 0;
 
     /* host callbacks */

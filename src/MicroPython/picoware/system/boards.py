@@ -16,6 +16,7 @@ Attributes:
     BOARD_PANCAKE (int): Board ID for Pancake.
     BOARD_V8 (int): Board ID for V8.
     BOARD_FLIPPER_ZERO (int): Board ID for Flipper Zero.
+    BOARD_DESKTOP (int): Board ID for the Unix Desktop target.
     BOARD_ID (int): The current board ID.
     BOARD_HAS_PSRAM (bool): True if the board has an external PSRAM, False otherwise.
     BOARD_HAS_SD (bool): True if the board has an SD card, False otherwise.
@@ -46,6 +47,7 @@ BOARD_WAVESHARE_2_06 = picoware_boards.BOARD_WAVESHARE_2_06
 BOARD_PANCAKE = picoware_boards.BOARD_PANCAKE
 BOARD_V8 = picoware_boards.BOARD_V8
 BOARD_FLIPPER_ZERO = picoware_boards.BOARD_FLIPPER_ZERO
+BOARD_DESKTOP = picoware_boards.BOARD_DESKTOP
 
 BOARD_ID = picoware_boards.BOARD_ID
 BOARD_HAS_PSRAM = picoware_boards.BOARD_HAS_PSRAM

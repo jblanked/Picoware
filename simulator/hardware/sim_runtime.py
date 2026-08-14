@@ -1015,6 +1015,11 @@ def print_capabilities():
         ("jpegdec", jpeg_status, "host djpeg decode with visible placeholder fallback"),
         ("bmp", "real", "direct uncompressed BMP decoder"),
         ("battery", "simulated", "scriptable battery percentage"),
+        (
+            "mmbasic",
+            "simulated",
+            "Python parser/runtime matching the firmware C module contract",
+        ),
         ("psram", "simulated", "global byte heap + LCD RGB565 render"),
         ("engine", "simulated", "2D lifecycle/collision helpers plus deterministic 3D sprite/wall projection"),
         ("gameboy", "real" if _exists(gameboy_runner) else "partial", "Walnut-CGB native RGB565 frame/input helper with placeholder fallback"),

@@ -548,6 +548,9 @@ def _run_sim_check(opts):
     _run_library_route_check()
     _run_stale_app_link_check(opts)
     _run_duplicate_app_link_check(opts)
+    _run_mmbasic_parity_check(opts)
+    mmbasic_clock_path = opts["sd"].rstrip("/") + "/sim_reports/mmbasic-clock.bmp"
+    _mkdir_p(_dirname(mmbasic_clock_path))
     commands = (
         "sh "
         + _quote(THIS_DIR + "/build.sh")
@@ -580,10 +583,12 @@ def _run_sim_check(opts):
         + _quote(THIS_DIR + "/run.py")
         + " --headless --open MMBasic --wait-view mmbasic --keys enter --assert-text "
         + _quote("MMBasic 6.03")
-        + " --frames 300 --audio silent --network offline --sd "
+        + " --frames 80 --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
-        + _quote(opts["apps_source"]),
+        + _quote(opts["apps_source"])
+        + " --screenshot "
+        + _quote(mmbasic_clock_path),
         "micropython "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --app Forecast --wait-view app_Forecast --frames 220 --audio silent --network offline --sd "
@@ -638,6 +643,7 @@ def _run_sim_check(opts):
         if status != 0:
             print("[sim-check:fail]", cmd, status)
             raise SystemExit(1)
+    _run_mmbasic_clock_frame_check(mmbasic_clock_path)
     _run_keyboard_background_check()
     _run_lcd_parity_check()
     _run_uart_parity_check()
@@ -831,6 +837,114 @@ def _run_keyboard_background_check():
         raise RuntimeError("simulator disabled background keyboard consumed a key")
     picoware_keyboard.deinit()
     print("[sim-check:ok] picocalc background keyboard callbacks")
+
+
+def _run_mmbasic_parity_check(opts):
+    """Exercise the native MMBasic constructor and lifecycle contract."""
+    import lcd
+    import mmbasic
+    import sd_mp
+    import sim_runtime
+
+    original_headless = sim_runtime.headless
+    original_lcd = sim_runtime.get_lcd()
+    original_sd_root = sim_runtime.sd_root
+    path = "sim_reports/mmbasic-parity.bas"
+    try:
+        sim_runtime.headless = True
+        sim_runtime.sd_root = opts["sd"]
+        lcd.LCD()
+
+        engine = mmbasic.MMBasic(0xFFFF, 0, 0x07E0, 320, 320, 8, 8, 0, 0)
+        if engine._start():
+            raise RuntimeError("simulator MMBasic accepted an empty start")
+        if not engine._start(source='PRINT "Parity probe"\nEND'):
+            raise RuntimeError("simulator MMBasic rejected source input")
+        if engine.has_graphics:
+            raise RuntimeError("simulator MMBasic misclassified console source")
+        if engine.tick(5) != (1, "", 0):
+            raise RuntimeError("simulator MMBasic END status mismatch")
+
+        sd_mp.write(path, b'CLS\nDO WHILE INKEY$ = "": LOOP\n')
+        engine = mmbasic.MMBasic(0xFFFF, 0, 0x07E0, 320, 320, 8, 8, 0, 0)
+        if not engine._start(path=path):
+            raise RuntimeError("simulator MMBasic rejected path input")
+        if engine.tick(5) != (0, "", 0):
+            raise RuntimeError("simulator MMBasic INKEY loop status mismatch")
+        if not engine.has_graphics:
+            raise RuntimeError("simulator MMBasic missed executed graphics")
+        engine.feed_char("x")
+        if engine.tick(5) != (1, "", 0):
+            raise RuntimeError("simulator MMBasic input completion mismatch")
+        engine.set_footer("Done")
+        engine.console_output("Complete")
+        engine.render(True)
+    finally:
+        sd_mp.remove(path)
+        sim_runtime.set_lcd(original_lcd)
+        sim_runtime.sd_root = original_sd_root
+        sim_runtime.headless = original_headless
+        gc.collect()
+    print("[sim-check:ok] MMBasic native constructor source path input graphics")
+
+
+def _run_mmbasic_clock_frame_check(path):
+    """Prove the bundled BASIC clock rendered a face and red second hand."""
+    import ustruct
+
+    try:
+        with open(path, "rb") as handle:
+            data = handle.read()
+    except OSError:
+        raise RuntimeError("simulator MMBasic clock screenshot missing")
+    if len(data) < 54 or data[:2] != b"BM":
+        raise RuntimeError("simulator MMBasic clock screenshot is not a BMP")
+
+    offset = ustruct.unpack_from("<I", data, 10)[0]
+    width = ustruct.unpack_from("<I", data, 18)[0]
+    height = ustruct.unpack_from("<I", data, 22)[0]
+    if width != 320 or height != 320:
+        raise RuntimeError("simulator MMBasic clock screenshot size mismatch")
+    row_size = ((width * 3 + 3) // 4) * 4
+    if len(data) < offset + row_size * height:
+        raise RuntimeError("simulator MMBasic clock screenshot is truncated")
+
+    non_black = 0
+    red = 0
+    grey = 0
+    for row in range(height):
+        pos = offset + row * row_size
+        for _ in range(width):
+            blue = data[pos]
+            green = data[pos + 1]
+            red_value = data[pos + 2]
+            pos += 3
+            if red_value or green or blue:
+                non_black += 1
+            if red_value >= 220 and green <= 40 and blue <= 40:
+                red += 1
+            if (
+                80 <= red_value <= 220
+                and abs(red_value - green) <= 8
+                and abs(red_value - blue) <= 8
+            ):
+                grey += 1
+
+    if non_black < 350 or red < 50 or grey < 200:
+        raise RuntimeError(
+            "simulator MMBasic clock framebuffer incomplete: non_black="
+            + str(non_black)
+            + " red="
+            + str(red)
+            + " grey="
+            + str(grey)
+        )
+    print(
+        "[sim-check:ok] MMBasic clock framebuffer face and red hand",
+        non_black,
+        red,
+        grey,
+    )
 
 
 def _run_lcd_parity_check():

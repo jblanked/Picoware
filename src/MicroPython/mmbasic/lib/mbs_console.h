@@ -8,11 +8,11 @@ extern "C"
 {
 #endif
 
-    typedef struct mbs_host_ops mbs_host_ops;
+    struct mbs_host_ops;
 
     typedef struct mbs_console
     {
-        mbs_host_ops *ops;
+        struct mbs_host_ops *ops;
         int columns, rows;
         int max_lines;
         int font_w, font_h;
@@ -29,7 +29,7 @@ extern "C"
         int fs;
     } mbs_console;
 
-    void mbs_console_init(mbs_console *c, mbs_host_ops *ops, int screen_w,
+    void mbs_console_init(mbs_console *c, struct mbs_host_ops *ops, int screen_w,
                           int screen_h, int font_w, int font_h, int fg, int bg,
                           int sel);
     void mbs_console_free(mbs_console *c);

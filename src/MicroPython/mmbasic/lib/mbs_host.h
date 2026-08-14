@@ -8,7 +8,7 @@ extern "C"
 {
 #endif
 
-    typedef struct mbs_console mbs_console;
+    struct mbs_console;
 
     // Callbacks from MicroPython glue
     typedef struct mbs_host_ops
@@ -30,7 +30,7 @@ extern "C"
         void (*g_swap)(void *host);
 
         // draw console rows + footer
-        void (*console_render)(void *host, mbs_console *c);
+        void (*console_render)(void *host, struct mbs_console *c);
 
         // misc
         void (*log)(void *host, const char *message);

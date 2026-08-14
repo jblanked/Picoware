@@ -60,7 +60,7 @@ extern "C"
         int eof;
     } mbs_openfile;
 
-    typedef struct mbs_interp mbs_interp;
+    struct mbs_interp;
 
     typedef struct mbs_runtime
     {
@@ -113,7 +113,7 @@ extern "C"
         // letter -> def type
         mbs_str def_type_map[26];
 
-        mbs_interp *owner; // for error raising once running
+        struct mbs_interp *owner; // for error raising once running
     } mbs_runtime;
 
     void mbs_runtime_init(mbs_runtime *rt, mbs_node *program, mbs_map *def_type);
@@ -147,7 +147,7 @@ extern "C"
     mbs_subdef *mbs_runtime_def_fn(mbs_runtime *rt, const char *name);
     void mbs_runtime_define_def_fn(mbs_runtime *rt, const char *name,
                                    mbs_node *params, mbs_node *body);
-    void mbs_runtime_set_owner(mbs_runtime *rt, mbs_interp *in);
+    void mbs_runtime_set_owner(mbs_runtime *rt, struct mbs_interp *in);
 
 #ifdef __cplusplus
 }

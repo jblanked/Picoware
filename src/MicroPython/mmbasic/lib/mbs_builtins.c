@@ -811,7 +811,7 @@ mbs_val mbs_builtins_call(mbs_builtins *b, const char *name, mbs_ptrarr *args,
         }
         float v;
         memcpy(&v, s, 4);
-        mbs_val_set_num(&r, v);
+        mbs_val_set_num(&r, (double)v);
     }
     else if (strcmp(name, "cvd") == 0)
     {

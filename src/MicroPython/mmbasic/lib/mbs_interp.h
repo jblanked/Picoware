@@ -36,19 +36,19 @@ extern "C"
         uint32_t due;
     } mbs_timer;
 
-    typedef struct mbs_runtime mbs_runtime;
-    typedef struct mbs_console mbs_console;
-    typedef struct mbs_gfx mbs_gfx;
-    typedef struct mbs_host_ops mbs_host_ops;
-    typedef struct mbs_builtins mbs_builtins;
+    struct mbs_runtime;
+    struct mbs_console;
+    struct mbs_gfx;
+    struct mbs_host_ops;
+    struct mbs_builtins;
 
     typedef struct mbs_interp
     {
-        mbs_runtime *rt;
-        mbs_console *console;
-        mbs_gfx *gfx;
-        mbs_host_ops *ops;
-        mbs_builtins *builtins;
+        struct mbs_runtime *rt;
+        struct mbs_console *console;
+        struct mbs_gfx *gfx;
+        struct mbs_host_ops *ops;
+        struct mbs_builtins *builtins;
 
         // input state
         int pending;        // none/input/key
@@ -78,8 +78,9 @@ extern "C"
         char fn_name_buf[64];
     } mbs_interp;
 
-    void mbs_interp_init(mbs_interp *in, mbs_runtime *rt, mbs_console *console,
-                         mbs_gfx *gfx, mbs_host_ops *ops);
+    void mbs_interp_init(mbs_interp *in, struct mbs_runtime *rt,
+                         struct mbs_console *console, struct mbs_gfx *gfx,
+                         struct mbs_host_ops *ops);
     void mbs_interp_free(mbs_interp *in);
     void mbs_interp_start(mbs_interp *in);
     mbs_tickstate mbs_interp_tick(mbs_interp *in, long max_statements,

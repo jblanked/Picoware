@@ -8,16 +8,17 @@ extern "C"
 {
 #endif
 
-    typedef struct mbs_runtime mbs_runtime;
-    typedef struct mbs_interp mbs_interp;
+    struct mbs_runtime;
+    struct mbs_interp;
 
     typedef struct mbs_builtins
     {
-        mbs_runtime *rt;
-        mbs_interp *in; // io provider
+        struct mbs_runtime *rt;
+        struct mbs_interp *in; // io provider
     } mbs_builtins;
 
-    void mbs_builtins_init(mbs_builtins *b, mbs_runtime *rt, mbs_interp *in);
+    void mbs_builtins_init(mbs_builtins *b, struct mbs_runtime *rt,
+                           struct mbs_interp *in);
     // call builtin, raises via jb
     mbs_val mbs_builtins_call(mbs_builtins *b, const char *name,
                               mbs_ptrarr *args, int line);

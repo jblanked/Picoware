@@ -20,11 +20,11 @@ void vector_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t 
     vector_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
     mp_print_str(print, "Vector(");
     mp_print_str(print, "x=");
-    mp_obj_print_helper(print, self->integer ? mp_obj_new_int((int)self->x) : mp_obj_new_float(self->x), PRINT_REPR);
+    mp_obj_print_helper(print, self->integer ? mp_obj_new_int((int)self->x) : mp_obj_new_float((mp_float_t)self->x), PRINT_REPR);
     mp_print_str(print, ", y=");
-    mp_obj_print_helper(print, self->integer ? mp_obj_new_int((int)self->y) : mp_obj_new_float(self->y), PRINT_REPR);
+    mp_obj_print_helper(print, self->integer ? mp_obj_new_int((int)self->y) : mp_obj_new_float((mp_float_t)self->y), PRINT_REPR);
     mp_print_str(print, ", z=");
-    mp_obj_print_helper(print, self->integer ? mp_obj_new_int((int)self->z) : mp_obj_new_float(self->z), PRINT_REPR);
+    mp_obj_print_helper(print, self->integer ? mp_obj_new_int((int)self->z) : mp_obj_new_float((mp_float_t)self->z), PRINT_REPR);
     mp_print_str(print, ")");
 }
 
@@ -60,13 +60,13 @@ void vector_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
         switch (attribute)
         {
         case MP_QSTR_x:
-            destination[0] = self->integer ? mp_obj_new_int((int)self->x) : mp_obj_new_float(self->x);
+            destination[0] = self->integer ? mp_obj_new_int((int)self->x) : mp_obj_new_float((mp_float_t)self->x);
             break;
         case MP_QSTR_y:
-            destination[0] = self->integer ? mp_obj_new_int((int)self->y) : mp_obj_new_float(self->y);
+            destination[0] = self->integer ? mp_obj_new_int((int)self->y) : mp_obj_new_float((mp_float_t)self->y);
             break;
         case MP_QSTR_z:
-            destination[0] = self->integer ? mp_obj_new_int((int)self->z) : mp_obj_new_float(self->z);
+            destination[0] = self->integer ? mp_obj_new_int((int)self->z) : mp_obj_new_float((mp_float_t)self->z);
             break;
         case MP_QSTR___del__:
             destination[0] = MP_OBJ_FROM_PTR(&vector_mp_del_obj);

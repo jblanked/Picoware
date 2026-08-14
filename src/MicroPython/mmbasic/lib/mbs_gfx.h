@@ -8,11 +8,11 @@ extern "C"
 {
 #endif
 
-    typedef struct mbs_host_ops mbs_host_ops;
+    struct mbs_host_ops;
 
     typedef struct mbs_gfx
     {
-        mbs_host_ops *ops;
+        struct mbs_host_ops *ops;
         int cur_color; // 24-bit MMBasic colour
         int bg;        // 24-bit background
         int pen_down;
@@ -23,7 +23,8 @@ extern "C"
         int has_drawn;
     } mbs_gfx;
 
-    void mbs_gfx_init(mbs_gfx *g, mbs_host_ops *ops, int w, int h, int bg, int fs);
+    void mbs_gfx_init(mbs_gfx *g, struct mbs_host_ops *ops, int w, int h, int bg,
+                      int fs);
     void mbs_gfx_free(mbs_gfx *g);
     void mbs_gfx_present(mbs_gfx *g);
     void mbs_gfx_cls(mbs_gfx *g, int has_color, int color);

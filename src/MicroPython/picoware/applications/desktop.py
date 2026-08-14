@@ -1,6 +1,3 @@
-from picoware.applications.wifi.utils import connect_to_saved_wifi
-
-
 class PicowareAnimation:
     """Class to draw "Picoware" animation"""
 
@@ -196,6 +193,8 @@ def start(view_manager) -> bool:
 
     _has_wifi = True
 
+    from picoware.applications.wifi.utils import connect_to_saved_wifi
+
     connect_to_saved_wifi(view_manager)
 
     _time = view_manager.time
@@ -263,6 +262,8 @@ def run(view_manager) -> None:
     _time = view_manager.time
     if not is_connected:
         if wifi.state in (0, 4):  # WIFI_STATE_IDLE, WIFI_STATE_TIMEOUT
+            from picoware.applications.wifi.utils import connect_to_saved_wifi
+
             connect_to_saved_wifi(view_manager)
     else:
         if _desktop_time_updated:

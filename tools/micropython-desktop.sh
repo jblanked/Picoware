@@ -87,6 +87,20 @@ esac
 
 mkdir -p "$build_dir"
 
+# remove stale user-module build outputs
+for mkfile in "$module_dir"/*/micropython.mk; do
+    [ -f "$mkfile" ] || continue
+    rm -rf "$build_dir/$(basename "$(dirname "$mkfile")")"
+done
+# sweep leftover module build dirs
+for dir in "$build_dir"/*/; do
+    [ -d "$dir" ] || continue
+    case "$(basename "$dir")" in
+        py|extmod|lib|shared|genhdr) ;;
+        *) rm -rf "$dir" ;;
+    esac
+done
+
 if [ ! -x "$micropython_dir/mpy-cross/build/mpy-cross" ]; then
     make -C "$micropython_dir/mpy-cross" -j"$jobs"
 fi

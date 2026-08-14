@@ -248,11 +248,6 @@ static int parse_number_text(const char *text, double *out)
     return 0;
 }
 
-static void append_cstr(mbs_str *s, const char *t)
-{
-    mbs_str_append(s, t, (int)strlen(t));
-}
-
 static mbs_val eval_expr(mbs_interp *in, mbs_node *node);
 static mbs_val read_var(mbs_interp *in, mbs_node *node);
 static mbs_val call_function(mbs_interp *in, const char *name, mbs_ptrarr *args);
@@ -2490,16 +2485,6 @@ static mbs_result execute_poke(mbs_interp *in, mbs_node *stmt)
 
 // files
 
-static mbs_openfile *file_by_num(mbs_interp *in, int fn, int line)
-{
-    char kb[24];
-    snprintf(kb, sizeof(kb), "%d", fn);
-    mbs_val *fvp = mbs_map_get(&in->rt->files, kb);
-    if (!fvp || fvp->kind != MBS_VAL_PTR)
-        mbs_raise_error(in, 54, "File not open", line);
-    return (mbs_openfile *)fvp->ptr;
-}
-
 static mbs_val file_read_value(mbs_interp *in, mbs_openfile *f,
                                mbs_node *var, int line)
 {
@@ -3135,8 +3120,8 @@ static mbs_result exec_do_inline(mbs_interp *in, mbs_node *stmt, int after_pc)
             if (exit_loop)
                 return MBS_OK;
         }
-        mbs_result result = MBS_OK;
-        int caught = 0;
+        volatile mbs_result result = MBS_OK;
+        volatile int caught = 0;
         jmp_buf saved_jb;
         memcpy(saved_jb, in->jb, sizeof(saved_jb));
         in->inline_do_depth++;
@@ -3592,7 +3577,7 @@ static mbs_result step(mbs_interp *in)
     return MBS_OK;
 }
 
-mbs_tickstate mbs_interp_tick(mbs_interp *in, long max_statements,
+mbs_tickstate mbs_interp_tick(mbs_interp *in, volatile long max_statements,
                               int max_time_ms)
 {
     mbs_runtime *rt = in->rt;
@@ -3617,8 +3602,8 @@ mbs_tickstate mbs_interp_tick(mbs_interp *in, long max_statements,
     dispatch_tick_timer(in);
 
     long count = 0;
-    if (max_statements <= 0)
-        max_statements = 1L << 30;
+    const long statement_limit =
+        max_statements <= 0 ? (1L << 30) : max_statements;
     uint32_t t0 = 0;
     int have_t0 = 0;
     if (max_time_ms > 0)
@@ -3648,7 +3633,7 @@ mbs_tickstate mbs_interp_tick(mbs_interp *in, long max_statements,
         {
             return _state(in, 4, "Internal interpreter error", 0, 5);
         }
-        while (count < max_statements && rt->running)
+        while (count < statement_limit && rt->running)
         {
             if (rt->break_requested)
             {

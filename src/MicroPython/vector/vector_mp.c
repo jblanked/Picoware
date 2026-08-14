@@ -33,9 +33,9 @@ mp_obj_t vector_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
     mp_arg_check_num(n_args, n_kw, 0, 4, false);
     vector_mp_obj_t *self = mp_obj_malloc(vector_mp_obj_t, &vector_mp_type);
     self->base.type = &vector_mp_type;
-    self->x = n_args > 0 ? mp_obj_get_float(args[0]) : 0.0f;
-    self->y = n_args > 1 ? mp_obj_get_float(args[1]) : 0.0f;
-    self->z = n_args > 2 ? mp_obj_get_float(args[2]) : 0.0f;
+    self->x = n_args > 0 ? (float)mp_obj_get_float(args[0]) : 0.0f;
+    self->y = n_args > 1 ? (float)mp_obj_get_float(args[1]) : 0.0f;
+    self->z = n_args > 2 ? (float)mp_obj_get_float(args[2]) : 0.0f;
     self->integer = n_args > 3 ? mp_obj_is_true(args[3]) : false;
     return MP_OBJ_FROM_PTR(self);
 }
@@ -82,13 +82,13 @@ void vector_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
         switch (attribute)
         {
         case MP_QSTR_x:
-            self->x = mp_obj_get_float(destination[1]);
+            self->x = (float)mp_obj_get_float(destination[1]);
             break;
         case MP_QSTR_y:
-            self->y = mp_obj_get_float(destination[1]);
+            self->y = (float)mp_obj_get_float(destination[1]);
             break;
         case MP_QSTR_z:
-            self->z = mp_obj_get_float(destination[1]);
+            self->z = (float)mp_obj_get_float(destination[1]);
             break;
         default:
             return; // Fail
@@ -101,7 +101,7 @@ void vector_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 mp_obj_t vector_mp_set_x(mp_obj_t self_in, mp_obj_t value_in)
 {
     vector_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    self->x = mp_obj_get_float(value_in);
+    self->x = (float)mp_obj_get_float(value_in);
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(vector_mp_set_x_obj, vector_mp_set_x);
@@ -109,7 +109,7 @@ static MP_DEFINE_CONST_FUN_OBJ_2(vector_mp_set_x_obj, vector_mp_set_x);
 mp_obj_t vector_mp_set_y(mp_obj_t self_in, mp_obj_t value_in)
 {
     vector_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    self->y = mp_obj_get_float(value_in);
+    self->y = (float)mp_obj_get_float(value_in);
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(vector_mp_set_y_obj, vector_mp_set_y);
@@ -117,7 +117,7 @@ static MP_DEFINE_CONST_FUN_OBJ_2(vector_mp_set_y_obj, vector_mp_set_y);
 mp_obj_t vector_mp_set_z(mp_obj_t self_in, mp_obj_t value_in)
 {
     vector_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    self->z = mp_obj_get_float(value_in);
+    self->z = (float)mp_obj_get_float(value_in);
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(vector_mp_set_z_obj, vector_mp_set_z);
@@ -125,7 +125,7 @@ static MP_DEFINE_CONST_FUN_OBJ_2(vector_mp_set_z_obj, vector_mp_set_z);
 mp_obj_t vector_mp_rotate_y(mp_obj_t self_in, mp_obj_t angle_in)
 {
     vector_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    float angle = mp_obj_get_float(angle_in);
+    float angle = (float)mp_obj_get_float(angle_in);
     float cos_angle = cosf(angle);
     float sin_angle = sinf(angle);
 
@@ -137,9 +137,9 @@ static MP_DEFINE_CONST_FUN_OBJ_2(vector_mp_rotate_y_obj, vector_mp_rotate_y);
 mp_obj_t vector_mp_translate(size_t n_args, const mp_obj_t *args)
 {
     vector_mp_obj_t *self = MP_OBJ_TO_PTR(args[0]);
-    float dx = mp_obj_get_float(args[1]);
-    float dy = mp_obj_get_float(args[2]);
-    float dz = mp_obj_get_float(args[3]);
+    float dx = (float)mp_obj_get_float(args[1]);
+    float dy = (float)mp_obj_get_float(args[2]);
+    float dz = (float)mp_obj_get_float(args[3]);
 
     // return a new vector with the translated coordinates
     return vector_mp_init(self->x + dx, self->y + dy, self->z + dz, self->integer);
@@ -149,9 +149,9 @@ static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(vector_mp_translate_obj, 4, 4, vector
 mp_obj_t vector_mp_scale(size_t n_args, const mp_obj_t *args)
 {
     vector_mp_obj_t *self = MP_OBJ_TO_PTR(args[0]);
-    float sx = mp_obj_get_float(args[1]);
-    float sy = mp_obj_get_float(args[2]);
-    float sz = mp_obj_get_float(args[3]);
+    float sx = (float)mp_obj_get_float(args[1]);
+    float sy = (float)mp_obj_get_float(args[2]);
+    float sz = (float)mp_obj_get_float(args[3]);
 
     // return a new vector with the scaled coordinates
     return vector_mp_init(self->x * sx, self->y * sy, self->z * sz, self->integer);

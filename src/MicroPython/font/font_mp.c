@@ -264,6 +264,10 @@ void font_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
     {
       destination[0] = MP_OBJ_FROM_PTR(&font_mp_del_obj);
     }
+    else
+    {
+      destination[1] = MP_OBJ_SENTINEL;
+    }
   }
 }
 
@@ -381,6 +385,10 @@ void font_size_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
     else if (attribute == MP_QSTR___del__)
     {
       destination[0] = MP_OBJ_FROM_PTR(&font_size_mp_del_obj);
+    }
+    else
+    {
+      destination[1] = MP_OBJ_SENTINEL;
     }
   }
   else if (destination[1] != MP_OBJ_NULL)

@@ -26,8 +26,16 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_FLIPPER_ZERO 12
 #define BOARD_V8 13
 #define BOARD_WAVESHARE_1_69_RP2350 14
+#define BOARD_DESKTOP 15
 
-#if defined(WAVESHARE_1_28)
+#if defined(DESKTOP)
+#define BOARD_ID BOARD_DESKTOP
+#define BOARD_HAS_PSRAM 0
+#define BOARD_HAS_SD 1
+#define BOARD_HAS_TOUCH 0
+#define BOARD_HAS_WIFI 1
+#define BOARD_HAS_AUDIO 1
+#elif defined(WAVESHARE_1_28)
 #define BOARD_ID BOARD_WAVESHARE_1_28_RP2350
 #define BOARD_HAS_PSRAM 0 // no psram
 #define BOARD_HAS_SD 0    // no sd card

@@ -30,7 +30,9 @@ static MP_DEFINE_CONST_FUN_OBJ_0(picoware_boards_get_current_display_size_obj, p
 
 mp_obj_t picoware_boards_get_current_name(void)
 {
-#ifdef WAVESHARE_1_28
+#ifdef DESKTOP
+    return mp_obj_new_str("Desktop", strlen("Desktop"));
+#elif defined(WAVESHARE_1_28)
     return mp_obj_new_str("Waveshare 1.28", strlen("Waveshare 1.28"));
 #elif defined(WAVESHARE_1_43)
     return mp_obj_new_str("Waveshare 1.43", strlen("Waveshare 1.43"));
@@ -77,7 +79,9 @@ static MP_DEFINE_CONST_FUN_OBJ_0(picoware_boards_get_current_name_obj, picoware_
 
 mp_obj_t picoware_boards_get_device_name(void)
 {
-#ifdef FLIPPER_ZERO
+#ifdef DESKTOP
+    return mp_obj_new_str("Unix Desktop", strlen("Unix Desktop"));
+#elif defined(FLIPPER_ZERO)
     return mp_obj_new_str("Flipper Zero STM32WB55RG", strlen("Flipper Zero STM32WB55RG"));
 #elif defined(CROWPANEL_10_1)
     return mp_obj_new_str("CrowPanel 10.1 ESP32-P4", strlen("CrowPanel 10.1 ESP32-P4"));
@@ -157,6 +161,9 @@ mp_obj_t picoware_boards_get_name(mp_obj_t board_id_obj)
     case BOARD_FLIPPER_ZERO:
         snprintf(board_name, sizeof(board_name), "Flipper Zero");
         break;
+    case BOARD_DESKTOP:
+        snprintf(board_name, sizeof(board_name), "Desktop");
+        break;
     default:
         snprintf(board_name, sizeof(board_name), "Unknown Board");
         break;
@@ -222,6 +229,10 @@ mp_obj_t picoware_boards_get_display_size(mp_obj_t board_id_obj)
         width = 410;
         height = 502;
         break;
+    case BOARD_DESKTOP:
+        width = 320;
+        height = 320;
+        break;
     default:
         width = 0;
         height = 0;
@@ -276,6 +287,7 @@ mp_obj_t picoware_boards_has_sd_card(mp_obj_t board_id_obj)
     case BOARD_PANCAKE:
     case BOARD_V8:
     case BOARD_FLIPPER_ZERO:
+    case BOARD_DESKTOP:
         has_sd_card = true;
         break;
     default:
@@ -325,6 +337,7 @@ mp_obj_t picoware_boards_has_wifi(mp_obj_t board_id_obj)
     case BOARD_PICOCALC_PIMORONI_2W:
     case BOARD_PANCAKE:
     case BOARD_V8:
+    case BOARD_DESKTOP:
         has_wifi = true;
         break;
     default:
@@ -346,6 +359,7 @@ mp_obj_t picoware_boards_has_audio(mp_obj_t board_id_obj)
     case BOARD_PICOCALC_PICOW:
     case BOARD_PICOCALC_PICO_2W:
     case BOARD_PICOCALC_PIMORONI_2W:
+    case BOARD_DESKTOP:
         has_audio = true;
         break;
     default:
@@ -407,6 +421,7 @@ static const mp_rom_map_elem_t picoware_boards_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_BOARD_V8), MP_ROM_INT(BOARD_V8)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_FLIPPER_ZERO), MP_ROM_INT(BOARD_FLIPPER_ZERO)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_WAVESHARE_1_69_RP2350), MP_ROM_INT(BOARD_WAVESHARE_1_69_RP2350)},
+    {MP_ROM_QSTR(MP_QSTR_BOARD_DESKTOP), MP_ROM_INT(BOARD_DESKTOP)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_PSRAM), MP_ROM_INT(BOARD_HAS_PSRAM)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_SD), MP_ROM_INT(BOARD_HAS_SD)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_TOUCH), MP_ROM_INT(BOARD_HAS_TOUCH)},

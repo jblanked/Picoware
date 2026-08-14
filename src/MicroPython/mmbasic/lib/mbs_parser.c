@@ -1048,11 +1048,6 @@ static mbs_node *_parse_statement_list(mbs_parser *p)
     return r;
 }
 
-static int _at_end_if(mbs_parser *p)
-{
-    return (at(p, T_END) && peek(p, 1)->type == T_IF) || at(p, T_ENDIF);
-}
-
 static mbs_node *_parse_if_block(mbs_parser *p, mbs_token *iftok,
                                  mbs_node *first_cond)
 {

@@ -37,7 +37,6 @@ extern "C"
     mp_obj_t mmbasic_render(mp_obj_t self_in, mp_obj_t force_in);
     mp_obj_t mmbasic_set_footer(mp_obj_t self_in, mp_obj_t text);
     mp_obj_t mmbasic_console_output(mp_obj_t self_in, mp_obj_t text);
-    mp_obj_t mmbasic_has_graphics(mp_obj_t self_in);
     mp_obj_t mmbasic_del(mp_obj_t self_in);
     void mmbasic_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination);
     mp_obj_t mmbasic_make_new(const mp_obj_type_t *type, size_t n_args,

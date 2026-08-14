@@ -411,6 +411,11 @@ def _interpreter_command():
     return _quote(executable if executable else "micropython")
 
 
+def _board_option(opts):
+    """Return the selected simulator board as a quoted child-process option."""
+    return " --board " + _quote(opts["board"])
+
+
 def _file_exists(path):
     """Return True if the given path exists."""
     try:
@@ -523,6 +528,7 @@ def _run_coverage(opts):
             + _quote(opts["sd"])
             + " --apps-source "
             + _quote(opts["apps_source"])
+            + _board_option(opts)
             + (" --app " if kind == "app" else " --game ")
             + _quote(name)
             + " --wait-view "
@@ -554,7 +560,9 @@ def _build_native(target, check=False):
 
 def _run_sim_check(opts):
     """Run the simulator self-check suite."""
-    _run_desktop_native_check(opts)
+    board_name = str(opts["board"]).lower().replace("_", "-")
+    if board_name in ("desktop", "unix"):
+        _run_desktop_native_check(opts)
     _run_library_route_check()
     _run_stale_app_link_check(opts)
     _run_duplicate_app_link_check(opts)
@@ -568,28 +576,32 @@ def _run_sim_check(opts):
         + " --headless --frames 30 --wait-view desktop_view --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
-        + _quote(opts["apps_source"]),
+        + _quote(opts["apps_source"])
+        + _board_option(opts),
         _interpreter_command()
         + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --app Calculator --wait-view app_Calculator --frames 160 --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
-        + _quote(opts["apps_source"]),
+        + _quote(opts["apps_source"])
+        + _board_option(opts),
         _interpreter_command()
         + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --open Agent --wait-view agent --frames 220 --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
-        + _quote(opts["apps_source"]),
+        + _quote(opts["apps_source"])
+        + _board_option(opts),
         _interpreter_command()
         + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --open System --wait-view system --frames 220 --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
-        + _quote(opts["apps_source"]),
+        + _quote(opts["apps_source"])
+        + _board_option(opts),
         _interpreter_command()
         + " "
         + _quote(THIS_DIR + "/run.py")
@@ -598,21 +610,24 @@ def _run_sim_check(opts):
         + " --frames 300 --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
-        + _quote(opts["apps_source"]),
+        + _quote(opts["apps_source"])
+        + _board_option(opts),
         _interpreter_command()
         + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --app Forecast --wait-view app_Forecast --frames 220 --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
-        + _quote(opts["apps_source"]),
+        + _quote(opts["apps_source"])
+        + _board_option(opts),
         _interpreter_command()
         + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --app MicroBrowser --wait-view app_MicroBrowser --frames 220 --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
-        + _quote(opts["apps_source"]),
+        + _quote(opts["apps_source"])
+        + _board_option(opts),
         _interpreter_command()
         + " "
         + _quote(THIS_DIR + "/run.py")

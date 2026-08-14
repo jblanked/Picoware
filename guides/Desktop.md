@@ -33,6 +33,15 @@ Verify an existing build without rebuilding it:
 sh tools/micropython-desktop.sh check
 ```
 
+Remove the compiled Desktop interpreter and object files:
+
+```sh
+sh tools/micropython-desktop.sh clean
+```
+
+The reusable source alias under `/tmp` is intentionally retained and does not
+need to be removed between builds.
+
 ## Run the simulator
 
 Use the Desktop launcher in place of invoking a system `micropython` binary.

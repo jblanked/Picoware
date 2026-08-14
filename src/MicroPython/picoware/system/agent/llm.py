@@ -174,7 +174,7 @@ class LLM:
         elif self._id == GEMINI:
             self._name = "Gemini"
             self._url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
-            self._models = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview"]
+            self._models = ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview"]
             self._api_key = settings.gemini_api_key
         elif self._id == LOCAL:
             self._name = "Local"

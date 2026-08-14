@@ -94,6 +94,13 @@ class System:
         return BOARD_HAS_WIFI == 1
 
     @property
+    def has_bluetooth(self):
+        """Return True if the device has Bluetooth capabilities."""
+        from picoware_boards import BOARD_HAS_BLUETOOTH
+
+        return BOARD_HAS_BLUETOOTH == 1
+
+    @property
     def is_circular(self):
         """Return True if the device has a circular display."""
         from picoware_boards import is_circular, BOARD_ID

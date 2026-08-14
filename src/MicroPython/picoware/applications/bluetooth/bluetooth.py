@@ -13,7 +13,7 @@ def start(view_manager) -> bool:
     Returns:
         bool: True if the app started, False if Bluetooth is unavailable.
     """
-    if not view_manager.has_wifi:
+    if not view_manager.has_bluetooth:
         view_manager.alert("Bluetooth not available....")
         return False
 

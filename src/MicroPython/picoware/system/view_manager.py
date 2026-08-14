@@ -314,6 +314,13 @@ class ViewManager:
         return self._wifi is not None
 
     @property
+    def has_bluetooth(self):
+        """Return whether the current board has Bluetooth capability."""
+        from picoware.system.boards import BOARD_HAS_BLUETOOTH
+
+        return BOARD_HAS_BLUETOOTH == 1
+
+    @property
     def input_manager(self):
         """Return the Input manager instance."""
         return self._input_manager

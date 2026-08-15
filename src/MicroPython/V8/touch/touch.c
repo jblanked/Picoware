@@ -16,7 +16,7 @@ static const char *TAG = "touch";
 #define XPT2046_CMD_Z1 0xB0 // pressure Z1
 
 #define XPT2046_CLOCK_HZ 2500000 // datasheet max is 2.5 MHz
-#define XPT2046_SAMPLES 3        // averaged per read to cut jitter
+#define XPT2046_SAMPLES 5        // averaged per read to cut jitter
 
 static spi_device_handle_t s_dev;
 static bool s_initialized;
@@ -55,6 +55,7 @@ static uint16_t xpt2046_read_channel(uint8_t command)
 
 static uint16_t xpt2046_read_averaged(uint8_t command)
 {
+    xpt2046_read_channel(command);
     uint32_t sum = 0;
     for (int i = 0; i < XPT2046_SAMPLES; ++i)
     {
@@ -148,11 +149,18 @@ bool touch_read(void)
         return false;
     }
 
+    const bool was_pressed = s_current_touch_point.pressed;
     const uint16_t z = xpt2046_read_averaged(XPT2046_CMD_Z1);
     if (z < TOUCH_PRESSURE_THRESHOLD)
     {
         current_touch_point_reset();
         return true;
+    }
+
+    if (!was_pressed)
+    {
+        xpt2046_read_averaged(XPT2046_CMD_X);
+        xpt2046_read_averaged(XPT2046_CMD_Y);
     }
 
     uint16_t raw_x = xpt2046_read_averaged(XPT2046_CMD_X);

@@ -5,7 +5,6 @@ include $(FLIPPER_ROOT)/lcd/micropython.mk
 include $(FLIPPER_ROOT)/input/micropython.mk
 include $(FLIPPER_ROOT)/battery/micropython.mk
 include $(FLIPPER_ROOT)/sd/micropython.mk
-include $(FLIPPER_ROOT)/rfcore/micropython.mk
 
 SRC_USERMOD += $(SHARED)/auto_complete/auto_complete_mp.c
 SRC_USERMOD += $(SHARED)/auto_complete/auto_complete.c

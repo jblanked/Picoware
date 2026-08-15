@@ -1,10 +1,25 @@
 #!/bin/sh
+set -eu
+
 # Script to build and install the MicroPython version of Picoware 
 echo "Building MicroPython Picoware firmware for PicoCalc Pico 2W..."
 
-# set your locations
-micropython_dir="/Users/user/pico/micropython/ports/rp2"
-picoware_dir="/Users/user/Desktop/Picoware"
+# Resolve this checkout and allow an explicit MicroPython RP2 port override.
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+picoware_dir=$(CDPATH= cd -- "$script_dir/.." && pwd)
+micropython_dir=${MICROPYTHON_RP2_PORT:-"$HOME/pico/micropython/ports/rp2"}
+
+case "$micropython_dir" in
+    */micropython/ports/rp2) ;;
+    *)
+        echo "Refusing unexpected MicroPython RP2 path: $micropython_dir" >&2
+        exit 1
+        ;;
+esac
+if [ ! -f "$micropython_dir/Makefile" ] || [ ! -d "$micropython_dir/modules" ]; then
+    echo "MicroPython RP2 port is unavailable: $micropython_dir" >&2
+    exit 1
+fi
 
 echo "Using MicroPython directory: $micropython_dir"
 echo "Using Picoware directory: $picoware_dir"

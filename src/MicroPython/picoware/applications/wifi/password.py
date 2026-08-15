@@ -1,3 +1,5 @@
+"""WiFi Password - Enter a WiFi password."""
+
 _password_is_running = False
 _password_save_requested = False
 _back_hit = False

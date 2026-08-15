@@ -1,3 +1,5 @@
+"""DatePicker - Date and time selection widget."""
+
 class DatePicker:
     """A GUI component for selecting and rendering a date and time.
 

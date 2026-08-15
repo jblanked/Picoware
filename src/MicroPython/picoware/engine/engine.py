@@ -1,3 +1,5 @@
+"""Engine - Core game engine."""
+
 import engine
 
 

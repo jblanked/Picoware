@@ -1,3 +1,5 @@
+"""TextBox - Multi-line text input widget."""
+
 import textbox
 
 

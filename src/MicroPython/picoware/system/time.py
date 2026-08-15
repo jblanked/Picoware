@@ -1,3 +1,5 @@
+"""Time - Date and time handling."""
+
 class Time:
     """Handles time-related functions."""
 

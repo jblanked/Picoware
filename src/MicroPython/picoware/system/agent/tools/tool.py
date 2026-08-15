@@ -1,3 +1,5 @@
+"""Tool - Agent tool definitions."""
+
 class Property:
     """Represents a property of a tool's parameters."""
 

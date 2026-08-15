@@ -1,3 +1,5 @@
+"""ToggleList - List of toggle widgets."""
+
 from picoware.system.buttons import BUTTON_UP, BUTTON_DOWN, BUTTON_CENTER, BUTTON_BACK
 
 

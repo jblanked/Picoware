@@ -1,3 +1,5 @@
+"""Audio - Sound output for Picoware."""
+
 import audio
 
 

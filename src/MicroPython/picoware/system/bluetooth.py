@@ -1,3 +1,5 @@
+"""Bluetooth - Bluetooth Low Energy interface."""
+
 # mostly adapted from MicroPython examples
 # source 1: https://github.com/micropython/micropython/blob/master/examples/bluetooth/ble_simple_central.py
 # source 2: https://github.com/micropython/micropython/blob/master/examples/bluetooth/ble_simple_peripheral.py

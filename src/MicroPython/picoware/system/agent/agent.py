@@ -1,3 +1,5 @@
+"""Agent - LLM-powered assistant with tools."""
+
 import json
 from micropython import const
 from picoware.system.agent.tools import dispatch

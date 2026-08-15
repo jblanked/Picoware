@@ -1,3 +1,5 @@
+"""System Menu - Central hub for system apps."""
+
 _system = None
 _system_index = 0
 

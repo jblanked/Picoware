@@ -1,3 +1,5 @@
+"""WiFi Scanner - Scan for nearby WiFi networks."""
+
 from picoware.system.buttons import (
     BUTTON_BACK,
     BUTTON_UP,

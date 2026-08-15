@@ -1,3 +1,5 @@
+"""WiFi - WiFi networking interface."""
+
 from utime import ticks_ms, sleep
 from micropython import const
 

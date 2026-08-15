@@ -1,3 +1,5 @@
+"""Alert - Simple alert dialog."""
+
 class Alert:
     """A simple alert dialog class for displaying messages to the user."""
 

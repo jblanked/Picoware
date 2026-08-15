@@ -1,3 +1,5 @@
+"""Loading - Spinner loading indicator."""
+
 from utime import ticks_ms
 from math import cos, sin
 

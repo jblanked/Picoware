@@ -1,3 +1,5 @@
+"""vt - Virtual terminal driver."""
+
 # modified from https://github.com/zenodante/PicoCalc-micropython-driver/blob/main/pico_files/modules/vt.py
 # adapted for Picoware system
 

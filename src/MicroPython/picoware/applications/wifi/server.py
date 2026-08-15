@@ -1,3 +1,5 @@
+"""WiFi Server - Host a web server over WiFi."""
+
 from micropython import const
 
 # menu states

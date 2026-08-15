@@ -1,3 +1,5 @@
+"""Scripts - Run MicroPython scripts."""
+
 from gc import collect
 _scripts = None
 _scripts_index = 0

@@ -1,3 +1,5 @@
+"""WebSocket - WebSocket client and server."""
+
 # translated from https://github.com/danni/uwebsockets/blob/esp8266/uwebsockets/protocol.py
 from micropython import const
 import ure as re

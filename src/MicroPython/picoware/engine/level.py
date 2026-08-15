@@ -1,3 +1,5 @@
+"""Level - Game levels with camera settings."""
+
 from micropython import const
 import engine
 

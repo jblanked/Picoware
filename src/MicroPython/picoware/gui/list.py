@@ -1,3 +1,5 @@
+"""List - Scrollable list widget."""
+
 class List:
     """A simple list class for a GUI."""
 

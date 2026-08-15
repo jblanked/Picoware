@@ -1,3 +1,5 @@
+"""Draw - Drawing primitives for the display."""
+
 import lcd
 from picoware.system.vector import Vector
 

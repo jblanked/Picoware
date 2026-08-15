@@ -1,3 +1,5 @@
+"""Desktop - Full-screen desktop interface."""
+
 from picoware.system.vector import Vector
 
 _WIFI_ON_BLACK = bytes(

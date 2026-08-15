@@ -1,3 +1,5 @@
+"""Decorators for feature availability checks."""
+
 import micropython
 import picoware_boards
 

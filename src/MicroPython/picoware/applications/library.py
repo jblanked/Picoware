@@ -1,3 +1,5 @@
+"""Library - Central hub for all Picoware apps."""
+
 _library = None
 _library_index = 0
 

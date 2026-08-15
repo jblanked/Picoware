@@ -1,3 +1,5 @@
+"""Camera - 3D camera modes for the game engine."""
+
 from micropython import const
 from picoware.system.vector import Vector
 import engine

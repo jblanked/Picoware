@@ -1,3 +1,5 @@
+"""HTTP - HTTP client for Picoware."""
+
 from json import dumps
 from micropython import const
 import tls

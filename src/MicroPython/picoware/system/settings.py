@@ -1,3 +1,5 @@
+"""Settings - Persistent device settings."""
+
 import json
 
 class Settings:

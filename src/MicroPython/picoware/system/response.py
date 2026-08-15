@@ -1,3 +1,5 @@
+"""Response - HTTP response object."""
+
 import response
 from json import loads
 

@@ -1,3 +1,5 @@
+"""Screensavers - Collection of screensaver animations."""
+
 _screensavers = None
 _screensavers_index = 0
 _app_loader = None

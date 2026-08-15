@@ -1,3 +1,5 @@
+"""About - Display device information."""
+
 _about = None
 
 

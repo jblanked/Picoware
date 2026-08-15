@@ -1,3 +1,5 @@
+"""Battery - Battery monitoring for Picoware."""
+
 from picoware.system.boards import (
     BOARD_CARDPUTER,
     BOARD_CROWPANEL_10_1,

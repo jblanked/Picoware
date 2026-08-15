@@ -1,3 +1,5 @@
+"""MMBasic - MMBasic interpreter interface."""
+
 from micropython import const
 from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER, BUTTON_BACKSPACE
 import mmbasic

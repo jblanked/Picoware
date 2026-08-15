@@ -1,3 +1,5 @@
+"""TextEditor - Text editing widget."""
+
 import textbox
 
 

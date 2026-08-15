@@ -1,3 +1,5 @@
+"""System Info - Display system information."""
+
 _system_info = None
 
 

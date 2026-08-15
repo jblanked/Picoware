@@ -1,3 +1,5 @@
+"""FileBrowser - Browse and select files."""
+
 from micropython import const
 
 FILE_BROWSER_VIEWER = const(0)

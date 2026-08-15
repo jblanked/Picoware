@@ -1,3 +1,5 @@
+"""Sprite3D - 3D sprites for the game engine."""
+
 from micropython import const
 import engine
 

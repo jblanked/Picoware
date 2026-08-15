@@ -1,3 +1,5 @@
+"""JPEG - Decode and display JPEG images."""
+
 import jpegdec
 
 

@@ -1,3 +1,5 @@
+"""Update - Check for and install updates."""
+
 from micropython import const
 
 STATE_CHECKING = const(0)

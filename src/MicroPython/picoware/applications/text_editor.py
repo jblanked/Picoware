@@ -1,3 +1,5 @@
+"""Text Editor - Edit text files on the device."""
+
 from micropython import const
 
 STATE_MENU = const(0)

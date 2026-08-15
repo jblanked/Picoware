@@ -1,3 +1,5 @@
+"""Settings - Configure device settings."""
+
 from micropython import const
 
 # states

@@ -1,3 +1,5 @@
+"""Applications - Launcher for all Picoware apps."""
+
 _applications = None
 _applications_index = 0
 _app_loader = None

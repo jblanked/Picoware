@@ -1,3 +1,5 @@
+"""Desktop - Animated desktop home screen."""
+
 class PicowareAnimation:
     """Class to draw "Picoware" animation"""
 

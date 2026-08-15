@@ -1,3 +1,5 @@
+"""Email - Send and receive email via SMTP and IMAP."""
+
 # SMTP project details: https://RandomNerdTutorials.com/raspberry-pi-pico-w-send-email-micropython/
 # uMail (MicroMail) for MicroPython: https://github.com/shawwwn/uMail/blob/master/umail.py
 # Copyright (c) 2018 Shawwwn <shawwwn1@gmail.com> (SMTP client)

@@ -1,3 +1,5 @@
+"""App - Picoware application metadata."""
+
 class App:
     """Class for a Picoware application.
     

@@ -1,3 +1,5 @@
+"""MMBasic - Run MMBasic programs."""
+
 from micropython import const
 from gc import collect
 from picoware.system.decorator import storage_required

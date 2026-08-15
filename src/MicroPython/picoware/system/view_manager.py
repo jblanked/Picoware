@@ -1,3 +1,5 @@
+"""ViewManager - Manage views and navigation."""
+
 class ViewManager:
     """Manage multiple views and provide navigation capabilities."""
 

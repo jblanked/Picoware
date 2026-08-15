@@ -1,3 +1,5 @@
+"""Thread - Threading support for Picoware."""
+
 from utime import ticks_ms
 from gc import collect
 

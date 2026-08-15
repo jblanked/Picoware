@@ -1,3 +1,5 @@
+"""System - Basic system operations."""
+
 class System:
     """Handle basic system operations."""
 

@@ -1,3 +1,5 @@
+"""Font constants for Picoware."""
+
 from micropython import const
 import font
 

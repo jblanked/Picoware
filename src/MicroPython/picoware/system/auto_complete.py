@@ -1,3 +1,5 @@
+"""AutoComplete - Text auto-completion."""
+
 import auto_complete as ac
 
 

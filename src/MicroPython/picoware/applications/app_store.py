@@ -1,3 +1,5 @@
+"""App Store - Browse, install, and update Picoware apps."""
+
 from micropython import const
 from json import loads, dumps
 

@@ -1,3 +1,5 @@
+"""Keyboard - On-screen keyboard widget."""
+
 from picoware.system.buttons import (
     BUTTON_UP,
     BUTTON_DOWN,

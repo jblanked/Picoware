@@ -1,3 +1,5 @@
+"""WiFi Apps Menu - Central hub for WiFi applications"""
+
 _wifi = None
 _wifi_index = 0
 

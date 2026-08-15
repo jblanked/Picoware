@@ -1,3 +1,5 @@
+"""USB Media Keys - Emulate USB media keys."""
+
 _usb = None
 _initialized = False
 _key_map = None

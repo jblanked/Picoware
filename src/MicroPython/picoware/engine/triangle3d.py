@@ -1,3 +1,5 @@
+"""Triangle3D - 3D triangles for the game engine."""
+
 import engine
 
 

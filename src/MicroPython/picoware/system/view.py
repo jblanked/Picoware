@@ -1,3 +1,5 @@
+"""View - Base class for managed views."""
+
 class View:
     """A view managed by the ViewManager.
 

@@ -1,3 +1,5 @@
+"""Python Editor - Create and edit Python files."""
+
 from micropython import const
 
 # 1. First menu: ask if creating new file or editing existing app

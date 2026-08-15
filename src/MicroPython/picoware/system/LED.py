@@ -1,3 +1,5 @@
+"""LED - On-board LED control."""
+
 class LED:
     """Class to control an LED on a Raspberry Pi Pico device.
     

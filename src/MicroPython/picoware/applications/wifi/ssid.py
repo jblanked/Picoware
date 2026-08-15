@@ -1,3 +1,5 @@
+"""WiFi SSID - Enter a WiFi network name."""
+
 _ssid_is_running = False
 _ssid_save_requested = False
 _back_hit = False

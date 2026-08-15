@@ -1,3 +1,5 @@
+"""WiFi utilities for connecting and saving credentials."""
+
 def connect_to_saved_wifi(view_manager) -> bool:
     """Attempt to connect to the saved WiFi network.
 

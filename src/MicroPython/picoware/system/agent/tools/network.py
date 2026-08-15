@@ -1,3 +1,5 @@
+"""Network tools for the agent."""
+
 from picoware.system.agent.tools.tool import Tool, Parameters, Property
 
 def network_get_info(view_manager) -> dict:

@@ -1,3 +1,5 @@
+"""Game Boy - Emulator for Game Boy ROMs."""
+
 from micropython import const
 from picoware.system.decorator import storage_required, psram_required
 

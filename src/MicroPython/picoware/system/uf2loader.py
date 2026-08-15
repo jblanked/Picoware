@@ -1,3 +1,5 @@
+"""UF2Loader - Flash UF2 firmware files."""
+
 import uf2loader as _uf2
 
 

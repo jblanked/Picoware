@@ -1,3 +1,5 @@
+"""WiFi Connect - Connect to a WiFi network."""
+
 from utime import ticks_ms
 
 _connect = None

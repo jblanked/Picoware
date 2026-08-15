@@ -1,3 +1,5 @@
+"""Games - Collection of built-in games."""
+
 _games = None
 _games_index = 0
 _app_loader = None

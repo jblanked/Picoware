@@ -1,3 +1,5 @@
+"""USB Keyboard - Emulate a USB keyboard."""
+
 _usb = None
 _initialized = False
 

@@ -1,3 +1,5 @@
+"""Ghouls - Downloadable game with asset management."""
+
 from micropython import const
 import ghouls
 

@@ -1,3 +1,5 @@
+"""Image - RGB565 image data for the display."""
+
 class Image:
     """Represents an image with RGB565 pixel data for MicroPython.
 

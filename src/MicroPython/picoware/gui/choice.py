@@ -1,3 +1,5 @@
+"""Choice - Selection dialog with options."""
+
 class Choice:
     """A simple choice switch for the GUI."""
 

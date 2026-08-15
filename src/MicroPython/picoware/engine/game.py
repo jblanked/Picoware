@@ -1,3 +1,5 @@
+"""Game - Base game class for the engine."""
+
 import engine
 
 

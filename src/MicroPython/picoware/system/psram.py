@@ -1,3 +1,5 @@
+"""PSRAM - External PSRAM memory management."""
+
 import picoware_psram
 
 

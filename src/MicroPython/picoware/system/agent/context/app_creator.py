@@ -1,3 +1,5 @@
+"""App Creator - Agent mode that creates and edits Picoware apps."""
+
 from micropython import const
 
 PROMPT = const(b"""

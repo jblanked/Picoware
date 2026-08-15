@@ -1,3 +1,5 @@
+"""UART - Serial communication interface."""
+
 class UART:
     """Class representing a UART (Universal Asynchronous Receiver-Transmitter) interface."""
 

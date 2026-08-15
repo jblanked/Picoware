@@ -1,3 +1,5 @@
+"""USB - USB device interfaces (keyboard, media, video)."""
+
 # Author: JBlanked
 # License: GPL-3.0 License
 # Source: https://github.com/jblanked/Picoware

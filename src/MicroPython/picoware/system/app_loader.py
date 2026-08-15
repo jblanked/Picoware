@@ -1,3 +1,5 @@
+"""AppLoader - Load and run apps dynamically."""
+
 import sys
 from gc import collect, mem_free
 

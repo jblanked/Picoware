@@ -1,3 +1,5 @@
+"""LLM - Multi-provider language model interface."""
+
 from micropython import const
 
 OPENAI = const(0)

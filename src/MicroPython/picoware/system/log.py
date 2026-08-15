@@ -1,3 +1,5 @@
+"""Log - Logging for Picoware."""
+
 from micropython import const
 import log
 

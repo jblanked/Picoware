@@ -1,3 +1,5 @@
+"""Menu - Scrollable menu widget."""
+
 class Menu:
     """A simple menu class for a GUI."""
 

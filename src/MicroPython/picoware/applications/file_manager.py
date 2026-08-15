@@ -1,3 +1,5 @@
+"""File Manager - Browse and manage files."""
+
 _file_browser = None
 
 

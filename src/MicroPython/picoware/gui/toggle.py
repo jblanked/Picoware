@@ -1,3 +1,5 @@
+"""Toggle - On/off toggle switch widget."""
+
 from picoware.system.vector import Vector
 
 

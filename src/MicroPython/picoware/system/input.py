@@ -1,3 +1,5 @@
+"""Input - Keyboard and touch input handling."""
+
 from utime import ticks_ms
 
 from picoware.system import buttons

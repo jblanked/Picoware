@@ -1,3 +1,5 @@
+"""WiFi Settings - Configure WiFi settings."""
+
 _settings_menu = None
 _settings_menu_index = 0
 _settings_textbox = None

@@ -1,3 +1,5 @@
+"""Entity - Game entities with states and types."""
+
 from micropython import const
 import engine
 

@@ -1,3 +1,5 @@
+"""USB Numpad - Emulate a USB numeric keypad."""
+
 _usb = None
 _initialized = False
 _key_map = None

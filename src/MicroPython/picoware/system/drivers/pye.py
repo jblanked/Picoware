@@ -1,3 +1,5 @@
+"""pye - MicroPython text editor driver."""
+
 # modified version pye: https://github.com/zenodante/PicoCalc-micropython-driver/blob/main/pico_files/modules/pye.py
 # original from https://github.com/robert-hh/Micropython-Editor/tree/master
 PYE_VERSION = " V2.78 "

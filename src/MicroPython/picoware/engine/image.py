@@ -1,3 +1,5 @@
+"""Image - Image structure for the game engine."""
+
 import engine
 
 

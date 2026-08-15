@@ -1,3 +1,5 @@
+"""ScrollBar - Scroll bar widget."""
+
 class ScrollBar:
     """A simple scrollbar class for a GUI."""
 

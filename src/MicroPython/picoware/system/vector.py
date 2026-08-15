@@ -1,3 +1,5 @@
+"""Vector - 3D vector math."""
+
 import vector
 
 

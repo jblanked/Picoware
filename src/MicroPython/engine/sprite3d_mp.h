@@ -59,6 +59,7 @@ extern "C"
 
     mp_obj_t sprite3d_mp_from_path(size_t n_args, const mp_obj_t *args);
     mp_obj_t sprite3d_mp_to_path(mp_obj_t self_in, mp_obj_t path_obj);
+    mp_obj_t sprite3d_mp_bake_transform(mp_obj_t self_in);
 
 #ifdef __cplusplus
 }

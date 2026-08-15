@@ -1,10 +1,19 @@
+"""USB Numpad - Emulate a USB numeric keypad."""
+
 _usb = None
 _initialized = False
 _key_map = None
 
 
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app and map buttons to numpad keys.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if the app started.
+    """
     from picoware.system.usb import USBKeyboard
     from picoware.system.buttons import (
         BUTTON_UP,
@@ -61,7 +70,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app"""
+    """Run the app and send numpad key presses.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from picoware.system.buttons import BUTTON_BACK
 
     global _initialized
@@ -85,7 +98,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app and clean up.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from gc import collect
 
     global _usb, _initialized, _key_map

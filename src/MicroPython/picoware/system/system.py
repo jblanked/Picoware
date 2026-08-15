@@ -1,7 +1,10 @@
+"""System - Basic system operations."""
+
 class System:
     """Handle basic system operations."""
 
     def __init__(self):
+        """Initialize the System helper."""
         pass
 
     @property
@@ -54,7 +57,7 @@ class System:
             freq = machine.freq() / 1000000
         except Exception:
             # unpack tuple
-            freq = machine.freq()[0] / 100000
+            freq = machine.freq()[0] / 1000000
         return int(freq)
 
     @property
@@ -91,6 +94,13 @@ class System:
         from picoware_boards import BOARD_HAS_WIFI
 
         return BOARD_HAS_WIFI == 1
+
+    @property
+    def has_bluetooth(self):
+        """Return True if the device has Bluetooth capabilities."""
+        from picoware_boards import BOARD_HAS_BLUETOOTH
+
+        return BOARD_HAS_BLUETOOTH == 1
 
     @property
     def is_circular(self):
@@ -174,7 +184,7 @@ class System:
     @property
     def version(self) -> str:
         """Return the Picoware version."""
-        return "2.1.0"
+        return "2.2.0"
 
     def bootloader_mode(self):
         """Enter the bootloader mode."""
@@ -189,7 +199,11 @@ class System:
         reset()
 
     def shutdown_device(self, view_manager=None):
-        """Shutdown the device."""
+        """Shut down the device.
+
+        Args:
+            view_manager (ViewManager): Optional manager to show a shutdown alert. Defaults to None.
+        """
         from picoware_boards import BOARD_HAS_PSRAM, BOARD_ID, BOARD_FLIPPER_ZERO
 
         if BOARD_ID == BOARD_FLIPPER_ZERO:

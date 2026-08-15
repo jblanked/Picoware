@@ -1,3 +1,5 @@
+"""Thread - Threading support for Picoware."""
+
 from utime import ticks_ms
 from gc import collect
 
@@ -17,6 +19,13 @@ class Thread:
     def __init__(
         self, function: callable, args: tuple = (), stack_size: int = 0
     ) -> None:
+        """Initialize the thread.
+
+        Args:
+            function (callable): The function to run in the thread.
+            args (tuple): Arguments to pass to the function. Defaults to ().
+            stack_size (int): Thread stack size in bytes. Defaults to 0.
+        """
         self._lock = None
         try:
             import _thread
@@ -32,6 +41,7 @@ class Thread:
         self._stack_size = stack_size
 
     def __del__(self):
+        """Stop the thread and release its resources."""
         self.stop()
         self._args = ()
         self._error = None
@@ -65,6 +75,7 @@ class Thread:
             return self._stop_requested
 
     def _wrapper(self) -> None:
+        """Run the target function and capture any error."""
         try:
             self._function(*self._args)
         except Exception as e:
@@ -77,7 +88,11 @@ class Thread:
                     self._stop_requested = False
 
     def run(self) -> bool:
-        """Run the thread."""
+        """Run the thread.
+
+        Returns:
+            bool: True if the thread started, False otherwise.
+        """
         if self._lock is None:
             return False
             
@@ -130,6 +145,15 @@ class ThreadTask:
         timeout: int = 0,
         stack_size: int = 0,
     ) -> None:
+        """Initialize the task.
+
+        Args:
+            name (str): The task name.
+            function (callable): The function to run.
+            args (tuple): Arguments to pass to the function. Defaults to ().
+            timeout (int): Timeout in milliseconds. Defaults to 0.
+            stack_size (int): Thread stack size in bytes. Defaults to 0.
+        """
         self.args = args
         self.error = None
         self.function = function
@@ -147,7 +171,11 @@ class ThreadTask:
 
     @id.setter
     def id(self, value: int) -> None:
-        """Set the task ID."""
+        """Set the task ID.
+
+        Args:
+            value (int): The new task ID.
+        """
         self._id = value
 
     def stop(self) -> None:
@@ -161,6 +189,7 @@ class ThreadManager:
     __slots__ = ("_id", "_tasks", "_active_thread", "_active_task", "_outgoing")
 
     def __init__(self) -> None:
+        """Initialize the thread manager."""
         self._id = 0
         self._tasks: list[ThreadTask] = []
         self._active_thread: Thread = None
@@ -188,14 +217,28 @@ class ThreadManager:
         return len(self._tasks)
 
     def add_task(self, task: ThreadTask) -> int:
-        """Add a task to the manager."""
+        """Add a task to the manager.
+
+        Args:
+            task (ThreadTask): The task to add.
+
+        Returns:
+            int: The assigned task ID.
+        """
         task.id = self._id
         self._id += 1
         self._tasks.append(task)
         return task.id
 
     def remove_task(self, task_id: int) -> bool:
-        """Stop and remove a queued task by ID."""
+        """Stop and remove a queued task by ID.
+
+        Args:
+            task_id (int): The ID of the task to remove.
+
+        Returns:
+            bool: True if the task was removed, False otherwise.
+        """
         for index, task in enumerate(self._tasks):
             if task.id == task_id:
                 task.stop()
@@ -204,7 +247,11 @@ class ThreadManager:
         return False
 
     def run(self) -> str:
-        """Run tasks one-by-one, waiting for each to complete before starting the next."""
+        """Run tasks one-by-one, waiting for each to complete before starting the next.
+
+        Returns:
+            str: Any output messages from finished or failed tasks.
+        """
         self._outgoing = ""
         # Check if active thread finished
         if self._active_thread is not None:

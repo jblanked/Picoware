@@ -14,8 +14,10 @@ bool mp_engine_gc_ready = false;
 #include LCD_INCLUDE
 #endif
 
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
 #include "../sd/storage.h"
+#elif defined(FLIPPER_ZERO)
+#include "../Flipper/sd/storage.h"
 #endif
 
 bool (*_lcd_usb_video_cb)(void) = NULL; // USB video streaming callback, set by usb_video module
@@ -53,7 +55,7 @@ static inline int lcd_obj_to_int(mp_obj_t arg)
     return 0;
 }
 
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO)
 static inline uint16_t lcd_u16_le(const uint8_t *p)
 {
     return (uint16_t)(p[0] | ((uint16_t)p[1] << 8));
@@ -220,7 +222,7 @@ mp_obj_t lcd_mp_bmp(size_t n_args, const mp_obj_t *args)
         y = lcd_scale_y(self, y);
     }
 
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO)
     void *file = storage_file_open(file_path);
     if (!file)
     {
@@ -664,12 +666,50 @@ mp_obj_t lcd_mp_fill_triangle(size_t n_args, const mp_obj_t *args)
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_fill_triangle_obj, 8, 8, lcd_mp_fill_triangle);
 
+mp_obj_t lcd_mp_fill_triangle_alpha(size_t n_args, const mp_obj_t *args)
+{
+    // Arguments: self, x1, y1, x2, y2, x3, y3, color, alpha
+    if (n_args != 9)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("fill_triangle_alpha requires 9 arguments: self, x1, y1, x2, y2, x3, y3, color, alpha"));
+    }
+
+    lcd_mp_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    if (!self->initialized)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
+    }
+
+    uint16_t x1 = lcd_obj_to_int(args[1]);
+    uint16_t y1 = lcd_obj_to_int(args[2]);
+    uint16_t x2 = lcd_obj_to_int(args[3]);
+    uint16_t y2 = lcd_obj_to_int(args[4]);
+    uint16_t x3 = lcd_obj_to_int(args[5]);
+    uint16_t y3 = lcd_obj_to_int(args[6]);
+    uint16_t color = mp_obj_get_int(args[7]);
+    uint8_t alpha = (uint8_t)lcd_obj_to_int(args[8]);
+
+    if (self->scale_position)
+    {
+        x1 = lcd_scale_x(self, x1);
+        y1 = lcd_scale_y(self, y1);
+        x2 = lcd_scale_x(self, x2);
+        y2 = lcd_scale_y(self, y2);
+        x3 = lcd_scale_x(self, x3);
+        y3 = lcd_scale_y(self, y3);
+    }
+
+    LCD_MP_FILL_TRIANGLE_ALPHA(x1, y1, x2, y2, x3, y3, color, alpha);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_fill_triangle_alpha_obj, 9, 9, lcd_mp_fill_triangle_alpha);
+
 mp_obj_t lcd_mp_image_bytearray(size_t n_args, const mp_obj_t *args)
 {
-    // Arguments: self, x, y, width, height, buffer
-    if (n_args != 6)
+    // Arguments: self, x, y, width, height, buffer, invert (optional)
+    if (n_args != 6 && n_args != 7)
     {
-        mp_raise_ValueError(MP_ERROR_TEXT("blit requires 6 arguments: self, x, y, width, height, buffer"));
+        mp_raise_ValueError(MP_ERROR_TEXT("blit requires 6 or 7 arguments: self, x, y, width, height, buffer, invert (optional)"));
     }
 
     lcd_mp_obj_t *self = MP_OBJ_TO_PTR(args[0]);
@@ -695,13 +735,44 @@ mp_obj_t lcd_mp_image_bytearray(size_t n_args, const mp_obj_t *args)
     }
 
     bool is_16bit = (bufinfo.len >= expected_size_16bit);
+    bool invert = n_args == 7 ? mp_obj_is_true(args[6]) : false;
 
     if (!self->scale_set)
     {
-        if (is_16bit)
-            LCD_MP_BLIT_16BIT(x, y, width, height, (uint16_t *)bufinfo.buf);
+        if (invert)
+        {
+            if (is_16bit)
+            {
+                uint16_t *buf16 = (uint16_t *)bufinfo.buf;
+                for (size_t i = 0; i < width * height; i++)
+                {
+                    if (buf16[i] == 0xFFFF)
+                        buf16[i] = 0x0000;
+                    else if (buf16[i] == 0x0000)
+                        buf16[i] = 0xFFFF;
+                }
+                LCD_MP_BLIT_16BIT(x, y, width, height, buf16);
+            }
+            else
+            {
+                uint8_t *buf = (uint8_t *)bufinfo.buf;
+                for (size_t i = 0; i < width * height; i++)
+                {
+                    if (buf[i] == 0xFF)
+                        buf[i] = 0x00;
+                    else if (buf[i] == 0x00)
+                        buf[i] = 0xFF;
+                }
+                LCD_MP_BLIT(x, y, width, height, buf);
+            }
+        }
         else
-            LCD_MP_BLIT(x, y, width, height, (uint8_t *)bufinfo.buf);
+        {
+            if (is_16bit)
+                LCD_MP_BLIT_16BIT(x, y, width, height, (uint16_t *)bufinfo.buf);
+            else
+                LCD_MP_BLIT(x, y, width, height, (uint8_t *)bufinfo.buf);
+        }
     }
     else
     {
@@ -723,7 +794,19 @@ mp_obj_t lcd_mp_image_bytearray(size_t n_args, const mp_obj_t *args)
                 const uint16_t *src_row = &src[sy * width];
                 for (uint16_t dx = 0; dx < dst_w; dx++)
                 {
-                    row_buf[dx] = src_row[(uint32_t)dx * width / dst_w];
+                    if (invert)
+                    {
+                        uint16_t pixel = src_row[(uint32_t)dx * width / dst_w];
+                        if (pixel == 0xFFFF)
+                            pixel = 0x0000;
+                        else if (pixel == 0x0000)
+                            pixel = 0xFFFF;
+                        row_buf[dx] = pixel;
+                    }
+                    else
+                    {
+                        row_buf[dx] = src_row[(uint32_t)dx * width / dst_w];
+                    }
                 }
                 LCD_MP_BLIT_16BIT(dst_x, dst_y + dy, dst_w, 1, row_buf);
             }
@@ -739,7 +822,19 @@ mp_obj_t lcd_mp_image_bytearray(size_t n_args, const mp_obj_t *args)
                 const uint8_t *src_row = &src[sy * width];
                 for (uint16_t dx = 0; dx < dst_w; dx++)
                 {
-                    row_buf[dx] = src_row[(uint32_t)dx * width / dst_w];
+                    if (invert)
+                    {
+                        uint8_t pixel = src_row[(uint32_t)dx * width / dst_w];
+                        if (pixel == 0xFF)
+                            pixel = 0x00;
+                        else if (pixel == 0x00)
+                            pixel = 0xFF;
+                        row_buf[dx] = pixel;
+                    }
+                    else
+                    {
+                        row_buf[dx] = src_row[(uint32_t)dx * width / dst_w];
+                    }
                 }
                 LCD_MP_BLIT(dst_x, dst_y + dy, dst_w, 1, row_buf);
             }
@@ -748,7 +843,7 @@ mp_obj_t lcd_mp_image_bytearray(size_t n_args, const mp_obj_t *args)
     }
     return mp_const_none;
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_image_bytearray_obj, 6, 6, lcd_mp_image_bytearray);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_image_bytearray_obj, 6, 7, lcd_mp_image_bytearray);
 
 mp_obj_t lcd_mp_line(size_t n_args, const mp_obj_t *args)
 {
@@ -1029,7 +1124,7 @@ mp_obj_t lcd_mp_screenshot(mp_obj_t self_in, mp_obj_t file_path)
     (void)file_path;
     return mp_const_none;
 #endif
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO)
     const char *path = mp_obj_str_get_str(file_path);
     void *file = storage_file_write_open(path);
     if (!file)
@@ -1122,6 +1217,49 @@ mp_obj_t lcd_mp_screenshot(mp_obj_t self_in, mp_obj_t file_path)
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(lcd_mp_screenshot_obj, lcd_mp_screenshot);
+
+mp_obj_t lcd_mp_set_brightness(mp_obj_t self_in, mp_obj_t brightness)
+{
+    lcd_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (!self->initialized)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
+    }
+    uint8_t brightness_val = mp_obj_get_int(brightness);
+#ifdef LCD_MP_SET_BRIGHTNESS
+    LCD_MP_SET_BRIGHTNESS(brightness_val);
+#else
+    (void)brightness_val;
+#endif
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(lcd_mp_set_brightness_obj, lcd_mp_set_brightness);
+
+mp_obj_t lcd_mp_set_rgb_led(size_t n_args, const mp_obj_t *args)
+{
+    // Arguments: self, red, green, blue
+    if (n_args != 4)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("set_rgb_led requires 4 arguments: self, red, green, blue"));
+    }
+    lcd_mp_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    if (!self->initialized)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
+    }
+    uint8_t red_val = lcd_obj_to_int(args[1]);
+    uint8_t green_val = lcd_obj_to_int(args[2]);
+    uint8_t blue_val = lcd_obj_to_int(args[3]);
+#ifdef LCD_MP_SET_RGB_LED
+    LCD_MP_SET_RGB_LED(red_val, green_val, blue_val);
+#else
+    (void)red_val;
+    (void)green_val;
+    (void)blue_val;
+#endif
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_set_rgb_led_obj, 4, 4, lcd_mp_set_rgb_led);
 
 mp_obj_t lcd_mp_set_mode(mp_obj_t self_in, mp_obj_t mode)
 {
@@ -1256,6 +1394,7 @@ static const mp_rom_map_elem_t lcd_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR__fill_rectangle), MP_ROM_PTR(&lcd_mp_fill_rectangle_obj)},             // self._fill_rectangle()
     {MP_ROM_QSTR(MP_QSTR__fill_round_rectangle), MP_ROM_PTR(&lcd_mp_fill_round_rectangle_obj)}, // self._fill_round_rectangle()
     {MP_ROM_QSTR(MP_QSTR__fill_triangle), MP_ROM_PTR(&lcd_mp_fill_triangle_obj)},               // self._fill_triangle()
+    {MP_ROM_QSTR(MP_QSTR__fill_triangle_alpha), MP_ROM_PTR(&lcd_mp_fill_triangle_alpha_obj)},   // self._fill_triangle_alpha()
     {MP_ROM_QSTR(MP_QSTR__bytearray), MP_ROM_PTR(&lcd_mp_image_bytearray_obj)},                 // self._bytearray()
     {MP_ROM_QSTR(MP_QSTR__line), MP_ROM_PTR(&lcd_mp_line_obj)},                                 // self._line()
     {MP_ROM_QSTR(MP_QSTR__pixel), MP_ROM_PTR(&lcd_mp_pixel_obj)},                               // self._pixel()
@@ -1266,6 +1405,8 @@ static const mp_rom_map_elem_t lcd_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_scale_x), MP_ROM_PTR(&lcd_mp_scale_x_obj)},                            // self.scale_x()
     {MP_ROM_QSTR(MP_QSTR_scale_y), MP_ROM_PTR(&lcd_mp_scale_y_obj)},                            // self.scale_y()
     {MP_ROM_QSTR(MP_QSTR_screenshot), MP_ROM_PTR(&lcd_mp_screenshot_obj)},                      // self.screenshot()
+    {MP_ROM_QSTR(MP_QSTR_set_brightness), MP_ROM_PTR(&lcd_mp_set_brightness_obj)},              // self.set_brightness()
+    {MP_ROM_QSTR(MP_QSTR_set_rgb_led), MP_ROM_PTR(&lcd_mp_set_rgb_led_obj)},                    // self.set_rgb_led()
     {MP_ROM_QSTR(MP_QSTR_set_mode), MP_ROM_PTR(&lcd_mp_set_mode_obj)},                          // self.set_mode()
     {MP_ROM_QSTR(MP_QSTR_set_scaling), MP_ROM_PTR(&lcd_mp_set_scaling_obj)},                    // self.set_scaling()
     {MP_ROM_QSTR(MP_QSTR_swap), MP_ROM_PTR(&lcd_mp_swap_obj)},                                  // self.swap()

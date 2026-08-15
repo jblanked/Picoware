@@ -1,9 +1,18 @@
+"""WiFi Apps Menu - Central hub for WiFi applications"""
+
 _wifi = None
 _wifi_index = 0
 
 
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app and build the WiFi menu.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if the app started, False if WiFi is unavailable.
+    """
 
     if not view_manager.has_wifi:
         view_manager.alert("WiFi not available....")
@@ -40,7 +49,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app."""
+    """Run the app and handle menu navigation.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from picoware.system.view import View
     from picoware.system.buttons import (
         BUTTON_BACK,
@@ -107,7 +120,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app and clean up.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from gc import collect
 
     global _wifi

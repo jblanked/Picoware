@@ -2,6 +2,8 @@
 #include "game.hpp"
 #include "general.hpp"
 #include "level.hpp"
+#include "enemy.hpp"
+#include "projectile.hpp"
 #include <math.h>
 #include <cinttypes>
 #include HTTP_INCLUDE
@@ -281,7 +283,7 @@ void Player::drawGameOnlineView(Draw *canvas)
     const int sh = canvas->getDisplaySize().y;
     switch (onlineGameState)
     {
-    // ── Phase 1: POST to jblanked.com/game-server/games/create/ ─────────────
+    // ── Phase 1: POST to jblanked.com/ghouls/game-server/games/create/ ──────
     case OnlineStateIdle:
         canvas->fillScreen(0xFFFF);
         canvas->setFont(FONT_SIZE_MEDIUM);
@@ -350,7 +352,7 @@ void Player::drawGameOnlineView(Draw *canvas)
                         ::ENGINE_MEM_FREE(response);
                         break;
                     }
-                    snprintf(websocket_url, 128, "ws://www.jblanked.com/ws/game-server/%s/", onlineGameId);
+                    snprintf(websocket_url, 128, "ws://www.jblanked.com/ghouls/ws/%s/", onlineGameId);
                     if (HTTP_WEBSOCKET_START(websocket_url, onlinePort))
                     {
                         onlineGameState = OnlineStateConnecting;
@@ -442,11 +444,11 @@ void Player::drawGameOnlineView(Draw *canvas)
                     */
                     snprintf(inputMsg, sizeof(inputMsg), "{\"username\": \"%s\", \"input\": %d}", this->name, currentInput);
                     HTTP_WEBSOCKET_SEND(inputMsg);
-                    // Prevent the local engine from also moving the player — the server
-                    // position update below is the authoritative source.
+                    // Predict locally, reconcile on echo.
+                    lastPredictionTick = TIME_MILLIS;
                     if (ghoulsGame->getEngine())
                     {
-                        ghoulsGame->getEngine()->updateGameInput(-1);
+                        ghoulsGame->getEngine()->updateGameInput(currentInput);
                     }
                 }
                 else // menu
@@ -469,7 +471,7 @@ void Player::drawGameOnlineView(Draw *canvas)
 
         // Apply server-authoritative entity positions from the latest WebSocket
         // message, then let the local engine render the updated state.
-        char buffer[256];
+        char buffer[512];
         HTTP_GET_WEBSOCKET_RESPONSE(buffer, sizeof(buffer));
         if (buffer[0] != '\0')
         {
@@ -567,7 +569,7 @@ void Player::drawGameOnlineView(Draw *canvas)
             onlineGameState = OnlineStateError;
             break;
         }
-        snprintf(websocket_url, 128, "ws://www.jblanked.com/ws/game-server/%s/", onlineGameId);
+        snprintf(websocket_url, 128, "ws://www.jblanked.com/ghouls/ws/%s/", onlineGameId);
         if (HTTP_WEBSOCKET_START(websocket_url, onlinePort))
         {
             onlineGameState = OnlineStateConnecting;
@@ -1433,16 +1435,25 @@ void Player::drawUserInfoView(Draw *canvas)
                 }
                 loadingStarted = false;
 
-                // no online right now
-                // just jump into a local game
-                if (ghoulsGame->startGame())
+                if (currentLobbyMenuIndex == LobbyMenuLocal)
                 {
-                    currentMainView = GameViewGameLocal; // Switch to local game view
+                    // Local: start selected map
+                    if (ghoulsGame->startGame())
+                    {
+                        currentMainView = GameViewGameLocal; // Switch to local game view
+                    }
+                    else
+                    {
+                        ENGINE_LOG_INFO("[Player:drawUserInfoView] Failed to start the game\n");
+                        userInfoStatus = UserInfoRequestError;
+                    }
                 }
                 else
                 {
-                    ENGINE_LOG_INFO("[Player:drawUserInfoView] Failed to start the game\n");
-                    userInfoStatus = UserInfoRequestError;
+                    // Online: show lobby browser
+                    lobbyFetched = false; // refresh lobby list
+                    lobbySelectedIndex = 0;
+                    currentMainView = GameViewLobbyBrowser;
                 }
                 return;
             }
@@ -2279,7 +2290,15 @@ void Player::update(Game *game)
         return;
     }
 
-    if (game->input == INPUT_KEY_BACK)
+    // per-player input (multiplayer server)
+    int input = gameplayInput;
+    gameplayInput = -1;
+    if (input == -1)
+    {
+        input = game->input;
+    }
+
+    if (input == INPUT_KEY_BACK)
     {
         gameState = gameState == GameStateMenu ? GameStatePlaying : GameStateMenu;
         game->input = -1;
@@ -2308,7 +2327,7 @@ void Player::update(Game *game)
         }
     }
 
-    switch (game->input)
+    switch (input)
     {
     case INPUT_KEY_UP:
     {
@@ -2433,6 +2452,7 @@ void Player::update(Game *game)
         {
             if (equippedWeapon->fire(game->current_level))
             {
+                sendOnlineFireEvent(equippedWeapon);
                 char alert_buf[32];
                 snprintf(alert_buf, sizeof(alert_buf), "Fired %s!", equippedWeapon->name);
                 this->showAlert(alert_buf, 10);
@@ -2500,13 +2520,72 @@ void Player::updateEntitiesFromServer(const char *csv)
         return;
     }
 
-    // CSV format from server:
-    //   Entity update: name,x,y,z,dir_x,dir_y,plane_x,plane_y  (8 fields)
-    //   Removal:       name,R                                    (2 fields)
-    //
+    // Server sends newline-separated entity lines:
+    //   <name>,<type>,x,y,z,dir_x,dir_y,plane_x,plane_y
+    //   <name>,R  (removal)
+    // Types: P player, G ghoul, W weapon.
+
+    char line[384];
+    const char *p = csv;
+    while (p && *p != '\0')
+    {
+        size_t linePos = 0;
+        while (*p != '\0' && *p != '\n' && *p != '\r')
+        {
+            if (linePos < sizeof(line) - 1)
+            {
+                line[linePos++] = *p;
+            }
+            p++;
+        }
+        line[linePos] = '\0';
+
+        if (line[0] != '\0')
+        {
+            updateEntityFromServerLine(currentLevel, line);
+        }
+
+        while (*p == '\n' || *p == '\r')
+        {
+            p++;
+        }
+    }
+}
+
+void Player::updateEntityFromServerLine(Level *currentLevel, const char *line)
+{
+    if (!currentLevel || !line || line[0] == '\0')
+        return;
+
+    // Server time-of-day sync: "TIME,<phase>,<tick>"
+    if (line[0] == 'T' && line[1] == 'I' && line[2] == 'M' && line[3] == 'E')
+    {
+        if (ghoulsGame)
+        {
+            Time *gt = ghoulsGame->getGameTime();
+            if (gt)
+            {
+                const TimeOfDay serverPhase = (line[5] == 'N') ? TIME_NIGHT : TIME_DAY;
+                const char *tickStr = line + 5;
+                while (*tickStr != ',' && *tickStr != '\0')
+                {
+                    tickStr++;
+                }
+                if (*tickStr == ',')
+                {
+                    gt->set((uint32_t)atoi(tickStr + 1));
+                }
+                if (gt->getTimeOfDay() != serverPhase)
+                {
+                    gt->setTimeOfDay(serverPhase);
+                }
+            }
+        }
+        return;
+    }
 
     // Field 0: name (up to first comma)
-    const char *p = csv;
+    const char *p = line;
     const char *comma = strchr(p, ',');
     if (!comma || comma == p)
         return; // no comma or empty name
@@ -2520,21 +2599,67 @@ void Player::updateEntitiesFromServer(const char *csv)
 
     p = comma + 1; // advance past first comma
 
-    // Check for removal marker: "R" as the second field
+    // Time-of-day sync
+    if (strcmp(entity_name, "TIME") == 0)
+    {
+        if (ghoulsGame)
+        {
+            Time *gt = ghoulsGame->getGameTime();
+            if (gt)
+            {
+                if (*p == 'N' || *p == 'n')
+                {
+                    gt->setTimeOfDay(TIME_NIGHT);
+                }
+                else
+                {
+                    gt->setTimeOfDay(TIME_DAY);
+                }
+            }
+        }
+        return;
+    }
+
+    // Check for removal marker: "name,R"
     if (*p == 'R' && (*(p + 1) == '\0' || *(p + 1) == '\n' || *(p + 1) == '\r'))
     {
         if (strcmp(entity_name, this->name) != 0)
         {
+            removePendingGhoulKill(entity_name); // server confirmed the kill
             for (int i = 0; i < currentLevel->getEntityCount(); i++)
             {
                 Entity *e = currentLevel->getEntity(i);
                 if (e && e->name && strcmp(e->name, entity_name) == 0)
                 {
-                    e->is_active = false;
+                    // Keep locally held weapon
+                    if (equippedWeapon && e == static_cast<Entity *>(equippedWeapon))
+                    {
+                        break;
+                    }
+                    currentLevel->entity_remove(e);
                     break;
                 }
             }
         }
+        return;
+    }
+
+    // Type token; unknown falls back to player.
+    char type = 'P';
+    if ((*p == 'P' || *p == 'G' || *p == 'W' || *p == 'B') &&
+        (*(p + 1) == ',' || *(p + 1) == '\0' || *(p + 1) == '\n' || *(p + 1) == '\r'))
+    {
+        type = *p;
+        p++; // advance past the type token
+        if (*p == ',')
+        {
+            p++;
+        }
+    }
+
+    // Skip ghouls killed locally (pending server removal).
+    if (type == 'G' && isPendingGhoulKill(entity_name))
+    {
         return;
     }
 
@@ -2562,72 +2687,280 @@ void Player::updateEntitiesFromServer(const char *csv)
     float e_pl_x = vals[5];
     float e_pl_y = vals[6];
 
+    // Server-authoritative player position
     if (strcmp(entity_name, this->name) == 0)
     {
-        position_set(ex, ey, ez);
-        direction.x = e_dir_x;
-        direction.y = e_dir_y;
-        plane.x = e_pl_x;
-        plane.y = e_pl_y;
-        if (has3DSprite())
+        // Reconcile only when idle.
+        if (TIME_MILLIS - lastPredictionTick > PREDICTION_RESYNC_TICKS)
         {
-            float rotation_angle = atan2f(direction.y, direction.x) + M_PI_2;
-            set3DSpriteRotation(rotation_angle);
-            update3DSpritePosition();
+            position_set(ex, ey, ez);
+            direction.x = e_dir_x;
+            direction.y = e_dir_y;
+            plane.x = e_pl_x;
+            plane.y = e_pl_y;
+            if (has3DSprite())
+            {
+                float rotation_angle = atan2f(direction.y, direction.x) + M_PI_2;
+                set3DSpriteRotation(rotation_angle);
+                update3DSpritePosition();
+            }
+        }
+        return;
+    }
+
+    // Find existing entity by name
+    Entity *existing = nullptr;
+    for (int i = 0; i < currentLevel->getEntityCount(); i++)
+    {
+        Entity *e = currentLevel->getEntity(i);
+        if (e && e->name && strcmp(e->name, entity_name) == 0)
+        {
+            existing = e;
+            break;
         }
     }
-    else
+
+    if (existing)
     {
-        bool found = false;
-        for (int i = 0; i < currentLevel->getEntityCount(); i++)
+        existing->position_set(ex, ey, ez);
+        existing->direction.x = e_dir_x;
+        existing->direction.y = e_dir_y;
+        existing->plane.x = e_pl_x;
+        existing->plane.y = e_pl_y;
+        if (existing->has3DSprite())
         {
-            Entity *e = currentLevel->getEntity(i);
-            if (e && e->name && strcmp(e->name, entity_name) == 0)
+            float rotation_angle = atan2f(existing->direction.y, existing->direction.x) + M_PI_2;
+            existing->set3DSpriteRotation(rotation_angle);
+            existing->update3DSpritePosition();
+        }
+        return;
+    }
+
+    // Spawn a new entity
+    const char *name_ptr = storeRemoteEntityName(entity_name);
+    switch (type)
+    {
+    case 'G': // ghoul
+    {
+        EnemyType etype = ENEMY_BULLY;
+        if (strstr(entity_name, "creeper") != nullptr)
+        {
+            etype = ENEMY_CREEPER;
+        }
+        else if (strstr(entity_name, "punk") != nullptr)
+        {
+            etype = ENEMY_PUNK;
+        }
+        Enemy *ghoul = ENGINE_MEM_NEW Enemy(name_ptr, Vector(ex, ey, ez), etype, 1.7f, 1.5f, 0.0f);
+        if (!ghoul)
+            break;
+        // Restore unique name (ctor overwrote it)
+        ghoul->name = name_ptr;
+        // Pin ghoul; server controls movement
+        ghoul->state = ENTITY_IDLE;
+        ghoul->start_position = Vector(ex, ey, ez);
+        ghoul->end_position = Vector(ex, ey, ez);
+        ghoul->direction.x = e_dir_x;
+        ghoul->direction.y = e_dir_y;
+        ghoul->plane.x = e_pl_x;
+        ghoul->plane.y = e_pl_y;
+        currentLevel->entity_add(ghoul);
+    }
+    break;
+    case 'W': // weapon
+    {
+        WeaponType wtype = WEAPON_RIFLE;
+        if (strstr(entity_name, "shotgun") != nullptr)
+        {
+            wtype = WEAPON_SHOTGUN;
+        }
+        else if (strstr(entity_name, "rocket") != nullptr)
+        {
+            wtype = WEAPON_ROCKET_LAUNCHER;
+        }
+        else if (strstr(entity_name, "crossbow") != nullptr)
+        {
+            wtype = WEAPON_CROSSBOW;
+        }
+        Weapon *weapon = ENGINE_MEM_NEW Weapon(wtype, 1.5f, Vector(ex, ey, ez));
+        if (!weapon)
+            break;
+        // Restore unique name (ctor overwrote it)
+        weapon->name = name_ptr;
+        weapon->direction.x = e_dir_x;
+        weapon->direction.y = e_dir_y;
+        weapon->plane.x = e_pl_x;
+        weapon->plane.y = e_pl_y;
+        currentLevel->entity_add(weapon);
+    }
+    break;
+    case 'B': // projectile
+    {
+        ProjectileType ptype = PROJECTILE_BULLET;
+        if (strstr(entity_name, "arrow") != nullptr)
+        {
+            ptype = PROJECTILE_ARROW;
+        }
+        else if (strstr(entity_name, "rocket") != nullptr)
+        {
+            ptype = PROJECTILE_ROCKET;
+        }
+        else if (strstr(entity_name, "shell") != nullptr)
+        {
+            ptype = PROJECTILE_SHELL;
+        }
+        Projectile *proj = ENGINE_MEM_NEW Projectile(ptype, 1.0f, Vector(ex, ey, ez));
+        if (!proj)
+            break;
+        proj->name = name_ptr; // Restore unique name (ctor overwrote it)
+        proj->direction.x = e_dir_x;
+        proj->direction.y = e_dir_y;
+        proj->plane.x = e_pl_x;
+        proj->plane.y = e_pl_y;
+        currentLevel->entity_add(proj);
+    }
+    break;
+    default: // 'P' player
+    {
+        Entity *remote = ENGINE_MEM_NEW Entity(
+            name_ptr,
+            ENTITY_PLAYER,
+            Vector(ex, ey, ez),
+            Vector(1.0f, 2.0f),
+            nullptr,
+            nullptr,
+            nullptr,
+            {},
+            {},
+            {},
+            {},
+            {},
+            false,
+            SPRITE_3D_HUMANOID,
+            0x0000);
+        remote->is_player = false;
+        remote->direction.x = e_dir_x;
+        remote->direction.y = e_dir_y;
+        remote->plane.x = e_pl_x;
+        remote->plane.y = e_pl_y;
+        currentLevel->entity_add(remote);
+    }
+    break;
+    }
+}
+
+const char *Player::storeRemoteEntityName(const char *entityName)
+{
+    if (!entityName || entityName[0] == '\0')
+        return "";
+
+    // Reuse existing name slot
+    for (uint8_t i = 0; i < MAX_REMOTE_ENTITY_NAMES; i++)
+    {
+        if (remoteEntityNamePool[i][0] != '\0' && strcmp(remoteEntityNamePool[i], entityName) == 0)
+        {
+            return remoteEntityNamePool[i];
+        }
+    }
+
+    // Round-robin through the pool (never freed, session-scoped)
+    char *slot = remoteEntityNamePool[remoteEntityNameIndex % MAX_REMOTE_ENTITY_NAMES];
+    remoteEntityNameIndex = (remoteEntityNameIndex + 1) % MAX_REMOTE_ENTITY_NAMES;
+    snprintf(slot, 64, "%s", entityName);
+    return slot;
+}
+
+void Player::sendOnlineFireEvent(Weapon *weapon)
+{
+    if (!weapon || !ghoulsGame || !ghoulsGame->isOnlineGame())
+        return;
+    const char *weaponName = nullptr;
+    switch (weapon->getWeaponType())
+    {
+    case WEAPON_RIFLE:
+        weaponName = "rifle";
+        break;
+    case WEAPON_SHOTGUN:
+        weaponName = "shotgun";
+        break;
+    case WEAPON_ROCKET_LAUNCHER:
+        weaponName = "rocket-launcher";
+        break;
+    case WEAPON_CROSSBOW:
+        weaponName = "crossbow";
+        break;
+    default:
+        break;
+    }
+    if (!weaponName)
+        return;
+    char msg[96];
+    snprintf(msg, sizeof(msg), "{\"username\": \"%s\", \"fire\": \"%s\"}", this->name, weaponName);
+    HTTP_WEBSOCKET_SEND(msg);
+}
+
+void Player::addPendingGhoulKill(const char *ghoulName)
+{
+    if (!ghoulName || ghoulName[0] == '\0')
+        return;
+    // Record so the server echo doesn't re-create the ghoul.
+    if (!isPendingGhoulKill(ghoulName))
+    {
+        for (uint8_t i = 0; i < MAX_PENDING_GHOUL_KILLS; i++)
+        {
+            if (pendingGhoulKills[i][0] == '\0')
             {
-                found = true;
-                e->position_set(ex, ey, ez);
-                e->direction.x = e_dir_x;
-                e->direction.y = e_dir_y;
-                e->plane.x = e_pl_x;
-                e->plane.y = e_pl_y;
-                if (e->has3DSprite())
-                {
-                    float rotation_angle = atan2f(e->direction.y, e->direction.x) + M_PI_2;
-                    e->set3DSpriteRotation(rotation_angle);
-                    e->update3DSpritePosition();
-                }
+                snprintf(pendingGhoulKills[i], 64, "%s", ghoulName);
+                pendingGhoulKillCount++;
                 break;
             }
         }
+    }
+    // Notify the server so it removes the ghoul for everyone.
+    char msg[96];
+    snprintf(msg, sizeof(msg), "{\"username\": \"%s\", \"kill\": \"%s\"}", this->name, ghoulName);
+    HTTP_WEBSOCKET_SEND(msg);
+}
 
-        if (!found)
+bool Player::isPendingGhoulKill(const char *ghoulName) const
+{
+    if (!ghoulName || ghoulName[0] == '\0')
+        return false;
+    for (uint8_t i = 0; i < MAX_PENDING_GHOUL_KILLS; i++)
+    {
+        if (pendingGhoulKills[i][0] != '\0' && strcmp(pendingGhoulKills[i], ghoulName) == 0)
         {
-            // switch back to holding name (on-release)
-            // const char *name_ptr = remotePlayerNamePool.insert(std::string(entity_name)).first->c_str();
-            Entity *remote = ENGINE_MEM_NEW Entity(
-                entity_name, // name_ptr,
-                ENTITY_PLAYER,
-                Vector(ex, ey, ez),
-                Vector(1.0f, 2.0f),
-                nullptr,
-                nullptr,
-                nullptr,
-                {},
-                {},
-                {},
-                {},
-                {},
-                false,
-                SPRITE_3D_HUMANOID,
-                0x0000);
-            remote->is_player = false;
-            remote->direction.x = e_dir_x;
-            remote->direction.y = e_dir_y;
-            remote->plane.x = e_pl_x;
-            remote->plane.y = e_pl_y;
-            currentLevel->entity_add(remote);
+            return true;
         }
     }
+    return false;
+}
+
+void Player::removePendingGhoulKill(const char *ghoulName)
+{
+    if (!ghoulName || ghoulName[0] == '\0')
+        return;
+    for (uint8_t i = 0; i < MAX_PENDING_GHOUL_KILLS; i++)
+    {
+        if (pendingGhoulKills[i][0] != '\0' && strcmp(pendingGhoulKills[i], ghoulName) == 0)
+        {
+            pendingGhoulKills[i][0] = '\0';
+            if (pendingGhoulKillCount > 0)
+            {
+                pendingGhoulKillCount--;
+            }
+            return;
+        }
+    }
+}
+
+void Player::clearPendingGhoulKills()
+{
+    for (uint8_t i = 0; i < MAX_PENDING_GHOUL_KILLS; i++)
+    {
+        pendingGhoulKills[i][0] = '\0';
+    }
+    pendingGhoulKillCount = 0;
 }
 
 void Player::userRequest(RequestType requestType)
@@ -2700,7 +3033,7 @@ void Player::userRequest(RequestType requestType)
         }
         snprintf(game_payload, 128, "{\"game_name\":\"Ghouls\", \"username\":\"%s\"}", this->name);
         snprintf(authHeader, 256, "{\"Content-Type\":\"application/json\",\"Username\":\"%s\",\"Password\":\"%s\"}", this->name, this->password);
-        if (!HTTP_SEND_REQUEST("https://www.jblanked.com/game-server/games/create/", "POST", authHeader, game_payload))
+        if (!HTTP_SEND_REQUEST("https://www.jblanked.com/ghouls/game-server/games/create/", "POST", authHeader, game_payload))
         {
             onlineGameState = OnlineStateError;
         }
@@ -2722,7 +3055,7 @@ void Player::userRequest(RequestType requestType)
             break;
         }
         snprintf(authHeader, 256, "{\"Content-Type\":\"application/json\",\"Username\":\"%s\",\"Password\":\"%s\"}", this->name, this->password);
-        if (!HTTP_SEND_REQUEST("https://www.jblanked.com/game-server/games/", "GET", authHeader, nullptr))
+        if (!HTTP_SEND_REQUEST("https://www.jblanked.com/ghouls/game-server/games/", "GET", authHeader, nullptr))
         {
             lobbyFetched = true;
             lobbyCount = 0;

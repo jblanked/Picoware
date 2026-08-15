@@ -1,10 +1,13 @@
+"""Image - RGB565 image data for the display."""
+
 class Image:
-    """
-    Represents an image with RGB565 pixel data for MicroPython.
+    """Represents an image with RGB565 pixel data for MicroPython.
+
     The raw pixel data is stored in self._raw and can be used by the Draw class.
     """
 
     def __init__(self):
+        """Initialize an empty image with a zero size."""
         from picoware.system.vector import Vector
 
         self.size = Vector(0, 0)
@@ -12,6 +15,7 @@ class Image:
         self.is_8bit = True
 
     def __del__(self) -> None:
+        """Release the raw pixel data and size."""
         if self._raw:
             del self._raw
             self._raw = None
@@ -20,7 +24,14 @@ class Image:
             self.size = None
 
     def from_path(self, path: str) -> bool:
-        """Load a 16‑bit BMP from disk into raw RGB565 data."""
+        """Load a 16-bit BMP from disk into raw RGB565 data.
+
+        Args:
+            path (str): The path to the BMP file.
+
+        Returns:
+            bool: True on success, False on failure.
+        """
         try:
             self._load_bmp(path)
             return True
@@ -29,12 +40,18 @@ class Image:
             return False
 
     def from_byte_array(self, data, size, is_8bit: bool = True) -> bool:
-        """
-        Create an image from raw byte array
+        """Create an image from a raw byte array.
 
-        data: bytes, bytearray, or memoryview containing pixel data
-        size: Vector(width, height)
-        is_8bit: if True, data is 8-bit
+        Args:
+            data: Pixel data as bytes, bytearray, or memoryview.
+            size (Vector): The image size (width, height).
+            is_8bit (bool): Whether the data is 8-bit. Defaults to True.
+
+        Returns:
+            bool: True on success.
+
+        Raises:
+            ValueError: If the data length does not match the expected size.
         """
         from sys import byteorder
 
@@ -65,7 +82,15 @@ class Image:
         return True
 
     def _load_bmp(self, path: str, storage=None):
-        """Read BMP header + pixel data into self._raw as little‑endian RGB565 bytes."""
+        """Read BMP header and pixel data into self._raw as little-endian RGB565 bytes.
+
+        Args:
+            path (str): The path to the BMP file.
+            storage: Storage instance for file access. Defaults to None.
+
+        Raises:
+            ValueError: If the file is not a valid BMP.
+        """
         if storage:
             storage.mount_vfs()
 
@@ -101,9 +126,10 @@ class Image:
             storage.unmount_vfs()
 
     def from_string(self, image_str: str):
-        """
-        Create a tiny monochrome‑style RGB565 image from ASCII art:
-        \".\" or \"f\" → 0x0000, \"1\" → 0xFFFF, etc.
+        """Create a tiny monochrome-style RGB565 image from ASCII art.
+
+        Args:
+            image_str (str): The ASCII art string with one row per line.
         """
         rows = image_str.strip("\n").split("\n")
         h = len(rows)
@@ -112,6 +138,14 @@ class Image:
         raw = bytearray(w * h * 2)
 
         def encode(c):
+            """Map an ASCII art character to an RGB565 color.
+
+            Args:
+                c (str): The character to convert.
+
+            Returns:
+                int: The RGB565 color value.
+            """
             return {
                 ".": 0x0000,
                 "f": 0x0000,
@@ -141,7 +175,15 @@ class Image:
         self._raw = raw
 
     def get_pixel(self, x: int, y: int) -> int:
-        """Get RGB565 pixel value at coordinates (x, y)."""
+        """Get RGB565 pixel value at coordinates (x, y).
+
+        Args:
+            x (int): The X coordinate.
+            y (int): The Y coordinate.
+
+        Returns:
+            int: The RGB565 pixel value, or 0 if out of bounds.
+        """
         if not (0 <= x < self.size.x and 0 <= y < self.size.y):
             return 0x0000
 

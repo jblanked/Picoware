@@ -16,6 +16,12 @@ CONFIG_LOG_DEFAULT_LEVEL_WARN=y
 CONFIG_LOG_MAXIMUM_LEVEL_INFO=y
 
 # =============================================
+# Partition table - CrowPanel layout
+# =============================================
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# =============================================
 # ESP32-P4 Specific
 # =============================================
 # Skip I2C legacy driver conflict check to allow both old and new I2C drivers to coexist

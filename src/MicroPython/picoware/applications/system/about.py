@@ -1,8 +1,17 @@
+"""About - Display device information."""
+
 _about = None
 
 
 def start(view_manager) -> bool:
-    """Start the app."""
+    """Start the app and show the about text.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if the app started.
+    """
     from picoware.gui.textbox import TextBox
     from picoware.system.system import System
 
@@ -33,7 +42,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app."""
+    """Run the app and handle scrolling input.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from picoware.system.buttons import (
         BUTTON_BACK,
         BUTTON_UP,
@@ -55,7 +68,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app."""
+    """Stop the app and clean up.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from gc import collect
 
     global _about

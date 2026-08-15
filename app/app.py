@@ -7,6 +7,8 @@ Usage:
 
 import customtkinter as ctk
 
+from views.code import CodeView
+from views.flash import FlashView
 from views.home import HomeView
 from views.store import StoreView
 
@@ -29,12 +31,20 @@ class PicowareApp(ctk.CTk):
 
         self._tab_view.add("Home")
         self._tab_view.add("Store")
+        self._tab_view.add("Code")
+        self._tab_view.add("Flash")
 
         self.home_view = HomeView(self._tab_view.tab("Home"))
         self.home_view.pack(fill="both", expand=True)
 
         self.store_view = StoreView(self._tab_view.tab("Store"))
         self.store_view.pack(fill="both", expand=True)
+
+        self.code_view = CodeView(self._tab_view.tab("Code"))
+        self.code_view.pack(fill="both", expand=True)
+
+        self.flash_view = FlashView(self._tab_view.tab("Flash"))
+        self.flash_view.pack(fill="both", expand=True)
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 

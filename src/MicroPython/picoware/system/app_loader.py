@@ -1,28 +1,38 @@
+"""AppLoader - Load and run apps dynamically."""
+
 import sys
 from gc import collect, mem_free
 
 class AppLoader:
-    """Class to manage loading and running apps dynamically"""
+    """Class to manage loading and running apps dynamically.
+    
+    Attributes:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+        loaded_apps (dict): Dictionary to cache loaded app modules, keyed by app name.
+        current_app (object): Reference to the currently running app module.
+        _vfs_ready (bool): Flag indicating whether the VFS is ready for app loading.
+    """
 
-    def __init__(self, view_manager):
-        """
-        Initialize the AppLoader with a view manager
+    def __init__(self, view_manager, mount_vfs:bool=False):
+        """Initialize the AppLoader with a view manager.
 
         Args:
-            view_manager: The view manager instance to interact with the display and storage
+            view_manager (ViewManager): The view manager instance for display and storage access.
+            mount_vfs (bool): Whether to mount the VFS for app loading. Defaults to False.
         """
         self.view_manager = view_manager
         self.loaded_apps = {}
         self.current_app = None
         self._vfs_ready = False
-        if view_manager.storage.mount_vfs("/sd"):
+        if mount_vfs and view_manager.storage.mount_vfs("/sd"):
             self._vfs_ready = True
 
     def __del__(self):
         """Cleanup loaded apps on deletion"""
         self.stop()
         self.cleanup_modules()
-        self.view_manager.storage.unmount_vfs("/sd")
+        if self._vfs_ready:
+            self.view_manager.storage.unmount_vfs("/sd")
         self._vfs_ready = False
 
     def cleanup_modules(self):
@@ -56,7 +66,14 @@ class AppLoader:
             self.view_manager.log("Error cleaning up modules: {}".format(e), 2)
 
     def list_available_apps(self, subdirectory="") -> list[str]:
-        """List all available apps (with .py extension) in the picoware/apps directory or subdirectory"""
+        """List available apps in the picoware/apps directory or subdirectory.
+
+        Args:
+            subdirectory (str): Optional subdirectory within picoware/apps. Defaults to "".
+
+        Returns:
+            list[str]: Names of apps with .py or .mpy extensions, sorted alphabetically.
+        """
         try:
             storage = self.view_manager.storage
             # no need to mount because we're using auto-mount
@@ -81,21 +98,25 @@ class AppLoader:
             return []
 
     def list_loaded_apps(self) -> list:
-        """List all loaded apps"""
+        """List all loaded apps.
+
+        Returns:
+            list: Names of the currently loaded app modules.
+        """
         return list(self.loaded_apps.keys())
 
     def load_module(self, module_path: str) -> bool:
-        """
-        Mount the SD card and add a VFS path to sys.path so modules can be
-        imported directly with a bare ``import`` statement. Useful for testing
-        in Thonny or when you need to manually import from a specific location.
+        """Add a VFS path to sys.path so modules can be imported directly.
+
+        Mounts the SD card and adds the given VFS path so modules can be
+        imported with a bare import statement. Useful for testing in Thonny
+        or when manually importing from a specific location.
 
         Args:
-            module_path: Path relative to the VFS root, e.g. ``"/picoware/apps"``
-                or ``"/picoware/apps/games"``.
+            module_path (str): Path relative to the VFS root, e.g. ``"/picoware/apps"``.
 
         Returns:
-            True if the path was successfully added to ``sys.path``, False otherwise.
+            bool: True if the path was added to ``sys.path``, False otherwise.
         """
         try:
             storage = self.view_manager.storage
@@ -122,15 +143,23 @@ class AppLoader:
             return False
 
     def load_app(self, app_name, subdirectory=""):
-        """
-        Load an app module dynamically
+        """Load an app module dynamically and verify its required methods.
 
         Args:
-            app_name: The name of the app module to load (without extension)
-            subdirectory: Optional subdirectory within picoware/apps
+            app_name (str): Name of the app module to load (without extension).
+            subdirectory (str): Optional subdirectory within picoware/apps. Defaults to "".
+
+        Returns:
+            object or None: The loaded app module, or None if loading failed.
+
+        Raises:
+            RuntimeError: If the VFS is not ready or not mounted.
+            AttributeError: If the app module is missing a required method.
         """
         if not self._vfs_ready:
-            raise RuntimeError("VFS not ready, cannot load apps.")
+            self._vfs_ready = self.view_manager.storage.mount_vfs("/sd")
+            if not self._vfs_ready:
+                raise RuntimeError("VFS not ready, cannot load apps.")
 
         from utime import ticks_ms
 
@@ -198,7 +227,14 @@ class AppLoader:
             self.current_app.run(self.view_manager)
 
     def start(self, app_name) -> bool:
-        """Start a specific app"""
+        """Start a specific app.
+
+        Args:
+            app_name (str): Name of the app module to start.
+
+        Returns:
+            bool: True if the app started successfully, False otherwise.
+        """
         # Stop current app first
         if self.current_app:
             self.stop()
@@ -219,5 +255,12 @@ class AppLoader:
             self.current_app = None
 
     def switch_app(self, app_name):
-        """Switch to a different app"""
+        """Switch to a different app.
+
+        Args:
+            app_name (str): Name of the app module to switch to.
+
+        Returns:
+            bool: True if the switch succeeded, False otherwise.
+        """
         return self.start(app_name)

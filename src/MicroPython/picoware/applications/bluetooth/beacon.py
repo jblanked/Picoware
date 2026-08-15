@@ -7,7 +7,14 @@ _beacon_count = 0
 
 
 def start(view_manager) -> bool:
-    """Start the Beacon app"""
+    """Start the Beacon app and begin broadcasting.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if broadcasting started, False on failure.
+    """
     from picoware.system.bluetooth import Bluetooth
 
     global _bluetooth, _broadcasting, _beacon_count
@@ -35,7 +42,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app"""
+    """Run the app and update the display.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from picoware.system.buttons import BUTTON_BACK
     from picoware.system.vector import Vector
     from utime import ticks_ms, ticks_diff
@@ -91,7 +102,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app and stop broadcasting.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from gc import collect
 
     global _bluetooth, _broadcasting, _beacon_count, _last_update

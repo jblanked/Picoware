@@ -1,3 +1,5 @@
+"""WiFi Server - Host a web server over WiFi."""
+
 from micropython import const
 
 # menu states
@@ -58,11 +60,11 @@ class Server:
         view_manager,
         append_question_mark=True,
     ):
-        """
-        Initialize the Server.
+        """Initialize the server.
 
-        :param wifi: WiFi interface instance.
-        :param append_question_mark: Whether to append '?' to URLs.
+        Args:
+            view_manager (ViewManager): The view manager instance for display and storage access.
+            append_question_mark (bool): Whether to append '?' to URLs. Defaults to True.
         """
         self.view_manager = view_manager
         self.server = None
@@ -73,17 +75,26 @@ class Server:
         self.last_response = None
 
     def __del__(self):
+        """Close the server and release resources."""
         self.close()
         self.last_response = None
         self.routes = None
 
     @property
     def is_running(self) -> bool:
-        """Check if the server is running."""
+        """Check if the server is running.
+
+        Returns:
+            bool: True if the server socket is open, False otherwise.
+        """
         return self.server is not None
 
     def close(self, reason=None):
-        """Close the server and client connections."""
+        """Close the server and client connections.
+
+        Args:
+            reason (str or None): Log message for the close reason. Defaults to None.
+        """
         if reason:
             self.view_manager.log(reason)
         if self.client is not None:
@@ -98,7 +109,14 @@ class Server:
         self.view_manager.log("Server closed.")
 
     def start(self, port=80) -> bool:
-        """Start the server on the specified port."""
+        """Start the server on the specified port.
+
+        Args:
+            port (int): The port to listen on. Defaults to 80.
+
+        Returns:
+            bool: True if the server started, False on failure.
+        """
         try:
             import socket
 
@@ -121,7 +139,24 @@ class Server:
                     script_file = page.get("script", None)
 
                     def make_handler(html_file, script_file):
+                        """Create a request handler for a page.
+
+                        Args:
+                            html_file (str or None): HTML file path, if any.
+                            script_file (str or None): Script file path, if any.
+
+                        Returns:
+                            callable: The request handler function.
+                        """
                         def handler(data=None):
+                            """Handle a request and build the response.
+
+                            Args:
+                                data (dict or None): POST data for the request. Defaults to None.
+
+                            Returns:
+                                str: The response content.
+                            """
                             response = ""
                             # Execute script if available
                             if script_file:
@@ -160,12 +195,12 @@ class Server:
             return False
 
     def add_route(self, path, handler, method="GET"):
-        """
-        Register a new route with its handler.
+        """Register a new route with its handler.
 
-        :param path: URL path (e.g., "/custom")
-        :param handler: Function to handle the route. It should return the HTML response as a string.
-        :param method: HTTP method (e.g., "GET", "POST")
+        Args:
+            path (str): URL path (e.g. "/custom").
+            handler (callable): Function to handle the route, returning the HTML response as a string.
+            method (str): HTTP method (e.g. "GET", "POST"). Defaults to "GET".
         """
         normalized_path = path.rstrip("/") if path != "/" else path
         method = method.upper()
@@ -178,8 +213,10 @@ class Server:
         }
 
     def webpage(self):
-        """
-        Generate a basic HTML page.
+        """Generate a basic HTML page.
+
+        Returns:
+            str: The generated HTML page.
         """
         html = """ 
             <!DOCTYPE html>
@@ -466,7 +503,14 @@ class Server:
 
 
 def __add_page(view_manager) -> bool:
-    """Add a new page to the server"""
+    """Add a new page to the server.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if editing continues or the page was saved, False otherwise.
+    """
     keyboard = view_manager.keyboard
 
     if keyboard is None:
@@ -518,7 +562,11 @@ def __add_page(view_manager) -> bool:
 
 
 def __add_page_callback(result: str) -> None:
-    """Callback for when a page field is saved during add page"""
+    """Callback for when a page field is saved during add page.
+
+    Args:
+        result (str): The saved field value.
+    """
     global save_requested, just_started_editing
 
     if just_started_editing:
@@ -528,7 +576,11 @@ def __add_page_callback(result: str) -> None:
 
 
 def __box_start(view_manager) -> None:
-    """Start the textbox for server output"""
+    """Start the textbox for server output.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from picoware.gui.textbox import TextBox
 
     global box
@@ -559,7 +611,11 @@ def __box_start(view_manager) -> None:
 
 
 def __callback_edit_save(result: str) -> None:
-    """Callback for when a page field is saved"""
+    """Callback for when a page field is saved.
+
+    Args:
+        result (str): The saved field value.
+    """
     global current_page_info, just_started_editing
 
     if just_started_editing:
@@ -594,7 +650,18 @@ def __edit_page(
     return_status: bool = True,
     return_state: int = STATE_PAGE_MENU,
 ) -> bool:
-    """Edit a page given its index"""
+    """Edit a page field given its index.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+        index (int): The page index to edit.
+        key (str): The field key to edit.
+        return_status (bool): Whether to return to the edit page menu after saving. Defaults to True.
+        return_state (int): The state to return to after saving. Defaults to STATE_PAGE_MENU.
+
+    Returns:
+        bool: True if editing continues, False otherwise.
+    """
     if index < 0:
         return False
 
@@ -654,7 +721,14 @@ def __edit_page(
 
 
 def __get_current_pages(view_manager) -> list[str]:
-    """Get the list of current pages from the server info file"""
+    """Get the list of current pages from the server info file.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        list[str]: The page URLs.
+    """
     from picoware.system.storage import Storage
 
     storage: Storage = view_manager.storage
@@ -672,7 +746,15 @@ def __get_current_pages(view_manager) -> list[str]:
 
 
 def __get_page_info_index(view_manager, index: int) -> dict:
-    """Get the page info for a given index from the server info file"""
+    """Get the page info for a given index from the server info file.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+        index (int): The page index.
+
+    Returns:
+        dict: The page info.
+    """
     from picoware.system.storage import Storage
 
     storage: Storage = view_manager.storage
@@ -692,7 +774,16 @@ def __get_page_info_index(view_manager, index: int) -> dict:
 
 
 def __get_setting(view_manager, key: str, default: str = "") -> str:
-    """Get a setting from the server info file"""
+    """Get a setting from the server info file.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+        key (str): The setting key.
+        default (str): The value returned if the key is missing. Defaults to "".
+
+    Returns:
+        str: The setting value.
+    """
     from picoware.system.storage import Storage
 
     storage: Storage = view_manager.storage
@@ -709,7 +800,13 @@ def __get_setting(view_manager, key: str, default: str = "") -> str:
 
 
 def __save_setting(view_manager, key: str, value: str) -> None:
-    """Save a setting to the server info file"""
+    """Save a setting to the server info file.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+        key (str): The setting key.
+        value (str): The setting value.
+    """
     from picoware.system.storage import Storage
 
     storage: Storage = view_manager.storage
@@ -725,7 +822,12 @@ def __save_setting(view_manager, key: str, value: str) -> None:
 
 
 def __delete_page(view_manager, index: int) -> None:
-    """Delete a page from the server info file"""
+    """Delete a page from the server info file.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+        index (int): The page index to delete.
+    """
     global menu_state, current_page_index, current_page_info
 
     from picoware.system.storage import Storage
@@ -749,7 +851,12 @@ def __delete_page(view_manager, index: int) -> None:
 
 
 def __toggle_mode(view_manager, selection: int) -> None:
-    """Toggle between AP and STA mode"""
+    """Toggle between AP and STA mode.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+        selection (int): 0 for AP mode, otherwise STA mode.
+    """
     global menu_state
 
     mode = "AP" if selection == 0 else "STA"
@@ -760,7 +867,15 @@ def __toggle_mode(view_manager, selection: int) -> None:
 
 
 def __edit_setting(view_manager, setting_key: str) -> bool:
-    """Edit a setting using the keyboard"""
+    """Edit a setting using the keyboard.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+        setting_key (str): The setting key to edit.
+
+    Returns:
+        bool: True if editing continues or the setting was saved, False otherwise.
+    """
     global just_started_editing, save_requested, menu_state, settings_info
 
     keyboard = view_manager.keyboard
@@ -798,7 +913,11 @@ def __edit_setting(view_manager, setting_key: str) -> bool:
 
 
 def __setting_callback(result: str) -> None:
-    """Callback for when a setting is saved"""
+    """Callback for when a setting is saved.
+
+    Args:
+        result (str): The saved setting value.
+    """
     global save_requested, just_started_editing
 
     if just_started_editing:
@@ -808,7 +927,11 @@ def __setting_callback(result: str) -> None:
 
 
 def __menu_run(view_manager) -> None:
-    """Run the server"""
+    """Run the server.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
 
     from picoware.system.buttons import (
         BUTTON_BACK,
@@ -960,7 +1083,11 @@ def __menu_run(view_manager) -> None:
 
 
 def __menu_start(view_manager) -> None:
-    """Show a menu to select from options"""
+    """Show a menu to select from options.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
 
     from picoware.gui.menu import Menu
 
@@ -1027,7 +1154,14 @@ def __menu_start(view_manager) -> None:
 
 
 def __server_start(view_manager) -> bool:
-    """Start the server app"""
+    """Start the server app.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if the server started, False otherwise.
+    """
 
     global box
 
@@ -1059,7 +1193,14 @@ def __server_start(view_manager) -> bool:
 
 
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app and begin serving.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if the app started, False on failure.
+    """
 
     # if not a wifi device, return
     if not view_manager.has_wifi:
@@ -1096,13 +1237,21 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app"""
+    """Run the app.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
 
     __menu_run(view_manager)
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app and clean up.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from gc import collect
 
     global server, box, menu

@@ -1,3 +1,5 @@
+"""Button constants for Picoware."""
+
 from micropython import const
 
 BUTTON_NONE = const(-1)

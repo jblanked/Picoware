@@ -1,12 +1,16 @@
+"""PSRAM - External PSRAM memory management."""
+
 import picoware_psram
 
 
 class PSRAMObject(picoware_psram.Object):
-    """
-    PSRAMObject is a Python wrapper around the underlying C PSRAM object, providing a more Pythonic interface.
-    The PSRAMObject behaves like the original Python type (str, int, float, bytes, bytearray, dict, bool, function, list, or tuple) but stores its data in PSRAM memory.
-        Memory management is handled automatically, so when a PSRAMObject is garbage collected, its associated PSRAM memory is freed.
-        This allows developers to use PSRAM for larger data storage without worrying about manual memory management.
+    """Python wrapper around the underlying C PSRAM object.
+
+    Behaves like the original Python type (str, int, float, bytes, bytearray,
+    dict, bool, function, list, or tuple) but stores its data in PSRAM memory.
+    Memory management is automatic: when a PSRAMObject is garbage collected,
+    its associated PSRAM memory is freed.
+
     Methods:
         - __str__(): Return string representation of the PSRAM object.
         - __del__(): Automatically free PSRAM memory when the object is garbage collected.
@@ -17,9 +21,10 @@ class PSRAMObject(picoware_psram.Object):
 
 
 class PSRAM(picoware_psram.PSRAM):
-    """
-    MicroPython PSRAM interface using C module with automatic GC-managed objects.
-    This class provides a high-level and low-level interface to PSRAM memory, allowing developers to easily allocate, manage, and utilize PSRAM for larger data storage needs in MicroPython applications.
+    """MicroPython PSRAM interface with automatic GC-managed objects.
+
+    Provides a high-level and low-level interface to PSRAM memory for
+    allocating, managing, and utilizing PSRAM in MicroPython applications.
 
     Methods:
         - is_ready: Check if PSRAM is initialized and ready for use.
@@ -67,7 +72,17 @@ class PSRAM(picoware_psram.PSRAM):
         return picoware_psram.SIZE - self.mem_free()
 
     def from_file(self, storage, addr, file_path, chunk_size: int = 2048) -> int:
-        """Load data from a file into PSRAM memory and return the size of the data loaded."""
+        """Load data from a file into PSRAM memory.
+
+        Args:
+            storage (object): Storage instance used to read the file.
+            addr (int): PSRAM address to write the data to.
+            file_path (str): Path of the file to load.
+            chunk_size (int): Number of bytes to read per chunk. Defaults to 2048.
+
+        Returns:
+            int: The size of the data loaded, or -1 if the file could not be opened.
+        """
         file = storage.file_open(file_path)
         if not file:
             return -1
@@ -85,15 +100,34 @@ class PSRAM(picoware_psram.PSRAM):
         return _addr - addr
 
     def malloc(self, data) -> PSRAMObject:
-        """Allocate PSRAM memory for the given data and return a PSRAMObject."""
+        """Allocate PSRAM memory for the given data.
+
+        Args:
+            data (object): The Python object to store in PSRAM.
+
+        Returns:
+            PSRAMObject: A PSRAMObject wrapping the data.
+        """
         return self.alloc_object(data)
 
     def memcpy(self, dest_addr, src_addr, length):
-        """Copy memory from one PSRAM location to another."""
+        """Copy memory from one PSRAM location to another.
+
+        Args:
+            dest_addr (int): Destination PSRAM address.
+            src_addr (int): Source PSRAM address.
+            length (int): Number of bytes to copy.
+        """
         self.copy(src_addr, dest_addr, length)
 
     def memset(self, addr, value, length):
-        """Set memory region to a specific byte value using DMA-optimized fill."""
+        """Set a memory region to a specific byte value.
+
+        Args:
+            addr (int): PSRAM address of the region.
+            value (int): Byte value to fill with.
+            length (int): Number of bytes to fill.
+        """
         if length <= 0:
             return
         self.fill(addr, value & 0xFF, length)

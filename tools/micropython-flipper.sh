@@ -72,6 +72,7 @@ for module_path in \
     sd \
     jsmn \
     mjs \
+    mmbasic \
     vt \
     textbox \
     usb_video \
@@ -84,17 +85,7 @@ for module_path in \
     rm -rf "$micropython_dir/modules/$module_path"
 done
 
-echo "Installing Picoware and Flipper Zero modules into MicroPython ports/stm32/modules..."
-cp "$picoware_dir/src/MicroPython/main.py" "$micropython_dir/modules/main.py"
-
-stage_module_dir "picoware"
-
-# Strip modules to fit 768KB flash
-rm -rf "$micropython_dir/modules/picoware/system/agent"
-
-# Clean up non-Python files
-find "$micropython_dir/modules/picoware" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
-find "$micropython_dir/modules/picoware" -name ".DS_Store" -delete 2>/dev/null || true
+echo "Installing Flipper Zero C modules into MicroPython ports/stm32/modules..."
 
 mkdir -p "$micropython_dir/modules/Flipper"
 
@@ -112,6 +103,7 @@ stage_module_dir "response"
 stage_module_dir "picoware_boards"
 stage_module_dir "jsmn"
 stage_module_dir "mjs"
+stage_module_dir "mmbasic"
 stage_module_dir "engine"
 stage_module_dir "textbox"
 stage_module_dir "usb_video"
@@ -134,10 +126,40 @@ cp "$flipper_src_dir/board/manifest.py" "$flipper_board_dir/manifest.py"
 cp "$flipper_src_dir/board/board_init.c" "$flipper_board_dir/board_init.c"
 cp "$flipper_src_dir/board/flipper_zero.ld" "$flipper_board_dir/flipper_zero.ld"
 
+echo "Applying Flipper overlay to MicroPython STM32 port files..."
+overlay_dir="$flipper_src_dir/overlay/ports/stm32"
+if [ -f "$overlay_dir/rfcore.c" ]; then
+    cp "$overlay_dir/rfcore.c" "$micropython_dir/rfcore.c"
+fi
+if [ -f "$overlay_dir/mpconfigboard_common.h" ]; then
+    cp "$overlay_dir/mpconfigboard_common.h" "$micropython_dir/mpconfigboard_common.h"
+fi
+
 echo "Building mpy-cross with native toolchain..."
 cd "$micropython_root"
 make -C mpy-cross clean
 make -C mpy-cross -j4
+
+echo "Building SD card image (firmware/ with mpy-compiled picoware)..."
+sd_dir="$output_dir/sd"
+fw_dir="$sd_dir/firmware"
+rm -rf "$sd_dir"
+mkdir -p "$fw_dir"
+cp "$picoware_dir/src/MicroPython/main.py" "$fw_dir/main.py"
+cp -r "$picoware_dir/src/MicroPython/picoware" "$fw_dir/picoware"
+find "$fw_dir" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+find "$fw_dir" -name ".DS_Store" -delete 2>/dev/null || true
+
+echo "Compiling picoware package to .mpy..."
+mpy_cross="$micropython_root/mpy-cross/build/mpy-cross"
+if [ ! -x "$mpy_cross" ]; then
+    echo "ERROR: mpy-cross not found at $mpy_cross"
+    exit 1
+fi
+while IFS= read -r -d '' src; do
+    "$mpy_cross" -march=armv7m -o "${src%.py}.mpy" "$src"
+done < <(find "$fw_dir/picoware" -name "*.py" -print0)
+find "$fw_dir/picoware" -name "*.py" -delete
 
 echo "Starting Flipper Zero firmware build..."
 cd "$micropython_dir"
@@ -155,3 +177,6 @@ echo "Copying build artifacts..."
 cp "$build_dir/firmware.dfu" "$output_dir/Picoware-FlipperZero.dfu" 2>/dev/null || true
 
 echo "Flipper Zero build complete."
+echo "SD image is in $sd_dir - copy the firmware/ folder to the SD card root."
+echo "picoware is precompiled to .mpy; user apps stay in picoware/apps."
+echo "Radio core needs the FUS + BLE wireless stack flashed at 0x080C0000 (top 256K)."

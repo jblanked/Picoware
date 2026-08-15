@@ -1,3 +1,5 @@
+"""Desktop - Full-screen desktop interface."""
+
 from picoware.system.vector import Vector
 
 _WIFI_ON_BLACK = bytes(
@@ -1083,7 +1085,15 @@ class Desktop:
     def __init__(
         self, draw, text_color: int = 0xFFFF, background_color: int = 0x0000
     ) -> None:
+        """Initialize the desktop environment.
+
+        Args:
+            draw (Draw): The drawing context.
+            text_color (int): The text color. Defaults to 0xFFFF.
+            background_color (int): The background color. Defaults to 0x0000.
+        """
         from picoware.system.system import System
+        from picoware.system.boards import BOARD_FLIPPER_ZERO
 
         system = System()
         self.name = system.device_name
@@ -1095,6 +1105,7 @@ class Desktop:
         self.is_dark_mode = text_color == 0xFFFF and background_color == 0x0000
         self.battery_level_str = ""
         self.is_circular = system.is_circular
+        self.draw_icons = system.board_id != BOARD_FLIPPER_ZERO
 
         self.size = self.display.size
         self.font_size_x = self.display.font_size.x
@@ -1124,18 +1135,23 @@ class Desktop:
                 int(self.size.y / 20) + draw.scale_y(25),
             )
         else:
+            _five_x, _five_y = draw.scale(5, 5)
             # wifi icon
             self.wifi_pos.x, self.wifi_pos.y = (
-                int(self.size.x * (1 - 21 / 320)),
+                self.size.x - _five_x - self.wifi_size.x,
                 2,
             )
             # board name
-            self.name_pos.x, self.name_pos.y = 2, 5
-            # bluetooth icon
+            self.name_pos.x, self.name_pos.y = 2, _five_y
+            # bluetooth icon 
             self.bluetooth_pos.x, self.bluetooth_pos.y = (
-                int(self.size.x * 0.875),
+                self.wifi_pos.x - _five_x - self.bluetooth_size.x,
                 2,
             )
+            # battery left of bluetooth icon
+            battery_width = draw.len(self.battery_level_str)
+            self.battery_pos.x = self.bluetooth_pos.x - _five_x - battery_width
+            self.battery_pos.y = _five_y
 
         self.display.clear(self.position, self.size, self.background_color)
         self.display.swap()
@@ -1159,7 +1175,13 @@ class Desktop:
     def draw(
         self, animiation_frame, animation_size: Vector, position: Vector = Vector(0, 20)
     ) -> None:
-        """Draw the desktop environment with a BMP image from disk."""
+        """Draw the desktop environment with a BMP image from disk.
+
+        Args:
+            animiation_frame: The animation frame pixel data to draw.
+            animation_size (Vector): The size of the animation frame.
+            position (Vector): The position to draw the frame. Defaults to Vector(0, 20).
+        """
         self.display.clear(self.position, self.size, self.background_color)
         self.draw_header()
         self.display.image_bytearray(
@@ -1171,7 +1193,11 @@ class Desktop:
         self.display.swap()
 
     def draw_header(self, wifi_is_connected: bool = True) -> None:
-        """Draw the header with the board name and Wi-Fi status."""
+        """Draw the header with the board name and Wi-Fi status.
+
+        Args:
+            wifi_is_connected (bool): Whether Wi-Fi is connected. Defaults to True.
+        """
         # draw board name
         self.display.text(self.name_pos, self.name, self.text_color)
 
@@ -1183,21 +1209,22 @@ class Desktop:
                 self.text_color,
             )
 
-        # draw wifi icon
-        self.display.image_bytearray(
-            self.wifi_pos,
-            self.wifi_size,
-            _WIFI_ON_BLACK if self.has_wifi and wifi_is_connected else _WIFI_OFF_BLACK,
-            invert=not self.is_dark_mode,
-        )
+        if self.draw_icons:
+            # draw wifi icon
+            self.display.image_bytearray(
+                self.wifi_pos,
+                self.wifi_size,
+                _WIFI_ON_BLACK if self.has_wifi and wifi_is_connected else _WIFI_OFF_BLACK,
+                invert=not self.is_dark_mode,
+            )
 
-        # draw bluetooth icon
-        self.display.image_bytearray(
-            self.bluetooth_pos,
-            self.bluetooth_size,
-            (_BLUETOOTH_ON_BLACK if self.has_wifi else _BLUETOOTH_OFF_BLACK),
-            invert=not self.is_dark_mode,
-        )
+            # draw bluetooth icon
+            self.display.image_bytearray(
+                self.bluetooth_pos,
+                self.bluetooth_size,
+                (_BLUETOOTH_ON_BLACK if self.has_wifi else _BLUETOOTH_OFF_BLACK),
+                invert=not self.is_dark_mode,
+            )
 
         # draw battery level
         self.display.text(
@@ -1207,7 +1234,11 @@ class Desktop:
         )
 
     def set_battery(self, battery_level: int) -> None:
-        """Set the battery level on the header."""
+        """Set the battery level on the header.
+
+        Args:
+            battery_level (int): The battery level as a percentage.
+        """
         self.battery_level_str = f"{battery_level}%"
 
         if self.is_circular:
@@ -1218,9 +1249,18 @@ class Desktop:
                 battery_x,
                 int(self.size.y / 20) + self.display.scale_y(32),
             )
+        else:
+            # battery left of bluetooth icon
+            battery_width = self.display.len(self.battery_level_str)
+            self.battery_pos.x = self.bluetooth_pos.x - self.display.scale_x(5) - battery_width
+            self.battery_pos.y = self.display.scale_y(5)
 
     def set_time(self, time_str: str) -> None:
-        """Set the time on the header."""
+        """Set the time on the header.
+
+        Args:
+            time_str (str): The time string to display.
+        """
         self.time_str = time_str
 
         if self.is_circular:

@@ -22,12 +22,24 @@ _state = STATE_IDLE
 
 
 def __addr_to_str(addr) -> str:
-    """Convert address bytes to string."""
+    """Convert address bytes to a colon-separated string.
+
+    Args:
+        addr (bytes): The device address bytes.
+
+    Returns:
+        str: The formatted address string.
+    """
     return ":".join("{:02X}".format(b) for b in addr)
 
 
 def bluetooth_callback(event, data):
-    """Bluetooth callback for scan and connection events"""
+    """Handle Bluetooth scan and connection events.
+
+    Args:
+        event (int): Bluetooth event code.
+        data (tuple): Event payload.
+    """
     global _state, _selected_device
 
     if event == 5:  # _IRQ_SCAN_RESULT
@@ -68,7 +80,14 @@ def bluetooth_callback(event, data):
 
 
 def start(view_manager) -> bool:
-    """Start the pairing app"""
+    """Start the pairing app and begin scanning for devices.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if the app started, False on failure.
+    """
     from picoware.gui.menu import Menu
     from picoware.gui.loading import Loading
     from picoware.system.bluetooth import Bluetooth
@@ -117,7 +136,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the pairing app"""
+    """Run the pairing app and handle input.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from picoware.system.buttons import (
         BUTTON_BACK,
         BUTTON_UP,
@@ -259,7 +282,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the pairing app"""
+    """Stop the pairing app and clean up.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from gc import collect
 
     global _bluetooth, _menu, _loading, _scanned_devices, _selected_device, _state, _addresses

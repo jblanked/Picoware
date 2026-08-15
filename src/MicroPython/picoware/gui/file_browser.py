@@ -1,3 +1,5 @@
+"""FileBrowser - Browse and select files."""
+
 from micropython import const
 
 FILE_BROWSER_VIEWER = const(0)
@@ -6,9 +8,7 @@ FILE_BROWSER_SELECTOR = const(2)
 
 
 class FileBrowser:
-    """
-    Class to handle file browsing, text editing, and image viewing within Picoware.
-    """
+    """Class to handle file browsing, text editing, and image viewing within Picoware."""
 
     TEXT_EDITABLE_EXTENSIONS = (
         "txt",
@@ -70,7 +70,14 @@ class FileBrowser:
         start_directory="",
         allowed_extensions=[],
     ):
-        """Initialize the file browser."""
+        """Initialize the file browser.
+
+        Args:
+            view_manager (ViewManager): The view manager context.
+            mode (int): The browser mode. Defaults to FILE_BROWSER_SELECTOR.
+            start_directory (str): The starting directory path. Defaults to "".
+            allowed_extensions (list): Extensions of files to show. Defaults to [].
+        """
         import json
         from picoware.system.vector import Vector
         from picoware.system.boards import BOARD_ID, BOARD_CARDPUTER
@@ -261,7 +268,14 @@ class FileBrowser:
         }
 
     def __file_edit(self, path) -> bool:
-        """Start editing a text file."""
+        """Start editing a text file.
+
+        Args:
+            path (str): The path to the text file to edit.
+
+        Returns:
+            bool: True if editing started, False otherwise.
+        """
         ext = path.split(".")[-1].lower() if "." in path else ""
         if ext not in self.TEXT_EDITABLE_EXTENSIONS:
             self._vm.alert("Unsupported file format.")
@@ -284,7 +298,11 @@ class FileBrowser:
         return True
 
     def __file_view(self, path) -> None:
-        """View a file (image or text) based on its extension."""
+        """View a file (image or text) based on its extension.
+
+        Args:
+            path (str): The path to the file to view.
+        """
         ext = path.split(".")[-1].lower() if "." in path else ""
         if ext in ("jpg", "jpeg", "bmp"):
             self._is_viewing_image = True
@@ -314,7 +332,14 @@ class FileBrowser:
             self._needs_redraw = True
 
     def __load_directory_contents(self, path):
-        """Load the contents of a directory."""
+        """Load the contents of a directory.
+
+        Args:
+            path (str): The directory path to read.
+
+        Returns:
+            list: The sorted list of entry names.
+        """
         items = []
         show_hid = self._app_state.get("show_hidden", False)
 
@@ -351,7 +376,12 @@ class FileBrowser:
         return [".."] + items if path != "/" else items
 
     def __loading_run(self, title: str, percentage: float) -> None:
-        """Run a loading animation with a title and percentage completion."""
+        """Run a loading animation with a title and percentage completion.
+
+        Args:
+            title (str): The loading message to display.
+            percentage (float): Completion from 0.0 to 1.0.
+        """
         if percentage >= 1.0:
             if self._loading:
                 self._loading.stop()
@@ -370,7 +400,15 @@ class FileBrowser:
         self._loading.animate(swap=True)
 
     def __menu_spawn(self, title: str, items: list):
-        """Helper to construct a pop-up context menu overlaid on the main interface."""
+        """Construct a pop-up context menu overlaid on the main interface.
+
+        Args:
+            title (str): The menu title.
+            items (list): The menu item strings.
+
+        Returns:
+            Menu: The constructed Menu instance.
+        """
         from picoware.gui.menu import Menu
 
         fg = self._vm.foreground_color
@@ -767,7 +805,11 @@ class FileBrowser:
         self._needs_redraw = False
 
     def __save_settings(self) -> bool:
-        """Save user settings."""
+        """Save user settings.
+
+        Returns:
+            bool: True on success, False on failure.
+        """
         import json
 
         try:
@@ -794,7 +836,14 @@ class FileBrowser:
             return False
 
     def __sx(self, value: int) -> int:
-        """Scale a width/X coordinate."""
+        """Scale a width/X coordinate.
+
+        Args:
+            value (int): The unscaled value.
+
+        Returns:
+            int: The scaled value.
+        """
         if value == 0:
             return 0
         scaled = ((value) * self._screen_w) // 320
@@ -803,7 +852,14 @@ class FileBrowser:
         return -scaled if value < 0 else scaled
 
     def __sy(self, value: int) -> int:
-        """Scale a height/Y coordinate."""
+        """Scale a height/Y coordinate.
+
+        Args:
+            value (int): The unscaled value.
+
+        Returns:
+            int: The scaled value.
+        """
         if value == 0:
             return 0
         scaled = ((value) * self._screen_h) // 320
@@ -812,8 +868,8 @@ class FileBrowser:
         return -scaled if value < 0 else scaled
 
     def run(self) -> bool:
-        """
-        Run the app
+        """Run the app.
+
         Returns:
             bool: True to continue running, False to exit the app.
         """
@@ -1423,13 +1479,24 @@ class FileBrowser:
                     elif ac == "Edit":
                         self.__file_edit(self._context_target_path)
                     elif ac == "Run":
-                        from picoware.system.js import JS
-                        mjs = JS()
-                        result = mjs.exec(self._context_target_path)
-                        if result:
-                            self._vm.log(f'JS Result: {result}', -1)
-                        del mjs
-                        mjs = None
+                        if self._context_target_path.endswith("js"):
+                            from picoware.system.js import JS
+                            mjs = JS()
+                            result = mjs.exec(self._context_target_path)
+                            if result:
+                                self._vm.log(f'JS Result: {result}', -1)
+                            del mjs
+                            mjs = None
+                        else: # basic
+                            from picoware.system.mmbasic import MMBasic
+                            bs = MMBasic(self._vm)
+                            bs.start(path=self._context_target_path)
+                            inp = self._vm.input_manager
+                            inp.reset()
+                            while bs.run():
+                                pass
+                            del bs
+                            bs = None
                     elif ac == "Delete":
                         self._pending_action = self.ACT_DELETE
                         mk = self._app_state["marked"]
@@ -1659,7 +1726,7 @@ class FileBrowser:
                                 items = ["Flash"]
                             elif np.lower().endswith((".wav", ".mp3")):
                                 items = ["Play Audio"]
-                            elif np.lower().endswith(".js"):
+                            elif np.lower().endswith((".js", ".mjs", ".bas")):
                                 items = ["Run", "View", "Edit"]
                             else:
                                 is_img = np.lower().endswith((".jpg", ".jpeg", ".bmp"))

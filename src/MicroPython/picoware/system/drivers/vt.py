@@ -1,3 +1,5 @@
+"""vt - Virtual terminal driver."""
+
 # modified from https://github.com/zenodante/PicoCalc-micropython-driver/blob/main/pico_files/modules/vt.py
 # adapted for Picoware system
 
@@ -10,16 +12,20 @@ except ImportError:
     import io as uio
     from supervisor import ticks_ms
 
-
-from picoware.system.vector import Vector
 from picoware.system import buttons
 from picoware.system import colors
 import vt as vt_c
 
 
 class vt(uio.IOBase):
+    """A virtual terminal that renders text output to the display."""
 
     def __init__(self, view_manager):  # ctrl+U for screen capture
+        """Initialize the virtual terminal for a view manager.
+
+        Args:
+            view_manager (ViewManager): The view manager for draw and input access.
+        """
         self.view_manager = view_manager
         self.draw = view_manager.draw
         self.input_manager = view_manager.input_manager
@@ -55,10 +61,6 @@ class vt(uio.IOBase):
         self.scroll_top = 0
         self.scroll_bottom = self.screen_height - 1
         self.input_enabled = False  # Start with input disabled
-
-        self.pos_vector = Vector(0, 0)
-        self.char_vec = Vector(self.char_width, 2)
-        self.cursor_pos = Vector(0, 0)
 
         # Direct keyword → TFT color map for C module syntax highlighting
         # (skips ANSI escape code intermediate step entirely)
@@ -100,6 +102,7 @@ class vt(uio.IOBase):
         self._comment_color = colors.TFT_YELLOW
 
     def dryBuffer(self):
+        """Clear the output buffer and enable input."""
         self.outputBuffer = deque((), 30)
         # Enable input when buffer is dried (editor is starting)
         self.input_enabled = True
@@ -115,7 +118,11 @@ class vt(uio.IOBase):
             self.terminal_buffer[self.screen_height - 1][x] = " "
 
     def _print_char(self, char_code):
-        """Print a character to the terminal"""
+        """Print a character to the terminal buffer.
+
+        Args:
+            char_code (int): The character code to print.
+        """
         self._needs_render = True
 
         if char_code == 10:  # newline
@@ -144,7 +151,11 @@ class vt(uio.IOBase):
                         self.cursor_y = self.screen_height - 1
 
     def _handle_escape_sequence(self, sequence):
-        """Handle ANSI/VT100 escape sequences"""
+        """Handle an ANSI/VT100 escape sequence.
+
+        Args:
+            sequence (str): The escape sequence to handle.
+        """
         self._needs_render = True
 
         if sequence.startswith("\x1b["):
@@ -217,7 +228,14 @@ class vt(uio.IOBase):
                 pass
 
     def wr(self, text_input):
-        """Write text, handling ANSI escape sequences"""
+        """Write text to the terminal, handling ANSI escape sequences.
+
+        Args:
+            text_input (str): The text to write.
+
+        Returns:
+            int: The number of characters written.
+        """
         i = 0
         while i < len(text_input):
             if text_input[i] == "\x1b":  # ESC character
@@ -281,8 +299,8 @@ class vt(uio.IOBase):
             self.cursor_visible,
             self.cursor_x * self.char_width,
             self.cursor_y * self.char_height,
-            self.char_vec.x,
-            self.char_vec.y,
+            self.char_width,
+            2,
             self.draw.foreground,
             self._syntax_map,
             self._string_color,
@@ -311,10 +329,22 @@ class vt(uio.IOBase):
                 self._last_render_time = current_time
 
     def get_screen_size(self):
+        """Return the terminal dimensions.
+
+        Returns:
+            list: The screen height and width.
+        """
         return [self.screen_height, self.screen_width]
 
     def _convert_key_to_terminal(self, key):
-        """Convert Picoware button codes to terminal escape sequences"""
+        """Convert a Picoware button code to a terminal escape sequence.
+
+        Args:
+            key (int): The button code.
+
+        Returns:
+            bytes or None: The terminal sequence, or None if unmapped.
+        """
         # Handle regular character keys
         if buttons.BUTTON_A <= key <= buttons.BUTTON_Z:
             char_code = ord("a") + (key - buttons.BUTTON_A)
@@ -378,6 +408,7 @@ class vt(uio.IOBase):
         return button_map.get(key, None)
 
     def _updateInternalBuffer(self):
+        """Poll input and fill the output buffer with terminal sequences."""
         # Only process input if enabled
         if not self.input_enabled:
             return
@@ -394,6 +425,11 @@ class vt(uio.IOBase):
                 self.outputBuffer.extend(terminal_seq)
 
     def rd(self):
+        """Read one character from the terminal input buffer.
+
+        Returns:
+            str: The next buffered character.
+        """
         # Handle any pending renders before reading input
         self.update()
 
@@ -403,4 +439,9 @@ class vt(uio.IOBase):
         return chr(self.outputBuffer.popleft())
 
     def rd_raw(self):
+        """Read one raw character from the terminal input buffer.
+
+        Returns:
+            str: The next buffered character.
+        """
         return self.rd()

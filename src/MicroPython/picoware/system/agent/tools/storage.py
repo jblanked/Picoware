@@ -1,27 +1,74 @@
+"""Storage tools for the agent."""
+
 from picoware.system.agent.tools.tool import Tool, Parameters, Property
 
 def storage_listdir(view_manager, dir_path) ->list[str]:
-    """List the contents of a directory on the SD card."""
+    """List the contents of a directory on the SD card.
+
+    Args:
+        view_manager (ViewManager): The view manager for storage access.
+        dir_path (str): The directory path.
+
+    Returns:
+        list[str]: A list of filenames.
+    """
     storage = view_manager.storage
     return storage.listdir(dir_path)
 
 def storage_mkdir(view_manager, dir_path) -> bool:
-    """Create a directory on the SD card."""
+    """Create a directory on the SD card.
+
+    Args:
+        view_manager (ViewManager): The view manager for storage access.
+        dir_path (str): The directory path to create.
+
+    Returns:
+        bool: True on success.
+    """
     storage = view_manager.storage
     return storage.mkdir(dir_path)
 
 def storage_read(view_manager, file_path, mode: str = "r", index: int = 0, count: int = 0):
-    """Read the contents of a file from the SD card."""
+    """Read the contents of a file from the SD card.
+
+    Args:
+        view_manager (ViewManager): The view manager for storage access.
+        file_path (str): The file path.
+        mode (str): The read mode. Defaults to "r".
+        index (int): The byte index to start from. Defaults to 0.
+        count (int): The number of bytes to read. Defaults to 0.
+
+    Returns:
+        str or bytes: The file contents.
+    """
     storage = view_manager.storage
     return storage.read(file_path, mode, index, count)
 
 def storage_remove(view_manager, file_path) -> bool:
-    """Remove a file or directory from the SD card."""
+    """Remove a file or directory from the SD card.
+
+    Args:
+        view_manager (ViewManager): The view manager for storage access.
+        file_path (str): The path to remove.
+
+    Returns:
+        bool: True on success.
+    """
     storage = view_manager.storage
     return storage.remove(file_path)
 
 def storage_write(view_manager, file_path, data, mode: str = "w") -> bool:
-    """Write data to a file on the SD card."""
+    """Write data to a file on the SD card.
+
+    Args:
+        view_manager (ViewManager): The view manager for storage access.
+        file_path (str): The file path.
+        data (str or bytes): The data to write.
+        mode (str): The write mode. Defaults to "w".
+
+    Returns:
+        bool: True on success.
+    """
     storage = view_manager.storage
     return storage.write(file_path, data, mode)
 

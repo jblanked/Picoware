@@ -1,10 +1,14 @@
-from picoware.applications.wifi.utils import connect_to_saved_wifi
-
+"""Desktop - Animated desktop home screen."""
 
 class PicowareAnimation:
     """Class to draw "Picoware" animation"""
 
     def __init__(self, draw):
+        """Initialize the Picoware animation.
+
+        Args:
+            draw (Draw): The drawing context.
+        """
         from picoware.system.boards import BOARD_FLIPPER_ZERO, BOARD_ID
         self.display = draw
         self.letter_states = []
@@ -22,6 +26,7 @@ class PicowareAnimation:
         self._initialize_letter_animation()
 
     def __del__(self):
+        """Clean up the letter animation state."""
         del self.letter_states
         self.letter_states = None
 
@@ -162,7 +167,14 @@ _desktop_update_available = False
 
 
 def start(view_manager) -> bool:
-    """Start the loading animation."""
+    """Start the loading animation.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True on success.
+    """
     from picoware.gui.desktop import Desktop
 
     global _desktop, _desktop_picoware, _has_wifi, _desktop_request_cancelled, _desktop_update_fetched, _desktop_update_parsed, _desktop_update_available
@@ -183,6 +195,8 @@ def start(view_manager) -> bool:
 
     _has_wifi = True
 
+    from picoware.applications.wifi.utils import connect_to_saved_wifi
+
     connect_to_saved_wifi(view_manager)
 
     _time = view_manager.time
@@ -201,7 +215,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Animate the loading spinner."""
+    """Animate the loading spinner.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from picoware.system.buttons import BUTTON_LEFT, BUTTON_CENTER, BUTTON_UP
 
     global _desktop_time_updated, _desktop_update_fetched, _desktop_update_parsed, _desktop_http, _desktop_update_available
@@ -225,7 +243,7 @@ def run(view_manager) -> None:
         view_manager.switch_to("library")
         return
 
-    battery_level: int = view_manager.input_manager.battery
+    battery_level: int = view_manager.battery.percentage
     _desktop.set_battery(battery_level)
 
     # Clear and draw header
@@ -246,6 +264,8 @@ def run(view_manager) -> None:
     _time = view_manager.time
     if not is_connected:
         if wifi.state in (0, 4):  # WIFI_STATE_IDLE, WIFI_STATE_TIMEOUT
+            from picoware.applications.wifi.utils import connect_to_saved_wifi
+
             connect_to_saved_wifi(view_manager)
     else:
         if _desktop_time_updated:
@@ -325,7 +345,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the loading animation."""
+    """Stop the loading animation.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from gc import collect
 
     global _desktop

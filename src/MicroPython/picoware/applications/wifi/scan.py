@@ -1,3 +1,5 @@
+"""WiFi Scanner - Scan for nearby WiFi networks."""
+
 from picoware.system.buttons import (
     BUTTON_BACK,
     BUTTON_UP,
@@ -11,7 +13,14 @@ _scan = None
 
 
 def __save_ssid(view_manager) -> bool:
-    """Save the selected SSID"""
+    """Save the selected SSID.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if the SSID was saved, False otherwise.
+    """
     global _scan
 
     if _scan is None:
@@ -29,7 +38,14 @@ def __save_ssid(view_manager) -> bool:
 
 
 def __should_save_choice(view_manager) -> bool:
-    """Choose whether to save the selected SSID"""
+    """Choose whether to save the selected SSID.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if the user chose to save, False otherwise.
+    """
     from picoware.gui.choice import Choice
     from picoware.system.vector import Vector
 
@@ -79,7 +95,11 @@ def __should_save_choice(view_manager) -> bool:
 
 
 def __switch_to_password_view(view_manager) -> None:
-    """Switch to password view"""
+    """Switch to the password view.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from picoware.applications.wifi import password
     from picoware.system.view import View
 
@@ -95,7 +115,14 @@ def __switch_to_password_view(view_manager) -> None:
 
 
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app and scan for networks.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if the app started, False if WiFi is unavailable.
+    """
     from picoware.gui.menu import Menu
 
     global _scan
@@ -137,7 +164,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app"""
+    """Run the app and handle menu input.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     if not _scan:
         return
 
@@ -158,7 +189,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app and clean up.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from gc import collect
 
     global _scan

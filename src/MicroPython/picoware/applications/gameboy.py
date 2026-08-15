@@ -1,4 +1,7 @@
+"""Game Boy - Emulator for Game Boy ROMs."""
+
 from micropython import const
+from picoware.system.decorator import storage_required, psram_required
 
 STATE_BROWSER = const(0)
 STATE_PLAYING = const(1)
@@ -8,25 +11,34 @@ gb = None
 _file_browser = None
 
 
+@storage_required
+@psram_required
 def start(view_manager) -> bool:
-    """Start the app"""
-    if not view_manager.has_psram:
-        view_manager.alert("PSRAM not available...")
-        return False
+    """Start the app.
 
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True on success.
+    """
     # first show info screen about connection
     d = view_manager.draw
     fg = view_manager.foreground_color
     d.erase()
-    d._text(0, 0, "GameBoy Emulator (PSRAM, 60 FPS)", fg)
-    d._text(0, 20, "Up arrow is the Up key", fg)
-    d._text(0, 40, "Down arrow is the Down key", fg)
-    d._text(0, 60, "Left arrow is the Left key", fg)
-    d._text(0, 80, "Right arrow is the Right key", fg)
-    d._text(0, 100, "Right bracket is the A key", fg)
-    d._text(0, 120, "Left bracket is the B key", fg)
-    d._text(0, 140, "Equal sign is the Start key", fg)
-    d._text(0, 160, "Minus sign is the Select key", fg)
+    _text = """GameBoy Emulator (PSRAM, 60 FPS)
+Controls:
+Up arrow is the Up key
+Down arrow is the Down key
+Left arrow is the Left key
+Right arrow is the Right key
+Right bracket is the A key
+Left bracket is the B key
+Equal sign is the Start key
+Minus sign is the Select key
+
+    """
+    d._text(0, 0, _text, fg)
     d.swap()
 
     inp = view_manager.input_manager
@@ -38,8 +50,6 @@ def start(view_manager) -> bool:
             if but == 5:  # back
                 return False
             break
-
-    view_manager.freq(True)  # set to lower frequency
 
     from picoware.gui.file_browser import FileBrowser
     from picoware.system.gameboy import GameBoy
@@ -55,7 +65,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app"""
+    """Run the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     global gb, _file_browser, _state
 
     button = view_manager.button
@@ -106,7 +120,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from gc import collect
 
     global gb, _file_browser, _state
@@ -121,7 +139,5 @@ def stop(view_manager) -> None:
         gb = None
 
     _state = STATE_BROWSER
-
-    view_manager.freq()  # set back to higher frequency
 
     collect()

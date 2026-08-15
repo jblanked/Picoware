@@ -1,16 +1,18 @@
+"""Alert - Simple alert dialog."""
+
 class Alert:
     """A simple alert dialog class for displaying messages to the user."""
 
     def __init__(
         self, draw, text: str, text_color: int = 0xFFFF, background_color: int = 0x0000
     ):
-        """
-        Initialize the Alert with drawing context and styling.
+        """Initialize the Alert with drawing context and styling.
 
-        :param draw: The drawing context to render the alert.
-        :param text: The message to display in the alert.
-        :param text_color: The color of the text.
-        :param background_color: The background color of the alert.
+        Args:
+            draw (Draw): The drawing context to render the alert.
+            text (str): The message to display in the alert.
+            text_color (int): The color of the text. Defaults to 0xFFFF.
+            background_color (int): The background color of the alert. Defaults to 0x0000.
         """
         from picoware.system.system import System
 
@@ -32,7 +34,15 @@ class Alert:
                 init()
 
                 class LVGLAlertWrapper(LVGLAlert):
+                    """Wrapper that forwards text assignment to LVGL."""
+
                     def __setattr__(self, name, value):
+                        """Forward text assignment to the LVGL alert.
+
+                        Args:
+                            name (str): The attribute name.
+                            value: The attribute value.
+                        """
                         if name == "text":
                             self.set_text(value)
                         else:
@@ -44,6 +54,7 @@ class Alert:
                 self.use_lvgl = False
 
     def __del__(self):
+        """Clean up resources and deinitialize LVGL."""
         if self._lvgl_alert is not None:
             from picoware_lvgl import deinit
 
@@ -63,7 +74,11 @@ class Alert:
 
     @text.setter
     def text(self, value: str) -> None:
-        """Set the alert text."""
+        """Set the alert text.
+
+        Args:
+            value (str): The new alert text.
+        """
         self._text = value
         if self._lvgl_alert is not None:
             self._lvgl_alert.text = value
@@ -80,7 +95,11 @@ class Alert:
         self.display.swap()
 
     def draw(self, title: str) -> None:
-        """Render the alert message on the display."""
+        """Render the alert message on the display.
+
+        Args:
+            title (str): The title text to display at the top.
+        """
         if self.use_lvgl and self._lvgl_alert is not None:
             from picoware_lvgl import tick, task_handler
 

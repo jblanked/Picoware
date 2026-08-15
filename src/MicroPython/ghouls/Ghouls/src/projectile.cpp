@@ -89,7 +89,7 @@ void Projectile::collision(Entity *other, Game *game)
             GhoulsGame *ghoulsGame = player->getGhoulsGame();
             if (ghoulsGame && otherHasDied)
             {
-                ghoulsGame->onGhoulDied();
+                ghoulsGame->onGhoulDied(other->name);
             }
         }
 

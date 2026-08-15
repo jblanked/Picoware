@@ -1,3 +1,5 @@
+"""Device Manager - Agent mode that manages files and runs commands."""
+
 from micropython import const
 
 PROMPT = const(b"""

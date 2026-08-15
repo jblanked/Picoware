@@ -1,9 +1,10 @@
+"""Audio - Sound output for Picoware."""
+
 import audio
 
 
 class Audio(audio.Audio):
-    """
-    Class to handle audio output (no args)
+    """Handle audio output on the device.
 
     Constants:
         HIGH_BEEP, LOW_BEEP,
@@ -25,6 +26,12 @@ class Audio(audio.Audio):
     """
 
     def __setattr__(self, name, value):
+        """Set an audio attribute, routing volume to the setter.
+
+        Args:
+            name (str): Attribute name to set.
+            value (object): New value for the attribute.
+        """
         if name == "volume":
             self.set_volume(value)
         else:
@@ -32,16 +39,21 @@ class Audio(audio.Audio):
 
 
 class AudioNote(audio.AudioNote):
-    """
-    Class to represent a musical note
+    """Represent a musical note.
 
     Args:
-        - left_frequency: Frequency for the left channel in Hz
-        - right_frequency: Frequency for the right channel in Hz
-        - duration_ms: Duration of the note in milliseconds
+        left_frequency (int): Frequency for the left channel in Hz.
+        right_frequency (int): Frequency for the right channel in Hz.
+        duration_ms (int): Duration of the note in milliseconds.
     """
 
     def __setattr__(self, name, value):
+        """Set a note attribute, routing to the matching setter.
+
+        Args:
+            name (str): Attribute name to set.
+            value (object): New value for the attribute.
+        """
         if name == "left_frequency":
             self.set_left_frequency(value)
         elif name == "right_frequency":
@@ -53,22 +65,20 @@ class AudioNote(audio.AudioNote):
 
 
 class AudioSong(audio.AudioSong):
-    """
-    Class to represent a musical song
+    """Represent a musical song.
 
     Args:
-        - name: Name of the song
-        - notes: Tuple of AudioNote objects representing the notes in the song
-        - description: Optional description of the song
+        name (str): Name of the song.
+        notes (tuple): Tuple of AudioNote objects in the song.
+        description (str): Optional description of the song.
     """
 
 class AudioInfo(audio.AudioInfo):
-    """
-    Class to represent audio information
+    """Represent audio information.
 
     Attributes:
-        - sample_rate: Sample rate of the audio in Hz
-        - channels: Number of audio channels
-        - duration: Duration of the audio in milliseconds
-        - position: Current playback position in milliseconds
+        - sample_rate (int): Sample rate of the audio in Hz.
+        - channels (int): Number of audio channels.
+        - duration (int): Duration of the audio in milliseconds.
+        - position (int): Current playback position in milliseconds.
     """

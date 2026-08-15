@@ -1,6 +1,8 @@
+"""DatePicker - Date and time selection widget."""
+
 class DatePicker:
-    """
-    A GUI component for selecting and rendering a date and time.
+    """A GUI component for selecting and rendering a date and time.
+
     Two-band layout:
       Top band:    Month | Day  | Year
       Bottom band: Hour  | Min  | Sec
@@ -25,14 +27,13 @@ class DatePicker:
     _DAYS_IN_MONTH = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
 
     def __init__(self, view_manager, position, size, time: tuple = None):
-        """
-        Initialize the date picker with a reference to the view manager, position, size, and optional initial time.
+        """Initialize the date picker with position, size, and optional initial time.
 
         Args:
-            - view_manager: View Manager context
-            - position: Vector with position coordinates
-            - size: Vector with size dimensions
-            - time: Optional tuple representing the initial date and time (year, month, day of month, weekday, hour, minute, second, subseconds)
+            view_manager (ViewManager): View Manager context.
+            position (Vector): Vector with position coordinates.
+            size (Vector): Vector with size dimensions.
+            time (tuple): Optional initial date and time (year, month, day of month, weekday, hour, minute, second, subseconds). Defaults to None.
         """
         self._view_manager = view_manager
         self._position = position
@@ -72,7 +73,25 @@ class DatePicker:
         lbl_cw,
         val_font,
     ) -> None:
-        """Draw a single 3-column drum-roll band."""
+        """Draw a single 3-column drum-roll band.
+
+        Args:
+            draw (Draw): Drawing context.
+            fg (int): Foreground color.
+            bg (int): Background color.
+            sel (int): Selected column highlight color.
+            band_y (int): Top Y position of the band.
+            band_h (int): Height of the band.
+            col_w (int): Width of each column.
+            start_x (int): Left X position of the band.
+            labels (tuple): Field labels for the three columns.
+            values (tuple): Display strings for the three columns.
+            active_col (int): Index of the active column, or -1.
+            val_h (int): Value text height.
+            lbl_h (int): Label text height.
+            lbl_cw (int): Label character width.
+            val_font (int): Font size for the values.
+        """
         w = col_w * 3
         center_y = band_y + band_h // 2
         sel_pad = draw.scale_y(4)
@@ -205,15 +224,23 @@ class DatePicker:
         self._needs_redraw = False
 
     def __max_day(self, month: int) -> int:
-        """Return the number of days in the given month (1-indexed)."""
+        """Return the number of days in the given month (1-indexed).
+
+        Args:
+            month (int): The month number, 1 to 12.
+
+        Returns:
+            int: The number of days in the month.
+        """
         if 1 <= month <= 12:
             return self._DAYS_IN_MONTH[month - 1]
         return 31
 
     def run(self) -> bool:
-        """
-        Run one iteration of the date picker event loop.
-        Returns True to keep running, False when the user is done.
+        """Run one iteration of the date picker event loop.
+
+        Returns:
+            bool: True to keep running, False when the user is done.
         """
         from picoware.system.buttons import (
             BUTTON_BACK,

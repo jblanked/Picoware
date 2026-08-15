@@ -1,3 +1,5 @@
+"""HTTP - HTTP client for Picoware."""
+
 from json import dumps
 from micropython import const
 import tls
@@ -10,12 +12,27 @@ except ImportError:
     import socket as usocket
 
     def sleep_ms(ms):
+        """Sleep for a given number of milliseconds.
+
+        Args:
+            ms (int or float): Milliseconds to sleep.
+        """
         sleep(ms / 1000)
 
     def ticks_ms():
+        """Return the current time in milliseconds."""
         return int(time() * 1000)
 
     def ticks_diff(a, b):
+        """Return the difference between two tick values.
+
+        Args:
+            a (int): First tick value.
+            b (int): Second tick value.
+
+        Returns:
+            int: The difference in milliseconds.
+        """
         return a - b
 
 
@@ -49,7 +66,12 @@ class HTTP:
     ]
 
     def __init__(self, chunk_size: int = (1024 * 4), thread_manager=None) -> None:
-        """Initialize the HTTP class."""
+        """Initialize the HTTP class.
+
+        Args:
+            chunk_size (int): Transfer chunk size in bytes. Defaults to 4096.
+            thread_manager (ThreadManager): Manager for threaded requests. Defaults to None.
+        """
         self._lock = None
         try:
             from _thread import allocate_lock
@@ -89,13 +111,15 @@ class HTTP:
 
     @callback.setter
     def callback(self, value: callable):
-        """
-        Set the async callback function.
+        """Set the async callback function.
 
-        The callback function should accept three parameters:
-            - response: The Response object or None if there was an error
-            - state: The current HTTP state (HTTP_IDLE, HTTP_LOADING, HTTP_ISSUE)
-            - error: The error message if any, otherwise None
+        The callback receives (response, state, error):
+        - response: The Response object or None if there was an error
+        - state: The current HTTP state (HTTP_IDLE, HTTP_LOADING, HTTP_ISSUE)
+        - error: The error message if any, otherwise None
+
+        Args:
+            value (callable): The callback function to set.
         """
         if self._lock is None:
             return
@@ -175,7 +199,14 @@ class HTTP:
             return self._state
     
     def _is_instance(self, obj) -> bool:
-        """Check if the object is an instance of str or bytes."""
+        """Check if the object is an instance of str or bytes.
+
+        Args:
+            obj (object): The object to check.
+
+        Returns:
+            bool: True if the object is a str or bytes instance.
+        """
         if obj is None:
             return False
         return isinstance(obj, (str, bytes))
@@ -190,7 +221,11 @@ class HTTP:
             return self._running
 
     def _update_speed(self, bytes_downloaded: int) -> None:
-        """Update the download speed based on bytes downloaded and elapsed time."""
+        """Update the download speed based on bytes downloaded and elapsed time.
+
+        Args:
+            bytes_downloaded (int): Number of bytes downloaded since the last update.
+        """
         if self._lock is None:
             return
         with self._lock:
@@ -230,14 +265,17 @@ class HTTP:
     def delete(
         self, url, headers=None, timeout: float = 10.0, save_to_file=None, storage=None
     ) -> Response:
-        """Sends a DELETE request and returns a Response object.
+        """Send a DELETE request and return a Response object.
 
         Args:
-            url: URL to request
-            headers: HTTP headers dict
-            timeout: Request timeout in seconds
-            save_to_file: File path to save response data to (requires storage)
-            storage: Storage object for file operations
+            url (str): URL to request.
+            headers (dict): HTTP headers dict. Defaults to None.
+            timeout (float): Request timeout in seconds. Defaults to 10.0.
+            save_to_file (str): File path to save response data to (requires storage). Defaults to None.
+            storage (Storage): Storage object for file operations. Defaults to None.
+
+        Returns:
+            Response: The HTTP response.
         """
         return self.request(
             "DELETE", url, headers=headers,timeout=timeout, save_to_file=save_to_file, storage=storage
@@ -246,14 +284,17 @@ class HTTP:
     def delete_async(
         self, url, headers=None, timeout: float = 10.0, save_to_file=None, storage=None
     ) -> bool:
-        """Sends an async DELETE request.
+        """Send an async DELETE request.
 
         Args:
-            url: URL to request
-            headers: HTTP headers dict
-            timeout: Request timeout in seconds
-            save_to_file: File path to save response data to (requires storage)
-            storage: Storage object for file operations
+            url (str): URL to request.
+            headers (dict): HTTP headers dict. Defaults to None.
+            timeout (float): Request timeout in seconds. Defaults to 10.0.
+            save_to_file (str): File path to save response data to (requires storage). Defaults to None.
+            storage (Storage): Storage object for file operations. Defaults to None.
+
+        Returns:
+            bool: True if the request was started.
         """
         return self.request_async(
             "DELETE",
@@ -267,14 +308,17 @@ class HTTP:
     def get(
         self, url, headers=None, timeout: float = 10.0, save_to_file=None, storage=None
     ) -> Response:
-        """Sends a GET request and returns a Response object.
+        """Send a GET request and return a Response object.
 
         Args:
-            url: URL to request
-            headers: HTTP headers dict
-            timeout: Request timeout in seconds
-            save_to_file: File path to save response data to (requires storage)
-            storage: Storage object for file operations
+            url (str): URL to request.
+            headers (dict): HTTP headers dict. Defaults to None.
+            timeout (float): Request timeout in seconds. Defaults to 10.0.
+            save_to_file (str): File path to save response data to (requires storage). Defaults to None.
+            storage (Storage): Storage object for file operations. Defaults to None.
+
+        Returns:
+            Response: The HTTP response.
         """
         return self.request(
             "GET", url=url, headers=headers,timeout=timeout, save_to_file=save_to_file, storage=storage
@@ -286,11 +330,14 @@ class HTTP:
         """Send an async GET request.
 
         Args:
-            url: URL to request
-            headers: HTTP headers dict
-            timeout: Request timeout in seconds
-            save_to_file: File path to save response data to (requires storage)
-            storage: Storage object for file operations
+            url (str): URL to request.
+            headers (dict): HTTP headers dict. Defaults to None.
+            timeout (float): Request timeout in seconds. Defaults to 10.0.
+            save_to_file (str): File path to save response data to (requires storage). Defaults to None.
+            storage (Storage): Storage object for file operations. Defaults to None.
+
+        Returns:
+            bool: True if the request was started.
         """
         return self.request_async(
             "GET",
@@ -311,16 +358,19 @@ class HTTP:
         storage=None,
         send_file=None,
     ) -> Response:
-        """Sends a HEAD request and returns a Response object.
+        """Send a HEAD request and return a Response object.
 
         Args:
-            url: URL to request
-            payload: Request payload (can be str, bytes, or dict)
-            headers: HTTP headers dict
-            timeout: Request timeout in seconds
-            save_to_file: File path to save response data to (requires storage)
-            storage: Storage object for file operations
-            send_file: File path to send as request body (requires storage)
+            url (str): URL to request.
+            payload (str, bytes, or dict): Request payload.
+            headers (dict): HTTP headers dict. Defaults to None.
+            timeout (float): Request timeout in seconds. Defaults to 10.0.
+            save_to_file (str): File path to save response data to (requires storage). Defaults to None.
+            storage (Storage): Storage object for file operations. Defaults to None.
+            send_file (str): File path to send as request body (requires storage). Defaults to None.
+
+        Returns:
+            Response: The HTTP response.
         """
         from ujson import dumps
 
@@ -353,13 +403,16 @@ class HTTP:
         """Send an async HEAD request.
 
         Args:
-            url: URL to request
-            payload: Request payload (can be str, bytes, or dict)
-            headers: HTTP headers dict
-            timeout: Request timeout in seconds
-            save_to_file: File path to save response data to (requires storage)
-            storage: Storage object for file operations
-            send_file: File path to send as request body (requires storage)
+            url (str): URL to request.
+            payload (str, bytes, or dict): Request payload.
+            headers (dict): HTTP headers dict. Defaults to None.
+            timeout (float): Request timeout in seconds. Defaults to 10.0.
+            save_to_file (str): File path to save response data to (requires storage). Defaults to None.
+            storage (Storage): Storage object for file operations. Defaults to None.
+            send_file (str): File path to send as request body (requires storage). Defaults to None.
+
+        Returns:
+            bool: True if the request was started.
         """
         return self.request_async(
             "HEAD",
@@ -387,16 +440,19 @@ class HTTP:
         storage=None,
         send_file=None,
     ) -> Response:
-        """Sends a PATCH request and returns a Response object.
+        """Send a PATCH request and return a Response object.
 
         Args:
-            url: URL to request
-            payload: Request payload (can be str, bytes, or dict)
-            headers: HTTP headers dict
-            timeout: Request timeout in seconds
-            save_to_file: File path to save response data to (requires storage)
-            storage: Storage object for file operations
-            send_file: File path to send as request body (requires storage)
+            url (str): URL to request.
+            payload (str, bytes, or dict): Request payload.
+            headers (dict): HTTP headers dict. Defaults to None.
+            timeout (float): Request timeout in seconds. Defaults to 10.0.
+            save_to_file (str): File path to save response data to (requires storage). Defaults to None.
+            storage (Storage): Storage object for file operations. Defaults to None.
+            send_file (str): File path to send as request body (requires storage). Defaults to None.
+
+        Returns:
+            Response: The HTTP response.
         """
         from ujson import dumps
 
@@ -430,13 +486,16 @@ class HTTP:
         """Send an async PATCH request.
 
         Args:
-            url: URL to request
-            payload: Request payload (can be str, bytes, or dict)
-            headers: HTTP headers dict
-            timeout: Request timeout in seconds
-            save_to_file: File path to save response data to (requires storage)
-            storage: Storage object for file operations
-            send_file: File path to send as request body (requires storage)
+            url (str): URL to request.
+            payload (str, bytes, or dict): Request payload.
+            headers (dict): HTTP headers dict. Defaults to None.
+            timeout (float): Request timeout in seconds. Defaults to 10.0.
+            save_to_file (str): File path to save response data to (requires storage). Defaults to None.
+            storage (Storage): Storage object for file operations. Defaults to None.
+            send_file (str): File path to send as request body (requires storage). Defaults to None.
+
+        Returns:
+            bool: True if the request was started.
         """
         return self.request_async(
             "PATCH",
@@ -459,16 +518,19 @@ class HTTP:
         storage=None,
         send_file=None,
     ) -> Response:
-        """Sends a POST request and returns a Response object.
+        """Send a POST request and return a Response object.
 
         Args:
-            url: URL to request
-            payload: Request payload (can be str, bytes, or dict)
-            headers: HTTP headers dict
-            timeout: Request timeout in seconds
-            save_to_file: File path to save response data to (requires storage)
-            storage: Storage object for file operations
-            send_file: File path to send as request body (requires storage)
+            url (str): URL to request.
+            payload (str, bytes, or dict): Request payload.
+            headers (dict): HTTP headers dict. Defaults to None.
+            timeout (float): Request timeout in seconds. Defaults to 10.0.
+            save_to_file (str): File path to save response data to (requires storage). Defaults to None.
+            storage (Storage): Storage object for file operations. Defaults to None.
+            send_file (str): File path to send as request body (requires storage). Defaults to None.
+
+        Returns:
+            Response: The HTTP response.
         """
         from ujson import dumps
 
@@ -503,13 +565,16 @@ class HTTP:
         """Send an async POST request.
 
         Args:
-            url: URL to request
-            payload: Request payload (can be str, bytes, or dict)
-            headers: HTTP headers dict
-            timeout: Request timeout in seconds
-            save_to_file: File path to save response data to (requires storage)
-            storage: Storage object for file operations
-            send_file: File path to send as request body (requires storage)
+            url (str): URL to request.
+            payload (str, bytes, or dict): Request payload.
+            headers (dict): HTTP headers dict. Defaults to None.
+            timeout (float): Request timeout in seconds. Defaults to 10.0.
+            save_to_file (str): File path to save response data to (requires storage). Defaults to None.
+            storage (Storage): Storage object for file operations. Defaults to None.
+            send_file (str): File path to send as request body (requires storage). Defaults to None.
+
+        Returns:
+            bool: True if the request was started.
         """
         return self.request_async(
             "POST",
@@ -532,16 +597,19 @@ class HTTP:
         storage=None,
         send_file=None,
     ) -> Response:
-        """Sends a PUT request and returns a Response object.
+        """Send a PUT request and return a Response object.
 
         Args:
-            url: URL to request
-            payload: Request payload (can be str, bytes, or dict)
-            headers: HTTP headers dict
-            timeout: Request timeout in seconds
-            save_to_file: File path to save response data to (requires storage)
-            storage: Storage object for file operations
-            send_file: File path to send as request body (requires storage)
+            url (str): URL to request.
+            payload (str, bytes, or dict): Request payload.
+            headers (dict): HTTP headers dict. Defaults to None.
+            timeout (float): Request timeout in seconds. Defaults to 10.0.
+            save_to_file (str): File path to save response data to (requires storage). Defaults to None.
+            storage (Storage): Storage object for file operations. Defaults to None.
+            send_file (str): File path to send as request body (requires storage). Defaults to None.
+
+        Returns:
+            Response: The HTTP response.
         """
         from ujson import dumps
 
@@ -575,13 +643,16 @@ class HTTP:
         """Send an async PUT request.
 
         Args:
-            url: URL to request
-            payload: Request payload (can be str, bytes, or dict)
-            headers: HTTP headers dict
-            timeout: Request timeout in seconds
-            save_to_file: File path to save response data to (requires storage)
-            storage: Storage object for file operations
-            send_file: File path to send as request body (requires storage)
+            url (str): URL to request.
+            payload (str, bytes, or dict): Request payload.
+            headers (dict): HTTP headers dict. Defaults to None.
+            timeout (float): Request timeout in seconds. Defaults to 10.0.
+            save_to_file (str): File path to save response data to (requires storage). Defaults to None.
+            storage (Storage): Storage object for file operations. Defaults to None.
+            send_file (str): File path to send as request body (requires storage). Defaults to None.
+
+        Returns:
+            bool: True if the request was started.
         """
         return self.request_async(
             "PUT",
@@ -597,14 +668,17 @@ class HTTP:
     def read_chunked(
         self, s, uart=None, method="GET", save_to_file=None, storage=None
     ) -> bytes:
-        """Read chunked HTTP response.
+        """Read a chunked HTTP response.
 
         Args:
-            s: Socket object
-            uart: UART object for writing output
-            method: HTTP method name
-            save_to_file: File path to save response data to (requires storage)
-            storage: Storage object for file operations
+            s (socket): Socket object.
+            uart (UART): UART object for writing output. Defaults to None.
+            method (str): HTTP method name. Defaults to "GET".
+            save_to_file (str): File path to save response data to (requires storage). Defaults to None.
+            storage (Storage): Storage object for file operations. Defaults to None.
+
+        Returns:
+            bytes: The response body.
         """
         if uart:
             uart.write(f"[{method}/SUCCESS] {method} request successful.\n")
@@ -701,18 +775,21 @@ class HTTP:
         """Make an HTTP request.
 
         Args:
-            method: HTTP method (GET, POST, etc.)
-            url: URL to request
-            data: Request body data
-            json_data: JSON data to send (will be serialized)
-            headers: HTTP headers dict
-            auth: Authentication tuple (username, password)
-            timeout: Request timeout in seconds
-            parse_headers: Whether to parse response headers
-            uart: UART object for streaming output
-            save_to_file: File path to save response data to (requires storage)
-            storage: Storage object for file operations
-            send_file: File path to send as request body (requires storage)
+            method (str): HTTP method (GET, POST, etc.).
+            url (str): URL to request.
+            data (str or bytes): Request body data. Defaults to None.
+            json_data (dict): JSON data to send (will be serialized). Defaults to None.
+            headers (dict): HTTP headers dict. Defaults to None.
+            auth (tuple): Authentication tuple (username, password). Defaults to None.
+            timeout (float): Request timeout in seconds. Defaults to None.
+            parse_headers (bool or callable): Whether to parse response headers. Defaults to True.
+            uart (UART): UART object for streaming output. Defaults to None.
+            save_to_file (str): File path to save response data to (requires storage). Defaults to None.
+            storage (Storage): Storage object for file operations. Defaults to None.
+            send_file (str): File path to send as request body (requires storage). Defaults to None.
+
+        Returns:
+            Response: The HTTP response.
         """
         if self._lock is None:
             return None
@@ -835,7 +912,7 @@ class HTTP:
                     while True:
                         if not self._should_continue():
                             s.close()
-                            break
+                            return
                         bytes_read = storage.file_readinto(file_obj, frame_buffer)
                         if not bytes_read:
                             break
@@ -862,7 +939,7 @@ class HTTP:
             while True:
                 if not self._should_continue():
                     s.close()
-                    break
+                    return
                 l = s.readline()
                 if not l or l == b"\r\n":
                     break
@@ -907,7 +984,7 @@ class HTTP:
                     while content_length > 0:
                         if not self._should_continue():
                             s.close()
-                            break
+                            return
                         chunk_size = min(self._chunk_size, content_length)
                         chunk = s.read(chunk_size)
                         if not chunk:
@@ -940,7 +1017,7 @@ class HTTP:
                     while content_length > 0:
                         if not self._should_continue():
                             s.close()
-                            break
+                            return
                         chunk_size = min(self._chunk_size, content_length)
                         chunk = s.read(chunk_size)
                         if not chunk:
@@ -968,7 +1045,7 @@ class HTTP:
                     while True:
                         if not self._should_continue():
                             s.close()
-                            break
+                            return
                         chunk = s.read(self._chunk_size)
                         if not chunk:
                             break
@@ -991,7 +1068,7 @@ class HTTP:
                     while True:
                         if not self._should_continue():
                             s.close()
-                            break
+                            return
                         chunk = s.read(self._chunk_size)
                         if not chunk:
                             break
@@ -1060,17 +1137,20 @@ class HTTP:
         storage=None,
         send_file=None,
     ) -> bool:
-        """Method to handle async requests.
+        """Handle async requests.
 
         Args:
-            method: HTTP method (GET, POST, etc.)
-            url: URL to request
-            payload: Request payload
-            headers: HTTP headers dict
-            timeout: Request timeout in seconds
-            save_to_file: File path to save response data to (requires storage)
-            storage: Storage object for file operations
-            send_file: File path to send as request payload (requires storage)
+            method (str): HTTP method (GET, POST, etc.).
+            url (str): URL to request.
+            payload (str, bytes, or dict): Request payload. Defaults to None.
+            headers (dict): HTTP headers dict. Defaults to None.
+            timeout (float): Request timeout in seconds. Defaults to 10.0.
+            save_to_file (str): File path to save response data to (requires storage). Defaults to None.
+            storage (Storage): Storage object for file operations. Defaults to None.
+            send_file (str): File path to send as request payload (requires storage). Defaults to None.
+
+        Returns:
+            bool: True if the request was started.
         """
         if self._async_request_in_progress:
             return False  # Request already in progress
@@ -1145,14 +1225,17 @@ class HTTP:
         """Execute the actual HTTP request in a separate thread.
 
         Args:
-            method: HTTP method (GET, POST, etc.)
-            url: URL to request
-            payload: Request payload
-            headers: HTTP headers dict
-            timeout: Request timeout in seconds
-            save_to_file: File path to save response data to (requires storage)
-            storage: Storage object for file operations
-            send_file: File path to send as request payload (requires storage)
+            method (str): HTTP method (GET, POST, etc.).
+            url (str): URL to request.
+            payload (str, bytes, or dict): Request payload.
+            headers (dict): HTTP headers dict. Defaults to None.
+            timeout (float): Request timeout in seconds. Defaults to 10.0.
+            save_to_file (str): File path to save response data to (requires storage). Defaults to None.
+            storage (Storage): Storage object for file operations. Defaults to None.
+            send_file (str): File path to send as request payload (requires storage). Defaults to None.
+
+        Returns:
+            Response: The HTTP response.
         """
         try:
             result = None

@@ -19,7 +19,7 @@ extern "C"
 
     inline bool mp_allocator_ready(void)
     {
-#if !defined(PANCAKE) && !defined(WAVESHARE_2_06)
+#if !defined(PANCAKE) && !defined(WAVESHARE_2_06) && !defined(V8)
         return true;
 #else
     return mp_engine_gc_ready;

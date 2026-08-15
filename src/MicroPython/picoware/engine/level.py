@@ -1,3 +1,5 @@
+"""Level - Game levels with camera settings."""
+
 from micropython import const
 import engine
 
@@ -6,11 +8,15 @@ CAMERA_THIRD_PERSON = const(1)
 
 
 class Level(engine.Level):
-    """
-    Represents a level in the game.
-    """
+    """Represents a level in the game."""
 
     def __setattr__(self, name, value):
+        """Set a level attribute, routing to the matching setter.
+
+        Args:
+            name (str): Attribute name to set.
+            value (object): New value for the attribute.
+        """
         if name == "name":
             self.set_name(value)
         elif name == "size":

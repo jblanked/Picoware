@@ -1,3 +1,5 @@
+"""JPEG - Decode and display JPEG images."""
+
 import jpegdec
 
 
@@ -11,6 +13,14 @@ class JPEG(jpegdec.JPEGDecoder):
         buffer_size: int = 1024 * 8,
         buffer_num: int = 2,
     ):
+        """Initialize the JPEG decoder with display and buffer settings.
+
+        Args:
+            screen_width (int): Maximum display width. Defaults to 320.
+            screen_height (int): Maximum display height. Defaults to 320.
+            buffer_size (int): Size of each decode buffer. Defaults to 1024 * 8.
+            buffer_num (int): Number of decode buffers. Defaults to 2.
+        """
         super().__init__()
         self._max_width = screen_width
         self._max_height = screen_height
@@ -26,10 +36,13 @@ class JPEG(jpegdec.JPEGDecoder):
         """Draw a JPEG file at position (x, y) on the display.
 
         Args:
-            x: Horizontal draw position in pixels.
-            y: Vertical draw position in pixels.
-            file_path: Path to the .jpg / .jpeg file.
-            storage: Storage class instance
+            x (int): Horizontal draw position in pixels.
+            y (int): Vertical draw position in pixels.
+            file_path (str): Path to the .jpg / .jpeg file.
+            storage: Storage class instance. Defaults to None.
+
+        Returns:
+            bool: True on success, False on failure.
         """
         if not file_path.endswith((".jpg", ".jpeg")):
             print("Bad file", file_path)
@@ -59,7 +72,16 @@ class JPEG(jpegdec.JPEGDecoder):
         return rc
 
     def draw_buffer(self, x: int, y: int, buf) -> bool:
-        """Draw a JPEG image from bytes data into a BytesIO buffer."""
+        """Draw a JPEG image from bytes data into a BytesIO buffer.
+
+        Args:
+            x (int): Horizontal draw position in pixels.
+            y (int): Vertical draw position in pixels.
+            buf: Bytes data containing the JPEG image.
+
+        Returns:
+            bool: True on success, False on failure.
+        """
         from io import BytesIO
 
         self._init_buffers()
@@ -72,6 +94,7 @@ class JPEG(jpegdec.JPEGDecoder):
         return rc
 
     def __del__(self) -> None:
+        """Clean up decoder resources."""
         self._cleanup()
         del self._filebuffer
         del self._buffers
@@ -79,6 +102,7 @@ class JPEG(jpegdec.JPEGDecoder):
         del self._buffers_len
 
     def _init_buffers(self) -> None:
+        """Allocate the file buffer and split it into decode buffers."""
         if self._filebuffer is None:
             self._filebuffer = bytearray(self._buffer_size * self._buffer_num)
             mv = memoryview(self._filebuffer)
@@ -88,12 +112,21 @@ class JPEG(jpegdec.JPEGDecoder):
                 ]
 
     def _cleanup(self) -> None:
+        """Wait for the decoder core and reset the running flag."""
         if self._decoder_running:
             self.decode_core_wait(1)
             self.decode_core_wait(1)
             self._decoder_running = False
 
     def _get_option(self, scale) -> int:
+        """Return the decoder option for the given scale factor.
+
+        Args:
+            scale: The scale factor (1, 0.5, 0.25, or 0.125).
+
+        Returns:
+            int: The decoder option value.
+        """
         if scale == 1:
             return 0
         if scale >= 0.5:
@@ -105,7 +138,15 @@ class JPEG(jpegdec.JPEGDecoder):
         return 0
 
     def _get_scale(self, w, h) -> tuple[float, tuple[int, int]]:
-        """Return (scale, (auto_x, auto_y)) so the image fits the display."""
+        """Return (scale, (auto_x, auto_y)) so the image fits the display.
+
+        Args:
+            w (int): The image width.
+            h (int): The image height.
+
+        Returns:
+            tuple[float, tuple[int, int]]: The scale and auto offset.
+        """
         scale = 0.125
         for fact in (1, 2, 4, 8):
             if (w + fact - 1) // fact <= self._max_width and (
@@ -120,6 +161,15 @@ class JPEG(jpegdec.JPEGDecoder):
         return scale, (off_x, off_y)
 
     def _test_buffer(self, ipos, ilen) -> tuple[int, int]:
+        """Check which buffers cover the requested data range.
+
+        Args:
+            ipos: The requested start position.
+            ilen: The requested length.
+
+        Returns:
+            tuple[int, int]: The matching buffer index and free buffer mask.
+        """
         idx = -1
         freeidx = 0
         for i in range(self._buffer_num):
@@ -135,9 +185,26 @@ class JPEG(jpegdec.JPEGDecoder):
         return idx, freeidx
 
     def _read_into_buf(self, fi, buf):
+        """Read data from the file into a buffer.
+
+        Args:
+            fi: The file object to read from.
+            buf: The buffer to fill.
+        """
         fi.readinto(buf)
 
     def _start_split(self, fsize, buf, x, y) -> bool:
+        """Start decoding a JPEG from the given buffer.
+
+        Args:
+            fsize: The total file size.
+            buf: The initial buffer data.
+            x (int): Horizontal draw position.
+            y (int): Vertical draw position.
+
+        Returns:
+            bool: True if decoding started successfully.
+        """
         jpginfo = self.getinfo(buf)
         iw = jpginfo[1]
         ih = jpginfo[2]
@@ -148,6 +215,17 @@ class JPEG(jpegdec.JPEGDecoder):
         return jpginfo[0]
 
     def _decode_split(self, fi, fsize, x, y) -> bool:
+        """Decode a JPEG from a file, streaming buffers as needed.
+
+        Args:
+            fi: The file object to read from.
+            fsize: The total file size.
+            x (int): Horizontal draw position.
+            y (int): Vertical draw position.
+
+        Returns:
+            bool: True on success, False on failure.
+        """
         buf_idx = 0
         buf = self._buffers[buf_idx]
         self._buffers_pos[buf_idx] = 0

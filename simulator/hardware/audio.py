@@ -113,6 +113,10 @@ class Audio:
         self._player_active = False
         self._player_proc = None
         self._player_log = None
+        self._audio_player_binary = ""
+        self._radio_player_binary = ""
+        self._overlap_players = []
+        self._overlap_serial = 0
         self._paused = False
         self._radio_temp_path = ""
 
@@ -125,15 +129,37 @@ class Audio:
         except OSError:
             return False
 
+    def _resolve_source(self, path):
+        """Resolve SD paths and app-bundle assets to a host file."""
+        try:
+            import sim_runtime
+
+            host = sim_runtime.host_path(path)
+            if self._file_exists(host):
+                return host
+            bundled = sim_runtime.app_source_path(path)
+            if bundled and self._file_exists(bundled):
+                return bundled
+        except Exception:
+            pass
+        return path if self._file_exists(path) else ""
+
     def _build_player(self):
         try:
             import sim_runtime
 
+            if self._audio_player_binary and self._file_exists(
+                self._audio_player_binary
+            ):
+                return self._audio_player_binary
             binary = sim_runtime.native_helper_path("audio/sdl_audio_player", "audio-player")
             if not sim_runtime.build_native("audio-player"):
                 print("[sim:audio] could not build SDL audio player")
                 return ""
-            return binary if self._file_exists(binary) else ""
+            if self._file_exists(binary):
+                self._audio_player_binary = binary
+                return binary
+            return ""
         except Exception as e:
             print("[sim:audio] build failed:", e)
             return ""
@@ -142,11 +168,18 @@ class Audio:
         try:
             import sim_runtime
 
+            if self._radio_player_binary and self._file_exists(
+                self._radio_player_binary
+            ):
+                return self._radio_player_binary
             binary = sim_runtime.native_helper_path("audio/sdl_radio_player", "radio-player")
             if not sim_runtime.build_native("radio-player"):
                 print("[sim:audio] could not build SDL radio player")
                 return ""
-            return binary if self._file_exists(binary) else ""
+            if self._file_exists(binary):
+                self._radio_player_binary = binary
+                return binary
+            return ""
         except Exception as e:
             print("[sim:audio] radio build failed:", e)
             return ""
@@ -193,6 +226,131 @@ class Audio:
                 pass
             self._player_log = None
         self._player_active = False
+
+    @staticmethod
+    def _send_overlap_command(player, command):
+        try:
+            with open(player["cmd"], "w") as handle:
+                handle.write(str(command) + "\n")
+        except OSError:
+            pass
+
+    def _stop_overlap_player(self, player):
+        self._send_overlap_command(player, "stop")
+        proc = player.get("proc")
+        if proc is not None:
+            try:
+                proc.wait(timeout=0.05)
+            except Exception:
+                try:
+                    proc.terminate()
+                except Exception:
+                    pass
+        log = player.get("log")
+        if log is not None:
+            try:
+                log.close()
+            except Exception:
+                pass
+
+    def _stop_overlap_players(self):
+        for player in self._overlap_players:
+            self._stop_overlap_player(player)
+        self._overlap_players = []
+
+    def _prune_overlap_players(self):
+        active = []
+        for player in self._overlap_players:
+            proc = player.get("proc")
+            finished = proc is not None and proc.poll() is not None
+            if proc is None:
+                try:
+                    with open(player["status"], "r") as handle:
+                        finished = "playing=0" in handle.read()
+                except OSError:
+                    pass
+            if finished:
+                log = player.get("log")
+                if log is not None:
+                    try:
+                        log.close()
+                    except Exception:
+                        pass
+                continue
+            active.append(player)
+        self._overlap_players = active
+
+    def _start_overlap_player(self, source):
+        """Launch one of the hardware mixer's three extra WAV slots."""
+        try:
+            import os
+            import sim_runtime
+            try:
+                import subprocess
+            except ImportError:
+                subprocess = None
+
+            if sim_runtime.audio_mode != "real" or (
+                sim_runtime.headless and not sim_runtime.viewer
+            ):
+                return False
+            host_path = self._resolve_source(source)
+            if not host_path:
+                return False
+            binary = self._build_player()
+            if not binary:
+                return False
+            self._prune_overlap_players()
+            while len(self._overlap_players) >= 3:
+                self._stop_overlap_player(self._overlap_players.pop(0))
+            self._overlap_serial += 1
+            stem = sim_runtime.sd_root + "/sim_audio_mix_" + str(
+                self._overlap_serial
+            )
+            cmd_file = stem + ".cmd"
+            status_file = stem + ".status"
+            for path in (cmd_file, status_file):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+            log = None
+            proc = None
+            if subprocess is not None:
+                log = open("/tmp/picoware-sim-audio-mix.log", "ab")
+                proc = subprocess.Popen(
+                    [binary, host_path, cmd_file, status_file],
+                    stdout=log,
+                    stderr=log,
+                )
+            else:
+                command = (
+                    _quote(binary)
+                    + " "
+                    + _quote(host_path)
+                    + " "
+                    + _quote(cmd_file)
+                    + " "
+                    + _quote(status_file)
+                    + " >>/tmp/picoware-sim-audio-mix.log 2>&1 &"
+                )
+                if os.system(command) != 0:
+                    return False
+            player = {
+                "proc": proc,
+                "log": log,
+                "cmd": cmd_file,
+                "status": status_file,
+            }
+            self._overlap_players.append(player)
+            self._send_overlap_command(
+                player,
+                "volume " + str(self.volume),
+            )
+            return True
+        except Exception as e:
+            print("[sim:audio] overlapping WAV failed:", e)
+            return False
 
     def _launch_player_process(self, binary, source, cmd_file, status_file, log_path):
         try:
@@ -280,14 +438,13 @@ class Audio:
                 return False
             if source.startswith("http://") or source.startswith("https://"):
                 return False
-            host_path = sim_runtime.host_path(source)
-            if not self._file_exists(host_path):
-                host_path = source
-            if not self._file_exists(host_path):
+            host_path = self._resolve_source(source)
+            if not host_path:
                 return False
             binary = self._build_player()
             if not binary:
                 return False
+            self._stop_overlap_players()
             self._stop_player(wait=True)
             cmd_file = sim_runtime.sd_root + "/sim_audio.cmd"
             status_file = sim_runtime.sd_root + "/sim_audio.status"
@@ -304,7 +461,11 @@ class Audio:
             for _ in range(8):
                 time.sleep(0.05)
                 if self._read_player_status():
+                    self._send_player_command(
+                        "volume " + str(self.volume)
+                    )
                     return True
+            self._send_player_command("volume " + str(self.volume))
             return True
         except Exception as e:
             print("[sim:audio] player failed:", e)
@@ -382,26 +543,15 @@ class Audio:
             return False
         if path.startswith("http://") or path.startswith("https://"):
             return True
-        try:
-            import sim_runtime
-
-            host_path = sim_runtime.host_path(path)
-        except Exception:
-            host_path = path
-        try:
-            import os
-
-            os.stat(host_path)
-            return True
-        except OSError:
-            return False
+        return bool(self._resolve_source(path))
 
     def _duration_for_source(self, path):
         try:
-            import sim_runtime
             import os
 
-            host_path = sim_runtime.host_path(path)
+            host_path = self._resolve_source(path)
+            if not host_path:
+                return 180
             size = os.stat(host_path)[6]
             if size > 0:
                 # Rough 128 kbit/s estimate, clamped.
@@ -460,10 +610,16 @@ class Audio:
             value = 100
         object.__setattr__(self, "volume", value)
         self._send_player_command("volume " + str(value))
+        for player in self._overlap_players:
+            self._send_overlap_command(
+                player,
+                "volume " + str(value),
+            )
 
     def stop(self):
         self._update_position()
         self._stop_player()
+        self._stop_overlap_players()
         self._playing = False
         self._paused = False
         self._mode = "stopped"
@@ -489,6 +645,8 @@ class Audio:
         return self.play(song)
 
     def play_wav(self, path):
+        if self._mode == "wav" and self._player_active:
+            return self._start_overlap_player(path)
         ok = self._begin(path, "wav")
         if ok:
             self._start_player(path)

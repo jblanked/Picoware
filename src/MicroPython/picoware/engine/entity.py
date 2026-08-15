@@ -1,3 +1,5 @@
+"""Entity - Game entities with states and types."""
+
 from micropython import const
 import engine
 
@@ -27,11 +29,15 @@ SPRITE_3D_CUSTOM = const(5)
 
 
 class Entity(engine.Entity):
-    """
-    Represents an entity in the game.
-    """
+    """Represents an entity in the game."""
 
     def __setattr__(self, name, value):
+        """Set an entity attribute, routing to the matching setter.
+
+        Args:
+            name (str): Attribute name to set.
+            value (object): New value for the attribute.
+        """
         if name == "name":
             self.set_name(value)
         elif name == "type":

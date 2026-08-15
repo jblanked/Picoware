@@ -1,3 +1,5 @@
+"""Settings - Persistent device settings."""
+
 import json
 
 class Settings:
@@ -6,11 +8,17 @@ class Settings:
     __slots__ = ["_storage", "_path", "_settings"]
 
     def __init__(self, storage):
+        """Initialize settings, loading from storage if present.
+
+        Args:
+            storage (Storage): The storage instance for reading and writing settings.
+        
+        """
         from picoware.system.buttons import BUTTON_BACK
-        from picoware.system.boards import BOARD_HAS_TOUCH
+        from picoware.system.boards import BOARD_HAS_TOUCH, BOARD_ID, BOARD_FLIPPER_ZERO
 
         self._storage = storage
-        self._path = "picoware/settings/picoware.json" 
+        self._path = "picoware/settings/picoware.json"
         self._settings = {
             "anthropic_api_key": "",
             "dark_mode": True,
@@ -21,14 +29,16 @@ class Settings:
             "gmt_offset": 0,
             "local_url": "http://127.0.0.1:8080/v1/chat/completions",
             "lvgl_mode": False,
-            "onscreen_keyboard": BOARD_HAS_TOUCH == 1,
+            "onscreen_keyboard": BOARD_HAS_TOUCH == 1 or BOARD_ID == BOARD_FLIPPER_ZERO,
             "openai_api_key": "",
+            "screen_brightness": 100,
             "server_username": "",
             "server_password": "",
             "theme_color": 0x001F,
             "usb_stream": False,
             "wifi_ssid": "",
             "wifi_password": "",
+            "xai_api_key": ""
         }
         if not self._storage.exists(self._path):
             self._settings = {
@@ -43,12 +53,14 @@ class Settings:
                 "lvgl_mode": bool(self.__fetch_setting("picoware/settings/lvgl_mode.json", "lvgl_mode", False)),
                 "onscreen_keyboard": bool(self.__fetch_setting("picoware/settings/onscreen_keyboard.json", "onscreen_keyboard", BOARD_HAS_TOUCH == 1)),
                 "openai_api_key": "",
+                "screen_brightness": 100,
                 "server_username": self.__fetch_setting("picoware/settings/server_username.json", "username", ""),
                 "server_password": self.__fetch_setting("picoware/settings/server_password.json", "password", ""),
                 "theme_color": int(self.__fetch_setting("picoware/settings/theme_color.json", "theme_color", 0x001F)),
                 "usb_stream": bool(self.__fetch_setting("picoware/settings/usb_stream.json", "usb_stream", False)),
                 "wifi_ssid": self.__fetch_setting("picoware/wifi/ssid.json", "ssid", ""),
                 "wifi_password": self.__fetch_setting("picoware/wifi/password.json", "password", ""),
+                "xai_api_key": "",
             }
             self.__save_settings()
         else:
@@ -66,7 +78,11 @@ class Settings:
     
     @anthropic_api_key.setter
     def anthropic_api_key(self, value: str):
-        """Set the Anthropic API key."""
+        """Set the Anthropic API key.
+
+        Args:
+            value (str): The API key to set.
+        """
         self._settings["anthropic_api_key"] = value
         self.__save_settings()
     
@@ -77,7 +93,11 @@ class Settings:
     
     @dark_mode.setter
     def dark_mode(self, value: bool):
-        """Set dark mode."""
+        """Set dark mode.
+
+        Args:
+            value (bool): True to enable dark mode.
+        """
         self._settings["dark_mode"] = value
         self.__save_settings()
 
@@ -88,7 +108,11 @@ class Settings:
     
     @debug.setter
     def debug(self, value: bool):
-        """Set debug mode."""
+        """Set debug mode.
+
+        Args:
+            value (bool): True to enable debug mode.
+        """
         self._settings["debug"] = value
         self.__save_settings()
     
@@ -99,7 +123,11 @@ class Settings:
     
     @deepseek_api_key.setter
     def deepseek_api_key(self, value: str):
-        """Set the DeepSeek API key."""
+        """Set the DeepSeek API key.
+
+        Args:
+            value (str): The API key to set.
+        """
         self._settings["deepseek_api_key"] = value
         self.__save_settings()
 
@@ -111,7 +139,11 @@ class Settings:
     
     @exit_button.setter
     def exit_button(self, value: int):
-        """Set the exit button setting."""
+        """Set the exit button setting.
+
+        Args:
+            value (int): The button code to use as the exit button.
+        """
         self._settings["exit_button"] = value
         self.__save_settings()
     
@@ -122,7 +154,11 @@ class Settings:
     
     @gemini_api_key.setter
     def gemini_api_key(self, value: str):
-        """Set the Gemini API key."""
+        """Set the Gemini API key.
+
+        Args:
+            value (str): The API key to set.
+        """
         self._settings["gemini_api_key"] = value
         self.__save_settings()
         
@@ -133,7 +169,11 @@ class Settings:
     
     @gmt_offset.setter
     def gmt_offset(self, value: int):
-        """Set GMT offset."""
+        """Set GMT offset.
+
+        Args:
+            value (int): The GMT offset in hours.
+        """
         self._settings["gmt_offset"] = value
         self.__save_settings()
 
@@ -144,7 +184,11 @@ class Settings:
 
     @local_url.setter
     def local_url(self, value: str):
-        """Set the local URL."""
+        """Set the local URL.
+
+        Args:
+            value (str): The local URL to set.
+        """
         self._settings["local_url"] = value
         self.__save_settings()
 
@@ -155,7 +199,11 @@ class Settings:
     
     @lvgl_mode.setter
     def lvgl_mode(self, value: bool):
-        """Set LVGL mode."""
+        """Set LVGL mode.
+
+        Args:
+            value (bool): True to enable LVGL mode.
+        """
         self._settings["lvgl_mode"] = value
         self.__save_settings()
 
@@ -166,7 +214,11 @@ class Settings:
     
     @onscreen_keyboard.setter
     def onscreen_keyboard(self, value: bool):
-        """Set onscreen keyboard."""
+        """Set onscreen keyboard.
+
+        Args:
+            value (bool): True to enable the onscreen keyboard.
+        """
         self._settings["onscreen_keyboard"] = value
         self.__save_settings()
     
@@ -177,8 +229,27 @@ class Settings:
     
     @openai_api_key.setter
     def openai_api_key(self, value: str):
-        """Set the OpenAI API key."""
+        """Set the OpenAI API key.
+
+        Args:
+            value (str): The API key to set.
+        """
         self._settings["openai_api_key"] = value
+        self.__save_settings()
+
+    @property
+    def screen_brightness(self) -> int:
+        """Return the current screen brightness."""
+        return int(self._settings.get("screen_brightness", 100))
+
+    @screen_brightness.setter
+    def screen_brightness(self, value: int):
+        """Set the screen brightness.
+
+        Args:
+            value (int): The brightness level (0-100).
+        """
+        self._settings["screen_brightness"] = value
         self.__save_settings()
 
     @property
@@ -191,7 +262,11 @@ class Settings:
     
     @server_settings.setter
     def server_settings(self, value: dict):
-        """Set the server settings."""
+        """Set the server settings.
+
+        Args:
+            value (dict): Dict with username and password keys.
+        """
         username = value.get("username", "")
         password = value.get("password", "")
         self._settings["server_username"] = username
@@ -210,7 +285,11 @@ class Settings:
     
     @theme_color.setter
     def theme_color(self, value: int):
-        """Set the theme color."""
+        """Set the theme color.
+
+        Args:
+            value (int): The theme color value.
+        """
         self._settings["theme_color"] = value
         self.__save_settings()
     
@@ -221,7 +300,11 @@ class Settings:
     
     @usb_stream.setter
     def usb_stream(self, value: bool):
-        """Set USB streaming."""
+        """Set USB streaming.
+
+        Args:
+            value (bool): True to enable USB streaming.
+        """
         self._settings["usb_stream"] = value
         self.__save_settings()
     
@@ -234,15 +317,43 @@ class Settings:
     
     @wifi_settings.setter
     def wifi_settings(self, value: dict):
-        """Set the WiFi settings."""
+        """Set the WiFi settings.
+
+        Args:
+            value (dict): Dict with ssid and password keys.
+        """
         ssid = value.get("ssid", "")
         password = value.get("password", "")
         self._settings["wifi_ssid"] = ssid
         self._settings["wifi_password"] = password
         self.__save_settings()
+
+    @property
+    def xai_api_key(self) -> str:
+        """Return the xAI API key."""
+        return self._settings.get("xai_api_key", "")
+
+    @xai_api_key.setter
+    def xai_api_key(self, value: str):
+        """Set the xAI API key.
+
+        Args:
+            value (str): The API key to set.
+        """
+        self._settings["xai_api_key"] = value
+        self.__save_settings()
     
     def __fetch_setting(self, path: str, key: str, default=""):
-        """Helper method to fetch a setting value from storage."""
+        """Fetch a setting value from storage.
+
+        Args:
+            path (str): The storage path of the settings file.
+            key (str): The setting key to look up.
+            default (object): Value returned when the setting is missing. Defaults to "".
+
+        Returns:
+            object: The fetched setting value or the default.
+        """
         if not self._storage.exists(path):
             return default
 
@@ -258,7 +369,11 @@ class Settings:
         return default
     
     def __save_settings(self) -> bool:
-        """Save settings to storage."""
+        """Save settings to storage.
+
+        Returns:
+            bool: True if the settings were saved successfully.
+        """
         return self._storage.write(
             self._path,
             json.dumps(self._settings),

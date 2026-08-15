@@ -9,55 +9,46 @@ static mjs_val_t bluetooth_on_scan_cb = MJS_UNDEFINED;
 
 static mjs_val_t bluetooth_mac_address(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, bluetooth_mp_instance, MP_QSTR_mac_address);
 }
 
 static mjs_val_t bluetooth_connected_address(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, bluetooth_mp_instance, MP_QSTR_connected_address);
 }
 
 static mjs_val_t bluetooth_is_pairing(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, bluetooth_mp_instance, MP_QSTR_is_pairing);
 }
 
 static mjs_val_t bluetooth_is_scanning(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, bluetooth_mp_instance, MP_QSTR_is_scanning);
 }
 
 static mjs_val_t bluetooth_is_connected(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, bluetooth_mp_instance, MP_QSTR_is_connected);
 }
 
 static mjs_val_t bluetooth_is_peripheral_connected(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, bluetooth_mp_instance, MP_QSTR_is_peripheral_connected);
 }
 
 static mjs_val_t bluetooth_passkey(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, bluetooth_mp_instance, MP_QSTR_passkey);
 }
 
 static mjs_val_t bluetooth_services(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, bluetooth_mp_instance, MP_QSTR_services);
 }
 
 static mjs_val_t bluetooth_characteristics(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, bluetooth_mp_instance, MP_QSTR_characteristics);
 }
 

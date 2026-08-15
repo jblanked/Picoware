@@ -2,5 +2,5 @@
 
 void flipper_board_early_init(void)
 {
-    PWR->CR4 &= ~PWR_CR4_C2BOOT;
+    // M0+ boots via rfcore_init().
 }

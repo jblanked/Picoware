@@ -1,7 +1,10 @@
+"""Storage - SD card file system access."""
+
 from picoware_boards import (
     BOARD_CROWPANEL_10_1,
     BOARD_ID,
     BOARD_WAVESHARE_1_28_RP2350,
+    BOARD_WAVESHARE_1_69_RP2350,
     BOARD_HAS_ESP32,
     BOARD_FLIPPER_ZERO,
 )
@@ -10,48 +13,50 @@ try:
     import sd_mp
 
     class FAT32File(sd_mp.fat32_file):
-        """
-        Class representing a fat32_mp_t structure on the FAT32 filesystem.
+        """Represents a fat32_mp_t structure on the FAT32 filesystem.
 
-        Properties:
-            - is_open: Indicates if the file is currently open
-            - last_entry_read: The last directory entry read from the file
-            - attributes: The file attributes (e.g., read-only, hidden, system, etc.)
-            - start_cluster: The starting cluster of the file on the SD card
-            - current_cluster: The current cluster being accessed in the file
-            - file_size: The total size of the file in bytes
-            - position: The current read/write position within the file in bytes
-            - dir_entry_sector: The sector number of the directory entry for this file
-            - dir_entry_offset: The byte offset within the directory sector for this file's entry
+        Attributes:
+        - is_open: Indicates if the file is currently open
+        - last_entry_read: The last directory entry read from the file
+        - attributes: The file attributes (e.g., read-only, hidden, system, etc.)
+        - start_cluster: The starting cluster of the file on the SD card
+        - current_cluster: The current cluster being accessed in the file
+        - file_size: The total size of the file in bytes
+        - position: The current read/write position within the file in bytes
+        - dir_entry_sector: The sector number of the directory entry for this file
+        - dir_entry_offset: The byte offset within the directory sector for this file's entry
         """
 
         def __setattr__(self, name, value):
+            """Set a file attribute, routing position through the C setter.
+
+            Args:
+                name (str): The attribute name to set.
+                value (object): The new value for the attribute.
+            """
             if name == "position":
                 self.set_position(value)
             else:
                 super().__setattr__(name, value)
 
 except ImportError:
-    # waveshare 1.28 and crowpanel
+    # waveshare 1.28, waveshare 1.69, and crowpanel
     pass
 
 
 class Storage:
-    """
-    Class to control the storage on a Raspberry Pi Pico device.
-    """
+    """Control the storage on a Raspberry Pi Pico device."""
 
     __slots__ = ("_vfs_mounted", "_has_storage")
 
     def __init__(self):
-        """
-        Initialize the storage class.
-        """
+        """Initialize the storage class and mount the SD card."""
         self._vfs_mounted = False
         self._has_storage = True
 
         if BOARD_ID in (
             BOARD_WAVESHARE_1_28_RP2350,
+            BOARD_WAVESHARE_1_69_RP2350,
             BOARD_CROWPANEL_10_1,
         ):
             self._has_storage = False
@@ -92,7 +97,16 @@ class Storage:
     def copy(
         self, source_path: str, destination_path: str, bytes_per_chunk: int = 2048
     ) -> bool:
-        """Copy a file or directory from source_path to destination_path."""
+        """Copy a file or directory from source_path to destination_path.
+
+        Args:
+            source_path (str): The source file or directory path.
+            destination_path (str): The destination file or directory path.
+            bytes_per_chunk (int): Bytes per copy chunk. Defaults to 2048.
+
+        Returns:
+            bool: True if the copy succeeded, False otherwise.
+        """
         if not self._has_storage:
             return False  # No SD storage on this board
 
@@ -104,7 +118,15 @@ class Storage:
             return False
 
     def deserialize(self, json_dict: dict, file_path: str) -> bool:
-        """Deserialize a JSON object and write it to a file."""
+        """Write a JSON object to a file.
+
+        Args:
+            json_dict (dict): The JSON object to write.
+            file_path (str): The path of the file to write.
+
+        Returns:
+            bool: True if the write succeeded, False otherwise.
+        """
         from json import dumps
 
         if not self._has_storage:
@@ -118,7 +140,11 @@ class Storage:
             return False
 
     def execute_script(self, file_path: str = "/") -> None:
-        """Run a Python file from the storage."""
+        """Run a Python file from the storage.
+
+        Args:
+            file_path (str): The path of the script to run. Defaults to "/".
+        """
         if not self._has_storage:
             return
 
@@ -127,14 +153,25 @@ class Storage:
         exec(code, globals())
 
     def exists(self, path: str) -> bool:
-        """Check if a file or directory exists."""
+        """Check if a file or directory exists.
+
+        Args:
+            path (str): The path to check.
+
+        Returns:
+            bool: True if the path exists, False otherwise.
+        """
         if not self._has_storage:
             return False  # No SD storage on this board
 
         return sd_mp.exists(path)
 
     def file_close(self, file_obj: FAT32File) -> None:
-        """Close the storage and release resources."""
+        """Close an open file handle.
+
+        Args:
+            file_obj (FAT32File): The open file handle to close.
+        """
         if not self._has_storage:
             return  # No SD storage on this board
         sd_mp.file_close(file_obj)
@@ -142,7 +179,16 @@ class Storage:
     def file_copy(
         self, source_file: FAT32File, destination_path: str, bytes_per_chunk: int = 2048
     ) -> bool:
-        """Copy an open file to a new location."""
+        """Copy an open file to a new location.
+
+        Args:
+            source_file (FAT32File): The open source file handle.
+            destination_path (str): The destination file path.
+            bytes_per_chunk (int): Bytes per copy chunk. Defaults to 2048.
+
+        Returns:
+            bool: True if the copy succeeded, False otherwise.
+        """
         if not self._has_storage:
             return False  # No SD storage on this board
 
@@ -156,7 +202,16 @@ class Storage:
     def file_move(
         self, source_file: FAT32File, destination_path: str, bytes_per_chunk: int = 2048
     ) -> bool:
-        """Move an open file to a new location."""
+        """Move an open file to a new location.
+
+        Args:
+            source_file (FAT32File): The open source file handle.
+            destination_path (str): The destination file path.
+            bytes_per_chunk (int): Bytes per move chunk. Defaults to 2048.
+
+        Returns:
+            bool: True if the move succeeded, False otherwise.
+        """
         if not self._has_storage:
             return False  # No SD storage on this board
 
@@ -168,7 +223,14 @@ class Storage:
             return False
 
     def file_open(self, file_path: str) -> FAT32File:
-        """Open a file and return the file handle."""
+        """Open a file and return the file handle.
+
+        Args:
+            file_path (str): The path of the file to open.
+
+        Returns:
+            FAT32File: The open file handle, or None on failure.
+        """
         if not self._has_storage:
             return None  # No SD storage on this board
 
@@ -181,7 +243,17 @@ class Storage:
     def file_read(
         self, file_obj: FAT32File, index: int = 0, count: int = 0, decode: bool = True
     ):
-        """Read from an open file."""
+        """Read data from an open file.
+
+        Args:
+            file_obj (FAT32File): The open file handle.
+            index (int): Starting byte position. Defaults to 0.
+            count (int): Number of bytes to read. Defaults to 0.
+            decode (bool): Whether to decode as UTF-8. Defaults to True.
+
+        Returns:
+            str or bytes: The read data.
+        """
         if not self._has_storage:
             return ""  # no SD storage on this board
 
@@ -192,14 +264,30 @@ class Storage:
         )
 
     def file_readinto(self, file_obj: FAT32File, buffer: bytearray) -> int:
-        """Read data from an open file into a pre-allocated buffer."""
+        """Read data from an open file into a pre-allocated buffer.
+
+        Args:
+            file_obj (FAT32File): The open file handle.
+            buffer (bytearray): The buffer to read into.
+
+        Returns:
+            int: The number of bytes read.
+        """
         if not self._has_storage:
             return 0  # Waveshare SD module does not support file readinto yet
 
         return sd_mp.file_readinto(file_obj, buffer)
 
     def file_seek(self, file_obj: FAT32File, position: int) -> bool:
-        """Seek to a specific position in an open file."""
+        """Seek to a specific position in an open file.
+
+        Args:
+            file_obj (FAT32File): The open file handle.
+            position (int): The byte position to seek to.
+
+        Returns:
+            bool: True if the seek succeeded, False otherwise.
+        """
         if not self._has_storage:
             return False  # Waveshare SD module does not support file seek yet
 
@@ -211,7 +299,16 @@ class Storage:
             return False
 
     def file_write(self, file_obj: FAT32File, data, mode: str = "w") -> bool:
-        """Write data to an open file."""
+        """Write data to an open file.
+
+        Args:
+            file_obj (FAT32File): The open file handle.
+            data (str or bytes): The data to write.
+            mode (str): Write mode ("w", "a", or "wb"). Defaults to "w".
+
+        Returns:
+            bool: True if the write succeeded, False otherwise.
+        """
         if not self._has_storage:
             return False  # Waveshare SD module does not support file write yet
 
@@ -226,7 +323,14 @@ class Storage:
             return False
 
     def is_directory(self, path: str) -> bool:
-        """Check if a path is a directory."""
+        """Check if a path is a directory.
+
+        Args:
+            path (str): The path to check.
+
+        Returns:
+            bool: True if the path is a directory, False otherwise.
+        """
         if not self._has_storage:
             return False  # No SD storage on this board
 
@@ -236,10 +340,10 @@ class Storage:
         """List files in a directory.
 
         Args:
-            path: Directory path to list (default: "")
+            path (str): Directory path to list. Defaults to "".
 
         Returns:
-            List of filenames in the directory
+            list[str]: The filenames in the directory.
         """
         if not self._has_storage:
             return []  # Waveshare SD module does not support listdir yet
@@ -251,7 +355,14 @@ class Storage:
             return []
 
     def mkdir(self, path: str) -> bool:
-        """Create a new directory."""
+        """Create a new directory.
+
+        Args:
+            path (str): The path of the directory to create.
+
+        Returns:
+            bool: True if the directory was created, False otherwise.
+        """
         try:
             if not self._has_storage:
                 return False  # No SD storage on this board
@@ -262,7 +373,11 @@ class Storage:
             return False
 
     def mount(self) -> bool:
-        """Mount the SD card."""
+        """Mount the SD card.
+
+        Returns:
+            bool: True if mounted successfully, False otherwise.
+        """
         if not self._has_storage:
             return False  # No SD storage on this board
         try:
@@ -272,30 +387,27 @@ class Storage:
             return False
 
     def mount_vfs(self, mount_point: str = "/sd") -> bool:
-        """
-        Mount the SD card as a VFS filesystem.
+        """Mount the SD card as a VFS filesystem.
 
-        This enables the use of Python's built-in open(), __import__,
-        os module functions, etc. with paths on the SD card.
+        This enables the use of Python's built-in open(), __import__, and os
+        module functions with paths on the SD card.
 
         Args:
-            mount_point: The mount point path (default: "/sd")
+            mount_point (str): The mount point path. Defaults to "/sd".
 
         Returns:
-            True if mounted successfully, False otherwise
+            bool: True if mounted successfully, False otherwise.
 
         Example:
             storage = Storage()
             storage.mount_vfs("/sd")
 
-            # Now you can use standard Python file operations:
             with open("/sd/myfile.txt", "r") as f:
                 content = f.read()
 
-            # And import modules from SD card:
             import sys
             sys.path.append("/sd/picoware/apps")
-            import myapp  # imports /sd/picoware/apps/myapp.py
+            import myapp
         """
         if self._vfs_mounted:
             return True  # Already mounted
@@ -328,7 +440,15 @@ class Storage:
             return False
 
     def move(self, source_path: str, destination_path: str) -> bool:
-        """Move a file or directory from source_path to destination_path."""
+        """Move a file or directory from source_path to destination_path.
+
+        Args:
+            source_path (str): The source file or directory path.
+            destination_path (str): The destination file or directory path.
+
+        Returns:
+            bool: True if the move succeeded, False otherwise.
+        """
         if not self._has_storage:
             return False  # No SD storage on this board
 
@@ -340,14 +460,13 @@ class Storage:
             return False
 
     def unmount_vfs(self, mount_point: str = "/sd") -> bool:
-        """
-        Unmount the VFS filesystem.
+        """Unmount the VFS filesystem.
 
         Args:
-            mount_point: The mount point path (default: "/sd")
+            mount_point (str): The mount point path. Defaults to "/sd".
 
         Returns:
-            True if unmounted successfully, False otherwise
+            bool: True if unmounted successfully, False otherwise.
         """
         if not self._vfs_mounted or BOARD_HAS_ESP32 == 1:
             return True
@@ -370,7 +489,17 @@ class Storage:
             return False
 
     def read(self, file_path, mode: str = "r", index: int = 0, count: int = 0):
-        """Read and return the contents of a file."""
+        """Read and return the contents of a file.
+
+        Args:
+            file_path (str): The path of the file to read.
+            mode (str): Read mode ("r" for text, otherwise binary). Defaults to "r".
+            index (int): Starting byte position. Defaults to 0.
+            count (int): Number of bytes to read. Defaults to 0.
+
+        Returns:
+            str or bytes: The file contents.
+        """
         if not self._has_storage:
             return ""  # No SD storage on this board
 
@@ -383,20 +512,30 @@ class Storage:
             return ""
 
     def readinto(self, file_path, buffer: bytearray) -> int:
-        """Read data from an open file into a pre-allocated buffer."""
+        """Read data from a file into a pre-allocated buffer.
+
+        Args:
+            file_path (str): The path of the file to read.
+            buffer (bytearray): The buffer to read into.
+
+        Returns:
+            int: The number of bytes read.
+        """
         if not self._has_storage:
             return 0  # No SD storage on this board
 
         return sd_mp.readinto(file_path, buffer)
 
     def read_chunked(self, file_path, start: int = 0, chunk_size: int = 1024) -> bytes:
-        """
-        Read a chunk of data from a file without loading the entire file.
+        """Read a chunk of data from a file without loading the entire file.
 
-        :param str file_path: Path to the file to read
-        :param int start: Starting byte position (offset) in the file
-        :param int chunk_size: Number of bytes to read from the start position
-        :return bytes: The chunk of data read from the file
+        Args:
+            file_path (str): Path to the file to read.
+            start (int): Starting byte position (offset) in the file. Defaults to 0.
+            chunk_size (int): Number of bytes to read from the start position. Defaults to 1024.
+
+        Returns:
+            bytes: The chunk of data read from the file.
         """
         if not self._has_storage:
             return b""  # No SD storage on this board
@@ -408,15 +547,16 @@ class Storage:
             return b""
 
     def read_directory(self, path: str = "") -> list[dict]:
-        """
-        Read the contents of a directory and return a list of entries.
-        Each entry is a dictionary containing:
-            - filename: The name of the file or directory
-            - size: The size of the file in bytes (0 for directories)
-            - date: The last modified date of the file or directory
-            - time: The last modified time of the file or directory
-            - attributes: The file attributes (e.g., read-only, hidden, system, etc)
-            - is_directory: True if the entry is a directory, False if it's a file
+        """Read the contents of a directory and return a list of entries.
+
+        Each entry is a dictionary with keys: filename, size, date, time,
+        attributes, and is_directory.
+
+        Args:
+            path (str): The directory path to read. Defaults to "".
+
+        Returns:
+            list[dict]: The directory entries, or an empty list on failure.
         """
         if not self._has_storage:
             return []  # No SD storage on this board
@@ -428,7 +568,14 @@ class Storage:
             return []
 
     def remove(self, file_path: str) -> bool:
-        """Remove a file or directory."""
+        """Remove a file or directory.
+
+        Args:
+            file_path (str): The path of the file or directory to remove.
+
+        Returns:
+            bool: True if removed successfully, False otherwise.
+        """
         if not self._has_storage:
             return False  # No SD storage on this board
         try:
@@ -438,7 +585,15 @@ class Storage:
             return False
 
     def rename(self, old_path: str, new_path: str) -> bool:
-        """Rename a file or directory."""
+        """Rename a file or directory.
+
+        Args:
+            old_path (str): The current path.
+            new_path (str): The new path.
+
+        Returns:
+            bool: True if renamed successfully, False otherwise.
+        """
         if not self._has_storage:
             return False  # No SD storage on this board
         try:
@@ -448,13 +603,27 @@ class Storage:
             return False
 
     def rmdir(self, path: str) -> bool:
-        """Remove a directory."""
+        """Remove a directory.
+
+        Args:
+            path (str): The path of the directory to remove.
+
+        Returns:
+            bool: True if removed successfully, False otherwise.
+        """
         if not self._has_storage:
             return False  # No SD storage on this board
         return sd_mp.remove(path)
 
     def serialize(self, file_path: str) -> dict:
-        """Read a file and return its contents as a JSON object."""
+        """Read a file and return its contents as a JSON object.
+
+        Args:
+            file_path (str): The path of the file to read.
+
+        Returns:
+            dict: The parsed JSON object, or an empty dict on failure.
+        """
         from json import loads
 
         if not self._has_storage:
@@ -467,13 +636,29 @@ class Storage:
             return {}
 
     def size(self, file_path: str) -> int:
-        """Get the size of a file or directory in bytes."""
+        """Get the size of a file or directory in bytes.
+
+        Args:
+            file_path (str): The path to measure.
+
+        Returns:
+            int: The size in bytes.
+        """
         if not self._has_storage:
             return 0  # No SD storage on this board
         return sd_mp.get_file_size(file_path)
 
     def write(self, file_path, data: str, mode: str = "w") -> bool:
-        """Write data to a file, creating or overwriting as needed."""
+        """Write data to a file, creating or overwriting as needed.
+
+        Args:
+            file_path (str): The path of the file to write.
+            data (str): The data to write.
+            mode (str): Write mode ("w" to overwrite, "a" to append). Defaults to "w".
+
+        Returns:
+            bool: True if the write succeeded, False otherwise.
+        """
         if not self._has_storage:
             return False  # No SD storage on this board
 
@@ -488,7 +673,11 @@ class Storage:
             return False
 
     def unmount(self) -> bool:
-        """Unmount the SD card (including VFS if mounted)."""
+        """Unmount the SD card (including VFS if mounted).
+
+        Returns:
+            bool: True if unmounted successfully, False otherwise.
+        """
         if not self._has_storage:
             return False  # No SD storage on this board
         try:

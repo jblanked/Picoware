@@ -9,7 +9,14 @@ _scan_count = 0
 
 
 def start(view_manager) -> bool:
-    """Start the WiFi RSSI Monitor app"""
+    """Start the WiFi RSSI Monitor app.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if the app started, False if WiFi is unavailable.
+    """
     global _networks, _scan_count, _last_update
 
     if view_manager.wifi is None:
@@ -24,7 +31,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app"""
+    """Run the app and update the RSSI display.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
     from picoware.system.vector import Vector
 
@@ -134,7 +145,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app and reset state.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from gc import collect
 
     global _networks, _scan_count, _last_update

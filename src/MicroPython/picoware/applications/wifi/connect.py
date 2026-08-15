@@ -1,3 +1,5 @@
+"""WiFi Connect - Connect to a WiFi network."""
+
 from utime import ticks_ms
 
 _connect = None
@@ -8,7 +10,12 @@ _password = ""
 
 
 def __connect_callback(state: int, error: str) -> None:
-    """Callback for Wi-Fi connection status updates."""
+    """Callback for Wi-Fi connection status updates.
+
+    Args:
+        state (int): The Wi-Fi connection state.
+        error (str): The connection error message.
+    """
     from picoware.system.wifi import (
         WIFI_STATE_CONNECTED,
         WIFI_STATE_TIMEOUT,
@@ -25,6 +32,14 @@ def __connect_callback(state: int, error: str) -> None:
 
 
 def _get_status_text(view_manager) -> str:
+    """Build the connection status text.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        str: The status text to display.
+    """
     global _status_message
 
     wifi = view_manager.wifi
@@ -66,7 +81,14 @@ def _get_status_text(view_manager) -> str:
 
 
 def start(view_manager) -> bool:
-    """Start the app."""
+    """Start the app and load the saved WiFi credentials.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if the app started, False if no credentials are saved.
+    """
     from picoware.applications.wifi.utils import load_wifi_password, load_wifi_ssid
 
     global _connect, _ssid, _password
@@ -108,7 +130,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app."""
+    """Run the app and handle connection input.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from picoware.system.buttons import (
         BUTTON_BACK,
         BUTTON_LEFT,
@@ -146,7 +172,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app."""
+    """Stop the app and clean up.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from gc import collect
 
     global _connect

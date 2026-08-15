@@ -1,7 +1,16 @@
+"""Network tools for the agent."""
+
 from picoware.system.agent.tools.tool import Tool, Parameters, Property
 
 def network_get_info(view_manager) -> dict:
-    """Get network information"""
+    """Get network information about the device.
+
+    Args:
+        view_manager (ViewManager): The view manager for system access.
+
+    Returns:
+        dict: A dict of device and network info.
+    """
     from picoware.system.system import System
     syst = System()
     _info = {
@@ -35,7 +44,14 @@ def network_get_info(view_manager) -> dict:
     return _info
 
 def network_scan_wifi(view_manager) -> list:
-    """Scan for available Wi-Fi networks and return a list of SSIDs."""
+    """Scan for available Wi-Fi networks.
+
+    Args:
+        view_manager (ViewManager): The view manager for Wi-Fi access.
+
+    Returns:
+        list: A list of SSID strings with signal strength.
+    """
     if not view_manager.has_wifi:
         return []
     ssids: list[str] = []
@@ -51,7 +67,15 @@ def network_scan_wifi(view_manager) -> list:
     return ssids
 
 def network_scan_ble(view_manager, timeout_ms: int = 3000) -> list:
-    """Scan for nearby Bluetooth devices and return a list of device names and addresses."""
+    """Scan for nearby Bluetooth devices.
+
+    Args:
+        view_manager (ViewManager): The view manager for system access.
+        timeout_ms (int): Scan duration in milliseconds. Defaults to 3000.
+
+    Returns:
+        list: A list of device name and address strings.
+    """
     if not view_manager.has_wifi:
         return []
     from picoware.system.bluetooth import Bluetooth
@@ -77,7 +101,18 @@ def network_scan_ble(view_manager, timeout_ms: int = 3000) -> list:
     
 
 def network_send_request(view_manager, url, method="GET", headers=None, data=None):
-    """Send an HTTP request and return the response."""
+    """Send an HTTP request and return the response text.
+
+    Args:
+        view_manager (ViewManager): The view manager for thread access.
+        url (str): The URL to send the request to.
+        method (str): The HTTP method. Defaults to "GET".
+        headers (dict or None): Optional request headers. Defaults to None.
+        data (str or None): Optional request body data. Defaults to None.
+
+    Returns:
+        str: The response text.
+    """
     from picoware.system.http import HTTP
     http = HTTP(thread_manager=view_manager.thread_manager)
     response = http.request(method, url, headers=headers, data=data)

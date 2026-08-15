@@ -1,12 +1,20 @@
+"""Screensavers - Collection of screensaver animations."""
+
 _screensavers = None
 _screensavers_index = 0
 _app_loader = None
 
 
 def start(view_manager) -> bool:
-    """Start the screensavers app"""
+    """Start the screensavers app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True on success.
+    """
     from picoware.gui.menu import Menu
-    from picoware.system.app_loader import AppLoader
 
     if not view_manager.has_sd_card:
         view_manager.alert("Screensavers app requires an SD card.", False)
@@ -17,10 +25,6 @@ def start(view_manager) -> bool:
 
     global _screensavers
     global _app_loader
-
-    if _app_loader:
-        del _app_loader
-        _app_loader = None
 
     if _screensavers:
         del _screensavers
@@ -37,7 +41,7 @@ def start(view_manager) -> bool:
         view_manager.foreground_color,
         2,
     )
-    _app_loader = AppLoader(view_manager)
+    _app_loader = view_manager.app_loader
 
     for screensaver in _app_loader.list_available_apps("screensavers"):
         _screensavers.add_item(screensaver)
@@ -49,7 +53,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the screensavers app."""
+    """Run the screensavers app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from picoware.system.view import View
     from picoware.system.buttons import (
         BUTTON_BACK,
@@ -117,15 +125,17 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the screensavers app"""
+    """Stop the screensavers app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from gc import collect
 
-    global _screensavers, _app_loader
+    global _screensavers
     if _screensavers is not None:
         del _screensavers
         _screensavers = None
     if _app_loader is not None:
         _app_loader.cleanup_modules()
-        del _app_loader
-        _app_loader = None
     collect()

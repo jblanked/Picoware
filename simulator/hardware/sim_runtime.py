@@ -121,22 +121,24 @@ LIBRARY_ITEMS = {
     "app store": 2,
     "appstore": 2,
     "bluetooth": 3,
-    "file manager": 4,
-    "filemanager": 4,
-    "gameboy emulator": 5,
-    "gameboy": 5,
-    "games": 6,
-    "python editor": 7,
-    "pythoneditor": 7,
-    "python repl": 8,
-    "repl": 8,
-    "screensavers": 9,
-    "scripts": 10,
-    "system": 11,
-    "text editor": 12,
-    "texteditor": 12,
-    "usb": 13,
-    "wifi": 14,
+    "email": 4,
+    "file manager": 5,
+    "filemanager": 5,
+    "gameboy emulator": 6,
+    "gameboy": 6,
+    "games": 7,
+    "mmbasic": 8,
+    "python editor": 9,
+    "pythoneditor": 9,
+    "python repl": 10,
+    "repl": 10,
+    "screensavers": 11,
+    "scripts": 12,
+    "system": 13,
+    "text editor": 14,
+    "texteditor": 14,
+    "usb": 15,
+    "wifi": 16,
 }
 
 
@@ -416,6 +418,7 @@ def seed_sd(profile="dev"):
     _link_app_files()
     if profile != "clean":
         _link_script_files()
+        _link_mmbasic_files()
 
 
 def _link_app_files():
@@ -435,26 +438,48 @@ def _link_script_files():
     _link_app_files_into(source, target)
 
 
+def _link_mmbasic_files():
+    """Symlink bundled MMBasic examples into the simulated SD card."""
+    source = root + "/builds/MicroPython/mmbasic"
+    target = sd_root + "/picoware/mmbasic"
+    _link_app_files_into(source, target)
+
+
 def _link_app_files_into(src_dir, dst_dir, skip_if_py_exists=False, include_init=False):
-    """Recursively symlink .py/.mpy files from src_dir into dst_dir.
+    """Recursively symlink bundled files from src_dir into dst_dir.
 
     When *skip_if_py_exists* is True, a .mpy file is skipped if a .py
     file with the same base name already exists (or is symlinked) in
     *dst_dir*.  This avoids duplicate app listings when both a source
     .py and a compiled .mpy are available.  Package __init__.py files
-    are included below the app root so libraries remain importable."""
+    are included below the app root so libraries remain importable.
+    Broken links from bundled files removed by later commits are pruned,
+    while regular user-installed files are preserved."""
     mkdir_p(dst_dir)
+    _prune_stale_links(dst_dir)
     try:
         entries = os.listdir(src_dir)
     except OSError:
         return
+    entries.sort()
+    seen_names = {}
     for entry in entries:
         if entry.startswith("."):
+            continue
+        if entry == "__pycache__" or entry.endswith((".pyc", ".pyo")):
             continue
         if entry == "__init__.py" and not include_init:
             continue
         src = src_dir + "/" + entry
         dst = dst_dir + "/" + entry
+        normalized = entry.lower()
+        if normalized in seen_names:
+            # The simulated SD represents FAT, where names differing only by
+            # case cannot coexist.  Remove only the duplicate managed link.
+            if _same_file(dst, src):
+                _rm_f(dst)
+            continue
+        seen_names[normalized] = True
         try:
             st = os.stat(src)
         except OSError:
@@ -467,6 +492,11 @@ def _link_app_files_into(src_dir, dst_dir, skip_if_py_exists=False, include_init
                 _py_name = entry[:-4] + ".py"
                 _py_dst = dst_dir + "/" + _py_name
                 if _exists(_py_dst):
+                    # A previous simulator run may have linked the compiled
+                    # app before its source became available.  Remove only
+                    # that managed link; preserve regular user SD files.
+                    if _same_file(dst, src):
+                        _rm_f(dst)
                     continue
             # Remove stale symlink first
             _rm_f(dst)
@@ -480,6 +510,26 @@ def _link_app_files_into(src_dir, dst_dir, skip_if_py_exists=False, include_init
                     _copy_file(src, dst)
 
 
+def _prune_stale_links(path):
+    """Remove broken simulator links without touching regular SD files."""
+    try:
+        entries = os.listdir(path)
+    except OSError:
+        return
+    for entry in entries:
+        child = path.rstrip("/") + "/" + entry
+        try:
+            st = os.stat(child)
+        except OSError:
+            # A listed entry that cannot be stat'ed is a broken symlink on
+            # the simulator host.  FAT-backed user files cannot have this
+            # state, so removing it is safe and restores the SD view.
+            _rm_f(child)
+            continue
+        if st[0] & 0x4000:
+            _prune_stale_links(child)
+
+
 def _rm_f(path):
     """Remove a file or symlink; ignore errors.  Safe with symlinks
     (os.remove / unlink removes the symlink node, not its target)."""
@@ -487,6 +537,16 @@ def _rm_f(path):
         os.remove(path)
     except OSError:
         pass
+
+
+def _same_file(left, right):
+    """Return True when two host paths resolve to the same file."""
+    try:
+        left_stat = os.stat(left)
+        right_stat = os.stat(right)
+        return left_stat[1] == right_stat[1] and left_stat[2] == right_stat[2]
+    except OSError:
+        return False
 
 
 def _copy_file(src, dst):
@@ -538,6 +598,10 @@ def _u32(buf, value):
 def set_lcd(lcd):
     global _lcd
     _lcd = lcd
+
+
+def get_lcd():
+    return _lcd
 
 
 def set_script_expectations(wait_view="", assert_text=""):
@@ -1114,6 +1178,65 @@ def loop_polled():
 
 def finish_recording():
     _flush_record_text()
+
+
+def _audio_sidecar_status_paths():
+    """Return status files belonging to simulator-owned audio helpers."""
+    try:
+        names = os.listdir(sd_root)
+    except OSError:
+        return []
+    paths = []
+    for name in names:
+        if name == "sim_audio.status" or (
+            name.startswith("sim_audio_mix_") and name.endswith(".status")
+        ):
+            paths.append(sd_root.rstrip("/") + "/" + name)
+    return paths
+
+
+def _audio_sidecar_stopped(status_path):
+    try:
+        with open(status_path, "r") as handle:
+            for line in handle.read().split("\n"):
+                if line.strip() == "playing=0":
+                    return True
+    except OSError:
+        return True
+    return False
+
+
+def _send_audio_sidecar_stop(status_path):
+    command_path = status_path[:-7] + ".cmd"
+    try:
+        # Do not overwrite a command that the helper has not consumed yet.
+        for _ in range(20):
+            if not _exists(command_path):
+                break
+            time.sleep(0.01)
+        with open(command_path, "w") as handle:
+            handle.write("stop\n")
+        return True
+    except OSError:
+        return False
+
+
+def shutdown_audio_sidecars(timeout_ms=1000):
+    """Stop audio helpers before the simulator process releases ownership."""
+    pending = []
+    for status_path in _audio_sidecar_status_paths():
+        if not _audio_sidecar_stopped(status_path):
+            pending.append(status_path)
+            _send_audio_sidecar_stop(status_path)
+    if not pending:
+        return True
+
+    started = _ticks_ms()
+    while _ticks_diff(_ticks_ms(), started) < max(0, int(timeout_ms)):
+        if all(_audio_sidecar_stopped(path) for path in pending):
+            return True
+        time.sleep(0.01)
+    return all(_audio_sidecar_stopped(path) for path in pending)
 
 
 def _write_status(force=False):

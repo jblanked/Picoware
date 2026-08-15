@@ -10,7 +10,7 @@
 // memory
 #if defined(PICOCALC)
 #define ENGINE_MEM_INCLUDE "../../engine/memory.h"
-#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
+#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
 #define ENGINE_MEM_INCLUDE "../engine/memory.h"
 #else
 #define ENGINE_MEM_INCLUDE "../../../engine/memory.h"
@@ -22,7 +22,7 @@
 #define ENGINE_MEM_FREE m_free
 
 // delay
-#if defined(CARDPUTER) || defined(ESP32) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE)
+#if defined(CARDPUTER) || defined(ESP32) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
 #define ENGINE_DELAY_INCLUDE "freertos/FreeRTOS.h"
 #define ENGINE_DELAY_MS(ms) vTaskDelay(pdMS_TO_TICKS(ms))
 #else
@@ -33,7 +33,7 @@
 // font
 #if defined(PICOCALC)
 #define ENGINE_FONT_INCLUDE "../../font/font.h"
-#elif defined(CARDPUTER) || defined(PANCAKE)
+#elif defined(CARDPUTER) || defined(PANCAKE) || defined(V8)
 #define ENGINE_FONT_INCLUDE "../font/font.h"
 #else
 #define ENGINE_FONT_INCLUDE "../../../font/font.h"
@@ -69,9 +69,9 @@
 // storage
 #if defined(PICOCALC)
 #define ENGINE_STORAGE_INCLUDE "../../sd/storage.h"
-#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE)
+#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
 #define ENGINE_STORAGE_INCLUDE "../sd/storage.h"
-#elif !defined(WAVESHARE_1_28)
+#elif !defined(WAVESHARE_1_28) && !defined(WAVESHARE_1_69)
 #define ENGINE_STORAGE_INCLUDE "../../../sd/storage.h"
 #endif
 #ifdef ENGINE_STORAGE_INCLUDE

@@ -1,8 +1,10 @@
+"""TextBox - Multi-line text input widget."""
+
 import textbox
 
 
 class TextBox(textbox.TextBox):
-    '''Class for a text box with scrolling functionality."""'''
+    """Class for a text box with scrolling functionality."""
 
     def __init__(
         self,
@@ -14,6 +16,17 @@ class TextBox(textbox.TextBox):
         show_scrollbar: bool = True,
         show_cursor: bool = False,
     ) -> None:
+        """Initialize the text box with position, height, and styling.
+
+        Args:
+            draw (Draw): The drawing context to render the text box.
+            y (int): The top Y position of the text box.
+            height (int): The height of the text box.
+            foreground_color (int): The text color. Defaults to 0xFFFF.
+            background_color (int): The background color. Defaults to 0x0000.
+            show_scrollbar (bool): Whether to show the scrollbar. Defaults to True.
+            show_cursor (bool): Whether to show the cursor. Defaults to False.
+        """
         self.use_lvgl = draw.use_lvgl
         self._lvgl_textbox = None
         self._draw = draw
@@ -37,7 +50,15 @@ class TextBox(textbox.TextBox):
                 init()
 
                 class LVGLTextBoxWrapper(LVGLTextBox):
+                    """Wrapper that forwards text assignment to LVGL."""
+
                     def __setattr__(self, name, value):
+                        """Forward text assignment to the LVGL text box.
+
+                        Args:
+                            name (str): The attribute name.
+                            value: The attribute value.
+                        """
                         if name == "text":
                             self.set_text(value)
                         elif name == "current_line":
@@ -52,6 +73,7 @@ class TextBox(textbox.TextBox):
                 self.use_lvgl = False
 
     def __del__(self):
+        """Clean up resources and deinitialize LVGL."""
         if self._lvgl_textbox is not None:
             from picoware_lvgl import deinit
 
@@ -60,6 +82,12 @@ class TextBox(textbox.TextBox):
             deinit()
 
     def __setattr__(self, name, value):
+        """Set an attribute, routing text and cursor changes to setters.
+
+        Args:
+            name (str): The attribute name.
+            value: The attribute value.
+        """
         if name == "text":
             self.set_text(value)
         elif name == "cursor":
@@ -78,6 +106,11 @@ class TextBox(textbox.TextBox):
 
     @current_text.setter
     def current_text(self, value: str) -> None:
+        """Set the current text content.
+
+        Args:
+            value (str): The new text content.
+        """
         if self.use_lvgl and self._lvgl_textbox is not None:
             from picoware_lvgl import tick, task_handler
 
@@ -121,7 +154,11 @@ class TextBox(textbox.TextBox):
         self.render()
 
     def set_current_line(self, line: int):
-        """Sets the current line index for the text box, which determines the visible portion of the text content."""
+        """Set the current line index for the visible portion of the text.
+
+        Args:
+            line (int): The line index to show.
+        """
         if self.use_lvgl and self._lvgl_textbox is not None:
             from picoware_lvgl import tick, task_handler
 
@@ -133,7 +170,11 @@ class TextBox(textbox.TextBox):
         self._set_current_line(line)
 
     def set_text(self, text: str):
-        """Updates the text content of the text box and refreshes the display to show the new content."""
+        """Update the text content and refresh the display.
+
+        Args:
+            text (str): The new text content.
+        """
         if self.use_lvgl and self._lvgl_textbox is not None:
             from picoware_lvgl import tick, task_handler
 

@@ -24,7 +24,17 @@ from picoware.system.agent.tools.network import (
 )
 
 def execute_tool(view_manager, name, args=None, **kwargs):
-    """Execute a named tool with the given arguments."""
+    """Execute a named tool with the given arguments.
+
+    Args:
+        view_manager (ViewManager): The view manager for tool execution.
+        name (str): The tool name.
+        args (dict or None): The tool arguments. Defaults to None.
+        **kwargs: Extra keyword arguments merged into the payload.
+
+    Returns:
+        object: The tool result.
+    """
     payload = {}
     if args and isinstance(args, dict):
         payload.update(args)

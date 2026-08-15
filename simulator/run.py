@@ -36,6 +36,7 @@ _BOARD_DISPLAY_SIZES = {
     "pimoroni-2w": (320, 320),
     "waveshare-1.28-rp2350": (240, 240),
     "waveshare-1.43-rp2350": (466, 466),
+    "waveshare-1.69-rp2350": (240, 280),
     "waveshare-3.49-rp2350": (172, 640),
     "crowpanel-10.1": (1024, 600),
     "crowpanel": (1024, 600),
@@ -43,8 +44,11 @@ _BOARD_DISPLAY_SIZES = {
     "waveshare-2.06": (410, 502),
     "waveshare-2.06-esp32s3": (410, 502),
     "pancake": (320, 480),
+    "v8": (240, 320),
     "flipper-zero": (128, 64),
     "flipper": (128, 64),
+    "desktop": (320, 320),
+    "unix": (320, 320),
 }
 
 
@@ -227,6 +231,12 @@ def _remove_tree(path):
         try:
             mode = os.stat(child)[0]
         except OSError:
+            # os.stat() fails for a broken symlink.  Remove the link node so
+            # --reset-sd can actually clear persistent simulator fixtures.
+            try:
+                os.remove(child)
+            except OSError:
+                pass
             continue
         if mode & 0x4000:
             _remove_tree(child)
@@ -395,6 +405,17 @@ def _quote(path):
     return "'" + path.replace("'", "'\"'\"'") + "'"
 
 
+def _interpreter_command():
+    """Return the current MicroPython executable for child simulator runs."""
+    executable = getattr(sys, "executable", "")
+    return _quote(executable if executable else "micropython")
+
+
+def _board_option(opts):
+    """Return the selected simulator board as a quoted child-process option."""
+    return " --board " + _quote(opts["board"])
+
+
 def _file_exists(path):
     """Return True if the given path exists."""
     try:
@@ -500,12 +521,14 @@ def _run_coverage(opts):
         safe = (kind + "-" + name).replace("/", "_").replace(" ", "_")
         log_path = report_dir + "/" + safe + ".log"
         cmd = (
-            "micropython "
+            _interpreter_command()
+            + " "
             + _quote(THIS_DIR + "/run.py")
             + " --headless --frames 220 --audio silent --network offline --sd "
             + _quote(opts["sd"])
             + " --apps-source "
             + _quote(opts["apps_source"])
+            + _board_option(opts)
             + (" --app " if kind == "app" else " --game ")
             + _quote(name)
             + " --wait-view "
@@ -537,53 +560,111 @@ def _build_native(target, check=False):
 
 def _run_sim_check(opts):
     """Run the simulator self-check suite."""
+    board_name = str(opts["board"]).lower().replace("_", "-")
+    if board_name in ("desktop", "unix"):
+        _run_desktop_native_check(opts)
+    _run_library_route_check()
+    _run_stale_app_link_check(opts)
+    _run_duplicate_app_link_check(opts)
     commands = (
         "sh "
         + _quote(THIS_DIR + "/build.sh")
         + " --check",
-        "micropython "
+        _interpreter_command()
+        + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --frames 30 --wait-view desktop_view --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
-        + _quote(opts["apps_source"]),
-        "micropython "
+        + _quote(opts["apps_source"])
+        + _board_option(opts),
+        _interpreter_command()
+        + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --app Calculator --wait-view app_Calculator --frames 160 --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
-        + _quote(opts["apps_source"]),
-        "micropython "
+        + _quote(opts["apps_source"])
+        + _board_option(opts),
+        _interpreter_command()
+        + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --open Agent --wait-view agent --frames 220 --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
-        + _quote(opts["apps_source"]),
-        "micropython "
+        + _quote(opts["apps_source"])
+        + _board_option(opts),
+        _interpreter_command()
+        + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --open System --wait-view system --frames 220 --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
-        + _quote(opts["apps_source"]),
-        "micropython "
+        + _quote(opts["apps_source"])
+        + _board_option(opts),
+        _interpreter_command()
+        + " "
+        + _quote(THIS_DIR + "/run.py")
+        + " --headless --open MMBasic --wait-view mmbasic --keys enter --assert-text "
+        + _quote("MMBasic 6.03")
+        + " --frames 300 --audio silent --network offline --sd "
+        + _quote(opts["sd"])
+        + " --apps-source "
+        + _quote(opts["apps_source"])
+        + _board_option(opts),
+        _interpreter_command()
+        + " "
+        + _quote(THIS_DIR + "/run.py")
+        + " --headless --app Forecast --wait-view app_Forecast --frames 220 --audio silent --network offline --sd "
+        + _quote(opts["sd"])
+        + " --apps-source "
+        + _quote(opts["apps_source"])
+        + _board_option(opts),
+        _interpreter_command()
+        + " "
+        + _quote(THIS_DIR + "/run.py")
+        + " --headless --app MicroBrowser --wait-view app_MicroBrowser --frames 220 --audio silent --network offline --sd "
+        + _quote(opts["sd"])
+        + " --apps-source "
+        + _quote(opts["apps_source"])
+        + _board_option(opts),
+        _interpreter_command()
+        + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --board pancake --app keyboard-simple --frames 40 --wait-view app_keyboard-simple --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
-        "micropython "
+        _interpreter_command()
+        + " "
+        + _quote(THIS_DIR + "/run.py")
+        + " --headless --board waveshare-1.69-rp2350 --frames 30 --wait-view desktop_view --audio silent --network offline --sd "
+        + _quote(opts["sd"])
+        + " --apps-source "
+        + _quote(opts["apps_source"]),
+        _interpreter_command()
+        + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --board waveshare-2.06 --frames 30 --wait-view desktop_view --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
-        "micropython "
+        _interpreter_command()
+        + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --board crowpanel --frames 30 --wait-view desktop_view --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"]),
-        "micropython "
+        _interpreter_command()
+        + " "
+        + _quote(THIS_DIR + "/run.py")
+        + " --headless --board v8 --frames 30 --wait-view desktop_view --audio silent --network offline --sd "
+        + _quote(opts["sd"])
+        + " --apps-source "
+        + _quote(opts["apps_source"]),
+        _interpreter_command()
+        + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --board flipper-zero --app Calculator --frames 40 --wait-view app_Calculator --audio silent --network offline --sd "
         + _quote(opts["sd"])
@@ -596,16 +677,247 @@ def _run_sim_check(opts):
             print("[sim-check:fail]", cmd, status)
             raise SystemExit(1)
     _run_keyboard_background_check()
+    _run_lcd_parity_check()
+    _run_uart_parity_check()
     _run_engine_parity_check()
+    _run_board_parity_check()
     _run_font_parity_check()
     _run_scripts_fixture_check(opts)
     _run_touch_check()
+    _run_waveshare_169_check()
+    _run_v8_battery_check()
     _run_flipper_battery_check()
     _run_log_storage_check(opts)
+    _run_audio_shutdown_check()
     _run_circular_choice_check()
     _run_fatal_exit_check(opts)
     _run_mjs_check()
     print("[sim-check:pass]")
+
+
+def _run_desktop_native_check(opts):
+    """Exercise the compiled Desktop MMBasic module and its host bridge."""
+    try:
+        import picoware_desktop
+    except ImportError:
+        raise RuntimeError(
+            "sim-check requires the Desktop interpreter; "
+            "run sh tools/run-micropython-desktop.sh --sim-check"
+        )
+
+    if picoware_desktop.BOARD_ID != 15:
+        raise RuntimeError("Desktop interpreter board ID mismatch")
+    expected_modules = ("auto_complete", "font", "mmbasic", "response", "vector")
+    if picoware_desktop.native_modules() != expected_modules:
+        raise RuntimeError("Desktop interpreter native module set mismatch")
+
+    import auto_complete
+    import font
+    import lcd
+    import mmbasic
+    import response
+    import sd_mp
+    import sim_runtime
+    import vector
+
+    completion = auto_complete.AutoComplete()
+    if not completion.add_word("desktop"):
+        raise RuntimeError("native AutoComplete rejected a word")
+    if completion.search("desk") != ("desktop",):
+        raise RuntimeError("native AutoComplete search mismatch")
+    font_size = font.FontSize(2)
+    if font_size.spacing != 1:
+        raise RuntimeError("native FontSize spacing mismatch")
+    font_size.set_size(0)
+    if font_size.size != 0:
+        raise RuntimeError("native FontSize setter mismatch")
+    native_response = response.Response()
+    native_response.set_status_code(200)
+    native_response.set_content(b"ok")
+    if native_response.status_code != 200 or native_response.content != b"ok":
+        raise RuntimeError("native Response state mismatch")
+    native_vector = vector.Vector(1, 2, 3, True)
+    if (native_vector.x, native_vector.y, native_vector.z) != (1, 2, 3):
+        raise RuntimeError("native Vector state mismatch")
+
+    original_headless = sim_runtime.headless
+    original_lcd = sim_runtime.get_lcd()
+    original_sd_root = sim_runtime.sd_root
+    path = "sim_reports/mmbasic-native.bas"
+    try:
+        sim_runtime.headless = True
+        sim_runtime.sd_root = opts["sd"]
+        lcd.LCD()
+
+        engine = mmbasic.MMBasic(0xFFFF, 0, 0x07E0, 320, 320, 8, 8, 0, 0)
+        if engine._start():
+            raise RuntimeError("native MMBasic accepted an empty start")
+        if not engine._start(source='PRINT "Desktop native"\nEND'):
+            raise RuntimeError("native MMBasic rejected source input")
+        if engine.has_graphics:
+            raise RuntimeError("native MMBasic misclassified console source")
+        if engine.tick(5) != (1, "", 0):
+            raise RuntimeError("native MMBasic END status mismatch")
+
+        sd_mp.write(path, b'CLS\nDO WHILE INKEY$ = "": LOOP\n')
+        engine = mmbasic.MMBasic(0xFFFF, 0, 0x07E0, 320, 320, 8, 8, 0, 0)
+        if not engine._start(path=path):
+            raise RuntimeError("native MMBasic rejected simulated SD input")
+        if engine.tick(5) != (0, "", 0) or not engine.has_graphics:
+            raise RuntimeError("native MMBasic graphics/input state mismatch")
+        engine.feed_char("x")
+        if engine.tick(5) != (1, "", 0):
+            raise RuntimeError("native MMBasic input completion mismatch")
+        engine.render(True)
+    finally:
+        sd_mp.remove(path)
+        sim_runtime.set_lcd(original_lcd)
+        sim_runtime.sd_root = original_sd_root
+        sim_runtime.headless = original_headless
+        gc.collect()
+    print("[sim-check:ok] Desktop native logic and MMBasic hardware bridge")
+
+
+def _run_library_route_check():
+    """Keep simulator --open routes synchronized with the Library menu."""
+    import sim_runtime
+
+    source = MICROPYTHON_DIR + "/picoware/applications/library.py"
+    marker = '_library.add_item("'
+    items = []
+    with open(source, "r") as handle:
+        for line in handle:
+            if marker not in line:
+                continue
+            label = line.split(marker, 1)[1].split('"', 1)[0]
+            items.append(label)
+
+    if not items:
+        raise RuntimeError("simulator Library route check found no menu items")
+    for index, label in enumerate(items):
+        actual = sim_runtime.LIBRARY_ITEMS.get(label.lower())
+        if actual != index:
+            raise RuntimeError(
+                "simulator Library route mismatch for "
+                + label
+                + ": expected "
+                + str(index)
+                + ", got "
+                + str(actual)
+            )
+    indices = sorted(set(sim_runtime.LIBRARY_ITEMS.values()))
+    if indices != list(range(len(items))):
+        raise RuntimeError("simulator Library route indices are not contiguous")
+    print("[sim-check:ok] Library routes synchronized (" + str(len(items)) + " items)")
+
+
+def _run_stale_app_link_check(opts):
+    """Verify persistent SD cleanup removes only broken managed links."""
+    import sim_runtime
+
+    probe = opts["sd"] + "/sim-stale-link-check"
+    broken = probe + "/RemovedApp.py"
+    local = probe + "/LocalApp.py"
+    _mkdir_p(probe)
+    with open(local, "w") as handle:
+        handle.write("# user-installed simulator app\n")
+    status = os.system(
+        "ln -sf "
+        + _quote(ROOT + "/builds/MicroPython/apps_unfrozen/RemovedApp.py")
+        + " "
+        + _quote(broken)
+    )
+    if status != 0 or "RemovedApp.py" not in os.listdir(probe):
+        _remove_tree(probe)
+        raise RuntimeError("simulator stale-link fixture setup failed")
+    sim_runtime._prune_stale_links(probe)
+    entries = os.listdir(probe)
+    if "RemovedApp.py" in entries:
+        _remove_tree(probe)
+        raise RuntimeError("simulator stale app link was not removed")
+    if "LocalApp.py" not in entries:
+        _remove_tree(probe)
+        raise RuntimeError("simulator stale-link cleanup removed a local app")
+    _remove_tree(probe)
+    print("[sim-check:ok] stale app links pruned, local apps preserved")
+
+
+def _run_duplicate_app_link_check(opts):
+    """Remove managed .mpy duplicates while preserving regular SD files."""
+    import sd_mp
+    import sim_runtime
+
+    probe = opts["sd"] + "/sim-duplicate-link-check"
+    source_py = probe + "/source-py"
+    source_mpy = probe + "/source-mpy"
+    destination = probe + "/apps"
+    _mkdir_p(source_py)
+    _mkdir_p(source_mpy)
+    _mkdir_p(destination)
+    with open(source_py + "/ManagedApp.py", "w") as handle:
+        handle.write("# managed source app\n")
+    with open(source_py + "/CaseApp.py", "w") as handle:
+        handle.write("# canonical case app\n")
+    with open(source_py + "/caseApp.py", "w") as handle:
+        handle.write("# duplicate case app\n")
+    with open(source_mpy + "/ManagedApp.mpy", "w") as handle:
+        handle.write("managed compiled app\n")
+    with open(source_mpy + "/LocalApp.mpy", "w") as handle:
+        handle.write("compiled source placeholder\n")
+    with open(destination + "/LocalApp.py", "w") as handle:
+        handle.write("# local source app\n")
+    with open(destination + "/LocalApp.mpy", "w") as handle:
+        handle.write("local compiled app\n")
+
+    status = os.system(
+        "ln -sf "
+        + _quote(source_py + "/caseApp.py")
+        + " "
+        + _quote(destination + "/caseApp.py")
+    )
+    if status != 0:
+        _remove_tree(probe)
+        raise RuntimeError("simulator case-duplicate fixture setup failed")
+    sim_runtime._link_app_files_into(source_py, destination)
+    case_entries = [name for name in os.listdir(destination)
+                    if name.lower() == "caseapp.py"]
+    if case_entries != ["CaseApp.py"]:
+        _remove_tree(probe)
+        raise RuntimeError("simulator case-insensitive app duplicate was not removed")
+    merged_names = []
+    seen_names = {}
+    sd_mp._append_unique_names(
+        merged_names, seen_names, ["caseApp.py", "CaseApp.py"]
+    )
+    if merged_names != ["CaseApp.py"]:
+        _remove_tree(probe)
+        raise RuntimeError("simulator FAT directory view exposed case duplicates")
+    status = os.system(
+        "ln -sf "
+        + _quote(source_mpy + "/ManagedApp.mpy")
+        + " "
+        + _quote(destination + "/ManagedApp.mpy")
+    )
+    if status != 0:
+        _remove_tree(probe)
+        raise RuntimeError("simulator duplicate-link fixture setup failed")
+    sim_runtime._link_app_files_into(
+        source_mpy, destination, skip_if_py_exists=True
+    )
+    entries = os.listdir(destination)
+    if "ManagedApp.mpy" in entries:
+        _remove_tree(probe)
+        raise RuntimeError("simulator managed .mpy duplicate was not removed")
+    try:
+        with open(destination + "/LocalApp.mpy", "r") as handle:
+            local_contents = handle.read()
+    except OSError:
+        local_contents = ""
+    if local_contents != "local compiled app\n":
+        _remove_tree(probe)
+        raise RuntimeError("simulator duplicate cleanup removed a local .mpy app")
+    _remove_tree(probe)
+    print("[sim-check:ok] duplicate managed apps pruned, local .mpy preserved")
 
 
 def _run_keyboard_background_check():
@@ -640,6 +952,63 @@ def _run_keyboard_background_check():
         raise RuntimeError("simulator disabled background keyboard consumed a key")
     picoware_keyboard.deinit()
     print("[sim-check:ok] picocalc background keyboard callbacks")
+
+
+def _run_lcd_parity_check():
+    """Verify LCD APIs added by the current Picoware runtime."""
+    import lcd
+
+    display = lcd.LCD()
+    display.set_brightness(37)
+    if display._brightness != 37:
+        raise RuntimeError("simulator LCD brightness state mismatch")
+    display.set_rgb_led(17, 34, 51)
+    if display._rgb_led != (17, 34, 51):
+        raise RuntimeError("simulator LCD RGB LED state mismatch")
+
+    display._clear(0)
+    display._bytearray(0, 0, 2, 1, bytearray((0x00, 0xFF)), True)
+    if display._get_pixel(0, 0) != 0xFFFF or display._get_pixel(1, 0) != 0x0000:
+        raise RuntimeError("simulator LCD bytearray inversion mismatch")
+
+    display._clear(0x001F)
+    display._fill_triangle_alpha(1, 1, 5, 1, 1, 5, 0xF800, 128)
+    blended = display._get_pixel(2, 2)
+    if blended in (0x001F, 0xF800):
+        raise RuntimeError("simulator LCD alpha triangle mismatch")
+    print("[sim-check:ok] lcd brightness RGB LED bytearray inversion alpha triangle")
+
+
+def _run_uart_parity_check():
+    """Verify board-default UART pins, including STM32 CPU pin names."""
+    from machine import Pin
+    from picoware.system import boards
+    from picoware.system.uart import UART
+
+    original_board_id = boards.BOARD_ID
+    port = None
+    try:
+        port = UART()
+        if (port._uart_id, port.tx_pin, port.rx_pin) != (0, 0, 1):
+            raise RuntimeError("simulator PicoCalc UART defaults mismatch")
+        del port
+        port = None
+        gc.collect()
+
+        boards.BOARD_ID = boards.BOARD_FLIPPER_ZERO
+        port = UART()
+        if (port._uart_id, port.tx_pin, port.rx_pin) != (
+            1,
+            Pin.cpu.B6,
+            Pin.cpu.B7,
+        ):
+            raise RuntimeError("simulator Flipper UART defaults mismatch")
+    finally:
+        boards.BOARD_ID = original_board_id
+        if port is not None:
+            del port
+        gc.collect()
+    print("[sim-check:ok] PicoCalc and Flipper UART defaults")
 
 
 def _run_engine_parity_check():
@@ -734,7 +1103,7 @@ def _run_font_parity_check():
         boards.BOARD_WAVESHARE_1_43_RP2350,
         boards.BOARD_WAVESHARE_3_49_RP2350,
     )
-    for board_id in range(boards.BOARD_FLIPPER_ZERO + 1):
+    for board_id in range(boards.BOARD_DESKTOP + 1):
         expected = 1 if board_id in small else 2 if board_id in medium else 0
         if lcd.default_font_for_board(board_id, boards) != expected:
             raise RuntimeError("simulator board default font mismatch")
@@ -756,6 +1125,64 @@ def _run_scripts_fixture_check(opts):
     print("[sim-check:ok] bundled JavaScript scripts fixture")
 
 
+def _run_board_parity_check():
+    """Verify the latest board profile and capability helpers."""
+    import picoware_boards as boards
+
+    picocalc_ids = (
+        boards.BOARD_PICOCALC_PICO,
+        boards.BOARD_PICOCALC_PICOW,
+        boards.BOARD_PICOCALC_PICO_2,
+        boards.BOARD_PICOCALC_PICO_2W,
+        boards.BOARD_PICOCALC_PIMORONI_2W,
+    )
+    if boards.BOARD_HAS_PICOCALC != int(boards.BOARD_ID in picocalc_ids):
+        raise RuntimeError("simulator PicoCalc capability mismatch")
+    if boards.get_name(boards.BOARD_V8) != "V8":
+        raise RuntimeError("simulator V8 board name mismatch")
+    if boards.get_display_size(boards.BOARD_V8) != (240, 320):
+        raise RuntimeError("simulator V8 display size mismatch")
+    if not boards.has_sd_card(boards.BOARD_V8):
+        raise RuntimeError("simulator V8 SD capability mismatch")
+    if not boards.has_touch(boards.BOARD_V8):
+        raise RuntimeError("simulator V8 touch capability mismatch")
+    if not boards.has_wifi(boards.BOARD_V8):
+        raise RuntimeError("simulator V8 WiFi capability mismatch")
+    if boards.has_audio(boards.BOARD_V8):
+        raise RuntimeError("simulator V8 audio capability mismatch")
+    if boards.has_psram(boards.BOARD_V8):
+        raise RuntimeError("simulator V8 PSRAM capability mismatch")
+    if boards.get_name(boards.BOARD_WAVESHARE_1_69_RP2350) != "Waveshare 1.69":
+        raise RuntimeError("simulator Waveshare 1.69 board name mismatch")
+    if boards.get_display_size(boards.BOARD_WAVESHARE_1_69_RP2350) != (240, 280):
+        raise RuntimeError("simulator Waveshare 1.69 display size mismatch")
+    if boards.has_sd_card(boards.BOARD_WAVESHARE_1_69_RP2350):
+        raise RuntimeError("simulator Waveshare 1.69 SD capability mismatch")
+    if not boards.has_touch(boards.BOARD_WAVESHARE_1_69_RP2350):
+        raise RuntimeError("simulator Waveshare 1.69 touch capability mismatch")
+    if boards.has_wifi(boards.BOARD_WAVESHARE_1_69_RP2350):
+        raise RuntimeError("simulator Waveshare 1.69 WiFi capability mismatch")
+    if boards.has_audio(boards.BOARD_WAVESHARE_1_69_RP2350):
+        raise RuntimeError("simulator Waveshare 1.69 audio capability mismatch")
+    if boards.has_psram(boards.BOARD_WAVESHARE_1_69_RP2350):
+        raise RuntimeError("simulator Waveshare 1.69 PSRAM capability mismatch")
+    if boards.get_name(boards.BOARD_DESKTOP) != "Desktop":
+        raise RuntimeError("simulator Desktop board name mismatch")
+    if boards.get_display_size(boards.BOARD_DESKTOP) != (320, 320):
+        raise RuntimeError("simulator Desktop display size mismatch")
+    if not boards.has_sd_card(boards.BOARD_DESKTOP):
+        raise RuntimeError("simulator Desktop SD capability mismatch")
+    if boards.has_touch(boards.BOARD_DESKTOP):
+        raise RuntimeError("simulator Desktop touch capability mismatch")
+    if not boards.has_wifi(boards.BOARD_DESKTOP):
+        raise RuntimeError("simulator Desktop WiFi capability mismatch")
+    if not boards.has_audio(boards.BOARD_DESKTOP):
+        raise RuntimeError("simulator Desktop audio capability mismatch")
+    if boards.has_psram(boards.BOARD_DESKTOP):
+        raise RuntimeError("simulator Desktop PSRAM capability mismatch")
+    print("[sim-check:ok] V8, Waveshare 1.69, and Desktop board profiles")
+
+
 def _run_touch_check():
     """Verify scripted keys land in the shared percentage-based touch zones."""
     import picoware_boards
@@ -766,6 +1193,7 @@ def _run_touch_check():
         ("crowpanel", picoware_boards.BOARD_CROWPANEL_10_1),
         ("waveshare-2.06", picoware_boards.BOARD_WAVESHARE_2_06),
         ("pancake", picoware_boards.BOARD_PANCAKE),
+        ("v8", picoware_boards.BOARD_V8),
     )
     expected = (
         (sim_runtime.KEY_NAMES["up"], "up"),
@@ -816,7 +1244,70 @@ def _run_touch_check():
                     )
     finally:
         sim_runtime.board = original_board
-    print("[sim-check:ok] touch layout crowpanel waveshare-2.06 pancake")
+    print("[sim-check:ok] touch layout crowpanel waveshare-2.06 pancake v8")
+
+
+def _run_v8_battery_check():
+    """Exercise the V8 battery shim used by the desktop."""
+    import sim_runtime
+    import v8_battery
+
+    original_percentage = sim_runtime.battery_percentage()
+    try:
+        if v8_battery.init() is not None:
+            raise RuntimeError("simulator V8 battery init return mismatch")
+        sim_runtime.set_battery_percentage(64)
+        if v8_battery.get_percentage() != 64:
+            raise RuntimeError("simulator V8 battery percentage mismatch")
+        voltage = v8_battery.get_voltage()
+        if voltage < 3.0 or voltage > 5.0:
+            raise RuntimeError("simulator V8 battery voltage mismatch")
+    finally:
+        sim_runtime.set_battery_percentage(original_percentage)
+    print("[sim-check:ok] V8 battery percentage and voltage")
+
+
+def _run_waveshare_169_check():
+    """Exercise the Waveshare 1.69 hard-IRQ touch and battery shims."""
+    from machine import Pin
+    import sim_runtime
+    import waveshare_battery
+    import waveshare_touch
+
+    original_percentage = sim_runtime.battery_percentage()
+    pin = Pin(21, Pin.IN, Pin.PULL_UP)
+    try:
+        waveshare_touch.reset_state()
+        pin.irq(
+            handler=waveshare_touch.read_data,
+            trigger=Pin.IRQ_FALLING,
+            hard=True,
+        )
+        waveshare_touch.set_touch_point(120, 140)
+        if waveshare_touch.get_cached_point() != (120, 140):
+            raise RuntimeError("simulator Waveshare 1.69 cached touch mismatch")
+        if not pin._irq_hard:
+            raise RuntimeError("simulator Waveshare 1.69 hard IRQ flag mismatch")
+        waveshare_touch.reset()
+        if waveshare_touch.get_cached_point() != (0, 0):
+            raise RuntimeError("simulator Waveshare 1.69 touch reset mismatch")
+
+        if waveshare_battery.init() is not None:
+            raise RuntimeError("simulator Waveshare battery init return mismatch")
+        sim_runtime.set_battery_percentage(64)
+        if waveshare_battery.get_percentage() != 64:
+            raise RuntimeError("simulator Waveshare battery percentage mismatch")
+        voltage = waveshare_battery.get_voltage()
+        if voltage < 3.0 or voltage > 5.0:
+            raise RuntimeError("simulator Waveshare battery voltage mismatch")
+        raw = waveshare_battery.read()
+        if raw < 0 or raw > 4095:
+            raise RuntimeError("simulator Waveshare battery ADC mismatch")
+    finally:
+        pin.irq(handler=None)
+        waveshare_touch.reset_state()
+        sim_runtime.set_battery_percentage(original_percentage)
+    print("[sim-check:ok] Waveshare 1.69 hard IRQ touch and battery")
 
 
 def _run_flipper_battery_check():
@@ -895,6 +1386,56 @@ def _run_log_storage_check(opts):
     print("[sim-check:ok] storage log persistence reset")
 
 
+def _run_audio_shutdown_check():
+    """Verify shutdown signals every active simulator audio helper."""
+    import sim_runtime
+
+    probe_root = "/tmp/picoware-sim-audio-shutdown-check"
+    filenames = (
+        "sim_audio.status",
+        "sim_audio.cmd",
+        "sim_audio_mix_1.status",
+        "sim_audio_mix_1.cmd",
+        "unrelated.status",
+    )
+    original_sd_root = sim_runtime.sd_root
+    _mkdir_p(probe_root)
+    try:
+        for name in filenames:
+            try:
+                os.remove(probe_root + "/" + name)
+            except OSError:
+                pass
+        with open(probe_root + "/sim_audio.status", "w") as handle:
+            handle.write("playing=1\n")
+        with open(probe_root + "/sim_audio_mix_1.status", "w") as handle:
+            handle.write("playing=1\n")
+        with open(probe_root + "/unrelated.status", "w") as handle:
+            handle.write("playing=1\n")
+
+        sim_runtime.sd_root = probe_root
+        if sim_runtime.shutdown_audio_sidecars(0):
+            raise RuntimeError("simulator audio shutdown ignored active helpers")
+        for name in ("sim_audio.cmd", "sim_audio_mix_1.cmd"):
+            with open(probe_root + "/" + name, "r") as handle:
+                if handle.read() != "stop\n":
+                    raise RuntimeError("simulator audio shutdown command mismatch")
+        if sim_runtime._exists(probe_root + "/unrelated.cmd"):
+            raise RuntimeError("simulator audio shutdown signaled an unrelated helper")
+    finally:
+        sim_runtime.sd_root = original_sd_root
+        for name in filenames + ("unrelated.cmd",):
+            try:
+                os.remove(probe_root + "/" + name)
+            except OSError:
+                pass
+        try:
+            os.rmdir(probe_root)
+        except OSError:
+            pass
+    print("[sim-check:ok] audio sidecar shutdown")
+
+
 def _run_circular_choice_check():
     """Render the native circular Choice path without board-module reloading."""
     import sim_runtime
@@ -939,7 +1480,8 @@ def _run_fatal_exit_check(opts):
     probe_log = "/tmp/picoware-sim-fatal-probe.log"
     missing_text = "__PICOWARE_SIM_EXPECTED_MISSING_TEXT__"
     cmd = (
-        "micropython "
+        _interpreter_command()
+        + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --frames 1 --assert-text "
         + _quote(missing_text)
@@ -969,6 +1511,7 @@ def _run_fatal_exit_check(opts):
 def _run_mjs_check():
     """Smoke-test the JavaScript modules supplied by the simulator shim."""
     import mjs
+    import sim_runtime
 
     js = mjs.MJS()
     js.run('let audio = import("audio");')
@@ -987,7 +1530,31 @@ def _run_mjs_check():
     js.run('let websocket = import("websocket");')
     if js.run("websocket.isConnected();") is not False:
         raise RuntimeError("simulator mjs websocket state mismatch")
-    print("[sim-check:ok] mjs audio bluetooth psram websocket")
+
+    js.run('let draw = import("draw");')
+    if js.run('draw.len("Hello World");') != 66:
+        raise RuntimeError("simulator mjs draw length mismatch")
+    screenshot_path = sim_runtime.host_path("sim_reports/mjs.bmp")
+    _mkdir_p(_dirname(screenshot_path))
+    js.run('draw.screenshot("sim_reports/mjs.bmp");')
+    try:
+        if os.stat(screenshot_path)[6] <= 54:
+            raise RuntimeError("simulator mjs screenshot is empty")
+    except OSError:
+        raise RuntimeError("simulator mjs screenshot missing")
+
+    js.run('let settings = import("settings");')
+    expected_settings = (
+        ("settings.anthropicApiKey", ""),
+        ("settings.geminiApiKey", ""),
+        ("settings.localUrl", "http://127.0.0.1:8080/v1/chat/completions"),
+        ("settings.screenBrightness", 100),
+        ("settings.xaiApiKey", ""),
+    )
+    for expression, expected in expected_settings:
+        if js.run(expression + ";") != expected:
+            raise RuntimeError("simulator mjs setting mismatch: " + expression)
+    print("[sim-check:ok] mjs draw settings audio bluetooth psram websocket")
 
 
 def _write_error_file(path, exc):
@@ -1034,7 +1601,7 @@ def _relaunch_self(reset_sd=False):
         args.append(_quote(str(arg)))
     if reset_sd and "--reset-sd" not in sys.argv:
         args.append("--reset-sd")
-    cmd = "micropython " + " ".join(args) + " >/tmp/picoware-sim-restart.log 2>&1 &"
+    cmd = _interpreter_command() + " " + " ".join(args) + " >/tmp/picoware-sim-restart.log 2>&1 &"
     os.system(cmd)
 
 
@@ -1220,6 +1787,10 @@ def main():
             _write_error_file(opts["sd"] + "/sim_error.txt", e)
         raise SystemExit(1)
     finally:
+        try:
+            sim_runtime.shutdown_audio_sidecars()
+        except Exception:
+            pass
         try:
             sim_runtime.finish_recording()
         except Exception:

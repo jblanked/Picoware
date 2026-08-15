@@ -1,3 +1,5 @@
+"""Keyboard - On-screen keyboard widget."""
+
 from picoware.system.buttons import (
     BUTTON_UP,
     BUTTON_DOWN,
@@ -82,6 +84,13 @@ class KeyLayout:
     __slots__ = ("normal", "shifted", "width")
 
     def __init__(self, normal: str, shifted: str, width: int = 1) -> None:
+        """Initialize a key layout entry.
+
+        Args:
+            normal (str): The character for the normal state.
+            shifted (str): The character for the shifted state.
+            width (int): The key width in units. Defaults to 1.
+        """
         self.normal = normal
         self.shifted = shifted
         self.width = width  # Width in units (1 = normal key, 2 = double width, etc.)
@@ -173,19 +182,20 @@ class Keyboard:
         selected_color: int = 0x001F,
         on_save_callback: callable = None,
     ) -> None:
-        """
-        Initializes the keyboard with drawing context and input manager.
+        """Initialize the keyboard with drawing context and input manager.
 
         Args:
-            draw: Drawing context for rendering the keyboard.
+            draw (Draw): Drawing context for rendering the keyboard.
             input_manager: Input manager to handle button presses.
-            text_color: Color for the text on keys and textbox.
-            background_color: Background color for keys and textbox.
-            selected_color: Color for the selected key highlight.
-            on_save_callback: Optional callback function to call when "Save" is pressed. (must accept one argument: the current response string)
+            text_color (int): Color for the text on keys and textbox. Defaults to 0xFFFF.
+            background_color (int): Background color for keys and textbox. Defaults to 0x0000.
+            selected_color (int): Color for the selected key highlight. Defaults to 0x001F.
+            on_save_callback (callable): Optional callback called when "Save" is pressed. Defaults to None.
         """
         from picoware.system.vector import Vector
         from picoware.system.auto_complete import AutoComplete
+        from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+        self._is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
         self.draw = draw
         self.input_manager = input_manager
@@ -214,30 +224,41 @@ class Keyboard:
         self.text_cursor_position = 0
         self.selected_suggestion_index = -1  # -1 means no suggestion selected
 
-        self.KEY_WIDTH, self.KEY_HEIGHT = draw.scale(22, 35)
-        self.KEY_MARGIN, self.TEXTBOX_HEIGHT = draw.scale(4, 45) 
+        self.KEY_WIDTH, self.KEY_HEIGHT = draw.scale(22, 48)
+        self.KEY_MARGIN, self.TEXTBOX_HEIGHT = draw.scale(4, 45)
         self.KEY_SPACING = 1
 
         self._touch_enabled = input_manager.has_touch_support
 
-        self.max_chars_per_line = (self.draw.size.x - 10) // self.draw.font_size.x
-        self.max_lines = (self.TEXTBOX_HEIGHT - 10) // self.draw.font_size.y
+        _ten_x, _ten_y = draw.scale(10, 10)
 
-        self.keyboard_height = self.NUM_ROWS * (self.KEY_HEIGHT + self.KEY_SPACING) + 20
-        self.key_vec = Vector(0, 0)
+        self.max_chars_per_line = (self.draw.size.x - _ten_x) // self.draw.font_size.x
+        self.max_lines = (self.TEXTBOX_HEIGHT - _ten_y) // self.draw.font_size.y
+
+        self.max_lines = max(1, self.max_lines)
+        _min_textbox_height = (
+            _ten_y
+            + self.max_lines * self.draw.font_size.y
+            + (self.max_lines - 1) * self.KEY_SPACING
+        )
+        self.TEXTBOX_HEIGHT = max(self.TEXTBOX_HEIGHT, _min_textbox_height)
+
+        self.keyboard_height = self.NUM_ROWS * (self.KEY_HEIGHT + self.KEY_SPACING) + (_ten_y * 2)
         self.size_vec = Vector(0, 0)
-        self.text_vec = Vector(5, 8)
+        self.text_vec = Vector(draw.scale_x(5), draw.scale_y(8))
         self.cursor = Vector(0, 0)
 
         self.text_box_pos_vec = Vector(0, self.TEXTBOX_HEIGHT)
-        self.text_box_pos_size = Vector(self.draw.size.x, self.keyboard_height + 10)
+        self.text_box_pos_size = Vector(self.draw.size.x, self.keyboard_height + _ten_y)
 
-        self.text_border_pos = Vector(2, 2)
-        self.text_border_size = Vector(self.draw.size.x - 4, self.TEXTBOX_HEIGHT - 4)
+        self.text_border_pos = Vector(draw.scale_x(2), draw.scale_y(2))
+        self.text_border_size = Vector(self.draw.size.x - draw.scale_x(4), self.TEXTBOX_HEIGHT - draw.scale_y(4))
 
         self.title_vec = Vector(
-            self.draw.size.x // 2 - len(self.current_title) * 3, self.TEXTBOX_HEIGHT + 5
+            self.draw.size.x // 2 - draw.len(self.current_title) // 2, self.TEXTBOX_HEIGHT + draw.scale_y(2)
         )
+
+        self._key_rects = self._build_key_rects()
 
         self.manual_keys = {
             BUTTON_PERIOD: ".",
@@ -324,9 +345,9 @@ class Keyboard:
         self._auto_complete_words = []
 
     def __del__(self) -> None:
+        """Clean up keyboard resources."""
         self.reset()
         self.current_title = ""
-        self.key_vec = None
         self.size_vec = None
         self.text_vec = None
         self.cursor = None
@@ -335,6 +356,7 @@ class Keyboard:
         self.text_border_pos = None
         self.text_border_size = None
         self.title_vec = None
+        self._key_rects = None
         self.manual_keys = {}
         self.key_mappings = {}
         self.d_pad = {}
@@ -349,7 +371,11 @@ class Keyboard:
 
     @callback.setter
     def callback(self, value: callable) -> None:
-        """Sets the current save callback function"""
+        """Set the current save callback function.
+
+        Args:
+            value (callable): The new callback function.
+        """
         self.on_save_callback = value
 
     @property
@@ -369,7 +395,11 @@ class Keyboard:
 
     @show_keyboard.setter
     def show_keyboard(self, value: bool) -> None:
-        """Sets whether the on-screen keyboard is shown"""
+        """Set whether the on-screen keyboard is shown.
+
+        Args:
+            value (bool): True to show the keyboard.
+        """
         self._show_keyboard = value
 
     @property
@@ -379,12 +409,16 @@ class Keyboard:
 
     @title.setter
     def title(self, value: str) -> None:
-        """Sets the current title of the keyboard"""
+        """Set the current title of the keyboard.
+
+        Args:
+            value (str): The new title.
+        """
         from picoware.system.vector import Vector
 
         self.current_title = value
         self.title_vec = Vector(
-            self.draw.size.x // 2 - len(value) * 3, self.TEXTBOX_HEIGHT + 5
+            self.draw.size.x // 2 - self.draw.len(value) // 2, self.TEXTBOX_HEIGHT + self.draw.scale_y(5)
         )
 
     @property
@@ -394,7 +428,11 @@ class Keyboard:
 
     @response.setter
     def response(self, value: str) -> None:
-        """Sets the response string"""
+        """Set the response string.
+
+        Args:
+            value (str): The new response string.
+        """
         self._response = value
         self.text_cursor_position = len(value)
 
@@ -405,12 +443,20 @@ class Keyboard:
 
     @auto_complete_words.setter
     def auto_complete_words(self, value: list[str]) -> None:
-        """Sets the list of words for auto-completion"""
+        """Set the list of words for auto-completion.
+
+        Args:
+            value (list[str]): The new word list.
+        """
         self._auto_complete_words = value
         self._auto_complete_words_set = False
 
     def set_save_callback(self, callback: callable) -> None:
-        """Sets the save callback function"""
+        """Set the save callback function.
+
+        Args:
+            callback (callable): The callback to call on save.
+        """
         self.on_save_callback = callback
 
     def reset(self) -> None:
@@ -433,7 +479,15 @@ class Keyboard:
         self._auto_complete_words.clear()
 
     def run(self, swap: bool = True, force: bool = False) -> bool:
-        """Runs the input manager, handles input, and draws the keyboard"""
+        """Run the input manager, handle input, and draw the keyboard.
+
+        Args:
+            swap (bool): Whether to swap the display buffer. Defaults to True.
+            force (bool): Whether to force a redraw. Defaults to False.
+
+        Returns:
+            bool: True while running, False when stopped.
+        """
         if self.just_stopped:
             return False
 
@@ -465,11 +519,12 @@ class Keyboard:
             if self._show_keyboard:
                 self._draw_keyboard()
 
-            self.draw._text(
-                self.title_vec.x, self.title_vec.y,
-                self.current_title,
-                self.text_color,
-            )
+            if not self._is_flipper:
+                self.draw._text(
+                    self.title_vec.x, self.title_vec.y,
+                    self.current_title,
+                    self.text_color,
+                )
 
             # Draw auto-complete suggestions after keyboard/title
             self._draw_suggestions()
@@ -527,37 +582,45 @@ class Keyboard:
             "Picoware",
         ]
 
-    def _key_row_geometry(self, row: int) -> tuple:
-        """Return (start_x, y) for a key row, as _draw_key places it."""
-        total_row_width = 0
-        for i in range(self.ROW_SIZES[row]):
-            total_row_width += self.ROWS[row][i].width * self.KEY_WIDTH + (
-                self.KEY_SPACING if i > 0 else 0
+    def _build_key_rects(self) -> list:
+        """Set each key's (x, y, width, height) rectangle."""
+        rects = []
+        for row in range(self.NUM_ROWS):
+            total_row_width = 0
+            for i in range(self.ROW_SIZES[row]):
+                total_row_width += self.ROWS[row][i].width * self.KEY_WIDTH + (
+                    self.KEY_SPACING if i > 0 else 0
+                )
+            start_x = (self.draw.size.x - total_row_width) // 2
+            y = self.TEXTBOX_HEIGHT + self.draw.scale_y(13.33) + row * (
+                self.KEY_HEIGHT + self.KEY_SPACING
             )
-        start_x = (self.draw.size.x - total_row_width) // 2
-        y = self.TEXTBOX_HEIGHT + self.draw.scale_y(13.33) + row * (
-            self.KEY_HEIGHT + self.KEY_SPACING
-        )
-        return start_x, y
+
+            row_rects = []
+            x_pos = start_x
+            for col in range(self.ROW_SIZES[row]):
+                key = self.ROWS[row][col]
+                width = key.width * self.KEY_WIDTH + (key.width - 2) * self.KEY_SPACING
+                row_rects.append((x_pos - 2, y, width + 4, self.KEY_HEIGHT))
+                x_pos += key.width * self.KEY_WIDTH + self.KEY_SPACING
+            rects.append(row_rects)
+        return rects
 
     def _key_at_point(self, x: int, y: int):
-        """Return the (row, col) under a touch point, or None."""
+        """Return the (row, col) under a touch point, or None.
+
+        Args:
+            x (int): The touch X coordinate.
+            y (int): The touch Y coordinate.
+
+        Returns:
+            tuple or None: The (row, col) of the key, or None if not on a key.
+        """
         for row in range(self.NUM_ROWS):
-            start_x, row_y = self._key_row_geometry(row)
-            if not row_y <= y < row_y + self.KEY_HEIGHT:
-                continue
-
-            x_pos = start_x
-            starts = []
-            for col in range(self.ROW_SIZES[row]):
-                starts.append(x_pos)
-                x_pos += self.ROWS[row][col].width * self.KEY_WIDTH + self.KEY_SPACING
-
             # reversed: a multi-unit key is drawn over the key after it
             for col in range(self.ROW_SIZES[row] - 1, -1, -1):
-                key = self.ROWS[row][col]
-                width = key.width * self.KEY_WIDTH + (key.width - 1) * self.KEY_SPACING
-                if starts[col] <= x < starts[col] + width:
+                rx, ry, rw, rh = self._key_rects[row][col]
+                if rx <= x < rx + rw and ry <= y < ry + rh:
                     return row, col
         return None
 
@@ -584,49 +647,42 @@ class Keyboard:
         return True
 
     def _draw_key(self, row: int, col: int, is_selected: bool) -> None:
-        """Draws a specific key on the keyboard"""
+        """Draw a specific key on the keyboard.
+
+        Args:
+            row (int): The key row index.
+            col (int): The key column index.
+            is_selected (bool): Whether the key is currently selected.
+        """
         if row >= self.NUM_ROWS or col >= self.ROW_SIZES[row]:
             return
 
         key = self.ROWS[row][col]
 
-        # Calculate total row width for centering
-        total_row_width = 0
-        for i in range(self.ROW_SIZES[row]):
-            total_row_width += self.ROWS[row][i].width * self.KEY_WIDTH + (
-                self.KEY_SPACING if i > 0 else 0
+        x_pos, y_pos, width, height = self._key_rects[row][col]
+        self.size_vec.x = width
+        self.size_vec.y = height
+
+        if self._is_flipper:
+            # draw key background
+            self.draw._fill_rectangle(
+                x_pos, y_pos, self.size_vec.x, self.size_vec.y, self.text_color if is_selected else self.background_color
+            )
+        else:
+            # Draw key background
+            bg_color = self.selected_color if is_selected else self.background_color
+            self.draw._fill_rectangle(
+                x_pos, y_pos, self.size_vec.x, self.size_vec.y, bg_color
             )
 
-        # Calculate starting X position for centering
-        start_x = (self.draw.size.x - total_row_width) // 2
-
-        # Calculate key position
-        x_pos = start_x
-        for i in range(col):
-            x_pos += self.ROWS[row][i].width * self.KEY_WIDTH + self.KEY_SPACING
-        y_pos = self.TEXTBOX_HEIGHT + self.draw.scale_y(13.33) + row * (
-            self.KEY_HEIGHT + self.KEY_SPACING
-        )
-
-        # Calculate key size
-        width = key.width * self.KEY_WIDTH + (key.width - 1) * self.KEY_SPACING
-        self.size_vec.x = width
-        self.size_vec.y = self.KEY_HEIGHT
-
-        # Draw key background
-        bg_color = self.selected_color if is_selected else self.background_color
-        self.draw._fill_rectangle(
-            x_pos, y_pos, self.size_vec.x, self.size_vec.y, bg_color
-        )
-
-        # Draw key border
-        self.draw._rectangle(
-            x_pos,
-            y_pos,
-            self.size_vec.x,
-            self.size_vec.y,
-            self.text_color,
-        )
+            # Draw key border
+            self.draw._rectangle(
+                x_pos,
+                y_pos,
+                self.size_vec.x,
+                self.size_vec.y,
+                self.text_color,
+            )
 
         # Determine what character to display
         display_char = key.normal
@@ -660,9 +716,14 @@ class Keyboard:
             key_label = display_char
 
         # Center the text
-        self.key_vec.x = x_pos + width // 2 - len(key_label) * 3
-        self.key_vec.y = y_pos + self.KEY_HEIGHT // 2 - 4
-        self.draw._text(self.key_vec.x, self.key_vec.y, key_label, self.text_color)
+        _key_x = x_pos + width // 2 - self.draw.len(key_label) // 2
+        _key_y = y_pos + self.KEY_HEIGHT // 2 - self.draw.font_size.y // 2
+        if self._is_flipper:
+            # Draw key label with background color for selected key
+            text_color = self.background_color if is_selected else self.text_color
+            self.draw._text(_key_x, _key_y, key_label, text_color)
+        else:
+            self.draw._text(_key_x, _key_y, key_label, self.text_color)
 
     def _draw_keyboard(self) -> None:
         """Draws the entire keyboard"""
@@ -783,7 +844,11 @@ class Keyboard:
                 self.draw._text(x_pos, y_pos, suggestion, self.text_color)
 
     def _apply_suggestion(self, suggestion_text: str) -> None:
-        """Applies an auto-complete suggestion to the current response"""
+        """Apply an auto-complete suggestion to the current response.
+
+        Args:
+            suggestion_text (str): The suggestion to apply.
+        """
         if not suggestion_text or not self._response:
             return
 
@@ -1018,7 +1083,12 @@ class Keyboard:
                 self.is_manual_shift = False
 
     def _set_cursor_position(self, row: int, col: int) -> None:
-        """Sets the cursor position on the keyboard"""
+        """Set the cursor position on the keyboard.
+
+        Args:
+            row (int): The row to move to.
+            col (int): The column to move to.
+        """
         if row < self.NUM_ROWS and col < self.ROW_SIZES[row]:
             self.cursor_row = row
             self.cursor_col = col

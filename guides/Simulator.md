@@ -41,8 +41,8 @@ Build the native helpers (SDL viewer, audio sidecars), then launch:
 
 ```sh
 cd simulator
-./build.sh
-micropython run.py --viewer
+bash tools/micropython-desktop.sh # build
+bash tools/run-micropython-desktop.sh # run
 ```
 
 ### Keyboard shortcuts (viewer window)
@@ -58,42 +58,10 @@ micropython run.py --viewer
 | `Ctrl+1..4` | Change window scale |
 | Left mouse click | Send a touch point to touch-board profiles |
 
-### Common commands
-
-```sh
-cd simulator
-
-# Interactive viewer (default scale 2x)
-micropython run.py --viewer
-
-# Launch directly into an app
-micropython run.py --viewer --app Calculator
-
-# Run headless for N frames (automation / CI)
-micropython run.py --headless --frames 30
-
-# Offline mode (no network, silent audio)
-micropython run.py --viewer --network offline --audio silent
-
-# Custom scale and speed
-micropython run.py --viewer --scale 3 --fps 20
-
-# Use a custom apps directory
-micropython run.py --viewer --apps-source /path/to/apps
-
-# Run as a touch board
-micropython run.py --viewer --board waveshare-1.43-rp2350
-
-# Capture a screenshot at exit
-micropython run.py --headless --frames 120 --screenshot /tmp/picoware.bmp
-
-# Record simulator framebuffer frames
-micropython run.py --viewer --record /tmp/picoware.frames
-```
 
 Useful board names include `picocalc-pico2w`, `waveshare-1.28-rp2350`,
-`waveshare-1.43-rp2350`, `waveshare-3.49-rp2350`, `crowpanel-10.1`, and
-`cardputer`.
+`waveshare-1.43-rp2350`, `waveshare-1.69-rp2350`, `waveshare-3.49-rp2350`,
+`crowpanel-10.1`, and `cardputer`.
 
 ### Game Boy controls
 

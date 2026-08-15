@@ -1,7 +1,27 @@
+"""App - Picoware application metadata."""
+
 class App:
-    """Class for a Picoware application."""
+    """Class for a Picoware application.
+    
+    Attributes:
+        _authors (list[str]): List of authors of the application.
+        _description (str): Description of the application.
+        _download_url (str): URL to download the application.
+        _file_downloads (list[dict]): List of file downloads for the application.
+        _file_structure (list[str]): List of file paths in the application.
+        _github_url (str): GitHub URL of the application.
+        _icon_url (str): URL of the application's icon.
+        _id (int): Unique identifier of the application.
+        _title (str): Title of the application.
+        _version (str): Version of the application. 
+    """
 
     def __init__(self, manifest: dict):
+        """Initialize the App from its manifest dictionary.
+
+        Args:
+            manifest (dict): App metadata including id, title, version, and authors.
+        """
         self._authors: list[str] = manifest.get("authors", [])
         self._description: str = manifest.get("description", "")
         self._download_url: str = manifest.get("download_url", "")
@@ -30,7 +50,11 @@ class App:
         self._version = None
 
     def __str__(self) -> str:
-        """Return a string representation of the application."""
+        """Return a string representation of the application.
+
+        Returns:
+            str: The application as "App(id=..., title='...', version='...')".
+        """
         return f"App(id={self._id}, title='{self._title}', version='{self._version}')"
 
     @property
@@ -50,14 +74,13 @@ class App:
 
     @property
     def file_downloads(self) -> list[dict]:
-        """
-        Return the list of file downloads for the application.
+        """Return the list of file downloads for the application.
 
         Each file download is represented as a dictionary with keys:
-        - "path": The path of the file within the application. (str)
-        - "download_url": The URL to download the file. (str)
-        - "file_id": The unique ID of the file. (int)
-        - "file_size": The size of the file in bytes. (int)
+            - "path": The path of the file within the application. (str)
+            - "download_url": The URL to download the file. (str)
+            - "file_id": The unique ID of the file. (int)
+            - "file_size": The size of the file in bytes. (int)
         """
         return self._file_downloads
 

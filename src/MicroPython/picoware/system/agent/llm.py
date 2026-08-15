@@ -1,3 +1,5 @@
+"""LLM - Multi-provider language model interface."""
+
 from micropython import const
 
 OPENAI = const(0)
@@ -5,11 +7,20 @@ DEEPSEEK = const(1)
 ANTHROPIC = const(2)
 GEMINI = const(3)
 LOCAL = const(4)
+XAI = const(5)
 
 class LLM:
     """LLM config"""
     __slots__ = ["_api_key", "_current_model", "_id", "_name", "_url", "_models", "_headers", "_thinking"]
     def __init__(self, storage, llm_id: int, model: str = None, thinking: str = "none"):
+        """Initialize the LLM config for the given provider ID.
+
+        Args:
+            storage (Storage): The storage interface for settings.
+            llm_id (int): The provider ID constant.
+            model (str): The model name to use. Defaults to None.
+            thinking (str): The thinking level. Defaults to "none".
+        """
         self._api_key = ""
         self._current_model = model
         if thinking not in ("none", "low", "medium", "high", "max") or thinking is None:
@@ -110,11 +121,18 @@ class LLM:
     @staticmethod
     def providers() -> list:
         """Return a list of available LLM providers."""
-        return [OPENAI, DEEPSEEK, ANTHROPIC, GEMINI, LOCAL]
+        return [OPENAI, DEEPSEEK, ANTHROPIC, GEMINI, LOCAL, XAI]
 
     @staticmethod
     def provider_name(provider_id: int) -> str:
-        """Return the name of the LLM provider given its ID."""
+        """Return the name of the LLM provider given its ID.
+
+        Args:
+            provider_id (int): The provider ID constant.
+
+        Returns:
+            str: The provider name, or "Unknown" if not recognized.
+        """
         if provider_id == OPENAI:
             return "OpenAI"
         if provider_id == DEEPSEEK:
@@ -125,10 +143,16 @@ class LLM:
             return "Gemini"
         if provider_id == LOCAL:
             return "Local"
+        if provider_id == XAI:
+            return "xAI"
         return "Unknown"
 
     def __set(self, storage):
-        """Set model name, url, and headers based on model_id."""
+        """Set model name, url, and headers based on the provider ID.
+
+        Args:
+            storage (Storage): The storage interface for settings.
+        """
         from picoware.system.settings import Settings
 
         settings = Settings(storage)
@@ -152,12 +176,17 @@ class LLM:
         elif self._id == GEMINI:
             self._name = "Gemini"
             self._url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
-            self._models = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview"]
+            self._models = ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview"]
             self._api_key = settings.gemini_api_key
         elif self._id == LOCAL:
             self._name = "Local"
             self._url = settings.local_url
-            self._models = ["qwen3.5:4b", "qwen3.5:0.8b", "qwen3.5:2b", "llama3.2:3b", "llama3.2:1b"]
+            self._models = ["qwen3.5:9b", "qwen3.5:4b", "qwen3.5:0.8b", "qwen3.5:2b", "llama3.2:3b", "llama3.2:1b"]
+        elif self._id == XAI:
+            self._name = "xAI"
+            self._url = "https://api.x.ai/v1"
+            self._models = ["grok-4.5", "grok-4.3", "grok-build-0.1", "grok-4.20", "grok-4.20-non-reasoning"]
+            self._api_key = settings.xai_api_key
         
         if self._id != LOCAL:
             self._headers["Authorization"] = f"Bearer {self._api_key}"

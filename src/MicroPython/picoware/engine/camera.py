@@ -1,3 +1,5 @@
+"""Camera - 3D camera modes for the game engine."""
+
 from micropython import const
 from picoware.system.vector import Vector
 import engine
@@ -19,7 +21,18 @@ class Camera(engine.Camera):
         distance=2.0,
         perspective=CAMERA_FIRST_PERSON,
     ):
-        """Initialize the Camera (override so users can pick perspective)"""
+        """Initialize the Camera.
+
+        Override so users can pick the perspective.
+
+        Args:
+            position (Vector): Camera position. Defaults to Vector(0, 0, 0).
+            direction (Vector): View direction. Defaults to Vector(1, 0, 0).
+            plane (Vector): Camera plane. Defaults to Vector(0, 0.66, 0).
+            height (float): Camera height. Defaults to 1.0.
+            distance (float): View distance. Defaults to 2.0.
+            perspective (int): Camera perspective type. Defaults to CAMERA_FIRST_PERSON.
+        """
         super().__init__(
             position,  # position
             direction,  # direction
@@ -30,6 +43,12 @@ class Camera(engine.Camera):
         )
 
     def __setattr__(self, name, value):
+        """Set a camera attribute, routing to the matching setter.
+
+        Args:
+            name (str): Attribute name to set.
+            value (object): New value for the attribute.
+        """
         if name == "position":
             self.set_position(value)
         elif name == "direction":

@@ -76,6 +76,10 @@ void auto_complete_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destinati
         {
             destination[0] = MP_OBJ_FROM_PTR(&auto_complete_mp_del_obj);
         }
+        else
+        {
+            destination[1] = MP_OBJ_SENTINEL;
+        }
     }
 }
 mp_obj_t auto_complete_mp_add_word(mp_obj_t self_in, mp_obj_t word_obj)

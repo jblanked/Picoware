@@ -17,12 +17,26 @@ _multiline_buffer = []
 
 
 def __parse(text: str) -> str:
-    """Execute input text and return the output as a string."""
+    """Execute input text and return the output as a string.
+
+    Args:
+        text (str): The input to execute.
+
+    Returns:
+        str: The executed output.
+    """
     global _repl_context
 
     _output = []
 
     def _capture_print(*args, sep=" ", end="\n", file=None):
+        """Capture print output into the result buffer.
+
+        Args:
+            sep (str): Separator between values. Defaults to " ".
+            end (str): Line ending. Defaults to "\n".
+            file (object): Ignored output stream. Defaults to None.
+        """
         _output.append(sep.join(str(a) for a in args) + end)
 
     _repl_context["print"] = _capture_print
@@ -48,7 +62,14 @@ def __parse(text: str) -> str:
 
 
 def _is_incomplete(line: str) -> bool:
-    """Return True if line opens a multi-line block and needs continuation."""
+    """Return True if line opens a multi-line block and needs continuation.
+
+    Args:
+        line (str): The line to check.
+
+    Returns:
+        bool: True if more input is needed.
+    """
     stripped = line.rstrip()
     if not stripped:
         return False
@@ -86,7 +107,11 @@ def _get_current_input() -> str:
 
 
 def _commit_input(output: str) -> None:
-    """Append the output and a new prompt to the editor's existing text."""
+    """Append the output and a new prompt to the editor's existing text.
+
+    Args:
+        output (str): The output to append.
+    """
     global _text_editor
 
     suffix = "\n" + output + "\n" + _PROMPT if output else "\n" + _PROMPT
@@ -105,7 +130,14 @@ def _continue_input() -> None:
 
 
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True on success.
+    """
     from picoware.gui.text_editor import TextEditor
 
     view_manager.freq(True)  # set to lower frequency
@@ -124,7 +156,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app"""
+    """Run the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
 
     global _text_editor, _multiline_buffer
@@ -176,7 +212,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
 
     from gc import collect
 

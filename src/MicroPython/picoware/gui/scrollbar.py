@@ -1,3 +1,5 @@
+"""ScrollBar - Scroll bar widget."""
+
 class ScrollBar:
     """A simple scrollbar class for a GUI."""
 
@@ -10,6 +12,16 @@ class ScrollBar:
         fill_color: int = 0xFFFFFF,
         is_horizontal: bool = False,
     ) -> None:
+        """Initialize the scrollbar with position, size, and colors.
+
+        Args:
+            draw (Draw): The drawing context to render the scrollbar.
+            position (Vector): The position of the scrollbar.
+            size (Vector): The size of the scrollbar.
+            outline_color (int): The outline color. Defaults to 0x0000.
+            fill_color (int): The fill color. Defaults to 0xFFFFFF.
+            is_horizontal (bool): Whether the scrollbar is horizontal. Defaults to False.
+        """
         self.display = draw
         self.position = position
         self.size = size
@@ -18,6 +30,7 @@ class ScrollBar:
         self.is_horizontal = is_horizontal
 
     def __del__(self):
+        """Clean up resources."""
         if self.position:
             del self.position
             self.position = None
@@ -76,7 +89,17 @@ class ScrollBar:
         should_draw: bool = True,
         should_clear: bool = True,
     ) -> None:
-        """Set the properties of the scrollbar."""
+        """Set the properties of the scrollbar.
+
+        Args:
+            position (Vector): The new position of the scrollbar.
+            size (Vector): The new size of the scrollbar.
+            outline_color (int): The new outline color.
+            fill_color (int): The new fill color.
+            is_horizontal (bool): Whether the scrollbar is horizontal. Defaults to False.
+            should_draw (bool): Whether to redraw after setting. Defaults to True.
+            should_clear (bool): Whether to clear before setting. Defaults to True.
+        """
         if should_clear:
             self.clear()
         self.position = position

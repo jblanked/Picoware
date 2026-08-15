@@ -50,7 +50,7 @@ class Leaderboard:
             and isinstance(entry[2], int)
             and entry[0] >= 0
             and entry[1] >= 1
-            and entry[2] in (0, 1)
+            and 0 <= entry[2] <= 4
         )
 
     @staticmethod

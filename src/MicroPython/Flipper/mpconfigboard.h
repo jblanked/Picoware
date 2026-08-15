@@ -6,12 +6,22 @@
 
 #define MICROPY_PY_PYB_LEGACY (0)
 
-// Disable BLE, hold M0+ in reset for v1 port
-#define MICROPY_HW_STM32WB_FLASH_SYNCRONISATION (0)
+// Radio enabled; sync flash access
+#define MICROPY_HW_STM32WB_FLASH_SYNCRONISATION (1)
 void flipper_board_early_init(void);
 #define MICROPY_BOARD_EARLY_INIT flipper_board_early_init
 
-#define MICROPY_HW_HAS_FLASH (1)
+// No internal flash storage
+#define MICROPY_HW_ENABLE_INTERNAL_FLASH_STORAGE (0)
+#define MICROPY_HW_HAS_FLASH (0)
+
+// Boot from /sd/firmware/main.py
+#define MICROPY_BOARD_FROZEN_BOOT_FILE "_boot.py"
+
+// NimBLE UART transport config
+#define MICROPY_HW_BLE_UART_ID (0)
+#define MICROPY_HW_BLE_UART_BAUDRATE (115200)
+
 #define MICROPY_HW_ENABLE_RTC (1)
 #define MICROPY_HW_ENABLE_RNG (1)
 #define MICROPY_HW_ENABLE_USB (1)

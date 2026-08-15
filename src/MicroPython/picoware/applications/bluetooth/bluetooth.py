@@ -5,8 +5,15 @@ _bluetooth_index = 0
 
 
 def start(view_manager) -> bool:
-    """Start the app"""
-    if not view_manager.has_wifi:
+    """Start the app and build the Bluetooth menu.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if the app started, False if Bluetooth is unavailable.
+    """
+    if not view_manager.has_bluetooth:
         view_manager.alert("Bluetooth not available....")
         return False
 
@@ -42,7 +49,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app."""
+    """Run the app and handle menu navigation.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from picoware.system.view import View
     from picoware.system.buttons import (
         BUTTON_BACK,
@@ -156,7 +167,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app and clean up the menu.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from gc import collect
 
     global _bluetooth

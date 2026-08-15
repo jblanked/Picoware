@@ -25,12 +25,23 @@ _last_update = 0
 
 
 def __addr_to_str(addr) -> str:
-    """Convert address bytes to string."""
+    """Convert address bytes to a colon-separated string.
+
+    Args:
+        addr (bytes): The device address bytes.
+
+    Returns:
+        str: The formatted address string.
+    """
     return ":".join("{:02X}".format(b) for b in addr)
 
 
 def on_data_received(data):
-    """Handle incoming data"""
+    """Store an incoming chat message.
+
+    Args:
+        data (bytes): Raw data received over BLE.
+    """
     global _messages
     try:
         text = data.decode("utf-8").strip()
@@ -44,7 +55,12 @@ def on_data_received(data):
 
 
 def bluetooth_callback(event, data):
-    """Bluetooth callback"""
+    """Handle Bluetooth connection and scan events.
+
+    Args:
+        event (int): Bluetooth event code.
+        data (tuple): Event payload.
+    """
     global _state, _addresses
 
     if event == 5:  # _IRQ_SCAN_RESULT
@@ -81,7 +97,14 @@ def bluetooth_callback(event, data):
 
 
 def start(view_manager) -> bool:
-    """Start the UART Chat app"""
+    """Start the UART Chat app and show the mode menu.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if the app started, False on failure.
+    """
     from picoware.gui.menu import Menu
 
     global _bluetooth, _menu, _state, _messages, _scanned_devices, _addresses, _mode
@@ -120,7 +143,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app"""
+    """Run the app and handle chat state input.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from picoware.system.buttons import (
         BUTTON_BACK,
         BUTTON_UP,
@@ -351,7 +378,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app and clean up the BLE connection.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from gc import collect
 
     global _bluetooth, _menu, _loading, _messages

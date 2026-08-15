@@ -1,7 +1,9 @@
+"""Agent - LLM-powered assistant with tools."""
+
 import json
 from micropython import const
 from picoware.system.agent.tools import dispatch
-from picoware.system.agent.llm import LLM, DEEPSEEK, ANTHROPIC
+from picoware.system.agent.llm import LLM, DEEPSEEK
 from picoware.system.agent.context import chat, app_creator, device_manager
 
 MODE_CHAT = const(0) # general chat mode
@@ -16,6 +18,14 @@ class Agent:
     __slots__ = ["mode", "tools", "llm", "view_manager", "http", "_file_path", "_conv_path", "_mem_path", "_msg_path"]
 
     def __init__(self, view_manager, mode: int = MODE_CHAT, llm: LLM = None, file_path: str = "picoware/settings/agent_request.json"):
+        """Initialize the agent with a mode, LLM, and request file path.
+
+        Args:
+            view_manager (ViewManager): The view manager for storage and threading.
+            mode (int): The agent mode constant. Defaults to MODE_CHAT.
+            llm (LLM): The LLM client to use. Defaults to None.
+            file_path (str): Path to the API request file. Defaults to "picoware/settings/agent_request.json".
+        """
         from picoware.system.http import HTTP
         self.view_manager = view_manager
         self.mode = mode
@@ -44,7 +54,14 @@ class Agent:
         return self._file_path
 
     def _parse_tool_arguments(self, raw_args) -> dict:
-        """Parse tool-call arguments defensively and return a dict."""
+        """Parse tool-call arguments defensively into a dict.
+
+        Args:
+            raw_args (str or dict): Raw arguments from the model call.
+
+        Returns:
+            dict: The parsed arguments, or an empty dict if unparseable.
+        """
         if isinstance(raw_args, dict):
             return raw_args
 
@@ -70,6 +87,11 @@ class Agent:
                 return {}
 
     def _conv_write_initial(self, messages: list[dict]) -> None:
+        """Write the initial conversation messages to the conversation file.
+
+        Args:
+            messages (list[dict]): The initial messages to store.
+        """
         storage = self.view_manager.storage
 
         for i, msg in enumerate(messages):
@@ -82,7 +104,11 @@ class Agent:
                 storage.write(self._conv_path, ',' + json.dumps(msg), mode="a")
 
     def _conv_append(self, message: dict) -> None:
-        """Append one message to the conversation file via pure append-mode write."""
+        """Append one message to the conversation file.
+
+        Args:
+            message (dict): The message to append.
+        """
         storage = self.view_manager.storage
 
         if not storage.exists(self._conv_path):
@@ -92,6 +118,14 @@ class Agent:
 
     @staticmethod
     def _json_escape(text: str) -> str:
+        """Escape a string for embedding in JSON.
+
+        Args:
+            text (str): The raw string to escape.
+
+        Returns:
+            str: The JSON-escaped string.
+        """
         return (text
             .replace('\\', '\\\\')
             .replace('"', '\\"')
@@ -101,6 +135,13 @@ class Agent:
 
     @staticmethod
     def _stream_file_json_escaped(storage, src_path: str, dst_path: str) -> None:
+        """Stream a file to the destination with JSON escaping.
+
+        Args:
+            storage (Storage): The storage interface.
+            src_path (str): The source file path.
+            dst_path (str): The destination file path.
+        """
         src = storage.file_open(src_path)
         if src is None:
             return
@@ -126,13 +167,22 @@ class Agent:
             storage.file_close(src)
 
     def _write_system_message(self, storage) -> None:
+        """Write the system message to the conversation file.
+
+        Args:
+            storage (Storage): The storage interface.
+        """
         storage.write(self._conv_path, '{"role":"system","content":"', mode="w")
         if storage.exists(self._mem_path):
             self._stream_file_json_escaped(storage, self._mem_path, self._conv_path)
         storage.write(self._conv_path, '"}', mode="a")
 
     def _build_request(self, tools: list[dict]) -> None:
-        """Stream conversation file + metadata into the API request file."""
+        """Stream the conversation and metadata into the API request file.
+
+        Args:
+            tools (list[dict]): The tool schemas to include in the request.
+        """
         storage = self.view_manager.storage
 
         # Preamble: model + messages open
@@ -174,11 +224,12 @@ class Agent:
 
 
     def _run_loop(self) -> str:
-        """Run the model/tool loop and return assistant text."""
-        if self.llm.id == ANTHROPIC:
-            tools = [tool.json_anthropic for tool in dispatch.get_tool_list()]
-        else:
-            tools = [tool.json_openai for tool in dispatch.get_tool_list()]
+        """Run the model/tool loop until a final reply is produced.
+
+        Returns:
+            str: The final assistant text, or an error message.
+        """
+        tools = [tool.json_openai for tool in dispatch.get_tool_list()]
         storage = self.view_manager.storage
 
         for _ in range(MAX_TOOL_ITERATIONS):
@@ -259,7 +310,15 @@ class Agent:
         conversation: list[dict] | None,
         max_messages: int = MAX_CONVERSATION_MESSAGES,
     ) -> list[dict[str, str]]:
-        """Normalize history to user/assistant text messages only."""
+        """Normalize history to user and assistant text messages only.
+
+        Args:
+            conversation (list[dict] or None): Raw message history. Defaults to None.
+            max_messages (int): Maximum messages to keep. Defaults to MAX_CONVERSATION_MESSAGES.
+
+        Returns:
+            list[dict[str, str]]: The sanitized message list.
+        """
         if not isinstance(conversation, list):
             return []
 
@@ -287,7 +346,16 @@ class Agent:
 
 
     def run(self,topic: str, conversation: list[dict] | None = None, context=None) -> str:
-        """Run the agent for an Agent Builder prompt."""
+        """Run the agent for a prompt and return the response text.
+
+        Args:
+            topic (str): The user prompt.
+            conversation (list[dict] or None): Prior message history. Defaults to None.
+            context (str or None): Extra context prepended to the system prompt. Defaults to None.
+
+        Returns:
+            str: The assistant response text, or an error message.
+        """
         user_message = topic.strip()
         if not user_message:
             return "No message provided."
@@ -335,7 +403,14 @@ class Agent:
             return f"An error occurred during processing: {exc}"
 
     def run_payload(self, payload: dict) -> dict:
-        """Run the agent with a JSON payload and return structured response."""
+        """Run the agent with a JSON payload and return a structured response.
+
+        Args:
+            payload (dict): The request payload with message and conversation keys.
+
+        Returns:
+            dict: The response with status, message, and conversation keys.
+        """
         if not isinstance(payload, dict):
             return {
                 "status": "error",

@@ -1,3 +1,5 @@
+"""Input - Keyboard and touch input handling."""
+
 from utime import ticks_ms
 
 from picoware.system import buttons
@@ -7,18 +9,18 @@ from picoware.system.boards import (
     BOARD_ID,
     BOARD_WAVESHARE_1_28_RP2350,
     BOARD_WAVESHARE_1_43_RP2350,
+    BOARD_WAVESHARE_1_69_RP2350,
     BOARD_WAVESHARE_3_49_RP2350,
     BOARD_WAVESHARE_2_06,
     BOARD_PANCAKE,
+    BOARD_V8,
     BOARD_HAS_TOUCH,
     BOARD_FLIPPER_ZERO
 )
 
 
 class Input:
-    """
-    Handles input from the keyboard.
-    """
+    """Handles input from the keyboard."""
 
     __slots__ = (
         "_current_board_id",
@@ -37,11 +39,17 @@ class Input:
         "_button_map",
         "_screen_size",
         "_touch",
-        "_character_map"
+        "_character_map",
+        "_touch_read_data_fast",
+        "_touch_down_1_69",
     )
 
     def __init__(self, back_button=buttons.BUTTON_BACK):
-        """Initializes the Input class."""
+        """Initialize the input manager for the current board.
+
+        Args:
+            back_button (int): The button code used as back. Defaults to buttons.BUTTON_BACK.
+        """
         from picoware_boards import get_display_size
         self._current_board_id = BOARD_ID
         self.pin = None
@@ -57,6 +65,8 @@ class Input:
             buttons.BUTTON_BACK if not _back_special else buttons.BUTTON_BACKSPACE
         )
         self._touch = None
+        self._touch_read_data_fast = None
+        self._touch_down_1_69 = False
         self._screen_size: tuple = get_display_size(BOARD_ID)
 
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
@@ -84,6 +94,19 @@ class Input:
             self.pin.irq(handler=self.__touch_callback, trigger=Pin.IRQ_FALLING)
 
             self._last_point = (0, 0)
+        elif self._current_board_id == BOARD_WAVESHARE_1_69_RP2350:
+            from machine import Pin
+            from waveshare_touch import init, read_data
+
+            # Initialize touch in point mode
+            init()
+            # set pin
+            self.pin = Pin(21, Pin.IN, Pin.PULL_UP)
+            self._touch_read_data_fast = read_data
+
+            self.pin.irq(handler=self._touch_read_data_fast, trigger=Pin.IRQ_FALLING, hard=True)
+
+            self._last_point = (0, 0)
         elif self._current_board_id == BOARD_WAVESHARE_3_49_RP2350:
             from machine import Pin
             from waveshare_touch import init
@@ -101,7 +124,7 @@ class Input:
 
             self._delay_ms = 200
 
-        elif self._current_board_id in (BOARD_CROWPANEL_10_1, BOARD_WAVESHARE_2_06, BOARD_PANCAKE):
+        elif self._current_board_id in (BOARD_CROWPANEL_10_1, BOARD_WAVESHARE_2_06, BOARD_PANCAKE, BOARD_V8):
             from touch import Touch
 
             self._touch = Touch()
@@ -113,11 +136,9 @@ class Input:
 
             init()
         elif self._current_board_id == BOARD_FLIPPER_ZERO:
-            from flipper_battery import init as battery_init
-            from flipper_input import init as input_init
+            from flipper_input import init 
 
-            battery_init()
-            input_init()
+            init()
 
         else:
             from picoware_keyboard import (
@@ -384,18 +405,18 @@ class Input:
 
             deinit()
         elif self._current_board_id == BOARD_FLIPPER_ZERO:
-            from flipper_input import deinit as flipper_input_deinit
-            from flipper_battery import deinit as flipper_battery_deinit
-            flipper_input_deinit()
-            flipper_battery_deinit()
+            from flipper_input import deinit
+            deinit()
 
         elif self._current_board_id not in (
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_1_69_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
             BOARD_CROWPANEL_10_1,
             BOARD_WAVESHARE_2_06,
             BOARD_PANCAKE,
+            BOARD_V8,
         ):
             from picoware_southbridge import deinit
 
@@ -404,51 +425,17 @@ class Input:
         self._button_map = None
 
     @property
-    def battery(self) -> int:
-        """Returns the current battery level as a percentage (0-100)."""
-        if self._current_board_id in (
-            BOARD_WAVESHARE_1_28_RP2350,
-            BOARD_WAVESHARE_1_43_RP2350,
-            BOARD_WAVESHARE_3_49_RP2350,
-        ):
-            from waveshare_battery import get_percentage
-
-            return get_percentage()
-
-        if self._current_board_id == BOARD_CROWPANEL_10_1:
-            return 100
-
-        if self._current_board_id in (
-            BOARD_CARDPUTER,
-            BOARD_WAVESHARE_2_06,
-        ):
-            from cardputer_battery import get_percentage
-
-            return get_percentage()
-
-        if self._current_board_id == BOARD_PANCAKE:
-            from pancake_battery import get_percentage
-
-            return get_percentage()
-
-        if self._current_board_id == BOARD_FLIPPER_ZERO:
-            from flipper_battery import get_percentage
-
-            return get_percentage()
-
-        from picoware_southbridge import get_battery_percentage
-
-        return get_battery_percentage()
-
-    @property
     def button(self) -> int:
         """Returns the last button pressed."""
         if self._current_board_id in (
             BOARD_CROWPANEL_10_1,
             BOARD_WAVESHARE_2_06,
             BOARD_PANCAKE,
+            BOARD_V8,
         ):
             self._poll_touch()
+        elif self._current_board_id == BOARD_WAVESHARE_1_69_RP2350:
+            self._poll_touch_1_69()
         elif self._current_board_id == BOARD_CARDPUTER:
             from cardputer_keyboard import key_available, poll
 
@@ -484,10 +471,13 @@ class Input:
         return self._was_capitalized
 
     def _key_to_button(self, key) -> int:
-        """Maps a key to a button.
+        """Map a key to a button.
 
         Args:
-            key: Key code as integer (from C module) or string (for compatibility)
+            key (int or str): Key code from the C module or a string.
+
+        Returns:
+            int: The mapped button code, or BUTTON_NONE if unmapped.
         """
         if 65 <= key <= 90:
             self._was_capitalized = True
@@ -495,13 +485,13 @@ class Input:
         return self._button_map.get(key, buttons.BUTTON_NONE)
 
     def button_to_char(self, button: int) -> str:
-        """Converts a button code to its corresponding character.
+        """Convert a button code to its corresponding character.
 
         Args:
             button (int): Button code.
 
         Returns:
-            str: Corresponding character or empty string if no mapping exists.
+            str: The corresponding character or empty string if unmapped.
         """
         if button in self._character_map:
             char_to_add = self._character_map[button]
@@ -517,6 +507,7 @@ class Input:
             return self._last_gesture != 0  # 0 is TOUCH_GESTURE_NONE
         if self._current_board_id in (
             BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_1_69_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
             return self._last_point != (0, 0)
@@ -524,6 +515,7 @@ class Input:
             BOARD_CROWPANEL_10_1,
             BOARD_WAVESHARE_2_06,
             BOARD_PANCAKE,
+            BOARD_V8,
         ):
             self._poll_touch()
             return self._last_point != (0, 0)
@@ -540,14 +532,21 @@ class Input:
         return key_available()
 
     def is_held(self, duration: int = 3) -> bool:
-        """Returns True if the last button was held for the specified duration."""
+        """Return True if the last button was held for the specified duration.
+
+        Args:
+            duration (int): Number of polls the button must be held. Defaults to 3.
+
+        Returns:
+            bool: True if the button is held for the duration.
+        """
         return self._was_pressed and self._elapsed_time >= duration
 
     def on_key_callback(self, _=None) -> None:
         """Callback invoked when a key becomes available.
 
         Args:
-            _: Unused argument (required by mp_sched_schedule)
+            _ (None): Unused argument required by mp_sched_schedule.
         """
         try:
             __button = self.read_non_blocking()
@@ -615,6 +614,7 @@ class Input:
 
         if self._current_board_id in (
             BOARD_WAVESHARE_1_43_RP2350,
+            BOARD_WAVESHARE_1_69_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
         ):
             from waveshare_touch import reset_state
@@ -622,14 +622,14 @@ class Input:
             reset_state()
     
     def touch_to_button(self, x: int, y: int) -> int:
-        """Converts touch coordinates to a corresponding button code.
+        """Convert touch coordinates to a corresponding button code.
 
         Args:
             x (int): X coordinate of the touch point.
             y (int): Y coordinate of the touch point.
 
         Returns:
-            int: Button code corresponding to the touch area.
+            int: The button code corresponding to the touch area.
         """
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             # gesture support
@@ -637,11 +637,11 @@ class Input:
         
         _button = buttons.BUTTON_NONE
         
-        if 0 <= x <= self._screen_size[0] * 0.1 and 0 <= y <= self._screen_size[1] * 0.1:
+        if 0 <= x <= self._screen_size[0] * 0.15 and 0 <= y <= self._screen_size[1] * 0.12:
             _button = buttons.BUTTON_BACK
-        elif self._screen_size[0] * 0.9 <= x <= self._screen_size[0] and self._screen_size[1] * 0.3 <= y <= self._screen_size[1] * 0.7:
+        elif self._screen_size[0] * 0.85 <= x <= self._screen_size[0] and self._screen_size[1] * 0.3 <= y <= self._screen_size[1] * 0.7:
             _button = buttons.BUTTON_RIGHT
-        elif 0 <= x <= self._screen_size[0] * 0.1 and self._screen_size[1] * 0.3 <= y <= self._screen_size[1] * 0.7:
+        elif 0 <= x <= self._screen_size[0] * 0.15 and self._screen_size[1] * 0.3 <= y <= self._screen_size[1] * 0.7:
             _button = buttons.BUTTON_LEFT
         elif self._screen_size[0] * 0.2 <= x <= self._screen_size[0] * 0.8 and 0 <= y <= self._screen_size[1] * 0.2:
             _button = buttons.BUTTON_UP
@@ -651,6 +651,33 @@ class Input:
             _button = buttons.BUTTON_CENTER
 
         return _button
+
+    def _poll_touch_1_69(self):
+        """Poll the touch data and map it to a button event.
+        """
+        from waveshare_touch import get_cached_point, reset_state
+
+        point = get_cached_point()
+        if point == (0, 0):
+            self._last_point = (0, 0)
+            self._last_button = buttons.BUTTON_NONE
+            self._was_pressed = False
+            self._elapsed_time = 0
+            self._touch_down_1_69 = False
+            return
+
+        if self._touch_down_1_69:
+            reset_state()
+            return
+
+        self._touch_down_1_69 = True
+        self._last_point = point
+        x, y = point
+        self._last_button = self.touch_to_button(x, y)
+        self._elapsed_time += 1
+        self._was_pressed = True
+        reset_state()
+        reset_state()
 
     def _poll_touch(self):
         """Poll the touch controller and map touch areas to button events."""
@@ -678,7 +705,11 @@ class Input:
         self._was_pressed = True
 
     def __touch_callback(self, pin):
-        """Touch interrupt callback function"""
+        """Handle a touch interrupt and map it to a button event.
+
+        Args:
+            pin (Pin): The pin that triggered the interrupt.
+        """
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             from waveshare_touch import (
                 TOUCH_GESTURE_CLICK,

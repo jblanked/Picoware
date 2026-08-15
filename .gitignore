@@ -4,6 +4,7 @@
 __pycache__/
 venv/
 build/
+builds/MicroPython/desktop/
 dist/
 simulator/sdcard/*
 simulator/audio/sdl_audio_player
@@ -11,3 +12,4 @@ simulator/audio/sdl_radio_player
 simulator/viewer/sdl_fb_viewer
 simulator/gameboy/sim_gameboy_runner
 simulator/jpeg/sim_jpeg_decode
+docs/

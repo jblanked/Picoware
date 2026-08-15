@@ -1,3 +1,5 @@
+"""Font constants for Picoware."""
+
 from micropython import const
 import font
 
@@ -9,8 +11,7 @@ FONT_XTRA_LARGE = const(4)  # Extra large
 
 
 class Font(font.Font):
-    """
-    Font class
+    """Font class providing bitmap data for multiple sizes.
 
     Methods:
         - get_character(font_size: int, char: str) -> bytes: Get the bitmap data for a specific character at a given font size.
@@ -22,10 +23,9 @@ class Font(font.Font):
 
 
 class FontSize(font.FontSize):
-    """
-    FontSize class
+    """FontSize class representing a font size variant.
 
-    Properties:
+    Attributes:
         - height: int - The height of the font size.
         - size: int - The size identifier for the font size (e.g., FONT_XTRA_SMALL, FONT_SMALL, etc.).
         - spacing: int - The spacing of the font size.
@@ -33,6 +33,12 @@ class FontSize(font.FontSize):
     """
 
     def __setattr__(self, name, value):
+        """Set a font size attribute, routing size to the setter.
+
+        Args:
+            name (str): Attribute name to set.
+            value (object): New value for the attribute.
+        """
         if name == "size":
             self.set_size(value)
         else:

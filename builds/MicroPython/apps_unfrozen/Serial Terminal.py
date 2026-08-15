@@ -89,12 +89,7 @@ def start(view_manager) -> bool:
     """Start the app"""
     from picoware.system.buttons import BUTTON_BACK
     from picoware.system.uart import UART
-    from picoware.system.boards import (
-        BOARD_WAVESHARE_1_28_RP2350,
-        BOARD_WAVESHARE_1_43_RP2350,
-        BOARD_WAVESHARE_3_49_RP2350,
-        BOARD_CARDPUTER,
-    )
+    from picoware.system.boards import BOARD_HAS_PICOCALC
 
     global _textbox, _uart, state, _loading
 
@@ -111,18 +106,8 @@ def start(view_manager) -> bool:
     state = STATE_TYPING
 
     view_manager.freq(True)  # set to lower frequency
-    is_pico_calc = False
-
-    board_id = view_manager.board_id
-    if board_id == BOARD_WAVESHARE_1_28_RP2350:
-        _uart = UART(uart_id=0, tx_pin=16, rx_pin=17)
-    elif board_id in (BOARD_WAVESHARE_1_43_RP2350, BOARD_WAVESHARE_3_49_RP2350):
-        _uart = UART(uart_id=1, tx_pin=4, rx_pin=5)
-    elif board_id == BOARD_CARDPUTER:
-        _uart = UART(uart_id=1, tx_pin=1, rx_pin=2)
-    else:  # PicoCalc
-        _uart = UART(uart_id=0, tx_pin=0, rx_pin=1)
-        is_pico_calc = True
+    is_pico_calc = BOARD_HAS_PICOCALC == 1
+    _uart = UART()
 
     # first show info screen about connection
     d = view_manager.draw

@@ -1,3 +1,5 @@
+"""GameBoy - Game Boy emulator interface."""
+
 import gameboy
 
 

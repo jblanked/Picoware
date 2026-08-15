@@ -9,7 +9,12 @@ _scan_count = 0
 
 
 def bluetooth_callback(event, data):
-    """Bluetooth callback for scan results"""
+    """Handle Bluetooth scan result events.
+
+    Args:
+        event (int): Bluetooth event code.
+        data (tuple): Event payload with address and RSSI.
+    """
     global _devices
 
     if event == 5:  # _IRQ_SCAN_RESULT
@@ -30,7 +35,14 @@ def bluetooth_callback(event, data):
 
 
 def start(view_manager) -> bool:
-    """Start the RSSI Monitor app"""
+    """Start the RSSI Monitor app and begin scanning.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if the app started, False on failure.
+    """
     from picoware.system.bluetooth import Bluetooth
 
     global _bluetooth, _devices, _scan_count
@@ -52,7 +64,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app"""
+    """Run the app and update the RSSI display.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
     from picoware.system.vector import Vector
 
@@ -136,7 +152,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app and stop scanning.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
     from gc import collect
 
     global _bluetooth, _devices, _scan_count

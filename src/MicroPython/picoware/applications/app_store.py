@@ -1,4 +1,7 @@
+"""App Store - Browse, install, and update Picoware apps."""
+
 from micropython import const
+from json import loads, dumps
 
 # Main menu states
 STATE_MAIN_MENU = const(0)
@@ -109,7 +112,12 @@ def __reset() -> None:
 
 
 def __loading_start(view_manager, text: str = "Fetching...") -> None:
-    """Start loading animation"""
+    """Start loading animation.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+        text (str): The loading message. Defaults to "Fetching...".
+    """
     from picoware.gui.loading import Loading
 
     global _loading
@@ -126,7 +134,11 @@ def __loading_start(view_manager, text: str = "Fetching...") -> None:
 
 
 def __show_main_menu(view_manager) -> None:
-    """Show the main App Store menu"""
+    """Show the main App Store menu.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     global _main_menu, _app_state
 
     from picoware.gui.menu import Menu
@@ -158,7 +170,14 @@ def __show_main_menu(view_manager) -> None:
 
 
 def __get_installed_apps(view_manager) -> list:
-    """Scan cache folder for installed app JSON files and return list of app info"""
+    """Scan cache folder for installed app JSON files.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        list: App info dicts.
+    """
     storage = view_manager.storage
     installed = []
 
@@ -167,8 +186,6 @@ def __get_installed_apps(view_manager) -> list:
         cache_files = storage.listdir("picoware/cache")
         if not cache_files:
             return []
-
-        from json import loads
 
         for filename in cache_files:
             # Look for app_<id>.json files (not app_list_*.json)
@@ -203,7 +220,14 @@ def __get_installed_apps(view_manager) -> list:
 
 
 def __check_updates_async(view_manager) -> bool:
-    """Start async request to check for updates for all installed apps"""
+    """Start async request to check for updates for all installed apps.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True if the request was started.
+    """
     global _http, _installed_apps
 
     _installed_apps = __get_installed_apps(view_manager)
@@ -217,8 +241,6 @@ def __check_updates_async(view_manager) -> bool:
         _http = HTTP(thread_manager=view_manager.thread_manager)
 
     # Build POST data for bulk update check
-    from json import dumps
-
     apps_list = [
         {"app_id": app["id"], "current_version": app["version"]}
         for app in _installed_apps
@@ -241,7 +263,14 @@ def __check_updates_async(view_manager) -> bool:
 
 
 def __parse_update_check(view_manager) -> bool:
-    """Parse update check response and populate updates list"""
+    """Parse update check response and populate updates list.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True on success.
+    """
     global _updates_available, _app_menu
 
     # storage = view_manager.storage
@@ -304,7 +333,16 @@ def __parse_update_check(view_manager) -> bool:
 
 
 def __check_single_app_update(view_manager, app_id: int, current_version: str) -> bool:
-    """Check for update for a single app"""
+    """Check for update for a single app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+        app_id (int): The app ID.
+        current_version (str): The installed version.
+
+    Returns:
+        bool: True if the request was started.
+    """
     global _http
 
     if not _http:
@@ -324,15 +362,21 @@ def __check_single_app_update(view_manager, app_id: int, current_version: str) -
 
 
 def __delete_app(view_manager, app_id: int) -> bool:
-    """Delete an installed app's files and cached data"""
+    """Delete an installed app's files and cached data.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+        app_id (int): The app ID.
+
+    Returns:
+        bool: True on success.
+    """
     storage = view_manager.storage
     file_path = f"picoware/cache/app_{app_id}.json"
 
     try:
         data = storage.read(file_path)
         if data:
-            from json import loads
-
             response = loads(data)
             if response.get("success") and response.get("app"):
                 app_data = response["app"]
@@ -350,7 +394,13 @@ def __delete_app(view_manager, app_id: int) -> bool:
 def __draw_current_app_details(
     view_manager, app_info: dict, update_info: dict = None
 ) -> None:
-    """Draw current app details with optional update info"""
+    """Draw current app details with optional update info.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+        app_info (dict): The installed app info.
+        update_info (dict): The update check info. Defaults to None.
+    """
     draw = view_manager.draw
     fg = view_manager.foreground_color
 
@@ -360,14 +410,14 @@ def __draw_current_app_details(
     word_vec_x, word_vec_y = draw.scale(10, 5)
     title = app_info.get("title", "Unknown")
     version = app_info.get("version", "1.0.0")
-    draw._text(word_vec_x, word_vec_y, f"{title[:35]} v{version}", fg)
+    draw._text(word_vec_x, word_vec_y, f"{title[:draw.scale_x(35)]} v{version}", fg)
 
     # Description section
     description = app_info.get("description", "No description available")
-    y_pos = 30
+    y_pos = draw.scale_y(30)
 
     # Word wrap the description
-    max_chars = 100
+    max_chars = (draw.size.x // draw.font_size.x) - word_vec_x - 1
     words = description.split()
     current_line = ""
 
@@ -421,7 +471,14 @@ def __draw_current_app_details(
 
 
 def __fetch_app_list(view_manager) -> bool:
-    """Fetch the list of apps from the API"""
+    """Fetch the list of apps from the API.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True if the request was started.
+    """
     global _http
 
     if not _http:
@@ -445,7 +502,14 @@ def __fetch_app_list(view_manager) -> bool:
 
 
 def __parse_app_list(view_manager) -> bool:
-    """Parse the app list JSON and populate the menu"""
+    """Parse the app list JSON and populate the menu.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True on success.
+    """
     global _apps_data, _app_menu
 
     storage = view_manager.storage
@@ -459,8 +523,6 @@ def __parse_app_list(view_manager) -> bool:
         data = storage.read(file_path)
         if not data:
             return False
-
-        from json import loads
 
         _apps_data = loads(data)
 
@@ -498,7 +560,15 @@ def __parse_app_list(view_manager) -> bool:
 
 
 def __fetch_app_details(view_manager, app_id: int) -> bool:
-    """Fetch details for a specific app"""
+    """Fetch details for a specific app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+        app_id (int): The app ID.
+
+    Returns:
+        bool: True if the request was started.
+    """
     global _http
 
     if not _http:
@@ -518,7 +588,15 @@ def __fetch_app_details(view_manager, app_id: int) -> bool:
 
 
 def __parse_app_details(view_manager, app_id: int) -> bool:
-    """Parse app details from JSON"""
+    """Parse app details from JSON.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+        app_id (int): The app ID.
+
+    Returns:
+        bool: True on success.
+    """
     global _selected_app_details
 
     storage = view_manager.storage
@@ -529,7 +607,6 @@ def __parse_app_details(view_manager, app_id: int) -> bool:
         if not data:
             return False
 
-        from json import loads
         from picoware.system.app import App
 
         response = loads(data)
@@ -545,7 +622,11 @@ def __parse_app_details(view_manager, app_id: int) -> bool:
 
 
 def __draw_app_details(view_manager) -> None:
-    """Draw the app details screen with professional layout"""
+    """Draw the app details screen with professional layout.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     if not _selected_app_details:
         return
     
@@ -619,7 +700,14 @@ def __draw_app_details(view_manager) -> None:
 
 
 def __download_next_file(view_manager) -> bool:
-    """Download the next file in the queue"""
+    """Download the next file in the queue.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True if the request was started.
+    """
     if _current_file_index >= len(_files_to_download):
         return False
 
@@ -634,7 +722,11 @@ def __download_next_file(view_manager) -> bool:
 
     # Create necessary directories
     dir_path = "/".join(file_path.split("/")[:-1])
-    storage.mkdir(dir_path)
+    if not storage.exists(dir_path):
+        storage.mkdir(dir_path)
+
+    if storage.exists(file_path):
+        storage.remove(file_path)
 
     return _http.get_async(
         file_url,
@@ -648,7 +740,11 @@ def __download_next_file(view_manager) -> bool:
 
 
 def __load_settings(view_manager) -> None:
-    """Load submitter name/email from persistent settings."""
+    """Load submitter name/email from persistent settings.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     global _submitter_name, _submitter_email
 
     storage = view_manager.storage if view_manager else None
@@ -661,8 +757,6 @@ def __load_settings(view_manager) -> None:
         if storage.exists(_path):
             data = storage.read(_path)
             if data:
-                from json import loads
-
                 obj = loads(data)
                 _submitter_name = obj.get("submitter_name", "")
                 _submitter_email = obj.get("submitter_email", "")
@@ -671,13 +765,15 @@ def __load_settings(view_manager) -> None:
 
 
 def __save_settings(view_manager) -> None:
-    """Persist submitter name/email."""
+    """Persist submitter name/email.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     global _submitter_name, _submitter_email
 
     storage = view_manager.storage
     storage.mkdir("picoware/settings")
-
-    from json import dumps
 
     data = dumps(
         {
@@ -689,7 +785,11 @@ def __save_settings(view_manager) -> None:
 
 
 def __draw_settings_menu(view_manager) -> None:
-    """Draw the settings sub-menu showing current name and email."""
+    """Draw the settings sub-menu showing current name and email.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     draw = view_manager.draw
     fg = view_manager.foreground_color
     draw.fill_screen(view_manager.background_color)
@@ -718,7 +818,11 @@ def __draw_settings_menu(view_manager) -> None:
 
 
 def __keyboard_save_callback(result: str) -> None:
-    """Called when the keyboard 'Save' is pressed."""
+    """Called when the keyboard 'Save' is pressed.
+
+    Args:
+        result (str): The typed text.
+    """
     global _submitter_name, _submitter_email, _submit_app_name, _submit_app_version
     global _input_mode
 
@@ -733,7 +837,14 @@ def __keyboard_save_callback(result: str) -> None:
 
 
 def __start_keyboard(view_manager, mode: str, title: str, initial: str) -> None:
-    """Activate the on-screen keyboard for text input."""
+    """Activate the on-screen keyboard for text input.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+        mode (str): The input mode key.
+        title (str): The keyboard title.
+        initial (str): The initial response text.
+    """
     global _input_mode, _keyboard_just_started
 
     _input_mode = mode
@@ -748,7 +859,11 @@ def __start_keyboard(view_manager, mode: str, title: str, initial: str) -> None:
 
 
 def __draw_submit_form(view_manager) -> None:
-    """Draw the submit app form screen."""
+    """Draw the submit app form screen.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     draw = view_manager.draw
     fg = view_manager.foreground_color
     draw.erase()
@@ -791,20 +906,32 @@ def __draw_submit_form(view_manager) -> None:
     draw.swap()
 
 def __base64_encode(view_managerr) -> bytes:
-    """Base64 encode the contents of the given file and return as bytes."""
+    """Base64 encode the contents of the given file.
+
+    Args:
+        view_managerr (ViewManager): The view manager context.
+
+    Returns:
+        bytes: The base64-encoded file contents.
+    """
     import ubinascii
     return ubinascii.b2a_base64(view_managerr.storage.read(_submit_app_path))
 
 def __submit_app(view_manager) -> bool:
-    """POST the app submission to the API."""
+    """POST the app submission to the API.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True if the request was started.
+    """
     global _http
 
     if not _http:
         from picoware.system.http import HTTP
 
         _http = HTTP(thread_manager=view_manager.thread_manager)
-
-    from json import dumps
 
     payload = dumps(
         {
@@ -834,7 +961,14 @@ def __submit_app(view_manager) -> bool:
 
 
 def __fetch_submissions(view_manager) -> bool:
-    """GET all submissions for the current submitter's email."""
+    """GET all submissions for the current submitter's email.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True if the request was started.
+    """
     global _http
 
     if not _http:
@@ -858,7 +992,14 @@ def __fetch_submissions(view_manager) -> bool:
 
 
 def __parse_submissions(view_manager) -> bool:
-    """Parse the submissions list JSON and populate the menu."""
+    """Parse the submissions list JSON and populate the menu.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True on success.
+    """
     global _submissions_data, _app_menu
 
     storage = view_manager.storage
@@ -871,8 +1012,6 @@ def __parse_submissions(view_manager) -> bool:
         data = storage.read(file_path)
         if not data:
             return False
-
-        from json import loads
 
         response = loads(data)
 
@@ -909,7 +1048,15 @@ def __parse_submissions(view_manager) -> bool:
 
 
 def __fetch_submission_details(view_manager, submission_id: int) -> bool:
-    """GET a single submission's details."""
+    """GET a single submission's details.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+        submission_id (int): The submission ID.
+
+    Returns:
+        bool: True if the request was started.
+    """
     global _http
 
     if not _http:
@@ -931,7 +1078,15 @@ def __fetch_submission_details(view_manager, submission_id: int) -> bool:
 
 
 def __parse_submission_details(view_manager, submission_id: int) -> bool:
-    """Parse single submission details from JSON."""
+    """Parse single submission details from JSON.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+        submission_id (int): The submission ID.
+
+    Returns:
+        bool: True on success.
+    """
     global _submission_details
 
     storage = view_manager.storage
@@ -941,8 +1096,6 @@ def __parse_submission_details(view_manager, submission_id: int) -> bool:
         data = storage.read(file_path)
         if not data:
             return False
-
-        from json import loads
 
         response = loads(data)
 
@@ -957,7 +1110,11 @@ def __parse_submission_details(view_manager, submission_id: int) -> bool:
 
 
 def __draw_submission_details(view_manager) -> None:
-    """Draw the submission detail screen."""
+    """Draw the submission detail screen.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     if not _submission_details:
         return
     
@@ -969,7 +1126,7 @@ def __draw_submission_details(view_manager) -> None:
     vec_x, vec_y = draw.scale(10, 5)
     name = _submission_details.get("app_name", "Unknown")
     version = _submission_details.get("app_version", "?")
-    draw._text(vec_x, vec_y, f"{name[:30]} v{version}", fg)
+    draw._text(vec_x, vec_y, f"{name[:draw.scale_x(30)]} v{version}", fg)
 
     vec_y = draw.scale_y(25)
     status = _submission_details.get("status", "?")
@@ -977,15 +1134,15 @@ def __draw_submission_details(view_manager) -> None:
 
     vec_y = draw.scale_y(40)
     sub_name = _submission_details.get("submitter_name", "")
-    draw._text(vec_x, vec_y, f"Submitter: {sub_name[:30]}", fg)
+    draw._text(vec_x, vec_y, f"Submitter: {sub_name[:draw.scale_x(30)]}", fg)
 
     vec_y = draw.scale_y(55)
     sub_email = _submission_details.get("submitter_email", "")
-    draw._text(vec_x, vec_y, f"Email: {sub_email[:30]}", fg)
+    draw._text(vec_x, vec_y, f"Email: {sub_email[:draw.scale_x(30)]}", fg)
 
     vec_y = draw.scale_y(70)
     submitted_at = _submission_details.get("submitted_at", "")
-    draw._text(vec_x, vec_y, f"Submitted: {submitted_at[:25]}", fg)
+    draw._text(vec_x, vec_y, f"Submitted: {submitted_at[:draw.scale_x(25)]}", fg)
 
     # App content / file structure
     content = _submission_details.get("app_content", [])
@@ -1008,7 +1165,14 @@ def __draw_submission_details(view_manager) -> None:
 
 
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True on success.
+    """
     if not view_manager.has_sd_card:
         view_manager.alert("App Store app requires an SD card", False)
         return False
@@ -1040,7 +1204,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app"""
+    """Run the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from picoware.system.buttons import (
         BUTTON_BACK,
         BUTTON_UP,
@@ -1055,8 +1223,8 @@ def run(view_manager) -> None:
     global _installed_apps, _update_check_data, _app_menu
     global _submitter_name, _submitter_email
     global _submit_app_name, _submit_app_version, _submit_app_path
-    global _submissions_data, _submission_details
-    global _input_mode, _file_browser, _keyboard_just_started
+    global _submission_details
+    global  _file_browser, _keyboard_just_started
 
     button = view_manager.button
 
@@ -1437,8 +1605,6 @@ def run(view_manager) -> None:
         try:
             data = storage.read(file_path)
             if data:
-                from json import loads
-
                 _update_check_data = loads(data)
 
                 # Find the app info
@@ -1961,7 +2127,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from gc import collect
 
     __reset()

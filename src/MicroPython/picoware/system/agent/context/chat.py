@@ -1,3 +1,5 @@
+"""Chat - General chat agent mode."""
+
 from micropython import const
 
 PROMPT = const(b"""

@@ -1,3 +1,5 @@
+"""JS - JavaScript (MJS) engine wrapper."""
+
 import mjs
 
 class JS(mjs.MJS):

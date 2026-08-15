@@ -38,25 +38,21 @@ static void psram_call_0(struct mjs *mjs, const char *attr)
 
 static mjs_val_t psram_free_heap_size(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, psram_mp_instance, MP_QSTR_free_heap_size);
 }
 
 static mjs_val_t psram_next_free_addr(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, psram_mp_instance, MP_QSTR_next_free_addr);
 }
 
 static mjs_val_t psram_total_heap_size(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, psram_mp_instance, MP_QSTR_total_heap_size);
 }
 
 static mjs_val_t psram_used_heap_size(struct mjs *mjs)
 {
-    (void)mjs;
     return mjs_val_from_attr(mjs, psram_mp_instance, MP_QSTR_used_heap_size);
 }
 

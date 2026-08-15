@@ -1,3 +1,5 @@
+"""USB - USB device interfaces (keyboard, media, video)."""
+
 # Author: JBlanked
 # License: GPL-3.0 License
 # Source: https://github.com/jblanked/Picoware
@@ -212,9 +214,9 @@ class USBKeyboard:
         """Create a USBKeyboard instance.
 
         Args:
-            manufacturer: Manufacturer string reported in the USB device descriptor.
-            product: Product string reported in the USB device descriptor.
-            serial: Serial number string reported in the USB device descriptor.
+            manufacturer (str): Manufacturer string in the USB device descriptor. Defaults to "MicroPython".
+            product (str): Product string in the USB device descriptor. Defaults to "Picoware Keyboard".
+            serial (str): Serial number string in the USB device descriptor. Defaults to "000000".
         """
         self._usbdev = None
         self._xfer_done = True
@@ -291,9 +293,9 @@ class USBKeyboard:
         ``_wait`` can unblock.
 
         Args:
-            ep: Endpoint address that completed the transfer.
-            res: Result code from the USB stack.
-            num_bytes: Number of bytes transferred.
+            ep (int): Endpoint address that completed the transfer.
+            res (int): Result code from the USB stack.
+            num_bytes (int): Number of bytes transferred.
         """
         if ep == 0x83:
             self._xfer_done = True
@@ -305,12 +307,11 @@ class USBKeyboard:
         and GET_PROTOCOL requests required by the HID class specification.
 
         Args:
-            stage: Transfer stage (1 = SETUP, 3 = ACK).
-            request: Raw 8-byte SETUP packet.
+            stage (int): Transfer stage (1 = SETUP, 3 = ACK).
+            request (bytes): Raw 8-byte SETUP packet.
 
         Returns:
-            bytes with the requested data, True to ACK with no data, or False
-            to stall the request.
+            bytes, bool: Requested data, True to ACK with no data, or False to stall.
         """
         bmRequestType = request[0]
         bRequest = request[1]
@@ -339,10 +340,10 @@ class USBKeyboard:
         """Block until the previous HID transfer completes or the timeout expires.
 
         Args:
-            timeout_ms: Maximum number of milliseconds to wait.
+            timeout_ms (int): Maximum number of milliseconds to wait. Defaults to 500.
 
         Returns:
-            True if the transfer completed within the timeout, False otherwise.
+            bool: True if the transfer completed within the timeout, False otherwise.
         """
         deadline = time.ticks_add(time.ticks_ms(), timeout_ms)
         while not self._xfer_done:
@@ -354,8 +355,8 @@ class USBKeyboard:
         """Send a single HID key-down report without releasing the key.
 
         Args:
-            modifier: Modifier byte (e.g. ``MOD_LSHIFT``, ``MOD_LCTRL``).
-            keycode: HID usage-ID of the key to press.
+            modifier (int): Modifier byte (e.g. ``MOD_LSHIFT``, ``MOD_LCTRL``). Defaults to 0.
+            keycode (int): HID usage-ID of the key to press. Defaults to 0.
         """
         self._wait()
         self._xfer_done = False
@@ -371,8 +372,8 @@ class USBKeyboard:
         """Press and immediately release a key.
 
         Args:
-            modifier: Modifier byte (e.g. ``MOD_LSHIFT``, ``MOD_LCTRL``).
-            keycode: HID usage-ID of the key to press.
+            modifier (int): Modifier byte (e.g. ``MOD_LSHIFT``, ``MOD_LCTRL``). Defaults to 0.
+            keycode (int): HID usage-ID of the key to press. Defaults to 0.
         """
         self.send_key(modifier, keycode)
         self.release()
@@ -380,13 +381,13 @@ class USBKeyboard:
     def shortcut(self, modifier, keycode, delay_ms=100):
         """Press a key combination and wait briefly after releasing.
 
-        Useful for triggering OS-level shortcuts where a short post-press delay
-        ensures the host has time to process the keystroke.
+        Useful for OS-level shortcuts where a short post-press delay ensures
+        the host has time to process the keystroke.
 
         Args:
-            modifier: Modifier byte (e.g. ``MOD_LGUI``, ``MOD_LCTRL``).
-            keycode: HID usage-ID of the key to press.
-            delay_ms: Milliseconds to sleep after the key is released.
+            modifier (int): Modifier byte (e.g. ``MOD_LGUI``, ``MOD_LCTRL``).
+            keycode (int): HID usage-ID of the key to press.
+            delay_ms (int): Milliseconds to sleep after the key is released. Defaults to 100.
         """
         self.press(modifier, keycode)
         time.sleep_ms(delay_ms)
@@ -394,13 +395,12 @@ class USBKeyboard:
     def type_string(self, s, delay_ms=50):
         """Type a string by pressing each character in sequence.
 
-        Characters present in ``SHIFT_CHARS`` are automatically sent with the
-        left-shift modifier. Characters not found in ``KEYMAP`` are silently
-        skipped.
+        Characters in ``SHIFT_CHARS`` are sent with the left-shift modifier.
+        Characters not found in ``KEYMAP`` are silently skipped.
 
         Args:
-            s: The string to type.
-            delay_ms: Milliseconds to wait between each keystroke.
+            s (str): The string to type.
+            delay_ms (int): Milliseconds to wait between each keystroke. Defaults to 50.
         """
         for ch in s:
             kc = self.KEYMAP.get(ch, 0)
@@ -464,9 +464,9 @@ class USBMedia:
         """Create a USBMedia instance.
 
         Args:
-            manufacturer: Manufacturer string reported in the USB device descriptor.
-            product: Product string reported in the USB device descriptor.
-            serial: Serial number string reported in the USB device descriptor.
+            manufacturer (str): Manufacturer string in the USB device descriptor. Defaults to "MicroPython".
+            product (str): Product string in the USB device descriptor. Defaults to "Pico Media".
+            serial (str): Serial number string in the USB device descriptor. Defaults to "000002".
         """
         self._usbdev = None
         self._xfer_done = True
@@ -537,12 +537,26 @@ class USBMedia:
         self._usbdev = usbdev
 
     def _on_xfer_cb(self, ep, res, num_bytes):
-        """Transfer-complete callback; unblocks ``_wait`` when EP 0x83 finishes."""
+        """Transfer-complete callback; unblocks ``_wait`` when EP 0x83 finishes.
+
+        Args:
+            ep (int): Endpoint address that completed the transfer.
+            res (int): Result code from the USB stack.
+            num_bytes (int): Number of bytes transferred.
+        """
         if ep == 0x83:
             self._xfer_done = True
 
     def _on_control_xfer_cb(self, stage, request):
-        """Control-transfer callback for HID class requests."""
+        """Control-transfer callback for HID class requests.
+
+        Args:
+            stage (int): Transfer stage (1 = SETUP, 3 = ACK).
+            request (bytes): Raw 8-byte SETUP packet.
+
+        Returns:
+            bytes, bool: Requested data, True to ACK with no data, or False to stall.
+        """
         bmRequestType = request[0]
         bRequest = request[1]
         wValue = request[2] | (request[3] << 8)
@@ -567,7 +581,14 @@ class USBMedia:
         return False
 
     def _wait(self, timeout_ms=500):
-        """Block until the previous HID transfer completes or the timeout expires."""
+        """Block until the previous HID transfer completes or the timeout expires.
+
+        Args:
+            timeout_ms (int): Maximum number of milliseconds to wait. Defaults to 500.
+
+        Returns:
+            bool: True if the transfer completed within the timeout, False otherwise.
+        """
         deadline = time.ticks_add(time.ticks_ms(), timeout_ms)
         while not self._xfer_done:
             if time.ticks_diff(deadline, time.ticks_ms()) <= 0:
@@ -578,7 +599,7 @@ class USBMedia:
         """Send a Consumer Control key press and immediately release it.
 
         Args:
-            usage: HID Consumer Control usage ID (e.g. ``USAGE_PLAY_PAUSE``).
+            usage (int): HID Consumer Control usage ID (e.g. ``USAGE_PLAY_PAUSE``).
         """
         self._wait()
         self._xfer_done = False

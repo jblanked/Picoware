@@ -50,6 +50,7 @@ This section provides documentation for the libraries available in Picoware.
   - [picoware.gui.list](#picoware-gui-list)
   - [picoware.gui.loading](#picoware-gui-loading)
   - [picoware.gui.menu](#picoware-gui-menu)
+  - [picoware.gui.search_bar](#picoware-gui-search_bar)
   - [picoware.gui.scrollbar](#picoware-gui-scrollbar)
   - [picoware.gui.text_editor](#picoware-gui-text_editor)
   - [picoware.gui.textbox](#picoware-gui-textbox)
@@ -211,6 +212,7 @@ This section provides documentation for the libraries available in Picoware.
 - `BOARD_PICOCALC_PICO_2W`: Board ID for PicoCalc with Pico 2W.
 - `BOARD_WAVESHARE_1_28_RP2350`: Board ID for Waveshare 1.28" RP2350.
 - `BOARD_WAVESHARE_1_43_RP2350`: Board ID for Waveshare 1.43" RP2350.
+- `BOARD_WAVESHARE_1_69_RP2350`: Board ID for Waveshare 1.69" RP2350.
 - `BOARD_WAVESHARE_3_49_RP2350`: Board ID for Waveshare 3.49" RP2350.
 - `BOARD_PICOCALC_PIMORONI_2W`: Board ID for PicoCalc with Pimoroni Pico Plus 2W.
 - `BOARD_ID`: The current board ID integer (read from C module at import time).
@@ -704,6 +706,7 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - `scale_vector(position)`: Get a scaled `Vector` value (inherited from C).
     - `scale_x(value)`: Get a scaled X value (inherited from C).
     - `scale_y(value)`: Get a scaled Y value (inherited from C).
+    - `set_brightness(level)`: Set the display brightness (inherited from C).
     - `set_mode(mode)`: Set the LCD rendering mode (inherited from C).
     - `set_scaling(scale_x, scale_y, scale_position=False)`: Set the display scaling factors (inherited from C).
     - `swap()`: Push the back buffer to the display (inherited from C).
@@ -799,6 +802,16 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - `scroll_down()`: Scroll down one item.
     - `scroll_up()`: Scroll up one item.
     - `set_selected(index)`: Set the selected item.
+
+#### picoware-gui-search_bar
+- `SearchBar` class: A search bar widget with text input and live item filtering.
+    - `__init__(view_manager, items, size=None, text_color=0xFFFF, background_color=0x0000, selected_color=0x001F)`: Initialize with a view manager, the list of items to search, and optional styling. `size` defaults to the screen size.
+    - `is_finished`: Property (r/o) — True once an item has been selected.
+    - `results`: Property (r/o) — list of items matching the current search text.
+    - `selected_item`: Property (r/o) — the currently highlighted (or clicked) item, or None.
+    - `text`: Property (r/o) — the current search text string.
+    - `reset()`: Reset the search text and selection state.
+    - `run(swap=True, force=False)`: Process one input frame and redraw if needed. Returns False when input is complete (item selected or back pressed).
 
 #### picoware-gui-scrollbar
 - `ScrollBar` class: A simple scrollbar indicator widget.

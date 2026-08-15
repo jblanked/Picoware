@@ -2,6 +2,7 @@
 
 #include "board_config.h"
 #include "driver/gpio.h"
+#include "driver/ledc.h"
 #include "driver/spi_master.h"
 #include "esp_err.h"
 #include "esp_check.h"
@@ -13,6 +14,9 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "py/runtime.h"
+#define MP_PRINT(...) mp_printf(&mp_plat_print, __VA_ARGS__)
 
 static const char *TAG = "display";
 
@@ -26,6 +30,13 @@ static uint16_t s_palette[256];
 
 #define LCD_SWAP_LINES 8U
 #define ST7789_CMD_INVOFF 0x20
+#define LCD_BACKLIGHT_TIMER LEDC_TIMER_3
+#define LCD_BACKLIGHT_CHANNEL LEDC_CHANNEL_7
+#define LCD_BACKLIGHT_DUTY_BITS 9
+#define LCD_BACKLIGHT_DUTY_RES ((ledc_timer_bit_t)(LEDC_TIMER_1_BIT + LCD_BACKLIGHT_DUTY_BITS - 1))
+#define LCD_BACKLIGHT_DUTY_MAX ((1U << LCD_BACKLIGHT_DUTY_BITS) - 1U)
+#define LCD_BACKLIGHT_OFFSET 16
+#define LCD_BACKLIGHT_PWM_HZ 256
 static const uint8_t LCD_TEXT_SPACING = 1;
 static const uint8_t LCD_LINE_SPACING = 2;
 static uint16_t s_swap_buffer[LCD_WIDTH * LCD_SWAP_LINES];
@@ -141,18 +152,36 @@ static int32_t lcd_edge_function(int32_t ax, int32_t ay, int32_t bx, int32_t by,
     return (px - ax) * (by - ay) - (py - ay) * (bx - ax);
 }
 
+static esp_err_t lcd_setup_backlight(void)
+{
+    ledc_timer_config_t timer_cfg = {
+        .speed_mode = LEDC_LOW_SPEED_MODE,
+        .duty_resolution = LCD_BACKLIGHT_DUTY_RES,
+        .timer_num = LCD_BACKLIGHT_TIMER,
+        .freq_hz = LCD_BACKLIGHT_PWM_HZ,
+        .clk_cfg = LEDC_AUTO_CLK,
+    };
+    ESP_RETURN_ON_ERROR(ledc_timer_config(&timer_cfg), TAG, "backlight timer config failed");
+
+    ledc_channel_config_t channel_cfg = {
+        .gpio_num = CARDPUTER_LCD_BL_GPIO,
+        .speed_mode = LEDC_LOW_SPEED_MODE,
+        .channel = LCD_BACKLIGHT_CHANNEL,
+        .timer_sel = LCD_BACKLIGHT_TIMER,
+        .intr_type = LEDC_INTR_DISABLE,
+        .duty = 0,
+        .hpoint = 0,
+    };
+    ESP_RETURN_ON_ERROR(ledc_channel_config(&channel_cfg), TAG,
+                        "backlight channel config failed");
+
+    s_backlight_ready = true;
+    return ESP_OK;
+}
+
 static esp_err_t display_setup_panel(void)
 {
-    gpio_config_t bl_cfg = {
-        .pin_bit_mask = 1ULL << CARDPUTER_LCD_BL_GPIO,
-        .mode = GPIO_MODE_OUTPUT,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE,
-    };
-    ESP_RETURN_ON_ERROR(gpio_config(&bl_cfg), TAG, "backlight gpio config failed");
-    ESP_RETURN_ON_ERROR(gpio_set_level(CARDPUTER_LCD_BL_GPIO, 0), TAG,
-                        "failed to disable backlight");
+    ESP_RETURN_ON_ERROR(lcd_setup_backlight(), TAG, "backlight setup failed");
 
     spi_bus_config_t bus_cfg = {
         .sclk_io_num = CARDPUTER_LCD_SCLK_GPIO,
@@ -202,8 +231,6 @@ static esp_err_t display_setup_panel(void)
                         "failed to set invert color");
     ESP_RETURN_ON_ERROR(esp_lcd_panel_disp_on_off(s_panel, true), TAG,
                         "failed to enable panel");
-
-    s_backlight_ready = true;
 
     return ESP_OK;
 }
@@ -260,6 +287,7 @@ static esp_err_t display_init(void)
     esp_err_t err = display_setup_panel();
     if (err != ESP_OK)
     {
+        MP_PRINT("Failed to setup display panel: %s\n", esp_err_to_name(err));
         lcd_deinit();
         return err;
     }
@@ -267,8 +295,9 @@ static esp_err_t display_init(void)
     lcd_set_font(FONT_DEFAULT);
     lcd_init_palette();
     lcd_fill(0x0000);
-    if (!lcd_set_backlight(100))
+    if (!lcd_set_backlight(LCD_DEFAULT_BRIGHTNESS))
     {
+        MP_PRINT("Failed to set backlight\n");
         lcd_deinit();
         return ESP_FAIL;
     }
@@ -292,6 +321,7 @@ void lcd_deinit(void)
     if (s_backlight_ready)
     {
         lcd_set_backlight(0);
+        ledc_stop(LEDC_LOW_SPEED_MODE, LCD_BACKLIGHT_CHANNEL, 0);
         s_backlight_ready = false;
     }
 
@@ -319,6 +349,7 @@ bool lcd_set_backlight(uint32_t brightness)
 {
     if (!s_backlight_ready)
     {
+        MP_PRINT("Backlight not ready\n");
         return false;
     }
 
@@ -327,7 +358,23 @@ bool lcd_set_backlight(uint32_t brightness)
         brightness = 100;
     }
 
-    return gpio_set_level(CARDPUTER_LCD_BL_GPIO, brightness > 0 ? 1 : 0) == ESP_OK;
+    uint32_t duty = 0;
+    if (brightness > 0)
+    {
+        uint32_t b = (brightness * 255U) / 100U;
+        uint32_t duty_raw = (b * (257U - LCD_BACKLIGHT_OFFSET) + LCD_BACKLIGHT_OFFSET * 255U +
+                             (1U << (15 - LCD_BACKLIGHT_DUTY_BITS))) >>
+                            (16 - LCD_BACKLIGHT_DUTY_BITS);
+        duty = duty_raw > LCD_BACKLIGHT_DUTY_MAX ? LCD_BACKLIGHT_DUTY_MAX : duty_raw;
+    }
+
+    if (ledc_set_duty(LEDC_LOW_SPEED_MODE, LCD_BACKLIGHT_CHANNEL, duty) != ESP_OK)
+    {
+        MP_PRINT("Failed to set backlight duty\n");
+        return false;
+    }
+
+    return ledc_update_duty(LEDC_LOW_SPEED_MODE, LCD_BACKLIGHT_CHANNEL) == ESP_OK;
 }
 
 void lcd_swap(void)

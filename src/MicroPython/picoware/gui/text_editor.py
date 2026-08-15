@@ -1,9 +1,10 @@
+"""TextEditor - Text editing widget."""
+
 import textbox
 
 
 class TextEditor(textbox.TextBox):
-    """
-    A simple text editor built for Picoware.
+    """A simple text editor built for Picoware.
 
     The callback is useful for saving to a file or updating a preview in real-time.
     """
@@ -12,10 +13,11 @@ class TextEditor(textbox.TextBox):
     TYPE_DELETE = 1
 
     def __init__(self, view_manager, callback: callable = None):
-        """
-        Initializes the TextEditor with a view manager and an optional callback for text changes.
-        :param view_manager: The view manager to handle drawing and input.
-        :param callback: A callable that takes three arguments (action_type, char, cursor_pos) where action_type is either TYPE_ADD or TYPE_DELETE, char is the character added (or None if deleted), and cursor_pos is the position of the cursor when the change occurred.
+        """Initialize the TextEditor with a view manager and an optional callback.
+
+        Args:
+            view_manager (ViewManager): The view manager to handle drawing and input.
+            callback (callable): Callable taking (action_type, char, cursor_pos). Defaults to None.
         """
         self._vm = view_manager
         self._callback = callback
@@ -33,6 +35,12 @@ class TextEditor(textbox.TextBox):
         )
 
     def __setattr__(self, name, value):
+        """Set an attribute, routing text and cursor changes to setters.
+
+        Args:
+            name (str): The attribute name.
+            value: The attribute value.
+        """
         if name == "text":
             self._set_text(value)
         elif name == "cursor":
@@ -49,7 +57,11 @@ class TextEditor(textbox.TextBox):
 
     @callback.setter
     def callback(self, func: callable) -> None:
-        """Sets the callback function for text changes."""
+        """Set the callback function for text changes.
+
+        Args:
+            func (callable): The new callback function.
+        """
         self._callback = func
 
     @property
@@ -59,10 +71,19 @@ class TextEditor(textbox.TextBox):
 
     @current_text.setter
     def current_text(self, value: str) -> None:
+        """Set the current text content.
+
+        Args:
+            value (str): The new text content.
+        """
         self._set_text(value)
 
     def __process_text_input(self, button: int) -> None:
-        """Process text input and update the textbox"""
+        """Process text input and update the textbox.
+
+        Args:
+            button (int): The button code pressed.
+        """
         from picoware.system import buttons
 
         inp = self._vm.input_manager
@@ -125,5 +146,9 @@ class TextEditor(textbox.TextBox):
         self.render()
 
     def set_text(self, text: str) -> None:
-        """Sets the text content of the text box."""
+        """Set the text content of the text box.
+
+        Args:
+            text (str): The new text content.
+        """
         self._set_text(text)

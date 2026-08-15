@@ -87,6 +87,9 @@ rm -rf "$micropython_dir"/modules/websocket
 # remove mjs module if it exists
 rm -rf "$micropython_dir"/modules/mjs
 
+# remove mmbasic module if it exists
+rm -rf "$micropython_dir"/modules/mmbasic
+
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"
@@ -173,6 +176,9 @@ cp -r "$picoware_dir"/src/MicroPython/websocket "$micropython_dir"/modules/webso
 
 # copy mjs module
 cp -r "$picoware_dir"/src/MicroPython/mjs "$micropython_dir"/modules/mjs
+
+# copy mmbasic module
+cp -r "$picoware_dir"/src/MicroPython/mmbasic "$micropython_dir"/modules/mmbasic
 
 echo "Starting PicoCalc build process..."
 

@@ -1,12 +1,20 @@
+"""Games - Collection of built-in games."""
+
 _games = None
 _games_index = 0
 _app_loader = None
 
 
 def start(view_manager) -> bool:
-    """Start the games app"""
+    """Start the games app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True on success.
+    """
     from picoware.gui.menu import Menu
-    from picoware.system.app_loader import AppLoader
 
     if not view_manager.has_sd_card:
         view_manager.alert(
@@ -20,10 +28,6 @@ def start(view_manager) -> bool:
 
     global _games
     global _app_loader
-
-    if _app_loader:
-        del _app_loader
-        _app_loader = None
 
     if _games:
         del _games
@@ -40,7 +44,7 @@ def start(view_manager) -> bool:
         view_manager.foreground_color,
         2,
     )
-    _app_loader = AppLoader(view_manager)
+    _app_loader = view_manager.app_loader
 
     _games.add_item("Ghouls")  # Add Ghouls as a built-in game
 
@@ -54,7 +58,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the games app."""
+    """Run the games app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from picoware.system.view import View
     from picoware.system.buttons import (
         BUTTON_BACK,
@@ -133,15 +141,17 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the games app"""
+    """Stop the games app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from gc import collect
 
-    global _games, _app_loader
+    global _games
     if _games is not None:
         del _games
         _games = None
     if _app_loader is not None:
         _app_loader.cleanup_modules()
-        del _app_loader
-        _app_loader = None
     collect()

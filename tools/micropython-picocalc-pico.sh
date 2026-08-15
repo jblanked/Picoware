@@ -87,6 +87,9 @@ rm -rf "$micropython_dir"/modules/websocket
 # remove mjs module if it exists
 rm -rf "$micropython_dir"/modules/mjs
 
+# remove mmbasic module if it exists
+rm -rf "$micropython_dir"/modules/mmbasic
+
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"
@@ -174,12 +177,15 @@ cp -r "$picoware_dir"/src/MicroPython/websocket "$micropython_dir"/modules/webso
 # copy mjs module
 cp -r "$picoware_dir"/src/MicroPython/mjs "$micropython_dir"/modules/mjs
 
+# copy mmbasic module
+cp -r "$picoware_dir"/src/MicroPython/mmbasic "$micropython_dir"/modules/mmbasic
+
 echo "Starting PicoCalc build process..."
 
 # move to the micropython rp2 port directory
 cd "$micropython_dir"
 
 # PicoCalc - Pico
-make -j BOARD=RPI_PICO USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake MICROPY_HW_FLASH_STORAGE_BYTES=819200 CFLAGS_EXTRA="-DPICOCALC"
+make -j BOARD=RPI_PICO USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake MICROPY_HW_FLASH_STORAGE_BYTES=704512 CFLAGS_EXTRA="-DPICOCALC"
 cp "$micropython_dir"/build-RPI_PICO/firmware.uf2 "$picoware_dir"/builds/MicroPython/Picoware-PicoCalcPico.uf2
 echo "PicoCalc - Pico build complete."

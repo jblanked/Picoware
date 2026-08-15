@@ -1,12 +1,20 @@
+"""Applications - Launcher for all Picoware apps."""
+
 _applications = None
 _applications_index = 0
 _app_loader = None
 
 
 def start(view_manager) -> bool:
-    """Start the app"""
+    """Start the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True on success.
+    """
     from picoware.gui.menu import Menu
-    from picoware.system.app_loader import AppLoader
 
     if not view_manager.has_sd_card:
         view_manager.alert(
@@ -20,10 +28,6 @@ def start(view_manager) -> bool:
 
     global _applications
     global _app_loader
-
-    if _app_loader:
-        del _app_loader
-        _app_loader = None
 
     if _applications:
         del _applications
@@ -40,7 +44,7 @@ def start(view_manager) -> bool:
         view_manager.foreground_color,
         2,
     )
-    _app_loader = AppLoader(view_manager)
+    _app_loader = view_manager.app_loader
 
     for app in _app_loader.list_available_apps():
         _applications.add_item(app)
@@ -52,7 +56,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the app."""
+    """Run the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from picoware.system.view import View
     from picoware.system.buttons import (
         BUTTON_BACK,
@@ -88,6 +96,7 @@ def run(view_manager) -> None:
             app_module = _app_loader.load_app(selected_app)
             if app_module is None:
                 view_manager.alert(f'Could not load application "{selected_app}".')
+                _applications.draw()
                 return
             # Create a view for the app and switch to it
             app_view_name = f"app_{selected_app}"
@@ -112,15 +121,17 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the app"""
+    """Stop the app.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
     from gc import collect
 
-    global _applications, _app_loader
+    global _applications
     if _applications is not None:
         del _applications
         _applications = None
     if _app_loader is not None:
         _app_loader.cleanup_modules()
-        del _app_loader
-        _app_loader = None
     collect()

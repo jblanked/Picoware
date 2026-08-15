@@ -1,3 +1,5 @@
+"""WebSocket - WebSocket client and server."""
+
 # translated from https://github.com/danni/uwebsockets/blob/esp8266/uwebsockets/protocol.py
 from micropython import const
 import ure as re
@@ -32,30 +34,23 @@ _URL_RE = re.compile(r"(wss|ws)://([A-Za-z0-9\-\.]+)(?:\:([0-9]+))?(/.+)?")
 class WebSocketError(Exception):
     """Base exception for WebSocket errors."""
 
-    pass
-
 
 class NoDataException(Exception):
     """Raised when no data is available."""
-
-    pass
 
 
 class ConnectionClosed(Exception):
     """Raised when the connection is closed."""
 
-    pass
-
 
 def _urlparse(uri: str) -> tuple:
-    """
-    Parse a WebSocket URL.
+    """Parse a WebSocket URL.
 
     Args:
-        uri: WebSocket URL (ws:// or wss://)
+        uri (str): WebSocket URL (ws:// or wss://).
 
     Returns:
-        Tuple of (protocol, hostname, port, path) or None if invalid
+        tuple: (protocol, hostname, port, path) or None if invalid.
     """
     match = _URL_RE.match(uri)
     if match:
@@ -78,8 +73,7 @@ def _urlparse(uri: str) -> tuple:
 
 
 class WebSocket:
-    """
-    Synchronous WebSocket client for MicroPython.
+    """Synchronous WebSocket client for MicroPython.
 
     Usage:
         ws = WebSocket.connect("wss://echo.websocket.org")
@@ -91,12 +85,11 @@ class WebSocket:
     is_client = True
 
     def __init__(self, sock, underlying_sock=None):
-        """
-        Initialize the WebSocket.
+        """Initialize the WebSocket.
 
         Args:
-            sock: Connected socket (possibly SSL-wrapped)
-            underlying_sock: Underlying raw socket (for timeout control)
+            sock (socket): Connected socket (possibly SSL-wrapped).
+            underlying_sock (socket): Underlying raw socket for timeout control. Defaults to None.
         """
         self._sock = sock
         self._underlying_sock = underlying_sock or sock
@@ -110,9 +103,21 @@ class WebSocket:
             self._close()
 
     def __enter__(self):
+        """Enter the context manager, returning this WebSocket.
+
+        Returns:
+            WebSocket: This WebSocket instance.
+        """
         return self
 
     def __exit__(self, exc_type, exc, tb):
+        """Exit the context manager, closing the WebSocket.
+
+        Args:
+            exc_type (type): Exception type, if any.
+            exc (Exception): Exception instance, if any.
+            tb (traceback): Traceback, if any.
+        """
         self.close()
 
     @property
@@ -127,7 +132,11 @@ class WebSocket:
 
     @is_blocking.setter
     def is_blocking(self, flag: bool):
-        """Set the socket to blocking or non-blocking mode."""
+        """Set the socket to blocking or non-blocking mode.
+
+        Args:
+            flag (bool): True for blocking mode, False for non-blocking.
+        """
         try:
             self._underlying_sock.setblocking(flag)
             self._blocking = flag
@@ -145,12 +154,11 @@ class WebSocket:
         return self._open
 
     def close(self, code: int = WS_CLOSE_OK, reason: str = ""):
-        """
-        Close the websocket gracefully.
+        """Close the websocket gracefully.
 
         Args:
-            code: Close status code
-            reason: Optional close reason
+            code (int): Close status code. Defaults to WS_CLOSE_OK.
+            reason (str): Optional close reason. Defaults to "".
         """
         if not self._open:
             return
@@ -165,16 +173,15 @@ class WebSocket:
 
     @classmethod
     def connect(cls, uri: str, headers: dict = None, timeout: float = 10.0):
-        """
-        Connect to a WebSocket server.
+        """Connect to a WebSocket server.
 
         Args:
-            uri: WebSocket URL (ws:// or wss://)
-            headers: Optional additional headers for the handshake
-            timeout: Connection timeout in seconds
+            uri (str): WebSocket URL (ws:// or wss://).
+            headers (dict): Optional additional headers for the handshake. Defaults to None.
+            timeout (float): Connection timeout in seconds. Defaults to 10.0.
 
         Returns:
-            WebSocket instance
+            WebSocket: The connected WebSocket instance.
         """
         parsed = _urlparse(uri)
         if not parsed:
@@ -206,6 +213,12 @@ class WebSocket:
 
         # Helper to send headers
         def send_header(header, *args):
+            """Write a handshake header line to the socket.
+
+            Args:
+                header (str or bytes): The header format string.
+                args (tuple): Values to interpolate into the header.
+            """
             if args:
                 line = header % args + b"\r\n"
             else:
@@ -249,14 +262,13 @@ class WebSocket:
         return cls(sock, underlying_sock)
 
     def ping(self, data: bytes = b"") -> bool:
-        """
-        Send a ping frame.
+        """Send a ping frame.
 
         Args:
-            data: Optional ping payload (max 125 bytes)
+            data (bytes): Optional ping payload (max 125 bytes). Defaults to b"".
 
         Returns:
-            True if sent successfully
+            bool: True if sent successfully.
         """
         if not self._open:
             self._error = "Connection closed"
@@ -272,14 +284,13 @@ class WebSocket:
             return False
 
     def pong(self, data: bytes = b"") -> bool:
-        """
-        Send a pong frame.
+        """Send a pong frame.
 
         Args:
-            data: Pong payload
+            data (bytes): Pong payload. Defaults to b"".
 
         Returns:
-            True if sent successfully
+            bool: True if sent successfully.
         """
         if not self._open:
             self._error = "Connection closed"
@@ -295,12 +306,11 @@ class WebSocket:
             return False
 
     def recv(self):
-        """
-        Receive data from the websocket.
+        """Receive data from the websocket.
 
         Returns:
-            Received data as string (for text) or bytes (for binary),
-            empty string if no data, or None if connection closed.
+            str or bytes or None: Data as str (text) or bytes (binary), empty string
+            if no data, or None if the connection is closed.
         """
         if not self._open:
             return None
@@ -351,14 +361,13 @@ class WebSocket:
                 pass
 
     def send(self, data) -> bool:
-        """
-        Send data to the websocket.
+        """Send data to the websocket.
 
         Args:
-            data: Data to send (str or bytes)
+            data (str or bytes): Data to send.
 
         Returns:
-            True if sent successfully
+            bool: True if sent successfully.
         """
         if not self._open:
             self._error = "Connection closed"
@@ -393,9 +402,15 @@ class WebSocket:
             pass
 
     def _read_frame(self, max_size=None):
-        """
-        Read a frame from the socket.
+        """Read a frame from the socket.
+
         See https://tools.ietf.org/html/rfc6455#section-5.2 for details.
+
+        Args:
+            max_size (int): Maximum frame size. Defaults to None.
+
+        Returns:
+            tuple: (fin, opcode, data).
         """
         # Frame header (2 bytes)
         try:
@@ -447,11 +462,11 @@ class WebSocket:
         return fin, opcode, data
 
     def _write_frame(self, opcode: int, data: bytes = b""):
-        """
-        Write a frame to the socket.
+        """Write a frame to the socket.
+
         Args:
-            opcode: Frame opcode
-            data: Frame payload
+            opcode (int): Frame opcode.
+            data (bytes): Frame payload. Defaults to b"".
         """
         fin = True
         mask = self.is_client  # Client messages are masked
@@ -498,6 +513,16 @@ class WebSocketAsync:
         thread_manager=None,
         stack_size: int = 32 * 1024,
     ):
+        """Initialize the async WebSocket client.
+
+        Args:
+            uri (str): WebSocket URL (ws:// or wss://).
+            headers (dict): Optional additional headers for the handshake. Defaults to None.
+            timeout (float): Connection timeout in seconds. Defaults to 10.0.
+            callback (callable): Function called with received data. Defaults to None.
+            thread_manager (ThreadManager): Manager for threaded connections. Defaults to None.
+            stack_size (int): Thread stack size in bytes. Defaults to 32768.
+        """
         import _thread
 
         self._uri: str = uri
@@ -579,6 +604,7 @@ class WebSocketAsync:
         self.__close_thread()
 
         def _thread_func():
+            """Run the WebSocket receive loop in a thread."""
             try:
                 self._ws = WebSocket.connect(
                     self._uri, headers=self._headers, timeout=self._timeout
@@ -636,21 +662,42 @@ class WebSocketAsync:
         return True
 
     def ping(self, data: bytes = b"") -> bool:
-        """Send a ping to the WebSocket server."""
+        """Send a ping to the WebSocket server.
+
+        Args:
+            data (bytes): Ping payload. Defaults to b"".
+
+        Returns:
+            bool: True if sent successfully.
+        """
         with self._lock:
             if self._ws and self._running:
                 return self._ws.ping(data)
         return False
 
     def pong(self, data: bytes = b"") -> bool:
-        """Send a pong to the WebSocket server."""
+        """Send a pong to the WebSocket server.
+
+        Args:
+            data (bytes): Pong payload. Defaults to b"".
+
+        Returns:
+            bool: True if sent successfully.
+        """
         with self._lock:
             if self._ws and self._running:
                 return self._ws.pong(data)
         return False
 
     def send(self, data) -> bool:
-        """Send data to the WebSocket server."""
+        """Send data to the WebSocket server.
+
+        Args:
+            data (str or bytes): Data to send.
+
+        Returns:
+            bool: True if sent successfully.
+        """
         with self._lock:
             if self._ws and self._running:
                 return self._ws.send(data)

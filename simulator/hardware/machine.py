@@ -22,6 +22,11 @@ def bootloader():
     raise SystemExit
 
 
+class _PinCPU:
+    B6 = "B6"
+    B7 = "B7"
+
+
 class Pin:
     IN = 0
     OUT = 1
@@ -29,6 +34,7 @@ class Pin:
     PULL_DOWN = 1
     IRQ_FALLING = 4
     IRQ_RISING = 8
+    cpu = _PinCPU()
 
     def __init__(self, *args, **kwargs):
         self.id = args[0] if args else kwargs.get("id", None)
@@ -37,10 +43,12 @@ class Pin:
         self._mode = args[1] if len(args) > 1 else kwargs.get("mode", self.IN)
         self._pull = args[2] if len(args) > 2 else kwargs.get("pull", None)
         self._irq_trigger = None
+        self._irq_hard = False
 
-    def irq(self, handler=None, trigger=None):
+    def irq(self, handler=None, trigger=None, hard=False):
         self._handler = handler
         self._irq_trigger = trigger
+        self._irq_hard = bool(hard)
         if self.id in (11, 20, 21):
             try:
                 import sim_runtime

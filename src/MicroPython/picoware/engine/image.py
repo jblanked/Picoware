@@ -1,3 +1,5 @@
+"""Image - Image structure for the game engine."""
+
 import engine
 
 
@@ -5,6 +7,12 @@ class Image(engine.Image):
     """Image structure"""
 
     def __setattr__(self, name, value):
+        """Set an image attribute, routing to the matching setter.
+
+        Args:
+            name (str): Attribute name to set.
+            value (object): New value for the attribute.
+        """
         if name == "size":
             self.set_size(value)
         else:

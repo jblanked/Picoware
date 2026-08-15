@@ -635,11 +635,11 @@ class Input:
         
         _button = buttons.BUTTON_NONE
         
-        if 0 <= x <= self._screen_size[0] * 0.1 and 0 <= y <= self._screen_size[1] * 0.1:
+        if 0 <= x <= self._screen_size[0] * 0.15 and 0 <= y <= self._screen_size[1] * 0.12:
             _button = buttons.BUTTON_BACK
-        elif self._screen_size[0] * 0.9 <= x <= self._screen_size[0] and self._screen_size[1] * 0.3 <= y <= self._screen_size[1] * 0.7:
+        elif self._screen_size[0] * 0.85 <= x <= self._screen_size[0] and self._screen_size[1] * 0.3 <= y <= self._screen_size[1] * 0.7:
             _button = buttons.BUTTON_RIGHT
-        elif 0 <= x <= self._screen_size[0] * 0.1 and self._screen_size[1] * 0.3 <= y <= self._screen_size[1] * 0.7:
+        elif 0 <= x <= self._screen_size[0] * 0.15 and self._screen_size[1] * 0.3 <= y <= self._screen_size[1] * 0.7:
             _button = buttons.BUTTON_LEFT
         elif self._screen_size[0] * 0.2 <= x <= self._screen_size[0] * 0.8 and 0 <= y <= self._screen_size[1] * 0.2:
             _button = buttons.BUTTON_UP

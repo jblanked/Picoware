@@ -84,10 +84,19 @@ Optionally, you can also download the `Picoware-CrowPanel-10.1.bin` file from th
 ## Flipper Zero
 1. Download this repository as a ZIP file and extract it.
 2. Turn off your Flipper Zero, take out the SD card, then insert it into your computer.
-3. Create a `picoware` folder on your SD card and copy the contents of the `builds/MicroPython/apps` folder on the ZIP file into it.
-4. Eject the SD card from your computer and insert it into your Flipper Zero.
-5. Hold the `Center + Back` buttons for 25 seconds.
-6. Connect your Flipper Zero to your computer via USB-C data cable.
-7. Open up qFlipper (download from [here](https://flipper.net/pages/downloads/) if you don't have it installed).
-8. Click `Install from file` and select the `Picoware-FlipperZero.dfu` within the `builds/MicroPython` directory of the ZIP file you downloaded.
-9. Wait for the flashing process to complete and then disconnect your Flipper Zero from your computer once you see the Picoware logo on the device.
+3. Copy the `firmware` folder from the `builds/MicroPython/sd` directory of the ZIP file you downloaded into the root of your Flipper Zero's SD card. If a `firmware` folder already exists, replace it with the new one.
+4. Create a `picoware` folder on your SD card and copy the contents of the `builds/MicroPython/apps` folder on the ZIP file into it.
+5. Eject the SD card from your computer and insert it into your Flipper Zero.
+6. Hold the `Center + Back` buttons for 25 seconds.
+7. Connect your Flipper Zero to your computer via USB-C data cable.
+8. Open up qFlipper (download from [here](https://flipper.net/pages/downloads/) if you don't have it installed).
+9. If its your first time using the Flipper Zero (no previous firmware installed or you just received the device), click `Repair`, then `Repair`, and wait for the process to complete. Then turn off your Flipper Zero (hold `Back` for 10 seconds). Lastly, follow steps 6-8 again to reconnect your Flipper Zero to your computer and open qFlipper.
+10. Click `Install from file` and select the `Picoware-FlipperZero.dfu` within the `builds/MicroPython` directory of the ZIP file you downloaded.
+11. Wait for the flashing process to complete and then disconnect your Flipper Zero from your computer once you see the Picoware logo on the device.
+
+> [!NOTE]
+> Known Flipper Zero issues:
+> - It can take up to 10 seconds for the system to boot up after the Flipper Zero is turned on or restarted. 
+> - On boot/restart, noise may be heard from the speaker/radio.
+> - The system may freeze when trying to Stop in ThonnyIDE (solution: must click Library -> System -> Stop before trying to interrupt)
+> - Some of the apps/games/screensavers are incompatible

@@ -15,6 +15,7 @@ class ToggleList:
         border_color: int = 0xFFFF,
         border_width: int = 1,
         callback: callable = None,  # (index: int, state: bool)
+        state_text_color: bool = False,
     ):
         """Initialize the ToggleList with styling and an optional callback.
 
@@ -26,6 +27,7 @@ class ToggleList:
             border_color (int): The color of the border. Defaults to 0xFFFF.
             border_width (int): The width of the border. Defaults to 1.
             callback (callable): Optional callback called when a toggle changes. Defaults to None.
+            state_text_color (bool): Color labels by toggle state. Defaults to False.
         """
         from picoware.system.vector import Vector
 
@@ -37,6 +39,7 @@ class ToggleList:
         self.on_color = on_color
         self.border_color = border_color
         self.border_width = border_width
+        self.state_text_color = state_text_color
 
         self.toggle_list = []
         self.states = []
@@ -125,6 +128,7 @@ class ToggleList:
                 self.border_width,
                 False,
                 False,  # only because it clears objects
+                self.state_text_color,
             )
         )
 

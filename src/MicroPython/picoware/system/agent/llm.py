@@ -8,10 +8,81 @@ ANTHROPIC = const(2)
 GEMINI = const(3)
 LOCAL = const(4)
 XAI = const(5)
+LOCAL_MCP = const(6)
+
+
+def native_mcp_url(local_url: str) -> str:
+    """Return LM Studio's native chat endpoint for a configured local URL.
+
+    Args:
+        local_url (str): Local provider URL or server base URL.
+
+    Returns:
+        str: URL ending in /api/v1/chat.
+    """
+    url = (local_url or "").rstrip("/")
+    for suffix in ("/api/v1/chat", "/v1/chat/completions", "/v1/responses"):
+        if url.endswith(suffix):
+            return url[: -len(suffix)] + "/api/v1/chat"
+    if url.endswith("/v1"):
+        url = url[:-3]
+    return url + "/api/v1/chat"
+
+
+def responses_url(local_url: str) -> str:
+    """Return LM Studio's OpenAI-compatible Responses endpoint."""
+    url = (local_url or "").rstrip("/")
+    for suffix in ("/api/v1/chat", "/v1/chat/completions", "/v1/responses"):
+        if url.endswith(suffix):
+            return url[: -len(suffix)] + "/v1/responses"
+    if url.endswith("/v1"):
+        return url + "/responses"
+    return url + "/v1/responses"
+
+
+def parse_mcp_integrations(value: str, limit: int = 16) -> list[str]:
+    """Normalize comma-separated LM Studio integration IDs.
+
+    Args:
+        value (str): Comma- or newline-separated server IDs.
+        limit (int): Maximum number of integrations to expose. Defaults to 16.
+
+    Returns:
+        list[str]: Unique LM Studio integration IDs.
+
+    Notes:
+        Plain values remain backward-compatible MCP labels and receive the
+        ``mcp/`` prefix. Hub plugins use an explicit ``plugin:owner/name``
+        spelling because MCP labels may also contain slashes.
+    """
+    if not isinstance(value, str):
+        return []
+
+    integrations = []
+    for raw in value.replace("\n", ",").split(","):
+        server_id = raw.strip()
+        if not server_id:
+            continue
+        if server_id.startswith("plugin:"):
+            server_id = server_id[7:].strip()
+            if not server_id:
+                continue
+        else:
+            if not server_id.startswith("mcp/"):
+                server_id = "mcp/" + server_id
+            # LM Studio canonicalizes MCP labels containing slashes when it
+            # generates the mcpBridge artifact (for example,
+            # microsoft/markitdown -> mcp/microsoftmarkitdown).
+            server_id = "mcp/" + server_id[4:].replace("/", "")
+        if server_id not in integrations:
+            integrations.append(server_id)
+        if len(integrations) >= limit:
+            break
+    return integrations
 
 class LLM:
     """LLM config"""
-    __slots__ = ["_api_key", "_current_model", "_id", "_name", "_url", "_models", "_headers", "_thinking"]
+    __slots__ = ["_api_key", "_current_model", "_id", "_name", "_url", "_models", "_headers", "_thinking", "_mcp_integrations"]
     def __init__(self, storage, llm_id: int, model: str = None, thinking: str = "none"):
         """Initialize the LLM config for the given provider ID.
 
@@ -32,6 +103,7 @@ class LLM:
         self._url = ""
         self._models = []
         self._headers = {}
+        self._mcp_integrations = []
         self.__set(storage)
     
     @property
@@ -60,6 +132,16 @@ class LLM:
         return self._models
 
     @property
+    def mcp_integrations(self) -> list[str]:
+        """Return configured LM Studio MCP integration IDs."""
+        return self._mcp_integrations
+
+    @property
+    def native_mcp(self) -> bool:
+        """Return whether this provider uses LM Studio's native MCP API."""
+        return self._id == LOCAL_MCP
+
+    @property
     def payload(self) -> dict:
         """Return a payload for the chat agent based on the provider."""
         _payload = {
@@ -85,6 +167,8 @@ class LLM:
                 _payload["reasoning_effort"] = self._thinking
             elif self._id == LOCAL:
                 _payload["think"] = True
+            elif self._id == LOCAL_MCP:
+                _payload["reasoning"] = "on"
             elif self._id in (OPENAI, GEMINI):
                 _payload["reasoning_effort"] = self._thinking
             elif self._id == ANTHROPIC:
@@ -100,6 +184,8 @@ class LLM:
                 _payload["thinking"] = {"type": "disabled"}
             elif self._id == LOCAL:
                 _payload["think"] = False
+            elif self._id == LOCAL_MCP:
+                _payload["reasoning"] = "off"
             elif self._id in (OPENAI, GEMINI):
                 _payload["reasoning_effort"] = self._thinking
             elif self._id == ANTHROPIC:
@@ -121,7 +207,7 @@ class LLM:
     @staticmethod
     def providers() -> list:
         """Return a list of available LLM providers."""
-        return [OPENAI, DEEPSEEK, ANTHROPIC, GEMINI, LOCAL, XAI]
+        return [OPENAI, DEEPSEEK, ANTHROPIC, GEMINI, LOCAL, LOCAL_MCP, XAI]
 
     @staticmethod
     def provider_name(provider_id: int) -> str:
@@ -143,6 +229,8 @@ class LLM:
             return "Gemini"
         if provider_id == LOCAL:
             return "Local"
+        if provider_id == LOCAL_MCP:
+            return "LM Studio MCP"
         if provider_id == XAI:
             return "xAI"
         return "Unknown"
@@ -182,13 +270,20 @@ class LLM:
             self._name = "Local"
             self._url = settings.local_url
             self._models = ["qwen3.5:9b", "qwen3.5:4b", "qwen3.5:0.8b", "qwen3.5:2b", "llama3.2:3b", "llama3.2:1b"]
+            self._api_key = settings.local_api_key
+        elif self._id == LOCAL_MCP:
+            self._name = "LM Studio MCP"
+            self._url = responses_url(settings.local_url)
+            self._models = ["qwen/qwen3.5-9b", "qwen/qwen3.5-4b", "qwen/qwen3.5-2b", "qwen/qwen3.5-0.8b"]
+            self._api_key = settings.local_api_key
+            self._mcp_integrations = parse_mcp_integrations(settings.local_mcp_servers)
         elif self._id == XAI:
             self._name = "xAI"
             self._url = "https://api.x.ai/v1"
             self._models = ["grok-4.5", "grok-4.3", "grok-build-0.1", "grok-4.20", "grok-4.20-non-reasoning"]
             self._api_key = settings.xai_api_key
         
-        if self._id != LOCAL:
+        if self._id not in (LOCAL, LOCAL_MCP) or self._api_key:
             self._headers["Authorization"] = f"Bearer {self._api_key}"
         
         if self._current_model is None:
@@ -196,4 +291,3 @@ class LLM:
         else:
             if self._current_model not in self._models:
                 self._models.append(self._current_model)
-        

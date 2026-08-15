@@ -2169,9 +2169,45 @@ WORKFLOW = const(b"""
 # App Creator - Workflow
 
 Follow these steps in order for every run:
-1. Determine the user's intent and the type of app they want to create, and review the relevant API sections.
+1. Determine the user's intent and the type of app they want to create. Call `picoware_api_search`, then call `picoware_api_read` for the relevant API sections before writing code.
 2. Write the app code in a single `.py` file using the provided APIs. Regular applications are saved in `picoware/apps/`, screensavers in `picoware/apps/screensavers/`, and games in `picoware/apps/games/`. 
-3. Review the code for correctness, syntax, and adherence to the API specifications. Correct any issues and ensure the code is ready to run.
+3. Call `picoware_app_validate`, then read the saved source back. Correct a concrete error at most once and ensure the code is ready to run.
 4. Return the location of the `.py` file containing the app code, describe how the app works, and list any errors, assumptions, or limitations in the implementation. Always return a response.          
 """
 )
+
+COMPACT_CONTEXT = const(b"""
+# App Creator API access
+
+The full Picoware API reference is available through `picoware_api_search` and
+`picoware_api_read`. Retrieve only the sections needed for the requested app.
+Do not invent classes, methods, constants, imports, or callback signatures.
+
+# Required app-file contract
+
+- An SD app is a plain module that exports exactly the lifecycle callbacks
+  `start(view_manager)`, `run(view_manager)`, and `stop(view_manager)`.
+- Do not instantiate or register `View` or `ViewManager` in the app file.
+- Do not import from top-level `picoware`. Import exact modules documented by
+  the reference, for example `BUTTON_BACK` from
+  `picoware.system.buttons` and `Vector` from `picoware.system.vector`.
+- Read buttons from `view_manager.button`. Exit with
+  `view_manager.back()` when it equals `BUTTON_BACK`.
+- Use `view_manager.draw`; draw with documented methods and call `draw.swap()`
+  after changing the back buffer. Keep `run` non-blocking.
+
+# Efficient tool sequence
+
+Use one combined `picoware_api_search` call, then read no more than four
+relevant sections. Write the complete source once, call
+`picoware_app_validate`, and read the file back once. If validation succeeds
+and read-back is complete, stop using tools and answer. Rewrite at most once,
+and only to correct a concrete validator or read-back error.
+Never call `picoware_app_validate` before `storage_write` succeeds. If the
+validator reports `not_found`, write the file instead of retrying validation.
+
+Use `storage_write` with mode `w` and encoding `utf-8` for Python source.
+Check the structured write result. If it is not successful, correct the path or
+request and retry only once when the correction is meaningful. After writing,
+validate and read the file back to verify that the complete source was saved.
+""")

@@ -97,6 +97,9 @@ def _parse_args(argv):
         "wait_view": "",
         "assert_text": "",
         "sim_check": False,
+        "agent_check": False,
+        "agent_live_check": False,
+        "agent_live_app_check": False,
         "reset_sd": False,
         "sd_profile": "dev",
         "record": "",
@@ -184,6 +187,12 @@ def _parse_args(argv):
             opts["assert_text"] = argv[i]
         elif arg == "--sim-check":
             opts["sim_check"] = True
+        elif arg == "--agent-check":
+            opts["agent_check"] = True
+        elif arg == "--agent-live-check":
+            opts["agent_live_check"] = True
+        elif arg == "--agent-live-app-check":
+            opts["agent_live_app_check"] = True
         elif arg == "--reset-sd":
             opts["reset_sd"] = True
         elif arg == "--sd-profile" and i + 1 < len(argv):
@@ -193,7 +202,7 @@ def _parse_args(argv):
             i += 1
             opts["record"] = _abspath(argv[i])
         elif arg == "--help":
-            print("usage: micropython simulator/run.py [--viewer] [--sdl] [--headless] [--frames N] [--exit-after-frames N] [--speed auto|real|pico2w|fast|unlimited] [--fps N] [--network real|offline] [--bluetooth virtual|off] [--audio real|silent] [--keys a,b] [--keys-text TEXT] [--record FILE] [--open NAME] [--app NAME] [--game NAME] [--apps-source PATH] [--reset-sd] [--sd-profile clean|dev|media|network-fixtures] [--screenshot PATH] [--coverage apps|games|all] [--script FILE] [--wait-view NAME] [--assert-text TEXT] [--capabilities] [--sim-check]")
+            print("usage: micropython simulator/run.py [--viewer] [--sdl] [--headless] [--frames N] [--exit-after-frames N] [--speed auto|real|pico2w|fast|unlimited] [--fps N] [--network real|offline] [--bluetooth virtual|off] [--audio real|silent] [--keys a,b] [--keys-text TEXT] [--record FILE] [--open NAME] [--app NAME] [--game NAME] [--apps-source PATH] [--reset-sd] [--sd-profile clean|dev|media|network-fixtures] [--screenshot PATH] [--coverage apps|games|all] [--script FILE] [--wait-view NAME] [--assert-text TEXT] [--capabilities] [--agent-check] [--agent-live-check] [--agent-live-app-check] [--sim-check]")
             raise SystemExit
         else:
             print("Unknown argument:", arg)
@@ -566,6 +575,14 @@ def _run_sim_check(opts):
     _run_library_route_check()
     _run_stale_app_link_check(opts)
     _run_duplicate_app_link_check(opts)
+    # Run Agent contracts before optional app routes so an unrelated launcher
+    # failure cannot hide Agent regressions.
+    _run_agent_time_grounding_check()
+    _run_agent_tool_loop_check()
+    _run_agent_followup_check()
+    _run_agent_chat_typing_check()
+    _run_agent_new_session_check()
+    _run_agent_sd_capacity_check()
     commands = (
         "sh "
         + _quote(THIS_DIR + "/build.sh")
@@ -776,6 +793,302 @@ def _run_desktop_native_check(opts):
         sim_runtime.headless = original_headless
         gc.collect()
     print("[sim-check:ok] Desktop native logic and MMBasic hardware bridge")
+
+
+def _run_agent_check():
+    """Run only the Picoware Agent contracts."""
+    _run_agent_time_grounding_check()
+    _run_agent_tool_loop_check()
+    _run_agent_followup_check()
+    _run_agent_activity_check()
+    _run_agent_chat_typing_check()
+    _run_agent_new_session_check()
+    _run_agent_sd_capacity_check()
+
+
+def _run_agent_live_check():
+    """Exercise LM Studio MCP, device SD tools, and a stateful follow-up."""
+    from time import localtime
+    from picoware.system.agent.agent import Agent, MODE_APP_CREATOR, MODE_DEVICE_MANAGER
+    from picoware.system.agent.llm import LLM, LOCAL_MCP
+    from picoware.system.storage import Storage
+
+    class LiveRTC:
+        def datetime(self):
+            value = localtime()
+            return (
+                value[0], value[1], value[2], value[6],
+                value[3], value[4], value[5], 0,
+            )
+
+    class LiveTime:
+        is_set = True
+        is_fetching = False
+        rtc = LiveRTC()
+
+    class LiveViewManager:
+        def __init__(self):
+            self.storage = Storage()
+            self.thread_manager = None
+            self.time = LiveTime()
+            self.gmt_offset = 2
+            self.has_wifi = False
+
+        def log(self, message):
+            print(message)
+
+    view_manager = LiveViewManager()
+    storage = view_manager.storage
+    marker_path = "picoware/cache/agent-live-check.txt"
+    app_path = "picoware/apps/AgentLiveApp.py"
+    paths = (
+        marker_path,
+        marker_path + ".agent-tmp",
+        marker_path + ".agent-bak",
+        "picoware/settings/agent-live-request.json",
+        "picoware/settings/agent-live-response.json",
+        "picoware/settings/agent-live-conversation.json",
+        "picoware/settings/agent-live-memory.json",
+        "picoware/settings/agent-live-state.json",
+        app_path,
+        app_path + ".agent-tmp",
+        app_path + ".agent-bak",
+        "picoware/settings/agent-live-app-request.json",
+        "picoware/settings/agent-live-app-response.json",
+        "picoware/settings/agent-live-app-conversation.json",
+        "picoware/settings/agent-live-app-memory.json",
+        "picoware/settings/agent-live-app-state.json",
+    )
+    for path in paths:
+        storage.remove(path)
+
+    agent = Agent(
+        view_manager,
+        MODE_DEVICE_MANAGER,
+        LLM(storage, LOCAL_MCP, "qwen/qwen3.5-9b"),
+        file_path=paths[3],
+        cleanup=False,
+    )
+    agent._response_path = paths[4]
+    agent._conv_path = paths[5]
+    agent._mem_path = paths[6]
+    agent._state_path = paths[7]
+    agent._native_response_id = ""
+    agent._conversation = []
+    app_agent = None
+
+    try:
+        result = agent.run_payload({
+            "message": (
+                "Use the authoritative current-time integration. Then use "
+                "storage_write to create picoware/cache/agent-live-check.txt "
+                "containing exactly LIVE_OK followed by one space and the "
+                "current local date in YYYY-MM-DD form. Use storage_read to "
+                "verify it. Reply with only the complete file content."
+            ),
+            "conversation": [],
+        })
+        if result.get("status") != "completed":
+            raise RuntimeError("live LM Studio Agent request failed: " + str(result.get("message")))
+        if not storage.exists(marker_path):
+            raise RuntimeError("live LM Studio Agent did not create the SD marker")
+        marker = storage.read(marker_path, "r").strip()
+        today = localtime()
+        expected = "LIVE_OK %04d-%02d-%02d" % (today[0], today[1], today[2])
+        if marker != expected:
+            raise RuntimeError(
+                "live LM Studio current-time or SD result mismatch: " + marker
+            )
+        if result.get("message", "").strip() != marker:
+            raise RuntimeError("live LM Studio final answer did not match verified SD data")
+        first_stats = agent.last_stats
+        if first_stats.get("device_tool_calls", 0) < 2:
+            raise RuntimeError("live LM Studio request did not execute both SD tools")
+
+        followup = agent.run_payload({
+            "message": "What exact marker did you write? Reply with only its first word.",
+            "conversation": result.get("conversation", []),
+        })
+        if followup.get("status") != "completed" or followup.get("message", "").strip() != "LIVE_OK":
+            raise RuntimeError("live LM Studio stateful follow-up mismatch")
+        followup_stats = agent.last_stats
+
+        app_agent = Agent(
+            view_manager,
+            MODE_APP_CREATOR,
+            LLM(storage, LOCAL_MCP, "qwen/qwen3.5-9b"),
+            file_path=paths[11],
+            cleanup=False,
+        )
+        app_agent._response_path = paths[12]
+        app_agent._conv_path = paths[13]
+        app_agent._mem_path = paths[14]
+        app_agent._state_path = paths[15]
+        app_agent._native_response_id = ""
+        app_agent._conversation = []
+        app_result = app_agent.run_payload({
+            "message": (
+                "Create a minimal Picoware app at exactly "
+                "picoware/apps/AgentLiveApp.py. It must draw the text Agent "
+                "Live App in start, return True from start, handle BUTTON_BACK "
+                "with view_manager.back() in non-blocking run, and clean up in "
+                "stop. Use the API-reference tools before writing and read the "
+                "complete file back to verify it."
+            ),
+            "conversation": [],
+        })
+        if app_result.get("status") != "completed" or not storage.exists(app_path):
+            raise RuntimeError(
+                "live LM Studio App Creator failed: " + str(app_result.get("message"))
+            )
+        source = storage.read(app_path, "r")
+        for required in ("def start", "def run", "def stop", "BUTTON_BACK", "view_manager.back"):
+            if required not in source:
+                raise RuntimeError("live LM Studio App Creator omitted " + required)
+        compile(source, app_path, "exec")
+        app_stats = app_agent.last_stats
+        if app_stats.get("device_tool_calls", 0) < 4:
+            raise RuntimeError("live LM Studio App Creator skipped API or SD verification tools")
+
+        web_result = agent.run_payload({
+            "message": (
+                "Search the current web for two Raspberry Pi Pico 2 W boards "
+                "sold on Amazon Germany. Return exactly two bullet points with "
+                "the product title and a direct http URL for each. Use the web "
+                "tools and do not invent products or URLs."
+            ),
+            "conversation": followup.get("conversation", []),
+        })
+        if web_result.get("status") != "completed":
+            raise RuntimeError(
+                "live LM Studio Amazon web request failed: "
+                + str(web_result.get("message"))
+            )
+        web_message = web_result.get("message", "")
+        if "amazon" not in web_message.lower() or "http" not in web_message.lower():
+            raise RuntimeError("live LM Studio Amazon result omitted direct web evidence")
+        web_stats = agent.last_stats
+        if web_stats.get("mcp_calls", 0) < 1:
+            raise RuntimeError("live LM Studio Amazon request did not execute an MCP tool")
+        print(
+            "[agent-live-check:pass] marker=" + marker
+            + " rounds=" + str(first_stats.get("response_rounds", 0))
+            + " device_tools=" + str(first_stats.get("device_tool_calls", 0))
+            + " mcp_calls=" + str(first_stats.get("mcp_calls", 0))
+            + " followup_rounds=" + str(followup_stats.get("response_rounds", 0))
+            + " app_tools=" + str(app_stats.get("device_tool_calls", 0))
+            + " web_mcp_calls=" + str(web_stats.get("mcp_calls", 0))
+        )
+        print("[agent-live-check:web] " + web_message[:500].replace("\n", " | "))
+    finally:
+        agent.cancel()
+        if app_agent is not None:
+            app_agent.cancel()
+        for path in paths:
+            storage.remove(path)
+
+
+def _run_agent_live_app_check():
+    """Exercise only live LM Studio App Creator SD generation."""
+    from time import localtime
+    from picoware.system.agent.agent import Agent, MODE_APP_CREATOR
+    from picoware.system.agent.llm import LLM, LOCAL_MCP
+    from picoware.system.storage import Storage
+
+    class LiveRTC:
+        def datetime(self):
+            value = localtime()
+            return (
+                value[0], value[1], value[2], value[6],
+                value[3], value[4], value[5], 0,
+            )
+
+    class LiveTime:
+        is_set = True
+        is_fetching = False
+        rtc = LiveRTC()
+
+    class LiveViewManager:
+        def __init__(self):
+            self.storage = Storage()
+            self.thread_manager = None
+            self.time = LiveTime()
+            self.gmt_offset = 2
+            self.has_wifi = False
+
+        def log(self, message):
+            print(message)
+
+    view_manager = LiveViewManager()
+    storage = view_manager.storage
+    app_path = "picoware/apps/AgentLiveApp.py"
+    paths = (
+        app_path,
+        app_path + ".agent-tmp",
+        app_path + ".agent-bak",
+        "picoware/settings/agent-live-app-request.json",
+        "picoware/settings/agent-live-app-response.json",
+        "picoware/settings/agent-live-app-conversation.json",
+        "picoware/settings/agent-live-app-memory.json",
+        "picoware/settings/agent-live-app-state.json",
+    )
+    for path in paths:
+        storage.remove(path)
+
+    agent = Agent(
+        view_manager,
+        MODE_APP_CREATOR,
+        LLM(storage, LOCAL_MCP, "qwen/qwen3.5-9b"),
+        file_path=paths[3],
+        cleanup=False,
+    )
+    agent._response_path = paths[4]
+    agent._conv_path = paths[5]
+    agent._mem_path = paths[6]
+    agent._state_path = paths[7]
+    agent._native_response_id = ""
+    agent._conversation = []
+
+    try:
+        result = agent.run_payload({
+            "message": (
+                "Create a minimal Picoware app at exactly "
+                "picoware/apps/AgentLiveApp.py. It must draw the text Agent "
+                "Live App in start, return True from start, handle BUTTON_BACK "
+                "with view_manager.back() in non-blocking run, and clean up in "
+                "stop. Use the API-reference tools before writing, validate "
+                "the saved app, and read the complete file back exactly once "
+                "to verify it. Then stop using tools and report success."
+            ),
+            "conversation": [],
+        })
+        if result.get("status") != "completed" or not storage.exists(app_path):
+            raise RuntimeError(
+                "live LM Studio App Creator failed: " + str(result.get("message"))
+            )
+        source = storage.read(app_path, "r")
+        for required in (
+            "def start(view_manager)",
+            "def run(view_manager)",
+            "def stop(view_manager)",
+            "BUTTON_BACK",
+            "view_manager.back",
+        ):
+            if required not in source:
+                raise RuntimeError("live LM Studio App Creator omitted " + required)
+        compile(source, app_path, "exec")
+        stats = agent.last_stats
+        if stats.get("device_tool_calls", 0) < 4:
+            raise RuntimeError("live LM Studio App Creator skipped API or SD verification tools")
+        print(
+            "[agent-live-app-check:pass] rounds="
+            + str(stats.get("response_rounds", 0))
+            + " device_tools=" + str(stats.get("device_tool_calls", 0))
+        )
+    finally:
+        agent.cancel()
+        for path in paths:
+            storage.remove(path)
 
 
 def _run_library_route_check():
@@ -1436,6 +1749,1026 @@ def _run_audio_shutdown_check():
     print("[sim-check:ok] audio sidecar shutdown")
 
 
+def _run_agent_time_grounding_check():
+    """Verify Agent clock metadata and cutoff-safe MCP grounding."""
+    from picoware.system.agent.agent import _current_time_grounding
+    from picoware.system.agent.tools.network import network_get_time_info
+
+    class ProbeRTC:
+        def datetime(self):
+            return (2026, 8, 15, 6, 11, 52, 3, 0)
+
+    class ProbeTime:
+        def __init__(self, is_set):
+            self.is_set = is_set
+            self.is_fetching = False
+            self.rtc = ProbeRTC()
+
+    class ProbeViewManager:
+        def __init__(self, is_set):
+            self.gmt_offset = 2
+            self.time = ProbeTime(is_set)
+
+    ready = ProbeViewManager(True)
+    info = network_get_time_info(ready)
+    if info["current_local_datetime"] != "2026-08-15T11:52:03":
+        raise RuntimeError("Agent current-time formatting mismatch")
+    if info["gmt_offset_hours"] != 2 or info["utc_offset"] != "+02:00":
+        raise RuntimeError("Agent current-time UTC offset mismatch")
+    if not info["clock_is_set"] or info["clock_is_fetching"]:
+        raise RuntimeError("Agent current-time state mismatch")
+    grounding = _current_time_grounding(ready)
+    if "2026-08-15T11:52:03" not in grounding or "+02:00" not in grounding:
+        raise RuntimeError("Agent MCP grounding omitted current time")
+    if "web or research tool" not in grounding:
+        raise RuntimeError("Agent MCP grounding omitted post-cutoff guidance")
+
+    unset = _current_time_grounding(ProbeViewManager(False))
+    if "clock is not set" not in unset or "current-time tool" not in unset:
+        raise RuntimeError("Agent MCP unset-clock guidance mismatch")
+    print("[sim-check:ok] Agent current-time metadata and MCP grounding")
+
+
+def _run_agent_tool_loop_check():
+    """Verify built-in and native MCP repeated-tool loop detection."""
+    from picoware.system.agent.agent import (
+        MAX_TOOL_CALLS_PER_RUN,
+        _NativeResearchSink,
+        _native_tool_loop_issue,
+        _tool_loop_issue,
+        _tool_loop_policy,
+    )
+
+    history = []
+    for _ in range(2):
+        if _tool_loop_issue(history, "network_get_info", {}) != "":
+            raise RuntimeError("Agent loop guard rejected the allowed retry")
+    issue = _tool_loop_issue(history, "network_get_info", {})
+    if "repeated with identical arguments" not in issue:
+        raise RuntimeError("Agent loop guard missed an identical third call")
+
+    history = []
+    for index in range(MAX_TOOL_CALLS_PER_RUN):
+        if _tool_loop_issue(history, "tool_" + str(index), {}) != "":
+            raise RuntimeError("Agent loop guard rejected an allowed tool call")
+    if _tool_loop_issue(history, "one_too_many", {}) != "tool-call budget exceeded":
+        raise RuntimeError("Agent loop guard missed the tool-call budget")
+
+    trace = []
+    for _ in range(3):
+        trace.append(
+            {
+                "type": "tool_call",
+                "tool": "get_current_time",
+                "arguments": {},
+                "provider_info": {
+                    "type": "plugin",
+                    "plugin_id": "local/toolguard-current-time",
+                },
+            }
+        )
+    if "repeated with identical arguments" not in _native_tool_loop_issue(trace):
+        raise RuntimeError("Agent native MCP audit missed a repeated tool loop")
+    if _native_tool_loop_issue(trace[:2]) != "":
+        raise RuntimeError("Agent native MCP audit rejected the allowed retry")
+
+    class ProbeHTTP:
+        def __init__(self):
+            self.closed = False
+
+        def close(self):
+            self.closed = True
+
+    probe_http = ProbeHTTP()
+    sink = _NativeResearchSink(probe_http)
+    event = {
+        "type": "tool_call.arguments",
+        "tool": "Web Search",
+        "arguments": {"query": "same"},
+        "provider_info": {"type": "plugin", "plugin_id": "duckduckgo"},
+    }
+    encoded_event = ("data: " + __import__("json").dumps(event) + "\n\n").encode()
+    sink.write(encoded_event)
+    success_event = dict(event)
+    success_event["type"] = "tool_call.success"
+    success_event["output"] = "bounded evidence"
+    sink.write(("data: " + __import__("json").dumps(success_event) + "\n\n").encode())
+    if sink.evidence != ["bounded evidence"]:
+        raise RuntimeError("Agent streaming MCP guard did not retain completed evidence")
+    sink.write(encoded_event)
+    if sink.issue or probe_http.closed:
+        raise RuntimeError("Agent streaming MCP guard rejected the allowed retry")
+    sink.write(encoded_event)
+    if "repeated with identical arguments" not in sink.issue or not probe_http.closed:
+        raise RuntimeError("Agent streaming MCP guard did not stop a live loop")
+
+    single_http = ProbeHTTP()
+    single_sink = _NativeResearchSink(single_http, max_calls=1)
+    single_sink.write(encoded_event)
+    single_sink.write(
+        ("data: " + __import__("json").dumps(success_event) + "\n\n").encode()
+    )
+    if (
+        not single_sink.complete
+        or single_sink.issue
+        or not single_http.closed
+        or single_sink.call_count != 1
+        or single_sink.evidence != ["bounded evidence"]
+    ):
+        raise RuntimeError("Agent did not end a native stage after its first result")
+
+    class ProbeFile:
+        def __init__(self, path):
+            self.path = path
+
+    class ProbeStorage:
+        def __init__(self):
+            self.files = {}
+
+        def remove(self, path):
+            self.files.pop(path, None)
+            return True
+
+        def file_open(self, path):
+            self.files[path] = bytearray()
+            return ProbeFile(path)
+
+        def file_write(self, file_obj, data, _mode="wb"):
+            self.files[file_obj.path].extend(data)
+            return True
+
+        def file_close(self, _file_obj):
+            return None
+
+    spool_storage = ProbeStorage()
+    spool_http = ProbeHTTP()
+    spool_sink = _NativeResearchSink(
+        spool_http, spool_storage, "agent-mcp-stream.tmp"
+    )
+    split_event = (
+        "data: " + __import__("json").dumps(success_event) + "\n\n"
+    ).encode()
+    split_at = len(split_event) // 2
+    spool_sink.write(split_event[:split_at])
+    spool_sink.write(split_event[split_at:])
+    chat_end = b'data: {"type":"chat.end","result":{"output":[]}}\n\n'
+    spool_sink.write(chat_end)
+    spool_sink.close()
+    if spool_sink.evidence != ["bounded evidence"] or spool_sink.result != {}:
+        raise RuntimeError("Agent SD-spooled MCP parser result mismatch")
+    if bytes(spool_storage.files["agent-mcp-stream.tmp"]) != split_event + chat_end:
+        raise RuntimeError("Agent MCP stream was not mirrored exactly to SD")
+
+    from picoware.system.http import HTTP
+
+    class ProbeChunkSocket:
+        def __init__(self, payload_size):
+            self.remaining = payload_size
+            self.lines = [b"10000\r\n", b"0\r\n", b"\r\n"]
+            self.max_read = 0
+
+        def readline(self):
+            return self.lines.pop(0) if self.lines else b""
+
+        def read(self, count):
+            self.max_read = max(self.max_read, count)
+            if self.remaining:
+                actual = min(count, self.remaining)
+                self.remaining -= actual
+                return b"x" * actual
+            return b"\r\n" if count == 2 else b""
+
+        def close(self):
+            return None
+
+    class ProbeSink:
+        def __init__(self):
+            self.bytes_written = 0
+
+        def write(self, value):
+            if isinstance(value, (bytes, bytearray)):
+                self.bytes_written += len(value)
+
+        def flush(self):
+            return None
+
+    chunk_http = HTTP(chunk_size=4096)
+    chunk_http._running = True
+    chunk_socket = ProbeChunkSocket(65536)
+    chunk_sink = ProbeSink()
+    chunk_http.read_chunked(chunk_socket, chunk_sink)
+    if chunk_socket.max_read > 4096 or chunk_sink.bytes_written != 65536:
+        raise RuntimeError("HTTP chunked reader materialized a server-sized chunk")
+
+    policy = _tool_loop_policy()
+    if "no more than 16 tool calls" not in policy or "Never repeat" not in policy:
+        raise RuntimeError("Agent native MCP request omitted loop policy")
+    print("[sim-check:ok] Agent built-in and native MCP tool-loop guards")
+
+
+def _run_agent_followup_check():
+    """Verify Responses follow-ups and a device-executed nested SD write."""
+    import json
+    from picoware.system.agent.agent import (
+        Agent, MAX_NATIVE_MCP_CALLS, _argument_signature, _native_response_id,
+    )
+    from picoware.system.agent.tools import dispatch
+    from picoware.system.agent.tools.api_reference import (
+        picoware_api_read,
+        picoware_api_search,
+    )
+
+    class ProbeFile:
+        def __init__(self, path):
+            self.path = path
+            self.position = 0
+
+    class ProbeStorage:
+        def __init__(self):
+            self.files = {}
+            self.dirs = {"picoware", "picoware/settings", "picoware/apps"}
+            self.free_space = 3 * 1024 * 1024 * 1024
+            self.total_space = 8 * 1024 * 1024 * 1024
+            self.max_write_fragment = 0
+
+        def exists(self, path):
+            return path in self.files or path in self.dirs
+
+        def is_directory(self, path):
+            return path in self.dirs
+
+        def listdir(self, path=""):
+            prefix = path + "/" if path else ""
+            entries = []
+            for candidate in tuple(self.dirs) + tuple(self.files):
+                if not candidate.startswith(prefix) or candidate == path:
+                    continue
+                entry = candidate[len(prefix):].split("/", 1)[0]
+                if entry and entry not in entries:
+                    entries.append(entry)
+            return entries
+
+        def mkdir(self, path):
+            parent = path.rsplit("/", 1)[0] if "/" in path else ""
+            if parent and parent not in self.dirs:
+                return False
+            self.dirs.add(path)
+            return True
+
+        def remove(self, path):
+            self.files.pop(path, None)
+            self.dirs.discard(path)
+            return True
+
+        def write(self, path, data, mode="w"):
+            if isinstance(data, str):
+                data = data.encode("utf-8")
+            self.max_write_fragment = max(self.max_write_fragment, len(data))
+            if mode == "w" or path not in self.files:
+                self.files[path] = bytes(data)
+            else:
+                self.files[path] += bytes(data)
+            return True
+
+        def serialize(self, path):
+            return json.loads(self.files[path].decode("utf-8"))
+
+        def deserialize(self, value, path):
+            self.files[path] = json.dumps(value).encode("utf-8")
+            return True
+
+        def file_open(self, path):
+            parent = path.rsplit("/", 1)[0] if "/" in path else ""
+            if parent and parent not in self.dirs:
+                return None
+            self.files.setdefault(path, b"")
+            return ProbeFile(path)
+
+        def file_close(self, _file):
+            return None
+
+        def file_write(self, file_obj, data, mode="b"):
+            if isinstance(data, str):
+                data = data.encode("utf-8")
+            self.max_write_fragment = max(self.max_write_fragment, len(data))
+            current = self.files.get(file_obj.path, b"")
+            before = current[:file_obj.position]
+            after_offset = file_obj.position + len(data)
+            after = current[after_offset:] if after_offset < len(current) else b""
+            self.files[file_obj.path] = before + bytes(data) + after
+            file_obj.position += len(data)
+            return True
+
+        def file_readinto(self, file_obj, buffer):
+            data = self.files.get(file_obj.path, b"")
+            chunk = data[file_obj.position:file_obj.position + len(buffer)]
+            buffer[:len(chunk)] = chunk
+            file_obj.position += len(chunk)
+            return len(chunk)
+
+        def file_seek(self, file_obj, position):
+            file_obj.position = position
+            return True
+
+        def size(self, path):
+            return len(self.files.get(path, b""))
+
+        def read_chunked(self, path, start=0, chunk_size=1024):
+            return self.files.get(path, b"")[start:start + chunk_size]
+
+        def read(self, path, mode="r", index=0, count=0):
+            data = self.files.get(path, b"")
+            data = data[index:index + count] if count else data[index:]
+            return data.decode("utf-8") if mode == "r" else data
+
+        def copy(self, source, destination, _chunk_size=2048):
+            if source not in self.files or destination in self.files:
+                return False
+            self.files[destination] = bytes(self.files[source])
+            return True
+
+        def rename(self, old_path, new_path):
+            if old_path not in self.files or new_path in self.files:
+                return False
+            self.files[new_path] = self.files.pop(old_path)
+            return True
+
+    class ProbeRTC:
+        def datetime(self):
+            return (2026, 8, 15, 6, 12, 0, 0, 0)
+
+    class ProbeTime:
+        is_set = True
+        is_fetching = False
+        rtc = ProbeRTC()
+
+    class ProbeViewManager:
+        def __init__(self):
+            self.storage = ProbeStorage()
+            self.time = ProbeTime()
+            self.gmt_offset = 2
+            self.thread_manager = None
+            self.logs = []
+
+        def log(self, message):
+            self.logs.append(message)
+
+    class ProbeLLM:
+        id = 6
+        model = "qwen/qwen3.5-9b"
+        mcp_integrations = ["local/toolguard-current-time"]
+        thinking_payload = {}
+        headers = {}
+        url = "http://127.0.0.1:1234/v1/responses"
+        native_mcp = True
+
+    class ProbeResponse:
+        def __init__(self, data):
+            self._data = data
+
+        def json(self):
+            return self._data
+
+        def close(self):
+            return None
+
+    class ProbeHTTP:
+        def __init__(self):
+            self.requests = []
+
+        def post(self, _url, **kwargs):
+            request = json.loads(
+                kwargs["storage"].files[kwargs["send_file"]].decode("utf-8")
+            )
+            self.requests.append(request)
+            index = len(self.requests)
+            if index == 1:
+                return ProbeResponse({
+                    "id": "resp_1",
+                    "output": [{
+                        "type": "function_call",
+                        "name": "storage_write",
+                        "call_id": "call_1",
+                        "arguments": json.dumps({
+                            "file_path": "picoware/apps/generated/example.py",
+                            "data": "print('ok')\n",
+                            "mode": "w",
+                            "encoding": "utf-8",
+                        }),
+                    }],
+                    "usage": {"input_tokens": 100},
+                })
+            return ProbeResponse({
+                "id": "resp_" + str(index),
+                "output": [{"type": "message", "content": "answer " + str(index)}],
+            })
+
+    if _native_response_id(None) != "" or _native_response_id("   ") != "":
+        raise RuntimeError("Agent accepted an invalid native response ID")
+    if _native_response_id("x" * 513) != "":
+        raise RuntimeError("Agent accepted an oversized native response ID")
+
+    view_manager = ProbeViewManager()
+    agent = Agent(
+        view_manager,
+        mode=1,
+        llm=ProbeLLM(),
+        file_path="agent-followup-request.json",
+        cleanup=False,
+    )
+    agent.http = ProbeHTTP()
+    agent._conv_path = "agent-followup-conversation.json"
+    agent._mem_path = "agent-followup-memory.json"
+    agent._response_path = "agent-followup-response.json"
+    agent._state_path = "agent-followup-state.json"
+
+    initial_response_tools = [tool["name"] for tool in agent._response_tools({})]
+    bounded_response_tools = [
+        tool["name"]
+        for tool in agent._response_tools({"network_get_info": 1})
+    ]
+    bounded_chat_tools = [
+        tool["function"]["name"]
+        for tool in agent._chat_completion_tools({"network_get_info": 1})
+    ]
+    if (
+        "network_get_info" not in initial_response_tools
+        or "network_get_info" in bounded_response_tools
+        or "network_get_info" in bounded_chat_tools
+    ):
+        raise RuntimeError("Agent did not retire network_get_info after one call")
+    cached_info = {"board_name": "PicoCalc", "is_wifi_connected": True}
+    info_signature = ("network_get_info", _argument_signature({}))
+    info_history = [("network_get_info", info_signature[1])]
+    reused_info = agent._execute_mode_guarded_tool(
+        info_history,
+        {info_signature: cached_info},
+        {"network_get_info": 1},
+        "network_get_info",
+        {},
+    )
+    if reused_info is not cached_info or len(info_history) != 1:
+        raise RuntimeError("Agent did not safely reuse repeated network info")
+
+    large_input = [{"role": "user", "content": "evidence " + ("x" * 30000)}]
+    agent._build_responses_request(large_input, [], agent._response_tools({}))
+    streamed_request = json.loads(
+        view_manager.storage.files[agent._file_path].decode("utf-8")
+    )
+    if streamed_request.get("input") != large_input:
+        raise RuntimeError("Agent streamed Responses request changed its input")
+    if view_manager.storage.max_write_fragment > 4096:
+        raise RuntimeError(
+            "Agent streamed Responses request wrote an oversized fragment: "
+            + str(view_manager.storage.max_write_fragment)
+        )
+    view_manager.storage.max_write_fragment = 0
+
+    result = agent.run_payload({"message": "Create a nested example app.", "conversation": []})
+    if result["message"] != "answer 2":
+        raise RuntimeError(
+            "Agent Responses custom-tool result mismatch: " + repr(result)
+        )
+    generated = view_manager.storage.files.get("picoware/apps/generated/example.py")
+    if generated != b"print('ok')\n":
+        raise RuntimeError("Agent Responses did not execute and verify the SD write")
+    followup = agent.run_payload({
+        "message": "What did you create?",
+        "conversation": result["conversation"],
+    })
+    if followup["message"] != "answer 3":
+        raise RuntimeError("Agent follow-up native response mismatch")
+
+    first, second, third = agent.http.requests
+    if not first.get("store") or "previous_response_id" in first:
+        raise RuntimeError("Agent first native request state mismatch")
+    if not first.get("instructions") or not first.get("tools"):
+        raise RuntimeError("Agent first Responses request omitted instructions or tools")
+    if second.get("previous_response_id") != "resp_1":
+        raise RuntimeError("Agent function output omitted previous response ID")
+    if not second.get("instructions"):
+        raise RuntimeError("Agent tool-output round omitted turn-scoped instructions")
+    if second.get("input", [{}])[0].get("type") != "function_call_output":
+        raise RuntimeError("Agent omitted Responses function_call_output")
+    if third.get("previous_response_id") != "resp_2":
+        raise RuntimeError("Agent visible follow-up omitted previous response ID")
+    if not third.get("instructions"):
+        raise RuntimeError("Agent visible follow-up omitted turn-scoped instructions")
+    if agent._native_response_id != "resp_3":
+        raise RuntimeError("Agent did not advance native response state")
+
+    class ProbeScanHTTP:
+        def post(self, _url, **kwargs):
+            catalog = [
+                {"id": "mcp/duckduckgo", "type": "mcp"},
+                {"id": "plugin:local/toolguard-current-time", "type": "plugin"},
+            ]
+            body = {
+                "output": [{
+                    "type": "tool_call",
+                    "output": json.dumps(catalog),
+                }]
+            }
+            kwargs["storage"].write(
+                kwargs["save_to_file"], json.dumps(body), mode="w"
+            )
+            return ProbeResponse({})
+
+    agent.http = ProbeScanHTTP()
+    integrations, scan_error = agent.scan_integrations()
+    if scan_error or integrations != [
+        "mcp/duckduckgo", "plugin:local/toolguard-current-time"
+    ]:
+        raise RuntimeError("Agent SD-spooled integration scan mismatch")
+    if view_manager.storage.exists(agent._response_path):
+        raise RuntimeError("Agent integration scan left its SD response spool behind")
+
+    appended = dispatch.execute_tool(
+        view_manager,
+        "storage_write",
+        {
+            "file_path": "/sd/picoware/apps/generated/example.py",
+            "data": "print('more')\n",
+            "mode": "a",
+            "encoding": "utf-8",
+        },
+    )
+    if not appended.get("ok") or view_manager.storage.files.get(
+        "picoware/apps/generated/example.py"
+    ) != b"print('ok')\nprint('more')\n":
+        raise RuntimeError("Agent recoverable append contract mismatch")
+    root_listing = dispatch.execute_tool(
+        view_manager, "storage_listdir", {"dir_path": "/sd"}
+    )
+    if not root_listing.get("ok") or "picoware" not in root_listing.get("entries", []):
+        raise RuntimeError("Agent SD-root listing contract mismatch")
+    capacity = dispatch.execute_tool(view_manager, "storage_get_info")
+    if (
+        not capacity.get("ok")
+        or capacity.get("free_bytes") != 3 * 1024 * 1024 * 1024
+        or capacity.get("total_bytes") != 8 * 1024 * 1024 * 1024
+        or capacity.get("used_bytes") != 5 * 1024 * 1024 * 1024
+        or not capacity.get("free")
+    ):
+        raise RuntimeError("Agent SD capacity contract mismatch: " + repr(capacity))
+    escaped = dispatch.execute_tool(
+        view_manager,
+        "storage_write",
+        {"file_path": "../escape.py", "data": "bad", "mode": "w"},
+    )
+    if escaped.get("ok"):
+        raise RuntimeError("Agent SD path normalization allowed a root escape")
+
+    sections = picoware_api_search(view_manager, "button input", 4)
+    if not sections.get("ok") or not sections.get("sections"):
+        raise RuntimeError("Agent App Creator API search returned no section")
+    reference = picoware_api_read(view_manager, sections["sections"][0], 1024)
+    if not reference.get("ok") or not reference.get("content"):
+        raise RuntimeError("Agent App Creator API read returned no content")
+    valid_source = (
+        "from picoware.system.buttons import BUTTON_BACK\n\n"
+        "def start(view_manager):\n    return True\n\n"
+        "def run(view_manager):\n"
+        "    if view_manager.button == BUTTON_BACK:\n"
+        "        view_manager.back()\n\n"
+        "def stop(view_manager):\n    pass\n"
+    )
+    valid_write = dispatch.execute_tool(
+        view_manager,
+        "storage_write",
+        {
+            "file_path": "picoware/apps/generated/valid.py",
+            "data": valid_source,
+            "mode": "w",
+            "encoding": "utf-8",
+        },
+    )
+    validation = dispatch.execute_tool(
+        view_manager,
+        "picoware_app_validate",
+        {"file_path": "picoware/apps/generated/valid.py"},
+    )
+    if not valid_write.get("ok") or not validation.get("ok"):
+        raise RuntimeError("Agent App Creator validator rejected a valid app")
+    tool_names = [tool.get("name") for tool in first.get("tools", [])]
+    if (
+        "storage_write" not in tool_names
+        or "picoware_api_search" not in tool_names
+        or "picoware_app_validate" not in tool_names
+    ):
+        raise RuntimeError("Agent Responses request omitted device tools")
+    if len(first.get("instructions", "")) > 12000:
+        raise RuntimeError("Agent App Creator request still embeds the full API reference")
+
+    class WebLLM(ProbeLLM):
+        mcp_integrations = [
+            "local/toolguard-current-time",
+            "danielsig/visit-website",
+            "danielsig/duckduckgo",
+            "mcp/modelcontextprotocolfetch",
+            "mcp/microsoftplaywright-mcp",
+        ]
+
+    agent.llm = WebLLM()
+    search_profile = agent._selected_integrations(
+        "Search the current web for the official OpenAI homepage"
+    )
+    search_ids = [item.get("id") for item in search_profile]
+    if (
+        "danielsig/duckduckgo" not in search_ids
+        or "mcp/microsoftplaywright-mcp" not in search_ids
+        or "mcp/modelcontextprotocolfetch" in search_ids
+    ):
+        raise RuntimeError("Agent web search did not pair DuckDuckGo with Playwright")
+    agent._build_native_research_request(
+        "Search the current web for the official OpenAI homepage",
+        search_profile,
+    )
+    native_chat_request = json.loads(
+        view_manager.storage.files[agent._file_path].decode("utf-8")
+    )
+    if "max_tool_calls" in native_chat_request:
+        raise RuntimeError("Agent sent unsupported max_tool_calls to /api/v1/chat")
+    playwright_item = next(
+        item for item in search_profile if "playwright" in item.get("id", "")
+    )
+    if playwright_item.get("allowed_tools") != [
+        "browser_navigate", "browser_snapshot", "browser_wait_for",
+    ]:
+        raise RuntimeError("Agent Playwright profile exposed unbounded tools")
+    explicit_playwright_ids = [
+        item.get("id")
+        for item in agent._selected_integrations("Playwright: inspect this page")
+    ]
+    if "mcp/microsoftplaywright-mcp" not in explicit_playwright_ids:
+        raise RuntimeError("Agent explicit Playwright request was filtered out")
+    amazon_profile = agent._selected_integrations("Find two items on Amazon")
+    amazon_ids = [item.get("id") for item in amazon_profile]
+    if "mcp/microsoftplaywright-mcp" not in amazon_ids:
+        raise RuntimeError("Agent Amazon profile omitted Playwright")
+    if (
+        "danielsig/duckduckgo" in amazon_ids
+        or "danielsig/visit-website" in amazon_ids
+        or "mcp/modelcontextprotocolfetch" in amazon_ids
+    ):
+        raise RuntimeError("Agent Amazon profile loaded a redundant web fallback")
+    url_profile = agent._selected_integrations("Read https://example.com/page")
+    url_ids = [item.get("id") for item in url_profile]
+    if (
+        "mcp/microsoftplaywright-mcp" not in url_ids
+        or "mcp/modelcontextprotocolfetch" in url_ids
+        or "danielsig/visit-website" in url_ids
+        or "danielsig/duckduckgo" in url_ids
+    ):
+        raise RuntimeError("Agent direct-URL profile did not prefer Playwright")
+    explicit_fetch_ids = [
+        item.get("id")
+        for item in agent._selected_integrations(
+            "Fetch https://example.com/page with the fetch integration"
+        )
+    ]
+    if (
+        "mcp/modelcontextprotocolfetch" not in explicit_fetch_ids
+        or "mcp/microsoftplaywright-mcp" not in explicit_fetch_ids
+    ):
+        raise RuntimeError("Agent explicit fetch request lost a requested web MCP")
+
+    class PipelineAgent(Agent):
+        __slots__ = ("pipeline_calls",)
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.pipeline_calls = []
+
+        def _run_native_research(
+            self, user_message, integrations, max_tool_calls=MAX_NATIVE_MCP_CALLS
+        ):
+            self.pipeline_calls.append(
+                (user_message, integrations, max_tool_calls)
+            )
+            ids = [item.get("id", "") for item in integrations]
+            if any("duckduckgo" in value for value in ids):
+                return "OpenAI result https://openai.com/", 1, ""
+            if any("playwright" in value for value in ids):
+                return "OpenAI | Research & Deployment https://openai.com/", 1, ""
+            return "", 0, "API error: unexpected pipeline stage"
+
+    pipeline_agent = PipelineAgent(
+        view_manager,
+        mode=0,
+        llm=WebLLM(),
+        file_path="agent-pipeline-request.json",
+        cleanup=False,
+    )
+    pipeline_integrations = pipeline_agent._selected_integrations(
+        "Search the current web for the official OpenAI homepage and read it"
+    )
+    pipeline_evidence, pipeline_calls, pipeline_error = (
+        pipeline_agent._run_native_research_pipeline(
+            "Search the current web for the official OpenAI homepage and read it",
+            pipeline_integrations,
+        )
+    )
+    if pipeline_error or pipeline_calls != 2 or len(pipeline_agent.pipeline_calls) != 2:
+        raise RuntimeError("Agent deterministic web pipeline did not run two stages")
+    first_stage = pipeline_agent.pipeline_calls[0]
+    second_stage = pipeline_agent.pipeline_calls[1]
+    if (
+        first_stage[2] != 1
+        or second_stage[2] != 1
+        or not any("duckduckgo" in item.get("id", "") for item in first_stage[1])
+        or not any("playwright" in item.get("id", "") for item in second_stage[1])
+        or second_stage[1][0].get("allowed_tools") != ["browser_navigate"]
+        or "https://openai.com/" not in second_stage[0]
+        or "# Browser page evidence" not in pipeline_evidence
+    ):
+        raise RuntimeError("Agent deterministic web pipeline stages are incorrect")
+
+    class DeviceMCPs(ProbeLLM):
+        mcp_integrations = [
+            "danielsig/duckduckgo",
+            "mcp/nutrition",
+            "mcp/microsoftmarkitdown",
+            "local/toolguard-current-time",
+            "mcp/germany",
+            "mcp/modelcontextprotocolfilesystem",
+            "mcp/modelcontextprotocolfetch",
+            "mcp/microsoftplaywright-mcp",
+        ]
+
+    agent.llm = DeviceMCPs()
+    plain_ids = [
+        item.get("id")
+        for item in agent._selected_integrations("Reply with exactly OK")
+    ]
+    if plain_ids != ["local/toolguard-current-time"]:
+        raise RuntimeError("Agent plain chat loaded unrelated MCP integrations")
+    nutrition_ids = [
+        item.get("id")
+        for item in agent._selected_integrations("Show the nutrition and calories")
+    ]
+    if "mcp/nutrition" not in nutrition_ids or "mcp/germany" in nutrition_ids:
+        raise RuntimeError("Agent nutrition profile selected the wrong MCPs")
+    host_file_ids = [
+        item.get("id")
+        for item in agent._selected_integrations("Read a host filesystem file")
+    ]
+    if "mcp/modelcontextprotocolfilesystem" not in host_file_ids:
+        raise RuntimeError("Agent explicit host-filesystem profile omitted its MCP")
+    bounded_tools = agent._response_tools({"picoware_api_search": 2})
+    bounded_names = [tool.get("name") for tool in bounded_tools]
+    if "picoware_api_search" in bounded_names or "storage_write" not in bounded_names:
+        raise RuntimeError("Agent reference budget hid an SD tool or retained search")
+    if agent._mode_tool_limit("network_send_request") != 1:
+        raise RuntimeError("Agent generic network fetch is not limited to one call")
+    after_research = agent._response_tools({}, ("network_send_request",))
+    after_research_names = [tool.get("name") for tool in after_research]
+    if "network_send_request" in after_research_names:
+        raise RuntimeError("Agent retained generic network fetch after MCP research")
+    print("[sim-check:ok] Agent Responses SD tool and follow-up chain")
+
+
+def _run_agent_chat_typing_check():
+    """Verify a chat letter opens the editor without losing that letter."""
+    from picoware.applications import agent as agent_app
+    from picoware.system.buttons import BUTTON_A
+
+    class ProbeKeyboard:
+        def __init__(self):
+            self.response = "stale"
+            self.title = ""
+            self.forced = False
+
+        def reset(self):
+            self.response = ""
+
+        def run(self, force=False):
+            self.forced = force
+            return True
+
+    class ProbeInput:
+        def __init__(self):
+            self.reset_called = False
+
+        def button_to_char(self, button):
+            return "A" if button == BUTTON_A else ""
+
+        def reset(self):
+            self.reset_called = True
+
+    class ProbeViewManager:
+        def __init__(self):
+            self.button = BUTTON_A
+            self.keyboard = ProbeKeyboard()
+            self.input_manager = ProbeInput()
+
+    view_manager = ProbeViewManager()
+    agent_app._state = agent_app.STATE_CHAT
+    agent_app._mode_label = "Chat"
+    agent_app.run(view_manager)
+    if (
+        agent_app._state != agent_app.STATE_TYPE
+        or view_manager.keyboard.response != "A"
+        or view_manager.keyboard.title != "Chat"
+        or not view_manager.keyboard.forced
+        or not view_manager.input_manager.reset_called
+    ):
+        raise RuntimeError("Agent chat letter did not open a seeded input editor")
+    agent_app._state = agent_app.STATE_MENU
+    print("[sim-check:ok] Agent chat letter opens the seeded input editor")
+
+
+def _run_agent_activity_check():
+    """Verify the Agent waiting screen visibly advances while work continues."""
+    from picoware.applications import agent as agent_app
+
+    class ProbeSize:
+        x = 320
+        y = 320
+
+    class ProbeFontSize:
+        y = 8
+
+    class ProbeDraw:
+        def __init__(self):
+            self.size = ProbeSize()
+            self.font_size = ProbeFontSize()
+            self.font = 0
+            self.text = []
+            self.rectangles = []
+            self.swaps = 0
+
+        def fill_screen(self, _color):
+            return None
+
+        def _fill_rectangle(self, x, y, w, h, color):
+            self.rectangles.append((x, y, w, h, color))
+
+        def _text(self, _x, _y, text, _color, _font):
+            self.text.append(text)
+
+        def len(self, text):
+            return len(text) * 6
+
+        def swap(self):
+            self.swaps += 1
+
+    class ProbeViewManager:
+        def __init__(self):
+            self.draw = ProbeDraw()
+            self.background_color = 0
+            self.foreground_color = 0xFFFF
+            self.selected_color = 0x1234
+
+    view_manager = ProbeViewManager()
+    agent_app._start_activity(view_manager, "Preparing")
+    first_frame = agent_app._activity_frame
+    agent_app._activity_last_ms = (
+        agent_app.ticks_ms() - agent_app.ACTIVITY_FRAME_MS
+    )
+    agent_app._activity_started_ms = agent_app.ticks_ms() - 3000
+    agent_app._animate_activity(view_manager, "LM Studio")
+    if (
+        agent_app._activity_frame == first_frame
+        or view_manager.draw.swaps != 2
+        or not any("Request in progress" == text for text in view_manager.draw.text)
+        or not any("Still working - " in text for text in view_manager.draw.text)
+        or not any("BACK=Cancel" == text for text in view_manager.draw.text)
+        or len(view_manager.draw.rectangles) != agent_app.ACTIVITY_SEGMENTS * 2
+    ):
+        raise RuntimeError("Agent activity indicator did not visibly advance")
+    print("[sim-check:ok] Agent waiting activity indicator advances")
+
+
+def _run_agent_new_session_check():
+    """Verify Tab confirms a fresh session in every Agent chat mode."""
+    from picoware.applications import agent as agent_app
+    from picoware.system.buttons import BUTTON_TAB
+
+    class ProbeSize:
+        x = 320
+        y = 320
+
+    class ProbeFont:
+        width = 5
+        spacing = 1
+        height = 8
+        size = 0
+
+    class ProbeDraw:
+        def __init__(self):
+            self.size = ProbeSize()
+            self.font = 0
+            self.prompts = []
+
+        def get_font(self, _font):
+            return ProbeFont()
+
+        def fill_screen(self, _color):
+            return None
+
+        def _fill_rectangle(self, _x, _y, _w, _h, _color):
+            return None
+
+        def _fill_round_rectangle(self, _x, _y, _w, _h, _radius, _color):
+            return None
+
+        def _text(self, _x, _y, text, _color, _font):
+            self.prompts.append(text)
+
+        def len(self, text):
+            return len(text) * 6
+
+        def swap(self):
+            return None
+
+    class ProbeInput:
+        def button_to_char(self, _button):
+            return ""
+
+    class ProbeAgent:
+        def __init__(self):
+            self.reset_calls = 0
+            self._conversation = [{"role": "user", "content": "old"}]
+
+        @property
+        def conversation(self):
+            return list(self._conversation)
+
+        def reset_conversation(self):
+            self.reset_calls += 1
+            self._conversation = []
+
+    class ProbeViewManager:
+        def __init__(self, confirmed):
+            self.button = BUTTON_TAB
+            self.draw = ProbeDraw()
+            self.background_color = 0
+            self.selected_color = 1
+            self.input_manager = ProbeInput()
+            self.confirmed = confirmed
+            self.alert_message = ""
+
+        def alert(self, message, _back):
+            self.alert_message = message
+            return self.confirmed
+
+    for label in ("Chat", "App Creator", "Device Manager"):
+        view_manager = ProbeViewManager(True)
+        probe_agent = ProbeAgent()
+        agent_app._agent = probe_agent
+        agent_app._mode_label = label
+        agent_app._conversation = probe_agent.conversation
+        agent_app._state = agent_app.STATE_CHAT
+        agent_app.run(view_manager)
+        if (
+            probe_agent.reset_calls != 1
+            or agent_app._conversation
+            or "Start a new " + label + " session?" not in view_manager.alert_message
+            or not any("TAB=New" in text for text in view_manager.draw.prompts)
+        ):
+            raise RuntimeError("Agent Tab new-session failed for " + label)
+
+    view_manager = ProbeViewManager(False)
+    probe_agent = ProbeAgent()
+    agent_app._agent = probe_agent
+    agent_app._mode_label = "Chat"
+    agent_app._conversation = probe_agent.conversation
+    agent_app._state = agent_app.STATE_CHAT
+    agent_app.run(view_manager)
+    if probe_agent.reset_calls != 0 or not agent_app._conversation:
+        raise RuntimeError("Agent cancelled new-session confirmation lost chat")
+
+    prompt_h = agent_app._chat_layout(view_manager)[1]
+    if prompt_h != 22:
+        raise RuntimeError("Agent compact footer height changed: " + str(prompt_h))
+
+    agent_app._agent = None
+    agent_app._conversation = None
+    agent_app._state = agent_app.STATE_MENU
+    print("[sim-check:ok] Agent Tab confirms new session in all modes")
+
+
+def _run_agent_sd_capacity_check():
+    """Verify the simulator storage adapter exposes real capacity counters."""
+    from picoware.system.agent.tools import dispatch
+    from picoware.system.storage import Storage
+
+    class ProbeViewManager:
+        def __init__(self):
+            self.storage = Storage()
+
+    result = dispatch.execute_tool(ProbeViewManager(), "storage_get_info")
+    if (
+        not result.get("ok")
+        or result.get("total_bytes", 0) <= 0
+        or result.get("free_bytes", -1) < 0
+        or result.get("free_bytes", 0) > result.get("total_bytes", 0)
+    ):
+        raise RuntimeError("Agent simulator SD capacity failed: " + repr(result))
+    print("[sim-check:ok] Agent simulator SD capacity counters")
+
+
 def _run_circular_choice_check():
     """Render the native circular Choice path without board-module reloading."""
     import sim_runtime
@@ -1697,6 +3030,10 @@ def main():
         _run_sim_check(opts)
         return
 
+    if opts["agent_check"]:
+        _run_agent_check()
+        return
+
     if opts["coverage"]:
         _run_coverage(opts)
         return
@@ -1735,6 +3072,12 @@ def main():
         opts["sd_profile"],
         opts["record"],
     )
+    if opts["agent_live_check"]:
+        _run_agent_live_check()
+        return
+    if opts["agent_live_app_check"]:
+        _run_agent_live_app_check()
+        return
     sim_runtime.set_script_expectations(opts["wait_view"], opts["assert_text"])
     if opts["capabilities"]:
         sim_runtime.print_capabilities()

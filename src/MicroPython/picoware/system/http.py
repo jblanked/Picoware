@@ -517,6 +517,7 @@ class HTTP:
         save_to_file=None,
         storage=None,
         send_file=None,
+        stream_sink=None,
     ) -> Response:
         """Send a POST request and return a Response object.
 
@@ -528,6 +529,7 @@ class HTTP:
             save_to_file (str): File path to save response data to (requires storage). Defaults to None.
             storage (Storage): Storage object for file operations. Defaults to None.
             send_file (str): File path to send as request body (requires storage). Defaults to None.
+            stream_sink: Optional write/flush sink for a streaming response body.
 
         Returns:
             Response: The HTTP response.
@@ -547,6 +549,7 @@ class HTTP:
                     dumps(payload) if not is_instance and has_payload else None,
                     headers,
                     timeout=timeout,
+                    uart=stream_sink,
                     save_to_file=save_to_file,
                     storage=storage,
                     send_file=send_file,
@@ -722,26 +725,35 @@ class HTTP:
                         ):
                             break
                     break
-                # Read the chunk data
-                chunk = s.read(chunk_size)
-                self._update_speed(len(chunk))
-                if uart:
-                    uart.write(chunk)
-                    uart.flush()
-                elif file:
-                    # Write directly to file with retry
-                    retries = 10
-                    while retries > 0:
-                        try:
-                            storage.file_write(file, chunk, "wb")
-                            break
-                        except OSError as e:
-                            retries -= 1
-                            if retries == 0:
-                                raise e
-                            sleep_ms(10)
-                else:
-                    body += chunk
+                # A server-controlled HTTP chunk may be much larger than the
+                # Pico heap. Consume it through the configured bounded buffer.
+                remaining = chunk_size
+                while remaining > 0:
+                    read_size = min(self._chunk_size, remaining)
+                    chunk = s.read(read_size)
+                    if not chunk:
+                        remaining = 0
+                        break
+                    actual_len = len(chunk)
+                    self._update_speed(actual_len)
+                    if uart:
+                        uart.write(chunk)
+                        uart.flush()
+                    elif file:
+                        # Write directly to file with retry
+                        retries = 10
+                        while retries > 0:
+                            try:
+                                storage.file_write(file, chunk, "wb")
+                                break
+                            except OSError as e:
+                                retries -= 1
+                                if retries == 0:
+                                    raise e
+                                sleep_ms(10)
+                    else:
+                        body += chunk
+                    remaining -= actual_len
                 # Read the trailing CRLF after the chunk
                 s.read(2)
             if uart:
@@ -967,6 +979,11 @@ class HTTP:
             if not self._should_continue():
                 s.close()
                 return
+
+            # Streaming sinks consume the body without retaining it in RAM.
+            # Keep the Response contract valid for content-length and
+            # connection-close responses as well as chunked responses.
+            body = b""
 
             # Read body
             self._download_start_ticks = ticks_ms()

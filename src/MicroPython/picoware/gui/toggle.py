@@ -20,6 +20,7 @@ class Toggle:
         border_width: int = 1,
         should_clear: bool = True,
         use_lvgl: bool = True,
+        state_text_color: bool = False,
     ):
         """Initialize the Toggle switch with drawing context and styling.
 
@@ -36,6 +37,7 @@ class Toggle:
             border_width (int): The width of the border. Defaults to 1.
             should_clear (bool): Whether to clear on init. Defaults to True.
             use_lvgl (bool): Whether to use LVGL rendering. Defaults to True.
+            state_text_color (bool): Color text by toggle state. Defaults to False.
         """
         from picoware.system.system import System
 
@@ -52,6 +54,7 @@ class Toggle:
         self.on_color = on_color
         self.border_color = border_color
         self.border_width = border_width
+        self.state_text_color = state_text_color
 
         self.use_lvgl = False if not use_lvgl else draw.use_lvgl
         self._lvgl_toggle = None
@@ -262,6 +265,18 @@ class Toggle:
                     self.foreground_color,
                 )
         else:
+            if self.state_text_color and selected:
+                self.display._rectangle(
+                    self.position.x,
+                    self.position.y,
+                    self.size.x,
+                    self.size.y - self.border_width,
+                    self.border_color,
+                )
+            if self.state_text_color:
+                text_color = self.on_color if self._state else self.foreground_color
+            else:
+                text_color = self.on_color if selected else self.foreground_color
             self.display._line(
                 self.position.x, self.position.y + self.size.y - self.border_width,
                 self.position.x + self.size.x,
@@ -272,7 +287,7 @@ class Toggle:
                 self.position.x + self.display.scale_x(5), 
                 self.position.y + self.size.y // 2 - self.display.scale_y(8),
                 self._text,
-                self.on_color if selected else self.foreground_color,
+                text_color,
             )
 
             toggle_width = int(display_size.x * 0.09375)

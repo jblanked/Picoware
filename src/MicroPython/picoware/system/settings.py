@@ -27,6 +27,8 @@ class Settings:
             "exit_button": BUTTON_BACK,
             "gemini_api_key": "",
             "gmt_offset": 0,
+            "local_api_key": "",
+            "local_mcp_servers": "",
             "local_url": "http://127.0.0.1:8080/v1/chat/completions",
             "lvgl_mode": False,
             "onscreen_keyboard": BOARD_HAS_TOUCH == 1 or BOARD_ID == BOARD_FLIPPER_ZERO,
@@ -49,6 +51,8 @@ class Settings:
                 "exit_button": int(self.__fetch_setting("picoware/settings/exit_button.json", "exit_button", BUTTON_BACK)),
                 "gemini_api_key": "",
                 "gmt_offset": int(self.__fetch_setting("picoware/settings/gmt_offset.json", "gmt_offset", 0)),
+                "local_api_key": "",
+                "local_mcp_servers": "",
                 "local_url": "http://127.0.0.1:8080/v1/chat/completions",
                 "lvgl_mode": bool(self.__fetch_setting("picoware/settings/lvgl_mode.json", "lvgl_mode", False)),
                 "onscreen_keyboard": bool(self.__fetch_setting("picoware/settings/onscreen_keyboard.json", "onscreen_keyboard", BOARD_HAS_TOUCH == 1)),
@@ -181,6 +185,36 @@ class Settings:
     def local_url(self) -> str:
         """Return the current local URL."""
         return self._settings.get("local_url", "")
+
+    @property
+    def local_api_key(self) -> str:
+        """Return the API key for the local LLM provider."""
+        return self._settings.get("local_api_key", "")
+
+    @local_api_key.setter
+    def local_api_key(self, value: str):
+        """Set the API key for the local LLM provider.
+
+        Args:
+            value (str): The local provider API key to set.
+        """
+        self._settings["local_api_key"] = value
+        self.__save_settings()
+
+    @property
+    def local_mcp_servers(self) -> str:
+        """Return the comma-separated LM Studio MCP and plugin IDs."""
+        return self._settings.get("local_mcp_servers", "")
+
+    @local_mcp_servers.setter
+    def local_mcp_servers(self, value: str):
+        """Set the comma-separated LM Studio MCP and plugin IDs.
+
+        Args:
+            value (str): IDs such as mcp/weather or plugin:owner/name.
+        """
+        self._settings["local_mcp_servers"] = value
+        self.__save_settings()
 
     @local_url.setter
     def local_url(self, value: str):

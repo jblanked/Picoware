@@ -79,6 +79,28 @@ class Storage:
         return sd_mp.is_initialized()
 
     @property
+    def free_space(self) -> int:
+        """Return currently available SD-card bytes."""
+        if not self._has_storage:
+            return 0
+        try:
+            return int(sd_mp.get_free_space())
+        except Exception as e:
+            print(f"Error reading SD free space: {e}")
+            return 0
+
+    @property
+    def total_space(self) -> int:
+        """Return total SD-card capacity in bytes."""
+        if not self._has_storage:
+            return 0
+        try:
+            return int(sd_mp.get_total_space())
+        except Exception as e:
+            print(f"Error reading SD total space: {e}")
+            return 0
+
+    @property
     def vfs_mounted(self) -> bool:
         """Returns True if the VFS is mounted (allows use of open(), __import__, etc.)."""
         return self._vfs_mounted

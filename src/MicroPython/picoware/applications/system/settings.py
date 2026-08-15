@@ -17,8 +17,10 @@ STATE_USB_STREAM = const(10)  # toggle (enable/disable USB stream)
 STATE_ANTHROPIC_API_KEY = const(11)  # keyboard input for Anthropic API key
 STATE_GEMINI_API_KEY = const(12)  # keyboard input for Gemini API key
 STATE_LOCAL_URL = const(13)  # keyboard input for Local URL
-STATE_XAI_API_KEY = const(14)  # keyboard input for xAI API key
-STATE_SCREEN_BRIGHTNESS = const(15)  # choice (10 - 100)
+STATE_LOCAL_API_KEY = const(14)  # keyboard input for Local API key
+STATE_LOCAL_MCP_SERVERS = const(15)  # keyboard input for LM Studio MCP servers
+STATE_XAI_API_KEY = const(16)  # keyboard input for xAI API key
+STATE_SCREEN_BRIGHTNESS = const(17)  # choice (10 - 100)
 
 # modes
 _MODE_MENU = const(0)
@@ -34,7 +36,9 @@ _MODE_DEEPSEEK_KEYBOARD = const(9)
 _MODE_ANTHROPIC_KEYBOARD = const(10)
 _MODE_GEMINI_KEYBOARD = const(11)
 _MODE_LOCAL_URL_KEYBOARD = const(12)
-_MODE_XAI_KEYBOARD = const(13)
+_MODE_LOCAL_API_KEYBOARD = const(13)
+_MODE_LOCAL_MCP_SERVERS_KEYBOARD = const(14)
+_MODE_XAI_KEYBOARD = const(15)
 
 
 _settings = None
@@ -55,6 +59,8 @@ _deepseek_save_requested = False
 _anthropic_save_requested = False
 _gemini_save_requested = False
 _local_url_save_requested = False
+_local_api_key_save_requested = False
+_local_mcp_servers_save_requested = False
 _xai_save_requested = False
 
 
@@ -125,6 +131,8 @@ def __config() -> tuple:
         ("Anthropic API Key", "anthropic_api_key", ""),
         ("Gemini API Key", "gemini_api_key", ""),
         ("Local URL", "local_url", "http://127.0.0.1:8080/v1/chat/completions"),
+        ("Local API Key", "local_api_key", ""),
+        ("Local Integrations", "local_mcp_servers", ""),
         ("xAI API Key", "xai_api_key", ""),
         ("Screen Brightness", "screen_brightness", 100),
     )
@@ -613,6 +621,57 @@ def __local_url_save_callback(result: str) -> None:
     global _local_url_save_requested
     _local_url_save_requested = True
 
+
+def __open_local_api_key_keyboard() -> None:
+    """Open the keyboard for entering the Local API key."""
+    global _mode, _local_api_key_save_requested
+
+    keyboard = _view_manager.keyboard
+    keyboard.reset()
+    keyboard.title = "Local API Key"
+    keyboard.response = _settings.local_api_key
+    keyboard.set_save_callback(__local_api_key_save_callback)
+    keyboard.input_manager.reset()
+    keyboard.run(force=True)
+    _local_api_key_save_requested = False
+    _mode = _MODE_LOCAL_API_KEYBOARD
+
+
+def __local_api_key_save_callback(result: str) -> None:
+    """Callback triggered when the Local API key keyboard is saved.
+
+    Args:
+        result (str): The saved keyboard value.
+    """
+    global _local_api_key_save_requested
+    _local_api_key_save_requested = True
+
+
+def __open_local_mcp_servers_keyboard() -> None:
+    """Open the keyboard for entering LM Studio MCP server IDs."""
+    global _mode, _local_mcp_servers_save_requested
+
+    keyboard = _view_manager.keyboard
+    keyboard.reset()
+    keyboard.title = "Local Integrations"
+    keyboard.response = _settings.local_mcp_servers
+    keyboard.set_save_callback(__local_mcp_servers_save_callback)
+    keyboard.input_manager.reset()
+    keyboard.run(force=True)
+    _local_mcp_servers_save_requested = False
+    _mode = _MODE_LOCAL_MCP_SERVERS_KEYBOARD
+
+
+def __local_mcp_servers_save_callback(result: str) -> None:
+    """Mark the LM Studio MCP server setting ready to save.
+
+    Args:
+        result (str): Comma-separated MCP server IDs.
+    """
+    global _local_mcp_servers_save_requested
+    _local_mcp_servers_save_requested = True
+
+
 def __open_xai_keyboard() -> None:
     """Open the keyboard for entering the xAI API key."""
     global _mode, _xai_save_requested
@@ -798,6 +857,10 @@ def run(view_manager) -> None:
                 __open_gemini_keyboard()
             elif selected == STATE_LOCAL_URL:
                 __open_local_url_keyboard()
+            elif selected == STATE_LOCAL_API_KEY:
+                __open_local_api_key_keyboard()
+            elif selected == STATE_LOCAL_MCP_SERVERS:
+                __open_local_mcp_servers_keyboard()
             elif selected == STATE_XAI_API_KEY:
                 __open_xai_keyboard()
             elif selected == STATE_SCREEN_BRIGHTNESS:
@@ -924,6 +987,28 @@ def run(view_manager) -> None:
         if _local_url_save_requested:
             _local_url_save_requested = False
             _settings.local_url = view_manager.keyboard.response or ""
+            view_manager.keyboard.reset()
+            __back_to_menu()
+        elif not view_manager.keyboard.run():
+            view_manager.keyboard.reset()
+            __back_to_menu()
+
+    elif _mode == _MODE_LOCAL_API_KEYBOARD:
+        global _local_api_key_save_requested
+        if _local_api_key_save_requested:
+            _local_api_key_save_requested = False
+            _settings.local_api_key = view_manager.keyboard.response or ""
+            view_manager.keyboard.reset()
+            __back_to_menu()
+        elif not view_manager.keyboard.run():
+            view_manager.keyboard.reset()
+            __back_to_menu()
+
+    elif _mode == _MODE_LOCAL_MCP_SERVERS_KEYBOARD:
+        global _local_mcp_servers_save_requested
+        if _local_mcp_servers_save_requested:
+            _local_mcp_servers_save_requested = False
+            _settings.local_mcp_servers = view_manager.keyboard.response or ""
             view_manager.keyboard.reset()
             __back_to_menu()
         elif not view_manager.keyboard.run():

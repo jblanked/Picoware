@@ -2,8 +2,53 @@
 
 from picoware.system.agent.tools.tool import Tool, Parameters, Property
 
+
+def network_get_time_info(view_manager) -> dict:
+    """Return the Picoware clock state in a model-friendly format.
+
+    The RTC value is only authoritative when ``clock_is_set`` is true. The
+    Time service sets that flag after either an NTP update or a manual date
+    and time update.
+    """
+    offset = int(getattr(view_manager, "gmt_offset", 0))
+    sign = "+" if offset >= 0 else "-"
+    info = {
+        "clock_is_set": False,
+        "clock_is_fetching": False,
+        "current_local_datetime": "",
+        "gmt_offset_hours": offset,
+        "utc_offset": "{}{:02d}:00".format(sign, abs(offset)),
+    }
+
+    clock = getattr(view_manager, "time", None)
+    if clock is None:
+        return info
+
+    info["clock_is_set"] = bool(clock.is_set)
+    info["clock_is_fetching"] = bool(clock.is_fetching)
+    rtc = clock.rtc
+    if rtc is None:
+        return info
+
+    try:
+        value = rtc.datetime()
+        info["current_local_datetime"] = (
+            "{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(
+                value[0],
+                value[1],
+                value[2],
+                value[4],
+                value[5],
+                value[6],
+            )
+        )
+    except (IndexError, OSError, TypeError, ValueError):
+        pass
+    return info
+
+
 def network_get_info(view_manager) -> dict:
-    """Get network information about the device.
+    """Get device, network, and current clock information.
 
     Args:
         view_manager (ViewManager): The view manager for system access.
@@ -32,6 +77,7 @@ def network_get_info(view_manager) -> dict:
         "used_psram": syst.used_psram,
         "version": syst.version,
     }
+    _info.update(network_get_time_info(view_manager))
     if not view_manager.has_wifi:
         return _info
     _wifi = view_manager.wifi
@@ -101,7 +147,7 @@ def network_scan_ble(view_manager, timeout_ms: int = 3000) -> list:
     
 
 def network_send_request(view_manager, url, method="GET", headers=None, data=None):
-    """Send an HTTP request and return the response text.
+    """Fetch one URL through an SD spool and return a bounded text excerpt.
 
     Args:
         view_manager (ViewManager): The view manager for thread access.
@@ -111,16 +157,67 @@ def network_send_request(view_manager, url, method="GET", headers=None, data=Non
         data (str or None): Optional request body data. Defaults to None.
 
     Returns:
-        str: The response text.
+        dict: Structured status and at most 8192 bytes of response text.
     """
     from picoware.system.http import HTTP
+    if not isinstance(url, str) or not url.startswith(("http://", "https://")):
+        return {"ok": False, "error": "invalid_url", "message": "URL must use HTTP or HTTPS"}
+    if len(url) > 2048:
+        return {"ok": False, "error": "invalid_url", "message": "URL is longer than 2048 characters"}
+    method = str(method or "GET").upper()
+    if method not in ("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"):
+        return {"ok": False, "error": "invalid_method", "message": "unsupported HTTP method"}
+
+    storage = view_manager.storage
+    spool_path = "picoware/settings/agent_network_response.tmp"
+    response = None
     http = HTTP(thread_manager=view_manager.thread_manager)
-    response = http.request(method, url, headers=headers, data=data)
-    return response.text
+    storage.remove(spool_path)
+    try:
+        response = http.request(
+            method,
+            url,
+            headers=headers,
+            data=data,
+            timeout=30,
+            save_to_file=spool_path,
+            storage=storage,
+        )
+        if response is None:
+            return {"ok": False, "error": "request_failed", "message": "request returned no response"}
+        status = int(getattr(response, "status_code", 0))
+        size = storage.size(spool_path) if storage.exists(spool_path) else 0
+        count = min(size, 8192)
+        content = ""
+        if count:
+            try:
+                content = storage.read(spool_path, "r", 0, count)
+            except Exception:
+                content = "[binary response omitted]"
+        return {
+            "ok": 200 <= status <= 299,
+            "status_code": status,
+            "url": url,
+            "content": content,
+            "response_bytes": size,
+            "truncated": size > count,
+        }
+    except Exception as exc:
+        return {"ok": False, "error": "request_failed", "message": str(exc)[:240]}
+    finally:
+        if response is not None:
+            try:
+                response.close()
+            except Exception:
+                pass
+        storage.remove(spool_path)
 
 TOOL_NETWORK_GET_INFO = Tool(
     name="network_get_info",
-    description="Get network information",
+    description=(
+        "Get device, network, and current clock information. Call this at "
+        "most once per user request and use the returned result."
+    ),
     parameters=Parameters(properties=[]),
 )
 
@@ -145,7 +242,7 @@ TOOL_NETWORK_SCAN_BLE = Tool(
 
 TOOL_NETWORK_SEND_REQUEST = Tool(
     name="network_send_request",
-    description="Send an HTTP request and return the response.",
+    description="Fetch one known HTTP URL and return a bounded response excerpt. Do not use it as a search engine.",
     parameters=Parameters(
         properties=[
             Property(

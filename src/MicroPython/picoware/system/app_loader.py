@@ -11,24 +11,26 @@ class AppLoader:
         _vfs_ready (bool): Flag indicating whether the VFS is ready for app loading.
     """
 
-    def __init__(self, view_manager):
+    def __init__(self, view_manager, mount_vfs:bool=False):
         """Initialize the AppLoader with a view manager.
 
         Args:
             view_manager (ViewManager): The view manager instance for display and storage access.
+            mount_vfs (bool): Whether to mount the VFS for app loading. Defaults to False.
         """
         self.view_manager = view_manager
         self.loaded_apps = {}
         self.current_app = None
         self._vfs_ready = False
-        if view_manager.storage.mount_vfs("/sd"):
+        if mount_vfs and view_manager.storage.mount_vfs("/sd"):
             self._vfs_ready = True
 
     def __del__(self):
         """Cleanup loaded apps on deletion"""
         self.stop()
         self.cleanup_modules()
-        self.view_manager.storage.unmount_vfs("/sd")
+        if self._vfs_ready:
+            self.view_manager.storage.unmount_vfs("/sd")
         self._vfs_ready = False
 
     def cleanup_modules(self):
@@ -153,7 +155,9 @@ class AppLoader:
             AttributeError: If the app module is missing a required method.
         """
         if not self._vfs_ready:
-            raise RuntimeError("VFS not ready, cannot load apps.")
+            self._vfs_ready = self.view_manager.storage.mount_vfs("/sd")
+            if not self._vfs_ready:
+                raise RuntimeError("VFS not ready, cannot load apps.")
 
         from utime import ticks_ms
 

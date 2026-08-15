@@ -5,11 +5,14 @@
 # License: GPLv3
 from micropython import const
 from picoware.system.decorator import storage_required, wifi_required
-import socket
-from ssl import wrap_socket as ssl_wrap_socket
-import _thread
-import binascii
-import re
+try:
+    import socket
+    from ssl import wrap_socket as ssl_wrap_socket
+    import _thread
+    import binascii
+    import re
+except ImportError:
+    pass
 
 DEFAULT_TIMEOUT = const(10)  # sec
 LOCAL_DOMAIN = "127.0.0.1"

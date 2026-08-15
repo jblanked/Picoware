@@ -13,7 +13,6 @@ def start(view_manager) -> bool:
         bool: True on success.
     """
     from picoware.gui.menu import Menu
-    from picoware.system.app_loader import AppLoader
 
     if not view_manager.has_sd_card:
         view_manager.alert("Screensavers app requires an SD card.", False)
@@ -24,10 +23,6 @@ def start(view_manager) -> bool:
 
     global _screensavers
     global _app_loader
-
-    if _app_loader:
-        del _app_loader
-        _app_loader = None
 
     if _screensavers:
         del _screensavers
@@ -44,7 +39,7 @@ def start(view_manager) -> bool:
         view_manager.foreground_color,
         2,
     )
-    _app_loader = AppLoader(view_manager)
+    _app_loader = view_manager.app_loader
 
     for screensaver in _app_loader.list_available_apps("screensavers"):
         _screensavers.add_item(screensaver)
@@ -135,12 +130,10 @@ def stop(view_manager) -> None:
     """
     from gc import collect
 
-    global _screensavers, _app_loader
+    global _screensavers
     if _screensavers is not None:
         del _screensavers
         _screensavers = None
     if _app_loader is not None:
         _app_loader.cleanup_modules()
-        del _app_loader
-        _app_loader = None
     collect()

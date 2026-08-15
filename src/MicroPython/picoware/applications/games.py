@@ -13,7 +13,6 @@ def start(view_manager) -> bool:
         bool: True on success.
     """
     from picoware.gui.menu import Menu
-    from picoware.system.app_loader import AppLoader
 
     if not view_manager.has_sd_card:
         view_manager.alert(
@@ -27,10 +26,6 @@ def start(view_manager) -> bool:
 
     global _games
     global _app_loader
-
-    if _app_loader:
-        del _app_loader
-        _app_loader = None
 
     if _games:
         del _games
@@ -47,7 +42,7 @@ def start(view_manager) -> bool:
         view_manager.foreground_color,
         2,
     )
-    _app_loader = AppLoader(view_manager)
+    _app_loader = view_manager.app_loader
 
     _games.add_item("Ghouls")  # Add Ghouls as a built-in game
 
@@ -151,12 +146,10 @@ def stop(view_manager) -> None:
     """
     from gc import collect
 
-    global _games, _app_loader
+    global _games
     if _games is not None:
         del _games
         _games = None
     if _app_loader is not None:
         _app_loader.cleanup_modules()
-        del _app_loader
-        _app_loader = None
     collect()

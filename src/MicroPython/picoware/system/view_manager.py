@@ -8,6 +8,13 @@ class ViewManager:
     FREQ_RP2350 = 240000000
     FREQ_PIMORONI = 210000000
 
+    _CORE_MODULES = {
+        "picoware.gui.draw",
+        "picoware.gui.keyboard",
+        "picoware.gui.alert",
+        "picoware.gui.desktop",
+    }
+
     __slots__ = (
         "_active",
         "_battery",
@@ -31,6 +38,7 @@ class ViewManager:
         "view_stack",
         "_log",
         "_audio",
+        "_app_loader",
         "_usb_video_stream",
     )
 
@@ -51,6 +59,7 @@ class ViewManager:
         from picoware.system.buttons import BUTTON_ESCAPE
         from picoware.system.boards import BOARD_CARDPUTER, BOARD_FLIPPER_ZERO
         from picoware.system.usb import USBVideoStream
+        from picoware.system.app_loader import AppLoader
 
         self._active = True
         self._current_view = None
@@ -155,6 +164,9 @@ class ViewManager:
         if settings.usb_stream:
             self._usb_video_stream.start()
 
+        # Initialize app loader
+        self._app_loader = AppLoader(self)
+
         # Clear screen
         self.clear()
 
@@ -185,6 +197,9 @@ class ViewManager:
         if self._input_manager:
             del self._input_manager
             self._input_manager = None
+        if self._app_loader is not None:
+            del self._app_loader
+            self._app_loader = None
         if self._storage is not None:
             del self._storage
             self._storage = None
@@ -216,6 +231,11 @@ class ViewManager:
             value (bool): True to keep the manager running.
         """
         self._active = value
+
+    @property
+    def app_loader(self):
+        """Return the shared AppLoader instance."""
+        return self._app_loader
 
     @property
     def audio(self):
@@ -506,6 +526,57 @@ class ViewManager:
                         self._view_count -= 1
                         break
 
+                # Free unused view modules
+                self._unload_unused_modules()
+
+    def _unload_unused_modules(self):
+        """Unload view and gui modules no longer used (Flipper only)."""
+        from picoware.system.boards import BOARD_FLIPPER_ZERO
+
+        if self._current_board_id != BOARD_FLIPPER_ZERO:
+            return
+        import sys
+
+        # Module names still used by registered views
+        _used = set()
+        for _view in self.views:
+            if _view is None:
+                continue
+            for _fn in (_view._run, _view._start, _view._stop):
+                if _fn is None:
+                    continue
+                _mod = getattr(_fn, "__module__", None)
+                if _mod:
+                    _used.add(_mod)
+
+        for _name in list(sys.modules):
+            if _name in self._CORE_MODULES or _name in _used:
+                continue
+            _mod = sys.modules.get(_name)
+            if _mod is None:
+                continue
+            _file = getattr(_mod, "__file__", "")
+            if not (
+                _file.startswith("/sd/firmware/picoware/gui/")
+                or _file.startswith("/sd/firmware/picoware/applications/")
+            ):
+                continue
+            # Keep packages
+            if _file.endswith("__init__.mpy") or _file.endswith("__init__.py"):
+                continue
+            # Remove module and any submodules from sys.modules
+            for _sub in list(sys.modules):
+                if _sub == _name or _sub.startswith(_name + "."):
+                    del sys.modules[_sub]
+            # Drop parent package reference so it is freed
+            _dot = _name.rfind(".")
+            if _dot > 0:
+                _parent = sys.modules.get(_name[:_dot])
+                if _parent is not None:
+                    _attr = _name[_dot + 1:]
+                    if hasattr(_parent, _attr):
+                        delattr(_parent, _attr)
+
     def clear(self):
         """Clear the screen with the background color."""
         self._draw.fill_screen(self._background_color)
@@ -595,10 +666,12 @@ class ViewManager:
         """
         for i in range(self._view_count):
             if self.views[i] and self.views[i].name == view_name:
+                removed_view = self.views[i]
+
                 # Check if this view is in the stack and remove all instances
                 j = 0
                 while j < self._stack_depth:
-                    if self.view_stack[j] == self.views[i]:
+                    if self.view_stack[j] == removed_view:
                         # Shift remaining stack elements down
                         for k in range(j, self._stack_depth - 1):
                             self.view_stack[k] = self.view_stack[k + 1]
@@ -608,7 +681,7 @@ class ViewManager:
                     j += 1
 
                 # If this is the current view, clear it
-                if self._current_view == self.views[i]:
+                if self._current_view == removed_view:
                     self._current_view.stop(self)
                     self._current_view = None
                     self.clear()
@@ -618,6 +691,9 @@ class ViewManager:
                 for j in range(i, self._view_count - 1):
                     self.views[j] = self.views[j + 1]
                 self._view_count -= 1
+
+                # Free unused view modules
+                self._unload_unused_modules()
                 break
 
     def run(self) -> bool:

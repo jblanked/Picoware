@@ -124,6 +124,8 @@ for module_path in \
     ghouls \
     jsmn \
     http \
+    mmbasic \
+    mjs \
     websocket; do
     rm -rf "$micropython_dir/modules/$module_path"
 done

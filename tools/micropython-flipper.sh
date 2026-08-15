@@ -126,6 +126,15 @@ cp "$flipper_src_dir/board/manifest.py" "$flipper_board_dir/manifest.py"
 cp "$flipper_src_dir/board/board_init.c" "$flipper_board_dir/board_init.c"
 cp "$flipper_src_dir/board/flipper_zero.ld" "$flipper_board_dir/flipper_zero.ld"
 
+echo "Applying Flipper overlay to MicroPython STM32 port files..."
+overlay_dir="$flipper_src_dir/overlay/ports/stm32"
+if [ -f "$overlay_dir/rfcore.c" ]; then
+    cp "$overlay_dir/rfcore.c" "$micropython_dir/rfcore.c"
+fi
+if [ -f "$overlay_dir/mpconfigboard_common.h" ]; then
+    cp "$overlay_dir/mpconfigboard_common.h" "$micropython_dir/mpconfigboard_common.h"
+fi
+
 echo "Building mpy-cross with native toolchain..."
 cd "$micropython_root"
 make -C mpy-cross clean

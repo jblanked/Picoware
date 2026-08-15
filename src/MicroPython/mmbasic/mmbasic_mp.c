@@ -28,8 +28,8 @@ typedef int FontSize;
 #ifdef LCD_INCLUDE
 #include LCD_INCLUDE
 #endif
-#include "log_mp.h"
-#include "storage.h"
+#include "../log/log_mp.h"
+#include "../log/storage.h"
 #endif
 
 #if defined(DESKTOP) || defined(PANCAKE) || defined(WAVESHARE_2_06) || defined(V8) || defined(CARDPUTER)
@@ -235,6 +235,7 @@ mp_obj_t mmbasic_start(size_t n_args, const mp_obj_t *pos_args,
     }
     else if (path != mp_const_none)
     {
+#if STORAGE_DOES_EXIST == 1
         const char *fn = mp_obj_str_get_str(path);
         size_t size = storage_file_size(fn);
         if (size == 0 || size > 262144)
@@ -245,6 +246,9 @@ mp_obj_t mmbasic_start(size_t n_args, const mp_obj_t *pos_args,
         m_del(char, buf, size);
         if (!ok)
             return mp_const_false;
+#else
+        return mp_const_false;
+#endif
     }
     else
     {

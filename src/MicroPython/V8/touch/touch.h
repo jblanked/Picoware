@@ -17,13 +17,15 @@
 #define TOUCH_GPIO_INT -1 // Interrupt pin (not wired on this board; touch is polled)
 
 // Resistive panels always need tuning on the actual hardware. These come from
-// the Marauder firmware's stored calibration for this exact panel (x0:272
-// x1:3545 y0:467 y1:3534, rotation 0). If an axis comes out reversed after
-// flashing, flip the matching INVERT; if the axes are transposed, toggle SWAP.
-#define TOUCH_RAW_X_MIN 272
-#define TOUCH_RAW_X_MAX 3545
-#define TOUCH_RAW_Y_MIN 467
-#define TOUCH_RAW_Y_MAX 3534
+// the Marauder firmware's calibration for this exact panel (calData {312,
+// 3431, 191, 3456, 2}, portrait rotation 0). TFT_eSPI stores the touch range
+// (max - min), so the absolute maxima used below are 312 + 3431 and 191 +
+// 3456. If an axis comes out reversed after flashing, flip the matching
+// INVERT; if the axes are transposed, toggle SWAP.
+#define TOUCH_RAW_X_MIN 312
+#define TOUCH_RAW_X_MAX 3743 // 312 + 3431
+#define TOUCH_RAW_Y_MIN 191
+#define TOUCH_RAW_Y_MAX 3647 // 191 + 3456
 #define TOUCH_SWAP_XY 1
 #define TOUCH_INVERT_X 1
 #define TOUCH_INVERT_Y 0

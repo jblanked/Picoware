@@ -72,6 +72,14 @@ Optionally, you can also download the `Picoware-Pancake.bin` file from the `buil
 
 See the [Pancake guide](https://github.com/jblanked/Picoware/tree/main/guides/Pancake.md) for build instructions.
 
+## Marauder V8
+1. Download this repository as a ZIP file and extract it.
+2. Update the environment variables within the `tools/micropython-v8-flash.sh` script to match your setup.
+3. Connect the V8 to your computer over USB.
+4. Run the `tools/micropython-v8-flash.sh` script, passing the port your board is on (`--port /dev/ttyUSB0` for example).
+
+Optionally, you can also download the `Picoware-V8.bin` file from the `builds/MicroPython` directory and flash it with your favorite flashing tool. The ESP32-C5 expects the bootloader at `0x2000`, the partition table at `0x8000`, and the firmware at `0x20000`.
+
 ## Elecrow CrowPanel
 1. Download this repository as a ZIP file and extract it.
 2. Update the environment variables within the `tools/micropython-crowpanel-flash.sh` script to match your setup.

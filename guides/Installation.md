@@ -4,14 +4,14 @@
 > If you're using PicoCalc, make sure to update your keyboard firmware first: https://github.com/jblanked/awesome-pico-calc/blob/master/GettingStarted.md#updating-the-stm32>
 
 ## PicoCalc, Waveshare, and other Raspberry Pi Pico-based boards
-1. Download the appropiate build from the `builds` directory.
+1. Download the appropriate build from the `builds` directory.
 2. Press and hold the `BOOT` button on your Raspberry Pi Pico/W or Pico 2/2W.
 3. While holding the `BOOT` button, connect the Pico to your computer using a USB cable (that supports data transfer) until your computer recognizes a new storage device.
 4. Drag and drop the downloaded file onto the device that appears (it should be named `RPI-RP2` if using a Raspberry Pi Pico/W or `RP2350` if using a Raspberry Pi Pico 2/2W). 
 5. Once the file transfer is complete, the Pico will eject itself. Disconnect the USB cable from your Pico.
 
 > [!NOTE]
-> If you are installing the MicroPython version, copy the `apps` folder from `builds/MicroPython` to the `picoware` folder on your SD card. Create a `picoware` folder if it doesn't exist. Then do the same for the `scripts` folder from `builds/MicroPython` into that same `picoware` folder.
+> If you are installing the MicroPython version, copy the `apps` folder from `builds/MicroPython` to the `picoware` folder on your SD card. Create a `picoware` folder if it doesn't exist. Then do the same for the `scripts` folder from `builds/MicroPython` into that same `picoware` folder and the same for the `mmbasic` folder from `builds/MicroPython` into that same `picoware` folder.
 
 > [!NOTE]
 > If you are installing the CircuitPython version, after installing Picoware, replace the `code.py` file on your Pico with the one from `src/CircuitPython`. Then, copy the `apps` folder from `builds/CircuitPython` to the `picoware` folder on your SD card. Create a `picoware` folder if it doesn't exist.
@@ -47,7 +47,7 @@ The recommended way is to use M5Burner to install an app called `M5Launcher` tha
 10. Wait until the installation process is complete and your Cardputer will reboot into Picoware!
 
 > [!NOTE]
-> If the recommended installation method doesn't work for you, follow the instructions below, otherwise proceed with copying the `apps` folder from `builds/MicroPython` to the `picoware` folder on your SD card. Then do the same for the `scripts` folder from `builds/MicroPython` into that same `picoware` folder.
+> If the recommended installation method doesn't work for you, follow the instructions below, otherwise proceed with copying the `apps` folder from `builds/MicroPython` to the `picoware` folder on your SD card. Then do the same for the `scripts` folder from `builds/MicroPython` into that same `picoware` folder and the same for the `mmbasic` folder from `builds/MicroPython` into that same `picoware` folder. Create a `picoware` folder if it doesn't exist.
 
 The second option is to use the M5Burner tool provided by M5Stack to install Picoware directly to your Cardputer:
 1. Download, install, and open the M5Burner tool from the official M5Stack website: https://docs.m5stack.com/en/download
@@ -72,6 +72,14 @@ Optionally, you can also download the `Picoware-Pancake.bin` file from the `buil
 
 See the [Pancake guide](https://github.com/jblanked/Picoware/tree/main/guides/Pancake.md) for build instructions.
 
+## Marauder V8
+1. Download this repository as a ZIP file and extract it.
+2. Update the environment variables within the `tools/micropython-v8-flash.sh` script to match your setup.
+3. Connect the V8 to your computer over USB.
+4. Run the `tools/micropython-v8-flash.sh` script, passing the port your board is on (`--port /dev/ttyUSB0` for example).
+
+Optionally, you can also download the `Picoware-V8.bin` file from the `builds/MicroPython` directory and flash it with your favorite flashing tool. The ESP32-C5 expects the bootloader at `0x2000`, the partition table at `0x8000`, and the firmware at `0x20000`.
+
 ## Elecrow CrowPanel
 1. Download this repository as a ZIP file and extract it.
 2. Update the environment variables within the `tools/micropython-crowpanel-flash.sh` script to match your setup.
@@ -85,7 +93,7 @@ Optionally, you can also download the `Picoware-CrowPanel-10.1.bin` file from th
 1. Download this repository as a ZIP file and extract it.
 2. Turn off your Flipper Zero, take out the SD card, then insert it into your computer.
 3. Copy the `firmware` folder from the `builds/MicroPython/sd` directory of the ZIP file you downloaded into the root of your Flipper Zero's SD card. If a `firmware` folder already exists, replace it with the new one.
-4. Create a `picoware` folder on your SD card and copy the contents of the `builds/MicroPython/apps` folder on the ZIP file into it.
+4. Create a `picoware` folder on your SD card and copy the contents of the `builds/MicroPython/apps` folder on the ZIP file into it, the contents of the `builds/MicroPython/scripts` folder into it, and the contents of the `builds/MicroPython/mmbasic` folder into it. If a `picoware` folder already exists, replace it with the new one.
 5. Eject the SD card from your computer and insert it into your Flipper Zero.
 6. Hold the `Center + Back` buttons for 25 seconds.
 7. Connect your Flipper Zero to your computer via USB-C data cable.

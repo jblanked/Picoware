@@ -8,6 +8,53 @@ ANTHROPIC = const(2)
 GEMINI = const(3)
 LOCAL = const(4)
 XAI = const(5)
+# Backward-compatible provider ID for existing Agent settings. MCP execution
+# is implemented by the Agent integration layer, not by this LLM transport.
+LOCAL_MCP = const(6)
+
+MAX_LOCAL_MODELS = const(32)
+LEGACY_OLLAMA_MODEL_IDS = (
+    "qwen3.5:9b", "qwen3.5:4b", "qwen3.5:0.8b", "qwen3.5:2b",
+    "llama3.2:3b", "llama3.2:1b",
+)
+
+
+def local_model_catalog_url(chat_url: str) -> str:
+    """Return the llama.cpp-compatible model-list URL for a chat endpoint."""
+    url = (chat_url or "").strip().rstrip("/")
+    for suffix in ("/v1/chat/completions",):
+        if url.endswith(suffix):
+            return url[:-len(suffix)] + "/v1/models"
+    if url.endswith("/v1"):
+        return url + "/models"
+    return url + "/v1/models"
+
+
+def parse_local_models(value, limit: int = MAX_LOCAL_MODELS) -> list[str]:
+    """Extract bounded, unique model IDs from an OpenAI-compatible catalog."""
+    if not isinstance(value, dict):
+        return []
+    entries = value.get("data", [])
+    if not isinstance(entries, list):
+        return []
+    models = []
+    maximum = max(1, min(int(limit), MAX_LOCAL_MODELS))
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        model_id = entry.get("id", "")
+        if isinstance(model_id, str):
+            model_id = model_id.strip()
+        if model_id and model_id not in models:
+            models.append(model_id)
+        if len(models) >= maximum:
+            break
+    return models
+
+
+def is_legacy_ollama_model(model: str) -> bool:
+    """Return whether a model came from the removed Ollama-style defaults."""
+    return model in LEGACY_OLLAMA_MODEL_IDS
 
 class LLM:
     """LLM config"""
@@ -83,8 +130,6 @@ class LLM:
             if self._id == DEEPSEEK:
                 _payload["thinking"] = {"type": "enabled"}
                 _payload["reasoning_effort"] = self._thinking
-            elif self._id == LOCAL:
-                _payload["think"] = True
             elif self._id in (OPENAI, GEMINI):
                 _payload["reasoning_effort"] = self._thinking
             elif self._id == ANTHROPIC:
@@ -98,8 +143,6 @@ class LLM:
         else:
             if self._id == DEEPSEEK:
                 _payload["thinking"] = {"type": "disabled"}
-            elif self._id == LOCAL:
-                _payload["think"] = False
             elif self._id in (OPENAI, GEMINI):
                 _payload["reasoning_effort"] = self._thinking
             elif self._id == ANTHROPIC:
@@ -121,7 +164,7 @@ class LLM:
     @staticmethod
     def providers() -> list:
         """Return a list of available LLM providers."""
-        return [OPENAI, DEEPSEEK, ANTHROPIC, GEMINI, LOCAL, XAI]
+        return [OPENAI, DEEPSEEK, ANTHROPIC, GEMINI, LOCAL, LOCAL_MCP, XAI]
 
     @staticmethod
     def provider_name(provider_id: int) -> str:
@@ -143,6 +186,8 @@ class LLM:
             return "Gemini"
         if provider_id == LOCAL:
             return "Local"
+        if provider_id == LOCAL_MCP:
+            return "Local + MCP"
         if provider_id == XAI:
             return "xAI"
         return "Unknown"
@@ -178,22 +223,23 @@ class LLM:
             self._url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
             self._models = ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview"]
             self._api_key = settings.gemini_api_key
-        elif self._id == LOCAL:
-            self._name = "Local"
+        elif self._id in (LOCAL, LOCAL_MCP):
+            self._name = "Local + MCP" if self._id == LOCAL_MCP else "Local"
             self._url = settings.local_url
-            self._models = ["qwen3.5:9b", "qwen3.5:4b", "qwen3.5:0.8b", "qwen3.5:2b", "llama3.2:3b", "llama3.2:1b"]
+            # Local model identifiers are server-defined. Keep only the exact
+            # saved value here; the Agent settings view discovers /v1/models.
+            self._models = []
+            self._api_key = settings.local_api_key
         elif self._id == XAI:
             self._name = "xAI"
             self._url = "https://api.x.ai/v1"
             self._models = ["grok-4.5", "grok-4.3", "grok-build-0.1", "grok-4.20", "grok-4.20-non-reasoning"]
             self._api_key = settings.xai_api_key
         
-        if self._id != LOCAL:
+        if self._id not in (LOCAL, LOCAL_MCP) or self._api_key:
             self._headers["Authorization"] = f"Bearer {self._api_key}"
         
         if self._current_model is None:
-            self._current_model = self._models[0]
-        else:
-            if self._current_model not in self._models:
-                self._models.append(self._current_model)
-        
+            self._current_model = self._models[0] if self._models else ""
+        elif self._current_model and self._current_model not in self._models:
+            self._models.append(self._current_model)

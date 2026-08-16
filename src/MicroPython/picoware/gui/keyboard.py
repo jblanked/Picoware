@@ -1096,9 +1096,13 @@ class Keyboard:
     def _set_auto_complete_words(self) -> None:
         """Sets the words for auto-completion"""
         if not self._auto_complete_words_set and self._auto_complete is not None:
-            if not self._auto_complete.add_dictionary(
-                "picoware/keyboard/dictionary.txt"
-            ):
+            try:
+                loaded = self._auto_complete.add_dictionary(
+                    "picoware/keyboard/dictionary.txt"
+                )
+            except OSError:
+                loaded = False
+            if not loaded:
                 if not self._auto_complete_words:
                     self._auto_complete_words = self._default_words()
                 self._auto_complete.add_words(self._auto_complete_words)

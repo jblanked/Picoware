@@ -517,6 +517,7 @@ class HTTP:
         save_to_file=None,
         storage=None,
         send_file=None,
+        stream_sink=None,
     ) -> Response:
         """Send a POST request and return a Response object.
 
@@ -528,6 +529,7 @@ class HTTP:
             save_to_file (str): File path to save response data to (requires storage). Defaults to None.
             storage (Storage): Storage object for file operations. Defaults to None.
             send_file (str): File path to send as request body (requires storage). Defaults to None.
+            stream_sink: Optional sink receiving raw response body bytes.
 
         Returns:
             Response: The HTTP response.
@@ -550,6 +552,7 @@ class HTTP:
                     save_to_file=save_to_file,
                     storage=storage,
                     send_file=send_file,
+                    stream_sink=stream_sink,
                 )
 
     def post_async(
@@ -666,7 +669,8 @@ class HTTP:
         )
 
     def read_chunked(
-        self, s, uart=None, method="GET", save_to_file=None, storage=None
+        self, s, uart=None, method="GET", save_to_file=None, storage=None,
+        stream_sink=None,
     ) -> bytes:
         """Read a chunked HTTP response.
 
@@ -676,6 +680,7 @@ class HTTP:
             method (str): HTTP method name. Defaults to "GET".
             save_to_file (str): File path to save response data to (requires storage). Defaults to None.
             storage (Storage): Storage object for file operations. Defaults to None.
+            stream_sink: Optional sink receiving raw response body bytes.
 
         Returns:
             bytes: The response body.
@@ -722,29 +727,42 @@ class HTTP:
                         ):
                             break
                     break
-                # Read the chunk data
-                chunk = s.read(chunk_size)
-                self._update_speed(len(chunk))
-                if uart:
-                    uart.write(chunk)
-                    uart.flush()
-                elif file:
-                    # Write directly to file with retry
-                    retries = 10
-                    while retries > 0:
-                        try:
-                            storage.file_write(file, chunk, "wb")
-                            break
-                        except OSError as e:
-                            retries -= 1
-                            if retries == 0:
-                                raise e
-                            sleep_ms(10)
-                else:
-                    body += chunk
+                # A server-controlled HTTP chunk may be much larger than the
+                # Pico heap. Consume it through the configured bounded buffer.
+                remaining = chunk_size
+                while remaining > 0:
+                    read_size = min(self._chunk_size, remaining)
+                    chunk = s.read(read_size)
+                    if not chunk:
+                        remaining = 0
+                        break
+                    actual_len = len(chunk)
+                    self._update_speed(actual_len)
+                    if stream_sink:
+                        stream_sink.write(chunk)
+                    elif uart:
+                        uart.write(chunk)
+                        uart.flush()
+                    elif file:
+                        # Write directly to file with retry
+                        retries = 10
+                        while retries > 0:
+                            try:
+                                storage.file_write(file, chunk, "wb")
+                                break
+                            except OSError as e:
+                                retries -= 1
+                                if retries == 0:
+                                    raise e
+                                sleep_ms(10)
+                    else:
+                        body += chunk
+                    remaining -= actual_len
                 # Read the trailing CRLF after the chunk
                 s.read(2)
-            if uart:
+            if stream_sink:
+                stream_sink.flush()
+            elif uart:
                 uart.flush()
                 uart.write("\n")
                 uart.write(f"[{method}/END]")
@@ -771,6 +789,7 @@ class HTTP:
         save_to_file=None,
         storage=None,
         send_file=None,
+        stream_sink=None,
     ) -> Response:
         """Make an HTTP request.
 
@@ -787,6 +806,7 @@ class HTTP:
             save_to_file (str): File path to save response data to (requires storage). Defaults to None.
             storage (Storage): Storage object for file operations. Defaults to None.
             send_file (str): File path to send as request body (requires storage). Defaults to None.
+            stream_sink: Optional sink receiving raw response body bytes.
 
         Returns:
             Response: The HTTP response.
@@ -925,32 +945,38 @@ class HTTP:
                     frame_buffer = None
 
             # Read the status line
-            l = s.readline()
-            l = l.split(None, 2)
-            if len(l) < 2:
+            status_parts = s.readline().split(None, 2)
+            if len(status_parts) < 2:
                 # Invalid response
-                raise ValueError("HTTP error: BadStatusLine:\n%s" % l)
-            status = int(l[1])
+                raise ValueError(
+                    "HTTP error: BadStatusLine:\n%s" % status_parts
+                )
+            status = int(status_parts[1])
             reason = ""
-            if len(l) > 2:
-                reason = l[2].rstrip()
+            if len(status_parts) > 2:
+                reason = status_parts[2].rstrip()
             transfer_encoding = None
             self._content_length = None
             while True:
                 if not self._should_continue():
                     s.close()
                     return
-                l = s.readline()
-                if not l or l == b"\r\n":
+                header_line = s.readline()
+                if not header_line or header_line == b"\r\n":
                     break
-                if l.startswith(b"Transfer-Encoding:"):
-                    if b"chunked" in l:
+                if header_line.startswith(b"Transfer-Encoding:"):
+                    if b"chunked" in header_line:
                         transfer_encoding = "chunked"
-                elif l.startswith(b"Content-Length:"):
-                    self._content_length = int(l.split(b":", 1)[1].strip())
-                elif l.startswith(b"Location:") and not 200 <= status <= 299:
+                elif header_line.startswith(b"Content-Length:"):
+                    self._content_length = int(
+                        header_line.split(b":", 1)[1].strip()
+                    )
+                elif (
+                    header_line.startswith(b"Location:")
+                    and not 200 <= status <= 299
+                ):
                     if status in [301, 302, 303, 307, 308]:
-                        redirect = str(l[10:-2], "utf-8")
+                        redirect = str(header_line[10:-2], "utf-8")
                     else:
                         raise NotImplementedError(
                             "Redirect %d not yet supported" % status
@@ -958,25 +984,46 @@ class HTTP:
                 if parse_headers is False:
                     pass
                 elif parse_headers is True:
-                    l = str(l, "utf-8")
-                    k, v = l.split(":", 1)
+                    decoded_header = str(header_line, "utf-8")
+                    k, v = decoded_header.split(":", 1)
                     resp_d[k] = v.strip()
                 else:
-                    parse_headers(l, resp_d)
+                    parse_headers(header_line, resp_d)
 
             if not self._should_continue():
                 s.close()
                 return
 
+            # File and UART consumers do not retain the body in RAM. Keep the
+            # Response contract valid for every transfer encoding.
+            body = b""
+
             # Read body
             self._download_start_ticks = ticks_ms()
             self._downloaded_bytes = 0
             if transfer_encoding == "chunked":
-                body = self.read_chunked(s, uart, method, save_to_file, storage)
+                body = self.read_chunked(
+                    s, uart, method, save_to_file, storage, stream_sink
+                )
             elif self._content_length is not None:
-                if not uart and not save_to_file:
+                if not uart and not save_to_file and not stream_sink:
                     body = s.read(self._content_length)
                     self._downloaded_bytes = len(body)
+                elif stream_sink:
+                    content_length = self._content_length
+                    while content_length > 0:
+                        if not self._should_continue():
+                            s.close()
+                            return
+                        chunk_size = min(self._chunk_size, content_length)
+                        chunk = s.read(chunk_size)
+                        if not chunk:
+                            break
+                        actual_len = len(chunk)
+                        self._update_speed(actual_len)
+                        stream_sink.write(chunk)
+                        content_length -= actual_len
+                    stream_sink.flush()
                 elif save_to_file and storage:
                     # Save directly to file
                     file = storage.file_open(save_to_file)
@@ -1036,9 +1083,20 @@ class HTTP:
                     uart.write(f"[{method}/END]")
             else:
                 # Read until the socket is closed
-                if not uart and not save_to_file:
+                if not uart and not save_to_file and not stream_sink:
                     body = s.read()
                     self._downloaded_bytes = len(body)
+                elif stream_sink:
+                    while True:
+                        if not self._should_continue():
+                            s.close()
+                            return
+                        chunk = s.read(self._chunk_size)
+                        if not chunk:
+                            break
+                        self._update_speed(len(chunk))
+                        stream_sink.write(chunk)
+                    stream_sink.flush()
                 elif save_to_file and storage:
                     # Save directly to file
                     file = storage.file_open(save_to_file)
@@ -1096,7 +1154,8 @@ class HTTP:
                         uart,
                         save_to_file,
                         storage,
-                        send_file
+                        send_file,
+                        stream_sink,
                     )
                 return self.request(
                     method,
@@ -1110,7 +1169,8 @@ class HTTP:
                     uart,
                     save_to_file,
                     storage,
-                    send_file
+                    send_file,
+                    stream_sink,
                 )
             resp = Response(body)
             resp.status_code = status

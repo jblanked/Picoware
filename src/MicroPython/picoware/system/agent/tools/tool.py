@@ -3,9 +3,16 @@
 class Property:
     """Represents a property of a tool's parameters."""
 
-    __slots__ = ["name", "type", "description", "required"]
+    __slots__ = ["name", "type", "description", "required", "enum"]
 
-    def __init__(self, name: str, type: str, description: str, required: bool = False):
+    def __init__(
+        self,
+        name: str,
+        type: str,
+        description: str,
+        required: bool = False,
+        enum: list | None = None,
+    ):
         """Create a tool parameter property.
 
         Args:
@@ -18,14 +25,18 @@ class Property:
         self.type = type
         self.description = description
         self.required = required
+        self.enum = enum
 
     @property
     def json(self):
         """Returns the JSON representation of the property."""
-        return {
+        value = {
             "type": self.type,
             "description": self.description,
         }
+        if self.enum:
+            value["enum"] = self.enum
+        return value
 
 
 class Parameters:

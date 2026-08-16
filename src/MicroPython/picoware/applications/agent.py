@@ -1,9 +1,12 @@
 """Picoware Agent - LLM-powered assistant with chat GUI."""
 import micropython
+from utime import ticks_diff, ticks_ms
 from picoware.system.buttons import (
-    BUTTON_UP, BUTTON_DOWN, BUTTON_CENTER, BUTTON_BACK,
+    BUTTON_UP, BUTTON_DOWN, BUTTON_CENTER, BUTTON_BACK, BUTTON_N,
 )
-from picoware.system.colors import TFT_WHITE, TFT_DARKGREY, TFT_LIGHTGREY
+from picoware.system.colors import (
+    TFT_WHITE, TFT_DARKGREY, TFT_LIGHTGREY, TFT_GREEN,
+)
 
 STATE_MENU = micropython.const(0)
 STATE_CHAT = micropython.const(1)
@@ -11,6 +14,13 @@ STATE_TYPE = micropython.const(2)
 STATE_SETTINGS = micropython.const(3)
 STATE_SETTINGS_PROVIDER = micropython.const(4)
 STATE_SETTINGS_MODEL = micropython.const(5)
+STATE_WAITING = micropython.const(6)
+STATE_SETTINGS_INTEGRATION = micropython.const(7)
+STATE_SETTINGS_SCAN = micropython.const(8)
+STATE_SETTINGS_SERVER = micropython.const(9)
+
+ACTIVITY_FRAME_MS = micropython.const(250)
+ACTIVITY_SEGMENTS = micropython.const(8)
 
 _agent          = None
 _menu           = None
@@ -23,6 +33,27 @@ _max_scroll     = 0
 _settings_menu  = None
 _settings       = None
 _choice         = None
+_model_ids      = None
+_integration_ids = None
+_integration_toggle_list = None
+_integration_staged_records = None
+_integration_initial_keys = None
+_integration_dirty = False
+_agent_task     = None
+_pending_result = None
+_pending_error  = ""
+_pending_done   = False
+_activity_started_ms = 0
+_activity_last_ms = 0
+_activity_frame = 0
+_activity_cancellable = False
+_last_phase = ""
+_scan_client = None
+_scan_task = None
+_scan_result = None
+_scan_error = ""
+_scan_done = False
+_server_is_catalog = False
 
 
 @micropython.native
@@ -75,13 +106,14 @@ def _chat_layout(view_manager):
 
     font = draw.get_font(draw.font)
 
-    header_h = max(22, h * 8 // 100)
-    prompt_h = max(26, h * 11 // 100)
-    chat_y   = header_h + 2
-    chat_h   = h - header_h - prompt_h - 4
+    vertical_gap = max(font.height // 4, h // 160)
+    header_h = max(font.height * 2, h * 8 // 100)
+    prompt_h = max(font.height * 3 // 2, h * 7 // 100)
+    chat_y   = header_h + vertical_gap
+    chat_h   = h - header_h - prompt_h - vertical_gap * 2
 
     bubble_w = w * 78 // 100
-    pad      = max(4, w // 60)
+    pad      = max(font.width // 2, w // 60)
     text_w   = bubble_w - pad * 2
     char_w   = font.width + font.spacing
     max_chars = text_w // char_w if char_w > 0 else 30
@@ -109,7 +141,8 @@ def _draw_bubble(draw, x, y, w, text_lines, font, bg_color, text_color, pad,
     Returns:
         int: The next Y position after the bubble.
     """
-    line_h = font.height + 3
+    line_gap = max(font.height // 3, draw.size.y // 160)
+    line_h = font.height + line_gap
     screen_h = draw.size.y
 
     # Clip top -- skip lines above clip_top (e.g. under the header)
@@ -127,7 +160,7 @@ def _draw_bubble(draw, x, y, w, text_lines, font, bg_color, text_color, pad,
     if y + bubble_h > screen_h:
         bubble_h = screen_h - y
 
-    draw._fill_round_rectangle(x, y, w, bubble_h, 6, bg_color)
+    draw._fill_round_rectangle(x, y, w, bubble_h, pad, bg_color)
 
     ty = y + pad
     for line in text_lines:
@@ -136,7 +169,7 @@ def _draw_bubble(draw, x, y, w, text_lines, font, bg_color, text_color, pad,
         draw._text(x + pad, ty, line, text_color, font.size)
         ty += line_h
 
-    return y + bubble_h + 4
+    return y + bubble_h + pad
 
 @micropython.native
 def _render_chat(view_manager):
@@ -165,34 +198,14 @@ def _render_chat(view_manager):
         draw._text(w - pad - font.width * 2, (header_h - font.height) // 2,
                    "++" if _scroll_offset > 0 else "  ", TFT_DARKGREY, font.size)
 
-    # Build line list
-    all_lines = []
-    for msg in _conversation:
-        wrapped = _wrap_text(msg["content"], max_chars)
-        is_user = (msg["role"] == "user")
-        for line in wrapped:
-            all_lines.append((line, is_user))
-        all_lines.append(("", None))
-
-    if all_lines and all_lines[-1][1] is None:
-        all_lines.pop()
-
-    # Content height
-    line_h  = font.height + 3
-    gap_h   = pad * 2 + 4
+    # Measure one message at a time. Do not duplicate the complete conversation
+    # into a second line list on memory-constrained boards.
+    line_h  = font.height + max(font.height // 3, h // 160)
+    gap_h   = pad * 3
     total_h = 0
-    i = 0
-    while i < len(all_lines):
-        line_text, is_user = all_lines[i]
-        if is_user is None:
-            total_h += 6
-            i += 1
-            continue
-        j = i
-        while j < len(all_lines) and all_lines[j][1] == is_user:
-            j += 1
-        total_h += line_h * (j - i) + gap_h
-        i = j
+    for message in _conversation:
+        lines = _wrap_text(message["content"], max_chars)
+        total_h += line_h * len(lines) + gap_h
 
     _max_scroll = max(0, total_h - chat_h) // line_h if line_h else 0
     _scroll_offset = min(_scroll_offset, _max_scroll)
@@ -202,19 +215,9 @@ def _render_chat(view_manager):
     scroll_px = _scroll_offset * line_h
     cur_y = chat_y - scroll_px
 
-    i = 0
-    while i < len(all_lines):
-        line_text, is_user = all_lines[i]
-        if is_user is None:
-            cur_y += 6
-            i += 1
-            continue
-
-        j = i
-        while j < len(all_lines) and all_lines[j][1] == is_user:
-            j += 1
-        block = [t for t, _ in all_lines[i:j]]
-
+    for message in _conversation:
+        block = _wrap_text(message["content"], max_chars)
+        is_user = message["role"] == "user"
         block_h = line_h * len(block) + gap_h
         visible = (cur_y + block_h > chat_y) and (cur_y < chat_y + chat_h)
 
@@ -228,12 +231,13 @@ def _render_chat(view_manager):
                          TFT_WHITE, pad, clip_top=chat_y)
 
         cur_y += block_h
-        i = j
 
     # Prompt bar
     bar_y = h - prompt_h
     draw._fill_rectangle(0, bar_y, w, prompt_h, TFT_DARKGREY)
-    prompt = "OK=Type   BACK=Menu"
+    prompt = "OK=Type  Shift+N=New  BACK=Menu"
+    if draw.len(prompt) > w:
+        prompt = "OK Type  Sh+N New  BACK"
     pw = draw.len(prompt)
     draw._text((w - pw) // 2, bar_y + (prompt_h - font.height) // 2,
                prompt, TFT_LIGHTGREY, font.size)
@@ -241,23 +245,187 @@ def _render_chat(view_manager):
     draw.swap()
 
 
-def _show_thinking(view_manager):
-    """Clear screen and display a centred thinking indicator.
-
-    Args:
-        view_manager (ViewManager): The view manager context.
-    """
+def _show_thinking(view_manager, phase="Preparing", frame=0, elapsed_seconds=0):
+    """Display one responsive frame of the request activity indicator."""
     draw = view_manager.draw
     w, h = draw.size.x, draw.size.y
     bg = view_manager.background_color
+    fg = view_manager.foreground_color
+    active = view_manager.selected_color
 
     draw.fill_screen(bg)
-    msg = "Thinking..."
-    mw = draw.len(msg)
+    msg = phase or "Working..."
+    if len(msg) > 28:
+        msg = msg[:25] + "..."
     fh = draw.font_size.y
-    draw._text((w - mw) // 2, (h - fh) // 2, msg,
-               view_manager.foreground_color, draw.font)
+
+    title = "Request in progress"
+    draw._text((w - draw.len(title)) // 2, h // 5, title, fg, draw.font)
+    draw._text((w - draw.len(msg)) // 2, h // 2 - fh * 2, msg, fg, draw.font)
+
+    bar_w = w * 2 // 3
+    gap = max(w // 160, fh // 4)
+    segment_w = (bar_w - gap * (ACTIVITY_SEGMENTS - 1)) // ACTIVITY_SEGMENTS
+    bar_x = (w - bar_w) // 2
+    bar_y = h // 2
+    bar_h = max(fh // 2, h // 64)
+    for index in range(ACTIVITY_SEGMENTS):
+        distance = (frame - index) % ACTIVITY_SEGMENTS
+        color = active if distance < 2 else TFT_DARKGREY
+        draw._fill_rectangle(
+            bar_x + index * (segment_w + gap),
+            bar_y,
+            segment_w,
+            bar_h,
+            color,
+        )
+
+    alive = "Still working - " + str(elapsed_seconds) + "s"
+    text_gap = max(fh // 2, h // 80)
+    draw._text(
+        (w - draw.len(alive)) // 2,
+        bar_y + bar_h + text_gap,
+        alive,
+        TFT_LIGHTGREY,
+        draw.font,
+    )
+    cancel = "BACK=Cancel" if _activity_cancellable else "Please wait"
+    draw._text(
+        (w - draw.len(cancel)) // 2,
+        h - fh - text_gap,
+        cancel,
+        TFT_LIGHTGREY,
+        draw.font,
+    )
     draw.swap()
+
+
+def _start_activity(view_manager, phase: str, cancellable: bool = False) -> None:
+    """Initialize and draw the indeterminate activity animation."""
+    global _last_phase, _activity_started_ms, _activity_last_ms, _activity_frame
+    global _activity_cancellable
+    now = ticks_ms()
+    _last_phase = phase
+    _activity_cancellable = cancellable
+    _activity_started_ms = now
+    _activity_last_ms = now
+    _activity_frame = 0
+    _show_thinking(view_manager, phase, 0, 0)
+
+
+def _animate_activity(view_manager, phase: str) -> None:
+    """Advance the activity display at a bounded refresh rate."""
+    global _last_phase, _activity_last_ms, _activity_frame
+    now = ticks_ms()
+    phase = phase or "Working..."
+    if (
+        phase == _last_phase
+        and ticks_diff(now, _activity_last_ms) < ACTIVITY_FRAME_MS
+    ):
+        return
+    _last_phase = phase
+    _activity_last_ms = now
+    _activity_frame = (_activity_frame + 1) % ACTIVITY_SEGMENTS
+    elapsed = max(0, ticks_diff(now, _activity_started_ms)) // 1000
+    _show_thinking(view_manager, phase, _activity_frame, elapsed)
+
+
+def _agent_worker(payload) -> None:
+    """Run the Agent request and publish a single result for the UI."""
+    global _pending_result, _pending_error, _pending_done
+    try:
+        _pending_result = _agent.run_payload(payload)
+        _pending_error = ""
+    except Exception as exc:
+        _pending_result = None
+        _pending_error = str(exc)
+    _pending_done = True
+
+
+def _background_requests_supported() -> bool:
+    """Return whether this board can safely run the Agent on the second core."""
+    from picoware.system.boards import (
+        BOARD_ID,
+        BOARD_PICOCALC_PICO_2W,
+        BOARD_PICOCALC_PIMORONI_2W,
+    )
+    return BOARD_ID in (BOARD_PICOCALC_PICO_2W, BOARD_PICOCALC_PIMORONI_2W)
+
+
+def _start_agent_request(view_manager, user_text: str) -> bool:
+    """Start one request, using core 1 only on boards known to support it."""
+    global _agent_task, _pending_result, _pending_error, _pending_done, _state
+    from gc import collect
+
+    payload = {"message": user_text, "conversation": _conversation}
+    _pending_result = None
+    _pending_error = ""
+    _pending_done = False
+    collect()
+    manager = view_manager.thread_manager
+    use_background = _background_requests_supported() and manager is not None
+    _state = STATE_WAITING
+    _start_activity(view_manager, "Preparing", use_background)
+
+    if not use_background:
+        _agent_worker(payload)
+        _finish_agent_request(view_manager)
+        return True
+
+    from picoware.system.thread import ThreadTask
+    _agent_task = ThreadTask(
+        "Agent",
+        function=_agent_worker,
+        args=(payload,),
+        timeout=190000,
+        stack_size=64 * 1024,
+    )
+    manager.add_task(_agent_task)
+    return True
+
+
+def _finish_agent_request(view_manager) -> None:
+    """Commit one request result to the visible conversation."""
+    global _conversation, _state, _scroll_offset, _agent_task
+    global _pending_result, _pending_error, _pending_done
+    if _pending_result is not None:
+        _conversation = _pending_result.get("conversation", _conversation)
+    elif _pending_error:
+        _conversation.append({"role": "assistant", "content": "Error: " + _pending_error})
+    _pending_result = None
+    _pending_error = ""
+    _pending_done = False
+    _agent_task = None
+    _scroll_offset = 32767
+    _state = STATE_CHAT
+    _render_chat(view_manager)
+
+
+def _open_chat_input(view_manager, initial_text: str = "") -> None:
+    """Open the chat editor and preserve an initiating letter key."""
+    global _state
+    keyboard = view_manager.keyboard
+    keyboard.reset()
+    keyboard.response = initial_text
+    keyboard.title = _mode_label
+    _state = STATE_TYPE
+    view_manager.input_manager.reset()
+    keyboard.run(force=True)
+
+
+def _confirm_new_session(view_manager) -> bool:
+    """Confirm and clear the current mode's persisted conversation."""
+    global _conversation, _scroll_offset, _max_scroll
+    message = "Start a new " + _mode_label + " session?\nOK=Yes  BACK=No"
+    if not view_manager.alert(message, False):
+        _render_chat(view_manager)
+        return False
+    _agent.reset_conversation()
+    _conversation = _agent.conversation
+    _scroll_offset = 0
+    _max_scroll = 0
+    _render_chat(view_manager)
+    return True
 
 def _set_settings(view_manager):
     """Load or create the agent settings.
@@ -296,18 +464,86 @@ def _get_llm_providers() -> list:
     from picoware.system.agent.llm import LLM
     return LLM.providers()
 
-def _get_llm_models(view_manager, llm_id: int) -> list:
+def _get_llm_models(
+    view_manager, llm_id: int, current_model: str = None, http=None,
+) -> list:
     """Return a list of models for the specified LLM provider.
 
     Args:
         view_manager (ViewManager): The view manager context.
         llm_id (int): The provider ID.
+        current_model (str): Saved custom model to retain in the chooser.
 
     Returns:
         list: Available model names.
     """
-    from picoware.system.agent.llm import LLM
-    return LLM(view_manager.storage, llm_id).models
+    from picoware.system.agent.llm import (
+        LLM, LOCAL, LOCAL_MCP, local_model_catalog_url, parse_local_models,
+    )
+
+    llm = LLM(view_manager.storage, llm_id, current_model)
+    models = list(llm.models)
+    if llm_id not in (LOCAL, LOCAL_MCP):
+        return models
+
+    response = None
+    try:
+        if http is None:
+            from picoware.system.http import HTTP
+            http = HTTP(thread_manager=view_manager.thread_manager)
+        response = http.get(
+            local_model_catalog_url(llm.url),
+            headers=llm.headers,
+            timeout=5,
+        )
+        if response is not None and 200 <= response.status_code <= 299:
+            models = parse_local_models(response.json())
+    except (OSError, TypeError, ValueError):
+        pass
+    finally:
+        if response is not None:
+            response.close()
+    from picoware.system.agent.llm import is_legacy_ollama_model
+    if (
+        current_model and current_model not in models
+        and not is_legacy_ollama_model(current_model)
+    ):
+        models.append(current_model)
+    return models
+
+
+def _settings_menu_items(provider: int) -> list:
+    """Return settings items available for the selected provider."""
+    from picoware.system.agent.llm import LOCAL_MCP
+
+    items = ["Agent Provider", "Agent Model"]
+    if provider == LOCAL_MCP:
+        items.append("Scan Integrations")
+        items.append("Add MCP Server")
+        items.append("Add MCP Catalog")
+    return items
+
+
+def _provider_change_preserves_model(
+    current_provider: int, selected_provider: int,
+) -> bool:
+    """Return whether a provider change should retain the current model."""
+    from picoware.system.agent.llm import LOCAL, LOCAL_MCP
+
+    if current_provider == selected_provider:
+        return True
+    return (
+        current_provider in (LOCAL, LOCAL_MCP)
+        and selected_provider in (LOCAL, LOCAL_MCP)
+    )
+
+
+def _model_at_index(models, index: int) -> str:
+    """Return one model from the displayed snapshot, or an empty value."""
+    if not isinstance(models, list) or index < 0 or index >= len(models):
+        return ""
+    return models[index]
+
 
 def _start_settings_menu(view_manager):
     """Show the agent settings menu.
@@ -319,8 +555,8 @@ def _start_settings_menu(view_manager):
     global _state, _settings_menu
     _state = STATE_SETTINGS
     if _settings_menu is not None:
-        _settings_menu.draw()
-        return
+        del _settings_menu
+        _settings_menu = None
     _settings_menu = Menu(
         view_manager.draw,
         "Settings",
@@ -330,8 +566,8 @@ def _start_settings_menu(view_manager):
         background_color=view_manager.background_color,
         selected_color=view_manager.selected_color,
     )
-    _settings_menu.add_item("Agent Provider")
-    _settings_menu.add_item("Agent Model")
+    for item in _settings_menu_items(_settings["provider"]):
+        _settings_menu.add_item(item)
     _settings_menu.draw()
 
 
@@ -341,7 +577,7 @@ def _open_provider_choice(view_manager):
     Args:
         view_manager (ViewManager): The view manager context.
     """
-    global _state, _choice
+    global _state, _choice, _model_ids
     from picoware.gui.choice import Choice
     from picoware.system.vector import Vector
     from picoware.system.agent.llm import LLM
@@ -351,6 +587,7 @@ def _open_provider_choice(view_manager):
     if _choice is not None:
         del _choice
         _choice = None
+    _model_ids = None
 
     provider_ids = _get_llm_providers()
     provider_names = [LLM.provider_name(pid) for pid in provider_ids]
@@ -380,7 +617,7 @@ def _open_model_choice(view_manager):
     Args:
         view_manager (ViewManager): The view manager context.
     """
-    global _state, _choice
+    global _state, _choice, _model_ids
     from picoware.gui.choice import Choice
     from picoware.system.vector import Vector
 
@@ -390,8 +627,17 @@ def _open_model_choice(view_manager):
         del _choice
         _choice = None
 
-    models = _get_llm_models(view_manager, _settings["provider"])
     current_model = _settings["model"]
+    models = _get_llm_models(
+        view_manager, _settings["provider"], current_model
+    )
+    if not models:
+        view_manager.alert(
+            "No local models found. Check Local URL and load a model.", False
+        )
+        _back_to_settings_menu(view_manager)
+        return
+    _model_ids = models
     try:
         initial_idx = models.index(current_model)
     except ValueError:
@@ -411,13 +657,290 @@ def _open_model_choice(view_manager):
     _state = STATE_SETTINGS_MODEL
 
 
+def _integration_scan_worker(scanner) -> None:
+    """Scan the configured integration gateway outside the UI thread."""
+    global _scan_result, _scan_error, _scan_done
+    try:
+        _scan_result, _scan_error = scanner.scan_integrations()
+    except Exception as exc:
+        message = str(exc)
+        if len(message) > 120:
+            message = message[:120] + "..."
+        _scan_result, _scan_error = [], "Scan failed: " + message
+    _scan_done = True
+
+
+def _open_integration_choice(view_manager) -> None:
+    """Scan available integrations and open the activation list."""
+    global _state, _scan_client, _scan_task
+    global _scan_result, _scan_error, _scan_done
+    from gc import collect
+    from picoware.system.agent.llm import LLM, LOCAL_MCP
+    from picoware.system.agent.mcp import MCPClient
+    from picoware.system.http import HTTP
+
+    if _settings["provider"] != LOCAL_MCP:
+        view_manager.alert("Select Local + MCP first", False)
+        _back_to_settings_menu(view_manager)
+        return
+
+    _scan_result = None
+    _scan_error = ""
+    _scan_done = False
+    collect()
+    llm = LLM(view_manager.storage, LOCAL_MCP, _settings["model"])
+    _scan_client = MCPClient(view_manager, HTTP(), llm)
+    _state = STATE_SETTINGS_SCAN
+    _start_activity(view_manager, "Scanning integrations", True)
+
+    manager = view_manager.thread_manager
+    if _background_requests_supported() and manager is not None:
+        from picoware.system.thread import ThreadTask
+        _scan_task = ThreadTask(
+            "Agent MCP scan",
+            function=_integration_scan_worker,
+            args=(_scan_client,),
+            timeout=190000,
+            stack_size=64 * 1024,
+        )
+        manager.add_task(_scan_task)
+        return
+
+    _scan_task = None
+    _integration_scan_worker(_scan_client)
+    _finish_integration_scan(view_manager)
+
+
+def _integration_runtime_id(integration_id) -> str:
+    """Return the stable key for one integration record."""
+    from picoware.system.agent.mcp import integration_key
+
+    return integration_key(integration_id)
+
+
+def _selectable_integration_records(records) -> list:
+    """Return tool records that may be enabled or disabled by the user."""
+    return [
+        record for record in records
+        if "catalog" not in record.get("capabilities", [])
+    ]
+
+
+def _finish_integration_scan(view_manager) -> None:
+    """Create integration toggles after a successful catalog scan."""
+    global _state, _integration_ids, _integration_toggle_list
+    global _integration_staged_records, _integration_initial_keys
+    global _integration_dirty
+    global _scan_client, _scan_task, _scan_result, _scan_error, _scan_done
+    from picoware.gui.toggle_list import ToggleList
+    from picoware.system.agent.mcp import (
+        integration_key, integration_label, parse_integration_records,
+    )
+    from picoware.system.settings import Settings
+
+    scan_records = _scan_result or []
+    error = _scan_error
+    _scan_client = None
+    _scan_task = None
+    _scan_result = None
+    _scan_error = ""
+    _scan_done = False
+
+    if error:
+        view_manager.alert(error, False)
+        _back_to_settings_menu(view_manager)
+        return
+    if not scan_records:
+        view_manager.alert("No integrations found", False)
+        _back_to_settings_menu(view_manager)
+        return
+
+    draw = view_manager.draw
+    draw.fill_screen(view_manager.background_color)
+    if _integration_toggle_list is not None:
+        del _integration_toggle_list
+        _integration_toggle_list = None
+
+    settings = Settings(view_manager.storage)
+    _integration_staged_records = parse_integration_records(
+        settings.mcp_integrations
+    )
+    _integration_initial_keys = [
+        integration_key(record)
+        for record in _integration_staged_records
+    ]
+    _integration_dirty = False
+    _integration_ids = _selectable_integration_records(scan_records)
+    if not _integration_ids:
+        view_manager.alert("No selectable integrations found", False)
+        _back_to_settings_menu(view_manager)
+        return
+
+    _integration_toggle_list = ToggleList(
+        view_manager,
+        TFT_DARKGREY,
+        view_manager.background_color,
+        TFT_GREEN,
+        TFT_DARKGREY,
+        callback=lambda index, state: _set_integration_active(
+            view_manager, index, state
+        ),
+    )
+    for integration_id in _integration_ids:
+        _integration_toggle_list.add_toggle(
+            integration_label(integration_id),
+            _integration_runtime_id(integration_id) in _integration_initial_keys,
+        )
+    _state = STATE_SETTINGS_INTEGRATION
+    view_manager.input_manager.reset()
+
+
+def _set_integration_active(view_manager, index: int, active: bool) -> None:
+    """Stage one integration toggle without changing persistent settings."""
+    global _integration_staged_records, _integration_dirty
+    from picoware.system.agent.mcp import (
+        integration_key, integration_label,
+    )
+
+    integration_id = _integration_ids[index]
+    if "catalog" in integration_id.get("capabilities", []):
+        view_manager.alert("Catalog providers are required for scanning", False)
+        _integration_toggle_list.update_toggle(
+            index, integration_label(integration_id), True
+        )
+        return
+    runtime_id = _integration_runtime_id(integration_id)
+    records = _integration_staged_records or []
+    enabled = [integration_key(record) for record in records]
+    if active:
+        if runtime_id in enabled:
+            return
+        if len(enabled) >= 16:
+            view_manager.alert("Maximum of 16 integrations enabled", False)
+            _integration_toggle_list.update_toggle(
+                index, integration_label(integration_id), False
+            )
+            return
+        records.append(integration_id)
+    else:
+        records = [
+            record for record in records
+            if integration_key(record) != runtime_id
+        ]
+    _integration_staged_records = records
+    staged_keys = [integration_key(record) for record in records]
+    _integration_dirty = staged_keys != (_integration_initial_keys or [])
+
+
+def _commit_integration_changes(view_manager) -> None:
+    """Persist staged tool selections while retaining catalog providers."""
+    global _integration_staged_records, _integration_initial_keys
+    global _integration_dirty
+    from picoware.system.agent.mcp import (
+        integration_key, parse_integration_records, preserve_catalog_records,
+        serialize_integration_records,
+    )
+    from picoware.system.settings import Settings
+
+    settings = Settings(view_manager.storage)
+    current = parse_integration_records(settings.mcp_integrations)
+    records = preserve_catalog_records(
+        current, _integration_staged_records or [], 16
+    )
+    settings.mcp_integrations = serialize_integration_records(records)
+    _integration_staged_records = records
+    _integration_initial_keys = [integration_key(record) for record in records]
+    _integration_dirty = False
+
+
+def _catalog_input_record(value: str):
+    """Parse a catalog plugin ID or a Label|URL ephemeral MCP endpoint."""
+    from picoware.system.agent.mcp import normalize_integration_record
+
+    text = (value or "").strip()
+    if not text:
+        return None
+    if "|" in text:
+        record = normalize_integration_record("server:" + text)
+    else:
+        record = normalize_integration_record(text)
+    if record is not None:
+        record["capabilities"] = ["catalog"]
+    return record
+
+
+def _open_mcp_server_input(view_manager, catalog: bool = False) -> None:
+    """Open a compact Label|URL editor for an MCP server or catalog."""
+    global _state, _server_is_catalog
+    keyboard = view_manager.keyboard
+    keyboard.reset()
+    _server_is_catalog = bool(catalog)
+    keyboard.title = "Catalog ID or Label|URL" if catalog else "MCP Label|URL"
+    keyboard.response = ""
+    _state = STATE_SETTINGS_SERVER
+    view_manager.input_manager.reset()
+    keyboard.run(force=True)
+
+
+def _save_mcp_server(
+    view_manager, value: str, catalog: bool = False,
+) -> bool:
+    """Validate and activate a direct MCP server or catalog record."""
+    from picoware.system.agent.mcp import (
+        integration_key, normalize_integration_record,
+        parse_integration_records, serialize_integration_records,
+    )
+    from picoware.system.settings import Settings
+
+    if catalog:
+        record = _catalog_input_record(value)
+    else:
+        text = (value or "").strip()
+        parts = text.split("|", 1)
+        record = None
+        if len(parts) == 2:
+            record = normalize_integration_record({
+                "type": "mcp_server",
+                "server_label": parts[0].strip(),
+                "server_url": parts[1].strip(),
+                "protocol": "auto",
+                "capabilities": ["generic"],
+            })
+    if record is None:
+        message = (
+            "Use plugin ID or Label|http://server-url"
+            if catalog else "Use Label|http://server-url"
+        )
+        view_manager.alert(message, False)
+        return False
+    settings = Settings(view_manager.storage)
+    records = parse_integration_records(settings.mcp_integrations)
+    keys = [integration_key(item) for item in records]
+    record_key = integration_key(record)
+    if record_key in keys:
+        if catalog:
+            index = keys.index(record_key)
+            if "catalog" not in records[index].get("capabilities", []):
+                records[index] = record
+                settings.mcp_integrations = serialize_integration_records(records)
+    else:
+        if len(records) >= 16:
+            view_manager.alert("Maximum of 16 integrations enabled", False)
+            return False
+        records.append(record)
+        settings.mcp_integrations = serialize_integration_records(records)
+    return True
+
+
 def _back_to_settings_menu(view_manager):
     """Clean up the Choice sub-view and return to the settings menu.
 
     Args:
         view_manager (ViewManager): The view manager context.
     """
-    global _state, _choice
+    global _state, _choice, _model_ids, _integration_ids
+    global _integration_toggle_list, _integration_staged_records
+    global _integration_initial_keys, _integration_dirty
 
     draw = view_manager.draw
     draw.fill_screen(view_manager.background_color)
@@ -425,10 +948,16 @@ def _back_to_settings_menu(view_manager):
     if _choice is not None:
         del _choice
         _choice = None
+    _model_ids = None
+    if _integration_toggle_list is not None:
+        del _integration_toggle_list
+        _integration_toggle_list = None
+    _integration_ids = None
+    _integration_staged_records = None
+    _integration_initial_keys = None
+    _integration_dirty = False
 
-    _state = STATE_SETTINGS
-    if _settings_menu is not None:
-        _settings_menu.draw()
+    _start_settings_menu(view_manager)
 
 
 def start(view_manager) -> bool:
@@ -483,6 +1012,7 @@ def start(view_manager) -> bool:
     _menu.add_item("Chat")
     _menu.add_item("App Creator")
     _menu.add_item("Device Manager")
+    _menu.add_item("New Conversation")
     _menu.add_item("Settings")
     _menu.draw()
 
@@ -500,6 +1030,8 @@ def run(view_manager) -> None:
     """
     global _state, _agent, _agent_mode, _mode_label, _conversation
     global _scroll_offset, _max_scroll
+    global _pending_error, _pending_done
+    global _scan_error, _scan_done
 
     btn = view_manager.button
 
@@ -510,8 +1042,20 @@ def run(view_manager) -> None:
             _menu.scroll_down()
         elif btn == BUTTON_CENTER:
             idx = _menu.selected_index
-            if idx == 3:
+            if idx == 4:
                 _start_settings_menu(view_manager)
+                return
+            if idx == 3:
+                if _agent is None:
+                    view_manager.alert("Open an Agent mode first", False)
+                    _menu.draw()
+                    return
+                _agent.reset_conversation()
+                _conversation = _agent.conversation
+                _scroll_offset = 0
+                _max_scroll = 0
+                _state = STATE_CHAT
+                _render_chat(view_manager)
                 return
             from picoware.system.agent.agent import Agent, MODE_CHAT, MODE_APP_CREATOR, MODE_DEVICE_MANAGER
             from picoware.system.agent.llm import LLM
@@ -530,8 +1074,14 @@ def run(view_manager) -> None:
                 _menu.draw()
                 return
             
-            _agent = Agent(view_manager, _agent_mode,LLM(view_manager.storage, _settings["provider"], _settings["model"]))
-            _conversation = []
+            if _agent is not None:
+                _agent.cancel()
+            _agent = Agent(
+                view_manager,
+                _agent_mode,
+                LLM(view_manager.storage, _settings["provider"], _settings["model"]),
+            )
+            _conversation = _agent.conversation
             _scroll_offset = 0
             _max_scroll = 0
             _state = STATE_CHAT
@@ -554,6 +1104,18 @@ def run(view_manager) -> None:
                 _open_provider_choice(view_manager)
             elif idx == 1:
                 _open_model_choice(view_manager)
+            elif idx == 2 and len(
+                _settings_menu_items(_settings["provider"])
+            ) == 5:
+                _open_integration_choice(view_manager)
+            elif idx == 3 and len(
+                _settings_menu_items(_settings["provider"])
+            ) == 5:
+                _open_mcp_server_input(view_manager, False)
+            elif idx == 4 and len(
+                _settings_menu_items(_settings["provider"])
+            ) == 5:
+                _open_mcp_server_input(view_manager, True)
 
     elif _state == STATE_SETTINGS_PROVIDER:
         if btn == BUTTON_BACK:
@@ -565,10 +1127,56 @@ def run(view_manager) -> None:
         elif btn == BUTTON_CENTER:
             provider_ids = _get_llm_providers()
             selected_provider = provider_ids[_choice.state]
+            current_provider = _settings["provider"]
+            current_model = _settings["model"]
+            models = []
+            preserve_model = (
+                current_model
+                and _provider_change_preserves_model(
+                    current_provider, selected_provider
+                )
+            )
+            from picoware.system.agent.llm import (
+                LOCAL, LOCAL_MCP, LLM, is_legacy_ollama_model,
+            )
+            if (
+                preserve_model
+                and selected_provider in (LOCAL, LOCAL_MCP)
+                and is_legacy_ollama_model(current_model)
+            ):
+                models = _get_llm_models(
+                    view_manager, selected_provider, current_model
+                )
+                preserve_model = False
+                if models:
+                    _settings["model"] = models[0]
+                else:
+                    view_manager.alert(
+                        "The old Ollama-style model ID is invalid. Load a local "
+                        "model and select its exact ID.",
+                        False,
+                    )
+                    _choice.draw()
+                    return
+            if not preserve_model:
+                if selected_provider in (LOCAL, LOCAL_MCP):
+                    if not _settings.get("model") or not models:
+                        models = _get_llm_models(
+                            view_manager, selected_provider, None
+                        )
+                    if not models:
+                        view_manager.alert(
+                            "No local models found. Check Local URL and load a model.",
+                            False,
+                        )
+                        _choice.draw()
+                        return
+                    _settings["model"] = models[0]
+                else:
+                    _settings["model"] = LLM(
+                        view_manager.storage, selected_provider
+                    ).model
             _settings["provider"] = selected_provider
-            from picoware.system.agent.llm import LLM
-            llm = LLM(view_manager.storage, selected_provider)
-            _settings["model"] = llm.model
             _save_settings(view_manager)
             _back_to_settings_menu(view_manager)
 
@@ -580,10 +1188,67 @@ def run(view_manager) -> None:
         elif btn == BUTTON_DOWN:
             _choice.scroll_down()
         elif btn == BUTTON_CENTER:
-            models = _get_llm_models(view_manager, _settings["provider"])
-            _settings["model"] = models[_choice.state]
+            selected_model = _model_at_index(_model_ids, _choice.state)
+            if not selected_model:
+                view_manager.alert("Model list is no longer available", False)
+                _back_to_settings_menu(view_manager)
+                return
+            _settings["model"] = selected_model
             _save_settings(view_manager)
             _back_to_settings_menu(view_manager)
+
+    elif _state == STATE_SETTINGS_INTEGRATION:
+        if not _integration_toggle_list.run():
+            if _integration_dirty and view_manager.alert(
+                "Save integration changes?\nOK=Save  BACK=Discard", False
+            ):
+                _commit_integration_changes(view_manager)
+            _back_to_settings_menu(view_manager)
+
+    elif _state == STATE_SETTINGS_SCAN:
+        if btn == BUTTON_BACK and _scan_client is not None:
+            _scan_client.cancel()
+            manager = view_manager.thread_manager
+            if (
+                _scan_task is not None
+                and manager is not None
+                and manager.remove_task(_scan_task.id)
+            ):
+                _scan_error = "Scan cancelled."
+                _scan_done = True
+            elif _scan_task is not None:
+                _scan_task.stop()
+        _animate_activity(view_manager, "Scanning integrations")
+        if _scan_done:
+            _finish_integration_scan(view_manager)
+
+    elif _state == STATE_SETTINGS_SERVER:
+        keyboard = view_manager.keyboard
+        if not keyboard.run():
+            keyboard.reset()
+            _back_to_settings_menu(view_manager)
+            return
+        if not keyboard.is_finished:
+            return
+        value = keyboard.response
+        keyboard.reset()
+        if _save_mcp_server(view_manager, value, _server_is_catalog):
+            _back_to_settings_menu(view_manager)
+        else:
+            _open_mcp_server_input(view_manager, _server_is_catalog)
+
+    elif _state == STATE_WAITING:
+        if btn == BUTTON_BACK and _agent_task is not None:
+            _agent.cancel()
+            manager = view_manager.thread_manager
+            if manager is not None and manager.remove_task(_agent_task.id):
+                _pending_error = "Request cancelled."
+                _pending_done = True
+            else:
+                _agent_task.stop()
+        _animate_activity(view_manager, _agent.status if _agent is not None else "Working")
+        if _pending_done:
+            _finish_agent_request(view_manager)
 
     elif _state == STATE_CHAT:
         if btn == BUTTON_UP:
@@ -595,15 +1260,16 @@ def run(view_manager) -> None:
                 _scroll_offset += 1
                 _render_chat(view_manager)
         elif btn == BUTTON_CENTER:
-            kb = view_manager.keyboard
-            kb.reset()
-            kb.title = _mode_label
-            _state = STATE_TYPE
-            view_manager.input_manager.reset()
-            view_manager.keyboard.run(force=True)
+            _open_chat_input(view_manager)
+        elif btn == BUTTON_N and view_manager.input_manager.was_capitalized:
+            _confirm_new_session(view_manager)
         elif btn == BUTTON_BACK:
             _state = STATE_MENU
             _menu.draw()
+        else:
+            first_char = view_manager.input_manager.button_to_char(btn)
+            if first_char and first_char.isalpha():
+                _open_chat_input(view_manager, first_char)
 
     elif _state == STATE_TYPE:
         kb = view_manager.keyboard
@@ -619,27 +1285,10 @@ def run(view_manager) -> None:
         user_text = (kb.response or "").strip()
 
         if user_text:
-            _show_thinking(view_manager)
+            _start_agent_request(view_manager, user_text)
+            return
 
-            try:
-                result = _agent.run_payload({
-                    "message": user_text,
-                })
-                _conversation = result["conversation"]
-                if result["status"] != "completed":
-                    _conversation.append({
-                        "role": "assistant",
-                        "content": result["message"],
-                    })
-            except Exception as exc:
-                _conversation.append({
-                    "role": "assistant",
-                    "content": "Error: " + str(exc),
-                })
-
-        _scroll_offset = 32767
         _state = STATE_CHAT
-        _render_chat(view_manager)
         _render_chat(view_manager)
 
 
@@ -651,7 +1300,13 @@ def stop(view_manager) -> None:
     """
     from picoware.system.boards import BOARD_HAS_ESP32
     from gc import collect
-    global _agent, _menu, _conversation, _scroll_offset, _max_scroll, _settings_menu, _settings, _choice
+    global _agent, _menu, _conversation, _scroll_offset, _max_scroll
+    global _settings_menu, _settings, _choice, _model_ids, _agent_task
+    global _integration_ids, _integration_toggle_list
+    global _integration_staged_records, _integration_initial_keys
+    global _integration_dirty
+    global _scan_client, _scan_task, _scan_result, _scan_error, _scan_done
+    global _server_is_catalog
 
     _save_settings(view_manager)
 
@@ -660,8 +1315,18 @@ def stop(view_manager) -> None:
     _max_scroll = 0
 
     if _agent is not None:
+        _agent.cancel()
         del _agent
         _agent = None
+    if _agent_task is not None:
+        _agent_task.stop()
+        _agent_task = None
+    if _scan_client is not None:
+        _scan_client.cancel()
+        _scan_client = None
+    if _scan_task is not None:
+        _scan_task.stop()
+        _scan_task = None
     if _menu is not None:
         del _menu
         _menu = None
@@ -671,6 +1336,18 @@ def stop(view_manager) -> None:
     if _choice is not None:
         del _choice
         _choice = None
+    _model_ids = None
+    if _integration_toggle_list is not None:
+        del _integration_toggle_list
+        _integration_toggle_list = None
+    _integration_ids = None
+    _integration_staged_records = None
+    _integration_initial_keys = None
+    _integration_dirty = False
+    _scan_result = None
+    _scan_error = ""
+    _scan_done = False
+    _server_is_catalog = False
     if _settings is not None:
         del _settings
         _settings = None
@@ -679,4 +1356,3 @@ def stop(view_manager) -> None:
         view_manager.freq(False)
 
     collect()
- 

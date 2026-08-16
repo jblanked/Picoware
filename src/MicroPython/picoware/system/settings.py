@@ -27,7 +27,10 @@ class Settings:
             "exit_button": BUTTON_BACK,
             "gemini_api_key": "",
             "gmt_offset": 0,
+            "local_api_key": "",
             "local_url": "http://127.0.0.1:8080/v1/chat/completions",
+            "mcp_gateway_url": "",
+            "mcp_integrations": "",
             "lvgl_mode": False,
             "onscreen_keyboard": BOARD_HAS_TOUCH == 1 or BOARD_ID == BOARD_FLIPPER_ZERO,
             "openai_api_key": "",
@@ -49,7 +52,10 @@ class Settings:
                 "exit_button": int(self.__fetch_setting("picoware/settings/exit_button.json", "exit_button", BUTTON_BACK)),
                 "gemini_api_key": "",
                 "gmt_offset": int(self.__fetch_setting("picoware/settings/gmt_offset.json", "gmt_offset", 0)),
+                "local_api_key": "",
                 "local_url": "http://127.0.0.1:8080/v1/chat/completions",
+                "mcp_gateway_url": "",
+                "mcp_integrations": "",
                 "lvgl_mode": bool(self.__fetch_setting("picoware/settings/lvgl_mode.json", "lvgl_mode", False)),
                 "onscreen_keyboard": bool(self.__fetch_setting("picoware/settings/onscreen_keyboard.json", "onscreen_keyboard", BOARD_HAS_TOUCH == 1)),
                 "openai_api_key": "",
@@ -69,7 +75,17 @@ class Settings:
                 try:
                     obj = json.loads(_data)
                     self._settings.update(obj)
-                except Exception:
+                    # Migrate the legacy key once. A present empty new key is
+                    # intentional and must never resurrect legacy entries.
+                    if (
+                        "mcp_integrations" not in obj
+                        and "local_mcp_servers" in obj
+                    ):
+                        legacy = obj.get("local_mcp_servers", "")
+                        self._settings["mcp_integrations"] = legacy
+                        del self._settings["local_mcp_servers"]
+                        self.__save_settings()
+                except (TypeError, ValueError):
                     pass
     @property
     def anthropic_api_key(self) -> str:
@@ -181,6 +197,59 @@ class Settings:
     def local_url(self) -> str:
         """Return the current local URL."""
         return self._settings.get("local_url", "")
+
+    @property
+    def local_api_key(self) -> str:
+        """Return the optional API key for the local provider."""
+        return self._settings.get("local_api_key", "")
+
+    @local_api_key.setter
+    def local_api_key(self, value: str):
+        """Set the optional API key for the local provider."""
+        self._settings["local_api_key"] = value
+        self.__save_settings()
+
+    @property
+    def mcp_gateway_url(self) -> str:
+        """Return the explicitly configured compatibility gateway URL."""
+        value = self._settings.get("mcp_gateway_url", "")
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        return ""
+
+    @mcp_gateway_url.setter
+    def mcp_gateway_url(self, value: str):
+        """Set the optional integration gateway URL."""
+        self._settings["mcp_gateway_url"] = value
+        self.__save_settings()
+
+    @property
+    def mcp_integrations(self) -> str:
+        """Return the authoritative configured integration records."""
+        value = self._settings.get("mcp_integrations", "")
+        if isinstance(value, str):
+            return value
+        if isinstance(value, (dict, list)):
+            return json.dumps(value)
+        return ""
+
+    @mcp_integrations.setter
+    def mcp_integrations(self, value: str):
+        """Set integration records and make an empty value authoritative."""
+        self._settings["mcp_integrations"] = value or ""
+        if "local_mcp_servers" in self._settings:
+            del self._settings["local_mcp_servers"]
+        self.__save_settings()
+
+    @property
+    def local_mcp_servers(self) -> str:
+        """Return legacy MCP entries through the provider-neutral setting."""
+        return self.mcp_integrations
+
+    @local_mcp_servers.setter
+    def local_mcp_servers(self, value: str):
+        """Persist legacy MCP entries using the provider-neutral setting."""
+        self.mcp_integrations = value
 
     @local_url.setter
     def local_url(self, value: str):

@@ -17,8 +17,11 @@ STATE_USB_STREAM = const(10)  # toggle (enable/disable USB stream)
 STATE_ANTHROPIC_API_KEY = const(11)  # keyboard input for Anthropic API key
 STATE_GEMINI_API_KEY = const(12)  # keyboard input for Gemini API key
 STATE_LOCAL_URL = const(13)  # keyboard input for Local URL
-STATE_XAI_API_KEY = const(14)  # keyboard input for xAI API key
-STATE_SCREEN_BRIGHTNESS = const(15)  # choice (10 - 100)
+STATE_LOCAL_API_KEY = const(14)  # keyboard input for optional Local API key
+STATE_XAI_API_KEY = const(15)  # keyboard input for xAI API key
+STATE_SCREEN_BRIGHTNESS = const(16)  # choice (10 - 100)
+STATE_MCP_INTEGRATIONS = const(17)  # keyboard input for integration IDs
+STATE_MCP_GATEWAY_URL = const(18)  # keyboard input for integration gateway
 
 # modes
 _MODE_MENU = const(0)
@@ -34,7 +37,10 @@ _MODE_DEEPSEEK_KEYBOARD = const(9)
 _MODE_ANTHROPIC_KEYBOARD = const(10)
 _MODE_GEMINI_KEYBOARD = const(11)
 _MODE_LOCAL_URL_KEYBOARD = const(12)
-_MODE_XAI_KEYBOARD = const(13)
+_MODE_LOCAL_API_KEYBOARD = const(13)
+_MODE_XAI_KEYBOARD = const(14)
+_MODE_MCP_INTEGRATIONS_KEYBOARD = const(15)
+_MODE_MCP_GATEWAY_KEYBOARD = const(16)
 
 
 _settings = None
@@ -55,7 +61,10 @@ _deepseek_save_requested = False
 _anthropic_save_requested = False
 _gemini_save_requested = False
 _local_url_save_requested = False
+_local_api_save_requested = False
 _xai_save_requested = False
+_mcp_integrations_save_requested = False
+_mcp_gateway_save_requested = False
 
 
 def __color_values() -> list[int]:
@@ -125,8 +134,11 @@ def __config() -> tuple:
         ("Anthropic API Key", "anthropic_api_key", ""),
         ("Gemini API Key", "gemini_api_key", ""),
         ("Local URL", "local_url", "http://127.0.0.1:8080/v1/chat/completions"),
+        ("Local API Key", "local_api_key", ""),
         ("xAI API Key", "xai_api_key", ""),
         ("Screen Brightness", "screen_brightness", 100),
+        ("MCP Integrations / Servers", "mcp_integrations", ""),
+        ("MCP Gateway URL", "mcp_gateway_url", ""),
     )
 
 
@@ -613,6 +625,63 @@ def __local_url_save_callback(result: str) -> None:
     global _local_url_save_requested
     _local_url_save_requested = True
 
+def __open_local_api_keyboard() -> None:
+    """Open the keyboard for entering the optional Local API key."""
+    global _mode, _local_api_save_requested
+
+    keyboard = _view_manager.keyboard
+    keyboard.reset()
+    keyboard.title = "Local API Key"
+    keyboard.response = _settings.local_api_key
+    keyboard.set_save_callback(__local_api_save_callback)
+    keyboard.input_manager.reset()
+    keyboard.run(force=True)
+    _local_api_save_requested = False
+    _mode = _MODE_LOCAL_API_KEYBOARD
+
+def __local_api_save_callback(result: str) -> None:
+    """Record that the optional Local API key should be saved."""
+    global _local_api_save_requested
+    _local_api_save_requested = True
+
+def __open_mcp_integrations_keyboard() -> None:
+    """Open the keyboard for configured MCP integration IDs."""
+    global _mode, _mcp_integrations_save_requested
+
+    keyboard = _view_manager.keyboard
+    keyboard.reset()
+    keyboard.title = "IDs or server:Label|URL"
+    keyboard.response = _settings.mcp_integrations
+    keyboard.set_save_callback(__mcp_integrations_save_callback)
+    keyboard.input_manager.reset()
+    keyboard.run(force=True)
+    _mcp_integrations_save_requested = False
+    _mode = _MODE_MCP_INTEGRATIONS_KEYBOARD
+
+def __mcp_integrations_save_callback(result: str) -> None:
+    """Record that MCP integration IDs should be saved."""
+    global _mcp_integrations_save_requested
+    _mcp_integrations_save_requested = True
+
+def __open_mcp_gateway_keyboard() -> None:
+    """Open the keyboard for the optional MCP gateway URL."""
+    global _mode, _mcp_gateway_save_requested
+
+    keyboard = _view_manager.keyboard
+    keyboard.reset()
+    keyboard.title = "MCP Gateway URL"
+    keyboard.response = _settings.mcp_gateway_url
+    keyboard.set_save_callback(__mcp_gateway_save_callback)
+    keyboard.input_manager.reset()
+    keyboard.run(force=True)
+    _mcp_gateway_save_requested = False
+    _mode = _MODE_MCP_GATEWAY_KEYBOARD
+
+def __mcp_gateway_save_callback(result: str) -> None:
+    """Record that the MCP gateway URL should be saved."""
+    global _mcp_gateway_save_requested
+    _mcp_gateway_save_requested = True
+
 def __open_xai_keyboard() -> None:
     """Open the keyboard for entering the xAI API key."""
     global _mode, _xai_save_requested
@@ -702,7 +771,7 @@ def start(view_manager) -> bool:
     from picoware.gui.menu import Menu
     from picoware.system.settings import Settings
 
-    global _settings, _menu, _view_manager, _mode, _time_menu, _date_picker, _server_menu, _gmt_save_requested, _server_save_requested, _server_keyboard_field, _openai_save_requested, _deepseek_save_requested, _anthropic_save_requested, _gemini_save_requested, _xai_save_requested
+    global _settings, _menu, _view_manager, _mode, _time_menu, _date_picker, _server_menu, _gmt_save_requested, _server_save_requested, _server_keyboard_field, _openai_save_requested, _deepseek_save_requested, _anthropic_save_requested, _gemini_save_requested, _local_url_save_requested, _local_api_save_requested, _xai_save_requested, _mcp_integrations_save_requested, _mcp_gateway_save_requested
 
     _view_manager = view_manager
     _mode = _MODE_MENU
@@ -713,7 +782,11 @@ def start(view_manager) -> bool:
     _deepseek_save_requested = False
     _anthropic_save_requested = False
     _gemini_save_requested = False
+    _local_url_save_requested = False
+    _local_api_save_requested = False
     _xai_save_requested = False
+    _mcp_integrations_save_requested = False
+    _mcp_gateway_save_requested = False
 
     if _settings is not None:
         del _settings
@@ -798,6 +871,12 @@ def run(view_manager) -> None:
                 __open_gemini_keyboard()
             elif selected == STATE_LOCAL_URL:
                 __open_local_url_keyboard()
+            elif selected == STATE_LOCAL_API_KEY:
+                __open_local_api_keyboard()
+            elif selected == STATE_MCP_INTEGRATIONS:
+                __open_mcp_integrations_keyboard()
+            elif selected == STATE_MCP_GATEWAY_URL:
+                __open_mcp_gateway_keyboard()
             elif selected == STATE_XAI_API_KEY:
                 __open_xai_keyboard()
             elif selected == STATE_SCREEN_BRIGHTNESS:
@@ -930,11 +1009,44 @@ def run(view_manager) -> None:
             view_manager.keyboard.reset()
             __back_to_menu()
 
+    elif _mode == _MODE_LOCAL_API_KEYBOARD:
+        global _local_api_save_requested
+        if _local_api_save_requested:
+            _local_api_save_requested = False
+            _settings.local_api_key = view_manager.keyboard.response or ""
+            view_manager.keyboard.reset()
+            __back_to_menu()
+        elif not view_manager.keyboard.run():
+            view_manager.keyboard.reset()
+            __back_to_menu()
+
     elif _mode == _MODE_XAI_KEYBOARD:
         global _xai_save_requested
         if _xai_save_requested:
             _xai_save_requested = False
             _settings.xai_api_key = view_manager.keyboard.response or ""
+            view_manager.keyboard.reset()
+            __back_to_menu()
+        elif not view_manager.keyboard.run():
+            view_manager.keyboard.reset()
+            __back_to_menu()
+
+    elif _mode == _MODE_MCP_INTEGRATIONS_KEYBOARD:
+        global _mcp_integrations_save_requested
+        if _mcp_integrations_save_requested:
+            _mcp_integrations_save_requested = False
+            _settings.mcp_integrations = view_manager.keyboard.response or ""
+            view_manager.keyboard.reset()
+            __back_to_menu()
+        elif not view_manager.keyboard.run():
+            view_manager.keyboard.reset()
+            __back_to_menu()
+
+    elif _mode == _MODE_MCP_GATEWAY_KEYBOARD:
+        global _mcp_gateway_save_requested
+        if _mcp_gateway_save_requested:
+            _mcp_gateway_save_requested = False
+            _settings.mcp_gateway_url = view_manager.keyboard.response or ""
             view_manager.keyboard.reset()
             __back_to_menu()
         elif not view_manager.keyboard.run():

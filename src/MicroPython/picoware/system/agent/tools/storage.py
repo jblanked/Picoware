@@ -1,6 +1,19 @@
 """Storage tools for the agent."""
 
+from micropython import const
 from picoware.system.agent.tools.tool import Tool, Parameters, Property
+
+VALID_PATH = "Use a portable relative SD path such as 'picoware/apps/example.py'."
+MAX_STORAGE_READ_BYTES = const(8192)
+
+
+def storage_get_info(view_manager) -> dict:
+    """Return free and total SD-card capacity in bytes."""
+    storage = view_manager.storage
+    return {
+        "free_space": storage.free_space,
+        "total_space": storage.total_space,
+    }
 
 def storage_listdir(view_manager, dir_path) ->list[str]:
     """List the contents of a directory on the SD card.
@@ -36,12 +49,16 @@ def storage_read(view_manager, file_path, mode: str = "r", index: int = 0, count
         file_path (str): The file path.
         mode (str): The read mode. Defaults to "r".
         index (int): The byte index to start from. Defaults to 0.
-        count (int): The number of bytes to read. Defaults to 0.
+        count (int): The number of bytes to read. Defaults to 8192 and is capped.
 
     Returns:
         str or bytes: The file contents.
     """
     storage = view_manager.storage
+    index = max(0, int(index))
+    count = int(count)
+    if count <= 0 or count > MAX_STORAGE_READ_BYTES:
+        count = MAX_STORAGE_READ_BYTES
     return storage.read(file_path, mode, index, count)
 
 def storage_remove(view_manager, file_path) -> bool:
@@ -80,7 +97,7 @@ TOOL_STORAGE_LISTDIR = Tool(
             Property(
                 name="dir_path",
                 type="string",
-                description="The path to the directory on the SD card.",
+                description=VALID_PATH,
                 required=True,
             ),
         ]
@@ -95,7 +112,7 @@ TOOL_STORAGE_MKDIR = Tool(
             Property(
                 name="dir_path",
                 type="string",
-                description="The path to the directory on the SD card.",
+                description=VALID_PATH,
                 required=True,
             ),
         ]
@@ -110,13 +127,14 @@ TOOL_STORAGE_READ = Tool(
             Property(
                 name="file_path",
                 type="string",
-                description="The path to the file on the SD card.",
+                description=VALID_PATH,
                 required=True,
             ),
             Property(
                 name="mode",
                 type="string",
                 description="The file mode (e.g. 'r' for read, 'rb' for read binary).",
+                enum=["r", "rb"],
             ),
             Property(
                 name="index",
@@ -126,7 +144,10 @@ TOOL_STORAGE_READ = Tool(
             Property(
                 name="count",
                 type="integer",
-                description="The number of bytes to read (0 for full file).",
+                description=(
+                    "Bytes to read. Zero uses the 8192-byte device limit; "
+                    "continue with a larger index for the next page."
+                ),
             ),
         ]
     ),
@@ -140,7 +161,7 @@ TOOL_STORAGE_REMOVE = Tool(
             Property(
                 name="file_path",
                 type="string",
-                description="The path to the file or directory on the SD card.",
+                description=VALID_PATH,
                 required=True,
             ),
         ]
@@ -156,7 +177,7 @@ TOOL_STORAGE_WRITE = Tool(
             Property(
                 name="file_path",
                 type="string",
-                description="The path to the file on the SD card.",
+                description=VALID_PATH,
                 required=True,
             ),
             Property(
@@ -169,7 +190,14 @@ TOOL_STORAGE_WRITE = Tool(
                 name="mode",
                 type="string",
                 description="The file mode (e.g. 'w' for write, 'wb' for write binary).",
+                enum=["w", "a", "wb", "ab"],
             ),
         ]
     ),
+)
+
+TOOL_STORAGE_GET_INFO = Tool(
+    name="storage_get_info",
+    description="Return free and total SD-card capacity in bytes.",
+    parameters=Parameters(properties=[]),
 )

@@ -79,6 +79,20 @@ class Storage:
         return sd_mp.is_initialized()
 
     @property
+    def free_space(self) -> int:
+        """Return currently available SD-card bytes."""
+        if not self._has_storage:
+            return 0
+        return int(sd_mp.get_free_space())
+
+    @property
+    def total_space(self) -> int:
+        """Return total SD-card capacity in bytes."""
+        if not self._has_storage:
+            return 0
+        return int(sd_mp.get_total_space())
+
+    @property
     def vfs_mounted(self) -> bool:
         """Returns True if the VFS is mounted (allows use of open(), __import__, etc.)."""
         return self._vfs_mounted
@@ -663,12 +677,12 @@ class Storage:
             return False  # No SD storage on this board
 
         try:
-            if mode == "w":
-                return sd_mp.write(file_path, data.encode("utf-8"), True)
-            if mode == "a":
-                return sd_mp.write(file_path, data.encode("utf-8"), False)
-            return sd_mp.write(file_path, data, False)
-        except Exception as e:
+            if mode not in ("w", "a", "wb", "ab"):
+                return False
+            if isinstance(data, str):
+                data = data.encode("utf-8")
+            return sd_mp.write(file_path, data, mode in ("w", "wb"))
+        except OSError as e:
             print(f"Error writing to file {file_path}: {e}")
             return False
 

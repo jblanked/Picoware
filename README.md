@@ -5,7 +5,7 @@ Open-source custom firmware for PicoCalc, Cardputer ADV, Flipper Zero, and other
 
 ### Features
 - [Desktop Companion App](./app/README.md) with USB Video Stream and App Store
-- [Desktop Simulator](./guides/Desktop.md) (runs Picoware on Mac/Linux with SDL2 and native Picoware C modules)
+- [Desktop Simulator](./guides/Simulator.md) (runs Picoware on Mac/Linux with SDL2 and native Picoware C modules)
 - On-Device Code Editor
 - On-Device REPL
 - File Manager

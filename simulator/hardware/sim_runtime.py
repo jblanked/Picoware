@@ -89,6 +89,8 @@ KEY_NAMES = {
     "center": 13,
     "newline": 13,
     "tab": 9,
+    "space": 32,
+    "spacebar": 32,
     "home": 0xD2,
     "delete": 0xD4,
     "del": 0xD4,

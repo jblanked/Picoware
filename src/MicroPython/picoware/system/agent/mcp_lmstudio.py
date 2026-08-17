@@ -3,7 +3,6 @@
 import json
 
 from picoware.system.agent.mcp import (
-    MAX_BROWSER_MCP_CALLS,
     MAX_MCP_CALLS,
     MAX_MCP_EVIDENCE_CHARS,
     MAX_MCP_EVENT_BYTES,
@@ -11,8 +10,6 @@ from picoware.system.agent.mcp import (
     MAX_MCP_STREAM_EVENTS,
     MAX_MCP_ERROR_CHARS,
     MAX_MCP_TOOL_ID_CHARS,
-    MAX_MCP_BROWSER_CONTEXT_CHARS,
-    _append_bounded_evidence,
     _current_time_grounding,
     _utf8_prefix,
     _tool_loop_issue,
@@ -63,6 +60,40 @@ def _trim_event_data(data):
     while end > start and data[end - 1] in (9, 10, 13, 32):
         end -= 1
     return data if start == 0 and end == len(data) else data[start:end]
+
+
+def _successful_output_error(value) -> str:
+    """Return an error carried inside a nominally successful tool result."""
+    if isinstance(value, dict):
+        failed = (
+            value.get("isError") is True
+            or value.get("is_error") is True
+            or value.get("ok") is False
+            or value.get("success") is False
+        )
+        detail = value.get("error", "")
+        if failed and not detail:
+            detail = value.get("message", "")
+        if failed and detail:
+            if isinstance(detail, dict):
+                detail = detail.get("message", str(detail))
+            return str(detail)[:MAX_MCP_ERROR_CHARS]
+        if detail and "error" in value:
+            return str(detail)[:MAX_MCP_ERROR_CHARS]
+        return ""
+    if isinstance(value, list):
+        return ""
+    text = value if isinstance(value, str) else str(value)
+    stripped = text.strip().lstrip("\"' ")
+    lower = stripped.lower()
+    for marker in (
+        "error:", "error -", "failed:", "failed to ", "failure:",
+        "exception:", '{"error":', '{"iserror":true',
+        '{"is_error":true',
+    ):
+        if lower.startswith(marker):
+            return stripped[:MAX_MCP_ERROR_CHARS]
+    return ""
 
 
 def gateway_url(configured_url: str, model_url: str) -> str:
@@ -195,8 +226,14 @@ class IntegrationStreamSink:
                     self._stop("MCP tool-call budget exceeded")
                     return
                 self.call_count += 1
-            self.success_count += 1
             output = event.get("output", "")
+            output_error = _successful_output_error(output)
+            if output_error:
+                self.error = output_error
+                self.complete = True
+                self.http.close()
+                return
+            self.success_count += 1
             if isinstance(output, (dict, list)):
                 output = json.dumps(output)
             elif not isinstance(output, str):
@@ -351,19 +388,24 @@ class LMStudioMCPAdapter:
 
     def _write_request(
         self, user_message: str, integrations, force_retry: bool = False,
+        optional: bool = False,
     ) -> None:
-        instruction = (
-            "The previous attempt returned no tool call. You must call exactly "
-            "one provided integration tool now. Do not answer from memory. "
-            if force_retry else
-            "Call at least one provided integration tool before answering. "
+        instruction = "Follow these steps in order:\n"
+        if force_retry:
+            instruction += "The previous attempt made no tool call.\n"
+        call_rule = (
+            "2. Call at most one allowed integration tool only if it is needed; "
+            "otherwise make no tool call.\n"
+            if optional else
+            "2. Call exactly one allowed integration tool once.\n"
         )
         guard = (
-            instruction + "Call any individual tool at most once. Never repeat "
-            "a successful call with identical arguments. For web search, use "
-            "one concise query and no more than 3 results. Open only the most "
-            "relevant result. Use browser tools only to read. If a result is "
-            "empty, stop and report the limitation.\n\nUser request:\n"
+            instruction
+            + "1. Determine which allowed integration tool matches the request.\n"
+            + call_rule
+            + "3. Return only the concise tool result.\n"
+            "Do not answer from memory. Never make a change unless the user "
+            "explicitly requested that change.\n\nUser request:\n"
         )
         storage = self.view_manager.storage
         storage.write(
@@ -376,9 +418,10 @@ class LMStudioMCPAdapter:
         storage.write(
             self.request_path,
             '","system_prompt":' + json.dumps(
-                "Gather concise factual evidence with only the configured "
-                "integrations. Preserve direct URLs and do not perform device "
-                "actions." + _current_time_grounding(self.view_manager)
+                "Use only the configured integrations. Preserve direct resource "
+                "identifiers. Never perform a mutating action unless the user's "
+                "original request explicitly asks for that action."
+                + _current_time_grounding(self.view_manager)
             ) + ',"integrations":[',
             mode="a",
         )
@@ -397,7 +440,7 @@ class LMStudioMCPAdapter:
 
     def run_stage_once(
         self, user_message: str, integrations,
-        max_calls: int, force_retry: bool = False,
+        max_calls: int, force_retry: bool = False, optional: bool = False,
     ):
         """Run one bounded LM Studio integration stage."""
         storage = self.view_manager.storage
@@ -406,7 +449,9 @@ class LMStudioMCPAdapter:
         status_code = 0
         reason = ""
         try:
-            self._write_request(user_message, integrations, force_retry)
+            self._write_request(
+                user_message, integrations, force_retry, optional
+            )
             sink = IntegrationStreamSink(
                 self.http, storage, self.spool_path, max_calls=max_calls
             )
@@ -446,6 +491,8 @@ class LMStudioMCPAdapter:
             return "", sink.call_count, "MCP gateway error: " + sink.error
         evidence = "\n\n".join(sink.evidence).strip()
         if sink.call_count == 0:
+            if optional and sink.complete:
+                return "", 0, ""
             return "", 0, "MCP gateway returned no tool calls."
         if not evidence:
             return "", sink.call_count, "MCP gateway returned no evidence."
@@ -453,102 +500,21 @@ class LMStudioMCPAdapter:
 
     def run_stage(
         self, user_message: str, integrations,
-        max_calls: int = MAX_MCP_CALLS,
+        max_calls: int = MAX_MCP_CALLS, optional: bool = False,
     ):
         """Run one stage with a bounded no-tool retry."""
         result = self.run_stage_once(
-            user_message, integrations, max_calls, False
+            user_message, integrations, max_calls, False, optional
         )
-        if result[1] == 0 and result[2] == "MCP gateway returned no tool calls.":
+        if (
+            not optional and result[1] == 0
+            and result[2] == "MCP gateway returned no tool calls."
+        ):
             self.view_manager.log("[Agent] MCP retry after no tool call")
             result = self.run_stage_once(
-                user_message, integrations, max_calls, True
+                user_message, integrations, max_calls, True, False
             )
         return result
-
-    def research(self, user_message: str, records):
-        """Run selected LM Studio integrations and return bounded evidence."""
-        if not records:
-            return "", ""
-        search = []
-        browser = []
-        other = []
-        for record in records:
-            capabilities = record.get("capabilities", ["generic"])
-            item = self.gateway_item(record)
-            routed = False
-            if "search" in capabilities:
-                search.append(item)
-                routed = True
-            if "browser" in capabilities or "fetch" in capabilities:
-                browser.append(item)
-                routed = True
-            if not routed:
-                other.append(item)
-
-        parts = []
-        used = 0
-        calls = 0
-        search_evidence = ""
-        if search:
-            search_evidence, count, error = self.run_stage(
-                user_message, search, max_calls=1
-            )
-            calls += count
-            if error:
-                return "", error
-            if search_evidence:
-                if browser or other:
-                    search_evidence, _search_bytes = _utf8_prefix(
-                        search_evidence, MAX_MCP_BROWSER_CONTEXT_CHARS
-                    )
-                used = _append_bounded_evidence(
-                    parts, "# Search evidence", search_evidence, used
-                )
-        if browser and calls < MAX_MCP_CALLS:
-            browser_request = user_message
-            if search_evidence:
-                browser_request = (
-                    "Open the single most relevant direct URL from the search "
-                    "evidence. Call one navigation or fetch tool and return the "
-                    "page title, final URL, and relevant page evidence.\n\n"
-                    "Original request:\n" + user_message
-                    + "\n\nSearch evidence:\n"
-                    + search_evidence
-                )
-            browser_evidence, count, error = self.run_stage(
-                browser_request, browser,
-                max_calls=min(MAX_BROWSER_MCP_CALLS, MAX_MCP_CALLS - calls),
-            )
-            calls += count
-            if error:
-                if parts:
-                    used = _append_bounded_evidence(
-                        parts, "# Browser limitation", error, used
-                    )
-                else:
-                    return "", error
-            elif browser_evidence:
-                used = _append_bounded_evidence(
-                    parts, "# Browser evidence", browser_evidence, used
-                )
-        if other and calls < MAX_MCP_CALLS:
-            other_evidence, count, error = self.run_stage(
-                user_message, other, max_calls=min(2, MAX_MCP_CALLS - calls)
-            )
-            calls += count
-            if error:
-                used = _append_bounded_evidence(
-                    parts, "# Integration limitation", error, used
-                )
-            elif other_evidence:
-                used = _append_bounded_evidence(
-                    parts, "# Additional evidence", other_evidence, used
-                )
-        evidence = "\n\n".join(parts).strip()
-        if not evidence:
-            return "", "MCP integrations returned no evidence."
-        return evidence, ""
 
     def scan_integrations(self, records):
         """Run configured LM Studio catalog integrations."""

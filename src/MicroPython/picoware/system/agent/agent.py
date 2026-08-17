@@ -16,6 +16,9 @@ MAX_IDENTICAL_TOOL_CALLS = const(2)
 MAX_CONVERSATION_MESSAGES = const(20)
 MAX_CONVERSATION_BYTES = const(32768)
 MAX_MESSAGE_CHARS = const(8192)
+MAX_MCP_CONTEXT_MESSAGES = const(6)
+MAX_MCP_CONTEXT_BYTES = const(2048)
+MAX_MCP_CONTEXT_ITEM_BYTES = const(512)
 # Raw SSE is retained only as a bounded temporary SD diagnostic spool.  It is
 # not a heap limit; parsed events are discarded as the stream progresses.
 MAX_CHAT_STREAM_BYTES = const(262144)
@@ -207,6 +210,41 @@ def _bounded_request_text(value: str) -> str:
     )
 
 
+def _mcp_conversation_context(conversation) -> str:
+    """Return recent chat context for reference resolution, never authority."""
+    if not isinstance(conversation, list) or not conversation:
+        return ""
+    lines = []
+    used = 0
+    inspected = 0
+    for message in reversed(conversation):
+        if inspected >= MAX_MCP_CONTEXT_MESSAGES:
+            break
+        inspected += 1
+        if not isinstance(message, dict):
+            continue
+        role = message.get("role")
+        content = message.get("content", "")
+        if role not in ("user", "assistant") or not isinstance(content, str):
+            continue
+        content = content.strip()
+        if not content:
+            continue
+        prefix = ("User: " if role == "user" else "Assistant: ")
+        remaining = MAX_MCP_CONTEXT_BYTES - used - _utf8_byte_size(prefix) - 1
+        if remaining <= 0:
+            break
+        text = _utf8_prefix(
+            content, min(remaining, MAX_MCP_CONTEXT_ITEM_BYTES)
+        )
+        if not text:
+            break
+        line = prefix + text
+        lines.insert(0, line)
+        used += _utf8_byte_size(line) + 1
+    return "\n".join(lines)
+
+
 def _is_negative_reply(value: str) -> bool:
     """Return whether a short reply declines the pending action."""
     reply = _normalized_reply(value)
@@ -335,6 +373,27 @@ def _mcp_reference_needs_topic(user_message: str) -> bool:
     ):
         return False
     return len(text.split()) <= 5
+
+
+def _pending_mcp_topic(conversation, start_index: int = -1) -> str:
+    """Return the nearest substantive user request in a continuation chain."""
+    if not isinstance(conversation, list) or not conversation:
+        return ""
+    index = start_index if start_index >= 0 else len(conversation) - 1
+    minimum = max(-1, index - 8)
+    while index > minimum:
+        message = conversation[index]
+        if isinstance(message, dict) and message.get("role") == "user":
+            text = message.get("content", "")
+            if isinstance(text, str) and text.strip():
+                reply = _normalized_reply(text)
+                if (
+                    reply not in MCP_AFFIRMATIVE_REPLIES
+                    and not _mcp_reference_needs_topic(text)
+                ):
+                    return text
+        index -= 1
+    return ""
 
 
 def _clean_model_content(value: str) -> str:
@@ -739,7 +798,7 @@ class Agent:
     __slots__ = [
         "mode", "tools", "llm", "mcp", "view_manager", "http", "_file_path",
         "_conv_path", "_mem_path", "_msg_path", "_state_path",
-        "_conversation", "_status", "_cancelled",
+        "_conversation", "_pending_mcp_request", "_status", "_cancelled",
     ]
 
     def __init__(self, view_manager, mode: int = MODE_CHAT, llm: LLM = None, file_path: str = "picoware/settings/agent_request.json"):
@@ -765,6 +824,7 @@ class Agent:
         self._msg_path = "picoware/settings/agent_msg.json"
         self._state_path = "picoware/settings/agent_state_" + str(mode) + ".json"
         self._conversation = []
+        self._pending_mcp_request = ""
         self._status = "Ready"
         self._cancelled = False
 
@@ -806,6 +866,7 @@ class Agent:
     def reset_conversation(self) -> None:
         """Clear the current mode's persisted conversation."""
         self._conversation = []
+        self._pending_mcp_request = ""
         self.view_manager.storage.remove(self._state_path)
 
     def _fingerprint(self) -> str:
@@ -826,12 +887,16 @@ class Agent:
         if not isinstance(state, dict) or state.get("fingerprint") != self._fingerprint():
             return
         self._conversation = self._sanitize_conversation(state.get("conversation"))
+        pending = state.get("pending_mcp_request", "")
+        if isinstance(pending, str):
+            self._pending_mcp_request = _bounded_request_text(pending.strip())
 
     def _save_state(self) -> None:
         self.view_manager.storage.deserialize(
             {
                 "fingerprint": self._fingerprint(),
                 "conversation": self._conversation,
+                "pending_mcp_request": self._pending_mcp_request,
             },
             self._state_path,
         )
@@ -1371,6 +1436,16 @@ class Agent:
             current_explicit = current_selected
         else:
             current_explicit, _ambiguous = explicit_selector(user_message)
+        reply = _normalized_reply(user_message)
+        if self._pending_mcp_request and (
+            current_explicit or reply in MCP_AFFIRMATIVE_REPLIES
+        ):
+            return (
+                "Complete the pending integration request. Apply the current "
+                "instruction without another approval step.\n\nPending request:\n"
+                + self._pending_mcp_request
+                + "\n\nCurrent instruction:\n" + user_message
+            )
         if len(conversation) < 2:
             return user_message
 
@@ -1397,14 +1472,16 @@ class Agent:
         # An exact-label response to our own clarification must retain the
         # substantive request that caused the clarification.
         if current_explicit:
+            topic = _pending_mcp_topic(
+                conversation, len(conversation) - 2
+            ) or prior_text
             return (
                 "Complete the preceding request. The selected configured "
                 "integrations are in the user instruction.\n\nPrevious topic:\n"
-                + prior_text
+                + topic
                 + "\n\nUser instruction:\n" + user_message
             )
 
-        reply = _normalized_reply(user_message)
         if reply in MCP_AFFIRMATIVE_REPLIES:
             # Walk only the local pending-action chain.  Every skipped user
             # turn must itself be an affirmative response, and every skipped
@@ -1489,6 +1566,8 @@ class Agent:
         declined_mcp = _declines_pending_mcp(
             user_message, self._conversation
         )
+        if declined_mcp:
+            self._pending_mcp_request = ""
         storage = self.view_manager.storage
         try:
             if (
@@ -1501,17 +1580,21 @@ class Agent:
                 if explicit_selector is not None:
                     explicit, ambiguous = explicit_selector(user_message)
                     if ambiguous:
+                        if not self._pending_mcp_request:
+                            self._pending_mcp_request = user_message
                         return MCP_EXACT_LABEL_CLARIFICATION
                     if (
                         explicit
                         and _mcp_reference_needs_topic(user_message)
                         and not _has_pending_mcp_context(self._conversation)
                     ):
+                        self._pending_mcp_request = user_message
                         return MCP_TOPIC_CLARIFICATION
             self._write_mode_context(context)
             effective_request = _bounded_request_text(
                 self._mcp_request_message(user_message)
             )
+            mcp_context = _mcp_conversation_context(self._conversation)
             has_evidence = False
             evidence = ""
             if (
@@ -1519,7 +1602,9 @@ class Agent:
                 and not declined_mcp
             ):
                 self._status = "MCP research"
-                evidence, error = self.mcp.research(effective_request)
+                evidence, error = self.mcp.research(
+                    effective_request, mcp_context
+                )
                 if error:
                     return "API error: " + error
                 if evidence:
@@ -1536,13 +1621,23 @@ class Agent:
             # The evidence is now in the temporary SD conversation file; do
             # not retain a duplicate while the final model stream is running.
             evidence = ""
+            mcp_context = ""
             effective_request = ""
             from gc import collect
             collect()
-            return self._run_loop(
+            result = self._run_loop(
                 _request_tool_names(self.mode, user_message, has_evidence),
                 has_evidence=has_evidence,
             )
+            if isinstance(result, str) and not result.startswith(
+                ERROR_RESPONSE_PREFIXES
+            ):
+                if _assistant_needs_mcp_followup(result):
+                    if not self._pending_mcp_request:
+                        self._pending_mcp_request = user_message
+                else:
+                    self._pending_mcp_request = ""
+            return result
         except Exception as exc:
             self._status = "Error"
             return f"An error occurred during processing: {exc}"

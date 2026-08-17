@@ -8,8 +8,10 @@ from picoware.system.agent.mcp import (
     MAX_MCP_EVENT_BYTES,
     _append_bounded_evidence,
     _current_time_grounding,
+    _hint_capabilities,
     _utf8_size,
     integration_key,
+    tool_hints_from_definitions,
 )
 
 
@@ -171,25 +173,6 @@ def _rpc_error(payload) -> str:
     return message
 
 
-def _tool_capabilities(tool) -> list[str]:
-    """Infer routing capabilities from an MCP tool definition."""
-    text = (
-        str(tool.get("name", "")) + " "
-        + str(tool.get("title", "")) + " "
-        + str(tool.get("description", ""))
-    ).lower()
-    capabilities = []
-    if any(word in text for word in ("search", "web query")):
-        capabilities.append("search")
-    if any(word in text for word in (
-        "browser", "navigate", "fetch", "website", "page content",
-    )):
-        capabilities.append("browser")
-    if any(word in text for word in ("current time", "clock", "date")):
-        capabilities.append("time")
-    return capabilities or ["generic"]
-
-
 def _bounded_tool(value):
     """Return a compact tool definition suitable for Pico-class devices."""
     if not isinstance(value, dict):
@@ -213,11 +196,20 @@ def _bounded_tool(value):
         schema_size = MAX_MCP_TOOL_SCHEMA_BYTES + 1
     if schema_size > MAX_MCP_TOOL_SCHEMA_BYTES:
         schema = {"type": "object", "properties": {}}
-    return {
+    tool = {
         "name": name,
         "description": description,
         "inputSchema": schema,
     }
+    annotations = value.get("annotations")
+    if isinstance(annotations, dict):
+        effect = {}
+        for key in ("readOnlyHint", "destructiveHint"):
+            if isinstance(annotations.get(key), bool):
+                effect[key] = annotations[key]
+        if effect:
+            tool["annotations"] = effect
+    return tool
 
 
 class StandardMCPAdapter:
@@ -489,7 +481,7 @@ class StandardMCPAdapter:
         )
         self._append_json_text(
             storage, path,
-            instruction + " Use one concise search query when applicable."
+            instruction + " Use concise valid arguments for the selected tool."
             + _current_time_grounding(self.view_manager),
         )
         storage.write(path, '"},{"role":"user","content":"', mode="a")
@@ -585,10 +577,11 @@ class StandardMCPAdapter:
             return "", "MCP tool returned no text evidence"
         return evidence, ""
 
-    def research(self, user_message: str, records):
-        """Select one direct-server tool through Chat Completions and call it."""
+    def research_stage(self, user_message: str, records, excluded_tools=()):
+        """Plan and execute one direct MCP call with bounded provenance."""
         server_tools = []
         errors = []
+        excluded = list(excluded_tools)
         per_server = max(
             1, MAX_MCP_PLANNER_TOOLS // max(1, len(records))
         )
@@ -597,21 +590,36 @@ class StandardMCPAdapter:
             if error:
                 errors.append(record.get("server_label", "MCP") + ": " + error)
             elif tools:
-                server_tools.append((record, tools, context))
+                allowed = record.get("allowed_tools", [])
+                filtered = []
+                for tool in tools:
+                    signature = integration_key(record) + "|" + tool["name"]
+                    if signature in excluded:
+                        continue
+                    if allowed and tool["name"] not in allowed:
+                        continue
+                    filtered.append(tool)
+                if filtered:
+                    server_tools.append((record, filtered, context))
         schemas, mapping = self._planner_tools(server_tools)
         if not schemas:
-            return "", "; ".join(errors) or "Direct MCP servers exposed no tools"
+            return (
+                "", 0,
+                "; ".join(errors) or "Direct MCP servers exposed no tools",
+                "",
+            )
         name, arguments, error = self._plan_call(user_message, schemas)
         if error == "Direct MCP planner returned no tool call":
             name, arguments, error = self._plan_call(
                 user_message, schemas, force_retry=True
             )
         if error:
-            return "", error
+            return "", 0, error, ""
         target = mapping.get(name)
         if target is None:
-            return "", "Direct MCP planner selected an unknown tool"
+            return "", 0, "Direct MCP planner selected an unknown tool", ""
         record, tool, context = target
+        provenance = integration_key(record) + "|" + tool["name"]
         payload, _status, _headers, error = self._rpc(
             record,
             "tools/call",
@@ -620,11 +628,18 @@ class StandardMCPAdapter:
             context.get("session", ""),
         )
         if error:
-            return "", error
+            return "", 1, error, provenance
         evidence, error = self._tool_evidence(payload)
         if error:
-            return "", error
-        return "# Direct MCP evidence\n" + evidence, ""
+            return "", 1, error, provenance
+        return "# Direct MCP evidence\n" + evidence, 1, "", provenance
+
+    def research(self, user_message: str, records):
+        """Compatibility wrapper for one direct-server research stage."""
+        evidence, _calls, error, _provenance = self.research_stage(
+            user_message, records
+        )
+        return evidence, error
 
     def scan_integrations(self, records):
         """Refresh direct server tool names and routing capabilities."""
@@ -637,9 +652,12 @@ class StandardMCPAdapter:
                 continue
             updated = dict(record)
             updated["allowed_tools"] = [tool["name"] for tool in tools[:12]]
+            updated["tool_hints"] = tool_hints_from_definitions(tools)
             capabilities = []
             for tool in tools:
-                for capability in _tool_capabilities(tool):
+                hint = tool_hints_from_definitions([tool])
+                inferred = _hint_capabilities(hint[0]) if hint else []
+                for capability in (inferred or ["generic"]):
                     if capability not in capabilities:
                         capabilities.append(capability)
             updated["capabilities"] = capabilities or ["generic"]

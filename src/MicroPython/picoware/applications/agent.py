@@ -2,7 +2,7 @@
 import micropython
 from utime import ticks_diff, ticks_ms
 from picoware.system.buttons import (
-    BUTTON_UP, BUTTON_DOWN, BUTTON_CENTER, BUTTON_BACK, BUTTON_N,
+    BUTTON_UP, BUTTON_DOWN, BUTTON_CENTER, BUTTON_BACK,
 )
 from picoware.system.colors import (
     TFT_WHITE, TFT_DARKGREY, TFT_LIGHTGREY, TFT_GREEN,
@@ -21,6 +21,11 @@ STATE_SETTINGS_SERVER = micropython.const(9)
 
 ACTIVITY_FRAME_MS = micropython.const(250)
 ACTIVITY_SEGMENTS = micropython.const(8)
+AGENT_BUTTON_CTRL_N = micropython.const(1001)
+AGENT_BUTTON_CTRL_R = micropython.const(1002)
+CTRL_N_RAW = micropython.const(14)
+CTRL_R_RAW = micropython.const(18)
+_SHORTCUT_MISSING = object()
 
 _agent          = None
 _menu           = None
@@ -54,6 +59,43 @@ _scan_result = None
 _scan_error = ""
 _scan_done = False
 _server_is_catalog = False
+_shortcut_previous_n = _SHORTCUT_MISSING
+_shortcut_previous_r = _SHORTCUT_MISSING
+_shortcuts_installed = False
+
+
+def _install_agent_shortcuts(input_manager) -> None:
+    """Install Ctrl shortcuts only in this Agent app's Input instance."""
+    global _shortcut_previous_n, _shortcut_previous_r, _shortcuts_installed
+    if _shortcuts_installed:
+        return
+    mapping = input_manager._button_map
+    _shortcut_previous_n = mapping.get(CTRL_N_RAW, _SHORTCUT_MISSING)
+    _shortcut_previous_r = mapping.get(CTRL_R_RAW, _SHORTCUT_MISSING)
+    mapping[CTRL_N_RAW] = AGENT_BUTTON_CTRL_N
+    mapping[CTRL_R_RAW] = AGENT_BUTTON_CTRL_R
+    _shortcuts_installed = True
+
+
+def _remove_agent_shortcuts(input_manager) -> None:
+    """Restore the Input mapping that existed before Agent started."""
+    global _shortcut_previous_n, _shortcut_previous_r, _shortcuts_installed
+    if not _shortcuts_installed:
+        return
+    mapping = input_manager._button_map
+    for raw, button, previous in (
+        (CTRL_N_RAW, AGENT_BUTTON_CTRL_N, _shortcut_previous_n),
+        (CTRL_R_RAW, AGENT_BUTTON_CTRL_R, _shortcut_previous_r),
+    ):
+        if mapping.get(raw) != button:
+            continue
+        if previous is _SHORTCUT_MISSING:
+            mapping.pop(raw, None)
+        else:
+            mapping[raw] = previous
+    _shortcut_previous_n = _SHORTCUT_MISSING
+    _shortcut_previous_r = _SHORTCUT_MISSING
+    _shortcuts_installed = False
 
 
 @micropython.native
@@ -235,9 +277,9 @@ def _render_chat(view_manager):
     # Prompt bar
     bar_y = h - prompt_h
     draw._fill_rectangle(0, bar_y, w, prompt_h, TFT_DARKGREY)
-    prompt = "OK=Type  Shift+N=New  BACK=Menu"
+    prompt = "OK=Type  Ctrl+N=New  Ctrl+R=Resend  BACK=Menu"
     if draw.len(prompt) > w:
-        prompt = "OK Type  Sh+N New  BACK"
+        prompt = "OK Type  ^N New  ^R Again  BACK"
     pw = draw.len(prompt)
     draw._text((w - pw) // 2, bar_y + (prompt_h - font.height) // 2,
                prompt, TFT_LIGHTGREY, font.size)
@@ -416,6 +458,11 @@ def _open_chat_input(view_manager, initial_text: str = "") -> None:
 def _confirm_new_session(view_manager) -> bool:
     """Confirm and clear the current mode's persisted conversation."""
     global _conversation, _scroll_offset, _max_scroll
+    if not _conversation:
+        _scroll_offset = 0
+        _max_scroll = 0
+        _render_chat(view_manager)
+        return True
     message = "Start a new " + _mode_label + " session?\nOK=Yes  BACK=No"
     if not view_manager.alert(message, False):
         _render_chat(view_manager)
@@ -426,6 +473,58 @@ def _confirm_new_session(view_manager) -> bool:
     _max_scroll = 0
     _render_chat(view_manager)
     return True
+
+
+def _last_user_request(conversation) -> str:
+    """Return the most recent visible user request for Ctrl+R."""
+    if not isinstance(conversation, list):
+        return ""
+    for message in reversed(conversation):
+        if (
+            isinstance(message, dict)
+            and message.get("role") == "user"
+            and isinstance(message.get("content"), str)
+            and message["content"].strip()
+        ):
+            return message["content"].strip()
+    return ""
+
+
+def _open_new_chat_from_menu(view_manager) -> None:
+    """Open Chat and discard persisted history only after confirmation."""
+    global _agent, _agent_mode, _mode_label, _conversation, _state
+    global _scroll_offset, _max_scroll
+    from picoware.system.agent.agent import Agent, MODE_CHAT
+    from picoware.system.agent.llm import LLM
+
+    if _agent is None or _agent_mode != MODE_CHAT:
+        if _agent is not None:
+            _agent.cancel()
+        _agent_mode = MODE_CHAT
+        _mode_label = "Chat"
+        _agent = Agent(
+            view_manager,
+            MODE_CHAT,
+            LLM(
+                view_manager.storage,
+                _settings["provider"],
+                _settings["model"],
+            ),
+        )
+    _conversation = _agent.conversation
+    _state = STATE_CHAT
+    if _conversation and not view_manager.alert(
+        "Discard the old Chat conversation?\nOK=Discard  BACK=Keep", False
+    ):
+        _scroll_offset = 32767
+        _render_chat(view_manager)
+        return
+    if _conversation:
+        _agent.reset_conversation()
+        _conversation = _agent.conversation
+    _scroll_offset = 0
+    _max_scroll = 0
+    _render_chat(view_manager)
 
 def _set_settings(view_manager):
     """Load or create the agent settings.
@@ -441,7 +540,10 @@ def _set_settings(view_manager):
             "model": LLM(view_manager.storage, DEEPSEEK).model,
             "provider": DEEPSEEK
         }
-        _save_settings(view_manager)
+        if not _save_settings(view_manager):
+            view_manager.alert(
+                "Failed to save default agent settings.", False
+            )
     else:
         _settings = s.serialize("picoware/settings/current_agent.json")
 
@@ -996,6 +1098,7 @@ def start(view_manager) -> bool:
 
     global _state, _conversation, _menu, _scroll_offset, _max_scroll
     _state = STATE_MENU
+    _install_agent_shortcuts(view_manager.input_manager)
     _conversation = []
     _scroll_offset = 0
     _max_scroll = 0
@@ -1046,16 +1149,7 @@ def run(view_manager) -> None:
                 _start_settings_menu(view_manager)
                 return
             if idx == 3:
-                if _agent is None:
-                    view_manager.alert("Open an Agent mode first", False)
-                    _menu.draw()
-                    return
-                _agent.reset_conversation()
-                _conversation = _agent.conversation
-                _scroll_offset = 0
-                _max_scroll = 0
-                _state = STATE_CHAT
-                _render_chat(view_manager)
+                _open_new_chat_from_menu(view_manager)
                 return
             from picoware.system.agent.agent import Agent, MODE_CHAT, MODE_APP_CREATOR, MODE_DEVICE_MANAGER
             from picoware.system.agent.llm import LLM
@@ -1261,8 +1355,15 @@ def run(view_manager) -> None:
                 _render_chat(view_manager)
         elif btn == BUTTON_CENTER:
             _open_chat_input(view_manager)
-        elif btn == BUTTON_N and view_manager.input_manager.was_capitalized:
+        elif btn == AGENT_BUTTON_CTRL_N:
             _confirm_new_session(view_manager)
+        elif btn == AGENT_BUTTON_CTRL_R:
+            request = _last_user_request(_conversation)
+            if request:
+                _start_agent_request(view_manager, request)
+            else:
+                view_manager.alert("No previous request to resend", False)
+                _render_chat(view_manager)
         elif btn == BUTTON_BACK:
             _state = STATE_MENU
             _menu.draw()
@@ -1309,6 +1410,7 @@ def stop(view_manager) -> None:
     global _server_is_catalog
 
     _save_settings(view_manager)
+    _remove_agent_shortcuts(view_manager.input_manager)
 
     _conversation = None
     _scroll_offset = 0

@@ -43,14 +43,16 @@ _EXPLICIT_MARKERS = (" use ", " using ", " with ", " via ", " try ")
 
 
 def _unique_strings(
-    value, limit: int = 16, max_chars: int = MAX_MCP_ALLOWED_TOOL_CHARS,
+    value: str | list[str] | tuple[str, ...],
+    limit: int = 16,
+    max_chars: int = MAX_MCP_ALLOWED_TOOL_CHARS,
 ) -> list[str]:
     """Return a bounded list of non-empty unique strings."""
     if isinstance(value, str):
         value = [value]
     if not isinstance(value, (list, tuple)):
         return []
-    result = []
+    result: list[str] = []
     inspected = 0
     for item in value:
         inspected += 1
@@ -69,7 +71,7 @@ def _unique_strings(
     return result
 
 
-def _normalized_words(value: str):
+def _normalized_words(value: str) -> tuple[str, list[str]]:
     """Return bounded-comparison words without provider-specific aliases."""
     if not isinstance(value, str):
         return "", []
@@ -80,9 +82,9 @@ def _normalized_words(value: str):
     return " ".join(words), words
 
 
-def _record_match_values(record) -> list[str]:
+def _record_match_values(record: dict) -> list[str]:
     """Return dynamic display and identity values for one scanned record."""
-    values = []
+    values: list[str] = []
     for value in (
         record.get("label", ""),
         record.get("id", record.get("server_label", "")),
@@ -95,12 +97,12 @@ def _record_match_values(record) -> list[str]:
     return values
 
 
-def _shared_record_words(records) -> list[str]:
+def _shared_record_words(records: list[dict]) -> list[str]:
     """Return identity words that cannot distinguish configured records."""
-    seen = []
-    shared = []
+    seen: list[str] = []
+    shared: list[str] = []
     for record in records:
-        record_words = []
+        record_words: list[str] = []
         for value in _record_match_values(record):
             _normalized, words = _normalized_words(value)
             for word in words:
@@ -176,7 +178,10 @@ def _near_embedded_token(user_token: str, candidate: str) -> int:
 
 
 def _record_exact_match_level(
-    record, padded_user_message: str, user_words, shared_words=(),
+    record: dict,
+    padded_user_message: str,
+    user_words: list[str],
+    shared_words: tuple[str, ...] = (),
 ) -> int:
     """Return 2 for a full identity match, 1 for a unique product word."""
     for value in _record_match_values(record):
@@ -204,7 +209,9 @@ def _record_exact_match_level(
 
 
 def _record_token_fuzzy_score(
-    record, user_word: str, shared_words=(),
+    record: dict,
+    user_word: str,
+    shared_words: tuple[str, ...] = (),
 ) -> int:
     """Return one user token's best typo score for a dynamic record."""
     best = 99
@@ -353,7 +360,7 @@ def _legacy_capabilities(integration_id: str) -> list[str]:
     lower = integration_id.lower()
     if "catalog" in lower or "list-integrations" in lower:
         return ["catalog"]
-    capabilities = []
+    capabilities: list[str] = []
     if "search" in lower:
         capabilities.append("search")
     if "browser" in lower or "navigate" in lower:
@@ -365,7 +372,7 @@ def _legacy_capabilities(integration_id: str) -> list[str]:
     return capabilities or ["generic"]
 
 
-def _bounded_text(value, maximum: int) -> str:
+def _bounded_text(value: str | int | float | bool | None, maximum: int) -> str:
     """Return stripped text bounded by UTF-8 bytes."""
     if not isinstance(value, str):
         return ""
@@ -373,7 +380,7 @@ def _bounded_text(value, maximum: int) -> str:
     return _utf8_prefix(value, maximum)[0]
 
 
-def normalize_tool_hint(value):
+def normalize_tool_hint(value: dict) -> dict | None:
     """Return one compact, credential-free discovered tool description."""
     if not isinstance(value, dict):
         return None
@@ -401,7 +408,7 @@ def normalize_tool_hint(value):
                 inputs.append(input_name)
             if len(inputs) >= MAX_TOOL_HINT_INPUT_COUNT:
                 break
-    result = {"name": name, "description": description, "inputs": inputs}
+    result: dict = {"name": name, "description": description, "inputs": inputs}
     annotations = value.get("annotations", {})
     if not isinstance(annotations, dict):
         annotations = {}
@@ -417,12 +424,12 @@ def normalize_tool_hint(value):
     return result
 
 
-def tool_hints_from_definitions(values) -> list[dict]:
+def tool_hints_from_definitions(values: list[dict] | tuple[dict, ...]) -> list[dict]:
     """Return bounded hints from catalog or direct tools/list definitions."""
     if not isinstance(values, (list, tuple)):
         return []
-    hints = []
-    names = []
+    hints: list[dict] = []
+    names: list[str] = []
     inspected = 0
     for value in values:
         inspected += 1
@@ -438,7 +445,7 @@ def tool_hints_from_definitions(values) -> list[dict]:
     return hints
 
 
-def _hint_capabilities(hint) -> list[str]:
+def _hint_capabilities(hint: dict) -> list[str]:
     """Infer portable routing hints from discovered tool metadata."""
     if not isinstance(hint, dict):
         return []
@@ -447,7 +454,7 @@ def _hint_capabilities(hint) -> list[str]:
     inputs = hint.get("inputs", [])
     text = (str(name) + " " + str(description)).lower()
     input_text = " ".join(inputs).lower() if isinstance(inputs, list) else ""
-    capabilities = []
+    capabilities: list[str] = []
     if any(word in text for word in (
         "search", "lookup", "query", "find documents", "find pages",
     )):
@@ -468,11 +475,11 @@ def _hint_capabilities(hint) -> list[str]:
     return capabilities
 
 
-def _record_capabilities(record) -> list[str]:
+def _record_capabilities(record: dict) -> list[str]:
     """Return saved and metadata-derived capabilities without hard gating."""
     if not isinstance(record, dict):
         return []
-    capabilities = _unique_strings(record.get("capabilities", []), 8, 32)
+    capabilities: list[str] = _unique_strings(record.get("capabilities", []), 8, 32)
     for hint in record.get("tool_hints", []):
         for capability in _hint_capabilities(hint):
             if capability not in capabilities:
@@ -487,7 +494,7 @@ def _contains_url(value: str) -> bool:
     )
 
 
-def _record_accepts_url(record) -> bool:
+def _record_accepts_url(record: dict) -> bool:
     """Return whether discovered metadata describes a URL consumer."""
     if not isinstance(record, dict):
         return False
@@ -501,7 +508,7 @@ def _record_accepts_url(record) -> bool:
     return False
 
 
-def _record_effect(record) -> str:
+def _record_effect(record: dict) -> str:
     """Return the declared aggregate tool effect: read, write, or unknown."""
     if not isinstance(record, dict):
         return "unknown"
@@ -541,7 +548,7 @@ def _request_capabilities(user_message: str) -> list[str]:
     if not isinstance(user_message, str):
         return []
     text = " " + user_message.lower() + " "
-    capabilities = []
+    capabilities: list[str] = []
     if any(marker in text for marker in (
         " web", " search", "research", "latest", " news", "price",
         "buy ", "shop", "online", "look up", "current information",
@@ -567,7 +574,11 @@ def _request_capabilities(user_message: str) -> list[str]:
     return capabilities
 
 
-def integration_match_score(record, user_message: str, evidence: str = "") -> int:
+def integration_match_score(
+    record: dict,
+    user_message: str,
+    evidence: str = "",
+) -> int:
     """Score one enabled record from discovered metadata and request context."""
     if not isinstance(record, dict):
         return -1
@@ -585,7 +596,7 @@ def integration_match_score(record, user_message: str, evidence: str = "") -> in
         for word in candidate_words[:8]:
             if len(word) >= 3 and word in user_words:
                 score += 4
-    metadata = []
+    metadata: list[str] = []
     hints = record.get("tool_hints", [])
     if not isinstance(hints, list):
         hints = []
@@ -613,11 +624,14 @@ def integration_match_score(record, user_message: str, evidence: str = "") -> in
 
 
 def select_candidate_records(
-    records, user_message: str, evidence: str = "", exclude=(),
+    records: list[dict],
+    user_message: str,
+    evidence: str = "",
+    exclude: tuple[str, ...] = (),
 ) -> list[dict]:
     """Rank enabled non-catalog records with bounded generic fallback."""
     excluded = list(exclude) if isinstance(exclude, (list, tuple)) else []
-    scored = []
+    scored: list[tuple[int, int, dict]] = []
     for index, record in enumerate(records):
         if not isinstance(record, dict):
             continue
@@ -653,7 +667,7 @@ def select_candidate_records(
     return selected[:MAX_SELECTED_INTEGRATIONS]
 
 
-def _record_consumes_evidence(record, evidence: str) -> bool:
+def _record_consumes_evidence(record: dict, evidence: str) -> bool:
     """Return whether discovered input names can consume current evidence."""
     if not evidence:
         return False
@@ -679,7 +693,11 @@ def _record_consumes_evidence(record, evidence: str) -> bool:
     return False
 
 
-def _stage_role(record, user_message: str, evidence: str) -> str:
+def _stage_role(
+    record: dict,
+    user_message: str,
+    evidence: str,
+) -> str:
     """Return a stable semantic stage role for duplicate prevention."""
     if _contains_url(evidence) and _record_accepts_url(record):
         return "url"
@@ -693,9 +711,13 @@ def _stage_role(record, user_message: str, evidence: str) -> str:
     return "request"
 
 
-def _tool_names_for_role(record, role: str, evidence: str = "") -> list[str]:
+def _tool_names_for_role(
+    record: dict,
+    role: str,
+    evidence: str = "",
+) -> list[str]:
     """Return discovered tools compatible with one orchestration stage."""
-    names = []
+    names: list[str] = []
     lower_evidence = evidence.lower() if isinstance(evidence, str) else ""
     for hint in record.get("tool_hints", []):
         if not isinstance(hint, dict):
@@ -727,7 +749,7 @@ def _tool_names_for_role(record, role: str, evidence: str = "") -> list[str]:
     return names[:MAX_TOOL_HINTS]
 
 
-def normalize_integration_record(value):
+def normalize_integration_record(value: str | dict) -> dict | None:
     """Normalize one saved plugin or ephemeral MCP record."""
     if isinstance(value, str):
         text = value.strip()
@@ -794,7 +816,7 @@ def normalize_integration_record(value):
             or not url.startswith(("http://", "https://"))
         ):
             return None
-        record = {
+        record: dict = {
             "type": (
                 "mcp_server" if record_type == "mcp_server"
                 else "ephemeral_mcp"
@@ -857,7 +879,7 @@ def normalize_integration_record(value):
     if record.get("type") == "mcp_server":
         raw_headers = value.get("headers", {})
         if isinstance(raw_headers, dict):
-            headers = {}
+            headers: dict = {}
             for key, header_value in raw_headers.items():
                 if (
                     isinstance(key, str) and isinstance(header_value, str)
@@ -872,7 +894,10 @@ def normalize_integration_record(value):
     return record
 
 
-def parse_integration_records(value, limit: int = 16) -> list[dict]:
+def parse_integration_records(
+    value: str | dict | list,
+    limit: int = 16,
+) -> list[dict]:
     """Parse JSON records or legacy comma/newline integration settings."""
     maximum = max(1, min(int(limit), MAX_DISCOVERED_INTEGRATIONS))
     if isinstance(value, str):
@@ -881,7 +906,7 @@ def parse_integration_records(value, limit: int = 16) -> list[dict]:
         if text[:1] in ("[", "{"):
             try:
                 parsed = json.loads(text)
-            except ValueError:
+            except (ValueError, json.JSONDecodeError):
                 parsed = None
         if isinstance(parsed, dict):
             values = parsed.get("integrations", [parsed])
@@ -903,8 +928,8 @@ def parse_integration_records(value, limit: int = 16) -> list[dict]:
     if not isinstance(values, (list, tuple)):
         return []
 
-    records = []
-    keys = []
+    records: list[dict] = []
+    keys: list[str] = []
     for item in values:
         record = normalize_integration_record(item)
         if record is None:
@@ -948,7 +973,7 @@ def integration_key(record) -> str:
     return "plugin:" + record.get("id", "")
 
 
-def integration_label(record) -> str:
+def integration_label(record: dict) -> str:
     """Return a compact display label for one integration record."""
     if not isinstance(record, dict):
         record = normalize_integration_record(record)
@@ -962,10 +987,14 @@ def integration_label(record) -> str:
     return record.get("id", "Integration")
 
 
-def merge_integration_records(current, discovered, limit: int = 64) -> list[dict]:
+def merge_integration_records(
+    current: list[dict],
+    discovered: list[dict],
+    limit: int = 64,
+) -> list[dict]:
     """Merge discovery metadata while preserving configured identity and secrets."""
     merged = parse_integration_records(current, limit)
-    positions = {
+    positions: dict[str, int] = {
         integration_key(record): index for index, record in enumerate(merged)
     }
     for discovered_record in parse_integration_records(discovered, limit):
@@ -999,7 +1028,11 @@ def merge_integration_records(current, discovered, limit: int = 64) -> list[dict
     return merged[:limit]
 
 
-def preserve_catalog_records(previous, updated, limit: int = 16) -> list[dict]:
+def preserve_catalog_records(
+    previous: list[dict],
+    updated: list[dict],
+    limit: int = 16,
+) -> list[dict]:
     """Return updated records while retaining configured catalog providers.
 
     Catalog integrations are scanner infrastructure, not ordinary tools.  A
@@ -1027,14 +1060,15 @@ def integration_gateway_url(configured_url: str, model_url: str) -> str:
 
 
 def parse_integration_catalog(
-    value, limit: int = MAX_DISCOVERED_INTEGRATIONS,
+    value: str | dict | list,
+    limit: int = MAX_DISCOVERED_INTEGRATIONS,
 ) -> list[dict]:
     """Extract integration records from a bounded catalog tool result."""
-    records = []
-    record_keys = []
+    records: list[dict] = []
+    record_keys: list[str] = []
     maximum = max(1, min(int(limit), MAX_DISCOVERED_INTEGRATIONS))
 
-    def collect(item) -> None:
+    def collect(item: str | dict | list) -> None:
         if len(records) >= maximum:
             return
         if isinstance(item, str):
@@ -1242,6 +1276,16 @@ class MCPClient:
     def cancel(self) -> None:
         """Cancel the currently active adapter operation."""
         self.http.close()
+
+    def refresh_integrations(self) -> None:
+        """Synchronize self.integrations with current self.records.
+
+        Must be called after scan_integrations() to keep the integration
+        identity list in sync with discovered records.
+        """
+        if not isinstance(self.records, list):
+            return
+        self.integrations = [integration_key(item) for item in self.records]
 
     @staticmethod
     def _request_capabilities(user_message: str) -> list[str]:
@@ -1593,10 +1637,18 @@ class MCPClient:
             )
             if error:
                 return updated, error
-            discovered = parse_integration_catalog(evidence)
+            # Validate evidence before parsing to avoid silent failures.
+            if not isinstance(evidence, str) or not evidence.strip():
+                return updated, "Integration catalog returned empty evidence."
+            try:
+                discovered = parse_integration_catalog(evidence)
+            except (ValueError, TypeError, json.JSONDecodeError):
+                return updated, "Integration catalog returned malformed evidence."
             if not discovered:
                 return updated, "Integration catalog returned no integrations."
             updated = merge_integration_records(updated, discovered)
+            # Refresh integration identity list after successful catalog scan.
+            self.refresh_integrations()
         if direct and self.direct is not None:
             scanned, error = self.direct.scan_integrations(direct)
             if error:
@@ -1607,6 +1659,8 @@ class MCPClient:
             updated = [
                 refreshed.get(integration_key(item), item) for item in updated
             ]
+            # Refresh integration identity list after direct MCP scan.
+            self.refresh_integrations()
         if not catalog and not direct:
             return [], (
                 "No integration catalog configured. Add an MCP Catalog or "

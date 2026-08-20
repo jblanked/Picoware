@@ -1,6 +1,7 @@
 """LM Studio compatibility adapter for Agent MCP integrations."""
 
 import json
+from gc import collect as _gc_collect
 
 from picoware.system.agent.mcp import (
     MAX_MCP_CALLS,
@@ -84,7 +85,7 @@ def _successful_output_error(value) -> str:
     if isinstance(value, list):
         return ""
     text = value if isinstance(value, str) else str(value)
-    stripped = text.strip().lstrip("\"' ")
+    stripped = text.strip()
     lower = stripped.lower()
     for marker in (
         "error:", "error -", "failed:", "failed to ", "failure:",
@@ -183,8 +184,7 @@ class IntegrationStreamSink:
         try:
             text = data.decode("utf-8")
             data = None
-            from gc import collect
-            collect()
+            _gc_collect()
             event = json.loads(text)
             text = ""
         except (UnicodeError, ValueError):

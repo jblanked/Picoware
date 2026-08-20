@@ -13,6 +13,7 @@ from picoware.system.agent.mcp import (
     integration_key,
     tool_hints_from_definitions,
 )
+from gc import collect
 
 
 MCP_PROTOCOL_MODERN = "2026-07-28"
@@ -107,7 +108,6 @@ class BoundedJSONSink:
             # the raw byte buffer before the parser creates its object graph.
             raw = None
             data = None
-            from gc import collect
             collect()
             value = json.loads(text)
             text = ""
@@ -265,7 +265,7 @@ class StandardMCPAdapter:
                 payload=payload,
                 headers=headers,
                 timeout=timeout,
-                storage=self.view_manager.storage if send_file else None,
+                storage=(self.view_manager.storage if (send_file and self.view_manager.storage) else None),
                 send_file=send_file or None,
                 stream_sink=sink,
             )
@@ -452,8 +452,7 @@ class StandardMCPAdapter:
                 except (TypeError, ValueError):
                     size = MAX_MCP_PLANNER_SCHEMA_BYTES + 1
                 if schema_bytes + size > MAX_MCP_PLANNER_SCHEMA_BYTES:
-                    schemas.pop()
-                    continue
+                    return schemas, "Schema exceeded planner size limit"
                 schema_bytes += size
                 mapping[alias] = (record, tool, context)
                 if len(schemas) >= MAX_MCP_PLANNER_TOOLS:
@@ -515,9 +514,11 @@ class StandardMCPAdapter:
                 send_file=self.planner_path,
             )
         finally:
-            storage.remove(self.planner_path)
-            from gc import collect
-            collect()
+            try:
+                storage.remove(self.planner_path)
+                collect()
+            except Exception:
+                pass  # Ignore removal/GC failures; file may already be gone
         if error:
             return "", {}, error
         choices = result.get("choices", []) if isinstance(result, dict) else []

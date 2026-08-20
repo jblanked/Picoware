@@ -2,6 +2,10 @@
 
 import json
 from micropython import const
+from picoware.system.agent.authorization import (
+    request_authorizes_mutation,
+    tool_effect,
+)
 
 
 MAX_MCP_CALLS = const(4)
@@ -28,6 +32,12 @@ MAX_TOOL_HINTS = const(12)
 MAX_TOOL_HINT_DESC_BYTES = const(160)
 MAX_TOOL_HINT_INPUT_COUNT = const(8)
 MAX_TOOL_HINT_INPUT_BYTES = const(48)
+MAX_TOOL_HINT_CAPABILITY_COUNT = const(4)
+
+MCP_OUTCOME_COMPLETED = "completed"
+MCP_OUTCOME_NOT_NEEDED = "not_needed"
+MCP_OUTCOME_PARTIAL = "partial"
+MCP_OUTCOME_FAILED = "failed"
 
 _MATCH_IGNORED = (
     "plugin", "local", "server", "integration", "integrations", "mcp",
@@ -35,11 +45,24 @@ _MATCH_IGNORED = (
     "clarification", "original", "previous", "request", "topic", "user",
     "search", "research", "browser", "fetch", "time", "current",
     "web", "page", "website", "visit", "open", "read", "navigate",
-    "result", "private", "use", "using", "with", "via", "try", "this",
+    "result", "resource", "resources", "reader", "private", "use", "using",
+    "with", "via", "try", "this",
     "that", "the", "a", "an", "my", "please", "and", "or", "instead",
     "rather", "than", "from", "configured",
 )
 _EXPLICIT_MARKERS = (" use ", " using ", " with ", " via ", " try ")
+
+
+def mcp_outcome(
+    status: str, evidence: str = "", error: str = "", calls: int = 0,
+) -> dict:
+    """Return one bounded structured result from the MCP agent loop."""
+    return {
+        "status": status,
+        "evidence": evidence if isinstance(evidence, str) else "",
+        "error": error if isinstance(error, str) else str(error),
+        "calls": max(0, int(calls)),
+    }
 
 
 def _unique_strings(
@@ -281,6 +304,15 @@ def explicit_integration_records(records, user_message: str):
     if not has_explicit_marker:
         return matched[:MAX_SELECTED_INTEGRATIONS], False
 
+    if not matched and any(
+        word in shared_words and word not in _MATCH_IGNORED
+        for word in explicit_words
+    ):
+        # An explicitly positioned name fragment shared by more than one
+        # discovered record is genuinely ambiguous. Ordinary unmatched words
+        # are left to the metadata-driven planner below.
+        return [], True
+
     # Resolve each independently named token.  Two different typos may safely
     # select two different scanned records; only a tie for the same token is
     # ambiguous.  This stays provider-neutral because all candidates come from
@@ -328,48 +360,12 @@ def explicit_integration_records(records, user_message: str):
     ][:MAX_SELECTED_INTEGRATIONS], False
 
 
-def _has_unknown_explicit_name(user_message: str) -> bool:
-    """Return whether an explicit clause contains a provider name candidate."""
-    normalized, words = _normalized_words(user_message)
-    if not any(marker in (" " + normalized + " ") for marker in _EXPLICIT_MARKERS):
-        return False
-    collecting = False
-    integration_clause = False
-    for word in words:
-        if word in ("use", "using", "with", "via", "try"):
-            collecting = True
-            integration_clause = True
-            continue
-        if collecting and word in ("to", "so", "because"):
-            collecting = False
-            integration_clause = False
-            continue
-        if collecting and word in ("for", "on", "about"):
-            collecting = False
-            continue
-        if integration_clause and not collecting and word in ("and", "then"):
-            collecting = True
-            continue
-        if collecting and word not in _MATCH_IGNORED and len(word) >= 3:
-            return True
-    return False
-
-
 def _legacy_capabilities(integration_id: str) -> list[str]:
-    """Give old ID-only entries useful migration metadata."""
+    """Retain only the explicit catalog migration for old ID-only entries."""
     lower = integration_id.lower()
     if "catalog" in lower or "list-integrations" in lower:
         return ["catalog"]
-    capabilities: list[str] = []
-    if "search" in lower:
-        capabilities.append("search")
-    if "browser" in lower or "navigate" in lower:
-        capabilities.append("browser")
-    if "fetch" in lower or "visit" in lower:
-        capabilities.append("fetch")
-    if "current-time" in lower or "clock" in lower:
-        capabilities.append("time")
-    return capabilities or ["generic"]
+    return ["generic"]
 
 
 def _bounded_text(value: str | int | float | bool | None, maximum: int) -> str:
@@ -421,6 +417,20 @@ def normalize_tool_hint(value: dict) -> dict | None:
         result["read_only"] = read_only
     if isinstance(destructive, bool):
         result["destructive"] = destructive
+    open_world = value.get(
+        "open_world", annotations.get("openWorldHint")
+    )
+    if isinstance(open_world, bool):
+        result["open_world"] = open_world
+    if value.get("request_scoped") is True:
+        result["request_scoped"] = True
+    capabilities = _unique_strings(
+        value.get("capabilities", []),
+        MAX_TOOL_HINT_CAPABILITY_COUNT,
+        MAX_MCP_CAPABILITY_CHARS,
+    )
+    if capabilities:
+        result["capabilities"] = capabilities
     return result
 
 
@@ -454,8 +464,16 @@ def _hint_capabilities(hint: dict) -> list[str]:
     inputs = hint.get("inputs", [])
     text = (str(name) + " " + str(description)).lower()
     input_text = " ".join(inputs).lower() if isinstance(inputs, list) else ""
-    capabilities: list[str] = []
-    if any(word in text for word in (
+    capabilities = _unique_strings(
+        hint.get("capabilities", []),
+        MAX_TOOL_HINT_CAPABILITY_COUNT,
+        MAX_MCP_CAPABILITY_CHARS,
+    )
+    page_local_search = any(marker in text for marker in (
+        "current page", "current document", "accessibility snapshot",
+        "search within", "find text on", "find text in",
+    ))
+    if not page_local_search and any(word in text for word in (
         "search", "lookup", "query", "find documents", "find pages",
     )):
         capabilities.append("search")
@@ -473,6 +491,44 @@ def _hint_capabilities(hint: dict) -> list[str]:
     )):
         capabilities.append("time")
     return capabilities
+
+
+def _hint_requires_prior_context(hint: dict) -> bool:
+    """Return whether discovered metadata describes a resource-local action."""
+    if not isinstance(hint, dict):
+        return False
+    text = (
+        str(hint.get("name", "")) + " "
+        + str(hint.get("description", ""))
+    ).lower()
+    return any(marker in text for marker in (
+        "current page", "current document", "accessibility snapshot",
+        "search within", "find text on", "find text in",
+        "console messages", "network requests", "since loading",
+        "single network request", "text to appear", "text to disappear",
+        "on page", "on a web page", "previous page",
+    ))
+
+
+def _hint_observes_current_resource(hint: dict) -> bool:
+    """Return whether a read-only hint returns current resource contents."""
+    if not isinstance(hint, dict) or hint.get("read_only") is not True:
+        return False
+    text = (
+        str(hint.get("name", "")) + " "
+        + str(hint.get("description", ""))
+    ).lower()
+    action_text = " " + text.replace("_", " ").replace("-", " ") + " "
+    if any(marker in text for marker in (
+        "search within", "find text", "wait for", "click", "type into",
+    )) or any(marker in action_text for marker in (
+        " search ", " find ", " wait ", " click ", " type ",
+    )):
+        return False
+    return any(marker in text for marker in (
+        "accessibility snapshot", "current page content",
+        "current document content", "current resource content",
+    ))
 
 
 def _record_capabilities(record: dict) -> list[str]:
@@ -508,6 +564,41 @@ def _record_accepts_url(record: dict) -> bool:
     return False
 
 
+def _tool_is_request_scoped_fetch(record: dict, tool_name: str) -> bool:
+    """Return whether one actually called tool is a bounded URL action."""
+    if not isinstance(record, dict) or not isinstance(tool_name, str):
+        return False
+    for hint in record.get("tool_hints", []):
+        if (
+            isinstance(hint, dict)
+            and hint.get("name") == tool_name
+            and hint.get("request_scoped") is True
+            and "fetch" in _hint_capabilities(hint)
+        ):
+            return True
+    return False
+
+
+def _tool_is_session_observer(record: dict, tool_name: str) -> bool:
+    """Return whether a called tool completes a request-scoped read session."""
+    if not isinstance(record, dict) or not isinstance(tool_name, str):
+        return False
+    has_action = any(
+        isinstance(hint, dict)
+        and hint.get("request_scoped") is True
+        and "fetch" in _hint_capabilities(hint)
+        for hint in record.get("tool_hints", [])
+    )
+    if not has_action:
+        return False
+    return any(
+        isinstance(hint, dict)
+        and hint.get("name") == tool_name
+        and _hint_observes_current_resource(hint)
+        for hint in record.get("tool_hints", [])
+    )
+
+
 def _record_effect(record: dict) -> str:
     """Return the declared aggregate tool effect: read, write, or unknown."""
     if not isinstance(record, dict):
@@ -516,62 +607,71 @@ def _record_effect(record: dict) -> str:
     if not isinstance(hints, list) or not hints:
         return "unknown"
     declared = False
+    unknown = False
     for hint in hints:
         if not isinstance(hint, dict):
+            unknown = True
             continue
-        if hint.get("destructive") is True or hint.get("read_only") is False:
+        effect = tool_effect(hint)
+        if effect == "write":
             return "write"
-        if hint.get("read_only") is True:
+        if effect == "read":
             declared = True
-    return "read" if declared else "unknown"
+        else:
+            unknown = True
+    return "read" if declared and not unknown else "unknown"
 
 
-def _request_needs_mcp(user_message: str) -> bool:
-    """Return whether a request plausibly needs external data or an action."""
-    if not isinstance(user_message, str):
+def _authorized_tool_names(
+    record: dict, names, role: str = "request",
+    allow_mutation: bool = False,
+) -> list[str]:
+    """Return role-selected tools permitted by effects and host policy."""
+    selected = list(names) if isinstance(names, (list, tuple)) else []
+    if allow_mutation:
+        return selected
+    hints = {}
+    for hint in record.get("tool_hints", []):
+        if isinstance(hint, dict) and hint.get("name"):
+            hints[hint["name"]] = hint
+    allowed = []
+    expected = "fetch" if role == "url" else role
+    for name in selected:
+        hint = hints.get(name, {})
+        if tool_effect(hint) == "read":
+            allowed.append(name)
+            continue
+        if (
+            hint.get("request_scoped") is True
+            and (
+                expected in _hint_capabilities(hint)
+                or (
+                    role == "request"
+                    and hint.get("open_world") is True
+                    and bool(_hint_capabilities(hint))
+                )
+            )
+        ):
+            allowed.append(name)
+    return allowed
+
+
+def _record_has_authorized_tool(record: dict) -> bool:
+    """Return whether metadata exposes a tool safe for model selection."""
+    if not isinstance(record, dict):
         return False
-    text = " " + user_message.lower() + " "
-    return _contains_url(text) or any(marker in text for marker in (
-        " search ", " find ", " lookup ", " look up ", " research ",
-        " latest ", " current ", " news ", " online ", " web ",
-        " open ", " fetch ", " visit ", " navigate ", " check ",
-        " calculate ", " convert ", " weather ", " price ", " time ",
-        " date ", " calendar ", " email ", " database ", " file ",
-        " list my ", " show my ", " send ", " update ", " delete ",
-        " suche ", " aktuell ", " recher", " öffne ", " wetter ",
-        " uhr ", " datum ",
-    ))
-
-
-def _request_capabilities(user_message: str) -> list[str]:
-    """Return inexpensive semantic hints without authorizing integrations."""
-    if not isinstance(user_message, str):
-        return []
-    text = " " + user_message.lower() + " "
-    capabilities: list[str] = []
-    if any(marker in text for marker in (
-        " web", " search", "research", "latest", " news", "price",
-        "buy ", "shop", "online", "look up", "current information",
-        "aktuell", "suche", "recherch",
-    )):
-        capabilities.append("search")
-    if any(marker in text for marker in (
-        "http://", "https://", "www.", "visit ", "open page",
-        "open this page", "inspect the result", "read page",
-        "read website", "fetch ", "this url", "this link",
-    )):
-        capabilities.append("fetch")
-    if any(marker in text for marker in (
-        " browser", "browse ", "navigate ", "open result",
-        "open the result", "read result", "inspect result",
-    )):
-        capabilities.append("browser")
-    if any(marker in text for marker in (
-        " time ", " date ", " today", " tomorrow", " yesterday",
-        " heute", " morgen", " gestern", " uhr", " datum",
-    )):
-        capabilities.append("time")
-    return capabilities
+    for hint in record.get("tool_hints", []):
+        if not isinstance(hint, dict):
+            continue
+        if tool_effect(hint) == "read":
+            return True
+        if (
+            hint.get("request_scoped") is True
+            and hint.get("open_world") is True
+            and bool(_hint_capabilities(hint))
+        ):
+            return True
+    return False
 
 
 def integration_match_score(
@@ -610,16 +710,11 @@ def integration_match_score(
     for word in user_words:
         if len(word) >= 3 and word in meta_words:
             score += 3
-    requested = _request_capabilities(user_message)
-    for capability in requested:
-        if capability in capabilities:
-            score += 6
-        elif capability in ("browser", "fetch") and _record_accepts_url(record):
-            score += 6
-    if _contains_url(evidence) and _record_accepts_url(record):
+    if (
+        (_contains_url(evidence) or _contains_url(user_message))
+        and _record_accepts_url(record)
+    ):
         score += 24
-    if score == 0 and _request_needs_mcp(user_message) and "generic" in capabilities:
-        score = 1
     return score
 
 
@@ -644,26 +739,6 @@ def select_candidate_records(
     scored.sort(key=lambda item: (-item[0], item[1]))
     selected = [item[2] for item in scored[:MAX_SELECTED_INTEGRATIONS]]
 
-    # A producer can yield a URL even when the user did not request a browser.
-    # Retain one discovered URL consumer as a bounded follow-up candidate.
-    requested = _request_capabilities(user_message)
-    if "search" in requested and len(selected) < MAX_SELECTED_INTEGRATIONS:
-        for record in records:
-            key = integration_key(record)
-            if (
-                key and key not in excluded and record not in selected
-                and "catalog" not in _record_capabilities(record)
-                and _record_accepts_url(record)
-            ):
-                selected.append(record)
-                break
-    if not selected and _request_needs_mcp(user_message):
-        for record in records:
-            key = integration_key(record)
-            if key and key not in excluded and "catalog" not in _record_capabilities(record):
-                selected.append(record)
-            if len(selected) >= 2:
-                break
     return selected[:MAX_SELECTED_INTEGRATIONS]
 
 
@@ -703,11 +778,6 @@ def _stage_role(
         return "url"
     if evidence and _record_consumes_evidence(record, evidence):
         return "evidence"
-    capabilities = _record_capabilities(record)
-    requested = _request_capabilities(user_message)
-    for role in ("search", "time", "fetch", "browser"):
-        if role in requested and role in capabilities:
-            return "url" if role in ("fetch", "browser") else role
     return "request"
 
 
@@ -722,13 +792,9 @@ def _tool_names_for_role(
     for hint in record.get("tool_hints", []):
         if not isinstance(hint, dict):
             continue
-        include = role == "request"
+        include = role == "request" and not _hint_requires_prior_context(hint)
         capabilities = _hint_capabilities(hint)
-        if role == "search" and "search" in capabilities:
-            include = True
-        elif role == "time" and "time" in capabilities:
-            include = True
-        elif role == "url" and "fetch" in capabilities:
+        if role == "url" and "fetch" in capabilities:
             include = True
         elif role == "evidence":
             for input_name in hint.get("inputs", []):
@@ -749,6 +815,39 @@ def _tool_names_for_role(
     return names[:MAX_TOOL_HINTS]
 
 
+def _continuation_plan(record: dict, staged: dict, role: str) -> dict:
+    """Describe a metadata-derived request action followed by observation."""
+    if role not in ("request", "url") or not isinstance(staged, dict):
+        return {}
+    allowed = staged.get("allowed_tools", [])
+    if not isinstance(allowed, list):
+        return {}
+    actions = [
+        name for name in allowed
+        if _tool_is_request_scoped_fetch(record, name)
+    ]
+    observers = []
+    for hint in record.get("tool_hints", []):
+        if not isinstance(hint, dict):
+            continue
+        name = hint.get("name", "")
+        if (
+            name in allowed and _hint_observes_current_resource(hint)
+            and name not in observers
+        ):
+            observers.append(name)
+    if not actions or not observers:
+        return {}
+    provider = record.get("id", "")
+    if record.get("type") == "ephemeral_mcp":
+        provider = record.get("server_label", "")
+    return {
+        "provider": provider,
+        "actions": actions[:MAX_TOOL_HINTS],
+        "observers": observers[:MAX_TOOL_HINTS],
+    }
+
+
 def normalize_integration_record(value: str | dict) -> dict | None:
     """Normalize one saved plugin or ephemeral MCP record."""
     if isinstance(value, str):
@@ -759,9 +858,10 @@ def normalize_integration_record(value: str | dict) -> dict | None:
             try:
                 parsed = json.loads(text)
             except ValueError:
-                parsed = None
+                return None
             if isinstance(parsed, dict):
                 return normalize_integration_record(parsed)
+            return None
         if text.startswith("server:") or text.startswith("ephemeral:"):
             details = text.split(":", 1)[1]
             parts = details.split("|", 1)
@@ -826,7 +926,10 @@ def normalize_integration_record(value: str | dict) -> dict | None:
         }
         if record["type"] == "mcp_server":
             protocol = value.get("protocol", "auto")
-            if protocol not in ("auto", "2026-07-28", "legacy"):
+            if protocol not in (
+                "auto", "2026-07-28", "legacy", "2025-11-25",
+                "2025-06-18", "2025-03-26",
+            ):
                 protocol = "auto"
             record["protocol"] = protocol
     else:
@@ -906,12 +1009,14 @@ def parse_integration_records(
         if text[:1] in ("[", "{"):
             try:
                 parsed = json.loads(text)
-            except (ValueError, json.JSONDecodeError):
-                parsed = None
-        if isinstance(parsed, dict):
-            values = parsed.get("integrations", [parsed])
-        elif isinstance(parsed, list):
-            values = parsed
+            except ValueError:
+                return []
+            if isinstance(parsed, dict):
+                values = parsed.get("integrations", [parsed])
+            elif isinstance(parsed, list):
+                values = parsed
+            else:
+                return []
         else:
             values = text.replace("\n", ",").split(",")
     elif isinstance(value, dict):
@@ -943,17 +1048,6 @@ def parse_integration_records(
     return records
 
 
-def parse_integrations(value: str, limit: int = 16) -> list[str]:
-    """Return exact plugin IDs for legacy callers without rewriting them."""
-    integrations = []
-    for record in parse_integration_records(value, limit):
-        if record.get("type") == "plugin":
-            integrations.append(record.get("id", ""))
-        else:
-            integrations.append(integration_key(record))
-    return integrations
-
-
 def serialize_integration_records(records) -> str:
     """Serialize normalized records for persistent settings."""
     return json.dumps(parse_integration_records(records))
@@ -965,9 +1059,14 @@ def integration_key(record) -> str:
         record = normalize_integration_record(record)
     if not record:
         return ""
-    if record.get("type") in ("ephemeral_mcp", "mcp_server"):
+    if record.get("type") == "mcp_server":
         return (
             "server:" + record.get("server_label", "")
+            + "|" + record.get("server_url", "")
+        )
+    if record.get("type") == "ephemeral_mcp":
+        return (
+            "ephemeral:" + record.get("server_label", "")
             + "|" + record.get("server_url", "")
         )
     return "plugin:" + record.get("id", "")
@@ -1028,6 +1127,34 @@ def merge_integration_records(
     return merged[:limit]
 
 
+def upgrade_legacy_server_record(records, replacement):
+    """Upgrade one exact gateway server endpoint to direct MCP transport."""
+    current = parse_integration_records(records)
+    direct = normalize_integration_record(replacement)
+    if not direct or direct.get("type") != "mcp_server":
+        return current, False
+    label = direct.get("server_label", "")
+    url = direct.get("server_url", "")
+    for index, record in enumerate(current):
+        if (
+            record.get("type") != "ephemeral_mcp"
+            or record.get("server_label", "") != label
+            or record.get("server_url", "") != url
+        ):
+            continue
+        migrated = dict(record)
+        migrated["type"] = "mcp_server"
+        migrated["protocol"] = direct.get("protocol", "auto")
+        if direct.get("headers"):
+            migrated["headers"] = direct["headers"]
+        normalized = normalize_integration_record(migrated)
+        if normalized is None:
+            return current, False
+        current[index] = normalized
+        return current, True
+    return current, False
+
+
 def preserve_catalog_records(
     previous: list[dict],
     updated: list[dict],
@@ -1050,13 +1177,6 @@ def preserve_catalog_records(
         if "catalog" not in record.get("capabilities", [])
     ]
     return parse_integration_records(catalogs + selectable, limit)
-
-
-def integration_gateway_url(configured_url: str, model_url: str) -> str:
-    """Return the legacy gateway URL for compatibility callers."""
-    from picoware.system.agent.mcp_lmstudio import gateway_url
-
-    return gateway_url(configured_url, model_url)
 
 
 def parse_integration_catalog(
@@ -1220,18 +1340,13 @@ def _current_time_grounding(view_manager) -> str:
     )
 
 
-from picoware.system.agent.mcp_lmstudio import (
-    IntegrationStreamSink as IntegrationStreamSink,
-)
-
-
-def create_mcp_client(view_manager, http, llm):
+def create_mcp_client(view_manager, http, llm, status_callback=None):
     """Create the configured MCP facade without coupling Agent to a provider."""
     from picoware.system.agent.llm import LOCAL_MCP
 
     if llm.id != LOCAL_MCP:
         return None
-    return MCPClient(view_manager, http, llm)
+    return MCPClient(view_manager, http, llm, status_callback)
 
 
 class MCPClient:
@@ -1239,10 +1354,11 @@ class MCPClient:
 
     __slots__ = (
         "view_manager", "http", "llm", "records", "integrations",
-        "lmstudio", "direct", "gateway_url", "request_path", "spool_path",
+        "lmstudio", "direct", "status_callback", "_last_gateway_provider",
+        "_last_gateway_tool",
     )
 
-    def __init__(self, view_manager, http, llm):
+    def __init__(self, view_manager, http, llm, status_callback=None):
         from picoware.system.agent.mcp_lmstudio import LMStudioMCPAdapter
         from picoware.system.settings import Settings
 
@@ -1250,10 +1366,14 @@ class MCPClient:
         self.view_manager = view_manager
         self.http = http
         self.llm = llm
+        self.status_callback = status_callback
+        self._last_gateway_provider = ""
+        self._last_gateway_tool = ""
         self.records = parse_integration_records(settings.mcp_integrations)
         self.integrations = [integration_key(item) for item in self.records]
         self.lmstudio = LMStudioMCPAdapter(
-            view_manager, http, llm, settings.mcp_gateway_url
+            view_manager, http, llm, settings.mcp_gateway_url,
+            self._gateway_tool_status,
         )
         direct_records = [
             record for record in self.records
@@ -1263,10 +1383,6 @@ class MCPClient:
         if direct_records:
             from picoware.system.agent.mcp_standard import StandardMCPAdapter
             self.direct = StandardMCPAdapter(view_manager, http, llm)
-        # Compatibility attributes for callers and existing tests.
-        self.gateway_url = self.lmstudio.gateway_url
-        self.request_path = self.lmstudio.request_path
-        self.spool_path = self.lmstudio.spool_path
 
     @property
     def enabled(self) -> bool:
@@ -1277,30 +1393,67 @@ class MCPClient:
         """Cancel the currently active adapter operation."""
         self.http.close()
 
-    def refresh_integrations(self) -> None:
+    def _report_status(self, value) -> None:
+        """Publish one structured MCP activity event to the Agent UI."""
+        callback = getattr(self, "status_callback", None)
+        if callback is not None:
+            callback(value)
+
+    def _gateway_tool_status(self, provider_id: str, tool_name: str) -> None:
+        """Resolve LM Studio's actual provider identity to its runtime label."""
+        provider_id = str(provider_id or "")
+        self._last_gateway_provider = provider_id
+        self._last_gateway_tool = str(tool_name or "")
+        label = provider_id or "integration"
+        for record in self.records:
+            if not isinstance(record, dict):
+                continue
+            if provider_id in (
+                record.get("id", ""), record.get("server_label", ""),
+                integration_key(record),
+            ):
+                label = integration_label(record)
+                break
+        self._report_status({
+            "phase": "mcp_call",
+            "provider": label,
+            "tool": str(tool_name or ""),
+        })
+
+    def _stage_status(self, records) -> None:
+        """Show the selected integration or an honest multi-provider phase."""
+        values = [
+            record for record in records
+            if isinstance(record, dict)
+        ]
+        if len(values) == 1:
+            self._report_status({
+                "phase": "mcp_select",
+                "provider": integration_label(values[0]),
+                "tool": "",
+            })
+        elif values:
+            self._report_status({
+                "phase": "mcp_select",
+                "provider": str(len(values)) + " integrations",
+                "tool": "",
+            })
+
+    def refresh_integrations(self, records=None) -> None:
         """Synchronize self.integrations with current self.records.
 
         Must be called after scan_integrations() to keep the integration
         identity list in sync with discovered records.
         """
+        if records is not None:
+            self.records = list(records) if isinstance(records, list) else []
         if not isinstance(self.records, list):
             return
         self.integrations = [integration_key(item) for item in self.records]
 
-    @staticmethod
-    def _request_capabilities(user_message: str) -> list[str]:
-        return _request_capabilities(user_message)
-
     def explicit_selection(self, user_message: str):
         """Return explicitly named records and an ambiguity flag."""
-        selected, ambiguous = explicit_integration_records(
-            self.records, user_message
-        )
-        if not selected and not ambiguous and _has_unknown_explicit_name(
-            user_message
-        ):
-            ambiguous = True
-        return selected, ambiguous
+        return explicit_integration_records(self.records, user_message)
 
     @staticmethod
     def _gateway_item(record) -> dict:
@@ -1318,94 +1471,75 @@ class MCPClient:
             return []
         return select_candidate_records(self.records, user_message)
 
-    def selected_integrations(self, user_message: str) -> list[dict]:
-        """Return selected records in their transport request form."""
-        selected = []
-        for record in self.selected_records(user_message):
-            if record.get("type") == "mcp_server":
-                selected.append(record)
-            else:
-                selected.append(self._gateway_item(record))
-        return selected
-
-    # Compatibility hooks retained for simulator subclasses and old callers.
-    def _write_request(self, user_message, integrations, force_retry=False):
-        return self.lmstudio._write_request(
-            user_message, integrations, force_retry
-        )
-
-    def _run_stage_once(
-        self, user_message, integrations, max_calls, force_retry=False,
-    ):
-        return self.lmstudio.run_stage_once(
-            user_message, integrations, max_calls, force_retry
-        )
-
     def _run_stage(
         self, user_message, integrations, max_calls=MAX_MCP_CALLS,
-        optional=False,
+        optional=False, conversation_context="", continuation_plans=None,
     ):
         return self.lmstudio.run_stage(
-            user_message, integrations, max_calls, optional
+            user_message, integrations, max_calls, optional,
+            conversation_context, continuation_plans=continuation_plans,
         )
 
-    def _run_stage_items(
-        self, user_message: str, items, call_budget: int,
-        force_each: bool = False,
-    ):
-        """Run a gateway group, guaranteeing one call per explicit item."""
-        if not items or call_budget <= 0:
-            return "", 0, ""
-        groups = [[item] for item in items[:call_budget]] if force_each else [items]
-        parts = []
-        used = 0
-        calls = 0
-        success = False
-        first_error = ""
-        for group in groups:
-            available = call_budget - calls
-            if available <= 0:
-                break
-            evidence, count, error = self._run_stage(
-                user_message, group, max_calls=(1 if force_each else available)
-            )
-            calls += count
-            if error:
-                if not force_each:
-                    return "\n\n".join(parts), calls, error
-                if not first_error:
-                    first_error = error
-                used = _append_bounded_evidence(
-                    parts, "# Integration limitation", error, used
-                )
-                continue
-            if evidence:
-                success = True
-            used = _append_bounded_evidence(parts, "", evidence, used)
-        if not success and first_error:
-            return "", calls, first_error
-        return "\n\n".join(parts), calls, ""
-
     @staticmethod
-    def _stage_record(record, role: str, evidence: str = "") -> dict:
+    def _stage_record(
+        record, role: str, evidence: str = "", allow_mutation: bool = False,
+        excluded_tools=(),
+    ) -> dict:
         """Restrict one stage to discovered tools compatible with its role."""
         staged = dict(record)
         names = _tool_names_for_role(record, role, evidence)
+        names = _authorized_tool_names(
+            record, names, role, allow_mutation
+        )
+        if (
+            role in ("request", "url")
+            and any(
+                _tool_is_request_scoped_fetch(record, name) for name in names
+            )
+        ):
+            observers = [
+                hint.get("name", "")
+                for hint in record.get("tool_hints", [])
+                if isinstance(hint, dict)
+                and _hint_observes_current_resource(hint)
+            ]
+            observers = _authorized_tool_names(
+                record, observers, "evidence", allow_mutation
+            )
+            for name in observers:
+                if name and name not in names:
+                    names.append(name)
         configured = record.get("allowed_tools", [])
         if configured and names:
             names = [name for name in names if name in configured]
-        if names:
+        record_key = integration_key(record)
+        names = [
+            name for name in names
+            if record_key + "|" + name not in excluded_tools
+        ]
+        if names or record.get("tool_hints") or configured:
             staged["allowed_tools"] = names
         return staged
 
     def _run_record_stage(
         self, record, role: str, request: str, evidence: str,
         excluded_tools, peer_records=None, optional: bool = False,
-        conversation_context: str = "",
+        conversation_context: str = "", allow_mutation: bool = False,
+        remaining_calls: int = MAX_MCP_CALLS,
     ):
         """Execute one provider-neutral stage and return bounded provenance."""
-        staged = self._stage_record(record, role, evidence)
-        if role == "url":
+        staged = self._stage_record(
+            record, role, evidence, allow_mutation, excluded_tools
+        )
+        chosen_plan = _continuation_plan(record, staged, role)
+        if role == "url" and chosen_plan:
+            instruction = (
+                "Use the configured request-scoped URL action on the most "
+                "relevant direct URL in the evidence, then use its read-only "
+                "current-resource observation tool. Return the observed page "
+                "title, final URL, and relevant inline content."
+            )
+        elif role == "url":
             instruction = (
                 "Use one configured URL-reading tool on the most relevant direct "
                 "URL in the evidence. Return the page title, final URL, and "
@@ -1418,11 +1552,16 @@ class MCPClient:
             )
         else:
             instruction = (
+                "Use the configured request-scoped action, then its read-only "
+                "current-resource observation tool, and return the observed "
+                "inline content."
+                if chosen_plan else
                 "Use one configured tool to gather evidence for the request."
             )
         stage_request = instruction + "\n\nOriginal request:\n" + request
+        context_block = ""
         if conversation_context:
-            stage_request += (
+            context_block = (
                 "\n\nConversation context (reference only):\n"
                 "Use this only to resolve follow-up references. Only the "
                 "Original request above can authorize creating, changing, "
@@ -1437,50 +1576,142 @@ class MCPClient:
             if self.direct is None:
                 return "", 0, "Direct MCP adapter is unavailable.", ""
             return self.direct.research_stage(
-                stage_request, [staged], excluded_tools
+                stage_request + context_block, [staged], excluded_tools,
+                allow_mutation=allow_mutation,
+            )
+        if not staged.get("allowed_tools"):
+            return (
+                "", 0,
+                "Integration metadata exposes no tool authorized for this "
+                "request. Scan integrations again or update the host MCP "
+                "tool policy.",
+                "",
             )
         peers = (
             peer_records if isinstance(peer_records, list) and peer_records
             else [record]
         )
         items = []
-        provenance = []
+        continuation_plans = []
         for peer in peers[:MAX_SELECTED_INTEGRATIONS]:
             if not isinstance(peer, dict) or peer.get("type") == "mcp_server":
                 continue
-            items.append(self._gateway_item(
-                self._stage_record(peer, role, evidence)
-            ))
-            provenance.append(integration_key(peer))
+            peer_staged = self._stage_record(
+                peer, role, evidence, allow_mutation, excluded_tools
+            )
+            if not peer_staged.get("allowed_tools"):
+                continue
+            items.append(self._gateway_item(peer_staged))
+            plan = _continuation_plan(peer, peer_staged, role)
+            if plan:
+                continuation_plans.append(plan)
         if not items:
             return "", 0, "No compatible LM Studio integrations.", ""
+        self._last_gateway_provider = ""
+        self._last_gateway_tool = ""
+        remaining_calls = max(
+            1, min(int(remaining_calls), MAX_MCP_CALLS)
+        )
+        max_calls = remaining_calls if continuation_plans else 1
         if optional:
             result, calls, error = self._run_stage(
-                stage_request, items, max_calls=1, optional=True
+                stage_request, items, max_calls=max_calls, optional=True,
+                conversation_context=conversation_context,
+                continuation_plans=continuation_plans,
             )
         else:
             result, calls, error = self._run_stage(
-                stage_request, items, max_calls=1
+                stage_request, items, max_calls=max_calls,
+                conversation_context=conversation_context,
+                continuation_plans=continuation_plans,
             )
-        return result, calls, error, ",".join(provenance) + "|" + role
+        provenance = ""
+        actual_provider = self._last_gateway_provider
+        actual_tool = self._last_gateway_tool
+        if actual_tool:
+            matching = []
+            for peer in peers[:MAX_SELECTED_INTEGRATIONS]:
+                if not isinstance(peer, dict):
+                    continue
+                if actual_provider in (
+                    peer.get("id", ""), peer.get("server_label", ""),
+                    integration_key(peer),
+                ):
+                    matching = [peer]
+                    break
+                if any(
+                    isinstance(hint, dict)
+                    and hint.get("name") == actual_tool
+                    for hint in peer.get("tool_hints", [])
+                ):
+                    matching.append(peer)
+            if len(matching) == 1:
+                provenance = integration_key(matching[0]) + "|" + actual_tool
+        return result, calls, error, provenance
 
-    def research(self, user_message: str, conversation_context: str = ""):
-        """Run a bounded discovery-driven integration chain."""
+    def research_result(
+        self, user_message: str, conversation_context: str = "",
+        allow_mutation=None, require_tool: bool = False,
+    ) -> dict:
+        """Run a bounded metadata-driven loop and return a typed outcome."""
+        if allow_mutation is None:
+            allow_mutation = request_authorizes_mutation(user_message)
+        else:
+            allow_mutation = bool(allow_mutation)
         explicit, ambiguous = self.explicit_selection(user_message)
         records = self.selected_records(user_message)
-        optional_selection = False
-        if not records and not ambiguous:
-            # The local catalog may omit useful semantic metadata.  Let LM
-            # Studio inspect its real tool schemas, but permit no tool call so
-            # ordinary self-contained chat remains tool-free.
-            records = [
-                record for record in self.records
+        blocked = []
+        if not allow_mutation:
+            blocked = [
+                record for record in records
                 if record.get("type") != "mcp_server"
-                and "catalog" not in _record_capabilities(record)
-            ][:MAX_SELECTED_INTEGRATIONS]
-            optional_selection = bool(records)
+                and not _record_has_authorized_tool(record)
+            ]
+            if explicit and blocked:
+                return mcp_outcome(
+                    MCP_OUTCOME_FAILED, error=(
+                        "The selected integration has no tool metadata authorized "
+                        "for this request. Scan integrations again or update the "
+                        "host MCP tool policy."
+                    )
+                )
+            records = [
+                record for record in records
+                if record.get("type") == "mcp_server"
+                or _record_has_authorized_tool(record)
+            ]
+        metadata_records = list(records)
+        gateway_records = []
+        if not ambiguous and not explicit:
+            for record in self.records:
+                if (
+                    not isinstance(record, dict)
+                    or record.get("type") == "mcp_server"
+                    or "catalog" in _record_capabilities(record)
+                    or (
+                        not allow_mutation
+                        and not _record_has_authorized_tool(record)
+                    )
+                ):
+                    continue
+                if record not in gateway_records:
+                    gateway_records.append(record)
+                if record not in records:
+                    records.append(record)
+                if len(gateway_records) >= MAX_SELECTED_INTEGRATIONS:
+                    break
+        records = records[:MAX_SELECTED_INTEGRATIONS]
+        gateway_records = gateway_records[:MAX_SELECTED_INTEGRATIONS]
         if not records:
-            return "", ""
+            if explicit or ambiguous or require_tool or blocked:
+                return mcp_outcome(
+                    MCP_OUTCOME_FAILED, error=(
+                        "No enabled integration exposes an authorized tool for "
+                        "this request. Scan integrations again or update the "
+                        "host MCP tool policy."
+                    )
+                )
+            return mcp_outcome(MCP_OUTCOME_NOT_NEEDED)
         request_message, _request_bytes = _utf8_prefix(
             user_message, MAX_MCP_EVIDENCE_CHARS
         )
@@ -1488,6 +1719,14 @@ class MCPClient:
             conversation_context, MAX_MCP_BROWSER_CONTEXT_CHARS
         )
         force_each = bool(explicit)
+        model_selection = (
+            bool(gateway_records) and not force_each
+            and not (
+                metadata_records
+                and metadata_records[0].get("type") == "mcp_server"
+            )
+        )
+        optional_call = model_selection and not require_tool
         self.view_manager.log("[Agent] MCP integration research")
         parts = []
         used_bytes = 0
@@ -1499,12 +1738,16 @@ class MCPClient:
         success = False
 
         while call_count < MAX_MCP_CALLS:
-            ranked = (
-                records if (force_each or optional_selection) else
-                select_candidate_records(
+            if force_each:
+                ranked = records
+            elif not evidence_context and model_selection:
+                ranked = gateway_records
+            else:
+                ranked = select_candidate_records(
                     records, request_message, evidence_context
                 )
-            )
+                if not ranked and not evidence_context:
+                    ranked = records
             chosen = None
             chosen_role = ""
             for record in ranked:
@@ -1525,39 +1768,16 @@ class MCPClient:
                 break
 
             stage_records = [chosen]
-            if optional_selection and not evidence_context:
-                stage_records = records
-            if (
-                not force_each and not optional_selection and not evidence_context
-                and chosen_role == "request"
-                and chosen.get("type") != "mcp_server"
-                and _record_capabilities(chosen) == ["generic"]
-                and not chosen.get("tool_hints")
-            ):
-                # LM Studio sees plugin tool schemas that its catalog may not
-                # expose to the device. Offer bounded ambiguous plugins in one
-                # stage so the model can choose exactly one schema-matched tool.
-                for peer in ranked:
-                    if peer is chosen or len(stage_records) >= MAX_SELECTED_INTEGRATIONS:
-                        continue
-                    peer_role = _stage_role(
-                        peer, request_message, evidence_context
-                    )
-                    peer_signature = integration_key(peer) + "|" + peer_role
-                    if (
-                        peer.get("type") != "mcp_server"
-                        and peer_role == "request"
-                        and _record_capabilities(peer) == ["generic"]
-                        and not peer.get("tool_hints")
-                        and peer_signature not in used_stages
-                    ):
-                        stage_records.append(peer)
-                        used_stages.append(peer_signature)
+            if model_selection and not evidence_context:
+                stage_records = gateway_records
 
+            self._stage_status(stage_records)
             evidence, calls, error, provenance = self._run_record_stage(
                 chosen, chosen_role, request_message, evidence_context,
-                used_tools, stage_records, optional_selection,
-                context_message,
+                used_tools, stage_records,
+                optional_call and not evidence_context,
+                context_message, allow_mutation,
+                remaining_calls=MAX_MCP_CALLS - call_count,
             )
             call_count += max(0, int(calls))
             if provenance and provenance not in used_tools:
@@ -1572,7 +1792,7 @@ class MCPClient:
                     )
                 continue
             if not evidence:
-                if optional_selection and calls == 0 and not error:
+                if optional_call and calls == 0 and not error:
                     break
                 if not first_error:
                     first_error = "MCP integrations returned no evidence."
@@ -1580,9 +1800,7 @@ class MCPClient:
 
             success = True
             heading = "# Integration evidence"
-            if chosen_role == "search":
-                heading = "# Search evidence"
-            elif chosen_role == "url":
+            if chosen_role == "url":
                 heading = "# Opened page evidence"
             used_bytes = _append_bounded_evidence(
                 parts, heading, evidence,
@@ -1591,10 +1809,27 @@ class MCPClient:
             evidence_context, _context_bytes = _utf8_prefix(
                 "\n\n".join(parts), MAX_MCP_BROWSER_CONTEXT_CHARS
             )
-            if force_each:
-                continue
             if chosen_role == "url":
                 break
+            called_record = None
+            called_tool = ""
+            if provenance and "|" in provenance:
+                called_key, called_tool = provenance.rsplit("|", 1)
+                for record in records:
+                    if integration_key(record) == called_key:
+                        called_record = record
+                        break
+            if (
+                chosen_role == "request"
+                and (
+                    _tool_is_request_scoped_fetch(called_record, called_tool)
+                    or _tool_is_session_observer(called_record, called_tool)
+                )
+                and (not force_each or len(records) == 1)
+            ):
+                break
+            if force_each:
+                continue
             if not any(
                 _record_consumes_evidence(record, evidence_context)
                 and (
@@ -1606,12 +1841,21 @@ class MCPClient:
                 break
 
         result = "\n\n".join(parts).strip()
-        if optional_selection and not success and not first_error:
-            return "", ""
+        if optional_call and not success and not first_error:
+            return mcp_outcome(
+                MCP_OUTCOME_NOT_NEEDED, calls=call_count
+            )
         if not success:
-            return "", first_error or "MCP integrations returned no evidence."
+            return mcp_outcome(
+                MCP_OUTCOME_FAILED,
+                error=first_error or "MCP integrations returned no evidence.",
+                calls=call_count,
+            )
         self.view_manager.log("[Agent] MCP integration research complete")
-        return result, ""
+        return mcp_outcome(
+            MCP_OUTCOME_PARTIAL if first_error else MCP_OUTCOME_COMPLETED,
+            evidence=result, error=first_error, calls=call_count,
+        )
 
     def scan_integrations(self):
         """Scan legacy catalogs and direct MCP server tool catalogs."""
@@ -1629,9 +1873,15 @@ class MCPClient:
             if "catalog" in record.get("capabilities", [])
         ]
         if catalog:
+            configured_ids = [
+                integration_key(record) for record in legacy
+                if "catalog" not in record.get("capabilities", [])
+            ]
             evidence, _calls, error = self._run_stage(
                 "Call the catalog listing tool exactly once and return complete "
-                "plugin or ephemeral MCP records without commentary.",
+                "plugin or ephemeral MCP records without commentary. Ask it "
+                "to include bounded tool metadata for these currently "
+                "configured integration IDs: " + json.dumps(configured_ids),
                 [self._gateway_item(record) for record in catalog],
                 max_calls=1,
             )
@@ -1642,13 +1892,12 @@ class MCPClient:
                 return updated, "Integration catalog returned empty evidence."
             try:
                 discovered = parse_integration_catalog(evidence)
-            except (ValueError, TypeError, json.JSONDecodeError):
+            except (ValueError, TypeError):
                 return updated, "Integration catalog returned malformed evidence."
             if not discovered:
                 return updated, "Integration catalog returned no integrations."
             updated = merge_integration_records(updated, discovered)
-            # Refresh integration identity list after successful catalog scan.
-            self.refresh_integrations()
+            self.refresh_integrations(updated)
         if direct and self.direct is not None:
             scanned, error = self.direct.scan_integrations(direct)
             if error:
@@ -1659,11 +1908,11 @@ class MCPClient:
             updated = [
                 refreshed.get(integration_key(item), item) for item in updated
             ]
-            # Refresh integration identity list after direct MCP scan.
-            self.refresh_integrations()
+            self.refresh_integrations(updated)
         if not catalog and not direct:
             return [], (
                 "No integration catalog configured. Add an MCP Catalog or "
                 "direct MCP server in Agent Settings, then scan again."
             )
+        self.refresh_integrations(updated)
         return updated, ""

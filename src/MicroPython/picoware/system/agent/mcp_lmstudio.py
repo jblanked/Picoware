@@ -14,8 +14,6 @@ from picoware.system.agent.mcp import (
     _current_time_grounding,
     _utf8_prefix,
     _tool_loop_issue,
-    merge_integration_records,
-    parse_integration_catalog,
 )
 
 
@@ -81,8 +79,17 @@ def _successful_output_error(value) -> str:
             return str(detail)[:MAX_MCP_ERROR_CHARS]
         if detail and "error" in value:
             return str(detail)[:MAX_MCP_ERROR_CHARS]
+        for key in ("text", "content"):
+            if key in value:
+                nested = _successful_output_error(value.get(key))
+                if nested:
+                    return nested
         return ""
     if isinstance(value, list):
+        for item in value:
+            nested = _successful_output_error(item)
+            if nested:
+                return nested
         return ""
     text = value if isinstance(value, str) else str(value)
     stripped = text.strip()
@@ -103,10 +110,11 @@ def gateway_url(configured_url: str, model_url: str) -> str:
     if explicit:
         return explicit
     url = (model_url or "").rstrip("/")
-    for suffix in ("/api/v1/chat", "/v1/chat/completions"):
+    for suffix in ("/api/v1/chat", "/v1/chat/completions", "/v1/responses"):
         if url.endswith(suffix):
             return url[:-len(suffix)] + "/api/v1/chat"
-    if url.endswith("/v1"):
+    # Only normalize if URL appears to be a valid base (has scheme/host)
+    if url and ":" in url and url.endswith("/v1"):
         url = url[:-3]
     return url + "/api/v1/chat"
 
@@ -118,12 +126,14 @@ class IntegrationStreamSink:
         "http", "buffer", "history", "issue", "error", "call_count",
         "success_count", "evidence", "evidence_chars", "storage", "path",
         "file", "total_bytes", "spooled_bytes", "event_count", "max_calls",
-        "complete",
+        "complete", "status_callback", "continuation_plans",
+        "current_provider", "current_tool",
     )
 
     def __init__(
         self, http, storage=None, path: str = "",
-        max_calls: int = MAX_MCP_CALLS,
+        max_calls: int = MAX_MCP_CALLS, status_callback=None,
+        continuation_plans=None,
     ):
         self.http = http
         self.buffer = bytearray()
@@ -142,6 +152,12 @@ class IntegrationStreamSink:
         self.event_count = 0
         self.max_calls = max(1, min(int(max_calls), MAX_MCP_CALLS))
         self.complete = False
+        self.status_callback = status_callback
+        self.continuation_plans = (
+            continuation_plans if isinstance(continuation_plans, list) else []
+        )
+        self.current_provider = ""
+        self.current_tool = ""
         if storage is not None and path:
             storage.remove(path)
             self.file = storage.file_open(path)
@@ -157,15 +173,44 @@ class IntegrationStreamSink:
                 pass
             self.file = None
 
-    @property
-    def evidence_bytes(self) -> int:
-        """Return retained evidence size in UTF-8 bytes."""
-        return self.evidence_chars
-
     def _stop(self, issue: str) -> None:
         if not self.issue:
             self.issue = issue
         self.http.close()
+
+    def _continuation_role(self, provider_id: str, tool_name: str) -> str:
+        """Return action/observer for a configured stateful tool sequence."""
+        fallback = ""
+        fallback_count = 0
+        for plan in self.continuation_plans:
+            if not isinstance(plan, dict):
+                continue
+            role = ""
+            if tool_name in plan.get("actions", []):
+                role = "action"
+            elif tool_name in plan.get("observers", []):
+                role = "observer"
+            if not role:
+                continue
+            if str(plan.get("provider", "")) == str(provider_id or ""):
+                return role
+            fallback = role
+            fallback_count += 1
+        return fallback if fallback_count == 1 else ""
+
+    def _has_continuation_provider(self, provider_id: str) -> bool:
+        """Return whether the successful call belongs to a session plan."""
+        provider = str(provider_id or "")
+        configured = []
+        for plan in self.continuation_plans:
+            if not isinstance(plan, dict):
+                continue
+            candidate = str(plan.get("provider", "") or "")
+            if candidate and candidate not in configured:
+                configured.append(candidate)
+            if provider and candidate == provider:
+                return True
+        return not provider and len(configured) == 1
 
     def _consume_buffered_event(self, event_end: int, delimiter: int) -> None:
         self.event_count += 1
@@ -194,6 +239,11 @@ class IntegrationStreamSink:
             return
         event_type = event.get("type")
         if event_type == "chat.end":
+            if self.continuation_plans and self.success_count and not self.evidence:
+                self.error = (
+                    "MCP session ended before current-resource evidence "
+                    "was observed"
+                )
             self.complete = True
             return
         if event_type == "tool_call.arguments":
@@ -203,6 +253,10 @@ class IntegrationStreamSink:
             provider_id = provider.get(
                 "plugin_id", provider.get("server_label", "")
             )
+            if self.status_callback is not None:
+                self.status_callback(provider_id, event.get("tool", ""))
+            self.current_provider = str(provider_id or "")
+            self.current_tool = str(event.get("tool", ""))
             name = (
                 (str(provider_id) + ":" if provider_id else "")
                 + str(event.get("tool", "unknown"))
@@ -226,14 +280,49 @@ class IntegrationStreamSink:
                     self._stop("MCP tool-call budget exceeded")
                     return
                 self.call_count += 1
+            provider = event.get("provider_info", {})
+            if not isinstance(provider, dict):
+                provider = {}
+            provider_id = provider.get(
+                "plugin_id", provider.get(
+                    "server_label", self.current_provider
+                )
+            ) or self.current_provider
+            tool_name = str(event.get("tool", self.current_tool) or "")
+            continuation_role = self._continuation_role(
+                provider_id, tool_name
+            )
+            planned_provider = self._has_continuation_provider(provider_id)
             output = event.get("output", "")
             output_error = _successful_output_error(output)
             if output_error:
                 self.error = output_error
+                if planned_provider and self.call_count < self.max_calls:
+                    return
                 self.complete = True
                 self.http.close()
                 return
+            if planned_provider:
+                self.error = ""
             self.success_count += 1
+            if continuation_role == "action":
+                if self.call_count >= self.max_calls:
+                    self.error = (
+                        "MCP tool-call budget ended before current-resource "
+                        "evidence was observed"
+                    )
+                    self.complete = True
+                    self.http.close()
+                return
+            if planned_provider and continuation_role != "observer":
+                if self.call_count >= self.max_calls:
+                    self.error = (
+                        "MCP tool-call budget ended before current-resource "
+                        "evidence was observed"
+                    )
+                    self.complete = True
+                    self.http.close()
+                return
             if isinstance(output, (dict, list)):
                 output = json.dumps(output)
             elif not isinstance(output, str):
@@ -244,7 +333,10 @@ class IntegrationStreamSink:
                 if value:
                     self.evidence.append(value)
                     self.evidence_chars += value_bytes
-            if self.call_count >= self.max_calls:
+            if continuation_role == "observer" or not planned_provider:
+                self.complete = True
+                self.http.close()
+            elif self.call_count >= self.max_calls:
                 self.complete = True
                 self.http.close()
         elif event_type in ("tool_call.failure", "tool_call.error", "error"):
@@ -254,6 +346,8 @@ class IntegrationStreamSink:
                 if isinstance(detail, dict) else str(detail)
             )
             self.error = str(message)[:MAX_MCP_ERROR_CHARS]
+            self.complete = True
+            self.http.close()
 
     def write(self, value) -> None:
         """Consume one raw HTTP body fragment."""
@@ -338,19 +432,23 @@ class IntegrationStreamSink:
 
 class LMStudioMCPAdapter:
     """Preserve LM Studio native plugin and ephemeral-server execution."""
+    MAX_OUTPUT_TOKENS = 768  # Configurable limit
 
     __slots__ = (
         "view_manager", "http", "llm", "gateway_url", "request_path",
-        "spool_path",
+        "spool_path", "status_callback",
     )
 
-    def __init__(self, view_manager, http, llm, configured_url=""):
+    def __init__(
+        self, view_manager, http, llm, configured_url="", status_callback=None,
+    ):
         self.view_manager = view_manager
         self.http = http
         self.llm = llm
         self.gateway_url = gateway_url(configured_url, llm.url)
         self.request_path = "picoware/settings/agent_mcp_request.json"
         self.spool_path = "picoware/settings/agent_mcp_stream.tmp"
+        self.status_callback = status_callback
 
     @property
     def enabled(self) -> bool:
@@ -388,22 +486,47 @@ class LMStudioMCPAdapter:
 
     def _write_request(
         self, user_message: str, integrations, force_retry: bool = False,
-        optional: bool = False,
+        optional: bool = False, conversation_context: str = "",
+        max_calls: int = 1, continuation_plans=None,
     ) -> None:
         instruction = "Follow these steps in order:\n"
         if force_retry:
             instruction += "The previous attempt made no tool call.\n"
-        call_rule = (
-            "2. Call at most one allowed integration tool only if it is needed; "
-            "otherwise make no tool call.\n"
-            if optional else
-            "2. Call exactly one allowed integration tool once.\n"
-        )
+        if continuation_plans:
+            call_rule = (
+                "2. Choose one integration. When its metadata offers a "
+                "request-scoped action and a read-only current-resource "
+                "observation, call the action and then the observation in the "
+                "same session. You may correct an unsuccessful action, but use "
+                "no more than " + str(max_calls) + " tool calls total.\n"
+                "3. For the observation, omit filename and output-path "
+                "arguments so its content is returned inline. Use an empty "
+                "argument object when its schema permits; do not invent a "
+                "target, element, filter, depth, or output name.\n"
+                "4. Return only the concise observed content, not a path to an "
+                "artifact.\n"
+            )
+        else:
+            call_rule = (
+                "2. Call at most one allowed integration tool only if it is "
+                "needed; otherwise make no tool call.\n"
+                if optional else
+                "2. Call exactly one allowed integration tool once.\n"
+            ) + "3. Return only the concise tool result.\n"
         guard = (
             instruction
             + "1. Determine which allowed integration tool matches the request.\n"
             + call_rule
-            + "3. Return only the concise tool result.\n"
+        )
+        if conversation_context:
+            context_step = "5. " if continuation_plans else "4. "
+            guard += (
+                context_step
+                + "Use conversation context only to resolve follow-up references. "
+                "Only the user request below can authorize changes.\n\n"
+                "Conversation context:\n" + conversation_context + "\n\n"
+            )
+        guard += (
             "Do not answer from memory. Never make a change unless the user "
             "explicitly requested that change.\n\nUser request:\n"
         )
@@ -433,14 +556,15 @@ class LMStudioMCPAdapter:
             )
         storage.write(
             self.request_path,
-            '],"temperature":0,"store":false,"stream":true,'
-            '"max_output_tokens":768}',
+            f'],"temperature":0,"store":false,"stream":true,'
+            f'"max_output_tokens":{self.MAX_OUTPUT_TOKENS}}}',
             mode="a",
         )
 
     def run_stage_once(
         self, user_message: str, integrations,
         max_calls: int, force_retry: bool = False, optional: bool = False,
+        conversation_context: str = "", continuation_plans=None,
     ):
         """Run one bounded LM Studio integration stage."""
         storage = self.view_manager.storage
@@ -450,10 +574,14 @@ class LMStudioMCPAdapter:
         reason = ""
         try:
             self._write_request(
-                user_message, integrations, force_retry, optional
+                user_message, integrations, force_retry, optional,
+                conversation_context, max_calls=max_calls,
+                continuation_plans=continuation_plans,
             )
             sink = IntegrationStreamSink(
-                self.http, storage, self.spool_path, max_calls=max_calls
+                self.http, storage, self.spool_path, max_calls=max_calls,
+                status_callback=self.status_callback,
+                continuation_plans=continuation_plans,
             )
             if not sink.issue:
                 response = self.http.post(
@@ -485,6 +613,9 @@ class LMStudioMCPAdapter:
             return "", sink.call_count, sink.http_error(status_code, reason)
         if sink.issue:
             if sink.evidence:
+                self.view_manager.log(
+                    f"[Agent] MCP gateway partial success: issue='{sink.issue}', evidence_chars={sink.evidence_chars}"
+                )
                 return "\n\n".join(sink.evidence), sink.call_count, ""
             return "", sink.call_count, "MCP gateway stopped: " + sink.issue
         if sink.error:
@@ -493,7 +624,7 @@ class LMStudioMCPAdapter:
         if sink.call_count == 0:
             if optional and sink.complete:
                 return "", 0, ""
-            return "", 0, "MCP gateway returned no tool calls."
+            return "", 0, f"MCP gateway returned no tool calls (called {sink.call_count} times)."
         if not evidence:
             return "", sink.call_count, "MCP gateway returned no evidence."
         return evidence, sink.call_count, ""
@@ -501,38 +632,20 @@ class LMStudioMCPAdapter:
     def run_stage(
         self, user_message: str, integrations,
         max_calls: int = MAX_MCP_CALLS, optional: bool = False,
+        conversation_context: str = "", continuation_plans=None,
     ):
         """Run one stage with a bounded no-tool retry."""
         result = self.run_stage_once(
-            user_message, integrations, max_calls, False, optional
+            user_message, integrations, max_calls, False, optional,
+            conversation_context, continuation_plans=continuation_plans,
         )
         if (
             not optional and result[1] == 0
-            and result[2] == "MCP gateway returned no tool calls."
+            and (result[2] == "" or "MCP gateway returned no tool calls" in result[2])
         ):
             self.view_manager.log("[Agent] MCP retry after no tool call")
             result = self.run_stage_once(
-                user_message, integrations, max_calls, True, False
+                user_message, integrations, max_calls, True, False,
+                conversation_context, continuation_plans=continuation_plans,
             )
         return result
-
-    def scan_integrations(self, records):
-        """Run configured LM Studio catalog integrations."""
-        catalog = [
-            record for record in records
-            if "catalog" in record.get("capabilities", [])
-        ]
-        if not catalog:
-            return list(records), ""
-        evidence, _calls, error = self.run_stage(
-            "Call the catalog listing tool exactly once and return complete "
-            "plugin or ephemeral MCP records without commentary.",
-            [self.gateway_item(record) for record in catalog],
-            max_calls=1,
-        )
-        if error:
-            return list(records), error
-        discovered = parse_integration_catalog(evidence)
-        if not discovered:
-            return list(records), "Integration catalog returned no integrations."
-        return merge_integration_records(records, discovered), ""

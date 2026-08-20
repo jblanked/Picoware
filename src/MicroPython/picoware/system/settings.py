@@ -241,16 +241,6 @@ class Settings:
             del self._settings["local_mcp_servers"]
         self.__save_settings()
 
-    @property
-    def local_mcp_servers(self) -> str:
-        """Return legacy MCP entries through the provider-neutral setting."""
-        return self.mcp_integrations
-
-    @local_mcp_servers.setter
-    def local_mcp_servers(self, value: str):
-        """Persist legacy MCP entries using the provider-neutral setting."""
-        self.mcp_integrations = value
-
     @local_url.setter
     def local_url(self, value: str):
         """Set the local URL.

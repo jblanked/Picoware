@@ -13,16 +13,14 @@ XAI = const(5)
 LOCAL_MCP = const(6)
 
 MAX_LOCAL_MODELS = const(32)
-LEGACY_OLLAMA_MODEL_IDS = (
-    "qwen3.5:9b", "qwen3.5:4b", "qwen3.5:0.8b", "qwen3.5:2b",
-    "llama3.2:3b", "llama3.2:1b",
-)
 
 
 def local_model_catalog_url(chat_url: str) -> str:
-    """Return the llama.cpp-compatible model-list URL for a chat endpoint."""
+    """Return the matching model-list URL for a local chat endpoint."""
     url = (chat_url or "").strip().rstrip("/")
-    for suffix in ("/v1/chat/completions",):
+    if url.endswith("/api/v1/chat"):
+        return url[:-len("/api/v1/chat")] + "/api/v1/models"
+    for suffix in ("/v1/chat/completions", "/v1/responses"):
         if url.endswith(suffix):
             return url[:-len(suffix)] + "/v1/models"
     if url.endswith("/v1"):
@@ -31,10 +29,11 @@ def local_model_catalog_url(chat_url: str) -> str:
 
 
 def parse_local_models(value, limit: int = MAX_LOCAL_MODELS) -> list[str]:
-    """Extract bounded, unique model IDs from an OpenAI-compatible catalog."""
+    """Extract bounded LLM IDs from native or OpenAI-compatible catalogs."""
     if not isinstance(value, dict):
         return []
-    entries = value.get("data", [])
+    native = isinstance(value.get("models"), list)
+    entries = value.get("models", []) if native else value.get("data", [])
     if not isinstance(entries, list):
         return []
     models = []
@@ -42,7 +41,9 @@ def parse_local_models(value, limit: int = MAX_LOCAL_MODELS) -> list[str]:
     for entry in entries:
         if not isinstance(entry, dict):
             continue
-        model_id = entry.get("id", "")
+        if native and entry.get("type") not in (None, "", "llm"):
+            continue
+        model_id = entry.get("key", entry.get("id", ""))
         if isinstance(model_id, str):
             model_id = model_id.strip()
         if model_id and model_id not in models:
@@ -51,10 +52,6 @@ def parse_local_models(value, limit: int = MAX_LOCAL_MODELS) -> list[str]:
             break
     return models
 
-
-def is_legacy_ollama_model(model: str) -> bool:
-    """Return whether a model came from the removed Ollama-style defaults."""
-    return model in LEGACY_OLLAMA_MODEL_IDS
 
 class LLM:
     """LLM config"""

@@ -3,6 +3,11 @@
 import json
 from micropython import const
 from picoware.system.agent.tools import dispatch
+from picoware.system.agent.authorization import (
+    MUTATING_BUILTIN_TOOLS,
+    builtin_tool_requires_mutation,
+    request_authorizes_mutation,
+)
 from picoware.system.agent.llm import LLM, DEEPSEEK
 from picoware.system.agent.context import chat, app_creator, device_manager
 
@@ -57,58 +62,27 @@ DEVICE_MANAGER_TOOL_NAMES = (
     "network_scan_ble",
     "network_send_request",
 )
+CHAT_TOOL_NAMES = (
+    "network_get_info",
+    "network_scan_wifi",
+    "network_scan_ble",
+    "network_send_request",
+)
 ERROR_RESPONSE_PREFIXES = (
     "API error",
     "An error occurred during processing:",
     "Tool loop stopped before execution:",
     "Error:",
 )
-MCP_AFFIRMATIVE_REPLIES = (
-    "yes", "yes please", "ok", "okay", "sure", "please do", "go ahead",
-    "do it", "continue", "go on", "proceed", "retry", "ja", "ja bitte",
-    "bitte", "mach weiter",
-)
-MCP_CONTINUATION_QUESTIONS = (
-    "would you like me to", "do you want me to", "want me to", "shall i",
-    "should i", "may i", "soll ich", "moechtest du", "möchtest du",
-)
-MCP_CONTINUATION_ACTIONS = (
-    "search", "research", " try ", "attempt", "continue", "open", "navigate",
-    "look up", "fetch", "browse", " use ", " call ", " run ", " perform ",
-    " suche ", "recherch", "versuch", "öffn",
-)
-MCP_DEFERRAL_MARKERS = (
-    "please confirm", "would you like me to", "do you want me to",
-    "want me to", "shall i", "should i", "may i", "i'll now",
-    "i’ll now", "i will now", "i need to", "i'm going to", "i’m going to",
-    "i am going to", "i can now", "let me", "please wait", "soll ich",
-    "moechtest du", "möchtest du",
-)
-MCP_CLARIFICATION_MARKERS = (
-    "exact integration label", " search topic", " search query",
-    "specify a search", "specify the topic", "specify the page or topic",
-    "clarify your request", "what should i search",
-    "what would you like me to search", "do not have access",
-    "don't have access", "cannot access", "can't access",
-)
 MCP_EXACT_LABEL_CLARIFICATION = (
     "Please use the exact integration label from settings; the requested name "
     "was not found or matched more than one configured integration."
-)
-MCP_TOPIC_CLARIFICATION = (
-    "Please specify the page or topic for the requested integration."
 )
 MCP_FINAL_ANSWER_GUARD = (
     "The configured integrations already completed for this turn. Answer from "
     "their supplied evidence now. Do not ask for confirmation, promise a "
     "future search, describe a next step, or tell the user to wait. If the "
     "evidence is insufficient, state that limitation as the final answer."
-)
-MCP_FINAL_RETRY_GUARD = (
-    "The previous completion deferred work that was already completed. Do not "
-    "request confirmation or another user message. Give the final "
-    "evidence-based answer now, or state the evidence limitation as the final "
-    "answer."
 )
 MCP_EVIDENCE_PREAMBLE = (
     "\n\n# Current integration evidence\n"
@@ -123,22 +97,38 @@ MCP_EVIDENCE_PREAMBLE = (
     "page contents. If a source failed but no current fact is required, provide "
     "the useful answer instead of a research-status report.\n"
 )
-MCP_DEFERRAL_PREAMBLES = (
-    "sure", "certainly", "okay", "ok", "i understand", "understood",
-    "of course", "absolutely", "i can help with that", "to continue",
-    "before i continue",
-)
-MCP_PENDING_LIMITATION_PREAMBLES = (
-    "no evidence yet", "do not have evidence yet", "don't have evidence yet",
-    "haven't searched yet", "have not searched yet",
-)
-MCP_LIMITATION_PREAMBLES = (
-    "evidence is insufficient", "evidence is incomplete", "no evidence",
-    "no reliable evidence", "could not find", "did not find",
+MCP_FAILURE_PREAMBLE = (
+    "\n\n# Current integration outcome\n"
+    "The configured integration attempt failed for this turn. Do not claim "
+    "that a tool succeeded or invent its result. Give any useful answer that "
+    "does not require the missing result, clearly state the integration "
+    "limitation, and do not ask the user to repeat the original task.\n"
 )
 MCP_NEGATIVE_PREFIXES = (
     "no", "nope", "do not", "don't", "dont", "never mind", "cancel",
     "stop", "nein", "abbrechen",
+)
+MCP_TOPIC_STOP_WORDS = (
+    "a", "an", "and", "again", "browse", "for", "find", "from",
+    "look", "lookup", "open", "please", "research", "retry", "search",
+    "that", "the", "this", "use", "using", "with", "und", "für",
+    "mit", "nach", "bitte", "recherchieren", "suche", "suchen",
+)
+TASK_STATE_VERSION = const(1)
+TASK_STATE_PENDING = "pending"
+TASK_REASON_CLARIFICATION = "clarification"
+TASK_REASON_INTEGRATION_FAILED = "integration_failed"
+TASK_REASON_PARTIAL = "partial"
+TASK_REASON_MODEL_FAILED = "model_failed"
+TASK_REASON_RUNTIME_FAILED = "runtime_failed"
+TASK_REASON_LEGACY = "legacy"
+TASK_REASONS = (
+    TASK_REASON_CLARIFICATION,
+    TASK_REASON_INTEGRATION_FAILED,
+    TASK_REASON_PARTIAL,
+    TASK_REASON_MODEL_FAILED,
+    TASK_REASON_RUNTIME_FAILED,
+    TASK_REASON_LEGACY,
 )
 
 
@@ -152,6 +142,25 @@ def _contains_any(text: str, values) -> bool:
 def _normalized_reply(value: str) -> str:
     """Return a compact form for bounded continuation matching."""
     return " ".join(value.lower().strip().rstrip(".!?").split())
+
+
+def _shares_mcp_topic(first: str, second: str) -> bool:
+    """Return whether two short requests share a substantive topic word."""
+    if not isinstance(first, str) or not isinstance(second, str):
+        return False
+    for separator in (".", ",", "!", "?", ":", ";", "/", "\\", "-"):
+        first = first.replace(separator, " ")
+        second = second.replace(separator, " ")
+    first_words = first.lower().split()[:24]
+    second_words = second.lower().split()[:24]
+    for word in second_words:
+        if (
+            len(word) >= 4
+            and word not in MCP_TOPIC_STOP_WORDS
+            and word in first_words
+        ):
+            return True
+    return False
 
 
 def _utf8_char_size(char: str) -> int:
@@ -249,151 +258,71 @@ def _is_negative_reply(value: str) -> bool:
     """Return whether a short reply declines the pending action."""
     reply = _normalized_reply(value)
     for prefix in MCP_NEGATIVE_PREFIXES:
-        if reply == prefix or reply.startswith(prefix + " "):
-            remainder = reply[len(prefix):].strip(" ,;:-")
-            replacements = (
-                " and use ", "; use ", " instead use ", " and search ",
-                "; search ", " instead search ", " and research ",
-                "; research ", " instead research ",
-            )
-            if _contains_any(" " + remainder + " ", replacements):
-                return False
-            if prefix in ("no", "nope", "nein") and remainder.startswith(
-                (
-                    "use ", "using ", "search ", "research ", "open ",
-                    "browse ", "navigate ", "suche ", "recherch",
-                )
-            ):
-                return False
+        if reply == prefix:
+            return True
+        if prefix in ("cancel", "stop", "abbrechen") and reply.startswith(
+            prefix + " "
+        ):
             return True
     return False
 
 
-def _response_defers_completed_work(value: str) -> bool:
-    """Return whether a short answer only promises or requests MCP work."""
-    if not isinstance(value, str):
-        return False
-    text = " ".join(value.lower().strip().split())
-    if not text or len(text) > 1200:
-        return False
-    # Look near the start so a useful answer followed by an optional offer is
-    # not mistaken for a refusal to answer.
-    opening = text[:384]
-    marker_index = len(opening)
-    for marker in MCP_DEFERRAL_MARKERS:
-        index = opening.find(marker)
-        if 0 <= index < marker_index:
-            marker_index = index
-    if marker_index == len(opening):
-        return False
-    deferred = opening[marker_index:]
-    if deferred.startswith((
-        "i need to state", "i need to note", "i need to explain",
-        "i need to clarify",
-    )):
-        return False
-    prefix = opening[:marker_index]
-    if "." in prefix or "!" in prefix or "?" in prefix:
-        preamble = prefix
-        for separator in (".", "!", "?", ",", ":", ";"):
-            preamble = preamble.replace(separator, " ")
-        preamble = " ".join(preamble.split())
+def _task_state(goal: str, reason: str) -> dict:
+    """Return one bounded pending task record."""
+    goal = _bounded_request_text(goal.strip()) if isinstance(goal, str) else ""
+    if not goal:
+        return {}
+    return {
+        "version": TASK_STATE_VERSION,
+        "state": TASK_STATE_PENDING,
+        "goal": goal,
+        "reason": reason if reason in TASK_REASONS else TASK_REASON_LEGACY,
+    }
+
+
+def _sanitize_task_state(value) -> dict:
+    """Validate persisted structured task state without retaining evidence."""
+    if not isinstance(value, dict) or value.get("state") != TASK_STATE_PENDING:
+        return {}
+    return _task_state(value.get("goal", ""), value.get("reason", ""))
+
+
+def _legacy_task_state(pending: str, conversation) -> dict:
+    """Migrate the old pending string to a structured root task once."""
+    if not isinstance(pending, str) or not pending.strip():
+        return {}
+    goal = pending.strip()
+    if len(_normalized_reply(goal).split()) <= 2 and isinstance(
+        conversation, list
+    ):
+        users = []
+        for message in reversed(conversation):
+            if isinstance(message, dict) and message.get("role") == "user":
+                text = message.get("content", "")
+                if isinstance(text, str) and text.strip():
+                    users.append(text.strip())
+                    if len(users) >= 2:
+                        break
         if (
-            preamble not in MCP_DEFERRAL_PREAMBLES
-            and not _contains_any(
-                preamble, MCP_PENDING_LIMITATION_PREAMBLES
-            )
-            and not _contains_any(preamble, MCP_LIMITATION_PREAMBLES)
+            len(users) >= 2
+            and _normalized_reply(users[0]) == _normalized_reply(goal)
         ):
-            return False
-    action_text = " " + opening + " "
-    for separator in (".", "!", "?", ",", ":", ";"):
-        action_text = action_text.replace(separator, " ")
-    return _contains_any(action_text, MCP_CONTINUATION_ACTIONS)
+            goal = users[1]
+    return _task_state(goal, TASK_REASON_LEGACY)
 
 
-def _assistant_needs_mcp_followup(value: str) -> bool:
-    """Return whether the immediately preceding answer left MCP work pending."""
-    if not isinstance(value, str):
-        return False
-    text = " " + value.lower().strip() + " "
-    return (
-        _response_defers_completed_work(value)
-        or _contains_any(text, MCP_CLARIFICATION_MARKERS)
-        or (
-            _contains_any(text, MCP_CONTINUATION_QUESTIONS)
-            and _contains_any(text, MCP_CONTINUATION_ACTIONS)
-        )
-    )
-
-
-def _declines_pending_mcp(user_message: str, conversation) -> bool:
-    """Return whether the user cancels the immediately pending MCP action."""
-    return _is_negative_reply(user_message) and _has_pending_mcp_context(
-        conversation
-    )
-
-
-def _has_pending_mcp_context(conversation) -> bool:
-    """Return whether the latest visible answer is awaiting MCP follow-up."""
-    if not conversation:
-        return False
-    previous = conversation[-1]
-    return (
-        isinstance(previous, dict)
-        and previous.get("role") == "assistant"
-        and _assistant_needs_mcp_followup(previous.get("content", ""))
-    )
-
-
-def _mcp_reference_needs_topic(user_message: str) -> bool:
-    """Return whether a short explicit integration reference lacks a target."""
-    if len(user_message) > 64:
-        return False
-    text = " " + user_message.lower().strip() + " "
-    if _contains_any(text, ("http://", "https://", "www.")):
-        return False
-    if not _contains_any(
-        text, (" use ", " using ", " with ", " via ", " try ")
-    ):
-        return False
-    if _contains_any(
-        text, (" for this ", " for that ", " with this ", " with that ")
-    ):
-        return True
-    # A bare short label is a selection, not a task.  Dynamic names cannot be
-    # hardcoded here, so retain any message that already contains a task verb.
-    if _contains_any(
-        text,
-        (
-            " search ", " research ", " open ", " navigate ", " browse ",
-            " fetch ", " read ", " inspect ", " find ", " check ",
-            " suche ", " recher", " öffn",
-        ),
-    ):
-        return False
-    return len(text.split()) <= 5
-
-
-def _pending_mcp_topic(conversation, start_index: int = -1) -> str:
-    """Return the nearest substantive user request in a continuation chain."""
-    if not isinstance(conversation, list) or not conversation:
-        return ""
-    index = start_index if start_index >= 0 else len(conversation) - 1
-    minimum = max(-1, index - 8)
-    while index > minimum:
-        message = conversation[index]
-        if isinstance(message, dict) and message.get("role") == "user":
-            text = message.get("content", "")
-            if isinstance(text, str) and text.strip():
-                reply = _normalized_reply(text)
-                if (
-                    reply not in MCP_AFFIRMATIVE_REPLIES
-                    and not _mcp_reference_needs_topic(text)
-                ):
-                    return text
-        index -= 1
-    return ""
+def _task_goal_for_turn(task, user_message: str) -> str:
+    """Resolve continuation structurally without domain or provider phrases."""
+    current = _bounded_request_text(user_message.strip())
+    saved = _sanitize_task_state(task)
+    if not saved:
+        return current
+    goal = saved["goal"]
+    if _shares_mcp_topic(goal, current):
+        return goal
+    if len(_normalized_reply(current).split()) <= 2:
+        return goal
+    return current
 
 
 def _clean_model_content(value: str) -> str:
@@ -452,37 +381,25 @@ def _trim_event_data(data):
     return data if start == 0 and end == len(data) else data[start:end]
 
 
-def _request_tool_names(mode: int, topic: str, has_evidence: bool = False):
-    """Return only tools relevant to the current Agent mode and request."""
+def _request_tool_names(mode: int, topic: str, integration_finalized: bool = False):
+    """Expose bounded tools unless an integration already owned the turn."""
     if mode == MODE_APP_CREATOR:
-        return APP_CREATOR_TOOL_NAMES
+        names = APP_CREATOR_TOOL_NAMES
+        if not request_authorizes_mutation(topic):
+            names = tuple(
+                name for name in names if name not in MUTATING_BUILTIN_TOOLS
+            )
+        return names
     if mode == MODE_DEVICE_MANAGER:
-        return DEVICE_MANAGER_TOOL_NAMES
-    if mode != MODE_CHAT or has_evidence:
+        names = DEVICE_MANAGER_TOOL_NAMES
+        if not request_authorizes_mutation(topic):
+            names = tuple(
+                name for name in names if name not in MUTATING_BUILTIN_TOOLS
+            )
+        return names
+    if mode != MODE_CHAT or integration_finalized:
         return ()
-
-    text = topic.lower()
-    names = []
-    if _contains_any(
-        text,
-        (
-            "device info", "system info", "network info", "wifi status",
-            "wi-fi status", "free heap", "free memory", "board info",
-            "current time", "what time", "current date", "what date",
-        ),
-    ):
-        names.append("network_get_info")
-    if ("wifi" in text or "wi-fi" in text) and _contains_any(
-        text, ("scan", "nearby", "available network", "list network")
-    ):
-        names.append("network_scan_wifi")
-    if ("bluetooth" in text or " ble " in " " + text + " ") and _contains_any(
-        text, ("scan", "nearby", "available device", "list device")
-    ):
-        names.append("network_scan_ble")
-    if "http://" in text or "https://" in text:
-        names.append("network_send_request")
-    return tuple(names)
+    return CHAT_TOOL_NAMES
 
 
 class ChatCompletionStreamSink:
@@ -798,7 +715,7 @@ class Agent:
     __slots__ = [
         "mode", "tools", "llm", "mcp", "view_manager", "http", "_file_path",
         "_conv_path", "_mem_path", "_msg_path", "_state_path",
-        "_conversation", "_pending_mcp_request", "_status", "_cancelled",
+        "_conversation", "_task", "_status", "_activity", "_cancelled",
     ]
 
     def __init__(self, view_manager, mode: int = MODE_CHAT, llm: LLM = None, file_path: str = "picoware/settings/agent_request.json"):
@@ -817,15 +734,18 @@ class Agent:
         self.llm = llm if llm is not None else LLM(view_manager.storage, DEEPSEEK)
         self.http = HTTP(thread_manager=view_manager.thread_manager)
         from picoware.system.agent.mcp import create_mcp_client
-        self.mcp = create_mcp_client(view_manager, self.http, self.llm)
+        self.mcp = create_mcp_client(
+            view_manager, self.http, self.llm, self._set_status
+        )
         self._file_path = file_path
         self._conv_path = "picoware/settings/agent_conv.json"
         self._mem_path = "picoware/settings/agent_mem.json"
         self._msg_path = "picoware/settings/agent_msg.json"
         self._state_path = "picoware/settings/agent_state_" + str(mode) + ".json"
         self._conversation = []
-        self._pending_mcp_request = ""
+        self._task = {}
         self._status = "Ready"
+        self._activity = {"phase": "ready", "provider": "", "tool": ""}
         self._cancelled = False
 
         s = self.view_manager.storage
@@ -856,17 +776,57 @@ class Agent:
         """Return the current user-facing execution phase."""
         return self._status
 
+    @property
+    def activity(self) -> dict:
+        """Return the current structured execution event."""
+        return dict(self._activity)
+
+    @property
+    def task(self) -> dict:
+        """Return the persisted structured task, if work remains pending."""
+        return dict(self._task)
+
+    def _set_status(self, status) -> None:
+        """Accept one bounded structured activity event."""
+        if not isinstance(status, dict):
+            status = {}
+        phase = _utf8_prefix(str(status.get("phase", "working")), 32)
+        provider = _utf8_prefix(str(status.get("provider", "")), 64)
+        tool = _utf8_prefix(str(status.get("tool", "")), 64)
+        self._activity = {
+            "phase": phase, "provider": provider, "tool": tool,
+        }
+        if phase == "mcp_call":
+            self._status = "MCP: " + (provider or "integration")
+            if tool:
+                self._status += " / " + tool
+        elif phase == "mcp_select":
+            self._status = "MCP: " + (provider or "selecting")
+        elif phase == "tool_call":
+            self._status = "Tool: " + (tool or "device")
+        else:
+            label = phase.replace("_", " ").strip()
+            self._status = (
+                label[:1].upper() + label[1:] if label else "Working"
+            )
+
+    def _set_task(self, goal: str = "", reason: str = "") -> None:
+        """Replace or clear the bounded structured task state."""
+        self._task = _task_state(goal, reason) if goal else {}
+
     def cancel(self) -> None:
         """Request cancellation of the active HTTP/tool loop."""
         self._cancelled = True
-        self._status = "Cancelling..."
+        self._set_status({
+            "phase": "cancelling", "provider": "", "tool": "",
+        })
         if self.http is not None:
             self.http.close()
 
     def reset_conversation(self) -> None:
         """Clear the current mode's persisted conversation."""
         self._conversation = []
-        self._pending_mcp_request = ""
+        self._task = {}
         self.view_manager.storage.remove(self._state_path)
 
     def _fingerprint(self) -> str:
@@ -887,16 +847,18 @@ class Agent:
         if not isinstance(state, dict) or state.get("fingerprint") != self._fingerprint():
             return
         self._conversation = self._sanitize_conversation(state.get("conversation"))
-        pending = state.get("pending_mcp_request", "")
-        if isinstance(pending, str):
-            self._pending_mcp_request = _bounded_request_text(pending.strip())
+        self._task = _sanitize_task_state(state.get("task"))
+        if not self._task:
+            self._task = _legacy_task_state(
+                state.get("pending_mcp_request", ""), self._conversation
+            )
 
     def _save_state(self) -> None:
         self.view_manager.storage.deserialize(
             {
                 "fingerprint": self._fingerprint(),
                 "conversation": self._conversation,
-                "pending_mcp_request": self._pending_mcp_request,
+                "task": self._task,
             },
             self._state_path,
         )
@@ -976,8 +938,10 @@ class Agent:
                 mode="a",
             )
 
-    def _conv_append_user_request(self, request: str, evidence: str = "") -> None:
-        """Append the final user request while keeping evidence SD-first."""
+    def _conv_append_user_request(
+        self, request: str, evidence: str = "", outcome=None,
+    ) -> None:
+        """Append the request and bounded structured integration context."""
         storage = self.view_manager.storage
         prefix = ',' if storage.exists(self._conv_path) else ''
         storage.write(
@@ -991,6 +955,14 @@ class Agent:
                 storage, self._conv_path, MCP_EVIDENCE_PREAMBLE
             )
             self._append_json_escaped_text(storage, self._conv_path, evidence)
+        elif isinstance(outcome, dict) and outcome.get("status") == "failed":
+            self._append_json_escaped_text(
+                storage, self._conv_path, MCP_FAILURE_PREAMBLE
+            )
+            self._append_json_escaped_text(
+                storage, self._conv_path,
+                _utf8_prefix(outcome.get("error", ""), 512),
+            )
         storage.write(self._conv_path, '"}', mode="a")
 
     @staticmethod
@@ -1068,7 +1040,6 @@ class Agent:
 
     def _build_request(
         self, tools: list[dict], require_visible_answer: bool = False,
-        correct_deferral: bool = False,
     ) -> None:
         """Stream the conversation and metadata into the API request file.
 
@@ -1103,13 +1074,6 @@ class Agent:
                 ',{"role":"user","content":"The previous completion '
                 'contained no visible answer. Return one concise visible '
                 'answer now."}',
-                mode="a",
-            )
-        if correct_deferral:
-            storage.write(
-                self._file_path,
-                ',{"role":"user","content":'
-                + json.dumps(MCP_FINAL_RETRY_GUARD) + "}",
                 mode="a",
             )
         storage.write(self._file_path, "]", mode="a")
@@ -1168,8 +1132,38 @@ class Agent:
                 tools.append(tool.json_openai)
         return tools
 
-    def _execute_tool(self, history, cache, counts, name: str, arguments):
+    def _execute_tool(
+        self, history, cache, counts, name: str, arguments,
+        mutation_authorized: bool = False,
+    ):
         """Execute one guarded tool call and reuse same-batch successful results."""
+        if builtin_tool_requires_mutation(name, arguments):
+            if not mutation_authorized:
+                return {
+                    "ok": False,
+                    "error": "mutation_not_authorized",
+                    "message": (
+                        "The current user request did not explicitly authorize "
+                        "this mutating tool call."
+                    ),
+                }
+            if self.mode == MODE_APP_CREATOR:
+                path = ""
+                if isinstance(arguments, dict):
+                    path = arguments.get(
+                        "file_path", arguments.get("dir_path", "")
+                    )
+                if not isinstance(path, str) or not path.startswith(
+                    "picoware/apps/"
+                ):
+                    return {
+                        "ok": False,
+                        "error": "mutation_path_not_authorized",
+                        "message": (
+                            "App Creator mutations are limited to "
+                            "picoware/apps/."
+                        ),
+                    }
         signature = (name, _argument_signature(arguments))
         limit = self._mode_tool_limit(name)
         if limit and counts.get(name, 0) >= limit:
@@ -1188,7 +1182,9 @@ class Agent:
             raise RuntimeError("Agent request cancelled.")
 
         counts[name] = counts.get(name, 0) + 1
-        self._status = "Tool: " + name
+        self._set_status({
+            "phase": "tool_call", "provider": "device", "tool": name,
+        })
         self.view_manager.log("[Agent] Executing " + name)
         try:
             result = dispatch.execute_tool(self.view_manager, name, arguments)
@@ -1204,7 +1200,7 @@ class Agent:
         return result
 
     def _run_loop(
-        self, allowed_tool_names=None, has_evidence: bool = False,
+        self, allowed_tool_names=None, mutation_authorized: bool = False,
     ) -> str:
         """Run a provider-neutral Chat Completions tool loop."""
         storage = self.view_manager.storage
@@ -1212,7 +1208,6 @@ class Agent:
         cache = {}
         counts = {}
         empty_response_retried = False
-        deferred_response_retried = False
         if allowed_tool_names is None:
             allowed_tool_names = _request_tool_names(self.mode, "")
 
@@ -1220,11 +1215,13 @@ class Agent:
             if self._cancelled:
                 return "An error occurred during processing: Agent request cancelled."
 
-            self._status = "Model request"
+            self._set_status({
+                "phase": "model_request", "provider": self.llm.model,
+                "tool": "",
+            })
             self._build_request(
                 self._chat_completion_tools(counts, allowed_tool_names),
                 require_visible_answer=empty_response_retried,
-                correct_deferral=deferred_response_retried,
             )
             sink = ChatCompletionStreamSink(
                 self.http, storage, self._msg_path
@@ -1274,17 +1271,6 @@ class Agent:
                         )
                         continue
                     return "API error: model returned no visible response."
-                if has_evidence and _response_defers_completed_work(content):
-                    if not deferred_response_retried:
-                        deferred_response_retried = True
-                        self.view_manager.log(
-                            "[Agent] Correcting deferred MCP answer"
-                        )
-                        continue
-                    return (
-                        "API error: model did not provide a final answer from "
-                        "the completed integration evidence."
-                    )
                 self._conv_append({"role": "assistant", "content": content})
                 self.view_manager.log("[Agent] Final response complete")
                 return content
@@ -1313,7 +1299,8 @@ class Agent:
             for tool_call, name, arguments in parsed_calls:
                 try:
                     result = self._execute_tool(
-                        history, cache, counts, name, arguments
+                        history, cache, counts, name, arguments,
+                        mutation_authorized,
                     )
                 except RuntimeError as exc:
                     return str(exc)
@@ -1426,118 +1413,16 @@ class Agent:
             storage.file_close(file_obj)
 
     def _mcp_request_message(self, user_message: str) -> str:
-        """Resolve a bounded pending MCP task from visible conversation."""
-        if self.mcp is None:
+        """Compose one turn from structured task state and current intent."""
+        goal = _task_goal_for_turn(self._task, user_message)
+        if not self._task or goal == user_message:
             return user_message
-        conversation = self._conversation
-        current_selected = self.mcp.selected_integrations(user_message)
-        explicit_selector = getattr(self.mcp, "explicit_selection", None)
-        if explicit_selector is None:
-            current_explicit = current_selected
-        else:
-            current_explicit, _ambiguous = explicit_selector(user_message)
-        reply = _normalized_reply(user_message)
-        if self._pending_mcp_request and (
-            current_explicit or reply in MCP_AFFIRMATIVE_REPLIES
-        ):
-            return (
-                "Complete the pending integration request. Apply the current "
-                "instruction without another approval step.\n\nPending request:\n"
-                + self._pending_mcp_request
-                + "\n\nCurrent instruction:\n" + user_message
-            )
-        if len(conversation) < 2:
-            return user_message
-
-        previous_answer = conversation[-1]
-        previous_request = conversation[-2]
-        if (
-            previous_answer.get("role") != "assistant"
-            or previous_request.get("role") != "user"
-        ):
-            return user_message
-        answer = previous_answer.get("content", "")
-        if not _assistant_needs_mcp_followup(answer):
-            return user_message
-        if _is_negative_reply(user_message):
-            return user_message
-        answer_text = " " + answer.lower().strip() + " "
-        is_clarification = _contains_any(
-            answer_text, MCP_CLARIFICATION_MARKERS
+        return (
+            "Resolve the current instruction in the context of the active "
+            "task. The current instruction may confirm, correct, redirect, "
+            "cancel, or replace that task; follow its meaning.\n\nActive task:\n"
+            + goal + "\n\nCurrent instruction:\n" + user_message
         )
-
-        prior_text = previous_request.get("content", "")
-        prior_selected = self.mcp.selected_integrations(prior_text)
-
-        # An exact-label response to our own clarification must retain the
-        # substantive request that caused the clarification.
-        if current_explicit:
-            topic = _pending_mcp_topic(
-                conversation, len(conversation) - 2
-            ) or prior_text
-            return (
-                "Complete the preceding request. The selected configured "
-                "integrations are in the user instruction.\n\nPrevious topic:\n"
-                + topic
-                + "\n\nUser instruction:\n" + user_message
-            )
-
-        if reply in MCP_AFFIRMATIVE_REPLIES:
-            # Walk only the local pending-action chain.  Every skipped user
-            # turn must itself be an affirmative response, and every skipped
-            # assistant turn must still describe pending integration work.
-            user_index = len(conversation) - 2
-            minimum = max(-1, len(conversation) - 7)
-            while user_index > minimum:
-                candidate = conversation[user_index]
-                if candidate.get("role") != "user":
-                    break
-                candidate_text = candidate.get("content", "")
-                candidate_selected = self.mcp.selected_integrations(
-                    candidate_text
-                )
-                if candidate_selected:
-                    original_text = candidate_text
-                    if user_index >= 2:
-                        clarification = conversation[user_index - 1]
-                        original = conversation[user_index - 2]
-                        if (
-                            clarification.get("role") == "assistant"
-                            and original.get("role") == "user"
-                            and "exact integration label" in clarification.get(
-                                "content", ""
-                            ).lower()
-                        ):
-                            original_text = original.get("content", "")
-                    return (
-                        "Continue the pending integration request and answer it "
-                        "without another approval step.\n\nOriginal request:\n"
-                        + original_text + "\n\nIntegration selection:\n"
-                        + candidate_text + "\n\nUser confirmation:\n"
-                        + user_message
-                    )
-                if _normalized_reply(candidate_text) not in MCP_AFFIRMATIVE_REPLIES:
-                    break
-                assistant_index = user_index - 1
-                if assistant_index < 0:
-                    break
-                pending_answer = conversation[assistant_index]
-                if (
-                    pending_answer.get("role") != "assistant"
-                    or not _assistant_needs_mcp_followup(
-                        pending_answer.get("content", "")
-                    )
-                ):
-                    break
-                user_index -= 2
-
-        if prior_selected and is_clarification:
-            return (
-                "Continue the immediately preceding integration request. "
-                "Apply the user's clarification.\n\nPrevious request:\n"
-                + prior_text + "\n\nUser clarification:\n" + user_message
-            )
-        return user_message
 
 
     def run(self, topic: str, conversation: list[dict] | None = None, context=None) -> str:
@@ -1561,15 +1446,24 @@ class Agent:
             )
         
         self._cancelled = False
-        self._status = "Preparing"
+        self._set_status({
+            "phase": "preparing", "provider": "", "tool": "",
+        })
         self._conversation = self._sanitize_conversation(conversation)
-        declined_mcp = _declines_pending_mcp(
-            user_message, self._conversation
-        )
+        task_goal = _task_goal_for_turn(self._task, user_message)
+        continuing_task = bool(self._task and task_goal != user_message)
+        declined_mcp = bool(self._task and _is_negative_reply(user_message))
         if declined_mcp:
-            self._pending_mcp_request = ""
+            self._set_task()
+            task_goal = user_message
+            continuing_task = False
+        elif self._task and not continuing_task:
+            # A substantive unrelated request replaces, rather than silently
+            # carrying, an unfinished task.
+            self._set_task()
         storage = self.view_manager.storage
         try:
+            explicit = []
             if (
                 self.mcp is not None and self.mcp.enabled
                 and not declined_mcp
@@ -1580,44 +1474,61 @@ class Agent:
                 if explicit_selector is not None:
                     explicit, ambiguous = explicit_selector(user_message)
                     if ambiguous:
-                        if not self._pending_mcp_request:
-                            self._pending_mcp_request = user_message
+                        self._set_task(
+                            task_goal, TASK_REASON_CLARIFICATION
+                        )
                         return MCP_EXACT_LABEL_CLARIFICATION
-                    if (
-                        explicit
-                        and _mcp_reference_needs_topic(user_message)
-                        and not _has_pending_mcp_context(self._conversation)
-                    ):
-                        self._pending_mcp_request = user_message
-                        return MCP_TOPIC_CLARIFICATION
             self._write_mode_context(context)
             effective_request = _bounded_request_text(
                 self._mcp_request_message(user_message)
             )
             mcp_context = _mcp_conversation_context(self._conversation)
-            has_evidence = False
             evidence = ""
+            from picoware.system.agent.mcp import (
+                MCP_OUTCOME_FAILED,
+                MCP_OUTCOME_NOT_NEEDED,
+                MCP_OUTCOME_PARTIAL,
+                mcp_outcome,
+            )
+            outcome = mcp_outcome(MCP_OUTCOME_NOT_NEEDED)
             if (
                 self.mcp is not None and self.mcp.enabled
                 and not declined_mcp
             ):
-                self._status = "MCP research"
-                evidence, error = self.mcp.research(
-                    effective_request, mcp_context
+                self._set_status({
+                    "phase": "mcp_select", "provider": "enabled tools",
+                    "tool": "",
+                })
+                outcome = self.mcp.research_result(
+                    effective_request, mcp_context,
+                    allow_mutation=request_authorizes_mutation(user_message),
+                    require_tool=continuing_task or bool(explicit),
                 )
-                if error:
-                    return "API error: " + error
+                evidence = outcome.get("evidence", "")
+                outcome_status = outcome.get("status")
+                if outcome_status == MCP_OUTCOME_FAILED:
+                    self._set_task(
+                        task_goal, TASK_REASON_INTEGRATION_FAILED
+                    )
+                elif outcome_status == MCP_OUTCOME_PARTIAL:
+                    self._set_task(task_goal, TASK_REASON_PARTIAL)
+                else:
+                    self._set_task()
                 if evidence:
-                    has_evidence = True
                     self.view_manager.storage.write(
                         self._mem_path,
                         "\n" + MCP_FINAL_ANSWER_GUARD + "\n",
                         mode="a",
                     )
+            integration_finalized = (
+                outcome.get("status") != MCP_OUTCOME_NOT_NEEDED
+            )
             messages = [{"role": "system", "content": ""}]
             messages.extend(self._conversation)
             self._conv_write_initial(messages)
-            self._conv_append_user_request(effective_request, evidence)
+            self._conv_append_user_request(
+                effective_request, evidence, outcome
+            )
             # The evidence is now in the temporary SD conversation file; do
             # not retain a duplicate while the final model stream is running.
             evidence = ""
@@ -1626,20 +1537,22 @@ class Agent:
             from gc import collect
             collect()
             result = self._run_loop(
-                _request_tool_names(self.mode, user_message, has_evidence),
-                has_evidence=has_evidence,
+                _request_tool_names(
+                    self.mode, user_message,
+                    integration_finalized,
+                ),
+                mutation_authorized=request_authorizes_mutation(user_message),
             )
-            if isinstance(result, str) and not result.startswith(
+            if isinstance(result, str) and result.startswith(
                 ERROR_RESPONSE_PREFIXES
             ):
-                if _assistant_needs_mcp_followup(result):
-                    if not self._pending_mcp_request:
-                        self._pending_mcp_request = user_message
-                else:
-                    self._pending_mcp_request = ""
+                self._set_task(task_goal, TASK_REASON_MODEL_FAILED)
             return result
         except Exception as exc:
-            self._status = "Error"
+            self._set_task(task_goal, TASK_REASON_RUNTIME_FAILED)
+            self._set_status({
+                "phase": "error", "provider": "", "tool": "",
+            })
             return f"An error occurred during processing: {exc}"
         finally:
             for path in (
@@ -1664,6 +1577,7 @@ class Agent:
                 "status": "error",
                 "message": "Invalid payload format.",
                 "conversation": [],
+                "task": {},
             }
 
         topic = payload.get("message") or payload.get("topic")
@@ -1679,6 +1593,7 @@ class Agent:
                 "status": "error",
                 "message": "No message provided.",
                 "conversation": conversation,
+                "task": dict(self._task),
             }
 
         topic = _bounded_request_text(topic.strip())
@@ -1705,11 +1620,16 @@ class Agent:
             )
 
         self._conversation = conversation if status == "error" else turn_conversation
-        self._status = "Error" if status == "error" else "Complete"
+        self._set_status({
+            "phase": "error" if status == "error" else "complete",
+            "provider": "", "tool": "",
+        })
         self._save_state()
 
         return {
             "status": status,
             "message": message,
             "conversation": turn_conversation,
+            "task": dict(self._task),
+            "activity": dict(self._activity),
         }

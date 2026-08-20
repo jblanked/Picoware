@@ -13,11 +13,20 @@ from picoware.system.agent.mcp import (
     integration_key,
     tool_hints_from_definitions,
 )
+from picoware.system.agent.authorization import (
+    tool_effect,
+)
 from gc import collect
 
 
 MCP_PROTOCOL_MODERN = "2026-07-28"
-MCP_PROTOCOL_LEGACY = "2025-06-18"
+MCP_PROTOCOL_LEGACY = "2025-11-25"
+MCP_PROTOCOL_LEGACY_FALLBACK = "2025-06-18"
+MCP_PROTOCOL_2025_03 = "2025-03-26"
+MCP_PROTOCOL_LEGACY_VERSIONS = (
+    MCP_PROTOCOL_LEGACY, MCP_PROTOCOL_LEGACY_FALLBACK,
+    MCP_PROTOCOL_2025_03,
+)
 MAX_MCP_JSON_BYTES = const(8192)
 MAX_MCP_TOOLS = const(24)
 MAX_MCP_TOOL_SCHEMA_BYTES = const(2048)
@@ -342,14 +351,14 @@ class StandardMCPAdapter:
             return error
         return ""
 
-    def _legacy_context(self, record):
+    def _legacy_context(self, record, requested_protocol=MCP_PROTOCOL_LEGACY):
         params = {
-            "protocolVersion": MCP_PROTOCOL_LEGACY,
+            "protocolVersion": requested_protocol,
             "capabilities": {},
             "clientInfo": {"name": "Picoware Agent", "version": "2"},
         }
         payload, _status, headers, error = self._rpc(
-            record, "initialize", params, MCP_PROTOCOL_LEGACY
+            record, "initialize", params, requested_protocol
         )
         if error:
             return None, error
@@ -358,9 +367,9 @@ class StandardMCPAdapter:
         ):
             return None, "MCP initialize returned no result"
         result = payload.get("result", {})
-        protocol = result.get("protocolVersion", MCP_PROTOCOL_LEGACY)
-        if not isinstance(protocol, str) or not protocol:
-            protocol = MCP_PROTOCOL_LEGACY
+        protocol = result.get("protocolVersion", requested_protocol)
+        if protocol not in MCP_PROTOCOL_LEGACY_VERSIONS:
+            return None, "MCP server negotiated an unsupported protocol"
         session = _header_value(headers, "Mcp-Session-Id")
         error = self._notify_initialized(record, session, protocol)
         if error:
@@ -409,7 +418,7 @@ class StandardMCPAdapter:
     def list_tools(self, record, tool_limit=MAX_MCP_TOOLS):
         """List bounded tools and return the negotiated protocol context."""
         preference = record.get("protocol", "auto")
-        if preference != "legacy":
+        if preference in ("auto", MCP_PROTOCOL_MODERN):
             # Discovery is optional; tools/list is the decisive modern probe.
             self._rpc(record, "server/discover", {}, MCP_PROTOCOL_MODERN)
             context = {"protocol": MCP_PROTOCOL_MODERN, "session": ""}
@@ -418,11 +427,20 @@ class StandardMCPAdapter:
                 return tools, context, ""
             if preference == MCP_PROTOCOL_MODERN:
                 return [], None, error
-        context, error = self._legacy_context(record)
-        if error:
-            return [], None, error
-        tools, error = self._list_pages(record, context, tool_limit)
-        return tools, context, error
+        versions = MCP_PROTOCOL_LEGACY_VERSIONS
+        if preference in MCP_PROTOCOL_LEGACY_VERSIONS:
+            versions = (preference,)
+        last_error = "MCP protocol negotiation failed"
+        for protocol in versions:
+            context, error = self._legacy_context(record, protocol)
+            if error:
+                last_error = error
+                continue
+            tools, error = self._list_pages(record, context, tool_limit)
+            if not error:
+                return tools, context, ""
+            last_error = error
+        return [], None, last_error
 
     @staticmethod
     def _planner_tools(server_tools):
@@ -433,7 +451,7 @@ class StandardMCPAdapter:
             record, tools, context = entry
             for tool_index, tool in enumerate(tools):
                 alias = "mcp_%d_%d" % (server_index, tool_index)
-                schemas.append({
+                schema = {
                     "type": "function",
                     "function": {
                         "name": alias,
@@ -443,16 +461,19 @@ class StandardMCPAdapter:
                         )[:640],
                         "parameters": tool.get("inputSchema", {}),
                     },
-                })
+                }
                 try:
                     size = _utf8_size(
-                        json.dumps(schemas[-1]),
+                        json.dumps(schema),
                         MAX_MCP_PLANNER_SCHEMA_BYTES,
                     )
                 except (TypeError, ValueError):
                     size = MAX_MCP_PLANNER_SCHEMA_BYTES + 1
+                if size > MAX_MCP_PLANNER_SCHEMA_BYTES:
+                    continue
                 if schema_bytes + size > MAX_MCP_PLANNER_SCHEMA_BYTES:
-                    return schemas, "Schema exceeded planner size limit"
+                    return schemas, mapping
+                schemas.append(schema)
                 schema_bytes += size
                 mapping[alias] = (record, tool, context)
                 if len(schemas) >= MAX_MCP_PLANNER_TOOLS:
@@ -578,10 +599,14 @@ class StandardMCPAdapter:
             return "", "MCP tool returned no text evidence"
         return evidence, ""
 
-    def research_stage(self, user_message: str, records, excluded_tools=()):
+    def research_stage(
+        self, user_message: str, records, excluded_tools=(),
+        allow_mutation: bool = False,
+    ):
         """Plan and execute one direct MCP call with bounded provenance."""
         server_tools = []
         errors = []
+        authorization_blocked = False
         excluded = list(excluded_tools)
         per_server = max(
             1, MAX_MCP_PLANNER_TOOLS // max(1, len(records))
@@ -599,6 +624,9 @@ class StandardMCPAdapter:
                         continue
                     if allowed and tool["name"] not in allowed:
                         continue
+                    if not allow_mutation and tool_effect(tool) != "read":
+                        authorization_blocked = True
+                        continue
                     filtered.append(tool)
                 if filtered:
                     server_tools.append((record, filtered, context))
@@ -606,7 +634,12 @@ class StandardMCPAdapter:
         if not schemas:
             return (
                 "", 0,
-                "; ".join(errors) or "Direct MCP servers exposed no tools",
+                "; ".join(errors) or (
+                    "Direct MCP tools are not declared read-only; the current "
+                    "user request does not authorize mutation."
+                    if authorization_blocked else
+                    "Direct MCP servers exposed no tools"
+                ),
                 "",
             )
         name, arguments, error = self._plan_call(user_message, schemas)
@@ -621,6 +654,13 @@ class StandardMCPAdapter:
             return "", 0, "Direct MCP planner selected an unknown tool", ""
         record, tool, context = target
         provenance = integration_key(record) + "|" + tool["name"]
+        if not allow_mutation and tool_effect(tool) != "read":
+            return (
+                "", 0,
+                "Direct MCP mutation was not authorized by the current user "
+                "request.",
+                provenance,
+            )
         payload, _status, _headers, error = self._rpc(
             record,
             "tools/call",
@@ -634,13 +674,6 @@ class StandardMCPAdapter:
         if error:
             return "", 1, error, provenance
         return "# Direct MCP evidence\n" + evidence, 1, "", provenance
-
-    def research(self, user_message: str, records):
-        """Compatibility wrapper for one direct-server research stage."""
-        evidence, _calls, error, _provenance = self.research_stage(
-            user_message, records
-        )
-        return evidence, error
 
     def scan_integrations(self, records):
         """Refresh direct server tool names and routing capabilities."""

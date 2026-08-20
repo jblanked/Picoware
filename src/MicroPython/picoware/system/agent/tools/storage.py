@@ -5,6 +5,30 @@ from picoware.system.agent.tools.tool import Tool, Parameters, Property
 
 VALID_PATH = "Use a portable relative SD path such as 'picoware/apps/example.py'."
 MAX_STORAGE_READ_BYTES = const(8192)
+SENSITIVE_SETTINGS_PATH = "picoware/settings"
+
+
+def _portable_sd_path(value, allow_root: bool = False) -> str:
+    """Validate an Agent-controlled path within the portable SD namespace."""
+    if not isinstance(value, str):
+        raise ValueError("SD path must be text")
+    path = value.strip()
+    if allow_root and path in ("", "."):
+        return ""
+    if (
+        not path or path.startswith("/") or "\\" in path or "\x00" in path
+    ):
+        raise ValueError(VALID_PATH)
+    parts = path.split("/")
+    if any(not part or part in (".", "..") for part in parts):
+        raise ValueError(VALID_PATH)
+    normalized = "/".join(parts)
+    if (
+        normalized == SENSITIVE_SETTINGS_PATH
+        or normalized.startswith(SENSITIVE_SETTINGS_PATH + "/")
+    ):
+        raise ValueError("Agent tools cannot access Picoware settings")
+    return normalized
 
 
 def storage_get_info(view_manager) -> dict:
@@ -26,7 +50,7 @@ def storage_listdir(view_manager, dir_path) ->list[str]:
         list[str]: A list of filenames.
     """
     storage = view_manager.storage
-    return storage.listdir(dir_path)
+    return storage.listdir(_portable_sd_path(dir_path, allow_root=True))
 
 def storage_mkdir(view_manager, dir_path) -> bool:
     """Create a directory on the SD card.
@@ -39,7 +63,7 @@ def storage_mkdir(view_manager, dir_path) -> bool:
         bool: True on success.
     """
     storage = view_manager.storage
-    return storage.mkdir(dir_path)
+    return storage.mkdir(_portable_sd_path(dir_path))
 
 def storage_read(view_manager, file_path, mode: str = "r", index: int = 0, count: int = 0):
     """Read the contents of a file from the SD card.
@@ -59,7 +83,7 @@ def storage_read(view_manager, file_path, mode: str = "r", index: int = 0, count
     count = int(count)
     if count <= 0 or count > MAX_STORAGE_READ_BYTES:
         count = MAX_STORAGE_READ_BYTES
-    return storage.read(file_path, mode, index, count)
+    return storage.read(_portable_sd_path(file_path), mode, index, count)
 
 def storage_remove(view_manager, file_path) -> bool:
     """Remove a file or directory from the SD card.
@@ -72,7 +96,7 @@ def storage_remove(view_manager, file_path) -> bool:
         bool: True on success.
     """
     storage = view_manager.storage
-    return storage.remove(file_path)
+    return storage.remove(_portable_sd_path(file_path))
 
 def storage_write(view_manager, file_path, data, mode: str = "w") -> bool:
     """Write data to a file on the SD card.
@@ -87,7 +111,7 @@ def storage_write(view_manager, file_path, data, mode: str = "w") -> bool:
         bool: True on success.
     """
     storage = view_manager.storage
-    return storage.write(file_path, data, mode)
+    return storage.write(_portable_sd_path(file_path), data, mode)
 
 TOOL_STORAGE_LISTDIR = Tool(
     name="storage_listdir",

@@ -574,7 +574,7 @@ def _get_llm_models(
     Args:
         view_manager (ViewManager): The view manager context.
         llm_id (int): The provider ID.
-        current_model (str): Saved custom model to retain in the chooser.
+        current_model (str): Saved model to validate against the live catalog.
 
     Returns:
         list: Available model names.
@@ -589,6 +589,7 @@ def _get_llm_models(
         return models
 
     response = None
+    catalog_loaded = False
     try:
         if http is None:
             from picoware.system.http import HTTP
@@ -600,16 +601,13 @@ def _get_llm_models(
         )
         if response is not None and 200 <= response.status_code <= 299:
             models = parse_local_models(response.json())
+            catalog_loaded = True
     except (OSError, TypeError, ValueError):
         pass
     finally:
         if response is not None:
             response.close()
-    from picoware.system.agent.llm import is_legacy_ollama_model
-    if (
-        current_model and current_model not in models
-        and not is_legacy_ollama_model(current_model)
-    ):
+    if current_model and current_model not in models and not catalog_loaded:
         models.append(current_model)
     return models
 
@@ -828,6 +826,23 @@ def _selectable_integration_records(records) -> list:
     ]
 
 
+def _refresh_enabled_integration_metadata(current, scanned) -> list:
+    """Refresh metadata without enabling newly discovered integrations."""
+    from picoware.system.agent.mcp import (
+        integration_key, merge_integration_records, parse_integration_records,
+    )
+
+    enabled = parse_integration_records(current)
+    if not enabled:
+        return []
+    merged = merge_integration_records(enabled, scanned)
+    by_key = {integration_key(record): record for record in merged}
+    return [
+        by_key.get(integration_key(record), record)
+        for record in enabled
+    ]
+
+
 def _finish_integration_scan(view_manager) -> None:
     """Create integration toggles after a successful catalog scan."""
     global _state, _integration_ids, _integration_toggle_list
@@ -837,6 +852,7 @@ def _finish_integration_scan(view_manager) -> None:
     from picoware.gui.toggle_list import ToggleList
     from picoware.system.agent.mcp import (
         integration_key, integration_label, parse_integration_records,
+        serialize_integration_records,
     )
     from picoware.system.settings import Settings
 
@@ -864,9 +880,13 @@ def _finish_integration_scan(view_manager) -> None:
         _integration_toggle_list = None
 
     settings = Settings(view_manager.storage)
-    _integration_staged_records = parse_integration_records(
-        settings.mcp_integrations
+    current_records = parse_integration_records(settings.mcp_integrations)
+    _integration_staged_records = _refresh_enabled_integration_metadata(
+        current_records, scan_records
     )
+    serialized = serialize_integration_records(_integration_staged_records)
+    if serialized != serialize_integration_records(current_records):
+        settings.mcp_integrations = serialized
     _integration_initial_keys = [
         integration_key(record)
         for record in _integration_staged_records
@@ -991,6 +1011,7 @@ def _save_mcp_server(
     from picoware.system.agent.mcp import (
         integration_key, normalize_integration_record,
         parse_integration_records, serialize_integration_records,
+        upgrade_legacy_server_record,
     )
     from picoware.system.settings import Settings
 
@@ -1026,10 +1047,12 @@ def _save_mcp_server(
                 records[index] = record
                 settings.mcp_integrations = serialize_integration_records(records)
     else:
-        if len(records) >= 16:
-            view_manager.alert("Maximum of 16 integrations enabled", False)
-            return False
-        records.append(record)
+        records, migrated = upgrade_legacy_server_record(records, record)
+        if not migrated:
+            if len(records) >= 16:
+                view_manager.alert("Maximum of 16 integrations enabled", False)
+                return False
+            records.append(record)
         settings.mcp_integrations = serialize_integration_records(records)
     return True
 
@@ -1231,23 +1254,21 @@ def run(view_manager) -> None:
                 )
             )
             from picoware.system.agent.llm import (
-                LOCAL, LOCAL_MCP, LLM, is_legacy_ollama_model,
+                LOCAL, LOCAL_MCP, LLM,
             )
             if (
                 preserve_model
                 and selected_provider in (LOCAL, LOCAL_MCP)
-                and is_legacy_ollama_model(current_model)
             ):
                 models = _get_llm_models(
                     view_manager, selected_provider, current_model
                 )
-                preserve_model = False
-                if models:
+                preserve_model = current_model in models
+                if not preserve_model and models:
                     _settings["model"] = models[0]
-                else:
+                elif not preserve_model:
                     view_manager.alert(
-                        "The old Ollama-style model ID is invalid. Load a local "
-                        "model and select its exact ID.",
+                        "No local models found. Check Local URL and load a model.",
                         False,
                     )
                     _choice.draw()

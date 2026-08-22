@@ -95,16 +95,8 @@ def is_directory(path):
 
 
 def create_directory(path):
-    """Create one directory; like FAT32, its parent must already exist."""
-    target = _path(path)
-    try:
-        os.stat(target)
-        if is_directory(path):
-            return True
-        raise OSError("path exists and is not a directory")
-    except OSError:
-        pass
-    os.mkdir(target)
+    """Create a directory at the given VFS path."""
+    sim_runtime.mkdir_p(_path(path))
     return True
 
 
@@ -170,8 +162,10 @@ def readinto(path, buffer):
 
 
 def write(path, data, overwrite=True):
-    """Write data to a VFS path; the parent directory must exist."""
+    """Write data to a VFS path, creating parent directories."""
     target = _path(path)
+    parent = target.rsplit("/", 1)[0] if "/" in target else "."
+    sim_runtime.mkdir_p(parent)
     with open(target, "wb" if overwrite else "ab") as handle:
         handle.write(data)
     return True
@@ -243,8 +237,10 @@ def get_total_space():
 
 
 def file_open(path):
-    """Open a file on the VFS, creating it only under an existing parent."""
+    """Open a file on the VFS, creating it if missing."""
     target = _path(path)
+    parent = target.rsplit("/", 1)[0] if "/" in target else "."
+    sim_runtime.mkdir_p(parent)
     try:
         open(target, "rb").close()
     except OSError:
@@ -283,6 +279,8 @@ def file_write(file_obj, data):
     """Write data at the current position of an open VFS file."""
     pos = file_obj.position
     target = _path(file_obj.path)
+    parent = target.rsplit("/", 1)[0] if "/" in target else "."
+    sim_runtime.mkdir_p(parent)
     try:
         handle = open(target, "r+b")
     except OSError:

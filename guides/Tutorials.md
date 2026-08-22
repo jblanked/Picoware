@@ -3,6 +3,7 @@
 Here are some tutorials and reviews to help you get started with Picoware:
 
 ## Reviews/Application Walkthroughs
+- Flipper Zero, Cardputer, & PicoCalc's NEW Update!: https://www.youtube.com/watch?v=XzD6KjAB0qg
 - I Connected Flipper Zero, Cardputer, and PicoCalc to a Local AI Server (ZimaBoard 2): https://www.youtube.com/watch?v=_tbYPqLZqvo
 - Cardputer, Flipper Zero, & PicoCalc Get an EPIC Firmware Update!: https://www.youtube.com/watch?v=DiZ3TNUoONo
 - Cardputer AND PicoCalc Just Got a MASSIVE Upgrade (You Need This): https://www.youtube.com/watch?v=2cQUJM0ClZo

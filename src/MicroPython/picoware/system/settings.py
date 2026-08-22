@@ -27,6 +27,7 @@ class Settings:
             "exit_button": BUTTON_BACK,
             "gemini_api_key": "",
             "gmt_offset": 0,
+            "jblanked_api_key": "",
             "local_api_key": "",
             "local_url": "http://127.0.0.1:8080/v1/chat/completions",
             "mcp_gateway_url": "",
@@ -52,6 +53,7 @@ class Settings:
                 "exit_button": int(self.__fetch_setting("picoware/settings/exit_button.json", "exit_button", BUTTON_BACK)),
                 "gemini_api_key": "",
                 "gmt_offset": int(self.__fetch_setting("picoware/settings/gmt_offset.json", "gmt_offset", 0)),
+                "jblanked_api_key": "",
                 "local_api_key": "",
                 "local_url": "http://127.0.0.1:8080/v1/chat/completions",
                 "mcp_gateway_url": "",
@@ -264,6 +266,21 @@ class Settings:
             value (bool): True to enable LVGL mode.
         """
         self._settings["lvgl_mode"] = value
+        self.__save_settings()
+
+    @property
+    def jblanked_api_key(self) -> str:
+        """Return the current JBlanked API key."""
+        return self._settings.get("jblanked_api_key", "")
+
+    @jblanked_api_key.setter
+    def jblanked_api_key(self, value: str):
+        """Set the JBlanked API key.
+
+        Args:
+            value (str): The API key to set.
+        """
+        self._settings["jblanked_api_key"] = value
         self.__save_settings()
 
     @property

@@ -84,6 +84,18 @@ MCP_FINAL_ANSWER_GUARD = (
     "future search, describe a next step, or tell the user to wait. If the "
     "evidence is insufficient, state that limitation as the final answer."
 )
+MCP_FOLLOWUP_ANSWER_GUARD = (
+    "The configured integrations already completed for this turn. Answer from "
+    "their supplied evidence now. If essential user-provided information is "
+    "missing or ambiguous, ask one concise follow-up question in the user's "
+    "language. Do not ask the user to repeat the original task, confirm tool "
+    "execution, wait, or perform another search. If the missing evidence cannot "
+    "be supplied by the user, state that limitation as the final answer."
+)
+FOLLOWUP_QUESTIONS_PROMPT = const(b"""
+# Follow-up Questions
+If essential user-provided information is missing or ambiguous, ask one concise follow-up question in the user's language instead of guessing. Do not ask when a safe, useful answer can be given without it.
+""")
 MCP_EVIDENCE_PREAMBLE = (
     "\n\n# Current integration evidence\n"
     "This evidence was retrieved for this turn by the configured MCP "
@@ -402,6 +414,16 @@ def _request_tool_names(mode: int, topic: str, integration_finalized: bool = Fal
     return CHAT_TOOL_NAMES
 
 
+def _followup_prompt(enabled: bool):
+    """Return the optional prompt fragment for model follow-up questions."""
+    return FOLLOWUP_QUESTIONS_PROMPT if enabled else b""
+
+
+def _mcp_answer_guard(enabled: bool) -> str:
+    """Keep MCP finalization compatible with the follow-up setting."""
+    return MCP_FOLLOWUP_ANSWER_GUARD if enabled else MCP_FINAL_ANSWER_GUARD
+
+
 class ChatCompletionStreamSink:
     """Incrementally retain bounded Chat Completions answer/tool deltas."""
 
@@ -716,9 +738,14 @@ class Agent:
         "mode", "tools", "llm", "mcp", "view_manager", "http", "_file_path",
         "_conv_path", "_mem_path", "_msg_path", "_state_path",
         "_conversation", "_task", "_status", "_activity", "_cancelled",
+        "allow_followup_questions",
     ]
 
-    def __init__(self, view_manager, mode: int = MODE_CHAT, llm: LLM = None, file_path: str = "picoware/settings/agent_request.json"):
+    def __init__(
+        self, view_manager, mode: int = MODE_CHAT, llm: LLM = None,
+        file_path: str = "picoware/settings/agent_request.json",
+        allow_followup_questions: bool = False,
+    ):
         """Initialize the agent with a mode, LLM, and request file path.
 
         Args:
@@ -726,6 +753,8 @@ class Agent:
             mode (int): The agent mode constant. Defaults to MODE_CHAT.
             llm (LLM): The LLM client to use. Defaults to None.
             file_path (str): Path to the API request file. Defaults to "picoware/settings/agent_request.json".
+            allow_followup_questions (bool): Allow one concise model question
+                when essential user input is missing. Defaults to False.
         """
         from picoware.system.http import HTTP
         self.view_manager = view_manager
@@ -747,6 +776,7 @@ class Agent:
         self._status = "Ready"
         self._activity = {"phase": "ready", "provider": "", "tool": ""}
         self._cancelled = False
+        self.allow_followup_questions = bool(allow_followup_questions)
 
         s = self.view_manager.storage
         s.remove(self._conv_path)
@@ -1409,6 +1439,10 @@ class Agent:
             for value in values:
                 storage.file_write(file_obj, value, mode="wb")
                 storage.file_write(file_obj, b"\n", mode="wb")
+            followup = _followup_prompt(self.allow_followup_questions)
+            if followup:
+                storage.file_write(file_obj, followup, mode="wb")
+                storage.file_write(file_obj, b"\n", mode="wb")
         finally:
             storage.file_close(file_obj)
 
@@ -1517,7 +1551,9 @@ class Agent:
                 if evidence:
                     self.view_manager.storage.write(
                         self._mem_path,
-                        "\n" + MCP_FINAL_ANSWER_GUARD + "\n",
+                        "\n" + _mcp_answer_guard(
+                            self.allow_followup_questions
+                        ) + "\n",
                         mode="a",
                     )
             integration_finalized = (

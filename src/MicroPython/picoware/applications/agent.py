@@ -510,6 +510,7 @@ def _open_new_chat_from_menu(view_manager) -> None:
                 _settings["provider"],
                 _settings["model"],
             ),
+            allow_followup_questions=_followup_questions_enabled(),
         )
     _conversation = _agent.conversation
     _state = STATE_CHAT
@@ -538,7 +539,8 @@ def _set_settings(view_manager):
         from picoware.system.agent.llm import DEEPSEEK, LLM
         _settings = {
             "model": LLM(view_manager.storage, DEEPSEEK).model,
-            "provider": DEEPSEEK
+            "provider": DEEPSEEK,
+            "allow_followup_questions": False,
         }
         if not _save_settings(view_manager):
             view_manager.alert(
@@ -546,6 +548,40 @@ def _set_settings(view_manager):
             )
     else:
         _settings = s.serialize("picoware/settings/current_agent.json")
+        from picoware.system.agent.llm import JBLANKED, LOCAL_MCP
+        if (
+            isinstance(_settings, dict)
+            and _settings.get("provider") == JBLANKED
+            and _settings.get("model") not in ("", "none")
+        ):
+            # LOCAL_MCP used provider ID 6 before upstream assigned it to
+            # JBlanked. Preserve those existing local Agent selections.
+            _settings["provider"] = LOCAL_MCP
+            if not _save_settings(view_manager):
+                view_manager.alert(
+                    "Failed to migrate Agent provider settings.", False
+                )
+
+
+def _followup_questions_enabled() -> bool:
+    """Return the saved model follow-up preference, defaulting off."""
+    return bool(
+        isinstance(_settings, dict)
+        and _settings.get("allow_followup_questions", False)
+    )
+
+
+def _toggle_followup_questions(view_manager) -> None:
+    """Toggle model follow-up questions and persist the preference."""
+    global _agent
+    previous = _followup_questions_enabled()
+    _settings["allow_followup_questions"] = not previous
+    if not _save_settings(view_manager):
+        _settings["allow_followup_questions"] = previous
+        view_manager.alert("Failed to save Agent settings.", False)
+    elif _agent is not None:
+        _agent.allow_followup_questions = not previous
+    _start_settings_menu(view_manager)
 
 def _save_settings(view_manager) -> bool:
     """Persist the current agent settings to storage.
@@ -612,11 +648,18 @@ def _get_llm_models(
     return models
 
 
-def _settings_menu_items(provider: int) -> list:
+def _settings_menu_items(
+    provider: int, allow_followup_questions: bool = False,
+) -> list:
     """Return settings items available for the selected provider."""
     from picoware.system.agent.llm import LOCAL_MCP
 
-    items = ["Agent Provider", "Agent Model"]
+    items = [
+        "Agent Provider",
+        "Agent Model",
+        "Follow-up Questions: "
+        + ("On" if allow_followup_questions else "Off"),
+    ]
     if provider == LOCAL_MCP:
         items.append("Scan Integrations")
         items.append("Add MCP Server")
@@ -666,7 +709,9 @@ def _start_settings_menu(view_manager):
         background_color=view_manager.background_color,
         selected_color=view_manager.selected_color,
     )
-    for item in _settings_menu_items(_settings["provider"]):
+    for item in _settings_menu_items(
+        _settings["provider"], _followup_questions_enabled()
+    ):
         _settings_menu.add_item(item)
     _settings_menu.draw()
 
@@ -992,7 +1037,7 @@ def _catalog_input_record(value: str):
 
 
 def _open_mcp_server_input(view_manager, catalog: bool = False) -> None:
-    """Open a compact Label|URL editor for an MCP server or catalog."""
+    """Open a compact Label|URL editor for an LM Studio MCP record."""
     global _state, _server_is_catalog
     keyboard = view_manager.keyboard
     keyboard.reset()
@@ -1007,11 +1052,10 @@ def _open_mcp_server_input(view_manager, catalog: bool = False) -> None:
 def _save_mcp_server(
     view_manager, value: str, catalog: bool = False,
 ) -> bool:
-    """Validate and activate a direct MCP server or catalog record."""
+    """Validate and activate an LM Studio MCP server or catalog record."""
     from picoware.system.agent.mcp import (
         integration_key, normalize_integration_record,
         parse_integration_records, serialize_integration_records,
-        upgrade_legacy_server_record,
     )
     from picoware.system.settings import Settings
 
@@ -1023,10 +1067,9 @@ def _save_mcp_server(
         record = None
         if len(parts) == 2:
             record = normalize_integration_record({
-                "type": "mcp_server",
+                "type": "ephemeral_mcp",
                 "server_label": parts[0].strip(),
                 "server_url": parts[1].strip(),
-                "protocol": "auto",
                 "capabilities": ["generic"],
             })
     if record is None:
@@ -1047,12 +1090,10 @@ def _save_mcp_server(
                 records[index] = record
                 settings.mcp_integrations = serialize_integration_records(records)
     else:
-        records, migrated = upgrade_legacy_server_record(records, record)
-        if not migrated:
-            if len(records) >= 16:
-                view_manager.alert("Maximum of 16 integrations enabled", False)
-                return False
-            records.append(record)
+        if len(records) >= 16:
+            view_manager.alert("Maximum of 16 integrations enabled", False)
+            return False
+        records.append(record)
         settings.mcp_integrations = serialize_integration_records(records)
     return True
 
@@ -1197,6 +1238,7 @@ def run(view_manager) -> None:
                 view_manager,
                 _agent_mode,
                 LLM(view_manager.storage, _settings["provider"], _settings["model"]),
+                allow_followup_questions=_followup_questions_enabled(),
             )
             _conversation = _agent.conversation
             _scroll_offset = 0
@@ -1217,21 +1259,20 @@ def run(view_manager) -> None:
             _settings_menu.scroll_down()
         elif btn == BUTTON_CENTER:
             idx = _settings_menu.selected_index
+            settings_items = _settings_menu_items(
+                _settings["provider"], _followup_questions_enabled()
+            )
             if idx == 0:
                 _open_provider_choice(view_manager)
             elif idx == 1:
                 _open_model_choice(view_manager)
-            elif idx == 2 and len(
-                _settings_menu_items(_settings["provider"])
-            ) == 5:
+            elif idx == 2:
+                _toggle_followup_questions(view_manager)
+            elif idx == 3 and len(settings_items) == 6:
                 _open_integration_choice(view_manager)
-            elif idx == 3 and len(
-                _settings_menu_items(_settings["provider"])
-            ) == 5:
+            elif idx == 4 and len(settings_items) == 6:
                 _open_mcp_server_input(view_manager, False)
-            elif idx == 4 and len(
-                _settings_menu_items(_settings["provider"])
-            ) == 5:
+            elif idx == 5 and len(settings_items) == 6:
                 _open_mcp_server_input(view_manager, True)
 
     elif _state == STATE_SETTINGS_PROVIDER:

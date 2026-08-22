@@ -18,8 +18,6 @@ MAX_MCP_STREAM_BYTES = const(262144)
 MAX_MCP_STREAM_EVENTS = const(2048)
 MAX_DISCOVERED_INTEGRATIONS = const(64)
 MAX_SELECTED_INTEGRATIONS = const(8)
-MAX_MATCH_TOKEN_CHARS = const(24)
-MAX_MATCH_USER_TOKENS = const(16)
 MAX_MCP_TOOL_ID_CHARS = const(256)
 MAX_MCP_ERROR_CHARS = const(256)
 MAX_MCP_RECORD_ID_CHARS = const(256)
@@ -38,19 +36,6 @@ MCP_OUTCOME_COMPLETED = "completed"
 MCP_OUTCOME_NOT_NEEDED = "not_needed"
 MCP_OUTCOME_PARTIAL = "partial"
 MCP_OUTCOME_FAILED = "failed"
-
-_MATCH_IGNORED = (
-    "plugin", "local", "server", "integration", "integrations", "mcp",
-    "tool", "tools", "instruction", "selection", "confirmation",
-    "clarification", "original", "previous", "request", "topic", "user",
-    "search", "research", "browser", "fetch", "time", "current",
-    "web", "page", "website", "visit", "open", "read", "navigate",
-    "result", "resource", "resources", "reader", "private", "use", "using",
-    "with", "via", "try", "this",
-    "that", "the", "a", "an", "my", "please", "and", "or", "instead",
-    "rather", "than", "from", "configured",
-)
-_EXPLICIT_MARKERS = (" use ", " using ", " with ", " via ", " try ")
 
 
 def mcp_outcome(
@@ -94,15 +79,14 @@ def _unique_strings(
     return result
 
 
-def _normalized_words(value: str) -> tuple[str, list[str]]:
-    """Return bounded-comparison words without provider-specific aliases."""
+def _normalized_identity(value: str) -> str:
+    """Return one stable comparison form for a discovered identity."""
     if not isinstance(value, str):
-        return "", []
+        return ""
     value = value.lower()
     for separator in ("/", "-", "_", ".", ",", ";", ":", "(", ")", "[", "]"):
         value = value.replace(separator, " ")
-    words = value.split()
-    return " ".join(words), words
+    return " ".join(value.split())
 
 
 def _record_match_values(record: dict) -> list[str]:
@@ -120,244 +104,29 @@ def _record_match_values(record: dict) -> list[str]:
     return values
 
 
-def _shared_record_words(records: list[dict]) -> list[str]:
-    """Return identity words that cannot distinguish configured records."""
-    seen: list[str] = []
-    shared: list[str] = []
-    for record in records:
-        record_words: list[str] = []
-        for value in _record_match_values(record):
-            _normalized, words = _normalized_words(value)
-            for word in words:
-                if word not in _MATCH_IGNORED and word not in record_words:
-                    record_words.append(word)
-        for word in record_words:
-            if word in seen:
-                if word not in shared:
-                    shared.append(word)
-            else:
-                seen.append(word)
-    return shared
-
-
-def _near_embedded_token(user_token: str, candidate: str) -> int:
-    """Return a bounded anchored typo score against a dynamic ID fragment."""
-    size = len(user_token)
-    if size < 6 or size > MAX_MATCH_TOKEN_CHARS:
-        return 99
-    if len(candidate) < 6:
-        return 99
-    if user_token in candidate:
-        return 0
-    limit = 4 if size >= 8 else 3 if size >= 7 else 1
-    anchor = user_token[:4]
-    start = candidate.find(anchor)
-    if start < 0:
-        return 99
-    fragment = candidate[start:start + size + 2]
-    fragment_size = len(fragment)
-    if fragment_size < 4:
-        return 99
-
-    shared_pairs = 0
-    for user_index in range(size - 1):
-        for candidate_index in range(fragment_size - 1):
-            if (
-                user_token[user_index] == fragment[candidate_index]
-                and user_token[user_index + 1]
-                == fragment[candidate_index + 1]
-            ):
-                shared_pairs += 1
-                break
-    # The four-character anchor contributes three pairs. Requiring one more
-    # prevents a distant word with the same prefix from becoming a typo match.
-    if shared_pairs < min(4, size - 1):
-        return 99
-
-    # The anchor is already exact. Compute one bounded Levenshtein row for the
-    # remaining characters in the bounded dynamic-ID fragment.
-    candidate_tail_size = fragment_size - 4
-    distances = list(range(candidate_tail_size + 1))
-    for user_index in range(4, size):
-        diagonal = distances[0]
-        distances[0] = user_index - 3
-        for candidate_index in range(1, candidate_tail_size + 1):
-            above = distances[candidate_index]
-            substitution = diagonal
-            if (
-                user_token[user_index]
-                != fragment[candidate_index + 3]
-            ):
-                substitution += 1
-            insertion = distances[candidate_index - 1] + 1
-            deletion = above + 1
-            distances[candidate_index] = min(
-                insertion, deletion, substitution
-            )
-            diagonal = above
-
-    score = distances[candidate_tail_size]
-    return score if score <= limit else 99
-
-
-def _record_exact_match_level(
-    record: dict,
-    padded_user_message: str,
-    user_words: list[str],
-    shared_words: tuple[str, ...] = (),
-) -> int:
-    """Return 2 for a full identity match, 1 for a unique product word."""
-    for value in _record_match_values(record):
-        candidate, candidate_words = _normalized_words(value)
-        if candidate and (" " + candidate + " ") in padded_user_message:
-            return 2
-        for candidate_word in candidate_words:
-            if (
-                candidate_word in _MATCH_IGNORED
-                or candidate_word in shared_words
-            ):
-                continue
-            for user_word in user_words:
-                if user_word in _MATCH_IGNORED:
-                    continue
-                if user_word == candidate_word:
-                    return 1
-                if (
-                    len(user_word) >= 6
-                    and len(candidate_word) >= len(user_word)
-                    and user_word in candidate_word
-                ):
-                    return 1
-    return 0
-
-
-def _record_token_fuzzy_score(
-    record: dict,
-    user_word: str,
-    shared_words: tuple[str, ...] = (),
-) -> int:
-    """Return one user token's best typo score for a dynamic record."""
-    best = 99
-    for value in _record_match_values(record):
-        _candidate, candidate_words = _normalized_words(value)
-        for candidate_word in candidate_words:
-            if (
-                candidate_word in _MATCH_IGNORED
-                or candidate_word in shared_words
-            ):
-                continue
-            score = _near_embedded_token(user_word, candidate_word)
-            if score < best:
-                best = score
-    return best
-
-
 def explicit_integration_records(records, user_message: str):
-    """Return explicit dynamic matches and token-local fuzzy ambiguity."""
+    """Return the single longest exact discovered identity in the request."""
     selectable = [
         record for record in records
         if "catalog" not in record.get("capabilities", [])
     ]
-    shared_words = _shared_record_words(selectable)
-    normalized, words = _normalized_words(user_message)
-    padded = " " + normalized + " "
-
-    # Only names in explicit integration positions participate when the user
-    # says "use/with/via".  Topic words after "to/for/about" are not MCP names.
-    explicit_words = []
-    collecting = False
-    integration_clause = False
-    for word in words:
-        if word in ("use", "using", "with", "via", "try"):
-            collecting = True
-            integration_clause = True
-            continue
-        if collecting and word in ("to", "so", "because"):
-            collecting = False
-            integration_clause = False
-            continue
-        if collecting and word in ("for", "on", "about"):
-            collecting = False
-            continue
-        if integration_clause and not collecting and word in ("and", "then"):
-            collecting = True
-            continue
-        if collecting and word in ("and", "or", "then"):
-            continue
-        if collecting:
-            explicit_words.append(word)
-    has_explicit_marker = any(marker in padded for marker in _EXPLICIT_MARKERS)
-    match_words = explicit_words if has_explicit_marker else words
-    match_padded = " " + " ".join(match_words) + " "
-    exact_levels = [
-        _record_exact_match_level(
-            record, match_padded, match_words, shared_words
-        )
-        for record in selectable
-    ]
-    best_exact = max(exact_levels) if exact_levels else 0
-    matched = [
-        selectable[index] for index in range(len(selectable))
-        if best_exact and exact_levels[index] == best_exact
-    ]
-
-    if not has_explicit_marker:
-        return matched[:MAX_SELECTED_INTEGRATIONS], False
-
-    if not matched and any(
-        word in shared_words and word not in _MATCH_IGNORED
-        for word in explicit_words
-    ):
-        # An explicitly positioned name fragment shared by more than one
-        # discovered record is genuinely ambiguous. Ordinary unmatched words
-        # are left to the metadata-driven planner below.
-        return [], True
-
-    # Resolve each independently named token.  Two different typos may safely
-    # select two different scanned records; only a tie for the same token is
-    # ambiguous.  This stays provider-neutral because all candidates come from
-    # the scanned labels/IDs rather than firmware aliases.
-    # Only typo-match words in explicit integration-name positions.  Topic
-    # words after "to research", for example, must not silently select another
-    # scanned integration that happens to resemble the topic.
-    user_words = []
-    for word in explicit_words:
-        if (
-            word not in _MATCH_IGNORED
-            and 6 <= len(word) <= MAX_MATCH_TOKEN_CHARS
-            and word not in user_words
-        ):
-            user_words.append(word)
-        if len(user_words) >= MAX_MATCH_USER_TOKENS:
-            break
-
-    for user_word in user_words:
-        best = 99
-        winners = []
-        for record in selectable:
-            score = _record_token_fuzzy_score(
-                record, user_word, shared_words
-            )
-            if score < best:
-                best = score
-                winners = [record]
-            elif score == best and score < 99:
-                winners.append(record)
-        if best == 99:
-            continue
-        if len(winners) != 1:
-            # A later exact label safely resolves an older ambiguous spelling
-            # retained only as context in a clarification carry.
-            if any(record in matched for record in winners):
-                continue
-            return [], True
-        if winners[0] not in matched:
-            matched.append(winners[0])
-
-    # Preserve configured order even when the names appeared in another order.
-    return [
-        record for record in selectable if record in matched
-    ][:MAX_SELECTED_INTEGRATIONS], False
+    padded = " " + _normalized_identity(user_message) + " "
+    longest = 0
+    matches = []
+    for record in selectable:
+        record_best = 0
+        for value in _record_match_values(record):
+            candidate = _normalized_identity(value)
+            if candidate and (" " + candidate + " ") in padded:
+                record_best = max(record_best, len(candidate))
+        if record_best > longest:
+            longest = record_best
+            matches = [record]
+        elif record_best and record_best == longest:
+            matches.append(record)
+    if not matches:
+        return [], False
+    return (matches, False) if len(matches) == 1 else ([], True)
 
 
 def _legacy_capabilities(integration_id: str) -> list[str]:
@@ -599,27 +368,18 @@ def _tool_is_session_observer(record: dict, tool_name: str) -> bool:
     )
 
 
-def _record_effect(record: dict) -> str:
-    """Return the declared aggregate tool effect: read, write, or unknown."""
-    if not isinstance(record, dict):
-        return "unknown"
-    hints = record.get("tool_hints", [])
-    if not isinstance(hints, list) or not hints:
-        return "unknown"
-    declared = False
-    unknown = False
-    for hint in hints:
-        if not isinstance(hint, dict):
-            unknown = True
-            continue
-        effect = tool_effect(hint)
-        if effect == "write":
-            return "write"
-        if effect == "read":
-            declared = True
-        else:
-            unknown = True
-    return "read" if declared and not unknown else "unknown"
+def _tool_has_capability(record: dict, tool_name: str, capability: str) -> bool:
+    """Return whether discovered metadata assigns a capability to one tool."""
+    if not isinstance(record, dict) or not isinstance(tool_name, str):
+        return False
+    for hint in record.get("tool_hints", []):
+        if (
+            isinstance(hint, dict)
+            and hint.get("name") == tool_name
+            and capability in _hint_capabilities(hint)
+        ):
+            return True
+    return False
 
 
 def _authorized_tool_names(
@@ -674,121 +434,38 @@ def _record_has_authorized_tool(record: dict) -> bool:
     return False
 
 
-def integration_match_score(
-    record: dict,
-    user_message: str,
-    evidence: str = "",
-) -> int:
-    """Score one enabled record from discovered metadata and request context."""
-    if not isinstance(record, dict):
-        return -1
-    capabilities = _record_capabilities(record)
-    if "catalog" in capabilities:
-        return -1
-    normalized, user_words = _normalized_words(user_message)
-    user_words = user_words[:MAX_MATCH_USER_TOKENS]
-    padded = " " + normalized + " "
-    score = 0
-    for value in _record_match_values(record):
-        candidate, candidate_words = _normalized_words(value)
-        if candidate and (" " + candidate + " ") in padded:
-            score += 20
-        for word in candidate_words[:8]:
-            if len(word) >= 3 and word in user_words:
-                score += 4
-    metadata: list[str] = []
-    hints = record.get("tool_hints", [])
-    if not isinstance(hints, list):
-        hints = []
-    for hint in hints[:MAX_TOOL_HINTS]:
-        if not isinstance(hint, dict):
-            continue
-        metadata.append(hint.get("name", ""))
-        metadata.append(hint.get("description", ""))
-        metadata.extend(hint.get("inputs", []))
-    _meta_text, meta_words = _normalized_words(" ".join(metadata))
-    for word in user_words:
-        if len(word) >= 3 and word in meta_words:
-            score += 3
-    if (
-        (_contains_url(evidence) or _contains_url(user_message))
-        and _record_accepts_url(record)
-    ):
-        score += 24
-    return score
-
-
-def select_candidate_records(
-    records: list[dict],
-    user_message: str,
-    evidence: str = "",
-    exclude: tuple[str, ...] = (),
-) -> list[dict]:
-    """Rank enabled non-catalog records with bounded generic fallback."""
-    excluded = list(exclude) if isinstance(exclude, (list, tuple)) else []
-    scored: list[tuple[int, int, dict]] = []
-    for index, record in enumerate(records):
-        if not isinstance(record, dict):
+def _url_candidate_records(records, excluded_tools=()) -> list[dict]:
+    """Return enabled URL consumers with at least one unused tool."""
+    excluded = list(excluded_tools) if isinstance(
+        excluded_tools, (list, tuple)
+    ) else []
+    result = []
+    for record in records:
+        if (
+            not isinstance(record, dict)
+            or "catalog" in _record_capabilities(record)
+            or not _record_accepts_url(record)
+        ):
             continue
         key = integration_key(record)
-        if not key or key in excluded or "catalog" in _record_capabilities(record):
-            continue
-        score = integration_match_score(record, user_message, evidence)
-        if score > 0:
-            scored.append((score, index, record))
-    scored.sort(key=lambda item: (-item[0], item[1]))
-    selected = [item[2] for item in scored[:MAX_SELECTED_INTEGRATIONS]]
-
-    return selected[:MAX_SELECTED_INTEGRATIONS]
-
-
-def _record_consumes_evidence(record: dict, evidence: str) -> bool:
-    """Return whether discovered input names can consume current evidence."""
-    if not evidence:
-        return False
-    if _contains_url(evidence) and _record_accepts_url(record):
-        return True
-    lower = evidence.lower()
-    for hint in record.get("tool_hints", []):
-        if not isinstance(hint, dict):
-            continue
-        for input_name in hint.get("inputs", []):
-            name = input_name.lower()
-            if len(name) >= 3 and (
-                ('"' + name + '"') in lower or (name + ":") in lower
-            ):
-                return True
-    # Standard MCP annotations let an unfamiliar read-only tool participate in
-    # a chain without guessing provider names or domain-specific input labels.
-    if _record_effect(record) == "read":
-        return any(
-            isinstance(hint, dict) and bool(hint.get("inputs"))
+        if any(
+            isinstance(hint, dict)
+            and "fetch" in _hint_capabilities(hint)
+            and key + "|" + hint.get("name", "") not in excluded
             for hint in record.get("tool_hints", [])
-        )
-    return False
-
-
-def _stage_role(
-    record: dict,
-    user_message: str,
-    evidence: str,
-) -> str:
-    """Return a stable semantic stage role for duplicate prevention."""
-    if _contains_url(evidence) and _record_accepts_url(record):
-        return "url"
-    if evidence and _record_consumes_evidence(record, evidence):
-        return "evidence"
-    return "request"
+        ):
+            result.append(record)
+        if len(result) >= MAX_SELECTED_INTEGRATIONS:
+            break
+    return result
 
 
 def _tool_names_for_role(
     record: dict,
     role: str,
-    evidence: str = "",
 ) -> list[str]:
-    """Return discovered tools compatible with one orchestration stage."""
+    """Return discovered tools for the initial or URL follow-on stage."""
     names: list[str] = []
-    lower_evidence = evidence.lower() if isinstance(evidence, str) else ""
     for hint in record.get("tool_hints", []):
         if not isinstance(hint, dict):
             continue
@@ -796,19 +473,6 @@ def _tool_names_for_role(
         capabilities = _hint_capabilities(hint)
         if role == "url" and "fetch" in capabilities:
             include = True
-        elif role == "evidence":
-            for input_name in hint.get("inputs", []):
-                name = input_name.lower()
-                if len(name) >= 3 and (
-                    ('"' + name + '"') in lower_evidence
-                    or (name + ":") in lower_evidence
-                ):
-                    include = True
-                    break
-            if not include and hint.get("read_only") is True and hint.get(
-                "inputs"
-            ):
-                include = True
         name = hint.get("name", "")
         if include and name and name not in names:
             names.append(name)
@@ -916,22 +580,13 @@ def normalize_integration_record(value: str | dict) -> dict | None:
             or not url.startswith(("http://", "https://"))
         ):
             return None
+        # Older direct-server records are intentionally normalized onto the
+        # sole supported transport: LM Studio ephemeral MCP integrations.
         record: dict = {
-            "type": (
-                "mcp_server" if record_type == "mcp_server"
-                else "ephemeral_mcp"
-            ),
+            "type": "ephemeral_mcp",
             "server_label": label,
             "server_url": url,
         }
-        if record["type"] == "mcp_server":
-            protocol = value.get("protocol", "auto")
-            if protocol not in (
-                "auto", "2026-07-28", "legacy", "2025-11-25",
-                "2025-06-18", "2025-03-26",
-            ):
-                protocol = "auto"
-            record["protocol"] = protocol
     else:
         integration_id = value.get("id", "")
         if not isinstance(integration_id, str) or not integration_id.strip():
@@ -979,21 +634,6 @@ def normalize_integration_record(value: str | dict) -> dict | None:
         record["allowed_tools"] = allowed_tools
     if tool_hints:
         record["tool_hints"] = tool_hints
-    if record.get("type") == "mcp_server":
-        raw_headers = value.get("headers", {})
-        if isinstance(raw_headers, dict):
-            headers: dict = {}
-            for key, header_value in raw_headers.items():
-                if (
-                    isinstance(key, str) and isinstance(header_value, str)
-                    and key and _utf8_size(key, 64) <= 64
-                    and _utf8_size(header_value, 512) <= 512
-                ):
-                    headers[key] = header_value
-                if len(headers) >= 8:
-                    break
-            if headers:
-                record["headers"] = headers
     return record
 
 
@@ -1059,11 +699,6 @@ def integration_key(record) -> str:
         record = normalize_integration_record(record)
     if not record:
         return ""
-    if record.get("type") == "mcp_server":
-        return (
-            "server:" + record.get("server_label", "")
-            + "|" + record.get("server_url", "")
-        )
     if record.get("type") == "ephemeral_mcp":
         return (
             "ephemeral:" + record.get("server_label", "")
@@ -1081,7 +716,7 @@ def integration_label(record: dict) -> str:
     label = record.get("label", "")
     if label:
         return label
-    if record.get("type") in ("ephemeral_mcp", "mcp_server"):
+    if record.get("type") == "ephemeral_mcp":
         return record.get("server_label", "MCP server")
     return record.get("id", "Integration")
 
@@ -1125,34 +760,6 @@ def merge_integration_records(
         if len(merged) >= limit:
             break
     return merged[:limit]
-
-
-def upgrade_legacy_server_record(records, replacement):
-    """Upgrade one exact gateway server endpoint to direct MCP transport."""
-    current = parse_integration_records(records)
-    direct = normalize_integration_record(replacement)
-    if not direct or direct.get("type") != "mcp_server":
-        return current, False
-    label = direct.get("server_label", "")
-    url = direct.get("server_url", "")
-    for index, record in enumerate(current):
-        if (
-            record.get("type") != "ephemeral_mcp"
-            or record.get("server_label", "") != label
-            or record.get("server_url", "") != url
-        ):
-            continue
-        migrated = dict(record)
-        migrated["type"] = "mcp_server"
-        migrated["protocol"] = direct.get("protocol", "auto")
-        if direct.get("headers"):
-            migrated["headers"] = direct["headers"]
-        normalized = normalize_integration_record(migrated)
-        if normalized is None:
-            return current, False
-        current[index] = normalized
-        return current, True
-    return current, False
 
 
 def preserve_catalog_records(
@@ -1350,11 +957,11 @@ def create_mcp_client(view_manager, http, llm, status_callback=None):
 
 
 class MCPClient:
-    """Provider-neutral facade over configured MCP transport adapters."""
+    """Provider-neutral facade over LM Studio MCP integrations."""
 
     __slots__ = (
         "view_manager", "http", "llm", "records", "integrations",
-        "lmstudio", "direct", "status_callback", "_last_gateway_provider",
+        "lmstudio", "status_callback", "_last_gateway_provider",
         "_last_gateway_tool",
     )
 
@@ -1375,14 +982,6 @@ class MCPClient:
             view_manager, http, llm, settings.mcp_gateway_url,
             self._gateway_tool_status,
         )
-        direct_records = [
-            record for record in self.records
-            if record.get("type") == "mcp_server"
-        ]
-        self.direct = None
-        if direct_records:
-            from picoware.system.agent.mcp_standard import StandardMCPAdapter
-            self.direct = StandardMCPAdapter(view_manager, http, llm)
 
     @property
     def enabled(self) -> bool:
@@ -1457,19 +1056,22 @@ class MCPClient:
 
     @staticmethod
     def _gateway_item(record) -> dict:
-        """Return one legacy adapter request record."""
+        """Return one LM Studio integration request record."""
         from picoware.system.agent.mcp_lmstudio import LMStudioMCPAdapter
 
         return LMStudioMCPAdapter.gateway_item(record)
 
     def selected_records(self, user_message: str) -> list[dict]:
-        """Return records selected by explicit name or discovered metadata."""
+        """Return an exact named record or all enabled execution records."""
         explicit, ambiguous = self.explicit_selection(user_message)
         if explicit:
             return explicit[:MAX_SELECTED_INTEGRATIONS]
         if ambiguous:
             return []
-        return select_candidate_records(self.records, user_message)
+        return [
+            record for record in self.records
+            if "catalog" not in _record_capabilities(record)
+        ][:MAX_SELECTED_INTEGRATIONS]
 
     def _run_stage(
         self, user_message, integrations, max_calls=MAX_MCP_CALLS,
@@ -1482,12 +1084,11 @@ class MCPClient:
 
     @staticmethod
     def _stage_record(
-        record, role: str, evidence: str = "", allow_mutation: bool = False,
-        excluded_tools=(),
+        record, role: str, allow_mutation: bool = False, excluded_tools=(),
     ) -> dict:
         """Restrict one stage to discovered tools compatible with its role."""
         staged = dict(record)
-        names = _tool_names_for_role(record, role, evidence)
+        names = _tool_names_for_role(record, role)
         names = _authorized_tool_names(
             record, names, role, allow_mutation
         )
@@ -1529,7 +1130,7 @@ class MCPClient:
     ):
         """Execute one provider-neutral stage and return bounded provenance."""
         staged = self._stage_record(
-            record, role, evidence, allow_mutation, excluded_tools
+            record, role, allow_mutation, excluded_tools
         )
         chosen_plan = _continuation_plan(record, staged, role)
         if role == "url" and chosen_plan:
@@ -1544,11 +1145,6 @@ class MCPClient:
                 "Use one configured URL-reading tool on the most relevant direct "
                 "URL in the evidence. Return the page title, final URL, and "
                 "relevant page content."
-            )
-        elif role == "evidence":
-            instruction = (
-                "Use one configured tool whose inputs can consume the prior "
-                "evidence. Return only new evidence relevant to the request."
             )
         else:
             instruction = (
@@ -1572,13 +1168,6 @@ class MCPClient:
                 evidence, MAX_MCP_BROWSER_CONTEXT_CHARS
             )
             stage_request += "\n\nPrior evidence:\n" + bounded
-        if staged.get("type") == "mcp_server":
-            if self.direct is None:
-                return "", 0, "Direct MCP adapter is unavailable.", ""
-            return self.direct.research_stage(
-                stage_request + context_block, [staged], excluded_tools,
-                allow_mutation=allow_mutation,
-            )
         if not staged.get("allowed_tools"):
             return (
                 "", 0,
@@ -1594,10 +1183,10 @@ class MCPClient:
         items = []
         continuation_plans = []
         for peer in peers[:MAX_SELECTED_INTEGRATIONS]:
-            if not isinstance(peer, dict) or peer.get("type") == "mcp_server":
+            if not isinstance(peer, dict):
                 continue
             peer_staged = self._stage_record(
-                peer, role, evidence, allow_mutation, excluded_tools
+                peer, role, allow_mutation, excluded_tools
             )
             if not peer_staged.get("allowed_tools"):
                 continue
@@ -1653,21 +1242,32 @@ class MCPClient:
         self, user_message: str, conversation_context: str = "",
         allow_mutation=None, require_tool: bool = False,
     ) -> dict:
-        """Run a bounded metadata-driven loop and return a typed outcome."""
+        """Run the minimum bounded request and optional URL follow-on."""
         if allow_mutation is None:
             allow_mutation = request_authorizes_mutation(user_message)
         else:
             allow_mutation = bool(allow_mutation)
         explicit, ambiguous = self.explicit_selection(user_message)
-        records = self.selected_records(user_message)
-        blocked = []
+        if ambiguous:
+            return mcp_outcome(
+                MCP_OUTCOME_FAILED,
+                error="Use the exact label of one enabled integration.",
+            )
+
+        records = explicit or [
+            record for record in self.records
+            if "catalog" not in _record_capabilities(record)
+        ]
+        blocked = False
         if not allow_mutation:
-            blocked = [
+            blocked = any(
+                not _record_has_authorized_tool(record) for record in records
+            )
+            records = [
                 record for record in records
-                if record.get("type") != "mcp_server"
-                and not _record_has_authorized_tool(record)
+                if _record_has_authorized_tool(record)
             ]
-            if explicit and blocked:
+            if explicit and not records:
                 return mcp_outcome(
                     MCP_OUTCOME_FAILED, error=(
                         "The selected integration has no tool metadata authorized "
@@ -1675,35 +1275,9 @@ class MCPClient:
                         "host MCP tool policy."
                     )
                 )
-            records = [
-                record for record in records
-                if record.get("type") == "mcp_server"
-                or _record_has_authorized_tool(record)
-            ]
-        metadata_records = list(records)
-        gateway_records = []
-        if not ambiguous and not explicit:
-            for record in self.records:
-                if (
-                    not isinstance(record, dict)
-                    or record.get("type") == "mcp_server"
-                    or "catalog" in _record_capabilities(record)
-                    or (
-                        not allow_mutation
-                        and not _record_has_authorized_tool(record)
-                    )
-                ):
-                    continue
-                if record not in gateway_records:
-                    gateway_records.append(record)
-                if record not in records:
-                    records.append(record)
-                if len(gateway_records) >= MAX_SELECTED_INTEGRATIONS:
-                    break
         records = records[:MAX_SELECTED_INTEGRATIONS]
-        gateway_records = gateway_records[:MAX_SELECTED_INTEGRATIONS]
         if not records:
-            if explicit or ambiguous or require_tool or blocked:
+            if explicit or require_tool or blocked:
                 return mcp_outcome(
                     MCP_OUTCOME_FAILED, error=(
                         "No enabled integration exposes an authorized tool for "
@@ -1718,139 +1292,83 @@ class MCPClient:
         context_message, _context_message_bytes = _utf8_prefix(
             conversation_context, MAX_MCP_BROWSER_CONTEXT_CHARS
         )
-        force_each = bool(explicit)
-        model_selection = (
-            bool(gateway_records) and not force_each
-            and not (
-                metadata_records
-                and metadata_records[0].get("type") == "mcp_server"
-            )
-        )
-        optional_call = model_selection and not require_tool
+        optional_call = not require_tool and not explicit
         self.view_manager.log("[Agent] MCP integration research")
         parts = []
         used_bytes = 0
         call_count = 0
-        evidence_context = ""
-        used_stages = []
         used_tools = []
         first_error = ""
-        success = False
-
-        while call_count < MAX_MCP_CALLS:
-            if force_each:
-                ranked = records
-            elif not evidence_context and model_selection:
-                ranked = gateway_records
-            else:
-                ranked = select_candidate_records(
-                    records, request_message, evidence_context
-                )
-                if not ranked and not evidence_context:
-                    ranked = records
-            chosen = None
-            chosen_role = ""
-            for record in ranked:
-                role = _stage_role(record, request_message, evidence_context)
-                signature = integration_key(record) + "|" + role
-                if signature in used_stages:
-                    continue
-                if (
-                    evidence_context and not force_each
-                    and role not in ("url", "evidence")
-                ):
-                    continue
-                chosen = record
-                chosen_role = role
-                used_stages.append(signature)
-                break
-            if chosen is None:
-                break
-
-            stage_records = [chosen]
-            if model_selection and not evidence_context:
-                stage_records = gateway_records
-
-            self._stage_status(stage_records)
-            evidence, calls, error, provenance = self._run_record_stage(
-                chosen, chosen_role, request_message, evidence_context,
-                used_tools, stage_records,
-                optional_call and not evidence_context,
-                context_message, allow_mutation,
-                remaining_calls=MAX_MCP_CALLS - call_count,
-            )
-            call_count += max(0, int(calls))
-            if provenance and provenance not in used_tools:
-                used_tools.append(provenance)
-            if error:
-                if not first_error:
-                    first_error = error
-                if success:
-                    used_bytes = _append_bounded_evidence(
-                        parts, "# Integration limitation", error,
-                        used_bytes, MAX_MCP_EVIDENCE_CHARS,
-                    )
-                continue
-            if not evidence:
-                if optional_call and calls == 0 and not error:
-                    break
-                if not first_error:
-                    first_error = "MCP integrations returned no evidence."
-                continue
-
-            success = True
-            heading = "# Integration evidence"
-            if chosen_role == "url":
-                heading = "# Opened page evidence"
-            used_bytes = _append_bounded_evidence(
-                parts, heading, evidence,
-                used_bytes, MAX_MCP_EVIDENCE_CHARS,
-            )
-            evidence_context, _context_bytes = _utf8_prefix(
-                "\n\n".join(parts), MAX_MCP_BROWSER_CONTEXT_CHARS
-            )
-            if chosen_role == "url":
-                break
-            called_record = None
-            called_tool = ""
-            if provenance and "|" in provenance:
-                called_key, called_tool = provenance.rsplit("|", 1)
-                for record in records:
-                    if integration_key(record) == called_key:
-                        called_record = record
-                        break
-            if (
-                chosen_role == "request"
-                and (
-                    _tool_is_request_scoped_fetch(called_record, called_tool)
-                    or _tool_is_session_observer(called_record, called_tool)
-                )
-                and (not force_each or len(records) == 1)
-            ):
-                break
-            if force_each:
-                continue
-            if not any(
-                _record_consumes_evidence(record, evidence_context)
-                and (
-                    integration_key(record) + "|"
-                    + _stage_role(record, request_message, evidence_context)
-                ) not in used_stages
-                for record in records
-            ):
-                break
-
-        result = "\n\n".join(parts).strip()
-        if optional_call and not success and not first_error:
+        self._stage_status(records)
+        evidence, calls, error, provenance = self._run_record_stage(
+            records[0], "request", request_message, "", used_tools, records,
+            optional_call, context_message, allow_mutation,
+            remaining_calls=MAX_MCP_CALLS,
+        )
+        call_count += max(0, int(calls))
+        if provenance:
+            used_tools.append(provenance)
+        if error:
+            first_error = error
+        if optional_call and calls == 0 and not evidence and not error:
             return mcp_outcome(
                 MCP_OUTCOME_NOT_NEEDED, calls=call_count
             )
-        if not success:
+        if not evidence:
             return mcp_outcome(
                 MCP_OUTCOME_FAILED,
-                error=first_error or "MCP integrations returned no evidence.",
+                error=error or "MCP integrations returned no evidence.",
                 calls=call_count,
             )
+
+        used_bytes = _append_bounded_evidence(
+            parts, "# Integration evidence", evidence,
+            used_bytes, MAX_MCP_EVIDENCE_CHARS,
+        )
+        called_record = None
+        called_tool = ""
+        if provenance and "|" in provenance:
+            called_key, called_tool = provenance.rsplit("|", 1)
+            for record in records:
+                if integration_key(record) == called_key:
+                    called_record = record
+                    break
+        already_opened = (
+            _tool_has_capability(called_record, called_tool, "fetch")
+            or _tool_is_session_observer(called_record, called_tool)
+        )
+        if (
+            not explicit and not already_opened and _contains_url(evidence)
+            and call_count < MAX_MCP_CALLS
+        ):
+            follow_records = _url_candidate_records(records, used_tools)
+            if follow_records:
+                evidence_context, _context_bytes = _utf8_prefix(
+                    "\n\n".join(parts), MAX_MCP_BROWSER_CONTEXT_CHARS
+                )
+                self._stage_status(follow_records)
+                opened, calls, error, provenance = self._run_record_stage(
+                    follow_records[0], "url", request_message,
+                    evidence_context, used_tools, follow_records, False,
+                    context_message, allow_mutation,
+                    remaining_calls=MAX_MCP_CALLS - call_count,
+                )
+                call_count += max(0, int(calls))
+                if provenance and provenance not in used_tools:
+                    used_tools.append(provenance)
+                if opened:
+                    used_bytes = _append_bounded_evidence(
+                        parts, "# Opened page evidence", opened,
+                        used_bytes, MAX_MCP_EVIDENCE_CHARS,
+                    )
+                else:
+                    first_error = error or "URL integration returned no evidence."
+                    used_bytes = _append_bounded_evidence(
+                        parts, "# Integration limitation", first_error,
+                        used_bytes, MAX_MCP_EVIDENCE_CHARS,
+                    )
+
+        result = "\n\n".join(parts).strip()
         self.view_manager.log("[Agent] MCP integration research complete")
         return mcp_outcome(
             MCP_OUTCOME_PARTIAL if first_error else MCP_OUTCOME_COMPLETED,
@@ -1858,61 +1376,36 @@ class MCPClient:
         )
 
     def scan_integrations(self):
-        """Scan legacy catalogs and direct MCP server tool catalogs."""
-        legacy = [
-            record for record in self.records
-            if record.get("type") != "mcp_server"
-        ]
-        direct = [
-            record for record in self.records
-            if record.get("type") == "mcp_server"
-        ]
+        """Refresh integration metadata through one LM Studio catalog."""
         updated = list(self.records)
         catalog = [
-            record for record in legacy
+            record for record in self.records
             if "catalog" in record.get("capabilities", [])
         ]
-        if catalog:
-            configured_ids = [
-                integration_key(record) for record in legacy
-                if "catalog" not in record.get("capabilities", [])
-            ]
-            evidence, _calls, error = self._run_stage(
-                "Call the catalog listing tool exactly once and return complete "
-                "plugin or ephemeral MCP records without commentary. Ask it "
-                "to include bounded tool metadata for these currently "
-                "configured integration IDs: " + json.dumps(configured_ids),
-                [self._gateway_item(record) for record in catalog],
-                max_calls=1,
-            )
-            if error:
-                return updated, error
-            # Validate evidence before parsing to avoid silent failures.
-            if not isinstance(evidence, str) or not evidence.strip():
-                return updated, "Integration catalog returned empty evidence."
-            try:
-                discovered = parse_integration_catalog(evidence)
-            except (ValueError, TypeError):
-                return updated, "Integration catalog returned malformed evidence."
-            if not discovered:
-                return updated, "Integration catalog returned no integrations."
-            updated = merge_integration_records(updated, discovered)
-            self.refresh_integrations(updated)
-        if direct and self.direct is not None:
-            scanned, error = self.direct.scan_integrations(direct)
-            if error:
-                return updated, error
-            updated = merge_integration_records(updated, scanned)
-            # Replace older copies so refreshed tool metadata wins.
-            refreshed = {integration_key(item): item for item in scanned}
-            updated = [
-                refreshed.get(integration_key(item), item) for item in updated
-            ]
-            self.refresh_integrations(updated)
-        if not catalog and not direct:
+        if not catalog:
             return [], (
-                "No integration catalog configured. Add an MCP Catalog or "
-                "direct MCP server in Agent Settings, then scan again."
+                "No integration catalog configured. Add an MCP Catalog in "
+                "Agent Settings, then scan again."
             )
+        configured_ids = [
+            integration_key(record) for record in self.records
+            if "catalog" not in record.get("capabilities", [])
+        ]
+        evidence, _calls, error = self._run_stage(
+            "Call the catalog listing tool exactly once and return complete "
+            "plugin or ephemeral MCP records without commentary. Include "
+            "bounded tool metadata for these currently configured integration "
+            "IDs: " + json.dumps(configured_ids),
+            [self._gateway_item(record) for record in catalog],
+            max_calls=1,
+        )
+        if error:
+            return updated, error
+        if not isinstance(evidence, str) or not evidence.strip():
+            return updated, "Integration catalog returned empty evidence."
+        discovered = parse_integration_catalog(evidence)
+        if not discovered:
+            return updated, "Integration catalog returned no integrations."
+        updated = merge_integration_records(updated, discovered)
         self.refresh_integrations(updated)
         return updated, ""

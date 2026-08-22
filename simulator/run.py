@@ -1571,7 +1571,6 @@ def _run_agent_mcp_contracts():
     from picoware.system.agent.authorization import request_authorizes_mutation
     from picoware.system.agent.llm import LOCAL_MCP
     from picoware.system.agent.mcp import (
-        MAX_MCP_CALLS,
         MAX_MCP_EVENT_BYTES,
         MAX_MCP_EVIDENCE_CHARS,
         MCP_OUTCOME_COMPLETED,
@@ -1634,6 +1633,17 @@ def _run_agent_mcp_contracts():
             "capabilities": ["fetch"],
             "request_scoped": True,
         }, {
+            "name": "resource_find",
+            "description": (
+                "Search the accessibility snapshot of the current page for "
+                "text or a regular expression"
+            ),
+            "inputs": ["text", "regex"],
+            "annotations": {
+                "readOnlyHint": True, "destructiveHint": False,
+                "openWorldHint": True,
+            },
+        }, {
             "name": "resource_snapshot",
             "description": "Capture current page content",
             "inputs": ["filename"],
@@ -1669,13 +1679,12 @@ def _run_agent_mcp_contracts():
             self.stage_calls = []
 
         def _run_stage(
-            self, request, integrations, max_calls=MAX_MCP_CALLS,
-            optional=False, conversation_context="", continuation_plans=None,
+            self, request, integrations, optional=False,
+            conversation_context="", continuation_plans=None,
         ):
             self.stage_calls.append({
                 "request": request,
                 "integrations": integrations,
-                "max_calls": max_calls,
                 "optional": optional,
                 "context": conversation_context,
                 "plans": continuation_plans or [],
@@ -1785,8 +1794,8 @@ def _run_agent_mcp_contracts():
             self.attempts = 0
 
         def run_stage_once(
-            self, _message, _integrations, _max_calls,
-            _force_retry=False, optional=False, conversation_context="",
+            self, _message, _integrations, _force_retry=False,
+            optional=False, conversation_context="",
             continuation_plans=None,
         ):
             self.attempts += 1
@@ -1825,39 +1834,35 @@ def _run_agent_mcp_contracts():
     ):
         raise RuntimeError("Agent MCP provider-neutral execution contract failed")
 
-    # 4. A URL result gets one bounded action-to-observer follow-on.
+    # 4. Search and resource tools share one session with no client work limit.
     chained = _FixtureMCP([
         search, browser,
     ], [
         (
-            "fixture/alpha-index", "alpha_lookup",
-            "Release: https://example.invalid/release", 1, "",
-        ),
-        (
             "fixture/resource-session", "resource_snapshot",
-            "Release title; final URL; observed inline content", 2, "",
+            "Release title; final URL; observed inline content", 7, "",
         ),
     ])
     chained_outcome = chained.research_result("Find the newest release")
-    second = chained.stage_calls[1]
-    second_tools = second["integrations"][0].get("allowed_tools", [])
+    delegated = chained.stage_calls[0]
+    browser_tools = delegated["integrations"][1].get("allowed_tools", [])
     if (
         chained_outcome.get("status") != MCP_OUTCOME_COMPLETED
-        or chained_outcome.get("calls") != 3
-        or len(chained.stage_calls) != 2
-        or second.get("max_calls") != MAX_MCP_CALLS - 1
-        or second_tools != ["resource_open", "resource_snapshot"]
-        or second.get("plans") != [{
+        or chained_outcome.get("calls") != 7
+        or len(chained.stage_calls) != 1
+        or browser_tools != [
+            "resource_open", "resource_find", "resource_snapshot",
+        ]
+        or delegated.get("plans") != [{
             "provider": "fixture/resource-session",
             "actions": ["resource_open"],
-            "observers": ["resource_snapshot"],
+            "observers": ["resource_find", "resource_snapshot"],
         }]
         or "# Integration evidence" not in chained_outcome.get("evidence", "")
-        or "# Opened page evidence" not in chained_outcome.get("evidence", "")
     ):
-        raise RuntimeError("Agent MCP bounded URL follow-on contract failed")
+        raise RuntimeError("Agent MCP one-session delegation contract failed")
 
-    # 5. Streaming enforces retry, bounds, temporary cleanup, and call budget.
+    # 5. Streaming permits recovery, bounds RAM, and cleans temporary files.
     class _SinkHTTP:
         def __init__(self):
             self.closed = False
@@ -1872,7 +1877,7 @@ def _run_agent_mcp_contracts():
 
     retry_http = _SinkHTTP()
     retry_sink = IntegrationStreamSink(
-        retry_http, max_calls=MAX_MCP_CALLS,
+        retry_http,
         continuation_plans=[{
             "provider": "fixture/resource-session",
             "actions": ["resource_open"],
@@ -1910,33 +1915,162 @@ def _run_agent_mcp_contracts():
         "provider_info": {"plugin_id": "fixture/resource-session"},
         "tool": "resource_snapshot", "output": "observed content",
     })
+    _sink_event(retry_sink, {"type": "chat.end"})
     if (
         retry_sink.error or retry_sink.call_count != 3
         or retry_sink.evidence != ["observed content"]
-        or not retry_sink.complete or not retry_http.closed
+        or not retry_sink.complete or retry_http.closed
     ):
         raise RuntimeError("Agent MCP nested-error retry contract failed")
 
-    budget_sink = IntegrationStreamSink(_SinkHTTP(), max_calls=1)
-    _sink_event(budget_sink, {
-        "type": "tool_call.arguments", "tool": "one", "arguments": {},
+    # Distinct useful work remains unlimited by the client.
+    work_sink = IntegrationStreamSink(_SinkHTTP())
+    for index in range(32):
+        _sink_event(work_sink, {
+            "type": "tool_call.arguments", "tool": "step_" + str(index),
+            "arguments": {"step": index},
+        })
+        _sink_event(work_sink, {
+            "type": "tool_call.success", "output": "result " + str(index),
+        })
+    _sink_event(work_sink, {"type": "chat.end"})
+    event_sink = IntegrationStreamSink(_SinkHTTP())
+    event_sink.write(
+        b"data: " + (b"x" * (MAX_MCP_EVENT_BYTES + 1)) + b"\n\n"
+    )
+    _sink_event(event_sink, {
+        "type": "tool_call.arguments", "tool": "after_large",
+        "arguments": {},
     })
-    _sink_event(budget_sink, {
-        "type": "tool_call.arguments", "tool": "two", "arguments": {},
+    _sink_event(event_sink, {
+        "type": "tool_call.success", "output": "bounded result",
     })
-    event_sink = IntegrationStreamSink(_SinkHTTP(), max_calls=1)
-    event_sink.write(b"x" * (MAX_MCP_EVENT_BYTES + 1))
+    _sink_event(event_sink, {"type": "chat.end"})
     large = _FixtureMCP([
         search,
     ], [("fixture/alpha-index", "alpha_lookup", "界" * 5000, 1, "")])
     large_outcome = large.research_result("Find current data")
     if (
-        "budget" not in budget_sink.issue
-        or "event" not in event_sink.issue
+        work_sink.issue or work_sink.call_count != 32 or not work_sink.complete
+        or event_sink.issue or event_sink.evidence != ["bounded result"]
+        or not event_sink.complete
         or _utf8_size(large_outcome.get("evidence", ""))
         > MAX_MCP_EVIDENCE_CHARS
     ):
         raise RuntimeError("Agent MCP stream bound contract failed")
+
+    # A compact observer may fall back to a complete snapshot. The large tool
+    # event stays off the constrained heap while the final native message is
+    # retained as the usable result.
+    fallback_http = _SinkHTTP()
+    fallback_sink = IntegrationStreamSink(
+        fallback_http,
+        continuation_plans=[{
+            "provider": "fixture/resource-session",
+            "actions": ["resource_open"],
+            "observers": ["resource_find", "resource_snapshot"],
+        }],
+    )
+    _sink_event(fallback_sink, {
+        "type": "tool_call.arguments",
+        "provider_info": {"plugin_id": "fixture/resource-session"},
+        "tool": "resource_open", "arguments": {"url": "direct"},
+    })
+    _sink_event(fallback_sink, {
+        "type": "tool_call.success",
+        "provider_info": {"plugin_id": "fixture/resource-session"},
+        "tool": "resource_open", "output": {"ok": True},
+    })
+    _sink_event(fallback_sink, {
+        "type": "tool_call.arguments",
+        "provider_info": {"plugin_id": "fixture/resource-session"},
+        "tool": "resource_find", "arguments": {"text": "temperature"},
+    })
+    _sink_event(fallback_sink, {
+        "type": "tool_call.success",
+        "provider_info": {"plugin_id": "fixture/resource-session"},
+        "tool": "resource_find", "output": "No matching excerpt",
+    })
+    _sink_event(fallback_sink, {
+        "type": "tool_call.arguments",
+        "provider_info": {"plugin_id": "fixture/resource-session"},
+        "tool": "resource_snapshot", "arguments": {},
+    })
+    _sink_event(fallback_sink, {
+        "type": "tool_call.success",
+        "provider_info": {"plugin_id": "fixture/resource-session"},
+        "tool": "resource_snapshot",
+        "output": "x" * (MAX_MCP_EVENT_BYTES + 1),
+    })
+    _sink_event(fallback_sink, {"type": "message.start"})
+    _sink_event(fallback_sink, {
+        "type": "message.delta", "content": "Observed current value: ",
+    })
+    _sink_event(fallback_sink, {
+        "type": "message.delta", "content": "18 C",
+    })
+    _sink_event(fallback_sink, {"type": "message.end"})
+    _sink_event(fallback_sink, {"type": "chat.end"})
+    if (
+        fallback_sink.issue or not fallback_sink.complete
+        or fallback_sink.call_count != 3
+        or fallback_sink.message_text() != "Observed current value: 18 C"
+    ):
+        raise RuntimeError("Agent MCP complete-observer fallback failed")
+
+    # The constrained client observes and bounds the stream but does not
+    # decide how many tool calls the provider needs to finish its workflow.
+    repeated_http = _SinkHTTP()
+    repeated_sink = IntegrationStreamSink(
+        repeated_http,
+        continuation_plans=[{
+            "provider": "fixture/resource-session",
+            "actions": ["resource_open"],
+            "observers": ["resource_find", "resource_snapshot"],
+        }],
+    )
+    _sink_event(repeated_sink, {
+        "type": "tool_call.arguments",
+        "provider_info": {"plugin_id": "fixture/resource-session"},
+        "tool": "resource_open", "arguments": {"url": "same"},
+    })
+    _sink_event(repeated_sink, {
+        "type": "tool_call.success",
+        "provider_info": {"plugin_id": "fixture/resource-session"},
+        "tool": "resource_open", "output": {"ok": True},
+    })
+    _sink_event(repeated_sink, {
+        "type": "tool_call.arguments",
+        "provider_info": {"plugin_id": "fixture/resource-session"},
+        "tool": "resource_find", "arguments": {"text": "temperature"},
+    })
+    _sink_event(repeated_sink, {
+        "type": "tool_call.success",
+        "provider_info": {"plugin_id": "fixture/resource-session"},
+        "tool": "resource_find", "output": "No matching excerpt",
+    })
+    _sink_event(repeated_sink, {
+        "type": "tool_call.arguments",
+        "provider_info": {"plugin_id": "fixture/resource-session"},
+        "tool": "resource_find", "arguments": {"regex": "-?[0-9]+"},
+    })
+    _sink_event(repeated_sink, {
+        "type": "tool_call.success",
+        "provider_info": {"plugin_id": "fixture/resource-session"},
+        "tool": "resource_find", "output": "Current value: 18 C",
+    })
+    _sink_event(repeated_sink, {"type": "message.start"})
+    _sink_event(repeated_sink, {
+        "type": "message.delta", "content": "Current value: 18 C",
+    })
+    _sink_event(repeated_sink, {"type": "message.end"})
+    _sink_event(repeated_sink, {"type": "chat.end"})
+    if (
+        repeated_sink.issue or repeated_sink.call_count != 3
+        or repeated_http.closed or not repeated_sink.complete
+        or repeated_sink.message_text() != "Current value: 18 C"
+    ):
+        raise RuntimeError("Agent MCP provider-owned completion contract failed")
 
     class _ScratchStorage:
         def __init__(self):
@@ -1986,6 +2120,12 @@ def _run_agent_mcp_contracts():
             _sink_event(stream_sink, {
                 "type": "tool_call.success", "output": "cleanup evidence",
             })
+            _sink_event(stream_sink, {"type": "message.start"})
+            _sink_event(stream_sink, {
+                "type": "message.delta", "content": "concise final result",
+            })
+            _sink_event(stream_sink, {"type": "message.end"})
+            _sink_event(stream_sink, {"type": "chat.end"})
             return _Response()
 
     class _LLM:
@@ -1996,10 +2136,10 @@ def _run_agent_mcp_contracts():
     scratch = _ScratchStorage()
     adapter = LMStudioMCPAdapter(_View(scratch), _StreamHTTP(), _LLM())
     cleanup_result = adapter.run_stage_once(
-        "Find alpha", [{"type": "plugin", "id": "fixture/alpha-index"}], 1,
+        "Find alpha", [{"type": "plugin", "id": "fixture/alpha-index"}],
     )
     if (
-        cleanup_result != ("cleanup evidence", 1, "")
+        cleanup_result != ("concise final result", 1, "")
         or adapter.request_path in scratch.values
         or adapter.spool_path in scratch.files
         or adapter.request_path not in scratch.removed

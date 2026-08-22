@@ -40,9 +40,9 @@ that have no direct equivalent on Windows. Use WSL2 or a Linux VM.
 Build the native helpers (SDL viewer, audio sidecars), then launch:
 
 ```sh
-cd simulator
-bash tools/micropython-desktop.sh # build
-bash tools/run-micropython-desktop.sh # run
+cd tools
+bash micropython-desktop.sh # build
+bash run-micropython-desktop.sh # run
 ```
 
 ### Keyboard shortcuts (viewer window)

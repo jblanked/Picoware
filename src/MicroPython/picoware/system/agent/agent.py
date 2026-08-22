@@ -81,8 +81,10 @@ MCP_EXACT_LABEL_CLARIFICATION = (
 MCP_FINAL_ANSWER_GUARD = (
     "The configured integrations already completed for this turn. Answer from "
     "their supplied evidence now. Do not ask for confirmation, promise a "
-    "future search, describe a next step, or tell the user to wait. If the "
-    "evidence is insufficient, state that limitation as the final answer."
+    "future search, describe a next step, tell the user to wait, or tell the "
+    "user to visit, open, or search a resource themselves. If the evidence is "
+    "insufficient, state only what the configured integrations could not "
+    "retrieve; never assign the remaining work to the user."
 )
 MCP_FOLLOWUP_ANSWER_GUARD = (
     "The configured integrations already completed for this turn. Answer from "

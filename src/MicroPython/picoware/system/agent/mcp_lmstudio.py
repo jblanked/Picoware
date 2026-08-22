@@ -4,16 +4,13 @@ import json
 from gc import collect as _gc_collect
 
 from picoware.system.agent.mcp import (
-    MAX_MCP_CALLS,
     MAX_MCP_EVIDENCE_CHARS,
     MAX_MCP_EVENT_BYTES,
     MAX_MCP_STREAM_BYTES,
-    MAX_MCP_STREAM_EVENTS,
     MAX_MCP_ERROR_CHARS,
     MAX_MCP_TOOL_ID_CHARS,
     _current_time_grounding,
     _utf8_prefix,
-    _tool_loop_issue,
 )
 
 
@@ -104,6 +101,23 @@ def _successful_output_error(value) -> str:
     return ""
 
 
+def _chat_result_message(event) -> str:
+    """Return the final bounded message from a compact chat.end event."""
+    result = event.get("result", {})
+    if not isinstance(result, dict):
+        return ""
+    output = result.get("output", [])
+    if not isinstance(output, list):
+        return ""
+    for item in reversed(output):
+        if (
+            isinstance(item, dict) and item.get("type") == "message"
+            and isinstance(item.get("content"), str)
+        ):
+            return item["content"]
+    return ""
+
+
 def gateway_url(configured_url: str, model_url: str) -> str:
     """Return the explicit LM Studio endpoint or its local-model fallback."""
     explicit = (configured_url or "").strip()
@@ -123,21 +137,20 @@ class IntegrationStreamSink:
     """Consume bounded LM Studio SSE without materializing the response."""
 
     __slots__ = (
-        "http", "buffer", "history", "issue", "error", "call_count",
+        "http", "buffer", "issue", "error", "call_count",
         "success_count", "evidence", "evidence_chars", "storage", "path",
-        "file", "total_bytes", "spooled_bytes", "event_count", "max_calls",
+        "file", "total_bytes", "spooled_bytes",
         "complete", "status_callback", "continuation_plans",
-        "current_provider", "current_tool",
+        "current_provider", "current_tool", "discarding_event",
+        "saw_observer", "message",
     )
 
     def __init__(
         self, http, storage=None, path: str = "",
-        max_calls: int = MAX_MCP_CALLS, status_callback=None,
-        continuation_plans=None,
+        status_callback=None, continuation_plans=None,
     ):
         self.http = http
         self.buffer = bytearray()
-        self.history = []
         self.issue = ""
         self.error = ""
         self.call_count = 0
@@ -149,8 +162,6 @@ class IntegrationStreamSink:
         self.file = None
         self.total_bytes = 0
         self.spooled_bytes = 0
-        self.event_count = 0
-        self.max_calls = max(1, min(int(max_calls), MAX_MCP_CALLS))
         self.complete = False
         self.status_callback = status_callback
         self.continuation_plans = (
@@ -158,6 +169,9 @@ class IntegrationStreamSink:
         )
         self.current_provider = ""
         self.current_tool = ""
+        self.discarding_event = False
+        self.saw_observer = False
+        self.message = bytearray()
         if storage is not None and path:
             storage.remove(path)
             self.file = storage.file_open(path)
@@ -212,11 +226,32 @@ class IntegrationStreamSink:
                 return True
         return not provider and len(configured) == 1
 
-    def _consume_buffered_event(self, event_end: int, delimiter: int) -> None:
-        self.event_count += 1
-        if self.event_count > MAX_MCP_STREAM_EVENTS:
-            self._stop("MCP stream exceeded the bounded event limit")
+    def _replace_message(self, value: str) -> None:
+        """Replace the bounded final-message buffer."""
+        self.message = bytearray()
+        self._append_message(value)
+
+    def _append_message(self, value: str) -> None:
+        """Append one bounded UTF-8 final-message delta."""
+        if not isinstance(value, str) or not value:
             return
+        remaining = MAX_MCP_EVIDENCE_CHARS - len(self.message)
+        if remaining <= 0:
+            return
+        value, _value_bytes = _utf8_prefix(value, remaining)
+        if value:
+            self.message.extend(value.encode("utf-8"))
+
+    def message_text(self) -> str:
+        """Return the final model message retained from the native stream."""
+        if not self.message:
+            return ""
+        try:
+            return bytes(self.message).decode("utf-8").strip()
+        except UnicodeError:
+            return ""
+
+    def _consume_buffered_event(self, event_end: int, delimiter: int) -> None:
         raw = self.buffer[:event_end]
         self.buffer = self.buffer[event_end + delimiter:]
         data = _sse_data(raw)
@@ -239,12 +274,27 @@ class IntegrationStreamSink:
             return
         event_type = event.get("type")
         if event_type == "chat.end":
-            if self.continuation_plans and self.success_count and not self.evidence:
+            if not self.message:
+                self._replace_message(_chat_result_message(event))
+            if self.message:
+                self.error = ""
+            if (
+                self.continuation_plans and self.success_count
+                and not self.evidence and not self.message
+            ):
                 self.error = (
                     "MCP session ended before current-resource evidence "
                     "was observed"
                 )
             self.complete = True
+            return
+        if event_type == "message.start":
+            self.message = bytearray()
+            return
+        if event_type == "message.delta":
+            self._append_message(event.get("content", ""))
+            return
+        if event_type == "message.end":
             return
         if event_type == "tool_call.arguments":
             provider = event.get("provider_info", {})
@@ -257,6 +307,9 @@ class IntegrationStreamSink:
                 self.status_callback(provider_id, event.get("tool", ""))
             self.current_provider = str(provider_id or "")
             self.current_tool = str(event.get("tool", ""))
+            # A message followed by another tool was intermediate narration,
+            # not the final integration result.
+            self.message = bytearray()
             name = (
                 (str(provider_id) + ":" if provider_id else "")
                 + str(event.get("tool", "unknown"))
@@ -264,21 +317,9 @@ class IntegrationStreamSink:
             if len(name) > MAX_MCP_TOOL_ID_CHARS:
                 self._stop("MCP tool identity exceeded the device limit")
                 return
-            if self.call_count >= self.max_calls:
-                self._stop("MCP tool-call budget exceeded")
-                return
-            issue = _tool_loop_issue(
-                self.history, name, event.get("arguments", {})
-            )
-            if issue:
-                self._stop(issue)
-                return
             self.call_count += 1
         elif event_type == "tool_call.success":
             if self.success_count >= self.call_count:
-                if self.call_count >= self.max_calls:
-                    self._stop("MCP tool-call budget exceeded")
-                    return
                 self.call_count += 1
             provider = event.get("provider_info", {})
             if not isinstance(provider, dict):
@@ -297,48 +338,30 @@ class IntegrationStreamSink:
             output_error = _successful_output_error(output)
             if output_error:
                 self.error = output_error
-                if planned_provider and self.call_count < self.max_calls:
-                    return
-                self.complete = True
-                self.http.close()
                 return
-            if planned_provider:
-                self.error = ""
+            self.error = ""
             self.success_count += 1
             if continuation_role == "action":
-                if self.call_count >= self.max_calls:
-                    self.error = (
-                        "MCP tool-call budget ended before current-resource "
-                        "evidence was observed"
-                    )
-                    self.complete = True
-                    self.http.close()
                 return
             if planned_provider and continuation_role != "observer":
-                if self.call_count >= self.max_calls:
-                    self.error = (
-                        "MCP tool-call budget ended before current-resource "
-                        "evidence was observed"
-                    )
-                    self.complete = True
-                    self.http.close()
                 return
             if isinstance(output, (dict, list)):
                 output = json.dumps(output)
             elif not isinstance(output, str):
                 output = str(output)
+            if continuation_role == "observer":
+                if not self.saw_observer:
+                    # Prefer direct observations to earlier discovery output,
+                    # then retain later observations within the same bound.
+                    self.evidence = []
+                    self.evidence_chars = 0
+                    self.saw_observer = True
             remaining = MAX_MCP_EVIDENCE_CHARS - self.evidence_chars
             if remaining > 0 and output:
                 value, value_bytes = _utf8_prefix(output, remaining)
                 if value:
                     self.evidence.append(value)
                     self.evidence_chars += value_bytes
-            if continuation_role == "observer" or not planned_provider:
-                self.complete = True
-                self.http.close()
-            elif self.call_count >= self.max_calls:
-                self.complete = True
-                self.http.close()
         elif event_type in ("tool_call.failure", "tool_call.error", "error"):
             detail = event.get("error", event.get("message", ""))
             message = (
@@ -346,8 +369,6 @@ class IntegrationStreamSink:
                 if isinstance(detail, dict) else str(detail)
             )
             self.error = str(message)[:MAX_MCP_ERROR_CHARS]
-            self.complete = True
-            self.http.close()
 
     def write(self, value) -> None:
         """Consume one raw HTTP body fragment."""
@@ -382,16 +403,29 @@ class IntegrationStreamSink:
                 if event_end < 0:
                     event_end = self.buffer.find(b"\r\n\r\n")
                     delimiter = 4
+                if self.discarding_event:
+                    if event_end < 0:
+                        # Retain only enough tail bytes to recognize a stream
+                        # delimiter split across transport chunks. LM Studio
+                        # still receives and reasons over the complete tool
+                        # output; the constrained client need not hold it.
+                        if len(self.buffer) > 3:
+                            self.buffer = self.buffer[-3:]
+                        break
+                    self.buffer = self.buffer[event_end + delimiter:]
+                    self.discarding_event = False
+                    continue
                 if event_end < 0:
                     break
                 if event_end > MAX_MCP_EVENT_BYTES:
-                    self._stop("MCP streaming event exceeded the device limit")
-                    return
+                    self.buffer = self.buffer[event_end + delimiter:]
+                    continue
                 self._consume_buffered_event(event_end, delimiter)
                 if self.issue or self.complete:
                     break
             if len(self.buffer) > MAX_MCP_EVENT_BYTES:
-                self._stop("MCP streaming event exceeded the device limit")
+                self.discarding_event = True
+                self.buffer = self.buffer[-3:]
 
     def flush(self) -> None:
         """Consume a final SSE event even when it has no blank delimiter."""
@@ -487,20 +521,51 @@ class LMStudioMCPAdapter:
     def _write_request(
         self, user_message: str, integrations, force_retry: bool = False,
         optional: bool = False, conversation_context: str = "",
-        max_calls: int = 1, continuation_plans=None,
+        continuation_plans=None,
     ) -> None:
         instruction = "Follow these steps in order:\n"
         if force_retry:
             instruction += "The previous attempt made no tool call.\n"
         if continuation_plans:
             call_rule = (
-                "2. Choose one integration. When its metadata offers a "
+                "2. Use and combine whichever integrations are needed. When "
+                "metadata offers a "
                 "request-scoped action and a read-only current-resource "
                 "observation, call the action and then the observation in the "
-                "same session. You may correct an unsuccessful action, but use "
-                "no more than " + str(max_calls) + " tool calls total.\n"
+                "same session. Continue using the available tools until the "
+                "requested result is observed or the integration itself can "
+                "establish that it is unavailable.\n"
+                "Search snippets and generic landing pages are discovery "
+                "evidence, not a final result. A related range or summary, or "
+                "a suggestion that the user visit another resource, is not "
+                "the requested result. Search again or try other discovered "
+                "direct resources before ending the tool session.\n"
+                "When the request names a website or domain but does not give "
+                "a direct detail URL, first use a search integration to locate "
+                "the exact page on that domain. Then navigate that direct page "
+                "and observe it. Finding no requested text on a generic home "
+                "page does not establish that the result is unavailable.\n"
+                "Never repeat a tool call with identical arguments. After an "
+                "unsuccessful compact observation, do not keep trying spelling, "
+                "query, or regular-expression variants on the unchanged "
+                "resource. Use a complete current-resource observation when "
+                "available. After that, navigate a newly discovered direct "
+                "resource or switch integration. If no untried relevant "
+                "approach remains, "
+                "report that the integrations established the result is "
+                "unavailable and end the session.\n"
+                "Treat relevant links returned by an observation as discovered "
+                "direct resources and navigate them before concluding the "
+                "result is unavailable. When a literal text observation finds "
+                "only labels or structure for a requested numeric fact, use a "
+                "short regular expression for the value format or inspect the "
+                "relevant detail resource.\n"
+                "Before every tool call, identify what new resource or evidence "
+                "it can add. If it cannot add either, end the session instead.\n"
                 "3. For the observation, omit filename and output-path "
-                "arguments so its content is returned inline. Use an empty "
+                "arguments so its content is returned inline. Prefer a "
+                "matching-excerpt observation and give it one short query or "
+                "pattern for the requested fact. Otherwise use an empty "
                 "argument object when its schema permits; do not invent a "
                 "target, element, filter, depth, or output name.\n"
                 "4. Return only the concise observed content, not a path to an "
@@ -508,10 +573,13 @@ class LMStudioMCPAdapter:
             )
         else:
             call_rule = (
-                "2. Call at most one allowed integration tool only if it is "
-                "needed; otherwise make no tool call.\n"
+                "2. Use allowed integration tools only if needed and continue "
+                "until the requested result is obtained; otherwise make no "
+                "tool call.\n"
                 if optional else
-                "2. Call exactly one allowed integration tool once.\n"
+                "2. Continue using the allowed integration tools until the "
+                "requested result is obtained or the integrations establish "
+                "that it is unavailable.\n"
             ) + "3. Return only the concise tool result.\n"
         guard = (
             instruction
@@ -562,11 +630,11 @@ class LMStudioMCPAdapter:
         )
 
     def run_stage_once(
-        self, user_message: str, integrations,
-        max_calls: int, force_retry: bool = False, optional: bool = False,
+        self, user_message: str, integrations, force_retry: bool = False,
+        optional: bool = False,
         conversation_context: str = "", continuation_plans=None,
     ):
-        """Run one bounded LM Studio integration stage."""
+        """Run one LM Studio integration session through completion."""
         storage = self.view_manager.storage
         sink = None
         response = None
@@ -575,11 +643,11 @@ class LMStudioMCPAdapter:
         try:
             self._write_request(
                 user_message, integrations, force_retry, optional,
-                conversation_context, max_calls=max_calls,
+                conversation_context,
                 continuation_plans=continuation_plans,
             )
             sink = IntegrationStreamSink(
-                self.http, storage, self.spool_path, max_calls=max_calls,
+                self.http, storage, self.spool_path,
                 status_callback=self.status_callback,
                 continuation_plans=continuation_plans,
             )
@@ -588,7 +656,7 @@ class LMStudioMCPAdapter:
                     self.gateway_url,
                     payload=None,
                     headers=self.llm.headers,
-                    timeout=90,
+                    timeout=300,
                     storage=storage,
                     send_file=self.request_path,
                     stream_sink=sink,
@@ -606,37 +674,42 @@ class LMStudioMCPAdapter:
             from gc import collect
             collect()
         if response is None and not (
-            sink.complete or sink.evidence or sink.issue or sink.error
+            sink.complete or sink.evidence or sink.message
+            or sink.issue or sink.error
         ):
             return "", sink.call_count, "MCP gateway returned no response."
         if status_code and not 200 <= status_code <= 299:
             return "", sink.call_count, sink.http_error(status_code, reason)
+        final_message = sink.message_text()
         if sink.issue:
+            if final_message:
+                return final_message, sink.call_count, ""
             if sink.evidence:
                 self.view_manager.log(
                     f"[Agent] MCP gateway partial success: issue='{sink.issue}', evidence_chars={sink.evidence_chars}"
                 )
                 return "\n\n".join(sink.evidence), sink.call_count, ""
             return "", sink.call_count, "MCP gateway stopped: " + sink.issue
-        if sink.error:
+        if sink.error and not final_message:
             return "", sink.call_count, "MCP gateway error: " + sink.error
-        evidence = "\n\n".join(sink.evidence).strip()
         if sink.call_count == 0:
             if optional and sink.complete:
                 return "", 0, ""
             return "", 0, f"MCP gateway returned no tool calls (called {sink.call_count} times)."
+        if final_message:
+            return final_message, sink.call_count, ""
+        evidence = "\n\n".join(sink.evidence).strip()
         if not evidence:
             return "", sink.call_count, "MCP gateway returned no evidence."
         return evidence, sink.call_count, ""
 
     def run_stage(
-        self, user_message: str, integrations,
-        max_calls: int = MAX_MCP_CALLS, optional: bool = False,
+        self, user_message: str, integrations, optional: bool = False,
         conversation_context: str = "", continuation_plans=None,
     ):
-        """Run one stage with a bounded no-tool retry."""
+        """Run one session with a retry only when no tool was selected."""
         result = self.run_stage_once(
-            user_message, integrations, max_calls, False, optional,
+            user_message, integrations, False, optional,
             conversation_context, continuation_plans=continuation_plans,
         )
         if (
@@ -645,7 +718,7 @@ class LMStudioMCPAdapter:
         ):
             self.view_manager.log("[Agent] MCP retry after no tool call")
             result = self.run_stage_once(
-                user_message, integrations, max_calls, True, False,
+                user_message, integrations, True, False,
                 conversation_context, continuation_plans=continuation_plans,
             )
         return result

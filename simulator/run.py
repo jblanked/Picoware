@@ -1565,8 +1565,8 @@ def _run_agent_mcp_contracts():
     """Exercise only the contracts required by the Agent MCP workflow."""
     import json as _json
     from picoware.system.agent.agent import (
-        Agent, MODE_CHAT, _followup_prompt, _mcp_answer_guard,
-        _mcp_conversation_context, _request_tool_names,
+        Agent, MCP_INTEGRATION_TOOL_NAME, MODE_CHAT, _followup_prompt,
+        _mcp_answer_guard, _mcp_conversation_context, _request_tool_names,
     )
     from picoware.system.agent.authorization import request_authorizes_mutation
     from picoware.system.agent.llm import LOCAL, LOCAL_MCP, LLM
@@ -1829,6 +1829,79 @@ def _run_agent_mcp_contracts():
         or optional_adapter.attempts != 1
     ):
         raise RuntimeError("Agent MCP optional adapter retried")
+
+    # MCP is exposed to the normal model as one optional tool. Merely building
+    # a normal chat request must not contact the gateway; only a model tool
+    # call may execute it, using the original request rather than model-supplied
+    # arguments.
+    class _ModelRoutedMCP:
+        enabled = True
+
+        def __init__(self):
+            self.calls = []
+
+        def research_result(
+            self, request, context="", allow_mutation=None,
+            require_tool=False,
+        ):
+            self.calls.append({
+                "request": request,
+                "context": context,
+                "allow_mutation": allow_mutation,
+                "require_tool": require_tool,
+            })
+            return {
+                "status": MCP_OUTCOME_COMPLETED,
+                "evidence": "model-selected evidence",
+                "error": "",
+                "calls": 1,
+            }
+
+    class _ToolRoutingShell:
+        def __init__(self):
+            self.mode = MODE_CHAT
+            self.mcp = _ModelRoutedMCP()
+            self.view_manager = _View()
+            self._mcp_outcome = {}
+            self._cancelled = False
+            self.status = {}
+
+        def _mode_tool_limit(self, name):
+            return Agent._mode_tool_limit(self, name)
+
+        def _set_status(self, value):
+            self.status = value
+
+    tool_routing = _ToolRoutingShell()
+    offered = Agent._chat_completion_tools(tool_routing, {}, ())
+    if (
+        tool_routing.mcp.calls
+        or len(offered) != 1
+        or offered[0].get("function", {}).get("name")
+        != MCP_INTEGRATION_TOOL_NAME
+        or Agent._chat_completion_tools(
+            tool_routing, {}, (), allow_integrations=False
+        )
+    ):
+        raise RuntimeError("Agent model-routed MCP exposure failed")
+    routed_counts = {}
+    routed = Agent._execute_tool(
+        tool_routing, [], {}, routed_counts,
+        MCP_INTEGRATION_TOOL_NAME, {"invented": "ignored"}, False,
+        "Find the newest release", "prior release context",
+    )
+    if (
+        routed.get("evidence") != "model-selected evidence"
+        or len(tool_routing.mcp.calls) != 1
+        or tool_routing.mcp.calls[0].get("request")
+        != "Find the newest release"
+        or tool_routing.mcp.calls[0].get("context")
+        != "prior release context"
+        or tool_routing.mcp.calls[0].get("require_tool") is not True
+        or routed_counts.get(MCP_INTEGRATION_TOOL_NAME) != 1
+        or Agent._chat_completion_tools(tool_routing, routed_counts, ())
+    ):
+        raise RuntimeError("Agent model-routed MCP execution failed")
 
     # 3. LM Studio receives provider-neutral metadata and owns tool selection.
     named, ambiguous = explicit_integration_records(

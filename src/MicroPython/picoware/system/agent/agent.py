@@ -68,6 +68,25 @@ CHAT_TOOL_NAMES = (
     "network_scan_ble",
     "network_send_request",
 )
+MCP_INTEGRATION_TOOL_NAME = "use_integrations"
+MCP_INTEGRATION_TOOL = {
+    "type": "function",
+    "function": {
+        "name": MCP_INTEGRATION_TOOL_NAME,
+        "description": (
+            "Use the configured external integrations only when the current "
+            "user request requires external information or actions. Do not "
+            "call this tool merely because it is available. For normal "
+            "conversation or a request you can answer directly, respond "
+            "normally without calling it."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": False,
+        },
+    },
+}
 ERROR_RESPONSE_PREFIXES = (
     "API error",
     "An error occurred during processing:",
@@ -740,7 +759,7 @@ class Agent:
         "mode", "tools", "llm", "mcp", "view_manager", "http", "_file_path",
         "_conv_path", "_mem_path", "_msg_path", "_state_path",
         "_conversation", "_task", "_status", "_activity", "_cancelled",
-        "allow_followup_questions",
+        "_mcp_outcome", "allow_followup_questions",
     ]
 
     def __init__(
@@ -778,6 +797,7 @@ class Agent:
         self._status = "Ready"
         self._activity = {"phase": "ready", "provider": "", "tool": ""}
         self._cancelled = False
+        self._mcp_outcome = {}
         self.allow_followup_questions = bool(allow_followup_questions)
 
         s = self.view_manager.storage
@@ -1138,6 +1158,8 @@ class Agent:
 
     def _mode_tool_limit(self, name: str) -> int:
         """Return small per-turn limits for expensive reference/network tools."""
+        if name == MCP_INTEGRATION_TOOL_NAME:
+            return 1
         if name in (
             "network_get_info", "network_scan_wifi", "network_scan_ble",
             "network_send_request",
@@ -1151,7 +1173,9 @@ class Agent:
             return 4
         return 0
 
-    def _chat_completion_tools(self, counts, allowed_names=None) -> list:
+    def _chat_completion_tools(
+        self, counts, allowed_names=None, allow_integrations: bool = True,
+    ) -> list:
         """Return Chat Completions schemas, hiding exhausted one-shot tools."""
         if allowed_names is None:
             allowed_names = _request_tool_names(self.mode, "")
@@ -1162,11 +1186,17 @@ class Agent:
             limit = self._mode_tool_limit(tool.name)
             if not limit or counts.get(tool.name, 0) < limit:
                 tools.append(tool.json_openai)
+        if (
+            allow_integrations and self.mcp is not None and self.mcp.enabled
+            and counts.get(MCP_INTEGRATION_TOOL_NAME, 0) < 1
+        ):
+            tools.append(MCP_INTEGRATION_TOOL)
         return tools
 
     def _execute_tool(
         self, history, cache, counts, name: str, arguments,
-        mutation_authorized: bool = False,
+        mutation_authorized: bool = False, integration_request: str = "",
+        integration_context: str = "",
     ):
         """Execute one guarded tool call and reuse same-batch successful results."""
         if builtin_tool_requires_mutation(name, arguments):
@@ -1219,7 +1249,20 @@ class Agent:
         })
         self.view_manager.log("[Agent] Executing " + name)
         try:
-            result = dispatch.execute_tool(self.view_manager, name, arguments)
+            if name == MCP_INTEGRATION_TOOL_NAME:
+                result = self.mcp.research_result(
+                    integration_request, integration_context,
+                    allow_mutation=mutation_authorized,
+                    require_tool=True,
+                )
+                self._mcp_outcome = {
+                    "status": result.get("status", ""),
+                    "error": result.get("error", ""),
+                }
+            else:
+                result = dispatch.execute_tool(
+                    self.view_manager, name, arguments
+                )
         except (KeyError, OSError, TypeError, ValueError) as exc:
             result = {
                 "ok": False,
@@ -1233,6 +1276,8 @@ class Agent:
 
     def _run_loop(
         self, allowed_tool_names=None, mutation_authorized: bool = False,
+        integration_request: str = "", integration_context: str = "",
+        allow_integrations: bool = True,
     ) -> str:
         """Run a provider-neutral Chat Completions tool loop."""
         storage = self.view_manager.storage
@@ -1252,7 +1297,9 @@ class Agent:
                 "tool": "",
             })
             self._build_request(
-                self._chat_completion_tools(counts, allowed_tool_names),
+                self._chat_completion_tools(
+                    counts, allowed_tool_names, allow_integrations
+                ),
                 require_visible_answer=empty_response_retried,
             )
             sink = ChatCompletionStreamSink(
@@ -1319,7 +1366,18 @@ class Agent:
                     )
                 except (KeyError, TypeError):
                     return "API error: model API returned an invalid tool call."
-                if name not in allowed_tool_names:
+                if (
+                    name == MCP_INTEGRATION_TOOL_NAME
+                    and (
+                        not allow_integrations
+                        or self.mcp is None or not self.mcp.enabled
+                    )
+                ):
+                    return "API error: model requested unavailable integrations."
+                if (
+                    name != MCP_INTEGRATION_TOOL_NAME
+                    and name not in allowed_tool_names
+                ):
                     return "API error: model requested an unavailable tool: " + name
                 parsed_calls.append((tool_call, name, arguments))
 
@@ -1332,7 +1390,8 @@ class Agent:
                 try:
                     result = self._execute_tool(
                         history, cache, counts, name, arguments,
-                        mutation_authorized,
+                        mutation_authorized, integration_request,
+                        integration_context,
                     )
                 except RuntimeError as exc:
                     return str(exc)
@@ -1482,6 +1541,7 @@ class Agent:
             )
         
         self._cancelled = False
+        self._mcp_outcome = {}
         self._set_status({
             "phase": "preparing", "provider": "", "tool": "",
         })
@@ -1499,92 +1559,35 @@ class Agent:
             self._set_task()
         storage = self.view_manager.storage
         try:
-            explicit = []
-            if (
-                self.mcp is not None and self.mcp.enabled
-                and not declined_mcp
-            ):
-                explicit_selector = getattr(
-                    self.mcp, "explicit_selection", None
-                )
-                if explicit_selector is not None:
-                    explicit, ambiguous = explicit_selector(user_message)
-                    if ambiguous:
-                        self._set_task(
-                            task_goal, TASK_REASON_CLARIFICATION
-                        )
-                        return MCP_EXACT_LABEL_CLARIFICATION
             self._write_mode_context(context)
             effective_request = _bounded_request_text(
                 self._mcp_request_message(user_message)
             )
             mcp_context = _mcp_conversation_context(self._conversation)
-            evidence = ""
-            from picoware.system.agent.mcp import (
-                MCP_OUTCOME_FAILED,
-                MCP_OUTCOME_NOT_NEEDED,
-                MCP_OUTCOME_PARTIAL,
-                mcp_outcome,
-            )
-            outcome = mcp_outcome(MCP_OUTCOME_NOT_NEEDED)
-            if (
-                self.mcp is not None and self.mcp.enabled
-                and not declined_mcp
-            ):
-                self._set_status({
-                    "phase": "mcp_select", "provider": "enabled tools",
-                    "tool": "",
-                })
-                outcome = self.mcp.research_result(
-                    effective_request, mcp_context,
-                    allow_mutation=request_authorizes_mutation(user_message),
-                    require_tool=continuing_task or bool(explicit),
-                )
-                evidence = outcome.get("evidence", "")
-                outcome_status = outcome.get("status")
-                if outcome_status == MCP_OUTCOME_FAILED:
-                    self._set_task(
-                        task_goal, TASK_REASON_INTEGRATION_FAILED
-                    )
-                elif outcome_status == MCP_OUTCOME_PARTIAL:
-                    self._set_task(task_goal, TASK_REASON_PARTIAL)
-                else:
-                    self._set_task()
-                if evidence:
-                    self.view_manager.storage.write(
-                        self._mem_path,
-                        "\n" + _mcp_answer_guard(
-                            self.allow_followup_questions
-                        ) + "\n",
-                        mode="a",
-                    )
-            integration_finalized = (
-                outcome.get("status") != MCP_OUTCOME_NOT_NEEDED
-            )
             messages = [{"role": "system", "content": ""}]
             messages.extend(self._conversation)
             self._conv_write_initial(messages)
-            self._conv_append_user_request(
-                effective_request, evidence, outcome
-            )
-            # The evidence is now in the temporary SD conversation file; do
-            # not retain a duplicate while the final model stream is running.
-            evidence = ""
-            mcp_context = ""
-            effective_request = ""
+            self._conv_append_user_request(effective_request)
             from gc import collect
             collect()
             result = self._run_loop(
-                _request_tool_names(
-                    self.mode, user_message,
-                    integration_finalized,
-                ),
+                _request_tool_names(self.mode, user_message),
                 mutation_authorized=request_authorizes_mutation(user_message),
+                integration_request=effective_request,
+                integration_context=mcp_context,
+                allow_integrations=not declined_mcp,
             )
+            outcome_status = self._mcp_outcome.get("status", "")
             if isinstance(result, str) and result.startswith(
                 ERROR_RESPONSE_PREFIXES
             ):
                 self._set_task(task_goal, TASK_REASON_MODEL_FAILED)
+            elif outcome_status == "failed":
+                self._set_task(task_goal, TASK_REASON_INTEGRATION_FAILED)
+            elif outcome_status == "partial":
+                self._set_task(task_goal, TASK_REASON_PARTIAL)
+            else:
+                self._set_task()
             return result
         except Exception as exc:
             self._set_task(task_goal, TASK_REASON_RUNTIME_FAILED)
@@ -1598,6 +1601,7 @@ class Agent:
                 self._mem_path, self._msg_path,
             ):
                 storage.remove(path)
+            self._mcp_outcome = {}
             from gc import collect
             collect()
 

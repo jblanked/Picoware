@@ -1736,12 +1736,23 @@ def _run_agent_mcp_contracts():
             return True
 
     legacy_local = LLM(_SettingsStorage(), LOCAL_MCP, "legacy-local-model")
+    thinking_local = LLM(
+        _SettingsStorage(), LOCAL, "thinking-local-model", "medium"
+    )
+    immediate_local = LLM(
+        _SettingsStorage(), LOCAL, "immediate-local-model", "none"
+    )
     if (
         legacy_local.id != LOCAL
         or legacy_local.name != "Local"
         or legacy_local.model != "legacy-local-model"
+        or thinking_local.thinking_payload.get("think") is not True
+        or immediate_local.thinking_payload.get("think") is not False
     ):
-        raise RuntimeError("Agent legacy Local + MCP migration failed")
+        raise RuntimeError("Agent local model settings contract failed")
+    thinking_local.thinking = "none"
+    if thinking_local.thinking_payload.get("think") is not False:
+        raise RuntimeError("Agent live thinking toggle contract failed")
 
     class _SettingsView:
         def __init__(self):
@@ -2116,10 +2127,15 @@ def _run_agent_mcp_contracts():
             return None
 
     class _StreamHTTP(_SinkHTTP):
+        last_think = None
+
         def post(
             self, _url, payload=None, headers=None, timeout=0, storage=None,
             send_file="", stream_sink=None,
         ):
+            self.last_think = _json.loads(
+                storage.values.get(send_file, "{}")
+            ).get("think")
             _sink_event(stream_sink, {
                 "type": "tool_call.arguments",
                 "provider_info": {"plugin_id": "fixture/alpha-index"},
@@ -2140,14 +2156,17 @@ def _run_agent_mcp_contracts():
         url = "http://127.0.0.1:1234/api/v1/chat"
         model = "fixture"
         headers = {"Content-Type": "application/json"}
+        thinking = "none"
 
     scratch = _ScratchStorage()
-    adapter = LMStudioMCPAdapter(_View(scratch), _StreamHTTP(), _LLM())
+    stream_http = _StreamHTTP()
+    adapter = LMStudioMCPAdapter(_View(scratch), stream_http, _LLM())
     cleanup_result = adapter.run_stage_once(
         "Find alpha", [{"type": "plugin", "id": "fixture/alpha-index"}],
     )
     if (
         cleanup_result != ("concise final result", 1, "")
+        or stream_http.last_think is not False
         or adapter.request_path in scratch.values
         or adapter.spool_path in scratch.files
         or adapter.request_path not in scratch.removed
@@ -2227,21 +2246,26 @@ def _run_agent_mcp_contracts():
     ):
         raise RuntimeError("Agent MCP final evidence handoff contract failed")
 
-    # 8. Follow-up questions are opt-in and add no prompt bytes when disabled.
+    # 8. Thinking defaults on; model follow-up questions remain independently
+    # opt-in and add no prompt bytes when disabled.
     if (
         _followup_prompt(False) != b""
         or b"ask one concise follow-up question" not in _followup_prompt(True)
         or "ask one concise follow-up question" not in _mcp_answer_guard(True)
         or "Do not ask for confirmation" not in _mcp_answer_guard(False)
-        or _settings_menu_items(LOCAL, False)[2]
+        or _settings_menu_items(LOCAL, False, True)[2]
+        != "Thinking: On"
+        or _settings_menu_items(LOCAL, False, False)[2]
+        != "Thinking: Off"
+        or _settings_menu_items(LOCAL, False, True)[3]
         != "Follow-up Questions: Off"
-        or _settings_menu_items(LOCAL, True)[2]
+        or _settings_menu_items(LOCAL, True, True)[3]
         != "Follow-up Questions: On"
-        or len(_settings_menu_items(LOCAL, True)) != 6
+        or len(_settings_menu_items(LOCAL, True, True)) != 7
         or LOCAL_MCP in LLM.providers()
         or LLM.provider_name(LOCAL_MCP) != "Local"
     ):
-        raise RuntimeError("Agent follow-up question toggle contract failed")
+        raise RuntimeError("Agent thinking/follow-up toggle contract failed")
 
     print(
         "[sim-check:ok] Agent MCP catalog fallthrough routing chain "

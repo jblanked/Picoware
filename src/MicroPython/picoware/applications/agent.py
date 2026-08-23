@@ -548,18 +548,23 @@ def _set_settings(view_manager):
             )
     else:
         _settings = s.serialize("picoware/settings/current_agent.json")
-        from picoware.system.agent.llm import JBLANKED, LOCAL_MCP
+        from picoware.system.agent.llm import JBLANKED, LOCAL, LOCAL_MCP
         if (
             isinstance(_settings, dict)
-            and _settings.get("provider") == JBLANKED
-            and _settings.get("model") not in ("", "none")
+            and (
+                _settings.get("provider") == LOCAL_MCP
+                or (
+                    _settings.get("provider") == JBLANKED
+                    and _settings.get("model") not in ("", "none")
+                )
+            )
         ):
-            # LOCAL_MCP used provider ID 6 before upstream assigned it to
-            # JBlanked. Preserve those existing local Agent selections.
-            _settings["provider"] = LOCAL_MCP
+            # Provider ID 6 represented Local + MCP before JBlanked used it;
+            # ID 7 was the transitional value after that collision.
+            _settings["provider"] = LOCAL
             if not _save_settings(view_manager):
                 view_manager.alert(
-                    "Failed to migrate Agent provider settings.", False
+                    "Failed to migrate Local Agent settings.", False
                 )
 
 
@@ -652,7 +657,7 @@ def _settings_menu_items(
     provider: int, allow_followup_questions: bool = False,
 ) -> list:
     """Return settings items available for the selected provider."""
-    from picoware.system.agent.llm import LOCAL_MCP
+    from picoware.system.agent.llm import LOCAL, LOCAL_MCP
 
     items = [
         "Agent Provider",
@@ -660,7 +665,7 @@ def _settings_menu_items(
         "Follow-up Questions: "
         + ("On" if allow_followup_questions else "Off"),
     ]
-    if provider == LOCAL_MCP:
+    if provider in (LOCAL, LOCAL_MCP):
         items.append("Scan Integrations")
         items.append("Add MCP Server")
         items.append("Add MCP Catalog")
@@ -820,12 +825,12 @@ def _open_integration_choice(view_manager) -> None:
     global _state, _scan_client, _scan_task
     global _scan_result, _scan_error, _scan_done
     from gc import collect
-    from picoware.system.agent.llm import LLM, LOCAL_MCP
+    from picoware.system.agent.llm import LLM, LOCAL
     from picoware.system.agent.mcp import MCPClient
     from picoware.system.http import HTTP
 
-    if _settings["provider"] != LOCAL_MCP:
-        view_manager.alert("Select Local + MCP first", False)
+    if _settings["provider"] != LOCAL:
+        view_manager.alert("Select Local first", False)
         _back_to_settings_menu(view_manager)
         return
 
@@ -833,7 +838,7 @@ def _open_integration_choice(view_manager) -> None:
     _scan_error = ""
     _scan_done = False
     collect()
-    llm = LLM(view_manager.storage, LOCAL_MCP, _settings["model"])
+    llm = LLM(view_manager.storage, LOCAL, _settings["model"])
     _scan_client = MCPClient(view_manager, HTTP(), llm)
     _state = STATE_SETTINGS_SCAN
     _start_activity(view_manager, "Scanning integrations", True)

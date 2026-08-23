@@ -9,8 +9,8 @@ GEMINI = const(3)
 LOCAL = const(4)
 XAI = const(5)
 JBLANKED = const(6)
-# Backward-compatible provider ID for existing Agent settings. MCP execution
-# is implemented by the Agent integration layer, not by this LLM transport.
+# Legacy provider ID retained only to migrate existing Agent settings. MCP is
+# an optional integration capability of LOCAL, not a separate LLM provider.
 LOCAL_MCP = const(7)
 
 MAX_LOCAL_MODELS = const(32)
@@ -71,7 +71,7 @@ class LLM:
             self._thinking = "none"
         else:
             self._thinking = thinking
-        self._id = llm_id
+        self._id = LOCAL if llm_id == LOCAL_MCP else llm_id
         self._name = ""
         self._url = ""
         self._models = []
@@ -163,7 +163,7 @@ class LLM:
         """Return a list of available LLM providers."""
         return [
             OPENAI, DEEPSEEK, ANTHROPIC, GEMINI, LOCAL, XAI,
-            JBLANKED, LOCAL_MCP,
+            JBLANKED,
         ]
 
     @staticmethod
@@ -184,10 +184,8 @@ class LLM:
             return "Anthropic"
         if provider_id == GEMINI:
             return "Gemini"
-        if provider_id == LOCAL:
+        if provider_id in (LOCAL, LOCAL_MCP):
             return "Local"
-        if provider_id == LOCAL_MCP:
-            return "Local + MCP"
         if provider_id == XAI:
             return "xAI"
         if provider_id == JBLANKED:
@@ -226,7 +224,7 @@ class LLM:
             self._models = ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview"]
             self._api_key = settings.gemini_api_key
         elif self._id in (LOCAL, LOCAL_MCP):
-            self._name = "Local + MCP" if self._id == LOCAL_MCP else "Local"
+            self._name = "Local"
             self._url = settings.local_url
             # Local model identifiers are server-defined. Keep only the exact
             # saved value here; the Agent settings view discovers /v1/models.

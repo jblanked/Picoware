@@ -891,15 +891,15 @@ def _current_time_grounding(view_manager) -> str:
 
 def create_mcp_client(view_manager, http, llm, status_callback=None):
     """Create the configured MCP facade without coupling Agent to a provider."""
-    from picoware.system.agent.llm import LOCAL_MCP
+    from picoware.system.agent.llm import LOCAL, LOCAL_MCP
 
-    if llm.id != LOCAL_MCP:
+    if llm.id not in (LOCAL, LOCAL_MCP):
         return None
     return MCPClient(view_manager, http, llm, status_callback)
 
 
 class MCPClient:
-    """Provider-neutral facade over LM Studio MCP integrations."""
+    """Provider-neutral facade over configured MCP integrations."""
 
     __slots__ = (
         "view_manager", "http", "llm", "records", "integrations",

@@ -1569,7 +1569,7 @@ def _run_agent_mcp_contracts():
         _mcp_conversation_context, _request_tool_names,
     )
     from picoware.system.agent.authorization import request_authorizes_mutation
-    from picoware.system.agent.llm import LOCAL_MCP
+    from picoware.system.agent.llm import LOCAL, LOCAL_MCP, LLM
     from picoware.system.agent.mcp import (
         MAX_MCP_EVENT_BYTES,
         MAX_MCP_EVIDENCE_CHARS,
@@ -1734,6 +1734,14 @@ def _run_agent_mcp_contracts():
         def write(self, path, value, mode="w"):
             self.values[path] = value
             return True
+
+    legacy_local = LLM(_SettingsStorage(), LOCAL_MCP, "legacy-local-model")
+    if (
+        legacy_local.id != LOCAL
+        or legacy_local.name != "Local"
+        or legacy_local.model != "legacy-local-model"
+    ):
+        raise RuntimeError("Agent legacy Local + MCP migration failed")
 
     class _SettingsView:
         def __init__(self):
@@ -2225,11 +2233,13 @@ def _run_agent_mcp_contracts():
         or b"ask one concise follow-up question" not in _followup_prompt(True)
         or "ask one concise follow-up question" not in _mcp_answer_guard(True)
         or "Do not ask for confirmation" not in _mcp_answer_guard(False)
-        or _settings_menu_items(LOCAL_MCP, False)[2]
+        or _settings_menu_items(LOCAL, False)[2]
         != "Follow-up Questions: Off"
-        or _settings_menu_items(LOCAL_MCP, True)[2]
+        or _settings_menu_items(LOCAL, True)[2]
         != "Follow-up Questions: On"
-        or len(_settings_menu_items(LOCAL_MCP, True)) != 6
+        or len(_settings_menu_items(LOCAL, True)) != 6
+        or LOCAL_MCP in LLM.providers()
+        or LLM.provider_name(LOCAL_MCP) != "Local"
     ):
         raise RuntimeError("Agent follow-up question toggle contract failed")
 

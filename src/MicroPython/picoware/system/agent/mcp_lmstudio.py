@@ -601,7 +601,10 @@ class LMStudioMCPAdapter:
         storage = self.view_manager.storage
         storage.write(
             self.request_path,
-            '{"model":' + json.dumps(self.llm.model) + ',"input":"',
+            '{"model":' + json.dumps(self.llm.model)
+            + ',"think":'
+            + ("true" if self.llm.thinking != "none" else "false")
+            + ',"input":"',
             mode="w",
         )
         self._append_json_text(storage, self.request_path, guard)

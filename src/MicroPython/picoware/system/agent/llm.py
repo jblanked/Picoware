@@ -53,6 +53,7 @@ def parse_local_models(value, limit: int = MAX_LOCAL_MODELS) -> list[str]:
             break
     return models
 
+
 class LLM:
     """LLM config"""
     __slots__ = ["_api_key", "_current_model", "_id", "_name", "_url", "_models", "_headers", "_thinking"]
@@ -119,12 +120,21 @@ class LLM:
         """Return the current thinking setting for the LLM."""
         return self._thinking
 
+    @thinking.setter
+    def thinking(self, value: str) -> None:
+        """Update the validated thinking level for future requests."""
+        if value not in ("none", "low", "medium", "high", "max"):
+            value = "none"
+        self._thinking = value
+
     @property
     def thinking_payload(self) -> dict:
         """Return the thinking-related payload for the LLM."""
         _payload = {}
         if self._thinking != "none":
-            if self._id == DEEPSEEK:
+            if self._id in (LOCAL, LOCAL_MCP):
+                _payload["think"] = True
+            elif self._id == DEEPSEEK:
                 _payload["thinking"] = {"type": "enabled"}
                 _payload["reasoning_effort"] = self._thinking
             elif self._id in (OPENAI, GEMINI):
@@ -138,7 +148,9 @@ class LLM:
                     "thinking_level": self._thinking
                 }
         else:
-            if self._id == DEEPSEEK:
+            if self._id in (LOCAL, LOCAL_MCP):
+                _payload["think"] = False
+            elif self._id == DEEPSEEK:
                 _payload["thinking"] = {"type": "disabled"}
             elif self._id in (OPENAI, GEMINI):
                 _payload["reasoning_effort"] = self._thinking

@@ -509,6 +509,7 @@ def _open_new_chat_from_menu(view_manager) -> None:
                 view_manager.storage,
                 _settings["provider"],
                 _settings["model"],
+                _thinking_level(),
             ),
             allow_followup_questions=_followup_questions_enabled(),
         )
@@ -540,6 +541,7 @@ def _set_settings(view_manager):
         _settings = {
             "model": LLM(view_manager.storage, DEEPSEEK).model,
             "provider": DEEPSEEK,
+            "thinking_enabled": True,
             "allow_followup_questions": False,
         }
         if not _save_settings(view_manager):
@@ -574,6 +576,32 @@ def _followup_questions_enabled() -> bool:
         isinstance(_settings, dict)
         and _settings.get("allow_followup_questions", False)
     )
+
+
+def _thinking_enabled() -> bool:
+    """Return the saved model-thinking preference, defaulting on."""
+    return bool(
+        not isinstance(_settings, dict)
+        or _settings.get("thinking_enabled", True)
+    )
+
+
+def _thinking_level() -> str:
+    """Map the PicoCalc on/off control to a provider thinking level."""
+    return "medium" if _thinking_enabled() else "none"
+
+
+def _toggle_thinking(view_manager) -> None:
+    """Toggle model thinking and persist the preference."""
+    global _agent
+    previous = _thinking_enabled()
+    _settings["thinking_enabled"] = not previous
+    if not _save_settings(view_manager):
+        _settings["thinking_enabled"] = previous
+        view_manager.alert("Failed to save Agent settings.", False)
+    elif _agent is not None:
+        _agent.llm.thinking = _thinking_level()
+    _start_settings_menu(view_manager)
 
 
 def _toggle_followup_questions(view_manager) -> None:
@@ -655,6 +683,7 @@ def _get_llm_models(
 
 def _settings_menu_items(
     provider: int, allow_followup_questions: bool = False,
+    thinking_enabled: bool = True,
 ) -> list:
     """Return settings items available for the selected provider."""
     from picoware.system.agent.llm import LOCAL, LOCAL_MCP
@@ -662,6 +691,7 @@ def _settings_menu_items(
     items = [
         "Agent Provider",
         "Agent Model",
+        "Thinking: " + ("On" if thinking_enabled else "Off"),
         "Follow-up Questions: "
         + ("On" if allow_followup_questions else "Off"),
     ]
@@ -715,7 +745,8 @@ def _start_settings_menu(view_manager):
         selected_color=view_manager.selected_color,
     )
     for item in _settings_menu_items(
-        _settings["provider"], _followup_questions_enabled()
+        _settings["provider"], _followup_questions_enabled(),
+        _thinking_enabled(),
     ):
         _settings_menu.add_item(item)
     _settings_menu.draw()
@@ -838,7 +869,9 @@ def _open_integration_choice(view_manager) -> None:
     _scan_error = ""
     _scan_done = False
     collect()
-    llm = LLM(view_manager.storage, LOCAL, _settings["model"])
+    llm = LLM(
+        view_manager.storage, LOCAL, _settings["model"], _thinking_level()
+    )
     _scan_client = MCPClient(view_manager, HTTP(), llm)
     _state = STATE_SETTINGS_SCAN
     _start_activity(view_manager, "Scanning integrations", True)
@@ -1242,7 +1275,12 @@ def run(view_manager) -> None:
             _agent = Agent(
                 view_manager,
                 _agent_mode,
-                LLM(view_manager.storage, _settings["provider"], _settings["model"]),
+                LLM(
+                    view_manager.storage,
+                    _settings["provider"],
+                    _settings["model"],
+                    _thinking_level(),
+                ),
                 allow_followup_questions=_followup_questions_enabled(),
             )
             _conversation = _agent.conversation
@@ -1265,19 +1303,22 @@ def run(view_manager) -> None:
         elif btn == BUTTON_CENTER:
             idx = _settings_menu.selected_index
             settings_items = _settings_menu_items(
-                _settings["provider"], _followup_questions_enabled()
+                _settings["provider"], _followup_questions_enabled(),
+                _thinking_enabled(),
             )
             if idx == 0:
                 _open_provider_choice(view_manager)
             elif idx == 1:
                 _open_model_choice(view_manager)
             elif idx == 2:
+                _toggle_thinking(view_manager)
+            elif idx == 3:
                 _toggle_followup_questions(view_manager)
-            elif idx == 3 and len(settings_items) == 6:
+            elif idx == 4 and len(settings_items) == 7:
                 _open_integration_choice(view_manager)
-            elif idx == 4 and len(settings_items) == 6:
+            elif idx == 5 and len(settings_items) == 7:
                 _open_mcp_server_input(view_manager, False)
-            elif idx == 5 and len(settings_items) == 6:
+            elif idx == 6 and len(settings_items) == 7:
                 _open_mcp_server_input(view_manager, True)
 
     elif _state == STATE_SETTINGS_PROVIDER:

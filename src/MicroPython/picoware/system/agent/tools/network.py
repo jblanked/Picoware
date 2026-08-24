@@ -100,23 +100,29 @@ def network_scan_ble(view_manager, timeout_ms: int = 3000) -> list:
 
     
 
-def network_send_request(view_manager, url, method="GET", headers=None, data=None):
-    """Send an HTTP request and return the response text.
+def network_send_request(view_manager, url, path: str, method: str = "GET", headers=None, data=None) -> str:
+    """Send an HTTP request and return error status. The response is saved to the specified path.
 
     Args:
         view_manager (ViewManager): The view manager for thread access.
         url (str): The URL to send the request to.
+        path (str): The file path to save the response to.
         method (str): The HTTP method. Defaults to "GET".
         headers (dict or None): Optional request headers. Defaults to None.
         data (str or None): Optional request body data. Defaults to None.
 
     Returns:
-        str: The response text.
+        str: "OK" if the request was successful, otherwise an error message.
     """
+    if "http://" not in url and "https://" not in url:
+        return "Error: URL must contain the protocol (http:// or https://)"
     from picoware.system.http import HTTP
     http = HTTP(thread_manager=view_manager.thread_manager)
-    response = http.request(method, url, headers=headers, data=data)
-    return response.text
+    try:
+        http.request(method, url, headers=headers, data=data, storage=view_manager.storage, save_to_file=path)
+        return "OK"
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 TOOL_NETWORK_GET_INFO = Tool(
     name="network_get_info",
@@ -145,19 +151,25 @@ TOOL_NETWORK_SCAN_BLE = Tool(
 
 TOOL_NETWORK_SEND_REQUEST = Tool(
     name="network_send_request",
-    description="Send an HTTP request and return the response.",
+    description="Send an HTTP request and return 'OK' if successful, otherwise an error message. The response is saved to the specified path.",
     parameters=Parameters(
         properties=[
             Property(
                 name="url",
                 type="string",
-                description="The URL to send the request to.",
+                description="The URL to send the request to. It must contain the protocol (http:// or https://) and www if applicable.",
+                required=True,
+            ),
+            Property(
+                name="path",
+                type="string",
+                description="The file path to save the response to.",
                 required=True,
             ),
             Property(
                 name="method",
                 type="string",
-                description="The HTTP method to use (e.g. GET, POST).",
+                description="The HTTP method to use (e.g. GET, POST). The default is GET.",
             ),
             Property(
                 name="headers",

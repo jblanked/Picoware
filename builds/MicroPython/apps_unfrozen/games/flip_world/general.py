@@ -47,6 +47,15 @@ ICON_ID_FLOWER = const(4)
 ICON_ID_ROCK_LARGE = const(5)
 ICON_ID_ROCK_MEDIUM = const(6)
 ICON_ID_ROCK_SMALL = const(7)
+# Extra icons used by the ported maps (levels 3-23)
+ICON_ID_WATER = const(8)
+ICON_ID_ICE = const(9)
+ICON_ID_LAKE_BOTTOM = const(10)
+ICON_ID_LAKE_TOP = const(11)
+ICON_ID_FENCE_VERTICAL_START = const(12)
+ICON_ID_FENCE_VERTICAL_END = const(13)
+ICON_ID_MAN = const(14)
+ICON_ID_WOMAN = const(15)
 
 
 def constraint(amt, low, high):

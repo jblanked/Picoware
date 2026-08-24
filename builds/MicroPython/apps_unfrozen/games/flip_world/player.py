@@ -11,6 +11,7 @@ from picoware.engine.entity import (
 from picoware.gui.loading import Loading
 from ujson import loads as json_loads
 from flip_world.assets import player_left_sword_15x11px, player_right_sword_15x11px
+from flip_world.colorize import colorize, COL_PLAYER
 
 # GameMainView
 GAME_VIEW_TITLE = const(0)  # title, start, and menu (menu)
@@ -104,6 +105,39 @@ INPUT_KEY_MAX = const(-1)  # BUTTON_NONE
 # Color constants
 COLOR_WHITE = const(0x0000)  # inverted on purpose
 COLOR_BLACK = const(0xFFFF)  # inverted on purpose
+
+
+# Minimap colours (panel is not inverted, so colours pass straight through).
+def _mm_inv(c):
+    return c
+
+
+_MM_W = const(64)
+_MM_H = const(32)
+_MM_BG = 0x0000  # black
+_MM_FRAME = _mm_inv(0x7BEF)
+_MM_VIEW = _mm_inv(0x39C7)
+_MM_PLAYER = _mm_inv(0x1C9F)
+_MM_ENEMY = _mm_inv(0xF800)
+_MM_BOSS = _mm_inv(0xFD20)
+_MM_ICON = {
+    0: _mm_inv(0xB483),   # house
+    1: _mm_inv(0x0480),   # plant
+    2: _mm_inv(0x0480),   # tree
+    3: _mm_inv(0x9340),   # fence
+    4: _mm_inv(0xF81F),   # flower
+    5: _mm_inv(0x8410),   # rock_large
+    6: _mm_inv(0x8410),   # rock_medium
+    7: _mm_inv(0x8410),   # rock_small
+    8: _mm_inv(0x041F),   # water
+    9: _mm_inv(0xE77F),   # ice
+    10: _mm_inv(0x041F),  # lake_bottom
+    11: _mm_inv(0x041F),  # lake_top
+    12: _mm_inv(0x9340),  # fence_vertical_start
+    13: _mm_inv(0x9340),  # fence_vertical_end
+    14: _mm_inv(0x24BF),  # man
+    15: _mm_inv(0xFD5A),  # woman
+}
 
 VERSION_TAG = "FlipWorld v0.1"
 
@@ -210,6 +244,9 @@ class Player(Entity):
 
         self._update_new_pos = Vector(0, 0)
         self._update_old_pos = Vector(0, 0)
+        # carried velocity for the slippery Frozen Lake (glide)
+        self.slide_vx = 0.0
+        self.slide_vy = 0.0
 
         self.old_xp = 0
 
@@ -217,8 +254,9 @@ class Player(Entity):
         self._img_vec = Vector(0, 0)
         self._img_size = Vector(0, 0)
         self._sprite_pos = Vector(0, 0)
-        self._data_left = player_left_sword_15x11px
-        self._data_right = player_right_sword_15x11px
+        # Full colour: tint the hero blue (done once).
+        self._data_left = colorize(player_left_sword_15x11px, COL_PLAYER)
+        self._data_right = colorize(player_right_sword_15x11px, COL_PLAYER)
 
         self.cent_box_pos = Vector(0, 0)
         self.cent_box_size = Vector(0, 0)
@@ -340,17 +378,25 @@ class Player(Entity):
         if self.are_all_enemies_dead(game):
             print("All enemies defeated! Switching levels...")
             current_level_index = self.flip_world_run.current_level_index
+            total = self.flip_world_run.total_levels
 
-            # Determine next level (cycle through 0, 1, 2)
-            next_level_index = (current_level_index + 1) % 3
+            # Persist progress: clearing a map unlocks the next one.
+            self.flip_world_run.unlock_up_to(current_level_index + 2)
 
+            # Beat the final map -> campaign complete: return to the menu instead of
+            # looping back to the start.
+            if current_level_index >= total - 1:
+                self.leave_game = TOGGLE_STATE_ON
+                return
+
+            next_level_index = current_level_index + 1
             if self.flip_world_run.engine and self.flip_world_run.engine.game:
                 self.game_state = GAME_STATE_SWITCHING_LEVELS
-                self.flip_world_run.engine.game.level_switch(next_level_index)
+                # switch_to_level creates the level on demand (the ported maps aren't
+                # pre-built at start), switches to it, and sets its icon group.
+                self.flip_world_run.switch_to_level(next_level_index)
 
                 self.flip_world_run.sync_multiplayer_level()
-
-                self.flip_world_run.set_icon_group(next_level_index)
 
                 # Reset player position
                 self.position = self.start_position
@@ -815,6 +861,25 @@ class Player(Entity):
             )
             canvas.text(Vector(text_x, text_y2), "PvE", COLOR_WHITE)
 
+        # Map picker: show which map Story will start on (< > to change). All maps can be
+        # browsed, but locked ones are flagged and can't be launched.
+        if self.current_title_index == TITLE_INDEX_STORY and self.flip_world_run:
+            run = self.flip_world_run
+            idx = run.start_level_index
+            name = run.level_names[idx] if 0 <= idx < len(run.level_names) else "?"
+            locked = idx >= run.unlocked_count
+            lx = int(self.screen_size.x * 0.08)
+            canvas.text(
+                Vector(lx, int(self.screen_size.y * 0.80)),
+                "Map %d/%d: %s%s" % (idx + 1, run.total_levels, name, " (Locked)" if locked else ""),
+                COLOR_BLACK,
+            )
+            canvas.text(
+                Vector(lx, int(self.screen_size.y * 0.88)),
+                "< > choose map" if not locked else "< > locked - play earlier maps",
+                COLOR_BLACK,
+            )
+
     def draw_user_info_view(self, canvas):
         """Draw the user info view."""
         canvas.fill_screen(COLOR_WHITE)
@@ -910,7 +975,7 @@ class Player(Entity):
         game.draw.fill_rectangle(
             self.cent_box_pos,
             self.cent_box_size,
-            COLOR_WHITE,
+            0xFFFF,  # white box (visible on the dark game background)
         )
 
         # Center the text in the box
@@ -921,7 +986,7 @@ class Player(Entity):
         game.draw.text(
             self.cent_box_text,
             self.name,
-            COLOR_BLACK,
+            0x0000,  # black text
         )
 
     def draw_user_stats(self, pos: Vector, canvas):
@@ -970,6 +1035,8 @@ class Player(Entity):
         cam_bottom += margin
 
         icon_data_map = self.flip_world_run.icon_map
+        char_map = self.flip_world_run.icon_char_map
+        burnt = self.flip_world_run.burnt_icons
 
         for spec in self.flip_world_run.current_icon_group.icons:
             # Fast rejection test - is icon center even close to camera?
@@ -997,10 +1064,126 @@ class Player(Entity):
             self._img_size.x = spec.width
             self._img_size.y = spec.height
 
-            # Draw the icon
-            game.draw.image_bytearray(
-                self._img_vec, self._img_size, icon_data_map[spec.id]
-            )
+            # Draw the icon (charred tint if a fly-by dragon set it alight)
+            data = icon_data_map[spec.id]
+            if burnt and (spec.x + spec.width * 0.5, spec.y + spec.height * 0.5) in burnt:
+                data = char_map.get(spec.id, data)
+            game.draw.image_bytearray(self._img_vec, self._img_size, data)
+
+    def draw_minimap(self, draw, game):
+        """Top-right minimap: world objects, enemies, the boss, the player, camera view."""
+        lvl = game.current_level
+        if not lvl:
+            return
+        world_w = lvl.size.x
+        world_h = lvl.size.y
+        if world_w <= 0 or world_h <= 0:
+            return
+        mm_x = int(self.screen_size.x - _MM_W - 4)
+        mm_y = 4
+        sx = _MM_W / world_w
+        sy = _MM_H / world_h
+        pos = self._img_vec
+        size = self._img_size
+
+        # background + grey frame
+        pos.x = mm_x
+        pos.y = mm_y
+        size.x = _MM_W
+        size.y = _MM_H
+        draw.fill_rectangle(pos, size, _MM_BG)
+        size.y = 1
+        draw.fill_rectangle(pos, size, _MM_FRAME)
+        pos.y = mm_y + _MM_H - 1
+        draw.fill_rectangle(pos, size, _MM_FRAME)
+        pos.y = mm_y
+        size.x = 1
+        size.y = _MM_H
+        draw.fill_rectangle(pos, size, _MM_FRAME)
+        pos.x = mm_x + _MM_W - 1
+        draw.fill_rectangle(pos, size, _MM_FRAME)
+
+        # camera view box (clamped inside the minimap)
+        vx = mm_x + int(game.position.x * sx)
+        vy = mm_y + int(game.position.y * sy)
+        vw = int(self.screen_size.x * sx)
+        vh = int(self.screen_size.y * sy)
+        if vx < mm_x:
+            vw -= mm_x - vx
+            vx = mm_x
+        if vy < mm_y:
+            vh -= mm_y - vy
+            vy = mm_y
+        if vw > _MM_W - (vx - mm_x):
+            vw = _MM_W - (vx - mm_x)
+        if vh > _MM_H - (vy - mm_y):
+            vh = _MM_H - (vy - mm_y)
+        if vw > 0 and vh > 0:
+            pos.x = vx
+            pos.y = vy
+            size.x = vw
+            size.y = 1
+            draw.fill_rectangle(pos, size, _MM_VIEW)
+            pos.y = vy + vh - 1
+            draw.fill_rectangle(pos, size, _MM_VIEW)
+            pos.y = vy
+            size.x = 1
+            size.y = vh
+            draw.fill_rectangle(pos, size, _MM_VIEW)
+            pos.x = vx + vw - 1
+            draw.fill_rectangle(pos, size, _MM_VIEW)
+
+        # world objects (sampled so a dense map stays fast)
+        run = self.flip_world_run
+        if run and run.current_icon_group:
+            icons = run.current_icon_group.icons
+            n = len(icons)
+            step = 1 + (n // 120)
+            burnt = getattr(run, "burnt_icons", None)
+            for k in range(0, n, step):
+                spec = icons[k]
+                col = _MM_ICON.get(spec.id)
+                if col is None:
+                    continue
+                dx = mm_x + int(spec.x * sx)
+                dy = mm_y + int(spec.y * sy)
+                if mm_x <= dx < mm_x + _MM_W and mm_y <= dy < mm_y + _MM_H:
+                    draw.pixel(Vector(dx, dy), col)
+
+        # entities: enemies, the boss, and the player
+        for i in range(lvl.entity_count):
+            e = lvl.get_entity(i)
+            if not e:
+                continue
+            if e.type == ENTITY_TYPE_PLAYER:
+                col = _MM_PLAYER
+                r = 2
+            elif e.type == ENTITY_TYPE_ENEMY:
+                if e.state == ENTITY_STATE_DEAD:
+                    continue
+                if e.size.x >= 40:  # the big dragon boss
+                    col = _MM_BOSS
+                    r = 4
+                else:
+                    col = _MM_ENEMY
+                    r = 1
+            else:
+                continue
+            dx = mm_x + int(e.position.x * sx)
+            dy = mm_y + int(e.position.y * sy)
+            if dx < mm_x:
+                dx = mm_x
+            elif dx > mm_x + _MM_W - r - 1:
+                dx = mm_x + _MM_W - r - 1
+            if dy < mm_y:
+                dy = mm_y
+            elif dy > mm_y + _MM_H - r - 1:
+                dy = mm_y + _MM_H - r - 1
+            pos.x = dx
+            pos.y = dy
+            size.x = r + 1
+            size.y = r + 1
+            draw.fill_rectangle(pos, size, col)
 
     def process_input(self):
         """Process input for all views."""
@@ -1018,8 +1201,22 @@ class Player(Entity):
             elif current_input == INPUT_KEY_DOWN:
                 self.current_title_index = TITLE_INDEX_PVE
 
-            elif current_input == INPUT_KEY_OK:
+            elif current_input in (INPUT_KEY_LEFT, INPUT_KEY_RIGHT) and (
+                self.current_title_index == TITLE_INDEX_STORY and self.flip_world_run
+            ):
+                # Map picker: choose which map Story starts on (any of the maps).
+                run = self.flip_world_run
+                idx = run.start_level_index + (1 if current_input == INPUT_KEY_RIGHT else -1)
+                run.start_level_index = max(0, min(idx, run.total_levels - 1))
 
+            elif current_input == INPUT_KEY_OK:
+                # A locked map can be browsed but not played.
+                if (
+                    self.current_title_index == TITLE_INDEX_STORY
+                    and self.flip_world_run.start_level_index
+                    >= self.flip_world_run.unlocked_count
+                ):
+                    return
                 self.current_main_view = GAME_VIEW_LOGIN
                 self.login_status = LOGIN_WAITING
             elif current_input == INPUT_KEY_BACK:
@@ -1096,6 +1293,7 @@ class Player(Entity):
 
         self.draw_username(self.position, game)
         self.draw_user_stats(self.user_stats_pos, canvas=draw)
+        self.draw_minimap(draw, game)
         # Suppress engine auto-draw (sprite already drawn above)
         self.is_visible = False
 
@@ -1130,24 +1328,60 @@ class Player(Entity):
         self._update_new_pos.y = self._update_old_pos.y
         should_set_position = False
 
+        # Input direction (one axis at a time, matching the rest of the game).
+        in_dx = 0
+        in_dy = 0
         if game.input == INPUT_KEY_UP:
-            self._update_new_pos.y -= 5
+            in_dy = -1
             self.direction = Vector(0, -1)
-            should_set_position = True
         elif game.input == INPUT_KEY_DOWN:
-            self._update_new_pos.y += 5
+            in_dy = 1
             self.direction = Vector(0, 1)
-            should_set_position = True
         elif game.input == INPUT_KEY_LEFT:
-            self._update_new_pos.x -= 5
+            in_dx = -1
             self.direction = Vector(-1, 0)
-            should_set_position = True
         elif game.input == INPUT_KEY_RIGHT:
-            self._update_new_pos.x += 5
+            in_dx = 1
             self.direction = Vector(1, 0)
-            should_set_position = True
+        # Consume a movement input so it isn't re-applied, but LEAVE an attack (CENTER)
+        # in place so the enemies' collision handler can read it and take the hit.
+        if in_dx != 0 or in_dy != 0:
+            game.input = INPUT_KEY_MAX
 
-        game.input = INPUT_KEY_MAX
+        # Frozen Lake is slippery: input builds a carried velocity and friction lets the
+        # player glide to a stop instead of moving in fixed 5px steps.
+        lvl = game.current_level
+        icy = lvl is not None and lvl.name == "Frozen Lake"
+        if icy:
+            self.slide_vx += in_dx * 1.6
+            self.slide_vy += in_dy * 1.6
+            self.slide_vx *= 0.90
+            self.slide_vy *= 0.90
+            sp = (self.slide_vx * self.slide_vx + self.slide_vy * self.slide_vy) ** 0.5
+            if sp > 5.0:
+                self.slide_vx = self.slide_vx / sp * 5.0
+                self.slide_vy = self.slide_vy / sp * 5.0
+            elif sp < 0.05:
+                self.slide_vx = 0.0
+                self.slide_vy = 0.0
+            if self.slide_vx != 0.0 or self.slide_vy != 0.0:
+                self._update_new_pos.x += self.slide_vx
+                self._update_new_pos.y += self.slide_vy
+                should_set_position = True
+                # face the way we're actually gliding
+                if abs(self.slide_vx) >= abs(self.slide_vy):
+                    self.direction = Vector(-1 if self.slide_vx < 0 else 1, 0)
+                else:
+                    self.direction = Vector(0, -1 if self.slide_vy < 0 else 1)
+        else:
+            self.slide_vx = 0.0
+            self.slide_vy = 0.0
+            if in_dx != 0:
+                self._update_new_pos.x += in_dx * 5
+                should_set_position = True
+            if in_dy != 0:
+                self._update_new_pos.y += in_dy * 5
+                should_set_position = True
 
         # Check boundaries
         if (
@@ -1155,17 +1389,23 @@ class Player(Entity):
             or self._update_new_pos.x + self.size.x > game.size.x
         ):
             should_set_position = False
+            self.slide_vx = 0.0  # stop the glide at the edge
         if (
             self._update_new_pos.y < 0
             or self._update_new_pos.y + self.size.y > game.size.y
         ):
             should_set_position = False
+            self.slide_vy = 0.0
 
         if should_set_position:
             has_collision = False
 
             # Loop over all icon specifications in the current icon group.
             for icon in self.flip_world_run.current_icon_group.icons:
+
+                # Ice is walkable — the player skates across it (Frozen Lake).
+                if icon.id == 9:  # ICON_ID_ICE
+                    continue
 
                 # Rough bounding box check first
                 if (
@@ -1188,6 +1428,10 @@ class Player(Entity):
             if not has_collision:
                 self.position = self._update_new_pos
                 self.sync_multiplayer_state()
+            else:
+                # ran into scenery — stop sliding
+                self.slide_vx = 0.0
+                self.slide_vy = 0.0
 
         # update player sprite based on direction
         if self.direction.x == -1 and self.direction.y == 0:

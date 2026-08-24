@@ -1,15 +1,11 @@
 """Full-colour helper for FlipWorld.
 
-The panel stores an 8-bit RGB332 framebuffer and is displayed inverted (see the C
-`esp_lcd_panel_invert_color(..., true)`), and `image_bytearray`'s 8-bit path is a raw
-memcpy with no transparency. So we pre-build a coloured RGB332 buffer per sprite ONCE:
-each ink pixel (mask 0x00) becomes the inverted RGB332 of the wanted colour, and each
-transparent pixel (mask 0xFF) stays 0xFF (framebuffer 0xFF -> panel black -> the game's
-black background, i.e. transparent). Blitting the cached buffer is then free.
+The panel stores an 8-bit RGB332 framebuffer and displays it straight (NOT inverted), and
+`image_bytearray`'s 8-bit path is a raw memcpy with no transparency. So we pre-build a
+coloured RGB332 buffer per sprite ONCE: each ink pixel (mask 0x00) becomes the RGB332 of
+the wanted colour, and each transparent pixel (mask 0xFF) becomes 0x00 (black) so it
+blends into the game's black background. Blitting the cached buffer is then free.
 """
-
-# transparent framebuffer byte: 0xFF -> panel black -> matches the world background
-_TRANSPARENT = 0xFF
 
 
 def to332(c565):
@@ -18,17 +14,22 @@ def to332(c565):
 
 
 def ink_byte(c565):
-    """Framebuffer byte that displays as colour c565 once the panel inverts it."""
-    return (~to332(c565)) & 0xFF
+    """Framebuffer byte that displays as colour c565."""
+    return to332(c565) & 0xFF
 
 
 def colorize(mask, c565):
     """Return a coloured RGB332 buffer for an 8-bit mask (0x00 ink / 0xFF clear).
 
-    Masks only contain 0x00 (ink) and 0xFF (clear), so a single native replace recolours
-    every ink pixel and leaves the transparent 0xFF bytes untouched.
+    Ink pixels take the colour; transparent pixels become 0x00 (black) to match the dark
+    background. Built once per sprite (cached), so the per-byte loop cost is a non-issue.
     """
-    return mask.replace(b"\x00", bytes([ink_byte(c565)]))
+    ink = ink_byte(c565)
+    out = bytearray(len(mask))  # inits to 0x00 = black = transparent on the black bg
+    for i in range(len(mask)):
+        if mask[i] == 0x00:
+            out[i] = ink
+    return bytes(out)
 
 
 # ── World palette (RGB565, matches the Arduino build's ink colours) ────────────

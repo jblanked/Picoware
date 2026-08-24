@@ -107,15 +107,14 @@ COLOR_WHITE = const(0x0000)  # inverted on purpose
 COLOR_BLACK = const(0xFFFF)  # inverted on purpose
 
 
-# Minimap: this panel renders RGB565 inverted (see COLOR_WHITE), so real colours are
-# passed as ~C. _MM_BG is the panel's black (== COLOR_BLACK, already inverted).
+# Minimap colours (panel is not inverted, so colours pass straight through).
 def _mm_inv(c):
-    return (~c) & 0xFFFF
+    return c
 
 
 _MM_W = const(64)
 _MM_H = const(32)
-_MM_BG = 0xFFFF
+_MM_BG = 0x0000  # black
 _MM_FRAME = _mm_inv(0x7BEF)
 _MM_VIEW = _mm_inv(0x39C7)
 _MM_PLAYER = _mm_inv(0x1C9F)
@@ -870,7 +869,7 @@ class Player(Entity):
             lx = int(self.screen_size.x * 0.08)
             canvas.text(
                 Vector(lx, int(self.screen_size.y * 0.80)),
-                "Map %d/%d: %s" % (idx + 1, run.unlocked_count, name),
+                "Map %d/%d: %s" % (idx + 1, run.total_levels, name),
                 COLOR_BLACK,
             )
             canvas.text(
@@ -974,7 +973,7 @@ class Player(Entity):
         game.draw.fill_rectangle(
             self.cent_box_pos,
             self.cent_box_size,
-            COLOR_WHITE,
+            0xFFFF,  # white box (visible on the dark game background)
         )
 
         # Center the text in the box
@@ -985,7 +984,7 @@ class Player(Entity):
         game.draw.text(
             self.cent_box_text,
             self.name,
-            COLOR_BLACK,
+            0x0000,  # black text
         )
 
     def draw_user_stats(self, pos: Vector, canvas):
@@ -1203,10 +1202,10 @@ class Player(Entity):
             elif current_input in (INPUT_KEY_LEFT, INPUT_KEY_RIGHT) and (
                 self.current_title_index == TITLE_INDEX_STORY and self.flip_world_run
             ):
-                # Map picker: pick which unlocked map Story starts on.
+                # Map picker: choose which map Story starts on (any of the maps).
                 run = self.flip_world_run
                 idx = run.start_level_index + (1 if current_input == INPUT_KEY_RIGHT else -1)
-                run.start_level_index = max(0, min(idx, run.unlocked_count - 1))
+                run.start_level_index = max(0, min(idx, run.total_levels - 1))
 
             elif current_input == INPUT_KEY_OK:
 
@@ -1336,7 +1335,10 @@ class Player(Entity):
         elif game.input == INPUT_KEY_RIGHT:
             in_dx = 1
             self.direction = Vector(1, 0)
-        game.input = INPUT_KEY_MAX
+        # Consume a movement input so it isn't re-applied, but LEAVE an attack (CENTER)
+        # in place so the enemies' collision handler can read it and take the hit.
+        if in_dx != 0 or in_dy != 0:
+            game.input = INPUT_KEY_MAX
 
         # Frozen Lake is slippery: input builds a carried velocity and friction lets the
         # player glide to a stop instead of moving in fixed 5px steps.

@@ -907,14 +907,15 @@ class FlipWorldRun:
             int(self.player.screen_size.x) // 5, int(self.player.screen_size.y) // 10
         )
 
-        # Create the game instance
+        # Create the game instance (white foreground, black background — the panel is
+        # not inverted, so 0x0000 is black and 0xFFFF is white).
         game = Game(
             "FlipWorld",
             Vector(768, 384),
             self.draw,
             self.view_manager.input_manager,
-            COLOR_WHITE,
-            COLOR_BLACK,
+            0xFFFF,  # foreground (white)
+            0x0000,  # background (black)
         )
         if not game:
             return False

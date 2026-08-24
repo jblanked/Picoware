@@ -32,12 +32,9 @@ _TURN_AT = (0.667, 0.334, 0.08)
 _DT = 1.0 / 30.0
 _RAD2DEG = 57.29578
 
-# This panel renders RGB565 inverted (see player.COLOR_WHITE), so a real colour C is
-# passed as ~C. Pre-invert the fireball colours so they show up orange/yellow.
-def _rgb(c):
-    return (~c) & 0xFFFF
-_FB_ORANGE = _rgb(0xFD20)  # orange body
-_FB_CORE = _rgb(0xFFE0)    # hot yellow core
+# Panel is not inverted, so shape colours are passed straight through.
+_FB_ORANGE = 0xFD20  # orange body
+_FB_CORE = 0xFFE0    # hot yellow core
 
 # flammable icon ids (must match general.py)
 _FLAMMABLE = (0, 1, 2, 4)  # house, plant, tree, flower
@@ -88,7 +85,7 @@ def _build_dragon_buffer(mask, head_right):
         for x in range(w):
             i = row + x
             if mask[i] != 0x00:
-                out[i] = 0xFF  # transparent
+                out[i] = 0x00  # transparent (black, blends into the background)
                 continue
             front_cols = (w - 1 - x) if head_right else x
             if y < wing_cut and front_cols >= 8:

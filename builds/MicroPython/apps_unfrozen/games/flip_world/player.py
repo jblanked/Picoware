@@ -861,20 +861,22 @@ class Player(Entity):
             )
             canvas.text(Vector(text_x, text_y2), "PvE", COLOR_WHITE)
 
-        # Map picker: show which unlocked map Story will start on (< > to change).
+        # Map picker: show which map Story will start on (< > to change). All maps can be
+        # browsed, but locked ones are flagged and can't be launched.
         if self.current_title_index == TITLE_INDEX_STORY and self.flip_world_run:
             run = self.flip_world_run
             idx = run.start_level_index
             name = run.level_names[idx] if 0 <= idx < len(run.level_names) else "?"
+            locked = idx >= run.unlocked_count
             lx = int(self.screen_size.x * 0.08)
             canvas.text(
                 Vector(lx, int(self.screen_size.y * 0.80)),
-                "Map %d/%d: %s" % (idx + 1, run.total_levels, name),
+                "Map %d/%d: %s%s" % (idx + 1, run.total_levels, name, " (Locked)" if locked else ""),
                 COLOR_BLACK,
             )
             canvas.text(
                 Vector(lx, int(self.screen_size.y * 0.88)),
-                "< > choose map",
+                "< > choose map" if not locked else "< > locked - play earlier maps",
                 COLOR_BLACK,
             )
 
@@ -1208,7 +1210,13 @@ class Player(Entity):
                 run.start_level_index = max(0, min(idx, run.total_levels - 1))
 
             elif current_input == INPUT_KEY_OK:
-
+                # A locked map can be browsed but not played.
+                if (
+                    self.current_title_index == TITLE_INDEX_STORY
+                    and self.flip_world_run.start_level_index
+                    >= self.flip_world_run.unlocked_count
+                ):
+                    return
                 self.current_main_view = GAME_VIEW_LOGIN
                 self.login_status = LOGIN_WAITING
             elif current_input == INPUT_KEY_BACK:

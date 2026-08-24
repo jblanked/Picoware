@@ -2,6 +2,21 @@
 
 from picoware.system.agent.tools.tool import Tool, Parameters, Property
 
+def storage_info(view_manager) -> dict:
+    """Get information about the storage system.
+
+    Args:
+        view_manager (ViewManager): The view manager for storage access.
+
+    Returns:
+        dict: A dictionary containing storage information.
+    """
+    storage = view_manager.storage
+    return {
+        "free_space": storage.free_space,
+        "total_space": storage.total_space,
+    }
+
 def storage_listdir(view_manager, dir_path) ->list[str]:
     """List the contents of a directory on the SD card.
 
@@ -71,6 +86,12 @@ def storage_write(view_manager, file_path, data, mode: str = "w") -> bool:
     """
     storage = view_manager.storage
     return storage.write(file_path, data, mode)
+
+TOOL_STORAGE_INFO = Tool(
+    name="storage_info",
+    description="Get information about the storage system.",
+    parameters=Parameters(properties=[]),
+)
 
 TOOL_STORAGE_LISTDIR = Tool(
     name="storage_listdir",

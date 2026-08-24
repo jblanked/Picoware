@@ -1,10 +1,12 @@
 """Tool registry and execution dispatcher."""
 from picoware.system.agent.tools.storage import (
+    storage_info,
     storage_listdir,
     storage_mkdir,
     storage_read,
     storage_remove,
     storage_write,
+    TOOL_STORAGE_INFO,
     TOOL_STORAGE_LISTDIR,
     TOOL_STORAGE_MKDIR,
     TOOL_STORAGE_READ,
@@ -50,6 +52,7 @@ def execute_tool(view_manager, name, args=None, **kwargs):
 def get_tool_map():
     """Return the mapping of tool names to their execution functions."""
     return {
+        "storage_info": storage_info,
         "storage_listdir": storage_listdir,
         "storage_mkdir": storage_mkdir,
         "storage_read": storage_read,
@@ -67,6 +70,7 @@ def get_tool_map():
 def get_tool_list():
     """Return the list of available tools."""
     return [
+        TOOL_STORAGE_INFO,
         TOOL_STORAGE_LISTDIR,
         TOOL_STORAGE_MKDIR,
         TOOL_STORAGE_READ,

@@ -51,6 +51,7 @@ class Settings:
                 "gemini_api_key": "",
                 "gmt_offset": int(self.__fetch_setting("picoware/settings/gmt_offset.json", "gmt_offset", 0)),
                 "jblanked_api_key": "",
+                "local_api_key": "",
                 "local_url": "http://127.0.0.1:8080/v1/chat/completions",
                 "lvgl_mode": bool(self.__fetch_setting("picoware/settings/lvgl_mode.json", "lvgl_mode", False)),
                 "onscreen_keyboard": bool(self.__fetch_setting("picoware/settings/onscreen_keyboard.json", "onscreen_keyboard", BOARD_HAS_TOUCH == 1)),
@@ -177,6 +178,21 @@ class Settings:
             value (int): The GMT offset in hours.
         """
         self._settings["gmt_offset"] = value
+        self.__save_settings()
+
+    @property
+    def local_api_key(self) -> str:
+        """Return the current local API key."""
+        return self._settings.get("local_api_key", "")
+
+    @local_api_key.setter
+    def local_api_key(self, value: str):
+        """Set the local API key.
+
+        Args:
+            value (str): The API key to set.
+        """
+        self._settings["local_api_key"] = value
         self.__save_settings()
 
     @property

@@ -245,6 +245,9 @@ class Player(Entity):
 
         self._update_new_pos = Vector(0, 0)
         self._update_old_pos = Vector(0, 0)
+        # carried velocity for the slippery Frozen Lake (glide)
+        self.slide_vx = 0.0
+        self.slide_vy = 0.0
 
         self.old_xp = 0
 
@@ -1285,24 +1288,57 @@ class Player(Entity):
         self._update_new_pos.y = self._update_old_pos.y
         should_set_position = False
 
+        # Input direction (one axis at a time, matching the rest of the game).
+        in_dx = 0
+        in_dy = 0
         if game.input == INPUT_KEY_UP:
-            self._update_new_pos.y -= 5
+            in_dy = -1
             self.direction = Vector(0, -1)
-            should_set_position = True
         elif game.input == INPUT_KEY_DOWN:
-            self._update_new_pos.y += 5
+            in_dy = 1
             self.direction = Vector(0, 1)
-            should_set_position = True
         elif game.input == INPUT_KEY_LEFT:
-            self._update_new_pos.x -= 5
+            in_dx = -1
             self.direction = Vector(-1, 0)
-            should_set_position = True
         elif game.input == INPUT_KEY_RIGHT:
-            self._update_new_pos.x += 5
+            in_dx = 1
             self.direction = Vector(1, 0)
-            should_set_position = True
-
         game.input = INPUT_KEY_MAX
+
+        # Frozen Lake is slippery: input builds a carried velocity and friction lets the
+        # player glide to a stop instead of moving in fixed 5px steps.
+        lvl = game.current_level
+        icy = lvl is not None and lvl.name == "Frozen Lake"
+        if icy:
+            self.slide_vx += in_dx * 1.6
+            self.slide_vy += in_dy * 1.6
+            self.slide_vx *= 0.90
+            self.slide_vy *= 0.90
+            sp = (self.slide_vx * self.slide_vx + self.slide_vy * self.slide_vy) ** 0.5
+            if sp > 5.0:
+                self.slide_vx = self.slide_vx / sp * 5.0
+                self.slide_vy = self.slide_vy / sp * 5.0
+            elif sp < 0.05:
+                self.slide_vx = 0.0
+                self.slide_vy = 0.0
+            if self.slide_vx != 0.0 or self.slide_vy != 0.0:
+                self._update_new_pos.x += self.slide_vx
+                self._update_new_pos.y += self.slide_vy
+                should_set_position = True
+                # face the way we're actually gliding
+                if abs(self.slide_vx) >= abs(self.slide_vy):
+                    self.direction = Vector(-1 if self.slide_vx < 0 else 1, 0)
+                else:
+                    self.direction = Vector(0, -1 if self.slide_vy < 0 else 1)
+        else:
+            self.slide_vx = 0.0
+            self.slide_vy = 0.0
+            if in_dx != 0:
+                self._update_new_pos.x += in_dx * 5
+                should_set_position = True
+            if in_dy != 0:
+                self._update_new_pos.y += in_dy * 5
+                should_set_position = True
 
         # Check boundaries
         if (
@@ -1310,17 +1346,23 @@ class Player(Entity):
             or self._update_new_pos.x + self.size.x > game.size.x
         ):
             should_set_position = False
+            self.slide_vx = 0.0  # stop the glide at the edge
         if (
             self._update_new_pos.y < 0
             or self._update_new_pos.y + self.size.y > game.size.y
         ):
             should_set_position = False
+            self.slide_vy = 0.0
 
         if should_set_position:
             has_collision = False
 
             # Loop over all icon specifications in the current icon group.
             for icon in self.flip_world_run.current_icon_group.icons:
+
+                # Ice is walkable — the player skates across it (Frozen Lake).
+                if icon.id == 9:  # ICON_ID_ICE
+                    continue
 
                 # Rough bounding box check first
                 if (
@@ -1343,6 +1385,10 @@ class Player(Entity):
             if not has_collision:
                 self.position = self._update_new_pos
                 self.sync_multiplayer_state()
+            else:
+                # ran into scenery — stop sliding
+                self.slide_vx = 0.0
+                self.slide_vy = 0.0
 
         # update player sprite based on direction
         if self.direction.x == -1 and self.direction.y == 0:

@@ -43,7 +43,7 @@ def storage_mkdir(view_manager, dir_path) -> bool:
     storage = view_manager.storage
     return storage.mkdir(dir_path)
 
-def storage_read(view_manager, file_path, mode: str = "r", index: int = 0, count: int = 0):
+def storage_read(view_manager, file_path, mode: str = "r", index: int = 0, count: int = 2048):
     """Read the contents of a file from the SD card.
 
     Args:
@@ -51,7 +51,7 @@ def storage_read(view_manager, file_path, mode: str = "r", index: int = 0, count
         file_path (str): The file path.
         mode (str): The read mode. Defaults to "r".
         index (int): The byte index to start from. Defaults to 0.
-        count (int): The number of bytes to read. Defaults to 0.
+        count (int): The number of bytes to read. Defaults to 2048.
 
     Returns:
         str or bytes: The file contents.
@@ -147,7 +147,7 @@ TOOL_STORAGE_READ = Tool(
             Property(
                 name="count",
                 type="integer",
-                description="The number of bytes to read (0 for full file).",
+                description="The number of bytes to read. Use 2048 for most cases.",
             ),
         ]
     ),

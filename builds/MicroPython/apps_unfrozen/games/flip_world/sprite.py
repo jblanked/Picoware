@@ -23,6 +23,7 @@ from flip_world.assets import (
     npc_left_funny_15x21px,
     npc_right_funny_15x21px,
 )
+from flip_world.colorize import colorize, COL_ENEMY, COL_NPC
 
 
 class Sprite(Entity):
@@ -114,6 +115,12 @@ class Sprite(Entity):
             self.sprite = None
             self.sprite_left = None
             self.sprite_right = None
+
+        # Full colour: tint foes red, NPCs green (done once at spawn).
+        if self._data_left is not None:
+            _col = COL_ENEMY if self.type == ENTITY_TYPE_ENEMY else COL_NPC
+            self._data_left = colorize(self._data_left, _col)
+            self._data_right = colorize(self._data_right, _col)
 
     def __del__(self):
         """Destructor to clean up resources."""

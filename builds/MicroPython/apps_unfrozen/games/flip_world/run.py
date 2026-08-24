@@ -35,6 +35,14 @@ from flip_world.general import (
     ICON_ID_ROCK_LARGE,
     ICON_ID_ROCK_MEDIUM,
     ICON_ID_ROCK_SMALL,
+    ICON_ID_WATER,
+    ICON_ID_ICE,
+    ICON_ID_LAKE_BOTTOM,
+    ICON_ID_LAKE_TOP,
+    ICON_ID_FENCE_VERTICAL_START,
+    ICON_ID_FENCE_VERTICAL_END,
+    ICON_ID_MAN,
+    ICON_ID_WOMAN,
     ICON_ID_INVALID,
 )
 
@@ -60,7 +68,22 @@ from flip_world.assets import (
     player_right_sword_15x11px,
 )
 
+from flip_world.icons_extra import (
+    icon_water_40x24px,
+    icon_lake_bottom_31x12px,
+    icon_lake_top_31x12px,
+    icon_fence_vertical_start_6x15px,
+    icon_fence_vertical_end_6x8px,
+    icon_man_7x16,
+    icon_woman_9x16,
+)
+
+from flip_world.maps import WORLD_ICONS, WORLD_ENEMIES
+
+from flip_world.colorize import colorize, ICON_COLOR, COL_CHAR
+
 from flip_world.sprite import Sprite
+from flip_world.dragon import Dragon
 
 DEBUG = const(False)
 MAX_WEBSOCKET_SIZE = const(256)
@@ -114,8 +137,15 @@ class FlipWorldRun:
 
         # Level management
         self.current_level_index: int = LEVEL_HOME_WOODS
-        self.level_names: list = ["Home Woods", "Rock World", "Forest World"]
-        self.total_levels: int = 3
+        self.level_names: list = [
+            "Home Woods", "Rock World", "Forest World", "Meadow",
+            "Stronghold", "Lakeside", "Boulder Field", "Village",
+            "Deep Woods", "Wasteland", "Flower Garden", "Shadow Keep",
+            "Twin Peaks", "Marshland", "Ruins", "Sunflower Fields",
+            "Frozen Lake", "The Hollow", "Crossroads", "Crater",
+            "Enchanted Grove", "Ironhold", "Serpent Marsh", "Dragon's Lair",
+        ]
+        self.total_levels: int = 24
 
         # Sound/vibration settings
         self.sound_toggle: int = 1
@@ -123,7 +153,9 @@ class FlipWorldRun:
 
         # icon stuff (we'll use the map as a lookup table instead of storing icon data directly)
         self.current_icon_group: IconGroupContext = IconGroupContext([])
-        self.icon_map = {
+        # centres of scenery a fly-by dragon has set alight (for the colour pass)
+        self.burnt_icons = set()
+        _raw_icons = {
             ICON_ID_HOUSE: icon_house_48x32px,
             ICON_ID_PLANT: icon_plant_16x16,
             ICON_ID_TREE: icon_tree_16x16,
@@ -132,7 +164,19 @@ class FlipWorldRun:
             ICON_ID_ROCK_LARGE: icon_rock_large_18x19px,
             ICON_ID_ROCK_MEDIUM: icon_rock_medium_16x14px,
             ICON_ID_ROCK_SMALL: icon_rock_small_10x8px,
+            # Extra icons used by the ported maps (levels 3-23)
+            ICON_ID_WATER: icon_water_40x24px,
+            ICON_ID_ICE: icon_water_40x24px,  # ice reuses the solid water tile
+            ICON_ID_LAKE_BOTTOM: icon_lake_bottom_31x12px,
+            ICON_ID_LAKE_TOP: icon_lake_top_31x12px,
+            ICON_ID_FENCE_VERTICAL_START: icon_fence_vertical_start_6x15px,
+            ICON_ID_FENCE_VERTICAL_END: icon_fence_vertical_end_6x8px,
+            ICON_ID_MAN: icon_man_7x16,
+            ICON_ID_WOMAN: icon_woman_9x16,
         }
+        # Full colour: pre-tint each icon (and a charred copy for burnt scenery) once.
+        self.icon_map = {i: colorize(m, ICON_COLOR.get(i, 0xFFFF)) for i, m in _raw_icons.items()}
+        self.icon_char_map = {i: colorize(m, COL_CHAR) for i, m in _raw_icons.items()}
 
     def __del__(self):
         """Clean up resources."""
@@ -371,12 +415,10 @@ class FlipWorldRun:
             print("Current level is not set")
             return LEVEL_UNKNOWN
 
-        level_map = {
-            "Home Woods": LEVEL_HOME_WOODS,
-            "Rock World": LEVEL_ROCK_WORLD,
-            "Forest World": LEVEL_FOREST_WORLD,
-        }
-        return level_map.get(current_level.name, LEVEL_UNKNOWN)
+        for i, nm in enumerate(self.level_names):
+            if nm == current_level.name:
+                return i
+        return LEVEL_UNKNOWN
 
     def get_icon_spec(self, name: str) -> IconSpec:
         """Returns the IconSpec for a given icon name."""
@@ -397,6 +439,15 @@ class FlipWorldRun:
                 14,
             ),
             "rock_small": IconSpec(ICON_ID_ROCK_SMALL, 10, 8),
+            # Extra icons used by the ported maps (levels 3-23)
+            "water": IconSpec(ICON_ID_WATER, 40, 24),
+            "ice": IconSpec(ICON_ID_ICE, 40, 24),
+            "lake_bottom": IconSpec(ICON_ID_LAKE_BOTTOM, 31, 12),
+            "lake_top": IconSpec(ICON_ID_LAKE_TOP, 31, 12),
+            "fence_vertical_start": IconSpec(ICON_ID_FENCE_VERTICAL_START, 6, 15),
+            "fence_vertical_end": IconSpec(ICON_ID_FENCE_VERTICAL_END, 6, 8),
+            "man": IconSpec(ICON_ID_MAN, 7, 16),
+            "woman": IconSpec(ICON_ID_WOMAN, 9, 16),
         }
         if name in spec_map:
             return spec_map[name]
@@ -657,6 +708,39 @@ class FlipWorldRun:
             level.entity_add(spr5)
             level.entity_add(spr6)
             level.entity_add(spr7)
+
+        # Ported maps (levels 3-23): enemies come from a data table.
+        elif index in WORLD_ENEMIES:
+            for spec in WORLD_ENEMIES[index]:
+                (nm, sx, sy, ex, ey, mt, sp, at, st, hp) = spec
+                enemy = Sprite(
+                    nm,
+                    ENTITY_TYPE_ENEMY,
+                    Vector(sx, sy),
+                    Vector(ex, ey),
+                    mt,
+                    sp,
+                    at,
+                    st,
+                    hp,
+                )
+                enemy.flip_world_run = self
+                level.entity_add(enemy)
+
+        # Cameo fly-by dragons and the final-world boss (ported from the Arduino build).
+        dragon = None
+        if index == 3:  # Meadow — torch trees/flowers on a fly-by
+            dragon = Dragon("burn", passes=2, burn_count=7)
+        elif index == 7:  # Village — torch scenery on a fly-by
+            dragon = Dragon("burn", passes=2, burn_count=6)
+        elif index in (11, 14, 19, 22):  # Shadow Keep / Ruins / Crater / Serpent Marsh
+            dragon = Dragon("attack", passes=2)
+        elif index == 23:  # Dragon's Lair — the boss
+            dragon = Dragon("boss")
+        if dragon is not None:
+            dragon.flip_world_run = self
+            level.entity_add(dragon)
+
         print("Entities added to level")
         level.clear_allowed = False  # swap is done by Player.draw_current_view
         return level
@@ -721,6 +805,9 @@ class FlipWorldRun:
                 {"i": "tree", "x": 735, "y": 37, "a": 18, "h": False},
                 {"i": "tree", "x": 752, "y": 37, "a": 18, "h": False},
             ]
+        # Ported maps (levels 3-23)
+        if index in WORLD_ICONS:
+            return WORLD_ICONS[index]
         print(f"Unknown level index: {index}")
         return []
 
@@ -1355,6 +1442,7 @@ class FlipWorldRun:
 
         # Build icon specs (stored for rendering)
         self.current_icon_group.clear()
+        self.burnt_icons = set()  # new level starts unburnt
 
         for item in icons_data:
             icon_name = item.get("i", "")

@@ -11,6 +11,7 @@ from picoware.engine.entity import (
 from picoware.gui.loading import Loading
 from ujson import loads as json_loads
 from flip_world.assets import player_left_sword_15x11px, player_right_sword_15x11px
+from flip_world.colorize import colorize, COL_PLAYER
 
 # GameMainView
 GAME_VIEW_TITLE = const(0)  # title, start, and menu (menu)
@@ -104,6 +105,40 @@ INPUT_KEY_MAX = const(-1)  # BUTTON_NONE
 # Color constants
 COLOR_WHITE = const(0x0000)  # inverted on purpose
 COLOR_BLACK = const(0xFFFF)  # inverted on purpose
+
+
+# Minimap: this panel renders RGB565 inverted (see COLOR_WHITE), so real colours are
+# passed as ~C. _MM_BG is the panel's black (== COLOR_BLACK, already inverted).
+def _mm_inv(c):
+    return (~c) & 0xFFFF
+
+
+_MM_W = const(64)
+_MM_H = const(32)
+_MM_BG = 0xFFFF
+_MM_FRAME = _mm_inv(0x7BEF)
+_MM_VIEW = _mm_inv(0x39C7)
+_MM_PLAYER = _mm_inv(0x1C9F)
+_MM_ENEMY = _mm_inv(0xF800)
+_MM_BOSS = _mm_inv(0xFD20)
+_MM_ICON = {
+    0: _mm_inv(0xB483),   # house
+    1: _mm_inv(0x0480),   # plant
+    2: _mm_inv(0x0480),   # tree
+    3: _mm_inv(0x9340),   # fence
+    4: _mm_inv(0xF81F),   # flower
+    5: _mm_inv(0x8410),   # rock_large
+    6: _mm_inv(0x8410),   # rock_medium
+    7: _mm_inv(0x8410),   # rock_small
+    8: _mm_inv(0x041F),   # water
+    9: _mm_inv(0xE77F),   # ice
+    10: _mm_inv(0x041F),  # lake_bottom
+    11: _mm_inv(0x041F),  # lake_top
+    12: _mm_inv(0x9340),  # fence_vertical_start
+    13: _mm_inv(0x9340),  # fence_vertical_end
+    14: _mm_inv(0x24BF),  # man
+    15: _mm_inv(0xFD5A),  # woman
+}
 
 VERSION_TAG = "FlipWorld v0.1"
 
@@ -217,8 +252,9 @@ class Player(Entity):
         self._img_vec = Vector(0, 0)
         self._img_size = Vector(0, 0)
         self._sprite_pos = Vector(0, 0)
-        self._data_left = player_left_sword_15x11px
-        self._data_right = player_right_sword_15x11px
+        # Full colour: tint the hero blue (done once).
+        self._data_left = colorize(player_left_sword_15x11px, COL_PLAYER)
+        self._data_right = colorize(player_right_sword_15x11px, COL_PLAYER)
 
         self.cent_box_pos = Vector(0, 0)
         self.cent_box_size = Vector(0, 0)
@@ -341,16 +377,16 @@ class Player(Entity):
             print("All enemies defeated! Switching levels...")
             current_level_index = self.flip_world_run.current_level_index
 
-            # Determine next level (cycle through 0, 1, 2)
-            next_level_index = (current_level_index + 1) % 3
+            # Advance to the next level, wrapping over all the maps.
+            next_level_index = (current_level_index + 1) % self.flip_world_run.total_levels
 
             if self.flip_world_run.engine and self.flip_world_run.engine.game:
                 self.game_state = GAME_STATE_SWITCHING_LEVELS
-                self.flip_world_run.engine.game.level_switch(next_level_index)
+                # switch_to_level creates the level on demand (the ported maps aren't
+                # pre-built at start), switches to it, and sets its icon group.
+                self.flip_world_run.switch_to_level(next_level_index)
 
                 self.flip_world_run.sync_multiplayer_level()
-
-                self.flip_world_run.set_icon_group(next_level_index)
 
                 # Reset player position
                 self.position = self.start_position
@@ -970,6 +1006,8 @@ class Player(Entity):
         cam_bottom += margin
 
         icon_data_map = self.flip_world_run.icon_map
+        char_map = self.flip_world_run.icon_char_map
+        burnt = self.flip_world_run.burnt_icons
 
         for spec in self.flip_world_run.current_icon_group.icons:
             # Fast rejection test - is icon center even close to camera?
@@ -997,10 +1035,126 @@ class Player(Entity):
             self._img_size.x = spec.width
             self._img_size.y = spec.height
 
-            # Draw the icon
-            game.draw.image_bytearray(
-                self._img_vec, self._img_size, icon_data_map[spec.id]
-            )
+            # Draw the icon (charred tint if a fly-by dragon set it alight)
+            data = icon_data_map[spec.id]
+            if burnt and (spec.x + spec.width * 0.5, spec.y + spec.height * 0.5) in burnt:
+                data = char_map.get(spec.id, data)
+            game.draw.image_bytearray(self._img_vec, self._img_size, data)
+
+    def draw_minimap(self, draw, game):
+        """Top-right minimap: world objects, enemies, the boss, the player, camera view."""
+        lvl = game.current_level
+        if not lvl:
+            return
+        world_w = lvl.size.x
+        world_h = lvl.size.y
+        if world_w <= 0 or world_h <= 0:
+            return
+        mm_x = int(self.screen_size.x - _MM_W - 4)
+        mm_y = 4
+        sx = _MM_W / world_w
+        sy = _MM_H / world_h
+        pos = self._img_vec
+        size = self._img_size
+
+        # background + grey frame
+        pos.x = mm_x
+        pos.y = mm_y
+        size.x = _MM_W
+        size.y = _MM_H
+        draw.fill_rectangle(pos, size, _MM_BG)
+        size.y = 1
+        draw.fill_rectangle(pos, size, _MM_FRAME)
+        pos.y = mm_y + _MM_H - 1
+        draw.fill_rectangle(pos, size, _MM_FRAME)
+        pos.y = mm_y
+        size.x = 1
+        size.y = _MM_H
+        draw.fill_rectangle(pos, size, _MM_FRAME)
+        pos.x = mm_x + _MM_W - 1
+        draw.fill_rectangle(pos, size, _MM_FRAME)
+
+        # camera view box (clamped inside the minimap)
+        vx = mm_x + int(game.position.x * sx)
+        vy = mm_y + int(game.position.y * sy)
+        vw = int(self.screen_size.x * sx)
+        vh = int(self.screen_size.y * sy)
+        if vx < mm_x:
+            vw -= mm_x - vx
+            vx = mm_x
+        if vy < mm_y:
+            vh -= mm_y - vy
+            vy = mm_y
+        if vw > _MM_W - (vx - mm_x):
+            vw = _MM_W - (vx - mm_x)
+        if vh > _MM_H - (vy - mm_y):
+            vh = _MM_H - (vy - mm_y)
+        if vw > 0 and vh > 0:
+            pos.x = vx
+            pos.y = vy
+            size.x = vw
+            size.y = 1
+            draw.fill_rectangle(pos, size, _MM_VIEW)
+            pos.y = vy + vh - 1
+            draw.fill_rectangle(pos, size, _MM_VIEW)
+            pos.y = vy
+            size.x = 1
+            size.y = vh
+            draw.fill_rectangle(pos, size, _MM_VIEW)
+            pos.x = vx + vw - 1
+            draw.fill_rectangle(pos, size, _MM_VIEW)
+
+        # world objects (sampled so a dense map stays fast)
+        run = self.flip_world_run
+        if run and run.current_icon_group:
+            icons = run.current_icon_group.icons
+            n = len(icons)
+            step = 1 + (n // 120)
+            burnt = getattr(run, "burnt_icons", None)
+            for k in range(0, n, step):
+                spec = icons[k]
+                col = _MM_ICON.get(spec.id)
+                if col is None:
+                    continue
+                dx = mm_x + int(spec.x * sx)
+                dy = mm_y + int(spec.y * sy)
+                if mm_x <= dx < mm_x + _MM_W and mm_y <= dy < mm_y + _MM_H:
+                    draw.pixel(Vector(dx, dy), col)
+
+        # entities: enemies, the boss, and the player
+        for i in range(lvl.entity_count):
+            e = lvl.get_entity(i)
+            if not e:
+                continue
+            if e.type == ENTITY_TYPE_PLAYER:
+                col = _MM_PLAYER
+                r = 2
+            elif e.type == ENTITY_TYPE_ENEMY:
+                if e.state == ENTITY_STATE_DEAD:
+                    continue
+                if e.size.x >= 40:  # the big dragon boss
+                    col = _MM_BOSS
+                    r = 4
+                else:
+                    col = _MM_ENEMY
+                    r = 1
+            else:
+                continue
+            dx = mm_x + int(e.position.x * sx)
+            dy = mm_y + int(e.position.y * sy)
+            if dx < mm_x:
+                dx = mm_x
+            elif dx > mm_x + _MM_W - r - 1:
+                dx = mm_x + _MM_W - r - 1
+            if dy < mm_y:
+                dy = mm_y
+            elif dy > mm_y + _MM_H - r - 1:
+                dy = mm_y + _MM_H - r - 1
+            pos.x = dx
+            pos.y = dy
+            size.x = r + 1
+            size.y = r + 1
+            draw.fill_rectangle(pos, size, col)
 
     def process_input(self):
         """Process input for all views."""
@@ -1096,6 +1250,7 @@ class Player(Entity):
 
         self.draw_username(self.position, game)
         self.draw_user_stats(self.user_stats_pos, canvas=draw)
+        self.draw_minimap(draw, game)
         # Suppress engine auto-draw (sprite already drawn above)
         self.is_visible = False
 

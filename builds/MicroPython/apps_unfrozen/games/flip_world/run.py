@@ -147,6 +147,13 @@ class FlipWorldRun:
         ]
         self.total_levels: int = 24
 
+        # Campaign progress persisted on the SD card. `unlocked_count` = how many maps
+        # are playable (>= 1); it never regresses. `start_level_index` is the level a new
+        # game begins on (resume point, or a map chosen from the picker).
+        self.progress_path: str = "picoware/flip_world/progress.json"
+        self.unlocked_count: int = self._load_unlocked()
+        self.start_level_index: int = max(0, self.unlocked_count - 1)  # resume by default
+
         # Sound/vibration settings
         self.sound_toggle: int = 1
         self.vibration_toggle: int = 1
@@ -945,8 +952,19 @@ class FlipWorldRun:
 
         print("Levels added to game")
 
-        # Start with first level
-        game.level_switch(0)
+        # Start on the resume/chosen level (creating it on demand if it's not one of the
+        # first three that were pre-built above).
+        start_idx = max(0, min(self.start_level_index, self.total_levels - 1))
+        if start_idx > LEVEL_FOREST_WORLD:
+            extra = self.get_level(start_idx, game)
+            if extra:
+                extra.entity_add(self.player)
+                game.level_add(extra)
+            else:
+                start_idx = 0
+        self.current_level_index = start_idx
+        game.level_switch(start_idx)
+        self.set_icon_group(start_idx)
 
         if game.current_level is None:
             print("Failed to switch to first level")
@@ -974,6 +992,32 @@ class FlipWorldRun:
         self.is_game_running = True
         print("Gaming engine started")
         return True
+
+    def _load_unlocked(self) -> int:
+        """Read the persisted unlock count from SD (>=1)."""
+        try:
+            data = self.view_manager.storage.read(self.progress_path)
+            if data:
+                n = int(loads(data).get("unlocked", 1))
+                return max(1, min(n, self.total_levels))
+        except Exception:
+            pass
+        return 1
+
+    def unlock_up_to(self, n: int):
+        """Persist that `n` maps are unlocked; never regresses."""
+        n = max(1, min(n, self.total_levels))
+        if n <= self.unlocked_count:
+            return
+        self.unlocked_count = n
+        try:
+            self.view_manager.storage.mkdir("picoware/flip_world")
+        except Exception:
+            pass
+        try:
+            self.view_manager.storage.write(self.progress_path, dumps({"unlocked": n}))
+        except Exception:
+            pass
 
     def switch_to_level(self, level_index: int):
         """Switch to a specific level by index."""

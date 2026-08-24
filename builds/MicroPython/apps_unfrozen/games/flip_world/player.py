@@ -379,10 +379,18 @@ class Player(Entity):
         if self.are_all_enemies_dead(game):
             print("All enemies defeated! Switching levels...")
             current_level_index = self.flip_world_run.current_level_index
+            total = self.flip_world_run.total_levels
 
-            # Advance to the next level, wrapping over all the maps.
-            next_level_index = (current_level_index + 1) % self.flip_world_run.total_levels
+            # Persist progress: clearing a map unlocks the next one.
+            self.flip_world_run.unlock_up_to(current_level_index + 2)
 
+            # Beat the final map -> campaign complete: return to the menu instead of
+            # looping back to the start.
+            if current_level_index >= total - 1:
+                self.leave_game = TOGGLE_STATE_ON
+                return
+
+            next_level_index = current_level_index + 1
             if self.flip_world_run.engine and self.flip_world_run.engine.game:
                 self.game_state = GAME_STATE_SWITCHING_LEVELS
                 # switch_to_level creates the level on demand (the ported maps aren't
@@ -854,6 +862,23 @@ class Player(Entity):
             )
             canvas.text(Vector(text_x, text_y2), "PvE", COLOR_WHITE)
 
+        # Map picker: show which unlocked map Story will start on (< > to change).
+        if self.current_title_index == TITLE_INDEX_STORY and self.flip_world_run:
+            run = self.flip_world_run
+            idx = run.start_level_index
+            name = run.level_names[idx] if 0 <= idx < len(run.level_names) else "?"
+            lx = int(self.screen_size.x * 0.08)
+            canvas.text(
+                Vector(lx, int(self.screen_size.y * 0.80)),
+                "Map %d/%d: %s" % (idx + 1, run.unlocked_count, name),
+                COLOR_BLACK,
+            )
+            canvas.text(
+                Vector(lx, int(self.screen_size.y * 0.88)),
+                "< > choose map",
+                COLOR_BLACK,
+            )
+
     def draw_user_info_view(self, canvas):
         """Draw the user info view."""
         canvas.fill_screen(COLOR_WHITE)
@@ -1174,6 +1199,14 @@ class Player(Entity):
 
             elif current_input == INPUT_KEY_DOWN:
                 self.current_title_index = TITLE_INDEX_PVE
+
+            elif current_input in (INPUT_KEY_LEFT, INPUT_KEY_RIGHT) and (
+                self.current_title_index == TITLE_INDEX_STORY and self.flip_world_run
+            ):
+                # Map picker: pick which unlocked map Story starts on.
+                run = self.flip_world_run
+                idx = run.start_level_index + (1 if current_input == INPUT_KEY_RIGHT else -1)
+                run.start_level_index = max(0, min(idx, run.unlocked_count - 1))
 
             elif current_input == INPUT_KEY_OK:
 

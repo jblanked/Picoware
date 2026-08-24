@@ -457,6 +457,135 @@ mp_obj_t sd_mp_file_close(mp_obj_t file_obj)
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(sd_mp_file_close_obj, sd_mp_file_close);
 
+// Recursively create parent dirs
+static bool sd_mp_create_dirs(const char *path)
+{
+    const size_t path_length = strlen(path);
+    char *path_copy = m_malloc(path_length + 1);
+    if (path_copy == NULL)
+    {
+        return false;
+    }
+    memcpy(path_copy, path, path_length + 1);
+    char *last_slash = strrchr(path_copy, '/');
+    if (last_slash == NULL)
+    {
+        m_free(path_copy);
+        return true;
+    }
+    *last_slash = '\0'; // Strip to parent path
+    if (path_copy[0] == '\0')
+    {
+        m_free(path_copy);
+        return true;
+    }
+    fat32_file_t dir;
+    fat32_error_t open_err = fat32_open(&dir, path_copy);
+    if (open_err == FAT32_OK)
+    {
+        const bool is_dir = (dir.attributes & FAT32_ATTR_DIRECTORY) != 0;
+        fat32_close(&dir);
+        if (!is_dir)
+        {
+            m_free(path_copy);
+            return false;
+        }
+        m_free(path_copy);
+        return true;
+    }
+    if (open_err != FAT32_ERROR_FILE_NOT_FOUND && open_err != FAT32_ERROR_DIR_NOT_FOUND)
+    {
+        m_free(path_copy);
+        return false;
+    }
+    if (!sd_mp_create_dirs(path_copy))
+    {
+        m_free(path_copy);
+        return false;
+    }
+    fat32_error_t err = fat32_dir_create(&dir, path_copy);
+    if (err != FAT32_OK)
+    {
+        m_free(path_copy);
+        return false;
+    }
+    fat32_close(&dir);
+    m_free(path_copy);
+    return true;
+}
+
+// Create file with parent dirs
+bool sd_mp_create_file_with_dirs(const char *path, fat32_file_t *file)
+{
+    fat32_error_t open_err = fat32_open(file, path);
+    if (open_err == FAT32_OK)
+    {
+        // File already exists
+        fat32_close(file);
+        return false;
+    }
+    // Create missing parent dirs
+    char current_dir[FAT32_MAX_PATH_LEN];
+    const bool restore_current_dir = fat32_get_current_dir(current_dir, sizeof(current_dir)) == FAT32_OK;
+    if (path[0] == '/')
+    {
+        if (fat32_set_current_dir("/") != FAT32_OK)
+        {
+            PRINT("Failed to set root directory.\n");
+            return false;
+        }
+    }
+    const bool dirs_created = sd_mp_create_dirs(path);
+    if (!dirs_created)
+    {
+        if (restore_current_dir)
+        {
+            fat32_set_current_dir(current_dir);
+        }
+        PRINT("Failed to create directories for: %s\n", path);
+        return false;
+    }
+    const size_t path_length = strlen(path);
+    char *path_copy = m_malloc(path_length + 1);
+    if (path_copy == NULL)
+    {
+        PRINT("create_file allocation failed\n");
+        if (restore_current_dir)
+        {
+            fat32_set_current_dir(current_dir);
+        }
+        return false;
+    }
+    memcpy(path_copy, path, path_length + 1);
+    char *last_slash = strrchr(path_copy, '/');
+    char *filename = path_copy;
+    const char *parent_path = ".";
+    if (last_slash != NULL)
+    {
+        *last_slash = '\0';
+        filename = last_slash + 1;
+        parent_path = path_copy[0] == '\0' ? "/" : path_copy;
+    }
+    fat32_file_t parent_dir;
+    fat32_error_t err = fat32_open(&parent_dir, parent_path);
+    if (err == FAT32_OK)
+    {
+        err = fat32_create_in_dir(&parent_dir, file, filename);
+        fat32_close(&parent_dir);
+    }
+    if (restore_current_dir)
+    {
+        fat32_set_current_dir(current_dir);
+    }
+    m_free(path_copy);
+    if (err != FAT32_OK)
+    {
+        PRINT("Failed to create file: %s (%s)\n", path, fat32_error_string(err));
+        return false;
+    }
+    return true;
+}
+
 // Function to open a file and return a fat32_file_t object
 mp_obj_t sd_mp_file_open(mp_obj_t filepath_obj)
 {
@@ -464,9 +593,9 @@ mp_obj_t sd_mp_file_open(mp_obj_t filepath_obj)
     mp_fat32_file_obj_t *file_obj = mp_fat32_file_make_new(&mp_fat32_file_type, 0, 0, NULL);
     if (fat32_open(&file_obj->file, filePath) != FAT32_OK)
     {
-        if (fat32_create(&file_obj->file, filePath) != FAT32_OK)
+        if (!sd_mp_create_file_with_dirs(filePath, &file_obj->file))
         {
-            PRINT("Failed to open and create file.\n");
+            PRINT("Failed to create file: %s\n", filePath);
             mp_raise_OSError(MP_EIO);
         }
     }
@@ -928,9 +1057,9 @@ mp_obj_t sd_mp_write(size_t n_args, const mp_obj_t *args)
     fat32_file_t file;
     if (fat32_open(&file, filePath) != FAT32_OK)
     {
-        if (fat32_create(&file, filePath) != FAT32_OK)
+        if (!sd_mp_create_file_with_dirs(filePath, &file))
         {
-            PRINT("Failed to open and create file.\n");
+            PRINT("Failed to create file: %s\n", filePath);
             mp_raise_OSError(MP_EIO);
         }
     }

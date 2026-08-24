@@ -30,4 +30,7 @@ else:
 
 print(f"Apps: {s.listdir('picoware/apps')}")
 
+if s.write("/tmp2/test/test.html", "test"):
+    print("File wrote")
+
 s.unmount()

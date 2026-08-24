@@ -112,9 +112,6 @@ static fat32_error_t fat32_dir_read_unlocked(fat32_file_t *dir, fat32_entry_t *d
 static uint8_t sector_buffer[FAT32_SECTOR_SIZE] __attribute__((aligned(4)));
 static fat32_lfn_entry_t lfn_buffer[MAX_LFN_PART]; // Buffer for long file name entries
 
-// Timer for SD card detection
-static repeating_timer_t sd_card_detect_timer;
-
 //
 //  Sector-level access functions
 //
@@ -433,12 +430,6 @@ static fat32_error_t seek_to_cluster(uint32_t start_cluster, uint32_t offset, ui
 
 static fat32_error_t fat32_mount_unlocked(void)
 {
-    if (!sd_card_present())
-    {
-        fat32_unmount_unlocked(); // Unmount if card is not present
-        return FAT32_ERROR_NO_CARD;
-    }
-
     if (fat32_mounted)
     {
         return FAT32_OK;
@@ -558,20 +549,9 @@ bool fat32_is_mounted(void)
 
 static bool fat32_is_ready_unlocked(void)
 {
-    if (sd_card_present())
+    if (!fat32_mounted)
     {
-        if (!fat32_mounted)
-        {
-            mount_status = fat32_mount_unlocked();
-        }
-    }
-    else
-    {
-        if (fat32_mounted)
-        {
-            fat32_unmount_unlocked(); // Unmount if card is not present
-        }
-        mount_status = FAT32_ERROR_NO_CARD; // Set status to no card present
+        mount_status = fat32_mount_unlocked();
     }
 
     return mount_status == FAT32_OK;
@@ -1247,6 +1227,10 @@ static fat32_error_t link_entry(fat32_entry_t *entry, const char *path)
     {
         *filename = '\0';
         filename++;
+        if (path[0] == '/' && path_copy[0] == '\0')
+        {
+            parent_path = "/";
+        }
     }
     else
     {
@@ -1559,6 +1543,28 @@ fat32_error_t fat32_create(fat32_file_t *file, const char *path)
 
     lock_fs();
     err = new_entry(file, path, FAT32_ATTR_ARCHIVE);
+    unlock_fs();
+
+    return err;
+}
+
+fat32_error_t fat32_create_in_dir(fat32_file_t *dir, fat32_file_t *file, const char *filename)
+{
+    fat32_error_t err;
+
+    lock_fs();
+    if (!dir || !dir->is_open || !(dir->attributes & FAT32_ATTR_DIRECTORY) ||
+        !file || !filename || !*filename || dir->start_cluster < 2)
+    {
+        err = FAT32_ERROR_INVALID_PARAMETER;
+    }
+    else
+    {
+        uint32_t saved_dir_cluster = current_dir_cluster;
+        current_dir_cluster = dir->start_cluster;
+        err = new_entry(file, filename, FAT32_ATTR_ARCHIVE);
+        current_dir_cluster = saved_dir_cluster;
+    }
     unlock_fs();
 
     return err;
@@ -2525,29 +2531,6 @@ const char *fat32_error_string(fat32_error_t error)
     }
 }
 
-// Timer callback to check SD card presence and unmount if removed
-static bool on_sd_card_detect(repeating_timer_t *rt)
-{
-    // All we need to do is check if the SD card is not present and
-    // if we have a mounted FAT32 file system, we will unmount it.
-    //
-    // This will cover the case if the SD card is changed as we mount
-    // the file system when it is needed.
-
-    if (recursive_mutex_try_enter(&fat32_recursive_mutex, NULL))
-    {
-        if (!sd_card_present() && fat32_mounted)
-        {
-            fat32_unmount_unlocked();           // Unmount if card is not present
-            mount_status = FAT32_ERROR_NO_CARD; // Update status
-        }
-
-        unlock_fs();
-    }
-
-    return true;
-}
-
 void fat32_init(void)
 {
     lock_fs();
@@ -2563,9 +2546,6 @@ void fat32_init(void)
 
     // Initialize the file system state
     fat32_unmount_unlocked(); // Ensure we start unmounted
-
-    // Check if a SD card is present
-    add_repeating_timer_ms(500, on_sd_card_detect, NULL, &sd_card_detect_timer);
 
     fat32_initialised = true;
     unlock_fs();

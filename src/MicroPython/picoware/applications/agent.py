@@ -230,14 +230,6 @@ def _render_chat(view_manager):
         cur_y += block_h
         i = j
 
-    # Prompt bar
-    bar_y = h - prompt_h
-    draw._fill_rectangle(0, bar_y, w, prompt_h, TFT_DARKGREY)
-    prompt = "OK=Type   BACK=Menu"
-    pw = draw.len(prompt)
-    draw._text((w - pw) // 2, bar_y + (prompt_h - font.height) // 2,
-               prompt, TFT_LIGHTGREY, font.size)
-
     draw.swap()
 
 
@@ -594,16 +586,18 @@ def run(view_manager) -> None:
             if _scroll_offset < 999 and _scroll_offset != _max_scroll:
                 _scroll_offset += 1
                 _render_chat(view_manager)
-        elif btn == BUTTON_CENTER:
-            kb = view_manager.keyboard
-            kb.reset()
-            kb.title = _mode_label
-            _state = STATE_TYPE
-            view_manager.input_manager.reset()
-            view_manager.keyboard.run(force=True)
         elif btn == BUTTON_BACK:
             _state = STATE_MENU
             _menu.draw()
+        elif btn != -1:
+            kb = view_manager.keyboard
+            kb.reset()
+            kb.title = _mode_label
+            inp = view_manager.input_manager
+            kb.response = inp.button_to_char(btn)
+            _state = STATE_TYPE
+            inp.reset()
+            view_manager.keyboard.run(force=True)
 
     elif _state == STATE_TYPE:
         kb = view_manager.keyboard

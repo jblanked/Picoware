@@ -3,7 +3,7 @@ import micropython
 from picoware.system.buttons import (
     BUTTON_UP, BUTTON_DOWN, BUTTON_CENTER, BUTTON_BACK,
 )
-from picoware.system.colors import TFT_WHITE, TFT_DARKGREY, TFT_LIGHTGREY
+from picoware.system.colors import TFT_WHITE, TFT_DARKGREY
 
 STATE_MENU = micropython.const(0)
 STATE_CHAT = micropython.const(1)
@@ -11,6 +11,7 @@ STATE_TYPE = micropython.const(2)
 STATE_SETTINGS = micropython.const(3)
 STATE_SETTINGS_PROVIDER = micropython.const(4)
 STATE_SETTINGS_MODEL = micropython.const(5)
+STATE_SETTINGS_THINKING = micropython.const(6)
 
 _agent          = None
 _menu           = None
@@ -84,7 +85,7 @@ def _chat_layout(view_manager):
     pad      = max(4, w // 60)
     text_w   = bubble_w - pad * 2
     char_w   = font.width + font.spacing
-    max_chars = text_w // char_w if char_w > 0 else 30
+    max_chars = text_w // char_w if char_w > 0 else draw.scale_x(30)
 
     return header_h, prompt_h, chat_y, chat_h, max_chars, font, bubble_w, pad
 
@@ -109,7 +110,7 @@ def _draw_bubble(draw, x, y, w, text_lines, font, bg_color, text_color, pad,
     Returns:
         int: The next Y position after the bubble.
     """
-    line_h = font.height + 3
+    line_h = font.height + draw.scale_y(3)
     screen_h = draw.size.y
 
     # Clip top -- skip lines above clip_top (e.g. under the header)
@@ -127,7 +128,7 @@ def _draw_bubble(draw, x, y, w, text_lines, font, bg_color, text_color, pad,
     if y + bubble_h > screen_h:
         bubble_h = screen_h - y
 
-    draw._fill_round_rectangle(x, y, w, bubble_h, 6, bg_color)
+    draw._fill_round_rectangle(x, y, w, bubble_h, draw.scale_x(6), bg_color)
 
     ty = y + pad
     for line in text_lines:
@@ -136,7 +137,7 @@ def _draw_bubble(draw, x, y, w, text_lines, font, bg_color, text_color, pad,
         draw._text(x + pad, ty, line, text_color, font.size)
         ty += line_h
 
-    return y + bubble_h + 4
+    return y + bubble_h + draw.scale_y(4)
 
 @micropython.native
 def _render_chat(view_manager):
@@ -178,14 +179,14 @@ def _render_chat(view_manager):
         all_lines.pop()
 
     # Content height
-    line_h  = font.height + 3
-    gap_h   = pad * 2 + 4
+    line_h  = font.height + draw.scale_y(3)
+    gap_h   = pad * 2 + draw.scale_y(4)
     total_h = 0
     i = 0
     while i < len(all_lines):
-        line_text, is_user = all_lines[i]
+        _, is_user = all_lines[i]
         if is_user is None:
-            total_h += 6
+            total_h += draw.scale_y(6)
             i += 1
             continue
         j = i
@@ -204,9 +205,9 @@ def _render_chat(view_manager):
 
     i = 0
     while i < len(all_lines):
-        line_text, is_user = all_lines[i]
+        _, is_user = all_lines[i]
         if is_user is None:
-            cur_y += 6
+            cur_y += draw.scale_y(6)
             i += 1
             continue
 
@@ -263,7 +264,8 @@ def _set_settings(view_manager):
         from picoware.system.agent.llm import DEEPSEEK, LLM
         _settings = {
             "model": LLM(view_manager.storage, DEEPSEEK).model,
-            "provider": DEEPSEEK
+            "provider": DEEPSEEK,
+            "thinking": "none",
         }
         _save_settings(view_manager)
     else:
@@ -324,6 +326,7 @@ def _start_settings_menu(view_manager):
     )
     _settings_menu.add_item("Agent Provider")
     _settings_menu.add_item("Agent Model")
+    _settings_menu.add_item("Agent Thinking")
     _settings_menu.draw()
 
 
@@ -402,6 +405,41 @@ def _open_model_choice(view_manager):
     _choice.draw()
     _state = STATE_SETTINGS_MODEL
 
+def _open_thinking_choice(view_manager):
+    """Open a Choice sub-view for selecting the LLM thinking level.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
+    global _state, _choice
+    from picoware.gui.choice import Choice
+    from picoware.system.vector import Vector
+
+    draw = view_manager.draw
+    draw.fill_screen(view_manager.background_color)
+    if _choice is not None:
+        del _choice
+        _choice = None
+
+    thinking_levels = ["none", "low", "medium", "high", "max"]
+    current_thinking = _settings.get("thinking", "none")
+    try:
+        initial_idx = thinking_levels.index(current_thinking)
+    except ValueError:
+        initial_idx = 0
+
+    _choice = Choice(
+        draw,
+        Vector(0, 0),
+        draw.size,
+        "Agent Thinking Level",
+        thinking_levels,
+        initial_idx,
+        view_manager.foreground_color,
+        view_manager.background_color,
+    )
+    _choice.draw()
+    _state = STATE_SETTINGS_THINKING
 
 def _back_to_settings_menu(view_manager):
     """Clean up the Choice sub-view and return to the settings menu.
@@ -546,6 +584,8 @@ def run(view_manager) -> None:
                 _open_provider_choice(view_manager)
             elif idx == 1:
                 _open_model_choice(view_manager)
+            elif idx == 2:
+                _open_thinking_choice(view_manager)
 
     elif _state == STATE_SETTINGS_PROVIDER:
         if btn == BUTTON_BACK:
@@ -577,6 +617,19 @@ def run(view_manager) -> None:
             _save_settings(view_manager)
             _back_to_settings_menu(view_manager)
 
+    elif _state == STATE_SETTINGS_THINKING:
+        if btn == BUTTON_BACK:
+            _back_to_settings_menu(view_manager)
+        elif btn == BUTTON_UP:
+            _choice.scroll_up()
+        elif btn == BUTTON_DOWN:
+            _choice.scroll_down()
+        elif btn == BUTTON_CENTER:
+            thinking_levels = ["none", "low", "medium", "high", "max"]
+            _settings["thinking"] = thinking_levels[_choice.state]
+            _save_settings(view_manager)
+            _back_to_settings_menu(view_manager)
+
     elif _state == STATE_CHAT:
         if btn == BUTTON_UP:
             if _scroll_offset > 0:
@@ -594,7 +647,8 @@ def run(view_manager) -> None:
             kb.reset()
             kb.title = _mode_label
             inp = view_manager.input_manager
-            kb.response = inp.button_to_char(btn)
+            if btn != BUTTON_CENTER:
+                kb.response = inp.button_to_char(btn)
             _state = STATE_TYPE
             inp.reset()
             view_manager.keyboard.run(force=True)

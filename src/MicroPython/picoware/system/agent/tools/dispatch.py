@@ -23,6 +23,11 @@ from picoware.system.agent.tools.network import (
     TOOL_NETWORK_SEND_REQUEST,
 )
 
+from picoware.system.agent.tools.time import (
+    time_get_current_time,
+    TOOL_TIME_GET_CURRENT_TIME,
+)
+
 def execute_tool(view_manager, name, args=None, **kwargs):
     """Execute a named tool with the given arguments.
 
@@ -55,6 +60,8 @@ def get_tool_map():
         "network_scan_wifi": network_scan_wifi,
         "network_scan_ble": network_scan_ble,
         "network_send_request": network_send_request,
+        #
+        "time_get_current_time": time_get_current_time,
     }
 
 def get_tool_list():
@@ -70,4 +77,6 @@ def get_tool_list():
         TOOL_NETWORK_SCAN_WIFI,
         TOOL_NETWORK_SCAN_BLE,
         TOOL_NETWORK_SEND_REQUEST,
+        #
+        TOOL_TIME_GET_CURRENT_TIME,
     ]

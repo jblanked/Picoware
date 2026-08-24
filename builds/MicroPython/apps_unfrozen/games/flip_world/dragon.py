@@ -393,7 +393,7 @@ class Dragon(Entity):
                     if dd > 1:
                         sp = 4.0
                         self._fly_fb = [True, mx, my, dx / dd * sp, dy / dd * sp]
-                        self._fly_cd = 0.7
+                        self._fly_cd = 0.85
 
         # advance the fireball
         if self._fly_fb[0]:
@@ -417,11 +417,11 @@ class Dragon(Entity):
                 elif off:
                     self._fly_fb[0] = False
 
-        # burn run leaves as soon as it hits its quota
-        if self.mode == "burn" and self._burn_n > 0 and self._burn_i >= self._burn_n:
-            self._done = True
-            self.is_visible = False
-            return
+        # Burn run: once it's torched its quota it stops firing (the fire condition gates
+        # on _burn_i < _burn_n) and finishes the pass it's on, then flies off the edge —
+        # cap the remaining passes to 1 so it doesn't turn back or vanish mid-map.
+        if self.mode == "burn" and self._burn_n > 0 and self._burn_i >= self._burn_n and self._passes > 1:
+            self._passes = 1
 
         # count passes; leave (undefeated) after the last one
         margin = self.size.x + 20

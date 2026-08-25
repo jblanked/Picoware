@@ -1184,7 +1184,7 @@ def run(view_manager) -> None:
 
     global _app_state, _selected_app_id, _current_file_index, _files_to_download
     global _download_all_mode, _current_app_index, _total_apps_to_download
-    global _installed_apps, _update_check_data, _app_menu
+    global _installed_apps, _update_check_data, _app_menu, _http
     global _submitter_name, _submitter_email
     global _submit_app_name, _submit_app_version, _submit_app_path
     global _submission_details

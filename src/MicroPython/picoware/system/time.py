@@ -56,6 +56,15 @@ class Time:
             return f"{date[1]}/{date[2]}/{date[0]}"
 
     @property
+    def datetime(self) -> str:
+        """Return the current time in the format "YYYY-MM-DD HH:MM:SS"""
+        if self._lock is None:
+            return ""
+        with self._lock:
+            current_time = self._rtc.datetime()
+            return f"{current_time[0]:04d}-{current_time[1]:02d}-{current_time[2]:02d} {current_time[4]:02d}:{current_time[5]:02d}:{current_time[6]:02d}"
+
+    @property
     def is_fetching(self) -> bool:
         """Return whether the time is currently being fetched."""
         if self._lock is None:

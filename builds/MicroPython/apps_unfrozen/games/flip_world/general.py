@@ -63,10 +63,30 @@ def constraint(amt, low, high):
     return max(low, min(amt, high))
 
 
+# Burn kinds: 0 = not flammable,
+# 1 = foliage (chars out and goes inert after a fixed duration), 
+# 2 = structure (has no char condition, so it keeps blazing indefinitely once lit).
+BURN_KIND_NONE = const(0)
+BURN_KIND_FOLIAGE = const(1)
+BURN_KIND_STRUCTURE = const(2)
+
+_BURN_KIND_BY_ID = {
+    ICON_ID_HOUSE: BURN_KIND_STRUCTURE,
+    ICON_ID_PLANT: BURN_KIND_FOLIAGE,
+    ICON_ID_TREE: BURN_KIND_FOLIAGE,
+    ICON_ID_FLOWER: BURN_KIND_FOLIAGE,
+}
+
+
+def burn_kind_for_id(icon_id: int) -> int:
+    """Returns the burn kind (0/1/2) for a given icon id."""
+    return _BURN_KIND_BY_ID.get(icon_id, BURN_KIND_NONE)
+
+
 class IconSpec:
     """Contains the specification for an icon."""
 
-    __slots__ = ("id", "x", "y", "width", "height")
+    __slots__ = ("id", "x", "y", "width", "height", "burn_kind", "on_fire", "charred")
 
     def __init__(
         self, icon_id: int, width: int, height: int, pos_x: int = 0, pos_y: int = 0
@@ -76,6 +96,10 @@ class IconSpec:
         self.y = pos_y
         self.width = width
         self.height = height
+        # Burn state (see burn_kind_for_id): 0 not flammable, 1 foliage, 2 structure.
+        self.burn_kind = burn_kind_for_id(icon_id)
+        self.on_fire = 0.0  # seconds since ignition; 0.0 means not currently burning
+        self.charred = False  # foliage only: True once it has burned out
 
 
 class IconGroupContext:

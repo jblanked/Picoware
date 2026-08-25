@@ -1136,6 +1136,7 @@ class HTTP:
         save_to_file=None,
         storage=None,
         send_file=None,
+        stack_size: int = 8 * 1024,
     ) -> bool:
         """Handle async requests.
 
@@ -1165,8 +1166,6 @@ class HTTP:
                 # Use ThreadManager
                 from picoware.system.thread import ThreadTask
 
-                _stack_size = 16 * 1024
-
                 task = ThreadTask(
                     "HTTP",
                     function=self.__execute_request,
@@ -1182,8 +1181,8 @@ class HTTP:
                     ),
                     timeout=int(timeout * 1000),
                     stack_size=(
-                        _stack_size
-                        if self._chunk_size < _stack_size
+                        stack_size
+                        if self._chunk_size < stack_size
                         else self._chunk_size 
                     ),
                 )

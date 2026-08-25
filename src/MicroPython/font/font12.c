@@ -1379,7 +1379,7 @@ const FontTable Font12 = {
 	Font12_Table,
 	7,	/* Width */
 	12, /* Height */
-	0,	/* Spacing */
+	1,	/* Spacing */
 };
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

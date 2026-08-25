@@ -2,6 +2,7 @@
 
 from micropython import const
 from json import loads, dumps
+from gc import collect
 
 from picoware.gui.menu import Menu
 from picoware.system.http import HTTP
@@ -77,6 +78,7 @@ def __reset() -> None:
     global _submissions_data, _submission_details
     global _input_mode, _file_browser, _keyboard_just_started
     if _http:
+        _http.close()
         del _http
         _http = None
     if _loading:
@@ -113,6 +115,7 @@ def __reset() -> None:
     _submission_details = None
     _input_mode = ""
     _keyboard_just_started = False
+    collect()
 
 
 def __loading_start(view_manager, text: str = "Fetching...") -> None:
@@ -510,15 +513,13 @@ def __parse_app_list(view_manager) -> bool:
     file_path = f"picoware/cache/app_list_{_current_list_index}.json"
 
     if not storage.exists(file_path):
-        view_manager.log(f"App list file not found: {file_path}", 2)
+        view_manager.alert(f"App list file not found: {file_path}")
         return False
 
     try:
-        data = storage.read(file_path)
-        if not data:
+        _apps_data = storage.serialize(file_path)
+        if not _apps_data:
             return False
-
-        _apps_data = loads(data)
 
         if not _apps_data.get("success") or not _apps_data.get("apps"):
             return False
@@ -1606,8 +1607,10 @@ def run(view_manager) -> None:
                 _loading.animate(http=_http)
             return
 
+        _http.close()
         del _http
         _http = None
+        collect()
 
         if _loading:
             _loading.stop()
@@ -2098,8 +2101,5 @@ def stop(view_manager) -> None:
     Args:
         view_manager (ViewManager): The view manager context.
     """
-    from gc import collect
 
     __reset()
-
-    collect()

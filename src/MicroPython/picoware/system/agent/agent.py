@@ -5,6 +5,7 @@ from micropython import const
 from picoware.system.agent.tools import dispatch
 from picoware.system.agent.llm import LLM, DEEPSEEK
 from picoware.system.agent.context import chat, app_creator, device_manager
+from picoware.system.agent.session import Session
 
 MODE_CHAT = const(0) # general chat mode
 MODE_APP_CREATOR = const(1) # creates/edits Picoware apps
@@ -452,5 +453,36 @@ class Agent:
             "message": message,
             "conversation": updated_conversation,
         }
+
+    def run_session(self, session_id: str, user_message: str) -> dict:
+        """Run the agent with a session ID and user message, returning a structured response.
+
+        Args:
+            session_id (str): The unique identifier for the session.
+            user_message (str): The user's message to process.
+
+        Returns:
+            dict: The response with status, message, and conversation keys.
+        """
+        try:
+            session = Session(self.view_manager, session_id=session_id)
+        except Exception as exc:
+            return {
+                "status": "error",
+                "message": f"Failed to load session: {exc}",
+                "conversation": [],
+            }
+
+        payload = {
+            "message": user_message,
+            "conversation": session.conversation,
+        }
+        result = self.run_payload(payload)
+
+        if result["status"] == "completed":
+            session.append({"role": "user", "content": user_message})
+            session.append({"role": "assistant", "content": result["message"]})
+
+        return result
 
     

@@ -35,6 +35,7 @@ def start(view_manager) -> bool:
         _library.add_item("Bluetooth")
         _library.add_item("Email")
         _library.add_item("File Manager")
+        _library.add_item("FlipSocial")
         _library.add_item("GameBoy Emulator")
         _library.add_item("Games")
         _library.add_item("MMBasic")
@@ -92,17 +93,18 @@ def run(view_manager) -> None:
             3: "Bluetooth",
             4: "Email",
             5: "File Manager",
-            6: "GameBoy Emulator",
-            7: "Games",
-            8: "MMBasic",
-            9: "Python Editor",
-            10: "Python REPL",
-            11: "Screensavers",
-            12: "Scripts",
-            13: "System",
-            14: "Text Editor",
-            15: "USB",
-            16: "WiFi",
+            6: "FlipSocial",
+            7: "GameBoy Emulator",
+            8: "Games",
+            9: "MMBasic",
+            10: "Python Editor",
+            11: "Python REPL",
+            12: "Screensavers",
+            13: "Scripts",
+            14: "System",
+            15: "Text Editor",
+            16: "USB",
+            17: "WiFi",
         }
 
         if app_map.get(_library_index) == "System":
@@ -271,6 +273,18 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("mmbasic")
+        elif app_map.get(_library_index) == "FlipSocial":
+            from picoware.applications import FlipSocial
+
+            view_manager.add(
+                View(
+                    "flipsocial",
+                    FlipSocial.run,
+                    FlipSocial.start,
+                    FlipSocial.stop,
+                )
+            )
+            view_manager.switch_to("flipsocial")
 
 
 def stop(view_manager) -> None:

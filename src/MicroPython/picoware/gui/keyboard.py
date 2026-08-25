@@ -803,7 +803,7 @@ class Keyboard:
         # Only draw cursor if the line is visible
         if cursor_line >= start_line:
             display_line = cursor_line - start_line
-            self.cursor.x = self.draw.scale_x(5) + cursor_col * self.draw.font_size.x
+            self.cursor.x = self.text_vec.x + cursor_col * self.draw.font_size.x
             self.cursor.y = _start_y + display_line * _distance
             self.draw._text(self.cursor.x, self.cursor.y, "_", self.text_color)
 

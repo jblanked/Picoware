@@ -46,6 +46,8 @@ COL_ENEMY = 0xF800   # red foe
 COL_NPC = 0x2FE0     # friendly green NPC
 COL_PLAYER = 0x001F  # pure blue hero (stays distinct from cyan water in RGB332)
 COL_CHAR = 0x5982    # charred brown (burnt scenery)
+COL_FLAME_OUTER = 0xFD20  # orange (matches the dragon's fireball body)
+COL_FLAME_CORE = 0xFFE0   # hot yellow (matches the dragon's fireball core)
 
 # icon id -> colour (ids come from general.ICON_ID_*)
 ICON_COLOR = {

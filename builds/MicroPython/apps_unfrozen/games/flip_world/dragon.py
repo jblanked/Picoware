@@ -25,7 +25,7 @@ from flip_world.dragon_assets import (
     enemy_left_dragon_59x44px,
     enemy_right_dragon_59x44px,
 )
-from flip_world.colorize import ink_byte
+from flip_world.colorize import ink_byte, COL_FLAME_OUTER, COL_FLAME_CORE
 
 # health fractions at which the boss turns to face the player (3 defensive turns)
 _TURN_AT = (0.667, 0.334, 0.08)
@@ -33,11 +33,8 @@ _DT = 1.0 / 30.0
 _RAD2DEG = 57.29578
 
 # Panel is not inverted, so shape colours are passed straight through.
-_FB_ORANGE = 0xFD20  # orange body
-_FB_CORE = 0xFFE0    # hot yellow core
-
-# flammable icon ids (must match general.py)
-_FLAMMABLE = (0, 1, 2, 4)  # house, plant, tree, flower
+_FB_ORANGE = COL_FLAME_OUTER  # orange body
+_FB_CORE = COL_FLAME_CORE     # hot yellow core
 
 
 def _fire_arc(facing_right, dx, dy):
@@ -169,6 +166,7 @@ class Dragon(Entity):
         self._fly_tx = 0.0
         self._fly_ty = 0.0
         self._fly_fb = [False, 0.0, 0.0, 0.0, 0.0]
+        self._fly_target = None  # IconSpec the in-flight "burn" fireball is aimed at
         self._done = False
         self._draw_pos = Vector(0, 0)
 
@@ -193,14 +191,14 @@ class Dragon(Entity):
             player.state = ENTITY_STATE_ATTACKED
 
     def _flammables(self):
-        """Yield (cx, cy) centres of flammable scenery from the icon group."""
+        """Yield IconSpecs from the icon group that are still ignitable."""
         run = self.flip_world_run
         out = []
         if not run or not run.current_icon_group:
             return out
         for spec in run.current_icon_group.icons:
-            if spec.id in _FLAMMABLE:
-                out.append((spec.x + spec.width * 0.5, spec.y + spec.height * 0.5))
+            if spec.burn_kind != 0 and spec.on_fire <= 0.0:
+                out.append(spec)
         return out
 
     def collision(self, other, game):
@@ -383,7 +381,9 @@ class Dragon(Entity):
                 if tgt is None:
                     tgt = self._nearest_flammable(cx, cy, 260, 0)
                 if tgt:
-                    self._fly_tx, self._fly_ty = tgt
+                    self._fly_target = tgt
+                    self._fly_tx = tgt.x + tgt.width * 0.5
+                    self._fly_ty = tgt.y + tgt.height * 0.5
                     dx = self._fly_tx - mx
                     dy = self._fly_ty - my
                     dd = sqrt(dx * dx + dy * dy)
@@ -409,7 +409,8 @@ class Dragon(Entity):
             else:
                 if (fx - self._fly_tx) ** 2 + (fy - self._fly_ty) ** 2 < 220:
                     self._fly_fb[0] = False
-                    self._mark_burnt(self._fly_tx, self._fly_ty)
+                    self._ignite(self._fly_target)
+                    self._fly_target = None
                     self._burn_i += 1
                 elif off:
                     self._fly_fb[0] = False
@@ -433,34 +434,22 @@ class Dragon(Entity):
     def _nearest_flammable(self, x, y, max_dist, dir_x):
         best = None
         bd = max_dist * max_dist
-        for (ex, ey) in self._flammables():
-            if (ex, ey) in self._burnt():
-                continue
+        for spec in self._flammables():
+            ex = spec.x + spec.width * 0.5
+            ey = spec.y + spec.height * 0.5
             if dir_x != 0 and (ex - x) * dir_x < 20:
                 continue
             d = (ex - x) ** 2 + (ey - y) ** 2
             if d < bd:
                 bd = d
-                best = (ex, ey)
+                best = spec
         return best
 
-    def _burnt(self):
-        run = self.flip_world_run
-        return run.burnt_icons if run is not None else ()
-
-    def _mark_burnt(self, x, y):
-        # tag the nearest flammable centre as burnt (so the colour pass can char it)
-        best = None
-        bd = 1e18
-        for c in self._flammables():
-            if c in self._burnt():
-                continue
-            d = (c[0] - x) ** 2 + (c[1] - y) ** 2
-            if d < bd:
-                bd = d
-                best = c
-        if best is not None:
-            self._burnt().add(best)
+    def _ignite(self, spec):
+        """Set a flammable icon alight."""
+        if spec is None or spec.burn_kind == 0 or spec.on_fire > 0.0:
+            return
+        spec.on_fire = 0.0001  # small positive value marks it as burning
 
     # ── render ───────────────────────────────────────────────────────────────
     def render(self, draw, game):

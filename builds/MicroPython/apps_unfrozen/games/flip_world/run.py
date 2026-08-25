@@ -160,8 +160,6 @@ class FlipWorldRun:
 
         # icon stuff (we'll use the map as a lookup table instead of storing icon data directly)
         self.current_icon_group: IconGroupContext = IconGroupContext([])
-        # centres of scenery a fly-by dragon has set alight (for the colour pass)
-        self.burnt_icons = set()
         _raw_icons = {
             ICON_ID_HOUSE: icon_house_48x32px,
             ICON_ID_PLANT: icon_plant_16x16,
@@ -1485,9 +1483,9 @@ class FlipWorldRun:
         if not icons_data:
             return False
 
-        # Build icon specs (stored for rendering)
+        # Build icon specs (stored for rendering). Each spec is a fresh IconSpec
+        # instance (see get_icon_spec), so burn state starts clean automatically.
         self.current_icon_group.clear()
-        self.burnt_icons = set()  # new level starts unburnt
 
         for item in icons_data:
             icon_name = item.get("i", "")

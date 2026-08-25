@@ -239,17 +239,18 @@ class List:
 
             # text dimensions for centering
             font_size = 2 if self._draw_count else 1
-            item_width = self.display.len(current_item, font_size)
+            font = self.display.get_font(font_size)
+            item_width = min(len(current_item) * (font.width + font.spacing), self.size_x - (self.size_x // 5))
             item_x = (self.size_x - item_width) // 2
             text_y = self.menu_y - self._five.y * 4
 
             # Draw selection box
             padding_x = self._five.x * 2
             padding_y = self._three
-            box_width = item_width + 2 * padding_x
+            box_width = item_width + self.display.scale_x(2) * padding_x
             box_x = (self.size_x - box_width) // 2
-            text_font_height = self.display.font_size.y * font_size
-            box_height = text_font_height + 2 * padding_y
+            text_font_height = font.height
+            box_height = text_font_height + self.display.scale_y(2) * padding_y
             box_y = text_y - padding_y
             self.display._fill_rectangle(
                 box_x,
@@ -263,7 +264,7 @@ class List:
             self.display._text(
                 item_x,
                 text_y,
-                current_item,
+                current_item[:item_width // (font.width + font.spacing)],
                 self.text_color,
                 font_size,
             )

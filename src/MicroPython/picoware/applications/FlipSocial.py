@@ -1915,6 +1915,7 @@ class FlipSocialRun:
                     response = keyboard.response
                     storage = self.view_manager.storage
                     storage.write("picoware/flip_social/new_post.txt", response)
+                    keyboard.reset()
                     self.post_status = POST_WAITING
                     self.user_request(REQUEST_TYPE_POST)
                 if self.last_input != -1:
@@ -1978,6 +1979,7 @@ class FlipSocialRun:
                     response = keyboard.response
                     storage = self.view_manager.storage
                     storage.write("picoware/flip_social/message_to_user.txt", response)
+                    keyboard.reset()
                     self.messages_status = MESSAGES_SENDING
                     self.user_request(REQUEST_TYPE_MESSAGE_SEND)
                 if self.last_input != -1:
@@ -2016,6 +2018,7 @@ class FlipSocialRun:
                     response = keyboard.response
                     storage = self.view_manager.storage
                     storage.write("picoware/flip_social/explore_user.txt", response)
+                    keyboard.reset()
                     self.explore_status = EXPLORE_WAITING
                     self.explore_index = 0
                     self.user_request(REQUEST_TYPE_EXPLORE)
@@ -2037,6 +2040,7 @@ class FlipSocialRun:
                     response = keyboard.response
                     storage = self.view_manager.storage
                     storage.write("picoware/flip_social/message_to_user.txt", response)
+                    keyboard.reset()
                     self.explore_status = EXPLORE_SENDING
                     self.user_request(REQUEST_TYPE_MESSAGE_SEND)
                 if self.last_input != -1:
@@ -2096,6 +2100,7 @@ class FlipSocialRun:
                     response = keyboard.response
                     storage = self.view_manager.storage
                     storage.write("picoware/flip_social/comment_post.txt", response)
+                    keyboard.reset()
                     self.comments_status = COMMENTS_SENDING
                     self.user_request(REQUEST_TYPE_COMMENT_POST)
                 if self.last_input != -1:

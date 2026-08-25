@@ -3,27 +3,27 @@
 from micropython import const
 
 # states
-STATE_DARK_MODE = const(0)  # toggle (on/off)
-STATE_ONSCREEN_KEYBOARD = const(1)  # toggle (show/hide)
-STATE_LVGL_MODE = const(2)  # toggle (use LVGL or not)
-STATE_THEME_COLOR = const(3)  # choice (select from predefined colors)
-STATE_DEBUG = const(4)  # toggle (enable/disable)
-STATE_TIME = const(5)  # menu with date (date picker), GMT offset (keyboard)
-STATE_EXIT_BUTTON = const(6)  # selection to choose which button triggers app exits
-STATE_SERVER_SETTINGS = const(7)  # menu with username and password
-STATE_OPENAI_API_KEY = const(8)  # keyboard input for OpenAI API key
-STATE_DEEPSEEK_API_KEY = const(9)  # keyboard input for DeepSeek API key
-STATE_USB_STREAM = const(10)  # toggle (enable/disable USB stream)
-STATE_ANTHROPIC_API_KEY = const(11)  # keyboard input for Anthropic API key
-STATE_GEMINI_API_KEY = const(12)  # keyboard input for Gemini API key
-STATE_LOCAL_URL = const(13)  # keyboard input for Local URL
-STATE_XAI_API_KEY = const(14)  # keyboard input for xAI API key
+STATE_ANTHROPIC_API_KEY = const(0)  # keyboard input for Anthropic API key
+STATE_DARK_MODE = const(1)  # toggle (on/off)
+STATE_DEBUG = const(2)  # toggle (enable/disable)
+STATE_DEEPSEEK_API_KEY = const(3)  # keyboard input for DeepSeek API key
+STATE_EXIT_BUTTON = const(4)  # selection to choose which button triggers app exits
+STATE_GEMINI_API_KEY = const(5)  # keyboard input for Gemini API key
+STATE_JBLANKED_API_KEY = const(6)  # keyboard input for jblanked API key
+STATE_LOCAL_API_KEY = const(7)  # keyboard input for local API key
+STATE_LOCAL_URL = const(8)  # keyboard input for Local URL
+STATE_LVGL_MODE = const(9)  # toggle (use LVGL or not)
+STATE_MCP_SERVER_ADDRESS = const(10)  # keyboard input for MCP server address
+STATE_MCP_SERVER_API_KEY = const(11)  # keyboard input for MCP server API key
+STATE_MCP_SERVERS = const(12)  # menu for MCP servers list
+STATE_ONSCREEN_KEYBOARD = const(13)  # toggle (show/hide)
+STATE_OPENAI_API_KEY = const(14)  # keyboard input for OpenAI API key
 STATE_SCREEN_BRIGHTNESS = const(15)  # choice (10 - 100)
-STATE_JBLANKED_API_KEY = const(16)  # keyboard input for jblanked API key
-STATE_LOCAL_API_KEY = const(17)  # keyboard input for local API key
-STATE_MCP_SERVER_ADDRESS = const(18)  # keyboard input for MCP server address
-STATE_MCP_SERVER_API_KEY = const(19)  # keyboard input for MCP server API key
-STATE_MCP_SERVERS = const(20)  # menu for MCP servers list
+STATE_SERVER_SETTINGS = const(16)  # menu with username and password
+STATE_THEME_COLOR = const(17)  # choice (select from predefined colors)
+STATE_TIME = const(18)  # menu with date (date picker), GMT offset (keyboard)
+STATE_USB_STREAM = const(19)  # toggle (enable/disable USB stream)
+STATE_XAI_API_KEY = const(20)  # keyboard input for xAI API key
 
 # modes
 _MODE_MENU = const(0)
@@ -126,31 +126,31 @@ def __config() -> tuple:
     """
     # (menu label, json key, default value)
     return (
+        ("Anthropic API Key", "anthropic_api_key", ""),
         ("Dark Mode", "dark_mode", True),
+        ("Debug", "debug", False),
+        ("DeepSeek API Key", "deepseek_api_key", ""),
+        ("Exit Button", "exit_button", None),
+        ("Gemini API Key", "gemini_api_key", ""),
+        ("JBlanked API Key", "jblanked_api_key", ""),
+        ("Local API Key", "local_api_key", ""),
+        ("Local URL", "local_url", "http://127.0.0.1:8080/v1/chat/completions"),
+        ("MCP Server Address", "mcp_server_address", ""),
+        ("MCP Server API Key", "mcp_server_api_key", ""),
+        ("MCP Servers", "mcp_servers", None),
         (
             "Onscreen Keyboard",
             "onscreen_keyboard",
             True,
         ),
-        ("Use LVGL", "lvgl_mode", False),
-        ("Theme Color", "theme_color", None),
-        ("Debug", "debug", False),
-        ("Time", "time", None),
-        ("Exit Button", "exit_button", None),
-        ("Server Settings", "server_settings", None),
         ("OpenAI API Key", "openai_api_key", ""),
-        ("DeepSeek API Key", "deepseek_api_key", ""),
-        ("USB Stream", "usb_stream", False),
-        ("Anthropic API Key", "anthropic_api_key", ""),
-        ("Gemini API Key", "gemini_api_key", ""),
-        ("Local URL", "local_url", "http://127.0.0.1:8080/v1/chat/completions"),
-        ("xAI API Key", "xai_api_key", ""),
         ("Screen Brightness", "screen_brightness", 100),
-        ("JBlanked API Key", "jblanked_api_key", ""),
-        ("Local API Key", "local_api_key", ""),
-        ("MCP Server Address", "mcp_server_address", ""),
-        ("MCP Server API Key", "mcp_server_api_key", ""),
-        ("MCP Servers", "mcp_servers", None),
+        ("Server Settings", "server_settings", None),
+        ("Theme Color", "theme_color", None),
+        ("Time", "time", None),
+        ("USB Stream", "usb_stream", False),
+        ("Use LVGL", "lvgl_mode", False),
+        ("xAI API Key", "xai_api_key", ""),
     )
 
 
@@ -1009,41 +1009,41 @@ def run(view_manager) -> None:
         elif button in (BUTTON_DOWN, BUTTON_RIGHT):
             _menu.scroll_down()
         elif button == BUTTON_CENTER:
-            selected = _menu.selected_index
-            if selected == STATE_THEME_COLOR:
+            selected = _menu.current_item
+            if selected == "Theme Color":
                 __open_choice()
-            elif selected == STATE_TIME:
+            elif selected == "Time":
                 __open_time_menu()
-            elif selected == STATE_EXIT_BUTTON:
+            elif selected == "Exit Button":
                 __open_choice_button()
-            elif selected == STATE_SERVER_SETTINGS:
+            elif selected == "Server Settings":
                 __open_server_menu()
-            elif selected == STATE_OPENAI_API_KEY:
+            elif selected == "OpenAI API Key":
                 __open_openai_keyboard()
-            elif selected == STATE_DEEPSEEK_API_KEY:
+            elif selected == "DeepSeek API Key":
                 __open_deepseek_keyboard()
-            elif selected == STATE_ANTHROPIC_API_KEY:
+            elif selected == "Anthropic API Key":
                 __open_anthropic_keyboard()
-            elif selected == STATE_GEMINI_API_KEY:
+            elif selected == "Gemini API Key":
                 __open_gemini_keyboard()
-            elif selected == STATE_LOCAL_URL:
+            elif selected == "Local URL":
                 __open_local_url_keyboard()
-            elif selected == STATE_XAI_API_KEY:
+            elif selected == "xAI API Key":
                 __open_xai_keyboard()
-            elif selected == STATE_SCREEN_BRIGHTNESS:
+            elif selected == "Screen Brightness":
                 __open_choice_brightness()
-            elif selected == STATE_JBLANKED_API_KEY:
+            elif selected == "JBlanked API Key":
                 __open_jblanked_keyboard()
-            elif selected == STATE_LOCAL_API_KEY:
+            elif selected == "Local API Key":
                 __open_local_api_key_keyboard()
-            elif selected == STATE_MCP_SERVER_ADDRESS:
+            elif selected == "MCP Server Address":
                 __open_mcp_server_address_keyboard()
-            elif selected == STATE_MCP_SERVER_API_KEY:
+            elif selected == "MCP Server API Key":
                 __open_mcp_server_api_key_keyboard()
-            elif selected == STATE_MCP_SERVERS:
+            elif selected == "MCP Servers":
                 __open_mcp_servers_menu()
             else:
-                __open_toggle(selected)
+                __open_toggle(_menu.selected_index)
 
     elif _mode == _MODE_TIME_MENU:
         if button == BUTTON_BACK:

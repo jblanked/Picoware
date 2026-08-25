@@ -1,17 +1,27 @@
 """FlipWorld Player class for MicroPython"""
 
 from micropython import const
+from math import sin
 from picoware.system.vector import Vector
 from picoware.engine.entity import (
     Entity,
     ENTITY_TYPE_PLAYER,
     ENTITY_TYPE_ENEMY,
     ENTITY_STATE_DEAD,
+    ENTITY_STATE_ATTACKED,
 )
 from picoware.gui.loading import Loading
 from ujson import loads as json_loads
 from flip_world.assets import player_left_sword_15x11px, player_right_sword_15x11px
-from flip_world.colorize import colorize, COL_PLAYER
+from flip_world.colorize import colorize, COL_PLAYER, COL_FLAME_OUTER, COL_FLAME_CORE
+
+# Burn state constants
+_BURN_FOLIAGE_DURATION = 10.0  # seconds a foliage fire burns before it chars out
+_BURN_TICK_DT = 0.05  # matches this class's other per-frame timers
+_BURN_SINGE_RADIUS2 = 26 * 26  # proximity radius (squared, px) for singe damage
+_BURN_SINGE_INTERVAL = 0.5  # seconds between singe damage ticks
+_BURN_SINGE_DAMAGE_FOLIAGE = 5.0
+_BURN_SINGE_DAMAGE_STRUCTURE = 8.0
 
 # GameMainView
 GAME_VIEW_TITLE = const(0)  # title, start, and menu (menu)
@@ -202,6 +212,7 @@ class Player(Entity):
         self.xp = 0
         self.elapsed_health_regen = 0.0
         self.elapsed_attack_timer = 0.0
+        self._singe_cd = 0.0  # cooldown gate for burning-scenery proximity damage
 
         # Current view and menu state
         self.current_title_index: int = TITLE_INDEX_STORY
@@ -1016,6 +1027,74 @@ class Player(Entity):
         self.user_stats_text.y = int(pos.y + 18)
         canvas.text(self.user_stats_text, level_str, COLOR_BLACK)
 
+    def _update_burning_icons(self, game):
+        """Advance on-fire timers for scenery, char foliage out, singe the player.
+        Foliage (burn_kind 1) burns for a fixed duration then chars and goes inert; a structure like a
+        house (burn_kind 2) has no char condition here, so once lit it keeps
+        blazing indefinitely. Standing too close to anything currently on fire
+        deals periodic damage.
+        """
+        run = self.flip_world_run
+        if not run or not run.current_icon_group:
+            return
+
+        if self._singe_cd > 0:
+            self._singe_cd -= _BURN_TICK_DT
+
+        px = self.position.x + self.size.x * 0.5
+        py = self.position.y + self.size.y * 0.5
+        can_singe = self._singe_cd <= 0
+        singed = False
+
+        for spec in run.current_icon_group.icons:
+            if spec.on_fire <= 0.0:
+                continue
+            spec.on_fire += _BURN_TICK_DT
+
+            if spec.burn_kind == 1 and spec.on_fire >= _BURN_FOLIAGE_DURATION:
+                # Foliage chars out and goes inert; it can never reignite.
+                spec.charred = True
+                spec.on_fire = 0.0
+                spec.burn_kind = 0
+                continue
+
+            if can_singe and not singed:
+                cx = spec.x + spec.width * 0.5
+                cy = spec.y + spec.height * 0.5
+                dx = cx - px
+                dy = cy - py
+                if dx * dx + dy * dy <= _BURN_SINGE_RADIUS2:
+                    dmg = (
+                        _BURN_SINGE_DAMAGE_STRUCTURE
+                        if spec.burn_kind == 2
+                        else _BURN_SINGE_DAMAGE_FOLIAGE
+                    )
+                    self.health -= dmg
+                    if self.health <= 0:
+                        self.state = ENTITY_STATE_DEAD
+                        self.health = self.max_health
+                        self.position = self.start_position
+                    else:
+                        self.state = ENTITY_STATE_ATTACKED
+                    singed = True
+
+        if singed:
+            self._singe_cd = _BURN_SINGE_INTERVAL
+
+    def _draw_icon_flame(self, draw, spec):
+        """Flicker a flame over a burning icon (screen coords in self._img_vec)."""
+        flames = spec.width // 8
+        if flames < 1:
+            flames = 1
+        step = spec.width / flames
+        top_y = self._img_vec.y
+        for i in range(flames):
+            fx = int(self._img_vec.x + step * (i + 0.5))
+            flick = sin(spec.on_fire * 9.0 + i * 2.1) * 2.0
+            fy = int(top_y - 2 + flick)
+            draw.fill_circle(Vector(fx, fy), 3, COL_FLAME_OUTER)
+            draw.fill_circle(Vector(fx, fy), 1, COL_FLAME_CORE)
+
     def icon_group_render(self, game):
         """Render the icon group for the current level."""
         if not self.flip_world_run or not game or not game.draw:
@@ -1036,7 +1115,6 @@ class Player(Entity):
 
         icon_data_map = self.flip_world_run.icon_map
         char_map = self.flip_world_run.icon_char_map
-        burnt = self.flip_world_run.burnt_icons
 
         for spec in self.flip_world_run.current_icon_group.icons:
             # Fast rejection test - is icon center even close to camera?
@@ -1064,11 +1142,16 @@ class Player(Entity):
             self._img_size.x = spec.width
             self._img_size.y = spec.height
 
-            # Draw the icon (charred tint if a fly-by dragon set it alight)
+            # Draw the icon (charred tint once foliage has fully burned out)
             data = icon_data_map[spec.id]
-            if burnt and (spec.x + spec.width * 0.5, spec.y + spec.height * 0.5) in burnt:
+            if spec.charred:
                 data = char_map.get(spec.id, data)
             game.draw.image_bytearray(self._img_vec, self._img_size, data)
+
+            # Flame overlay while actively on fire (foliage mid-burn, or a
+            # structure like a house, which stays ablaze indefinitely)
+            if spec.on_fire > 0.0:
+                self._draw_icon_flame(game.draw, spec)
 
     def draw_minimap(self, draw, game):
         """Top-right minimap: world objects, enemies, the boss, the player, camera view."""
@@ -1139,7 +1222,6 @@ class Player(Entity):
             icons = run.current_icon_group.icons
             n = len(icons)
             step = 1 + (n // 120)
-            burnt = getattr(run, "burnt_icons", None)
             for k in range(0, n, step):
                 spec = icons[k]
                 col = _MM_ICON.get(spec.id)
@@ -1320,6 +1402,7 @@ class Player(Entity):
             self.health = min(self.health, self.max_health)
 
         self.elapsed_attack_timer += 0.05
+        self._update_burning_icons(game)
         self.update_stats()
         self.check_for_level_completion(game)
 

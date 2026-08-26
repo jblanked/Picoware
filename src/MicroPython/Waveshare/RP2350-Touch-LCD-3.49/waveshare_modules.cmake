@@ -457,3 +457,6 @@ include(${CMAKE_CURRENT_LIST_DIR}/../../mjs/micropython.cmake)
 
 # Include mmbasic module
 include(${CMAKE_CURRENT_LIST_DIR}/../../mmbasic/micropython.cmake)
+
+#include c module
+include(${CMAKE_CURRENT_LIST_DIR}/../../c/micropython.cmake)

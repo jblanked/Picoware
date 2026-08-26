@@ -87,6 +87,9 @@ rm -rf "$micropython_dir"/modules/mjs
 # remove mmbasic module if it exists
 rm -rf "$micropython_dir"/modules/mmbasic
 
+# remove C module if it exists
+rm -rf "$micropython_dir"/modules/c
+
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"
@@ -178,6 +181,9 @@ cp -r "$picoware_dir"/src/MicroPython/mjs "$micropython_dir"/modules/mjs
 
 # copy mmbasic module
 cp -r "$picoware_dir"/src/MicroPython/mmbasic "$micropython_dir"/modules/mmbasic
+
+# copy pshell C module
+cp -r "$picoware_dir"/src/MicroPython/c "$micropython_dir"/modules/c
 
 echo "Starting Waveshare 3.49 build process..."
 

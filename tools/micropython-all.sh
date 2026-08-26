@@ -90,6 +90,9 @@ rm -rf "$micropython_dir"/modules/mjs
 # remove mmbasic module if it exists
 rm -rf "$micropython_dir"/modules/mmbasic
 
+# remove C module if it exists
+rm -rf "$micropython_dir"/modules/c
+
 # Clean previous builds
 echo "Cleaning previous builds..."
 cd "$micropython_dir"

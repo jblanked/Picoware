@@ -534,6 +534,9 @@ target_link_libraries(usermod INTERFACE usermod_websocket)
 # Include mjs module
 include(${CMAKE_CURRENT_LIST_DIR}/../mjs/micropython.cmake)
 
+# Include pshell C module
+include(${CMAKE_CURRENT_LIST_DIR}/../c/micropython.cmake)
+
 # Include mmbasic module (MBASIC interpreter)
 add_library(usermod_mmbasic INTERFACE)
 

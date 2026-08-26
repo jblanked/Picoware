@@ -375,5 +375,8 @@ bash "$picoware_dir"/tools/micropython-flipper.sh
 echo "Starting Marauder v8 build process..."
 bash "$picoware_dir"/tools/micropython-v8.sh
 
+echo "Starting Desktop build process..."
+bash "$picoware_dir"/tools/micropython-desktop.sh
+
 echo "---------------------------------------"
 echo "All MicroPython Picoware builds completed successfully!"

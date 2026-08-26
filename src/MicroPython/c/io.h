@@ -4,10 +4,15 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#include "../sd/fat32.h"
-
+#include "storage.h"
+#ifdef C_STORAGE_ENABLED
 typedef fat32_file_t lfs_file_t;
 typedef fat32_file_t lfs_dir_t;
+#else
+typedef void *lfs_file_t;
+typedef void *lfs_dir_t;
+#define FAT32_MAX_FILENAME_LEN 255
+#endif
 typedef int32_t lfs_soff_t;
 typedef int32_t lfs_ssize_t;
 

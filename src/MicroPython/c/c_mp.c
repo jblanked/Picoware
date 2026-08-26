@@ -1,8 +1,7 @@
 #include "c_mp.h"
 #include "py/gc.h"
 #include <math.h>
-
-#include "../sd/storage.h"
+#include "storage.h"
 #include "pshell/cc/cc.h"
 
 #define C_SOURCE_MAX 262144
@@ -89,6 +88,10 @@ static MP_DEFINE_CONST_FUN_OBJ_2(c_mp_run_obj, c_mp_run);
 mp_obj_t c_mp_exec(mp_obj_t self_in, mp_obj_t path)
 {
     (void)self_in;
+#ifndef C_STORAGE_ENABLED
+    (void)path;
+    return mp_obj_new_int(-1);
+#else
     const char *filename = mp_obj_str_get_str(path);
     size_t size = storage_file_size(filename);
     if (size > C_SOURCE_MAX)
@@ -106,6 +109,7 @@ mp_obj_t c_mp_exec(mp_obj_t self_in, mp_obj_t path)
     int result = c_mp_run_source(source, size);
     m_del(char, source, size);
     return mp_obj_new_int(result);
+#endif
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(c_mp_exec_obj, c_mp_exec);
 

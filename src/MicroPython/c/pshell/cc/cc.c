@@ -143,19 +143,19 @@ static void (*fops[])() = {
 };
 #endif
 
-// accellerated SDK trig functions
-void __wrap_sinf();
-void __wrap_cosf();
-void __wrap_tanf();
-void __wrap_asinf();
-void __wrap_acosf();
-void __wrap_atanf();
-void __wrap_sinhf();
-void __wrap_coshf();
-void __wrap_tanhf();
-void __wrap_asinhf();
-void __wrap_acoshf();
-void __wrap_atanhf();
+// accelerated SDK trig functions
+float c_mp_sinf(float value);
+float c_mp_cosf(float value);
+float c_mp_tanf(float value);
+float c_mp_asinf(float value);
+float c_mp_acosf(float value);
+float c_mp_atanf(float value);
+float c_mp_sinhf(float value);
+float c_mp_coshf(float value);
+float c_mp_tanhf(float value);
+float c_mp_asinhf(float value);
+float c_mp_acoshf(float value);
+float c_mp_atanhf(float value);
 
 // patch list entry
 struct patch_s

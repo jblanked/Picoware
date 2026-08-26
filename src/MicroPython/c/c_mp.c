@@ -20,18 +20,18 @@ void get_screen_xy(int *x, int *y)
     *y = 320;
 }
 
-float __wrap_sinf(float value) { return sinf(value); }
-float __wrap_cosf(float value) { return cosf(value); }
-float __wrap_tanf(float value) { return tanf(value); }
-float __wrap_asinf(float value) { return asinf(value); }
-float __wrap_acosf(float value) { return acosf(value); }
-float __wrap_atanf(float value) { return atanf(value); }
-float __wrap_sinhf(float value) { return sinhf(value); }
-float __wrap_coshf(float value) { return coshf(value); }
-float __wrap_tanhf(float value) { return tanhf(value); }
-float __wrap_asinhf(float value) { return asinhf(value); }
-float __wrap_acoshf(float value) { return acoshf(value); }
-float __wrap_atanhf(float value) { return atanhf(value); }
+float c_mp_sinf(float value) { return sinf(value); }
+float c_mp_cosf(float value) { return cosf(value); }
+float c_mp_tanf(float value) { return tanf(value); }
+float c_mp_asinf(float value) { return asinf(value); }
+float c_mp_acosf(float value) { return acosf(value); }
+float c_mp_atanf(float value) { return atanf(value); }
+float c_mp_sinhf(float value) { return sinhf(value); }
+float c_mp_coshf(float value) { return coshf(value); }
+float c_mp_tanhf(float value) { return tanhf(value); }
+float c_mp_asinhf(float value) { return asinhf(value); }
+float c_mp_acoshf(float value) { return acoshf(value); }
+float c_mp_atanhf(float value) { return atanhf(value); }
 
 const mp_obj_type_t c_mp_type;
 

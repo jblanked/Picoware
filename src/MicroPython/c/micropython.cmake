@@ -16,7 +16,6 @@ target_include_directories(usermod_c INTERFACE
 	${CMAKE_CURRENT_LIST_DIR}
 	${CMAKE_CURRENT_LIST_DIR}/pshell/cc
 	${CMAKE_CURRENT_LIST_DIR}/pshell/disassembler
-	${CMAKE_CURRENT_LIST_DIR}/../sd
 )
 
 target_compile_definitions(usermod_c INTERFACE
@@ -29,10 +28,6 @@ set_source_files_properties(
 	${CMAKE_CURRENT_LIST_DIR}/pshell/cc/cc_peep.c
 	${CMAKE_CURRENT_LIST_DIR}/pshell/disassembler/armdisasm.c
 	PROPERTIES COMPILE_OPTIONS "-Wno-error"
-)
-
-target_link_libraries(usermod_c INTERFACE
-	usermod_sd
 )
 
 target_link_libraries(usermod INTERFACE usermod_c)

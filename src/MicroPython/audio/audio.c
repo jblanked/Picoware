@@ -323,6 +323,11 @@ bool audio_is_playing(void)
     return is_playing;
 }
 
+bool audio_is_initialized(void)
+{
+    return audio_initialised;
+}
+
 #if SD_AVAILABLE
 static void audio_mp3_core1_entry(void)
 {

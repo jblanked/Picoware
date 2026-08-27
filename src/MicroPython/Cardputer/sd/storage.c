@@ -333,6 +333,15 @@ void storage_file_close(void *handle)
     }
 }
 
+bool storage_file_seek(void *handle, size_t offset)
+{
+    if (handle == NULL || offset > LONG_MAX)
+    {
+        return false;
+    }
+    return fseek((FILE *)handle, (long)offset, SEEK_SET) == 0;
+}
+
 size_t storage_file_read_file_chunk(void *handle, void *buffer, size_t buffer_size)
 {
     if (handle == NULL || buffer == NULL || buffer_size == 0)

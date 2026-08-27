@@ -322,6 +322,13 @@ void storage_file_close(void *handle)
     }
 }
 
+bool storage_file_seek(void *handle, size_t offset)
+{
+    if (!handle || offset > UINT32_MAX)
+        return false;
+    return fat32_seek((fat32_file_t *)handle, (uint32_t)offset) == FAT32_OK;
+}
+
 size_t storage_file_read_file_chunk(void *handle, void *buffer, size_t buffer_size)
 {
     if (!handle)

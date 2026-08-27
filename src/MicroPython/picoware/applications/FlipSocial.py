@@ -1,12 +1,20 @@
 """FlipSocial application"""
 
 from micropython import const
-from picoware.system.vector import Vector
 from picoware.system.colors import TFT_WHITE, TFT_BLACK
 from picoware.system.decorator import storage_required, wifi_required
 
 from json import loads as json_loads
 from json import dumps as json_dumps
+
+from picoware.system.buttons import (
+    BUTTON_BACK,
+    BUTTON_UP,
+    BUTTON_DOWN,
+    BUTTON_LEFT,
+    BUTTON_RIGHT,
+    BUTTON_CENTER,
+)
 
 # social view constants
 SOCIAL_VIEW_MENU = const(-1)  # main menu view
@@ -180,7 +188,6 @@ class FlipSocialRun:
         self.registration_status: int = (
             REGISTRATION_NOT_STARTED  # current registration status
         )
-        self.should_debounce: bool = False  # flag to debounce input
         self.should_return_to_menu: bool = False  # flag to return to main menu
         self.user_info_status: int = USER_INFO_NOT_STARTED  # current user info status
 
@@ -190,13 +197,17 @@ class FlipSocialRun:
         self.keyboard_ran: bool = False  # has the keyboard run at least once
         self.should_clear_screen: bool = True  # should clear the screen
 
+        self._loaded_data = None # cached loaded data
+
     def __del__(self) -> None:
         if self.http:
+            self.http.close()
             del self.http
             self.http = None
         if self.loading:
             del self.loading
             self.loading = None
+        self._loaded_data = None
 
     @property
     def is_active(self) -> bool:
@@ -209,11 +220,10 @@ class FlipSocialRun:
             from picoware.gui.loading import Loading
 
             self.loading = Loading(canvas, TFT_WHITE, TFT_BLACK)
+            if not self.loading:
+                raise RuntimeError("Failed to initialize loading animation")
             self.__loading_started = True
-            if self.loading:
-                self.loading.set_text(title)
-        else:
-            self.loading.set_text(title)
+        self.loading.set_text(title)
 
     def draw_comments_view(self, canvas) -> None:
         """Draw the comments view"""
@@ -302,30 +312,21 @@ class FlipSocialRun:
                                     if self.comments_index > 0:
                                         self.comments_index -= 1
                             else:
-                                text_vec_x, text_vec_y = canvas.scale(0, 10)
-                                canvas._text(text_vec_x, text_vec_y, "No comments found for this post.", TFT_WHITE)
-                                text_vec_x, text_vec_y = canvas.scale(0, 60)
-                                canvas._text(text_vec_x, text_vec_y, "Be the first, click DOWN", TFT_WHITE)
+                                canvas._text(0, canvas.scale_y(10), "No comments found for this post.", TFT_WHITE)
+                                canvas._text(0, canvas.scale_y(60), "Be the first, click DOWN", TFT_WHITE)
                     except Exception as e:
                         self.view_manager.log(f"Error parsing comments: {e}")
                         self.comments_status = COMMENTS_PARSE_ERROR
                 else:
-                    text_vec_x, text_vec_y = canvas.scale(0, 10)
-                    canvas._text(text_vec_x, text_vec_y, "No comments found for this post.", TFT_WHITE)
-                    text_vec_x, text_vec_y = canvas.scale(0, 60)
-                    canvas._text(text_vec_x, text_vec_y, "Be the first, click DOWN", TFT_WHITE)
+                    canvas._text(0, canvas.scale_y(10), "No comments found for this post.", TFT_WHITE)
+                    canvas._text(0, canvas.scale_y(60), "Be the first, click DOWN", TFT_WHITE)
         elif self.comments_status == COMMENTS_REQUEST_ERROR:
-            text_vec_x, text_vec_y = canvas.scale(0, 10)
-            canvas._text(text_vec_x, text_vec_y, "Comments request failed!", TFT_WHITE)
-            text_vec_y += canvas.scale_y(10)
-            canvas._text(text_vec_x, text_vec_y, "Check your network and", TFT_WHITE)
-            text_vec_y += canvas.scale_y(10)
-            canvas._text(text_vec_x, text_vec_y, "try again later.", TFT_WHITE)
+            canvas._text(0, canvas.scale_y(10), "Comments request failed!", TFT_WHITE)
+            canvas._text(0, canvas.scale_y(20), "Check your network and", TFT_WHITE)
+            canvas._text(0, canvas.scale_y(30), "try again later.", TFT_WHITE)
         elif self.comments_status == COMMENTS_PARSE_ERROR:
-            text_vec_x, text_vec_y = canvas.scale(0, 10)
-            canvas._text(text_vec_x, text_vec_y, "Failed to parse comments!", TFT_WHITE)
-            text_vec_y += canvas.scale_y(10)
-            canvas._text(text_vec_x, text_vec_y, "Try again...", TFT_WHITE)
+            canvas._text(0, canvas.scale_y(10), "Failed to parse comments!", TFT_WHITE)
+            canvas._text(0, canvas.scale_y(20), "Try again...", TFT_WHITE)
         elif self.comments_status == COMMENTS_NOT_STARTED:
             self.comments_status = COMMENTS_WAITING
             self.user_request(REQUEST_TYPE_COMMENT_FETCH)
@@ -346,9 +347,7 @@ class FlipSocialRun:
                 if self.loading:
                     self.loading.animate(False)
                 else:
-                    from picoware.gui.loading import Loading
-
-                    self.loading = Loading(canvas, TFT_WHITE, TFT_BLACK)
+                    self.__loading_start(canvas, "Sending...")
             else:
                 from picoware.system.http import HTTP_ISSUE
 
@@ -406,17 +405,17 @@ class FlipSocialRun:
 
         elif self.explore_status == EXPLORE_SUCCESS:
             storage = self.view_manager.storage
-            data = storage.read("picoware/flip_social/explore.json")
+            data = storage.serialize("picoware/flip_social/explore.json")
             if data is None:
                 canvas._text(0, canvas.scale_x(30), "Failed to load explore data.", TFT_WHITE)
                 self.explore_status = EXPLORE_PARSE_ERROR
                 return
             explore_users = []
             try:
-                obj = json_loads(data)
-                if "users" in obj and isinstance(obj["users"], list):
-                    explore_users = obj["users"]
-            except Exception:
+                if "users" in data and isinstance(data["users"], list):
+                    explore_users = data["users"]
+            except Exception as e:
+                self.view_manager.log("Failed to parse explore data: {}".format(e))
                 canvas._text(0, canvas.scale_x(30), "Failed to parse explore data.", TFT_WHITE)
                 self.explore_status = EXPLORE_PARSE_ERROR
                 return
@@ -505,8 +504,8 @@ class FlipSocialRun:
         text_vec_x, text_vec_y = canvas.scale(0, 18)
         if is_admin:
             # Filled white badge with black username text
-            width = canvas.len(username) + 7
-            height = canvas.get_font().height + 3
+            width = canvas.len(username) + canvas.font_size.x
+            height = canvas.font_size.y + canvas.scale_y(3)
             canvas._fill_rectangle(text_vec_x, text_vec_y, width, height, TFT_WHITE)
             canvas._text(text_vec_x, text_vec_y, username, TFT_BLACK)
 
@@ -583,12 +582,11 @@ class FlipSocialRun:
 
         elif self.feed_status == FEED_SUCCESS:
             storage = self.view_manager.storage
-            data = storage.read("picoware/flip_social/feed.json")
+            data = storage.serialize("picoware/flip_social/feed.json")
             if data:
                 try:
-                    obj = json_loads(data)
-                    if "feed" in obj and isinstance(obj["feed"], list):
-                        feed_items = obj["feed"]
+                    if "feed" in data and isinstance(data["feed"], list):
+                        feed_items = data["feed"]
                         if self.feed_item_index < len(feed_items):
                             item = feed_items[self.feed_item_index]
                             username = item.get("username", "")
@@ -649,12 +647,11 @@ class FlipSocialRun:
                     # increase the flip count locally for instant feedback
                     # and adjust the flipped status
                     storage = self.view_manager.storage
-                    data = storage.read("picoware/flip_social/feed.json")
+                    data = storage.serialize("picoware/flip_social/feed.json")
                     if data:
                         try:
-                            obj = json_loads(data)
-                            if "feed" in obj and isinstance(obj["feed"], list):
-                                feed_items = obj["feed"]
+                            if "feed" in data and isinstance(data["feed"], list):
+                                feed_items = data["feed"]
                                 if self.feed_item_index < len(feed_items):
                                     item = feed_items[self.feed_item_index]
 
@@ -670,7 +667,7 @@ class FlipSocialRun:
                                         item["flip_count"] = flip_count + 1
 
                                     # Save updated feed back to storage
-                                    updated_data = json_dumps(obj)
+                                    updated_data = json_dumps(data)
                                     storage.write(
                                         "picoware/flip_social/feed.json", updated_data
                                     )
@@ -682,7 +679,7 @@ class FlipSocialRun:
                     self.feed_status = FEED_REQUEST_ERROR
 
         else:
-            canvas.text(Vector(0, 10), "Loading feed...", TFT_WHITE)
+            canvas._text(0, canvas.scale_x(10), "Loading feed...", TFT_WHITE)
 
     def draw_login_view(self, canvas) -> None:
         """Draw the login view"""
@@ -758,23 +755,20 @@ class FlipSocialRun:
 
     def draw_menu(self, canvas, selected_index: int, menu_items: list) -> None:
         """Generic menu drawer"""
-        SW = canvas.size.x
-
         # Draw title
-        distance = canvas.scale_x(10)
         title = "FlipSocial"
         title_width = canvas.len(title)
-        title_x = (SW - title_width) // 2
+        title_x = (canvas.size.x - title_width) // 2
         _, _y = canvas.scale(0, 25)
         canvas._text(title_x, _y, title, TFT_WHITE)
 
         # Draw underline
-        _y += distance
+        _y += canvas.font_size.y
         canvas._line(title_x, _y, title_x + title_width, _y, TFT_WHITE)
 
         # Draw decorative top pattern (full width)
-        _y += (distance * 3)
-        for i in range(0, SW + 1, 10):
+        _y += canvas.scale_y(30)
+        for i in range(0, canvas.size.x + 1, 10):
             canvas._pixel(i, _y, TFT_WHITE)
 
         # Get current item
@@ -786,7 +780,7 @@ class FlipSocialRun:
 
             # Draw selection box 
             item_width = canvas.len(current_item)
-            item_x = (SW - item_width) // 2
+            item_x = (canvas.size.x - item_width) // 2
             box_w = item_width + box_padding * 2
             box_x = item_x - box_padding
             _, _box_y = canvas.scale(0, menu_y - 20)
@@ -802,7 +796,7 @@ class FlipSocialRun:
                 _x, _y = canvas.scale(5, menu_y - 7)
                 canvas._text(_x, _y, "<", TFT_WHITE)
             if selected_index < len(menu_items) - 1:
-                _x = SW - canvas.scale_x(15)
+                _x = canvas.size.x - canvas.scale_x(15)
                 _, _y = canvas.scale(0, menu_y - 7)
                 canvas._text(_x, _y, ">", TFT_WHITE)
 
@@ -812,7 +806,7 @@ class FlipSocialRun:
             _dot_spacing = canvas.scale_x(15)
             _dot_y = canvas.scale_y(indicator_y)
             if len(menu_items) <= 15:
-                dots_start_x = (SW - (len(menu_items) * _dot_spacing)) // 2
+                dots_start_x = (canvas.size.x - (len(menu_items) * _dot_spacing)) // 2
                 for i in range(len(menu_items)):
                     dot_x = dots_start_x + (i * _dot_spacing)
                     if i == selected_index:
@@ -826,7 +820,7 @@ class FlipSocialRun:
 
             # Draw decorative bottom pattern (full width)
             _dot_y += _dot_s + _dot_spacing
-            for i in range(0, SW + 1, 10):
+            for i in range(0, canvas.size.x + 1, 10):
                 canvas._pixel(i, _dot_y, TFT_WHITE)
 
     def draw_messages_view(self, canvas) -> None:
@@ -857,7 +851,7 @@ class FlipSocialRun:
         elif self.messages_status == MESSAGES_SUCCESS:
             if self.http and self.http.response:
                 try:
-                    obj: dict = json_loads(self.http.response.text)
+                    obj: dict = self.http.response.json()
                     if "conversations" in obj and isinstance(
                         obj["conversations"], list
                     ):
@@ -881,11 +875,11 @@ class FlipSocialRun:
                                 canvas._text(title_x, _y, sender, TFT_WHITE)
 
                                 # Draw underline for title
-                                _, _y = canvas.scale(0, 35)
+                                _y += canvas.font_size.y
                                 canvas._line(title_x, _y, title_x + title_width, _y, TFT_WHITE)
 
                                 # Draw decorative horizontal pattern (full width)
-                                _, _decor_y = canvas.scale(0, 45)
+                                _decor_y = _y + canvas.scale_y(10)
                                 for i in range(0, SW + 1, 10):
                                     canvas._pixel(i, _decor_y, TFT_WHITE)
 
@@ -1066,17 +1060,18 @@ class FlipSocialRun:
                     self.message_users_status = MESSAGE_USERS_SUCCESS
                     storage = self.view_manager.storage
                     storage.write("picoware/flip_social/message_users.json", response)
+                    self._loaded_data = None
                 else:
                     self.message_users_status = MESSAGE_USERS_REQUEST_ERROR
 
         elif self.message_users_status == MESSAGE_USERS_SUCCESS:
-            storage = self.view_manager.storage
-            data = storage.read("picoware/flip_social/message_users.json")
-            if data:
+            if self._loaded_data is None:
+                storage = self.view_manager.storage
+                self._loaded_data = storage.serialize("picoware/flip_social/message_users.json")
+            if self._loaded_data is not None:
                 try:
-                    obj = json_loads(data)
-                    if "users" in obj and isinstance(obj["users"], list):
-                        users = obj["users"]
+                    if "users" in self._loaded_data and isinstance(self._loaded_data["users"], list):
+                        users = self._loaded_data["users"]
                         if users:
                             self.draw_menu(canvas, self.message_user_index, users)
                         else:
@@ -1177,31 +1172,30 @@ class FlipSocialRun:
             self.draw_menu(canvas, self.post_index, menu_items)
 
         else:
-            canvas.text(Vector(0, 10), "Awaiting...", TFT_WHITE)
+            canvas._text(0, canvas.scale_x(10), "Awaiting...", TFT_WHITE)
 
     def draw_profile_view(self, canvas) -> None:
         """Draw the profile view"""
 
         SW = canvas.size.x
-        storage = self.view_manager.storage
-        data = storage.read("picoware/flip_social/profile.json")
-        vec = Vector(0, 0)
+        if self._loaded_data is None:
+            storage = self.view_manager.storage
+            self._loaded_data = storage.serialize("picoware/flip_social/profile.json")
 
-        if not data:
-            vec.x, vec.y = canvas.scale(SW // 2 - 70, 80)
-            canvas._text(vec.x, vec.y, "Failed to load user info.", TFT_WHITE)
+        if not self._loaded_data:
+            vec_x, vec_y = canvas.scale(SW // 2 - 70, 80)
+            canvas._text(vec_x, vec_y, "Failed to load user info.", TFT_WHITE)
             return
 
         if not self.username:
-            vec.x, vec.y = canvas.scale(SW // 2 - 70, 80)
-            canvas._text(vec.x, vec.y, "Failed to load username.", TFT_WHITE)
+            vec_x, vec_y = canvas.scale(SW // 2 - 70, 80)
+            canvas._text(vec_x, vec_y, "Failed to load username.", TFT_WHITE)
             return
 
         try:
-            obj = json_loads(data)
-            bio = obj.get("bio", "No bio")
-            friends_count = str(obj.get("friends_count", 0))
-            date_created = obj.get("date_created", "Unknown")
+            bio = self._loaded_data.get("bio", "No bio")
+            friends_count = str(self._loaded_data.get("friends_count", 0))
+            date_created = self._loaded_data.get("date_created", "Unknown")
 
             # Draw title
             title_width = canvas.len(self.username)
@@ -1210,19 +1204,19 @@ class FlipSocialRun:
             canvas._text(title_x, _y, self.username, TFT_WHITE)
 
             # Draw underline
-            _, _y = canvas.scale(0, 35)
+            _y += canvas.font_size.y
             canvas._line(title_x, _y, title_x + title_width, _y, TFT_WHITE)
 
             # Draw decorative pattern (full width)
-            _, _decor_y = canvas.scale(0, 45)
+            _decor_y = _y + canvas.scale_y(10)
             for i in range(0, SW + 1, 10):
                 canvas._pixel(i, _decor_y, TFT_WHITE)
 
             # Profile elements
             menu_y = 160
-            vec.x, vec.y = canvas.scale(25, menu_y - 20)
+            vec_x, vec_y = canvas.scale(25, menu_y - 20)
             _w, _h = canvas.scale(270, 40)
-            canvas._fill_rectangle(vec.x, vec.y, _w, _h, TFT_WHITE)
+            canvas._fill_rectangle(vec_x, vec_y, _w, _h, TFT_WHITE)
 
             # Draw content based on current element
             if self.current_profile_element == PROFILE_ELEMENT_BIO:
@@ -1241,8 +1235,8 @@ class FlipSocialRun:
 
             # Navigation arrows
             if self.current_profile_element > 0:
-                vec.x, vec.y = canvas.scale(5, menu_y - 7)
-                canvas._text(vec.x, vec.y, "<", TFT_WHITE)
+                vec_x, vec_y = canvas.scale(5, menu_y - 7)
+                canvas._text(vec_x, vec_y, "<", TFT_WHITE)
             if self.current_profile_element < PROFILE_ELEMENT_MAX - 1:
                 _, _y = canvas.scale(0, menu_y - 7)
                 canvas._text(SW - canvas.scale_x(15), _y, ">", TFT_WHITE)
@@ -1269,8 +1263,7 @@ class FlipSocialRun:
 
         except Exception as e:
             self.view_manager.log(f"Error parsing profile: {e}")
-            _, _y = canvas.scale(0, 30)
-            canvas._text(0, _y, "Incomplete profile data.", TFT_WHITE)
+            canvas._text(0, canvas.scale_y(30), "Incomplete profile data.", TFT_WHITE)
 
     def draw_registration_view(self, canvas) -> None:
         """Draw the registration view"""
@@ -1306,30 +1299,21 @@ class FlipSocialRun:
                     self.registration_status = REGISTRATION_REQUEST_ERROR
 
         elif self.registration_status == REGISTRATION_SUCCESS:
-            vec_x, vec_y = canvas.scale(0, 10)
-            canvas._text(vec_x, vec_y, "Registration successful!", TFT_WHITE)
-            vec_x, vec_y = canvas.scale(0, 20)
-            canvas._text(vec_x, vec_y, "Press OK to continue.", TFT_WHITE)
+            canvas._text(0, canvas.scale_x(10), "Registration successful!", TFT_WHITE)
+            canvas._text(0, canvas.scale_x(20), "Press OK to continue.", TFT_WHITE)
 
         elif self.registration_status == REGISTRATION_CREDENTIALS_MISSING:
-            vec_x, vec_y = canvas.scale(0, 10)
-            canvas._text(vec_x, vec_y, "Missing credentials!", TFT_WHITE)
-            vec_x, vec_y = canvas.scale(0, 20)
-            canvas._text(vec_x, vec_y, "Please set your username", TFT_WHITE)
-            vec_x, vec_y = canvas.scale(0, 30)
-            canvas._text(vec_x, vec_y, "and password in the app.", TFT_WHITE)
+            canvas._text(0, canvas.scale_x(10), "Missing credentials!", TFT_WHITE)
+            canvas._text(0, canvas.scale_x(20), "Please set your username", TFT_WHITE)
+            canvas._text(0, canvas.scale_x(30), "and password in the app.", TFT_WHITE)
 
         elif self.registration_status == REGISTRATION_REQUEST_ERROR:
-            vec_x, vec_y = canvas.scale(0, 10)
-            canvas._text(vec_x, vec_y, "Registration failed!", TFT_WHITE)
-            vec_x, vec_y = canvas.scale(0, 20)
-            canvas._text(vec_x, vec_y, "Check your network and", TFT_WHITE)
-            vec_x, vec_y = canvas.scale(0, 30)
-            canvas._text(vec_x, vec_y, "try again later.", TFT_WHITE)
+            canvas._text(0, canvas.scale_x(10), "Registration failed!", TFT_WHITE)
+            canvas._text(0, canvas.scale_x(20), "Check your network and", TFT_WHITE)
+            canvas._text(0, canvas.scale_x(30), "try again later.", TFT_WHITE)
 
         else:
-            vec_x, vec_y = canvas.scale(0, 10)
-            canvas._text(vec_x, vec_y, "Registering...", TFT_WHITE)
+            canvas._text(0, canvas.scale_x(10), "Registering...", TFT_WHITE)
 
     def draw_user_info_view(self, canvas) -> None:
         """Draw the user info view"""
@@ -1357,6 +1341,7 @@ class FlipSocialRun:
                     storage.write(
                         "picoware/flip_social/profile.json", self.http.response.text
                     )
+                    self._loaded_data = None
 
                     if self.loading:
                         self.loading.stop()
@@ -1366,36 +1351,25 @@ class FlipSocialRun:
                     self.user_info_status = USER_INFO_REQUEST_ERROR
 
         elif self.user_info_status == USER_INFO_SUCCESS:
-            vec_x, vec_y = canvas.scale(0, 10)
-            canvas._text(vec_x, vec_y, "User info loaded!", TFT_WHITE)
-            vec_x, vec_y = canvas.scale(0, 20)
-            canvas._text(vec_x, vec_y, "Press OK to continue.", TFT_WHITE)
+            canvas._text(0, canvas.scale_x(10), "User info loaded!", TFT_WHITE)
+            canvas._text(0, canvas.scale_x(20), "Press OK to continue.", TFT_WHITE)
 
         elif self.user_info_status == USER_INFO_CREDENTIALS_MISSING:
-            vec_x, vec_y = canvas.scale(0, 10)
-            canvas._text(vec_x, vec_y, "Missing credentials!", TFT_WHITE)
-            vec_x, vec_y = canvas.scale(0, 20)
-            canvas._text(vec_x, vec_y, "Please update your username", TFT_WHITE)
-            vec_x, vec_y = canvas.scale(0, 30)
-            canvas._text(vec_x, vec_y, "and password in settings.", TFT_WHITE)
+            canvas._text(0, canvas.scale_x(10), "Missing credentials!", TFT_WHITE)
+            canvas._text(0, canvas.scale_x(20), "Please update your username", TFT_WHITE)
+            canvas._text(0, canvas.scale_x(30), "and password in settings.", TFT_WHITE)
 
         elif self.user_info_status == USER_INFO_REQUEST_ERROR:
-            vec_x, vec_y = canvas.scale(0, 10)
-            canvas._text(vec_x, vec_y, "User info request failed!", TFT_WHITE)
-            vec_x, vec_y = canvas.scale(0, 20)
-            canvas._text(vec_x, vec_y, "Check your network and", TFT_WHITE)
-            vec_x, vec_y = canvas.scale(0, 30)
-            canvas._text(vec_x, vec_y, "try again later.", TFT_WHITE)
+            canvas._text(0, canvas.scale_x(10), "User info request failed!", TFT_WHITE)
+            canvas._text(0, canvas.scale_x(20), "Check your network and", TFT_WHITE)
+            canvas._text(0, canvas.scale_x(30), "try again later.", TFT_WHITE)
 
         elif self.user_info_status == USER_INFO_PARSE_ERROR:
-            vec_x, vec_y = canvas.scale(0, 10)
-            canvas._text(vec_x, vec_y, "Failed to parse user info!", TFT_WHITE)
-            vec_x, vec_y = canvas.scale(0, 20)
-            canvas._text(vec_x, vec_y, "Try again...", TFT_WHITE)
+            canvas._text(0, canvas.scale_x(10), "Failed to parse user info!", TFT_WHITE)
+            canvas._text(0, canvas.scale_x(20), "Try again...", TFT_WHITE)
 
         else:
-            vec_x, vec_y = canvas.scale(0, 10)
-            canvas._text(vec_x, vec_y, "Loading user info...", TFT_WHITE)
+            canvas._text(0, canvas.scale_x(10), "Loading user info...", TFT_WHITE)
 
     def draw_wrapped_bio(self, canvas, text: str, x: int, y: int) -> None:
         """Draw the bio text with wrapping"""
@@ -1418,7 +1392,7 @@ class FlipSocialRun:
 
         # Try to break at word boundary
         if text_len > max_chars_per_line:
-            for i in range(max_chars_per_line - 1, max(max_chars_per_line - 8, 0), -1):
+            for i in range(max_chars_per_line - 1, max(max_chars_per_line - canvas.scale_x(8), 0), -1):
                 if text[i] == " ":
                     break_point = i
                     break
@@ -1440,7 +1414,7 @@ class FlipSocialRun:
 
             vec_x, vec_y = x, y
             canvas._text(vec_x, vec_y, line1, TFT_WHITE)
-            vec_y += 8
+            vec_y += canvas.font_size.y
             canvas._text(vec_x, vec_y, line2, TFT_WHITE)
         else:
             vec_x, vec_y = x, y
@@ -1454,16 +1428,15 @@ class FlipSocialRun:
             if self.current_menu_index == SOCIAL_VIEW_EXPLORE
             else "picoware/flip_social/message_users.json"
         )
-        data = storage.read(file_path)
+        data = storage.serialize(file_path)
 
         if not data:
             self.view_manager.log("Failed to load message user list from storage")
             return ""
 
         try:
-            obj = json_loads(data)
-            if "users" in obj and isinstance(obj["users"], list):
-                users = obj["users"]
+            if "users" in data and isinstance(data["users"], list):
+                users = data["users"]
                 index = (
                     self.explore_index
                     if self.current_menu_index == SOCIAL_VIEW_EXPLORE
@@ -1804,16 +1777,6 @@ class FlipSocialRun:
 
     def update_input(self, input_key: int) -> None:
         """Update input state"""
-        from picoware.system.buttons import (
-            BUTTON_BACK,
-            BUTTON_UP,
-            BUTTON_DOWN,
-            BUTTON_LEFT,
-            BUTTON_RIGHT,
-            BUTTON_CENTER,
-        )
-
-        self.should_debounce = False
         self.last_input = input_key
 
         if self.current_view == SOCIAL_VIEW_MENU:
@@ -1824,42 +1787,32 @@ class FlipSocialRun:
                     self.current_menu_index = SOCIAL_VIEW_FEED
                 elif self.current_menu_index == SOCIAL_VIEW_MESSAGE_USERS:
                     self.current_menu_index = SOCIAL_VIEW_POST
-                    self.should_debounce = True
                 elif self.current_menu_index == SOCIAL_VIEW_EXPLORE:
                     self.current_menu_index = SOCIAL_VIEW_MESSAGE_USERS
-                    self.should_debounce = True
                 elif self.current_menu_index == SOCIAL_VIEW_PROFILE:
                     self.current_menu_index = SOCIAL_VIEW_EXPLORE
-                    self.should_debounce = True
             elif self.last_input in (BUTTON_UP, BUTTON_RIGHT):
                 if self.current_menu_index == SOCIAL_VIEW_FEED:
                     self.current_menu_index = SOCIAL_VIEW_POST
-                    self.should_debounce = True
                 elif self.current_menu_index == SOCIAL_VIEW_POST:
                     self.current_menu_index = SOCIAL_VIEW_MESSAGE_USERS
-                    self.should_debounce = True
                 elif self.current_menu_index == SOCIAL_VIEW_MESSAGE_USERS:
                     self.current_menu_index = SOCIAL_VIEW_EXPLORE
-                    self.should_debounce = True
                 elif self.current_menu_index == SOCIAL_VIEW_EXPLORE:
                     self.current_menu_index = SOCIAL_VIEW_PROFILE
             elif self.last_input == BUTTON_CENTER:
                 if self.current_menu_index == SOCIAL_VIEW_FEED:
                     self.current_view = SOCIAL_VIEW_FEED
-                    self.should_debounce = True
                 elif self.current_menu_index == SOCIAL_VIEW_POST:
                     self.current_view = SOCIAL_VIEW_POST
-                    self.should_debounce = True
                     self.last_input = -1
                     return
                 elif self.current_menu_index == SOCIAL_VIEW_MESSAGE_USERS:
                     self.current_view = SOCIAL_VIEW_MESSAGE_USERS
-                    self.should_debounce = True
                     self.last_input = -1
                     return
                 elif self.current_menu_index == SOCIAL_VIEW_EXPLORE:
                     self.current_view = SOCIAL_VIEW_EXPLORE
-                    self.should_debounce = True
                     self.last_input = -1
                     return
                 elif self.current_menu_index == SOCIAL_VIEW_PROFILE:
@@ -1872,30 +1825,25 @@ class FlipSocialRun:
                         self.user_request(REQUEST_TYPE_USER_INFO)
                     elif self.user_info_status == USER_INFO_SUCCESS:
                         self.current_view = SOCIAL_VIEW_PROFILE
-                    self.should_debounce = True
                     self.last_input = -1
                     return
 
         elif self.current_view == SOCIAL_VIEW_FEED:
             if self.last_input == BUTTON_BACK:
                 self.current_view = SOCIAL_VIEW_MENU
-                self.should_debounce = True
             elif self.last_input == BUTTON_DOWN:
                 self.current_view = SOCIAL_VIEW_COMMENTS
                 self.comments_status = COMMENTS_NOT_STARTED
                 self.comments_index = 0
-                self.should_debounce = True
             elif self.last_input == BUTTON_LEFT:
                 if self.feed_item_index > 0:
                     self.feed_item_index -= 1
-                    self.should_debounce = True
                 elif self.feed_status == FEED_SUCCESS and self.feed_iteration > 1:
                     self.feed_iteration -= 1
                     self.feed_item_index = MAX_FEED_ITEMS - 1
             elif self.last_input == BUTTON_RIGHT:
                 if self.feed_item_index < MAX_FEED_ITEMS - 1:
                     self.feed_item_index += 1
-                    self.should_debounce = True
                 elif self.feed_status == FEED_SUCCESS:
                     self.feed_iteration += 1
                     self.feed_item_index = 0
@@ -1904,7 +1852,6 @@ class FlipSocialRun:
             elif self.last_input == BUTTON_CENTER:
                 self.user_request(REQUEST_TYPE_FLIP_POST)
                 self.feed_status = FEED_FLIPPING
-                self.should_debounce = True
 
         elif self.current_view == SOCIAL_VIEW_POST:
             keyboard = self.view_manager.keyboard
@@ -1918,11 +1865,8 @@ class FlipSocialRun:
                     keyboard.reset()
                     self.post_status = POST_WAITING
                     self.user_request(REQUEST_TYPE_POST)
-                if self.last_input != -1:
-                    self.should_debounce = True
                 if self.last_input == BUTTON_BACK:
                     self.post_status = POST_CHOOSE
-                    self.should_debounce = True
                     self.keyboard_ran = False
                     self.should_clear_screen = True
                     if keyboard:
@@ -1930,19 +1874,18 @@ class FlipSocialRun:
             else:
                 if self.last_input == BUTTON_BACK:
                     self.current_view = SOCIAL_VIEW_MENU
-                    self.should_debounce = True
                 elif self.last_input in (BUTTON_LEFT, BUTTON_DOWN):
                     if self.post_index > 0:
                         self.post_index -= 1
-                        self.should_debounce = True
+
                 elif self.last_input in (BUTTON_RIGHT, BUTTON_UP):
                     if self.post_index < MAX_PRE_SAVED_MESSAGES - 1:
                         self.post_index += 1
-                        self.should_debounce = True
+
                 elif self.last_input == BUTTON_CENTER:
                     if self.post_index == 0:
                         self.post_status = POST_KEYBOARD
-                        self.should_debounce = True
+
                         self.keyboard_ran = False
                         self.should_clear_screen = True
                         if keyboard:
@@ -1952,23 +1895,19 @@ class FlipSocialRun:
                         if selected_post and keyboard:
                             keyboard.response = selected_post
                             self.post_status = POST_KEYBOARD
-                            self.should_debounce = True
+    
 
         elif self.current_view == SOCIAL_VIEW_MESSAGE_USERS:
             if self.last_input == BUTTON_BACK:
                 self.current_view = SOCIAL_VIEW_MENU
-                self.should_debounce = True
             elif self.last_input in (BUTTON_LEFT, BUTTON_DOWN):
                 if self.message_user_index > 0:
                     self.message_user_index -= 1
-                    self.should_debounce = True
             elif self.last_input in (BUTTON_RIGHT, BUTTON_UP):
                 if self.message_user_index < MAX_MESSAGE_USERS - 1:
                     self.message_user_index += 1
-                    self.should_debounce = True
             elif self.last_input == BUTTON_CENTER:
                 self.current_view = SOCIAL_VIEW_MESSAGES
-                self.should_debounce = True
 
         elif self.current_view == SOCIAL_VIEW_MESSAGES:
             keyboard = self.view_manager.keyboard
@@ -1982,11 +1921,8 @@ class FlipSocialRun:
                     keyboard.reset()
                     self.messages_status = MESSAGES_SENDING
                     self.user_request(REQUEST_TYPE_MESSAGE_SEND)
-                if self.last_input != -1:
-                    self.should_debounce = True
                 if self.last_input == BUTTON_BACK:
                     self.messages_status = MESSAGES_SUCCESS
-                    self.should_debounce = True
                     self.keyboard_ran = False
                     self.should_clear_screen = True
                     if keyboard:
@@ -1996,18 +1932,16 @@ class FlipSocialRun:
                     self.current_view = SOCIAL_VIEW_MESSAGE_USERS
                     self.messages_status = MESSAGES_NOT_STARTED
                     self.messages_index = 0
-                    self.should_debounce = True
                 elif self.last_input in (BUTTON_LEFT, BUTTON_DOWN):
                     if self.messages_index > 0:
                         self.messages_index -= 1
-                        self.should_debounce = True
+
                 elif self.last_input in (BUTTON_RIGHT, BUTTON_UP):
                     if self.messages_index < MAX_MESSAGES - 1:
                         self.messages_index += 1
-                        self.should_debounce = True
+
                 elif self.last_input == BUTTON_CENTER:
                     self.messages_status = MESSAGES_KEYBOARD
-                    self.should_debounce = True
 
         elif self.current_view == SOCIAL_VIEW_EXPLORE:
             keyboard = self.view_manager.keyboard
@@ -2022,13 +1956,10 @@ class FlipSocialRun:
                     self.explore_status = EXPLORE_WAITING
                     self.explore_index = 0
                     self.user_request(REQUEST_TYPE_EXPLORE)
-                if self.last_input != -1:
-                    self.should_debounce = True
                 if self.last_input == BUTTON_BACK:
                     self.current_view = SOCIAL_VIEW_MENU
                     self.explore_status = EXPLORE_KEYBOARD_USERS
                     self.explore_index = 0
-                    self.should_debounce = True
                     self.keyboard_ran = False
                     self.should_clear_screen = True
                     if keyboard:
@@ -2043,11 +1974,8 @@ class FlipSocialRun:
                     keyboard.reset()
                     self.explore_status = EXPLORE_SENDING
                     self.user_request(REQUEST_TYPE_MESSAGE_SEND)
-                if self.last_input != -1:
-                    self.should_debounce = True
                 if self.last_input == BUTTON_BACK:
                     self.explore_status = EXPLORE_SUCCESS
-                    self.should_debounce = True
                     self.keyboard_ran = False
                     self.should_clear_screen = True
                     if keyboard:
@@ -2057,7 +1985,6 @@ class FlipSocialRun:
                     self.current_view = SOCIAL_VIEW_MENU
                     self.explore_status = EXPLORE_KEYBOARD_USERS
                     self.explore_index = 0
-                    self.should_debounce = True
                     self.keyboard_ran = False
                     self.should_clear_screen = True
                     if keyboard:
@@ -2065,14 +1992,13 @@ class FlipSocialRun:
                 elif self.last_input in (BUTTON_LEFT, BUTTON_DOWN):
                     if self.explore_index > 0:
                         self.explore_index -= 1
-                        self.should_debounce = True
+
                 elif self.last_input in (BUTTON_RIGHT, BUTTON_UP):
                     if self.explore_index < MAX_EXPLORE_USERS - 1:
                         self.explore_index += 1
-                        self.should_debounce = True
+
                 elif self.last_input == BUTTON_CENTER:
                     self.explore_status = EXPLORE_KEYBOARD_MESSAGE
-                    self.should_debounce = True
                     self.keyboard_ran = False
                     self.should_clear_screen = True
                     if keyboard:
@@ -2081,15 +2007,12 @@ class FlipSocialRun:
         elif self.current_view == SOCIAL_VIEW_PROFILE:
             if self.last_input == BUTTON_BACK:
                 self.current_view = SOCIAL_VIEW_MENU
-                self.should_debounce = True
             elif self.last_input in (BUTTON_LEFT, BUTTON_DOWN):
                 if self.current_profile_element > 0:
                     self.current_profile_element -= 1
-                    self.should_debounce = True
             elif self.last_input in (BUTTON_RIGHT, BUTTON_UP):
                 if self.current_profile_element < PROFILE_ELEMENT_MAX - 1:
                     self.current_profile_element += 1
-                    self.should_debounce = True
 
         elif self.current_view == SOCIAL_VIEW_COMMENTS:
             keyboard = self.view_manager.keyboard
@@ -2103,11 +2026,8 @@ class FlipSocialRun:
                     keyboard.reset()
                     self.comments_status = COMMENTS_SENDING
                     self.user_request(REQUEST_TYPE_COMMENT_POST)
-                if self.last_input != -1:
-                    self.should_debounce = True
                 if self.last_input == BUTTON_BACK:
                     self.comments_status = COMMENTS_SUCCESS
-                    self.should_debounce = True
                     self.keyboard_ran = False
                     self.should_clear_screen = True
                     if keyboard:
@@ -2116,15 +2036,14 @@ class FlipSocialRun:
                 if self.last_input == BUTTON_BACK:
                     self.current_view = SOCIAL_VIEW_FEED
                     self.comment_is_valid = False
-                    self.should_debounce = True
                 elif self.last_input == BUTTON_LEFT:
                     if self.comments_index > 0:
                         self.comments_index -= 1
-                        self.should_debounce = True
+
                 elif self.last_input == BUTTON_RIGHT:
                     if self.comments_index < MAX_COMMENTS - 1:
                         self.comments_index += 1
-                        self.should_debounce = True
+
                 elif self.last_input == BUTTON_DOWN:
                     self.comments_status = COMMENTS_KEYBOARD
                     if keyboard:
@@ -2132,11 +2051,9 @@ class FlipSocialRun:
                         self.should_clear_screen = True
                         keyboard.reset()
                         keyboard.response = ""
-                    self.should_debounce = True
                 elif self.last_input == BUTTON_CENTER:
                     if self.comment_is_valid:
                         self.user_request(REQUEST_TYPE_COMMENT_FLIP)
-                    self.should_debounce = True
 
         elif self.current_view in (
             SOCIAL_VIEW_LOGIN,
@@ -2146,7 +2063,6 @@ class FlipSocialRun:
             if self.last_input == BUTTON_BACK:
                 self.current_view = SOCIAL_VIEW_LOGIN
                 self.should_return_to_menu = True
-                self.should_debounce = True
 
         self.last_input = -1
 

@@ -363,8 +363,8 @@ def _start_sessions_menu(view_manager) -> None:
                 if preview:
                     label = session_id + " - " + preview
                 break
-        except Exception:
-            pass
+        except Exception as e:
+            view_manager.log(f"[Agent] Failed to load session preview for {session_id}: {e}")
         _session_labels.append(label)
 
     if _sessions_menu is not None:

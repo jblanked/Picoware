@@ -2,6 +2,7 @@
 // JPEGDEC from https://github.com/bitbank2/JPEGDEC
 // modified for Picoware by @jblanked
 #include "jpegdec_mp.h"
+#include <limits.h>
 #include "../log/log_mp.h"
 
 #ifndef PRINT
@@ -12,7 +13,7 @@ void *JPEGdummy = {readFLASH}; // to avoid compiler error
 
 #if defined(PICOCALC)
 #include "../../lcd/lcd_config.h"
-#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
+#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO)
 #include "../lcd/lcd_config.h"
 #else
 #include "../../../lcd/lcd_config.h"
@@ -375,6 +376,36 @@ static void decode_core1_split()
     s_jpeg_core1_result_pending = true;
 #endif
     core1_running = 2;
+}
+
+bool jpegdec_decode_buffer(const uint8_t *data, size_t size, int x, int y, int options)
+{
+    if (data == NULL || size == 0 || size > (size_t)INT_MAX)
+    {
+        return false;
+    }
+
+    while (core1_decode_is_busy())
+    {
+        tight_loop_contents();
+    }
+
+    JPEGIMAGE *context = (JPEGIMAGE *)m_malloc(sizeof(*context));
+    if (!context)
+    {
+        return false;
+    }
+
+    bool decoded = false;
+    if (decode_core1_prepare(context, 0, (int)size, (uint8_t *)data, JPEGDraw) == 1)
+    {
+        context->iXOffset = x;
+        context->iYOffset = y;
+        context->iOptions = options;
+        decoded = DecodeJPEG(context) == 1;
+    }
+    m_free(context);
+    return decoded;
 }
 
 //--- mp functions

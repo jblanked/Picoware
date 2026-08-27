@@ -122,6 +122,8 @@ static const struct define_grp spi_defines[] = {
 
 static const struct define_grp math_defines[] = {{0}};
 
+static const struct define_grp lib_defines[] = {{0}};
+
 static const struct define_grp adc_defines[] = {{0}};
 
 static const struct define_grp stdlib_defines[] = {{0}};

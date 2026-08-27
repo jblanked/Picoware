@@ -4,6 +4,7 @@ add_library(usermod_c INTERFACE)
 
 target_sources(usermod_c INTERFACE
 	${CMAKE_CURRENT_LIST_DIR}/c_mp.c
+	${CMAKE_CURRENT_LIST_DIR}/lib.c
 	${CMAKE_CURRENT_LIST_DIR}/io.c
 	${CMAKE_CURRENT_LIST_DIR}/pshell/cc/cc.c
 	${CMAKE_CURRENT_LIST_DIR}/pshell/cc/cc_malloc.c

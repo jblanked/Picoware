@@ -9,6 +9,7 @@ GEMINI = const(3)
 LOCAL = const(4)
 XAI = const(5)
 JBLANKED = const(6)
+CUSTOM = const(7)
 
 class LLM:
     """LLM config"""
@@ -122,7 +123,7 @@ class LLM:
     @staticmethod
     def providers() -> list:
         """Return a list of available LLM providers."""
-        return [OPENAI, DEEPSEEK, ANTHROPIC, GEMINI, LOCAL, XAI, JBLANKED]
+        return [OPENAI, DEEPSEEK, ANTHROPIC, GEMINI, LOCAL, XAI, JBLANKED, CUSTOM]
 
     @staticmethod
     def provider_name(provider_id: int) -> str:
@@ -148,6 +149,8 @@ class LLM:
             return "xAI"
         if provider_id == JBLANKED:
             return "JBlanked"
+        if provider_id == CUSTOM:
+            return "Custom"
         return "Unknown"
 
     def __set(self, storage):
@@ -196,6 +199,15 @@ class LLM:
             self._url = "https://www.jblanked.com/ai/v1/chat/completions"
             self._models = ["none"]
             self._api_key = settings.jblanked_api_key
+        elif self._id == CUSTOM:
+            self._name = "Custom"
+            _path = "picoware/agent/custom.json"
+            if not storage.exists(_path):
+                raise Exception(f"Custom configuration file not found at {_path}")
+            _config = storage.serialize(_path)
+            self._url = _config.get("url", "")
+            self._models = _config.get("models", ["none"])
+            self._api_key = _config.get("api_key", "")
         
         self._headers["Authorization"] = f"Bearer {self._api_key}"
         

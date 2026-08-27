@@ -13,17 +13,15 @@ STATE_JBLANKED_API_KEY = const(6)  # keyboard input for jblanked API key
 STATE_LOCAL_API_KEY = const(7)  # keyboard input for local API key
 STATE_LOCAL_URL = const(8)  # keyboard input for Local URL
 STATE_LVGL_MODE = const(9)  # toggle (use LVGL or not)
-STATE_MCP_SERVER_ADDRESS = const(10)  # keyboard input for MCP server address
-STATE_MCP_SERVER_API_KEY = const(11)  # keyboard input for MCP server API key
-STATE_MCP_SERVERS = const(12)  # menu for MCP servers list
-STATE_ONSCREEN_KEYBOARD = const(13)  # toggle (show/hide)
-STATE_OPENAI_API_KEY = const(14)  # keyboard input for OpenAI API key
-STATE_SCREEN_BRIGHTNESS = const(15)  # choice (10 - 100)
-STATE_SERVER_SETTINGS = const(16)  # menu with username and password
-STATE_THEME_COLOR = const(17)  # choice (select from predefined colors)
-STATE_TIME = const(18)  # menu with date (date picker), GMT offset (keyboard)
-STATE_USB_STREAM = const(19)  # toggle (enable/disable USB stream)
-STATE_XAI_API_KEY = const(20)  # keyboard input for xAI API key
+STATE_MCP_SERVERS = const(10)  # menu for MCP servers list
+STATE_ONSCREEN_KEYBOARD = const(11)  # toggle (show/hide)
+STATE_OPENAI_API_KEY = const(12)  # keyboard input for OpenAI API key
+STATE_SCREEN_BRIGHTNESS = const(13)  # choice (10 - 100)
+STATE_SERVER_SETTINGS = const(14)  # menu with username and password
+STATE_THEME_COLOR = const(15)  # choice (select from predefined colors)
+STATE_TIME = const(16)  # menu with date (date picker), GMT offset (keyboard)
+STATE_USB_STREAM = const(17)  # toggle (enable/disable USB stream)
+STATE_XAI_API_KEY = const(18)  # keyboard input for xAI API key
 
 # modes
 _MODE_MENU = const(0)
@@ -42,10 +40,9 @@ _MODE_LOCAL_URL_KEYBOARD = const(12)
 _MODE_XAI_KEYBOARD = const(13)
 _MODE_JBLANKED_KEYBOARD = const(14)
 _MODE_LOCAL_API_KEY_KEYBOARD = const(15)
-_MODE_MCP_SERVER_ADDRESS_KEYBOARD = const(16)
-_MODE_MCP_SERVER_API_KEY_KEYBOARD = const(17)
-_MODE_MCP_API_KEY_KEYBOARD = const(18)
-_MODE_MCP_SERVERS_MENU = const(19)
+_MODE_MCP_SERVER_ENDPOINT_KEYBOARD = const(16)
+_MODE_MCP_API_KEY_KEYBOARD = const(17)
+_MODE_MCP_SERVERS_MENU = const(18)
 
 
 _settings = None
@@ -70,9 +67,7 @@ _local_url_save_requested = False
 _xai_save_requested = False
 _jblanked_save_requested = False
 _local_api_key_save_requested = False
-_mcp_server_address_save_requested = False
-_mcp_server_api_key_save_requested = False
-_mcp_server_add_requested = False
+_mcp_server_endpoint_save_requested = False
 _mcp_api_key_save_requested = False
 _mcp_server_index = 0
 
@@ -135,8 +130,6 @@ def __config() -> tuple:
         ("JBlanked API Key", "jblanked_api_key", ""),
         ("Local API Key", "local_api_key", ""),
         ("Local URL", "local_url", "http://127.0.0.1:8080/v1/chat/completions"),
-        ("MCP Server Address", "mcp_server_address", ""),
-        ("MCP Server API Key", "mcp_server_api_key", ""),
         ("MCP Servers", "mcp_servers", None),
         (
             "Onscreen Keyboard",
@@ -711,59 +704,25 @@ def __local_api_key_save_callback(result: str) -> None:
     _local_api_key_save_requested = True
 
 
-def __open_mcp_server_api_key_keyboard() -> None:
-    """Open the keyboard for entering the MCP server API key."""
-    global _mode, _mcp_server_api_key_save_requested
+def __open_mcp_server_endpoint_keyboard() -> None:
+    """Open the keyboard for adding an MCP server endpoint."""
+    global _mode, _mcp_server_endpoint_save_requested
 
     keyboard = _view_manager.keyboard
     keyboard.reset()
-    keyboard.title = "MCP Server API Key"
-    keyboard.response = _settings.mcp_server_api_key
-    keyboard.set_save_callback(__mcp_server_api_key_save_callback)
+    keyboard.title = "MCP Server Endpoint"
+    keyboard.response = ""
+    keyboard.set_save_callback(__mcp_server_endpoint_save_callback)
     keyboard.input_manager.reset()
     keyboard.run(force=True)
-    _mcp_server_api_key_save_requested = False
-    _mode = _MODE_MCP_SERVER_API_KEY_KEYBOARD
+    _mcp_server_endpoint_save_requested = False
+    _mode = _MODE_MCP_SERVER_ENDPOINT_KEYBOARD
 
 
-def __mcp_server_api_key_save_callback(result: str) -> None:
-    """Callback triggered when the MCP server API key keyboard is saved.
-
-    Args:
-        result (str): The saved keyboard value.
-    """
-    global _mcp_server_api_key_save_requested
-    _mcp_server_api_key_save_requested = True
-
-
-def __open_mcp_server_address_keyboard(add_server: bool = False) -> None:
-    """Open the keyboard for entering an MCP server address.
-
-    Args:
-        add_server (bool): Whether to add the result to the server list.
-    """
-    global _mode, _mcp_server_address_save_requested, _mcp_server_add_requested
-
-    keyboard = _view_manager.keyboard
-    keyboard.reset()
-    keyboard.title = "MCP Server Address"
-    keyboard.response = "" if add_server else _settings.mcp_server_address
-    keyboard.set_save_callback(__mcp_server_address_save_callback)
-    keyboard.input_manager.reset()
-    keyboard.run(force=True)
-    _mcp_server_address_save_requested = False
-    _mcp_server_add_requested = add_server
-    _mode = _MODE_MCP_SERVER_ADDRESS_KEYBOARD
-
-
-def __mcp_server_address_save_callback(result: str) -> None:
-    """Callback triggered when the MCP server address keyboard is saved.
-
-    Args:
-        result (str): The saved keyboard value.
-    """
-    global _mcp_server_address_save_requested
-    _mcp_server_address_save_requested = True
+def __mcp_server_endpoint_save_callback(result: str) -> None:
+    """Callback triggered when an MCP endpoint is saved."""
+    global _mcp_server_endpoint_save_requested
+    _mcp_server_endpoint_save_requested = True
 
 
 def __add_mcp_server(endpoint: str) -> None:
@@ -803,7 +762,7 @@ def __open_mcp_servers_menu() -> None:
 
 
 def __open_mcp_api_key_keyboard(server_index: int) -> None:
-    """Open the keyboard for an MCP server API key.
+    """Open the keyboard for a per-server MCP API key.
 
     Args:
         server_index (int): The index of the server in the settings list.
@@ -833,7 +792,7 @@ def __mcp_api_key_save_callback(result: str) -> None:
 
 
 def __save_mcp_api_key(value: str) -> None:
-    """Save an MCP server API key by its server index."""
+    """Save a per-server MCP API key by its server index."""
     servers = list(_settings.mcp_servers)
     server = dict(servers[_mcp_server_index])
     server["api_key"] = value
@@ -854,12 +813,11 @@ def __back_to_server_menu() -> None:
 
 def __back_to_mcp_servers_menu() -> None:
     """Return to the MCP Servers sub-menu."""
-    global _mcp_server_address_save_requested, _mcp_server_add_requested, _mcp_api_key_save_requested
+    global _mcp_server_endpoint_save_requested, _mcp_api_key_save_requested
 
     keyboard = _view_manager.keyboard
     keyboard.reset()
-    _mcp_server_address_save_requested = False
-    _mcp_server_add_requested = False
+    _mcp_server_endpoint_save_requested = False
     _mcp_api_key_save_requested = False
 
     __open_mcp_servers_menu()
@@ -923,7 +881,7 @@ def start(view_manager) -> bool:
     from picoware.gui.menu import Menu
     from picoware.system.settings import Settings
 
-    global _settings, _menu, _view_manager, _mode, _time_menu, _date_picker, _server_menu, _mcp_servers_menu, _gmt_save_requested, _server_save_requested, _server_keyboard_field, _openai_save_requested, _deepseek_save_requested, _anthropic_save_requested, _gemini_save_requested, _xai_save_requested, _jblanked_save_requested, _local_api_key_save_requested, _mcp_server_address_save_requested, _mcp_server_api_key_save_requested, _mcp_server_add_requested, _mcp_api_key_save_requested
+    global _settings, _menu, _view_manager, _mode, _time_menu, _date_picker, _server_menu, _mcp_servers_menu, _gmt_save_requested, _server_save_requested, _server_keyboard_field, _openai_save_requested, _deepseek_save_requested, _anthropic_save_requested, _gemini_save_requested, _xai_save_requested, _jblanked_save_requested, _local_api_key_save_requested, _mcp_server_endpoint_save_requested, _mcp_api_key_save_requested
 
     _view_manager = view_manager
     _mode = _MODE_MENU
@@ -937,9 +895,7 @@ def start(view_manager) -> bool:
     _xai_save_requested = False
     _jblanked_save_requested = False
     _local_api_key_save_requested = False
-    _mcp_server_address_save_requested = False
-    _mcp_server_api_key_save_requested = False
-    _mcp_server_add_requested = False
+    _mcp_server_endpoint_save_requested = False
     _mcp_api_key_save_requested = False
 
     if _settings is not None:
@@ -1036,10 +992,6 @@ def run(view_manager) -> None:
                 __open_jblanked_keyboard()
             elif selected == "Local API Key":
                 __open_local_api_key_keyboard()
-            elif selected == "MCP Server Address":
-                __open_mcp_server_address_keyboard()
-            elif selected == "MCP Server API Key":
-                __open_mcp_server_api_key_keyboard()
             elif selected == "MCP Servers":
                 __open_mcp_servers_menu()
             else:
@@ -1203,37 +1155,16 @@ def run(view_manager) -> None:
             view_manager.keyboard.reset()
             __back_to_menu()
 
-    elif _mode == _MODE_MCP_SERVER_API_KEY_KEYBOARD:
-        global _mcp_server_api_key_save_requested
-        if _mcp_server_api_key_save_requested:
-            _mcp_server_api_key_save_requested = False
-            _settings.mcp_server_api_key = view_manager.keyboard.response or ""
-            view_manager.keyboard.reset()
-            __back_to_menu()
-        elif not view_manager.keyboard.run():
-            _mcp_server_api_key_save_requested = False
-            view_manager.keyboard.reset()
-            __back_to_menu()
-
-    elif _mode == _MODE_MCP_SERVER_ADDRESS_KEYBOARD:
-        global _mcp_server_address_save_requested, _mcp_server_add_requested
-        if _mcp_server_address_save_requested:
-            _mcp_server_address_save_requested = False
+    elif _mode == _MODE_MCP_SERVER_ENDPOINT_KEYBOARD:
+        global _mcp_server_endpoint_save_requested
+        if _mcp_server_endpoint_save_requested:
+            _mcp_server_endpoint_save_requested = False
             endpoint = view_manager.keyboard.response or ""
-            if _mcp_server_add_requested:
-                if endpoint:
-                    __add_mcp_server(endpoint)
-                __back_to_mcp_servers_menu()
-            else:
-                _settings.mcp_server_address = endpoint
-                view_manager.keyboard.reset()
-                __back_to_menu()
+            if endpoint:
+                __add_mcp_server(endpoint)
+            __back_to_mcp_servers_menu()
         elif not view_manager.keyboard.run():
-            view_manager.keyboard.reset()
-            if _mcp_server_add_requested:
-                __back_to_mcp_servers_menu()
-            else:
-                __back_to_menu()
+            __back_to_mcp_servers_menu()
 
     elif _mode == _MODE_MCP_SERVERS_MENU:
         if button == BUTTON_BACK:
@@ -1245,7 +1176,7 @@ def run(view_manager) -> None:
         elif button == BUTTON_CENTER:
             selected = _mcp_servers_menu.selected_index
             if selected == 0:
-                __open_mcp_server_address_keyboard(add_server=True)
+                __open_mcp_server_endpoint_keyboard()
             else:
                 __open_mcp_api_key_keyboard(selected - 1)
 

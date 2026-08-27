@@ -30,8 +30,6 @@ class Settings:
             "jblanked_api_key": "",
             "local_url": "http://127.0.0.1:8080/v1/chat/completions",
             "lvgl_mode": False,
-            "mcp_server_address": "",
-            "mcp_server_api_key": "",
             "mcp_servers": [],
             "onscreen_keyboard": BOARD_HAS_TOUCH == 1 or BOARD_ID == BOARD_FLIPPER_ZERO,
             "openai_api_key": "",
@@ -57,8 +55,6 @@ class Settings:
                 "local_api_key": "",
                 "local_url": "http://127.0.0.1:8080/v1/chat/completions",
                 "lvgl_mode": bool(self.__fetch_setting("picoware/settings/lvgl_mode.json", "lvgl_mode", False)),
-                "mcp_server_address": "",
-                "mcp_server_api_key": "",
                 "mcp_servers": [],
                 "onscreen_keyboard": bool(self.__fetch_setting("picoware/settings/onscreen_keyboard.json", "onscreen_keyboard", BOARD_HAS_TOUCH == 1)),
                 "openai_api_key": "",
@@ -229,36 +225,6 @@ class Settings:
             value (bool): True to enable LVGL mode.
         """
         self._settings["lvgl_mode"] = value
-        self.__save_settings()
-
-    @property
-    def mcp_server_address(self) -> str:
-        """Return the current MCP server address."""
-        return self._settings.get("mcp_server_address", "")
-
-    @mcp_server_address.setter
-    def mcp_server_address(self, value: str):
-        """Set the MCP server address.
-
-        Args:
-            value (str): The MCP server address to set.
-        """
-        self._settings["mcp_server_address"] = value
-        self.__save_settings()
-
-    @property
-    def mcp_server_api_key(self) -> str:
-        """Return the current MCP server API key."""
-        return self._settings.get("mcp_server_api_key", "")
-
-    @mcp_server_api_key.setter
-    def mcp_server_api_key(self, value: str):
-        """Set the MCP server API key.
-
-        Args:
-            value (str): The API key to set.
-        """
-        self._settings["mcp_server_api_key"] = value
         self.__save_settings()
 
     @property

@@ -782,7 +782,7 @@ class FlipSocialRun:
             item_width = canvas.len(current_item)
             item_x = (canvas.size.x - item_width) // 2
             box_w = item_width + box_padding * 2
-            box_x = item_x - box_padding
+            box_x = (canvas.size.x - box_w) // 2
             _, _box_y = canvas.scale(0, menu_y - 20)
             _box_h = canvas.scale_y(40)
             canvas._fill_rectangle(box_x, _box_y, box_w, _box_h, TFT_WHITE)

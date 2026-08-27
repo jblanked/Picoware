@@ -753,6 +753,59 @@ class FlipSocialRun:
         menu_items = ["Feed", "Post", "Messages", "Explore", "Profile"]
         self.draw_menu(canvas, self.current_menu_index, menu_items)
 
+    def _wrap_text(self, canvas, text: str, max_width: int) -> list:
+        """Wrap text to a maximum pixel width"""
+        lines = []
+        for paragraph in str(text).split("\n"):
+            if not paragraph:
+                lines.append("")
+                continue
+
+            line = ""
+            for word in paragraph.split(" "):
+                if not word:
+                    continue
+                if canvas.len(word) > max_width:
+                    if line:
+                        lines.append(line)
+                        line = ""
+                    chunk = ""
+                    for character in word:
+                        candidate = chunk + character
+                        if chunk and canvas.len(candidate) > max_width:
+                            lines.append(chunk)
+                            chunk = character
+                        else:
+                            chunk = candidate
+                    line = chunk
+                    continue
+
+                candidate = word if not line else line + " " + word
+                if line and canvas.len(candidate) > max_width:
+                    lines.append(line)
+                    line = word
+                else:
+                    line = candidate
+
+            lines.append(line)
+
+        return lines or [""]
+
+    def _fit_text_lines(
+        self, canvas, lines: list, max_lines: int, max_width: int
+    ) -> list:
+        """Limit wrapped text to the available lines"""
+        if len(lines) <= max_lines:
+            return lines
+
+        fitted_lines = lines[:max_lines]
+        suffix = "..."
+        last_line = fitted_lines[-1]
+        while last_line and canvas.len(last_line + suffix) > max_width:
+            last_line = last_line[:-1]
+        fitted_lines[-1] = (last_line.rstrip() + suffix) if last_line else suffix
+        return fitted_lines
+
     def draw_menu(self, canvas, selected_index: int, menu_items: list) -> None:
         """Generic menu drawer"""
         # Draw title
@@ -770,43 +823,63 @@ class FlipSocialRun:
         _y += canvas.scale_y(30)
         for i in range(0, canvas.size.x + 1, 10):
             canvas._pixel(i, _y, TFT_WHITE)
+        top_pattern_y = _y
 
         # Get current item
         if 0 <= selected_index < len(menu_items):
             current_item = menu_items[selected_index]
 
-            menu_y = 160
-            box_padding = canvas.scale_x(20)
+            indicator_y = 195
+            dot_size = canvas.scale_x(10)
+            dot_spacing = canvas.scale_x(15)
+            dot_y = canvas.scale_y(indicator_y)
 
-            # Draw selection box 
-            item_width = canvas.len(current_item)
-            item_x = (canvas.size.x - item_width) // 2
-            box_w = item_width + box_padding * 2
+            box_padding_x = canvas.scale_x(20)
+            box_padding_y = canvas.scale_y(6)
+            line_height = canvas.font_size.y + canvas.scale_y(2)
+            content_top = top_pattern_y + canvas.scale_y(10)
+            content_bottom = dot_y - canvas.scale_y(10)
+            max_text_width = canvas.scale_x(270) - box_padding_x * 2
+            max_lines = max(1, (content_bottom - content_top - box_padding_y * 2) // line_height)
+            item_lines = self._fit_text_lines(
+                canvas,
+                self._wrap_text(canvas, current_item, max_text_width),
+                max_lines,
+                max_text_width,
+            )
+            item_width = max(
+                [canvas.len(line) for line in item_lines] or [0]
+            )
+            box_w = item_width + box_padding_x * 2
             box_x = (canvas.size.x - box_w) // 2
-            _, _box_y = canvas.scale(0, menu_y - 20)
-            _box_h = canvas.scale_y(40)
-            canvas._fill_rectangle(box_x, _box_y, box_w, _box_h, TFT_WHITE)
+            text_height = len(item_lines) * line_height
+            box_h = max(canvas.scale_y(30), text_height + box_padding_y * 2)
+            box_y = content_top + (content_bottom - content_top - box_h) // 2
+            canvas._fill_rectangle(box_x, box_y, box_w, box_h, TFT_WHITE)
 
             # Draw text centered (on top of the box)
-            _, _text_y = canvas.scale(0, menu_y - 10)
-            canvas._text(item_x, _text_y, current_item, TFT_BLACK)
+            text_y = box_y + (box_h - text_height) // 2
+            for line in item_lines:
+                line_width = canvas.len(line)
+                line_x = (canvas.size.x - line_width) // 2
+                canvas._text(line_x, text_y, line, TFT_BLACK)
+                text_y += line_height
 
             # Draw navigation arrows
             if selected_index > 0:
-                _x, _y = canvas.scale(5, menu_y - 7)
-                canvas._text(_x, _y, "<", TFT_WHITE)
+                _x = canvas.scale_x(5)
+                canvas._text(_x, box_y + (box_h - canvas.font_size.y) // 2, "<", TFT_WHITE)
             if selected_index < len(menu_items) - 1:
                 _x = canvas.size.x - canvas.scale_x(15)
-                _, _y = canvas.scale(0, menu_y - 7)
-                canvas._text(_x, _y, ">", TFT_WHITE)
+                canvas._text(_x, box_y + (box_h - canvas.font_size.y) // 2, ">", TFT_WHITE)
 
             # Draw indicator dots
-            indicator_y = 195
-            _dot_s = canvas.scale_x(10)
-            _dot_spacing = canvas.scale_x(15)
-            _dot_y = canvas.scale_y(indicator_y)
+            _dot_s = dot_size
+            _dot_spacing = dot_spacing
+            _dot_y = dot_y
             if len(menu_items) <= 15:
-                dots_start_x = (canvas.size.x - (len(menu_items) * _dot_spacing)) // 2
+                dots_width = (len(menu_items) - 1) * _dot_spacing + _dot_s
+                dots_start_x = (canvas.size.x - dots_width) // 2
                 for i in range(len(menu_items)):
                     dot_x = dots_start_x + (i * _dot_spacing)
                     if i == selected_index:
@@ -883,99 +956,91 @@ class FlipSocialRun:
                                 for i in range(0, SW + 1, 10):
                                     canvas._pixel(i, _decor_y, TFT_WHITE)
 
-                                menu_y = 160
-
-                                # Calculate content lines and box height
-                                content_lines = 1
-                                if len(content) > 30:
-                                    content_lines = 2
-                                if len(content) > 60:
-                                    content_lines = 3
-
-                                box_height = (content_lines * 20) + 20
-                                box_height = max(box_height, 40)
-
-                                box_y_offset = -45 if content_lines > 1 else -30
+                                indicator_y = 195
+                                indicator_y_px = canvas.scale_y(indicator_y)
+                                line_height = canvas.font_size.y + canvas.scale_y(2)
+                                content_padding_x = canvas.scale_x(15)
+                                content_padding_y = canvas.scale_y(6)
+                                content_top = _decor_y + canvas.scale_y(10)
+                                content_bottom = indicator_y_px - canvas.scale_y(15)
+                                box_w = canvas.scale_x(270)
+                                max_text_width = box_w - content_padding_x * 2
+                                max_lines = max(
+                                    1,
+                                    (content_bottom - content_top - content_padding_y * 2)
+                                    // line_height,
+                                )
+                                content_lines = self._fit_text_lines(
+                                    canvas,
+                                    self._wrap_text(canvas, content, max_text_width),
+                                    max_lines,
+                                    max_text_width,
+                                )
+                                text_height = len(content_lines) * line_height
+                                box_h = max(
+                                    canvas.scale_y(30),
+                                    text_height + content_padding_y * 2,
+                                )
+                                box_x = (SW - box_w) // 2
+                                box_y = content_top + (
+                                    content_bottom - content_top - box_h
+                                ) // 2
 
                                 # Draw message content box
-                                _x, _y = 25, menu_y + box_y_offset
-                                _x, _y = canvas.scale(_x, _y)
-                                _scaled_box_w = canvas.scale(270, 0)[0]
-                                _scaled_box_h = canvas.scale(0, box_height)[1]
                                 canvas._fill_rectangle(
-                                    _x,
-                                    _y,
-                                    _scaled_box_w,
-                                    _scaled_box_h,
+                                    box_x,
+                                    box_y,
+                                    box_w,
+                                    box_h,
                                     TFT_WHITE,
                                 )
 
                                 # Draw message content with word wrapping
-                                if len(content) <= 30:
-                                    # Single line
-                                    line_width = canvas.len(content)
+                                text_y = box_y + (box_h - text_height) // 2
+                                for line in content_lines:
+                                    line_width = canvas.len(line)
                                     line_x = (SW - line_width) // 2
-                                    _, _y = canvas.scale(0, menu_y + 10 - 20)
-                                    canvas._text(line_x, _y, content, TFT_BLACK)
-                                else:
-                                    # Multi-line - break at word boundaries
-                                    break_pos = content.rfind(" ", 0, 30)
-                                    if break_pos != -1 and break_pos > 15:
-                                        line1 = content[:break_pos]
-                                        line2 = content[break_pos + 1 :]
-                                        if len(line2) > 30:
-                                            line2 = line2[:27] + "..."
-                                    else:
-                                        line1 = content[:30]
-                                        line2 = (
-                                            content[30:57] + "..."
-                                            if len(content) > 30
-                                            else ""
-                                        )
-
-                                    # Draw first line
-                                    line1_width = canvas.len(line1)
-                                    line1_x = (SW - line1_width) // 2
-                                    _, _y = canvas.scale(0, menu_y + 10 - 30)
-                                    canvas._text(line1_x, _y, line1, TFT_BLACK)
-
-                                    # Draw second line if it exists
-                                    if line2:
-                                        line2_width = canvas.len(line2)
-                                        line2_x = (SW - line2_width) // 2
-                                        _, _y = canvas.scale(0, menu_y + 10 - 10)
-                                        canvas._text(line2_x, _y, line2, TFT_BLACK)
+                                    canvas._text(line_x, text_y, line, TFT_BLACK)
+                                    text_y += line_height
 
                                 # Navigation arrows
                                 if self.messages_index > 0:
-                                    _x, _y = canvas.scale(5, menu_y - 7)
-                                    canvas._text(_x, _y, "<", TFT_WHITE)
+                                    _x = canvas.scale_x(5)
+                                    canvas._text(
+                                        _x,
+                                        box_y + (box_h - canvas.font_size.y) // 2,
+                                        "<",
+                                        TFT_WHITE,
+                                    )
                                 if self.messages_index < len(convos) - 1:
-                                    _, _y = canvas.scale(0, menu_y - 7)
-                                    canvas._text(SW - canvas.scale_x(15), _y, ">", TFT_WHITE)
+                                    canvas._text(
+                                        SW - canvas.scale_x(15),
+                                        box_y + (box_h - canvas.font_size.y) // 2,
+                                        ">",
+                                        TFT_WHITE,
+                                    )
 
                                 # Message counter
-                                indicator_y = 195
                                 total_messages = len(convos)
                                 message_counter = (
                                     f"{self.messages_index + 1}/{total_messages}"
                                 )
                                 counter_width = canvas.len(message_counter)
                                 counter_x = (SW - counter_width) // 2
-                                _, _y = canvas.scale(0, indicator_y)
+                                _y = indicator_y_px
                                 canvas._text(counter_x, _y, message_counter, TFT_WHITE)
+
+                                # Draw decorative bottom pattern
+                                _, _decor_y = canvas.scale(0, 220)
+                                for i in range(0, SW + 1, 10):
+                                    canvas._pixel(i, _decor_y, TFT_WHITE)
 
                                 # Reply indicator
                                 reply_text = "Press OK to Reply"
                                 reply_width = canvas.len(reply_text)
                                 reply_x = (SW - reply_width) // 2
-                                _, _y = canvas.scale(0, indicator_y + 25)
+                                _, _y = canvas.scale(0, 240)
                                 canvas._text(reply_x, _y, reply_text, TFT_WHITE)
-
-                                # Draw decorative bottom pattern (full width)
-                                _, _decor_y = canvas.scale(0, 240)
-                                for i in range(0, SW + 1, 10):
-                                    canvas._pixel(i, _decor_y, TFT_WHITE)
 
                 except Exception as e:
                     self.view_manager.log(f"Error parsing messages: {e}")

@@ -1371,55 +1371,6 @@ class FlipSocialRun:
         else:
             canvas._text(0, canvas.scale_x(10), "Loading user info...", TFT_WHITE)
 
-    def draw_wrapped_bio(self, canvas, text: str, x: int, y: int) -> None:
-        """Draw the bio text with wrapping"""
-        if not text or len(text) == 0:
-            vec_x, vec_y = canvas.scale_x(64), y + 2
-            canvas._text(vec_x, vec_y, "No bio", TFT_WHITE)
-            return
-
-        max_chars_per_line = canvas.scale_x(18)
-        text_len = len(text)
-
-        if text_len <= max_chars_per_line:
-            vec_x, vec_y = canvas.scale_x(64), y + 2
-            canvas._text(vec_x, vec_y, text, TFT_WHITE)
-            return
-
-        # First line
-        line1_len = min(text_len, max_chars_per_line)
-        break_point = line1_len
-
-        # Try to break at word boundary
-        if text_len > max_chars_per_line:
-            for i in range(max_chars_per_line - 1, max(max_chars_per_line - canvas.scale_x(8), 0), -1):
-                if text[i] == " ":
-                    break_point = i
-                    break
-
-        line1 = text[:break_point]
-
-        # Second line
-        if text_len > break_point:
-            remaining_start = (
-                break_point + 1 if text[break_point] == " " else break_point
-            )
-            remaining = text[remaining_start:]
-            line2_len = min(len(remaining), max_chars_per_line)
-
-            if len(remaining) > max_chars_per_line:
-                line2 = remaining[: max_chars_per_line - 3] + "..."
-            else:
-                line2 = remaining[:line2_len]
-
-            vec_x, vec_y = x, y
-            canvas._text(vec_x, vec_y, line1, TFT_WHITE)
-            vec_y += canvas.font_size.y
-            canvas._text(vec_x, vec_y, line2, TFT_WHITE)
-        else:
-            vec_x, vec_y = x, y
-            canvas._text(vec_x, vec_y, line1, TFT_WHITE)
-
     def get_message_user(self) -> str:
         """Get the message user at the specified messageUserIndex"""
         storage = self.view_manager.storage

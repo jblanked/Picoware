@@ -471,7 +471,7 @@ class Keyboard:
         self.just_stopped = False
         self.on_save_callback = None
         self.is_save_pressed = False
-        self.current_title = "Enter Text"
+        self.title = "Enter Text"
         self.is_in_textbox = False
         self.text_cursor_position = 0
         self.selected_suggestion_index = -1

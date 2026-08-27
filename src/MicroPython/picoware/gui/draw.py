@@ -2,6 +2,7 @@
 
 import lcd
 from picoware.system.vector import Vector
+from picoware.system.font import FontSize
 
 
 class Draw(lcd.LCD):
@@ -60,8 +61,6 @@ class Draw(lcd.LCD):
         """
         super().__init__(scale_x, scale_y, scale_position)
 
-        from picoware.system.font import FontSize
-
         self._background = background
         self._foreground = foreground
 
@@ -103,8 +102,6 @@ class Draw(lcd.LCD):
         Args:
             font_size (int): The new default font size.
         """
-        from picoware.system.font import FontSize
-
         self._font_default = FontSize(font_size)
         self._font_size.x, self._font_size.y = (
             self._font_default.width + self._font_default.spacing,
@@ -314,18 +311,16 @@ class Draw(lcd.LCD):
             alpha,
         )
 
-    def get_font(self, font_size: int = 0):
+    def get_font(self, font_size: int = -1):
         """Get the FontSize object for the specified font size.
 
         Args:
-            font_size (int): The font size to look up. Defaults to 0.
+            font_size (int): The font size to look up. Defaults to the current font size.
 
         Returns:
             FontSize: The FontSize object for the given size.
         """
-        from picoware.system.font import FontSize
-
-        return FontSize(font_size)
+        return self._font_default if font_size == -1 else FontSize(font_size)
 
     def image(self, position: Vector, img):
         """Draw an image object to the back buffer.
@@ -465,12 +460,12 @@ class Draw(lcd.LCD):
         except Exception as e:
             print(f"Error loading bytearray image: {e}")
 
-    def len(self, text: str, font_size: int = 0) -> int:
+    def len(self, text: str, font_size: int = -1) -> int:
         """Calculate the pixel width of a text string for a given font size.
 
         Args:
             text (str): The text to measure.
-            font_size (int): The font size to use. Defaults to 0.
+            font_size (int): The font size to use. Defaults to the current font size.
 
         Returns:
             int: The pixel width of the text.

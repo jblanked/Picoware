@@ -1,18 +1,19 @@
 """Picoware Agent - LLM-powered assistant with chat GUI."""
-import micropython
+from micropython import const
 from picoware.system.buttons import (
     BUTTON_UP, BUTTON_DOWN, BUTTON_CENTER, BUTTON_BACK,
 )
 from picoware.system.colors import TFT_WHITE, TFT_DARKGREY
+from picoware.system.decorator import native, storage_required, wifi_required
 
-STATE_MENU = micropython.const(0)
-STATE_CHAT = micropython.const(1)
-STATE_TYPE = micropython.const(2)
-STATE_SETTINGS = micropython.const(3)
-STATE_SETTINGS_PROVIDER = micropython.const(4)
-STATE_SETTINGS_MODEL = micropython.const(5)
-STATE_SETTINGS_THINKING = micropython.const(6)
-STATE_SESSIONS = micropython.const(7)
+STATE_MENU = const(0)
+STATE_CHAT = const(1)
+STATE_TYPE = const(2)
+STATE_SETTINGS = const(3)
+STATE_SETTINGS_PROVIDER = const(4)
+STATE_SETTINGS_MODEL = const(5)
+STATE_SETTINGS_THINKING = const(6)
+STATE_SESSIONS = const(7)
 
 _agent          = None
 _menu           = None
@@ -31,7 +32,7 @@ _session_labels = None
 _session_id     = None
 
 
-@micropython.native
+@native
 def _wrap_text(text: str, max_chars: int):
     """Wrap text to max_chars per line, preserving words.
 
@@ -95,7 +96,7 @@ def _chat_layout(view_manager):
     return header_h, prompt_h, chat_y, chat_h, max_chars, font, bubble_w, pad
 
 
-@micropython.native
+@native
 def _draw_bubble(draw, x, y, w, text_lines, font, bg_color, text_color, pad,
                   clip_top=0):
     """Draw a rounded-rect bubble clipped to screen bounds.
@@ -144,7 +145,7 @@ def _draw_bubble(draw, x, y, w, text_lines, font, bg_color, text_color, pad,
 
     return y + bubble_h + draw.scale_y(4)
 
-@micropython.native
+@native
 def _render_chat(view_manager):
     """Draw conversation as chat bubbles with scroll and prompt bar.
 
@@ -596,6 +597,8 @@ def _back_to_settings_menu(view_manager):
         _settings_menu.draw()
 
 
+@storage_required
+@wifi_required
 def start(view_manager) -> bool:
     """Build main menu. Return True on success.
 
@@ -605,25 +608,6 @@ def start(view_manager) -> bool:
     Returns:
         bool: True on success.
     """
-    if not view_manager.has_sd_card:
-        view_manager.alert("Agent app requires an SD card", False)
-        return False
-
-    wifi = view_manager.wifi
-
-    # if not a wifi device, return
-    if not wifi:
-        view_manager.alert("WiFi not available...", False)
-        return False
-
-    # if wifi isn't connected, return
-    if not wifi.is_connected():
-        from picoware.applications.wifi.utils import connect_to_saved_wifi
-
-        view_manager.alert("WiFi not connected", False)
-        connect_to_saved_wifi(view_manager)
-        return False
-
     from picoware.system.boards import BOARD_HAS_ESP32
     if BOARD_HAS_ESP32 == 0:
         view_manager.freq(True)

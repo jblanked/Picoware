@@ -378,9 +378,19 @@ static void decode_core1_split()
     core1_running = 2;
 }
 
-bool jpegdec_decode_buffer(const uint8_t *data, size_t size, int x, int y, int options)
+void *jpegdec_context_alloc(void)
 {
-    if (data == NULL || size == 0 || size > (size_t)INT_MAX)
+    return m_malloc(sizeof(JPEGIMAGE));
+}
+
+void jpegdec_context_free(void *context)
+{
+    m_free(context);
+}
+
+bool jpegdec_decode_buffer_with_context(void *context, const uint8_t *data, size_t size, int x, int y, int options)
+{
+    if (context == NULL || data == NULL || size == 0 || size > (size_t)INT_MAX)
     {
         return false;
     }
@@ -390,21 +400,33 @@ bool jpegdec_decode_buffer(const uint8_t *data, size_t size, int x, int y, int o
         tight_loop_contents();
     }
 
-    JPEGIMAGE *context = (JPEGIMAGE *)m_malloc(sizeof(*context));
+    JPEGIMAGE *jpeg_context = (JPEGIMAGE *)context;
+    bool decoded = false;
+    if (decode_core1_prepare(jpeg_context, 0, (int)size, (uint8_t *)data, JPEGDraw) == 1)
+    {
+        jpeg_context->iXOffset = x;
+        jpeg_context->iYOffset = y;
+        jpeg_context->iOptions = options;
+        decoded = DecodeJPEG(jpeg_context) == 1;
+    }
+    return decoded;
+}
+
+bool jpegdec_decode_buffer(const uint8_t *data, size_t size, int x, int y, int options)
+{
+    if (data == NULL || size == 0 || size > (size_t)INT_MAX)
+    {
+        return false;
+    }
+
+    void *context = jpegdec_context_alloc();
     if (!context)
     {
         return false;
     }
 
-    bool decoded = false;
-    if (decode_core1_prepare(context, 0, (int)size, (uint8_t *)data, JPEGDraw) == 1)
-    {
-        context->iXOffset = x;
-        context->iYOffset = y;
-        context->iOptions = options;
-        decoded = DecodeJPEG(context) == 1;
-    }
-    m_free(context);
+    bool decoded = jpegdec_decode_buffer_with_context(context, data, size, x, y, options);
+    jpegdec_context_free(context);
     return decoded;
 }
 

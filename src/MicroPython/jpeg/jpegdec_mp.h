@@ -46,3 +46,6 @@ mp_obj_t jpegdec_decode_split_wait(mp_obj_t self_in);
 mp_obj_t jpegdec_getinfo(mp_obj_t self_in, mp_obj_t data);
 
 bool jpegdec_decode_buffer(const uint8_t *data, size_t size, int x, int y, int options);
+void *jpegdec_context_alloc(void);
+void jpegdec_context_free(void *context);
+bool jpegdec_decode_buffer_with_context(void *context, const uint8_t *data, size_t size, int x, int y, int options);

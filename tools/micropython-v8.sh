@@ -126,7 +126,8 @@ for module_path in \
     http \
     mmbasic \
     mjs \
-    websocket; do
+    websocket \
+    video; do
     rm -rf "$micropython_dir/modules/$module_path"
 done
 

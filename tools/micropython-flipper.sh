@@ -76,6 +76,8 @@ for module_path in \
     vt \
     textbox \
     usb_video \
+    video \
+    JPEGDEC \
     shared_lcd \
     input \
     battery \
@@ -107,9 +109,11 @@ stage_module_dir "mmbasic"
 stage_module_dir "engine"
 stage_module_dir "textbox"
 stage_module_dir "usb_video"
+stage_module_dir "JPEGDEC"
+stage_module_dir "video"
 
 # Remove shared module .mk files — Flipper's top-level mk orchestrates everything
-for dir in auto_complete lcd font log vector vt response picoware_boards jsmn mjs engine textbox usb_video; do
+for dir in auto_complete lcd font log vector vt response picoware_boards jsmn mjs engine textbox usb_video video; do
     rm -f "$micropython_dir/modules/$dir/micropython.mk"
     rm -f "$micropython_dir/modules/$dir/micropython.cmake"
 done

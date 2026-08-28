@@ -22,6 +22,7 @@ SRC_USERMOD += $(SHARED)/vt/vt_mp.c
 SRC_USERMOD += $(SHARED)/response/response_mp.c
 SRC_USERMOD += $(SHARED)/picoware_boards/picoware_boards.c
 SRC_USERMOD += $(SHARED)/usb_video/usb_video_mp.c
+SRC_USERMOD += $(SHARED)/video/video_mp.c
 
 CFLAGS_USERMOD += -I$(SHARED)/auto_complete
 CFLAGS_USERMOD += -I$(SHARED)/lcd
@@ -34,3 +35,4 @@ CFLAGS_USERMOD += -I$(SHARED)/picoware_boards
 CFLAGS_USERMOD += -I$(SHARED)/sd
 CFLAGS_USERMOD += -I$(SHARED)/textbox
 CFLAGS_USERMOD += -I$(SHARED)/usb_video
+CFLAGS_USERMOD += -I$(SHARED)/video

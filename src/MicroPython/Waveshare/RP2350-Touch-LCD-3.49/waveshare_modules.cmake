@@ -229,6 +229,9 @@ target_include_directories(usermod_jpeg INTERFACE
 target_link_libraries(usermod INTERFACE usermod_jpeg)
 
 
+# Include video module
+include(${CMAKE_CURRENT_LIST_DIR}/../../video/micropython.cmake)
+
 # Include vt module
 add_library(usermod_vt INTERFACE)
 

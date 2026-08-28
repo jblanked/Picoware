@@ -81,6 +81,9 @@ rm -rf "$micropython_dir"/modules/http
 # remove usb_video module if it exists
 rm -rf "$micropython_dir"/modules/usb_video
 
+# remove video module if it exists
+rm -rf "$micropython_dir"/modules/video
+
 # remove websocket module if it exists
 rm -rf "$micropython_dir"/modules/websocket
 
@@ -179,6 +182,9 @@ cp -r "$picoware_dir"/src/MicroPython/http "$micropython_dir"/modules/http
 
 # copy usb_video module
 cp -r "$picoware_dir"/src/MicroPython/usb_video "$micropython_dir"/modules/usb_video
+
+# copy video module
+cp -r "$picoware_dir"/src/MicroPython/video "$micropython_dir"/modules/video
 
 # copy websocket module
 cp -r "$picoware_dir"/src/MicroPython/websocket "$micropython_dir"/modules/websocket

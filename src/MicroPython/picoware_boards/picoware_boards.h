@@ -158,6 +158,12 @@ Source: https://github.com/jblanked/Picoware
 #elif defined(PICO_RP2350)
 // PicoCalc - Pico 2
 #define BOARD_ID BOARD_PICOCALC_PICO_2
+#define BOARD_HAS_PSRAM 1     // has psram
+#define BOARD_HAS_SD 1        // has sd card
+#define BOARD_HAS_TOUCH 0     // no touch
+#define BOARD_HAS_WIFI 0      // no wifi
+#define BOARD_HAS_AUDIO 1     // has audio
+#define BOARD_HAS_BLUETOOTH 0 // no bluetooth
 #endif
 #endif
 

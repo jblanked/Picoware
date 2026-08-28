@@ -22,4 +22,4 @@ finally:
     if usb_ready:
         usb_keyboard.release()
     del ducky, usb_keyboard, view_manager
-    collect()icoware Ducky run test====================================
+    collect()

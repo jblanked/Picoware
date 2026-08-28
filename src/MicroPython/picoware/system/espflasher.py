@@ -104,11 +104,6 @@ class ESPFlasher:
                 "".join("%.2x" % (i) for i in data[0:10]),
             )
 
-    def _uart_drain(self):
-        """Drain pending bytes from the UART receive buffer."""
-        while self.uart.uart.read(1) is not None:
-            pass
-
     def _read_reg(self, addr):
         """Read a value from an ESP32 flash register.
 
@@ -245,11 +240,11 @@ class ESPFlasher:
             return
         if baudrate != self.baudrate:
             print(f"Changing baudrate => {baudrate}")
-            self._uart_drain()
+            self.uart.clear()
             self._command(_CMD_CHANGE_BAUDRATE, struct.pack("<II", baudrate, 0))
             self.baudrate = baudrate
         self.uart.uart.init(baudrate)
-        self._uart_drain()
+        self.uart.clear()
 
     def bootloader(self, retry=6):
         """Enter the ESP32 ROM bootloader download mode.
@@ -269,15 +264,15 @@ class ESPFlasher:
             sleep(0.1)
             self.gpio0_pin(1)
 
-            if "POWERON_RESET" not in self.uart.uart.read():
+            if "POWERON_RESET" not in self.uart.read_serial_line():
                 continue
 
             for i in range(10):
-                self._uart_drain()
+                self.uart.clear()
                 try:
                     # 36 bytes: 0x07 0x07 0x12 0x20, followed by 32 x 0x55
                     self._command(_CMD_SYNC, b"\x07\x07\x12\x20" + 32 * b"\x55")
-                    self._uart_drain()
+                    self.uart.clear()
                     return True
                 except Exception as e:
                     print(e)

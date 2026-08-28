@@ -155,7 +155,9 @@ else:
         for i in range(1, len(parts)+1):
             sub = parts[0:i]
             p = OS_SEP.join(sub)
-            if not os.path.exists(p):
+            try:
+                os.stat(p)
+            except OSError:
                 os.mkdir(p)
 
     def os_path_splitdrive(p):
@@ -176,6 +178,59 @@ else:
 
 OS_SEP = os.sep if hasattr(os, 'sep') else '/'
 OS_PATH_SEP = OS_SEP
+
+def _path_normpath(path):
+    if hasattr(os, 'path'):
+        return os.path.normpath(path)
+
+    parts = []
+    absolute = path.startswith(OS_SEP)
+    for part in path.split(OS_SEP):
+        if part in ('', CURDIR):
+            continue
+        if part == PARDIR:
+            if parts and parts[-1] != PARDIR:
+                parts.pop()
+            elif not absolute:
+                parts.append(part)
+        else:
+            parts.append(part)
+
+    result = OS_SEP.join(parts)
+    if absolute:
+        result = OS_SEP + result
+    return result or (OS_SEP if absolute else CURDIR)
+
+def _path_join(first, second):
+    if not first:
+        return second
+    if not second:
+        return first
+    return first.rstrip(OS_SEP) + OS_SEP + second.lstrip(OS_SEP)
+
+def _path_dirname(path):
+    path = path.rstrip(OS_SEP)
+    separator = path.rfind(OS_SEP)
+    if separator < 0:
+        return ''
+    return path[:separator] or OS_SEP
+
+def _path_exists(path):
+    if hasattr(os, 'path'):
+        return os.path.exists(path)
+    try:
+        os.stat(path)
+        return True
+    except OSError:
+        return False
+
+def _path_isdir(path):
+    if hasattr(os, 'path'):
+        return os.path.isdir(path)
+    try:
+        return stat.S_ISDIR(os.stat(path)[0])
+    except OSError:
+        return False
 
 
 try:
@@ -731,7 +786,7 @@ class ZipInfo (object):
         # Create ZipInfo instance to store file information
         if arcname is None:
             arcname = filename
-        arcname = os.path.normpath(os_path_splitdrive(arcname)[1])
+        arcname = _path_normpath(os_path_splitdrive(arcname)[1])
         while arcname[0] in (OS_SEP, ALTSEP):
             arcname = arcname[1:]
         if isdir:
@@ -1978,16 +2033,16 @@ class ZipFile:
         if not arcname and not member.is_dir():
             raise ValueError("Empty filename.")
 
-        targetpath = os.path.join(targetpath, arcname)
-        targetpath = os.path.normpath(targetpath)
+        targetpath = _path_join(targetpath, arcname)
+        targetpath = _path_normpath(targetpath)
 
         # Create all upper directories if necessary.
-        upperdirs = os.path.dirname(targetpath)
-        if upperdirs and not os.path.exists(upperdirs):
+        upperdirs = _path_dirname(targetpath)
+        if upperdirs and not _path_exists(upperdirs):
             makedirs(upperdirs)
 
         if member.is_dir():
-            if not os.path.isdir(targetpath):
+            if not _path_isdir(targetpath):
                 os.mkdir(targetpath)
             return targetpath
 

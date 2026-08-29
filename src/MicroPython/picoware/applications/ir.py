@@ -353,7 +353,7 @@ def start(view_manager) -> bool:
     """Start the infrared app."""
     from picoware.system.infrared import Infrared
 
-    view_manager.mkdir("infrared")
+    view_manager.storage.mkdir("infrared")
 
     global _state, _menu, _remote_menu, _key_menu, _learn_menu, _button_menu
     global _infrared, _remote, _remote_paths, _key_names

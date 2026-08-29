@@ -51,7 +51,6 @@ class ViewManager:
         from picoware.system.input import Input
         from picoware.system.battery import Battery
         from picoware.system.storage import Storage
-        from picoware.system.wifi import WiFi
         from picoware.system.system import System
         from picoware.system.settings import Settings
         from picoware.system.time import Time
@@ -80,6 +79,7 @@ class ViewManager:
         # Initialize WiFi if available
         self._wifi = None
         if syst is not None and syst.has_wifi:
+            from picoware.system.wifi import WiFi
             self._wifi = WiFi(thread_manager=self._thread_manager)
 
         # Initialize storage

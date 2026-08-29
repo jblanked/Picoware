@@ -20,6 +20,7 @@ This section provides documentation for the libraries available in Picoware.
   - [picoware.system.font](#picoware-system-font)
   - [picoware.system.gameboy](#picoware-system-gameboy)
   - [picoware.system.http](#picoware-system-http)
+  - [picoware.system.infrared](#picoware-system-infrared)
   - [picoware.system.input](#picoware-system-input)
   - [picoware.system.jsmn](#picoware-system-jsmn)
   - [picoware.system.LED](#picoware-system-led)
@@ -322,6 +323,15 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - `read_chunked(s, uart=None, method="GET", save_to_file=None, storage=None)`: Read a chunked Transfer-Encoding body from an open socket. Returns `bytes`.
     - `request(method, url, data=None, json_data=None, headers=None, stream=None, auth=None, timeout=None, parse_headers=True, uart=None, save_to_file=None, storage=None)`: Low-level synchronous HTTP request. Returns `Response`.
     - `request_async(method, url, ...)`: Runs `request()` in a background thread via `ThreadManager`. Returns True if started.
+
+  #### picoware-system-infrared
+  - `Signal`: A parsed or raw signal from an `.ir` file.
+  - `RemoteFile`: A loaded remote with named signals and index/name lookup.
+  - `RemoteLibrary`: Discovers, loads, and saves `.ir` files on the SD card.
+  - `InfraredTransmitter`: Sends parsed or raw signals through the current board's IR output.
+  - `InfraredReceiver`: Creates a protocol decoder for the current board's IR input.
+  - `Infrared`: High-level facade combining the SD library, transmitter, receiver, and raw capture.
+  - `parse_ir(text)`: Parse an `IR signals file` version 1 string or bytes value.
 
 #### picoware-system-input
 - `Input` class: Handles keyboard input (PicoCalc) and touch input (Waveshare boards).

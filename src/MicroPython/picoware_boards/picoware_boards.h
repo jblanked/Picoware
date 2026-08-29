@@ -86,6 +86,8 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_WIFI 1      // has wifi
 #define BOARD_HAS_AUDIO 0     // no audio module in esp32 build yet
 #define BOARD_HAS_BLUETOOTH 1 // has bluetooth
+#define BOARD_HAS_IR 1        // has infrared transmitter
+#define BOARD_HAS_IR_RX 0     // no infrared receiver
 #elif defined(WAVESHARE_2_06)
 // Waveshare ESP32-S3-Touch-AMOLED-2.06
 #define BOARD_ID BOARD_WAVESHARE_2_06
@@ -122,6 +124,8 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_WIFI 0
 #define BOARD_HAS_AUDIO 0
 #define BOARD_HAS_BLUETOOTH 1
+#define BOARD_HAS_IR 1
+#define BOARD_HAS_IR_RX 1
 #elif defined(CROWPANEL_10_1)
 // CrowPanel 10.1 ESP32-P4
 #define BOARD_ID BOARD_CROWPANEL_10_1
@@ -195,6 +199,14 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_BLUETOOTH 0
 #endif
 
+#ifndef BOARD_HAS_IR
+#define BOARD_HAS_IR 0
+#endif
+
+#ifndef BOARD_HAS_IR_RX
+#define BOARD_HAS_IR_RX 0
+#endif
+
 #ifdef PICO_RP2040
 #define BOARD_HAS_RP2040 1
 #else
@@ -230,4 +242,6 @@ mp_obj_t picoware_boards_has_touch(mp_obj_t board_id_obj);
 mp_obj_t picoware_boards_has_wifi(mp_obj_t board_id_obj);
 mp_obj_t picoware_boards_has_audio(mp_obj_t board_id_obj);
 mp_obj_t picoware_boards_has_bluetooth(mp_obj_t board_id_obj);
+mp_obj_t picoware_boards_has_ir(mp_obj_t board_id_obj);
+mp_obj_t picoware_boards_has_ir_rx(mp_obj_t board_id_obj);
 mp_obj_t picoware_boards_is_circular(mp_obj_t board_id_obj);

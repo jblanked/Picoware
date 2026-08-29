@@ -13,6 +13,11 @@ A custom Raspberry Pi Pico setup with a SPI interface that uses the ILI9341 driv
 ## Cardputer ADV
 This device by M5Stack has a SPI interface and uses an ST7789V2 driver. More details [here](https://github.com/jblanked/Picoware/tree/main/guides/Cardputer.md).
 
+Infrared details are documented [here](https://github.com/jblanked/Picoware/tree/main/guides/Infrared.md).
+
+## Flipper Zero
+This device by Flipper Devices includes internal infrared transmit and receive hardware. More details [here](https://github.com/jblanked/Picoware/tree/main/guides/FlipperZero.md) and in the [infrared guide](https://github.com/jblanked/Picoware/tree/main/guides/Infrared.md).
+
 ## Marauder Pancake
 An ESP32-C5 handheld with a 320x480 touch display and no keyboard. More details [here](https://github.com/jblanked/Picoware/tree/main/guides/Pancake.md).
 

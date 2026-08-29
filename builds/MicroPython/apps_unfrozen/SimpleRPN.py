@@ -73,6 +73,7 @@ STATE_FILE = "picoware/settings/srpn.json"
 STATE_VERSION = 1
 SAVE_DELAY_MS = 1000
 HELP_PAGE_COUNT = 3
+MAX_STATE_BYTES = 4096
 
 
 KEYS = (
@@ -146,18 +147,19 @@ class RPNStack:
     )
 
     def __init__(self):
-        self.stack = [0.0, 0.0, 0.0, 0.0]  # X, Y, Z, T
-        self.entry = ""
-        self.entering = False
-        self.lift_on_entry = False
-        self.error = ""
-        self.status = "READY"
-        self.variables = [0.0] * 26
-        self.variable_set = [False] * 26
-        self.undo_state = None
-        self.undo_label = ""
+        # Initialize stack: X=0, Y=1, Z=2, T=3
+        self.stack: list[float] = [0.0, 0.0, 0.0, 0.0]
+        self.entry: str = ""
+        self.entering: bool = False
+        self.lift_on_entry: bool = False
+        self.error: str = ""
+        self.status: str = "READY"
+        self.variables: list[float] = [0.0] * 26
+        self.variable_set: list[bool] = [False] * 26
+        self.undo_state: tuple | None = None
+        self.undo_label: str = ""
 
-    def remember_undo(self, label):
+    def remember_undo(self, label: str) -> None:
         """Remember one complete pre-action state for mistake recovery."""
         self.undo_state = (
             self.stack[:],
@@ -176,21 +178,34 @@ class RPNStack:
             self.error = ""
             self.status = "NOTHING TO UNDO"
             return False
+        # Validate undo state structure before applying
         state = self.undo_state
         label = self.undo_label
+        if not isinstance(state, tuple) or len(state) != 7:
+            self.error = "CORRUPT UNDO STATE"
+            self.status = self.error
+            self.undo_state = None
+            return False
+        try:
+            self.stack = list(state[0])
+            self.entry = str(state[1]) if state[1] else ""
+            self.entering = bool(state[2])
+            self.lift_on_entry = bool(state[3])
+            self.error = str(state[4]) if state[4] else ""
+            self.variables = list(state[5])
+            self.variable_set = list(state[6])
+        except (TypeError, ValueError, IndexError):
+            self.error = "CORRUPT UNDO STATE"
+            self.status = self.error
+            self.undo_state = None
+            return False
         self.undo_state = None
         self.undo_label = ""
-        self.stack = state[0]
-        self.entry = state[1]
-        self.entering = state[2]
-        self.lift_on_entry = state[3]
-        self.error = state[4]
         self.status = "UNDID " + label
-        self.variables = state[5]
-        self.variable_set = state[6]
         return True
 
-    def clear(self):
+    def clear(self) -> None:
+        """Clear the entire stack."""
         self.stack[0] = 0.0
         self.stack[1] = 0.0
         self.stack[2] = 0.0
@@ -201,7 +216,8 @@ class RPNStack:
         self.error = ""
         self.status = "STACK CLEARED"
 
-    def clear_x(self):
+    def clear_x(self) -> None:
+        """Clear only the X register."""
         self.stack[0] = 0.0
         self.entry = ""
         self.entering = False
@@ -209,22 +225,33 @@ class RPNStack:
         self.error = ""
         self.status = "X CLEARED - C/ESC AGAIN: ALL"
 
-    def _dismiss_error(self):
+    def reset(self) -> None:
+        """Clear error state and restore consistent calculator state."""
+        self.error = ""
+        self.entry = ""
+        self.entering = False
+        self.lift_on_entry = False
+        self.status = "RESET - READY"
+
+    def _dismiss_error(self) -> None:
+        """Clear any pending error."""
         self.error = ""
 
-    def _set_error(self, message):
+    def _set_error(self, message: str) -> None:
+        """Set an error message and status."""
         self.error = message
         self.status = message
         self.entry = ""
         self.entering = False
 
-    def _lift(self):
+    def _lift(self) -> None:
+        """Rotate stack Y→Z, Z→X, X→Y."""
         x, y, z = self.stack[0], self.stack[1], self.stack[2]
         self.stack[3] = z
         self.stack[2] = y
         self.stack[1] = x
 
-    def _begin_entry(self):
+    def _begin_entry(self) -> None:
         self._dismiss_error()
         if self.lift_on_entry:
             self._lift()
@@ -237,7 +264,10 @@ class RPNStack:
         if self.entry in ("", "-", ".", "-."):
             self.stack[0] = 0.0
         else:
-            self.stack[0] = float(self.entry)
+            try:
+                self.stack[0] = float(self.entry)
+            except (ValueError, OverflowError):
+                self._set_error("Invalid number")
 
     def _commit_entry(self):
         if self.entering:
@@ -245,7 +275,8 @@ class RPNStack:
             self.entry = ""
             self.entering = False
 
-    def digit(self, digit):
+    def digit(self, digit: str) -> None:
+        """Add a digit to the current entry."""
         if not self.entering:
             self._begin_entry()
         if len(self.entry) >= 15:
@@ -258,7 +289,8 @@ class RPNStack:
         self._sync_entry()
         self.status = "ENTER VALUE"
 
-    def decimal(self):
+    def decimal(self) -> None:
+        """Add a decimal point to the current entry."""
         if not self.entering:
             self._begin_entry()
         if "." not in self.entry:
@@ -266,7 +298,7 @@ class RPNStack:
         self._sync_entry()
         self.status = "ENTER VALUE"
 
-    def backspace(self):
+    def backspace(self) -> None:
         self._dismiss_error()
         if not self.entering:
             self.stack[0] = 0.0
@@ -397,6 +429,10 @@ class RPNStack:
         """Store X in the named variable without changing the stack."""
         self._dismiss_error()
         self._commit_entry()
+        # Bounds checking for variable indices
+        if not (0 <= index < len(self.variables)):
+            self._set_error("Invalid variable")
+            return
         self.variables[index] = self.stack[0]
         self.variable_set[index] = True
         self.lift_on_entry = True
@@ -405,6 +441,10 @@ class RPNStack:
     def recall(self, index):
         """Lift the stack and recall the named variable into X."""
         self._dismiss_error()
+        # Bounds checking for variable indices
+        if not (0 <= index < len(self.variables)):
+            self._set_error("Invalid variable")
+            return False
         name = chr(ord("A") + index)
         if not self.variable_set[index]:
             self.status = "RCL " + name + ": EMPTY"
@@ -450,17 +490,21 @@ last_saved_state = ""
 
 def _state_json():
     """Serialize the complete calculator memory for the next app cycle."""
-    return json.dumps(
-        {
-            "version": STATE_VERSION,
-            "stack": calculator.stack,
-            "entry": calculator.entry,
-            "entering": calculator.entering,
-            "lift_on_entry": calculator.lift_on_entry,
-            "variables": calculator.variables,
-            "variable_set": calculator.variable_set,
-        }
-    )
+    state_data = {
+        "version": STATE_VERSION,
+        "stack": calculator.stack,
+        "entry": calculator.entry,
+        "entering": calculator.entering,
+        "lift_on_entry": calculator.lift_on_entry,
+        "variables": calculator.variables,
+        "variable_set": calculator.variable_set,
+    }
+    # Check state size before serializing to avoid heap fragmentation
+    estimated_size = sum(len(str(v)) for v in state_data.values()) * 2 + 50
+    if estimated_size > MAX_STATE_BYTES:
+        # Truncate non-essential data (entry) when approaching limit
+        state_data["entry"] = ""
+    return json.dumps(state_data)
 
 
 def _load_state():

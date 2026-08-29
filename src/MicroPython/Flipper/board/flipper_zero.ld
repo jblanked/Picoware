@@ -19,7 +19,7 @@ _ram_start = ORIGIN(RAM);
 _ram_end = ORIGIN(RAM) + LENGTH(RAM);
 
 _estack = ORIGIN(RAM) + LENGTH(RAM) - _estack_reserve;
-_sstack = _estack - 16K;
+_sstack = _estack - 12K;
 
 _heap_start = _ebss;
 _heap_end = _sstack;

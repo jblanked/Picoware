@@ -564,6 +564,7 @@ def _run_sim_check(opts):
     if board_name in ("desktop", "unix"):
         _run_desktop_native_check(opts)
     _run_library_route_check()
+    _run_recent_firmware_surface_check(opts)
     _run_stale_app_link_check(opts)
     _run_duplicate_app_link_check(opts)
     commands = (
@@ -590,6 +591,14 @@ def _run_sim_check(opts):
         + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --open Agent --wait-view agent --frames 220 --audio silent --network offline --sd "
+        + _quote(opts["sd"])
+        + " --apps-source "
+        + _quote(opts["apps_source"])
+        + _board_option(opts),
+        _interpreter_command()
+        + " "
+        + _quote(THIS_DIR + "/run.py")
+        + " --headless --open FlipSocial --wait-view flipsocial --frames 220 --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"])
@@ -809,6 +818,50 @@ def _run_library_route_check():
     if indices != list(range(len(items))):
         raise RuntimeError("simulator Library route indices are not contiguous")
     print("[sim-check:ok] Library routes synchronized (" + str(len(items)) + " items)")
+
+
+def _run_recent_firmware_surface_check(opts):
+    """Verify simulator imports for recent firmware-facing APIs."""
+    import sim_runtime
+    import sd_mp
+
+    from picoware.system.agent.llm import CUSTOM, JBLANKED, LLM
+    from picoware.system.agent.session import Session
+    from picoware.system.agent.tools.dispatch import get_tool_map
+    from picoware.system.c import C
+    from picoware.system.drivers.espflasher import ESPFlasher
+    from picoware.system.drivers.zipfile import ZipFile
+    from picoware.system.ducky import Ducky
+    from picoware.system.video import Video
+
+    original_sd_root = sim_runtime.sd_root
+    try:
+        sim_runtime.sd_root = opts["sd"]
+        sim_runtime.mkdir_p(opts["sd"])
+        sd_mp.init()
+        free_space = sd_mp.get_free_space()
+        total_space = sd_mp.get_total_space()
+        if total_space <= 0 or free_space < 0 or free_space > total_space:
+            raise RuntimeError("simulator SD capacity mismatch")
+
+        if "storage_info" not in get_tool_map() or "time_get_current_time" not in get_tool_map():
+            raise RuntimeError("simulator agent tool map is missing recent firmware tools")
+        if JBLANKED not in LLM.providers() or CUSTOM not in LLM.providers():
+            raise RuntimeError("simulator LLM provider list is missing recent firmware providers")
+
+        if not C().is_initialized:
+            raise RuntimeError("simulator C compatibility surface is not initialized")
+        video = Video("sim_reports/missing.mp4")
+        if video.active or video.run():
+            raise RuntimeError("simulator video compatibility state mismatch")
+        video.stop()
+
+        # Import-only checks cover firmware modules whose real execution needs hardware.
+        if not (Session and ESPFlasher and ZipFile and Ducky):
+            raise RuntimeError("simulator recent firmware imports are incomplete")
+    finally:
+        sim_runtime.sd_root = original_sd_root
+    print("[sim-check:ok] recent firmware APIs and optional module shims")
 
 
 def _run_stale_app_link_check(opts):
@@ -1207,11 +1260,11 @@ def _run_touch_check():
     def zone(point, size):
         x, y = point
         width, height = size
-        if 0 <= x <= width * 0.1 and 0 <= y <= height * 0.1:
+        if 0 <= x <= width * 0.15 and 0 <= y <= height * 0.12:
             return "back"
-        if width * 0.9 <= x <= width and height * 0.3 <= y <= height * 0.7:
+        if width * 0.85 <= x <= width and height * 0.3 <= y <= height * 0.7:
             return "right"
-        if 0 <= x <= width * 0.1 and height * 0.3 <= y <= height * 0.7:
+        if 0 <= x <= width * 0.15 and height * 0.3 <= y <= height * 0.7:
             return "left"
         if width * 0.2 <= x <= width * 0.8 and 0 <= y <= height * 0.2:
             return "up"

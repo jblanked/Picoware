@@ -66,6 +66,27 @@ def is_initialized():
     return _initialized
 
 
+def _filesystem_space():
+    """Return free and total bytes for the simulated SD-card root."""
+    sim_runtime.mkdir_p(sim_runtime.sd_root)
+    try:
+        stats = os.statvfs(sim_runtime.sd_root)
+    except (AttributeError, OSError):
+        return 0, 0
+    block_size = int(stats[1] or stats[0] or 1)
+    return int(stats[3]) * block_size, int(stats[2]) * block_size
+
+
+def get_free_space():
+    """Return the available bytes on the simulated SD card."""
+    return _filesystem_space()[0]
+
+
+def get_total_space():
+    """Return the total bytes available to the simulated SD card."""
+    return _filesystem_space()[1]
+
+
 def mount():
     """Mount the SD card (alias for init)."""
     return init()

@@ -167,6 +167,66 @@ def bluetooth_required(func: callable) -> callable:
         return func(*args, **kwargs)
     return wrapper
 
+def infrared_rx_required(func: callable) -> callable:
+    """Decorator to check if infrared reception support is available.
+
+    Args:
+        func (callable): The function to decorate.
+
+    Returns:
+        callable: The wrapped function, or a stub that raises when infrared reception is missing.
+
+    Raises:
+        RuntimeError: If the decorated function is called without infrared reception support.
+    """
+    if picoware_boards.BOARD_HAS_IR_RX == 0:
+        def unavailable(*args, **kwargs):
+            """Raise an error because infrared reception is not available.
+
+            Raises:
+                RuntimeError: If infrared reception support is missing on the board.
+            """
+            raise RuntimeError(f"{func.__name__} requires infrared reception, which is not available")
+        return unavailable
+    def wrapper(*args, **kwargs):
+        """Call the wrapped function with the given arguments.
+
+        Returns:
+            object: The result of the wrapped function.
+        """
+        return func(*args, **kwargs)
+    return wrapper
+
+def infrared_tx_required(func: callable) -> callable:
+    """Decorator to check if infrared transmission support is available.
+
+    Args:
+        func (callable): The function to decorate.
+
+    Returns:
+        callable: The wrapped function, or a stub that raises when infrared transmission is missing.
+
+    Raises:
+        RuntimeError: If the decorated function is called without infrared transmission support.
+    """
+    if picoware_boards.BOARD_HAS_IR == 0:
+        def unavailable(*args, **kwargs):
+            """Raise an error because infrared transmission is not available.
+
+            Raises:
+                RuntimeError: If infrared transmission support is missing on the board.
+            """
+            raise RuntimeError(f"{func.__name__} requires infrared transmission, which is not available")
+        return unavailable
+    def wrapper(*args, **kwargs):
+        """Call the wrapped function with the given arguments.
+
+        Returns:
+            object: The result of the wrapped function.
+        """
+        return func(*args, **kwargs)
+    return wrapper
+
 def wifi_required(func: callable) -> callable:
     """Decorator to check if WiFi is available.
 

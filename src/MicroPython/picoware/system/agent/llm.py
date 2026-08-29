@@ -85,7 +85,7 @@ class LLM:
             if self._id == DEEPSEEK:
                 _payload["thinking"] = {"type": "enabled"}
                 _payload["reasoning_effort"] = self._thinking
-            elif self._id == LOCAL:
+            elif self._id in (LOCAL, JBLANKED):
                 _payload["think"] = True
             elif self._id in (OPENAI, GEMINI):
                 _payload["reasoning_effort"] = self._thinking
@@ -100,7 +100,7 @@ class LLM:
         else:
             if self._id == DEEPSEEK:
                 _payload["thinking"] = {"type": "disabled"}
-            elif self._id == LOCAL:
+            elif self._id in (LOCAL, JBLANKED):
                 _payload["think"] = False
             elif self._id in (OPENAI, GEMINI):
                 _payload["reasoning_effort"] = self._thinking
@@ -187,8 +187,8 @@ class LLM:
         elif self._id == LOCAL:
             self._name = "Local"
             self._url = settings.local_url
-            self._models = ["qwen3.5:9b", "qwen3.5:4b", "qwen3.5:0.8b", "qwen3.5:2b", "llama3.2:3b", "llama3.2:1b"]
-            self._api_key = settings.local_api_key
+            self._models = ["ornith-1.5:9b", "ornith-1.5:35b", "qwen3.8:27b", "qwen3.5:9b","qwen3.5:4b", "llama3.2:3b", "llama3.2:1b"]
+            self._api_key = settings.local_api_key 
         elif self._id == XAI:
             self._name = "xAI"
             self._url = "https://api.x.ai/v1"

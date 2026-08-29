@@ -38,6 +38,7 @@ def start(view_manager) -> bool:
         _library.add_item("FlipSocial")
         _library.add_item("GameBoy Emulator")
         _library.add_item("Games")
+        _library.add_item("Infrared")
         _library.add_item("MMBasic")
         _library.add_item("Python Editor")
         _library.add_item("Python REPL")
@@ -96,15 +97,16 @@ def run(view_manager) -> None:
             6: "FlipSocial",
             7: "GameBoy Emulator",
             8: "Games",
-            9: "MMBasic",
-            10: "Python Editor",
-            11: "Python REPL",
-            12: "Screensavers",
-            13: "Scripts",
-            14: "System",
-            15: "Text Editor",
-            16: "USB",
-            17: "WiFi",
+            9: "Infrared",
+            10: "MMBasic",
+            11: "Python Editor",
+            12: "Python REPL",
+            13: "Screensavers",
+            14: "Scripts",
+            15: "System",
+            16: "Text Editor",
+            17: "USB",
+            18: "WiFi",
         }
 
         if app_map.get(_library_index) == "System":
@@ -285,6 +287,18 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("flipsocial")
+        elif app_map.get(_library_index) == "Infrared":
+            from picoware.applications import ir
+
+            view_manager.add(
+                View(
+                    "ir",
+                    ir.run,
+                    ir.start,
+                    ir.stop,
+                )
+            )
+            view_manager.switch_to("ir")
 
 
 def stop(view_manager) -> None:

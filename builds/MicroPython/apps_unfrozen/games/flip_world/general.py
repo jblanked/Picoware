@@ -105,6 +105,8 @@ class IconSpec:
 class IconGroupContext:
     """Contains a group of icons."""
 
+    __slots__ = ("icons",)
+
     def __init__(self, icons: list[IconSpec]):
         self.icons: list[IconSpec] = icons  # list of IconSpec objects
 

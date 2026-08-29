@@ -69,12 +69,6 @@ class Sprite(Entity):
         self.elapsed_move_timer = 0.0
         self.elapsed_attack_timer = 0.0
         self.flip_world_run = None
-        self._update_new_pos = Vector(0, 0)
-        self._update_direction = Vector(0, 0)
-        self.cent_box_pos = Vector(0, 0)
-        self.cent_box_size = Vector(0, 0)
-        self.cent_box_text = Vector(0, 0)
-        self._draw_pos = Vector(0, 0)
         self._data_left = None
         self._data_right = None
 
@@ -124,12 +118,6 @@ class Sprite(Entity):
 
     def __del__(self):
         """Destructor to clean up resources."""
-        self._update_new_pos = None
-        self._update_direction = None
-        self.cent_box_pos = None
-        self.cent_box_size = None
-        self.cent_box_text = None
-        self._draw_pos = None
         self._data_left = None
         self._data_right = None
 
@@ -188,7 +176,7 @@ class Sprite(Entity):
                 other.health += self.strength * 0.1
 
                 # check max health
-                other.health = min(other.health, 100)
+                other.health = min(other.health, other.max_health)
 
                 # Decrease enemy health by player strength
                 self.health -= other.strength
@@ -239,7 +227,7 @@ class Sprite(Entity):
         """Draws the username or health above the sprite's head."""
         _name = ""
         if self.type == ENTITY_TYPE_ENEMY:
-            _name = str(self.health)
+            _name = str(int(self.health))
         elif self.type == ENTITY_TYPE_NPC:
             _name = "NPC"
         if not _name or not game:
@@ -251,7 +239,7 @@ class Sprite(Entity):
         screen_y = int(pos.y - game.position.y)
 
         # Calculate text width using font size
-        text_width = int(len(_name) * game.draw.font_size.x)
+        text_width = game.draw.len(_name)
         font_height = int(game.draw.font_size.y)
 
         # Calculate box dimensions with padding
@@ -273,29 +261,30 @@ class Sprite(Entity):
             return
 
         # Draw centered box
-        self.cent_box_pos.x = box_x
-        self.cent_box_pos.y = box_y
-        self.cent_box_size.x = box_width
-        self.cent_box_size.y = box_height
-        game.draw.fill_rectangle(
-            self.cent_box_pos,
-            self.cent_box_size,
+        game.draw._fill_rectangle(
+            box_x,
+            box_y,
+            box_width,
+            box_height,
             0xFFFF,  # white
         )
 
         # Center the text in the box
         text_x = int(screen_x - text_width // 2)
         text_y = int(box_y + box_padding)
-        self.cent_box_text.x = text_x
-        self.cent_box_text.y = text_y
-        game.draw.text(
-            self.cent_box_text,
+        game.draw._text(
+            text_x,
+            text_y,
             _name,
             0x0000,  # black
         )
 
     def render(self, draw, game):
         """Renders the sprite on the screen."""
+        if self.flip_world_run and not self.flip_world_run.icons_rendered:
+            self.flip_world_run.player.icon_group_render(game)
+            self.flip_world_run.icons_rendered = True
+
         if self.state == ENTITY_STATE_DEAD:
             self.is_visible = False
             return
@@ -324,9 +313,7 @@ class Sprite(Entity):
 
         # Draw sprite explicitly
         if current_data:
-            self._draw_pos.x = screen_x
-            self._draw_pos.y = screen_y
-            draw.image_bytearray(self._draw_pos, self.size, current_data)
+            draw._bytearray(screen_x, screen_y, self.size.x, self.size.y, current_data)
 
         # draw health of enemy
         self.draw_username(self.position, game)
@@ -395,8 +382,8 @@ class Sprite(Entity):
             ENTITY_STATE_ATTACKED,
         ):
             # determine the direction vector
-            self._update_direction.x = 0
-            self._update_direction.y = 0
+            _update_direction_x = 0
+            _update_direction_y = 0
 
             # if attacked, change state to moving based on the direction
             if self.state == ENTITY_STATE_ATTACKED:
@@ -416,68 +403,68 @@ class Sprite(Entity):
             # Calculate direction towards the target
             if self.position.x < target_position.x:
                 # ENTITY_RIGHT
-                self._update_direction.x = 1.0
+                _update_direction_x = 1.0
                 self.direction = Vector(1, 0)
 
             elif self.position.x > target_position.x:
                 # ENTITY_LEFT
-                self._update_direction.x = -1.0
+                _update_direction_x = -1.0
                 self.direction = Vector(-1, 0)
 
             elif self.position.y < target_position.y:
                 # ENTITY_DOWN
-                self._update_direction.y = 1.0
+                _update_direction_y = 1.0
                 self.direction = Vector(0, 1)
 
             elif self.position.y > target_position.y:
                 # ENTITY_UP
-                self._update_direction.y = -1.0
+                _update_direction_y = -1.0
                 self.direction = Vector(0, -1)
 
             # Normalize direction vector
             length = sqrt(
-                self._update_direction.x * self._update_direction.x
-                + self._update_direction.y * self._update_direction.y
+                _update_direction_x * _update_direction_x
+                + _update_direction_y * _update_direction_y
             )
             if length != 0:
-                self._update_direction.x /= length
-                self._update_direction.y /= length
+                _update_direction_x /= length
+                _update_direction_y /= length
 
             # Update position based on direction and speed
-            self._update_new_pos.x = self.position.x
-            self._update_new_pos.y = self.position.y
-            self._update_new_pos.x += self._update_direction.x * self.speed * delta_time
-            self._update_new_pos.y += self._update_direction.y * self.speed * delta_time
+            _update_new_pos_x = self.position.x
+            _update_new_pos_y = self.position.y
+            _update_new_pos_x += _update_direction_x * self.speed * delta_time
+            _update_new_pos_y += _update_direction_y * self.speed * delta_time
 
             # Clamp the position to the target to prevent overshooting
             if (
-                self._update_direction.x > 0
-                and self._update_new_pos.x > target_position.x
+                _update_direction_x > 0
+                and _update_new_pos_x > target_position.x
             ) or (
-                self._update_direction.x < 0
-                and self._update_new_pos.x < target_position.x
+                _update_direction_x < 0
+                and _update_new_pos_x < target_position.x
             ):
-                self._update_new_pos.x = target_position.x
+                _update_new_pos_x = target_position.x
 
             if (
-                self._update_direction.y > 0
-                and self._update_new_pos.y > target_position.y
+                _update_direction_y > 0
+                and _update_new_pos_y > target_position.y
             ) or (
-                self._update_direction.y < 0
-                and self._update_new_pos.y < target_position.y
+                _update_direction_y < 0
+                and _update_new_pos_y < target_position.y
             ):
-                self._update_new_pos.y = target_position.y
+                _update_new_pos_y = target_position.y
 
             # Set the new position
-            self.position = self._update_new_pos
+            self.position = Vector(_update_new_pos_x, _update_new_pos_y)
 
             # Sync multiplayer state
             if self.has_changed_position():
                 self.sync_multiplayer_state()
 
             # Check if the enemy has reached or surpassed the target_position
-            reached_x = fabs(self._update_new_pos.x - target_position.x) < 1
-            reached_y = fabs(self._update_new_pos.y - target_position.y) < 1
+            reached_x = fabs(_update_new_pos_x - target_position.x) < 1
+            reached_y = fabs(_update_new_pos_y - target_position.y) < 1
 
             if reached_x and reached_y:
                 # Set the state to idle

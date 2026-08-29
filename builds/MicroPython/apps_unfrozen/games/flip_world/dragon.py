@@ -168,9 +168,7 @@ class Dragon(Entity):
         self._fly_fb = [False, 0.0, 0.0, 0.0, 0.0]
         self._fly_target = None  # IconSpec the in-flight "burn" fireball is aimed at
         self._done = False
-        self._draw_pos = Vector(0, 0)
 
-    # ── helpers ──────────────────────────────────────────────────────────────
     def _find_player(self, game):
         lvl = game.current_level
         if not lvl:
@@ -234,7 +232,6 @@ class Dragon(Entity):
                     self.position = Vector(-100, -100)
                     self.health = 0
 
-    # ── update ───────────────────────────────────────────────────────────────
     def update(self, game):
         if self.mode == "boss":
             self._update_boss(game)
@@ -451,7 +448,6 @@ class Dragon(Entity):
             return
         spec.on_fire = 0.0001  # small positive value marks it as burning
 
-    # ── render ───────────────────────────────────────────────────────────────
     def render(self, draw, game):
         if self.mode == "boss" and self.state == ENTITY_STATE_DEAD:
             self.is_visible = False
@@ -463,9 +459,7 @@ class Dragon(Entity):
         if not (sx + self.size.x < 0 or sx > game.draw.size.x or
                 sy + self.size.y < 0 or sy > game.draw.size.y):
             data = _dragon_buffer(self.direction.x >= 0)  # full-colour body
-            self._draw_pos.x = sx
-            self._draw_pos.y = sy
-            draw.image_bytearray(self._draw_pos, self.size, data)
+            draw._bytearray(sx, sy, self.size.x, self.size.y, data, False)
 
         # fireballs (orange with a hot core)
         if self.mode == "boss":
@@ -480,5 +474,5 @@ class Dragon(Entity):
     def _fireball(self, draw, game, wx, wy):
         px = int(wx - game.position.x)
         py = int(wy - game.position.y)
-        draw.fill_circle(Vector(px, py), 4, _FB_ORANGE)  # orange
-        draw.fill_circle(Vector(px, py), 2, _FB_CORE)    # hot core
+        draw._fill_circle(px, py, 4, _FB_ORANGE)  # orange
+        draw._fill_circle(px, py, 2, _FB_CORE)    # hot core

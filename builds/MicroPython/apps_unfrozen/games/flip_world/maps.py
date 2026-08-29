@@ -1,5 +1,4 @@
-"""Extra FlipWorld map data (levels 3-23) ported from the Arduino build.
-Pure data — no behaviour change to the existing 3 levels."""
+"""Extra FlipWorld map data (levels 3-23)."""
 
 # level index -> list of icon rows {i:name, x, y, a:amount, h:horizontal}
 WORLD_ICONS = {

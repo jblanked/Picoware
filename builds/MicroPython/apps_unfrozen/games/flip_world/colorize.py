@@ -26,13 +26,13 @@ def colorize(mask, c565):
     """
     ink = ink_byte(c565)
     out = bytearray(len(mask))  # inits to 0x00 = black = transparent on the black bg
-    for i in range(len(mask)):
-        if mask[i] == 0x00:
+    for i, m in enumerate(mask):
+        if m == 0x00:
             out[i] = ink
     return bytes(out)
 
 
-# ── World palette (RGB565, matches the Arduino build's ink colours) ────────────
+# World palette
 COL_TREE = 0x0480    # deep foliage green (tree/plant)
 COL_FLOWER = 0xF81F  # magenta bloom
 COL_HOUSE = 0xB483   # warm timber

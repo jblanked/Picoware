@@ -59,7 +59,6 @@ class ViewManager:
         from picoware.system.colors import TFT_BLUE, TFT_BLACK, TFT_WHITE
         from picoware.system.buttons import BUTTON_ESCAPE
         from picoware.system.boards import BOARD_CARDPUTER, BOARD_FLIPPER_ZERO
-        from picoware.system.usb import USBVideoStream
         from picoware.system.app_loader import AppLoader
 
         self._active = True
@@ -161,10 +160,10 @@ class ViewManager:
             self.log("LVGL mode enabled: WiFi disabled.", 2)
             self.freq(True)
         
-        # Initialize video stream
-        self._usb_video_stream = USBVideoStream()
+        # Initialize video stream on demand
+        self._usb_video_stream = None
         if settings.usb_stream:
-            self._usb_video_stream.start()
+            self.start_usb_video_stream()
 
         # Initialize app loader
         self._app_loader = AppLoader(self)
@@ -396,6 +395,19 @@ class ViewManager:
     def usb_video_stream(self):
         """Return the USBVideoStream instance."""
         return self._usb_video_stream
+
+    def start_usb_video_stream(self):
+        """Start USB video streaming."""
+        if self._usb_video_stream is None:
+            from picoware.system.usb import USBVideoStream
+
+            self._usb_video_stream = USBVideoStream()
+        self._usb_video_stream.start()
+
+    def stop_usb_video_stream(self):
+        """Stop USB video streaming."""
+        if self._usb_video_stream is not None:
+            self._usb_video_stream.stop()
 
     @property
     def view_count(self):

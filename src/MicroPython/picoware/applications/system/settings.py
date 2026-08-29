@@ -213,9 +213,9 @@ def __apply_toggle_setting(index: int, state: bool) -> None:
         _view_manager.draw.use_lvgl = state
     elif index == STATE_USB_STREAM:
         if state:
-            _view_manager.usb_video_stream.start()
+            _view_manager.start_usb_video_stream()
         else:
-            _view_manager.usb_video_stream.stop()
+            _view_manager.stop_usb_video_stream()
 
 
 def __open_toggle(setting_index: int) -> None:

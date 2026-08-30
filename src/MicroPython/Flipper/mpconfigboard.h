@@ -5,6 +5,11 @@
 #define MICROPY_HW_MCU_NAME "STM32WB55RGV6"
 
 #define MICROPY_PY_PYB_LEGACY (0)
+#define MICROPY_PY_STM (0)
+#define MICROPY_PY_FRAMEBUF (0)
+#define MICROPY_PY_UCTYPES (0)
+#define MICROPY_PY_HEAPQ (0)
+#define MICROPY_PY_ASYNCIO (0)
 
 // Radio enabled; sync flash access
 #define MICROPY_HW_STM32WB_FLASH_SYNCRONISATION (1)

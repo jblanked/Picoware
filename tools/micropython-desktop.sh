@@ -40,12 +40,6 @@ else
     ln -s "$picoware_dir" "$source_alias"
 fi
 
-build_mode=desktop
-if [ "${1:-}" = simulator ]; then
-    build_mode=simulator
-    shift
-fi
-
 if [ -n "${PICOWARE_DESKTOP_BUILD_DIR:-}" ]; then
     build_dir=$PICOWARE_DESKTOP_BUILD_DIR
     display_build_dir=$build_dir
@@ -53,26 +47,9 @@ else
     build_dir="$source_alias/builds/MicroPython/desktop"
     display_build_dir="$picoware_dir/builds/MicroPython/desktop"
 fi
+module_dir="$source_alias/src/MicroPython/Desktop/modules"
 variant_dir="$source_alias/src/MicroPython/Desktop/variant"
-if [ "$build_mode" = simulator ]; then
-    # The simulator provides a functional host C backend. Keep native
-    # MMBasic in the Desktop interpreter, but leave out the firmware C module:
-    # its ARM inline assembly is not linkable in the Unix port. Symlinks keep
-    # the module makefiles' source-relative paths rooted in this checkout.
-    module_dir="$build_dir/simulator-modules"
-    rm -rf "$module_dir"
-    # Module registration headers are generated from the selected module
-    # tree. Recreate them so a prior full Desktop build cannot retain `c`.
-    rm -rf "$build_dir/genhdr"
-    mkdir -p "$module_dir"
-    for module in auto_complete desktop font mjs mmbasic response vector video; do
-        ln -s "$source_alias/src/MicroPython/Desktop/modules/$module" "$module_dir/$module"
-    done
-    native_check='import auto_complete, font, mjs, mmbasic, picoware_desktop, response, vector, video; expected = ("auto_complete", "c", "font", "mjs", "mmbasic", "response", "video", "vector"); assert picoware_desktop.BOARD_ID == 15; assert picoware_desktop.native_modules() == expected; print("[desktop-build:ok] simulator native modules", expected)'
-else
-    module_dir="$source_alias/src/MicroPython/Desktop/modules"
-    native_check='import auto_complete, c, font, mjs, mmbasic, picoware_desktop, response, vector, video; expected = ("auto_complete", "c", "font", "mjs", "mmbasic", "response", "video", "vector"); assert picoware_desktop.BOARD_ID == 15; assert picoware_desktop.native_modules() == expected; print("[desktop-build:ok] native modules", expected)'
-fi
+native_check='import auto_complete, c, font, mjs, mmbasic, picoware_desktop, response, vector, video; expected = ("auto_complete", "c", "font", "mjs", "mmbasic", "response", "video", "vector"); assert picoware_desktop.BOARD_ID == 15; assert picoware_desktop.native_modules() == expected; print("[desktop-build:ok] native modules", expected)'
 jobs=${PICOWARE_BUILD_JOBS:-}
 if [ -z "$jobs" ]; then
     if command -v getconf >/dev/null 2>&1; then
@@ -103,7 +80,7 @@ case ${1:-build} in
     build|"")
         ;;
     *)
-        echo "usage: sh tools/micropython-desktop.sh [simulator] [build|check|clean]" >&2
+        echo "usage: sh tools/micropython-desktop.sh [build|check|clean]" >&2
         exit 2
         ;;
 esac
@@ -121,7 +98,7 @@ rm -rf "$source_alias/builds/c"
 for dir in "$build_dir"/*/; do
     [ -d "$dir" ] || continue
     case "$(basename "$dir")" in
-        py|extmod|lib|shared|genhdr|simulator-modules) ;;
+        py|extmod|lib|shared|genhdr) ;;
         *) rm -rf "$dir" ;;
     esac
 done

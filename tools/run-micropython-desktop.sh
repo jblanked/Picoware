@@ -7,7 +7,7 @@ build_dir=${PICOWARE_DESKTOP_BUILD_DIR:-"$picoware_dir/builds/MicroPython/deskto
 binary="$build_dir/micropython"
 
 if [ ! -x "$binary" ]; then
-    sh "$script_dir/micropython-desktop.sh" simulator
+    sh "$script_dir/micropython-desktop.sh"
 fi
 
 if [ "$#" -eq 0 ]; then

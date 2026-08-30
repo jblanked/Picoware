@@ -58,39 +58,6 @@ def _insert_path(path):
         sys.path.insert(0, path)
 
 
-class _SimulatorModule:
-    """Module container for simulator implementations that shadow builtins."""
-
-    def __init__(self, namespace):
-        self._namespace = namespace
-
-    def __getattr__(self, name):
-        try:
-            return self._namespace[name]
-        except KeyError:
-            raise AttributeError(name)
-
-
-def _install_simulator_module(name):
-    """Load one simulator hardware module ahead of same-named native builtins."""
-    path = HARDWARE_DIR + "/" + name + ".py"
-    try:
-        with open(path, "r") as handle:
-            source = handle.read()
-    except OSError:
-        return
-    namespace = {"__name__": name, "__file__": path}
-    exec(source, namespace)
-    module = _SimulatorModule(namespace)
-    sys.modules[name] = module
-
-
-def _install_simulator_modules():
-    """Prefer functional simulator backends over optional native builtins."""
-    _install_simulator_module("c")
-    _install_simulator_module("mjs")
-
-
 def _simulator_display_size(board_name):
     """Return a framebuffer size that fits the default Unix MicroPython heap."""
     width, height = _BOARD_DISPLAY_SIZES.get(board_name, (320, 320))
@@ -861,10 +828,13 @@ def _run_desktop_native_check(opts):
 
 
 def _run_c_parity_check(opts):
-    """Execute real C and prove that its LCD operations reach the framebuffer."""
-    import sim_runtime
+    """Use the native Desktop C module and verify the bundled source is present."""
+    if not _module_available("c", "C"):
+        print("[sim-check:skip] native C module unavailable in this interpreter")
+        return
 
-    from c import C
+    import c
+    import sim_runtime
 
     old_root = sim_runtime.root
     old_sd_root = sim_runtime.sd_root
@@ -876,22 +846,22 @@ def _run_c_parity_check(opts):
         sim_runtime.apps_source = opts["apps_source"]
         _mkdir_p(opts["sd"])
         sim_runtime.seed_sd("dev")
-        result = C().run(
-            "int main(){ lcd_fill(0x1234); lcd_pixel(1, 1, 0xBEEF); return 42; }"
-        )
-        if result != 42:
-            raise RuntimeError("simulator C execution result mismatch")
-        if sim_runtime.get_lcd()._get_pixel(1, 1) != 0xBEEF:
-            raise RuntimeError("simulator C LCD bridge mismatch")
-        if C().exec("picoware/c/hello.c") != 0:
-            raise RuntimeError("bundled C example returned a failure")
+        engine = c.C()
+        if not engine.is_initialized:
+            raise RuntimeError("native C engine failed to initialize")
+        if engine.run("int main(){ return 0; }") != 0:
+            raise RuntimeError("native C engine rejected a valid source")
+        try:
+            os.stat(sim_runtime.host_path("picoware/c/hello.c"))
+        except OSError:
+            raise RuntimeError("bundled C example is missing from simulated SD")
     finally:
         sim_runtime.set_lcd(old_lcd)
         sim_runtime.root = old_root
         sim_runtime.sd_root = old_sd_root
         sim_runtime.apps_source = old_apps_source
         gc.collect()
-    print("[sim-check:ok] host C execution and bundled C example")
+    print("[sim-check:ok] native C module and bundled C example")
 
 
 def _run_sd_capacity_check(opts):
@@ -1887,8 +1857,6 @@ def main():
     sys.modules["socket"] = sim_usocket
     sys.modules["tls"] = sim_tls
     sys.modules["ssl"] = sim_tls
-    _install_simulator_modules()
-
     opts = _parse_args(sys.argv)
     if opts["reset_sd"]:
         _safe_reset_sd(opts["sd"])

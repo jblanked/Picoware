@@ -33,10 +33,13 @@ def start(view_manager) -> bool:
         _library.add_item("Applications")
         _library.add_item("App Store")
         _library.add_item("Bluetooth")
+        _library.add_item("C")
         _library.add_item("Email")
         _library.add_item("File Manager")
+        _library.add_item("FlipSocial")
         _library.add_item("GameBoy Emulator")
         _library.add_item("Games")
+        _library.add_item("Infrared")
         _library.add_item("MMBasic")
         _library.add_item("Python Editor")
         _library.add_item("Python REPL")
@@ -90,19 +93,22 @@ def run(view_manager) -> None:
             1: "Applications",
             2: "App Store",
             3: "Bluetooth",
-            4: "Email",
-            5: "File Manager",
-            6: "GameBoy Emulator",
-            7: "Games",
-            8: "MMBasic",
-            9: "Python Editor",
-            10: "Python REPL",
-            11: "Screensavers",
-            12: "Scripts",
-            13: "System",
-            14: "Text Editor",
-            15: "USB",
-            16: "WiFi",
+            4: "C",
+            5: "Email",
+            6: "File Manager",
+            7: "FlipSocial",
+            8: "GameBoy Emulator",
+            9: "Games",
+            10: "Infrared",
+            11: "MMBasic",
+            12: "Python Editor",
+            13: "Python REPL",
+            14: "Screensavers",
+            15: "Scripts",
+            16: "System",
+            17: "Text Editor",
+            18: "USB",
+            19: "WiFi",
         }
 
         if app_map.get(_library_index) == "System":
@@ -271,6 +277,42 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("mmbasic")
+        elif app_map.get(_library_index) == "FlipSocial":
+            from picoware.applications import FlipSocial
+
+            view_manager.add(
+                View(
+                    "flipsocial",
+                    FlipSocial.run,
+                    FlipSocial.start,
+                    FlipSocial.stop,
+                )
+            )
+            view_manager.switch_to("flipsocial")
+        elif app_map.get(_library_index) == "Infrared":
+            from picoware.applications import ir
+
+            view_manager.add(
+                View(
+                    "ir",
+                    ir.run,
+                    ir.start,
+                    ir.stop,
+                )
+            )
+            view_manager.switch_to("ir")
+        elif app_map.get(_library_index) == "C":
+            from picoware.applications import c
+
+            view_manager.add(
+                View(
+                    "c",
+                    c.run,
+                    c.start,
+                    c.stop,
+                )
+            )
+            view_manager.switch_to("c")
 
 
 def stop(view_manager) -> None:

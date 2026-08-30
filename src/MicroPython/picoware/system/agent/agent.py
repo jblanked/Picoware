@@ -5,6 +5,14 @@ from micropython import const
 from picoware.system.agent.tools import dispatch
 from picoware.system.agent.llm import LLM, DEEPSEEK
 from picoware.system.agent.context import chat, app_creator, device_manager
+from picoware.system.agent.session import Session
+from picoware.system.agent.mcp import (
+    MCPClient,
+    MCP_LIST_SERVERS_TOOL,
+    MCP_LIST_SERVERS_TOOL_NAME,
+    MCP_SELECT_SERVER_TOOL,
+    MCP_SELECT_SERVER_TOOL_NAME,
+)
 
 MODE_CHAT = const(0) # general chat mode
 MODE_APP_CREATOR = const(1) # creates/edits Picoware apps
@@ -15,7 +23,20 @@ MAX_CONVERSATION_MESSAGES = const(20)
 
 class Agent:
     """Agent that can perform tasks using tools and LLMs."""
-    __slots__ = ["mode", "tools", "llm", "view_manager", "http", "_file_path", "_conv_path", "_mem_path", "_msg_path"]
+    __slots__ = [
+        "mode",
+        "tools",
+        "llm",
+        "view_manager",
+        "http",
+        "_file_path",
+        "_conv_path",
+        "_mem_path",
+        "_msg_path",
+        "_mcp",
+        "_mcp_tool_routes",
+        "_mcp_tool_schemas",
+    ]
 
     def __init__(self, view_manager, mode: int = MODE_CHAT, llm: LLM = None, file_path: str = "picoware/settings/agent_request.json"):
         """Initialize the agent with a mode, LLM, and request file path.
@@ -37,6 +58,15 @@ class Agent:
         self._mem_path = "picoware/settings/agent_mem.json"
         self._msg_path = "picoware/settings/agent_msg.json"
 
+        from picoware.system.settings import Settings
+        settings = Settings(view_manager.storage)
+        self._mcp = MCPClient(
+            self.http,
+            settings.mcp_servers,
+        )
+        self._mcp_tool_routes = {}
+        self._mcp_tool_schemas = []
+
         s = self.view_manager.storage
         s.remove(self._conv_path)
         s.remove(self._mem_path)
@@ -45,6 +75,9 @@ class Agent:
     def __del__(self):
         """Cleanup resources on deletion."""
         self.tools.clear()
+        self._mcp_tool_routes.clear()
+        self._mcp_tool_schemas.clear()
+        self._mcp = None
         self.llm = None
         self.http = None
     
@@ -177,6 +210,105 @@ class Agent:
             self._stream_file_json_escaped(storage, self._mem_path, self._conv_path)
         storage.write(self._conv_path, '"}', mode="a")
 
+    def _build_tools(self) -> list[dict]:
+        """Build built-in and currently selected MCP tool schemas."""
+        tools = [tool.json_openai for tool in dispatch.get_tool_list()]
+        if self._mcp.enabled:
+            tools.extend(
+                [
+                    MCP_LIST_SERVERS_TOOL,
+                    MCP_SELECT_SERVER_TOOL,
+                ]
+            )
+            tools.extend(self._mcp_tool_schemas)
+        return tools
+
+    def _select_mcp_server(self, args: dict) -> dict:
+        """Select an MCP server and expose its discovered tools."""
+        server_id = args.get("server_id") if isinstance(args, dict) else None
+        server, tools = self._mcp.select_server(server_id)
+        self._mcp_tool_routes.clear()
+        self._mcp_tool_schemas.clear()
+        used_names = [
+            MCP_LIST_SERVERS_TOOL_NAME,
+            MCP_SELECT_SERVER_TOOL_NAME,
+        ]
+        tool_summaries = []
+
+        for tool in tools:
+            tool_name = tool.get("name")
+            if not isinstance(tool_name, str) or not tool_name:
+                continue
+            exposed_name = self._mcp_tool_name(server["id"], tool_name, used_names)
+            used_names.append(exposed_name)
+            self._mcp_tool_routes[exposed_name] = (server["id"], tool_name)
+
+            description = tool.get("description", "")
+            if not isinstance(description, str) or not description:
+                description = "MCP tool " + tool_name
+            input_schema = tool.get("inputSchema")
+            if not isinstance(input_schema, dict):
+                input_schema = {
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                }
+            self._mcp_tool_schemas.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": exposed_name,
+                        "description": description,
+                        "parameters": input_schema,
+                    },
+                }
+            )
+            tool_summaries.append(
+                {
+                    "name": tool_name,
+                    "description": description,
+                }
+            )
+
+        return {
+            "server": server,
+            "tools": tool_summaries,
+        }
+
+    @staticmethod
+    def _mcp_tool_name(server_id: str, tool_name: str, used_names: list[str]) -> str:
+        """Create a unique model-safe name for an MCP tool."""
+        base = "mcp_" + Agent._sanitize_tool_name(server_id) + "_" + Agent._sanitize_tool_name(tool_name)
+        candidate = base[:64]
+        suffix = 1
+        while candidate in used_names:
+            suffix_text = "_" + str(suffix)
+            candidate = base[: 64 - len(suffix_text)] + suffix_text
+            suffix += 1
+        return candidate
+
+    @staticmethod
+    def _sanitize_tool_name(name: str) -> str:
+        """Replace characters unsupported by common tool-name schemas."""
+        result = ""
+        for character in name:
+            if character.isalnum() or character in "_-":
+                result += character
+            else:
+                result += "_"
+        return result or "tool"
+
+    def _execute_tool(self, name: str, args: dict):
+        """Execute a built-in or selected MCP tool."""
+        if name == MCP_LIST_SERVERS_TOOL_NAME:
+            return self._mcp.list_servers()
+        if name == MCP_SELECT_SERVER_TOOL_NAME:
+            return self._select_mcp_server(args)
+        route = self._mcp_tool_routes.get(name)
+        if route is not None:
+            return self._mcp.call_tool(route[0], route[1], args)
+        return dispatch.execute_tool(self.view_manager, name, args)
+
     def _build_request(self, tools: list[dict]) -> None:
         """Stream the conversation and metadata into the API request file.
 
@@ -229,11 +361,11 @@ class Agent:
         Returns:
             str: The final assistant text, or an error message.
         """
-        tools = [tool.json_openai for tool in dispatch.get_tool_list()]
         storage = self.view_manager.storage
 
         for _ in range(MAX_TOOL_ITERATIONS):
             # Build request from conversation
+            tools = self._build_tools()
             self._build_request(tools)
 
             response = self.http.post(
@@ -288,7 +420,7 @@ class Agent:
 
                 try:
                     self.view_manager.log(f"[Agent] Executing {name} with args: {args}")
-                    result = dispatch.execute_tool(self.view_manager, name, args)
+                    result = self._execute_tool(name, args)
                     self.view_manager.log(f"[Agent] {name} returned: {result}")
                 except (TypeError, ValueError, KeyError) as exc:
                     result = f"Tool error in {name}: {exc}"
@@ -397,6 +529,9 @@ class Agent:
         messages.append({"role": "user", "content": user_message})
 
         try:
+            self._mcp.reset()
+            self._mcp_tool_routes.clear()
+            self._mcp_tool_schemas.clear()
             self._conv_write_initial(messages)
             return self._run_loop()
         except Exception as exc:
@@ -452,5 +587,40 @@ class Agent:
             "message": message,
             "conversation": updated_conversation,
         }
+
+    def run_session(self, session_id: str, user_message: str) -> dict:
+        """Run the agent with a session ID and user message, returning a structured response.
+
+        Args:
+            session_id (str): The unique identifier for the session.
+            user_message (str): The user's message to process.
+
+        Returns:
+            dict: The response with status, message, and conversation keys.
+        """
+        try:
+            session = Session(self.view_manager, session_id=session_id)
+        except Exception as exc:
+            return {
+                "status": "error",
+                "message": f"Failed to load session: {exc}",
+                "conversation": [],
+            }
+
+        payload = {
+            "message": user_message,
+            "conversation": session.conversation,
+        }
+        result = self.run_payload(payload)
+
+        if result["status"] == "completed":
+            session.append_messages(
+                [
+                    {"role": "user", "content": user_message},
+                    {"role": "assistant", "content": result["message"]},
+                ]
+            )
+
+        return result
 
     

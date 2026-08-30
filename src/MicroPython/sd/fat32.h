@@ -193,6 +193,7 @@ extern "C"
     // File operations
     fat32_error_t fat32_open(fat32_file_t *file, const char *path);
     fat32_error_t fat32_create(fat32_file_t *file, const char *path);
+    fat32_error_t fat32_create_in_dir(fat32_file_t *dir, fat32_file_t *file, const char *filename);
     fat32_error_t fat32_close(fat32_file_t *file);
     fat32_error_t fat32_read(fat32_file_t *file, void *buffer, size_t size, size_t *bytes_read);
     fat32_error_t fat32_write(fat32_file_t *file, const void *buffer, size_t size, size_t *bytes_written);

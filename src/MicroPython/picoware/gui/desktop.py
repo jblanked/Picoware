@@ -1148,10 +1148,15 @@ class Desktop:
                 self.wifi_pos.x - _five_x - self.bluetooth_size.x,
                 2,
             )
-            # battery left of bluetooth icon
-            battery_width = draw.len(self.battery_level_str)
-            self.battery_pos.x = self.bluetooth_pos.x - _five_x - battery_width
-            self.battery_pos.y = _five_y
+            if self.draw_icons:
+                # battery left of bluetooth icon
+                battery_width = draw.len(self.battery_level_str)
+                self.battery_pos.x = self.bluetooth_pos.x - _five_x - battery_width
+                self.battery_pos.y = _five_y
+            else:
+                # right-edge of the screen
+                self.battery_pos.x = self.size.x - draw.len(self.battery_level_str) - 1
+                self.battery_pos.y = _five_y
 
         self.display.clear(self.position, self.size, self.background_color)
         self.display.swap()
@@ -1250,10 +1255,15 @@ class Desktop:
                 int(self.size.y / 20) + self.display.scale_y(32),
             )
         else:
-            # battery left of bluetooth icon
-            battery_width = self.display.len(self.battery_level_str)
-            self.battery_pos.x = self.bluetooth_pos.x - self.display.scale_x(5) - battery_width
-            self.battery_pos.y = self.display.scale_y(5)
+            if self.draw_icons:
+                # battery left of bluetooth icon
+                battery_width = self.display.len(self.battery_level_str)
+                self.battery_pos.x = self.bluetooth_pos.x - self.display.scale_x(5) - battery_width
+                self.battery_pos.y = self.display.scale_y(5)
+            else:
+                # right-edge of the screen
+                self.battery_pos.x = self.size.x - self.display.len(self.battery_level_str) - 1
+                self.battery_pos.y = self.display.scale_y(5)
 
     def set_time(self, time_str: str) -> None:
         """Set the time on the header.

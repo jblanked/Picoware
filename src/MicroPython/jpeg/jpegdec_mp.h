@@ -14,7 +14,7 @@ Source: https://github.com/jblanked/Picoware
 #if defined(PICOCALC)
 #include "../../JPEGDEC/src/JPEGDEC.h"
 #include "../../JPEGDEC/src/jpeg.inl"
-#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
+#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO)
 #include "../JPEGDEC/src/JPEGDEC.h"
 #include "../JPEGDEC/src/jpeg.inl"
 #else
@@ -44,3 +44,8 @@ mp_obj_t jpegdec_decode_split(size_t n_args, const mp_obj_t *args);
 mp_obj_t jpegdec_decode_split_buffer(size_t n_args, const mp_obj_t *args);
 mp_obj_t jpegdec_decode_split_wait(mp_obj_t self_in);
 mp_obj_t jpegdec_getinfo(mp_obj_t self_in, mp_obj_t data);
+
+bool jpegdec_decode_buffer(const uint8_t *data, size_t size, int x, int y, int options);
+void *jpegdec_context_alloc(void);
+void jpegdec_context_free(void *context);
+bool jpegdec_decode_buffer_with_context(void *context, const uint8_t *data, size_t size, int x, int y, int options);

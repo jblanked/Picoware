@@ -1,10 +1,12 @@
 """Tool registry and execution dispatcher."""
 from picoware.system.agent.tools.storage import (
+    storage_info,
     storage_listdir,
     storage_mkdir,
     storage_read,
     storage_remove,
     storage_write,
+    TOOL_STORAGE_INFO,
     TOOL_STORAGE_LISTDIR,
     TOOL_STORAGE_MKDIR,
     TOOL_STORAGE_READ,
@@ -21,6 +23,11 @@ from picoware.system.agent.tools.network import (
     TOOL_NETWORK_SCAN_WIFI,
     TOOL_NETWORK_SCAN_BLE,
     TOOL_NETWORK_SEND_REQUEST,
+)
+
+from picoware.system.agent.tools.time import (
+    time_get_current_time,
+    TOOL_TIME_GET_CURRENT_TIME,
 )
 
 def execute_tool(view_manager, name, args=None, **kwargs):
@@ -45,6 +52,7 @@ def execute_tool(view_manager, name, args=None, **kwargs):
 def get_tool_map():
     """Return the mapping of tool names to their execution functions."""
     return {
+        "storage_info": storage_info,
         "storage_listdir": storage_listdir,
         "storage_mkdir": storage_mkdir,
         "storage_read": storage_read,
@@ -55,11 +63,14 @@ def get_tool_map():
         "network_scan_wifi": network_scan_wifi,
         "network_scan_ble": network_scan_ble,
         "network_send_request": network_send_request,
+        #
+        "time_get_current_time": time_get_current_time,
     }
 
 def get_tool_list():
     """Return the list of available tools."""
     return [
+        TOOL_STORAGE_INFO,
         TOOL_STORAGE_LISTDIR,
         TOOL_STORAGE_MKDIR,
         TOOL_STORAGE_READ,
@@ -70,4 +81,6 @@ def get_tool_list():
         TOOL_NETWORK_SCAN_WIFI,
         TOOL_NETWORK_SCAN_BLE,
         TOOL_NETWORK_SEND_REQUEST,
+        #
+        TOOL_TIME_GET_CURRENT_TIME,
     ]

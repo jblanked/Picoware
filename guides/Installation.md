@@ -1,7 +1,6 @@
 # Installation
 
-> [!WARNING]
-> If you're using PicoCalc, make sure to update your keyboard firmware first: https://github.com/jblanked/awesome-pico-calc/blob/master/GettingStarted.md#updating-the-stm32>
+The installation process for Picoware varies depending on the device you are using but generally involves downloading and flashing the appropriate build then copying the `apps`, `scripts`, `mmbasic`, and `c` folders from the `builds/MicroPython` directory into the `picoware` folder on the root of your SD card. Follow the instructions for your specific device below.
 
 ## PicoCalc, Waveshare, and other Raspberry Pi Pico-based boards
 1. Download the appropriate build from the `builds` directory.
@@ -10,8 +9,11 @@
 4. Drag and drop the downloaded file onto the device that appears (it should be named `RPI-RP2` if using a Raspberry Pi Pico/W or `RP2350` if using a Raspberry Pi Pico 2/2W). 
 5. Once the file transfer is complete, the Pico will eject itself. Disconnect the USB cable from your Pico.
 
+> [!WARNING]
+> If you're using PicoCalc, make sure to update your keyboard firmware first: https://github.com/jblanked/awesome-pico-calc/blob/master/GettingStarted.md#updating-the-stm32>
+
 > [!NOTE]
-> If you are installing the MicroPython version, copy the `apps` folder from `builds/MicroPython` to the `picoware` folder on your SD card. Create a `picoware` folder if it doesn't exist. Then do the same for the `scripts` folder from `builds/MicroPython` into that same `picoware` folder and the same for the `mmbasic` folder from `builds/MicroPython` into that same `picoware` folder.
+> If you are installing the MicroPython version, copy the `apps`, `scripts`, `mmbasic`, and `c` folders from the `builds/MicroPython` directory into the `picoware` folder on the root of SD card. Create a `picoware` folder if it doesn't exist.
 
 > [!NOTE]
 > If you are installing the CircuitPython version, after installing Picoware, replace the `code.py` file on your Pico with the one from `src/CircuitPython`. Then, copy the `apps` folder from `builds/CircuitPython` to the `picoware` folder on your SD card. Create a `picoware` folder if it doesn't exist.
@@ -47,7 +49,7 @@ The recommended way is to use M5Burner to install an app called `M5Launcher` tha
 10. Wait until the installation process is complete and your Cardputer will reboot into Picoware!
 
 > [!NOTE]
-> If the recommended installation method doesn't work for you, follow the instructions below, otherwise proceed with copying the `apps` folder from `builds/MicroPython` to the `picoware` folder on your SD card. Then do the same for the `scripts` folder from `builds/MicroPython` into that same `picoware` folder and the same for the `mmbasic` folder from `builds/MicroPython` into that same `picoware` folder. Create a `picoware` folder if it doesn't exist.
+> If the recommended installation method doesn't work for you, follow the instructions below, otherwise proceed with copying the `apps`, `scripts`, `mmbasic`, and `c` folders from the `builds/MicroPython` directory into the `picoware` folder on the root of SD card. Create a `picoware` folder if it doesn't exist.
 
 The second option is to use the M5Burner tool provided by M5Stack to install Picoware directly to your Cardputer:
 1. Download, install, and open the M5Burner tool from the official M5Stack website: https://docs.m5stack.com/en/download
@@ -93,7 +95,7 @@ Optionally, you can also download the `Picoware-CrowPanel-10.1.bin` file from th
 1. Download this repository as a ZIP file and extract it.
 2. Turn off your Flipper Zero, take out the SD card, then insert it into your computer.
 3. Copy the `firmware` folder from the `builds/MicroPython/sd` directory of the ZIP file you downloaded into the root of your Flipper Zero's SD card. If a `firmware` folder already exists, replace it with the new one.
-4. Create a `picoware` folder on your SD card and copy the contents of the `builds/MicroPython/apps` folder on the ZIP file into it, the contents of the `builds/MicroPython/scripts` folder into it, and the contents of the `builds/MicroPython/mmbasic` folder into it. If a `picoware` folder already exists, replace it with the new one.
+4. Create a `picoware` folder on your SD card and copy the `apps`, `scripts`, `mmbasic`, and `c` folders from the `builds/MicroPython` directory into the `picoware` folder on the root of SD card.
 5. Eject the SD card from your computer and insert it into your Flipper Zero.
 6. Hold the `Center + Back` buttons for 25 seconds.
 7. Connect your Flipper Zero to your computer via USB-C data cable.
@@ -105,6 +107,7 @@ Optionally, you can also download the `Picoware-CrowPanel-10.1.bin` file from th
 > [!NOTE]
 > Known Flipper Zero issues:
 > - It can take up to 10 seconds for the system to boot up after the Flipper Zero is turned on or restarted. 
+> - The device may run out of memory occasionally, especially after running multiple apps or games.
 > - On boot/restart, noise may be heard from the speaker/radio.
 > - The system may freeze when trying to Stop in ThonnyIDE (solution: must click Library -> System -> Stop before trying to interrupt)
 > - Some of the apps/games/screensavers are incompatible

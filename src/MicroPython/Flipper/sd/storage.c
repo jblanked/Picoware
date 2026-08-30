@@ -444,6 +444,19 @@ void storage_file_close(void *handle)
     m_free(h);
 }
 
+bool storage_file_seek(void *handle, size_t offset)
+{
+    if (handle == NULL)
+    {
+        return false;
+    }
+
+    storage_file_handle_t *h = (storage_file_handle_t *)handle;
+    int errcode = 0;
+    mp_stream_seek(h->file_obj, (mp_off_t)offset, MP_SEEK_SET, &errcode);
+    return errcode == 0;
+}
+
 size_t storage_file_read_file_chunk(void *handle, void *buffer,
                                     size_t buffer_size)
 {

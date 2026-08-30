@@ -76,6 +76,8 @@ for module_path in \
     vt \
     textbox \
     usb_video \
+    video \
+    JPEGDEC \
     shared_lcd \
     input \
     battery \
@@ -107,9 +109,11 @@ stage_module_dir "mmbasic"
 stage_module_dir "engine"
 stage_module_dir "textbox"
 stage_module_dir "usb_video"
+stage_module_dir "JPEGDEC"
+stage_module_dir "video"
 
 # Remove shared module .mk files — Flipper's top-level mk orchestrates everything
-for dir in auto_complete lcd font log vector vt response picoware_boards jsmn mjs engine textbox usb_video; do
+for dir in auto_complete lcd font log vector vt response picoware_boards jsmn mjs engine textbox usb_video video; do
     rm -f "$micropython_dir/modules/$dir/micropython.mk"
     rm -f "$micropython_dir/modules/$dir/micropython.cmake"
 done
@@ -146,7 +150,8 @@ fw_dir="$sd_dir/firmware"
 rm -rf "$sd_dir"
 mkdir -p "$fw_dir"
 cp "$picoware_dir/src/MicroPython/main.py" "$fw_dir/main.py"
-cp -r "$picoware_dir/src/MicroPython/picoware" "$fw_dir/picoware"
+rsync -a --exclude='/system/agent/' \
+    "$picoware_dir/src/MicroPython/picoware/" "$fw_dir/picoware/"
 find "$fw_dir" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 find "$fw_dir" -name ".DS_Store" -delete 2>/dev/null || true
 
@@ -177,6 +182,3 @@ echo "Copying build artifacts..."
 cp "$build_dir/firmware.dfu" "$output_dir/Picoware-FlipperZero.dfu" 2>/dev/null || true
 
 echo "Flipper Zero build complete."
-echo "SD image is in $sd_dir - copy the firmware/ folder to the SD card root."
-echo "picoware is precompiled to .mpy; user apps stay in picoware/apps."
-echo "Radio core needs the FUS + BLE wireless stack flashed at 0x080C0000 (top 256K)."

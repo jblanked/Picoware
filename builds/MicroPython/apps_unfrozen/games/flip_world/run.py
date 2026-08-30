@@ -35,6 +35,14 @@ from flip_world.general import (
     ICON_ID_ROCK_LARGE,
     ICON_ID_ROCK_MEDIUM,
     ICON_ID_ROCK_SMALL,
+    ICON_ID_WATER,
+    ICON_ID_ICE,
+    ICON_ID_LAKE_BOTTOM,
+    ICON_ID_LAKE_TOP,
+    ICON_ID_FENCE_VERTICAL_START,
+    ICON_ID_FENCE_VERTICAL_END,
+    ICON_ID_MAN,
+    ICON_ID_WOMAN,
     ICON_ID_INVALID,
 )
 
@@ -60,9 +68,23 @@ from flip_world.assets import (
     player_right_sword_15x11px,
 )
 
-from flip_world.sprite import Sprite
+from flip_world.icons_extra import (
+    icon_water_40x24px,
+    icon_lake_bottom_31x12px,
+    icon_lake_top_31x12px,
+    icon_fence_vertical_start_6x15px,
+    icon_fence_vertical_end_6x8px,
+    icon_man_7x16,
+    icon_woman_9x16,
+)
 
-DEBUG = const(False)
+from flip_world.maps import WORLD_ICONS, WORLD_ENEMIES
+
+from flip_world.colorize import colorize, ICON_COLOR, COL_CHAR
+
+from flip_world.sprite import Sprite
+from flip_world.dragon import Dragon
+
 MAX_WEBSOCKET_SIZE = const(256)
 
 
@@ -114,8 +136,22 @@ class FlipWorldRun:
 
         # Level management
         self.current_level_index: int = LEVEL_HOME_WOODS
-        self.level_names: list = ["Home Woods", "Rock World", "Forest World"]
-        self.total_levels: int = 3
+        self.level_names: list = [
+            "Home Woods", "Rock World", "Forest World", "Meadow",
+            "Stronghold", "Lakeside", "Boulder Field", "Village",
+            "Deep Woods", "Wasteland", "Flower Garden", "Shadow Keep",
+            "Twin Peaks", "Marshland", "Ruins", "Sunflower Fields",
+            "Frozen Lake", "The Hollow", "Crossroads", "Crater",
+            "Enchanted Grove", "Ironhold", "Serpent Marsh", "Dragon's Lair",
+        ]
+        self.total_levels: int = 24
+
+        # Campaign progress persisted on the SD card. `unlocked_count` = how many maps
+        # are playable (>= 1); it never regresses. `start_level_index` is the level a new
+        # game begins on (resume point, or a map chosen from the picker).
+        self.progress_path: str = "picoware/flip_world/progress.json"
+        self.unlocked_count: int = self._load_unlocked()
+        self.start_level_index: int = max(0, self.unlocked_count - 1)  # resume by default
 
         # Sound/vibration settings
         self.sound_toggle: int = 1
@@ -123,7 +159,8 @@ class FlipWorldRun:
 
         # icon stuff (we'll use the map as a lookup table instead of storing icon data directly)
         self.current_icon_group: IconGroupContext = IconGroupContext([])
-        self.icon_map = {
+        self.icons_rendered = False
+        _raw_icons = {
             ICON_ID_HOUSE: icon_house_48x32px,
             ICON_ID_PLANT: icon_plant_16x16,
             ICON_ID_TREE: icon_tree_16x16,
@@ -132,7 +169,19 @@ class FlipWorldRun:
             ICON_ID_ROCK_LARGE: icon_rock_large_18x19px,
             ICON_ID_ROCK_MEDIUM: icon_rock_medium_16x14px,
             ICON_ID_ROCK_SMALL: icon_rock_small_10x8px,
+            # Extra icons used by the ported maps (levels 3-23)
+            ICON_ID_WATER: icon_water_40x24px,
+            ICON_ID_ICE: icon_water_40x24px,  # ice reuses the solid water tile
+            ICON_ID_LAKE_BOTTOM: icon_lake_bottom_31x12px,
+            ICON_ID_LAKE_TOP: icon_lake_top_31x12px,
+            ICON_ID_FENCE_VERTICAL_START: icon_fence_vertical_start_6x15px,
+            ICON_ID_FENCE_VERTICAL_END: icon_fence_vertical_end_6x8px,
+            ICON_ID_MAN: icon_man_7x16,
+            ICON_ID_WOMAN: icon_woman_9x16,
         }
+        # Full colour: pre-tint each icon (and a charred copy for burnt scenery) once.
+        self.icon_map = {i: colorize(m, ICON_COLOR.get(i, 0xFFFF)) for i, m in _raw_icons.items()}
+        self.icon_char_map = {i: colorize(m, COL_CHAR) for i, m in _raw_icons.items()}
 
     def __del__(self):
         """Clean up resources."""
@@ -231,7 +280,7 @@ class FlipWorldRun:
             self.sync_multiplayer_level()  # send current level when a new player joins
             return True
 
-        print(f"Failed to create remote player entity for {username}")
+        self.view_manager.log(f"Failed to create remote player entity for {username}")
         return False
 
     def end_game(self):
@@ -290,12 +339,12 @@ class FlipWorldRun:
             response = response.strip()
             data = loads(response)
         except Exception:
-            print("entity_json_update: Failed to parse JSON")
+            self.view_manager.log("entity_json_update: Failed to parse JSON")
             return False
 
         u = data.get("u", None)
         if u is None:
-            print("entity_json_update: Failed to get username")
+            self.view_manager.log("entity_json_update: Failed to get username")
             return False
 
         # Check if the username matches
@@ -363,26 +412,24 @@ class FlipWorldRun:
     def get_current_level_index(self) -> int:
         """Get the index of the current level."""
         if not self.engine:
-            print("Engine is not initialized")
+            self.view_manager.log("Engine is not initialized")
             return LEVEL_UNKNOWN
 
         current_level = self.engine.game.current_level
         if not current_level:
-            print("Current level is not set")
+            self.view_manager.log("Current level is not set")
             return LEVEL_UNKNOWN
 
-        level_map = {
-            "Home Woods": LEVEL_HOME_WOODS,
-            "Rock World": LEVEL_ROCK_WORLD,
-            "Forest World": LEVEL_FOREST_WORLD,
-        }
-        return level_map.get(current_level.name, LEVEL_UNKNOWN)
+        for i, nm in enumerate(self.level_names):
+            if nm == current_level.name:
+                return i
+        return LEVEL_UNKNOWN
 
     def get_icon_spec(self, name: str) -> IconSpec:
         """Returns the IconSpec for a given icon name."""
         spec_map = {
             "house": IconSpec(ICON_ID_HOUSE, 48, 32),
-            "plant": IconSpec(ICON_ID_PLANT, 16, 16),
+                "plant": IconSpec(ICON_ID_PLANT, 16, 16),
             "tree": IconSpec(ICON_ID_TREE, 16, 16),
             "fence": IconSpec(ICON_ID_FENCE, 16, 8),
             "flower": IconSpec(ICON_ID_FLOWER, 16, 16),
@@ -397,6 +444,15 @@ class FlipWorldRun:
                 14,
             ),
             "rock_small": IconSpec(ICON_ID_ROCK_SMALL, 10, 8),
+            # Extra icons used by the ported maps (levels 3-23)
+            "water": IconSpec(ICON_ID_WATER, 40, 24),
+            "ice": IconSpec(ICON_ID_ICE, 40, 24),
+            "lake_bottom": IconSpec(ICON_ID_LAKE_BOTTOM, 31, 12),
+            "lake_top": IconSpec(ICON_ID_LAKE_TOP, 31, 12),
+            "fence_vertical_start": IconSpec(ICON_ID_FENCE_VERTICAL_START, 6, 15),
+            "fence_vertical_end": IconSpec(ICON_ID_FENCE_VERTICAL_END, 6, 8),
+            "man": IconSpec(ICON_ID_MAN, 7, 16),
+            "woman": IconSpec(ICON_ID_WOMAN, 9, 16),
         }
         if name in spec_map:
             return spec_map[name]
@@ -405,7 +461,7 @@ class FlipWorldRun:
     def get_level(self, index: int, game) -> Level:
         """Get a Level object by index."""
 
-        print(f"Creating level {index} - {self.level_names[index]}")
+        self.view_manager.log(f"Creating level {index} - {self.level_names[index]}")
 
         level = Level(
             self.get_level_name(index),
@@ -413,10 +469,10 @@ class FlipWorldRun:
             game if game else self.engine.game,
         )
         if not level:
-            print("Failed to create Level object")
+            self.view_manager.log("Failed to create Level object")
             return None
 
-        print("Level object now created, setting icon group...")
+        self.view_manager.log("Level object now created, setting icon group...")
 
         if index == LEVEL_HOME_WOODS:
             spr1 = Sprite(
@@ -430,7 +486,7 @@ class FlipWorldRun:
                 10.0,
                 100.0,
             )
-            print("Sprite 1 created, now creating remaining sprites...")
+            self.view_manager.log("Sprite 1 created, now creating remaining sprites...")
             spr2 = Sprite(
                 "Ogre",
                 ENTITY_TYPE_ENEMY,
@@ -442,7 +498,7 @@ class FlipWorldRun:
                 20.0,
                 200.0,
             )
-            print("Sprite 2 created, now creating remaining sprites...")
+            self.view_manager.log("Sprite 2 created, now creating remaining sprites...")
             spr3 = Sprite(
                 "Ghost",
                 ENTITY_TYPE_ENEMY,
@@ -454,7 +510,7 @@ class FlipWorldRun:
                 30.0,
                 300.0,
             )
-            print("Sprite 3 created, now creating remaining sprites...")
+            self.view_manager.log("Sprite 3 created, now creating remaining sprites...")
             spr4 = Sprite(
                 "Ogre",
                 ENTITY_TYPE_ENEMY,
@@ -466,7 +522,7 @@ class FlipWorldRun:
                 20.0,
                 200.0,
             )
-            print("Sprite 4 created, now creating remaining sprites...")
+            self.view_manager.log("Sprite 4 created, now creating remaining sprites...")
             spr5 = Sprite(
                 "Funny NPC",
                 ENTITY_TYPE_NPC,
@@ -478,7 +534,7 @@ class FlipWorldRun:
                 0.0,
                 0.0,
             )
-            print("Sprites created, adding to level...")
+            self.view_manager.log("Sprites created, adding to level...")
             #
             spr1.flip_world_run = self
             spr2.flip_world_run = self
@@ -486,13 +542,13 @@ class FlipWorldRun:
             spr4.flip_world_run = self
             spr5.flip_world_run = self
             #
-            print("Sprites linked to FlipWorldRun instance, now adding to level...")
+            self.view_manager.log("Sprites linked to FlipWorldRun instance, now adding to level...")
+            level.entity_add(spr5)
             level.entity_add(spr1)
             level.entity_add(spr2)
             level.entity_add(spr3)
             level.entity_add(spr4)
-            level.entity_add(spr5)
-            print("Entities added to level")
+            self.view_manager.log("Entities added to level")
 
         elif index == LEVEL_ROCK_WORLD:
             spr1 = Sprite(
@@ -657,7 +713,40 @@ class FlipWorldRun:
             level.entity_add(spr5)
             level.entity_add(spr6)
             level.entity_add(spr7)
-        print("Entities added to level")
+
+        # Ported maps (levels 3-23): enemies come from a data table.
+        elif index in WORLD_ENEMIES:
+            for spec in WORLD_ENEMIES[index]:
+                (nm, sx, sy, ex, ey, mt, sp, at, st, hp) = spec
+                enemy = Sprite(
+                    nm,
+                    ENTITY_TYPE_ENEMY,
+                    Vector(sx, sy),
+                    Vector(ex, ey),
+                    mt,
+                    sp,
+                    at,
+                    st,
+                    hp,
+                )
+                enemy.flip_world_run = self
+                level.entity_add(enemy)
+
+        # Cameo fly-by dragons and the final-world boss (ported from the Arduino build).
+        dragon = None
+        if index == 3:  # Meadow — torch trees/flowers on a fly-by
+            dragon = Dragon("burn", passes=2, burn_count=7)
+        elif index == 7:  # Village — torch scenery on a fly-by
+            dragon = Dragon("burn", passes=2, burn_count=6)
+        elif index in (11, 14, 19, 22):  # Shadow Keep / Ruins / Crater / Serpent Marsh
+            dragon = Dragon("attack", passes=2)
+        elif index == 23:  # Dragon's Lair — the boss
+            dragon = Dragon("boss")
+        if dragon is not None:
+            dragon.flip_world_run = self
+            level.entity_add(dragon)
+
+        self.view_manager.log("Entities added to level")
         level.clear_allowed = False  # swap is done by Player.draw_current_view
         return level
 
@@ -721,7 +810,10 @@ class FlipWorldRun:
                 {"i": "tree", "x": 735, "y": 37, "a": 18, "h": False},
                 {"i": "tree", "x": 752, "y": 37, "a": 18, "h": False},
             ]
-        print(f"Unknown level index: {index}")
+        # Ported maps (levels 3-23)
+        if index in WORLD_ICONS:
+            return WORLD_ICONS[index]
+        self.view_manager.log(f"Unknown level index: {index}")
         return []
 
     def get_level_name(self, index: int) -> str:
@@ -794,7 +886,7 @@ class FlipWorldRun:
         from picoware.engine.game import Game
 
         self.draw.fill_screen(COLOR_WHITE)
-        self.draw.text(Vector(0, 10), "Initializing game...", COLOR_BLACK)
+        self.draw._text(0, self.draw.scale_y(10), "Initializing game...", COLOR_BLACK)
         self.draw.swap()
 
         if self.is_game_running or self.engine:
@@ -807,65 +899,76 @@ class FlipWorldRun:
                 return False
 
         self.player.flip_world_run = self
-        self.player.user_stats_pos.x = 5
-        self.player.user_stats_pos.y = self.player.screen_size.y - 30
+        self.player.user_stats_pos.x = self.draw.scale_x(5)
+        self.player.user_stats_pos.y = self.player.screen_size.y - self.draw.scale_y(30)
         self.player.user_stats_size = Vector(
             int(self.player.screen_size.x) // 5, int(self.player.screen_size.y) // 10
         )
 
-        # Create the game instance
+        # Create the game instance (white foreground, black background — the panel is
+        # not inverted, so 0x0000 is black and 0xFFFF is white).
         game = Game(
             "FlipWorld",
             Vector(768, 384),
             self.draw,
             self.view_manager.input_manager,
-            COLOR_WHITE,
-            COLOR_BLACK,
+            0xFFFF,  # foreground (white)
+            0x0000,  # background (black)
         )
         if not game:
             return False
 
         self.draw.fill_screen(COLOR_WHITE)
-        self.draw.text(Vector(0, 10), "Adding levels and player...", COLOR_BLACK)
+        self.draw._text(0, self.draw.scale_y(10), "Adding levels and player...", COLOR_BLACK)
         self.draw.swap()
 
-        print("Getting levels and adding player...")
+        self.view_manager.log("Getting levels and adding player...")
 
         # Create levels
         level1 = self.get_level(LEVEL_HOME_WOODS, game)
         level2 = self.get_level(LEVEL_ROCK_WORLD, game)
         level3 = self.get_level(LEVEL_FOREST_WORLD, game)
-        print("Levels created")
+        self.view_manager.log("Levels created")
 
         # Set icon group for first level
         if not self.set_icon_group(LEVEL_HOME_WOODS):
-            print("Failed to set icon group for level 0")
+            self.view_manager.log("Failed to set icon group for level 0")
             return False
 
-        print("Icon group set for level 0")
+        self.view_manager.log("Icon group set for level 0")
 
-        # Add player to all levels
+        self.view_manager.log("Player added to levels")
+
         level1.entity_add(self.player)
         level2.entity_add(self.player)
         level3.entity_add(self.player)
-
-        print("Player added to levels")
 
         # Add levels to game
         game.level_add(level1)
         game.level_add(level2)
         game.level_add(level3)
 
-        print("Levels added to game")
+        self.view_manager.log("Levels added to game")
 
-        # Start with first level
-        game.level_switch(0)
+        # Start on the resume/chosen level (creating it on demand if it's not one of the
+        # first three that were pre-built above).
+        start_idx = max(0, min(self.start_level_index, self.total_levels - 1))
+        if start_idx > LEVEL_FOREST_WORLD:
+            extra = self.get_level(start_idx, game)
+            if extra:
+                extra.entity_add(self.player)
+                game.level_add(extra)
+            else:
+                start_idx = 0
+        self.current_level_index = start_idx
+        game.level_switch(self.get_level_name(start_idx))
+        self.set_icon_group(start_idx)
 
         if game.current_level is None:
-            print("Failed to switch to first level")
+            self.view_manager.log("Failed to switch to first level")
             return False
 
-        print(
+        self.view_manager.log(
             f"Switched to first level {game.current_level.name} with {game.current_level.entity_count} entities"
         )
 
@@ -874,24 +977,41 @@ class FlipWorldRun:
 
         self.engine = GameEngine(game, 30)
         if not self.engine:
-            print("Failed to create GameEngine")
+            self.view_manager.log("Failed to create GameEngine")
             return False
 
         self.draw.fill_screen(COLOR_WHITE)
-        if self.is_pve_mode:
-            self.draw.text(Vector(0, 10), "Starting multiplayer...", COLOR_BLACK)
-        else:
-            self.draw.text(Vector(0, 10), "Starting single player...", COLOR_BLACK)
+        self.draw._text(0, self.draw.scale_y(10), "Starting multiplayer..." if self.is_pve_mode else "Starting single player...", COLOR_BLACK)
         self.draw.swap()
 
         self.is_game_running = True
-        print("Gaming engine started")
+        self.view_manager.log("Gaming engine started")
         return True
+
+    def _load_unlocked(self) -> int:
+        """Read the persisted unlock count from SD (>=1)."""
+        try:
+            data = self.view_manager.storage.read(self.progress_path)
+            if data:
+                n = int(loads(data).get("unlocked", 1))
+                return max(1, min(n, self.total_levels))
+        except Exception:
+            pass
+        return 1
+
+    def unlock_up_to(self, n: int):
+        """Persist that `n` maps are unlocked; never regresses."""
+        n = max(1, min(n, self.total_levels))
+        if n <= self.unlocked_count:
+            return
+        self.unlocked_count = n
+        self.view_manager.storage.mkdir("picoware/flip_world")
+        self.view_manager.storage.write(self.progress_path, dumps({"unlocked": n}))
 
     def switch_to_level(self, level_index: int):
         """Switch to a specific level by index."""
         if not self.is_game_running or not self.engine or not self.engine.game:
-            print(
+            self.view_manager.log(
                 "Cannot switch levels - game is not running or engine/game is not initialized"
             )
             return
@@ -900,21 +1020,21 @@ class FlipWorldRun:
             return
 
         if not self.engine.game.level_exists(self.get_level_name(level_index)):
-            print(f"Level {level_index} does not exist in game, creating...")
+            self.view_manager.log(f"Level {level_index} does not exist in game, creating...")
             # create level if it doesn't exist yet
             level = self.get_level(level_index, self.engine.game)
             if level:
                 level.entity_add(self.player)
                 self.engine.game.level_add(level)
             else:
-                print(f"Failed to create level {level_index}")
+                self.view_manager.log(f"Failed to create level {level_index}")
                 return
 
         self.current_level_index = level_index
-        self.engine.game.level_switch(self.current_level_index)
+        self.engine.game.level_switch(self.get_level_name(self.current_level_index))
         self.set_icon_group(self.current_level_index)
 
-        print(f"Switched to level {level_index} - {self.get_level_name(level_index)}")
+        self.view_manager.log(f"Switched to level {level_index} - {self.get_level_name(level_index)}")
 
     def switch_to_next_level(self):
         """Switch to the next level in the game."""
@@ -922,7 +1042,7 @@ class FlipWorldRun:
             return
 
         self.current_level_index = (self.current_level_index + 1) % self.total_levels
-        self.engine.game.level_switch(self.current_level_index)
+        self.engine.game.level_switch(self.get_level_name(self.current_level_index))
         self.set_icon_group(self.current_level_index)
 
     def entity_to_json(self, entity, websocket_parsing: bool = False) -> str:
@@ -1049,7 +1169,7 @@ class FlipWorldRun:
         try:
             data = loads(json_data)
         except Exception:
-            print("parseEntityDataFromJSON: Failed to parse JSON:", json_data)
+            self.view_manager.log("parseEntityDataFromJSON: Failed to parse JSON:", json_data)
             return False
 
         # Get direction
@@ -1123,7 +1243,7 @@ class FlipWorldRun:
         try:
             data = loads(message)
         except Exception:
-            print("processCompleteMultiplayerMessage: Failed to parse JSON")
+            self.view_manager.log("processCompleteMultiplayerMessage: Failed to parse JSON")
             return
 
         msg_type = data.get("type", None)
@@ -1190,8 +1310,13 @@ class FlipWorldRun:
 
             current_level = self.engine.game.current_level
             enemy_name = enemy_data.get("u", None)
+            enemy_position = enemy_data.get("sp", {})
+            target_x = enemy_position.get("x", None)
+            target_y = enemy_position.get("y", None)
 
             if enemy_name:
+                matched_entity = None
+                matched_distance = None
                 for i in range(current_level.entity_count):
                     entity = current_level.get_entity(i)
                     if (
@@ -1199,8 +1324,15 @@ class FlipWorldRun:
                         and entity.type == ENTITY_TYPE_ENEMY
                         and entity.name == enemy_name
                     ):
-                        self.parse_entity_data_from_json(entity, dumps(enemy_data))
-                        break
+                        if target_x is None or target_y is None:
+                            matched_entity = entity
+                            break
+                        distance = ((entity.position.x - target_x) ** 2) + ((entity.position.y - target_y) ** 2)
+                        if matched_distance is None or distance < matched_distance:
+                            matched_entity = entity
+                            matched_distance = distance
+                if matched_entity:
+                    self.parse_entity_data_from_json(matched_entity, dumps(enemy_data))
 
         elif msg_type == "level":
             # Handle level switch (followers sync to host's level)
@@ -1224,9 +1356,6 @@ class FlipWorldRun:
         # Force garbage collection if available heap is getting dangerously low
         if 0 < available_heap < 8192:
             collect()
-            if DEBUG:
-                available_heap = mem_free()
-                print(f"Emergency cleanup complete, free heap now: {available_heap}")
 
         # Check for incoming messages
         incoming_message = self.player.ws_data
@@ -1235,10 +1364,6 @@ class FlipWorldRun:
             and isinstance(incoming_message, str)
             and len(incoming_message) > 0
         ):
-            if DEBUG:
-                print(
-                    f"Processing incoming message: {incoming_message}, free heap: {available_heap}, queue size: {self.queue_size}"
-                )
             self.handle_incoming_multiplayer_data(incoming_message)
             self.player.ws_data = None  # Clear after processing
 
@@ -1250,10 +1375,6 @@ class FlipWorldRun:
         # If queue is very full (85%), drop oldest messages
         if self.queue_size >= int(self.MAX_QUEUED_MESSAGES * 0.85):
             while self.queue_size > int(self.MAX_QUEUED_MESSAGES * 0.7):
-                if DEBUG:
-                    print(
-                        f"Queue very full ({self.queue_size}/{self.MAX_QUEUED_MESSAGES}), dropping oldest"
-                    )
                 old_msg = self.message_queue[self.queue_head]
                 old_msg.message = ""
                 old_msg.message_len = 0
@@ -1261,18 +1382,12 @@ class FlipWorldRun:
                 self.queue_size -= 1
 
         if self.queue_size >= self.MAX_QUEUED_MESSAGES:
-            if DEBUG:
-                print("Message queue full, dropping message")
             return False
 
         # Check memory limit (12KB)
         current_memory = self.get_memory_usage()
         message_len = len(message)
         if current_memory + message_len + 1 > 12288:
-            if DEBUG:
-                print(
-                    f"Would exceed memory limit ({current_memory} + {message_len} > 12288)"
-                )
             return False
 
         # Add to queue
@@ -1283,22 +1398,6 @@ class FlipWorldRun:
 
         return True
 
-    def safe_websocket_send(self, message: str) -> bool:
-        """
-        Safely send a websocket message by queueing it.
-
-        Expected messages:
-            - {"type":"player","data":{"u":"JBlanked","xp":328417,"h":300,"ehr":70.9,"eat":92.4,"d":3,"s":5,"sp":{"x":399.0,"y":177.0}}}
-            - {"type":"player","data":{"u":"FlipWorldTester","h":92,"d":1,"s":0,"sp":{"x":384.0,"y":192.0}}}
-            - {"type":"level","level_index":0}
-            - {"type":"enemy","data":{"u":"Cyclops","h":100,"d":1,"s":0,"sp":{"x":360.0,"y":210.0}}}
-            - {"type":"enemy","data":{"u":"Ogre","h":200,"d":1,"s":0,"sp":{"x":215.0,"y":320.0}}}
-            - etc.
-        """
-        if not message:
-            return False
-        return self.queue_websocket_message(message)
-
     def process_websocket_queue(self):
         """Process the websocket message queue, sending pending messages."""
         if self.queue_size == 0:
@@ -1308,9 +1407,6 @@ class FlipWorldRun:
         msg = self.message_queue[self.queue_head]
         if msg.message:
             self.player.ws.send(msg.message)
-
-            if DEBUG:
-                print(f"Sent websocket message: {msg.message}")
 
             # Clean up
             msg.message = ""
@@ -1334,17 +1430,14 @@ class FlipWorldRun:
         else:
             return
 
-        self.safe_websocket_send(message)
+        self.queue_websocket_message(message)
 
     def sync_multiplayer_level(self):
         """Sync current level info with other players."""
         if not self.is_pve_mode or not self.is_lobby_host:
             return
 
-        level_message = (
-            f'{{"type":"level","level_index":{self.get_current_level_index()}}}'
-        )
-        self.safe_websocket_send(level_message)
+        self.queue_websocket_message(f'{{"type":"level","level_index":{self.get_current_level_index()}}}')
 
     def set_icon_group(self, index: int) -> bool:
         """Set the icon group for a level based on its JSON data."""
@@ -1353,8 +1446,37 @@ class FlipWorldRun:
         if not icons_data:
             return False
 
-        # Build icon specs (stored for rendering)
+        # Build icon specs (stored for rendering). Each spec is a fresh IconSpec
+        # instance (see get_icon_spec), so burn state starts clean automatically.
         self.current_icon_group.clear()
+
+        spec_map = {
+            "house": IconSpec(ICON_ID_HOUSE, 48, 32),
+            "plant": IconSpec(ICON_ID_PLANT, 16, 16),
+            "tree": IconSpec(ICON_ID_TREE, 16, 16),
+            "fence": IconSpec(ICON_ID_FENCE, 16, 8),
+            "flower": IconSpec(ICON_ID_FLOWER, 16, 16),
+            "rock_large": IconSpec(
+                ICON_ID_ROCK_LARGE,
+                18,
+                19,
+            ),
+            "rock_medium": IconSpec(
+                ICON_ID_ROCK_MEDIUM,
+                16,
+                14,
+            ),
+            "rock_small": IconSpec(ICON_ID_ROCK_SMALL, 10, 8),
+            # Extra icons used by the ported maps (levels 3-23)
+            "water": IconSpec(ICON_ID_WATER, 40, 24),
+            "ice": IconSpec(ICON_ID_ICE, 40, 24),
+            "lake_bottom": IconSpec(ICON_ID_LAKE_BOTTOM, 31, 12),
+            "lake_top": IconSpec(ICON_ID_LAKE_TOP, 31, 12),
+            "fence_vertical_start": IconSpec(ICON_ID_FENCE_VERTICAL_START, 6, 15),
+            "fence_vertical_end": IconSpec(ICON_ID_FENCE_VERTICAL_END, 6, 8),
+            "man": IconSpec(ICON_ID_MAN, 7, 16),
+            "woman": IconSpec(ICON_ID_WOMAN, 9, 16),
+        }
 
         for item in icons_data:
             icon_name = item.get("i", "")
@@ -1365,10 +1487,10 @@ class FlipWorldRun:
             spacing = 17
 
             for j in range(amount):
-                spec = self.get_icon_spec(icon_name)
-                if spec.id == ICON_ID_INVALID:
-                    print(f"  - Unknown icon '{icon_name}', skipping")
+                if icon_name not in spec_map:
+                    self.view_manager.log(f"  - Unknown icon '{icon_name}', skipping")
                     continue
+                spec = self.get_icon_spec(icon_name)
 
                 if is_horizontal:
                     spec.x = base_x + (j * spacing)
@@ -1392,7 +1514,7 @@ class FlipWorldRun:
         screen_y = entity.position.y - game.position.y
 
         # Check if visible
-        text_width = len(entity.name) * 4 + 1
+        text_width = canvas.len(entity.name) # in pixels
         if (
             screen_x - text_width / 2 < 0
             or screen_x + text_width / 2 > game.draw.size.x
@@ -1402,16 +1524,18 @@ class FlipWorldRun:
             return
 
         # Draw box around name
-        name_len = len(entity.name)
-        canvas.fill_rectangle(
-            Vector(screen_x - (name_len * 2) - 1, screen_y - 7),
-            Vector(name_len * 4 + 1, 8),
+        canvas._fill_rectangle(
+            screen_x - (text_width / 2) - 1, 
+            screen_y - canvas.scale_y(7),
+            text_width + canvas.scale_x(2), 
+            canvas.font_size.y,
             COLOR_WHITE,
         )
 
         # Draw name over player's head
-        canvas.text(
-            Vector(screen_x - (name_len * 2), screen_y - 2),
+        canvas._text(
+            screen_x - (text_width / 2), 
+            screen_y - canvas.scale_y(2),
             entity.name,
             COLOR_BLACK,
         )

@@ -13,3 +13,6 @@ simulator/viewer/sdl_fb_viewer
 simulator/gameboy/sim_gameboy_runner
 simulator/jpeg/sim_jpeg_decode
 docs/
+/builds/c
+/builds/mjs
+/builds/video

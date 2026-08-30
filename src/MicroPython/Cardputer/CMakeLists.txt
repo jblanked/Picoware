@@ -7,7 +7,6 @@ set(cardputer_src_sources
     "sd/storage.c"
     "imu/imu.c"
     "battery/battery.c"
-    "ir/ir.c"
 )
 
 if(DEFINED CARDPUTER_APP_MAIN)

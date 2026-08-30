@@ -2,6 +2,7 @@
 // JPEGDEC from https://github.com/bitbank2/JPEGDEC
 // modified for Picoware by @jblanked
 #include "jpegdec_mp.h"
+#include <limits.h>
 #include "../log/log_mp.h"
 
 #ifndef PRINT
@@ -12,7 +13,7 @@ void *JPEGdummy = {readFLASH}; // to avoid compiler error
 
 #if defined(PICOCALC)
 #include "../../lcd/lcd_config.h"
-#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
+#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO)
 #include "../lcd/lcd_config.h"
 #else
 #include "../../../lcd/lcd_config.h"
@@ -375,6 +376,58 @@ static void decode_core1_split()
     s_jpeg_core1_result_pending = true;
 #endif
     core1_running = 2;
+}
+
+void *jpegdec_context_alloc(void)
+{
+    return m_malloc(sizeof(JPEGIMAGE));
+}
+
+void jpegdec_context_free(void *context)
+{
+    m_free(context);
+}
+
+bool jpegdec_decode_buffer_with_context(void *context, const uint8_t *data, size_t size, int x, int y, int options)
+{
+    if (context == NULL || data == NULL || size == 0 || size > (size_t)INT_MAX)
+    {
+        return false;
+    }
+
+    while (core1_decode_is_busy())
+    {
+        tight_loop_contents();
+    }
+
+    JPEGIMAGE *jpeg_context = (JPEGIMAGE *)context;
+    bool decoded = false;
+    if (decode_core1_prepare(jpeg_context, 0, (int)size, (uint8_t *)data, JPEGDraw) == 1)
+    {
+        jpeg_context->iXOffset = x;
+        jpeg_context->iYOffset = y;
+        jpeg_context->iOptions = options;
+        decoded = DecodeJPEG(jpeg_context) == 1;
+    }
+    return decoded;
+}
+
+bool jpegdec_decode_buffer(const uint8_t *data, size_t size, int x, int y, int options)
+{
+    if (data == NULL || size == 0 || size > (size_t)INT_MAX)
+    {
+        return false;
+    }
+
+    void *context = jpegdec_context_alloc();
+    if (!context)
+    {
+        return false;
+    }
+
+    bool decoded = jpegdec_decode_buffer_with_context(context, data, size, x, y, options);
+    jpegdec_context_free(context);
+    return decoded;
 }
 
 //--- mp functions

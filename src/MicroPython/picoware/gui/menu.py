@@ -75,7 +75,8 @@ class Menu:
         if not self.use_lvgl:
             self._five = self.display.size.y // 64  # 320 / 64 = 5
             _font = self.display.get_font(3)
-            title_width = len(self._title) * (_font.width + _font.spacing)
+            title_width = min(len(self._title) * (_font.width + _font.spacing), self.size.x - (self.size.x // 10))
+            self._title = self._title[:title_width // (_font.width + _font.spacing)]
             title_x = (self.display.size.x - title_width) // 2
             title_y = self.position.y + self._five * 3
             underline_y = title_y + _font.height + self._five
@@ -174,7 +175,8 @@ class Menu:
         # Update standard rendering title positions
         if not self.use_lvgl:
             _font = self.display.get_font(3)
-            title_width = len(self._title) * (_font.width + _font.spacing)
+            title_width = min(len(self._title) * (_font.width + _font.spacing), self.size.x - (self.size.x // 10))
+            self._title = self._title[:title_width // (_font.width + _font.spacing)]
             title_x = (self.display.size.x - title_width) // 2
             title_y = self.position.y + self._five * 3
             underline_y = title_y + _font.height + self._five

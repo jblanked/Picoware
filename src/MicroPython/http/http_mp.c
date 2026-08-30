@@ -1372,7 +1372,7 @@ static void http_tls_cleanup(http_state_cardputer_t *st)
     mbedtls_ctr_drbg_free(&st->tls_ctx->ctr_drbg);
     mbedtls_entropy_free(&st->tls_ctx->entropy);
     mbedtls_net_free(&st->tls_ctx->net);
-    free(st->tls_ctx);
+    m_free(st->tls_ctx);
     st->tls_ctx = NULL;
 }
 
@@ -1849,7 +1849,7 @@ static void http_free_state(void)
     }
     m_free(s_state->hostname);
     m_free(s_state->request_buf);
-    free(s_state->response_data);
+    m_free(s_state->response_data);
     m_free(s_state->destination_path);
     m_free(s_state);
     MP_STATE_PORT(http_state_ptr) = NULL;

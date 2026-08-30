@@ -55,6 +55,7 @@ class FileBrowser:
     ACT_RENAME = const(4)
     ACT_FLASH = const(5)
     ACT_AUDIO = const(6)
+    ACT_UNZIP = const(7)
 
     OPTIONS_LABELS = ("Hidden Files", "Dir Enter")
 
@@ -329,6 +330,49 @@ class FileBrowser:
             self._needs_redraw = True
         else:
             self._vm.alert("Unsupported file format.")
+            self._needs_redraw = True
+
+    def __zip_list(self, path) -> None:
+        """Show the names and sizes of files in a ZIP archive."""
+        try:
+            from picoware.system.drivers.zipfile import ZipFile
+            s = self._vm.storage
+            if not s.mount_vfs():
+                self._vm.alert("Unable to mount storage.")
+                self._needs_redraw = True
+                return
+            entries = []
+            with ZipFile(f"{s.vfs_prefix}{path}", "r") as archive:
+                for info in archive.infolist():
+                    entries.append(f"{info.filename}  {info.file_size} bytes")
+
+            self._info_data = "\n".join(entries) if entries else "Archive is empty."
+            self._show_info = True
+            self._needs_redraw = True
+        except Exception as e:
+            self._vm.alert(f"Failed to list ZIP: {e}")
+            s.unmount_vfs()
+            self._needs_redraw = True
+
+    def __zip_unzip(self, path) -> None:
+        """Extract a ZIP archive into its current directory."""
+        target_directory = path.rsplit("/", 1)[0] or "/"
+        try:
+            from picoware.system.drivers.zipfile import ZipFile
+            s = self._vm.storage
+            if not s.mount_vfs():
+                self._vm.alert("Unable to mount storage.")
+                self._needs_redraw = True
+                return
+            self.__loading_run("Unzipping...", 0.5)
+            with ZipFile(f"{s.vfs_prefix}{path}", "r") as archive:
+                archive.extractall(target_directory)
+            self.__loading_run("Unzipped", 1.0)
+            s.unmount_vfs()
+        except Exception as e:
+            self.__loading_run("", 1.0)
+            self._vm.alert(f"Failed to unzip: {e}")
+            s.unmount_vfs()
             self._needs_redraw = True
 
     def __load_directory_contents(self, path):
@@ -1405,6 +1449,9 @@ class FileBrowser:
                                         self.__loading_run("Playing....", 0.5)
                                     audio.stop()
 
+                    elif self._pending_action == self.ACT_UNZIP:
+                        self.__zip_unzip(self._context_target_path)
+
                     if len(mk) > 0:
                         self._app_state["marked"].clear()
                     if self._pending_action != self.ACT_NONE:
@@ -1476,6 +1523,8 @@ class FileBrowser:
                         self.__refresh_panes()
                     elif ac == "View":
                         self.__file_view(self._context_target_path)
+                    elif ac == "List":
+                        self.__zip_list(self._context_target_path)
                     elif ac == "Edit":
                         self.__file_edit(self._context_target_path)
                     elif ac == "Run":
@@ -1514,6 +1563,11 @@ class FileBrowser:
                         self._pending_action = self.ACT_AUDIO
                         fn = self._context_target_path.split("/")[-1]
                         self._confirm_menu = self.__menu_spawn("Play?", ("No", "Yes"))
+                    elif ac == "Unzip":
+                        self._pending_action = self.ACT_UNZIP
+                        self._confirm_menu = self.__menu_spawn(
+                            "Unzip here?", ("No", "Yes")
+                        )
                     elif ac == "Rename":
                         self._input_active = True
                         self._input_text = self._context_target_path.split("/")[-1]
@@ -1724,6 +1778,10 @@ class FileBrowser:
                         else:
                             if np.lower().endswith(".uf2"):
                                 items = ["Flash"]
+                            elif np.lower().endswith(".zip"):
+                                items = ["List"]
+                                if self._mode == FILE_BROWSER_MANAGER:
+                                    items.append("Unzip")
                             elif np.lower().endswith((".wav", ".mp3")):
                                 items = ["Play Audio"]
                             elif np.lower().endswith((".js", ".mjs", ".bas")):

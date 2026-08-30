@@ -5,6 +5,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/lcd/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/input/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/battery/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/sd/micropython.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/ir/micropython.cmake)
 
 include(${CMAKE_CURRENT_LIST_DIR}/../auto_complete/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../engine/micropython.cmake)

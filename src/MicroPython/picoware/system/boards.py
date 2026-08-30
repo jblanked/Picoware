@@ -24,6 +24,8 @@ Attributes:
     BOARD_HAS_WIFI (bool): True if the board has Wi-Fi, False otherwise.
     BOARD_HAS_AUDIO (bool): True if the board has audio capabilities, False otherwise.
     BOARD_HAS_BLUETOOTH (bool): True if the board has Bluetooth, False otherwise.
+    BOARD_HAS_IR (bool): True if the board has an infrared transmitter, False otherwise.
+    BOARD_HAS_IR_RX (bool): True if the board has an infrared receiver, False otherwise.
     BOARD_HAS_RP2040 (bool): True if the board uses an RP2040 microcontroller, False otherwise.
     BOARD_HAS_RP2350 (bool): True if the board uses an RP2350 microcontroller, False otherwise.
     BOARD_HAS_ESP32 (bool): True if the board uses an ESP32 microcontroller, False otherwise.
@@ -57,6 +59,8 @@ BOARD_HAS_TOUCH = picoware_boards.BOARD_HAS_TOUCH
 BOARD_HAS_WIFI = picoware_boards.BOARD_HAS_WIFI
 BOARD_HAS_AUDIO = picoware_boards.BOARD_HAS_AUDIO
 BOARD_HAS_BLUETOOTH = picoware_boards.BOARD_HAS_BLUETOOTH
+BOARD_HAS_IR = picoware_boards.BOARD_HAS_IR
+BOARD_HAS_IR_RX = picoware_boards.BOARD_HAS_IR_RX
 BOARD_HAS_RP2040 = picoware_boards.BOARD_HAS_RP2040
 BOARD_HAS_RP2350 = picoware_boards.BOARD_HAS_RP2350
 BOARD_HAS_ESP32 = picoware_boards.BOARD_HAS_ESP32

@@ -28,12 +28,14 @@ class UART:
         from machine import Pin
 
         _map = {
-            BOARD_FLIPPER_ZERO: (1, Pin.cpu.B6, Pin.cpu.B7),
             BOARD_WAVESHARE_1_28_RP2350: (0, 16, 17),
             BOARD_WAVESHARE_1_43_RP2350: (1, 4, 5),
             BOARD_WAVESHARE_3_49_RP2350: (1, 4, 5),
             BOARD_CARDPUTER: (1, 1, 2),
         }
+        if BOARD_ID == BOARD_FLIPPER_ZERO:
+            _map[BOARD_FLIPPER_ZERO] = (1, Pin.cpu.B6, Pin.cpu.B7)
+            
         _config = _map.get(BOARD_ID, (0, 0, 1))  # Default to PicoCalc if board not recognized
         if uart_id is None:
             uart_id = _config[0]
@@ -49,9 +51,12 @@ class UART:
         self._uart = None
 
         try:
-            self._uart = MachineUART(
-                uart_id, baudrate=baud_rate, tx=Pin(tx_pin), rx=Pin(rx_pin)
-            )
+            if BOARD_ID == BOARD_FLIPPER_ZERO:
+                self._uart = MachineUART(uart_id, baudrate=baud_rate)
+            else:
+                self._uart = MachineUART(
+                    uart_id, baudrate=baud_rate, tx=Pin(tx_pin), rx=Pin(rx_pin)
+                )
             self._uart.init()
         except Exception as e:
             raise e

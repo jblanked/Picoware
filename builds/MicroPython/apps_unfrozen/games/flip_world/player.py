@@ -1,16 +1,27 @@
 """FlipWorld Player class for MicroPython"""
 
 from micropython import const
+from math import sin
 from picoware.system.vector import Vector
 from picoware.engine.entity import (
     Entity,
     ENTITY_TYPE_PLAYER,
     ENTITY_TYPE_ENEMY,
     ENTITY_STATE_DEAD,
+    ENTITY_STATE_ATTACKED,
 )
 from picoware.gui.loading import Loading
 from ujson import loads as json_loads
 from flip_world.assets import player_left_sword_15x11px, player_right_sword_15x11px
+from flip_world.colorize import colorize, COL_PLAYER, COL_FLAME_OUTER, COL_FLAME_CORE
+
+# Burn state constants
+_BURN_FOLIAGE_DURATION = 10.0  # seconds a foliage fire burns before it chars out
+_BURN_TICK_DT = 0.05  # matches this class's other per-frame timers
+_BURN_SINGE_RADIUS2 = 26 * 26  # proximity radius (squared, px) for singe damage
+_BURN_SINGE_INTERVAL = 0.5  # seconds between singe damage ticks
+_BURN_SINGE_DAMAGE_FOLIAGE = 5.0
+_BURN_SINGE_DAMAGE_STRUCTURE = 8.0
 
 # GameMainView
 GAME_VIEW_TITLE = const(0)  # title, start, and menu (menu)
@@ -105,11 +116,17 @@ INPUT_KEY_MAX = const(-1)  # BUTTON_NONE
 COLOR_WHITE = const(0x0000)  # inverted on purpose
 COLOR_BLACK = const(0xFFFF)  # inverted on purpose
 
-VERSION_TAG = "FlipWorld v0.1"
-
+_MM_BG = const(0x0000)  # black
+_MM_FRAME = const(0x7BEF)
+_MM_VIEW = const(0x39C7)
+_MM_PLAYER = const(0x1C9F)
+_MM_ENEMY = const(0xF800)
+_MM_BOSS = const(0xFD20)
 
 class LobbyInfo:
     """Structure to store lobby information."""
+
+    __slots__ = ("id", "name", "player_count", "max_players")
 
     def __init__(self):
         self.id: str = ""
@@ -168,6 +185,7 @@ class Player(Entity):
         self.xp = 0
         self.elapsed_health_regen = 0.0
         self.elapsed_attack_timer = 0.0
+        self._singe_cd = 0.0  # cooldown gate for burning-scenery proximity damage
 
         # Current view and menu state
         self.current_title_index: int = TITLE_INDEX_STORY
@@ -210,29 +228,49 @@ class Player(Entity):
 
         self._update_new_pos = Vector(0, 0)
         self._update_old_pos = Vector(0, 0)
+        # carried velocity for the slippery Frozen Lake (glide)
+        self.slide_vx = 0.0
+        self.slide_vy = 0.0
 
         self.old_xp = 0
 
         self.user_stats_pos = Vector(0, 0)
-        self._img_vec = Vector(0, 0)
         self._img_size = Vector(0, 0)
         self._sprite_pos = Vector(0, 0)
-        self._data_left = player_left_sword_15x11px
-        self._data_right = player_right_sword_15x11px
 
-        self.cent_box_pos = Vector(0, 0)
-        self.cent_box_size = Vector(0, 0)
-        self.cent_box_text = Vector(0, 0)
+        self._data_left = colorize(player_left_sword_15x11px, COL_PLAYER)
+        self._data_right = colorize(player_right_sword_15x11px, COL_PLAYER)
 
-        self.user_stats_rect_pos = Vector(0, 0)
-        self.user_stats_size = Vector(0, 0)
-        self.user_stats_text = Vector(0, 0)
+        self._MM_ICON = {
+            0: 0xB483,   # house
+            1: 0x0480,   # plant
+            2: 0x0480,   # tree
+            3: 0x9340,   # fence
+            4: 0xF81F,   # flower
+            5: 0x8410,   # rock_large
+            6: 0x8410,   # rock_medium
+            7: 0x8410,   # rock_small
+            8: 0x041F,   # water
+            9: 0xE77F,   # ice
+            10: 0x041F,  # lake_bottom
+            11: 0x041F,  # lake_top
+            12: 0x9340,  # fence_vertical_start
+            13: 0x9340,  # fence_vertical_end
+            14: 0x24BF,  # man
+            15: 0xFD5A,  # woman
+        }
+
+        # both scaled in login_view
+        self._MM_W = 64
+        self._MM_H = 32
+
 
     def __del__(self):
         if self.loading:
             del self.loading
             self.loading = None
         if self.http:
+            self.http.close()
             del self.http
             self.http = None
         #
@@ -242,26 +280,12 @@ class Player(Entity):
         self.lobbies = None
         del self.user_stats_pos
         self.user_stats_pos = None
-        del self._img_vec
-        self._img_vec = None
         del self._img_size
         self._img_size = None
         del self._update_new_pos
         self._update_new_pos = None
         del self._update_old_pos
         self._update_old_pos = None
-        del self.cent_box_pos
-        self.cent_box_pos = None
-        del self.cent_box_size
-        self.cent_box_size = None
-        del self.cent_box_text
-        self.cent_box_text = None
-        del self.user_stats_size
-        self.user_stats_size = None
-        del self.user_stats_text
-        self.user_stats_text = None
-        del self.user_stats_rect_pos
-        self.user_stats_rect_pos = None
         self._sprite_pos = None
         self._data_left = None
         self._data_right = None
@@ -281,7 +305,10 @@ class Player(Entity):
         view_manager = self.flip_world_run.view_manager
         from picoware.system.settings import Settings
         settings = Settings(view_manager.storage)
-        return settings.server_settings.get("password", "")
+        _loaded_password = settings.server_settings.get("password", "")
+        if _loaded_password:
+            self.loaded_password = _loaded_password
+        return _loaded_password
 
     @property
     def username(self) -> str:
@@ -293,7 +320,10 @@ class Player(Entity):
         view_manager = self.flip_world_run.view_manager
         from picoware.system.settings import Settings
         settings = Settings(view_manager.storage)
-        return settings.server_settings.get("username", "")
+        s_loaded_username = settings.server_settings.get("username", "")
+        if s_loaded_username:
+            self.loaded_username = s_loaded_username
+        return s_loaded_username
 
     def are_all_enemies_dead(self, game) -> bool:
         """Check if all enemies in the current level are dead."""
@@ -308,7 +338,7 @@ class Player(Entity):
             entity = current_level.get_entity(i)
             if entity and entity.type == ENTITY_TYPE_ENEMY:
                 total_enemies += 1
-                if entity.state == ENTITY_STATE_DEAD:
+                if entity.state == ENTITY_STATE_DEAD or entity.health <= 0:
                     dead_enemies += 1
                 else:
                     return False
@@ -324,9 +354,6 @@ class Player(Entity):
             return
         if self.current_main_view != GAME_VIEW_GAME:
             return
-        if not self.has_changed_position():
-            return
-
         # Update cooldown timer
         self.level_completion_cooldown -= 1.0 / 60.0
         if self.level_completion_cooldown > 0:
@@ -340,17 +367,25 @@ class Player(Entity):
         if self.are_all_enemies_dead(game):
             print("All enemies defeated! Switching levels...")
             current_level_index = self.flip_world_run.current_level_index
+            total = self.flip_world_run.total_levels
 
-            # Determine next level (cycle through 0, 1, 2)
-            next_level_index = (current_level_index + 1) % 3
+            # Persist progress: clearing a map unlocks the next one.
+            self.flip_world_run.unlock_up_to(current_level_index + 2)
 
+            # Beat the final map -> campaign complete: return to the menu instead of
+            # looping back to the start.
+            if current_level_index >= total - 1:
+                self.leave_game = TOGGLE_STATE_ON
+                return
+
+            next_level_index = current_level_index + 1
             if self.flip_world_run.engine and self.flip_world_run.engine.game:
                 self.game_state = GAME_STATE_SWITCHING_LEVELS
-                self.flip_world_run.engine.game.level_switch(next_level_index)
+                # switch_to_level creates the level on demand (the ported maps aren't
+                # pre-built at start), switches to it, and sets its icon group.
+                self.flip_world_run.switch_to_level(next_level_index)
 
                 self.flip_world_run.sync_multiplayer_level()
-
-                self.flip_world_run.set_icon_group(next_level_index)
 
                 # Reset player position
                 self.position = self.start_position
@@ -388,7 +423,7 @@ class Player(Entity):
             self.draw_system_menu_view(canvas)
         else:
             canvas.fill_screen(COLOR_WHITE)
-            canvas.text(Vector(0, 10), "Unknown View", COLOR_BLACK)
+            canvas._text(0, canvas.scale_y(10), "Unknown View", COLOR_BLACK)
 
         canvas.swap()
 
@@ -415,7 +450,7 @@ class Player(Entity):
             return
 
         canvas.fill_screen(COLOR_WHITE)
-        canvas.text(Vector(25, 32), "Starting Game...", COLOR_BLACK)
+        canvas._text(canvas.scale_x(25), canvas.scale_y(32), "Starting Game...", COLOR_BLACK)
         game_started = self.flip_world_run.start_game()
         if game_started and self.flip_world_run.engine:
             self.flip_world_run.engine.run_async(False)
@@ -451,14 +486,14 @@ class Player(Entity):
                         del self.http
                         self.http = None
         elif self.join_lobby_status == JOIN_LOBBY_SUCCESS:
-            canvas.text(Vector(0, 10), "Joined lobby!", COLOR_BLACK)
+            canvas._text(0, canvas.scale_y(10), "Joined lobby!", COLOR_BLACK)
         elif self.join_lobby_status == JOIN_LOBBY_CREDENTIALS_MISSING:
-            canvas.text(Vector(0, 10), "Missing credentials!", COLOR_BLACK)
+            canvas._text(0, canvas.scale_y(10), "Missing credentials!", COLOR_BLACK)
         elif self.join_lobby_status == JOIN_LOBBY_REQUEST_ERROR:
-            canvas.text(Vector(0, 10), "Join lobby failed!", COLOR_BLACK)
-            canvas.text(Vector(0, 20), "Check your network.", COLOR_BLACK)
+            canvas._text(0, canvas.scale_y(10), "Join lobby failed!", COLOR_BLACK)
+            canvas._text(0, canvas.scale_y(20), "Check your network.", COLOR_BLACK)
         else:
-            canvas.text(Vector(0, 10), "Joining lobby...", COLOR_BLACK)
+            canvas._text(0, canvas.scale_y(10), "Joining lobby...", COLOR_BLACK)
 
     def draw_lobbies_view(self, canvas):
         """Draw the lobbies view."""
@@ -501,31 +536,33 @@ class Player(Entity):
                     del self.http
                     self.http = None
         elif self.lobbies_status == LOBBIES_SUCCESS:
-            canvas.text(Vector(5, 10), "Select a Lobby:", COLOR_BLACK)
+            canvas._text(canvas.scale_x(5), canvas.scale_y(10), "Select a Lobby:", COLOR_BLACK)
             if self.lobby_count == 0:
-                canvas.text(Vector(5, 25), "No lobbies available", COLOR_BLACK)
+                canvas._text(canvas.scale_x(5), canvas.scale_y(25), "No lobbies available", COLOR_BLACK)
             else:
                 start_y = int(self.screen_size.y) // 5
                 item_height = int(self.screen_size.y) // 10
                 for i in range(min(4, self.lobby_count)):
                     y = start_y + i * item_height
                     if i == self.current_lobby_index:
-                        canvas.fill_rectangle(
-                            Vector(3, y - 2),
-                            Vector(self.screen_size.x - 6, item_height),
+                        canvas._fill_rectangle(
+                            canvas.scale_x(3), 
+                            canvas.scale_y(y - 2),
+                            self.screen_size.x - canvas.scale_x(6), 
+                            canvas.scale_y(item_height),
                             COLOR_BLACK,
                         )
                         color = COLOR_WHITE
                     else:
                         color = COLOR_BLACK
                     lobby_text = f"{self.lobbies[i].name} ({self.lobbies[i].player_count}/{self.lobbies[i].max_players})"
-                    canvas.text(Vector(5, y + 7), lobby_text[:25], color)
+                    canvas._text(canvas.scale_x(5), canvas.scale_y(y + 7), lobby_text[:canvas.scale_x(25)], color)
         elif self.lobbies_status == LOBBIES_CREDENTIALS_MISSING:
-            canvas.text(Vector(0, 10), "Missing credentials!", COLOR_BLACK)
+            canvas._text(canvas.scale_x(0), canvas.scale_y(10), "Missing credentials!", COLOR_BLACK)
         elif self.lobbies_status == LOBBIES_REQUEST_ERROR:
-            canvas.text(Vector(0, 10), "Lobbies request failed!", COLOR_BLACK)
+            canvas._text(canvas.scale_x(0), canvas.scale_y(10), "Lobbies request failed!", COLOR_BLACK)
         else:
-            canvas.text(Vector(0, 10), "Loading lobbies...", COLOR_BLACK)
+            canvas._text(canvas.scale_x(0), canvas.scale_y(10), "Loading lobbies...", COLOR_BLACK)
 
     def draw_login_view(self, canvas):
         """Draw the login view."""
@@ -547,6 +584,8 @@ class Player(Entity):
                         self.login_status = LOGIN_SUCCESS
                         self.current_main_view = GAME_VIEW_USER_INFO
                         self.user_info_status = USER_INFO_WAITING
+                        self._MM_W = canvas.scale_x(64)
+                        self._MM_H = canvas.scale_y(32)
                     elif "User not found" in response:
                         self.login_status = LOGIN_NOT_STARTED
                         self.current_main_view = GAME_VIEW_REGISTRATION
@@ -555,20 +594,21 @@ class Player(Entity):
                         self.login_status = LOGIN_WRONG_PASSWORD
                     else:
                         self.login_status = LOGIN_REQUEST_ERROR
+                    self.http.close()
                     del self.http
                     self.http = None
         elif self.login_status == LOGIN_SUCCESS:
-            canvas.text(Vector(0, 10), "Login successful!", COLOR_BLACK)
+            canvas._text(0, canvas.scale_y(10), "Login successful!", COLOR_BLACK)
         elif self.login_status == LOGIN_CREDENTIALS_MISSING:
-            canvas.text(Vector(0, 10), "Missing credentials!", COLOR_BLACK)
-            canvas.text(Vector(0, 20), "Set username/password", COLOR_BLACK)
+            canvas._text(0, canvas.scale_y(10), "Missing credentials!", COLOR_BLACK)
+            canvas._text(0, canvas.scale_y(20), "Set username/password", COLOR_BLACK)
         elif self.login_status == LOGIN_REQUEST_ERROR:
-            canvas.text(Vector(0, 10), "Login failed!", COLOR_BLACK)
-            canvas.text(Vector(0, 20), "Check your network.", COLOR_BLACK)
+            canvas._text(0, canvas.scale_y(10), "Login failed!", COLOR_BLACK)
+            canvas._text(0, canvas.scale_y(20), "Check your network.", COLOR_BLACK)
         elif self.login_status == LOGIN_WRONG_PASSWORD:
-            canvas.text(Vector(0, 10), "Wrong password!", COLOR_BLACK)
+            canvas._text(0, canvas.scale_y(10), "Wrong password!", COLOR_BLACK)
         else:
-            canvas.text(Vector(0, 10), "Logging in...", COLOR_BLACK)
+            canvas._text(0, canvas.scale_y(10), "Logging in...", COLOR_BLACK)
 
     def draw_rain_effect(self, canvas):
         """Draw rain/star droplet effect."""
@@ -619,16 +659,17 @@ class Player(Entity):
                         self.user_info_status = USER_INFO_WAITING
                     else:
                         self.registration_status = REGISTRATION_REQUEST_ERROR
+                    self.http.close()
                     del self.http
                     self.http = None
         elif self.registration_status == REGISTRATION_SUCCESS:
-            canvas.text(Vector(0, 10), "Registration successful!", COLOR_BLACK)
+            canvas._text(0, canvas.scale_y(10), "Registration successful!", COLOR_BLACK)
         elif self.registration_status == REGISTRATION_CREDENTIALS_MISSING:
-            canvas.text(Vector(0, 10), "Missing credentials!", COLOR_BLACK)
+            canvas._text(0, canvas.scale_y(10), "Missing credentials!", COLOR_BLACK)
         elif self.registration_status == REGISTRATION_REQUEST_ERROR:
-            canvas.text(Vector(0, 10), "Registration failed!", COLOR_BLACK)
+            canvas._text(0, canvas.scale_y(10), "Registration failed!", COLOR_BLACK)
         else:
-            canvas.text(Vector(0, 10), "Registering...", COLOR_BLACK)
+            canvas._text(0, canvas.scale_y(10), "Registering...", COLOR_BLACK)
 
     def draw_system_menu_view(self, canvas):
         """Draw the system menu view."""
@@ -676,28 +717,20 @@ class Player(Entity):
             content_start_y = int(self.screen_size.y * 0.25)
             line_height = int(self.screen_size.y * 0.109375)
 
-            canvas.text(
-                Vector(content_x, content_start_y), self.name or "Player", COLOR_BLACK
+            canvas._text(
+                content_x, content_start_y, self.name or "Player", COLOR_BLACK
             )
-            canvas.text(
-                Vector(content_x, content_start_y + line_height * 2),
-                f"Level   : {int(self.level)}",
-                COLOR_BLACK,
+            canvas._text(
+                content_x, content_start_y + line_height * 2, f"Level   : {int(self.level)}", COLOR_BLACK
             )
-            canvas.text(
-                Vector(content_x, content_start_y + line_height * 3),
-                f"Health  : {int(self.health)}",
-                COLOR_BLACK,
+            canvas._text(
+                content_x, content_start_y + line_height * 3, f"Health  : {int(self.health)}", COLOR_BLACK
             )
-            canvas.text(
-                Vector(content_x, content_start_y + line_height * 4),
-                f"XP      : {int(self.xp)}",
-                COLOR_BLACK,
+            canvas._text(
+                content_x, content_start_y + line_height * 4, f"XP      : {int(self.xp)}", COLOR_BLACK
             )
-            canvas.text(
-                Vector(content_x, content_start_y + line_height * 5),
-                f"Strength: {int(self.strength)}",
-                COLOR_BLACK,
+            canvas._text(
+                content_x, content_start_y + line_height * 5, f"Strength: {int(self.strength)}", COLOR_BLACK
             )
 
         elif self.current_system_menu_index == MENU_INDEX_ABOUT:
@@ -706,27 +739,11 @@ class Player(Entity):
             content_start_y = int(self.screen_size.y * 0.25)
             line_height = int(self.screen_size.y * 0.109375)
 
-            canvas.text(Vector(content_x, content_start_y), VERSION_TAG, COLOR_BLACK)
-            canvas.text(
-                Vector(content_x, content_start_y + line_height),
-                "Developed by",
-                COLOR_BLACK,
-            )
-            canvas.text(
-                Vector(content_x, content_start_y + line_height * 2),
-                "JBlanked and Derek",
-                COLOR_BLACK,
-            )
-            canvas.text(
-                Vector(content_x, content_start_y + line_height * 3),
-                "Jamison. Graphics",
-                COLOR_BLACK,
-            )
-            canvas.text(
-                Vector(content_x, content_start_y + line_height * 4),
-                "from Pr3!",
-                COLOR_BLACK,
-            )
+            canvas._text(content_x, content_start_y, "FlipWorld v0.1", COLOR_BLACK)
+            canvas._text(content_x, content_start_y + line_height, "Developed by", COLOR_BLACK)
+            canvas._text(content_x, content_start_y + line_height * 2, "JBlanked and Derek", COLOR_BLACK)
+            canvas._text(content_x, content_start_y + line_height * 3, "Jamison. Graphics", COLOR_BLACK)
+            canvas._text(content_x, content_start_y + line_height * 4, "from Pr3!", COLOR_BLACK)
 
         elif self.current_system_menu_index == MENU_INDEX_LEAVE_GAME:
             # Content positions using screen_size
@@ -734,26 +751,14 @@ class Player(Entity):
             content_start_y = int(self.screen_size.y * 0.25)
             line_height = int(self.screen_size.y * 0.109375)
 
-            canvas.text(Vector(content_x, content_start_y), "Leave Game", COLOR_BLACK)
-            canvas.text(
-                Vector(content_x, content_start_y + line_height * 2),
-                "Are you sure you",
-                COLOR_BLACK,
-            )
-            canvas.text(
-                Vector(content_x, content_start_y + line_height * 3),
-                "want to leave",
-                COLOR_BLACK,
-            )
-            canvas.text(
-                Vector(content_x, content_start_y + line_height * 4),
-                "the game?",
-                COLOR_BLACK,
-            )
+            canvas._text(content_x, content_start_y, "Leave Game", COLOR_BLACK)
+            canvas._text(content_x, content_start_y + line_height * 2, "Are you sure you", COLOR_BLACK)
+            canvas._text(content_x, content_start_y + line_height * 3, "want to leave", COLOR_BLACK)
+            canvas._text(content_x, content_start_y + line_height * 4, "the game?", COLOR_BLACK)
 
         # Draw menu box
-        canvas.rect(
-            Vector(menu_x, menu_y), Vector(menu_width, menu_height), COLOR_BLACK
+        canvas._rectangle(
+            menu_x, menu_y, menu_width, menu_height, COLOR_BLACK
         )
 
         # Draw menu items with highlight rectangle around current selection
@@ -766,13 +771,13 @@ class Player(Entity):
 
             # Draw highlight rectangle around current menu item
             if i == self.current_system_menu_index:
-                canvas.rect(
-                    Vector(menu_text_x - highlight_padding, item_y - highlight_padding),
-                    Vector(menu_width - 12, highlight_height),
+                canvas._rectangle(
+                    menu_text_x - highlight_padding, item_y - highlight_padding,
+                    menu_width - 12, highlight_height,
                     COLOR_BLACK,
                 )
 
-            canvas.text(Vector(menu_text_x, item_y), item, COLOR_BLACK)
+            canvas._text(menu_text_x, item_y, item, COLOR_BLACK)
 
     def draw_title_view(self, canvas):
         """Draw the title view."""
@@ -789,31 +794,50 @@ class Player(Entity):
         text_y2 = button_y2 + int(button_height * 0.625)
 
         if self.current_title_index == TITLE_INDEX_STORY:
-            canvas.fill_rectangle(
-                Vector(button_x, button_y1),
-                Vector(button_width, button_height),
+            canvas._fill_rectangle(
+                button_x, button_y1,
+                button_width, button_height,
                 COLOR_BLACK,
             )
-            canvas.text(Vector(text_x, text_y1), "Story", COLOR_WHITE)
-            canvas.fill_rectangle(
-                Vector(button_x, button_y2),
-                Vector(button_width, button_height),
+            canvas._text(text_x, text_y1, "Story", COLOR_WHITE)
+            canvas._fill_rectangle(
+                button_x, button_y2,
+                button_width, button_height,
                 COLOR_WHITE,
             )
-            canvas.text(Vector(text_x, text_y2), "PvE", COLOR_BLACK)
+            canvas._text(text_x, text_y2, "PvE", COLOR_BLACK)
         else:
-            canvas.fill_rectangle(
-                Vector(button_x, button_y1),
-                Vector(button_width, button_height),
+            canvas._fill_rectangle(
+                button_x, button_y1,
+                button_width, button_height,
                 COLOR_WHITE,
             )
-            canvas.text(Vector(text_x, text_y1), "Story", COLOR_BLACK)
-            canvas.fill_rectangle(
-                Vector(button_x, button_y2),
-                Vector(button_width, button_height),
+            canvas._text(text_x, text_y1, "Story", COLOR_BLACK)
+            canvas._fill_rectangle(
+                button_x, button_y2,
+                button_width, button_height,
                 COLOR_BLACK,
             )
-            canvas.text(Vector(text_x, text_y2), "PvE", COLOR_WHITE)
+            canvas._text(text_x, text_y2, "PvE", COLOR_WHITE)
+
+        # Map picker: show which map Story will start on (< > to change). All maps can be
+        # browsed, but locked ones are flagged and can't be launched.
+        if self.current_title_index == TITLE_INDEX_STORY and self.flip_world_run:
+            run = self.flip_world_run
+            idx = run.start_level_index
+            name = run.level_names[idx] if 0 <= idx < len(run.level_names) else "?"
+            locked = idx >= run.unlocked_count
+            lx = int(self.screen_size.x * 0.08)
+            canvas._text(
+                lx, int(self.screen_size.y * 0.80),
+                "Map %d/%d: %s%s" % (idx + 1, run.total_levels, name, " (Locked)" if locked else ""),
+                COLOR_BLACK,
+            )
+            canvas._text(
+                lx, int(self.screen_size.y * 0.88),
+                "< > choose map" if not locked else "< > locked - play earlier maps",
+                COLOR_BLACK,
+            )
 
     def draw_user_info_view(self, canvas):
         """Draw the user info view."""
@@ -857,18 +881,19 @@ class Player(Entity):
                             self.user_info_status = USER_INFO_PARSE_ERROR
                     else:
                         self.user_info_status = USER_INFO_REQUEST_ERROR
+                    self.http.close()
                     del self.http
                     self.http = None
         elif self.user_info_status == USER_INFO_SUCCESS:
-            canvas.text(Vector(0, 10), "User info loaded!", COLOR_BLACK)
+            canvas._text(0, 10, "User info loaded!", COLOR_BLACK)
         elif self.user_info_status == USER_INFO_CREDENTIALS_MISSING:
-            canvas.text(Vector(0, 10), "Missing credentials!", COLOR_BLACK)
+            canvas._text(0, 10, "Missing credentials!", COLOR_BLACK)
         elif self.user_info_status == USER_INFO_REQUEST_ERROR:
-            canvas.text(Vector(0, 10), "User info request failed!", COLOR_BLACK)
+            canvas._text(0, 10, "User info request failed!", COLOR_BLACK)
         elif self.user_info_status == USER_INFO_PARSE_ERROR:
-            canvas.text(Vector(0, 10), "Failed to parse user info!", COLOR_BLACK)
+            canvas._text(0, 10, "Failed to parse user info!", COLOR_BLACK)
         else:
-            canvas.text(Vector(0, 10), "Loading user info...", COLOR_BLACK)
+            canvas._text(0, 10, "Loading user info...", COLOR_BLACK)
 
     def draw_username(self, pos: Vector, game):
         """Draw the username at the specified position."""
@@ -881,8 +906,8 @@ class Player(Entity):
         screen_y = int(pos.y - game.position.y)
 
         # Calculate text width using font size
-        text_width = int(len(self.name) * game.draw.font_size.x)
-        font_height = int(game.draw.font_size.y)
+        text_width = game.draw.len(self.name)
+        font_height = game.draw.font_size.y
 
         # Calculate box dimensions with padding
         box_padding = 2
@@ -903,34 +928,29 @@ class Player(Entity):
             return
 
         # Draw centered box
-        self.cent_box_pos.x = box_x
-        self.cent_box_pos.y = box_y
-        self.cent_box_size.x = box_width
-        self.cent_box_size.y = box_height
-        game.draw.fill_rectangle(
-            self.cent_box_pos,
-            self.cent_box_size,
-            COLOR_WHITE,
+        game.draw._fill_rectangle(
+            box_x, box_y,
+            box_width, box_height,
+            0xFFFF,  # white box (visible on the dark game background)
         )
 
         # Center the text in the box
         text_x = int(screen_x - text_width // 2)
         text_y = int(box_y + box_padding)
-        self.cent_box_text.x = text_x
-        self.cent_box_text.y = text_y
-        game.draw.text(
-            self.cent_box_text,
+        game.draw._text(
+            text_x,
+            text_y,
             self.name,
-            COLOR_BLACK,
+            0x0000,  # black text
         )
 
     def draw_user_stats(self, pos: Vector, canvas):
         """Draw the user stats at the specified position."""
-        self.user_stats_rect_pos.x = int(pos.x - 2)
-        self.user_stats_rect_pos.y = int(pos.y - 5)
-        canvas.fill_rectangle(
-            self.user_stats_rect_pos,
-            self.user_stats_size,
+        canvas._fill_rectangle(
+            pos.x - canvas.scale_x(2),
+            pos.y - canvas.scale_y(5),
+            0,
+            0,
             COLOR_WHITE,
         )
 
@@ -941,15 +961,77 @@ class Player(Entity):
         else:
             xp_str = f"XP : {int(self.xp // 1000)}K"
 
-        self.user_stats_text.x = int(pos.x)
-        self.user_stats_text.y = int(pos.y)
-        canvas.text(self.user_stats_text, health_str, COLOR_BLACK)
-        #
-        self.user_stats_text.y = int(pos.y + 9)
-        canvas.text(self.user_stats_text, xp_str, COLOR_BLACK)
-        #
-        self.user_stats_text.y = int(pos.y + 18)
-        canvas.text(self.user_stats_text, level_str, COLOR_BLACK)
+        canvas._text(pos.x, pos.y, health_str, COLOR_BLACK)
+        canvas._text(pos.x, pos.y + canvas.scale_y(9), xp_str, COLOR_BLACK)
+        canvas._text(pos.x, pos.y + canvas.scale_y(18), level_str, COLOR_BLACK)
+
+    def _update_burning_icons(self, game):
+        """Advance on-fire timers for scenery, char foliage out, singe the player.
+        Foliage (burn_kind 1) burns for a fixed duration then chars and goes inert; a structure like a
+        house (burn_kind 2) has no char condition here, so once lit it keeps
+        blazing indefinitely. Standing too close to anything currently on fire
+        deals periodic damage.
+        """
+        run = self.flip_world_run
+        if not run or not run.current_icon_group:
+            return
+
+        if self._singe_cd > 0:
+            self._singe_cd -= _BURN_TICK_DT
+
+        px = self.position.x + self.size.x * 0.5
+        py = self.position.y + self.size.y * 0.5
+        can_singe = self._singe_cd <= 0
+        singed = False
+
+        for spec in run.current_icon_group.icons:
+            if spec.on_fire <= 0.0:
+                continue
+            spec.on_fire += _BURN_TICK_DT
+
+            if spec.burn_kind == 1 and spec.on_fire >= _BURN_FOLIAGE_DURATION:
+                # Foliage chars out and goes inert; it can never reignite.
+                spec.charred = True
+                spec.on_fire = 0.0
+                spec.burn_kind = 0
+                continue
+
+            if can_singe and not singed:
+                cx = spec.x + spec.width * 0.5
+                cy = spec.y + spec.height * 0.5
+                dx = cx - px
+                dy = cy - py
+                if dx * dx + dy * dy <= _BURN_SINGE_RADIUS2:
+                    dmg = (
+                        _BURN_SINGE_DAMAGE_STRUCTURE
+                        if spec.burn_kind == 2
+                        else _BURN_SINGE_DAMAGE_FOLIAGE
+                    )
+                    self.health -= dmg
+                    if self.health <= 0:
+                        self.state = ENTITY_STATE_DEAD
+                        self.health = self.max_health
+                        self.position = self.start_position
+                    else:
+                        self.state = ENTITY_STATE_ATTACKED
+                    singed = True
+
+        if singed:
+            self._singe_cd = _BURN_SINGE_INTERVAL
+
+    def _draw_icon_flame(self, draw, spec, x, y):
+        """Flicker a flame over a burning icon (screen coords in self._img_vec)."""
+        flames = spec.width // 8
+        if flames < 1:
+            flames = 1
+        step = spec.width / flames
+        top_y = y
+        for i in range(flames):
+            fx = int(x + step * (i + 0.5))
+            flick = sin(spec.on_fire * 9.0 + i * 2.1) * 2.0
+            fy = int(top_y - 2 + flick)
+            draw._fill_circle(fx, fy, 3, COL_FLAME_OUTER)
+            draw._fill_circle(fx, fy, 1, COL_FLAME_CORE)
 
     def icon_group_render(self, game):
         """Render the icon group for the current level."""
@@ -964,43 +1046,159 @@ class Player(Entity):
 
         # Expand by small margin to prevent pop-in
         margin = 20
-        cam_x -= margin
-        cam_y -= margin
-        cam_right += margin
-        cam_bottom += margin
+        cull_left = cam_x - margin
+        cull_top = cam_y - margin
+        cull_right = cam_right + margin
+        cull_bottom = cam_bottom + margin
 
         icon_data_map = self.flip_world_run.icon_map
+        char_map = self.flip_world_run.icon_char_map
 
         for spec in self.flip_world_run.current_icon_group.icons:
-            # Fast rejection test - is icon center even close to camera?
-            if spec.x < cam_x or spec.x > cam_right:
-                continue
-            if spec.y < cam_y or spec.y > cam_bottom:
-                continue
-
-            # Icon is potentially visible, calculate screen position
             half_w = spec.width >> 1
             half_h = spec.height >> 1
 
-            self._img_vec.x = int(spec.x - cam_x - half_w)
-            self._img_vec.y = int(spec.y - cam_y - half_h)
+            # Fast rejection test - is icon center even close to camera?
+            if spec.x + half_w < cull_left or spec.x - half_w > cull_right:
+                continue
+            if spec.y + half_h < cull_top or spec.y - half_h > cull_bottom:
+                continue
+
+            # Icon is potentially visible, calculate screen position
+            _img_vec_x = int(spec.x - cam_x - half_w)
+            _img_vec_y = int(spec.y - cam_y - half_h)
 
             # Final bounds check
             if (
-                self._img_vec.x + spec.width < 0
-                or self._img_vec.x > self.screen_size.x
-                or self._img_vec.y + spec.height < 0
-                or self._img_vec.y > self.screen_size.y
+                _img_vec_x + spec.width < 0
+                or _img_vec_x > self.screen_size.x
+                or _img_vec_y + spec.height < 0
+                or _img_vec_y > self.screen_size.y
             ):
                 continue
 
             self._img_size.x = spec.width
             self._img_size.y = spec.height
 
-            # Draw the icon
-            game.draw.image_bytearray(
-                self._img_vec, self._img_size, icon_data_map[spec.id]
-            )
+            # Draw the icon (charred tint once foliage has fully burned out)
+            data = icon_data_map[spec.id]
+            if spec.charred:
+                data = char_map.get(spec.id, data)
+            game.draw._bytearray(_img_vec_x, _img_vec_y, spec.width, spec.height, data)
+
+            # Flame overlay while actively on fire (foliage mid-burn, or a
+            # structure like a house, which stays ablaze indefinitely)
+            if spec.on_fire > 0.0:
+                self._draw_icon_flame(game.draw, spec, _img_vec_x, _img_vec_y)
+
+    def draw_minimap(self, draw, game):
+        """Top-right minimap: world objects, enemies, the boss, the player, camera view."""
+        lvl = game.current_level
+        if not lvl:
+            return
+        world_w = lvl.size.x
+        world_h = lvl.size.y
+        if world_w <= 0 or world_h <= 0:
+            return
+        mm_x = int(self.screen_size.x - self._MM_W - 4)
+        mm_y = 4
+        sx = self._MM_W / world_w
+        sy = self._MM_H / world_h
+
+        # background + grey frame
+        pos_x = mm_x
+        pos_y = mm_y
+        size_x = self._MM_W
+        size_y = self._MM_H
+        draw._fill_rectangle(pos_x, pos_y, size_x, size_y, _MM_BG)
+        size_y = 1
+        draw._fill_rectangle(pos_x, pos_y, size_x, size_y, _MM_FRAME)
+        pos_y = mm_y + self._MM_H - 1
+        draw._fill_rectangle(pos_x, pos_y, size_x, size_y, _MM_FRAME)
+        pos_y = mm_y
+        size_x = 1
+        size_y = self._MM_H
+        draw._fill_rectangle(pos_x, pos_y, size_x, size_y, _MM_FRAME)
+        pos_x = mm_x + self._MM_W - 1
+        draw._fill_rectangle(pos_x, pos_y, size_x, size_y, _MM_FRAME)
+
+        # camera view box (clamped inside the minimap)
+        vx = mm_x + int(game.position.x * sx)
+        vy = mm_y + int(game.position.y * sy)
+        vw = int(self.screen_size.x * sx)
+        vh = int(self.screen_size.y * sy)
+        if vx < mm_x:
+            vw -= mm_x - vx
+            vx = mm_x
+        if vy < mm_y:
+            vh -= mm_y - vy
+            vy = mm_y
+        if vw > self._MM_W - (vx - mm_x):
+            vw = self._MM_W - (vx - mm_x)
+        if vh > self._MM_H - (vy - mm_y):
+            vh = self._MM_H - (vy - mm_y)
+        if vw > 0 and vh > 0:
+            pos_x = vx
+            pos_y = vy
+            size_x = vw
+            size_y = 1
+            draw._fill_rectangle(pos_x, pos_y, size_x, size_y, _MM_VIEW)
+            pos_y = vy + vh - 1
+            draw._fill_rectangle(pos_x, pos_y, size_x, size_y, _MM_VIEW)
+            pos_y = vy
+            size_x = 1
+            size_y = vh
+            draw._fill_rectangle(pos_x, pos_y, size_x, size_y, _MM_VIEW)
+            pos_x = vx + vw - 1
+            draw._fill_rectangle(pos_x, pos_y, size_x, size_y, _MM_VIEW)
+
+        # world objects
+        run = self.flip_world_run
+        if run and run.current_icon_group:
+            icons = run.current_icon_group.icons
+            n = len(icons)
+            step = 1 + (n // 120)
+            for k in range(0, n, step):
+                spec = icons[k]
+                col = self._MM_ICON.get(spec.id)
+                if col is None:
+                    continue
+                dx = mm_x + int(spec.x * sx)
+                dy = mm_y + int(spec.y * sy)
+                if mm_x <= dx < mm_x + self._MM_W and mm_y <= dy < mm_y + self._MM_H:
+                    draw._pixel(dx, dy, col)
+
+        # entities: enemies, the boss, and the player
+        for i in range(lvl.entity_count):
+            e = lvl.get_entity(i)
+            if not e:
+                continue
+            if e.type == ENTITY_TYPE_PLAYER:
+                col = _MM_PLAYER
+                r = 2
+            elif e.type == ENTITY_TYPE_ENEMY:
+                if e.state == ENTITY_STATE_DEAD or e.health <= 0:
+                    continue
+                if e.size.x >= 40:  # the big dragon boss
+                    col = _MM_BOSS
+                    r = 4
+                else:
+                    col = _MM_ENEMY
+                    r = 1
+            else:
+                continue
+            dx = mm_x + int(e.position.x * sx)
+            dy = mm_y + int(e.position.y * sy)
+            if dx < mm_x:
+                dx = mm_x
+            elif dx > mm_x + self._MM_W - r - 1:
+                dx = mm_x + self._MM_W - r - 1
+            if dy < mm_y:
+                dy = mm_y
+            elif dy > mm_y + self._MM_H - r - 1:
+                dy = mm_y + self._MM_H - r - 1
+
+            draw._fill_rectangle(dx, dy, r + 1, r + 1, col)
 
     def process_input(self):
         """Process input for all views."""
@@ -1018,8 +1216,22 @@ class Player(Entity):
             elif current_input == INPUT_KEY_DOWN:
                 self.current_title_index = TITLE_INDEX_PVE
 
-            elif current_input == INPUT_KEY_OK:
+            elif current_input in (INPUT_KEY_LEFT, INPUT_KEY_RIGHT) and (
+                self.current_title_index == TITLE_INDEX_STORY and self.flip_world_run
+            ):
+                # Map picker: choose which map Story starts on (any of the maps).
+                run = self.flip_world_run
+                idx = run.start_level_index + (1 if current_input == INPUT_KEY_RIGHT else -1)
+                run.start_level_index = max(0, min(idx, run.total_levels - 1))
 
+            elif current_input == INPUT_KEY_OK:
+                # A locked map can be browsed but not played.
+                if (
+                    self.current_title_index == TITLE_INDEX_STORY
+                    and self.flip_world_run.start_level_index
+                    >= self.flip_world_run.unlocked_count
+                ):
+                    return
                 self.current_main_view = GAME_VIEW_LOGIN
                 self.login_status = LOGIN_WAITING
             elif current_input == INPUT_KEY_BACK:
@@ -1078,7 +1290,6 @@ class Player(Entity):
         """Render callback for the player."""
         if self.current_main_view != GAME_VIEW_GAME:
             return
-        self.icon_group_render(game)
 
         # Draw player sprite explicitly
         screen_x = int(self.position.x - game.position.x)
@@ -1096,6 +1307,7 @@ class Player(Entity):
 
         self.draw_username(self.position, game)
         self.draw_user_stats(self.user_stats_pos, canvas=draw)
+        self.draw_minimap(draw, game)
         # Suppress engine auto-draw (sprite already drawn above)
         self.is_visible = False
 
@@ -1114,6 +1326,8 @@ class Player(Entity):
         if self.current_main_view != GAME_VIEW_GAME:
             return
 
+        self.flip_world_run.icons_rendered = False
+
         # Health regeneration
         self.elapsed_health_regen += 0.05
         if self.elapsed_health_regen >= 1 and self.health < self.max_health:
@@ -1122,32 +1336,70 @@ class Player(Entity):
             self.health = min(self.health, self.max_health)
 
         self.elapsed_attack_timer += 0.05
+        self._update_burning_icons(game)
         self.update_stats()
         self.check_for_level_completion(game)
 
+        self.old_position = self.position
         self._update_old_pos = self.position
         self._update_new_pos.x = self._update_old_pos.x
         self._update_new_pos.y = self._update_old_pos.y
         should_set_position = False
 
+        # Input direction (one axis at a time, matching the rest of the game).
+        in_dx = 0
+        in_dy = 0
         if game.input == INPUT_KEY_UP:
-            self._update_new_pos.y -= 5
+            in_dy = -1
             self.direction = Vector(0, -1)
-            should_set_position = True
         elif game.input == INPUT_KEY_DOWN:
-            self._update_new_pos.y += 5
+            in_dy = 1
             self.direction = Vector(0, 1)
-            should_set_position = True
         elif game.input == INPUT_KEY_LEFT:
-            self._update_new_pos.x -= 5
+            in_dx = -1
             self.direction = Vector(-1, 0)
-            should_set_position = True
         elif game.input == INPUT_KEY_RIGHT:
-            self._update_new_pos.x += 5
+            in_dx = 1
             self.direction = Vector(1, 0)
-            should_set_position = True
+        # Consume a movement input so it isn't re-applied, but LEAVE an attack (CENTER)
+        # in place so the enemies' collision handler can read it and take the hit.
+        if in_dx != 0 or in_dy != 0:
+            game.input = INPUT_KEY_MAX
 
-        game.input = INPUT_KEY_MAX
+        # Frozen Lake is slippery: input builds a carried velocity and friction lets the
+        # player glide to a stop instead of moving in fixed 5px steps.
+        lvl = game.current_level
+        icy = lvl is not None and lvl.name == "Frozen Lake"
+        if icy:
+            self.slide_vx += in_dx * 1.6
+            self.slide_vy += in_dy * 1.6
+            self.slide_vx *= 0.90
+            self.slide_vy *= 0.90
+            sp = (self.slide_vx * self.slide_vx + self.slide_vy * self.slide_vy) ** 0.5
+            if sp > 5.0:
+                self.slide_vx = self.slide_vx / sp * 5.0
+                self.slide_vy = self.slide_vy / sp * 5.0
+            elif sp < 0.05:
+                self.slide_vx = 0.0
+                self.slide_vy = 0.0
+            if self.slide_vx != 0.0 or self.slide_vy != 0.0:
+                self._update_new_pos.x += self.slide_vx
+                self._update_new_pos.y += self.slide_vy
+                should_set_position = True
+                # face the way we're actually gliding
+                if abs(self.slide_vx) >= abs(self.slide_vy):
+                    self.direction = Vector(-1 if self.slide_vx < 0 else 1, 0)
+                else:
+                    self.direction = Vector(0, -1 if self.slide_vy < 0 else 1)
+        else:
+            self.slide_vx = 0.0
+            self.slide_vy = 0.0
+            if in_dx != 0:
+                self._update_new_pos.x += in_dx * 5
+                should_set_position = True
+            if in_dy != 0:
+                self._update_new_pos.y += in_dy * 5
+                should_set_position = True
 
         # Check boundaries
         if (
@@ -1155,24 +1407,27 @@ class Player(Entity):
             or self._update_new_pos.x + self.size.x > game.size.x
         ):
             should_set_position = False
+            self.slide_vx = 0.0  # stop the glide at the edge
         if (
             self._update_new_pos.y < 0
             or self._update_new_pos.y + self.size.y > game.size.y
         ):
             should_set_position = False
+            self.slide_vy = 0.0
 
         if should_set_position:
             has_collision = False
 
             # Loop over all icon specifications in the current icon group.
             for icon in self.flip_world_run.current_icon_group.icons:
+                if icon.id == 9:  # ICON_ID_ICE
+                    continue
 
-                # Rough bounding box check first
                 if (
                     abs(self._update_new_pos.x - icon.x) > 30
                     or abs(self._update_new_pos.y - icon.y) > 30
                 ):
-                    continue  # Too far away, skip
+                    continue
 
                 # Calculate the difference between the NEW position and the icon's center.
                 dx = self._update_new_pos.x - icon.x
@@ -1188,6 +1443,10 @@ class Player(Entity):
             if not has_collision:
                 self.position = self._update_new_pos
                 self.sync_multiplayer_state()
+            else:
+                # ran into scenery — stop sliding
+                self.slide_vx = 0.0
+                self.slide_vy = 0.0
 
         # update player sprite based on direction
         if self.direction.x == -1 and self.direction.y == 0:
@@ -1303,6 +1562,7 @@ class Player(Entity):
                     headers,
                 )
             elif request_type == REQUEST_TYPE_START_WEBSOCKET:
+                self.http.close()
                 del self.http
                 self.http = None
                 if self.ws is not None:
@@ -1323,6 +1583,7 @@ class Player(Entity):
                     del self.ws
                     self.ws = None
             elif request_type == REQUEST_TYPE_STOP_WEBSOCKET:
+                self.http.close()
                 del self.http
                 self.http = None
                 if self.ws is not None:

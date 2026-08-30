@@ -81,6 +81,9 @@ rm -rf "$micropython_dir"/modules/http
 # remove usb_video module if it exists
 rm -rf "$micropython_dir"/modules/usb_video
 
+# remove video module if it exists
+rm -rf "$micropython_dir"/modules/video
+
 # remove websocket module if it exists
 rm -rf "$micropython_dir"/modules/websocket
 
@@ -89,6 +92,9 @@ rm -rf "$micropython_dir"/modules/mjs
 
 # remove mmbasic module if it exists
 rm -rf "$micropython_dir"/modules/mmbasic
+
+# remove C module if it exists
+rm -rf "$micropython_dir"/modules/c
 
 # Clean previous builds
 echo "Cleaning previous builds..."
@@ -171,6 +177,9 @@ cp -r "$picoware_dir"/src/MicroPython/http "$micropython_dir"/modules/http
 # copy usb_video module
 cp -r "$picoware_dir"/src/MicroPython/usb_video "$micropython_dir"/modules/usb_video
 
+# copy video module
+cp -r "$picoware_dir"/src/MicroPython/video "$micropython_dir"/modules/video
+
 # copy websocket module
 cp -r "$picoware_dir"/src/MicroPython/websocket "$micropython_dir"/modules/websocket
 
@@ -180,12 +189,17 @@ cp -r "$picoware_dir"/src/MicroPython/mjs "$micropython_dir"/modules/mjs
 # copy mmbasic module
 cp -r "$picoware_dir"/src/MicroPython/mmbasic "$micropython_dir"/modules/mmbasic
 
+# copy pshell C module
+cp -r "$picoware_dir"/src/MicroPython/c "$micropython_dir"/modules/c
+
 echo "Starting PicoCalc build process..."
 
 # move to the micropython rp2 port directory
 cd "$micropython_dir"
 
 # PicoCalc - Pico W
-make -j BOARD=RPI_PICO_W USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake MICROPY_HW_FLASH_STORAGE_BYTES=139264 CFLAGS_EXTRA="-DPICOCALC"
+CMAKE_ARGS="-DPICOWARE_ENABLE_GHOULS=OFF"
+export CMAKE_ARGS
+make -j BOARD=RPI_PICO_W USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake MICROPY_HW_FLASH_STORAGE_BYTES=4096 CFLAGS_EXTRA="-DPICOCALC -DMICROPY_PY_FRAMEBUF=0 -DMICROPY_PY_UCTYPES=0 -DMICROPY_PY_HEAPQ=0 -DMICROPY_PY_ASYNCIO=0"
 cp "$micropython_dir"/build-RPI_PICO_W/firmware.uf2 "$picoware_dir"/builds/MicroPython/Picoware-PicoCalcPicoW.uf2
 echo "PicoCalc - Pico W build complete."

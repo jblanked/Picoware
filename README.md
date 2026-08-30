@@ -8,6 +8,7 @@ Open-source custom firmware for PicoCalc, Cardputer ADV, Flipper Zero, and other
 - [Desktop Simulator](./guides/Simulator.md) (runs Picoware on Mac/Linux with SDL2 and native Picoware C modules)
 - On-Device Code Editor
 - On-Device REPL
+- On-Device AI Agent with MCP Support
 - File Manager
 - On-Device App Store
 - OTA Updates
@@ -24,7 +25,9 @@ Open-source custom firmware for PicoCalc, Cardputer ADV, Flipper Zero, and other
 - AutoComplete for keyboard input
 - Multi-core support
 - PSRAM support
-- Javascript support (run JS code in Picoware's MicroPython environment)
+- Javascript interpreter for running custom JavaScript code
+- MMBasic interpreter for running BASIC programs
+- DuckyScript Interpreter for automated keyboard input
 
 ### Installation
 Follow the instructions in the [Installation Guide](./guides/Installation.md) to install Picoware on your device.

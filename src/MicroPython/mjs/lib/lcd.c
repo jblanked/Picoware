@@ -1,9 +1,12 @@
 #include "lcd.h"
 #include "../../lcd/lcd_config.h"
+#include "../../font/font_mp.h"
 #include <string.h>
 #include "color.h"
 
+#ifndef DESKTOP
 #include LCD_INCLUDE
+#endif
 
 #if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
 #include "../../sd/storage.h"

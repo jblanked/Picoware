@@ -13,8 +13,9 @@ END
 """
 
 if not mb.start(test_code):
-    vn.log("Failed to start MMBasic interpreter")
+    vm.log("Failed to start MMBasic interpreter")
 else:
-    mb.run()
+    while mb.run():
+        pass
 
 del mb, vm

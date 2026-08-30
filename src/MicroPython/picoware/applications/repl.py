@@ -14,6 +14,9 @@ _PROMPT_CONT = const("... ")
 _text_editor = None
 _repl_context = {}
 _multiline_buffer = []
+_history = []
+_history_index = 0
+_history_draft = ""
 
 
 def __parse(text: str) -> str:
@@ -106,6 +109,51 @@ def _get_current_input() -> str:
     return text[pos_cont + len(_PROMPT_CONT) : cursor]
 
 
+def _replace_current_input(value: str) -> None:
+    """Replace the input on the current prompt line."""
+    global _text_editor
+
+    text = _text_editor.current_text
+    cursor = _text_editor.cursor
+    pos_main = text.rfind(_PROMPT, 0, cursor)
+    pos_cont = text.rfind(_PROMPT_CONT, 0, cursor)
+    if pos_main >= pos_cont:
+        _start = pos_main + len(_PROMPT)
+    else:
+        _start = pos_cont + len(_PROMPT_CONT)
+    end = text.find("\n", _start)
+    if end == -1:
+        end = len(text)
+    new_text = text[:_start] + value + text[end:]
+    _text_editor.set_text(new_text)
+    _text_editor.cursor = _start + len(value)
+
+
+def _show_previous_input() -> None:
+    """Load the previous input from command history."""
+    global _history_index, _history_draft
+
+    if not _history:
+        return
+    if _history_index == len(_history):
+        _history_draft = _get_current_input()
+    _history_index = max(0, _history_index - 1)
+    _replace_current_input(_history[_history_index])
+
+
+def _show_next_input() -> None:
+    """Load the next input from command history."""
+    global _history_index
+
+    if _history_index >= len(_history):
+        return
+    _history_index += 1
+    if _history_index == len(_history):
+        _replace_current_input(_history_draft)
+    else:
+        _replace_current_input(_history[_history_index])
+
+
 def _commit_input(output: str) -> None:
     """Append the output and a new prompt to the editor's existing text.
 
@@ -118,6 +166,16 @@ def _commit_input(output: str) -> None:
     new_text = _text_editor.current_text + suffix
     _text_editor.set_text(new_text)
     _text_editor.cursor = len(new_text)
+
+
+def _record_input(value: str) -> None:
+    """Add a non-empty input to command history."""
+    global _history, _history_index, _history_draft
+
+    if value.strip():
+        _history.append(value)
+    _history_index = len(_history)
+    _history_draft = ""
 
 
 def _continue_input() -> None:
@@ -141,14 +199,19 @@ def start(view_manager) -> bool:
     from picoware.gui.text_editor import TextEditor
 
     view_manager.freq(True)  # set to lower frequency
+    view_manager.storage.mount_vfs()
 
     global _text_editor, _repl_context, _multiline_buffer
+    global _history, _history_index, _history_draft
 
     _repl_context = {}
     _multiline_buffer = []
+    _history = []
+    _history_index = 0
+    _history_draft = ""
 
     if _text_editor is None:
-        _text_editor = TextEditor(view_manager)
+        _text_editor = TextEditor(view_manager, cursor_movement=False)
         _text_editor.set_text(_PROMPT)
         _text_editor.cursor = len(_PROMPT)
 
@@ -161,9 +224,14 @@ def run(view_manager) -> None:
     Args:
         view_manager (ViewManager): The view manager context.
     """
-    from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
+    from picoware.system.buttons import (
+        BUTTON_BACK,
+        BUTTON_CENTER,
+        BUTTON_DOWN,
+        BUTTON_UP,
+    )
 
-    global _text_editor, _multiline_buffer
+    global _text_editor, _multiline_buffer, _history_index
 
     if _text_editor is None:
         return
@@ -175,6 +243,15 @@ def run(view_manager) -> None:
         inp.reset()
         _multiline_buffer = []
         view_manager.back()
+        return
+
+    if but in (BUTTON_UP, BUTTON_DOWN) and not _multiline_buffer:
+        inp.reset()
+        _text_editor.cursor = len(_text_editor.current_text)
+        if but == BUTTON_UP:
+            _show_previous_input()
+        else:
+            _show_next_input()
         return
 
     if but == BUTTON_CENTER:
@@ -190,7 +267,9 @@ def run(view_manager) -> None:
         if _multiline_buffer:
             if not current_line.strip():
                 # Empty continuation line → execute the accumulated block
-                output = __parse("\n".join(_multiline_buffer))
+                command = "\n".join(_multiline_buffer)
+                _record_input(command)
+                output = __parse(command)
                 _multiline_buffer = []
                 _commit_input(output)
             else:
@@ -201,6 +280,7 @@ def run(view_manager) -> None:
                 _multiline_buffer.append(current_line)
                 _continue_input()
             else:
+                _record_input(current_line)
                 output = __parse(current_line)
                 _commit_input(output)
         return
@@ -228,7 +308,7 @@ def stop(view_manager) -> None:
 
     _repl_context = {}
     _multiline_buffer = []
-
+    view_manager.storage.unmount_vfs()
     view_manager.freq()  # set back to higher frequency
 
     collect()

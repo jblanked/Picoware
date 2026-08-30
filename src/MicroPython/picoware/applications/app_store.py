@@ -2,6 +2,11 @@
 
 from micropython import const
 from json import loads, dumps
+from gc import collect
+
+from picoware.gui.menu import Menu
+from picoware.system.http import HTTP
+from picoware.system.decorator import storage_required, wifi_required
 
 # Main menu states
 STATE_MAIN_MENU = const(0)
@@ -73,6 +78,7 @@ def __reset() -> None:
     global _submissions_data, _submission_details
     global _input_mode, _file_browser, _keyboard_just_started
     if _http:
+        _http.close()
         del _http
         _http = None
     if _loading:
@@ -109,6 +115,7 @@ def __reset() -> None:
     _submission_details = None
     _input_mode = ""
     _keyboard_just_started = False
+    collect()
 
 
 def __loading_start(view_manager, text: str = "Fetching...") -> None:
@@ -118,11 +125,11 @@ def __loading_start(view_manager, text: str = "Fetching...") -> None:
         view_manager (ViewManager): The view manager context.
         text (str): The loading message. Defaults to "Fetching...".
     """
-    from picoware.gui.loading import Loading
 
     global _loading
 
     if not _loading:
+        from picoware.gui.loading import Loading
         _loading = Loading(
             view_manager.draw,
             view_manager.foreground_color,
@@ -140,8 +147,6 @@ def __show_main_menu(view_manager) -> None:
         view_manager (ViewManager): The view manager context.
     """
     global _main_menu, _app_state
-
-    from picoware.gui.menu import Menu
 
     draw = view_manager.draw
     draw.erase()
@@ -236,8 +241,6 @@ def __check_updates_async(view_manager) -> bool:
         return False
 
     if not _http:
-        from picoware.system.http import HTTP
-
         _http = HTTP(thread_manager=view_manager.thread_manager)
 
     # Build POST data for bulk update check
@@ -302,8 +305,6 @@ def __parse_update_check(view_manager) -> bool:
 
         # Create menu for updates
         if not _app_menu:
-            from picoware.gui.menu import Menu
-
             draw = view_manager.draw
             _app_menu = Menu(
                 draw,
@@ -346,8 +347,6 @@ def __check_single_app_update(view_manager, app_id: int, current_version: str) -
     global _http
 
     if not _http:
-        from picoware.system.http import HTTP
-
         _http = HTTP(thread_manager=view_manager.thread_manager)
 
     storage = view_manager.storage
@@ -482,8 +481,6 @@ def __fetch_app_list(view_manager) -> bool:
     global _http
 
     if not _http:
-        from picoware.system.http import HTTP
-
         _http = HTTP(thread_manager=view_manager.thread_manager)
 
     storage = view_manager.storage
@@ -516,23 +513,19 @@ def __parse_app_list(view_manager) -> bool:
     file_path = f"picoware/cache/app_list_{_current_list_index}.json"
 
     if not storage.exists(file_path):
-        view_manager.log(f"App list file not found: {file_path}", 2)
+        view_manager.alert(f"App list file not found: {file_path}")
         return False
 
     try:
-        data = storage.read(file_path)
-        if not data:
+        _apps_data = storage.serialize(file_path)
+        if not _apps_data:
             return False
-
-        _apps_data = loads(data)
 
         if not _apps_data.get("success") or not _apps_data.get("apps"):
             return False
 
         # Create menu if it doesn't exist
         if not _app_menu:
-            from picoware.gui.menu import Menu
-
             draw = view_manager.draw
             _app_menu = Menu(
                 draw,
@@ -572,8 +565,6 @@ def __fetch_app_details(view_manager, app_id: int) -> bool:
     global _http
 
     if not _http:
-        from picoware.system.http import HTTP
-
         _http = HTTP(thread_manager=view_manager.thread_manager)
 
     storage = view_manager.storage
@@ -681,7 +672,7 @@ def __draw_app_details(view_manager) -> None:
         if y_pos > draw.scale_y(250):
             break
         # Shorten path if too long
-        display_path = file_path if len(file_path) <= 45 else "..." + file_path[-42:]
+        display_path = file_path if len(file_path) <= draw.scale_x(45) else "..." + file_path[-draw.scale_x(42):]
         word_vec_x, word_vec_y = draw.scale_x(15), y_pos
         draw._text(word_vec_x, word_vec_y, display_path, fg)
         y_pos += draw.scale_y(12)
@@ -882,7 +873,7 @@ def __draw_submit_form(view_manager) -> None:
     vec_y = draw.scale_y(70)
     path_disp = _submit_app_path if _submit_app_path else "(not set)"
     # Truncate long paths for display
-    if len(path_disp) > draw.scale_x(35):
+    if draw.len(path_disp) > draw.scale_x(35):
         path_disp = "..." + path_disp[-draw.scale_x(32):]
     draw._text(vec_x, vec_y, f"File:    {path_disp}", fg)
 
@@ -929,8 +920,6 @@ def __submit_app(view_manager) -> bool:
     global _http
 
     if not _http:
-        from picoware.system.http import HTTP
-
         _http = HTTP(thread_manager=view_manager.thread_manager)
 
     payload = dumps(
@@ -972,8 +961,6 @@ def __fetch_submissions(view_manager) -> bool:
     global _http
 
     if not _http:
-        from picoware.system.http import HTTP
-
         _http = HTTP(thread_manager=view_manager.thread_manager)
 
     storage = view_manager.storage
@@ -1021,8 +1008,6 @@ def __parse_submissions(view_manager) -> bool:
         _submissions_data = response["submissions"]
 
         if not _app_menu:
-            from picoware.gui.menu import Menu
-
             draw = view_manager.draw
             _app_menu = Menu(
                 draw,
@@ -1060,8 +1045,6 @@ def __fetch_submission_details(view_manager, submission_id: int) -> bool:
     global _http
 
     if not _http:
-        from picoware.system.http import HTTP
-
         _http = HTTP(thread_manager=view_manager.thread_manager)
 
     storage = view_manager.storage
@@ -1153,7 +1136,7 @@ def __draw_submission_details(view_manager) -> None:
         for fp in content[:8]:
             if y_pos > draw.scale_y(260):
                 break
-            disp = fp.get("path", "") if len(fp.get("path", "")) <= draw.scale_x(45) else "..." + fp.get("path", "")[-(draw.scale_x(42)):]
+            disp = fp.get("path", "") if draw.len(fp.get("path", "")) <= draw.scale_x(45) else "..." + fp.get("path", "")[-(draw.scale_x(42)):]
             vec_x, vec_y = draw.scale_x(15), y_pos
             draw._text(vec_x, vec_y, disp, fg)
             y_pos += draw.scale_y(12)
@@ -1163,7 +1146,8 @@ def __draw_submission_details(view_manager) -> None:
 
     draw.swap()
 
-
+@storage_required
+@wifi_required
 def start(view_manager) -> bool:
     """Start the app.
 
@@ -1173,25 +1157,6 @@ def start(view_manager) -> bool:
     Returns:
         bool: True on success.
     """
-    if not view_manager.has_sd_card:
-        view_manager.alert("App Store app requires an SD card", False)
-        return False
-
-    wifi = view_manager.wifi
-
-    # if not a wifi device, return
-    if not wifi:
-        view_manager.alert("WiFi not available...", False)
-        return False
-
-    # if wifi isn't connected, return
-    if not wifi.is_connected():
-        from picoware.applications.wifi.utils import connect_to_saved_wifi
-
-        view_manager.alert("WiFi not connected", False)
-        connect_to_saved_wifi(view_manager)
-        return False
-
     __reset()
 
     # Load persisted submitter name/email
@@ -1220,7 +1185,7 @@ def run(view_manager) -> None:
 
     global _app_state, _selected_app_id, _current_file_index, _files_to_download
     global _download_all_mode, _current_app_index, _total_apps_to_download
-    global _installed_apps, _update_check_data, _app_menu
+    global _installed_apps, _update_check_data, _app_menu, _http
     global _submitter_name, _submitter_email
     global _submit_app_name, _submit_app_version, _submit_app_path
     global _submission_details
@@ -1322,7 +1287,6 @@ def run(view_manager) -> None:
                         # Create menu for installed apps
                         if _app_menu:
                             del _app_menu
-                        from picoware.gui.menu import Menu
 
                         draw = view_manager.draw
                         _app_menu = Menu(
@@ -1642,6 +1606,11 @@ def run(view_manager) -> None:
             if _loading:
                 _loading.animate(http=_http)
             return
+
+        _http.close()
+        del _http
+        _http = None
+        collect()
 
         if _loading:
             _loading.stop()
@@ -2132,8 +2101,5 @@ def stop(view_manager) -> None:
     Args:
         view_manager (ViewManager): The view manager context.
     """
-    from gc import collect
 
     __reset()
-
-    collect()

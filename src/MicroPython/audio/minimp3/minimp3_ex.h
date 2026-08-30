@@ -1286,7 +1286,7 @@ static int mp3dec_open_file_w(const wchar_t *file_name, mp3dec_map_info_t *map_i
 static void mp3dec_close_file(mp3dec_map_info_t *map_info)
 {
     if (map_info->buffer)
-        free((void *)map_info->buffer);
+        MINIMP3_FREE((void *)map_info->buffer);
     map_info->buffer = 0;
     map_info->size = 0;
 }
@@ -1400,12 +1400,12 @@ void mp3dec_ex_close(mp3dec_ex_t *dec)
         mp3dec_close_ring(&dec->file);
 #else
     if (dec->io && dec->file.buffer)
-        free((void *)dec->file.buffer);
+        MINIMP3_FREE((void *)dec->file.buffer);
 #endif
     if (dec->is_file)
         mp3dec_close_file(&dec->file);
     if (dec->index.frames)
-        free(dec->index.frames);
+        MINIMP3_FREE(dec->index.frames);
     memset(dec, 0, sizeof(*dec));
 }
 

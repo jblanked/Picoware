@@ -52,6 +52,7 @@ from picoware.system.buttons import (
     BUTTON_RIGHT_BRACKET,
     BUTTON_SLASH,
     BUTTON_BACKSLASH,
+    BUTTON_PIPE,
     BUTTON_UNDERSCORE,
     BUTTON_COLON,
     BUTTON_SINGLE_QUOTE,
@@ -270,6 +271,7 @@ class Keyboard:
             BUTTON_RIGHT_BRACKET: "]",
             BUTTON_SLASH: "/",
             BUTTON_BACKSLASH: "\\",
+            BUTTON_PIPE: "|",
             BUTTON_UNDERSCORE: "_",
             BUTTON_COLON: ":",
             BUTTON_SINGLE_QUOTE: "'",
@@ -469,7 +471,7 @@ class Keyboard:
         self.just_stopped = False
         self.on_save_callback = None
         self.is_save_pressed = False
-        self.current_title = "Enter Text"
+        self.title = "Enter Text"
         self.is_in_textbox = False
         self.text_cursor_position = 0
         self.selected_suggestion_index = -1
@@ -801,7 +803,7 @@ class Keyboard:
         # Only draw cursor if the line is visible
         if cursor_line >= start_line:
             display_line = cursor_line - start_line
-            self.cursor.x = self.draw.scale_x(5) + cursor_col * self.draw.font_size.x
+            self.cursor.x = self.text_vec.x + cursor_col * self.draw.font_size.x
             self.cursor.y = _start_y + display_line * _distance
             self.draw._text(self.cursor.x, self.cursor.y, "_", self.text_color)
 

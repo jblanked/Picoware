@@ -18,6 +18,7 @@ extern "C"
     void *storage_file_open(const char *filename);
     void *storage_file_write_open(const char *filename);
     void storage_file_close(void *handle);
+    bool storage_file_seek(void *handle, size_t offset);
     size_t storage_file_read_file_chunk(void *handle, void *buffer, size_t buffer_size);
     bool storage_file_write_file_chunk(void *handle, const void *data, size_t size);
 

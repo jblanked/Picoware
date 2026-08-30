@@ -27,8 +27,10 @@ class Settings:
             "exit_button": BUTTON_BACK,
             "gemini_api_key": "",
             "gmt_offset": 0,
+            "jblanked_api_key": "",
             "local_url": "http://127.0.0.1:8080/v1/chat/completions",
             "lvgl_mode": False,
+            "mcp_servers": [],
             "onscreen_keyboard": BOARD_HAS_TOUCH == 1 or BOARD_ID == BOARD_FLIPPER_ZERO,
             "openai_api_key": "",
             "screen_brightness": 100,
@@ -49,8 +51,11 @@ class Settings:
                 "exit_button": int(self.__fetch_setting("picoware/settings/exit_button.json", "exit_button", BUTTON_BACK)),
                 "gemini_api_key": "",
                 "gmt_offset": int(self.__fetch_setting("picoware/settings/gmt_offset.json", "gmt_offset", 0)),
+                "jblanked_api_key": "",
+                "local_api_key": "",
                 "local_url": "http://127.0.0.1:8080/v1/chat/completions",
                 "lvgl_mode": bool(self.__fetch_setting("picoware/settings/lvgl_mode.json", "lvgl_mode", False)),
+                "mcp_servers": [],
                 "onscreen_keyboard": bool(self.__fetch_setting("picoware/settings/onscreen_keyboard.json", "onscreen_keyboard", BOARD_HAS_TOUCH == 1)),
                 "openai_api_key": "",
                 "screen_brightness": 100,
@@ -178,6 +183,21 @@ class Settings:
         self.__save_settings()
 
     @property
+    def local_api_key(self) -> str:
+        """Return the current local API key."""
+        return self._settings.get("local_api_key", "")
+
+    @local_api_key.setter
+    def local_api_key(self, value: str):
+        """Set the local API key.
+
+        Args:
+            value (str): The API key to set.
+        """
+        self._settings["local_api_key"] = value
+        self.__save_settings()
+
+    @property
     def local_url(self) -> str:
         """Return the current local URL."""
         return self._settings.get("local_url", "")
@@ -205,6 +225,36 @@ class Settings:
             value (bool): True to enable LVGL mode.
         """
         self._settings["lvgl_mode"] = value
+        self.__save_settings()
+
+    @property
+    def mcp_servers(self) -> list:
+        """Return the list of MCP servers."""
+        return self._settings.get("mcp_servers", [])
+
+    @mcp_servers.setter
+    def mcp_servers(self, value: list):
+        """Set the list of MCP servers.
+
+        Args:
+            value (list): The list of MCP servers to set.
+        """
+        self._settings["mcp_servers"] = value
+        self.__save_settings()
+
+    @property
+    def jblanked_api_key(self) -> str:
+        """Return the current JBlanked API key."""
+        return self._settings.get("jblanked_api_key", "")
+
+    @jblanked_api_key.setter
+    def jblanked_api_key(self, value: str):
+        """Set the JBlanked API key.
+
+        Args:
+            value (str): The API key to set.
+        """
+        self._settings["jblanked_api_key"] = value
         self.__save_settings()
 
     @property

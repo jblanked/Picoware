@@ -1,16 +1,19 @@
 """Picoware Agent - LLM-powered assistant with chat GUI."""
-import micropython
+from micropython import const
 from picoware.system.buttons import (
     BUTTON_UP, BUTTON_DOWN, BUTTON_CENTER, BUTTON_BACK,
 )
-from picoware.system.colors import TFT_WHITE, TFT_DARKGREY, TFT_LIGHTGREY
+from picoware.system.colors import TFT_WHITE, TFT_DARKGREY
+from picoware.system.decorator import native, storage_required, wifi_required
 
-STATE_MENU = micropython.const(0)
-STATE_CHAT = micropython.const(1)
-STATE_TYPE = micropython.const(2)
-STATE_SETTINGS = micropython.const(3)
-STATE_SETTINGS_PROVIDER = micropython.const(4)
-STATE_SETTINGS_MODEL = micropython.const(5)
+STATE_MENU = const(0)
+STATE_CHAT = const(1)
+STATE_TYPE = const(2)
+STATE_SETTINGS = const(3)
+STATE_SETTINGS_PROVIDER = const(4)
+STATE_SETTINGS_MODEL = const(5)
+STATE_SETTINGS_THINKING = const(6)
+STATE_SESSIONS = const(7)
 
 _agent          = None
 _menu           = None
@@ -23,9 +26,13 @@ _max_scroll     = 0
 _settings_menu  = None
 _settings       = None
 _choice         = None
+_sessions_menu  = None
+_session_ids    = None
+_session_labels = None
+_session_id     = None
 
 
-@micropython.native
+@native
 def _wrap_text(text: str, max_chars: int):
     """Wrap text to max_chars per line, preserving words.
 
@@ -84,12 +91,12 @@ def _chat_layout(view_manager):
     pad      = max(4, w // 60)
     text_w   = bubble_w - pad * 2
     char_w   = font.width + font.spacing
-    max_chars = text_w // char_w if char_w > 0 else 30
+    max_chars = text_w // char_w if char_w > 0 else draw.scale_x(30)
 
     return header_h, prompt_h, chat_y, chat_h, max_chars, font, bubble_w, pad
 
 
-@micropython.native
+@native
 def _draw_bubble(draw, x, y, w, text_lines, font, bg_color, text_color, pad,
                   clip_top=0):
     """Draw a rounded-rect bubble clipped to screen bounds.
@@ -109,7 +116,7 @@ def _draw_bubble(draw, x, y, w, text_lines, font, bg_color, text_color, pad,
     Returns:
         int: The next Y position after the bubble.
     """
-    line_h = font.height + 3
+    line_h = font.height + draw.scale_y(3)
     screen_h = draw.size.y
 
     # Clip top -- skip lines above clip_top (e.g. under the header)
@@ -127,7 +134,7 @@ def _draw_bubble(draw, x, y, w, text_lines, font, bg_color, text_color, pad,
     if y + bubble_h > screen_h:
         bubble_h = screen_h - y
 
-    draw._fill_round_rectangle(x, y, w, bubble_h, 6, bg_color)
+    draw._fill_round_rectangle(x, y, w, bubble_h, draw.scale_x(6), bg_color)
 
     ty = y + pad
     for line in text_lines:
@@ -136,9 +143,9 @@ def _draw_bubble(draw, x, y, w, text_lines, font, bg_color, text_color, pad,
         draw._text(x + pad, ty, line, text_color, font.size)
         ty += line_h
 
-    return y + bubble_h + 4
+    return y + bubble_h + draw.scale_y(4)
 
-@micropython.native
+@native
 def _render_chat(view_manager):
     """Draw conversation as chat bubbles with scroll and prompt bar.
 
@@ -178,14 +185,14 @@ def _render_chat(view_manager):
         all_lines.pop()
 
     # Content height
-    line_h  = font.height + 3
-    gap_h   = pad * 2 + 4
+    line_h  = font.height + draw.scale_y(3)
+    gap_h   = pad * 2 + draw.scale_y(4)
     total_h = 0
     i = 0
     while i < len(all_lines):
-        line_text, is_user = all_lines[i]
+        _, is_user = all_lines[i]
         if is_user is None:
-            total_h += 6
+            total_h += draw.scale_y(6)
             i += 1
             continue
         j = i
@@ -204,9 +211,9 @@ def _render_chat(view_manager):
 
     i = 0
     while i < len(all_lines):
-        line_text, is_user = all_lines[i]
+        _, is_user = all_lines[i]
         if is_user is None:
-            cur_y += 6
+            cur_y += draw.scale_y(6)
             i += 1
             continue
 
@@ -229,14 +236,6 @@ def _render_chat(view_manager):
 
         cur_y += block_h
         i = j
-
-    # Prompt bar
-    bar_y = h - prompt_h
-    draw._fill_rectangle(0, bar_y, w, prompt_h, TFT_DARKGREY)
-    prompt = "OK=Type   BACK=Menu"
-    pw = draw.len(prompt)
-    draw._text((w - pw) // 2, bar_y + (prompt_h - font.height) // 2,
-               prompt, TFT_LIGHTGREY, font.size)
 
     draw.swap()
 
@@ -271,7 +270,8 @@ def _set_settings(view_manager):
         from picoware.system.agent.llm import DEEPSEEK, LLM
         _settings = {
             "model": LLM(view_manager.storage, DEEPSEEK).model,
-            "provider": DEEPSEEK
+            "provider": DEEPSEEK,
+            "thinking": "none",
         }
         _save_settings(view_manager)
     else:
@@ -290,6 +290,136 @@ def _save_settings(view_manager) -> bool:
         return False
     s = view_manager.storage
     return s.deserialize(_settings, "picoware/settings/current_agent.json")
+
+
+def _start_agent(view_manager, mode: int, mode_label: str,
+                 session_id: str = None) -> bool:
+    """Create an agent and load or create its conversation session.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+        mode (int): The agent mode to use.
+        mode_label (str): The label shown in the chat header.
+        session_id (str or None): Existing session ID to load.
+
+    Returns:
+        bool: True if the agent and session were initialized.
+    """
+    from picoware.system.agent.agent import Agent
+    from picoware.system.agent.llm import LLM
+    from picoware.system.agent.session import Session
+
+    global _agent, _agent_mode, _mode_label, _conversation, _session_id
+
+    try:
+        session = Session(view_manager, session_id=session_id)
+        if session_id is None and not session.update([]):
+            return False
+
+        if _agent is not None:
+            del _agent
+        _agent = Agent(
+            view_manager,
+            mode,
+            LLM(view_manager.storage, _settings["provider"], _settings["model"]),
+        )
+        _agent_mode = mode
+        _mode_label = mode_label
+        _session_id = session.id
+        _conversation = session.conversation
+        return True
+    except Exception as exc:
+        view_manager.log(f"[Agent] Failed to initialize session: {exc}")
+        return False
+
+
+def _start_sessions_menu(view_manager) -> None:
+    """Build and display the stored agent sessions menu.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
+    from picoware.gui.menu import Menu
+    from picoware.system.agent.session import Session
+
+    global _state, _sessions_menu, _session_ids, _session_labels
+
+    session = Session(view_manager)
+    _session_ids = session.list()
+    _session_ids.sort()
+    _session_labels = []
+    for session_id in _session_ids:
+        label = session_id
+        try:
+            stored_session = Session(view_manager, session_id=session_id)
+            for message in stored_session.conversation:
+                if message.get("role") != "user":
+                    continue
+                content = message.get("content", "")
+                if not isinstance(content, str):
+                    continue
+                preview = " ".join(content.strip().split())
+                if len(preview) > 20:
+                    preview = preview[:20] + "..."
+                if preview:
+                    label = session_id + " - " + preview
+                break
+        except Exception as e:
+            view_manager.log(f"[Agent] Failed to load session preview for {session_id}: {e}")
+        _session_labels.append(label)
+
+    if _sessions_menu is not None:
+        del _sessions_menu
+
+    draw = view_manager.draw
+    _sessions_menu = Menu(
+        draw,
+        "Sessions",
+        0,
+        draw.size.y,
+        text_color=view_manager.foreground_color,
+        background_color=view_manager.background_color,
+        selected_color=view_manager.selected_color,
+    )
+    if _session_ids:
+        for label in _session_labels:
+            _sessions_menu.add_item(label)
+    else:
+        _sessions_menu.add_item("No sessions found")
+
+    _state = STATE_SESSIONS
+    _sessions_menu.draw()
+
+
+def _open_session(view_manager) -> bool:
+    """Load the selected session and open it in chat mode.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+
+    Returns:
+        bool: True if the session was opened.
+    """
+    if not _session_ids:
+        return False
+
+    index = _sessions_menu.selected_index
+    if index < 0 or index >= len(_session_ids):
+        return False
+
+    from picoware.system.agent.agent import MODE_CHAT
+
+    if not _start_agent(view_manager, MODE_CHAT, "Chat", _session_ids[index]):
+        view_manager.alert("Could not open session", False)
+        _sessions_menu.draw()
+        return False
+
+    global _scroll_offset, _max_scroll, _state
+    _scroll_offset = 32767
+    _max_scroll = 0
+    _state = STATE_CHAT
+    _render_chat(view_manager)
+    return True
 
 def _get_llm_providers() -> list:
     """Return a list of available LLM providers."""
@@ -332,6 +462,7 @@ def _start_settings_menu(view_manager):
     )
     _settings_menu.add_item("Agent Provider")
     _settings_menu.add_item("Agent Model")
+    _settings_menu.add_item("Agent Thinking")
     _settings_menu.draw()
 
 
@@ -410,6 +541,41 @@ def _open_model_choice(view_manager):
     _choice.draw()
     _state = STATE_SETTINGS_MODEL
 
+def _open_thinking_choice(view_manager):
+    """Open a Choice sub-view for selecting the LLM thinking level.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+    """
+    global _state, _choice
+    from picoware.gui.choice import Choice
+    from picoware.system.vector import Vector
+
+    draw = view_manager.draw
+    draw.fill_screen(view_manager.background_color)
+    if _choice is not None:
+        del _choice
+        _choice = None
+
+    thinking_levels = ["none", "low", "medium", "high", "max"]
+    current_thinking = _settings.get("thinking", "none")
+    try:
+        initial_idx = thinking_levels.index(current_thinking)
+    except ValueError:
+        initial_idx = 0
+
+    _choice = Choice(
+        draw,
+        Vector(0, 0),
+        draw.size,
+        "Agent Thinking Level",
+        thinking_levels,
+        initial_idx,
+        view_manager.foreground_color,
+        view_manager.background_color,
+    )
+    _choice.draw()
+    _state = STATE_SETTINGS_THINKING
 
 def _back_to_settings_menu(view_manager):
     """Clean up the Choice sub-view and return to the settings menu.
@@ -431,6 +597,8 @@ def _back_to_settings_menu(view_manager):
         _settings_menu.draw()
 
 
+@storage_required
+@wifi_required
 def start(view_manager) -> bool:
     """Build main menu. Return True on success.
 
@@ -440,25 +608,6 @@ def start(view_manager) -> bool:
     Returns:
         bool: True on success.
     """
-    if not view_manager.has_sd_card:
-        view_manager.alert("Agent app requires an SD card", False)
-        return False
-
-    wifi = view_manager.wifi
-
-    # if not a wifi device, return
-    if not wifi:
-        view_manager.alert("WiFi not available...", False)
-        return False
-
-    # if wifi isn't connected, return
-    if not wifi.is_connected():
-        from picoware.applications.wifi.utils import connect_to_saved_wifi
-
-        view_manager.alert("WiFi not connected", False)
-        connect_to_saved_wifi(view_manager)
-        return False
-
     from picoware.system.boards import BOARD_HAS_ESP32
     if BOARD_HAS_ESP32 == 0:
         view_manager.freq(True)
@@ -466,10 +615,18 @@ def start(view_manager) -> bool:
     from picoware.gui.menu import Menu
 
     global _state, _conversation, _menu, _scroll_offset, _max_scroll
+    global _session_id, _sessions_menu, _session_ids, _session_labels
     _state = STATE_MENU
     _conversation = []
     _scroll_offset = 0
     _max_scroll = 0
+    _session_id = None
+    _sessions_menu = None
+    _session_ids = []
+    _session_labels = []
+
+    view_manager.storage.mkdir("picoware/agent")
+    view_manager.storage.mkdir("picoware/agent/sessions")
 
     _menu = Menu(
         view_manager.draw,
@@ -484,6 +641,7 @@ def start(view_manager) -> bool:
     _menu.add_item("App Creator")
     _menu.add_item("Device Manager")
     _menu.add_item("Settings")
+    _menu.add_item("Sessions")
     _menu.draw()
 
     view_manager.input_manager.reset()
@@ -513,24 +671,29 @@ def run(view_manager) -> None:
             if idx == 3:
                 _start_settings_menu(view_manager)
                 return
-            from picoware.system.agent.agent import Agent, MODE_CHAT, MODE_APP_CREATOR, MODE_DEVICE_MANAGER
-            from picoware.system.agent.llm import LLM
+            if idx == 4:
+                _start_sessions_menu(view_manager)
+                return
+            from picoware.system.agent.agent import MODE_CHAT, MODE_APP_CREATOR, MODE_DEVICE_MANAGER
             if idx == 0:
-                _agent_mode = MODE_CHAT
-                _mode_label = "Chat"
+                mode = MODE_CHAT
+                mode_label = "Chat"
             elif idx == 1:
-                _agent_mode = MODE_APP_CREATOR
-                _mode_label = "App Creator"
+                mode = MODE_APP_CREATOR
+                mode_label = "App Creator"
             elif idx == 2:
-                _agent_mode = MODE_DEVICE_MANAGER
-                _mode_label = "Device Manager"
+                mode = MODE_DEVICE_MANAGER
+                mode_label = "Device Manager"
             else:
                 view_manager.alert("Invalid selection", False)
                 _state = STATE_MENU
                 _menu.draw()
                 return
-            
-            _agent = Agent(view_manager, _agent_mode,LLM(view_manager.storage, _settings["provider"], _settings["model"]))
+
+            if not _start_agent(view_manager, mode, mode_label):
+                view_manager.alert("Could not create session", False)
+                _menu.draw()
+                return
             _conversation = []
             _scroll_offset = 0
             _max_scroll = 0
@@ -554,6 +717,19 @@ def run(view_manager) -> None:
                 _open_provider_choice(view_manager)
             elif idx == 1:
                 _open_model_choice(view_manager)
+            elif idx == 2:
+                _open_thinking_choice(view_manager)
+
+    elif _state == STATE_SESSIONS:
+        if btn == BUTTON_BACK:
+            _state = STATE_MENU
+            _menu.draw()
+        elif btn == BUTTON_UP:
+            _sessions_menu.scroll_up()
+        elif btn == BUTTON_DOWN:
+            _sessions_menu.scroll_down()
+        elif btn == BUTTON_CENTER:
+            _open_session(view_manager)
 
     elif _state == STATE_SETTINGS_PROVIDER:
         if btn == BUTTON_BACK:
@@ -585,6 +761,19 @@ def run(view_manager) -> None:
             _save_settings(view_manager)
             _back_to_settings_menu(view_manager)
 
+    elif _state == STATE_SETTINGS_THINKING:
+        if btn == BUTTON_BACK:
+            _back_to_settings_menu(view_manager)
+        elif btn == BUTTON_UP:
+            _choice.scroll_up()
+        elif btn == BUTTON_DOWN:
+            _choice.scroll_down()
+        elif btn == BUTTON_CENTER:
+            thinking_levels = ["none", "low", "medium", "high", "max"]
+            _settings["thinking"] = thinking_levels[_choice.state]
+            _save_settings(view_manager)
+            _back_to_settings_menu(view_manager)
+
     elif _state == STATE_CHAT:
         if btn == BUTTON_UP:
             if _scroll_offset > 0:
@@ -594,16 +783,19 @@ def run(view_manager) -> None:
             if _scroll_offset < 999 and _scroll_offset != _max_scroll:
                 _scroll_offset += 1
                 _render_chat(view_manager)
-        elif btn == BUTTON_CENTER:
-            kb = view_manager.keyboard
-            kb.reset()
-            kb.title = _mode_label
-            _state = STATE_TYPE
-            view_manager.input_manager.reset()
-            view_manager.keyboard.run(force=True)
         elif btn == BUTTON_BACK:
             _state = STATE_MENU
             _menu.draw()
+        elif btn != -1:
+            kb = view_manager.keyboard
+            kb.reset()
+            kb.title = _mode_label
+            inp = view_manager.input_manager
+            if btn != BUTTON_CENTER:
+                kb.response = inp.button_to_char(btn)
+            _state = STATE_TYPE
+            inp.reset()
+            view_manager.keyboard.run(force=True)
 
     elif _state == STATE_TYPE:
         kb = view_manager.keyboard
@@ -622,11 +814,15 @@ def run(view_manager) -> None:
             _show_thinking(view_manager)
 
             try:
-                result = _agent.run_payload({
-                    "message": user_text,
-                })
+                result = _agent.run_session(_session_id, user_text)
                 _conversation = result["conversation"]
-                if result["status"] != "completed":
+                if (
+                    result["status"] != "completed"
+                    and (
+                        not _conversation
+                        or _conversation[-1].get("content") != result["message"]
+                    )
+                ):
                     _conversation.append({
                         "role": "assistant",
                         "content": result["message"],
@@ -651,13 +847,18 @@ def stop(view_manager) -> None:
     """
     from picoware.system.boards import BOARD_HAS_ESP32
     from gc import collect
-    global _agent, _menu, _conversation, _scroll_offset, _max_scroll, _settings_menu, _settings, _choice
+    global _agent, _menu, _conversation, _scroll_offset, _max_scroll
+    global _settings_menu, _settings, _choice, _sessions_menu
+    global _session_ids, _session_labels, _session_id
 
     _save_settings(view_manager)
 
     _conversation = None
     _scroll_offset = 0
     _max_scroll = 0
+    _session_ids = None
+    _session_labels = None
+    _session_id = None
 
     if _agent is not None:
         del _agent
@@ -671,6 +872,9 @@ def stop(view_manager) -> None:
     if _choice is not None:
         del _choice
         _choice = None
+    if _sessions_menu is not None:
+        del _sessions_menu
+        _sessions_menu = None
     if _settings is not None:
         del _settings
         _settings = None

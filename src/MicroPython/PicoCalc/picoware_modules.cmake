@@ -283,6 +283,9 @@ target_include_directories(usermod_jpeg INTERFACE
 
 target_link_libraries(usermod INTERFACE usermod_jpeg) 
 
+# Include video module
+include(${CMAKE_CURRENT_LIST_DIR}/../video/micropython.cmake)
+
 # Include vt module
 add_library(usermod_vt INTERFACE)
 
@@ -428,6 +431,7 @@ target_link_libraries(usermod INTERFACE usermod_usb_video)
 target_link_libraries(usermod_usb_video INTERFACE tinyusb_common)
 
 
+if(NOT DEFINED PICOWARE_ENABLE_GHOULS OR PICOWARE_ENABLE_GHOULS)
 # Include ghouls module
 add_library(usermod_ghouls INTERFACE)
 
@@ -461,6 +465,7 @@ target_link_libraries(usermod INTERFACE usermod_ghouls)
 # ghouls uses pico-game-engine symbols compiled by usermod_engine;
 # im linking here to avoid recompiling the same sources
 target_link_libraries(usermod_ghouls INTERFACE usermod_engine)
+endif()
 
 # Include jsmn module
 add_library(usermod_jsmn INTERFACE)
@@ -533,6 +538,9 @@ target_link_libraries(usermod INTERFACE usermod_websocket)
 
 # Include mjs module
 include(${CMAKE_CURRENT_LIST_DIR}/../mjs/micropython.cmake)
+
+# Include pshell C module
+include(${CMAKE_CURRENT_LIST_DIR}/../c/micropython.cmake)
 
 # Include mmbasic module (MBASIC interpreter)
 add_library(usermod_mmbasic INTERFACE)

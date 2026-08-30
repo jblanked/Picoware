@@ -1,7 +1,11 @@
 #include "time.h"
 #include <string.h>
 
-#if defined(CARDPUTER) || defined(PANCAKE) || defined(V8) || defined(ESP32) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06)
+#if defined(DESKTOP)
+#include "py/mphal.h"
+#define TIME_MILLIS mp_hal_ticks_ms()
+#define TIME_SLEEP(ms) mp_hal_delay_ms(ms)
+#elif defined(CARDPUTER) || defined(PANCAKE) || defined(V8) || defined(ESP32) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06)
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"

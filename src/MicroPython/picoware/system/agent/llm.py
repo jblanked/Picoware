@@ -8,6 +8,8 @@ ANTHROPIC = const(2)
 GEMINI = const(3)
 LOCAL = const(4)
 XAI = const(5)
+JBLANKED = const(6)
+CUSTOM = const(7)
 
 class LLM:
     """LLM config"""
@@ -83,7 +85,7 @@ class LLM:
             if self._id == DEEPSEEK:
                 _payload["thinking"] = {"type": "enabled"}
                 _payload["reasoning_effort"] = self._thinking
-            elif self._id == LOCAL:
+            elif self._id in (LOCAL, JBLANKED):
                 _payload["think"] = True
             elif self._id in (OPENAI, GEMINI):
                 _payload["reasoning_effort"] = self._thinking
@@ -98,7 +100,7 @@ class LLM:
         else:
             if self._id == DEEPSEEK:
                 _payload["thinking"] = {"type": "disabled"}
-            elif self._id == LOCAL:
+            elif self._id in (LOCAL, JBLANKED):
                 _payload["think"] = False
             elif self._id in (OPENAI, GEMINI):
                 _payload["reasoning_effort"] = self._thinking
@@ -121,7 +123,7 @@ class LLM:
     @staticmethod
     def providers() -> list:
         """Return a list of available LLM providers."""
-        return [OPENAI, DEEPSEEK, ANTHROPIC, GEMINI, LOCAL, XAI]
+        return [OPENAI, DEEPSEEK, ANTHROPIC, GEMINI, LOCAL, XAI, JBLANKED, CUSTOM]
 
     @staticmethod
     def provider_name(provider_id: int) -> str:
@@ -145,6 +147,10 @@ class LLM:
             return "Local"
         if provider_id == XAI:
             return "xAI"
+        if provider_id == JBLANKED:
+            return "JBlanked"
+        if provider_id == CUSTOM:
+            return "Custom"
         return "Unknown"
 
     def __set(self, storage):
@@ -181,15 +187,29 @@ class LLM:
         elif self._id == LOCAL:
             self._name = "Local"
             self._url = settings.local_url
-            self._models = ["qwen3.5:9b", "qwen3.5:4b", "qwen3.5:0.8b", "qwen3.5:2b", "llama3.2:3b", "llama3.2:1b"]
+            self._models = ["ornith-1.5:9b", "ornith-1.5:35b", "qwen3.8:27b", "qwen3.5:9b","qwen3.5:4b", "llama3.2:3b", "llama3.2:1b"]
+            self._api_key = settings.local_api_key 
         elif self._id == XAI:
             self._name = "xAI"
             self._url = "https://api.x.ai/v1"
             self._models = ["grok-4.5", "grok-4.3", "grok-build-0.1", "grok-4.20", "grok-4.20-non-reasoning"]
             self._api_key = settings.xai_api_key
+        elif self._id == JBLANKED:
+            self._name = "JBlanked"
+            self._url = "https://www.jblanked.com/ai/v1/chat/completions"
+            self._models = ["none"]
+            self._api_key = settings.jblanked_api_key
+        elif self._id == CUSTOM:
+            self._name = "Custom"
+            _path = "picoware/agent/custom.json"
+            if not storage.exists(_path):
+                raise Exception(f"Custom configuration file not found at {_path}")
+            _config = storage.serialize(_path)
+            self._url = _config.get("url", "")
+            self._models = _config.get("models", ["none"])
+            self._api_key = _config.get("api_key", "")
         
-        if self._id != LOCAL:
-            self._headers["Authorization"] = f"Bearer {self._api_key}"
+        self._headers["Authorization"] = f"Bearer {self._api_key}"
         
         if self._current_model is None:
             self._current_model = self._models[0]

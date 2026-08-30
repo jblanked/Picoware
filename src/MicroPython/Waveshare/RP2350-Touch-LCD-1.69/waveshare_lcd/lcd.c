@@ -904,11 +904,7 @@ returns: none
 ******************************************************************************/
 void lcd_set_backlight_level(uint8_t brightness)
 {
-    if (brightness < 0)
-    {
-        backlight_level = 0;
-    }
-    else if (brightness > 100)
+    if (brightness > 100)
     {
         backlight_level = 100;
     }

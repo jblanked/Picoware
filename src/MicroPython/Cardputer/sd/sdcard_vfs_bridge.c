@@ -191,6 +191,20 @@ static void clear_slot(int fd)
     }
 }
 
+static void bridge_close_file_obj(mp_obj_t file_obj)
+{
+    mp_obj_t method[2];
+
+    mp_load_method_maybe(file_obj, MP_QSTR_close, method);
+    if (method[0] != MP_OBJ_NULL)
+    {
+        mp_call_method_n_kw(0, 0, method);
+        return;
+    }
+
+    mp_stream_close(file_obj);
+}
+
 static int bridge_open(const char *path, int flags, int mode)
 {
     (void)mode;
@@ -218,9 +232,7 @@ static int bridge_open(const char *path, int flags, int mode)
     int fd = alloc_slot(file_obj, abs_path);
     if (fd < 0)
     {
-        int close_err = 0;
-        mp_stream_rw(file_obj, NULL, 0, &close_err, MP_STREAM_RW_WRITE | MP_STREAM_RW_ONCE);
-        mp_stream_close(file_obj);
+        bridge_close_file_obj(file_obj);
         return -1;
     }
 
@@ -255,7 +267,12 @@ static ssize_t bridge_write(int fd, const void *src, size_t size)
     }
 
     int err = 0;
-    mp_uint_t out = mp_stream_rw(slot->file_obj, (void *)src, size, &err, MP_STREAM_RW_WRITE);
+    mp_uint_t out = mp_stream_rw(
+        slot->file_obj,
+        (void *)src,
+        size,
+        &err,
+        MP_STREAM_RW_WRITE | MP_STREAM_RW_ONCE);
     if (err != 0)
     {
         errno = err;
@@ -280,7 +297,7 @@ static int bridge_close(int fd)
         return set_errno_from_nlr(&nlr, EIO);
     }
 
-    mp_stream_close(slot->file_obj);
+    bridge_close_file_obj(slot->file_obj);
     nlr_pop();
 
     clear_slot(fd);
@@ -582,7 +599,7 @@ esp_err_t sdcard_vfs_bridge_unregister(void)
         nlr_buf_t nlr;
         if (nlr_push(&nlr) == 0)
         {
-            mp_stream_close(s_file_slots[i].file_obj);
+            bridge_close_file_obj(s_file_slots[i].file_obj);
             nlr_pop();
         }
         clear_slot(i);

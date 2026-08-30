@@ -543,7 +543,7 @@ static const struct
 } includes[] = {{"stdio", stdio_defines},
                 {"stdlib", stdlib_defines},
                 {"string", string_defines},
-                {"math", math_defines}, 
+                {"math", math_defines},
                 {"lib", lib_defines},
                 {"sync", sync_defines},
                 {"time", time_defines},
@@ -3405,6 +3405,10 @@ static uint16_t *emit_call(int n)
 static void emit_syscall(int n, int np)
 {
     const struct externs_s *p = externs + n;
+    int nparm = np & ADJ_MASK;
+    int stack_parms = nparm > 4 ? nparm - 4 : 0;
+    int stack_padding = stack_parms & 1;
+    int via_r12 = 0;
     if (IS_PRINTF(p))
     {
         emit_load_immediate(0, np);
@@ -3432,26 +3436,24 @@ static void emit_syscall(int n, int np)
     }
     else
     {
-        int nparm = np & ADJ_MASK;
-        if (nparm > 4)
-            nparm = 4;
-        while (nparm--)
-            emit_pop(nparm);
         if (!ofn)
             emit_load_long_imm(3, (int)p->extrn, 1);
         else
             emit_load_long_imm(3, n, 1);
+        if (nparm > 3)
+        {
+            emit(0x469c); // mov r12,r3
+            via_r12 = 1;
+        }
+        int reg_parms = nparm > 4 ? 4 : nparm;
+        for (int reg = 0; reg < reg_parms; reg++)
+            emit_pop(reg);
     }
-    emit(0x4798); // blx r3
-    int nparm = np & ADJ_MASK;
+    emit(via_r12 ? 0x47e0 : 0x4798); // blx r12/r3
     if (IS_PRINTF(p) || IS_SPRINTF(p))
         emit_adjust_stack(nparm);
     else
-    {
-        nparm = (nparm > 4) ? nparm - 4 : 0;
-        if (nparm)
-            emit_adjust_stack(nparm);
-    }
+        emit_adjust_stack(stack_parms + stack_padding);
 }
 
 static void patch_branch(uint16_t *from, uint16_t *to)
@@ -3741,7 +3743,6 @@ static void gen(int *n)
     case Syscall:
         b = (uint16_t *)Func_entry(n).next;
         k = b ? Func_entry(n).n_parms : 0;
-        int sj = 0;
         if (k)
         {
             l = Func_entry(n).parm_types >> 10;
@@ -3754,12 +3755,29 @@ static void gen(int *n)
                 b = (uint16_t *)ast_Tk(b);
             }
             int sj = j;
-            while (j >= 0)
-            { // push arguments
+            if (i == Syscall &&
+                !IS_PRINTF(&externs[Func_entry(n).addr]) &&
+                !IS_SPRINTF(&externs[Func_entry(n).addr]))
+            {
+                if (k > 4 && ((k - 4) & 1))
+                    emit_push(0);
+                for (j = 0; j < sj; j++)
+                {
+                    gen((int *)t[j] + 1);
+                    emit_push(0);
+                }
                 gen((int *)b + 1);
                 emit_push(0);
-                --j;
-                b = (uint16_t *)t[j];
+            }
+            else
+            {
+                while (j >= 0)
+                {
+                    gen((int *)b + 1);
+                    emit_push(0);
+                    --j;
+                    b = (uint16_t *)t[j];
+                }
             }
             cc_free(t, 0);
         }

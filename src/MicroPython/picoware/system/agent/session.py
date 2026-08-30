@@ -67,9 +67,14 @@ class Session:
         self.conversation.append(message)
         return self._save()
 
+    def append_messages(self, messages: list[dict]) -> bool:
+        """Append multiple messages and save the session once."""
+        self.conversation.extend(messages)
+        return self._save()
+
     def list(self) -> list:
         """Returns a list of all session IDs stored in the storage backend."""
-        session_path = "picoware/agent/sessions/"
+        session_path = "picoware/agent/sessions"
         sessions = []
         for entry in self._storage.listdir(session_path):
             name = entry.rsplit("/", 1)[-1]

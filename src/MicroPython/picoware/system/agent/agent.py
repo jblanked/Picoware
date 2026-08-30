@@ -614,8 +614,12 @@ class Agent:
         result = self.run_payload(payload)
 
         if result["status"] == "completed":
-            session.append({"role": "user", "content": user_message})
-            session.append({"role": "assistant", "content": result["message"]})
+            session.append_messages(
+                [
+                    {"role": "user", "content": user_message},
+                    {"role": "assistant", "content": result["message"]},
+                ]
+            )
 
         return result
 

@@ -141,6 +141,7 @@ def start(view_manager) -> bool:
     from picoware.gui.text_editor import TextEditor
 
     view_manager.freq(True)  # set to lower frequency
+    view_manager.storage.mount_vfs()
 
     global _text_editor, _repl_context, _multiline_buffer
 
@@ -228,7 +229,7 @@ def stop(view_manager) -> None:
 
     _repl_context = {}
     _multiline_buffer = []
-
+    view_manager.storage.unmount_vfs()
     view_manager.freq()  # set back to higher frequency
 
     collect()

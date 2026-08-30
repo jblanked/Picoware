@@ -195,6 +195,9 @@ cp -r "$picoware_dir"/src/MicroPython/mjs "$micropython_dir"/modules/mjs
 # copy mmbasic module
 cp -r "$picoware_dir"/src/MicroPython/mmbasic "$micropython_dir"/modules/mmbasic
 
+# copy c module
+cp -r "$picoware_dir"/src/MicroPython/C "$micropython_dir"/modules/c
+
 echo "Starting PicoCalc build process..."
 
 # move to the micropython rp2 port directory

@@ -431,6 +431,7 @@ target_link_libraries(usermod INTERFACE usermod_usb_video)
 target_link_libraries(usermod_usb_video INTERFACE tinyusb_common)
 
 
+if(NOT DEFINED PICOWARE_ENABLE_GHOULS OR PICOWARE_ENABLE_GHOULS)
 # Include ghouls module
 add_library(usermod_ghouls INTERFACE)
 
@@ -464,6 +465,7 @@ target_link_libraries(usermod INTERFACE usermod_ghouls)
 # ghouls uses pico-game-engine symbols compiled by usermod_engine;
 # im linking here to avoid recompiling the same sources
 target_link_libraries(usermod_ghouls INTERFACE usermod_engine)
+endif()
 
 # Include jsmn module
 add_library(usermod_jsmn INTERFACE)

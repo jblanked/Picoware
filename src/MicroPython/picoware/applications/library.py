@@ -33,6 +33,7 @@ def start(view_manager) -> bool:
         _library.add_item("Applications")
         _library.add_item("App Store")
         _library.add_item("Bluetooth")
+        _library.add_item("C")
         _library.add_item("Email")
         _library.add_item("File Manager")
         _library.add_item("FlipSocial")
@@ -92,21 +93,22 @@ def run(view_manager) -> None:
             1: "Applications",
             2: "App Store",
             3: "Bluetooth",
-            4: "Email",
-            5: "File Manager",
-            6: "FlipSocial",
-            7: "GameBoy Emulator",
-            8: "Games",
-            9: "Infrared",
-            10: "MMBasic",
-            11: "Python Editor",
-            12: "Python REPL",
-            13: "Screensavers",
-            14: "Scripts",
-            15: "System",
-            16: "Text Editor",
-            17: "USB",
-            18: "WiFi",
+            4: "C",
+            5: "Email",
+            6: "File Manager",
+            7: "FlipSocial",
+            8: "GameBoy Emulator",
+            9: "Games",
+            10: "Infrared",
+            11: "MMBasic",
+            12: "Python Editor",
+            13: "Python REPL",
+            14: "Screensavers",
+            15: "Scripts",
+            16: "System",
+            17: "Text Editor",
+            18: "USB",
+            19: "WiFi",
         }
 
         if app_map.get(_library_index) == "System":
@@ -299,6 +301,18 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("ir")
+        elif app_map.get(_library_index) == "C":
+            from picoware.applications import c
+
+            view_manager.add(
+                View(
+                    "c",
+                    c.run,
+                    c.start,
+                    c.stop,
+                )
+            )
+            view_manager.switch_to("c")
 
 
 def stop(view_manager) -> None:

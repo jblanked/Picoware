@@ -3,7 +3,7 @@
 _games = None
 _games_index = 0
 _app_loader = None
-
+_ghouls_allowed = True
 
 def start(view_manager) -> bool:
     """Start the games app.
@@ -15,7 +15,7 @@ def start(view_manager) -> bool:
         bool: True on success.
     """
     from picoware.gui.menu import Menu
-    from picoware.system.boards import BOARD_ID, BOARD_PICOCALC_PICOW
+    from picoware.system.boards import BOARD_ID, BOARD_PICOCALC_PICOW, BOARD_PICOCALC_PICO, BOARD_PICOCALC_PICO_2
 
     if not view_manager.has_sd_card:
         view_manager.alert(
@@ -29,6 +29,7 @@ def start(view_manager) -> bool:
 
     global _games
     global _app_loader
+    global _ghouls_allowed
 
     if _games:
         del _games
@@ -47,7 +48,9 @@ def start(view_manager) -> bool:
     )
     _app_loader = view_manager.app_loader
 
-    if BOARD_ID != BOARD_PICOCALC_PICOW:
+    _ghouls_allowed = BOARD_ID in (BOARD_PICOCALC_PICO, BOARD_PICOCALC_PICOW, BOARD_PICOCALC_PICO_2)
+
+    if _ghouls_allowed:
         _games.add_item("Ghouls")  # Add Ghouls as a built-in game
 
     for game in _app_loader.list_available_apps("games"):
@@ -92,9 +95,7 @@ def run(view_manager) -> None:
     elif button == BUTTON_CENTER:
         _games_index = _games.selected_index
 
-        from picoware.system.boards import BOARD_ID, BOARD_PICOCALC_PICOW
-
-        if BOARD_ID != BOARD_PICOCALC_PICOW and _games_index == 0:
+        if _ghouls_allowed and _games_index == 0:
             # Start Ghouls
             from picoware.applications import ghouls
 

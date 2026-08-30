@@ -198,6 +198,8 @@ echo "Starting PicoCalc build process..."
 cd "$micropython_dir"
 
 # PicoCalc - Pico W
-make -j BOARD=RPI_PICO_W USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake MICROPY_HW_FLASH_STORAGE_BYTES=4096 CFLAGS_EXTRA="-DPICOCALC"
+CMAKE_ARGS="-DPICOWARE_ENABLE_GHOULS=OFF"
+export CMAKE_ARGS
+make -j BOARD=RPI_PICO_W USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake MICROPY_HW_FLASH_STORAGE_BYTES=4096 CFLAGS_EXTRA="-DPICOCALC -DMICROPY_PY_FRAMEBUF=0 -DMICROPY_PY_UCTYPES=0 -DMICROPY_PY_HEAPQ=0 -DMICROPY_PY_ASYNCIO=0"
 cp "$micropython_dir"/build-RPI_PICO_W/firmware.uf2 "$picoware_dir"/builds/MicroPython/Picoware-PicoCalcPicoW.uf2
 echo "PicoCalc - Pico W build complete."

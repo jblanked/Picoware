@@ -62,6 +62,7 @@ _current_view_name = ""
 _recent_text = []
 _recent_input = []
 _record_text = ""
+_ir_waveform = []
 _touch_point = (0, 0)
 _touch_gesture = 0
 _touch_callbacks = []
@@ -121,24 +122,28 @@ LIBRARY_ITEMS = {
     "app store": 2,
     "appstore": 2,
     "bluetooth": 3,
-    "email": 4,
-    "file manager": 5,
-    "filemanager": 5,
-    "gameboy emulator": 6,
-    "gameboy": 6,
-    "games": 7,
-    "mmbasic": 8,
-    "python editor": 9,
-    "pythoneditor": 9,
-    "python repl": 10,
-    "repl": 10,
-    "screensavers": 11,
-    "scripts": 12,
-    "system": 13,
-    "text editor": 14,
-    "texteditor": 14,
-    "usb": 15,
-    "wifi": 16,
+    "c": 4,
+    "email": 5,
+    "file manager": 6,
+    "filemanager": 6,
+    "flipsocial": 7,
+    "gameboy emulator": 8,
+    "gameboy": 8,
+    "games": 9,
+    "infrared": 10,
+    "ir": 10,
+    "mmbasic": 11,
+    "python editor": 12,
+    "pythoneditor": 12,
+    "python repl": 13,
+    "repl": 13,
+    "screensavers": 14,
+    "scripts": 15,
+    "system": 16,
+    "text editor": 17,
+    "texteditor": 17,
+    "usb": 18,
+    "wifi": 19,
 }
 
 
@@ -150,7 +155,7 @@ def configure(_root, _sd_root, _apps_source, _scale, _board, _max_frames, _headl
     global speed_mode, target_fps, _frame_interval_ms, _last_frame_ms, _viewer_key_offset, _last_status_ms, _control_offset, audio_muted
     global frame_count, loop_count, open_target, _keys, _delayed_keys, _held_keys, _lcd
     global _wait_view, _assert_text, _seen_wait_view, _seen_assert_text, _current_view_name, _recent_text
-    global _recent_input, _record_text
+    global _recent_input, _record_text, _ir_waveform
     global _key_callback, _background_key_poll, _notifying_key
     root = _root
     sd_root = _sd_root
@@ -198,6 +203,7 @@ def configure(_root, _sd_root, _apps_source, _scale, _board, _max_frames, _headl
     _recent_text = []
     _recent_input = []
     _record_text = ""
+    _ir_waveform = []
     _key_callback = None
     _background_key_poll = False
     _notifying_key = False
@@ -347,6 +353,7 @@ def seed_sd(profile="dev"):
         "picoware/apps/games",
         "picoware/apps/games/ghouls",
         "picoware/apps/games/ghouls/assets",
+        "picoware/c",
         "picoware/bluetooth",
         "picoware/scripts",
     )
@@ -417,6 +424,7 @@ def seed_sd(profile="dev"):
     # Symlink apps for __import__
     _link_app_files()
     if profile != "clean":
+        _link_c_files()
         _link_script_files()
         _link_mmbasic_files()
 
@@ -429,6 +437,13 @@ def _link_app_files():
     _compiled = root + "/builds/MicroPython/apps"
     if _compiled != apps_source:
         _link_app_files_into(_compiled, target, skip_if_py_exists=True)
+
+
+def _link_c_files():
+    """Make bundled C examples available to the C application."""
+    source = root + "/builds/MicroPython/c"
+    target = sd_root + "/picoware/c"
+    _link_app_files_into(source, target)
 
 
 def _link_script_files():
@@ -602,6 +617,28 @@ def set_lcd(lcd):
 
 def get_lcd():
     return _lcd
+
+
+def clear_ir_waveform():
+    """Discard captured simulated infrared carrier segments."""
+    _ir_waveform[:] = []
+
+
+def record_ir_segment(duration_us, mark, frequency=0, duty=0):
+    """Record one physical infrared mark/space segment."""
+    _ir_waveform.append(
+        {
+            "duration_us": int(duration_us),
+            "mark": bool(mark),
+            "frequency": int(frequency),
+            "duty": int(duty),
+        }
+    )
+
+
+def get_ir_waveform():
+    """Return the captured infrared waveform as immutable records."""
+    return tuple(_ir_waveform)
 
 
 def set_script_expectations(wait_view="", assert_text=""):
@@ -960,7 +997,18 @@ def request_game(name):
     target = str(name).lower()
     if target.endswith(".py"):
         target = target[:-3]
-    games = ["Ghouls"]
+    games = []
+    try:
+        import picoware_boards
+
+        if picoware_boards.BOARD_ID in (
+            picoware_boards.BOARD_PICOCALC_PICO,
+            picoware_boards.BOARD_PICOCALC_PICOW,
+            picoware_boards.BOARD_PICOCALC_PICO_2,
+        ):
+            games.append("Ghouls")
+    except ImportError:
+        pass
     games.extend(_list_menu_apps(sd_root + "/picoware/apps/games"))
     index = -1
     for i, game in enumerate(games):

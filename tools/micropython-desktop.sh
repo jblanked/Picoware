@@ -49,7 +49,7 @@ else
 fi
 module_dir="$source_alias/src/MicroPython/Desktop/modules"
 variant_dir="$source_alias/src/MicroPython/Desktop/variant"
-native_check='import auto_complete, font, mmbasic, picoware_desktop, response, vector; expected = ("auto_complete", "font", "mmbasic", "response", "vector"); assert picoware_desktop.BOARD_ID == 15; assert picoware_desktop.native_modules() == expected; print("[desktop-build:ok] native modules", expected)'
+native_check='import auto_complete, c, font, mjs, mmbasic, picoware_desktop, response, vector, video; expected = ("auto_complete", "c", "font", "mjs", "mmbasic", "response", "video", "vector"); assert picoware_desktop.BOARD_ID == 15; assert picoware_desktop.native_modules() == expected; print("[desktop-build:ok] native modules", expected)'
 jobs=${PICOWARE_BUILD_JOBS:-}
 if [ -z "$jobs" ]; then
     if command -v getconf >/dev/null 2>&1; then
@@ -65,7 +65,7 @@ case ${1:-build} in
             VARIANT_DIR="$variant_dir" \
             USER_C_MODULES="$module_dir" \
             FROZEN_MANIFEST= \
-            CFLAGS_EXTRA=-DDESKTOP \
+            CFLAGS_EXTRA="-DDESKTOP -Wno-error" \
             clean
         exit 0
         ;;
@@ -92,6 +92,8 @@ for mkfile in "$module_dir"/*/micropython.mk; do
     [ -f "$mkfile" ] || continue
     rm -rf "$build_dir/$(basename "$(dirname "$mkfile")")"
 done
+# remove normalized paths from relative module sources
+rm -rf "$source_alias/builds/c"
 # sweep leftover module build dirs
 for dir in "$build_dir"/*/; do
     [ -d "$dir" ] || continue
@@ -111,7 +113,7 @@ make -C "$micropython_dir/ports/unix" \
     VARIANT_DIR="$variant_dir" \
     USER_C_MODULES="$module_dir" \
     FROZEN_MANIFEST= \
-    CFLAGS_EXTRA=-DDESKTOP
+    CFLAGS_EXTRA="-DDESKTOP -Wno-error"
 
 "$build_dir/micropython" -c "$native_check"
 

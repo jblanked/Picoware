@@ -1,4 +1,5 @@
 // clang-format off
+#ifndef DESKTOP
 static const struct define_grp stdio_defines[] = {
     // OPEN
     {"TRUE", 1},
@@ -197,4 +198,21 @@ static const struct define_grp uart_defines[] = {
     {"uart0", ((uint32_t)uart0_hw)},
     {"uart1", ((uint32_t)uart1_hw)},
     {0}};
+#else
+static const struct define_grp stdio_defines[] = {{0}};
+static const struct define_grp gpio_defines[] = {{0}};
+static const struct define_grp pwm_defines[] = {{0}};
+static const struct define_grp clk_defines[] = {{0}};
+static const struct define_grp i2c_defines[] = {{0}};
+static const struct define_grp spi_defines[] = {{0}};
+static const struct define_grp math_defines[] = {{0}};
+static const struct define_grp lib_defines[] = {{0}};
+static const struct define_grp adc_defines[] = {{0}};
+static const struct define_grp stdlib_defines[] = {{0}};
+static const struct define_grp string_defines[] = {{0}};
+static const struct define_grp time_defines[] = {{0}};
+static const struct define_grp sync_defines[] = {{0}};
+static const struct define_grp irq_defines[] = {{0}};
+static const struct define_grp uart_defines[] = {{0}};
+#endif
 // clang-format on

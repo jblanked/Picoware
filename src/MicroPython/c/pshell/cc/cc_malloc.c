@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <pico/stdlib.h>
 #include "py/runtime.h"
 
 #include "cc.h"
@@ -15,7 +14,11 @@ typedef struct qentry_s
 } qentry_t;
 
 #ifdef PSHELL_MICROPYTHON
+#ifdef DESKTOP
+#define UDATA
+#else
 #define UDATA __attribute__((section("ccudata")))
+#endif
 #else
 #define UDATA __attribute__((section(".ccudata")))
 #endif

@@ -248,6 +248,26 @@
 #define LCD_MP_TRIANGLE lcd_draw_triangle
 #endif
 
+#ifdef DESKTOP
+#include "../font/font.h"
+#define LCD_MP_CHAR(...) ((void)0)
+#define LCD_MP_CIRCLE(...) ((void)0)
+#define LCD_MP_CLEAR(...) ((void)0)
+#define LCD_MP_FILL_CIRCLE(...) ((void)0)
+#define LCD_MP_FILL_RECTANGLE(...) ((void)0)
+#define LCD_MP_FILL_ROUND_RECTANGLE(...) ((void)0)
+#define LCD_MP_FILL_TRIANGLE(...) ((void)0)
+#define LCD_MP_FILL_TRIANGLE_ALPHA(...) ((void)0)
+#define LCD_MP_BLIT(...) ((void)0)
+#define LCD_MP_BLIT_16BIT(...) ((void)0)
+#define LCD_MP_LINE(...) ((void)0)
+#define LCD_MP_PIXEL(...) ((void)0)
+#define LCD_MP_RECTANGLE(...) ((void)0)
+#define LCD_MP_TEXT(...) ((void)0)
+#define LCD_MP_TRIANGLE(...) ((void)0)
+#define LCD_SWAP() ((void)0)
+#endif
+
 // Common USB video callback — set by lcd_mp_set_usb_video_callback()
 extern bool (*_lcd_usb_video_cb)(void);
 

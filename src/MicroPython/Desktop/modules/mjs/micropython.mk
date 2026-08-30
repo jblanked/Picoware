@@ -1,0 +1,34 @@
+PICOWARE_MICROPYTHON_DIR := $(USERMOD_DIR)/../../..
+MJS_MOD_DIR := $(PICOWARE_MICROPYTHON_DIR)/mjs
+
+SRC_USERMOD += $(MJS_MOD_DIR)/mjs_module.c
+SRC_USERMOD += $(MJS_MOD_DIR)/lib/array_buf.c
+SRC_USERMOD += $(MJS_MOD_DIR)/lib/audio.c
+SRC_USERMOD += $(MJS_MOD_DIR)/lib/bluetooth.c
+SRC_USERMOD += $(MJS_MOD_DIR)/lib/buttons.c
+SRC_USERMOD += $(MJS_MOD_DIR)/lib/color.c
+SRC_USERMOD += $(MJS_MOD_DIR)/lib/http.c
+SRC_USERMOD += $(MJS_MOD_DIR)/lib/input.c
+SRC_USERMOD += $(MJS_MOD_DIR)/lib/lib.c
+SRC_USERMOD += $(MJS_MOD_DIR)/lib/lcd.c
+SRC_USERMOD += $(MJS_MOD_DIR)/lib/log.c
+SRC_USERMOD += $(MJS_MOD_DIR)/lib/math.c
+SRC_USERMOD += $(MJS_MOD_DIR)/lib/mjs.c
+SRC_USERMOD += $(MJS_MOD_DIR)/lib/pin.c
+SRC_USERMOD += $(MJS_MOD_DIR)/lib/psram.c
+SRC_USERMOD += $(MJS_MOD_DIR)/lib/settings.c
+SRC_USERMOD += $(MJS_MOD_DIR)/lib/storage.c
+SRC_USERMOD += $(MJS_MOD_DIR)/lib/system.c
+SRC_USERMOD += $(MJS_MOD_DIR)/lib/time.c
+SRC_USERMOD += $(MJS_MOD_DIR)/lib/uart.c
+SRC_USERMOD += $(MJS_MOD_DIR)/lib/wifi.c
+SRC_USERMOD += $(MJS_MOD_DIR)/lib/websocket.c
+SRC_USERMOD += $(USERMOD_DIR)/desktop_stubs.c
+
+CFLAGS_USERMOD += -I$(MJS_MOD_DIR)
+CFLAGS_USERMOD += -I$(MJS_MOD_DIR)/mjs
+CFLAGS_USERMOD += -I$(MJS_MOD_DIR)/mjs/src
+CFLAGS_USERMOD += -I$(MJS_MOD_DIR)/mjs/src/frozen
+CFLAGS_USERMOD += -I$(MJS_MOD_DIR)/mjs/src/common
+CFLAGS_USERMOD += -I$(MJS_MOD_DIR)/mjs/lib
+CFLAGS_USERMOD += -DMJS_EXPOSE_PRIVATE

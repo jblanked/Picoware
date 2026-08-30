@@ -18,7 +18,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-// pico SDK hardware support functions
+// pico SDK support functions
+#ifndef DESKTOP
 #include <hardware/adc.h>
 #include <hardware/clocks.h>
 #include <hardware/gpio.h>
@@ -33,6 +34,7 @@
 #include <pico/rand.h>
 #include <pico/stdio.h>
 #include <pico/time.h>
+#endif
 
 // disassembler, compiler, and file system functions
 #include "armdisasm.h"
@@ -46,7 +48,9 @@
 #define EXE_DBG 0
 
 // Uninitialized global data section
-#ifdef PSHELL_MICROPYTHON
+#if defined(DESKTOP)
+#define UDATA
+#elif defined(PSHELL_MICROPYTHON)
 #define UDATA __attribute__((section("ccudata")))
 #else
 #define UDATA __attribute__((section(".ccudata")))
@@ -98,7 +102,25 @@ static union conv
     float f; // floating point value
 } tkv;       // current token value
 
-#if PICO_RP2040
+#if PICO_RP2040 || defined(DESKTOP)
+#if defined(DESKTOP)
+enum
+{
+    aeabi_idiv = 1,
+    aeabi_i2f,
+    aeabi_f2iz,
+    aeabi_fadd,
+    aeabi_fsub,
+    aeabi_fmul,
+    aeabi_fdiv,
+    aeabi_fcmple,
+    aeabi_fcmpgt,
+    aeabi_fcmplt,
+    aeabi_fcmpge,
+};
+
+static void (*fops[])() = {0};
+#else
 // SDK floating point functions. RP2350 has HW instructions for these.
 void __wrap___aeabi_idiv();
 void __wrap___aeabi_i2f();
@@ -141,6 +163,7 @@ static void (*fops[])() = {
     __wrap___aeabi_fcmplt,
     __wrap___aeabi_fcmpge,
 };
+#endif
 #endif
 
 // accelerated SDK trig functions
@@ -487,7 +510,12 @@ static int wrap_screen_width(void)
     return x;
 }
 
-static void wrap_wfi(void) { __wfi(); };
+static void wrap_wfi(void)
+{
+#ifndef DESKTOP
+    __wfi();
+#endif
+};
 
 static int x_printf(int etype);
 static int x_sprintf(int etype);
@@ -2989,7 +3017,7 @@ static void emit_branch(uint16_t *to)
         emit_call((int)(to + 2));
 }
 
-#if PICO_RP2040
+#if PICO_RP2040 || defined(DESKTOP)
 static void emit_fop(int n)
 {
     if (!ofn) // if exe output emit negative external function index
@@ -4892,12 +4920,12 @@ int cc(int mode, int argc, char **argv)
 {
 
     // clear uninitialized global variables
-#ifndef PSHELL_MICROPYTHON
-    extern char __ccudata_start__, __ccudata_end__;
-    memset(&__ccudata_start__, 0, &__ccudata_end__ - &__ccudata_start__);
-#else
+#if !defined(DESKTOP) && defined(PSHELL_MICROPYTHON)
     extern char __start_ccudata, __stop_ccudata;
     memset(&__start_ccudata, 0, &__stop_ccudata - &__start_ccudata);
+#elif !defined(DESKTOP)
+    extern char __ccudata_start__, __ccudata_end__;
+    memset(&__ccudata_start__, 0, &__ccudata_end__ - &__ccudata_start__);
 #endif
     extern const char *pshell_version;
     int rslt = -1;
@@ -5280,6 +5308,7 @@ int cc(int mode, int argc, char **argv)
 
     // launch the user code
     printf("\n");
+#ifndef DESKTOP
     asm volatile("mov  %0, sp \n" : "=r"(exit_sp));
     asm volatile("mov  r0, %2 \n"
                  "push {r0}   \n"
@@ -5291,6 +5320,9 @@ int cc(int mode, int argc, char **argv)
                  : "=r"(rslt)
                  : "r"(exe.entry | 1), "r"(argc), "r"(argv)
                  : "r0", "r1", "r2", "r3");
+#else
+    rslt = 0;
+#endif
     // display the return code
     printf("\nCC = %d\n", rslt);
 

@@ -24,12 +24,14 @@ class Session:
         self._time_created = None
         if session_id:
             if not self._load_session(session_id):
-                raise Exception("Failed to load session with ID %s" % session_id)
+                self._id = session_id
+                self._time_created = view_manager.time.datetime
+                if not self._save():
+                    raise Exception("Failed to load and create session with ID %s" % session_id)
         else:
             self._id = f"session_{id(self)}"
             self._time_created = view_manager.time.datetime
             
-
     @property
     def id(self) -> str:
         """Returns the unique session ID."""

@@ -588,6 +588,7 @@ def _run_sim_check(opts):
     _run_c_parity_check(opts)
     _run_ir_parity_check()
     _run_duplicate_app_link_check(opts)
+    _seed_mmbasic_parity_fixture(opts)
     commands = (
         "sh "
         + _quote(THIS_DIR + "/build.sh")
@@ -896,10 +897,7 @@ def _run_ir_parity_check():
         sys.modules.pop("picoware.system.boards", None)
         package = sys.modules.get("picoware.system")
         if package is not None:
-            try:
-                del package.boards
-            except AttributeError:
-                pass
+            package.__dict__.pop("boards", None)
 
     old_board = sim_runtime.board
     try:
@@ -946,6 +944,14 @@ def _run_ir_parity_check():
         sim_runtime.board = old_board
         forget_board_modules()
     print("[sim-check:ok] infrared timer waveform and board pins")
+
+
+def _seed_mmbasic_parity_fixture(opts):
+    """Use a bounded MMBasic fixture instead of the long-running clock demo."""
+    path = opts["sd"] + "/picoware/mmbasic/00_simulator_parity.bas"
+    _mkdir_p(opts["sd"] + "/picoware/mmbasic")
+    with open(path, "w") as handle:
+        handle.write('PRINT "Simulator parity"\nEND\n')
 
 
 def _run_library_route_check():

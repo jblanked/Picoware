@@ -2,15 +2,15 @@
     {"acosf", 1 | (1 << 5) | (1 << 10), math_defines, c_mp_acosf, 1},
     {"asinf", 1 | (1 << 5) | (1 << 10), math_defines, c_mp_asinf, 1},
     {"atanf", 1 | (1 << 5) | (1 << 10), math_defines, c_mp_atanf, 1},
-    {"cosf", 1 | (1 << 5) | (1 << 10), math_defines, c_mp_cosf, 1},
-    {"sinf", 1 | (1 << 5) | (1 << 10), math_defines, c_mp_sinf, 1},
-    {"sqrt", 1 | (1 << 5) | (1 << 10), math_defines, sqrt, 1},
     {"atoi", 1, stdlib_defines, atoi, 0},
     {"calloc", 2, stdlib_defines, wrap_calloc, 0},
+    {"cosf", 1 | (1 << 5) | (1 << 10), math_defines, c_mp_cosf, 1},
     {"free", 1, stdlib_defines, wrap_free, 0},
     {"malloc", 1, stdlib_defines, wrap_malloc, 0},
     {"memcpy", 3, stdlib_defines, memcpy, 0},
     {"memset", 3, stdlib_defines, memset, 0},
+    {"sinf", 1 | (1 << 5) | (1 << 10), math_defines, c_mp_sinf, 1},
+    {"sqrt", 1 | (1 << 5) | (1 << 10), math_defines, sqrt, 1},
     {"wfi", 0, sync_defines, wrap_wfi, 0},
 #else
 // clang-format off

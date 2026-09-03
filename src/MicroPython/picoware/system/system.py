@@ -184,7 +184,7 @@ class System:
     @property
     def version(self) -> str:
         """Return the Picoware version."""
-        return "2.3.0"
+        return "2.4.0"
 
     def bootloader_mode(self):
         """Enter the bootloader mode."""

@@ -3,10 +3,6 @@
 class System:
     """Handle basic system operations."""
 
-    def __init__(self):
-        """Initialize the System helper."""
-        pass
-
     @property
     def board_id(self) -> int:
         """Return the board ID."""

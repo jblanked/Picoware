@@ -1,6 +1,9 @@
 #include "lcd.h"
 #include "../../lcd/lcd_config.h"
 #include "../../font/font_mp.h"
+#ifdef DESKTOP
+#include "../../Desktop/desktop_bridge.h"
+#endif
 #include <string.h>
 #include "color.h"
 
@@ -200,7 +203,18 @@ void lcd_js_triangle(struct mjs *mjs)
 
 void lcd_js_screenshot(struct mjs *mjs)
 {
-#ifdef LCD_MP_READ_ROW
+#ifdef DESKTOP
+    char *path = mjs_copy_string_arg(mjs, 0);
+    if (!path)
+    {
+        mjs_prepend_errorf(mjs, MJS_BAD_ARGS_ERROR, "Either no argument or failed to allocate memory for the file path string");
+        mjs_return(mjs, MJS_UNDEFINED);
+        return;
+    }
+    if (!desktop_lcd_screenshot(path))
+        mjs_prepend_errorf(mjs, MJS_FILE_READ_ERROR, "Failed to write screenshot: %s", path);
+    m_free(path);
+#elif defined(LCD_MP_READ_ROW)
 #if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO)
     char *path = mjs_copy_string_arg(mjs, 0);
     if (!path)

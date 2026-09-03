@@ -136,13 +136,21 @@ class _Socket:
             data = data.encode()
         if self._fixture:
             if self._websocket:
-                self._response += _websocket_frames(data)
+                self._request += data
+                while True:
+                    frame_size = _websocket_frame_size(self._request)
+                    if frame_size == 0:
+                        break
+                    frame = self._request[:frame_size]
+                    self._request = self._request[frame_size:]
+                    self._response += _websocket_frames(frame)
                 return len(data)
             self._request += data
             if b"\r\n\r\n" in self._request and not self._response:
                 self._response = _build_response(self._connected, self._request)
                 if self._response.startswith(b"HTTP/1.1 101"):
                     self._websocket = True
+                    self._request = b""
             return len(data)
         self._ensure_real()
         try:
@@ -399,6 +407,30 @@ def _websocket_frame(opcode, payload):
         for shift in (56, 48, 40, 32, 24, 16, 8, 0):
             head.append((length >> shift) & 0xFF)
     return bytes(head) + payload
+
+
+def _websocket_frame_size(data):
+    """Return a complete client-frame size, or zero for a partial frame."""
+    if len(data) < 2:
+        return 0
+    length = data[1] & 0x7F
+    offset = 2
+    if length == 126:
+        if len(data) < offset + 2:
+            return 0
+        length = (data[offset] << 8) | data[offset + 1]
+        offset += 2
+    elif length == 127:
+        if len(data) < offset + 8:
+            return 0
+        length = 0
+        for index in range(8):
+            length = (length << 8) | data[offset + index]
+        offset += 8
+    if data[1] & 0x80:
+        offset += 4
+    frame_size = offset + length
+    return frame_size if len(data) >= frame_size else 0
 
 
 def _websocket_frames(data):

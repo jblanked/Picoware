@@ -1,5 +1,6 @@
 #include "lib.h"
 #include "../lcd/lcd_config.h"
+#include "../font/font_mp.h"
 
 #ifdef LCD_INCLUDE
 #include LCD_INCLUDE

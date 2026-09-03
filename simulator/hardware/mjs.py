@@ -326,6 +326,8 @@ def _parse_literal(expr):
 
 def _get_member(value, attr):
     if isinstance(value, _Module):
+        if attr in value:
+            return value[attr]
         return getattr(value, attr)
     if isinstance(value, dict):
         if attr in value:
@@ -468,26 +470,51 @@ def _draw_module():
     import sim_runtime
 
     module = _Module()
-    passthrough = (
-        "char",
-        "circle",
-        "clear",
-        "fill_circle",
-        "fill_rectangle",
-        "fill_round_rectangle",
-        "fill_triangle",
-        "line",
-        "pixel",
-        "rectangle",
-        "text",
-        "triangle",
-    )
-    for name in passthrough:
-        js_name = _camel_name(name)
-        if hasattr(lcd, name):
-            module[js_name] = getattr(lcd, name)
-        else:
-            module[js_name] = lambda *args, **kwargs: None
+
+    def display():
+        value = sim_runtime.get_lcd()
+        return value if value is not None else lcd.LCD()
+
+    def draw_color(value):
+        if isinstance(value, str):
+            value = value.strip()
+            if value.startswith("#"):
+                value = value[1:]
+            elif value.lower().startswith("0x"):
+                value = value[2:]
+            try:
+                return int(value, 16)
+            except ValueError:
+                return 0
+        return int(value)
+
+    def draw_method(name, color_index=None):
+        def call(*args):
+            values = list(args)
+            if color_index is not None:
+                while len(values) <= color_index:
+                    values.append(0xFFFF)
+                values[color_index] = draw_color(values[color_index])
+            return getattr(display(), "_" + name)(*values)
+
+        return call
+
+    methods = {
+        "char": ("char", 3),
+        "circle": ("circle", 3),
+        "clear": ("clear", 0),
+        "fillCircle": ("fill_circle", 3),
+        "fillRectangle": ("fill_rectangle", 4),
+        "fillRoundRectangle": ("fill_round_rectangle", 5),
+        "fillTriangle": ("fill_triangle", 6),
+        "line": ("line", 4),
+        "pixel": ("pixel", 2),
+        "rectangle": ("rectangle", 4),
+        "text": ("text", 3),
+        "triangle": ("triangle", 6),
+    }
+    for js_name, (name, color_index) in methods.items():
+        module[js_name] = draw_method(name, color_index)
 
     def text_len(text, font_size=None):
         display = sim_runtime.get_lcd()
@@ -498,14 +525,11 @@ def _draw_module():
         return len(str(text)) * (width + spacing)
 
     def screenshot(path):
-        display = sim_runtime.get_lcd()
-        if display is None:
-            display = lcd.LCD()
-        return display.screenshot(sim_runtime.host_path(path))
+        return display().screenshot(sim_runtime.host_path(path))
 
     module["len"] = text_len
     module["screenshot"] = screenshot
-    module["swap"] = getattr(lcd, "swap", lambda: None)
+    module["swap"] = lambda: display().swap()
     return module
 
 
@@ -644,26 +668,21 @@ def _settings_module():
 
 
 def _storage_module():
+    import sd_mp
+
     module = _Module()
 
     def read(path):
-        with open(str(path), "r") as handle:
-            return handle.read()
+        return bytes(sd_mp.read(str(path))).decode()
 
     def read_chunk(path, offset, chunk_size):
-        with open(str(path), "r") as handle:
-            handle.seek(int(offset))
-            return handle.read(int(chunk_size))
+        return bytes(sd_mp.read(str(path), int(offset), int(chunk_size))).decode()
 
     def size(path):
-        import os
-
-        return os.stat(str(path))[6]
+        return sd_mp.get_file_size(str(path))
 
     def write(path, data):
-        with open(str(path), "w") as handle:
-            handle.write(str(data))
-        return True
+        return sd_mp.write(str(path), str(data).encode(), True)
 
     module["read"] = read
     module["readChunk"] = read_chunk

@@ -4763,18 +4763,28 @@ static char *x_strdup(char *s)
 
 static int x_printf(int etype)
 {
+#ifndef DESKTOP
     int *sp;
     asm volatile("mov %0, sp \n" : "=r"(sp));
     sp += 2;
-    printf_sprintf(etype, 1, sp);
+    return printf_sprintf(etype, 1, sp);
+#else
+    (void)etype;
+    return 0;
+#endif
 }
 
 static int x_sprintf(int etype)
 {
+#ifndef DESKTOP
     int *sp;
     asm volatile("mov %0, sp \n" : "=r"(sp));
     sp += 2;
-    printf_sprintf(etype, 0, sp);
+    return printf_sprintf(etype, 0, sp);
+#else
+    (void)etype;
+    return 0;
+#endif
 }
 
 // Help display

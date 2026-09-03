@@ -5,6 +5,10 @@
 
 #if defined(WAVESHARE_1_28) || defined(WAVESHARE_1_69)
 #define STORAGE_NOT_AVAILABLE 1
+#elif defined(DESKTOP)
+#include "../../Desktop/desktop_bridge.h"
+#define storage_file_size desktop_storage_file_size
+#define storage_file_read desktop_storage_file_read
 #else
 #include "../../sd/storage.h"
 #endif

@@ -427,11 +427,21 @@ def _board_option(opts):
 
 def _board_supports_ghouls(board_name):
     """Match the firmware's board-gated built-in Ghouls game."""
-    return str(board_name).lower().replace("_", "-") in (
-        "picocalc-pico",
+    board = str(board_name).lower().replace("_", "-")
+    wifi_boards = (
         "picocalc-picow",
-        "picocalc-pico2",
+        "picocalc-pico2w",
+        "picocalc-pimoroni-2w",
+        "pimoroni-2w",
+        "cardputer",
+        "waveshare-2.06",
+        "waveshare-2.06-esp32s3",
+        "pancake",
+        "v8",
+        "desktop",
+        "unix",
     )
+    return board in wifi_boards and board != "picocalc-picow"
 
 
 def _file_exists(path):

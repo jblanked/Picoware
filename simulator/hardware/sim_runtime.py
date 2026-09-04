@@ -1001,10 +1001,9 @@ def request_game(name):
     try:
         import picoware_boards
 
-        if picoware_boards.BOARD_ID in (
-            picoware_boards.BOARD_PICOCALC_PICO,
-            picoware_boards.BOARD_PICOCALC_PICOW,
-            picoware_boards.BOARD_PICOCALC_PICO_2,
+        if (
+            picoware_boards.has_wifi(picoware_boards.BOARD_ID)
+            and picoware_boards.BOARD_ID != picoware_boards.BOARD_PICOCALC_PICOW
         ):
             games.append("Ghouls")
     except ImportError:

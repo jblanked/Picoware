@@ -137,13 +137,10 @@ class _Socket:
         if self._fixture:
             if self._websocket:
                 self._request += data
-                while True:
-                    frame_size = _websocket_frame_size(self._request)
-                    if frame_size == 0:
-                        break
-                    frame = self._request[:frame_size]
-                    self._request = self._request[frame_size:]
-                    self._response += _websocket_frames(frame)
+                frames, consumed = _websocket_frames(self._request)
+                if consumed:
+                    self._request = self._request[consumed:]
+                    self._response += frames
                 return len(data)
             self._request += data
             if b"\r\n\r\n" in self._request and not self._response:
@@ -390,95 +387,70 @@ def _build_response(address, request):
     )
 
 
-def _websocket_frame(opcode, payload):
-    if isinstance(payload, str):
-        payload = payload.encode()
-    length = len(payload)
-    head = bytearray()
-    head.append(0x80 | (opcode & 0x0F))
-    if length < 126:
-        head.append(length)
-    elif length < 65536:
-        head.append(126)
-        head.append((length >> 8) & 0xFF)
-        head.append(length & 0xFF)
-    else:
-        head.append(127)
-        for shift in (56, 48, 40, 32, 24, 16, 8, 0):
-            head.append((length >> shift) & 0xFF)
-    return bytes(head) + payload
-
-
-def _websocket_frame_size(data):
-    """Return a complete client-frame size, or zero for a partial frame."""
-    if len(data) < 2:
-        return 0
-    length = data[1] & 0x7F
-    offset = 2
-    if length == 126:
-        if len(data) < offset + 2:
-            return 0
-        length = (data[offset] << 8) | data[offset + 1]
-        offset += 2
-    elif length == 127:
-        if len(data) < offset + 8:
-            return 0
-        length = 0
-        for index in range(8):
-            length = (length << 8) | data[offset + index]
-        offset += 8
-    if data[1] & 0x80:
-        offset += 4
-    frame_size = offset + length
-    return frame_size if len(data) >= frame_size else 0
-
-
 def _websocket_frames(data):
-    out = b""
-    offset = 0
-    while offset + 2 <= len(data):
-        b0 = data[offset]
-        b1 = data[offset + 1]
-        opcode = b0 & 0x0F
-        masked = bool(b1 & 0x80)
-        length = b1 & 0x7F
-        offset += 2
-        if length == 126:
-            if offset + 2 > len(data):
-                break
-            length = (data[offset] << 8) | data[offset + 1]
-            offset += 2
-        elif length == 127:
-            if offset + 8 > len(data):
-                break
-            length = 0
-            for _ in range(8):
-                length = (length << 8) | data[offset]
-                offset += 1
-        mask = b""
-        if masked:
-            if offset + 4 > len(data):
-                break
-            mask = data[offset : offset + 4]
-            offset += 4
-        if offset + length > len(data):
+    """Echo complete frames through Picoware's WebSocket implementation."""
+    from picoware.system.websocket import (
+        WS_OP_BYTES,
+        WS_OP_CLOSE,
+        WS_OP_PING,
+        WS_OP_TEXT,
+        WebSocket,
+    )
+
+    class _IncompleteFrame(Exception):
+        pass
+
+    class _FrameReader:
+        def __init__(self, value):
+            self.value = value
+            self.offset = 0
+
+        def read(self, count=-1):
+            if count is None or count < 0:
+                count = len(self.value) - self.offset
+            end = self.offset + int(count)
+            if end > len(self.value):
+                raise _IncompleteFrame()
+            result = self.value[self.offset:end]
+            self.offset = end
+            return result
+
+    class _FrameWriter:
+        def __init__(self):
+            self.value = b""
+
+        def write(self, value):
+            self.value += value
+            return len(value)
+
+    reader = _FrameReader(data)
+    writer = _FrameWriter()
+    server = WebSocket(reader)
+    server.is_client = False
+    consumed = 0
+
+    while reader.offset < len(data):
+        frame_start = reader.offset
+        server._sock = reader
+        try:
+            fin, opcode, payload = server._read_frame()
+        except Exception:
+            reader.offset = frame_start
             break
-        payload = data[offset : offset + length]
-        offset += length
-        if masked:
-            unmasked = bytearray(length)
-            for i in range(length):
-                unmasked[i] = payload[i] ^ mask[i & 3]
-            payload = bytes(unmasked)
-        if opcode == 0x1:
-            out += _websocket_frame(0x1, payload)
-        elif opcode == 0x9:
-            out += _websocket_frame(0xA, payload)
-        elif opcode == 0x8:
-            out += _websocket_frame(0x8, payload)
-        elif opcode == 0x2:
-            out += _websocket_frame(0x2, payload)
-    return out
+        if not fin:
+            reader.offset = frame_start
+            break
+        consumed = reader.offset
+        if opcode not in (WS_OP_TEXT, WS_OP_BYTES, WS_OP_PING, WS_OP_CLOSE):
+            continue
+        server._sock = writer
+        if opcode == WS_OP_PING:
+            server._write_frame(0xA, payload)
+        else:
+            server._write_frame(opcode, payload)
+        server._sock = reader
+
+    return writer.value, consumed
 
 
 def _wikipedia_response(path):

@@ -480,12 +480,13 @@ class Keyboard:
         self._auto_complete_words_set = False
         self._auto_complete_words.clear()
 
-    def run(self, swap: bool = True, force: bool = False) -> bool:
+    def run(self, swap: bool = True, force: bool = False, max_characters: int = 0) -> bool:
         """Run the input manager, handle input, and draw the keyboard.
 
         Args:
             swap (bool): Whether to swap the display buffer. Defaults to True.
             force (bool): Whether to force a redraw. Defaults to False.
+            max_characters (int): The maximum number of characters allowed in the response. 0 means no limit. Defaults to 0.
 
         Returns:
             bool: True while running, False when stopped.
@@ -515,7 +516,7 @@ class Keyboard:
                 self._set_auto_complete_words()
 
             # only process input/redraw if there's input
-            self._handle_input()
+            self._handle_input(max_characters)
             self._draw_textbox()
 
             if self._show_keyboard:
@@ -872,8 +873,12 @@ class Keyboard:
             )
             self.text_cursor_position = word_start_pos + len(suggestion_text)
 
-    def _handle_input(self) -> None:
-        """Handles directional input and key selection"""
+    def _handle_input(self, max_characters: int = 0) -> None:
+        """Handles directional input and key selection.
+
+        Args:
+            max_characters (int): The maximum number of characters allowed in the response. 0 means no limit.
+        """
         if self._touch_enabled and self._handle_touch_input():
             return
 
@@ -994,8 +999,10 @@ class Keyboard:
                 if self.ROWS[self.cursor_row][self.cursor_col].normal == "\x02":
                     self.is_manual_shift = True
 
+        can_add = max_characters == 0 or len(self._response) < max_characters
+
         # both modes can handle manual character entry for special characters
-        if self.dpad_input in self.manual_keys:
+        if self.dpad_input in self.manual_keys and can_add:
             char = self.manual_keys[self.dpad_input]
             self._response = (
                 self._response[: self.text_cursor_position]
@@ -1006,7 +1013,7 @@ class Keyboard:
             return
 
         # Handle direct key presses
-        if self.dpad_input in self.key_mappings:
+        if self.dpad_input in self.key_mappings and can_add:
             row, col = self.key_mappings[self.dpad_input]
             self._set_cursor_position(row, col)
             self._process_key_press()

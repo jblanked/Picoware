@@ -1,10 +1,12 @@
 """Games - Collection of built-in games."""
+from picoware.system.decorator import storage_required
 
 _games = None
 _games_index = 0
 _app_loader = None
 _ghouls_allowed = True
 
+@storage_required
 def start(view_manager) -> bool:
     """Start the games app.
 
@@ -15,14 +17,7 @@ def start(view_manager) -> bool:
         bool: True on success.
     """
     from picoware.gui.menu import Menu
-    from picoware.system.boards import BOARD_ID, BOARD_PICOCALC_PICOW, BOARD_PICOCALC_PICO, BOARD_PICOCALC_PICO_2
-
-    if not view_manager.has_sd_card:
-        view_manager.alert(
-            "Games app requires an SD card.",
-            False,
-        )
-        return False
+    from picoware.system.boards import BOARD_ID, BOARD_PICOCALC_PICOW
 
     # create games folder if it doesn't exist
     view_manager.storage.mkdir("picoware/apps/games")
@@ -48,7 +43,7 @@ def start(view_manager) -> bool:
     )
     _app_loader = view_manager.app_loader
 
-    _ghouls_allowed = BOARD_ID in (BOARD_PICOCALC_PICO, BOARD_PICOCALC_PICOW, BOARD_PICOCALC_PICO_2)
+    _ghouls_allowed = view_manager.has_wifi and BOARD_ID != BOARD_PICOCALC_PICOW
 
     if _ghouls_allowed:
         _games.add_item("Ghouls")  # Add Ghouls as a built-in game

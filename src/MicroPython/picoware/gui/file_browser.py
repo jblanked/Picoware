@@ -401,7 +401,6 @@ class FileBrowser:
             self._needs_redraw = True
         except Exception as e:
             self._vm.alert(f"Failed to list ZIP: {e}")
-            s.unmount_vfs()
             self._needs_redraw = True
 
     def __zip_unzip(self, path) -> None:
@@ -418,11 +417,9 @@ class FileBrowser:
             with ZipFile(f"{s.vfs_prefix}{path}", "r") as archive:
                 archive.extractall(target_directory)
             self.__loading_run("Unzipped", 1.0)
-            s.unmount_vfs()
         except Exception as e:
             self.__loading_run("", 1.0)
             self._vm.alert(f"Failed to unzip: {e}")
-            s.unmount_vfs()
             self._needs_redraw = True
 
     def __load_directory_contents(self, path):

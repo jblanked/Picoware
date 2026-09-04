@@ -311,7 +311,7 @@ def _show_listening(view_manager):
     """Show the receive status screen."""
     draw = view_manager.draw
     draw.erase()
-    draw._text(5, draw.size.y // 2, "Listening...")
+    draw._text(5, draw.size.y // 2, "Listening...", view_manager.foreground_color)
     draw.swap()
 
 @infrared_rx_required
@@ -326,10 +326,9 @@ def _receive_signal(view_manager):
     path = _remote_file_path()
     try:
         _infrared.capture(path=path, name=_button_name, display=True)
+        view_manager.alert(f"Saved {path}")
     except Exception as error:
-        view_manager.alert("Receive failed: {}".format(error))
-    else:
-        view_manager.alert("Saved {}".format(path))
+        view_manager.alert(f"Receive failed: {error}")
     _show_learn_menu(view_manager)
 
 @infrared_tx_required

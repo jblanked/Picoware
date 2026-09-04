@@ -2,6 +2,32 @@
 
 from micropython import const
 
+from picoware.system.buttons import (
+    BUTTON_NONE,
+    BUTTON_UP,
+    BUTTON_DOWN,
+    BUTTON_LEFT,
+    BUTTON_RIGHT,
+    BUTTON_CENTER,
+    BUTTON_BACK,
+    BUTTON_ESCAPE,
+    BUTTON_BACKSPACE,
+    BUTTON_SPACE,
+    BUTTON_D,
+    BUTTON_H,
+    BUTTON_I,
+    BUTTON_M,
+    BUTTON_N,
+    BUTTON_O,
+    BUTTON_SHIFT,
+    BUTTON_CAPS_LOCK,
+    KEY_MOD_SHL,
+    KEY_MOD_SHR,
+    KEY_CAPS_LOCK,
+    BUTTON_CTRL_UP,
+    BUTTON_CTRL_DOWN,
+)
+
 FILE_BROWSER_VIEWER = const(0)
 FILE_BROWSER_MANAGER = const(1)
 FILE_BROWSER_SELECTOR = const(2)
@@ -56,6 +82,7 @@ class FileBrowser:
     ACT_FLASH = const(5)
     ACT_AUDIO = const(6)
     ACT_UNZIP = const(7)
+    ACT_VIDEO = const(8)
 
     OPTIONS_LABELS = ("Hidden Files", "Dir Enter")
 
@@ -331,6 +358,29 @@ class FileBrowser:
         else:
             self._vm.alert("Unsupported file format.")
             self._needs_redraw = True
+
+    def __file_watch(self, path) -> None:
+        """Watch a video."""
+        from picoware.system.video import Video
+
+        v = Video(path)
+
+        inp = self._vm.input_manager
+        inp.reset()
+        if v.start():
+            while v.run():
+                but = inp.button
+                if but in (
+                    BUTTON_BACK,
+                    BUTTON_ESCAPE,
+                    BUTTON_CENTER,
+                ):
+                    break
+            v.stop()
+        else:
+            self._vm.alert("Failed to start")
+
+        del v
 
     def __zip_list(self, path) -> None:
         """Show the names and sizes of files in a ZIP archive."""
@@ -917,31 +967,6 @@ class FileBrowser:
         Returns:
             bool: True to continue running, False to exit the app.
         """
-        from picoware.system.buttons import (
-            BUTTON_NONE,
-            BUTTON_UP,
-            BUTTON_DOWN,
-            BUTTON_LEFT,
-            BUTTON_RIGHT,
-            BUTTON_CENTER,
-            BUTTON_BACK,
-            BUTTON_ESCAPE,
-            BUTTON_BACKSPACE,
-            BUTTON_SPACE,
-            BUTTON_D,
-            BUTTON_H,
-            BUTTON_I,
-            BUTTON_M,
-            BUTTON_N,
-            BUTTON_O,
-            BUTTON_SHIFT,
-            BUTTON_CAPS_LOCK,
-            KEY_MOD_SHL,
-            KEY_MOD_SHR,
-            KEY_CAPS_LOCK,
-            BUTTON_CTRL_UP,
-            BUTTON_CTRL_DOWN,
-        )
 
         btn = self._vm.button
 
@@ -950,14 +975,12 @@ class FileBrowser:
                 self.__render()
             return True
 
-        # --- Sub-View: Image Viewer Input ---
         if self._is_viewing_image:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER):
                 self._is_viewing_image = False
                 self._image_path = ""
                 self._needs_redraw = True
 
-        # --- Sub-View: Text Viewer Input ---
         elif self._is_viewing_text:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER):
                 self._is_viewing_text = False
@@ -979,7 +1002,6 @@ class FileBrowser:
                 if self._text_viewer_box:
                     self._text_viewer_box.jump_to_bottom()
 
-        # --- Sub-View: Text Editor Input ---
         elif (
             self._is_editing
             and self._editor_state == self.MODE_EDITING
@@ -999,7 +1021,6 @@ class FileBrowser:
                 if len(self._text_editor.current_text) != prev_text_len:
                     self._edit_unsaved = True
 
-        # --- Sub-View: Information Dialog Input ---
         elif self._show_info:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER):
                 self._show_info = False
@@ -1015,7 +1036,6 @@ class FileBrowser:
                 if self._info_box:
                     self._info_box.scroll_down()
 
-        # --- Sub-View: Text Entry (Rename/Make Folder) Input ---
         elif self._input_active:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE):
                 self._input_active = False
@@ -1118,7 +1138,6 @@ class FileBrowser:
                     self._input_cursor += 1
                     self._needs_redraw = True
 
-        # --- Main File Browser Input: Marking items ---
         elif (
             btn == BUTTON_SPACE
             and not self._is_help_screen
@@ -1161,7 +1180,6 @@ class FileBrowser:
                             self._app_state["right_index"] = (ix + 1) % len(fl)
                         self._needs_redraw = True
 
-        # --- Main File Browser Input: Hotkeys ---
         elif (
             btn == BUTTON_M
             and not self._is_help_screen
@@ -1301,7 +1319,6 @@ class FileBrowser:
                             )
             self._needs_redraw = True
 
-        # --- Sub-View: Options Menu Input ---
         elif self._show_options:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE, BUTTON_CENTER):
                 self._show_options = False
@@ -1325,7 +1342,6 @@ class FileBrowser:
                         "dir_menu", True
                     )
 
-        # --- Sub-View: Confirm Overwrite/Delete Dialog Input ---
         elif self._confirm_menu is not None:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE):
                 del self._confirm_menu
@@ -1449,6 +1465,9 @@ class FileBrowser:
                                         self.__loading_run("Playing....", 0.5)
                                     audio.stop()
 
+                    elif self._pending_action == self.ACT_VIDEO:
+                        self.__file_watch(self._context_target_path)
+
                     elif self._pending_action == self.ACT_UNZIP:
                         self.__zip_unzip(self._context_target_path)
 
@@ -1463,7 +1482,6 @@ class FileBrowser:
                 self._context_target_path = self._pending_dest_path = ""
                 self._needs_redraw = True
 
-        # --- Sub-View: Context Menu Input ---
         elif self._context_menu is not None:
             if btn in (BUTTON_BACK, BUTTON_ESCAPE):
                 del self._context_menu
@@ -1536,7 +1554,7 @@ class FileBrowser:
                                 self._vm.log(f'JS Result: {result}', -1)
                             del mjs
                             mjs = None
-                        else: # basic
+                        elif self._context_target_path.endswith("bas"): # basic
                             from picoware.system.mmbasic import MMBasic
                             bs = MMBasic(self._vm)
                             bs.start(path=self._context_target_path)
@@ -1546,6 +1564,14 @@ class FileBrowser:
                                 pass
                             del bs
                             bs = None
+                        elif self._context_target_path.endswith("c"): # C source
+                            from picoware.system.c import C
+                            c = C()
+                            result = c.exec(self._context_target_path)
+                            if result:
+                                self._vm.log(f'C Compile Result: {result}', -1)
+                            del c
+                            c = None
                     elif ac == "Delete":
                         self._pending_action = self.ACT_DELETE
                         mk = self._app_state["marked"]
@@ -1563,6 +1589,10 @@ class FileBrowser:
                         self._pending_action = self.ACT_AUDIO
                         fn = self._context_target_path.split("/")[-1]
                         self._confirm_menu = self.__menu_spawn("Play?", ("No", "Yes"))
+                    elif ac == "Watch Video":
+                        self._pending_action = self.ACT_VIDEO
+                        fn = self._context_target_path.split("/")[-1]
+                        self._confirm_menu = self.__menu_spawn("Watch Video?", ("No", "Yes"))
                     elif ac == "Unzip":
                         self._pending_action = self.ACT_UNZIP
                         self._confirm_menu = self.__menu_spawn(
@@ -1784,7 +1814,9 @@ class FileBrowser:
                                     items.append("Unzip")
                             elif np.lower().endswith((".wav", ".mp3")):
                                 items = ["Play Audio"]
-                            elif np.lower().endswith((".js", ".mjs", ".bas")):
+                            elif np.lower().endswith((".mp4", ".avi", ".mov")):
+                                items = ["Watch Video"]
+                            elif np.lower().endswith((".js", ".mjs", ".bas", ".c")):
                                 items = ["Run", "View", "Edit"]
                             else:
                                 is_img = np.lower().endswith((".jpg", ".jpeg", ".bmp"))

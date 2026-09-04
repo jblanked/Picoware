@@ -32,9 +32,10 @@ def start(view_manager) -> bool:
             view_manager.foreground_color,
             2,
         )
-        _usb.add_item("Keyboard")
-        _usb.add_item("Media Keys")
         _usb.add_item("Numpad")
+        _usb.add_item("Media Keys")
+        _usb.add_item("Payload")
+        _usb.add_item("Keyboard")
         _usb.set_selected(_usb_index)
 
         _usb.draw()
@@ -74,7 +75,7 @@ def run(view_manager) -> None:
     elif button == BUTTON_CENTER:
         _usb_index = _usb.selected_index
 
-        if _usb_index == 0:
+        if _usb_index == 3:
             # Keyboard
             from picoware.applications.usb import keyboard
 
@@ -100,7 +101,7 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("usb_media_keys")
-        elif _usb_index == 2:
+        elif _usb_index == 0:
             # Numpad
             from picoware.applications.usb import numpad
 
@@ -113,6 +114,19 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("usb_numpad")
+        elif _usb_index == 2:
+            # Payload
+            from picoware.applications.usb import payload
+
+            view_manager.add(
+                View(
+                    "usb_payload",
+                    payload.run,
+                    payload.start,
+                    payload.stop,
+                )
+            )
+            view_manager.switch_to("usb_payload")
 
 
 def stop(view_manager) -> None:

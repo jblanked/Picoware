@@ -7,6 +7,10 @@
 #include "../sd/storage.h"
 #elif defined(FLIPPER_ZERO)
 #include "../Flippper/sd/storage.h"
+#elif defined(DESKTOP)
+#include "../Desktop/desktop_bridge.h"
+#define storage_file_size desktop_storage_file_size
+#define storage_file_read desktop_storage_file_read
 #endif
 
 const mp_obj_type_t mjs_mp_type;
@@ -64,7 +68,7 @@ mp_obj_t mjs_mp_exec(mp_obj_t self_in, mp_obj_t path)
     }
 
     mjs_val_t result = mjs_mk_undefined();
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO) || defined(DESKTOP)
     size_t fsize = storage_file_size(bufinfo.buf);
     if (fsize == 0)
     {
@@ -122,7 +126,7 @@ static MP_DEFINE_CONST_FUN_OBJ_2(mjs_mp_run_obj, mjs_mp_run);
 void mjs_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
     mjs_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (destination[0] != MP_OBJ_NULL)
+    if (destination[0] == MP_OBJ_NULL)
     {
         // Load attributes
         switch (attribute)

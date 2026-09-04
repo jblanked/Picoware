@@ -250,22 +250,31 @@
 
 #ifdef DESKTOP
 #include "../font/font.h"
-#define LCD_MP_CHAR(...) ((void)0)
-#define LCD_MP_CIRCLE(...) ((void)0)
-#define LCD_MP_CLEAR(...) ((void)0)
-#define LCD_MP_FILL_CIRCLE(...) ((void)0)
-#define LCD_MP_FILL_RECTANGLE(...) ((void)0)
-#define LCD_MP_FILL_ROUND_RECTANGLE(...) ((void)0)
-#define LCD_MP_FILL_TRIANGLE(...) ((void)0)
-#define LCD_MP_FILL_TRIANGLE_ALPHA(...) ((void)0)
-#define LCD_MP_BLIT(...) ((void)0)
-#define LCD_MP_BLIT_16BIT(...) ((void)0)
-#define LCD_MP_LINE(...) ((void)0)
-#define LCD_MP_PIXEL(...) ((void)0)
-#define LCD_MP_RECTANGLE(...) ((void)0)
-#define LCD_MP_TEXT(...) ((void)0)
-#define LCD_MP_TRIANGLE(...) ((void)0)
-#define LCD_SWAP() ((void)0)
+#include "../Desktop/desktop_bridge.h"
+#define LCD_MP_WIDTH 320
+#define LCD_MP_HEIGHT 320
+#define LCD_MP_CHAR desktop_lcd_char
+#define LCD_MP_CIRCLE desktop_lcd_circle
+#define LCD_MP_CLEAR desktop_lcd_clear
+#define LCD_MP_FILL_CIRCLE desktop_lcd_fill_circle
+#define LCD_MP_FILL_RECTANGLE desktop_lcd_fill_rectangle
+#define LCD_MP_FILL_ROUND_RECTANGLE desktop_lcd_fill_round_rectangle
+#define LCD_MP_FILL_TRIANGLE desktop_lcd_fill_triangle
+#define LCD_MP_FILL_TRIANGLE_ALPHA desktop_lcd_fill_triangle_alpha
+#define LCD_MP_BLIT desktop_lcd_blit
+#define LCD_MP_BLIT_16BIT desktop_lcd_blit_16bit
+#define LCD_MP_LINE desktop_lcd_line
+#define LCD_MP_PIXEL desktop_lcd_pixel
+#define LCD_MP_RECTANGLE desktop_lcd_rectangle
+#define LCD_MP_SET_BRIGHTNESS desktop_lcd_set_brightness
+#define LCD_MP_SET_RGB_LED desktop_lcd_set_rgb_led
+#define LCD_MP_TEXT desktop_lcd_text
+#define LCD_MP_TRIANGLE desktop_lcd_triangle
+#define LCD_MP_READ_ROW desktop_lcd_read_row
+#define LCD_SWAP desktop_lcd_swap
+#define storage_file_write_open desktop_storage_file_write_open
+#define storage_file_close desktop_storage_file_close
+#define storage_file_write_file_chunk desktop_storage_file_write_file_chunk
 #endif
 
 // Common USB video callback — set by lcd_mp_set_usb_video_callback()

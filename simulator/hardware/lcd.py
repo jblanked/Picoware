@@ -126,6 +126,20 @@ class LCD:
         off = self._offset(x, y)
         return self._buffer[off] | (self._buffer[off + 1] << 8)
 
+    def _read_row(self, y):
+        """Return one framebuffer row in the shared RGB332 format."""
+        y = int(y)
+        if y < 0 or y >= self.height:
+            return b""
+        row = bytearray(self.width)
+        for x in range(self.width):
+            color = self._get_pixel(x, y)
+            r3 = ((color >> 11) & 31) >> 2
+            g3 = ((color >> 5) & 63) >> 3
+            b2 = (color & 31) >> 3
+            row[x] = (r3 << 5) | (g3 << 2) | b2
+        return bytes(row)
+
     def _clear(self, color=0):
         color = int(color) & 0xFFFF
         lo = color & 0xFF

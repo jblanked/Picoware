@@ -465,7 +465,6 @@ def _buttons_module():
 
 def _draw_module():
     import lcd
-    import sim_runtime
 
     module = _Module()
     passthrough = (
@@ -488,23 +487,6 @@ def _draw_module():
             module[js_name] = getattr(lcd, name)
         else:
             module[js_name] = lambda *args, **kwargs: None
-
-    def text_len(text, font_size=None):
-        display = sim_runtime.get_lcd()
-        if display is not None:
-            width, _, spacing = display._font_metrics(font_size)
-        else:
-            width, spacing = (5, 1) if font_size in (None, 0) else (7, 0)
-        return len(str(text)) * (width + spacing)
-
-    def screenshot(path):
-        display = sim_runtime.get_lcd()
-        if display is None:
-            display = lcd.LCD()
-        return display.screenshot(sim_runtime.host_path(path))
-
-    module["len"] = text_len
-    module["screenshot"] = screenshot
     module["swap"] = getattr(lcd, "swap", lambda: None)
     return module
 
@@ -644,26 +626,21 @@ def _settings_module():
 
 
 def _storage_module():
+    import sd_mp
+
     module = _Module()
 
     def read(path):
-        with open(str(path), "r") as handle:
-            return handle.read()
+        return bytes(sd_mp.read(str(path))).decode()
 
     def read_chunk(path, offset, chunk_size):
-        with open(str(path), "r") as handle:
-            handle.seek(int(offset))
-            return handle.read(int(chunk_size))
+        return bytes(sd_mp.read(str(path), int(offset), int(chunk_size))).decode()
 
     def size(path):
-        import os
-
-        return os.stat(str(path))[6]
+        return sd_mp.get_file_size(str(path))
 
     def write(path, data):
-        with open(str(path), "w") as handle:
-            handle.write(str(data))
-        return True
+        return sd_mp.write(str(path), str(data).encode(), True)
 
     module["read"] = read
     module["readChunk"] = read_chunk

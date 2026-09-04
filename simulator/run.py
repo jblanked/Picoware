@@ -563,6 +563,7 @@ def _run_sim_check(opts):
     board_name = str(opts["board"]).lower().replace("_", "-")
     if board_name in ("desktop", "unix"):
         _run_desktop_native_check(opts)
+        _run_mjs_check(opts)
     _run_library_route_check()
     _run_stale_app_link_check(opts)
     _run_duplicate_app_link_check(opts)
@@ -691,7 +692,8 @@ def _run_sim_check(opts):
     _run_audio_shutdown_check()
     _run_circular_choice_check()
     _run_fatal_exit_check(opts)
-    _run_mjs_check()
+    if board_name not in ("desktop", "unix"):
+        _run_mjs_check(opts)
     print("[sim-check:pass]")
 
 
@@ -707,7 +709,16 @@ def _run_desktop_native_check(opts):
 
     if picoware_desktop.BOARD_ID != 15:
         raise RuntimeError("Desktop interpreter board ID mismatch")
-    expected_modules = ("auto_complete", "font", "mmbasic", "response", "vector")
+    expected_modules = (
+        "auto_complete",
+        "c",
+        "font",
+        "mjs",
+        "mmbasic",
+        "response",
+        "video",
+        "vector",
+    )
     if picoware_desktop.native_modules() != expected_modules:
         raise RuntimeError("Desktop interpreter native module set mismatch")
 
@@ -1508,53 +1519,155 @@ def _run_fatal_exit_check(opts):
     print("[sim-check:ok] fatal main errors exit nonzero")
 
 
-def _run_mjs_check():
-    """Smoke-test the JavaScript modules supplied by the simulator shim."""
+def _run_mjs_check(opts=None):
+    """Smoke-test the JavaScript modules supplied by native and shim MJS."""
     import mjs
     import sim_runtime
+    import sd_mp
 
-    js = mjs.MJS()
-    js.run('let audio = import("audio");')
-    if js.run("audio.isPlaying();") is not False:
-        raise RuntimeError("simulator mjs audio state mismatch")
-
-    js.run('let psram = import("psram");')
-    js.run('psram.write32("0x20", "0x12345678");')
-    if js.run('psram.read32("0x20");') != 0x12345678:
-        raise RuntimeError("simulator mjs psram round-trip failed")
-
-    js.run('let bluetooth = import("bluetooth");')
-    if not js.run("bluetooth.register();"):
-        raise RuntimeError("simulator mjs bluetooth registration failed")
-
-    js.run('let websocket = import("websocket");')
-    if js.run("websocket.isConnected();") is not False:
-        raise RuntimeError("simulator mjs websocket state mismatch")
-
-    js.run('let draw = import("draw");')
-    if js.run('draw.len("Hello World");') != 66:
-        raise RuntimeError("simulator mjs draw length mismatch")
-    screenshot_path = sim_runtime.host_path("sim_reports/mjs.bmp")
-    _mkdir_p(_dirname(screenshot_path))
-    js.run('draw.screenshot("sim_reports/mjs.bmp");')
-    try:
-        if os.stat(screenshot_path)[6] <= 54:
-            raise RuntimeError("simulator mjs screenshot is empty")
-    except OSError:
-        raise RuntimeError("simulator mjs screenshot missing")
-
-    js.run('let settings = import("settings");')
-    expected_settings = (
-        ("settings.anthropicApiKey", ""),
-        ("settings.geminiApiKey", ""),
-        ("settings.localUrl", "http://127.0.0.1:8080/v1/chat/completions"),
-        ("settings.screenBrightness", 100),
-        ("settings.xaiApiKey", ""),
+    original_state = {
+        "root": sim_runtime.root,
+        "sd_root": sim_runtime.sd_root,
+        "apps_source": sim_runtime.apps_source,
+        "board": sim_runtime.board,
+        "headless": sim_runtime.headless,
+        "network_mode": sim_runtime.network_mode,
+    }
+    original_lcd = sim_runtime.get_lcd()
+    test_paths = (
+        "sim_reports/mjs-bridge.txt",
+        "sim_reports/mjs.bmp",
     )
-    for expression, expected in expected_settings:
-        if js.run(expression + ";") != expected:
-            raise RuntimeError("simulator mjs setting mismatch: " + expression)
-    print("[sim-check:ok] mjs draw settings audio bluetooth psram websocket")
+
+    if opts:
+        sim_runtime.root = ROOT
+        sim_runtime.sd_root = opts["sd"]
+        sim_runtime.apps_source = opts["apps_source"]
+        sim_runtime.board = opts["board"]
+        sim_runtime.headless = True
+        sim_runtime.network_mode = "offline"
+        sim_runtime.seed_sd("network-fixtures")
+
+    try:
+        import lcd
+
+        if sim_runtime.get_lcd() is None:
+            lcd.LCD()
+
+        js = mjs.MJS()
+        if getattr(js, "is_initialized", True) is not True:
+            raise RuntimeError("simulator mjs failed to initialize")
+        js.run('let audio = import("audio");')
+        if js.run("audio.isPlaying();") is not False:
+            raise RuntimeError("simulator mjs audio state mismatch")
+
+        js.run('let psram = import("psram");')
+        js.run('psram.write32("0x20", "0x12345678");')
+        if js.run('psram.read32("0x20");') != 0x12345678:
+            raise RuntimeError("simulator mjs psram round-trip failed")
+
+        js.run('let bluetooth = import("bluetooth");')
+        if not js.run("bluetooth.register();"):
+            raise RuntimeError("simulator mjs bluetooth registration failed")
+
+        js.run('let websocket = import("websocket");')
+        if js.run("websocket.isConnected();") is not False:
+            raise RuntimeError("simulator mjs websocket state mismatch")
+
+        js.run('let draw = import("draw");')
+        if js.run('draw.len("Hello World");') != 66:
+            raise RuntimeError("simulator mjs draw length mismatch")
+        js.run('draw.clear("#000000"); draw.pixel(1, 1, "#ffffff");')
+        js.run('draw.line(1, 1, 4, 4, "#ffffff");')
+        js.run('draw.rectangle(2, 2, 5, 5, "#ffffff");')
+        js.run('draw.fillRectangle(3, 3, 4, 4, "#ffffff");')
+        js.run('draw.fillRoundRectangle(4, 4, 5, 5, 2, "#ffffff");')
+        js.run('draw.circle(8, 8, 3, "#ffffff");')
+        js.run('draw.fillCircle(12, 12, 3, "#ffffff");')
+        js.run('draw.triangle(15, 15, 20, 15, 18, 20, "#ffffff");')
+        js.run('draw.fillTriangle(22, 15, 27, 15, 24, 20, "#ffffff");')
+        js.run('draw.char(30, 15, "A", "#ffffff", 0);')
+        js.run('draw.text(3, 3, "MJS", "#ffffff", 0);')
+        js.run("draw.swap();")
+        screenshot_path = sim_runtime.host_path("sim_reports/mjs.bmp")
+        _mkdir_p(_dirname(screenshot_path))
+        js.run('draw.screenshot("sim_reports/mjs.bmp");')
+        try:
+            if os.stat(screenshot_path)[6] <= 54:
+                raise RuntimeError("simulator mjs screenshot is empty")
+        except OSError:
+            raise RuntimeError("simulator mjs screenshot missing")
+
+        js.run('let settings = import("settings");')
+        expected_settings = (
+            ("settings.anthropicApiKey", ""),
+            ("settings.geminiApiKey", ""),
+            ("settings.localUrl", "http://127.0.0.1:8080/v1/chat/completions"),
+            ("settings.screenBrightness", 100),
+            ("settings.xaiApiKey", ""),
+        )
+        for expression, expected in expected_settings:
+            if js.run(expression + ";") != expected:
+                raise RuntimeError("simulator mjs setting mismatch: " + expression)
+
+        js.run('let storage = import("storage");')
+        if not js.run('storage.write("sim_reports/mjs-bridge.txt", "native bridge");'):
+            raise RuntimeError("simulator mjs storage write failed")
+        if js.run('storage.size("sim_reports/mjs-bridge.txt");') != 13:
+            raise RuntimeError("simulator mjs storage size mismatch")
+        if js.run('storage.read("sim_reports/mjs-bridge.txt");') != "native bridge":
+            raise RuntimeError("simulator mjs storage read mismatch")
+        if js.run('storage.readChunk("sim_reports/mjs-bridge.txt", 7, 6);') != "bridge":
+            raise RuntimeError("simulator mjs storage chunk mismatch")
+
+        js.run('let http = import("http");')
+        if not js.run('http.requestStart("https://example.com", "GET", "", "");'):
+            raise RuntimeError("simulator mjs HTTP request failed")
+        if js.run("http.isFinished();") is not True:
+            raise RuntimeError("simulator mjs HTTP completion mismatch")
+        response = js.run("http.getResponse(4096);")
+        if not response or '"fixture"' not in response:
+            raise RuntimeError("simulator mjs HTTP response mismatch")
+
+        if not js.run('websocket.start("ws://example.com", 80);'):
+            raise RuntimeError("simulator mjs WebSocket start failed")
+        try:
+            import time
+
+            connected = False
+            for _ in range(20):
+                if js.run("websocket.isConnected();") is True:
+                    connected = True
+                    break
+                time.sleep(0.01)
+            if not connected:
+                raise RuntimeError("simulator mjs WebSocket connection mismatch")
+            if not js.run('websocket.send("hello");'):
+                raise RuntimeError("simulator mjs WebSocket send failed")
+            received = False
+            for _ in range(20):
+                if js.run("websocket.getResponse(2048);") == "hello":
+                    received = True
+                    break
+                time.sleep(0.01)
+            if not received:
+                raise RuntimeError("simulator mjs WebSocket response mismatch")
+        finally:
+            if not js.run("websocket.stop();"):
+                raise RuntimeError("simulator mjs WebSocket stop failed")
+
+        js.run('log("native mjs log");')
+        print("[sim-check:ok] mjs native/shim storage HTTP WebSocket LCD logging")
+    finally:
+        try:
+            for path in test_paths:
+                sd_mp.remove(path)
+        except Exception:
+            pass
+        sim_runtime.set_lcd(original_lcd)
+        for name, value in original_state.items():
+            setattr(sim_runtime, name, value)
+        gc.collect()
 
 
 def _write_error_file(path, exc):

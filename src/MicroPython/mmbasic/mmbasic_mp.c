@@ -235,7 +235,7 @@ mp_obj_t mmbasic_start(size_t n_args, const mp_obj_t *pos_args,
     }
     else if (path != mp_const_none)
     {
-#if STORAGE_DOES_EXIST == 1
+#if defined(DESKTOP) || STORAGE_DOES_EXIST == 1
         const char *fn = mp_obj_str_get_str(path);
         size_t size = storage_file_size(fn);
         if (size == 0 || size > 262144)

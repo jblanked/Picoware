@@ -5,6 +5,12 @@
 
 #if defined(WAVESHARE_1_28) || defined(WAVESHARE_1_69)
 #define STORAGE_NOT_AVAILABLE 1
+#elif defined(DESKTOP)
+#include "../../Desktop/desktop_bridge.h"
+#define storage_file_size desktop_storage_file_size
+#define storage_file_read desktop_storage_file_read
+#define storage_file_read_chunk desktop_storage_file_read_chunk
+#define storage_file_write desktop_storage_file_write
 #else
 #include "../../sd/storage.h"
 #endif
@@ -53,8 +59,8 @@ void storage_read_chunk(struct mjs *mjs)
         m_free(filename_copy);
         return;
     }
-    const size_t bytes_read = storage_file_read(filename, buffer + offset, chunk_size);
-    mjs_return(mjs, mjs_mk_string(mjs, buffer + offset, bytes_read, 1));
+    const size_t bytes_read = storage_file_read_chunk(filename, buffer, chunk_size, offset);
+    mjs_return(mjs, mjs_mk_string(mjs, buffer, bytes_read, 1));
     m_free(filename_copy);
     m_free(buffer);
 #endif

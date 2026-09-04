@@ -931,7 +931,7 @@ mp_obj_t sd_mp_read(size_t n_args, const mp_obj_t *args)
     size_t bytes_read;
     const bool status = fat32_read(&file, buffer, size_of_buffer, &bytes_read) == FAT32_OK;
     fat32_close(&file);
-    mp_obj_t result = status ? mp_obj_new_bytes(buffer, bytes_read) : mp_const_none;
+    mp_obj_t result = status ? mp_obj_new_bytes(buffer, bytes_read) : mp_obj_new_bytes(NULL, 0);
     m_free(buffer);
     return result;
 }

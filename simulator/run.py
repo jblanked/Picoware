@@ -584,7 +584,6 @@ def _run_sim_check(opts):
         _run_desktop_native_check(opts)
     _run_library_route_check()
     _run_stale_app_link_check(opts)
-    _run_sd_capacity_check(opts)
     _run_c_parity_check(opts)
     _run_ir_parity_check()
     _run_duplicate_app_link_check(opts)
@@ -863,29 +862,6 @@ def _run_c_parity_check(opts):
         sim_runtime.apps_source = old_apps_source
         gc.collect()
     print("[sim-check:ok] native C module and bundled C example")
-
-
-def _run_sd_capacity_check(opts):
-    """Prove simulator storage reports the real backing filesystem capacity."""
-    import sd_mp
-    import sim_runtime
-
-    old_sd_root = sim_runtime.sd_root
-    try:
-        sim_runtime.sd_root = opts["sd"]
-        _mkdir_p(opts["sd"])
-        free = sd_mp.get_free_space()
-        total = sd_mp.get_total_space()
-    finally:
-        sim_runtime.sd_root = old_sd_root
-    if total <= 0 or free <= 0 or free > total:
-        raise RuntimeError(
-            "simulator SD capacity mismatch: free="
-            + str(free)
-            + " total="
-            + str(total)
-        )
-    print("[sim-check:ok] simulated SD free/total capacity")
 
 
 def _run_ir_parity_check():

@@ -76,27 +76,6 @@ def unmount():
     return True
 
 
-def _filesystem_space():
-    """Return free and total bytes for the simulated SD filesystem."""
-    sim_runtime.mkdir_p(sim_runtime.sd_root)
-    try:
-        stats = os.statvfs(sim_runtime.sd_root)
-    except (AttributeError, OSError):
-        return 0, 0
-    block_size = int(stats[1] or stats[0] or 1)
-    return int(stats[3]) * block_size, int(stats[2]) * block_size
-
-
-def get_free_space():
-    """Return the host filesystem's currently available SD bytes."""
-    return _filesystem_space()[0]
-
-
-def get_total_space():
-    """Return the host filesystem capacity backing the simulated SD."""
-    return _filesystem_space()[1]
-
-
 def exists(path):
     """Return True if the given VFS path exists."""
     try:

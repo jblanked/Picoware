@@ -196,6 +196,33 @@ void desktop_lcd_text(uint16_t x, uint16_t y, const char *text,
     desktop_call_lcd(MP_QSTR__text, 5, arguments);
 }
 
+void desktop_lcd_read_row(uint16_t row, uint8_t *out_buffer)
+{
+    if (!out_buffer)
+        return;
+
+    memset(out_buffer, 0, 320);
+
+    nlr_buf_t nlr;
+    if (nlr_push(&nlr) != 0)
+        return;
+
+    mp_obj_t lcd = desktop_lcd();
+    if (lcd != mp_const_none)
+    {
+        mp_obj_t arguments[] = {mp_obj_new_int(row)};
+        mp_obj_t result = desktop_call_method(
+            lcd, DESKTOP_QSTR("_read_row"), 1, arguments);
+        mp_buffer_info_t source;
+        if (mp_get_buffer(result, &source, MP_BUFFER_READ))
+        {
+            size_t copy_size = source.len < 320 ? source.len : 320;
+            memcpy(out_buffer, source.buf, copy_size);
+        }
+    }
+    nlr_pop();
+}
+
 void desktop_lcd_set_brightness(uint8_t brightness)
 {
     mp_obj_t arguments[] = {mp_obj_new_int(brightness)};
@@ -207,29 +234,6 @@ void desktop_lcd_set_rgb_led(uint8_t red, uint8_t green, uint8_t blue)
     mp_obj_t arguments[] = {mp_obj_new_int(red), mp_obj_new_int(green),
                             mp_obj_new_int(blue)};
     desktop_call_lcd(DESKTOP_QSTR("set_rgb_led"), 3, arguments);
-}
-
-bool desktop_lcd_screenshot(const char *path)
-{
-    nlr_buf_t nlr;
-    if (nlr_push(&nlr) != 0)
-        return false;
-
-    mp_obj_t runtime = desktop_import(MP_QSTR_sim_runtime);
-    mp_obj_t path_argument = mp_obj_new_str(path, strlen(path));
-    mp_obj_t host_path = desktop_call_method(
-        runtime, DESKTOP_QSTR("host_path"), 1, &path_argument);
-    mp_obj_t lcd = desktop_lcd();
-    if (lcd == mp_const_none)
-    {
-        nlr_pop();
-        return false;
-    }
-    mp_obj_t result = desktop_call_method(lcd, DESKTOP_QSTR("screenshot"), 1,
-                                         &host_path);
-    bool success = mp_obj_is_true(result);
-    nlr_pop();
-    return success;
 }
 
 void desktop_lcd_swap(void)
@@ -349,8 +353,19 @@ size_t desktop_storage_file_read_chunk(const char *path, void *buffer,
     return desktop_storage_file_read_at(path, buffer, buffer_size, offset);
 }
 
+static bool desktop_storage_file_write_mode(const char *path,
+                                            const void *buffer,
+                                            size_t buffer_size, bool overwrite);
+
 bool desktop_storage_file_write(const char *path, const void *buffer,
                                 size_t buffer_size)
+{
+    return desktop_storage_file_write_mode(path, buffer, buffer_size, true);
+}
+
+static bool desktop_storage_file_write_mode(const char *path,
+                                            const void *buffer,
+                                            size_t buffer_size, bool overwrite)
 {
     if (buffer == NULL && buffer_size != 0)
         return false;
@@ -358,8 +373,59 @@ bool desktop_storage_file_write(const char *path, const void *buffer,
     mp_obj_t arguments[] = {mp_obj_new_str(path, strlen(path)),
                             mp_obj_new_bytes((const byte *)buffer,
                                              buffer_size),
-                            mp_const_true};
+                            mp_obj_new_bool(overwrite)};
     return desktop_module_bool(MP_QSTR_sd_mp, MP_QSTR_write, 3, arguments);
+}
+
+typedef struct
+{
+    char *path;
+} desktop_storage_write_handle_t;
+
+void *desktop_storage_file_write_open(const char *path)
+{
+    if (!path)
+        return NULL;
+
+    desktop_storage_write_handle_t *handle =
+        m_malloc(sizeof(desktop_storage_write_handle_t));
+    if (!handle)
+        return NULL;
+
+    size_t path_size = strlen(path) + 1;
+    handle->path = m_malloc(path_size);
+    if (!handle->path)
+    {
+        m_free(handle);
+        return NULL;
+    }
+    memcpy(handle->path, path, path_size);
+
+    if (!desktop_storage_file_write_mode(path, NULL, 0, true))
+    {
+        m_free(handle->path);
+        m_free(handle);
+        return NULL;
+    }
+    return handle;
+}
+
+void desktop_storage_file_close(void *handle)
+{
+    desktop_storage_write_handle_t *file = handle;
+    if (!file)
+        return;
+    m_free(file->path);
+    m_free(file);
+}
+
+bool desktop_storage_file_write_file_chunk(void *handle, const void *data,
+                                           size_t size)
+{
+    desktop_storage_write_handle_t *file = handle;
+    if (!file)
+        return false;
+    return desktop_storage_file_write_mode(file->path, data, size, false);
 }
 
 bool desktop_http_get_response(void *buffer, size_t buffer_size)

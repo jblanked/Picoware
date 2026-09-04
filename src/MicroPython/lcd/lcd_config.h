@@ -270,7 +270,11 @@
 #define LCD_MP_SET_RGB_LED desktop_lcd_set_rgb_led
 #define LCD_MP_TEXT desktop_lcd_text
 #define LCD_MP_TRIANGLE desktop_lcd_triangle
+#define LCD_MP_READ_ROW desktop_lcd_read_row
 #define LCD_SWAP desktop_lcd_swap
+#define storage_file_write_open desktop_storage_file_write_open
+#define storage_file_close desktop_storage_file_close
+#define storage_file_write_file_chunk desktop_storage_file_write_file_chunk
 #endif
 
 // Common USB video callback — set by lcd_mp_set_usb_video_callback()

@@ -4,7 +4,6 @@ from micropython import const
 from picoware.system.colors import TFT_WHITE, TFT_BLACK
 from picoware.system.decorator import storage_required, wifi_required
 
-from json import loads as json_loads
 from json import dumps as json_dumps
 
 from picoware.system.buttons import (
@@ -198,6 +197,7 @@ class FlipSocialRun:
         self.should_clear_screen: bool = True  # should clear the screen
 
         self._loaded_data = None # cached loaded data
+        self.max_characters = 100 # maximum number of characters allowed in post    
 
     def __del__(self) -> None:
         if self.http:
@@ -335,11 +335,11 @@ class FlipSocialRun:
             if keyboard:
                 self.should_clear_screen = False
                 if not self.keyboard_ran:
-                    keyboard.run(False, True)
+                    keyboard.run(False, True, self.max_characters)
                     keyboard.run(False, True)
                     self.keyboard_ran = True
                 else:
-                    keyboard.run(False, False)
+                    keyboard.run(False, False, self.max_characters)
         elif self.comments_status == COMMENTS_SENDING:
             if not self.__loading_started:
                 self.__loading_start(canvas, "Sending...")
@@ -438,21 +438,21 @@ class FlipSocialRun:
             if keyboard:
                 self.should_clear_screen = False
                 if not self.keyboard_ran:
-                    keyboard.run(False, True)
-                    keyboard.run(False, True)
+                    keyboard.run(False, True, self.max_characters)
+                    keyboard.run(False, True, self.max_characters)
                     self.keyboard_ran = True
                 else:
-                    keyboard.run(False, False)
+                    keyboard.run(False, False, self.max_characters)
         elif self.explore_status == EXPLORE_KEYBOARD_MESSAGE:
             keyboard = self.view_manager.keyboard
             if keyboard:
                 self.should_clear_screen = False
                 if not self.keyboard_ran:
-                    keyboard.run(False, True)
-                    keyboard.run(False, True)
+                    keyboard.run(False, True, self.max_characters)
+                    keyboard.run(False, True, self.max_characters)
                     self.keyboard_ran = True
                 else:
-                    keyboard.run(False, False)
+                    keyboard.run(False, False, self.max_characters)
         elif self.explore_status == EXPLORE_SENDING:
             if not self.__loading_started:
                 self.__loading_start(canvas, "Sending...")
@@ -1064,11 +1064,11 @@ class FlipSocialRun:
             if keyboard:
                 self.should_clear_screen = False
                 if not self.keyboard_ran:
-                    keyboard.run(False, True)
-                    keyboard.run(False, True)
+                    keyboard.run(False, True, self.max_characters)
+                    keyboard.run(False, True, self.max_characters)
                     self.keyboard_ran = True
                 else:
-                    keyboard.run(False, False)
+                    keyboard.run(False, False, self.max_characters)
 
         elif self.messages_status == MESSAGES_SENDING:
             if not self.__loading_started:
@@ -1215,11 +1215,11 @@ class FlipSocialRun:
             if keyboard:
                 self.should_clear_screen = False
                 if not self.keyboard_ran:
-                    keyboard.run(False, True)
-                    keyboard.run(False, True)
+                    keyboard.run(False, True, self.max_characters)
+                    keyboard.run(False, True, self.max_characters)
                     self.keyboard_ran = True
                 else:
-                    keyboard.run(False, False)
+                    keyboard.run(False, False, self.max_characters)
 
         elif self.post_status == POST_CHOOSE:
             storage = self.view_manager.storage

@@ -116,7 +116,7 @@ static MP_DEFINE_CONST_FUN_OBJ_2(c_mp_exec_obj, c_mp_exec);
 void c_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
     c_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (destination[0] != MP_OBJ_NULL)
+    if (destination[0] == MP_OBJ_NULL)
     {
         switch (attribute)
         {

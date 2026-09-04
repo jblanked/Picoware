@@ -23,8 +23,15 @@ def bootloader():
 
 
 class _PinCPU:
+    A0 = "A0"
+    B9 = "B9"
     B6 = "B6"
     B7 = "B7"
+
+
+class _PinBoard:
+    IR_RX = "IR_RX"
+    IR_TX = "IR_TX"
 
 
 class Pin:
@@ -35,6 +42,7 @@ class Pin:
     IRQ_FALLING = 4
     IRQ_RISING = 8
     cpu = _PinCPU()
+    board = _PinBoard()
 
     def __init__(self, *args, **kwargs):
         self.id = args[0] if args else kwargs.get("id", None)
@@ -65,7 +73,11 @@ class Pin:
         self._value = int(value)
         changed = old != self._value
         if changed and self._handler:
-            self._handler(self)
+            rising = old == 0 and self._value != 0
+            falling = old != 0 and self._value == 0
+            trigger = self._irq_trigger
+            if trigger is None or (rising and trigger & self.IRQ_RISING) or (falling and trigger & self.IRQ_FALLING):
+                self._handler(self)
         return self._value
 
     def init(self, mode=-1, pull=-1, value=None):
@@ -76,6 +88,12 @@ class Pin:
         if value is not None:
             self.value(value)
         return None
+
+
+def idle():
+    """Yield to the simulator while allowing software timers to advance."""
+    Timer.poll_all()
+    time.sleep(0)
 
 
 class RTC:

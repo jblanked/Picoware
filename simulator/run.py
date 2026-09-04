@@ -411,9 +411,37 @@ def _interpreter_command():
     return _quote(executable if executable else "micropython")
 
 
+def _module_available(name, attribute=""):
+    """Return whether the selected interpreter supplies an optional module."""
+    try:
+        module = __import__(name)
+        return not attribute or hasattr(module, attribute)
+    except ImportError:
+        return False
+
+
 def _board_option(opts):
     """Return the selected simulator board as a quoted child-process option."""
     return " --board " + _quote(opts["board"])
+
+
+def _board_supports_ghouls(board_name):
+    """Match the firmware's board-gated built-in Ghouls game."""
+    board = str(board_name).lower().replace("_", "-")
+    wifi_boards = (
+        "picocalc-picow",
+        "picocalc-pico2w",
+        "picocalc-pimoroni-2w",
+        "pimoroni-2w",
+        "cardputer",
+        "waveshare-2.06",
+        "waveshare-2.06-esp32s3",
+        "pancake",
+        "v8",
+        "desktop",
+        "unix",
+    )
+    return board in wifi_boards and board != "picocalc-picow"
 
 
 def _file_exists(path):
@@ -512,7 +540,8 @@ def _run_coverage(opts):
         for name in _list_py_entries(opts["apps_source"]):
             entries.append(("app", name))
     if mode in ("games", "all"):
-        entries.append(("game", "Ghouls"))
+        if _board_supports_ghouls(opts["board"]):
+            entries.append(("game", "Ghouls"))
         for name in _list_py_entries(opts["apps_source"] + "/games"):
             entries.append(("game", name))
     if not entries:
@@ -566,7 +595,10 @@ def _run_sim_check(opts):
         _run_mjs_check(opts)
     _run_library_route_check()
     _run_stale_app_link_check(opts)
+    _run_c_parity_check(opts)
+    _run_ir_parity_check()
     _run_duplicate_app_link_check(opts)
+    _seed_mmbasic_parity_fixture(opts)
     commands = (
         "sh "
         + _quote(THIS_DIR + "/build.sh")
@@ -575,6 +607,14 @@ def _run_sim_check(opts):
         + " "
         + _quote(THIS_DIR + "/run.py")
         + " --headless --frames 30 --wait-view desktop_view --audio silent --network offline --sd "
+        + _quote(opts["sd"])
+        + " --apps-source "
+        + _quote(opts["apps_source"])
+        + _board_option(opts),
+        _interpreter_command()
+        + " "
+        + _quote(THIS_DIR + "/run.py")
+        + " --headless --app fuel_log --wait-view app_fuel_log --frames 220 --audio silent --network offline --sd "
         + _quote(opts["sd"])
         + " --apps-source "
         + _quote(opts["apps_source"])
@@ -672,6 +712,11 @@ def _run_sim_check(opts):
         + " --apps-source "
         + _quote(opts["apps_source"]),
     )
+    if not _module_available("mmbasic", "MMBasic"):
+        commands = tuple(
+            command for command in commands if "--open MMBasic " not in command
+        )
+        print("[sim-check:skip] MMBasic native module unavailable in this interpreter")
     for cmd in commands:
         status = os.system(cmd)
         if status != 0:
@@ -771,8 +816,13 @@ def _run_desktop_native_check(opts):
             raise RuntimeError("native MMBasic END status mismatch")
 
         sd_mp.write(path, b'CLS\nDO WHILE INKEY$ = "": LOOP\n')
+        source = sd_mp.read(path, 0, 0)
+        try:
+            source = source.decode("utf-8")
+        except AttributeError:
+            source = str(source, "utf-8")
         engine = mmbasic.MMBasic(0xFFFF, 0, 0x07E0, 320, 320, 8, 8, 0, 0)
-        if not engine._start(path=path):
+        if not engine._start(source=source):
             raise RuntimeError("native MMBasic rejected simulated SD input")
         if engine.tick(5) != (0, "", 0) or not engine.has_graphics:
             raise RuntimeError("native MMBasic graphics/input state mismatch")
@@ -787,6 +837,109 @@ def _run_desktop_native_check(opts):
         sim_runtime.headless = original_headless
         gc.collect()
     print("[sim-check:ok] Desktop native logic and MMBasic hardware bridge")
+
+
+def _run_c_parity_check(opts):
+    """Use the native Desktop C module and verify the bundled source is present."""
+    if not _module_available("c", "C"):
+        print("[sim-check:skip] native C module unavailable in this interpreter")
+        return
+
+    import c
+    import sim_runtime
+
+    old_root = sim_runtime.root
+    old_sd_root = sim_runtime.sd_root
+    old_apps_source = sim_runtime.apps_source
+    old_lcd = sim_runtime.get_lcd()
+    try:
+        sim_runtime.root = ROOT
+        sim_runtime.sd_root = opts["sd"]
+        sim_runtime.apps_source = opts["apps_source"]
+        _mkdir_p(opts["sd"])
+        sim_runtime.seed_sd("dev")
+        engine = c.C()
+        if not engine.is_initialized:
+            raise RuntimeError("native C engine failed to initialize")
+        if engine.run("int main(){ return 0; }") != 0:
+            raise RuntimeError("native C engine rejected a valid source")
+        try:
+            os.stat(sim_runtime.host_path("picoware/c/hello.c"))
+        except OSError:
+            raise RuntimeError("bundled C example is missing from simulated SD")
+    finally:
+        sim_runtime.set_lcd(old_lcd)
+        sim_runtime.root = old_root
+        sim_runtime.sd_root = old_sd_root
+        sim_runtime.apps_source = old_apps_source
+        gc.collect()
+    print("[sim-check:ok] native C module and bundled C example")
+
+
+def _run_ir_parity_check():
+    """Exercise the simulator's real IR timer waveform and board pins."""
+    import sim_runtime
+
+    def forget_board_modules():
+        sys.modules.pop("picoware_boards", None)
+        sys.modules.pop("picoware.system.boards", None)
+        package = sys.modules.get("picoware.system")
+        if package is not None:
+            package.__dict__.pop("boards", None)
+
+    old_board = sim_runtime.board
+    try:
+        sim_runtime.board = "cardputer"
+        forget_board_modules()
+        from picoware.system.infrared import (
+            InfraredTransmitter,
+            Signal,
+            _default_rx_pin,
+            _default_tx_pin,
+        )
+
+        tx_pin = _default_tx_pin()
+        if getattr(tx_pin, "id", None) != 44:
+            raise RuntimeError("simulator Cardputer IR TX pin mismatch")
+        signal = Signal(
+            {
+                "name": "simulator",
+                "type": "raw",
+                "frequency": "38000",
+                "duty_cycle": "0.33",
+                "data": "9000 4500 560 560",
+            }
+        )
+        sim_runtime.clear_ir_waveform()
+        InfraredTransmitter(tx_pin).send(signal)
+        waveform = sim_runtime.get_ir_waveform()
+        if len(waveform) < 4:
+            raise RuntimeError("simulator IR waveform is incomplete")
+        first = waveform[0]
+        if (
+            first["duration_us"] != 9000
+            or not first["mark"]
+            or first["frequency"] != 38000
+        ):
+            raise RuntimeError("simulator IR waveform does not match raw signal")
+
+        sim_runtime.board = "flipper-zero"
+        forget_board_modules()
+        rx_pin = _default_rx_pin()
+        if getattr(rx_pin, "id", None) != "IR_RX":
+            raise RuntimeError("simulator Flipper IR RX pin mismatch")
+    finally:
+        sim_runtime.board = old_board
+        forget_board_modules()
+    print("[sim-check:ok] infrared timer waveform and board pins")
+
+
+def _seed_mmbasic_parity_fixture(opts):
+    """Use a bounded MMBasic fixture instead of the long-running clock demo."""
+    path = opts["sd"] + "/picoware/mmbasic/00_simulator_parity.bas"
+    _mkdir_p(opts["sd"] + "/picoware/mmbasic")
+    with open(path, "w") as handle:
+        handle.write('PRINT "Simulator parity"\nEND\n')
 
 
 def _run_library_route_check():
@@ -1800,7 +1953,6 @@ def main():
     sys.modules["socket"] = sim_usocket
     sys.modules["tls"] = sim_tls
     sys.modules["ssl"] = sim_tls
-
     opts = _parse_args(sys.argv)
     if opts["reset_sd"]:
         _safe_reset_sd(opts["sd"])

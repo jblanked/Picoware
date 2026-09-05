@@ -48,7 +48,9 @@
 #define EXE_DBG 0
 
 // Uninitialized global data section
-#if defined(DESKTOP)
+#if defined(DESKTOP) && defined(__linux__)
+#define UDATA __attribute__((section("desktop_ccudata")))
+#elif defined(DESKTOP)
 #define UDATA
 #elif defined(PSHELL_MICROPYTHON)
 #define UDATA __attribute__((section("ccudata")))
@@ -4948,7 +4950,13 @@ int cc(int mode, int argc, char **argv)
 {
 
     // clear uninitialized global variables
-#if !defined(DESKTOP) && defined(PSHELL_MICROPYTHON)
+#if defined(DESKTOP) && defined(__linux__)
+    // Match the embedded reset: previous AST and symbol pointers were freed
+    // after compilation and must not be reused on the next invocation.
+    extern char __start_desktop_ccudata, __stop_desktop_ccudata;
+    memset(&__start_desktop_ccudata, 0,
+           &__stop_desktop_ccudata - &__start_desktop_ccudata);
+#elif !defined(DESKTOP) && defined(PSHELL_MICROPYTHON)
     extern char __start_ccudata, __stop_ccudata;
     memset(&__start_ccudata, 0, &__stop_ccudata - &__start_ccudata);
 #elif !defined(DESKTOP)

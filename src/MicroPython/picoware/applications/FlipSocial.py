@@ -289,16 +289,28 @@ class FlipSocialRun:
                                             "0",
                                             True,
                                         )
+                                        message_y = canvas.scale_y(40)
+                                        navigation_y = (
+                                            message_y
+                                            + (canvas.font_size.y * 3)
+                                            + canvas.scale_y(6)
+                                        )
 
                                         # Draw navigation arrows if there are multiple comments
                                         if self.comments_index > 0:
-                                            text_vec_x, text_vec_y = canvas.scale(2, 60)
-                                            canvas._text(text_vec_x, text_vec_y, "< Prev", TFT_WHITE)
-                                        if self.comments_index < total_comments - 1:
-                                            text_vec_x, text_vec_y = canvas.scale(
-                                                96, 60
+                                            canvas._text(
+                                                canvas.scale_x(2),
+                                                navigation_y,
+                                                "< Prev",
+                                                TFT_WHITE,
                                             )
-                                            canvas._text(text_vec_x, text_vec_y, "Next >", TFT_WHITE)
+                                        if self.comments_index < total_comments - 1:
+                                            canvas._text(
+                                                canvas.size.x - canvas.len("Next >") - 1,
+                                                navigation_y,
+                                                "Next >",
+                                                TFT_WHITE,
+                                            )
 
                                         # Draw comment counter
                                         counter_text = f"{self.comments_index + 1}/{total_comments}"
@@ -501,7 +513,7 @@ class FlipSocialRun:
         is_admin: bool = username == "JBlanked"
         flip_count: int = int(flips) if flips.isdigit() else 0
         bottom_y = canvas.size.y - canvas.scale_y(40)
-        text_vec_x, text_vec_y = canvas.scale(0, 18)
+        text_vec_x, text_vec_y = canvas.scale(0, 9)
         if is_admin:
             # Filled white badge with black username text
             width = canvas.len(username) + canvas.font_size.x

@@ -863,6 +863,12 @@ def _run_c_parity_check(opts):
             raise RuntimeError("native C engine failed to initialize")
         if engine.run("int main(){ return 0; }") != 0:
             raise RuntimeError("native C engine rejected a valid source")
+        if engine.run("int main(){ return 0; }") != 0:
+            raise RuntimeError("native C engine failed on repeated compilation")
+        if engine.run("int main(){ return ; broken syntax }") == 0:
+            raise RuntimeError("native C engine accepted invalid source")
+        if engine.run("int main(){ return 0; }") != 0:
+            raise RuntimeError("native C engine failed after invalid source")
         try:
             os.stat(sim_runtime.host_path("picoware/c/hello.c"))
         except OSError:

@@ -1,5 +1,5 @@
 // clang-format off
-#ifndef DESKTOP
+#if !defined(DESKTOP) && !defined(CARDPUTER)
 static const struct define_grp stdio_defines[] = {
     // OPEN
     {"TRUE", 1},

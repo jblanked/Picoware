@@ -19,7 +19,7 @@
 #include <string.h>
 
 // pico SDK support functions
-#ifndef DESKTOP
+#if defined(PICO_RP2350) || defined(PICO_RP2040)
 #include <hardware/adc.h>
 #include <hardware/clocks.h>
 #include <hardware/gpio.h>
@@ -102,8 +102,8 @@ static union conv
     float f; // floating point value
 } tkv;       // current token value
 
-#if PICO_RP2040 || defined(DESKTOP)
-#if defined(DESKTOP)
+#if PICO_RP2040 || defined(DESKTOP) || defined(CARDPUTER)
+#if defined(DESKTOP) || defined(CARDPUTER)
 enum
 {
     aeabi_idiv = 1,
@@ -119,7 +119,7 @@ enum
     aeabi_fcmpge,
 };
 
-static void (*fops[])() = {0};
+static void (*fops[12])() = {0};
 #else
 // SDK floating point functions. RP2350 has HW instructions for these.
 void __wrap___aeabi_idiv();
@@ -512,7 +512,7 @@ static int wrap_screen_width(void)
 
 static void wrap_wfi(void)
 {
-#ifndef DESKTOP
+#if !defined(DESKTOP) && !defined(CARDPUTER)
     __wfi();
 #endif
 };
@@ -3017,7 +3017,7 @@ static void emit_branch(uint16_t *to)
         emit_call((int)(to + 2));
 }
 
-#if PICO_RP2040 || defined(DESKTOP)
+#if PICO_RP2040 || defined(DESKTOP) || defined(CARDPUTER)
 static void emit_fop(int n)
 {
     if (!ofn) // if exe output emit negative external function index
@@ -4763,7 +4763,7 @@ static char *x_strdup(char *s)
 
 static int x_printf(int etype)
 {
-#ifndef DESKTOP
+#if !defined(DESKTOP) && !defined(CARDPUTER)
     int *sp;
     asm volatile("mov %0, sp \n" : "=r"(sp));
     sp += 2;
@@ -4776,7 +4776,7 @@ static int x_printf(int etype)
 
 static int x_sprintf(int etype)
 {
-#ifndef DESKTOP
+#if !defined(DESKTOP) && !defined(CARDPUTER)
     int *sp;
     asm volatile("mov %0, sp \n" : "=r"(sp));
     sp += 2;
@@ -4875,7 +4875,7 @@ static void help(char *lib)
             "            C source file name.\n"
             "Libraries:\n"
             "    %s",
-            includes[0]);
+            includes[0].name);
         for (int i = 1; includes[i].name; i++)
         {
             printf(", %s", includes[i].name);
@@ -5252,8 +5252,9 @@ int cc(int mode, int argc, char **argv)
             if (fs_setattr(full_path(ofn), 1, "exe", 4) < LFS_ERR_OK)
                 fatal("unable to set executable attribute");
             printf("\ntext size   0x%04x\ndata size   0x%04x\nentry point "
-                   "0x%04x\nreloc count %6d\n",
-                   exe.tsize, exe.dsize, exe.entry - (int)text_base,
+                   "0x%04lx\nreloc count %6d\n",
+                   exe.tsize, exe.dsize,
+                   (unsigned long)(exe.entry - (uintptr_t)text_base),
                    exe.nreloc);
             goto done;
         }
@@ -5336,7 +5337,7 @@ int cc(int mode, int argc, char **argv)
 
     // launch the user code
     printf("\n");
-#ifndef DESKTOP
+#if !defined(DESKTOP) && !defined(CARDPUTER)
     asm volatile("mov  %0, sp \n" : "=r"(exit_sp));
     asm volatile("mov  r0, %2 \n"
                  "push {r0}   \n"

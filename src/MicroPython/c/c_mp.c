@@ -88,7 +88,7 @@ static MP_DEFINE_CONST_FUN_OBJ_2(c_mp_run_obj, c_mp_run);
 mp_obj_t c_mp_exec(mp_obj_t self_in, mp_obj_t path)
 {
     (void)self_in;
-#ifndef C_STORAGE_ENABLED
+#if !defined(C_STORAGE_ENABLED) && !defined(CARDPUTER)
     (void)path;
     return mp_obj_new_int(-1);
 #else

@@ -385,16 +385,9 @@ class FileBrowser:
     def __zip_list(self, path) -> None:
         """Show the names and sizes of files in a ZIP archive."""
         try:
-            from picoware.system.drivers.zipfile import ZipFile
-            s = self._vm.storage
-            if not s.mount_vfs():
-                self._vm.alert("Unable to mount storage.")
-                self._needs_redraw = True
-                return
             entries = []
-            with ZipFile(f"{s.vfs_prefix}{path}", "r") as archive:
-                for info in archive.infolist():
-                    entries.append(f"{info.filename}  {info.file_size} bytes")
+            for entry in self._vm.storage.listzip(path):
+                entries.append(f"{entry['filename']}  {entry['size_uncompressed']} bytes")
 
             self._info_data = "\n".join(entries) if entries else "Archive is empty."
             self._show_info = True
@@ -407,15 +400,11 @@ class FileBrowser:
         """Extract a ZIP archive into its current directory."""
         target_directory = path.rsplit("/", 1)[0] or "/"
         try:
-            from picoware.system.drivers.zipfile import ZipFile
-            s = self._vm.storage
-            if not s.mount_vfs():
-                self._vm.alert("Unable to mount storage.")
+            self.__loading_run("Unzipping...", 0.5)
+            if not self._vm.storage.unzip(path, target_directory):
+                self._vm.alert("Failed to unzip")
                 self._needs_redraw = True
                 return
-            self.__loading_run("Unzipping...", 0.5)
-            with ZipFile(f"{s.vfs_prefix}{path}", "r") as archive:
-                archive.extractall(target_directory)
             self.__loading_run("Unzipped", 1.0)
         except Exception as e:
             self.__loading_run("", 1.0)

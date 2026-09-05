@@ -368,6 +368,40 @@ class Storage:
             print(f"Error listing directory {path}: {e}")
             return []
 
+    def listzip(self, zip_file_path: str) -> list[str]:
+        """List the contents of a ZIP file.
+
+        Args:
+            zip_file_path (str): The path of the ZIP file.
+
+        Returns:
+            list[str]: The filenames in the ZIP archive.
+        """
+        if not self._has_storage:
+            return []  # No SD storage on this board
+        was_mounted = self._vfs_mounted
+        try:
+            from picoware.system.drivers.zipfile import ZipFile
+
+            if not was_mounted and not self.mount_vfs():
+                return []
+
+            entries = []
+            with ZipFile(f"{self.vfs_prefix}{zip_file_path}", "r") as archive:
+                for info in archive.infolist():
+                    entries.append({
+                        "filename": info.filename,
+                        "size_uncompressed": info.file_size,
+                        "size_compressed": info.compress_size
+                    })
+            return entries
+        except Exception as e:
+            print(f"Error listing ZIP file {zip_file_path}: {e}")
+            return []
+        finally:
+            if not was_mounted and self._vfs_mounted:
+                self.unmount_vfs()
+
     def mkdir(self, path: str) -> bool:
         """Create a new directory.
 
@@ -581,6 +615,33 @@ class Storage:
             print(f"Error reading directory {path}: {e}")
             return []
 
+    def read_zip_item(self, zip_path: str, item_name: str) -> bytes:
+        """Read a specific item from a ZIP archive.
+        
+        Args:
+            zip_path (str): The path to the ZIP archive.
+            item_name (str): The name of the item within the ZIP archive to read.
+
+        Returns:
+            bytes: The content of the item, or empty bytes on failure.
+        """ 
+        if not self._has_storage:
+            return b""  # No SD storage on this board
+        was_mounted = self._vfs_mounted
+        try:
+            if not was_mounted and not self.mount_vfs():
+                return b""
+            from picoware.system.drivers.zipfile import ZipFile
+            with ZipFile(f"{self.vfs_prefix}{zip_path}", "r") as archive:
+                with archive.open(item_name) as myfile:
+                    return myfile.read()
+        except Exception as e:
+            print(f"Error reading item {item_name} from ZIP {zip_path}: {e}")
+            return b""
+        finally:
+            if not was_mounted and self._vfs_mounted:
+                self.unmount_vfs()
+
     def remove(self, file_path: str) -> bool:
         """Remove a file or directory.
 
@@ -700,3 +761,61 @@ class Storage:
             print(f"Error unmounting SD: {e}")
             return False
         return True
+
+    def unzip(self, zip_file_path: str, extract_to: str) -> bool:
+        """Unzip a ZIP file to a specified directory.
+
+        Args:
+            zip_file_path (str): The path of the ZIP file to extract.
+            extract_to (str): The directory to extract the contents to.
+
+        Returns:
+            bool: True if extraction succeeded, False otherwise.
+        """
+        if not self._has_storage:
+            return False  # No SD storage on this board
+        was_mounted = self._vfs_mounted
+        try:
+            if not was_mounted and not self.mount_vfs():
+                return False
+            from picoware.system.drivers.zipfile import ZipFile
+            with ZipFile(f"{self.vfs_prefix}{zip_file_path}", "r") as archive:
+                archive.extractall(extract_to)
+            return True
+        except Exception as e:
+            print(f"Error unzipping file {zip_file_path}: {e}")
+            return False
+        finally:
+            if not was_mounted and self._vfs_mounted:
+                self.unmount_vfs()
+
+    def zip(self, zip_file_path: str, files_to_add: list, compressed: bool = True) -> bool:
+        """Create a ZIP file and add specified files to it.
+
+        Args:
+            zip_file_path (str): The path of the ZIP file to create.
+            files_to_add (list): A list of file paths to add to the ZIP file.
+            compressed (bool): Whether to compress the files in the ZIP archive. Defaults to True.
+
+        Returns:
+            bool: True if the ZIP operation succeeded, False otherwise.
+        """
+        if not self._has_storage:
+            return False  # No SD storage on this board
+        was_mounted = self._vfs_mounted
+        try:
+            if not was_mounted and not self.mount_vfs():
+                return False
+            from picoware.system.drivers.zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
+            with ZipFile(f"{self.vfs_prefix}{zip_file_path}", "w", ZIP_DEFLATED if compressed else ZIP_STORED) as archive:
+                for file_path in files_to_add:
+                    with open(f"{self.vfs_prefix}{file_path}", "rb") as f:
+                        with archive.open(file_path, "w") as dest:
+                            dest.write(f.read())
+            return True
+        except Exception as e:
+            print(f"Error creating ZIP file {zip_file_path}: {e}")
+            return False
+        finally:
+            if not was_mounted and self._vfs_mounted:
+                self.unmount_vfs()

@@ -93,6 +93,11 @@ static mjs_val_t settings_gmt_offset(struct mjs *mjs)
     return settings_mp_read(mjs, "gmt_offset");
 }
 
+static mjs_val_t settings_jblanked_api_key(struct mjs *mjs)
+{
+    return settings_mp_read(mjs, "jblanked_api_key");
+}
+
 static mjs_val_t settings_local_url(struct mjs *mjs)
 {
     return settings_mp_read(mjs, "local_url");
@@ -101,6 +106,12 @@ static mjs_val_t settings_local_url(struct mjs *mjs)
 static mjs_val_t settings_lvgl_mode(struct mjs *mjs)
 {
     return settings_mp_read(mjs, "lvgl_mode");
+}
+
+static mjs_val_t settings_mcp_servers(struct mjs *mjs)
+{
+    mjs_val_t servers = settings_mp_read(mjs, "mcp_servers");
+    return mjs_is_undefined(servers) ? mjs_mk_array(mjs) : servers;
 }
 
 static mjs_val_t settings_onscreen_keyboard(struct mjs *mjs)
@@ -161,8 +172,10 @@ void settings_create(struct mjs *mjs, mjs_val_t *settings_obj)
     mjs_set_getter(mjs, *settings_obj, "exitButton", ~0, settings_exit_button);
     mjs_set_getter(mjs, *settings_obj, "geminiApiKey", ~0, settings_gemini_api_key);
     mjs_set_getter(mjs, *settings_obj, "gmtOffset", ~0, settings_gmt_offset);
+    mjs_set_getter(mjs, *settings_obj, "jblankedApiKey", ~0, settings_jblanked_api_key);
     mjs_set_getter(mjs, *settings_obj, "localUrl", ~0, settings_local_url);
     mjs_set_getter(mjs, *settings_obj, "lvglMode", ~0, settings_lvgl_mode);
+    mjs_set_getter(mjs, *settings_obj, "mcpServers", ~0, settings_mcp_servers);
     mjs_set_getter(mjs, *settings_obj, "onscreenKeyboard", ~0, settings_onscreen_keyboard);
     mjs_set_getter(mjs, *settings_obj, "openaiApiKey", ~0, settings_openai_api_key);
     mjs_set_getter(mjs, *settings_obj, "screenBrightness", ~0, settings_screen_brightness);

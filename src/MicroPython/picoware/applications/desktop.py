@@ -235,12 +235,19 @@ def run(view_manager) -> None:
         )
         view_manager.switch_to("system_info")
         return
-    if button in (BUTTON_CENTER, BUTTON_UP):
+    if button == BUTTON_CENTER:
         from picoware.applications import library
         from picoware.system.view import View
 
         view_manager.add(View("library", library.run, library.start, library.stop))
         view_manager.switch_to("library")
+        return
+    if button == BUTTON_UP:
+        from picoware.applications import notifications
+        from picoware.system.view import View
+
+        view_manager.add(View("notifications", notifications.run, notifications.start, notifications.stop))
+        view_manager.switch_to("notifications")
         return
 
     battery_level: int = view_manager.battery.percentage

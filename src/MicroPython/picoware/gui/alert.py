@@ -108,12 +108,10 @@ class Alert:
             task_handler()
             return
 
-        from picoware.system.vector import Vector
-
         self.clear()
 
-        size: Vector = self.display.size
-        font_size: Vector = self.display.font_size
+        size = self.display.size
+        font = self.display.get_font()
 
         if self.is_circular:
             # Circular display implementation
@@ -122,7 +120,7 @@ class Alert:
             radius = min(size.x, size.y) // 2
 
             # Draw Title at top center
-            title_width = self.display.len(title)
+            title_width = len(title) * (font.width + font.spacing)
             title_x = center_x - (title_width // 2)
             title_y = int(center_y - radius * 0.85)
             self.display._text(title_x, title_y, title, self.text_color)
@@ -136,7 +134,7 @@ class Alert:
             # Calculate text area constraints for circular display
             text_start_y = int(center_y - radius * 0.6)
             max_radius_at_y = int(radius * 0.8)
-            chars_per_line = ((max_radius_at_y * 2) // (font_size.x)) - 1
+            chars_per_line = ((max_radius_at_y * 2) // (font.width + font.spacing)) - 1
 
             # Wrap text manually based on character count
             line: int = 0
@@ -145,7 +143,7 @@ class Alert:
             words = self._text.split()
             current_line = ""
 
-            distance = font_size.y + 1
+            distance = font.height + 1
             for word in words:
                 test_line = current_line + (" " if current_line else "") + word
                 current_y = text_start_y + line * distance
@@ -157,14 +155,14 @@ class Alert:
                     current_line = test_line
                 else:
                     if current_line:
-                        line_width = self.display.len(current_line)
+                        line_width = len(current_line) * (font.width + font.spacing)
                         self.display._text(center_x - (line_width // 2), current_y, current_line, self.text_color)
                         line += 1
 
                     if len(word) > chars_per_line:
                         for i in range(0, len(word), chars_per_line):
                             chunk = word[i : i + chars_per_line]
-                            chunk_width = self.display.len(chunk)
+                            chunk_width = len(chunk) * (font.width + font.spacing)
                             self.display._text(center_x - (chunk_width // 2), current_y, chunk, self.text_color)
                             line += 1
                         current_line = ""
@@ -172,17 +170,17 @@ class Alert:
                         current_line = word
 
             if current_line:
-                line_width = self.display.len(current_line)
+                line_width = len(current_line) * (font.width + font.spacing)
                 self.display._text(center_x - (line_width // 2), current_y, current_line, self.text_color)
         else:
             # Draw Title
-            title_width = self.display.len(title)
+            title_width = len(title) * (font.width + font.spacing)
             title_x = (size.x - title_width) // 2
             self.display._text(title_x, 0, title, self.text_color)
 
             # Draw Border
             border_left = int(size.x * 0.0625)
-            border_top = self.display.font_size.y + 1
+            border_top = font.height + 1
             border_width = int(size.x - (2 * border_left))
             border_height = (size.y - self.display.scale_y(5)) - border_top
             self.display._rectangle(
@@ -195,7 +193,7 @@ class Alert:
             text_start_x = int(size.x * 0.09375)
             text_start_y = border_top + 2
             text_max_width = size.x - (2 * text_start_x)  # Leave padding from border
-            chars_per_line = (text_max_width // font_size.x) - 1
+            chars_per_line = (text_max_width // (font.width + font.spacing)) - 1
 
             # Wrap text manually based on character count
             line: int = 0
@@ -205,7 +203,7 @@ class Alert:
             words = self._text.split()
             current_line = ""
 
-            distance = self.display.font_size.y + 1
+            distance = font.height + 1
             for word in words:
                 # Check if adding this word would exceed the line width
                 test_line = current_line + (" " if current_line else "") + word

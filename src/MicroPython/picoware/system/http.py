@@ -971,6 +971,12 @@ class HTTP:
             # Read body
             self._download_start_ticks = ticks_ms()
             self._downloaded_bytes = 0
+            if not self._should_continue():
+                s.close()
+                return
+            if save_to_file and storage:
+                if storage.exists(save_to_file):
+                    storage.remove(save_to_file)
             if transfer_encoding == "chunked":
                 body = self.read_chunked(s, uart, method, save_to_file, storage)
             elif self._content_length is not None:

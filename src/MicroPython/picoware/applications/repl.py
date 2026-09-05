@@ -7,6 +7,7 @@ Last Updated: 2026-05-07
 """
 
 from micropython import const
+from picoware.system.decorator import keyboard_required
 
 _PROMPT = const(">>> ")
 _PROMPT_CONT = const("... ")
@@ -187,6 +188,7 @@ def _continue_input() -> None:
     _text_editor.cursor = len(new_text)
 
 
+@keyboard_required
 def start(view_manager) -> bool:
     """Start the app.
 

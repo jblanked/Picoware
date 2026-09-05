@@ -227,6 +227,36 @@ def infrared_tx_required(func: callable) -> callable:
         return func(*args, **kwargs)
     return wrapper
 
+def keyboard_required(func: callable) -> callable:
+    """Decorator to check if keyboard support is available.
+
+    Args:
+        func (callable): The function to decorate.
+
+    Returns:
+        callable: The wrapped function, or a stub that raises when keyboard support is missing.
+
+    Raises:
+        RuntimeError: If the decorated function is called without keyboard support.
+    """
+    if picoware_boards.BOARD_HAS_KEYBOARD == 0:
+        def unavailable(*args, **kwargs):
+            """Raise an error because keyboard is not available.
+
+            Raises:
+                RuntimeError: If keyboard support is missing on the board.
+            """
+            raise RuntimeError(f"{func.__name__} requires keyboard, which is not available")
+        return unavailable
+    def wrapper(*args, **kwargs):
+        """Call the wrapped function with the given arguments.
+
+        Returns:
+            object: The result of the wrapped function.
+        """
+        return func(*args, **kwargs)
+    return wrapper
+
 def wifi_required(func: callable) -> callable:
     """Decorator to check if WiFi is available.
 

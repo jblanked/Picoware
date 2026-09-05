@@ -1,6 +1,7 @@
 """Text Editor - Edit text files on the device."""
 
 from micropython import const
+from picoware.system.decorator import keyboard_required, storage_required
 
 STATE_MENU = const(0)
 STATE_BROWSE = const(1)
@@ -158,7 +159,8 @@ def __save_and_return_to_menu(view_manager) -> None:
     view_manager.draw.clear(color=view_manager.background_color)
     __start_menu(view_manager)
 
-
+@keyboard_required
+@storage_required
 def start(view_manager) -> bool:
     """Start the app.
 

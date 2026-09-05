@@ -318,6 +318,20 @@ class ViewManager:
         return self._audio is not None
 
     @property
+    def has_bluetooth(self):
+        """Return whether the current board has Bluetooth capability."""
+        from picoware.system.boards import BOARD_HAS_BLUETOOTH
+
+        return BOARD_HAS_BLUETOOTH == 1
+
+    @property
+    def has_keyboard(self):
+        """Return whether the current board has a keyboard."""
+        from picoware.system.boards import BOARD_HAS_KEYBOARD
+
+        return BOARD_HAS_KEYBOARD == 1
+    
+    @property
     def has_psram(self):
         """Return whether the current board has PSRAM."""
         from picoware_boards import has_psram
@@ -334,12 +348,6 @@ class ViewManager:
         """Return whether the current board has WiFi capability."""
         return self._wifi is not None
 
-    @property
-    def has_bluetooth(self):
-        """Return whether the current board has Bluetooth capability."""
-        from picoware.system.boards import BOARD_HAS_BLUETOOTH
-
-        return BOARD_HAS_BLUETOOTH == 1
 
     @property
     def input_manager(self):

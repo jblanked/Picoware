@@ -1,6 +1,7 @@
 """Python Editor - Create and edit Python files."""
 
 from micropython import const
+from picoware.system.decorator import keyboard_required, storage_required
 
 # 1. First menu: ask if creating new file or editing existing app
 # 2. If creating new: enter filename via keyboard
@@ -223,6 +224,8 @@ def _start_file_browser(view_manager) -> None:
         _file_browser.run()
 
 
+@keyboard_required
+@storage_required
 def start(view_manager) -> bool:
     """Start the app.
 
@@ -232,9 +235,6 @@ def start(view_manager) -> bool:
     Returns:
         bool: True on success.
     """
-    if not view_manager.has_sd_card:
-        view_manager.alert("Editor app requires an SD card")
-        return False
 
     global _editor_state
     global _filename

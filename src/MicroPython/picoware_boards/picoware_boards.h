@@ -207,6 +207,12 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_IR_RX 0
 #endif
 
+#if defined(PICOCALC) || defined(CARDPUTER)
+#define BOARD_HAS_KEYBOARD 1
+#else
+#define BOARD_HAS_KEYBOARD 0
+#endif
+
 #ifdef PICO_RP2040
 #define BOARD_HAS_RP2040 1
 #else

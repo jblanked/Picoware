@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include "audio.h"
+#include "battery.h"
 #include "bluetooth.h"
 #include "buttons.h"
 #include "color.h"
@@ -24,6 +25,7 @@ typedef enum
 {
     LIB_MODULE_NONE = 0,
     LIB_MODULE_AUDIO,
+    LIB_MODULE_BATTERY,
     LIB_MODULE_BLUETOOTH,
     LIB_MODULE_BUTTONS,
     LIB_MODULE_DRAW,
@@ -41,7 +43,7 @@ typedef enum
     LIB_MODULE_WIFI,
 } lib_module_t;
 
-#define LIB_MODULE_COUNT 16
+#define LIB_MODULE_COUNT 17
 
 void lib_load_module(struct mjs *mjs);
 lib_module_t lib_module_from_str(const char *str);

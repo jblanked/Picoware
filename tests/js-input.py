@@ -5,7 +5,6 @@ j = JS()
 j.run('let input = import("input");')
 
 print(f"button: {j.run('input.button;')}")
-print(f"battery: {j.run('input.battery;')}")
 print(f"was_capatilized: {j.run('input.wasCapitalized;')}")
 
 #j.run('input.read();')

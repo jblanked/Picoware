@@ -4,10 +4,10 @@
 
 static mp_obj_t battery_mp_instance;
 
-static mjs_val_t battery_battery(struct mjs *mjs)
+static mjs_val_t battery_percentage(struct mjs *mjs)
 {
     (void)mjs;
-    return mjs_val_from_attr(mjs, battery_mp_instance, MP_QSTR_battery);
+    return mjs_val_from_attr(mjs, battery_mp_instance, MP_QSTR_percentage);
 }
 
 static mjs_val_t battery_has_voltage(struct mjs *mjs)
@@ -41,7 +41,7 @@ void battery_create(struct mjs *mjs, mjs_val_t *battery_obj)
 
     *battery_obj = mjs_mk_object(mjs);
 
-    mjs_set_getter(mjs, *battery_obj, "battery", ~0, battery_battery);
+    mjs_set_getter(mjs, *battery_obj, "percentage", ~0, battery_percentage);
     mjs_set_getter(mjs, *battery_obj, "hasVoltage", ~0, battery_has_voltage);
     mjs_set_getter(mjs, *battery_obj, "voltage", ~0, battery_voltage);
 

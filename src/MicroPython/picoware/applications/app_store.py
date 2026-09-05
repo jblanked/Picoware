@@ -517,7 +517,7 @@ def __parse_app_list(view_manager) -> bool:
         return False
 
     try:
-        _apps_data = storage.serialize(file_path)
+        _apps_data = storage.deserialize(file_path)
         if not _apps_data:
             return False
 

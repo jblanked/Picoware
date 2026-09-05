@@ -405,7 +405,7 @@ class FlipSocialRun:
 
         elif self.explore_status == EXPLORE_SUCCESS:
             storage = self.view_manager.storage
-            data = storage.serialize("picoware/flip_social/explore.json")
+            data = storage.deserialize("picoware/flip_social/explore.json")
             if data is None:
                 canvas._text(0, canvas.scale_x(30), "Failed to load explore data.", TFT_WHITE)
                 self.explore_status = EXPLORE_PARSE_ERROR
@@ -582,7 +582,7 @@ class FlipSocialRun:
 
         elif self.feed_status == FEED_SUCCESS:
             storage = self.view_manager.storage
-            data = storage.serialize("picoware/flip_social/feed.json")
+            data = storage.deserialize("picoware/flip_social/feed.json")
             if data:
                 try:
                     if "feed" in data and isinstance(data["feed"], list):
@@ -647,7 +647,7 @@ class FlipSocialRun:
                     # increase the flip count locally for instant feedback
                     # and adjust the flipped status
                     storage = self.view_manager.storage
-                    data = storage.serialize("picoware/flip_social/feed.json")
+                    data = storage.deserialize("picoware/flip_social/feed.json")
                     if data:
                         try:
                             if "feed" in data and isinstance(data["feed"], list):
@@ -1132,7 +1132,7 @@ class FlipSocialRun:
         elif self.message_users_status == MESSAGE_USERS_SUCCESS:
             if self._loaded_data is None:
                 storage = self.view_manager.storage
-                self._loaded_data = storage.serialize("picoware/flip_social/message_users.json")
+                self._loaded_data = storage.deserialize("picoware/flip_social/message_users.json")
             if self._loaded_data is not None:
                 try:
                     if "users" in self._loaded_data and isinstance(self._loaded_data["users"], list):
@@ -1245,7 +1245,7 @@ class FlipSocialRun:
         SW = canvas.size.x
         if self._loaded_data is None:
             storage = self.view_manager.storage
-            self._loaded_data = storage.serialize("picoware/flip_social/profile.json")
+            self._loaded_data = storage.deserialize("picoware/flip_social/profile.json")
 
         if not self._loaded_data:
             vec_x, vec_y = canvas.scale(SW // 2 - 70, 80)
@@ -1444,7 +1444,7 @@ class FlipSocialRun:
             if self.current_menu_index == SOCIAL_VIEW_EXPLORE
             else "picoware/flip_social/message_users.json"
         )
-        data = storage.serialize(file_path)
+        data = storage.deserialize(file_path)
 
         if not data:
             self.view_manager.log("Failed to load message user list from storage")

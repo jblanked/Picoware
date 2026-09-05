@@ -50,7 +50,7 @@ class Session:
 
     def _load_session(self, session_id: str) -> bool:
         """Loads a session from the storage backend using the provided session ID."""
-        _data: dict = self._storage.serialize("picoware/agent/sessions/%s.json" % session_id)
+        _data: dict = self._storage.deserialize("picoware/agent/sessions/%s.json" % session_id)
         if not _data:
             return False
         self._id = _data.get("id")
@@ -59,7 +59,7 @@ class Session:
     
     def _save(self) -> bool:
         """Saves the current session to the storage backend."""
-        return self._storage.deserialize({
+        return self._storage.serialize({
             "id": self._id,
             "conversation": self.conversation,
         }, self.path)

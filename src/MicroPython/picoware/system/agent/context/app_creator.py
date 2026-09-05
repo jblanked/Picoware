@@ -461,7 +461,7 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - `active`: Property - True if the SD card is mounted and accessible.
     - `vfs_mounted`: Property - True if the VFS is mounted (enables Python `open()`, `__import__`, etc.).
     - `copy(source_path, destination_path, bytes_per_chunk=2048)`: Copy a file. Returns True on success.
-    - `deserialize(json_dict, file_path)`: Write a Python dict as JSON to a file.
+    - `serialize(json_dict, file_path)`: Write a Python dict as JSON to a file.
     - `execute_script(file_path="/")`: Compile and execute a Python script from the SD card.
     - `exists(path)`: Returns True if the file or directory exists.
     - `file_close(file_obj)`: Close an open `FAT32File`.
@@ -485,7 +485,7 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - `remove(file_path)`: Delete a file. Returns True on success.
     - `rename(old_path, new_path)`: Rename a file or directory. Returns True on success.
     - `rmdir(path)`: Remove a directory. Returns True on success.
-    - `serialize(file_path)`: Read a file and parse its contents as JSON. Returns a dict.
+    - `deserialize(file_path)`: Read a file and parse its contents as JSON. Returns a dict.
     - `size(file_path)`: Returns the file size in bytes.
     - `unmount()`: Unmount the SD card. Returns True on success.
     - `unmount_vfs(mount_point="/sd")`: Unmount the VFS. Returns True on success.

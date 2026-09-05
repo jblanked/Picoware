@@ -275,7 +275,7 @@ def _set_settings(view_manager):
         }
         _save_settings(view_manager)
     else:
-        _settings = s.serialize("picoware/settings/current_agent.json")
+        _settings = s.deserialize("picoware/settings/current_agent.json")
 
 def _save_settings(view_manager) -> bool:
     """Persist the current agent settings to storage.
@@ -289,7 +289,7 @@ def _save_settings(view_manager) -> bool:
     if _settings is None:
         return False
     s = view_manager.storage
-    return s.deserialize(_settings, "picoware/settings/current_agent.json")
+    return s.serialize(_settings, "picoware/settings/current_agent.json")
 
 
 def _start_agent(view_manager, mode: int, mode_label: str,

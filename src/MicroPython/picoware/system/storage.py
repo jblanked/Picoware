@@ -131,27 +131,25 @@ class Storage:
             print(f"Error copying from {source_path} to {destination_path}: {e}")
             return False
 
-    def deserialize(self, json_dict: dict, file_path: str) -> bool:
-        """Write a JSON object to a file.
+    def deserialize(self, file_path: str) -> dict:
+        """Read a file and return its contents as a JSON object.
 
         Args:
-            json_dict (dict): The JSON object to write.
-            file_path (str): The path of the file to write.
+            file_path (str): The path of the file to read.
 
         Returns:
-            bool: True if the write succeeded, False otherwise.
+            dict: The parsed JSON object, or an empty dict on failure.
         """
-        from json import dumps
+        from json import loads
 
         if not self._has_storage:
-            return False
-
+            return {}  # No SD storage on this board
         try:
-            json_str = dumps(json_dict)
-            return sd_mp.write(file_path, json_str.encode("utf-8"), True)
+            file_content = sd_mp.read(file_path, 0, 0).decode("utf-8")
+            return loads(file_content)
         except Exception as e:
-            print(f"Error writing JSON to file {file_path}: {e}")
-            return False
+            print(f"Error deserializing file {file_path}: {e}")
+            return {}
 
     def execute_script(self, file_path: str = "/") -> None:
         """Run a Python file from the storage.
@@ -507,35 +505,6 @@ class Storage:
             print(f"Error moving from {source_path} to {destination_path}: {e}")
             return False
 
-    def unmount_vfs(self, mount_point: str = "/sd") -> bool:
-        """Unmount the VFS filesystem.
-
-        Args:
-            mount_point (str): The mount point path. Defaults to "/sd".
-
-        Returns:
-            bool: True if unmounted successfully, False otherwise.
-        """
-        if not self._vfs_mounted or BOARD_HAS_ESP32 == 1:
-            return True
-
-        if BOARD_ID == BOARD_FLIPPER_ZERO:
-            self.unmount()
-            self._vfs_mounted = False
-            return True
-
-        try:
-            from vfs_mp import umount
-
-            umount(mount_point)
-            self._vfs_mounted = False
-            return True
-        except ImportError:
-            return False
-        except Exception as e:
-            print(f"Error unmounting VFS: {e}")
-            return False
-
     def read(self, file_path, mode: str = "r", index: int = 0, count: int = 0):
         """Read and return the contents of a file.
 
@@ -690,25 +659,27 @@ class Storage:
             return False  # No SD storage on this board
         return sd_mp.remove(path)
 
-    def serialize(self, file_path: str) -> dict:
-        """Read a file and return its contents as a JSON object.
+    def serialize(self, json_dict: dict, file_path: str) -> bool:
+        """Write a JSON object to a file.
 
         Args:
-            file_path (str): The path of the file to read.
+            json_dict (dict): The JSON object to write.
+            file_path (str): The path of the file to write.
 
         Returns:
-            dict: The parsed JSON object, or an empty dict on failure.
+            bool: True if the write succeeded, False otherwise.
         """
-        from json import loads
+        from json import dumps
 
         if not self._has_storage:
-            return {}  # No SD storage on this board
+            return False
+
         try:
-            file_content = sd_mp.read(file_path, 0, 0).decode("utf-8")
-            return loads(file_content)
+            json_str = dumps(json_dict)
+            return sd_mp.write(file_path, json_str.encode("utf-8"), True)
         except Exception as e:
-            print(f"Error deserializing file {file_path}: {e}")
-            return {}
+            print(f"Error serializing JSON to file {file_path}: {e}")
+            return False
 
     def size(self, file_path: str) -> int:
         """Get the size of a file or directory in bytes.
@@ -761,6 +732,35 @@ class Storage:
             print(f"Error unmounting SD: {e}")
             return False
         return True
+
+    def unmount_vfs(self, mount_point: str = "/sd") -> bool:
+        """Unmount the VFS filesystem.
+
+        Args:
+            mount_point (str): The mount point path. Defaults to "/sd".
+
+        Returns:
+            bool: True if unmounted successfully, False otherwise.
+        """
+        if not self._vfs_mounted or BOARD_HAS_ESP32 == 1:
+            return True
+
+        if BOARD_ID == BOARD_FLIPPER_ZERO:
+            self.unmount()
+            self._vfs_mounted = False
+            return True
+
+        try:
+            from vfs_mp import umount
+
+            umount(mount_point)
+            self._vfs_mounted = False
+            return True
+        except ImportError:
+            return False
+        except Exception as e:
+            print(f"Error unmounting VFS: {e}")
+            return False
 
     def unzip(self, zip_file_path: str, extract_to: str) -> bool:
         """Unzip a ZIP file to a specified directory.

@@ -120,7 +120,7 @@ def __parse_news(view_manager) -> list:
     _str_offset = __load_setting("offset", view_manager)
     _offset = int(_str_offset) if _str_offset and _str_offset.isdigit() else 0
     # https://github.com/jblanked/JB-News/blob/72fe9dbe3bac44a5c0a33854d2e5a666b7ca8f69/Python/jb_news/news.py#L291
-    _data: dict = storage.serialize(_path)  # should return a list of news events
+    _data: dict = storage.deserialize(_path)  # should return a list of news events
     _event_list = []
     for data in _data:
         if _offset == 0:

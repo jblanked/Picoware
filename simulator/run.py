@@ -1308,6 +1308,12 @@ def _run_board_parity_check():
     )
     if boards.BOARD_HAS_PICOCALC != int(boards.BOARD_ID in picocalc_ids):
         raise RuntimeError("simulator PicoCalc capability mismatch")
+    keyboard_ids = picocalc_ids + (boards.BOARD_CARDPUTER,)
+    if boards.BOARD_HAS_KEYBOARD != int(boards.BOARD_ID in keyboard_ids):
+        raise RuntimeError("simulator keyboard capability mismatch")
+    for board_id in range(boards.BOARD_DESKTOP + 1):
+        if boards.has_keyboard(board_id) != (board_id in keyboard_ids):
+            raise RuntimeError("simulator keyboard helper mismatch: " + str(board_id))
     if boards.get_name(boards.BOARD_V8) != "V8":
         raise RuntimeError("simulator V8 board name mismatch")
     if boards.get_display_size(boards.BOARD_V8) != (240, 320):
@@ -1720,6 +1726,30 @@ def _run_mjs_check(opts=None):
         if js.run("audio.isPlaying();") is not False:
             raise RuntimeError("simulator mjs audio state mismatch")
 
+        from picoware.system.battery import Battery
+
+        battery = Battery()
+        js.run('let battery = import("battery");')
+        for name, expected in (
+            ("percentage", battery.percentage),
+            ("hasVoltage", battery.has_voltage),
+            ("voltage", battery.voltage),
+        ):
+            if js.run("battery." + name + ";") != expected:
+                raise RuntimeError("simulator mjs battery mismatch: " + name)
+
+        # Desktop supplies the native Video API but does not decode movies.
+        # Check construction and idle lifecycle without claiming playback.
+        js.run('let video = import("video", "sim_reports/mjs-video.mp4");')
+        if js.run("video.path;") != "sim_reports/mjs-video.mp4":
+            raise RuntimeError("simulator mjs video path mismatch")
+        if js.run("video.active;") is not False:
+            raise RuntimeError("simulator mjs video idle state mismatch")
+        if js.run("video.run();") is not False:
+            raise RuntimeError("simulator mjs inactive video advanced")
+        if js.run("video.stop();") is not False:
+            raise RuntimeError("simulator mjs video stop result mismatch")
+
         js.run('let psram = import("psram");')
         js.run('psram.write32("0x20", "0x12345678");')
         if js.run('psram.read32("0x20");') != 0x12345678:
@@ -1761,6 +1791,7 @@ def _run_mjs_check(opts=None):
         expected_settings = (
             ("settings.anthropicApiKey", ""),
             ("settings.geminiApiKey", ""),
+            ("settings.jblankedApiKey", ""),
             ("settings.localUrl", "http://127.0.0.1:8080/v1/chat/completions"),
             ("settings.screenBrightness", 100),
             ("settings.xaiApiKey", ""),
@@ -1768,6 +1799,14 @@ def _run_mjs_check(opts=None):
         for expression, expected in expected_settings:
             if js.run(expression + ";") != expected:
                 raise RuntimeError("simulator mjs setting mismatch: " + expression)
+        # Native MJS converts returned arrays to Python dictionaries; inspect
+        # the JavaScript length to test the actual settings array contract.
+        if hasattr(js, "is_initialized"):
+            js.run("let servers = settings.mcpServers;")
+            if js.run("servers.length;") != 0:
+                raise RuntimeError("simulator mjs MCP server defaults mismatch")
+        elif js.run("settings.mcpServers;") != []:
+            raise RuntimeError("simulator shim MCP server defaults mismatch")
 
         js.run('let storage = import("storage");')
         if not js.run('storage.write("sim_reports/mjs-bridge.txt", "native bridge");'):
@@ -1816,7 +1855,7 @@ def _run_mjs_check(opts=None):
                 raise RuntimeError("simulator mjs WebSocket stop failed")
 
         js.run('log("native mjs log");')
-        print("[sim-check:ok] mjs native/shim storage HTTP WebSocket LCD logging")
+        print("[sim-check:ok] mjs native/shim battery video settings storage HTTP WebSocket LCD logging")
     finally:
         try:
             for path in test_paths:

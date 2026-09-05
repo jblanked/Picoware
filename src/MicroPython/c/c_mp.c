@@ -3,6 +3,11 @@
 #include <math.h>
 #include "storage.h"
 #include "pshell/cc/cc.h"
+#include "../lcd/lcd_config.h"
+
+#ifdef LCD_INCLUDE
+#include LCD_INCLUDE
+#endif
 
 #define C_SOURCE_MAX 262144
 #define C_PROGRAM_SPACE_SIZE (32 * 1024)
@@ -16,8 +21,13 @@ char *full_path(char *name)
 
 void get_screen_xy(int *x, int *y)
 {
+#if defined(LCD_MP_WIDTH) && defined(LCD_MP_HEIGHT)
+    *x = LCD_MP_WIDTH;
+    *y = LCD_MP_HEIGHT;
+#else
     *x = 320;
     *y = 320;
+#endif
 }
 
 float c_mp_sinf(float value) { return sinf(value); }

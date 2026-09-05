@@ -855,6 +855,35 @@ def _extract_email_address(header):
     except Exception:
         return header.strip()
 
+def imap_fetch_unread_count(from_email, from_pass):
+    """Returns the total count of unread emails.
+
+    Args:
+        from_email (str): The sender email.
+        from_pass (str): The sender app password.
+
+    Returns:
+        int: The total count of unread emails.
+
+    Raises:
+        OSError: On connection or auth errors.
+    """
+    mail = None
+    try:
+        mail = IMAP4("imap.gmail.com", 993)
+        if not mail.login(from_email, from_pass):
+            raise OSError("IMAP login failed")
+        ok, _ = mail.select("INBOX")
+        if not ok:
+            raise OSError("IMAP SELECT failed")
+        ids = mail.uid_search("UNSEEN")
+        if mail is not None:
+            mail.logout()
+        return len(ids)
+    except Exception as e:
+        if mail is not None:
+            mail.logout()
+        raise OSError("IMAP error") from e
 
 def imap_fetch_unread_emails(from_email, from_pass, limit=10):
     """Fetch summaries of the most recent unread emails.
@@ -1076,6 +1105,20 @@ class IMAPAsync:
             self._result = None
             self._thread = _thread.start_new_thread(thread_fn, ())
         return True
+
+    def fetch_unread_count(self, from_email, from_pass) -> bool:
+        """Fetch the total count of unread emails in the background.
+
+        Args:
+            from_email (str): The sender email.
+            from_pass (str): The sender app password.
+
+        Returns:
+            bool: True if the thread was started.
+        """
+        return self._start(
+            lambda: imap_fetch_unread_count(from_email, from_pass)
+        )
 
     def fetch_unread_emails(self, from_email, from_pass, limit=10) -> bool:
         """Fetch unread email summaries in the background.

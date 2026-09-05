@@ -353,6 +353,7 @@ def _is_identifier_char(char):
 def _import_module(name, args):
     factories = {
         "audio": _audio_module,
+        "battery": _battery_module,
         "bluetooth": _bluetooth_module,
         "buttons": _buttons_module,
         "draw": _draw_module,
@@ -366,6 +367,7 @@ def _import_module(name, args):
         "system": _system_module,
         "time": _time_module,
         "uart": _uart_module,
+        "video": _video_module,
         "websocket": _websocket_module,
         "wifi": _wifi_module,
     }
@@ -398,6 +400,37 @@ def _audio_module():
             "stop": player.stop,
         }
     )
+
+
+def _battery_module():
+    from picoware.system.battery import Battery
+
+    battery = Battery()
+    return _Module({
+        "percentage": _DynamicProperty(lambda: battery.percentage),
+        "hasVoltage": _DynamicProperty(lambda: battery.has_voltage),
+        "voltage": _DynamicProperty(lambda: battery.voltage),
+    })
+
+
+def _video_module(path):
+    from picoware.system.video import Video
+
+    if not isinstance(path, str) or not path:
+        raise ValueError("video import expects a non-empty path")
+    player = Video(path)
+    return _Module({
+        "active": _DynamicProperty(lambda: player.active),
+        "fps": _DynamicProperty(lambda: player.fps),
+        "frame": _DynamicProperty(lambda: player.frame),
+        "frames": _DynamicProperty(lambda: player.frames),
+        "height": _DynamicProperty(lambda: player.height),
+        "path": _DynamicProperty(lambda: player.path),
+        "width": _DynamicProperty(lambda: player.width),
+        "run": lambda: bool(player.run()),
+        "start": lambda: bool(player.start()),
+        "stop": lambda: bool(player.stop()),
+    })
 
 
 def _bluetooth_module():
@@ -610,8 +643,10 @@ def _settings_module():
         "exitButton": 5,
         "geminiApiKey": "",
         "gmtOffset": 0,
+        "jblankedApiKey": "",
         "localUrl": "http://127.0.0.1:8080/v1/chat/completions",
         "lvglMode": False,
+        "mcpServers": [],
         "onscreenKeyboard": False,
         "openaiApiKey": "",
         "openApiKey": "",

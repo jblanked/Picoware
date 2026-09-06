@@ -443,7 +443,7 @@ def run(view_manager) -> None:
 
             draw = view_manager.draw
             draw.erase()
-            draw._text(10, 10, "Starting editor...")
+            draw._text(10, 10, "Starting editor...", draw.foreground)
             draw.swap()
 
             # Start editor with or without template
@@ -488,7 +488,7 @@ def run(view_manager) -> None:
 
                 draw = view_manager.draw
                 draw.erase()
-                draw._text(10, 10, "Starting editor...")
+                draw._text(10, 10, "Starting editor...", draw.foreground)
                 draw.swap()
 
                 # Start editor with the selected file (no template needed for existing files)

@@ -372,12 +372,9 @@ class FlipSocialRun:
                     return
 
                 if "[SUCCESS]" in self.http.response.text:
-                    self.current_view = SOCIAL_VIEW_FEED
+                    self.current_view = SOCIAL_VIEW_COMMENTS
                     self.current_menu_index = SOCIAL_VIEW_FEED
                     self.comments_status = COMMENTS_NOT_STARTED
-                    self.feed_status = FEED_NOT_STARTED
-                    self.feed_item_index = 0
-                    self.feed_iteration = 1
                 else:
                     self.comments_status = COMMENTS_REQUEST_ERROR
         else:

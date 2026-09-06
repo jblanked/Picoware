@@ -223,7 +223,7 @@ CMAKE_ARGS="-DPICOWARE_ENABLE_GHOULS=ON"
 export CMAKE_ARGS
 
 # PicoCalc - Pico 2W 
-make -j BOARD=RPI_PICO2_W USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake MICROPY_HW_FLASH_STORAGE_BYTES=2097152 CFLAGS_EXTRA="-DPICOCALC -DPBUF_POOL_SIZE=10"
+make -j BOARD=RPI_PICO2_W USER_C_MODULES="$micropython_dir"/modules/PicoCalc/picoware_modules.cmake MICROPY_HW_FLASH_STORAGE_BYTES=2088960 CFLAGS_EXTRA="-DPICOCALC -DPBUF_POOL_SIZE=10"
 cp "$micropython_dir"/build-RPI_PICO2_W/firmware.uf2 "$picoware_dir"/builds/MicroPython/Picoware-PicoCalcPico2W.uf2
 echo "PicoCalc - Pico 2W build complete."
 

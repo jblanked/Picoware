@@ -388,7 +388,7 @@ def run(view_manager) -> None:
                 if keyboard:
                     keyboard.set_save_callback(__callback_filename_save)
                     keyboard.response = ""  # Start with empty filename
-                    keyboard.title = "Enter filename"
+                    keyboard.title = "Enter full file path"
                     view_manager.input_manager.reset()
                     draw = view_manager.draw
                     draw.clear(color=view_manager.background_color)

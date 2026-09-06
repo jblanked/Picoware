@@ -4,7 +4,48 @@ import engine
 
 
 class Game(engine.Game):
-    """Represents a game."""
+    """Represent the top-level game state and its native render context.
+
+    Args:
+        name (str): Name of the game.
+        size (Vector): Game world size.
+        draw (Draw): Drawing context used to render the game.
+        input_manager (InputManager): Input manager used to handle input.
+        foreground_color (int): Foreground color. Defaults to 0xFFFF.
+        background_color (int): Background color. Defaults to 0x0000.
+        camera_context (Camera or None): Camera used to render the game. Defaults to None.
+        start (callable or None): Callback called when the game starts. Defaults to None.
+        stop (callable or None): Callback called when the game stops. Defaults to None.
+
+    Attributes:
+        name (str): Game name. Writable.
+        position (Vector): Current game position. Writable.
+        size (Vector): Game world size. Writable.
+        is_active (bool): Whether the game is active. Writable.
+        foreground_color (int): Foreground color. Writable.
+        background_color (int): Background color. Writable.
+        camera (Camera or None): Current camera context. Writable.
+        input (int): Most recent input value. Writable.
+        draw (Draw): Native drawing context. Read-only.
+        current_level (Level or None): Current level. Writable.
+        MAX_LEVELS (int): Maximum number of tracked levels.
+
+    Methods:
+        - set_camera(camera): Set the camera context.
+        - set_input(input): Set the current input value.
+        - level_add(level): Add a level to the game.
+        - level_remove(level): Remove a level from the game.
+        - level_switch(index_or_name): Switch to a level by index or name.
+        - set_name(name): Set the game name.
+        - set_position(position): Set the game position.
+        - set_size(size): Set the game world size.
+        - set_is_active(is_active): Set the active flag.
+        - set_foreground_color(foreground_color): Set the foreground color.
+        - set_background_color(background_color): Set the background color.
+        - set_current_level(level): Set the current level or None.
+        - level_exists(name): Return whether a level name is registered.
+        - __del__(): Release the native game resources.
+    """
 
     def __init__(
         self,

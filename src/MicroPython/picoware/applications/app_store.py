@@ -38,6 +38,14 @@ STATE_SUBMISSION_DETAILS = const(23)
 
 MAX_ITEMS = const(100)
 
+_APP_CATEGORIES = (
+    ("View All", None),
+    ("View Python Apps", ".mpy"),
+    ("View JS Scripts", ".js"),
+    ("View MMBasic Programs", ".bas"),
+    ("View C Programs", ".c"),
+)
+
 _current_file_index: int = 0
 _http = None
 _loading = None
@@ -65,6 +73,8 @@ _submission_details: dict = None
 _input_mode: str = ""
 _file_browser = None
 _keyboard_just_started: bool = False
+_app_extension_filter: str = None
+_menu_index: int = 0
 
 
 def __reset() -> None:
@@ -77,6 +87,7 @@ def __reset() -> None:
     global _submit_app_name, _submit_app_version, _submit_app_path
     global _submissions_data, _submission_details
     global _input_mode, _file_browser, _keyboard_just_started
+    global _app_extension_filter
     if _http:
         _http.close()
         del _http
@@ -115,6 +126,7 @@ def __reset() -> None:
     _submission_details = None
     _input_mode = ""
     _keyboard_just_started = False
+    _app_extension_filter = None
     collect()
 
 
@@ -146,7 +158,7 @@ def __show_main_menu(view_manager) -> None:
     Args:
         view_manager (ViewManager): The view manager context.
     """
-    global _main_menu, _app_state
+    global _main_menu, _app_state, _menu_index
 
     draw = view_manager.draw
     draw.erase()
@@ -166,10 +178,12 @@ def __show_main_menu(view_manager) -> None:
     _main_menu.clear()
     _main_menu.add_item("Update Apps")
     _main_menu.add_item("Downloaded Apps")
-    _main_menu.add_item("View All Apps")
+    for category_name, _ in _APP_CATEGORIES:
+        _main_menu.add_item(category_name)
     _main_menu.add_item("Submit App")
     _main_menu.add_item("App Submissions")
     _main_menu.add_item("Settings")
+    _main_menu.set_selected(_menu_index)
     _main_menu.draw()
     _app_state = STATE_MAIN_MENU
 
@@ -469,7 +483,7 @@ def __draw_current_app_details(
     draw.swap()
 
 
-def __fetch_app_list(view_manager) -> bool:
+def __fetch_app_list(view_manager, extension: str = None) -> bool:
     """Fetch the list of apps from the API.
 
     Args:
@@ -478,7 +492,9 @@ def __fetch_app_list(view_manager) -> bool:
     Returns:
         bool: True if the request was started.
     """
-    global _http
+    global _http, _app_extension_filter
+
+    _app_extension_filter = extension
 
     if not _http:
         _http = HTTP(thread_manager=view_manager.thread_manager)
@@ -486,9 +502,9 @@ def __fetch_app_list(view_manager) -> bool:
     storage = view_manager.storage
     storage.mkdir("picoware/cache")
 
-    url = (
-        f"https://www.jblanked.com/picoware/api/apps/{MAX_ITEMS}/{_current_list_index}/"
-    )
+    url = f"https://www.jblanked.com/picoware/api/apps/{MAX_ITEMS}/{_current_list_index}/"
+    if extension:
+        url += f"?extension={extension}"
 
     return _http.get_async(
         url,
@@ -496,6 +512,48 @@ def __fetch_app_list(view_manager) -> bool:
         storage=storage,
         headers={"User-Agent": "Raspberry Pi Pico W"},
     )
+
+
+def __get_app_extension(app: dict) -> str:
+    """Get an app's file extension from its list metadata.
+
+    Args:
+        app (dict): App metadata from the API.
+
+    Returns:
+        str: The app extension, or an empty string.
+    """
+    extension = app.get("extension", "")
+    if isinstance(extension, str) and extension:
+        if not extension.startswith("."):
+            extension = f".{extension}"
+        return extension
+
+    description = app.get("description", "")
+    for token in reversed(description.split()):
+        token = token.rstrip(".,;)")
+        for supported_extension in (".py", ".mpy", ".js", ".bas", ".c"):
+            if token.lower().endswith(supported_extension):
+                return supported_extension
+
+    return ""
+
+
+def __get_app_menu_title(app: dict) -> str:
+    """Get the title shown for an app in the current category.
+
+    Args:
+        app (dict): App metadata from the API.
+
+    Returns:
+        str: The menu title.
+    """
+    title = app.get("title", "Unknown App")
+    if _app_extension_filter is None:
+        extension = __get_app_extension(app)
+        if extension:
+            return f"{title} ({extension})"
+    return title
 
 
 def __parse_app_list(view_manager) -> bool:
@@ -521,7 +579,11 @@ def __parse_app_list(view_manager) -> bool:
         if not _apps_data:
             return False
 
-        if not _apps_data.get("success") or not _apps_data.get("apps"):
+        if not _apps_data.get("success"):
+            return False
+
+        apps = _apps_data.get("apps")
+        if not isinstance(apps, list):
             return False
 
         # Create menu if it doesn't exist
@@ -538,13 +600,14 @@ def __parse_app_list(view_manager) -> bool:
                 view_manager.foreground_color,
             )
 
-        # Clear and populate menu
+        _app_menu.title = "App Store"
         _app_menu.clear()
-        # Add "Download All" option at the top
-        _app_menu.add_item("[Download All]")
-        for app in _apps_data["apps"]:
-            title = app.get("title", "Unknown App")
-            _app_menu.add_item(title)
+        if apps:
+            _app_menu.add_item("[Download All]")
+            for app in apps:
+                _app_menu.add_item(__get_app_menu_title(app))
+        else:
+            _app_menu.add_item("No apps found")
 
         return True
     except Exception as e:
@@ -1162,7 +1225,7 @@ def start(view_manager) -> bool:
     # Load persisted submitter name/email
     __load_settings(view_manager)
 
-    # Show main menu instead of directly loading app list
+    # Show main menu on entry
     __show_main_menu(view_manager)
 
     return True
@@ -1189,13 +1252,14 @@ def run(view_manager) -> None:
     global _submitter_name, _submitter_email
     global _submit_app_name, _submit_app_version, _submit_app_path
     global _submission_details
-    global  _file_browser, _keyboard_just_started
+    global  _file_browser, _keyboard_just_started, _menu_index
 
     button = view_manager.button
 
     # Handle BUTTON_BACK based on current state
     if button == BUTTON_BACK:
         if _app_state == STATE_MAIN_MENU:
+            _menu_index = 0
             # Exit app from main menu
             view_manager.back()
             return
@@ -1274,14 +1338,14 @@ def run(view_manager) -> None:
                 _main_menu.scroll_down()
         elif button == BUTTON_CENTER:
             if _main_menu:
-                selected_index = _main_menu.selected_index
-                if selected_index == 0:  # Update Apps
+                _menu_index = _main_menu.selected_index
+                if _menu_index == 0:  # Update Apps
                     if __check_updates_async(view_manager):
                         _app_state = STATE_CHECKING_UPDATES
                         __loading_start(view_manager, "Checking for updates...")
                     else:
                         view_manager.alert("No installed apps found", False)
-                elif selected_index == 1:  # Current App Info
+                elif _menu_index == 1:  # Current App Info
                     _installed_apps = __get_installed_apps(view_manager)
                     if _installed_apps:
                         # Create menu for installed apps
@@ -1306,19 +1370,22 @@ def run(view_manager) -> None:
                         _app_menu.draw()
                     else:
                         view_manager.alert("No installed apps found", False)
-                elif selected_index == 2:  # View All Apps
-                    if __fetch_app_list(view_manager):
+                elif 2 <= _menu_index < 2 + len(_APP_CATEGORIES):
+                    category_name, extension = _APP_CATEGORIES[_menu_index - 2]
+                    if __fetch_app_list(view_manager, extension):
                         _app_state = STATE_LOADING_LIST
-                        __loading_start(view_manager, "Loading apps...")
+                        __loading_start(
+                            view_manager, f"Loading {category_name.lower()}..."
+                        )
                     else:
                         view_manager.alert("Failed to fetch app list", False)
-                elif selected_index == 3:  # Submit App
+                elif _menu_index == 2 + len(_APP_CATEGORIES):  # Submit App
                     _submit_app_name = ""
                     _submit_app_version = ""
                     _submit_app_path = ""
                     _app_state = STATE_SUBMIT_FORM
                     __draw_submit_form(view_manager)
-                elif selected_index == 4:  # App Submissions
+                elif _menu_index == 3 + len(_APP_CATEGORIES):  # App Submissions
                     if not _submitter_email:
                         view_manager.alert(
                             "Set your email in Settings first", False
@@ -1328,7 +1395,7 @@ def run(view_manager) -> None:
                         __loading_start(view_manager, "Loading submissions...")
                     else:
                         view_manager.alert("Failed to fetch submissions", False)
-                elif selected_index == 5:  # Settings
+                elif _menu_index == 4 + len(_APP_CATEGORIES):  # Settings
                     _app_state = STATE_SETTINGS_MENU
                     __draw_settings_menu(view_manager)
 
@@ -1622,7 +1689,6 @@ def run(view_manager) -> None:
                 _app_menu.draw()
         else:
             view_manager.alert("Failed to load apps")
-            _app_state = STATE_MAIN_MENU
             __show_main_menu(view_manager)
 
     elif _app_state == STATE_APP_LIST:

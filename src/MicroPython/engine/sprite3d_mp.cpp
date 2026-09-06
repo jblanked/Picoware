@@ -134,10 +134,10 @@ void sprite3d_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 
 mp_obj_t sprite3d_mp_add_triangle(size_t n_args, const mp_obj_t *args)
 {
-    // sprite3d_mp_obj_t self, float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, uint16_t color (optional)
-    if (n_args < 10 || n_args > 11)
+    // sprite3d_mp_obj_t self, float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, uint16_t color (optional), bool wireframe (optional)
+    if (n_args < 10 || n_args > 12)
     {
-        mp_raise_TypeError(MP_ERROR_TEXT("add_triangle requires 10 or 11 arguments"));
+        mp_raise_TypeError(MP_ERROR_TEXT("add_triangle requires 10, 11, or 12 arguments"));
     }
     sprite3d_mp_obj_t *self = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(args[0]));
     Sprite3D *ctx = sprite3d_get_context(self);
@@ -151,10 +151,11 @@ mp_obj_t sprite3d_mp_add_triangle(size_t n_args, const mp_obj_t *args)
     float y3 = mp_obj_get_float(args[8]);
     float z3 = mp_obj_get_float(args[9]);
     uint16_t color = n_args > 10 ? static_cast<uint16_t>(mp_obj_get_int(args[10])) : 0x0000;
-    ctx->addTriangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, color);
+    bool wireframe = n_args > 11 ? mp_obj_is_true(args[11]) : true;
+    ctx->addTriangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, color, wireframe);
     return mp_const_none;
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_add_triangle_obj, 10, 11, sprite3d_mp_add_triangle);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_add_triangle_obj, 10, 12, sprite3d_mp_add_triangle);
 
 mp_obj_t sprite3d_mp_clear_triangles(mp_obj_t self_in)
 {

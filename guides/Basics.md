@@ -57,10 +57,10 @@ Press `Back` during gameplay to stop the emulator and return to the Library.
 ### Games
 This menu has a list of ready-to-play games (Doom, FlappyBird, Tetris, and more).
 
-### Python Editor
-The Python Editor requires an SD card. On launch you choose between `Create New File` and `Edit Existing App`. If creating a new file, the on-screen keyboard appears so you can type a filename; after confirming, you pick the file type (`Picoware App` to generate a starter template, or `Python Script` for a blank file). If editing an existing app, a file browser opens starting in `picoware/apps` so you can select the file. Either path then opens the `pye` editor — a full-featured terminal-based text editor. 
+### PicoIDE
+The PicoIDE requires an SD card. On launch you choose between `Create New File` and `Edit Existing File`. If creating a new file, the on-screen keyboard appears so you can type a filename; after confirming, you pick the file type (`Python App`, `C Source File`, `JavaScript Script`, or `MMBasic Program`). If editing an existing file, a file browser opens starting in `picoware/` so you can select the file. Either path then opens the `pye` editor — a full-featured terminal-based text editor. 
 
-Press `Back` to save and exit the editor and return to the Library.
+Press `Back` to save and exit the editor and return to the Library, or press `F5` to run the current file.
 
 ### Python REPL
 The Python REPL is an interactive Python shell that runs directly on the device. It displays a `>>>` prompt and evaluates expressions or executes statements as you type. Multi-line blocks (functions, loops, `if` statements, etc.) are detected automatically — the prompt changes to `...` and you continue entering lines until you submit a blank line to run the block. Type `clear` and press `Center` to reset the screen. Press `Back` to exit.
@@ -70,6 +70,8 @@ The Python REPL is an interactive Python shell that runs directly on the device.
 | Keyboard | Type Python code |
 | `Center` | Execute current input |
 | `Back` | Exit REPL |
+| `Up` | Cycle through previous commands |
+| `Down` | Cycle through next commands |
 
 ### Screensavers
 This menu has a list of ready-to-see screensavers (Spiro, Starfield, and more).

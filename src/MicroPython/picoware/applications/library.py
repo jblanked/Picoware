@@ -41,7 +41,7 @@ def start(view_manager) -> bool:
         _library.add_item("Games")
         _library.add_item("Infrared")
         _library.add_item("MMBasic")
-        _library.add_item("Python Editor")
+        _library.add_item("PicoIDE")
         _library.add_item("Python REPL")
         _library.add_item("Screensavers")
         _library.add_item("Scripts")
@@ -101,7 +101,7 @@ def run(view_manager) -> None:
             9: "Games",
             10: "Infrared",
             11: "MMBasic",
-            12: "Python Editor",
+            12: "PicoIDE",
             13: "Python REPL",
             14: "Screensavers",
             15: "Scripts",
@@ -133,7 +133,7 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("screensavers")
-        elif app_map.get(_library_index) == "Python Editor":
+        elif app_map.get(_library_index) == "PicoIDE":
             from picoware.applications import python_editor
 
             view_manager.add(

@@ -1,11 +1,11 @@
-"""Python Editor - Create and edit Python files."""
+"""PicoIDE - Create, edit, and run source files."""
 
 from micropython import const
 from picoware.system.decorator import keyboard_required, storage_required
 
 # 1. First menu: ask if creating new file or editing existing app
 # 2. If creating new: enter filename via keyboard
-# 3. Then show menu to select file type (Picoware App or Python Script)
+# 3. Then show menu to select the new file type
 # 4. If editing existing: show file browser starting in picoware/apps
 # 5. Finally the pye editor is started
 
@@ -14,12 +14,14 @@ STATE_KEYBOARD = const(1)
 STATE_FILE_TYPE_MENU = const(2)
 STATE_FILE_BROWSER = const(3)
 STATE_EDITOR = const(4)
+STATE_RUNNING = const(5)
 
 _filename = ""
 _editor_state = STATE_INITIAL_MENU
 _initial_menu = None
 _file_type_menu = None
 _file_browser = None
+_runner = None
 _keyboard_just_started = False
 
 
@@ -74,6 +76,53 @@ def __callback_filename_save(result: str) -> None:
     _editor_state = STATE_FILE_TYPE_MENU
 
 
+def _language_for_filename(filename):
+    filename = filename.lower() if filename else ""
+    if filename.endswith(".c"):
+        return 1
+    if filename.endswith(".js"):
+        return 2
+    if filename.endswith(".bas"):
+        return 3
+    return 0
+
+
+def _ensure_extension(filename, extension):
+    if not filename:
+        return filename
+
+    directory, separator, name = filename.rpartition("/")
+    stem, dot, _ = name.rpartition(".")
+    if dot and stem:
+        name = stem + extension
+    else:
+        name += extension
+
+    return directory + separator + name
+
+
+def _run_file(view_manager, filename):
+    global _runner
+
+    extension = filename.lower().rsplit(".", 1)[-1]
+    if extension == "py":
+        view_manager.storage.execute_script(filename)
+    elif extension == "js":
+        from picoware.system.js import JS
+
+        JS().exec(filename)
+    elif extension == "c":
+        from picoware.system.c import C
+
+        C().exec(filename)
+    elif extension == "bas":
+        from picoware.system.mmbasic import MMBasic
+
+        _runner = MMBasic(view_manager)
+        return _runner.start(path=filename)
+    return False
+
+
 def _start_editor(view_manager, filename=None, create_template=False):
     """Start the pye editor with the specified filename.
 
@@ -82,12 +131,13 @@ def _start_editor(view_manager, filename=None, create_template=False):
         filename (str): The file to edit. Defaults to None.
         create_template (bool): Create a template if the file is empty. Defaults to False.
     """
+    from picoware.system.drivers.pye import pye_edit
     from picoware.system.drivers.vt import vt
 
     global _editor_state
 
     # Create virtual terminal instance using view_manager
-    terminal = vt(view_manager)
+    terminal = vt(view_manager, _language_for_filename(filename))
 
     # Dry the buffer before editing and clear any pending input
     terminal.dryBuffer()
@@ -96,8 +146,6 @@ def _start_editor(view_manager, filename=None, create_template=False):
     view_manager.input_manager.reset()
 
     try:
-        from picoware.system.drivers.pye import pye_edit
-
         # Enable input processing in the virtual terminal
         terminal.input_enabled = True
         storage = view_manager.storage
@@ -139,10 +187,13 @@ def _start_editor(view_manager, filename=None, create_template=False):
         pass
     except (OSError, MemoryError, RuntimeError) as e:
         view_manager.log(f"[Editor]: Editor error: {e}", 2)
-    except Exception as e:
-        view_manager.log(f"[Editor]: Unexpected editor error: {e}", 2)
-    finally:
-        _editor_state = STATE_KEYBOARD
+    except Exception:
+        view_manager.log("PicoIDE error", 2)
+
+    if terminal.run_requested and filename and _run_file(view_manager, filename):
+        _editor_state = STATE_RUNNING
+    else:
+        _editor_state = STATE_INITIAL_MENU if terminal.run_requested else STATE_KEYBOARD
         view_manager.back()
 
 
@@ -159,7 +210,7 @@ def _start_initial_menu(view_manager) -> None:
     if _initial_menu is None:
         _initial_menu = Menu(
             view_manager.draw,
-            "Python Editor",
+            "PicoIDE",
             0,
             view_manager.draw.size.y,
             view_manager.foreground_color,
@@ -170,7 +221,7 @@ def _start_initial_menu(view_manager) -> None:
         )
 
         _initial_menu.add_item("Create New File")
-        _initial_menu.add_item("Edit Existing App")
+        _initial_menu.add_item("Edit Existing File")
 
     _initial_menu.draw()
 
@@ -198,8 +249,11 @@ def _start_file_type_menu(view_manager) -> None:
             2,
         )
 
-        _file_type_menu.add_item("Picoware App")
-        _file_type_menu.add_item("Python Script")
+        _file_type_menu.add_item("Python App")
+        _file_type_menu.add_item("C Source File")
+        _file_type_menu.add_item("JavaScript Script")
+        _file_type_menu.add_item("MMBasic Program")
+        _file_type_menu.add_item("Text File")
 
     _file_type_menu.draw()
 
@@ -242,6 +296,7 @@ def start(view_manager) -> bool:
     global _initial_menu
     global _file_type_menu
     global _file_browser
+    global _runner
 
     _editor_state = STATE_INITIAL_MENU
     _filename = ""
@@ -249,6 +304,7 @@ def start(view_manager) -> bool:
     _initial_menu = None
     _file_type_menu = None
     _file_browser = None
+    _runner = None
 
     # Show the initial menu
     draw = view_manager.draw
@@ -261,12 +317,6 @@ def start(view_manager) -> bool:
 def run(view_manager) -> None:
     """Run the app.
 
-    State 0 (INITIAL_MENU): Choose between creating new file or editing existing app
-    State 1 (KEYBOARD): Get filename input from user via keyboard (for new files)
-    State 2 (FILE_TYPE_MENU): Show menu to select file type (Picoware App or Python Script)
-    State 3 (FILE_BROWSER): Show file browser to select existing app to edit
-    State 4 (EDITOR): Launch pye editor with the specified filename
-
     Args:
         view_manager (ViewManager): The view manager context.
     """
@@ -275,6 +325,7 @@ def run(view_manager) -> None:
     global _editor_state
     global _filename
     global _keyboard_just_started
+    global _runner
 
     button = view_manager.button
 
@@ -343,7 +394,7 @@ def run(view_manager) -> None:
                     draw.clear(color=view_manager.background_color)
                     keyboard.run(force=True)
                     _keyboard_just_started = True
-            else:  # Edit Existing App
+            else:  # Edit Existing File
                 # Transition to file browser state
                 _editor_state = STATE_FILE_BROWSER
                 draw = view_manager.draw
@@ -391,25 +442,25 @@ def run(view_manager) -> None:
             _editor_state = STATE_EDITOR
 
             draw = view_manager.draw
-            draw.clear(color=view_manager.background_color)
-            from picoware.system.vector import Vector
-
-            draw.text(Vector(10, 10), "Starting editor...")
+            draw.erase()
+            draw._text(10, 10, "Starting editor...")
             draw.swap()
 
-            if _filename is not None and ".py" not in _filename:
-                _filename += ".py"
-
             # Start editor with or without template
-            if selected_index == 0:  # Picoware App
+            if selected_index == 0:  # Python App
+                _filename = _ensure_extension(_filename, ".py")
                 true_path = f"picoware/apps/{_filename}" if _filename else None
                 _start_editor(
-                    view_manager, true_path, create_template=True
+                    view_manager,
+                    true_path,
+                    create_template=bool(true_path and true_path.lower().endswith(".py")),
                 )
-            else:  # Python Script
+            else:
+                extensions = (".c", ".js", ".bas", ".txt")
+                _filename = _ensure_extension(_filename, extensions[selected_index - 1])
                 _start_editor(
                     view_manager,
-                    _filename if _filename else None,
+                    _filename or None,
                     create_template=False,
                 )
             return
@@ -436,10 +487,8 @@ def run(view_manager) -> None:
                 _filename = selected_path
 
                 draw = view_manager.draw
-                draw.clear(color=view_manager.background_color)
-                from picoware.system.vector import Vector
-
-                draw.text(Vector(10, 10), "Starting editor...")
+                draw.erase()
+                draw._text(10, 10, "Starting editor...")
                 draw.swap()
 
                 # Start editor with the selected file (no template needed for existing files)
@@ -448,9 +497,15 @@ def run(view_manager) -> None:
                 # User backed out, return to initial menu
                 _editor_state = STATE_INITIAL_MENU
                 draw = view_manager.draw
-                draw.clear(color=view_manager.background_color)
+                draw.erase()
                 _start_initial_menu(view_manager)
             return
+
+    elif _editor_state == STATE_RUNNING:
+        if _runner is None or not _runner.run():
+            _runner = None
+            _editor_state = STATE_INITIAL_MENU
+            view_manager.back()
 
     # State 4: Editor running
     # The editor handles its own state, and will call back() when done
@@ -470,6 +525,7 @@ def stop(view_manager) -> None:
     global _file_type_menu
     global _file_browser
     global _editor_state
+    global _runner
 
     _filename = ""
     _keyboard_just_started = False
@@ -485,6 +541,7 @@ def stop(view_manager) -> None:
     if _file_browser:
         del _file_browser
         _file_browser = None
+    _runner = None
 
     _editor_state = STATE_INITIAL_MENU
     view_manager.keyboard.reset()

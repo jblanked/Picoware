@@ -6,26 +6,12 @@ class FontSize:
     def set_size(self, size):
         """Apply a size preset (0-4), setting width, height, spacing."""
         object.__setattr__(self, "size", size)
-        if size == 0:
-            object.__setattr__(self, "width", 5)
-            object.__setattr__(self, "height", 8)
-            object.__setattr__(self, "spacing", 1)
-        elif size == 2:
-            object.__setattr__(self, "width", 11)
-            object.__setattr__(self, "height", 16)
-            object.__setattr__(self, "spacing", 1)
-        elif size == 3:
-            object.__setattr__(self, "width", 14)
-            object.__setattr__(self, "height", 20)
-            object.__setattr__(self, "spacing", 0)
-        elif size == 4:
-            object.__setattr__(self, "width", 17)
-            object.__setattr__(self, "height", 24)
-            object.__setattr__(self, "spacing", 0)
-        else:
-            object.__setattr__(self, "width", 7)
-            object.__setattr__(self, "height", 12)
-            object.__setattr__(self, "spacing", 0)
+        from sim_font import METRICS
+
+        width, height, spacing = METRICS[size if 0 <= size < 5 else 0]
+        object.__setattr__(self, "width", width)
+        object.__setattr__(self, "height", height)
+        object.__setattr__(self, "spacing", spacing)
 
 
 class Font:
@@ -45,10 +31,11 @@ class Font:
         """Return the bitmap rows for a character at a given size."""
         import sim_font
 
-        return sim_font.glyph_rows(char)
+        return sim_font.glyph_rows(chr(char), font_size)
 
     def get_data(self, font_size):
         """Return the raw bitmap font data."""
         import sim_font
 
-        return sim_font.DATA
+        width, height, _ = sim_font.METRICS[font_size if 0 <= font_size < 5 else 0]
+        return sim_font.font_data(font_size)[:((width + 7) // 8) * height * 95]

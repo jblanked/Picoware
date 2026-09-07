@@ -59,11 +59,22 @@ def _insert_path(path):
 
 
 def _simulator_display_size(board_name):
-    """Return a framebuffer size that fits the default Unix MicroPython heap."""
-    width, height = _BOARD_DISPLAY_SIZES.get(board_name, (320, 320))
-    if width * height > 320 * 480:
-        return 320, 320
-    return width, height
+    """Return the board's native framebuffer size."""
+    name = str(board_name).lower().replace("_", "-")
+    aliases = {
+        "crowpanel-10-1": "crowpanel",
+        "waveshare-1-28-rp2350": "waveshare-1.28-rp2350",
+        "waveshare-128-rp2350": "waveshare-1.28-rp2350",
+        "waveshare-1-43-rp2350": "waveshare-1.43-rp2350",
+        "waveshare-143-rp2350": "waveshare-1.43-rp2350",
+        "waveshare-1-69-rp2350": "waveshare-1.69-rp2350",
+        "waveshare-169-rp2350": "waveshare-1.69-rp2350",
+        "waveshare-3-49-rp2350": "waveshare-3.49-rp2350",
+        "waveshare-349-rp2350": "waveshare-3.49-rp2350",
+        "waveshare-2-06-esp32s3": "waveshare-2.06",
+        "waveshare-206-esp32s3": "waveshare-2.06",
+    }
+    return _BOARD_DISPLAY_SIZES.get(aliases.get(name, name), (320, 320))
 
 
 def _parse_args(argv):

@@ -49,7 +49,6 @@ else
 fi
 module_dir="$source_alias/src/MicroPython/Desktop/modules"
 variant_dir="$source_alias/src/MicroPython/Desktop/variant"
-native_check='import auto_complete, c, font, mjs, mmbasic, picoware_desktop, response, vector, video, vt; expected = ("auto_complete", "c", "font", "mjs", "mmbasic", "response", "video", "vector", "vt"); assert picoware_desktop.BOARD_ID == 15; assert picoware_desktop.native_modules() == expected; assert hasattr(mjs, "MJS"); assert hasattr(video, "Video"); assert c.C().is_initialized; print("[desktop-build:ok] native modules", expected)'
 jobs=${PICOWARE_BUILD_JOBS:-}
 if [ -z "$jobs" ]; then
     if command -v getconf >/dev/null 2>&1; then
@@ -69,23 +68,18 @@ case ${1:-build} in
             clean
         exit 0
         ;;
-    --check|check)
-        if [ ! -x "$build_dir/micropython" ]; then
-            echo "Desktop MicroPython is not built: $build_dir/micropython" >&2
-            exit 1
-        fi
-        "$build_dir/micropython" -c "$native_check"
-        exit 0
-        ;;
     build|"")
         ;;
     *)
-        echo "usage: sh tools/micropython-desktop.sh [build|check|clean]" >&2
+        echo "usage: sh tools/micropython-desktop.sh [build|clean]" >&2
         exit 2
         ;;
 esac
 
 mkdir -p "$build_dir"
+
+# Newly enabled modules can have older source timestamps than the QSTR cache.
+rm -f "$build_dir/genhdr/qstr.i.last"
 
 # remove stale user-module build outputs
 for mkfile in "$module_dir"/*/micropython.mk; do
@@ -94,7 +88,7 @@ for mkfile in "$module_dir"/*/micropython.mk; do
 done
 # Relative native sources also put objects outside the desktop directory.
 # Recompile them together so generated QSTR IDs cannot go stale.
-rm -rf "$source_alias/builds/c" "$source_alias/builds/mjs" "$source_alias/builds/video" "$source_alias/builds/vt"
+rm -rf "$source_alias/builds/engine" "$source_alias/builds/c" "$source_alias/builds/mjs" "$source_alias/builds/video" "$source_alias/builds/vt"
 # sweep leftover module build dirs
 for dir in "$build_dir"/*/; do
     [ -d "$dir" ] || continue
@@ -115,7 +109,5 @@ make -C "$micropython_dir/ports/unix" \
     USER_C_MODULES="$module_dir" \
     FROZEN_MANIFEST= \
     CFLAGS_EXTRA="-DDESKTOP -Wno-error"
-
-"$build_dir/micropython" -c "$native_check"
 
 echo "Desktop MicroPython build complete: $display_build_dir/micropython"

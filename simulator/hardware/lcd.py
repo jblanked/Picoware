@@ -1,6 +1,12 @@
 import sim_runtime
 import sim_font
 import ustruct
+import framebuf
+
+try:
+    from sim_raster import fill_triangle as _native_fill_triangle
+except ImportError:
+    _native_fill_triangle = None
 
 
 def default_font_for_board(board_id, boards=None):
@@ -60,6 +66,8 @@ class LCD:
         self._brightness = 100
         self._rgb_led = (0, 0, 0)
         self._buffer = bytearray(self.width * self.height * 2)
+        self._clear_buffer = self._buffer
+        self._framebuffer = framebuf.FrameBuffer(self._buffer, self.width, self.height, framebuf.RGB565)
         self._sdl = None
         self._window = 0
         self._renderer = 0
@@ -152,9 +160,11 @@ class LCD:
 
     def _clear(self, color=0):
         color = self._display_color(color)
-        lo = color & 0xFF
-        hi = (color >> 8) & 0xFF
-        self._buffer[:] = bytes((lo, hi)) * (self.width * self.height)
+        if self._clear_buffer is not self._buffer:
+            self._clear_buffer = self._buffer
+            self._framebuffer = framebuf.FrameBuffer(self._buffer, self.width, self.height, framebuf.RGB565)
+        # Fill the existing allocation in place, without a temporary framebuffer.
+        self._framebuffer.fill(color)
 
     def _pixel(self, x, y, color):
         self._set_pixel(x, y, color)
@@ -268,6 +278,14 @@ class LCD:
         x1, y1 = points[0]
         x2, y2 = points[1]
         x3, y3 = points[2]
+        if _native_fill_triangle is not None and all(
+            -1000000 <= value <= 1000000 for value in (x1, y1, x2, y2, x3, y3)
+        ):
+            _native_fill_triangle(
+                self._buffer, self.width, self.height,
+                x1, y1, x2, y2, x3, y3, int(color) & 0xFFFF, alpha, self._is_flipper,
+            )
+            return
         area = self._triangle_edge(x1, y1, x2, y2, x3, y3)
         if area == 0:
             return

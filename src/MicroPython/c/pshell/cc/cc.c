@@ -8,6 +8,14 @@
  *
  */
 
+#if defined(PICO_RP2040) || defined(PICO_RP2350)
+#define CC_FULLY_SUPPORTED 1
+#endif
+
+#if defined(DESKTOP) || defined(ESP32) || defined(ESP_PLATFORM) || defined(WAVESHARE_2_06) || defined(CARDPUTER)
+#define CC_HALF_SUPPORTED 1
+#endif
+
 // clib functions
 #include <fcntl.h>
 #include <limits.h>
@@ -104,8 +112,8 @@ static union conv
     float f; // floating point value
 } tkv;       // current token value
 
-#if PICO_RP2040 || defined(DESKTOP) || defined(CARDPUTER)
-#if defined(DESKTOP) || defined(CARDPUTER)
+#if PICO_RP2040 || defined(CC_HALF_SUPPORTED)
+#if defined(CC_HALF_SUPPORTED)
 enum
 {
     aeabi_idiv = 1,
@@ -514,7 +522,7 @@ static int wrap_screen_width(void)
 
 static void wrap_wfi(void)
 {
-#if !defined(DESKTOP) && !defined(CARDPUTER)
+#if defined(CC_FULLY_SUPPORTED)
     __wfi();
 #endif
 };
@@ -3019,7 +3027,7 @@ static void emit_branch(uint16_t *to)
         emit_call((int)(to + 2));
 }
 
-#if PICO_RP2040 || defined(DESKTOP) || defined(CARDPUTER)
+#if PICO_RP2040 || defined(CC_HALF_SUPPORTED)
 static void emit_fop(int n)
 {
     if (!ofn) // if exe output emit negative external function index
@@ -4765,7 +4773,7 @@ static char *x_strdup(char *s)
 
 static int x_printf(int etype)
 {
-#if !defined(DESKTOP) && !defined(CARDPUTER)
+#if defined(CC_FULLY_SUPPORTED)
     int *sp;
     asm volatile("mov %0, sp \n" : "=r"(sp));
     sp += 2;
@@ -4778,7 +4786,7 @@ static int x_printf(int etype)
 
 static int x_sprintf(int etype)
 {
-#if !defined(DESKTOP) && !defined(CARDPUTER)
+#if defined(CC_FULLY_SUPPORTED)
     int *sp;
     asm volatile("mov %0, sp \n" : "=r"(sp));
     sp += 2;
@@ -5345,7 +5353,7 @@ int cc(int mode, int argc, char **argv)
 
     // launch the user code
     printf("\n");
-#if !defined(DESKTOP) && !defined(CARDPUTER)
+#if defined(CC_FULLY_SUPPORTED)
     asm volatile("mov  %0, sp \n" : "=r"(exit_sp));
     asm volatile("mov  r0, %2 \n"
                  "push {r0}   \n"

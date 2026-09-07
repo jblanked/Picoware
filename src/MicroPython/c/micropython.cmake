@@ -15,7 +15,7 @@ target_sources(usermod_c INTERFACE
 	${CMAKE_CURRENT_LIST_DIR}/pshell/disassembler/armdisasm.c
 )
 
-if(PICOWARE_CARDPUTER)
+if(ESP32)
 target_sources(usermod_c INTERFACE
 	${CMAKE_CURRENT_LIST_DIR}/pshell/cc/cc_printf_desktop.c
 )

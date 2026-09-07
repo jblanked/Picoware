@@ -1,4 +1,4 @@
-#if defined(DESKTOP) || defined(CARDPUTER)
+#if !defined(PICO_RP2040) && !defined(PICO_RM2040) && !defined(PICO_RP2350) && !defined(PICO_RM2350)
 {"acosf", 1 | (1 << 5) | (1 << 10), math_defines, c_mp_acosf, 1},
     {"asinf", 1 | (1 << 5) | (1 << 10), math_defines, c_mp_asinf, 1},
     {"atanf", 1 | (1 << 5) | (1 << 10), math_defines, c_mp_atanf, 1},
@@ -6,7 +6,7 @@
     {"calloc", 2, stdlib_defines, wrap_calloc, 0},
     {"cosf", 1 | (1 << 5) | (1 << 10), math_defines, c_mp_cosf, 1},
     {"free", 1, stdlib_defines, wrap_free, 0},
-#ifdef CARDPUTER
+#ifdef ESP32
     {"lcd_blit", 5, lib_defines, c_mp_lcd_blit, 0},
     {"lcd_blit_16bit", 5, lib_defines, c_mp_lcd_blit_16bit, 0},
     {"lcd_char", 4, lib_defines, c_mp_lcd_char, 0},

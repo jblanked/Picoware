@@ -12,8 +12,9 @@ static mp_obj_t desktop_native_modules(void)
         MP_OBJ_NEW_QSTR(MP_QSTR_response),
         MP_OBJ_NEW_QSTR(MP_QSTR_video),
         MP_OBJ_NEW_QSTR(MP_QSTR_vector),
+        MP_OBJ_NEW_QSTR(MP_QSTR_vt),
     };
-    return mp_obj_new_tuple(8, modules);
+    return mp_obj_new_tuple(MP_ARRAY_SIZE(modules), modules);
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(desktop_native_modules_obj,
                                  desktop_native_modules);

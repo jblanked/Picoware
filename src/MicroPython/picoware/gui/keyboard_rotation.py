@@ -23,6 +23,11 @@ class KeyboardRotation:
     def _fill_rectangle(self, x, y, width, height, color):
         self._draw._fill_rectangle(y, self.size.x - x - width, height, width, color)
 
+    def _rectangle(self, x, y, width, height, color):
+        self._draw._rectangle(
+            y, self.size.x - 1 - x - width, height, width, color,
+        )
+
     def _line(self, x1, y1, x2, y2, color):
         self._draw._line(y1, self.size.x - 1 - x1, y2, self.size.x - 1 - x2, color)
 

@@ -542,7 +542,7 @@ class Keyboard:
                 self._draw_keyboard()
 
             if not self._is_flipper:
-                self._draw_text(
+                self.draw._text(
                     self.title_vec.x, self.title_vec.y,
                     self._display_title,
                     self.text_color,
@@ -604,30 +604,11 @@ class Keyboard:
             "Picoware",
         ]
 
-    def _draw_rectangle(self, x, y, width, height, color):
-        """Keep all four borders inside the cell on every LCD driver."""
-        right, bottom = x + width - 1, y + height - 1
-        self.draw._line(x, y, right, y, color)
-        self.draw._line(x, bottom, right, bottom, color)
-        self.draw._line(x, y, x, bottom, color)
-        self.draw._line(right, y, right, bottom, color)
-
-    def _draw_text(self, x, y, text, color, font_size=None):
-        """Use the measured font advance even on drivers that omit spacing."""
-        size = self.draw.font if font_size is None else font_size
-        if self._rotated:
-            self.draw._text(x, y, text, color, size)
-            return
-        font = self.draw.get_font(size)
-        for char in text:
-            self.draw._char(x, y, char, color, size)
-            x += font.width + font.spacing
-
     def _fit_text(self, text: str, width: int) -> str:
         """Keep a single line within the available pixel width."""
         text = text.replace("\n", " ").replace("\r", " ")
-        count = max(0, width // self.draw.font_size.x)
-        if len(text) <= count:
+        count = max(0, width // self.draw.len(" "))
+        if self.draw.len(text) <= width:
             return text
         return text[:max(0, count - 3)] + "." * min(3, count)
 
@@ -639,7 +620,7 @@ class Keyboard:
                 label_width = 5 * max(1, font.height // 8)
             else:
                 label_width = self.draw.len(self._key_label(row, col), self._key_font) - font.spacing
-            widths.append(max(key.width * unit, label_width + 2))
+            widths.append(max(key.width * unit, label_width + (2 if self._is_flipper else 3)))
         return widths
 
     def _build_key_rects(self) -> list:
@@ -739,12 +720,12 @@ class Keyboard:
                 x_pos, y_pos, self.size_vec.x, self.size_vec.y, bg_color
             )
 
-            # Draw key border
-            self._draw_rectangle(
+            # Leave room for drivers whose rectangle endpoints are inclusive.
+            self.draw._rectangle(
                 x_pos,
                 y_pos,
-                self.size_vec.x,
-                self.size_vec.y,
+                self.size_vec.x - 1,
+                self.size_vec.y - 1,
                 self.text_color,
             )
 
@@ -762,7 +743,7 @@ class Keyboard:
                         self.draw._fill_rectangle(x + dx * scale, y + dy * scale, scale, scale, color)
             active = self.is_caps_lock_on if caps else self.is_shift_pressed
             if active:
-                inset = 0 if self._is_flipper else 1
+                inset = 0 if self._is_flipper else 2
                 self.draw._line(
                     x_pos + inset, y_pos + height - 1 - inset,
                     x_pos + width - 1 - inset, y_pos + height - 1 - inset, color,
@@ -775,7 +756,7 @@ class Keyboard:
         key_x = x_pos + (width - label_width) // 2
         key_y = y_pos + (height - font.height) // 2
         color = self.background_color if self._is_flipper and is_selected else self.text_color
-        self._draw_text(key_x, key_y, key_label, color, self._key_font)
+        self.draw._text(key_x, key_y, key_label, color, self._key_font)
 
     def _key_label(self, row: int, col: int) -> str:
         """Return the current key label, using compact modifier icons."""
@@ -837,11 +818,11 @@ class Keyboard:
         """Draws the text box that displays the current saved response"""
         # Draw textbox border (highlight if in textbox mode)
         border_color = self.selected_color if self.is_in_textbox else self.text_color
-        self._draw_rectangle(
+        self.draw._rectangle(
             self.text_border_pos.x,
             self.text_border_pos.y,
-            self.text_border_size.x,
-            self.text_border_size.y,
+            self.text_border_size.x - (0 if self._is_flipper else 1),
+            self.text_border_size.y - (0 if self._is_flipper else 1),
             border_color,
         )
 
@@ -875,7 +856,7 @@ class Keyboard:
         _distance = self.draw.font_size.y + 1
         for i in range(start_line, len(lines)):
             self.text_vec.y = _start_y + (i - start_line) * _distance
-            self._draw_text(self.text_vec.x, self.text_vec.y, lines[i], self.text_color)
+            self.draw._text(self.text_vec.x, self.text_vec.y, lines[i], self.text_color)
 
         # Draw cursor at the current position
         # Find which line and column the cursor is on
@@ -894,7 +875,7 @@ class Keyboard:
             display_line = cursor_line - start_line
             self.cursor.x = self.text_vec.x + cursor_col * self.draw.font_size.x
             self.cursor.y = _start_y + display_line * _distance
-            self._draw_text(self.cursor.x, self.cursor.y, "_", self.text_color)
+            self.draw._text(self.cursor.x, self.cursor.y, "_", self.text_color)
 
     def _draw_suggestions(self):
         """Draws auto-complete suggestions based on keyboard visibility"""
@@ -906,7 +887,7 @@ class Keyboard:
             suggestion = suggestions[0]
             text = self._fit_text("Suggestion: " + suggestion, self._layout_width - 2 * self.KEY_MARGIN)
             x_pos = self._layout_x + (self._layout_width - self.draw.len(text)) // 2
-            self._draw_text(x_pos, self._suggestion_y, text, self.text_color)
+            self.draw._text(x_pos, self._suggestion_y, text, self.text_color)
         else:
             # Scroll the two-column list so the selected suggestion stays visible.
             line_height = self.draw.font_size.y + 4
@@ -921,7 +902,7 @@ class Keyboard:
                     self.draw._fill_rectangle(
                         x_pos - 2, y_pos - 2, column_width, line_height, self.selected_color,
                     )
-                self._draw_text(x_pos, y_pos, text, self.text_color)
+                self.draw._text(x_pos, y_pos, text, self.text_color)
 
     def _apply_suggestion(self, suggestion_text: str) -> None:
         """Apply an auto-complete suggestion to the current response.

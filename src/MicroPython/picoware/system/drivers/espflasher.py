@@ -29,7 +29,7 @@
 import os
 import struct
 from micropython import const
-from time import sleep
+from time import sleep, ticks_diff, ticks_ms
 import binascii
 
 from picoware.system.uart import UART
@@ -52,6 +52,10 @@ _FLASH_REG_BASE = const(0x60002000)
 _FLASH_BLOCK_SIZE = const(64 * 1024)
 _FLASH_SECTOR_SIZE = const(4 * 1024)
 _FLASH_PAGE_SIZE = const(256)
+_FLASH_WRITE_SIZE = const(0x400)
+_FLASH_MD5_TIMEOUT_PER_MB = const(8000)
+_FLASH_SCAN_SIZE = const(16 * 1024)
+_FLASH_PROGRESS_INTERVAL = const(64)
 
 _ESP_ERRORS = {
     0x05: "Received message is invalid",
@@ -67,7 +71,7 @@ _ESP_ERRORS = {
 class ESPFlasher:
     """Flash firmware to an ESP32 ROM bootloader."""
 
-    def __init__(self, reset, gpio0, uart: UART, log_enabled=False):
+    def __init__(self, reset, gpio0, uart: UART, log_enabled=False, chip="esp32"):
         """Initialize the ESP32 flasher.
 
         Args:
@@ -75,13 +79,30 @@ class ESPFlasher:
             gpio0 (callable): Function used to control the ESP32 GPIO0 pin.
             uart (UART): Picoware UART interface connected to the ESP32.
             log_enabled (bool): Whether to print packet diagnostics. Defaults to False.
+            chip (str): ESP ROM target. Defaults to "esp32".
         """
         self.uart = uart
         self.reset_pin = reset
         self.gpio0_pin = gpio0
         self.log = log_enabled
+        self.chip = chip.lower()
         self.baudrate = 115200
         self.md5sum = None
+        self._pyb = None
+        self._repl_uart = None
+        self._slip_buffer = bytearray()
+        if self.chip == "esp32s2":
+            self._flash_reg_base = 0x3F402000
+            self._spi_usr = 0x18
+            self._spi_usr2 = 0x20
+            self._spi_w0 = 0x58
+            self._spi_dlen = 0x28
+        else:
+            self._flash_reg_base = _FLASH_REG_BASE
+            self._spi_usr = 0x1C
+            self._spi_usr2 = 0x24
+            self._spi_w0 = 0x80
+            self._spi_dlen = 0x2C
         try:
             import hashlib
 
@@ -89,6 +110,32 @@ class ESPFlasher:
                 self.md5sum = hashlib.md5()
         except ImportError:
             pass
+
+    def _detach_repl_uart(self):
+        """Detach the flasher UART from the MicroPython REPL."""
+        try:
+            import pyb
+
+            repl_uart = pyb.repl_uart()
+        except (ImportError, AttributeError):
+            return
+
+        if repl_uart is self.uart.uart:
+            pyb.repl_uart(None)
+            self._pyb = pyb
+            self._repl_uart = repl_uart
+
+    def _restore_repl_uart(self):
+        """Restore the MicroPython REPL UART."""
+        if self._repl_uart is not None:
+            self._pyb.repl_uart(self._repl_uart)
+            self._pyb = None
+            self._repl_uart = None
+
+    def _clear_uart(self):
+        """Clear UART input and buffered SLIP data."""
+        self.uart.clear()
+        self._slip_buffer = bytearray()
 
     def _log(self, data, out=True):
         """Log a packet when diagnostics are enabled.
@@ -113,7 +160,7 @@ class ESPFlasher:
         Returns:
             int: Register value.
         """
-        v, d = self._command(_CMD_ESP_READ_REG, struct.pack("<I", _FLASH_REG_BASE + addr))
+        v, d = self._command(_CMD_ESP_READ_REG, struct.pack("<I", self._flash_reg_base + addr))
         if d[0] != 0:
             raise Exception("Command ESP_READ_REG failed.")
         return v
@@ -128,7 +175,8 @@ class ESPFlasher:
             delay (int): Hardware delay value. Defaults to 0.
         """
         v, d = self._command(
-            _CMD_ESP_WRITE_REG, struct.pack("<IIII", _FLASH_REG_BASE + addr, data, mask, delay)
+            _CMD_ESP_WRITE_REG,
+            struct.pack("<IIII", self._flash_reg_base + addr, data, mask, delay),
         )
         if d[0] != 0:
             raise Exception("Command ESP_WRITE_REG failed.")
@@ -160,24 +208,46 @@ class ESPFlasher:
         self.uart.write(b"\xc0" + pkt + b"\xc0")
         self._log(pkt)
 
-    def _read_slip(self):
+    def _read_slip(self, timeout_ms=1000):
         """Read and decode one SLIP packet from the ESP32.
+
+        Args:
+            timeout_ms (int): Maximum time to wait for a complete packet.
 
         Returns:
             bytearray or None: Decoded packet, or None if no packet is available.
         """
+        start = ticks_ms()
         pkt = None
-        # Find the packet start.
-        if self.uart.uart.read(1) == b"\xc0":
-            pkt = bytearray()
-            while True:
-                b = self.uart.uart.read(1)
-                if b is None or b == b"\xc0":
-                    break
-                pkt += b
-            pkt = pkt.replace(b"\xdb\xdd", b"\xdb").replace(b"\xdb\xdc", b"\xc0")
-            self._log(b"\xc0" + pkt + b"\xc0", False)
-        return pkt
+        while ticks_diff(ticks_ms(), start) < timeout_ms:
+            if self._slip_buffer:
+                data = self._slip_buffer
+                self._slip_buffer = bytearray()
+            else:
+                available = self.uart.uart.any()
+                if available <= 0:
+                    sleep(0.001)
+                    continue
+                data = self.uart.uart.read(available)
+            if not data:
+                continue
+
+            for index, value in enumerate(data):
+                if pkt is None:
+                    if value == 0xC0:
+                        pkt = bytearray()
+                    continue
+
+                if value == 0xC0:
+                    if index + 1 < len(data):
+                        self._slip_buffer = bytearray(data[index + 1 :])
+                    pkt = pkt.replace(b"\xdb\xdd", b"\xdb").replace(b"\xdb\xdc", b"\xc0")
+                    self._log(b"\xc0" + pkt + b"\xc0", False)
+                    return pkt
+
+                pkt.append(value)
+
+        return None
 
     def _strerror(self, err):
         """Return a human-readable ESP32 error message.
@@ -206,7 +276,7 @@ class ESPFlasher:
             checksum ^= i
         return checksum
 
-    def _command(self, cmd, payload=b"", checksum=0):
+    def _command(self, cmd, payload=b"", checksum=0, timeout_ms=3000):
         """Send a command and return its response.
 
         Args:
@@ -218,8 +288,10 @@ class ESPFlasher:
             tuple: Response value and response data.
         """
         self._write_slip(struct.pack(b"<BBHI", 0, cmd, len(payload), checksum) + payload)
-        for i in range(10):
-            pkt = self._read_slip()
+        start = ticks_ms()
+        while ticks_diff(ticks_ms(), start) < timeout_ms:
+            elapsed = ticks_diff(ticks_ms(), start)
+            pkt = self._read_slip(timeout_ms - elapsed)
             if pkt is not None and len(pkt) >= 8:
                 (flag, _cmd, size, val) = struct.unpack("<BBHI", pkt[:8])
                 if flag == 1 and cmd == _cmd:
@@ -240,11 +312,11 @@ class ESPFlasher:
             return
         if baudrate != self.baudrate:
             print(f"Changing baudrate => {baudrate}")
-            self.uart.clear()
+            self._clear_uart()
             self._command(_CMD_CHANGE_BAUDRATE, struct.pack("<II", baudrate, 0))
             self.baudrate = baudrate
         self.uart.uart.init(baudrate)
-        self.uart.clear()
+        self._clear_uart()
 
     def bootloader(self, retry=6):
         """Enter the ESP32 ROM bootloader download mode.
@@ -264,18 +336,17 @@ class ESPFlasher:
             sleep(0.1)
             self.gpio0_pin(1)
 
-            if "POWERON_RESET" not in self.uart.read_serial_line():
-                continue
-
             for i in range(10):
-                self.uart.clear()
+                self._clear_uart()
                 try:
                     # 36 bytes: 0x07 0x07 0x12 0x20, followed by 32 x 0x55
                     self._command(_CMD_SYNC, b"\x07\x07\x12\x20" + 32 * b"\x55")
-                    self.uart.clear()
+                    self._clear_uart()
                     return True
                 except Exception as e:
-                    print(e)
+                    if self.log:
+                        print(e)
+                    sleep(0.050)
 
         raise Exception("Failed to enter download mode!")
 
@@ -287,10 +358,10 @@ class ESPFlasher:
         """
         SPI_REG_CMD = 0x00
         SPI_USR_FLAG = 1 << 18
-        SPI_REG_USR = 0x1C
-        SPI_REG_USR2 = 0x24
-        SPI_REG_W0 = 0x80
-        SPI_REG_DLEN = 0x2C
+        SPI_REG_USR = self._spi_usr
+        SPI_REG_USR2 = self._spi_usr2
+        SPI_REG_W0 = self._spi_w0
+        SPI_REG_DLEN = self._spi_dlen
 
         # Command bit len | command
         SPI_RDID_CMD = ((8 - 1) << 28) | 0x9F
@@ -350,45 +421,94 @@ class ESPFlasher:
             ),
         )
 
-    def flash_write_file(self, path, blksize=0x1000):
+    def flash_write_file(
+        self,
+        path,
+        blksize=_FLASH_WRITE_SIZE,
+        progress_interval=_FLASH_PROGRESS_INTERVAL,
+    ):
         """Write a firmware file to the ESP32 flash chip.
 
         Args:
             path (str): Path to the firmware image.
-            blksize (int): Number of bytes in each transfer block. Defaults to 0x1000.
+            blksize (int): Number of bytes in each transfer block. Must be 4-byte aligned
+                and no larger than the ESP32 ROM limit of 0x400. Defaults to 0x400.
+            progress_interval (int): Number of blocks between progress messages. Defaults
+                to 64.
         """
-        size = os.stat(path)[6]
-        total_blocks = (size + blksize - 1) // blksize
-        erase_blocks = 1
-        print(f"Flash write size: {size} total_blocks: {total_blocks} block size: {blksize}")
-        with open(path, "rb") as f:
-            seq = 0
-            for i in range(total_blocks):
-                buf = f.read(blksize)
-                # Update digest
-                if self.md5sum is not None:
-                    self.md5sum.update(buf)
-                # The last data block should be padded to the block size with 0xFF bytes.
-                if len(buf) < blksize:
-                    buf += b"\xff" * (blksize - len(buf))
-                checksum = self._checksum(buf)
-                if seq % erase_blocks == 0:
-                    # print(f"Erasing {seq} -> {seq+erase_blocks}...")
-                    self._command(
-                        _CMD_SPI_FLASH_BEGIN,
-                        struct.pack(
-                            "<IIII", erase_blocks * blksize, erase_blocks, blksize, seq * blksize
-                        ),
-                    )
-                print(f"Writing sequence number {seq}/{total_blocks}...")
-                self._command(
-                    _CMD_SPI_FLASH_DATA,
-                    struct.pack("<IIII", len(buf), seq % erase_blocks, 0, 0) + buf,
-                    checksum,
-                )
-                seq += 1
+        if blksize <= 0 or blksize > _FLASH_WRITE_SIZE or blksize % 4:
+            raise ValueError("blksize must be 4-byte aligned and no larger than 0x400.")
+        if progress_interval <= 0:
+            raise ValueError("progress_interval must be greater than zero.")
 
-        print("Flash write finished")
+        size = os.stat(path)[6]
+        erase_size = ((size + _FLASH_SECTOR_SIZE - 1) // _FLASH_SECTOR_SIZE) * _FLASH_SECTOR_SIZE
+
+        last_data = -1
+        with open(path, "rb") as f:
+            scan_position = size
+            while scan_position > 0:
+                scan_size = min(_FLASH_SCAN_SIZE, scan_position)
+                scan_position -= scan_size
+                f.seek(scan_position)
+                data = f.read(scan_size)
+                for index in range(len(data) - 1, -1, -1):
+                    if data[index] != 0xFF:
+                        last_data = scan_position + index
+                        break
+                if last_data >= 0:
+                    break
+
+        write_size = max(blksize, last_data + 1)
+        total_blocks = (write_size + blksize - 1) // blksize
+        print(f"Flash write size: {size} total_blocks: {total_blocks} block size: {blksize}")
+        self._detach_repl_uart()
+        try:
+            with open(path, "rb") as f:
+                begin_payload = struct.pack(
+                    "<IIII", erase_size, total_blocks, blksize, 0
+                )
+                if self.chip == "esp32s2":
+                    begin_payload += struct.pack("<I", 0)
+                self._command(
+                    _CMD_SPI_FLASH_BEGIN,
+                    begin_payload,
+                    timeout_ms=max(10000, (erase_size * 40000) // 1000000),
+                )
+
+                seq = 0
+                for i in range(total_blocks):
+                    buf = f.read(blksize)
+                    # Update digest
+                    if self.md5sum is not None:
+                        self.md5sum.update(buf)
+                    # The last data block should be padded to the block size with 0xFF bytes.
+                    if len(buf) < blksize:
+                        buf += b"\xff" * (blksize - len(buf))
+                    checksum = self._checksum(buf)
+                    if (
+                        seq == 0
+                        or seq == total_blocks - 1
+                        or seq % progress_interval == 0
+                    ):
+                        print(f"Writing sequence number {seq}/{total_blocks}...")
+                    self._command(
+                        _CMD_SPI_FLASH_DATA,
+                        struct.pack("<IIII", len(buf), seq, 0, 0) + buf,
+                        checksum,
+                    )
+                    seq += 1
+
+                if self.md5sum is not None:
+                    while True:
+                        buf = f.read(blksize)
+                        if not buf:
+                            break
+                        self.md5sum.update(buf)
+
+            print("Flash write finished")
+        finally:
+            self._restore_repl_uart()
 
     def flash_verify_file(self, path, digest=None, offset=0):
         """Verify a firmware file against the ESP32 flash contents.
@@ -404,7 +524,12 @@ class ESPFlasher:
             digest = binascii.hexlify(self.md5sum.digest())
 
         size = os.stat(path)[6]
-        val, data = self._command(_CMD_SPI_FLASH_MD5, struct.pack("<IIII", offset, size, 0, 0))
+        timeout_ms = max(3000, (size * _FLASH_MD5_TIMEOUT_PER_MB) // 1000000)
+        val, data = self._command(
+            _CMD_SPI_FLASH_MD5,
+            struct.pack("<IIII", offset, size, 0, 0),
+            timeout_ms=timeout_ms,
+        )
 
         print(f"Flash verify: File  MD5 {digest}")
         print(f"Flash verify: Flash MD5 {bytes(data[0:32])}")

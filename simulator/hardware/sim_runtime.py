@@ -395,6 +395,8 @@ def seed_sd(profile="dev"):
         _write_if_missing(sd_root + "/picoware/vibesmp/library/state.json", '{}')
         if profile in ("media", "network-fixtures"):
             _write_binary_if_missing(sd_root + "/picoware/vibesmp/library/sim-tone.wav", _wav_fixture())
+    from picoware_boards import BOARD_HAS_KEYBOARD
+
     _merge_json_defaults(
         sd_root + "/picoware/settings/picoware.json",
         {
@@ -407,7 +409,7 @@ def seed_sd(profile="dev"):
             "gemini_api_key": "",
             "jblanked_api_key": "",
             "lvgl_mode": False,
-            "onscreen_keyboard": False,
+            "onscreen_keyboard": BOARD_HAS_KEYBOARD == 0,
             "openai_api_key": "",
             "local_url": "http://127.0.0.1:8080/v1/chat/completions",
             "screen_brightness": 100,

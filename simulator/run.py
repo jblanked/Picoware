@@ -724,6 +724,7 @@ def _run_sim_check(opts):
             raise SystemExit(1)
     _run_keyboard_background_check()
     _run_lcd_parity_check()
+    _run_flipper_keyboard_preview_check()
     _run_uart_parity_check()
     _run_engine_parity_check()
     _run_board_parity_check()
@@ -1147,6 +1148,102 @@ def _run_lcd_parity_check():
     if blended in (0x001F, 0xF800):
         raise RuntimeError("simulator LCD alpha triangle mismatch")
     print("[sim-check:ok] lcd brightness RGB LED bytearray inversion alpha triangle")
+
+
+def _run_flipper_keyboard_preview_check():
+    """Check firmware layout scaling and the shared Flipper keyboard preview."""
+    import picoware_boards
+    import sim_runtime
+    from picoware.system import boards
+    from picoware.system.vector import Vector
+    from picoware.gui.draw import Draw
+    from picoware.gui.keyboard import Keyboard
+
+    class InputProbe:
+        has_touch_support = False
+
+    original_id = picoware_boards.BOARD_ID
+    original_shared_id = boards.BOARD_ID
+    original_headless = sim_runtime.headless
+    original_lcd = sim_runtime.get_lcd()
+    try:
+        sim_runtime.headless = True
+        for board_id, dimensions in (
+            (picoware_boards.BOARD_FLIPPER_ZERO, (128, 64)),
+            (picoware_boards.BOARD_PICOCALC_PICO_2W, (320, 320)),
+            (picoware_boards.BOARD_PANCAKE, (320, 480)),
+        ):
+            picoware_boards.BOARD_ID = boards.BOARD_ID = board_id
+            draw = Draw(scale_x=2, scale_y=3, scale_position=True)
+            width, height = dimensions
+            assert draw.scale(320, 320) == dimensions
+            assert draw.scale(22, 48) == (int(22 * width / 320), int(48 * height / 320))
+            assert draw.scale(-22, -48) == (int(-22 * width / 320), int(-48 * height / 320))
+            assert draw.scale(0, 0, 0, 0) == (0, 0)
+            assert draw.scale(64, 32, 128, 64) == (width // 2, height // 2)
+            assert isinstance(draw.scale_x(22), int)
+            assert isinstance(draw.scale_y(48.0), float)
+            assert abs(draw.scale_x(22.0) - 22 * width / 320) < 0.001
+            result = draw.scale_vector(Vector(320, 320))
+            assert result == dimensions and isinstance(result[0], int)
+            result = draw.scale_vector(Vector(64.0, 32.0), 128, 64)
+            assert isinstance(result, tuple) and isinstance(result[0], float)
+            assert result == (width / 2, height / 2)
+            # Drawing scale remains independent of layout-reference scaling.
+            draw._clear(0)
+            draw._bytearray(2, 2, 1, 1, b"\xff\xff")
+            assert draw._get_pixel(4, 6) == 0xFFFF
+            assert draw._get_pixel(5, 8) == 0xFFFF
+            assert draw._get_pixel(6, 8) == 0
+            draw._clear(0)
+            draw._fill_triangle_alpha(2, 2, 6, 2, 2, 6, 0xFFFF, 255)
+            assert draw._get_pixel(5, 7) == 0xFFFF
+            assert draw._get_pixel(2, 2) == 0
+
+        picoware_boards.BOARD_ID = boards.BOARD_ID = picoware_boards.BOARD_FLIPPER_ZERO
+        draw = Draw()
+        keyboard = Keyboard(draw, InputProbe())
+        assert keyboard._is_flipper
+        keyboard._draw_textbox()
+        keyboard._draw_keyboard()
+        # The keyboard clears from TEXTBOX_HEIGHT downwards after the textbox.
+        # Firmware rectangle borders stay inside their width/height extents.
+        left, top = int(keyboard.text_border_pos.x), int(keyboard.text_border_pos.y)
+        right = left + int(keyboard.text_border_size.x) - 1
+        bottom = top + int(keyboard.text_border_size.y) - 1
+        assert all(draw._get_pixel(x, bottom) == 0xFFFF for x in range(left, right + 1))
+        assert all(draw._get_pixel(right, y) == 0xFFFF for y in range(top, bottom + 1))
+        assert draw._get_pixel(left + 1, bottom - 1) == 0
+        # Check real pixels, not just submitted text: unscaled keys were offscreen.
+        assert any(draw._buffer[32 * draw.width * 2:])
+        for x, y in ((124, 0), (0, 57), (-1, 0)):
+            draw._clear(0)
+            draw._text(x, y, "A", 0xFFFF)
+            assert not any(draw._buffer), "Flipper must reject a clipped glyph"
+        draw._text(-3, 0, "AB", 0xFFFF)
+        wrapped = bytes(draw._buffer)
+        draw._clear(0)
+        draw._text(3, 0, "B", 0xFFFF)
+        assert bytes(draw._buffer) == wrapped and any(wrapped)
+        draw._clear(0)
+        draw._text(0, 0, "A\nB", 0xFFFF)
+        multiline = bytes(draw._buffer)
+        draw._clear(0)
+        draw._text(0, 0, "A", 0xFFFF)
+        draw._text(0, 10, "B", 0xFFFF)
+        assert bytes(draw._buffer) == multiline
+        draw._clear(0x001F)
+        assert not any(draw._buffer)
+        draw._pixel(0, 0, 0xFFFF)
+        draw._fill_rectangle(1, 0, 1, 1, 0x07E0)
+        assert draw._get_pixel(0, 0) == 0xFFFF and draw._get_pixel(1, 0) == 0
+    finally:
+        picoware_boards.BOARD_ID = original_id
+        boards.BOARD_ID = original_shared_id
+        sim_runtime.headless = original_headless
+        sim_runtime.set_lcd(original_lcd)
+        gc.collect()
+    print("[sim-check:ok] layout scaling and Flipper keyboard pixels text clipping monochrome")
 
 
 def _run_uart_parity_check():

@@ -55,8 +55,6 @@ class LCD:
                 picoware_boards.BOARD_ID, picoware_boards
             )
             self._is_flipper = picoware_boards.BOARD_ID == picoware_boards.BOARD_FLIPPER_ZERO
-            if self.width * self.height > 320 * 480:
-                self.width, self.height = 320, 320
         except Exception:
             self.width, self.height = 320, 320
         self._scale_x_factor = scale_x
@@ -334,25 +332,20 @@ class LCD:
     def _font_metrics(self, font_size):
         if font_size is None:
             font_size = self.FONT_DEFAULT
-        if font_size == 0:
-            return 5, 8, 1
-        if font_size == 2:
-            return 11, 16, 1
-        if font_size == 3:
-            return 14, 20, 0
-        if font_size == 4:
-            return 17, 24, 0
-        return 7, 12, 0
+        return sim_font.METRICS[font_size if 0 <= font_size < 5 else 0]
 
     def _draw_glyph(self, x, y, ch, color, width, height):
-        rows = sim_font.glyph_rows(ch)
-        for dst_y in range(height):
-            src_y = dst_y * sim_font.HEIGHT // height
-            row = rows[src_y]
-            for dst_x in range(width):
-                src_x = dst_x * sim_font.WIDTH // width
-                if row & (0x80 >> src_x):
-                    self._set_pixel(x + dst_x, y + dst_y, color)
+        size = (8, 12, 16, 20, 24).index(height)
+        data = sim_font.font_data(size)
+        code = ord(ch)
+        if not 32 <= code <= 126:
+            code = ord("?")
+        row_bytes = (width + 7) // 8
+        offset = (code - 32) * height * row_bytes
+        for dy in range(height):
+            for dx in range(width):
+                if data[offset + dy * row_bytes + dx // 8] & (0x80 >> (dx % 8)):
+                    self._set_pixel(x + dx, y + dy, color)
 
     def _text(self, x, y, text, color, font_size=None):
         try:

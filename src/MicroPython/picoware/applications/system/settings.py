@@ -2,7 +2,7 @@
 
 from micropython import const
 
-# states
+# States in alphabetical order; values index __config().
 STATE_ANTHROPIC_API_KEY = const(0)  # keyboard input for Anthropic API key
 STATE_DARK_MODE = const(1)  # toggle (on/off)
 STATE_DEBUG = const(2)  # toggle (enable/disable)
@@ -12,15 +12,15 @@ STATE_GEMINI_API_KEY = const(5)  # keyboard input for Gemini API key
 STATE_JBLANKED_API_KEY = const(6)  # keyboard input for jblanked API key
 STATE_LOCAL_API_KEY = const(7)  # keyboard input for local API key
 STATE_LOCAL_URL = const(8)  # keyboard input for Local URL
-STATE_LVGL_MODE = const(9)  # toggle (use LVGL or not)
-STATE_MCP_SERVERS = const(10)  # menu for MCP servers list
-STATE_ONSCREEN_KEYBOARD = const(11)  # toggle (show/hide)
-STATE_OPENAI_API_KEY = const(12)  # keyboard input for OpenAI API key
-STATE_SCREEN_BRIGHTNESS = const(13)  # choice (10 - 100)
-STATE_SERVER_SETTINGS = const(14)  # menu with username and password
-STATE_THEME_COLOR = const(15)  # choice (select from predefined colors)
-STATE_TIME = const(16)  # menu with date (date picker), GMT offset (keyboard)
-STATE_USB_STREAM = const(17)  # toggle (enable/disable USB stream)
+STATE_LVGL_MODE = const(17)  # toggle (use LVGL or not)
+STATE_MCP_SERVERS = const(9)  # menu for MCP servers list
+STATE_ONSCREEN_KEYBOARD = const(10)  # toggle (show/hide)
+STATE_OPENAI_API_KEY = const(11)  # keyboard input for OpenAI API key
+STATE_SCREEN_BRIGHTNESS = const(12)  # choice (10 - 100)
+STATE_SERVER_SETTINGS = const(13)  # menu with username and password
+STATE_THEME_COLOR = const(14)  # choice (select from predefined colors)
+STATE_TIME = const(15)  # menu with date (date picker), GMT offset (keyboard)
+STATE_USB_STREAM = const(16)  # toggle (enable/disable USB stream)
 STATE_XAI_API_KEY = const(18)  # keyboard input for xAI API key
 
 # modes

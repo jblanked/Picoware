@@ -587,6 +587,8 @@ class Keyboard:
 
     def _build_key_rects(self) -> list:
         """Set each key's (x, y, width, height) rectangle."""
+        if self._is_flipper:
+            return self._build_flipper_key_rects()
         rects = []
         for row in range(self.NUM_ROWS):
             total_row_width = 0
@@ -606,6 +608,29 @@ class Keyboard:
                 width = key.width * self.KEY_WIDTH + (key.width - 2) * self.KEY_SPACING
                 row_rects.append((x_pos - 2, y, width + 4, self.KEY_HEIGHT))
                 x_pos += key.width * self.KEY_WIDTH + self.KEY_SPACING
+            rects.append(row_rects)
+        return rects
+
+    def _build_flipper_key_rects(self) -> list:
+        """Fit action labels and center rows without overlapping key cells."""
+        rects = []
+        font_spacing = self.draw.get_font().spacing
+        for row in range(self.NUM_ROWS):
+            widths = []
+            for col in range(self.ROW_SIZES[row]):
+                key = self.ROWS[row][col]
+                label = self._key_label(row, col)
+                label_width = self.draw.len(label) - font_spacing
+                widths.append(max(key.width * self.KEY_WIDTH, label_width + 2))
+            row_width = sum(widths) + (len(widths) - 1) * self.KEY_SPACING
+            x = (self.draw.size.x - row_width) // 2
+            y = int(self.TEXTBOX_HEIGHT + self.draw.scale_y(13.33)) + row * (
+                self.KEY_HEIGHT + self.KEY_SPACING
+            )
+            row_rects = []
+            for width in widths:
+                row_rects.append((x, y, width, self.KEY_HEIGHT))
+                x += width + self.KEY_SPACING
             rects.append(row_rects)
         return rects
 
@@ -687,6 +712,48 @@ class Keyboard:
                 self.text_color,
             )
 
+        if self._is_flipper and key.normal in ("\x01", "\x02"):
+            # Printable fonts have no Shift/Caps Lock glyphs. Draw 5x7 arrows
+            # so these controls fit a single cell on the 128-pixel display.
+            caps = key.normal == "\x01"
+            rows = (4, 14, 31, 4, 4, 0, 31) if caps else (4, 14, 31, 4, 4, 4, 4)
+            color = self.background_color if is_selected else self.text_color
+            x = x_pos + (width - 5) // 2
+            y = y_pos + (height - 7) // 2
+            for dy, bits in enumerate(rows):
+                for dx in range(5):
+                    if bits & (16 >> dx):
+                        self.draw._pixel(x + dx, y + dy, color)
+            active = self.is_caps_lock_on if caps else self.is_shift_pressed
+            if active:
+                self.draw._line(
+                    x_pos, y_pos + height - 1,
+                    x_pos + width - 1, y_pos + height - 1, color,
+                )
+            return
+
+        key_label = self._key_label(row, col)
+        label_width = self.draw.len(key_label)
+        if self._is_flipper:
+            # Text rendering adds spacing after every glyph, including the last.
+            # Center the visible glyphs, excluding that trailing blank column.
+            label_width -= self.draw.get_font().spacing
+            _key_x = x_pos + (width - label_width) // 2
+        else:
+            _key_x = x_pos + width // 2 - label_width // 2
+        _key_y = y_pos + self.KEY_HEIGHT // 2 - self.draw.font_size.y // 2
+        if self._is_flipper:
+            text_color = self.background_color if is_selected else self.text_color
+            self.draw._text(_key_x, _key_y, key_label, text_color)
+        else:
+            self.draw._text(_key_x, _key_y, key_label, self.text_color)
+
+    def _key_label(self, row: int, col: int) -> str:
+        """Return the current key label, using one-cell modifier icons on Flipper."""
+        key = self.ROWS[row][col]
+        if self._is_flipper and key.normal in ("\x01", "\x02"):
+            return "^"  # Width placeholder for the 5-pixel modifier icon.
+
         # Determine what character to display
         display_char = key.normal
         should_capitalize = False
@@ -718,15 +785,7 @@ class Keyboard:
         else:
             key_label = display_char
 
-        # Center the text
-        _key_x = x_pos + width // 2 - self.draw.len(key_label) // 2
-        _key_y = y_pos + self.KEY_HEIGHT // 2 - self.draw.font_size.y // 2
-        if self._is_flipper:
-            # Draw key label with background color for selected key
-            text_color = self.background_color if is_selected else self.text_color
-            self.draw._text(_key_x, _key_y, key_label, text_color)
-        else:
-            self.draw._text(_key_x, _key_y, key_label, self.text_color)
+        return key_label
 
     def _draw_keyboard(self) -> None:
         """Draws the entire keyboard"""

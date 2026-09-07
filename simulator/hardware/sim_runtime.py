@@ -53,6 +53,7 @@ open_target = ""
 _keys = []
 _delayed_keys = []
 _held_keys = {}
+_held_key_order = []
 _lcd = None
 _wait_view = ""
 _assert_text = ""
@@ -153,7 +154,7 @@ def configure(_root, _sd_root, _apps_source, _scale, _board, _max_frames, _headl
     global viewer, viewer_frame_path, viewer_keys_path, status_path, error_path, control_path, log_path, record_path
     global sd_profile, network_mode, bluetooth_mode, audio_mode
     global speed_mode, target_fps, _frame_interval_ms, _last_frame_ms, _viewer_key_offset, _last_status_ms, _control_offset, audio_muted
-    global frame_count, loop_count, open_target, _keys, _delayed_keys, _held_keys, _lcd
+    global frame_count, loop_count, open_target, _keys, _delayed_keys, _held_keys, _held_key_order, _lcd
     global _wait_view, _assert_text, _seen_wait_view, _seen_assert_text, _current_view_name, _recent_text
     global _recent_input, _record_text, _ir_waveform
     global _key_callback, _background_key_poll, _notifying_key
@@ -194,6 +195,7 @@ def configure(_root, _sd_root, _apps_source, _scale, _board, _max_frames, _headl
     _keys = []
     _delayed_keys = []
     _held_keys = {}
+    _held_key_order = []
     _lcd = None
     _wait_view = ""
     _assert_text = ""
@@ -833,6 +835,12 @@ def is_key_held(code):
         return False
 
 
+def held_key():
+    """Return the most recently pressed key still down, independent of repeats."""
+    poll_events()
+    return _held_key_order[-1] if _held_key_order else -1
+
+
 def enqueue_key_names(text):
     parts = text.split(",")
     for raw in parts:
@@ -1181,20 +1189,27 @@ def poll_viewer_keys():
         if line:
             parts = line.split()
             try:
+                if parts[0] == "release_all":
+                    _held_keys.clear()
+                    _held_key_order.clear()
+                    continue
                 if parts[0] == "touch" and len(parts) >= 3:
                     gesture = int(parts[3]) if len(parts) > 3 else 6
                     set_touch_point(int(parts[1]), int(parts[2]), gesture)
                     continue
                 if len(parts) >= 2 and parts[0] in ("down", "up"):
                     code = int(parts[1])
-                    repeat = len(parts) >= 3 and int(parts[2]) != 0
                     if parts[0] == "down":
+                        if code not in _held_keys:
+                            _held_key_order.append(code)
                         _held_keys[code] = True
-                        if not repeat:
-                            push_key(code)
-                            _record_key(code)
+                        # SDL repeat events drive held-key input in firmware apps.
+                        push_key(code)
+                        _record_key(code)
                     else:
                         _held_keys.pop(code, None)
+                        if code in _held_key_order:
+                            _held_key_order.remove(code)
                 else:
                     code = int(line)
                     push_key(code)

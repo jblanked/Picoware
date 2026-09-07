@@ -26,7 +26,7 @@ if(_picoware_idf_path)
     )
 endif()
 
-target_compile_definitions(usermod_lcd INTERFACE
+target_compile_definitions(usermod_touch INTERFACE
   WAVESHARE_2_06
 )
 

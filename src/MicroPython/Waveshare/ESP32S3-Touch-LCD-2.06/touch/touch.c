@@ -6,17 +6,18 @@
  * Adapted from https://github.com/Elecrow-RD/CrowPanel-Advanced-10.1inch-ESP32-P4-HMI-AI-Display-1024x600-IPS-Touch-Screen/blob/master/example/V1.0/idf-code/Lesson05-Touchscreen/peripheral/bsp_display/bsp_display.c
  */
 
-#include "freertos/FreeRTOS.h"   // FreeRTOS base header
-#include "freertos/task.h"       // FreeRTOS task APIs
+#include "freertos/FreeRTOS.h"    // FreeRTOS base header
+#include "freertos/task.h"        // FreeRTOS task APIs
 #include "esp_lcd_touch_ft5x06.h" // GT911 touch driver APIs
-#include <rom/ets_sys.h>         // ESP ROM system functions (e.g., delay)
-#include "driver/i2c_master.h"   // ESP-IDF I2C master driver API
-#include "touch.h"               // Include the display BSP header
+#include <rom/ets_sys.h>          // ESP ROM system functions (e.g., delay)
+#include "driver/i2c_master.h"    // ESP-IDF I2C master driver API
+#include "touch.h"                // Include the display BSP header
 
 static esp_lcd_touch_handle_t tp = NULL;              // Handle for the GT911 touch panel
 static esp_lcd_panel_io_handle_t tp_io_handle = NULL; // Handle for I2C panel I/O
 static bool touch_initialized = false;                // Flag to indicate if touch panel is initialized
 static i2c_master_bus_handle_t i2c_bus_handle = NULL; // Global handle for I2C bus
+static bool i2c_bus_owned = false;
 
 static TouchPoint current_touch_point = {
     .x = 0,           // Initialize X coordinate to invalid value
@@ -61,11 +62,12 @@ void touch_deinit(void)
         esp_lcd_panel_io_del(tp_io_handle); // Delete panel I/O instance
         tp_io_handle = NULL;                // Clear panel I/O handle
     }
-    if (i2c_bus_handle)
+    if (i2c_bus_handle && i2c_bus_owned)
     {
         i2c_del_master_bus(i2c_bus_handle); // Delete I2C bus instance
         i2c_bus_handle = NULL;              // Clear I2C bus handle
     }
+    i2c_bus_owned = false;
     touch_initialized = false; // Reset initialization flag
 }
 
@@ -80,15 +82,20 @@ bool touch_init(void)
     // Initialize I2C bus
     i2c_master_bus_config_t conf = {
         // I2C bus configuration
-        .i2c_port = WATCH_I2C_PORT,         // Use defined I2C port
-        .sda_io_num = WATCH_I2C_SDA_GPIO,          // SDA pin
-        .scl_io_num = WATCH_I2C_SCL_GPIO,          // SCL pin
+        .i2c_port = WATCH_I2C_PORT,          // Use defined I2C port
+        .sda_io_num = WATCH_I2C_SDA_GPIO,    // SDA pin
+        .scl_io_num = WATCH_I2C_SCL_GPIO,    // SCL pin
         .clk_source = I2C_CLK_SRC_DEFAULT,   // Default clock source
         .glitch_ignore_cnt = 7,              // Glitch filter count
         .flags.enable_internal_pullup = true // Enable internal pull-up resistors
     };
 
-    const esp_err_t i2c_err = i2c_new_master_bus(&conf, &i2c_bus_handle); // Create new I2C bus
+    esp_err_t i2c_err = i2c_master_get_bus_handle(WATCH_I2C_PORT, &i2c_bus_handle);
+    if (i2c_err != ESP_OK)
+    {
+        i2c_err = i2c_new_master_bus(&conf, &i2c_bus_handle); // Create new I2C bus
+        i2c_bus_owned = i2c_err == ESP_OK;
+    }
     if (i2c_err != ESP_OK)
     {
         printf("touch: I2C initialization failed, %s\n", esp_err_to_name(i2c_err));
@@ -125,9 +132,10 @@ bool touch_init(void)
     }
 
     // Initialize GT911 touch driver
-    if (esp_lcd_touch_new_i2c_ft5x06(tp_io_handle, &tp_cfg, &tp) != ESP_OK)
+    const esp_err_t touch_err = esp_lcd_touch_new_i2c_ft5x06(tp_io_handle, &tp_cfg, &tp);
+    if (touch_err != ESP_OK)
     {
-        printf("touch: Failed to initialize touch, %s\n", esp_err_to_name(io_err));
+        printf("touch: Failed to initialize touch, %s\n", esp_err_to_name(touch_err));
         return false;
     }
 
@@ -159,7 +167,7 @@ bool touch_read(void)
         current_touch_point.x = touch_data.coords[point_cnt - 1].x;               // Update X coordinate
         current_touch_point.y = touch_data.coords[point_cnt - 1].y;               // Update Y coordinate
         current_touch_point.strength = touch_data.coords[point_cnt - 1].strength; // Update touch strength
-        current_touch_point.touch_count = touch_data.points;                      // Update touch count
+        current_touch_point.touch_count = point_cnt;                              // Update touch count
         current_touch_point.pressed = true;                                       // Update press state to pressed
     }
     else

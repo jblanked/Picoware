@@ -163,7 +163,7 @@ static esp_err_t display_setup_panel(void)
                                                                   WATCH_LCD_DATA1_GPIO,
                                                                   WATCH_LCD_DATA2_GPIO,
                                                                   WATCH_LCD_DATA3_GPIO,
-                                                                  LCD_WIDTH * LCD_HEIGHT * BITS_PER_PIXEL / 8);
+                                                                  LCD_WIDTH * LCD_SWAP_LINES * sizeof(uint16_t));
 
     esp_err_t err = spi_bus_initialize(WATCH_LCD_HOST, &bus_cfg, SPI_DMA_CH_AUTO);
     if (err != ESP_OK && err != ESP_ERR_INVALID_STATE)
@@ -314,7 +314,7 @@ bool lcd_set_backlight(uint32_t brightness)
         return false;
     }
 
-    if (brightness < 0 || brightness > 100)
+    if (brightness > 100)
     {
         ESP_LOGE(TAG, "Invalid brightness percentage. Should be between 0 and 100.");
         return false;

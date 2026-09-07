@@ -2,6 +2,7 @@
 #include "game.hpp"
 #include "level.hpp"
 #include "sprite3d.hpp"
+#include "projection.hpp"
 #include "../engine_config.hpp"
 #include ENGINE_LCD_INCLUDE
 #include <math.h>
@@ -403,223 +404,83 @@ void Level::render(Game *game)
     }
 }
 
+namespace
+{
+void drawProjectedTriangle(Draw *draw, const EngineProjection::Vertex vertices[3],
+                           const Vector &screen, uint16_t color, bool wireframe,
+                           bool clamp, uint8_t alpha = 255)
+{
+    EngineProjection::Point polygon[EngineProjection::MAX_VERTICES];
+    const int count = EngineProjection::project(vertices, screen.x, screen.y, clamp, polygon);
+    uint16_t x[EngineProjection::MAX_VERTICES], y[EngineProjection::MAX_VERTICES];
+    for (int i = 0; i < count; ++i)
+    {
+        x[i] = static_cast<uint16_t>(polygon[i].x);
+        y[i] = static_cast<uint16_t>(polygon[i].y);
+    }
+    for (int i = 1; i + 1 < count; ++i)
+    {
+        if (alpha == 255)
+            draw->fillTriangle(x[0], y[0], x[i], y[i],
+                               x[i + 1], y[i + 1], color);
+        else
+            draw->fillTriangleAlpha(x[0], y[0], x[i], y[i],
+                                    x[i + 1], y[i + 1], color, alpha);
+    }
+    if (wireframe)
+    {
+        uint8_t r = (color >> 11) & 0x1F;
+        uint8_t g = (color >> 5) & 0x3F;
+        uint8_t b = color & 0x1F;
+        r += (0x1F - r) >> 1;
+        g += (0x3F - g) >> 1;
+        b += (0x1F - b) >> 1;
+        const uint16_t outline = ((uint16_t)r << 11) | ((uint16_t)g << 5) | b;
+        // Outline the clipped polygon without exposing triangulation diagonals.
+        for (int i = 0; i < count; ++i)
+        {
+            const int next = (i + 1) % count;
+            draw->line(x[i], y[i], x[next], y[next], outline);
+        }
+    }
+}
+}
+
 void Level::render3DSprite(const Sprite3D *sprite3d, Draw *draw, const Vector &player_pos, const Vector &player_dir, float view_height, bool clamp)
 {
     if (!sprite3d)
         return;
 
     const Vector screenSize = draw->getDisplaySize();
-    const float half_sx = screenSize.x * 0.5f;
-    const float half_sy = screenSize.y * 0.5f;
-    const float screen_y = (float)screenSize.y;
-
-    const float camA = -player_dir.y; // world_dx -> camera_x coefficient
-    const float camB = player_dir.x;  // world_dz -> camera_x coefficient
-    const float camC = player_dir.x;  // world_dx -> camera_z coefficient
-    const float camD = player_dir.y;  // world_dz -> camera_z coefficient
-
-    // light-projection coefficients
-    const bool doShadow = (shadowColor != 0 && lightDirection.y > 0.01f);
+    const float camA = -player_dir.y, camB = player_dir.x;
+    const float camC = player_dir.x, camD = player_dir.y;
+    const bool doShadow = shadowColor != 0 && lightDirection.y > 0.01f;
     const float slx = doShadow ? lightDirection.x / lightDirection.y : 0.0f;
     const float slz = doShadow ? lightDirection.z / lightDirection.y : 0.0f;
 
     const uint16_t triangle_count = sprite3d->getTriangleCount();
-    for (uint16_t i = 0; i < triangle_count; i++)
+    for (uint16_t i = 0; i < triangle_count; ++i)
     {
         Triangle3D triangle;
         if (!sprite3d->getTransformedTriangle(i, player_pos, triangle))
             continue;
-
-        // Shadow pass
+        const float xs[] = {triangle.x1, triangle.x2, triangle.x3};
+        const float ys[] = {triangle.y1, triangle.y2, triangle.y3};
+        const float zs[] = {triangle.z1, triangle.z2, triangle.z3};
+        EngineProjection::Vertex vertices[3], shadow[3];
+        for (int j = 0; j < 3; ++j)
+        {
+            const float wx = xs[j] - player_pos.x, wz = zs[j] - player_pos.y;
+            vertices[j] = {wx * camA + wz * camB, ys[j] - view_height, wx * camC + wz * camD};
+            if (doShadow)
+            {
+                const float sx = wx - ys[j] * slx, sz = wz - ys[j] * slz;
+                shadow[j] = {sx * camA + sz * camB, -view_height, sx * camC + sz * camD};
+            }
+        }
         if (doShadow)
-        {
-            float ssx[3], ssy[3];
-            uint8_t sv = 0;
-            for (int j = 0; j < 3; j++)
-            {
-                float vy = (j == 0) ? triangle.y1 : (j == 1) ? triangle.y2
-                                                             : triangle.y3;
-                float wx = ((j == 0) ? triangle.x1 : (j == 1) ? triangle.x2
-                                                              : triangle.x3) -
-                           vy * slx - player_pos.x;
-                float wz = ((j == 0) ? triangle.z1 : (j == 1) ? triangle.z2
-                                                              : triangle.z3) -
-                           vy * slz - player_pos.y;
-                float cz = wx * camC + wz * camD;
-                if (cz > 0.1f)
-                {
-                    float inv = 1.0f / cz;
-                    ssx[j] = (wx * camA + wz * camB) * inv * screen_y + half_sx;
-                    ssy[j] = view_height * inv * screen_y + half_sy;
-                    sv++;
-                }
-            }
-            if (sv == 3)
-                draw->fillTriangleAlpha((uint16_t)ssx[0], (uint16_t)ssy[0],
-                                        (uint16_t)ssx[1], (uint16_t)ssy[1],
-                                        (uint16_t)ssx[2], (uint16_t)ssy[2],
-                                        shadowColor, 128);
-        }
-
-        float sx[3], sy[3];
-        uint8_t visible_count = 0;
-
-        // Vertex 0
-        {
-            const float wx = triangle.x1 - player_pos.x;
-            const float wy = triangle.y1 - view_height;
-            const float wz = triangle.z1 - player_pos.y;
-            const float cz = wx * camC + wz * camD;
-            if (cz > 0.1f)
-            {
-                const float inv_cz = 1.0f / cz;
-                const float cx = wx * camA + wz * camB;
-                sx[0] = cx * inv_cz * screen_y + half_sx;
-                sy[0] = -wy * inv_cz * screen_y + half_sy;
-                visible_count++;
-            }
-            else
-            {
-                sx[0] = -1.0f;
-                sy[0] = -1.0f;
-            }
-        }
-
-        // Vertex 1
-        {
-            const float wx = triangle.x2 - player_pos.x;
-            const float wy = triangle.y2 - view_height;
-            const float wz = triangle.z2 - player_pos.y;
-            const float cz = wx * camC + wz * camD;
-            if (cz > 0.1f)
-            {
-                const float inv_cz = 1.0f / cz;
-                const float cx = wx * camA + wz * camB;
-                sx[1] = cx * inv_cz * screen_y + half_sx;
-                sy[1] = -wy * inv_cz * screen_y + half_sy;
-                visible_count++;
-            }
-            else
-            {
-                sx[1] = -1.0f;
-                sy[1] = -1.0f;
-            }
-        }
-
-        // Vertex 2
-        {
-            const float wx = triangle.x3 - player_pos.x;
-            const float wy = triangle.y3 - view_height;
-            const float wz = triangle.z3 - player_pos.y;
-            const float cz = wx * camC + wz * camD;
-            if (cz > 0.1f)
-            {
-                const float inv_cz = 1.0f / cz;
-                const float cx = wx * camA + wz * camB;
-                sx[2] = cx * inv_cz * screen_y + half_sx;
-                sy[2] = -wy * inv_cz * screen_y + half_sy;
-                visible_count++;
-            }
-            else
-            {
-                sx[2] = -1.0f;
-                sy[2] = -1.0f;
-            }
-        }
-
-        // Reject triangles with any vertex behind the camera plane
-        if (visible_count < 3)
-            continue;
-
-        // reject triangles completely off-screen
-        if (!clamp)
-        {
-            // All points left of screen
-            if (sx[0] < 0.0f && sx[1] < 0.0f && sx[2] < 0.0f)
-                continue;
-            // All points right of screen
-            if (sx[0] > screenSize.x && sx[1] > screenSize.x && sx[2] > screenSize.x)
-                continue;
-            // All points above screen
-            if (sy[0] < 0.0f && sy[1] < 0.0f && sy[2] < 0.0f)
-                continue;
-            // All points below screen
-            if (sy[0] > screenSize.y && sy[1] > screenSize.y && sy[2] > screenSize.y)
-                continue;
-        }
-
-        // Convert to integer screen coordinates
-        uint16_t ix0, iy0, ix1, iy1, ix2, iy2;
-
-        if (clamp)
-        {
-            // Clamp to screen bounds
-            if (sx[0] < 0.0f)
-                ix0 = 0;
-            else if (sx[0] > screenSize.x)
-                ix0 = (uint16_t)screenSize.x;
-            else
-                ix0 = (uint16_t)sx[0];
-
-            if (sy[0] < 0.0f)
-                iy0 = 0;
-            else if (sy[0] > screenSize.y)
-                iy0 = (uint16_t)screenSize.y;
-            else
-                iy0 = (uint16_t)sy[0];
-
-            if (sx[1] < 0.0f)
-                ix1 = 0;
-            else if (sx[1] > screenSize.x)
-                ix1 = (uint16_t)screenSize.x;
-            else
-                ix1 = (uint16_t)sx[1];
-
-            if (sy[1] < 0.0f)
-                iy1 = 0;
-            else if (sy[1] > screenSize.y)
-                iy1 = (uint16_t)screenSize.y;
-            else
-                iy1 = (uint16_t)sy[1];
-
-            if (sx[2] < 0.0f)
-                ix2 = 0;
-            else if (sx[2] > screenSize.x)
-                ix2 = (uint16_t)screenSize.x;
-            else
-                ix2 = (uint16_t)sx[2];
-
-            if (sy[2] < 0.0f)
-                iy2 = 0;
-            else if (sy[2] > screenSize.y)
-                iy2 = (uint16_t)screenSize.y;
-            else
-                iy2 = (uint16_t)sy[2];
-        }
-        else
-        {
-            ix0 = (uint16_t)sx[0];
-            iy0 = (uint16_t)sy[0];
-            ix1 = (uint16_t)sx[1];
-            iy1 = (uint16_t)sy[1];
-            ix2 = (uint16_t)sx[2];
-            iy2 = (uint16_t)sy[2];
-        }
-
-        draw->fillTriangle(ix0, iy0, ix1, iy1, ix2, iy2, triangle.color);
-
-        if (triangle.wireframe)
-        {
-            // Compute a lighter outline color from the fill color
-            uint8_t r = (uint8_t)((triangle.color >> 11) & 0x1F);
-            uint8_t g = (uint8_t)((triangle.color >> 5) & 0x3F);
-            uint8_t b = (uint8_t)(triangle.color & 0x1F);
-            r = r + ((0x1F - r) >> 1);
-            g = g + ((0x3F - g) >> 1);
-            b = b + ((0x1F - b) >> 1);
-            const uint16_t outline_color = ((uint16_t)r << 11) | ((uint16_t)g << 5) | b;
-            draw->triangle(ix0, iy0, ix1, iy1, ix2, iy2, outline_color);
-        }
+            drawProjectedTriangle(draw, shadow, screenSize, shadowColor, false, clamp, 128);
+        drawProjectedTriangle(draw, vertices, screenSize, triangle.color, triangle.wireframe, clamp);
     }
 }
 

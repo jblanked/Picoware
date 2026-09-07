@@ -63,25 +63,6 @@ Useful board names include `picocalc-pico2w`, `waveshare-1.28-rp2350`,
 `waveshare-1.43-rp2350`, `waveshare-1.69-rp2350`, `waveshare-3.49-rp2350`,
 `crowpanel-10.1`, and `cardputer`.
 
-### Flipper keyboard preview
-
-From the repository root, launch the bundled keyboard example at the Flipper's
-128x64 resolution, enlarged for desktop viewing:
-
-```sh
-sh tools/run-micropython-desktop.sh --viewer --board flipper-zero \
-  --app keyboard-simple --scale 6 --sd /tmp/picoware-flipper-preview
-```
-
-A fresh Flipper SD directory enables the on-screen keyboard by default. Existing
-settings are preserved; if it is hidden, enable **Onscreen Keyboard** in Settings.
-Arrow keys select keys and Enter presses the selected key.
-
-Edit `src/MicroPython/picoware/gui/keyboard.py`, then press **Ctrl+R** in the viewer
-to reload the Python code. No firmware build or flashing is needed. The preview
-uses the shared keyboard layout, the default 5x8 font, and Flipper text clipping
-and monochrome colors, so spacing and clipped labels can be inspected directly.
-
 ### Game Boy controls
 
 The simulator runs Game Boy ROMs through the native Walnut-CGB helper when it

@@ -360,28 +360,26 @@ int spi_sdcard_read_blocks(spi_sdcard_t *card, uint8_t *buf, uint32_t block_num,
     sd_spi_set_br(SPI_BR_DIV2);
 
     int ret = -1;
+    uint8_t cmd = (num_blocks > 1) ? SD_CMD18_READ_MULTIPLE
+                                   : SD_CMD17_READ_SINGLE_BLOCK;
+    uint32_t addr = block_num;
+
+    if (card->card_type != SD_TYPE_SDHC && card->card_type != SD_TYPE_SDXC)
+    {
+        addr *= 512;
+    }
+
+    sd_cs_low();
+    uint8_t r1 = sd_send_cmd(cmd, addr);
+    if (r1 != 0x00)
+    {
+        sd_cs_high();
+        sd_spi_set_br(SPI_BR_DIV16);
+        return ret;
+    }
 
     for (uint32_t b = 0; b < num_blocks; b++)
     {
-        uint32_t addr = block_num + b;
-        uint8_t cmd = (num_blocks > 1) ? SD_CMD18_READ_MULTIPLE
-                                       : SD_CMD17_READ_SINGLE_BLOCK;
-
-        // For SDSC, use byte address; for SDHC/SDXC, use block address
-        if (card->card_type != SD_TYPE_SDHC && card->card_type != SD_TYPE_SDXC)
-        {
-            addr *= 512;
-        }
-
-        sd_cs_low();
-        uint8_t r1 = sd_send_cmd(cmd, addr);
-        if (r1 != 0x00)
-        {
-            sd_cs_high();
-            sd_spi_set_br(SPI_BR_DIV16);
-            return ret;
-        }
-
         // Wait for data token 0xFE
         int max_wait = 100000;
         uint8_t token;
@@ -400,18 +398,16 @@ int spi_sdcard_read_blocks(spi_sdcard_t *card, uint8_t *buf, uint32_t block_num,
         sd_spi_read_multi(buf + (b * 512), 512);
         sd_spi_read();
         sd_spi_read(); // Discard CRC
-        sd_cs_high();
     }
 
     // End multi-block read if needed
     if (num_blocks > 1)
     {
-        sd_cs_low();
         sd_send_cmd(SD_CMD12_STOP_TRANSMISSION, 0);
         sd_spi_read(); // Eat extra byte after stop
-        sd_cs_high();
     }
 
+    sd_cs_high();
     ret = 0;
 
     // Restore LCD speed

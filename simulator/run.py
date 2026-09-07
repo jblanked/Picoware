@@ -97,6 +97,7 @@ def _parse_args(argv):
         "wait_view": "",
         "assert_text": "",
         "sim_check": False,
+        "keep_interpreter": False,
         "reset_sd": False,
         "sd_profile": "dev",
         "record": "",
@@ -184,6 +185,8 @@ def _parse_args(argv):
             opts["assert_text"] = argv[i]
         elif arg == "--sim-check":
             opts["sim_check"] = True
+        elif arg == "--keep-interpreter":
+            opts["keep_interpreter"] = True
         elif arg == "--reset-sd":
             opts["reset_sd"] = True
         elif arg == "--sd-profile" and i + 1 < len(argv):
@@ -193,7 +196,7 @@ def _parse_args(argv):
             i += 1
             opts["record"] = _abspath(argv[i])
         elif arg == "--help":
-            print("usage: micropython simulator/run.py [--viewer] [--sdl] [--headless] [--frames N] [--exit-after-frames N] [--speed auto|real|pico2w|fast|unlimited] [--fps N] [--network real|offline] [--bluetooth virtual|off] [--audio real|silent] [--keys a,b] [--keys-text TEXT] [--record FILE] [--open NAME] [--app NAME] [--game NAME] [--apps-source PATH] [--reset-sd] [--sd-profile clean|dev|media|network-fixtures] [--screenshot PATH] [--coverage apps|games|all] [--script FILE] [--wait-view NAME] [--assert-text TEXT] [--capabilities] [--sim-check]")
+            print("usage: micropython simulator/run.py [--viewer] [--sdl] [--headless] [--frames N] [--exit-after-frames N] [--speed auto|real|pico2w|fast|unlimited] [--fps N] [--network real|offline] [--bluetooth virtual|off] [--audio real|silent] [--keys a,b] [--keys-text TEXT] [--record FILE] [--open NAME] [--app NAME] [--game NAME] [--apps-source PATH] [--reset-sd] [--sd-profile clean|dev|media|network-fixtures] [--screenshot PATH] [--coverage apps|games|all] [--script FILE] [--wait-view NAME] [--assert-text TEXT] [--capabilities] [--sim-check] [--keep-interpreter]")
             raise SystemExit
         else:
             print("Unknown argument:", arg)
@@ -419,6 +422,35 @@ def _interpreter_command():
     """Return the current MicroPython executable for child simulator runs."""
     executable = getattr(sys, "executable", "")
     return _quote(executable if executable else "micropython")
+
+
+def _bootstrap_runtime(opts):
+    """Make direct launches use the built native interpreter and a usable heap."""
+    if opts["keep_interpreter"]:
+        return
+    executable = getattr(sys, "executable", "micropython")
+    selected = executable
+    if not _module_available("picoware_desktop", "native_modules"):
+        build_dir = os.getenv("PICOWARE_DESKTOP_BUILD_DIR") or ROOT + "/builds/MicroPython/desktop"
+        candidate = build_dir + "/micropython"
+        try:
+            if os.stat(candidate)[0] & 0o111:
+                selected = candidate
+        except OSError:
+            pass
+    heap = gc.mem_alloc() + gc.mem_free()
+    if selected == executable and heap >= 8 * 1024 * 1024:
+        return
+    heap = max(heap, 16 * 1024 * 1024)
+    if selected != executable:
+        print("[sim] Using the built Picoware C++ interpreter")
+    else:
+        print("[sim] Restarting with a 16 MiB heap for simulator apps")
+    sys.stdout.flush()
+    command = _quote(selected) + " -X heapsize=" + str(heap)
+    command += " " + " ".join(_quote(str(arg)) for arg in sys.argv)
+    status = os.system(command)
+    raise SystemExit((status >> 8) if (status & 255) == 0 else 128 + (status & 127))
 
 
 def _module_available(name, attribute=""):
@@ -2094,6 +2126,8 @@ def _start_viewer(opts):
 
 def main():
     """Picoware simulator entry point."""
+    opts = _parse_args(sys.argv)
+    _bootstrap_runtime(opts)
     _insert_path(ROOT)
     _insert_path(MICROPYTHON_DIR)
     _insert_path(HARDWARE_DIR)
@@ -2105,7 +2139,6 @@ def main():
     sys.modules["socket"] = sim_usocket
     sys.modules["tls"] = sim_tls
     sys.modules["ssl"] = sim_tls
-    opts = _parse_args(sys.argv)
     if opts["reset_sd"]:
         _safe_reset_sd(opts["sd"])
     _mkdir_p(opts["sd"])

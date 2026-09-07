@@ -4,7 +4,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void desktop_lcd_clear(uint16_t color);
+uint16_t desktop_lcd_width(void);
+uint16_t desktop_lcd_height(void);
 void desktop_lcd_pixel(uint16_t x, uint16_t y, uint16_t color);
 void desktop_lcd_line(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,
                       uint16_t color);
@@ -63,3 +69,7 @@ bool desktop_http_websocket_is_connected(void);
 bool desktop_http_websocket_send(const char *message);
 bool desktop_http_websocket_start(const char *url, int port);
 bool desktop_http_websocket_stop(void);
+
+#ifdef __cplusplus
+}
+#endif

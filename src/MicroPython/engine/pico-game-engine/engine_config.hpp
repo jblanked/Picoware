@@ -22,7 +22,10 @@
 #define ENGINE_MEM_FREE m_free
 
 // delay
-#if defined(CARDPUTER) || defined(ESP32) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
+#if defined(DESKTOP)
+#define ENGINE_DELAY_INCLUDE "py/mphal.h"
+#define ENGINE_DELAY_MS(ms) mp_hal_delay_ms(ms)
+#elif defined(CARDPUTER) || defined(ESP32) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
 #define ENGINE_DELAY_INCLUDE "freertos/FreeRTOS.h"
 #define ENGINE_DELAY_MS(ms) vTaskDelay(pdMS_TO_TICKS(ms))
 #else
@@ -44,8 +47,13 @@
 // LCD
 #include "../lcd/lcd_config.h"
 #define ENGINE_LCD_INCLUDE LCD_INCLUDE
+#if defined(DESKTOP)
+#define ENGINE_LCD_WIDTH desktop_lcd_width()
+#define ENGINE_LCD_HEIGHT desktop_lcd_height()
+#else
 #define ENGINE_LCD_WIDTH LCD_MP_WIDTH
 #define ENGINE_LCD_HEIGHT LCD_MP_HEIGHT
+#endif
 #define ENGINE_LCD_CHAR LCD_MP_CHAR
 #define ENGINE_LCD_CIRCLE LCD_MP_CIRCLE
 #define ENGINE_LCD_CLEAR LCD_MP_CLEAR

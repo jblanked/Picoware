@@ -92,6 +92,9 @@ Optionally, you can also download the `Picoware-V8.bin` file from the `builds/Mi
 Optionally, you can also download the `Picoware-CrowPanel-10.1.bin` file from the `builds/MicroPython` directory and flash it to your CrowPanel using your favorite flashing tool.
 
 ## Flipper Zero
+> [!NOTE]
+> If you are installing from a previous version of Picoware, open up the `Library`, by clicking the `Center` button on on-boot view, scroll `Up` to find the `System` app, then scroll `Down` and click `Bootloader` to enter DFU mode. If you do this, you can skip steps 5 and 6 below.
+
 1. Download this repository as a ZIP file and extract it.
 2. Turn off your Flipper Zero, take out the SD card, then insert it into your computer.
 3. Copy the `firmware` folder from the `builds/MicroPython/sd` directory of the ZIP file you downloaded into the root of your Flipper Zero's SD card. If a `firmware` folder already exists, replace it with the new one.

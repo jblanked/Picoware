@@ -308,6 +308,7 @@ def _install_view_tracking():
         import sim_runtime
         from picoware.system.input import Input
         from picoware.system.view_manager import ViewManager
+        from picoware.engine.game import Game
     except Exception:
         return
 
@@ -337,6 +338,14 @@ def _install_view_tracking():
     original_switch_to = ViewManager.switch_to
     original_back = ViewManager.back
     original_remove = ViewManager.remove
+    original_game_update = Game._update
+
+    def tracked_game_update(self):
+        original_game_update(self)
+        if self.is_active and self.input == -1:
+            code = sim_runtime.held_key()
+            if code != -1:
+                self.set_input(self.input_manager._key_to_button(code))
 
     def tracked_set(self, *args, **kwargs):
         if args:
@@ -397,6 +406,7 @@ def _install_view_tracking():
     ViewManager.back = tracked_back
     ViewManager.remove = tracked_remove
     Input.button = property(tracked_input_button)
+    Game._update = tracked_game_update
     ViewManager._sim_view_tracking_installed = True
 
 

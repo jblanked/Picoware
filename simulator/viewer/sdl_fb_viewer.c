@@ -468,6 +468,9 @@ int main(int argc, char **argv)
     char status_text[2048];
     char error_text[4096];
     char log_text[4096];
+    int down_codes[SDL_NUM_SCANCODES];
+    for (int i = 0; i < SDL_NUM_SCANCODES; ++i)
+        down_codes[i] = -1;
     while (running)
     {
         FILE *stop = fopen(stop_path, "rb");
@@ -485,20 +488,23 @@ int main(int argc, char **argv)
                 write_signal(quit_path, "quit");
                 running = 0;
             }
+            else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_FOCUS_LOST)
+            {
+                append_key_event(input_path, "release_all", 0, 0);
+                for (int i = 0; i < SDL_NUM_SCANCODES; ++i)
+                    down_codes[i] = -1;
+            }
             else if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP)
             {
                 int is_keydown = event.type == SDL_KEYDOWN;
+                SDL_Scancode scancode = event.key.keysym.scancode;
                 if (!is_keydown)
                 {
-                    int code = map_key(event.key.keysym.sym);
-                    if ((event.key.keysym.mod & KMOD_CTRL) && event.key.keysym.sym == SDLK_UP)
-                        code = 0xC2;
-                    else if ((event.key.keysym.mod & KMOD_CTRL) && event.key.keysym.sym == SDLK_DOWN)
-                        code = 0xC3;
+                    // Release the original code even if Shift/Ctrl changed first.
+                    int code = down_codes[scancode];
+                    down_codes[scancode] = -1;
                     if (code >= 0)
                     {
-                        if (event.key.keysym.mod & KMOD_SHIFT)
-                            code = apply_shift(code);
                         append_key_event(input_path, "up", code, 0);
                     }
                     continue;
@@ -562,6 +568,9 @@ int main(int argc, char **argv)
                 {
                     if (event.key.keysym.mod & KMOD_SHIFT)
                         code = apply_shift(code);
+                    if (down_codes[scancode] >= 0)
+                        code = down_codes[scancode];
+                    down_codes[scancode] = code;
                     append_key_event(input_path, "down", code, event.key.repeat ? 1 : 0);
                 }
             }

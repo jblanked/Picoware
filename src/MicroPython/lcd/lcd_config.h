@@ -249,7 +249,7 @@
 #endif
 
 #ifdef DESKTOP
-#include "../font/font.h"
+#include "../font/font_mp.h"
 #include "../Desktop/desktop_bridge.h"
 #define LCD_MP_WIDTH 320
 #define LCD_MP_HEIGHT 320
@@ -277,6 +277,9 @@
 #define storage_file_write_file_chunk desktop_storage_file_write_file_chunk
 #endif
 
+#ifdef DESKTOP
+#define LCD_MP_SWAP() LCD_SWAP()
+#else
 // Common USB video callback — set by lcd_mp_set_usb_video_callback()
 extern bool (*_lcd_usb_video_cb)(void);
 
@@ -287,3 +290,5 @@ extern bool (*_lcd_usb_video_cb)(void);
         if (_lcd_usb_video_cb)   \
             _lcd_usb_video_cb(); \
     } while (0)
+
+#endif

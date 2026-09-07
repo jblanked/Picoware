@@ -168,7 +168,7 @@ mp_obj_t font_mp_get_character(mp_obj_t self_in, mp_obj_t size, mp_obj_t char_ob
     return mp_const_none; // Character not found or invalid font size
   }
   FontTable table = font_get_table(font_size);
-  return mp_obj_new_bytes(char_data, (table.width * table.height + 7) / 8); // Return the character bitmap as bytes
+  return mp_obj_new_bytes(char_data, ((table.width + 7) / 8) * table.height); // Return the character bitmap as bytes
 }
 static MP_DEFINE_CONST_FUN_OBJ_3(font_mp_get_character_obj, font_mp_get_character);
 
@@ -181,7 +181,7 @@ mp_obj_t font_mp_get_data(mp_obj_t self_in, mp_obj_t size)
   }
   FontSize font_size = mp_obj_get_int(size);
   FontTable table = font_get_table(font_size);
-  return mp_obj_new_bytes(table.table, (table.width * table.height + 7) / 8 * (126 - 32 + 1)); // Return the entire font data as bytes
+  return mp_obj_new_bytes(table.table, ((table.width + 7) / 8) * table.height * (126 - 32 + 1)); // Return the entire font data as bytes
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(font_mp_get_data_obj, font_mp_get_data);
 

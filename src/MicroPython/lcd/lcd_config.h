@@ -249,6 +249,7 @@
 #endif
 
 #ifdef DESKTOP
+#define LCD_INCLUDE "../Desktop/desktop_bridge.h"
 #include "../font/font_mp.h"
 #include "../Desktop/desktop_bridge.h"
 #define LCD_MP_WIDTH 320

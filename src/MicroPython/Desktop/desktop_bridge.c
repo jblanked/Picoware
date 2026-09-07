@@ -42,7 +42,13 @@ static bool desktop_call_lcd(qstr name, size_t argument_count,
 {
     nlr_buf_t nlr;
     if (nlr_push(&nlr) != 0)
+    {
+        mp_obj_t exception = MP_OBJ_FROM_PTR(nlr.ret_val);
+        // Native games swap through this bridge; quit/reload must reach run.py.
+        if (mp_obj_exception_match(exception, MP_OBJ_FROM_PTR(&mp_type_SystemExit)))
+            nlr_jump(nlr.ret_val);
         return false;
+    }
 
     mp_obj_t lcd = desktop_lcd();
     if (lcd == mp_const_none)
@@ -59,6 +65,18 @@ void desktop_lcd_clear(uint16_t color)
 {
     mp_obj_t arguments[] = {mp_obj_new_int(color)};
     desktop_call_lcd(MP_QSTR__clear, 1, arguments);
+}
+
+uint16_t desktop_lcd_width(void)
+{
+    mp_obj_t lcd = desktop_lcd();
+    return lcd == mp_const_none ? 320 : mp_obj_get_int(mp_load_attr(lcd, MP_QSTR_width));
+}
+
+uint16_t desktop_lcd_height(void)
+{
+    mp_obj_t lcd = desktop_lcd();
+    return lcd == mp_const_none ? 320 : mp_obj_get_int(mp_load_attr(lcd, MP_QSTR_height));
 }
 
 void desktop_lcd_pixel(uint16_t x, uint16_t y, uint16_t color)

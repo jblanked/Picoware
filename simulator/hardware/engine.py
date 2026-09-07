@@ -151,6 +151,7 @@ class Engine(_Native):
                 continue
             callback = getattr(entity, "update_callback", None)
             if callback is None:
+                entity.update_3d_sprite_position()
                 continue
             try:
                 callback(entity, game)
@@ -161,6 +162,7 @@ class Engine(_Native):
                     callback()
             except Exception as exc:
                 print("[sim:engine] entity update failed:", exc)
+            entity.update_3d_sprite_position()
 
     def _collide_entities(self):
         game = self.game
@@ -229,6 +231,10 @@ class Engine(_Native):
                 draw.clear(color=bg)
             except TypeError:
                 draw.clear()
+        if any(getattr(getattr(entity, "sprite_3d", None), "triangles", ())
+               for entity in level.entities):
+            self._render_mesh_scene(draw, game, level)
+            return
         self._render_3d_scene(draw, game, level)
         for entity in list(getattr(level, "entities", [])):
             if not getattr(entity, "is_visible", True):
@@ -248,6 +254,50 @@ class Engine(_Native):
                     print("[sim:engine] entity render failed:", exc)
                 continue
             self._render_entity_fallback(draw, entity, getattr(game, "foreground_color", 0xFFFF))
+
+    def _render_mesh_scene(self, draw, game, level):
+        """Render custom meshes and callbacks in the firmware's entity order."""
+        camera = game.camera
+        player = next((entity for entity in level.entities
+                       if getattr(entity, "is_player", False)), None)
+        position = getattr(camera, "position", None)
+        direction = getattr(camera, "direction", None)
+        if player is not None:
+            direction = player.direction
+            position = player.position
+            if camera.perspective == 1:  # CAMERA_THIRD_PERSON
+                dx, dy = float(direction.x), float(direction.y)
+                length = sqrt(dx * dx + dy * dy)
+                if length < 0.001:
+                    dx, dy, length = 1.0, 0.0, 1.0
+                direction = self._vec(dx / length, dy / length, 0)
+                position = self._vec(
+                    position.x - direction.x * camera.distance,
+                    position.y - direction.y * camera.distance, 0,
+                )
+                camera.position = position
+                camera.direction = direction
+        entities = list(level.entities)
+        if camera.perspective == 1 and position is not None:
+            entities.sort(key=lambda entity: (
+                (entity.position.x - position.x) ** 2
+                + (entity.position.y - position.y) ** 2
+            ), reverse=True)
+        for entity in entities:
+            if not getattr(entity, "is_active", True):
+                continue
+            entity.render(draw, game)
+            if not getattr(entity, "is_visible", True):
+                continue
+            sprite = getattr(entity, "sprite_3d", None)
+            if sprite is not None and sprite.triangles:
+                level._draw_sprite_triangles(
+                    draw, sprite, position, direction, float(camera.height), False,
+                )
+            elif not self._is_3d_entity(entity):
+                self._render_entity_fallback(
+                    draw, entity, getattr(game, "foreground_color", 0xFFFF),
+                )
 
     def _render_entity_fallback(self, draw, entity, color):
         pos = getattr(entity, "position", None)
@@ -479,11 +529,6 @@ class Entity(_Native):
         object.__setattr__(self, "sprite_3d", None)
         object.__setattr__(self, "sprite_scale", 1.0)
         object.__setattr__(self, "sprite_rotation", 0.0)
-        if self.start_callback:
-            try:
-                self.start_callback(self)
-            except TypeError:
-                self.start_callback()
 
     def __setattr__(self, name, value):
         if name == "sprite_3d":
@@ -703,6 +748,7 @@ class Level(_Native):
             entity.level = self
         except Exception:
             pass
+        entity.start(self.game)
         return True
 
     def get_entity(self, index):
@@ -1019,6 +1065,41 @@ class Sprite3D(_Native):
         self.wall_height = 0.0
         self.wall_depth = 0.0
         self.is_visible = True
+
+    @property
+    def triangle_count(self):
+        return len(self.triangles)
+
+    def add_triangle(self, x1, y1, z1, x2, y2, z2, x3, y3, z3, color=0, wireframe=True):
+        """Append a custom triangle using the firmware's defaults and limit."""
+        if len(self.triangles) >= self.MAX_TRIANGLES_PER_SPRITE:
+            return None
+        triangle = Triangle3D(
+            float(x1), float(y1), float(z1), float(x2), float(y2), float(z2),
+            float(x3), float(y3), float(z3), int(color) & 0xFFFF,
+        )
+        triangle.wireframe = bool(wireframe)
+        self.triangles.append(triangle)
+        return None
+
+    def clear_triangles(self):
+        self.triangles = []
+        return None
+
+    def create_cube(self, x, y, z, width, height, depth, color=0):
+        """Append the same four side faces as the native mesh builder."""
+        x, y, z = float(x), float(y), float(z)
+        hw, hh, hd = float(width) / 2, float(height) / 2, float(depth) / 2
+        corners = (
+            (x - hw, y - hh, z + hd), (x + hw, y - hh, z + hd),
+            (x + hw, y + hh, z + hd), (x - hw, y + hh, z + hd),
+            (x + hw, y - hh, z - hd), (x - hw, y - hh, z - hd),
+            (x - hw, y + hh, z - hd), (x + hw, y + hh, z - hd),
+        )
+        for a, b, c in ((0, 1, 2), (0, 2, 3), (4, 5, 6), (4, 6, 7),
+                        (1, 4, 7), (1, 7, 2), (5, 0, 3), (5, 3, 6)):
+            self.add_triangle(*(corners[a] + corners[b] + corners[c] + (color,)))
+        return None
 
     def set_scale(self, value):
         object.__setattr__(self, "scale_factor", value)

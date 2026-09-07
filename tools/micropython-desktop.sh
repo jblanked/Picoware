@@ -49,7 +49,7 @@ else
 fi
 module_dir="$source_alias/src/MicroPython/Desktop/modules"
 variant_dir="$source_alias/src/MicroPython/Desktop/variant"
-native_check='import auto_complete, c, font, mjs, mmbasic, picoware_desktop, response, vector, video; expected = ("auto_complete", "c", "font", "mjs", "mmbasic", "response", "video", "vector"); assert picoware_desktop.BOARD_ID == 15; assert picoware_desktop.native_modules() == expected; assert hasattr(mjs, "MJS"); assert hasattr(video, "Video"); assert c.C().is_initialized; print("[desktop-build:ok] native modules", expected)'
+native_check='import auto_complete, c, font, mjs, mmbasic, picoware_desktop, response, vector, video, vt; expected = ("auto_complete", "c", "font", "mjs", "mmbasic", "response", "video", "vector", "vt"); assert picoware_desktop.BOARD_ID == 15; assert picoware_desktop.native_modules() == expected; assert hasattr(mjs, "MJS"); assert hasattr(video, "Video"); assert c.C().is_initialized; print("[desktop-build:ok] native modules", expected)'
 jobs=${PICOWARE_BUILD_JOBS:-}
 if [ -z "$jobs" ]; then
     if command -v getconf >/dev/null 2>&1; then
@@ -94,7 +94,7 @@ for mkfile in "$module_dir"/*/micropython.mk; do
 done
 # Relative native sources also put objects outside the desktop directory.
 # Recompile them together so generated QSTR IDs cannot go stale.
-rm -rf "$source_alias/builds/c" "$source_alias/builds/mjs" "$source_alias/builds/video"
+rm -rf "$source_alias/builds/c" "$source_alias/builds/mjs" "$source_alias/builds/video" "$source_alias/builds/vt"
 # sweep leftover module build dirs
 for dir in "$build_dir"/*/; do
     [ -d "$dir" ] || continue

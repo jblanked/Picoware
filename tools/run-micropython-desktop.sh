@@ -26,4 +26,5 @@ else
 fi
 
 cd "$picoware_dir"
-exec "$binary" simulator/run.py "$@"
+# Python mesh objects need more host memory than the firmware's packed triangles.
+exec "$binary" -X "heapsize=${PICOWARE_DESKTOP_HEAP_SIZE:-16M}" simulator/run.py "$@"

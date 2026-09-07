@@ -133,6 +133,7 @@ LIBRARY_ITEMS = {
     "infrared": 10,
     "ir": 10,
     "mmbasic": 11,
+    "picoide": 12,
     "python editor": 12,
     "pythoneditor": 12,
     "python repl": 13,

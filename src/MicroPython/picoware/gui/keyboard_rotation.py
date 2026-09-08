@@ -16,6 +16,14 @@ class KeyboardRotation:
     def __getattr__(self, name):
         return getattr(self._draw, name)
 
+    def scale_x(self, value, screen_width=320):
+        """Scale horizontal spacing along the rotated display width."""
+        return self._draw.scale_y(value, screen_width)
+
+    def scale_y(self, value, screen_height=320):
+        """Scale vertical spacing along the rotated display height."""
+        return self._draw.scale_x(value, screen_height)
+
     def touch_point(self, x, y):
         """Map a physical touch back into the landscape dialog."""
         return self.size.x - 1 - y, x

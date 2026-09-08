@@ -244,22 +244,23 @@ class Keyboard:
             self._layout_width = self._layout_height = side
         self._layout_x = (draw.size.x - self._layout_width) // 2
         self._layout_y = (draw.size.y - self._layout_height) // 2
-        self.KEY_MARGIN = 0 if self._is_flipper else 2
+        self.KEY_MARGIN = 0 if self._is_flipper else max(1, draw.scale_x(2))
         self.KEY_SPACING = 1
         self._touch_enabled = input_manager.has_touch_support
 
         font_height = draw.font_size.y
-        padding = 1 if self._is_flipper else 3
+        padding_x = 1 if self._is_flipper else max(1, draw.scale_x(3))
+        padding_y = 1 if self._is_flipper else max(1, draw.scale_y(3))
         self.max_chars_per_line = max(
-            1, (self._layout_width - 2 * (self.KEY_MARGIN + padding + 1))
+            1, (self._layout_width - 2 * (self.KEY_MARGIN + padding_x + 1))
             // draw.font_size.x - 1,
         )
         preferred_height = self._layout_height * 45 // 320
-        self.max_lines = max(1, (preferred_height - 2 * (padding + 1)) // (font_height + 1))
-        self.TEXTBOX_HEIGHT = 2 * (padding + 1) + self.max_lines * font_height + self.max_lines - 1
-        self._text_y = self._layout_y + padding + 1
+        self.max_lines = max(1, (preferred_height - 2 * (padding_y + 1)) // (font_height + 1))
+        self.TEXTBOX_HEIGHT = 2 * (padding_y + 1) + self.max_lines * font_height + self.max_lines - 1
+        self._text_y = self._layout_y + padding_y + 1
         self.size_vec = Vector(0, 0)
-        self.text_vec = Vector(self._layout_x + self.KEY_MARGIN + padding + 1, self._text_y)
+        self.text_vec = Vector(self._layout_x + self.KEY_MARGIN + padding_x + 1, self._text_y)
         self.cursor = Vector(0, 0)
         self.text_border_pos = Vector(self._layout_x + self.KEY_MARGIN, self._layout_y)
         self.text_border_size = Vector(
@@ -616,10 +617,7 @@ class Keyboard:
         font = self.draw.get_font(self._key_font)
         widths = []
         for col, key in enumerate(self.ROWS[row]):
-            if key.normal in ("\x01", "\x02"):
-                label_width = 5 * max(1, font.height // 8)
-            else:
-                label_width = self.draw.len(self._key_label(row, col), self._key_font) - font.spacing
+            label_width = self.draw.len(self._key_label(row, col), self._key_font) - font.spacing
             widths.append(max(key.width * unit, label_width + (2 if self._is_flipper else 3)))
         return widths
 
@@ -734,13 +732,20 @@ class Keyboard:
             caps = key.normal == "\x01"
             rows = (4, 14, 31, 4, 4, 0, 31) if caps else (4, 14, 31, 4, 4, 4, 4)
             color = self.background_color if self._is_flipper and is_selected else self.text_color
-            scale = max(1, self.draw.get_font(self._key_font).height // 8)
-            x = x_pos + (width - 5 * scale) // 2
-            y = y_pos + (height - 7 * scale) // 2
+            # Fit the 5x7 bitmap to the same glyph box as the other key labels.
+            font = self.draw.get_font(self._key_font)
+            icon_width = self.draw.len(self._key_label(row, col), self._key_font) - font.spacing
+            icon_height = font.height - 1
+            x = x_pos + (width - icon_width) // 2
+            y = y_pos + (height - icon_height) // 2
             for dy, bits in enumerate(rows):
+                top = dy * icon_height // 7
+                bottom = (dy + 1) * icon_height // 7
                 for dx in range(5):
                     if bits & (16 >> dx):
-                        self.draw._fill_rectangle(x + dx * scale, y + dy * scale, scale, scale, color)
+                        left = dx * icon_width // 5
+                        right = (dx + 1) * icon_width // 5
+                        self.draw._fill_rectangle(x + left, y + top, right - left, bottom - top, color)
             active = self.is_caps_lock_on if caps else self.is_shift_pressed
             if active:
                 inset = 0 if self._is_flipper else 2
@@ -762,7 +767,7 @@ class Keyboard:
         """Return the current key label, using compact modifier icons."""
         key = self.ROWS[row][col]
         if key.normal in ("\x01", "\x02"):
-            return "^"  # Width placeholder for the 5-pixel modifier icon.
+            return "^"  # Use one printable glyph width for the modifier icon.
 
         # Determine what character to display
         display_char = key.normal
@@ -890,17 +895,19 @@ class Keyboard:
             self.draw._text(x_pos, self._suggestion_y, text, self.text_color)
         else:
             # Scroll the two-column list so the selected suggestion stays visible.
-            line_height = self.draw.font_size.y + 4
+            padding_x = max(1, self.draw.scale_x(2))
+            padding_y = max(1, self.draw.scale_y(2))
+            line_height = self.draw.font_size.y + 2 * padding_y
             visible_rows = max(1, (self._layout_y + self._layout_height - self._keys_y) // line_height)
             first_row = max(0, self.selected_suggestion_index // 2 - visible_rows + 1)
             column_width = (self._layout_width - 2 * self.KEY_MARGIN) // 2
             for i in range(first_row * 2, min(len(suggestions), (first_row + visible_rows) * 2)):
-                x_pos = self._layout_x + self.KEY_MARGIN + (i % 2) * column_width + 2
-                y_pos = self._keys_y + (i // 2 - first_row) * line_height + 2
-                text = self._fit_text(suggestions[i], column_width - 4)
+                x_pos = self._layout_x + self.KEY_MARGIN + (i % 2) * column_width + padding_x
+                y_pos = self._keys_y + (i // 2 - first_row) * line_height + padding_y
+                text = self._fit_text(suggestions[i], column_width - 2 * padding_x)
                 if i == self.selected_suggestion_index:
                     self.draw._fill_rectangle(
-                        x_pos - 2, y_pos - 2, column_width, line_height, self.selected_color,
+                        x_pos - padding_x, y_pos - padding_y, column_width, line_height, self.selected_color,
                     )
                 self.draw._text(x_pos, y_pos, text, self.text_color)
 

@@ -709,17 +709,28 @@ class Infrared:
         """Create a receiver for one supported protocol."""
         return InfraredReceiver(protocol, callback, pin)
 
-    def capture(self, path=None, name="Signal", nedges=100, twait=100, display=False):
-        """Capture a raw signal and optionally save it to the SD library."""
+    def begin_capture(self, nedges=100, twait=100, display=False):
+        """Start raw reception without blocking.
+
+        Poll the returned receiver's data attribute (None until received).
+        The caller must close it on success, cancellation, error, or timeout.
+        """
         from picoware.system.drivers.ir_rx.acquire import IR_GET
 
-        receiver = IR_GET(
+        return IR_GET(
             _default_rx_pin(),
             nedges=nedges,
             twait=twait,
             display=display,
         )
-        timings = receiver.acquire()
+
+    def capture(self, path=None, name="Signal", nedges=100, twait=100, display=False):
+        """Capture a raw signal and optionally save it to the SD library."""
+        receiver = self.begin_capture(nedges, twait, display)
+        try:
+            timings = receiver.acquire()
+        finally:
+            receiver.close()
         if path is None:
             return timings
         return self.library.save_raw(path, name, timings)

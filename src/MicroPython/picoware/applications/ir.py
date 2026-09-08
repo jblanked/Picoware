@@ -2,6 +2,7 @@
 from micropython import const
 from picoware.system.decorator import storage_required, infrared_tx_required, infrared_rx_required
 from gc import collect
+from time import ticks_ms, ticks_diff
 
 
 STATE_MAIN_MENU = const(0)
@@ -10,6 +11,11 @@ STATE_REMOTE_KEYS = const(2)
 STATE_LEARN_MENU = const(3)
 STATE_BUTTON_MENU = const(4)
 STATE_KEYBOARD = const(5)
+STATE_LISTENING = const(6)
+STATE_SAVED = const(7)
+STATE_NO_SIGNAL = const(8)
+STATE_RECEIVE_ERROR = const(9)
+RECEIVE_TIMEOUT_MS = const(10000)
 
 FIELD_BUTTON = const(0)
 FIELD_NAME = const(1)
@@ -50,6 +56,10 @@ _remote_name = "Remote"
 _keyboard_field = -1
 _keyboard_save_requested = False
 _keyboard_result = ""
+_receiver = None
+_receive_started = 0
+_receive_error = ""
+_status = None
 
 
 def _create_menu(view_manager, title):
@@ -307,29 +317,98 @@ def _run_keyboard(view_manager):
         _save_keyboard_value(view_manager)
 
 
-def _show_listening(view_manager):
-    """Show the receive status screen."""
-    draw = view_manager.draw
-    draw.erase()
-    draw._text(5, draw.size.y // 2, "Listening...", view_manager.foreground_color)
-    draw.swap()
+def _close_receiver():
+    """Release receive IRQ/timer resources on every exit path."""
+    global _receiver
+    receiver = _receiver
+    _receiver = None
+    if receiver is not None:
+        receiver.close()
+
+
+def _draw_receive_status(view_manager, now):
+    if _state == STATE_LISTENING:
+        remaining = max(0, RECEIVE_TIMEOUT_MS - ticks_diff(now, _receive_started))
+        _status.draw(view_manager, now, "Receiving",
+                     ("Point remote", "Press a key", str((remaining + 999) // 1000) + "s left"),
+                     "Back: cancel")
+    elif _state == STATE_SAVED:
+        _status.draw(view_manager, now, "Saved!", (_remote_name, _button_name),
+                     "OK: again  Back")
+    elif _state == STATE_NO_SIGNAL:
+        _status.draw(view_manager, now, "No signal", ("Point at IR", "Try again"),
+                     "OK: retry  Back")
+    else:
+        _status.draw(view_manager, now, "Error", (_receive_error, "Try again"),
+                     "OK: retry  Back")
 
 @infrared_rx_required
 def _receive_signal(view_manager):
-    """Capture and save the selected infrared signal."""
+    """Start reception and return so animation and input remain responsive."""
+    global _receiver, _receive_started
     if not _button_name or not _remote_name:
         view_manager.alert("Set Button and Name first")
         _show_learn_menu(view_manager)
         return
 
-    _show_listening(view_manager)
-    path = _remote_file_path()
+    _close_receiver()
+    now = ticks_ms()
+    _receive_started = now
     try:
-        _infrared.capture(path=path, name=_button_name, display=True)
-        view_manager.alert(f"Saved {path}")
+        _receiver = _infrared.begin_capture()
+        _set_receive_state(view_manager, STATE_LISTENING, now)
     except Exception as error:
-        view_manager.alert(f"Receive failed: {error}")
-    _show_learn_menu(view_manager)
+        _close_receiver()
+        view_manager.log("Infrared receive failed: " + str(error), 2)
+        _set_receive_state(view_manager, STATE_RECEIVE_ERROR, now, "RX failed")
+
+
+def _run_receive(view_manager):
+    from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
+
+    now = ticks_ms()
+    button = view_manager.button
+    if button == BUTTON_BACK:
+        _close_receiver()
+        _show_learn_menu(view_manager)
+        return
+    if _state != STATE_LISTENING:
+        if button == BUTTON_CENTER:
+            _receive_signal(view_manager)
+        else:
+            _draw_receive_status(view_manager, now)
+        return
+
+    data = _receiver.data
+    if data is not None:
+        _close_receiver()
+        try:
+            _infrared.library.save_raw(_remote_file_path(), _button_name, data)
+        except Exception as error:
+            view_manager.log("Infrared save failed: " + str(error), 2)
+            _set_receive_state(view_manager, STATE_RECEIVE_ERROR, now, "Save failed")
+        else:
+            _set_receive_state(view_manager, STATE_SAVED, now)
+    elif ticks_diff(now, _receive_started) >= RECEIVE_TIMEOUT_MS:
+        _close_receiver()
+        _set_receive_state(view_manager, STATE_NO_SIGNAL, now)
+    else:
+        _draw_receive_status(view_manager, now)
+
+
+def _set_receive_state(view_manager, state, now, error=""):
+    global _state, _status, _receive_error
+    from picoware.gui.infrared_status import InfraredStatus
+
+    if _status is None:
+        _status = InfraredStatus()
+    _state = state
+    _receive_error = error
+    animation = "listening" if state == STATE_LISTENING else (
+        "saved" if state == STATE_SAVED else "no_signal")
+    _status.begin(animation, now)
+    _draw_receive_status(view_manager, now)
+
 
 @infrared_tx_required
 def _send_signal(view_manager):
@@ -358,7 +437,11 @@ def start(view_manager) -> bool:
     global _infrared, _remote, _remote_paths, _key_names
     global _button_name, _remote_name, _keyboard_field
     global _keyboard_save_requested, _keyboard_result
+    global _status, _receive_error
 
+    _close_receiver()
+    _status = None
+    _receive_error = ""
     _state = STATE_MAIN_MENU
     _menu = None
     _remote_menu = None
@@ -391,6 +474,10 @@ def run(view_manager) -> None:
     )
 
     global _button_name
+
+    if _state in (STATE_LISTENING, STATE_SAVED, STATE_NO_SIGNAL, STATE_RECEIVE_ERROR):
+        _run_receive(view_manager)
+        return
 
     if _state == STATE_KEYBOARD:
         _run_keyboard(view_manager)
@@ -474,7 +561,11 @@ def stop(view_manager) -> None:
     global _state, _menu, _remote_menu, _key_menu, _learn_menu, _button_menu
     global _infrared, _remote, _remote_paths, _key_names, _keyboard_field
     global _keyboard_save_requested, _keyboard_result
+    global _status, _receive_error
 
+    _close_receiver()
+    _status = None
+    _receive_error = ""
     if view_manager.keyboard is not None:
         view_manager.keyboard.reset()
     for menu in (_menu, _remote_menu, _key_menu, _learn_menu, _button_menu):

@@ -63,58 +63,46 @@ _status = None
 
 
 class InfraredStatus:
-    """Draw 48px bear animations loaded from a Python file on SD at 5 fps."""
+    """Draw 48px bear frames from SD at 5 fps, keeping only one frame in RAM."""
 
     def __init__(self):
         self._asset_failed = False
-        self._clips = None
+        self._frame = b""
         self._frame_count = 12
-        self._frames = ()
+        self._frame_index = -1
         self._last_draw = None
         self._loop = True
+        self._path = ""
         self._pixels = bytearray(48 * 48)
         self._started = 0
-        self._state = "listening"
 
-    def _load_frames(self, view_manager):
+    def _read_frame(self, view_manager, index):
         if self._asset_failed:
             return False
-        if self._frames:
+        if index == self._frame_index:
             return True
         try:
-            if self._clips is None:
-                namespace = {}
-                # Load the Python asset from SD, independently of frozen modules.
-                source = view_manager.storage.read("picoware/assets/infrared/bear.py")
-                exec(source, namespace)
-                clips = {}
-                for state, name, count in (
-                    ("listening", "LISTENING", 12),
-                    ("saved", "SAVED", 8),
-                    ("no_signal", "NO_SIGNAL", 6),
-                ):
-                    frames = namespace[name]
-                    if not isinstance(frames, (tuple, list)) or len(frames) != count:
-                        raise ValueError("Invalid animation: " + name)
-                    for frame in frames:
-                        if not isinstance(frame, bytes) or len(frame) != 288:
-                            raise ValueError("Invalid animation frame: " + name)
-                    clips[state] = frames
-                self._clips = clips
-            self._frames = self._clips[self._state]
+            frame = view_manager.storage.read_chunked(self._path, index * 288, 288)
+            if len(frame) != 288:
+                raise OSError("Missing or incomplete animation frame")
         except Exception as error:
             self._asset_failed = True
-            view_manager.log("IR animation unavailable: " + str(error), 1)
+            self._frame = b""
+            view_manager.log("IR animation unavailable: " + self._path + ": " + str(error), 1)
             return False
+        self._frame = frame
+        self._frame_index = index
         return True
 
     def begin(self, state, now):
+        # SD-root-relative files: 288 bytes per frame, row-major MSB-first.
         self._frame_count = {"listening": 12, "saved": 8, "no_signal": 6}[state]
-        self._state = state
+        self._path = "picoware/assets/infrared/bear_" + state + ".bin"
         self._started = now
         self._loop = state == "listening"
         self._asset_failed = False
-        self._frames = ()
+        self._frame = b""
+        self._frame_index = -1
         self._last_draw = None
 
     def draw(self, view_manager, now, title, lines, footer):
@@ -131,13 +119,13 @@ class InfraredStatus:
             return
         self._last_draw = signature
 
-        has_frame = self._load_frames(view_manager)
+        has_frame = self._read_frame(view_manager, index)
         if has_frame:
             # Source bits: 0 = bear, 1 = background. Match the active UI colors.
             fg = ((foreground >> 8) & 0xE0) | ((foreground >> 6) & 0x1C) | ((foreground >> 3) & 3)
             bg = ((background >> 8) & 0xE0) | ((background >> 6) & 0x1C) | ((background >> 3) & 3)
             offset = 0
-            for packed in self._frames[index]:
+            for packed in self._frame:
                 for bit in range(7, -1, -1):
                     self._pixels[offset] = bg if packed & (1 << bit) else fg
                     offset += 1

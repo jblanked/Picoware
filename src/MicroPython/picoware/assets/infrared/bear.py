@@ -1,6 +1,6 @@
 """Reviewed Picoware bears: 48x48, row-major MSB-first, 0=ink, 1=background.
 
-Copy this Python file to /sd/infrared/assets/bear/ir_bear_frames.py.
+Copy this Python file to /sd/picoware/assets/infrared/bear.py.
 The IR app loads these tuples from SD; this file is not a firmware GUI module.
 """
 

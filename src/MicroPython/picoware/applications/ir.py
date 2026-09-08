@@ -85,7 +85,7 @@ class InfraredStatus:
             if self._clips is None:
                 namespace = {}
                 # Load the Python asset from SD, independently of frozen modules.
-                source = view_manager.storage.read("infrared/assets/bear/ir_bear_frames.py")
+                source = view_manager.storage.read("picoware/assets/infrared/bear.py")
                 exec(source, namespace)
                 clips = {}
                 for state, name, count in (

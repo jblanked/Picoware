@@ -150,10 +150,15 @@ fw_dir="$sd_dir/firmware"
 rm -rf "$sd_dir"
 mkdir -p "$fw_dir"
 cp "$picoware_dir/src/MicroPython/main.py" "$fw_dir/main.py"
-rsync -a --exclude='/system/agent/' \
+rsync -a --exclude='/system/agent/' --exclude='/assets/' \
     "$picoware_dir/src/MicroPython/picoware/" "$fw_dir/picoware/"
 find "$fw_dir" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 find "$fw_dir" -name ".DS_Store" -delete 2>/dev/null || true
+
+# Assets are copied unchanged to the shared SD folder, outside compiled firmware.
+mkdir -p "$sd_dir/picoware/assets"
+rsync -a --exclude='__pycache__/' --exclude='.DS_Store' \
+    "$picoware_dir/src/MicroPython/picoware/assets/" "$sd_dir/picoware/assets/"
 
 echo "Compiling picoware package to .mpy..."
 mpy_cross="$micropython_root/mpy-cross/build/mpy-cross"

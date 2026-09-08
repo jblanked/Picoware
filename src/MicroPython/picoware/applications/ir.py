@@ -62,6 +62,91 @@ _receive_error = ""
 _status = None
 
 
+class InfraredStatus:
+    """Draw 48px bear frames from SD at 5 fps, keeping only one frame in RAM."""
+
+    def __init__(self):
+        self._asset_failed = False
+        self._frame = b""
+        self._frame_count = 12
+        self._frame_index = -1
+        self._last_draw = None
+        self._loop = True
+        self._path = ""
+        self._pixels = bytearray(48 * 48)
+        self._started = 0
+
+    def _read_frame(self, view_manager, index):
+        if self._asset_failed:
+            return False
+        if index == self._frame_index:
+            return True
+        try:
+            frame = view_manager.storage.read_chunked(self._path, index * 288, 288)
+            if len(frame) != 288:
+                raise OSError("Missing or incomplete animation frame")
+        except Exception as error:
+            self._asset_failed = True
+            self._frame = b""
+            view_manager.log("IR animation unavailable: " + self._path + ": " + str(error), 1)
+            return False
+        self._frame = frame
+        self._frame_index = index
+        return True
+
+    def begin(self, state, now):
+        # SD-root-relative files: 288 bytes per frame, row-major MSB-first.
+        self._frame_count = {"listening": 12, "saved": 8, "no_signal": 6}[state]
+        self._path = "infrared/assets/bear/" + state + ".bin"
+        self._started = now
+        self._loop = state == "listening"
+        self._asset_failed = False
+        self._frame = b""
+        self._frame_index = -1
+        self._last_draw = None
+
+    def draw(self, view_manager, now, title, lines, footer):
+        draw = view_manager.draw
+        index = max(0, ticks_diff(now, self._started)) // 200
+        if self._loop:
+            index %= self._frame_count
+        else:
+            index = min(index, self._frame_count - 1)
+        foreground = view_manager.foreground_color
+        background = view_manager.background_color
+        signature = (index, title, lines, footer, foreground, background)
+        if signature == self._last_draw:
+            return
+        self._last_draw = signature
+
+        has_frame = self._read_frame(view_manager, index)
+        if has_frame:
+            # Source bits: 0 = bear, 1 = background. Match the active UI colors.
+            fg = ((foreground >> 8) & 0xE0) | ((foreground >> 6) & 0x1C) | ((foreground >> 3) & 3)
+            bg = ((background >> 8) & 0xE0) | ((background >> 6) & 0x1C) | ((background >> 3) & 3)
+            offset = 0
+            for packed in self._frame:
+                for bit in range(7, -1, -1):
+                    self._pixels[offset] = bg if packed & (1 << bit) else fg
+                    offset += 1
+
+        # This 124 x 64 composition fits Flipper and stays centered elsewhere.
+        left = max(0, (draw.size.x - 124) // 2)
+        top = max(0, (draw.size.y - 64) // 2)
+        text_x = left + 52
+        text_columns = max(1, (draw.size.x - text_x - 2) // 6)
+        draw.erase()
+        draw._text(left, top, "PICOWARE", foreground, 0)
+        if has_frame:
+            draw._bytearray(left, top + 8, 48, 48, self._pixels)
+        draw._text(text_x, top + 12, title[:text_columns], foreground, 0)
+        for line_index, line in enumerate(lines[:3]):
+            draw._text(text_x, top + 25 + line_index * 10,
+                       line[:text_columns], foreground, 0)
+        draw._text(left, top + 56, footer[:20], foreground, 0)
+        draw.swap()
+
+
 def _create_menu(view_manager, title):
     """Create a styled menu for the current view."""
     from picoware.gui.menu import Menu
@@ -398,7 +483,6 @@ def _run_receive(view_manager):
 
 def _set_receive_state(view_manager, state, now, error=""):
     global _state, _status, _receive_error
-    from picoware.gui.infrared_status import InfraredStatus
 
     if _status is None:
         _status = InfraredStatus()

@@ -1,9 +1,5 @@
 """Infrared signals handling for Picoware."""
-try:
-    from micropython import const
-except ImportError:
-    def const(value):
-        return value
+from micropython import const
 
 _FILE_TYPE = "IR signals file"
 _LIBRARY_FILE_TYPE = "IR library file"

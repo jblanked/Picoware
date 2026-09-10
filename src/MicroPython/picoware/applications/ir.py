@@ -65,20 +65,53 @@ _status = None
 class InfraredAnimationDisplay:
     """Fit the built-in desktop animation into the 48px status artwork area."""
 
+    __slots__ = (
+        "draw",
+        "font_size",
+        "foreground",
+        "left",
+        "size",
+        "top",
+    )
+
     def __init__(self, draw, left, top, foreground):
+        """Fit the desktop animation into the 48px status artwork area.
+
+        Args:
+            draw (Draw): The drawing context the artwork renders through.
+            left (int): Left edge of the 48px artwork area in screen pixels.
+            top (int): Top edge of the 48px artwork area in screen pixels.
+            foreground (int): Foreground color of the status view.
+        """
         from picoware.system.vector import Vector
 
         self.draw = draw
-        self.font_size = Vector(6, 8)
+        self.font_size = draw.font_size
         self.foreground = foreground
         self.left = left
         self.size = Vector(48, 48)
         self.top = top
 
     def _circle(self, x, y, radius, color):
+        """Draw a circle at coordinates relative to the artwork area.
+
+        Args:
+            x (int): X offset within the 48px artwork area.
+            y (int): Y offset within the 48px artwork area.
+            radius (int): Circle radius in pixels.
+            color (int): Requested color, overridden by the artwork foreground.
+        """
         self.draw._circle(self.left + x, self.top + y, radius, self.foreground)
 
     def _text(self, x, y, text, color):
+        """Draw a letter within the artwork at a fixed staggered baseline.
+
+        Args:
+            x (int): X offset within the 48px artwork area.
+            y (int): Requested Y offset, shifted down to the baseline.
+            text (str): The letter to draw.
+            color (int): Requested color, overridden by the artwork foreground.
+        """
         # Keep the staggered letter fade within the artwork, away from controls.
         self.draw._text(self.left + x, self.top + 20, text, self.foreground, 0)
 
@@ -86,7 +119,21 @@ class InfraredAnimationDisplay:
 class InfraredStatus:
     """Draw 48px bear frames from SD at 5 fps, keeping only one frame in RAM."""
 
-    def __init__(self):
+    __slots__ = (
+        "_asset_failed",
+        "_fallback",
+        "_frame",
+        "_frame_count",
+        "_frame_index",
+        "_last_draw",
+        "_loop",
+        "_path",
+        "_pixels",
+        "_started",
+    )
+
+    def __init__(self) -> None:
+        """Initialize the receive-status bear animation state."""
         self._asset_failed = False
         self._fallback = None
         self._frame = b""
@@ -98,7 +145,24 @@ class InfraredStatus:
         self._pixels = None
         self._started = 0
 
+    def __del__(self) -> None:
+        """Release animation state held at application exit."""
+        del self._pixels, self._fallback, self._frame, self._path
+        self._pixels = None
+        self._fallback = None
+        self._frame = b""
+        self._path = ""
+
+
     def _draw_fallback(self, draw, left, top, foreground):
+        """Draw the desktop animation fallback if the bear assets are unavailable.
+
+        Args:
+            draw (Draw): The drawing context.
+            left (int): Left edge of the 48px artwork area.
+            top (int): Top edge of the 48px artwork area.
+            foreground (int): Foreground color of the status view.
+        """
         if self._fallback is None:
             # Release bear pixels before allocating the desktop letter states.
             self._pixels = None
@@ -121,6 +185,19 @@ class InfraredStatus:
             self._fallback.draw()
 
     def _read_frame(self, view_manager, index):
+        """Read one 288-byte bear frame from SD, caching only the current frame.
+
+        Args:
+            view_manager (ViewManager): The view manager providing storage.
+            index (int): The animation frame to read.
+
+        Returns:
+            bool: True if the frame is available, False if loading failed.
+        """
+        s = view_manager.storage
+        if not s.exists(self._path):
+            self._asset_failed = True
+            return False
         if self._asset_failed:
             return False
         if index == self._frame_index:
@@ -139,9 +216,15 @@ class InfraredStatus:
         return True
 
     def begin(self, state, now):
+        """Start a receive-state bear animation from its SD asset.
+
+        Args:
+            state (str): Animation name: "listening", "saved", or "no_signal".
+            now (int): Current ticks_ms() used to time the 5 fps frames.
+        """
         # SD-root-relative files: 288 bytes per frame, row-major MSB-first.
         self._frame_count = {"listening": 12, "saved": 8, "no_signal": 6}[state]
-        self._path = "picoware/assets/infrared/bear_" + state + ".bin"
+        self._path = "picoware/assets/infrared/receive_" + state + ".bin"
         self._started = now
         self._loop = state == "listening"
         self._asset_failed = False
@@ -153,6 +236,15 @@ class InfraredStatus:
         self._last_draw = None
 
     def draw(self, view_manager, now, title, lines, footer):
+        """Draw the current bear frame plus status title, lines, and footer.
+
+        Args:
+            view_manager (ViewManager): The view manager providing draw, colors, and storage.
+            now (int): Current ticks_ms() used for the 5 fps tick.
+            title (str): The main status title line.
+            lines (list[str]): Up to three detail lines shown below the title.
+            footer (int): Unused parameter kept for the shared status-draw signature.
+        """
         draw = view_manager.draw
         tick = max(0, ticks_diff(now, self._started)) // 200
         index = tick
@@ -178,7 +270,7 @@ class InfraredStatus:
             offset = 0
             for packed in self._frame:
                 for bit in range(7, -1, -1):
-                    self._pixels[offset] = bg if packed & (1 << bit) else fg
+                    self._pixels[offset] = bg if (packed >> bit) & 1 else fg
                     offset += 1
 
         # This 124 x 64 composition fits Flipper and stays centered elsewhere.
@@ -187,7 +279,6 @@ class InfraredStatus:
         text_x = left + 52
         text_columns = max(1, (draw.size.x - text_x - 2) // 6)
         draw.erase()
-        draw._text(left, top, "PICOWARE", foreground, 0)
         if has_frame:
             draw._bytearray(left, top + 8, 48, 48, self._pixels)
         else:
@@ -201,7 +292,15 @@ class InfraredStatus:
 
 
 def _create_menu(view_manager, title):
-    """Create a styled menu for the current view."""
+    """Create a styled menu for the current view.
+
+    Args:
+        view_manager (ViewManager): The view manager providing colors and size.
+        title (str): The menu title.
+
+    Returns:
+        Menu: The styled menu bound to the current view.
+    """
     from picoware.gui.menu import Menu
 
     draw = view_manager.draw
@@ -219,12 +318,26 @@ def _create_menu(view_manager, title):
 
 
 def _display_value(value):
-    """Limit a Learn field value to one menu line."""
+    """Limit a Learn field value to one menu line.
+
+    Args:
+        value (str): The field value to display.
+
+    Returns:
+        str: The value truncated to 18 characters.
+    """
     return value[:18]
 
 
 def _relative_remote_path(path):
-    """Convert a library path to a root-relative remote path."""
+    """Convert a library path to a root-relative remote path.
+
+    Args:
+        path (str): The remote path from the infrared library.
+
+    Returns:
+        str: The path without the "infrared/" prefix.
+    """
     path = path.lstrip("/")
     prefix = "infrared/"
     if path.startswith(prefix):
@@ -233,12 +346,23 @@ def _relative_remote_path(path):
 
 
 def _remote_file_path():
-    """Return the storage path for the current learned remote."""
+    """Return the storage path for the current learned remote.
+
+    Returns:
+        str: The "learned/<remote name>.ir" storage path.
+    """
     return "learned/" + _remote_name + ".ir"
 
 
 def _clean_remote_name(value):
-    """Normalize a user-provided remote filename."""
+    """Normalize a user-provided remote filename.
+
+    Args:
+        value (str): The remote name entered on the keyboard.
+
+    Returns:
+        str: The sanitized name, or an empty string if unusable.
+    """
     value = value.strip()
     if value.lower().endswith(".ir"):
         value = value[:-3].strip()
@@ -249,7 +373,11 @@ def _clean_remote_name(value):
 
 
 def _show_main_menu(view_manager):
-    """Show the top-level infrared menu."""
+    """Show the top-level infrared menu.
+
+    Args:
+        view_manager (ViewManager): The view manager for drawing and input.
+    """
     global _menu, _state, _remote, _key_names
 
     if _menu is None:
@@ -266,7 +394,11 @@ def _show_main_menu(view_manager):
 
 
 def _show_remote_menu(view_manager):
-    """List available infrared remote files."""
+    """List available infrared remote files.
+
+    Args:
+        view_manager (ViewManager): The view manager for drawing and storage access.
+    """
     global _remote_menu, _key_menu, _remote_paths, _state, _remote
 
     if _key_menu is not None:
@@ -298,7 +430,12 @@ def _show_remote_menu(view_manager):
 
 
 def _show_key_menu(view_manager, path):
-    """Load a remote and show its signal names."""
+    """Load a remote and show its signal names.
+
+    Args:
+        view_manager (ViewManager): The view manager for drawing and alerts.
+        path (str): The root-relative .ir file path to load.
+    """
     global _key_menu, _key_names, _remote, _state
 
     try:
@@ -325,7 +462,11 @@ def _show_key_menu(view_manager, path):
 
 
 def _show_learn_menu(view_manager):
-    """Show the fields and action for learning a remote."""
+    """Show the fields and action for learning a remote.
+
+    Args:
+        view_manager (ViewManager): The view manager for drawing and input.
+    """
     global _learn_menu, _button_menu, _state
 
     if _button_menu is not None:
@@ -338,14 +479,18 @@ def _show_learn_menu(view_manager):
 
     _learn_menu.add_item("Button: " + _display_value(_button_name))
     _learn_menu.add_item("Name: " + _display_value(_remote_name))
-    _learn_menu.add_item("Listen / Receive")
+    _learn_menu.add_item("Listen")
     _state = STATE_LEARN_MENU
     view_manager.draw.erase()
     _learn_menu.draw()
 
 
 def _show_button_menu(view_manager):
-    """Show standard and custom signal-name choices."""
+    """Show standard and custom signal-name choices.
+
+    Args:
+        view_manager (ViewManager): The view manager for drawing and input.
+    """
     global _button_menu, _state
 
     if _button_menu is not None:
@@ -365,7 +510,11 @@ def _show_button_menu(view_manager):
 
 
 def _keyboard_save_callback(result):
-    """Record that the Learn keyboard saved a value."""
+    """Record that the Learn keyboard saved a value.
+
+    Args:
+        result (str): The value the user committed on the keyboard.
+    """
     global _keyboard_save_requested, _keyboard_result
 
     _keyboard_save_requested = True
@@ -373,7 +522,12 @@ def _keyboard_save_callback(result):
 
 
 def _open_keyboard(view_manager, field):
-    """Open the keyboard for a Learn field."""
+    """Open the keyboard for a Learn field.
+
+    Args:
+        view_manager (ViewManager): The view manager providing the keyboard.
+        field (int): The field to edit (FIELD_BUTTON or FIELD_NAME).
+    """
     global _state, _keyboard_field, _keyboard_save_requested, _keyboard_result
 
     keyboard = view_manager.keyboard
@@ -400,7 +554,11 @@ def _open_keyboard(view_manager, field):
 
 
 def _close_keyboard(view_manager):
-    """Close the Learn keyboard and return to its menu."""
+    """Close the Learn keyboard and return to its menu.
+
+    Args:
+        view_manager (ViewManager): The view manager providing keyboard and input state.
+    """
     global _state, _keyboard_field, _keyboard_save_requested, _keyboard_result
 
     if view_manager.keyboard is not None:
@@ -414,7 +572,11 @@ def _close_keyboard(view_manager):
 
 
 def _save_keyboard_value(view_manager):
-    """Apply the value saved from the Learn keyboard."""
+    """Apply the value saved from the Learn keyboard.
+
+    Args:
+        view_manager (ViewManager): The view manager providing the keyboard result and alerts.
+    """
     global _button_name, _remote_name
 
     value = (_keyboard_result or view_manager.keyboard.response or "").strip()
@@ -433,7 +595,11 @@ def _save_keyboard_value(view_manager):
 
 
 def _run_keyboard(view_manager):
-    """Process one frame of Learn keyboard input."""
+    """Process one frame of Learn keyboard input.
+
+    Args:
+        view_manager (ViewManager): The view manager providing keyboard and input state.
+    """
     global _keyboard_save_requested
 
     keyboard = view_manager.keyboard
@@ -465,6 +631,12 @@ def _close_receiver():
 
 
 def _draw_receive_status(view_manager, now):
+    """Draw the current receive-state title, details, and hint footer.
+
+    Args:
+        view_manager (ViewManager): The view manager the bear animation draws through.
+        now (int): Current ticks_ms() used for the 5 fps tick.
+    """
     if _state == STATE_LISTENING:
         remaining = max(0, RECEIVE_TIMEOUT_MS - ticks_diff(now, _receive_started))
         _status.draw(view_manager, now, "Receiving",
@@ -482,7 +654,11 @@ def _draw_receive_status(view_manager, now):
 
 @infrared_rx_required
 def _receive_signal(view_manager):
-    """Start reception and return so animation and input remain responsive."""
+    """Start reception and return so animation and input remain responsive.
+
+    Args:
+        view_manager (ViewManager): The view manager for alerts, drawing, and logging.
+    """
     global _receiver, _receive_started
     if not _button_name or not _remote_name:
         view_manager.alert("Set Button and Name first")
@@ -502,6 +678,11 @@ def _receive_signal(view_manager):
 
 
 def _run_receive(view_manager):
+    """Handle one frame of receive input and advance the receive state.
+
+    Args:
+        view_manager (ViewManager): The view manager for buttons, alerts, drawing, and logging.
+    """
     from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
 
     now = ticks_ms()
@@ -524,7 +705,7 @@ def _run_receive(view_manager):
             _infrared.library.save_raw(_remote_file_path(), _button_name, data)
         except Exception as error:
             view_manager.log("Infrared save failed: " + str(error), 2)
-            _set_receive_state(view_manager, STATE_RECEIVE_ERROR, now, "Save failed")
+            _set_receive_state(view_manager, STATE_RECEIVE_ERROR, now, f"Save failed\n{error}")
         else:
             _set_receive_state(view_manager, STATE_SAVED, now)
     elif ticks_diff(now, _receive_started) >= RECEIVE_TIMEOUT_MS:
@@ -535,6 +716,14 @@ def _run_receive(view_manager):
 
 
 def _set_receive_state(view_manager, state, now, error=""):
+    """Switch to a receive state and start the matching bear animation.
+
+    Args:
+        view_manager (ViewManager): The view manager the bear animation draws through.
+        state (int): The receive state to enter (STATE_LISTENING, STATE_SAVED, ...).
+        now (int): Current ticks_ms() used to time the animation.
+        error (str): Error message shown in the STATE_RECEIVE_ERROR state. Defaults to "".
+    """
     global _state, _status, _receive_error
 
     if _status is None:
@@ -549,7 +738,11 @@ def _set_receive_state(view_manager, state, now, error=""):
 
 @infrared_tx_required
 def _send_signal(view_manager):
-    """Transmit the selected signal from the loaded remote."""
+    """Transmit the selected signal from the loaded remote.
+
+    Args:
+        view_manager (ViewManager): The view manager for alerts and drawing.
+    """
     if _remote is None or not _key_names:
         return
 
@@ -565,7 +758,14 @@ def _send_signal(view_manager):
 
 @storage_required
 def start(view_manager) -> bool:
-    """Start the infrared app."""
+    """Start the infrared app.
+
+    Args:
+        view_manager (ViewManager): The view manager providing storage and drawing.
+
+    Returns:
+        bool: True after the app is initialized.
+    """
     from picoware.system.infrared import Infrared
 
     view_manager.storage.mkdir("infrared")
@@ -600,7 +800,11 @@ def start(view_manager) -> bool:
 
 
 def run(view_manager) -> None:
-    """Run the infrared app."""
+    """Run the infrared app.
+
+    Args:
+        view_manager (ViewManager): The view manager providing buttons and input state.
+    """
     from picoware.system.buttons import (
         BUTTON_BACK,
         BUTTON_UP,
@@ -694,7 +898,11 @@ def run(view_manager) -> None:
 
 
 def stop(view_manager) -> None:
-    """Stop the infrared app and clean up resources."""
+    """Stop the infrared app and clean up resources.
+
+    Args:
+        view_manager (ViewManager): The view manager providing keyboard state.
+    """
     global _state, _menu, _remote_menu, _key_menu, _learn_menu, _button_menu
     global _infrared, _remote, _remote_paths, _key_names, _keyboard_field
     global _keyboard_save_requested, _keyboard_result

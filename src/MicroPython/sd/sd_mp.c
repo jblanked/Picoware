@@ -5,6 +5,7 @@
  */
 
 #include "sd_mp.h"
+#include "sdcard.h"
 #include "stdio.h"
 #include <stdlib.h>
 #include <string.h>
@@ -797,6 +798,12 @@ static MP_DEFINE_CONST_FUN_OBJ_1(sd_mp_list_directory_obj, sd_mp_list_directory)
 // Function to mount the SD card
 mp_obj_t sd_mp_mount(void)
 {
+    // An empty PicoCalc slot is normal at boot, not an I/O error to log to SD.
+    // Boards without a detect pin report present and keep the existing path.
+    if (!sd_card_present())
+    {
+        return mp_const_false;
+    }
     if (fat32_is_mounted())
     {
         return mp_const_true;

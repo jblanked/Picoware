@@ -6,6 +6,7 @@ from picoware_boards import (
     BOARD_WAVESHARE_1_28_RP2350,
     BOARD_WAVESHARE_1_69_RP2350,
     BOARD_HAS_ESP32,
+    BOARD_HAS_PICOCALC,
     BOARD_FLIPPER_ZERO,
 )
 
@@ -61,8 +62,15 @@ class Storage:
         ):
             self._has_storage = False
         else:
-            sd_mp.init()
-            sd_mp.mount()
+            try:
+                sd_mp.init()
+                self._has_storage = bool(sd_mp.mount())
+            except OSError:
+                if not BOARD_HAS_PICOCALC:
+                    raise
+                # Boot with default settings when PicoCalc has no usable SD.
+                # Avoid retrying the failed card for every startup setting.
+                self._has_storage = False
 
     def __del__(self):
         """Destructor to ensure SD card is unmounted."""

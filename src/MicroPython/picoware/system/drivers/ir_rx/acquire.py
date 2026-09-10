@@ -16,15 +16,16 @@ from . import IR_RX
 class IR_GET(IR_RX):
     def __init__(self, pin, nedges=100, twait=100, display=True):
         self.display = display
-        super().__init__(pin, nedges, twait, lambda *_ : None)
         self.data = None
+        super().__init__(pin, nedges, twait, lambda *_ : None)
 
     def decode(self, _):
         def near(v, target):
             return target * 0.8 < v < target * 1.2
         lb = self.edge - 1  # Possible length of burst
-        if lb < 3:
-            return  # Noise
+        if self.data is not None or lb < 3 or self.edge > self._nedges:
+            self.edge = 0
+            return  # Keep the first capture; discard noise and overrun bursts.
         burst = []
         for x in range(lb):
             dt = ticks_diff(self._times[x + 1], self._times[x])

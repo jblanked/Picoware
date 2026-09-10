@@ -2,6 +2,7 @@
 from micropython import const
 from picoware.system.decorator import storage_required, infrared_tx_required, infrared_rx_required
 from gc import collect
+from time import ticks_ms, ticks_diff
 
 
 STATE_MAIN_MENU = const(0)
@@ -10,6 +11,11 @@ STATE_REMOTE_KEYS = const(2)
 STATE_LEARN_MENU = const(3)
 STATE_BUTTON_MENU = const(4)
 STATE_KEYBOARD = const(5)
+STATE_LISTENING = const(6)
+STATE_SAVED = const(7)
+STATE_NO_SIGNAL = const(8)
+STATE_RECEIVE_ERROR = const(9)
+RECEIVE_TIMEOUT_MS = const(10000)
 
 FIELD_BUTTON = const(0)
 FIELD_NAME = const(1)
@@ -50,6 +56,148 @@ _remote_name = "Remote"
 _keyboard_field = -1
 _keyboard_save_requested = False
 _keyboard_result = ""
+_receiver = None
+_receive_started = 0
+_receive_error = ""
+_status = None
+
+
+class InfraredAnimationDisplay:
+    """Fit the built-in desktop animation into the 48px status artwork area."""
+
+    def __init__(self, draw, left, top, foreground):
+        from picoware.system.vector import Vector
+
+        self.draw = draw
+        self.font_size = Vector(6, 8)
+        self.foreground = foreground
+        self.left = left
+        self.size = Vector(48, 48)
+        self.top = top
+
+    def _circle(self, x, y, radius, color):
+        self.draw._circle(self.left + x, self.top + y, radius, self.foreground)
+
+    def _text(self, x, y, text, color):
+        # Keep the staggered letter fade within the artwork, away from controls.
+        self.draw._text(self.left + x, self.top + 20, text, self.foreground, 0)
+
+
+class InfraredStatus:
+    """Draw 48px bear frames from SD at 5 fps, keeping only one frame in RAM."""
+
+    def __init__(self):
+        self._asset_failed = False
+        self._fallback = None
+        self._frame = b""
+        self._frame_count = 12
+        self._frame_index = -1
+        self._last_draw = None
+        self._loop = True
+        self._path = ""
+        self._pixels = None
+        self._started = 0
+
+    def _draw_fallback(self, draw, left, top, foreground):
+        if self._fallback is None:
+            # Release bear pixels before allocating the desktop letter states.
+            self._pixels = None
+            collect()
+            try:
+                from picoware.applications.desktop import PicowareAnimation
+
+                display = InfraredAnimationDisplay(draw, left, top, foreground)
+                self._fallback = PicowareAnimation(display)
+                self._fallback.circle_max_radius = 22
+            except (ImportError, MemoryError):
+                # Status and controls must still work if even the fallback fails.
+                self._fallback = False
+                collect()
+        if self._fallback:
+            display = self._fallback.display
+            display.foreground = foreground
+            display.left = left
+            display.top = top
+            self._fallback.draw()
+
+    def _read_frame(self, view_manager, index):
+        if self._asset_failed:
+            return False
+        if index == self._frame_index:
+            return True
+        try:
+            frame = view_manager.storage.read_chunked(self._path, index * 288, 288)
+            if len(frame) != 288:
+                raise OSError("Missing or incomplete animation frame")
+        except Exception as error:
+            self._asset_failed = True
+            self._frame = b""
+            view_manager.log("IR animation unavailable: " + self._path + ": " + str(error), 1)
+            return False
+        self._frame = frame
+        self._frame_index = index
+        return True
+
+    def begin(self, state, now):
+        # SD-root-relative files: 288 bytes per frame, row-major MSB-first.
+        self._frame_count = {"listening": 12, "saved": 8, "no_signal": 6}[state]
+        self._path = "picoware/assets/infrared/bear_" + state + ".bin"
+        self._started = now
+        self._loop = state == "listening"
+        self._asset_failed = False
+        if self._fallback is not None:
+            self._fallback = None
+            collect()
+        self._frame = b""
+        self._frame_index = -1
+        self._last_draw = None
+
+    def draw(self, view_manager, now, title, lines, footer):
+        draw = view_manager.draw
+        tick = max(0, ticks_diff(now, self._started)) // 200
+        index = tick
+        if self._loop:
+            index %= self._frame_count
+        else:
+            index = min(index, self._frame_count - 1)
+        foreground = view_manager.foreground_color
+        background = view_manager.background_color
+        signature = (tick if self._asset_failed else index,
+                     title, lines, footer, foreground, background)
+        if signature == self._last_draw:
+            return
+        self._last_draw = signature
+
+        has_frame = self._read_frame(view_manager, index)
+        if has_frame:
+            if self._pixels is None:
+                self._pixels = bytearray(48 * 48)
+            # Source bits: 0 = bear, 1 = background. Match the active UI colors.
+            fg = ((foreground >> 8) & 0xE0) | ((foreground >> 6) & 0x1C) | ((foreground >> 3) & 3)
+            bg = ((background >> 8) & 0xE0) | ((background >> 6) & 0x1C) | ((background >> 3) & 3)
+            offset = 0
+            for packed in self._frame:
+                for bit in range(7, -1, -1):
+                    self._pixels[offset] = bg if packed & (1 << bit) else fg
+                    offset += 1
+
+        # This 124 x 64 composition fits Flipper and stays centered elsewhere.
+        left = max(0, (draw.size.x - 124) // 2)
+        top = max(0, (draw.size.y - 64) // 2)
+        text_x = left + 52
+        text_columns = max(1, (draw.size.x - text_x - 2) // 6)
+        draw.erase()
+        draw._text(left, top, "PICOWARE", foreground, 0)
+        if has_frame:
+            draw._bytearray(left, top + 8, 48, 48, self._pixels)
+        else:
+            self._draw_fallback(draw, left, top + 8, foreground)
+        draw._text(text_x, top + 12, title[:text_columns], foreground, 0)
+        for line_index, line in enumerate(lines[:3]):
+            draw._text(text_x, top + 25 + line_index * 10,
+                       line[:text_columns], foreground, 0)
+        draw._text(left, top + 56, footer[:20], foreground, 0)
+        draw.swap()
 
 
 def _create_menu(view_manager, title):
@@ -307,29 +455,97 @@ def _run_keyboard(view_manager):
         _save_keyboard_value(view_manager)
 
 
-def _show_listening(view_manager):
-    """Show the receive status screen."""
-    draw = view_manager.draw
-    draw.erase()
-    draw._text(5, draw.size.y // 2, "Listening...", view_manager.foreground_color)
-    draw.swap()
+def _close_receiver():
+    """Release receive IRQ/timer resources on every exit path."""
+    global _receiver
+    receiver = _receiver
+    _receiver = None
+    if receiver is not None:
+        receiver.close()
+
+
+def _draw_receive_status(view_manager, now):
+    if _state == STATE_LISTENING:
+        remaining = max(0, RECEIVE_TIMEOUT_MS - ticks_diff(now, _receive_started))
+        _status.draw(view_manager, now, "Receiving",
+                     ("Point remote", "Press a key", str((remaining + 999) // 1000) + "s left"),
+                     "Back: cancel")
+    elif _state == STATE_SAVED:
+        _status.draw(view_manager, now, "Saved!", (_remote_name, _button_name),
+                     "OK: again  Back")
+    elif _state == STATE_NO_SIGNAL:
+        _status.draw(view_manager, now, "No signal", ("Point at IR", "Try again"),
+                     "OK: retry  Back")
+    else:
+        _status.draw(view_manager, now, "Error", (_receive_error, "Try again"),
+                     "OK: retry  Back")
 
 @infrared_rx_required
 def _receive_signal(view_manager):
-    """Capture and save the selected infrared signal."""
+    """Start reception and return so animation and input remain responsive."""
+    global _receiver, _receive_started
     if not _button_name or not _remote_name:
         view_manager.alert("Set Button and Name first")
         _show_learn_menu(view_manager)
         return
 
-    _show_listening(view_manager)
-    path = _remote_file_path()
+    _close_receiver()
+    now = ticks_ms()
+    _receive_started = now
     try:
-        _infrared.capture(path=path, name=_button_name, display=True)
-        view_manager.alert(f"Saved {path}")
+        _receiver = _infrared.begin_capture()
+        _set_receive_state(view_manager, STATE_LISTENING, now)
     except Exception as error:
-        view_manager.alert(f"Receive failed: {error}")
-    _show_learn_menu(view_manager)
+        _close_receiver()
+        view_manager.log("Infrared receive failed: " + str(error), 2)
+        _set_receive_state(view_manager, STATE_RECEIVE_ERROR, now, "RX failed")
+
+
+def _run_receive(view_manager):
+    from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
+
+    now = ticks_ms()
+    button = view_manager.button
+    if button == BUTTON_BACK:
+        _close_receiver()
+        _show_learn_menu(view_manager)
+        return
+    if _state != STATE_LISTENING:
+        if button == BUTTON_CENTER:
+            _receive_signal(view_manager)
+        else:
+            _draw_receive_status(view_manager, now)
+        return
+
+    data = _receiver.data
+    if data is not None:
+        _close_receiver()
+        try:
+            _infrared.library.save_raw(_remote_file_path(), _button_name, data)
+        except Exception as error:
+            view_manager.log("Infrared save failed: " + str(error), 2)
+            _set_receive_state(view_manager, STATE_RECEIVE_ERROR, now, "Save failed")
+        else:
+            _set_receive_state(view_manager, STATE_SAVED, now)
+    elif ticks_diff(now, _receive_started) >= RECEIVE_TIMEOUT_MS:
+        _close_receiver()
+        _set_receive_state(view_manager, STATE_NO_SIGNAL, now)
+    else:
+        _draw_receive_status(view_manager, now)
+
+
+def _set_receive_state(view_manager, state, now, error=""):
+    global _state, _status, _receive_error
+
+    if _status is None:
+        _status = InfraredStatus()
+    _state = state
+    _receive_error = error
+    animation = "listening" if state == STATE_LISTENING else (
+        "saved" if state == STATE_SAVED else "no_signal")
+    _status.begin(animation, now)
+    _draw_receive_status(view_manager, now)
+
 
 @infrared_tx_required
 def _send_signal(view_manager):
@@ -358,7 +574,11 @@ def start(view_manager) -> bool:
     global _infrared, _remote, _remote_paths, _key_names
     global _button_name, _remote_name, _keyboard_field
     global _keyboard_save_requested, _keyboard_result
+    global _status, _receive_error
 
+    _close_receiver()
+    _status = None
+    _receive_error = ""
     _state = STATE_MAIN_MENU
     _menu = None
     _remote_menu = None
@@ -391,6 +611,10 @@ def run(view_manager) -> None:
     )
 
     global _button_name
+
+    if _state in (STATE_LISTENING, STATE_SAVED, STATE_NO_SIGNAL, STATE_RECEIVE_ERROR):
+        _run_receive(view_manager)
+        return
 
     if _state == STATE_KEYBOARD:
         _run_keyboard(view_manager)
@@ -474,7 +698,11 @@ def stop(view_manager) -> None:
     global _state, _menu, _remote_menu, _key_menu, _learn_menu, _button_menu
     global _infrared, _remote, _remote_paths, _key_names, _keyboard_field
     global _keyboard_save_requested, _keyboard_result
+    global _status, _receive_error
 
+    _close_receiver()
+    _status = None
+    _receive_error = ""
     if view_manager.keyboard is not None:
         view_manager.keyboard.reset()
     for menu in (_menu, _remote_menu, _key_menu, _learn_menu, _button_menu):

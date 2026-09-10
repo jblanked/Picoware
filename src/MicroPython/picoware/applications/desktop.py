@@ -188,14 +188,14 @@ def start(view_manager) -> bool:
 
     if _desktop_picoware is None:
         _desktop_picoware = PicowareAnimation(view_manager.draw)
-        from picoware.system.boards import BOARD_HAS_PICOCALC
+        from picoware.system.boards import BOARD_HAS_SD
 
-        if BOARD_HAS_PICOCALC:
+        if BOARD_HAS_SD:
             try:
                 from picoware.gui.startup_bear import create_animation
 
                 _desktop_picoware = create_animation(
-                    view_manager.draw, view_manager.storage, _desktop_picoware
+                    view_manager.draw, view_manager.storage, _desktop_picoware, _desktop
                 )
             except (ImportError, MemoryError):
                 # The original animation also works without SD/deflate support.

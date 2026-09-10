@@ -46,7 +46,6 @@ def start(view_manager) -> bool:
         _library.add_item("Screensavers")
         _library.add_item("Scripts")
         _library.add_item("System")
-        _library.add_item("Text Editor")
         _library.add_item("USB")
         _library.add_item("WiFi")
         _library.set_selected(_library_index)
@@ -106,9 +105,8 @@ def run(view_manager) -> None:
             14: "Screensavers",
             15: "Scripts",
             16: "System",
-            17: "Text Editor",
-            18: "USB",
-            19: "WiFi",
+            17: "USB",
+            18: "WiFi",
         }
 
         if app_map.get(_library_index) == "System":
@@ -224,18 +222,6 @@ def run(view_manager) -> None:
 
             view_manager.add(View("repl", repl.run, repl.start, repl.stop))
             view_manager.switch_to("repl")
-        elif app_map.get(_library_index) == "Text Editor":
-            from picoware.applications import text_editor
-
-            view_manager.add(
-                View(
-                    "text_editor",
-                    text_editor.run,
-                    text_editor.start,
-                    text_editor.stop,
-                )
-            )
-            view_manager.switch_to("text_editor")
         elif app_map.get(_library_index) == "Agent":
             from picoware.applications import agent
 

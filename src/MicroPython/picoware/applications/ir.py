@@ -62,19 +62,63 @@ _receive_error = ""
 _status = None
 
 
+class InfraredAnimationDisplay:
+    """Fit the built-in desktop animation into the 48px status artwork area."""
+
+    def __init__(self, draw, left, top, foreground):
+        from picoware.system.vector import Vector
+
+        self.draw = draw
+        self.font_size = Vector(6, 8)
+        self.foreground = foreground
+        self.left = left
+        self.size = Vector(48, 48)
+        self.top = top
+
+    def _circle(self, x, y, radius, color):
+        self.draw._circle(self.left + x, self.top + y, radius, self.foreground)
+
+    def _text(self, x, y, text, color):
+        # Keep the staggered letter fade within the artwork, away from controls.
+        self.draw._text(self.left + x, self.top + 20, text, self.foreground, 0)
+
+
 class InfraredStatus:
     """Draw 48px bear frames from SD at 5 fps, keeping only one frame in RAM."""
 
     def __init__(self):
         self._asset_failed = False
+        self._fallback = None
         self._frame = b""
         self._frame_count = 12
         self._frame_index = -1
         self._last_draw = None
         self._loop = True
         self._path = ""
-        self._pixels = bytearray(48 * 48)
+        self._pixels = None
         self._started = 0
+
+    def _draw_fallback(self, draw, left, top, foreground):
+        if self._fallback is None:
+            # Release bear pixels before allocating the desktop letter states.
+            self._pixels = None
+            collect()
+            try:
+                from picoware.applications.desktop import PicowareAnimation
+
+                display = InfraredAnimationDisplay(draw, left, top, foreground)
+                self._fallback = PicowareAnimation(display)
+                self._fallback.circle_max_radius = 22
+            except (ImportError, MemoryError):
+                # Status and controls must still work if even the fallback fails.
+                self._fallback = False
+                collect()
+        if self._fallback:
+            display = self._fallback.display
+            display.foreground = foreground
+            display.left = left
+            display.top = top
+            self._fallback.draw()
 
     def _read_frame(self, view_manager, index):
         if self._asset_failed:
@@ -101,26 +145,33 @@ class InfraredStatus:
         self._started = now
         self._loop = state == "listening"
         self._asset_failed = False
+        if self._fallback is not None:
+            self._fallback = None
+            collect()
         self._frame = b""
         self._frame_index = -1
         self._last_draw = None
 
     def draw(self, view_manager, now, title, lines, footer):
         draw = view_manager.draw
-        index = max(0, ticks_diff(now, self._started)) // 200
+        tick = max(0, ticks_diff(now, self._started)) // 200
+        index = tick
         if self._loop:
             index %= self._frame_count
         else:
             index = min(index, self._frame_count - 1)
         foreground = view_manager.foreground_color
         background = view_manager.background_color
-        signature = (index, title, lines, footer, foreground, background)
+        signature = (tick if self._asset_failed else index,
+                     title, lines, footer, foreground, background)
         if signature == self._last_draw:
             return
         self._last_draw = signature
 
         has_frame = self._read_frame(view_manager, index)
         if has_frame:
+            if self._pixels is None:
+                self._pixels = bytearray(48 * 48)
             # Source bits: 0 = bear, 1 = background. Match the active UI colors.
             fg = ((foreground >> 8) & 0xE0) | ((foreground >> 6) & 0x1C) | ((foreground >> 3) & 3)
             bg = ((background >> 8) & 0xE0) | ((background >> 6) & 0x1C) | ((background >> 3) & 3)
@@ -139,6 +190,8 @@ class InfraredStatus:
         draw._text(left, top, "PICOWARE", foreground, 0)
         if has_frame:
             draw._bytearray(left, top + 8, 48, 48, self._pixels)
+        else:
+            self._draw_fallback(draw, left, top + 8, foreground)
         draw._text(text_x, top + 12, title[:text_columns], foreground, 0)
         for line_index, line in enumerate(lines[:3]):
             draw._text(text_x, top + 25 + line_index * 10,

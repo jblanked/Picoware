@@ -2,7 +2,7 @@
 
 from micropython import const
 
-# States in alphabetical order; values index __config().
+# states
 STATE_ANTHROPIC_API_KEY = const(0)  # keyboard input for Anthropic API key
 STATE_DARK_MODE = const(1)  # toggle (on/off)
 STATE_DEBUG = const(2)  # toggle (enable/disable)

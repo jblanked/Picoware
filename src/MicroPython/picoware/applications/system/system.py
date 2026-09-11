@@ -28,7 +28,6 @@ def start(view_manager) -> bool:
             view_manager.foreground_color,
             2,
         )
-        _system.add_item("Settings")
         _system.add_item("Update")
         _system.add_item("About")
         _system.add_item("System Info")
@@ -76,26 +75,18 @@ def run(view_manager) -> None:
     elif button == BUTTON_CENTER:
         _system_index = _system.selected_index
         if _system_index == 0:
-            from picoware.applications.system import settings
-            from picoware.system.view import View
-
-            view_manager.add(
-                View("settings", settings.run, settings.start, settings.stop)
-            )
-            view_manager.switch_to("settings")
-        elif _system_index == 1:
             from picoware.applications.system import update
             from picoware.system.view import View
 
             view_manager.add(View("update", update.run, update.start, update.stop))
             view_manager.switch_to("update")
-        elif _system_index == 2:
+        elif _system_index == 1:
             from picoware.applications.system import about
             from picoware.system.view import View
 
             view_manager.add(View("about", about.run, about.start, about.stop))
             view_manager.switch_to("about")
-        elif _system_index == 3:
+        elif _system_index == 2:
             from picoware.applications.system import system_info
             from picoware.system.view import View
 
@@ -105,17 +96,17 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("system_info")
-        elif _system_index == 4:
+        elif _system_index == 3:
             from picoware.system.system import System
 
             system = System()
             system.bootloader_mode()
-        elif _system_index == 5:
+        elif _system_index == 4:
             from picoware.system.system import System
 
             system = System()
             system.hard_reset()
-        elif _system_index == 6:
+        elif _system_index == 5:
             from picoware.gui.choice import Choice
             from picoware.system.vector import Vector
 
@@ -166,7 +157,7 @@ def run(view_manager) -> None:
                     view_manager.draw.clear()
                     _system.draw()
                     break
-        elif _system_index == 7:
+        elif _system_index == 6:
             inp = view_manager.input_manager
             inp.reset()
             view_manager.active = False

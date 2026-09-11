@@ -1,10 +1,11 @@
-"""Applications - Launcher for all Picoware apps."""
+"""Custom - External Picoware applications."""
+from picoware.system.decorator import storage_required
 
 _applications = None
 _applications_index = 0
 _app_loader = None
 
-
+@storage_required
 def start(view_manager) -> bool:
     """Start the app.
 
@@ -15,13 +16,6 @@ def start(view_manager) -> bool:
         bool: True on success.
     """
     from picoware.gui.menu import Menu
-
-    if not view_manager.has_sd_card:
-        view_manager.alert(
-            "Applications app requires an SD card.",
-            False,
-        )
-        return False
 
     # create apps folder if it doesn't exist
     view_manager.storage.mkdir("picoware/apps")
@@ -35,7 +29,7 @@ def start(view_manager) -> bool:
 
     _applications = Menu(
         view_manager.draw,
-        "Applications",
+        "Custom",
         0,
         view_manager.draw.size.y,
         view_manager.foreground_color,

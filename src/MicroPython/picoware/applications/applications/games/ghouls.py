@@ -1,6 +1,7 @@
 """Ghouls - Downloadable game with asset management."""
 
 from micropython import const
+from picoware.system.decorator import storage_required, wifi_required
 import ghouls
 
 
@@ -119,6 +120,8 @@ def __is_assets_loaded(view_manager) -> bool:
     return True
 
 
+@storage_required
+@wifi_required
 def start(view_manager) -> bool:
     """Start the app.
 
@@ -128,25 +131,6 @@ def start(view_manager) -> bool:
     Returns:
         bool: True on success.
     """
-    if not view_manager.has_sd_card:
-        view_manager.alert("App Store app requires an SD card", False)
-        return False
-
-    wifi = view_manager.wifi
-
-    # if not a wifi device, return
-    if not wifi:
-        view_manager.alert("WiFi not available...", False)
-        return False
-
-    # if wifi isn't connected, return
-    if not wifi.is_connected():
-        from picoware.applications.wifi.utils import connect_to_saved_wifi
-
-        view_manager.alert("WiFi not connected", False)
-        connect_to_saved_wifi(view_manager)
-        return False
-
     global _state, _asset_index, _http, _username, _password, _loading
 
     # if settings arent saved, return

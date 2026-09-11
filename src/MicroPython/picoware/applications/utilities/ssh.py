@@ -3,7 +3,7 @@ SSH Client/Terminal App for Picoware
 Copyright (c) 2026 JBlanked
 GPL-3.0 License
 https://www.github.com/jblanked/Picoware
-Last Updated: 2026-05-13
+Last Updated: 2026-09-19
 """
 
 from micropython import const
@@ -13,6 +13,7 @@ import hashlib
 import uos as os
 import _thread
 from gc import collect
+from picoware.system.decorator import storage_required, wifi_required
 
 # View constants
 VIEW_MAIN_MENU = const(0)
@@ -106,6 +107,7 @@ connection_state = STATE_DISCONNECTED
 _menu = None
 _loading = None
 _ssh_client = None
+_selected_index = 0
 
 # Terminal state
 _input_line = ""  # current typed command
@@ -119,10 +121,6 @@ ssh_host = ""
 ssh_port = "22"
 ssh_username = ""
 ssh_password = ""
-
-
-# --- SSH Protocol Helpers ---
-
 
 def _ssh_string(data):
     """Pack data as SSH string (uint32 length prefix + data)"""
@@ -180,9 +178,6 @@ def _parse_name_list(data, offset):
     return [], offset
 
 
-# --- HMAC Implementations ---
-
-
 def _hmac_compute(key, msg, hash_cls, block_size):
     """Compute HMAC with the given hash class and block size"""
     if len(key) > block_size:
@@ -211,9 +206,6 @@ def _hmac_sha256(key, msg):
 def _hmac_sha1(key, msg):
     """HMAC-SHA-1"""
     return _hmac_compute(key, msg, hashlib.sha1, 64)
-
-
-# --- X25519 Diffie-Hellman (RFC 7748) ---
 
 
 def _x25519(k_bytes, u_bytes):
@@ -277,8 +269,6 @@ def _x25519(k_bytes, u_bytes):
 _X25519_BASE = b"\x09" + b"\x00" * 31
 
 
-# --- AES-CTR Cipher ---
-
 
 class _AES_CTR:
     """AES in Counter mode. Tries native CTR (mode 6) first,
@@ -322,9 +312,6 @@ class _AES_CTR:
             out[i] = data[i] ^ self._buf[self._pos]
             self._pos += 1
         return bytes(out)
-
-
-# --- Full SSH-2 Client ---
 
 
 class SSHClient:
@@ -396,8 +383,6 @@ class SSHClient:
     def output(self) -> list:
         with self._lock:
             return self._output.copy()
-
-    # ---- Low-level transport ----
 
     def _recv_exact(self, n):
         """Receive exactly n bytes"""
@@ -496,8 +481,6 @@ class SSHClient:
 
             return payload
 
-    # ---- Key Exchange ----
-
     def _build_kexinit(self):
         """Build our SSH_MSG_KEXINIT payload"""
         p = bytearray()
@@ -556,8 +539,6 @@ class SSHClient:
         if not self._mac_c2s or not self._mac_s2c:
             raise Exception("No common MAC algo")
 
-    # ---- KEX dispatcher ----
-
     def _do_kex(self):
         """Dispatch to the correct key exchange method"""
         alg = self._kex_algorithm
@@ -569,8 +550,6 @@ class SSHClient:
             return self._do_dh_group14_kex()
         else:
             raise Exception("KEX '%s' not implemented" % alg)
-
-    # ---- curve25519-sha256 (RFC 8731) ----
 
     def _do_curve25519_kex(self):
         """Curve25519 ECDH key exchange"""
@@ -616,8 +595,6 @@ class SSHClient:
         del priv, raw_K
         collect()
         return K, H, hash_cls
-
-    # ---- diffie-hellman-group-exchange-sha256 (RFC 4419) ----
 
     def _do_gex_kex(self):
         """Diffie-Hellman Group Exchange key exchange"""
@@ -681,8 +658,6 @@ class SSHClient:
         del x, e, f, p, g
         collect()
         return K, H, hash_cls
-
-    # ---- diffie-hellman-group14-sha256/sha1 (RFC 4253 / RFC 8268) ----
 
     def _do_dh_group14_kex(self):
         """Diffie-Hellman Group 14 fixed-group key exchange"""
@@ -772,8 +747,6 @@ class SSHClient:
 
         del K_enc
         collect()
-
-    # ---- Authentication ----
 
     def _request_service(self, name):
         """Send SSH_MSG_SERVICE_REQUEST"""
@@ -978,8 +951,6 @@ class SSHClient:
         while lines and not lines[-1].strip():
             lines.pop()
         return lines
-
-    # ---- Public API ----
 
     def _resolve_host(self, host, port):
         """Resolve host with a practical LAN fallback for mDNS names."""
@@ -1197,7 +1168,6 @@ def _render_terminal(view_manager) -> None:
         TFT_YELLOW,
         TFT_WHITE,
     )
-    from picoware.system.vector import Vector
 
     global _terminal_dirty
     if not _terminal_dirty:
@@ -1205,8 +1175,9 @@ def _render_terminal(view_manager) -> None:
     _terminal_dirty = False
 
     draw = view_manager.draw
-    cw = draw.font_size.x
-    ch = draw.font_size.y
+    font = draw.get_font()
+    cw = font.width + font.spacing
+    ch = font.height
     sw = draw.size.x
     sh = draw.size.y
     max_chars = sw // cw
@@ -1231,14 +1202,10 @@ def _render_terminal(view_manager) -> None:
 
     draw.erase()
 
-    pos = Vector(0, 0)
     for i, (text, color) in enumerate(visible):
         if text:
-            pos.x = 0
-            pos.y = i * ch
-            draw.text(pos, text, color)
+            draw._text(0, i * ch, text, color)
 
-    # --- Prompt line at the bottom ---
     prompt_user = ssh_username or "user"
     prompt_host = (ssh_host.split(":")[0] if ssh_host else "") or "host"
     if len(prompt_host) > 12:
@@ -1246,29 +1213,29 @@ def _render_terminal(view_manager) -> None:
 
     y = max_lines * ch
     x = 0
-    pos.y = y
+    pos_y = y
 
-    pos.x = x
-    draw.text(pos, prompt_user, TFT_GREEN)
+    pos_x = x
+    draw._text(pos_x, pos_y, prompt_user, TFT_GREEN)
     x += len(prompt_user) * cw
 
-    pos.x = x
-    draw.text(pos, "@", TFT_WHITE)
+    pos_x = x
+    draw._text(pos_x, pos_y, "@", TFT_WHITE)
     x += cw
 
-    pos.x = x
-    draw.text(pos, prompt_host, TFT_CYAN)
+    pos_x = x
+    draw._text(pos_x, pos_y, prompt_host, TFT_CYAN)
     x += len(prompt_host) * cw
 
-    pos.x = x
-    draw.text(pos, ":~$ ", TFT_WHITE)
+    pos_x = x
+    draw._text(pos_x, pos_y, ":~$ ", TFT_WHITE)
     x += 4 * cw
 
     avail = max(1, (sw - x) // cw - 1)
     disp_input = _input_line[-avail:] if len(_input_line) > avail else _input_line
 
-    pos.x = x
-    draw.text(pos, disp_input + "_", TFT_YELLOW)
+    pos_x = x
+    draw._text(pos_x, pos_y, disp_input + "_", TFT_YELLOW)
 
     draw.swap()
     collect()
@@ -1515,25 +1482,14 @@ def _menu_start(view_manager) -> None:
         _menu.add_item("Return to Terminal")
         _menu.add_item("Disconnect")
 
-    _menu.set_selected(0)
-    _menu.set_selected(0)
+    _menu.set_selected(_selected_index)
+    _menu.set_selected(_selected_index)
 
 
+@storage_required
+@wifi_required
 def start(view_manager) -> bool:
     """Start the SSH app"""
-    wifi = view_manager.wifi
-
-    if not wifi:
-        view_manager.alert("WiFi not available...", False)
-        return False
-
-    if not wifi.is_connected():
-        from picoware.applications.wifi.utils import connect_to_saved_wifi
-
-        view_manager.alert("WiFi not connected yet...", False)
-        connect_to_saved_wifi(view_manager)
-        return False
-
     view_manager.storage.mkdir("picoware/ssh")
 
     __load_ssh_credentials(view_manager)
@@ -1562,10 +1518,11 @@ def run(view_manager) -> None:
     inp = view_manager.input_manager
     button = inp.button
 
-    global current_view, keyboard_index, connection_state, _terminal_dirty, _loading
+    global current_view, keyboard_index, connection_state, _terminal_dirty, _loading, _selected_index
 
     if current_view == VIEW_MAIN_MENU:
         if button == BUTTON_BACK:
+            _selected_index = 0
             inp.reset()
             view_manager.back()
         elif button == BUTTON_UP:
@@ -1579,6 +1536,7 @@ def run(view_manager) -> None:
             selected = _menu.selected_index
 
             if connection_state == STATE_DISCONNECTED:
+                _selected_index = selected
                 if selected == MENU_ITEM_CONNECT:
                     if not ssh_host or not ssh_username:
                         view_manager.alert("Set host & user!", False)

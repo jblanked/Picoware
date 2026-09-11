@@ -124,7 +124,7 @@ def __request_start(view_manager) -> bool:
             return True
 
         try:
-            from picoware.applications.email import IMAPAsync
+            from picoware.applications.utilities.email import IMAPAsync
 
             _imap = IMAPAsync()
             if not _imap.fetch_unread_count(stored_email, stored_password):

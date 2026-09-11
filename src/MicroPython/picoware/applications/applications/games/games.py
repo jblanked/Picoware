@@ -5,6 +5,7 @@ _games = None
 _games_index = 0
 _app_loader = None
 _ghouls_allowed = True
+_gameboy_allowed = False
 
 @storage_required
 def start(view_manager) -> bool:
@@ -17,7 +18,7 @@ def start(view_manager) -> bool:
         bool: True on success.
     """
     from picoware.gui.menu import Menu
-    from picoware.system.boards import BOARD_ID, BOARD_PICOCALC_PICOW
+    from picoware.system.boards import BOARD_ID, BOARD_PICOCALC_PICOW, BOARD_HAS_PICOCALC
 
     # create games folder if it doesn't exist
     view_manager.storage.mkdir("picoware/apps/games")
@@ -25,6 +26,7 @@ def start(view_manager) -> bool:
     global _games
     global _app_loader
     global _ghouls_allowed
+    global _gameboy_allowed
 
     if _games:
         del _games
@@ -44,6 +46,11 @@ def start(view_manager) -> bool:
     _app_loader = view_manager.app_loader
 
     _ghouls_allowed = view_manager.has_wifi and BOARD_ID != BOARD_PICOCALC_PICOW
+
+    _gameboy_allowed = BOARD_HAS_PICOCALC == 1
+
+    if _gameboy_allowed:
+        _games.add_item("GameBoy Emulator")
 
     if _ghouls_allowed:
         _games.add_item("Ghouls")  # Add Ghouls as a built-in game
@@ -90,9 +97,9 @@ def run(view_manager) -> None:
     elif button == BUTTON_CENTER:
         _games_index = _games.selected_index
 
-        if _ghouls_allowed and _games_index == 0:
+        if _ghouls_allowed and _games.current_item == "Ghouls":
             # Start Ghouls
-            from picoware.applications import ghouls
+            from picoware.applications.applications.games import ghouls
 
             ghouls_view_name = "game_ghouls"
             if view_manager.get_view(ghouls_view_name) is None:
@@ -104,6 +111,21 @@ def run(view_manager) -> None:
                 )
                 view_manager.add(ghouls_view)
             view_manager.switch_to(ghouls_view_name)
+            return
+        if _gameboy_allowed and _games.current_item == "GameBoy Emulator":
+            # Start GameBoy Emulator
+            from picoware.applications.applications.games import gameboy
+
+            gameboy_view_name = "game_gameboy"
+            if view_manager.get_view(gameboy_view_name) is None:
+                gameboy_view = View(
+                    gameboy_view_name,
+                    gameboy.run,
+                    gameboy.start,
+                    gameboy.stop,
+                )
+                view_manager.add(gameboy_view)
+            view_manager.switch_to(gameboy_view_name)
             return
 
         # Get the selected game name

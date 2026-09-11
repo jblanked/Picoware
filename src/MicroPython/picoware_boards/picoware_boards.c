@@ -327,7 +327,6 @@ static MP_DEFINE_CONST_FUN_OBJ_1(picoware_boards_has_touch_obj, picoware_boards_
 
 mp_obj_t picoware_boards_has_wifi(mp_obj_t board_id_obj)
 {
-    int board_id = mp_obj_get_int(board_id_obj);
 #if BOARD_HAS_WIFI == 0
     return mp_obj_new_bool(false);
 #else

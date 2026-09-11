@@ -383,7 +383,7 @@ class WiFi:
             ssids = self._wifi_uart.scan()
             if not ssids:
                 return []
-            return [(ssid, 0, 0, 0, 0, 0) for ssid in ssids]
+            return [(bytes(ssid, "utf-8"), 0, 0, 0, 0, 0) for ssid in ssids]
         self.wlan.active(True)
         return self.wlan.scan()
 

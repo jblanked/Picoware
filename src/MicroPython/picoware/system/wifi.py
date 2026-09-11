@@ -459,13 +459,14 @@ class WiFiUART:
 
         Args:
             uart: The UART object for communication with the WiFi module.
+            timeout_ms (int): The timeout for UART receiving in milliseconds. Defaults to 5000.
         """
         self.uart = None
         if uart is None:
             from picoware.system.uart import UART
             self.uart = UART(timeout=timeout_ms)
             if not self.ping():
-                raise Exception("FlipperHTTP baord not connected...")
+                raise Exception("FlipperHTTP board not connected...")
         else:
             self.uart = uart
         self.error = ""

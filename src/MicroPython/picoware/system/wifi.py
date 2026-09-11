@@ -380,7 +380,10 @@ class WiFi:
         if self._is_flipper:
             if not self._wifi_uart:
                 return []
-            return self._wifi_uart.scan()
+            ssids = self._wifi_uart.scan()
+            if not ssids:
+                return []
+            return [(ssid, 0, 0, 0, 0, 0) for ssid in ssids]
         self.wlan.active(True)
         return self.wlan.scan()
 

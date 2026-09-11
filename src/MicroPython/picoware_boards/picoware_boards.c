@@ -328,24 +328,11 @@ static MP_DEFINE_CONST_FUN_OBJ_1(picoware_boards_has_touch_obj, picoware_boards_
 mp_obj_t picoware_boards_has_wifi(mp_obj_t board_id_obj)
 {
     int board_id = mp_obj_get_int(board_id_obj);
-    bool has_wifi = false;
-
-    switch (board_id)
-    {
-    case BOARD_PICOCALC_PICOW:
-    case BOARD_PICOCALC_PICO_2W:
-    case BOARD_PICOCALC_PIMORONI_2W:
-    case BOARD_PANCAKE:
-    case BOARD_V8:
-    case BOARD_DESKTOP:
-        has_wifi = true;
-        break;
-    default:
-        has_wifi = false;
-        break;
-    }
-
-    return mp_obj_new_bool(has_wifi);
+#if BOARD_HAS_WIFI == 0
+    return mp_obj_new_bool(false);
+#else
+    return mp_obj_new_bool(true);
+#endif
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(picoware_boards_has_wifi_obj, picoware_boards_has_wifi);
 

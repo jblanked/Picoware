@@ -121,7 +121,7 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_PSRAM 0
 #define BOARD_HAS_SD 1
 #define BOARD_HAS_TOUCH 0
-#define BOARD_HAS_WIFI 0
+#define BOARD_HAS_WIFI 1
 #define BOARD_HAS_AUDIO 0
 #define BOARD_HAS_BLUETOOTH 1
 #define BOARD_HAS_IR 1

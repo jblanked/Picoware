@@ -327,11 +327,22 @@ static MP_DEFINE_CONST_FUN_OBJ_1(picoware_boards_has_touch_obj, picoware_boards_
 
 mp_obj_t picoware_boards_has_wifi(mp_obj_t board_id_obj)
 {
-#if BOARD_HAS_WIFI == 0
-    return mp_obj_new_bool(false);
-#else
-    return mp_obj_new_bool(true);
-#endif
+    // This API describes the requested board, not the current build target.
+    switch (mp_obj_get_int(board_id_obj))
+    {
+    case BOARD_PICOCALC_PICOW:
+    case BOARD_PICOCALC_PICO_2W:
+    case BOARD_PICOCALC_PIMORONI_2W:
+    case BOARD_CARDPUTER:
+    case BOARD_WAVESHARE_2_06:
+    case BOARD_PANCAKE:
+    case BOARD_V8:
+    case BOARD_FLIPPER_ZERO:
+    case BOARD_DESKTOP:
+        return mp_const_true;
+    default:
+        return mp_const_false;
+    }
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(picoware_boards_has_wifi_obj, picoware_boards_has_wifi);
 

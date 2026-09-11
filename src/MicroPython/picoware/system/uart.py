@@ -49,6 +49,7 @@ class UART:
         self._rx_pin = rx_pin
         self._baud_rate = baud_rate
         self._uart = None
+        self._read_buffer = b""
 
         try:
             if BOARD_ID == BOARD_FLIPPER_ZERO:
@@ -66,9 +67,9 @@ class UART:
 
     def __del__(self) -> None:
         """Deinitialize the UART interface."""
-        self._uart.deinit()
-        del self._uart
-        self._uart = None
+        if self._uart is not None:
+            self._uart.deinit()
+            self._uart = None
 
     @property
     def baud_rate(self) -> int:
@@ -78,7 +79,7 @@ class UART:
     @property
     def has_data(self) -> bool:
         """Check if there is data available to read from the UART interface."""
-        return self._uart.any() > 0
+        return bool(self._read_buffer) or self._uart.any() > 0
 
     @property
     def is_sending(self) -> bool:
@@ -116,6 +117,7 @@ class UART:
 
     def clear(self) -> None:
         """Clear the serial buffer"""
+        self._read_buffer = b""
         while self._uart.any() > 0:
             self._uart.read()
 
@@ -140,6 +142,11 @@ class UART:
         Returns:
             int: The number of bytes read.
         """
+        if self._read_buffer:
+            count = min(len(buffer), len(self._read_buffer))
+            buffer[:count] = self._read_buffer[:count]
+            self._read_buffer = self._read_buffer[count:]
+            return count
         return self._uart.readinto(buffer)
 
     def read_line(self) -> str:
@@ -148,28 +155,20 @@ class UART:
         Returns:
             str or None: The line read without a trailing newline, or None on timeout.
         """
-        from time import ticks_ms
+        from time import ticks_diff, ticks_ms, sleep_ms
 
         start_time = ticks_ms()
-        message = ""
-
-        while (ticks_ms() - start_time) < self._timeout:
-            if self._uart.any() > 0:
-                try:
-                    raw_data = self._uart.read()
-                    if raw_data:
-                        # Reset the timeout when data is read
-                        start_time = ticks_ms()
-                        message += raw_data.decode()
-
-                        if "\n" in message:
-                            message = message.strip("\n")
-                            return message
-                except Exception:
-                    continue
-
-        # Timeout reached with no newline received
-        return None
+        while True:
+            if b"\n" not in self._read_buffer and self._uart.any() > 0:
+                raw_data = self._uart.read()
+                if raw_data:
+                    self._read_buffer += raw_data
+            if b"\n" in self._read_buffer:
+                line, self._read_buffer = self._read_buffer.split(b"\n", 1)
+                return line.rstrip(b"\r").decode()
+            if ticks_diff(ticks_ms(), start_time) >= self._timeout:
+                return None
+            sleep_ms(1)
 
     def read_serial_line(self) -> str:
         """Read a line from the UART interface.
@@ -179,7 +178,8 @@ class UART:
         """
         data = ""
         try:
-            raw_data = self._uart.read()
+            raw_data = self._read_buffer + (self._uart.read() or b"")
+            self._read_buffer = b""
             if raw_data:  # Ensures raw_data isn't empty before decoding
                 data = raw_data.decode()
         except Exception:

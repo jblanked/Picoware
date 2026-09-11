@@ -78,25 +78,12 @@ esac
 
 mkdir -p "$build_dir"
 
-# Newly enabled modules can have older source timestamps than the QSTR cache.
-rm -f "$build_dir/genhdr/qstr.i.last"
-
-# remove stale user-module build outputs
-for mkfile in "$module_dir"/*/micropython.mk; do
-    [ -f "$mkfile" ] || continue
-    rm -rf "$build_dir/$(basename "$(dirname "$mkfile")")"
-done
-# Relative native sources also put objects outside the desktop directory.
-# Recompile them together so generated QSTR IDs cannot go stale.
-rm -rf "$source_alias/builds/engine" "$source_alias/builds/c" "$source_alias/builds/mjs" "$source_alias/builds/video" "$source_alias/builds/vt"
-# sweep leftover module build dirs
-for dir in "$build_dir"/*/; do
-    [ -d "$dir" ] || continue
-    case "$(basename "$dir")" in
-        py|extmod|lib|shared|genhdr) ;;
-        *) rm -rf "$dir" ;;
-    esac
-done
+# Relative module sources emit objects up to three directories above BUILD.
+# Keep them inside a fresh private tree, preserving other builds and preventing
+# stale QSTR IDs when native modules are added. Install only after a full link.
+staging_root=$(mktemp -d /tmp/picoware-desktop-build.XXXXXX)
+trap 'rm -rf -- "$staging_root"' EXIT HUP INT TERM
+staging_build="$staging_root/builds/MicroPython/desktop"
 
 if [ ! -x "$micropython_dir/mpy-cross/build/mpy-cross" ]; then
     make -C "$micropython_dir/mpy-cross" -j"$jobs"
@@ -104,10 +91,12 @@ fi
 
 make -C "$micropython_dir/ports/unix" \
     -j"$jobs" \
-    BUILD="$build_dir" \
+    BUILD="$staging_build" \
     VARIANT_DIR="$variant_dir" \
     USER_C_MODULES="$module_dir" \
     FROZEN_MANIFEST= \
     CFLAGS_EXTRA="-DDESKTOP -Wno-error"
 
+install -m 755 "$staging_build/micropython" "$build_dir/micropython.new"
+mv -f "$build_dir/micropython.new" "$build_dir/micropython"
 echo "Desktop MicroPython build complete: $display_build_dir/micropython"

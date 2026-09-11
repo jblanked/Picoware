@@ -8,6 +8,7 @@ static mp_obj_t desktop_native_modules(void)
         MP_OBJ_NEW_QSTR(MP_QSTR_c),
         MP_OBJ_NEW_QSTR(MP_QSTR_engine),
         MP_OBJ_NEW_QSTR(MP_QSTR_font),
+        MP_OBJ_NEW_QSTR(MP_QSTR_ghouls),
         MP_OBJ_NEW_QSTR(MP_QSTR_mjs),
         MP_OBJ_NEW_QSTR(MP_QSTR_mmbasic),
         MP_OBJ_NEW_QSTR(MP_QSTR_response),

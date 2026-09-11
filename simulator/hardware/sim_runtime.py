@@ -37,6 +37,7 @@ log_path = ""
 record_path = ""
 sd_profile = "dev"
 network_mode = "real"
+flipper_wifi_attached = True
 bluetooth_mode = "virtual"
 audio_mode = "real"
 speed_mode = "auto"
@@ -64,6 +65,7 @@ _recent_text = []
 _recent_input = []
 _record_text = ""
 _ir_waveform = []
+_ir_rx_timestamps = []
 _touch_point = (0, 0)
 _touch_gesture = 0
 _touch_callbacks = []
@@ -118,34 +120,54 @@ KEY_NAMES = {
 }
 
 LIBRARY_ITEMS = {
+    "applications": 0,
+    "bluetooth": 1,
+    "infrared": 2,
+    "ir": 2,
+    "settings": 3,
+    "system": 4,
+    "usb": 5,
+    "utilities": 6,
+    "wifi": 7,
+}
+
+APPLICATION_ITEMS = {
     "agent": 0,
-    "applications": 1,
-    "app store": 2,
-    "appstore": 2,
-    "bluetooth": 3,
-    "c": 4,
-    "email": 5,
-    "file manager": 6,
-    "filemanager": 6,
-    "flipsocial": 7,
-    "gameboy emulator": 8,
-    "gameboy": 8,
-    "games": 9,
-    "infrared": 10,
-    "ir": 10,
-    "mmbasic": 11,
-    "picoide": 12,
-    "python editor": 12,
-    "pythoneditor": 12,
-    "python repl": 13,
-    "repl": 13,
-    "screensavers": 14,
-    "scripts": 15,
-    "system": 16,
-    "text editor": 17,
-    "texteditor": 17,
-    "usb": 18,
-    "wifi": 19,
+    "app store": 1,
+    "appstore": 1,
+    "c": 2,
+    "custom": 3,
+    "flipsocial": 4,
+    "games": 5,
+    "javascript": 6,
+    "mmbasic": 7,
+    "screensavers": 8,
+}
+
+UTILITY_ITEMS = {
+    "email": 0,
+    "file manager": 1,
+    "filemanager": 1,
+    "picoide": 2,
+    "python editor": 2,
+    "pythoneditor": 2,
+    "python repl": 3,
+    "repl": 3,
+    "serial terminal": 4,
+    "serial": 4,
+    "ssh terminal": 5,
+    "ssh": 5,
+}
+
+_MENU_ITEMS = {
+    "library": LIBRARY_ITEMS,
+    "applications": APPLICATION_ITEMS,
+    "utilities": UTILITY_ITEMS,
+}
+
+_MENU_CHILDREN = {
+    ("library", "applications"): "applications",
+    ("library", "utilities"): "utilities",
 }
 
 
@@ -153,11 +175,11 @@ def configure(_root, _sd_root, _apps_source, _scale, _board, _max_frames, _headl
     global root, sd_root, apps_source, scale, board, max_frames, headless
     global trace_keys, trace_views, trace_imports, screenshot_path
     global viewer, viewer_frame_path, viewer_keys_path, status_path, error_path, control_path, log_path, record_path
-    global sd_profile, network_mode, bluetooth_mode, audio_mode
+    global sd_profile, network_mode, bluetooth_mode, audio_mode, flipper_wifi_attached
     global speed_mode, target_fps, _frame_interval_ms, _last_frame_ms, _viewer_key_offset, _last_status_ms, _control_offset, audio_muted
     global frame_count, loop_count, open_target, _keys, _delayed_keys, _held_keys, _held_key_order, _lcd
     global _wait_view, _assert_text, _seen_wait_view, _seen_assert_text, _current_view_name, _recent_text
-    global _recent_input, _record_text, _ir_waveform
+    global _recent_input, _record_text, _ir_waveform, _ir_rx_timestamps
     global _key_callback, _background_key_poll, _notifying_key
     root = _root
     sd_root = _sd_root
@@ -180,6 +202,7 @@ def configure(_root, _sd_root, _apps_source, _scale, _board, _max_frames, _headl
     record_path = _record_path
     sd_profile = str(_sd_profile or "dev")
     network_mode = _network_mode
+    flipper_wifi_attached = True
     bluetooth_mode = _bluetooth_mode
     audio_mode = _audio_mode
     speed_mode = _speed_mode
@@ -207,6 +230,7 @@ def configure(_root, _sd_root, _apps_source, _scale, _board, _max_frames, _headl
     _recent_input = []
     _record_text = ""
     _ir_waveform = []
+    _ir_rx_timestamps = []
     _key_callback = None
     _background_key_poll = False
     _notifying_key = False
@@ -318,6 +342,27 @@ def native_helper_path(relative, target=None):
     return candidates[0]
 
 
+def _link_assets():
+    """Expose bundled SD assets through the simulated SD card."""
+    source = root + "/builds/MicroPython/assets"
+    target = sd_root + "/picoware/assets"
+    _link_app_files_into(source, target, include_init=True)
+    old_map = sd_root + "/picoware/apps/games/ghouls/assets/home.ghoulsmap"
+    # Retire only the exact old generated placeholder, keeping a rollback copy.
+    try:
+        with open(old_map, "rb") as handle:
+            is_placeholder = handle.read(64) == b"Picoware simulator placeholder map\n"
+        if is_placeholder and not _exists(old_map + ".placeholder-backup"):
+            os.rename(old_map, old_map + ".placeholder-backup")
+    except OSError:
+        pass
+    _link_app_files_into(
+        root + "/src/MicroPython/ghouls/Ghouls/src/assets",
+        sd_root + "/picoware/apps/games/ghouls/assets",
+        include_init=True,
+    )
+
+
 def _merge_json_defaults(path, defaults, fill_blank_keys=()):
     current = {}
     if _exists(path):
@@ -427,11 +472,6 @@ def seed_sd(profile="dev"):
         ("wifi_ssid",),
     )
     _write_if_missing(sd_root + "/picoware/wifi/ssid.json", '{"ssid":"Picoware-Sim"}')
-    if profile != "clean":
-        _write_if_missing(
-            sd_root + "/picoware/apps/games/ghouls/assets/home.ghoulsmap",
-            "Picoware simulator placeholder map\n",
-        )
     if profile == "network-fixtures":
         _write_if_missing(sd_root + "/picoware/fixtures/catfact.json", '{"fact":"Picoware simulator fixture cat fact.","length":38}')
         _write_if_missing(sd_root + "/picoware/fixtures/weather.txt", "Clear,+21C,45%\n")
@@ -440,6 +480,7 @@ def seed_sd(profile="dev"):
 
     # Symlink apps for __import__
     _link_app_files()
+    _link_assets()
     if profile != "clean":
         _link_c_files()
         _link_script_files()
@@ -530,7 +571,14 @@ def _link_app_files_into(src_dir, dst_dir, skip_if_py_exists=False, include_init
                     if _same_file(dst, src):
                         _rm_f(dst)
                     continue
-            # Remove stale symlink first
+            if _exists(dst):
+                if _same_file(dst, src):
+                    continue
+                # MicroPython Unix lacks lstat/readlink. Only probe entries
+                # that differ from their source; normal managed links are fast.
+                if os.system("test -L " + _quote(dst)) != 0:
+                    continue
+            # Replace only a link, never a regular user-installed file.
             _rm_f(dst)
             # Try symlink, fallback to ln
             try:
@@ -836,6 +884,45 @@ def is_key_held(code):
         return False
 
 
+def inject_ir_signal(pin, timings, receiver=None):
+    """Inject deterministic edge-to-edge timings into an IR input pin."""
+    global _ir_rx_timestamps
+    durations = tuple(int(value) for value in timings)
+    if len(durations) < 3 or any(value <= 0 for value in durations):
+        raise ValueError("IR input requires at least three positive timings")
+    if getattr(pin, "_handler", None) is None:
+        raise RuntimeError("IR input pin has no active receiver")
+
+    timestamp = _ticks_ms() * 1000
+    _ir_rx_timestamps = [timestamp]
+    for duration in durations:
+        timestamp += duration
+        _ir_rx_timestamps.append(timestamp)
+    try:
+        for _ in range(len(_ir_rx_timestamps)):
+            pin.value(0 if pin.value() else 1)
+        from machine import Timer
+
+        for timer in tuple(Timer._timers):
+            if timer._active and timer.id == -1:
+                timer._poll(timer._next_ms)
+        if receiver is None:
+            receiver = getattr(pin, "_receiver", None)
+        if receiver is None:
+            receiver = getattr(getattr(pin, "_handler", None), "__self__", None)
+        if receiver is not None:
+            timestamp = 0
+            for index, duration in enumerate(durations):
+                receiver._times[index] = timestamp
+                timestamp += duration
+            receiver._times[len(durations)] = timestamp
+            receiver.edge = len(durations) + 1
+            receiver.decode(None)
+            receiver.data = list(durations)
+    finally:
+        _ir_rx_timestamps = []
+
+
 def held_key():
     """Return the most recently pressed key still down, independent of repeats."""
     poll_events()
@@ -884,6 +971,13 @@ def clear_touch():
     set_touch_point(0, 0, 0, False)
 
 
+def next_ir_timestamp():
+    """Return and consume the next simulator-controlled IR timestamp."""
+    if not _ir_rx_timestamps:
+        return None
+    return _ir_rx_timestamps.pop(0)
+
+
 def touch_point():
     return _touch_point
 
@@ -909,6 +1003,7 @@ def battery_percentage():
 
 
 def run_script_file(path):
+    global flipper_wifi_attached
     try:
         with open(path, "r") as handle:
             lines = handle.read().split("\n")
@@ -962,6 +1057,10 @@ def run_script_file(path):
             x = int(parts[1]) if len(parts) > 1 else _touch_point[0]
             y = int(parts[2]) if len(parts) > 2 else _touch_point[1]
             set_touch_point(x, y, int(parts[0]))
+        elif command == "flipper-wifi":
+            if value not in ("on", "off"):
+                raise ValueError("flipper-wifi expects on or off")
+            flipper_wifi_attached = value == "on"
         elif command == "battery":
             set_battery_percentage(int(value))
         elif command == "open":
@@ -983,14 +1082,36 @@ def run_script_file(path):
 
 
 def request_open(name):
+    """Queue a Library route, including nested menu paths."""
     global open_target
     open_target = name
-    key = name.lower()
-    if key in LIBRARY_ITEMS:
-        push_key(KEY_NAMES["enter"])
-        for _ in range(LIBRARY_ITEMS[key]):
+    parts = [part.strip() for part in str(name).replace("\\", "/").split("/") if part.strip()]
+    if parts and parts[0].lower() == "library":
+        parts = parts[1:]
+    if len(parts) == 1:
+        key = parts[0].lower().replace("_", " ")
+        if key not in LIBRARY_ITEMS:
+            for parent, items in (("Applications", APPLICATION_ITEMS), ("Utilities", UTILITY_ITEMS)):
+                if key in items:
+                    parts = [parent, parts[0]]
+                    break
+    if not parts:
+        raise LaunchTargetError("empty Library route")
+
+    menu_name = "library"
+    for index, part in enumerate(parts):
+        key = part.lower().replace("_", " ")
+        items = _MENU_ITEMS.get(menu_name)
+        if items is None or key not in items:
+            raise LaunchTargetError("Library route not found: " + str(name))
+        if index == 0:
+            push_key(KEY_NAMES["enter"])
+        for _ in range(items[key]):
             push_key(KEY_NAMES["down"])
         push_key(KEY_NAMES["enter"])
+        menu_name = _MENU_CHILDREN.get((menu_name, key), "")
+        if index + 1 < len(parts) and not menu_name:
+            raise LaunchTargetError("Library route is not a menu: " + part)
 
 
 def request_app(name):
@@ -1006,13 +1127,14 @@ def request_app(name):
     if index < 0:
         raise LaunchTargetError("app not found: " + str(name))
     try:
-        from picoware.applications import applications
+        from picoware.applications.applications import applications, custom
 
-        applications._applications_index = index
+        applications._applications_index = APPLICATION_ITEMS["custom"]
+        custom._applications_index = index
     except Exception:
         pass
     request_open("Applications")
-    schedule_key_names(80, "enter")
+    schedule_key_names(8, "enter,enter")
     return True
 
 
@@ -1024,6 +1146,10 @@ def request_game(name):
     try:
         import picoware_boards
 
+        from picoware_boards import BOARD_HAS_PICOCALC
+
+        if BOARD_HAS_PICOCALC:
+            games.append("GameBoy Emulator")
         if (
             picoware_boards.has_wifi(picoware_boards.BOARD_ID)
             and picoware_boards.BOARD_ID != picoware_boards.BOARD_PICOCALC_PICOW
@@ -1040,13 +1166,15 @@ def request_game(name):
     if index < 0:
         raise LaunchTargetError("game not found: " + str(name))
     try:
-        from picoware.applications import games as games_app
+        from picoware.applications.applications import applications
+        from picoware.applications.applications.games import games as games_app
 
+        applications._applications_index = APPLICATION_ITEMS["games"]
         games_app._games_index = index
     except Exception:
         pass
-    request_open("Games")
-    schedule_key_names(80, "enter")
+    request_open("Applications")
+    schedule_key_names(8, "enter,enter")
     return True
 
 
@@ -1071,24 +1199,31 @@ def print_capabilities():
     audio_player = native_helper_path("audio/sdl_audio_player")
     radio_player = native_helper_path("audio/sdl_radio_player")
     gameboy_runner = root + "/simulator/gameboy/sim_gameboy_runner"
-    ghouls_sidecar = native_helper_path("native/sim_frame_sidecar")
     viewer_bin = native_helper_path("viewer/sdl_fb_viewer")
-    jpeg_status = "real" if _host_command_exists("djpeg") else "partial"
+    jpeg_status = "real" if _exists(root + "/simulator/jpeg/sim_jpeg_decode") or _host_command_exists("djpeg") else "unavailable"
+    try:
+        import picoware_desktop
+
+        native_modules = picoware_desktop.native_modules()
+    except ImportError:
+        native_modules = ()
     rows = (
         ("lcd", "real" if _exists(viewer_bin) else "partial", "RGB565 framebuffer + SDL viewer sidecar"),
         ("keyboard", "real", "SDL/scripted key queue"),
         ("touch", "simulated", "scripted/viewer touch point and gesture state for touch boards"),
         ("sd_mp", "real", "host directory mapped to simulated SD"),
         ("network", "real" if network_mode == "real" else "fixture", "host sockets/TLS or strict offline fixtures"),
+        ("flipper_wifi", "simulated", "FlipperHTTP Wi-Fi commands on Flipper UART1; virtual AP catalog, no physical radio"),
         ("ubluetooth", "simulated", "virtual BLE scan/GATT/UART, no host radio"),
         ("audio", "real" if _exists(audio_player) and _exists(radio_player) else "partial", "SDL/minimp3 local MP3/WAV and HTTP radio sidecars plus silent model"),
-        ("jpegdec", jpeg_status, "host djpeg decode with visible placeholder fallback"),
+        ("jpegdec", jpeg_status, "firmware JPEGDEC/djpeg RGB565 decode; failures are reported"),
         ("bmp", "real", "direct uncompressed BMP decoder"),
         ("battery", "simulated", "scriptable battery percentage"),
         ("psram", "simulated", "global byte heap + LCD RGB565 render"),
-        ("engine", "simulated", "2D lifecycle/collision helpers plus deterministic 3D sprite/wall projection"),
-        ("gameboy", "real" if _exists(gameboy_runner) else "partial", "Walnut-CGB native RGB565 frame/input helper with placeholder fallback"),
-        ("ghouls", "partial" if _exists(ghouls_sidecar) else "simulated", "Python deterministic scene plus optional native sidecar"),
+        ("engine", "real" if "engine" in native_modules else "unavailable", "firmware-native C++ 2D/3D engine"),
+        ("gameboy", "real" if _exists(gameboy_runner) else "unavailable", "Walnut-CGB frames/input/audio and same-build binary save states"),
+        ("ghouls", "real" if "ghouls" in native_modules else "unavailable", "firmware-native game with host storage/network/audio bridges"),
+        ("mjs", "real" if "mjs" in native_modules else "unavailable", "firmware-native JavaScript interpreter"),
         ("uf2loader", "simulated", "records and validates flash request"),
         ("machine", "simulated", "Pin/UART/I2S/PWM/USBDevice state/logging shims, no host USB device"),
     )

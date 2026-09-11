@@ -1,6 +1,7 @@
 """WiFi - WiFi networking interface."""
 
 from utime import ticks_ms, sleep
+from ujson import loads
 from micropython import const
 
 WIFI_STATE_INACTIVE = const(-1)
@@ -32,18 +33,27 @@ class WiFi:
             timeout (int): Connection timeout in seconds. Defaults to 10.
         """
         from network import STA_IF, WLAN
+        from picoware.system.boards import BOARD_FLIPPER_ZERO, BOARD_ID
+
+        self._is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
         self._thread_lock = None
-        try:
-            from _thread import allocate_lock
-            self._thread_lock = allocate_lock()
-        except ImportError:
-            pass
+        if not self._is_flipper:
+            try:
+                from _thread import allocate_lock
+                self._thread_lock = allocate_lock()
+            except ImportError:
+                pass
 
         self.ssid = ""
         self.password = ""
         self.mode = STA_IF
-        self.wlan = WLAN(self.mode)
+        self._wifi_uart = None
+        self.wlan = None 
+        if self._is_flipper:
+            self._wifi_uart = WiFiUART(timeout_ms=timeout * 1000)
+        else:
+            self.wlan = WLAN(self.mode)
         self._state = WIFI_STATE_IDLE
         self.connection_start_time = None
         self.connection_timeout = timeout
@@ -58,6 +68,11 @@ class WiFi:
 
     def __del__(self):
         """Destructor to clean up resources."""
+        if self._is_flipper and self._wifi_uart:
+            self._wifi_uart.reset()
+            del self._wifi_uart
+            self._wifi_uart = None
+            return
         if self.wlan:
             self.wlan.active(False)
             del self.wlan
@@ -68,6 +83,8 @@ class WiFi:
 
     def __close_thread(self):
         """Internal method to close the background thread."""
+        if self._is_flipper:
+            return
         if self._current_task:
             self._current_task.stop()
             self._current_task = None
@@ -79,7 +96,7 @@ class WiFi:
 
     def _should_continue(self) -> bool:
         """Check if the operation should continue running."""
-        if self._thread_lock is None:
+        if self._is_flipper or self._thread_lock is None:
             return False
         
         with self._thread_lock:
@@ -90,7 +107,7 @@ class WiFi:
     @property
     def callback_connect(self) -> callable:
         """Get the connection callback function."""
-        if self._thread_lock is None:
+        if self._is_flipper or self._thread_lock is None:
             return None
         
         with self._thread_lock:
@@ -105,7 +122,7 @@ class WiFi:
         Args:
             func (callable): The callback function to set.
         """
-        if self._thread_lock is None:
+        if self._is_flipper or self._thread_lock is None:
             return
         
         with self._thread_lock:
@@ -114,7 +131,7 @@ class WiFi:
     @property
     def device_ip(self):
         """Get the current device IP address."""
-        if self._thread_lock is None:
+        if self._is_flipper or self._thread_lock is None:
             return ""
         
         with self._thread_lock:
@@ -123,6 +140,11 @@ class WiFi:
     @property
     def last_error(self) -> str:
         """Get the last connection error message."""
+        if self._is_flipper:
+            if not self._wifi_uart:
+                return ""
+            return self._wifi_uart.last_error
+        
         if self._thread_lock is None:
             return ""
         
@@ -132,6 +154,11 @@ class WiFi:
     @property
     def mac_address(self) -> str:
         """Get the MAC address of the Wi-Fi interface."""
+        if self._is_flipper:
+            if not self._wifi_uart:
+                return ""
+            return self._wifi_uart.mac_address
+        
         if self._thread_lock is None:
             return ""
         
@@ -142,6 +169,11 @@ class WiFi:
     @property
     def state(self) -> int:
         """Get the current Wi-Fi state."""
+        if self._is_flipper:
+            if not self._wifi_uart:
+                return WIFI_STATE_INACTIVE
+            return self._wifi_uart.state
+        
         if self._thread_lock is None:
             return WIFI_STATE_INACTIVE
         
@@ -151,6 +183,9 @@ class WiFi:
     @property
     def timeout(self) -> int:
         """Get the connection timeout in seconds."""
+        if self._is_flipper:
+            return self.connection_timeout
+        
         if self._thread_lock is None:
             return 0
         
@@ -164,6 +199,10 @@ class WiFi:
         Args:
             seconds (int): The timeout in seconds.
         """
+        if self._is_flipper:
+            self.connection_timeout = seconds
+            return
+        
         if self._thread_lock is None:
             return
         
@@ -181,6 +220,16 @@ class WiFi:
         Returns:
             bool: True if the connection succeeded, False otherwise.
         """
+        if self._is_flipper:
+            if not self._wifi_uart:
+                return False
+            if self._wifi_uart.connect(ssid, password, sta_mode):
+                self.ssid = ssid
+                self.password = password
+                self._state = WIFI_STATE_CONNECTED
+                return True
+            return False
+        
         from network import STA_IF, AP_IF
 
         _mode = STA_IF if sta_mode else AP_IF
@@ -253,6 +302,15 @@ class WiFi:
         Returns:
             bool: True if the connection was started.
         """
+        if self._is_flipper:
+            if not self._wifi_uart:
+                return False
+            if self._wifi_uart.connect(ssid, password, sta_mode):
+                self.ssid = ssid
+                self.password = password
+                self._state = WIFI_STATE_CONNECTED
+                return True
+            return False
         try:
             if self.wlan.isconnected() and ssid == self.ssid:
                 self._state = WIFI_STATE_CONNECTED
@@ -292,6 +350,10 @@ class WiFi:
 
     def disconnect(self):
         """Disconnect from the Wi-Fi network."""
+        if self._is_flipper:
+            if self._wifi_uart:
+                self._wifi_uart.disconnect()
+            return
         if self._thread_lock is None:
             return
         with self._thread_lock:
@@ -300,6 +362,10 @@ class WiFi:
 
     def is_connected(self):
         """Check if the device is connected to a Wi-Fi network."""
+        if self._is_flipper:
+            if not self._wifi_uart:
+                return False
+            return self._wifi_uart.is_connected()
         if self._thread_lock is None:
             return False
         with self._thread_lock:
@@ -307,11 +373,20 @@ class WiFi:
 
     def scan(self) -> list:
         """Scan for available Wi-Fi networks."""
+        if self._is_flipper:
+            if not self._wifi_uart:
+                return []
+            return self._wifi_uart.scan()
         self.wlan.active(True)
         return self.wlan.scan()
 
     def status(self) -> int:
         """Get the current Wi-Fi connection status."""
+        if self._is_flipper:
+            if not self._wifi_uart:
+                return WIFI_STATE_INACTIVE
+            return self._wifi_uart.status()
+        
         from network import (
             STAT_IDLE,
             STAT_CONNECTING,
@@ -348,6 +423,10 @@ class WiFi:
 
     def reset(self):
         """Reset the Wi-Fi configuration."""
+        if self._is_flipper:
+            if self._wifi_uart:
+                self._wifi_uart.reset()
+            return
         if self._thread_lock is None:
             return
         with self._thread_lock:
@@ -359,3 +438,161 @@ class WiFi:
             self.connection_timeout = 10  # seconds
             self.error = ""
         self.__close_thread()
+
+class WiFiUART:
+    """Class to manage WiFi functionality on a MicroPython device.
+        
+    Attributes:
+        uart: The UART object for communication with the WiFi module.
+        error (str): The last error message encountered during WiFi operations.
+        timeout_ms (int): The timeout for UART receiving
+    """
+    def __init__(self, uart = None, timeout_ms: int = 5000):
+        """Initialize the WiFiUART instance.
+
+        Args:
+            uart: The UART object for communication with the WiFi module.
+        """
+        self.uart = None
+        if uart is None:
+            from picoware.system.uart import UART
+            self.uart = UART(timeout=timeout_ms)
+            if not self.ping():
+                raise Exception("FlipperHTTP baord not connected...")
+        else:
+            self.uart = uart
+        self.error = ""
+        self.timeout_ms = timeout_ms
+
+    @property
+    def device_ip(self):
+        """Get the current device IP address."""
+        if not self.uart:
+            return ""
+        return self.__send_and_wait("[IP/ADDRESS]")
+
+    @property
+    def last_error(self):
+        """Get the last error message encountered during WiFi operations."""
+        return self.error
+
+    @property
+    def mac_address(self):
+        """Get the current device MAC address."""
+        return ""
+
+    @property
+    def state(self):
+        """Get the current WiFi state."""
+        _status = self.__send_and_wait("[WIFI/STATUS]")
+        if "true" in _status:
+            return WIFI_STATE_CONNECTED
+        return WIFI_STATE_IDLE
+
+    def __send_and_wait(self, command: str) -> str:
+        """Send a command to the UART and wait for a response.
+
+        Args:
+            command (str): The command to send.
+
+        Returns:
+            str: The response from the UART.
+        """
+        if not self.uart:
+            return ""
+        self.uart.println(command)
+        while self.uart.is_sending:
+            pass
+        data = self.uart.read_line()
+        if not data:
+            return "[ERROR] No data returned"
+        if "[ERROR]" in data:
+            self.error = data
+        return data
+
+    def connect(self, ssid: str, password: str = "", sta_mode: bool = True) -> bool:
+        """Connect to a Wi-Fi network.
+
+        Args:
+            ssid (str): SSID of the Wi-Fi network.
+            password (str): Password for the Wi-Fi network. Defaults to "".
+            sta_mode (bool): True for station mode (STA_IF), False for access point mode (AP_IF). Defaults to True.
+
+        Returns:
+            bool: True if the connection succeeded, False otherwise.
+        """
+        if not self.uart:
+            return False
+        if sta_mode:
+            response = self.__send_and_wait("[WIFI/SAVE]{\"ssid\":\"%s\",\"password\":\"%s\"}" % (ssid, password))
+            return "[ERROR]" not in response
+        response = self.__send_and_wait("[WIFI/AP]{\"ssid\":\"%s\"}" % ssid)
+        return "[AP/CONNECTED]" in response
+    
+    def connect_async(self, ssid: str, password: str = "", sta_mode: bool = True) -> bool:
+        """Initiate an asynchronous connection to a Wi-Fi network.
+
+        Args:
+            ssid (str): SSID of the Wi-Fi network.
+            password (str): Password for the Wi-Fi network. Defaults to "".
+            sta_mode (bool): True for station mode (STA_IF), False for access point mode (AP_IF). Defaults to True.
+
+        Returns:
+            bool: True if the command to initiate the connection was sent successfully, False otherwise.
+        """
+        # for now, this is mainly for Flipper, so leave as synch
+        return self.connect(ssid, password, sta_mode)
+
+    def disconnect(self) -> None:
+        """Disconnect from the current Wi-Fi network.
+
+        Returns:
+            None
+        """
+        if not self.uart:
+            return
+        self.uart.println("[WIFI/DISCONNECT]")
+
+    def is_connected(self) -> bool:
+        """Check if the device is currently connected to a Wi-Fi network.
+
+        Returns:
+            bool: True if connected, False otherwise.
+        """
+        return self.state == WIFI_STATE_CONNECTED
+    
+    def ping(self) -> bool:
+        """Check for pong response"""
+        return "PONG" in self.__send_and_wait("[PING]")
+
+    def scan(self) -> list:
+        """Scan for available Wi-Fi networks."""
+        if not "[GET/SUCCESS]" in self.__send_and_wait("[WIFI/SCAN]"):
+            return []
+        response = self.uart.read_line()
+        if response:
+            end = response.find("]}") + 2
+            _res = response[:end]
+            try:
+                d = loads(_res)
+                return d["networks"]
+            except Exception as e:
+                print(f"Failed to load response: {e}")
+        return []
+
+    def status(self) -> int:
+        """Get the current Wi-Fi status.
+
+        Returns:
+            int: The current Wi-Fi status as one of the WIFI_STATE_* constants.
+        """
+        return self.state
+
+    def reset(self) -> None:
+        """Reset the Wi-Fi module.
+
+        Returns:
+            None
+        """
+        self.error = ""
+    

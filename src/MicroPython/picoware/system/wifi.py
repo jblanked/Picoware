@@ -32,7 +32,6 @@ class WiFi:
             thread_manager (ThreadManager): Optional ThreadManager instance for managed threading. Defaults to None.
             timeout (int): Connection timeout in seconds. Defaults to 10.
         """
-        from network import STA_IF, WLAN
         from picoware.system.boards import BOARD_FLIPPER_ZERO, BOARD_ID
 
         self._is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
@@ -47,13 +46,18 @@ class WiFi:
 
         self.ssid = ""
         self.password = ""
-        self.mode = STA_IF
         self._wifi_uart = None
         self.wlan = None 
+        self.mode = 0
         if self._is_flipper:
-            self._wifi_uart = WiFiUART(timeout_ms=timeout * 1000)
+            try:
+                self._wifi_uart = WiFiUART(timeout_ms=timeout * 1000)
+            except Exception:
+                self._wifi_uart = None
         else:
+            from network import STA_IF, WLAN
             self.wlan = WLAN(self.mode)
+            self.mode = STA_IF
         self._state = WIFI_STATE_IDLE
         self.connection_start_time = None
         self.connection_timeout = timeout

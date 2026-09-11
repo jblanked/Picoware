@@ -42,6 +42,7 @@ class ViewManager:
         "_audio",
         "_app_loader",
         "_usb_video_stream",
+        "_uart",
     )
 
     def __init__(self):
@@ -75,11 +76,20 @@ class ViewManager:
         # Initialize ThreadManager
         self._thread_manager = ThreadManager()
 
+        # UART
+        self._uart = None
+        if syst.board_id == BOARD_FLIPPER_ZERO:
+            try:
+                from picoware.system.uart import UART
+                self._uart = UART()
+            except ImportError:
+                self._uart = None
+
         # Initialize WiFi if available
         self._wifi = None
         if syst is not None and syst.has_wifi:
             from picoware.system.wifi import WiFi
-            self._wifi = WiFi(thread_manager=self._thread_manager)
+            self._wifi = WiFi(self)
 
         # Initialize storage
         self._storage = Storage()
@@ -398,6 +408,11 @@ class ViewManager:
     def thread_manager(self):
         """Return the ThreadManager instance."""
         return self._thread_manager
+
+    @property
+    def uart(self):
+        """Return the UART instance."""
+        return self._uart
     
     @property
     def usb_video_stream(self):

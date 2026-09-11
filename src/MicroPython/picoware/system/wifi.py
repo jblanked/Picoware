@@ -25,11 +25,11 @@ class WiFi:
         error (str): The last error message encountered during WiFi operations.
     """
 
-    def __init__(self, thread_manager=None, timeout: int = 10) -> None:
+    def __init__(self, view_manager, timeout: int = 10) -> None:
         """Initialize the WiFi class.
 
         Args:
-            thread_manager (ThreadManager): Optional ThreadManager instance for managed threading. Defaults to None.
+            view_manager (ViewManager): The ViewManager instance for thread manager and UART instance.
             timeout (int): Connection timeout in seconds. Defaults to 10.
         """
         from picoware.system.boards import BOARD_FLIPPER_ZERO, BOARD_ID
@@ -51,7 +51,7 @@ class WiFi:
         self.mode = 0
         if self._is_flipper:
             try:
-                self._wifi_uart = WiFiUART(timeout_ms=timeout * 1000)
+                self._wifi_uart = WiFiUART(view_manager.uart, timeout * 1000)
             except Exception:
                 self._wifi_uart = None
         else:
@@ -65,7 +65,7 @@ class WiFi:
         #
         self._thread = None
         self._thread_running = False 
-        self._thread_manager = thread_manager
+        self._thread_manager = view_manager.thread_manager
         self._current_task = None
         #
         self._callback_connect: callable = None

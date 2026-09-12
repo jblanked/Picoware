@@ -34,7 +34,7 @@ def __download_repo_info(view_manager) -> bool:
     from picoware.system.http import HTTP
 
     if not _http:
-        _http = HTTP(thread_manager=view_manager.thread_manager)
+        _http = HTTP(view_manager=view_manager)
 
     url = f"https://api.github.com/repos/{_github_author}/{_github_repo}/git/trees/HEAD?recursive=1"
 

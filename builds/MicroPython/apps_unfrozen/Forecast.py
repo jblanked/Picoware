@@ -191,7 +191,7 @@ def _start_request(view_manager, url, label, next_state):
 
     if _http is None:
         from picoware.system.http import HTTP
-        _http = HTTP(thread_manager=view_manager.thread_manager)
+        _http = HTTP(view_manager=view_manager)
     if _loading is None:
         from picoware.gui.loading import Loading
         _loading = Loading(view_manager.draw, view_manager.foreground_color, view_manager.background_color)

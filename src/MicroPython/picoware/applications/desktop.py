@@ -284,7 +284,7 @@ def run(view_manager) -> None:
                 if _desktop_http is None:
                     from picoware.system.http import HTTP
 
-                    _desktop_http = HTTP(thread_manager=view_manager.thread_manager)
+                    _desktop_http = HTTP(view_manager=view_manager)
                     if not _desktop_http:
                         view_manager.log(
                             "Failed to create HTTP context for update check", 2

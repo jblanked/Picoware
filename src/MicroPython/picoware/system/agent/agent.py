@@ -52,7 +52,7 @@ class Agent:
         self.mode = mode
         self.tools = []
         self.llm = llm if llm is not None else LLM(view_manager.storage, DEEPSEEK)
-        self.http = HTTP(thread_manager=view_manager.thread_manager)
+        self.http = HTTP(view_manager=view_manager)
         self._file_path = file_path
         self._conv_path = "picoware/settings/agent_conv.json"
         self._mem_path = "picoware/settings/agent_mem.json"

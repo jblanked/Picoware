@@ -255,7 +255,7 @@ def __check_updates_async(view_manager) -> bool:
         return False
 
     if not _http:
-        _http = HTTP(thread_manager=view_manager.thread_manager)
+        _http = HTTP(view_manager=view_manager)
 
     # Build POST data for bulk update check
     apps_list = [
@@ -361,7 +361,7 @@ def __check_single_app_update(view_manager, app_id: int, current_version: str) -
     global _http
 
     if not _http:
-        _http = HTTP(thread_manager=view_manager.thread_manager)
+        _http = HTTP(view_manager=view_manager)
 
     storage = view_manager.storage
     url = f"https://www.jblanked.com/picoware/api/app/{app_id}/check_update/{current_version}/"
@@ -497,7 +497,7 @@ def __fetch_app_list(view_manager, extension: str = None) -> bool:
     _app_extension_filter = extension
 
     if not _http:
-        _http = HTTP(thread_manager=view_manager.thread_manager)
+        _http = HTTP(view_manager=view_manager)
 
     storage = view_manager.storage
     storage.mkdir("picoware/cache")
@@ -628,7 +628,7 @@ def __fetch_app_details(view_manager, app_id: int) -> bool:
     global _http
 
     if not _http:
-        _http = HTTP(thread_manager=view_manager.thread_manager)
+        _http = HTTP(view_manager=view_manager)
 
     storage = view_manager.storage
     url = f"https://www.jblanked.com/picoware/api/app/{app_id}/"
@@ -983,7 +983,7 @@ def __submit_app(view_manager) -> bool:
     global _http
 
     if not _http:
-        _http = HTTP(thread_manager=view_manager.thread_manager)
+        _http = HTTP(view_manager=view_manager)
 
     payload = dumps(
         {
@@ -1024,7 +1024,7 @@ def __fetch_submissions(view_manager) -> bool:
     global _http
 
     if not _http:
-        _http = HTTP(thread_manager=view_manager.thread_manager)
+        _http = HTTP(view_manager=view_manager)
 
     storage = view_manager.storage
     storage.mkdir("picoware/cache")
@@ -1108,7 +1108,7 @@ def __fetch_submission_details(view_manager, submission_id: int) -> bool:
     global _http
 
     if not _http:
-        _http = HTTP(thread_manager=view_manager.thread_manager)
+        _http = HTTP(view_manager=view_manager)
 
     storage = view_manager.storage
     storage.mkdir("picoware/cache")

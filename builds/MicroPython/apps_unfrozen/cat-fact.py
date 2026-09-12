@@ -27,7 +27,7 @@ def start(view_manager) -> bool:
 
     draw.swap()
 
-    _http = HTTP()
+    _http = HTTP(view_manager=view_manager)
 
     # sync request for this example, although not preferred
     response = _http.get("https://catfact.ninja/fact")

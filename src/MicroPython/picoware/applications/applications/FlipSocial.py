@@ -1514,7 +1514,7 @@ class FlipSocialRun:
             del self.http
             self.http = None
 
-        self.http = HTTP(thread_manager=self.view_manager.thread_manager)
+        self.http = HTTP(view_manager=self.view_manager)
 
         if not self.username or not self.password:
             if request_type == REQUEST_TYPE_LOGIN:

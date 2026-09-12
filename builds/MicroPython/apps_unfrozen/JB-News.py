@@ -39,8 +39,9 @@ def __fetch_news(view_manager) -> bool:
     if _http is not None:
         _http.close()
         del _http
+        _http = None
 
-    _http = HTTP(thread_manager=view_manager.thread_manager)
+    _http = HTTP(view_manager=view_manager)
 
     _api_key = __load_setting("api_key", view_manager)
     _source = __load_setting("news_source", view_manager)

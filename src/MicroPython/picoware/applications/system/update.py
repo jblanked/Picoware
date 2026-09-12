@@ -394,7 +394,7 @@ def start(view_manager) -> bool:
     system = System()
     _current_version = system.version
     _board_id = system.board_id
-    _http = HTTP(thread_manager=view_manager.thread_manager)
+    _http = HTTP(view_manager=view_manager)
 
     if not __check_for_update_start(_http, view_manager):
         view_manager.alert("Failed to check for updates", False)

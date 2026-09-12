@@ -117,7 +117,7 @@ def network_send_request(view_manager, url, path: str, method: str = "GET", head
     if "http://" not in url and "https://" not in url:
         return "Error: URL must contain the protocol (http:// or https://)"
     from picoware.system.http import HTTP
-    http = HTTP(thread_manager=view_manager.thread_manager)
+    http = HTTP(view_manager=view_manager)
     try:
         http.request(method, url, headers=headers, data=data, storage=view_manager.storage, save_to_file=path)
         return "OK"

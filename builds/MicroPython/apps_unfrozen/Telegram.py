@@ -333,7 +333,7 @@ def __telegram_fetch(view_manager) -> bool:
         del _http
         _http = None
 
-    _http = HTTP(thread_manager=view_manager.thread_manager)
+    _http = HTTP(view_manager=view_manager)
 
     storage = view_manager.storage
     token = storage.read("picoware/telegram/token.txt")
@@ -359,7 +359,7 @@ def __telegram_send(view_manager, text: str) -> bool:
         del _http
         _http = None
 
-    _http = HTTP(thread_manager=view_manager.thread_manager)
+    _http = HTTP(view_manager=view_manager)
 
     storage = view_manager.storage
     token = storage.read("picoware/telegram/token.txt")

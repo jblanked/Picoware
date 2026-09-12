@@ -191,8 +191,8 @@ class LLM:
             self._api_key = settings.local_api_key 
         elif self._id == XAI:
             self._name = "xAI"
-            self._url = "https://api.x.ai/v1"
-            self._models = ["grok-4.5", "grok-4.3", "grok-build-0.1", "grok-4.20", "grok-4.20-non-reasoning"]
+            self._url = "https://api.x.ai/v1/chat/completions"
+            self._models = ["grok-4.6", "grok-4.5", "grok-build-0.1", "grok-4.20", "grok-4.20-non-reasoning"]
             self._api_key = settings.xai_api_key
         elif self._id == JBLANKED:
             self._name = "JBlanked"

@@ -19,6 +19,13 @@ def _headers_from_text(headers):
         return None
     if isinstance(headers, dict):
         return headers
+    if str(headers).lstrip().startswith("{"):
+        import json
+
+        parsed = json.loads(headers)
+        if not isinstance(parsed, dict):
+            raise ValueError("HTTP headers must be an object")
+        return {str(key): str(value) for key, value in parsed.items()}
     out = {}
     for line in str(headers).splitlines():
         if ":" in line:

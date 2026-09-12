@@ -363,6 +363,10 @@ def _build_response(address, request):
             b"Connection: Upgrade\r\n"
             b"Sec-WebSocket-Accept: picoware-sim-fixture\r\n\r\n"
         )
+    if host == "www.jblanked.com" and path == "/flipper/api/user/login/":
+        return _json_response('{"message":"[SUCCESS] Offline simulator login fixture"}')
+    if host == "www.jblanked.com" and path.startswith("/flipper/api/user/game-stats/"):
+        return _json_response('{"game_stats":{"username":"simulator","level":1,"xp":0,"health":100,"strength":10,"max_health":100,"health_regen":1}}')
     if "wikipedia.org" in host:
         return _wikipedia_response(path)
     if "telegram" in host:

@@ -1,15 +1,6 @@
 #pragma once
 #include "../../../engine/pico-game-engine/engine_config.hpp"
 
-#if defined(DESKTOP)
-extern "C"
-{
-#include "py/mphal.h"
-}
-#define TIME_INCLUDE "py/mphal.h"
-#define TIME_MILLIS mp_hal_ticks_ms()
-#endif
-
 // general
 // #define ENGINE_MAX_TRIANGLES_PER_SPRITE 64
 

@@ -172,7 +172,7 @@ class LLM:
         elif self._id == DEEPSEEK:
             self._name = "DeepSeek"
             self._url = "https://api.deepseek.com/chat/completions"
-            self._models = ["deepseek-v4-flash", "deepseek-v4-pro"]
+            self._models = ["deepseek-flash", "deepseek-v4-pro"]
             self._api_key = settings.deepseek_api_key
         elif self._id == ANTHROPIC:
             self._name = "Anthropic"

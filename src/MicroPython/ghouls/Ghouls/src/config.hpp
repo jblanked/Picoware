@@ -24,20 +24,6 @@
 
 #define ENEMY_SPAWN_MAX 25
 
-// time
-#if defined(ENGINE_TIME_INCLUDE)
-#define TIME_INCLUDE ENGINE_TIME_INCLUDE
-#define TIME_MILLIS ENGINE_TIME_MILLIS
-#elif defined(CARDPUTER) || defined(ESP32) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
-#include "esp_timer.h"
-#define TIME_INCLUDE "esp_timer.h"
-#define TIME_MILLIS esp_timer_get_time() / 1000
-#else
-#include "pico/time.h"
-#define TIME_INCLUDE "pico/time.h"
-#define TIME_MILLIS to_ms_since_boot(get_absolute_time())
-#endif
-
 // buttons
 #define INPUT_KEY_UP 0
 #define INPUT_KEY_DOWN 1

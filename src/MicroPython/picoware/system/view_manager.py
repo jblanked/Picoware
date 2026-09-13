@@ -76,12 +76,6 @@ class ViewManager:
         # Initialize ThreadManager
         self._thread_manager = ThreadManager()
 
-        # Initialize WiFi if available
-        self._wifi = None
-        if syst is not None and syst.has_wifi:
-            from picoware.system.wifi import WiFi
-            self._wifi = WiFi(self)
-
         # Initialize storage
         self._storage = Storage()
         self._storage.mkdir("picoware")
@@ -177,6 +171,12 @@ class ViewManager:
                 self._uart = UART()
             except ImportError:
                 self._uart = None
+
+        # Initialize WiFi if available
+        self._wifi = None
+        if syst is not None and syst.has_wifi:
+            from picoware.system.wifi import WiFi
+            self._wifi = WiFi(self)
 
         # Clear screen
         self.clear()

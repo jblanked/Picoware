@@ -902,7 +902,7 @@ mp_obj_t sd_mp_read(size_t n_args, const mp_obj_t *args)
     }
     uint32_t index = 0;
     uint32_t count = 0;
-    if (n_args == 2)
+    if (n_args >= 2)
     {
         index = mp_obj_get_int(args[1]);
     }

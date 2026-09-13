@@ -845,6 +845,81 @@ mp_obj_t lcd_mp_image_bytearray(size_t n_args, const mp_obj_t *args)
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_image_bytearray_obj, 6, 7, lcd_mp_image_bytearray);
 
+mp_obj_t lcd_mp_image_bytearray_transparent(size_t n_args, const mp_obj_t *args)
+{
+    // RGB332 source pixels; transparent runs leave the driver's framebuffer intact.
+    // No second framebuffer or destination readback is required.
+    (void)n_args;
+    lcd_mp_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    if (!self->initialized)
+        mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
+
+    mp_int_t x = mp_obj_get_int(args[1]), y = mp_obj_get_int(args[2]);
+    mp_int_t width = mp_obj_get_int(args[3]), height = mp_obj_get_int(args[4]);
+    mp_int_t key = mp_obj_get_int(args[6]);
+    if (width <= 0 || height <= 0 || width > 65535 || height > 65535 || key < 0 || key > 255)
+        mp_raise_ValueError(MP_ERROR_TEXT("invalid RGB332 bitmap dimensions or key"));
+    mp_buffer_info_t source;
+    mp_get_buffer_raise(args[5], &source, MP_BUFFER_READ);
+    if (source.len != (size_t)width * (size_t)height)
+        mp_raise_ValueError(MP_ERROR_TEXT("RGB332 bitmap requires one byte per pixel"));
+    if (x < -65535 || y < -65535 || x > 65535 || y > 65535)
+        return mp_const_none;
+
+    float scaled_w = self->scale_set ? width * self->scale_x : width;
+    float scaled_h = self->scale_set ? height * self->scale_y : height;
+    if (!(scaled_w >= 0 && scaled_w <= 65535 && scaled_h >= 0 && scaled_h <= 65535))
+        mp_raise_ValueError(MP_ERROR_TEXT("scaled bitmap dimensions out of range"));
+    int dw = (int)scaled_w, dh = (int)scaled_h;
+    if (!dw || !dh)
+        return mp_const_none;
+    float scaled_x = self->scale_position ? x * self->scale_x : x;
+    float scaled_y = self->scale_position ? y * self->scale_y : y;
+    if (!(scaled_x >= -65535 && scaled_x <= 65535 && scaled_y >= -65535 && scaled_y <= 65535))
+        return mp_const_none;
+    int dx = (int)scaled_x, dy = (int)scaled_y;
+    int left = dx < 0 ? -dx : 0, top = dy < 0 ? -dy : 0;
+    int right = dw < self->width - dx ? dw : self->width - dx;
+    int bottom = dh < self->height - dy ? dh : self->height - dy;
+    if (left >= right || top >= bottom)
+        return mp_const_none;
+
+    bool scaled = dw != width || dh != height;
+    size_t row_size = (size_t)(right - left);
+    // Scaling needs at most one visible scanline, independent of sprite height.
+    uint8_t *row_buffer = scaled ? m_new(uint8_t, row_size) : NULL;
+    const uint8_t *pixels = source.buf;
+    for (int row = top; row < bottom; row++)
+    {
+        const uint8_t *src_row = pixels + ((size_t)row * height / dh) * width;
+        const uint8_t *visible = scaled ? NULL : src_row + left;
+        if (scaled)
+        {
+            for (int col = left; col < right; col++)
+                row_buffer[col - left] = src_row[(size_t)col * width / dw];
+            visible = row_buffer;
+        }
+        size_t col = 0;
+        while (col < row_size)
+        {
+            if (visible[col] == key)
+            {
+                col++;
+                continue;
+            }
+            size_t end = col + 1;
+            while (end < row_size && visible[end] != key)
+                end++;
+            LCD_MP_BLIT(dx + left + col, dy + row, end - col, 1, visible + col);
+            col = end;
+        }
+    }
+    if (row_buffer)
+        m_del(uint8_t, row_buffer, row_size);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_image_bytearray_transparent_obj, 7, 7, lcd_mp_image_bytearray_transparent);
+
 mp_obj_t lcd_mp_line(size_t n_args, const mp_obj_t *args)
 {
     // Arguments: self, x1, y1, x2, y2, color
@@ -1396,6 +1471,7 @@ static const mp_rom_map_elem_t lcd_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR__fill_triangle), MP_ROM_PTR(&lcd_mp_fill_triangle_obj)},               // self._fill_triangle()
     {MP_ROM_QSTR(MP_QSTR__fill_triangle_alpha), MP_ROM_PTR(&lcd_mp_fill_triangle_alpha_obj)},   // self._fill_triangle_alpha()
     {MP_ROM_QSTR(MP_QSTR__bytearray), MP_ROM_PTR(&lcd_mp_image_bytearray_obj)},                 // self._bytearray()
+    {MP_ROM_QSTR(MP_QSTR__bytearray_transparent), MP_ROM_PTR(&lcd_mp_image_bytearray_transparent_obj)},
     {MP_ROM_QSTR(MP_QSTR__line), MP_ROM_PTR(&lcd_mp_line_obj)},                                 // self._line()
     {MP_ROM_QSTR(MP_QSTR__pixel), MP_ROM_PTR(&lcd_mp_pixel_obj)},                               // self._pixel()
     {MP_ROM_QSTR(MP_QSTR__psram), MP_ROM_PTR(&lcd_mp_psram_obj)},                               // self._psram()

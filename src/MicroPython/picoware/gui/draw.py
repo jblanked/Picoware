@@ -27,6 +27,7 @@ class Draw(lcd.LCD):
         image_bytearray(position, size, byte_data, invert=False): Draw an image from 8-bit byte data (bytes or bytearray)
         image_bytearray_1bit(position, size, byte_data): Draw a 1-bit bitmap from packed byte_data (8 pixels per byte, row-aligned)
         image_bytearray_path(position, size, path, storage=None, seek=0, chunk_size=0, mount_vfs=True): Draw an image from an 8-bit bytearray file stored on disk
+        image_bytearray_transparent(position, size, byte_data, transparent=0): Draw a keyed RGB332 bitmap without overwriting transparent pixels
         len(text, font_size=0): Calculate the pixel width of a text string for a given font size
         line(position, size, color=None): Draw a horizontal line
         line_custom(point_1, point_2, color=None): Draw a line between two points
@@ -459,6 +460,16 @@ class Draw(lcd.LCD):
 
         except Exception as e:
             print(f"Error loading bytearray image: {e}")
+
+    def image_bytearray_transparent(self, position: Vector, size: Vector, byte_data, transparent: int = 0):
+        """Draw an RGB332 bitmap using the native driver's transparent blit.
+
+        Data must contain exactly one byte per pixel. Pixels equal to the
+        transparent key (0-255) leave the existing display buffer unchanged.
+        Signed positions are clipped; normal LCD scaling is supported. Source
+        data is never modified. Scaling uses at most one visible scanline of RAM.
+        """
+        self._bytearray_transparent(int(position.x), int(position.y), int(size.x), int(size.y), byte_data, transparent)
 
     def len(self, text: str, font_size: int = -1) -> int:
         """Calculate the pixel width of a text string for a given font size.

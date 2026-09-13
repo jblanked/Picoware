@@ -27,12 +27,12 @@ class Session:
                 self._id = session_id
                 self._time_created = view_manager.time.datetime
                 if not self._save():
-                    raise Exception("Failed to load and create session with ID %s" % session_id)
+                    raise Exception(f"Failed to load and create session with ID {session_id}. Try again or delete the picoware/agents/session folder.")
         else:
             self._id = f"session_{id(self)}"
             self._time_created = view_manager.time.datetime
             if not self._save():
-                raise Exception("Failed to create session with ID %s" % self._id)
+                raise Exception(f"Failed to create session with ID {self._id}. Try again or delete the picoware/agents/session folder.")
             
     @property
     def id(self) -> str:

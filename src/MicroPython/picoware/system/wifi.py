@@ -465,11 +465,11 @@ class WiFiUART:
         if uart is None:
             from picoware.system.uart import UART
             self.uart = UART(timeout=timeout_ms)
-            if not self.ping():
-                print("FlipperHTTP board not connected...")
-                self.uart = None
         else:
             self.uart = uart
+        if self.uart and not self.ping():
+            print("FlipperHTTP board not connected...")
+            self.uart = None
         self.error = ""
         self.timeout_ms = timeout_ms
 

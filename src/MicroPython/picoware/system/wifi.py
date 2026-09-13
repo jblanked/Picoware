@@ -466,7 +466,8 @@ class WiFiUART:
             from picoware.system.uart import UART
             self.uart = UART(timeout=timeout_ms)
             if not self.ping():
-                raise Exception("FlipperHTTP board not connected...")
+                print("FlipperHTTP board not connected...")
+                self.uart = None
         else:
             self.uart = uart
         self.error = ""
@@ -548,6 +549,8 @@ class WiFiUART:
         Returns:
             bool: True if the command to initiate the connection was sent successfully, False otherwise.
         """
+        if not self.uart:
+            return False
         # for now, this is mainly for Flipper, so leave as synch
         return self.connect(ssid, password, sta_mode)
 

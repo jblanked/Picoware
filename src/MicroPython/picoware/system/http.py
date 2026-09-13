@@ -1466,7 +1466,8 @@ class HTTPUART:
             from picoware.system.uart import UART
             self.uart = UART(timeout=timeout_ms)
             if not self.ping():
-                raise Exception("FlipperHTTP board not connected...")
+                print("FlipperHTTP board not connected...")
+                self.uart = None
         else:
             self.uart = uart
         self.chunk_size = chunk_size
@@ -1549,6 +1550,8 @@ class HTTPUART:
         Returns:
             Response: The HTTP response.
         """
+        if not self.uart:
+            return None
         _response_str = None
         if method == "GET":
             if headers is None:
@@ -1682,6 +1685,8 @@ class HTTPUART:
         Returns:
             bool: True if the request was started.
         """
+        if not self.uart:
+            return False
         is_instance = isinstance(payload, (str, bytes))
         self._response = self.request(
             method,

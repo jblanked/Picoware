@@ -1,8 +1,11 @@
 """Infrared - Send and learn infrared remote signals."""
 from micropython import const
-from picoware.system.decorator import storage_required, infrared_tx_required, infrared_rx_required
+from picoware.system.decorator import storage_required, infrared_rx_required
+from json import loads, dumps
 from gc import collect
 from time import ticks_ms, ticks_diff
+
+from simulator.hardware.machine import Pin
 
 
 STATE_MAIN_MENU = const(0)
@@ -15,6 +18,9 @@ STATE_LISTENING = const(6)
 STATE_SAVED = const(7)
 STATE_NO_SIGNAL = const(8)
 STATE_RECEIVE_ERROR = const(9)
+STATE_SETTINGS_MENU = const(10)
+STATE_TOGGLE = const(11)
+STATE_PIN_CHOICE = const(12)
 RECEIVE_TIMEOUT_MS = const(10000)
 
 FIELD_BUTTON = const(0)
@@ -41,12 +47,20 @@ _BUTTON_OPTIONS = (
     "Custom",
 )
 
+_PIN_OPTIONS = (1, 2, 5, 8, 28)
+_SETTINGS_PATH = "picoware/settings/ir.json"
+
 _state = STATE_MAIN_MENU
 _menu = None
 _remote_menu = None
 _key_menu = None
 _learn_menu = None
 _button_menu = None
+_settings_menu = None
+_toggle = None
+_pin_choice = None
+_use_external = False
+_tx_pin = None
 _infrared = None
 _remote = None
 _remote_paths = []
@@ -384,6 +398,7 @@ def _show_main_menu(view_manager):
         _menu = _create_menu(view_manager, "Infrared")
         _menu.add_item("Remote")
         _menu.add_item("Learn")
+        _menu.add_item("Settings")
         _menu.set_selected(0)
 
     _remote = None
@@ -507,6 +522,210 @@ def _show_button_menu(view_manager):
     _state = STATE_BUTTON_MENU
     view_manager.draw.erase()
     _button_menu.draw()
+
+
+def _show_settings_menu(view_manager):
+    """Show the transmitter settings menu.
+
+    Args:
+        view_manager (ViewManager): The view manager for drawing and input.
+    """
+    global _settings_menu, _toggle, _pin_choice, _state
+
+    if _toggle is not None:
+        del _toggle
+        _toggle = None
+    if _pin_choice is not None:
+        del _pin_choice
+        _pin_choice = None
+    if _settings_menu is None:
+        _settings_menu = _create_menu(view_manager, "Settings")
+        _settings_menu.add_item("Use External?")
+        _settings_menu.add_item("Pin")
+        _settings_menu.set_selected(0)
+
+    _state = STATE_SETTINGS_MENU
+    view_manager.draw.erase()
+    _settings_menu.draw()
+
+
+def _load_settings(view_manager):
+    """Load the saved transmitter settings.
+
+    Args:
+        view_manager (ViewManager): The view manager providing storage.
+    """
+    global _use_external, _tx_pin
+
+    storage = view_manager.storage
+    try:
+        if not storage.exists(_SETTINGS_PATH):
+            return
+        data = storage.read(_SETTINGS_PATH)
+        if not data:
+            return
+        settings = loads(data)
+        _use_external = bool(settings.get("use_external", False))
+        pin = settings.get("pin")
+        _tx_pin = pin if pin in _PIN_OPTIONS else None
+    except Exception:
+        pass
+
+
+def _save_settings(view_manager):
+    """Persist the transmitter settings.
+
+    Args:
+        view_manager (ViewManager): The view manager providing storage.
+    """
+    storage = view_manager.storage
+    storage.mkdir("picoware/settings")
+    data = dumps({"use_external": _use_external, "pin": _tx_pin})
+    storage.write(_SETTINGS_PATH, data)
+
+
+def _rebuild_infrared(view_manager):
+    """Rebuild the Infrared facade for the current pin settings.
+
+    Args:
+        view_manager (ViewManager): The view manager providing storage.
+    """
+    global _infrared
+
+    from picoware.system.infrared import Infrared
+    from picoware.system.boards import BOARD_FLIPPER_ZERO
+
+    tx_pin = None
+    if _use_external and _tx_pin is not None:
+        try:
+            from machine import Pin
+            if view_manager.board_id == BOARD_FLIPPER_ZERO:
+                tx_pin = Pin.cpu.A7
+            else:
+                tx_pin = Pin(_tx_pin, Pin.OUT)
+        except Exception:
+            pass
+    _infrared = Infrared(view_manager.storage, "infrared", tx_pin=tx_pin)
+
+
+def _open_external_toggle(view_manager):
+    """Open the toggle that enables external transmission.
+
+    Args:
+        view_manager (ViewManager): The view manager for drawing and colors.
+    """
+    global _toggle, _state
+
+    from picoware.gui.toggle import Toggle
+    from picoware.system.vector import Vector
+
+    draw = view_manager.draw
+    draw.erase()
+    if _toggle is not None:
+        del _toggle
+        _toggle = None
+
+    _toggle = Toggle(
+        draw,
+        Vector(10, 10),
+        Vector(draw.size.x - 20, int(draw.size.y // 10.67)),
+        "Use External?",
+        _use_external,
+        view_manager.foreground_color,
+        view_manager.background_color,
+        view_manager.selected_color,
+        view_manager.foreground_color,
+        2,
+    )
+    _toggle.draw()
+    _state = STATE_TOGGLE
+
+
+def _run_external_toggle(view_manager):
+    """Handle one frame of external toggle input.
+
+    Args:
+        view_manager (ViewManager): The view manager providing buttons.
+    """
+    global _use_external
+
+    from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
+
+    button = view_manager.button
+    if button == BUTTON_BACK:
+        _show_settings_menu(view_manager)
+    elif button == BUTTON_CENTER:
+        _use_external = not _toggle.state
+        _toggle.state = _use_external
+        _save_settings(view_manager)
+        _rebuild_infrared(view_manager)
+
+
+def _open_pin_choice(view_manager):
+    """Open the transmitter pin choice list.
+
+    Args:
+        view_manager (ViewManager): The view manager for drawing and colors.
+    """
+    global _pin_choice, _state
+
+    from picoware.gui.choice import Choice
+    from picoware.system.vector import Vector
+
+    draw = view_manager.draw
+    draw.erase()
+    if _pin_choice is not None:
+        del _pin_choice
+        _pin_choice = None
+
+    options = [str(pin) for pin in _PIN_OPTIONS]
+    try:
+        selected = options.index(str(_tx_pin))
+    except ValueError:
+        selected = 0
+    _pin_choice = Choice(
+        draw,
+        Vector(0, 0),
+        draw.size,
+        "Pin",
+        options,
+        selected,
+        view_manager.foreground_color,
+        view_manager.background_color,
+    )
+    _pin_choice.draw()
+    _state = STATE_PIN_CHOICE
+
+
+def _run_pin_choice(view_manager):
+    """Handle one frame of pin choice input.
+
+    Args:
+        view_manager (ViewManager): The view manager providing buttons.
+    """
+    global _tx_pin
+
+    from picoware.system.buttons import (
+        BUTTON_BACK,
+        BUTTON_UP,
+        BUTTON_DOWN,
+        BUTTON_LEFT,
+        BUTTON_RIGHT,
+        BUTTON_CENTER,
+    )
+
+    button = view_manager.button
+    if button == BUTTON_BACK:
+        _show_settings_menu(view_manager)
+    elif button in (BUTTON_UP, BUTTON_LEFT):
+        _pin_choice.scroll_up()
+    elif button in (BUTTON_DOWN, BUTTON_RIGHT):
+        _pin_choice.scroll_down()
+    elif button == BUTTON_CENTER:
+        _tx_pin = _PIN_OPTIONS[_pin_choice.state]
+        _save_settings(view_manager)
+        _rebuild_infrared(view_manager)
+        _show_settings_menu(view_manager)
 
 
 def _keyboard_save_callback(result):
@@ -735,8 +954,6 @@ def _set_receive_state(view_manager, state, now, error=""):
     _status.begin(animation, now)
     _draw_receive_status(view_manager, now)
 
-
-@infrared_tx_required
 def _send_signal(view_manager):
     """Transmit the selected signal from the loaded remote.
 
@@ -766,11 +983,11 @@ def start(view_manager) -> bool:
     Returns:
         bool: True after the app is initialized.
     """
-    from picoware.system.infrared import Infrared
-
     view_manager.storage.mkdir("infrared")
 
     global _state, _menu, _remote_menu, _key_menu, _learn_menu, _button_menu
+    global _settings_menu, _toggle, _pin_choice
+    global _use_external, _tx_pin
     global _infrared, _remote, _remote_paths, _key_names
     global _button_name, _remote_name, _keyboard_field
     global _keyboard_save_requested, _keyboard_result
@@ -785,7 +1002,13 @@ def start(view_manager) -> bool:
     _key_menu = None
     _learn_menu = None
     _button_menu = None
-    _infrared = Infrared(view_manager.storage, "infrared")
+    _settings_menu = None
+    _toggle = None
+    _pin_choice = None
+    _use_external = False
+    _tx_pin = None
+    _load_settings(view_manager)
+    _rebuild_infrared(view_manager)
     _remote = None
     _remote_paths = []
     _key_names = []
@@ -824,6 +1047,14 @@ def run(view_manager) -> None:
         _run_keyboard(view_manager)
         return
 
+    if _state == STATE_TOGGLE:
+        _run_external_toggle(view_manager)
+        return
+
+    if _state == STATE_PIN_CHOICE:
+        _run_pin_choice(view_manager)
+        return
+
     button = view_manager.button
 
     if _state == STATE_MAIN_MENU:
@@ -836,8 +1067,10 @@ def run(view_manager) -> None:
         elif button == BUTTON_CENTER:
             if _menu.selected_index == 0:
                 _show_remote_menu(view_manager)
-            else:
+            elif _menu.selected_index == 1:
                 _show_learn_menu(view_manager)
+            else:
+                _show_settings_menu(view_manager)
         return
 
     if _state == STATE_REMOTE_FILES:
@@ -881,6 +1114,20 @@ def run(view_manager) -> None:
                 _receive_signal(view_manager)
         return
 
+    if _state == STATE_SETTINGS_MENU:
+        if button == BUTTON_BACK:
+            _show_main_menu(view_manager)
+        elif button in (BUTTON_UP, BUTTON_LEFT):
+            _settings_menu.scroll_up()
+        elif button in (BUTTON_DOWN, BUTTON_RIGHT):
+            _settings_menu.scroll_down()
+        elif button == BUTTON_CENTER:
+            if _settings_menu.selected_index == 0:
+                _open_external_toggle(view_manager)
+            else:
+                _open_pin_choice(view_manager)
+        return
+
     if _state == STATE_BUTTON_MENU:
         if button == BUTTON_BACK:
             _show_learn_menu(view_manager)
@@ -904,6 +1151,7 @@ def stop(view_manager) -> None:
         view_manager (ViewManager): The view manager providing keyboard state.
     """
     global _state, _menu, _remote_menu, _key_menu, _learn_menu, _button_menu
+    global _settings_menu, _toggle, _pin_choice
     global _infrared, _remote, _remote_paths, _key_names, _keyboard_field
     global _keyboard_save_requested, _keyboard_result
     global _status, _receive_error
@@ -913,7 +1161,13 @@ def stop(view_manager) -> None:
     _receive_error = ""
     if view_manager.keyboard is not None:
         view_manager.keyboard.reset()
-    for menu in (_menu, _remote_menu, _key_menu, _learn_menu, _button_menu):
+    if _toggle is not None:
+        del _toggle
+        _toggle = None
+    if _pin_choice is not None:
+        del _pin_choice
+        _pin_choice = None
+    for menu in (_menu, _remote_menu, _key_menu, _learn_menu, _button_menu, _settings_menu):
         if menu is not None:
             del menu
 
@@ -923,6 +1177,7 @@ def stop(view_manager) -> None:
     _key_menu = None
     _learn_menu = None
     _button_menu = None
+    _settings_menu = None
     _infrared = None
     _remote = None
     _remote_paths = []

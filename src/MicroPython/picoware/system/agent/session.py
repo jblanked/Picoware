@@ -64,7 +64,7 @@ class Session:
         return self._storage.serialize({
             "id": self._id,
             "conversation": self.conversation,
-        }, self.path)
+        }, self.path) and self._storage.exists(self.path)
 
     def append(self, message: dict) -> bool:
         """Appends a message to the session's conversation history and saves it to the storage backend."""

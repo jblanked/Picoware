@@ -16,7 +16,7 @@ from picoware.system.buttons import (
 from picoware.system.vector import Vector
 
 from .assets import BANANA_FRAMES, CLOUD_ART, GORILLA_ART, TITLE_ART
-from .renderer import Renderer
+from .sprites import SpriteCache
 
 PHASE_AIMING = const(0)
 PHASE_FLYING = const(1)
@@ -261,7 +261,7 @@ def __create_scene(view_manager):
         "pixel_scale": scale, "power": 82, "round": 1, "tick": 0,
         "season": 1, "sky": SKY, "terrain": [], "terrain_unit": scale, "trail": [],
         "turn": 0, "width": width, "wind": 0,
-        "renderer": Renderer(draw),
+        "renderer": SpriteCache(draw),
         "ai_search": None, "steps": 1, "last_frame": ticks_ms(), "remainder": 0,
     }
     collision_data = bytearray(((width + 7) // 8) * height)
@@ -269,7 +269,7 @@ def __create_scene(view_manager):
     _state["collision"] = FrameBuffer(collision_data, width, height, MONO_HLSB, (width + 7) & ~7)
     _game = Game("Gorillas", Vector(width, height), draw, view_manager.input_manager, WHITE, INK)
     _level = Level("Sunset city", Vector(width, height), _game, None, None)
-    # The compositor presents the complete frame; avoid a redundant LCD clear/swap.
+    # The Draw-backed sprite cache clears/swaps once; avoid a duplicate swap.
     _level.clear_allowed = False
     _level.entity_add(__create_entity("sky", ENTITY_TYPE_ICON, Vector(0, 0), Vector(0, 0), render=__draw_sky))
     # Banana precedes solid entities: the engine visits each collision pair once.
@@ -445,8 +445,11 @@ def __draw_building_lights(index, draw):
             neon_tiles.append(tile)
     _state["clip"] = None
     draw.release()
-    draw.lights[index] = (window, neon_tiles)
-    __draw_building_lights(index, draw)
+    draw.cache_lights(index, window, neon_tiles)
+    if window:
+        draw.blit(window[0 if (tick // 45 + index) % 5 != 0 else 1])
+    if neon_tiles:
+        draw.blit(neon_tiles[0 if tick % 180 >= 5 else 1])
 
 
 def __draw_decals(draw, index):
@@ -811,10 +814,6 @@ def __mix_color(first, second, amount):
 def __randomize_city():
     """Regenerate the skyline while retaining the native scene's entities."""
     _state["renderer"].invalidate()
-    # Cloud colors can change with every season; old palettes are not retained.
-    _state["renderer"].sprites.clear()
-    _state["renderer"].labels.clear()
-    _state["renderer"].label_bytes = 0
     compact, width = _state["compact"], _state["width"]
     baseline, unit = _state["baseline"], _state["terrain_unit"]
     count = len(_state["buildings"])

@@ -9,12 +9,13 @@ from picoware.system.agent.session import Session
 
 STATE_MENU = const(0)
 STATE_CHAT = const(1)
-STATE_TYPE = const(2)
-STATE_SETTINGS = const(3)
-STATE_SETTINGS_PROVIDER = const(4)
-STATE_SETTINGS_MODEL = const(5)
-STATE_SETTINGS_THINKING = const(6)
-STATE_SESSIONS = const(7)
+STATE_PROCESSING = const(2)
+STATE_TYPE = const(3)
+STATE_SETTINGS = const(4)
+STATE_SETTINGS_PROVIDER = const(5)
+STATE_SETTINGS_MODEL = const(6)
+STATE_SETTINGS_THINKING = const(7)
+STATE_SESSIONS = const(8)
 
 _agent          = None
 _menu           = None
@@ -31,6 +32,7 @@ _sessions_menu  = None
 _session_ids    = None
 _session_labels = None
 _session_id     = None
+_loading        = None
 
 
 @native
@@ -247,17 +249,13 @@ def _show_thinking(view_manager):
     Args:
         view_manager (ViewManager): The view manager context.
     """
-    draw = view_manager.draw
-    w, h = draw.size.x, draw.size.y
-    bg = view_manager.background_color
-
-    draw.fill_screen(bg)
-    msg = "Thinking..."
-    mw = draw.len(msg)
-    fh = draw.font_size.y
-    draw._text((w - mw) // 2, (h - fh) // 2, msg,
-               view_manager.foreground_color, draw.font)
-    draw.swap()
+    global _loading
+    if _loading is None:
+        from picoware.gui.loading import Loading
+        _loading = Loading(view_manager.draw, view_manager.foreground_color, view_manager.background_color)
+        _loading.text = "Thinking..."
+    if _loading is not None:
+        _loading.animate()
 
 def _set_settings(view_manager):
     """Load or create the agent settings.
@@ -815,10 +813,31 @@ def run(view_manager) -> None:
         user_text = (kb.response or "").strip()
 
         if user_text:
-            _show_thinking(view_manager)
+            if not _agent.run_session_async(_session_id, user_text):
+                _conversation.append({
+                    "role": "assistant",
+                    "content": "Error: Failed to run session asynchronously.",
+                })
+                _render_chat(view_manager)
+                return
+            _state = STATE_PROCESSING
+            return
 
-            try:
-                result = _agent.run_session(_session_id, user_text)
+        _state = STATE_CHAT
+        _render_chat(view_manager)
+
+    elif _state == STATE_PROCESSING:
+        if btn == BUTTON_BACK:
+            _state = STATE_CHAT
+            _render_chat(view_manager)
+            return
+        if _agent.in_progress:
+            _show_thinking(view_manager)
+            return
+        _loading.stop()
+        try:
+            result = _agent.response
+            if isinstance(result, dict):
                 _conversation = result["conversation"]
                 if (
                     result["status"] != "completed"
@@ -831,15 +850,19 @@ def run(view_manager) -> None:
                         "role": "assistant",
                         "content": result["message"],
                     })
-            except Exception as exc:
+            else:
+                # text-only response
                 _conversation.append({
                     "role": "assistant",
-                    "content": "Error: " + str(exc),
+                    "content": str(result or "No response from agent."),
                 })
-
+        except Exception as exc:
+            _conversation.append({
+                "role": "assistant",
+                "content": "Error: " + str(exc),
+            })
         _scroll_offset = 32767
         _state = STATE_CHAT
-        _render_chat(view_manager)
         _render_chat(view_manager)
 
 

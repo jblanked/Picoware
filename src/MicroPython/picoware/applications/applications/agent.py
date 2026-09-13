@@ -5,6 +5,7 @@ from picoware.system.buttons import (
 )
 from picoware.system.colors import TFT_WHITE, TFT_DARKGREY
 from picoware.system.decorator import native, storage_required, wifi_required
+from picoware.system.agent.session import Session
 
 STATE_MENU = const(0)
 STATE_CHAT = const(1)
@@ -307,7 +308,6 @@ def _start_agent(view_manager, mode: int, mode_label: str,
     """
     from picoware.system.agent.agent import Agent
     from picoware.system.agent.llm import LLM
-    from picoware.system.agent.session import Session
 
     global _agent, _agent_mode, _mode_label, _conversation, _session_id
 
@@ -340,7 +340,6 @@ def _start_sessions_menu(view_manager) -> None:
         view_manager (ViewManager): The view manager context.
     """
     from picoware.gui.menu import Menu
-    from picoware.system.agent.session import Session
 
     global _state, _sessions_menu, _session_ids, _session_labels
 

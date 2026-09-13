@@ -344,15 +344,16 @@ def _start_sessions_menu(view_manager) -> None:
 
     global _state, _sessions_menu, _session_ids, _session_labels
 
-    session = Session(view_manager)
-    _session_ids = session.list()
+    _session_ids = Session.ls(view_manager.storage)
     _session_ids.sort()
     _session_labels = []
     for session_id in _session_ids:
+        if not Session.exists(view_manager.storage, session_id):
+            continue
         label = session_id
         try:
-            stored_session = Session(view_manager, session_id=session_id)
-            for message in stored_session.conversation:
+            stored_session = Session.get_conversation(view_manager.storage, session_id=session_id)
+            for message in stored_session:
                 if message.get("role") != "user":
                     continue
                 content = message.get("content", "")

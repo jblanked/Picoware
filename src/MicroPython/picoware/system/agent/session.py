@@ -31,6 +31,8 @@ class Session:
         else:
             self._id = f"session_{id(self)}"
             self._time_created = view_manager.time.datetime
+            if not self._save():
+                raise Exception("Failed to create session with ID %s" % self._id)
             
     @property
     def id(self) -> str:
@@ -74,13 +76,40 @@ class Session:
         self.conversation.extend(messages)
         return self._save()
 
+    @classmethod
+    def exists(cls, storage, session_id: str) -> bool:
+        """Checks if a session with the given ID exists in the storage backend."""
+        return storage.exists("picoware/agent/sessions/%s.json" % session_id)
+
+    @classmethod
+    def get_conversation(cls, storage, session_id: str) -> list:
+        """Retrieves the conversation history for the specified session ID from the storage backend."""
+        _path = "picoware/agent/sessions/%s.json" % session_id
+        if not storage.exists(_path):
+            return []
+        _data: dict = storage.deserialize(_path)
+        if not _data:
+            return []
+        return _data.get("conversation", [])
+
     def list(self) -> list:
         """Returns a list of all session IDs stored in the storage backend."""
         session_path = "picoware/agent/sessions"
         sessions = []
         for entry in self._storage.listdir(session_path):
             name = entry.rsplit("/", 1)[-1]
-            if name.endswith(".json"):
+            if name.endswith(".json") and name.startswith("session_"):
+                sessions.append(name[:-5])
+        return sessions
+
+    @classmethod
+    def ls(cls, storage) -> list:
+        """Returns a list of all session IDs stored in the storage backend."""
+        session_path = "picoware/agent/sessions"
+        sessions = []
+        for entry in storage.listdir(session_path):
+            name = entry.rsplit("/", 1)[-1]
+            if name.endswith(".json") and name.startswith("session_"):
                 sessions.append(name[:-5])
         return sessions
 

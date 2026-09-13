@@ -77,6 +77,22 @@ class Session:
         return self._save()
 
     @classmethod
+    def delete(cls, storage, session_id: str) -> bool:
+        """Deletes the session with the specified ID from the storage backend."""
+        _path = "picoware/agent/sessions/%s.json" % session_id
+        if storage.exists(_path):
+            return storage.remove(_path)
+        return False
+
+    @classmethod
+    def delete_index(cls, storage, index: int) -> bool:
+        """Deletes the session at the specified index from the storage backend."""
+        session_ids = cls.ls(storage)
+        if 0 <= index < len(session_ids):
+            return cls.delete(storage, session_ids[index])
+        return False
+
+    @classmethod
     def exists(cls, storage, session_id: str) -> bool:
         """Checks if a session with the given ID exists in the storage backend."""
         return storage.exists("picoware/agent/sessions/%s.json" % session_id)

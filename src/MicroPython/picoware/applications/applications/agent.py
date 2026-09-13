@@ -1,7 +1,7 @@
 """Picoware Agent - LLM-powered assistant with chat GUI."""
 from micropython import const
 from picoware.system.buttons import (
-    BUTTON_UP, BUTTON_DOWN, BUTTON_CENTER, BUTTON_BACK,
+    BUTTON_UP, BUTTON_DOWN, BUTTON_CENTER, BUTTON_BACK, BUTTON_D
 )
 from picoware.system.colors import TFT_WHITE, TFT_DARKGREY
 from picoware.system.decorator import native, storage_required, wifi_required
@@ -730,6 +730,10 @@ def run(view_manager) -> None:
             _sessions_menu.scroll_down()
         elif btn == BUTTON_CENTER:
             _open_session(view_manager)
+        elif btn == BUTTON_D:
+            if view_manager.alert("Delete session?"):
+                Session.delete_index(view_manager.storage, _sessions_menu.selected_index)
+                _start_sessions_menu(view_manager)
 
     elif _state == STATE_SETTINGS_PROVIDER:
         if btn == BUTTON_BACK:

@@ -782,6 +782,9 @@ def __download_next_file(view_manager) -> bool:
     if storage.exists(file_path):
         storage.remove(file_path)
 
+    _http.close()
+    collect()
+
     return _http.get_async(
         file_url,
         save_to_file=file_path,

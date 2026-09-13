@@ -1067,10 +1067,20 @@ mp_obj_t sd_mp_write(size_t n_args, const mp_obj_t *args)
     {
         if (overwrite)
         {
-            if (fat32_delete(filePath) != FAT32_OK)
+            fat32_close(&file);
+            fat32_file_t existing;
+            for (int i = 0; i < 32; i++)
             {
-                PRINT("Failed to delete existing file.\n");
-                mp_raise_OSError(MP_EIO);
+                if (fat32_open(&existing, filePath) != FAT32_OK)
+                {
+                    break;
+                }
+                fat32_close(&existing);
+                if (fat32_delete(filePath) != FAT32_OK)
+                {
+                    PRINT("Failed to delete existing file.\n");
+                    mp_raise_OSError(MP_EIO);
+                }
             }
             if (fat32_create(&file, filePath) != FAT32_OK)
             {

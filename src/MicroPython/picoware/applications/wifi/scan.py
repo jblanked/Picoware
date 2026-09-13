@@ -12,6 +12,28 @@ from picoware.system.buttons import (
 _scan = None
 
 
+def __draw_footer(view_manager) -> None:
+    """Draw the scan navigation instructions in the reserved footer area."""
+    from picoware.system.vector import Vector
+
+    draw = view_manager.draw
+    footer_height = max(draw.font_size.y + 3, draw.scale_y(18))
+    footer_y = max(0, draw.size.y - draw.font_size.y - 2)
+    draw.clear(
+        Vector(0, draw.size.y - footer_height),
+        Vector(draw.size.x, footer_height),
+        view_manager.background_color,
+    )
+
+    footer = "UP/DOWN: Select | CENTER: Connect | BACK: Exit"
+    if draw.size.x < 180:
+        footer = "UP/DN:Sel C:OK B:Back"
+    if draw.len(footer) > draw.size.x:
+        footer = "U/D Sel C:OK B:Back"
+    draw.text(Vector(max(0, (draw.size.x - draw.len(footer)) // 2), footer_y), footer)
+    draw.swap()
+
+
 def __save_ssid(view_manager) -> bool:
     """Save the selected SSID.
 
@@ -84,6 +106,7 @@ def __should_save_choice(view_manager) -> bool:
                 return True
             view_manager.draw.clear()
             _scan.draw()
+            __draw_footer(view_manager)
             return False
         elif _button == BUTTON_BACK:
             input_manager.reset()
@@ -91,6 +114,7 @@ def __should_save_choice(view_manager) -> bool:
             choice = None
             view_manager.draw.clear()
             _scan.draw()
+            __draw_footer(view_manager)
             return False
 
 
@@ -114,6 +138,33 @@ def __switch_to_password_view(view_manager) -> None:
     view_manager.switch_to("wifi_password")
 
 
+def run(view_manager) -> None:
+    """Run the app and handle menu input.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+    """
+    if not _scan:
+        return
+
+    button: int = view_manager.button
+
+    if button in (BUTTON_UP, BUTTON_LEFT):
+        _scan.scroll_up()
+        __draw_footer(view_manager)
+    elif button in (BUTTON_DOWN, BUTTON_RIGHT):
+        _scan.scroll_down()
+        __draw_footer(view_manager)
+    elif button == BUTTON_BACK:
+        view_manager.back()
+    elif button == BUTTON_CENTER:
+        if __should_save_choice(view_manager):
+            if not __save_ssid(view_manager):
+                view_manager.alert("Failed to save SSID!", True)
+                return
+            __switch_to_password_view(view_manager)
+
+
 def start(view_manager) -> bool:
     """Start the app and scan for networks.
 
@@ -135,11 +186,15 @@ def start(view_manager) -> bool:
 
         results = wifi.scan()
 
+        footer_height = max(
+            view_manager.draw.font_size.y + 3,
+            view_manager.draw.scale_y(18),
+        )
         _scan = Menu(
             view_manager.draw,
             "Scan",
             0,
-            view_manager.draw.size.y,
+            max(1, view_manager.draw.size.y - footer_height),
             view_manager.foreground_color,
             view_manager.background_color,
             view_manager.selected_color,
@@ -160,32 +215,8 @@ def start(view_manager) -> bool:
         _scan.set_selected(0)
 
         _scan.draw()
+        __draw_footer(view_manager)
     return True
-
-
-def run(view_manager) -> None:
-    """Run the app and handle menu input.
-
-    Args:
-        view_manager (ViewManager): The view manager instance for display and storage access.
-    """
-    if not _scan:
-        return
-
-    button: int = view_manager.button
-
-    if button in (BUTTON_UP, BUTTON_LEFT):
-        _scan.scroll_up()
-    elif button in (BUTTON_DOWN, BUTTON_RIGHT):
-        _scan.scroll_down()
-    elif button == BUTTON_BACK:
-        view_manager.back()
-    elif button == BUTTON_CENTER:
-        if __should_save_choice(view_manager):
-            if not __save_ssid(view_manager):
-                view_manager.alert("Failed to save SSID!", True)
-                return
-            __switch_to_password_view(view_manager)
 
 
 def stop(view_manager) -> None:

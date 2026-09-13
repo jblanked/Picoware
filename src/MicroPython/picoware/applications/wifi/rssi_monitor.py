@@ -8,28 +8,6 @@ _last_update = 0
 _scan_count = 0
 
 
-def start(view_manager) -> bool:
-    """Start the WiFi RSSI Monitor app.
-
-    Args:
-        view_manager (ViewManager): The view manager instance for display and storage access.
-
-    Returns:
-        bool: True if the app started, False if WiFi is unavailable.
-    """
-    global _networks, _scan_count, _last_update
-
-    if view_manager.wifi is None:
-        view_manager.alert("WiFi not available")
-        return False
-
-    _networks = {}
-    _scan_count = 0
-    _last_update = ticks_ms()
-
-    return True
-
-
 def run(view_manager) -> None:
     """Run the app and update the RSSI display.
 
@@ -86,25 +64,29 @@ def run(view_manager) -> None:
     draw = view_manager.draw
     draw.erase()
 
-    text_vec = Vector(5, 2)
+    width = draw.size.x
     height = draw.size.y
+    font_height = draw.font_size.y
+    footer_y = max(0, height - font_height - 2)
+    status_y = max(0, footer_y - font_height - 3)
 
-    draw.text(text_vec, "WiFi RSSI Monitor")
+    title = "WiFi RSSI Monitor"
+    draw.text(Vector(max(0, (width - draw.len(title)) // 2), 2), title)
 
     # Sort networks by RSSI (strongest first)
     sorted_networks = sorted(_networks.items(), key=lambda x: x[1][2], reverse=True)
 
     y = 22
-    max_networks = (height - 60) // 16
+    max_networks = max(1, (status_y - y - 3) // 16)
 
     if not sorted_networks:
-        text_vec.x, text_vec.y = 5, y
-        draw.text(text_vec, "Scanning...")
+        message = "Scanning..."
+        draw.text(Vector(max(0, (width - draw.len(message)) // 2), y), message)
     else:
         for i, (ssid, (bssid, channel, rssi, authmode, last_seen)) in enumerate(
             sorted_networks[:max_networks]
         ):
-            if y > height - 40:
+            if y > status_y - 3:
                 break
 
             # Display SSID (truncate if needed)
@@ -127,21 +109,51 @@ def run(view_manager) -> None:
             else:
                 color = TFT_RED
 
-            text_vec.x, text_vec.y = 5, y
-            draw.text(text_vec, f"{display_ssid[:10]}", color)
-            text_vec.x, text_vec.y = 70, y
-            draw.text(text_vec, f"{bar_sym} ", color)
-            text_vec.x, text_vec.y = 130, y
-            draw.text(text_vec, f"{rssi}dB", color)
+            if width < 180:
+                color = TFT_WHITE
+
+            rssi_text = f"{rssi}dB"
+            suffix = f" {bar_sym} {rssi_text}"
+            max_ssid_width = max(1, width - draw.len(suffix) - 2)
+            max_ssid_chars = max(1, max_ssid_width // max(1, draw.font_size.x))
+            row = f"{display_ssid[:max_ssid_chars]}{suffix}"
+            draw.text(Vector(max(0, (width - draw.len(row)) // 2), y), row, color)
             y += 16
 
     # Status bar
-    text_vec.x, text_vec.y = 5, height - 35
-    draw.text(text_vec, f"Networks: {len(_networks)}")
-    text_vec.x, text_vec.y = 5, height - 20
-    draw.text(text_vec, "CENTER: Clear | BACK: Exit")
+    status = f"Networks: {len(_networks)}"
+    draw.text(Vector(max(0, (width - draw.len(status)) // 2), status_y), status)
+
+    footer = "CENTER: Clear | BACK: Exit"
+    if width < 180:
+        footer = "CTR: Clear | BACK: Exit"
+    if draw.len(footer) > width:
+        footer = "C:Clear | B:Exit"
+    draw.text(Vector(max(0, (width - draw.len(footer)) // 2), footer_y), footer)
 
     draw.swap()
+
+
+def start(view_manager) -> bool:
+    """Start the WiFi RSSI Monitor app.
+
+    Args:
+        view_manager (ViewManager): The view manager instance for display and storage access.
+
+    Returns:
+        bool: True if the app started, False if WiFi is unavailable.
+    """
+    global _networks, _scan_count, _last_update
+
+    if view_manager.wifi is None:
+        view_manager.alert("WiFi not available")
+        return False
+
+    _networks = {}
+    _scan_count = 0
+    _last_update = ticks_ms()
+
+    return True
 
 
 def stop(view_manager) -> None:

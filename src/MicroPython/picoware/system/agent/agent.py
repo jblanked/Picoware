@@ -377,6 +377,9 @@ class Agent:
                 send_file=self._file_path,
             )
 
+            if response is None:
+                return f"API error: No response from model API: {self.http.error}"
+
             try:
                 data = response.json()
             except ValueError:

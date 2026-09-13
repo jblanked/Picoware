@@ -211,7 +211,7 @@ class HTTP:
     @property
     def response(self):
         """Get the async Response object."""
-        if self._is_flipper is not None:
+        if self._is_flipper:
             if self._http_uart is not None:
                 return self._http_uart.response
             return None
@@ -311,7 +311,7 @@ class HTTP:
         Returns:
             Response: The HTTP response.
         """
-        if self._is_flipper is not None:
+        if self._is_flipper:
             if self._http_uart is not None:
                 return self._http_uart.request("DELETE", url, headers=headers, timeout=timeout, save_to_file=save_to_file, storage=storage)
             return None
@@ -334,7 +334,7 @@ class HTTP:
         Returns:
             bool: True if the request was started.
         """
-        if self._is_flipper is not None:
+        if self._is_flipper:
             if self._http_uart is not None:
                 return self._http_uart.request_async("DELETE", url, headers=headers, timeout=timeout, save_to_file=save_to_file, storage=storage)
             return False
@@ -362,7 +362,7 @@ class HTTP:
         Returns:
             Response: The HTTP response.
         """
-        if self._is_flipper is not None:
+        if self._is_flipper:
             if self._http_uart is not None:
                 return self._http_uart.request("GET", url, headers=headers, timeout=timeout, save_to_file=save_to_file, storage=storage)
             return None
@@ -385,7 +385,7 @@ class HTTP:
         Returns:
             bool: True if the request was started.
         """
-        if self._is_flipper is not None:
+        if self._is_flipper:
             if self._http_uart is not None:
                 return self._http_uart.request_async("GET", url, headers=headers, timeout=timeout, save_to_file=save_to_file, storage=storage)
             return False
@@ -425,7 +425,7 @@ class HTTP:
         if payload is None:
             raise ValueError("HEAD request requires a payload.")
 
-        if self._is_flipper is not None:
+        if self._is_flipper:
             if self._http_uart is not None:
                 return self._http_uart.request("HEAD", url, data=payload, headers=headers, timeout=timeout, save_to_file=save_to_file, storage=storage, send_file=send_file)
             return None
@@ -467,7 +467,7 @@ class HTTP:
         Returns:
             bool: True if the request was started.
         """
-        if self._is_flipper is not None:
+        if self._is_flipper:
             if self._http_uart is not None:
                 return self._http_uart.request_async("HEAD", url, payload=payload, headers=headers, timeout=timeout, save_to_file=save_to_file, storage=storage, send_file=send_file)
             return False
@@ -484,7 +484,7 @@ class HTTP:
 
     def is_request_complete(self) -> bool:
         """Check if the async request is complete."""
-        if self._is_flipper is not None:
+        if self._is_flipper:
             return True
         if self._lock is None:
             return True
@@ -518,7 +518,7 @@ class HTTP:
         if payload is None:
             raise ValueError("Payload cannot be None for PATCH request")
 
-        if self._is_flipper is not None:
+        if self._is_flipper:
             if self._http_uart is not None:
                 return self._http_uart.request("PATCH", url, data=payload, headers=headers, timeout=timeout, save_to_file=save_to_file, storage=storage, send_file=send_file)
             return None
@@ -561,7 +561,7 @@ class HTTP:
         Returns:
             bool: True if the request was started.
         """
-        if self._is_flipper is not None:
+        if self._is_flipper:
             if self._http_uart is not None:
                 return self._http_uart.request_async("PATCH", url, data=payload, headers=headers, timeout=timeout, save_to_file=save_to_file, storage=storage, send_file=send_file)
             return False
@@ -603,7 +603,7 @@ class HTTP:
         if payload is None and send_file is None:
             raise ValueError("Payload cannot be None for POST request")
         
-        if self._is_flipper is not None:
+        if self._is_flipper:
             if self._http_uart is not None:
                 return self._http_uart.request("POST", url, data=payload, headers=headers, timeout=timeout, save_to_file=save_to_file, storage=storage, send_file=send_file)
             return None
@@ -647,7 +647,7 @@ class HTTP:
         Returns:
             bool: True if the request was started.
         """
-        if self._is_flipper is not None:
+        if self._is_flipper:
             if self._http_uart is not None:
                 return self._http_uart.request_async("POST", url, data=payload, headers=headers, timeout=timeout, save_to_file=save_to_file, storage=storage, send_file=send_file)
             return False
@@ -689,7 +689,7 @@ class HTTP:
         if payload is None:
             raise ValueError("Payload cannot be None for PUT request")
         
-        if self._is_flipper is not None:
+        if self._is_flipper:
             if self._http_uart is not None:
                 return self._http_uart.request("PUT", url, data=payload, headers=headers, timeout=timeout, save_to_file=save_to_file, storage=storage, send_file=send_file)
             return None
@@ -732,7 +732,7 @@ class HTTP:
         Returns:
             bool: True if the request was started.
         """
-        if self._is_flipper is not None:
+        if self._is_flipper:
             if self._http_uart is not None:
                 return self._http_uart.request_async("PUT", url, data=payload, headers=headers, timeout=timeout, save_to_file=save_to_file, storage=storage, send_file=send_file)
             return False
@@ -763,7 +763,7 @@ class HTTP:
         Returns:
             bytes: The response body.
         """
-        if self._is_flipper is not None:
+        if self._is_flipper:
             return b""
         
         if uart:
@@ -877,7 +877,7 @@ class HTTP:
         Returns:
             Response: The HTTP response.
         """
-        if self._is_flipper is not None:
+        if self._is_flipper:
             if self._http_uart is not None:
                 return self._http_uart.request(method, url, data=data, json_data=json_data, headers=headers, auth=auth, timeout=timeout, parse_headers=parse_headers, uart=uart, save_to_file=save_to_file, storage=storage, send_file=send_file)
             return None
@@ -1250,7 +1250,7 @@ class HTTP:
         Returns:
             bool: True if the request was started.
         """
-        if self._is_flipper is not None:
+        if self._is_flipper:
             if self._http_uart is not None:
                 return self._http_uart.request_async(method, url, payload=payload, headers=headers, timeout=timeout, save_to_file=save_to_file, storage=storage, send_file=send_file)
             return False
@@ -1338,7 +1338,7 @@ class HTTP:
         Returns:
             Response: The HTTP response.
         """
-        if self._is_flipper is not None:
+        if self._is_flipper:
             if self._http_uart is not None:
                 return self._http_uart.request(method, url, data=payload, headers=headers, timeout=timeout, save_to_file=save_to_file, storage=storage, send_file=send_file)
             return None

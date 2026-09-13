@@ -76,15 +76,6 @@ class ViewManager:
         # Initialize ThreadManager
         self._thread_manager = ThreadManager()
 
-        # UART
-        self._uart = None
-        if syst.board_id == BOARD_FLIPPER_ZERO:
-            try:
-                from picoware.system.uart import UART
-                self._uart = UART()
-            except ImportError:
-                self._uart = None
-
         # Initialize WiFi if available
         self._wifi = None
         if syst is not None and syst.has_wifi:
@@ -177,6 +168,15 @@ class ViewManager:
 
         # Initialize app loader
         self._app_loader = AppLoader(self)
+
+        # UART
+        self._uart = None
+        if syst.board_id == BOARD_FLIPPER_ZERO:
+            try:
+                from picoware.system.uart import UART
+                self._uart = UART()
+            except ImportError:
+                self._uart = None
 
         # Clear screen
         self.clear()

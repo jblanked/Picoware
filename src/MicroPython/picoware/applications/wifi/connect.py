@@ -46,8 +46,11 @@ def _get_status_text(view_manager) -> str:
     extension = "\n" if _is_flipper else "\n\n"
 
     wifi = view_manager.wifi
-    text = f"WiFi Setup{extension}"
-    text += "Network: " + _ssid + "\n"
+    if _is_flipper:
+        text = f"Network {_ssid}\n"
+    else:
+        text = f"WiFi Setup{extension}"
+        text += "Network: " + _ssid + "\n"
 
 
     if wifi.is_connected():
@@ -81,7 +84,7 @@ def _get_status_text(view_manager) -> str:
 
     if not _is_flipper:
         text += "Press RIGHT to connect\n"
-        text += "Press LEFT/BACK to go back\n"
+        text += "Press BACK to go back\n"
         text += "Press UP to disconnect"
 
     return text
@@ -149,6 +152,7 @@ def run(view_manager) -> None:
         BUTTON_LEFT,
         BUTTON_UP,
         BUTTON_RIGHT,
+        BUTTON_DOWN,
     )
 
     global _connect
@@ -161,14 +165,14 @@ def run(view_manager) -> None:
     button: int = view_manager.button
     wifi = view_manager.wifi
 
-    if button in (BUTTON_BACK, BUTTON_LEFT):
+    if button == BUTTON_BACK:
         view_manager.back()
         return
 
-    if button == BUTTON_UP:
+    if button == BUTTON_UP and not _is_flipper:
         wifi.disconnect()
         _status_message = "Disconnected"
-    elif button == BUTTON_RIGHT:
+    elif button in (BUTTON_UP, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_DOWN):
         wifi.reset()
         _status_message = "Starting connection..."
         wifi.callback_connect = __connect_callback

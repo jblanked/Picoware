@@ -99,7 +99,7 @@ def run(view_manager) -> None:
 
     if _http and _request_started:
         if _loading:
-            _loading.animate()
+            _loading.animate(http=_http)
         return
 
     if button == BUTTON_UP:

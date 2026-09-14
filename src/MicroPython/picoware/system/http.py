@@ -1281,7 +1281,7 @@ class HTTP:
                         storage,
                         send_file,
                     ),
-                    timeout=int(timeout * 1000),
+                    timeout=0,
                     stack_size=(
                         stack_size
                         if self._chunk_size < stack_size

@@ -458,6 +458,16 @@ def run(view_manager) -> None:
             else:
                 extensions = (".c", ".js", ".bas", ".txt")
                 _filename = _ensure_extension(_filename, extensions[selected_index - 1])
+                current_extension = extensions[selected_index - 1]
+                true_path = None
+                if current_extension == ".c":
+                    true_path = f"picoware/c/{_filename}" if _filename else None
+                elif current_extension == ".js":
+                    true_path = f"picoware/scripts/{_filename}" if _filename else None
+                elif current_extension == ".bas":
+                    true_path = f"picoware/mmbasic/{_filename}" if _filename else None
+                else:
+                    true_path = _filename
                 _start_editor(
                     view_manager,
                     _filename or None,

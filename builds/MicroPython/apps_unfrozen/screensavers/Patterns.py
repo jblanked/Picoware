@@ -188,7 +188,6 @@ def _draw_pattern(draw):
             draw._rectangle(
                 p,
                 p,
-                p,
                 size,
                 size,
                 colors[i % len(colors)],

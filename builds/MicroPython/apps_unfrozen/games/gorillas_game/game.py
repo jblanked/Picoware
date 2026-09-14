@@ -2,8 +2,7 @@
 
 from math import cos, pi, sin
 from random import randint
-from time import sleep_ms, ticks_diff, ticks_ms
-from framebuf import FrameBuffer, MONO_HLSB
+from time import ticks_diff, ticks_ms
 from gc import collect
 
 from micropython import const
@@ -25,6 +24,7 @@ PHASE_EXPLODING = const(2)
 PHASE_GAME_OVER = const(3)
 PHASE_MENU = const(4)
 EXPLOSION_TICKS = const(40)
+DECAL_LIMIT = const(24)
 
 # RGB565 palette: midnight, slate, peach, cream, turquoise, and coral.
 INK = const(0x1085)
@@ -44,6 +44,31 @@ _engine = None
 _game = None
 _level = None
 _state = None
+
+
+class _FrameInput:
+    """Let the engine consume this frame's input without clearing the UI queue."""
+
+    button = -1
+
+    def __init__(self, source):
+        self._source = source
+
+    def _key_to_button(self, key):
+        """Keep the existing board-specific mapping for simulator held keys."""
+        return self._source._key_to_button(key)
+
+    def reset(self):
+        self.button = -1
+
+
+class _Scenery:
+    """Drawing geometry without a native entity or per-frame callbacks."""
+
+    __slots__ = ('name', 'position', 'size')
+
+    def __init__(self, name, position, size):
+        self.name, self.position, self.size = name, position, size
 
 
 def __ai_score(angle, power):
@@ -131,16 +156,66 @@ def __art(draw, art, x, y, scale, palette, mirror=0, dissolve=0):
 
 
 def __banana_collision(entity, other, game):
-    """Resolve native engine contacts, keeping track of the actual victim."""
+    """Refine engine overlaps against swept points and surviving terrain cells."""
     if _state["phase"] != PHASE_FLYING or other is None:
         return
     if other.type == ENTITY_TYPE_PLAYER:
         victim = int(other.name[-1])
-        if victim == _state["turn"] and _state["flight_ticks"] < 6:
-            return
+        if victim not in _state["dead"]:
+            position, size = other.position, other.size
+            __banana_contact(victim, None, position.x, position.y, size.x, size.y)
+    elif other.type == ENTITY_TYPE_NPC and other.name == 'city':
+        # One terrain collider represents the city; buildings are plain data.
+        for terrain in _state["terrain"]:
+            __banana_contact(-1, terrain, terrain[0], terrain[1], terrain[2], terrain[3])
+
+
+def __banana_contact(victim, terrain, left, top, width, height):
+    """Find the first real contact within one native collision candidate."""
+    right, bottom = left + width, top + height
+    banana = _state['banana']
+    position, size = banana.position, banana.size
+    if position.x >= right or position.x + size.x <= left or position.y >= bottom or position.y + size.y <= top:
+        return
+    for segment, (x, y, vx, vy, tick) in enumerate(_state["banana_path"]):
+        if segment >= _state["banana_hit_order"]:
+            break
+        if victim == _state["turn"] and tick < 6:
+            continue
+        steps = max(1, int(max(abs(vx), abs(vy))) + 1)
+        dx, dy = vx / steps, vy / steps
+        for sample in range(steps):
+            x += dx
+            y += dy
+            order = segment + (sample + 1) / steps
+            if order >= _state["banana_hit_order"]:
+                break
+            if left <= x < right and top <= y < bottom:
+                # An overlap with a building's bounds is not a hit in a crater.
+                if terrain is not None and not __terrain_cell(terrain, x, y):
+                    continue
+                _state["banana_hit_order"] = order
+                _state["banana_hit"] = (victim, x, y)
+                return
+
+
+def __banana_finish():
+    """Commit the earliest callback hit after updates, before scene rendering."""
+    if _state["phase"] != PHASE_FLYING:
+        return
+    banana = _state["banana"]
+    banana.size = Vector(3 * _state["pixel_scale"], 3 * _state["pixel_scale"])
+    hit = _state["banana_hit"]
+    if hit is not None:
+        victim, _state["banana_x"], _state["banana_y"] = hit
         __resolve_shot(victim)
-    elif other.type == ENTITY_TYPE_NPC and __terrain_solid(_state["banana_x"], _state["banana_y"]):
-        __resolve_shot(-1)
+    else:
+        x, y = _state["banana_x"], _state["banana_y"]
+        banana.position = Vector(x, y)
+        if x < -20 or x > _state["width"] + 20 or y > _state["baseline"] + 4 or _state["flight_ticks"] > 240:
+            __resolve_shot(-1)
+    _state["banana_path"].clear()
+    _state["banana_hit"] = None
 
 
 def __banana_step(entity, game):
@@ -155,29 +230,34 @@ def __banana_step(entity, game):
     vx, vy = _state["banana_vx"], _state["banana_vy"]
     steps = max(1, int(max(abs(vx), abs(vy))) + 1)
     dx, dy = vx / steps, vy / steps
-    # Sweep the projectile: fast throws must not skip a thin surviving wall.
+    _state["banana_path"].append((_state["banana_x"], _state["banana_y"], vx, vy, _state["flight_ticks"]))
+    # Keep the same pixel-sized integration used by the collision refinement.
     for step in range(steps):
         _state["banana_x"] += dx
         _state["banana_y"] += dy
-        ignore = _state["turn"] if _state["flight_ticks"] < 6 else -1
-        contact = __contact(_state["banana_x"], _state["banana_y"], ignore)
-        if contact != -2:
-            __resolve_shot(contact)
-            return
     x, y = _state["banana_x"], _state["banana_y"]
-    entity.position = Vector(x, y)
     if _state["flight_ticks"] % 2 == 0:
         _state["trail"].append((x, y))
         if len(_state["trail"]) > 8:
             _state["trail"].pop(0)
-    if x < -20 or x > _state["width"] + 20 or y > _state["baseline"] + 4 or _state["flight_ticks"] > 240:
-        __resolve_shot(-1)
 
 
 def __banana_update(entity, game):
-    """Advance fixed 30 Hz physics independently of display frame time."""
+    """Expose a swept bounding box so native callbacks cannot miss thin walls."""
+    _state["banana_path"].clear()
+    _state["banana_hit"] = None
+    _state["banana_hit_order"] = 5
+    if _state["phase"] != PHASE_FLYING:
+        entity.is_visible = False
+        return
+    left = right = _state["banana_x"]
+    top = bottom = _state["banana_y"]
     for step in range(_state["steps"]):
         __banana_step(entity, game)
+        left, right = min(left, _state["banana_x"]), max(right, _state["banana_x"])
+        top, bottom = min(top, _state["banana_y"]), max(bottom, _state["banana_y"])
+    entity.position = Vector(left, top)
+    entity.size = Vector(right - left + 1, bottom - top + 1)
 
 
 def __box(draw, x, y, width, height, color):
@@ -233,23 +313,13 @@ def __center_text(draw, text, y, color=CREAM):
     draw.text(max(0, (_state["width"] - draw.len(text)) // 2), int(y), text, color)
 
 
-def __contact(x, y, ignore=-1):
-    """Return a player index, -1 for solid terrain, or -2 for empty space."""
-    for index, gorilla in enumerate(_state["gorillas"]):
-        if index != ignore and index not in _state["dead"]:
-            pos, size = gorilla.position, gorilla.size
-            if pos.x <= x < pos.x + size.x and pos.y <= y < pos.y + size.y:
-                return index
-    return -1 if __terrain_solid(x, y) else -2
-
-
 def __create_entity(name, entity_type, position, size, update=None, render=None, collision=None):
     """Create an engine entity with Python update/render/collision callbacks."""
     return Entity(name, entity_type, position, size, None, None, None, None, None, update, render, collision)
 
 
 def __create_scene(view_manager):
-    """Build a layered scene; entities own rendering, animation, and collisions."""
+    """Create four collision entities and plain scenery for direct drawing."""
     global _engine, _game, _level, _state
     draw = view_manager.draw
     width, height = int(draw.size.x), int(draw.size.y)
@@ -262,6 +332,7 @@ def __create_scene(view_manager):
         "ai_best": (1e12, 50, 80), "ai_index": 0, "ai_shots": 0, "ai_ticks": 0,
         "aims": [(52, 82), (52, 82)], "angle": 52,
         "banana": None, "banana_vx": 0.0, "banana_vy": 0.0,
+        "banana_hit": None, "banana_hit_order": 5, "banana_path": [],
         "banana_x": -32.0, "banana_y": -32.0, "baseline": baseline,
         "buildings": [], "city_seed": 0, "clip": None, "cloud_offset": 0.0,
         "compact": compact, "dead": [],
@@ -279,19 +350,15 @@ def __create_scene(view_manager):
         "renderer": SpriteCache(draw),
         "ai_search": None, "steps": 1, "last_frame": ticks_ms(), "remainder": 0,
     }
-    collision_data = bytearray(((width + 7) // 8) * height)
-    _state["collision_data"] = collision_data
-    _state["collision"] = FrameBuffer(collision_data, width, height, MONO_HLSB, (width + 7) & ~7)
-    _game = Game("Gorillas", Vector(width, height), draw, view_manager.input_manager, WHITE, INK)
-    _state["renderer"].game = _game
+    _game = Game("Gorillas", Vector(width, height), draw, _FrameInput(view_manager.input_manager), WHITE, INK)
     _level = Level("Sunset city", Vector(width, height), _game, None, None)
-    # The Draw-backed sprite cache clears/swaps once; avoid a duplicate swap.
+    # Scenery is drawn after engine updates; avoid a duplicate clear/swap.
     _level.clear_allowed = False
-    _level.entity_add(__create_entity("sky", ENTITY_TYPE_ICON, Vector(0, 0), Vector(0, 0), render=__draw_sky))
     # Banana precedes solid entities: the engine visits each collision pair once.
     banana = __create_entity("banana", ENTITY_TYPE_ICON, Vector(-32, -32), Vector(3 * scale, 3 * scale), __banana_update, collision=__banana_collision)
     _state["banana"] = banana
     _level.entity_add(banana)
+    _level.entity_add(__create_entity('city', ENTITY_TYPE_NPC, Vector(0, 0), Vector(width, baseline + 1)))
     margin, gap = (3, 2) if compact else (8, 3)
     count = 7 if compact else 9
     building_width = (width - margin * 2 - gap * (count - 1)) // count
@@ -299,23 +366,19 @@ def __create_scene(view_manager):
         building_height = 8
         x = margin + index * (building_width + gap)
         y = baseline - building_height
-        entity = __create_entity("building_" + str(index), ENTITY_TYPE_NPC, Vector(x, y), Vector(building_width, building_height), render=__draw_building)
+        entity = _Scenery("building_" + str(index), Vector(x, y), Vector(building_width, building_height))
         _state["buildings"].append(entity)
-        _level.entity_add(entity)
     for index in range(2 if compact else 3):
-        obstacle = __create_entity("obstacle_" + str(index), ENTITY_TYPE_NPC,
-                                   Vector(-32, -32), Vector(1, 1), render=__draw_obstacle)
+        obstacle = _Scenery("obstacle_" + str(index), Vector(-32, -32), Vector(1, 1))
         _state["obstacles"].append(obstacle)
-        _level.entity_add(obstacle)
     gorilla_width, gorilla_height = (10, 11) if compact else (int(20 * gorilla_scale), int(23 * gorilla_scale))
     for index, building in enumerate((_state["buildings"][0], _state["buildings"][-1])):
         x = int(building.position.x + (building.size.x - gorilla_width) / 2)
         y = int(building.position.y - gorilla_height - 2)
-        gorilla = __create_entity("gorilla_" + str(index), ENTITY_TYPE_PLAYER, Vector(x, y), Vector(gorilla_width, gorilla_height), render=__draw_gorilla)
+        gorilla = __create_entity("gorilla_" + str(index), ENTITY_TYPE_PLAYER, Vector(x, y), Vector(gorilla_width, gorilla_height))
         _state["gorillas"].append(gorilla)
         _level.entity_add(gorilla)
     __randomize_city()
-    _level.entity_add(__create_entity("hud", ENTITY_TYPE_ICON, Vector(0, 0), Vector(0, 0), render=__draw_hud))
     _game.level_add(_level)
     _engine = GameEngine(_game, 30)
 
@@ -340,8 +403,6 @@ def __damage_terrain(x, y, radius):
                 distance = dx * dx + dy * dy
                 if distance <= radius * radius:
                     cells[index] = 0
-                    _state["collision"].fill_rect(bx + col * unit, by + row * unit,
-                                                  min(unit, bw - col * unit), min(unit, bh - row * unit), 0)
                 elif distance <= (radius + 2 * unit) ** 2:
                     cells[index] = 2 if (row + col) % 4 else 3
                 elif distance <= outer * outer and (row * 3 + col * 7) % 5 == 0:
@@ -355,7 +416,6 @@ def __damage_terrain(x, y, radius):
             cells = terrain[-1]
             for cell in range(len(cells)):
                 cells[cell] = 0
-            _state["collision"].fill_rect(bx, by, bw, bh, 0)
             _state["renderer"].invalidate(("obstacle", index))
 
 
@@ -470,20 +530,34 @@ def __draw_building_lights(index, draw):
 
 
 def __draw_decals(draw, index):
-    """Scorch, chipped brick, and fractures stay attached to solid cells."""
+    """Merge solid scorch spans; bound cosmetic commands, never blast holes."""
     x, y, w, h, cols, rows, cells = _state["terrain"][index]
     unit = _state["terrain_unit"]
-    for row in range(rows):
+    active = {}
+    remaining = DECAL_LIMIT
+    for row in range(rows + 1):
+        current = {}
         col = 0
-        while col < cols:
+        while row < rows and col < cols:
             material = cells[row * cols + col]
             end = col + 1
             while end < cols and cells[row * cols + end] == material:
                 end += 1
             if material >= 2:
-                color = (0 if material == 2 else WHITE) if _state["compact"] else (0x18A5 if material == 2 else 0x8B4C)
-                __box(draw, x + col * unit, y + row * unit, (end - col) * unit, unit, color)
+                run = (col, end, material)
+                current[run] = active.pop(run, row)
             col = end
+        for (left, right, material), top in active.items():
+            color = (0 if material == 2 else WHITE) if _state["compact"] else (0x18A5 if material == 2 else 0x8B4C)
+            # Every cell in this merged rectangle has the same solid material.
+            # Avoid another terrain-clipping pass and its temporary dictionaries.
+            draw.fill_rect(x + left * unit, y + top * unit,
+                           min(w, right * unit) - left * unit,
+                           min(h, row * unit) - top * unit, color)
+            remaining -= 1
+            if not remaining:
+                return
+        active = current
 
 
 def __draw_explosion(draw):
@@ -573,16 +647,17 @@ def __draw_hud(entity, draw, game):
         draw.present()
         return
     if phase == PHASE_FLYING:
-        for index, (x, y) in enumerate(_state["trail"]):
-            size = 1 if compact else 2
-            color = WHITE if compact else (GOLD if index > 4 else SLATE)
-            draw.watch(('trail', index), color, (int(x), int(y), int(x) + size, int(y) + size))
-            __box(draw, x, y, 1 if compact else 2, 1 if compact else 2, WHITE if compact else (GOLD if index > 4 else SLATE))
+        if draw.layer('trail', tuple(_state['trail'])):
+            for index, (x, y) in enumerate(_state["trail"]):
+                __box(draw, x, y, 1 if compact else 2, 1 if compact else 2, WHITE if compact else (GOLD if index > 4 else SLATE))
+            draw.end_layer()
         bx, by = int(_state['banana_x'] - 2 * scale), int(_state['banana_y'] - 2 * scale)
         draw.watch('banana', _state['flight_ticks'] // 3 % 4, (bx, by, bx + 8 * scale, by + 8 * scale))
         __art(draw, BANANA_FRAMES[(_state["flight_ticks"] // 3) % 4], _state["banana_x"] - 2 * scale, _state["banana_y"] - 2 * scale, scale, {"s": WHITE if compact else 0xA365, "y": WHITE if compact else GOLD, "h": WHITE if compact else CREAM})
     elif phase == PHASE_EXPLODING:
         __draw_explosion(draw)
+    if not compact:
+        __draw_hud_static(draw)
     revision = (phase, _state['turn'], _state['players'], _state['angle'], _state['power'], _state['wind'], _state['environment'], _state['message'])
     if not draw.layer('hud', revision, __ui_boxes()):
         draw.present()
@@ -595,15 +670,6 @@ def __draw_hud(entity, draw, game):
         __box(draw, 0, height - font - 2, width, font + 2, 0)
         __center_text(draw, "CPU THINKING..." if __is_cpu_turn() else "^vAim <>Pwr OK:Fire", height - font - 1, WHITE)
     else:
-        __box(draw, 0, 0, width, 39, INK)
-        title_scale = 2 if width >= 250 else 1
-        title_x = (width - 47 * title_scale) // 2
-        __art(draw, TITLE_ART, title_x + 1, 8, title_scale, {"#": 0x91E9})
-        __art(draw, TITLE_ART, title_x, 7, title_scale, {"#": CREAM})
-        __center_text(draw, _state["environment"], 27, SLATE)
-        draw.text(10, 9, "P1", TEAL)
-        opponent = "CPU" if _state["players"] == 1 else "P2"
-        draw.text(width - draw.len(opponent) - 10, 9, opponent, CORAL)
         turn_label = "THINK" if __is_cpu_turn() else ("AIM" if phase == PHASE_AIMING else "FIRE")
         label_x = 10 if _state["turn"] == 0 else width - draw.len(turn_label) - 10
         draw.text(label_x, 23, turn_label, accent)
@@ -625,12 +691,30 @@ def __draw_hud(entity, draw, game):
         footer = "CPU IS AIMING...   BACK: MENU" if __is_cpu_turn() else "U/D AIM   L/R POWER   OK FIRE   BACK MENU"
         __center_text(draw, footer, height - font - 4, SLATE)
     if phase == PHASE_GAME_OVER:
-        banner_y = height // 2 - (font + 6 if compact else 22)
-        __box(draw, 3 if compact else 25, banner_y, width - (6 if compact else 50), font * 2 + 13, 0 if compact else INK)
+        left, banner_y, right, bottom = __game_over_box()
+        __box(draw, left, banner_y, right - left, bottom - banner_y, 0 if compact else INK)
         __center_text(draw, _state["message"], banner_y + 3, accent)
         __center_text(draw, "OK: REMATCH", banner_y + font + 7, WHITE if compact else CREAM)
     draw.end_layer()
     draw.present()
+
+
+def __draw_hud_static(draw):
+    """Keep title artwork and labels separate from changing aim information."""
+    width = _state['width']
+    title_scale = 2 if width >= 250 else 1
+    title_x = (width - 47 * title_scale) // 2
+    if draw.layer('hud_static', (_state['environment'], _state['players'])):
+        __box(draw, 0, 0, width, 39, INK)
+        __art(draw, TITLE_ART, title_x + 1, 8, title_scale, {'#': 0x91E9})
+        __center_text(draw, _state['environment'], 27, SLATE)
+        draw.text(10, 9, 'P1', TEAL)
+        opponent = 'CPU' if _state['players'] == 1 else 'P2'
+        draw.text(width - draw.len(opponent) - 10, 9, opponent, CORAL)
+        draw.end_layer()
+    if draw.layer('hud_title', width):
+        __art(draw, TITLE_ART, title_x, 7, title_scale, {'#': CREAM})
+        draw.end_layer()
 
 
 def __draw_menu(draw):
@@ -723,6 +807,8 @@ def __draw_obstacle_smoke(index, draw):
 
 def __draw_sky(entity, draw, game):
     """Animated clouds, sunset, stars, and a distant city layer."""
+    # Engine updates and all collision callbacks finish before scene drawing.
+    __banana_finish()
     draw = _state["renderer"]
     draw.begin(INK, __ui_boxes())
     width, baseline, tick = _state["width"], _state["baseline"], _state["tick"]
@@ -834,6 +920,18 @@ def __finish_turn():
     _state["ai_best"] = (1e12, 50, 80)
 
 
+def __game_over_box():
+    """Fit the result panel to its text, leaving the rooftop gorillas visible."""
+    draw = _state['renderer']
+    width, height, font = _state['width'], _state['height'], _state['font_height']
+    compact = _state['compact']
+    padding = 3 if compact else 6
+    panel_width = min(width - 6, max(draw.len(_state['message']), draw.len('OK: REMATCH')) + padding * 2)
+    left = (width - panel_width) // 2
+    top = height // 2 - (font + 6 if compact else 22)
+    return (left, top, left + panel_width, top + font * 2 + 13)
+
+
 def __intact_rectangle(x, y, width, height):
     """Hide a sign or decal when its supporting masonry has been destroyed."""
     step = _state["terrain_unit"]
@@ -930,27 +1028,19 @@ def __randomize_city():
         x = int(building.position.x + (building.size.x - gorilla.size.x) / 2)
         y = int(building.position.y - gorilla.size.y - 2)
         gorilla.position = Vector(x, y)
-    __rebuild_collision()
     _state['renderer'].prepare_effect(_state['pixel_scale'], compact)
 
 
-def __rebuild_collision():
-    """Cache exact occupied pixels in a native one-bit collision surface."""
-    mask, unit = _state["collision"], _state["terrain_unit"]
-    mask.fill(0)
-    for x, y, w, h, cols, rows, cells in _state["terrain"]:
-        for row in range(rows):
-            col = 0
-            while col < cols:
-                if not cells[row * cols + col]:
-                    col += 1
-                    continue
-                end = col + 1
-                while end < cols and cells[row * cols + end]:
-                    end += 1
-                mask.fill_rect(x + col * unit, y + row * unit,
-                               min(w, end * unit) - col * unit, min(unit, h - row * unit), 1)
-                col = end
+def __render_scene():
+    """Draw scenery directly; only the banana, city and players are entities."""
+    __draw_sky(None, None, _game)
+    for building in _state['buildings']:
+        __draw_building(building, None, _game)
+    for obstacle in _state['obstacles']:
+        __draw_obstacle(obstacle, None, _game)
+    for gorilla in _state['gorillas']:
+        __draw_gorilla(gorilla, None, _game)
+    __draw_hud(None, None, _game)
 
 
 def __reset_round():
@@ -1032,11 +1122,23 @@ def __settle_gorillas():
             gorilla.position = Vector(gorilla.position.x, support - gorilla.size.y - 2)
 
 
+def __terrain_cell(terrain, x, y):
+    """Read surviving masonry directly; zero cells are holes, not colliders."""
+    bx, by, width, height, cols, rows, cells = terrain
+    if not bx <= x < bx + width or not by <= y < by + height:
+        return False
+    unit = _state["terrain_unit"]
+    return bool(cells[((int(y) - by) // unit) * cols + (int(x) - bx) // unit])
+
+
 def __terrain_solid(x, y):
-    """Query the exact cached damage mask without searching every building."""
+    """Query terrain cells for aiming/support without a duplicate pixel map."""
     if x < 0 or y < 0 or x >= _state["width"] or y >= _state["height"]:
         return False
-    return bool(_state["collision"].pixel(int(x), int(y)))
+    for terrain in _state["terrain"]:
+        if __terrain_cell(terrain, x, y):
+            return True
+    return False
 
 
 def __throw():
@@ -1054,6 +1156,8 @@ def __throw():
     _state["phase"] = PHASE_FLYING
 
 
+
+
 def __ui_boxes():
     """Opaque UI areas also define the HUD's explicit repaint regions."""
     width, height, font = _state['width'], _state['height'], _state['font_height']
@@ -1067,8 +1171,7 @@ def __ui_boxes():
     boxes = ((0, 0, width, font + 3 if compact else 39),
              (0, height - font - 2 if compact else _state['baseline'] + 3, width, height))
     if phase == PHASE_GAME_OVER:
-        y = height // 2 - (font + 6 if compact else 22)
-        boxes += ((3 if compact else 25, y, width - (3 if compact else 25), y + font * 2 + 13),)
+        boxes += (__game_over_box(),)
     return boxes
 
 
@@ -1093,8 +1196,8 @@ def run(view_manager):
     elapsed = min(132, max(0, ticks_diff(frame_started, _state["last_frame"])))
     elapsed += _state["remainder"]
     _state["last_frame"] = frame_started
-    _state["steps"] = max(1, min(4, elapsed // 33))
-    _state["remainder"] = elapsed % 33 if elapsed >= 33 else 0
+    _state["steps"] = min(4, elapsed // 33)
+    _state["remainder"] = elapsed % 33
     button = view_manager.button
     if button == BUTTON_BACK:
         if _state["phase"] == PHASE_MENU:
@@ -1133,11 +1236,9 @@ def run(view_manager):
     # Integrate wind so changing its strength never teleports the cloud layer.
     wind = _state["wind"]
     _state["cloud_offset"] += (wind * 0.09 if wind else 0.015) * _state["steps"]
+    _game.input_manager.button = button
     _engine.run_async(False)
-    # The engine's default delay is additive; spend only the remaining budget.
-    remaining = 33 - ticks_diff(ticks_ms(), frame_started)
-    if remaining > 0:
-        sleep_ms(remaining)
+    __render_scene()
 
 
 def start(view_manager):
@@ -1148,6 +1249,7 @@ def start(view_manager):
         collect()
         __create_scene(view_manager)
         _engine.run_async(False)
+        __render_scene()
         collect()
         return True
     except Exception as error:

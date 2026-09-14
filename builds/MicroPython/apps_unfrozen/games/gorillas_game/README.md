@@ -68,6 +68,25 @@ tracked group. Explosion bounds are read from the actual image records at
 scene preparation, using a 320-byte bounds table and the existing scratch
 buffer, so a small spark does not dirty the maximum-size explosion canvas.
 
+Background animation does not request a redraw when its complete bounds are
+covered by a later opaque UI panel or solid terrain cells. Partially covered
+objects remain conservative; crater holes and water-tank gaps are not opaque.
+This uses the existing terrain cells, not another bitmap. Unchanged background
+visibility is reused until the object moves or terrain/UI coverage changes.
+Commands remain available for full redraws and newly exposed areas.
+
+On colour displays the angle, power/bar, wind, turn indicator and footer have
+independent cached revisions and tight repaint bounds. Adjusting angle no
+longer invalidates both complete HUD panels. The result panel is separate;
+compact displays retain the simple two-line HUD. Cache limits are unchanged.
+
+Match state uses direct object attributes. Rectangle normalization and terrain
+clipping live in the command renderer, without a separate game-level box
+wrapper. A drawing batch checks whether its terrain is intact once; damaged
+facades still clip against every surviving cell. Solid spans bypass the generic
+command dispatcher. The cache remains bounded and still renders through stock
+Draw; these changes do not add a framebuffer or change engine/firmware code.
+
 Cached leaf commands replay directly into stock Draw with locally bound native
 methods, avoiding a Python dispatch per rectangle. Sprite records are clipped
 before taking payload views and call the bytearray method directly, without a

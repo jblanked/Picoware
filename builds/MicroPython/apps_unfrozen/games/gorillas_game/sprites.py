@@ -29,6 +29,10 @@ class SpriteCache:
         self.terrain, self.lights, self.layers = {}, {}, {}
         self.frame, self.pending = [], []
         self.atoms = []
+        self.opaque_ui, self.opaque_terrain = (), ()
+        self.terrain_unit = 1
+        self.terrain_clip = None
+        self.opaque_revision = 0
         self.tracked, self.seen = {}, set()
         self.surface = self.layer_info = None
         self.serial = self.command_count = 0
@@ -133,8 +137,10 @@ class SpriteCache:
                                       min(d, bottom) - top, value)
         elif kind in (1, 2):
             radius = (right - x - 1) // 2
-            method = self.draw._fill_circle if kind == 1 else self.draw._circle
-            method(x + radius, y + radius, radius, value)
+            if kind == 1:
+                self.draw._fill_circle(x + radius, y + radius, radius, value)
+            else:
+                self.draw._circle(x + radius, y + radius, radius, value)
         elif kind == 3:
             self.draw._text(x, y, value[0], value[1], self.draw.font)
         elif kind == 4:
@@ -162,6 +168,30 @@ class SpriteCache:
                             self._damage((x, y, right, bottom))
                         break
             changed = tuple(self.pending) != before
+
+    def _hidden(self, box):
+        """Suppress damage only when every pixel is covered by later solids."""
+        left, top, right, bottom = box
+        for a, b, c, d in self.opaque_ui:
+            if a <= left and b <= top and right <= c and bottom <= d:
+                return True
+        unit = self.terrain_unit
+        for x, y, width, height, cols, rows, cells in self.opaque_terrain:
+            if left < x or top < y or right > x + width or bottom > y + height:
+                continue
+            first, last = (left - x) // unit, (right - 1 - x) // unit
+            solid = True
+            for row in range((top - y) // unit, (bottom - 1 - y) // unit + 1):
+                offset = row * cols
+                for col in range(first, last + 1):
+                    if not cells[offset + col]:
+                        solid = False
+                        break
+                if not solid:
+                    break
+            if solid:
+                return True
+        return False
 
     def _metadata(self, commands, key, boxes=None):
         if boxes is None:
@@ -247,16 +277,26 @@ class SpriteCache:
         self.asset_reads += 1
         self.asset_bytes += len(data)
 
-    def _watch(self, key, revision, boxes):
+    def _watch(self, key, revision, boxes, background=False):
         self.seen.add(key)
-        current = (revision, boxes)
         old = self.tracked.get(key)
-        if old != current:
+        if background:
+            # Unmoved clouds/stars need no repeated terrain scan. Damage and UI
+            # changes invalidate this visibility decision even without motion.
+            if old is not None and len(old) == 4 and old[0] == revision and old[2] == boxes and old[3] == self.opaque_revision:
+                return
+            visible = tuple(box for box in boxes if not self._hidden(box))
+            current = (revision, visible, boxes, self.opaque_revision)
+            boxes = visible
+        else:
+            current = (revision, boxes)
+        if old is None or old[0] != revision or old[1] != boxes:
             if old is not None:
                 for box in old[1]:
                     self._damage(box)
             for box in boxes:
                 self._damage(box)
+        if old != current:
             self.tracked[key] = current
 
     def art(self, art, x, y, scale, palette, mirror=0, dissolve=0):
@@ -268,7 +308,11 @@ class SpriteCache:
         x, y = int(x), int(y)
         self._emit((4, x, y, x + int(w * scale), y + int(h * scale), (index, x, y)))
 
-    def begin(self, color, ui_boxes=()):
+    def begin(self, color, ui_boxes=(), terrain=(), terrain_unit=1):
+        if ui_boxes != self.opaque_ui:
+            self.opaque_revision += 1
+        self.opaque_ui, self.opaque_terrain = ui_boxes, terrain
+        self.terrain_unit = terrain_unit
         self.frame.clear()
         self.atoms.clear()
         self.seen.clear()
@@ -277,7 +321,7 @@ class SpriteCache:
             self.clip = (0, 0, self.width, self.height)
         self.fill_rect(0, 0, self.width, self.height, color)
 
-    def blit(self, cached):
+    def blit(self, cached, background=False):
         if self.immediate:
             for command in cached[0]:
                 self._execute(command)
@@ -293,7 +337,67 @@ class SpriteCache:
             self.frame.append(cached[4])
             self.atoms.extend(cached[5])
         if cached[2] is not None:
-            self._watch(cached[2], cached[3], cached[1])
+            self._watch(cached[2], cached[3], cached[1], background)
+
+    def box(self, x, y, width, height, color):
+        """Normalize scene geometry once and preserve terrain-hole clipping."""
+        x, y = int(x), int(y)
+        width, height = max(1, int(width)), max(1, int(height))
+        clip = self.terrain_clip
+        if clip is None:
+            # Common path: no game helper, fill_rect or _emit dispatch.
+            if self.surface is not None:
+                self.surface.append((0, x, y, x + width, y + height, color))
+            elif self.immediate:
+                # Native LCD coordinates are unsigned. Clip before crossing
+                # that boundary, including particles partly off screen.
+                a, b, c, d = self.clip
+                right, bottom = min(c, x + width), min(d, y + height)
+                x, y = max(a, x), max(b, y)
+                if x < right and y < bottom:
+                    self.draw._fill_rectangle(x, y, right - x, bottom - y, color)
+                    self.calls += 1
+                    self.frame_calls += 1
+            else:
+                self.frame.append((0, x, y, x + width, y + height, color))
+            return
+        terrain, unit, intact = clip
+        bx, by, bw, bh, cols, rows, cells = terrain
+        rectangle = self.fill_rect
+        # Rooftop props are drawn only when their supports survive.
+        if y < by:
+            top_height = min(height, by - y)
+            rectangle(x, y, width, top_height, color)
+            y += top_height
+            height -= top_height
+        end_x, end_y = min(x + width, bx + bw), min(y + height, by + bh)
+        x, y = max(x, bx), max(y, by)
+        if intact:
+            if end_x > x and end_y > y:
+                rectangle(x, y, end_x - x, end_y - y, color)
+            return
+        active = {}
+        while y < end_y:
+            current = {}
+            row = (y - by) // unit
+            bottom = min(end_y, by + (row + 1) * unit)
+            xx = x
+            while xx < end_x:
+                col = (xx - bx) // unit
+                solid = bool(cells[row * cols + col])
+                right = min(end_x, bx + (col + 1) * unit)
+                while right < end_x and bool(cells[row * cols + (right - bx) // unit]) == solid:
+                    right = min(end_x, right + unit)
+                if solid:
+                    run = (xx, right)
+                    current[run] = active.pop(run, y)
+                xx = right
+            for (left, right), top in active.items():
+                rectangle(left, top, right - left, y - top, color)
+            active = current
+            y = bottom
+        for (left, right), top in active.items():
+            rectangle(left, top, right - left, y - top, color)
 
     def cache_lights(self, index, window, neon):
         if self.immediate:
@@ -344,7 +448,7 @@ class SpriteCache:
     def end_layer(self):
         if self.immediate:
             return
-        key, revision, boxes = self.layer_info
+        key, revision, boxes, background = self.layer_info
         cached = self._metadata(self.surface, key, boxes)
         cached[3] = revision
         self.release()
@@ -352,17 +456,29 @@ class SpriteCache:
         if self._admit(len(cached[0])):
             self.layers[key] = (revision, cached)
             self.command_count += len(cached[0])
-        self.blit(cached)
+        self.blit(cached, background)
 
     def fill_circle(self, x, y, radius, color):
         self._emit((1, x - radius, y - radius, x + radius + 1, y + radius + 1, color))
 
     def fill_rect(self, x, y, width, height, color):
-        # Scene rectangle producers already normalize coordinates once.
+        # Already-normalized solid spans: no command dispatcher per rectangle.
         if width > 0 and height > 0:
-            self._emit((0, x, y, x + width, y + height, color))
+            if self.surface is not None:
+                self.surface.append((0, x, y, x + width, y + height, color))
+            elif self.immediate:
+                a, b, c, d = self.clip
+                right, bottom = min(c, x + width), min(d, y + height)
+                x, y = max(a, x), max(b, y)
+                if x < right and y < bottom:
+                    self.draw._fill_rectangle(x, y, right - x, bottom - y, color)
+                    self.calls += 1
+                    self.frame_calls += 1
+            else:
+                self.frame.append((0, x, y, x + width, y + height, color))
 
     def invalidate(self, key=None):
+        self.opaque_revision += 1
         if key is None:
             self.terrain.clear()
             self.lights.clear()
@@ -395,11 +511,11 @@ class SpriteCache:
         cached = self.layers.get(key)
         if cached is not None:
             if cached[0] == revision:
-                self.blit(cached[1])
+                self.blit(cached[1], background)
                 return False
             self.layers.pop(key)
             self.command_count -= len(cached[1][0])
-        self.layer_info = (key, revision, boxes)
+        self.layer_info = (key, revision, boxes, background)
         self.surface = []
         return True
 
@@ -489,8 +605,10 @@ class SpriteCache:
                                   (bottom if bottom < d else d) - top, value)
                     elif kind in (1, 2):
                         radius = (right - x - 1) // 2
-                        method = fill_circle if kind == 1 else circle
-                        method(x + radius, y + radius, radius, value)
+                        if kind == 1:
+                            fill_circle(x + radius, y + radius, radius, value)
+                        else:
+                            circle(x + radius, y + radius, radius, value)
                     elif kind == 3:
                         text(x, y, value[0], value[1], font)
                     elif kind == 4:
@@ -510,9 +628,14 @@ class SpriteCache:
     def release(self):
         self.surface = None
 
+    def set_terrain_clip(self, terrain, unit):
+        # A drawing batch never mutates terrain. Recheck after every new batch,
+        # including cache rebuilds after damage, not for every facade rectangle.
+        self.terrain_clip = None if terrain is None else (terrain, unit, all(terrain[-1]))
+
     def text(self, x, y, text, color):
         self._emit((3, x, y, x + self.len(text), y + self.font_height, (text, color)))
 
     def watch(self, key, revision, box, background=False):
         if not self.immediate:
-            self._watch(key, revision, (box,))
+            self._watch(key, revision, (box,), background)

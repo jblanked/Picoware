@@ -288,7 +288,7 @@ def __parse_update_check(view_manager) -> bool:
     Returns:
         bool: True on success.
     """
-    global _updates_available, _app_menu
+    global _updates_available, _app_menu, _http
 
     # storage = view_manager.storage
     # file_path = "picoware/cache/update_check.json"

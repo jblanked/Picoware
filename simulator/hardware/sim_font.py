@@ -9,7 +9,8 @@ def font_data(size):
     size = size if 0 <= size < len(METRICS) else 0
     if size not in _TABLES:
         height = METRICS[size][1]
-        path = __file__.rsplit("/", 1)[0] + "/../../src/MicroPython/font/font%d.c" % height
+        import sim_runtime
+        path = sim_runtime.root + "/src/MicroPython/font/font%d.c" % height
         data = bytearray()
         in_table = False
         with open(path) as source:

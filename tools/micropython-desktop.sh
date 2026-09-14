@@ -94,7 +94,8 @@ make -C "$micropython_dir/ports/unix" \
     BUILD="$staging_build" \
     VARIANT_DIR="$variant_dir" \
     USER_C_MODULES="$module_dir" \
-    FROZEN_MANIFEST= \
+    FROZEN_MANIFEST="$variant_dir/manifest.py" \
+    MPY_CROSS_FLAGS="-march=host" \
     CFLAGS_EXTRA="-DDESKTOP -Wno-error"
 
 install -m 755 "$staging_build/micropython" "$build_dir/micropython.new"

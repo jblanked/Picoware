@@ -45,6 +45,45 @@ bash micropython-desktop.sh # build
 bash run-micropython-desktop.sh # run
 ```
 
+### Pico 2 W memory checks
+
+The launcher defaults to `--board picocalc-pico2w` and a **512 KiB
+MicroPython heap ceiling**. A smaller `PICOWARE_DESKTOP_HEAP_SIZE` is preserved;
+the runtime no longer silently grows the heap to 16 MiB. Selecting Pico 2 W
+with `--keep-interpreter` rejects an oversized heap.
+
+Use `sh tools/run-micropython-desktop.sh` for the bounded interactive path.
+The desktop build freezes the simulator runner, hardware shims and Picoware
+Python libraries into its executable, analogous to firmware-resident code.
+The launcher gives these frozen modules import priority and rebuilds when their
+Python sources change. SD apps and assets are **not frozen**: application
+bytecode, state, native surfaces and image records still consume the heap.
+Directly executing `micropython simulator/run.py` remains a source-loaded path
+and is not an equivalent memory test. Source SD apps also need compilation RAM;
+`--apps-source` may point to a separately compiled `.mpy` payload for comparison.
+
+This is an upper-bound memory stress test, **not full Pico 2 W emulation**.
+Firmware/static/stack/network reservations leave less application RAM on the
+device. Conversely, 64-bit desktop objects and remaining Python hardware-shim
+state can use more RAM than 32-bit firmware/native drivers. `--speed pico2w`
+provides frame pacing; it does not emulate CPU instruction speed, SD latency,
+LCD bus throughput, or firmware memory reservations. A pass or failure is not
+by itself proof of hardware performance or memory fit.
+
+The native desktop display uses one shared, process-lifetime host GRAM arena
+(1,228,800 bytes reserved for the largest supported display; 204,800 active
+bytes for PicoCalc RGB565). Only its small Python view is charged to the
+MicroPython heap. Every LCD wrapper addresses the same simulated controller.
+This exception is display-only: the game's native RGB332 surface, command
+arrays, image payloads and Python caches still consume the bounded heap.
+It is not an exemption for any buffer allocated by actual firmware.
+
+Unscaled colour transfers write directly into that GRAM without a temporary
+full-frame Python bytes object. Scaled/monochrome fallback keeps the original
+full-image conversion for correct sampling; custom test adapters without a
+native target receive owned chunks of at most 4,096 bytes. There is still only
+one display swap per frame.
+
 ### Keyboard shortcuts (viewer window)
 
 | Shortcut | Action |

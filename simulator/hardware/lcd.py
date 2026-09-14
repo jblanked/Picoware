@@ -4,9 +4,24 @@ import ustruct
 import framebuf
 
 try:
+    from sim_raster import blit_rgb332 as _native_blit_rgb332
     from sim_raster import fill_triangle as _native_fill_triangle
 except ImportError:
+    _native_blit_rgb332 = None
     _native_fill_triangle = None
+
+try:
+    from sim_raster import display_buffer as _native_display_buffer
+except ImportError:
+    _native_display_buffer = None
+
+
+def _rgb565_to_rgb(color):
+    color = int(color) & 0xFFFF
+    r = ((color >> 11) & 31) * 255 // 31
+    g = ((color >> 5) & 63) * 255 // 63
+    b = (color & 31) * 255 // 31
+    return r, g, b
 
 
 def default_font_for_board(board_id, boards=None):
@@ -21,14 +36,6 @@ def default_font_for_board(board_id, boards=None):
     ):
         return 2
     return 0
-
-
-def _rgb565_to_rgb(color):
-    color = int(color) & 0xFFFF
-    r = ((color >> 11) & 31) * 255 // 31
-    g = ((color >> 5) & 63) * 255 // 63
-    b = (color & 31) * 255 // 31
-    return r, g, b
 
 
 class LCD:
@@ -63,9 +70,16 @@ class LCD:
         self._mode = self.MODE_HEAP
         self._brightness = 100
         self._rgb_led = (0, 0, 0)
-        self._buffer = bytearray(self.width * self.height * 2)
+        if _native_display_buffer is None:
+            self._buffer = bytearray(self.width * self.height * 2)
+            self.host_display_bytes = 0
+        else:
+            self._buffer = _native_display_buffer(self.width, self.height)
+            self.host_display_bytes = len(self._buffer)
         self._clear_buffer = self._buffer
         self._framebuffer = framebuf.FrameBuffer(self._buffer, self.width, self.height, framebuf.RGB565)
+        self._framebuffer.fill(0)
+        self._native_target = (self._buffer, self.width, self.height)
         self._sdl = None
         self._window = 0
         self._renderer = 0
@@ -76,85 +90,210 @@ class LCD:
             self._init_sdl()
         sim_runtime.set_lcd(self)
 
-    def _init_sdl(self):
+    def _blend_rgb565(self, source, destination, alpha):
+        inverse = 255 - alpha
+        sr = (source >> 11) & 0x1F
+        sg = (source >> 5) & 0x3F
+        sb = source & 0x1F
+        dr = (destination >> 11) & 0x1F
+        dg = (destination >> 5) & 0x3F
+        db = destination & 0x1F
+        red = (sr * alpha + dr * inverse) // 255
+        green = (sg * alpha + dg * inverse) // 255
+        blue = (sb * alpha + db * inverse) // 255
+        return (red << 11) | (green << 5) | blue
+
+    def _bmp(self, x, y, path):
         try:
-            import ffi
-
-            lib = ffi.open("libSDL2-2.0.so.0")
-            self._sdl = lib
-            self._SDL_Init = lib.func("i", "SDL_Init", "i")
-            self._SDL_CreateWindow = lib.func("p", "SDL_CreateWindow", "siiiii")
-            self._SDL_CreateRenderer = lib.func("p", "SDL_CreateRenderer", "pii")
-            self._SDL_CreateTexture = lib.func("p", "SDL_CreateTexture", "piiii")
-            self._SDL_UpdateTexture = lib.func("i", "SDL_UpdateTexture", "pppi")
-            self._SDL_RenderClear = lib.func("i", "SDL_RenderClear", "p")
-            self._SDL_RenderCopy = lib.func("i", "SDL_RenderCopy", "pppp")
-            self._SDL_RenderPresent = lib.func("v", "SDL_RenderPresent", "p")
-            self._SDL_SetRenderDrawColor = lib.func("i", "SDL_SetRenderDrawColor", "piiii")
-            self._SDL_PollEvent = lib.func("i", "SDL_PollEvent", "p")
-            self._SDL_Quit = lib.func("v", "SDL_Quit", "")
-            if self._SDL_Init(32) != 0:
-                print("SDL unavailable, using headless LCD")
-                return
-            s = sim_runtime.scale
-            self._window = self._SDL_CreateWindow("Picoware MicroPython Simulator", 100, 100, self.width * s, self.height * s, 0)
-            if not self._window:
-                print("SDL window unavailable, using headless LCD")
-                return
-            self._renderer = self._SDL_CreateRenderer(self._window, -1, 0)
-            if not self._renderer:
-                print("SDL renderer unavailable, using headless LCD")
-                return
-            # SDL_PIXELFORMAT_RGB565 = 0x15151002, SDL_TEXTUREACCESS_STREAMING = 1
-            self._texture = self._SDL_CreateTexture(self._renderer, 0x15151002, 1, self.width, self.height)
-            if not self._texture:
-                print("SDL texture unavailable, using headless LCD")
-                return
-            self._use_sdl = True
+            data = self._read_file(path)
+            if len(data) < 54 or data[0:2] != b"BM":
+                return False
+            off = self._u32(data, 10)
+            dib = self._u32(data, 14)
+            if dib < 40:
+                return False
+            width = self._i32(data, 18)
+            height_raw = self._i32(data, 22)
+            planes = self._u16(data, 26)
+            bpp = self._u16(data, 28)
+            compression = self._u32(data, 30)
+            colors_used = self._u32(data, 46) if len(data) >= 50 else 0
+            if planes != 1 or compression not in (0, 3):
+                return False
+            if width <= 0 or height_raw == 0:
+                return False
+            top_down = height_raw < 0
+            height = -height_raw if top_down else height_raw
+            palette = []
+            if bpp <= 8:
+                count = colors_used if colors_used else (1 << bpp)
+                pos = 14 + dib
+                for _ in range(count):
+                    if pos + 4 > len(data):
+                        break
+                    b = data[pos]
+                    g = data[pos + 1]
+                    r = data[pos + 2]
+                    palette.append(self._rgb_to_565(r, g, b))
+                    pos += 4
+            row_bits = width * bpp
+            row_bytes = ((row_bits + 31) // 32) * 4
+            x = int(x)
+            y = int(y)
+            for row in range(height):
+                src_y = row if top_down else height - 1 - row
+                row_start = off + src_y * row_bytes
+                if row_start >= len(data):
+                    break
+                for col in range(width):
+                    color = self._bmp_pixel(data, row_start, col, bpp, palette)
+                    if color is not None:
+                        self._set_pixel(x + col, y + row, color)
+            return True
         except Exception as e:
-            print("SDL unavailable, using headless LCD:", e)
+            print("[sim:lcd] BMP decode failed:", e)
+            return False
 
-    def _offset(self, x, y):
-        return (int(y) * self.width + int(x)) * 2
+    def _bmp_pixel(self, data, row_start, col, bpp, palette):
+        if bpp == 24:
+            pos = row_start + col * 3
+            if pos + 2 >= len(data):
+                return None
+            return self._rgb_to_565(data[pos + 2], data[pos + 1], data[pos])
+        if bpp == 32:
+            pos = row_start + col * 4
+            if pos + 2 >= len(data):
+                return None
+            return self._rgb_to_565(data[pos + 2], data[pos + 1], data[pos])
+        if bpp == 16:
+            pos = row_start + col * 2
+            if pos + 1 >= len(data):
+                return None
+            return self._u16(data, pos)
+        if bpp == 8:
+            pos = row_start + col
+            if pos >= len(data):
+                return None
+            idx = data[pos]
+            return palette[idx] if idx < len(palette) else 0
+        if bpp == 4:
+            pos = row_start + col // 2
+            if pos >= len(data):
+                return None
+            value = data[pos]
+            idx = (value >> 4) if col % 2 == 0 else (value & 0x0F)
+            return palette[idx] if idx < len(palette) else 0
+        if bpp == 1:
+            pos = row_start + col // 8
+            if pos >= len(data):
+                return None
+            idx = (data[pos] >> (7 - (col % 8))) & 1
+            return palette[idx] if idx < len(palette) else (0xFFFF if idx else 0)
+        return None
 
-    def _display_color(self, color):
-        color = int(color) & 0xFFFF
-        if self._is_flipper:
-            # Match color_to_mono() in Flipper/lcd/lcd.c.
-            luminance = ((color >> 11) & 31) * 299 + ((color >> 5) & 63) * 587 + (color & 31) * 114
-            return 0xFFFF if luminance > 44800 else 0
-        return color
+    def _bytearray(self, x, y, w, h, data, invert=False):
+        width = int(w)
+        height = int(h)
+        pixel_count = width * height
+        data_len = len(data)
+        if data_len < pixel_count:
+            raise ValueError("buffer too small for blit operation")
 
-    def _set_pixel(self, x, y, color):
+        is_16bit = data_len >= pixel_count * 2
+        scaled = self._scale_x_factor != 1.0 or self._scale_y_factor != 1.0
+        dst_x = int(x * self._scale_x_factor) if scaled and self.scale_position else int(x)
+        dst_y = int(y * self._scale_y_factor) if scaled and self.scale_position else int(y)
+        dst_w = int(width * self._scale_x_factor) if scaled else width
+        dst_h = int(height * self._scale_y_factor) if scaled else height
+        if dst_w <= 0 or dst_h <= 0:
+            return
+
+        if (
+            not is_16bit
+            and not invert
+            and not scaled
+            and not self._is_flipper
+            and _native_blit_rgb332 is not None
+        ):
+            _native_blit_rgb332(
+                self._buffer,
+                self.width,
+                self.height,
+                int(x),
+                int(y),
+                width,
+                height,
+                data,
+            )
+            return
+
+        for dy in range(dst_h):
+            sy = dy * height // dst_h
+            for dx in range(dst_w):
+                sx = dx * width // dst_w
+                index = sy * width + sx
+                if is_16bit:
+                    offset = index * 2
+                    value = int(data[offset]) | (int(data[offset + 1]) << 8)
+                    if invert:
+                        if value == 0xFFFF:
+                            value = 0x0000
+                        elif value == 0x0000:
+                            value = 0xFFFF
+                    color = value
+                else:
+                    value = int(data[index])
+                    if invert:
+                        if value == 0xFF:
+                            value = 0x00
+                        elif value == 0x00:
+                            value = 0xFF
+                    color = self._rgb332_to_565(value)
+                self._set_pixel(dst_x + dx, dst_y + dy, color)
+
+    def _bytearray_transparent(self, x, y, w, h, data, transparent=0):
+        """Reference implementation of the firmware's keyed RGB332 blit."""
+        if w <= 0 or h <= 0 or w > 65535 or h > 65535 or not 0 <= transparent <= 255:
+            raise ValueError("invalid RGB332 bitmap dimensions or key")
+        if len(data) != w * h:
+            raise ValueError("RGB332 bitmap requires one byte per pixel")
+        if not -65535 <= x <= 65535 or not -65535 <= y <= 65535:
+            return
+        sw, sh = w * self._scale_x_factor, h * self._scale_y_factor
+        if not 0 <= sw <= 65535 or not 0 <= sh <= 65535:
+            raise ValueError("scaled bitmap dimensions out of range")
+        dw, dh = int(sw), int(sh)
+        if dw == 0 or dh == 0:
+            return
+        dx = int(x * self._scale_x_factor) if self.scale_position else x
+        dy = int(y * self._scale_y_factor) if self.scale_position else y
+        for row in range(max(0, -dy), min(dh, self.height - dy)):
+            source_row = row * h // dh
+            for col in range(max(0, -dx), min(dw, self.width - dx)):
+                value = data[source_row * w + col * w // dw]
+                if value != transparent:
+                    self._set_pixel(dx + col, dy + row, self._rgb332_to_565(value))
+
+    def _char(self, x, y, char, color, font_size=None):
+        self._text(x, y, char, color, font_size)
+
+    def _circle(self, x, y, radius, color):
         x = int(x)
         y = int(y)
-        if 0 <= x < self.width and 0 <= y < self.height:
-            off = self._offset(x, y)
-            color = self._display_color(color) if self._is_flipper else int(color) & 0xFFFF
-            self._buffer[off] = color & 0xFF
-            self._buffer[off + 1] = (color >> 8) & 0xFF
-
-    def _get_pixel(self, x, y):
-        x = int(x)
-        y = int(y)
-        if not (0 <= x < self.width and 0 <= y < self.height):
-            return 0
-        off = self._offset(x, y)
-        return self._buffer[off] | (self._buffer[off + 1] << 8)
-
-    def _read_row(self, y):
-        """Return one framebuffer row in the shared RGB332 format."""
-        y = int(y)
-        if y < 0 or y >= self.height:
-            return b""
-        row = bytearray(self.width)
-        for x in range(self.width):
-            color = self._get_pixel(x, y)
-            r3 = ((color >> 11) & 31) >> 2
-            g3 = ((color >> 5) & 63) >> 3
-            b2 = (color & 31) >> 3
-            row[x] = (r3 << 5) | (g3 << 2) | b2
-        return bytes(row)
+        radius = int(radius)
+        xx = radius
+        yy = 0
+        err = 0
+        while xx >= yy:
+            pts = ((x + xx, y + yy), (x + yy, y + xx), (x - yy, y + xx), (x - xx, y + yy), (x - xx, y - yy), (x - yy, y - xx), (x + yy, y - xx), (x + xx, y - yy))
+            for p in pts:
+                self._set_pixel(p[0], p[1], color)
+            yy += 1
+            if err <= 0:
+                err += 2 * yy + 1
+            if err > 0:
+                xx -= 1
+                err -= 2 * xx + 1
 
     def _clear(self, color=0):
         color = self._display_color(color)
@@ -164,42 +303,35 @@ class LCD:
         # Fill the existing allocation in place, without a temporary framebuffer.
         self._framebuffer.fill(color)
 
-    def _pixel(self, x, y, color):
-        self._set_pixel(x, y, color)
-
-    def _line(self, x1, y1, x2, y2, color):
-        x1 = int(x1)
-        y1 = int(y1)
-        x2 = int(x2)
-        y2 = int(y2)
-        dx = abs(x2 - x1)
-        dy = -abs(y2 - y1)
-        sx = 1 if x1 < x2 else -1
-        sy = 1 if y1 < y2 else -1
-        err = dx + dy
-        x = x1
-        y = y1
-        while True:
-            self._set_pixel(x, y, color)
-            if x == x2 and y == y2:
-                break
-            e2 = 2 * err
-            if e2 >= dy:
-                err += dy
-                x += sx
-            if e2 <= dx:
-                err += dx
-                y += sy
-
-    def _rectangle(self, x, y, w, h, color):
+    def _display_color(self, color):
+        color = int(color) & 0xFFFF
         if self._is_flipper:
-            # Flipper lcd_draw_rect() includes the border in width and height.
-            w -= 1
-            h -= 1
-        self._line(x, y, x + w, y, color)
-        self._line(x, y, x, y + h, color)
-        self._line(x + w, y, x + w, y + h, color)
-        self._line(x, y + h, x + w, y + h, color)
+            # Match color_to_mono() in Flipper/lcd/lcd.c.
+            luminance = ((color >> 11) & 31) * 299 + ((color >> 5) & 63) * 587 + (color & 31) * 114
+            return 0xFFFF if luminance > 44800 else 0
+        return color
+
+    def _draw_glyph(self, x, y, ch, color, width, height):
+        size = (8, 12, 16, 20, 24).index(height)
+        data = sim_font.font_data(size)
+        code = ord(ch)
+        if not 32 <= code <= 126:
+            code = ord("?")
+        row_bytes = (width + 7) // 8
+        offset = (code - 32) * height * row_bytes
+        for dy in range(height):
+            for dx in range(width):
+                if data[offset + dy * row_bytes + dx // 8] & (0x80 >> (dx % 8)):
+                    self._set_pixel(x + dx, y + dy, color)
+
+    def _fill_circle(self, x, y, radius, color):
+        x = int(x)
+        y = int(y)
+        radius = int(radius)
+        for yy in range(y - radius, y + radius + 1):
+            for xx in range(x - radius, x + radius + 1):
+                if (xx - x) * (xx - x) + (yy - y) * (yy - y) <= radius * radius:
+                    self._set_pixel(xx, yy, color)
 
     def _fill_rectangle(self, x, y, w, h, color):
         x = int(x)
@@ -223,37 +355,8 @@ class LCD:
             off = self._offset(x0, yy)
             self._buffer[off : off + row_bytes] = row
 
-    def _circle(self, x, y, radius, color):
-        x = int(x)
-        y = int(y)
-        radius = int(radius)
-        xx = radius
-        yy = 0
-        err = 0
-        while xx >= yy:
-            pts = ((x + xx, y + yy), (x + yy, y + xx), (x - yy, y + xx), (x - xx, y + yy), (x - xx, y - yy), (x - yy, y - xx), (x + yy, y - xx), (x + xx, y - yy))
-            for p in pts:
-                self._set_pixel(p[0], p[1], color)
-            yy += 1
-            if err <= 0:
-                err += 2 * yy + 1
-            if err > 0:
-                xx -= 1
-                err -= 2 * xx + 1
-
-    def _fill_circle(self, x, y, radius, color):
-        x = int(x)
-        y = int(y)
-        radius = int(radius)
-        for yy in range(y - radius, y + radius + 1):
-            for xx in range(x - radius, x + radius + 1):
-                if (xx - x) * (xx - x) + (yy - y) * (yy - y) <= radius * radius:
-                    self._set_pixel(xx, yy, color)
-
-    def _triangle(self, x1, y1, x2, y2, x3, y3, color):
-        self._line(x1, y1, x2, y2, color)
-        self._line(x2, y2, x3, y3, color)
-        self._line(x3, y3, x1, y1, color)
+    def _fill_round_rectangle(self, x, y, w, h, radius, color):
+        self._fill_rectangle(x, y, w, h, color)
 
     def _fill_triangle(self, x1, y1, x2, y2, x3, y3, color):
         self._fill_triangle_alpha(x1, y1, x2, y2, x3, y3, color, 255)
@@ -310,42 +413,204 @@ class LCD:
                         blended = self._blend_rgb565(color, self._get_pixel(x, y), alpha)
                     self._set_pixel(x, y, blended)
 
-    def _triangle_edge(self, ax, ay, bx, by, px, py):
-        return (px - ax) * (by - ay) - (py - ay) * (bx - ax)
-
-    def _blend_rgb565(self, source, destination, alpha):
-        inverse = 255 - alpha
-        sr = (source >> 11) & 0x1F
-        sg = (source >> 5) & 0x3F
-        sb = source & 0x1F
-        dr = (destination >> 11) & 0x1F
-        dg = (destination >> 5) & 0x3F
-        db = destination & 0x1F
-        red = (sr * alpha + dr * inverse) // 255
-        green = (sg * alpha + dg * inverse) // 255
-        blue = (sb * alpha + db * inverse) // 255
-        return (red << 11) | (green << 5) | blue
-
-    def _fill_round_rectangle(self, x, y, w, h, radius, color):
-        self._fill_rectangle(x, y, w, h, color)
-
     def _font_metrics(self, font_size):
         if font_size is None:
             font_size = self.FONT_DEFAULT
         return sim_font.METRICS[font_size if 0 <= font_size < 5 else 0]
 
-    def _draw_glyph(self, x, y, ch, color, width, height):
-        size = (8, 12, 16, 20, 24).index(height)
-        data = sim_font.font_data(size)
-        code = ord(ch)
-        if not 32 <= code <= 126:
-            code = ord("?")
-        row_bytes = (width + 7) // 8
-        offset = (code - 32) * height * row_bytes
-        for dy in range(height):
-            for dx in range(width):
-                if data[offset + dy * row_bytes + dx // 8] & (0x80 >> (dx % 8)):
-                    self._set_pixel(x + dx, y + dy, color)
+    def _get_pixel(self, x, y):
+        x = int(x)
+        y = int(y)
+        if not (0 <= x < self.width and 0 <= y < self.height):
+            return 0
+        off = self._offset(x, y)
+        return self._buffer[off] | (self._buffer[off + 1] << 8)
+
+    def _i32(self, data, offset):
+        value = self._u32(data, offset)
+        if value & 0x80000000:
+            value -= 0x100000000
+        return value
+
+    def _init_sdl(self):
+        try:
+            import ffi
+
+            lib = ffi.open("libSDL2-2.0.so.0")
+            self._sdl = lib
+            self._SDL_Init = lib.func("i", "SDL_Init", "i")
+            self._SDL_CreateWindow = lib.func("p", "SDL_CreateWindow", "siiiii")
+            self._SDL_CreateRenderer = lib.func("p", "SDL_CreateRenderer", "pii")
+            self._SDL_CreateTexture = lib.func("p", "SDL_CreateTexture", "piiii")
+            self._SDL_UpdateTexture = lib.func("i", "SDL_UpdateTexture", "pppi")
+            self._SDL_RenderClear = lib.func("i", "SDL_RenderClear", "p")
+            self._SDL_RenderCopy = lib.func("i", "SDL_RenderCopy", "pppp")
+            self._SDL_RenderPresent = lib.func("v", "SDL_RenderPresent", "p")
+            self._SDL_SetRenderDrawColor = lib.func("i", "SDL_SetRenderDrawColor", "piiii")
+            self._SDL_PollEvent = lib.func("i", "SDL_PollEvent", "p")
+            self._SDL_Quit = lib.func("v", "SDL_Quit", "")
+            if self._SDL_Init(32) != 0:
+                print("SDL unavailable, using headless LCD")
+                return
+            s = sim_runtime.scale
+            self._window = self._SDL_CreateWindow("Picoware MicroPython Simulator", 100, 100, self.width * s, self.height * s, 0)
+            if not self._window:
+                print("SDL window unavailable, using headless LCD")
+                return
+            self._renderer = self._SDL_CreateRenderer(self._window, -1, 0)
+            if not self._renderer:
+                print("SDL renderer unavailable, using headless LCD")
+                return
+            # SDL_PIXELFORMAT_RGB565 = 0x15151002, SDL_TEXTUREACCESS_STREAMING = 1
+            self._texture = self._SDL_CreateTexture(self._renderer, 0x15151002, 1, self.width, self.height)
+            if not self._texture:
+                print("SDL texture unavailable, using headless LCD")
+                return
+            self._use_sdl = True
+        except Exception as e:
+            print("SDL unavailable, using headless LCD:", e)
+
+    def _line(self, x1, y1, x2, y2, color):
+        x1 = int(x1)
+        y1 = int(y1)
+        x2 = int(x2)
+        y2 = int(y2)
+        dx = abs(x2 - x1)
+        dy = -abs(y2 - y1)
+        sx = 1 if x1 < x2 else -1
+        sy = 1 if y1 < y2 else -1
+        err = dx + dy
+        x = x1
+        y = y1
+        while True:
+            self._set_pixel(x, y, color)
+            if x == x2 and y == y2:
+                break
+            e2 = 2 * err
+            if e2 >= dy:
+                err += dy
+                x += sx
+            if e2 <= dx:
+                err += dx
+                y += sy
+
+    def _map_sdl_key(self, sym):
+        if sym == 1073741906:
+            return 0xB5
+        if sym == 1073741905:
+            return 0xB6
+        if sym == 1073741904:
+            return 0xB4
+        if sym == 1073741903:
+            return 0xB7
+        if sym == 27:
+            return 0xB1
+        if sym == 8:
+            return 8
+        if sym in (13, 10):
+            return 13
+        if sym == 9:
+            return 9
+        if sym == 1073741898:
+            return 0xD2
+        if sym == 127:
+            return 0xD4
+        if sym == 1073741901:
+            return 0xD5
+        if 1073741882 <= sym <= 1073741891:
+            return 0x81 + (sym - 1073741882)
+        if 0 <= sym < 128:
+            return sym
+        return None
+
+    def _native_blit_target(self):
+        """Expose controller GRAM only when native blitting preserves mapping."""
+        if self._is_flipper or self._scale_x_factor != 1.0 or self._scale_y_factor != 1.0:
+            return None
+        return self._native_target
+
+    def _offset(self, x, y):
+        return (int(y) * self.width + int(x)) * 2
+
+    def _pixel(self, x, y, color):
+        self._set_pixel(x, y, color)
+
+    def _psram(self, x, y, w, h, addr):
+        try:
+            import picoware_psram
+
+            data = picoware_psram.read(addr, int(w) * int(h) * 2)
+            idx = 0
+            for yy in range(int(h)):
+                dst = self._offset(int(x), int(y) + yy)
+                row_len = int(w) * 2
+                self._buffer[dst : dst + row_len] = data[idx : idx + row_len]
+                idx += row_len
+            return True
+        except Exception as e:
+            print("[sim:lcd] PSRAM render failed:", e)
+            return False
+
+    def _read_file(self, path):
+        try:
+            import sim_runtime
+
+            host = sim_runtime.host_path(path)
+            try:
+                with open(host, "rb") as handle:
+                    return handle.read()
+            except OSError:
+                pass
+        except Exception:
+            pass
+        with open(path, "rb") as handle:
+            return handle.read()
+
+    def _read_row(self, y):
+        """Return one framebuffer row in the shared RGB332 format."""
+        y = int(y)
+        if y < 0 or y >= self.height:
+            return b""
+        row = bytearray(self.width)
+        for x in range(self.width):
+            color = self._get_pixel(x, y)
+            r3 = ((color >> 11) & 31) >> 2
+            g3 = ((color >> 5) & 63) >> 3
+            b2 = (color & 31) >> 3
+            row[x] = (r3 << 5) | (g3 << 2) | b2
+        return bytes(row)
+
+    def _rectangle(self, x, y, w, h, color):
+        if self._is_flipper:
+            # Flipper lcd_draw_rect() includes the border in width and height.
+            w -= 1
+            h -= 1
+        self._line(x, y, x + w, y, color)
+        self._line(x, y, x, y + h, color)
+        self._line(x + w, y, x + w, y + h, color)
+        self._line(x, y + h, x + w, y + h, color)
+
+    def _rgb332_to_565(self, value):
+        value = int(value) & 0xFF
+        r3 = (value >> 5) & 0x07
+        g3 = (value >> 2) & 0x07
+        b2 = value & 0x03
+        r8 = (r3 * 255) // 7
+        g8 = (g3 * 255) // 7
+        b8 = (b2 * 255) // 3
+        return self._rgb_to_565(r8, g8, b8)
+
+    def _rgb_to_565(self, r, g, b):
+        return ((int(r) & 0xF8) << 8) | ((int(g) & 0xFC) << 3) | (int(b) >> 3)
+
+    def _set_pixel(self, x, y, color):
+        x = int(x)
+        y = int(y)
+        if 0 <= x < self.width and 0 <= y < self.height:
+            off = self._offset(x, y)
+            color = self._display_color(color) if self._is_flipper else int(color) & 0xFFFF
+            self._buffer[off] = color & 0xFF
+            self._buffer[off + 1] = (color >> 8) & 0xFF
 
     def _text(self, x, y, text, color, font_size=None):
         try:
@@ -380,241 +645,19 @@ class LCD:
                 self._draw_glyph(xx, yy, ch, color, w, h)
             xx += w + spacing
 
-    def _char(self, x, y, char, color, font_size=None):
-        self._text(x, y, char, color, font_size)
+    def _triangle(self, x1, y1, x2, y2, x3, y3, color):
+        self._line(x1, y1, x2, y2, color)
+        self._line(x2, y2, x3, y3, color)
+        self._line(x3, y3, x1, y1, color)
 
-    def _bytearray(self, x, y, w, h, data, invert=False):
-        width = int(w)
-        height = int(h)
-        pixel_count = width * height
-        data_len = len(data)
-        if data_len < pixel_count:
-            raise ValueError("buffer too small for blit operation")
-
-        is_16bit = data_len >= pixel_count * 2
-        scaled = self._scale_x_factor != 1.0 or self._scale_y_factor != 1.0
-        dst_x = int(x * self._scale_x_factor) if scaled and self.scale_position else int(x)
-        dst_y = int(y * self._scale_y_factor) if scaled and self.scale_position else int(y)
-        dst_w = int(width * self._scale_x_factor) if scaled else width
-        dst_h = int(height * self._scale_y_factor) if scaled else height
-        if dst_w <= 0 or dst_h <= 0:
-            return
-
-        for dy in range(dst_h):
-            sy = dy * height // dst_h
-            for dx in range(dst_w):
-                sx = dx * width // dst_w
-                index = sy * width + sx
-                if is_16bit:
-                    offset = index * 2
-                    value = int(data[offset]) | (int(data[offset + 1]) << 8)
-                    if invert:
-                        if value == 0xFFFF:
-                            value = 0x0000
-                        elif value == 0x0000:
-                            value = 0xFFFF
-                    color = value
-                else:
-                    value = int(data[index])
-                    if invert:
-                        if value == 0xFF:
-                            value = 0x00
-                        elif value == 0x00:
-                            value = 0xFF
-                    color = self._rgb332_to_565(value)
-                self._set_pixel(dst_x + dx, dst_y + dy, color)
-
-    def _rgb332_to_565(self, value):
-        value = int(value) & 0xFF
-        r3 = (value >> 5) & 0x07
-        g3 = (value >> 2) & 0x07
-        b2 = value & 0x03
-        r8 = (r3 * 255) // 7
-        g8 = (g3 * 255) // 7
-        b8 = (b2 * 255) // 3
-        return self._rgb_to_565(r8, g8, b8)
-
-    def _bmp(self, x, y, path):
-        try:
-            data = self._read_file(path)
-            if len(data) < 54 or data[0:2] != b"BM":
-                return False
-            off = self._u32(data, 10)
-            dib = self._u32(data, 14)
-            if dib < 40:
-                return False
-            width = self._i32(data, 18)
-            height_raw = self._i32(data, 22)
-            planes = self._u16(data, 26)
-            bpp = self._u16(data, 28)
-            compression = self._u32(data, 30)
-            colors_used = self._u32(data, 46) if len(data) >= 50 else 0
-            if planes != 1 or compression not in (0, 3):
-                return False
-            if width <= 0 or height_raw == 0:
-                return False
-            top_down = height_raw < 0
-            height = -height_raw if top_down else height_raw
-            palette = []
-            if bpp <= 8:
-                count = colors_used if colors_used else (1 << bpp)
-                pos = 14 + dib
-                for _ in range(count):
-                    if pos + 4 > len(data):
-                        break
-                    b = data[pos]
-                    g = data[pos + 1]
-                    r = data[pos + 2]
-                    palette.append(self._rgb_to_565(r, g, b))
-                    pos += 4
-            row_bits = width * bpp
-            row_bytes = ((row_bits + 31) // 32) * 4
-            x = int(x)
-            y = int(y)
-            for row in range(height):
-                src_y = row if top_down else height - 1 - row
-                row_start = off + src_y * row_bytes
-                if row_start >= len(data):
-                    break
-                for col in range(width):
-                    color = self._bmp_pixel(data, row_start, col, bpp, palette)
-                    if color is not None:
-                        self._set_pixel(x + col, y + row, color)
-            return True
-        except Exception as e:
-            print("[sim:lcd] BMP decode failed:", e)
-            return False
-
-    def _psram(self, x, y, w, h, addr):
-        try:
-            import picoware_psram
-
-            data = picoware_psram.read(addr, int(w) * int(h) * 2)
-            idx = 0
-            for yy in range(int(h)):
-                dst = self._offset(int(x), int(y) + yy)
-                row_len = int(w) * 2
-                self._buffer[dst : dst + row_len] = data[idx : idx + row_len]
-                idx += row_len
-            return True
-        except Exception as e:
-            print("[sim:lcd] PSRAM render failed:", e)
-            return False
-
-    def _read_file(self, path):
-        try:
-            import sim_runtime
-
-            host = sim_runtime.host_path(path)
-            try:
-                with open(host, "rb") as handle:
-                    return handle.read()
-            except OSError:
-                pass
-        except Exception:
-            pass
-        with open(path, "rb") as handle:
-            return handle.read()
+    def _triangle_edge(self, ax, ay, bx, by, px, py):
+        return (px - ax) * (by - ay) - (py - ay) * (bx - ax)
 
     def _u16(self, data, offset):
         return int(data[offset]) | (int(data[offset + 1]) << 8)
 
     def _u32(self, data, offset):
         return self._u16(data, offset) | (self._u16(data, offset + 2) << 16)
-
-    def _i32(self, data, offset):
-        value = self._u32(data, offset)
-        if value & 0x80000000:
-            value -= 0x100000000
-        return value
-
-    def _rgb_to_565(self, r, g, b):
-        return ((int(r) & 0xF8) << 8) | ((int(g) & 0xFC) << 3) | (int(b) >> 3)
-
-    def _bmp_pixel(self, data, row_start, col, bpp, palette):
-        if bpp == 24:
-            pos = row_start + col * 3
-            if pos + 2 >= len(data):
-                return None
-            return self._rgb_to_565(data[pos + 2], data[pos + 1], data[pos])
-        if bpp == 32:
-            pos = row_start + col * 4
-            if pos + 2 >= len(data):
-                return None
-            return self._rgb_to_565(data[pos + 2], data[pos + 1], data[pos])
-        if bpp == 16:
-            pos = row_start + col * 2
-            if pos + 1 >= len(data):
-                return None
-            return self._u16(data, pos)
-        if bpp == 8:
-            pos = row_start + col
-            if pos >= len(data):
-                return None
-            idx = data[pos]
-            return palette[idx] if idx < len(palette) else 0
-        if bpp == 4:
-            pos = row_start + col // 2
-            if pos >= len(data):
-                return None
-            value = data[pos]
-            idx = (value >> 4) if col % 2 == 0 else (value & 0x0F)
-            return palette[idx] if idx < len(palette) else 0
-        if bpp == 1:
-            pos = row_start + col // 8
-            if pos >= len(data):
-                return None
-            idx = (data[pos] >> (7 - (col % 8))) & 1
-            return palette[idx] if idx < len(palette) else (0xFFFF if idx else 0)
-        return None
-
-    def set_mode(self, mode):
-        self._mode = mode
-
-    def set_brightness(self, level):
-        self._brightness = max(0, min(100, int(level)))
-
-    def set_rgb_led(self, red, green, blue):
-        self._rgb_led = (
-            int(red) & 0xFF,
-            int(green) & 0xFF,
-            int(blue) & 0xFF,
-        )
-
-    def set_scaling(self, scale_x, scale_y, scale_position=False):
-        self._scale_x_factor = scale_x
-        self._scale_y_factor = scale_y
-        self.scale_position = scale_position
-
-    def scale_x(self, value, screen_width=320):
-        """Convert a layout coordinate from the reference display width."""
-        scaled = 0.0 if value == 0 else value * self.width / float(screen_width)
-        return int(scaled) if isinstance(value, int) else scaled
-
-    def scale_y(self, value, screen_height=320):
-        """Convert a layout coordinate from the reference display height."""
-        scaled = 0.0 if value == 0 else value * self.height / float(screen_height)
-        return int(scaled) if isinstance(value, int) else scaled
-
-    def scale(self, x, y, screen_width=320, screen_height=320):
-        return int(self.scale_x(x, screen_width)), int(self.scale_y(y, screen_height))
-
-    def scale_vector(self, position, screen_width=320, screen_height=320):
-        x = self.scale_x(float(position.x), screen_width)
-        y = self.scale_y(float(position.y), screen_height)
-        # The native Vector exposes its integer mode through coordinate types.
-        return (int(x), int(y)) if isinstance(position.x, int) else (x, y)
-
-    def swap(self):
-        self.poll_events()
-        if sim_runtime.viewer and sim_runtime.viewer_frame_path:
-            self._write_raw_frame(sim_runtime.viewer_frame_path)
-        if self._use_sdl:
-            self._SDL_UpdateTexture(self._texture, 0, self._buffer, self.width * 2)
-            self._SDL_RenderClear(self._renderer)
-            self._SDL_RenderCopy(self._renderer, self._texture, 0, 0)
-            self._SDL_RenderPresent(self._renderer)
-        sim_runtime.frame_swapped()
 
     def _write_raw_frame(self, file_path):
         tmp_path = file_path + ".tmp"
@@ -641,34 +684,24 @@ class LCD:
                 if key is not None:
                     sim_runtime.push_key(key)
 
-    def _map_sdl_key(self, sym):
-        if sym == 1073741906:
-            return 0xB5
-        if sym == 1073741905:
-            return 0xB6
-        if sym == 1073741904:
-            return 0xB4
-        if sym == 1073741903:
-            return 0xB7
-        if sym == 27:
-            return 0xB1
-        if sym == 8:
-            return 8
-        if sym in (13, 10):
-            return 13
-        if sym == 9:
-            return 9
-        if sym == 1073741898:
-            return 0xD2
-        if sym == 127:
-            return 0xD4
-        if sym == 1073741901:
-            return 0xD5
-        if 1073741882 <= sym <= 1073741891:
-            return 0x81 + (sym - 1073741882)
-        if 0 <= sym < 128:
-            return sym
-        return None
+    def scale(self, x, y, screen_width=320, screen_height=320):
+        return int(self.scale_x(x, screen_width)), int(self.scale_y(y, screen_height))
+
+    def scale_vector(self, position, screen_width=320, screen_height=320):
+        x = self.scale_x(float(position.x), screen_width)
+        y = self.scale_y(float(position.y), screen_height)
+        # The native Vector exposes its integer mode through coordinate types.
+        return (int(x), int(y)) if isinstance(position.x, int) else (x, y)
+
+    def scale_x(self, value, screen_width=320):
+        """Convert a layout coordinate from the reference display width."""
+        scaled = 0.0 if value == 0 else value * self.width / float(screen_width)
+        return int(scaled) if isinstance(value, int) else scaled
+
+    def scale_y(self, value, screen_height=320):
+        """Convert a layout coordinate from the reference display height."""
+        scaled = 0.0 if value == 0 else value * self.height / float(screen_height)
+        return int(scaled) if isinstance(value, int) else scaled
 
     def screenshot(self, file_path):
         row_bytes = self.width * 3
@@ -688,3 +721,32 @@ class LCD:
                 if padding:
                     handle.write(b"\x00" * padding)
         return True
+
+    def set_brightness(self, level):
+        self._brightness = max(0, min(100, int(level)))
+
+    def set_mode(self, mode):
+        self._mode = mode
+
+    def set_rgb_led(self, red, green, blue):
+        self._rgb_led = (
+            int(red) & 0xFF,
+            int(green) & 0xFF,
+            int(blue) & 0xFF,
+        )
+
+    def set_scaling(self, scale_x, scale_y, scale_position=False):
+        self._scale_x_factor = scale_x
+        self._scale_y_factor = scale_y
+        self.scale_position = scale_position
+
+    def swap(self):
+        self.poll_events()
+        if sim_runtime.viewer and sim_runtime.viewer_frame_path:
+            self._write_raw_frame(sim_runtime.viewer_frame_path)
+        if self._use_sdl:
+            self._SDL_UpdateTexture(self._texture, 0, self._buffer, self.width * 2)
+            self._SDL_RenderClear(self._renderer)
+            self._SDL_RenderCopy(self._renderer, self._texture, 0, 0)
+            self._SDL_RenderPresent(self._renderer)
+        sim_runtime.frame_swapped()

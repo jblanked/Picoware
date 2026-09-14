@@ -41,7 +41,10 @@ or framebuffer extensions.
 
 Only four objects are engine entities: the banana, two gorillas, and a shared
 city collision region. Buildings and obstacles are ordinary geometry records;
-sky, scenery and HUD are drawn directly after engine updates. The app does not
+sky, scenery and HUD are drawn once from the first player's render callback,
+after engine updates and collision dispatch. The callback remains active when
+that gorilla loses, so menus and death/rematch screens still render. There is
+no second scene draw after `run_async`. The app does not
 sleep or request engine frame delays. Physics and visual animation use elapsed
 33 ms ticks, including zero ticks when a frame arrives sooner, with bounded
 catch-up after a slow frame.
@@ -64,6 +67,15 @@ area is merged instead of invalidating the entire screen. Trail dots share one
 tracked group. Explosion bounds are read from the actual image records at
 scene preparation, using a 320-byte bounds table and the existing scratch
 buffer, so a small spark does not dirty the maximum-size explosion canvas.
+
+Cached leaf commands replay directly into stock Draw with locally bound native
+methods, avoiding a Python dispatch per rectangle. Sprite records are clipped
+before taking payload views and call the bytearray method directly, without a
+separate per-patch wrapper. Integer conversion happens at scene geometry
+boundaries rather than again inside rectangle, circle and text submission.
+The palette-blending math uses `picoware.system.decorator.native`; the current
+helper compiles a calling wrapper, not the original function body, so it is
+not treated as evidence of native math acceleration or a frame-rate guarantee.
 
 Small displays and heaps with less than 192 KiB free when the renderer is
 constructed use direct drawing without retained scene commands. This trades

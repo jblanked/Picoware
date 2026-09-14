@@ -13,6 +13,7 @@ from picoware.engine.level import Level
 from picoware.system.buttons import (
     BUTTON_BACK, BUTTON_CENTER, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_UP,
 )
+from picoware.system.decorator import native
 from picoware.system.vector import Vector
 
 from .assets import BANANA_FRAMES, CLOUD_ART, GORILLA_ART, TITLE_ART
@@ -375,7 +376,7 @@ def __create_scene(view_manager):
     for index, building in enumerate((_state["buildings"][0], _state["buildings"][-1])):
         x = int(building.position.x + (building.size.x - gorilla_width) / 2)
         y = int(building.position.y - gorilla_height - 2)
-        gorilla = __create_entity("gorilla_" + str(index), ENTITY_TYPE_PLAYER, Vector(x, y), Vector(gorilla_width, gorilla_height))
+        gorilla = __create_entity("gorilla_" + str(index), ENTITY_TYPE_PLAYER, Vector(x, y), Vector(gorilla_width, gorilla_height), render=__render_scene if index == 0 else None)
         _state["gorillas"].append(gorilla)
         _level.entity_add(gorilla)
     __randomize_city()
@@ -953,6 +954,7 @@ def __launch_position():
     return gorilla.position.x + gorilla.size.x / 2, gorilla.position.y - 5 * _state["pixel_scale"]
 
 
+@native
 def __mix_color(first, second, amount):
     """Blend RGB565 palette entries once when the match starts."""
     red = (((first >> 11) & 31) * (256 - amount) + ((second >> 11) & 31) * amount) // 256
@@ -1031,8 +1033,8 @@ def __randomize_city():
     _state['renderer'].prepare_effect(_state['pixel_scale'], compact)
 
 
-def __render_scene():
-    """Draw scenery directly; only the banana, city and players are entities."""
+def __render_scene(entity, draw, game):
+    """Render/present once through player one's native engine render callback."""
     __draw_sky(None, None, _game)
     for building in _state['buildings']:
         __draw_building(building, None, _game)
@@ -1238,7 +1240,6 @@ def run(view_manager):
     _state["cloud_offset"] += (wind * 0.09 if wind else 0.015) * _state["steps"]
     _game.input_manager.button = button
     _engine.run_async(False)
-    __render_scene()
 
 
 def start(view_manager):
@@ -1249,7 +1250,6 @@ def start(view_manager):
         collect()
         __create_scene(view_manager)
         _engine.run_async(False)
-        __render_scene()
         collect()
         return True
     except Exception as error:

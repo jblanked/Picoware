@@ -205,33 +205,40 @@ class SpriteCache:
                         raise ValueError('Art exceeds small scratch buffer')
                     data = self.art_buffer[:length]
                     self._read(self.art_source, offset, data)
-        cursor = 2
+        cursor, calls = 2, 0
+        a, b, c, d = self.clip
+        image = self.draw._bytearray
+        data_length = len(data)
         for unused in range(unpack_from('<H', data)[0]):
             px, py, w, h = unpack_from('<HHHH', data, cursor)
             cursor += 8
-            if not w or not h or cursor + w * h > len(data):
+            end = cursor + w * h
+            if not w or not h or end > data_length:
                 raise ValueError('Invalid sprite rectangle')
-            self._patch(x + px, y + py, w, h, data[cursor:cursor + w * h])
-            cursor += w * h
-        if cursor != len(data):
+            px += x
+            py += y
+            if px < c and px + w > a and py < d and py + h > b:
+                left = a - px if px < a else 0
+                top = b - py if py < b else 0
+                right = c - px if px + w > c else w
+                bottom = d - py if py + h > d else h
+                # Clip before slicing; feed the existing bytearray API directly
+                # from the record buffer, without a per-patch Python wrapper.
+                if left == 0 and right == w:
+                    image(px, py + top, w, bottom - top,
+                          data[cursor + top * w:cursor + bottom * w])
+                    calls += 1
+                else:
+                    for row in range(top, bottom):
+                        offset = cursor + row * w
+                        image(px + left, py + row, right - left, 1,
+                              data[offset + left:offset + right])
+                    calls += bottom - top
+            cursor = end
+        self.calls += calls
+        self.frame_calls += calls
+        if cursor != data_length:
             raise ValueError('Invalid sprite length')
-
-    def _patch(self, x, y, w, h, data):
-        a, b, c, d = self.clip
-        left, top = max(0, a - x), max(0, b - y)
-        right, bottom = min(w, c - x), min(h, d - y)
-        if left >= right or top >= bottom:
-            return
-        if left == 0 and right == w:
-            self.draw._bytearray(x, y + top, w, bottom - top, data[top * w:bottom * w])
-            count = 1
-        else:
-            for row in range(top, bottom):
-                self.draw._bytearray(x + left, y + row, right - left, 1,
-                                     data[row * w + left:row * w + right])
-            count = bottom - top
-        self.calls += count
-        self.frame_calls += count
 
     def _read(self, source, offset, data):
         source.seek(offset)
@@ -307,7 +314,6 @@ class SpriteCache:
         return self._metadata(self.surface, None, ((x, y, x + width, y + height),))
 
     def circle(self, x, y, radius, color):
-        x, y, radius = int(x), int(y), int(radius)
         self._emit((2, x - radius, y - radius, x + radius + 1, y + radius + 1, color))
 
     def close(self):
@@ -349,11 +355,10 @@ class SpriteCache:
         self.blit(cached)
 
     def fill_circle(self, x, y, radius, color):
-        x, y, radius = int(x), int(y), int(radius)
         self._emit((1, x - radius, y - radius, x + radius + 1, y + radius + 1, color))
 
     def fill_rect(self, x, y, width, height, color):
-        x, y, width, height = int(x), int(y), int(width), int(height)
+        # Scene rectangle producers already normalize coordinates once.
         if width > 0 and height > 0:
             self._emit((0, x, y, x + width, y + height, color))
 
@@ -460,12 +465,43 @@ class SpriteCache:
             self._expand()
         self.last_regions = len(self.pending)
         self.last_area = sum((c - a) * (d - b) for a, b, c, d in self.pending)
+        # Replay leaf commands directly into stock Draw. Avoid another Python
+        # method dispatch for every rectangle in every cached building group.
+        rectangle = self.draw._fill_rectangle
+        circle, fill_circle = self.draw._circle, self.draw._fill_circle
+        text, font = self.draw._text, self.draw.font
+        packed = self._packed
+        calls = 0
         for region in self.pending:
             self.clip = region
             a, b, c, d = region
-            for command in self.frame:
-                if command[1] < c and command[3] > a and command[2] < d and command[4] > b:
-                    self._execute(command)
+            for group in self.frame:
+                if group[1] >= c or group[3] <= a or group[2] >= d or group[4] <= b:
+                    continue
+                commands = group[5] if group[0] == 5 else (group,)
+                for command in commands:
+                    kind, x, y, right, bottom, value = command
+                    if x >= c or right <= a or y >= d or bottom <= b:
+                        continue
+                    if kind == 0:
+                        left, top = x if x > a else a, y if y > b else b
+                        rectangle(left, top, (right if right < c else c) - left,
+                                  (bottom if bottom < d else d) - top, value)
+                    elif kind in (1, 2):
+                        radius = (right - x - 1) // 2
+                        method = fill_circle if kind == 1 else circle
+                        method(x + radius, y + radius, radius, value)
+                    elif kind == 3:
+                        text(x, y, value[0], value[1], font)
+                    elif kind == 4:
+                        packed(value[0], value[1], value[2])
+                        continue
+                    else:
+                        self._execute(command)
+                        continue
+                    calls += 1
+        self.calls += calls
+        self.frame_calls += calls
         if self.pending:
             self.draw.swap()
         self.pending.clear()
@@ -475,7 +511,6 @@ class SpriteCache:
         self.surface = None
 
     def text(self, x, y, text, color):
-        x, y = int(x), int(y)
         self._emit((3, x, y, x + self.len(text), y + self.font_height, (text, color)))
 
     def watch(self, key, revision, box, background=False):

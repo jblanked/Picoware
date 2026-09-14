@@ -123,43 +123,44 @@ def run(view_manager) -> None:
 
     draw = view_manager.draw
     draw.clear()
+    fg = view_manager.foreground_color
 
-    draw._text(5, 5, "BLE Peripheral Mode")
-    draw._text(5, 25, "Name: Picoware")
-    draw._text(5, 45, f"MAC: {_bluetooth.mac_address}")
+    draw._text(5, 5, "BLE Peripheral Mode", fg)
+    draw._text(5, 25, "Name: Picoware", fg)
+    draw._text(5, 45, f"MAC: {_bluetooth.mac_address}", fg)
 
     # Status
     if _state == STATE_ADVERTISING:
-        draw._text(5, 70, "Status: Broadcasting...")
+        draw._text(5, 70, "Status: Broadcasting...", fg)
     elif _state == STATE_CONNECTED:
-        draw._text(5, 70, "Status: Connected")
+        draw._text(5, 70, "Status: Connected", fg)
     else:
-        draw._text(5, 70, "Status: Idle")
+        draw._text(5, 70, "Status: Idle", fg)
 
-    draw._text(5, 90, f"Connections: {len(_connections)}")
+    draw._text(5, 90, f"Connections: {len(_connections)}", fg)
 
     # Show connected devices
     y_offset = 110
     if _connections:
         for i, (handle, addr) in enumerate(_connections[:2]):
             if y_offset < draw.size.y - 60:
-                draw._text(10, y_offset, f"{addr[:17]}")
+                draw._text(10, y_offset, f"{addr[:17]}", fg)
                 y_offset += 15
 
     # Show received data
     if _received_data:
         y_offset = max(y_offset, 140)
-        draw._text(5, y_offset, "Last received:")
+        draw._text(5, y_offset, "Last received:", fg)
         y_offset += 15
         for msg in _received_data[-2:]:
             if y_offset < draw.size.y - 30:
-                draw._text(10, y_offset, msg[:25])
+                draw._text(10, y_offset, msg[:25], fg)
                 y_offset += 12
 
     # Instructions
     if _state == STATE_CONNECTED:
-        draw._text(5, draw.size.y - 30, "CENTER: Send test msg")
-    draw._text(5, draw.size.y - 15, "BACK: Exit")
+        draw._text(5, draw.size.y - 30, "CENTER: Send test msg", fg)
+    draw._text(5, draw.size.y - 15, "BACK: Exit", fg)
     draw.swap()
 
 

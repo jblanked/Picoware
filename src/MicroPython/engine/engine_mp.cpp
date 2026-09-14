@@ -1,23 +1,59 @@
 #include "camera_mp.h"
 #include "engine_mp.h"
 #include "entity_mp.h"
+#include "framebuffer2d_mp.h"
 #include "game_mp.h"
 #include "image_mp.h"
+#include "layer2d_mp.h"
 #include "level_mp.h"
 #include "sprite3d_mp.h"
 #include "triangle3d_mp.h"
 #include "pico-game-engine/engine/engine.hpp"
+
+static mp_obj_t engine_mp_game_global = MP_OBJ_NULL;
+static MP_DEFINE_CONST_FUN_OBJ_1(engine_mp_del_obj, engine_mp_del);
 
 static inline GameEngine *engine_get_context(engine_mp_obj_t *self)
 {
     return static_cast<GameEngine *>(self->context);
 }
 
-static mp_obj_t engine_mp_game_global = MP_OBJ_NULL;
-
-mp_obj_t engine_mp_get_current_game(void)
+void engine_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
-    return engine_mp_game_global;
+    engine_mp_obj_t *self = static_cast<engine_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (self->freed)
+        return;
+    if (destination[0] == MP_OBJ_NULL)
+    {
+        // Load attributes
+        if (attribute == MP_QSTR_game)
+        {
+            destination[0] = self->game_obj;
+        }
+        else if (attribute == MP_QSTR___del__)
+        {
+            destination[0] = MP_OBJ_FROM_PTR(&engine_mp_del_obj);
+        }
+    }
+}
+
+mp_obj_t engine_mp_del(mp_obj_t self_in)
+{
+    engine_mp_obj_t *self = static_cast<engine_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    if (!self)
+        return mp_const_none;
+    if (self->freed)
+    {
+        return mp_const_none;
+    }
+    GameEngine *ctx = engine_get_context(self);
+    if (ctx)
+        delete ctx;
+    self->context = nullptr;
+    self->freed = true;
+    self->game_obj = MP_OBJ_NULL;
+    engine_mp_game_global = MP_OBJ_NULL;
+    return mp_const_none;
 }
 
 void engine_mp_del_reference(mp_obj_t mp_obj)
@@ -32,6 +68,29 @@ void engine_mp_del_reference(mp_obj_t mp_obj)
         mp_call_function_0(del_method);
     }
     mp_obj = MP_OBJ_NULL;
+}
+
+mp_obj_t engine_mp_get_current_game(void)
+{
+    return engine_mp_game_global;
+}
+
+mp_obj_t engine_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
+{
+    mp_arg_check_num(n_args, n_kw, 2, 2, false);
+    engine_mp_obj_t *self = mp_obj_malloc_with_finaliser(engine_mp_obj_t, &engine_mp_type);
+    self->base.type = &engine_mp_type;
+    mp_obj_t native_game = mp_obj_cast_to_native_base(args[0], MP_OBJ_FROM_PTR(&game_mp_type));
+    if (native_game == MP_OBJ_NULL)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected Game"));
+    game_mp_obj_t *game_mp = static_cast<game_mp_obj_t *>(MP_OBJ_TO_PTR(native_game));
+    Game *game_ctx = static_cast<Game *>(game_mp->context);
+    self->game_obj = args[0];
+    engine_mp_game_global = self->game_obj;
+    float fps = (float)mp_obj_get_int(args[1]);
+    self->context = new GameEngine(game_ctx, fps);
+    self->freed = false;
+    return MP_OBJ_FROM_PTR(self);
 }
 
 void engine_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind)
@@ -54,44 +113,6 @@ void engine_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t 
     }
     mp_print_str(print, ")");
 }
-
-mp_obj_t engine_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
-{
-    mp_arg_check_num(n_args, n_kw, 2, 2, false);
-    engine_mp_obj_t *self = mp_obj_malloc_with_finaliser(engine_mp_obj_t, &engine_mp_type);
-    self->base.type = &engine_mp_type;
-    mp_obj_t native_game = mp_obj_cast_to_native_base(args[0], MP_OBJ_FROM_PTR(&game_mp_type));
-    if (native_game == MP_OBJ_NULL)
-        mp_raise_TypeError(MP_ERROR_TEXT("expected Game"));
-    game_mp_obj_t *game_mp = static_cast<game_mp_obj_t *>(MP_OBJ_TO_PTR(native_game));
-    Game *game_ctx = static_cast<Game *>(game_mp->context);
-    self->game_obj = args[0];
-    engine_mp_game_global = self->game_obj;
-    float fps = (float)mp_obj_get_int(args[1]);
-    self->context = new GameEngine(game_ctx, fps);
-    self->freed = false;
-    return MP_OBJ_FROM_PTR(self);
-}
-
-mp_obj_t engine_mp_del(mp_obj_t self_in)
-{
-    engine_mp_obj_t *self = static_cast<engine_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
-    if (!self)
-        return mp_const_none;
-    if (self->freed)
-    {
-        return mp_const_none;
-    }
-    GameEngine *ctx = engine_get_context(self);
-    if (ctx)
-        delete ctx;
-    self->context = nullptr;
-    self->freed = true;
-    self->game_obj = MP_OBJ_NULL;
-    engine_mp_game_global = MP_OBJ_NULL;
-    return mp_const_none;
-}
-static MP_DEFINE_CONST_FUN_OBJ_1(engine_mp_del_obj, engine_mp_del);
 
 mp_obj_t engine_mp_run(mp_obj_t self_in)
 {
@@ -138,25 +159,6 @@ mp_obj_t engine_mp_update_game_input(mp_obj_t self_in, mp_obj_t input)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(engine_mp_update_game_input_obj, engine_mp_update_game_input);
 
-void engine_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
-{
-    engine_mp_obj_t *self = static_cast<engine_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
-    if (self->freed)
-        return;
-    if (destination[0] == MP_OBJ_NULL)
-    {
-        // Load attributes
-        if (attribute == MP_QSTR_game)
-        {
-            destination[0] = self->game_obj;
-        }
-        else if (attribute == MP_QSTR___del__)
-        {
-            destination[0] = MP_OBJ_FROM_PTR(&engine_mp_del_obj);
-        }
-    }
-}
-
 static const mp_rom_map_elem_t engine_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_run), MP_ROM_PTR(&engine_mp_run_obj)},
     {MP_ROM_QSTR(MP_QSTR_run_async), MP_ROM_PTR(&engine_mp_run_async_obj)},
@@ -188,8 +190,10 @@ static const mp_rom_map_elem_t engine_mp_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_Camera), MP_ROM_PTR(&camera_mp_type)},
     {MP_ROM_QSTR(MP_QSTR_Engine), MP_ROM_PTR(&engine_mp_type)},
     {MP_ROM_QSTR(MP_QSTR_Entity), MP_ROM_PTR(&entity_mp_type)},
+    {MP_ROM_QSTR(MP_QSTR_FrameBuffer2D), MP_ROM_PTR(&framebuffer2d_mp_type)},
     {MP_ROM_QSTR(MP_QSTR_Game), MP_ROM_PTR(&game_mp_type)},
     {MP_ROM_QSTR(MP_QSTR_Image), MP_ROM_PTR(&image_mp_type)},
+    {MP_ROM_QSTR(MP_QSTR_Layer2D), MP_ROM_PTR(&layer2d_mp_type)},
     {MP_ROM_QSTR(MP_QSTR_Level), MP_ROM_PTR(&level_mp_type)},
     {MP_ROM_QSTR(MP_QSTR_Sprite3D), MP_ROM_PTR(&sprite3d_mp_type)},
     {MP_ROM_QSTR(MP_QSTR_Triangle3D), MP_ROM_PTR(&triangle3d_mp_type)},

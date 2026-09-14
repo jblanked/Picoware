@@ -2,6 +2,9 @@
 
 import engine
 
+Layer2D = engine.Layer2D
+FrameBuffer2D = engine.FrameBuffer2D
+
 
 class GameEngine(engine.Engine):
     """Run a game through the native engine loop.

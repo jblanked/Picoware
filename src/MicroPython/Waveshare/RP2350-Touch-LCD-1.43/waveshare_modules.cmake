@@ -251,15 +251,19 @@ target_sources(usermod_engine INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/../../engine/camera_mp.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../engine/engine_mp.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../engine/entity_mp.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/framebuffer2d_mp.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../engine/game_mp.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../engine/image_mp.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/layer2d_mp.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../engine/level_mp.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../engine/sprite3d_mp.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../engine/triangle3d_mp.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../engine/pico-game-engine/engine/draw.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../engine/pico-game-engine/engine/entity.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/pico-game-engine/engine/framebuffer2d.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../engine/pico-game-engine/engine/game.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../engine/pico-game-engine/engine/image.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../../engine/pico-game-engine/engine/layer2d.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../engine/pico-game-engine/engine/level.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../engine/pico-game-engine/engine/sprite3d.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../../engine/pico-game-engine/engine/triangle3d.cpp

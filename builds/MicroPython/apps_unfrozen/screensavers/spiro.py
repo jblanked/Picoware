@@ -4,7 +4,6 @@ from math import cos, sin
 from random import randint
 from picoware.system.buttons import BUTTON_LEFT, BUTTON_BACK
 from picoware.system.colors import TFT_BLACK
-from picoware.system.vector import Vector
 
 DEG2RAD = const(0.0174532925)  # Convert angles in degrees to radians
 sp_sx = 0.0
@@ -109,8 +108,8 @@ def run(view_manager) -> None:
 
             sp_sy = cos(((i % 360) - 90) * DEG2RAD)
             sp_sx = sin(((i % 360) - 90) * DEG2RAD)
-            x1 = int(tft.scale_x(sp_sx * r + x0))
-            yy1 = int(tft.scale_y(sp_sy * r + yy0))
+            x1 = tft.scale_x(sp_sx * r + x0)
+            yy1 = tft.scale_y(sp_sy * r + yy0)
 
             color = rainbow(map_value(i % 360, 0, 360, 0, 127))
             tft._pixel(x1, yy1, color)
@@ -125,8 +124,8 @@ def run(view_manager) -> None:
 
             sp_sy = cos(((i % 360) - 90) * DEG2RAD)
             sp_sx = sin(((i % 360) - 90) * DEG2RAD)
-            x1 = int(tft.scale_x(sp_sx * r + x0))
-            yy1 = int(tft.scale_y(sp_sy * r + yy0))
+            x1 = tft.scale_x(sp_sx * r + x0)
+            yy1 = tft.scale_y(sp_sy * r + yy0)
 
             color = rainbow(map_value(i % 360, 0, 360, 0, 127))
             tft._pixel(x1, yy1, color)

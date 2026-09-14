@@ -170,8 +170,8 @@ def start(view_manager) -> bool:
         TFT_GREEN,
     ]
     if is_flipper:
-        for i in range(len(petal_colors)):
-            if petal_colors[i] != TFT_BLACK:
+        for i, color in enumerate(petal_colors):
+            if color != TFT_BLACK:
                 petal_colors[i] = 0xFFFF
     return True
 

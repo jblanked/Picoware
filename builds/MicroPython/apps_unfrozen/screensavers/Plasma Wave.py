@@ -4,7 +4,6 @@ from picoware.system.buttons import BUTTON_BACK
 from picoware.system.colors import TFT_BLACK
 from picoware.system.vector import Vector
 
-screen_size = None
 time_offset = 0
 sample_rate = 8
 is_flipper = None
@@ -39,13 +38,12 @@ def plasma_color(value: float) -> int:
 
 def start(view_manager) -> bool:
     """Start the app"""
-    global screen_size, time_offset, is_flipper
+    global time_offset, is_flipper
     from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
 
     is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
     draw = view_manager.draw
-    screen_size = Vector(draw.size.x, draw.size.y)
     time_offset = 0
 
     draw.fill_screen(TFT_BLACK)
@@ -70,11 +68,11 @@ def run(view_manager) -> None:
 
     # Draw plasma effect
     time_offset += 0.05
-    cx = screen_size.x / 2
-    cy = screen_size.y / 2
+    cx = draw.size.x / 2
+    cy = draw.size.y / 2
 
-    for y in range(0, screen_size.y, sample_rate):
-        for x in range(0, screen_size.x, sample_rate):
+    for y in range(0, draw.size.y, sample_rate):
+        for x in range(0, draw.size.x, sample_rate):
             # Calculate plasma value using multiple sine waves
             dx = x - cx
             dy = y - cy
@@ -96,9 +94,8 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global screen_size, time_offset, is_flipper
+    global time_offset, is_flipper
 
-    screen_size = None
     time_offset = 0
     is_flipper = None
 

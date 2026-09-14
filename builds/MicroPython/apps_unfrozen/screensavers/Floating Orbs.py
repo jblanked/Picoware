@@ -1,5 +1,5 @@
 from picoware.system.buttons import BUTTON_BACK
-from picoware.system.colors import  TFT_WHITE
+from picoware.system.colors import  TFT_WHITE, TFT_BLACK
 from math import sin as _sin
 
 _orbs = []
@@ -15,7 +15,7 @@ def start(view_manager):
     from picoware.system.colors import (
         TFT_RED, TFT_GREEN, TFT_BLUE, TFT_YELLOW,
         TFT_CYAN, TFT_MAGENTA, TFT_ORANGE, TFT_PINK,
-        TFT_WHITE, TFT_SKYBLUE, TFT_VIOLET,
+        TFT_SKYBLUE, TFT_VIOLET,
     )
     from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
     from random import randint, choice, seed
@@ -41,8 +41,8 @@ def start(view_manager):
         TFT_WHITE, TFT_SKYBLUE, TFT_VIOLET,
     ]
     if is_flipper:
-        for i in range(len(palette)):
-            if palette[i] != TFT_BLACK:
+        for i, color in enumerate(palette):
+            if color != TFT_BLACK:
                 palette[i] = TFT_WHITE
 
     orb_count = 20

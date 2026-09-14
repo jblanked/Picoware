@@ -242,9 +242,11 @@ class Tetris:
         draw.fill_screen(TFT_BLACK)
 
         # Well outline
-        draw.rect(
-            self.well_pos,
-            self.well_size,
+        draw._rectangle(
+            self.well_pos.x,
+            self.well_pos.y,
+            self.well_size.x,
+            self.well_size.y,
             TFT_WHITE,
         )
 
@@ -258,7 +260,7 @@ class Tetris:
                         GRID_X + c * CELL_SIZE,
                         GRID_Y + r * CELL_SIZE,
                     )
-                    draw.fill_rectangle(self.grid_pos, self.grid_size, color)
+                    draw._fill_rectangle(self.grid_pos.x, self.grid_pos.y, self.grid_size.x, self.grid_size.y, color)
 
         # Render current piece
         if self.current is not None:
@@ -271,7 +273,7 @@ class Tetris:
                             GRID_X + (self.x + c) * CELL_SIZE,
                             GRID_Y + (self.y + r) * CELL_SIZE,
                         )
-                        draw.fill_rectangle(self.grid_pos, self.grid_size, color)
+                        draw._fill_rectangle(self.grid_pos.x, self.grid_pos.y, self.grid_size.x, self.grid_size.y, color)
 
         # Next piece preview
         self.text_pos.x, self.text_pos.y = (tx, int(20 * s))
@@ -288,23 +290,23 @@ class Tetris:
                             px + c * CELL_SIZE,
                             py + r * CELL_SIZE,
                         )
-                        draw.fill_rectangle(self.grid_pos, self.grid_size, next_color)
+                        draw._fill_rectangle(self.grid_pos.x, self.grid_pos.y, self.grid_size.x, self.grid_size.y, next_color)
 
         # Score, level, lines
         self.text_pos.x, self.text_pos.y = (tx, int(120 * s))
-        draw.text(self.text_pos, f"Score: {self.score}", TFT_WHITE)
+        draw._text(self.text_pos.x, self.text_pos.y, f"Score: {self.score}", TFT_WHITE)
         self.text_pos.y += int(20 * s)
-        draw.text(self.text_pos, f"Level: {self.level}", TFT_WHITE)
+        draw._text(self.text_pos.x, self.text_pos.y, f"Level: {self.level}", TFT_WHITE)
         self.text_pos.y += int(20 * s)
-        draw.text(self.text_pos, f"Lines: {self.lines}", TFT_WHITE)
+        draw._text(self.text_pos.x, self.text_pos.y, f"Lines: {self.lines}", TFT_WHITE)
 
         # Controls help
         self.text_pos.x, self.text_pos.y = (tx, int(180 * s))
-        draw.text(self.text_pos, "Arrows: move", TFT_WHITE)
+        draw._text(self.text_pos.x, self.text_pos.y, "Arrows: move", TFT_WHITE)
         self.text_pos.y += int(14 * s)
-        draw.text(self.text_pos, "Up/Center: rotate", TFT_WHITE)
+        draw._text(self.text_pos.x, self.text_pos.y, "Up/Center: rotate", TFT_WHITE)
         self.text_pos.y += int(14 * s)
-        draw.text(self.text_pos, "Back: quit", TFT_WHITE)
+        draw._text(self.text_pos.x, self.text_pos.y, "Back: quit", TFT_WHITE)
 
         if self.game_over:
             bx = int(60 * s)

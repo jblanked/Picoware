@@ -218,8 +218,8 @@ def start(view_manager) -> bool:
 
     __create_sin_table()
     if is_flipper:
-        for i in range(len(palette)):
-            if palette[i] != TFT_BLACK:
+        for i, color in enumerate(palette):
+            if color != TFT_BLACK:
                 palette[i] = TFT_WHITE
     __reset_values()
     old_time = ticks_ms()

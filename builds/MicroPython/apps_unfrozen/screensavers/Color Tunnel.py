@@ -52,8 +52,8 @@ def start(view_manager) -> bool:
     time_val = 0.0
     palette = _build_palette()
     if is_flipper:
-        for i in range(len(palette)):
-            if palette[i] != TFT_BLACK:
+        for i, color in enumerate(palette):
+            if color != TFT_BLACK:
                 palette[i] = 0xFFFF
 
     draw.fill_screen(TFT_BLACK)

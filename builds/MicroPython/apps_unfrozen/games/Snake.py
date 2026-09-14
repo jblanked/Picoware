@@ -17,6 +17,8 @@ OFFSET_Y = 0  # Offset for score display
 class Snake:
     """Class representing the snake"""
 
+    __slots__ = ("body", "direction", "next_direction", "growing")
+
     def __init__(self):
         # Start in the middle
         start_x = GRID_WIDTH // 2
@@ -83,6 +85,8 @@ class Snake:
 class Game:
     """Snake game logic and state."""
 
+    __slots__ = ("display", "snake", "food", "score", "game_over")
+
     def __init__(self, display):
         self.display = display
         self.snake = Snake()
@@ -134,22 +138,22 @@ class Game:
             x1 = GRID_WIDTH * GRID_SIZE
             y1 = OFFSET_Y + GRID_HEIGHT * GRID_SIZE
             # Top and bottom
-            self.display.fill_rectangle(Vector(x0, y0), Vector(x1, y0 + 2), wall_color)
-            self.display.fill_rectangle(Vector(x0, y1 - 2), Vector(x1, y1), wall_color)
+            self.display._fill_rectangle(x0, y0, x1, y0 + 2, wall_color)
+            self.display._fill_rectangle(x0, y1 - 2, x1, y1, wall_color)
             # Left and right
-            self.display.fill_rectangle(Vector(x0, y0), Vector(x0 + 2, y1), wall_color)
-            self.display.fill_rectangle(Vector(x1 - 2, y0), Vector(x1, y1), wall_color)
+            self.display._fill_rectangle(x0, y0, x0 + 2, y1, wall_color)
+            self.display._fill_rectangle(x1 - 2, y0, x1, y1, wall_color)
 
         # Draw score
-        self.display.text(
-            Vector(int(SCREEN_WIDTH * 0.03125), int(SCREEN_HEIGHT * 0.03125)),
+        self.display._text(
+            SCREEN_WIDTH * 0.03125, 
+            SCREEN_HEIGHT * 0.03125,
             f"Score: {self.score}",
             TFT_WHITE,
         )
-        self.display.text(
-            Vector(
-                SCREEN_WIDTH - int(SCREEN_WIDTH * 0.21875), int(SCREEN_HEIGHT * 0.03125)
-            ),
+        self.display._text(
+            SCREEN_WIDTH - SCREEN_WIDTH * 0.21875,
+            SCREEN_HEIGHT * 0.03125,
             "BACK: Quit",
             TFT_WHITE,
         )
@@ -157,12 +161,9 @@ class Game:
         _size_vector = Vector(GRID_SIZE - 1, GRID_SIZE - 1)
 
         # Draw snake
-        snake_vector = Vector(0, 0)
         snake_color = 0xFFFF if is_flipper else TFT_GREEN
         for segment in self.snake.body:
-            snake_vector.x = segment[0] * GRID_SIZE
-            snake_vector.y = segment[1] * GRID_SIZE + OFFSET_Y
-            self.display.fill_rectangle(snake_vector, _size_vector, snake_color)
+            self.display._fill_rectangle(segment[0] * GRID_SIZE, segment[1] * GRID_SIZE + OFFSET_Y, GRID_SIZE - 1, GRID_SIZE - 1, snake_color)
 
         # Draw food (filled on color, outline on Flipper so it differs from snake)
         food_vector = Vector(
@@ -171,9 +172,9 @@ class Game:
         food_color = 0xFFFF if is_flipper else TFT_RED
         if is_flipper:
             # Draw food as outline rect so it's distinct from filled snake body
-            self.display.rect(food_vector, _size_vector, food_color)
+            self.display._rectangle(food_vector.x, food_vector.y, GRID_SIZE - 1, GRID_SIZE - 1, food_color)
         else:
-            self.display.fill_rectangle(food_vector, _size_vector, food_color)
+            self.display._fill_rectangle(food_vector.x, food_vector.y, GRID_SIZE - 1, GRID_SIZE - 1, food_color)
 
 
 def main(view_manager):

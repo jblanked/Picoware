@@ -79,8 +79,8 @@ def setup_buttons(draw):
     _scale = draw.scale(6, 100)
 
     # Button dimensions
-    button_width = screen_width // 4 - 8
-    button_height = (screen_height - _scale[1]) // 5 - 8
+    button_width = screen_width // 4 - draw.scale_x(8)
+    button_height = (screen_height - _scale[1]) // 5 - draw.scale_y(8)
     padding = _scale[0]  # 6 pixels scaled
 
     # Top row starts after display
@@ -387,7 +387,7 @@ def draw_button(draw, button: CalcButton, is_selected: bool = False):
     """Draw a calculator button"""
     # Draw button background
     draw._fill_round_rectangle(
-        button.pos.x, button.pos.y, button.size.x, button.size.y, 10, button.color
+        button.pos.x, button.pos.y, button.size.x, button.size.y, draw.scale_x(10), button.color
     )
 
     # Draw selection highlight border if selected

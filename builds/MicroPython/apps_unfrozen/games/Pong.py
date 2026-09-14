@@ -32,6 +32,8 @@ AI_SPEED = const(4)
 class Paddle:
     """Paddle object"""
 
+    __slots__ = ("x", "y", "width", "height", "pos", "size")
+
     def __init__(self, x: int, y: int):
         self.x = x
         self.y = y
@@ -57,11 +59,13 @@ class Paddle:
     def draw(self, draw, color):
         """Draw the paddle"""
         self.pos.x, self.pos.y = (self.x, self.y)
-        draw.fill_rectangle(self.pos, self.size, color)
+        draw._fill_rectangle(self.pos.x, self.pos.y, self.size.x, self.size.y, color)
 
 
 class Ball:
     """Ball object"""
+
+    __slots__ = ("x", "y", "vx", "vy", "size", "pos_vec", "size_vec")
 
     def __init__(self):
         self.x = screen_size.x // 2
@@ -92,7 +96,7 @@ class Ball:
     def draw(self, draw):
         """Draw the ball"""
         self.pos_vec.x, self.pos_vec.y = (int(self.x), int(self.y))
-        draw.fill_rectangle(self.pos_vec, self.size_vec, TFT_WHITE)
+        draw._fill_rectangle(self.pos_vec.x, self.pos_vec.y, self.size_vec.x, self.size_vec.y, TFT_WHITE)
 
     def check_paddle_collision(self, paddle):
         """Check collision with paddle"""
@@ -199,7 +203,7 @@ def run(view_manager) -> None:
     # Draw center line
     for y in range(0, screen_size.y, 20):
         pos.x, pos.y = (screen_size.x // 2 - 2, y)
-        draw.fill_rectangle(pos, size, TFT_WHITE)
+        draw._fill_rectangle(pos.x, pos.y, size.x, size.y, TFT_WHITE)
 
     # Draw paddles
     paddle_left.draw(draw, 0xFFFF if is_flipper else TFT_GREEN)
@@ -209,8 +213,8 @@ def run(view_manager) -> None:
     ball.draw(draw)
 
     # Draw scores
-    draw.text(score_pos_left, str(score_left), TFT_WHITE)
-    draw.text(score_pos_right, str(score_right), TFT_WHITE)
+    draw._text(score_pos_left.x, score_pos_left.y, str(score_left), TFT_WHITE)
+    draw._text(score_pos_right.x, score_pos_right.y, str(score_right), TFT_WHITE)
 
     draw.swap()
 

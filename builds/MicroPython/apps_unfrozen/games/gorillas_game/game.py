@@ -47,22 +47,6 @@ _level = None
 _state = None
 
 
-class _FrameInput:
-    """Let the engine consume this frame's input without clearing the UI queue."""
-
-    button = -1
-
-    def __init__(self, source):
-        self._source = source
-
-    def _key_to_button(self, key):
-        """Keep the existing board-specific mapping for simulator held keys."""
-        return self._source._key_to_button(key)
-
-    def reset(self):
-        self.button = -1
-
-
 class _Scenery:
     """Drawing geometry without a native entity or per-frame callbacks."""
 
@@ -74,6 +58,22 @@ class _Scenery:
 
 class _State:
     """Per-match state with direct attributes, not keyed lookups."""
+
+    __slots__ = (
+        'ai_best', 'ai_index', 'ai_search', 'ai_shots', 'ai_ticks',
+        'aims', 'angle', 'banana', 'banana_hit', 'banana_hit_order',
+        'banana_path', 'banana_vx', 'banana_vy', 'banana_x', 'banana_y',
+        'baseline', 'buildings', 'city_seed', 'cloud_offset',
+        'cloud_palette', 'compact', 'day_time', 'dead', 'distant_colors',
+        'environment', 'explosion_frames', 'explosion_x', 'explosion_y',
+        'facades', 'flight_ticks', 'font_height', 'gorilla_scale',
+        'gorillas', 'height', 'hit_player', 'last_frame', 'menu_selection',
+        'message', 'obstacle_hosts', 'obstacle_kinds', 'obstacles',
+        'particles', 'phase', 'physics_scale', 'pixel_scale', 'players',
+        'power', 'remainder', 'renderer', 'round', 'season', 'sky',
+        'steps', 'terrain', 'terrain_unit', 'tick', 'trail', 'turn',
+        'width', 'wind',
+    )
 
     def __init__(self, draw, width, height, compact, font, scale, gorilla_scale, baseline):
         self.ai_best = (1e12, 50, 80)
@@ -326,7 +326,7 @@ def __banana_update(entity, game):
 
 def __center_text(draw, text, y, color=CREAM):
     """Center one short line."""
-    draw.text(max(0, (_state.width - draw.len(text)) // 2), int(y), text, color)
+    draw.text(max(0, (_state.width - draw.len(text)) // 2), y, text, color)
 
 
 def __create_entity(name, entity_type, position, size, update=None, render=None, collision=None):
@@ -345,7 +345,7 @@ def __create_scene(view_manager):
     gorilla_scale = 1 if compact else max(1, scale * 0.75)
     baseline = height - (font + 3 if compact else max(64, font * 6 + 12))
     _state = _State(draw, width, height, compact, font, scale, gorilla_scale, baseline)
-    _game = Game("Gorillas", Vector(width, height), draw, _FrameInput(view_manager.input_manager), WHITE, INK)
+    _game = Game("Gorillas", Vector(width, height), draw, view_manager.input_manager, WHITE, INK)
     _level = Level("Sunset city", Vector(width, height), _game, None, None)
     # Scenery is drawn after engine updates; avoid a duplicate clear/swap.
     _level.clear_allowed = False
@@ -366,10 +366,10 @@ def __create_scene(view_manager):
     for index in range(2 if compact else 3):
         obstacle = _Scenery("obstacle_" + str(index), Vector(-32, -32), Vector(1, 1))
         _state.obstacles.append(obstacle)
-    gorilla_width, gorilla_height = (10, 11) if compact else (int(20 * gorilla_scale), int(23 * gorilla_scale))
+    gorilla_width, gorilla_height = (10, 11) if compact else (20 * gorilla_scale, 23 * gorilla_scale)
     for index, building in enumerate((_state.buildings[0], _state.buildings[-1])):
-        x = int(building.position.x + (building.size.x - gorilla_width) / 2)
-        y = int(building.position.y - gorilla_height - 2)
+        x = building.position.x + (building.size.x - gorilla_width) / 2
+        y = building.position.y - gorilla_height - 2
         gorilla = __create_entity("gorilla_" + str(index), ENTITY_TYPE_PLAYER, Vector(x, y), Vector(gorilla_width, gorilla_height), render=__render_scene if index == 0 else None)
         _state.gorillas.append(gorilla)
         _level.entity_add(gorilla)
@@ -424,8 +424,8 @@ def __draw_building(entity, draw, game):
         draw.blit(cached)
         __draw_building_lights(index, draw)
         return
-    x, y = int(entity.position.x), int(entity.position.y)
-    w, h = int(entity.size.x), int(entity.size.y)
+    x, y = entity.position.x, entity.position.y
+    w, h = entity.size.x, entity.size.y
     cached = draw.capture(x, y - 20, w, h + 20, key)
     draw.set_terrain_clip(_state.terrain[index], _state.terrain_unit)
     compact, tick = _state.compact, _state.tick
@@ -578,7 +578,7 @@ def __draw_gorilla(entity, draw, game):
     index = int(entity.name[-1])
     compact, tick = _state.compact, _state.tick
     active, scale = index == _state.turn, _state.gorilla_scale
-    x, y = int(entity.position.x), int(entity.position.y)
+    x, y = entity.position.x, entity.position.y
     dead = index in _state.dead
     if dead and _state.phase != PHASE_EXPLODING:
         return
@@ -594,8 +594,8 @@ def __draw_gorilla(entity, draw, game):
         dissolve = 0
         if dead:
             age = EXPLOSION_TICKS - _state.explosion_frames
-            x += int((1 if index else -1) * age * 0.3 * scale)
-            y += int((-age * 1.1 + age * age * 0.026) * scale)
+            x += (1 if index else -1) * age * 0.3 * scale
+            y += (-age * 1.1 + age * age * 0.026) * scale
             dissolve = max(0, (age - 20) * 12 // 20)
             if age < 6 and age % 2 == 0:
                 palette = {"o": WHITE, "f": WHITE, "h": WHITE, "m": WHITE, "s": 0}
@@ -616,15 +616,16 @@ def __draw_gorilla(entity, draw, game):
             return
         marker_y = y - (5 if compact else 10) - (tick // 15 % 2)
         color = WHITE if compact else (TEAL if index == 0 else CORAL)
-        cx = int(x + entity.size.x / 2)
+        cx = x + entity.size.x / 2
         for row in range(3):
             draw.box(cx - 2 + row, marker_y + row, 5 - 2 * row, 1, color)
         sx, sy = __launch_position()
         radians = _state.angle * pi / 180
+        cosine, sine = cos(radians), sin(radians)
         direction = 1 if index == 0 else -1
         for dot in range(1, 5):
             distance = dot * (4 if compact else 7)
-            draw.box(sx + cos(radians) * distance * direction, sy - sin(radians) * distance, 1 if compact else 2, 1 if compact else 2, color)
+            draw.box(sx + cosine * distance * direction, sy - sine * distance, 1 if compact else 2, 1 if compact else 2, color)
         draw.end_layer()
 
 
@@ -646,6 +647,7 @@ def __draw_hud(entity, draw, game):
             for index, (x, y) in enumerate(_state.trail):
                 draw.box(x, y, 1 if compact else 2, 1 if compact else 2, WHITE if compact else (GOLD if index > 4 else SLATE))
             draw.end_layer()
+        # Dirty-region bounds also become integer sprite-buffer slice offsets.
         bx, by = int(_state.banana_x - 2 * scale), int(_state.banana_y - 2 * scale)
         draw.watch('banana', _state.flight_ticks // 3 % 4, (bx, by, bx + 8 * scale, by + 8 * scale))
         __art(draw, BANANA_FRAMES[(_state.flight_ticks // 3) % 4], _state.banana_x - 2 * scale, _state.banana_y - 2 * scale, scale, {"s": WHITE if compact else 0xA365, "y": WHITE if compact else GOLD, "h": WHITE if compact else CREAM})
@@ -827,7 +829,7 @@ def __draw_sky(entity, draw, game):
     width, baseline, tick = _state.width, _state.baseline, _state.tick
     if _state.compact:
         for cloud in range(2):
-            x = int((cloud * 79 + _state.cloud_offset * (0.8 + cloud * 0.25)) % (width + 28)) - 24
+            x = (cloud * 79 + _state.cloud_offset * (0.8 + cloud * 0.25)) % (width + 28) - 24
             if draw.layer(('cloud', cloud), 0, background=True, position=(x, 12 + cloud * 8)):
                 __art(draw, CLOUD_ART, x, 12 + cloud * 8, 1, {"h": WHITE, "s": 0})
                 draw.end_layer()
@@ -879,7 +881,7 @@ def __draw_sky(entity, draw, game):
     for cloud in range(4):
         cloud_scale = 2 if cloud % 2 == 0 else 1
         drift = _state.cloud_offset * (0.8 + cloud * 0.25)
-        x = int((cloud * width // 3 + drift) % (width + 60)) - 50
+        x = (cloud * width // 3 + drift) % (width + 60) - 50
         y = sky_top + 10 + (cloud * 23) % max(20, (baseline - sky_top) // 2)
         if draw.layer(('cloud', cloud), _state.day_time, background=True, position=(x, y)):
             __art(draw, CLOUD_ART, x, y, cloud_scale, _state.cloud_palette)
@@ -1039,8 +1041,8 @@ def __randomize_city():
         _state.obstacle_kinds.append(kind)
     for index, gorilla in enumerate(_state.gorillas):
         building = _state.buildings[0 if index == 0 else -1]
-        x = int(building.position.x + (building.size.x - gorilla.size.x) / 2)
-        y = int(building.position.y - gorilla.size.y - 2)
+        x = building.position.x + (building.size.x - gorilla.size.x) / 2
+        y = building.position.y - gorilla.size.y - 2
         gorilla.position = Vector(x, y)
     _state.renderer.prepare_effect(_state.pixel_scale, compact)
 
@@ -1250,7 +1252,6 @@ def run(view_manager):
     # Integrate wind so changing its strength never teleports the cloud layer.
     wind = _state.wind
     _state.cloud_offset += (wind * 0.09 if wind else 0.015) * _state.steps
-    _game.input_manager.button = button
     _engine.run_async(False)
 
 
@@ -1258,18 +1259,11 @@ def start(view_manager):
     """Load the scene and the original pixel-art assets."""
     if _engine is not None:
         return True
-    try:
-        collect()
-        __create_scene(view_manager)
-        _engine.run_async(False)
-        collect()
-        return True
-    except Exception as error:
-        print("[Gorillas] Start failed:", error)
-        import sys
-        sys.print_exception(error)
-        stop(view_manager)
-        return False
+    collect()
+    __create_scene(view_manager)
+    _engine.run_async(False)
+    collect()
+    return True
 
 
 def stop(view_manager):
@@ -1277,7 +1271,11 @@ def stop(view_manager):
     global _engine, _game, _level, _state
     if _state is not None:
         _state.renderer.close()
+    if _engine is not None:
+        _engine.stop()
+        del _engine
     _engine = None
     _game = None
     _level = None
     _state = None
+    collect()

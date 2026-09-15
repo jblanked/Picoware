@@ -60,7 +60,7 @@ class _State:
     """Per-match state with direct attributes, not keyed lookups."""
 
     __slots__ = (
-        'ai_best', 'ai_index', 'ai_search', 'ai_shots', 'ai_ticks',
+        'ai_best', 'ai_columns', 'ai_index', 'ai_search', 'ai_shots', 'ai_ticks',
         'aims', 'angle', 'banana', 'banana_hit', 'banana_hit_order',
         'banana_path', 'banana_vx', 'banana_vy', 'banana_x', 'banana_y',
         'baseline', 'buildings', 'city_seed', 'cloud_offset',
@@ -77,6 +77,7 @@ class _State:
 
     def __init__(self, draw, width, height, compact, font, scale, gorilla_scale, baseline):
         self.ai_best = (1e12, 50, 80)
+        self.ai_columns = None
         self.ai_index = 0
         self.ai_shots = 0
         self.ai_ticks = 0
@@ -137,9 +138,22 @@ class _State:
 
 def __ai_score(angle, power):
     """Yield between trajectory ticks so CPU aiming cannot stall rendering."""
+    width, height, baseline = _state.width, _state.height, _state.baseline
+    if _state.ai_columns is None:
+        # Small horizontal buckets reference live masonry, including holes.
+        # Rebuild once per turn; retain overlap order and exact cell checks.
+        _state.ai_columns = tuple(
+            tuple(terrain for terrain in _state.terrain
+                  if terrain[0] < column + 16 and terrain[0] + terrain[2] > column)
+            for column in range(0, width, 16)
+        )
+    columns = _state.ai_columns
+    terrain_cell = __terrain_cell
     x, y = __launch_position()
     radians = angle * pi / 180
     scale = _state.physics_scale
+    wind = _state.wind * 0.003 * scale
+    gravity = 0.26 * scale
     velocity = power * 0.105 * scale
     vx, vy = -cos(radians) * velocity, -sin(radians) * velocity
     target = _state.gorillas[0]
@@ -151,8 +165,8 @@ def __ai_score(angle, power):
     tx, ty = (left + right) / 2, (top + bottom) / 2
     closest = 1e12
     for tick in range(160):
-        vx += _state.wind * 0.003 * scale
-        vy += 0.26 * scale
+        vx += wind
+        vy += gravity
         # CPU predictions use two samples per tick. Real bananas retain their
         # pixel-sized sweep; approximate planning is deliberate, not perfect aim.
         steps = 2
@@ -165,8 +179,11 @@ def __ai_score(angle, power):
             contact = 0 if left <= x < right and top <= y < bottom else -2
             if tick >= 6 and own_left <= x < own_right and own_top <= y < own_bottom:
                 contact = 1
-            if contact == -2 and __terrain_solid(x, y):
-                contact = -1
+            if contact == -2 and 0 <= x < width and 0 <= y < height:
+                for terrain in columns[int(x) // 16]:
+                    if terrain_cell(terrain, x, y):
+                        contact = -1
+                        break
             if contact == 0:
                 yield 0
                 return
@@ -174,10 +191,10 @@ def __ai_score(angle, power):
                 # Prefer impacts near the opponent, opening an obstructed route.
                 yield distance + (100000 if contact == 1 else 100)
                 return
-        if x < -20 or x > _state.width + 20 or y > _state.baseline:
+        if x < -20 or x > width + 20 or y > baseline:
             break
         yield None
-    yield closest + _state.width ** 2
+    yield closest + width ** 2
 
 
 def __ai_update():
@@ -292,13 +309,10 @@ def __banana_step(entity, game):
     _state.banana_vx += _state.wind * 0.003 * scale
     _state.banana_vy += 0.26 * scale
     vx, vy = _state.banana_vx, _state.banana_vy
-    steps = max(1, int(max(abs(vx), abs(vy))) + 1)
-    dx, dy = vx / steps, vy / steps
     _state.banana_path.append((_state.banana_x, _state.banana_y, vx, vy, _state.flight_ticks))
-    # Keep the same pixel-sized integration used by the collision refinement.
-    for step in range(steps):
-        _state.banana_x += dx
-        _state.banana_y += dy
+    # Only collision refinement needs pixel-sized samples; integrate once here.
+    _state.banana_x += vx
+    _state.banana_y += vy
     x, y = _state.banana_x, _state.banana_y
     if _state.flight_ticks % 2 == 0:
         _state.trail.append((x, y))
@@ -829,7 +843,8 @@ def __draw_sky(entity, draw, game):
     width, baseline, tick = _state.width, _state.baseline, _state.tick
     if _state.compact:
         for cloud in range(2):
-            x = (cloud * 79 + _state.cloud_offset * (0.8 + cloud * 0.25)) % (width + 28) - 24
+            # Cache by the final pixel coordinate, including negative positions.
+            x = int((cloud * 79 + _state.cloud_offset * (0.8 + cloud * 0.25)) % (width + 28) - 24)
             if draw.layer(('cloud', cloud), 0, background=True, position=(x, 12 + cloud * 8)):
                 __art(draw, CLOUD_ART, x, 12 + cloud * 8, 1, {"h": WHITE, "s": 0})
                 draw.end_layer()
@@ -881,7 +896,8 @@ def __draw_sky(entity, draw, game):
     for cloud in range(4):
         cloud_scale = 2 if cloud % 2 == 0 else 1
         drift = _state.cloud_offset * (0.8 + cloud * 0.25)
-        x = (cloud * width // 3 + drift) % (width + 60) - 50
+        # Match art() pixel rounding so subpixel drift reuses the cached layer.
+        x = int((cloud * width // 3 + drift) % (width + 60) - 50)
         y = sky_top + 10 + (cloud * 23) % max(20, (baseline - sky_top) // 2)
         if draw.layer(('cloud', cloud), _state.day_time, background=True, position=(x, y)):
             __art(draw, CLOUD_ART, x, y, cloud_scale, _state.cloud_palette)
@@ -932,6 +948,7 @@ def __finish_turn():
     _state.trail.clear()
     _state.ai_index, _state.ai_ticks = 0, 0
     _state.ai_search = None
+    _state.ai_columns = None
     _state.ai_best = (1e12, 50, 80)
 
 
@@ -1068,6 +1085,7 @@ def __reset_round():
     _state.aims = [(52, 82), (52, 82)]
     _state.ai_index, _state.ai_ticks = 0, 0
     _state.ai_search = None
+    _state.ai_columns = None
     _state.ai_shots = 0
     _state.ai_best = (1e12, 50, 80)
     _state.particles.clear()

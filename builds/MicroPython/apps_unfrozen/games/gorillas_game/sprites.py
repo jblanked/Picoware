@@ -61,6 +61,8 @@ class SpriteCache:
                                for unused in range(cache_bytes // page_bytes))
         self.art_offsets = [0] * len(self.art_cache)
         self.art_entries = {}
+        self.art_rectangles = {}
+        self.art_rectangle_count = 0
         self.art_used = 0
         self.effect_buffer = None
         self.effect_bounds = bytearray(320)
@@ -239,12 +241,36 @@ class SpriteCache:
         a, b, c, d = self.clip
         image = self.draw._bytearray
         data_length = len(data)
-        for unused in range(unpack_from('<H', data)[0]):
-            px, py, w, h = unpack_from('<HHHH', data, cursor)
-            cursor += 8
-            end = cursor + w * h
-            if not w or not h or end > data_length:
-                raise ValueError('Invalid sprite rectangle')
+        count = unpack_from('<H', data)[0]
+        rectangles = self.art_rectangles.get(index)
+        if (rectangles is None and index < EFFECT_BASE and index in self.art_entries
+                and 0 < count <= 16 and self.art_rectangle_count + count <= 64
+                and mem_free() > 65536):
+            # Cache only a bounded amount of geometry for resident artwork.
+            # Payloads stay in the existing pages; no additional pixel copies.
+            rectangles = []
+            for unused in range(count):
+                px, py, w, h = unpack_from('<HHHH', data, cursor)
+                cursor += 8
+                end = cursor + w * h
+                if not w or not h or end > data_length:
+                    raise ValueError('Invalid sprite rectangle')
+                rectangles.append((px, py, w, h, cursor, end))
+                cursor = end
+            if cursor != data_length:
+                raise ValueError('Invalid sprite length')
+            self.art_rectangles[index] = rectangles
+            self.art_rectangle_count += count
+            cursor = 2
+        for unused in range(count):
+            if rectangles is None:
+                px, py, w, h = unpack_from('<HHHH', data, cursor)
+                cursor += 8
+                end = cursor + w * h
+                if not w or not h or end > data_length:
+                    raise ValueError('Invalid sprite rectangle')
+            else:
+                px, py, w, h, cursor, end = rectangles[unused]
             px += x
             py += y
             if px < c and px + w > a and py < d and py + h > b:
@@ -487,6 +513,8 @@ class SpriteCache:
             self.pending.clear()
             self.command_count = 0
             self.art_entries.clear()
+            self.art_rectangles.clear()
+            self.art_rectangle_count = 0
             self.art_used = 0
             for page in range(len(self.art_offsets)):
                 self.art_offsets[page] = 0

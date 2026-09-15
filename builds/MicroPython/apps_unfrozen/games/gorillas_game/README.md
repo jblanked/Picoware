@@ -14,6 +14,15 @@ the main menu also resets both scores. P1 starts each new match, then the
 starting player alternates after every duel, including draws. The CPU still
 starts each duel with its usual rough ranging shots.
 
+Each duel places the gorillas on two distinct, clear rooftops on opposite
+sides of the skyline. Player sides are randomized independently of who shoots
+first; identities and scores do not swap. Both players begin with power 50.
+The CPU then chooses its own shot settings. Destroying a gorilla's current
+footing causes a fatal fall, even if masonry remains below it. Returning shots
+and self-inflicted explosions can kill the shooter; if both gorillas die,
+the duel is a draw.
+After landing, a fallen gorilla lies sideways and blinks until the duel ends.
+
 ## Installation
 
 Keep the launcher and package together in storage:

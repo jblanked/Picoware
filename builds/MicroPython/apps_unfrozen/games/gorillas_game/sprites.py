@@ -51,7 +51,7 @@ class SpriteCache:
         self.art_index_buffer = memoryview(bytearray(8))
         if self.art_directory is not None and len(self.art_directory) != count * 8:
             raise ValueError('Truncated art directory')
-        self.art_buffer = memoryview(bytearray(1127 if compact else 4629))
+        self.art_buffer = memoryview(bytearray(1127 if compact else 4645))
         page_bytes = 512 if compact else CACHE_PAGE_BYTES
         cache_bytes = page_bytes if compact else min(CACHE_BYTES, max(CACHE_PAGE_BYTES,
                               (mem_free() // 16 // CACHE_PAGE_BYTES) * CACHE_PAGE_BYTES))
@@ -353,6 +353,8 @@ class SpriteCache:
         index = variant(art, scale, palette, mirror, dissolve)
         w = 8 if art < 4 else (24 if art == 4 else (47 if art == 9 else (10 if art == 7 else 20)))
         h = 8 if art <= 4 else (7 if art == 9 else (11 if art == 7 else 23))
+        if art in (10, 11):
+            w, h = (23, 20) if art == 10 else (11, 10)
         x, y = int(x), int(y)
         self._emit((4, x, y, x + int(w * scale), y + int(h * scale), (index, x, y)))
 

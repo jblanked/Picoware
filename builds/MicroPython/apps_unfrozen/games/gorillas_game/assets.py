@@ -2,11 +2,12 @@
 
 BANANA_FRAMES = (0, 1, 2, 3)
 CLOUD_ART = 4
-EFFECT_BASE = 387
+EFFECT_BASE = 409
 EFFECT_RECORD_BYTES = 3629
 GORILLA_ART = (5, 6, 7, 8)
+GORILLA_FALLEN_ART = (10, 11)
 TITLE_ART = 9
-_BASES = (0, 10, 20, 30, 40, 50, 70, 90, 138, 378)
+_BASES = (0, 10, 20, 30, 40, 50, 70, 90, 138, 378, 387, 407)
 
 _BANANA = ((1, 2, 3, 4, 5), "syh", ((0xA365, 0xFDEA, 0xFF35), (0xFFFF,) * 3), 1, 1)
 _NORMAL = ((0x1085, 0x49CA, 0x8B51, 0xE534, 0x3928), (0x1085, 0x71E9, 0xBBAE, 0xE534, 0x3928))
@@ -20,6 +21,8 @@ SPECS = (
     ((1,), "ofhms", ((0, 0xFFFF, 0xFFFF, 0xFFFF, 0), _FLASH), 2, 12),
     (_SCALES, "ofhms", (_FLASH, (0x1085, 0x296A, 0x52F0, 0xACD4, 0x1085)), 2, 12),
     ((1, 2, 3), "#", ((0xFF35,), (0x91E9,), (0xFFFF,)), 1, 1),
+    (_SCALES, "ofhms", _NORMAL, 2, 1),
+    ((1,), "ofhms", ((0, 0xFFFF, 0xFFFF, 0xFFFF, 0),), 2, 1),
 )
 
 

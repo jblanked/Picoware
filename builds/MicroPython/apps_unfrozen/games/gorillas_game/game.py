@@ -16,7 +16,7 @@ from picoware.system.buttons import (
 from picoware.system.decorator import native
 from picoware.system.vector import Vector
 
-from .assets import BANANA_FRAMES, CLOUD_ART, GORILLA_ART, TITLE_ART
+from .assets import BANANA_FRAMES, CLOUD_ART, GORILLA_ART, GORILLA_FALLEN_ART, TITLE_ART
 from .sprites import SpriteCache
 
 PHASE_AIMING = const(0)
@@ -67,12 +67,12 @@ class _State:
         'baseline', 'buildings', 'city_seed', 'cloud_offset',
         'cloud_palette', 'compact', 'day_time', 'dead', 'distant_colors',
         'environment', 'explosion_frames', 'explosion_x', 'explosion_y',
-        'facades', 'flight_ticks', 'font_height', 'gorilla_scale',
-        'gorillas', 'height', 'hit_player', 'last_frame', 'menu_selection',
+        'facades', 'falling', 'flight_ticks', 'font_height', 'gorilla_scale',
+        'gorillas', 'height', 'hit_player', 'last_frame', 'left_player', 'menu_selection',
         'message', 'obstacle_hosts', 'obstacle_kinds', 'obstacles',
         'particles', 'phase', 'physics_scale', 'pixel_scale', 'players',
         'power', 'remainder', 'renderer', 'round', 'scores', 'season', 'sky',
-        'starter', 'steps', 'terrain', 'terrain_columns', 'terrain_unit', 'tick', 'trail', 'turn',
+        'spawn_buildings', 'starter', 'steps', 'terrain', 'terrain_columns', 'terrain_unit', 'tick', 'trail', 'turn',
         'width', 'wind',
     )
 
@@ -81,7 +81,7 @@ class _State:
         self.ai_index = 0
         self.ai_shots = 0
         self.ai_ticks = 0
-        self.aims = [(52, 82), (52, 82)]
+        self.aims = [(52, 50), (52, 50)]
         self.angle = 52
         self.banana = None
         self.banana_vx = 0.0
@@ -97,6 +97,7 @@ class _State:
         self.cloud_offset = 0.0
         self.compact = compact
         self.dead = []
+        self.falling = []
         self.explosion_frames = 0
         self.explosion_x = 0
         self.explosion_y = 0
@@ -109,6 +110,7 @@ class _State:
         self.height = height
         self.hit_player = -1
         self.menu_selection = 0
+        self.left_player = 0
         self.message = ""
         self.particles = []
         self.obstacles = []
@@ -118,10 +120,11 @@ class _State:
         self.physics_scale = width / 320.0
         self.players = 1
         self.pixel_scale = scale
-        self.power = 82
+        self.power = 50
         self.round = 1
         self.scores = [0, 0]
         self.starter = 0
+        self.spawn_buildings = (0, 0)
         self.tick = 0
         self.season = 1
         self.sky = SKY
@@ -150,7 +153,7 @@ def __ai_score(angle, power):
     wind = _state.wind * 0.003 * scale
     gravity = 0.26 * scale
     velocity = power * 0.105 * scale
-    vx, vy = -cos(radians) * velocity, -sin(radians) * velocity
+    vx, vy = __direction(1) * cos(radians) * velocity, -sin(radians) * velocity
     target = _state.gorillas[0]
     left, top = target.position.x, target.position.y
     right, bottom = left + target.size.x, top + target.size.y
@@ -423,6 +426,11 @@ def __damage_terrain(x, y, radius):
             _state.renderer.invalidate(("obstacle", index))
 
 
+def __direction(player):
+    """Aim toward the opponent independently of player identity."""
+    return 1 if player == _state.left_player else -1
+
+
 def __draw_building(entity, draw, game):
     """Shaded facades, glowing windows, rooftop props, and painted decals."""
     draw = _state.renderer
@@ -485,8 +493,9 @@ def __draw_building(entity, draw, game):
             neon = SLATE
         draw.box(x + 2, y + 11, sign_w, 1, neon)
         draw.text(x + 4, y + 14, label, neon)
-    if index in (0, len(_state.buildings) - 1) and __intact_rectangle(_state.terrain[index], x + 5, y + h - 13, 12, 8):
-        draw.text(x + 5, y + h - 13, "01" if index == 0 else "02", TEAL if index == 0 else CORAL)
+    if index in _state.spawn_buildings and __intact_rectangle(_state.terrain[index], x + 5, y + h - 13, 12, 8):
+        player = _state.spawn_buildings.index(index)
+        draw.text(x + 5, y + h - 13, "01" if player == 0 else "02", TEAL if player == 0 else CORAL)
     __draw_decals(draw, index)
     draw.set_terrain_clip(None, 1)
     draw.end_capture(key, cached)
@@ -589,28 +598,47 @@ def __draw_gorilla(entity, draw, game):
     active, scale = index == _state.turn, _state.gorilla_scale
     x, y = entity.position.x, entity.position.y
     dead = index in _state.dead
+    falling = index in _state.falling
     if dead and _state.phase != PHASE_EXPLODING:
         return
     throwing = active and _state.phase == PHASE_FLYING and _state.flight_ticks < 16
     celebrating = _state.phase == PHASE_GAME_OVER and not dead
-    revision = (x, y, dead, throwing or celebrating,
+    revision = (x, y, dead, falling, _state.left_player, throwing or celebrating,
                 (tick, _state.explosion_frames) if dead else None)
     if draw.layer(('gorilla', index), revision):
-        art = GORILLA_ART[2 if compact else (3 if dead else (1 if throwing or celebrating else 0))]
+        art = GORILLA_ART[2 if compact else (3 if dead and not falling else (1 if throwing or celebrating else 0))]
         palette = {"o": INK, "f": 0x49CA if index == 0 else 0x71E9, "h": 0x8B51 if index == 0 else 0xBBAE, "m": 0xE534, "s": 0x3928}
         if compact:
             palette = {"o": 0, "f": WHITE, "h": WHITE, "m": WHITE, "s": 0}
         dissolve = 0
-        if dead:
+        if falling:
             age = EXPLOSION_TICKS - _state.explosion_frames
-            x += (1 if index else -1) * age * 0.3 * scale
+            landing_y = _state.baseline - entity.size.y
+            y += 0.24 * scale * age * age
+            if y >= landing_y:
+                # Prebaked sideways artwork needs no rotation buffer on-device.
+                # Blink by omitting the pose; dirty tracking restores the sky.
+                if age // 4 % 2 == 0:
+                    art = GORILLA_FALLEN_ART[1 if compact else 0]
+                    w, h = (11, 10) if compact else (23, 20)
+                    x = max(0, min(_state.width - int(w * scale), x))
+                    __art(draw, art, x, _state.baseline - int(h * scale), scale,
+                          palette, w if __direction(index) == 1 else 0)
+                draw.end_layer()
+                return
+        elif dead:
+            age = EXPLOSION_TICKS - _state.explosion_frames
+            x -= __direction(index) * age * 0.3 * scale
             y += (-age * 1.1 + age * age * 0.026) * scale
             dissolve = max(0, (age - 20) * 12 // 20)
             if age < 6 and age % 2 == 0:
                 palette = {"o": WHITE, "f": WHITE, "h": WHITE, "m": WHITE, "s": 0}
             elif not compact:
                 palette = {"o": INK, "f": 0x296A, "h": SLATE, "m": 0xACD4, "s": INK}
-        __art(draw, art, x, y, scale, palette, (10 if compact else 20) if index == 0 else 0, dissolve)
+        __art(draw, art, x, y, scale, palette, (10 if compact else 20) if __direction(index) == 1 else 0, dissolve)
+        if falling:
+            draw.end_layer()
+            return
         if dead:
             for star in range(3):
                 angle = _state.tick / 6 + star * pi * 2 / 3
@@ -631,7 +659,7 @@ def __draw_gorilla(entity, draw, game):
         sx, sy = __launch_position()
         radians = _state.angle * pi / 180
         cosine, sine = cos(radians), sin(radians)
-        direction = 1 if index == 0 else -1
+        direction = __direction(index)
         for dot in range(1, 5):
             distance = dot * (4 if compact else 7)
             draw.box(sx + cosine * distance * direction, sy - sine * distance, 1 if compact else 2, 1 if compact else 2, color)
@@ -701,8 +729,8 @@ def __draw_hud_fields(draw):
         draw.text(width * 2 // 3 + 4, label_y, "WIND", SLATE)
         draw.end_layer()
     turn_label = "THINK" if cpu else ("AIM" if phase == PHASE_AIMING else "FIRE")
-    if draw.layer('hud_turn', (turn, turn_label)):
-        label_x = 10 if turn == 0 else width - draw.len(turn_label) - 10
+    if draw.layer('hud_turn', (turn, turn_label, _state.left_player)):
+        label_x = 10 if turn == _state.left_player else width - draw.len(turn_label) - 10
         draw.text(label_x, 23, turn_label, accent)
         draw.end_layer()
     if draw.layer('hud_angle', _state.angle):
@@ -729,13 +757,14 @@ def __draw_hud_static(draw):
     width = _state.width
     title_scale = 2 if width >= 250 else 1
     title_x = (width - 47 * title_scale) // 2
-    if draw.layer('hud_static', (_state.environment, _state.players, tuple(_state.scores))):
+    if draw.layer('hud_static', (_state.environment, _state.players, tuple(_state.scores), _state.left_player)):
         draw.box(0, 0, width, 39, INK)
         __art(draw, TITLE_ART, title_x + 1, 8, title_scale, {'#': 0x91E9})
         __center_text(draw, _state.environment, 27, SLATE)
-        draw.text(10, 9, 'P1 {}/3'.format(_state.scores[0]), TEAL)
-        opponent = '{} {}/3'.format('CPU' if _state.players == 1 else 'P2', _state.scores[1])
-        draw.text(width - draw.len(opponent) - 10, 9, opponent, CORAL)
+        for player in (0, 1):
+            label = '{} {}/3'.format('P1' if player == 0 else ('CPU' if _state.players == 1 else 'P2'), _state.scores[player])
+            label_x = 10 if player == _state.left_player else width - draw.len(label) - 10
+            draw.text(label_x, 9, label, TEAL if player == 0 else CORAL)
         draw.end_layer()
     if draw.layer('hud_title', width):
         __art(draw, TITLE_ART, title_x, 7, title_scale, {'#': CREAM})
@@ -1001,12 +1030,15 @@ def __randomize_city():
     compact, width = _state.compact, _state.width
     baseline, unit = _state.baseline, _state.terrain_unit
     count = len(_state.buildings)
+    left, right = randint(0, count // 2 - 1), randint(count // 2 + 1, count - 1)
+    _state.left_player = randint(0, 1)
+    _state.spawn_buildings = (left, right) if _state.left_player == 0 else (right, left)
     margin, gap = (3, 2) if compact else (8, 3)
     available = width - 2 * margin - gap * (count - 1)
     hero_width = int(_state.gorillas[0].size.x)
     minimum = 10 if compact else max(18, width // 20)
     widths = [minimum] * count
-    widths[0] = widths[-1] = max(minimum, hero_width)
+    widths[left] = widths[right] = max(minimum, hero_width)
     extra = available - sum(widths)
     weights = [randint(3, 10) for _ in range(count)]
     total = sum(weights)
@@ -1021,7 +1053,7 @@ def __randomize_city():
     _state.terrain.clear()
     x = margin
     for index, building in enumerate(_state.buildings):
-        endpoint = index in (0, count - 1)
+        endpoint = index in _state.spawn_buildings
         if compact:
             low, high = (8, 16) if endpoint else (12, 25)
         else:
@@ -1040,8 +1072,9 @@ def __randomize_city():
         x += w + gap
     _state.obstacle_hosts.clear()
     _state.obstacle_kinds.clear()
+    hosts = [index for index in range(count) if index not in _state.spawn_buildings]
     for index, obstacle in enumerate(_state.obstacles):
-        host = 1 + index * (count - 2) // len(_state.obstacles) + randint(0, 1)
+        host = hosts.pop(randint(0, len(hosts) - 1))
         bx, by, bw = _state.terrain[host][:3]
         kind = (index + _state.city_seed) % 3
         w = max(3, bw - 4) if kind != 2 else min(bw - 4, 4 * unit)
@@ -1059,7 +1092,7 @@ def __randomize_city():
         _state.obstacle_hosts.append(host)
         _state.obstacle_kinds.append(kind)
     for index, gorilla in enumerate(_state.gorillas):
-        building = _state.buildings[0 if index == 0 else -1]
+        building = _state.buildings[_state.spawn_buildings[index]]
         x = building.position.x + (building.size.x - gorilla.size.x) / 2
         y = building.position.y - gorilla.size.y - 2
         gorilla.position = Vector(x, y)
@@ -1092,11 +1125,12 @@ def __reset_round(new_match=False):
     else:
         _state.starter = 1 - _state.starter
     _state.message = ""
-    _state.angle, _state.power = 52, 82
+    _state.angle, _state.power = 52, 50
     _state.phase, _state.turn, _state.round, _state.wind = PHASE_AIMING, _state.starter, 1, 0
     _state.hit_player = -1
     _state.dead.clear()
-    _state.aims = [(52, 82), (52, 82)]
+    _state.falling.clear()
+    _state.aims = [(52, 50), (52, 50)]
     _state.ai_index, _state.ai_ticks = 0, 0
     _state.ai_search = None
     _state.ai_shots = 0
@@ -1163,21 +1197,15 @@ def __set_environment(day_time, season):
 
 
 def __settle_gorillas():
-    """Find surviving support below a rooftop after its masonry is removed."""
+    """Losing current footing is fatal, even if lower masonry survives."""
     for index, gorilla in enumerate(_state.gorillas):
         if index in _state.dead:
             continue
         x = int(gorilla.position.x + gorilla.size.x / 2)
         foot_y = int(gorilla.position.y + gorilla.size.y + 2)
-        support = foot_y
-        while support < _state.baseline:
-            if any(__terrain_solid(xx, support) for xx in range(x - 2, x + 3)):
-                break
-            support += 1
-        if support >= _state.baseline:
+        if not any(__terrain_solid(xx, foot_y) for xx in range(x - 2, x + 3)):
             _state.dead.append(index)
-        else:
-            gorilla.position = Vector(gorilla.position.x, support - gorilla.size.y - 2)
+            _state.falling.append(index)
 
 
 def __terrain_cell(terrain, x, y):
@@ -1204,7 +1232,7 @@ def __throw():
     radians = _state.angle * pi / 180
     velocity = _state.power * 0.105 * _state.physics_scale
     _state.banana_x, _state.banana_y = __launch_position()
-    _state.banana_vx = cos(radians) * velocity * (1 if _state.turn == 0 else -1)
+    _state.banana_vx = cos(radians) * velocity * __direction(_state.turn)
     _state.banana_vy = -sin(radians) * velocity
     _state.banana.position = Vector(_state.banana_x, _state.banana_y)
     _state.banana.is_visible = True

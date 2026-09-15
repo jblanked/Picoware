@@ -739,9 +739,7 @@ class Agent:
             task = ThreadTask(
                 "Agent",
                 self.run_session,
-                (session_id, user_message),
-                10 * 1000,
-                16 * 1024
+                (session_id, user_message)
             )
             self._current_task = task
             self.view_manager.thread_manager.add_task(task)

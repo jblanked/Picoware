@@ -18,7 +18,7 @@ MODE_CHAT = const(0) # general chat mode
 MODE_APP_CREATOR = const(1) # creates/edits Picoware apps
 MODE_DEVICE_MANAGER = const(2) # manages files, has network access, can run commands, etc.
 
-MAX_TOOL_ITERATIONS = const(50)
+MAX_TOOL_ITERATIONS = const(500)
 MAX_CONVERSATION_MESSAGES = const(20)
 
 class Agent:

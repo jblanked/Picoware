@@ -61,7 +61,7 @@ class _State:
     """Per-match state with direct attributes, not keyed lookups."""
 
     __slots__ = (
-        'ai_best', 'ai_columns', 'ai_index', 'ai_search', 'ai_shots', 'ai_ticks',
+        'ai_best', 'ai_index', 'ai_search', 'ai_shots', 'ai_ticks',
         'aims', 'angle', 'banana', 'banana_hit', 'banana_hit_order',
         'banana_path', 'banana_vx', 'banana_vy', 'banana_x', 'banana_y',
         'baseline', 'buildings', 'city_seed', 'cloud_offset',
@@ -72,13 +72,12 @@ class _State:
         'message', 'obstacle_hosts', 'obstacle_kinds', 'obstacles',
         'particles', 'phase', 'physics_scale', 'pixel_scale', 'players',
         'power', 'remainder', 'renderer', 'round', 'scores', 'season', 'sky',
-        'steps', 'terrain', 'terrain_unit', 'tick', 'trail', 'turn',
+        'starter', 'steps', 'terrain', 'terrain_columns', 'terrain_unit', 'tick', 'trail', 'turn',
         'width', 'wind',
     )
 
     def __init__(self, draw, width, height, compact, font, scale, gorilla_scale, baseline):
         self.ai_best = (1e12, 50, 80)
-        self.ai_columns = None
         self.ai_index = 0
         self.ai_shots = 0
         self.ai_ticks = 0
@@ -122,10 +121,12 @@ class _State:
         self.power = 82
         self.round = 1
         self.scores = [0, 0]
+        self.starter = 0
         self.tick = 0
         self.season = 1
         self.sky = SKY
         self.terrain = []
+        self.terrain_columns = ()
         self.terrain_unit = scale
         self.trail = []
         self.turn = 0
@@ -141,15 +142,7 @@ class _State:
 def __ai_score(angle, power):
     """Yield between trajectory ticks so CPU aiming cannot stall rendering."""
     width, height, baseline = _state.width, _state.height, _state.baseline
-    if _state.ai_columns is None:
-        # Small horizontal buckets reference live masonry, including holes.
-        # Rebuild once per turn; retain overlap order and exact cell checks.
-        _state.ai_columns = tuple(
-            tuple(terrain for terrain in _state.terrain
-                  if terrain[0] < column + 16 and terrain[0] + terrain[2] > column)
-            for column in range(0, width, 16)
-        )
-    columns = _state.ai_columns
+    columns = _state.terrain_columns
     terrain_cell = __terrain_cell
     x, y = __launch_position()
     radians = angle * pi / 180
@@ -481,7 +474,7 @@ def __draw_building(entity, draw, game):
         draw.box(x + w // 2, y - 18, 1, 16, rim)
         draw.box(x + w // 2 - 6, y - 14, 13, 1, rim)
         draw.box(x + w // 2 - 3, y - 18, 7, 1, rim)
-    if index in (1, 5) and __intact_rectangle(x + 2, y + 11, w - 4, _state.font_height + 6):
+    if index in (1, 5) and __intact_rectangle(_state.terrain[index], x + 2, y + 11, w - 4, _state.font_height + 6):
         label = "BANANA" if index == 1 else "ARCADE"
         if draw.len(label) + 6 > w:
             label = "BN" if index == 1 else "AR"
@@ -492,7 +485,7 @@ def __draw_building(entity, draw, game):
             neon = SLATE
         draw.box(x + 2, y + 11, sign_w, 1, neon)
         draw.text(x + 4, y + 14, label, neon)
-    if index in (0, len(_state.buildings) - 1) and __intact_rectangle(x + 5, y + h - 13, 12, 8):
+    if index in (0, len(_state.buildings) - 1) and __intact_rectangle(_state.terrain[index], x + 5, y + h - 13, 12, 8):
         draw.text(x + 5, y + h - 13, "01" if index == 0 else "02", TEAL if index == 0 else CORAL)
     __draw_decals(draw, index)
     draw.set_terrain_clip(None, 1)
@@ -523,7 +516,7 @@ def __draw_building_lights(index, draw):
             tile = draw.capture(wx, wy, ww, wh, ('window', index, state))
             draw.box(wx, wy, ww, wh, color)
             window.append(tile)
-    if not compact and index == 5 and __intact_rectangle(x + 2, y + 11, w - 4, _state.font_height + 6):
+    if not compact and index == 5 and __intact_rectangle(_state.terrain[index], x + 2, y + 11, w - 4, _state.font_height + 6):
         label = "ARCADE" if draw.len("ARCADE") + 6 <= w else "AR"
         for state, color in enumerate((CORAL, SLATE)):
             tile = draw.capture(x + 2, y + 11, min(w - 4, draw.len(label) + 4), _state.font_height + 6,
@@ -934,20 +927,19 @@ def __draw_sky(entity, draw, game):
 
 def __finish_turn():
     """Award the surviving player, or pass control after an impact."""
-    if _state.phase == PHASE_GAME_OVER:
+    if _state.phase != PHASE_EXPLODING:
         return
     if _state.dead:
-        if len(_state.dead) == 2:
-            _state.message = "DRAW!"
-        else:
+        if len(_state.dead) == 1:
             winner = 1 - _state.dead[0]
             _state.scores[winner] += 1
-            if _state.players == 1:
-                label = "CPU WINS" if winner == 1 else "YOU WIN"
-            else:
-                label = "P{} WINS".format(winner + 1)
-            _state.message = label + (" MATCH!" if _state.scores[winner] >= MATCH_WINS else " GAME!")
-        _state.phase = PHASE_GAME_OVER
+            if _state.scores[winner] >= MATCH_WINS:
+                _state.message = "CPU wins" if _state.players == 1 and winner == 1 else "Player {} wins".format(winner + 1)
+                _state.phase = PHASE_GAME_OVER
+                return
+        # Non-final wins and draws flow straight into the next duel once the
+        # explosion finishes. Scores persist and the starting player alternates.
+        __reset_round()
         return
     _state.turn = 1 - _state.turn
     _state.angle, _state.power = _state.aims[_state.turn]
@@ -957,7 +949,6 @@ def __finish_turn():
     _state.trail.clear()
     _state.ai_index, _state.ai_ticks = 0, 0
     _state.ai_search = None
-    _state.ai_columns = None
     _state.ai_best = (1e12, 50, 80)
 
 
@@ -974,12 +965,12 @@ def __game_over_box():
     return (left, top, left + panel_width, top + panel_height)
 
 
-def __intact_rectangle(x, y, width, height):
+def __intact_rectangle(terrain, x, y, width, height):
     """Hide a sign or decal when its supporting masonry has been destroyed."""
     step = _state.terrain_unit
     for yy in range(y, y + height, step):
         for xx in range(x, x + width, step):
-            if not __terrain_solid(xx, yy):
+            if not __terrain_cell(terrain, xx, yy):
                 return False
     return True
 
@@ -1006,7 +997,7 @@ def __mix_color(first, second, amount):
 
 def __randomize_city():
     """Regenerate the skyline while retaining the native scene's entities."""
-    _state.renderer.invalidate()
+    _state.renderer.invalidate(artwork=False)
     compact, width = _state.compact, _state.width
     baseline, unit = _state.baseline, _state.terrain_unit
     count = len(_state.buildings)
@@ -1026,6 +1017,7 @@ def __randomize_city():
     _state.city_seed = randint(0, 65535)
     __set_environment(randint(0, 3), randint(0, 3))
     old_heights = tuple(t[3] for t in _state.terrain[:count])
+    _state.terrain_columns = ()
     _state.terrain.clear()
     x = margin
     for index, building in enumerate(_state.buildings):
@@ -1071,6 +1063,12 @@ def __randomize_city():
         x = building.position.x + (building.size.x - gorilla.size.x) / 2
         y = building.position.y - gorilla.size.y - 2
         gorilla.position = Vector(x, y)
+    # The buckets keep references to live cells, so blast holes need no rebuild.
+    _state.terrain_columns = tuple(
+        tuple(terrain for terrain in _state.terrain
+              if terrain[0] < column + 16 and terrain[0] + terrain[2] > column)
+        for column in range(0, width, 16)
+    )
     _state.renderer.prepare_effect(_state.pixel_scale, compact)
 
 
@@ -1090,15 +1088,17 @@ def __reset_round(new_match=False):
     """Create a fresh duel, keeping match scores unless starting a new match."""
     if new_match:
         _state.scores[:] = [0, 0]
+        _state.starter = 0
+    else:
+        _state.starter = 1 - _state.starter
     _state.message = ""
     _state.angle, _state.power = 52, 82
-    _state.phase, _state.turn, _state.round, _state.wind = PHASE_AIMING, 0, 1, 0
+    _state.phase, _state.turn, _state.round, _state.wind = PHASE_AIMING, _state.starter, 1, 0
     _state.hit_player = -1
     _state.dead.clear()
     _state.aims = [(52, 82), (52, 82)]
     _state.ai_index, _state.ai_ticks = 0, 0
     _state.ai_search = None
-    _state.ai_columns = None
     _state.ai_shots = 0
     _state.ai_best = (1e12, 50, 80)
     _state.particles.clear()
@@ -1137,8 +1137,8 @@ def __resolve_shot(victim):
 
 
 def __result_prompt():
-    """Continue the match until either player has won three games."""
-    return "OK: NEW MATCH" if max(_state.scores) >= MATCH_WINS else "OK: NEXT GAME"
+    """The result screen is shown only after the match is won."""
+    return "OK: NEW MATCH"
 
 
 def __score_text():
@@ -1193,7 +1193,7 @@ def __terrain_solid(x, y):
     """Query terrain cells for aiming/support without a duplicate pixel map."""
     if x < 0 or y < 0 or x >= _state.width or y >= _state.height:
         return False
-    for terrain in _state.terrain:
+    for terrain in _state.terrain_columns[int(x) // 16]:
         if __terrain_cell(terrain, x, y):
             return True
     return False
@@ -1278,7 +1278,7 @@ def run(view_manager):
             __reset_round(new_match=True)
     elif _state.phase == PHASE_GAME_OVER:
         if button == BUTTON_CENTER:
-            __reset_round(new_match=max(_state.scores) >= MATCH_WINS)
+            __reset_round(new_match=True)
     elif _state.phase == PHASE_AIMING:
         if __is_cpu_turn():
             __ai_update()

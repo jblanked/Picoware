@@ -6,9 +6,13 @@ Rooftop banana duels using Picoware's existing game engine and Draw API.
 
 The first player to win three games wins the match, against the CPU or in
 local two-player mode. Scores remain visible between games. A draw awards
-neither player a point. Press OK after a game to start the next duel on a fresh
-skyline; after the match is won, OK starts a new match at 0-0. Starting from
-the main menu also resets both scores.
+neither player a point. After the explosion finishes, the next duel starts
+automatically on a fresh skyline. A winner screen appears only at three wins,
+saying "Player 1 wins", "Player 2 wins", or "CPU wins". On that screen, OK
+starts a new match at 0-0. Starting from
+the main menu also resets both scores. P1 starts each new match, then the
+starting player alternates after every duel, including draws. The CPU still
+starts each duel with its usual rough ranging shots.
 
 ## Installation
 
@@ -60,6 +64,16 @@ catch-up after a slow frame.
 RGB332 artwork is stored as sparse rectangles in `.bin` files; transparent gaps
 are omitted. Records feed the stock bytearray API through exact-length views,
 with clipped rows where needed. There is no runtime sprite rasterizer.
+
+New duels invalidate scene commands but retain immutable artwork pages and
+decoded sprite metadata. When the fixed page cache fills, a least-recently-used
+page is recycled together with its metadata. Oversized records reuse the
+existing scratch buffer when requested consecutively; cache storage does not
+grow with the number of duels.
+
+Terrain queries share horizontal buckets built with each skyline. Buckets
+reference the live masonry cells, so destruction needs no duplicate collision
+map or index rebuild. Sign-support checks query their owning building directly.
 
 On larger heaps, unchanged geometry is cached and changed regions are replayed
 in painter order. Old and new object bounds restore the background after motion

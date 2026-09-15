@@ -60,6 +60,9 @@ class SpriteCache:
         self.art_cache = tuple(memoryview(bytearray(page_bytes))
                                for unused in range(cache_bytes // page_bytes))
         self.art_offsets = [0] * len(self.art_cache)
+        self.art_access = [0] * len(self.art_cache)
+        self.art_clock = 0
+        self.art_scratch_index = -1
         self.art_entries = {}
         self.art_rectangles = {}
         self.art_rectangle_count = 0
@@ -76,6 +79,16 @@ class SpriteCache:
         return self.command_count + count <= self.command_limit and (
             len(self.terrain) + len(self.lights) + len(self.layers) < GROUP_LIMIT
             and mem_free() > 32768 + count * 128)
+
+    def _art_evict(self, page):
+        """Recycle one cold page and its metadata without enlarging the cache."""
+        for index in tuple(self.art_entries):
+            if self.art_entries[index][0] == page:
+                del self.art_entries[index]
+                rectangles = self.art_rectangles.pop(index, ())
+                self.art_rectangle_count -= len(rectangles)
+        self.art_used -= self.art_offsets[page]
+        self.art_offsets[page] = 0
 
     def _art_record(self, index):
         if not 0 <= index < self.art_count:
@@ -225,6 +238,9 @@ class SpriteCache:
                         if used + length <= len(self.art_cache[candidate]):
                             page = candidate
                             break
+                if page < 0 and length <= len(self.art_cache[0]):
+                    page = min(range(len(self.art_cache)), key=lambda candidate: self.art_access[candidate])
+                    self._art_evict(page)
                 if page >= 0:
                     start = self.art_offsets[page]
                     data = self.art_cache[page][start:start + length]
@@ -236,7 +252,13 @@ class SpriteCache:
                     if length > len(self.art_buffer):
                         raise ValueError('Art exceeds small scratch buffer')
                     data = self.art_buffer[:length]
-                    self._read(self.art_source, offset, data)
+                    if self.art_scratch_index != index:
+                        self.art_scratch_index = -1
+                        self._read(self.art_source, offset, data)
+                        self.art_scratch_index = index
+            if cached is not None or page >= 0:
+                self.art_clock += 1
+                self.art_access[page] = self.art_clock
         cursor, calls = 2, 0
         a, b, c, d = self.clip
         image = self.draw._bytearray
@@ -503,7 +525,7 @@ class SpriteCache:
             else:
                 self.frame.append((0, x, y, x + width, y + height, color))
 
-    def invalidate(self, key=None):
+    def invalidate(self, key=None, artwork=True):
         self.opaque_revision += 1
         if key is None:
             self.terrain.clear()
@@ -512,12 +534,16 @@ class SpriteCache:
             self.tracked.clear()
             self.pending.clear()
             self.command_count = 0
-            self.art_entries.clear()
-            self.art_rectangles.clear()
-            self.art_rectangle_count = 0
-            self.art_used = 0
-            for page in range(len(self.art_offsets)):
-                self.art_offsets[page] = 0
+            if artwork:
+                self.art_entries.clear()
+                self.art_rectangles.clear()
+                self.art_rectangle_count = 0
+                self.art_used = 0
+                self.art_clock = 0
+                self.art_scratch_index = -1
+                for page in range(len(self.art_offsets)):
+                    self.art_offsets[page] = 0
+                    self.art_access[page] = 0
             self.full_redraw = True
         else:
             tracked = self.tracked.pop(key, None)

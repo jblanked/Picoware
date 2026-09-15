@@ -423,7 +423,7 @@ class Agent:
         storage.write(self._file_path, "}", mode="a")
 
 
-    def _run_loop(self) -> str:
+    def _run_loop(self, timeout: int = 300) -> str:
         """Run the model/tool loop until a final reply is produced.
 
         Returns:
@@ -439,7 +439,7 @@ class Agent:
                 self.llm.url,
                 headers=self.llm.headers,
                 payload=None,
-                timeout=120,
+                timeout=timeout,
                 storage=storage,
                 send_file=self._file_path,
             )

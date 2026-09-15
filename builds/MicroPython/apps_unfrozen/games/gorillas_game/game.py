@@ -26,6 +26,7 @@ PHASE_GAME_OVER = const(3)
 PHASE_MENU = const(4)
 EXPLOSION_TICKS = const(40)
 DECAL_LIMIT = const(24)
+MATCH_WINS = const(3)
 
 # RGB565 palette: midnight, slate, peach, cream, turquoise, and coral.
 INK = const(0x1085)
@@ -70,7 +71,7 @@ class _State:
         'gorillas', 'height', 'hit_player', 'last_frame', 'menu_selection',
         'message', 'obstacle_hosts', 'obstacle_kinds', 'obstacles',
         'particles', 'phase', 'physics_scale', 'pixel_scale', 'players',
-        'power', 'remainder', 'renderer', 'round', 'season', 'sky',
+        'power', 'remainder', 'renderer', 'round', 'scores', 'season', 'sky',
         'steps', 'terrain', 'terrain_unit', 'tick', 'trail', 'turn',
         'width', 'wind',
     )
@@ -120,6 +121,7 @@ class _State:
         self.pixel_scale = scale
         self.power = 82
         self.round = 1
+        self.scores = [0, 0]
         self.tick = 0
         self.season = 1
         self.sky = SKY
@@ -668,23 +670,24 @@ def __draw_hud(entity, draw, game):
     elif phase == PHASE_EXPLODING:
         __draw_explosion(draw)
     if compact:
-        revision = (phase, _state.turn, _state.players, _state.angle, _state.power, _state.wind)
+        revision = (phase, _state.turn, _state.players, _state.angle, _state.power, _state.wind, tuple(_state.scores))
         if draw.layer('hud', revision):
             draw.box(0, 0, width, font + 3, 0)
             side = "CPU" if _state.players == 1 and _state.turn == 1 else "P{}".format(_state.turn + 1)
             status = "{} A{} P{} W{:+d}".format(side, _state.angle, _state.power, _state.wind)
             __center_text(draw, status, 1, WHITE)
             draw.box(0, height - font - 2, width, font + 2, 0)
-            __center_text(draw, "CPU THINKING..." if __is_cpu_turn() else "^vAim <>Pwr OK:Fire", height - font - 1, WHITE)
+            __center_text(draw, __score_text(), height - font - 1, WHITE)
             draw.end_layer()
     else:
         __draw_hud_static(draw)
         __draw_hud_fields(draw)
-    if phase == PHASE_GAME_OVER and draw.layer('result', (_state.message, accent), (__game_over_box(),)):
+    if phase == PHASE_GAME_OVER and draw.layer('result', (_state.message, accent, tuple(_state.scores)), (__game_over_box(),)):
         left, banner_y, right, bottom = __game_over_box()
         draw.box(left, banner_y, right - left, bottom - banner_y, 0 if compact else INK)
         __center_text(draw, _state.message, banner_y + 3, accent)
-        __center_text(draw, "OK: REMATCH", banner_y + font + 7, WHITE if compact else CREAM)
+        __center_text(draw, __score_text(), banner_y + font + 7, WHITE if compact else CREAM)
+        __center_text(draw, __result_prompt(), banner_y + font * 2 + 11, WHITE if compact else CREAM)
         draw.end_layer()
     draw.present()
 
@@ -733,12 +736,12 @@ def __draw_hud_static(draw):
     width = _state.width
     title_scale = 2 if width >= 250 else 1
     title_x = (width - 47 * title_scale) // 2
-    if draw.layer('hud_static', (_state.environment, _state.players)):
+    if draw.layer('hud_static', (_state.environment, _state.players, tuple(_state.scores))):
         draw.box(0, 0, width, 39, INK)
         __art(draw, TITLE_ART, title_x + 1, 8, title_scale, {'#': 0x91E9})
         __center_text(draw, _state.environment, 27, SLATE)
-        draw.text(10, 9, 'P1', TEAL)
-        opponent = 'CPU' if _state.players == 1 else 'P2'
+        draw.text(10, 9, 'P1 {}/3'.format(_state.scores[0]), TEAL)
+        opponent = '{} {}/3'.format('CPU' if _state.players == 1 else 'P2', _state.scores[1])
         draw.text(width - draw.len(opponent) - 10, 9, opponent, CORAL)
         draw.end_layer()
     if draw.layer('hud_title', width):
@@ -753,7 +756,7 @@ def __draw_menu(draw):
     selected = _state.menu_selection
     if compact:
         draw.box(0, 0, width, height, 0)
-        __center_text(draw, "GORILLAS", 2, WHITE)
+        __center_text(draw, "GORILLAS: FIRST TO 3", 2, WHITE)
         for index, label in enumerate(("1 PLAYER / CPU", "2 PLAYERS", "EXIT")):
             y = 17 + index * 12
             if index == selected:
@@ -769,7 +772,7 @@ def __draw_menu(draw):
     left, top = (width - panel_w) // 2, max(100, (height - panel_h) // 2)
     draw.box(left, top, panel_w, panel_h, INK)
     draw.box(left, top, panel_w, 2, TEAL)
-    __center_text(draw, "CHOOSE YOUR GAME", top + 11, SLATE)
+    __center_text(draw, "FIRST TO 3 WINS", top + 11, SLATE)
     row_height = max(25, font + 15)
     for index, label in enumerate(("1 PLAYER", "2 PLAYERS", "EXIT")):
         y = top + 30 + index * row_height
@@ -931,13 +934,19 @@ def __draw_sky(entity, draw, game):
 
 def __finish_turn():
     """Award the surviving player, or pass control after an impact."""
+    if _state.phase == PHASE_GAME_OVER:
+        return
     if _state.dead:
         if len(_state.dead) == 2:
             _state.message = "DRAW!"
-        elif _state.players == 1:
-            _state.message = "CPU WINS!" if 0 in _state.dead else "YOU WIN!"
         else:
-            _state.message = "PLAYER {} WINS!".format(2 - _state.dead[0])
+            winner = 1 - _state.dead[0]
+            _state.scores[winner] += 1
+            if _state.players == 1:
+                label = "CPU WINS" if winner == 1 else "YOU WIN"
+            else:
+                label = "P{} WINS".format(winner + 1)
+            _state.message = label + (" MATCH!" if _state.scores[winner] >= MATCH_WINS else " GAME!")
         _state.phase = PHASE_GAME_OVER
         return
     _state.turn = 1 - _state.turn
@@ -958,10 +967,11 @@ def __game_over_box():
     width, height, font = _state.width, _state.height, _state.font_height
     compact = _state.compact
     padding = 3 if compact else 6
-    panel_width = min(width - 6, max(draw.len(_state.message), draw.len('OK: REMATCH')) + padding * 2)
+    panel_width = min(width - 6, max(draw.len(_state.message), draw.len(__score_text()), draw.len(__result_prompt())) + padding * 2)
     left = (width - panel_width) // 2
-    top = height // 2 - (font + 6 if compact else 22)
-    return (left, top, left + panel_width, top + font * 2 + 13)
+    panel_height = font * 3 + 17
+    top = (height - panel_height) // 2
+    return (left, top, left + panel_width, top + panel_height)
 
 
 def __intact_rectangle(x, y, width, height):
@@ -1076,8 +1086,11 @@ def __render_scene(entity, draw, game):
     __draw_hud(None, None, _game)
 
 
-def __reset_round():
-    """Start a fresh match with new buildings and reset the computer's practice."""
+def __reset_round(new_match=False):
+    """Create a fresh duel, keeping match scores unless starting a new match."""
+    if new_match:
+        _state.scores[:] = [0, 0]
+    _state.message = ""
     _state.angle, _state.power = 52, 82
     _state.phase, _state.turn, _state.round, _state.wind = PHASE_AIMING, 0, 1, 0
     _state.hit_player = -1
@@ -1121,6 +1134,17 @@ def __resolve_shot(victim):
         speed = (0.4 + index % 5 * 0.17) * scale
         _state.particles.append((cos(angle) * speed, sin(angle) * speed - scale * 0.5, (1 + index % 3) * scale))
     __settle_gorillas()
+
+
+def __result_prompt():
+    """Continue the match until either player has won three games."""
+    return "OK: NEW MATCH" if max(_state.scores) >= MATCH_WINS else "OK: NEXT GAME"
+
+
+def __score_text():
+    """Show both scores and the first-to-three target on either display."""
+    opponent = "CPU" if _state.players == 1 else "P2"
+    return "P1 {}-{} {} /3".format(_state.scores[0], _state.scores[1], opponent)
 
 
 def __set_environment(day_time, season):
@@ -1251,10 +1275,10 @@ def run(view_manager):
                 view_manager.back()
                 return
             _state.players = _state.menu_selection + 1
-            __reset_round()
+            __reset_round(new_match=True)
     elif _state.phase == PHASE_GAME_OVER:
         if button == BUTTON_CENTER:
-            __reset_round()
+            __reset_round(new_match=max(_state.scores) >= MATCH_WINS)
     elif _state.phase == PHASE_AIMING:
         if __is_cpu_turn():
             __ai_update()

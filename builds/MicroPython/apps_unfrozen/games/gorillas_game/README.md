@@ -2,6 +2,14 @@
 
 Rooftop banana duels using Picoware's existing game engine and Draw API.
 
+## Match rules
+
+The first player to win three games wins the match, against the CPU or in
+local two-player mode. Scores remain visible between games. A draw awards
+neither player a point. Press OK after a game to start the next duel on a fresh
+skyline; after the match is won, OK starts a new match at 0-0. Starting from
+the main menu also resets both scores.
+
 ## Installation
 
 Keep the launcher and package together in storage:

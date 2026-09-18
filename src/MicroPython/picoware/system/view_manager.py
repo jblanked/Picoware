@@ -325,7 +325,9 @@ class ViewManager:
     @property
     def has_audio(self):
         """Return whether the current board has audio capability."""
-        return self._audio is not None
+        from picoware.system.boards import BOARD_HAS_AUDIO
+
+        return BOARD_HAS_AUDIO == 1
 
     @property
     def has_bluetooth(self):

@@ -440,6 +440,7 @@ class Draw(lcd.LCD):
         chunk_size=0,
         invert=False,
         loop=False,
+        buffer:bytearray=None,
     ):
         """Draw an image from an 8-bit bytearray file stored on disk.
 
@@ -459,6 +460,7 @@ class Draw(lcd.LCD):
             loop (bool): If True, keep drawing chunks (wrapping to the top)
                 until the entire buffer is read. If False, draw only the first
                 chunk and stop. Defaults to False.
+            buffer (bytearray): Optional pre-allocated buffer for reading chunks. Defaults to None.
         """
         width, height = size.x, size.y
         if width <= 0 or height <= 0:
@@ -469,7 +471,7 @@ class Draw(lcd.LCD):
                 row_bytes = width
                 row = 0
                 byte_offset = 0
-                while True:
+                while True: 
                     rows_left = height - row
                     if chunk_size <= 0:
                         block_bytes = rows_left * row_bytes
@@ -478,22 +480,40 @@ class Draw(lcd.LCD):
                         block_bytes = (block_bytes // row_bytes) * row_bytes
                         if block_bytes == 0:
                             block_bytes = row_bytes
-                    byte_array = storage.file_read(
-                        file, seek + byte_offset, block_bytes, decode=False
-                    )
-                    if not byte_array:
-                        break
-                    rows_in_block = len(byte_array) // row_bytes
-                    if rows_in_block == 0:
-                        break
-                    self._bytearray(
-                        position.x,
-                        position.y + row,
-                        width,
-                        rows_in_block,
-                        byte_array,
-                        invert,
-                    )
+                    if buffer is None:
+                        byte_array = storage.file_read(
+                            file, seek + byte_offset, block_bytes, decode=False
+                        )
+                        if not byte_array:
+                            break
+                        rows_in_block = len(byte_array) // row_bytes
+                        if rows_in_block == 0:
+                            break
+                        self._bytearray(
+                            position.x,
+                            position.y + row,
+                            width,
+                            rows_in_block,
+                            byte_array,
+                            invert,
+                        )
+                    else:
+                        _count = storage.file_readinto(
+                            file, buffer
+                        )
+                        if _count <= 0:
+                            break
+                        rows_in_block = _count // row_bytes
+                        if rows_in_block == 0:
+                            break
+                        self._bytearray(
+                            position.x,
+                            position.y + row,
+                            width,
+                            rows_in_block,
+                            buffer,
+                            invert,
+                        )
                     row += rows_in_block
                     byte_offset += rows_in_block * row_bytes
                     if not loop:

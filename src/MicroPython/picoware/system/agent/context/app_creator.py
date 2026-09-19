@@ -749,7 +749,7 @@ All color constants are RGB565 format and defined as `micropython.const` integer
     - `image_bmp(position, path)`: Draw a 24-bit BMP file. Accepts a plain file path.
     - `image_bytearray(position, size, byte_data, invert=False)`: Draw from 8-bit pixel data (one byte per pixel).
     - `image_bytearray_1bit(position, size, byte_data)`: Draw from 1-bit packed bitmap data.
-    - `image_bytearray_path(position, size, path, storage=None, seek=0, chunk_size=0)`: Draw pixel data loaded from a file.
+    - `image_bytearray_path(position, size, path, storage=None, seek=0, chunk_size=0, buffer=None)`: Draw pixel data loaded from a file.
     - `image_jpeg(position, path, storage=None)`: Decode and draw a Baseline JPEG file. Returns True on success.
     - `image_jpeg_buffer(position, buf)`: Decode and draw a JPEG from a bytes buffer. Returns True on success.
     - `len(text, font_size=0)`: Returns the pixel width of a text string at the given font size.

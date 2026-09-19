@@ -407,14 +407,9 @@ class Settings:
         if not self._storage.exists(path):
             return default
 
-        data = self._storage.read(path)
-        if data is not None:
-            try:
-                obj = json.loads(data)
-                if key in obj:
-                    return obj[key]
-            except Exception:
-                pass
+        data = self._storage.serialize(path)
+        if data:
+            return data.get(key, default)
 
         return default
     
@@ -424,7 +419,26 @@ class Settings:
         Returns:
             bool: True if the settings were saved successfully.
         """
-        return self._storage.write(
+        return self._storage.serialize(
             self._path,
-            json.dumps(self._settings),
+            self._settings,
         )
+
+    @classmethod
+    def get(cls, storage, key: str, default=None):
+        """Get a setting value from storage.
+
+        Args:
+            key (str): The setting key to look up.
+            default (object): Value returned when the setting is missing. Defaults to None.
+
+        Returns:
+            object: The fetched setting value or the default.
+        """
+        path = "picoware/settings/settings.json"
+        if storage is None or not storage.exists(path):
+            return default
+        data = storage.deserialize(path)
+        if data:
+            return data.get(key, default)
+        return default

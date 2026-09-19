@@ -468,9 +468,14 @@ static void audio_mp3_close(void)
 bool audio_play_mp3(const char *filename)
 {
 #if SD_AVAILABLE
-    if (!audio_initialised || !filename)
+    if (!audio_initialised && !audio_init())
     {
-        PRINT("Audio not initialized or filename is NULL\n");
+        PRINT("Audio not initialized and failed to initialize\n");
+        return false;
+    }
+    if (!filename)
+    {
+        PRINT("Filename is NULL\n");
         return false;
     }
 
@@ -602,8 +607,14 @@ bool audio_seek(uint64_t target_sample)
 
 void audio_play_note_blocking(const audio_note_t *note)
 {
-    if (!audio_initialised || note == NULL)
+    if (!audio_initialised && !audio_init())
     {
+        PRINT("Audio not initialized and failed to initialize\n");
+        return;
+    }
+    if (note == NULL)
+    {
+        PRINT("Note is NULL\n");
         return;
     }
 
@@ -613,8 +624,15 @@ void audio_play_note_blocking(const audio_note_t *note)
 // Function to play a stereo song from the stereo song array
 void audio_play_song_blocking(const audio_song_t *song)
 {
-    if (!audio_initialised || !song)
+    if (!audio_initialised && !audio_init())
     {
+        PRINT("Audio not initialized and failed to initialize\n");
+        return;
+    }
+
+    if (!song)
+    {
+        PRINT("Song is NULL\n");
         return;
     }
 
@@ -651,8 +669,9 @@ void audio_play_song_blocking(const audio_song_t *song)
 // Play a stereo sound asynchronously (continues until stopped)
 void audio_play_sound(uint32_t left_frequency, uint32_t right_frequency)
 {
-    if (!audio_initialised)
+    if (!audio_initialised && !audio_init())
     {
+        PRINT("Audio not initialized and failed to initialize\n");
         return;
     }
 
@@ -677,8 +696,9 @@ void audio_play_sound(uint32_t left_frequency, uint32_t right_frequency)
 // Play a stereo sound for a specific duration (blocking)
 void audio_play_sound_blocking(uint32_t left_frequency, uint32_t right_frequency, uint32_t duration_ms)
 {
-    if (!audio_initialised)
+    if (!audio_initialised && !audio_init())
     {
+        PRINT("Audio not initialized and failed to initialize\n");
         return;
     }
 
@@ -899,9 +919,14 @@ static void audio_wav_core1_entry(void)
 bool audio_play_wav(const char *filename)
 {
 #if SD_AVAILABLE
-    if (!audio_initialised || !filename)
+    if (!audio_initialised && !audio_init())
     {
-        PRINT("Audio not initialized or filename is NULL\n");
+        PRINT("Audio not initialized and failed to initialize\n");
+        return false;
+    }
+    if (!filename)
+    {
+        PRINT("Filename is NULL\n");
         return false;
     }
 
@@ -1069,8 +1094,9 @@ void audio_start_stream(uint32_t sample_rate)
 // Stop audio output
 void audio_stop(void)
 {
-    if (!audio_initialised)
+    if (!audio_initialised && !audio_init())
     {
+        PRINT("Audio not initialized and failed to initialize\n");
         return;
     }
 #if SD_AVAILABLE

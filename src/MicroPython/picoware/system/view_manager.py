@@ -222,6 +222,17 @@ class ViewManager:
         if self._thread_manager:
             del self._thread_manager
             self._thread_manager = None
+        if self._battery is not None:
+            del self._battery
+            self._battery = None
+        if self._uart is not None:
+            del self._uart
+            self._uart = None
+        if self._usb_video_stream is not None:
+            if self._usb_video_stream.active:
+                self._usb_video_stream.stop()
+            del self._usb_video_stream
+            self._usb_video_stream = None
 
         collect()
 

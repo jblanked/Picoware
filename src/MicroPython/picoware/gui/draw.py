@@ -435,8 +435,13 @@ class Draw(lcd.LCD):
         seek=0,
         chunk_size=0,
         invert=False,
+        loop=False,
     ):
         """Draw an image from an 8-bit bytearray file stored on disk.
+
+        The file holds row-major 8-bit pixel data (one byte per pixel). When the
+        image is larger than a single read it is blitted in row-aligned chunks,
+        each drawn at its correct offset so the whole image appears.
 
         Args:
             position (Vector): The top-left position to draw the image.
@@ -444,19 +449,54 @@ class Draw(lcd.LCD):
             path (str): The path to the bytearray file.
             storage: Storage instance for file access. Defaults to None.
             seek (int): Byte offset to start reading from. Defaults to 0.
-            chunk_size (int): Number of bytes to read per chunk. Defaults to 0 (read all).
+            chunk_size (int): Bytes to read per chunk. Defaults to 0 (read all).
+                Reads are aligned to full rows so each blit is a valid rectangle.
             invert (bool): Whether to invert the pixel values. Defaults to False.
+            loop (bool): If True, keep drawing chunks (wrapping to the top)
+                until the entire buffer is read. If False, draw only the first
+                chunk and stop. Defaults to False.
         """
+        width, height = size.x, size.y
+        if width <= 0 or height <= 0:
+            return
         try:
-            if storage:
+            if storage is not None and storage.exists(path):
                 file = storage.file_open(path)
-                if not file:
-                    print(f"File not found: {path}")
-                    return
-                byte_array = storage.file_read(file, seek, chunk_size, decode=False)
-                self._bytearray(position.x, position.y, size.x, size.y, byte_array, invert)
+                row_bytes = width
+                row = 0
+                byte_offset = 0
+                while True:
+                    rows_left = height - row
+                    if chunk_size <= 0:
+                        block_bytes = rows_left * row_bytes
+                    else:
+                        block_bytes = min(chunk_size, rows_left * row_bytes)
+                        block_bytes = (block_bytes // row_bytes) * row_bytes
+                        if block_bytes == 0:
+                            block_bytes = row_bytes
+                    byte_array = storage.file_read(
+                        file, seek + byte_offset, block_bytes, decode=False
+                    )
+                    if not byte_array:
+                        break
+                    rows_in_block = len(byte_array) // row_bytes
+                    if rows_in_block == 0:
+                        break
+                    self._bytearray(
+                        position.x,
+                        position.y + row,
+                        width,
+                        rows_in_block,
+                        byte_array,
+                        invert,
+                    )
+                    row += rows_in_block
+                    byte_offset += rows_in_block * row_bytes
+                    if not loop:
+                        break
+                    if row >= height:
+                        row = 0
                 storage.file_close(file)
-
         except Exception as e:
             print(f"Error loading bytearray image: {e}")
 

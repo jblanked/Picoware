@@ -92,7 +92,7 @@ class PSRAM(picoware_psram.PSRAM):
             bytes_read = storage.file_readinto(file, buffer)
             if bytes_read <= 0:
                 break
-            self.write(_addr, buffer[:bytes_read])
+            self.write(_addr, memoryview(buffer)[:bytes_read])
             _addr += bytes_read
             if bytes_read < chunk_size:
                 break

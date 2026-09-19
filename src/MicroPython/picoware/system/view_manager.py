@@ -144,10 +144,6 @@ class ViewManager:
 
         # Initialize audio
         self._audio = None
-        if syst.has_audio:
-            from picoware.system.audio import Audio
-
-            self._audio = Audio()
 
         if self._draw.use_lvgl:
             # disable networking...
@@ -251,6 +247,10 @@ class ViewManager:
     @property
     def audio(self):
         """Return the Audio instance."""
+        if self._audio is None and self.has_audio:
+            from picoware.system.audio import Audio
+
+            self._audio = Audio()
         return self._audio
 
     @property

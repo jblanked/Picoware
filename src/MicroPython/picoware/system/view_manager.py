@@ -48,7 +48,6 @@ class ViewManager:
     def __init__(self):
         """Initialize the ViewManager with default settings."""
         from picoware.gui.draw import Draw
-        from picoware.gui.keyboard import Keyboard
         from picoware.system.input import Input
         from picoware.system.battery import Battery
         from picoware.system.storage import Storage
@@ -122,14 +121,7 @@ class ViewManager:
         self._battery = Battery()
 
         # Initialize keyboard
-        self._keyboard = Keyboard(
-            self._draw,
-            self._input_manager,
-            self._foreground_color,
-            self._background_color,
-            self._selected_color,
-        )
-        self._keyboard.show_keyboard = _keyboard_state
+        self._keyboard = None
 
         # Initialize time
         self._time = Time(self._thread_manager)
@@ -380,6 +372,18 @@ class ViewManager:
     @property
     def keyboard(self):
         """Return the Keyboard instance."""
+        if self._keyboard is None:
+            from picoware.gui.keyboard import Keyboard
+            from picoware.system.settings import Settings
+            from picoware.system.boards import BOARD_HAS_KEYBOARD
+            self._keyboard = Keyboard(
+                self._draw,
+                self._input_manager,
+                self._foreground_color,
+                self._background_color,
+                self._selected_color,
+            )
+            self._keyboard.show_keyboard = Settings.get(self._storage, "onscreen_keyboard", BOARD_HAS_KEYBOARD == 0)
         return self._keyboard
 
     @property

@@ -346,7 +346,7 @@ class Draw(lcd.LCD):
         except Exception as e:
             print(f"Error loading BMP: {e}")
 
-    def image_jpeg(self, position: Vector, path: str, storage=None) -> bool:
+    def image_jpeg(self, position: Vector, path: str, storage=None, jpeg=None) -> bool:
         """Draw a JPEG image from a file path.
 
         Args:
@@ -357,16 +357,18 @@ class Draw(lcd.LCD):
         Returns:
             bool: True on success, False on failure.
         """
-        from picoware.gui.jpeg import JPEG
+        _jpeg = jpeg
 
         try:
-            jpeg = JPEG(screen_width=self._size.x, screen_height=self._size.y)
-            return jpeg.draw(position.x, position.y, path, storage)
+            if jpeg is None:
+                from picoware.gui.jpeg import JPEG
+                _jpeg = JPEG(screen_width=self._size.x, screen_height=self._size.y)
+            return _jpeg is not None and _jpeg.draw(position.x, position.y, path, storage)
         except Exception as e:
             print(f"Error loading JPEG: {e}")
             return False
 
-    def image_jpeg_buffer(self, position: Vector, buf) -> bool:
+    def image_jpeg_buffer(self, position: Vector, buf, jpeg=None) -> bool:
         """Draw a JPEG image from bytes data into a BytesIO buffer.
 
         Args:
@@ -376,11 +378,13 @@ class Draw(lcd.LCD):
         Returns:
             bool: True on success, False on failure.
         """
-        from picoware.gui.jpeg import JPEG
+        _jpeg = jpeg
 
         try:
-            jpeg = JPEG(screen_width=self._size.x, screen_height=self._size.y)
-            return jpeg.draw_buffer(position.x, position.y, buf)
+            if jpeg is None:
+                from picoware.gui.jpeg import JPEG
+                _jpeg = JPEG(screen_width=self._size.x, screen_height=self._size.y)
+            return _jpeg is not None and _jpeg.draw_buffer(position.x, position.y, buf)
         except Exception as e:
             print(f"Error loading JPEG from buffer: {e}")
             return False

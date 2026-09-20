@@ -904,63 +904,152 @@ void lcd_fill_polygon(uint16_t x[], uint16_t y[], int count, uint16_t color)
 
     uint8_t color_index = color565_to_332(color);
 
-    int min_y = (int)y[0], max_y = min_y;
-    for (int i = 1; i < count; i++)
+    // Edge x at top vertex (14.14 fixed point), row step, vertex levels
+    int xtop[count], dxf[count], ys[count];
+
+    for (int i = 0; i < count; i++)
     {
-        if ((int)y[i] < min_y)
-            min_y = (int)y[i];
-        if ((int)y[i] > max_y)
-            max_y = (int)y[i];
+        int j = (i + 1 == count) ? 0 : i + 1;
+        int y0 = (int)y[i], y1 = (int)y[j], x0 = (int)x[i], x1 = (int)x[j];
+        int top_x = (y0 <= y1) ? x0 : x1;
+        int bot_x = (y0 <= y1) ? x1 : x0;
+        int rows = (y0 <= y1) ? (y1 - y0) : (y0 - y1);
+
+        xtop[i] = top_x << 14;
+        dxf[i] = rows ? (int)(((int64_t)(bot_x - top_x) << 14) / rows) : 0;
+        ys[i] = (int)y[i];
     }
-    if (min_y < 0)
-        min_y = 0;
-    if (max_y > DISPLAY_HEIGHT - 1)
-        max_y = DISPLAY_HEIGHT - 1;
 
-    int xs[count];
-
-    for (int py = min_y; py <= max_y; py++)
+    // Sort vertex levels
+    for (int a = 1; a < count; a++)
     {
-        // Crossings for this row (half open spans skip shared vertices)
+        int v = ys[a], b = a - 1;
+        while (b >= 0 && ys[b] > v)
+        {
+            ys[b + 1] = ys[b];
+            b--;
+        }
+        ys[b + 1] = v;
+    }
+
+    int xa[count], dxa[count], xs[count];
+
+    // Horizontal cut at every vertex: sides stay straight inside a band
+    for (int b = 0; b + 1 < count; b++)
+    {
+        int ya = ys[b], yb = ys[b + 1];
+        if (ya == yb)
+            continue;
+
+        int row0 = (ya < 0) ? 0 : ya;
+        int row1 = (yb > DISPLAY_HEIGHT) ? DISPLAY_HEIGHT : yb;
+        if (row0 >= row1)
+            continue;
+
+        // Sides crossing this band, x at first row
         int n = 0;
         for (int i = 0; i < count; i++)
         {
             int j = (i + 1 == count) ? 0 : i + 1;
             int y0 = (int)y[i], y1 = (int)y[j];
-            if ((py >= y0 && py < y1) || (py >= y1 && py < y0))
-                xs[n++] = (int)x[i] + ((py - y0) * ((int)x[j] - (int)x[i])) / (y1 - y0);
+            int top = (y0 < y1) ? y0 : y1;
+            int bot = (y0 < y1) ? y1 : y0;
+
+            if (top <= ya && bot > ya)
+            {
+                xa[n] = xtop[i] + (row0 - top) * dxf[i];
+                dxa[n] = dxf[i];
+                n++;
+            }
         }
 
         if (n < 2)
             continue;
 
-        // Insertion sort crossings
+        // Order sides once (equal x: flatter side is left)
         for (int a = 1; a < n; a++)
         {
-            int v = xs[a], b = a - 1;
-            while (b >= 0 && xs[b] > v)
+            int v = xa[a], s = dxa[a], k = a - 1;
+            while (k >= 0 && (xa[k] > v || (xa[k] == v && dxa[k] > s)))
             {
-                xs[b + 1] = xs[b];
-                b--;
+                xa[k + 1] = xa[k];
+                dxa[k + 1] = dxa[k];
+                k--;
             }
-            xs[b + 1] = v;
+            xa[k + 1] = v;
+            dxa[k + 1] = s;
         }
 
-        // Fill spans between each pair
-        for (int k = 0; k + 1 < n; k += 2)
+        if (n == 2)
         {
-            int ax = xs[k], bx = xs[k + 1];
-            if (bx < 0 || ax >= DISPLAY_WIDTH || bx < ax)
-                continue;
-            if (ax < 0)
-                ax = 0;
-            if (bx >= DISPLAY_WIDTH)
-                bx = DISPLAY_WIDTH - 1;
+            // Two sides: trace both with Bresenham steps
+            int xl = xa[0], xr = xa[1], dl = dxa[0], dr = dxa[1];
 
-            if (lcd_mode == LCD_MODE_PSRAM)
-                psram_write_hline(ax, py, bx - ax + 1, color_index);
-            else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
-                heap_write_hline(ax, py, bx - ax + 1, color_index);
+            for (int py = row0; py < row1; py++)
+            {
+                int ax = xl >> 14, bx = xr >> 14;
+                xl += dl;
+                xr += dr;
+
+                if (bx < 0 || ax >= DISPLAY_WIDTH || bx < ax)
+                    continue;
+                if (ax < 0)
+                    ax = 0;
+                if (bx >= DISPLAY_WIDTH)
+                    bx = DISPLAY_WIDTH - 1;
+
+                if (lcd_mode == LCD_MODE_PSRAM)
+                    psram_write_hline(ax, py, bx - ax + 1, color_index);
+                else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
+                    heap_write_hline(ax, py, bx - ax + 1, color_index);
+            }
+            continue;
+        }
+
+        for (int py = row0; py < row1; py++)
+        {
+            for (int k = 0; k < n; k++)
+            {
+                xs[k] = xa[k] >> 14;
+                xa[k] += dxa[k];
+            }
+
+            // Sides keep order; re-sort if a crossing flipped them
+            bool ordered = true;
+            for (int k = 1; k < n; k++)
+                if (xs[k] < xs[k - 1])
+                {
+                    ordered = false;
+                    break;
+                }
+
+            if (!ordered)
+                for (int a = 1; a < n; a++)
+                {
+                    int v = xs[a], k = a - 1;
+                    while (k >= 0 && xs[k] > v)
+                    {
+                        xs[k + 1] = xs[k];
+                        k--;
+                    }
+                    xs[k + 1] = v;
+                }
+
+            for (int k = 0; k + 1 < n; k += 2)
+            {
+                int ax = xs[k], bx = xs[k + 1];
+                if (bx < 0 || ax >= DISPLAY_WIDTH || bx < ax)
+                    continue;
+                if (ax < 0)
+                    ax = 0;
+                if (bx >= DISPLAY_WIDTH)
+                    bx = DISPLAY_WIDTH - 1;
+
+                if (lcd_mode == LCD_MODE_PSRAM)
+                    psram_write_hline(ax, py, bx - ax + 1, color_index);
+                else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
+                    heap_write_hline(ax, py, bx - ax + 1, color_index);
+            }
         }
     }
 }
@@ -983,109 +1072,173 @@ void lcd_fill_polygon_alpha(uint16_t x[], uint16_t y[], int count,
     uint8_t sb = color & 0x1F;
     uint8_t inv_alpha = 255 - alpha;
 
-    int min_y = (int)y[0], max_y = min_y;
-    for (int i = 1; i < count; i++)
+    // Edge x at top vertex (14.14 fixed point), row step, vertex levels
+    int xtop[count], dxf[count], ys[count];
+
+    for (int i = 0; i < count; i++)
     {
-        if ((int)y[i] < min_y)
-            min_y = (int)y[i];
-        if ((int)y[i] > max_y)
-            max_y = (int)y[i];
+        int j = (i + 1 == count) ? 0 : i + 1;
+        int y0 = (int)y[i], y1 = (int)y[j], x0 = (int)x[i], x1 = (int)x[j];
+        int top_x = (y0 <= y1) ? x0 : x1;
+        int bot_x = (y0 <= y1) ? x1 : x0;
+        int rows = (y0 <= y1) ? (y1 - y0) : (y0 - y1);
+
+        xtop[i] = top_x << 14;
+        dxf[i] = rows ? (int)(((int64_t)(bot_x - top_x) << 14) / rows) : 0;
+        ys[i] = (int)y[i];
     }
-    if (min_y < 0)
-        min_y = 0;
-    if (max_y > DISPLAY_HEIGHT - 1)
-        max_y = DISPLAY_HEIGHT - 1;
 
-    int xs[count];
-
-    for (int py = min_y; py <= max_y; py++)
+    // Sort vertex levels
+    for (int a = 1; a < count; a++)
     {
-        // Crossings for this row (half open spans skip shared vertices)
+        int v = ys[a], b = a - 1;
+        while (b >= 0 && ys[b] > v)
+        {
+            ys[b + 1] = ys[b];
+            b--;
+        }
+        ys[b + 1] = v;
+    }
+
+    int xa[count], dxa[count], xs[count];
+
+    // Horizontal cut at every vertex: sides stay straight inside a band
+    for (int b = 0; b + 1 < count; b++)
+    {
+        int ya = ys[b], yb = ys[b + 1];
+        if (ya == yb)
+            continue;
+
+        int row0 = (ya < 0) ? 0 : ya;
+        int row1 = (yb > DISPLAY_HEIGHT) ? DISPLAY_HEIGHT : yb;
+        if (row0 >= row1)
+            continue;
+
+        // Sides crossing this band, x at first row
         int n = 0;
         for (int i = 0; i < count; i++)
         {
             int j = (i + 1 == count) ? 0 : i + 1;
             int y0 = (int)y[i], y1 = (int)y[j];
-            if ((py >= y0 && py < y1) || (py >= y1 && py < y0))
-                xs[n++] = (int)x[i] + ((py - y0) * ((int)x[j] - (int)x[i])) / (y1 - y0);
+            int top = (y0 < y1) ? y0 : y1;
+            int bot = (y0 < y1) ? y1 : y0;
+
+            if (top <= ya && bot > ya)
+            {
+                xa[n] = xtop[i] + (row0 - top) * dxf[i];
+                dxa[n] = dxf[i];
+                n++;
+            }
         }
 
         if (n < 2)
             continue;
 
-        // Insertion sort crossings
+        // Order sides once (equal x: flatter side is left)
         for (int a = 1; a < n; a++)
         {
-            int v = xs[a], b = a - 1;
-            while (b >= 0 && xs[b] > v)
+            int v = xa[a], s = dxa[a], k = a - 1;
+            while (k >= 0 && (xa[k] > v || (xa[k] == v && dxa[k] > s)))
             {
-                xs[b + 1] = xs[b];
-                b--;
+                xa[k + 1] = xa[k];
+                dxa[k + 1] = dxa[k];
+                k--;
             }
-            xs[b + 1] = v;
+            xa[k + 1] = v;
+            dxa[k + 1] = s;
         }
 
-        for (int k = 0; k + 1 < n; k += 2)
+        for (int py = row0; py < row1; py++)
         {
-            int ax = xs[k], bx = xs[k + 1];
-            if (bx < 0 || ax >= DISPLAY_WIDTH || bx < ax)
-                continue;
-            if (ax < 0)
-                ax = 0;
-            if (bx >= DISPLAY_WIDTH)
-                bx = DISPLAY_WIDTH - 1;
-
-            int span = bx - ax + 1;
-
-            if (lcd_mode == LCD_MODE_PSRAM)
+            for (int k = 0; k < n; k++)
             {
-                uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (py * PSRAM_ROW_SIZE) + ax;
-                uint32_t remaining = span, offset = 0;
-                while (remaining > 0)
+                xs[k] = xa[k] >> 14;
+                xa[k] += dxa[k];
+            }
+
+            // Sides keep order; re-sort if a crossing flipped them
+            bool ordered = true;
+            for (int k = 1; k < n; k++)
+                if (xs[k] < xs[k - 1])
                 {
-                    uint32_t chunk = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
-                    psram_qspi_read(&psram_instance, addr + offset, line_buffer + offset, chunk);
-                    offset += chunk;
-                    remaining -= chunk;
+                    ordered = false;
+                    break;
                 }
-            }
-            else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
-            {
-                memcpy(line_buffer, &heap_framebuffer[py * DISPLAY_WIDTH + ax], span);
-            }
-            else
-                continue;
 
-            // Alpha blend the span in the line buffer
-            for (int j = 0; j < span; j++)
-            {
-                uint16_t dst_color = palette[line_buffer[j]];
-                uint8_t dr = (dst_color >> 11) & 0x1F;
-                uint8_t dg = (dst_color >> 5) & 0x3F;
-                uint8_t db = dst_color & 0x1F;
-
-                uint8_t br = (uint8_t)((sr * alpha + dr * inv_alpha) / 255);
-                uint8_t bg = (uint8_t)((sg * alpha + dg * inv_alpha) / 255);
-                uint8_t bb = (uint8_t)((sb * alpha + db * inv_alpha) / 255);
-
-                line_buffer[j] = color565_to_332(((uint16_t)br << 11) | ((uint16_t)bg << 5) | bb);
-            }
-
-            if (lcd_mode == LCD_MODE_PSRAM)
-            {
-                uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (py * PSRAM_ROW_SIZE) + ax;
-                uint32_t remaining = span, offset = 0;
-                while (remaining > 0)
+            if (!ordered)
+                for (int a = 1; a < n; a++)
                 {
-                    uint32_t chunk = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
-                    psram_qspi_write(&psram_instance, addr + offset, line_buffer + offset, chunk);
-                    offset += chunk;
-                    remaining -= chunk;
+                    int v = xs[a], k = a - 1;
+                    while (k >= 0 && xs[k] > v)
+                    {
+                        xs[k + 1] = xs[k];
+                        k--;
+                    }
+                    xs[k + 1] = v;
                 }
-            }
-            else
+
+            for (int k = 0; k + 1 < n; k += 2)
             {
-                memcpy(&heap_framebuffer[py * DISPLAY_WIDTH + ax], line_buffer, span);
+                int ax = xs[k], bx = xs[k + 1];
+                if (bx < 0 || ax >= DISPLAY_WIDTH || bx < ax)
+                    continue;
+                if (ax < 0)
+                    ax = 0;
+                if (bx >= DISPLAY_WIDTH)
+                    bx = DISPLAY_WIDTH - 1;
+
+                int span = bx - ax + 1;
+
+                if (lcd_mode == LCD_MODE_PSRAM)
+                {
+                    uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (py * PSRAM_ROW_SIZE) + ax;
+                    uint32_t remaining = span, offset = 0;
+                    while (remaining > 0)
+                    {
+                        uint32_t chunk = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
+                        psram_qspi_read(&psram_instance, addr + offset, line_buffer + offset, chunk);
+                        offset += chunk;
+                        remaining -= chunk;
+                    }
+                }
+                else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
+                {
+                    memcpy(line_buffer, &heap_framebuffer[py * DISPLAY_WIDTH + ax], span);
+                }
+                else
+                    continue;
+
+                // Alpha blend the span in the line buffer
+                for (int j = 0; j < span; j++)
+                {
+                    uint16_t dst_color = palette[line_buffer[j]];
+                    uint8_t dr = (dst_color >> 11) & 0x1F;
+                    uint8_t dg = (dst_color >> 5) & 0x3F;
+                    uint8_t db = dst_color & 0x1F;
+
+                    uint8_t br = (uint8_t)((sr * alpha + dr * inv_alpha) / 255);
+                    uint8_t bg = (uint8_t)((sg * alpha + dg * inv_alpha) / 255);
+                    uint8_t bb = (uint8_t)((sb * alpha + db * inv_alpha) / 255);
+
+                    line_buffer[j] = color565_to_332(((uint16_t)br << 11) | ((uint16_t)bg << 5) | bb);
+                }
+
+                if (lcd_mode == LCD_MODE_PSRAM)
+                {
+                    uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (py * PSRAM_ROW_SIZE) + ax;
+                    uint32_t remaining = span, offset = 0;
+                    while (remaining > 0)
+                    {
+                        uint32_t chunk = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
+                        psram_qspi_write(&psram_instance, addr + offset, line_buffer + offset, chunk);
+                        offset += chunk;
+                        remaining -= chunk;
+                    }
+                }
+                else
+                {
+                    memcpy(&heap_framebuffer[py * DISPLAY_WIDTH + ax], line_buffer, span);
+                }
             }
         }
     }

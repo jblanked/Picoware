@@ -94,6 +94,33 @@ Entity **Level::collision_list(Entity *entity, int &count) const
     return result;
 }
 
+void Level::drawProjectedTriangle(Draw *draw, const Vector vertices[3], const Vector &screen, uint16_t color, bool wireframe, bool clamp, uint8_t alpha)
+{
+    Vector polygon[ENGINE_MAX_PROJECTION_VERTICES];
+    const int count = projectionProject(vertices, screen.x, screen.y, clamp, polygon);
+    uint16_t x[ENGINE_MAX_PROJECTION_VERTICES], y[ENGINE_MAX_PROJECTION_VERTICES];
+    for (int i = 0; i < count; ++i)
+    {
+        x[i] = static_cast<uint16_t>(polygon[i].x);
+        y[i] = static_cast<uint16_t>(polygon[i].y);
+    }
+    if (alpha == 255)
+        draw->fillPolygon(x, y, count, color);
+    else
+        draw->fillPolygonAlpha(x, y, count, color, alpha);
+    if (wireframe)
+    {
+        uint8_t r = (color >> 11) & 0x1F;
+        uint8_t g = (color >> 5) & 0x3F;
+        uint8_t b = color & 0x1F;
+        r += (0x1F - r) >> 1;
+        g += (0x3F - g) >> 1;
+        b += (0x1F - b) >> 1;
+        const uint16_t outline = ((uint16_t)r << 11) | ((uint16_t)g << 5) | b;
+        draw->polygon(x, y, count, outline);
+    }
+}
+
 // Add an entity to the level
 void Level::entity_add(Entity *entity)
 {
@@ -239,6 +266,106 @@ void Level::project3DTo2D(const Vector &vertex, const Vector &player_pos, const 
     result.x = camera_x * inv_camera_z * screen_size.y + (screen_size.x * 0.5f);
     result.y = -world_dy * inv_camera_z * screen_size.y + (screen_size.y * 0.5f);
     result.z = camera_z; // Store depth
+}
+
+float Level::projectionBound(float value, float maximum)
+{
+    return value < 0 ? 0 : (value > maximum ? maximum : value);
+}
+
+int Level::projectionClip(const Vector *input, int count, Vector *output, const Vector &normal, float offset)
+{
+    int written = 0;
+    Vector previous = input[count - 1];
+    float previous_distance = projectionDistance(previous, normal, offset);
+    for (int i = 0; i < count; ++i)
+    {
+        const Vector &current = input[i];
+        const float current_distance = projectionDistance(current, normal, offset);
+        if ((current_distance > 0 && previous_distance < 0) ||
+            (current_distance < 0 && previous_distance > 0))
+        {
+            if (written == ENGINE_MAX_PROJECTION_VERTICES)
+                return 0;
+            const float t = previous_distance / (previous_distance - current_distance);
+            output[written++] = Vector(
+                previous.x + t * (current.x - previous.x),
+                previous.y + t * (current.y - previous.y),
+                previous.z + t * (current.z - previous.z));
+        }
+        if (current_distance >= 0)
+        {
+            if (written == ENGINE_MAX_PROJECTION_VERTICES)
+                return 0;
+            output[written++] = current;
+        }
+        previous = current;
+        previous_distance = current_distance;
+    }
+    return written;
+}
+
+float Level::projectionDistance(const Vector &vertex, const Vector &normal, float offset)
+{
+    return normal.x * vertex.x + normal.y * vertex.y + normal.z * vertex.z + offset;
+}
+
+int Level::projectionProject(const Vector triangle[3], float width, float height, bool clamp, Vector output[ENGINE_MAX_PROJECTION_VERTICES])
+{
+    if (!isfinite(width) || !isfinite(height) || width < 1 || height < 1)
+        return 0;
+    for (int i = 0; i < 3; ++i)
+    {
+        if (!isfinite(triangle[i].x) || !isfinite(triangle[i].y) || !isfinite(triangle[i].z))
+            return 0;
+        output[i] = triangle[i];
+    }
+
+    Vector scratch[ENGINE_MAX_PROJECTION_VERTICES];
+    Vector *input = output;
+    Vector *target = scratch;
+    const float half_width = width * 0.5f;
+    const float half_height = height * 0.5f;
+    int count = 3;
+    for (int plane = 0; plane < (clamp ? 1 : 5); ++plane)
+    {
+        Vector normal;
+        float offset = 0;
+        switch (plane)
+        {
+        case 0:
+            normal = Vector(0, 0, 1);
+            offset = -0.1f;
+            break;
+        case 1:
+            normal = Vector(height, 0, half_width);
+            break;
+        case 2:
+            normal = Vector(-height, 0, width - 1 - half_width);
+            break;
+        case 3:
+            normal = Vector(0, -height, half_height);
+            break;
+        default:
+            normal = Vector(0, height, height - 1 - half_height);
+            break;
+        }
+        count = projectionClip(input, count, target, normal, offset);
+        if (count < 3)
+            return 0;
+        Vector *previous = input;
+        input = target;
+        target = previous;
+    }
+
+    for (int i = 0; i < count; ++i)
+    {
+        const Vector &vertex = input[i];
+        const float scale = height / (vertex.z < 0.1f ? 0.1f : vertex.z);
+        output[i] = Vector(projectionBound(vertex.x * scale + half_width, width - 1),
+                           projectionBound(-vertex.y * scale + half_height, height - 1));
+    }
+    return count;
 }
 
 // Render all active entities
@@ -409,217 +536,42 @@ void Level::render3DSprite(const Sprite3D *sprite3d, Draw *draw, const Vector &p
         return;
 
     const Vector screenSize = draw->getDisplaySize();
-    const float half_sx = screenSize.x * 0.5f;
-    const float half_sy = screenSize.y * 0.5f;
-    const float screen_y = (float)screenSize.y;
-
-    const float camA = -player_dir.y; // world_dx -> camera_x coefficient
-    const float camB = player_dir.x;  // world_dz -> camera_x coefficient
-    const float camC = player_dir.x;  // world_dx -> camera_z coefficient
-    const float camD = player_dir.y;  // world_dz -> camera_z coefficient
-
-    // light-projection coefficients
-    const bool doShadow = (shadowColor != 0 && lightDirection.y > 0.01f);
+    const float camA = -player_dir.y;
+    const float camB = player_dir.x;
+    const float camC = player_dir.x;
+    const float camD = player_dir.y;
+    const bool doShadow = shadowColor != 0 && lightDirection.y > 0.01f;
     const float slx = doShadow ? lightDirection.x / lightDirection.y : 0.0f;
     const float slz = doShadow ? lightDirection.z / lightDirection.y : 0.0f;
 
     const uint16_t triangle_count = sprite3d->getTriangleCount();
-    for (uint16_t i = 0; i < triangle_count; i++)
+    for (uint16_t i = 0; i < triangle_count; ++i)
     {
         Triangle3D triangle;
         if (!sprite3d->getTransformedTriangle(i, player_pos, triangle))
             continue;
 
-        // Shadow pass
+        const float xs[] = {triangle.x1, triangle.x2, triangle.x3};
+        const float ys[] = {triangle.y1, triangle.y2, triangle.y3};
+        const float zs[] = {triangle.z1, triangle.z2, triangle.z3};
+        Vector vertices[3];
         if (doShadow)
         {
-            float ssx[3], ssy[3];
-            uint8_t sv = 0;
-            for (int j = 0; j < 3; j++)
+            for (int j = 0; j < 3; ++j)
             {
-                float vy = (j == 0) ? triangle.y1 : (j == 1) ? triangle.y2
-                                                             : triangle.y3;
-                float wx = ((j == 0) ? triangle.x1 : (j == 1) ? triangle.x2
-                                                              : triangle.x3) -
-                           vy * slx - player_pos.x;
-                float wz = ((j == 0) ? triangle.z1 : (j == 1) ? triangle.z2
-                                                              : triangle.z3) -
-                           vy * slz - player_pos.y;
-                float cz = wx * camC + wz * camD;
-                if (cz > 0.1f)
-                {
-                    float inv = 1.0f / cz;
-                    ssx[j] = (wx * camA + wz * camB) * inv * screen_y + half_sx;
-                    ssy[j] = view_height * inv * screen_y + half_sy;
-                    sv++;
-                }
+                const float sx = xs[j] - player_pos.x - ys[j] * slx;
+                const float sz = zs[j] - player_pos.y - ys[j] * slz;
+                vertices[j] = Vector(sx * camA + sz * camB, -view_height, sx * camC + sz * camD);
             }
-            if (sv == 3)
-                draw->fillTriangleAlpha((uint16_t)ssx[0], (uint16_t)ssy[0],
-                                        (uint16_t)ssx[1], (uint16_t)ssy[1],
-                                        (uint16_t)ssx[2], (uint16_t)ssy[2],
-                                        shadowColor, 128);
+            drawProjectedTriangle(draw, vertices, screenSize, shadowColor, false, clamp, 128);
         }
-
-        float sx[3], sy[3];
-        uint8_t visible_count = 0;
-
-        // Vertex 0
+        for (int j = 0; j < 3; ++j)
         {
-            const float wx = triangle.x1 - player_pos.x;
-            const float wy = triangle.y1 - view_height;
-            const float wz = triangle.z1 - player_pos.y;
-            const float cz = wx * camC + wz * camD;
-            if (cz > 0.1f)
-            {
-                const float inv_cz = 1.0f / cz;
-                const float cx = wx * camA + wz * camB;
-                sx[0] = cx * inv_cz * screen_y + half_sx;
-                sy[0] = -wy * inv_cz * screen_y + half_sy;
-                visible_count++;
-            }
-            else
-            {
-                sx[0] = -1.0f;
-                sy[0] = -1.0f;
-            }
+            const float wx = xs[j] - player_pos.x;
+            const float wz = zs[j] - player_pos.y;
+            vertices[j] = Vector(wx * camA + wz * camB, ys[j] - view_height, wx * camC + wz * camD);
         }
-
-        // Vertex 1
-        {
-            const float wx = triangle.x2 - player_pos.x;
-            const float wy = triangle.y2 - view_height;
-            const float wz = triangle.z2 - player_pos.y;
-            const float cz = wx * camC + wz * camD;
-            if (cz > 0.1f)
-            {
-                const float inv_cz = 1.0f / cz;
-                const float cx = wx * camA + wz * camB;
-                sx[1] = cx * inv_cz * screen_y + half_sx;
-                sy[1] = -wy * inv_cz * screen_y + half_sy;
-                visible_count++;
-            }
-            else
-            {
-                sx[1] = -1.0f;
-                sy[1] = -1.0f;
-            }
-        }
-
-        // Vertex 2
-        {
-            const float wx = triangle.x3 - player_pos.x;
-            const float wy = triangle.y3 - view_height;
-            const float wz = triangle.z3 - player_pos.y;
-            const float cz = wx * camC + wz * camD;
-            if (cz > 0.1f)
-            {
-                const float inv_cz = 1.0f / cz;
-                const float cx = wx * camA + wz * camB;
-                sx[2] = cx * inv_cz * screen_y + half_sx;
-                sy[2] = -wy * inv_cz * screen_y + half_sy;
-                visible_count++;
-            }
-            else
-            {
-                sx[2] = -1.0f;
-                sy[2] = -1.0f;
-            }
-        }
-
-        // Reject triangles with any vertex behind the camera plane
-        if (visible_count < 3)
-            continue;
-
-        // reject triangles completely off-screen
-        if (!clamp)
-        {
-            // All points left of screen
-            if (sx[0] < 0.0f && sx[1] < 0.0f && sx[2] < 0.0f)
-                continue;
-            // All points right of screen
-            if (sx[0] > screenSize.x && sx[1] > screenSize.x && sx[2] > screenSize.x)
-                continue;
-            // All points above screen
-            if (sy[0] < 0.0f && sy[1] < 0.0f && sy[2] < 0.0f)
-                continue;
-            // All points below screen
-            if (sy[0] > screenSize.y && sy[1] > screenSize.y && sy[2] > screenSize.y)
-                continue;
-        }
-
-        // Convert to integer screen coordinates
-        uint16_t ix0, iy0, ix1, iy1, ix2, iy2;
-
-        if (clamp)
-        {
-            // Clamp to screen bounds
-            if (sx[0] < 0.0f)
-                ix0 = 0;
-            else if (sx[0] > screenSize.x)
-                ix0 = (uint16_t)screenSize.x;
-            else
-                ix0 = (uint16_t)sx[0];
-
-            if (sy[0] < 0.0f)
-                iy0 = 0;
-            else if (sy[0] > screenSize.y)
-                iy0 = (uint16_t)screenSize.y;
-            else
-                iy0 = (uint16_t)sy[0];
-
-            if (sx[1] < 0.0f)
-                ix1 = 0;
-            else if (sx[1] > screenSize.x)
-                ix1 = (uint16_t)screenSize.x;
-            else
-                ix1 = (uint16_t)sx[1];
-
-            if (sy[1] < 0.0f)
-                iy1 = 0;
-            else if (sy[1] > screenSize.y)
-                iy1 = (uint16_t)screenSize.y;
-            else
-                iy1 = (uint16_t)sy[1];
-
-            if (sx[2] < 0.0f)
-                ix2 = 0;
-            else if (sx[2] > screenSize.x)
-                ix2 = (uint16_t)screenSize.x;
-            else
-                ix2 = (uint16_t)sx[2];
-
-            if (sy[2] < 0.0f)
-                iy2 = 0;
-            else if (sy[2] > screenSize.y)
-                iy2 = (uint16_t)screenSize.y;
-            else
-                iy2 = (uint16_t)sy[2];
-        }
-        else
-        {
-            ix0 = (uint16_t)sx[0];
-            iy0 = (uint16_t)sy[0];
-            ix1 = (uint16_t)sx[1];
-            iy1 = (uint16_t)sy[1];
-            ix2 = (uint16_t)sx[2];
-            iy2 = (uint16_t)sy[2];
-        }
-
-        draw->fillTriangle(ix0, iy0, ix1, iy1, ix2, iy2, triangle.color);
-
-        if (triangle.wireframe)
-        {
-            // Compute a lighter outline color from the fill color
-            uint8_t r = (uint8_t)((triangle.color >> 11) & 0x1F);
-            uint8_t g = (uint8_t)((triangle.color >> 5) & 0x3F);
-            uint8_t b = (uint8_t)(triangle.color & 0x1F);
-            r = r + ((0x1F - r) >> 1);
-            g = g + ((0x3F - g) >> 1);
-            b = b + ((0x1F - b) >> 1);
-            const uint16_t outline_color = ((uint16_t)r << 11) | ((uint16_t)g << 5) | b;
-            draw->triangle(ix0, iy0, ix1, iy1, ix2, iy2, outline_color);
-        }
+        drawProjectedTriangle(draw, vertices, screenSize, triangle.color, triangle.wireframe, clamp);
     }
 }
 

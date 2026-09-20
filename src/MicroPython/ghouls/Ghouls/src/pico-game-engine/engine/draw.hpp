@@ -18,6 +18,8 @@ public:
     void circle(uint16_t x, uint16_t y, uint16_t r, uint16_t color = 0x0000);                                                            // Draws a circle on the display at the specified position with the specified radius and color.
     void fillCircle(Vector position, uint16_t r, uint16_t color = 0x0000);                                                               // Fills a circle on the display at the specified position with the specified radius and color.
     void fillCircle(uint16_t x, uint16_t y, uint16_t r, uint16_t color = 0x0000);                                                        // Fills a circle on the display at the specified position with the specified radius and color.
+    void fillPolygon(uint16_t x[], uint16_t y[], int count, uint16_t color = 0x0000);                                                    // Fills a polygon defined by vertices with the specified color.
+    void fillPolygonAlpha(uint16_t x[], uint16_t y[], int count, uint16_t color, uint8_t alpha);                                         // Fills a polygon with alpha blending
     void fillRectangle(Vector position, Vector size, uint16_t color = 0x0000);                                                           // Fills a rectangle on the display at the specified position and size with the specified color.
     void fillRectangle(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color = 0x0000);                                // Fills a rectangle on the display at the specified position and size with the specified color.
     void fillScreen(uint16_t color = 0xFFFF);                                                                                            // Fills the entire screen with the specified color.
@@ -35,6 +37,7 @@ public:
     void line(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color = 0x0000);                                              // Draws a line on the display at the specified position and size with the specified color.
     void pixel(Vector position, uint16_t color = 0x0000);                                                                                // Draws a pixel on the display at the specified position with the specified color.
     void pixel(uint16_t x, uint16_t y, uint16_t color = 0x0000);                                                                         // Draws a pixel on the display at the specified position with the specified color.
+    void polygon(uint16_t x[], uint16_t y[], int count, uint16_t color = 0x0000);                                                        // Draws a polygon outline defined by vertices with the specified color.
     void rectangle(Vector position, Vector size, uint16_t color = 0x0000);                                                               // Draws a rectangle on the display at the specified position and size with the specified color.
     void rectangle(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color = 0x0000);                                    // Draws a rectangle on the display at the specified position and size with the specified color.
     void setColor(uint16_t color = 0x0000);                                                                                              // Sets the color for drawing.

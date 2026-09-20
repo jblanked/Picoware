@@ -12,7 +12,7 @@
 #define CC_FULLY_SUPPORTED 1
 #endif
 
-#if defined(DESKTOP) || defined(ESP32) || defined(ESP_PLATFORM) || defined(WAVESHARE_2_06) || defined(CARDPUTER)
+#if defined(DESKTOP) || defined(ESP32) || defined(ESP_PLATFORM) || defined(WAVESHARE_2_06) || defined(CARDPUTER) || defined(V8) || defined(PANCAKE)
 #define CC_HALF_SUPPORTED 1
 #endif
 

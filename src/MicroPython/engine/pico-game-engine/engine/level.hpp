@@ -3,6 +3,10 @@
 #include "camera.hpp"
 #include "callback.hpp"
 
+#ifndef ENGINE_MAX_PROJECTION_VERTICES
+#define ENGINE_MAX_PROJECTION_VERTICES 8
+#endif
+
 // Forward declarations
 class Game;
 class Sprite3D;
@@ -46,6 +50,11 @@ public:
     Vector size;
 
 private:
+    void drawProjectedTriangle(Draw *draw, const Vector vertices[3], const Vector &screen, uint16_t color, bool wireframe, bool clamp, uint8_t alpha = 255);
+    float projectionBound(float value, float maximum);
+    int projectionClip(const Vector *input, int count, Vector *output, const Vector &normal, float offset);
+    float projectionDistance(const Vector &vertex, const Vector &normal, float offset);
+    int projectionProject(const Vector triangle[3], float width, float height, bool clamp, Vector output[ENGINE_MAX_PROJECTION_VERTICES]);
     bool clearAllowed;
     Game *gameRef;
     int entity_count;

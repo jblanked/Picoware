@@ -6,7 +6,7 @@
 # VERSION 1.5
 # HOURS SPENT HERE: 15
 
-from picoware.system.decorator import wifi_required, storage_required
+from picoware.system.decorator import storage_required
 from picoware.system.buttons import (
     BUTTON_A,
     BUTTON_BACK,
@@ -417,36 +417,7 @@ def _parse_scan_row(row):
 
 def _passive_scan(vm):
     nets = []
-    wifi = None
-    try:
-        wifi = vm.wifi
-    except Exception:
-        wifi = None
-    raw = None
-    if wifi is not None:
-        try:
-            raw = wifi.scan()
-        except Exception:
-            raw = None
-        if raw is None:
-            try:
-                if hasattr(wifi, "wlan") and wifi.wlan is not None:
-                    try:
-                        wifi.wlan.active(True)
-                    except Exception:
-                        pass
-                    raw = wifi.wlan.scan()
-            except Exception:
-                raw = None
-    if raw is None:
-        try:
-            import network
-
-            wlan = network.WLAN(network.STA_IF)
-            wlan.active(True)
-            raw = wlan.scan()
-        except Exception:
-            raw = None
+    raw = vm.wifi.scan()
     if not raw:
         return nets
     seen = {}
@@ -576,19 +547,6 @@ def _set_thought(pet, force=False):
     _state["thought_ms"] = _ticks()
     return _state["thought"]
 
-
-def _text_w(draw, text, font):
-    try:
-        n = draw.len(text, font)
-        if n:
-            return int(n)
-    except Exception:
-        pass
-    if font == FONT_XTRA_SMALL:
-        return 6 * len(text)
-    return 10 * len(text)
-
-
 def _bar(draw, x, y, w, h, pct, fill, back=DIM):
     draw._rectangle(x, y, w, h, FG)
     inner = int((w - 2) * _clamp(pct, 0, 100) / 100.0) 
@@ -615,7 +573,7 @@ def _draw_creature(draw, cx, cy, pet, blink):
         body = GOLD
     elif mood == "excited":
         body = INFO
-    elif mood == "bored" or mood == "sleeping":
+    elif mood in ("bored", "sleeping"):
         body = DIM
     elif mood == "sad":
         body = ALERT
@@ -636,10 +594,10 @@ def _draw_creature(draw, cx, cy, pet, blink):
         _blob(draw, cx - 14, ey - 3, 3, 3, TFT_WHITE)
         _blob(draw, cx + 8, ey - 3, 3, 3, TFT_WHITE)
     my = cy + 12
-    if mood == "happy" or mood == "excited" or mood == "love":
+    if mood in ("happy", "excited", "love"):
         _blob(draw, cx - 10, my, 20, 2, TFT_BLACK)
         _blob(draw, cx - 4, my + 2, 8, 4, TFT_BLACK)
-    elif mood == "sad" or mood == "bored":
+    elif mood in ("sad", "bored"):
         _blob(draw, cx - 10, my + 4, 20, 2, TFT_BLACK)
     elif mood == "sleeping":
         _blob(draw, cx - 8, my, 16, 2, TFT_BLACK)
@@ -651,17 +609,17 @@ def _draw_creature(draw, cx, cy, pet, blink):
 
 
 def _hdr(draw, title, right):
-    draw._fill_rectangle(0, 0, 320, 22, ACCENT)
+    draw._fill_rectangle(0, 0, draw.size.x, 22, ACCENT)
     draw._text(6, 4, title, TFT_BLACK, FONT_XTRA_SMALL)
     if right:
-        tw = _text_w(draw, right, FONT_XTRA_SMALL)
-        x = 320 - tw - 8
-        x = max(x, 160)
+        tw = draw.len(right, FONT_XTRA_SMALL)
+        x = draw.size.x - tw - 8
+        x = max(x, draw.size.x // 2)
         draw._text(x, 4, right, TFT_BLACK, FONT_XTRA_SMALL)
 
 
 def _ftr(draw, line):
-    draw._fill_rectangle(0, 302, 320, 18, ACCENT)
+    draw._fill_rectangle(0, 302, draw.size.x, 18, ACCENT)
     draw._text(6, 306, line, TFT_BLACK, FONT_XTRA_SMALL)
 
 
@@ -672,10 +630,10 @@ def _paint_face(vm):
     auto = "auto %ds" % _state["interval"] if _state["auto"] else "manual"
     _hdr(draw, "OBSERVERGOTCHI", auto)
     blink = bool(_state.get("blink_shut"))
-    _draw_creature(draw, 160, 82, pet, blink)
+    _draw_creature(draw, draw.size.x // 2, 82, pet, blink)
     face = pet.get_face() 
-    fw = _text_w(draw, face, FONT_SMALL)
-    draw._text(max(8, (320 - fw) // 2), 122, face, FG, FONT_SMALL)
+    fw = draw.len(face, FONT_SMALL)
+    draw._text(max(8, (draw.size.x - fw) // 2), 122, face, FG, FONT_SMALL)
     age_days = float(pet.age_hours) / 24.0
     draw._text(10, 144, pet.name, GOLD, FONT_SMALL)
     draw._text(10, 162, "age %.1fd  %s" % (age_days, pet.mood), FG, FONT_XTRA_SMALL)
@@ -827,10 +785,6 @@ def _paint(vm):
             pass
         _state["dirty"] = False
 
-
-def _reset_input(vm):
-    vm.input_manager.reset()
-
 def _begin_rename(vm):
     pet = _state["pet"]
     try:
@@ -870,10 +824,10 @@ def _pet_it(pet):
     _toast("%s purrs at the spectrum." % pet.name)
 
 @storage_required
-@wifi_required
 def start(view_manager):
+    if not view_manager.wifi:
+        return
     vm = view_manager
-    _reset_input(vm)
     has_wifi = True
     pet = None
     try:
@@ -921,7 +875,6 @@ def start(view_manager):
         _paint(vm)
     except Exception:
         pass
-    _reset_input(vm)
     return True
 
 
@@ -944,14 +897,12 @@ def run(view_manager):
     pet = _state["pet"]
     if pet is None:
         return
-    btn = vm.input_manager.button
+    btn = vm.button
     now = _ticks()
 
     ignore = int(_state.get("boot_ignore") or 0)
     if ignore > 0:
         _state["boot_ignore"] = ignore - 1
-        if btn != BUTTON_NONE:
-            _reset_input(vm)
         _pulse_blink(now)
         if _state["dirty"]:
             _paint(vm)
@@ -963,16 +914,9 @@ def run(view_manager):
             _state["mode"] = "face"
             _state["dirty"] = True
             return
-        try:
-            cont = kb.run()
-        except Exception:
-            cont = False
+        cont = kb.run()
         if cont is False or kb.is_finished:
-            name = ""
-            try:
-                name = kb.response
-            except Exception:
-                name = ""
+            name = kb.response
             if name:
                 pet.name = str(name).strip()[:16] or pet.name
                 _save_pet(vm, pet)
@@ -1012,10 +956,7 @@ def run(view_manager):
             return
         pet.update_time()
         _save_pet(vm, pet)
-        try:
-            vm.back()
-        except Exception:
-            pass
+        vm.back()
         return
 
     if _state["mode"] == "help":

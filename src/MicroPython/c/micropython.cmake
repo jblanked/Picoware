@@ -35,6 +35,14 @@ target_compile_definitions(usermod_c INTERFACE
 	PSHELL_MICROPYTHON
 )
 
+# ESP32: lcd* externs, state in DRAM (cc.c UDATA).
+if(ESP32)
+target_compile_definitions(usermod_c INTERFACE
+	PSHELL_UDATA_NOINIT
+	ESP32
+)
+endif()
+
 target_compile_options(usermod_c INTERFACE
 	-Wno-error
 	-Wno-error=format

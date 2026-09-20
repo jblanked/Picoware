@@ -27,6 +27,9 @@ typedef struct qentry_s
 #ifdef PSHELL_MICROPYTHON
 #ifdef DESKTOP
 #define UDATA
+#elif defined(PSHELL_UDATA_NOINIT)
+// ESP-IDF: DRAM state, avoids flash gap
+#define UDATA __attribute__((section(".noinit.ccudata")))
 #else
 #define UDATA __attribute__((section("ccudata")))
 #endif

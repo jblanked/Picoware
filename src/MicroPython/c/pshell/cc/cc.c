@@ -60,6 +60,9 @@
 #define UDATA __attribute__((section("desktop_ccudata")))
 #elif defined(DESKTOP)
 #define UDATA
+#elif defined(PSHELL_UDATA_NOINIT)
+// ESP-IDF: DRAM state, avoids flash gap
+#define UDATA __attribute__((section(".noinit.ccudata")))
 #elif defined(PSHELL_MICROPYTHON)
 #define UDATA __attribute__((section("ccudata")))
 #else
@@ -4964,6 +4967,10 @@ int cc(int mode, int argc, char **argv)
     extern char __start_desktop_ccudata, __stop_desktop_ccudata;
     memset(&__start_desktop_ccudata, 0,
            &__stop_desktop_ccudata - &__start_desktop_ccudata);
+#elif defined(PSHELL_UDATA_NOINIT) && !defined(DESKTOP)
+    // UDATA lives in .noinit, DRAM only
+    extern char _noinit_start, _noinit_end;
+    memset(&_noinit_start, 0, &_noinit_end - &_noinit_start);
 #elif !defined(DESKTOP) && defined(PSHELL_MICROPYTHON)
     extern char __start_ccudata, __stop_ccudata;
     memset(&__start_ccudata, 0, &__stop_ccudata - &__start_ccudata);

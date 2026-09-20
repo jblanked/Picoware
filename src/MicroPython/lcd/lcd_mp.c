@@ -558,6 +558,125 @@ mp_obj_t lcd_mp_fill_circle(size_t n_args, const mp_obj_t *args)
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_fill_circle_obj, 5, 5, lcd_mp_fill_circle);
 
+mp_obj_t lcd_mp_fill_polygon(size_t n_args, const mp_obj_t *args)
+{
+    // Arguments: self, points, color
+    if (n_args != 3)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("fill_polygon requires 3 arguments: self, points, color"));
+    }
+
+    lcd_mp_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    if (!self->initialized)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
+    }
+
+    if (!mp_obj_is_type(args[1], &mp_type_tuple))
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("Points must be provided as a tuple"));
+    }
+
+    mp_obj_tuple_t *tuple = MP_OBJ_TO_PTR(args[1]);
+    size_t num_items = tuple->len;
+    uint16_t x[num_items];
+    uint16_t y[num_items];
+
+    mp_obj_t color = args[2];
+
+    // Convert points tuple to an array of points
+    for (size_t i = 0; i < num_items; i++)
+    {
+        mp_obj_t *point;
+        size_t point_len;
+        mp_obj_tuple_get(tuple->items[i], &point_len, &point);
+        if (point_len != 2)
+        {
+            mp_raise_ValueError(MP_ERROR_TEXT("Each point must be a tuple of 2 elements"));
+        }
+        x[i] = lcd_obj_to_int(point[0]);
+        y[i] = lcd_obj_to_int(point[1]);
+        if (self->scale_position)
+        {
+            x[i] = lcd_scale_x(self, x[i]);
+            y[i] = lcd_scale_y(self, y[i]);
+        }
+    }
+
+    if (self->scale_set)
+    {
+        for (size_t i = 0; i < num_items; i++)
+        {
+            x[i] = (uint16_t)(x[i] * (self->scale_x + self->scale_y) * 0.5f);
+            y[i] = (uint16_t)(y[i] * (self->scale_x + self->scale_y) * 0.5f);
+        }
+    }
+
+    LCD_MP_FILL_POLYGON(x, y, num_items, mp_obj_get_int(color));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_fill_polygon_obj, 3, 3, lcd_mp_fill_polygon);
+
+mp_obj_t lcd_mp_fill_polygon_alpha(size_t n_args, const mp_obj_t *args)
+{
+    // Arguments: self, points, color, alpha
+    if (n_args != 4)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("fill_polygon_alpha requires 4 arguments: self, points, color, alpha"));
+    }
+
+    lcd_mp_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    if (!self->initialized)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
+    }
+
+    if (!mp_obj_is_type(args[1], &mp_type_tuple))
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("Points must be provided as a tuple"));
+    }
+
+    mp_obj_tuple_t *tuple = MP_OBJ_TO_PTR(args[1]);
+    size_t num_items = tuple->len;
+    uint16_t x[num_items];
+    uint16_t y[num_items];
+
+    mp_obj_t color = args[2];
+    mp_obj_t alpha = args[3];
+
+    // Convert points tuple to an array of points
+    for (size_t i = 0; i < num_items; i++)
+    {
+        mp_obj_t *point;
+        size_t point_len;
+        mp_obj_tuple_get(tuple->items[i], &point_len, &point);
+        if (point_len != 2)
+        {
+            mp_raise_ValueError(MP_ERROR_TEXT("Each point must be a tuple of 2 elements"));
+        }
+        x[i] = lcd_obj_to_int(point[0]);
+        y[i] = lcd_obj_to_int(point[1]);
+        if (self->scale_position)
+        {
+            x[i] = lcd_scale_x(self, x[i]);
+            y[i] = lcd_scale_y(self, y[i]);
+        }
+    }
+
+    if (self->scale_set)
+    {
+        for (size_t i = 0; i < num_items; i++)
+        {
+            x[i] = (uint16_t)(x[i] * (self->scale_x + self->scale_y) * 0.5f);
+            y[i] = (uint16_t)(y[i] * (self->scale_x + self->scale_y) * 0.5f);
+        }
+    }
+
+    LCD_MP_FILL_POLYGON_ALPHA(x, y, num_items, mp_obj_get_int(color), mp_obj_get_int(alpha));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_fill_polygon_alpha_obj, 4, 4, lcd_mp_fill_polygon_alpha);
+
 mp_obj_t lcd_mp_fill_rectangle(size_t n_args, const mp_obj_t *args)
 {
     // Arguments: self, x, y, width, height, color
@@ -902,6 +1021,65 @@ mp_obj_t lcd_mp_pixel(size_t n_args, const mp_obj_t *args)
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_pixel_obj, 4, 4, lcd_mp_pixel);
+
+mp_obj_t lcd_mp_polygon(size_t n_args, const mp_obj_t *args)
+{
+    // Arguments: self, points, color
+    if (n_args != 3)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("polygon requires 3 arguments: self, points, color"));
+    }
+
+    lcd_mp_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    if (!self->initialized)
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
+    }
+
+    if (!mp_obj_is_type(args[1], &mp_type_tuple))
+    {
+        mp_raise_ValueError(MP_ERROR_TEXT("Points must be provided as a tuple"));
+    }
+
+    mp_obj_tuple_t *tuple = MP_OBJ_TO_PTR(args[1]);
+    size_t num_items = tuple->len;
+    uint16_t x[num_items];
+    uint16_t y[num_items];
+
+    mp_obj_t color = args[2];
+
+    // Convert points tuple to an array of points
+    for (size_t i = 0; i < num_items; i++)
+    {
+        mp_obj_t *point;
+        size_t point_len;
+        mp_obj_tuple_get(tuple->items[i], &point_len, &point);
+        if (point_len != 2)
+        {
+            mp_raise_ValueError(MP_ERROR_TEXT("Each point must be a tuple of 2 elements"));
+        }
+        x[i] = lcd_obj_to_int(point[0]);
+        y[i] = lcd_obj_to_int(point[1]);
+        if (self->scale_position)
+        {
+            x[i] = lcd_scale_x(self, x[i]);
+            y[i] = lcd_scale_y(self, y[i]);
+        }
+    }
+
+    if (self->scale_set)
+    {
+        for (size_t i = 0; i < num_items; i++)
+        {
+            x[i] = (uint16_t)(x[i] * (self->scale_x + self->scale_y) * 0.5f);
+            y[i] = (uint16_t)(y[i] * (self->scale_x + self->scale_y) * 0.5f);
+        }
+    }
+
+    LCD_MP_POLYGON(x, y, num_items, mp_obj_get_int(color));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_polygon_obj, 3, 3, lcd_mp_polygon);
 
 mp_obj_t lcd_mp_psram(size_t n_args, const mp_obj_t *args)
 {
@@ -1391,6 +1569,8 @@ static const mp_rom_map_elem_t lcd_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR__circle), MP_ROM_PTR(&lcd_mp_circle_obj)},                             // self._circle()
     {MP_ROM_QSTR(MP_QSTR__clear), MP_ROM_PTR(&lcd_mp_clear_obj)},                               // self._clear()
     {MP_ROM_QSTR(MP_QSTR__fill_circle), MP_ROM_PTR(&lcd_mp_fill_circle_obj)},                   // self._fill_circle()
+    {MP_ROM_QSTR(MP_QSTR__fill_polygon), MP_ROM_PTR(&lcd_mp_fill_polygon_obj)},                 // self._fill_polygon()
+    {MP_ROM_QSTR(MP_QSTR__fill_polygon_alpha), MP_ROM_PTR(&lcd_mp_fill_polygon_alpha_obj)},     // self._fill_polygon_alpha()
     {MP_ROM_QSTR(MP_QSTR__fill_rectangle), MP_ROM_PTR(&lcd_mp_fill_rectangle_obj)},             // self._fill_rectangle()
     {MP_ROM_QSTR(MP_QSTR__fill_round_rectangle), MP_ROM_PTR(&lcd_mp_fill_round_rectangle_obj)}, // self._fill_round_rectangle()
     {MP_ROM_QSTR(MP_QSTR__fill_triangle), MP_ROM_PTR(&lcd_mp_fill_triangle_obj)},               // self._fill_triangle()
@@ -1398,6 +1578,7 @@ static const mp_rom_map_elem_t lcd_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR__bytearray), MP_ROM_PTR(&lcd_mp_image_bytearray_obj)},                 // self._bytearray()
     {MP_ROM_QSTR(MP_QSTR__line), MP_ROM_PTR(&lcd_mp_line_obj)},                                 // self._line()
     {MP_ROM_QSTR(MP_QSTR__pixel), MP_ROM_PTR(&lcd_mp_pixel_obj)},                               // self._pixel()
+    {MP_ROM_QSTR(MP_QSTR__polygon), MP_ROM_PTR(&lcd_mp_polygon_obj)},                           // self._polygon()
     {MP_ROM_QSTR(MP_QSTR__psram), MP_ROM_PTR(&lcd_mp_psram_obj)},                               // self._psram()
     {MP_ROM_QSTR(MP_QSTR__rectangle), MP_ROM_PTR(&lcd_mp_rectangle_obj)},                       // self._rectangle()
     {MP_ROM_QSTR(MP_QSTR_scale), MP_ROM_PTR(&lcd_mp_scale_obj)},                                // self.scale()

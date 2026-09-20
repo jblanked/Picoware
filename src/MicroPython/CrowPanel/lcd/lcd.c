@@ -755,6 +755,32 @@ void lcd_fill_triangle_alpha(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,
     }
 }
 
+void lcd_polygon(uint16_t x[], uint16_t y[], int count, uint16_t color)
+{
+    for (int i = 0; i < count; i++)
+    {
+        int next = (i + 1) % count;
+        lcd_draw_line(x[i], y[i], x[next], y[next], color);
+    }
+}
+
+void lcd_fill_polygon(uint16_t x[], uint16_t y[], int count, uint16_t color)
+{
+    if (count < 3)
+        return;
+    for (int i = 1; i + 1 < count; ++i)
+        lcd_fill_triangle(x[0], y[0], x[i], y[i], x[i + 1], y[i + 1], color);
+}
+
+void lcd_fill_polygon_alpha(uint16_t x[], uint16_t y[], int count,
+                            uint16_t color, uint8_t alpha)
+{
+    if (count < 3)
+        return;
+    for (int i = 1; i + 1 < count; ++i)
+        lcd_fill_triangle_alpha(x[0], y[0], x[i], y[i], x[i + 1], y[i + 1], color, alpha);
+}
+
 /******************************************************************************
 function: Fill the entire frame_buffer with a solid color
 parameter:

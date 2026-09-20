@@ -35,6 +35,8 @@ mp_obj_t lcd_mp_char(size_t n_args, const mp_obj_t *args);                 // dr
 mp_obj_t lcd_mp_circle(size_t n_args, const mp_obj_t *args);               // draw a circle on the LCD
 mp_obj_t lcd_mp_clear(mp_obj_t self_in, mp_obj_t color);                   // clear the LCD framebuffer
 mp_obj_t lcd_mp_fill_circle(size_t n_args, const mp_obj_t *args);          // fill a circle on the LCD
+mp_obj_t lcd_mp_fill_polygon(size_t n_args, const mp_obj_t *args);         // fill a polygon on the LCD
+mp_obj_t lcd_mp_fill_polygon_alpha(size_t n_args, const mp_obj_t *args);   // fill a polygon with alpha blending
 mp_obj_t lcd_mp_fill_rectangle(size_t n_args, const mp_obj_t *args);       // fill a rectangle on the LCD
 mp_obj_t lcd_mp_fill_round_rectangle(size_t n_args, const mp_obj_t *args); // fill a rounded rectangle on the LCD
 mp_obj_t lcd_mp_fill_triangle(size_t n_args, const mp_obj_t *args);        // fill a triangle
@@ -42,6 +44,7 @@ mp_obj_t lcd_mp_fill_triangle_alpha(size_t n_args, const mp_obj_t *args);  // fi
 mp_obj_t lcd_mp_image_bytearray(size_t n_args, const mp_obj_t *args);      // draw an image from a bytearray on the LCD
 mp_obj_t lcd_mp_line(size_t n_args, const mp_obj_t *args);                 // draw a line on the LCD
 mp_obj_t lcd_mp_pixel(size_t n_args, const mp_obj_t *args);                // draw a pixel on the LCD
+mp_obj_t lcd_mp_polygon(size_t n_args, const mp_obj_t *args);              // draw a polygon on the LCD
 mp_obj_t lcd_mp_psram(size_t n_args, const mp_obj_t *args);                // draw a buffer from PSRAM
 mp_obj_t lcd_mp_rectangle(size_t n_args, const mp_obj_t *args);            // draw a rectangle on the LCD
 mp_obj_t lcd_mp_scale(size_t n_args, const mp_obj_t *args);                // get a scaled value based on parameters

@@ -41,6 +41,12 @@ extern "C"
     void lcd_fill_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color);                      // Draw a filled triangle with vertices at (x1, y1), (x2, y2), (x3, y3) and specified color
     void lcd_fill_triangle_alpha(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color, uint8_t alpha); // Draw a filled triangle with alpha blending
 
+    // Polygon drawing functions
+    void lcd_polygon(uint16_t x[], uint16_t y[], int count, uint16_t color);
+    void lcd_fill_polygon(uint16_t x[], uint16_t y[], int count, uint16_t color);
+    void lcd_fill_polygon_alpha(uint16_t x[], uint16_t y[], int count,
+                                uint16_t color, uint8_t alpha);
+
     // Text rendering functions
     void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color, FontSize size);           // Draw a single character at (x, y) with specified RGB332 color using current font
     void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color, FontSize size); // Draw a string of text starting at (x, y) with specified RGB332 color using current font

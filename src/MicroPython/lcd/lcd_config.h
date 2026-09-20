@@ -30,6 +30,9 @@
 #define LCD_MP_SWAP_REGION picoware_lcd_swap_region
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
+#define LCD_MP_POLYGON lcd_polygon
+#define LCD_MP_FILL_POLYGON lcd_fill_polygon
+#define LCD_MP_FILL_POLYGON_ALPHA lcd_fill_polygon_alpha
 #elif defined(CARDPUTER)
 #define LCD_INCLUDE "../cardputer/lcd/lcd.h"
 #define LCD_MP_INIT lcd_init
@@ -54,6 +57,9 @@
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
+#define LCD_MP_POLYGON lcd_polygon
+#define LCD_MP_FILL_POLYGON lcd_fill_polygon
+#define LCD_MP_FILL_POLYGON_ALPHA lcd_fill_polygon_alpha
 #elif defined(WAVESHARE_2_06)
 #define LCD_INCLUDE "../Waveshare/ESP32S3-Touch-LCD-2.06/lcd/lcd.h"
 #define LCD_MP_INIT lcd_init
@@ -78,6 +84,9 @@
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
+#define LCD_MP_POLYGON lcd_polygon
+#define LCD_MP_FILL_POLYGON lcd_fill_polygon
+#define LCD_MP_FILL_POLYGON_ALPHA lcd_fill_polygon_alpha
 #elif defined(PANCAKE)
 #define LCD_INCLUDE "../pancake/lcd/lcd.h"
 #define LCD_MP_INIT lcd_init
@@ -102,6 +111,9 @@
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
+#define LCD_MP_POLYGON lcd_polygon
+#define LCD_MP_FILL_POLYGON lcd_fill_polygon
+#define LCD_MP_FILL_POLYGON_ALPHA lcd_fill_polygon_alpha
 #elif defined(V8)
 #define LCD_INCLUDE "../v8/lcd/lcd.h"
 #define LCD_MP_INIT lcd_init
@@ -126,6 +138,9 @@
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
+#define LCD_MP_POLYGON lcd_polygon
+#define LCD_MP_FILL_POLYGON lcd_fill_polygon
+#define LCD_MP_FILL_POLYGON_ALPHA lcd_fill_polygon_alpha
 #elif defined(WAVESHARE_1_28)
 #define LCD_INCLUDE "../Waveshare/RP2350-Touch-LCD-1.28/waveshare_lcd/lcd.h"
 #define LCD_MP_INIT lcd_init
@@ -150,6 +165,9 @@
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
+#define LCD_MP_POLYGON lcd_polygon
+#define LCD_MP_FILL_POLYGON lcd_fill_polygon
+#define LCD_MP_FILL_POLYGON_ALPHA lcd_fill_polygon_alpha
 #elif defined(WAVESHARE_1_69)
 #define LCD_INCLUDE "../Waveshare/RP2350-Touch-LCD-1.69/waveshare_lcd/lcd.h"
 #define LCD_MP_INIT lcd_init
@@ -173,6 +191,9 @@
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
+#define LCD_MP_POLYGON lcd_polygon
+#define LCD_MP_FILL_POLYGON lcd_fill_polygon
+#define LCD_MP_FILL_POLYGON_ALPHA lcd_fill_polygon_alpha
 #elif defined(WAVESHARE_1_43)
 #define LCD_INCLUDE "../Waveshare/RP2350-Touch-LCD-1.43/waveshare_lcd/lcd.h"
 #define LCD_MP_INIT lcd_init
@@ -197,6 +218,9 @@
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
+#define LCD_MP_POLYGON lcd_polygon
+#define LCD_MP_FILL_POLYGON lcd_fill_polygon
+#define LCD_MP_FILL_POLYGON_ALPHA lcd_fill_polygon_alpha
 #elif defined(WAVESHARE_3_49)
 #define LCD_INCLUDE "../Waveshare/RP2350-Touch-LCD-3.49/waveshare_lcd/lcd.h"
 #define LCD_MP_INIT lcd_init
@@ -221,6 +245,9 @@
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
+#define LCD_MP_POLYGON lcd_polygon
+#define LCD_MP_FILL_POLYGON lcd_fill_polygon
+#define LCD_MP_FILL_POLYGON_ALPHA lcd_fill_polygon_alpha
 #elif defined(FLIPPER_ZERO)
 #define LCD_INCLUDE "../Flipper/lcd/lcd.h"
 #define LCD_MP_INIT lcd_init
@@ -246,6 +273,9 @@
 #define LCD_SWAP lcd_swap
 #define LCD_MP_TEXT lcd_draw_text
 #define LCD_MP_TRIANGLE lcd_draw_triangle
+#define LCD_MP_POLYGON lcd_polygon
+#define LCD_MP_FILL_POLYGON lcd_fill_polygon
+#define LCD_MP_FILL_POLYGON_ALPHA lcd_fill_polygon_alpha
 #endif
 
 #ifdef DESKTOP

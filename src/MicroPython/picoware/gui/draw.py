@@ -14,6 +14,8 @@ class Draw(lcd.LCD):
         clear(position=Vector(0, 0), size=Vector(320, 320), color=None): Fill a rectangular area with a color
         erase(): Clear the entire display
         fill_circle(position, radius, color=None): Draw a filled circle
+        fill_polygon(points, color=None): Draw a filled polygon
+        fill_polygon_alpha(points, color=None, alpha=255): Draw a filled polygon with alpha blending
         fill_rectangle(position, size, color=None): Draw a filled rectangle
         fill_round_rectangle(position, size, radius, color=None): Draw a filled rounded rectangle
         fill_screen(color=None): Fill the entire screen with a color
@@ -31,6 +33,7 @@ class Draw(lcd.LCD):
         line(position, size, color=None): Draw a horizontal line
         line_custom(point_1, point_2, color=None): Draw a line between two points
         pixel(position, color=None): Draw a single pixel
+        polygon(points, color=None): Draw a polygon outline
         psram(position, size, addr): Draw pixel data directly from PSRAM at the specified address and length
         rect(position, size, color=None): Draw a rectangle outline
         screenshot(file_path): Take a screenshot of the current display and save it to the specified file path (.bmp)
@@ -215,6 +218,29 @@ class Draw(lcd.LCD):
         """
         _color = color if color is not None else self._foreground
         self._fill_circle(position.x, position.y, radius, _color)
+
+    def fill_polygon(self, points: list[Vector], color=None):
+        """Draw a filled polygon.
+
+        Args:
+            points (list[Vector]): The vertices of the polygon.
+            color (int): The fill color. Defaults to None (foreground).
+        """
+        _color = color if color is not None else self._foreground
+        _points = tuple((p.x, p.y) for p in points)
+        self._fill_polygon(_points, _color)
+
+    def fill_polygon_alpha(self, points: list[Vector], color=None, alpha=255):
+        """Draw a filled polygon with alpha blending.
+
+        Args:
+            points (list[Vector]): The vertices of the polygon.
+            color (int): The fill color. Defaults to None (foreground).
+            alpha (int): The alpha value for blending. Defaults to 255.
+        """
+        _color = color if color is not None else self._foreground
+        _points = tuple((p.x, p.y) for p in points)
+        self._fill_polygon_alpha(_points, _color, alpha)
 
     def fill_rectangle(self, position: Vector, size: Vector, color=None):
         """Draw a filled rectangle.
@@ -575,6 +601,17 @@ class Draw(lcd.LCD):
         """
         _color = color if color is not None else self._foreground
         self._pixel(position.x, position.y, _color)
+
+    def polygon(self, points: list[Vector], color=None):
+        """Draw a polygon outline.
+
+        Args:
+            points (list[Vector]): The vertices of the polygon.
+            color (int): The color to use. Defaults to None (foreground).
+        """
+        _color = color if color is not None else self._foreground
+        _points = tuple((p.x, p.y) for p in points)
+        self._polygon(_points, _color)
 
     def psram(self, position: Vector, size: Vector, addr: int):
         """Draw pixel data directly from PSRAM at the specified address and length.

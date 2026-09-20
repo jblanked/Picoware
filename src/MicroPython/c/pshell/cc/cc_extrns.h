@@ -260,7 +260,7 @@
     {"sqrtf", 1 | (1 << 5) | (1 << 10), math_defines, 0, 1},
 #endif
     {"srand", 1, stdlib_defines, srand, 0},
-#ifndef WAVESHARE_1_28
+#if !defined(WAVESHARE_1_28) && !defined(WAVESHARE_1_69)
     {"storage_file_close", 1, lib_defines, storage_file_close, 0},
     {"storage_file_list", 4, lib_defines, storage_file_list, 0},
     {"storage_file_open", 1, lib_defines, storage_file_open, 0},

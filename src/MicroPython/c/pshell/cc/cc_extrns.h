@@ -260,6 +260,7 @@
     {"sqrtf", 1 | (1 << 5) | (1 << 10), math_defines, 0, 1},
 #endif
     {"srand", 1, stdlib_defines, srand, 0},
+#ifndef WAVESHARE_1_28
     {"storage_file_close", 1, lib_defines, storage_file_close, 0},
     {"storage_file_list", 4, lib_defines, storage_file_list, 0},
     {"storage_file_open", 1, lib_defines, storage_file_open, 0},
@@ -271,6 +272,7 @@
     {"storage_file_write", 3, lib_defines, storage_file_write, 0},
     {"storage_file_write_file_chunk", 3, lib_defines, storage_file_write_file_chunk, 0},
     {"storage_file_write_open", 1, lib_defines, storage_file_write_open, 0},
+#endif
     {"strcat", 2, string_defines, strcat, 0},
     {"strchr", 2, string_defines, strchr, 0},
     {"strcmp", 2, string_defines, strcmp, 0},

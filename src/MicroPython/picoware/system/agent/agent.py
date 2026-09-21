@@ -583,6 +583,8 @@ class Agent:
             s.write(self._mem_path, f"{context.strip()}\n", mode="a")
         else:
             if not s.exists("picoware/assets/agents/app_creator_context.md"):
+                if not s.mkdir("picoware/assets/agents"):
+                    return "An error occurred during processing: Failed to create directory for agent context."
                 self.view_manager.log("Fetching app creator context...")
                 # https://raw.githubusercontent.com/{_github_author}/{_github_repo}/HEAD/{path}
                 if not self.http.request_async("GET", "https://raw.githubusercontent.com/jblanked/Picoware/dev/builds/MicroPython/assets/agent/app_creator_context.md", save_to_file="picoware/assets/agents/app_creator_context.md", storage=s):

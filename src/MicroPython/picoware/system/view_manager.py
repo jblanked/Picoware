@@ -609,11 +609,9 @@ class ViewManager:
             _mod = sys.modules.get(_name)
             if _mod is None:
                 continue
+            # Frozen modules report "picoware/gui/x.py", SD ones "/sd/firmware/picoware/gui/x.mpy"
             _file = getattr(_mod, "__file__", "")
-            if not (
-                _file.startswith("/sd/firmware/picoware/gui/")
-                or _file.startswith("/sd/firmware/picoware/applications/")
-            ):
+            if "picoware/gui/" not in _file and "picoware/applications/" not in _file:
                 continue
             # Keep packages
             if _file.endswith("__init__.mpy") or _file.endswith("__init__.py"):

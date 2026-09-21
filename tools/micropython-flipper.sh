@@ -144,32 +144,16 @@ cd "$micropython_root"
 make -C mpy-cross clean
 make -C mpy-cross -j4
 
-echo "Building SD card image (firmware/ with mpy-compiled picoware)..."
-sd_dir="$output_dir/sd"
-fw_dir="$sd_dir/firmware"
-rm -rf "$sd_dir"
-mkdir -p "$fw_dir"
-cp "$picoware_dir/src/MicroPython/main.py" "$fw_dir/main.py"
+echo "Staging picoware into flash (frozen, no SD card needed)..."
+rm -rf "$output_dir/sd"
+freeze_dir="$micropython_dir/modules/flash"
+rm -rf "$freeze_dir"
+mkdir -p "$freeze_dir"
 rsync -a --exclude='/system/agent/' --exclude='/assets/' \
-    "$picoware_dir/src/MicroPython/picoware/" "$fw_dir/picoware/"
-find "$fw_dir" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
-find "$fw_dir" -name ".DS_Store" -delete 2>/dev/null || true
-
-# Assets are copied unchanged to the shared SD folder, outside compiled firmware.
-mkdir -p "$sd_dir/picoware/assets"
-rsync -a --exclude='__pycache__/' --exclude='.DS_Store' \
-    "$picoware_dir/src/MicroPython/picoware/assets/" "$sd_dir/picoware/assets/"
-
-echo "Compiling picoware package to .mpy..."
-mpy_cross="$micropython_root/mpy-cross/build/mpy-cross"
-if [ ! -x "$mpy_cross" ]; then
-    echo "ERROR: mpy-cross not found at $mpy_cross"
-    exit 1
-fi
-while IFS= read -r -d '' src; do
-    "$mpy_cross" -march=armv7m -o "${src%.py}.mpy" "$src"
-done < <(find "$fw_dir/picoware" -name "*.py" -print0)
-find "$fw_dir/picoware" -name "*.py" -delete
+    "$picoware_dir/src/MicroPython/picoware/" "$freeze_dir/picoware/"
+cp "$picoware_dir/src/MicroPython/main.py" "$freeze_dir/main.py"
+find "$freeze_dir" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+find "$freeze_dir" -name ".DS_Store" -delete 2>/dev/null || true
 
 echo "Starting Flipper Zero firmware build..."
 cd "$micropython_dir"
@@ -181,7 +165,8 @@ make BOARD=FLIPPER_ZERO \
 
 make -j BOARD=FLIPPER_ZERO \
     USER_C_MODULES="$micropython_dir/modules" \
-    CFLAGS_EXTRA="-DFLIPPER_ZERO"
+    CFLAGS_EXTRA="-DFLIPPER_ZERO" \
+    LTO=1
 
 echo "Copying build artifacts..."
 cp "$build_dir/firmware.dfu" "$output_dir/Picoware-FlipperZero.dfu" 2>/dev/null || true

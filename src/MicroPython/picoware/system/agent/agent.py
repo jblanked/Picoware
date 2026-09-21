@@ -587,7 +587,11 @@ class Agent:
                     return "An error occurred during processing: Failed to create directory for agent context."
                 self.view_manager.log("Fetching app creator context...")
                 # https://raw.githubusercontent.com/{_github_author}/{_github_repo}/HEAD/{path}
-                if not self.http.request_async("GET", "https://raw.githubusercontent.com/jblanked/Picoware/dev/builds/MicroPython/assets/agent/app_creator_context.md", save_to_file="picoware/assets/agents/app_creator_context.md", storage=s):
+                if not self.http.request_async("GET", "https://raw.githubusercontent.com/jblanked/Picoware/dev/builds/MicroPython/assets/agent/app_creator_context.md", save_to_file="picoware/assets/agents/app_creator_context.md", storage=s, headers={
+                                            "User-Agent": "Raspberry Pi Pico W",
+                                            "Content-Type": "application/octet-stream",
+                                        }
+                            ):
                     return "An error occurred during processing: No agent context found and failed to fetch app creator context."
                 inp = self.view_manager.input_manager
                 inp.reset()

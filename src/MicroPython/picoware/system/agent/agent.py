@@ -584,7 +584,7 @@ class Agent:
         else:
             if not s.exists("picoware/assets/agents/app_creator_context.md"):
                 self.view_manager.log("Fetching app creator context...")
-                if not self.http.request_async("GET", "https://raw.githubusercontent.com/jblanked/Picoware/dev/src/MicroPython/assets/agents/app_creator_context.md", save_to_file="picoware/assets/agents/app_creator_context.md", storage=s):
+                if not self.http.request_async("GET", "https://raw.githubusercontent.com/jblanked/Picoware/dev/builds/MicroPython/assets/agent/app_creator_context.md", save_to_file="picoware/assets/agents/app_creator_context.md", storage=s):
                     return "No agent context found and failed to fetch app creator context."
                 inp = self.view_manager.input_manager
                 inp.reset()

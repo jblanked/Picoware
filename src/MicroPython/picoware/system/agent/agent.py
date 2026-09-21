@@ -240,7 +240,7 @@ class Agent:
                 n = storage.file_readinto(src, buf)
                 if not n:
                     break
-                chunk = carry + buf[:n].decode('utf-8')
+                chunk = carry + memoryview(buf)[:n].decode('utf-8')
                 if chunk.endswith('\\'):
                     carry = '\\'
                     chunk = chunk[:-1]
@@ -401,7 +401,7 @@ class Agent:
                     n = storage.file_readinto(conv_file, buf)
                     if not n:
                         break
-                    storage.write(self._file_path, buf[:n], mode="b")
+                    storage.write(self._file_path, memoryview(buf)[:n], mode="b")
             finally:
                 storage.file_close(conv_file)
 
@@ -584,8 +584,9 @@ class Agent:
         else:
             if not s.exists("picoware/assets/agents/app_creator_context.md"):
                 self.view_manager.log("Fetching app creator context...")
+                # https://raw.githubusercontent.com/{_github_author}/{_github_repo}/HEAD/{path}
                 if not self.http.request_async("GET", "https://raw.githubusercontent.com/jblanked/Picoware/dev/builds/MicroPython/assets/agent/app_creator_context.md", save_to_file="picoware/assets/agents/app_creator_context.md", storage=s):
-                    return "No agent context found and failed to fetch app creator context."
+                    return "An error occurred during processing: No agent context found and failed to fetch app creator context."
                 inp = self.view_manager.input_manager
                 inp.reset()
                 while self.http.in_progress:
@@ -595,7 +596,8 @@ class Agent:
                         self.http.close()
                         break
                 if not self.http.is_successful or not s.exists("picoware/assets/agents/app_creator_context.md"):
-                    return "No agent context found and failed to fetch app creator context."
+                    return "An error occurred during processing: No agent context found and failed to fetch app creator context."
+                self.view_manager.log("App creator context fetched successfully.")
             f = s.file_open(self._mem_path)
             if f is not None:
                 try:
@@ -611,7 +613,20 @@ class Agent:
                         s.file_write(f, b"\n", mode="b")
                         s.file_write(f, app_creator.WORKFLOW, mode="b")
                         s.file_write(f, b"\n", mode="b")
-                        s.file_write(f, app_creator.CONTEXT, mode="b")
+                        _ctx_file = s.file_open("picoware/assets/agents/app_creator_context.md")
+                        if _ctx_file is not None:
+                            try:
+                                temp_buffer = bytearray(1024)
+                                while True:
+                                    _count = s.file_readinto(_ctx_file, temp_buffer)
+                                    if _count <= 0:
+                                        break
+                                    if not s.file_write(f, memoryview(temp_buffer)[:_count], mode="b"):
+                                        break
+                            except Exception as exc:
+                                self.view_manager.log(f"Error while writing app creator context: {exc}")
+                            finally:
+                                s.file_close(_ctx_file)
                         s.file_write(f, b"\n", mode="b")
                     elif self.mode == MODE_DEVICE_MANAGER:
                         s.file_write(f, device_manager.PROMPT, mode="b")

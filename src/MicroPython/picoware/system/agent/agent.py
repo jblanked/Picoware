@@ -584,6 +584,8 @@ class Agent:
         else:
             if self.mode == MODE_APP_CREATOR:
                 if not s.exists("picoware/assets/agents/app_creator_context.md"):
+                    if not s.mkdir("picoware/assets"):
+                        return "An error occurred during processing: Failed to create directory for agent context."
                     if not s.mkdir("picoware/assets/agents"):
                         return "An error occurred during processing: Failed to create directory for agent context."
                     self.view_manager.log("Fetching app creator context...")

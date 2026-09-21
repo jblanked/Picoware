@@ -2,6 +2,9 @@
 
 The installation process for Picoware varies depending on the device you are using but generally involves downloading and flashing the appropriate build then copying the `apps`, `scripts`, `mmbasic`, and `c` folders from the `builds/MicroPython` directory into the `picoware` folder on the root of your SD card. Follow the instructions for your specific device below.
 
+## Online Flasher
+Every supported device except the Flipper Zero can use the online flasher to install Picoware. Before the installation, it is still recommended to copy the `apps`, `scripts`, `mmbasic`, and `c` folders from the `builds/MicroPython` directory into the `picoware` folder on the root of your SD card. You can access the online flasher at [https://www.jblanked.com/picoware/flash/](https://www.jblanked.com/picoware/flash/)
+
 ## PicoCalc, Waveshare, and other Raspberry Pi Pico-based boards
 1. Download the appropriate build from the `builds` directory.
 2. Press and hold the `BOOT` button on your Raspberry Pi Pico/W or Pico 2/2W.
@@ -96,21 +99,19 @@ Optionally, you can also download the `Picoware-CrowPanel-10.1.bin` file from th
 > If you are installing from a previous version of Picoware, open up the `Library`, by clicking the `Center` button on on-boot view, scroll `Up` to find the `System` app, then scroll `Down` and click `Bootloader` to enter DFU mode. If you do this, you can skip steps 5 and 6 below.
 
 1. Download this repository as a ZIP file and extract it.
-2. Turn off your Flipper Zero, take out the SD card, then insert it into your computer.
-3. Copy the `firmware` folder from the `builds/MicroPython/sd` directory of the ZIP file you downloaded into the root of your Flipper Zero's SD card. If a `firmware` folder already exists, replace it with the new one.
-4. Create a `picoware` folder on your SD card and copy the `apps`, `scripts`, `mmbasic`, and `c` folders from the `builds/MicroPython` directory into the `picoware` folder on the root of SD card.
-5. Eject the SD card from your computer and insert it into your Flipper Zero.
-6. Hold the `Center + Back` buttons for 25 seconds.
-7. Connect your Flipper Zero to your computer via USB-C data cable.
-8. Open up qFlipper (download from [here](https://flipper.net/pages/downloads/) if you don't have it installed).
-9. If its your first time using the Flipper Zero (no previous firmware installed or you just received the device), click `Repair`, then `Repair`, and wait for the process to complete. Then turn off your Flipper Zero (hold `Back` for 10 seconds). Lastly, follow steps 6-8 again to reconnect your Flipper Zero to your computer and open qFlipper.
-10. Click `Install from file` and select the `Picoware-FlipperZero.dfu` within the `builds/MicroPython` directory of the ZIP file you downloaded.
-11. Wait for the flashing process to complete and then disconnect your Flipper Zero from your computer once you see the Picoware logo on the device.
+2. Turn off your Flipper Zero (hold `Back` for 10 seconds).
+3. Hold the `Center + Back` buttons for 25 seconds.
+4. Connect your Flipper Zero to your computer via USB-C data cable.
+5. Open up qFlipper (download from [here](https://flipper.net/pages/downloads/) if you don't have it installed).
+6. If its your first time using the Flipper Zero (no previous firmware installed or you just received the device), click `Repair`, then `Repair`, and wait for the process to complete. Then turn off your Flipper Zero (hold `Back` for 10 seconds). Lastly, follow steps 3-5 again to reconnect your Flipper Zero to your computer and open qFlipper.
+7. Click `Install from file` and select the `Picoware-FlipperZero.dfu` within the `builds/MicroPython` directory of the ZIP file you downloaded.
+8. Wait for the flashing process to complete and then disconnect your Flipper Zero from your computer once you see the Picoware logo on the device.
+
+> [!TIP]
+> Apps are optional and load from the SD card: create a `picoware` folder on the root of the SD card and copy the `apps`, `scripts`, `mmbasic`, and `c` folders from the `builds/MicroPython` directory into it.
 
 > [!NOTE]
 > Known Flipper Zero issues:
-> - It can take up to 10 seconds for the system to boot up after the Flipper Zero is turned on or restarted. 
-> - The device may run out of memory occasionally, especially after running multiple apps or games.
 > - On boot/restart, noise may be heard from the speaker/radio.
 > - The system may freeze when trying to Stop in ThonnyIDE (solution: must click Library -> System -> Stop before trying to interrupt)
 > - Some of the apps/games/screensavers are incompatible

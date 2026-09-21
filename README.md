@@ -6,21 +6,23 @@ Open-source custom firmware for PicoCalc, Cardputer ADV, Flipper Zero, and other
 ### Features
 - [Desktop Companion App](./app/README.md) with USB Video Stream and App Store
 - [Desktop Simulator](./guides/Simulator.md) (runs Picoware on Mac/Linux with SDL2 and native Picoware C modules)
-- On-Device Code Editor
+- On-Device Code Editor (PicoIDE)
 - On-Device REPL
-- On-Device AI Agent with MCP Support
+- On-Device App Store for installing community built apps and scripts
 - File Manager
-- On-Device App Store
 - OTA Updates
 - UF2 Bootloader (PicoCalc only)
 - MP3/WAV Player
 - JPEG/BMP Viewer
 - WiFi (scanning, captive portal, and more)
+- Email support (sending and receiving emails)
 - Bluetooth (scanning, BLE operations, and more)
 - Gameboy Emulator (GameBoy and GameBoy Color)
-- Games (2048, Ghouls, Tetris, Pico Bomber, and more)
-- Screensavers (Yin-Yang, Floating Orbs, and more)
+- Games (2048, Tetris, Pico Bomber, and more) and multiplayer support (Ghouls, Free Roam, FlipWorld, and more)
+- [Game Engine](https://github.com/pico-game-engine/pico-game-engine/tree/dev) with 3D graphics support (PicoCity, RacingV1, and more)
+- Screensavers (Yin-Yang, Floating Orbs, Nostromo, Matrix Rain, and more)
 - Social Media Network (FlipSocial)
+- On-Device AI Agent with MCP Support
 - Desktop animations
 - AutoComplete for keyboard input
 - Multi-core support
@@ -28,9 +30,18 @@ Open-source custom firmware for PicoCalc, Cardputer ADV, Flipper Zero, and other
 - Javascript interpreter for running custom JavaScript code
 - MMBasic interpreter for running BASIC programs
 - DuckyScript Interpreter for automated keyboard input
+- Infrared (IR) transmission and reception
+- C interpreter for running C code
+- Video Player (MJPEG)
+- [Extended UART support](./guides/FlipperZero.md) (WiFi and WebSocket access through UART)
+- ZipFile support (read/compress/decompress archives)
 
-### Installation
-Follow the instructions in the [Installation Guide](./guides/Installation.md) to install Picoware on your device.
+### Resources
+- [API Documentation](https://www.jblanked.com/picoware/api-docs/)
+- [Online Flasher](https://www.jblanked.com/picoware/flash/)
+- [Installation Guide](./guides/Installation.md)
+- [Contributing Guide](./guides/CONTRIBUTING.md)
+- [App Guide](./guides/Apps.md)
 
 ## Connect Online
 - Discord: https://discord.gg/vhSRPdvvc9
@@ -53,6 +64,3 @@ Follow the instructions in the [Installation Guide](./guides/Installation.md) to
 ### Related Videos
 - JBlanked (PicoCalc Playlist): [https://www.youtube.com/playlist?list=PLSRet1BCVgXhDNONa1T-1OIDoSibsF_ey](https://www.youtube.com/playlist?list=PLSRet1BCVgXhDNONa1T-1OIDoSibsF_ey)
 - A collection of video tutorials for Picoware: https://github.com/jblanked/Picoware/tree/main/guides/Tutorials.md
-
-### Contributing
-If you would like to contribute to Picoware, please follow the guidelines in the [Contributing Guide](./guides/CONTRIBUTING.md). All contributions are welcome, including bug reports, feature requests, documentation improvements, and code contributions.

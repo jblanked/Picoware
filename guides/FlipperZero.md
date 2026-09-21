@@ -13,3 +13,6 @@ entered text.
 
 ### Bootloader Mode
 Bootloader mode, also known as DFU or download mode, allows you to flash firmware or perform low-level maintenance on the device. To enter bootloader mode within Picoware, navigate to `Library -> System -> Bootloader`. Then you can use an application like `qFlipper` to flash firmware or perform other maintenance tasks.
+
+### UART WiFi and WebSocket
+Using a [FlipperHTTP](https://github.com/jblanked/FlipperHTTP) flashed board, you can give your Flipper Zero WiFi and WebSocket access within Picoware by connecting a compatible WiFi module to the Flipper Zero's GPIO pins. Once connected, you can access WiFi settings in `Library -> WiFi`. Here, you can configure your network, scan for available networks, and manage your WiFi connections.

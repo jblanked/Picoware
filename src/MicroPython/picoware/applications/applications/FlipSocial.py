@@ -2098,6 +2098,8 @@ class FlipSocialRun:
 def start(view_manager) -> bool:
     """Start the main app"""
     global _flip_social_run_instance
+    kb = view_manager.keyboard
+    kb.reset()
     view_manager.storage.mkdir("picoware/flip_social")
     _flip_social_run_instance = FlipSocialRun(view_manager)
     return _flip_social_run_instance is not None and _flip_social_run_instance.start(view_manager)

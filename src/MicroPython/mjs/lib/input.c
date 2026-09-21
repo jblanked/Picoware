@@ -58,12 +58,6 @@ static void input_reset(struct mjs *mjs)
     mjs_return(mjs, MJS_UNDEFINED);
 }
 
-static mjs_val_t input_battery(struct mjs *mjs)
-{
-    (void)mjs;
-    return mjs_val_from_attr(mjs, input_mp_instance, MP_QSTR_battery);
-}
-
 static mjs_val_t input_button(struct mjs *mjs)
 {
     (void)mjs;
@@ -95,7 +89,6 @@ void input_create(struct mjs *mjs, mjs_val_t *input_obj)
 
     *input_obj = mjs_mk_object(mjs);
 
-    mjs_set_getter(mjs, *input_obj, "battery", ~0, input_battery);
     mjs_set_getter(mjs, *input_obj, "button", ~0, input_button);
     mjs_set_getter(mjs, *input_obj, "wasCapitalized", ~0, input_was_capitalized);
 

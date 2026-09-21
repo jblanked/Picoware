@@ -201,7 +201,7 @@ void lcd_js_triangle(struct mjs *mjs)
 void lcd_js_screenshot(struct mjs *mjs)
 {
 #ifdef LCD_MP_READ_ROW
-#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO)
+#if defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO) || defined(DESKTOP)
     char *path = mjs_copy_string_arg(mjs, 0);
     if (!path)
     {

@@ -212,9 +212,9 @@ def center_text(display, text, y, color):
     """Helper to center text on screen."""
     from picoware.system.vector import Vector
 
-    text_width = display.font_size.x * len(text)
+    text_width = display.len(text)
     x = (display.size.x - text_width) // 2
-    display.text(Vector(x, y), text, color)
+    display._text(x, y, text, color)
 
 
 def draw_sudoku(display):
@@ -228,7 +228,6 @@ def draw_sudoku(display):
         TFT_WHITE,
         TFT_BLACK,
     )
-    from picoware.system.vector import Vector
 
     display.fill_screen(TFT_BLACK)
 
@@ -291,10 +290,6 @@ def draw_sudoku(display):
     display._rectangle(x + 2, y + 2, cell_size - 4, cell_size - 4, TFT_YELLOW)
 
     # Draw grid lines
-    vline_vec = Vector(0, grid_y)
-    vline_vec_size = Vector(0, grid_size)
-    hline_vec = Vector(grid_x, 0)
-    hline_vec_size = Vector(grid_size, 0)
     for i in range(10):
         thickness = 2 if i % 3 == 0 else 1
         color = TFT_WHITE
@@ -302,28 +297,22 @@ def draw_sudoku(display):
         # Vertical lines
         x = grid_x + i * cell_size
         for t in range(thickness):
-            vline_vec.x = x + t
-            vline_vec_size.x = x + t
-            vline_vec_size.y = grid_y + grid_size
             display._line(
-                vline_vec.x,
-                vline_vec.y,
-                vline_vec_size.x,
-                vline_vec_size.y,
+                x + t,
+                grid_y,
+                x + t,
+                grid_y + grid_size,
                 color,
             )
 
         # Horizontal lines
         y = grid_y + i * cell_size
         for t in range(thickness):
-            hline_vec.y = y + t
-            hline_vec_size.x = grid_x + grid_size
-            hline_vec_size.y = y + t
             display._line(
-                hline_vec.x,
-                hline_vec.y,
-                hline_vec_size.x,
-                hline_vec_size.y,
+                grid_x,
+                y + t,
+                grid_x + grid_size,
+                y + t,
                 color,
             )
 
@@ -338,7 +327,7 @@ def draw_sudoku(display):
     diff_text = f"{game.difficulty[0].upper()}{game.difficulty[1:]}"
 
     display._text(4, info_y, diff_text, TFT_CYAN)
-    display._text(display.size.x - len(timer_text) * display.font_size.x - 4, info_y, timer_text, TFT_CYAN)
+    display._text(display.size.x - display.len(timer_text) - 4, info_y, timer_text, TFT_CYAN)
 
     display.swap()
 
@@ -450,10 +439,10 @@ def run(view_manager) -> None:
         secs = elapsed % 60
 
         draw.fill_screen(view_manager.background_color)
-        center_text(draw, "Congratulations!", 120, TFT_GREEN)
-        center_text(draw, "Puzzle Complete!", 150, TFT_GREEN)
-        center_text(draw, f"Time: {mins:02d}:{secs:02d}", 180, TFT_CYAN)
-        draw.text(Vector(8, 290), "Press any key to continue...", TFT_YELLOW)
+        center_text(draw, "Congratulations!", draw.scale_y(120), TFT_GREEN)
+        center_text(draw, "Puzzle Complete!", draw.scale_y(150), TFT_GREEN)
+        center_text(draw, f"Time: {mins:02d}:{secs:02d}", draw.scale_y(180), TFT_CYAN)
+        draw._text(draw.scale_x(8), draw.scale_y(290), "Press any key to continue...", TFT_YELLOW)
         view_manager.back()
         return
 
@@ -472,7 +461,7 @@ def run(view_manager) -> None:
     elif key in (BUTTON_0, BUTTON_BACKSPACE):
         inp.reset()
         game.set_cell(game.cursor_row, game.cursor_col, 0)
-    else:
+    elif key != -1:
         from picoware.system.buttons import (
             BUTTON_1,
             BUTTON_2,

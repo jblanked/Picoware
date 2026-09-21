@@ -3,6 +3,11 @@
 #include <math.h>
 #include "storage.h"
 #include "pshell/cc/cc.h"
+#include "../lcd/lcd_config.h"
+
+#ifdef LCD_INCLUDE
+#include LCD_INCLUDE
+#endif
 
 #define C_SOURCE_MAX 262144
 #define C_PROGRAM_SPACE_SIZE (32 * 1024)
@@ -16,8 +21,13 @@ char *full_path(char *name)
 
 void get_screen_xy(int *x, int *y)
 {
+#if defined(LCD_MP_WIDTH) && defined(LCD_MP_HEIGHT)
+    *x = LCD_MP_WIDTH;
+    *y = LCD_MP_HEIGHT;
+#else
     *x = 320;
     *y = 320;
+#endif
 }
 
 float c_mp_sinf(float value) { return sinf(value); }
@@ -88,7 +98,7 @@ static MP_DEFINE_CONST_FUN_OBJ_2(c_mp_run_obj, c_mp_run);
 mp_obj_t c_mp_exec(mp_obj_t self_in, mp_obj_t path)
 {
     (void)self_in;
-#ifndef C_STORAGE_ENABLED
+#if !defined(C_STORAGE_ENABLED) && !defined(CARDPUTER)
     (void)path;
     return mp_obj_new_int(-1);
 #else
@@ -116,7 +126,7 @@ static MP_DEFINE_CONST_FUN_OBJ_2(c_mp_exec_obj, c_mp_exec);
 void c_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
 {
     c_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (destination[0] != MP_OBJ_NULL)
+    if (destination[0] == MP_OBJ_NULL)
     {
         switch (attribute)
         {

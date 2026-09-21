@@ -2,6 +2,7 @@
 
 // general
 #define ENGINE_MAX_TRIANGLES_PER_SPRITE 64
+#define ENGINE_MAX_PROJECTION_VERTICES 8
 
 // logging
 // #define ENGINE_LOG_INCLUDE "example/log.hpp"
@@ -44,6 +45,9 @@
 // #define ENGINE_LCD_SWAP lcd_swap
 // #define ENGINE_LCD_TEXT lcd_draw_text
 // #define ENGINE_LCD_TRIANGLE lcd_draw_triangle
+// #define ENGINE_LCD_POLYGON lcd_draw_polygon
+// #define ENGINE_LCD_FILL_POLYGON lcd_fill_polygon
+// #define ENGINE_LCD_FILL_POLYGON_ALPHA lcd_fill_polygon_alpha
 
 // storage
 // #define ENGINE_STORAGE_INCLUDE "example/storage.h"

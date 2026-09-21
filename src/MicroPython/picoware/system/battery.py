@@ -23,6 +23,10 @@ class Battery:
             from flipper_battery import init 
 
             init()
+        elif BOARD_ID == BOARD_WAVESHARE_2_06:
+            from cardputer_battery import init
+
+            init()
 
     def __del__(self):
         """Destructor to clean up resources."""

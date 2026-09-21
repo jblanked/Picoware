@@ -130,7 +130,7 @@ class Server:
             from picoware.system.storage import Storage
 
             storage: Storage = self.view_manager.storage
-            server_info: dict = storage.serialize(SERVER_INFO)
+            server_info: dict = storage.deserialize(SERVER_INFO)
             if "pages" in server_info:
                 for page in server_info["pages"]:
                     url = page.get("url", "/")
@@ -535,7 +535,7 @@ def __add_page(view_manager) -> bool:
         # save new page with default values
         storage = view_manager.storage
         try:
-            server_info: dict = storage.serialize(SERVER_INFO)
+            server_info: dict = storage.deserialize(SERVER_INFO)
             if "pages" not in server_info:
                 server_info["pages"] = []
             new_page = {
@@ -545,7 +545,7 @@ def __add_page(view_manager) -> bool:
                 "script": "",
             }
             server_info["pages"].append(new_page)
-            storage.deserialize(server_info, SERVER_INFO)
+            storage.serialize(server_info, SERVER_INFO)
         except Exception as e:
             view_manager.log("Error saving server info:", e, 2)
         #
@@ -692,7 +692,7 @@ def __edit_page(
         current_page_info[key] = keyboard.response
         storage = view_manager.storage
         try:
-            server_info: dict = storage.serialize(SERVER_INFO)
+            server_info: dict = storage.deserialize(SERVER_INFO)
             if "pages" in server_info:
                 if 0 <= index < len(server_info["pages"]):
                     server_info["pages"][index] = {
@@ -701,7 +701,7 @@ def __edit_page(
                         "html": current_page_info.get("html", ""),
                         "script": current_page_info.get("script", ""),
                     }
-                    storage.deserialize(server_info, SERVER_INFO)
+                    storage.serialize(server_info, SERVER_INFO)
         except Exception as e:
             view_manager.log("Error saving server info:", e, 2)
         #
@@ -735,7 +735,7 @@ def __get_current_pages(view_manager) -> list[str]:
     pages = []
 
     try:
-        _current_stats: dict = storage.serialize(SERVER_INFO)
+        _current_stats: dict = storage.deserialize(SERVER_INFO)
         if "pages" in _current_stats:
             for page in _current_stats["pages"]:
                 pages.append(page["url"])
@@ -761,7 +761,7 @@ def __get_page_info_index(view_manager, index: int) -> dict:
     page_info = {}
 
     try:
-        _current_stats: dict = storage.serialize(SERVER_INFO)
+        _current_stats: dict = storage.deserialize(SERVER_INFO)
         if "pages" in _current_stats:
             _page_amount = len(_current_stats["pages"])
             if 0 <= index < _page_amount:
@@ -790,7 +790,7 @@ def __get_setting(view_manager, key: str, default: str = "") -> str:
     value = default
 
     try:
-        server_info: dict = storage.serialize(SERVER_INFO)
+        server_info: dict = storage.deserialize(SERVER_INFO)
         if "settings" in server_info:
             value = server_info["settings"].get(key, default)
     except Exception as e:
@@ -812,11 +812,11 @@ def __save_setting(view_manager, key: str, value: str) -> None:
     storage: Storage = view_manager.storage
 
     try:
-        server_info: dict = storage.serialize(SERVER_INFO)
+        server_info: dict = storage.deserialize(SERVER_INFO)
         if "settings" not in server_info:
             server_info["settings"] = {}
         server_info["settings"][key] = value
-        storage.deserialize(server_info, SERVER_INFO)
+        storage.serialize(server_info, SERVER_INFO)
     except Exception as e:
         view_manager.log("Error saving server setting:", e, 2)
 
@@ -835,11 +835,11 @@ def __delete_page(view_manager, index: int) -> None:
     storage: Storage = view_manager.storage
 
     try:
-        server_info: dict = storage.serialize(SERVER_INFO)
+        server_info: dict = storage.deserialize(SERVER_INFO)
         if "pages" in server_info:
             if 0 <= index < len(server_info["pages"]):
                 del server_info["pages"][index]
-                storage.deserialize(server_info, SERVER_INFO)
+                storage.serialize(server_info, SERVER_INFO)
     except Exception as e:
         view_manager.log("Error deleting page:", e, 2)
 

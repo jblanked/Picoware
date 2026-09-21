@@ -15,7 +15,7 @@ class Settings:
         
         """
         from picoware.system.buttons import BUTTON_BACK
-        from picoware.system.boards import BOARD_HAS_TOUCH, BOARD_ID, BOARD_FLIPPER_ZERO
+        from picoware.system.boards import BOARD_HAS_KEYBOARD
 
         self._storage = storage
         self._path = "picoware/settings/picoware.json"
@@ -31,7 +31,7 @@ class Settings:
             "local_url": "http://127.0.0.1:8080/v1/chat/completions",
             "lvgl_mode": False,
             "mcp_servers": [],
-            "onscreen_keyboard": BOARD_HAS_TOUCH == 1 or BOARD_ID == BOARD_FLIPPER_ZERO,
+            "onscreen_keyboard": BOARD_HAS_KEYBOARD == 0,
             "openai_api_key": "",
             "screen_brightness": 100,
             "server_username": "",
@@ -56,7 +56,7 @@ class Settings:
                 "local_url": "http://127.0.0.1:8080/v1/chat/completions",
                 "lvgl_mode": bool(self.__fetch_setting("picoware/settings/lvgl_mode.json", "lvgl_mode", False)),
                 "mcp_servers": [],
-                "onscreen_keyboard": bool(self.__fetch_setting("picoware/settings/onscreen_keyboard.json", "onscreen_keyboard", BOARD_HAS_TOUCH == 1)),
+                "onscreen_keyboard": bool(self.__fetch_setting("picoware/settings/onscreen_keyboard.json", "onscreen_keyboard", BOARD_HAS_KEYBOARD == 0)),
                 "openai_api_key": "",
                 "screen_brightness": 100,
                 "server_username": self.__fetch_setting("picoware/settings/server_username.json", "username", ""),
@@ -407,14 +407,9 @@ class Settings:
         if not self._storage.exists(path):
             return default
 
-        data = self._storage.read(path)
-        if data is not None:
-            try:
-                obj = json.loads(data)
-                if key in obj:
-                    return obj[key]
-            except Exception:
-                pass
+        data = self._storage.serialize(path)
+        if data:
+            return data.get(key, default)
 
         return default
     
@@ -424,7 +419,26 @@ class Settings:
         Returns:
             bool: True if the settings were saved successfully.
         """
-        return self._storage.write(
+        return self._storage.serialize(
             self._path,
-            json.dumps(self._settings),
+            self._settings,
         )
+
+    @classmethod
+    def get(cls, storage, key: str, default=None):
+        """Get a setting value from storage.
+
+        Args:
+            key (str): The setting key to look up.
+            default (object): Value returned when the setting is missing. Defaults to None.
+
+        Returns:
+            object: The fetched setting value or the default.
+        """
+        path = "picoware/settings/settings.json"
+        if storage is None or not storage.exists(path):
+            return default
+        data = storage.deserialize(path)
+        if data:
+            return data.get(key, default)
+        return default

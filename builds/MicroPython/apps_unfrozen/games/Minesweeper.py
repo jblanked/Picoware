@@ -31,7 +31,6 @@ win = False
 
 reusable_vec = None
 pos_vec = None
-size_vec = None
 
 
 def draw_cell(draw, value, is_revealed, is_flagged) -> None:
@@ -39,23 +38,23 @@ def draw_cell(draw, value, is_revealed, is_flagged) -> None:
     reusable_vec.x = pos_vec.x * CELL_SIZE + _offset_x
     reusable_vec.y = pos_vec.y * CELL_SIZE + _offset_y
     if is_revealed:
-        draw.fill_rectangle(reusable_vec, size_vec, 0xFFFF if is_flipper else TFT_ORANGE)
+        draw._fill_rectangle(reusable_vec.x, reusable_vec.y, CELL_SIZE, CELL_SIZE, 0xFFFF if is_flipper else TFT_ORANGE)
     else:
-        draw.fill_rectangle(reusable_vec, size_vec, TFT_BLACK)
+        draw._fill_rectangle(reusable_vec.x, reusable_vec.y, CELL_SIZE, CELL_SIZE, TFT_BLACK)
     # On Flipper, use black border on revealed cells (white border invisible on white)
     border_color = TFT_BLACK if (is_flipper and is_revealed) else (0xFFFF if is_flipper else TFT_BLUE)
-    draw.rect(reusable_vec, size_vec, border_color)
+    draw._rectangle(reusable_vec.x, reusable_vec.y, CELL_SIZE, CELL_SIZE, border_color)
     reusable_vec.x += _text_off_x
     reusable_vec.y += _text_off_y
     if is_revealed:
         # On Flipper, use black text on white revealed background for visibility
         text_color = TFT_BLACK if is_flipper else (TFT_RED if value == -1 else TFT_WHITE)
         if value == -1:
-            draw.text(reusable_vec, "*", text_color)
+            draw._text(reusable_vec.x, reusable_vec.y, "*", text_color)
         elif value > 0:
-            draw.text(reusable_vec, str(value), text_color)
+            draw._text(reusable_vec.x, reusable_vec.y, str(value), text_color)
     elif is_flagged:
-        draw.text(reusable_vec, "F", 0xFFFF if is_flipper else TFT_GREEN)
+        draw._text(reusable_vec.x, reusable_vec.y, "F", 0xFFFF if is_flipper else TFT_GREEN)
 
 
 def draw_grid(draw) -> None:
@@ -68,7 +67,7 @@ def draw_grid(draw) -> None:
     cx, cy = cursor
     reusable_vec.x = cx * CELL_SIZE + _offset_x
     reusable_vec.y = cy * CELL_SIZE + _offset_y
-    draw.rect(reusable_vec, size_vec, 0xFFFF if is_flipper else TFT_GREEN)
+    draw._rectangle(reusable_vec.x, reusable_vec.y, CELL_SIZE, CELL_SIZE, 0xFFFF if is_flipper else TFT_GREEN)
     draw.swap()
 
 
@@ -135,7 +134,7 @@ def start(view_manager) -> bool:
     from picoware.system.colors import TFT_BLACK, TFT_WHITE
     from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
 
-    global grid, revealed, flagged, reusable_vec, pos_vec, size_vec, is_flipper
+    global grid, revealed, flagged, reusable_vec, pos_vec, is_flipper
     global _scale, CELL_SIZE, _offset_x, _offset_y, _text_off_x, _text_off_y, NUM_MINES
 
     is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
@@ -160,7 +159,6 @@ def start(view_manager) -> bool:
 
     reusable_vec = Vector(0, 0)
     pos_vec = Vector(0, 0)
-    size_vec = Vector(CELL_SIZE, CELL_SIZE)
 
     draw.fill_screen(TFT_BLACK)
     title_x = max(0, (sw - len("MINESWEEPER") * draw.font_size.x) // 2)
@@ -227,7 +225,7 @@ def stop(view_manager) -> None:
     """Stop the app."""
     from gc import collect
 
-    global grid, revealed, flagged, reusable_vec, pos_vec, size_vec, _scale
+    global grid, revealed, flagged, reusable_vec, pos_vec, _scale
 
     grid = []
     revealed = []
@@ -235,7 +233,6 @@ def stop(view_manager) -> None:
 
     reusable_vec = None
     pos_vec = None
-    size_vec = None
     _scale = 1.0
 
     collect()

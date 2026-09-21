@@ -8,6 +8,14 @@
  *
  */
 
+#if defined(PICO_RP2040) || defined(PICO_RP2350)
+#define CC_FULLY_SUPPORTED 1
+#endif
+
+#if defined(DESKTOP) || defined(ESP32) || defined(ESP_PLATFORM) || defined(WAVESHARE_2_06) || defined(CARDPUTER) || defined(V8) || defined(PANCAKE)
+#define CC_HALF_SUPPORTED 1
+#endif
+
 // clib functions
 #include <fcntl.h>
 #include <limits.h>
@@ -19,7 +27,7 @@
 #include <string.h>
 
 // pico SDK support functions
-#ifndef DESKTOP
+#if defined(PICO_RP2350) || defined(PICO_RP2040)
 #include <hardware/adc.h>
 #include <hardware/clocks.h>
 #include <hardware/gpio.h>
@@ -48,8 +56,13 @@
 #define EXE_DBG 0
 
 // Uninitialized global data section
-#if defined(DESKTOP)
+#if defined(DESKTOP) && defined(__linux__)
+#define UDATA __attribute__((section("desktop_ccudata")))
+#elif defined(DESKTOP)
 #define UDATA
+#elif defined(PSHELL_UDATA_NOINIT)
+// ESP-IDF: DRAM state, avoids flash gap
+#define UDATA __attribute__((section(".noinit.ccudata")))
 #elif defined(PSHELL_MICROPYTHON)
 #define UDATA __attribute__((section("ccudata")))
 #else
@@ -102,8 +115,8 @@ static union conv
     float f; // floating point value
 } tkv;       // current token value
 
-#if PICO_RP2040 || defined(DESKTOP)
-#if defined(DESKTOP)
+#if PICO_RP2040 || defined(CC_HALF_SUPPORTED)
+#if defined(CC_HALF_SUPPORTED)
 enum
 {
     aeabi_idiv = 1,
@@ -119,7 +132,7 @@ enum
     aeabi_fcmpge,
 };
 
-static void (*fops[])() = {0};
+static void (*fops[12])() = {0};
 #else
 // SDK floating point functions. RP2350 has HW instructions for these.
 void __wrap___aeabi_idiv();
@@ -512,7 +525,7 @@ static int wrap_screen_width(void)
 
 static void wrap_wfi(void)
 {
-#ifndef DESKTOP
+#if defined(CC_FULLY_SUPPORTED)
     __wfi();
 #endif
 };
@@ -3017,7 +3030,7 @@ static void emit_branch(uint16_t *to)
         emit_call((int)(to + 2));
 }
 
-#if PICO_RP2040 || defined(DESKTOP)
+#if PICO_RP2040 || defined(CC_HALF_SUPPORTED)
 static void emit_fop(int n)
 {
     if (!ofn) // if exe output emit negative external function index
@@ -4763,18 +4776,28 @@ static char *x_strdup(char *s)
 
 static int x_printf(int etype)
 {
+#if defined(CC_FULLY_SUPPORTED)
     int *sp;
     asm volatile("mov %0, sp \n" : "=r"(sp));
     sp += 2;
-    printf_sprintf(etype, 1, sp);
+    return printf_sprintf(etype, 1, sp);
+#else
+    (void)etype;
+    return 0;
+#endif
 }
 
 static int x_sprintf(int etype)
 {
+#if defined(CC_FULLY_SUPPORTED)
     int *sp;
     asm volatile("mov %0, sp \n" : "=r"(sp));
     sp += 2;
-    printf_sprintf(etype, 0, sp);
+    return printf_sprintf(etype, 0, sp);
+#else
+    (void)etype;
+    return 0;
+#endif
 }
 
 // Help display
@@ -4865,7 +4888,7 @@ static void help(char *lib)
             "            C source file name.\n"
             "Libraries:\n"
             "    %s",
-            includes[0]);
+            includes[0].name);
         for (int i = 1; includes[i].name; i++)
         {
             printf(", %s", includes[i].name);
@@ -4938,7 +4961,17 @@ int cc(int mode, int argc, char **argv)
 {
 
     // clear uninitialized global variables
-#if !defined(DESKTOP) && defined(PSHELL_MICROPYTHON)
+#if defined(DESKTOP) && defined(__linux__)
+    // Match the embedded reset: previous AST and symbol pointers were freed
+    // after compilation and must not be reused on the next invocation.
+    extern char __start_desktop_ccudata, __stop_desktop_ccudata;
+    memset(&__start_desktop_ccudata, 0,
+           &__stop_desktop_ccudata - &__start_desktop_ccudata);
+#elif defined(PSHELL_UDATA_NOINIT) && !defined(DESKTOP)
+    // UDATA lives in .noinit, DRAM only
+    extern char _noinit_start, _noinit_end;
+    memset(&_noinit_start, 0, &_noinit_end - &_noinit_start);
+#elif !defined(DESKTOP) && defined(PSHELL_MICROPYTHON)
     extern char __start_ccudata, __stop_ccudata;
     memset(&__start_ccudata, 0, &__stop_ccudata - &__start_ccudata);
 #elif !defined(DESKTOP)
@@ -5242,8 +5275,9 @@ int cc(int mode, int argc, char **argv)
             if (fs_setattr(full_path(ofn), 1, "exe", 4) < LFS_ERR_OK)
                 fatal("unable to set executable attribute");
             printf("\ntext size   0x%04x\ndata size   0x%04x\nentry point "
-                   "0x%04x\nreloc count %6d\n",
-                   exe.tsize, exe.dsize, exe.entry - (int)text_base,
+                   "0x%04lx\nreloc count %6d\n",
+                   exe.tsize, exe.dsize,
+                   (unsigned long)(exe.entry - (uintptr_t)text_base),
                    exe.nreloc);
             goto done;
         }
@@ -5326,7 +5360,7 @@ int cc(int mode, int argc, char **argv)
 
     // launch the user code
     printf("\n");
-#ifndef DESKTOP
+#if defined(CC_FULLY_SUPPORTED)
     asm volatile("mov  %0, sp \n" : "=r"(exit_sp));
     asm volatile("mov  r0, %2 \n"
                  "push {r0}   \n"

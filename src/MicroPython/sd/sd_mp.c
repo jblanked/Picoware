@@ -902,7 +902,7 @@ mp_obj_t sd_mp_read(size_t n_args, const mp_obj_t *args)
     }
     uint32_t index = 0;
     uint32_t count = 0;
-    if (n_args == 2)
+    if (n_args >= 2)
     {
         index = mp_obj_get_int(args[1]);
     }
@@ -931,7 +931,7 @@ mp_obj_t sd_mp_read(size_t n_args, const mp_obj_t *args)
     size_t bytes_read;
     const bool status = fat32_read(&file, buffer, size_of_buffer, &bytes_read) == FAT32_OK;
     fat32_close(&file);
-    mp_obj_t result = status ? mp_obj_new_bytes(buffer, bytes_read) : mp_const_none;
+    mp_obj_t result = status ? mp_obj_new_bytes(buffer, bytes_read) : mp_obj_new_bytes(NULL, 0);
     m_free(buffer);
     return result;
 }
@@ -1067,10 +1067,20 @@ mp_obj_t sd_mp_write(size_t n_args, const mp_obj_t *args)
     {
         if (overwrite)
         {
-            if (fat32_delete(filePath) != FAT32_OK)
+            fat32_close(&file);
+            fat32_file_t existing;
+            for (int i = 0; i < 32; i++)
             {
-                PRINT("Failed to delete existing file.\n");
-                mp_raise_OSError(MP_EIO);
+                if (fat32_open(&existing, filePath) != FAT32_OK)
+                {
+                    break;
+                }
+                fat32_close(&existing);
+                if (fat32_delete(filePath) != FAT32_OK)
+                {
+                    PRINT("Failed to delete existing file.\n");
+                    mp_raise_OSError(MP_EIO);
+                }
             }
             if (fat32_create(&file, filePath) != FAT32_OK)
             {

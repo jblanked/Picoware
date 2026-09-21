@@ -201,8 +201,7 @@ def run(view_manager) -> None:
     )
 
     # Draw moves counter
-    moves_pos = Vector(5, 5)
-    draw.text(moves_pos, f"Moves:{moves}", 0xFFFF if is_flipper else TFT_YELLOW)
+    draw._text(draw.scale_x(5), draw.scale_y(5), f"Moves:{moves}", 0xFFFF if is_flipper else TFT_YELLOW)
 
     # Draw win message
     if game_won:

@@ -83,6 +83,7 @@ extern "C"
     typedef struct
     {
         char filename[FAT32_MAX_FILENAME_LEN + 1]; // Null-terminated filename
+        char short83[12];                          // Raw 8.3 short name
         uint32_t size;
         uint16_t date;
         uint16_t time;

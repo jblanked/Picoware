@@ -358,38 +358,33 @@ class Game:
         fb.fill_screen(TFT_BLACK)
 
         # Draw path
-        rec_pos = Vector(0, self.twenty_y)
-        rec_size = Vector(self.grid_size, self.grid_size)
         for x, y in self.path:
-            rec_pos.x = x * self.grid_size
-            rec_pos.y = y * self.grid_size + self.twenty_y
-            fb.fill_rectangle(rec_pos, rec_size, TFT_YELLOW)
+            fb._fill_rectangle(x * self.grid_size, y * self.grid_size + self.twenty_y, self.grid_size, self.grid_size, TFT_YELLOW)
 
         # Draw towers
-        tow_pos = Vector(0, 0)
         for tower in self.towers:
-            tow_pos.x = tower.x * self.grid_size + self.grid_size // 2 - 3
-            tow_pos.y = (
+            tow_pos_x = tower.x * self.grid_size + self.grid_size // 2 - 3
+            tow_pos_y = (
                 tower.y * self.grid_size + self.twenty_y + self.grid_size // 2 - 3
             )
             if tower.type == TOWER_BASIC:
-                fb.fill_rectangle(tow_pos, self.tower_size, TFT_BLUE)
+                fb._fill_rectangle(tow_pos_x, tow_pos_y, self.tower_size.x, self.tower_size.y, TFT_BLUE)
             elif tower.type == TOWER_FAST:
-                fb.fill_rectangle(tow_pos, self.tower_size, TFT_GREEN)
+                fb._fill_rectangle(tow_pos_x, tow_pos_y, self.tower_size.x, self.tower_size.y, TFT_GREEN)
             elif tower.type == TOWER_SPLASH:
-                fb.fill_rectangle(tow_pos, self.tower_size, TFT_VIOLET)
+                fb._fill_rectangle(tow_pos_x, tow_pos_y, self.tower_size.x, self.tower_size.y, TFT_VIOLET)
+
         # Draw mobs
-        mob_vec = Vector(0, 0)
         health_vec = Vector(0, 0)
         health_vec_size = Vector(0, 2)
         for mob in self.mobs:
             if mob.alive:
                 mx, my = mob.get_position()
-                mob_vec.x = mx * self.grid_size + self.grid_size // 2 - 3
-                mob_vec.y = (
+                mob_vec_x = mx * self.grid_size + self.grid_size // 2 - 3
+                mob_vec_y = (
                     my * self.grid_size + self.twenty_y + self.grid_size // 2 - 3
                 )
-                fb.fill_rectangle(mob_vec, self.tower_size, TFT_RED)
+                fb._fill_rectangle(mob_vec_x, mob_vec_y, self.tower_size.x, self.tower_size.y, TFT_RED)
 
                 # HP bar
                 hp_pct = mob.hp / mob.max_hp
@@ -398,41 +393,39 @@ class Game:
                     health_vec.x = mx * self.grid_size + 2
                     health_vec.y = my * self.grid_size + self.twenty_y + 2
                     health_vec_size.x = bar_w
-                    fb.fill_rectangle(health_vec, health_vec_size, TFT_GREEN)
+                    fb._fill_rectangle(health_vec.x, health_vec.y, health_vec_size.x, health_vec_size.y, TFT_GREEN)
 
         # Draw cursor
-        cursor_vec = Vector(
-            self.cursor_x * self.grid_size,
-            self.cursor_y * self.grid_size + self.twenty_y,
-        )
-        fb.rect(cursor_vec, rec_size, TFT_WHITE)
+        fb._rectangle(self.cursor_x * self.grid_size, self.cursor_y * self.grid_size + self.twenty_y, self.grid_size, self.grid_size, TFT_WHITE)
 
         # Draw UI
         cost = TOWER_PROPS[self.selected_tower_type][0]
         name = TOWER_PROPS[self.selected_tower_type][4]
 
         ui_text = "W:{} $:{} L:{}".format(self.wave, self.money, self.lives)
-        fb.text(Vector(2, 2), ui_text, TFT_WHITE)
+        fb._text(2, 2, ui_text, TFT_WHITE)
 
         # Draw tower info
         tower_info = "[{}:${}] TAB:Switch".format(name, cost)
-        fb.text(Vector(2, 12), tower_info, TFT_CYAN)
+        fb._text(2, 12, tower_info, TFT_CYAN)
 
         # Draw instructions
         if not self.wave_active and len(self.mobs) == 0:
-            fb.text(self.space_text_vec, "SPACE: Start Wave", TFT_YELLOW)
+            fb._text(self.space_text_vec.x, self.space_text_vec.y, "SPACE: Start Wave", TFT_YELLOW)
         # Game over / won
         if self.game_over:
-            fb.text(self.game_over_text_vec, "GAME OVER!", TFT_RED)
-            fb.text(
-                self.score_text_vec,
+            fb._text(self.game_over_text_vec.x, self.game_over_text_vec.y, "GAME OVER!", TFT_RED)
+            fb._text(
+                self.score_text_vec.x,
+                self.score_text_vec.y,
                 "Score: {}".format(self.score),
                 TFT_WHITE,
             )
         elif self.won:
-            fb.text(self.you_win_text_vec, "YOU WIN!", TFT_GREEN)
-            fb.text(
-                self.score_text_vec,
+            fb._text(self.you_win_text_vec.x, self.you_win_text_vec.y, "YOU WIN!", TFT_GREEN)
+            fb._text(
+                self.score_text_vec.x,
+                self.score_text_vec.y,
                 "Score: {}".format(self.score),
                 TFT_WHITE,
             )

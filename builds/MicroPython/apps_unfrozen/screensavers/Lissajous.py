@@ -14,7 +14,6 @@ _SIN_MASK = const(1023)
 _TWO_PI = 6.28318530718
 _SIN_SCALE = _SIN_SIZE / _TWO_PI  # radians -> LUT index
 
-screen_size = None
 phase = 0.0
 color_phase = 0.0
 is_flipper = None
@@ -80,14 +79,13 @@ def _build_y_coords(b: int, cy: int, ry: int) -> None:
 
 
 def start(view_manager) -> bool:
-    global screen_size, phase, color_phase, a_freq, b_freq, morph_timer, p1, p2, is_flipper
+    global phase, color_phase, a_freq, b_freq, morph_timer, p1, p2, is_flipper
     global _last_a, _last_b
     from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
 
     is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
     draw = view_manager.draw
-    screen_size = Vector(draw.size.x, draw.size.y)
     phase = 0.0
     color_phase = 0.0
     a_freq = 3
@@ -101,13 +99,12 @@ def start(view_manager) -> bool:
     _build_sin_lut()
     _build_color_pal()
     if is_flipper:
-        for i in range(len(_color_pal)):
-            if _color_pal[i] != TFT_BLACK:
+        for i, color in enumerate(_color_pal):
+            if color != TFT_BLACK:
                 _color_pal[i] = 0xFFFF
 
     # Build x/y tables for initial frequencies
-    cx = screen_size.x >> 1
-    cy = screen_size.y >> 1
+    cy = draw.size.y >> 1
     _build_x_base(a_freq)
     _build_y_coords(b_freq, cy, cy - 4)
 
@@ -128,8 +125,8 @@ def run(view_manager) -> None:
     draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)
 
-    cx = screen_size.x >> 1
-    cy = screen_size.y >> 1
+    cx = draw.size.x >> 1
+    cy = draw.size.y >> 1
     rx = cx - 4
 
     phase = (phase + 0.02) % _TWO_PI
@@ -166,7 +163,7 @@ def run(view_manager) -> None:
     for step_i in range(1, STEPS + 1):
         p2.x = int(cx + rx * lut[(xb[step_i] + phase_idx) & mask])
         p2.y = yc[step_i]
-        draw.line_custom(p1, p2, pal[(color_offset + step_i) % STEPS])
+        draw._line(p1.x, p1.y, p2.x, p2.y, pal[(color_offset + step_i) % STEPS])
         p1.x = p2.x
         p1.y = p2.y
 
@@ -176,10 +173,9 @@ def run(view_manager) -> None:
 def stop(view_manager) -> None:
     from gc import collect
 
-    global screen_size, phase, color_phase, a_freq, b_freq, morph_timer, p1, p2, is_flipper
+    global phase, color_phase, a_freq, b_freq, morph_timer, p1, p2, is_flipper
     global _sin_lut, _color_pal, _x_base, _y_coords, _last_a, _last_b
 
-    screen_size = None
     phase = 0.0
     color_phase = 0.0
     is_flipper = None

@@ -131,6 +131,12 @@ extern "C"
     void lcd_fill_triangle_alpha(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color, uint8_t alpha);
     void lcd_draw_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, uint16_t color);
 
+    // Polygon drawing functions
+    void lcd_polygon(uint16_t x[], uint16_t y[], int count, uint16_t color);
+    void lcd_fill_polygon(uint16_t x[], uint16_t y[], int count, uint16_t color);
+    void lcd_fill_polygon_alpha(uint16_t x[], uint16_t y[], int count,
+                                uint16_t color, uint8_t alpha);
+
     // Text rendering functions
     void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color, FontSize font_size);
     void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color, FontSize font_size);

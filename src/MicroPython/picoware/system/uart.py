@@ -53,11 +53,12 @@ class UART:
         try:
             if BOARD_ID == BOARD_FLIPPER_ZERO:
                 self._uart = MachineUART(uart_id, baudrate=baud_rate)
+                self._uart.init(baudrate=baud_rate)
             else:
                 self._uart = MachineUART(
                     uart_id, baudrate=baud_rate, tx=Pin(tx_pin), rx=Pin(rx_pin)
                 )
-            self._uart.init()
+                self._uart.init()
         except Exception as e:
             raise e
 

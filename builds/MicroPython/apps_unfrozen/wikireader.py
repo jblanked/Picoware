@@ -24,8 +24,6 @@ from picoware.system.buttons import (
     BUTTON_9,
     BUTTON_1,
     BUTTON_W,
-    BUTTON_N,
-    BUTTON_C,
     BUTTON_H,
     BUTTON_COMMA,
     BUTTON_PERIOD,

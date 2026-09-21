@@ -5,6 +5,7 @@ target_sources(usermod_mjs INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/mjs_module.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/array_buf.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/audio.c
+    ${CMAKE_CURRENT_LIST_DIR}/lib/battery.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/bluetooth.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/buttons.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/color.c
@@ -22,6 +23,7 @@ target_sources(usermod_mjs INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/lib/system.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/time.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/uart.c
+    ${CMAKE_CURRENT_LIST_DIR}/lib/video.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/wifi.c
     ${CMAKE_CURRENT_LIST_DIR}/lib/websocket.c
 )

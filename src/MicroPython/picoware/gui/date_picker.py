@@ -146,7 +146,7 @@ class DatePicker:
         w = size.x
         h = size.y
 
-        year, month, day, weekday, hour, minute, second, sub = self._time
+        year, month, day, _, hour, minute, second, _ = self._time
         month = max(1, min(12, month))
         day = max(1, min(self.__max_day(month), day))
         hour = max(0, min(23, hour))
@@ -159,12 +159,12 @@ class DatePicker:
         val_f = draw.get_font(VAL_FONT)
         val_h = val_f.height
         lbl_h = draw.font_size.y
-        lbl_cw = draw.font_size.x
+        lbl_cw = draw.len("M")
         col_w = w // 3
 
         # Layout: two equal bands + a hint row at the bottom
-        hint_h = lbl_h + 6
-        gap = 6
+        hint_h = lbl_h + draw.scale_y(6)
+        gap = draw.scale_y(6)
         band_h = (h - hint_h - gap) // 2
 
         date_y = pos.y
@@ -214,10 +214,10 @@ class DatePicker:
 
         # Bottom hint
         hint = "L/R:field  U/D:value  OK:done"
-        hint_pw = len(hint) * lbl_cw
+        hint_pw = draw.len(hint)
         if hint_pw > w:
             hint = "L/R field  U/D value"
-            hint_pw = len(hint) * lbl_cw
+            hint_pw = draw.len(hint)
         draw._text(pos.x + (w - hint_pw) // 2, pos.y + h - lbl_h - 2, hint, fg)
 
         draw.swap()

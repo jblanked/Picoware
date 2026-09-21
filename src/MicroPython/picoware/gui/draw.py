@@ -14,6 +14,8 @@ class Draw(lcd.LCD):
         clear(position=Vector(0, 0), size=Vector(320, 320), color=None): Fill a rectangular area with a color
         erase(): Clear the entire display
         fill_circle(position, radius, color=None): Draw a filled circle
+        fill_polygon(points, color=None): Draw a filled polygon
+        fill_polygon_alpha(points, color=None, alpha=255): Draw a filled polygon with alpha blending
         fill_rectangle(position, size, color=None): Draw a filled rectangle
         fill_round_rectangle(position, size, radius, color=None): Draw a filled rounded rectangle
         fill_screen(color=None): Fill the entire screen with a color
@@ -31,6 +33,7 @@ class Draw(lcd.LCD):
         line(position, size, color=None): Draw a horizontal line
         line_custom(point_1, point_2, color=None): Draw a line between two points
         pixel(position, color=None): Draw a single pixel
+        polygon(points, color=None): Draw a polygon outline
         psram(position, size, addr): Draw pixel data directly from PSRAM at the specified address and length
         rect(position, size, color=None): Draw a rectangle outline
         screenshot(file_path): Take a screenshot of the current display and save it to the specified file path (.bmp)
@@ -216,6 +219,29 @@ class Draw(lcd.LCD):
         _color = color if color is not None else self._foreground
         self._fill_circle(position.x, position.y, radius, _color)
 
+    def fill_polygon(self, points: list[Vector], color=None):
+        """Draw a filled polygon.
+
+        Args:
+            points (list[Vector]): The vertices of the polygon.
+            color (int): The fill color. Defaults to None (foreground).
+        """
+        _color = color if color is not None else self._foreground
+        _points = tuple((p.x, p.y) for p in points)
+        self._fill_polygon(_points, _color)
+
+    def fill_polygon_alpha(self, points: list[Vector], color=None, alpha=255):
+        """Draw a filled polygon with alpha blending.
+
+        Args:
+            points (list[Vector]): The vertices of the polygon.
+            color (int): The fill color. Defaults to None (foreground).
+            alpha (int): The alpha value for blending. Defaults to 255.
+        """
+        _color = color if color is not None else self._foreground
+        _points = tuple((p.x, p.y) for p in points)
+        self._fill_polygon_alpha(_points, _color, alpha)
+
     def fill_rectangle(self, position: Vector, size: Vector, color=None):
         """Draw a filled rectangle.
 
@@ -346,7 +372,7 @@ class Draw(lcd.LCD):
         except Exception as e:
             print(f"Error loading BMP: {e}")
 
-    def image_jpeg(self, position: Vector, path: str, storage=None) -> bool:
+    def image_jpeg(self, position: Vector, path: str, storage=None, jpeg=None) -> bool:
         """Draw a JPEG image from a file path.
 
         Args:
@@ -357,16 +383,18 @@ class Draw(lcd.LCD):
         Returns:
             bool: True on success, False on failure.
         """
-        from picoware.gui.jpeg import JPEG
+        _jpeg = jpeg
 
         try:
-            jpeg = JPEG(screen_width=self._size.x, screen_height=self._size.y)
-            return jpeg.draw(position.x, position.y, path, storage)
+            if jpeg is None:
+                from picoware.gui.jpeg import JPEG
+                _jpeg = JPEG(screen_width=self._size.x, screen_height=self._size.y)
+            return _jpeg is not None and _jpeg.draw(position.x, position.y, path, storage)
         except Exception as e:
             print(f"Error loading JPEG: {e}")
             return False
 
-    def image_jpeg_buffer(self, position: Vector, buf) -> bool:
+    def image_jpeg_buffer(self, position: Vector, buf, jpeg=None) -> bool:
         """Draw a JPEG image from bytes data into a BytesIO buffer.
 
         Args:
@@ -376,11 +404,13 @@ class Draw(lcd.LCD):
         Returns:
             bool: True on success, False on failure.
         """
-        from picoware.gui.jpeg import JPEG
+        _jpeg = jpeg
 
         try:
-            jpeg = JPEG(screen_width=self._size.x, screen_height=self._size.y)
-            return jpeg.draw_buffer(position.x, position.y, buf)
+            if jpeg is None:
+                from picoware.gui.jpeg import JPEG
+                _jpeg = JPEG(screen_width=self._size.x, screen_height=self._size.y)
+            return _jpeg is not None and _jpeg.draw_buffer(position.x, position.y, buf)
         except Exception as e:
             print(f"Error loading JPEG from buffer: {e}")
             return False
@@ -435,8 +465,14 @@ class Draw(lcd.LCD):
         seek=0,
         chunk_size=0,
         invert=False,
+        loop=False,
+        buffer:bytearray=None,
     ):
         """Draw an image from an 8-bit bytearray file stored on disk.
+
+        The file holds row-major 8-bit pixel data (one byte per pixel). When the
+        image is larger than a single read it is blitted in row-aligned chunks,
+        each drawn at its correct offset so the whole image appears.
 
         Args:
             position (Vector): The top-left position to draw the image.
@@ -444,19 +480,73 @@ class Draw(lcd.LCD):
             path (str): The path to the bytearray file.
             storage: Storage instance for file access. Defaults to None.
             seek (int): Byte offset to start reading from. Defaults to 0.
-            chunk_size (int): Number of bytes to read per chunk. Defaults to 0 (read all).
+            chunk_size (int): Bytes to read per chunk. Defaults to 0 (read all).
+                Reads are aligned to full rows so each blit is a valid rectangle.
             invert (bool): Whether to invert the pixel values. Defaults to False.
+            loop (bool): If True, keep drawing chunks (wrapping to the top)
+                until the entire buffer is read. If False, draw only the first
+                chunk and stop. Defaults to False.
+            buffer (bytearray): Optional pre-allocated buffer for reading chunks. Defaults to None.
         """
+        width, height = size.x, size.y
+        if width <= 0 or height <= 0:
+            return
         try:
-            if storage:
+            if storage is not None and storage.exists(path):
                 file = storage.file_open(path)
-                if not file:
-                    print(f"File not found: {path}")
-                    return
-                byte_array = storage.file_read(file, seek, chunk_size, decode=False)
-                self._bytearray(position.x, position.y, size.x, size.y, byte_array, invert)
+                row_bytes = width
+                row = 0
+                byte_offset = 0
+                while True: 
+                    rows_left = height - row
+                    if chunk_size <= 0:
+                        block_bytes = rows_left * row_bytes
+                    else:
+                        block_bytes = min(chunk_size, rows_left * row_bytes)
+                        block_bytes = (block_bytes // row_bytes) * row_bytes
+                        if block_bytes == 0:
+                            block_bytes = row_bytes
+                    if buffer is None:
+                        byte_array = storage.file_read(
+                            file, seek + byte_offset, block_bytes, decode=False
+                        )
+                        if not byte_array:
+                            break
+                        rows_in_block = len(byte_array) // row_bytes
+                        if rows_in_block == 0:
+                            break
+                        self._bytearray(
+                            position.x,
+                            position.y + row,
+                            width,
+                            rows_in_block,
+                            byte_array,
+                            invert,
+                        )
+                    else:
+                        _count = storage.file_readinto(
+                            file, buffer
+                        )
+                        if _count <= 0:
+                            break
+                        rows_in_block = _count // row_bytes
+                        if rows_in_block == 0:
+                            break
+                        self._bytearray(
+                            position.x,
+                            position.y + row,
+                            width,
+                            rows_in_block,
+                            buffer,
+                            invert,
+                        )
+                    row += rows_in_block
+                    byte_offset += rows_in_block * row_bytes
+                    if not loop:
+                        break
+                    if row >= height:
+                        row = 0
                 storage.file_close(file)
-
         except Exception as e:
             print(f"Error loading bytearray image: {e}")
 
@@ -511,6 +601,17 @@ class Draw(lcd.LCD):
         """
         _color = color if color is not None else self._foreground
         self._pixel(position.x, position.y, _color)
+
+    def polygon(self, points: list[Vector], color=None):
+        """Draw a polygon outline.
+
+        Args:
+            points (list[Vector]): The vertices of the polygon.
+            color (int): The color to use. Defaults to None (foreground).
+        """
+        _color = color if color is not None else self._foreground
+        _points = tuple((p.x, p.y) for p in points)
+        self._polygon(_points, _color)
 
     def psram(self, position: Vector, size: Vector, addr: int):
         """Draw pixel data directly from PSRAM at the specified address and length.

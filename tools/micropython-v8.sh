@@ -273,7 +273,7 @@ cd "$micropython_dir"
 
 # Keep ESP-IDF warnings from failing the build, keep legacy I2C API checks permissive,
 # and force the V8 board define for preprocess-only qstr generation paths.
-export EXTRA_CFLAGS="-Wno-maybe-uninitialized -Wno-error=maybe-uninitialized -DCONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=1 -DV8 -DPBUF_POOL_SIZE=10"
+export EXTRA_CFLAGS="-Wno-maybe-uninitialized -Wno-error=maybe-uninitialized -DCONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=1 -DV8 -DPBUF_POOL_SIZE=10 -DESP32"
 
 make BOARD=$board_name \
     USER_C_MODULES="$micropython_dir/modules/v8/micropython.cmake" \

@@ -115,7 +115,7 @@ def _show_settings(view_manager):
 def _save(view_manager):
     """Persist preferences and saved coordinates as JSON on the SD card."""
     view_manager.storage.mkdir("picoware")
-    view_manager.storage.deserialize({
+    view_manager.storage.serialize({
 
         "provider": _provider, "temperature_unit": _temperature_unit,
         "wind_unit": _wind_unit, "date_format": _date_format,
@@ -141,7 +141,7 @@ def _load(view_manager):
     WIND_Y = d.scale_y(285)  
     if not view_manager.storage.exists(CONFIG_PATH):
         return
-    data = view_manager.storage.serialize(CONFIG_PATH)
+    data = view_manager.storage.deserialize(CONFIG_PATH)
     if isinstance(data, dict):
         locations = data.get("locations", [])
         if isinstance(locations, list):
@@ -191,7 +191,7 @@ def _start_request(view_manager, url, label, next_state):
 
     if _http is None:
         from picoware.system.http import HTTP
-        _http = HTTP(thread_manager=view_manager.thread_manager)
+        _http = HTTP(view_manager=view_manager)
     if _loading is None:
         from picoware.gui.loading import Loading
         _loading = Loading(view_manager.draw, view_manager.foreground_color, view_manager.background_color)

@@ -12,15 +12,207 @@ except ImportError:
     import io as uio
     from supervisor import ticks_ms
 
+from micropython import const
 from picoware.system import buttons
 from picoware.system import colors
 import vt as vt_c
+
+VT_PYTHON = const(0)
+VT_C = const(1)
+VT_JS = const(2)
+VT_MMBASIC = const(3)
+
+_PYTHON_SYNTAX_MAP = (
+    ("def", colors.TFT_SKYBLUE),
+    ("class", colors.TFT_SKYBLUE),
+    ("import", colors.TFT_GREEN),
+    ("from", colors.TFT_GREEN),
+    ("if", colors.TFT_PINK),
+    ("elif", colors.TFT_PINK),
+    ("else", colors.TFT_PINK),
+    ("for", colors.TFT_PINK),
+    ("while", colors.TFT_PINK),
+    ("return", colors.TFT_PINK),
+    ("yield", colors.TFT_PINK),
+    ("break", colors.TFT_PINK),
+    ("continue", colors.TFT_PINK),
+    ("pass", colors.TFT_PINK),
+    ("try", colors.TFT_PINK),
+    ("except", colors.TFT_PINK),
+    ("finally", colors.TFT_PINK),
+    ("raise", colors.TFT_PINK),
+    ("with", colors.TFT_PINK),
+    ("as", colors.TFT_PINK),
+    ("in", colors.TFT_PINK),
+    ("and", colors.TFT_PINK),
+    ("or", colors.TFT_PINK),
+    ("not", colors.TFT_PINK),
+    ("is", colors.TFT_PINK),
+    ("lambda", colors.TFT_PINK),
+    ("True", colors.TFT_SKYBLUE),
+    ("False", colors.TFT_SKYBLUE),
+    ("None", colors.TFT_SKYBLUE),
+    ("bool", colors.TFT_GREEN),
+    ("int", colors.TFT_GREEN),
+    ("float", colors.TFT_GREEN),
+)
+
+_C_SYNTAX_MAP = (
+    ("auto", colors.TFT_GREEN),
+    ("bool", colors.TFT_GREEN),
+    ("char", colors.TFT_GREEN),
+    ("const", colors.TFT_GREEN),
+    ("double", colors.TFT_GREEN),
+    ("enum", colors.TFT_GREEN),
+    ("extern", colors.TFT_GREEN),
+    ("float", colors.TFT_GREEN),
+    ("int", colors.TFT_GREEN),
+    ("long", colors.TFT_GREEN),
+    ("short", colors.TFT_GREEN),
+    ("signed", colors.TFT_GREEN),
+    ("sizeof", colors.TFT_GREEN),
+    ("static", colors.TFT_GREEN),
+    ("struct", colors.TFT_GREEN),
+    ("typedef", colors.TFT_GREEN),
+    ("union", colors.TFT_GREEN),
+    ("unsigned", colors.TFT_GREEN),
+    ("void", colors.TFT_GREEN),
+    ("volatile", colors.TFT_GREEN),
+    ("break", colors.TFT_PINK),
+    ("case", colors.TFT_PINK),
+    ("continue", colors.TFT_PINK),
+    ("default", colors.TFT_PINK),
+    ("do", colors.TFT_PINK),
+    ("else", colors.TFT_PINK),
+    ("for", colors.TFT_PINK),
+    ("goto", colors.TFT_PINK),
+    ("if", colors.TFT_PINK),
+    ("return", colors.TFT_PINK),
+    ("switch", colors.TFT_PINK),
+    ("while", colors.TFT_PINK),
+    ("include", colors.TFT_VIOLET),
+    ("define", colors.TFT_VIOLET),
+    ("ifdef", colors.TFT_VIOLET),
+    ("ifndef", colors.TFT_VIOLET),
+    ("endif", colors.TFT_VIOLET),
+    ("defined", colors.TFT_VIOLET),
+    ("NULL", colors.TFT_SKYBLUE),
+    ("true", colors.TFT_SKYBLUE),
+    ("false", colors.TFT_SKYBLUE),
+)
+
+_JS_SYNTAX_MAP = (
+    ("as", colors.TFT_GREEN),
+    ("async", colors.TFT_GREEN),
+    ("await", colors.TFT_GREEN),
+    ("break", colors.TFT_PINK),
+    ("case", colors.TFT_PINK),
+    ("catch", colors.TFT_PINK),
+    ("class", colors.TFT_SKYBLUE),
+    ("const", colors.TFT_GREEN),
+    ("continue", colors.TFT_PINK),
+    ("debugger", colors.TFT_PINK),
+    ("default", colors.TFT_PINK),
+    ("delete", colors.TFT_PINK),
+    ("do", colors.TFT_PINK),
+    ("else", colors.TFT_PINK),
+    ("export", colors.TFT_GREEN),
+    ("extends", colors.TFT_GREEN),
+    ("finally", colors.TFT_PINK),
+    ("for", colors.TFT_PINK),
+    ("from", colors.TFT_GREEN),
+    ("function", colors.TFT_SKYBLUE),
+    ("if", colors.TFT_PINK),
+    ("import", colors.TFT_GREEN),
+    ("in", colors.TFT_PINK),
+    ("instanceof", colors.TFT_PINK),
+    ("let", colors.TFT_GREEN),
+    ("new", colors.TFT_PINK),
+    ("of", colors.TFT_PINK),
+    ("return", colors.TFT_PINK),
+    ("static", colors.TFT_GREEN),
+    ("super", colors.TFT_SKYBLUE),
+    ("switch", colors.TFT_PINK),
+    ("this", colors.TFT_SKYBLUE),
+    ("throw", colors.TFT_PINK),
+    ("try", colors.TFT_PINK),
+    ("typeof", colors.TFT_PINK),
+    ("var", colors.TFT_GREEN),
+    ("void", colors.TFT_PINK),
+    ("while", colors.TFT_PINK),
+    ("with", colors.TFT_PINK),
+    ("yield", colors.TFT_PINK),
+    ("true", colors.TFT_SKYBLUE),
+    ("false", colors.TFT_SKYBLUE),
+    ("null", colors.TFT_SKYBLUE),
+    ("undefined", colors.TFT_SKYBLUE),
+    ("NaN", colors.TFT_SKYBLUE),
+)
+
+_MMBASIC_SYNTAX_MAP = (
+    ("IF", colors.TFT_PINK),
+    ("THEN", colors.TFT_PINK),
+    ("ELSE", colors.TFT_PINK),
+    ("ELSEIF", colors.TFT_PINK),
+    ("ENDIF", colors.TFT_PINK),
+    ("FOR", colors.TFT_PINK),
+    ("TO", colors.TFT_PINK),
+    ("STEP", colors.TFT_PINK),
+    ("NEXT", colors.TFT_PINK),
+    ("WHILE", colors.TFT_PINK),
+    ("WEND", colors.TFT_PINK),
+    ("DO", colors.TFT_PINK),
+    ("LOOP", colors.TFT_PINK),
+    ("EXIT", colors.TFT_PINK),
+    ("GOTO", colors.TFT_PINK),
+    ("GOSUB", colors.TFT_PINK),
+    ("RETURN", colors.TFT_PINK),
+    ("SELECT", colors.TFT_PINK),
+    ("CASE", colors.TFT_PINK),
+    ("END", colors.TFT_PINK),
+    ("STOP", colors.TFT_PINK),
+    ("RUN", colors.TFT_PINK),
+    ("PRINT", colors.TFT_GREEN),
+    ("INPUT", colors.TFT_GREEN),
+    ("LET", colors.TFT_GREEN),
+    ("DIM", colors.TFT_GREEN),
+    ("DATA", colors.TFT_GREEN),
+    ("READ", colors.TFT_GREEN),
+    ("RESTORE", colors.TFT_GREEN),
+    ("OPEN", colors.TFT_GREEN),
+    ("CLOSE", colors.TFT_GREEN),
+    ("CLS", colors.TFT_GREEN),
+    ("LOCATE", colors.TFT_GREEN),
+    ("PSET", colors.TFT_GREEN),
+    ("LINE", colors.TFT_GREEN),
+    ("CIRCLE", colors.TFT_GREEN),
+    ("INTEGER", colors.TFT_GREEN),
+    ("FLOAT", colors.TFT_GREEN),
+    ("STRING", colors.TFT_GREEN),
+    ("TRUE", colors.TFT_SKYBLUE),
+    ("FALSE", colors.TFT_SKYBLUE),
+    ("ABS", colors.TFT_GREEN),
+    ("INT", colors.TFT_GREEN),
+    ("RND", colors.TFT_GREEN),
+    ("SIN", colors.TFT_GREEN),
+    ("COS", colors.TFT_GREEN),
+)
+
+
+def _syntax_map_for_language(language):
+    if language == VT_C:
+        return _C_SYNTAX_MAP
+    if language == VT_JS:
+        return _JS_SYNTAX_MAP
+    if language == VT_MMBASIC:
+        return _MMBASIC_SYNTAX_MAP
+    return _PYTHON_SYNTAX_MAP
 
 
 class vt(uio.IOBase):
     """A virtual terminal that renders text output to the display."""
 
-    def __init__(self, view_manager):  # ctrl+U for screen capture
+    def __init__(self, view_manager, language=VT_PYTHON):  # ctrl+U for screen capture
         """Initialize the virtual terminal for a view manager.
 
         Args:
@@ -30,6 +222,7 @@ class vt(uio.IOBase):
         self.draw = view_manager.draw
         self.input_manager = view_manager.input_manager
         self.storage = view_manager.storage
+        self.language = language if language in (VT_PYTHON, VT_C, VT_JS, VT_MMBASIC) else VT_PYTHON
 
         self.outputBuffer = deque((), 30)
 
@@ -46,6 +239,7 @@ class vt(uio.IOBase):
         self._last_render_time = 0
         self._render_throttle_ms = 50
         self._batch_mode = False
+        self.run_requested = False
 
         # Terminal buffer for text display
         self.terminal_buffer = []
@@ -64,40 +258,7 @@ class vt(uio.IOBase):
 
         # Direct keyword → TFT color map for C module syntax highlighting
         # (skips ANSI escape code intermediate step entirely)
-        self._syntax_map = [
-            ("def", colors.TFT_SKYBLUE),
-            ("class", colors.TFT_SKYBLUE),
-            ("import", colors.TFT_GREEN),
-            ("from", colors.TFT_GREEN),
-            ("if", colors.TFT_PINK),
-            ("elif", colors.TFT_PINK),
-            ("else", colors.TFT_PINK),
-            ("for", colors.TFT_PINK),
-            ("while", colors.TFT_PINK),
-            ("return", colors.TFT_PINK),
-            ("yield", colors.TFT_PINK),
-            ("break", colors.TFT_PINK),
-            ("continue", colors.TFT_PINK),
-            ("pass", colors.TFT_PINK),
-            ("try", colors.TFT_PINK),
-            ("except", colors.TFT_PINK),
-            ("finally", colors.TFT_PINK),
-            ("raise", colors.TFT_PINK),
-            ("with", colors.TFT_PINK),
-            ("as", colors.TFT_PINK),
-            ("in", colors.TFT_PINK),
-            ("and", colors.TFT_PINK),
-            ("or", colors.TFT_PINK),
-            ("not", colors.TFT_PINK),
-            ("is", colors.TFT_PINK),
-            ("lambda", colors.TFT_PINK),
-            ("True", colors.TFT_SKYBLUE),
-            ("False", colors.TFT_SKYBLUE),
-            ("None", colors.TFT_SKYBLUE),
-            ("bool", colors.TFT_GREEN),
-            ("int", colors.TFT_GREEN),
-            ("float", colors.TFT_GREEN),
-        ]
+        self._syntax_map = _syntax_map_for_language(self.language)
         self._string_color = colors.TFT_ORANGE
         self._comment_color = colors.TFT_YELLOW
 
@@ -305,6 +466,8 @@ class vt(uio.IOBase):
             self._syntax_map,
             self._string_color,
             self._comment_color,
+            self.draw.font,
+            self.language,
         )
 
     def start_batch(self):
@@ -403,6 +566,7 @@ class vt(uio.IOBase):
             buttons.BUTTON_BACK_TICK: b"`",
             buttons.BUTTON_TILDE: b"~",
             buttons.BUTTON_PIPE: b"|",
+            buttons.BUTTON_F5: b"\x13\r\x11",
         }
 
         return button_map.get(key, None)
@@ -420,6 +584,8 @@ class vt(uio.IOBase):
 
             # Convert button to terminal sequence
             terminal_seq = self._convert_key_to_terminal(button)
+            if button == buttons.BUTTON_F5:
+                self.run_requested = True
             self.input_manager.reset()
             if terminal_seq:
                 self.outputBuffer.extend(terminal_seq)

@@ -1,6 +1,12 @@
 import sim_runtime
 import sim_font
 import ustruct
+import framebuf
+
+try:
+    from sim_raster import fill_triangle as _native_fill_triangle
+except ImportError:
+    _native_fill_triangle = None
 
 
 def default_font_for_board(board_id, boards=None):
@@ -40,6 +46,7 @@ class LCD:
     MODE_PSRAM = 1
 
     def __init__(self, scale_x=1.0, scale_y=1.0, scale_position=False):
+        self._is_flipper = False
         try:
             import picoware_boards
 
@@ -47,8 +54,7 @@ class LCD:
             self.FONT_DEFAULT = default_font_for_board(
                 picoware_boards.BOARD_ID, picoware_boards
             )
-            if self.width * self.height > 320 * 480:
-                self.width, self.height = 320, 320
+            self._is_flipper = picoware_boards.BOARD_ID == picoware_boards.BOARD_FLIPPER_ZERO
         except Exception:
             self.width, self.height = 320, 320
         self._scale_x_factor = scale_x
@@ -58,6 +64,8 @@ class LCD:
         self._brightness = 100
         self._rgb_led = (0, 0, 0)
         self._buffer = bytearray(self.width * self.height * 2)
+        self._clear_buffer = self._buffer
+        self._framebuffer = framebuf.FrameBuffer(self._buffer, self.width, self.height, framebuf.RGB565)
         self._sdl = None
         self._window = 0
         self._renderer = 0
@@ -109,12 +117,20 @@ class LCD:
     def _offset(self, x, y):
         return (int(y) * self.width + int(x)) * 2
 
+    def _display_color(self, color):
+        color = int(color) & 0xFFFF
+        if self._is_flipper:
+            # Match color_to_mono() in Flipper/lcd/lcd.c.
+            luminance = ((color >> 11) & 31) * 299 + ((color >> 5) & 63) * 587 + (color & 31) * 114
+            return 0xFFFF if luminance > 44800 else 0
+        return color
+
     def _set_pixel(self, x, y, color):
         x = int(x)
         y = int(y)
         if 0 <= x < self.width and 0 <= y < self.height:
             off = self._offset(x, y)
-            color = int(color) & 0xFFFF
+            color = self._display_color(color) if self._is_flipper else int(color) & 0xFFFF
             self._buffer[off] = color & 0xFF
             self._buffer[off + 1] = (color >> 8) & 0xFF
 
@@ -126,11 +142,27 @@ class LCD:
         off = self._offset(x, y)
         return self._buffer[off] | (self._buffer[off + 1] << 8)
 
+    def _read_row(self, y):
+        """Return one framebuffer row in the shared RGB332 format."""
+        y = int(y)
+        if y < 0 or y >= self.height:
+            return b""
+        row = bytearray(self.width)
+        for x in range(self.width):
+            color = self._get_pixel(x, y)
+            r3 = ((color >> 11) & 31) >> 2
+            g3 = ((color >> 5) & 63) >> 3
+            b2 = (color & 31) >> 3
+            row[x] = (r3 << 5) | (g3 << 2) | b2
+        return bytes(row)
+
     def _clear(self, color=0):
-        color = int(color) & 0xFFFF
-        lo = color & 0xFF
-        hi = (color >> 8) & 0xFF
-        self._buffer[:] = bytes((lo, hi)) * (self.width * self.height)
+        color = self._display_color(color)
+        if self._clear_buffer is not self._buffer:
+            self._clear_buffer = self._buffer
+            self._framebuffer = framebuf.FrameBuffer(self._buffer, self.width, self.height, framebuf.RGB565)
+        # Fill the existing allocation in place, without a temporary framebuffer.
+        self._framebuffer.fill(color)
 
     def _pixel(self, x, y, color):
         self._set_pixel(x, y, color)
@@ -160,6 +192,10 @@ class LCD:
                 y += sy
 
     def _rectangle(self, x, y, w, h, color):
+        if self._is_flipper:
+            # Flipper lcd_draw_rect() includes the border in width and height.
+            w -= 1
+            h -= 1
         self._line(x, y, x + w, y, color)
         self._line(x, y, x, y + h, color)
         self._line(x + w, y, x + w, y + h, color)
@@ -178,7 +214,7 @@ class LCD:
         y1 = min(self.height, y + h)
         if x0 >= x1 or y0 >= y1:
             return
-        color = int(color) & 0xFFFF
+        color = self._display_color(color)
         lo = color & 0xFF
         hi = (color >> 8) & 0xFF
         row = bytes((lo, hi)) * (x1 - x0)
@@ -230,8 +266,8 @@ class LCD:
         )
         if self.scale_position:
             for point in points:
-                point[0] = self.scale_x(point[0])
-                point[1] = self.scale_y(point[1])
+                point[0] = int(point[0] * self._scale_x_factor)
+                point[1] = int(point[1] * self._scale_y_factor)
 
         alpha = int(alpha) & 0xFF
         if alpha == 0:
@@ -240,6 +276,14 @@ class LCD:
         x1, y1 = points[0]
         x2, y2 = points[1]
         x3, y3 = points[2]
+        if _native_fill_triangle is not None and all(
+            -1000000 <= value <= 1000000 for value in (x1, y1, x2, y2, x3, y3)
+        ):
+            _native_fill_triangle(
+                self._buffer, self.width, self.height,
+                x1, y1, x2, y2, x3, y3, int(color) & 0xFFFF, alpha, self._is_flipper,
+            )
+            return
         area = self._triangle_edge(x1, y1, x2, y2, x3, y3)
         if area == 0:
             return
@@ -288,25 +332,20 @@ class LCD:
     def _font_metrics(self, font_size):
         if font_size is None:
             font_size = self.FONT_DEFAULT
-        if font_size == 0:
-            return 5, 8, 1
-        if font_size == 2:
-            return 11, 16, 1
-        if font_size == 3:
-            return 14, 20, 0
-        if font_size == 4:
-            return 17, 24, 0
-        return 7, 12, 0
+        return sim_font.METRICS[font_size if 0 <= font_size < 5 else 0]
 
     def _draw_glyph(self, x, y, ch, color, width, height):
-        rows = sim_font.glyph_rows(ch)
-        for dst_y in range(height):
-            src_y = dst_y * sim_font.HEIGHT // height
-            row = rows[src_y]
-            for dst_x in range(width):
-                src_x = dst_x * sim_font.WIDTH // width
-                if row & (0x80 >> src_x):
-                    self._set_pixel(x + dst_x, y + dst_y, color)
+        size = (8, 12, 16, 20, 24).index(height)
+        data = sim_font.font_data(size)
+        code = ord(ch)
+        if not 32 <= code <= 126:
+            code = ord("?")
+        row_bytes = (width + 7) // 8
+        offset = (code - 32) * height * row_bytes
+        for dy in range(height):
+            for dx in range(width):
+                if data[offset + dy * row_bytes + dx // 8] & (0x80 >> (dx % 8)):
+                    self._set_pixel(x + dx, y + dy, color)
 
     def _text(self, x, y, text, color, font_size=None):
         try:
@@ -314,6 +353,22 @@ class LCD:
         except Exception:
             pass
         w, h, spacing = self._font_metrics(font_size)
+        if self._is_flipper:
+            # Firmware uses uint16_t text coordinates and skips whole glyphs
+            # outside the display. This matters for overwide keyboard labels.
+            start_x = int(x) & 0xFFFF
+            xx, yy = start_x, int(y) & 0xFFFF
+            for code in str(text).encode():
+                if code == 0:
+                    break
+                if code == 10:
+                    xx = start_x
+                    yy = (yy + h + 2) & 0xFFFF
+                    continue
+                if 32 <= code <= 126 and xx + w <= self.width and yy + h <= self.height:
+                    self._draw_glyph(xx, yy, chr(code), color, w, h)
+                xx = (xx + w + 1) & 0xFFFF
+            return
         xx = int(x)
         yy = int(y)
         for ch in str(text):
@@ -338,10 +393,10 @@ class LCD:
 
         is_16bit = data_len >= pixel_count * 2
         scaled = self._scale_x_factor != 1.0 or self._scale_y_factor != 1.0
-        dst_x = self.scale_x(x) if scaled and self.scale_position else int(x)
-        dst_y = self.scale_y(y) if scaled and self.scale_position else int(y)
-        dst_w = self.scale_x(width) if scaled else width
-        dst_h = self.scale_y(height) if scaled else height
+        dst_x = int(x * self._scale_x_factor) if scaled and self.scale_position else int(x)
+        dst_y = int(y * self._scale_y_factor) if scaled and self.scale_position else int(y)
+        dst_w = int(width * self._scale_x_factor) if scaled else width
+        dst_h = int(height * self._scale_y_factor) if scaled else height
         if dst_w <= 0 or dst_h <= 0:
             return
 
@@ -531,19 +586,24 @@ class LCD:
         self._scale_y_factor = scale_y
         self.scale_position = scale_position
 
-    def scale_x(self, value):
-        return int(value * self._scale_x_factor)
+    def scale_x(self, value, screen_width=320):
+        """Convert a layout coordinate from the reference display width."""
+        scaled = 0.0 if value == 0 else value * self.width / float(screen_width)
+        return int(scaled) if isinstance(value, int) else scaled
 
-    def scale_y(self, value):
-        return int(value * self._scale_y_factor)
+    def scale_y(self, value, screen_height=320):
+        """Convert a layout coordinate from the reference display height."""
+        scaled = 0.0 if value == 0 else value * self.height / float(screen_height)
+        return int(scaled) if isinstance(value, int) else scaled
 
-    def scale(self, x, y):
-        return self.scale_x(x), self.scale_y(y)
+    def scale(self, x, y, screen_width=320, screen_height=320):
+        return int(self.scale_x(x, screen_width)), int(self.scale_y(y, screen_height))
 
-    def scale_vector(self, position):
-        from picoware.system.vector import Vector
-
-        return Vector(self.scale_x(position.x), self.scale_y(position.y), self.scale_y(position.z))
+    def scale_vector(self, position, screen_width=320, screen_height=320):
+        x = self.scale_x(float(position.x), screen_width)
+        y = self.scale_y(float(position.y), screen_height)
+        # The native Vector exposes its integer mode through coordinate types.
+        return (int(x), int(y)) if isinstance(position.x, int) else (x, y)
 
     def swap(self):
         self.poll_events()

@@ -127,6 +127,9 @@ for module_path in \
     jsmn \
     http \
     websocket \
+    c \
+    mmbasic \
+    mjs \
     video; do
     rm -rf "$micropython_dir/modules/$module_path"
 done
@@ -291,7 +294,7 @@ cd "$micropython_dir"
 
 # Keep ESP-IDF warnings from failing the build, keep legacy I2C API checks permissive,
 # and force the Cardputer board define for preprocess-only qstr generation paths.
-export EXTRA_CFLAGS="-Wno-maybe-uninitialized -Wno-error=maybe-uninitialized -DCONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=1 -DCARDPUTER -DPBUF_POOL_SIZE=10"
+export EXTRA_CFLAGS="-Wno-maybe-uninitialized -Wno-error=maybe-uninitialized -DCONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=1 -DCARDPUTER -DPBUF_POOL_SIZE=10 -DESP32"
 
 make BOARD=ESP32_GENERIC_S3 \
     USER_C_MODULES="$micropython_dir/modules/cardputer/micropython.cmake" \

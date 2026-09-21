@@ -327,25 +327,11 @@ static MP_DEFINE_CONST_FUN_OBJ_1(picoware_boards_has_touch_obj, picoware_boards_
 
 mp_obj_t picoware_boards_has_wifi(mp_obj_t board_id_obj)
 {
-    int board_id = mp_obj_get_int(board_id_obj);
-    bool has_wifi = false;
-
-    switch (board_id)
-    {
-    case BOARD_PICOCALC_PICOW:
-    case BOARD_PICOCALC_PICO_2W:
-    case BOARD_PICOCALC_PIMORONI_2W:
-    case BOARD_PANCAKE:
-    case BOARD_V8:
-    case BOARD_DESKTOP:
-        has_wifi = true;
-        break;
-    default:
-        has_wifi = false;
-        break;
-    }
-
-    return mp_obj_new_bool(has_wifi);
+#if BOARD_HAS_WIFI == 0
+    return mp_obj_new_bool(false);
+#else
+    return mp_obj_new_bool(true);
+#endif
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(picoware_boards_has_wifi_obj, picoware_boards_has_wifi);
 
@@ -405,6 +391,29 @@ mp_obj_t picoware_boards_has_ir_rx(mp_obj_t board_id_obj)
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(picoware_boards_has_ir_rx_obj, picoware_boards_has_ir_rx);
 
+mp_obj_t picoware_boards_has_keyboard(mp_obj_t board_id_obj)
+{
+    int board_id = mp_obj_get_int(board_id_obj);
+    bool has_keyboard = false;
+
+    switch (board_id)
+    {
+    case BOARD_PICOCALC_PICO:
+    case BOARD_PICOCALC_PICOW:
+    case BOARD_PICOCALC_PICO_2:
+    case BOARD_PICOCALC_PIMORONI_2W:
+    case BOARD_CARDPUTER:
+        has_keyboard = true;
+        break;
+    default:
+        has_keyboard = false;
+        break;
+    }
+
+    return mp_obj_new_bool(has_keyboard);
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(picoware_boards_has_keyboard_obj, picoware_boards_has_keyboard);
+
 mp_obj_t picoware_boards_is_circular(mp_obj_t board_id_obj)
 {
     int board_id = mp_obj_get_int(board_id_obj);
@@ -441,6 +450,7 @@ static const mp_rom_map_elem_t picoware_boards_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_has_bluetooth), MP_ROM_PTR(&picoware_boards_has_bluetooth_obj)},
     {MP_ROM_QSTR(MP_QSTR_has_ir), MP_ROM_PTR(&picoware_boards_has_ir_obj)},
     {MP_ROM_QSTR(MP_QSTR_has_ir_rx), MP_ROM_PTR(&picoware_boards_has_ir_rx_obj)},
+    {MP_ROM_QSTR(MP_QSTR_has_keyboard), MP_ROM_PTR(&picoware_boards_has_keyboard_obj)},
     {MP_ROM_QSTR(MP_QSTR_is_circular), MP_ROM_PTR(&picoware_boards_is_circular_obj)},
     //
     {MP_ROM_QSTR(MP_QSTR_BOARD_PICOCALC_PICO), MP_ROM_INT(BOARD_PICOCALC_PICO)},
@@ -468,6 +478,7 @@ static const mp_rom_map_elem_t picoware_boards_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_BLUETOOTH), MP_ROM_INT(BOARD_HAS_BLUETOOTH)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_IR), MP_ROM_INT(BOARD_HAS_IR)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_IR_RX), MP_ROM_INT(BOARD_HAS_IR_RX)},
+    {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_KEYBOARD), MP_ROM_INT(BOARD_HAS_KEYBOARD)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_RP2040), MP_ROM_INT(BOARD_HAS_RP2040)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_RP2350), MP_ROM_INT(BOARD_HAS_RP2350)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_ESP32), MP_ROM_INT(BOARD_HAS_ESP32)},

@@ -38,10 +38,10 @@ def start(view_manager) -> bool:
             2,
         )
         _wifi.add_item("Connect")
+        _wifi.add_item("RSSI Monitor")
         _wifi.add_item("Scan")
         _wifi.add_item("Server")
         _wifi.add_item("Settings")
-        _wifi.add_item("RSSI Monitor")
         _wifi.set_selected(_wifi_index)
 
         _wifi.draw()
@@ -89,23 +89,6 @@ def run(view_manager) -> None:
             )
             view_manager.switch_to("wifi_connect")
         elif _wifi_index == 1:
-            from picoware.applications.wifi import scan
-
-            view_manager.add(View("wifi_scan", scan.run, scan.start, scan.stop))
-            view_manager.switch_to("wifi_scan")
-        elif _wifi_index == 2:
-            from picoware.applications.wifi import server
-
-            view_manager.add(View("wifi_server", server.run, server.start, server.stop))
-            view_manager.switch_to("wifi_server")
-        elif _wifi_index == 3:
-            from picoware.applications.wifi import settings
-
-            view_manager.add(
-                View("wifi_settings", settings.run, settings.start, settings.stop)
-            )
-            view_manager.switch_to("wifi_settings")
-        elif _wifi_index == 4:
             from picoware.applications.wifi import rssi_monitor
 
             view_manager.add(
@@ -117,6 +100,23 @@ def run(view_manager) -> None:
                 )
             )
             view_manager.switch_to("wifi_rssi_monitor")
+        elif _wifi_index == 2:
+            from picoware.applications.wifi import scan
+
+            view_manager.add(View("wifi_scan", scan.run, scan.start, scan.stop))
+            view_manager.switch_to("wifi_scan")
+        elif _wifi_index == 3:
+            from picoware.applications.wifi import server
+
+            view_manager.add(View("wifi_server", server.run, server.start, server.stop))
+            view_manager.switch_to("wifi_server")
+        elif _wifi_index == 4:
+            from picoware.applications.wifi import settings
+
+            view_manager.add(
+                View("wifi_settings", settings.run, settings.start, settings.stop)
+            )
+            view_manager.switch_to("wifi_settings")
 
 
 def stop(view_manager) -> None:

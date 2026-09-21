@@ -786,20 +786,32 @@ void lcd_fill_triangle_alpha(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,
     if (y1 > y2)
     {
         uint16_t t;
-        t = x1; x1 = x2; x2 = t;
-        t = y1; y1 = y2; y2 = t;
+        t = x1;
+        x1 = x2;
+        x2 = t;
+        t = y1;
+        y1 = y2;
+        y2 = t;
     }
     if (y1 > y3)
     {
         uint16_t t;
-        t = x1; x1 = x3; x3 = t;
-        t = y1; y1 = y3; y3 = t;
+        t = x1;
+        x1 = x3;
+        x3 = t;
+        t = y1;
+        y1 = y3;
+        y3 = t;
     }
     if (y2 > y3)
     {
         uint16_t t;
-        t = x2; x2 = x3; x3 = t;
-        t = y2; y2 = y3; y3 = t;
+        t = x2;
+        x2 = x3;
+        x3 = t;
+        t = y2;
+        y2 = y3;
+        y3 = t;
     }
 
     const int32_t total_h = (int32_t)y3 - (int32_t)y1;
@@ -876,6 +888,32 @@ void lcd_draw_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint1
     lcd_draw_line(x1, y1, x2, y2, color);
     lcd_draw_line(x2, y2, x3, y3, color);
     lcd_draw_line(x3, y3, x1, y1, color);
+}
+
+void lcd_polygon(uint16_t x[], uint16_t y[], int count, uint16_t color)
+{
+    for (int i = 0; i < count; i++)
+    {
+        int next = (i + 1) % count;
+        lcd_draw_line(x[i], y[i], x[next], y[next], color);
+    }
+}
+
+void lcd_fill_polygon(uint16_t x[], uint16_t y[], int count, uint16_t color)
+{
+    if (count < 3)
+        return;
+    for (int i = 1; i + 1 < count; ++i)
+        lcd_fill_triangle(x[0], y[0], x[i], y[i], x[i + 1], y[i + 1], color);
+}
+
+void lcd_fill_polygon_alpha(uint16_t x[], uint16_t y[], int count,
+                            uint16_t color, uint8_t alpha)
+{
+    if (count < 3)
+        return;
+    for (int i = 1; i + 1 < count; ++i)
+        lcd_fill_triangle_alpha(x[0], y[0], x[i], y[i], x[i + 1], y[i + 1], color, alpha);
 }
 
 void lcd_fill_round_rectangle(uint16_t x, uint16_t y, uint16_t width, uint16_t height,

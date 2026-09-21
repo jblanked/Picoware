@@ -22,6 +22,14 @@ PICOWARE_BUTTON_ENTER = 74
 
 
 class GameBoy:
+    def __del__(self):
+        """Signal shutdown if an app drops its emulator without stopping it."""
+        if getattr(self, "_native", False):
+            try:
+                self.stop()
+            except Exception as error:
+                print("[sim:gameboy] shutdown:", error)
+
     def __init__(self):
         """Initialize a simulator-backed GameBoy emulator."""
         self.rom_path = ""
@@ -37,9 +45,9 @@ class GameBoy:
         self._control_path = ""
         self._status_path = ""
         self._native = False
-        self._warned_fallback = False
         self._held_button = -1
         self._held_frames = 0
+        self._heartbeat = 0
 
     def __str__(self):
         """Return a readable representation."""
@@ -47,13 +55,15 @@ class GameBoy:
 
     def start(self, rom_path, save_state_path=None):
         """Load a ROM and start the emulator."""
+        if self.running:
+            self.stop()
         host_rom = sim_runtime.host_path(rom_path)
         with open(host_rom, "rb") as handle:
             header = handle.read(0x150)
             handle.seek(0, 2)
             self.rom_size = handle.tell()
         self.rom_path = rom_path
-        self.save_state_path = save_state_path
+        self.save_state_path = save_state_path or rom_path + ".simstate"
         self.rom_title = self._title_from_header(header)
         self.running = True
         self.frame = 0
@@ -62,45 +72,56 @@ class GameBoy:
         self._held_button = -1
         self._held_frames = 0
         self._native = False
-        self._frame_path = sim_runtime.sd_root + "/sim_gameboy_frame.rgb565"
-        self._control_path = sim_runtime.sd_root + "/sim_gameboy_control.txt"
-        self._status_path = sim_runtime.sd_root + "/sim_gameboy_status.txt"
+        prefix = sim_runtime.sd_root + "/sim_gameboy_" + str(id(self))
+        self._frame_path = prefix + "_frame.rgb565"
+        self._control_path = prefix + "_control.txt"
+        self._status_path = prefix + "_status.txt"
         self._cleanup_sidecars()
         self._helper = self._helper_path()
+        state_argument = ""
+        if self.save_state_path:
+            state_path = sim_runtime.host_path(self.save_state_path)
+            sim_runtime.mkdir_p(state_path.rsplit("/", 1)[0])
+            state_argument = " " + self._quote(state_path)
         if self._helper:
             self._write_control(-1, 0)
             audio_env = ""
             if sim_runtime.audio_mode != "real" or sim_runtime.headless:
                 audio_env = "SDL_AUDIODRIVER=dummy "
-            cmd = "{}{} {} {} {} {} >/tmp/picoware-sim-gameboy.log 2>&1 &".format(
+            cmd = "{}{} {} {} {} {}{} >{} 2>&1 &".format(
                 audio_env,
                 self._quote(self._helper),
                 self._quote(host_rom),
                 self._quote(self._frame_path),
                 self._quote(self._control_path),
                 self._quote(self._status_path),
+                state_argument,
+                self._quote(self._status_path + ".log"),
             )
             os.system(cmd)
             status = self._wait_status()
             if status.get("state") == "running":
                 self._native = True
-                self._draw("GameBoy Emulator", "Starting " + str(self.rom_title or rom_path))
+                self.frame = int(status.get("frame", 0))
+                self._heartbeat = time.ticks_ms()
                 return True
             if status.get("state") == "error":
                 self.running = False
-                raise TypeError("Failed to initialize Game Boy emulator")
-        if not self._warned_fallback:
-            print("[sim:gameboy] native helper unavailable; using placeholder fallback")
-            self._warned_fallback = True
-        self._draw("GameBoy Emulator", "ROM: " + str(self.rom_title or rom_path))
-        return True
+                raise RuntimeError("Game Boy ROM/save-state initialization failed: " + status.get("value", "unknown"))
+            self._write_control(-1, 1)
+        self.running = False
+        raise RuntimeError("Game Boy native helper unavailable or startup timed out; run sh simulator/build.sh gameboy")
 
     def stop(self):
         """Stop the emulator."""
         if self._native:
             self._write_control(self.last_button, 1)
-        if self.save_state_path:
-            self._write_save_state()
+            status = self._wait_status(terminal=True)
+            if status.get("state") != "stopped":
+                if status.get("state") == "error":
+                    self.running = self._native = False
+                raise RuntimeError("Game Boy shutdown/save failed: " + str(status))
+            self.frame = int(status.get("frame", self.frame))
         self.running = False
         self._native = False
         return None
@@ -111,17 +132,26 @@ class GameBoy:
             return False
         button = self._normalize_button(button)
         button = self._effective_button(button)
-        self.frame += 1
         self.last_button = button
         if button != -1:
             self.buttons_seen.append(button)
         if self._native:
+            status = self._read_status()
+            if status.get("state") in ("error", "stopped"):
+                self.running = self._native = False
+                raise RuntimeError("Game Boy helper stopped: " + str(status))
+            new_frame = int(status.get("frame", self.frame))
+            if new_frame != self.frame:
+                self._heartbeat = time.ticks_ms()
+            elif time.ticks_diff(time.ticks_ms(), self._heartbeat) > 2500:
+                self._write_control(button, 1)
+                self.running = self._native = False
+                raise RuntimeError("Game Boy helper stopped producing frames")
+            self.frame = new_frame
             self._write_control(button, 0)
             self._blit_native_frame()
             return True
-        if self.frame % 6 == 0:
-            self._draw("GameBoy Emulator", "Input: {}".format(button))
-        return True
+        return False
 
     def snapshot(self):
         return {
@@ -143,19 +173,6 @@ class GameBoy:
             except Exception:
                 return ""
         return ""
-
-    def _write_save_state(self):
-        try:
-            path = sim_runtime.host_path(self.save_state_path)
-            parent = path.rsplit("/", 1)[0]
-            sim_runtime.mkdir_p(parent)
-            with open(path, "w") as handle:
-                handle.write("rom={}\n".format(self.rom_path))
-                handle.write("title={}\n".format(self.rom_title))
-                handle.write("frame={}\n".format(self.frame))
-                handle.write("last_button={}\n".format(self.last_button))
-        except Exception:
-            pass
 
     def _normalize_button(self, button):
         """Map simulator/Picoware input to canonical GameBoy runner button codes."""
@@ -220,6 +237,8 @@ class GameBoy:
 
     def _helper_path(self):
         try:
+            if not sim_runtime.build_native("gameboy"):
+                return ""
             path = sim_runtime.native_helper_path("gameboy/sim_gameboy_runner", "gameboy")
             if self._exists(path):
                 return path
@@ -250,12 +269,10 @@ class GameBoy:
                 pass
 
     def _write_control(self, button, stop):
-        try:
-            with open(self._control_path, "w") as handle:
-                handle.write("button={}\n".format(int(button)))
-                handle.write("stop={}\n".format(int(stop)))
-        except Exception:
-            pass
+        temporary = self._control_path + ".tmp"
+        with open(temporary, "w") as handle:
+            handle.write("button={}\nstop={}\n".format(int(button), int(stop)))
+        os.rename(temporary, self._control_path)
 
     def _read_status(self):
         status = {}
@@ -269,10 +286,10 @@ class GameBoy:
             pass
         return status
 
-    def _wait_status(self):
-        for _ in range(20):
+    def _wait_status(self, terminal=False):
+        for _ in range(100):
             status = self._read_status()
-            if status.get("state"):
+            if status.get("state") and (not terminal or status["state"] != "running"):
                 return status
             time.sleep(0.025)
         return {}
@@ -290,16 +307,4 @@ class GameBoy:
         if len(data) != expected:
             return
         lcd._buffer[:] = data
-        lcd.swap()
-
-    def _draw(self, title, subtitle):
-        lcd = getattr(sim_runtime, "_lcd", None)
-        if lcd is None:
-            return
-        lcd._clear(0)
-        lcd._rectangle(24, 16, 272, 240, 0x07E0)
-        lcd._text(42, 36, title, 0xFFFF, 1)
-        lcd._text(42, 58, subtitle[:32], 0xFFFF, 1)
-        lcd._text(42, 88, "Frame " + str(self.frame), 0xFFE0, 1)
-        lcd._text(42, 108, "Use BACK to exit", 0xFFE0, 1)
         lcd.swap()

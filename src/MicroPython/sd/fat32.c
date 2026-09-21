@@ -900,9 +900,8 @@ static bool shortname_exists(const char *shortname, fat32_file_t *dir)
     scan.position = 0;
     while (fat32_dir_read(&scan, &entry) == FAT32_OK && entry.filename[0])
     {
-        char entry83[12];
-        filename_to_shortname(entry.filename, entry83);
-        if (memcmp(entry83, shortname, 11) == 0)
+        // Compare against the raw 8.3 field, not a re-truncated long name
+        if (memcmp(entry.short83, shortname, 11) == 0)
         {
             return true;
         }
@@ -951,6 +950,14 @@ static fat32_error_t unique_shortname(fat32_file_t *dir, const char *longname, c
     if (dot == p)
         dot = NULL; // ignore leading dot
 
+    // Track untruncated lengths so truncated names get a numeric tail
+    size_t base_full_len = 0;
+    for (size_t i = 0; p[i] != '\0' && &p[i] != dot; ++i)
+    {
+        base_full_len++;
+    }
+    size_t ext_full_len = dot ? strlen(dot + 1) : 0;
+
     char base[9] = {0};
     for (size_t i = 0; p[i] && &p[i] != dot && name_len < 8; ++i)
     {
@@ -988,6 +995,11 @@ static fat32_error_t unique_shortname(fat32_file_t *dir, const char *longname, c
         }
     }
     ext[ext_len] = '\0';
+
+    if (base_full_len > name_len || ext_full_len > ext_len)
+    {
+        lossy = 1; // Name was truncated, needs a tail
+    }
 
     // Compose initial candidate
     char candidate[12];
@@ -1159,37 +1171,60 @@ static fat32_error_t unlink_entry(fat32_entry_t *entry)
         return FAT32_ERROR_INVALID_PARAMETER;
     }
 
-    // Mark the entry as deleted
-    uint32_t sector = entry->sector;
-    uint32_t offset = entry->offset;
+    // Mark the 8.3 entry as deleted
+    RETURN_ON_ERROR(read_sector(entry->sector, sector_buffer));
+    fat32_dir_entry_t *dir_entry = (fat32_dir_entry_t *)(sector_buffer + entry->offset);
+    dir_entry->shortname[0] = FAT32_DIR_ENTRY_FREE;
+    RETURN_ON_ERROR(write_sector(entry->sector, sector_buffer));
 
-    RETURN_ON_ERROR(read_sector(sector, sector_buffer));
+    // Mark the LFN parts; they can span sector boundaries, so walk back
+    // slot by slot within the cluster holding the 8.3 entry
+    const uint64_t entry_byte = (uint64_t)entry->sector * FAT32_SECTOR_SIZE + entry->offset;
+    const uint32_t cluster_first_sector = first_data_sector +
+                                          ((entry->sector - first_data_sector) / boot_sector.sectors_per_cluster) *
+                                              boot_sector.sectors_per_cluster;
+    const uint64_t cluster_start_byte = (uint64_t)cluster_first_sector * FAT32_SECTOR_SIZE;
 
-    // Scan backwards for LFN entries
-    int lfn_count = 0;
+    uint32_t cur_sector = 0xFFFFFFFF;
+    bool cur_dirty = false;
+
     for (int i = 1; i <= MAX_LFN_PART; i++)
     {
-        if (offset < i * 32)
+        if (entry_byte < (uint64_t)i * 32)
         {
             break;
         }
-        fat32_dir_entry_t *lfn_entry = (fat32_dir_entry_t *)(sector_buffer + offset - i * 32);
-        if (lfn_entry->attr == FAT32_ATTR_LONG_NAME)
-        {
-            lfn_entry->shortname[0] = FAT32_DIR_ENTRY_FREE;
-            lfn_count++;
-        }
-        else
+        const uint64_t slot_byte = entry_byte - (uint64_t)i * 32;
+        if (slot_byte < cluster_start_byte)
         {
             break;
         }
+        const uint32_t slot_sector = (uint32_t)(slot_byte / FAT32_SECTOR_SIZE);
+        const uint32_t slot_offset = (uint32_t)(slot_byte % FAT32_SECTOR_SIZE);
+
+        if (slot_sector != cur_sector)
+        {
+            if (cur_dirty)
+            {
+                RETURN_ON_ERROR(write_sector(cur_sector, sector_buffer));
+                cur_dirty = false;
+            }
+            RETURN_ON_ERROR(read_sector(slot_sector, sector_buffer));
+            cur_sector = slot_sector;
+        }
+
+        fat32_dir_entry_t *lfn_entry = (fat32_dir_entry_t *)(sector_buffer + slot_offset);
+        if (lfn_entry->attr != FAT32_ATTR_LONG_NAME)
+        {
+            break;
+        }
+        lfn_entry->shortname[0] = FAT32_DIR_ENTRY_FREE;
+        cur_dirty = true;
     }
-
-    // Mark 8.3 entry as deleted
-    fat32_dir_entry_t *dir_entry = (fat32_dir_entry_t *)(sector_buffer + offset);
-    dir_entry->shortname[0] = FAT32_DIR_ENTRY_FREE;
-
-    RETURN_ON_ERROR(write_sector(sector, sector_buffer));
+    if (cur_dirty)
+    {
+        RETURN_ON_ERROR(write_sector(cur_sector, sector_buffer));
+    }
 
     return FAT32_OK;
 }
@@ -1275,7 +1310,8 @@ static fat32_error_t link_entry(fat32_entry_t *entry, const char *path)
         for (uint32_t i = 0; i < FAT32_SECTOR_SIZE; i += 32)
         {
             fat32_dir_entry_t *entry_ptr = (fat32_dir_entry_t *)(sector_buffer + i);
-            if (entry_ptr->shortname[0] == FAT32_DIR_ENTRY_FREE || entry_ptr->shortname[0] == FAT32_DIR_ENTRY_END_MARKER)
+            const uint8_t slot_first = (uint8_t)entry_ptr->shortname[0];
+            if (slot_first == FAT32_DIR_ENTRY_FREE || slot_first == FAT32_DIR_ENTRY_END_MARKER)
             {
                 if (free_count == 0)
                 {
@@ -2312,8 +2348,13 @@ static fat32_error_t fat32_dir_read_unlocked(fat32_file_t *dir, fat32_entry_t *d
         }
 
         fat32_dir_entry_t *entry = (fat32_dir_entry_t *)(sector_buffer + dir->position % FAT32_SECTOR_SIZE);
+        const uint8_t first_byte = (uint8_t)entry->shortname[0];
 
-        if (entry->shortname[0] == FAT32_DIR_ENTRY_END_MARKER)
+        if (first_byte == FAT32_DIR_ENTRY_FREE)
+        {
+            // Deleted entry: skip entirely (including stale LFN parts)
+        }
+        else if (first_byte == FAT32_DIR_ENTRY_END_MARKER)
         {
             // End of directory
             dir->last_entry_read = true; // Mark that we reached the end
@@ -2337,7 +2378,7 @@ static fat32_error_t fat32_dir_read_unlocked(fat32_file_t *dir, fat32_entry_t *d
                 lfn_to_str(lfn_entry, filename + offset);
             }
         }
-        else if (entry->shortname[0] != FAT32_DIR_ENTRY_FREE)
+        else
         {
             uint8_t checksum = shortname_checksum(entry->shortname);
             // Now check to see if this is the entry we are looking for
@@ -2349,6 +2390,8 @@ static fat32_error_t fat32_dir_read_unlocked(fat32_file_t *dir, fat32_entry_t *d
             {
                 shortname_to_filename(entry->shortname, dir_entry->filename);
             }
+            memcpy(dir_entry->short83, entry->shortname, 11);
+            dir_entry->short83[11] = '\0';
             dir_entry->attr = entry->attr;
             dir_entry->start_cluster = (entry->fst_clus_hi << 16) | entry->fst_clus_lo;
             dir_entry->size = entry->file_size;

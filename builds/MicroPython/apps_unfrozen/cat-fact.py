@@ -1,33 +1,25 @@
 # picoware/apps/cat-fact.py
+from picoware.system.decorator import wifi_required
 
 _http = None
 _textbox = None
 
 
+@wifi_required
 def start(view_manager) -> bool:
     """Start the app"""
     from picoware.system.http import HTTP
     from picoware.gui.textbox import TextBox
-    from picoware.system.vector import Vector
 
     global _http, _textbox
 
-    wifi = view_manager.wifi
-
     draw = view_manager.draw
 
-    if not wifi:
-        view_manager.alert("WiFi not available...", False)
-        return False
-    if not wifi.is_connected():
-        view_manager.alert("WiFi not connected...", False)
-        return False
-
-    draw.text(Vector(0, 0), "Loading...", view_manager.foreground_color)
+    draw._text(0, 0, "Loading...", view_manager.foreground_color)
 
     draw.swap()
 
-    _http = HTTP()
+    _http = HTTP(view_manager=view_manager)
 
     # sync request for this example, although not preferred
     response = _http.get("https://catfact.ninja/fact")

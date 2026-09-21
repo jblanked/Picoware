@@ -6,7 +6,8 @@ class JPEGDecoder:
     def __init__(self):
         self._opened = False
         self._data = b""
-        self._info = (True, 160, 120)
+        self._info = (False, 0, 0)
+        self.last_error = ""
         self._split_running = False
         self._split_offset = (0, 0)
         self._split_data = None
@@ -14,6 +15,8 @@ class JPEGDecoder:
         self._split_pending = None
         self._split_buffer_size = 0
         self._split_option = 0
+        self._split_ranges = []
+        self._split_result = False
 
     def _read_path(self, path):
         """Read raw bytes from a VFS path or host path."""
@@ -65,8 +68,6 @@ class JPEGDecoder:
     def open_file(self, path):
         """Load a JPEG from the given path."""
         data = self._read_path(path)
-        if not data:
-            return False
         self._data = data
         self._info = self._detect_size(data)
         self._opened = self._info[0]
@@ -84,28 +85,6 @@ class JPEGDecoder:
         if data is not None:
             return self._detect_size(bytes(data))
         return self._info
-
-    def _draw_placeholder(self, x, y, w=None, h=None):
-        """Draw a checkerboard placeholder when JPEG decode fails."""
-        lcd = getattr(sim_runtime, "_lcd", None)
-        if lcd is None:
-            return True
-        if w is None:
-            w = min(120, self._info[1])
-        if h is None:
-            h = min(90, self._info[2])
-        x = int(x)
-        y = int(y)
-        w = max(16, min(220, int(w)))
-        h = max(16, min(180, int(h)))
-        for yy in range(h):
-            for xx in range(w):
-                c = 0x7BEF if ((xx // 8) + (yy // 8)) & 1 else 0x39E7
-                lcd._set_pixel(x + xx, y + yy, c)
-        lcd._rectangle(x, y, w - 1, h - 1, 0xFFFF)
-        lcd._text(x + 4, y + 4, "JPEG", 0xFFFF, 1)
-        lcd.swap()
-        return True
 
     def _quote(self, value):
         """Shell-quote a value for os.system."""
@@ -152,10 +131,11 @@ class JPEGDecoder:
         """Decode JPEG bytes with the native helper or djpeg, then blit to LCD."""
         lcd = getattr(sim_runtime, "_lcd", None)
         if lcd is None:
-            return True
+            self.last_error = "No simulator display registered"
+            return False
         self._info = self._detect_size(data)
         if not self._info[0]:
-            self._draw_placeholder(x, y)
+            self.last_error = "Invalid JPEG header"
             return False
         ident = str(id(data))
         in_path = "/tmp/picoware-jpegdec-" + ident + ".jpg"
@@ -171,14 +151,17 @@ class JPEGDecoder:
                     scale, self._quote(out_path), self._quote(in_path)
                 )
                 if os.system(cmd) != 0:
-                    self._draw_placeholder(x, y)
+                    self.last_error = "JPEG decoding failed or no decoder available"
                     return False
             ok = lcd._bmp(int(x), int(y), out_path)
-            lcd.swap()
+            self.last_error = "" if ok else "Decoded JPEG could not be blitted"
+            if ok:
+                lcd.swap()
             return ok
         except Exception as e:
             print("[sim:jpeg] decode failed:", e)
-            return self._draw_placeholder(x, y)
+            self.last_error = str(e)
+            return False
         finally:
             try:
                 os.remove(in_path)
@@ -194,33 +177,48 @@ class JPEGDecoder:
         return self._draw_jpeg_bytes(self._data, x, y, flags)
 
     def decode_split(self, fsize, buf, offset, callback=None, option=0):
-        """Begin progressive JPEG decode from a partial buffer."""
-        self._opened = True
-        self._split_running = True
+        """Collect split input, then decode it with the native JPEG helper."""
+        previous = self._split_result
+        self._info = self._detect_size(bytes(buf))
+        self._opened = self._info[0] and int(fsize) > 0 and len(buf) > 0
+        self._split_running = self._opened
         self._split_offset = offset or (0, 0)
         self._split_buffer_size = len(buf)
         self._split_next = min(int(fsize), len(buf))
         self._split_pending = None
         self._split_option = option
-        self._split_data = bytearray(int(fsize))
-        self._split_data[: len(buf)] = buf
-        self._info = self._detect_size(bytes(buf))
-        return self._info
+        self._split_data = bytearray(int(fsize)) if self._opened else None
+        self._split_ranges = [(0, self._split_next)]
+        self._split_result = False
+        if self._split_data is not None:
+            self._split_data[:self._split_next] = buf[:self._split_next]
+        return (self._opened, self._info[1], self._info[2], previous)
 
     def decode_split_buffer(self, index, position, buf):
         """Feed a chunk into the progressive JPEG decoder."""
-        if self._split_data is not None:
+        if self._split_data is not None and self._split_running:
             start = int(position)
+            if start < 0 or int(index) < 0:
+                return False
             end = min(len(self._split_data), start + len(buf))
             if start < end:
                 self._split_data[start:end] = buf[: end - start]
-                self._split_next = max(self._split_next, end)
+                self._split_ranges.append((start, end))
+                merged = []
+                for low, high in sorted(self._split_ranges):
+                    if merged and low <= merged[-1][1]:
+                        merged[-1] = (merged[-1][0], max(high, merged[-1][1]))
+                    else:
+                        merged.append((low, high))
+                self._split_ranges = merged
+                self._split_next = merged[0][1]
             if self._split_pending == start:
                 self._split_pending = None
-        return True
+            return True
+        return False
 
     def decode_split_wait(self):
-        """Poll the progressive decoder; returns (state, offset, size)."""
+        """Return firmware-compatible (state, offset/result, size, index)."""
         if self._split_running:
             if self._split_data is not None and self._split_next < len(self._split_data):
                 if self._split_pending is None:
@@ -229,8 +227,9 @@ class JPEGDecoder:
                     0,
                     self._split_pending,
                     min(self._split_buffer_size, len(self._split_data) - self._split_pending),
+                    0,
                 )
-            self._draw_jpeg_bytes(
+            ok = self._draw_jpeg_bytes(
                 bytes(self._split_data) if self._split_data is not None else self._data,
                 self._split_offset[0],
                 self._split_offset[1],
@@ -238,11 +237,16 @@ class JPEGDecoder:
             )
             self._split_running = False
             self._split_data = None
-            return (1, -1, 0)
-        return (1, -1, 0)
+            self._split_result = bool(ok)
+        return (1, int(self._split_result), 0, 0)
 
     def decode_core_wait(self, timeout=0):
-        """Finalize progressive decode (no-op in simulator)."""
+        """Finish available input or cancel an incomplete buffered decode."""
+        if self._split_running:
+            result = self.decode_split_wait()
+            if result[0] == 0:
+                self.last_error = "Incomplete split JPEG input"
+                self._split_result = False
         self._split_running = False
         self._split_data = None
-        return True
+        return (self._split_result, 0, 0, 0)

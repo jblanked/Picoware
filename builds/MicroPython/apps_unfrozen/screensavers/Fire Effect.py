@@ -2,28 +2,23 @@
 from random import randint
 from picoware.system.buttons import BUTTON_BACK
 from picoware.system.colors import TFT_BLACK
-from picoware.system.vector import Vector
 
-screen_size = None
 fire_buffer = []
 fire_palette = []
 width = 0
 height = 0
-pos = None
-size = None
 pixel_w = 0
 pixel_h = 0
 
 
 def start(view_manager) -> bool:
     """Start the app"""
-    global screen_size, fire_buffer, fire_palette, width, height, pos, size, pixel_w, pixel_h
+    global fire_buffer, fire_palette, width, height, pixel_w, pixel_h
 
     draw = view_manager.draw
-    screen_size = Vector(draw.size.x, draw.size.y)
 
-    width = screen_size.x // 4
-    height = screen_size.y // 4
+    width = draw.size.x // 4
+    height = draw.size.y // 4
 
     # Pre-calculate fire color palette (0-255)
     fire_palette = []
@@ -49,11 +44,8 @@ def start(view_manager) -> bool:
     # Initialize fire buffer
     fire_buffer = [[0 for _ in range(width)] for _ in range(height)]
 
-    pixel_w = screen_size.x // width
-    pixel_h = screen_size.y // height
-
-    pos = Vector(0, 0)
-    size = Vector(pixel_w, pixel_h)
+    pixel_w = draw.size.x // width
+    pixel_h = draw.size.y // height
 
     draw.fill_screen(TFT_BLACK)
     draw.swap()
@@ -125,15 +117,11 @@ def stop(view_manager) -> None:
     """Stop the app"""
     from gc import collect
 
-    global screen_size, fire_buffer, fire_palette, width, height, pos, size, pixel_w, pixel_h
-
-    screen_size = None
+    global fire_buffer, fire_palette, width, height, pixel_w, pixel_h
     fire_buffer = []
     fire_palette = []
     width = 0
     height = 0
-    pos = None
-    size = None
     pixel_w = 0
     pixel_h = 0
 

@@ -35,6 +35,20 @@ void Draw::fillCircle(uint16_t x, uint16_t y, uint16_t r, uint16_t color)
     ENGINE_LCD_FILL_CIRCLE(x, y, r, color);
 }
 
+void Draw::fillPolygon(uint16_t x[], uint16_t y[], int count, uint16_t color)
+{
+    ENGINE_LCD_FILL_POLYGON(x, y, count, color);
+}
+
+void Draw::fillPolygonAlpha(uint16_t x[], uint16_t y[], int count, uint16_t color, uint8_t alpha)
+{
+#ifdef ENGINE_LCD_FILL_POLYGON_ALPHA
+    ENGINE_LCD_FILL_POLYGON_ALPHA(x, y, count, color, alpha);
+#else
+    ENGINE_LCD_FILL_POLYGON(x, y, count, color);
+#endif
+}
+
 void Draw::fillRectangle(Vector position, Vector size, uint16_t color)
 {
     ENGINE_LCD_FILL_RECTANGLE(position.x, position.y, size.x, size.y, color);
@@ -112,6 +126,11 @@ void Draw::pixel(Vector position, uint16_t color)
 void Draw::pixel(uint16_t x, uint16_t y, uint16_t color)
 {
     ENGINE_LCD_PIXEL(x, y, color);
+}
+
+void Draw::polygon(uint16_t x[], uint16_t y[], int count, uint16_t color)
+{
+    ENGINE_LCD_POLYGON(x, y, count, color);
 }
 
 void Draw::rectangle(Vector position, Vector size, uint16_t color)

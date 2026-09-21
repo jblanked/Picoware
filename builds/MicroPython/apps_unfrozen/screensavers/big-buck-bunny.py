@@ -99,7 +99,7 @@ def run(view_manager) -> None:
 
         # Draw the frame
         draw = view_manager.draw
-        draw._bytearray(position.x, position.y, size.x, size.y, frame_data)
+        draw._bytearray(position.x, position.y, size.x, size.y, memoryview(frame_data)[:bytes_read])
         draw.swap()
 
         # Advance to next frame

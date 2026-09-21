@@ -42,12 +42,12 @@ class ViewManager:
         "_audio",
         "_app_loader",
         "_usb_video_stream",
+        "_uart",
     )
 
     def __init__(self):
         """Initialize the ViewManager with default settings."""
         from picoware.gui.draw import Draw
-        from picoware.gui.keyboard import Keyboard
         from picoware.system.input import Input
         from picoware.system.battery import Battery
         from picoware.system.storage import Storage
@@ -74,12 +74,6 @@ class ViewManager:
 
         # Initialize ThreadManager
         self._thread_manager = ThreadManager()
-
-        # Initialize WiFi if available
-        self._wifi = None
-        if syst is not None and syst.has_wifi:
-            from picoware.system.wifi import WiFi
-            self._wifi = WiFi(thread_manager=self._thread_manager)
 
         # Initialize storage
         self._storage = Storage()
@@ -127,14 +121,7 @@ class ViewManager:
         self._battery = Battery()
 
         # Initialize keyboard
-        self._keyboard = Keyboard(
-            self._draw,
-            self._input_manager,
-            self._foreground_color,
-            self._background_color,
-            self._selected_color,
-        )
-        self._keyboard.show_keyboard = _keyboard_state
+        self._keyboard = None
 
         # Initialize time
         self._time = Time(self._thread_manager)
@@ -149,10 +136,6 @@ class ViewManager:
 
         # Initialize audio
         self._audio = None
-        if syst.has_audio:
-            from picoware.system.audio import Audio
-
-            self._audio = Audio()
 
         if self._draw.use_lvgl:
             # disable networking...
@@ -167,6 +150,21 @@ class ViewManager:
 
         # Initialize app loader
         self._app_loader = AppLoader(self)
+
+        # UART
+        self._uart = None
+        if syst.board_id == BOARD_FLIPPER_ZERO:
+            try:
+                from picoware.system.uart import UART
+                self._uart = UART()
+            except ImportError:
+                self._uart = None
+
+        # Initialize WiFi if available
+        self._wifi = None
+        if syst is not None and syst.has_wifi:
+            from picoware.system.wifi import WiFi
+            self._wifi = WiFi(self)
 
         # Clear screen
         self.clear()
@@ -216,6 +214,17 @@ class ViewManager:
         if self._thread_manager:
             del self._thread_manager
             self._thread_manager = None
+        if self._battery is not None:
+            del self._battery
+            self._battery = None
+        if self._uart is not None:
+            del self._uart
+            self._uart = None
+        if self._usb_video_stream is not None:
+            if self._usb_video_stream.active:
+                self._usb_video_stream.stop()
+            del self._usb_video_stream
+            self._usb_video_stream = None
 
         collect()
 
@@ -241,6 +250,10 @@ class ViewManager:
     @property
     def audio(self):
         """Return the Audio instance."""
+        if self._audio is None and self.has_audio:
+            from picoware.system.audio import Audio
+
+            self._audio = Audio()
         return self._audio
 
     @property
@@ -315,8 +328,24 @@ class ViewManager:
     @property
     def has_audio(self):
         """Return whether the current board has audio capability."""
-        return self._audio is not None
+        from picoware.system.boards import BOARD_HAS_AUDIO
 
+        return BOARD_HAS_AUDIO == 1
+
+    @property
+    def has_bluetooth(self):
+        """Return whether the current board has Bluetooth capability."""
+        from picoware.system.boards import BOARD_HAS_BLUETOOTH
+
+        return BOARD_HAS_BLUETOOTH == 1
+
+    @property
+    def has_keyboard(self):
+        """Return whether the current board has a keyboard."""
+        from picoware.system.boards import BOARD_HAS_KEYBOARD
+
+        return BOARD_HAS_KEYBOARD == 1
+    
     @property
     def has_psram(self):
         """Return whether the current board has PSRAM."""
@@ -334,12 +363,6 @@ class ViewManager:
         """Return whether the current board has WiFi capability."""
         return self._wifi is not None
 
-    @property
-    def has_bluetooth(self):
-        """Return whether the current board has Bluetooth capability."""
-        from picoware.system.boards import BOARD_HAS_BLUETOOTH
-
-        return BOARD_HAS_BLUETOOTH == 1
 
     @property
     def input_manager(self):
@@ -349,6 +372,18 @@ class ViewManager:
     @property
     def keyboard(self):
         """Return the Keyboard instance."""
+        if self._keyboard is None:
+            from picoware.gui.keyboard import Keyboard
+            from picoware.system.settings import Settings
+            from picoware.system.boards import BOARD_HAS_KEYBOARD
+            self._keyboard = Keyboard(
+                self._draw,
+                self._input_manager,
+                self._foreground_color,
+                self._background_color,
+                self._selected_color,
+            )
+            self._keyboard.show_keyboard = Settings.get(self._storage, "onscreen_keyboard", BOARD_HAS_KEYBOARD == 0)
         return self._keyboard
 
     @property
@@ -390,6 +425,11 @@ class ViewManager:
     def thread_manager(self):
         """Return the ThreadManager instance."""
         return self._thread_manager
+
+    @property
+    def uart(self):
+        """Return the UART instance."""
+        return self._uart
     
     @property
     def usb_video_stream(self):
@@ -569,11 +609,9 @@ class ViewManager:
             _mod = sys.modules.get(_name)
             if _mod is None:
                 continue
+            # Frozen modules report "picoware/gui/x.py", SD ones "/sd/firmware/picoware/gui/x.mpy"
             _file = getattr(_mod, "__file__", "")
-            if not (
-                _file.startswith("/sd/firmware/picoware/gui/")
-                or _file.startswith("/sd/firmware/picoware/applications/")
-            ):
+            if "picoware/gui/" not in _file and "picoware/applications/" not in _file:
                 continue
             # Keep packages
             if _file.endswith("__init__.mpy") or _file.endswith("__init__.py"):

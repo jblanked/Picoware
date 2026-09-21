@@ -10,7 +10,35 @@ CAMERA_THIRD_PERSON = const(1)  # Render from external camera position
 
 
 class Camera(engine.Camera):
-    """Camera parameters for 3D rendering"""
+    """Store camera parameters for 3D rendering.
+
+    Args:
+        position (Vector): Camera position. Defaults to Vector(0, 0, 0).
+        direction (Vector): View direction. Defaults to Vector(1, 0, 0).
+        plane (Vector): Camera plane. Defaults to Vector(0, 0.66, 0).
+        height (float): Camera height. Defaults to 1.0.
+        distance (float): View distance. Defaults to 2.0.
+        perspective (int): Camera perspective type. Defaults to CAMERA_FIRST_PERSON.
+
+    Attributes:
+        position (Vector): World-space camera position. Writable.
+        direction (Vector): Camera view direction. Writable.
+        plane (Vector): Camera plane used for projection. Writable.
+        height (float): Camera height above the ground. Writable.
+        distance (float): Distance to the projection plane. Writable.
+        perspective (int): Camera perspective mode. Writable.
+        CAMERA_FIRST_PERSON (int): First-person camera perspective.
+        CAMERA_THIRD_PERSON (int): Third-person camera perspective.
+
+    Methods:
+        - set_position(position): Set the camera position.
+        - set_direction(direction): Set the camera view direction.
+        - set_plane(plane): Set the camera projection plane.
+        - set_height(height): Set the camera height.
+        - set_distance(distance): Set the camera projection distance.
+        - set_perspective(perspective): Set the camera perspective mode.
+        - __del__(): Release the native camera resources.
+    """
 
     def __init__(
         self,

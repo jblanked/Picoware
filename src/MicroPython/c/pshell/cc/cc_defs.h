@@ -1,5 +1,5 @@
 // clang-format off
-#ifndef DESKTOP
+#if defined(PICO_RP2040) || defined(PICO_RM2040) || defined(PICO_RP2350) || defined(PICO_RM2350)
 static const struct define_grp stdio_defines[] = {
     // OPEN
     {"TRUE", 1},

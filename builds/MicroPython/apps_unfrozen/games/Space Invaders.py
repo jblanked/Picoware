@@ -37,6 +37,8 @@ ENEMY_SPACING = 20
 class Bullet:
     """Bullet object"""
 
+    __slots__ = ("x", "y", "vy", "active", "pos", "size")
+
     def __init__(self, x: int, y: int, vy: int):
         self.x = x
         self.y = y
@@ -61,11 +63,13 @@ class Bullet:
         """Draw the bullet"""
         if self.active:
             self.pos.x, self.pos.y = int(self.x), int(self.y)
-            draw.fill_rectangle(self.pos, self.size, color)
+            draw._fill_rectangle(self.pos.x, self.pos.y, self.size.x, self.size.y, color)
 
 
 class Enemy:
     """Enemy alien object"""
+
+    __slots__ = ("x", "y", "active", "pos", "size", "eye_pos")
 
     def __init__(self, x: int, y: int):
         self.x = x
@@ -87,12 +91,12 @@ class Enemy:
         """Draw the enemy"""
         if self.active:
             self.pos.x, self.pos.y = int(self.x), int(self.y)
-            draw.fill_rectangle(self.pos, self.size, 0xFFFF if is_flipper else TFT_GREEN)
+            draw._fill_rectangle(self.pos.x, self.pos.y, self.size.x, self.size.y, 0xFFFF if is_flipper else TFT_GREEN)
             # Draw eyes
             self.eye_pos.x, self.eye_pos.y = int(self.x) + 2, int(self.y) + 2
-            draw.pixel(self.eye_pos, TFT_BLACK)
+            draw._pixel(self.eye_pos.x, self.eye_pos.y, TFT_BLACK)
             self.eye_pos.x = int(self.x) + ENEMY_WIDTH - 3
-            draw.pixel(self.eye_pos, TFT_BLACK)
+            draw._pixel(self.eye_pos.x, self.eye_pos.y, TFT_BLACK)
 
 
 def start(view_manager) -> bool:

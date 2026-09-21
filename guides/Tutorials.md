@@ -3,6 +3,8 @@
 Here are some tutorials and reviews to help you get started with Picoware:
 
 ## Reviews/Application Walkthroughs
+- Flipper Zero, Cardputer-ADV & PicoCalc's NEW Update is HERE: Picoware 2.3.0!: https://www.youtube.com/watch?v=Y2zukTH5JVs
+- I Compared the Cardputer ADV and PicoCalc (Here's What I Found): https://youtu.be/hwvlXrUhRcU
 - How JBlanked Connects Flipper Zero, Cardputer, and PicoCalc to Local AI with ZimaBoard 2: https://shop.zimaspace.com/blogs/zima-campaign-hub/jblanked-local-ai-flipper-zero-cardputer-picocalc-zimaboard-2
 - Flipper Zero, Cardputer, & PicoCalc's NEW Update!: https://www.youtube.com/watch?v=XzD6KjAB0qg
 - I Connected Flipper Zero, Cardputer, and PicoCalc to a Local AI Server (ZimaBoard 2): https://www.youtube.com/watch?v=_tbYPqLZqvo

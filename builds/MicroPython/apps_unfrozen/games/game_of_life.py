@@ -8,8 +8,7 @@
 #
 # A simple implementation of Conway's Game of Life
 from random import random, choice
-from picoware.system.vector import Vector
-from picoware.system.colors import TFT_BLACK, TFT_RED, TFT_GREEN, TFT_BLUE
+from picoware.system.colors import TFT_BLACK, TFT_RED, TFT_GREEN, TFT_BLUE, TFT_WHITE
 
 is_flipper = False
 from picoware.system.buttons import BUTTON_BACK, BUTTON_CENTER
@@ -115,8 +114,6 @@ def pick_birth_color_ram(x, y, grid_data):
 
 
 _COLORS = {}
-_vec_size = None
-_vec_pos = None
 
 
 def draw(display):
@@ -127,10 +124,8 @@ def draw(display):
         for x in range(GRID_SIZE):
             color = _COLORS.get(_current_grid[idx], TFT_BLACK)
             if color != TFT_BLACK:  # Skip drawing black pixels for speed
-                _vec_pos.x = x * CELL_SIZE
-                _vec_pos.y = y * CELL_SIZE
                 display._fill_rectangle(
-                    _vec_pos.x, _vec_pos.y, _vec_size.x, _vec_size.y, color
+                    x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE, color
                 )
             idx += 1
     display.swap()
@@ -139,7 +134,7 @@ def draw(display):
 def start(view_manager) -> bool:
     """Start the app"""
     from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
-    global _current_grid, _next_grid, _neighbor_counts, _vec_size, _vec_pos, _COLORS, GRID_PIXELS, CELL_SIZE, GRID_SIZE, GRID_BYTES, is_flipper
+    global _current_grid, _next_grid, _neighbor_counts, _COLORS, GRID_PIXELS, CELL_SIZE, GRID_SIZE, GRID_BYTES, is_flipper
 
     is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
 
@@ -148,9 +143,6 @@ def start(view_manager) -> bool:
     GRID_SIZE = GRID_PIXELS // CELL_SIZE  # 53x53 grid
     GRID_BYTES = GRID_SIZE * GRID_SIZE
 
-    _vec_size = Vector(CELL_SIZE, CELL_SIZE)
-    _vec_pos = Vector(0, 0)
-
     _COLORS = {
         0: TFT_BLACK,  # dead = black
         1: TFT_RED,  # red
@@ -158,8 +150,8 @@ def start(view_manager) -> bool:
         3: TFT_BLUE,  # blue
     }
     if is_flipper:
-        for k in _COLORS:
-            if _COLORS[k] != TFT_BLACK:
+        for k, v in _COLORS.items():
+            if v != TFT_BLACK:
                 _COLORS[k] = TFT_WHITE
 
     _current_grid = bytearray(GRID_BYTES)
@@ -194,10 +186,8 @@ def stop(view_manager) -> None:
     """Stop the app and free resources"""
     from gc import collect
 
-    global _current_grid, _next_grid, _neighbor_counts, _vec_size, _vec_pos, _COLORS
+    global _current_grid, _next_grid, _neighbor_counts, _COLORS
 
-    _vec_size = None
-    _vec_pos = None
     _COLORS = {}
 
     _current_grid = None

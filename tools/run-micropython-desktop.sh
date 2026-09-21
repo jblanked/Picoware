@@ -6,7 +6,7 @@ picoware_dir=$(CDPATH= cd -- "$script_dir/.." && pwd)
 build_dir=${PICOWARE_DESKTOP_BUILD_DIR:-"$picoware_dir/builds/MicroPython/desktop"}
 binary="$build_dir/micropython"
 
-if [ ! -x "$binary" ]; then
+if [ ! -x "$binary" ] || ! "$binary" -c 'import engine, ghouls, mjs' >/dev/null 2>&1; then
     sh "$script_dir/micropython-desktop.sh"
 fi
 
@@ -26,4 +26,5 @@ else
 fi
 
 cd "$picoware_dir"
-exec "$binary" simulator/run.py "$@"
+# Python mesh objects need more host memory than the firmware's packed triangles.
+exec "$binary" -X "heapsize=${PICOWARE_DESKTOP_HEAP_SIZE:-16M}" simulator/run.py "$@"

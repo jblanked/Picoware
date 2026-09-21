@@ -1,12 +1,13 @@
 /*
     Custom linker script for Flipper Zero (STM32WB55RG).
-    Top 256K (RADIO) is reserved for FUS + wireless stack.
+    App region ends at 0x080D7000 where the stock BLE stack (BLE_LIGHT) starts;
+    the stack runs up to the FUS at 0x080F4000.
 */
 
 MEMORY
 {
-    FLASH (rx)      : ORIGIN = 0x08000000, LENGTH = 768K
-    RADIO (r)       : ORIGIN = 0x080C0000, LENGTH = 256K /* FUS + WS */
+    FLASH (rx)      : ORIGIN = 0x08000000, LENGTH = 860K /* app, stops below BLE stack */
+    RADIO (r)       : ORIGIN = 0x080D7000, LENGTH = 164K /* BLE stack + FUS */
     RAM (xrw)       : ORIGIN = 0x20000000, LENGTH = 192K /* SRAM1 */
     RAM2A (xrw)     : ORIGIN = 0x20030000, LENGTH = 10K  /* SRAM2A */
     RAM2B (xrw)     : ORIGIN = 0x20038000, LENGTH = 10K  /* SRAM2B */
@@ -30,14 +31,14 @@ SECTIONS
     {
         . = ALIGN(4);
         . = . + 64;
-        *rfcore.o(.bss.ipcc_mem_*)
+        *(.bss.ipcc_mem_*)
         . = ALIGN(4);
     } >RAM2A
 
     .ram2b_bss :
     {
         . = ALIGN(4);
-        *rfcore.o(.bss.ipcc_membuf_*)
+        *(.bss.ipcc_membuf_*)
         . = ALIGN(4);
     } >RAM2B
 }

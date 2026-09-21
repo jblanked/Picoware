@@ -29,6 +29,13 @@
 #include "esp_timer.h"
 #define TIME_INCLUDE "esp_timer.h"
 #define TIME_MILLIS esp_timer_get_time() / 1000
+#elif defined(DESKTOP)
+extern "C"
+{
+#include "py/mphal.h"
+}
+#define TIME_INCLUDE "py/mphal.h"
+#define TIME_MILLIS mp_hal_ticks_ms()
 #else
 #include "pico/time.h"
 #define TIME_INCLUDE "pico/time.h"

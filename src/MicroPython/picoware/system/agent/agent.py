@@ -18,7 +18,7 @@ MODE_CHAT = const(0) # general chat mode
 MODE_APP_CREATOR = const(1) # creates/edits Picoware apps
 MODE_DEVICE_MANAGER = const(2) # manages files, has network access, can run commands, etc.
 
-MAX_TOOL_ITERATIONS = const(50)
+MAX_TOOL_ITERATIONS = const(500)
 MAX_CONVERSATION_MESSAGES = const(20)
 
 class Agent:
@@ -36,6 +36,10 @@ class Agent:
         "_mcp",
         "_mcp_tool_routes",
         "_mcp_tool_schemas",
+        "_current_task",
+        "_running",
+        "_lock",
+        "_response",
     ]
 
     def __init__(self, view_manager, mode: int = MODE_CHAT, llm: LLM = None, file_path: str = "picoware/settings/agent_request.json"):
@@ -52,18 +56,29 @@ class Agent:
         self.mode = mode
         self.tools = []
         self.llm = llm if llm is not None else LLM(view_manager.storage, DEEPSEEK)
-        self.http = HTTP(thread_manager=view_manager.thread_manager)
+        self.http = HTTP(view_manager=view_manager)
         self._file_path = file_path
         self._conv_path = "picoware/settings/agent_conv.json"
         self._mem_path = "picoware/settings/agent_mem.json"
         self._msg_path = "picoware/settings/agent_msg.json"
+        self._current_task = None
+        self._running = False
+        self._lock = None
+        try:
+            from _thread import allocate_lock
+            self._lock = allocate_lock()
+        except ImportError:
+            pass
+        self._response = None
 
         from picoware.system.settings import Settings
         settings = Settings(view_manager.storage)
-        self._mcp = MCPClient(
-            self.http,
-            settings.mcp_servers,
-        )
+        self._mcp = None
+        if settings.mcp_servers:
+            self._mcp = MCPClient(
+                self.http,
+                settings.mcp_servers,
+            )
         self._mcp_tool_routes = {}
         self._mcp_tool_schemas = []
 
@@ -79,12 +94,52 @@ class Agent:
         self._mcp_tool_schemas.clear()
         self._mcp = None
         self.llm = None
+        self.close()
+        self._lock = None
         self.http = None
     
     @property
     def file_path(self) -> str:
         """Get the file path associated with the agent."""
         return self._file_path
+
+    @property
+    def in_progress(self) -> bool:
+        """Check if the agent is currently running a task."""
+        if self._lock is None:
+            return False
+        with self._lock:
+            return self._running
+
+    @property
+    def response(self) -> str | dict | None:
+        """Get the latest response from the agent.
+
+        Returns:
+            str | dict | None: The session result dict after a session run,
+                the response text otherwise, or None when no run completed.
+        """
+        if self._lock is None:
+            return "API error: lock not available"
+        with self._lock:
+            return self._response
+
+    def _store_response(self, response, done: bool = False) -> None:
+        """Store the latest response for the caller to pick up.
+
+        Args:
+            response (str or dict): The response to store.
+            done (bool): Clear the running flag when True. Defaults to False.
+        """
+        if self._lock is None:
+            self._response = response
+            if done:
+                self._running = False
+            return
+        with self._lock:
+            self._response = response
+            if done:
+                self._running = False
 
     def _parse_tool_arguments(self, raw_args) -> dict:
         """Parse tool-call arguments defensively into a dict.
@@ -185,7 +240,7 @@ class Agent:
                 n = storage.file_readinto(src, buf)
                 if not n:
                     break
-                chunk = carry + buf[:n].decode('utf-8')
+                chunk = carry + str(memoryview(buf)[:n], 'utf-8')
                 if chunk.endswith('\\'):
                     carry = '\\'
                     chunk = chunk[:-1]
@@ -198,6 +253,13 @@ class Agent:
                 storage.write(dst_path, '\\\\', mode="a")
         finally:
             storage.file_close(src)
+
+    def _should_continue(self) -> bool:
+        """Check if the request should continue running."""
+        with self._lock:
+            if self.view_manager.thread_manager is not None and self._current_task is not None:
+                return self._running and not self._current_task.should_stop
+            return self._running
 
     def _write_system_message(self, storage) -> None:
         """Write the system message to the conversation file.
@@ -213,7 +275,7 @@ class Agent:
     def _build_tools(self) -> list[dict]:
         """Build built-in and currently selected MCP tool schemas."""
         tools = [tool.json_openai for tool in dispatch.get_tool_list()]
-        if self._mcp.enabled:
+        if self._mcp is not None and self._mcp.enabled:
             tools.extend(
                 [
                     MCP_LIST_SERVERS_TOOL,
@@ -225,6 +287,11 @@ class Agent:
 
     def _select_mcp_server(self, args: dict) -> dict:
         """Select an MCP server and expose its discovered tools."""
+        if self._mcp is None:
+            return {
+                "server": None,
+                "tools": [],
+            }
         server_id = args.get("server_id") if isinstance(args, dict) else None
         server, tools = self._mcp.select_server(server_id)
         self._mcp_tool_routes.clear()
@@ -300,13 +367,14 @@ class Agent:
 
     def _execute_tool(self, name: str, args: dict):
         """Execute a built-in or selected MCP tool."""
-        if name == MCP_LIST_SERVERS_TOOL_NAME:
-            return self._mcp.list_servers()
-        if name == MCP_SELECT_SERVER_TOOL_NAME:
-            return self._select_mcp_server(args)
-        route = self._mcp_tool_routes.get(name)
-        if route is not None:
-            return self._mcp.call_tool(route[0], route[1], args)
+        if self._mcp is not None:
+            if name == MCP_LIST_SERVERS_TOOL_NAME:
+                return self._mcp.list_servers()
+            if name == MCP_SELECT_SERVER_TOOL_NAME:
+                return self._select_mcp_server(args)
+            route = self._mcp_tool_routes.get(name)
+            if route is not None:
+                return self._mcp.call_tool(route[0], route[1], args)
         return dispatch.execute_tool(self.view_manager, name, args)
 
     def _build_request(self, tools: list[dict]) -> None:
@@ -333,7 +401,7 @@ class Agent:
                     n = storage.file_readinto(conv_file, buf)
                     if not n:
                         break
-                    storage.write(self._file_path, buf[:n], mode="b")
+                    storage.write(self._file_path, memoryview(buf)[:n], mode="b")
             finally:
                 storage.file_close(conv_file)
 
@@ -355,14 +423,13 @@ class Agent:
         storage.write(self._file_path, "}", mode="a")
 
 
-    def _run_loop(self) -> str:
+    def _run_loop(self, timeout: int = 300) -> str:
         """Run the model/tool loop until a final reply is produced.
 
         Returns:
             str: The final assistant text, or an error message.
         """
         storage = self.view_manager.storage
-
         for _ in range(MAX_TOOL_ITERATIONS):
             # Build request from conversation
             tools = self._build_tools()
@@ -372,10 +439,17 @@ class Agent:
                 self.llm.url,
                 headers=self.llm.headers,
                 payload=None,
-                timeout=120,
+                timeout=timeout,
                 storage=storage,
                 send_file=self._file_path,
             )
+
+            if not self._should_continue():
+                self.close()
+                break
+
+            if response is None:
+                return f"API error: No response from model API: {self.http.error}"
 
             try:
                 data = response.json()
@@ -401,7 +475,6 @@ class Agent:
                 content = message.get("content", "")
                 # Store final reply
                 self._conv_append({"role": "assistant", "content": content})
-                self.view_manager.log(f"[Agent] Final response: {content}")
                 return content if isinstance(content, str) else str(content)
 
             # Store assistant message
@@ -414,6 +487,9 @@ class Agent:
             self._conv_append(assistant_message)
 
             for tool_call in message["tool_calls"]:
+                if not self._should_continue():
+                    self.close()
+                    break
                 name = tool_call["function"]["name"]
                 raw_args = tool_call["function"].get("arguments", "{}")
                 args = self._parse_tool_arguments(raw_args)
@@ -476,6 +552,16 @@ class Agent:
             return sanitized[-max_messages:]
         return sanitized
 
+    def close(self) -> None:
+        """Close the agent and stop any running tasks."""
+        if self._lock is not None:
+            with self._lock:
+                self._running = False
+                self._response = None
+                if self._current_task is not None:
+                    self._current_task.stop()
+                    self._current_task = None
+
 
     def run(self,topic: str, conversation: list[dict] | None = None, context=None) -> str:
         """Run the agent for a prompt and return the response text.
@@ -496,6 +582,25 @@ class Agent:
         if context is not None:
             s.write(self._mem_path, f"{context.strip()}\n", mode="a")
         else:
+            if self.mode == MODE_APP_CREATOR:
+                if not s.exists("picoware/assets/agents/app_creator_context.md"):
+                    if not s.mkdir("picoware/assets"):
+                        return "An error occurred during processing: Failed to create directory for agent context."
+                    if not s.mkdir("picoware/assets/agents"):
+                        return "An error occurred during processing: Failed to create directory for agent context."
+                    self.view_manager.log("Fetching app creator context...")
+                    # https://raw.githubusercontent.com/{_github_author}/{_github_repo}/HEAD/{path}
+                    response = self.http.request("GET", "https://raw.githubusercontent.com/jblanked/Picoware/dev/builds/MicroPython/assets/agent/app_creator_context.md", save_to_file="picoware/assets/agents/app_creator_context.md", storage=s, headers={
+                                                "User-Agent": "Raspberry Pi Pico W",
+                                                "Content-Type": "application/octet-stream",
+                                            }
+                                )
+                    if response is None:
+                        self.view_manager.log("Failed to fetch app creator context.")
+                        return "An error occurred during processing: No agent context found and response was None."
+                    if not s.exists("picoware/assets/agents/app_creator_context.md"):
+                        return "An error occurred during processing: Request finished but file does not exist."
+                    self.view_manager.log("App creator context fetched successfully.")
             f = s.file_open(self._mem_path)
             if f is not None:
                 try:
@@ -511,7 +616,20 @@ class Agent:
                         s.file_write(f, b"\n", mode="b")
                         s.file_write(f, app_creator.WORKFLOW, mode="b")
                         s.file_write(f, b"\n", mode="b")
-                        s.file_write(f, app_creator.CONTEXT, mode="b")
+                        _ctx_file = s.file_open("picoware/assets/agents/app_creator_context.md")
+                        if _ctx_file is not None:
+                            try:
+                                temp_buffer = bytearray(1024)
+                                while True:
+                                    _count = s.file_readinto(_ctx_file, temp_buffer)
+                                    if _count <= 0:
+                                        break
+                                    if not s.file_write(f, memoryview(temp_buffer)[:_count], mode="b"):
+                                        break
+                            except Exception as exc:
+                                self.view_manager.log(f"Error while writing app creator context: {exc}")
+                            finally:
+                                s.file_close(_ctx_file)
                         s.file_write(f, b"\n", mode="b")
                     elif self.mode == MODE_DEVICE_MANAGER:
                         s.file_write(f, device_manager.PROMPT, mode="b")
@@ -529,13 +647,18 @@ class Agent:
         messages.append({"role": "user", "content": user_message})
 
         try:
-            self._mcp.reset()
-            self._mcp_tool_routes.clear()
-            self._mcp_tool_schemas.clear()
+            if self._mcp is not None:
+                self._mcp.reset()
+                self._mcp_tool_routes.clear()
+                self._mcp_tool_schemas.clear()
             self._conv_write_initial(messages)
-            return self._run_loop()
+            result = self._run_loop()
+            self._store_response(result)
+            return result
         except Exception as exc:
-            return f"An error occurred during processing: {exc}"
+            result = f"An error occurred during processing: {exc}"
+            self._store_response(result)
+            return result
 
     def run_payload(self, payload: dict) -> dict:
         """Run the agent with a JSON payload and return a structured response.
@@ -601,11 +724,13 @@ class Agent:
         try:
             session = Session(self.view_manager, session_id=session_id)
         except Exception as exc:
-            return {
+            result = {
                 "status": "error",
                 "message": f"Failed to load session: {exc}",
                 "conversation": [],
             }
+            self._store_response(result, done=True)
+            return result
 
         payload = {
             "message": user_message,
@@ -621,6 +746,38 @@ class Agent:
                 ]
             )
 
+        self._store_response(result, done=True)
         return result
 
+    def run_session_async(self, session_id: str, user_message: str) -> bool:
+        """Start a session on another thread.
+
+        The session result is available from the response property once
+        in_progress returns False.
+
+        Args:
+            session_id (str): The unique identifier for the session.
+            user_message (str): The user's message to process.
+
+        Returns:
+            bool: True if the session was successfully started, False otherwise.
+        """
+        if self.view_manager.thread_manager is None:
+            self.view_manager.log("Thread manager not available.")
+            return False
+        try:
+            self._running = True
+            from picoware.system.thread import ThreadTask
+            task = ThreadTask(
+                "Agent",
+                self.run_session,
+                (session_id, user_message)
+            )
+            self._current_task = task
+            self.view_manager.thread_manager.add_task(task)
+            return True
+        except Exception as exc:
+            self.view_manager.log(f"Failed to start session async: {exc}")
+            self._running = False
+            return False
     

@@ -163,7 +163,7 @@ static esp_err_t display_setup_panel(void)
                                                                   WATCH_LCD_DATA1_GPIO,
                                                                   WATCH_LCD_DATA2_GPIO,
                                                                   WATCH_LCD_DATA3_GPIO,
-                                                                  LCD_WIDTH * LCD_HEIGHT * BITS_PER_PIXEL / 8);
+                                                                  LCD_WIDTH * LCD_SWAP_LINES * sizeof(uint16_t));
 
     esp_err_t err = spi_bus_initialize(WATCH_LCD_HOST, &bus_cfg, SPI_DMA_CH_AUTO);
     if (err != ESP_OK && err != ESP_ERR_INVALID_STATE)
@@ -314,7 +314,7 @@ bool lcd_set_backlight(uint32_t brightness)
         return false;
     }
 
-    if (brightness < 0 || brightness > 100)
+    if (brightness > 100)
     {
         ESP_LOGE(TAG, "Invalid brightness percentage. Should be between 0 and 100.");
         return false;
@@ -733,6 +733,32 @@ void lcd_draw_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint1
     lcd_draw_line(x1, y1, x2, y2, color);
     lcd_draw_line(x2, y2, x3, y3, color);
     lcd_draw_line(x3, y3, x1, y1, color);
+}
+
+void lcd_polygon(uint16_t x[], uint16_t y[], int count, uint16_t color)
+{
+    for (int i = 0; i < count; i++)
+    {
+        int next = (i + 1) % count;
+        lcd_draw_line(x[i], y[i], x[next], y[next], color);
+    }
+}
+
+void lcd_fill_polygon(uint16_t x[], uint16_t y[], int count, uint16_t color)
+{
+    if (count < 3)
+        return;
+    for (int i = 1; i + 1 < count; ++i)
+        lcd_fill_triangle(x[0], y[0], x[i], y[i], x[i + 1], y[i + 1], color);
+}
+
+void lcd_fill_polygon_alpha(uint16_t x[], uint16_t y[], int count,
+                            uint16_t color, uint8_t alpha)
+{
+    if (count < 3)
+        return;
+    for (int i = 1; i + 1 < count; ++i)
+        lcd_fill_triangle_alpha(x[0], y[0], x[i], y[i], x[i + 1], y[i + 1], color, alpha);
 }
 
 void lcd_fill_round_rectangle(uint16_t x, uint16_t y, uint16_t width, uint16_t height,

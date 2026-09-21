@@ -55,11 +55,13 @@ struct sim_gb {
 
 static struct sim_gb *active_sim;
 
-static uint16_t dmg_palette[4] = {
-    0x9FE4,
-    0x6B64,
-    0x31A2,
-    0x0000,
+/* Desktop-only, same-build snapshots. Never store callable process addresses. */
+struct sim_state {
+    struct gb_s gb;
+    struct minigb_apu_ctx apu;
+    uint8_t cart_ram[CART_RAM_SIZE];
+    uint16_t frame[SIM_LCD_WIDTH * SIM_LCD_HEIGHT];
+    int frame_count;
 };
 
 static uint8_t audio_read(uint16_t addr)
@@ -82,6 +84,13 @@ static uint16_t read_le16(const uint8_t *data)
 {
     return (uint16_t)data[0] | ((uint16_t)data[1] << 8);
 }
+
+static uint16_t dmg_palette[4] = {
+    0x9FE4,
+    0x6B64,
+    0x31A2,
+    0x0000,
+};
 
 static uint32_t read_le32(const uint8_t *data)
 {
@@ -262,12 +271,17 @@ static int write_frame(const char *path, struct sim_gb *sim)
 
 static void write_status(const char *path, const char *state, int frame, int value)
 {
-    FILE *fp = fopen(path, "w");
+    char temporary[1024];
+    if (snprintf(temporary, sizeof(temporary), "%s.tmp", path) >= (int)sizeof(temporary)) {
+        return;
+    }
+    FILE *fp = fopen(temporary, "w");
     if (fp == NULL) {
         return;
     }
     fprintf(fp, "state=%s\nframe=%d\nvalue=%d\n", state, frame, value);
     fclose(fp);
+    rename(temporary, path);
 }
 
 static void sleep_frame(struct sim_gb *sim)
@@ -338,6 +352,97 @@ static void queue_audio_frame(struct sim_gb *sim)
     }
 }
 
+static void state_callbacks(struct gb_s *to, const struct gb_s *from)
+{
+    to->gb_rom_read = from->gb_rom_read;
+    to->gb_rom_read_16bit = from->gb_rom_read_16bit;
+    to->gb_rom_read_32bit = from->gb_rom_read_32bit;
+    to->gb_cart_ram_read = from->gb_cart_ram_read;
+    to->gb_cart_ram_write = from->gb_cart_ram_write;
+    to->gb_error = from->gb_error;
+    to->gb_serial_tx = from->gb_serial_tx;
+    to->gb_serial_rx = from->gb_serial_rx;
+    to->gb_bootrom_read = from->gb_bootrom_read;
+    to->display.lcd_draw_line = from->display.lcd_draw_line;
+    to->direct.priv = from->direct.priv;
+}
+
+static uint32_t state_hash(const void *data, size_t size)
+{
+    const uint8_t *bytes = data;
+    uint32_t hash = 2166136261u;
+    for (size_t i = 0; i < size; ++i) {
+        hash = (hash ^ bytes[i]) * 16777619u;
+    }
+    return hash;
+}
+
+static int state_transfer(struct sim_gb *sim, const char *path, int saving)
+{
+    if (path == NULL) {
+        return 1;
+    }
+    const char build[] = __DATE__ " " __TIME__;
+    uint32_t header[6] = {0x50474253, 1, sizeof(struct sim_state),
+        state_hash(sim->rom, sim->rom_size), state_hash(build, sizeof(build)), 0};
+    char temporary[1024];
+    if (snprintf(temporary, sizeof(temporary), "%s.tmp", path) >= (int)sizeof(temporary)) {
+        return 0;
+    }
+    FILE *file = fopen(saving ? temporary : path, saving ? "wb" : "rb");
+    if (file == NULL) {
+        return !saving && errno == ENOENT;
+    }
+    struct sim_state *state = calloc(1, sizeof(*state));
+    if (state == NULL) {
+        fclose(file);
+        return 0;
+    }
+    int ok;
+    if (saving) {
+        struct gb_s empty = {0};
+        state->gb = sim->gb;
+        state_callbacks(&state->gb, &empty);
+        state->apu = sim->apu;
+        memcpy(state->cart_ram, sim->cart_ram, sizeof(state->cart_ram));
+        memcpy(state->frame, sim->frame, sizeof(state->frame));
+        state->frame_count = sim->frame_count;
+        header[5] = state_hash(state, sizeof(*state));
+        ok = fwrite(header, sizeof(header), 1, file) == 1 &&
+            fwrite(state, sizeof(*state), 1, file) == 1;
+        if (fflush(file) != 0 || fsync(fileno(file)) != 0) {
+            ok = 0;
+        }
+    } else {
+        uint32_t actual[6];
+        ok = fread(actual, sizeof(actual), 1, file) == 1 &&
+            memcmp(header, actual, 5 * sizeof(uint32_t)) == 0 &&
+            fread(state, sizeof(*state), 1, file) == 1 && fgetc(file) == EOF &&
+            state_hash(state, sizeof(*state)) == actual[5];
+        if (ok) {
+            state_callbacks(&state->gb, &sim->gb);
+            sim->gb = state->gb;
+            sim->apu = state->apu;
+            memcpy(sim->cart_ram, state->cart_ram, sizeof(sim->cart_ram));
+            memcpy(sim->frame, state->frame, sizeof(sim->frame));
+            sim->frame_count = state->frame_count;
+        }
+    }
+    if (fclose(file) != 0) {
+        ok = 0;
+    }
+    free(state);
+    if (saving) {
+        if (ok) {
+            ok = rename(temporary, path) == 0;
+        }
+        if (!ok) {
+            unlink(temporary);
+        }
+    }
+    return ok;
+}
+
 static void close_audio(struct sim_gb *sim)
 {
     if (sim->audio_ready) {
@@ -350,8 +455,8 @@ static void close_audio(struct sim_gb *sim)
 
 int main(int argc, char **argv)
 {
-    if (argc != 5) {
-        fprintf(stderr, "usage: %s <rom> <frame.rgb565> <control.txt> <status.txt>\n", argv[0]);
+    if (argc != 5 && argc != 6) {
+        fprintf(stderr, "usage: %s <rom> <frame.rgb565> <control.txt> <status.txt> [state]\n", argv[0]);
         return 2;
     }
 
@@ -359,6 +464,7 @@ int main(int argc, char **argv)
     const char *frame_path = argv[2];
     const char *control_path = argv[3];
     const char *status_path = argv[4];
+    const char *state_path = argc == 6 ? argv[5] : NULL;
 
     struct sim_gb sim;
     memset(&sim, 0, sizeof(sim));
@@ -387,23 +493,39 @@ int main(int argc, char **argv)
     }
     gb_init_lcd(&sim.gb, draw_line);
     init_audio(&sim);
-    write_status(status_path, "running", 0, 0);
+    if (!state_transfer(&sim, state_path, 0)) {
+        fprintf(stderr, "[sim:gameboy] invalid, incompatible, or unreadable save state\n");
+        write_status(status_path, "error", 0, -2);
+        close_audio(&sim);
+        free(sim.rom);
+        return 1;
+    }
+    write_status(status_path, "running", sim.frame_count, 0);
 
     while (!sim.stop) {
         read_control(control_path, &sim);
+        if (sim.stop) {
+            break;
+        }
         apply_button(&sim);
         clear_frame(&sim);
         gb_run_frame_dualfetch(&sim.gb);
         queue_audio_frame(&sim);
         sim.frame_count++;
-        write_frame(frame_path, &sim);
+        if (!write_frame(frame_path, &sim)) {
+            write_status(status_path, "error", sim.frame_count, -4);
+            close_audio(&sim);
+            free(sim.rom);
+            return 1;
+        }
         write_status(status_path, "running", sim.frame_count, sim.button);
         sleep_frame(&sim);
     }
 
-    write_status(status_path, "stopped", sim.frame_count, sim.button);
+    int saved = state_transfer(&sim, state_path, 1);
+    write_status(status_path, saved ? "stopped" : "error", sim.frame_count, saved ? sim.button : -3);
     close_audio(&sim);
     free(sim.rom);
     active_sim = NULL;
-    return 0;
+    return saved ? 0 : 1;
 }

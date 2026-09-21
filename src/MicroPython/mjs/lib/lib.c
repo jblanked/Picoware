@@ -34,6 +34,10 @@ void lib_load_module(struct mjs *mjs)
         audio_create(mjs, &object);
         is_module_loaded = true;
         break;
+    case LIB_MODULE_BATTERY:
+        battery_create(mjs, &object);
+        is_module_loaded = true;
+        break;
     case LIB_MODULE_BLUETOOTH:
         bluetooth_create(mjs, &object);
         is_module_loaded = true;
@@ -85,6 +89,10 @@ void lib_load_module(struct mjs *mjs)
         uart_create(mjs, &object);
         is_module_loaded = true;
         break;
+    case LIB_MODULE_VIDEO:
+        video_create(mjs, &object);
+        is_module_loaded = true;
+        break;
     case LIB_MODULE_WEBSOCKET:
         websocket_create(mjs, &object);
         is_module_loaded = true;
@@ -112,6 +120,10 @@ lib_module_t lib_module_from_str(const char *str)
     if (strcmp(str, "audio") == 0)
     {
         return LIB_MODULE_AUDIO;
+    }
+    else if (strcmp(str, "battery") == 0)
+    {
+        return LIB_MODULE_BATTERY;
     }
     else if (strcmp(str, "bluetooth") == 0)
     {
@@ -165,6 +177,10 @@ lib_module_t lib_module_from_str(const char *str)
     {
         return LIB_MODULE_UART;
     }
+    else if (strcmp(str, "video") == 0)
+    {
+        return LIB_MODULE_VIDEO;
+    }
     else if (strcmp(str, "websocket") == 0)
     {
         return LIB_MODULE_WEBSOCKET;
@@ -192,7 +208,11 @@ void lib_unload_modules()
 {
     for (size_t i = 0; i < LIB_MODULE_COUNT; i++)
     {
-        if (lib_loaded_modules[i] == LIB_MODULE_BLUETOOTH)
+        if (lib_loaded_modules[i] == LIB_MODULE_BATTERY)
+        {
+            battery_destroy();
+        }
+        else if (lib_loaded_modules[i] == LIB_MODULE_BLUETOOTH)
         {
             bluetooth_destroy();
         }
@@ -215,6 +235,10 @@ void lib_unload_modules()
         else if (lib_loaded_modules[i] == LIB_MODULE_UART)
         {
             uart_destroy();
+        }
+        else if (lib_loaded_modules[i] == LIB_MODULE_VIDEO)
+        {
+            video_destroy();
         }
         else if (lib_loaded_modules[i] == LIB_MODULE_WIFI)
         {

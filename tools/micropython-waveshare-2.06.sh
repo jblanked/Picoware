@@ -128,6 +128,8 @@ for module_path in \
     jsmn \
     http \
     websocket \
+    c \
+    mmbasic \
     video; do
     rm -rf "$micropython_dir/modules/$module_path"
 done
@@ -300,7 +302,7 @@ cd "$micropython_dir"
 
 # Keep ESP-IDF warnings from failing the build, keep legacy I2C API checks permissive,
 # and force the Cardputer board define for preprocess-only qstr generation paths.
-export EXTRA_CFLAGS="-Wno-maybe-uninitialized -Wno-error=maybe-uninitialized -DCONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=1 -DWAVESHARE_2_06"
+export CFLAGS_EXTRA="-Wno-maybe-uninitialized -Wno-error=maybe-uninitialized -DCONFIG_I2C_SKIP_LEGACY_CONFLICT_CHECK=1 -DWAVESHARE_2_06 -DESP32"
 
 make BOARD=ESP32_GENERIC_S3 \
     USER_C_MODULES="$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06/micropython.cmake" \

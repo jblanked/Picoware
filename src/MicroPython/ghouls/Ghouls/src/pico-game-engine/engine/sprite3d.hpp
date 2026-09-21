@@ -6,6 +6,10 @@
 
 #include ENGINE_MEM_INCLUDE
 
+#ifndef ENGINE_MAX_TRIANGLES_PER_SPRITE
+#define ENGINE_MAX_TRIANGLES_PER_SPRITE 64
+#endif
+
 typedef enum
 {
     SPRITE_HUMANOID = 0,

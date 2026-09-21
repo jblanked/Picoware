@@ -835,6 +835,415 @@ void lcd_draw_triangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,
     lcd_draw_line(x3, y3, x1, y1, color);
 }
 
+void lcd_polygon(uint16_t x[], uint16_t y[], int count, uint16_t color)
+{
+    if (count < 2)
+        return;
+
+    uint8_t color_index = color565_to_332(color);
+    int ix1 = (int)x[count - 1], iy1 = (int)y[count - 1];
+
+    for (int i = 0; i < count; i++)
+    {
+        int ix2 = (int)x[i], iy2 = (int)y[i];
+
+        // Fast path - horizontal edge
+        if (iy1 == iy2)
+        {
+            int ax = (ix1 < ix2) ? ix1 : ix2;
+            int bx = (ix1 < ix2) ? ix2 : ix1;
+            if (lcd_mode == LCD_MODE_PSRAM)
+                psram_write_hline(ax, iy1, bx - ax + 1, color_index);
+            else
+                heap_write_hline(ax, iy1, bx - ax + 1, color_index);
+        }
+        else // Bresenham's line algorithm
+        {
+            int dx = abs(ix2 - ix1), dy = abs(iy2 - iy1);
+            int sx = (ix1 < ix2) ? 1 : -1;
+            int sy = (iy1 < iy2) ? 1 : -1;
+            int err = dx - dy;
+
+            while (true)
+            {
+                if (ix1 >= 0 && ix1 < DISPLAY_WIDTH && iy1 >= 0 && iy1 < DISPLAY_HEIGHT)
+                {
+                    if (lcd_mode == LCD_MODE_PSRAM)
+                        psram_qspi_write8(&psram_instance,
+                                          PSRAM_FRAMEBUFFER_ADDR + (iy1 * PSRAM_ROW_SIZE) + ix1, color_index);
+                    else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
+                        heap_framebuffer[iy1 * DISPLAY_WIDTH + ix1] = color_index;
+                }
+
+                if (ix1 == ix2 && iy1 == iy2)
+                    break;
+
+                int e2 = 2 * err;
+                if (e2 > -dy)
+                {
+                    err -= dy;
+                    ix1 += sx;
+                }
+                if (e2 < dx)
+                {
+                    err += dx;
+                    iy1 += sy;
+                }
+            }
+        }
+
+        ix1 = ix2;
+        iy1 = iy2;
+    }
+}
+
+void lcd_fill_polygon(uint16_t x[], uint16_t y[], int count, uint16_t color)
+{
+    if (count < 3)
+        return;
+
+    uint8_t color_index = color565_to_332(color);
+
+    // Edge x at top vertex (14.14 fixed point), row step, vertex levels
+    int xtop[count], dxf[count], ys[count];
+
+    for (int i = 0; i < count; i++)
+    {
+        int j = (i + 1 == count) ? 0 : i + 1;
+        int y0 = (int)y[i], y1 = (int)y[j], x0 = (int)x[i], x1 = (int)x[j];
+        int top_x = (y0 <= y1) ? x0 : x1;
+        int bot_x = (y0 <= y1) ? x1 : x0;
+        int rows = (y0 <= y1) ? (y1 - y0) : (y0 - y1);
+
+        xtop[i] = top_x << 14;
+        dxf[i] = rows ? (int)(((int64_t)(bot_x - top_x) << 14) / rows) : 0;
+        ys[i] = (int)y[i];
+    }
+
+    // Sort vertex levels
+    for (int a = 1; a < count; a++)
+    {
+        int v = ys[a], b = a - 1;
+        while (b >= 0 && ys[b] > v)
+        {
+            ys[b + 1] = ys[b];
+            b--;
+        }
+        ys[b + 1] = v;
+    }
+
+    int xa[count], dxa[count], xs[count];
+
+    // Horizontal cut at every vertex: sides stay straight inside a band
+    for (int b = 0; b + 1 < count; b++)
+    {
+        int ya = ys[b], yb = ys[b + 1];
+        if (ya == yb)
+            continue;
+
+        int row0 = (ya < 0) ? 0 : ya;
+        int row1 = (yb > DISPLAY_HEIGHT) ? DISPLAY_HEIGHT : yb;
+        if (row0 >= row1)
+            continue;
+
+        // Sides crossing this band, x at first row
+        int n = 0;
+        for (int i = 0; i < count; i++)
+        {
+            int j = (i + 1 == count) ? 0 : i + 1;
+            int y0 = (int)y[i], y1 = (int)y[j];
+            int top = (y0 < y1) ? y0 : y1;
+            int bot = (y0 < y1) ? y1 : y0;
+
+            if (top <= ya && bot > ya)
+            {
+                xa[n] = xtop[i] + (row0 - top) * dxf[i];
+                dxa[n] = dxf[i];
+                n++;
+            }
+        }
+
+        if (n < 2)
+            continue;
+
+        // Order sides once (equal x: flatter side is left)
+        for (int a = 1; a < n; a++)
+        {
+            int v = xa[a], s = dxa[a], k = a - 1;
+            while (k >= 0 && (xa[k] > v || (xa[k] == v && dxa[k] > s)))
+            {
+                xa[k + 1] = xa[k];
+                dxa[k + 1] = dxa[k];
+                k--;
+            }
+            xa[k + 1] = v;
+            dxa[k + 1] = s;
+        }
+
+        if (n == 2)
+        {
+            // Two sides: trace both with Bresenham steps
+            int xl = xa[0], xr = xa[1], dl = dxa[0], dr = dxa[1];
+
+            for (int py = row0; py < row1; py++)
+            {
+                int ax = xl >> 14, bx = xr >> 14;
+                xl += dl;
+                xr += dr;
+
+                if (bx < 0 || ax >= DISPLAY_WIDTH || bx < ax)
+                    continue;
+                if (ax < 0)
+                    ax = 0;
+                if (bx >= DISPLAY_WIDTH)
+                    bx = DISPLAY_WIDTH - 1;
+
+                if (lcd_mode == LCD_MODE_PSRAM)
+                    psram_write_hline(ax, py, bx - ax + 1, color_index);
+                else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
+                    heap_write_hline(ax, py, bx - ax + 1, color_index);
+            }
+            continue;
+        }
+
+        for (int py = row0; py < row1; py++)
+        {
+            for (int k = 0; k < n; k++)
+            {
+                xs[k] = xa[k] >> 14;
+                xa[k] += dxa[k];
+            }
+
+            // Sides keep order; re-sort if a crossing flipped them
+            bool ordered = true;
+            for (int k = 1; k < n; k++)
+                if (xs[k] < xs[k - 1])
+                {
+                    ordered = false;
+                    break;
+                }
+
+            if (!ordered)
+                for (int a = 1; a < n; a++)
+                {
+                    int v = xs[a], k = a - 1;
+                    while (k >= 0 && xs[k] > v)
+                    {
+                        xs[k + 1] = xs[k];
+                        k--;
+                    }
+                    xs[k + 1] = v;
+                }
+
+            for (int k = 0; k + 1 < n; k += 2)
+            {
+                int ax = xs[k], bx = xs[k + 1];
+                if (bx < 0 || ax >= DISPLAY_WIDTH || bx < ax)
+                    continue;
+                if (ax < 0)
+                    ax = 0;
+                if (bx >= DISPLAY_WIDTH)
+                    bx = DISPLAY_WIDTH - 1;
+
+                if (lcd_mode == LCD_MODE_PSRAM)
+                    psram_write_hline(ax, py, bx - ax + 1, color_index);
+                else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
+                    heap_write_hline(ax, py, bx - ax + 1, color_index);
+            }
+        }
+    }
+}
+
+void lcd_fill_polygon_alpha(uint16_t x[], uint16_t y[], int count,
+                            uint16_t color, uint8_t alpha)
+{
+    if (count < 3 || alpha == 0)
+        return;
+
+    if (alpha == 255)
+    {
+        lcd_fill_polygon(x, y, count, color);
+        return;
+    }
+
+    // Extract source RGB565 components
+    uint8_t sr = (color >> 11) & 0x1F;
+    uint8_t sg = (color >> 5) & 0x3F;
+    uint8_t sb = color & 0x1F;
+    uint8_t inv_alpha = 255 - alpha;
+
+    // Edge x at top vertex (14.14 fixed point), row step, vertex levels
+    int xtop[count], dxf[count], ys[count];
+
+    for (int i = 0; i < count; i++)
+    {
+        int j = (i + 1 == count) ? 0 : i + 1;
+        int y0 = (int)y[i], y1 = (int)y[j], x0 = (int)x[i], x1 = (int)x[j];
+        int top_x = (y0 <= y1) ? x0 : x1;
+        int bot_x = (y0 <= y1) ? x1 : x0;
+        int rows = (y0 <= y1) ? (y1 - y0) : (y0 - y1);
+
+        xtop[i] = top_x << 14;
+        dxf[i] = rows ? (int)(((int64_t)(bot_x - top_x) << 14) / rows) : 0;
+        ys[i] = (int)y[i];
+    }
+
+    // Sort vertex levels
+    for (int a = 1; a < count; a++)
+    {
+        int v = ys[a], b = a - 1;
+        while (b >= 0 && ys[b] > v)
+        {
+            ys[b + 1] = ys[b];
+            b--;
+        }
+        ys[b + 1] = v;
+    }
+
+    int xa[count], dxa[count], xs[count];
+
+    // Horizontal cut at every vertex: sides stay straight inside a band
+    for (int b = 0; b + 1 < count; b++)
+    {
+        int ya = ys[b], yb = ys[b + 1];
+        if (ya == yb)
+            continue;
+
+        int row0 = (ya < 0) ? 0 : ya;
+        int row1 = (yb > DISPLAY_HEIGHT) ? DISPLAY_HEIGHT : yb;
+        if (row0 >= row1)
+            continue;
+
+        // Sides crossing this band, x at first row
+        int n = 0;
+        for (int i = 0; i < count; i++)
+        {
+            int j = (i + 1 == count) ? 0 : i + 1;
+            int y0 = (int)y[i], y1 = (int)y[j];
+            int top = (y0 < y1) ? y0 : y1;
+            int bot = (y0 < y1) ? y1 : y0;
+
+            if (top <= ya && bot > ya)
+            {
+                xa[n] = xtop[i] + (row0 - top) * dxf[i];
+                dxa[n] = dxf[i];
+                n++;
+            }
+        }
+
+        if (n < 2)
+            continue;
+
+        // Order sides once (equal x: flatter side is left)
+        for (int a = 1; a < n; a++)
+        {
+            int v = xa[a], s = dxa[a], k = a - 1;
+            while (k >= 0 && (xa[k] > v || (xa[k] == v && dxa[k] > s)))
+            {
+                xa[k + 1] = xa[k];
+                dxa[k + 1] = dxa[k];
+                k--;
+            }
+            xa[k + 1] = v;
+            dxa[k + 1] = s;
+        }
+
+        for (int py = row0; py < row1; py++)
+        {
+            for (int k = 0; k < n; k++)
+            {
+                xs[k] = xa[k] >> 14;
+                xa[k] += dxa[k];
+            }
+
+            // Sides keep order; re-sort if a crossing flipped them
+            bool ordered = true;
+            for (int k = 1; k < n; k++)
+                if (xs[k] < xs[k - 1])
+                {
+                    ordered = false;
+                    break;
+                }
+
+            if (!ordered)
+                for (int a = 1; a < n; a++)
+                {
+                    int v = xs[a], k = a - 1;
+                    while (k >= 0 && xs[k] > v)
+                    {
+                        xs[k + 1] = xs[k];
+                        k--;
+                    }
+                    xs[k + 1] = v;
+                }
+
+            for (int k = 0; k + 1 < n; k += 2)
+            {
+                int ax = xs[k], bx = xs[k + 1];
+                if (bx < 0 || ax >= DISPLAY_WIDTH || bx < ax)
+                    continue;
+                if (ax < 0)
+                    ax = 0;
+                if (bx >= DISPLAY_WIDTH)
+                    bx = DISPLAY_WIDTH - 1;
+
+                int span = bx - ax + 1;
+
+                if (lcd_mode == LCD_MODE_PSRAM)
+                {
+                    uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (py * PSRAM_ROW_SIZE) + ax;
+                    uint32_t remaining = span, offset = 0;
+                    while (remaining > 0)
+                    {
+                        uint32_t chunk = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
+                        psram_qspi_read(&psram_instance, addr + offset, line_buffer + offset, chunk);
+                        offset += chunk;
+                        remaining -= chunk;
+                    }
+                }
+                else if (lcd_mode == LCD_MODE_HEAP && heap_framebuffer != NULL)
+                {
+                    memcpy(line_buffer, &heap_framebuffer[py * DISPLAY_WIDTH + ax], span);
+                }
+                else
+                    continue;
+
+                // Alpha blend the span in the line buffer
+                for (int j = 0; j < span; j++)
+                {
+                    uint16_t dst_color = palette[line_buffer[j]];
+                    uint8_t dr = (dst_color >> 11) & 0x1F;
+                    uint8_t dg = (dst_color >> 5) & 0x3F;
+                    uint8_t db = dst_color & 0x1F;
+
+                    uint8_t br = (uint8_t)((sr * alpha + dr * inv_alpha) / 255);
+                    uint8_t bg = (uint8_t)((sg * alpha + dg * inv_alpha) / 255);
+                    uint8_t bb = (uint8_t)((sb * alpha + db * inv_alpha) / 255);
+
+                    line_buffer[j] = color565_to_332(((uint16_t)br << 11) | ((uint16_t)bg << 5) | bb);
+                }
+
+                if (lcd_mode == LCD_MODE_PSRAM)
+                {
+                    uint32_t addr = PSRAM_FRAMEBUFFER_ADDR + (py * PSRAM_ROW_SIZE) + ax;
+                    uint32_t remaining = span, offset = 0;
+                    while (remaining > 0)
+                    {
+                        uint32_t chunk = (remaining > PSRAM_CHUNK_SIZE) ? PSRAM_CHUNK_SIZE : remaining;
+                        psram_qspi_write(&psram_instance, addr + offset, line_buffer + offset, chunk);
+                        offset += chunk;
+                        remaining -= chunk;
+                    }
+                }
+                else
+                {
+                    memcpy(&heap_framebuffer[py * DISPLAY_WIDTH + ax], line_buffer, span);
+                }
+            }
+        }
+    }
+}
+
 void lcd_fill_round_rectangle(uint16_t x, uint16_t y, uint16_t width, uint16_t height,
                               uint16_t radius, uint16_t color)
 {

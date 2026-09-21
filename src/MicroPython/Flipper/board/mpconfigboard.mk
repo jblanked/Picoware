@@ -8,9 +8,13 @@ TEXT0_ADDR = 0x08000000
 
 FROZEN_MANIFEST = $(BOARD_DIR)/manifest.py
 
+# Frozen picoware source is compiled by makemanifest: drop source line numbers (~50KB less flash)
+MPY_CROSS_FLAGS += -X no-source-lines
+
 # Enable radio via BLE stack
 MICROPY_PY_BLUETOOTH = 1
 MICROPY_BLUETOOTH_NIMBLE = 1
-MICROPY_VFS_LFS2 = 1
+# No internal flash filesystem on Flipper (SD uses FAT); frees ~16KB flash
+MICROPY_VFS_LFS2 = 0
 MICROPY_VFS_FAT = 1
 MICROPY_HW_ENABLE_ISR_UART_FLASH_FUNCS_IN_RAM = 0

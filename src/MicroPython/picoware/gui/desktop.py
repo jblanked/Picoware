@@ -1093,7 +1093,7 @@ class Desktop:
             background_color (int): The background color. Defaults to 0x0000.
         """
         from picoware.system.system import System
-        from picoware.system.boards import BOARD_FLIPPER_ZERO
+        from picoware.system.boards import BOARD_FLIPPER_ZERO, BOARD_WAVESHARE_3_49_RP2350
 
         system = System()
         self.name = system.device_name
@@ -1106,6 +1106,7 @@ class Desktop:
         self.battery_level_str = ""
         self.is_circular = system.is_circular
         self.draw_icons = system.board_id != BOARD_FLIPPER_ZERO
+        self.draw_name = system.board_id != BOARD_WAVESHARE_3_49_RP2350
 
         self.size = self.display.size
         self.font_size_x = self.display.font_size.x
@@ -1116,6 +1117,9 @@ class Desktop:
         self.wifi_pos = Vector(0, 0)
         self.name_pos = Vector(0, 0)
         self.time_pos = Vector(int(self.size.x * 0.4375), self.display.scale_y(5))
+        if not self.draw_name:
+            # Use the space freed by the name for time; align with status icons.
+            self.time_pos.x, self.time_pos.y = 2, 2
         self.bluetooth_pos = Vector(0, 0)
         self.battery_pos = Vector(int(self.size.x * 0.7875), self.display.scale_y(5))
 
@@ -1152,7 +1156,7 @@ class Desktop:
                 # battery left of bluetooth icon
                 battery_width = draw.len(self.battery_level_str)
                 self.battery_pos.x = self.bluetooth_pos.x - _five_x - battery_width
-                self.battery_pos.y = _five_y
+                self.battery_pos.y = self.time_pos.y
             else:
                 # right-edge of the screen
                 self.battery_pos.x = self.size.x - draw.len(self.battery_level_str) - 1
@@ -1204,7 +1208,8 @@ class Desktop:
             wifi_is_connected (bool): Whether Wi-Fi is connected. Defaults to True.
         """
         # draw board name
-        self.display.text(self.name_pos, self.name, self.text_color)
+        if self.draw_name:
+            self.display.text(self.name_pos, self.name, self.text_color)
 
         # draw time if set
         if self.time_str:
@@ -1259,7 +1264,7 @@ class Desktop:
                 # battery left of bluetooth icon
                 battery_width = self.display.len(self.battery_level_str)
                 self.battery_pos.x = self.bluetooth_pos.x - self.display.scale_x(5) - battery_width
-                self.battery_pos.y = self.display.scale_y(5)
+                self.battery_pos.y = self.time_pos.y
             else:
                 # right-edge of the screen
                 self.battery_pos.x = self.size.x - self.display.len(self.battery_level_str) - 1

@@ -20,6 +20,7 @@ typedef struct
 
 #define TOKEN_NORMAL 0
 #define TOKEN_STRING 1
+#define TOKEN_COMMENT 2
 
 typedef struct
 {
@@ -28,7 +29,7 @@ typedef struct
     uint8_t type;
 } vt_token_t;
 
-static const char *DELIMITERS = " \t\n+-*/=<>()[]{}:,;\"'#";
+static const char *DELIMITERS = " \t\n\r+-*/%=!<>()[]{}:,;.\"'#&|^~?";
 
 static inline bool is_delimiter(char c)
 {
@@ -54,103 +55,220 @@ static bool is_compound_delimiter(const char *text, size_t pos, size_t len)
            (a == '/' && b == '=');
 }
 
-static size_t vt_strip_comment(const char *text, size_t text_len)
+static bool vt_add_token(
+    vt_token_t *tokens, size_t *token_idx, size_t max_tokens,
+    size_t start, size_t end, uint8_t type)
 {
-    bool in_str = false;
-    bool esc = false;
-    char quote = 0;
-
-    for (size_t i = 0; i < text_len; i++)
+    if (start >= end)
+        return true;
+    if (*token_idx >= max_tokens)
     {
-        char ch = text[i];
-        if (esc)
-        {
-            esc = false;
-            continue;
-        }
-        if (ch == '\\')
-        {
-            esc = true;
-            continue;
-        }
-        if (ch == '\'' || ch == '"')
-        {
-            if (!in_str)
-            {
-                in_str = true;
-                quote = ch;
-            }
-            else if (ch == quote)
-            {
-                in_str = false;
-            }
-        }
-        else if (ch == '#' && !in_str)
-        {
-            return i;
-        }
+        return false;
     }
-    return text_len;
+
+    tokens[*token_idx].start = (uint16_t)start;
+    tokens[*token_idx].end = (uint16_t)end;
+    tokens[*token_idx].type = type;
+    (*token_idx)++;
+    return true;
 }
 
-static size_t vt_tokenize(const char *text, size_t text_len, vt_token_t *tokens, size_t max_tokens)
+static bool vt_is_string_quote(char ch, vt_language_t language)
+{
+    if (language == VT_MMBASIC)
+        return ch == '"';
+    if (language == VT_JS)
+        return ch == '\'' || ch == '"' || ch == '`';
+    return ch == '\'' || ch == '"';
+}
+
+static bool vt_is_line_comment_start(
+    const char *text, size_t pos, size_t text_len, vt_language_t language)
+{
+    if (language == VT_PYTHON)
+        return text[pos] == '#';
+    if (language == VT_MMBASIC)
+        return text[pos] == '\'';
+    return pos + 1 < text_len && text[pos] == '/' && text[pos + 1] == '/';
+}
+
+static bool vt_is_block_comment_start(
+    const char *text, size_t pos, size_t text_len, vt_language_t language)
+{
+    return (language == VT_C || language == VT_JS) &&
+           pos + 1 < text_len && text[pos] == '/' && text[pos + 1] == '*';
+}
+
+static char vt_ascii_upper(char ch)
+{
+    if (ch >= 'a' && ch <= 'z')
+        return (char)(ch - 'a' + 'A');
+    return ch;
+}
+
+static bool vt_is_mmbasic_rem(const char *text, size_t pos, size_t text_len)
+{
+    if (pos + 3 > text_len || vt_ascii_upper(text[pos]) != 'R' ||
+        vt_ascii_upper(text[pos + 1]) != 'E' || vt_ascii_upper(text[pos + 2]) != 'M')
+    {
+        return false;
+    }
+
+    bool before_is_identifier = pos > 0 &&
+                                (text[pos - 1] == '_' ||
+                                 (text[pos - 1] >= 'A' && text[pos - 1] <= 'Z') ||
+                                 (text[pos - 1] >= 'a' && text[pos - 1] <= 'z') ||
+                                 (text[pos - 1] >= '0' && text[pos - 1] <= '9'));
+    bool after_is_identifier = pos + 3 < text_len &&
+                               (text[pos + 3] == '_' ||
+                                (text[pos + 3] >= 'A' && text[pos + 3] <= 'Z') ||
+                                (text[pos + 3] >= 'a' && text[pos + 3] <= 'z') ||
+                                (text[pos + 3] >= '0' && text[pos + 3] <= '9'));
+    return !before_is_identifier && !after_is_identifier;
+}
+
+static size_t vt_tokenize(
+    const char *text, size_t text_len, vt_language_t language,
+    bool *in_block_comment, vt_token_t *tokens, size_t max_tokens)
 {
     size_t i = 0;
     size_t token_idx = 0;
     bool in_str = false;
+    bool escaped = false;
     char str_char = 0;
     size_t start_pos = 0;
 
     while (i < text_len && token_idx < max_tokens)
     {
+        if (*in_block_comment)
+        {
+            size_t comment_start = i;
+            while (i + 1 < text_len && !(text[i] == '*' && text[i + 1] == '/'))
+                i++;
+            if (i + 1 < text_len)
+            {
+                i += 2;
+                *in_block_comment = false;
+            }
+            else
+            {
+                i = text_len;
+            }
+            if (!vt_add_token(tokens, &token_idx, max_tokens,
+                              comment_start, i, TOKEN_COMMENT))
+            {
+                return token_idx;
+            }
+            start_pos = i;
+            continue;
+        }
+
         char ch = text[i];
 
         if (in_str)
         {
-            if (ch == str_char && (i == 0 || text[i - 1] != '\\'))
+            if (escaped)
+            {
+                escaped = false;
+            }
+            else if (ch == '\\')
+            {
+                escaped = true;
+            }
+            else if (ch == str_char)
             {
                 in_str = false;
-                tokens[token_idx].start = (uint16_t)start_pos;
-                tokens[token_idx].end = (uint16_t)(i + 1);
-                tokens[token_idx].type = TOKEN_STRING;
-                token_idx++;
+                if (!vt_add_token(tokens, &token_idx, max_tokens,
+                                  start_pos, i + 1, TOKEN_STRING))
+                {
+                    return token_idx;
+                }
                 start_pos = i + 1;
             }
             i++;
             continue;
         }
 
-        if (ch == '"' || ch == '\'')
+        if (vt_is_string_quote(ch, language))
         {
-            if (start_pos < i)
+            if (!vt_add_token(tokens, &token_idx, max_tokens,
+                              start_pos, i, TOKEN_NORMAL))
             {
-                tokens[token_idx].start = (uint16_t)start_pos;
-                tokens[token_idx].end = (uint16_t)i;
-                tokens[token_idx].type = TOKEN_NORMAL;
-                token_idx++;
+                return token_idx;
             }
             in_str = true;
+            escaped = false;
             str_char = ch;
             start_pos = i;
             i++;
             continue;
         }
 
+        if (vt_is_line_comment_start(text, i, text_len, language))
+        {
+            if (!vt_add_token(tokens, &token_idx, max_tokens,
+                              start_pos, i, TOKEN_NORMAL) ||
+                !vt_add_token(tokens, &token_idx, max_tokens,
+                              i, text_len, TOKEN_COMMENT))
+            {
+                return token_idx;
+            }
+            return token_idx;
+        }
+
+        if (vt_is_block_comment_start(text, i, text_len, language))
+        {
+            if (!vt_add_token(tokens, &token_idx, max_tokens,
+                              start_pos, i, TOKEN_NORMAL))
+            {
+                return token_idx;
+            }
+
+            size_t comment_start = i;
+            i += 2;
+            while (i + 1 < text_len && !(text[i] == '*' && text[i + 1] == '/'))
+                i++;
+            if (i + 1 < text_len)
+            {
+                i += 2;
+            }
+            else
+            {
+                *in_block_comment = true;
+                i = text_len;
+            }
+            if (!vt_add_token(tokens, &token_idx, max_tokens,
+                              comment_start, i, TOKEN_COMMENT))
+            {
+                return token_idx;
+            }
+            start_pos = i;
+            continue;
+        }
+
+        if (language == VT_MMBASIC && vt_is_mmbasic_rem(text, i, text_len))
+        {
+            if (!vt_add_token(tokens, &token_idx, max_tokens,
+                              start_pos, i, TOKEN_NORMAL) ||
+                !vt_add_token(tokens, &token_idx, max_tokens,
+                              i, text_len, TOKEN_COMMENT))
+            {
+                return token_idx;
+            }
+            return token_idx;
+        }
+
         if (is_compound_delimiter(text, i, text_len))
         {
-            if (start_pos < i)
+            if (!vt_add_token(tokens, &token_idx, max_tokens,
+                              start_pos, i, TOKEN_NORMAL))
             {
-                tokens[token_idx].start = (uint16_t)start_pos;
-                tokens[token_idx].end = (uint16_t)i;
-                tokens[token_idx].type = TOKEN_NORMAL;
-                token_idx++;
+                return token_idx;
             }
-            if (token_idx < max_tokens)
+            if (!vt_add_token(tokens, &token_idx, max_tokens,
+                              i, i + 2, TOKEN_NORMAL))
             {
-                tokens[token_idx].start = (uint16_t)i;
-                tokens[token_idx].end = (uint16_t)(i + 2);
-                tokens[token_idx].type = TOKEN_NORMAL;
-                token_idx++;
+                return token_idx;
             }
             start_pos = i + 2;
             i += 2;
@@ -159,32 +277,30 @@ static size_t vt_tokenize(const char *text, size_t text_len, vt_token_t *tokens,
 
         if (is_delimiter(ch))
         {
-            if (start_pos < i)
+            if (!vt_add_token(tokens, &token_idx, max_tokens,
+                              start_pos, i, TOKEN_NORMAL))
             {
-                tokens[token_idx].start = (uint16_t)start_pos;
-                tokens[token_idx].end = (uint16_t)i;
-                tokens[token_idx].type = TOKEN_NORMAL;
-                token_idx++;
+                return token_idx;
             }
-            if (token_idx < max_tokens)
+            if (!vt_add_token(tokens, &token_idx, max_tokens,
+                              i, i + 1, TOKEN_NORMAL))
             {
-                tokens[token_idx].start = (uint16_t)i;
-                tokens[token_idx].end = (uint16_t)(i + 1);
-                tokens[token_idx].type = TOKEN_NORMAL;
-                token_idx++;
+                return token_idx;
             }
             start_pos = i + 1;
         }
         i++;
     }
 
-    // Remaining text
-    if (start_pos < text_len && token_idx < max_tokens)
+    if (in_str)
     {
-        tokens[token_idx].start = (uint16_t)start_pos;
-        tokens[token_idx].end = (uint16_t)text_len;
-        tokens[token_idx].type = TOKEN_NORMAL;
-        token_idx++;
+        vt_add_token(tokens, &token_idx, max_tokens,
+                     start_pos, text_len, TOKEN_STRING);
+    }
+    else
+    {
+        vt_add_token(tokens, &token_idx, max_tokens,
+                     start_pos, text_len, TOKEN_NORMAL);
     }
 
     return token_idx;
@@ -193,12 +309,30 @@ static size_t vt_tokenize(const char *text, size_t text_len, vt_token_t *tokens,
 static uint16_t vt_lookup_keyword_color(
     const char *token, size_t token_len,
     const vt_syntax_entry_t *syntax_map, size_t syntax_count,
-    uint16_t default_color)
+    uint16_t default_color, vt_language_t language)
 {
     for (size_t i = 0; i < syntax_count; i++)
     {
-        if (syntax_map[i].keyword_len == token_len &&
-            memcmp(token, syntax_map[i].keyword, token_len) == 0)
+        if (syntax_map[i].keyword_len != token_len)
+            continue;
+
+        bool match = true;
+        for (size_t j = 0; j < token_len; j++)
+        {
+            char token_char = token[j];
+            char keyword_char = syntax_map[i].keyword[j];
+            if (language == VT_MMBASIC)
+            {
+                token_char = vt_ascii_upper(token_char);
+                keyword_char = vt_ascii_upper(keyword_char);
+            }
+            if (token_char != keyword_char)
+            {
+                match = false;
+                break;
+            }
+        }
+        if (match)
         {
             return syntax_map[i].color;
         }
@@ -211,15 +345,12 @@ static void vt_highlight_and_render_line(
     uint16_t y_pos, uint16_t fg_color,
     uint16_t string_color, uint16_t comment_color,
     const vt_syntax_entry_t *syntax_map, size_t syntax_count,
+    vt_language_t language, bool *in_block_comment,
     uint8_t char_width, uint8_t font_size,
     vt_token_t *tokens, char *buf)
 {
-    // Strip comment
-    size_t code_len = vt_strip_comment(raw_line, raw_len);
-    bool has_comment = (code_len < raw_len);
-
-    // Tokenize code part
-    size_t token_count = vt_tokenize(raw_line, code_len, tokens, VT_MAX_TOKENS);
+    size_t token_count = vt_tokenize(
+        raw_line, raw_len, language, in_block_comment, tokens, VT_MAX_TOKENS);
 
     // Draw each token
     uint16_t x_offset = 0;
@@ -242,25 +373,19 @@ static void vt_highlight_and_render_line(
         {
             color = string_color;
         }
+        else if (tokens[i].type == TOKEN_COMMENT)
+        {
+            color = comment_color;
+        }
         else
         {
             color = vt_lookup_keyword_color(
                 raw_line + start, tok_len,
-                syntax_map, syntax_count, fg_color);
+                syntax_map, syntax_count, fg_color, language);
         }
 
         LCD_MP_TEXT(x_offset, y_pos, buf, color, font_size);
         x_offset += (uint16_t)(copy_len * char_width);
-    }
-
-    // Draw comment part if present
-    if (has_comment)
-    {
-        size_t comment_len = raw_len - code_len;
-        size_t copy_len = (comment_len < VT_TEXT_BUF_SIZE - 1) ? comment_len : (VT_TEXT_BUF_SIZE - 1);
-        memcpy(buf, raw_line + code_len, copy_len);
-        buf[copy_len] = '\0';
-        LCD_MP_TEXT(x_offset, y_pos, buf, comment_color, font_size);
     }
 }
 
@@ -283,6 +408,7 @@ mp_obj_t vt_mp_render(size_t n_args, const mp_obj_t *args)
     // args[14] = string_color (uint16_t)
     // args[15] = comment_color (uint16_t)
     // args[16] = font_size (uint8_t, optional)
+    // args[17] = language (vt_language_t/int, optional)
     if (n_args < 16)
     {
         mp_raise_ValueError(MP_ERROR_TEXT("render requires at least 16 arguments"));
@@ -309,6 +435,12 @@ mp_obj_t vt_mp_render(size_t n_args, const mp_obj_t *args)
     {
         font_size = (uint8_t)mp_obj_get_int(args[16]);
     }
+    vt_language_t language = VT_PYTHON;
+    if (n_args >= 18)
+    {
+        language = (vt_language_t)mp_obj_get_int(args[17]);
+    }
+    language = (language >= VT_PYTHON && language <= VT_MMBASIC) ? language : VT_PYTHON;
 
     // Build syntax map from Python list of (keyword, tft_color) tuples
     size_t map_count = 0;
@@ -317,9 +449,9 @@ mp_obj_t vt_mp_render(size_t n_args, const mp_obj_t *args)
 
     // Allocate working buffers on the MicroPython heap
     vt_syntax_entry_t *syntax_map = (vt_syntax_entry_t *)m_malloc(VT_MAX_SYNTAX_ENTRIES * sizeof(vt_syntax_entry_t));
-    size_t actual_map_count = (map_count < VT_MAX_SYNTAX_ENTRIES) ? map_count : VT_MAX_SYNTAX_ENTRIES;
+    size_t actual_map_count = 0;
 
-    for (size_t i = 0; i < actual_map_count; i++)
+    for (size_t i = 0; i < map_count && actual_map_count < VT_MAX_SYNTAX_ENTRIES; i++)
     {
         size_t tuple_len = 0;
         mp_obj_t *tuple_items = NULL;
@@ -327,9 +459,10 @@ mp_obj_t vt_mp_render(size_t n_args, const mp_obj_t *args)
         if (tuple_len >= 2)
         {
             size_t str_len = 0;
-            syntax_map[i].keyword = mp_obj_str_get_data(tuple_items[0], &str_len);
-            syntax_map[i].keyword_len = str_len;
-            syntax_map[i].color = (uint16_t)mp_obj_get_int(tuple_items[1]);
+            syntax_map[actual_map_count].keyword = mp_obj_str_get_data(tuple_items[0], &str_len);
+            syntax_map[actual_map_count].keyword_len = str_len;
+            syntax_map[actual_map_count].color = (uint16_t)mp_obj_get_int(tuple_items[1]);
+            actual_map_count++;
         }
     }
 
@@ -344,6 +477,7 @@ mp_obj_t vt_mp_render(size_t n_args, const mp_obj_t *args)
     char *line_buf = (char *)m_malloc(VT_LINE_BUF_SIZE);
     vt_token_t *tokens = (vt_token_t *)m_malloc(VT_MAX_TOKENS * sizeof(vt_token_t));
     char *tok_buf = (char *)m_malloc(VT_TEXT_BUF_SIZE);
+    bool in_block_comment = false;
 
     size_t rows_to_process = (buf_rows < (size_t)screen_height) ? buf_rows : (size_t)screen_height;
 
@@ -383,6 +517,7 @@ mp_obj_t vt_mp_render(size_t n_args, const mp_obj_t *args)
             y_pos, fg_color,
             string_color, comment_color,
             syntax_map, actual_map_count,
+            language, &in_block_comment,
             char_width, font_size,
             tokens, tok_buf);
     }
@@ -404,11 +539,15 @@ mp_obj_t vt_mp_render(size_t n_args, const mp_obj_t *args)
 
     return mp_const_none;
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(vt_mp_render_obj, 16, 17, vt_mp_render);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(vt_mp_render_obj, 16, 18, vt_mp_render);
 
 static const mp_rom_map_elem_t vt_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_vt)},
     {MP_ROM_QSTR(MP_QSTR_render), MP_ROM_PTR(&vt_mp_render_obj)},
+    {MP_ROM_QSTR(MP_QSTR_VT_PYTHON), MP_ROM_INT(VT_PYTHON)},
+    {MP_ROM_QSTR(MP_QSTR_VT_C), MP_ROM_INT(VT_C)},
+    {MP_ROM_QSTR(MP_QSTR_VT_JS), MP_ROM_INT(VT_JS)},
+    {MP_ROM_QSTR(MP_QSTR_VT_MMBASIC), MP_ROM_INT(VT_MMBASIC)},
 };
 static MP_DEFINE_CONST_DICT(vt_globals, vt_globals_table);
 

@@ -23,8 +23,15 @@ def bootloader():
 
 
 class _PinCPU:
+    A0 = "A0"
+    B9 = "B9"
     B6 = "B6"
     B7 = "B7"
+
+
+class _PinBoard:
+    IR_RX = "IR_RX"
+    IR_TX = "IR_TX"
 
 
 class Pin:
@@ -35,10 +42,12 @@ class Pin:
     IRQ_FALLING = 4
     IRQ_RISING = 8
     cpu = _PinCPU()
+    board = _PinBoard()
 
     def __init__(self, *args, **kwargs):
         self.id = args[0] if args else kwargs.get("id", None)
         self._handler = None
+        self._receiver = None
         self._value = int(kwargs.get("value", 0))
         self._mode = args[1] if len(args) > 1 else kwargs.get("mode", self.IN)
         self._pull = args[2] if len(args) > 2 else kwargs.get("pull", None)
@@ -47,6 +56,7 @@ class Pin:
 
     def irq(self, handler=None, trigger=None, hard=False):
         self._handler = handler
+        self._receiver = getattr(handler, "__self__", None)
         self._irq_trigger = trigger
         self._irq_hard = bool(hard)
         if self.id in (11, 20, 21):
@@ -65,7 +75,11 @@ class Pin:
         self._value = int(value)
         changed = old != self._value
         if changed and self._handler:
-            self._handler(self)
+            rising = old == 0 and self._value != 0
+            falling = old != 0 and self._value == 0
+            trigger = self._irq_trigger
+            if trigger is None or (rising and trigger & self.IRQ_RISING) or (falling and trigger & self.IRQ_FALLING):
+                self._handler(self)
         return self._value
 
     def init(self, mode=-1, pull=-1, value=None):
@@ -76,6 +90,12 @@ class Pin:
         if value is not None:
             self.value(value)
         return None
+
+
+def idle():
+    """Yield to the simulator while allowing software timers to advance."""
+    Timer.poll_all()
+    time.sleep(0)
 
 
 class RTC:
@@ -350,6 +370,13 @@ class UART:
         self._handler = None
         self._initialized = True
         self._baudrate = kwargs.get("baudrate", kwargs.get("baud_rate", 115200))
+        self._flipper_http = None
+        import sim_runtime
+
+        if self.id == 1 and self.name == "uart1" and sim_runtime.board in ("flipper", "flipper-zero"):
+            from sim_flipper_http import FlipperHTTP
+
+            self._flipper_http = FlipperHTTP()
         UART._endpoints[self.name] = self
 
     def init(self, *args, **kwargs):
@@ -370,6 +397,10 @@ class UART:
     def read(self, n=None):
         if n is None:
             n = len(self._buffer)
+            if self._flipper_http is not None and self._buffer.startswith(b"[GET/SUCCESS]\n"):
+                # The upstream scan client reads the status separately, then
+                # consumes the JSON payload and end marker in a second chunk.
+                n = len(b"[GET/SUCCESS]\n")
         data = self._buffer[:n]
         self._buffer = self._buffer[n:]
         return data
@@ -386,7 +417,14 @@ class UART:
         if isinstance(data, str):
             data = data.encode()
         self._tx.extend(data)
-        _append_log("uart_{}.log".format(self.name), data)
+        if self._flipper_http is not None:
+            # Credentials remain in the in-memory transport, never the log.
+            _append_log("uart_{}.log".format(self.name), "[FlipperHTTP TX]\n")
+            response = self._flipper_http.feed(data)
+            if response:
+                self.inject_rx(response)
+        else:
+            _append_log("uart_{}.log".format(self.name), data)
         peer = UART._endpoints.get(self.name + ":rx")
         if peer is not None:
             peer.inject_rx(data)

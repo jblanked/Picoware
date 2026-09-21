@@ -1730,6 +1730,8 @@ class FlipSocialRun:
 
     def start(self, view_manager) -> bool:
         """Start the FlipSocial run view"""
+        if view_manager is None:
+            return False
 
         # Only initialize once - don't reset view if already started
         if hasattr(self, "_started") and self._started:

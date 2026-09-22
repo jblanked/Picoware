@@ -129,7 +129,6 @@ def __reset() -> None:
     _app_extension_filter = None
     collect()
 
-
 def __loading_start(view_manager, text: str = "Fetching...") -> None:
     """Start loading animation.
 
@@ -151,6 +150,32 @@ def __loading_start(view_manager, text: str = "Fetching...") -> None:
         _loading.stop()
     _loading.set_text(text)
 
+def __menu_new(view_manager, text: str, items: list = None) -> Menu:
+    """Allocate and return a new menu instance.
+
+    Args:
+        view_manager (ViewManager): The view manager context.
+        text (str): The menu title text.
+        items (list, optional): List of menu items to add initially. Defaults to None.
+
+    Returns:
+        Menu: The menu instance.
+    """
+    _menu = Menu(
+        view_manager.draw,
+        text,
+        0,
+        view_manager.draw.size.y,
+        view_manager.foreground_color,
+        view_manager.background_color,
+        view_manager.selected_color,
+        view_manager.foreground_color,
+    )
+    if items:
+        for item in items:
+            _menu.add_item(item)
+
+    return _menu
 
 def __show_main_menu(view_manager) -> None:
     """Show the main App Store menu.
@@ -164,16 +189,7 @@ def __show_main_menu(view_manager) -> None:
     draw.erase()
 
     if not _main_menu:
-        _main_menu = Menu(
-            draw,
-            "App Store",
-            0,
-            draw.size.y,
-            view_manager.foreground_color,
-            view_manager.background_color,
-            view_manager.selected_color,
-            view_manager.foreground_color,
-        )
+        _main_menu = __menu_new(view_manager, "App Store")
 
     _main_menu.clear()
     _main_menu.add_item("Update Apps")
@@ -319,17 +335,7 @@ def __parse_update_check(view_manager) -> bool:
 
         # Create menu for updates
         if not _app_menu:
-            draw = view_manager.draw
-            _app_menu = Menu(
-                draw,
-                "Available",
-                0,
-                draw.size.y,
-                view_manager.foreground_color,
-                view_manager.background_color,
-                view_manager.selected_color,
-                view_manager.foreground_color,
-            )
+            _app_menu = __menu_new(view_manager, "Available")
 
         _app_menu.clear()
         if _updates_available:
@@ -588,17 +594,7 @@ def __parse_app_list(view_manager) -> bool:
 
         # Create menu if it doesn't exist
         if not _app_menu:
-            draw = view_manager.draw
-            _app_menu = Menu(
-                draw,
-                "App Store",
-                0,
-                draw.size.y,
-                view_manager.foreground_color,
-                view_manager.background_color,
-                view_manager.selected_color,
-                view_manager.foreground_color,
-            )
+            _app_menu = __menu_new(view_manager, "App Store")
 
         _app_menu.title = "App Store"
         _app_menu.clear()
@@ -1074,17 +1070,7 @@ def __parse_submissions(view_manager) -> bool:
         _submissions_data = response["submissions"]
 
         if not _app_menu:
-            draw = view_manager.draw
-            _app_menu = Menu(
-                draw,
-                "My Submissions",
-                0,
-                draw.size.y,
-                view_manager.foreground_color,
-                view_manager.background_color,
-                view_manager.selected_color,
-                view_manager.foreground_color,
-            )
+            _app_menu = __menu_new(view_manager, "My Submissions")
 
         _app_menu.clear()
         for sub in _submissions_data:
@@ -1354,18 +1340,7 @@ def run(view_manager) -> None:
                         # Create menu for installed apps
                         if _app_menu:
                             del _app_menu
-
-                        draw = view_manager.draw
-                        _app_menu = Menu(
-                            draw,
-                            "Installed Apps",
-                            0,
-                            draw.size.y,
-                            view_manager.foreground_color,
-                            view_manager.background_color,
-                            view_manager.selected_color,
-                            view_manager.foreground_color,
-                        )
+                        _app_menu = __menu_new(view_manager, "Installed Apps")
                         _app_menu.clear()
                         for app in _installed_apps:
                             _app_menu.add_item(f"{app['title']} v{app['version']}")
@@ -1573,19 +1548,7 @@ def run(view_manager) -> None:
                 if _installed_apps:
                     if _app_menu:
                         del _app_menu
-                    from picoware.gui.menu import Menu
-
-                    draw = view_manager.draw
-                    _app_menu = Menu(
-                        draw,
-                        "Installed Apps",
-                        0,
-                        draw.size.y,
-                        view_manager.foreground_color,
-                        view_manager.background_color,
-                        view_manager.selected_color,
-                        view_manager.foreground_color,
-                    )
+                    _app_menu = __menu_new(view_manager, "Installed Apps")
                     _app_menu.clear()
                     for app in _installed_apps:
                         _app_menu.add_item(f"{app['title']} v{app['version']}")

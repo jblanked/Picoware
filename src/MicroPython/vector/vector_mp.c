@@ -43,10 +43,13 @@ mp_obj_t vector_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
 mp_obj_t vector_mp_del(mp_obj_t self_in)
 {
     vector_mp_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    self->x = 0;
-    self->y = 0;
-    self->z = 0;
-    self->integer = false;
+    if (self)
+    {
+        self->x = 0;
+        self->y = 0;
+        self->z = 0;
+        self->integer = false;
+    }
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(vector_mp_del_obj, vector_mp_del);

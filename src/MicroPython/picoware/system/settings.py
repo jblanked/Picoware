@@ -407,7 +407,7 @@ class Settings:
         if not self._storage.exists(path):
             return default
 
-        data = self._storage.serialize(path)
+        data = self._storage.deserialize(path)
         if data:
             return data.get(key, default)
 
@@ -420,8 +420,8 @@ class Settings:
             bool: True if the settings were saved successfully.
         """
         return self._storage.serialize(
-            self._path,
             self._settings,
+            self._path,
         )
 
     @classmethod

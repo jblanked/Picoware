@@ -98,7 +98,14 @@ static int build_abs_path(const char *rel_path, char *out, size_t out_size)
     }
 
     int written = 0;
-    if (path[0] == '/')
+    const size_t mount_len = strlen(SDCARD_MOUNT_POINT);
+    if (strncmp(path, SDCARD_MOUNT_POINT, mount_len) == 0 &&
+        (path[mount_len] == '/' || path[mount_len] == '\0'))
+    {
+        // already a full path under the mount point, use as-is
+        written = snprintf(out, out_size, "%s", path);
+    }
+    else if (path[0] == '/')
     {
         written = snprintf(out, out_size, "%s%s", SDCARD_MOUNT_POINT, path);
     }

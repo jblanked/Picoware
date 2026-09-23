@@ -76,6 +76,8 @@ class _City:
     BACKGROUND_Z = 2000.0
     FIELD_OF_VIEW = 40.0
     CHUNK_LAG = 4.0
+    MINIMAP_SIZE = 60.0
+    MINIMAP_RANGE = 44.0
     WALK_SPEED = 0.35
     WALK_TURN = 0.25
     CAR_ACCEL = 0.05
@@ -1190,6 +1192,89 @@ class _City:
                 self.message,
                 self.COLOR_LINE,
             )
+        self._draw_minimap(draw)
+
+    def _draw_minimap(self, draw):
+        """Draw the local street and building overview."""
+        width = int(draw.size.x)
+        size = draw.scale_y(self.MINIMAP_SIZE)
+        left = width - size - draw.scale_x(3)
+        top = draw.scale_y(19)
+        car = self.player.position
+        step = size / (self.MINIMAP_RANGE * 2.0)
+        middle_x = left + size * 0.5
+        middle_z = top + size * 0.5
+        thickness = draw.scale_y(2)
+        if thickness < 1:
+            thickness = 1
+        draw._fill_rectangle(left, top, size, size, self.COLOR_BLACK)
+        first = int((car.x - self.MINIMAP_RANGE) // self.ROAD_SPACING)
+        last = int((car.x + self.MINIMAP_RANGE) // self.ROAD_SPACING)
+        for index in range(first, last + 1):
+            line = index * self.ROAD_SPACING
+            if line < -self.WORLD_HALF or line > self.WORLD_HALF:
+                continue
+            offset = int(middle_x + (line - car.x) * step) - thickness // 2
+            draw._fill_rectangle(offset, top, thickness, size, self.COLOR_HORIZON)
+        first = int((car.y - self.MINIMAP_RANGE) // self.ROAD_SPACING)
+        last = int((car.y + self.MINIMAP_RANGE) // self.ROAD_SPACING)
+        for index in range(first, last + 1):
+            line = index * self.ROAD_SPACING
+            if line < -self.WORLD_HALF or line > self.WORLD_HALF:
+                continue
+            offset = int(middle_z + (line - car.y) * step) - thickness // 2
+            draw._fill_rectangle(left, offset, size, thickness, self.COLOR_HORIZON)
+        for building in self.buildings:
+            start_x = middle_x + (building[0] - car.x) * step - building[2] * step
+            end_x = start_x + building[2] * step * 2.0
+            start_z = middle_z + (building[1] - car.y) * step - building[3] * step
+            end_z = start_z + building[3] * step * 2.0
+            if start_x < left:
+                start_x = left
+            if start_z < top:
+                start_z = top
+            if end_x > left + size:
+                end_x = left + size
+            if end_z > top + size:
+                end_z = top + size
+            if end_x - start_x < 1.0 or end_z - start_z < 1.0:
+                continue
+            draw._fill_rectangle(
+                int(start_x),
+                int(start_z),
+                int(end_x - start_x),
+                int(end_z - start_z),
+                self.COLOR_SIDEWALK,
+            )
+        draw._rectangle(left, top, size, size, self.COLOR_HORIZON)
+        dot = draw.scale_y(3)
+        if dot < 2:
+            dot = 2
+        tip = dot + draw.scale_y(3)
+        draw._fill_rectangle(
+            int(middle_x + cos(self.heading) * tip) - 1,
+            int(middle_z + sin(self.heading) * tip) - 1,
+            2,
+            2,
+            self.COLOR_LINE,
+        )
+        draw._fill_rectangle(
+            int(middle_x) - dot // 2,
+            int(middle_z) - dot // 2,
+            dot,
+            dot,
+            self.COLOR_PLAYER,
+        )
+        draw._text(
+            left,
+            top + size + draw.scale_y(2),
+            "%d,%d"
+            % (
+                int(car.x // self.ROAD_SPACING),
+                int(car.y // self.ROAD_SPACING),
+            ),
+            self.COLOR_LINE,
+        )
 
     def run(self):
         """Refill the local city and run one engine frame."""

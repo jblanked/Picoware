@@ -255,8 +255,75 @@ class LCD:
         self._line(x2, y2, x3, y3, color)
         self._line(x3, y3, x1, y1, color)
 
+    def _polygon_points(self, points):
+        # Match lcd_mp.c: position scaling precedes the polygon's mean scale.
+        scale = (self._scale_x_factor + self._scale_y_factor) * 0.5
+        result = []
+        for x, y in points:
+            x, y = int(x) & 0xFFFF, int(y) & 0xFFFF
+            if self.scale_position:
+                x = int(x * self._scale_x_factor) & 0xFFFF
+                y = int(y * self._scale_y_factor) & 0xFFFF
+            result.append((int(x * scale) & 0xFFFF, int(y * scale) & 0xFFFF))
+        return result
+
+    def _polygon(self, points, color):
+        points = self._polygon_points(points)
+        count = len(points)
+        if count < 2:
+            return
+        for index in range(count):
+            first = points[index]
+            second = points[(index + 1) % count]
+            self._line(first[0], first[1], second[0], second[1], color)
+
     def _fill_triangle(self, x1, y1, x2, y2, x3, y3, color):
         self._fill_triangle_alpha(x1, y1, x2, y2, x3, y3, color, 255)
+
+    def _fill_polygon(self, points, color):
+        self._fill_polygon_alpha(points, color, 255)
+
+    def _fill_polygon_alpha(self, points, color, alpha):
+        alpha = int(alpha) & 0xFF
+        if len(points) < 3 or alpha == 0:
+            return
+        points = self._polygon_points(points)
+        edges = []
+        for index, (x0, y0) in enumerate(points):
+            x1, y1 = points[(index + 1) % len(points)]
+            if y0 == y1:
+                continue
+            if y0 > y1:
+                x0, y0, x1, y1 = x1, y1, x0, y0
+            # Firmware uses 14.14 fixed point and C's truncating division.
+            delta = (x1 - x0) << 14
+            step = abs(delta) // (y1 - y0)
+            if delta < 0:
+                step = -step
+            edges.append((y0, y1, x0 << 14, step))
+        if not edges:
+            return
+        color = int(color) & 0xFFFF
+        start = max(0, min(edge[0] for edge in edges))
+        stop = min(self.height, max(edge[1] for edge in edges))
+        for y in range(start, stop):
+            crossings = sorted(
+                (x + (y - top) * step) >> 14
+                for top, bottom, x, step in edges if top <= y < bottom
+            )
+            last = -1
+            for index in range(0, len(crossings) - 1, 2):
+                left = max(0, crossings[index], last + 1)
+                right = min(self.width - 1, crossings[index + 1])
+                if left > right:
+                    continue
+                if alpha == 255:
+                    self._fill_rectangle(left, y, right - left + 1, 1, color)
+                else:
+                    for x in range(left, right + 1):
+                        self._set_pixel(x, y, self._blend_rgb565(
+                            color, self._get_pixel(x, y), alpha))
+                last = right
 
     def _fill_triangle_alpha(self, x1, y1, x2, y2, x3, y3, color, alpha):
         points = (

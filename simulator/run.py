@@ -1212,7 +1212,59 @@ def _run_lcd_parity_check():
     display._fill_polygon(((1, 1), (5, 1), (5, 5), (1, 5)), 0x07E0)
     if display._get_pixel(3, 3) != 0x07E0:
         raise RuntimeError("simulator LCD polygon fill mismatch")
+    _run_polygon_parity_check(display)
     print("[sim-check:ok] lcd brightness RGB LED bytearray inversion alpha triangle polygon")
+
+
+def _run_polygon_parity_check(display):
+    square = ((1, 1), (9, 1), (9, 9), (1, 9))
+    concave = ((1, 1), (9, 1), (9, 9), (7, 9), (7, 3), (3, 3), (3, 9), (1, 9))
+    for points in (concave, tuple(reversed(concave))):
+        display._clear(0)
+        display._fill_polygon(points, 0xFFFF)
+        for y in range(1, 9):
+            for x in range(1, 10):
+                expected = 0xFFFF if y < 3 or x <= 3 or x >= 7 else 0
+                if display._get_pixel(x, y) != expected:
+                    raise RuntimeError("simulator concave polygon coverage mismatch")
+
+    # Every covered pixel must be blended once, including the former fan seam.
+    for alpha, expected in ((0, 0), (128, 0x7BEF), (255, 0xFFFF)):
+        display._clear(0)
+        display._fill_polygon_alpha(square, 0xFFFF, alpha)
+        for y in range(1, 9):
+            for x in range(1, 10):
+                if display._get_pixel(x, y) != expected:
+                    raise RuntimeError("simulator polygon alpha coverage mismatch")
+        if display._get_pixel(5, 9) != 0:
+            raise RuntimeError("simulator polygon bottom edge must be excluded")
+
+    display._clear(0)
+    display._fill_polygon(((display.width - 2, 1), (display.width + 5, 1),
+                           (display.width + 5, 4), (display.width - 2, 4)), 0xFFFF)
+    if display._get_pixel(display.width - 1, 2) != 0xFFFF or display._get_pixel(0, 2):
+        raise RuntimeError("simulator polygon clipping mismatch")
+
+    display._clear(0)
+    for points in ((), ((2, 2),), ((2, 2), (5, 5))):
+        display._fill_polygon(points, 0xFFFF)
+    display._polygon(((2, 2),), 0xFFFF)
+    if any(display._buffer):
+        raise RuntimeError("simulator degenerate polygon mismatch")
+
+    try:
+        for scale_position in (False, True):
+            display.set_scaling(2, 2, scale_position)
+            # Firmware applies mean scale in both modes, plus position scale.
+            corner = 8 if scale_position else 4
+            points = ((2, 2), (5, 2), (5, 5), (2, 5))
+            for method in (display._polygon, display._fill_polygon):
+                display._clear(0)
+                method(points, 0xFFFF)
+                if display._get_pixel(corner, corner) != 0xFFFF or display._get_pixel(2, 2):
+                    raise RuntimeError("simulator polygon scaling mismatch")
+    finally:
+        display.set_scaling(1, 1, False)
 
 
 def _run_flipper_keyboard_preview_check():
@@ -1347,38 +1399,36 @@ def _run_engine_parity_check():
     """Exercise the latest Level and Sprite3D native API additions."""
     import sd_mp
     import sim_runtime
+    import ustruct
     from engine import Entity, Game, Level, Sprite3D
     from picoware.gui.draw import Draw
     from picoware.system.vector import Vector
 
     path = "sim_reports/engine-roundtrip.sprite3d"
-    sprite = Sprite3D()
-    sprite.add_triangle(
-        2.0,
-        -0.5,
-        -0.5,
-        2.0,
-        0.5,
-        0.0,
-        2.0,
-        -0.5,
-        0.5,
-        0x07E0,
-        False,
-    )
-    if sprite.triangle_count != 1:
-        raise RuntimeError("simulator Sprite3D.add_triangle failed")
-    if not sprite.to_path(path):
-        raise RuntimeError("simulator Sprite3D.to_path failed")
-
-    loaded = Sprite3D()
-    if not loaded.from_path(path, False) or loaded.triangle_count != 1:
-        raise RuntimeError("simulator Sprite3D.from_path failed")
-    loaded.set_wireframe(True)
-
+    roundtrip = "sim_reports/engine-verified.sprite3d"
+    # Face the camera; the native renderer correctly culls reversed winding.
+    vertices = (2.5, 0.5, -0.5, 2.5, 0.5, 0.5, 3.0, 1.5, 0.0)
     original_headless = sim_runtime.headless
+    original_lcd = sim_runtime.get_lcd()
     draw = None
     try:
+        sprite = Sprite3D()
+        sprite.add_triangle(*vertices, 0x07E0, False)
+        if sprite.triangle_count != 1 or not sprite.to_path(path):
+            raise RuntimeError("simulator Sprite3D.add_triangle/to_path failed")
+        loaded = Sprite3D()
+        if not loaded.from_path(path, False) or loaded.triangle_count != 1:
+            raise RuntimeError("simulator Sprite3D.from_path failed")
+        # Read the native Triangle3D record, excluding C struct padding.
+        for wireframe in (False, True, False):
+            loaded.set_wireframe(wireframe)
+            if not loaded.to_path(roundtrip):
+                raise RuntimeError("simulator Sprite3D round-trip write failed")
+            record = sd_mp.read(roundtrip, 0, 0)
+            if (len(record) != 52 or ustruct.unpack_from("<9f", record) != vertices
+                    or ustruct.unpack_from("<H", record, 46)[0] != 0x07E0
+                    or bool(record[48]) != wireframe):
+                raise RuntimeError("simulator Sprite3D round-trip data/wireframe mismatch")
         sim_runtime.headless = True
         draw = Draw()
         game = Game("sim-parity", Vector(10, 10, 10))
@@ -1387,14 +1437,43 @@ def _run_engine_parity_check():
         player.direction = Vector(1, 0, 0)
         level = Level("sim-parity", Vector(10, 10, 10), game)
         level.entity_add(player)
+        def render(wireframe=False):
+            draw._clear(0)
+            level.render_3d_sprite(roundtrip, 0.5, False, wireframe)
+            if not any(draw._buffer):
+                raise RuntimeError("simulator Level.render_3d_sprite drew no pixels")
+            return bytes(draw._buffer)
+
+        level.set_shadow_color(0)
+        plain = render()
+        if render(True) == plain:
+            raise RuntimeError("simulator native polygon outline drew no pixels")
+        level.set_shadow_color(0xF800)
+        default_light = render()
+        if default_light == plain:
+            raise RuntimeError("simulator Level shadow rendering had no effect")
+        level.set_light_direction(1, 1, 1)
+        if render() != default_light:
+            raise RuntimeError("simulator Level default light direction mismatch")
         level.set_light_direction(0, 3, 4)
-        level.set_shadow_color(0x39E7)
-        level.render_3d_sprite(path, 0.0, False, True)
+        directed = render()
+        if directed == default_light:
+            raise RuntimeError("simulator Level.set_light_direction had no effect")
+        level.set_light_direction(0, 0.003, 0.004)
+        if render() != directed:
+            raise RuntimeError("simulator Level light direction normalization mismatch")
+        level.set_shadow_color(0x001F)
+        if render() == directed:
+            raise RuntimeError("simulator Level.set_shadow_color had no effect")
+        level.set_shadow_color(0)
+        if render() != plain:
+            raise RuntimeError("simulator Level shadow disable mismatch")
     finally:
         draw = None
-        sim_runtime.set_lcd(None)
+        sim_runtime.set_lcd(original_lcd)
         sim_runtime.headless = original_headless
         sd_mp.remove(path)
+        sd_mp.remove(roundtrip)
         gc.collect()
     print("[sim-check:ok] engine Level and Sprite3D parity")
 

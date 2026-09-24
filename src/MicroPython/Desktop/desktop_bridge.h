@@ -9,6 +9,10 @@ extern "C" {
 #endif
 
 void desktop_lcd_clear(uint16_t color);
+void desktop_lcd_polygon(uint16_t x[], uint16_t y[], int count, uint16_t color);
+void desktop_lcd_fill_polygon(uint16_t x[], uint16_t y[], int count, uint16_t color);
+void desktop_lcd_fill_polygon_alpha(uint16_t x[], uint16_t y[], int count,
+                                    uint16_t color, uint8_t alpha);
 uint16_t desktop_lcd_width(void);
 uint16_t desktop_lcd_height(void);
 void desktop_lcd_pixel(uint16_t x, uint16_t y, uint16_t color);

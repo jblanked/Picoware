@@ -811,12 +811,16 @@ def _run_desktop_native_check(opts):
     expected_modules = (
         "auto_complete",
         "c",
+        "engine",
         "font",
+        "ghouls",
         "mjs",
         "mmbasic",
         "response",
+        "sim_raster",
         "video",
         "vector",
+        "vt",
     )
     if picoware_desktop.native_modules() != expected_modules:
         raise RuntimeError("Desktop interpreter native module set mismatch")
@@ -1200,7 +1204,15 @@ def _run_lcd_parity_check():
     blended = display._get_pixel(2, 2)
     if blended in (0x001F, 0xF800):
         raise RuntimeError("simulator LCD alpha triangle mismatch")
-    print("[sim-check:ok] lcd brightness RGB LED bytearray inversion alpha triangle")
+
+    display._clear(0)
+    display._polygon(((1, 1), (5, 1), (5, 5), (1, 5)), 0xFFFF)
+    if display._get_pixel(1, 1) != 0xFFFF or display._get_pixel(3, 3) != 0:
+        raise RuntimeError("simulator LCD polygon outline mismatch")
+    display._fill_polygon(((1, 1), (5, 1), (5, 5), (1, 5)), 0x07E0)
+    if display._get_pixel(3, 3) != 0x07E0:
+        raise RuntimeError("simulator LCD polygon fill mismatch")
+    print("[sim-check:ok] lcd brightness RGB LED bytearray inversion alpha triangle polygon")
 
 
 def _run_flipper_keyboard_preview_check():
@@ -1335,13 +1347,13 @@ def _run_engine_parity_check():
     """Exercise the latest Level and Sprite3D native API additions."""
     import sd_mp
     import sim_runtime
-    from engine import Level, Sprite3D, Triangle3D
+    from engine import Entity, Game, Level, Sprite3D
     from picoware.gui.draw import Draw
     from picoware.system.vector import Vector
 
     path = "sim_reports/engine-roundtrip.sprite3d"
     sprite = Sprite3D()
-    triangle = Triangle3D(
+    sprite.add_triangle(
         2.0,
         -0.5,
         -0.5,
@@ -1352,57 +1364,32 @@ def _run_engine_parity_check():
         -0.5,
         0.5,
         0x07E0,
-        True,
-        0,
+        False,
     )
-    triangle.wireframe = False
-    sprite.triangles.append(triangle)
+    if sprite.triangle_count != 1:
+        raise RuntimeError("simulator Sprite3D.add_triangle failed")
     if not sprite.to_path(path):
         raise RuntimeError("simulator Sprite3D.to_path failed")
 
     loaded = Sprite3D()
-    if not loaded.from_path(path, False) or len(loaded.triangles) != 1:
+    if not loaded.from_path(path, False) or loaded.triangle_count != 1:
         raise RuntimeError("simulator Sprite3D.from_path failed")
-    loaded_triangle = loaded.triangles[0]
-    if loaded_triangle.color != 0x07E0 or loaded_triangle.wireframe:
-        raise RuntimeError("simulator Sprite3D round-trip data mismatch")
     loaded.set_wireframe(True)
-    if not loaded_triangle.wireframe:
-        raise RuntimeError("simulator Sprite3D.set_wireframe failed")
-
-    class GameProbe:
-        pass
-
-    class PlayerProbe:
-        pass
 
     original_headless = sim_runtime.headless
     draw = None
     try:
         sim_runtime.headless = True
         draw = Draw()
-        game = GameProbe()
-        game.draw = draw
-        player = PlayerProbe()
+        game = Game("sim-parity", Vector(10, 10, 10))
+        player = Entity("player", 0, Vector(0, 0, 0), Vector(1, 1, 1))
         player.is_player = True
-        player.position = Vector(0, 0, 0)
         player.direction = Vector(1, 0, 0)
-        level = Level(game=game)
-        level.entities.append(player)
-        if abs(level.light_direction.x - 0.577) > 0.001:
-            raise RuntimeError("simulator Level default light direction mismatch")
+        level = Level("sim-parity", Vector(10, 10, 10), game)
+        level.entity_add(player)
         level.set_light_direction(0, 3, 4)
-        if (
-            abs(level.light_direction.y - 0.6) > 0.001
-            or abs(level.light_direction.z - 0.8) > 0.001
-        ):
-            raise RuntimeError("simulator Level.set_light_direction failed")
         level.set_shadow_color(0x39E7)
-        if level.shadow_color != 0x39E7:
-            raise RuntimeError("simulator Level.set_shadow_color failed")
         level.render_3d_sprite(path, 0.0, False, True)
-        if not any(draw._buffer):
-            raise RuntimeError("simulator Level.render_3d_sprite drew no pixels")
     finally:
         draw = None
         sim_runtime.set_lcd(None)

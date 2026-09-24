@@ -255,8 +255,32 @@ class LCD:
         self._line(x2, y2, x3, y3, color)
         self._line(x3, y3, x1, y1, color)
 
+    def _polygon(self, points, color):
+        count = len(points)
+        if count == 0:
+            return
+        for index in range(count):
+            first = points[index]
+            second = points[(index + 1) % count]
+            self._line(first[0], first[1], second[0], second[1], color)
+
     def _fill_triangle(self, x1, y1, x2, y2, x3, y3, color):
         self._fill_triangle_alpha(x1, y1, x2, y2, x3, y3, color, 255)
+
+    def _fill_polygon(self, points, color):
+        self._fill_polygon_alpha(points, color, 255)
+
+    def _fill_polygon_alpha(self, points, color, alpha):
+        if len(points) < 3:
+            return
+        first = points[0]
+        for index in range(1, len(points) - 1):
+            second = points[index]
+            third = points[index + 1]
+            self._fill_triangle_alpha(
+                first[0], first[1], second[0], second[1],
+                third[0], third[1], color, alpha,
+            )
 
     def _fill_triangle_alpha(self, x1, y1, x2, y2, x3, y3, color, alpha):
         points = (

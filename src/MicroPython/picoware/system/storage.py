@@ -7,6 +7,7 @@ from picoware_boards import (
     BOARD_WAVESHARE_1_69_RP2350,
     BOARD_HAS_ESP32,
     BOARD_FLIPPER_ZERO,
+    BOARD_PICO_DUO,
 )
 
 try:
@@ -58,6 +59,7 @@ class Storage:
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_69_RP2350,
             BOARD_CROWPANEL_10_1,
+            BOARD_PICO_DUO,
         ):
             self._has_storage = False
         else:

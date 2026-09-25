@@ -11,7 +11,8 @@ from picoware.system.boards import (
     BOARD_WAVESHARE_2_06,
     BOARD_PANCAKE,
     BOARD_V8,
-    BOARD_FLIPPER_ZERO
+    BOARD_FLIPPER_ZERO,
+    BOARD_PICO_DUO
 )
 
 
@@ -48,7 +49,7 @@ class Battery:
             BOARD_V8,
             BOARD_FLIPPER_ZERO
         )
-
+    
     @property
     def percentage(self) -> int:
         """Returns the current battery level as a percentage (0-100)."""
@@ -62,7 +63,7 @@ class Battery:
 
             return get_percentage()
 
-        if BOARD_ID == BOARD_CROWPANEL_10_1:
+        if BOARD_ID in (BOARD_CROWPANEL_10_1, BOARD_PICO_DUO):
             return 100
 
         if BOARD_ID in (

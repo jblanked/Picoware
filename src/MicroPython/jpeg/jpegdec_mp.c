@@ -13,7 +13,7 @@ void *JPEGdummy = {readFLASH}; // to avoid compiler error
 
 #if defined(PICOCALC)
 #include "../../lcd/lcd_config.h"
-#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO)
+#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO) || defined(PICO_DUO)
 #include "../lcd/lcd_config.h"
 #else
 #include "../../../lcd/lcd_config.h"

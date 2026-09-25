@@ -3,7 +3,7 @@
 #include "py/runtime.h"
 #include "../../mjs/src/mjs_json.h"
 
-#if defined(WAVESHARE_1_28) || defined(WAVESHARE_1_69)
+#if defined(WAVESHARE_1_28) || defined(WAVESHARE_1_69) || defined(PICO_DUO)
 #define STORAGE_NOT_AVAILABLE 1
 #elif defined(DESKTOP)
 #include "../../Desktop/desktop_bridge.h"

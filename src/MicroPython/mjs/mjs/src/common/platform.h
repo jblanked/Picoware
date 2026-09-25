@@ -61,7 +61,7 @@
 #define CS_PLATFORM CS_P_RS14100
 #elif defined(STM32)
 #define CS_PLATFORM CS_P_STM32
-#elif defined(PICOCALC) || defined(PICO_RP2040) || defined(PICO_RP2350)
+#elif defined(PICOCALC) || defined(PICO_RP2040) || defined(PICO_RP2350) || defined(PICO_DUO)
 #define CS_PLATFORM CS_P_RP2040
 #endif
 

@@ -27,6 +27,7 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_V8 13
 #define BOARD_WAVESHARE_1_69_RP2350 14
 #define BOARD_DESKTOP 15
+#define BOARD_PICO_DUO 16
 
 #if defined(DESKTOP)
 #define BOARD_ID BOARD_DESKTOP
@@ -135,6 +136,15 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_WIFI 0      // disabled... but it does have wifi (ESP-Hosted C6)
 #define BOARD_HAS_AUDIO 0     // no audio module in esp32 build yet
 #define BOARD_HAS_BLUETOOTH 0 // disabled... but it does have bluetooth (ESP-Hosted C6)
+#elif defined(PICO_DUO)
+// PicoDuo
+#define BOARD_ID BOARD_PICO_DUO
+#define BOARD_HAS_PSRAM 0     // no psram
+#define BOARD_HAS_SD 0        // no sd card
+#define BOARD_HAS_TOUCH 0     // no touch
+#define BOARD_HAS_WIFI 1      // has wifi
+#define BOARD_HAS_AUDIO 0     // no audio module in esp32 build yet
+#define BOARD_HAS_BLUETOOTH 1 // has bluetooth
 #elif defined CYW43_WL_GPIO_LED_PIN
 #define BOARD_HAS_PSRAM 1     // has psram
 #define BOARD_HAS_SD 1        // has sd card

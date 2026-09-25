@@ -73,7 +73,7 @@ extern "C"
 #define JSON_GET_ARRAY_VALUE get_json_array_value // (const char *key, int index, const char *json_str) -> char* (caller must free)
 
 // sound (disabled on Cardputer — no audio hardware abstraction)
-#if !defined(CARDPUTER) && !defined(WAVESHARE_2_06) && !defined(PANCAKE) && !defined(V8)
+#if !defined(CARDPUTER) && !defined(WAVESHARE_2_06) && !defined(PANCAKE) && !defined(V8) && !defined(PICO_DUO)
 #define SOUND_INCLUDE "../../../audio/audio.h"
 // #define SOUND_PLAY_MONO_FREQUENCY sound_play_mono_frequency     // (int frequency, int duration_ms)
 #define SOUND_PLAY_STEREO_FREQUENCY audio_play_sound_blocking // (int left_freq, int right_freq, int duration_ms)

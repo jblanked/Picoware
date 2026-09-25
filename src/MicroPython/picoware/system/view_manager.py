@@ -110,7 +110,7 @@ class ViewManager:
 
         # exit button
         _back_button = settings.exit_button
-        if syst.board_id in (BOARD_CARDPUTER, BOARD_FLIPPER_ZERO):
+        if syst.board_id == BOARD_CARDPUTER:
             _back_button = BUTTON_ESCAPE
 
         # Initialize input manager

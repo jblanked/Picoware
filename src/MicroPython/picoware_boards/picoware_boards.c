@@ -4,7 +4,7 @@
 
 #if defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO)
 #include "../lcd/lcd_config.h"
-#elif defined(PICOCALC) || defined(PIMORONI_PICO_PLUS2W_RP2350)
+#elif defined(PICOCALC) || defined(PIMORONI_PICO_PLUS2W_RP2350) || defined(PICO_DUO)
 #include "../../lcd/lcd_config.h"
 #elif defined(WAVESHARE_1_28) || defined(WAVESHARE_1_43) || defined(WAVESHARE_1_69) || defined(WAVESHARE_3_49)
 #include "../../../lcd/lcd_config.h"
@@ -55,6 +55,9 @@ mp_obj_t picoware_boards_get_current_name(void)
 #elif defined(PIMORONI_PICO_PLUS2W_RP2350)
     // PicoCalc - Pimoroni 2 W
     return mp_obj_new_str("PicoCalc - Pimoroni", strlen("PicoCalc - Pimoroni"));
+#elif defined(PICO_DUO)
+    // PicoDuo
+    return mp_obj_new_str("PicoDuo", strlen("PicoDuo"));
 #elif defined(CYW43_WL_GPIO_LED_PIN)
 #ifdef PICO_RP2040
     // PicoCalc - Pico W
@@ -91,6 +94,8 @@ mp_obj_t picoware_boards_get_device_name(void)
     return mp_obj_new_str("ESP32-C5", strlen("ESP32-C5"));
 #elif defined(CARDPUTER) || defined(WAVESHARE_2_06)
     return mp_obj_new_str("ESP32-S3", strlen("ESP32-S3"));
+#elif defined(PICO_DUO)
+    return mp_obj_new_str("Raspberry Pi Pico 2W", strlen("Raspberry Pi Pico 2W"));
 #elif defined(CYW43_WL_GPIO_LED_PIN)
 #ifdef PICO_RP2040
     return mp_obj_new_str("Raspberry Pi Pico W", strlen("Raspberry Pi Pico W"));
@@ -164,6 +169,9 @@ mp_obj_t picoware_boards_get_name(mp_obj_t board_id_obj)
     case BOARD_DESKTOP:
         snprintf(board_name, sizeof(board_name), "Desktop");
         break;
+    case BOARD_PICO_DUO:
+        snprintf(board_name, sizeof(board_name), "PicoDuo");
+        break;
     default:
         snprintf(board_name, sizeof(board_name), "Unknown Board");
         break;
@@ -214,6 +222,7 @@ mp_obj_t picoware_boards_get_display_size(mp_obj_t board_id_obj)
         height = 480;
         break;
     case BOARD_V8:
+    case BOARD_PICO_DUO:
         width = 240;
         height = 320;
         break;
@@ -327,11 +336,28 @@ static MP_DEFINE_CONST_FUN_OBJ_1(picoware_boards_has_touch_obj, picoware_boards_
 
 mp_obj_t picoware_boards_has_wifi(mp_obj_t board_id_obj)
 {
-#if BOARD_HAS_WIFI == 0
-    return mp_obj_new_bool(false);
-#else
-    return mp_obj_new_bool(true);
-#endif
+    int board_id = mp_obj_get_int(board_id_obj);
+    bool has_wifi = false;
+
+    switch (board_id)
+    {
+    case BOARD_PICOCALC_PICOW:
+    case BOARD_PICOCALC_PICO_2W:
+    case BOARD_PICOCALC_PIMORONI_2W:
+    case BOARD_CARDPUTER:
+    case BOARD_WAVESHARE_2_06:
+    case BOARD_PANCAKE:
+    case BOARD_V8:
+    case BOARD_FLIPPER_ZERO:
+    case BOARD_PICO_DUO:
+        has_wifi = true;
+        break;
+    default:
+        has_wifi = false;
+        break;
+    }
+
+    return mp_obj_new_bool(has_wifi);
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(picoware_boards_has_wifi_obj, picoware_boards_has_wifi);
 
@@ -364,7 +390,15 @@ mp_obj_t picoware_boards_has_bluetooth(mp_obj_t board_id_obj)
 
     switch (board_id)
     {
+    case BOARD_PICOCALC_PICOW:
+    case BOARD_PICOCALC_PICO_2W:
+    case BOARD_PICOCALC_PIMORONI_2W:
+    case BOARD_CARDPUTER:
+    case BOARD_WAVESHARE_2_06:
+    case BOARD_PANCAKE:
+    case BOARD_V8:
     case BOARD_FLIPPER_ZERO:
+    case BOARD_PICO_DUO:
         has_bluetooth = true;
         break;
     default:
@@ -469,6 +503,7 @@ static const mp_rom_map_elem_t picoware_boards_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_BOARD_FLIPPER_ZERO), MP_ROM_INT(BOARD_FLIPPER_ZERO)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_WAVESHARE_1_69_RP2350), MP_ROM_INT(BOARD_WAVESHARE_1_69_RP2350)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_DESKTOP), MP_ROM_INT(BOARD_DESKTOP)},
+    {MP_ROM_QSTR(MP_QSTR_BOARD_PICO_DUO), MP_ROM_INT(BOARD_PICO_DUO)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_PSRAM), MP_ROM_INT(BOARD_HAS_PSRAM)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_SD), MP_ROM_INT(BOARD_HAS_SD)},
     {MP_ROM_QSTR(MP_QSTR_BOARD_HAS_TOUCH), MP_ROM_INT(BOARD_HAS_TOUCH)},

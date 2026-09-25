@@ -15,7 +15,8 @@ from picoware.system.boards import (
     BOARD_PANCAKE,
     BOARD_V8,
     BOARD_HAS_TOUCH,
-    BOARD_FLIPPER_ZERO
+    BOARD_FLIPPER_ZERO,
+    BOARD_PICO_DUO
 )
 
 
@@ -42,6 +43,7 @@ class Input:
         "_character_map",
         "_touch_read_data_fast",
         "_touch_down_1_69",
+        "_uart"
     )
 
     def __init__(self, back_button=buttons.BUTTON_BACK):
@@ -68,6 +70,7 @@ class Input:
         self._touch_read_data_fast = None
         self._touch_down_1_69 = False
         self._screen_size: tuple = get_display_size(BOARD_ID)
+        self._uart = None
 
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             from machine import Pin
@@ -139,7 +142,11 @@ class Input:
             from flipper_input import init 
 
             init()
+        elif self._current_board_id == BOARD_PICO_DUO:
+            from picoware.system.uart import UART
 
+            self._uart = UART(0, 0, 1)
+            self._uart.set_callback(self.__uart_callback)
         else:
             from picoware_keyboard import (
                 init,
@@ -280,6 +287,19 @@ class Input:
                 13: buttons.BUTTON_CENTER,
             }
             self._button_map.update(ansi_button_map)
+        elif self._current_board_id == BOARD_PICO_DUO:
+            self._button_map = {
+                b'\x04': buttons.BUTTON_UP, # 4
+                b'\x07': buttons.BUTTON_DOWN, # 7
+                b'\x08': buttons.BUTTON_LEFT, # 8
+                b'\x02': buttons.BUTTON_RIGHT, # 2
+                b'\x11': buttons.BUTTON_UP, # 17
+                b'\x12': buttons.BUTTON_DOWN, # 18
+                b'\x10': buttons.BUTTON_LEFT, # 16
+                b'\x0f': buttons.BUTTON_RIGHT, # 15
+                b'\x0d': buttons.BUTTON_CENTER, # 13
+                b'\x0c': buttons.BUTTON_BACK, # 12
+            }
         else:
             self._button_map = {
                 buttons.KEY_UP: buttons.BUTTON_UP,
@@ -431,7 +451,7 @@ class Input:
             BOARD_CROWPANEL_10_1,
             BOARD_WAVESHARE_2_06,
             BOARD_PANCAKE,
-            BOARD_V8,
+            BOARD_V8, 
         ):
             self._poll_touch()
         elif self._current_board_id == BOARD_WAVESHARE_1_69_RP2350:
@@ -777,3 +797,10 @@ class Input:
             self._elapsed_time += 1
             self._was_pressed = True
             reset_state()
+
+    def __uart_callback(self, uart_instance):
+        _data = uart_instance.read()
+        if _data is None:
+            return
+
+        self._last_button = self._button_map.get(_data, buttons.BUTTON_NONE)

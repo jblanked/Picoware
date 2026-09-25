@@ -776,6 +776,29 @@ def set_background_key_poll(enable):
 def _dispatch_key_callback():
     """Deliver at most one queued key per simulated hardware poll."""
     global _notifying_key
+    if not _notifying_key and _keys and str(board).lower().replace("_", "-") in ("pico-duo", "picoduo"):
+        from machine import UART
+
+        uart = UART._endpoints.get("uart0")
+        if uart is None or not uart._initialized or uart._handler is None:
+            return
+        # Match the bytes delivered by PicoDuo's controller to the firmware UART.
+        controls = {
+            KEY_NAMES["up"]: b"\x04",
+            KEY_NAMES["down"]: b"\x07",
+            KEY_NAMES["left"]: b"\x08",
+            KEY_NAMES["right"]: b"\x02",
+            KEY_NAMES["enter"]: b"\x0d",
+            KEY_NAMES["back"]: b"\x0c",
+        }
+        data = controls.get(_keys.pop(0))
+        if data is not None:
+            _notifying_key = True
+            try:
+                uart.inject_rx(data)
+            finally:
+                _notifying_key = False
+        return
     if (
         _notifying_key
         or not _background_key_poll

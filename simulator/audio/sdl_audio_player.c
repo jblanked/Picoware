@@ -40,6 +40,17 @@ static int ends_with_ci(const char *text, const char *suffix) {
     return 1;
 }
 
+static int has_wav_header(const char *path) {
+    unsigned char header[12];
+    FILE *f = fopen(path, "rb");
+    if (!f) return 0;
+    size_t n = fread(header, 1, sizeof(header), f);
+    fclose(f);
+    return n == sizeof(header) &&
+           memcmp(header, "RIFF", 4) == 0 &&
+           memcmp(header + 8, "WAVE", 4) == 0;
+}
+
 static void audio_cb(void *userdata, Uint8 *stream, int len) {
     audio_state_t *st = (audio_state_t *)userdata;
     Sint16 *out = (Sint16 *)stream;
@@ -187,7 +198,9 @@ int main(int argc, char **argv) {
     st.volume = 100;
     st.playing = 1;
 
-    int rc = ends_with_ci(argv[1], ".wav") ? load_wav(argv[1], &st) : load_mp3(argv[1], &st);
+    int rc = (ends_with_ci(argv[1], ".wav") || has_wav_header(argv[1]))
+                 ? load_wav(argv[1], &st)
+                 : load_mp3(argv[1], &st);
     if (rc != 0) {
         SDL_Quit();
         return rc;

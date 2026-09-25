@@ -2,7 +2,7 @@
 
 from math import cos, pi, sin
 from random import randint
-from time import ticks_diff, ticks_ms
+from time import ticks_diff, ticks_ms, sleep_ms
 from gc import collect
 
 from micropython import const
@@ -16,17 +16,30 @@ from picoware.system.buttons import (
 from picoware.system.decorator import native
 from picoware.system.vector import Vector
 
-from .assets import BANANA_FRAMES, CLOUD_ART, GORILLA_ART, GORILLA_FALLEN_ART, TITLE_ART
+from .assets import (
+    BANANA_FRAMES, CLOUD_ART, GORILLA_ART, GORILLA_FALLEN_ART, TITLE_ART,
+    LOADING_LOGO, LOADING_LOGO_COMPACT,
+)
 from .sprites import SpriteCache
+from .sound import SoundEffects
 
 PHASE_AIMING = const(0)
 PHASE_FLYING = const(1)
 PHASE_EXPLODING = const(2)
 PHASE_GAME_OVER = const(3)
 PHASE_MENU = const(4)
+MENU_SINGLE_PLAYER = const(0)
+MENU_TWO_PLAYERS = const(1)
+MENU_AUDIO = const(2)
+MENU_EXIT = const(3)
+AUDIO_OFF = const(0)
+AUDIO_FX = const(1)
+AUDIO_FX_MUSIC = const(2)
+AUDIO_LABELS = ("AUDIO: OFF", "AUDIO: FX", "AUDIO: FX + MUSIC")
 EXPLOSION_TICKS = const(40)
 DECAL_LIMIT = const(24)
 MATCH_WINS = const(3)
+LOADING_SCREEN_MIN_MS = const(2000)
 
 # RGB565 palette: midnight, slate, peach, cream, turquoise, and coral.
 INK = const(0x1085)
@@ -46,6 +59,28 @@ _engine = None
 _game = None
 _level = None
 _state = None
+_sound_effects = None
+
+
+def __play_sound(name):
+    """Play a short optional SFX unless audio is switched off."""
+    if (_sound_effects is not None and
+            (_state is None or _state.audio_mode != AUDIO_OFF)):
+        _sound_effects.play(name)
+
+
+def __set_audio_mode(mode):
+    """Apply the selected audio mix and start or stop background music."""
+    _state.audio_mode = mode
+    if _sound_effects is not None:
+        if mode == AUDIO_OFF:
+            _sound_effects.stop()
+        elif mode == AUDIO_FX:
+            _sound_effects.stop_music()
+        else:
+            _sound_effects.start_music()
+    if mode != AUDIO_OFF:
+        __play_sound("ui")
 
 
 class _Scenery:
@@ -73,7 +108,7 @@ class _State:
         'particles', 'phase', 'physics_scale', 'pixel_scale', 'players',
         'power', 'remainder', 'renderer', 'round', 'scores', 'season', 'sky',
         'spawn_buildings', 'starter', 'steps', 'terrain', 'terrain_columns', 'terrain_unit', 'tick', 'trail', 'turn',
-        'width', 'wind',
+        'width', 'wind', 'audio_mode',
     )
 
     def __init__(self, draw, width, height, compact, font, scale, gorilla_scale, baseline):
@@ -110,6 +145,7 @@ class _State:
         self.height = height
         self.hit_player = -1
         self.menu_selection = 0
+        self.audio_mode = AUDIO_FX
         self.left_player = 0
         self.message = ""
         self.particles = []
@@ -339,6 +375,54 @@ def __banana_update(entity, game):
 def __center_text(draw, text, y, color=CREAM):
     """Center one short line."""
     draw.text(max(0, (_state.width - draw.len(text)) // 2), y, text, color)
+
+
+def __draw_loading_screen(draw):
+    """Show the binary Gorillas logo before loading the larger game artwork."""
+    width, height = int(draw.size.x), int(draw.size.y)
+    font_height = int(draw.font_size.y)
+    compact = width < 180 or height < 180
+    filename, logo_width, logo_height = LOADING_LOGO_COMPACT if compact else LOADING_LOGO
+    logo = bytearray(logo_width * logo_height)
+    source = open(__file__.rsplit('/', 1)[0] + '/' + filename, 'rb')
+    try:
+        if source.readinto(logo) != len(logo):
+            raise ValueError('Truncated Gorillas loading logo')
+    finally:
+        source.close()
+
+    panel_width, panel_height = logo_width + 10, logo_height + 10
+    panel_x = max(0, (width - panel_width) // 2)
+    panel_y = max(4, (height - panel_height - (2 if compact else 4) * font_height - 28) // 2)
+    logo_x, logo_y = (width - logo_width) // 2, panel_y + 5
+
+    draw.fill_screen(INK)
+    draw._fill_rectangle(0, 0, width, 3, TEAL)
+    draw.fill_round_rectangle(
+        Vector(panel_x, panel_y), Vector(panel_width, panel_height), 5, PANEL,
+    )
+    draw.rect(Vector(panel_x, panel_y), Vector(panel_width, panel_height), TEAL)
+    draw.image_bytearray(Vector(logo_x, logo_y), Vector(logo_width, logo_height), logo)
+
+    title = 'GORILLAS'
+    title_y = panel_y + panel_height + font_height
+    draw.text(Vector(max(0, (width - draw.len(title)) // 2), title_y), title, CREAM)
+    if compact:
+        status = 'LOADING CITY...'
+        status_y = max(title_y + font_height + 3, height - font_height - 8)
+    else:
+        subtitle = 'ROOFTOP DUEL'
+        subtitle_y = title_y + font_height + 3
+        draw.text(Vector(max(0, (width - draw.len(subtitle)) // 2), subtitle_y), subtitle, GOLD)
+        status = 'LOADING CITY...'
+        status_y = max(subtitle_y + font_height + 7, height - 2 * font_height - 14)
+        footer = 'FIRST TO 3 WINS'
+        footer_y = min(height - font_height, status_y + font_height + 2)
+        if footer_y >= status_y + font_height + 2 and footer_y + font_height <= height:
+            draw.text(Vector(max(0, (width - draw.len(footer)) // 2), footer_y), footer, SLATE)
+    draw.text(Vector(max(0, (width - draw.len(status)) // 2), status_y), status, TEAL)
+    draw._fill_rectangle(0, height - 3, width, 3, CORAL)
+    draw.swap()
 
 
 def __create_entity(name, entity_type, position, size, update=None, render=None, collision=None):
@@ -674,7 +758,7 @@ def __draw_hud(entity, draw, game):
     scale, font = _state.pixel_scale, _state.font_height
     accent = WHITE if compact else (TEAL if _state.turn == 0 else CORAL)
     if phase == PHASE_MENU:
-        if draw.layer('menu', (_state.menu_selection, _state.environment)):
+        if draw.layer('menu', (_state.menu_selection, _state.environment, _state.audio_mode)):
             __draw_menu(draw)
             draw.end_layer()
         draw.present()
@@ -776,34 +860,50 @@ def __draw_menu(draw):
     width, height = _state.width, _state.height
     compact, font = _state.compact, _state.font_height
     selected = _state.menu_selection
+    options = ("1 PLAYER / CPU", "2 PLAYERS", AUDIO_LABELS[_state.audio_mode], "EXIT")
     if compact:
         draw.box(0, 0, width, height, 0)
         __center_text(draw, "GORILLAS: FIRST TO 3", 2, WHITE)
-        for index, label in enumerate(("1 PLAYER / CPU", "2 PLAYERS", "EXIT")):
-            y = 17 + index * 12
+        row_start = 12 if height < 80 else 17
+        for index, label in enumerate(options):
+            y = row_start + index * 12
             if index == selected:
                 draw.box(5, y - 2, width - 10, font + 4, WHITE)
             __center_text(draw, label, y, 0 if index == selected else WHITE)
-        __center_text(draw, "U/D SELECT  OK PLAY", height - font - 1, WHITE)
+        if height >= 80:
+            hint = "L/R OR OK AUDIO" if selected == MENU_AUDIO else "U/D SELECT  OK PLAY"
+            __center_text(draw, hint, height - font - 1, WHITE)
         return
     title_scale = 3 if width >= 250 else 2
     __art(draw, TITLE_ART, (width - 47 * title_scale) // 2, 48, title_scale, {"#": CREAM})
     __center_text(draw, _state.environment, 48 + 7 * title_scale + 10, CREAM)
     panel_w = min(width - 28, 270)
-    panel_h = max(122, font * 11 + 24)
+    panel_h = max(122, font * 8 + 16)
     left, top = (width - panel_w) // 2, max(100, (height - panel_h) // 2)
+    if top + panel_h > height:
+        top = height - panel_h
+    panel_bottom = top + panel_h
     draw.box(left, top, panel_w, panel_h, INK)
     draw.box(left, top, panel_w, 2, TEAL)
-    __center_text(draw, "FIRST TO 3 WINS", top + 11, SLATE)
-    row_height = max(25, font + 15)
-    for index, label in enumerate(("1 PLAYER", "2 PLAYERS", "EXIT")):
-        y = top + 30 + index * row_height
+    __center_text(draw, "FIRST TO 3 WINS", top + 8, SLATE)
+    row_height = max(25, font + 10)
+    for index, label in enumerate(("1 PLAYER", "2 PLAYERS", AUDIO_LABELS[_state.audio_mode], "EXIT")):
+        y = top + 31 + index * row_height
         if index == selected:
-            draw.box(left + 10, y - 4, panel_w - 20, font + 10, TEAL)
+            draw.box(left + 10, y - 4, panel_w - 20, font + 8, TEAL)
         __center_text(draw, label, y, INK if index == selected else CREAM)
-    description = ("YOU VS THE COMPUTER", "LOCAL TWO-PLAYER DUEL", "RETURN TO GAMES")[selected]
-    __center_text(draw, description, top + panel_h + 10, CREAM)
-    __center_text(draw, "UP/DOWN SELECT   OK START   BACK EXIT", height - font - 5, SLATE)
+    footer_y = height - font - 5
+    description_y = panel_bottom + 6
+    if description_y + font <= footer_y and description_y + font <= height:
+        descriptions = (
+            "YOU VS THE COMPUTER",
+            "LOCAL TWO-PLAYER DUEL",
+            "LEFT/RIGHT OR OK: CHANGE AUDIO",
+            "RETURN TO GAMES",
+        )
+        __center_text(draw, descriptions[selected], description_y, CREAM)
+    if footer_y >= panel_bottom:
+        __center_text(draw, "UP/DOWN SELECT   OK START   BACK EXIT", footer_y, SLATE)
 
 
 def __draw_obstacle(entity, draw, game):
@@ -965,6 +1065,7 @@ def __finish_turn():
             if _state.scores[winner] >= MATCH_WINS:
                 _state.message = "CPU wins" if _state.players == 1 and winner == 1 else "Player {} wins".format(winner + 1)
                 _state.phase = PHASE_GAME_OVER
+                __play_sound("lose" if _state.players == 1 and winner == 1 else "win")
                 return
         # Non-final wins and draws flow straight into the next duel once the
         # explosion finishes. Scores persist and the starting player alternates.
@@ -1151,6 +1252,9 @@ def __resolve_shot(victim):
     _state.explosion_x, _state.explosion_y = x, y
     _state.explosion_frames, _state.hit_player = EXPLOSION_TICKS, victim
     _state.phase = PHASE_EXPLODING
+    __play_sound("explosion")
+    if victim < 0:
+        __play_sound("impact")
     _state.banana.is_visible = False
     _state.banana.position = Vector(-32, -32)
     scale = _state.pixel_scale
@@ -1162,6 +1266,8 @@ def __resolve_shot(victim):
         nearest_y = max(pos.y, min(y, pos.y + size.y))
         if index == victim or (nearest_x - x) ** 2 + (nearest_y - y) ** 2 <= radius * radius:
             _state.dead.append(index)
+    if _state.dead:
+        __play_sound("hit")
     _state.particles.clear()
     for index in range(10 if _state.compact else 22):
         angle = index * 2.399 + _state.tick / 10
@@ -1240,6 +1346,7 @@ def __throw():
     _state.aims[_state.turn] = (_state.angle, _state.power)
     _state.trail.clear()
     _state.phase = PHASE_FLYING
+    __play_sound("throw")
 
 
 
@@ -1251,8 +1358,10 @@ def __ui_boxes():
     if phase == PHASE_MENU:
         if compact:
             return ((0, 0, width, height),)
-        panel_w, panel_h = min(width - 28, 270), max(122, font * 11 + 24)
+        panel_w, panel_h = min(width - 28, 270), max(122, font * 8 + 16)
         left, top = (width - panel_w) // 2, max(100, (height - panel_h) // 2)
+        if top + panel_h > height:
+            top = height - panel_h
         return ((left, top, left + panel_w, top + panel_h),)
     boxes = ((0, 0, width, font + 3 if compact else 39),
              (0, height - font - 2 if compact else _state.baseline + 3, width, height))
@@ -1285,6 +1394,8 @@ def run(view_manager):
     _state.steps = min(4, elapsed // 33)
     _state.remainder = elapsed % 33
     button = view_manager.button
+    if _state.audio_mode == AUDIO_FX_MUSIC and _sound_effects is not None:
+        _sound_effects.update_music()
     if button == BUTTON_BACK:
         if _state.phase == PHASE_MENU:
             view_manager.back()
@@ -1294,26 +1405,40 @@ def run(view_manager):
             _state.trail.clear()
         return
     if _state.phase == PHASE_MENU:
-        if button in (BUTTON_UP, BUTTON_LEFT):
-            _state.menu_selection = (_state.menu_selection - 1) % 3
+        selection = _state.menu_selection
+        if selection == MENU_AUDIO and button in (BUTTON_LEFT, BUTTON_RIGHT):
+            delta = -1 if button == BUTTON_LEFT else 1
+            __set_audio_mode((_state.audio_mode + delta) % len(AUDIO_LABELS))
+        elif button in (BUTTON_UP, BUTTON_LEFT):
+            _state.menu_selection = (selection - 1) % 4
         elif button in (BUTTON_DOWN, BUTTON_RIGHT):
-            _state.menu_selection = (_state.menu_selection + 1) % 3
+            _state.menu_selection = (selection + 1) % 4
         elif button == BUTTON_CENTER:
-            if _state.menu_selection == 2:
+            if selection == MENU_EXIT:
                 view_manager.back()
                 return
-            _state.players = _state.menu_selection + 1
-            __reset_round(new_match=True)
+            if selection == MENU_AUDIO:
+                __set_audio_mode((_state.audio_mode + 1) % len(AUDIO_LABELS))
+            else:
+                _state.players = 1 if selection == MENU_SINGLE_PLAYER else 2
+                __reset_round(new_match=True)
+                __play_sound("ui")
+        if selection != _state.menu_selection:
+            __play_sound("ui")
     elif _state.phase == PHASE_GAME_OVER:
         if button == BUTTON_CENTER:
             __reset_round(new_match=True)
+            __play_sound("ui")
     elif _state.phase == PHASE_AIMING:
         if __is_cpu_turn():
             __ai_update()
         elif button == BUTTON_CENTER:
             __throw()
         else:
+            aim = (_state.angle, _state.power)
             __update_aim(button)
+            if aim != (_state.angle, _state.power):
+                __play_sound("ui")
     if _state.phase == PHASE_EXPLODING:
         _state.explosion_frames -= _state.steps
         if _state.explosion_frames <= 0:
@@ -1323,14 +1448,26 @@ def run(view_manager):
     wind = _state.wind
     _state.cloud_offset += (wind * 0.09 if wind else 0.015) * _state.steps
     _engine.run_async(False)
+    # Poll after Game._update() resets consumed input, so the next ViewManager
+    # tick sees the new key instead of the engine discarding it this frame.
+    if _sound_effects is not None:
+        _sound_effects.poll_input()
 
 
-def start(view_manager):
-    """Load the scene and the original pixel-art assets."""
+def start(view_manager, splash_started=None):
+    """Load the scene while the launcher splash stays visible."""
+    global _sound_effects
     if _engine is not None:
         return True
+    if splash_started is None:
+        __draw_loading_screen(view_manager.draw)
+        splash_started = ticks_ms()
     collect()
+    _sound_effects = SoundEffects(view_manager)
     __create_scene(view_manager)
+    remaining = LOADING_SCREEN_MIN_MS - ticks_diff(ticks_ms(), splash_started)
+    if remaining > 0:
+        sleep_ms(remaining)
     _engine.run_async(False)
     collect()
     return True
@@ -1338,7 +1475,10 @@ def start(view_manager):
 
 def stop(view_manager):
     """Drop scene references after leaving the game view."""
-    global _engine, _game, _level, _state
+    global _engine, _game, _level, _state, _sound_effects
+    if _sound_effects is not None:
+        _sound_effects.stop()
+        _sound_effects = None
     if _state is not None:
         _state.renderer.close()
     if _engine is not None:

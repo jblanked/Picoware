@@ -1254,6 +1254,7 @@ void lcd_write16_buf(const uint16_t *buffer, size_t len)
     for (size_t i = 0; i < len; i++)
     {
         uint16_t color = buffer[i];
+        color = (uint16_t)~color;
         uint8_t red = (color >> 11) & 0x1F;
         uint8_t green = (color >> 5) & 0x3F;
         uint8_t blue = color & 0x1F;

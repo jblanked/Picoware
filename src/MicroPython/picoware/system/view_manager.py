@@ -429,6 +429,9 @@ class ViewManager:
     @property
     def uart(self):
         """Return the UART instance."""
+        if self._uart is None:
+            from picoware.system.uart import UART
+            self._uart = UART()
         return self._uart
     
     @property

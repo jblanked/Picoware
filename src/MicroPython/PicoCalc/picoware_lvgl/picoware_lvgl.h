@@ -21,7 +21,7 @@ extern "C"
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include "../log/log_mp.h"
+#include "../../log/log_mp.h"
 
 #ifndef PRINT
 #define PRINT(...) LOG_MESSAGE(__VA_ARGS__)

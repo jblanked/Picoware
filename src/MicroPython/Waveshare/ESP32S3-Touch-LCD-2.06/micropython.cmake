@@ -1,10 +1,6 @@
-# Waveshare ESP32-S3-Touch-AMOLED-2.06 MicroPython C modules.
-# This file is copied to ports/esp32/modules/Waveshare/ESP32S3-Touch-LCD-2.06/ during the build.
-
-# Identify Waveshare ESP32-S3-Touch-AMOLED-2.06 in shared modules (for board ID/capability flags).
 add_compile_definitions(WAVESHARE_2_06)
-# Ensure core ESP32 port sources (including shared TinyUSB).
 list(APPEND MICROPY_DEF_BOARD WAVESHARE_2_06)
+set(ESP32 TRUE)
 
 # Include Waveshare 2.06 board-specific C modules.
 include(${CMAKE_CURRENT_LIST_DIR}/lcd/micropython.cmake)
@@ -17,7 +13,6 @@ include_directories(${CMAKE_CURRENT_LIST_DIR}/../../JPEGDEC/src)
 
 # Include Picoware modules
 include(${CMAKE_CURRENT_LIST_DIR}/../../auto_complete/micropython.cmake)
-set(ESP32 TRUE)
 include(${CMAKE_CURRENT_LIST_DIR}/../../c/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../../engine/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/../../font/micropython.cmake)

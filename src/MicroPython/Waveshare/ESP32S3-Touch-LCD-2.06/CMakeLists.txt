@@ -18,9 +18,6 @@ idf_component_register(
     INCLUDE_DIRS "."
     REQUIRES
         esp_lcd
-        esp_lcd_sh8601
-        esp_lcd_touch
-        esp_lcd_touch_ft5x06
         esp_psram
         esp_adc
         fatfs

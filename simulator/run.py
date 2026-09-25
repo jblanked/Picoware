@@ -45,6 +45,8 @@ _BOARD_DISPLAY_SIZES = {
     "waveshare-2.06-esp32s3": (410, 502),
     "pancake": (320, 480),
     "v8": (240, 320),
+    "pico-duo": (240, 320),
+    "picoduo": (240, 320),
     "flipper-zero": (128, 64),
     "flipper": (128, 64),
     "desktop": (320, 320),
@@ -491,6 +493,8 @@ def _board_supports_ghouls(board_name):
         "waveshare-2.06-esp32s3",
         "pancake",
         "v8",
+        "pico-duo",
+        "picoduo",
         "desktop",
         "unix",
     )

@@ -186,13 +186,19 @@ class UART:
             pass  # raw_data is empty/None
         return data
 
-    def set_callback(self, callback) -> None:
+    def set_callback(self, callback: callable, trigger: int = None, hard: bool = False) -> None:
         """Set an interrupt handler to be called when a UART event occurs.
 
         Args:
             callback (callable): The interrupt handler function.
         """
-        self._uart.irq(handler=callback)
+        from picoware.system.boards import BOARD_HAS_ESP32
+        _hard = hard if not BOARD_HAS_ESP32 else False
+        self._uart.irq(
+            handler=callback,
+            trigger=trigger if trigger is not None else self._uart.IRQ_RXIDLE,
+            hard=_hard,
+        )
 
     def write(self, message: bytes) -> None:
         """Write a message to the UART interface.

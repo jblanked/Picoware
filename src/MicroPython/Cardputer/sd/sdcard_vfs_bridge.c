@@ -30,7 +30,6 @@
 typedef struct
 {
     bool used;
-    mp_obj_t file_obj;
     char path[BRIDGE_MAX_PATH];
 } bridge_file_slot_t;
 
@@ -43,6 +42,15 @@ typedef struct
 } bridge_dir_t;
 
 static bridge_file_slot_t s_file_slots[BRIDGE_MAX_OPEN_FILES] = {0};
+
+// Keep open MicroPython files reachable while C stdio owns their descriptors.
+// C static arrays are not scanned by the garbage collector.
+// Use a literal length because root_pointers.h is included from mpstate.h.
+MP_REGISTER_ROOT_POINTER(mp_obj_t cardputer_bridge_open_files[16]);
+_Static_assert(BRIDGE_MAX_OPEN_FILES == 16,
+               "BRIDGE_MAX_OPEN_FILES must match the registered root array size");
+
+#define BRIDGE_FILE_OBJ(fd) (MP_STATE_PORT(cardputer_bridge_open_files)[(fd)])
 static bool s_bridge_registered = false;
 
 static int set_errno_from_nlr(nlr_buf_t *nlr, int fallback)
@@ -166,7 +174,7 @@ static int alloc_slot(mp_obj_t file_obj, const char *abs_path)
         if (!s_file_slots[i].used)
         {
             s_file_slots[i].used = true;
-            s_file_slots[i].file_obj = file_obj;
+            BRIDGE_FILE_OBJ(i) = file_obj;
             strncpy(s_file_slots[i].path, abs_path, sizeof(s_file_slots[i].path) - 1);
             s_file_slots[i].path[sizeof(s_file_slots[i].path) - 1] = '\0';
             return i;
@@ -193,7 +201,7 @@ static void clear_slot(int fd)
     if (fd >= 0 && fd < BRIDGE_MAX_OPEN_FILES)
     {
         s_file_slots[fd].used = false;
-        s_file_slots[fd].file_obj = MP_OBJ_NULL;
+        BRIDGE_FILE_OBJ(fd) = MP_OBJ_NULL;
         s_file_slots[fd].path[0] = '\0';
     }
 }
@@ -255,7 +263,7 @@ static ssize_t bridge_read(int fd, void *dst, size_t size)
     }
 
     int err = 0;
-    mp_uint_t out = mp_stream_rw(slot->file_obj, dst, size, &err, MP_STREAM_RW_READ | MP_STREAM_RW_ONCE);
+    mp_uint_t out = mp_stream_rw(BRIDGE_FILE_OBJ(fd), dst, size, &err, MP_STREAM_RW_READ | MP_STREAM_RW_ONCE);
     if (err != 0)
     {
         errno = err;
@@ -275,7 +283,7 @@ static ssize_t bridge_write(int fd, const void *src, size_t size)
 
     int err = 0;
     mp_uint_t out = mp_stream_rw(
-        slot->file_obj,
+        BRIDGE_FILE_OBJ(fd),
         (void *)src,
         size,
         &err,
@@ -304,7 +312,7 @@ static int bridge_close(int fd)
         return set_errno_from_nlr(&nlr, EIO);
     }
 
-    bridge_close_file_obj(slot->file_obj);
+    bridge_close_file_obj(BRIDGE_FILE_OBJ(fd));
     nlr_pop();
 
     clear_slot(fd);
@@ -320,7 +328,7 @@ static off_t bridge_lseek(int fd, off_t offset, int whence)
     }
 
     int err = 0;
-    mp_off_t out = mp_stream_seek(slot->file_obj, offset, whence, &err);
+    mp_off_t out = mp_stream_seek(BRIDGE_FILE_OBJ(fd), offset, whence, &err);
     if (out == (mp_off_t)-1)
     {
         errno = err != 0 ? err : EIO;
@@ -590,6 +598,10 @@ esp_err_t sdcard_vfs_bridge_register(void)
     }
 
     memset(s_file_slots, 0, sizeof(s_file_slots));
+    for (int i = 0; i < BRIDGE_MAX_OPEN_FILES; ++i)
+    {
+        BRIDGE_FILE_OBJ(i) = MP_OBJ_NULL;
+    }
     s_bridge_registered = true;
     return ESP_OK;
 }
@@ -606,7 +618,7 @@ esp_err_t sdcard_vfs_bridge_unregister(void)
         nlr_buf_t nlr;
         if (nlr_push(&nlr) == 0)
         {
-            bridge_close_file_obj(s_file_slots[i].file_obj);
+            bridge_close_file_obj(BRIDGE_FILE_OBJ(i));
             nlr_pop();
         }
         clear_slot(i);

@@ -31,3 +31,12 @@ def variant(art, scale, palette, mirror, dissolve):
     scales, channels, palettes, mirrors, phases = SPECS[art]
     colors = tuple(palette[channel] for channel in channels)
     return _BASES[art] + (((scales.index(scale) * len(palettes) + palettes.index(colors)) * mirrors + bool(mirror)) * phases + dissolve)
+
+# Raw RGB332 loading assets: filename, width, height.
+LOADING_LOGO = ("loading-logo.bin", 78, 72)
+LOADING_LOGO_COMPACT = ("loading-logo-compact.bin", 52, 48)
+LOADING_SCENE = ("loading-scene.bin", 320, 320)
+LOADING_SCENE_SPRING = ("loading-scene-spring.bin", 320, 320)
+LOADING_SCENE_SUMMER = ("loading-scene-summer.bin", 320, 320)
+LOADING_SCENE_FALL = ("loading-scene-fall.bin", 320, 320)
+LOADING_SCENE_WINTER = ("loading-scene-winter.bin", 320, 320)

@@ -1116,15 +1116,12 @@ class Desktop:
         self.bluetooth_size = Vector(14, 16)
         self.wifi_pos = Vector(0, 0)
         self.name_pos = Vector(0, 0)
-        if self.draw_icons:
-            self.time_pos = Vector(int(self.size.x * 0.4375), self.display.scale_y(5))
-        else:
-            # center in screen
-            time_width = self.display.len("00:00:00")
-            self.time_pos = Vector(
-                (self.size.x - time_width) // 2,
-                self.display.scale_y(5),
-            )
+
+        time_width = self.display.len("00:00:00")
+        self.time_pos = Vector(
+            (self.size.x - time_width) // 2,
+            self.display.scale_y(5),
+        )
         if not self.draw_name:
             # Use the space freed by the name for time; align with status icons.
             self.time_pos.x, self.time_pos.y = 2, 2
@@ -1290,7 +1287,7 @@ class Desktop:
             time_width = self.display.len(self.time_str)
             time_x = (self.size.x - time_width) // 2
             self.time_pos.x, self.time_pos.y = time_x, int(self.size.y / 20) + self.display.scale_y(10)
-        elif not self.draw_icons:
+        else:
             time_width = self.display.len(self.time_str)
             self.time_pos.x = (self.size.x - time_width) // 2
 

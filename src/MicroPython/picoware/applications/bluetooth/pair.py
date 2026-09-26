@@ -126,7 +126,7 @@ def start(view_manager) -> bool:
         view_manager.foreground_color,
         view_manager.background_color,
     )
-    _loading.text = "Scanning for devices..."
+    _loading.text = "Scanning..."
 
     _bluetooth = Bluetooth(storage=view_manager.storage)
     _bluetooth.callback = bluetooth_callback

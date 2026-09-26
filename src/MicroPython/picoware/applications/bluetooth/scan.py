@@ -99,7 +99,7 @@ def start(view_manager) -> bool:
         fg,
         bg,
     )
-    _loading.text = "Scanning for Bluetooth devices..."
+    _loading.text = "Scanning..."
 
     _bluetooth = Bluetooth()
     _bluetooth.callback = bluetooth_callback

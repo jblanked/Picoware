@@ -5,9 +5,9 @@ is_flipper = None
 def start(view_manager) -> bool:
     """Start the app"""
     global radius, is_flipper
-    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_POOM
 
-    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
+    is_flipper = BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM)
 
     screen_size = view_manager.draw.size
     radius = screen_size.x // 2 - view_manager.draw.scale_x(60)

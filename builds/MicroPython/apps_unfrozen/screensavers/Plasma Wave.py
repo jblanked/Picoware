@@ -39,9 +39,9 @@ def plasma_color(value: float) -> int:
 def start(view_manager) -> bool:
     """Start the app"""
     global time_offset, is_flipper
-    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_POOM
 
-    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
+    is_flipper = BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM)
 
     draw = view_manager.draw
     time_offset = 0

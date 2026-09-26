@@ -354,10 +354,10 @@ class Tetris:
 
 def start(view_manager) -> bool:
     """Start the app."""
-    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_POOM
     global _game, GRID_W, GRID_H, CELL_SIZE, GRID_X, GRID_Y, _scale, is_flipper
 
-    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
+    is_flipper = BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM)
 
     draw = view_manager.draw
     _scale = min(draw.size.x, draw.size.y) / 320

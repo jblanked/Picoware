@@ -42,9 +42,9 @@ def _build_palette() -> list:
 def start(view_manager) -> bool:
     """Start the app"""
     global screen_size, time_val, palette, RING_SIZE, is_flipper
-    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_POOM
 
-    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
+    is_flipper = BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM)
 
     draw = view_manager.draw
     screen_size = Vector(draw.size.x, draw.size.y)

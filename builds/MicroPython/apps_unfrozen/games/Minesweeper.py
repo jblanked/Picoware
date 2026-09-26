@@ -132,12 +132,12 @@ def start(view_manager) -> bool:
     """Start the app."""
     from picoware.system.vector import Vector
     from picoware.system.colors import TFT_BLACK, TFT_WHITE
-    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_POOM
 
     global grid, revealed, flagged, reusable_vec, pos_vec, is_flipper
     global _scale, CELL_SIZE, _offset_x, _offset_y, _text_off_x, _text_off_y, NUM_MINES
 
-    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
+    is_flipper = BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM)
 
     draw = view_manager.draw
     sw, sh = draw.size.x, draw.size.y

@@ -27,9 +27,9 @@ is_flipper = None
 def start(view_manager) -> bool:
     """Initialize the screensaver."""
     global _demo_state, _frame_count, _scale, colors, is_flipper
-    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_POOM
 
-    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
+    is_flipper = BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM)
 
     draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)

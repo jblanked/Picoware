@@ -68,10 +68,10 @@ def map_value(x: int, in_min: int, in_max: int, out_min: int, out_max: int) -> i
 def start(view_manager) -> bool:
     """Start the app"""
     from picoware.system.colors import TFT_BLACK
-    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_POOM
     global is_flipper
 
-    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
+    is_flipper = BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM)
 
     draw = view_manager.draw
     draw.fill_screen(TFT_BLACK)

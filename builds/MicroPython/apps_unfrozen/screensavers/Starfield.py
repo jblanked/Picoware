@@ -42,11 +42,11 @@ def start(view_manager) -> bool:
     import random
     from picoware.system.colors import TFT_BLACK
     from picoware.system.vector import Vector
-    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_POOM
 
     global za, zb, zc, zx, sx, sy, sz, screen_size, screen_size_half, is_flipper
 
-    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
+    is_flipper = BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM)
 
     sx = [0] * NSTARS
     sy = [0] * NSTARS

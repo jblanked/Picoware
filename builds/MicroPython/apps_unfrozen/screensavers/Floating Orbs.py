@@ -17,13 +17,13 @@ def start(view_manager):
         TFT_CYAN, TFT_MAGENTA, TFT_ORANGE, TFT_PINK,
         TFT_SKYBLUE, TFT_VIOLET,
     )
-    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_POOM
     from random import randint, choice, seed
     from time import ticks_ms
 
     global _orbs, _colors, _velocities, _frame, is_flipper
 
-    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
+    is_flipper = BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM)
 
     seed(ticks_ms())
     _frame = 0

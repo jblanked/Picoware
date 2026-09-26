@@ -104,9 +104,9 @@ def start(view_manager) -> bool:
     global screen_size, player_x, bullets, enemies, enemy_bullets, score, lives, game_over
     global enemy_direction, enemy_move_counter, is_flipper
     global PLAYER_WIDTH, PLAYER_HEIGHT, BULLET_WIDTH, BULLET_HEIGHT, ENEMY_WIDTH, ENEMY_HEIGHT, ENEMY_ROWS, ENEMY_COLS, ENEMY_SPACING
-    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_POOM
 
-    is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
+    is_flipper = BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM)
 
     draw = view_manager.draw
     screen_size = draw.size

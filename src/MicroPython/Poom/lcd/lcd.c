@@ -22,10 +22,6 @@ static i2c_master_bus_handle_t s_bus;
 static i2c_master_dev_handle_t s_dev;
 static bool s_initialized = false;
 
-static FontSize s_current_font = FONT_SIZE_XTRA_SMALL;
-static uint8_t s_font_scale_num = 1;
-static uint8_t s_font_scale_den = 1;
-
 static const uint8_t LCD_TEXT_SPACING = 1;
 static const uint8_t LCD_LINE_SPACING = 2;
 
@@ -112,8 +108,6 @@ bool lcd_init(void)
     lcd_fill(0x0000);
     lcd_swap();
 
-    lcd_set_font_scale(LCD_FONT_SCALE_NUM_DEFAULT, LCD_FONT_SCALE_DEN_DEFAULT);
-
     return true;
 }
 
@@ -160,9 +154,9 @@ void lcd_swap(void)
     for (uint8_t page = 0; page < OLED_PAGE_COUNT; page++)
     {
         uint8_t cmds[3] = {
-            (uint8_t)(0xB0 | page),                      /* page address */
-            (uint8_t)(0x00 | (OLED_COL_OFFSET & 0x0F)),  /* column low */
-            (uint8_t)(0x10 | (OLED_COL_OFFSET >> 4)),    /* column high */
+            (uint8_t)(0xB0 | page),                     /* page address */
+            (uint8_t)(0x00 | (OLED_COL_OFFSET & 0x0F)), /* column low */
+            (uint8_t)(0x10 | (OLED_COL_OFFSET >> 4)),   /* column high */
         };
         oled_write(OLED_CONTROL_CMD, cmds, sizeof(cmds));
 
@@ -451,35 +445,9 @@ void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color, FontSize size
 
     uint8_t val = color_to_mono(color);
 
-    /* No-scale fast path */
-    if (s_font_scale_num == 1 && s_font_scale_den == 1)
-    {
-        if ((int)x + char_width > LCD_WIDTH || (int)y + char_height > LCD_HEIGHT)
-            return;
-
-        for (uint8_t row = 0; row < char_height; row++)
-        {
-            const uint8_t *row_data = &char_data[row * bytes_per_row];
-            for (uint8_t col = 0; col < char_width; col++)
-            {
-                uint8_t byte_index = col / 8;
-                uint8_t bit_index = 7 - (col % 8);
-
-                if (row_data[byte_index] & (1 << bit_index))
-                {
-                    uint16_t px = x + col;
-                    uint16_t py = y + row;
-                    if (px < LCD_WIDTH && py < LCD_HEIGHT)
-                    {
-                        s_fb[py * LCD_WIDTH + px] = val;
-                    }
-                }
-            }
-        }
+    if ((int)x + char_width > LCD_WIDTH || (int)y + char_height > LCD_HEIGHT)
         return;
-    }
 
-    /* Scaled rect path */
     for (uint8_t row = 0; row < char_height; row++)
     {
         const uint8_t *row_data = &char_data[row * bytes_per_row];
@@ -490,17 +458,11 @@ void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color, FontSize size
 
             if (row_data[byte_index] & (1 << bit_index))
             {
-                uint16_t dx0 = x + (uint16_t)((col * (uint16_t)s_font_scale_num) / s_font_scale_den);
-                uint16_t dy0 = y + (uint16_t)((row * (uint16_t)s_font_scale_num) / s_font_scale_den);
-                uint16_t dx1 = x + (uint16_t)(((col + 1) * (uint16_t)s_font_scale_num) / s_font_scale_den);
-                uint16_t dy1 = y + (uint16_t)(((row + 1) * (uint16_t)s_font_scale_num) / s_font_scale_den);
-
-                for (uint16_t dy = dy0; dy <= dy1 && dy < LCD_HEIGHT; dy++)
+                uint16_t px = x + col;
+                uint16_t py = y + row;
+                if (px < LCD_WIDTH && py < LCD_HEIGHT)
                 {
-                    for (uint16_t dx = dx0; dx <= dx1 && dx < LCD_WIDTH; dx++)
-                    {
-                        s_fb[dy * LCD_WIDTH + dx] = val;
-                    }
+                    s_fb[py * LCD_WIDTH + px] = val;
                 }
             }
         }
@@ -511,8 +473,6 @@ void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color, Fon
 {
     uint8_t char_width = font_get_width(size);
     uint8_t char_height = font_get_height(size);
-    uint16_t scaled_width = (uint16_t)(((uint16_t)char_width * s_font_scale_num + s_font_scale_den) / s_font_scale_den);
-    uint16_t scaled_height = (uint16_t)(((uint16_t)char_height * s_font_scale_num + s_font_scale_den) / s_font_scale_den);
     uint16_t cur_x = x;
 
     while (*text)
@@ -520,38 +480,12 @@ void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color, Fon
         if (*text == '\n')
         {
             cur_x = x;
-            y += scaled_height + LCD_LINE_SPACING;
+            y += char_height + LCD_LINE_SPACING;
             text++;
             continue;
         }
         lcd_draw_char(cur_x, y, *text, color, size);
-        cur_x += scaled_width + LCD_TEXT_SPACING;
+        cur_x += char_width + LCD_TEXT_SPACING;
         text++;
     }
-}
-
-uint8_t lcd_get_font_height(void)
-{
-    return (uint8_t)(((uint16_t)font_get_height(s_current_font) * s_font_scale_num + s_font_scale_den) / s_font_scale_den);
-}
-
-uint8_t lcd_get_font_width(void)
-{
-    return (uint8_t)(((uint16_t)font_get_width(s_current_font) * s_font_scale_num + s_font_scale_den) / s_font_scale_den);
-}
-
-void lcd_set_font(FontSize size)
-{
-    s_current_font = size;
-}
-
-void lcd_set_font_scale(uint8_t num, uint8_t den)
-{
-    if (den == 0)
-        den = 1;
-    if (num == 0)
-        num = 1;
-    s_font_scale_num = num;
-    s_font_scale_den = den;
-    font_mp_set_scale(num, den);
 }

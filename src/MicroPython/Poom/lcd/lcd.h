@@ -11,9 +11,6 @@
 
 #define LCD_DEFAULT_BRIGHTNESS 100
 
-#define LCD_FONT_SCALE_NUM_DEFAULT 1
-#define LCD_FONT_SCALE_DEN_DEFAULT 1
-
 #ifdef __cplusplus
 extern "C"
 {
@@ -47,10 +44,6 @@ extern "C"
 
     void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color, FontSize size);
     void lcd_draw_text(uint16_t x, uint16_t y, const char *text, uint16_t color, FontSize size);
-    uint8_t lcd_get_font_height(void);
-    uint8_t lcd_get_font_width(void);
-    void lcd_set_font(FontSize size);
-    void lcd_set_font_scale(uint8_t num, uint8_t den);
 
 #ifdef __cplusplus
 }

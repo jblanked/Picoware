@@ -38,6 +38,7 @@ def start(view_manager) -> bool:
                 "Instagram: @jblanked"
             )
         )
+        _about._set_cursor(0)
     return True
 
 

@@ -339,12 +339,7 @@ void lcd_blit_16bit(uint16_t x, uint16_t y, uint16_t width, uint16_t height, con
     {
         for (uint16_t col = 0; col < width && x + col < LCD_WIDTH; col++)
         {
-            uint16_t px = buffer[row * width + col];
-            uint8_t r5 = (px >> 11) & 0x1F;
-            uint8_t g6 = (px >> 5) & 0x3F;
-            uint8_t b5 = px & 0x1F;
-            uint32_t lum = (uint32_t)r5 * 299 + (uint32_t)g6 * 587 + (uint32_t)b5 * 114;
-            s_fb[(y + row) * LCD_WIDTH + (x + col)] = (lum > 32000) ? 0xFF : 0x00;
+            s_fb[(y + row) * LCD_WIDTH + (x + col)] = color_to_mono(buffer[row * width + col]);
         }
     }
 }

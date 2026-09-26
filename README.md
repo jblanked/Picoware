@@ -1,5 +1,5 @@
 ## Picoware
-Open-source custom firmware for PicoCalc, Cardputer ADV, Flipper Zero, and other ESP32/Raspberry Pi Pico devices.
+Open-source custom firmware for PicoCalc, Cardputer ADV, Flipper Zero, POOM, and other ESP32/Raspberry Pi Pico devices.
 
 ![Picoware Demo](./images/desktop-animation.gif)
 
@@ -60,6 +60,8 @@ Open-source custom firmware for PicoCalc, Cardputer ADV, Flipper Zero, and other
 - [Elecrow CrowPanel 10.1 inch](https://www.elecrow.com/crowpanel-advanced-10-1inch-esp32-p4-hmi-ai-display-1024x600-ips-touch-screen-wifi-6.html?idd=5)
 - [Marauder Pancake (ESP32-C5)](https://github.com/jblanked/Picoware/tree/main/guides/Pancake.md)
 - [Waveshare ESP32 2.06inch Touch Watch](https://www.waveshare.com/esp32-s3-touch-amoled-2.06.htm)
+- [PicoDuo](https://github.com/jblanked/PicoDuo)
+- [POOM](https://poom.stellar-iot.com)
 
 ### Related Videos
 - JBlanked (PicoCalc Playlist): [https://www.youtube.com/playlist?list=PLSRet1BCVgXhDNONa1T-1OIDoSibsF_ey](https://www.youtube.com/playlist?list=PLSRet1BCVgXhDNONa1T-1OIDoSibsF_ey)

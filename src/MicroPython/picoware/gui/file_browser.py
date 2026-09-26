@@ -108,7 +108,7 @@ class FileBrowser:
         """
         import json
         from picoware.system.vector import Vector
-        from picoware.system.boards import BOARD_ID, BOARD_CARDPUTER
+        from picoware.system.boards import BOARD_ID, BOARD_CARDPUTER, BOARD_FLIPPER_ZERO
 
         # Link to system managers
         self._vm = view_manager
@@ -163,7 +163,7 @@ class FileBrowser:
         self._screen_h = draw.size.y
         self._five = max(1, self._screen_h // 64)
 
-        self._add_info = BOARD_ID != BOARD_CARDPUTER
+        self._add_info = BOARD_ID not in (BOARD_CARDPUTER, BOARD_FLIPPER_ZERO)
 
         _start = start_directory if start_directory else "/"
 

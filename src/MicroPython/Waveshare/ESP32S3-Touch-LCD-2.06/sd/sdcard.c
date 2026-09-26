@@ -5,6 +5,8 @@
 #include "extmod/modmachine.h"
 #include "extmod/vfs.h"
 #include "modmachine.h"
+#include "py/mphal.h"
+#include "py/mpprint.h"
 #include "py/runtime.h"
 
 #include <dirent.h>
@@ -20,8 +22,14 @@
 #define SDCARD_MOUNT_POINT "/sdcard"
 #define SD_SLOT_SPI2 (3)
 
+// Every SD access (including each log line) retries the mount, so a missing
+// card would otherwise pay a full SPI + card init every time.
+#define SDCARD_RETRY_BACKOFF_MS (3000)
+
 static mp_obj_t s_sdcard_obj = MP_OBJ_NULL;
 static bool s_sdcard_mounted = false;
+static bool s_mount_in_progress = false;
+static uint32_t s_next_mount_attempt_ms = 0;
 
 static void sdcard_try_deinit_obj(void)
 {
@@ -57,6 +65,18 @@ esp_err_t sdcard_mount(void)
         return ESP_OK;
     }
 
+    // A log write goes to the SD card, which retries this mount: refuse re-entry.
+    if (s_mount_in_progress)
+    {
+        return ESP_FAIL;
+    }
+
+    if ((int32_t)(mp_hal_ticks_ms() - s_next_mount_attempt_ms) < 0)
+    {
+        return ESP_FAIL;
+    }
+    s_mount_in_progress = true;
+
     nlr_buf_t nlr;
     if (nlr_push(&nlr) == 0)
     {
@@ -76,6 +96,9 @@ esp_err_t sdcard_mount(void)
         };
 
         mp_obj_t sd_obj = mp_call_function_n_kw(MP_OBJ_FROM_PTR(&machine_sdcard_type), 0, 6, ctor_args);
+        // Own the object before mounting: mp_vfs_mount can raise, and the
+        // failure path below must still deinit() it to free the SPI bus.
+        s_sdcard_obj = sd_obj;
         mp_obj_t mount_args[] = {
             sd_obj,
             mp_obj_new_str(SDCARD_MOUNT_POINT, sizeof(SDCARD_MOUNT_POINT) - 1),
@@ -89,15 +112,24 @@ esp_err_t sdcard_mount(void)
             PRINT("POSIX bridge registration failed: %s", esp_err_to_name(bridge_ret));
         }
 
-        s_sdcard_obj = sd_obj;
         s_sdcard_mounted = true;
+        s_next_mount_attempt_ms = 0;
+        s_mount_in_progress = false;
         nlr_pop();
         return ESP_OK;
     }
 
     s_sdcard_mounted = false;
+    s_mount_in_progress = false;
+    s_next_mount_attempt_ms = mp_hal_ticks_ms() + SDCARD_RETRY_BACKOFF_MS;
     sdcard_try_deinit_obj();
-    PRINT("SD mount failed via machine.SDCard/VFS");
+    // mp_printf, not PRINT: LOG_MESSAGE writes the SD log file, which retries
+    // this very mount and recurses until the stack overflows.
+    if (nlr.ret_val != NULL)
+    {
+        mp_obj_print_exception(&mp_plat_print, MP_OBJ_FROM_PTR(nlr.ret_val));
+    }
+    mp_printf(&mp_plat_print, "SD mount failed via machine.SDCard/VFS\n");
     return ESP_FAIL;
 }
 
@@ -107,6 +139,9 @@ void sdcard_unmount(void)
     {
         return;
     }
+
+    // Let an explicit unmount (or a hot-inserted card) retry immediately.
+    s_next_mount_attempt_ms = 0;
 
     nlr_buf_t nlr;
     if (nlr_push(&nlr) == 0)

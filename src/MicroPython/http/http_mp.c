@@ -1372,7 +1372,8 @@ static void http_tls_cleanup(http_state_cardputer_t *st)
     mbedtls_ctr_drbg_free(&st->tls_ctx->ctr_drbg);
     mbedtls_entropy_free(&st->tls_ctx->entropy);
     mbedtls_net_free(&st->tls_ctx->net);
-    m_free(st->tls_ctx);
+    // calloc'd in the HTTP task: must not use m_free here
+    free(st->tls_ctx);
     st->tls_ctx = NULL;
 }
 
@@ -1849,7 +1850,8 @@ static void http_free_state(void)
     }
     m_free(s_state->hostname);
     m_free(s_state->request_buf);
-    m_free(s_state->response_data);
+    // malloc/realloc'd buffer
+    free(s_state->response_data);
     m_free(s_state->destination_path);
     m_free(s_state);
     MP_STATE_PORT(http_state_ptr) = NULL;

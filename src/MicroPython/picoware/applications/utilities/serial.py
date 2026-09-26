@@ -88,7 +88,6 @@ def __set_kb(view_manager, title: str) -> None:
 def start(view_manager) -> bool:
     """Start the app"""
     from picoware.system.buttons import BUTTON_BACK
-    from picoware.system.uart import UART
     from picoware.system.boards import BOARD_HAS_PICOCALC
 
     global _textbox, _uart, state, _loading
@@ -96,9 +95,6 @@ def start(view_manager) -> bool:
     if _textbox is not None:
         del _textbox
         _textbox = None
-    if _uart is not None:
-        del _uart
-        _uart = None
     if _loading is not None:
         del _loading
         _loading = None
@@ -107,7 +103,7 @@ def start(view_manager) -> bool:
 
     view_manager.freq(True)  # set to lower frequency
     is_pico_calc = BOARD_HAS_PICOCALC == 1
-    _uart = UART()
+    _uart = view_manager.uart
 
     # first show info screen about connection
     d = view_manager.draw
@@ -188,12 +184,10 @@ def stop(view_manager) -> None:
     if _textbox is not None:
         del _textbox
         _textbox = None
-    if _uart is not None:
-        del _uart
-        _uart = None
     if _loading is not None:
         del _loading
         _loading = None
+    _uart = None # close our reference
     state = STATE_TYPING
     message = ""
 

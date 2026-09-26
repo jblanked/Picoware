@@ -96,6 +96,8 @@ class _City:
     TRAFFIC_DECISION = 30
     TRAVEL_SPEED = 0.45
     CAR_COLORS = (0xF800, 0xFD20, 0x001F, 0x07FF, 0xF81F, 0x001F)
+    CAMERA_DISTANCE = 6.2
+    CAMERA_INDOOR_DISTANCE = 2.6
 
     COLOR_BLACK = 0x0000
     COLOR_SKY = 0x5D9F
@@ -180,10 +182,11 @@ class _City:
                 direction=Vector(0, 1),
                 plane=Vector(-0.72, 0),
                 height=2.2,
-                distance=6.2,
+                distance=self.CAMERA_DISTANCE,
                 perspective=CAMERA_THIRD_PERSON,
             ),
         )
+        self.game = game
         self.level = Level("Downtown", self.draw.size, game)
         self.level.set_light_direction(-0.35, 1.0, -0.5)
         self.level.set_shadow_color(0)
@@ -928,6 +931,7 @@ class _City:
 
         player.direction = Vector(dx, dz)
         player.set_3d_sprite_rotation(atan2(dz, dx) - pi * 0.5)
+        self._update_camera_distance()
 
     def _drive_car(self, player, game):
         """Drive the player car with building collision."""
@@ -977,6 +981,7 @@ class _City:
         player.plane = Vector(-0.72, 0)
         player.set_3d_sprite_rotation(atan2(dz, dx) - pi * 0.5)
         self._sync_player_car(player)
+        self._update_camera_distance()
 
     def _toggle_car(self, player):
         """Toggle the player between walking and driving."""
@@ -1006,6 +1011,23 @@ class _City:
         self.player_car.direction = Vector(dx, dz)
         self.player_car.plane = Vector(-0.72, 0)
         self.player_car.set_3d_sprite_rotation(atan2(dz, dx) - pi * 0.5)
+
+    def _update_camera_distance(self):
+        """Pull the camera closer when the player is inside a building."""
+        if self.game is None:
+            return
+        px = self.player.position.x
+        py = self.player.position.y
+        inside = False
+        for building in self.buildings:
+            if abs(px - building[0]) < building[2]:
+                if abs(py - building[1]) < building[3]:
+                    inside = True
+                    break
+        if inside:
+            self.game.camera.distance = self.CAMERA_INDOOR_DISTANCE
+        else:
+            self.game.camera.distance = self.CAMERA_DISTANCE
 
     def update_traffic(self, car):
         """Drive a traffic car along the street grid."""
@@ -1287,6 +1309,7 @@ class _City:
         if self.engine is not None:
             self.engine.stop()
             self.engine = None
+        self.game = None
         self.meshes = []
         self.city_mesh = None
         self.buildings = []
@@ -1315,13 +1338,8 @@ def run(view_manager) -> None:
     """Run one Pico City frame."""
     from picoware.system.buttons import BUTTON_BACK
 
-    if _city is None:
-        view_manager.back()
-        return
-
-    button = view_manager.input_manager.button
-    if button == BUTTON_BACK:
-        view_manager.input_manager.reset()
+    button = view_manager.button
+    if _city is None or button == BUTTON_BACK:
         view_manager.back()
         return
 
@@ -1336,5 +1354,6 @@ def stop(_view_manager) -> None:
 
     if _city is not None:
         _city.stop()
+        del _city
         _city = None
     collect()

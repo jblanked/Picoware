@@ -234,6 +234,7 @@ class Keyboard:
         self.current_title = "Enter Text"
         self.is_in_textbox = False
         self.text_cursor_position = 0
+        self.text_scroll_x = 0
         self.selected_suggestion_index = -1  # -1 means no suggestion selected
 
         # A square inscribed in the round panel keeps every control visible.
@@ -452,6 +453,7 @@ class Keyboard:
         """
         self._response = value
         self.text_cursor_position = len(value)
+        self.text_scroll_x = 0
 
     @property
     def auto_complete_words(self) -> list[str]:
@@ -489,6 +491,7 @@ class Keyboard:
         self.title = "Enter Text"
         self.is_in_textbox = False
         self.text_cursor_position = 0
+        self.text_scroll_x = 0
         self.selected_suggestion_index = -1
         self._auto_complete.remove_suggestions()
         self._auto_complete.remove_words()
@@ -857,13 +860,6 @@ class Keyboard:
         # Show only the last few lines that fit
         start_line = max(0, len(lines) - self.max_lines)
 
-        _start_y = self._text_y
-        _distance = self.draw.font_size.y + 1
-        for i in range(start_line, len(lines)):
-            self.text_vec.y = _start_y + (i - start_line) * _distance
-            self.draw._text(self.text_vec.x, self.text_vec.y, lines[i], self.text_color)
-
-        # Draw cursor at the current position
         # Find which line and column the cursor is on
         cursor_line = 0
         cursor_col = self.text_cursor_position
@@ -875,10 +871,42 @@ class Keyboard:
             else:
                 break
 
-        # Only draw cursor if the line is visible
+        # Horizontal scroll so the cursor stays visible on long lines.
+        char_w = self.draw.font_size.x
+        left_bound = self.text_vec.x
+        right_bound = self.text_border_pos.x + self.text_border_size.x - char_w
+        visible_chars = max(1, (right_bound - left_bound) // char_w + 1)
+
+        if cursor_line >= start_line and cursor_line < len(lines):
+            max_scroll = max(0, len(lines[cursor_line]) - visible_chars)
+            if cursor_col < self.text_scroll_x:
+                # Cursor left of the window; slide it to the left edge.
+                self.text_scroll_x = cursor_col
+            elif cursor_col >= self.text_scroll_x + visible_chars:
+                # Cursor right of the window; slide it to the right edge.
+                self.text_scroll_x = cursor_col - visible_chars + 1
+            self.text_scroll_x = max(0, min(self.text_scroll_x, max_scroll))
+        else:
+            self.text_scroll_x = 0
+
+        _start_y = self._text_y
+        _distance = self.draw.font_size.y + 1
+        for i in range(start_line, len(lines)):
+            line = lines[i]
+            self.text_vec.y = _start_y + (i - start_line) * _distance
+            if not line:
+                continue
+            start = self.text_scroll_x
+            end = min(len(line), start + visible_chars)
+            if end > start:
+                self.draw._text(self.text_vec.x + start * char_w,
+                                self.text_vec.y,
+                                line[start:end], self.text_color)
+
+        # Draw cursor at the current position
         if cursor_line >= start_line:
             display_line = cursor_line - start_line
-            self.cursor.x = self.text_vec.x + cursor_col * self.draw.font_size.x
+            self.cursor.x = self.text_vec.x + (cursor_col - self.text_scroll_x) * char_w
             self.cursor.y = _start_y + display_line * _distance
             self.draw._text(self.cursor.x, self.cursor.y, "_", self.text_color)
 

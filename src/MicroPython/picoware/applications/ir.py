@@ -5,9 +5,6 @@ from json import loads, dumps
 from gc import collect
 from time import ticks_ms, ticks_diff
 
-from simulator.hardware.machine import Pin
-
-
 STATE_MAIN_MENU = const(0)
 STATE_REMOTE_FILES = const(1)
 STATE_REMOTE_KEYS = const(2)

@@ -28,6 +28,7 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_WAVESHARE_1_69_RP2350 14
 #define BOARD_DESKTOP 15
 #define BOARD_PICO_DUO 16
+#define BOARD_POOM 17
 
 #if defined(DESKTOP)
 #define BOARD_ID BOARD_DESKTOP
@@ -116,6 +117,17 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_WIFI 1      // has wifi
 #define BOARD_HAS_AUDIO 0     // no audio module in esp32 build yet
 #define BOARD_HAS_BLUETOOTH 1 // has bluetooth
+#elif defined(POOM)
+// POOM ESP32-C5
+#define BOARD_ID BOARD_POOM
+#define BOARD_HAS_PSRAM 0     // has psram
+#define BOARD_HAS_SD 1        // has sd card
+#define BOARD_HAS_TOUCH 0     // no touch
+#define BOARD_HAS_WIFI 1      // has wifi
+#define BOARD_HAS_AUDIO 0     // no audio module in esp32 build yet
+#define BOARD_HAS_BLUETOOTH 1 // has bluetooth
+#define BOARD_HAS_IR 1        // has infrared transmitter
+#define BOARD_HAS_IR_RX 1     // has infrared receiver
 #elif defined(FLIPPER_ZERO)
 // Flipper Zero (STM32WB55RG)
 #define BOARD_ID BOARD_FLIPPER_ZERO
@@ -235,7 +247,7 @@ Source: https://github.com/jblanked/Picoware
 #define BOARD_HAS_RP2350 0
 #endif
 
-#if defined(CARDPUTER) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8)
+#if defined(CARDPUTER) || defined(CROWPANEL_10_1) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(POOM)
 #define BOARD_HAS_ESP32 1
 #else
 #define BOARD_HAS_ESP32 0

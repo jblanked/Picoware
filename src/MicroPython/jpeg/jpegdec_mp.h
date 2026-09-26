@@ -14,7 +14,7 @@ Source: https://github.com/jblanked/Picoware
 #if defined(PICOCALC)
 #include "../../JPEGDEC/src/JPEGDEC.h"
 #include "../../JPEGDEC/src/jpeg.inl"
-#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO) || defined(PICO_DUO)
+#elif defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(FLIPPER_ZERO) || defined(PICO_DUO) || defined(POOM)
 #include "../JPEGDEC/src/JPEGDEC.h"
 #include "../JPEGDEC/src/jpeg.inl"
 #else

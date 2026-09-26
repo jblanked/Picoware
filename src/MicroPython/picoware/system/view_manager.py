@@ -58,7 +58,7 @@ class ViewManager:
         from picoware.system.log import Log, LOG_MODE_ALL, LOG_MODE_REPL
         from picoware.system.colors import TFT_BLUE, TFT_BLACK, TFT_WHITE
         from picoware.system.buttons import BUTTON_ESCAPE
-        from picoware.system.boards import BOARD_CARDPUTER, BOARD_FLIPPER_ZERO
+        from picoware.system.boards import BOARD_CARDPUTER, BOARD_FLIPPER_ZERO, BOARD_POOM
         from picoware.system.app_loader import AppLoader
 
         self._active = True
@@ -110,7 +110,7 @@ class ViewManager:
 
         # exit button
         _back_button = settings.exit_button
-        if syst.board_id in (BOARD_CARDPUTER, BOARD_FLIPPER_ZERO):
+        if syst.board_id in (BOARD_CARDPUTER, BOARD_FLIPPER_ZERO, BOARD_POOM):
             _back_button = BUTTON_ESCAPE
 
         # Initialize input manager

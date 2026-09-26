@@ -63,8 +63,14 @@ class Storage:
         ):
             self._has_storage = False
         else:
-            sd_mp.init()
-            sd_mp.mount()
+            try:
+                sd_mp.init()
+                sd_mp.mount()
+            except Exception as e:
+                # A missing or unreadable card must not abort startup: the rest
+                # of the storage API is already guarded by _has_storage.
+                print(f"SD card unavailable: {e}")
+                self._has_storage = False
 
     def __del__(self):
         """Destructor to ensure SD card is unmounted."""

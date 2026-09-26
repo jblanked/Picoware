@@ -201,9 +201,10 @@ class Keyboard:
             BOARD_WAVESHARE_1_28_RP2350,
             BOARD_WAVESHARE_1_43_RP2350,
             BOARD_WAVESHARE_3_49_RP2350,
+            BOARD_POOM,
         )
 
-        self._is_flipper = BOARD_ID == BOARD_FLIPPER_ZERO
+        self._is_flipper = BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM)
 
         self._rotated = BOARD_ID == BOARD_WAVESHARE_3_49_RP2350
         if self._rotated:

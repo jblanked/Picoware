@@ -23,6 +23,10 @@
 #define STORAGE_INCLUDE "../v8/sd/storage.h"
 #define STORAGE_READ storage_file_read
 #define STORAGE_MAX_READ_SIZE 4096
+#elif defined(POOM)
+#define STORAGE_INCLUDE "../poom/sd/storage.h"
+#define STORAGE_READ storage_file_read
+#define STORAGE_MAX_READ_SIZE 4096
 #elif defined(FLIPPER_ZERO)
 #define STORAGE_INCLUDE "../Flipper/sd/storage.h"
 #define STORAGE_READ storage_read

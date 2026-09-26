@@ -45,6 +45,14 @@ static inline bool storage_write(const char *file_path, const void *data, size_t
 {
     return storage_file_write(file_path, data, data_size);
 }
+#elif defined(POOM)
+#define STORAGE_DOES_EXIST 1
+#include "../poom/sd/storage.h"
+#define storage_read storage_file_read
+static inline bool storage_write(const char *file_path, const void *data, size_t data_size, bool overwrite)
+{
+    return storage_file_write(file_path, data, data_size);
+}
 #elif defined(FLIPPER_ZERO)
 #define STORAGE_DOES_EXIST 1
 #include "../Flipper/sd/storage.h"

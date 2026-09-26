@@ -16,7 +16,8 @@ from picoware.system.boards import (
     BOARD_V8,
     BOARD_HAS_TOUCH,
     BOARD_FLIPPER_ZERO,
-    BOARD_PICO_DUO
+    BOARD_PICO_DUO,
+    BOARD_POOM
 )
 
 
@@ -140,6 +141,10 @@ class Input:
             init()
         elif self._current_board_id == BOARD_FLIPPER_ZERO:
             from flipper_input import init 
+
+            init()
+        elif self._current_board_id == BOARD_POOM:
+            from poom_input import init
 
             init()
         elif self._current_board_id == BOARD_PICO_DUO:
@@ -427,6 +432,9 @@ class Input:
         elif self._current_board_id == BOARD_FLIPPER_ZERO:
             from flipper_input import deinit
             deinit()
+        elif self._current_board_id == BOARD_POOM:
+            from poom_input import deinit
+            deinit()
 
         elif self._current_board_id not in (
             BOARD_WAVESHARE_1_28_RP2350,
@@ -464,6 +472,12 @@ class Input:
                 self.on_key_callback()
         elif self._current_board_id == BOARD_FLIPPER_ZERO:
             from flipper_input import key_available, poll
+
+            poll()
+            if key_available():
+                self.on_key_callback()
+        elif self._current_board_id == BOARD_POOM:
+            from poom_input import key_available, poll
 
             poll()
             if key_available():
@@ -543,10 +557,15 @@ class Input:
             from cardputer_keyboard import key_available
 
             return key_available()
-        elif self._current_board_id == BOARD_FLIPPER_ZERO:
+        if self._current_board_id == BOARD_FLIPPER_ZERO:
             from flipper_input import key_available
 
             return key_available()
+        if self._current_board_id == BOARD_POOM:
+            from poom_input import key_available
+
+            return key_available()
+
         from picoware_keyboard import key_available
 
         return key_available()
@@ -597,8 +616,12 @@ class Input:
             from cardputer_keyboard import get_key
 
             return get_key()
-        elif self._current_board_id == BOARD_FLIPPER_ZERO:
+        if self._current_board_id == BOARD_FLIPPER_ZERO:
             from flipper_input import get_key
+
+            return get_key()
+        if self._current_board_id == BOARD_POOM:
+            from poom_input import get_key
 
             return get_key()
 
@@ -614,8 +637,12 @@ class Input:
             from cardputer_keyboard import get_key_nonblocking
 
             return get_key_nonblocking()
-        elif self._current_board_id == BOARD_FLIPPER_ZERO:
+        if self._current_board_id == BOARD_FLIPPER_ZERO:
             from flipper_input import get_key_nonblocking
+
+            return get_key_nonblocking()
+        if self._current_board_id == BOARD_POOM:
+            from poom_input import get_key_nonblocking
 
             return get_key_nonblocking()
         from picoware_keyboard import get_key_nonblocking

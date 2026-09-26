@@ -12,7 +12,8 @@ from picoware.system.boards import (
     BOARD_PANCAKE,
     BOARD_V8,
     BOARD_FLIPPER_ZERO,
-    BOARD_PICO_DUO
+    BOARD_PICO_DUO,
+    BOARD_POOM
 )
 
 
@@ -63,7 +64,7 @@ class Battery:
 
             return get_percentage()
 
-        if BOARD_ID in (BOARD_CROWPANEL_10_1, BOARD_PICO_DUO):
+        if BOARD_ID in (BOARD_CROWPANEL_10_1, BOARD_PICO_DUO, BOARD_POOM):
             return 100
 
         if BOARD_ID in (

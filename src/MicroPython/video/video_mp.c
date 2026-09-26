@@ -5,7 +5,7 @@
 
 #include "py/mperrno.h"
 
-#if defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(FLIPPER_ZERO)
+#if defined(PICOCALC) || defined(CARDPUTER) || defined(WAVESHARE_2_06) || defined(PANCAKE) || defined(V8) || defined(WAVESHARE_1_43) || defined(WAVESHARE_3_49) || defined(FLIPPER_ZERO) || defined(POOM)
 #define VIDEO_HAS_STORAGE 1
 #define VIDEO_HAS_JPEG 1
 #else

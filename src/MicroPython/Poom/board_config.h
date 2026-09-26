@@ -1,0 +1,32 @@
+#pragma once
+
+#include "driver/gpio.h"
+
+// OLED (SSD1306 128x64, I2C)
+#define POOM_OLED_I2C_PORT I2C_NUM_0
+#define POOM_OLED_I2C_SDA_GPIO GPIO_NUM_0
+#define POOM_OLED_I2C_SCL_GPIO GPIO_NUM_1
+#define POOM_OLED_I2C_FREQ_HZ 400000
+#define POOM_OLED_I2C_ADDR 0x3C
+#define POOM_OLED_WIDTH 128
+#define POOM_OLED_HEIGHT 64
+
+// SD card (SDSPI, machine.SDCard slot 2 is SPI2_HOST on this chip)
+#define POOM_SD_HOST SPI2_HOST
+#define POOM_SD_SLOT 2
+#define POOM_SD_MISO_GPIO GPIO_NUM_8
+#define POOM_SD_MOSI_GPIO GPIO_NUM_4
+#define POOM_SD_SCLK_GPIO GPIO_NUM_6
+#define POOM_SD_CS_GPIO GPIO_NUM_5
+
+// Buttons (active low, pull-ups)
+#define POOM_BTN_A_GPIO GPIO_NUM_28
+#define POOM_BTN_B_GPIO GPIO_NUM_9
+#define POOM_BTN_LEFT_GPIO GPIO_NUM_3
+#define POOM_BTN_RIGHT_GPIO GPIO_NUM_23
+#define POOM_BTN_UP_GPIO GPIO_NUM_7
+#define POOM_BTN_DOWN_GPIO GPIO_NUM_24
+
+// Infrared
+#define POOM_IR_TX_GPIO GPIO_NUM_25
+#define POOM_IR_RX_GPIO GPIO_NUM_10

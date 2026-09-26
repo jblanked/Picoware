@@ -21,5 +21,8 @@ This device by Flipper Devices includes internal infrared transmit and receive h
 ## Marauder Pancake
 An ESP32-C5 handheld with a 320x480 touch display and no keyboard. More details [here](https://github.com/jblanked/Picoware/tree/main/guides/Pancake.md).
 
+## POOM
+An ESP32-C5 multitool with a 128x64 monochrome OLED, a six-button directional pad, SD storage, and both infrared transmit and receive. Firmware is built with `tools/micropython-poom.sh` and flashed with `tools/micropython-poom-flash.sh`. Official project: https://poom.stellar-iot.com
+
 ## CrowPanel
 An esp32 "tablet" by Elecrow. More details [here](https://github.com/jblanked/Picoware/tree/main/guides/CrowPanel.md).

@@ -252,7 +252,17 @@
 #define LCD_INCLUDE "../Flipper/lcd/lcd.h"
 #define LCD_MP_INIT lcd_init
 #define LCD_MP_DEINIT lcd_deinit
-#define LCD_MP_SET_RGB_LED lcd_set_rgb_led
+#define LCD_MP_SET_BRIGHTNESS lcd_set_backlight
+#define LCD_SWAP lcd_swap
+#define LCD_MP_TEXT lcd_draw_text
+#define LCD_MP_TRIANGLE lcd_draw_triangle
+#define LCD_MP_POLYGON lcd_polygon
+#define LCD_MP_FILL_POLYGON lcd_fill_polygon
+#define LCD_MP_FILL_POLYGON_ALPHA lcd_fill_polygon_alpha
+#elif defined(POOM)
+#define LCD_INCLUDE "../poom/lcd/lcd.h"
+#define LCD_MP_INIT lcd_init
+#define LCD_MP_DEINIT lcd_deinit
 #define LCD_MP_WIDTH LCD_WIDTH
 #define LCD_MP_HEIGHT LCD_HEIGHT
 #define LCD_MP_CHAR lcd_draw_char

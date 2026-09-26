@@ -30,7 +30,7 @@ class Menu:
         """
         from picoware.gui.list import List
         from picoware.system.vector import Vector
-        from picoware.system.boards import BOARD_ID, BOARD_CARDPUTER, BOARD_FLIPPER_ZERO
+        from picoware.system.boards import BOARD_ID, BOARD_CARDPUTER, BOARD_FLIPPER_ZERO, BOARD_POOM
 
         self.text_color = text_color
         self.background_color = background_color
@@ -88,8 +88,8 @@ class Menu:
             self.clear_position = Vector(0, 0)
             self.clear_size = Vector(self.display.size.x, self._height_offset)
 
-            self._draw_underline = BOARD_ID not in (BOARD_CARDPUTER, BOARD_FLIPPER_ZERO)
-            self._draw_title = BOARD_ID not in (BOARD_FLIPPER_ZERO,)
+            self._draw_underline = BOARD_ID not in (BOARD_CARDPUTER, BOARD_FLIPPER_ZERO, BOARD_POOM)
+            self._draw_title = BOARD_ID not in (BOARD_FLIPPER_ZERO, BOARD_POOM)
 
             draw.clear(self.position, self.size, self.background_color)
             draw.swap()

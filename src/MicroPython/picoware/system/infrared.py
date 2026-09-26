@@ -492,10 +492,12 @@ def _split_raw_timings(timings, max_timing):
 
 def _default_tx_pin():
     from machine import Pin
-    from picoware.system.boards import BOARD_ID, BOARD_CARDPUTER, BOARD_FLIPPER_ZERO, BOARD_HAS_PICOCALC
+    from picoware.system.boards import BOARD_ID, BOARD_CARDPUTER, BOARD_FLIPPER_ZERO, BOARD_HAS_PICOCALC, BOARD_POOM
 
     if BOARD_ID == BOARD_CARDPUTER:
         return Pin(44, Pin.OUT, value=0)
+    if BOARD_ID == BOARD_POOM:
+        return Pin(25, Pin.OUT, value=0)
     if BOARD_ID == BOARD_FLIPPER_ZERO:
         try:
             return Pin.board.IR_TX
@@ -508,8 +510,10 @@ def _default_tx_pin():
 
 def _default_rx_pin():
     from machine import Pin
-    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO
+    from picoware.system.boards import BOARD_ID, BOARD_FLIPPER_ZERO, BOARD_POOM
 
+    if BOARD_ID == BOARD_POOM:
+        return Pin(10, Pin.IN)
     if BOARD_ID != BOARD_FLIPPER_ZERO:
         raise ValueError("this board has no built-in infrared receiver")
     try:
@@ -570,9 +574,9 @@ class InfraredTransmitter:
 
     def _send_raw(self, signal, repeats):
         from picoware.system.drivers.ir_tx import Player
-        from picoware.system.boards import BOARD_ID, BOARD_CARDPUTER, BOARD_FLIPPER_ZERO
+        from picoware.system.boards import BOARD_ID, BOARD_CARDPUTER, BOARD_FLIPPER_ZERO, BOARD_POOM
 
-        if BOARD_ID == BOARD_CARDPUTER:
+        if BOARD_ID in (BOARD_CARDPUTER, BOARD_POOM):
             timings, levels = _split_raw_timings(signal.data, 32767)
         elif BOARD_ID == BOARD_FLIPPER_ZERO:
             timings, levels = _split_raw_timings(signal.data, 65535)

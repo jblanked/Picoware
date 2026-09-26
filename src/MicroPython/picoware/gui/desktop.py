@@ -1093,7 +1093,7 @@ class Desktop:
             background_color (int): The background color. Defaults to 0x0000.
         """
         from picoware.system.system import System
-        from picoware.system.boards import BOARD_FLIPPER_ZERO, BOARD_WAVESHARE_3_49_RP2350
+        from picoware.system.boards import BOARD_FLIPPER_ZERO, BOARD_WAVESHARE_3_49_RP2350, BOARD_POOM
 
         system = System()
         self.name = system.device_name
@@ -1105,7 +1105,7 @@ class Desktop:
         self.is_dark_mode = text_color == 0xFFFF and background_color == 0x0000
         self.battery_level_str = ""
         self.is_circular = system.is_circular
-        self.draw_icons = system.board_id != BOARD_FLIPPER_ZERO
+        self.draw_icons = system.board_id not in (BOARD_FLIPPER_ZERO, BOARD_POOM)
         self.draw_name = system.board_id != BOARD_WAVESHARE_3_49_RP2350
 
         self.size = self.display.size

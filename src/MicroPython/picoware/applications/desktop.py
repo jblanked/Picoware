@@ -9,7 +9,7 @@ class PicowareAnimation:
         Args:
             draw (Draw): The drawing context.
         """
-        from picoware.system.boards import BOARD_FLIPPER_ZERO, BOARD_ID
+        from picoware.system.boards import BOARD_FLIPPER_ZERO, BOARD_ID, BOARD_POOM
         self.display = draw
         self.letter_states = []
         self.animation_complete = False
@@ -21,7 +21,7 @@ class PicowareAnimation:
         self.center_y = self.size.y // 2
         self.frame_counter = 0
 
-        self._color = 0xFFFF if BOARD_ID == BOARD_FLIPPER_ZERO else 0x4208
+        self._color = 0xFFFF if BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM) else 0x4208
 
         self._initialize_letter_animation()
 
@@ -32,7 +32,7 @@ class PicowareAnimation:
 
     def _initialize_letter_animation(self) -> None:
         """Initialize the animation state for each letter in 'Picoware'."""
-        from picoware.system.boards import BOARD_FLIPPER_ZERO, BOARD_ID
+        from picoware.system.boards import BOARD_FLIPPER_ZERO, BOARD_ID, BOARD_POOM
         from picoware.system.colors import (
             TFT_RED,
             TFT_GREEN,
@@ -82,7 +82,7 @@ class PicowareAnimation:
                 "delay": i * 3,  # Staggered start times
                 "frame": 0,
                 "opacity": 0,  # Start invisible (0-100 scale)
-                "color": 0xFFFF if BOARD_ID == BOARD_FLIPPER_ZERO else choice(colors),  # Random color for each letter (white for Flipper Zero)
+                "color": 0xFFFF if BOARD_ID in (BOARD_FLIPPER_ZERO, BOARD_POOM) else choice(colors),  # Random color for each letter (white for Flipper Zero/Poom)
             }
             self.letter_states.append(letter_state)
 

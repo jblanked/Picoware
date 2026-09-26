@@ -6,8 +6,7 @@ from micropython import const
 from math import sin, cos, sqrt, pi
 from gc import collect
 
-from picoware.system.vector import Vector
-from picoware.system.font import FONT_SMALL, FONT_MEDIUM
+from picoware.system.font import FONT_SMALL
 from picoware.system.buttons import (
     BUTTON_BACK,
     BUTTON_LEFT,
@@ -18,7 +17,6 @@ from picoware.system.buttons import (
     BUTTON_PLUS,
     BUTTON_MINUS,
     BUTTON_EQUAL,
-    BUTTON_A,
     BUTTON_C,
     BUTTON_D,
     BUTTON_E,
@@ -35,7 +33,6 @@ from picoware.system.buttons import (
     BUTTON_W,
     BUTTON_X,
     BUTTON_Y,
-    BUTTON_Z,
     BUTTON_TAB,
     BUTTON_QUESTION,
     BUTTON_1,
@@ -369,7 +366,7 @@ def _outcode(x, y):
     return c
 
 
-def _clip_line(draw, a, b, color):
+def _clip_line(draw, a, b, color): 
     if a is None or b is None:
         return
     x0, y0 = a[0], a[1]
@@ -379,7 +376,7 @@ def _clip_line(draw, a, b, color):
     xmin, xmax, ymin, ymax = _px0, _px1, _py0, _py1
     while True:
         if not (c0 | c1):
-            draw.line_custom(Vector(int(x0), int(y0)), Vector(int(x1), int(y1)), color)
+            draw._line(x0, y0, x1, y1, color)
             return
         if c0 & c1:
             return
@@ -562,18 +559,18 @@ def _next_name(storage, prefix, ext):
 # Draw
 # ---------------------------------------------------------------------------
 def _paint_chrome(draw, subtitle, f1, f2):
-    draw.fill_rectangle(Vector(0, 0), Vector(_sw, HEAD_H), C_PANEL)
-    draw.fill_rectangle(Vector(0, 0), Vector(_sw, 2), C_ACCENT)
-    draw.text(Vector(6, 5), "CAD 3D", C_ACCENT, FONT_SMALL)
+    draw._fill_rectangle(0, 0, _sw, HEAD_H, C_PANEL)
+    draw._fill_rectangle(0, 0, _sw, 2, C_ACCENT)
+    draw._text(6, 5, "CAD 3D", C_ACCENT, FONT_SMALL)
     if subtitle:
-        draw.text(Vector(70, 5), subtitle, C_TITLE, FONT_SMALL)
+        draw._text(70, 5, subtitle, C_TITLE, FONT_SMALL)
     fy = _sh - FOOT_H
-    draw.fill_rectangle(Vector(0, fy), Vector(_sw, FOOT_H), C_PANEL)
-    draw.fill_rectangle(Vector(0, fy), Vector(_sw, 1), C_FRAME)
+    draw._fill_rectangle(0, fy, _sw, FOOT_H, C_PANEL)
+    draw._fill_rectangle(0, fy, _sw, 1, C_FRAME)
     if f1:
-        draw.text(Vector(6, fy + 5), f1, C_ACCENT, FONT_SMALL)
+        draw._text(6, fy + 5, f1, C_ACCENT, FONT_SMALL)
     if f2:
-        draw.text(Vector(6, fy + 22), f2, C_MUTED, FONT_SMALL)
+        draw._text(6, fy + 22, f2, C_MUTED, FONT_SMALL)
 
 
 def _draw_gizmo(draw):
@@ -595,8 +592,8 @@ def _draw_gizmo(draw):
         ((0, 1, 0), C_AXIS_Z, "Z"),
     ):
         tx, ty = tip(vec[0], vec[1], vec[2])
-        draw.line_custom(Vector(ox, oy), Vector(tx, ty), col)
-        draw.text(Vector(tx + 2, ty - 4), ch, col, FONT_SMALL)
+        draw._line(ox, oy, tx, ty, col)
+        draw._text(tx + 2, ty - 4, ch, col, FONT_SMALL)
 
 
 def _draw_grid(draw):
@@ -635,9 +632,11 @@ def _collect_faces():
 def _draw_work(draw):
     global _toast
     draw.fill_screen(C_BG)
-    draw.fill_rectangle(
-        Vector(_px0, _py0),
-        Vector(_px1 - _px0 + 1, _py1 - _py0 + 1),
+    draw._fill_rectangle(
+        _px0,
+        _py0,
+        _px1 - _px0 + 1,
+        _py1 - _py0 + 1,
         C_PLOT,
     )
     _draw_grid(draw)
@@ -648,10 +647,10 @@ def _draw_work(draw):
             sh = _shade(a, b, c)
             if pi == _sel:
                 sh = _clamp(sh * 1.12 + 0.08, 0.2, 1.0)
-            draw.fill_triangle(
-                Vector(a[0], a[1]),
-                Vector(b[0], b[1]),
-                Vector(c[0], c[1]),
+            draw._fill_triangle(
+                a[0], a[1],
+                b[0], b[1],
+                c[0], c[1],
                 _rgb_mul(col, sh),
             )
 
@@ -673,10 +672,10 @@ def _draw_work(draw):
         p = _parts[_sel]
         o = _xform(p["x"], p["z"], p["y"])
         if _pt_ok(o):
-            draw.fill_circle(Vector(o[0], o[1]), 3, C_SEL)
+            draw._fill_circle(o[0], o[1], 3, C_SEL)
 
     _draw_gizmo(draw)
-    draw.rect(Vector(_px0, _py0), Vector(_px1 - _px0, _py1 - _py0), C_FRAME)
+    draw._rectangle(_px0, _py0, _px1 - _px0, _py1 - _py0, C_FRAME)
 
     n = len(_parts)
     if n == 0:

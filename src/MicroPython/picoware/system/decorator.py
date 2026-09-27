@@ -96,14 +96,14 @@ def server_settings_required(func: callable) -> callable:
     Raises:
         RuntimeError: If the decorated function is called without server settings support.
     """
-    if picoware_boards.BOARD_HAS_SERVER_SETTINGS == 0:
+    if picoware_boards.BOARD_HAS_SD == 0:
         def unavailable(*args, **kwargs):
             """Raise an error because server settings are not available.
 
             Raises:
                 RuntimeError: If server settings support is missing on the board.
             """
-            raise RuntimeError(f"{func.__name__} requires server settings, which are not available")
+            raise RuntimeError(f"{func.__name__} requires server settings but storage is not available")
         return unavailable
     def wrapper(*args, **kwargs):
         """Call the wrapped function with the given arguments.

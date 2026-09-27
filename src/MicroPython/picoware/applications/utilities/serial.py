@@ -11,6 +11,14 @@ _uart = None
 _loading = None
 state = STATE_TYPING
 message = ""
+_received = False
+_prev_callback = None
+
+def __uart_callback(uart_instance):
+    """Callback for UART events"""
+    global _textbox, _uart, _received
+    _textbox.current_text += f"Friend: {uart_instance.read()}\n"
+    _received = True
 
 
 def __box_start(view_manager) -> None:
@@ -90,7 +98,7 @@ def start(view_manager) -> bool:
     from picoware.system.buttons import BUTTON_BACK
     from picoware.system.boards import BOARD_HAS_PICOCALC
 
-    global _textbox, _uart, state, _loading
+    global _textbox, _uart, state, _loading, _received, _prev_callback
 
     if _textbox is not None:
         del _textbox
@@ -100,15 +108,18 @@ def start(view_manager) -> bool:
         _loading = None
 
     state = STATE_TYPING
+    _received = False
 
     view_manager.freq(True)  # set to lower frequency
     is_pico_calc = BOARD_HAS_PICOCALC == 1
     _uart = view_manager.uart
+    _prev_callback = _uart.callback
+    _uart.set_callback(__uart_callback)
 
     # first show info screen about connection
     d = view_manager.draw
     fg = view_manager.foreground_color
-    sixteen = d.size.y // 20
+    sixteen = d.font_size.y + 1
     d.erase()
     d._text(0, 0, "To connect to the device, use the following settings:", fg)
     d._text(0, sixteen, "Baudrate: 115200", fg)
@@ -170,16 +181,18 @@ def run(view_manager) -> None:
         else:
             __loading_run(view_manager)
     elif state == STATE_VIEWING:
-        if _uart.has_data:
-            _textbox.current_text += f"Friend: {_uart.read_line()}\n"
+        global _received
+        if _received:
             _textbox.refresh()
+            _received = False
 
 
 def stop(view_manager) -> None:
     """Stop the app"""
+    from picoware.system.boards import BOARD_FLIPPER_ZERO
     from gc import collect
 
-    global _textbox, _uart, _loading, state, message
+    global _textbox, _uart, _loading, state, message, _received, _prev_callback
 
     if _textbox is not None:
         del _textbox
@@ -187,9 +200,14 @@ def stop(view_manager) -> None:
     if _loading is not None:
         del _loading
         _loading = None
-    _uart = None # close our reference
+    if _uart is not None:
+        _uart.callback = _prev_callback
+        _prev_callback = None
+    if view_manager.board_id != BOARD_FLIPPER_ZERO:
+        _uart = None # close our reference
     state = STATE_TYPING
     message = ""
+    _received = False
 
     view_manager.keyboard.reset()
 

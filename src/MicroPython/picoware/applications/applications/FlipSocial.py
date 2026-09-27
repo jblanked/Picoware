@@ -2,7 +2,7 @@
 
 from micropython import const
 from picoware.system.colors import TFT_WHITE, TFT_BLACK
-from picoware.system.decorator import storage_required, wifi_required
+from picoware.system.decorator import storage_required, wifi_required, server_settings_required
 
 from json import dumps as json_dumps
 
@@ -2095,6 +2095,7 @@ class FlipSocialRun:
 
 @storage_required
 @wifi_required
+@server_settings_required
 def start(view_manager) -> bool:
     """Start the main app"""
     global _flip_social_run_instance

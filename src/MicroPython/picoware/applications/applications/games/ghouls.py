@@ -1,7 +1,7 @@
 """Ghouls - Downloadable game with asset management."""
 
 from micropython import const
-from picoware.system.decorator import storage_required, wifi_required
+from picoware.system.decorator import storage_required, wifi_required, server_settings_required
 import ghouls
 
 
@@ -122,6 +122,7 @@ def __is_assets_loaded(view_manager) -> bool:
 
 @storage_required
 @wifi_required
+@server_settings_required
 def start(view_manager) -> bool:
     """Start the app.
 
@@ -132,21 +133,6 @@ def start(view_manager) -> bool:
         bool: True on success.
     """
     global _state, _asset_index, _http, _username, _password, _loading
-
-    # if settings arent saved, return
-    from picoware.system.settings import Settings
-
-    _settings = Settings(view_manager.storage)
-    server_settings = _settings.server_settings
-    _username = server_settings.get("username")
-    _password = server_settings.get("password")
-
-    if not _username or not _password:
-        view_manager.alert(
-            "Ghouls requires a username and password to connect to the server.\nAdd them in Library -> System -> Settings -> Server Settings",
-            False,
-        )
-        return False
 
     if __is_assets_loaded(view_manager):
         _state = STATE_PLAYING

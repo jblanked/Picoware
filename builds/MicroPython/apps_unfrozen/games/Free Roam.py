@@ -6,6 +6,7 @@ from picoware.system.buttons import (
     BUTTON_RIGHT,
     BUTTON_CENTER,
 )
+from picoware.system.decorator import server_settings_required, wifi_required, storage_required
 
 
 _free_roam_app_menu = None
@@ -45,25 +46,12 @@ def __free_roam_game_stop(view_manager) -> None:
 
     collect()
 
-
+@storage_required
+@wifi_required
+@server_settings_required
 def start(view_manager) -> bool:
     """Start the main app"""
     from picoware.gui.menu import Menu
-
-    wifi = view_manager.wifi
-
-    # if not a wifi device, return
-    if not wifi:
-        view_manager.alert("WiFi not available...", False)
-        return False
-
-    # if wifi isn't connected, return
-    if not wifi.is_connected():
-        from picoware.applications.wifi.utils import connect_to_saved_wifi
-
-        view_manager.alert("WiFi not connected", False)
-        connect_to_saved_wifi(view_manager)
-        return False
 
     view_manager.freq(True)  # set to lower frequency
 

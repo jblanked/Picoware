@@ -1,9 +1,10 @@
 # micropython implementation of FlipWorld: https://github.com/jblanked/FlipWorld/tree/main
-from picoware.system.decorator import wifi_required, storage_required
+from picoware.system.decorator import wifi_required, storage_required, server_settings_required
 _game = None
 
 @storage_required
 @wifi_required
+@server_settings_required
 def start(view_manager) -> bool:
     """Start the app"""
     global _game

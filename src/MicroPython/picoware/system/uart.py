@@ -49,6 +49,7 @@ class UART:
         self._rx_pin = rx_pin
         self._baud_rate = baud_rate
         self._uart = None
+        self._callback = None
 
         try:
             if BOARD_ID == BOARD_FLIPPER_ZERO:
@@ -74,6 +75,11 @@ class UART:
     def baud_rate(self) -> int:
         """Get the baud rate of the UART interface."""
         return self._baud_rate
+
+    @property
+    def callback(self):
+        """Get the UART callback function."""
+        return self._callback
 
     @property
     def has_data(self) -> bool:
@@ -199,6 +205,7 @@ class UART:
             trigger=trigger if trigger is not None else self._uart.IRQ_RXIDLE,
             hard=_hard,
         )
+        self._callback = callback
 
     def write(self, message: bytes) -> None:
         """Write a message to the UART interface.

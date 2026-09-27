@@ -1198,11 +1198,13 @@ class Desktop:
         """
         self.display.clear(self.position, self.size, self.background_color)
         self.draw_header()
-        self.display.image_bytearray(
-            position,
-            animation_size,
+        self.display._bytearray(
+            position.x,
+            position.y,
+            animation_size.x,
+            animation_size.y,
             animiation_frame,
-            invert=not self.is_dark_mode,
+            not self.is_dark_mode,
         )
         self.display.swap()
 
@@ -1214,36 +1216,42 @@ class Desktop:
         """
         # draw board name
         if self.draw_name:
-            self.display.text(self.name_pos, self.name, self.text_color)
+            self.display._text(self.name_pos.x, self.name_pos.y, self.name, self.text_color)
 
         # draw time if set
         if self.time_str:
-            self.display.text(
-                self.time_pos,
+            self.display._text(
+                self.time_pos.x,
+                self.time_pos.y,
                 self.time_str,
                 self.text_color,
             )
 
         if self.draw_icons:
             # draw wifi icon
-            self.display.image_bytearray(
-                self.wifi_pos,
-                self.wifi_size,
+            self.display._bytearray(
+                self.wifi_pos.x,
+                self.wifi_pos.y,
+                self.wifi_size.x,
+                self.wifi_size.y,
                 _WIFI_ON_BLACK if self.has_wifi and wifi_is_connected else _WIFI_OFF_BLACK,
-                invert=not self.is_dark_mode,
+                not self.is_dark_mode,
             )
 
             # draw bluetooth icon
-            self.display.image_bytearray(
-                self.bluetooth_pos,
-                self.bluetooth_size,
+            self.display._bytearray(
+                self.bluetooth_pos.x,
+                self.bluetooth_pos.y,
+                self.bluetooth_size.x,
+                self.bluetooth_size.y,
                 (_BLUETOOTH_ON_BLACK if self.has_wifi else _BLUETOOTH_OFF_BLACK),
-                invert=not self.is_dark_mode,
+                not self.is_dark_mode,
             )
 
         # draw battery level
-        self.display.text(
-            self.battery_pos,
+        self.display._text(
+            self.battery_pos.x,
+            self.battery_pos.y,
             self.battery_level_str,
             self.text_color,
         )

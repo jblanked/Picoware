@@ -364,7 +364,10 @@ DIRECTION_DOWN = const(2)
 DIRECTION_LEFT = const(3)
 
 
+_is_flipper = False
+
 class POINT:
+    __slots__ = ("x", "y", "x2", "y2")
     def __init__(self):
         self.x: int = 0
         self.y: int = 0
@@ -373,6 +376,7 @@ class POINT:
 
 
 class BIRD:
+    __slots__ = ("gravity", "point")
     def __init__(self):
         self.gravity: float = 0.0
         self.point: POINT = POINT()
@@ -384,6 +388,7 @@ class BIRD:
 
 
 class PILAR:
+    __slots__ = ("point", "height", "visible", "passed", "spawned_next")
     def __init__(self):
         self.point: POINT = POINT()
         self.height: int = 0
@@ -398,6 +403,7 @@ class PILAR:
 
 
 class GameState:
+    __slots__ = ("bird", "points", "pilars_count", "pilars", "state", "text_pos", "cloud_y_positions")
     def __init__(self, draw):
 
         self.bird: BIRD = BIRD()
@@ -405,21 +411,8 @@ class GameState:
         self.pilars_count: int = 0
         self.pilars: list[PILAR] = [PILAR() for _ in range(FLAPPY_PILAR_MAX)]
         self.state: int = GAME_STATE_LIFE
-
-        self.lcd_vec = Vector(FLIPPER_LCD_WIDTH, FLIPPER_LCD_HEIGHT)
-        self.bird_vec = Vector(FLAPPY_BIRD_WIDTH, FLAPPY_BIRD_HEIGHT)
-        self.vec_1 = Vector(0, 0)
-        self.vec_2 = Vector(FLAPPY_GAB_WIDTH, 0)
-        self.vec_3 = Vector(0, 0)
-        self.vec_4 = Vector(FLAPPY_GAB_WIDTH, 0)
-        self.lcd_pos = Vector(0, 0)
         self.text_pos = Vector(140, 12)
         self.text_pos.x, self.text_pos.y = draw.scale(140, 12)
-        self.cloud_pos = Vector(0, 0)
-        self.gnd_pos = Vector(0, 0)
-        self.gnd_size = Vector(0, 0)
-        self.grs_pos = Vector(0, 0)
-        self.grs_size = Vector(0, 0)
         _pos = draw.scale_y(10)
         self.cloud_y_positions = [_pos * 2, _pos * 5, _pos * 8, _pos * 11]
 
@@ -432,32 +425,8 @@ class GameState:
                 if pilar:
                     del pilar
             self.pilars = None
-        del self.lcd_vec
-        self.lcd_vec = None
-        del self.bird_vec
-        self.bird_vec = None
-        del self.vec_1
-        self.vec_1 = None
-        del self.vec_2
-        self.vec_2 = None
-        del self.vec_3
-        self.vec_3 = None
-        del self.vec_4
-        self.vec_4 = None
-        del self.lcd_pos
-        self.lcd_pos = None
         del self.text_pos
         self.text_pos = None
-        del self.cloud_pos
-        self.cloud_pos = None
-        del self.gnd_pos
-        self.gnd_pos = None
-        del self.gnd_size
-        self.gnd_size = None
-        del self.grs_pos
-        self.grs_pos = None
-        del self.grs_size
-        self.grs_size = None
         del self.cloud_y_positions
         self.cloud_y_positions = None
 
@@ -603,46 +572,30 @@ def __player_render(self, draw, game) -> None:
     s = _game_scale
 
     # Sky background
-    draw.fill_rectangle(_game_state.lcd_pos, _game_state.lcd_vec, TFT_CYAN)
+    draw._fill_rectangle(0, 0, FLIPPER_LCD_WIDTH, FLIPPER_LCD_HEIGHT, TFT_CYAN)
 
     # Clouds
     cloud_x_offset = int(_game_state.points * 2) % FLIPPER_LCD_WIDTH
     for i, y in enumerate(_game_state.cloud_y_positions):
         x = (i * int(80 * s) - cloud_x_offset) % (FLIPPER_LCD_WIDTH + int(80 * s)) - int(40 * s)
         if -int(40 * s) < x < FLIPPER_LCD_WIDTH:
-            _game_state.cloud_pos.x, _game_state.cloud_pos.y = x, y
-            draw.fill_circle(_game_state.cloud_pos, max(3, int(12 * s)), TFT_WHITE)
-            _game_state.cloud_pos.x, _game_state.cloud_pos.y = x + int(10 * s), y - int(5 * s)
-            draw.fill_circle(_game_state.cloud_pos, max(3, int(10 * s)), TFT_WHITE)
-            _game_state.cloud_pos.x, _game_state.cloud_pos.y = x - int(8 * s), y - int(3 * s)
-            draw.fill_circle(_game_state.cloud_pos, max(2, int(8 * s)), TFT_WHITE)
+            draw._fill_circle(x, y, max(3, int(12 * s)), TFT_WHITE)
+            draw._fill_circle(x + int(10 * s), y - int(5 * s), max(3, int(10 * s)), TFT_WHITE)
+            draw._fill_circle(x - int(8 * s), y - int(3 * s), max(2, int(8 * s)), TFT_WHITE)
 
     # Ground
     ground_height = max(8, int(20 * s))
-    _game_state.gnd_pos.x, _game_state.gnd_pos.y = (
-        0,
-        FLIPPER_LCD_HEIGHT - ground_height,
-    )
-    _game_state.gnd_size.x, _game_state.gnd_size.y = (FLIPPER_LCD_WIDTH, ground_height)
-    draw.fill_rectangle(
-        _game_state.gnd_pos,
-        _game_state.gnd_size,
+    draw._fill_rectangle(
+        0, FLIPPER_LCD_HEIGHT - ground_height,
+        FLIPPER_LCD_WIDTH, ground_height,
         TFT_GREEN,
     )
     # Grass lines
     for x in range(0, FLIPPER_LCD_WIDTH, max(5, int(15 * s))):
-        _game_state.grs_pos.x, _game_state.grs_pos.y = (
-            x,
-            FLIPPER_LCD_HEIGHT - ground_height,
-        )
-        _game_state.grs_size.x, _game_state.grs_size.y = (
-            x,
-            FLIPPER_LCD_HEIGHT - ground_height + max(2, int(5 * s)),
-        )
-        draw.line(
-            _game_state.grs_pos,
-            _game_state.grs_size,
-            TFT_DARKGREEN,
+        draw._line(
+            x,FLIPPER_LCD_HEIGHT - ground_height,
+            x,FLIPPER_LCD_HEIGHT - ground_height + max(2, int(5 * s)),
+            TFT_DARKGREEN if not _is_flipper else TFT_WHITE,
         )
 
     if _game_state.state == GAME_STATE_LIFE:
@@ -656,48 +609,43 @@ def __player_render(self, draw, game) -> None:
                 and pilar.point.x < FLIPPER_LCD_WIDTH
             ):
                 # Top pillar
-                _game_state.vec_1.x = pilar.point.x
-                _game_state.vec_1.y = pilar.point.y
-                _game_state.vec_2.y = pilar.height
-                draw.fill_rectangle(
-                    _game_state.vec_1,
-                    _game_state.vec_2,
-                    TFT_GREEN,
+                draw._fill_rectangle(
+                    pilar.point.x,pilar.point.y,
+                    FLAPPY_GAB_WIDTH, pilar.height,
+                    TFT_GREEN if not _is_flipper else TFT_WHITE,
                 )
-                draw.rect(
-                    _game_state.vec_1,
-                    _game_state.vec_2,
-                    TFT_DARKGREEN,
+                draw._rectangle(
+                    pilar.point.x,pilar.point.y,
+                    FLAPPY_GAB_WIDTH, pilar.height,
+                    TFT_DARKGREEN if not _is_flipper else TFT_WHITE,
                 )
 
                 # Bottom pillar
-                _game_state.vec_3.x = pilar.point.x
-                _game_state.vec_3.y = pilar.point.y + pilar.height + FLAPPY_GAB_HEIGHT
-                _game_state.vec_4.y = (
+                y = (
                     FLIPPER_LCD_HEIGHT
                     - (pilar.height + FLAPPY_GAB_HEIGHT)
                     - ground_height
                 )
-                if _game_state.vec_4.y > 0:
-                    draw.fill_rectangle(
-                        _game_state.vec_3,
-                        _game_state.vec_4,
-                        TFT_GREEN,
+                if y > 0:
+                    draw._fill_rectangle(
+                        pilar.point.x, pilar.point.y + pilar.height + FLAPPY_GAB_HEIGHT,
+                        FLAPPY_GAB_WIDTH, y,
+                        TFT_GREEN if not _is_flipper else TFT_WHITE,
                     )
-                    draw.rect(
-                        _game_state.vec_3,
-                        _game_state.vec_4,
-                        TFT_DARKGREEN,
+                    draw._rectangle(
+                        pilar.point.x, pilar.point.y + pilar.height + FLAPPY_GAB_HEIGHT,
+                        FLAPPY_GAB_WIDTH, y,
+                        TFT_DARKGREEN if not _is_flipper else TFT_WHITE,
                     )
 
         # Draw the bird
-        self.position.x = int(_game_state.bird.point.x)
-        self.position.y = int(_game_state.bird.point.y)
+        self.position.x = _game_state.bird.point.x
+        self.position.y = _game_state.bird.point.y
 
-        draw.image_bytearray(self.position, _game_state.bird_vec, BIRD_ICON)
+        draw._bytearray(_game_state.bird.point.x, _game_state.bird.point.y, FLAPPY_BIRD_WIDTH, FLAPPY_BIRD_HEIGHT, BIRD_ICON)
 
         # Score
-        draw.text(_game_state.text_pos, f"Score: {_game_state.points}", TFT_BLACK)
+        draw._text(_game_state.text_pos.x, _game_state.text_pos.y, f"Score: {_game_state.points}", TFT_BLACK)
 
     elif _game_state.state == GAME_STATE_GAME_OVER:
         self.position = Vector(-100, -100)
@@ -707,11 +655,11 @@ def __player_render(self, draw, game) -> None:
         by = int(100 * s)
         bw = int(100 * s)
         bh = int(60 * s)
-        draw.fill_rectangle(Vector(bx, by), Vector(bw, bh), TFT_YELLOW)
-        draw.rect(Vector(bx, by), Vector(bw, bh), TFT_BLACK)
-        draw.text(Vector(int(130 * s), int(110 * s)), "Game Over!", TFT_BLACK)
-        draw.text(Vector(int(125 * s), int(125 * s)), f"Score: {_game_state.points}", TFT_BLACK)
-        draw.text(Vector(int(125 * s), int(140 * s)), "Press to Retry", TFT_BLACK)
+        draw._fill_rectangle(bx, by, bw, bh, TFT_YELLOW)
+        draw._rectangle(bx, by, bw, bh, TFT_BLACK)
+        draw._text(int(130 * s), int(110 * s), "Game Over!", TFT_BLACK)
+        draw._text(int(125 * s), int(125 * s), f"Score: {_game_state.points}", TFT_BLACK)
+        draw._text(int(125 * s), int(140 * s), "Press to Retry", TFT_BLACK)
 
 
 def __player_spawn(level, draw):
@@ -748,8 +696,12 @@ def start(view_manager) -> bool:
     from picoware.engine.game import Game
     from picoware.engine.level import Level
     from picoware.engine.engine import GameEngine
+    from picoware.system.boards import BOARD_FLIPPER_ZERO, BOARD_POOM
 
     global _game_engine, _game_scale, FLIPPER_LCD_WIDTH, FLIPPER_LCD_HEIGHT, FLAPPY_PILAR_DIST, FLAPPY_GAB_HEIGHT, FLAPPY_GAB_WIDTH
+    global _is_flipper
+
+    _is_flipper = view_manager.board_id in (BOARD_FLIPPER_ZERO, BOARD_POOM)
 
     draw = view_manager.draw
     FLIPPER_LCD_WIDTH = draw.size.x
@@ -783,12 +735,11 @@ def start(view_manager) -> bool:
 
 def run(view_manager) -> None:
     """Run the app."""
-    input_manager = view_manager.input_manager
-    button: int = input_manager.button
+    button: int = view_manager.button
 
     if button == BUTTON_BACK:
-        input_manager.reset()
         view_manager.back()
+        return
 
     if _game_engine:
         _game_engine.run_async(False)

@@ -226,9 +226,11 @@ class AppLoader:
             return self.loaded_apps[cache_key]
 
         except ImportError as e:
+            self._error = f"{e}"
             self.view_manager.log(f"Could not import app {app_name}: {e}", 2)
             return None
         except Exception as e:
+            self._error = f"{e}"
             self.view_manager.log(
                 f"Error loading app {app_name}: {type(e).__name__}: {e}", 2
             )

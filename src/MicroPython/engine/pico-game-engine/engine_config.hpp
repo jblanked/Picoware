@@ -1,11 +1,7 @@
 #pragma once
 
 // general
-#ifdef PICO_RP2350
-#define ENGINE_MAX_TRIANGLES_PER_SPRITE 1536 // was 2048
-#else
-#define ENGINE_MAX_TRIANGLES_PER_SPRITE 128
-#endif
+#define ENGINE_MAX_TRIANGLES_PER_SPRITE 256
 
 // logging
 #define ENGINE_LOG_INCLUDE "../log/log_mp.h"

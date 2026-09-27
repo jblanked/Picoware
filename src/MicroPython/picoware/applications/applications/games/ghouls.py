@@ -134,6 +134,13 @@ def start(view_manager) -> bool:
     """
     global _state, _asset_index, _http, _username, _password, _loading
 
+    from picoware.system.settings import Settings
+
+    _settings = Settings(view_manager.storage)
+    server_settings = _settings.server_settings
+    _username = server_settings.get("username")
+    _password = server_settings.get("password")
+
     if __is_assets_loaded(view_manager):
         _state = STATE_PLAYING
         view_manager.freq(True, 210000000)  # set to 210MHz

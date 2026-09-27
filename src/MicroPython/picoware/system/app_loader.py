@@ -26,6 +26,7 @@ class AppLoader:
         self._vfs_ready = False
         if mount_vfs and view_manager.storage.mount_vfs("/sd"):
             self._vfs_ready = True
+        self._error = None
 
     def __del__(self):
         """Cleanup loaded apps on deletion"""
@@ -34,6 +35,11 @@ class AppLoader:
         if self._vfs_ready:
             self.view_manager.storage.unmount_vfs("/sd")
         self._vfs_ready = False
+
+    @property
+    def error(self):
+        """Get the last error encountered by the AppLoader."""
+        return self._error
 
     def cleanup_modules(self):
         """Remove all app modules from sys.modules"""
@@ -156,9 +162,11 @@ class AppLoader:
             RuntimeError: If the VFS is not ready or not mounted.
             AttributeError: If the app module is missing a required method.
         """
+        self._error = None
         if not self._vfs_ready:
             self._vfs_ready = self.view_manager.storage.mount_vfs("/sd")
             if not self._vfs_ready:
+                self._error = "VFS not ready"
                 raise RuntimeError("VFS not ready, cannot load apps.")
 
         from utime import ticks_ms
@@ -173,6 +181,7 @@ class AppLoader:
 
                 # Determine the base path based on VFS mode
                 if not storage.vfs_mounted:
+                    self._error = "Storage VFS not mounted"
                     raise RuntimeError("Storage VFS not mounted, cannot load apps.")
 
                 # Use the board-specific VFS prefix (/sdcard on Cardputer, /sd elsewhere)
@@ -203,10 +212,14 @@ class AppLoader:
                 # Verify the app has required methods
                 required_methods = ["start", "run", "stop"]
                 for method in required_methods:
-                    if not hasattr(app_module, method) or not callable(
+                    if not hasattr(app_module, method):
+                        self._error = f"App {app_name} missing {method} method"
+                        raise AttributeError(f"App {app_name} missing {method} method")
+                    if not callable(
                         getattr(app_module, method)
                     ):
-                        raise AttributeError(f"App {app_name} missing {method} method")
+                        self._error = f"App {app_name} has {method} method but it is not callable"
+                        raise AttributeError(f"App {app_name} has {method} method but it is not callable")
 
                 self.loaded_apps[cache_key] = app_module
 

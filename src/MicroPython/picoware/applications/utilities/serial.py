@@ -16,8 +16,8 @@ _prev_callback = None
 
 def __uart_callback(uart_instance):
     """Callback for UART events"""
-    global _textbox, _uart, _received
-    _textbox.current_text += f"Friend: {uart_instance.read()}\n"
+    global _received, message
+    message = f"Friend: {uart_instance.read()}\n"
     _received = True
 
 
@@ -68,6 +68,7 @@ def __callback(result: str) -> None:
     message = "\nYou: " + result + "\n"
     state = STATE_SENDING
     _uart.println(result)
+    message = ""
 
 
 def __loading_run(view_manager, text: str = "Sending...") -> None:
@@ -181,10 +182,12 @@ def run(view_manager) -> None:
         else:
             __loading_run(view_manager)
     elif state == STATE_VIEWING:
-        global _received
+        global _received, message
         if _received:
+            _textbox.current_text += f"Friend: {message}\n"
             _textbox.refresh()
             _received = False
+            message = ""
 
 
 def stop(view_manager) -> None:
@@ -201,7 +204,7 @@ def stop(view_manager) -> None:
         del _loading
         _loading = None
     if _uart is not None:
-        _uart.callback = _prev_callback
+        _uart.set_callback(_prev_callback)
         _prev_callback = None
     if view_manager.board_id != BOARD_FLIPPER_ZERO:
         _uart = None # close our reference

@@ -28,8 +28,6 @@ class Triangle3D(engine.Triangle3D):
         x3 (float): Third vertex X coordinate. Writable.
         y3 (float): Third vertex Y coordinate. Writable.
         z3 (float): Third vertex Z coordinate. Writable.
-        visible (bool): Whether the triangle is visible. Writable.
-        distance (float): Depth-sorting distance. Writable.
         color (int): Triangle color. Writable.
 
     Methods:
@@ -44,8 +42,6 @@ class Triangle3D(engine.Triangle3D):
         - set_x3(x3): Set the third vertex X coordinate.
         - set_y3(y3): Set the third vertex Y coordinate.
         - set_z3(z3): Set the third vertex Z coordinate.
-        - set_visible(visible): Set whether the triangle is visible.
-        - set_distance(distance): Set the depth-sorting distance.
         - set_color(color): Set the triangle color.
         - __del__(): Release the native triangle resources.
     """
@@ -75,10 +71,6 @@ class Triangle3D(engine.Triangle3D):
             self.set_y3(value)
         elif name == "z3":
             self.set_z3(value)
-        elif name == "visible":
-            self.set_visible(value)
-        elif name == "distance":
-            self.set_distance(value)
         elif name == "color":
             self.set_color(value)
         else:

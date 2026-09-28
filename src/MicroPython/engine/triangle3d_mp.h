@@ -42,8 +42,6 @@ extern "C"
     mp_obj_t triangle3d_mp_set_x3(mp_obj_t self_in, mp_obj_t x3_obj);
     mp_obj_t triangle3d_mp_set_y3(mp_obj_t self_in, mp_obj_t y3_obj);
     mp_obj_t triangle3d_mp_set_z3(mp_obj_t self_in, mp_obj_t z3_obj);
-    mp_obj_t triangle3d_mp_set_visible(mp_obj_t self_in, mp_obj_t visible_obj);
-    mp_obj_t triangle3d_mp_set_distance(mp_obj_t self_in, mp_obj_t distance_obj);
     mp_obj_t triangle3d_mp_set_color(mp_obj_t self_in, mp_obj_t color_obj);
 
 #ifdef __cplusplus

@@ -20,7 +20,7 @@
 #endif
 
 #define SDCARD_MOUNT_POINT "/sdcard"
-#define SD_SLOT_SPI2 (3)
+#define SD_SLOT_SPI2 (2)
 
 // Every SD access (including each log line) retries the mount, so a missing
 // card would otherwise pay a full SPI + card init every time.

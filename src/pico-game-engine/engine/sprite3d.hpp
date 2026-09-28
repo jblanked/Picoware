@@ -22,7 +22,7 @@ typedef enum
 class Sprite3D
 {
 private:
-    Triangle3D *triangles[ENGINE_MAX_TRIANGLES_PER_SPRITE];
+    Triangle3D *triangles;
     uint16_t triangle_count;
     Vector position;
     float rotation_y;

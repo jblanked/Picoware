@@ -23,10 +23,10 @@ static uint16_t shadeColor565(uint16_t color, float factor)
     return ((uint16_t)r << 11) | ((uint16_t)g << 5) | b;
 }
 
-Sprite3D::Sprite3D() : triangle_count(0), position(Vector(0, 0)), rotation_y(0),
+Sprite3D::Sprite3D() : triangles(nullptr), triangle_count(0), position(Vector(0, 0)), rotation_y(0),
                        scale_factor(1.0f), type(SPRITE_CUSTOM), active(false)
 {
-    memset(triangles, 0, sizeof(triangles));
+    triangles = nullptr;
 }
 
 Sprite3D::~Sprite3D()
@@ -36,41 +36,40 @@ Sprite3D::~Sprite3D()
 
 bool Sprite3D::addTriangle(const Triangle3D &triangle)
 {
-    if (triangle_count < ENGINE_MAX_TRIANGLES_PER_SPRITE)
-    {
-        triangles[triangle_count] = ENGINE_MEM_NEW Triangle3D(triangle);
-        if (triangles[triangle_count] != nullptr)
-        {
-            triangle_count++;
-            return true;
-        }
-    }
-    return false;
+    if (triangle_count >= ENGINE_MAX_TRIANGLES_PER_SPRITE)
+        return false;
+
+    Triangle3D *new_block = (Triangle3D *)ENGINE_MEM_MALLOC(
+        (triangle_count + 1) * sizeof(Triangle3D));
+    if (!new_block)
+        return false;
+
+    if (triangle_count > 0)
+        memcpy(new_block, triangles, triangle_count * sizeof(Triangle3D));
+
+    if (triangles != nullptr)
+        ENGINE_MEM_FREE(triangles);
+    triangles = new_block;
+
+    new_block[triangle_count] = triangle;
+    triangle_count++;
+    return true;
 }
 
 bool Sprite3D::addTriangle(float x1, float y1, float z1,
                            float x2, float y2, float z2,
-                           float x3, float y3, float z3, uint16_t color, bool wireframe)
+                           float x3, float y3, float z3,
+                           uint16_t color, bool wireframe)
 {
-    if (triangle_count < ENGINE_MAX_TRIANGLES_PER_SPRITE)
-    {
-        triangles[triangle_count] = ENGINE_MEM_NEW Triangle3D(x1, y1, z1, x2, y2, z2, x3, y3, z3, color, wireframe);
-        if (triangles[triangle_count] != nullptr)
-        {
-            triangle_count++;
-            return true;
-        }
-    }
-    return false;
+    return addTriangle(Triangle3D(x1, y1, z1, x2, y2, z2, x3, y3, z3,
+                                  color, wireframe));
 }
 
 void Sprite3D::clearTriangles()
 {
-    for (uint16_t i = 0; i < triangle_count; i++)
-    {
-        ENGINE_MEM_DELETE triangles[i];
-        triangles[i] = nullptr;
-    }
+    if (triangles != nullptr)
+        ENGINE_MEM_FREE(triangles);
+    triangles = nullptr;
     triangle_count = 0;
 }
 
@@ -459,7 +458,7 @@ bool Sprite3D::getTransformedTriangle(uint16_t index, const Vector &camera_pos, 
     if (index >= triangle_count)
         return false;
 
-    out = *triangles[index];
+    out = triangles[index];
 
     // Fast path: identity rotation/scale (static scenery) -> translate only
     if (rotation_y == 0.0f && scale_factor == 1.0f)
@@ -590,10 +589,7 @@ void Sprite3D::setWireframe(bool wireframe)
 {
     for (uint16_t i = 0; i < triangle_count; i++)
     {
-        if (triangles[i])
-        {
-            triangles[i]->wireframe = wireframe;
-        }
+        triangles[i].wireframe = wireframe;
     }
 }
 
@@ -607,29 +603,27 @@ bool Sprite3D::bakeTransform()
 
     for (uint16_t i = 0; i < triangle_count; i++)
     {
-        Triangle3D *t = triangles[i];
-        if (!t)
-            continue;
+        Triangle3D &t = triangles[i];
 
-        t->x1 *= scale_factor;
-        t->y1 *= scale_factor;
-        t->z1 *= scale_factor;
-        t->x2 *= scale_factor;
-        t->y2 *= scale_factor;
-        t->z2 *= scale_factor;
-        t->x3 *= scale_factor;
-        t->y3 *= scale_factor;
-        t->z3 *= scale_factor;
+        t.x1 *= scale_factor;
+        t.y1 *= scale_factor;
+        t.z1 *= scale_factor;
+        t.x2 *= scale_factor;
+        t.y2 *= scale_factor;
+        t.z2 *= scale_factor;
+        t.x3 *= scale_factor;
+        t.y3 *= scale_factor;
+        t.z3 *= scale_factor;
 
-        float ox = t->x1;
-        t->x1 = ox * cos_a - t->z1 * sin_a;
-        t->z1 = ox * sin_a + t->z1 * cos_a;
-        ox = t->x2;
-        t->x2 = ox * cos_a - t->z2 * sin_a;
-        t->z2 = ox * sin_a + t->z2 * cos_a;
-        ox = t->x3;
-        t->x3 = ox * cos_a - t->z3 * sin_a;
-        t->z3 = ox * sin_a + t->z3 * cos_a;
+        float ox = t.x1;
+        t.x1 = ox * cos_a - t.z1 * sin_a;
+        t.z1 = ox * sin_a + t.z1 * cos_a;
+        ox = t.x2;
+        t.x2 = ox * cos_a - t.z2 * sin_a;
+        t.z2 = ox * sin_a + t.z2 * cos_a;
+        ox = t.x3;
+        t.x3 = ox * cos_a - t.z3 * sin_a;
+        t.z3 = ox * sin_a + t.z3 * cos_a;
     }
 
     rotation_y = 0.0f;
@@ -648,7 +642,7 @@ bool Sprite3D::toPath(const char *path) const
     if (!buf)
         return false;
     for (uint16_t i = 0; i < triangle_count; i++)
-        buf[i] = *triangles[i];
+        buf[i] = triangles[i];
     const bool ok = ENGINE_STORAGE_WRITE(path, buf, sizeof(Triangle3D) * triangle_count);
     ENGINE_MEM_DELETE[] buf;
     return ok;

@@ -28,6 +28,10 @@ Entity::Entity(
     this->type = type;
     this->position = position;
     this->old_position = position;
+    this->moved = false;
+    this->aabb_min = position;
+    this->aabb_max = position;
+    this->aabb_dirty = true;
     this->direction = Vector(1, 0, 0, true);
     this->plane = Vector(0, 0);
     this->size = size;
@@ -73,6 +77,7 @@ Entity::Entity(
     {
         create3DSprite(sprite_3d_type, size.y, size.x, 0.0f, sprite_3d_color);
     }
+    updateAABB();
 }
 
 Entity::~Entity()
@@ -151,6 +156,7 @@ void Entity::destroy3DSprite()
         sprite_3d = nullptr;
     }
     sprite_3d_type = SPRITE_3D_NONE;
+    aabb_dirty = true;
 }
 
 bool Entity::has3DSprite() const
@@ -170,6 +176,11 @@ Vector Entity::position_get()
 
 void Entity::position_set(Vector value)
 {
+    if (position != value)
+    {
+        moved = true;
+        aabb_dirty = true;
+    }
     this->old_position.x = this->position.x;
     this->old_position.y = this->position.y;
     this->old_position.z = this->position.z;
@@ -188,6 +199,11 @@ void Entity::position_set(Vector value)
 
 void Entity::position_set(float x, float y, float z, bool integer)
 {
+    if (position.x != x || position.y != y || position.z != z)
+    {
+        moved = true;
+        aabb_dirty = true;
+    }
     this->old_position.x = this->position.x;
     this->old_position.y = this->position.y;
     this->old_position.z = this->position.z;
@@ -218,6 +234,7 @@ void Entity::set3DSpriteRotation(float rotation)
     if (sprite_3d != nullptr)
     {
         sprite_3d->setRotation(rotation);
+        aabb_dirty = true;
     }
 }
 
@@ -227,6 +244,7 @@ void Entity::set3DSpriteScale(float scale)
     if (sprite_3d != nullptr)
     {
         sprite_3d->setScale(scale);
+        aabb_dirty = true;
     }
 }
 
@@ -266,12 +284,68 @@ void Entity::update(Game *game)
     {
         update3DSpritePosition();
     }
+    if (aabb_dirty)
+        updateAABB();
 }
 
 void Entity::update3DSpritePosition()
 {
-    if (sprite_3d != nullptr)
+    if (sprite_3d != nullptr && sprite_3d->getPosition() != position)
     {
         sprite_3d->setPosition(position);
+        aabb_dirty = true;
     }
+}
+
+void Entity::updateAABB()
+{
+    if (has3DSprite())
+    {
+        bool has_corner = false;
+        for (uint16_t i = 0; i < sprite_3d->getTriangleCount(); ++i)
+        {
+            Triangle3D triangle;
+            if (!sprite_3d->getWorldTriangle(i, triangle))
+                continue;
+            for (int corner = 0; corner < 3; ++corner)
+            {
+                const float x = corner == 0 ? triangle.x1 : corner == 1 ? triangle.x2
+                                                                        : triangle.x3;
+                const float y = corner == 0 ? triangle.y1 : corner == 1 ? triangle.y2
+                                                                        : triangle.y3;
+                const float z = corner == 0 ? triangle.z1 : corner == 1 ? triangle.z2
+                                                                        : triangle.z3;
+                if (!has_corner)
+                {
+                    aabb_min = Vector(x, y, z);
+                    aabb_max = aabb_min;
+                    has_corner = true;
+                    continue;
+                }
+                if (x < aabb_min.x)
+                    aabb_min.x = x;
+                if (y < aabb_min.y)
+                    aabb_min.y = y;
+                if (z < aabb_min.z)
+                    aabb_min.z = z;
+                if (x > aabb_max.x)
+                    aabb_max.x = x;
+                if (y > aabb_max.y)
+                    aabb_max.y = y;
+                if (z > aabb_max.z)
+                    aabb_max.z = z;
+            }
+        }
+        if (!has_corner)
+        {
+            aabb_min = position;
+            aabb_max = position;
+        }
+    }
+    else
+    {
+        aabb_min = position;
+        aabb_max = Vector(position.x + size.x, position.y + size.y, position.z);
+    }
+    aabb_dirty = false;
 }

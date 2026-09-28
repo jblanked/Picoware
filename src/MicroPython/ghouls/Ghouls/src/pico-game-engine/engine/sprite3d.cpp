@@ -514,6 +514,8 @@ bool Sprite3D::getTransformedTriangle(uint16_t index, const Vector &camera_pos, 
         out.z3 += position.y;
     }
 
+    bool isSet = false;
+
     // Back-face culling: check if triangle faces the camera
     {
         // Calculate triangle normal using cross product of two edge vectors
@@ -539,9 +541,9 @@ bool Sprite3D::getTransformedTriangle(uint16_t index, const Vector &camera_pos, 
         const float toz = camera_pos.y - cz; // camera_pos.y is Z in world space
 
         // Dot product: if positive, triangle faces camera
-        out.set = (nx * tox + ny * toy + nz * toz) > 0.0f;
+        isSet = (nx * tox + ny * toy + nz * toz) > 0.0f;
     }
-    return out.set;
+    return isSet;
 }
 
 bool Sprite3D::initializeAsHouse(Vector pos, float width, float height, float rot, uint16_t color, bool wireframe)

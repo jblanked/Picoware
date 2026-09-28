@@ -453,14 +453,26 @@ bool Sprite3D::fromPath(const char *path, bool wireframe)
 #endif
 }
 
-bool Sprite3D::getTransformedTriangle(uint16_t index, const Vector &camera_pos, Triangle3D &out) const
+void Sprite3D::transformVertex(float x, float y, float z, float cos_a, float sin_a,
+                               float &out_x, float &out_y, float &out_z) const
+{
+    x *= scale_factor;
+    y *= scale_factor;
+    z *= scale_factor;
+    const float original_x = x;
+    x = original_x * cos_a - z * sin_a;
+    z = original_x * sin_a + z * cos_a;
+    out_x = x + position.x;
+    out_y = y + position.z;
+    out_z = z + position.y;
+}
+
+bool Sprite3D::getWorldTriangle(uint16_t index, Triangle3D &out) const
 {
     if (index >= triangle_count)
         return false;
 
     out = triangles[index];
-
-    // Fast path: identity rotation/scale (static scenery) -> translate only
     if (rotation_y == 0.0f && scale_factor == 1.0f)
     {
         out.x1 += position.x;
@@ -472,46 +484,21 @@ bool Sprite3D::getTransformedTriangle(uint16_t index, const Vector &camera_pos, 
         out.x3 += position.x;
         out.y3 += position.z;
         out.z3 += position.y;
+        return true;
     }
-    else
-    {
-        // compute sin/cos once for all three vertices
-        const float cos_a = cosf(rotation_y);
-        const float sin_a = sinf(rotation_y);
 
-        // Vertex 1
-        out.x1 *= scale_factor;
-        out.y1 *= scale_factor;
-        out.z1 *= scale_factor;
-        float ox = out.x1;
-        out.x1 = ox * cos_a - out.z1 * sin_a;
-        out.z1 = ox * sin_a + out.z1 * cos_a;
-        out.x1 += position.x;
-        out.y1 += position.z;
-        out.z1 += position.y;
+    const float cos_a = cosf(rotation_y);
+    const float sin_a = sinf(rotation_y);
+    transformVertex(out.x1, out.y1, out.z1, cos_a, sin_a, out.x1, out.y1, out.z1);
+    transformVertex(out.x2, out.y2, out.z2, cos_a, sin_a, out.x2, out.y2, out.z2);
+    transformVertex(out.x3, out.y3, out.z3, cos_a, sin_a, out.x3, out.y3, out.z3);
+    return true;
+}
 
-        // Vertex 2
-        out.x2 *= scale_factor;
-        out.y2 *= scale_factor;
-        out.z2 *= scale_factor;
-        ox = out.x2;
-        out.x2 = ox * cos_a - out.z2 * sin_a;
-        out.z2 = ox * sin_a + out.z2 * cos_a;
-        out.x2 += position.x;
-        out.y2 += position.z;
-        out.z2 += position.y;
-
-        // Vertex 3
-        out.x3 *= scale_factor;
-        out.y3 *= scale_factor;
-        out.z3 *= scale_factor;
-        ox = out.x3;
-        out.x3 = ox * cos_a - out.z3 * sin_a;
-        out.z3 = ox * sin_a + out.z3 * cos_a;
-        out.x3 += position.x;
-        out.y3 += position.z;
-        out.z3 += position.y;
-    }
+bool Sprite3D::getTransformedTriangle(uint16_t index, const Vector &camera_pos, Triangle3D &out) const
+{
+    if (!getWorldTriangle(index, out))
+        return false;
 
     bool isSet = false;
 

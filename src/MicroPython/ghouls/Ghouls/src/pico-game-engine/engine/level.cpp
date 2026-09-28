@@ -20,6 +20,8 @@ Level::Level()
       lightDirection(Vector(0.577f, 0.577f, 0.577f)),
       renderOrder(nullptr),
       shadowColor(0),
+      cam_last(Vector(0, 0)),
+      cam_last_valid(false),
       _start{},
       _stop{}
 {
@@ -36,6 +38,8 @@ Level::Level(const char *name, const Vector &size, Game *game, CallbackLevel sta
       lightDirection(Vector(0.577f, 0.577f, 0.577f)),
       renderOrder(nullptr),
       shadowColor(0),
+      cam_last(Vector(0, 0)),
+      cam_last_valid(false),
       _start(start),
       _stop(stop)
 {
@@ -67,6 +71,7 @@ void Level::clear()
     ENGINE_MEM_DELETE[] entities;
     entities = nullptr;
     entity_count = 0;
+    cam_last_valid = false;
     ENGINE_MEM_FREE(renderOrder);
     renderOrder = nullptr;
 }
@@ -155,6 +160,7 @@ void Level::entity_add(Entity *entity)
     ENGINE_MEM_DELETE[] entities;
     entities = newEntities;
     entity_count++;
+    cam_last_valid = false;
 
     // Grow the depth-sort scratch buffer to match
     ENGINE_MEM_FREE(renderOrder);
@@ -211,6 +217,7 @@ void Level::entity_remove(Entity *entity)
     ENGINE_MEM_DELETE[] entities;
     entities = newEntities;
     entity_count--;
+    cam_last_valid = false;
 
     // Shrink the depth-sort scratch buffer to match
     ENGINE_MEM_FREE(renderOrder);
@@ -378,21 +385,19 @@ void Level::render(Game *game)
     }
 
     Camera *gameCamera = game->getCamera();
+    Entity *player = nullptr;
+    for (int i = 0; i < entity_count; i++)
+    {
+        if (entities[i] != nullptr && entities[i]->is_player)
+        {
+            player = entities[i];
+            break;
+        }
+    }
 
     // If using third person perspective, calculate camera from player
     if (gameCamera->perspective == CAMERA_THIRD_PERSON)
     {
-        // Find the player entity to calculate 3rd person camera
-        Entity *player = nullptr;
-        for (int i = 0; i < entity_count; i++)
-        {
-            if (entities[i] != nullptr && entities[i]->is_player)
-            {
-                player = entities[i];
-                break;
-            }
-        }
-
         if (player != nullptr)
         {
             // Calculate 3rd person camera position behind the player
@@ -424,7 +429,7 @@ void Level::render(Game *game)
 
     // Painter's algorithm (back-to-front) for third-person
     const bool use_depth_order = (gameCamera->perspective == CAMERA_THIRD_PERSON && entity_count > 0);
-    if (use_depth_order && renderOrder != nullptr)
+    if (use_depth_order && renderOrder != nullptr && sortOrderChanged(*gameCamera))
     {
         for (int i = 0; i < entity_count; i++)
             renderOrder[i] = i;
@@ -464,62 +469,48 @@ void Level::render(Game *game)
         }
     }
 
+    const Vector screenSize = game->draw->getDisplaySize();
+    const bool drawShadow = shadowColor != 0 && lightDirection.y > 0.01f;
     for (int i = 0; i < entity_count; i++)
     {
         Entity *ent = entities[use_depth_order && renderOrder ? renderOrder[i] : i];
+        if (ent == nullptr || !ent->is_active || !ent->is_visible)
+            continue;
 
-        if (ent != nullptr && ent->is_active)
+        if (ent->has3DSprite())
+            ent->update3DSpritePosition();
+        if (ent->aabb_dirty)
+            ent->updateAABB();
+
+        Camera entityCamera = *gameCamera;
+        if (gameCamera->perspective == CAMERA_FIRST_PERSON && player != nullptr)
         {
-            ent->render(game->draw, game);
+            entityCamera.position = ent->is_player ? ent->position : player->position;
+            entityCamera.direction = ent->is_player ? ent->direction : player->direction;
+        }
+        if (!isOnScreen(ent, entityCamera, screenSize, game->pos))
+            continue;
 
-            if (!ent->is_visible)
-            {
-                continue; // Skip rendering if entity is not visible
-            }
+        ent->render(game->draw, game);
+        if (ent->sprite != nullptr)
+            ent->sprite->render(game->draw, ent->position.x - game->pos.x,
+                                ent->position.y - game->pos.y);
+        if (!ent->has3DSprite())
+            continue;
 
-            // Only draw the 2D sprite if it exists
-            if (ent->sprite != nullptr)
-            {
-                ent->sprite->render(game->draw, ent->position.x - game->pos.x, ent->position.y - game->pos.y);
-            }
-
-            // Render 3D sprite if it exists
-            if (ent->has3DSprite())
-            {
-                if (gameCamera->perspective == CAMERA_FIRST_PERSON)
-                {
-                    // First person: render from player's own perspective
-                    if (ent->is_player)
-                    {
-                        // Use entity's own direction and plane for rendering
-                        render3DSprite(ent->sprite_3d, game->draw, ent->position, ent->direction, gameCamera->height);
-                    }
-                    else
-                    {
-                        // For non-player entities, render from the player's perspective
-                        // We need to find the player entity to get the view parameters
-                        Entity *player = nullptr;
-                        for (int j = 0; j < entity_count; j++)
-                        {
-                            if (entities[j] != nullptr && entities[j]->is_player)
-                            {
-                                player = entities[j];
-                                break;
-                            }
-                        }
-
-                        if (player != nullptr)
-                        {
-                            render3DSprite(ent->sprite_3d, game->draw, player->position, player->direction, gameCamera->height);
-                        }
-                    }
-                }
-                else if (gameCamera->perspective == CAMERA_THIRD_PERSON)
-                {
-                    // Third person: render ALL entities (including player) from the external camera perspective
-                    render3DSprite(ent->sprite_3d, game->draw, gameCamera->position, gameCamera->direction, gameCamera->height);
-                }
-            }
+        if (gameCamera->perspective == CAMERA_FIRST_PERSON)
+        {
+            if (ent->is_player)
+                render3DSprite(ent->sprite_3d, game->draw, ent->position, ent->direction,
+                               gameCamera->height, false, drawShadow);
+            else if (player != nullptr)
+                render3DSprite(ent->sprite_3d, game->draw, player->position, player->direction,
+                               gameCamera->height, false, drawShadow);
+        }
+        else if (gameCamera->perspective == CAMERA_THIRD_PERSON)
+        {
+            render3DSprite(ent->sprite_3d, game->draw, gameCamera->position, gameCamera->direction,
+                           gameCamera->height, false, drawShadow);
         }
     }
 
@@ -530,7 +521,98 @@ void Level::render(Game *game)
     }
 }
 
-void Level::render3DSprite(const Sprite3D *sprite3d, Draw *draw, const Vector &player_pos, const Vector &player_dir, float view_height, bool clamp)
+bool Level::sortOrderChanged(const Camera &camera)
+{
+    bool changed = !cam_last_valid;
+    for (int i = 0; i < entity_count; ++i)
+    {
+        if (entities[i] != nullptr && entities[i]->moved)
+        {
+            entities[i]->moved = false;
+            changed = true;
+        }
+    }
+    const float dx = camera.position.x - cam_last.x;
+    const float dy = camera.position.y - cam_last.y;
+    if (dx * dx + dy * dy > 1e-6f)
+        changed = true;
+    cam_last = camera.position;
+    cam_last_valid = true;
+    return changed;
+}
+
+bool Level::isOnScreen(const Entity *entity, const Camera &camera, const Vector &screen,
+                       const Vector &game_position) const
+{
+    if (entity == nullptr)
+        return false;
+    if (screen.x < 1 || screen.y < 1)
+        return false;
+
+    const Vector &minimum = entity->aabb_min;
+    const Vector &maximum = entity->aabb_max;
+    if (!entity->has3DSprite())
+    {
+        const float sx0 = minimum.x - game_position.x;
+        const float sx1 = maximum.x - game_position.x;
+        const float sy0 = minimum.y - game_position.y;
+        const float sy1 = maximum.y - game_position.y;
+        return !(sx1 < 0 || sy1 < 0 || sx0 >= screen.x || sy0 >= screen.y);
+    }
+
+    const float half_width = screen.x * 0.5f;
+    const float half_height = screen.y * 0.5f;
+    const bool drawShadow = shadowColor != 0 && lightDirection.y > 0.01f;
+    const float slx = drawShadow ? lightDirection.x / lightDirection.y : 0.0f;
+    const float slz = drawShadow ? lightDirection.z / lightDirection.y : 0.0f;
+    float sx0 = screen.x;
+    float sx1 = -1;
+    float sy0 = screen.y;
+    float sy1 = -1;
+    bool has_front_corner = false;
+    bool crosses_near_plane = false;
+    const int corner_count = drawShadow ? 16 : 8;
+    for (int i = 0; i < corner_count; ++i)
+    {
+        const float world_x = i & 1 ? maximum.x : minimum.x;
+        const float world_y = i & 2 ? maximum.y : minimum.y;
+        const float world_z = i & 4 ? maximum.z : minimum.z;
+        const bool shadow = i >= 8;
+        const float x = shadow ? world_x - world_y * slx : world_x;
+        const float y = shadow ? 0.0f : world_y;
+        const float z = shadow ? world_z - world_y * slz : world_z;
+        const float dx = x - camera.position.x;
+        const float dz = z - camera.position.y;
+        const float camera_x = dx * -camera.direction.y + dz * camera.direction.x;
+        const float camera_y = y - camera.height;
+        const float camera_z = dx * camera.direction.x + dz * camera.direction.y;
+        if (camera_z <= 0.1f)
+        {
+            crosses_near_plane = true;
+            continue;
+        }
+
+        has_front_corner = true;
+        const float scale = screen.y / camera_z;
+        const float sx = camera_x * scale + half_width;
+        const float sy = -camera_y * scale + half_height;
+        if (sx < sx0)
+            sx0 = sx;
+        if (sx > sx1)
+            sx1 = sx;
+        if (sy < sy0)
+            sy0 = sy;
+        if (sy > sy1)
+            sy1 = sy;
+    }
+    if (!has_front_corner)
+        return false;
+    if (crosses_near_plane)
+        return true;
+    return !(sx1 < 0 || sy1 < 0 || sx0 >= screen.x || sy0 >= screen.y);
+}
+
+void Level::render3DSprite(const Sprite3D *sprite3d, Draw *draw, const Vector &player_pos, const Vector &player_dir, float view_height, bool clamp, bool drawShadow)
 {
     if (!sprite3d)
         return;
@@ -540,7 +622,7 @@ void Level::render3DSprite(const Sprite3D *sprite3d, Draw *draw, const Vector &p
     const float camB = player_dir.x;
     const float camC = player_dir.x;
     const float camD = player_dir.y;
-    const bool doShadow = shadowColor != 0 && lightDirection.y > 0.01f;
+    const bool doShadow = drawShadow && shadowColor != 0 && lightDirection.y > 0.01f;
     const float slx = doShadow ? lightDirection.x / lightDirection.y : 0.0f;
     const float slz = doShadow ? lightDirection.z / lightDirection.y : 0.0f;
 
@@ -575,7 +657,7 @@ void Level::render3DSprite(const Sprite3D *sprite3d, Draw *draw, const Vector &p
     }
 }
 
-void Level::render3DSprite(const char *path, Draw *draw, const Vector &player_pos, const Vector &player_dir, float view_height, bool clamp, bool wireframe)
+void Level::render3DSprite(const char *path, Draw *draw, const Vector &player_pos, const Vector &player_dir, float view_height, bool clamp, bool wireframe, bool drawShadow)
 {
     if (!path)
         return;
@@ -594,7 +676,7 @@ void Level::render3DSprite(const char *path, Draw *draw, const Vector &player_po
         return;
     }
 
-    render3DSprite(sprite3d, draw, player_pos, player_dir, view_height, clamp);
+    render3DSprite(sprite3d, draw, player_pos, player_dir, view_height, clamp, drawShadow);
 
     ENGINE_MEM_DELETE sprite3d;
     sprite3d = nullptr;

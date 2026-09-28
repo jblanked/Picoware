@@ -50,6 +50,10 @@ public:
     const char *name;    // The name of the entity.
     Vector position;     // The position of the entity.
     Vector old_position; // The old position of the entity.
+    bool moved;
+    Vector aabb_min;
+    Vector aabb_max;
+    bool aabb_dirty;
     Vector direction;    // The direction the entity is facing.
     Vector plane;        // The camera plane perpendicular to the direction.
     bool is_player;      // Indicates if the entity is the player.
@@ -124,6 +128,7 @@ public:
     void set3DSpriteRotation(float rotation); // Set the rotation of the 3D sprite
     void set3DSpriteScale(float scale);       // Set the scale of the 3D sprite
     void update3DSpritePosition();            // Update the position of the 3D sprite
+    void updateAABB();
 
     bool hasChangedPosition() const; // Check if the entity's position has changed
 

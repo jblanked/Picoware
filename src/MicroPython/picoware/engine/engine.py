@@ -31,5 +31,7 @@ class GameEngine(engine.Engine):
         """
         if name == "input":
             self.update_game_input(value)
+        elif name == "clamp":
+            self.set_clamp(value)
         else:
             super().__setattr__(name, value)

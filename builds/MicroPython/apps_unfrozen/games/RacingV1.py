@@ -253,12 +253,12 @@ class _Race:
             self.scenery.append((x, y, height))
 
     def _build_static_scene(self):
-        from picoware.engine.entity import ENTITY_TYPE_ICON, SPRITE_3D_NONE
+        from picoware.engine.entity import ENTITY_TYPE_3D_SPRITE, SPRITE_3D_NONE
         from picoware.engine.sprite3d import Sprite3D
 
         self.background = Entity(
             "Background",
-            ENTITY_TYPE_ICON,
+            ENTITY_TYPE_3D_SPRITE,
             Vector(0, 1000),
             Vector(1, 1),
             None,

@@ -453,11 +453,11 @@ class _City:
 
     def _build_background(self):
         """Create the sky and horizon entity."""
-        from picoware.engine.entity import ENTITY_TYPE_ICON, SPRITE_3D_NONE
+        from picoware.engine.entity import ENTITY_TYPE_3D_SPRITE, SPRITE_3D_NONE
 
         background = Entity(
             "Background",
-            ENTITY_TYPE_ICON,
+            ENTITY_TYPE_3D_SPRITE,
             Vector(0, self.BACKGROUND_Z),
             Vector(1, 1),
             None,

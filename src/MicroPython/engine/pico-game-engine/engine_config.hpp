@@ -1,7 +1,7 @@
 #pragma once
 
 // general
-#define ENGINE_MAX_TRIANGLES_PER_SPRITE 256
+#define ENGINE_MAX_TRIANGLES_PER_SPRITE 2048
 
 // logging
 #define ENGINE_LOG_INCLUDE "../log/log_mp.h"

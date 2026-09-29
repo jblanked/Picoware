@@ -488,7 +488,7 @@ void Level::render(Game *game, bool clamp)
             entityCamera.position = ent->is_player ? ent->position : player->position;
             entityCamera.direction = ent->is_player ? ent->direction : player->direction;
         }
-        if (ent->type != ENTITY_ICON && !isOnScreen(ent, entityCamera, screenSize, game->pos))
+        if (ent->type != ENTITY_3D_SPRITE && !isOnScreen(ent, entityCamera, screenSize, game->pos))
             continue;
 
         ent->render(game->draw, game);

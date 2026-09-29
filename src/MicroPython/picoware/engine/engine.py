@@ -9,6 +9,7 @@ class GameEngine(engine.Engine):
     Args:
         game (Game): Game instance to run.
         fps (int): Target frame rate.
+        clamp (bool): Whether to clamp the rendering.
 
     Attributes:
         game (Game): Game instance managed by the engine.

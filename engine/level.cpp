@@ -376,7 +376,7 @@ int Level::projectionProject(const Vector triangle[3], float width, float height
 }
 
 // Render all active entities
-void Level::render(Game *game)
+void Level::render(Game *game, bool clamp)
 {
     // clear the screen and render the entities
     if (clearAllowed)
@@ -502,15 +502,15 @@ void Level::render(Game *game)
         {
             if (ent->is_player)
                 render3DSprite(ent->sprite_3d, game->draw, ent->position, ent->direction,
-                               gameCamera->height, false, drawShadow);
+                               gameCamera->height, clamp, drawShadow);
             else if (player != nullptr)
                 render3DSprite(ent->sprite_3d, game->draw, player->position, player->direction,
-                               gameCamera->height, false, drawShadow);
+                               gameCamera->height, clamp, drawShadow);
         }
         else if (gameCamera->perspective == CAMERA_THIRD_PERSON)
         {
             render3DSprite(ent->sprite_3d, game->draw, gameCamera->position, gameCamera->direction,
-                           gameCamera->height, false, drawShadow);
+                           gameCamera->height, clamp, drawShadow);
         }
     }
 

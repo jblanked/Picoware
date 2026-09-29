@@ -5,12 +5,13 @@
 class GameEngine
 {
 private:
+    bool clamp; // Whether to clamp the rendering.
     float fps;  // The frames per second of the game engine.
     Game *game; // The game to run.
 
 public:
-    GameEngine(Game *game, float fps)
-        : fps(fps), game(game)
+    GameEngine(Game *game, float fps, bool clamp = false)
+        : clamp(clamp), fps(fps), game(game)
     {
     }
 
@@ -28,7 +29,7 @@ public:
             game->update();
 
             // Render the game
-            game->render();
+            game->render(clamp);
 
             ENGINE_DELAY_MS(1000 / fps);
         }
@@ -48,13 +49,18 @@ public:
         game->update();
 
         // Render the game
-        game->render();
+        game->render(clamp);
 
         if (shouldDelay)
         {
             // Delay to control the frame rate
             ENGINE_DELAY_MS(1000 / fps);
         }
+    }
+
+    inline void setClamp(bool clamp)
+    {
+        this->clamp = clamp;
     }
 
     inline void stop()

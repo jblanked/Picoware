@@ -122,7 +122,7 @@ void Game::level_switch(int index)
     }
 }
 
-void Game::render()
+void Game::render(bool clamp)
 {
     if (this->current_level == nullptr)
     {
@@ -130,7 +130,7 @@ void Game::render()
     }
 
     // render the level with the configured perspective
-    this->current_level->render(this);
+    this->current_level->render(this, clamp);
 }
 
 void Game::setCamera(const Camera &cameraContext)

@@ -279,7 +279,7 @@ void GhoulsLevel::registerSpritePositionsOnMap(DynamicMap *map)
     }
 }
 
-void GhoulsLevel::render(Game *game)
+void GhoulsLevel::render(Game *game, bool clamp)
 {
     Camera *gameCamera = game->getCamera();
     Player *player = ghoulsGame->getPlayer();

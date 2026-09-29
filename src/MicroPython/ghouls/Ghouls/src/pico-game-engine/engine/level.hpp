@@ -36,7 +36,7 @@ public:
     bool isClearAllowed() const noexcept { return clearAllowed; }
     bool is_collision(const Entity *a, const Entity *b) const;
     void project3DTo2D(const Vector &vertex, const Vector &player_pos, const Vector &player_dir, float view_height, const Vector &screen_size, Vector &result);
-    virtual void render(Game *game);
+    virtual void render(Game *game, bool clamp = false);
     void render3DSprite(const Sprite3D *sprite3d, Draw *draw, const Vector &player_pos, const Vector &player_dir, float view_height, bool clamp = false, bool drawShadow = false);
     void render3DSprite(const char *path, Draw *draw, const Vector &player_pos, const Vector &player_dir, float view_height, bool clamp = false, bool wireframe = true, bool drawShadow = false);
     void setClearAllowed(bool status) { clearAllowed = status; }

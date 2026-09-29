@@ -468,6 +468,9 @@ int main(int argc, char **argv)
     char status_text[2048];
     char error_text[4096];
     char log_text[4096];
+    SDL_StartTextInput();
+    int pending_text_scancode = -1;
+    int pending_text_repeat = 0;
     int down_codes[SDL_NUM_SCANCODES];
     for (int i = 0; i < SDL_NUM_SCANCODES; ++i)
         down_codes[i] = -1;
@@ -490,9 +493,25 @@ int main(int argc, char **argv)
             }
             else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_FOCUS_LOST)
             {
+                pending_text_scancode = -1;
                 append_key_event(input_path, "release_all", 0, 0);
                 for (int i = 0; i < SDL_NUM_SCANCODES; ++i)
                     down_codes[i] = -1;
+            }
+            else if (event.type == SDL_TEXTINPUT)
+            {
+                // SDL resolves Shift/AltGr through the host keyboard layout.
+                // Pair the translated character with its physical key for release.
+                int code = (unsigned char)event.text.text[0];
+                int scancode = pending_text_scancode;
+                pending_text_scancode = -1;
+                if (scancode >= 0 && code >= 32 && code < 127 && event.text.text[1] == '\0')
+                {
+                    if (down_codes[scancode] >= 0)
+                        code = down_codes[scancode];
+                    down_codes[scancode] = code;
+                    append_key_event(input_path, "down", code, pending_text_repeat);
+                }
             }
             else if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP)
             {
@@ -501,6 +520,8 @@ int main(int argc, char **argv)
                 if (!is_keydown)
                 {
                     // Release the original code even if Shift/Ctrl changed first.
+                    if (pending_text_scancode == (int)scancode)
+                        pending_text_scancode = -1;
                     int code = down_codes[scancode];
                     down_codes[scancode] = -1;
                     if (code >= 0)
@@ -564,6 +585,12 @@ int main(int argc, char **argv)
                     code = 0xC2;
                 else if ((event.key.keysym.mod & KMOD_CTRL) && event.key.keysym.sym == SDLK_DOWN)
                     code = 0xC3;
+                if (code >= 32 && code < 127 && !(event.key.keysym.mod & (KMOD_CTRL | KMOD_GUI)))
+                {
+                    pending_text_scancode = scancode;
+                    pending_text_repeat = event.key.repeat ? 1 : 0;
+                    continue;
+                }
                 if (code >= 0)
                 {
                     if (event.key.keysym.mod & KMOD_SHIFT)

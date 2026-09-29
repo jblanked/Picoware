@@ -28,7 +28,7 @@ public:
     void level_remove(Level *level);                // Remove a level from the game
     void level_switch(const char *name);            // Switch to a level by name
     void level_switch(int index);                   // Switch to a level by index
-    virtual void render();                          // Called every frame to render the game
+    virtual void render(bool clamp = false);        // Called every frame to render the game
     void setCamera(const Camera &cameraContext);    // Set the current camera
     virtual void start();                           // Called when the game starts
     virtual void stop();                            // Called when the game stops

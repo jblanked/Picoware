@@ -29,7 +29,7 @@ public:
     Sky *getSky() const { return sky; }
 #endif
     bool isPositionAvailable(Vector position);
-    virtual void render(Game *game) override;
+    virtual void render(Game *game, bool clamp = false) override;
     void renderMiniMap(Draw *canvas, bool miniature = false);
     bool setMapPack(const char *filename);
     bool setMapPack(const map_data_t &newMapData);

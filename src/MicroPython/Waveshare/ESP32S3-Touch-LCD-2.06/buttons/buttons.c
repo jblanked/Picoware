@@ -6,21 +6,26 @@
 #include "esp_log.h"
 
 #include "iot_button.h"
+#include <stdint.h>
 
 static const char *TAG = "buttons";
 
-static char map_button_event_to_ascii(uint8_t keycode, bool pressed)
+static uint8_t map_button_event_to_key(uint8_t keycode, bool pressed)
 {
 
 }
 
-esp_err_t buttons_init(void)
+esp_err_t gpio_buttons_init(void)
 {
 
     return ESP_OK;
 }
 
-esp_err_t buttons_read_event(keyboard_event_t *out_event, bool *has_event)
+esp_err_t gpio_buttons_key_available(bool *has_key){
+
+}
+
+esp_err_t gpio_buttons_read_key(uint8_t *key, bool *has_key)
 {
     if (out_event == NULL || has_event == NULL)
     {
@@ -45,9 +50,8 @@ esp_err_t buttons_read_event(keyboard_event_t *out_event, bool *has_event)
     ESP_RETURN_ON_ERROR(tca_read(REG_KEY_EVENT_A, &event_byte), TAG,
                         "failed to read key event");
 
-    out_event->pressed = (event_byte & 0x80) != 0;
     out_event->keycode = (event_byte & 0x7F);
-    out_event->ascii = map_keycode_to_ascii(out_event->keycode, out_event->pressed);
+    out_event->ascii = map_keycode_to_ascii(out_event->keycode);
     *has_event = true;
 
     ESP_RETURN_ON_ERROR(keyboard_clear_interrupt(), TAG, "keyboard int clear failed");

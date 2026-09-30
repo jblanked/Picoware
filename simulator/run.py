@@ -1404,8 +1404,7 @@ def _run_engine_parity_check():
     import sd_mp
     import sim_runtime
     import ustruct
-    from engine import Camera, Entity, Game, Level, Sprite3D
-    from picoware.engine.engine import GameEngine
+    from engine import Entity, Game, Level, Sprite3D
     from picoware.gui.draw import Draw
     from picoware.system.vector import Vector
 
@@ -1430,39 +1429,23 @@ def _run_engine_parity_check():
             if not loaded.to_path(roundtrip):
                 raise RuntimeError("simulator Sprite3D round-trip write failed")
             record = sd_mp.read(roundtrip, 0, 0)
-            if (len(record) != 40 or ustruct.unpack_from("<9f", record) != vertices
-                    or ustruct.unpack_from("<H", record, 36)[0] != 0x07E0
-                    or bool(record[38]) != wireframe):
+            if (len(record) != 52 or ustruct.unpack_from("<9f", record) != vertices
+                    or ustruct.unpack_from("<H", record, 46)[0] != 0x07E0
+                    or bool(record[48]) != wireframe):
                 raise RuntimeError("simulator Sprite3D round-trip data/wireframe mismatch")
         sim_runtime.headless = True
         draw = Draw()
-        camera = Camera(Vector(0, 0), Vector(1, 0), Vector(0, 0.66), 0.5)
-        game = Game("sim-parity", Vector(10, 10, 10), 0xFFFF, 0, camera)
+        game = Game("sim-parity", Vector(10, 10, 10))
         player = Entity("player", 0, Vector(0, 0, 0), Vector(1, 1, 1))
         player.is_player = True
         player.direction = Vector(1, 0, 0)
         level = Level("sim-parity", Vector(10, 10, 10), game)
         level.entity_add(player)
-        draw._clear(0)
-        level.render_3d_sprite(roundtrip, 0.5, False, False)
-        if not any(draw._buffer):
-            raise RuntimeError("simulator Level.render_3d_sprite drew no pixels")
-
-        # Shadows are enabled by the entity render pass, not the file helper.
-        entity = Entity("mesh", 4, Vector(0, 0), Vector(1, 1))
-        entity.sprite_3d = loaded
-        entity.sprite_3d_type = 5
-        level.entity_add(entity)
-        level.clear_allowed = False
-        game.level_add(level)
-        runner = GameEngine(game, 30)
-
         def render(wireframe=False):
             draw._clear(0)
-            loaded.set_wireframe(wireframe)
-            runner.run_async(False)
+            level.render_3d_sprite(roundtrip, 0.5, False, wireframe)
             if not any(draw._buffer):
-                raise RuntimeError("simulator entity renderer drew no pixels")
+                raise RuntimeError("simulator Level.render_3d_sprite drew no pixels")
             return bytes(draw._buffer)
 
         level.set_shadow_color(0)

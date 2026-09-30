@@ -1,7 +1,7 @@
 """Bounded BSP booleans for closed triangle meshes, including concave operands.
 
 BSP clipping/operation sequences adapted from Evan Wallace's csg.js (MIT).
-See guides/licenses/csg-js-MIT.txt and https://github.com/evanw/csg.js.
+See CSG_LICENSE below and https://github.com/evanw/csg.js.
 """
 from math import sqrt, isfinite
 from struct import unpack_from, pack

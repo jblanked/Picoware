@@ -987,6 +987,38 @@ mp_obj_t entity_mp_set_plane(mp_obj_t self_in, mp_obj_t plane_obj)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_plane_obj, entity_mp_set_plane);
 
+mp_obj_t entity_mp_plane_set(size_t n_args, const mp_obj_t *args)
+{
+    if (n_args < 3 || n_args > 5)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected 3 to 5 arguments: self, x, y, [z, integer]"));
+    mp_obj_t self_in = args[0];
+    mp_obj_t x_obj = args[1];
+    mp_obj_t y_obj = args[2];
+    mp_obj_t z_obj = (n_args > 3) ? args[3] : mp_obj_new_float(0.0);
+    bool integer = (n_args > 4) ? mp_obj_is_true(args[4]) : false;
+    entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Entity *ctx = entity_get_context(self);
+    ctx->plane.x = mp_obj_get_float(x_obj);
+    ctx->plane.y = mp_obj_get_float(y_obj);
+    ctx->plane.z = mp_obj_get_float(z_obj);
+    ctx->plane.integer = integer;
+    // get our plane_obj and update its properties
+    if (self->plane_obj != MP_OBJ_NULL)
+    {
+        mp_obj_t native_vec = mp_obj_cast_to_native_base(self->plane_obj, MP_OBJ_FROM_PTR(&vector_mp_type));
+        if (native_vec != MP_OBJ_NULL)
+        {
+            vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
+            vec->x = ctx->plane.x;
+            vec->y = ctx->plane.y;
+            vec->z = ctx->plane.z;
+            vec->integer = ctx->plane.integer;
+        }
+    }
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(entity_mp_plane_set_obj, 3, 5, entity_mp_plane_set);
+
 mp_obj_t entity_mp_set_state(mp_obj_t self_in, mp_obj_t state_obj)
 {
     entity_mp_obj_t *self = static_cast<entity_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
@@ -1250,6 +1282,7 @@ static const mp_rom_map_elem_t entity_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_set_direction), MP_ROM_PTR(&entity_mp_set_direction_obj)},
     {MP_ROM_QSTR(MP_QSTR_direction_set), MP_ROM_PTR(&entity_mp_direction_set_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_plane), MP_ROM_PTR(&entity_mp_set_plane_obj)},
+    {MP_ROM_QSTR(MP_QSTR_plane_set), MP_ROM_PTR(&entity_mp_plane_set_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_state), MP_ROM_PTR(&entity_mp_set_state_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_start_position), MP_ROM_PTR(&entity_mp_set_start_position_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_end_position), MP_ROM_PTR(&entity_mp_set_end_position_obj)},

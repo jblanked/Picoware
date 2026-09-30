@@ -121,6 +121,7 @@ class Entity(engine.Entity):
         - set_direction(direction): Set the facing direction.
         - direction_set(x, y, z, integer): Set the facing direction with optional z and integer component.
         - set_plane(plane): Set the camera plane.
+        - plane_set(x, y, z, integer): Set the camera plane with optional z and integer component.
         - set_state(state): Set the gameplay state.
         - set_start_position(start_position): Set the movement start position.
         - set_end_position(end_position): Set the movement end position.

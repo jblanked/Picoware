@@ -69,6 +69,7 @@ extern "C"
     mp_obj_t entity_mp_set_direction(mp_obj_t self_in, mp_obj_t direction_obj);
     mp_obj_t entity_mp_direction_set(size_t n_args, const mp_obj_t *args);
     mp_obj_t entity_mp_set_plane(mp_obj_t self_in, mp_obj_t plane_obj);
+    mp_obj_t entity_mp_plane_set(size_t n_args, const mp_obj_t *args);
     mp_obj_t entity_mp_set_state(mp_obj_t self_in, mp_obj_t state_obj);
     mp_obj_t entity_mp_set_start_position(mp_obj_t self_in, mp_obj_t start_position_obj);
     mp_obj_t entity_mp_set_end_position(mp_obj_t self_in, mp_obj_t end_position_obj);

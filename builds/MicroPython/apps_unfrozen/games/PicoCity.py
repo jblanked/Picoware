@@ -496,7 +496,7 @@ class _City:
         self.traffic_line[index] = line
         self.traffic_dir[index] = direction
         car = self.traffic[index]
-        car.position = Vector(x, z)
+        car.position_set(x, z)
         self.traffic_speed[index] = self.TRAFFIC_SPEED
         car.is_visible = True
 
@@ -570,7 +570,7 @@ class _City:
             z = edge
         self.people_walk[index] = 12.0 + _next_random(17)
         person = self.people[index]
-        person.position = Vector(x, z)
+        person.position_set(x, z)
         person.set_3d_sprite_rotation(
             atan2(self.people_dir_z[index], self.people_dir_x[index]) - pi * 0.5
         )
@@ -635,6 +635,8 @@ class _City:
 
     def _update_city(self):
         """Refill the city mesh when the player drifts from the anchor."""
+        if not self.player.has_changed_position():
+            return
         position = self.player.position
         offset_x = position.x - self.anchor_x
         offset_z = position.y - self.anchor_z
@@ -921,15 +923,15 @@ class _City:
         next_x = old_x + dx * self.speed
         next_z = old_z + dz * self.speed
         if not self._blocked(next_x, next_z, False) and not self._car_blocked(next_x, next_z, self.TRAFFIC_COUNT):
-            player.position = Vector(next_x, next_z)
+            player.position_set(next_x, next_z)
         else:
             if not self._blocked(next_x, old_z, False) and not self._car_blocked(next_x, old_z, self.TRAFFIC_COUNT):
-                player.position = Vector(next_x, old_z)
+                player.position_set(next_x, old_z)
             elif not self._blocked(old_x, next_z, False) and not self._car_blocked(old_x, next_z, self.TRAFFIC_COUNT):
-                player.position = Vector(old_x, next_z)
+                player.position_set(old_x, next_z)
             self.speed *= 0.25
 
-        player.direction = Vector(dx, dz)
+        player.direction_set(dx, dz)
         player.set_3d_sprite_rotation(atan2(dz, dx) - pi * 0.5)
         self._update_camera_distance()
 
@@ -969,16 +971,16 @@ class _City:
         next_z = old_z + dz * self.speed
 
         if not self._blocked(next_x, next_z, True) and not self._car_blocked(next_x, next_z, self.TRAFFIC_COUNT):
-            player.position = Vector(next_x, next_z)
+            player.position_set(next_x, next_z)
         else:
             if not self._blocked(next_x, old_z, True) and not self._car_blocked(next_x, old_z, self.TRAFFIC_COUNT):
-                player.position = Vector(next_x, old_z)
+                player.position_set(next_x, old_z)
             elif not self._blocked(old_x, next_z, True) and not self._car_blocked(old_x, next_z, self.TRAFFIC_COUNT):
-                player.position = Vector(old_x, next_z)
+                player.position_set(old_x, next_z)
             self.speed *= 0.25
 
-        player.direction = Vector(dx, dz)
-        player.plane = Vector(-0.72, 0)
+        player.direction_set(dx, dz)
+        player.plane_set(-0.72, 0)
         player.set_3d_sprite_rotation(atan2(dz, dx) - pi * 0.5)
         self._sync_player_car(player)
         self._update_camera_distance()
@@ -1008,8 +1010,8 @@ class _City:
         dx = cos(self.heading)
         dz = sin(self.heading)
         self.player_car.position = player.position
-        self.player_car.direction = Vector(dx, dz)
-        self.player_car.plane = Vector(-0.72, 0)
+        self.player_car.direction_set(dx, dz)
+        self.player_car.plane_set(-0.72, 0)
         self.player_car.set_3d_sprite_rotation(atan2(dz, dx) - pi * 0.5)
 
     def _update_camera_distance(self):
@@ -1049,7 +1051,7 @@ class _City:
         next_z = old_z + dz * speed
 
         if not self._blocked(next_x, next_z, True) and not self._car_blocked(next_x, next_z, index):
-            car.position = Vector(next_x, next_z)
+            car.position_set(next_x, next_z)
         else:
             direction = -direction
             self.traffic_dir[index] = direction
@@ -1061,10 +1063,10 @@ class _City:
             dz = sin(heading)
             next_x = old_x + dx * speed
             next_z = old_z + dz * speed
-            car.position = Vector(next_x, next_z)
+            car.position_set(next_x, next_z)
 
-        car.direction = Vector(dx, dz)
-        car.plane = Vector(-0.72, 0)
+        car.direction_set(dx, dz)
+        car.plane_set(-0.72, 0)
         car.set_3d_sprite_rotation(atan2(dz, dx) - pi * 0.5)
 
         player = self.player.position
@@ -1104,7 +1106,7 @@ class _City:
                 atan2(self.people_dir_z[index], self.people_dir_x[index]) - pi * 0.5
             )
         self.people_walk[index] = walk
-        person.position = Vector(x, z)
+        person.position_set(x, z)
         car = self.player.position
         offset_x = x - car.x
         offset_z = z - car.y

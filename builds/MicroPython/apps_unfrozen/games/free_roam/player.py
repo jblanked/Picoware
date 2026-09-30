@@ -2292,11 +2292,11 @@ class Player(Entity):
         elif game.input == INPUT_KEY_LEFT:
             old_dir_x = self.direction.x
             old_plane_x = self.plane.x
-            self.direction = Vector(
+            self.direction_set(
                 self.direction.x * cos(-rot_speed) - self.direction.y * sin(-rot_speed),
                 old_dir_x * sin(-rot_speed) + self.direction.y * cos(-rot_speed),
             )
-            self.plane = Vector(
+            self.plane_set(
                 self.plane.x * cos(-rot_speed) - self.plane.y * sin(-rot_speed),
                 old_plane_x * sin(-rot_speed) + self.plane.y * cos(-rot_speed),
             )
@@ -2316,11 +2316,11 @@ class Player(Entity):
             old_dir_x = self.direction.x
             old_plane_x = self.plane.x
 
-            self.direction = Vector(
+            self.direction_set(
                 self.direction.x * cos(rot_speed) - self.direction.y * sin(rot_speed),
                 old_dir_x * sin(rot_speed) + self.direction.y * cos(rot_speed),
             )
-            self.plane = Vector(
+            self.plane_set(
                 self.plane.x * cos(rot_speed) - self.plane.y * sin(rot_speed),
                 old_plane_x * sin(rot_speed) + self.plane.y * cos(rot_speed),
             )
@@ -2409,9 +2409,9 @@ class Player(Entity):
             e = level.get_entity(i)
             if e and e.name == entity_name:
                 found = True
-                e.position = Vector(ex, ey, ez)
-                e.direction = Vector(e_dir_x, e_dir_y)
-                e.plane = Vector(e_pl_x, e_pl_y)
+                e.position_set(ex, ey, ez)
+                e.direction_set(e_dir_x, e_dir_y)
+                e.plane_set(e_pl_x, e_pl_y)
                 if e.has_3d_sprite():
                     rotation_angle = atan2(e.direction.y, e.direction.x) + pi / 2
                     e.set_3d_sprite_rotation(rotation_angle)
@@ -2439,8 +2439,8 @@ class Player(Entity):
                 0xF800,  # 3d color (red)
             )
             remote.is_player = False
-            remote.direction = Vector(e_dir_x, e_dir_y)
-            remote.plane = Vector(e_pl_x, e_pl_y)
+            remote.direction_set(e_dir_x, e_dir_y)
+            remote.plane_set(e_pl_x, e_pl_y)
             level.entity_add(remote)
 
     def user_request(self, request_type: int) -> None:

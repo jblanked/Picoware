@@ -356,7 +356,7 @@ class _City:
             z = edge
         self.people_walk[index] = 12.0 + _next_random(17)
         person = self.people[index]
-        person.position = Vector(x, z)
+        person.position_set(x, z)
         person.set_3d_sprite_rotation(
             atan2(self.people_dir_z[index], self.people_dir_x[index]) - pi * 0.5
         )
@@ -377,7 +377,7 @@ class _City:
                 atan2(self.people_dir_z[index], self.people_dir_x[index]) - pi * 0.5
             )
         self.people_walk[index] = walk
-        person.position = Vector(x, z)
+        person.position_set(x, z)
         car = self.player.position
         offset_x = x - car.x
         offset_z = z - car.y
@@ -719,14 +719,14 @@ class _City:
             _player_render,
         )
         self.player.is_player = True
-        self.player.plane = Vector(-0.72, 0)
+        self.player.plane_set(-0.72, 0)
         self._place_player()
 
     def _place_player(self):
         direction_x = cos(self.heading)
         direction_y = sin(self.heading)
-        self.player.direction = Vector(direction_x, direction_y)
-        self.player.plane = Vector(-0.72, 0)
+        self.player.direction_set(direction_x, direction_y)
+        self.player.plane_set(-0.72, 0)
         self.player.set_3d_sprite_rotation(atan2(direction_y, direction_x) - pi * 0.5)
 
     def _blocked(self, x, z):
@@ -775,12 +775,12 @@ class _City:
         next_z = old_z + direction_y * self.speed
 
         if not self._blocked(next_x, next_z):
-            car.position = Vector(next_x, next_z)
+            car.position_set(next_x, next_z)
         else:
             if not self._blocked(next_x, old_z):
-                car.position = Vector(next_x, old_z)
+                car.position_set(next_x, old_z)
             elif not self._blocked(old_x, next_z):
-                car.position = Vector(old_x, next_z)
+                car.position_set(old_x, next_z)
             self.speed *= 0.25
 
         self._place_player()

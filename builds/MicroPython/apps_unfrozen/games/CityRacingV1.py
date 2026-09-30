@@ -407,7 +407,7 @@ class _CityRace:
             z = edge
         self.people_walk[index] = 12.0 + _next_random(17)
         person = self.people[index]
-        person.position = Vector(x, z)
+        person.position_set(x, z)
         person.set_3d_sprite_rotation(
             atan2(self.people_dir_z[index], self.people_dir_x[index]) - pi * 0.5
         )
@@ -428,7 +428,7 @@ class _CityRace:
                 atan2(self.people_dir_z[index], self.people_dir_x[index]) - pi * 0.5
             )
         self.people_walk[index] = walk
-        person.position = Vector(x, z)
+        person.position_set(x, z)
         car = self.player.position
         offset_x = x - car.x
         offset_z = z - car.y
@@ -606,7 +606,7 @@ class _CityRace:
             _rival_collision,
         )
         self.player.is_player = True
-        self.player.plane = Vector(-0.72, 0)
+        self.player.plane_set(-0.72, 0)
         self._place_player()
 
     def _build_rivals(self):
@@ -645,8 +645,8 @@ class _CityRace:
         """Point the player car along its heading."""
         direction_x = cos(self.heading)
         direction_y = sin(self.heading)
-        self.player.direction = Vector(direction_x, direction_y)
-        self.player.plane = Vector(-0.72, 0)
+        self.player.direction_set(direction_x, direction_y)
+        self.player.plane_set(-0.72, 0)
         self.player.set_3d_sprite_rotation(atan2(direction_y, direction_x) - pi * 0.5)
 
     def _place_rival(self, car, fraction):
@@ -654,11 +654,11 @@ class _CityRace:
         distance = (fraction % 1.0) * self.ROUTE_LENGTH
         for segment in self.route_segments:
             if distance < segment[4]:
-                car.position = Vector(
+                car.position_set(
                     segment[0] + segment[2] * distance,
                     segment[1] + segment[3] * distance,
                 )
-                car.direction = Vector(segment[2], segment[3])
+                car.direction_set(segment[2], segment[3])
                 car.set_3d_sprite_rotation(
                     atan2(segment[3], segment[2]) - pi * 0.5
                 )
@@ -930,12 +930,12 @@ class _CityRace:
         next_z = old_z + direction_y * self.speed
 
         if not self._blocked(next_x, next_z):
-            car.position = Vector(next_x, next_z)
+            car.position_set(next_x, next_z)
         else:
             if not self._blocked(next_x, old_z):
-                car.position = Vector(next_x, old_z)
+                car.position_set(next_x, old_z)
             elif not self._blocked(old_x, next_z):
-                car.position = Vector(old_x, next_z)
+                car.position_set(old_x, next_z)
             self.speed *= 0.25
 
         moved_x = car.position.x - old_x
@@ -997,7 +997,7 @@ class _CityRace:
     def _push_car_forward(self, car, impact_speed):
         """Nudge a hit car forward and raise its speed."""
         if car.name == "Player":
-            car.position = Vector(
+            car.position_set(
                 car.position.x + car.direction.x * self.CAR_PUSH_DISTANCE,
                 car.position.y + car.direction.y * self.CAR_PUSH_DISTANCE,
             )

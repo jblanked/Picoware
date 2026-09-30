@@ -1315,7 +1315,7 @@ static fat32_error_t link_entry(fat32_entry_t *entry, const char *path)
             {
                 if (free_count == 0)
                 {
-                    free_entry_pos = entry_pos + i;
+                    free_entry_pos = cluster_offset + i;
                     free_entry_cluster = cluster;
                 }
                 free_count++;
@@ -1370,19 +1370,11 @@ static fat32_error_t link_entry(fat32_entry_t *entry, const char *path)
         uint32_t entry_byte_in_sector = entry_cluster_offset % FAT32_SECTOR_SIZE;
         uint32_t current_cluster = free_entry_cluster;
 
-        // Check if we need to move to next cluster
-        while (entry_sector_in_cluster >= boot_sector.sectors_per_cluster)
-        {
-            uint32_t next_cluster;
-            result = read_cluster_fat_entry(current_cluster, &next_cluster);
-            if (result != FAT32_OK || next_cluster >= FAT32_FAT_ENTRY_EOC)
-            {
-                fat32_close(&dir);
-                return FAT32_ERROR_DISK_FULL;
-            }
-            current_cluster = next_cluster;
-            entry_sector_in_cluster -= boot_sector.sectors_per_cluster;
-        }
+        // free_entry_pos is relative to the cluster where the free run began.
+        // A long name and its short entry can straddle a cluster boundary.
+        CLOSE_AND_RETURN_ON_ERROR(seek_to_cluster(free_entry_cluster,
+                                                 entry_offset / bytes_per_cluster,
+                                                 &current_cluster));
 
         uint32_t entry_sector = cluster_to_sector(current_cluster) + entry_sector_in_cluster;
 
@@ -1408,6 +1400,12 @@ static fat32_error_t link_entry(fat32_entry_t *entry, const char *path)
     if (entry->start_cluster == 0)
     {
         CLOSE_AND_RETURN_ON_ERROR(get_next_free_cluster(&entry->start_cluster));
+        if (entry->attr & FAT32_ATTR_DIRECTORY)
+        {
+            // Initialize every sector before publishing the directory entry.
+            // Reused clusters can still contain old file data or directory slots.
+            CLOSE_AND_RETURN_ON_ERROR(clear_cluster(entry->start_cluster));
+        }
         CLOSE_AND_RETURN_ON_ERROR(write_cluster_fat_entry(entry->start_cluster, FAT32_FAT_ENTRY_EOC));
 
         if (fsinfo.free_count != 0xFFFFFFFF)
@@ -1442,7 +1440,11 @@ static fat32_error_t link_entry(fat32_entry_t *entry, const char *path)
     dir_entry.file_size = entry->size;
 
     uint32_t raw_offset = free_entry_pos + (needed_entries * 32);
-    entry->sector = cluster_to_sector(free_entry_cluster) + ((raw_offset % bytes_per_cluster) / FAT32_SECTOR_SIZE);
+    uint32_t short_entry_cluster;
+    CLOSE_AND_RETURN_ON_ERROR(seek_to_cluster(free_entry_cluster,
+                                             raw_offset / bytes_per_cluster,
+                                             &short_entry_cluster));
+    entry->sector = cluster_to_sector(short_entry_cluster) + ((raw_offset % bytes_per_cluster) / FAT32_SECTOR_SIZE);
     entry->offset = (raw_offset % FAT32_SECTOR_SIZE);
     CLOSE_AND_RETURN_ON_ERROR(read_sector(entry->sector, sector_buffer));
     memcpy(sector_buffer + entry->offset, &dir_entry, sizeof(dir_entry));

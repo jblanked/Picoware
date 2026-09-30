@@ -1,0 +1,29 @@
+path = "/home/neva/.espressif"
+idf_path = "/home/neva/.espressif/v5.5.2/esp-idf"
+esp_idf_json_path = "/home/neva/.espressif/tools"
+tool_download_folder_name = "/home/neva/.espressif/dist"
+tool_install_folder_name = "/home/neva/.espressif/tools"
+target = ["all"]
+idf_versions = ["v5.5.2"]
+tools_json_file = "tools/tools.json"
+config_file_save_path = "eim_config.toml"
+non_interactive = true
+wizard_all_questions = false
+mirror = "https://github.com"
+idf_mirror = "https://github.com"
+pypi_mirror = "https://pypi.org/simple"
+recurse_submodules = true
+install_all_prerequisites = true
+skip_prerequisites_check = false
+cleanup = false
+skip_components_download = false
+python_env_folder_name = "python"
+activation_script_path_override = "/home/neva/.espressif/tools"
+python_version_override = "python313"
+create_bat_activation_script = false
+
+[idf_features_per_version]
+"v5.5.2" = ["core"]
+
+[idf_tools_per_version]
+"v5.5.2" = ["xtensa-esp-elf-gdb", "riscv32-esp-elf-gdb", "xtensa-esp-elf", "esp-clang", "esp-clang-libs", "riscv32-esp-elf", "esp32ulp-elf", "cmake", "openocd-esp32", "ninja", "esp-rom-elfs"]

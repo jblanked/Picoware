@@ -7,6 +7,7 @@ set(waveshare_watch_src_sources
     "touch/touch.c"
     "battery/battery.c"
     "ir/ir.c"
+    "buttons/buttons.c"
 )
 
 if(DEFINED BOARD_WAVESHARE_2_06_APP_MAIN)
@@ -25,4 +26,5 @@ idf_component_register(
         driver
         esp_driver_i2c
         esp_driver_gpio
+        button
 )

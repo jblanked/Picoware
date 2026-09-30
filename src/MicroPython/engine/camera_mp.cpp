@@ -297,6 +297,102 @@ mp_obj_t camera_mp_set_perspective(mp_obj_t self_in, mp_obj_t perspective_obj)
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(camera_mp_set_perspective_obj, camera_mp_set_perspective);
 
+mp_obj_t camera_mp_position_set(size_t n_args, const mp_obj_t *args)
+{
+    if (n_args < 3 || n_args > 5)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected 3 to 5 arguments: self, x, y, [z, integer]"));
+    mp_obj_t self_in = args[0];
+    mp_obj_t x_obj = args[1];
+    mp_obj_t y_obj = args[2];
+    mp_obj_t z_obj = (n_args > 3) ? args[3] : mp_obj_new_float(0.0);
+    bool integer = (n_args > 4) ? mp_obj_is_true(args[4]) : false;
+    camera_mp_obj_t *self = static_cast<camera_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Camera *ctx = camera_get_context(self);
+    ctx->position.x = mp_obj_get_float(x_obj);
+    ctx->position.y = mp_obj_get_float(y_obj);
+    ctx->position.z = mp_obj_get_float(z_obj);
+    ctx->position.integer = integer;
+    // get our position_obj and update its properties
+    if (self->position_obj != MP_OBJ_NULL)
+    {
+        mp_obj_t native_vec = mp_obj_cast_to_native_base(self->position_obj, MP_OBJ_FROM_PTR(&vector_mp_type));
+        if (native_vec != MP_OBJ_NULL)
+        {
+            vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
+            vec->x = ctx->position.x;
+            vec->y = ctx->position.y;
+            vec->z = ctx->position.z;
+            vec->integer = ctx->position.integer;
+        }
+    }
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(camera_mp_position_set_obj, 3, 5, camera_mp_position_set);
+
+mp_obj_t camera_mp_direction_set(size_t n_args, const mp_obj_t *args)
+{
+    if (n_args < 3 || n_args > 5)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected 3 to 5 arguments: self, x, y, [z, integer]"));
+    mp_obj_t self_in = args[0];
+    mp_obj_t x_obj = args[1];
+    mp_obj_t y_obj = args[2];
+    mp_obj_t z_obj = (n_args > 3) ? args[3] : mp_obj_new_float(0.0);
+    bool integer = (n_args > 4) ? mp_obj_is_true(args[4]) : false;
+    camera_mp_obj_t *self = static_cast<camera_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Camera *ctx = camera_get_context(self);
+    ctx->direction.x = mp_obj_get_float(x_obj);
+    ctx->direction.y = mp_obj_get_float(y_obj);
+    ctx->direction.z = mp_obj_get_float(z_obj);
+    ctx->direction.integer = integer;
+    // get our direction_obj and update its properties
+    if (self->direction_obj != MP_OBJ_NULL)
+    {
+        mp_obj_t native_vec = mp_obj_cast_to_native_base(self->direction_obj, MP_OBJ_FROM_PTR(&vector_mp_type));
+        if (native_vec != MP_OBJ_NULL)
+        {
+            vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
+            vec->x = ctx->direction.x;
+            vec->y = ctx->direction.y;
+            vec->z = ctx->direction.z;
+            vec->integer = ctx->direction.integer;
+        }
+    }
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(camera_mp_direction_set_obj, 3, 5, camera_mp_direction_set);
+
+mp_obj_t camera_mp_plane_set(size_t n_args, const mp_obj_t *args)
+{
+    if (n_args < 3 || n_args > 5)
+        mp_raise_TypeError(MP_ERROR_TEXT("expected 3 to 5 arguments: self, x, y, [z, integer]"));
+    mp_obj_t self_in = args[0];
+    mp_obj_t x_obj = args[1];
+    mp_obj_t y_obj = args[2];
+    mp_obj_t z_obj = (n_args > 3) ? args[3] : mp_obj_new_float(0.0);
+    bool integer = (n_args > 4) ? mp_obj_is_true(args[4]) : false;
+    camera_mp_obj_t *self = static_cast<camera_mp_obj_t *>(MP_OBJ_TO_PTR(self_in));
+    Camera *ctx = camera_get_context(self);
+    ctx->plane.x = mp_obj_get_float(x_obj);
+    ctx->plane.y = mp_obj_get_float(y_obj);
+    ctx->plane.z = mp_obj_get_float(z_obj);
+    ctx->plane.integer = integer;
+    // get our plane_obj and update its properties
+    if (self->plane_obj != MP_OBJ_NULL)
+    {
+        mp_obj_t native_vec = mp_obj_cast_to_native_base(self->plane_obj, MP_OBJ_FROM_PTR(&vector_mp_type));
+        if (native_vec != MP_OBJ_NULL)
+        {
+            vector_mp_obj_t *vec = static_cast<vector_mp_obj_t *>(MP_OBJ_TO_PTR(native_vec));
+            vec->x = ctx->plane.x;
+            vec->y = ctx->plane.y;
+            vec->z = ctx->plane.z;
+            vec->integer = ctx->plane.integer;
+        }
+    }
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(camera_mp_plane_set_obj, 3, 5, camera_mp_plane_set);
+
 static const mp_rom_map_elem_t camera_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_set_position), MP_ROM_PTR(&camera_mp_set_position_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_direction), MP_ROM_PTR(&camera_mp_set_direction_obj)},
@@ -304,6 +400,9 @@ static const mp_rom_map_elem_t camera_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_set_height), MP_ROM_PTR(&camera_mp_set_height_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_distance), MP_ROM_PTR(&camera_mp_set_distance_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_perspective), MP_ROM_PTR(&camera_mp_set_perspective_obj)},
+    {MP_ROM_QSTR(MP_QSTR_position_set), MP_ROM_PTR(&camera_mp_position_set_obj)},
+    {MP_ROM_QSTR(MP_QSTR_direction_set), MP_ROM_PTR(&camera_mp_direction_set_obj)},
+    {MP_ROM_QSTR(MP_QSTR_plane_set), MP_ROM_PTR(&camera_mp_plane_set_obj)},
     {MP_ROM_QSTR(MP_QSTR_CAMERA_FIRST_PERSON), MP_ROM_INT(CAMERA_FIRST_PERSON)},
     {MP_ROM_QSTR(MP_QSTR_CAMERA_THIRD_PERSON), MP_ROM_INT(CAMERA_THIRD_PERSON)},
 };

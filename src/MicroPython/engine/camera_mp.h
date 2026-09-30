@@ -41,6 +41,10 @@ extern "C"
     mp_obj_t camera_mp_set_distance(mp_obj_t self_in, mp_obj_t distance_obj);
     mp_obj_t camera_mp_set_perspective(mp_obj_t self_in, mp_obj_t perspective_obj);
 
+    mp_obj_t camera_mp_position_set(size_t n_args, const mp_obj_t *args);
+    mp_obj_t camera_mp_direction_set(size_t n_args, const mp_obj_t *args);
+    mp_obj_t camera_mp_plane_set(size_t n_args, const mp_obj_t *args);
+
 #ifdef __cplusplus
 }
 #endif

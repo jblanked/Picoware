@@ -111,6 +111,7 @@ class Entity(engine.Entity):
         - set_name(name): Set the entity name.
         - set_type(type): Set the entity type.
         - set_position(position): Set the entity position.
+        - position_set(x, y, z, integer): Set the entity position with optional z and integer component.
         - set_old_position(old_position): Set the previous entity position.
         - set_size(size): Set the entity size.
         - set_is_8bit(is_8bit): Set the 8-bit graphics flag.
@@ -118,6 +119,7 @@ class Entity(engine.Entity):
         - set_is_visible(is_visible): Set the visible flag.
         - set_is_player(is_player): Set the player flag.
         - set_direction(direction): Set the facing direction.
+        - direction_set(x, y, z, integer): Set the facing direction with optional z and integer component.
         - set_plane(plane): Set the camera plane.
         - set_state(state): Set the gameplay state.
         - set_start_position(start_position): Set the movement start position.

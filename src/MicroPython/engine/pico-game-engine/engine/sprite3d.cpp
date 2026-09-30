@@ -23,7 +23,7 @@ static uint16_t shadeColor565(uint16_t color, float factor)
     return ((uint16_t)r << 11) | ((uint16_t)g << 5) | b;
 }
 
-Sprite3D::Sprite3D() : triangles(nullptr), triangle_count(0), position(Vector(0, 0)), rotation_y(0),
+Sprite3D::Sprite3D() : triangles(nullptr), triangle_count(0), triangle_capacity(0), position(Vector(0, 0)), rotation_y(0),
                        scale_factor(1.0f), type(SPRITE_CUSTOM), active(false)
 {
     triangles = nullptr;
@@ -34,25 +34,43 @@ Sprite3D::~Sprite3D()
     clearTriangles();
 }
 
+bool Sprite3D::reserveTriangles(uint16_t capacity)
+{
+    if (capacity > ENGINE_MAX_TRIANGLES_PER_SPRITE)
+        return false;
+    if (capacity <= triangle_capacity)
+        return true;
+    Triangle3D *new_block = (Triangle3D *)ENGINE_MEM_MALLOC(capacity * sizeof(Triangle3D));
+    if (!new_block)
+        return false;
+    if (triangle_count > 0)
+        memcpy(new_block, triangles, triangle_count * sizeof(Triangle3D));
+    if (triangles != nullptr)
+        ENGINE_MEM_FREE(triangles);
+    triangles = new_block;
+    triangle_capacity = capacity;
+    return true;
+}
+
 bool Sprite3D::addTriangle(const Triangle3D &triangle)
 {
     if (triangle_count >= ENGINE_MAX_TRIANGLES_PER_SPRITE)
         return false;
-
-    Triangle3D *new_block = (Triangle3D *)ENGINE_MEM_MALLOC(
-        (triangle_count + 1) * sizeof(Triangle3D));
-    if (!new_block)
-        return false;
-
-    if (triangle_count > 0)
-        memcpy(new_block, triangles, triangle_count * sizeof(Triangle3D));
-
-    if (triangles != nullptr)
-        ENGINE_MEM_FREE(triangles);
-    triangles = new_block;
-
-    new_block[triangle_count] = triangle;
-    triangle_count++;
+    // Keep a value copy in case the argument aliases the buffer being grown.
+    const Triangle3D appended = triangle;
+    if (triangle_count == triangle_capacity)
+    {
+        // Geometric growth avoids a full allocation/copy on every append.
+        // 1.5x limits spare capacity on small embedded heaps.
+        uint32_t capacity = triangle_capacity ? triangle_capacity + triangle_capacity / 2 : 8;
+        if (capacity <= triangle_count)
+            capacity = triangle_count + 1;
+        if (capacity > ENGINE_MAX_TRIANGLES_PER_SPRITE)
+            capacity = ENGINE_MAX_TRIANGLES_PER_SPRITE;
+        if (!reserveTriangles((uint16_t)capacity))
+            return false;
+    }
+    triangles[triangle_count++] = appended;
     return true;
 }
 
@@ -71,6 +89,7 @@ void Sprite3D::clearTriangles()
         ENGINE_MEM_FREE(triangles);
     triangles = nullptr;
     triangle_count = 0;
+    triangle_capacity = 0;
 }
 
 bool Sprite3D::createCube(float x, float y, float z, float width, float height, float depth, uint16_t color, bool wireframe)
@@ -437,6 +456,11 @@ bool Sprite3D::fromPath(const char *path, bool wireframe)
     }
 
     uint16_t count = bytes / sizeof(Triangle3D);
+    if (!reserveTriangles(count))
+    {
+        ENGINE_MEM_FREE(buf);
+        return false;
+    }
     for (uint16_t i = 0; i < count; i++)
     {
         buf[i].wireframe = wireframe;

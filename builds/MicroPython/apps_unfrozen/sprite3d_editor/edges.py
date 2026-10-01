@@ -1,5 +1,6 @@
 """Compact model-space edge measurements, clipped to each editor viewport."""
 from math import sqrt
+from time import ticks_us,ticks_diff
 from struct import unpack_from
 
 DIGITS = ((7,5,5,5,7),(2,6,2,2,7),(7,1,7,4,7),(7,1,7,1,7),
@@ -38,6 +39,27 @@ class EdgeTools:
         cached = self.edge_label_cache.get(box)
         if cached is not None and cached[0] == key:
             return cached[1]
+        iterator = self._edge_label_steps(viewport,basis,distance)
+        if self._interactive_visibility:
+            from .overlayjobs import request
+            request(self,'labels',box,key,iterator)
+            return []
+        for result in iterator:
+            if result is not None:
+                if box not in self.edge_label_cache and len(self.edge_label_cache)>=4:
+                    del self.edge_label_cache[next(iter(self.edge_label_cache))]
+                self.edge_label_cache[box] = (key,result)
+                return result
+
+    def _edge_label_steps(self,viewport=None,basis=None,distance=None):
+        started = ticks_us()
+        basis = self.basis if basis is None else basis
+        distance = self.distance if distance is None else distance
+        w,h = int(self.vm.draw.size.x),int(self.vm.draw.size.y)
+        box = (0,48,w,h-78) if viewport is None else viewport
+        left,top,pw,ph = box
+        screen = (w/2,h/2,h) if viewport is None else (left+pw/2,top+ph/2,ph)
+        key = (tuple(self.center),basis,distance,box,screen,self.xray_vertices)
         ortho,near = self.is_ortho(basis),self.near_distance()
         cx,cy,focal = screen
         def project(point):
@@ -49,6 +71,9 @@ class EdgeTools:
         candidates,seen = [],set()
         # Bound temporary annotation storage, even for a 2,048-face document.
         for offset in range(0,len(self.records),40):
+            if ticks_diff(ticks_us(),started)>=1500:
+                yield None
+                started = ticks_us()
             points = [unpack_from('<3f',self.records,offset+i*12) for i in range(3)]
             for i,a in enumerate(points):
                 b = points[(i+1)%3]
@@ -75,12 +100,19 @@ class EdgeTools:
         if self.xray_vertices or not candidates:
             visible = None
         else:
-            from .visibility import visible_vertices
-            visible = visible_vertices(self.records,self.center,basis,distance,box,screen,ortho,
-                                       near=near,samples=[c[4] for c in candidates])
+            from .visibility import visibility_steps
+            for result in visibility_steps(self.records,self.center,basis,distance,box,screen,ortho,
+                                           near=near,samples=[c[4] for c in candidates]):
+                if result is None:
+                    yield None
+                else:
+                    visible = result
         ordered = sorted(range(len(candidates)),key=lambda i:candidates[i][0])
         labels = []
         for i in ordered:
+            if ticks_diff(ticks_us(),started)>=1500:
+                yield None
+                started = ticks_us()
             if visible is not None and not visible[i]:
                 continue
             _,x,y,text,_ = candidates[i]
@@ -90,10 +122,8 @@ class EdgeTools:
             labels.append((x,y,text))
             if len(labels)>=(48 if viewport is None else 24):
                 break
-        if box not in self.edge_label_cache and len(self.edge_label_cache)>=4:
-            del self.edge_label_cache[next(iter(self.edge_label_cache))]
-        self.edge_label_cache[box] = (key,labels)
-        return labels
+        yield labels
+
 
     def draw_edge_lengths(self,draw,viewport=None,basis=None,distance=None):
         if self._camera_pending:

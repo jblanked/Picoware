@@ -44,6 +44,26 @@ def face_direction(points, distance=0, ortho=False):
 
 
 def preview_mesh(records, center, basis, panel_transform=None, ortho_distance=None, wireframe=None, perspective_scale=1.0, culling=True, camera_distance=None):
+    """Use bounded native construction when available; preserve old firmware."""
+    from picoware.engine.sprite3d import Sprite3D
+    mesh = Sprite3D()
+    if wireframe == -2:  # Pure wire display uses the deduplicated Python overlay.
+        mesh.set_active(True)
+        return mesh
+    build = getattr(mesh, 'build_preview', None)
+    if build is not None:
+        try:
+            build(records,center,basis,panel_transform,ortho_distance,wireframe,
+                  perspective_scale,culling,camera_distance)
+            return mesh
+        except Exception:
+            mesh.clear_triangles()
+            raise
+    return _preview_mesh_python(records,center,basis,panel_transform,ortho_distance,
+                                wireframe,perspective_scale,culling,camera_distance)
+
+
+def _preview_mesh_python(records, center, basis, panel_transform=None, ortho_distance=None, wireframe=None, perspective_scale=1.0, culling=True, camera_distance=None):
     """Build clipped view geometry while leaving editable records unchanged."""
     from picoware.engine.sprite3d import Sprite3D
     mesh = Sprite3D()
@@ -143,17 +163,8 @@ class PreviewInput:
 class ViewportMixin:
     """Render the editor document using single or four-pane views."""
 
-    @property
-    def four_zoom(self):
-        """Zoom of the highlighted pane; other panes retain their own values."""
-        return self.pane_zooms[self.active_pane]
-
-    @four_zoom.setter
-    def four_zoom(self, value):
-        self.pane_zooms[self.active_pane] = value
-
     def shading_wireframe(self):
-        return {"Asset":None,"Solid":0,"Wireframe":0,"Solid + Wireframe":1}[self.shading]
+        return {"Asset":None,"Solid":0,"Wireframe":-2,"Solid + Wireframe":1}[self.shading]
 
     def set_shading(self, mode=None):
         modes = ("Asset","Solid","Wireframe","Solid + Wireframe")
@@ -162,7 +173,9 @@ class ViewportMixin:
         self.shading = mode
         try:
             if self.mesh is not None:
-                self.replace_records(self.records)
+                self.refresh_previews()
+                from .rendercache import clear
+                clear(self)
             self.status = "Shading: "+mode
         except MemoryError as exc:
             self.shading = previous
@@ -173,11 +186,30 @@ class ViewportMixin:
         self.backface_culling = not previous
         try:
             if self.mesh is not None:
-                self.replace_records(self.records)
+                self.refresh_previews()
             self.status = "Backface culling: " + ("on" if self.backface_culling else "off")
         except MemoryError as exc:
             self.backface_culling = previous
             self.status = "Culling failed: " + (str(exc) or "Not enough memory")
+
+    def refresh_previews(self):
+        if self.four_view:
+            self.set_four(force=True, records=self.records)
+            self._preview_angles = None
+        else:
+            self._preview_angles = None
+            # A real empty mesh also detaches a previous solid native preview.
+            rendered = preview_mesh(self.records,self.center,self.basis,
+                ortho_distance=self.distance if self.is_ortho() else None,
+                wireframe=self.shading_wireframe(),perspective_scale=self.perspective_scale(),
+                culling=self.backface_culling,camera_distance=self.distance)
+            old = self.render_mesh
+            self.entity.sprite_3d = rendered
+            self.render_mesh = rendered
+            old.clear_triangles()
+            self._preview_angles = (self.angle,self.pitch,self.distance,self.shading,
+                                    self.perspective_scale(),self.backface_culling)
+
 
     def reset_camera(self):
         """Return to the initial elevated orbit and fit the model."""
@@ -274,10 +306,13 @@ class ViewportMixin:
                         and previous[index][5]==distance):
                     panes.append(previous[index])
                     continue
-                mesh = preview_mesh(self.records if records is None else records, self.center, basis, transform,
-                                    distance if label != "Perspective" else None, self.shading_wireframe(),
-                                    self.perspective_scale(), self.backface_culling, distance)
-                created.append(mesh)
+                if self.shading == "Wireframe" and len(previous)==4:
+                    mesh = previous[index][4]
+                else:
+                    mesh = preview_mesh(self.records if records is None else records, self.center, basis, transform,
+                                        distance if label != "Perspective" else None, self.shading_wireframe(),
+                                        self.perspective_scale(), self.backface_culling, distance)
+                    created.append(mesh)
                 panes.append((label, box, viewport, basis, mesh, distance))
         except MemoryError:
             for mesh in created:
@@ -336,33 +371,52 @@ class ViewportMixin:
         return False
 
 
-    def draw_four(self, draw):
+    def draw_four(self, draw, indices=None, overlays=()):
         """Render four independent fitted projections with native triangles."""
         try:
             for index, (label, box, viewport, basis, mesh, distance) in enumerate(self.panes):
-                if self.show_grid:
-                    self.grid(draw, viewport, basis, distance)
+                if indices is not None and index not in indices:
+                    continue
+                moving = self._transform_pending or (self._interactive_visibility and self._camera_pending and index==self.active_pane)
+                if index not in overlays:
+                    draw._fill_rectangle(*box,0x1082)
+                    if self.show_grid and not moving:
+                        self.grid(draw, viewport, basis, distance)
                 self.entity.sprite_3d = mesh
                 self.camera.position = Vector(-max(.22, distance) if label != "Perspective" else -distance*self.perspective_scale(), 0)
                 self.game.camera = self.camera
-                if self.shading == "Wireframe":
-                    self.draw_selection(draw,viewport,basis,distance,wire_only=True)
-                else:
-                    self.engine.run_async(False)
+                if index not in overlays:
+                    if self.shading == "Wireframe":
+                        self.draw_selection(draw,viewport,basis,distance,wire_only=True)
+                    else:
+                        self.engine.run_async(False)
+                    from .framecache import store_base
+                    store_base(self,box)
                 self.draw_selection(draw,viewport,basis,distance)
-                self.draw_normals(draw,viewport,basis,distance)
-                self.draw_edge_lengths(draw,viewport,basis,distance)
+                if not moving:
+                    self.draw_normals(draw,viewport,basis,distance)
+                    self.draw_edge_lengths(draw,viewport,basis,distance)
                 x, y, width, height = box
                 selected = index == self.active_pane
                 color = 0xFFE0 if selected else 0x528A
-                draw._rectangle(x, y, width, height, color)
                 if selected:
-                    draw._rectangle(x+1, y+1, width-2, height-2, color)
                     draw._fill_rectangle(x+2, y+2, width-4, 13, 0x051F)
                 draw._text(x + 4, y + 4, "%d %s" % (index+1,label), 0xFFE0 if selected else 0xFFFF)
-                if self.show_orientation:
-                    self.orientation(draw, basis, (x + width - 20, y + 34, 10))
-                self.draw_gizmo(draw, viewport, basis, distance)
+                if not moving:
+                    if self.show_orientation:
+                        self.orientation(draw, basis, (x + width - 20, y + 34, 10))
+                    self.draw_gizmo(draw, viewport, basis, distance)
+            # Rectangle edges share a pixel with their neighboring pane. Replay
+            # just the borders in painter order after any partial scene redraw.
+            for index,(_,box,_,_,_,_) in enumerate(self.panes):
+                x,y,width,height = box
+                selected = index == self.active_pane
+                draw._rectangle(x,y,width,height,0xFFE0 if selected else 0x528A)
+                if selected:
+                    draw._rectangle(x+1,y+1,width-2,height-2,0xFFE0)
+            # Inclusive rectangle endpoints overlap the footer by one row.
+            # Keep that row clean even when the cached footer text is unchanged.
+            draw._fill_rectangle(0,int(draw.size.y)-30,int(draw.size.x),1,0x2945 if self.transform is not None else 0x0000)
         finally:
             self.entity.sprite_3d = self.render_mesh
             self.camera.position = Vector(-self.render_distance(), 0)
@@ -388,6 +442,12 @@ class ViewportMixin:
         cache = angles + (self.distance,self.shading,self.perspective_scale(),self.backface_culling)
         if cache != self._preview_angles:
             basis = view_basis(*angles)
+            if self.shading == "Wireframe":
+                self.basis = basis
+                self._preview_angles = cache
+                self.camera.position = Vector(-self.render_distance(), 0)
+                self.game.camera = self.camera
+                return
             rendered = preview_mesh(self.records, self.center, basis,
                                     ortho_distance=self.distance if self.is_ortho() else None,
                                     wireframe=self.shading_wireframe(),
@@ -597,16 +657,30 @@ class ViewportMixin:
             endpoint[axis] += length
             end = project(endpoint)
             if t["kind"] == "Rotate":
-                previous = None
-                for step in range(33):
-                    angle = step*pi/16
-                    point = list(pivot)
-                    point[(axis+1)%3] += cos(angle)*length
-                    point[(axis+2)%3] += sin(angle)*length
-                    current = project(point)
-                    if previous is not None and current is not None:
-                        draw._line(*previous,*current,color)
-                    previous = current
+                # Ring geometry is independent of the current rotation values.
+                key = (basis,distance,tuple(self.center),tuple(pivot),left,top,pw,ph,w,h,plane,self.near_distance())
+                cache = t['gizmo']
+                rings = cache.get(key)
+                if rings is None:
+                    from array import array
+                    rings = []
+                    for ring_axis in range(3):
+                        points = array('h')
+                        for step in range(33):
+                            angle = step*pi/16
+                            point = list(pivot)
+                            point[(ring_axis+1)%3] += cos(angle)*length
+                            point[(ring_axis+2)%3] += sin(angle)*length
+                            current = project(point)
+                            points.extend(current if current is not None else (-1,-1))
+                        rings.append(points)
+                    if len(cache)>=4:
+                        cache.clear()
+                    cache[key] = rings
+                points = rings[axis]
+                for j in range(2,len(points),2):
+                    if points[j-2]>=0 and points[j]>=0:
+                        draw._line(points[j-2],points[j-1],points[j],points[j+1],color)
             elif origin is not None and end is not None:
                 draw._line(*origin,*end,color)
                 ex,ey = end

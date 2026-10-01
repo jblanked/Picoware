@@ -141,6 +141,7 @@ class GeometryEditing:
         self.edit_prompt = kind
 
     def run_edit_prompt(self):
+        self._scene_keys.clear()
         keyboard = self.vm.keyboard
         if keyboard.is_finished:
             text = keyboard.response.strip()

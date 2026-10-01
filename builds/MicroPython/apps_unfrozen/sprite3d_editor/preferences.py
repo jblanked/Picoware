@@ -10,6 +10,12 @@ VIEWS = ('Orbit','Perspective','Front','Side','Back','Top','Bottom','4 View')
 MODES = ('Model','Triangles','Vertices','Edges','Islands')
 
 
+def check_step(kind, value):
+    maximum = {"Move": 1e12, "Scale": 1e6, "Rotate": 360}[kind]
+    if not isfinite(value) or not 1e-9 <= value <= maximum:
+        raise ValueError("Step must be 1e-9 to %g" % maximum)
+
+
 def validated(data):
     if not isinstance(data,dict) or data.get('version')!=1:
         raise ValueError('Invalid editor preferences')
@@ -28,7 +34,6 @@ def validated(data):
         result['directory'] = directory
     steps = data.get('steps',{})
     if isinstance(steps,dict):
-        from .transforms import check_step
         good = {}
         for kind in ('Move','Scale','Rotate'):
             value = steps.get(kind)
@@ -103,6 +108,7 @@ class PreferenceTools:
         self._prefs_pending = None
         self._prefs_since = ticks_ms()
         self._startup_preferences = None
+        loaded_primary = False
         for path in (PATH,PATH+'.bak'):
             try:
                 if not self.vm.storage.exists(path):
@@ -113,9 +119,16 @@ class PreferenceTools:
                         setattr(self,name,data[name])
                 self.steps.update(data.get('steps',{}))
                 self._startup_preferences = data
+                loaded_primary = path == PATH
                 break
             except (ValueError,OSError,MemoryError):
                 continue
+        snapshot = self.preference_snapshot()
+        if loaded_primary and snapshot == self._startup_preferences:
+            self._prefs_saved = snapshot
+        else:
+            # Missing/incomplete settings and backup recovery still get repaired.
+            self._prefs_pending = snapshot
 
     def preference_snapshot(self):
         data = {'version':1,'steps':dict(self.steps)}
@@ -133,10 +146,13 @@ class PreferenceTools:
                 'maximized':self.maximized,'zoom':max(1/128,min(8,zoom))}
         return data
 
-    def persist_preferences(self,force=False):
+    def persist_preferences(self,force=False,check=True):
         try:
-            data = self.preference_snapshot()
+            data = self.preference_snapshot() if check or force else self._prefs_pending
+            if data is None:
+                return
             if data==self._prefs_saved:
+                self._prefs_pending = None
                 return
             now = ticks_ms()
             if data!=self._prefs_pending:
@@ -147,6 +163,7 @@ class PreferenceTools:
             self._prefs_since = now
             write_preferences(self.vm.storage,data)
             self._prefs_saved = data
+            self._prefs_pending = None
         except (ValueError,OSError,MemoryError):
             self.status = 'Could not save editor settings to SD'
 

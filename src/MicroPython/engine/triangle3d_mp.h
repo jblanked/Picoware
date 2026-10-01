@@ -44,6 +44,7 @@ extern "C"
     mp_obj_t triangle3d_mp_set_y3(mp_obj_t self_in, mp_obj_t y3_obj);
     mp_obj_t triangle3d_mp_set_z3(mp_obj_t self_in, mp_obj_t z3_obj);
     mp_obj_t triangle3d_mp_set_color(mp_obj_t self_in, mp_obj_t color_obj);
+    mp_obj_t triangle3d_mp_set_wireframe(mp_obj_t self_in, mp_obj_t wireframe_obj);
 
 #ifdef __cplusplus
 }

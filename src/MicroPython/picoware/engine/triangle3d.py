@@ -17,6 +17,7 @@ class Triangle3D(engine.Triangle3D):
         y3 (float): Third vertex Y coordinate. Defaults to 0.0.
         z3 (float): Third vertex Z coordinate. Defaults to 0.0.
         color (int): Triangle color. Defaults to 0x0000.
+        wireframe (bool): Whether to render a wireframe with the triangle. Defaults to False.
 
     Attributes:
         x1 (float): First vertex X coordinate. Writable.
@@ -29,6 +30,7 @@ class Triangle3D(engine.Triangle3D):
         y3 (float): Third vertex Y coordinate. Writable.
         z3 (float): Third vertex Z coordinate. Writable.
         color (int): Triangle color. Writable.
+        wireframe (bool): Whether to render a wireframe with the triangle. Writable.
 
     Methods:
         - get_center(): Return the triangle center.
@@ -43,6 +45,7 @@ class Triangle3D(engine.Triangle3D):
         - set_y3(y3): Set the third vertex Y coordinate.
         - set_z3(z3): Set the third vertex Z coordinate.
         - set_color(color): Set the triangle color.
+        - set_wireframe(wireframe): Set whether to render a wireframe with the triangle.
         - __del__(): Release the native triangle resources.
     """
 
@@ -73,5 +76,7 @@ class Triangle3D(engine.Triangle3D):
             self.set_z3(value)
         elif name == "color":
             self.set_color(value)
+        elif name == "wireframe":
+            self.set_wireframe(value)
         else:
             super().__setattr__(name, value)

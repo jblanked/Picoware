@@ -19,14 +19,23 @@ def load_sprite(storage, path, records=None):
             count, Sprite3D.MAX_TRIANGLES_PER_SPRITE))
 
     mesh = Sprite3D()
+    reserve = getattr(mesh, 'reserve_triangles', None)
+    if reserve is not None:
+        reserve(count)
     low = [float("inf")] * 3
     high = [-float("inf")] * 3
+    from .streams import chunks
+    reader = chunks(storage, path, size)
     try:
-        for offset in range(0, size, 800):
-            length = min(800, size - offset)
-            data = storage.read_chunked(path, offset, length)
-            if len(data) != length:
-                raise ValueError("Incomplete file read")
+        load = getattr(mesh, 'load_buffer', None)
+        if load is not None and records is not None and not records:
+            for data in reader:
+                records.extend(data)
+            low,high = load(records)
+            mesh.set_active(True)
+            return mesh,low,high
+        for data in reader:
+            length = len(data)
             if records is not None:
                 records.extend(data)
             for index in range(0, length, 40):
@@ -45,16 +54,29 @@ def load_sprite(storage, path, records=None):
             raise MemoryError("Could not load every triangle")
         mesh.set_active(True)
         return mesh, low, high
+    except OSError as exc:
+        mesh.clear_triangles()
+        raise ValueError(str(exc))
     except Exception:
         mesh.clear_triangles()
         raise
+    finally:
+        reader.close()
 
 
-def transformed_records(source, kind, amounts, pivot, mask=None, base_vertex=0):
+def transformed_records(source, kind, amounts, pivot, mask=None, base_vertex=0, result=None):
     """Transform original float32 vertices once; retain triangle metadata."""
-    result = bytearray(source)
-    angles = [value * pi / 180 for value in amounts]
+    if result is None:
+        result = bytearray(source)
+    else:
+        result[:] = source
+    # Most edits rotate one axis. Skip the other axes even in the Python fallback.
+    rx, ry, rz = (tuple((cos(v*pi/180), sin(v*pi/180)) if v else None
+                       for v in amounts) if kind == "Rotate" else (None, None, None))
     for offset in range(0, len(source), 40):
+        first = base_vertex+(offset//40)*3
+        if mask is not None and not (mask[first] or mask[first+1] or mask[first+2]):
+            continue
         values = unpack_from("<9f", source, offset)
         output = []
         for vertex in range(0, 9, 3):
@@ -67,10 +89,15 @@ def transformed_records(source, kind, amounts, pivot, mask=None, base_vertex=0):
             elif kind == "Scale":
                 x, y, z = x * amounts[0], y * amounts[1], z * amounts[2]
             else:
-                a, b, c = angles
-                y, z = y*cos(a)-z*sin(a), y*sin(a)+z*cos(a)
-                x, z = x*cos(b)+z*sin(b), -x*sin(b)+z*cos(b)
-                x, y = x*cos(c)-y*sin(c), x*sin(c)+y*cos(c)
+                if rx is not None:
+                    ca, sa = rx
+                    y, z = y*ca-z*sa, y*sa+z*ca
+                if ry is not None:
+                    cb, sb = ry
+                    x, z = x*cb+z*sb, -x*sb+z*cb
+                if rz is not None:
+                    cc, sc = rz
+                    x, y = x*cc-y*sc, x*sc+y*cc
             point = (x+pivot[0], y+pivot[1], z+pivot[2])
             if any(not isfinite(v) or abs(v) > 1e12 for v in point):
                 raise ValueError("Transform exceeds coordinate range")

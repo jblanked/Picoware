@@ -17,7 +17,7 @@ class EditorUI:
         """Return the active dropdown's labels and enabled state."""
         loaded = self.mesh is not None
         geometry = bool(self.records)
-        selected = self.has_selection()
+        selected = loaded and self.has_selection()
         faces = selected and self.selection_mode not in ("Vertices","Edges")
         if self.menu == 2 and self.submenu and not parent:
             if self.submenu == "Cleanup":
@@ -31,7 +31,8 @@ class EditorUI:
         if self.menu == 1:
             if parent or not self.submenu:
                 return (("Camera >", loaded), ("Shading >", True),
-                        ("Overlays >", True), ("Selection >", loaded))
+                        ("Overlays >", True), ("Selection >", loaded),
+                        ("Model viewer",geometry), ("Isometric viewer",geometry))
             if self.submenu == "Camera":
                 return tuple((name, loaded) for name in
                              ("Front", "Side", "Back", "Top", "Bottom", "4 View", "Fit model"))
@@ -65,76 +66,132 @@ class EditorUI:
             from .creation import PRIMITIVES
             return (("New asset",True),)+tuple((name,True) for name in PRIMITIVES)+(
                     ("Face from vertices",selected and self.selection_mode == "Vertices"),)
-        return (("Controls", True), ("About", True))
+        return (("Controls", True), ("About", True), ("Model viewers", True))
+
+
+    def menu_shortcuts(self, parent=False):
+        """Viewport shortcuts in menu order; omit keys unavailable in this mode."""
+        components = self.mesh is not None and self.selection_mode != "Model"
+        if self.menu == 0:
+            return ("", "", "", "Esc")
+        if self.menu == 1:
+            if parent or not self.submenu:
+                return ("", "W cycle")
+            if self.submenu == "Camera":
+                return ("", "", "", "", "", "F5 toggle", "R")
+            if self.submenu == "Overlays" and components and self.selection_mode == "Vertices":
+                return ("", "", "B")
+        if self.menu == 2 and (parent or not self.submenu):
+            return ("G", "", "", "Z", "Y", "", "", "Del" if components else "")
+        if self.menu == 3 and components:
+            return ("", "", "", "", "A", "N")
+        return ()
 
 
     def has_submenu(self):
         return (self.menu == 1 and 0 <= self.menu_row < 4) or (self.menu == 2 and self.menu_row in (10,13))
 
-    def hud(self, draw):
-        """Draw the menu bar, document information, and footer."""
-        width, height = int(draw.size.x), int(draw.size.y)
-        draw._fill_rectangle(0, 0, width, 48, 0x0000)
-        draw._fill_rectangle(0, 0, width, 20, 0x2945)
-        for index, title in enumerate(("File", "View", "Model", "Select", "Create", "Help")):
-            x = index * 52
-            if self.menu == index:
-                draw._fill_rectangle(x, 0, 51, 20, 0x051F)
-            draw._text(x + 7, 5, title, 0xFFFF)
-        if any(self.boolean_operands):
-            counts = [len(item[1]) if item else 0 for item in self.boolean_operands]
-            draw._text(width-78,23,"A:%d B:%d" % tuple(counts),0xFFE0)
-        title = self.path.rsplit("/", 1)[-1] if self.path else "Sprite3D Editor"
-        draw._text(3, 23, (("* " if self.dirty else "") + title)[:(width-82 if any(self.boolean_operands) else width)//8], 0xFFFF)
-        if self.mesh is not None:
-            draw._text(3, 36, (self.view_name+"  "+self.selection_label())[:width//6], 0x07FF)
-        draw._fill_rectangle(0, height - 30, width, 30, 0x0000)
-        hint = "L/R Orbit  U/D Zoom  R Fit"
+    def hud(self, draw, force=False, footer=True):
+        """Repaint only changed menu, document and footer strips."""
+        from .framecache import damage
+        width,height=int(draw.size.x),int(draw.size.y)
+        menu_key=(width,self.menu)
+        if force or self._hud_keys[0]!=menu_key:
+            draw._fill_rectangle(0,0,width,20,0x2945)
+            for index,title in enumerate(("File","View","Model","Select","Create","Help")):
+                x=index*52
+                if self.menu==index:
+                    draw._fill_rectangle(x,0,51,20,0x051F)
+                draw._text(x+7,5,title,0xFFFF)
+                # Select opens with L; the other headings use their first letter.
+                draw._fill_rectangle(x+7+(12 if index==3 else 0),14,5,1,0xFFFF)
+            damage(self,(0,0,width,20))
+        counts=tuple(len(item[1]) if item else 0 for item in self.boolean_operands)
+        operands=any(self.boolean_operands)
+        title=self.path.rsplit("/",1)[-1] if self.path else "Sprite3D Editor"
+        title=(("* " if self.dirty else "")+title)[:(width-82 if operands else width)//8]
+        label=(self.view_name+"  "+self.selection_label())[:width//6] if self.mesh is not None else ""
+        document_key=(width,title,label,operands,counts)
+        if force or self._hud_keys[1]!=document_key:
+            draw._fill_rectangle(0,20,width,28,0x0000)
+            if operands:
+                draw._text(width-78,23,"A:%d B:%d" % counts,0xFFE0)
+            draw._text(3,23,title,0xFFFF)
+            if label:
+                draw._text(3,36,label,0x07FF)
+            damage(self,(0,20,width,28))
+        hint="L/R Orbit  U/D Zoom  R Fit"
         if self.four_view:
-            hint = "1-4 Select  F5 Full  U/D Zoom"
+            hint="1-4 Select  F5 Full  U/D Zoom"
         if self.maximized:
-            hint = "F5 Four views  U/D Zoom  R Fit"
-        if self.selection_mode != "Model":
-            hint = "Comma Prev Period Next Space Pick"
-        if self.selection_mode == "Islands":
-            hint = "L/R Island  Space Pick  M Edit"
-        if self.selection_mode in ("Vertices","Triangles","Edges"):
-            label = {"Vertices":"Vertex","Triangles":"Triangle","Edges":"Edge"}[self.selection_mode]
-            hint = "Arrows Camera  P "+label if self.selection_camera else "Arrows "+label+" Space Pick P Camera"
+            hint="F5 Four views  U/D Zoom  R Fit"
+        if self.selection_mode!="Model":
+            hint="Comma Prev Period Next Space Pick"
+        if self.selection_mode in ("Vertices","Triangles","Edges","Islands"):
+            name={"Vertices":"Vertex","Triangles":"Triangle","Edges":"Edge","Islands":"Island"}[self.selection_mode]
+            navigation="L/R " if self.selection_mode=="Islands" else "Arrows "
+            hint="Arrows Camera  P "+name if self.selection_camera else navigation+name+" Space Pick P Camera"
         if self._visibility_pending:
-            hint = "Checking visibility... P Camera"
-        if self.menu >= 0:
-            hint = ("L/R Menu  Down/Enter Open  Esc Close" if self.menu_row < 0 else
-                    "Left/Esc Back  U/D Item  Enter Select" if self.submenu else
-                    "U/D Item  Enter Select  Esc Close")
-        draw._text(3, height - 28, hint, 0xFFFF)
-        draw._text(3, height - 14, (self.status or ("O Mode G Tool M Edit F5 View" if self.selection_mode != "Model" else "L/R Orbit active Perspective  R Fit" if self.four_view else "O Mode G Tool Enter Menu Esc Back"))[:width // 6], 0xFFFF)
+            hint="Checking visibility... P Camera"
+        if self.menu>=0:
+            hint=("L/R Menu  Down/Enter Open  Esc Close" if self.menu_row<0 else
+                  "Left/Esc Back  U/D Item  Enter Select" if self.submenu else
+                  "U/D Item  Enter Select  Esc Close")
+        status=(self.status or ("O Mode G Tool M Edit F5 View" if self.selection_mode!="Model" else
+                "L/R Orbit active Perspective  R Fit" if self.four_view else "O Mode G Tool Enter Menu Esc Back"))[:width//6]
+        if self.menu>=0:
+            status="F File  V View  M Model  L Select  C Create  H Help"
+            if self.menu_row>=0:
+                if self.menu==1:
+                    status=("Viewer: Space Pause/Resume  Esc Back" if not self.submenu and self.menu_row in (4,5)
+                            else "W Cycle shading  F5 Full/Four  R Fit")
+                elif self.menu==2 and not self.submenu:
+                    status="G Move; G again cycles Move/Scale/Rotate"
+                elif self.menu==3:
+                    status="O Cycle modes"
+                    if self.mesh is not None and self.selection_mode!="Model":
+                        status+="  P Camera/selection"
+        footer_key=(width,height,hint,status) if footer else None
+        if footer and (force or self._hud_keys[2]!=footer_key):
+            draw._fill_rectangle(0,height-30,width,30,0x0000)
+            draw._text(3,height-28,hint,0xFFFF)
+            draw._text(3,height-14,status,0xFFFF)
+            damage(self,(0,height-30,width,30))
+        self._hud_keys[:]=[menu_key,document_key,footer_key]
+
+
+    def vertex_info_layout(self):
+        if (self.mesh is None or not self.show_vertex_info or
+                (self._transform_pending or (self._interactive_visibility and self._camera_pending))):
+            return None
+        info=self.vertex_info()
+        if info is None:
+            return None
+        index,point,linked,total=info
+        width,height=int(self.vm.draw.size.x),int(self.vm.draw.size.y)
+        if not self.four_view:
+            lines=("V%d" % (index+1),)+tuple("%s %s" % ("XYZ"[axis],display_number(value))
+                                          for axis,value in enumerate(point))
+            pw,ph=max(len(line) for line in lines)*6+8,44
+            return info,(width-pw-4,118 if self.show_orientation else 52,pw,ph),lines
+        pw,ph=min(150,width-8),100
+        x=4 if self.active_pane%2 else width-pw-4
+        y=height-34-ph if self.active_pane<2 else 52
+        return info,(x,y,pw,ph),None
 
 
     def draw_vertex_info(self, draw):
-        if not self.show_vertex_info:
+        layout=self.vertex_info_layout()
+        if layout is None:
             return
-        info = self.vertex_info()
-        if info is None:
-            return
-        index,point,linked,total = info
-        width,height = int(draw.size.x),int(draw.size.y)
-        if not self.four_view:
-            lines = ("V%d" % (index+1),)+tuple("%s %s" % ("XYZ"[axis],display_number(value))
-                                              for axis,value in enumerate(point))
-            pw,ph = max(len(line) for line in lines)*6+8,44
-            x,y = width-pw-4,118 if self.show_orientation else 52
-            draw._fill_rectangle(x,y,pw,ph,0x18C3)
-            draw._rectangle(x,y,pw,ph,0x07FF)
+        info,(x,y,pw,ph),lines=layout
+        index,point,linked,total=info
+        draw._fill_rectangle(x,y,pw,ph,0x18C3)
+        draw._rectangle(x,y,pw,ph,0x07FF)
+        if lines is not None:
             for row,line in enumerate(lines):
                 draw._text(x+4,y+4+row*10,line,0x07FF if row==0 else 0xFFFF)
             return
-        pw,ph = min(150,width-8),100
-        # In four views, cover the pane diagonally opposite the working pane.
-        x = 4 if self.four_view and self.active_pane%2 else width-pw-4
-        y = height-34-ph if self.four_view and self.active_pane < 2 else 52
-        draw._fill_rectangle(x,y,pw,ph,0x18C3)
-        draw._rectangle(x,y,pw,ph,0x07FF)
         draw._text(x+6,y+5,"Selected: %d corners" % total,0xFFE0)
         draw._text(x+6,y+20,"V%d (%d linked)" % (index+1,linked),0x07FF)
         for axis,value in enumerate(point):
@@ -147,7 +204,7 @@ class EditorUI:
         if self.menu < 0:
             return
         screen_width,screen_height = int(draw.size.x),int(draw.size.y)
-        def panel(items,selected,x,y,width):
+        def panel(items,shortcuts,selected,x,y,width):
             visible = min(len(items),max(1,(screen_height-y-34)//17))
             first = max(0,selected-visible+1)
             height = visible*17+4
@@ -158,33 +215,47 @@ class EditorUI:
                 top = y+2+(row-first)*17
                 if row == selected:
                     draw._fill_rectangle(x+2,top,width-4,17,0x051F)
-                draw._text(x+6,top+4,label,0xFFFF if enabled else 0x7BEF)
+                shortcut = shortcuts[row] if row < len(shortcuts) else ""
+                label_width = width-12-(len(shortcut)*6+12 if shortcut else 0)
+                draw._text(x+6,top+4,label[:label_width//6],0xFFFF if enabled else 0x7BEF)
+                if shortcut:
+                    draw._text(x+width-6-len(shortcut)*6,top+4,shortcut,0x07FF if enabled else 0x7BEF)
         if self.submenu:
             # Fit the two panels side by side on the 320px PicoCalc screen.
             left_width = screen_width//2-4
-            panel(self.menu_items(parent=True),self.submenu_row,0,20,left_width)
+            panel(self.menu_items(parent=True),self.menu_shortcuts(parent=True),self.submenu_row,0,20,left_width)
             items = self.menu_items()
             y = min(22+self.submenu_row*17,screen_height-34-(len(items)*17+4))
-            panel(items,self.menu_row,left_width,y,screen_width-left_width)
+            panel(items,self.menu_shortcuts(),self.menu_row,left_width,y,screen_width-left_width)
         else:
             width = min(164,screen_width)
             x = min(self.menu*52,screen_width-width)
-            panel(self.menu_items(),self.menu_row,x,20,width)
+            panel(self.menu_items(),self.menu_shortcuts(),self.menu_row,x,20,width)
 
 
-    def draw_transform(self, draw):
+    def draw_transform(self, draw, force=False):
         if self.transform is None:
             return
         t = self.transform
         step = max(t["step"],self.grid_step) if t["snap"] and t["kind"] == "Move" else t["step"]
         w, h = int(draw.size.x), int(draw.size.y)
+        key=(t['kind'],tuple(t['values']),t['axis'],t['pivot'],t['uniform'],step,t['snap'],self.status,w,h)
+        if not force and self._transform_hud == key:
+            return
+        from .framecache import damage
         draw._fill_rectangle(0, 0, w, 48, 0x2945)
+        if self._transform_hud != key:
+            damage(self,(0,0,w,48))
         draw._text(4,3,t["kind"] + " / " + ("XYZ" if t["kind"] == "Scale" and t["uniform"] else "XYZ"[t["axis"]]) + " Step " + display_number(step) + (" Snap GRID" if t["snap"] and t["kind"] == "Move" else " Snap ON" if t["snap"] else " Snap OFF"),0x07FF)
         draw._text(4,18,"X %s  Y %s  Z %s" % tuple(display_number(v) for v in t["values"]),0xFFFF)
         draw._text(4,33,self.status[:w//6] or ("Pivot: " + ("Center","Bottom center","World origin")[t["pivot"]] + (" Linked" if t["kind"] == "Scale" and t["uniform"] else "") + " / G Tool F5 View"),0xFFFF)
-        draw._fill_rectangle(0,h-30,w,30,0x2945)
-        draw._text(3,h-28,"L/R Axis U/D Adjust E Value T Step",0xFFFF)
-        draw._text(3,h-14,"S Snap -/+ Step P Pivot U Link Enter OK Esc Cancel",0xFFFF)
+        if force or self._transform_hud is None or self._transform_hud[-2:] != (w,h):
+            draw._fill_rectangle(0,h-30,w,30,0x2945)
+            draw._text(3,h-28,"L/R Axis U/D Adjust E Value T Step",0xFFFF)
+            draw._text(3,h-14,"S Snap -/+ Step P Pivot U Link Enter OK Esc Cancel",0xFFFF)
+            if self._transform_hud is None or self._transform_hud[-2:] != (w,h):
+                damage(self,(0,h-30,w,30))
+        self._transform_hud=key
 
 
     def draw_dialog(self, draw):
@@ -209,37 +280,70 @@ class EditorUI:
 
     def draw_frame(self):
         """Compose the preview and menus in a single display frame."""
+        if self.viewer is not None:
+            return
         now = ticks_ms()
         if (self._frame_drawn and (self.boolean_job is not None or self.decimation_job is not None)
                 and ticks_diff(now,self._last_frame_ms) < 100):
             return
         if self.color_picker is not None:
+            self._scene_keys.clear()
             self.draw_color_picker()
             return
-        self.ensure_transform_axis()
+        if self.transform is not None:
+            self.ensure_transform_axis()
         draw = self.vm.draw
-        draw.clear(color=0x1082)
+        from .framecache import pixels,damage,intersects,store_base
+        cache=pixels(self)
+        cache.regions=[]
+        dirty,force,overlays=[],True,[]
         if self.mesh is not None:
+            from .framecache import dirty_panes
+            dirty,force,overlays = dirty_panes(self)
+            if force:
+                draw.clear(color=0x1082)
             if self.four_view:
-                self.draw_four(draw)
-            else:
-                if self.show_grid:
-                    self.grid(draw)
-                if self.shading == "Wireframe":
-                    self.draw_selection(draw,wire_only=True)
-                else:
-                    self.engine.run_async(False)
+                if dirty:
+                    self.draw_four(draw,dirty,overlays)
+            elif dirty:
+                moving = self._transform_pending or (self._interactive_visibility and self._camera_pending)
+                if 0 not in overlays:
+                    if not force:
+                        draw._fill_rectangle(0,48,int(draw.size.x),int(draw.size.y)-78,0x1082)
+                    if self.show_grid and not moving:
+                        self.grid(draw)
+                    if self.shading == "Wireframe":
+                        self.draw_selection(draw,wire_only=True)
+                    else:
+                        self.engine.run_async(False)
+                    store_base(self,self.selection_projection()[0])
                 self.draw_selection(draw)
-                self.draw_normals(draw)
-                self.draw_edge_lengths(draw)
-                if self.show_orientation:
-                    self.orientation(draw)
-                self.draw_gizmo(draw)
+                if not moving:
+                    self.draw_normals(draw)
+                    self.draw_edge_lengths(draw)
+                    if self.show_orientation:
+                        self.orientation(draw)
+                    self.draw_gizmo(draw)
         else:
+            draw.clear(color=0x1082)
+            self._scene_keys.clear()
+            self._scene_layout = None
             draw._text(20, int(draw.size.y) // 2, "File > Open or Create > Box", 0x7BEF)
-        self.hud(draw)
-        self.draw_vertex_info(draw)
-        self.dropdown(draw)
+        if self.mesh is None:
+            damage(self,(0,0,int(draw.size.x),int(draw.size.y)))
+        single_base=not self.four_view and dirty and 0 not in overlays
+        if self.transform is None:
+            self._transform_hud=None
+            self.hud(draw,force or single_base or cache.erase_hud,
+                     self.boolean_preview is None and self.boolean_job is None and self.decimation_job is None)
+        else:
+            self._hud_keys=[None,None,None]
+        panels_dirty=force or cache.panel_changed or any(intersects(a,b) for a in cache.regions for b in cache.panels)
+        if panels_dirty:
+            self.draw_vertex_info(draw)
+            self.dropdown(draw)
+            for box in cache.panels:
+                damage(self,box)
         if self.boolean_preview is not None:
             h = int(draw.size.y)
             draw._fill_rectangle(0,h-30,int(draw.size.x),30,0x2945)
@@ -255,9 +359,16 @@ class EditorUI:
             draw._fill_rectangle(0,h-30,int(draw.size.x),30,0x2945)
             draw._text(3,h-28,"Decimate: "+self.status[:int(draw.size.x)//6-10],0x07FF)
             draw._text(3,h-14,"Calculating... Esc Cancel",0xFFFF)
-        self.draw_transform(draw)
-        self.draw_dialog(draw)
-        draw.swap()
+        if self.transform is not None:
+            self.draw_transform(draw,force or single_base or cache.erase_hud)
+        if panels_dirty:
+            self.draw_dialog(draw)
+        if self.boolean_preview is not None or self.boolean_job is not None or self.decimation_job is not None:
+            damage(self,(0,int(draw.size.y)-30,int(draw.size.x),30))
+        cache.present()
         self._frame_drawn = True
         self._drawn_status = self.status
         self._last_frame_ms = ticks_ms()
+        if self._transform_pending:
+            # Rendering must not consume the quiet period on a slow device.
+            self._transform_finished = self._last_frame_ms

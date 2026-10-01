@@ -2,6 +2,10 @@
 
 #include "driver/gpio.h"
 
+// Buttons
+#define WATCH_BOOT_BTN 0
+#define WATCH_PWR_BTN 10
+
 // LCD (CO5300)
 #define WATCH_LCD_HOST SPI2_HOST
 #define WATCH_LCD_RST_GPIO GPIO_NUM_8

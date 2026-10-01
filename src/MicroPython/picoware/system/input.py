@@ -44,7 +44,8 @@ class Input:
         "_character_map",
         "_touch_read_data_fast",
         "_touch_down_1_69",
-        "_uart"
+        "_uart",
+        "_gpio_buttons"
     )
 
     def __init__(self, back_button=buttons.BUTTON_BACK):
@@ -128,19 +129,29 @@ class Input:
 
             self._delay_ms = 200
 
-        elif self._current_board_id in (BOARD_CROWPANEL_10_1, BOARD_WAVESHARE_2_06, BOARD_PANCAKE, BOARD_V8):
+        elif self._current_board_id in (BOARD_CROWPANEL_10_1, BOARD_PANCAKE, BOARD_V8):
             from touch import Touch
 
             self._touch = Touch()
             self._last_point = (0, 0)
             self._delay_ms = 120
 
+        elif self._current_board_id == BOARD_WAVESHARE_2_06:
+            from touch import Touch
+            from gpio_buttons import init
+
+            self._touch = Touch()
+            self._last_point = (0, 0)
+            self._delay_ms = 120
+
+            init()
+
         elif self._current_board_id == BOARD_CARDPUTER:
             from cardputer_keyboard import init
 
             init()
         elif self._current_board_id == BOARD_FLIPPER_ZERO:
-            from flipper_input import init 
+            from flipper_input import init
 
             init()
         elif self._current_board_id == BOARD_POOM:
@@ -425,6 +436,11 @@ class Input:
             del self._touch
             self._touch = None
 
+        if self._current_board_id == BOARD_WAVESHARE_2_06:
+            from gpio_buttons import deinit
+
+            deinit()
+
         if self._current_board_id == BOARD_CARDPUTER:
             from cardputer_keyboard import deinit
 
@@ -457,13 +473,19 @@ class Input:
         """Returns the last button pressed."""
         if self._current_board_id in (
             BOARD_CROWPANEL_10_1,
-            BOARD_WAVESHARE_2_06,
             BOARD_PANCAKE,
-            BOARD_V8, 
+            BOARD_V8,
         ):
             self._poll_touch()
         elif self._current_board_id == BOARD_WAVESHARE_1_69_RP2350:
             self._poll_touch_1_69()
+        elif self._current_board_id == BOARD_WAVESHARE_2_06:
+            from gpio_buttons import key_available
+
+            if key_available():
+                self.on_key_callback()
+            else:
+                self._poll_touch()
         elif self._current_board_id == BOARD_CARDPUTER:
             from cardputer_keyboard import key_available, poll
 
@@ -547,12 +569,15 @@ class Input:
             return self._last_point != (0, 0)
         if self._current_board_id in (
             BOARD_CROWPANEL_10_1,
-            BOARD_WAVESHARE_2_06,
             BOARD_PANCAKE,
             BOARD_V8,
         ):
             self._poll_touch()
             return self._last_point != (0, 0)
+        if self._current_board_id == BOARD_WAVESHARE_2_06:
+            from gpio_buttons import key_available
+            self._poll_touch()
+            return (self._last_point != (0, 0)) | key_available()
         if self._current_board_id == BOARD_CARDPUTER:
             from cardputer_keyboard import key_available
 
@@ -610,6 +635,10 @@ class Input:
         Warning:
             This is a blocking call and should not be used in callback contexts.
         """
+        if self._current_board_id == BOARD_WAVESHARE_2_06:
+            from gpio_buttons import get_key
+
+            return get_key()
         if self.has_touch_support:
             return -1  # Not applicable for touch input
         if self._current_board_id == BOARD_CARDPUTER:
@@ -631,6 +660,10 @@ class Input:
 
     def read_non_blocking(self) -> int:
         """Returns the key code as integer, or -1 if no key is pressed."""
+        if self._current_board_id == BOARD_WAVESHARE_2_06:
+            from gpio_buttons import get_key
+
+            return get_key()
         if self.has_touch_support:
             return -1  # Not applicable for touch input
         if self._current_board_id == BOARD_CARDPUTER:
@@ -667,7 +700,7 @@ class Input:
             from waveshare_touch import reset_state
 
             reset_state()
-    
+
     def touch_to_button(self, x: int, y: int) -> int:
         """Convert touch coordinates to a corresponding button code.
 
@@ -681,9 +714,9 @@ class Input:
         if self._current_board_id == BOARD_WAVESHARE_1_28_RP2350:
             # gesture support
             return buttons.BUTTON_NONE
-        
+
         _button = buttons.BUTTON_NONE
-        
+
         if 0 <= x <= self._screen_size[0] * 0.15 and 0 <= y <= self._screen_size[1] * 0.12:
             _button = buttons.BUTTON_BACK
         elif self._screen_size[0] * 0.85 <= x <= self._screen_size[0] and self._screen_size[1] * 0.3 <= y <= self._screen_size[1] * 0.7:

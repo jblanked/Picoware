@@ -146,6 +146,7 @@ cp -r "$watch_src_dir/lcd" "$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD
 cp -r "$watch_src_dir/battery" "$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06/battery"
 cp -r "$watch_src_dir/sd" "$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06/sd"
 cp -r "$watch_src_dir/touch" "$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06/touch"
+cp -r "$watch_src_dir/buttons" "$micropython_dir/modules/Waveshare/ESP32S3-Touch-LCD-2.06/buttons"
 
 echo "Staging shared C modules referenced by Waveshare ESP32-S3-Touch-AMOLED-2.06 CMake..."
 shared_c_modules="$(sed -nE '
@@ -184,13 +185,14 @@ tmp_component_yml="$idf_component_yml.tmp"
 grep -v "esp_lcd_ek79007" "$idf_component_yml" | grep -v "esp_lcd_touch_gt911" > "$tmp_component_yml"
 mv "$tmp_component_yml" "$idf_component_yml"
 
-grep -v "esp_lcd_sh8601" "$idf_component_yml" | grep -v "esp_lcd_touch_ft5x06" > "$tmp_component_yml"
+grep -v "esp_lcd_sh8601" "$idf_component_yml" | grep -v "esp_lcd_touch_ft5x06" | grep -v "button" > "$tmp_component_yml"
 mv "$tmp_component_yml" "$idf_component_yml"
 
 echo "Configuring ESP-IDF managed dependencies for Waveshare ESP32-S3-Touch-AMOLED-2.06 modules..."
 
 printf '%s\n' '  waveshare/esp_lcd_sh8601: "*"' >> "$idf_component_yml"
 printf '%s\n' '  espressif/esp_lcd_touch_ft5x06: "^1.1.0~1"' >> "$idf_component_yml"
+printf '%s\n' '  espressif/button: "*"' >> "$idf_component_yml"
 
 echo "Copying Waveshare ESP32-S3-Touch-AMOLED-2.06 flash/partition configuration overrides..."
 cp "$watch_src_dir/partitions.csv" "$micropython_dir/partitions.csv"

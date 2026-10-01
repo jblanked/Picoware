@@ -7,6 +7,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/lcd/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/battery/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/sd/micropython.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/touch/micropython.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/buttons/micropython.cmake)
 
 # Include JPEGDEC folder
 include_directories(${CMAKE_CURRENT_LIST_DIR}/../../JPEGDEC/src)

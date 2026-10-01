@@ -65,6 +65,44 @@ bool Sprite3D::addTriangle(float x1, float y1, float z1,
                                   color, wireframe));
 }
 
+bool Sprite3D::bakeTransform()
+{
+    if (rotation_y == 0.0f && scale_factor == 1.0f)
+        return true;
+
+    const float cos_a = cosf(rotation_y);
+    const float sin_a = sinf(rotation_y);
+
+    for (uint16_t i = 0; i < triangle_count; i++)
+    {
+        Triangle3D &t = triangles[i];
+
+        t.x1 *= scale_factor;
+        t.y1 *= scale_factor;
+        t.z1 *= scale_factor;
+        t.x2 *= scale_factor;
+        t.y2 *= scale_factor;
+        t.z2 *= scale_factor;
+        t.x3 *= scale_factor;
+        t.y3 *= scale_factor;
+        t.z3 *= scale_factor;
+
+        float ox = t.x1;
+        t.x1 = ox * cos_a - t.z1 * sin_a;
+        t.z1 = ox * sin_a + t.z1 * cos_a;
+        ox = t.x2;
+        t.x2 = ox * cos_a - t.z2 * sin_a;
+        t.z2 = ox * sin_a + t.z2 * cos_a;
+        ox = t.x3;
+        t.x3 = ox * cos_a - t.z3 * sin_a;
+        t.z3 = ox * sin_a + t.z3 * cos_a;
+    }
+
+    rotation_y = 0.0f;
+    scale_factor = 1.0f;
+    return true;
+}
+
 void Sprite3D::clearTriangles()
 {
     if (triangles != nullptr)
@@ -453,18 +491,33 @@ bool Sprite3D::fromPath(const char *path, bool wireframe)
 #endif
 }
 
-void Sprite3D::transformVertex(float x, float y, float z, float cos_a, float sin_a,
-                               float &out_x, float &out_y, float &out_z) const
+bool Sprite3D::getTriangle(uint16_t index, Triangle3D &out) const
 {
-    x *= scale_factor;
-    y *= scale_factor;
-    z *= scale_factor;
-    const float original_x = x;
-    x = original_x * cos_a - z * sin_a;
-    z = original_x * sin_a + z * cos_a;
-    out_x = x + position.x;
-    out_y = y + position.z;
-    out_z = z + position.y;
+    if (index >= triangle_count)
+        return false;
+    out = triangles[index];
+    return true;
+}
+
+bool Sprite3D::getTriangle(uint16_t index, float &x1, float &y1, float &z1,
+                           float &x2, float &y2, float &z2,
+                           float &x3, float &y3, float &z3, uint16_t &color, bool &wireframe) const
+{
+    if (index >= triangle_count)
+        return false;
+    const Triangle3D &tri = triangles[index];
+    x1 = tri.x1;
+    y1 = tri.y1;
+    z1 = tri.z1;
+    x2 = tri.x2;
+    y2 = tri.y2;
+    z2 = tri.z2;
+    x3 = tri.x3;
+    y3 = tri.y3;
+    z3 = tri.z3;
+    color = tri.color;
+    wireframe = tri.wireframe;
+    return true;
 }
 
 bool Sprite3D::getWorldTriangle(uint16_t index, Triangle3D &out) const
@@ -580,44 +633,6 @@ void Sprite3D::setWireframe(bool wireframe)
     }
 }
 
-bool Sprite3D::bakeTransform()
-{
-    if (rotation_y == 0.0f && scale_factor == 1.0f)
-        return true;
-
-    const float cos_a = cosf(rotation_y);
-    const float sin_a = sinf(rotation_y);
-
-    for (uint16_t i = 0; i < triangle_count; i++)
-    {
-        Triangle3D &t = triangles[i];
-
-        t.x1 *= scale_factor;
-        t.y1 *= scale_factor;
-        t.z1 *= scale_factor;
-        t.x2 *= scale_factor;
-        t.y2 *= scale_factor;
-        t.z2 *= scale_factor;
-        t.x3 *= scale_factor;
-        t.y3 *= scale_factor;
-        t.z3 *= scale_factor;
-
-        float ox = t.x1;
-        t.x1 = ox * cos_a - t.z1 * sin_a;
-        t.z1 = ox * sin_a + t.z1 * cos_a;
-        ox = t.x2;
-        t.x2 = ox * cos_a - t.z2 * sin_a;
-        t.z2 = ox * sin_a + t.z2 * cos_a;
-        ox = t.x3;
-        t.x3 = ox * cos_a - t.z3 * sin_a;
-        t.z3 = ox * sin_a + t.z3 * cos_a;
-    }
-
-    rotation_y = 0.0f;
-    scale_factor = 1.0f;
-    return true;
-}
-
 bool Sprite3D::toPath(const char *path) const
 {
 #ifdef ENGINE_STORAGE_WRITE
@@ -636,4 +651,46 @@ bool Sprite3D::toPath(const char *path) const
 #else
     return false;
 #endif
+}
+
+void Sprite3D::transformVertex(float x, float y, float z, float cos_a, float sin_a,
+                               float &out_x, float &out_y, float &out_z) const
+{
+    x *= scale_factor;
+    y *= scale_factor;
+    z *= scale_factor;
+    const float original_x = x;
+    x = original_x * cos_a - z * sin_a;
+    z = original_x * sin_a + z * cos_a;
+    out_x = x + position.x;
+    out_y = y + position.z;
+    out_z = z + position.y;
+}
+
+bool Sprite3D::updateTriangle(uint16_t index, const Triangle3D &triangle)
+{
+    if (index >= triangle_count)
+        return false;
+    triangles[index] = triangle;
+    return true;
+}
+
+bool Sprite3D::updateTriangle(uint16_t index, float x1, float y1, float z1,
+                              float x2, float y2, float z2,
+                              float x3, float y3, float z3, uint16_t color, bool wireframe)
+{
+    if (index >= triangle_count)
+        return false;
+    triangles[index].x1 = x1;
+    triangles[index].y1 = y1;
+    triangles[index].z1 = z1;
+    triangles[index].x2 = x2;
+    triangles[index].y2 = y2;
+    triangles[index].z2 = z2;
+    triangles[index].x3 = x3;
+    triangles[index].y3 = y3;
+    triangles[index].z3 = z3;
+    triangles[index].color = color;
+    triangles[index].wireframe = wireframe;
+    return true;
 }

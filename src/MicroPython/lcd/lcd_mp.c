@@ -3,6 +3,10 @@
 #include "../vector/vector_mp.h"
 #include "../log/log_mp.h"
 #include "../engine/memory.h"
+#if defined(PICOCALC)
+#include "../PicoCalc/picoware_psram/picoware_psram.h"
+#include "../PicoCalc/picoware_psram/picoware_psram_shared.h"
+#endif
 
 bool mp_engine_gc_ready = false;
 
@@ -1491,6 +1495,87 @@ mp_obj_t lcd_mp_swap(mp_obj_t self_in)
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(lcd_mp_swap_obj, lcd_mp_swap);
 
+// Physical framebuffer coordinates, independent of drawing scale. Validate the
+// complete list before sending anything; USB capture runs once per composed frame.
+static void lcd_region(mp_obj_t obj, uint16_t *rect)
+{
+    mp_obj_t *items;
+    mp_obj_get_array_fixed_n(obj, 4, &items);
+    mp_int_t x=mp_obj_get_int(items[0]), y=mp_obj_get_int(items[1]);
+    mp_int_t w=mp_obj_get_int(items[2]), h=mp_obj_get_int(items[3]);
+    if (x<0 || y<0 || w<=0 || h<=0 || x>=LCD_MP_WIDTH || y>=LCD_MP_HEIGHT ||
+        w>LCD_MP_WIDTH-x || h>LCD_MP_HEIGHT-y)
+        mp_raise_ValueError(MP_ERROR_TEXT("Region outside framebuffer"));
+    rect[0]=x; rect[1]=y; rect[2]=w; rect[3]=h;
+}
+static mp_obj_t lcd_mp_swap_regions(mp_obj_t self_in, mp_obj_t regions)
+{
+    lcd_mp_obj_t *self=MP_OBJ_TO_PTR(self_in);
+    if (!self->initialized) mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
+    size_t count; mp_obj_t *items;
+    mp_obj_get_array(regions, &count, &items);
+    if (count>32) mp_raise_ValueError(MP_ERROR_TEXT("Too many display regions"));
+    uint16_t rects[32][4];
+    for (size_t i=0; i<count; ++i) lcd_region(items[i],rects[i]);
+    if (!count) return mp_const_none;
+#ifdef LCD_MP_SWAP_REGION
+    for (size_t i=0; i<count; ++i)
+        LCD_MP_SWAP_REGION(rects[i][0],rects[i][1],rects[i][2],rects[i][3]);
+#ifndef DESKTOP
+    if (_lcd_usb_video_cb) _lcd_usb_video_cb();
+#endif
+#else
+    LCD_MP_SWAP();
+#endif
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(lcd_mp_swap_regions_obj,lcd_mp_swap_regions);
+
+static mp_obj_t lcd_mp_frame_cache(mp_obj_t self_in)
+{
+    lcd_mp_obj_t *self=MP_OBJ_TO_PTR(self_in);
+    if (!self->initialized) mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
+#if defined(PICOCALC)
+    return picoware_psram_alloc_buffer(LCD_MP_WIDTH*LCD_MP_HEIGHT);
+#else
+    return mp_const_none;
+#endif
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(lcd_mp_frame_cache_obj,lcd_mp_frame_cache);
+
+static mp_obj_t lcd_mp_cache_region(size_t n_args, const mp_obj_t *args)
+{
+    (void)n_args;
+    lcd_mp_obj_t *self=MP_OBJ_TO_PTR(args[0]);
+    if (!self->initialized) mp_raise_ValueError(MP_ERROR_TEXT("LCD object is not initialized"));
+    uint16_t r[4]; lcd_region(args[2],r);
+#if defined(PICOCALC)
+    if (!mp_obj_is_type(args[1],&mp_psram_data_type))
+        mp_raise_TypeError(MP_ERROR_TEXT("Expected framebuffer cache"));
+    mp_psram_data_obj_t *cache=MP_OBJ_TO_PTR(args[1]);
+    if (!cache->allocated || !psram_initialized || cache->length!=LCD_MP_WIDTH*LCD_MP_HEIGHT ||
+        cache->psram_addr<PSRAM_HEAP_START_ADDR || cache->psram_addr>PSRAM_SIZE-cache->length)
+        mp_raise_ValueError(MP_ERROR_TEXT("Invalid framebuffer cache"));
+    bool restore=mp_obj_is_true(args[3]);
+    uint8_t row[LCD_MP_WIDTH];
+    for (unsigned y=r[1]; y<r[1]+r[3]; ++y) {
+        uint32_t address=cache->psram_addr+y*LCD_MP_WIDTH+r[0];
+        if (!restore && !LCD_MP_READ_ROW(y,row)) mp_raise_OSError(MP_EIO);
+        for (unsigned off=0; off<r[2];) {
+            unsigned n=r[2]-off; if (n>PSRAM_CHUNK_SIZE) n=PSRAM_CHUNK_SIZE;
+            if (restore) psram_qspi_read(&psram_instance,address+off,row+off,n);
+            else psram_qspi_write(&psram_instance,address+off,row+r[0]+off,n);
+            off+=n;
+        }
+        if (restore) LCD_MP_BLIT(r[0],y,r[2],1,row);
+    }
+    return mp_const_true;
+#else
+    return mp_const_false;
+#endif
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(lcd_mp_cache_region_obj,4,4,lcd_mp_cache_region);
+
 mp_obj_t lcd_mp_text(size_t n_args, const mp_obj_t *args)
 {
     // Arguments: self, x, y, text, color, font_size (optional)
@@ -1590,6 +1675,9 @@ static const mp_rom_map_elem_t lcd_mp_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_set_rgb_led), MP_ROM_PTR(&lcd_mp_set_rgb_led_obj)},                    // self.set_rgb_led()
     {MP_ROM_QSTR(MP_QSTR_set_mode), MP_ROM_PTR(&lcd_mp_set_mode_obj)},                          // self.set_mode()
     {MP_ROM_QSTR(MP_QSTR_set_scaling), MP_ROM_PTR(&lcd_mp_set_scaling_obj)},                    // self.set_scaling()
+    {MP_ROM_QSTR(MP_QSTR_swap_regions), MP_ROM_PTR(&lcd_mp_swap_regions_obj)},
+    {MP_ROM_QSTR(MP_QSTR_frame_cache), MP_ROM_PTR(&lcd_mp_frame_cache_obj)},
+    {MP_ROM_QSTR(MP_QSTR__cache_region), MP_ROM_PTR(&lcd_mp_cache_region_obj)},
     {MP_ROM_QSTR(MP_QSTR_swap), MP_ROM_PTR(&lcd_mp_swap_obj)},                                  // self.swap()
     {MP_ROM_QSTR(MP_QSTR__text), MP_ROM_PTR(&lcd_mp_text_obj)},                                 // self._text()
     {MP_ROM_QSTR(MP_QSTR__triangle), MP_ROM_PTR(&lcd_mp_triangle_obj)},                         // self._triangle()

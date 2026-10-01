@@ -157,6 +157,159 @@ mp_obj_t sprite3d_mp_add_triangle(size_t n_args, const mp_obj_t *args)
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_mp_add_triangle_obj, 10, 12, sprite3d_mp_add_triangle);
 
+#if defined(ENGINE_SPRITE3D_BUFFER_API)
+static Sprite3D *sprite3d_buffer_context(mp_obj_t object)
+{
+    auto *self = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(object));
+    if (self->freed || !self->context)
+        mp_raise_ValueError(MP_ERROR_TEXT("Sprite3D has been freed"));
+    return sprite3d_get_context(self);
+}
+
+static void sprite3d_buffer_result(Sprite3D::BufferResult result)
+{
+    switch (result)
+    {
+    case Sprite3D::BufferResult::Ok:
+        return;
+    case Sprite3D::BufferResult::OutOfMemory:
+        mp_raise_msg(&mp_type_MemoryError, MP_ERROR_TEXT("Cannot allocate mesh"));
+    case Sprite3D::BufferResult::TriangleLimit:
+        mp_raise_msg(&mp_type_MemoryError, MP_ERROR_TEXT("Triangle limit exceeded"));
+    case Sprite3D::BufferResult::NotEmpty:
+        mp_raise_ValueError(MP_ERROR_TEXT("Expected an empty mesh"));
+    case Sprite3D::BufferResult::InvalidBuffer:
+        mp_raise_ValueError(MP_ERROR_TEXT("Invalid geometry buffer"));
+    default:
+        mp_raise_ValueError(MP_ERROR_TEXT("Invalid geometry value"));
+    }
+}
+
+static void sprite3d_tuple3(mp_obj_t object, double *values)
+{
+    mp_obj_t *items;
+    mp_obj_get_array_fixed_n(object, 3, &items);
+    for (unsigned i = 0; i < 3; ++i)
+        values[i] = mp_obj_get_float(items[i]);
+}
+
+static mp_obj_t sprite3d_bounds_object(const Sprite3D::Bounds &bounds)
+{
+    mp_obj_t low[3], high[3];
+    for (unsigned i = 0; i < 3; ++i)
+    {
+        low[i] = mp_obj_new_float(bounds.low[i]);
+        high[i] = mp_obj_new_float(bounds.high[i]);
+    }
+    mp_obj_t result[2] = {mp_obj_new_tuple(3, low), mp_obj_new_tuple(3, high)};
+    return mp_obj_new_tuple(2, result);
+}
+
+static void sprite3d_transform_ready(const Sprite3D::Bounds &bounds, void *context)
+{
+    // Complete Python allocations before the engine writes to the caller's buffer.
+    *static_cast<mp_obj_t *>(context) = sprite3d_bounds_object(bounds);
+}
+
+static mp_obj_t sprite3d_reserve(mp_obj_t self_in, mp_obj_t capacity)
+{
+    auto *mesh = sprite3d_buffer_context(self_in);
+    mp_int_t count = mp_obj_get_int(capacity);
+    if (count < 0 || count > ENGINE_MAX_TRIANGLES_PER_SPRITE)
+        mp_raise_ValueError(MP_ERROR_TEXT("Triangle limit exceeded"));
+    if (!mesh->reserveTriangles(count))
+        mp_raise_msg(&mp_type_MemoryError, MP_ERROR_TEXT("Cannot reserve triangles"));
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(sprite3d_reserve_obj, sprite3d_reserve);
+
+static mp_obj_t sprite3d_load_buffer(mp_obj_t self_in, mp_obj_t records)
+{
+    auto *mesh = sprite3d_buffer_context(self_in);
+    mp_buffer_info_t buffer;
+    mp_get_buffer_raise(records, &buffer, MP_BUFFER_READ);
+    Sprite3D::Bounds bounds;
+    sprite3d_buffer_result(mesh->loadBuffer(buffer.buf, buffer.len, &bounds));
+    return sprite3d_bounds_object(bounds);
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(sprite3d_load_buffer_obj, sprite3d_load_buffer);
+
+static mp_obj_t sprite3d_transform_buffer(size_t n_args, const mp_obj_t *args)
+{
+    (void)n_args;
+    sprite3d_buffer_context(args[0]);
+    mp_buffer_info_t source, target, mask = {};
+    mp_get_buffer_raise(args[1], &source, MP_BUFFER_READ);
+    mp_get_buffer_raise(args[2], &target, MP_BUFFER_WRITE);
+    mp_int_t kind = mp_obj_get_int(args[3]);
+    if (kind < 0 || kind > 2)
+        mp_raise_ValueError(MP_ERROR_TEXT("Invalid transform kind"));
+    double values[3], pivot[3];
+    sprite3d_tuple3(args[4], values);
+    sprite3d_tuple3(args[5], pivot);
+    if (args[6] != mp_const_none)
+        mp_get_buffer_raise(args[6], &mask, MP_BUFFER_READ);
+    mp_obj_t result = MP_OBJ_NULL;
+    sprite3d_buffer_result(Sprite3D::transformBuffer(source.buf, source.len, target.buf, target.len,
+        static_cast<Sprite3D::TransformKind>(kind), values, pivot,
+        static_cast<const uint8_t *>(mask.buf), mask.len, nullptr, sprite3d_transform_ready, &result));
+    return result;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_transform_buffer_obj, 7, 7, sprite3d_transform_buffer);
+
+static mp_obj_t sprite3d_build_preview(size_t n_args, const mp_obj_t *args)
+{
+    (void)n_args;
+    auto *mesh = sprite3d_buffer_context(args[0]);
+    if (mesh->getTriangleCount())
+        mp_raise_ValueError(MP_ERROR_TEXT("Expected an empty mesh"));
+    mp_buffer_info_t buffer;
+    mp_get_buffer_raise(args[1], &buffer, MP_BUFFER_READ);
+    Sprite3D::PreviewOptions options;
+    sprite3d_tuple3(args[2], options.center);
+    mp_obj_t *axes;
+    mp_obj_get_array_fixed_n(args[3], 3, &axes);
+    for (unsigned i = 0; i < 3; ++i)
+        sprite3d_tuple3(axes[i], options.basis[i]);
+    options.panel = args[4] != mp_const_none;
+    options.orthographic = args[5] != mp_const_none;
+    options.orthoDistance = options.orthographic ? mp_obj_get_float(args[5]) : 1;
+    mp_int_t wire = args[6] == mp_const_none ? -1 : mp_obj_get_int(args[6]);
+    if (wire < -1 || wire > 1)
+        mp_raise_ValueError(MP_ERROR_TEXT("Invalid wireframe value"));
+    options.wireframe = wire;
+    options.scale = mp_obj_get_float(args[7]);
+    options.culling = mp_obj_is_true(args[8]);
+    options.distance = args[9] == mp_const_none ? 0 : mp_obj_get_float(args[9]);
+    options.facing = options.panel || options.orthographic || args[9] != mp_const_none;
+    if (options.panel)
+    {
+        mp_obj_t *items;
+        mp_obj_get_array_fixed_n(args[4], 6, &items);
+        options.panelScale = mp_obj_get_float(items[0]);
+        options.offsetX = mp_obj_get_float(items[1]);
+        options.offsetY = mp_obj_get_float(items[2]);
+        options.distance = mp_obj_get_float(items[3]);
+        options.aspect = mp_obj_get_float(items[4]);
+        options.edge = mp_obj_get_float(items[5]);
+    }
+    // A configured allocator may raise rather than return nullptr.
+    nlr_buf_t nlr;
+    if (nlr_push(&nlr) == 0)
+    {
+        sprite3d_buffer_result(mesh->buildPreview(buffer.buf, buffer.len, options));
+        nlr_pop();
+    }
+    else
+    {
+        mesh->clearTriangles();
+        nlr_jump(nlr.ret_val);
+    }
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(sprite3d_build_preview_obj, 10, 10, sprite3d_build_preview);
+#endif
+
 mp_obj_t sprite3d_mp_clear_triangles(mp_obj_t self_in)
 {
     // Arguments: self
@@ -457,6 +610,12 @@ mp_obj_t sprite3d_mp_bake_transform(mp_obj_t self_in)
 static MP_DEFINE_CONST_FUN_OBJ_1(sprite3d_mp_bake_transform_obj, sprite3d_mp_bake_transform);
 
 static const mp_rom_map_elem_t sprite3d_mp_locals_dict_table[] = {
+#if defined(ENGINE_SPRITE3D_BUFFER_API)
+    {MP_ROM_QSTR(MP_QSTR_reserve_triangles), MP_ROM_PTR(&sprite3d_reserve_obj)},
+    {MP_ROM_QSTR(MP_QSTR_transform_buffer), MP_ROM_PTR(&sprite3d_transform_buffer_obj)},
+    {MP_ROM_QSTR(MP_QSTR_load_buffer), MP_ROM_PTR(&sprite3d_load_buffer_obj)},
+    {MP_ROM_QSTR(MP_QSTR_build_preview), MP_ROM_PTR(&sprite3d_build_preview_obj)},
+#endif
     {MP_ROM_QSTR(MP_QSTR_add_triangle), MP_ROM_PTR(&sprite3d_mp_add_triangle_obj)},
     {MP_ROM_QSTR(MP_QSTR_clear_triangles), MP_ROM_PTR(&sprite3d_mp_clear_triangles_obj)},
     {MP_ROM_QSTR(MP_QSTR_create_humanoid), MP_ROM_PTR(&sprite3d_mp_create_humanoid_obj)},

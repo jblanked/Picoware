@@ -814,7 +814,8 @@ class ViewManager:
             if push_view:
                 self._push_view(self._current_view)
             self._current_view.stop(self)
-            self.clear()
+            if view.clear_on_start:
+                self.clear()
 
         self._current_view = view
         if not self._current_view.start(self):

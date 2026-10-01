@@ -53,7 +53,7 @@ typedef struct psram_alloc_block
 {
     uint32_t addr;
     uint32_t size;
-    mp_psram_data_obj_t *obj; // Pointer to the Python object
+    uintptr_t obj_bits; // Complemented weak owner pointer; not a GC root
     struct psram_alloc_block *next;
 } psram_alloc_block_t;
 
@@ -95,3 +95,5 @@ void psram_mp_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t k
 mp_obj_t psram_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args);
 mp_obj_t psram_mp_del(mp_obj_t self_in);
 void psram_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination);
+// GC-owned raw buffer for native clients; no temporary main-heap copy.
+mp_obj_t picoware_psram_alloc_buffer(uint32_t size);

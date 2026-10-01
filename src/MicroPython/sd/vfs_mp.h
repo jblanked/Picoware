@@ -19,9 +19,10 @@ extern "C"
 #include "py/mphal.h"
 #include "py/builtin.h"
 #include "extmod/vfs.h"
+#include "sdcard.h"
 #include "fat32.h"
 
-#define VFS_FILE_BUFFER_SIZE 1024 * 16 // 16KB buffer for file reads
+#define VFS_FILE_BUFFER_SIZE FAT32_SECTOR_SIZE // One sector per open file
 
     typedef struct
     {

@@ -28,6 +28,10 @@ class Sprite3D(engine.Sprite3D):
         SPRITE_CUSTOM (int): Custom sprite type.
 
     Methods:
+        - reserve_triangles(count): Reserve native storage without changing geometry.
+        - transform_buffer(source, target, kind, values, pivot, mask): Atomically transform packed records into a separate writable buffer; return bounds. Kind is 0 Move, 1 Scale, 2 Rotate.
+        - load_buffer(records): Construct an empty mesh from validated 40-byte records and return (low, high) bounds.
+        - build_preview(records, center, basis, panel, ortho_distance, wireframe, scale, culling, distance): Construct an empty mesh as a clipped, depth-sorted editor preview.
         - add_triangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, color=0x0000, wireframe=True): Add a triangle to the sprite.
         - clear_triangles(): Remove all triangles from the sprite.
         - create_humanoid(height=1.8, color=0x0000): Create a humanoid mesh.

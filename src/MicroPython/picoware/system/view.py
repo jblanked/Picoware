@@ -9,11 +9,12 @@ class View:
         start (callable): Function called when the view is created.
         stop (callable): Function called when the view is destroyed.
         active (bool): Whether the view is currently active.
+        clear_on_start (bool): Clear and flush before starting this view.
     """
 
-    __slots__ = ("name", "_run", "_start", "_stop", "active")
+    __slots__ = ("name", "_run", "_start", "_stop", "active", "clear_on_start")
 
-    def __init__(self, name: str, run: callable, start: callable, stop: callable):
+    def __init__(self, name: str, run: callable, start: callable, stop: callable, clear_on_start: bool = True):
         """Initialize the view with its name and callbacks.
 
         Args:
@@ -21,12 +22,14 @@ class View:
             run (callable): Function called every frame.
             start (callable): Function called when the view is created.
             stop (callable): Function called when the view is destroyed.
+            clear_on_start (bool): False for apps that paint their complete first frame.
         """
         self.name = name
         self._run = run
         self._start = start
         self._stop = stop
         self.active = False
+        self.clear_on_start = clear_on_start
 
     def __alert(self, exception, view_manager) -> None:
         """Display an alert message.

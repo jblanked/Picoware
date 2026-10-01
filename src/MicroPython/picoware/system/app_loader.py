@@ -59,7 +59,11 @@ class AppLoader:
                         modules_to_delete.append(mod_name)
 
             for mod_name in modules_to_delete:
-                del sys.modules[mod_name]
+                mod = sys.modules.pop(mod_name, None)
+                parent_name, _, child = mod_name.rpartition(".")
+                parent = sys.modules.get(parent_name)
+                if parent is not None and getattr(parent, child, None) is mod:
+                    delattr(parent, child)
 
             # Force garbage collection
             collect()
@@ -235,6 +239,40 @@ class AppLoader:
                 f"Error loading app {app_name}: {type(e).__name__}: {e}", 2
             )
             return None
+
+    def app_view(self, app_name, view_name, subdirectory=""):
+        """Own SD modules for the lifetime of a view, including lazy imports.
+
+        Call load_app first so import failures are shown by the app menu.
+        Callbacks retain only the loader/name after stop, allowing a later view
+        start to load a fresh module and failed starts to clean up normally.
+        """
+        from picoware.system.view import View
+        key = f"{subdirectory}/{app_name}" if subdirectory else app_name
+        module = self.loaded_apps[key]
+        clear_on_start = getattr(module, "CLEAR_ON_START", True)
+        active = [None]
+
+        def start(vm):
+            active[0] = self.loaded_apps.get(key)
+            if active[0] is None:
+                active[0] = self.load_app(app_name, subdirectory)
+            return active[0] is not None and active[0].start(vm)
+
+        def run(vm):
+            if active[0] is not None:
+                active[0].run(vm)
+
+        def stop(vm):
+            app = active[0]
+            active[0] = None
+            try:
+                if app is not None:
+                    app.stop(vm)
+            finally:
+                self.cleanup_modules()
+
+        return View(view_name, run, start, stop, clear_on_start=clear_on_start)
 
     def run(self):
         """Run the currently loaded app"""

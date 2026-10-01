@@ -91,8 +91,32 @@ static inline void unlock_fs(void)
     recursive_mutex_exit(&fat32_recursive_mutex);
 }
 
+#define FAT32_CACHE_SECTORS 4
+static struct {
+    uint32_t sector;
+    bool valid;
+    uint8_t data[FAT32_SECTOR_SIZE];
+} sector_cache[FAT32_CACHE_SECTORS];
+static unsigned sector_cache_next;
+
+static void invalidate_sector_cache(void)
+{
+    for (unsigned i = 0; i < FAT32_CACHE_SECTORS; ++i)
+        sector_cache[i].valid = false;
+    sector_cache_next = 0;
+}
+
+static void invalidate_sector_range(uint32_t sector, uint32_t count)
+{
+    for (unsigned i = 0; i < FAT32_CACHE_SECTORS; ++i)
+        if (sector_cache[i].valid && sector_cache[i].sector >= sector &&
+            sector_cache[i].sector - sector < count)
+            sector_cache[i].valid = false;
+}
+
 static inline void fat32_unmount_unlocked(void)
 {
+    invalidate_sector_cache();
     fat32_mounted = false;
     mount_status = FAT32_ERROR_NO_CARD;
     volume_start_block = 0;
@@ -123,7 +147,24 @@ static inline uint32_t cluster_to_sector(uint32_t cluster)
 
 static inline fat32_error_t read_sector(uint32_t sector, uint8_t *buffer)
 {
-    return sd_read_block(volume_start_block + sector, buffer);
+    for (unsigned i = 0; i < FAT32_CACHE_SECTORS; ++i)
+    {
+        if (sector_cache[i].valid && sector_cache[i].sector == sector)
+        {
+            memcpy(buffer, sector_cache[i].data, FAT32_SECTOR_SIZE);
+            return FAT32_OK;
+        }
+    }
+    fat32_error_t err = sd_read_block(volume_start_block + sector, buffer);
+    if (err == FAT32_OK)
+    {
+        unsigned slot = sector_cache_next;
+        sector_cache_next = (slot + 1) % FAT32_CACHE_SECTORS;
+        memcpy(sector_cache[slot].data, buffer, FAT32_SECTOR_SIZE);
+        sector_cache[slot].sector = sector;
+        sector_cache[slot].valid = true;
+    }
+    return err;
 }
 
 static inline fat32_error_t read_sectors(uint32_t sector, uint32_t count, uint8_t *buffer)
@@ -133,11 +174,13 @@ static inline fat32_error_t read_sectors(uint32_t sector, uint32_t count, uint8_
 
 static inline fat32_error_t write_sector(uint32_t sector, const uint8_t *buffer)
 {
+    invalidate_sector_range(sector, 1);
     return sd_write_block(volume_start_block + sector, buffer);
 }
 
 static inline fat32_error_t write_sectors(uint32_t sector, uint32_t count, const uint8_t *buffer)
 {
+    invalidate_sector_range(sector, count);
     return sd_write_blocks(volume_start_block + sector, count, buffer);
 }
 
@@ -430,6 +473,7 @@ static fat32_error_t seek_to_cluster(uint32_t start_cluster, uint32_t offset, ui
 
 static fat32_error_t fat32_mount_unlocked(void)
 {
+    invalidate_sector_cache();
     if (fat32_mounted)
     {
         return FAT32_OK;

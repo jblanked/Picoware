@@ -55,7 +55,6 @@ def run(view_manager) -> None:
     Args:
         view_manager (ViewManager): The view manager context.
     """
-    from picoware.system.view import View
     from picoware.system.buttons import (
         BUTTON_BACK,
         BUTTON_UP,
@@ -89,6 +88,8 @@ def run(view_manager) -> None:
             # Try to load the apps
             app_module = _app_loader.load_app(selected_app)
             if app_module is None:
+                # An import may fail after loading some dependency modules.
+                _app_loader.cleanup_modules()
                 view_manager.alert(f'Failed to load: {_app_loader.error}')
                 _applications.draw()
                 return
@@ -100,9 +101,7 @@ def run(view_manager) -> None:
 
             # Check if view already exists
             if view_manager.get_view(app_view_name) is None:
-                app_view = View(
-                    app_view_name, app_module.run, app_module.start, app_module.stop
-                )
+                app_view = _app_loader.app_view(selected_app, app_view_name)
                 view_manager.log(
                     f"[Applications]: Created view for app {selected_app} after {ticks_ms() - start_time} ms"
                 )
@@ -120,12 +119,8 @@ def stop(view_manager) -> None:
     Args:
         view_manager (ViewManager): The view manager context.
     """
-    from gc import collect
-
     global _applications
     if _applications is not None:
         del _applications
         _applications = None
-    if _app_loader is not None:
-        _app_loader.cleanup_modules()
-    collect()
+    # The launched app view releases its own modules when it stops.

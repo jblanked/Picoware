@@ -25,9 +25,9 @@ static MP_DEFINE_CONST_FUN_OBJ_0(buttons_init_obj, buttons_init);
 
 mp_obj_t buttons_deinit(void)
 {
+    gpio_buttons_deinit();
     g_buttons_ready = false;
     g_key_available_callback = mp_const_none;
-    g_background_poll = false;
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(buttons_deinit_obj, buttons_deinit);
@@ -66,10 +66,6 @@ mp_obj_t buttons_get_key(void)
     uint8_t key = 0;
     bool has_key = false;
     esp_err_t err = gpio_buttons_read_key(&key, &has_key);
-    if (err != ESP_OK || !has_key)
-    {
-        return mp_const_none;
-    }
 
     return mp_obj_new_int(key);
 }

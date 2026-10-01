@@ -92,9 +92,14 @@ class TransformTools:
         records = t["buffer"]
         if records is None:
             records = bytearray(len(original))
-        transformed_records(original,t["kind"],t["values"],pivot,t["mask"],
-                            result=records)
-        bounds = record_bounds(records)
+        native = getattr(self.mesh,'transform_buffer',None)
+        if native is not None:
+            bounds = native(original,records,("Move","Scale","Rotate").index(t["kind"]),
+                            t["values"],pivot,t["mask"])
+        else:
+            transformed_records(original,t["kind"],t["values"],pivot,t["mask"],
+                                result=records)
+            bounds = record_bounds(records)
         if records == self.records:
             t["buffer"] = records
             return
@@ -111,24 +116,33 @@ class TransformTools:
         self._transform_finished = ticks_ms()
 
     def commit_transform(self,t):
-        """Store Undo before updating the canonical mesh on Apply."""
+        """Write one verified Undo snapshot and build the canonical mesh on Apply."""
         if self.records == t["original"]:
             return
-        update = self._model_buffer.prepare(self.records)
+        from picoware.engine.sprite3d import Sprite3D
+        mesh = Sprite3D()
         snapshot = None
-        updates = (update,)
         try:
+            load = getattr(mesh,'load_buffer',None)
+            if load is not None:
+                load(self.records)
+            else:
+                from struct import unpack_from
+                for offset in range(0,len(self.records),40):
+                    mesh.add_triangle(*unpack_from('<9fHB',self.records,offset))
+            if mesh.triangle_count != len(self.records)//40:
+                raise MemoryError('Could not commit transformed model')
+            mesh.set_active(True)
             snapshot = self.history.store(t['original'])
-            self.history.commit(snapshot,t['kind'],lambda _: apply_updates(updates))
+            self.history.commit(snapshot,t['kind'])
         except Exception:
-            update.discard()
+            mesh.clear_triangles()
             if snapshot is not None:
                 self.history.release(snapshot)
             raise
         old = self.mesh
-        self.mesh = update.mesh
-        if old is not self.mesh:
-            old.clear_triangles()
+        self.mesh = mesh
+        old.clear_triangles()
 
 
     def run_transform(self, inputs):

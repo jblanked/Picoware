@@ -7,7 +7,6 @@ from .ui import EditorUI
 from .history import History
 from .preferences import PreferenceTools
 from .tools import LazyTools
-from .meshes import MeshBuffer, prepare_mesh, apply_updates, discard_updates
 
 
 def load_sprite(*args, **kwargs):
@@ -269,45 +268,45 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
 
 
     def replace_records(self, records, preview=False, bounds=None):
-        """Prepare all views before updating any existing native triangles."""
+        """Prepare canonical and view meshes before committing a geometry edit."""
         from picoware.engine.sprite3d import Sprite3D
         if len(records)%40 or len(records)//40 > Sprite3D.MAX_TRIANGLES_PER_SPRITE:
             raise ValueError("Triangle limit exceeded")
-        from .rendercache import clear
-        # Discard derived caches before the transaction; a failed edit may
-        # rebuild them, but must not fail an allocation after native commit.
-        clear(self,geometry_only=preview)
-        preview_angles = (self.angle,self.pitch,self.distance,self.shading,
-                          self.perspective_scale(),self.backface_culling)
-        vertex_visibility_cache, edge_label_cache = {}, {}
-        updates = []
-        mesh = self.mesh
+        mesh = self.mesh if preview else Sprite3D()
         rendered = None
         try:
-            if bounds is None:
+            load = getattr(mesh, 'load_buffer', None)
+            if preview:
+                if bounds is None:
+                    bounds = record_bounds(records)
+            elif load is not None:
+                bounds = load(records)
+            else:
                 bounds = record_bounds(records)
-            if not preview:
-                mesh = prepare_mesh(self._model_buffer, records, updates)
+                for offset in range(0, len(records), 40):
+                    mesh.add_triangle(*unpack_from("<9fHB", records, offset))
             if mesh.triangle_count != len(records)//40:
                 raise MemoryError("Could not build transformed model")
             if self.four_view:
-                self.set_four(force=True, records=records, updates=updates)
-            else:
-                if self.shading != 'Wireframe':
-                    rendered = preview_mesh(records, self.center, self.basis,
-                        ortho_distance=self.distance if self.is_ortho() else None,
-                        wireframe=self.shading_wireframe(),
-                        perspective_scale=self.perspective_scale(),
-                        culling=self.backface_culling, camera_distance=self.distance,
-                        buffer=self._preview_buffer, updates=updates)
-                apply_updates(updates)
+                self.set_four(force=True, records=records)
+            elif self.shading != 'Wireframe':
+                rendered = preview_mesh(records, self.center, self.basis,
+                                        ortho_distance=self.distance if self.is_ortho() else None,
+                                        wireframe=self.shading_wireframe(),
+                                        perspective_scale=self.perspective_scale(),
+                                        culling=self.backface_culling, camera_distance=self.distance)
         except Exception:
-            discard_updates(updates)
+            if not preview:
+                mesh.clear_triangles()
+            if rendered is not None:
+                rendered.clear_triangles()
             raise
         old, old_view = self.mesh, self.render_mesh
         self.islands = None
-        self.vertex_visibility_cache = vertex_visibility_cache
-        self.edge_label_cache = edge_label_cache
+        from .rendercache import clear
+        clear(self,geometry_only=preview)
+        self.vertex_visibility_cache = {}
+        self.edge_label_cache = {}
         if self.selection_mode != "Edges" or len(records)!=len(self.records):
             self._edge_reps = None
         self.mesh, self.records = mesh, records
@@ -316,9 +315,9 @@ class SpriteEditor(LazyTools, EditorUI, PreferenceTools):
         if rendered is not None:
             self.render_mesh = rendered
             self.entity.sprite_3d = rendered
-            self._preview_angles = preview_angles
-            if old_view is not rendered:
-                old_view.clear_triangles()
+            self._preview_angles = (self.angle,self.pitch,self.distance,self.shading,
+                                    self.perspective_scale(),self.backface_culling)
+            old_view.clear_triangles()
         if old is not mesh:
             old.clear_triangles()
 

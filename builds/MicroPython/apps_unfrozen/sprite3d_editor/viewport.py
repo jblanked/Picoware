@@ -44,20 +44,28 @@ def face_direction(points, distance=0, ortho=False):
     return nz if ortho else nx*a[0]+ny*a[1]+nz*(a[2]+distance)
 
 
-def preview_mesh(records, center, basis, panel_transform=None, ortho_distance=None, wireframe=None, perspective_scale=1.0, culling=True, camera_distance=None, buffer=None, updates=None):
-    """Prepare sorted, clipped records, then update matching native storage."""
-    if buffer is None:
-        buffer = MeshBuffer()
-    # Pure wire display uses the deduplicated Python overlay.
-    output = b'' if wireframe == -2 else _preview_records_python(
-        records, center, basis, panel_transform, ortho_distance, wireframe,
-        perspective_scale, culling, camera_distance)
-    # View records are generated here from validated document geometry.
-    return prepare_mesh(buffer, output, updates, validate=False)
+def preview_mesh(records, center, basis, panel_transform=None, ortho_distance=None, wireframe=None, perspective_scale=1.0, culling=True, camera_distance=None):
+    """Use bounded native construction when available; preserve old firmware."""
+    from picoware.engine.sprite3d import Sprite3D
+    mesh = Sprite3D()
+    if wireframe == -2:  # Pure wire display uses the deduplicated Python overlay.
+        mesh.set_active(True)
+        return mesh
+    build = getattr(mesh, 'build_preview', None)
+    if build is not None:
+        try:
+            build(records,center,basis,panel_transform,ortho_distance,wireframe,
+                  perspective_scale,culling,camera_distance)
+            return mesh
+        except Exception:
+            mesh.clear_triangles()
+            raise
+    return _preview_mesh_python(records,center,basis,panel_transform,ortho_distance,
+                                wireframe,perspective_scale,culling,camera_distance)
 
 
-def _preview_records_python(records, center, basis, panel_transform=None, ortho_distance=None, wireframe=None, perspective_scale=1.0, culling=True, camera_distance=None):
-    """Build clipped view geometry while leaving live meshes unchanged."""
+def _preview_mesh_python(records, center, basis, panel_transform=None, ortho_distance=None, wireframe=None, perspective_scale=1.0, culling=True, camera_distance=None):
+    """Build clipped view geometry while leaving editable records unchanged."""
     from picoware.engine.sprite3d import Sprite3D
     output = bytearray()
     right, up, forward = basis
@@ -189,13 +197,11 @@ class ViewportMixin:
             rendered = preview_mesh(self.records,self.center,self.basis,
                 ortho_distance=self.distance if self.is_ortho() else None,
                 wireframe=self.shading_wireframe(),perspective_scale=self.perspective_scale(),
-                culling=self.backface_culling,camera_distance=self.distance,
-                buffer=self._preview_buffer)
+                culling=self.backface_culling,camera_distance=self.distance)
             old = self.render_mesh
             self.entity.sprite_3d = rendered
             self.render_mesh = rendered
-            if old is not rendered:
-                old.clear_triangles()
+            old.clear_triangles()
             self._preview_angles = (self.angle,self.pitch,self.distance,self.shading,
                                     self.perspective_scale(),self.backface_culling)
 
@@ -303,8 +309,8 @@ class ViewportMixin:
                 else:
                     mesh = preview_mesh(self.records if records is None else records, self.center, basis, transform,
                                         distance if label != "Perspective" else None, self.shading_wireframe(),
-                                        self.perspective_scale(), self.backface_culling, distance,
-                                        buffer=buffers[index], updates=updates)
+                                        self.perspective_scale(), self.backface_culling, distance)
+                    created.append(mesh)
                 panes.append((label, box, viewport, basis, mesh, distance))
             superseded = [pane[4] for pane in previous
                           if not any(p[4] is pane[4] for p in panes)]

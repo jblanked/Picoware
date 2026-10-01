@@ -4,6 +4,7 @@ from math import isfinite, floor
 from .assets import transformed_records, record_bounds
 from time import ticks_ms
 from .ui import display_number
+from .meshes import apply_updates
 
 
 from .preferences import check_step
@@ -91,14 +92,9 @@ class TransformTools:
         records = t["buffer"]
         if records is None:
             records = bytearray(len(original))
-        native = getattr(self.mesh,'transform_buffer',None)
-        if native is not None:
-            bounds = native(original,records,("Move","Scale","Rotate").index(t["kind"]),
-                            t["values"],pivot,t["mask"])
-        else:
-            transformed_records(original,t["kind"],t["values"],pivot,t["mask"],
-                                result=records)
-            bounds = record_bounds(records)
+        transformed_records(original,t["kind"],t["values"],pivot,t["mask"],
+                            result=records)
+        bounds = record_bounds(records)
         if records == self.records:
             t["buffer"] = records
             return
@@ -115,33 +111,24 @@ class TransformTools:
         self._transform_finished = ticks_ms()
 
     def commit_transform(self,t):
-        """Write one verified Undo snapshot and build the canonical mesh on Apply."""
+        """Store Undo before updating the canonical mesh on Apply."""
         if self.records == t["original"]:
             return
-        from picoware.engine.sprite3d import Sprite3D
-        mesh = Sprite3D()
+        update = self._model_buffer.prepare(self.records)
         snapshot = None
+        updates = (update,)
         try:
-            load = getattr(mesh,'load_buffer',None)
-            if load is not None:
-                load(self.records)
-            else:
-                from struct import unpack_from
-                for offset in range(0,len(self.records),40):
-                    mesh.add_triangle(*unpack_from('<9fHB',self.records,offset))
-            if mesh.triangle_count != len(self.records)//40:
-                raise MemoryError('Could not commit transformed model')
-            mesh.set_active(True)
             snapshot = self.history.store(t['original'])
-            self.history.commit(snapshot,t['kind'])
+            self.history.commit(snapshot,t['kind'],lambda _: apply_updates(updates))
         except Exception:
-            mesh.clear_triangles()
+            update.discard()
             if snapshot is not None:
                 self.history.release(snapshot)
             raise
         old = self.mesh
-        self.mesh = mesh
-        old.clear_triangles()
+        self.mesh = update.mesh
+        if old is not self.mesh:
+            old.clear_triangles()
 
 
     def run_transform(self, inputs):

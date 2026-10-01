@@ -1,8 +1,9 @@
 """Native preview meshes, camera layouts, grid, and transform indicators."""
 
 from math import cos, sin, sqrt, floor, pi
-from struct import unpack_from
+from struct import pack, unpack_from
 from picoware.system.vector import Vector
+from .meshes import MeshBuffer, prepare_mesh, apply_updates, discard_updates
 
 
 def view_basis(angle, pitch):
@@ -43,108 +44,94 @@ def face_direction(points, distance=0, ortho=False):
     return nz if ortho else nx*a[0]+ny*a[1]+nz*(a[2]+distance)
 
 
-def preview_mesh(records, center, basis, panel_transform=None, ortho_distance=None, wireframe=None, perspective_scale=1.0, culling=True, camera_distance=None):
-    """Use bounded native construction when available; preserve old firmware."""
-    from picoware.engine.sprite3d import Sprite3D
-    mesh = Sprite3D()
-    if wireframe == -2:  # Pure wire display uses the deduplicated Python overlay.
-        mesh.set_active(True)
-        return mesh
-    build = getattr(mesh, 'build_preview', None)
-    if build is not None:
-        try:
-            build(records,center,basis,panel_transform,ortho_distance,wireframe,
-                  perspective_scale,culling,camera_distance)
-            return mesh
-        except Exception:
-            mesh.clear_triangles()
-            raise
-    return _preview_mesh_python(records,center,basis,panel_transform,ortho_distance,
-                                wireframe,perspective_scale,culling,camera_distance)
+def preview_mesh(records, center, basis, panel_transform=None, ortho_distance=None, wireframe=None, perspective_scale=1.0, culling=True, camera_distance=None, buffer=None, updates=None):
+    """Prepare sorted, clipped records, then update matching native storage."""
+    if buffer is None:
+        buffer = MeshBuffer()
+    # Pure wire display uses the deduplicated Python overlay.
+    output = b'' if wireframe == -2 else _preview_records_python(
+        records, center, basis, panel_transform, ortho_distance, wireframe,
+        perspective_scale, culling, camera_distance)
+    # View records are generated here from validated document geometry.
+    return prepare_mesh(buffer, output, updates, validate=False)
 
 
-def _preview_mesh_python(records, center, basis, panel_transform=None, ortho_distance=None, wireframe=None, perspective_scale=1.0, culling=True, camera_distance=None):
-    """Build clipped view geometry while leaving editable records unchanged."""
+def _preview_records_python(records, center, basis, panel_transform=None, ortho_distance=None, wireframe=None, perspective_scale=1.0, culling=True, camera_distance=None):
+    """Build clipped view geometry while leaving live meshes unchanged."""
     from picoware.engine.sprite3d import Sprite3D
-    mesh = Sprite3D()
+    output = bytearray()
     right, up, forward = basis
     rx,ry,rz = right
     ux,uy,uz = up
     fx,fy,fz = forward
     cx,cy,cz = center
     count = 0
-    try:
-        # Culling removes back-facing triangles, not faces hidden by another
-        # object. The native painter needs far-to-near order in both modes.
-        # MicroPython sort may invoke key repeatedly. Calculate each depth
-        # once; discard the temporary decorated list before building geometry.
-        order = []
-        for offset in range(0,len(records),40):
-            values = unpack_from("<9f", records, offset)
-            depth = ((values[0]+values[3]+values[6])*forward[0] +
-                     (values[1]+values[4]+values[7])*forward[1] +
-                     (values[2]+values[5]+values[8])*forward[2])
-            order.append((depth,-offset))
-        order.sort(reverse=True)
-        from array import array
-        offsets = array('H',(-item[1]//40 for item in order))
-        del order
-        for triangle in offsets:
-            offset = triangle*40
-            values = unpack_from("<9fHB", records, offset)
-            polygon = []
-            for vertex in range(0, 9, 3):
-                # Explicit dot products avoid nested generators per corner.
-                x,y,z = values[vertex]-cx,values[vertex+1]-cy,values[vertex+2]-cz
-                polygon.append((x*rx+y*ry+z*rz, x*ux+y*uy+z*uz, x*fx+y*fy+z*fz))
-            # Cull before clipping and native allocation. For two-sided display,
-            # reverse only the preview face so the native culler accepts it.
-            distance = panel_transform[3] if panel_transform is not None else camera_distance
-            if distance is not None or ortho_distance is not None:
-                facing = face_direction(polygon, distance or 0, ortho_distance is not None)
-                if facing == 0 or (culling and facing < 0):
-                    continue
-                if facing < 0:
-                    polygon.reverse()
-            if panel_transform is not None:
-                scale, ox, oy, distance, aspect, edge = panel_transform
+    # Culling removes back-facing triangles, not faces hidden by another
+    # object. The native painter needs far-to-near order in both modes.
+    # MicroPython sort may invoke key repeatedly. Calculate each depth
+    # once; discard the temporary decorated list before building geometry.
+    order = []
+    for offset in range(0,len(records),40):
+        values = unpack_from("<9f", records, offset)
+        depth = ((values[0]+values[3]+values[6])*forward[0] +
+                 (values[1]+values[4]+values[7])*forward[1] +
+                 (values[2]+values[5]+values[8])*forward[2])
+        order.append((depth,-offset))
+    order.sort(reverse=True)
+    from array import array
+    offsets = array('H',(-item[1]//40 for item in order))
+    del order
+    for triangle in offsets:
+        offset = triangle*40
+        values = unpack_from("<9fHB", records, offset)
+        polygon = []
+        for vertex in range(0, 9, 3):
+            # Explicit dot products avoid nested generators per corner.
+            x,y,z = values[vertex]-cx,values[vertex+1]-cy,values[vertex+2]-cz
+            polygon.append((x*rx+y*ry+z*rz, x*ux+y*uy+z*uz, x*fx+y*fy+z*fz))
+        # Cull before clipping and native allocation. For two-sided display,
+        # reverse only the preview face so the native culler accepts it.
+        distance = panel_transform[3] if panel_transform is not None else camera_distance
+        if distance is not None or ortho_distance is not None:
+            facing = face_direction(polygon, distance or 0, ortho_distance is not None)
+            if facing == 0 or (culling and facing < 0):
+                continue
+            if facing < 0:
+                polygon.reverse()
+        if panel_transform is not None:
+            scale, ox, oy, distance, aspect, edge = panel_transform
+            if ortho_distance is not None:
+                planes = ((1,0,0,aspect*distance), (-1,0,0,aspect*distance),
+                          (0,1,0,edge*distance), (0,-1,0,edge*distance))
+            else:
+                planes = ((0,0,1,distance-.11/perspective_scale), (1,0,aspect,aspect*distance),
+                          (-1,0,aspect,aspect*distance), (0,1,edge,edge*distance),
+                          (0,-1,edge,edge*distance))
+            polygon = clip_polygon(polygon, planes)
+        for index in range(1, len(polygon)-1):
+            points = []
+            for side, vertical, depth in (polygon[0], polygon[index], polygon[index+1]):
                 if ortho_distance is not None:
-                    planes = ((1,0,0,aspect*distance), (-1,0,0,aspect*distance),
-                              (0,1,0,edge*distance), (0,-1,0,edge*distance))
-                else:
-                    planes = ((0,0,1,distance-.11/perspective_scale), (1,0,aspect,aspect*distance),
-                              (-1,0,aspect,aspect*distance), (0,1,edge,edge*distance),
-                              (0,-1,edge,edge*distance))
-                polygon = clip_polygon(polygon, planes)
-            for index in range(1, len(polygon)-1):
-                points = []
-                for side, vertical, depth in (polygon[0], polygon[index], polygon[index+1]):
-                    if ortho_distance is not None:
-                        # Retain depth ordering, but cancel the native perspective divide.
-                        render_distance = max(.22, ortho_distance)
-                        depth = .5*depth/(1+abs(depth)/render_distance)
-                        factor = (render_distance+depth)/ortho_distance
-                        side, vertical = side*factor, vertical*factor
-                    if panel_transform is not None:
-                        camera_distance = distance if ortho_distance is None else max(.22, distance)
-                        side = side*scale + ox*(camera_distance+depth)
-                        vertical = vertical*scale + oy*(camera_distance+depth)
-                    if ortho_distance is None:
-                        depth *= perspective_scale
-                        vertical *= perspective_scale
-                        side *= perspective_scale
-                    points.extend((depth, vertical+.5, side))
-                count += 1
-                if count > Sprite3D.MAX_TRIANGLES_PER_SPRITE:
-                    raise MemoryError("Clipped preview exceeds triangle capacity")
-                mesh.add_triangle(*points, values[9], values[10] if wireframe is None else int(wireframe == 1))
-        if mesh.triangle_count != count:
-            raise MemoryError("Could not build complete preview")
-        mesh.set_active(True)
-        return mesh
-    except Exception:
-        mesh.clear_triangles()
-        raise
+                    # Retain depth ordering, but cancel the native perspective divide.
+                    render_distance = max(.22, ortho_distance)
+                    depth = .5*depth/(1+abs(depth)/render_distance)
+                    factor = (render_distance+depth)/ortho_distance
+                    side, vertical = side*factor, vertical*factor
+                if panel_transform is not None:
+                    camera_distance = distance if ortho_distance is None else max(.22, distance)
+                    side = side*scale + ox*(camera_distance+depth)
+                    vertical = vertical*scale + oy*(camera_distance+depth)
+                if ortho_distance is None:
+                    depth *= perspective_scale
+                    vertical *= perspective_scale
+                    side *= perspective_scale
+                points.extend((depth, vertical+.5, side))
+            count += 1
+            if count > Sprite3D.MAX_TRIANGLES_PER_SPRITE:
+                raise MemoryError("Clipped preview exceeds triangle capacity")
+            output.extend(pack('<9fHBB', *points, values[9],
+                               values[10] if wireframe is None else int(wireframe == 1), 0))
+    return output
 
 
 class PreviewInput:
@@ -202,11 +189,13 @@ class ViewportMixin:
             rendered = preview_mesh(self.records,self.center,self.basis,
                 ortho_distance=self.distance if self.is_ortho() else None,
                 wireframe=self.shading_wireframe(),perspective_scale=self.perspective_scale(),
-                culling=self.backface_culling,camera_distance=self.distance)
+                culling=self.backface_culling,camera_distance=self.distance,
+                buffer=self._preview_buffer)
             old = self.render_mesh
             self.entity.sprite_3d = rendered
             self.render_mesh = rendered
-            old.clear_triangles()
+            if old is not rendered:
+                old.clear_triangles()
             self._preview_angles = (self.angle,self.pitch,self.distance,self.shading,
                                     self.perspective_scale(),self.backface_culling)
 
@@ -266,10 +255,11 @@ class ViewportMixin:
         for pane in self.panes:
             pane[4].clear_triangles()
         self.panes = []
+        self._pane_buffers = []
         self.four_view = False
 
 
-    def set_four(self, angle=None, zoom=None, force=False, records=None):
+    def set_four(self, angle=None, zoom=None, force=False, records=None, updates=None):
         """Prepare four fitted native meshes without changing the source asset."""
         angle = (self.four_angle if self.maximized else self.angle) if angle is None else angle
         zoom = self.four_zoom if zoom is None else max(1/128, min(8.0, zoom))
@@ -282,7 +272,9 @@ class ViewportMixin:
         specs = (("Top", -pi / 2, pi / 2), ("Perspective", angle, 0.32),
                  ("Front", -pi / 2, 0), ("Side", pi, 0))
         panes = []
-        created = []
+        if updates is None:
+            updates = []
+        buffers = self._pane_buffers if len(self._pane_buffers) == 4 else [MeshBuffer() for _ in range(4)]
         previous = self.panes
         try:
             for index, (label, yaw, pitch) in enumerate(specs):
@@ -311,20 +303,22 @@ class ViewportMixin:
                 else:
                     mesh = preview_mesh(self.records if records is None else records, self.center, basis, transform,
                                         distance if label != "Perspective" else None, self.shading_wireframe(),
-                                        self.perspective_scale(), self.backface_culling, distance)
-                    created.append(mesh)
+                                        self.perspective_scale(), self.backface_culling, distance,
+                                        buffer=buffers[index], updates=updates)
                 panes.append((label, box, viewport, basis, mesh, distance))
-        except MemoryError:
-            for mesh in created:
-                mesh.clear_triangles()
-            if records is not None:
+            superseded = [pane[4] for pane in previous
+                          if not any(p[4] is pane[4] for p in panes)]
+            apply_updates(updates)
+        except Exception as exc:
+            discard_updates(updates)
+            if records is not None or not isinstance(exc, MemoryError):
                 raise
             self.dialog = ("View failed", "Not enough memory for 4 View")
             return
-        for pane in previous:
-            if not any(p[4] is pane[4] for p in panes):
-                pane[4].clear_triangles()
+        for mesh in superseded:
+            mesh.clear_triangles()
         self.panes = panes
+        self._pane_buffers = buffers
         self.four_view = True
         self.view_name = "4 View"
         self.angle = angle
@@ -452,13 +446,15 @@ class ViewportMixin:
                                     ortho_distance=self.distance if self.is_ortho() else None,
                                     wireframe=self.shading_wireframe(),
                                     perspective_scale=self.perspective_scale(),
-                                    culling=self.backface_culling, camera_distance=self.distance)
+                                    culling=self.backface_culling, camera_distance=self.distance,
+                                    buffer=self._preview_buffer)
             old_preview = self.render_mesh
             self.entity.sprite_3d = rendered
             self.render_mesh = rendered
             self.basis = basis
             self._preview_angles = cache
-            old_preview.clear_triangles()
+            if old_preview is not rendered:
+                old_preview.clear_triangles()
         self.camera.position = Vector(-self.render_distance(), 0)
         self.camera.direction = Vector(1, 0)
         self.camera.height = 0.5

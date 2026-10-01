@@ -5,6 +5,7 @@ from picoware.system.vector import Vector
 from picoware.system.buttons import BUTTON_SPACE, BUTTON_ESCAPE, BUTTON_BACK
 from picoware.engine.camera import Camera, CAMERA_THIRD_PERSON
 from .viewport import preview_mesh, view_basis
+from .meshes import MeshBuffer
 
 FRAME_MS = 50
 TURN_MS = 20000
@@ -15,6 +16,7 @@ class Turntable:
     def __init__(self, editor, isometric=False):
         if not editor.records:
             raise ValueError("Create or open a model first")
+        self.buffer = MeshBuffer()
         self.editor = editor
         self.records = editor.records
         self.isometric = isometric
@@ -45,12 +47,12 @@ class Turntable:
         editor = self.editor
         angle = -pi/4+self.phase*(2*pi/TURN_MS)
         basis = view_basis(angle,.6154797086703874 if self.isometric else .32)
-        # Reuse the native sorted preview path; no editor overlays or SD caches.
-        # Release the temporary native geometry after presenting each frame.
+        # Retain native storage between frames when the clipped count matches.
+        old = self.buffer.mesh
         mesh = preview_mesh(self.records,self.center,basis,
             ortho_distance=self.distance if self.isometric else None,
             wireframe=0,perspective_scale=self.scale,culling=self.culling,
-            camera_distance=self.distance)
+            camera_distance=self.distance,buffer=self.buffer)
         try:
             editor.entity.sprite_3d = mesh
             editor.game.camera = self.camera
@@ -62,7 +64,8 @@ class Turntable:
             editor.entity.sprite_3d = editor.render_mesh
             editor.game.camera = self.saved_camera
             editor.game.camera = editor.camera
-            mesh.clear_triangles()
+            if old is not None and old is not mesh:
+                old.clear_triangles()
 
     def run(self, button):
         if button in (BUTTON_ESCAPE,BUTTON_BACK):
@@ -83,6 +86,9 @@ class Turntable:
         return True
 
     def close(self):
+        if self.buffer.mesh is not None:
+            self.buffer.mesh.clear_triangles()
+        self.buffer = MeshBuffer()
         # Camera wrappers release their native objects through GC finalisers.
         # They have already been detached from Game before reaching this point.
         self.camera = self.saved_camera = None

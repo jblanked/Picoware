@@ -21,9 +21,16 @@ psram_qspi_inst_t psram_instance;
 static uint32_t next_free_addr = PSRAM_HEAP_START_ADDR;
 #define PSRAM_ALLOC_FAIL ((uint32_t)0xFFFFFFFFu)
 
-static psram_block_t *free_list = NULL;        // List of free blocks
-static psram_alloc_block_t *alloc_list = NULL; // List of allocated blocks
-static bool in_finaliser = false;              // Track if we're in a finaliser to avoid GC allocations
+MP_REGISTER_ROOT_POINTER(struct psram_block *picoware_psram_free_list);
+MP_REGISTER_ROOT_POINTER(struct psram_alloc_block *picoware_psram_alloc_list);
+static bool in_finaliser = false; // Track if we're in a finaliser to avoid GC allocations
+#define free_list MP_STATE_VM(picoware_psram_free_list)
+#define alloc_list MP_STATE_VM(picoware_psram_alloc_list)
+
+static mp_psram_data_obj_t *psram_owner(const psram_alloc_block_t *block)
+{
+    return (mp_psram_data_obj_t *)~block->obj_bits;
+}
 
 // Initialize free list
 static void psram_init_allocator(void)
@@ -32,7 +39,7 @@ static void psram_init_allocator(void)
     while (free_list != NULL)
     {
         psram_block_t *next = free_list->next;
-        m_del(psram_block_t, free_list, 1);
+        m_free(free_list);
         free_list = next;
     }
 
@@ -40,7 +47,8 @@ static void psram_init_allocator(void)
     while (alloc_list != NULL)
     {
         psram_alloc_block_t *next = alloc_list->next;
-        m_del(psram_alloc_block_t, alloc_list, 1);
+        psram_owner(alloc_list)->allocated = false;
+        m_free(alloc_list);
         alloc_list = next;
     }
 
@@ -50,10 +58,12 @@ static void psram_init_allocator(void)
 // Register an allocated block
 static void psram_register_alloc(uint32_t addr, uint32_t size, mp_psram_data_obj_t *obj)
 {
-    psram_alloc_block_t *new_alloc = m_new(psram_alloc_block_t, 1);
+    psram_alloc_block_t *new_alloc = (psram_alloc_block_t *)m_malloc0(sizeof(psram_alloc_block_t));
+    if (new_alloc == NULL)
+        mp_raise_msg(&mp_type_MemoryError, MP_ERROR_TEXT("Failed to allocate PSRAM metadata"));
     new_alloc->addr = addr;
     new_alloc->size = size;
-    new_alloc->obj = obj;
+    new_alloc->obj_bits = ~(uintptr_t)obj;
     new_alloc->next = alloc_list;
     alloc_list = new_alloc;
 }
@@ -69,7 +79,7 @@ static bool psram_unregister_alloc(uint32_t addr)
         if (current->addr == addr)
         {
             *prev_ptr = current->next;
-            m_del(psram_alloc_block_t, current, 1);
+            m_free(current);
             return true;
         }
         prev_ptr = &current->next;
@@ -82,6 +92,11 @@ static bool psram_unregister_alloc(uint32_t addr)
 // Allocate PSRAM memory
 static uint32_t psram_alloc(uint32_t size)
 {
+    if (alloc_list == NULL)
+    {
+        free_list = NULL;
+        next_free_addr = PSRAM_HEAP_START_ADDR;
+    }
     // Try to find a suitable free block first
     psram_block_t **prev_ptr = &free_list;
     psram_block_t *block = free_list;
@@ -103,7 +118,7 @@ static uint32_t psram_alloc(uint32_t size)
             {
                 // Exact fit, remove from free list
                 *prev_ptr = block->next;
-                m_del(psram_block_t, block, 1);
+                m_free(block);
             }
 
             return addr;
@@ -153,7 +168,7 @@ static void psram_free(uint32_t addr, uint32_t size)
                     *prev_ptr = current->next;
                     psram_block_t *to_delete = current;
                     current = current->next;
-                    m_del(psram_block_t, to_delete, 1);
+                    m_free(to_delete);
                     continue;
                 }
                 prev_ptr = &current->next;
@@ -172,7 +187,7 @@ static void psram_free(uint32_t addr, uint32_t size)
     }
 
     // Create new free block
-    psram_block_t *new_block = m_new(psram_block_t, 1);
+    psram_block_t *new_block = (psram_block_t *)m_malloc0(sizeof(psram_block_t));
     new_block->addr = addr;
     new_block->size = size;
     new_block->next = NULL;
@@ -188,7 +203,7 @@ static void psram_free(uint32_t addr, uint32_t size)
         {
             // Current block ends where new block starts - merge into current
             current->size += size;
-            m_del(psram_block_t, new_block, 1);
+            m_free(new_block);
             new_block = current;
 
             // Remove current from list to continue coalescing
@@ -205,7 +220,7 @@ static void psram_free(uint32_t addr, uint32_t size)
             *prev_ptr = current->next;
             psram_block_t *to_delete = current;
             current = current->next;
-            m_del(psram_block_t, to_delete, 1);
+            m_free(to_delete);
             continue;
         }
 
@@ -300,9 +315,9 @@ static void psram_free(uint32_t addr, uint32_t size)
                 block->addr = target_addr;
 
                 // Update the Python object's address
-                if (block->obj != NULL)
+                if (psram_owner(block) != NULL)
                 {
-                    block->obj->psram_addr = target_addr;
+                    psram_owner(block)->psram_addr = target_addr;
                 }
             }
 
@@ -316,7 +331,7 @@ static void psram_free(uint32_t addr, uint32_t size)
         while (free_list != NULL)
         {
             psram_block_t *next = free_list->next;
-            m_del(psram_block_t, free_list, 1);
+            m_free(free_list);
             free_list = next;
         }
 
@@ -941,6 +956,37 @@ MP_DEFINE_CONST_OBJ_TYPE(
     call, mp_psram_data_call,
     locals_dict, &mp_psram_data_locals_dict);
 
+// Reserve raw storage without a same-sized temporary buffer in the main heap.
+mp_obj_t picoware_psram_alloc_buffer(uint32_t size)
+{
+    if (!size || size > PSRAM_SIZE - PSRAM_HEAP_START_ADDR)
+        mp_raise_ValueError(MP_ERROR_TEXT("Invalid PSRAM buffer size"));
+    if (!psram_initialized)
+    {
+        psram_instance = psram_qspi_init(pio1, -1, 1.0f);
+        psram_initialized = true;
+    }
+    mp_psram_data_obj_t *obj = mp_obj_malloc_with_finaliser(mp_psram_data_obj_t, &mp_psram_data_type);
+    obj->allocated = false;
+    psram_alloc_block_t *block = m_malloc0(sizeof(*block));
+    uint32_t addr = psram_alloc(size);
+    if (addr == PSRAM_ALLOC_FAIL)
+    {
+        m_free(block);
+        mp_raise_msg(&mp_type_MemoryError, MP_ERROR_TEXT("PSRAM out of memory"));
+    }
+    obj->psram_addr = addr;
+    obj->length = size;
+    obj->data_type = PSRAM_TYPE_BYTEARRAY;
+    obj->allocated = true;
+    block->addr = addr;
+    block->size = size;
+    block->obj_bits = ~(uintptr_t)obj;
+    block->next = alloc_list;
+    alloc_list = block;
+    return MP_OBJ_FROM_PTR(obj);
+}
+
 // Function to initialize the PSRAM
 mp_obj_t picoware_psram_init(size_t n_args, const mp_obj_t *args)
 {
@@ -1473,7 +1519,7 @@ mp_obj_t picoware_psram_deinit(void)
         while (free_list != NULL)
         {
             psram_block_t *next = free_list->next;
-            m_del(psram_block_t, free_list, 1);
+            m_free(free_list);
             free_list = next;
         }
 
@@ -1481,7 +1527,8 @@ mp_obj_t picoware_psram_deinit(void)
         while (alloc_list != NULL)
         {
             psram_alloc_block_t *next = alloc_list->next;
-            m_del(psram_alloc_block_t, alloc_list, 1);
+            psram_owner(alloc_list)->allocated = false;
+            m_free(alloc_list);
             alloc_list = next;
         }
 
@@ -2110,7 +2157,7 @@ mp_obj_t picoware_psram_collect(mp_obj_t self_in)
         while (free_list != NULL)
         {
             psram_block_t *next = free_list->next;
-            m_del(psram_block_t, free_list, 1);
+            m_free(free_list);
             free_list = next;
         }
         next_free_addr = PSRAM_HEAP_START_ADDR;
@@ -2183,9 +2230,9 @@ mp_obj_t picoware_psram_collect(mp_obj_t self_in)
             block->addr = target_addr;
 
             // Update Python object's address
-            if (block->obj != NULL)
+            if (psram_owner(block) != NULL)
             {
-                block->obj->psram_addr = target_addr;
+                psram_owner(block)->psram_addr = target_addr;
             }
         }
 
@@ -2199,7 +2246,7 @@ mp_obj_t picoware_psram_collect(mp_obj_t self_in)
     while (free_list != NULL)
     {
         psram_block_t *next = free_list->next;
-        m_del(psram_block_t, free_list, 1);
+        m_free(free_list);
         free_list = next;
     }
 

@@ -40,6 +40,8 @@ extern "C"
         mp_obj_t sprite_obj;
         mp_obj_t sprite_left_obj;
         mp_obj_t sprite_right_obj;
+        //
+        mp_obj_t sprite_3d_obj;
     } entity_mp_obj_t;
 
     extern const mp_obj_type_t entity_mp_type;

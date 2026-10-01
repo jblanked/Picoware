@@ -427,6 +427,7 @@ mp_obj_t entity_mp_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_k
     self->plane_obj = vector_mp_init(ctx->plane.x, ctx->plane.y, ctx->plane.z, ctx->plane.integer);
     self->start_position_obj = vector_mp_init(ctx->start_position.x, ctx->start_position.y, ctx->start_position.z, ctx->start_position.integer);
     self->end_position_obj = vector_mp_init(ctx->end_position.x, ctx->end_position.y, ctx->end_position.z, ctx->end_position.integer);
+    self->sprite_3d_obj = sprite3d_mp_init(ctx->sprite_3d);
     ctx->mp_ctx = static_cast<void *>(self);
     return MP_OBJ_FROM_PTR(self);
 }
@@ -582,6 +583,9 @@ void entity_mp_attr(mp_obj_t self_in, qstr attribute, mp_obj_t *destination)
             break;
         case MP_QSTR_sprite_right:
             destination[0] = self->sprite_right_obj;
+            break;
+        case MP_QSTR_sprite_3d:
+            destination[0] = self->sprite_3d_obj;
             break;
         case MP_QSTR___del__:
             destination[0] = MP_OBJ_FROM_PTR(&entity_mp_del_obj);
@@ -1215,6 +1219,7 @@ mp_obj_t entity_mp_set_sprite3d(mp_obj_t self_in, mp_obj_t sprite3d_obj)
         mp_raise_TypeError(MP_ERROR_TEXT("expected Sprite3D"));
     sprite3d_mp_obj_t *sprite3d = static_cast<sprite3d_mp_obj_t *>(MP_OBJ_TO_PTR(native_sprite3d));
     ctx->sprite_3d = static_cast<Sprite3D *>(sprite3d->context);
+    self->sprite_3d_obj = sprite3d_obj;
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(entity_mp_set_sprite3d_obj, entity_mp_set_sprite3d);
